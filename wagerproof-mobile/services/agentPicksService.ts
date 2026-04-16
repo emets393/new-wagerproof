@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { invokeAgentAuthorizedAction } from './agentAuthorizedActions';
 import {
   AgentPick,
   AgentGenerationRunSummary,
@@ -32,7 +33,7 @@ export interface TopAgentPickFeedV2Row extends AgentPick {
 }
 
 export interface AgentDetailSnapshotV2 {
-  api_version: 'v2';
+  api_version: 'v2' | 'v3';
   agent: any;
   performance: any | null;
   todays_picks: AgentPick[];
@@ -42,7 +43,7 @@ export interface AgentDetailSnapshotV2 {
 }
 
 export interface AgentPicksPageV2 {
-  api_version: 'v2';
+  api_version: 'v2' | 'v3';
   picks: AgentPick[];
   next_cursor: string | null;
   has_more: boolean;
@@ -100,21 +101,10 @@ export async function fetchAgentPicks(
  */
 export async function fetchPendingPicks(agentId: string): Promise<AgentPick[]> {
   try {
-    const { data, error } = await supabase
-      .from('avatar_picks')
-      .select('*')
-      .eq('avatar_id', agentId)
-      .eq('result', 'pending')
-      .order('game_date', { ascending: true })
-      .order('created_at', { ascending: false });
+    const page = await fetchAgentPicksPageV2(agentId, undefined, 'pending', 50, null, false);
 
-    if (error) {
-      console.error('Error fetching pending picks:', error);
-      throw error;
-    }
-
-    console.log(`Loaded ${data?.length || 0} pending picks for agent ${agentId}`);
-    return (data as AgentPick[]) || [];
+    console.log(`Loaded ${page.picks.length || 0} pending picks for agent ${agentId}`);
+    return page.picks;
   } catch (error) {
     console.error('Error in fetchPendingPicks:', error);
     throw error;
@@ -127,21 +117,10 @@ export async function fetchPendingPicks(agentId: string): Promise<AgentPick[]> {
 export async function fetchTodaysPicks(agentId: string): Promise<AgentPick[]> {
   try {
     const todayStr = getLocalDateString(new Date());
+    const page = await fetchAgentPicksPageV2(agentId, undefined, 'all', 25, null, false, todayStr);
 
-    const { data, error } = await supabase
-      .from('avatar_picks')
-      .select('*')
-      .eq('avatar_id', agentId)
-      .eq('game_date', todayStr)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching today\'s picks:', error);
-      throw error;
-    }
-
-    console.log(`Loaded ${data?.length || 0} picks for today for agent ${agentId}`);
-    return (data as AgentPick[]) || [];
+    console.log(`Loaded ${page.picks.length || 0} picks for today for agent ${agentId}`);
+    return page.picks;
   } catch (error) {
     console.error('Error in fetchTodaysPicks:', error);
     throw error;
@@ -193,25 +172,18 @@ export async function generatePicks(agentId: string, _isAdmin: boolean = false):
       throw new Error('User not authenticated');
     }
 
-    // V2: Enqueue via request endpoint (JWT verified by Edge Function gateway)
-    const { data, error } = await (supabase as any).functions.invoke(
-      'request-avatar-picks-generation-v2',
-      { body: { avatar_id: agentId } }
+    const data = await invokeAgentAuthorizedAction<{
+      success: boolean;
+      run_id: string;
+      status: string;
+    }>(
+      {
+        action: 'request_generation',
+        agent_id: agentId,
+      },
+      'Failed to request pick generation',
     );
-
-    if (error) {
-      // Extract actual error body from FunctionsHttpError context
-      let detail = '';
-      try {
-        const ctx = (error as any).context;
-        if (ctx && typeof ctx.json === 'function') {
-          const body = await ctx.json();
-          detail = body?.error || body?.message || '';
-        }
-      } catch (_e) { /* ignore parse failure */ }
-      throw new Error(detail || error.message || 'Failed to request pick generation');
-    }
-    if (!data?.success) throw new Error(data?.error || 'Failed to enqueue generation');
+    if (!data?.success) throw new Error('Failed to enqueue generation');
 
     const runId = data.run_id;
     if (!runId) throw new Error('No run_id returned from generation request');
@@ -359,22 +331,24 @@ export async function fetchTopAgentPicksFeedV2(
 
 export async function fetchAgentDetailSnapshotV2(
   agentId: string,
-  viewerUserId?: string
+  _viewerUserId?: string
 ): Promise<AgentDetailSnapshotV2> {
   const startedAt = Date.now();
-  const { data, error } = await (supabase as any).rpc('get_agent_detail_snapshot_v2', {
-    p_agent_id: agentId,
-    p_viewer_user_id: viewerUserId ?? null,
-  });
+  const data = await invokeAgentAuthorizedAction<AgentDetailSnapshotV2>(
+    {
+      action: 'detail_snapshot',
+      agent_id: agentId,
+    },
+    'Failed to load agent detail snapshot',
+  );
 
   trackAgentTiming('agent_detail_time_to_content_ms', Date.now() - startedAt, {
-    source: 'v2',
-    success: !error,
+    source: 'v3',
+    success: true,
   });
 
-  if (error) throw error;
   return (data || {
-    api_version: 'v2',
+    api_version: 'v3',
     agent: null,
     performance: null,
     todays_picks: [],
@@ -385,34 +359,38 @@ export async function fetchAgentDetailSnapshotV2(
 
 export async function fetchAgentPicksPageV2(
   agentId: string,
-  viewerUserId: string | undefined,
+  _viewerUserId: string | undefined,
   filter: 'all' | 'won' | 'lost' | 'pending' | 'push' = 'all',
   pageSize: number = 20,
   cursor?: string | null,
-  includeOverlap: boolean = false
+  includeOverlap: boolean = false,
+  gameDate?: string | null,
 ): Promise<AgentPicksPageV2> {
   const startedAt = Date.now();
-  const { data, error } = await (supabase as any).rpc('get_agent_picks_page_v2', {
-    p_agent_id: agentId,
-    p_viewer_user_id: viewerUserId ?? null,
-    p_filter: filter,
-    p_page_size: pageSize,
-    p_cursor: cursor ?? null,
-    p_include_overlap: includeOverlap,
-  });
+  const data = await invokeAgentAuthorizedAction<AgentPicksPageV2>(
+    {
+      action: 'picks_page',
+      agent_id: agentId,
+      filter,
+      page_size: pageSize,
+      cursor: cursor ?? null,
+      include_overlap: includeOverlap,
+      game_date: gameDate ?? null,
+    },
+    'Failed to load agent picks',
+  );
 
   trackAgentTiming('agent_history_page_load_ms', Date.now() - startedAt, {
-    source: 'v2',
+    source: 'v3',
     filter,
     page_size: pageSize,
     include_overlap: includeOverlap,
-    success: !error,
+    success: true,
   });
 
-  if (error) throw error;
   const payload = (data || {}) as AgentPicksPageV2;
   return {
-    api_version: 'v2',
+    api_version: payload.api_version || 'v3',
     picks: (payload.picks || []) as AgentPick[],
     next_cursor: payload.next_cursor || null,
     has_more: !!payload.has_more,

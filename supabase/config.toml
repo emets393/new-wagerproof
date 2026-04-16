@@ -74,6 +74,12 @@ verify_jwt = false  # Cron calls don't have JWT, auth via service key
 [functions.request-avatar-picks-generation-v2]
 verify_jwt = true  # Client-facing, authenticated via JWT
 
+[functions.agent-authorized-action-v1]
+verify_jwt = false  # Optional JWT; public reads and authenticated writes handled inside the gateway
+
+[functions.enqueue-auto-generation-runs-v3]
+verify_jwt = false  # Internal cron/service-role endpoint for RC-verified auto-generation enqueue
+
 [functions.process-agent-generation-job-v2]
 verify_jwt = false  # Internal worker, auth via x-internal-secret header
 

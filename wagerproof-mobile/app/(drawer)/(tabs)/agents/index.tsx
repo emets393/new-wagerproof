@@ -182,7 +182,12 @@ export default function AgentsHubScreen() {
   const { user } = useAuth();
   const { scrollY } = useScroll();
   const { openManualMenu } = useWagerBotSuggestion();
-  const { canCreateAnotherAgent, isPro, isAdmin } = useAgentEntitlements();
+  const {
+    canCreateAnotherAgent,
+    isPro,
+    isAdmin,
+    isLoading: isEntitlementsLoading,
+  } = useAgentEntitlements();
 
   // Fetch user's agents
   const {
@@ -233,6 +238,14 @@ export default function AgentsHubScreen() {
 
   // Handle navigation to create screen
   const handleCreateAgent = useCallback(() => {
+    if (isEntitlementsLoading) {
+      Alert.alert(
+        'Checking Subscription',
+        'We’re still verifying your subscription access. Please try again in a moment.',
+      );
+      return;
+    }
+
     const totalCount = agents?.length || 0;
     const activeCount = agents?.filter((a) => a.is_active).length || 0;
     if (!canCreateAnotherAgent(activeCount, totalCount)) {
@@ -246,7 +259,7 @@ export default function AgentsHubScreen() {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/agents/create' as any);
-  }, [router, agents, canCreateAnotherAgent, isPro, isAdmin]);
+  }, [router, agents, canCreateAnotherAgent, isPro, isAdmin, isEntitlementsLoading]);
 
   // Handle navigation to agent detail
   const handleAgentPress = useCallback(

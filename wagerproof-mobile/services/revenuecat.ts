@@ -139,6 +139,7 @@ let PurchasesOffering: any = null;
 let PurchasesPackage: any = null;
 let LOG_LEVEL: any = null;
 let expectedAppUserId: string | null = null;
+const RC_LINK_RETRY_DELAYS_MS = [250, 750, 1500];
 
 function isAnonymousRevenueCatUserId(userId?: string | null): boolean {
   if (!userId) return true;
@@ -160,26 +161,49 @@ async function getCurrentRevenueCatAppUserId(): Promise<string | null> {
   }
 }
 
-async function ensureRevenueCatUserLinked(): Promise<boolean> {
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function ensureRevenueCatUserLinked(options?: { throwOnFailure?: boolean }): Promise<boolean> {
   const PurchasesModule = getPurchasesModule();
   if (!PurchasesModule || !isConfigured) return false;
-  if (!expectedAppUserId) return false;
-
-  const currentAppUserId = await getCurrentRevenueCatAppUserId();
-  if (currentAppUserId === expectedAppUserId) {
-    return true;
-  }
-
-  try {
-    await PurchasesModule.logIn(expectedAppUserId);
-    const linkedUserId = await getCurrentRevenueCatAppUserId();
-    return linkedUserId === expectedAppUserId;
-  } catch (error: any) {
-    if (__DEV__) {
-      console.warn('RevenueCat ensure linked failed:', error?.message);
+  if (!expectedAppUserId) {
+    if (options?.throwOnFailure) {
+      throw new Error('RevenueCat app user is not set yet.');
     }
     return false;
   }
+
+  const currentAppUserId = await getCurrentRevenueCatAppUserId();
+  if (currentAppUserId === expectedAppUserId) return true;
+
+  for (let attempt = 0; attempt <= RC_LINK_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      await PurchasesModule.logIn(expectedAppUserId);
+    } catch (error: any) {
+      if (__DEV__) {
+        console.warn(
+          `RevenueCat ensure linked failed (attempt ${attempt + 1}/${RC_LINK_RETRY_DELAYS_MS.length + 1}):`,
+          error?.message
+        );
+      }
+    }
+
+    const linkedUserId = await getCurrentRevenueCatAppUserId();
+    if (linkedUserId === expectedAppUserId) return true;
+
+    if (attempt < RC_LINK_RETRY_DELAYS_MS.length) {
+      const jitterMs = Math.floor(Math.random() * 150);
+      await delay(RC_LINK_RETRY_DELAYS_MS[attempt] + jitterMs);
+    }
+  }
+
+  if (options?.throwOnFailure) {
+    throw new Error('RevenueCat account link is not ready yet. Please try again.');
+  }
+
+  return false;
 }
 
 function getRevenueCatUIModule() {
@@ -420,7 +444,7 @@ export async function getCustomerInfo(): Promise<any> {
       throw new Error('RevenueCat is not configured');
     }
 
-    await ensureRevenueCatUserLinked();
+    await ensureRevenueCatUserLinked({ throwOnFailure: true });
 
     const customerInfo = await PurchasesModule.getCustomerInfo();
     return customerInfo;
@@ -440,7 +464,7 @@ export async function hasActiveEntitlement(): Promise<boolean> {
       return false;
     }
 
-    await ensureRevenueCatUserLinked();
+    await ensureRevenueCatUserLinked({ throwOnFailure: true });
 
     const customerInfo = await PurchasesModule.getCustomerInfo();
     return customerInfo.entitlements.active[ENTITLEMENT_IDENTIFIER] !== undefined;
@@ -520,7 +544,7 @@ export async function syncPurchases(): Promise<void> {
     if (!isConfigured || !PurchasesModule) {
       throw new Error('RevenueCat is not configured');
     }
-    await ensureRevenueCatUserLinked();
+    await ensureRevenueCatUserLinked({ throwOnFailure: true });
     await PurchasesModule.syncPurchases();
   } catch (error) {
     console.error('Error syncing purchases:', error);
@@ -603,6 +627,14 @@ export async function presentCustomerCenter(): Promise<void> {
     const PurchasesModule = getPurchasesModule();
     if (!isConfigured || !PurchasesModule) {
       throw new Error('RevenueCat is not configured');
+    }
+
+    // Keep parity with purchase/paywall flows: ensure Customer Center is opened
+    // under the identified app user, not an anonymous RC session.
+    const linked = await ensureRevenueCatUserLinked();
+    const currentAppUserId = await getCurrentRevenueCatAppUserId();
+    if (!linked || isAnonymousRevenueCatUserId(currentAppUserId)) {
+      throw new Error('Account not ready yet. Please wait a moment and try again.');
     }
 
     // Check if presentCustomerCenter method exists
@@ -759,7 +791,11 @@ export function didPaywallGrantEntitlement(result: string | null | undefined): b
     return false;
   }
 
-  return result === paywallResult.PURCHASED || result === paywallResult.RESTORED;
+  return (
+    result === paywallResult.PURCHASED ||
+    result === paywallResult.RESTORED ||
+    result === paywallResult.NOT_PRESENTED
+  );
 }
 
 export async function presentPaywallForPlacement(

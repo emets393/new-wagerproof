@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { invokeAgentAuthorizedAction } from './agentAuthorizedActions';
 import { z, ZodError } from 'zod';
 import {
   AgentProfile,
@@ -168,139 +169,26 @@ export async function fetchAgentById(agentId: string): Promise<AgentWithPerforma
 }
 
 /**
- * Check if a Supabase error is an RLS / permission denial.
+ * Create a new agent through the RevenueCat-verified backend gateway.
  */
-function isRlsError(error: any): boolean {
-  return (
-    error.code === '42501' ||
-    error.message?.toLowerCase().includes('row-level security') ||
-    error.message?.toLowerCase().includes('permission denied')
-  );
-}
-
-/**
- * Sync the user's RevenueCat subscription status to the profiles table so
- * server-side RLS policies see the correct Pro state.
- */
-async function syncSubscriptionToSupabase(userId: string, isActive: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ subscription_active: isActive })
-    .eq('user_id', userId);
-  if (error) {
-    console.warn('Failed to sync subscription_active to Supabase:', error.message);
-  }
-}
-
-/**
- * Create a new agent.
- *
- * If the insert is blocked by RLS but RevenueCat says the user is Pro,
- * we sync subscription_active to Supabase and retry once. This prevents
- * Pro users from being locked out when the DB hasn't seen their entitlement yet.
- */
-export async function createAgent(
-  userId: string,
-  data: CreateAgentInput
-): Promise<AgentProfile> {
-  // Lazy-import to avoid circular dependency — revenuecat.ts is a service, not a context
-  const { hasActiveEntitlement } = require('./revenuecat');
-
+export async function createAgent(data: CreateAgentInput): Promise<AgentProfile> {
   try {
     const validated = CreateAgentSchema.parse(data);
+    const agent = await invokeAgentAuthorizedAction<AgentProfile>(
+      {
+        action: 'create_agent',
+        data: validated as unknown as Record<string, unknown>,
+      },
+      'Failed to create agent',
+    );
 
-    const insertData = {
-      user_id: userId,
-      name: validated.name,
-      avatar_emoji: validated.avatar_emoji,
-      avatar_color: validated.avatar_color,
-      preferred_sports: validated.preferred_sports,
-      archetype: validated.archetype,
-      personality_params: validated.personality_params,
-      custom_insights: validated.custom_insights,
-      auto_generate: validated.auto_generate,
-      auto_generate_time: validated.auto_generate_time,
-      auto_generate_timezone: validated.auto_generate_timezone,
-      is_widget_favorite: validated.is_widget_favorite,
-      is_public: false,
-      // Manual-mode agents are created inactive so they don't count as live autopilot agents.
-      is_active: validated.auto_generate,
-    };
-
-    // ── First attempt ──
-    const { data: agent, error } = await supabase
-      .from('avatar_profiles')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (error) {
-      // Duplicate name — no retry needed
-      if (
-        error.code === '23505' ||
-        error.message?.toLowerCase().includes('unique_avatar_name_per_user') ||
-        error.message?.toLowerCase().includes('duplicate key')
-      ) {
-        throw new Error(`You already have an agent named "${validated.name}". Please choose a different name.`);
-      }
-
-      // RLS blocked the insert — could be a stale subscription_active flag
-      if (isRlsError(error)) {
-        let isPro = false;
-        try {
-          isPro = await hasActiveEntitlement();
-        } catch { /* RevenueCat unavailable — fall through to error */ }
-
-        if (isPro) {
-          // User IS Pro but DB didn't know — sync and retry once
-          console.log('Agent insert blocked by RLS but user has Pro entitlement — syncing and retrying');
-          await syncSubscriptionToSupabase(userId, true);
-
-          const retry = await supabase
-            .from('avatar_profiles')
-            .insert(insertData)
-            .select()
-            .single();
-
-          if (retry.error) {
-            if (isRlsError(retry.error)) {
-              // Still blocked after sync — genuinely at the Pro limit
-              throw new Error('You\'ve reached the Pro agent limit (10 active, 30 total). Archive an agent to create a new one.');
-            }
-            throw retry.error;
-          }
-
-          // Retry succeeded — continue with the created agent
-          const retryAgent = retry.data as AgentProfile;
-          Promise.resolve(supabase.rpc('can_access_agent_picks', { p_user_id: userId }))
-            .then(({ data: canAccess }) => {
-              if (canAccess) {
-                supabase.from('avatar_profiles').update({ is_public: true }).eq('id', retryAgent.id);
-              }
-            })
-            .catch(() => {});
-
-          return retryAgent;
-        }
-
-        // Not Pro — show the free-tier limit message
-        throw new Error('Free users can create 1 active agent. Upgrade to Pro for up to 10 active agents.');
-      }
-
-      throw error;
-    }
-
-    // Fire-and-forget: check entitlement and flip is_public if the user qualifies.
-    Promise.resolve(supabase.rpc('can_access_agent_picks', { p_user_id: userId }))
-      .then(({ data: canAccess }) => {
-        if (canAccess) {
-          supabase.from('avatar_profiles').update({ is_public: true }).eq('id', agent.id);
-        }
-      })
-      .catch(() => {});
-
-    return agent as AgentProfile;
+    console.log(`Created agent: ${agent.name} (${agent.id})`);
+    return agent;
   } catch (error) {
+    if (error instanceof ZodError) {
+      console.error('Agent creation validation error:', error.flatten());
+      throw new Error(formatValidationError(error));
+    }
     console.error('Error in createAgent:', error);
     throw error;
   }
@@ -336,20 +224,17 @@ export async function updateAgent(
     if (validated.is_public !== undefined) updateData.is_public = validated.is_public;
     if (validated.is_active !== undefined) updateData.is_active = validated.is_active;
 
-    const { data: agent, error } = await supabase
-      .from('avatar_profiles')
-      .update(updateData)
-      .eq('id', agentId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating agent:', error);
-      throw error;
-    }
+    const agent = await invokeAgentAuthorizedAction<AgentProfile>(
+      {
+        action: 'update_agent',
+        agent_id: agentId,
+        data: updateData,
+      },
+      'Failed to update agent',
+    );
 
     console.log(`Updated agent: ${agent.name} (${agent.id})`);
-    return agent as AgentProfile;
+    return agent;
   } catch (error) {
     if (error instanceof ZodError) {
       console.error('Agent update validation error:', error.flatten());

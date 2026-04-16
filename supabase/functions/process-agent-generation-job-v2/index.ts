@@ -44,6 +44,7 @@ import {
   gameMatchesPickId,
   gameMatchesRawGame,
 } from '../shared/agentGameHelpers.ts';
+import { disableUserAutopilot, resolvePremiumAccess } from '../shared/entitlements.ts';
 
 // =============================================================================
 // Constants
@@ -160,6 +161,22 @@ serve(async (req) => {
       return workerResponse(run.id, 'failed_terminal', 0, startTime);
     }
 
+    const avatarProfile = profile as AvatarProfile;
+    const { hasPremiumAccess, entitlement } = await resolvePremiumAccess(supabaseClient, avatarProfile.user_id);
+    if (!hasPremiumAccess) {
+      if (run.generation_type === 'auto' && entitlement?.source === 'live') {
+        await disableUserAutopilot(supabaseClient, avatarProfile.user_id);
+      }
+      await markFailed(
+        supabaseClient,
+        run.id,
+        'ENTITLEMENT_REQUIRED',
+        'Active RevenueCat entitlement required for agent generation',
+        false,
+      );
+      return workerResponse(run.id, 'failed_terminal', 0, startTime);
+    }
+
     // -------------------------------------------------------------------------
     // 6. Fetch System Prompt (sport-aware)
     // -------------------------------------------------------------------------
@@ -173,7 +190,6 @@ serve(async (req) => {
     // 7. Fetch Games for Avatar's Sports
     // -------------------------------------------------------------------------
     const targetDate = run.target_date;
-    const avatarProfile = profile as AvatarProfile;
     const allGamesData: { sport: string; games: unknown[]; formattedGames: unknown[] }[] = [];
 
     for (const sport of avatarProfile.preferred_sports) {

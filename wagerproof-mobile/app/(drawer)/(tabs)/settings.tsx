@@ -119,7 +119,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { isDark, toggleTheme } = useThemeContext();
   const { user, signOut, signingOut, deletingAccount } = useAuth();
-  const { isPro, subscriptionType } = useProAccess();
+  const { isPro, subscriptionType, isLoading: isProLoading } = useProAccess();
   const { openCustomerCenter } = useRevenueCat();
   const { suggestionsEnabled, setSuggestionsEnabled, isDetached, dismissFloating } = useWagerBotSuggestion();
   const { openLearnSheet } = useLearnWagerProof();
@@ -290,6 +290,10 @@ export default function SettingsScreen() {
   };
 
   const handleSubscriptionPress = () => {
+    if (isProLoading) {
+      Alert.alert('Checking Subscription', 'We’re still verifying your subscription access. Please try again in a moment.');
+      return;
+    }
     setPaywallVisible(true);
   };
 
@@ -327,7 +331,11 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.pagePadding}>
-          <TouchableOpacity activeOpacity={0.9} onPress={handleSubscriptionPress}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={isProLoading ? undefined : isPro ? handleOpenCustomerCenter : handleSubscriptionPress}
+            disabled={isProLoading}
+          >
             <LinearGradient
             colors={isDark ? ['#b98300', '#d8a61b', '#f0c542'] : ['#efbe34', '#f3c43f', '#f7d768']}
             start={{ x: 0, y: 0 }}
@@ -338,11 +346,11 @@ export default function SettingsScreen() {
               <View style={styles.heroGlowTwo} />
 
               <View style={styles.heroCopy}>
-                <Text style={styles.heroEyebrow}>{isPro ? 'PRO MEMBER' : 'SPECIAL OFFER'}</Text>
+                <Text style={styles.heroEyebrow}>{isProLoading ? 'CHECKING PLAN' : isPro ? 'PRO MEMBER' : 'SPECIAL OFFER'}</Text>
                 <Text style={styles.heroTitle}>
-                  {isPro ? 'YOU ARE\nPRO' : 'GO PRO\nTODAY'}
+                  {isProLoading ? 'VERIFYING\nACCESS' : isPro ? 'YOU ARE\nPRO' : 'GO PRO\nTODAY'}
                 </Text>
-                {!isPro && (
+                {!isProLoading && !isPro && (
                   <View style={styles.heroBadgePill}>
                     <Text style={styles.heroBadgePillText}>Unlock premium picks</Text>
                   </View>
@@ -351,7 +359,7 @@ export default function SettingsScreen() {
 
               <View style={styles.heroArtwork}>
                 <View style={styles.heroBadge}>
-                  <MaterialCommunityIcons name={isPro ? 'crown' : 'gift'} size={46} color="#f08b00" />
+                  <MaterialCommunityIcons name={isProLoading ? 'loading' : isPro ? 'crown' : 'gift'} size={46} color="#f08b00" />
                 </View>
                 <View style={styles.heroMiniBadge}>
                   <MaterialCommunityIcons name="star-four-points" size={18} color="#f08b00" />
@@ -376,13 +384,15 @@ export default function SettingsScreen() {
               iconBackground="#edf5ff"
               title="Manage Subscription"
               subtitle={
-                isPro
+                isProLoading
+                  ? 'Checking your subscription status'
+                  : isPro
                   ? subscriptionType
                     ? `Active ${subscriptionType} membership`
                     : 'Billing, renewal, and plan details'
                   : 'View plans, billing, and upgrade options'
               }
-              onPress={isPro ? handleOpenCustomerCenter : handleSubscriptionPress}
+              onPress={isProLoading ? undefined : isPro ? handleOpenCustomerCenter : handleSubscriptionPress}
               rightContent={
                 isOpeningCustomerCenter ? (
                   <ActivityIndicator size="small" color="#2a86ff" />

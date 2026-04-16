@@ -18,7 +18,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
   const theme = useTheme();
   const { isDark, toggleTheme } = useThemeContext();
   const { user, signOut, signingOut } = useAuth();
-  const { isPro, getSubscriptionType } = useProAccess();
+  const { isPro, isLoading: isProLoading, getSubscriptionType } = useProAccess();
   const subscriptionType = getSubscriptionType();
   const { openCustomerCenter, isInitialized } = useRevenueCat();
   const { suggestionsEnabled, setSuggestionsEnabled } = useWagerBotSuggestion();
@@ -192,9 +192,11 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
         {/* Subscription Section */}
         <List.Section>
           <List.Item
-            title={isPro ? "WagerProof Pro" : "Upgrade to Pro"}
+            title={isProLoading ? "Checking Subscription" : isPro ? "WagerProof Pro" : "Upgrade to Pro"}
             description={
-              isPro
+              isProLoading
+                ? "Verifying your subscription access..."
+                : isPro
                 ? subscriptionType
                   ? `Active - ${subscriptionType.charAt(0).toUpperCase() + subscriptionType.slice(1)}`
                   : "Active"
@@ -203,7 +205,7 @@ export default function SideMenu({ onClose }: { onClose?: () => void }) {
             left={props => (
               <List.Icon
                 {...props}
-                icon={isPro ? "crown" : "crown-outline"}
+                icon={isProLoading ? "loading" : isPro ? "crown" : "crown-outline"}
                 color={isPro ? "#FFD700" : theme.colors.primary}
               />
             )}

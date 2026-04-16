@@ -34,6 +34,7 @@ export function PostOnboardingPaywall() {
   const { isCompleted, completionOverride } = useOnboarding();
   const [dismissed, setDismissed] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   const effectiveCompleted = completionOverride || isCompleted;
 
@@ -62,8 +63,19 @@ export function PostOnboardingPaywall() {
   }, [shouldShow]);
 
   const handleComplete = () => {
-    refreshCustomerInfo().catch(() => {});
     setDismissed(true);
+  };
+
+  const handlePurchaseOrRestoreComplete = async () => {
+    try {
+      setIsFinalizing(true);
+      await refreshCustomerInfo();
+      setDismissed(true);
+    } catch (error) {
+      console.warn('📱 RevenueCat: Failed to finalize paywall purchase/restore:', error);
+    } finally {
+      setIsFinalizing(false);
+    }
   };
 
   if (!shouldShow) return null;
@@ -71,10 +83,12 @@ export function PostOnboardingPaywall() {
   const paywallContent = (
     <View style={isAndroid ? styles.androidOverlay : styles.container}>
       {isAndroid && <StatusBar backgroundColor="#000" barStyle="light-content" />}
-      {(isLoading || !isInitialized) && !timedOut ? (
+      {(isLoading || !isInitialized || isFinalizing) && !timedOut ? (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color="#22c55e" />
-          <Text style={styles.loadingText}>Loading subscription options...</Text>
+          <Text style={styles.loadingText}>
+            {isFinalizing ? 'Finalizing your subscription...' : 'Loading subscription options...'}
+          </Text>
         </View>
       ) : !PaywallComponent || !offering ? (
         <View style={styles.loading}>
@@ -96,10 +110,10 @@ export function PostOnboardingPaywall() {
       ) : (
         <PaywallComponent
           options={{ offering }}
-          onPurchaseCompleted={handleComplete}
+          onPurchaseCompleted={handlePurchaseOrRestoreComplete}
           onRestoreCompleted={({ customerInfo }: any) => {
             if (customerInfo?.entitlements?.active?.['WagerProof Pro']) {
-              handleComplete();
+              handlePurchaseOrRestoreComplete();
             }
           }}
           onDismiss={() => {

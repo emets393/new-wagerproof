@@ -31,6 +31,7 @@ import {
   type PromptTokenCount,
 } from '../shared/tokenBudget.ts';
 import { fetchActiveSystemPrompt } from '../shared/promptFetcher.ts';
+import { disableUserAutopilot, resolvePremiumAccess } from '../shared/entitlements.ts';
 
 // =============================================================================
 // Types
@@ -139,10 +140,25 @@ serve(async (req) => {
       throw new Error(`Failed to fetch eligible avatars: ${fetchError.message}`);
     }
 
-    const avatars = (eligibleAvatars || []) as EligibleAvatar[];
+    const rawAvatars = (eligibleAvatars || []) as EligibleAvatar[];
+    const entitledUserIds = new Set<string>();
+    const uniqueUserIds = Array.from(new Set(rawAvatars.map((avatar) => avatar.user_id).filter(Boolean)));
+
+    for (const userId of uniqueUserIds) {
+      const access = await resolvePremiumAccess(supabaseClient, userId);
+      if (access.hasPremiumAccess) {
+        entitledUserIds.add(userId);
+        continue;
+      }
+      if (access.entitlement?.source === 'live') {
+        await disableUserAutopilot(supabaseClient, userId);
+      }
+    }
+
+    const avatars = rawAvatars.filter((avatar) => entitledUserIds.has(avatar.user_id));
     summary.eligible_avatars = avatars.length;
 
-    console.log(`[auto-generate-avatar-picks] Found ${avatars.length} eligible avatars`);
+    console.log(`[auto-generate-avatar-picks] Found ${avatars.length} entitled avatars out of ${rawAvatars.length} due candidates`);
 
     if (avatars.length === 0) {
       return new Response(
@@ -1685,4 +1701,3 @@ function formatNCAABGame(
     },
   };
 }
-

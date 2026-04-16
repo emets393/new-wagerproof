@@ -70,7 +70,7 @@ export function useCreateAgent() {
       if (!user?.id) {
         throw new Error('User not authenticated');
       }
-      return createAgent(user.id, data);
+      return createAgent(data);
     },
     onSuccess: (newAgent) => {
       // Invalidate user agents list to refetch

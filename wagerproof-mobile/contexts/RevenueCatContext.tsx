@@ -14,6 +14,7 @@ import {
   getCustomerInfo,
   hasActiveEntitlement,
   getOfferings,
+  syncPurchases,
   purchasePackage,
   restorePurchases,
   getAvailablePackages,
@@ -51,14 +52,22 @@ const GRANTED_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // was admin-granted on web should see Pro status within minutes, not an hour.
 // The 7d granted cache still protects paying users from login flashes.
 const DENIED_CACHE_TTL_MS = 5 * 60 * 1000;
-// AsyncStorage key used to track whether we've already run the one-time
-// post-login restorePurchases() recovery for this install. Prevents hitting
-// StoreKit / Play receipt validation on every cold start.
-const LOGIN_RESTORE_ATTEMPTED_KEY_PREFIX = '@wagerproof/rc-login-restore-attempted/v1/';
+// AsyncStorage key used to track automatic post-login reconciliation attempts.
+// This uses syncPurchases/getCustomerInfo (not restorePurchases) so it is safe
+// to run in background and aligns with RevenueCat guidance for non-user-initiated recovery.
+const LOGIN_RECONCILE_ATTEMPTED_KEY_PREFIX = '@wagerproof/rc-login-reconcile-attempted/v2/';
+const LOGIN_RECONCILE_RETRY_COOLDOWN_MS = 90 * 1000; // 90 seconds
+const LOGIN_RECONCILE_MAX_ATTEMPTS = 12;
 
 const getEntitlementCacheKey = (userId: string) => `${ENTITLEMENT_CACHE_KEY_PREFIX}${userId}`;
-const getLoginRestoreAttemptedKey = (userId: string) =>
-  `${LOGIN_RESTORE_ATTEMPTED_KEY_PREFIX}${userId}`;
+const getLoginReconcileAttemptedKey = (userId: string) =>
+  `${LOGIN_RECONCILE_ATTEMPTED_KEY_PREFIX}${userId}`;
+
+interface LoginReconcileState {
+  attempts: number;
+  lastAttemptAt: number;
+  recovered: boolean;
+}
 
 // Classifies where a customer-info update came from. "trusted" sources are
 // explicit network fetches (initial login, purchase, refresh, manual restore)
@@ -372,20 +381,11 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     const setUserId = async () => {
       try {
         if (user?.id) {
-          // Hydrate local entitlement cache first to avoid lock flashes for paid users.
           await hydrateEntitlementState(user.id);
 
           console.log('📱 RevenueCat: Setting user ID for:', user.id);
           console.log('📱 RevenueCat: User email:', user.email);
 
-          // setRevenueCatUserId returns { customerInfo, created } from login.
-          // `created === true` means RC made a brand-new customer for this
-          // Supabase user id — i.e. it did NOT alias an existing anonymous
-          // purchase. Combined with no active entitlement, that's the exact
-          // signature of the anonymous-id race bug that stranded 54 paying
-          // users. We recover via restorePurchases(), which re-reads the
-          // device StoreKit / Play receipt and re-attributes any purchase to
-          // the now-identified RC user.
           const loginResult = await setRevenueCatUserId(user.id);
 
           if (loginResult) {
@@ -396,67 +396,82 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
             });
             await applyCustomerInfoState(loginCustomerInfo, 'login', user.id);
 
-            // Recovery path for anonymous-id purchases. Conditions:
-            //   1. This is the first login recovery attempt for this install+user
-            //      (tracked in AsyncStorage to avoid running on every cold start).
-            //   2. Either RC created a fresh customer (no alias merge happened)
-            //      OR the login returned no active entitlement.
-            // Running restorePurchases() is idempotent — if there's no device
-            // receipt, it returns the current state unchanged. If there IS a
-            // receipt from an anonymous session, RC re-attributes it to the
-            // identified user id and the next customerInfo fire will show the
-            // entitlement as active.
             const hasEntitlement =
               !!loginCustomerInfo.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
-            const restoreKey = getLoginRestoreAttemptedKey(user.id);
-            const alreadyAttempted = await AsyncStorage.getItem(restoreKey);
+            const reconcileKey = getLoginReconcileAttemptedKey(user.id);
 
-            if ((created || !hasEntitlement) && !alreadyAttempted) {
-              // Mark the attempt BEFORE running so a crash mid-restore doesn't
-              // trigger another attempt on next launch.
-              await AsyncStorage.setItem(restoreKey, String(Date.now()));
-              console.log('📱 RevenueCat: Running post-login receipt restore recovery');
+            if (created || !hasEntitlement) {
+              let reconcileState: LoginReconcileState | null = null;
               try {
-                const { restorePurchases: restoreFn } = await import('../services/revenuecat');
-                const restored = await restoreFn();
-                await applyCustomerInfoState(restored, 'login-restore', user.id);
-                const recovered =
-                  !!restored.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
-                console.log('📱 RevenueCat: Login restore completed, recovered =', recovered);
-              } catch (restoreError: any) {
-                console.warn('📱 RevenueCat: Login restore failed (non-fatal):', restoreError?.message);
+                const raw = await AsyncStorage.getItem(reconcileKey);
+                reconcileState = raw ? (JSON.parse(raw) as LoginReconcileState) : null;
+              } catch {
+                reconcileState = null;
+              }
+
+              const now = Date.now();
+              const attempts = reconcileState?.attempts ?? 0;
+              const recovered = reconcileState?.recovered ?? false;
+              const lastAttemptAt = reconcileState?.lastAttemptAt ?? 0;
+              const withinCooldown = now - lastAttemptAt < LOGIN_RECONCILE_RETRY_COOLDOWN_MS;
+              const exhausted = attempts >= LOGIN_RECONCILE_MAX_ATTEMPTS;
+
+              if (recovered) {
+                console.log('📱 RevenueCat: Skipping login reconcile (already recovered)');
+              } else if (exhausted) {
+                console.log('📱 RevenueCat: Skipping login reconcile (max attempts reached)');
+              } else if (withinCooldown) {
+                console.log('📱 RevenueCat: Skipping login reconcile (cooldown active)');
+              } else {
+                const nextState: LoginReconcileState = {
+                  attempts: attempts + 1,
+                  lastAttemptAt: now,
+                  recovered: false,
+                };
+                await AsyncStorage.setItem(reconcileKey, JSON.stringify(nextState));
+
+                console.log('📱 RevenueCat: Running post-login entitlement reconciliation');
+                try {
+                  await syncPurchases();
+                  const reconciledInfo = await getCustomerInfo();
+                  await applyCustomerInfoState(reconciledInfo, 'login-restore', user.id);
+                  const wasRecovered =
+                    !!reconciledInfo.entitlements?.active?.[ENTITLEMENT_IDENTIFIER];
+                  if (wasRecovered) {
+                    const recoveredState: LoginReconcileState = {
+                      ...nextState,
+                      recovered: true,
+                    };
+                    await AsyncStorage.setItem(reconcileKey, JSON.stringify(recoveredState));
+                  }
+                  console.log('📱 RevenueCat: Login reconcile completed, recovered =', wasRecovered);
+                } catch (reconcileError: any) {
+                  console.warn('📱 RevenueCat: Login reconcile failed (non-fatal):', reconcileError?.message);
+                }
               }
             }
 
-            // NOW we can set loading to false - entitlements are loaded
             console.log('📱 RevenueCat: Entitlements loaded, setting isLoading = false');
             setIsLoading(false);
           } else {
             console.log('📱 RevenueCat: No customer info from login, refreshing...');
             await refreshCustomerInfo();
-            // refreshCustomerInfo already sets isLoading = false in its finally block
           }
 
-          // Offerings already prefetched at SDK init time. Refresh generic offerings
-          // in background for non-placement paywalls.
           refreshOfferings().catch(err => console.warn('📱 RevenueCat: Error refreshing offerings:', err));
         } else {
           console.log('📱 RevenueCat: No user (auth loaded, user is null), logging out from RevenueCat');
-          // Log out if no user
           await logOutRevenueCat();
           setCustomerInfo(null);
           setIsProInternal(false);
           setEntitlementStatus('denied');
           setSubscriptionType(null);
-          // No user means no entitlements to check - loading is done
           setIsLoading(false);
         }
       } catch (err: any) {
         console.error('📱 RevenueCat: Error setting user ID:', err);
         setError(err.message || 'Failed to set user ID');
-        // Keep optimistic grant if we have it, otherwise resolve to denied.
-        setEntitlementStatus((prev) => (prev === 'granted' ? 'granted' : 'denied'));
-        // On error, still set loading to false to unblock the UI
+        setEntitlementStatus((prev) => (prev === 'granted' ? 'granted' : 'unknown'));
         setIsLoading(false);
       }
     };
@@ -494,7 +509,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       if (!err?.message?.includes('not configured')) {
         setError(err.message || 'Failed to refresh customer info');
       }
-      setEntitlementStatus((prev) => (prev === 'granted' ? 'granted' : 'denied'));
+      setEntitlementStatus((prev) => (prev === 'granted' ? 'granted' : 'unknown'));
     } finally {
       setIsLoading(false);
     }
@@ -627,7 +642,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     } catch (err: any) {
       console.error('Error checking entitlement:', err);
       setError(err.message || 'Failed to check entitlement');
-      setEntitlementStatus((prev) => (prev === 'granted' ? 'granted' : 'denied'));
+      setEntitlementStatus((prev) => (prev === 'granted' ? 'granted' : 'unknown'));
       return false;
     }
   }, [user?.id, persistEntitlementState, subscriptionType]);
@@ -695,6 +710,11 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     if (!user?.id || !isInitialized) return;
 
     const cleanup = addCustomerInfoUpdateListener(async (info) => {
+      const infoUserId = (info as any)?.originalAppUserId || (info as any)?.appUserId;
+      if (infoUserId && infoUserId !== user.id) {
+        console.warn('📱 RevenueCat: Ignoring CustomerInfoUpdate for stale appUserId:', infoUserId);
+        return;
+      }
       console.log('📱 RevenueCat: CustomerInfoUpdateListener fired');
       await applyCustomerInfoState(info, 'listener', user.id);
     });

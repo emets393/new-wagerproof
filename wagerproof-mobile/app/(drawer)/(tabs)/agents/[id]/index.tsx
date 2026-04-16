@@ -234,7 +234,10 @@ export default function AgentDetailScreen() {
   const { isDark } = useThemeContext();
   const { adminModeEnabled } = useAdminMode();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { canViewAgentPicks } = useAgentEntitlements();
+  const {
+    canViewAgentPicks: clientCanViewAgentPicks,
+    isLoading: isEntitlementsLoading,
+  } = useAgentEntitlements();
   const updateAgentMutation = useUpdateAgent();
   const { data: userAgents } = useUserAgents();
 
@@ -277,6 +280,10 @@ export default function AgentDetailScreen() {
       performance: detailSnapshotV2.performance ?? null,
     };
   }, [detailSnapshotV2?.agent, detailSnapshotV2?.performance]);
+  const actualCanViewAgentPicks =
+    detailSnapshotV2?.can_view_agent_picks ?? (!isEntitlementsLoading && clientCanViewAgentPicks);
+  const isPicksAccessLoading = isLoadingDetailSnapshotV2 || isEntitlementsLoading;
+  const canViewAgentPicks = isPicksAccessLoading ? true : actualCanViewAgentPicks;
 
   // Fetch pick history
   const {
@@ -284,7 +291,7 @@ export default function AgentDetailScreen() {
     isLoading: isLoadingAllPicks,
     error: allPicksError,
     refetch: refetchAllPicks,
-  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks && (showHistory || chartsReady) });
+  } = useAgentPicks(id || '', undefined, { enabled: actualCanViewAgentPicks && (showHistory || chartsReady) });
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -310,15 +317,19 @@ export default function AgentDetailScreen() {
     ? Infinity
     : MAX_DAILY_GENERATIONS - dailyGenCount;
 
-  const regenLockedBySubscription = !adminModeEnabled && !canViewAgentPicks;
-  const canRegenerate = adminModeEnabled || (!regenLockedBySubscription && regensRemaining > 0);
-  const generationButtonLabel = canRegenerate
+  const regenLockedBySubscription = !adminModeEnabled && !actualCanViewAgentPicks;
+  const canRegenerate = adminModeEnabled || (!isPicksAccessLoading && !regenLockedBySubscription && regensRemaining > 0);
+  const generationButtonLabel = isPicksAccessLoading
+    ? 'Checking Pro access...'
+    : canRegenerate
     ? "Generate Today's Picks"
     : regenLockedBySubscription
     ? 'Generate Picks Locked'
     : 'Daily limit reached';
   const regenerationSummary = adminModeEnabled
     ? 'Unlimited manual regenerations available for this agent.'
+    : isPicksAccessLoading
+    ? 'Verifying your subscription before enabling premium actions.'
     : regenLockedBySubscription
     ? 'Upgrade to Pro to regenerate this agent\'s picks manually.'
     : `${regensRemaining} of ${MAX_DAILY_GENERATIONS} manual regenerations remaining today for this agent.`;
@@ -402,7 +413,7 @@ export default function AgentDetailScreen() {
 
   // Handle generate picks (initial or regeneration)
   const handleGeneratePicks = useCallback(async () => {
-    if (!id || regenLockedBySubscription || !canRegenerate) return;
+    if (!id || isPicksAccessLoading || regenLockedBySubscription || !canRegenerate) return;
 
     if (isGeneratingRef.current || generatePicksMutation.isPending) {
       setGeneratingToastVisible(true);
@@ -417,7 +428,7 @@ export default function AgentDetailScreen() {
       const { result } = await generatePicksMutation.mutateAsync({ agentId: id, isAdmin: adminModeEnabled });
       // Refetch data after generation
       refetchDetailSnapshotV2();
-      if (canViewAgentPicks) {
+      if (actualCanViewAgentPicks) {
         refetchAllPicks();
       }
 
@@ -438,13 +449,14 @@ export default function AgentDetailScreen() {
     }
   }, [
     id,
+    isPicksAccessLoading,
     regenLockedBySubscription,
     canRegenerate,
     adminModeEnabled,
     generatePicksMutation,
     refetchDetailSnapshotV2,
     refetchAllPicks,
-    canViewAgentPicks,
+    actualCanViewAgentPicks,
   ]);
 
   // Handle navigation to settings
@@ -456,14 +468,14 @@ export default function AgentDetailScreen() {
   // Handle refresh - parallel refetch for faster pull-to-refresh
   const handleRefresh = useCallback(() => {
     const promises: Promise<any>[] = [refetchDetailSnapshotV2()];
-    if (canViewAgentPicks) {
+    if (actualCanViewAgentPicks) {
       promises.push(refetchAllPicks());
     }
     Promise.all(promises);
   }, [
     refetchDetailSnapshotV2,
     refetchAllPicks,
-    canViewAgentPicks,
+    actualCanViewAgentPicks,
   ]);
 
   const auditSnapPoints = useMemo(() => ['85%', '95%'], []);

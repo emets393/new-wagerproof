@@ -83,7 +83,7 @@ export function TopAgentPicksFeed({
   const theme = useTheme();
   const router = useRouter();
   const { isDark } = useThemeContext();
-  const { isPro } = useProAccess();
+  const { isPro, isLoading: isProLoading } = useProAccess();
   const { openGameForPick } = useGameLookup();
   const [filter, setFilter] = useState<FeedFilter>('top10');
   const [searchText, setSearchText] = useState('');
@@ -108,7 +108,7 @@ export function TopAgentPicksFeed({
 
   // Pro gating: free users see first N picks total
   const visibleSections = useMemo(() => {
-    if (isPro) return agentSections;
+    if (isProLoading || isPro) return agentSections;
 
     let pickCount = 0;
     const result: AgentSection[] = [];
@@ -120,9 +120,9 @@ export function TopAgentPicksFeed({
       pickCount += visiblePicks.length;
     }
     return result;
-  }, [agentSections, isPro]);
+  }, [agentSections, isPro, isProLoading]);
 
-  const hasLockedPicks = !isPro && filteredPicks.length > FREE_PICK_LIMIT;
+  const hasLockedPicks = !isProLoading && !isPro && filteredPicks.length > FREE_PICK_LIMIT;
 
   const handleAgentPress = useCallback(
     (agentId: string) => {

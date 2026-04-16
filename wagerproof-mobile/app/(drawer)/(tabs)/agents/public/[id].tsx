@@ -98,7 +98,10 @@ export default function PublicAgentViewScreen() {
   const { isDark } = useThemeContext();
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { canViewAgentPicks } = useAgentEntitlements();
+  const {
+    canViewAgentPicks: clientCanViewAgentPicks,
+    isLoading: isEntitlementsLoading,
+  } = useAgentEntitlements();
 
   // Local state
   const [pickFilter, setPickFilter] = useState<PickFilter>('all');
@@ -114,7 +117,7 @@ export default function PublicAgentViewScreen() {
     isLoading: isLoadingAgentDirect,
     isRefetching: isRefetchingAgentDirect,
     refetch: refetchAgentDirect,
-  } = useAgent(id || '', { enabled: !canViewAgentPicks });
+  } = useAgent(id || '', { enabled: !!id });
 
   // Fetch today's picks snapshot (includes agent + performance for premium users)
   const {
@@ -122,7 +125,7 @@ export default function PublicAgentViewScreen() {
     isLoading: isLoadingDetailSnapshot,
     isRefetching: isRefetchingDetailSnapshot,
     refetch: refetchDetailSnapshot,
-  } = useAgentDetailSnapshot(id || '', { enabled: canViewAgentPicks });
+  } = useAgentDetailSnapshot(id || '', { enabled: !!id });
 
   // Use agent from snapshot when available, fall back to direct fetch.
   // The snapshot RPC returns agent and performance as separate fields,
@@ -136,8 +139,12 @@ export default function PublicAgentViewScreen() {
     }
     return agentDirect ?? null;
   }, [detailSnapshot, agentDirect]);
-  const isLoadingAgent = canViewAgentPicks ? isLoadingDetailSnapshot : isLoadingAgentDirect;
-  const isRefetchingAgent = canViewAgentPicks ? isRefetchingDetailSnapshot : isRefetchingAgentDirect;
+  const actualCanViewAgentPicks =
+    detailSnapshot?.can_view_agent_picks ?? (!isEntitlementsLoading && clientCanViewAgentPicks);
+  const isPicksAccessLoading = isLoadingDetailSnapshot || isEntitlementsLoading;
+  const canViewAgentPicks = isPicksAccessLoading ? true : actualCanViewAgentPicks;
+  const isLoadingAgent = !agent && (isLoadingDetailSnapshot || isLoadingAgentDirect);
+  const isRefetchingAgent = isRefetchingDetailSnapshot || isRefetchingAgentDirect;
 
   // Fetch pick history
   const {
@@ -145,7 +152,7 @@ export default function PublicAgentViewScreen() {
     isLoading: isLoadingAllPicks,
     error: allPicksError,
     refetch: refetchAllPicks,
-  } = useAgentPicks(id || '', undefined, { enabled: canViewAgentPicks });
+  } = useAgentPicks(id || '', undefined, { enabled: actualCanViewAgentPicks });
 
   // Game lookup for opening bottom sheets
   const { openGameForPick } = useGameLookup();
@@ -154,7 +161,7 @@ export default function PublicAgentViewScreen() {
   React.useEffect(() => {
     if (detailSnapshot?.is_following !== undefined) {
       setIsFollowing(detailSnapshot.is_following);
-    } else if (user?.id && id && !canViewAgentPicks) {
+    } else if (user?.id && id && !isLoadingDetailSnapshot) {
       // Fallback for non-premium users who don't get the snapshot
       const checkFollowStatus = async () => {
         try {
@@ -174,7 +181,7 @@ export default function PublicAgentViewScreen() {
       };
       checkFollowStatus();
     }
-  }, [detailSnapshot?.is_following, user?.id, id, canViewAgentPicks]);
+  }, [detailSnapshot?.is_following, user?.id, id, isLoadingDetailSnapshot]);
 
   // Today's picks from snapshot
   const todaysPicks = detailSnapshot?.todays_picks;
@@ -233,13 +240,12 @@ export default function PublicAgentViewScreen() {
 
   // Handle refresh - parallel refetch for faster pull-to-refresh
   const handleRefresh = useCallback(() => {
-    if (canViewAgentPicks) {
-      // Premium: snapshot already includes agent data
-      Promise.all([refetchDetailSnapshot(), refetchAllPicks()]);
-    } else {
-      refetchAgentDirect();
+    const refreshes: Promise<unknown>[] = [refetchAgentDirect(), refetchDetailSnapshot()];
+    if (actualCanViewAgentPicks) {
+      refreshes.push(refetchAllPicks());
     }
-  }, [refetchAgentDirect, refetchDetailSnapshot, refetchAllPicks, canViewAgentPicks]);
+    Promise.all(refreshes);
+  }, [refetchAgentDirect, refetchDetailSnapshot, refetchAllPicks, actualCanViewAgentPicks]);
 
   // Shimmer loading skeleton
   const shimmerOpacity = useRef(new Animated.Value(0.45)).current;
@@ -501,7 +507,7 @@ export default function PublicAgentViewScreen() {
                 {agent.name}
               </Text>
               <View style={styles.sportBadges}>
-                {agent.preferred_sports.map((sport) => (
+                {agent.preferred_sports.map((sport: Sport) => (
                   <View
                     key={sport}
                     style={[

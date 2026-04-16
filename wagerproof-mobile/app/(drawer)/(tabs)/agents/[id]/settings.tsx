@@ -146,7 +146,11 @@ export default function AgentSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useThemeContext();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { canCreatePublicAgent, canUseAutopilot } = useAgentEntitlements();
+  const {
+    canCreatePublicAgent,
+    canUseAutopilot,
+    isLoading: isEntitlementsLoading,
+  } = useAgentEntitlements();
   const { user } = useAuth();
 
   // Fetch agent data
@@ -173,6 +177,8 @@ export default function AgentSettingsScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isPublic, setIsPublic] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const canUseAutopilotResolved = !isEntitlementsLoading && canUseAutopilot;
+  const canCreatePublicAgentResolved = !isEntitlementsLoading && canCreatePublicAgent;
 
   // Initialize form from agent data
   useEffect(() => {
@@ -905,7 +911,7 @@ export default function AgentSettingsScreen() {
           <ToggleInput
             value={autoGenerate}
             onChange={(v) => {
-              if (!canUseAutopilot) return;
+              if (!canUseAutopilotResolved) return;
               setAutoGenerate(v);
               markChanged();
               console.log('🔔 Auto-gen toggled:', v, 'user?.id:', user?.id);
@@ -915,11 +921,13 @@ export default function AgentSettingsScreen() {
             }}
             label="Auto-Generate Picks"
             description={
-              canUseAutopilot
+              isEntitlementsLoading
+                ? 'Checking your subscription access...'
+                : canUseAutopilotResolved
                 ? "Automatically generate picks daily when games are available"
                 : "Upgrade to Pro to enable daily auto-generation"
             }
-            disabled={!canUseAutopilot}
+            disabled={isEntitlementsLoading || !canUseAutopilotResolved}
             variant="autopilot"
           />
           <Text
@@ -928,12 +936,14 @@ export default function AgentSettingsScreen() {
               { color: theme.colors.onSurfaceVariant },
             ]}
           >
-            {canUseAutopilot
+            {isEntitlementsLoading
+              ? 'We’re verifying your subscription before enabling auto-generation settings.'
+              : canUseAutopilotResolved
               ? 'When enabled, your agent will automatically analyze available games and generate picks each day. You can always manually generate picks as well.'
               : 'Pro subscribers get automatic daily pick generation. Free users can still generate picks manually.'}
           </Text>
 
-          {autoGenerate && canUseAutopilot && (
+          {autoGenerate && canUseAutopilotResolved && (
             <>
               <View style={styles.timePickerRow}>
                 <Text style={[styles.inputLabel, { color: theme.colors.onSurface, marginBottom: 0 }]}>
@@ -987,7 +997,10 @@ export default function AgentSettingsScreen() {
           <ToggleInput
             value={isPublic}
             onChange={(v) => {
-              if (v && !canCreatePublicAgent) {
+              if (isEntitlementsLoading) {
+                return;
+              }
+              if (v && !canCreatePublicAgentResolved) {
                 Alert.alert(
                   'Pro Feature',
                   'Only Pro users can make agents public and appear on the leaderboard.'
@@ -999,8 +1012,9 @@ export default function AgentSettingsScreen() {
             }}
             label="Public Agent"
             description="Allow your agent to appear on the leaderboard"
+            disabled={isEntitlementsLoading}
           />
-          {!canCreatePublicAgent && (
+          {!isEntitlementsLoading && !canCreatePublicAgentResolved && (
             <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
               Free agents are private by default and cannot be made public.
             </Text>

@@ -75,7 +75,8 @@ serve(async (req) => {
       console.log('Request body received:', JSON.stringify(body));
     } catch (parseError) {
       console.error('Error parsing request body:', parseError);
-      throw new Error('Invalid request body: ' + (parseError.message || 'Failed to parse JSON'));
+      const parseMessage = parseError instanceof Error ? parseError.message : 'Failed to parse JSON';
+      throw new Error('Invalid request body: ' + parseMessage);
     }
 
     const { app_user_id, entitlement_identifier, duration, end_time_ms } = body;
@@ -133,7 +134,7 @@ serve(async (req) => {
       console.log('✗ WARNING: end_time_ms not in requestBody!');
     }
     
-    const revenueCatResponse = await fetch(revenueCatUrl, {
+    let grantResponse = await fetch(revenueCatUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${revenueCatSecretKey}`,
@@ -142,12 +143,12 @@ serve(async (req) => {
       body: JSON.stringify(requestBody),
     });
 
-    if (!revenueCatResponse.ok) {
-      const errorText = await revenueCatResponse.text();
-      console.error('RevenueCat API error:', revenueCatResponse.status, errorText);
+    if (!grantResponse.ok) {
+      const errorText = await grantResponse.text();
+      console.error('RevenueCat API error:', grantResponse.status, errorText);
       
       // If 404, try to get the subscriber first to create them, then retry
-      if (revenueCatResponse.status === 404) {
+      if (grantResponse.status === 404) {
         try {
           // Try to get the subscriber - this will create them if they don't exist
           const getSubscriberUrl = `https://api.revenuecat.com/v2/subscribers/${app_user_id}`;
@@ -173,18 +174,7 @@ serve(async (req) => {
             });
             
             if (retryResponse.ok) {
-              const retryData = await retryResponse.json();
-              return new Response(
-                JSON.stringify({
-                  success: true,
-                  message: 'Entitlement granted successfully',
-                  data: retryData,
-                }),
-                {
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                  status: 200,
-                }
-              );
+              grantResponse = retryResponse;
             }
           }
         } catch (retryError) {
@@ -198,10 +188,12 @@ serve(async (req) => {
         }
       }
       
-      throw new Error(`RevenueCat API error: ${revenueCatResponse.status} - ${errorText}`);
+      if (!grantResponse.ok) {
+        throw new Error(`RevenueCat API error: ${grantResponse.status} - ${errorText}`);
+      }
     }
 
-    const revenueCatData = await revenueCatResponse.json();
+    const revenueCatData = await grantResponse.json();
 
     // Sync the updated entitlement to Supabase so it shows in admin panel
     try {
@@ -367,4 +359,3 @@ serve(async (req) => {
     );
   }
 });
-

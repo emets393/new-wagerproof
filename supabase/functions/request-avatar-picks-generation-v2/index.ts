@@ -6,6 +6,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { resolvePremiumAccess } from '../shared/entitlements.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,14 +69,20 @@ serve(async (req) => {
       return errorResponse(400, 'Missing or invalid avatar_id');
     }
 
+    const { hasPremiumAccess } = await resolvePremiumAccess(serviceClient, userId);
+    if (!hasPremiumAccess) {
+      return errorResponse(403, 'Upgrade to Pro to generate picks for this agent.');
+    }
+
     // -------------------------------------------------------------------------
-    // 3. Enqueue via SQL (entitlement + ownership checked in DB function)
+    // 3. Enqueue via SQL (ownership checked in DB function; entitlement verified above)
     // -------------------------------------------------------------------------
     const { data: runId, error: enqueueError } = await serviceClient.rpc(
-      'enqueue_manual_generation_run_v2',
+      'enqueue_manual_generation_run_v3',
       {
         p_user_id: userId,
         p_avatar_id: avatarId,
+        p_has_active_entitlement: true,
         p_idempotency_key: idempotencyKey,
       }
     );
@@ -97,11 +104,12 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     // 4. Dispatch a worker immediately (fire-and-forget)
     // -------------------------------------------------------------------------
-    serviceClient.rpc('dispatch_generation_workers_v2', { p_max_dispatches: 1 })
-      .then(({ error }) => {
-        if (error) console.warn('[request-generation-v2] Dispatch hint failed (non-fatal):', error.message);
-      })
-      .catch(() => { /* non-fatal: cron will pick it up */ });
+    void (async () => {
+      const { error } = await serviceClient.rpc('dispatch_generation_workers_v2', { p_max_dispatches: 1 });
+      if (error) {
+        console.warn('[request-generation-v2] Dispatch hint failed (non-fatal):', error.message);
+      }
+    })();
 
     // -------------------------------------------------------------------------
     // 5. Return run metadata

@@ -80,11 +80,17 @@ export default function CreateAgentScreen() {
   // Create mutation
   const createMutation = useCreateAgent();
   const { data: agents } = useUserAgents();
-  const { canCreateAnotherAgent, isPro, isAdmin, proMaxActiveAgents } = useAgentEntitlements();
+  const {
+    canCreateAnotherAgent,
+    isPro,
+    isAdmin,
+    isLoading: isEntitlementsLoading,
+    proMaxActiveAgents,
+  } = useAgentEntitlements();
 
   const totalCount = agents?.length || 0;
   const activeCount = agents?.filter((a) => a.is_active).length || 0;
-  const autoModeForcedOff = !isAdmin && isPro && activeCount >= proMaxActiveAgents;
+  const autoModeForcedOff = !isEntitlementsLoading && !isAdmin && isPro && activeCount >= proMaxActiveAgents;
 
   useEffect(() => {
     if (autoModeForcedOff && formState.auto_generate) {
@@ -265,6 +271,14 @@ export default function CreateAgentScreen() {
 
   // Handle create agent
   const handleCreate = useCallback(async () => {
+    if (isEntitlementsLoading) {
+      Alert.alert(
+        'Checking Subscription',
+        'We’re still verifying your subscription access. Please try again in a moment.',
+      );
+      return;
+    }
+
     if (!canCreateAnotherAgent(activeCount, totalCount)) {
       Alert.alert(
         'Agent Limit Reached',
@@ -307,7 +321,7 @@ export default function CreateAgentScreen() {
         error?.message || 'Failed to create agent. Please try again.'
       );
     }
-  }, [formState, createMutation, canCreateAnotherAgent, isPro, isAdmin, activeCount, totalCount, autoModeForcedOff]);
+  }, [formState, createMutation, canCreateAnotherAgent, isPro, isAdmin, activeCount, totalCount, autoModeForcedOff, isEntitlementsLoading]);
 
   // Render current screen content
   const renderScreenContent = () => {
@@ -361,7 +375,7 @@ export default function CreateAgentScreen() {
             formState={formState}
             autoGenerate={formState.auto_generate}
             liveAutoAgentsCount={activeCount}
-            maxLiveAutoAgents={isAdmin ? null : isPro ? proMaxActiveAgents : null}
+            maxLiveAutoAgents={isEntitlementsLoading ? null : isAdmin ? null : isPro ? proMaxActiveAgents : null}
             autoModeForcedOff={autoModeForcedOff}
             onAutoGenerateChange={(value) => updateFormState('auto_generate', value)}
             autoGenerateTime={formState.auto_generate_time}
@@ -369,7 +383,7 @@ export default function CreateAgentScreen() {
             autoGenerateTimezone={formState.auto_generate_timezone}
             onAutoGenerateTimezoneChange={(value) => updateFormState('auto_generate_timezone', value)}
             onCreate={handleCreate}
-            isCreating={createMutation.isPending}
+            isCreating={createMutation.isPending || isEntitlementsLoading}
           />
         );
       default:

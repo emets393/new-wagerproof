@@ -24,6 +24,12 @@ const INFO_ONLY_EVENTS = new Set([
   'UNCANCELLATION',     // User re-enabled auto-renew — still active, no DB change needed
 ]);
 
+const ENTITLEMENT_IDENTIFIER = Deno.env.get('REVENUECAT_ENTITLEMENT_IDENTIFIER') || 'WagerProof Pro';
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200 });
@@ -52,8 +58,6 @@ serve(async (req) => {
 
     const eventType: string = event.type;
     const appUserId: string | undefined = event.app_user_id;
-    const entitlements: Record<string, any> | undefined = event.subscriber_attributes?.entitlements || event.entitlement_ids;
-
     console.log(`RevenueCat webhook: ${eventType} for user ${appUserId}`);
 
     if (!appUserId) {
@@ -93,7 +97,7 @@ serve(async (req) => {
 
     const subscriberData = await subscriberRes.json();
     const subscriber = subscriberData.subscriber;
-    const entitlement = subscriber?.entitlements?.['WagerProof Pro'];
+    const entitlement = subscriber?.entitlements?.[ENTITLEMENT_IDENTIFIER];
 
     // Determine active status
     let isActive = false;
@@ -133,15 +137,54 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const { error: updateError, count } = await supabase
+    let resolvedUserId: string | null = null;
+
+    if (isUuid(appUserId)) {
+      const { data: profileByUserId, error: profileByUserIdError } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('user_id', appUserId)
+        .maybeSingle();
+
+      if (profileByUserIdError) {
+        console.error('Failed to resolve profile by user_id:', profileByUserIdError.message);
+        return new Response('Database lookup failed', { status: 500 });
+      }
+
+      resolvedUserId = profileByUserId?.user_id ?? null;
+    }
+
+    if (!resolvedUserId) {
+      const { data: profileByRevenueCatId, error: profileByRevenueCatIdError } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('revenuecat_customer_id', appUserId)
+        .maybeSingle();
+
+      if (profileByRevenueCatIdError) {
+        console.error('Failed to resolve profile by revenuecat_customer_id:', profileByRevenueCatIdError.message);
+        return new Response('Database lookup failed', { status: 500 });
+      }
+
+      resolvedUserId = profileByRevenueCatId?.user_id ?? null;
+    }
+
+    if (!resolvedUserId) {
+      console.error(`No profile found for app_user_id=${appUserId}. Returning 500 so RevenueCat retries.`);
+      return new Response('Profile not found', { status: 500 });
+    }
+
+    const { data: updatedProfiles, error: updateError } = await supabase
       .from('profiles')
       .update({
         subscription_active: isActive,
         subscription_status: subscriptionStatus ?? (isActive ? 'active' : 'inactive'),
         subscription_expires_at: expiresAt,
-        revenuecat_customer_id: appUserId,
+        // Normalize RC customer id to canonical identified user UUID in profiles.
+        revenuecat_customer_id: resolvedUserId,
       })
-      .eq('user_id', appUserId);
+      .eq('user_id', resolvedUserId)
+      .select('user_id');
 
     if (updateError) {
       console.error('Failed to update profile:', updateError.message);
@@ -149,7 +192,12 @@ serve(async (req) => {
       return new Response('Database update failed', { status: 500 });
     }
 
-    console.log(`Updated subscription_active=${isActive} for user ${appUserId} (event: ${eventType})`);
+    if (!updatedProfiles || updatedProfiles.length === 0) {
+      console.error(`Profile update matched 0 rows for resolved user ${resolvedUserId}. Returning 500 for retry.`);
+      return new Response('No profile rows updated', { status: 500 });
+    }
+
+    console.log(`Updated subscription_active=${isActive} for user ${resolvedUserId} (event: ${eventType})`);
 
     return new Response(
       JSON.stringify({ ok: true, subscription_active: isActive }),
