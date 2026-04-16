@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Linking, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { useTheme, Card, Button as PaperButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProAccess } from '@/hooks/useProAccess';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/services/supabase';
 import {
   didPaywallGrantEntitlement,
   ENTITLEMENT_IDENTIFIER,
@@ -16,6 +18,7 @@ import {
 } from '@/services/revenuecat';
 
 const { width } = Dimensions.get('window');
+const DISCORD_LINK_URL = "https://gnjrklxotmbvnxbnnqgq.supabase.co/functions/v1/discord-callback";
 
 export default function DiscordScreen() {
   const theme = useTheme();
@@ -24,7 +27,36 @@ export default function DiscordScreen() {
   const { isPro, isLoading } = useProAccess();
   const { isDark } = useThemeContext();
   const { refreshCustomerInfo } = useRevenueCat();
+  const { user } = useAuth();
+  const [discordLinked, setDiscordLinked] = useState(false);
+  const [linkLoading, setLinkLoading] = useState(true);
   const discordInviteUrl = "https://discord.gg/gwy9y7XSDV";
+
+  useEffect(() => {
+    async function checkDiscordLink() {
+      if (!user) {
+        setLinkLoading(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("discord_user_id")
+        .eq("user_id", user.id)
+        .single();
+      setDiscordLinked(!!data?.discord_user_id);
+      setLinkLoading(false);
+    }
+    checkDiscordLink();
+  }, [user]);
+
+  const handleLinkDiscord = async () => {
+    if (!user) return;
+    try {
+      await Linking.openURL(`${DISCORD_LINK_URL}?user_id=${user.id}`);
+    } catch (error) {
+      console.error('Error opening Discord link:', error);
+    }
+  };
 
   const handleJoinDiscord = async () => {
     try {
@@ -238,7 +270,51 @@ export default function DiscordScreen() {
           </Text>
         </View>
 
-        {/* Main Card */}
+        {/* Step 1: Link Discord Account */}
+        <Card style={[styles.mainCard, { backgroundColor: theme.colors.surface }]}>
+          <Card.Content style={styles.mainCardContent}>
+            <View style={[styles.iconCircle, { backgroundColor: discordLinked ? 'rgba(34, 211, 95, 0.15)' : 'rgba(88, 101, 242, 0.15)' }]}>
+              <MaterialCommunityIcons
+                name={discordLinked ? "check-circle" : "link-variant"}
+                size={48}
+                color={discordLinked ? "#22D35F" : "#5865F2"}
+              />
+            </View>
+
+            <Text style={[styles.cardTitle, { color: theme.colors.onSurface }]}>
+              {discordLinked ? "Discord Account Linked!" : "Step 1: Link Your Discord Account"}
+            </Text>
+
+            <Text style={[styles.cardDescription, { color: theme.colors.onSurfaceVariant }]}>
+              {discordLinked
+                ? "Your Discord account is connected. You have the WagerProof Member role and full access to subscriber-only channels."
+                : "Link your Discord account to verify your subscription and get the WagerProof Member role with access to exclusive channels."
+              }
+            </Text>
+
+            {!linkLoading && !discordLinked && (
+              <TouchableOpacity
+                onPress={handleLinkDiscord}
+                activeOpacity={0.8}
+                style={styles.joinButtonContainer}
+              >
+                <LinearGradient
+                  colors={['#5865F2', '#7289DA']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.joinButton}
+                >
+                  <MaterialCommunityIcons name="link-variant" size={24} color="white" />
+                  <Text style={styles.joinButtonText}>
+                    Link Discord Account
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Step 2: Join the Server */}
         <Card style={[styles.mainCard, { backgroundColor: theme.colors.surface }]}>
           <Card.Content style={styles.mainCardContent}>
             <View style={[styles.iconCircle, { backgroundColor: 'rgba(34, 211, 95, 0.15)' }]}>
@@ -246,14 +322,14 @@ export default function DiscordScreen() {
             </View>
 
             <Text style={[styles.cardTitle, { color: theme.colors.onSurface }]}>
-              As a member of the WagerProof community, you have access to our private Discord server!
+              {discordLinked ? "You're all set! Join the server below." : "Step 2: Join the Discord Server"}
             </Text>
 
             <Text style={[styles.cardDescription, { color: theme.colors.onSurfaceVariant }]}>
               Click below to join other community members! Enable notifications to receive instant alerts for Editors Picks on your phone, and share betting insights, strategies, and analysis with the community.
             </Text>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={handleJoinDiscord}
               activeOpacity={0.8}
               style={styles.joinButtonContainer}
@@ -266,7 +342,7 @@ export default function DiscordScreen() {
               >
                 <MaterialCommunityIcons name="chat" size={24} color="white" />
                 <Text style={styles.joinButtonText}>
-                  Join Exclusive Discord Community
+                  Join Discord Server
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
