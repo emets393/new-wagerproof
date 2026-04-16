@@ -1,11 +1,41 @@
 import { DiscordLogo } from "phosphor-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, MessageCircle, Shield, Bell } from "lucide-react";
+import { Users, MessageCircle, Shield, Bell, CheckCircle2, Link2 } from "lucide-react";
 import Dither from "@/components/Dither";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+
+const DISCORD_LINK_URL = "https://gnjrklxotmbvnxbnnqgq.supabase.co/functions/v1/discord-callback";
 
 export default function Discord() {
   const discordInviteUrl = "https://discord.gg/gwy9y7XSDV";
+  const { user } = useAuth();
+  const [discordLinked, setDiscordLinked] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function checkDiscordLink() {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("discord_user_id")
+        .eq("user_id", user.id)
+        .single();
+      setDiscordLinked(!!data?.discord_user_id);
+      setLoading(false);
+    }
+    checkDiscordLink();
+  }, [user]);
+
+  const handleLinkDiscord = () => {
+    if (!user) return;
+    window.open(`${DISCORD_LINK_URL}?user_id=${user.id}`, "_blank");
+  };
 
   return (
     <div className="min-h-screen relative bg-black/30 backdrop-blur-sm p-6 overflow-hidden rounded-3xl">
@@ -23,7 +53,7 @@ export default function Discord() {
           mouseRadius={0}
         />
       </div>
-      
+
       <div className="relative z-10 max-w-4xl mx-auto">
         <div className="text-center mb-8 pt-8">
           <div className="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-full bg-gradient-to-br from-[#5865F2] to-[#7289DA] shadow-2xl">
@@ -32,10 +62,60 @@ export default function Discord() {
           <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">
             Join Our Discord Community
           </h1>
-          
+
         </div>
 
-        <Card 
+        {/* Step 1: Link Discord Account */}
+        <Card
+          className="mb-6 border-white/20 shadow-2xl"
+          style={{
+            background: 'rgba(0, 0, 0, 0.3)',
+            backdropFilter: 'blur(40px)',
+            WebkitBackdropFilter: 'blur(40px)',
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.5)'
+          }}
+        >
+          <CardContent className="pt-8 pb-8">
+            <div className="text-center space-y-6">
+              <div className="inline-block p-4 bg-white/10 rounded-full mb-4">
+                {discordLinked ? (
+                  <CheckCircle2 className="w-12 h-12 text-green-400" />
+                ) : (
+                  <Link2 className="w-12 h-12 text-blue-400" />
+                )}
+              </div>
+
+              <h2 className="text-2xl font-bold text-white">
+                {discordLinked ? "Discord Account Linked!" : "Step 1: Link Your Discord Account"}
+              </h2>
+
+              <p className="text-lg text-white/80 max-w-xl mx-auto leading-relaxed">
+                {discordLinked
+                  ? "Your Discord account is connected. You have the WagerProof Member role and full access to subscriber-only channels."
+                  : "Link your Discord account to verify your subscription and get the WagerProof Member role with access to exclusive channels."
+                }
+              </p>
+
+              {!loading && !discordLinked && (
+                <div className="pt-4">
+                  <Button
+                    onClick={handleLinkDiscord}
+                    size="lg"
+                    className="bg-gradient-to-r from-[#5865F2] to-[#7289DA] hover:from-[#4752C4] hover:to-[#5B6EBC] text-white shadow-lg hover:shadow-xl transition-all duration-300 text-lg px-8 py-6 h-auto"
+                  >
+                    <div className="flex items-center gap-3">
+                      <DiscordLogo className="w-6 h-6" weight="fill" />
+                      <span>Link Discord Account</span>
+                    </div>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Step 2: Join the Server */}
+        <Card
           className="mb-8 border-white/20 shadow-2xl"
           style={{
             background: 'rgba(0, 0, 0, 0.3)',
@@ -49,11 +129,11 @@ export default function Discord() {
               <div className="inline-block p-4 bg-white/10 rounded-full mb-4">
                 <Shield className="w-12 h-12 text-green-400" />
               </div>
-              
+
               <h2 className="text-2xl font-bold text-white">
-                As a member of the WagerProof community, you have access to our private Discord server!
+                {discordLinked ? "You're all set! Join the server below." : "Step 2: Join the Discord Server"}
               </h2>
-              
+
               <p className="text-lg text-white/80 max-w-xl mx-auto leading-relaxed">
                 Click below to join other community members! Enable notifications to receive instant alerts for Editors Picks on your phone, and share betting insights, strategies, and analysis with the community.
               </p>
@@ -64,14 +144,14 @@ export default function Discord() {
                   size="lg"
                   className="bg-gradient-to-r from-[#5865F2] to-[#7289DA] hover:from-[#4752C4] hover:to-[#5B6EBC] text-white shadow-lg hover:shadow-xl transition-all duration-300 text-lg px-8 py-6 h-auto"
                 >
-                  <a 
-                    href={discordInviteUrl} 
-                    target="_blank" 
+                  <a
+                    href={discordInviteUrl}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-3"
                   >
                     <DiscordLogo className="w-6 h-6" weight="fill" />
-                    <span>Chat Now! 💬</span>
+                    <span>Chat Now!</span>
                   </a>
                 </Button>
               </div>

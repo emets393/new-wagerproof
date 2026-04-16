@@ -2424,6 +2424,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          discord_user_id: string | null
           display_name: string | null
           id: string
           onboarding_completed: boolean
@@ -2439,6 +2440,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          discord_user_id?: string | null
           display_name?: string | null
           id?: string
           onboarding_completed?: boolean
@@ -2454,6 +2456,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          discord_user_id?: string | null
           display_name?: string | null
           id?: string
           onboarding_completed?: boolean
