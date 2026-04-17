@@ -91,7 +91,7 @@ export interface BullpenFatigue {
 
 export interface SuggestedPick {
   game_pk: number;
-  bet_type: 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou';
+  bet_type: 'full_ml' | 'full_ou' | 'full_rl' | 'f5_ml' | 'f5_ou' | 'f5_rl';
   pick: string;
   matchup: string;
   home_team: string;
