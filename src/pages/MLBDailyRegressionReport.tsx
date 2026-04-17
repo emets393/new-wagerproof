@@ -6,7 +6,7 @@ import type {
   PitcherRegression, BattingRegression, BullpenFatigue,
   SuggestedPick, YesterdayRecap, AccuracyBucket,
   BetTypeAccuracy, PerfectStorm, WeatherParkFlag, ModelAccuracy,
-  CumulativeRecord,
+  CumulativeRecord, CumulativeBucket,
 } from '@/hooks/useMLBRegressionReport';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -648,7 +648,7 @@ function BullpenFatigueSection({ bullpens }: { bullpens: BullpenFatigue[] }) {
   );
 }
 
-function PerfectStormSection({ storms }: { storms: PerfectStorm[] }) {
+function PerfectStormSection({ storms, record }: { storms: PerfectStorm[]; record?: CumulativeBucket | null }) {
   if (!storms.length) return null;
 
   return (
@@ -657,6 +657,18 @@ function PerfectStormSection({ storms }: { storms: PerfectStorm[] }) {
         <CardTitle className="text-lg flex items-center gap-2">
           <Zap className="h-5 w-5 text-yellow-500" /> Perfect Storm Matchups
         </CardTitle>
+        {record && (record.wins > 0 || record.losses > 0) && (
+          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground mt-2">
+            <span className="font-medium uppercase tracking-wide">Record:</span>
+            <span className="font-mono text-foreground">{record.wins}-{record.losses}-{record.pushes}</span>
+            <span className={`font-mono font-medium ${record.units_won >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {record.units_won >= 0 ? '+' : ''}{record.units_won.toFixed(2)}u
+            </span>
+            <span className={`font-mono font-medium ${record.roi_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {record.roi_pct >= 0 ? '+' : ''}{record.roi_pct.toFixed(1)}% ROI
+            </span>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-3">
         {storms.map((s, i) => (
@@ -671,7 +683,24 @@ function PerfectStormSection({ storms }: { storms: PerfectStorm[] }) {
                   <Badge variant="outline">Score: {s.storm_score}/10</Badge>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">{s.narrative}</p>
+              <p className="text-sm text-muted-foreground mb-3">{s.narrative}</p>
+              {s.suggested_pick && (
+                <div className="mt-3 p-3 rounded-lg border border-yellow-500/50 bg-yellow-500/10">
+                  <div className="text-xs font-medium text-yellow-600 dark:text-yellow-400 mb-2">Suggested Pick</div>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <div className="font-semibold text-sm">{s.suggested_pick.pick}</div>
+                      <div className="text-xs text-muted-foreground">{s.suggested_pick.bet_type.replace('_', ' ').toUpperCase()}</div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="font-mono text-sm font-bold">
+                        {s.suggested_pick.edge_at_suggestion >= 0 ? '+' : ''}{s.suggested_pick.edge_at_suggestion.toFixed(2)}% edge
+                      </div>
+                      <div className="text-xs text-muted-foreground">{s.suggested_pick.confidence_at_suggestion}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -876,7 +905,7 @@ export default function MLBDailyRegressionReport() {
       <LRSplitsSection splits={report.lr_splits_today} />
 
       {/* Perfect Storms */}
-      <PerfectStormSection storms={report.perfect_storm_matchups} />
+      <PerfectStormSection storms={report.perfect_storm_matchups} record={report.perfect_storm_record} />
 
       {/* Weather & Park */}
       <WeatherSection flags={report.weather_park_flags} />

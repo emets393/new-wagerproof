@@ -177,6 +177,7 @@ export interface PerfectStorm {
   pitcher: PitcherRegression;
   batting: BattingRegression;
   narrative: string;
+  suggested_pick?: SuggestedPick | null;
 }
 
 export interface WeatherParkFlag {
@@ -219,6 +220,7 @@ export interface MLBRegressionReport {
   suggested_picks: SuggestedPick[];
   yesterday_recap: YesterdayRecap[];
   cumulative_record: CumulativeRecord;
+  perfect_storm_record?: CumulativeBucket;
   model_accuracy: ModelAccuracy;
   weather_park_flags: WeatherParkFlag[];
   lr_splits_today: LRSplitEntry[];
