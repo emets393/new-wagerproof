@@ -97,9 +97,10 @@ export default function PublicAgentDetail() {
   const [followLoading, setFollowLoading] = useState(false);
 
   const isOwnAgent = agent?.user_id === user?.id;
+  const canSeePicks = canViewAgentPicks || isOwnAgent;
 
   const { data: picks, isLoading: picksLoading } = useAgentPicks(
-    canViewAgentPicks ? id : undefined,
+    canSeePicks ? id : undefined,
     {
       sport: sportFilter === 'all' ? undefined : sportFilter,
       result: resultFilter === 'all' ? undefined : resultFilter,
@@ -236,8 +237,8 @@ export default function PublicAgentDetail() {
         <StatCard label="Record" value={formatRecord(perf)} />
         <StatCard
           label="Net Units"
-          value={isPro ? formatNetUnits(perf?.net_units ?? 0) : undefined}
-          locked={!isPro}
+          value={(isPro || isOwnAgent) ? formatNetUnits(perf?.net_units ?? 0) : undefined}
+          locked={!isPro && !isOwnAgent}
           positive={perf ? perf.net_units >= 0 : undefined}
         />
         <StatCard
@@ -248,7 +249,7 @@ export default function PublicAgentDetail() {
       </div>
 
       {/* Performance Charts */}
-      {canViewAgentPicks ? (
+      {canSeePicks ? (
         <AgentPerformanceCharts agent={agent} />
       ) : (
         <Card>
@@ -265,7 +266,7 @@ export default function PublicAgentDetail() {
           <CardTitle className="text-base">Pick History</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {canViewAgentPicks ? (
+          {canSeePicks ? (
             <>
               <div className="flex flex-wrap gap-3">
                 <Select value={sportFilter} onValueChange={(v) => setSportFilter(v as Sport | 'all')}>
