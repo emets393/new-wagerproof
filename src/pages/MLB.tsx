@@ -699,8 +699,10 @@ export default function MLB() {
         </Card>
       )}
 
-      <div className="grid gap-2 sm:gap-3 md:gap-4 auto-rows-fr" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
-        {sortedPredictions.map((prediction) => {
+      <div className="space-y-6 sm:space-y-8">
+        <div className="-mx-4 md:mx-0">
+          <div className="grid gap-2 sm:gap-3 md:gap-4 auto-rows-fr" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' }}>
+            {sortedPredictions.map((prediction) => {
           const rowAny = prediction as any;
           const awayTeam = rowAny.away_team_name ?? rowAny.away_team ?? rowAny.away_team_full_name ?? 'Away Team';
           const homeTeam = rowAny.home_team_name ?? rowAny.home_team ?? rowAny.home_team_full_name ?? 'Home Team';
@@ -1136,6 +1138,8 @@ export default function MLB() {
             </NFLGameCard>
           );
         })}
+          </div>
+        </div>
       </div>
     </div>
   );
