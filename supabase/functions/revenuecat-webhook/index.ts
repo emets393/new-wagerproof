@@ -180,8 +180,13 @@ serve(async (req) => {
         subscription_active: isActive,
         subscription_status: subscriptionStatus ?? (isActive ? 'active' : 'inactive'),
         subscription_expires_at: expiresAt,
-        // Normalize RC customer id to canonical identified user UUID in profiles.
-        revenuecat_customer_id: resolvedUserId,
+        // Preserve the real RC identity (the app_user_id RC sent us) rather
+        // than normalizing to the Supabase user_id. For stranded users whose
+        // alias merge didn't propagate, only the anonymous id resolves in
+        // RC's API — erasing it here breaks future event resolution AND
+        // breaks server-side RC lookups. Mobile writes originalAppUserId
+        // for the same reason; both writers converge on the real identity.
+        revenuecat_customer_id: appUserId,
       })
       .eq('user_id', resolvedUserId)
       .select('user_id');

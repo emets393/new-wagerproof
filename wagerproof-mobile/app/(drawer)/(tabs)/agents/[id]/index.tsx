@@ -280,9 +280,14 @@ export default function AgentDetailScreen() {
       performance: detailSnapshotV2.performance ?? null,
     };
   }, [detailSnapshotV2?.agent, detailSnapshotV2?.performance]);
-  const actualCanViewAgentPicks =
-    detailSnapshotV2?.can_view_agent_picks ?? (!isEntitlementsLoading && clientCanViewAgentPicks);
-  const isPicksAccessLoading = isLoadingDetailSnapshotV2 || isEntitlementsLoading;
+  // Gate UI entirely from local RC SDK state (matches Honeydew pattern).
+  // Do NOT trust detailSnapshotV2.can_view_agent_picks — the server used to
+  // compute that via a live RC fetch which 404s for users stranded under an
+  // anonymous RC id, incorrectly locking paying users out. The server now
+  // always returns picks data to anyone who can read the agent; the client
+  // is the authority for display gating.
+  const isPicksAccessLoading = isEntitlementsLoading;
+  const actualCanViewAgentPicks = !isEntitlementsLoading && clientCanViewAgentPicks;
   const canViewAgentPicks = isPicksAccessLoading ? true : actualCanViewAgentPicks;
 
   // Fetch pick history

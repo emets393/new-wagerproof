@@ -239,14 +239,24 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       // to the mirror are strictly better — the mirror is a secondary record
       // and the damage untrusted sources can do is already bounded by the
       // trust-downgrade guard above.
+      //
+      // revenuecat_customer_id MUST be the real RC identity (originalAppUserId)
+      // — not the Supabase user_id. For users whose anon→userId alias merge
+      // didn't propagate on RC's backend, only the anon id resolves a RC API
+      // lookup. Writing userId there strands them. RC treats all aliased ids
+      // as interchangeable, so originalAppUserId is safe for ALL users.
       const expiresAt = activeEntitlement?.expirationDate ?? null;
+      const rcAppUserId =
+        (info as any)?.originalAppUserId ||
+        (info as any)?.appUserId ||
+        userId;
       supabase
         .from('profiles')
         .update({
           subscription_active: hasEntitlement,
           subscription_status: nextSubscriptionType ?? (hasEntitlement ? 'active' : 'inactive'),
           subscription_expires_at: expiresAt,
-          revenuecat_customer_id: userId,
+          revenuecat_customer_id: rcAppUserId,
         })
         .eq('user_id', userId)
         .then(({ error: syncError }) => {

@@ -80,6 +80,10 @@ serve(async (req) => {
     const user = await getAuthenticatedUser(authHeader, supabaseUrl, supabaseAnonKey);
     const userId = user?.id ?? null;
 
+    console.log(
+      `[agent-authorized-action-v1] action=${action} hasAuthHeader=${!!authHeader} authHeaderStart=${authHeader?.substring(0, 20) ?? 'null'} resolvedUserId=${userId ?? 'null'}`,
+    );
+
     const requiresAuth = action === 'create_agent' || action === 'update_agent' || action === 'request_generation';
     if (requiresAuth && !userId) {
       return errorResponse(401, 'User authentication required');
@@ -103,7 +107,21 @@ serve(async (req) => {
           return errorResponse(500, 'Failed to load agent detail snapshot');
         }
 
-        return successResponse(data);
+        console.log(
+          `[detail_snapshot] agent=${agentId} userId=${userId} hasPremiumAccess=${hasPremiumAccess} isAdmin=${isAdmin} todays_picks.len=${(data as any)?.todays_picks?.length ?? 'null'} can_view=${(data as any)?.can_view_agent_picks}`,
+        );
+
+        const augmented = {
+          ...(data as any),
+          _debug: {
+            server_has_premium: hasPremiumAccess,
+            server_is_admin: isAdmin,
+            entitlement_source: (rcEntitlement as any)?.source ?? 'admin-or-null',
+            entitlement_active: (rcEntitlement as any)?.isActive ?? null,
+          },
+        };
+
+        return successResponse(augmented);
       }
 
       case 'picks_page': {
@@ -308,14 +326,19 @@ async function getAuthenticatedUser(
 ) {
   if (!authHeader) return null;
 
+  // Strip "Bearer " prefix to get the raw JWT.
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+  if (!token) return null;
+
   const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: { Authorization: authHeader },
-    },
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const { data, error } = await authClient.auth.getUser();
+  // Pass the token explicitly to getUser — without it, supabase-js v2 looks
+  // at the in-memory session (empty in edge function context) rather than
+  // validating the Authorization header. That causes getUser to return no
+  // user even when the header carries a valid JWT.
+  const { data, error } = await authClient.auth.getUser(token);
   if (error || !data.user) {
     console.warn('[agent-authorized-action-v1] auth lookup failed:', error?.message);
     return null;

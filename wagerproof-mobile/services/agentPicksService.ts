@@ -172,18 +172,31 @@ export async function generatePicks(agentId: string, _isAdmin: boolean = false):
       throw new Error('User not authenticated');
     }
 
-    const data = await invokeAgentAuthorizedAction<{
-      success: boolean;
-      run_id: string;
-      status: string;
-    }>(
+    // Call request-avatar-picks-generation-v2 directly (matches web). This
+    // endpoint has verify_jwt=true — the Supabase platform validates the
+    // bearer at the gateway, so the user token reliably reaches the function.
+    // agent-authorized-action-v1 uses verify_jwt=false and has seen the auth
+    // header arrive empty from certain supabase-js versions, causing 401s.
+    const { data, error } = await (supabase as any).functions.invoke(
+      'request-avatar-picks-generation-v2',
       {
-        action: 'request_generation',
-        agent_id: agentId,
+        body: { avatar_id: agentId },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       },
-      'Failed to request pick generation',
     );
-    if (!data?.success) throw new Error('Failed to enqueue generation');
+
+    if (error) {
+      let detail = '';
+      try {
+        const ctx = (error as any).context;
+        if (ctx && typeof ctx.json === 'function') {
+          const body = await ctx.json();
+          detail = body?.error || body?.message || '';
+        }
+      } catch { /* ignore parse failure */ }
+      throw new Error(detail || error.message || 'Failed to request pick generation');
+    }
+    if (!data?.success) throw new Error(data?.error || 'Failed to enqueue generation');
 
     const runId = data.run_id;
     if (!runId) throw new Error('No run_id returned from generation request');

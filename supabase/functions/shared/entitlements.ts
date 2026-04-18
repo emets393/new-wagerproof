@@ -1,6 +1,7 @@
 import {
   fetchRevenueCatEntitlementState,
   REVENUECAT_ENTITLEMENT_IDENTIFIER,
+  RevenueCatSubscriberNotFoundError,
   type RevenueCatEntitlementState,
 } from './revenuecat.ts';
 
@@ -21,12 +22,59 @@ export async function getVerifiedEntitlementState(
   serviceClient: any,
   userId: string,
 ): Promise<VerifiedRevenueCatEntitlementState> {
+  // Prefer the stored real RC identity (written by mobile's
+  // applyCustomerInfoState as originalAppUserId, and by the webhook as the
+  // event's app_user_id). For most users this equals userId. For users
+  // stranded under an anonymous RC id it's the anon id — the only identity
+  // RC's API will resolve. Fall back to userId if the mirror hasn't been
+  // populated yet (brand-new account before any sync/webhook).
+  const storedRcId = await getStoredRevenueCatCustomerId(serviceClient, userId);
+  const primaryRcId = storedRcId || userId;
+
   try {
     return {
-      ...(await fetchRevenueCatEntitlementState(userId, REVENUECAT_ENTITLEMENT_IDENTIFIER)),
+      ...(await fetchRevenueCatEntitlementState(primaryRcId, REVENUECAT_ENTITLEMENT_IDENTIFIER)),
       source: 'live',
     };
   } catch (error) {
+    // If the stored id 404s but it's different from userId, retry with
+    // userId — covers brief windows where mirror is stale or wrong.
+    if (error instanceof RevenueCatSubscriberNotFoundError && primaryRcId !== userId) {
+      try {
+        const fallbackState = await fetchRevenueCatEntitlementState(
+          userId,
+          REVENUECAT_ENTITLEMENT_IDENTIFIER,
+        );
+        return { ...fallbackState, source: 'live' };
+      } catch (retryError) {
+        if (retryError instanceof RevenueCatSubscriberNotFoundError) {
+          // Neither identity resolves — user is genuinely unknown to RC.
+          return {
+            entitlementIdentifier: REVENUECAT_ENTITLEMENT_IDENTIFIER,
+            isActive: false,
+            subscriptionStatus: null,
+            expiresAt: null,
+            productIdentifier: null,
+            source: 'live',
+          };
+        }
+        console.warn('[entitlements] retry with userId failed, using cache fallback:', retryError);
+        return await getCachedEntitlementState(serviceClient, userId);
+      }
+    }
+    if (error instanceof RevenueCatSubscriberNotFoundError) {
+      // Primary id was userId and RC doesn't know them — genuinely unknown.
+      return {
+        entitlementIdentifier: REVENUECAT_ENTITLEMENT_IDENTIFIER,
+        isActive: false,
+        subscriptionStatus: null,
+        expiresAt: null,
+        productIdentifier: null,
+        source: 'live',
+      };
+    }
+    // Transient/network error: fall open to lenient cache to avoid denying
+    // paying users during RC outages.
     console.warn('[entitlements] live RevenueCat lookup failed, using cache fallback:', error);
     return await getCachedEntitlementState(serviceClient, userId);
   }
@@ -119,4 +167,22 @@ async function getCachedEntitlementState(
     productIdentifier: null,
     source: 'cache',
   };
+}
+
+async function getStoredRevenueCatCustomerId(
+  serviceClient: any,
+  userId: string,
+): Promise<string | null> {
+  const { data, error } = await serviceClient
+    .from('profiles')
+    .select('revenuecat_customer_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[entitlements] failed to look up stored revenuecat_customer_id:', error.message);
+    return null;
+  }
+
+  return data?.revenuecat_customer_id ?? null;
 }

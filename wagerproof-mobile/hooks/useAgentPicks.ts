@@ -75,6 +75,9 @@ export function useAgentDetailSnapshot(agentId: string, options?: PickQueryOptio
     queryKey: ['agent-detail-snapshot-v2', agentId, user?.id],
     queryFn: async () => {
       const snapshot = await fetchAgentDetailSnapshotV2(agentId, user?.id);
+      console.log(
+        `[useAgentDetailSnapshot] agent=${agentId} can_view=${(snapshot as any)?.can_view_agent_picks} todays_picks.length=${snapshot.todays_picks?.length ?? 'undef'} run=${JSON.stringify(snapshot.todays_generation_run)} debug=${JSON.stringify((snapshot as any)?._debug)}`,
+      );
       if (snapshot.todays_picks && snapshot.todays_picks.length > 0) {
         snapshot.todays_picks = await enrichPicksWithOverlap(snapshot.todays_picks);
       }

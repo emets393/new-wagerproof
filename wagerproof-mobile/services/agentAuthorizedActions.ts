@@ -58,8 +58,23 @@ export async function invokeAgentAuthorizedAction<T>(
   body: AgentAuthorizedActionRequest,
   fallbackMessage: string,
 ): Promise<T> {
+  // Explicitly attach the bearer token. supabase.functions.invoke auto-attaches
+  // from the session in most cases, but the behavior has regressed in certain
+  // SDK versions and verify_jwt=false functions, leaving write actions without
+  // the Authorization header and returning 401 server-side. Explicit wins.
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: Record<string, string> = {};
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+
+  console.log(
+    `[invokeAgentAuthorizedAction] action=${(body as any).action} hasSession=${!!session} hasToken=${!!session?.access_token} tokenLen=${session?.access_token?.length ?? 0}`,
+  );
+
   const { data, error } = await (supabase as any).functions.invoke('agent-authorized-action-v1', {
     body,
+    headers,
   });
 
   if (error) {

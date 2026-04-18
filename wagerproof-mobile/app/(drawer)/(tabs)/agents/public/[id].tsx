@@ -139,9 +139,10 @@ export default function PublicAgentViewScreen() {
     }
     return agentDirect ?? null;
   }, [detailSnapshot, agentDirect]);
-  const actualCanViewAgentPicks =
-    detailSnapshot?.can_view_agent_picks ?? (!isEntitlementsLoading && clientCanViewAgentPicks);
-  const isPicksAccessLoading = isLoadingDetailSnapshot || isEntitlementsLoading;
+  // Gate UI entirely from local RC SDK state (matches Honeydew pattern).
+  // See comment in (drawer)/(tabs)/agents/[id]/index.tsx for rationale.
+  const isPicksAccessLoading = isEntitlementsLoading;
+  const actualCanViewAgentPicks = !isEntitlementsLoading && clientCanViewAgentPicks;
   const canViewAgentPicks = isPicksAccessLoading ? true : actualCanViewAgentPicks;
   const isLoadingAgent = !agent && (isLoadingDetailSnapshot || isLoadingAgentDirect);
   const isRefetchingAgent = isRefetchingDetailSnapshot || isRefetchingAgentDirect;
