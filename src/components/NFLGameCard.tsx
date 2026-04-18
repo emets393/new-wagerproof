@@ -58,8 +58,8 @@ export default function NFLGameCard({
   }
   
   return (
-    <div 
-      className="relative w-full"
+    <div
+      className="relative w-full min-w-0"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
