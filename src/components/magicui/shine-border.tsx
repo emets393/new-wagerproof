@@ -38,9 +38,11 @@ export default function ShineBorder({
         } as CSSProperties
       }
       className={cn(
-        // Defaults to full-width of the parent so consumers (like game cards) honor grid column bounds.
-        // Old defaults (w-fit, min-w-[300px], p-3) caused cards to overflow their grid cell on MLB.
-        "relative grid min-h-[60px] w-full min-w-0 place-items-center rounded-[--border-radius] bg-white p-0 text-black dark:bg-black dark:text-white",
+        // grid-cols-[minmax(0,1fr)] pins the inner track to the container width — without it,
+        // the implicit grid track auto-sizes to min-content and oversized children (wide MLB
+        // card panels) spill past the ShineBorder, overlapping neighbors in the page grid.
+        // overflow-hidden is belt-and-suspenders to clip the rounded corners cleanly.
+        "relative grid grid-cols-[minmax(0,1fr)] overflow-hidden min-h-[60px] w-full min-w-0 place-items-center rounded-[--border-radius] bg-white p-0 text-black dark:bg-black dark:text-white",
         className,
       )}
     >
