@@ -38,7 +38,9 @@ export default function ShineBorder({
         } as CSSProperties
       }
       className={cn(
-        "relative grid min-h-[60px] w-fit min-w-[300px] place-items-center rounded-[--border-radius] bg-white p-3 text-black dark:bg-black dark:text-white",
+        // Defaults to full-width of the parent so consumers (like game cards) honor grid column bounds.
+        // Old defaults (w-fit, min-w-[300px], p-3) caused cards to overflow their grid cell on MLB.
+        "relative grid min-h-[60px] w-full min-w-0 place-items-center rounded-[--border-radius] bg-white p-0 text-black dark:bg-black dark:text-white",
         className,
       )}
     >
