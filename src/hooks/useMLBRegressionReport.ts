@@ -91,7 +91,7 @@ export interface BullpenFatigue {
 
 export interface SuggestedPick {
   game_pk: number;
-  bet_type: 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou';
+  bet_type: 'full_ml' | 'full_ou' | 'full_rl' | 'f5_ml' | 'f5_ou' | 'f5_rl';
   pick: string;
   matchup: string;
   home_team: string;
@@ -177,6 +177,7 @@ export interface PerfectStorm {
   pitcher: PitcherRegression;
   batting: BattingRegression;
   narrative: string;
+  suggested_pick?: SuggestedPick | null;
 }
 
 export interface WeatherParkFlag {
@@ -219,6 +220,7 @@ export interface MLBRegressionReport {
   suggested_picks: SuggestedPick[];
   yesterday_recap: YesterdayRecap[];
   cumulative_record: CumulativeRecord;
+  perfect_storm_record?: CumulativeBucket;
   model_accuracy: ModelAccuracy;
   weather_park_flags: WeatherParkFlag[];
   lr_splits_today: LRSplitEntry[];

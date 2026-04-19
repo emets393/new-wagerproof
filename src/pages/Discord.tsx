@@ -1,11 +1,12 @@
 import { DiscordLogo } from "phosphor-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, MessageCircle, Shield, Bell, CheckCircle2, Link2 } from "lucide-react";
+import { Users, MessageCircle, Shield, Bell, CheckCircle2, Link2, AlertTriangle } from "lucide-react";
 import Dither from "@/components/Dither";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 const DISCORD_LINK_URL = "https://gnjrklxotmbvnxbnnqgq.supabase.co/functions/v1/discord-callback";
 
@@ -14,6 +15,11 @@ export default function Discord() {
   const { user } = useAuth();
   const [discordLinked, setDiscordLinked] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const linkStatus = searchParams.get("link");
+  const linkUsername = searchParams.get("username");
+  const linkReason = searchParams.get("reason");
 
   useEffect(() => {
     async function checkDiscordLink() {
@@ -26,15 +32,30 @@ export default function Discord() {
         .select("discord_user_id")
         .eq("user_id", user.id)
         .single();
-      setDiscordLinked(!!data?.discord_user_id);
+      const linked = !!data?.discord_user_id;
+      setDiscordLinked(linked);
+      // If we just got redirected back with success, also mark as linked
+      if (linkStatus === "success" || linkStatus === "partial") {
+        setDiscordLinked(true);
+      }
       setLoading(false);
     }
     checkDiscordLink();
-  }, [user]);
+  }, [user, linkStatus]);
+
+  // Clear the URL params after showing the message
+  useEffect(() => {
+    if (linkStatus) {
+      const timer = setTimeout(() => {
+        setSearchParams({});
+      }, 15000);
+      return () => clearTimeout(timer);
+    }
+  }, [linkStatus, setSearchParams]);
 
   const handleLinkDiscord = () => {
     if (!user) return;
-    window.open(`${DISCORD_LINK_URL}?user_id=${user.id}`, "_blank");
+    window.location.href = `${DISCORD_LINK_URL}?user_id=${user.id}`;
   };
 
   return (
@@ -64,6 +85,53 @@ export default function Discord() {
           </h1>
 
         </div>
+
+        {/* Link status banner */}
+        {linkStatus === "success" && (
+          <Card className="mb-6 border-green-500/30" style={{ background: 'rgba(34, 197, 94, 0.1)', backdropFilter: 'blur(40px)' }}>
+            <CardContent className="pt-6 pb-6">
+              <div className="flex items-center gap-4 justify-center">
+                <CheckCircle2 className="w-8 h-8 text-green-400 shrink-0" />
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-white">Discord Linked Successfully!</p>
+                  <p className="text-white/70">Welcome, {linkUsername}! You now have the WagerProof Member role. Join the server below to access subscriber-only channels.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {linkStatus === "partial" && (
+          <Card className="mb-6 border-yellow-500/30" style={{ background: 'rgba(245, 158, 11, 0.1)', backdropFilter: 'blur(40px)' }}>
+            <CardContent className="pt-6 pb-6">
+              <div className="flex items-center gap-4 justify-center">
+                <AlertTriangle className="w-8 h-8 text-yellow-400 shrink-0" />
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-white">Account Linked</p>
+                  <p className="text-white/70">{linkUsername}, your Discord is linked but your role is still being assigned. It will appear within a few minutes. If not, contact support.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {linkStatus === "error" && (
+          <Card className="mb-6 border-red-500/30" style={{ background: 'rgba(239, 68, 68, 0.1)', backdropFilter: 'blur(40px)' }}>
+            <CardContent className="pt-6 pb-6">
+              <div className="flex items-center gap-4 justify-center">
+                <AlertTriangle className="w-8 h-8 text-red-400 shrink-0" />
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-white">Something Went Wrong</p>
+                  <p className="text-white/70">
+                    {linkReason === "no_subscription" ? "You need an active subscription to link your Discord account." :
+                     linkReason === "user_not_found" ? "User not found. Please make sure you're logged in." :
+                     "Discord linking failed. Please try again."}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Step 1: Link Discord Account */}
         <Card

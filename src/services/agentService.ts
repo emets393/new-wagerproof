@@ -129,12 +129,16 @@ export async function createAgent(userId: string, data: CreateAgentInput): Promi
     throw error;
   }
 
-  // Fire-and-forget: flip is_public if the user has entitlement
-  (supabase as any).rpc('can_access_agent_picks', { p_user_id: userId }).then(({ data: canAccess }: any) => {
+  // Await public status check so the agent is immediately visible on detail pages
+  try {
+    const { data: canAccess } = await (supabase as any).rpc('can_access_agent_picks', { p_user_id: userId });
     if (canAccess) {
-      (supabase as any).from('avatar_profiles').update({ is_public: true }).eq('id', agent.id);
+      await (supabase as any).from('avatar_profiles').update({ is_public: true }).eq('id', agent.id);
+      agent.is_public = true;
     }
-  }).catch(() => {});
+  } catch {
+    // Non-critical — agent still works, just won't be public yet
+  }
 
   return agent as AgentProfile;
 }
