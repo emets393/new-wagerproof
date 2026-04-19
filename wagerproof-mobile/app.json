@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wagerproof.mobile",
-      "buildNumber": "32",
+      "buildNumber": "33",
       "usesAppleSignIn": true,
       "appleTeamId": "88DXY6L653",
       "entitlements": {
