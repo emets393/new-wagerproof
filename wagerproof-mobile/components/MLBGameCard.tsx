@@ -42,10 +42,16 @@ export function MLBGameCard({ game, onPress, cardWidth }: MLBGameCardProps) {
     : null;
   const favoriteColors = favorite === 'home' ? homeColors : favorite === 'away' ? awayColors : awayColors;
 
-  // Determine ML pick side (higher win prob)
-  const mlPickSide = game.ml_home_win_prob !== null && game.ml_away_win_prob !== null
-    ? (game.ml_home_win_prob >= game.ml_away_win_prob ? 'home' : 'away')
-    : null;
+  // Use the DB-published edges directly (home_ml_edge_pct / away_ml_edge_pct
+  // from mlb_games_today). This matches the website exactly — no client-side
+  // implied-prob math. When lines are missing, fall back to the team with the
+  // higher model win probability.
+  let mlPickSide: 'home' | 'away' | null = null;
+  if (game.home_ml_edge_pct != null && game.away_ml_edge_pct != null) {
+    mlPickSide = game.home_ml_edge_pct >= game.away_ml_edge_pct ? 'home' : 'away';
+  } else if (game.ml_home_win_prob != null && game.ml_away_win_prob != null) {
+    mlPickSide = game.ml_home_win_prob >= game.ml_away_win_prob ? 'home' : 'away';
+  }
   const mlPickProb = mlPickSide === 'home' ? game.ml_home_win_prob : game.ml_away_win_prob;
   const mlPickEdge = mlPickSide === 'home' ? game.home_ml_edge_pct : game.away_ml_edge_pct;
   const mlPickStrong = mlPickSide === 'home' ? game.home_ml_strong_signal : game.away_ml_strong_signal;
@@ -174,11 +180,6 @@ export function MLBGameCard({ game, onPress, cardWidth }: MLBGameCardProps) {
                     <Text style={[styles.pillValue, { color: mlPickStrong ? '#22c55e' : '#eab308' }]}>
                       {(mlPickProb * 100).toFixed(0)}%
                     </Text>
-                    {mlPickStrong && (
-                      <View style={styles.fadeAlertBadge}>
-                        <MaterialCommunityIcons name="lightning-bolt" size={10} color="#22c55e" />
-                      </View>
-                    )}
                   </View>
                 )}
 

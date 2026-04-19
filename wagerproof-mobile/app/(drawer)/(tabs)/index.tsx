@@ -15,6 +15,7 @@ import { LockedGameCard } from '@/components/LockedGameCard';
 import { BettingTrendsBanner } from '@/components/nba/BettingTrendsBanner';
 import { NCAABBettingTrendsBanner } from '@/components/ncaab/BettingTrendsBanner';
 import { MLBBettingTrendsBanner } from '@/components/mlb/MLBBettingTrendsBanner';
+import { MLBRegressionReportBanner } from '@/components/mlb/MLBRegressionReportBanner';
 import { NBAModelAccuracyBanner } from '@/components/nba/ModelAccuracyBanner';
 import { NCAABModelAccuracyBanner } from '@/components/ncaab/ModelAccuracyBanner';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
@@ -833,6 +834,8 @@ export default function FeedScreen() {
           total_line: row.total_line,
           ml_home_win_prob: row.ml_home_win_prob,
           ml_away_win_prob: row.ml_away_win_prob,
+          home_implied_prob: row.home_implied_prob ?? null,
+          away_implied_prob: row.away_implied_prob ?? null,
           home_ml_edge_pct: row.home_ml_edge_pct,
           away_ml_edge_pct: row.away_ml_edge_pct,
           home_ml_strong_signal: row.home_ml_strong_signal,
@@ -852,6 +855,8 @@ export default function FeedScreen() {
           f5_away_win_prob: row.f5_away_win_prob ?? null,
           f5_home_ml: row.f5_home_ml ?? null,
           f5_away_ml: row.f5_away_ml ?? null,
+          f5_home_implied_prob: row.f5_home_implied_prob ?? null,
+          f5_away_implied_prob: row.f5_away_implied_prob ?? null,
           f5_home_ml_edge_pct: row.f5_home_ml_edge_pct ?? null,
           f5_away_ml_edge_pct: row.f5_away_ml_edge_pct ?? null,
           f5_home_ml_strong_signal: row.f5_home_ml_strong_signal ?? null,
@@ -1258,6 +1263,9 @@ export default function FeedScreen() {
 
       {/* MLB Betting Trends Banner */}
       {sport === 'mlb' && !searchTexts.mlb && <MLBBettingTrendsBanner />}
+
+      {/* MLB Regression Report Banner */}
+      {sport === 'mlb' && !searchTexts.mlb && <MLBRegressionReportBanner />}
 
       {/* MLB Discord Banner */}
       {sport === 'mlb' && !searchTexts.mlb && <DiscordBanner />}
