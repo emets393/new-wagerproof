@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
-import { useTheme } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { onboardingCta } from '../onboardingStyles';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 import { NFLGameCard } from '../../NFLGameCard';
 import { NFLPrediction } from '@/types/nfl';
+import { DemoScanButton } from '../DemoScanButton';
+import { DemoScanWaveAnimation } from '../DemoScanWaveAnimation';
+import { PulsingBorder } from '../PulsingBorder';
+import { DemoGameBottomSheet, DemoGameBottomSheetHandle } from '../DemoGameBottomSheet';
+
+// Tutorial phases walk users through the two headline interactions — the
+// Dynamic-Island "Scan this page" bubble and the per-game pro-data bottom
+// sheet — before they ever see them in the live app.
+type Phase = 'intro-scan' | 'scanning' | 'highlight-card' | 'sheet-demo';
 
 const DUMMY_GAMES: NFLPrediction[] = [
   {
@@ -33,6 +41,18 @@ const DUMMY_GAMES: NFLPrediction[] = [
     spread_splits_label: null,
     total_splits_label: null,
     ml_splits_label: null,
+    home_ml_handle: null,
+    away_ml_handle: null,
+    home_ml_bets: null,
+    away_ml_bets: null,
+    home_spread_handle: null,
+    away_spread_handle: null,
+    home_spread_bets: null,
+    away_spread_bets: null,
+    over_handle: null,
+    under_handle: null,
+    over_bets: null,
+    under_bets: null,
   },
   {
     id: 'onboarding-2',
@@ -58,50 +78,152 @@ const DUMMY_GAMES: NFLPrediction[] = [
     spread_splits_label: null,
     total_splits_label: null,
     ml_splits_label: null,
+    home_ml_handle: null,
+    away_ml_handle: null,
+    home_ml_bets: null,
+    away_ml_bets: null,
+    home_spread_handle: null,
+    away_spread_handle: null,
+    home_spread_bets: null,
+    away_spread_bets: null,
+    over_handle: null,
+    under_handle: null,
+    over_bets: null,
+    under_bets: null,
   },
 ];
 
+// Copy above the cards. Each phase swaps this block.
+function PhaseHeader({ phase }: { phase: Phase }) {
+  if (phase === 'scanning') return null;
+
+  if (phase === 'highlight-card') {
+    return (
+      <View style={styles.headerBlock}>
+        <Text style={styles.title}>Tap the game card</Text>
+        <Text style={styles.subtitle}>See the pro-grade data we surface for every matchup.</Text>
+      </View>
+    );
+  }
+
+  // intro-scan and sheet-demo both show the scan intro. Once the sheet opens,
+  // the sheet itself owns the screen, so leaving the header in place under it
+  // is fine.
+  return (
+    <View style={styles.headerBlock}>
+      <Text style={styles.title}>Here's how we help you find edges</Text>
+      <Text style={styles.subtitle}>Tap here to scan</Text>
+    </View>
+  );
+}
+
 export function FeatureSpotlight() {
   const { nextStep, isTransitioning } = useOnboarding();
-  const theme = useTheme();
   const { width } = useWindowDimensions();
-
   const cardWidth = (width - 32 - 8) / 2;
 
-  const handleContinue = () => {
+  const [phase, setPhase] = useState<Phase>('intro-scan');
+  const sheetRef = useRef<DemoGameBottomSheetHandle>(null);
+  const hasAdvanced = useRef(false);
+
+  const handleScanPress = useCallback(() => {
+    if (phase !== 'intro-scan') return;
+    setPhase('scanning');
+  }, [phase]);
+
+  const handleWaveComplete = useCallback(() => {
+    // Guard against the timer firing after unmount during step transitions.
+    setPhase((current) => (current === 'scanning' ? 'highlight-card' : current));
+  }, []);
+
+  const handleCardPress = useCallback((gameId: string) => {
+    // Only the first highlighted card advances the tutorial.
+    if (phase !== 'highlight-card' || gameId !== DUMMY_GAMES[0].id) return;
+    setPhase('sheet-demo');
+    // Slight delay lets the state render before snapping the sheet open so
+    // the backdrop fade-in matches the animation on real game cards.
+    requestAnimationFrame(() => sheetRef.current?.open());
+  }, [phase]);
+
+  const advanceOnboarding = useCallback(() => {
+    if (hasAdvanced.current) return;
+    hasAdvanced.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    sheetRef.current?.close();
     nextStep();
-  };
+  }, [nextStep]);
+
+  // Safety net: if the user dismisses the sheet without tapping Continue,
+  // the bottom CTA stays visible so they still have a path forward.
+  const handleSheetClose = useCallback(() => {
+    // Intentional no-op: we do not reset the phase. The fixed-bottom
+    // Continue button remains available in sheet-demo.
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      hasAdvanced.current = false;
+    };
+  }, []);
+
+  const showBottomContinue = phase === 'sheet-demo';
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        <Text style={[styles.title, { color: theme.colors.onBackground }]}>
-          AI-Powered Predictions
-        </Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <PhaseHeader phase={phase} />
 
-        <Text style={styles.description}>
-          Get model-driven picks with confidence scores for every game. Our AI analyzes thousands of data points to find value.
-        </Text>
+        {phase === 'intro-scan' && (
+          <View style={styles.scanButtonRow}>
+            <DemoScanButton onPress={handleScanPress} />
+          </View>
+        )}
+
+        {phase !== 'intro-scan' && <View style={styles.scanButtonSpacer} />}
 
         <View style={styles.cardsContainer}>
-          {DUMMY_GAMES.map((game) => (
-            <NFLGameCard
-              key={game.id}
-              game={game}
-              onPress={() => {}}
-              cardWidth={cardWidth}
-              forceDarkMode
-            />
-          ))}
+          {DUMMY_GAMES.map((game, index) => {
+            const isHighlighted = phase === 'highlight-card' && index === 0;
+            return (
+              <PulsingBorder key={game.id} active={isHighlighted} borderRadius={20}>
+                <NFLGameCard
+                  game={game}
+                  onPress={isHighlighted ? () => handleCardPress(game.id) : () => {}}
+                  cardWidth={cardWidth}
+                  forceDarkMode
+                />
+              </PulsingBorder>
+            );
+          })}
         </View>
       </ScrollView>
 
-      <View style={onboardingCta.fixedBottom}>
-        <Button onPress={handleContinue} fullWidth variant="glass" forceDarkMode style={onboardingCta.button} loading={isTransitioning}>
-          Continue
-        </Button>
-      </View>
+      <DemoScanWaveAnimation active={phase === 'scanning'} onComplete={handleWaveComplete} />
+
+      <DemoGameBottomSheet
+        ref={sheetRef}
+        onContinue={advanceOnboarding}
+        onClose={handleSheetClose}
+      />
+
+      {showBottomContinue && (
+        <View style={onboardingCta.fixedBottom}>
+          <Button
+            onPress={advanceOnboarding}
+            fullWidth
+            variant="glass"
+            forceDarkMode
+            style={onboardingCta.button}
+            loading={isTransitioning}
+          >
+            Continue
+          </Button>
+        </View>
+      )}
     </View>
   );
 }
@@ -113,22 +235,36 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 16,
-    paddingTop: 40,
-    paddingBottom: 100,
+    paddingTop: 32,
+    paddingBottom: 120,
+  },
+  headerBlock: {
+    minHeight: 88,
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   title: {
-    fontSize: 28,
+    color: '#ffffff',
+    fontSize: 26,
     fontWeight: '700',
-    marginBottom: 12,
     textAlign: 'center',
-    lineHeight: 36,
+    lineHeight: 34,
+    marginBottom: 8,
   },
-  description: {
-    fontSize: 16,
-    marginBottom: 20,
+  subtitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 24,
-    color: 'rgba(255, 255, 255, 0.7)',
+    lineHeight: 22,
+  },
+  scanButtonRow: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  scanButtonSpacer: {
+    // Keeps the cards from jumping when the scan pill disappears.
+    height: 44,
+    marginBottom: 24,
   },
   cardsContainer: {
     flexDirection: 'row',
