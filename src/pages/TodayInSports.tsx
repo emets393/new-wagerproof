@@ -931,13 +931,11 @@ export default function TodayInSports() {
                 }
               }
               
-              // Calculate away moneyline from home moneyline
+              // Prefer the explicit away_moneyline column; fall back to complement.
               const homeML = game.home_moneyline;
-              let awayML = null;
-              if (homeML) {
-                awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
-              }
-              
+              const awayML = game.away_moneyline
+                ?? (homeML ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
+
               gameSummaries.push({
                 gameId: gameIdStr, // Must match training_key || unique_id used in GameTailSection
                 sport: 'nba',
@@ -2250,12 +2248,11 @@ export default function TodayInSports() {
                 }
               }
               
+              // Prefer the explicit away_moneyline column; fall back to complement.
               const homeML = game.home_moneyline;
-              let awayML = null;
-              if (homeML) {
-                awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
-              }
-              
+              const awayML = game.away_moneyline
+                ?? (homeML ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
+
               additionalGames.push({
                 gameId: gameIdStr, // Must match training_key || unique_id used in GameTailSection
                 sport: 'nba',

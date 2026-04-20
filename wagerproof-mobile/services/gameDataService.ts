@@ -528,7 +528,12 @@ export async function fetchNBAPredictions(): Promise<NBAGame[]> {
         away_abbr: (input.away_abbr && input.away_abbr.trim()) || input.away_team || 'AWAY',
         home_abbr: (input.home_abbr && input.home_abbr.trim()) || input.home_team || 'HOME',
         home_ml: input.home_moneyline,
-        away_ml: input.home_moneyline !== null ? (input.home_moneyline > 0 ? -(input.home_moneyline + 100) : 100 - input.home_moneyline) : null,
+        // Prefer the explicit away_moneyline column from nba_input_values_view;
+        // fall back to the complement formula only if the DB value is missing.
+        away_ml: input.away_moneyline
+          ?? (input.home_moneyline !== null
+            ? (input.home_moneyline > 0 ? -(input.home_moneyline + 100) : 100 - input.home_moneyline)
+            : null),
         home_spread: input.home_spread,
         away_spread: input.home_spread ? -input.home_spread : null,
         over_line: input.total_line,

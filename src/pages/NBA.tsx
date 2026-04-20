@@ -535,12 +535,11 @@ ${contextParts}
           });
         }
         
-        // Calculate away moneyline from home moneyline
+        // nba_input_values_view now publishes away_moneyline explicitly.
+        // Fall back to the complement formula only if the column is missing.
         const homeML = game.home_moneyline;
-        let awayML = null;
-        if (homeML) {
-          awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
-        }
+        const awayML = game.away_moneyline
+          ?? (homeML ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
         
         // Calculate edge values (delta) - like College Basketball
         const vegasHomeSpread = game.home_spread;

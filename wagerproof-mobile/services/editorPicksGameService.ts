@@ -113,7 +113,7 @@ async function fetchNBAGames(): Promise<GameOption[]> {
   try {
     const { data, error } = await collegeFootballSupabase
       .from('nba_input_values_view')
-      .select('game_id, away_team, home_team, game_date, home_spread, home_moneyline, total_line')
+      .select('game_id, away_team, home_team, game_date, home_spread, home_moneyline, away_moneyline, total_line')
       .order('game_date', { ascending: true })
       .order('tipoff_time_et', { ascending: true });
 
@@ -122,11 +122,11 @@ async function fetchNBAGames(): Promise<GameOption[]> {
     }
 
     return data.map((game: any) => {
+      // Prefer the explicit away_moneyline column from nba_input_values_view;
+      // fall back to the complement formula only if the DB value is missing.
       const homeML = game.home_moneyline;
-      let awayML = null;
-      if (homeML) {
-        awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
-      }
+      const awayML = game.away_moneyline
+        ?? (homeML ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
 
       return {
         id: String(game.game_id),

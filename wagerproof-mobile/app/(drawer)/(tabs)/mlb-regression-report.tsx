@@ -363,7 +363,11 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
             <View style={styles.pickStats}>
               <StatCell label="Edge" value={`${p.edge_at_suggestion > 0 ? '+' : ''}${p.edge_at_suggestion}${p.bet_type.includes('ml') ? '%' : ''}`} />
               <StatCell label="Bucket" value={p.edge_bucket} />
-              <StatCell label="Bucket W%" value={`${p.bucket_win_pct}%`} valueColor={winPctColor(p.bucket_win_pct)} />
+              {(p.edge_bucket || '').toLowerCase() === 'perfect_storm' ? (
+                <StatCell label="Bucket W%" value="N/A" />
+              ) : (
+                <StatCell label="Bucket W%" value={`${p.bucket_win_pct}%`} valueColor={winPctColor(p.bucket_win_pct)} />
+              )}
             </View>
             {p.reasoning ? (
               <Text style={[styles.pickReasoning, { color: theme.colors.onSurfaceVariant }]}>{p.reasoning}</Text>

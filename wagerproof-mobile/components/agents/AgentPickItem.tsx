@@ -165,6 +165,18 @@ export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, 
   const pickedAbbr = isAwayPicked ? awayAbbr : homeAbbr;
   const pickedLogoUrl = isAwayPicked ? awayLogoUrl : homeLogoUrl;
 
+  // Compact selection text: use the team abbreviation (with the logo already in
+  // the avatar slot) on ML/spread picks so long team names don't get truncated.
+  // Spread picks keep the line portion (e.g. "MIN -3.5"). O/U picks render verbatim.
+  const displaySelection = (() => {
+    if (isTotal) return pick.pick_selection;
+    if (isSpread) {
+      const lineMatch = (pick.pick_selection || '').match(/[+-]\d+(?:\.\d+)?/);
+      return lineMatch ? `${pickedAbbr} ${lineMatch[0]}` : pickedAbbr;
+    }
+    return `${pickedAbbr} ML`;
+  })();
+
   return (
     <TouchableOpacity activeOpacity={0.7} onPress={handlePress} disabled={!onPress || loading}>
       <View style={[styles.pickCard, { backgroundColor: cardBg, borderColor }]}>
@@ -191,19 +203,20 @@ export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, 
               <TeamAvatar teamName={home} sport={pick.sport} size={26} teamAbbr={homeAbbr} logoUrl={homeLogoUrl} />
               <Text style={[styles.teamName, { color: theme.colors.onSurface }]}>{homeAbbr}</Text>
             </View>
-            {resultBadge ? (
-              <View style={[styles.resultBadge, { backgroundColor: resultBadge.bgColor }]}>
-                <MaterialCommunityIcons name={resultBadge.icon as any} size={10} color={resultBadge.color} />
-                <Text style={styles.resultText}>{resultBadge.text}</Text>
-              </View>
-            ) : (
+            <View style={styles.headerBadgeGroup}>
               <View style={[styles.dateBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
                 <MaterialCommunityIcons name="clock-outline" size={10} color={theme.colors.onSurfaceVariant} />
                 <Text style={[styles.dateText, { color: theme.colors.onSurfaceVariant }]}>
                   {formatGameDate(pick.game_date)}
                 </Text>
               </View>
-            )}
+              {resultBadge ? (
+                <View style={[styles.resultBadge, { backgroundColor: resultBadge.bgColor }]}>
+                  <MaterialCommunityIcons name={resultBadge.icon as any} size={10} color={resultBadge.color} />
+                  <Text style={styles.resultText}>{resultBadge.text}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
 
           {/* ── PICK PILL — game card style ── */}
@@ -227,7 +240,7 @@ export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, 
               style={[styles.pickSelection, { color: theme.colors.onSurface }]}
               numberOfLines={1}
             >
-              {pick.pick_selection}
+              {displaySelection}
             </Text>
             {/* Odds + Units on far right */}
             <View style={styles.pickMetaRight}>
@@ -386,6 +399,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     marginHorizontal: 1,
+  },
+  headerBadgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   resultBadge: {
     flexDirection: 'row',

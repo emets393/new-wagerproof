@@ -360,9 +360,13 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                   </div>
                   <div>
                     <div className="text-muted-foreground">Bucket W%</div>
-                    <div className="font-medium" style={{ color: winPctColor(p.bucket_win_pct) }}>
-                      {p.bucket_win_pct}%
-                    </div>
+                    {(p.edge_bucket || '').toLowerCase() === 'perfect_storm' ? (
+                      <div className="font-medium text-muted-foreground">N/A</div>
+                    ) : (
+                      <div className="font-medium" style={{ color: winPctColor(p.bucket_win_pct) }}>
+                        {p.bucket_win_pct}%
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">{p.reasoning}</div>

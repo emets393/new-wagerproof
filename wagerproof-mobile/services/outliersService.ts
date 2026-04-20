@@ -265,7 +265,9 @@ export const fetchWeekGames = async (): Promise<GameSummary[]> => {
         if (gameDate && gameDate >= today && gameDate <= weekFromNow) {
           const gameIdStr = game.training_key || game.unique_id || String(game.game_id);
           const homeML = game.home_moneyline;
-          const awayML = calculateAwayML(homeML);
+          // Prefer the explicit away_moneyline column from nba_input_values_view;
+          // the helper computes the complement only as a fallback.
+          const awayML = game.away_moneyline ?? calculateAwayML(homeML);
 
           gameSummaries.push({
             gameId: gameIdStr,

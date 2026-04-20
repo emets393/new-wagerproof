@@ -486,7 +486,9 @@ export default function FeedScreen() {
           away_abbr: (input.away_abbr && input.away_abbr.trim()) || input.away_team || 'AWAY',
           home_abbr: (input.home_abbr && input.home_abbr.trim()) || input.home_team || 'HOME',
           home_ml: input.home_moneyline,
-          away_ml: calculateAwayML(input.home_moneyline),
+          // Prefer the explicit away_moneyline column from nba_input_values_view;
+          // the helper computes the complement only as a fallback.
+          away_ml: input.away_moneyline ?? calculateAwayML(input.home_moneyline),
           home_spread: input.home_spread,
           away_spread: input.home_spread ? -input.home_spread : null,
           over_line: input.total_line,
