@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
+import { MLBRegressionPicksForGame } from '@/components/MLBRegressionPicksForGame';
 import {
   Activity,
   AlertCircle,
@@ -1104,6 +1105,18 @@ export default function MLB() {
                     })()}
                   </div>
                 </div>
+
+                <MLBRegressionPicksForGame
+                  gamePk={prediction.game_pk}
+                  homeAbbrev={homeAbbrev}
+                  awayAbbrev={awayAbbrev}
+                  homeTeamName={homeTeam}
+                  awayTeamName={awayTeam}
+                  fullMlPickIsHome={mlPickIsHome}
+                  f5MlPickIsHome={f5PickIsHome}
+                  fullOuDir={(prediction.ou_direction === 'OVER' || prediction.ou_direction === 'UNDER') ? prediction.ou_direction : null}
+                  f5OuDir={toNum(prediction.f5_ou_edge) != null ? ((toNum(prediction.f5_ou_edge) as number) >= 0 ? 'OVER' : 'UNDER') : null}
+                />
 
                 <div className={`${MLB_CARD_SECTION} text-xs text-center text-muted-foreground space-y-1`}>
                   {toNum((prediction as any).temperature_f) !== null ||
