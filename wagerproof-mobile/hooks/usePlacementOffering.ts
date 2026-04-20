@@ -17,6 +17,11 @@ export function usePlacementOffering(placementId: string, enabled = true) {
       setIsLoading(true);
       setError(null);
       const nextOffering = await getCurrentOfferingForPlacement(placementId);
+      if (!nextOffering) {
+        setOffering(null);
+        setError('Unable to load subscription options. Please try again.');
+        return;
+      }
       setOffering(nextOffering);
     } catch (err: any) {
       setOffering(null);

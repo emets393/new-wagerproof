@@ -141,6 +141,21 @@ let LOG_LEVEL: any = null;
 let expectedAppUserId: string | null = null;
 const RC_LINK_RETRY_DELAYS_MS = [250, 750, 1500];
 
+async function waitForRevenueCatIdentityReady(): Promise<void> {
+  if (!expectedAppUserId) return;
+
+  try {
+    await ensureRevenueCatUserLinked();
+  } catch {
+    // Offering fetches can still succeed anonymously; this wait is best-effort.
+  }
+}
+
+async function getCurrentOfferingFromSDK(PurchasesModule: any): Promise<any> {
+  const offerings = await PurchasesModule.getOfferings();
+  return offerings?.current ?? null;
+}
+
 function isAnonymousRevenueCatUserId(userId?: string | null): boolean {
   if (!userId) return true;
   return userId.includes('$RCAnonymousID');
@@ -483,8 +498,8 @@ export async function getOfferings(): Promise<any> {
     if (!isConfigured || !PurchasesModule) {
       return null;
     }
-    const offerings = await PurchasesModule.getOfferings();
-    return offerings.current;
+    await waitForRevenueCatIdentityReady();
+    return await getCurrentOfferingFromSDK(PurchasesModule);
   } catch (error) {
     console.error('Error fetching offerings:', error);
     return null;
@@ -498,12 +513,39 @@ export async function getCurrentOfferingForPlacement(placementIdentifier: string
       return null;
     }
 
-    if (typeof PurchasesModule.getCurrentOfferingForPlacement !== 'function') {
-      throw new Error('Current RevenueCat SDK does not expose getCurrentOfferingForPlacement');
+    await waitForRevenueCatIdentityReady();
+
+    if (typeof PurchasesModule.getCurrentOfferingForPlacement === 'function') {
+      try {
+        const offering = await PurchasesModule.getCurrentOfferingForPlacement(placementIdentifier);
+        if (offering) {
+          return offering;
+        }
+
+        console.warn(
+          `📱 RevenueCat: No placement offering returned for "${placementIdentifier}". Falling back to current offering.`
+        );
+      } catch (err: any) {
+        console.warn(
+          `📱 RevenueCat: getCurrentOfferingForPlacement("${placementIdentifier}") failed:`,
+          err?.message || err
+        );
+      }
+    } else {
+      console.warn(
+        '📱 RevenueCat: Current SDK does not expose getCurrentOfferingForPlacement. Falling back to current offering.'
+      );
     }
 
-    const offering = await PurchasesModule.getCurrentOfferingForPlacement(placementIdentifier);
-    return offering;
+    const fallbackOffering = await getCurrentOfferingFromSDK(PurchasesModule);
+    if (fallbackOffering) {
+      return fallbackOffering;
+    }
+
+    console.warn(
+      `📱 RevenueCat: No fallback current offering available after placement lookup for "${placementIdentifier}".`
+    );
+    return null;
   } catch (err: any) {
     console.warn('📱 RevenueCat: getCurrentOfferingForPlacement failed:', err?.message || err);
     return null;

@@ -32,7 +32,7 @@ export function PaywallBottomSheet({ isOpen, onClose }: PaywallBottomSheetProps)
   const { completeOnboarding } = useOnboarding();
   const [isCompleting, setIsCompleting] = useState(false);
   const snapPoints = useMemo(() => ['92%'], []);
-  const { offering, isLoading, refresh } = usePlacementOffering(
+  const { offering, isLoading, error, refresh } = usePlacementOffering(
     PAYWALL_PLACEMENTS.ONBOARDING,
     isOpen && isInitialized
   );
@@ -111,7 +111,7 @@ export function PaywallBottomSheet({ isOpen, onClose }: PaywallBottomSheetProps)
         <View style={styles.errorContainer}>
           <MaterialCommunityIcons name="package-variant" size={48} color="#fff" />
           <Text style={styles.errorText}>
-            No subscription options available at this time.
+            {error || 'No subscription options available at this time.'}
           </Text>
           <TouchableOpacity style={styles.retryButton} onPress={refresh}>
             <Text style={styles.retryButtonText}>Retry</Text>

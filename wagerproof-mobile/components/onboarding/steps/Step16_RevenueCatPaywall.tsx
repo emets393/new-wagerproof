@@ -29,7 +29,7 @@ export function RevenueCatPaywallStep() {
   const { refreshCustomerInfo, isInitialized } = useRevenueCat();
   const { completeOnboarding } = useOnboarding();
   const [isCompleting, setIsCompleting] = useState(false);
-  const { offering, isLoading, refresh } = usePlacementOffering(
+  const { offering, isLoading, error, refresh } = usePlacementOffering(
     PAYWALL_PLACEMENTS.ONBOARDING,
     isInitialized
   );
@@ -104,7 +104,7 @@ export function RevenueCatPaywallStep() {
       <View style={styles.errorContainer}>
         <MaterialCommunityIcons name="package-variant" size={48} color="#fff" />
         <Text style={styles.errorText}>
-          No subscription options available at this time.
+          {error || 'No subscription options available at this time.'}
         </Text>
         <TouchableOpacity 
           style={styles.retryButton}

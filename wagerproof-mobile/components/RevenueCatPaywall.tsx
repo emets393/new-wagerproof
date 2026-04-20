@@ -8,7 +8,10 @@ import {
   Alert,
   Modal,
   Platform,
+  BackHandler,
+  StatusBar,
 } from 'react-native';
+import { Portal } from 'react-native-paper';
 import { useRevenueCat } from '../contexts/RevenueCatContext';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -59,6 +62,17 @@ export function RevenueCatPaywall({
     }
   }, [visible, refresh]);
 
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'android') return;
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [visible, onClose]);
+
   const handlePurchaseCompleted = useCallback(async ({ customerInfo }: any) => {
     console.log('✅ Purchase completed:', customerInfo);
     console.log('✅ Active entitlements:', Object.keys(customerInfo?.entitlements?.active || {}));
@@ -95,6 +109,144 @@ export function RevenueCatPaywall({
 
   if (!visible) return null;
 
+  const content = (
+    <View
+      style={[
+        styles.container,
+        Platform.OS === 'android' && styles.androidOverlay,
+        { backgroundColor: theme.colors.background },
+      ]}
+    >
+      {Platform.OS === 'android' && <StatusBar backgroundColor="#000" barStyle="light-content" />}
+
+      {/* Header */}
+      <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+          Upgrade to WagerProof Pro
+        </Text>
+        <TouchableOpacity
+          onPress={onClose}
+          style={styles.closeButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <MaterialCommunityIcons
+            name="close"
+            size={24}
+            color={theme.colors.text}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+            Loading subscription options...
+          </Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <MaterialCommunityIcons
+            name="alert-circle"
+            size={48}
+            color={theme.colors.error}
+          />
+          <Text style={[styles.errorText, { color: theme.colors.text }]}>
+            {error}
+          </Text>
+          <TouchableOpacity
+            onPress={refresh}
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : offering ? (
+        <View style={styles.content}>
+          {/* RevenueCat Paywall V2 - Don't pass offering to auto-use attached paywall */}
+          {PaywallComponent ? (
+            <PaywallComponent
+              options={{
+                offering,
+              }}
+              style={styles.paywall}
+              onPurchaseStarted={({ packageBeingPurchased }: any) => {
+                console.log('Purchase started:', packageBeingPurchased?.identifier);
+                setIsProcessing(true);
+              }}
+              onPurchaseCompleted={handlePurchaseCompleted}
+              onPurchaseError={({ error: purchaseError }: any) => {
+                console.error('Purchase error:', purchaseError?.message);
+                setIsProcessing(false);
+                Alert.alert('Error', purchaseError?.message || 'An error occurred during purchase');
+              }}
+              onPurchaseCancelled={() => {
+                console.log('Purchase cancelled');
+                setIsProcessing(false);
+              }}
+              onRestoreStarted={() => {
+                console.log('Restore started');
+                setIsProcessing(true);
+              }}
+              onRestoreCompleted={handleRestoreCompleted}
+              onRestoreError={({ error: restoreError }: any) => {
+                console.error('Restore error:', restoreError?.message);
+                setIsProcessing(false);
+                Alert.alert('Restore Failed', restoreError?.message || 'Failed to restore purchases');
+              }}
+              onDismiss={() => {
+                console.log('Paywall dismissed');
+                setIsProcessing(false);
+                onClose();
+              }}
+            />
+          ) : (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={48}
+                color={theme.colors.error}
+              />
+              <Text style={[styles.errorText, { color: theme.colors.text }]}>
+                Paywall UI not available. Make sure react-native-purchases-ui is properly linked.
+              </Text>
+              <Text style={[styles.errorText, { color: theme.colors.textSecondary, marginTop: 8 }]}>
+                Rebuild the app: npx expo run:android
+              </Text>
+            </View>
+          )}
+
+          {isProcessing && (
+            <View style={styles.processingOverlay}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+          )}
+        </View>
+      ) : (
+        <View style={styles.emptyContainer}>
+          <MaterialCommunityIcons
+            name="package-variant"
+            size={48}
+            color={theme.colors.textSecondary}
+          />
+          <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+            No subscription options available at this time.
+          </Text>
+          <TouchableOpacity
+            onPress={refresh}
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  if (Platform.OS === 'android') {
+    return <Portal>{content}</Portal>;
+  }
+
   return (
     <Modal
       visible={visible}
@@ -102,129 +254,7 @@ export function RevenueCatPaywall({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-            Upgrade to WagerProof Pro
-          </Text>
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.closeButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialCommunityIcons
-              name="close"
-              size={24}
-              color={theme.colors.text}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-              Loading subscription options...
-            </Text>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <MaterialCommunityIcons
-              name="alert-circle"
-              size={48}
-              color={theme.colors.error}
-            />
-            <Text style={[styles.errorText, { color: theme.colors.text }]}>
-              {error}
-            </Text>
-            <TouchableOpacity
-              onPress={refresh}
-              style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : offering ? (
-          <View style={styles.content}>
-            {/* RevenueCat Paywall V2 - Don't pass offering to auto-use attached paywall */}
-            {PaywallComponent ? (
-              <PaywallComponent
-                options={{
-                  offering,
-                }}
-                style={styles.paywall}
-                onPurchaseStarted={({ packageBeingPurchased }: any) => {
-                  console.log('Purchase started:', packageBeingPurchased?.identifier);
-                  setIsProcessing(true);
-                }}
-                onPurchaseCompleted={handlePurchaseCompleted}
-                onPurchaseError={({ error: purchaseError }: any) => {
-                  console.error('Purchase error:', purchaseError?.message);
-                  setIsProcessing(false);
-                  Alert.alert('Error', purchaseError?.message || 'An error occurred during purchase');
-                }}
-                onPurchaseCancelled={() => {
-                  console.log('Purchase cancelled');
-                  setIsProcessing(false);
-                }}
-                onRestoreStarted={() => {
-                  console.log('Restore started');
-                  setIsProcessing(true);
-                }}
-                onRestoreCompleted={handleRestoreCompleted}
-                onRestoreError={({ error: restoreError }: any) => {
-                  console.error('Restore error:', restoreError?.message);
-                  setIsProcessing(false);
-                  Alert.alert('Restore Failed', restoreError?.message || 'Failed to restore purchases');
-                }}
-                onDismiss={() => {
-                  console.log('Paywall dismissed');
-                  setIsProcessing(false);
-                  onClose();
-                }}
-              />
-            ) : (
-              <View style={styles.errorContainer}>
-                <MaterialCommunityIcons
-                  name="alert-circle"
-                  size={48}
-                  color={theme.colors.error}
-                />
-                <Text style={[styles.errorText, { color: theme.colors.text }]}>
-                  Paywall UI not available. Make sure react-native-purchases-ui is properly linked.
-                </Text>
-                <Text style={[styles.errorText, { color: theme.colors.textSecondary, marginTop: 8 }]}>
-                  Rebuild the app: npx expo run:ios
-                </Text>
-              </View>
-            )}
-            
-            {isProcessing && (
-              <View style={styles.processingOverlay}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-              </View>
-            )}
-          </View>
-        ) : (
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons
-              name="package-variant"
-              size={48}
-              color={theme.colors.textSecondary}
-            />
-            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-              No subscription options available at this time.
-            </Text>
-            <TouchableOpacity
-              onPress={refresh}
-              style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+      {content}
     </Modal>
   );
 }
@@ -232,6 +262,11 @@ export function RevenueCatPaywall({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  androidOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 99999,
+    elevation: 99999,
   },
   header: {
     flexDirection: 'row',

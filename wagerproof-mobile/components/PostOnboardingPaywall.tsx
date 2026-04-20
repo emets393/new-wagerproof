@@ -41,7 +41,7 @@ export function PostOnboardingPaywall() {
   // Show paywall when: user exists, onboarding is done, not a pro subscriber, not dismissed
   const shouldShow = !!user && effectiveCompleted && !isPro && !dismissed;
 
-  const { offering, isLoading, refresh } = usePlacementOffering(
+  const { offering, isLoading, error, refresh } = usePlacementOffering(
     PAYWALL_PLACEMENTS.ONBOARDING,
     shouldShow && isInitialized
   );
@@ -93,7 +93,9 @@ export function PostOnboardingPaywall() {
       ) : !PaywallComponent || !offering ? (
         <View style={styles.loading}>
           <MaterialCommunityIcons name="alert-circle" size={48} color="#ef4444" />
-          <Text style={styles.loadingText}>Unable to load subscription options.</Text>
+          <Text style={styles.loadingText}>
+            {error || 'Unable to load subscription options.'}
+          </Text>
           <TouchableOpacity
             style={styles.retryButton}
             onPress={() => { setTimedOut(false); refresh(); }}
