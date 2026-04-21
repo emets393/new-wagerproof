@@ -4,7 +4,8 @@
  * Provides centralized tracking for onboarding, purchases, and app events.
  * Uses:
  * - Mixpanel for product analytics
- * - Facebook/Meta SDK for purchase attribution (fb_mobile_purchase events)
+ * - Facebook/Meta SDK for subscription attribution events aligned with
+ *   the RevenueCat server-side Meta mapping
  */
 
 import { Mixpanel } from 'mixpanel-react-native';
@@ -251,33 +252,75 @@ const trackFacebookCompleteRegistration = (registrationMethod: string): void => 
 
 /**
  * Track Facebook Purchase event (fb_mobile_purchase)
- * This is the KEY event for Facebook ad attribution
+ * Align SDK event names with the RevenueCat -> Meta server mapping currently
+ * configured for WagerProof:
+ * - trial start => fb_mobile_purchase
+ * - initial paid subscription => Subscribe
  */
-const trackFacebookPurchase = async (
+const getMetaSubscriptionEventName = (isTrial: boolean): string => {
+  if (isTrial) {
+    return AppEventsLogger.AppEvents?.Purchased || 'fb_mobile_purchase';
+  }
+
+  return AppEventsLogger.AppEvents?.Subscribe || 'Subscribe';
+};
+
+const buildMetaSubscriptionPayload = (
   price: number,
   currency: string,
   contentId: string,
   predictedLtv: number,
   transactionId?: string
+) => ({
+  _valueToSum: price,
+  fb_currency: currency,
+  fb_content_type: 'product',
+  fb_content_id: contentId,
+  fb_order_id: transactionId || 'unknown',
+  fb_predicted_ltv: predictedLtv.toString(),
+  fb_success: '1',
+  fb_payment_info_available: '1',
+});
+
+const trackFacebookSubscriptionEvent = async (
+  price: number,
+  currency: string,
+  contentId: string,
+  predictedLtv: number,
+  isTrial: boolean,
+  transactionId?: string
 ): Promise<void> => {
   if (!isFacebookInitialized) {
-    analyticsLog('📊 Analytics: Facebook SDK not initialized, skipping Purchase');
+    analyticsLog('📊 Analytics: Facebook SDK not initialized, skipping subscription event');
     return;
   }
 
   try {
-    await AppEventsLogger.logPurchase(price, currency, {
-      fb_content_type: 'product',
-      fb_content_id: contentId,
-      fb_order_id: transactionId || 'unknown',
-      fb_predicted_ltv: predictedLtv.toString(),
-      fb_success: '1',
-      fb_payment_info_available: '1',
-    });
+    const eventName = getMetaSubscriptionEventName(isTrial);
+    const metaPayload = buildMetaSubscriptionPayload(
+      price,
+      currency,
+      contentId,
+      predictedLtv,
+      transactionId
+    );
+
+    if (isTrial) {
+      await AppEventsLogger.logPurchase(price, currency, metaPayload);
+    } else {
+      await AppEventsLogger.logEvent(eventName, price, metaPayload);
+    }
+
     await AppEventsLogger.flush();
-    analyticsLog('📊 Analytics: Facebook Purchase event logged:', { price, currency, contentId });
+    analyticsLog('📊 Analytics: Facebook subscription event logged:', {
+      eventName,
+      price,
+      currency,
+      contentId,
+      isTrial,
+    });
   } catch (error) {
-    console.error('📊 Analytics: Error logging Facebook Purchase:', error);
+    console.error('📊 Analytics: Error logging Facebook subscription event:', error);
   }
 };
 
@@ -474,7 +517,8 @@ export const trackSubscriptionStarted = (
 
 /**
  * Track subscription purchased (successful purchase)
- * Sends Mixpanel analytics plus the Meta purchase event for attribution
+ * Sends Mixpanel analytics plus the Meta SDK event aligned to the configured
+ * RevenueCat server-side Meta mapping
  */
 export const trackSubscriptionPurchased = (
   subscriptionType: SubscriptionType,
@@ -524,8 +568,14 @@ export const trackSubscriptionPurchased = (
   });
 
   // ===== Facebook/Meta Events =====
-  // fb_mobile_purchase - KEY event for ad attribution
-  void trackFacebookPurchase(price, currency, contentId, predictedLtv, transactionId);
+  void trackFacebookSubscriptionEvent(
+    price,
+    currency,
+    contentId,
+    predictedLtv,
+    isTrial,
+    transactionId
+  );
 
   // Flush immediately - critical for attribution
   flushAnalytics();
@@ -725,7 +775,7 @@ export const flushAllAnalytics = async (): Promise<{
 };
 
 /**
- * Send a test Meta subscription (fb_mobile_purchase) event
+ * Send a test Meta subscription event using the same mapping as production
  * Returns detailed response for debugging purposes
  */
 export const sendTestMetaSubscriptionEvent = async (params: {
@@ -733,6 +783,7 @@ export const sendTestMetaSubscriptionEvent = async (params: {
   price: number;
   currency?: string;
   isPromo?: boolean;
+  isTrial?: boolean;
   transactionId?: string;
 }): Promise<MetaTestEventResponse> => {
   const {
@@ -740,6 +791,7 @@ export const sendTestMetaSubscriptionEvent = async (params: {
     price,
     currency = 'USD',
     isPromo = false,
+    isTrial = false,
     transactionId = `test_${Date.now()}`,
   } = params;
 
@@ -759,16 +811,11 @@ export const sendTestMetaSubscriptionEvent = async (params: {
     ? `${subscriptionType}_promo_subscription`
     : `${subscriptionType}_subscription`;
 
+  const eventName = getMetaSubscriptionEventName(isTrial);
+
   // Build the Meta payload
   const metaPayload = {
-    _valueToSum: price,
-    fb_currency: currency,
-    fb_order_id: transactionId,
-    fb_content_type: 'product',
-    fb_content_id: contentId,
-    fb_success: '1',
-    fb_payment_info_available: '1',
-    fb_predicted_ltv: predictedLtv.toString(),
+    ...buildMetaSubscriptionPayload(price, currency, contentId, predictedLtv, transactionId),
     is_test_event: 'true',
   };
 
@@ -781,13 +828,14 @@ export const sendTestMetaSubscriptionEvent = async (params: {
     content_id: contentId,
     predicted_ltv: predictedLtv,
     is_promo: isPromo,
+    is_trial: isTrial,
     is_test_event: true,
     timestamp,
   };
 
   const response: MetaTestEventResponse = {
     timestamp,
-    eventName: 'fb_mobile_purchase',
+    eventName,
     isTestEvent: true,
     services: {
       meta: {
@@ -806,16 +854,20 @@ export const sendTestMetaSubscriptionEvent = async (params: {
   // Send to Meta/Facebook
   if (isFacebookInitialized) {
     try {
-      await AppEventsLogger.logPurchase(price, currency, metaPayload);
+      if (isTrial) {
+        await AppEventsLogger.logPurchase(price, currency, metaPayload);
+      } else {
+        await AppEventsLogger.logEvent(eventName, price, metaPayload);
+      }
       await AppEventsLogger.flush();
       response.services.meta.success = true;
       response.services.meta.message = 'Event sent and flushed successfully';
-      console.log('📊 Test Meta Purchase event sent:', metaPayload);
+      console.log(`📊 Test Meta ${eventName} event sent:`, metaPayload);
     } catch (error: any) {
       response.services.meta.success = false;
       response.services.meta.message = 'Failed to send event';
       response.services.meta.error = error?.message || 'Unknown error';
-      console.error('📊 Error sending test Meta Purchase event:', error);
+      console.error(`📊 Error sending test Meta ${eventName} event:`, error);
     }
   } else {
     response.services.meta.message = 'Facebook SDK not initialized';

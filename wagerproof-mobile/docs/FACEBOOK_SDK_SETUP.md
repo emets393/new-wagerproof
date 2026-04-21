@@ -223,8 +223,19 @@ Create or update `android/app/src/main/res/values/strings.xml`:
 - Triggered: When user completes onboarding
 - Parameters: `fb_registration_method`, `fb_content_name`, `fb_success`
 
+### Current WagerProof subscription mapping
+
+To keep the mobile SDK events aligned with the RevenueCat server-side Meta
+integration, WagerProof currently maps subscription lifecycle events like this:
+
+- Trial Started -> `fb_mobile_purchase`
+- Initial Purchase -> `Subscribe`
+- Trial Converted -> `Subscribe` (RevenueCat server event)
+- Renewal -> `Subscribe` (RevenueCat server event)
+- Non-Renewing Purchase -> `fb_mobile_purchase`
+
 ### fb_mobile_purchase (Purchase)
-- Triggered: When user successfully purchases a subscription
+- Triggered: When a subscription starts in trial
 - Parameters:
   - `_valueToSum`: Purchase price
   - `fb_currency`: Currency code (USD)
@@ -236,7 +247,8 @@ Create or update `android/app/src/main/res/values/strings.xml`:
   - `fb_payment_info_available`: 1
 
 ### Subscribe
-- Triggered: After purchase (in addition to fb_mobile_purchase)
+- Triggered: For non-trial initial subscription purchases
+- Also used by RevenueCat server events for trial conversions and renewals
 - Parameters: `fb_currency`, `fb_content_type`, `fb_content_id`
 
 ## Testing
