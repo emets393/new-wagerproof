@@ -7,7 +7,7 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, { Polyline, Circle } from 'react-native-svg';
+import Svg, { Polyline, Circle, Path, Line as SvgLine } from 'react-native-svg';
 import { TeamAvatar } from '../TeamAvatar';
 import { Button } from '../ui/Button';
 import {
@@ -34,8 +34,24 @@ const DEMO_HOME_SPREAD = 2.5;
 const DEMO_AWAY_ML = -155;
 const DEMO_HOME_ML = 135;
 const DEMO_OU = 47.5;
+// Model projections — what our numbers say vs what Vegas has.
+const DEMO_OUR_SPREAD = -4.0; // KC wins by 4.0 per the model
+const DEMO_OUR_OU = 49.2; // model projects 49.2 combined points
+const DEMO_SPREAD_DELTA = Math.abs(DEMO_OUR_SPREAD - DEMO_AWAY_SPREAD); // 1.5
+const DEMO_OU_DELTA = DEMO_OUR_OU - DEMO_OU; // +1.7
 const DEMO_SPREAD_CONFIDENCE = 72;
 const DEMO_OU_CONFIDENCE = 65;
+
+// Polymarket history (8 points, oldest → now) for the two-line chart.
+const POLY_AWAY_SERIES = [50, 52, 49, 54, 56, 55, 57, 58];
+const POLY_HOME_SERIES = [50, 48, 51, 46, 44, 45, 43, 42];
+
+// Public betting splits — matches the bets/money pair the real widget shows.
+const DEMO_PUBLIC = {
+  ml: { awayBets: 63, awayMoney: 71, homeBets: 37, homeMoney: 29 },
+  spread: { awayBets: 71, awayMoney: 78, homeBets: 29, homeMoney: 22 },
+  total: { overBets: 56, overMoney: 52, underBets: 44, underMoney: 48 },
+};
 
 const EXPLAINER =
   "We pull live pro-grade data for every matchup — model predictions, odds, market movement, public betting, weather, and more — then translate it into plain language right inside the Game Card.";
@@ -219,15 +235,42 @@ export const DemoGameBottomSheet = forwardRef<
         <SectionLabel>Market Odds</SectionLabel>
         <View style={styles.card}>
           <View style={styles.rowHeader}>
-            <MaterialCommunityIcons name="chart-line" size={20} color="#a855f7" />
+            <MaterialCommunityIcons name="chart-line-variant" size={20} color="#10b981" />
             <Text style={styles.rowTitle}>Polymarket</Text>
             <View style={styles.liveTag}>
               <View style={styles.liveDot} />
               <Text style={styles.liveText}>LIVE</Text>
             </View>
           </View>
-          <MarketRow team={DEMO_AWAY} percent={58} color="#22c55e" />
-          <MarketRow team={DEMO_HOME} percent={42} color="#ef4444" />
+
+          {/* Current odds cards — mirrors the real PolymarketWidget header. */}
+          <View style={styles.polyOddsRow}>
+            <PolymarketOddsCard
+              team={DEMO_AWAY}
+              percent={POLY_AWAY_SERIES[POLY_AWAY_SERIES.length - 1]}
+              change={POLY_AWAY_SERIES[POLY_AWAY_SERIES.length - 1] - POLY_AWAY_SERIES[0]}
+              color={awayColors.primary}
+            />
+            <PolymarketOddsCard
+              team={DEMO_HOME}
+              percent={POLY_HOME_SERIES[POLY_HOME_SERIES.length - 1]}
+              change={POLY_HOME_SERIES[POLY_HOME_SERIES.length - 1] - POLY_HOME_SERIES[0]}
+              color={homeColors.primary}
+            />
+          </View>
+
+          {/* Two-line mini chart — each side tracked over time. */}
+          <PolymarketChart
+            awaySeries={POLY_AWAY_SERIES}
+            homeSeries={POLY_HOME_SERIES}
+            awayColor={awayColors.primary}
+            homeColor={homeColors.primary}
+          />
+
+          <View style={styles.polyLegendRow}>
+            <LegendDot color={awayColors.primary} label={DEMO_AWAY} />
+            <LegendDot color={homeColors.primary} label={DEMO_HOME} />
+          </View>
         </View>
 
         {/* Spread Prediction */}
@@ -237,25 +280,22 @@ export const DemoGameBottomSheet = forwardRef<
             <MaterialCommunityIcons name="target" size={20} color="#22c55e" />
             <Text style={styles.rowTitle}>Spread Prediction</Text>
           </View>
-          <View style={styles.comparisonRow}>
-            <View style={styles.comparisonBox}>
-              <Text style={styles.comparisonLabel}>Vegas Spread</Text>
-              <Text style={styles.comparisonValue}>{formatSpread(DEMO_AWAY_SPREAD)}</Text>
-            </View>
-            <MaterialCommunityIcons name="arrow-right" size={20} color="rgba(255,255,255,0.5)" />
-            <View style={[styles.comparisonBox, styles.comparisonBoxAccent]}>
-              <Text style={[styles.comparisonLabel, { color: '#22c55e' }]}>Confidence</Text>
-              <Text style={[styles.comparisonValue, { color: '#22c55e' }]}>
-                {DEMO_SPREAD_CONFIDENCE}%
-              </Text>
-            </View>
+          {/* Vegas + Our + Delta side-by-side makes the edge read at a glance. */}
+          <View style={styles.tripleComparisonRow}>
+            <ComparisonCell label="Vegas" value={formatSpread(DEMO_AWAY_SPREAD)} />
+            <ComparisonCell label="Our Model" value={formatSpread(DEMO_OUR_SPREAD)} />
+            <ComparisonCell
+              label="Delta"
+              value={`+${DEMO_SPREAD_DELTA.toFixed(1)}`}
+              accent
+            />
           </View>
           <View style={styles.edgeRow}>
             <TeamAvatar teamName={DEMO_AWAY} sport="nfl" size={36} />
             <View style={styles.edgeText}>
               <Text style={styles.edgeTeam}>{DEMO_AWAY} covers</Text>
               <Text style={styles.edgeDelta}>
-                {formatSpread(DEMO_AWAY_SPREAD)} at {DEMO_SPREAD_CONFIDENCE}.0%
+                {DEMO_SPREAD_DELTA.toFixed(1)} pt edge · {DEMO_SPREAD_CONFIDENCE}% confidence
               </Text>
             </View>
           </View>
@@ -268,38 +308,82 @@ export const DemoGameBottomSheet = forwardRef<
             <MaterialCommunityIcons name="arrow-up-bold" size={20} color="#22c55e" />
             <Text style={styles.rowTitle}>Over/Under Prediction</Text>
           </View>
-          <View style={styles.comparisonRow}>
-            <View style={styles.comparisonBox}>
-              <Text style={styles.comparisonLabel}>Vegas O/U</Text>
-              <Text style={styles.comparisonValue}>{roundToNearestHalf(DEMO_OU)}</Text>
-            </View>
-            <MaterialCommunityIcons name="arrow-right" size={20} color="rgba(255,255,255,0.5)" />
-            <View style={[styles.comparisonBox, styles.comparisonBoxAccent]}>
-              <Text style={[styles.comparisonLabel, { color: '#22c55e' }]}>Confidence</Text>
-              <Text style={[styles.comparisonValue, { color: '#22c55e' }]}>
-                {DEMO_OU_CONFIDENCE}%
-              </Text>
-            </View>
+          <View style={styles.tripleComparisonRow}>
+            <ComparisonCell label="Vegas" value={roundToNearestHalf(DEMO_OU).toString()} />
+            <ComparisonCell label="Our Model" value={DEMO_OUR_OU.toFixed(1)} />
+            <ComparisonCell
+              label="Delta"
+              value={`${DEMO_OU_DELTA >= 0 ? '+' : ''}${DEMO_OU_DELTA.toFixed(1)}`}
+              accent
+            />
           </View>
           <View style={styles.edgeRow}>
             <MaterialCommunityIcons name="chevron-up" size={28} color="#22c55e" />
             <View style={styles.edgeText}>
               <Text style={styles.edgeTeam}>Over {roundToNearestHalf(DEMO_OU)}</Text>
-              <Text style={styles.edgeDelta}>{DEMO_OU_CONFIDENCE}.0% confidence</Text>
+              <Text style={styles.edgeDelta}>
+                {Math.abs(DEMO_OU_DELTA).toFixed(1)} pt edge · {DEMO_OU_CONFIDENCE}% confidence
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Public Betting */}
+        {/* Public Betting — uses the same Bets + Money gauge layout as the
+            live PublicBettingBars widget so the demo reads like the real UI. */}
         <SectionLabel>Public Betting</SectionLabel>
         <View style={styles.card}>
           <View style={styles.rowHeader}>
-            <MaterialCommunityIcons name="account-group" size={20} color="#f59e0b" />
-            <Text style={styles.rowTitle}>Where the public is</Text>
+            <MaterialCommunityIcons name="account-group" size={20} color="#22c55e" />
+            <Text style={styles.rowTitle}>Public Lean</Text>
           </View>
-          <PublicSplitRow label="Moneyline" awayTeam={DEMO_AWAY} homeTeam={DEMO_HOME} awayPercent={63} homePercent={37} />
-          <PublicSplitRow label="Spread" awayTeam={DEMO_AWAY} homeTeam={DEMO_HOME} awayPercent={71} homePercent={29} />
-          <PublicSplitRow label="Total" awayTeam="Over" homeTeam="Under" awayPercent={56} homePercent={44} overUnder />
+
+          <PublicSection title="Moneyline" icon="trending-up" iconColor="#3b82f6">
+            <PublicGaugeHeader />
+            <PublicGaugeRow
+              label={DEMO_AWAY}
+              labelColor={awayColors.primary}
+              bets={DEMO_PUBLIC.ml.awayBets}
+              money={DEMO_PUBLIC.ml.awayMoney}
+            />
+            <PublicGaugeRow
+              label={DEMO_HOME}
+              labelColor={homeColors.primary}
+              bets={DEMO_PUBLIC.ml.homeBets}
+              money={DEMO_PUBLIC.ml.homeMoney}
+            />
+          </PublicSection>
+
+          <PublicSection title="Spread" icon="target" iconColor="#22c55e">
+            <PublicGaugeHeader />
+            <PublicGaugeRow
+              label={DEMO_AWAY}
+              labelColor={awayColors.primary}
+              bets={DEMO_PUBLIC.spread.awayBets}
+              money={DEMO_PUBLIC.spread.awayMoney}
+            />
+            <PublicGaugeRow
+              label={DEMO_HOME}
+              labelColor={homeColors.primary}
+              bets={DEMO_PUBLIC.spread.homeBets}
+              money={DEMO_PUBLIC.spread.homeMoney}
+            />
+          </PublicSection>
+
+          <PublicSection title="Total" icon="chart-bar" iconColor="#f97316">
+            <PublicGaugeHeader />
+            <PublicGaugeRow
+              label="Over"
+              labelColor="#f97316"
+              bets={DEMO_PUBLIC.total.overBets}
+              money={DEMO_PUBLIC.total.overMoney}
+            />
+            <PublicGaugeRow
+              label="Under"
+              labelColor="#3b82f6"
+              bets={DEMO_PUBLIC.total.underBets}
+              money={DEMO_PUBLIC.total.underMoney}
+            />
+          </PublicSection>
         </View>
 
         {/* Head-to-Head */}
@@ -355,55 +439,225 @@ function WeatherCell({ icon, text }: { icon: any; text: string }) {
   );
 }
 
-function MarketRow({ team, percent, color }: { team: string; percent: number; color: string }) {
+function ComparisonCell({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
-    <View style={styles.marketRow}>
-      <View style={styles.marketHeader}>
-        <TeamAvatar teamName={team} sport="nfl" size={24} />
-        <Text style={styles.marketTeam}>{team}</Text>
-        <Text style={[styles.marketPercent, { color }]}>{percent}%</Text>
-      </View>
-      <View style={styles.marketBarBg}>
-        <View style={[styles.marketBarFill, { width: `${percent}%`, backgroundColor: color }]} />
+    <View style={[styles.comparisonBox, accent && styles.comparisonBoxAccent]}>
+      <Text style={[styles.comparisonLabel, accent && { color: '#22c55e' }]}>{label}</Text>
+      <Text style={[styles.comparisonValue, accent && { color: '#22c55e' }]}>{value}</Text>
+    </View>
+  );
+}
+
+function PolymarketOddsCard({
+  team,
+  percent,
+  change,
+  color,
+}: {
+  team: string;
+  percent: number;
+  change: number;
+  color: string;
+}) {
+  const up = change >= 0;
+  return (
+    <View style={[styles.polyOddsCard, { borderColor: color }]}>
+      <Text style={styles.polyOddsLabel}>{team}</Text>
+      <View style={styles.polyOddsValueRow}>
+        <Text style={styles.polyOddsValue}>{percent}%</Text>
+        <View style={styles.polyChangeContainer}>
+          <MaterialCommunityIcons
+            name={up ? 'trending-up' : 'trending-down'}
+            size={12}
+            color={up ? '#22c55e' : '#ef4444'}
+          />
+          <Text style={[styles.polyChangeText, { color: up ? '#22c55e' : '#ef4444' }]}>
+            {up ? '+' : ''}{change}%
+          </Text>
+        </View>
       </View>
     </View>
   );
 }
 
-function PublicSplitRow({
+function PolymarketChart({
+  awaySeries,
+  homeSeries,
+  awayColor,
+  homeColor,
+}: {
+  awaySeries: number[];
+  homeSeries: number[];
+  awayColor: string;
+  homeColor: string;
+}) {
+  // Fixed 0–100% y-axis so both lines share the same scale — percents on
+  // Polymarket are complementary so this mirrors the real chart.
+  const width = 300;
+  const height = 120;
+  const pad = 10;
+  const chartW = width - pad * 2;
+  const chartH = height - pad * 2;
+  const stepX = chartW / (awaySeries.length - 1);
+  const toY = (v: number) => pad + (1 - v / 100) * chartH;
+  const line = (series: number[]) =>
+    series.map((v, i) => `${pad + i * stepX},${toY(v)}`).join(' ');
+
+  return (
+    <View style={styles.polyChartWrap}>
+      <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+        {/* 50% reference line — anchor for "pick 'em" on Polymarket. */}
+        <SvgLine
+          x1={pad}
+          x2={width - pad}
+          y1={toY(50)}
+          y2={toY(50)}
+          stroke="rgba(255,255,255,0.12)"
+          strokeWidth={1}
+          strokeDasharray="3,3"
+        />
+        <Polyline points={line(awaySeries)} fill="none" stroke={awayColor} strokeWidth={2.5} />
+        <Polyline points={line(homeSeries)} fill="none" stroke={homeColor} strokeWidth={2.5} />
+        {/* End-of-line dots highlight the "now" value. */}
+        <Circle
+          cx={pad + (awaySeries.length - 1) * stepX}
+          cy={toY(awaySeries[awaySeries.length - 1])}
+          r={3.5}
+          fill={awayColor}
+        />
+        <Circle
+          cx={pad + (homeSeries.length - 1) * stepX}
+          cy={toY(homeSeries[homeSeries.length - 1])}
+          r={3.5}
+          fill={homeColor}
+        />
+      </Svg>
+    </View>
+  );
+}
+
+function PublicSection({
+  title,
+  icon,
+  iconColor,
+  children,
+}: {
+  title: string;
+  icon: any;
+  iconColor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.publicSection}>
+      <View style={styles.publicSectionHeader}>
+        <MaterialCommunityIcons name={icon} size={14} color={iconColor} />
+        <Text style={styles.publicSectionTitle}>{title}</Text>
+      </View>
+      <View style={styles.publicSectionBody}>{children}</View>
+    </View>
+  );
+}
+
+function PublicGaugeHeader() {
+  return (
+    <View style={styles.publicHeaderRow}>
+      <Text style={[styles.publicHeaderCell, { flex: 1.4 }]}>Side</Text>
+      <Text style={styles.publicHeaderCell}>Bets</Text>
+      <Text style={styles.publicHeaderCell}>Money</Text>
+    </View>
+  );
+}
+
+function PublicGaugeRow({
   label,
-  awayTeam,
-  homeTeam,
-  awayPercent,
-  homePercent,
-  overUnder = false,
+  labelColor,
+  bets,
+  money,
 }: {
   label: string;
-  awayTeam: string;
-  homeTeam: string;
-  awayPercent: number;
-  homePercent: number;
-  overUnder?: boolean;
+  labelColor: string;
+  bets: number;
+  money: number;
 }) {
-  const leftColor = awayPercent > homePercent ? '#22c55e' : '#64748b';
-  const rightColor = homePercent > awayPercent ? '#22c55e' : '#64748b';
   return (
-    <View style={styles.splitRow}>
-      <Text style={styles.splitLabel}>{label}</Text>
-      <View style={styles.splitBars}>
-        <View style={styles.splitSideLeft}>
-          <Text style={styles.splitTeam}>{overUnder ? awayTeam : awayTeam}</Text>
-          <Text style={[styles.splitPercent, { color: leftColor }]}>{awayPercent}%</Text>
-        </View>
-        <View style={styles.splitBarBg}>
-          <View style={[styles.splitBarFill, { width: `${awayPercent}%`, backgroundColor: leftColor }]} />
-        </View>
-        <View style={styles.splitSideRight}>
-          <Text style={[styles.splitPercent, { color: rightColor }]}>{homePercent}%</Text>
-          <Text style={styles.splitTeam}>{homeTeam}</Text>
-        </View>
+    <View style={styles.publicDataRow}>
+      <View style={styles.publicLabelCell}>
+        <View style={[styles.publicLabelDot, { backgroundColor: labelColor }]} />
+        <Text style={styles.publicLabelText} numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+      <View style={styles.publicGaugeCell}>
+        <SemiGauge percent={bets} />
+        <Text style={styles.publicPercentText}>{bets}%</Text>
+      </View>
+      <View style={styles.publicGaugeCell}>
+        <SemiGauge percent={money} />
+        <Text style={styles.publicPercentText}>{money}%</Text>
       </View>
     </View>
+  );
+}
+
+function SemiGauge({ percent }: { percent: number }) {
+  const size = 42;
+  const strokeWidth = 5;
+  const radius = (size - strokeWidth) / 2;
+  const cx = size / 2;
+  const cy = size / 2 + 2;
+
+  const segmentColors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e'];
+  const segmentAngles = [
+    Math.PI,
+    Math.PI * 0.8,
+    Math.PI * 0.6,
+    Math.PI * 0.4,
+    Math.PI * 0.2,
+    0,
+  ];
+  const position = (() => {
+    if (percent <= 20) return 0;
+    if (percent <= 40) return 1;
+    if (percent <= 60) return 2;
+    if (percent <= 80) return 3;
+    return 4;
+  })();
+  const activeColor = segmentColors[position];
+
+  // Needle angle maps 0–100% → π–0 across the semicircle.
+  const needleAngle = Math.PI * (1 - percent / 100);
+  const needleLen = radius - 4;
+  const needleX = cx + needleLen * Math.cos(needleAngle);
+  const needleY = cy - needleLen * Math.sin(needleAngle);
+
+  return (
+    <Svg width={size} height={size / 2 + 6}>
+      {[0, 1, 2, 3, 4].map((seg) => {
+        const a = segmentAngles[seg];
+        const b = segmentAngles[seg + 1];
+        const x1 = cx + radius * Math.cos(a);
+        const y1 = cy - radius * Math.sin(a);
+        const x2 = cx + radius * Math.cos(b);
+        const y2 = cy - radius * Math.sin(b);
+        return (
+          <Path
+            key={seg}
+            d={`M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`}
+            stroke={segmentColors[seg]}
+            strokeWidth={strokeWidth}
+            fill="none"
+            opacity={seg === position ? 1 : 0.35}
+          />
+        );
+      })}
+      <Path
+        d={`M ${cx} ${cy} L ${needleX} ${needleY}`}
+        stroke={activeColor}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <Circle cx={cx} cy={cy} r={3} fill={activeColor} />
+    </Svg>
   );
 }
 
@@ -690,46 +944,66 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  marketRow: {
-    gap: 6,
-    marginBottom: 10,
+  polyOddsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
   },
-  marketHeader: {
+  polyOddsCard: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  polyOddsLabel: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  polyOddsValueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  polyOddsValue: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  polyChangeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 2,
+    marginBottom: 3,
   },
-  marketTeam: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
-  marketPercent: {
-    fontSize: 14,
+  polyChangeText: {
+    fontSize: 11,
     fontWeight: '700',
   },
-  marketBarBg: {
-    height: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 4,
-    overflow: 'hidden',
+  polyChartWrap: {
+    padding: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginBottom: 10,
   },
-  marketBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  comparisonRow: {
+  polyLegendRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 16,
+  },
+  tripleComparisonRow: {
+    flexDirection: 'row',
+    gap: 6,
     marginBottom: 12,
   },
   comparisonBox: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
@@ -770,54 +1044,76 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 2,
   },
-  splitRow: {
-    marginBottom: 10,
+  publicSection: {
+    marginTop: 12,
   },
-  splitLabel: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  splitBars: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  splitSideLeft: {
+  publicSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    width: 90,
+    marginBottom: 6,
   },
-  splitSideRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    width: 90,
-    justifyContent: 'flex-end',
-  },
-  splitTeam: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  splitPercent: {
+  publicSectionTitle: {
+    color: '#ffffff',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  splitBarBg: {
-    flex: 1,
-    height: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 3,
+  publicSectionBody: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     overflow: 'hidden',
   },
-  splitBarFill: {
-    height: '100%',
-    borderRadius: 3,
+  publicHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  publicHeaderCell: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  publicDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  publicLabelCell: {
+    flex: 1.4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  publicLabelDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  publicLabelText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  publicGaugeCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  publicPercentText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 11,
+    fontWeight: '700',
   },
   h2hRow: {
     flexDirection: 'row',

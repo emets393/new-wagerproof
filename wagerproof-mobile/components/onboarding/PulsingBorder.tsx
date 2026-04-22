@@ -5,6 +5,7 @@ import Animated, {
   useAnimatedStyle,
   withRepeat,
   withTiming,
+  withDelay,
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
@@ -17,6 +18,9 @@ interface PulsingBorderProps {
   children: React.ReactNode;
   color?: string;
   borderRadius?: number;
+  // ms delay before the border starts fading in. Lets callers stagger the
+  // highlight behind sibling fade-ins (e.g. wait for a header cross-fade).
+  fadeInDelay?: number;
 }
 
 export function PulsingBorder({
@@ -24,11 +28,17 @@ export function PulsingBorder({
   children,
   color = '#22c55e',
   borderRadius = 12,
+  fadeInDelay = 0,
 }: PulsingBorderProps) {
   const pulse = useSharedValue(0);
+  const fadeIn = useSharedValue(0);
 
   useEffect(() => {
     if (active) {
+      fadeIn.value = withDelay(
+        fadeInDelay,
+        withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) })
+      );
       pulse.value = 0;
       pulse.value = withRepeat(
         withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) }),
@@ -36,18 +46,25 @@ export function PulsingBorder({
         true
       );
     } else {
+      cancelAnimation(fadeIn);
       cancelAnimation(pulse);
+      fadeIn.value = 0;
       pulse.value = 0;
     }
-    return () => cancelAnimation(pulse);
-  }, [active, pulse]);
+    return () => {
+      cancelAnimation(fadeIn);
+      cancelAnimation(pulse);
+    };
+  }, [active, fadeIn, fadeInDelay, pulse]);
 
   const borderStyle = useAnimatedStyle(() => ({
-    opacity: 0.35 + pulse.value * 0.65,
+    // fadeIn gates the whole thing so the border glides in from invisible
+    // rather than popping to its mid-pulse opacity.
+    opacity: fadeIn.value * (0.35 + pulse.value * 0.65),
     // Shadow is iOS-only; pulsing opacity alone does the visual work on Android.
     ...(Platform.OS === 'ios'
       ? {
-          shadowOpacity: 0.3 + pulse.value * 0.5,
+          shadowOpacity: fadeIn.value * (0.3 + pulse.value * 0.5),
           shadowRadius: 6 + pulse.value * 10,
         }
       : {}),

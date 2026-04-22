@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../ui/Button';
 import { onboardingCta } from '../onboardingStyles';
@@ -8,8 +9,8 @@ import { NFLGameCard } from '../../NFLGameCard';
 import { NFLPrediction } from '@/types/nfl';
 import { DemoScanButton } from '../DemoScanButton';
 import { DemoScanWaveAnimation } from '../DemoScanWaveAnimation';
-import { PulsingBorder } from '../PulsingBorder';
 import { DemoGameBottomSheet, DemoGameBottomSheetHandle } from '../DemoGameBottomSheet';
+import { GlowingCardWrapper } from '../../agents/GlowingCardWrapper';
 
 // Tutorial phases walk users through the two headline interactions — the
 // Dynamic-Island "Scan this page" bubble and the per-game pro-data bottom
@@ -93,38 +94,57 @@ const DUMMY_GAMES: NFLPrediction[] = [
   },
 ];
 
-// Copy above the cards. Each phase swaps this block.
+// Copy above the cards. Cross-fades between intro and post-scan content so
+// the transition feels continuous rather than swapping text mid-wave.
+// Intro stays visible through `scanning` so the wave plays over familiar UI.
 function PhaseHeader({ phase }: { phase: Phase }) {
-  if (phase === 'scanning') return null;
+  const showIntro = phase === 'intro-scan' || phase === 'scanning';
+  const showHighlight = phase === 'highlight-card' || phase === 'sheet-demo';
 
-  if (phase === 'highlight-card') {
-    return (
-      <View style={styles.headerBlock}>
-        <Text style={styles.title}>Tap the game card</Text>
-        <Text style={styles.subtitle}>See the pro-grade data we surface for every matchup.</Text>
-      </View>
-    );
-  }
-
-  // intro-scan and sheet-demo both show the scan intro. Once the sheet opens,
-  // the sheet itself owns the screen, so leaving the header in place under it
-  // is fine.
   return (
     <View style={styles.headerBlock}>
-      <Text style={styles.title}>Here's how we help you find edges</Text>
-      <Text style={styles.subtitle}>Tap here to scan</Text>
+      {showIntro && (
+        <Animated.View
+          key="intro"
+          entering={FadeIn.duration(350)}
+          exiting={FadeOut.duration(350)}
+          style={styles.headerOverlay}
+        >
+          <Text style={styles.title}>Scan any page to highlight edges</Text>
+        </Animated.View>
+      )}
+      {showHighlight && (
+        // Delay the enter so it lands just after the intro fades out —
+        // feels like a handoff instead of a simultaneous dissolve.
+        <Animated.View
+          key="highlight"
+          entering={FadeIn.duration(350).delay(250)}
+          exiting={FadeOut.duration(350)}
+          style={styles.headerOverlay}
+        >
+          <Text style={styles.title}>Tap the game card</Text>
+          <Text style={styles.subtitle}>See the pro-grade data we surface for every matchup.</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
 
+// FeatureSpotlight sits at index 8 of the PagerView in (onboarding)/index.tsx,
+// which is step 9 in the user-facing counter. PagerView keeps off-screen pages
+// mounted, so we can't rely on unmount for reset — we watch currentStep and
+// reset when the user navigates away so the tutorial starts fresh on return.
+const FEATURE_SPOTLIGHT_STEP = 9;
+
 export function FeatureSpotlight() {
-  const { nextStep, isTransitioning } = useOnboarding();
+  const { nextStep, isTransitioning, currentStep } = useOnboarding();
   const { width } = useWindowDimensions();
   const cardWidth = (width - 32 - 8) / 2;
 
   const [phase, setPhase] = useState<Phase>('intro-scan');
   const sheetRef = useRef<DemoGameBottomSheetHandle>(null);
   const hasAdvanced = useRef(false);
+  const wasActive = useRef(false);
 
   const handleScanPress = useCallback(() => {
     if (phase !== 'intro-scan') return;
@@ -166,6 +186,19 @@ export function FeatureSpotlight() {
     };
   }, []);
 
+  // Reset-on-leave: when the user navigates away (forward or back), wipe
+  // tutorial state so the next time this page is shown it replays from the
+  // start. PagerView keeps the page mounted, so we watch currentStep.
+  useEffect(() => {
+    const isActive = currentStep === FEATURE_SPOTLIGHT_STEP;
+    if (wasActive.current && !isActive) {
+      setPhase('intro-scan');
+      hasAdvanced.current = false;
+      sheetRef.current?.close();
+    }
+    wasActive.current = isActive;
+  }, [currentStep]);
+
   const showBottomContinue = phase === 'sheet-demo';
 
   return (
@@ -177,27 +210,52 @@ export function FeatureSpotlight() {
       >
         <PhaseHeader phase={phase} />
 
-        {phase === 'intro-scan' && (
-          <View style={styles.scanButtonRow}>
-            <DemoScanButton onPress={handleScanPress} />
-          </View>
-        )}
-
-        {phase !== 'intro-scan' && <View style={styles.scanButtonSpacer} />}
+        {/* Fixed-height row so the button's fade-out doesn't collapse the
+            layout — the cards below stay anchored in place. */}
+        <View style={styles.scanButtonRow}>
+          {(phase === 'intro-scan' || phase === 'scanning') && (
+            <Animated.View
+              entering={FadeIn.duration(300)}
+              exiting={FadeOut.duration(350)}
+            >
+              {/* GlowingCardWrapper mirrors the animated halo used on the
+                  leaderboard avatar cards — it's our established "look here"
+                  affordance, so we reuse it instead of a pointing cue. */}
+              <GlowingCardWrapper color="#22c55e" borderRadius={20}>
+                <DemoScanButton
+                  onPress={handleScanPress}
+                  disabled={phase !== 'intro-scan'}
+                />
+              </GlowingCardWrapper>
+            </Animated.View>
+          )}
+        </View>
 
         <View style={styles.cardsContainer}>
           {DUMMY_GAMES.map((game, index) => {
-            const isHighlighted = phase === 'highlight-card' && index === 0;
-            return (
-              <PulsingBorder key={game.id} active={isHighlighted} borderRadius={20}>
-                <NFLGameCard
-                  game={game}
-                  onPress={isHighlighted ? () => handleCardPress(game.id) : () => {}}
-                  cardWidth={cardWidth}
-                  forceDarkMode
-                />
-              </PulsingBorder>
+            // Stays highlighted through sheet-demo so the glow doesn't flash
+            // off the instant the user taps and the sheet begins opening.
+            const isHighlighted =
+              (phase === 'highlight-card' || phase === 'sheet-demo') && index === 0;
+            const card = (
+              <NFLGameCard
+                game={game}
+                onPress={isHighlighted ? () => handleCardPress(game.id) : () => {}}
+                cardWidth={cardWidth}
+                forceDarkMode
+              />
             );
+
+            if (isHighlighted) {
+              // Same animated halo treatment used on leaderboard avatars —
+              // reuses the established "look here" affordance.
+              return (
+                <GlowingCardWrapper key={game.id} color="#22c55e" borderRadius={20}>
+                  {card}
+                </GlowingCardWrapper>
+              );
+            }
+            return <View key={game.id}>{card}</View>;
           })}
         </View>
       </ScrollView>
@@ -239,9 +297,16 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   headerBlock: {
+    // Minimum reserves layout space for whichever overlay is active so
+    // neither phase's content causes a jump when they cross-fade.
     minHeight: 88,
-    justifyContent: 'center',
     marginBottom: 16,
+    position: 'relative',
+  },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     color: '#ffffff',
@@ -258,12 +323,11 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   scanButtonRow: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  scanButtonSpacer: {
-    // Keeps the cards from jumping when the scan pill disappears.
+    // Fixed height (matching the pill) so the cards below stay anchored
+    // while the button fades in/out across phases.
     height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 24,
   },
   cardsContainer: {
