@@ -24,8 +24,8 @@ SELECT
   game_date,
   pick_selection AS current_selection,
   CASE
-    WHEN pick_selection ~* '^\s*over\b'  THEN 'Over '  || (archived_game_data->'vegas_lines'->>'total')
-    WHEN pick_selection ~* '^\s*under\b' THEN 'Under ' || (archived_game_data->'vegas_lines'->>'total')
+    WHEN pick_selection ILIKE 'over%'  THEN 'Over '  || (archived_game_data->'vegas_lines'->>'total')
+    WHEN pick_selection ILIKE 'under%' THEN 'Under ' || (archived_game_data->'vegas_lines'->>'total')
     ELSE pick_selection
   END AS new_selection,
   created_at
@@ -33,8 +33,8 @@ FROM avatar_picks
 WHERE bet_type = 'total'
   AND archived_game_data->'vegas_lines'->>'total' IS NOT NULL
   AND pick_selection IS DISTINCT FROM CASE
-    WHEN pick_selection ~* '^\s*over\b'  THEN 'Over '  || (archived_game_data->'vegas_lines'->>'total')
-    WHEN pick_selection ~* '^\s*under\b' THEN 'Under ' || (archived_game_data->'vegas_lines'->>'total')
+    WHEN pick_selection ILIKE 'over%'  THEN 'Over '  || (archived_game_data->'vegas_lines'->>'total')
+    WHEN pick_selection ILIKE 'under%' THEN 'Under ' || (archived_game_data->'vegas_lines'->>'total')
     ELSE pick_selection
   END
 ORDER BY created_at DESC;
@@ -51,8 +51,8 @@ END
 WHERE bet_type = 'total'
   AND archived_game_data->'vegas_lines'->>'total' IS NOT NULL
   AND pick_selection IS DISTINCT FROM CASE
-    WHEN pick_selection ~* '^\s*over\b'  THEN 'Over '  || (archived_game_data->'vegas_lines'->>'total')
-    WHEN pick_selection ~* '^\s*under\b' THEN 'Under ' || (archived_game_data->'vegas_lines'->>'total')
+    WHEN pick_selection ILIKE 'over%'  THEN 'Over '  || (archived_game_data->'vegas_lines'->>'total')
+    WHEN pick_selection ILIKE 'under%' THEN 'Under ' || (archived_game_data->'vegas_lines'->>'total')
     ELSE pick_selection
   END
 RETURNING id, sport, matchup, pick_selection, created_at;
