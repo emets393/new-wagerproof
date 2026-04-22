@@ -364,7 +364,7 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
             </View>
             <View style={styles.pickStats}>
               <StatCell label="Edge" value={`${p.edge_at_suggestion > 0 ? '+' : ''}${p.edge_at_suggestion}${p.bet_type.includes('ml') ? '%' : ''}`} />
-              <StatCell label="Bucket" value={p.edge_bucket} />
+              <StatCell label="Bucket" value={p.edge_bucket === 'perfect_storm' ? 'Perfect\nStorm' : p.edge_bucket} />
               {(p.edge_bucket || '').toLowerCase() === 'perfect_storm' ? (
                 perfectStormOverall && perfectStormOverall.games > 0 ? (
                   <StatCell label="Bucket W%" value={`${perfectStormOverall.win_pct}%`} valueColor={winPctColor(perfectStormOverall.win_pct)} />

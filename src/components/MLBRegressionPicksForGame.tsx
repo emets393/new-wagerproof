@@ -147,7 +147,9 @@ export function MLBRegressionPicksForGame(props: MLBRegressionPicksForGameProps)
                 </div>
                 <div>
                   <div className="text-muted-foreground">Bucket</div>
-                  <div className="font-medium text-white">{p.edge_bucket}</div>
+                  <div className="font-medium text-white whitespace-pre-line text-center leading-tight">
+                    {p.edge_bucket === 'perfect_storm' ? 'Perfect\nStorm' : p.edge_bucket}
+                  </div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Bucket W%</div>

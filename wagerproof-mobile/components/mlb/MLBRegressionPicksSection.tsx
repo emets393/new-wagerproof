@@ -157,7 +157,9 @@ export function MLBRegressionPicksSection({ game }: { game: MLBGame }) {
               </View>
               <View style={styles.statCell}>
                 <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>Bucket</Text>
-                <Text style={[styles.statValue, { color: theme.colors.onSurface }]}>{p.edge_bucket}</Text>
+                <Text style={[styles.statValue, { color: theme.colors.onSurface }]}>
+                  {p.edge_bucket === 'perfect_storm' ? 'Perfect\nStorm' : p.edge_bucket}
+                </Text>
               </View>
               <View style={styles.statCell}>
                 <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>Bucket W%</Text>
