@@ -17,6 +17,7 @@ import {
 import { AgentPick, Sport } from '@/types/agent';
 import { AgentOverlapFooter } from './AgentOverlapFooter';
 import { useNCAABTeamMapping, lookupNCAABTeam } from '@/hooks/useNCAABTeamMapping';
+import { getMLBFallbackTeamInfo, getMLBTeamColors } from '@/constants/mlbTeams';
 
 // ============================================================================
 // HELPERS
@@ -45,6 +46,8 @@ export function getTeamColors(teamName: string, sport: Sport): { primary: string
     case 'cfb':
     case 'ncaab':
       return getCFBTeamColors(teamName);
+    case 'mlb':
+      return getMLBTeamColors(teamName);
     default:
       return { primary: '#666666', secondary: '#999999' };
   }
@@ -59,6 +62,10 @@ export function getTeamAbbr(teamName: string, sport: Sport): string {
     case 'cfb':
     case 'ncaab':
       return getCFBTeamInitials(teamName);
+    case 'mlb':
+      // Use the real MLB mapping (BOS, NYY, TB...) instead of naive substring
+      // which produced things like "TAM" for Tampa Bay or "LOS" for LA teams.
+      return getMLBFallbackTeamInfo(teamName)?.team ?? teamName.substring(0, 3).toUpperCase();
     default:
       return teamName.substring(0, 3).toUpperCase();
   }

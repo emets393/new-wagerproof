@@ -15,6 +15,7 @@ import {
   getNFLTeamColors,
   getNFLTeamInitials,
 } from '@/utils/teamColors';
+import { MLB_FALLBACK_BY_NAME } from '@/utils/mlbTeamLogos';
 
 interface AgentPickCardProps {
   pick: AgentPick;
@@ -76,10 +77,26 @@ function teamColors(teamName: string, sport: Sport) {
   return getNCAABTeamColors(teamName);
 }
 
+function lookupMLBAbbr(teamName: string): string | null {
+  if (!teamName) return null;
+  const key = teamName.trim().toLowerCase().replace(/[.'']/g, '').replace(/\s+/g, ' ');
+  const hit = MLB_FALLBACK_BY_NAME[key];
+  if (hit) return hit.team;
+  // Fuzzy: match on prefix/suffix so "Cincinnati" alone still resolves.
+  for (const [mapKey, mapVal] of Object.entries(MLB_FALLBACK_BY_NAME)) {
+    if (mapKey.includes(key) || key.includes(mapKey)) return mapVal.team;
+  }
+  return null;
+}
+
 function teamAbbr(teamName: string, sport: Sport) {
   if (sport === 'nfl') return getNFLTeamInitials(teamName);
   if (sport === 'cfb') return getCFBTeamInitials(teamName);
   if (sport === 'nba') return getNBATeamInitials(teamName);
+  if (sport === 'mlb') {
+    // Use the real MLB mapping (BOS, NYY, TB...) instead of NCAAB fallthrough.
+    return lookupMLBAbbr(teamName) ?? teamName.substring(0, 3).toUpperCase();
+  }
   return getNCAABTeamInitials(teamName);
 }
 
