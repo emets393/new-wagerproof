@@ -4,6 +4,7 @@ import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useMLBRegressionReport, type SuggestedPick } from '@/hooks/useMLBRegressionReport';
+import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import type { MLBGame } from '@/types/mlb';
 
 type ModelPickSide = 'home' | 'away' | null;
@@ -85,6 +86,10 @@ export function MLBRegressionPicksSection({ game }: { game: MLBGame }) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { data: report } = useMLBRegressionReport();
+  const { data: bucketAccuracy } = useMLBBucketAccuracy();
+  // Synthetic perfect_storm aggregate row — see
+  // scripts/sql/refresh_perfect_storm_accuracy.sql for where it comes from.
+  const perfectStormOverall = bucketAccuracy?.perfect_storm?.overall;
 
   if (!report || !game?.game_pk) return null;
   const picks = (report.suggested_picks || []).filter(p => p.game_pk === game.game_pk);
@@ -156,9 +161,19 @@ export function MLBRegressionPicksSection({ game }: { game: MLBGame }) {
               </View>
               <View style={styles.statCell}>
                 <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>Bucket W%</Text>
-                <Text style={[styles.statValue, { color: winColor(p.bucket_win_pct) }]}>
-                  {p.bucket_win_pct}%
-                </Text>
+                {(p.edge_bucket || '').toLowerCase() === 'perfect_storm' ? (
+                  perfectStormOverall && perfectStormOverall.games > 0 ? (
+                    <Text style={[styles.statValue, { color: winColor(perfectStormOverall.win_pct) }]}>
+                      {perfectStormOverall.win_pct}%
+                    </Text>
+                  ) : (
+                    <Text style={[styles.statValue, { color: theme.colors.onSurfaceVariant }]}>N/A</Text>
+                  )
+                ) : (
+                  <Text style={[styles.statValue, { color: winColor(p.bucket_win_pct) }]}>
+                    {p.bucket_win_pct}%
+                  </Text>
+                )}
               </View>
             </View>
 

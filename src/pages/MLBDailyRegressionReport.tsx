@@ -286,6 +286,8 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
 }
 
 function PicksSection({ picks }: { picks: SuggestedPick[] }) {
+  const { data: bucketAccuracy } = useMLBBucketAccuracy();
+  const perfectStormOverall = bucketAccuracy?.perfect_storm?.overall;
   if (!picks.length) {
     return (
       <Card>
@@ -361,7 +363,13 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                   <div>
                     <div className="text-muted-foreground">Bucket W%</div>
                     {(p.edge_bucket || '').toLowerCase() === 'perfect_storm' ? (
-                      <div className="font-medium text-muted-foreground">N/A</div>
+                      perfectStormOverall && perfectStormOverall.games > 0 ? (
+                        <div className="font-medium" style={{ color: winPctColor(perfectStormOverall.win_pct) }}>
+                          {perfectStormOverall.win_pct}%
+                        </div>
+                      ) : (
+                        <div className="font-medium text-muted-foreground">N/A</div>
+                      )
                     ) : (
                       <div className="font-medium" style={{ color: winPctColor(p.bucket_win_pct) }}>
                         {p.bucket_win_pct}%

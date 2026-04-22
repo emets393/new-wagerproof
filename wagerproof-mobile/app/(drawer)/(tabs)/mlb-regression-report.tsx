@@ -317,6 +317,8 @@ function AccuracyDashboardSection() {
 function PicksSection({ picks }: { picks: SuggestedPick[] }) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
+  const { data: bucketAccuracy } = useMLBBucketAccuracy();
+  const perfectStormOverall = bucketAccuracy?.perfect_storm?.overall;
   if (!picks?.length) {
     return (
       <SectionCard icon="target" iconColor="#22c55e" title="Today's Suggested Picks">
@@ -364,7 +366,11 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
               <StatCell label="Edge" value={`${p.edge_at_suggestion > 0 ? '+' : ''}${p.edge_at_suggestion}${p.bet_type.includes('ml') ? '%' : ''}`} />
               <StatCell label="Bucket" value={p.edge_bucket} />
               {(p.edge_bucket || '').toLowerCase() === 'perfect_storm' ? (
-                <StatCell label="Bucket W%" value="N/A" />
+                perfectStormOverall && perfectStormOverall.games > 0 ? (
+                  <StatCell label="Bucket W%" value={`${perfectStormOverall.win_pct}%`} valueColor={winPctColor(perfectStormOverall.win_pct)} />
+                ) : (
+                  <StatCell label="Bucket W%" value="N/A" />
+                )
               ) : (
                 <StatCell label="Bucket W%" value={`${p.bucket_win_pct}%`} valueColor={winPctColor(p.bucket_win_pct)} />
               )}

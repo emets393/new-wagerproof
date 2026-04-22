@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, XCircle, HelpCircle, Zap } from 'lucide-react';
 import { useMLBRegressionReport, type SuggestedPick } from '@/hooks/useMLBRegressionReport';
+import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 
 // Mirrors wagerproof-mobile/components/mlb/MLBRegressionPicksSection.tsx. Filters
 // today's suggested_picks by game_pk and renders the 0-4 picks that apply to the
@@ -86,6 +87,10 @@ function winColor(pct: number): string {
 
 export function MLBRegressionPicksForGame(props: MLBRegressionPicksForGameProps) {
   const { data: report } = useMLBRegressionReport();
+  const { data: bucketAccuracy } = useMLBBucketAccuracy();
+  // Synthetic aggregate row populated from mlb_graded_picks where
+  // is_perfect_storm = true. Used as the bucket W% for picks in that "bucket".
+  const perfectStormOverall = bucketAccuracy?.perfect_storm?.overall;
   if (!report || !props.gamePk) return null;
   const picks = (report.suggested_picks || []).filter(p => p.game_pk === props.gamePk);
   if (picks.length === 0) return null;
@@ -147,7 +152,13 @@ export function MLBRegressionPicksForGame(props: MLBRegressionPicksForGameProps)
                 <div>
                   <div className="text-muted-foreground">Bucket W%</div>
                   {isPerfectStorm ? (
-                    <div className="font-medium text-muted-foreground">N/A</div>
+                    perfectStormOverall && perfectStormOverall.games > 0 ? (
+                      <div className={`font-medium ${winColor(perfectStormOverall.win_pct)}`}>
+                        {perfectStormOverall.win_pct}%
+                      </div>
+                    ) : (
+                      <div className="font-medium text-muted-foreground">N/A</div>
+                    )
                   ) : (
                     <div className={`font-medium ${winColor(p.bucket_win_pct)}`}>
                       {p.bucket_win_pct}%

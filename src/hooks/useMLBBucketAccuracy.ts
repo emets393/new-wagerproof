@@ -8,7 +8,10 @@ import { collegeFootballSupabase } from '@/integrations/supabase/college-footbal
  * the primary key is fully indexable.
  */
 export interface BucketAccuracyRow {
-  bet_type: 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou';
+  // 'perfect_storm' is a synthetic aggregate row populated from
+  // mlb_graded_picks where is_perfect_storm = true (see
+  // scripts/sql/refresh_perfect_storm_accuracy.sql).
+  bet_type: 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou' | 'perfect_storm';
   bucket: string;
   side: string;        // 'home' | 'away' | ''
   fav_dog: string;     // 'favorite' | 'underdog' | ''
@@ -54,6 +57,7 @@ export interface MLBBucketAccuracy {
   full_ou: BetTypeAccuracyWithRoi;
   f5_ml: BetTypeAccuracyWithRoi;
   f5_ou: BetTypeAccuracyWithRoi;
+  perfect_storm: BetTypeAccuracyWithRoi;
 }
 
 function emptyBetType(): BetTypeAccuracyWithRoi {
@@ -69,6 +73,7 @@ function aggregate(rows: BucketAccuracyRow[]): MLBBucketAccuracy {
     full_ou: emptyBetType(),
     f5_ml: emptyBetType(),
     f5_ou: emptyBetType(),
+    perfect_storm: emptyBetType(),
   };
 
   for (const r of rows) {
