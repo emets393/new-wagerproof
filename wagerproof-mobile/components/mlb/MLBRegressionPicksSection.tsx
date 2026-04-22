@@ -280,6 +280,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
+    textAlign: 'center',
   },
   reasoning: {
     fontSize: 12,
