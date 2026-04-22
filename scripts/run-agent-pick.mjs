@@ -129,9 +129,10 @@ function slimSituationalRow(row) {
 }
 
 function buildNBAGameData(game, pred = null, edgeAccuracy = null, situational = null) {
+  // Prefer the explicit away_moneyline column; fall back to complement.
   const homeML = game.home_moneyline;
-  let awayML = null;
-  if (homeML) awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
+  const awayML = game.away_moneyline
+    ?? (homeML ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
   const gameData = {
     game: {
       away_team: game.away_team,

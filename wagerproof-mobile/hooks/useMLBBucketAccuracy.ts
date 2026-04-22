@@ -1,21 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
-import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 
-/**
- * Bucket accuracy row as stored in mlb_model_bucket_accuracy.
- * One row per (bet_type, bucket, side, fav_dog, direction) combination.
- * Empty strings are used in place of NULL for the sub-dimension columns so
- * the primary key is fully indexable.
- */
+// Mirrors src/hooks/useMLBBucketAccuracy.ts on the web so per-game bucket
+// lookups match exactly. Reads mlb_model_bucket_accuracy — one row per
+// (bet_type, bucket, side, fav_dog, direction) combination.
+
 export interface BucketAccuracyRow {
   // 'perfect_storm' is a synthetic aggregate row populated from
   // mlb_graded_picks where is_perfect_storm = true (see
   // scripts/sql/refresh_perfect_storm_accuracy.sql).
   bet_type: 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou' | 'perfect_storm';
   bucket: string;
-  side: string;        // 'home' | 'away' | ''
-  fav_dog: string;     // 'favorite' | 'underdog' | ''
-  direction: string;   // 'OVER' | 'UNDER' | 'over' | 'under' | ''
+  side: string;
+  fav_dog: string;
+  direction: string;
   games: number;
   wins: number;
   losses: number;
@@ -26,11 +24,6 @@ export interface BucketAccuracyRow {
   updated_at: string;
 }
 
-/**
- * Shape consumers get back: same structure that used to live in
- * regressionReport.model_accuracy, so existing lookup/render code
- * in MLB.tsx and AccuracyDashboard keeps working unchanged.
- */
 export interface BetTypeAccuracyWithRoi {
   overall: {
     games: number;
@@ -97,7 +90,6 @@ function aggregate(rows: BucketAccuracyRow[]): MLBBucketAccuracy {
     });
   }
 
-  // Derive overall win_pct / roi_pct from the per-bucket sums
   for (const bt of Object.values(out)) {
     const g = bt.overall.games;
     bt.overall.win_pct = g > 0 ? Math.round((bt.overall.wins / g) * 1000) / 10 : 0;
@@ -108,11 +100,6 @@ function aggregate(rows: BucketAccuracyRow[]): MLBBucketAccuracy {
   return out;
 }
 
-/**
- * Reads mlb_model_bucket_accuracy and returns data shaped like the legacy
- * regressionReport.model_accuracy field. Used by MLB.tsx for per-game bucket
- * lookups and by AccuracyDashboard on the regression page.
- */
 export function useMLBBucketAccuracy() {
   return useQuery<MLBBucketAccuracy | null>({
     queryKey: ['mlb-bucket-accuracy'],
@@ -125,7 +112,7 @@ export function useMLBBucketAccuracy() {
       if (!data) return null;
       return aggregate(data as BucketAccuracyRow[]);
     },
-    refetchInterval: 10 * 60 * 1000, // 10 minutes
+    refetchInterval: 10 * 60 * 1000,
     staleTime: 5 * 60 * 1000,
   });
 }

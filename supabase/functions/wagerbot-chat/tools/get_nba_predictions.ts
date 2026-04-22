@@ -76,12 +76,12 @@ export const tool: ToolDefinition = {
       const accuracy = accuracyData.get(gid) || null;
       const prediction = predictionMap.get(game.game_id) || null;
 
-      // Compute away ML from home ML (no away_moneyline column in the view)
+      // Prefer the explicit away_moneyline column from nba_input_values_view;
+      // fall back to the complement formula only if the DB value is missing.
       const homeML = game.home_moneyline as number | null;
-      let awayML: number | null = null;
-      if (homeML != null) {
-        awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
-      }
+      const dbAwayML = game.away_moneyline as number | null;
+      const awayML: number | null = dbAwayML
+        ?? (homeML != null ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
 
       const homeSpread = game.home_spread as number | null;
       const awaySpread = homeSpread != null ? -homeSpread : null;

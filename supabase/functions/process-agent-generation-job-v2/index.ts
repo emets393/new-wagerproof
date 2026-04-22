@@ -531,6 +531,29 @@ serve(async (req) => {
 
       const formattedSnapshot = ensureFormattedGameSnapshot(gameSnapshot, sportType, pick.game_id);
 
+      // For totals, deterministically rewrite the selection's line portion to
+      // the Vegas line from the payload. The LLM sometimes echoes the model's
+      // ou_fair_total ("Over 11.43") instead of the market line ("Over 8.5");
+      // forcing this post-processing makes the bug unreachable regardless of
+      // whether future prompts or payloads leak that field.
+      let correctedSelection = pick.selection;
+      if (pick.bet_type === 'total') {
+        const dirMatch = String(pick.selection || '').match(/\b(over|under)\b/i);
+        const direction = dirMatch ? (dirMatch[1].toLowerCase() === 'over' ? 'Over' : 'Under') : null;
+        const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
+        const vegasTotalRaw = (vegasLines?.total ?? gameSnapshot.total_line ?? gameSnapshot.vegas_total) as unknown;
+        const vegasTotal = typeof vegasTotalRaw === 'number' ? vegasTotalRaw
+          : typeof vegasTotalRaw === 'string' && vegasTotalRaw.trim() !== '' ? Number(vegasTotalRaw)
+          : null;
+        if (direction && vegasTotal != null && !Number.isNaN(vegasTotal)) {
+          const rebuilt = `${direction} ${vegasTotal}`;
+          if (rebuilt !== correctedSelection) {
+            console.warn(`[Validator] Rewrote total selection: "${correctedSelection}" -> "${rebuilt}" (game ${pick.game_id})`);
+          }
+          correctedSelection = rebuilt;
+        }
+      }
+
       picksToInsert.push({
         avatar_id: run.avatar_id,
         game_id: pick.game_id,
@@ -538,7 +561,7 @@ serve(async (req) => {
         matchup: matchup || `Game ${pick.game_id}`,
         game_date: gameDate,
         bet_type: pick.bet_type,
-        pick_selection: pick.selection,
+        pick_selection: correctedSelection,
         odds: pick.odds,
         units: 1.0,
         confidence: pick.confidence,

@@ -528,7 +528,12 @@ export async function fetchNBAPredictions(): Promise<NBAGame[]> {
         away_abbr: (input.away_abbr && input.away_abbr.trim()) || input.away_team || 'AWAY',
         home_abbr: (input.home_abbr && input.home_abbr.trim()) || input.home_team || 'HOME',
         home_ml: input.home_moneyline,
-        away_ml: input.home_moneyline !== null ? (input.home_moneyline > 0 ? -(input.home_moneyline + 100) : 100 - input.home_moneyline) : null,
+        // Prefer the explicit away_moneyline column from nba_input_values_view;
+        // fall back to the complement formula only if the DB value is missing.
+        away_ml: input.away_moneyline
+          ?? (input.home_moneyline !== null
+            ? (input.home_moneyline > 0 ? -(input.home_moneyline + 100) : 100 - input.home_moneyline)
+            : null),
         home_spread: input.home_spread,
         away_spread: input.home_spread ? -input.home_spread : null,
         over_line: input.total_line,
@@ -1193,6 +1198,8 @@ export async function fetchMLBPredictions(): Promise<MLBGame[]> {
       total_line: row.total_line as number | null,
       ml_home_win_prob: row.ml_home_win_prob as number | null,
       ml_away_win_prob: row.ml_away_win_prob as number | null,
+      home_implied_prob: row.home_implied_prob as number | null,
+      away_implied_prob: row.away_implied_prob as number | null,
       home_ml_edge_pct: row.home_ml_edge_pct as number | null,
       away_ml_edge_pct: row.away_ml_edge_pct as number | null,
       home_ml_strong_signal: row.home_ml_strong_signal as boolean | null,
@@ -1212,6 +1219,8 @@ export async function fetchMLBPredictions(): Promise<MLBGame[]> {
       f5_ou_edge: (row.f5_ou_edge as number) ?? null,
       f5_home_win_prob: (row.f5_home_win_prob as number) ?? null,
       f5_away_win_prob: (row.f5_away_win_prob as number) ?? null,
+      f5_home_implied_prob: (row.f5_home_implied_prob as number) ?? null,
+      f5_away_implied_prob: (row.f5_away_implied_prob as number) ?? null,
       f5_home_ml_edge_pct: (row.f5_home_ml_edge_pct as number) ?? null,
       f5_away_ml_edge_pct: (row.f5_away_ml_edge_pct as number) ?? null,
       f5_home_ml_strong_signal: (row.f5_home_ml_strong_signal as boolean) ?? null,

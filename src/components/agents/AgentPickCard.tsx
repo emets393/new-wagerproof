@@ -15,6 +15,7 @@ import {
   getNFLTeamColors,
   getNFLTeamInitials,
 } from '@/utils/teamColors';
+import { MLB_FALLBACK_BY_NAME } from '@/utils/mlbTeamLogos';
 
 interface AgentPickCardProps {
   pick: AgentPick;
@@ -51,6 +52,24 @@ function parseMatchup(matchup: string): { away: string; home: string } {
   return { away: matchup, home: '' };
 }
 
+// Mirrors the mobile formatGameDate helper: shows Today / Tomorrow / "Apr 20"
+// so the date badge stays short. Falls back to the raw string on parse errors.
+function formatGameDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'Pending';
+  try {
+    const date = new Date(dateStr + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (date.getTime() === today.getTime()) return 'Today';
+    if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
 function teamColors(teamName: string, sport: Sport) {
   if (sport === 'nfl') return getNFLTeamColors(teamName);
   if (sport === 'cfb') return getCFBTeamColors(teamName);
@@ -58,10 +77,26 @@ function teamColors(teamName: string, sport: Sport) {
   return getNCAABTeamColors(teamName);
 }
 
+function lookupMLBAbbr(teamName: string): string | null {
+  if (!teamName) return null;
+  const key = teamName.trim().toLowerCase().replace(/[.'']/g, '').replace(/\s+/g, ' ');
+  const hit = MLB_FALLBACK_BY_NAME[key];
+  if (hit) return hit.team;
+  // Fuzzy: match on prefix/suffix so "Cincinnati" alone still resolves.
+  for (const [mapKey, mapVal] of Object.entries(MLB_FALLBACK_BY_NAME)) {
+    if (mapKey.includes(key) || key.includes(mapKey)) return mapVal.team;
+  }
+  return null;
+}
+
 function teamAbbr(teamName: string, sport: Sport) {
   if (sport === 'nfl') return getNFLTeamInitials(teamName);
   if (sport === 'cfb') return getCFBTeamInitials(teamName);
   if (sport === 'nba') return getNBATeamInitials(teamName);
+  if (sport === 'mlb') {
+    // Use the real MLB mapping (BOS, NYY, TB...) instead of NCAAB fallthrough.
+    return lookupMLBAbbr(teamName) ?? teamName.substring(0, 3).toUpperCase();
+  }
   return getNCAABTeamInitials(teamName);
 }
 
@@ -89,6 +124,22 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
   const awayColors = teamColors(away, pick.sport);
   const homeColors = teamColors(home, pick.sport);
 
+  // Compact pick text: use the team abbreviation on ML/spread picks so long
+  // names don't truncate. Spread keeps its line (e.g. "MIN -3.5"), ML renders
+  // as "MIN ML", totals render verbatim ("Over 225.5").
+  const displaySelection = useMemo(() => {
+    if (pick.bet_type === 'total') return pick.pick_selection;
+    const selectionLower = (pick.pick_selection || '').toLowerCase();
+    const pickedAbbr = selectionLower.includes(awayAbbr.toLowerCase()) || selectionLower.includes(away.toLowerCase())
+      ? awayAbbr
+      : homeAbbr;
+    if (pick.bet_type === 'spread') {
+      const lineMatch = (pick.pick_selection || '').match(/[+-]\d+(?:\.\d+)?/);
+      return lineMatch ? `${pickedAbbr} ${lineMatch[0]}` : pickedAbbr;
+    }
+    return `${pickedAbbr} ML`;
+  }, [pick.bet_type, pick.pick_selection, awayAbbr, homeAbbr, away]);
+
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
       <Card className="overflow-hidden border-border/70 bg-card/95 transition-colors hover:border-primary/45">
@@ -111,18 +162,19 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
                 <p className="text-xs text-muted-foreground mt-1 truncate">{pick.matchup}</p>
               </div>
 
-              {pick.result === 'pending' ? (
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <Badge variant="outline" className="text-[10px] h-6">
-                  <Clock3 className="h-3 w-3 mr-1" /> {pick.game_date || 'Pending'}
+                  <Clock3 className="h-3 w-3 mr-1" /> {formatGameDate(pick.game_date)}
                 </Badge>
-              ) : (
-                <span
-                  className="text-[10px] font-bold px-2.5 py-1 rounded-md"
-                  style={{ color: result.color, backgroundColor: result.bgColor }}
-                >
-                  {result.label}
-                </span>
-              )}
+                {pick.result !== 'pending' ? (
+                  <span
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-md"
+                    style={{ color: result.color, backgroundColor: result.bgColor }}
+                  >
+                    {result.label}
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             <div className="flex items-center gap-2 mt-3">
@@ -132,7 +184,7 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
               >
                 {BET_TYPE_LABELS[pick.bet_type]}
               </span>
-              <p className="text-sm font-semibold truncate">{pick.pick_selection}</p>
+              <p className="text-sm font-semibold truncate">{displaySelection}</p>
               {pick.odds ? <p className="text-xs text-muted-foreground">({pick.odds})</p> : null}
               <span className="ml-auto text-xs text-muted-foreground">{pick.units}u</span>
             </div>

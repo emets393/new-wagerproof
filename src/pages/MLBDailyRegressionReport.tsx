@@ -286,6 +286,8 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
 }
 
 function PicksSection({ picks }: { picks: SuggestedPick[] }) {
+  const { data: bucketAccuracy } = useMLBBucketAccuracy();
+  const perfectStormOverall = bucketAccuracy?.perfect_storm?.overall;
   if (!picks.length) {
     return (
       <Card>
@@ -356,13 +358,25 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                   </div>
                   <div>
                     <div className="text-muted-foreground">Bucket</div>
-                    <div className="font-medium">{p.edge_bucket}</div>
+                    <div className="font-medium whitespace-pre-line text-center leading-tight">
+                      {p.edge_bucket === 'perfect_storm' ? 'Perfect\nStorm' : p.edge_bucket}
+                    </div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Bucket W%</div>
-                    <div className="font-medium" style={{ color: winPctColor(p.bucket_win_pct) }}>
-                      {p.bucket_win_pct}%
-                    </div>
+                    {(p.edge_bucket || '').toLowerCase() === 'perfect_storm' ? (
+                      perfectStormOverall && perfectStormOverall.games > 0 ? (
+                        <div className="font-medium" style={{ color: winPctColor(perfectStormOverall.win_pct) }}>
+                          {perfectStormOverall.win_pct}%
+                        </div>
+                      ) : (
+                        <div className="font-medium text-muted-foreground">N/A</div>
+                      )
+                    ) : (
+                      <div className="font-medium" style={{ color: winPctColor(p.bucket_win_pct) }}>
+                        {p.bucket_win_pct}%
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">{p.reasoning}</div>

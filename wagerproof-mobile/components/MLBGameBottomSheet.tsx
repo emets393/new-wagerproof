@@ -31,6 +31,10 @@ import { useMLBGameSheet } from '@/contexts/MLBGameSheetContext';
 import { getMLBTeamColors } from '@/constants/mlbTeams';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { PolymarketWidget } from './PolymarketWidget';
+import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
+import { lookupBucketAccuracy } from '@/utils/mlbBucketAccuracy';
+import { AccuracyBadge } from './AccuracyBadge';
+import { MLBRegressionPicksSection } from './mlb/MLBRegressionPicksSection';
 
 type ProjectionView = 'full' | 'f5';
 
@@ -60,36 +64,48 @@ export function MLBGameBottomSheet() {
   const f5Runs = game ? getF5Runs(game) : null;
   const activeRuns = projView === 'full' ? fullRuns : f5Runs;
 
-  // Implied probability from moneyline odds (for Vegas vs Model comparison)
-  const mlToImpliedProb = (ml: number | null): number | null => {
-    if (ml === null || ml === undefined) return null;
-    return ml < 0 ? Math.abs(ml) / (Math.abs(ml) + 100) : 100 / (ml + 100);
-  };
-
   // ── ML pick (reactive to projView) ──
+  // All moneyline inputs come from mlb_games_today. For full game we prefer
+  // the published home_implied_prob / away_implied_prob columns. F5 has no
+  // implied_prob column, so we derive it from the identity that's already
+  // baked into the DB: edge_pct = (model_prob − implied_prob) * 100, which
+  // rearranges to implied_prob = model_prob − edge_pct/100. Same fallback
+  // runs for full game if the implied column is null — either way the
+  // displayed Vegas / Model / delta values stay self-consistent.
   const homeWinProb = projView === 'full' ? game?.ml_home_win_prob : game?.f5_home_win_prob;
   const awayWinProb = projView === 'full' ? game?.ml_away_win_prob : game?.f5_away_win_prob;
-  const mlPickSide = game && homeWinProb != null && awayWinProb != null
-    ? (homeWinProb >= awayWinProb ? 'home' : 'away')
-    : null;
+  const homeMlOdds = (projView === 'full' ? game?.home_ml : game?.f5_home_ml) ?? null;
+  const awayMlOdds = (projView === 'full' ? game?.away_ml : game?.f5_away_ml) ?? null;
+  const homeMlEdge = (projView === 'full' ? game?.home_ml_edge_pct : game?.f5_home_ml_edge_pct) ?? null;
+  const awayMlEdge = (projView === 'full' ? game?.away_ml_edge_pct : game?.f5_away_ml_edge_pct) ?? null;
+  const deriveImplied = (winProb: number | null | undefined, edgePct: number | null | undefined): number | null => {
+    if (winProb == null || edgePct == null) return null;
+    return winProb - edgePct / 100;
+  };
+  const homeImpliedProb = projView === 'full'
+    ? (game?.home_implied_prob ?? deriveImplied(homeWinProb, homeMlEdge))
+    : deriveImplied(homeWinProb, homeMlEdge);
+  const awayImpliedProb = projView === 'full'
+    ? (game?.away_implied_prob ?? deriveImplied(awayWinProb, awayMlEdge))
+    : deriveImplied(awayWinProb, awayMlEdge);
+
+  let mlPickSide: 'home' | 'away' | null = null;
+  if (game && homeMlEdge != null && awayMlEdge != null) {
+    // Lines + edges present — pick the positive (higher) edge side.
+    mlPickSide = homeMlEdge >= awayMlEdge ? 'home' : 'away';
+  } else if (game && homeWinProb != null && awayWinProb != null) {
+    // No lines yet — default to the team with the higher model win prob.
+    mlPickSide = homeWinProb >= awayWinProb ? 'home' : 'away';
+  }
+
   const mlPickProb = mlPickSide === 'home' ? homeWinProb : awayWinProb;
   const mlPickStrong = projView === 'full'
     ? (mlPickSide === 'home' ? game?.home_ml_strong_signal : game?.away_ml_strong_signal)
     : (mlPickSide === 'home' ? game?.f5_home_ml_strong_signal : game?.f5_away_ml_strong_signal);
 
-  // Vegas implied prob from moneyline odds (full game or F5)
-  const pickMl = projView === 'full'
-    ? (mlPickSide === 'home' ? game?.home_ml : game?.away_ml) ?? null
-    : (mlPickSide === 'home' ? game?.f5_home_ml : game?.f5_away_ml) ?? null;
-  const vegasImpliedProb = mlPickSide ? mlToImpliedProb(pickMl) : null;
-
-  // ML edge: for full game compute client-side from displayed values; for F5 use DB edge
-  const mlPickEdgeDb = projView === 'full'
-    ? (mlPickSide === 'home' ? game?.home_ml_edge_pct : game?.away_ml_edge_pct)
-    : (mlPickSide === 'home' ? game?.f5_home_ml_edge_pct : game?.f5_away_ml_edge_pct);
-  const mlPickEdge = (mlPickProb != null && vegasImpliedProb != null)
-    ? (mlPickProb - vegasImpliedProb) * 100
-    : mlPickEdgeDb ?? null;
+  const pickMl = mlPickSide === 'home' ? homeMlOdds : awayMlOdds;
+  const vegasImpliedProb = mlPickSide === 'home' ? homeImpliedProb : awayImpliedProb;
+  const mlPickEdge = mlPickSide === 'home' ? homeMlEdge : awayMlEdge;
 
   // ── O/U (reactive to projView) ──
   const ouFairTotal = projView === 'full' ? game?.ou_fair_total : game?.f5_fair_total;
@@ -109,6 +125,21 @@ export function MLBGameBottomSheet() {
   const ouDelta = ouFairTotal != null && ouLine != null
     ? Math.abs(ouFairTotal - ouLine).toFixed(1)
     : null;
+
+  // Model accuracy — historical hit rate of the pick's edge bucket. Matches the
+  // pills shown on the web MLB page via src/hooks/useMLBBucketAccuracy.ts.
+  const { data: modelAccuracy } = useMLBBucketAccuracy();
+  const mlAccuracy = useMemo(() => {
+    if (!modelAccuracy || mlPickEdge == null || !mlPickSide) return null;
+    const betType = projView === 'full' ? 'full_ml' : 'f5_ml';
+    const favDog = pickMl != null ? (pickMl < 0 ? 'favorite' : 'underdog') : undefined;
+    return lookupBucketAccuracy(modelAccuracy, betType, mlPickEdge, mlPickSide, favDog);
+  }, [modelAccuracy, mlPickEdge, mlPickSide, projView, pickMl]);
+  const ouAccuracy = useMemo(() => {
+    if (!modelAccuracy || ouEdgeRaw == null || !ouDirection) return null;
+    const betType = projView === 'full' ? 'full_ou' : 'f5_ou';
+    return lookupBucketAccuracy(modelAccuracy, betType, ouEdgeRaw, undefined, undefined, ouDirection);
+  }, [modelAccuracy, ouEdgeRaw, ouDirection, projView]);
 
   // Signals — show for any game that has them
   const signals = game?.signals || [];
@@ -366,10 +397,8 @@ export function MLBGameBottomSheet() {
                         </Text>
                       )}
                     </View>
-                    <View style={[styles.confBadge, { backgroundColor: mlPickStrong ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)' }]}>
-                      <Text style={{ color: mlPickStrong ? '#22c55e' : '#eab308', fontSize: 11, fontWeight: '600' }}>
-                        {mlPickStrong ? 'Strong' : 'Weak'} Signal
-                      </Text>
+                    <View style={styles.confColumn}>
+                      <AccuracyBadge info={mlAccuracy} />
                     </View>
                   </View>
 
@@ -441,10 +470,8 @@ export function MLBGameBottomSheet() {
                         </Text>
                       )}
                     </View>
-                    <View style={[styles.confBadge, { backgroundColor: `${ouConfColor}15` }]}>
-                      <Text style={{ color: ouConfColor, fontSize: 11, fontWeight: '600' }}>
-                        {ouConfLabel} Signal
-                      </Text>
+                    <View style={styles.confColumn}>
+                      <AccuracyBadge info={ouAccuracy} />
                     </View>
                   </View>
 
@@ -456,6 +483,9 @@ export function MLBGameBottomSheet() {
                 </View>
               </TouchableOpacity>
             )}
+
+            {/* Regression Report — suggested picks for this game, if any */}
+            {game && <MLBRegressionPicksSection game={game} />}
 
             {/* Signals (today's games only) */}
             {showSignals && (
@@ -808,6 +838,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     marginTop: 4,
+  },
+  confColumn: {
+    alignItems: 'flex-end',
+    gap: 4,
   },
   explanationText: {
     fontSize: 13,

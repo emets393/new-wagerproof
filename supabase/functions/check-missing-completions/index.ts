@@ -489,12 +489,11 @@ function buildCFBPayload(game: any, widgetType: string): any {
 
 // Helper function to build NBA payload
 function buildNBAPayload(game: any, widgetType: string): any {
-  // Calculate away moneyline from home moneyline
+  // Prefer the explicit away_moneyline column from nba_input_values_view;
+  // fall back to the complement formula only if the DB value is missing.
   const homeML = game.home_moneyline;
-  let awayML = null;
-  if (homeML) {
-    awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
-  }
+  const awayML = game.away_moneyline
+    ?? (homeML ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
 
   const basePayload = {
     game: {

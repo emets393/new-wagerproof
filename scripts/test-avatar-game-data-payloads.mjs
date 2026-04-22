@@ -214,9 +214,10 @@ function formatCFBGame(game, polymarket, lineMovement) {
 
 function formatNBAGame(game, polymarket, awayInjuries, homeInjuries, predictionAccuracy) {
   const gameId = String(game.game_id);
+  // Prefer the explicit away_moneyline column; fall back to complement.
   const homeML = game.home_moneyline;
-  let awayML = null;
-  if (homeML) awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
+  const awayML = game.away_moneyline
+    ?? (homeML ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
   const homeSpread = game.home_spread;
   const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
 

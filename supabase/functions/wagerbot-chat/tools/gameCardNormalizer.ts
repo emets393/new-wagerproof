@@ -30,8 +30,11 @@ interface ChatGameCardData {
 export function normalizeNBA(game: any, prediction: any): ChatGameCardData {
   const homeSpread = game.home_spread as number | null;
   const awaySpread = homeSpread != null ? -homeSpread : null;
+  // Prefer the explicit away_moneyline column from nba_input_values_view;
+  // fall back to the complement formula only if the DB value is missing.
   const homeML = game.home_moneyline as number | null;
-  const awayML = homeML != null ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null;
+  const awayML: number | null = (game.away_moneyline as number | null)
+    ?? (homeML != null ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
 
   let spreadPick: string | null = null;
   let spreadEdge: number | null = null;

@@ -779,12 +779,10 @@ export default function EditorsPicks() {
                 }
               }
               
-              // Calculate away moneyline from home moneyline (same as NBA.tsx)
+              // Prefer the explicit away_moneyline column; fall back to complement.
               const homeML = game.home_moneyline;
-              let awayML = null;
-              if (homeML) {
-                awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
-              }
+              const awayML = game.away_moneyline
+                ?? (homeML ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
               
               // Get logos using the same utility functions as NBA page
               const [awayLogo, homeLogo] = await Promise.all([

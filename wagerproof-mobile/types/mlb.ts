@@ -42,6 +42,8 @@ export interface MLBGame {
   // Full-game model outputs
   ml_home_win_prob: number | null;
   ml_away_win_prob: number | null;
+  home_implied_prob: number | null;
+  away_implied_prob: number | null;
   home_ml_edge_pct: number | null;
   away_ml_edge_pct: number | null;
   home_ml_strong_signal: boolean | null;
@@ -63,6 +65,8 @@ export interface MLBGame {
   f5_ou_edge: number | null;
   f5_home_win_prob: number | null;
   f5_away_win_prob: number | null;
+  f5_home_implied_prob: number | null;
+  f5_away_implied_prob: number | null;
   f5_home_ml_edge_pct: number | null;
   f5_away_ml_edge_pct: number | null;
   f5_home_ml_strong_signal: boolean | null;

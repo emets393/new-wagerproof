@@ -1540,11 +1540,12 @@ function formatNBAGame(
   situationalTrends: Record<string, unknown> | null = null
 ): Record<string, unknown> {
   const gameId = String(game.game_id);
+  // Prefer the explicit away_moneyline column from nba_input_values_view;
+  // fall back to the complement formula only if the DB value is missing.
   const homeML = game.home_moneyline as number | null;
-  let awayML = null;
-  if (homeML) {
-    awayML = homeML > 0 ? -(homeML + 100) : 100 - homeML;
-  }
+  const dbAwayML = game.away_moneyline as number | null;
+  const awayML: number | null = dbAwayML
+    ?? (homeML != null ? (homeML > 0 ? -(homeML + 100) : 100 - homeML) : null);
   const homeSpread = game.home_spread as number | null;
   const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
 
