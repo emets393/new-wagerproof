@@ -199,12 +199,13 @@ function winColor(pct: number): string {
 }
 
 const styles = StyleSheet.create({
+  // Width/radius/padding matches styles.section in MLBGameBottomSheet so this
+  // widget lines up with sibling sections. Parent ScrollView already applies
+  // paddingHorizontal:16 and gap:12 — don't re-add horizontal/bottom spacing here.
   section: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
-    marginHorizontal: 16,
-    marginBottom: 10,
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
