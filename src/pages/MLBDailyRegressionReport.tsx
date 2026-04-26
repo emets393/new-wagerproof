@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
+import { useMLBSeriesSignals, type MLBSeriesSignal } from '@/hooks/useMLBSeriesSignals';
 import { MLB_FALLBACK_BY_NAME } from '@/utils/mlbTeamLogos';
 import type {
   PitcherRegression, BattingRegression, BullpenFatigue,
@@ -662,6 +663,64 @@ function BullpenFatigueSection({ bullpens }: { bullpens: BullpenFatigue[] }) {
   );
 }
 
+// Series-position carryover signals (G2/G3 patterns from mlb_game_signals).
+// These come from the live signal view, NOT the regression report's external ETL,
+// so they're always up-to-date with the latest signal definitions and lifetime stats.
+function SeriesSignalsSection({ signals }: { signals: MLBSeriesSignal[] }) {
+  if (!signals || signals.length === 0) return null;
+  // Sort: positive first, then negative; within group keep stable
+  const positives = signals.filter(s => s.severity === 'positive');
+  const negatives = signals.filter(s => s.severity === 'negative');
+  const ordered = [...positives, ...negatives];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Target className="w-5 h-5 text-purple-400" />
+          Series-Position Signals
+          <Badge variant="secondary" className="text-[10px]">G2 / G3 carryover</Badge>
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Patterns we found in 3 seasons of data: how teams perform in Game 2 / Game 3 after a Game 1 or Game 2 outcome.
+          Win % and ROI shown are lifetime, refreshed nightly.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {ordered.map((s, i) => (
+          <div
+            key={`${s.game_pk}-${s.team_side}-${i}`}
+            className={`rounded-lg border p-3 ${
+              s.severity === 'positive'
+                ? 'bg-green-500/10 border-green-500/30'
+                : 'bg-red-500/10 border-red-500/30'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <div className="text-xs text-muted-foreground mb-1">{s.matchup}</div>
+                <div className={`text-sm leading-snug ${
+                  s.severity === 'positive' ? 'text-green-100' : 'text-red-100'
+                }`}>
+                  {s.message}
+                </div>
+              </div>
+              <Badge
+                className={
+                  s.severity === 'positive'
+                    ? 'bg-green-600 text-white shrink-0'
+                    : 'bg-red-600 text-white shrink-0'
+                }
+              >
+                {s.severity === 'positive' ? '★ BACK' : '⚠ FADE'}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function PerfectStormSection({ storms, record }: { storms: PerfectStorm[]; record?: CumulativeBucket | null }) {
   if (!storms.length) return null;
 
@@ -833,6 +892,10 @@ function WeatherSection({ flags }: { flags: WeatherParkFlag[] }) {
 
 export default function MLBDailyRegressionReport() {
   const { data: report, isLoading, error } = useMLBRegressionReport();
+  // Series signals come from a separate live view (mlb_game_signals). They update
+  // independently of the regression report's external ETL, so today's G2/G3 carryover
+  // patterns are visible even on days the report itself doesn't mention them.
+  const { data: seriesSignals = [] } = useMLBSeriesSignals();
 
   if (isLoading) {
     return (
@@ -899,6 +962,9 @@ export default function MLBDailyRegressionReport() {
 
       {/* Suggested Picks */}
       <PicksSection picks={report.suggested_picks} />
+
+      {/* Series-Position Signals (G2/G3 carryover from mlb_game_signals view) */}
+      <SeriesSignalsSection signals={seriesSignals} />
 
       {/* Pitcher Regression */}
       <PitcherRegressionSection

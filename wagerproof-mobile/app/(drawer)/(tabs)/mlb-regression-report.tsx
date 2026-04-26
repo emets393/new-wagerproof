@@ -15,6 +15,7 @@ import type {
   YesterdayRecap, CumulativeRecord, PerfectStorm, WeatherParkFlag, LRSplitEntry,
 } from '@/hooks/useMLBRegressionReport';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
+import { useMLBSeriesSignals, type MLBSeriesSignal } from '@/hooks/useMLBSeriesSignals';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useScroll } from '@/contexts/ScrollContext';
 import {
@@ -1071,6 +1072,62 @@ function PerfectStormBody({ storms }: { storms: PerfectStorm[] }) {
   );
 }
 
+// G2/G3 series-position signals from the live mlb_game_signals view. Pulled
+// independently of the regression report's external Python ETL so today's
+// carryover/regression patterns are always current with the latest definitions.
+function SeriesSignalsBody({ signals }: { signals: MLBSeriesSignal[] }) {
+  const theme = useTheme();
+  const { isDark } = useThemeContext();
+  if (!signals?.length) return null;
+  // Order: positive (back) signals first so users see actionable plays before fades.
+  const positives = signals.filter(s => s.severity === 'positive');
+  const negatives = signals.filter(s => s.severity === 'negative');
+  const ordered = [...positives, ...negatives];
+  return (
+    <SectionBody>
+      <View style={{ gap: 10 }}>
+        {ordered.map((s, i) => {
+          const positive = s.severity === 'positive';
+          const accent = positive ? WIN_GREEN : LOSS_RED;
+          const tint = positive ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)';
+          return (
+            <AccentBarRow key={`${s.game_pk}-${s.team_side}-${i}`} color={accent}>
+              <View style={styles.rowHead}>
+                <Text
+                  style={[styles.rowTitle, { color: theme.colors.onSurface, flex: 1 }]}
+                  numberOfLines={2}
+                >
+                  {s.matchup}
+                </Text>
+                <Pill
+                  label={positive ? '★ BACK' : '⚠ FADE'}
+                  color={accent}
+                  bg={`${accent}26`}
+                  small
+                />
+              </View>
+              <View
+                style={{
+                  marginTop: 6,
+                  padding: 10,
+                  borderRadius: 8,
+                  backgroundColor: isDark ? tint : tint,
+                  borderLeftWidth: 3,
+                  borderLeftColor: accent,
+                }}
+              >
+                <Text style={{ color: theme.colors.onSurface, fontSize: 13, lineHeight: 18 }}>
+                  {s.message}
+                </Text>
+              </View>
+            </AccentBarRow>
+          );
+        })}
+      </View>
+    </SectionBody>
+  );
+}
+
 function WeatherBody({ flags }: { flags: WeatherParkFlag[] }) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
@@ -1132,6 +1189,10 @@ export default function MLBRegressionReportScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { data: report, isLoading, error, refetch } = useMLBRegressionReport();
+  // Series signals come from a live view independent of the regression-report ETL,
+  // so today's G2/G3 carryover patterns appear here even when the LLM narrative
+  // doesn't mention them.
+  const { data: seriesSignals = [] } = useMLBSeriesSignals();
   const { isPro, isLoading: isProLoading } = useProAccess();
   const { refreshCustomerInfo } = useRevenueCat();
   const { scrollY } = useScroll();
@@ -1339,6 +1400,20 @@ export default function MLBRegressionReportScreen() {
           topInset={0}
         />,
         <PerfectStormBody key="ps-b" storms={report.perfect_storm_matchups} />,
+      );
+    }
+
+    if (seriesSignals.length) {
+      pushSection(
+        'series',
+        <SectionHeader
+          key="series-h"
+          icon="target"
+          iconColor={ACCENT_PURPLE}
+          title="Series-Position Signals"
+          topInset={0}
+        />,
+        <SeriesSignalsBody key="series-b" signals={seriesSignals} />,
       );
     }
 
