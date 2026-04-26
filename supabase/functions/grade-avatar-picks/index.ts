@@ -403,27 +403,44 @@ function gradePickFromView(
     }
 
     case 'spread': {
-      if (!gameResult.spread_result) return null;
+      // [debug] Log all inputs so we can see exact runtime values when grading fails.
+      console.log(`[grade-avatar-picks][spread] pick=${pick.id} game=${pick.game_id} selection="${pick.pick_selection}" spread_result="${gameResult.spread_result}" home="${gameResult.home_team}" away="${gameResult.away_team}"`);
+
+      if (!gameResult.spread_result) {
+        console.log(`[grade-avatar-picks][spread] NULL_SPREAD_RESULT pick=${pick.id}`);
+        return null;
+      }
 
       const parsed = parseSpreadPick(pick.pick_selection);
-      if (!parsed) return null;
+      if (!parsed) {
+        console.log(`[grade-avatar-picks][spread] PARSE_FAIL pick=${pick.id} selection="${pick.pick_selection}"`);
+        return null;
+      }
 
       const canonical = resolveCanonicalTeamName(parsed.team, gameResult, pick.matchup, pick.archived_game_data);
-      if (!canonical) return null;
+      if (!canonical) {
+        console.log(`[grade-avatar-picks][spread] CANONICAL_FAIL pick=${pick.id} parsed_team="${parsed.team}" matchup="${pick.matchup}"`);
+        return null;
+      }
+
+      // Normalize both sides so casing/whitespace differences can't cause false mismatches.
+      const normalizedSpreadResult = normalizeTeamName(gameResult.spread_result);
+      const normalizedCanonical = normalizeTeamName(canonical);
 
       let result: 'won' | 'lost' | 'push';
-      if (gameResult.spread_result.toUpperCase() === 'PUSH') {
+      if (normalizedSpreadResult === 'push') {
         if (!isLikelyPushLine(parsed.spread)) {
-          console.log(`[grade-avatar-picks] Skipping impossible spread push for hook line: ${pick.pick_selection} (${pick.id})`);
+          console.log(`[grade-avatar-picks][spread] IMPOSSIBLE_PUSH pick=${pick.id} selection="${pick.pick_selection}" spread=${parsed.spread}`);
           return null;
         }
         result = 'push';
-      } else if (canonical === gameResult.spread_result) {
+      } else if (normalizedCanonical === normalizedSpreadResult) {
         result = 'won';
       } else {
         result = 'lost';
       }
 
+      console.log(`[grade-avatar-picks][spread] OK pick=${pick.id} result=${result} canonical="${canonical}" spread_result="${gameResult.spread_result}"`);
       return {
         result,
         actual_result: `${actualResultPrefix} — Spread: ${gameResult.spread_result}`,
