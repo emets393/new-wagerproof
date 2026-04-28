@@ -4,6 +4,7 @@ import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBSeriesSignals, type MLBSeriesSignal } from '@/hooks/useMLBSeriesSignals';
 import { useMLBModelBreakdownAccuracy, type ModelBreakdownRow, type ModelBreakdownBetType } from '@/hooks/useMLBModelBreakdownAccuracy';
 import { computeAlignment, ALIGNMENT_DISPLAY } from '@/utils/mlbPickAlignment';
+import { espnMlb500LogoUrlFromAbbrev } from '@/utils/mlbTeamLogos';
 import { MLB_FALLBACK_BY_NAME } from '@/utils/mlbTeamLogos';
 import type {
   PitcherRegression, BattingRegression, BullpenFatigue,
@@ -328,9 +329,10 @@ function ModelBreakdownDashboard() {
               .sort((a, b) => dowOrder.indexOf(a.breakdown_value) - dowOrder.indexOf(b.breakdown_value));
             return (
               <TabsContent key={bt} value={bt} className="mt-3">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <BreakdownTable title="By Day of Week" rows={dowRows} valueLabel="Day" sortable={false} />
-                  <BreakdownTable title="By Team" rows={teamRows} valueLabel="Team" sortable />
+                {/* Stacked vertically — DOW first (always 7 rows, predictable), Teams below */}
+                <div className="flex flex-col gap-6">
+                  <BreakdownTable title="By Day of Week" rows={dowRows} valueLabel="Day" sortable={false} showLogo={false} />
+                  <BreakdownTable title="By Team" rows={teamRows} valueLabel="Team" sortable showLogo />
                 </div>
               </TabsContent>
             );
@@ -342,8 +344,14 @@ function ModelBreakdownDashboard() {
 }
 
 function BreakdownTable({
-  title, rows, valueLabel, sortable,
-}: { title: string; rows: ModelBreakdownRow[]; valueLabel: string; sortable: boolean }) {
+  title, rows, valueLabel, sortable, showLogo,
+}: {
+  title: string;
+  rows: ModelBreakdownRow[];
+  valueLabel: string;
+  sortable: boolean;
+  showLogo: boolean;
+}) {
   if (!rows.length) {
     return (
       <div>
@@ -368,7 +376,21 @@ function BreakdownTable({
           <tbody>
             {rows.map((r, i) => (
               <tr key={`${r.breakdown_value}-${i}`} className="border-b border-muted/10">
-                <td className="py-2 pr-2 text-left font-medium">{r.breakdown_value}</td>
+                <td className="py-2 pr-2 text-left font-medium">
+                  {showLogo ? (
+                    <span className="inline-flex items-center gap-2">
+                      <img
+                        src={espnMlb500LogoUrlFromAbbrev(r.breakdown_value)}
+                        alt={r.breakdown_value}
+                        className="h-5 w-5 object-contain shrink-0"
+                        loading="lazy"
+                      />
+                      <span>{r.breakdown_value}</span>
+                    </span>
+                  ) : (
+                    r.breakdown_value
+                  )}
+                </td>
                 <td className="py-2 px-2 text-center text-muted-foreground">
                   {r.wins}-{r.losses}{r.pushes ? `-${r.pushes}` : ''}
                 </td>

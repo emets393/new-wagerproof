@@ -1,5 +1,5 @@
 import React, { ReactNode, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated, Image } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import {
   type ModelBreakdownBetType,
 } from '@/hooks/useMLBModelBreakdownAccuracy';
 import { computeAlignment, ALIGNMENT_DISPLAY } from '@/utils/mlbPickAlignment';
+import { mlbLogoUrlFromAbbr } from '@/utils/mlbAbbrLogo';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useScroll } from '@/contexts/ScrollContext';
 import {
@@ -606,7 +607,12 @@ function ModelBreakdownBody() {
     .filter(r => r.bet_type === activeTab && r.breakdown_type === 'dow')
     .sort((a, b) => dowOrder.indexOf(a.breakdown_value) - dowOrder.indexOf(b.breakdown_value));
 
-  const renderTable = (title: string, valueLabel: string, data: ModelBreakdownRow[]) => (
+  const renderTable = (
+    title: string,
+    valueLabel: string,
+    data: ModelBreakdownRow[],
+    showLogo: boolean,
+  ) => (
     <View style={{ marginTop: 14 }}>
       <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, marginBottom: 6 }]}>
         {title.toUpperCase()}
@@ -625,40 +631,52 @@ function ModelBreakdownBody() {
           ROI
         </Text>
       </View>
-      {data.map((r, i) => (
-        <View
-          key={`${r.breakdown_value}-${i}`}
-          style={[
-            styles.bucketRow,
-            { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' },
-          ]}
-        >
-          <Text
-            style={[styles.bucketCell, { color: theme.colors.onSurface, flex: 1.6, fontWeight: '600' }]}
-            numberOfLines={1}
-          >
-            {r.breakdown_value}
-          </Text>
-          <Text
-            style={[styles.bucketCell, { color: theme.colors.onSurfaceVariant, width: 62, textAlign: 'right' }]}
-          >
-            {r.wins}-{r.losses}{r.pushes ? `-${r.pushes}` : ''}
-          </Text>
-          <Text
-            style={[styles.bucketCell, { color: winPctColor(r.win_pct), width: 48, textAlign: 'right', fontWeight: '700' }]}
-          >
-            {r.win_pct}%
-          </Text>
-          <Text
+      {data.map((r, i) => {
+        const logoUrl = showLogo ? mlbLogoUrlFromAbbr(r.breakdown_value) : null;
+        return (
+          <View
+            key={`${r.breakdown_value}-${i}`}
             style={[
-              styles.bucketCell,
-              { color: r.roi_pct >= 0 ? WIN_GREEN : LOSS_RED, width: 56, textAlign: 'right', fontWeight: '600' },
+              styles.bucketRow,
+              { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' },
             ]}
           >
-            {r.roi_pct > 0 ? '+' : ''}{r.roi_pct}%
-          </Text>
-        </View>
-      ))}
+            <View style={{ flex: 1.6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {logoUrl ? (
+                <Image
+                  source={{ uri: logoUrl }}
+                  style={{ width: 18, height: 18 }}
+                  resizeMode="contain"
+                />
+              ) : null}
+              <Text
+                style={[styles.bucketCell, { color: theme.colors.onSurface, flex: 1, fontWeight: '600' }]}
+                numberOfLines={1}
+              >
+                {r.breakdown_value}
+              </Text>
+            </View>
+            <Text
+              style={[styles.bucketCell, { color: theme.colors.onSurfaceVariant, width: 62, textAlign: 'right' }]}
+            >
+              {r.wins}-{r.losses}{r.pushes ? `-${r.pushes}` : ''}
+            </Text>
+            <Text
+              style={[styles.bucketCell, { color: winPctColor(r.win_pct), width: 48, textAlign: 'right', fontWeight: '700' }]}
+            >
+              {r.win_pct}%
+            </Text>
+            <Text
+              style={[
+                styles.bucketCell,
+                { color: r.roi_pct >= 0 ? WIN_GREEN : LOSS_RED, width: 56, textAlign: 'right', fontWeight: '600' },
+              ]}
+            >
+              {r.roi_pct > 0 ? '+' : ''}{r.roi_pct}%
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 
@@ -669,8 +687,8 @@ function ModelBreakdownBody() {
         value={activeTab}
         onChange={setActiveTab}
       />
-      {dowRows.length > 0 && renderTable('By Day of Week', 'Day', dowRows)}
-      {teamRows.length > 0 && renderTable('By Team (sorted by ROI)', 'Team', teamRows)}
+      {dowRows.length > 0 && renderTable('By Day of Week', 'Day', dowRows, false)}
+      {teamRows.length > 0 && renderTable('By Team (sorted by ROI)', 'Team', teamRows, true)}
       {dowRows.length === 0 && teamRows.length === 0 ? (
         <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant, marginTop: 12 }]}>
           No graded picks yet for this bet type.
