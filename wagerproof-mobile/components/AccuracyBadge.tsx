@@ -2,13 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { BucketAccuracyResult } from '@/utils/mlbBucketAccuracy';
 
-// Mirrors the web accuracyBadge() treatment in src/pages/MLB.tsx: color-coded
-// pill driven by win_pct thresholds (≥65 / ≥55 / otherwise).
+// Mirrors web MLB thresholds in src/pages/MLB.tsx:
+// green >= 54.1, orange 52.1-54.0, red < 52.1.
 export function AccuracyBadge({ info }: { info: BucketAccuracyResult | null | undefined }) {
   if (!info) return null;
-  const style = info.win_pct >= 65
+  const style = info.win_pct >= 54.1
     ? { bg: 'rgba(16,185,129,0.18)', border: 'rgba(52,211,153,0.45)', text: '#6ee7b7' }
-    : info.win_pct >= 55
+    : info.win_pct >= 52.1
       ? { bg: 'rgba(249,115,22,0.18)', border: 'rgba(251,146,60,0.45)', text: '#fdba74' }
       : { bg: 'rgba(239,68,68,0.18)', border: 'rgba(248,113,113,0.45)', text: '#fca5a5' };
   return (
