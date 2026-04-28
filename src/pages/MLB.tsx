@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
+import { useMLBModelBreakdownAccuracy, type ModelBreakdownRow } from '@/hooks/useMLBModelBreakdownAccuracy';
 import { MLBRegressionPicksForGame } from '@/components/MLBRegressionPicksForGame';
 import {
   Activity,
@@ -321,6 +322,36 @@ function signalSeverityPillClass(severity: string): string {
   }
 }
 
+function dayLabelFromDate(dateString: string | null | undefined): string | null {
+  if (!dateString) return null;
+  const date = new Date(`${dateString.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+}
+
+function findBreakdownRow(
+  rows: ModelBreakdownRow[],
+  betType: 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou',
+  breakdownType: 'dow' | 'team',
+  value: string | null | undefined,
+): ModelBreakdownRow | null {
+  if (!value) return null;
+  return rows.find(
+    r => r.bet_type === betType && r.breakdown_type === breakdownType && r.breakdown_value === value,
+  ) ?? null;
+}
+
+function trendLine(
+  label: string,
+  row: ModelBreakdownRow | null,
+  missingText = 'No history yet',
+): string {
+  if (!row) return `${label}: ${missingText}`;
+  const record = `${row.wins}-${row.losses}${row.pushes ? `-${row.pushes}` : ''}`;
+  const roi = `${row.roi_pct > 0 ? '+' : ''}${row.roi_pct}%`;
+  return `${label}: ${row.breakdown_value} • ${record} • ${row.win_pct}% W • ${roi} ROI`;
+}
+
 function SignalCategoryIcon({ category }: { category: string }) {
   const cn = 'h-3.5 w-3.5 flex-shrink-0 opacity-90';
   switch (category.toLowerCase()) {
@@ -516,6 +547,8 @@ export default function MLB() {
   // Model accuracy now comes from the dedicated mlb_model_bucket_accuracy table,
   // so this page no longer waits on the morning regression report run.
   const { data: modelAccuracy } = useMLBBucketAccuracy();
+  // Day/team breakdown context used for per-pick historical trend explanations.
+  const { data: breakdownRows = [] } = useMLBModelBreakdownAccuracy();
 
   // Edge bucket thresholds (must match the Python script)
   const ML_BUCKETS: [number, string][] = [[7, "7%+"], [4, "4-6.9%"], [2, "2-3.9%"], [0, "<2%"]];
@@ -759,6 +792,19 @@ export default function MLB() {
           const f5TotalEdge = Math.abs(toNum(prediction.f5_ou_edge) ?? 0);
           const f5Direction = (toNum(prediction.f5_ou_edge) ?? 0) >= 0 ? 'OVER' : 'UNDER';
           const activeRuns = cardView === 'full' ? fullRuns : f5Runs;
+          const gameDowLabel = dayLabelFromDate(prediction.official_date);
+
+          const fullMlDowRow = findBreakdownRow(breakdownRows, 'full_ml', 'dow', gameDowLabel);
+          const fullMlTeamRow = findBreakdownRow(breakdownRows, 'full_ml', 'team', mlPickTeam);
+          const fullOuDowRow = findBreakdownRow(breakdownRows, 'full_ou', 'dow', gameDowLabel);
+          const fullOuAwayRow = findBreakdownRow(breakdownRows, 'full_ou', 'team', awayAbbrev);
+          const fullOuHomeRow = findBreakdownRow(breakdownRows, 'full_ou', 'team', homeAbbrev);
+
+          const f5MlDowRow = findBreakdownRow(breakdownRows, 'f5_ml', 'dow', gameDowLabel);
+          const f5MlTeamRow = findBreakdownRow(breakdownRows, 'f5_ml', 'team', f5PickTeam);
+          const f5OuDowRow = findBreakdownRow(breakdownRows, 'f5_ou', 'dow', gameDowLabel);
+          const f5OuAwayRow = findBreakdownRow(breakdownRows, 'f5_ou', 'team', awayAbbrev);
+          const f5OuHomeRow = findBreakdownRow(breakdownRows, 'f5_ou', 'team', homeAbbrev);
 
           const scoreLogoImg = (url: string | null, abbrev: string, side: 'away' | 'home') => {
             const onImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -1042,6 +1088,11 @@ export default function MLB() {
                         <div className="text-xs text-muted-foreground">
                           {homeAbbrev}: Win Prob {toNum(prediction.ml_home_win_prob) !== null ? `${((toNum(prediction.ml_home_win_prob) as number) * 100).toFixed(1)}%` : '-'} | ML Edge {homeMlEdge !== null ? `${homeMlEdge > 0 ? '+' : ''}${homeMlEdge.toFixed(1)}%` : '-'}
                         </div>
+                        <div className="mt-2 rounded-md border border-slate-600/50 bg-slate-900/40 px-2.5 py-2 text-[11px] text-slate-300">
+                          <div className="font-semibold text-slate-200">Historical Model Context (Full Game ML)</div>
+                          <div className="mt-1">{trendLine('Day trend', fullMlDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable')}</div>
+                          <div className="mt-1">{trendLine('Team trend (predicted side)', fullMlTeamRow, `${mlPickTeam} unavailable`)}</div>
+                        </div>
                       </>;
                     })() : (() => {
                       const f5Side = f5PickIsHome ? 'home' : 'away';
@@ -1068,6 +1119,11 @@ export default function MLB() {
                           {' '}| F5 ML Edge{' '}
                           {f5HomeMlEdge !== null ? `${f5HomeMlEdge > 0 ? '+' : ''}${f5HomeMlEdge.toFixed(1)}%` : '-'}
                         </div>
+                        <div className="mt-2 rounded-md border border-slate-600/50 bg-slate-900/40 px-2.5 py-2 text-[11px] text-slate-300">
+                          <div className="font-semibold text-slate-200">Historical Model Context (1st 5 ML)</div>
+                          <div className="mt-1">{trendLine('Day trend', f5MlDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable')}</div>
+                          <div className="mt-1">{trendLine('Team trend (predicted side)', f5MlTeamRow, `${f5PickTeam} unavailable`)}</div>
+                        </div>
                       </>;
                     })()}
                   </div>
@@ -1089,6 +1145,13 @@ export default function MLB() {
                         <div className="text-xs text-muted-foreground">
                           Fair Total: {toNum(prediction.ou_fair_total)?.toFixed(2) ?? '-'} | Market Total: {toNum(prediction.total_line)?.toFixed(1) ?? '-'}
                         </div>
+                        <div className="mt-2 rounded-md border border-slate-600/50 bg-slate-900/40 px-2.5 py-2 text-[11px] text-slate-300">
+                          <div className="font-semibold text-slate-200">Historical Model Context (Full Game O/U)</div>
+                          <div className="mt-1">{trendLine('Day trend', fullOuDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable')}</div>
+                          <div className="mt-1 font-medium text-slate-200">Team Trends</div>
+                          <div className="mt-1">{trendLine(awayAbbrev, fullOuAwayRow, 'Unavailable')}</div>
+                          <div className="mt-1">{trendLine(homeAbbrev, fullOuHomeRow, 'Unavailable')}</div>
+                        </div>
                       </>;
                     })() : (() => {
                       const f5OuAcc = lookupBucketAccuracy('f5_ou', toNum(prediction.f5_ou_edge) ?? 0, undefined, undefined, f5Direction.toLowerCase());
@@ -1100,6 +1163,13 @@ export default function MLB() {
                         </div>
                         <div className="text-xs text-muted-foreground">
                           F5 Fair Total: {toNum(prediction.f5_fair_total)?.toFixed(2) ?? '-'} | F5 Market Total: {toNum(prediction.f5_total_line)?.toFixed(1) ?? '-'}
+                        </div>
+                        <div className="mt-2 rounded-md border border-slate-600/50 bg-slate-900/40 px-2.5 py-2 text-[11px] text-slate-300">
+                          <div className="font-semibold text-slate-200">Historical Model Context (1st 5 O/U)</div>
+                          <div className="mt-1">{trendLine('Day trend', f5OuDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable')}</div>
+                          <div className="mt-1 font-medium text-slate-200">Team Trends</div>
+                          <div className="mt-1">{trendLine(awayAbbrev, f5OuAwayRow, 'Unavailable')}</div>
+                          <div className="mt-1">{trendLine(homeAbbrev, f5OuHomeRow, 'Unavailable')}</div>
                         </div>
                       </>;
                     })()}

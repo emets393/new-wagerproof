@@ -557,9 +557,23 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                   // Skip rendering when neutral with no rows — would just be noise.
                   if (align.level === 'neutral' && !align.dow && align.teams.length === 0) return null;
                   const cfg = ALIGNMENT_DISPLAY[align.level];
+                  const formatRow = (label: string, row: ModelBreakdownRow | null, fallback: string) => {
+                    if (!row) return `${label}: ${fallback}`;
+                    const record = `${row.wins}-${row.losses}${row.pushes ? `-${row.pushes}` : ''}`;
+                    const roi = `${row.roi_pct > 0 ? '+' : ''}${row.roi_pct}%`;
+                    return `${label}: ${row.breakdown_value} • ${record} • ${row.win_pct}% W • ${roi} ROI`;
+                  };
+                  const dowLine = formatRow(
+                    'Day trend',
+                    align.dow,
+                    align.dowLabel ? `${align.dowLabel} data unavailable` : 'Unavailable',
+                  );
+                  const teamLines = align.teams.map(t =>
+                    formatRow('Team', t, 'Unavailable').replace('Team: ', ''),
+                  );
                   return (
                     <div
-                      className="mt-2 rounded-md border px-2 py-1.5 text-[11px]"
+                      className="mt-3 rounded-md border px-2.5 py-2 text-[11px]"
                       style={{
                         borderColor: `${cfg.color}40`,
                         backgroundColor: `${cfg.color}14`,
@@ -568,8 +582,25 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                       <div className="font-bold" style={{ color: cfg.color }}>
                         {cfg.emoji} {cfg.label}
                       </div>
-                      {/* Rationale wraps naturally; for O/U this shows BOTH teams' rows */}
-                      <div className="text-muted-foreground mt-0.5 leading-relaxed">{align.rationale}</div>
+                      <div className="text-muted-foreground mt-1 leading-relaxed">
+                        Model context: this compares this pick to historical win rate and ROI for the same bet type.
+                      </div>
+                      <div className="text-muted-foreground mt-1 leading-relaxed">{dowLine}</div>
+                      <div className="text-muted-foreground mt-2 font-semibold">Team Trends</div>
+                      {teamLines.length > 0 ? (
+                        <div className="text-muted-foreground mt-1 space-y-0.5 leading-relaxed">
+                          {teamLines.map((line, idx) => (
+                            <div key={`${line}-${idx}`}>{line}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground mt-1 leading-relaxed">
+                          No team trend data available for this pick
+                        </div>
+                      )}
+                      <div className="text-muted-foreground mt-1 leading-relaxed">
+                        Higher Win% and positive ROI strengthen alignment; weak trends lower confidence.
+                      </div>
                     </div>
                   );
                 })()}

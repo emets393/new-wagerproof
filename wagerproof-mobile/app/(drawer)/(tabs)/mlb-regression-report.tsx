@@ -23,6 +23,7 @@ import {
 } from '@/hooks/useMLBModelBreakdownAccuracy';
 import { computeAlignment, ALIGNMENT_DISPLAY } from '@/utils/mlbPickAlignment';
 import { mlbLogoUrlFromAbbr } from '@/utils/mlbAbbrLogo';
+import { teamNameToGameLogAbbr } from '@/utils/mlbPickAlignment';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useScroll } from '@/contexts/ScrollContext';
 import {
@@ -599,6 +600,13 @@ function ModelBreakdownBody() {
 
   const betTypes: ModelBreakdownBetType[] = ['full_ml', 'full_ou', 'f5_ml', 'f5_ou'];
   const dowOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const modelBreakdownCol = {
+    valueFlex: 1.45,
+    recordWidth: 66,
+    winPctWidth: 58,
+    roiWidth: 68,
+    roiSpacing: 8,
+  };
 
   const teamRows = rows
     .filter(r => r.bet_type === activeTab && r.breakdown_type === 'team')
@@ -618,16 +626,26 @@ function ModelBreakdownBody() {
         {title.toUpperCase()}
       </Text>
       <View style={styles.bucketHeaderRow}>
-        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, flex: 1.6 }]}>
+        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, flex: modelBreakdownCol.valueFlex }]}>
           {valueLabel.toUpperCase()}
         </Text>
-        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, width: 62, textAlign: 'right' }]}>
+        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, width: modelBreakdownCol.recordWidth, textAlign: 'right' }]}>
           RECORD
         </Text>
-        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, width: 48, textAlign: 'right' }]}>
+        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, width: modelBreakdownCol.winPctWidth, textAlign: 'right' }]}>
           W%
         </Text>
-        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, width: 56, textAlign: 'right' }]}>
+        <Text
+          style={[
+            styles.bucketHeaderCell,
+            {
+              color: theme.colors.onSurfaceVariant,
+              width: modelBreakdownCol.roiWidth,
+              textAlign: 'right',
+              paddingLeft: modelBreakdownCol.roiSpacing,
+            },
+          ]}
+        >
           ROI
         </Text>
       </View>
@@ -641,7 +659,7 @@ function ModelBreakdownBody() {
               { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' },
             ]}
           >
-            <View style={{ flex: 1.6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ flex: modelBreakdownCol.valueFlex, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {logoUrl ? (
                 <Image
                   source={{ uri: logoUrl }}
@@ -657,19 +675,25 @@ function ModelBreakdownBody() {
               </Text>
             </View>
             <Text
-              style={[styles.bucketCell, { color: theme.colors.onSurfaceVariant, width: 62, textAlign: 'right' }]}
+              style={[styles.bucketCell, { color: theme.colors.onSurfaceVariant, width: modelBreakdownCol.recordWidth, textAlign: 'right' }]}
             >
               {r.wins}-{r.losses}{r.pushes ? `-${r.pushes}` : ''}
             </Text>
             <Text
-              style={[styles.bucketCell, { color: winPctColor(r.win_pct), width: 48, textAlign: 'right', fontWeight: '700' }]}
+              style={[styles.bucketCell, { color: winPctColor(r.win_pct), width: modelBreakdownCol.winPctWidth, textAlign: 'right', fontWeight: '700' }]}
             >
               {r.win_pct}%
             </Text>
             <Text
               style={[
                 styles.bucketCell,
-                { color: r.roi_pct >= 0 ? WIN_GREEN : LOSS_RED, width: 56, textAlign: 'right', fontWeight: '600' },
+                {
+                  color: r.roi_pct >= 0 ? WIN_GREEN : LOSS_RED,
+                  width: modelBreakdownCol.roiWidth,
+                  textAlign: 'right',
+                  fontWeight: '600',
+                  paddingLeft: modelBreakdownCol.roiSpacing,
+                },
               ]}
             >
               {r.roi_pct > 0 ? '+' : ''}{r.roi_pct}%
@@ -715,6 +739,26 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
       </SectionBody>
     );
   }
+
+  const TeamBadge = ({ teamName }: { teamName: string | null | undefined }) => {
+    if (!teamName) return null;
+    const abbr = teamNameToGameLogAbbr(teamName);
+    const logoUrl = abbr ? mlbLogoUrlFromAbbr(abbr) : null;
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        {logoUrl ? (
+          <Image
+            source={{ uri: logoUrl }}
+            style={{ width: 16, height: 16 }}
+            resizeMode="contain"
+          />
+        ) : null}
+        <Text style={{ color: theme.colors.onSurface, fontSize: 12, fontWeight: '700' }}>
+          {abbr ?? teamName}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <SectionBody>
@@ -765,9 +809,11 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
                 ) : null}
               </View>
 
-              <Text style={[styles.pickMatchup, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-                {p.away_team} @ {p.home_team}
-              </Text>
+              <View style={[styles.pickMatchupRow, { marginTop: 3 }]}>
+                <TeamBadge teamName={p.away_team} />
+                <Text style={[styles.pickMatchupAt, { color: theme.colors.onSurfaceVariant }]}>@</Text>
+                <TeamBadge teamName={p.home_team} />
+              </View>
 
               <StatRow style={{ marginTop: 10 }}>
                 <Stat label="EDGE" value={edgeStr} />
@@ -793,11 +839,21 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
                 });
                 if (align.level === 'neutral' && !align.dow && align.teams.length === 0) return null;
                 const cfg = ALIGNMENT_DISPLAY[align.level];
+                const formatRow = (label: string, row: ModelBreakdownRow | null, fallback: string) => {
+                  if (!row) return `${label}: ${fallback}`;
+                  const record = `${row.wins}-${row.losses}${row.pushes ? `-${row.pushes}` : ''}`;
+                  const roi = `${row.roi_pct > 0 ? '+' : ''}${row.roi_pct}%`;
+                  return `${label}: ${row.breakdown_value} • ${record} • ${row.win_pct}% W • ${roi} ROI`;
+                };
+                const dowLine = formatRow('Day trend', align.dow, align.dowLabel ? `${align.dowLabel} data unavailable` : 'Unavailable');
+                const teamLines = align.teams.map(t =>
+                  formatRow('Team', t, 'Unavailable').replace('Team: ', ''),
+                );
                 return (
                   <View
                     style={{
-                      marginTop: 8,
-                      paddingVertical: 6,
+                      marginTop: 10,
+                      paddingVertical: 8,
                       paddingHorizontal: 10,
                       borderRadius: 6,
                       borderWidth: 1,
@@ -808,8 +864,31 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
                     <Text style={{ color: cfg.color, fontSize: 11, fontWeight: '700' }}>
                       {cfg.emoji} {cfg.label}
                     </Text>
-                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11, marginTop: 2 }}>
-                      {align.rationale}
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11, marginTop: 3 }}>
+                      Model context: this compares this pick to historical win rate and ROI for the same bet type.
+                    </Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11, marginTop: 4 }}>
+                      {dowLine}
+                    </Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11, marginTop: 4, fontWeight: '700' }}>
+                      Team Trends
+                    </Text>
+                    {teamLines.length > 0 ? (
+                      teamLines.map((line, idx) => (
+                        <Text
+                          key={`${line}-${idx}`}
+                          style={{ color: theme.colors.onSurfaceVariant, fontSize: 11, marginTop: idx === 0 ? 2 : 1 }}
+                        >
+                          {line}
+                        </Text>
+                      ))
+                    ) : (
+                      <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11, marginTop: 2 }}>
+                        No team trend data available for this pick
+                      </Text>
+                    )}
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 10, marginTop: 4 }}>
+                      Higher Win% and positive ROI strengthen alignment; weak trends lower confidence.
                     </Text>
                   </View>
                 );
@@ -1967,6 +2046,16 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   pickMatchup: { fontSize: 12, marginTop: 2 },
+  pickMatchupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    flexWrap: 'wrap',
+  },
+  pickMatchupAt: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   reasoningQuote: {
     marginTop: 10,
     borderLeftWidth: 2,

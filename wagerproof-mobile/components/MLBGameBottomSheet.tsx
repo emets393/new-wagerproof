@@ -32,11 +32,52 @@ import { getMLBTeamColors } from '@/constants/mlbTeams';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { PolymarketWidget } from './PolymarketWidget';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
+import { useMLBModelBreakdownAccuracy, type ModelBreakdownRow } from '@/hooks/useMLBModelBreakdownAccuracy';
 import { lookupBucketAccuracy } from '@/utils/mlbBucketAccuracy';
 import { AccuracyBadge } from './AccuracyBadge';
 import { MLBRegressionPicksSection } from './mlb/MLBRegressionPicksSection';
 
 type ProjectionView = 'full' | 'f5';
+
+function dayLabelFromDate(dateString: string | null | undefined): string | null {
+  if (!dateString) return null;
+  const date = new Date(`${dateString.slice(0, 10)}T12:00:00`);
+  if (isNaN(date.getTime())) return null;
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+}
+
+function findBreakdownRow(
+  rows: ModelBreakdownRow[],
+  betType: 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou',
+  breakdownType: 'dow' | 'team',
+  value: string | null | undefined,
+): ModelBreakdownRow | null {
+  if (!value) return null;
+  return rows.find(
+    r => r.bet_type === betType && r.breakdown_type === breakdownType && r.breakdown_value === value,
+  ) ?? null;
+}
+
+function trendLine(
+  label: string,
+  row: ModelBreakdownRow | null,
+  missingText = 'No history yet',
+): string {
+  if (!row) return `${label}: ${missingText}`;
+  const record = `${row.wins}-${row.losses}${row.pushes ? `-${row.pushes}` : ''}`;
+  const roi = `${row.roi_pct > 0 ? '+' : ''}${row.roi_pct}%`;
+  return `${label}: ${row.breakdown_value} • ${record} • ${row.win_pct}% W • ${roi} ROI`;
+}
+
+function trendDetails(row: ModelBreakdownRow | null, missingText = 'No history yet'): {
+  text: string;
+  roi: number | null;
+} {
+  if (!row) return { text: missingText, roi: null };
+  const record = `${row.wins}-${row.losses}${row.pushes ? `-${row.pushes}` : ''}`;
+  const roi = `${row.roi_pct > 0 ? '+' : ''}${row.roi_pct}%`;
+  return { text: `${row.breakdown_value} • ${record} • ${row.win_pct}% W • ${roi} ROI`, roi: row.roi_pct };
+}
 
 export function MLBGameBottomSheet() {
   const theme = useTheme();
@@ -129,6 +170,7 @@ export function MLBGameBottomSheet() {
   // Model accuracy — historical hit rate of the pick's edge bucket. Matches the
   // pills shown on the web MLB page via src/hooks/useMLBBucketAccuracy.ts.
   const { data: modelAccuracy } = useMLBBucketAccuracy();
+  const { data: breakdownRows = [] } = useMLBModelBreakdownAccuracy();
   const mlAccuracy = useMemo(() => {
     if (!modelAccuracy || mlPickEdge == null || !mlPickSide) return null;
     const betType = projView === 'full' ? 'full_ml' : 'f5_ml';
@@ -140,6 +182,22 @@ export function MLBGameBottomSheet() {
     const betType = projView === 'full' ? 'full_ou' : 'f5_ou';
     return lookupBucketAccuracy(modelAccuracy, betType, ouEdgeRaw, undefined, undefined, ouDirection);
   }, [modelAccuracy, ouEdgeRaw, ouDirection, projView]);
+
+  const breakdownBetType = projView === 'full' ? 'full_ml' : 'f5_ml';
+  const breakdownOuBetType = projView === 'full' ? 'full_ou' : 'f5_ou';
+  const dowLabel = dayLabelFromDate(game?.official_date ?? null);
+  const mlPickAbbr = mlPickSide === 'home' ? game?.home_abbr : mlPickSide === 'away' ? game?.away_abbr : null;
+  const mlDowRow = findBreakdownRow(breakdownRows, breakdownBetType, 'dow', dowLabel);
+  const mlTeamRow = findBreakdownRow(breakdownRows, breakdownBetType, 'team', mlPickAbbr);
+  const ouDowRow = findBreakdownRow(breakdownRows, breakdownOuBetType, 'dow', dowLabel);
+  const ouAwayRow = findBreakdownRow(breakdownRows, breakdownOuBetType, 'team', game?.away_abbr);
+  const ouHomeRow = findBreakdownRow(breakdownRows, breakdownOuBetType, 'team', game?.home_abbr);
+
+  const mlDowDetails = trendDetails(mlDowRow, dowLabel ? `${dowLabel} unavailable` : 'Unavailable');
+  const mlTeamDetails = trendDetails(mlTeamRow, mlPickAbbr ? `${mlPickAbbr} unavailable` : 'No pick');
+  const ouDowDetails = trendDetails(ouDowRow, dowLabel ? `${dowLabel} unavailable` : 'Unavailable');
+  const ouAwayDetails = trendDetails(ouAwayRow, 'Unavailable');
+  const ouHomeDetails = trendDetails(ouHomeRow, 'Unavailable');
 
   // Signals — show for any game that has them
   const signals = game?.signals || [];
@@ -402,6 +460,40 @@ export function MLBGameBottomSheet() {
                     </View>
                   </View>
 
+                  <View style={[styles.modelContextBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: isDark ? '#3a3a3a' : '#d6d6d6' }]}>
+                    <Text style={[styles.modelContextTitle, { color: theme.colors.onSurface }]}>
+                      Historical Model Context ({projView === 'full' ? 'Full Game ML' : '1st 5 ML'})
+                    </Text>
+                    <Text style={[styles.modelContextLine, { color: theme.colors.onSurfaceVariant }]}>
+                      <Text style={styles.modelContextLineLabel}>Day Trend</Text>
+                    </Text>
+                    <Text style={[styles.modelContextLine, { color: theme.colors.onSurfaceVariant }]}>
+                      <Text
+                        style={
+                          mlDowDetails.roi == null
+                            ? undefined
+                            : { color: mlDowDetails.roi >= 0 ? '#22c55e' : '#ef4444' }
+                        }
+                      >
+                        {mlDowDetails.text}
+                      </Text>
+                    </Text>
+                    <Text style={[styles.modelContextLine, { color: theme.colors.onSurfaceVariant }]}>
+                      <Text style={styles.modelContextLineLabel}>Team Trend (Predicted Side)</Text>
+                    </Text>
+                    <Text style={[styles.modelContextLine, { color: theme.colors.onSurfaceVariant }]}>
+                      <Text
+                        style={
+                          mlTeamDetails.roi == null
+                            ? undefined
+                            : { color: mlTeamDetails.roi >= 0 ? '#22c55e' : '#ef4444' }
+                        }
+                      >
+                        {mlTeamDetails.text}
+                      </Text>
+                    </Text>
+                  </View>
+
                   {mlExpanded && (
                     <Text style={[styles.explanationText, { color: theme.colors.onSurfaceVariant }]}>
                       The model gives {mlPickSide === 'home' ? game.home_abbr : game.away_abbr} a {(mlPickProb * 100).toFixed(1)}% chance to win{projView === 'f5' ? ' through 5 innings' : ''}
@@ -473,6 +565,51 @@ export function MLBGameBottomSheet() {
                     <View style={styles.confColumn}>
                       <AccuracyBadge info={ouAccuracy} />
                     </View>
+                  </View>
+
+                  <View style={[styles.modelContextBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: isDark ? '#3a3a3a' : '#d6d6d6' }]}>
+                    <Text style={[styles.modelContextTitle, { color: theme.colors.onSurface }]}>
+                      Historical Model Context ({projView === 'full' ? 'Full Game O/U' : '1st 5 O/U'})
+                    </Text>
+                    <Text style={[styles.modelContextLine, { color: theme.colors.onSurfaceVariant }]}>
+                      <Text style={styles.modelContextLineLabel}>Day Trend</Text>
+                    </Text>
+                    <Text style={[styles.modelContextLine, { color: theme.colors.onSurfaceVariant }]}>
+                      <Text
+                        style={
+                          ouDowDetails.roi == null
+                            ? undefined
+                            : { color: ouDowDetails.roi >= 0 ? '#22c55e' : '#ef4444' }
+                        }
+                      >
+                        {ouDowDetails.text}
+                      </Text>
+                    </Text>
+                    <Text style={[styles.modelContextSubhead, { color: theme.colors.onSurfaceVariant }]}>
+                      Team Trends
+                    </Text>
+                    <Text style={[styles.modelContextLine, { color: theme.colors.onSurfaceVariant }]}>
+                      <Text
+                        style={
+                          ouAwayDetails.roi == null
+                            ? undefined
+                            : { color: ouAwayDetails.roi >= 0 ? '#22c55e' : '#ef4444' }
+                        }
+                      >
+                        {ouAwayDetails.text}
+                      </Text>
+                    </Text>
+                    <Text style={[styles.modelContextLine, { color: theme.colors.onSurfaceVariant }]}>
+                      <Text
+                        style={
+                          ouHomeDetails.roi == null
+                            ? undefined
+                            : { color: ouHomeDetails.roi >= 0 ? '#22c55e' : '#ef4444' }
+                        }
+                      >
+                        {ouHomeDetails.text}
+                      </Text>
+                    </Text>
                   </View>
 
                   {ouExpanded && (
@@ -959,6 +1096,32 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 8,
+  },
+  modelContextBox: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  modelContextTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  modelContextSubhead: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  modelContextLine: {
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 3,
+  },
+  modelContextLineLabel: {
+    fontWeight: '700',
+    fontSize: 11,
   },
   postponedBadge: {
     flexDirection: 'row',

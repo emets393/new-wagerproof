@@ -55,6 +55,7 @@ export function MLBGameCard({ game, onPress, cardWidth }: MLBGameCardProps) {
   const mlPickProb = mlPickSide === 'home' ? game.ml_home_win_prob : game.ml_away_win_prob;
   const mlPickEdge = mlPickSide === 'home' ? game.home_ml_edge_pct : game.away_ml_edge_pct;
   const mlPickStrong = mlPickSide === 'home' ? game.home_ml_strong_signal : game.away_ml_strong_signal;
+  const mlPickAbbr = mlPickSide === 'home' ? game.home_abbr : mlPickSide === 'away' ? game.away_abbr : null;
 
   // O/U direction
   const ouDirection = game.ou_direction;
@@ -204,6 +205,7 @@ export function MLBGameCard({ game, onPress, cardWidth }: MLBGameCardProps) {
                   </View>
                 )}
               </View>
+
             </View>
           ) : (
             /* No predictions available */
