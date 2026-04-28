@@ -8,9 +8,9 @@ import type { ModelBreakdownRow } from '@/hooks/useMLBModelBreakdownAccuracy';
 export interface AlignmentResult {
   level: 'strong' | 'aligned' | 'mixed' | 'concern' | 'neutral';
   dow: ModelBreakdownRow | null;
-  team: ModelBreakdownRow | null;
+  /** ML/spread: 1 entry. O/U: up to 2 entries (both teams). */
+  teams: ModelBreakdownRow[];
   dowLabel: string | null;
-  teamAbbr: string | null;
   rationale: string;
 }
 
@@ -95,45 +95,42 @@ export function computeAlignment(input: ComputeAlignmentInput): AlignmentResult 
     ? rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'dow' && r.breakdown_value === dowLabel) ?? null
     : null;
 
-  let team: ModelBreakdownRow | null = null;
-  let teamAbbr: string | null = null;
-
   const homeAbbr = teamNameToGameLogAbbr(home_team);
   const awayAbbr = teamNameToGameLogAbbr(away_team);
+  const findTeam = (abbr: string | null) =>
+    abbr ? rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'team' && r.breakdown_value === abbr) ?? null : null;
 
+  const teams: ModelBreakdownRow[] = [];
   if (bet_type === 'full_ou' || bet_type === 'f5_ou') {
-    const homeRow = homeAbbr ? rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'team' && r.breakdown_value === homeAbbr) : null;
-    const awayRow = awayAbbr ? rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'team' && r.breakdown_value === awayAbbr) : null;
-    if (homeRow && awayRow) {
-      team = homeRow.roi_pct >= awayRow.roi_pct ? homeRow : awayRow;
-    } else {
-      team = homeRow || awayRow;
-    }
-    teamAbbr = team?.breakdown_value ?? null;
+    const awayRow = findTeam(awayAbbr);
+    const homeRow = findTeam(homeAbbr);
+    if (awayRow) teams.push(awayRow);
+    if (homeRow) teams.push(homeRow);
   } else {
-    teamAbbr = pickSubjectTeamAbbr(pick, home_team, away_team);
-    if (teamAbbr) {
-      team = rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'team' && r.breakdown_value === teamAbbr) ?? null;
-    }
+    const subj = findTeam(pickSubjectTeamAbbr(pick, home_team, away_team));
+    if (subj) teams.push(subj);
   }
 
   const dowOk = !!dow && dow.win_pct >= 55 && dow.roi_pct > 0;
-  const teamOk = !!team && team.win_pct >= 55 && team.roi_pct > 0;
   const dowBad = !!dow && dow.win_pct < 45;
-  const teamBad = !!team && team.win_pct < 45;
+  const teamsAllOk = teams.length > 0 && teams.every(t => t.win_pct >= 55 && t.roi_pct > 0);
+  const teamsAllBad = teams.length > 0 && teams.every(t => t.win_pct < 45);
+  const teamsAnyBad = teams.length > 0 && teams.some(t => t.win_pct < 45);
 
   let level: AlignmentResult['level'] = 'neutral';
-  if (dowOk && teamOk) level = 'strong';
-  else if ((dowOk && !teamBad) || (teamOk && !dowBad)) level = 'aligned';
-  else if (dowBad && teamBad) level = 'concern';
-  else if (dowBad || teamBad) level = 'mixed';
+  if (dowOk && teamsAllOk) level = 'strong';
+  else if ((dowOk && !teamsAnyBad) || (teamsAllOk && !dowBad)) level = 'aligned';
+  else if (dowBad && teamsAllBad) level = 'concern';
+  else if (dowBad || teamsAnyBad) level = 'mixed';
 
   const parts: string[] = [];
   if (dow) parts.push(`${dow.breakdown_value} ${dow.win_pct}% (${dow.roi_pct >= 0 ? '+' : ''}${dow.roi_pct}%)`);
-  if (team) parts.push(`${team.breakdown_value} ${team.win_pct}% (${team.roi_pct >= 0 ? '+' : ''}${team.roi_pct}%)`);
+  for (const t of teams) {
+    parts.push(`${t.breakdown_value} ${t.win_pct}% (${t.roi_pct >= 0 ? '+' : ''}${t.roi_pct}%)`);
+  }
   const rationale = parts.length > 0 ? parts.join(' · ') : 'Insufficient breakdown data';
 
-  return { level, dow, team, dowLabel, teamAbbr, rationale };
+  return { level, dow, teams, dowLabel, rationale };
 }
 
 export const ALIGNMENT_DISPLAY: Record<AlignmentResult['level'], { label: string; emoji: string; color: string }> = {

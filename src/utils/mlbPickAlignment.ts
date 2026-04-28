@@ -16,12 +16,14 @@ export interface AlignmentResult {
   level: 'strong' | 'aligned' | 'mixed' | 'concern' | 'neutral';
   /** DOW row used (null if no DOW data). */
   dow: ModelBreakdownRow | null;
-  /** Team row used (null if no team identifiable from pick). */
-  team: ModelBreakdownRow | null;
+  /**
+   * Team rows relevant to this pick.
+   *  * ML/spread: 1 entry — the team named in the pick text (or empty if not found).
+   *  * O/U: up to 2 entries — both home and away, since both are credited.
+   */
+  teams: ModelBreakdownRow[];
   /** Three-letter weekday label used (e.g., 'Tue'). */
   dowLabel: string | null;
-  /** Team abbr used (in game-log format). */
-  teamAbbr: string | null;
   /** Plain-English explanation of the alignment, suitable for tooltips/inline rendering. */
   rationale: string;
 }
@@ -78,11 +80,16 @@ interface ComputeAlignmentInput {
  * Score a pick against the breakdown rows. Returns a level + the rows used.
  *
  * Thresholds (arbitrary but reasonable):
- *   strong  — both DOW and team rows show win% ≥ 55 AND ROI > 0
- *   aligned — at least one of DOW/team passes; nothing concerning
- *   concern — both DOW and team show win% < 45
- *   mixed   — one is favorable, the other is concerning
- *   neutral — not enough data, or signals balance out
+ *   strong  — DOW passes AND every team row passes (win% ≥ 55 AND ROI > 0)
+ *   aligned — DOW passes AND no team row is concerning (win% ≥ 45)
+ *   concern — DOW fails AND every team row has win% < 45
+ *   mixed   — anything in between (one good, one bad, etc.)
+ *   neutral — not enough data
+ *
+ * For O/U bets we evaluate BOTH teams in the game (since the breakdown credits
+ * both home and away). For ML/spread we evaluate just the team named in the
+ * pick text. The team component of the score uses the WEAKER team for O/U so
+ * a single weak side can drag the alignment down.
  */
 export function computeAlignment(input: ComputeAlignmentInput): AlignmentResult {
   const { bet_type, pick, home_team, away_team, game_time_et, rows } = input;
@@ -91,49 +98,49 @@ export function computeAlignment(input: ComputeAlignmentInput): AlignmentResult 
     ? rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'dow' && r.breakdown_value === dowLabel) ?? null
     : null;
 
-  let team: ModelBreakdownRow | null = null;
-  let teamAbbr: string | null = null;
-
   const homeAbbr = teamNameToGameLogAbbr(home_team);
   const awayAbbr = teamNameToGameLogAbbr(away_team);
+  const findTeam = (abbr: string | null) =>
+    abbr ? rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'team' && r.breakdown_value === abbr) ?? null : null;
 
+  const teams: ModelBreakdownRow[] = [];
   if (bet_type === 'full_ou' || bet_type === 'f5_ou') {
-    // Both teams are credited for O/U; surface whichever one is more notable.
-    const homeRow = homeAbbr ? rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'team' && r.breakdown_value === homeAbbr) : null;
-    const awayRow = awayAbbr ? rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'team' && r.breakdown_value === awayAbbr) : null;
-    // Prefer the row that aligns with the pick direction (higher ROI = better fit).
-    if (homeRow && awayRow) {
-      team = homeRow.roi_pct >= awayRow.roi_pct ? homeRow : awayRow;
-    } else {
-      team = homeRow || awayRow;
-    }
-    teamAbbr = team?.breakdown_value ?? null;
+    // O/U credits both teams; surface both so the user sees the full picture.
+    // Order: away first (matches "Away @ Home" reading order in pick cards).
+    const awayRow = findTeam(awayAbbr);
+    const homeRow = findTeam(homeAbbr);
+    if (awayRow) teams.push(awayRow);
+    if (homeRow) teams.push(homeRow);
   } else {
-    // ML/spread: parse the pick text for the subject team.
-    teamAbbr = pickSubjectTeamAbbr(pick, home_team, away_team);
-    if (teamAbbr) {
-      team = rows.find(r => r.bet_type === bet_type && r.breakdown_type === 'team' && r.breakdown_value === teamAbbr) ?? null;
-    }
+    // ML/spread: only the team named in the pick text.
+    const subjectAbbr = pickSubjectTeamAbbr(pick, home_team, away_team);
+    const subj = findTeam(subjectAbbr);
+    if (subj) teams.push(subj);
   }
 
+  // For scoring: every team must clear the threshold to count as "ok".
+  // A single weak team flips the assessment to mixed/concern.
   const dowOk = !!dow && dow.win_pct >= 55 && dow.roi_pct > 0;
-  const teamOk = !!team && team.win_pct >= 55 && team.roi_pct > 0;
   const dowBad = !!dow && dow.win_pct < 45;
-  const teamBad = !!team && team.win_pct < 45;
+  const teamsAllOk = teams.length > 0 && teams.every(t => t.win_pct >= 55 && t.roi_pct > 0);
+  const teamsAllBad = teams.length > 0 && teams.every(t => t.win_pct < 45);
+  const teamsAnyBad = teams.length > 0 && teams.some(t => t.win_pct < 45);
 
   let level: AlignmentResult['level'] = 'neutral';
-  if (dowOk && teamOk) level = 'strong';
-  else if ((dowOk && !teamBad) || (teamOk && !dowBad)) level = 'aligned';
-  else if (dowBad && teamBad) level = 'concern';
-  else if (dowBad || teamBad) level = 'mixed';
+  if (dowOk && teamsAllOk) level = 'strong';
+  else if ((dowOk && !teamsAnyBad) || (teamsAllOk && !dowBad)) level = 'aligned';
+  else if (dowBad && teamsAllBad) level = 'concern';
+  else if (dowBad || teamsAnyBad) level = 'mixed';
 
-  // Build a one-line rationale.
+  // Build a one-line rationale that lists DOW + each team row.
   const parts: string[] = [];
   if (dow) parts.push(`${dow.breakdown_value} ${dow.win_pct}% (${dow.roi_pct >= 0 ? '+' : ''}${dow.roi_pct}%)`);
-  if (team) parts.push(`${team.breakdown_value} ${team.win_pct}% (${team.roi_pct >= 0 ? '+' : ''}${team.roi_pct}%)`);
+  for (const t of teams) {
+    parts.push(`${t.breakdown_value} ${t.win_pct}% (${t.roi_pct >= 0 ? '+' : ''}${t.roi_pct}%)`);
+  }
   const rationale = parts.length > 0 ? parts.join(' · ') : 'Insufficient breakdown data';
 
-  return { level, dow, team, dowLabel, teamAbbr, rationale };
+  return { level, dow, teams, dowLabel, rationale };
 }
 
 /** Display config for each alignment level. */

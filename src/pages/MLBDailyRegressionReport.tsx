@@ -519,20 +519,21 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                     rows: breakdownRows,
                   });
                   // Skip rendering when neutral with no rows — would just be noise.
-                  if (align.level === 'neutral' && !align.dow && !align.team) return null;
+                  if (align.level === 'neutral' && !align.dow && align.teams.length === 0) return null;
                   const cfg = ALIGNMENT_DISPLAY[align.level];
                   return (
                     <div
-                      className="mt-2 flex items-center gap-2 rounded-md border px-2 py-1.5 text-[11px]"
+                      className="mt-2 rounded-md border px-2 py-1.5 text-[11px]"
                       style={{
                         borderColor: `${cfg.color}40`,
                         backgroundColor: `${cfg.color}14`,
-                        color: cfg.color,
                       }}
-                      title={align.rationale}
                     >
-                      <span className="font-bold">{cfg.emoji} {cfg.label}</span>
-                      <span className="text-muted-foreground truncate">· {align.rationale}</span>
+                      <div className="font-bold" style={{ color: cfg.color }}>
+                        {cfg.emoji} {cfg.label}
+                      </div>
+                      {/* Rationale wraps naturally; for O/U this shows BOTH teams' rows */}
+                      <div className="text-muted-foreground mt-0.5 leading-relaxed">{align.rationale}</div>
                     </div>
                   );
                 })()}

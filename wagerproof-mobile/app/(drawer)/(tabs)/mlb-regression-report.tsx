@@ -791,7 +791,7 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
                   game_time_et: p.game_time_et ?? null,
                   rows: breakdownRows,
                 });
-                if (align.level === 'neutral' && !align.dow && !align.team) return null;
+                if (align.level === 'neutral' && !align.dow && align.teams.length === 0) return null;
                 const cfg = ALIGNMENT_DISPLAY[align.level];
                 return (
                   <View
