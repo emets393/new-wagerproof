@@ -21,6 +21,7 @@ import {
   type ModelBreakdownRow,
   type ModelBreakdownBetType,
 } from '@/hooks/useMLBModelBreakdownAccuracy';
+import { computeAlignment, ALIGNMENT_DISPLAY } from '@/utils/mlbPickAlignment';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useScroll } from '@/contexts/ScrollContext';
 import {
@@ -683,6 +684,8 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   const { data: bucketAccuracy } = useMLBBucketAccuracy();
+  // Breakdown rows used to compute per-pick alignment with DOW + team trends.
+  const { data: breakdownRows = [] } = useMLBModelBreakdownAccuracy();
   const perfectStormOverall = bucketAccuracy?.perfect_storm?.overall;
 
   if (!picks?.length) {
@@ -760,6 +763,39 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
                   valueColor={bucketPct != null ? winPctColor(bucketPct) : undefined}
                 />
               </StatRow>
+
+              {(() => {
+                const align = computeAlignment({
+                  bet_type: p.bet_type as 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou',
+                  pick: p.pick,
+                  home_team: p.home_team ?? null,
+                  away_team: p.away_team ?? null,
+                  game_time_et: p.game_time_et ?? null,
+                  rows: breakdownRows,
+                });
+                if (align.level === 'neutral' && !align.dow && !align.team) return null;
+                const cfg = ALIGNMENT_DISPLAY[align.level];
+                return (
+                  <View
+                    style={{
+                      marginTop: 8,
+                      paddingVertical: 6,
+                      paddingHorizontal: 10,
+                      borderRadius: 6,
+                      borderWidth: 1,
+                      borderColor: `${cfg.color}55`,
+                      backgroundColor: `${cfg.color}1a`,
+                    }}
+                  >
+                    <Text style={{ color: cfg.color, fontSize: 11, fontWeight: '700' }}>
+                      {cfg.emoji} {cfg.label}
+                    </Text>
+                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11, marginTop: 2 }}>
+                      {align.rationale}
+                    </Text>
+                  </View>
+                );
+              })()}
 
               {p.reasoning ? (
                 <View

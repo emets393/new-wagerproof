@@ -11,7 +11,12 @@ export const tool: ToolDefinition = {
   description:
     "Get MLB model predictions for today or a specific date. Returns starting " +
     "pitchers, moneyline/spread/total predictions, Statcast-based signals, park " +
-    "factors, and weather. Use this when the user asks about MLB/baseball games.",
+    "factors, weather, AND a `breakdown_context` per game with the model's " +
+    "season-to-date win% and ROI sliced by (a) the game's day-of-week and (b) " +
+    "the teams involved, for each bet type. When recommending picks, cross-check " +
+    "the model's pick against breakdown_context: if both the day-of-week and the " +
+    "relevant team show high win%/ROI on that bet type, that's a strong signal. " +
+    "Use this when the user asks about MLB/baseball games.",
   parameters: {
     type: "object",
     properties: {
@@ -82,9 +87,89 @@ export const tool: ToolDefinition = {
       } catch { /* non-critical */ }
     }
 
+    // Fetch all breakdown stats once. Tiny table (~76 rows) so a full pull is cheaper
+    // than per-game lookups. Used to attach DOW + team accuracy to each game so the
+    // LLM can reason about model alignment ("Tuesday is +30% ROI on O/U, Astros are
+    // +33% O/U, model picked OVER → strong signal").
+    type BD = { bet_type: string; breakdown_type: string; breakdown_value: string;
+                games: number; wins: number; losses: number;
+                win_pct: number; roi_pct: number };
+    const bdMap = new Map<string, BD>();   // key = `${bet_type}|${breakdown_type}|${value}`
+    try {
+      const { data: bdRows } = await ctx.cfbSupabase
+        .from("mlb_model_breakdown_accuracy")
+        .select("bet_type, breakdown_type, breakdown_value, games, wins, losses, win_pct, roi_pct");
+      for (const r of (bdRows || []) as BD[]) {
+        bdMap.set(`${r.bet_type}|${r.breakdown_type}|${r.breakdown_value}`, r);
+      }
+    } catch { /* non-critical */ }
+
+    // team_id → team_abbr (matching mlb_game_log convention: ARI→AZ, OAK→ATH).
+    const teamAbbrById = new Map<number, string>();
+    try {
+      const { data: teamRows } = await ctx.cfbSupabase
+        .from("mlb_team_mapping")
+        .select("mlb_api_id, team");
+      for (const t of (teamRows || []) as { mlb_api_id: number; team: string }[]) {
+        const abbr = t.team === "ARI" ? "AZ" : t.team === "OAK" ? "ATH" : t.team;
+        teamAbbrById.set(t.mlb_api_id, abbr);
+      }
+    } catch { /* non-critical */ }
+
+    const dowFromDate = (d: string | null | undefined): string | null => {
+      if (!d) return null;
+      const date = new Date(`${d}T12:00:00Z`);
+      const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      return days[date.getUTCDay()];
+    };
+    const lookupBD = (bet: string, type: string, val: string | null) => {
+      if (!val) return null;
+      const r = bdMap.get(`${bet}|${type}|${val}`);
+      return r ? { games: r.games, record: `${r.wins}-${r.losses}`, win_pct: r.win_pct, roi_pct: r.roi_pct } : null;
+    };
+
     const formatted = games.map((game: any) => {
       const pk = String(Math.trunc(Number(game.game_pk)));
       const signals = signalsByPk.get(pk);
+
+      // Build breakdown context: which DOW/team rows from mlb_model_breakdown_accuracy
+      // are relevant to this specific game. The LLM can use these to reason about
+      // model alignment per bet type.
+      const dow = dowFromDate(game.official_date);
+      const homeAbbr = teamAbbrById.get(game.home_team_id) ?? null;
+      const awayAbbr = teamAbbrById.get(game.away_team_id) ?? null;
+      // ML pick = side with positive edge (matches refresh_mlb_model_breakdown_accuracy logic).
+      const mlPickAbbr =
+        (game.home_ml_edge_pct ?? -1) >= (game.away_ml_edge_pct ?? -1) && (game.home_ml_edge_pct ?? 0) > 0
+          ? homeAbbr
+          : (game.away_ml_edge_pct ?? 0) > 0 ? awayAbbr : null;
+      const f5MlPickAbbr =
+        (game.f5_home_ml_edge_pct ?? -1) >= (game.f5_away_ml_edge_pct ?? -1) && (game.f5_home_ml_edge_pct ?? 0) > 0
+          ? homeAbbr
+          : (game.f5_away_ml_edge_pct ?? 0) > 0 ? awayAbbr : null;
+
+      const breakdownContext = {
+        day_of_week: dow,
+        // DOW accuracy by bet type
+        dow_accuracy: {
+          full_ml: lookupBD("full_ml", "dow", dow),
+          full_ou: lookupBD("full_ou", "dow", dow),
+          f5_ml:   lookupBD("f5_ml",   "dow", dow),
+          f5_ou:   lookupBD("f5_ou",   "dow", dow),
+        },
+        // Team accuracy by bet type. For ML it's the model-picked team; for O/U
+        // both teams are credited (so we surface both).
+        team_accuracy: {
+          full_ml_pick_team: mlPickAbbr,
+          full_ml: lookupBD("full_ml", "team", mlPickAbbr),
+          full_ou_home: lookupBD("full_ou", "team", homeAbbr),
+          full_ou_away: lookupBD("full_ou", "team", awayAbbr),
+          f5_ml_pick_team: f5MlPickAbbr,
+          f5_ml: lookupBD("f5_ml", "team", f5MlPickAbbr),
+          f5_ou_home: lookupBD("f5_ou", "team", homeAbbr),
+          f5_ou_away: lookupBD("f5_ou", "team", awayAbbr),
+        },
+      };
 
       return {
         game_id: pk,
@@ -133,6 +218,7 @@ export const tool: ToolDefinition = {
               away: parseSignals(signals.away_signals),
             }
           : null,
+        breakdown_context: breakdownContext,
       };
     });
 

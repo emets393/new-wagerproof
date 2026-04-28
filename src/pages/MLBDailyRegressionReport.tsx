@@ -3,6 +3,7 @@ import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBSeriesSignals, type MLBSeriesSignal } from '@/hooks/useMLBSeriesSignals';
 import { useMLBModelBreakdownAccuracy, type ModelBreakdownRow, type ModelBreakdownBetType } from '@/hooks/useMLBModelBreakdownAccuracy';
+import { computeAlignment, ALIGNMENT_DISPLAY } from '@/utils/mlbPickAlignment';
 import { MLB_FALLBACK_BY_NAME } from '@/utils/mlbTeamLogos';
 import type {
   PitcherRegression, BattingRegression, BullpenFatigue,
@@ -391,6 +392,9 @@ function BreakdownTable({
 
 function PicksSection({ picks }: { picks: SuggestedPick[] }) {
   const { data: bucketAccuracy } = useMLBBucketAccuracy();
+  // Breakdown rows used to compute per-pick alignment with DOW + team trends.
+  // No-op when the table hasn't been refreshed yet (returns []).
+  const { data: breakdownRows = [] } = useMLBModelBreakdownAccuracy();
   const perfectStormOverall = bucketAccuracy?.perfect_storm?.overall;
   if (!picks.length) {
     return (
@@ -483,6 +487,33 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                     )}
                   </div>
                 </div>
+                {(() => {
+                  const align = computeAlignment({
+                    bet_type: p.bet_type as 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou',
+                    pick: p.pick,
+                    home_team: p.home_team ?? null,
+                    away_team: p.away_team ?? null,
+                    game_time_et: p.game_time_et ?? null,
+                    rows: breakdownRows,
+                  });
+                  // Skip rendering when neutral with no rows — would just be noise.
+                  if (align.level === 'neutral' && !align.dow && !align.team) return null;
+                  const cfg = ALIGNMENT_DISPLAY[align.level];
+                  return (
+                    <div
+                      className="mt-2 flex items-center gap-2 rounded-md border px-2 py-1.5 text-[11px]"
+                      style={{
+                        borderColor: `${cfg.color}40`,
+                        backgroundColor: `${cfg.color}14`,
+                        color: cfg.color,
+                      }}
+                      title={align.rationale}
+                    >
+                      <span className="font-bold">{cfg.emoji} {cfg.label}</span>
+                      <span className="text-muted-foreground truncate">· {align.rationale}</span>
+                    </div>
+                  );
+                })()}
                 <div className="text-xs text-muted-foreground mt-2">{p.reasoning}</div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Suggested {new Date(p.first_suggested_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET
