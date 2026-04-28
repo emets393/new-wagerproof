@@ -611,9 +611,9 @@ export default function MLB() {
 
   const accuracyBadge = useCallback((info: { win_pct: number; roi_pct: number; record: string } | null) => {
     if (!info) return null;
-    const color = info.win_pct >= 65
+    const color = info.win_pct >= 54.1
       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-      : info.win_pct >= 55
+      : info.win_pct >= 52.1
         ? 'bg-orange-500/20 text-orange-300 border-orange-400/40'
         : 'bg-red-500/20 text-red-300 border-red-400/40';
     return (
@@ -1196,12 +1196,12 @@ export default function MLB() {
                           <div className="mt-1 font-medium text-slate-200">Team Trends</div>
                           <div className="mt-1">
                             <span className={fullOuAwayDetails.roi == null ? 'text-slate-300' : fullOuAwayDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
-                              {trendLine(awayAbbrev, fullOuAwayRow, 'Unavailable')}
+                              {fullOuAwayDetails.text}
                             </span>
                           </div>
                           <div className="mt-1">
                             <span className={fullOuHomeDetails.roi == null ? 'text-slate-300' : fullOuHomeDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
-                              {trendLine(homeAbbrev, fullOuHomeRow, 'Unavailable')}
+                              {fullOuHomeDetails.text}
                             </span>
                           </div>
                         </div>
@@ -1228,12 +1228,12 @@ export default function MLB() {
                           <div className="mt-1 font-medium text-slate-200">Team Trends</div>
                           <div className="mt-1">
                             <span className={f5OuAwayDetails.roi == null ? 'text-slate-300' : f5OuAwayDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
-                              {trendLine(awayAbbrev, f5OuAwayRow, 'Unavailable')}
+                              {f5OuAwayDetails.text}
                             </span>
                           </div>
                           <div className="mt-1">
                             <span className={f5OuHomeDetails.roi == null ? 'text-slate-300' : f5OuHomeDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
-                              {trendLine(homeAbbrev, f5OuHomeRow, 'Unavailable')}
+                              {f5OuHomeDetails.text}
                             </span>
                           </div>
                         </div>
