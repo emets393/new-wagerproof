@@ -328,9 +328,10 @@ function ModelBreakdownDashboard() {
               .filter(r => r.bet_type === bt && r.breakdown_type === 'dow')
               .sort((a, b) => dowOrder.indexOf(a.breakdown_value) - dowOrder.indexOf(b.breakdown_value));
             return (
-              <TabsContent key={bt} value={bt} className="mt-3">
-                {/* Stacked vertically — DOW first (always 7 rows, predictable), Teams below */}
-                <div className="flex flex-col gap-6">
+              <TabsContent key={bt} value={bt} className="mt-4">
+                {/* Stacked vertically — both tables share a colgroup so their
+                    columns line up vertically across the two sections. */}
+                <div className="flex flex-col gap-5">
                   <BreakdownTable title="By Day of Week" rows={dowRows} valueLabel="Day" sortable={false} showLogo={false} />
                   <BreakdownTable title="By Team" rows={teamRows} valueLabel="Team" sortable showLogo />
                 </div>
@@ -352,62 +353,97 @@ function BreakdownTable({
   sortable: boolean;
   showLogo: boolean;
 }) {
-  if (!rows.length) {
-    return (
-      <div>
-        <h4 className="text-sm font-semibold mb-2 text-muted-foreground">{title}</h4>
-        <p className="text-xs text-muted-foreground py-4">No data yet.</p>
-      </div>
-    );
-  }
+  // Shared fixed column widths so the DOW and Team tables align vertically
+  // and the numeric columns sit at predictable positions across both sections.
+  const colgroup = (
+    <colgroup>
+      <col style={{ width: '34%' }} />
+      <col style={{ width: '22%' }} />
+      <col style={{ width: '22%' }} />
+      <col style={{ width: '22%' }} />
+    </colgroup>
+  );
+
   return (
     <div>
-      <h4 className="text-sm font-semibold mb-2 text-muted-foreground">{title}</h4>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs sm:text-sm">
+      <div className="flex items-baseline justify-between mb-2">
+        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h4>
+        {sortable && rows.length > 0 ? (
+          <span className="text-[10px] text-muted-foreground/70">Sorted by ROI</span>
+        ) : null}
+      </div>
+
+      <div className="rounded-lg border border-muted/30 bg-muted/5 overflow-hidden">
+        <table className="w-full table-fixed text-xs sm:text-sm tabular-nums">
+          {colgroup}
           <thead>
-            <tr className="border-b border-muted/30">
-              <th className="text-left py-2 pr-2 font-medium text-muted-foreground">{valueLabel}</th>
-              <th className="text-center py-2 px-2 font-medium text-muted-foreground">Record</th>
-              <th className="text-center py-2 px-2 font-medium text-muted-foreground">Win%</th>
-              <th className="text-right py-2 pl-2 font-medium text-muted-foreground">ROI%</th>
+            <tr className="border-b border-muted/30 bg-muted/10">
+              <th className="text-left py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                {valueLabel}
+              </th>
+              <th className="text-right py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                Record
+              </th>
+              <th className="text-right py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                Win%
+              </th>
+              <th className="text-right py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                ROI%
+              </th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={`${r.breakdown_value}-${i}`} className="border-b border-muted/10">
-                <td className="py-2 pr-2 text-left font-medium">
-                  {showLogo ? (
-                    <span className="inline-flex items-center gap-2">
-                      <img
-                        src={espnMlb500LogoUrlFromAbbrev(r.breakdown_value)}
-                        alt={r.breakdown_value}
-                        className="h-5 w-5 object-contain shrink-0"
-                        loading="lazy"
-                      />
-                      <span>{r.breakdown_value}</span>
-                    </span>
-                  ) : (
-                    r.breakdown_value
-                  )}
-                </td>
-                <td className="py-2 px-2 text-center text-muted-foreground">
-                  {r.wins}-{r.losses}{r.pushes ? `-${r.pushes}` : ''}
-                </td>
-                <td className="py-2 px-2 text-center font-medium" style={{ color: winPctColor(r.win_pct) }}>
-                  {r.win_pct}%
-                </td>
-                <td className={`py-2 pl-2 text-right font-medium ${r.roi_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {r.roi_pct > 0 ? '+' : ''}{r.roi_pct}%
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="py-6 text-center text-xs text-muted-foreground">
+                  No data yet.
                 </td>
               </tr>
-            ))}
+            ) : (
+              rows.map((r, i) => (
+                <tr
+                  key={`${r.breakdown_value}-${i}`}
+                  className="border-b border-muted/10 last:border-b-0 hover:bg-muted/10 transition-colors"
+                >
+                  <td className="py-2 px-3 text-left font-medium">
+                    {showLogo ? (
+                      <span className="inline-flex items-center gap-2 min-w-0">
+                        <img
+                          src={espnMlb500LogoUrlFromAbbrev(r.breakdown_value)}
+                          alt={r.breakdown_value}
+                          className="h-5 w-5 object-contain shrink-0"
+                          loading="lazy"
+                        />
+                        <span className="truncate">{r.breakdown_value}</span>
+                      </span>
+                    ) : (
+                      r.breakdown_value
+                    )}
+                  </td>
+                  <td className="py-2 px-3 text-right text-muted-foreground">
+                    {r.wins}-{r.losses}{r.pushes ? `-${r.pushes}` : ''}
+                  </td>
+                  <td
+                    className="py-2 px-3 text-right font-semibold"
+                    style={{ color: winPctColor(r.win_pct) }}
+                  >
+                    {r.win_pct}%
+                  </td>
+                  <td
+                    className={`py-2 px-3 text-right font-semibold ${
+                      r.roi_pct >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}
+                  >
+                    {r.roi_pct > 0 ? '+' : ''}{r.roi_pct}%
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-      {sortable ? (
-        <p className="text-[10px] text-muted-foreground mt-2">Sorted by ROI (highest first)</p>
-      ) : null}
     </div>
   );
 }
