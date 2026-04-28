@@ -352,6 +352,16 @@ function trendLine(
   return `${label}: ${row.breakdown_value} • ${record} • ${row.win_pct}% W • ${roi} ROI`;
 }
 
+function trendDetails(
+  row: ModelBreakdownRow | null,
+  missingText = 'No history yet',
+): { text: string; roi: number | null } {
+  if (!row) return { text: missingText, roi: null };
+  const record = `${row.wins}-${row.losses}${row.pushes ? `-${row.pushes}` : ''}`;
+  const roi = `${row.roi_pct > 0 ? '+' : ''}${row.roi_pct}%`;
+  return { text: `${row.breakdown_value} • ${record} • ${row.win_pct}% W • ${roi} ROI`, roi: row.roi_pct };
+}
+
 function SignalCategoryIcon({ category }: { category: string }) {
   const cn = 'h-3.5 w-3.5 flex-shrink-0 opacity-90';
   switch (category.toLowerCase()) {
@@ -805,6 +815,16 @@ export default function MLB() {
           const f5OuDowRow = findBreakdownRow(breakdownRows, 'f5_ou', 'dow', gameDowLabel);
           const f5OuAwayRow = findBreakdownRow(breakdownRows, 'f5_ou', 'team', awayAbbrev);
           const f5OuHomeRow = findBreakdownRow(breakdownRows, 'f5_ou', 'team', homeAbbrev);
+          const fullMlDowDetails = trendDetails(fullMlDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable');
+          const fullMlTeamDetails = trendDetails(fullMlTeamRow, `${mlPickTeam} unavailable`);
+          const fullOuDowDetails = trendDetails(fullOuDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable');
+          const fullOuAwayDetails = trendDetails(fullOuAwayRow, 'Unavailable');
+          const fullOuHomeDetails = trendDetails(fullOuHomeRow, 'Unavailable');
+          const f5MlDowDetails = trendDetails(f5MlDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable');
+          const f5MlTeamDetails = trendDetails(f5MlTeamRow, `${f5PickTeam} unavailable`);
+          const f5OuDowDetails = trendDetails(f5OuDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable');
+          const f5OuAwayDetails = trendDetails(f5OuAwayRow, 'Unavailable');
+          const f5OuHomeDetails = trendDetails(f5OuHomeRow, 'Unavailable');
 
           const scoreLogoImg = (url: string | null, abbrev: string, side: 'away' | 'home') => {
             const onImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -1090,8 +1110,18 @@ export default function MLB() {
                         </div>
                         <div className="mt-2 rounded-md border border-slate-600/50 bg-slate-900/40 px-2.5 py-2 text-[11px] text-slate-300">
                           <div className="font-semibold text-slate-200">Historical Model Context (Full Game ML)</div>
-                          <div className="mt-1">{trendLine('Day trend', fullMlDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable')}</div>
-                          <div className="mt-1">{trendLine('Team trend (predicted side)', fullMlTeamRow, `${mlPickTeam} unavailable`)}</div>
+                          <div className="mt-1">
+                            Day trend:{' '}
+                            <span className={fullMlDowDetails.roi == null ? 'text-slate-300' : fullMlDowDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {fullMlDowDetails.text}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            Team trend (predicted side):{' '}
+                            <span className={fullMlTeamDetails.roi == null ? 'text-slate-300' : fullMlTeamDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {fullMlTeamDetails.text}
+                            </span>
+                          </div>
                         </div>
                       </>;
                     })() : (() => {
@@ -1121,8 +1151,18 @@ export default function MLB() {
                         </div>
                         <div className="mt-2 rounded-md border border-slate-600/50 bg-slate-900/40 px-2.5 py-2 text-[11px] text-slate-300">
                           <div className="font-semibold text-slate-200">Historical Model Context (1st 5 ML)</div>
-                          <div className="mt-1">{trendLine('Day trend', f5MlDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable')}</div>
-                          <div className="mt-1">{trendLine('Team trend (predicted side)', f5MlTeamRow, `${f5PickTeam} unavailable`)}</div>
+                          <div className="mt-1">
+                            Day trend:{' '}
+                            <span className={f5MlDowDetails.roi == null ? 'text-slate-300' : f5MlDowDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {f5MlDowDetails.text}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            Team trend (predicted side):{' '}
+                            <span className={f5MlTeamDetails.roi == null ? 'text-slate-300' : f5MlTeamDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {f5MlTeamDetails.text}
+                            </span>
+                          </div>
                         </div>
                       </>;
                     })()}
@@ -1147,10 +1187,23 @@ export default function MLB() {
                         </div>
                         <div className="mt-2 rounded-md border border-slate-600/50 bg-slate-900/40 px-2.5 py-2 text-[11px] text-slate-300">
                           <div className="font-semibold text-slate-200">Historical Model Context (Full Game O/U)</div>
-                          <div className="mt-1">{trendLine('Day trend', fullOuDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable')}</div>
+                          <div className="mt-1">
+                            Day trend:{' '}
+                            <span className={fullOuDowDetails.roi == null ? 'text-slate-300' : fullOuDowDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {fullOuDowDetails.text}
+                            </span>
+                          </div>
                           <div className="mt-1 font-medium text-slate-200">Team Trends</div>
-                          <div className="mt-1">{trendLine(awayAbbrev, fullOuAwayRow, 'Unavailable')}</div>
-                          <div className="mt-1">{trendLine(homeAbbrev, fullOuHomeRow, 'Unavailable')}</div>
+                          <div className="mt-1">
+                            <span className={fullOuAwayDetails.roi == null ? 'text-slate-300' : fullOuAwayDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {trendLine(awayAbbrev, fullOuAwayRow, 'Unavailable')}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            <span className={fullOuHomeDetails.roi == null ? 'text-slate-300' : fullOuHomeDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {trendLine(homeAbbrev, fullOuHomeRow, 'Unavailable')}
+                            </span>
+                          </div>
                         </div>
                       </>;
                     })() : (() => {
@@ -1166,10 +1219,23 @@ export default function MLB() {
                         </div>
                         <div className="mt-2 rounded-md border border-slate-600/50 bg-slate-900/40 px-2.5 py-2 text-[11px] text-slate-300">
                           <div className="font-semibold text-slate-200">Historical Model Context (1st 5 O/U)</div>
-                          <div className="mt-1">{trendLine('Day trend', f5OuDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable')}</div>
+                          <div className="mt-1">
+                            Day trend:{' '}
+                            <span className={f5OuDowDetails.roi == null ? 'text-slate-300' : f5OuDowDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {f5OuDowDetails.text}
+                            </span>
+                          </div>
                           <div className="mt-1 font-medium text-slate-200">Team Trends</div>
-                          <div className="mt-1">{trendLine(awayAbbrev, f5OuAwayRow, 'Unavailable')}</div>
-                          <div className="mt-1">{trendLine(homeAbbrev, f5OuHomeRow, 'Unavailable')}</div>
+                          <div className="mt-1">
+                            <span className={f5OuAwayDetails.roi == null ? 'text-slate-300' : f5OuAwayDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {trendLine(awayAbbrev, f5OuAwayRow, 'Unavailable')}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            <span className={f5OuHomeDetails.roi == null ? 'text-slate-300' : f5OuHomeDetails.roi >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                              {trendLine(homeAbbrev, f5OuHomeRow, 'Unavailable')}
+                            </span>
+                          </div>
                         </div>
                       </>;
                     })()}
