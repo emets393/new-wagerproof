@@ -2,7 +2,7 @@
   "expo": {
     "name": "WagerProof",
     "slug": "wagerproof-mobile",
-    "version": "3.5.5",
+    "version": "3.5.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wagerproof.mobile",
-      "buildNumber": "37",
+      "buildNumber": "38",
       "usesAppleSignIn": true,
       "appleTeamId": "88DXY6L653",
       "entitlements": {
@@ -35,7 +35,7 @@
         "backgroundColor": "#22c55e"
       },
       "package": "com.wagerproof.mobile",
-      "versionCode": 46,
+      "versionCode": 47,
       "permissions": [
         "com.google.android.gms.permission.AD_ID"
       ],
