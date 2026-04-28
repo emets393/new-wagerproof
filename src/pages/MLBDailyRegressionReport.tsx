@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBSeriesSignals, type MLBSeriesSignal } from '@/hooks/useMLBSeriesSignals';
+import { useMLBModelBreakdownAccuracy, type ModelBreakdownRow, type ModelBreakdownBetType } from '@/hooks/useMLBModelBreakdownAccuracy';
 import { MLB_FALLBACK_BY_NAME } from '@/utils/mlbTeamLogos';
 import type {
   PitcherRegression, BattingRegression, BullpenFatigue,
@@ -283,6 +284,108 @@ function AccuracyDashboard({ accuracy }: { accuracy: ModelAccuracy }) {
         </Tabs>
       </CardContent>
     </Card>
+  );
+}
+
+// Day-of-week + per-team accuracy/ROI tables for each bet type. Sources from
+// mlb_model_breakdown_accuracy (refreshed nightly). Mirrors the AccuracyDashboard
+// pattern: bet-type tabs at the top, two ranked tables side-by-side below.
+function ModelBreakdownDashboard() {
+  const { data: rows = [], isLoading } = useMLBModelBreakdownAccuracy();
+  if (isLoading) return <Skeleton className="h-64 w-full" />;
+  if (!rows.length) return null;
+
+  const betTypes: ModelBreakdownBetType[] = ['full_ml', 'full_ou', 'f5_ml', 'f5_ou'];
+  const dowOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  return (
+    <Card>
+      <CardHeader className="py-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-purple-500" />
+          Day-of-Week & Team Breakdown
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Where the model is hottest and coldest this season. Refreshed nightly.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="full_ml">
+          <TabsList className="w-full flex gap-1 sm:gap-2 p-1">
+            {betTypes.map(bt => (
+              <TabsTrigger key={bt} value={bt} className="flex-1 text-[11px] sm:text-xs py-1.5 px-2">
+                {betTypeLabel(bt)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {betTypes.map(bt => {
+            const teamRows = rows
+              .filter(r => r.bet_type === bt && r.breakdown_type === 'team')
+              .sort((a, b) => b.roi_pct - a.roi_pct);
+            const dowRows = rows
+              .filter(r => r.bet_type === bt && r.breakdown_type === 'dow')
+              .sort((a, b) => dowOrder.indexOf(a.breakdown_value) - dowOrder.indexOf(b.breakdown_value));
+            return (
+              <TabsContent key={bt} value={bt} className="mt-3">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <BreakdownTable title="By Day of Week" rows={dowRows} valueLabel="Day" sortable={false} />
+                  <BreakdownTable title="By Team" rows={teamRows} valueLabel="Team" sortable />
+                </div>
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
+}
+
+function BreakdownTable({
+  title, rows, valueLabel, sortable,
+}: { title: string; rows: ModelBreakdownRow[]; valueLabel: string; sortable: boolean }) {
+  if (!rows.length) {
+    return (
+      <div>
+        <h4 className="text-sm font-semibold mb-2 text-muted-foreground">{title}</h4>
+        <p className="text-xs text-muted-foreground py-4">No data yet.</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <h4 className="text-sm font-semibold mb-2 text-muted-foreground">{title}</h4>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs sm:text-sm">
+          <thead>
+            <tr className="border-b border-muted/30">
+              <th className="text-left py-2 pr-2 font-medium text-muted-foreground">{valueLabel}</th>
+              <th className="text-center py-2 px-2 font-medium text-muted-foreground">Record</th>
+              <th className="text-center py-2 px-2 font-medium text-muted-foreground">Win%</th>
+              <th className="text-right py-2 pl-2 font-medium text-muted-foreground">ROI%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={`${r.breakdown_value}-${i}`} className="border-b border-muted/10">
+                <td className="py-2 pr-2 text-left font-medium">{r.breakdown_value}</td>
+                <td className="py-2 px-2 text-center text-muted-foreground">
+                  {r.wins}-{r.losses}{r.pushes ? `-${r.pushes}` : ''}
+                </td>
+                <td className="py-2 px-2 text-center font-medium" style={{ color: winPctColor(r.win_pct) }}>
+                  {r.win_pct}%
+                </td>
+                <td className={`py-2 pl-2 text-right font-medium ${r.roi_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {r.roi_pct > 0 ? '+' : ''}{r.roi_pct}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {sortable ? (
+        <p className="text-[10px] text-muted-foreground mt-2">Sorted by ROI (highest first)</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -959,6 +1062,9 @@ export default function MLBDailyRegressionReport() {
 
       {/* Model Accuracy */}
       <AccuracyDashboardLive />
+
+      {/* Day-of-week + Team breakdowns by bet type */}
+      <ModelBreakdownDashboard />
 
       {/* Suggested Picks */}
       <PicksSection picks={report.suggested_picks} />

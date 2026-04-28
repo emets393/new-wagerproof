@@ -16,6 +16,11 @@ import type {
 } from '@/hooks/useMLBRegressionReport';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBSeriesSignals, type MLBSeriesSignal } from '@/hooks/useMLBSeriesSignals';
+import {
+  useMLBModelBreakdownAccuracy,
+  type ModelBreakdownRow,
+  type ModelBreakdownBetType,
+} from '@/hooks/useMLBModelBreakdownAccuracy';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
 import { useScroll } from '@/contexts/ScrollContext';
 import {
@@ -568,6 +573,108 @@ function AccuracyBody() {
           })}
         </View>
       )}
+    </SectionBody>
+  );
+}
+
+// Day-of-week + per-team accuracy/ROI tables for each bet type. Sources from
+// mlb_model_breakdown_accuracy (refreshed nightly server-side). Mirrors the
+// AccuracyBody pattern: bet-type tabs at top, two ranked tables below.
+function ModelBreakdownBody() {
+  const theme = useTheme();
+  const { isDark } = useThemeContext();
+  const { data: rows = [], isLoading } = useMLBModelBreakdownAccuracy();
+  const [activeTab, setActiveTab] = useState<ModelBreakdownBetType>('full_ml');
+
+  if (isLoading) {
+    return (
+      <SectionBody>
+        <ActivityIndicator color={theme.colors.primary} />
+      </SectionBody>
+    );
+  }
+  if (!rows.length) return null;
+
+  const betTypes: ModelBreakdownBetType[] = ['full_ml', 'full_ou', 'f5_ml', 'f5_ou'];
+  const dowOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const teamRows = rows
+    .filter(r => r.bet_type === activeTab && r.breakdown_type === 'team')
+    .sort((a, b) => b.roi_pct - a.roi_pct);
+  const dowRows = rows
+    .filter(r => r.bet_type === activeTab && r.breakdown_type === 'dow')
+    .sort((a, b) => dowOrder.indexOf(a.breakdown_value) - dowOrder.indexOf(b.breakdown_value));
+
+  const renderTable = (title: string, valueLabel: string, data: ModelBreakdownRow[]) => (
+    <View style={{ marginTop: 14 }}>
+      <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, marginBottom: 6 }]}>
+        {title.toUpperCase()}
+      </Text>
+      <View style={styles.bucketHeaderRow}>
+        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, flex: 1.6 }]}>
+          {valueLabel.toUpperCase()}
+        </Text>
+        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, width: 62, textAlign: 'right' }]}>
+          RECORD
+        </Text>
+        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, width: 48, textAlign: 'right' }]}>
+          W%
+        </Text>
+        <Text style={[styles.bucketHeaderCell, { color: theme.colors.onSurfaceVariant, width: 56, textAlign: 'right' }]}>
+          ROI
+        </Text>
+      </View>
+      {data.map((r, i) => (
+        <View
+          key={`${r.breakdown_value}-${i}`}
+          style={[
+            styles.bucketRow,
+            { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' },
+          ]}
+        >
+          <Text
+            style={[styles.bucketCell, { color: theme.colors.onSurface, flex: 1.6, fontWeight: '600' }]}
+            numberOfLines={1}
+          >
+            {r.breakdown_value}
+          </Text>
+          <Text
+            style={[styles.bucketCell, { color: theme.colors.onSurfaceVariant, width: 62, textAlign: 'right' }]}
+          >
+            {r.wins}-{r.losses}{r.pushes ? `-${r.pushes}` : ''}
+          </Text>
+          <Text
+            style={[styles.bucketCell, { color: winPctColor(r.win_pct), width: 48, textAlign: 'right', fontWeight: '700' }]}
+          >
+            {r.win_pct}%
+          </Text>
+          <Text
+            style={[
+              styles.bucketCell,
+              { color: r.roi_pct >= 0 ? WIN_GREEN : LOSS_RED, width: 56, textAlign: 'right', fontWeight: '600' },
+            ]}
+          >
+            {r.roi_pct > 0 ? '+' : ''}{r.roi_pct}%
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+
+  return (
+    <SectionBody>
+      <SegmentedTabs
+        options={betTypes.map(bt => ({ value: bt, label: betTypeLabel(bt) }))}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
+      {dowRows.length > 0 && renderTable('By Day of Week', 'Day', dowRows)}
+      {teamRows.length > 0 && renderTable('By Team (sorted by ROI)', 'Team', teamRows)}
+      {dowRows.length === 0 && teamRows.length === 0 ? (
+        <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant, marginTop: 12 }]}>
+          No graded picks yet for this bet type.
+        </Text>
+      ) : null}
     </SectionBody>
   );
 }
@@ -1298,6 +1405,18 @@ export default function MLBRegressionReportScreen() {
         topInset={0}
       />,
       <AccuracyBody key="acc-b" />,
+    );
+
+    pushSection(
+      'breakdown',
+      <SectionHeader
+        key="bd-h"
+        icon="chart-bar-stacked"
+        iconColor={ACCENT_PURPLE}
+        title="Day-of-Week & Team Breakdown"
+        topInset={0}
+      />,
+      <ModelBreakdownBody key="bd-b" />,
     );
 
     pushSection(
