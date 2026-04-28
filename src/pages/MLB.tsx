@@ -341,6 +341,14 @@ function findBreakdownRow(
   ) ?? null;
 }
 
+function toBreakdownTeamAbbr(abbr: string | null | undefined): string | null {
+  if (!abbr) return null;
+  const a = abbr.toUpperCase();
+  if (a === 'ARI') return 'AZ';
+  if (a === 'OAK' || a === 'LVA') return 'ATH';
+  return a;
+}
+
 function trendLine(
   label: string,
   row: ModelBreakdownRow | null,
@@ -805,16 +813,46 @@ export default function MLB() {
           const gameDowLabel = dayLabelFromDate(prediction.official_date);
 
           const fullMlDowRow = findBreakdownRow(breakdownRows, 'full_ml', 'dow', gameDowLabel);
-          const fullMlTeamRow = findBreakdownRow(breakdownRows, 'full_ml', 'team', mlPickTeam);
+          const fullMlTeamRow = findBreakdownRow(
+            breakdownRows,
+            'full_ml',
+            'team',
+            toBreakdownTeamAbbr(mlPickTeam),
+          );
           const fullOuDowRow = findBreakdownRow(breakdownRows, 'full_ou', 'dow', gameDowLabel);
-          const fullOuAwayRow = findBreakdownRow(breakdownRows, 'full_ou', 'team', awayAbbrev);
-          const fullOuHomeRow = findBreakdownRow(breakdownRows, 'full_ou', 'team', homeAbbrev);
+          const fullOuAwayRow = findBreakdownRow(
+            breakdownRows,
+            'full_ou',
+            'team',
+            toBreakdownTeamAbbr(awayAbbrev),
+          );
+          const fullOuHomeRow = findBreakdownRow(
+            breakdownRows,
+            'full_ou',
+            'team',
+            toBreakdownTeamAbbr(homeAbbrev),
+          );
 
           const f5MlDowRow = findBreakdownRow(breakdownRows, 'f5_ml', 'dow', gameDowLabel);
-          const f5MlTeamRow = findBreakdownRow(breakdownRows, 'f5_ml', 'team', f5PickTeam);
+          const f5MlTeamRow = findBreakdownRow(
+            breakdownRows,
+            'f5_ml',
+            'team',
+            toBreakdownTeamAbbr(f5PickTeam),
+          );
           const f5OuDowRow = findBreakdownRow(breakdownRows, 'f5_ou', 'dow', gameDowLabel);
-          const f5OuAwayRow = findBreakdownRow(breakdownRows, 'f5_ou', 'team', awayAbbrev);
-          const f5OuHomeRow = findBreakdownRow(breakdownRows, 'f5_ou', 'team', homeAbbrev);
+          const f5OuAwayRow = findBreakdownRow(
+            breakdownRows,
+            'f5_ou',
+            'team',
+            toBreakdownTeamAbbr(awayAbbrev),
+          );
+          const f5OuHomeRow = findBreakdownRow(
+            breakdownRows,
+            'f5_ou',
+            'team',
+            toBreakdownTeamAbbr(homeAbbrev),
+          );
           const fullMlDowDetails = trendDetails(fullMlDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable');
           const fullMlTeamDetails = trendDetails(fullMlTeamRow, `${mlPickTeam} unavailable`);
           const fullOuDowDetails = trendDetails(fullOuDowRow, gameDowLabel ? `${gameDowLabel} unavailable` : 'Unavailable');

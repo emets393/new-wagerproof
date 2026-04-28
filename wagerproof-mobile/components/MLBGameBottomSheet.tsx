@@ -58,6 +58,14 @@ function findBreakdownRow(
   ) ?? null;
 }
 
+function toBreakdownTeamAbbr(abbr: string | null | undefined): string | null {
+  if (!abbr) return null;
+  const a = abbr.toUpperCase();
+  if (a === 'ARI') return 'AZ';
+  if (a === 'OAK' || a === 'LVA') return 'ATH';
+  return a;
+}
+
 function trendLine(
   label: string,
   row: ModelBreakdownRow | null,
@@ -188,10 +196,25 @@ export function MLBGameBottomSheet() {
   const dowLabel = dayLabelFromDate(game?.official_date ?? null);
   const mlPickAbbr = mlPickSide === 'home' ? game?.home_abbr : mlPickSide === 'away' ? game?.away_abbr : null;
   const mlDowRow = findBreakdownRow(breakdownRows, breakdownBetType, 'dow', dowLabel);
-  const mlTeamRow = findBreakdownRow(breakdownRows, breakdownBetType, 'team', mlPickAbbr);
+  const mlTeamRow = findBreakdownRow(
+    breakdownRows,
+    breakdownBetType,
+    'team',
+    toBreakdownTeamAbbr(mlPickAbbr),
+  );
   const ouDowRow = findBreakdownRow(breakdownRows, breakdownOuBetType, 'dow', dowLabel);
-  const ouAwayRow = findBreakdownRow(breakdownRows, breakdownOuBetType, 'team', game?.away_abbr);
-  const ouHomeRow = findBreakdownRow(breakdownRows, breakdownOuBetType, 'team', game?.home_abbr);
+  const ouAwayRow = findBreakdownRow(
+    breakdownRows,
+    breakdownOuBetType,
+    'team',
+    toBreakdownTeamAbbr(game?.away_abbr),
+  );
+  const ouHomeRow = findBreakdownRow(
+    breakdownRows,
+    breakdownOuBetType,
+    'team',
+    toBreakdownTeamAbbr(game?.home_abbr),
+  );
 
   const mlDowDetails = trendDetails(mlDowRow, dowLabel ? `${dowLabel} unavailable` : 'Unavailable');
   const mlTeamDetails = trendDetails(mlTeamRow, mlPickAbbr ? `${mlPickAbbr} unavailable` : 'No pick');
