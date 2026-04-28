@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 
 export type ModelBreakdownBetType = 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou';
 export type ModelBreakdownAxis = 'team' | 'dow';

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { collegeFootballSupabase } from '@/services/collegeFootballClient';
 
 /**
  * Mobile-side hook for the MLB series-position signals (G2/G3 carryover).
