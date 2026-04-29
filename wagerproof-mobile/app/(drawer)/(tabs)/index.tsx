@@ -408,19 +408,30 @@ export default function FeedScreen() {
       console.log('🏀 Fetching NBA games from nba_input_values_view...');
       
       // Fetch ALL games from nba_input_values_view (simple query like CFB)
-      const { data: inputValues, error: inputError } = await collegeFootballSupabase
+      const { data: rawInputValues, error: inputError } = await collegeFootballSupabase
         .from('nba_input_values_view')
         .select('*');
 
-      console.log('🏀 NBA query result:', inputValues?.length || 0, 'error:', inputError?.message || 'none');
+      console.log('🏀 NBA query result:', rawInputValues?.length || 0, 'error:', inputError?.message || 'none');
 
       if (inputError) {
         console.error('❌ NBA query error:', inputError);
         throw inputError;
       }
-      
-      console.log(`🏀 Found ${inputValues?.length || 0} NBA games from view`);
-      if (!inputValues || inputValues.length === 0) {
+
+      // Drop "phantom" postseason games — series-decided "if necessary"
+      // games stay scheduled in nba_team_boxscores but books never post
+      // lines for them. No lines anywhere → not happening.
+      const inputValues = (rawInputValues ?? []).filter(
+        (g: any) => g.home_moneyline != null || g.home_spread != null || g.total_line != null,
+      );
+      const droppedCount = (rawInputValues?.length ?? 0) - inputValues.length;
+      if (droppedCount > 0) {
+        console.log(`🏀 Filtered ${droppedCount} phantom game(s) with no odds posted`);
+      }
+
+      console.log(`🏀 Found ${inputValues.length} NBA games (after phantom filter)`);
+      if (inputValues.length === 0) {
         console.log('⚠️ NBA: No games returned from query');
         setCachedData(prev => ({ ...prev, nba: { games: [], lastFetch: Date.now() } }));
         return;

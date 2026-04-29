@@ -437,7 +437,7 @@ ${contextParts}
       
       // Step 1: Fetch ALL games from nba_input_values_view
       debug.log('📊 Querying nba_input_values_view for all games...');
-      const { data: nbaGames, error: gamesError } = await collegeFootballSupabase
+      const { data: rawNbaGames, error: gamesError } = await collegeFootballSupabase
         .from('nba_input_values_view')
         .select('game_id, game_date, home_team, away_team, home_team_id, away_team_id, home_moneyline, home_spread, total_line, tipoff_time_et, season, game_type, home_abbr, away_abbr, *')
         .order('game_date', { ascending: true })
@@ -450,7 +450,19 @@ ${contextParts}
         return;
       }
 
-      debug.log('✅ NBA games fetched from nba_input_values_view:', nbaGames?.length || 0);
+      // Drop "phantom" postseason games — series-decided "if necessary" games
+      // (e.g. Game 5 of a 4-1 series) stay in nba_team_boxscores until manually
+      // removed, but the books never post lines for them. If NO line is up
+      // (ML, spread, AND total all null), treat the game as not happening.
+      const nbaGames = (rawNbaGames ?? []).filter(
+        g => g.home_moneyline != null || g.home_spread != null || g.total_line != null,
+      );
+      const droppedCount = (rawNbaGames?.length ?? 0) - nbaGames.length;
+      if (droppedCount > 0) {
+        debug.log(`🚫 Filtered ${droppedCount} phantom game(s) with no odds posted`);
+      }
+
+      debug.log('✅ NBA games fetched from nba_input_values_view:', nbaGames.length);
       
       // Step 2: Fetch predictions from nba_predictions (latest run_id)
       debug.log('📊 Fetching model predictions from nba_predictions...');
