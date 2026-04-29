@@ -837,7 +837,6 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
           const edgeStr = `${p.edge_at_suggestion > 0 ? '+' : ''}${p.edge_at_suggestion}${
             p.bet_type.includes('ml') ? '%' : ''
           }`;
-          const bucketPct = p.bucket_win_pct;
 
           return (
             <AccentBarRow
@@ -895,11 +894,6 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
               <StatRow style={{ marginTop: 10 }}>
                 <Stat label="EDGE" value={edgeStr} />
                 <Stat label="BUCKET" value={p.edge_bucket} />
-                <Stat
-                  label="BUCKET W%"
-                  value={bucketPct != null ? `${bucketPct}%` : 'N/A'}
-                  valueColor={bucketPct != null ? winPctColor(bucketPct) : undefined}
-                />
               </StatRow>
 
               {(() => {

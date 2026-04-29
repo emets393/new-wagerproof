@@ -597,7 +597,7 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="grid grid-cols-2 gap-2 text-center text-xs">
                   <div>
                     <div className="text-muted-foreground">Edge</div>
                     <div className="font-medium">{p.edge_at_suggestion > 0 ? '+' : ''}{p.edge_at_suggestion}{p.bet_type.includes('ml') ? '%' : ''}</div>
@@ -606,12 +606,6 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
                     <div className="text-muted-foreground">Bucket</div>
                     <div className="font-medium whitespace-pre-line text-center leading-tight">
                       {p.edge_bucket === 'perfect_storm' ? 'Perfect\nStorm' : p.edge_bucket}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Bucket W%</div>
-                    <div className="font-medium" style={{ color: winPctColor(p.bucket_win_pct) }}>
-                      {p.bucket_win_pct}%
                     </div>
                   </div>
                 </div>
