@@ -12,7 +12,7 @@ import { useProAccess } from '@/hooks/useProAccess';
 import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
 import type {
   PitcherRegression, BattingRegression, BullpenFatigue, SuggestedPick,
-  YesterdayRecap, CumulativeRecord, PerfectStorm, WeatherParkFlag, LRSplitEntry,
+  YesterdayRecap, CumulativeRecord, WeatherParkFlag, LRSplitEntry,
 } from '@/hooks/useMLBRegressionReport';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBPerfectStormRecords, type PerfectStormRecord } from '@/hooks/useMLBPerfectStormRecords';
@@ -1328,61 +1328,6 @@ function LRSplitsBody({ splits }: { splits: LRSplitEntry[] }) {
   );
 }
 
-function PerfectStormBody({ storms }: { storms: PerfectStorm[] }) {
-  const theme = useTheme();
-  const { isDark } = useThemeContext();
-  if (!storms?.length) return null;
-  return (
-    <SectionBody>
-      <View style={{ gap: 10 }}>
-        {storms.map((s, i) => {
-          const directionColor = s.direction.includes('RUNS') ? LOSS_RED : ACCENT_BLUE;
-          return (
-            <AccentBarRow key={i} color={ACCENT_YELLOW}>
-              <View style={styles.rowHead}>
-                <Text
-                  style={[styles.rowTitle, { color: theme.colors.onSurface, flex: 1 }]}
-                  numberOfLines={2}
-                >
-                  {s.matchup}
-                </Text>
-                <Pill
-                  label={s.direction}
-                  color={directionColor}
-                  bg={`${directionColor}1a`}
-                  small
-                />
-              </View>
-              <View style={styles.stormScoreRow}>
-                <MaterialCommunityIcons name="lightning-bolt" size={14} color={ACCENT_YELLOW} />
-                <Text style={[styles.stormScore, { color: theme.colors.onSurface }]}>
-                  {s.storm_score}<Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '500' }}>/10</Text>
-                </Text>
-                <Text style={[styles.stormScoreLabel, { color: theme.colors.onSurfaceVariant }]}>
-                  storm score
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.stormNarrative,
-                  {
-                    backgroundColor: isDark ? 'rgba(234,179,8,0.08)' : 'rgba(234,179,8,0.10)',
-                    borderLeftColor: ACCENT_YELLOW,
-                  },
-                ]}
-              >
-                <Text style={[styles.stormNarrativeText, { color: theme.colors.onSurface }]}>
-                  {s.narrative}
-                </Text>
-              </View>
-            </AccentBarRow>
-          );
-        })}
-      </View>
-    </SectionBody>
-  );
-}
-
 // G2/G3 series-position signals from the live mlb_game_signals view. Pulled
 // independently of the regression report's external Python ETL so today's
 // carryover/regression patterns are always current with the latest definitions.
@@ -1709,20 +1654,6 @@ export default function MLBRegressionReportScreen() {
           topInset={0}
         />,
         <LRSplitsBody key="lr-b" splits={report.lr_splits_today} />,
-      );
-    }
-
-    if (report.perfect_storm_matchups?.length) {
-      pushSection(
-        'storm',
-        <SectionHeader
-          key="ps-h"
-          icon="weather-lightning"
-          iconColor={ACCENT_YELLOW}
-          title="Perfect Storm Matchups"
-          topInset={0}
-        />,
-        <PerfectStormBody key="ps-b" storms={report.perfect_storm_matchups} />,
       );
     }
 
