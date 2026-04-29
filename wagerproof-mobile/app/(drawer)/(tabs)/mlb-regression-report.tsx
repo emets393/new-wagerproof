@@ -787,7 +787,7 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
       <SectionBody>
         {recordsRow}
         <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-          No picks meet the confidence threshold for today's slate.
+          No Perfect Storm picks today — the model didn't find any games meeting the criteria.
         </Text>
       </SectionBody>
     );
@@ -813,12 +813,12 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
     );
   };
 
-  // Tier badge metadata — null when the pick didn't qualify (no badge).
-  const tierMeta = (tier: 'ps' | 'psh' | null | undefined) => {
-    if (tier === 'psh') return { color: '#a78bfa', label: 'PERFECT STORM HAMMER' };
-    if (tier === 'ps')  return { color: WIN_GREEN, label: 'PERFECT STORM' };
-    return null;
-  };
+  // Tier badge metadata — every pick on this section has a tier (Python
+  // ETL filters out anything below ps), so the badge always renders.
+  const tierMeta = (tier: 'ps' | 'psh' | null | undefined) =>
+    tier === 'psh'
+      ? { color: '#a78bfa', label: 'PERFECT STORM HAMMER' }
+      : { color: WIN_GREEN, label: 'PERFECT STORM' };
 
   return (
     <SectionBody>
@@ -827,8 +827,6 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
         {picks.map((p, i) => {
           const tier = tierMeta(p.perfect_storm_tier);
           const confColor = p.confidence_at_suggestion === 'high' ? WIN_GREEN : WARN_AMBER;
-          // Accent color: tier color if badged, else confidence color.
-          const accent = tier?.color ?? confColor;
           const timeLabel = p.game_time_et
             ? new Date(p.game_time_et).toLocaleTimeString('en-US', {
                 hour: 'numeric',
@@ -843,30 +841,28 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
           return (
             <AccentBarRow
               key={i}
-              color={accent}
+              color={tier.color}
               style={{ opacity: p.locked ? 0.6 : 1 }}
             >
-              {/* Tier pill — only rendered when the pick passed the gates. */}
-              {tier && (
-                <View
-                  style={{
-                    alignSelf: 'flex-start',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 4,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                    borderRadius: 999,
-                    backgroundColor: tier.color,
-                    marginBottom: 6,
-                  }}
-                >
-                  <MaterialCommunityIcons name="lightning-bolt" size={11} color="#0a0a0a" />
-                  <Text style={{ color: '#0a0a0a', fontSize: 9, fontWeight: '800', letterSpacing: 0.6 }}>
-                    {tier.label}
-                  </Text>
-                </View>
-              )}
+              {/* Tier pill — Hammer (purple) for PSH, green for PS. */}
+              <View
+                style={{
+                  alignSelf: 'flex-start',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 999,
+                  backgroundColor: tier.color,
+                  marginBottom: 6,
+                }}
+              >
+                <MaterialCommunityIcons name="lightning-bolt" size={11} color="#0a0a0a" />
+                <Text style={{ color: '#0a0a0a', fontSize: 9, fontWeight: '800', letterSpacing: 0.6 }}>
+                  {tier.label}
+                </Text>
+              </View>
               <View style={styles.pickHeaderRow}>
                 <Text
                   style={[styles.pickTitle, { color: theme.colors.onSurface }]}
@@ -1575,9 +1571,9 @@ export default function MLBRegressionReportScreen() {
       'picks',
       <SectionHeader
         key="picks-h"
-        icon="target"
-        iconColor={WIN_GREEN}
-        title="Today's Suggested Picks"
+        icon="lightning-bolt"
+        iconColor="#a78bfa"
+        title="Perfect Storm Picks"
         rightSlot={
           report.suggested_picks?.length ? (
             <Text style={[styles.sectionHeaderCount, { color: theme.colors.onSurfaceVariant }]}>
