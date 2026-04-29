@@ -111,11 +111,16 @@ export function computeAlignment(input: ComputeAlignmentInput): AlignmentResult 
     if (subj) teams.push(subj);
   }
 
-  const dowOk = !!dow && dow.win_pct >= 55 && dow.roi_pct > 0;
-  const dowBad = !!dow && dow.win_pct < 45;
-  const teamsAllOk = teams.length > 0 && teams.every(t => t.win_pct >= 55 && t.roi_pct > 0);
-  const teamsAllBad = teams.length > 0 && teams.every(t => t.win_pct < 45);
-  const teamsAnyBad = teams.length > 0 && teams.some(t => t.win_pct < 45);
+  // "Bad" includes meaningful negative ROI (≤ -5%) even when win_pct
+  // is in the 45-55% zone — a team batting 46% with -12% ROI is
+  // actively losing money on this bet type, not neutral.
+  const isOk  = (w: number, r: number) => w >= 55 && r > 0;
+  const isBad = (w: number, r: number) => w < 45 || r <= -5;
+  const dowOk = !!dow && isOk(dow.win_pct, dow.roi_pct);
+  const dowBad = !!dow && isBad(dow.win_pct, dow.roi_pct);
+  const teamsAllOk = teams.length > 0 && teams.every(t => isOk(t.win_pct, t.roi_pct));
+  const teamsAllBad = teams.length > 0 && teams.every(t => isBad(t.win_pct, t.roi_pct));
+  const teamsAnyBad = teams.length > 0 && teams.some(t => isBad(t.win_pct, t.roi_pct));
 
   let level: AlignmentResult['level'] = 'neutral';
   if (dowOk && teamsAllOk) level = 'strong';
