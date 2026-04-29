@@ -3,6 +3,7 @@ import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBSeriesSignals, type MLBSeriesSignal } from '@/hooks/useMLBSeriesSignals';
 import { useMLBModelBreakdownAccuracy, type ModelBreakdownRow, type ModelBreakdownBetType } from '@/hooks/useMLBModelBreakdownAccuracy';
+import { useMLBPerfectStormRecords, type PerfectStormRecord } from '@/hooks/useMLBPerfectStormRecords';
 import { computeAlignment, ALIGNMENT_DISPLAY } from '@/utils/mlbPickAlignment';
 import { espnMlb500LogoUrlFromAbbrev } from '@/utils/mlbTeamLogos';
 import { MLB_FALLBACK_BY_NAME } from '@/utils/mlbTeamLogos';
@@ -448,22 +449,69 @@ function BreakdownTable({
   );
 }
 
+/**
+ * Compact season-record card for one Perfect Storm tier. Shows the
+ * W-L-P record, win%, and ROI units. Greyed out when no picks have
+ * graded yet (e.g. start of season or first few days post-deploy).
+ */
+function PerfectStormRecordCard({
+  record, label, accent,
+}: { record: PerfectStormRecord; label: string; accent: string }) {
+  const r = record;
+  const recordStr = r.pushes > 0
+    ? `${r.wins}-${r.losses}-${r.pushes}`
+    : `${r.wins}-${r.losses}`;
+  const isPositive = r.units >= 0;
+  return (
+    <div
+      className="flex-1 rounded-lg border px-3 py-2 min-w-[160px]"
+      style={{ borderColor: `${accent}55`, backgroundColor: `${accent}0d` }}
+    >
+      <div className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: accent }}>
+        {label}
+      </div>
+      <div className="flex items-baseline gap-2">
+        <div className="text-lg font-bold tabular-nums">{recordStr}</div>
+        <div className="text-xs text-muted-foreground tabular-nums">
+          {r.win_pct != null ? `${r.win_pct}%` : '—'}
+        </div>
+      </div>
+      <div className={`text-xs mt-0.5 tabular-nums ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+        {isPositive ? '+' : ''}{r.units.toFixed(2)}u
+      </div>
+    </div>
+  );
+}
+
 function PicksSection({ picks }: { picks: SuggestedPick[] }) {
-  const { data: bucketAccuracy } = useMLBBucketAccuracy();
   // Breakdown rows used to compute per-pick alignment with DOW + team trends.
   // No-op when the table hasn't been refreshed yet (returns []).
   const { data: breakdownRows = [] } = useMLBModelBreakdownAccuracy();
-  const perfectStormOverall = bucketAccuracy?.perfect_storm?.overall;
+  // Season-to-date records for each Perfect Storm tier (sourced from
+  // mlb_graded_picks). Always shown so the user can see PSH/PS hit rate
+  // even on days with no qualifying picks.
+  const { data: psRecords } = useMLBPerfectStormRecords();
+
+  const recordsRow = psRecords ? (
+    <div className="flex flex-wrap gap-2 mb-3">
+      <PerfectStormRecordCard record={psRecords.psh} label="Hammer Record" accent="#a78bfa" />
+      <PerfectStormRecordCard record={psRecords.ps}  label="Perfect Storm Record" accent="#22c55e" />
+    </div>
+  ) : null;
+
   if (!picks.length) {
     return (
       <Card>
         <CardHeader className="py-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Target className="h-5 w-5 text-green-500" /> Today's Suggested Picks
+            <Zap className="h-5 w-5 text-purple-400" /> Perfect Storm Picks
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-sm">No picks meet the confidence threshold for today's slate.</p>
+          {recordsRow}
+          <p className="text-muted-foreground text-sm">
+            No Perfect Storm picks today — the model didn't find any games meeting the criteria.
+          </p>
         </CardContent>
       </Card>
     );
@@ -482,24 +530,56 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
     );
   };
 
+  // Tier styling — Hammer (psh) is the premium tier, plain PS (ps) is the floor.
+  const tierMeta = (tier: 'ps' | 'psh' | null | undefined) =>
+    tier === 'psh'
+      ? { label: 'PERFECT STORM HAMMER', accent: '#a78bfa', bg: '#a78bfa1a' }
+      : { label: 'PERFECT STORM',         accent: '#22c55e', bg: '#22c55e1a' };
+
+  const betTypeLabel = (bt: string) => {
+    switch (bt) {
+      case 'full_ml': return 'FG ML';
+      case 'full_ou': return 'FG O/U';
+      case 'full_rl': return 'FG RL';
+      case 'f5_ml':   return 'F5 ML';
+      case 'f5_ou':   return 'F5 O/U';
+      case 'f5_rl':   return 'F5 RL';
+      default:        return bt.toUpperCase();
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="py-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Target className="h-5 w-5 text-green-500" /> Today's Suggested Picks
-          <Badge variant="outline">{picks.length} plays</Badge>
+          <Zap className="h-5 w-5 text-purple-400" /> Perfect Storm Picks
+          <Badge variant="outline">{picks.length} {picks.length === 1 ? 'play' : 'plays'}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {recordsRow}
         <div className="grid gap-3 md:grid-cols-2">
-          {picks.map((p, i) => (
-            <Card key={i} className={`border ${p.locked ? 'opacity-70 border-muted' : 'border-primary/30'}`}>
+          {picks.map((p, i) => {
+            const meta = tierMeta(p.perfect_storm_tier);
+            return (
+            <Card
+              key={i}
+              className={`border ${p.locked ? 'opacity-70' : ''}`}
+              style={{ borderColor: meta.accent + '55', backgroundColor: meta.bg }}
+            >
               <CardContent className="p-3 sm:p-4">
+                {/* Tier badge sits on its own line so it always reads cleanly,
+                    even when the pick text is long. */}
+                <div className="mb-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5"
+                     style={{ backgroundColor: meta.accent, color: '#0a0a0a' }}>
+                  <Zap className="h-3 w-3" />
+                  <span className="text-[10px] font-bold tracking-wider">{meta.label}</span>
+                </div>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="font-bold text-sm sm:text-lg leading-tight">{p.pick}</div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {confidenceBadge(p.confidence_at_suggestion)}
-                    <Badge variant="outline" className="text-[10px] sm:text-xs">{p.bet_type === 'full_ml' ? 'FG ML' : p.bet_type === 'full_ou' ? 'FG O/U' : p.bet_type === 'f5_ml' ? 'F5 ML' : 'F5 O/U'}</Badge>
+                    <Badge variant="outline" className="text-[10px] sm:text-xs">{betTypeLabel(p.bet_type)}</Badge>
                     {p.locked && <Badge variant="secondary" className="text-[10px]">LOCKED</Badge>}
                   </div>
                 </div>
@@ -530,19 +610,9 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                   </div>
                   <div>
                     <div className="text-muted-foreground">Bucket W%</div>
-                    {(p.edge_bucket || '').toLowerCase() === 'perfect_storm' ? (
-                      perfectStormOverall && perfectStormOverall.games > 0 ? (
-                        <div className="font-medium" style={{ color: winPctColor(perfectStormOverall.win_pct) }}>
-                          {perfectStormOverall.win_pct}%
-                        </div>
-                      ) : (
-                        <div className="font-medium text-muted-foreground">N/A</div>
-                      )
-                    ) : (
-                      <div className="font-medium" style={{ color: winPctColor(p.bucket_win_pct) }}>
-                        {p.bucket_win_pct}%
-                      </div>
-                    )}
+                    <div className="font-medium" style={{ color: winPctColor(p.bucket_win_pct) }}>
+                      {p.bucket_win_pct}%
+                    </div>
                   </div>
                 </div>
                 {(() => {
@@ -610,7 +680,8 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>

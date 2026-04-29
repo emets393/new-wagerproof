@@ -15,6 +15,7 @@ import type {
   YesterdayRecap, CumulativeRecord, PerfectStorm, WeatherParkFlag, LRSplitEntry,
 } from '@/hooks/useMLBRegressionReport';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
+import { useMLBPerfectStormRecords, type PerfectStormRecord } from '@/hooks/useMLBPerfectStormRecords';
 import { useMLBSeriesSignals, type MLBSeriesSignal } from '@/hooks/useMLBSeriesSignals';
 import {
   useMLBModelBreakdownAccuracy,
@@ -722,19 +723,71 @@ function ModelBreakdownBody() {
   );
 }
 
+/**
+ * Compact season-record card for one Perfect Storm tier. Mirrors the web
+ * PerfectStormRecordCard.
+ */
+function PSRecordCardMobile({
+  record, label, accent,
+}: { record: PerfectStormRecord; label: string; accent: string }) {
+  const theme = useTheme();
+  const recordStr = record.pushes > 0
+    ? `${record.wins}-${record.losses}-${record.pushes}`
+    : `${record.wins}-${record.losses}`;
+  const isPositive = record.units >= 0;
+  return (
+    <View
+      style={{
+        flex: 1,
+        minWidth: 140,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: `${accent}55`,
+        backgroundColor: `${accent}0d`,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+      }}
+    >
+      <Text style={{ color: accent, fontSize: 9, fontWeight: '700', letterSpacing: 0.6 }}>
+        {label.toUpperCase()}
+      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
+        <Text style={{ color: theme.colors.onSurface, fontSize: 16, fontWeight: '700' }}>
+          {recordStr}
+        </Text>
+        <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11 }}>
+          {record.win_pct != null ? `${record.win_pct}%` : '—'}
+        </Text>
+      </View>
+      <Text style={{ color: isPositive ? WIN_GREEN : LOSS_RED, fontSize: 11, marginTop: 1 }}>
+        {isPositive ? '+' : ''}{record.units.toFixed(2)}u
+      </Text>
+    </View>
+  );
+}
+
 function PicksBody({ picks }: { picks: SuggestedPick[] }) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
-  const { data: bucketAccuracy } = useMLBBucketAccuracy();
   // Breakdown rows used to compute per-pick alignment with DOW + team trends.
   const { data: breakdownRows = [] } = useMLBModelBreakdownAccuracy();
-  const perfectStormOverall = bucketAccuracy?.perfect_storm?.overall;
+  // Season-to-date PS / PSH records (always shown — even on days with
+  // zero qualifying picks, the user can see the historical track record).
+  const { data: psRecords } = useMLBPerfectStormRecords();
+
+  const recordsRow = psRecords ? (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+      <PSRecordCardMobile record={psRecords.psh} label="Hammer Record" accent="#a78bfa" />
+      <PSRecordCardMobile record={psRecords.ps}  label="Perfect Storm Record" accent={WIN_GREEN} />
+    </View>
+  ) : null;
 
   if (!picks?.length) {
     return (
       <SectionBody>
+        {recordsRow}
         <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-          No picks meet the confidence threshold for today's slate.
+          No Perfect Storm picks today — the model didn't find any games meeting the criteria.
         </Text>
       </SectionBody>
     );
@@ -760,10 +813,19 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
     );
   };
 
+  // Tier styling — Hammer (psh) is the premium tier, plain PS (ps) is the floor.
+  const tierColor = (tier: 'ps' | 'psh' | null | undefined) =>
+    tier === 'psh' ? '#a78bfa' : WIN_GREEN;
+  const tierLabel = (tier: 'ps' | 'psh' | null | undefined) =>
+    tier === 'psh' ? 'PERFECT STORM HAMMER' : 'PERFECT STORM';
+
   return (
     <SectionBody>
+      {recordsRow}
       <View style={{ gap: 10 }}>
         {picks.map((p, i) => {
+          const tColor = tierColor(p.perfect_storm_tier);
+          const tLabel = tierLabel(p.perfect_storm_tier);
           const confColor = p.confidence_at_suggestion === 'high' ? WIN_GREEN : WARN_AMBER;
           const timeLabel = p.game_time_et
             ? new Date(p.game_time_et).toLocaleTimeString('en-US', {
@@ -775,19 +837,34 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
           const edgeStr = `${p.edge_at_suggestion > 0 ? '+' : ''}${p.edge_at_suggestion}${
             p.bet_type.includes('ml') ? '%' : ''
           }`;
-          const isPerfectStorm = (p.edge_bucket || '').toLowerCase() === 'perfect_storm';
-          const bucketPct = isPerfectStorm
-            ? perfectStormOverall && perfectStormOverall.games > 0
-              ? perfectStormOverall.win_pct
-              : null
-            : p.bucket_win_pct;
+          const bucketPct = p.bucket_win_pct;
 
           return (
             <AccentBarRow
               key={i}
-              color={confColor}
+              color={tColor}
               style={{ opacity: p.locked ? 0.6 : 1 }}
             >
+              {/* Tier pill — always visible at top so the user immediately sees
+                  whether this pick is PS or the premium Hammer tier. */}
+              <View
+                style={{
+                  alignSelf: 'flex-start',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 999,
+                  backgroundColor: tColor,
+                  marginBottom: 6,
+                }}
+              >
+                <MaterialCommunityIcons name="lightning-bolt" size={11} color="#0a0a0a" />
+                <Text style={{ color: '#0a0a0a', fontSize: 9, fontWeight: '800', letterSpacing: 0.6 }}>
+                  {tLabel}
+                </Text>
+              </View>
               <View style={styles.pickHeaderRow}>
                 <Text
                   style={[styles.pickTitle, { color: theme.colors.onSurface }]}
@@ -817,10 +894,7 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
 
               <StatRow style={{ marginTop: 10 }}>
                 <Stat label="EDGE" value={edgeStr} />
-                <Stat
-                  label="BUCKET"
-                  value={isPerfectStorm ? 'Perfect\nStorm' : p.edge_bucket}
-                />
+                <Stat label="BUCKET" value={p.edge_bucket} />
                 <Stat
                   label="BUCKET W%"
                   value={bucketPct != null ? `${bucketPct}%` : 'N/A'}

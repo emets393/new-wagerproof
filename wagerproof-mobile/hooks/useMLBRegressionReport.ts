@@ -88,7 +88,7 @@ export interface BullpenFatigue {
 
 export interface SuggestedPick {
   game_pk: number;
-  bet_type: 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou';
+  bet_type: 'full_ml' | 'full_ou' | 'full_rl' | 'f5_ml' | 'f5_ou' | 'f5_rl';
   pick: string;
   matchup: string;
   home_team: string;
@@ -108,6 +108,9 @@ export interface SuggestedPick {
   away_sp: string | null;
   first_suggested_at: string;
   locked: boolean;
+  /** Perfect Storm tier — set by the Python ETL after passing the gates.
+   *  Only 'ps' or 'psh' picks make it into the report. */
+  perfect_storm_tier?: 'ps' | 'psh' | null;
 }
 
 export interface YesterdayRecap {
