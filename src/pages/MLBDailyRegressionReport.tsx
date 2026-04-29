@@ -483,7 +483,7 @@ function PerfectStormRecordCard({
   );
 }
 
-function PicksSection({ picks }: { picks: SuggestedPick[] }) {
+function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: string }) {
   // Breakdown rows used to compute per-pick alignment with DOW + team trends.
   // No-op when the table hasn't been refreshed yet (returns []).
   const { data: breakdownRows = [] } = useMLBModelBreakdownAccuracy();
@@ -616,12 +616,15 @@ function PicksSection({ picks }: { picks: SuggestedPick[] }) {
                   </div>
                 </div>
                 {(() => {
+                  // Older picks lack game_time_et — fall back to the report
+                  // date so DOW lookup still works (every pick on the report
+                  // is for the report's date by definition).
                   const align = computeAlignment({
                     bet_type: p.bet_type as 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou',
                     pick: p.pick,
                     home_team: p.home_team ?? null,
                     away_team: p.away_team ?? null,
-                    game_time_et: p.game_time_et ?? null,
+                    game_time_et: p.game_time_et ?? reportDate,
                     rows: breakdownRows,
                   });
                   // Skip rendering when neutral with no rows — would just be noise.
@@ -1259,7 +1262,7 @@ export default function MLBDailyRegressionReport() {
       <ModelBreakdownDashboard />
 
       {/* Suggested Picks */}
-      <PicksSection picks={report.suggested_picks} />
+      <PicksSection picks={report.suggested_picks} reportDate={report.report_date} />
 
       {/* Series-Position Signals (G2/G3 carryover from mlb_game_signals view) */}
       <SeriesSignalsSection signals={seriesSignals} />

@@ -766,7 +766,7 @@ function PSRecordCardMobile({
   );
 }
 
-function PicksBody({ picks }: { picks: SuggestedPick[] }) {
+function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: string }) {
   const theme = useTheme();
   const { isDark } = useThemeContext();
   // Breakdown rows used to compute per-pick alignment with DOW + team trends.
@@ -903,12 +903,15 @@ function PicksBody({ picks }: { picks: SuggestedPick[] }) {
               </StatRow>
 
               {(() => {
+                // Older picks lack game_time_et — fall back to the report
+                // date so DOW lookup still works (every pick on the report
+                // is for the report's date by definition).
                 const align = computeAlignment({
                   bet_type: p.bet_type as 'full_ml' | 'full_ou' | 'f5_ml' | 'f5_ou',
                   pick: p.pick,
                   home_team: p.home_team ?? null,
                   away_team: p.away_team ?? null,
-                  game_time_et: p.game_time_et ?? null,
+                  game_time_et: p.game_time_et ?? reportDate,
                   rows: breakdownRows,
                 });
                 if (align.level === 'neutral' && !align.dow && align.teams.length === 0) return null;
@@ -1642,7 +1645,7 @@ export default function MLBRegressionReportScreen() {
         }
         topInset={0}
       />,
-      <PicksBody key="picks-b" picks={report.suggested_picks} />,
+      <PicksBody key="picks-b" picks={report.suggested_picks} reportDate={report.report_date} />,
     );
 
     const hasPitcherData =
