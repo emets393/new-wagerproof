@@ -451,8 +451,8 @@ function BreakdownTable({
 
 /**
  * Compact season-record card for one Perfect Storm tier. Shows the
- * W-L-P record, win%, and ROI units. Greyed out when no picks have
- * graded yet (e.g. start of season or first few days post-deploy).
+ * W-L-P record, win%, ROI%. Used at the top of the suggested picks
+ * section so users can see how each tier has performed.
  */
 function PerfectStormRecordCard({
   record, label, accent,
@@ -461,10 +461,11 @@ function PerfectStormRecordCard({
   const recordStr = r.pushes > 0
     ? `${r.wins}-${r.losses}-${r.pushes}`
     : `${r.wins}-${r.losses}`;
-  const isPositive = r.units >= 0;
+  const roi = r.roi_pct;
+  const roiPositive = roi != null && roi >= 0;
   return (
     <div
-      className="flex-1 rounded-lg border px-3 py-2 min-w-[160px]"
+      className="flex-1 rounded-lg border px-3 py-2 min-w-[150px]"
       style={{ borderColor: `${accent}55`, backgroundColor: `${accent}0d` }}
     >
       <div className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: accent }}>
@@ -476,12 +477,24 @@ function PerfectStormRecordCard({
           {r.win_pct != null ? `${r.win_pct}%` : '—'}
         </div>
       </div>
-      <div className={`text-xs mt-0.5 tabular-nums ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-        {isPositive ? '+' : ''}{r.units.toFixed(2)}u
+      <div className={`text-xs mt-0.5 tabular-nums ${roiPositive ? 'text-green-400' : 'text-red-400'}`}>
+        {roi != null ? `${roiPositive ? '+' : ''}${roi.toFixed(1)}% ROI` : '—'}
       </div>
     </div>
   );
 }
+
+// Display config for each tier — color, badge label, full name.
+const TIER_DISPLAY: Record<'hammer' | 'ps' | 'lean' | 'watch', {
+  badge: string;
+  cardLabel: string;
+  accent: string;
+}> = {
+  hammer: { badge: 'PERFECT STORM HAMMER', cardLabel: 'Hammer Record',         accent: '#a78bfa' }, // purple
+  ps:     { badge: 'PERFECT STORM',         cardLabel: 'Perfect Storm Record', accent: '#22c55e' }, // green
+  lean:   { badge: 'STRONG LEAN',           cardLabel: 'Lean Record',          accent: '#3b82f6' }, // blue
+  watch:  { badge: 'WATCH',                 cardLabel: 'Watch Record',         accent: '#f59e0b' }, // amber
+};
 
 function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: string }) {
   // Breakdown rows used to compute per-pick alignment with DOW + team trends.
@@ -492,10 +505,14 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
   // even on days with no qualifying picks.
   const { data: psRecords } = useMLBPerfectStormRecords();
 
+  // 4 record cards — one per tier — always shown so the user can see
+  // how each tier has performed even on days with zero qualifying picks.
   const recordsRow = psRecords ? (
-    <div className="flex flex-wrap gap-2 mb-3">
-      <PerfectStormRecordCard record={psRecords.psh} label="Hammer Record" accent="#a78bfa" />
-      <PerfectStormRecordCard record={psRecords.ps}  label="Perfect Storm Record" accent="#22c55e" />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
+      <PerfectStormRecordCard record={psRecords.hammer} label={TIER_DISPLAY.hammer.cardLabel} accent={TIER_DISPLAY.hammer.accent} />
+      <PerfectStormRecordCard record={psRecords.ps}     label={TIER_DISPLAY.ps.cardLabel}     accent={TIER_DISPLAY.ps.accent} />
+      <PerfectStormRecordCard record={psRecords.lean}   label={TIER_DISPLAY.lean.cardLabel}   accent={TIER_DISPLAY.lean.accent} />
+      <PerfectStormRecordCard record={psRecords.watch}  label={TIER_DISPLAY.watch.cardLabel}  accent={TIER_DISPLAY.watch.accent} />
     </div>
   ) : null;
 
@@ -530,13 +547,12 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
     );
   };
 
-  // Tier styling — Hammer (psh) is the premium tier, plain PS (ps) is the
-  // floor. Every pick on this section has a tier (Python ETL filters out
-  // anything below ps), so the badge always renders.
-  const tierMeta = (tier: 'ps' | 'psh' | null | undefined) =>
-    tier === 'psh'
-      ? { label: 'PERFECT STORM HAMMER', accent: '#a78bfa', bg: '#a78bfa1a' }
-      : { label: 'PERFECT STORM',         accent: '#22c55e', bg: '#22c55e1a' };
+  // Tier styling — every pick on this section has a tier, so the badge
+  // always renders. Falls back to 'watch' styling for safety.
+  const tierMeta = (tier: 'hammer' | 'ps' | 'lean' | 'watch' | null | undefined) => {
+    const cfg = (tier && TIER_DISPLAY[tier]) || TIER_DISPLAY.watch;
+    return { label: cfg.badge, accent: cfg.accent, bg: `${cfg.accent}1a` };
+  };
 
   const betTypeLabel = (bt: string) => {
     switch (bt) {

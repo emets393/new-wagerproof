@@ -725,7 +725,7 @@ function ModelBreakdownBody() {
 
 /**
  * Compact season-record card for one Perfect Storm tier. Mirrors the web
- * PerfectStormRecordCard.
+ * PerfectStormRecordCard. 2-up grid on mobile (4 cards in 2 rows).
  */
 function PSRecordCardMobile({
   record, label, accent,
@@ -734,12 +734,13 @@ function PSRecordCardMobile({
   const recordStr = record.pushes > 0
     ? `${record.wins}-${record.losses}-${record.pushes}`
     : `${record.wins}-${record.losses}`;
-  const isPositive = record.units >= 0;
+  const roi = record.roi_pct;
+  const roiPositive = roi != null && roi >= 0;
   return (
     <View
       style={{
-        flex: 1,
-        minWidth: 140,
+        flexBasis: '48%',
+        flexGrow: 1,
         borderRadius: 8,
         borderWidth: 1,
         borderColor: `${accent}55`,
@@ -752,19 +753,31 @@ function PSRecordCardMobile({
         {label.toUpperCase()}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-        <Text style={{ color: theme.colors.onSurface, fontSize: 16, fontWeight: '700' }}>
+        <Text style={{ color: theme.colors.onSurface, fontSize: 15, fontWeight: '700' }}>
           {recordStr}
         </Text>
-        <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 11 }}>
+        <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 10 }}>
           {record.win_pct != null ? `${record.win_pct}%` : '—'}
         </Text>
       </View>
-      <Text style={{ color: isPositive ? WIN_GREEN : LOSS_RED, fontSize: 11, marginTop: 1 }}>
-        {isPositive ? '+' : ''}{record.units.toFixed(2)}u
+      <Text style={{ color: roiPositive ? WIN_GREEN : LOSS_RED, fontSize: 10, marginTop: 1 }}>
+        {roi != null ? `${roiPositive ? '+' : ''}${roi.toFixed(1)}% ROI` : '—'}
       </Text>
     </View>
   );
 }
+
+// Display config for each tier — keeps web/mobile in lockstep.
+const TIER_DISPLAY_MOBILE: Record<'hammer' | 'ps' | 'lean' | 'watch', {
+  badge: string;
+  cardLabel: string;
+  color: string;
+}> = {
+  hammer: { badge: 'PERFECT STORM HAMMER', cardLabel: 'Hammer Record',         color: '#a78bfa' },
+  ps:     { badge: 'PERFECT STORM',         cardLabel: 'Perfect Storm Record', color: WIN_GREEN },
+  lean:   { badge: 'STRONG LEAN',           cardLabel: 'Lean Record',          color: '#3b82f6' },
+  watch:  { badge: 'WATCH',                 cardLabel: 'Watch Record',         color: '#f59e0b' },
+};
 
 function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: string }) {
   const theme = useTheme();
@@ -775,10 +788,14 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
   // zero qualifying picks, the user can see the historical track record).
   const { data: psRecords } = useMLBPerfectStormRecords();
 
+  // 4 record cards in a 2×2 grid — always shown so the user can see
+  // each tier's season-to-date performance even on days with no picks.
   const recordsRow = psRecords ? (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-      <PSRecordCardMobile record={psRecords.psh} label="Hammer Record" accent="#a78bfa" />
-      <PSRecordCardMobile record={psRecords.ps}  label="Perfect Storm Record" accent={WIN_GREEN} />
+      <PSRecordCardMobile record={psRecords.hammer} label={TIER_DISPLAY_MOBILE.hammer.cardLabel} accent={TIER_DISPLAY_MOBILE.hammer.color} />
+      <PSRecordCardMobile record={psRecords.ps}     label={TIER_DISPLAY_MOBILE.ps.cardLabel}     accent={TIER_DISPLAY_MOBILE.ps.color} />
+      <PSRecordCardMobile record={psRecords.lean}   label={TIER_DISPLAY_MOBILE.lean.cardLabel}   accent={TIER_DISPLAY_MOBILE.lean.color} />
+      <PSRecordCardMobile record={psRecords.watch}  label={TIER_DISPLAY_MOBILE.watch.cardLabel}  accent={TIER_DISPLAY_MOBILE.watch.color} />
     </View>
   ) : null;
 
@@ -813,12 +830,12 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
     );
   };
 
-  // Tier badge metadata — every pick on this section has a tier (Python
-  // ETL filters out anything below ps), so the badge always renders.
-  const tierMeta = (tier: 'ps' | 'psh' | null | undefined) =>
-    tier === 'psh'
-      ? { color: '#a78bfa', label: 'PERFECT STORM HAMMER' }
-      : { color: WIN_GREEN, label: 'PERFECT STORM' };
+  // Tier badge metadata — every pick on this section has a tier so the
+  // badge always renders. Falls back to watch styling for safety.
+  const tierMeta = (tier: 'hammer' | 'ps' | 'lean' | 'watch' | null | undefined) => {
+    const cfg = (tier && TIER_DISPLAY_MOBILE[tier]) || TIER_DISPLAY_MOBILE.watch;
+    return { color: cfg.color, label: cfg.badge };
+  };
 
   return (
     <SectionBody>

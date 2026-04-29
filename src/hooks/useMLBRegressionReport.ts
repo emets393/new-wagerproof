@@ -111,9 +111,11 @@ export interface SuggestedPick {
   away_sp: string | null;
   first_suggested_at: string;
   locked: boolean;
-  /** Perfect Storm tier — set by the Python ETL after passing the gates.
-   *  Only 'ps' or 'psh' picks make it into the report. */
-  perfect_storm_tier?: 'ps' | 'psh' | null;
+  /** Perfect Storm tier — set by the Python ETL based on accuracy and
+   *  regression alignment. Only picks at hammer/ps/lean/watch are
+   *  surfaced; below the floor (≥2 of 3 accuracy positive), picks are
+   *  dropped from the report entirely. */
+  perfect_storm_tier?: 'hammer' | 'ps' | 'lean' | 'watch' | null;
 }
 
 export interface YesterdayRecap {
