@@ -787,7 +787,7 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
       <SectionBody>
         {recordsRow}
         <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-          No Perfect Storm picks today — the model didn't find any games meeting the criteria.
+          No picks meet the confidence threshold for today's slate.
         </Text>
       </SectionBody>
     );
@@ -813,20 +813,22 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
     );
   };
 
-  // Tier styling — Hammer (psh) is the premium tier, plain PS (ps) is the floor.
-  const tierColor = (tier: 'ps' | 'psh' | null | undefined) =>
-    tier === 'psh' ? '#a78bfa' : WIN_GREEN;
-  const tierLabel = (tier: 'ps' | 'psh' | null | undefined) =>
-    tier === 'psh' ? 'PERFECT STORM HAMMER' : 'PERFECT STORM';
+  // Tier badge metadata — null when the pick didn't qualify (no badge).
+  const tierMeta = (tier: 'ps' | 'psh' | null | undefined) => {
+    if (tier === 'psh') return { color: '#a78bfa', label: 'PERFECT STORM HAMMER' };
+    if (tier === 'ps')  return { color: WIN_GREEN, label: 'PERFECT STORM' };
+    return null;
+  };
 
   return (
     <SectionBody>
       {recordsRow}
       <View style={{ gap: 10 }}>
         {picks.map((p, i) => {
-          const tColor = tierColor(p.perfect_storm_tier);
-          const tLabel = tierLabel(p.perfect_storm_tier);
+          const tier = tierMeta(p.perfect_storm_tier);
           const confColor = p.confidence_at_suggestion === 'high' ? WIN_GREEN : WARN_AMBER;
+          // Accent color: tier color if badged, else confidence color.
+          const accent = tier?.color ?? confColor;
           const timeLabel = p.game_time_et
             ? new Date(p.game_time_et).toLocaleTimeString('en-US', {
                 hour: 'numeric',
@@ -841,29 +843,30 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
           return (
             <AccentBarRow
               key={i}
-              color={tColor}
+              color={accent}
               style={{ opacity: p.locked ? 0.6 : 1 }}
             >
-              {/* Tier pill — always visible at top so the user immediately sees
-                  whether this pick is PS or the premium Hammer tier. */}
-              <View
-                style={{
-                  alignSelf: 'flex-start',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 999,
-                  backgroundColor: tColor,
-                  marginBottom: 6,
-                }}
-              >
-                <MaterialCommunityIcons name="lightning-bolt" size={11} color="#0a0a0a" />
-                <Text style={{ color: '#0a0a0a', fontSize: 9, fontWeight: '800', letterSpacing: 0.6 }}>
-                  {tLabel}
-                </Text>
-              </View>
+              {/* Tier pill — only rendered when the pick passed the gates. */}
+              {tier && (
+                <View
+                  style={{
+                    alignSelf: 'flex-start',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 999,
+                    backgroundColor: tier.color,
+                    marginBottom: 6,
+                  }}
+                >
+                  <MaterialCommunityIcons name="lightning-bolt" size={11} color="#0a0a0a" />
+                  <Text style={{ color: '#0a0a0a', fontSize: 9, fontWeight: '800', letterSpacing: 0.6 }}>
+                    {tier.label}
+                  </Text>
+                </View>
+              )}
               <View style={styles.pickHeaderRow}>
                 <Text
                   style={[styles.pickTitle, { color: theme.colors.onSurface }]}

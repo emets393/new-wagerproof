@@ -504,13 +504,13 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
       <Card>
         <CardHeader className="py-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Zap className="h-5 w-5 text-purple-400" /> Perfect Storm Picks
+            <Target className="h-5 w-5 text-green-500" /> Today's Suggested Picks
           </CardTitle>
         </CardHeader>
         <CardContent>
           {recordsRow}
           <p className="text-muted-foreground text-sm">
-            No Perfect Storm picks today — the model didn't find any games meeting the criteria.
+            No picks meet the confidence threshold for today's slate.
           </p>
         </CardContent>
       </Card>
@@ -530,11 +530,14 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
     );
   };
 
-  // Tier styling — Hammer (psh) is the premium tier, plain PS (ps) is the floor.
-  const tierMeta = (tier: 'ps' | 'psh' | null | undefined) =>
-    tier === 'psh'
-      ? { label: 'PERFECT STORM HAMMER', accent: '#a78bfa', bg: '#a78bfa1a' }
-      : { label: 'PERFECT STORM',         accent: '#22c55e', bg: '#22c55e1a' };
+  // Tier styling — Hammer (psh) is the premium tier, plain PS (ps) is the
+  // floor. Picks that don't qualify (no tier) ship without a badge — they
+  // get the standard card treatment.
+  const tierMeta = (tier: 'ps' | 'psh' | null | undefined) => {
+    if (tier === 'psh') return { label: 'PERFECT STORM HAMMER', accent: '#a78bfa', bg: '#a78bfa1a' };
+    if (tier === 'ps')  return { label: 'PERFECT STORM',         accent: '#22c55e', bg: '#22c55e1a' };
+    return null;
+  };
 
   const betTypeLabel = (bt: string) => {
     switch (bt) {
@@ -552,7 +555,7 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
     <Card>
       <CardHeader className="py-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Zap className="h-5 w-5 text-purple-400" /> Perfect Storm Picks
+          <Target className="h-5 w-5 text-green-500" /> Today's Suggested Picks
           <Badge variant="outline">{picks.length} {picks.length === 1 ? 'play' : 'plays'}</Badge>
         </CardTitle>
       </CardHeader>
@@ -561,20 +564,26 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
         <div className="grid gap-3 md:grid-cols-2">
           {picks.map((p, i) => {
             const meta = tierMeta(p.perfect_storm_tier);
+            const cardStyle = meta
+              ? { borderColor: meta.accent + '55', backgroundColor: meta.bg }
+              : undefined;
             return (
             <Card
               key={i}
-              className={`border ${p.locked ? 'opacity-70' : ''}`}
-              style={{ borderColor: meta.accent + '55', backgroundColor: meta.bg }}
+              className={`border ${p.locked ? 'opacity-70' : ''} ${meta ? '' : 'border-primary/30'}`}
+              style={cardStyle}
             >
               <CardContent className="p-3 sm:p-4">
-                {/* Tier badge sits on its own line so it always reads cleanly,
-                    even when the pick text is long. */}
-                <div className="mb-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5"
-                     style={{ backgroundColor: meta.accent, color: '#0a0a0a' }}>
-                  <Zap className="h-3 w-3" />
-                  <span className="text-[10px] font-bold tracking-wider">{meta.label}</span>
-                </div>
+                {/* Tier badge only when the pick passed the gates — Hammer
+                    (purple) for PSH, green for PS. Unbadged picks ship as
+                    standard cards. */}
+                {meta && (
+                  <div className="mb-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5"
+                       style={{ backgroundColor: meta.accent, color: '#0a0a0a' }}>
+                    <Zap className="h-3 w-3" />
+                    <span className="text-[10px] font-bold tracking-wider">{meta.label}</span>
+                  </div>
+                )}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="font-bold text-sm sm:text-lg leading-tight">{p.pick}</div>
                   <div className="flex items-center gap-1 flex-shrink-0">
