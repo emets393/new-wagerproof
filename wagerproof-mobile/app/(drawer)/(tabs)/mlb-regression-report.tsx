@@ -12,7 +12,7 @@ import { useProAccess } from '@/hooks/useProAccess';
 import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
 import type {
   PitcherRegression, BattingRegression, BullpenFatigue, SuggestedPick,
-  YesterdayRecap, CumulativeRecord, WeatherParkFlag, LRSplitEntry,
+  YesterdayRecap, WeatherParkFlag, LRSplitEntry,
 } from '@/hooks/useMLBRegressionReport';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBPerfectStormRecords, type PerfectStormRecord } from '@/hooks/useMLBPerfectStormRecords';
@@ -358,12 +358,16 @@ function NarrativeBody({ text }: { text: string }) {
 }
 
 function RecapBody({
-  recap, cumulative,
+  recap,
 }: {
   recap: YesterdayRecap[];
-  cumulative?: CumulativeRecord | null;
 }) {
   const theme = useTheme();
+  // All-time hero now reflects only the 4 Perfect Storm tiers (hammer /
+  // ps / lean / watch). Legacy cumulative_record from the report payload
+  // included every graded pick — that history isn't relevant once we
+  // only ship tiered picks going forward.
+  const { data: psRecords } = useMLBPerfectStormRecords();
 
   const wins = recap.filter(r => r.result === 'won').length;
   const losses = recap.filter(r => r.result === 'lost').length;
@@ -372,10 +376,18 @@ function RecapBody({
   const yPct = total > 0 ? (wins / total) * 100 : 0;
   const yRecord = pushes > 0 ? `${wins}-${losses}-${pushes}` : `${wins}-${losses}`;
 
-  const cum = cumulative?.total;
-  const cumRecord = cum ? (cum.pushes > 0 ? `${cum.wins}-${cum.losses}-${cum.pushes}` : `${cum.wins}-${cum.losses}`) : null;
-  const cumUnits = cum?.units_won ?? 0;
-  const cumRoi = cum?.roi_pct ?? 0;
+  let cumW = 0, cumL = 0, cumP = 0, cumUnits = 0;
+  if (psRecords) {
+    for (const tier of ['hammer','ps','lean','watch'] as const) {
+      const r = psRecords[tier];
+      cumW += r.wins; cumL += r.losses; cumP += r.pushes; cumUnits += r.units;
+    }
+  }
+  const cumGraded = cumW + cumL;
+  const cumRoi = cumGraded > 0 ? Math.round((100 * cumUnits / cumGraded) * 10) / 10 : 0;
+  const cumRecord = psRecords && (cumW + cumL + cumP) > 0
+    ? (cumP > 0 ? `${cumW}-${cumL}-${cumP}` : `${cumW}-${cumL}`)
+    : null;
 
   return (
     <SectionBody>
@@ -1542,24 +1554,6 @@ export default function MLBRegressionReportScreen() {
       );
     }
 
-    if (report.yesterday_recap) {
-      pushSection(
-        'recap',
-        <SectionHeader
-          key="recap-h"
-          icon="trophy"
-          iconColor={ACCENT_YELLOW}
-          title="Yesterday's Results"
-          topInset={0}
-        />,
-        <RecapBody
-          key="recap-b"
-          recap={report.yesterday_recap}
-          cumulative={report.cumulative_record}
-        />,
-      );
-    }
-
     pushSection(
       'accuracy',
       <SectionHeader
@@ -1584,13 +1578,29 @@ export default function MLBRegressionReportScreen() {
       <ModelBreakdownBody key="bd-b" />,
     );
 
+    // Yesterday's Recap sits directly above the picks so the user
+    // sees yesterday's results right before today's suggestions.
+    if (report.yesterday_recap) {
+      pushSection(
+        'recap',
+        <SectionHeader
+          key="recap-h"
+          icon="trophy"
+          iconColor={ACCENT_YELLOW}
+          title="Yesterday's Results"
+          topInset={0}
+        />,
+        <RecapBody key="recap-b" recap={report.yesterday_recap} />,
+      );
+    }
+
     pushSection(
       'picks',
       <SectionHeader
         key="picks-h"
         icon="lightning-bolt"
         iconColor="#a78bfa"
-        title="Perfect Storm Picks"
+        title="Regression Report Suggested Picks"
         rightSlot={
           report.suggested_picks?.length ? (
             <Text style={[styles.sectionHeaderCount, { color: theme.colors.onSurfaceVariant }]}>

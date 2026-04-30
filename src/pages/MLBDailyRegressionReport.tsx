@@ -11,7 +11,6 @@ import type {
   PitcherRegression, BattingRegression, BullpenFatigue,
   SuggestedPick, YesterdayRecap, AccuracyBucket,
   BetTypeAccuracy, WeatherParkFlag, ModelAccuracy,
-  CumulativeRecord, CumulativeBucket,
 } from '@/hooks/useMLBRegressionReport';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -120,11 +119,15 @@ function NarrativeSection({ text }: { text: string }) {
 
 function RecapSection({
   recap,
-  cumulative,
 }: {
   recap: YesterdayRecap[];
-  cumulative?: CumulativeRecord | null;
 }) {
+  // The all-time record now reflects only picks tagged with one of the
+  // 4 Perfect Storm tiers (hammer / ps / lean / watch). The legacy
+  // cumulative_record from the report payload included every graded
+  // pick, including the 'none' tier — that history isn't relevant once
+  // we only ship tiered picks going forward.
+  const { data: psRecords } = useMLBPerfectStormRecords();
   if (!recap.length) return null;
   const wins = recap.filter(r => r.result === 'won').length;
   const losses = recap.filter(r => r.result === 'lost').length;
@@ -132,13 +135,18 @@ function RecapSection({
   const total = wins + losses;
   const pct = total > 0 ? (wins / total * 100).toFixed(1) : '0.0';
 
-  const cum = cumulative?.total;
-  const cumUnits = cum?.units_won ?? 0;
-  const cumRoi = cum?.roi_pct ?? 0;
-  const cumRecord = cum
-    ? (cum.pushes > 0
-        ? `${cum.wins}-${cum.losses}-${cum.pushes}`
-        : `${cum.wins}-${cum.losses}`)
+  // Sum the 4 tier records into a single all-time line.
+  let cumW = 0, cumL = 0, cumP = 0, cumUnits = 0;
+  if (psRecords) {
+    for (const tier of ['hammer','ps','lean','watch'] as const) {
+      const r = psRecords[tier];
+      cumW += r.wins; cumL += r.losses; cumP += r.pushes; cumUnits += r.units;
+    }
+  }
+  const cumGraded = cumW + cumL;
+  const cumRoi = cumGraded > 0 ? Math.round((100 * cumUnits / cumGraded) * 10) / 10 : 0;
+  const cumRecord = psRecords && (cumW + cumL + cumP) > 0
+    ? (cumP > 0 ? `${cumW}-${cumL}-${cumP}` : `${cumW}-${cumL}`)
     : null;
 
   return (
@@ -521,7 +529,7 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
       <Card>
         <CardHeader className="py-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Zap className="h-5 w-5 text-purple-400" /> Perfect Storm Picks
+            <Zap className="h-5 w-5 text-purple-400" /> Regression Report Suggested Picks
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -570,7 +578,7 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
     <Card>
       <CardHeader className="py-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Zap className="h-5 w-5 text-purple-400" /> Perfect Storm Picks
+          <Zap className="h-5 w-5 text-purple-400" /> Regression Report Suggested Picks
           <Badge variant="outline">{picks.length} {picks.length === 1 ? 'play' : 'plays'}</Badge>
         </CardTitle>
       </CardHeader>
@@ -1202,16 +1210,17 @@ export default function MLBDailyRegressionReport() {
       {/* AI Narrative */}
       {report.narrative_text && <NarrativeSection text={report.narrative_text} />}
 
-      {/* Yesterday's Recap */}
-      <RecapSection recap={report.yesterday_recap} cumulative={report.cumulative_record} />
-
       {/* Model Accuracy */}
       <AccuracyDashboardLive />
 
       {/* Day-of-week + Team breakdowns by bet type */}
       <ModelBreakdownDashboard />
 
-      {/* Suggested Picks */}
+      {/* Yesterday's Recap — sits directly above the picks so the user
+          sees yesterday's results right before today's suggestions. */}
+      <RecapSection recap={report.yesterday_recap} />
+
+      {/* Today's Suggested Picks (4-tier Perfect Storm classification) */}
       <PicksSection picks={report.suggested_picks} reportDate={report.report_date} />
 
       {/* Series-Position Signals (G2/G3 carryover from mlb_game_signals view) */}
