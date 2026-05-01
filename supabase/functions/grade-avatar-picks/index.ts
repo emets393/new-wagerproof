@@ -413,13 +413,17 @@ function gradePickFromView(
     }
 
     case 'spread': {
-      // [debug] Log all inputs so we can see exact runtime values when grading fails.
-      console.log(`[grade-avatar-picks][spread] pick=${pick.id} game=${pick.game_id} selection="${pick.pick_selection}" spread_result="${gameResult.spread_result}" home="${gameResult.home_team}" away="${gameResult.away_team}"`);
-
-      if (!gameResult.spread_result) {
-        console.log(`[grade-avatar-picks][spread] NULL_SPREAD_RESULT pick=${pick.id}`);
-        return null;
-      }
+      // Grade against the AGENT'S signed spread. The old logic just
+      // checked "did the picked team match spread_result", which broke
+      // in 1-run games:
+      //   - "WinningTeam +1.5" (won outright) was graded LOST because
+      //     spread_result pointed at the losing team (who covered +1.5).
+      //   - "LosingTeam -1.5" (lost outright) was graded WON because
+      //     spread_result also pointed at the losing team.
+      // The correct math is (margin from picked team's perspective)
+      // + (signed picked spread). Positive → won, negative → lost,
+      // zero → push (impossible on ±1.5, possible on whole-number lines).
+      console.log(`[grade-avatar-picks][spread] pick=${pick.id} game=${pick.game_id} selection="${pick.pick_selection}"`);
 
       const parsed = parseSpreadPick(pick.pick_selection);
       if (!parsed) {
@@ -433,28 +437,42 @@ function gradePickFromView(
         return null;
       }
 
-      // Normalize both sides so casing/whitespace differences can't cause false mismatches.
-      const normalizedSpreadResult = normalizeTeamName(gameResult.spread_result);
-      const normalizedCanonical = normalizeTeamName(canonical);
-
       let result: 'won' | 'lost' | 'push';
-      if (normalizedSpreadResult === 'push') {
-        if (!isLikelyPushLine(parsed.spread)) {
-          console.log(`[grade-avatar-picks][spread] IMPOSSIBLE_PUSH pick=${pick.id} selection="${pick.pick_selection}" spread=${parsed.spread}`);
-          return null;
-        }
-        result = 'push';
-      } else if (normalizedCanonical === normalizedSpreadResult) {
-        result = 'won';
+      let actual: string;
+
+      // MLB path: we have raw scores so grade against actual margin.
+      if (typeof gameResult.home_score === 'number' && typeof gameResult.away_score === 'number') {
+        const homeNorm = normalizeTeamName(gameResult.home_team);
+        const canonNorm = normalizeTeamName(canonical);
+        const margin = canonNorm === homeNorm
+          ? (gameResult.home_score - gameResult.away_score)
+          : (gameResult.away_score - gameResult.home_score);
+        const cover = margin + parsed.spread;
+        if (cover > 0) result = 'won';
+        else if (cover < 0) result = 'lost';
+        else result = 'push';
+        actual = `${actualResultPrefix} — Final ${gameResult.away_score}-${gameResult.home_score} (${canonical} margin ${margin >= 0 ? '+' : ''}${margin} vs spread ${parsed.spread >= 0 ? '+' : ''}${parsed.spread})`;
       } else {
-        result = 'lost';
+        // Non-MLB fallback: trust the view's spread_result. This can
+        // misgrade ±N.5 picks where the team and spread direction
+        // don't both match — that's a pre-existing bug for NBA/NCAAB
+        // we'll address separately if needed.
+        if (!gameResult.spread_result) return null;
+        const normalizedSpreadResult = normalizeTeamName(gameResult.spread_result);
+        const normalizedCanonical = normalizeTeamName(canonical);
+        if (normalizedSpreadResult === 'push') {
+          if (!isLikelyPushLine(parsed.spread)) return null;
+          result = 'push';
+        } else if (normalizedCanonical === normalizedSpreadResult) {
+          result = 'won';
+        } else {
+          result = 'lost';
+        }
+        actual = `${actualResultPrefix} — Spread: ${gameResult.spread_result}`;
       }
 
-      console.log(`[grade-avatar-picks][spread] OK pick=${pick.id} result=${result} canonical="${canonical}" spread_result="${gameResult.spread_result}"`);
-      return {
-        result,
-        actual_result: `${actualResultPrefix} — Spread: ${gameResult.spread_result}`,
-      };
+      console.log(`[grade-avatar-picks][spread] OK pick=${pick.id} result=${result} canonical="${canonical}" parsed_spread=${parsed.spread}`);
+      return { result, actual_result: actual };
     }
 
     case 'total': {
