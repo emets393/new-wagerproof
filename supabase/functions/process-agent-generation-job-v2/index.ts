@@ -536,19 +536,37 @@ serve(async (req) => {
       // ou_fair_total ("Over 11.43") instead of the market line ("Over 8.5");
       // forcing this post-processing makes the bug unreachable regardless of
       // whether future prompts or payloads leak that field.
+      //
+      // CRITICAL: For MLB period='f5' totals, the line MUST come from
+      // f5_total_line (typically 4-5 runs), NOT total_line (8-10 runs).
+      // Without this branch the LLM's "F5 Under 4.5" gets rewritten to
+      // "Under 8" and the F5 grader would treat it as auto-win.
       let correctedSelection = pick.selection;
       if (pick.bet_type === 'total') {
         const dirMatch = String(pick.selection || '').match(/\b(over|under)\b/i);
         const direction = dirMatch ? (dirMatch[1].toLowerCase() === 'over' ? 'Over' : 'Under') : null;
         const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
-        const vegasTotalRaw = (vegasLines?.total ?? gameSnapshot.total_line ?? gameSnapshot.vegas_total) as unknown;
+        // Pick the line that corresponds to the bet's period. F5 totals
+        // read the structured f5_ou block (or the legacy f5_total_line
+        // fallback); full-game totals read the existing total field.
+        let vegasTotalRaw: unknown;
+        if (pick.period === 'f5') {
+          const f5Ou = vegasLines?.f5_ou as Record<string, unknown> | undefined;
+          vegasTotalRaw = f5Ou?.line ?? gameSnapshot.f5_total_line;
+        } else {
+          const fullOu = vegasLines?.full_ou as Record<string, unknown> | undefined;
+          vegasTotalRaw = fullOu?.line ?? vegasLines?.total ?? gameSnapshot.total_line ?? gameSnapshot.vegas_total;
+        }
         const vegasTotal = typeof vegasTotalRaw === 'number' ? vegasTotalRaw
           : typeof vegasTotalRaw === 'string' && vegasTotalRaw.trim() !== '' ? Number(vegasTotalRaw)
           : null;
         if (direction && vegasTotal != null && !Number.isNaN(vegasTotal)) {
-          const rebuilt = `${direction} ${vegasTotal}`;
+          // Selection text gets a "F5 " prefix when period=f5 so the
+          // pick is self-describing in the UI and grader logs.
+          const prefix = pick.period === 'f5' ? 'F5 ' : '';
+          const rebuilt = `${prefix}${direction} ${vegasTotal}`;
           if (rebuilt !== correctedSelection) {
-            console.warn(`[Validator] Rewrote total selection: "${correctedSelection}" -> "${rebuilt}" (game ${pick.game_id})`);
+            console.warn(`[Validator] Rewrote total selection: "${correctedSelection}" -> "${rebuilt}" (game ${pick.game_id}, period=${pick.period ?? 'full'})`);
           }
           correctedSelection = rebuilt;
         }

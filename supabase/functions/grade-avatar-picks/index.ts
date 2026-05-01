@@ -173,10 +173,30 @@ function isLikelyPushLine(value: number): boolean {
 // =============================================================================
 
 /**
- * Parse spread pick selection like "Bills -3" or "Chiefs +3.5"
+ * Strip the optional "F5 " period marker from a selection string before
+ * parsing. The period is now tracked on the pick row itself, so the
+ * marker in selection text is descriptive only — parsers should ignore it.
+ * Matches standalone "F5" tokens at the start, end, or middle of the
+ * string (case insensitive). Examples normalized:
+ *   "F5 Under 4.5"          -> "Under 4.5"
+ *   "Yankees F5 -0.5"       -> "Yankees -0.5"
+ *   "Yankees F5 ML"         -> "Yankees ML"
+ */
+function stripF5Marker(selection: string): string {
+  return selection
+    .replace(/\bF5\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Parse spread pick selection like "Bills -3" or "Chiefs +3.5".
+ * Accepts MLB F5 markers ("Yankees F5 -0.5") — the F5 token is stripped
+ * before parsing because period is tracked on the pick row.
  */
 function parseSpreadPick(selection: string): ParsedSpreadPick | null {
-  const match = selection.match(/^(.+?)\s*([+-]?\d+\.?\d*)$/);
+  const cleaned = stripF5Marker(selection);
+  const match = cleaned.match(/^(.+?)\s*([+-]?\d+\.?\d*)$/);
   if (!match) {
     console.log(`[grade-avatar-picks] Could not parse spread selection: ${selection}`);
     return null;
@@ -188,10 +208,13 @@ function parseSpreadPick(selection: string): ParsedSpreadPick | null {
 }
 
 /**
- * Parse total pick selection like "Over 48.5" or "Under 48.5"
+ * Parse total pick selection like "Over 48.5" or "Under 48.5".
+ * Accepts MLB F5 markers ("F5 Under 4.5") — the F5 token is stripped
+ * before parsing because period is tracked on the pick row.
  */
 function parseTotalPick(selection: string): ParsedTotalPick | null {
-  const match = selection.match(/^(over|under)\s+(\d+\.?\d*)$/i);
+  const cleaned = stripF5Marker(selection);
+  const match = cleaned.match(/^(over|under)\s+(\d+\.?\d*)$/i);
   if (!match) {
     console.log(`[grade-avatar-picks] Could not parse total selection: ${selection}`);
     return null;
@@ -207,7 +230,9 @@ function parseTotalPick(selection: string): ParsedTotalPick | null {
  * Returns the team name
  */
 function parseMoneylinePick(selection: string): string | null {
-  let cleaned = selection.replace(/\s*ML$/i, '').trim();
+  // Strip the optional MLB F5 marker first ("Yankees F5 ML" → "Yankees ML").
+  // Period is on the pick row; the marker is descriptive only.
+  let cleaned = stripF5Marker(selection).replace(/\s*ML$/i, '').trim();
   cleaned = cleaned.replace(/\s*[+-]\d+$/, '').trim();
   if (!cleaned) {
     console.log(`[grade-avatar-picks] Could not parse moneyline selection: ${selection}`);
