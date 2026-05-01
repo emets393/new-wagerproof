@@ -115,7 +115,9 @@ export function MLBRegressionPicksSection({ game }: { game: MLBGame }) {
             ? { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', fg: '#ef4444', icon: 'close-circle' as const, label: 'Contradicts model' }
             : { bg: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', border: isDark ? '#333' : '#ddd', fg: theme.colors.onSurfaceVariant, icon: 'help-circle' as const, label: 'Comparison unavailable' };
 
-        const confColor = p.confidence_at_suggestion === 'high' ? '#22c55e' : '#f59e0b';
+        // HIGH/MODERATE confidence pill removed — Perfect Storm tier is
+        // the canonical conviction signal. Showing both produced confusing
+        // combinations like "Hammer" + "MODERATE".
 
         return (
           <View
@@ -132,11 +134,6 @@ export function MLBRegressionPicksSection({ game }: { game: MLBGame }) {
               <Text style={[styles.betTypeLabel, { color: theme.colors.onSurfaceVariant }]}>
                 {BET_TYPE_LABEL[p.bet_type]}
               </Text>
-              <View style={[styles.confPill, { backgroundColor: `${confColor}22`, borderColor: confColor }]}>
-                <Text style={{ color: confColor, fontSize: 10, fontWeight: '700', letterSpacing: 0.4 }}>
-                  {p.confidence_at_suggestion.toUpperCase()}
-                </Text>
-              </View>
             </View>
 
             <Text style={[styles.pickText, { color: theme.colors.onSurface }]} numberOfLines={2}>
@@ -233,12 +230,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-  },
-  confPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
   },
   pickText: {
     fontSize: 15,
