@@ -22,6 +22,10 @@ export type GeneratePicksRequest = z.infer<typeof GeneratePicksRequestSchema>;
 export const GeneratedPickSchema = z.object({
   game_id: z.string().min(1, 'game_id is required'),
   bet_type: z.enum(['spread', 'moneyline', 'total']),
+  // MLB-only: 'full' = whole game (default for all sports), 'f5' = first 5
+  // innings. Combined with bet_type this expresses six MLB bet shapes
+  // (full/f5 × ml/spread/total). Non-MLB picks omit it or pass 'full'.
+  period: z.enum(['full', 'f5']).optional().default('full'),
   selection: z.string().min(1, 'selection is required'),
   odds: z.string().regex(/^[+-]\d+$/, 'odds must have explicit sign, e.g. -110 or +150'),
   confidence: z.number().int().min(1).max(5),
@@ -73,6 +77,11 @@ export const AVATAR_PICKS_JSON_SCHEMA = {
               type: 'string',
               enum: ['spread', 'moneyline', 'total'],
               description: 'Type of bet',
+            },
+            period: {
+              type: 'string',
+              enum: ['full', 'f5'],
+              description: 'MLB-only: \'full\' for the entire game, \'f5\' for the first 5 innings. Always \'full\' for non-MLB sports. Combine with bet_type to express F5 ML / F5 RL / F5 O/U for MLB.',
             },
             selection: {
               type: 'string',
@@ -128,7 +137,7 @@ export const AVATAR_PICKS_JSON_SCHEMA = {
               additionalProperties: false,
             },
           },
-          required: ['game_id', 'bet_type', 'selection', 'odds', 'confidence', 'reasoning', 'key_factors', 'decision_trace'],
+          required: ['game_id', 'bet_type', 'period', 'selection', 'odds', 'confidence', 'reasoning', 'key_factors', 'decision_trace'],
           additionalProperties: false,
         },
       },
@@ -224,6 +233,7 @@ export interface AvatarPick {
   matchup: string;
   game_date: string;
   bet_type: 'spread' | 'moneyline' | 'total';
+  period: 'full' | 'f5';  // MLB only — see migration 20260501140000
   pick_selection: string;  // Matches DB column name
   odds: string;
   units: number;

@@ -561,6 +561,11 @@ serve(async (req) => {
         matchup: matchup || `Game ${pick.game_id}`,
         game_date: gameDate,
         bet_type: pick.bet_type,
+        // MLB picks may set period='f5'; non-MLB picks default to 'full'.
+        // The DB CHECK enforces ('full', 'f5'); column default is 'full'
+        // so omitting it is safe but explicit is better when we know the
+        // value. The Zod schema also defaults this on parse.
+        period: pick.period ?? 'full',
         pick_selection: correctedSelection,
         odds: pick.odds,
         units: 1.0,

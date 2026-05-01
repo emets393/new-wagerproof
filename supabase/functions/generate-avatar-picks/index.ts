@@ -439,6 +439,8 @@ serve(async (req) => {
         matchup,
         game_date: gameDate,
         bet_type: pick.bet_type,
+        // MLB picks may set period='f5'; non-MLB picks default to 'full'.
+        period: pick.period ?? 'full',
         pick_selection: pick.selection,  // Database column is 'pick_selection'
         odds: pick.odds,
         units,
