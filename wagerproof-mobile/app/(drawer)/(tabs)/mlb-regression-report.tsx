@@ -917,6 +917,26 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
                 <TeamBadge teamName={p.away_team} />
                 <Text style={[styles.pickMatchupAt, { color: theme.colors.onSurfaceVariant }]}>@</Text>
                 <TeamBadge teamName={p.home_team} />
+                {/* Doubleheader: badge BOTH games so they can be told apart.
+                    Falls back to game_number >= 2 for legacy picks generated
+                    before is_doubleheader was added to the payload. */}
+                {(p.is_doubleheader || ((p as any).game_number ?? 1) >= 2) ? (
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 1,
+                      borderRadius: 4,
+                      backgroundColor: 'rgba(245, 158, 11, 0.18)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(245, 158, 11, 0.4)',
+                      marginLeft: 4,
+                    }}
+                  >
+                    <Text style={{ color: '#f59e0b', fontSize: 9, fontWeight: '700', letterSpacing: 0.4 }}>
+                      GAME {(p as any).game_number ?? 1} of DH
+                    </Text>
+                  </View>
+                ) : null}
               </View>
 
               <StatRow style={{ marginTop: 10 }}>

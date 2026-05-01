@@ -613,7 +613,15 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
                     {teamBadge(p.away_team)}
                     <span className="text-muted-foreground text-[10px]">@</span>
                     {teamBadge(p.home_team)}
-                    {(p as any).game_number >= 2 && <Badge variant="secondary" className="text-[10px]">G2</Badge>}
+                    {/* Doubleheader: badge BOTH games so they can be told
+                        apart. Falls back to game_number >= 2 alone for
+                        legacy picks generated before is_doubleheader was
+                        added to the payload. */}
+                    {(p.is_doubleheader || (p as any).game_number >= 2) && (
+                      <Badge variant="secondary" className="text-[10px] bg-amber-500/20 border-amber-500/40 text-amber-400">
+                        Game {(p as any).game_number ?? 1} of DH
+                      </Badge>
+                    )}
                   </div>
                   {p.game_time_et && (
                     <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">

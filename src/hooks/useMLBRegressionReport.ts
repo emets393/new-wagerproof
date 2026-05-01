@@ -98,6 +98,9 @@ export interface SuggestedPick {
   away_team: string;
   game_time_et: string | null;
   game_number: number;
+  /** True when both games of a same-day matchup are scheduled — set by
+   *  the Python ETL. Triggers a "Game 1" / "Game 2" badge in the UI. */
+  is_doubleheader?: boolean;
   model_prob: number | null;
   fair_value: number | null;
   edge_at_suggestion: number;
