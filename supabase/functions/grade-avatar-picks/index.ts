@@ -36,6 +36,13 @@ interface GameResult {
   ml_result: string | null;
   spread_result: string | null;
   ou_result: string | null;
+  /** Actual total runs (MLB only). Lets us grade O/U against the
+   *  agent's picked line instead of trusting the closing-line ou_result,
+   *  which is wrong when the line moved between pick time and close. */
+  total_runs?: number | null;
+  /** Actual final scores — used to render a useful actual_result string. */
+  home_score?: number | null;
+  away_score?: number | null;
 }
 
 interface ParsedSpreadPick {
@@ -300,6 +307,9 @@ async function fetchMLBGameResults(
       ml_result: mlResult,
       spread_result: spreadResult,
       ou_result: row.ou_result ? String(row.ou_result) : null,
+      total_runs: homeScore + awayScore,
+      home_score: homeScore,
+      away_score: awayScore,
     });
   }
 
@@ -448,29 +458,51 @@ function gradePickFromView(
     }
 
     case 'total': {
-      if (!gameResult.ou_result) return null;
-
       const parsed = parseTotalPick(pick.pick_selection);
       if (!parsed) return null;
 
-      const ouResult = gameResult.ou_result.toLowerCase();
+      // Grade against the AGENT'S picked line, not the closing line. The
+      // upstream `ou_result` column is computed against `closing_total`,
+      // which can drift between pick time and game time — e.g. agent
+      // picks OVER 7.5, line moves to 8 by close, total lands at 8 →
+      // closing-line says 'push' but pick at 7.5 should be a WIN.
+      // Use total_runs (MLB) or fall back to ou_result (NBA/NCAAB
+      // where the view's ou_result is trustworthy).
       let result: 'won' | 'lost' | 'push';
-      if (ouResult === 'push') {
-        if (!isLikelyPushLine(parsed.line)) {
-          console.log(`[grade-avatar-picks] Skipping impossible total push for hook line: ${pick.pick_selection} (${pick.id})`);
-          return null;
+      let actual: string;
+
+      if (typeof gameResult.total_runs === 'number') {
+        const total = gameResult.total_runs;
+        if (total > parsed.line) {
+          result = parsed.direction === 'over' ? 'won' : 'lost';
+        } else if (total < parsed.line) {
+          result = parsed.direction === 'under' ? 'won' : 'lost';
+        } else {
+          // total === parsed.line — only possible on whole-number lines.
+          // Half-point hooks like 7.5 / 8.5 can never push since totals
+          // are always integers; if we got here with a hook, something
+          // is wrong upstream so return null and let it skip.
+          if (!isLikelyPushLine(parsed.line)) return null;
+          result = 'push';
         }
-        result = 'push';
-      } else if (ouResult === parsed.direction) {
-        result = 'won';
+        actual = `${actualResultPrefix} — Final ${gameResult.away_score ?? '?'}-${gameResult.home_score ?? '?'} (total ${total} vs ${parsed.line})`;
       } else {
-        result = 'lost';
+        // Non-MLB fallback: trust the view's ou_result (computed against
+        // whatever line that view uses).
+        if (!gameResult.ou_result) return null;
+        const ouResult = gameResult.ou_result.toLowerCase();
+        if (ouResult === 'push') {
+          if (!isLikelyPushLine(parsed.line)) return null;
+          result = 'push';
+        } else if (ouResult === parsed.direction) {
+          result = 'won';
+        } else {
+          result = 'lost';
+        }
+        actual = `${actualResultPrefix} — Total: ${gameResult.ou_result}`;
       }
 
-      return {
-        result,
-        actual_result: `${actualResultPrefix} — Total: ${gameResult.ou_result}`,
-      };
+      return { result, actual_result: actual };
     }
 
     default:
@@ -674,9 +706,42 @@ serve(async (req) => {
 
         const gameResult = findGameResult(pick, leagueData.map, leagueData.all);
         if (!gameResult) {
+          // If the game date is at least 2 days behind today (ET) and
+          // the game is still missing from the snapshots, treat it as
+          // postponed / no-action and grade as a push. Industry standard
+          // for postponed games is bet refund, which we represent as
+          // 'push'. We use a 2-day buffer (not just "past today") to
+          // avoid race conditions with late-night Pacific games whose
+          // results haven't loaded yet.
+          const pickDate = toDateOnly(pick.game_date);
+          const todayDate = today;
+          let dayDiff = 0;
+          if (pickDate) {
+            const a = new Date(pickDate + 'T00:00:00Z').getTime();
+            const b = new Date(todayDate + 'T00:00:00Z').getTime();
+            dayDiff = Math.round((b - a) / 86_400_000);
+          }
+          if (dayDiff >= 2) {
+            console.log(`[grade-avatar-picks] Postponement push: pick ${pick.id} game_date=${pickDate} dayDiff=${dayDiff}`);
+            summary.push++;
+            if (!dryRun) {
+              await supabase.from('avatar_picks').update({
+                result: 'push',
+                actual_result: `${pick.matchup} — postponed / no action`,
+                graded_at: new Date().toISOString(),
+                grading_skip_reason: 'game_postponed',
+              }).eq('id', pick.id);
+            }
+            affectedAvatars.add(pick.avatar_id);
+            gradedDetails.push({
+              pick_id: pick.id,
+              result: 'push',
+              actual_result: `${pick.matchup} — postponed / no action`,
+            });
+            continue;
+          }
           summary.skipped++;
           incrementSkipReason(summary, 'game_not_found');
-          // Persist skip reason so it's not lost to ephemeral logs
           if (!dryRun) {
             await supabase.from('avatar_picks')
               .update({ grading_skip_reason: 'no_game_result_found' })
