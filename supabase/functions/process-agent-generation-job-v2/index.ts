@@ -531,6 +531,81 @@ serve(async (req) => {
 
       const formattedSnapshot = ensureFormattedGameSnapshot(gameSnapshot, sportType, pick.game_id);
 
+      // Effective pick fields — start from the LLM response, then apply
+      // (1) the ML→RL chalky-favorite swap and (2) the totals line rewrite.
+      // The original `pick` is preserved in ai_audit_payload.model_response_payload
+      // so we can always see what the LLM produced vs. what we wrote.
+      let effectiveBetType: 'spread' | 'moneyline' | 'total' = pick.bet_type;
+      let effectivePeriod: 'full' | 'f5' = (pick.period ?? 'full') as 'full' | 'f5';
+      let effectiveSelection = pick.selection;
+      let effectiveOdds = pick.odds;
+      let mlSwapInfo: string | null = null;
+
+      // ── ML → RL Auto-Swap (max_favorite_odds enforcement, MLB only) ──
+      // The LLM has been observed ignoring max_favorite_odds — it'll return
+      // a chalky ML at -178 even when the cap is -145, with reasoning like
+      // "despite juice near max favorite limit." Don't trust the model for
+      // this: deterministically swap to the runline using the runline odds
+      // already in the payload. Mirrors mlb_daily_regression_report.py's
+      // _swap_ml_to_runline() (which uses a fixed -150 threshold; here the
+      // threshold is the user's personality cap).
+      //
+      // If the runline ALSO violates the cap, drop the pick entirely — if
+      // the team is too chalky to bet at the cap on either ML or RL, there
+      // is no valid expression of this conviction for this user.
+      if (sportType === 'mlb' && effectiveBetType === 'moneyline') {
+        const maxFav = (avatarProfile.personality_params as Record<string, unknown>)?.max_favorite_odds;
+        const oddsNum = parseInt(String(effectiveOdds), 10);
+        if (typeof maxFav === 'number' && Number.isFinite(oddsNum) && oddsNum < 0 && oddsNum < maxFav) {
+          // ML is too chalky — try the runline.
+          const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
+          const rlKey = effectivePeriod === 'f5' ? 'f5_rl' : 'full_rl';
+          const rlBlock = vegasLines?.[rlKey] as Record<string, unknown> | undefined;
+
+          // Determine which team the ML pick is on (home vs away).
+          const homeTeamName = String(gameSnapshot.home_team || '');
+          const awayTeamName = String(gameSnapshot.away_team || '');
+          const selLower = String(effectiveSelection).toLowerCase();
+          const isHome = homeTeamName && selLower.includes(homeTeamName.toLowerCase());
+          const teamSide: 'home' | 'away' = isHome ? 'home' : 'away';
+          const teamName = isHome ? homeTeamName : awayTeamName;
+
+          const spread = rlBlock?.[`${teamSide}_spread`] as number | null | undefined;
+          const rlOddsRaw = rlBlock?.[`${teamSide}_odds`] as string | null | undefined;
+          const rlOddsNum = typeof rlOddsRaw === 'string' ? parseInt(rlOddsRaw, 10) : NaN;
+
+          if (rlBlock && typeof spread === 'number' && Number.isFinite(rlOddsNum) && teamName) {
+            // Refuse to write a pick that violates the cap on both legs.
+            if (rlOddsNum < 0 && rlOddsNum < maxFav) {
+              validatorDrops.push({
+                game_id: pick.game_id,
+                reason: `ml_and_rl_both_too_chalky: ML ${oddsNum}, RL ${rlOddsNum}, max_favorite_odds ${maxFav}`,
+              });
+              console.warn(`[Validator] DROP ML+RL too chalky: pick=${pick.game_id} ML=${oddsNum} RL=${rlOddsNum} cap=${maxFav}`);
+              continue;
+            }
+            // Swap: rewrite bet_type, selection, odds. Period unchanged.
+            const spreadStr = spread > 0 ? `+${spread}` : `${spread}`;
+            const periodPrefix = effectivePeriod === 'f5' ? ' F5' : '';
+            effectiveBetType = 'spread';
+            effectiveSelection = `${teamName}${periodPrefix} ${spreadStr}`;
+            effectiveOdds = String(rlOddsRaw);
+            mlSwapInfo = `ML ${oddsNum} → ${rlKey} ${spreadStr} ${rlOddsRaw} (max_favorite_odds ${maxFav})`;
+            console.warn(`[Validator] ML→RL swap (max_fav cap): pick=${pick.game_id} ${mlSwapInfo}`);
+          } else {
+            // Cap is set, ML violates it, and we don't have RL data to
+            // express the alternative. Drop rather than write a pick the
+            // user explicitly told us to avoid.
+            validatorDrops.push({
+              game_id: pick.game_id,
+              reason: `ml_too_chalky_no_rl_data: ML ${oddsNum}, max_favorite_odds ${maxFav}`,
+            });
+            console.warn(`[Validator] DROP ML too chalky, no RL fallback: pick=${pick.game_id} ML=${oddsNum} cap=${maxFav}`);
+            continue;
+          }
+        }
+      }
+
       // For totals, deterministically rewrite the selection's line portion to
       // the Vegas line from the payload. The LLM sometimes echoes the model's
       // ou_fair_total ("Over 11.43") instead of the market line ("Over 8.5");
@@ -541,16 +616,15 @@ serve(async (req) => {
       // f5_total_line (typically 4-5 runs), NOT total_line (8-10 runs).
       // Without this branch the LLM's "F5 Under 4.5" gets rewritten to
       // "Under 8" and the F5 grader would treat it as auto-win.
-      let correctedSelection = pick.selection;
-      if (pick.bet_type === 'total') {
-        const dirMatch = String(pick.selection || '').match(/\b(over|under)\b/i);
+      if (effectiveBetType === 'total') {
+        const dirMatch = String(effectiveSelection || '').match(/\b(over|under)\b/i);
         const direction = dirMatch ? (dirMatch[1].toLowerCase() === 'over' ? 'Over' : 'Under') : null;
         const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
         // Pick the line that corresponds to the bet's period. F5 totals
         // read the structured f5_ou block (or the legacy f5_total_line
         // fallback); full-game totals read the existing total field.
         let vegasTotalRaw: unknown;
-        if (pick.period === 'f5') {
+        if (effectivePeriod === 'f5') {
           const f5Ou = vegasLines?.f5_ou as Record<string, unknown> | undefined;
           vegasTotalRaw = f5Ou?.line ?? gameSnapshot.f5_total_line;
         } else {
@@ -563,12 +637,12 @@ serve(async (req) => {
         if (direction && vegasTotal != null && !Number.isNaN(vegasTotal)) {
           // Selection text gets a "F5 " prefix when period=f5 so the
           // pick is self-describing in the UI and grader logs.
-          const prefix = pick.period === 'f5' ? 'F5 ' : '';
+          const prefix = effectivePeriod === 'f5' ? 'F5 ' : '';
           const rebuilt = `${prefix}${direction} ${vegasTotal}`;
-          if (rebuilt !== correctedSelection) {
-            console.warn(`[Validator] Rewrote total selection: "${correctedSelection}" -> "${rebuilt}" (game ${pick.game_id}, period=${pick.period ?? 'full'})`);
+          if (rebuilt !== effectiveSelection) {
+            console.warn(`[Validator] Rewrote total selection: "${effectiveSelection}" -> "${rebuilt}" (game ${pick.game_id}, period=${effectivePeriod})`);
           }
-          correctedSelection = rebuilt;
+          effectiveSelection = rebuilt;
         }
       }
 
@@ -578,14 +652,14 @@ serve(async (req) => {
         sport: sportType,
         matchup: matchup || `Game ${pick.game_id}`,
         game_date: gameDate,
-        bet_type: pick.bet_type,
+        bet_type: effectiveBetType,
         // MLB picks may set period='f5'; non-MLB picks default to 'full'.
         // The DB CHECK enforces ('full', 'f5'); column default is 'full'
         // so omitting it is safe but explicit is better when we know the
         // value. The Zod schema also defaults this on parse.
-        period: pick.period ?? 'full',
-        pick_selection: correctedSelection,
-        odds: pick.odds,
+        period: effectivePeriod,
+        pick_selection: effectiveSelection,
+        odds: effectiveOdds,
         units: 1.0,
         confidence: pick.confidence,
         reasoning_text: pick.reasoning,
@@ -597,6 +671,23 @@ serve(async (req) => {
           model_input_personality_payload: avatarProfile.personality_params,
           model_response_payload: pick,
           validator_drops: validatorDrops.length > 0 ? validatorDrops : undefined,
+          // When the validator rewrites the LLM's pick (totals line fix or
+          // ML→RL swap), record what changed so the original LLM behavior
+          // is auditable separately from the persisted pick.
+          validator_overrides: (
+            effectiveBetType !== pick.bet_type ||
+            effectiveSelection !== pick.selection ||
+            effectiveOdds !== pick.odds ||
+            mlSwapInfo !== null
+          ) ? {
+            ml_to_rl_swap: mlSwapInfo,
+            original_bet_type: pick.bet_type,
+            original_selection: pick.selection,
+            original_odds: pick.odds,
+            effective_bet_type: effectiveBetType,
+            effective_selection: effectiveSelection,
+            effective_odds: effectiveOdds,
+          } : undefined,
         },
         archived_game_data: formattedSnapshot,
         archived_personality: avatarProfile.personality_params,
