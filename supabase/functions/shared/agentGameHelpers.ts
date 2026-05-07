@@ -180,6 +180,106 @@ async function fetchNCAABGames(
   return { games, formattedGames };
 }
 
+// =============================================================================
+// MLB Perfect Storm reference data — bucket boundaries + abbreviations
+// MUST stay in sync with cfb_automation/scripts/mlb/mlb_daily_regression_report.py.
+// If those Python constants change, mirror the change here too — the LLM
+// reads the same `accuracy_signals.edge_bucket` strings the regression
+// report writes, so any drift produces nonsense lookups.
+// =============================================================================
+
+const MLB_ML_EDGE_BUCKETS: ReadonlyArray<readonly [number, string]> = [
+  [7, '7%+'], [4, '4-6.9%'], [2, '2-3.9%'], [0, '<2%'],
+];
+const MLB_OU_EDGE_BUCKETS: ReadonlyArray<readonly [number, string]> = [
+  [1.5, '1.5+'], [1.0, '1.0-1.49'], [0.5, '0.5-0.99'], [0, '<0.5'],
+];
+const MLB_F5_ML_EDGE_BUCKETS: ReadonlyArray<readonly [number, string]> = [
+  [20, '20%+'], [10, '10-19.9%'], [5, '5-9.9%'], [0, '<5%'],
+];
+const MLB_F5_OU_EDGE_BUCKETS: ReadonlyArray<readonly [number, string]> = [
+  [1.0, '1.0+'], [0.5, '0.5-0.99'], [0, '<0.5'],
+];
+
+// Mirrors _NAME_TO_ABBR in mlb_daily_regression_report.py.
+const MLB_TEAM_ABBR: Record<string, string> = {
+  'arizona diamondbacks': 'AZ', 'atlanta braves': 'ATL', 'baltimore orioles': 'BAL',
+  'boston red sox': 'BOS', 'chicago cubs': 'CHC', 'chicago white sox': 'CWS',
+  'cincinnati reds': 'CIN', 'cleveland guardians': 'CLE', 'colorado rockies': 'COL',
+  'detroit tigers': 'DET', 'houston astros': 'HOU', 'kansas city royals': 'KC',
+  'los angeles angels': 'LAA', 'los angeles dodgers': 'LAD', 'miami marlins': 'MIA',
+  'milwaukee brewers': 'MIL', 'minnesota twins': 'MIN', 'new york mets': 'NYM',
+  'new york yankees': 'NYY', 'oakland athletics': 'ATH', 'las vegas athletics': 'ATH',
+  'athletics': 'ATH', 'philadelphia phillies': 'PHI', 'pittsburgh pirates': 'PIT',
+  'san diego padres': 'SD', 'san francisco giants': 'SF', 'seattle mariners': 'SEA',
+  'st louis cardinals': 'STL', 'st. louis cardinals': 'STL', 'tampa bay rays': 'TB',
+  'texas rangers': 'TEX', 'toronto blue jays': 'TOR', 'washington nationals': 'WSH',
+};
+
+function mlbTeamAbbr(name: unknown): string | null {
+  if (typeof name !== 'string' || !name) return null;
+  const key = name.toLowerCase().replace(/\./g, '').trim();
+  return MLB_TEAM_ABBR[key] ?? null;
+}
+
+// Same shape as edge_bucket() in mlb_daily_regression_report.py:
+// labels carry an explicit '+' or '-' prefix so positive (model sees value)
+// and negative (market is ahead) edges land in different buckets.
+function edgeBucketLabel(
+  val: number | null | undefined,
+  buckets: ReadonlyArray<readonly [number, string]>,
+): string | null {
+  if (val == null || !Number.isFinite(val)) return null;
+  const absVal = Math.abs(val);
+  const sign = val < 0 ? '-' : '+';
+  for (const [threshold, label] of buckets) {
+    if (absVal >= threshold) return `${sign}${label}`;
+  }
+  return `${sign}${buckets[buckets.length - 1][1]}`;
+}
+
+// Day-of-week label as used by the regression report's breakdown table.
+// Matches Python's date.weekday()-driven ['Mon','Tue',...] indexing.
+function mlbDowLabel(targetDate: string): string {
+  const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // Use UTC parsing so the worker's TZ doesn't shift the date.
+  const d = new Date(`${targetDate}T12:00:00Z`);
+  return labels[d.getUTCDay()];
+}
+
+interface MLBBucketRow {
+  bet_type: string;
+  bucket: string | null;
+  side: string | null;
+  fav_dog: string | null;
+  direction: string | null;
+  games: number;
+  win_pct: number | null;
+  roi_pct: number | null;
+  units_won: number | null;
+}
+
+interface MLBBreakdownRow {
+  bet_type: string;
+  breakdown_type: string;       // 'dow' | 'team'
+  breakdown_value: string;
+  games: number;
+  win_pct: number | null;
+  roi_pct: number | null;
+}
+
+interface MLBSuggestedPick {
+  game_pk: number | string;
+  bet_type: string;             // full_ml / full_rl / full_ou / f5_ml / f5_rl / f5_ou
+  pick: string;
+  perfect_storm_tier?: string;  // hammer / ps / lean / watch
+  bucket_roi_pct?: number | null;
+  bucket_win_pct?: number | null;
+  edge_bucket?: string | null;
+  edge_at_suggestion?: number | null;
+  reasoning?: string;
+}
+
 async function fetchMLBGames(
   cfbClient: SupabaseClient,
   mainClient: SupabaseClient,
@@ -227,32 +327,182 @@ async function fetchMLBGames(
     console.warn('[agentGameHelpers] MLB signals fetch failed:', (err as Error).message);
   }
 
+  // Fetch latest odds snapshot per game so we can surface runline juice
+  // (-1.5 / -0.5 odds) in the agent payload. mlb_games_today carries the
+  // spread points but not the spread odds — those live in mlb_odds_snapshots.
+  // Without this the agent can't reason about ML→RL swap economics.
+  const latestOddsByGamePk = new Map<string, Record<string, unknown>>();
+  try {
+    const gamePks = games.map(g => Math.trunc(Number(g.game_pk))).filter(n => Number.isFinite(n));
+    if (gamePks.length > 0) {
+      const { data: oddsRows } = await cfbClient
+        .from('mlb_odds_snapshots')
+        .select('game_pk,fetched_at,home_spread_odds,away_spread_odds,total_over_odds,total_under_odds,f5_home_spread_odds,f5_away_spread_odds,f5_total_over_odds,f5_total_under_odds')
+        .in('game_pk', gamePks)
+        .order('fetched_at', { ascending: false });
+      // Take the first (latest) row per game_pk.
+      for (const row of (oddsRows || []) as Record<string, unknown>[]) {
+        const pk = String(Math.trunc(Number(row.game_pk)));
+        if (!latestOddsByGamePk.has(pk)) latestOddsByGamePk.set(pk, row);
+      }
+    }
+  } catch (err) {
+    console.warn('[agentGameHelpers] MLB odds-snapshots fetch failed:', (err as Error).message);
+  }
+
+  // Fetch the three Perfect Storm reference tables ONCE per slate. These
+  // are slate-wide lookups, not per-game — re-fetching per game would be
+  // ~15× wasteful. Total payload here is ~50-100 small rows.
+  const bucketRows: MLBBucketRow[] = [];
+  const breakdownRows: MLBBreakdownRow[] = [];
+  let suggestedPicks: MLBSuggestedPick[] = [];
+
+  try {
+    const [bucketResp, breakdownResp, regReportResp] = await Promise.all([
+      cfbClient.from('mlb_model_bucket_accuracy').select('*'),
+      cfbClient.from('mlb_model_breakdown_accuracy').select('*'),
+      cfbClient
+        .from('mlb_regression_report')
+        .select('suggested_picks')
+        .eq('report_date', targetDate)
+        .maybeSingle(),
+    ]);
+
+    if (bucketResp.data) {
+      for (const r of bucketResp.data as Record<string, unknown>[]) {
+        bucketRows.push({
+          bet_type: String(r.bet_type || ''),
+          bucket: r.bucket as string | null,
+          side: (r.side as string | null) || null,
+          fav_dog: (r.fav_dog as string | null) || null,
+          direction: (r.direction as string | null) || null,
+          games: Number(r.games || 0),
+          win_pct: r.win_pct == null ? null : Number(r.win_pct),
+          roi_pct: r.roi_pct == null ? null : Number(r.roi_pct),
+          units_won: r.units_won == null ? null : Number(r.units_won),
+        });
+      }
+    }
+    if (breakdownResp.data) {
+      for (const r of breakdownResp.data as Record<string, unknown>[]) {
+        breakdownRows.push({
+          bet_type: String(r.bet_type || ''),
+          breakdown_type: String(r.breakdown_type || ''),
+          breakdown_value: String(r.breakdown_value || ''),
+          games: Number(r.games || 0),
+          win_pct: r.win_pct == null ? null : Number(r.win_pct),
+          roi_pct: r.roi_pct == null ? null : Number(r.roi_pct),
+        });
+      }
+    }
+    const rawSuggested = (regReportResp.data as Record<string, unknown> | null)?.suggested_picks;
+    if (Array.isArray(rawSuggested)) {
+      suggestedPicks = rawSuggested as MLBSuggestedPick[];
+    }
+  } catch (err) {
+    console.warn('[agentGameHelpers] MLB Perfect Storm reference fetch failed:', (err as Error).message);
+  }
+
+  // Index the breakdown table for O(1) lookup. Bucket lookup stays as a
+  // linear scan — the table is ~40 rows total so indexing isn't worth it.
+  const dowRoiIdx = new Map<string, number | null>();
+  const teamRoiIdx = new Map<string, number | null>();
+  for (const r of breakdownRows) {
+    if (r.breakdown_type === 'dow') {
+      dowRoiIdx.set(`${r.bet_type}|${r.breakdown_value}`, r.roi_pct);
+    } else if (r.breakdown_type === 'team') {
+      teamRoiIdx.set(`${r.bet_type}|${r.breakdown_value}`, r.roi_pct);
+    }
+  }
+
+  // Index suggested_picks by game_pk (a game can have multiple picks —
+  // e.g. F5 RL + full O/U on the same game).
+  const psPicksByGamePk = new Map<string, MLBSuggestedPick[]>();
+  for (const p of suggestedPicks) {
+    const pk = String(Math.trunc(Number(p.game_pk)));
+    if (!psPicksByGamePk.has(pk)) psPicksByGamePk.set(pk, []);
+    psPicksByGamePk.get(pk)!.push(p);
+  }
+
+  const dowLabel = mlbDowLabel(targetDate);
+
   // Fetch polymarket data
   const polymarketByGameKey = await fetchPolymarketByGameKey(mainClient, 'mlb', games.map(g => ({
     away_team: g.away_team_name,
     home_team: g.home_team_name,
   })));
 
-  const formattedGames = games.map((game: Record<string, unknown>) =>
-    formatMLBGame(
+  const formattedGames = games.map((game: Record<string, unknown>) => {
+    const pk = String(Math.trunc(Number(game.game_pk)));
+    return formatMLBGame(
       game,
       polymarketByGameKey.get(toGameKey('mlb', game.away_team_name, game.home_team_name)) || null,
-      signalsByGamePk.get(String(Math.trunc(Number(game.game_pk)))) || null
-    )
-  );
+      signalsByGamePk.get(pk) || null,
+      latestOddsByGamePk.get(pk) || null,
+      bucketRows,
+      dowRoiIdx,
+      teamRoiIdx,
+      psPicksByGamePk.get(pk) || [],
+      dowLabel,
+    );
+  });
   return { games, formattedGames };
+}
+
+// Look up a bucket-accuracy row matching every supplied filter. Mirrors
+// bucket_lookup() in mlb_daily_regression_report.py — only filters with a
+// non-null value participate in the match.
+function findMlbBucket(
+  rows: MLBBucketRow[],
+  filters: { bet_type: string; bucket: string | null; side?: string | null; fav_dog?: string | null; direction?: string | null },
+): MLBBucketRow | null {
+  for (const r of rows) {
+    if (r.bet_type !== filters.bet_type) continue;
+    if (filters.bucket != null && r.bucket !== filters.bucket) continue;
+    if (filters.side != null && r.side !== filters.side) continue;
+    if (filters.fav_dog != null && r.fav_dog !== filters.fav_dog) continue;
+    if (filters.direction != null && r.direction !== filters.direction) continue;
+    return r;
+  }
+  return null;
 }
 
 function formatMLBGame(
   game: Record<string, unknown>,
   polymarket: Record<string, unknown> | null,
-  signals: Record<string, unknown> | null
+  signals: Record<string, unknown> | null,
+  latestOdds: Record<string, unknown> | null,
+  bucketRows: MLBBucketRow[],
+  dowRoiIdx: Map<string, number | null>,
+  teamRoiIdx: Map<string, number | null>,
+  psPicks: MLBSuggestedPick[],
+  dowLabel: string,
 ): Record<string, unknown> {
   const gameId = String(game.game_pk);
+  const homeName = game.home_team_name as string | null;
+  const awayName = game.away_team_name as string | null;
+  const homeAbbr = mlbTeamAbbr(homeName);
+  const awayAbbr = mlbTeamAbbr(awayName);
+
   const homeML = game.home_ml as number | null;
   const awayML = game.away_ml as number | null;
   const homeSpread = game.home_spread as number | null;
   const awaySpread = game.away_spread as number | null;
+  const f5HomeML = game.f5_home_ml as number | null;
+  const f5AwayML = game.f5_away_ml as number | null;
+  const f5HomeSpread = game.f5_home_spread as number | null;
+  const f5AwaySpread = game.f5_away_spread as number | null;
+
+  // Spread odds (the runline juice) live in mlb_odds_snapshots, not
+  // mlb_games_today. They're what the agent needs to evaluate ML→RL swaps.
+  const homeSpreadOdds = (latestOdds?.home_spread_odds as number | null) ?? null;
+  const awaySpreadOdds = (latestOdds?.away_spread_odds as number | null) ?? null;
+  const totalOverOdds = (latestOdds?.total_over_odds as number | null) ?? null;
+  const totalUnderOdds = (latestOdds?.total_under_odds as number | null) ?? null;
+  const f5HomeSpreadOdds = (latestOdds?.f5_home_spread_odds as number | null) ?? null;
+  const f5AwaySpreadOdds = (latestOdds?.f5_away_spread_odds as number | null) ?? null;
+  const f5TotalOverOdds = (latestOdds?.f5_total_over_odds as number | null) ?? null;
+  const f5TotalUnderOdds = (latestOdds?.f5_total_under_odds as number | null) ?? null;
 
   // Parse signals arrays (they may be stringified JSON)
   const parseSignals = (raw: unknown): string[] => {
@@ -272,11 +522,152 @@ function formatMLBGame(
   const awaySignals = signals ? parseSignals(signals.away_signals) : [];
   const allSignals = [...gameSignals, ...homeSignals, ...awaySignals];
 
+  // ── Compute Perfect Storm accuracy_signals for all 6 MLB bet types. ──
+  // Mirrors the regression report's classifier — for each bet type we
+  // surface the same three inputs that drive its `acc_score`:
+  //   1. day-of-week ROI for the bet type
+  //   2. team(s) ROI for the bet type
+  //   3. edge bucket ROI for THIS game's edge magnitude
+  // The agent then uses these alongside its `trust_model` personality
+  // dial to decide how much weight to give the model's conviction.
+  // RL buckets mirror their underlying ML buckets (the regression report
+  // doesn't grade RL separately — it swaps ML→RL after PS classification).
+  const homeMLEdge = (game.home_ml_edge_pct as number | null) ?? null;
+  const awayMLEdge = (game.away_ml_edge_pct as number | null) ?? null;
+  const ouEdge = (game.ou_edge as number | null) ?? null;
+  const ouDirRaw = (game.ou_direction as string | null) ?? null;  // 'OVER' / 'UNDER'
+  const f5HomeMLEdge = (game.f5_home_ml_edge_pct as number | null) ?? null;
+  const f5AwayMLEdge = (game.f5_away_ml_edge_pct as number | null) ?? null;
+  const f5OuEdge = (game.f5_ou_edge as number | null) ?? null;
+
+  // Pick the side (home/away) the model favors and convert to bucket label.
+  const fullMLBest = pickModelSide(homeMLEdge, awayMLEdge, homeML, awayML);
+  const f5MLBest = pickModelSide(f5HomeMLEdge, f5AwayMLEdge, f5HomeML, f5AwayML);
+
+  const fullMLBucket = fullMLBest
+    ? edgeBucketLabel(fullMLBest.edge, MLB_ML_EDGE_BUCKETS)
+    : null;
+  const f5MLBucket = f5MLBest
+    ? edgeBucketLabel(f5MLBest.edge, MLB_F5_ML_EDGE_BUCKETS)
+    : null;
+
+  const fullOuBucket = edgeBucketLabel(ouEdge, MLB_OU_EDGE_BUCKETS);
+  const f5OuBucket = edgeBucketLabel(f5OuEdge, MLB_F5_OU_EDGE_BUCKETS);
+
+  const f5OuDir = f5OuEdge == null ? null : (f5OuEdge > 0 ? 'over' : 'under');
+
+  const accuracySignals: Record<string, unknown> = {
+    dow: dowLabel,
+    full_ml: buildAccuracyBlock({
+      bet_type: 'full_ml',
+      dow_label: dowLabel,
+      home_abbr: homeAbbr,
+      away_abbr: awayAbbr,
+      bucket: fullMLBucket,
+      side: fullMLBest?.side ?? null,
+      fav_dog: fullMLBest?.favDog ?? null,
+      direction: null,
+      bucketRows,
+      dowRoiIdx,
+      teamRoiIdx,
+      modelSide: fullMLBest?.side ?? null,
+    }),
+    full_rl: buildAccuracyBlock({
+      bet_type: 'full_ml',  // RL inherits ML's bucket signal — see comment above
+      dow_label: dowLabel,
+      home_abbr: homeAbbr,
+      away_abbr: awayAbbr,
+      bucket: fullMLBucket,
+      side: fullMLBest?.side ?? null,
+      fav_dog: fullMLBest?.favDog ?? null,
+      direction: null,
+      bucketRows,
+      dowRoiIdx,
+      teamRoiIdx,
+      modelSide: fullMLBest?.side ?? null,
+      borrowedFrom: 'full_ml',
+    }),
+    full_ou: buildAccuracyBlock({
+      bet_type: 'full_ou',
+      dow_label: dowLabel,
+      home_abbr: homeAbbr,
+      away_abbr: awayAbbr,
+      bucket: fullOuBucket,
+      side: null,
+      fav_dog: null,
+      direction: ouDirRaw,
+      bucketRows,
+      dowRoiIdx,
+      teamRoiIdx,
+      modelSide: null,
+    }),
+    f5_ml: buildAccuracyBlock({
+      bet_type: 'f5_ml',
+      dow_label: dowLabel,
+      home_abbr: homeAbbr,
+      away_abbr: awayAbbr,
+      bucket: f5MLBucket,
+      side: f5MLBest?.side ?? null,
+      fav_dog: null,  // f5_ml buckets aren't sliced by fav/dog in the report
+      direction: null,
+      bucketRows,
+      dowRoiIdx,
+      teamRoiIdx,
+      modelSide: f5MLBest?.side ?? null,
+    }),
+    f5_rl: buildAccuracyBlock({
+      bet_type: 'f5_ml',  // RL inherits ML's bucket signal
+      dow_label: dowLabel,
+      home_abbr: homeAbbr,
+      away_abbr: awayAbbr,
+      bucket: f5MLBucket,
+      side: f5MLBest?.side ?? null,
+      fav_dog: null,
+      direction: null,
+      bucketRows,
+      dowRoiIdx,
+      teamRoiIdx,
+      modelSide: f5MLBest?.side ?? null,
+      borrowedFrom: 'f5_ml',
+    }),
+    f5_ou: buildAccuracyBlock({
+      bet_type: 'f5_ou',
+      dow_label: dowLabel,
+      home_abbr: homeAbbr,
+      away_abbr: awayAbbr,
+      bucket: f5OuBucket,
+      side: null,
+      fav_dog: null,
+      direction: f5OuDir,
+      bucketRows,
+      dowRoiIdx,
+      teamRoiIdx,
+      modelSide: null,
+    }),
+  };
+
+  // Perfect Storm tag(s) from today's regression report. These are the
+  // post-classification, post-ML→RL-swap picks already filtered to PS-tier
+  // criteria. The agent should treat these as "the regression report
+  // surfaced this; weight per your trust_model setting."
+  const perfectStormTags = psPicks.map(p => ({
+    bet_type: p.bet_type,
+    pick: p.pick,
+    perfect_storm_tier: p.perfect_storm_tier ?? null,
+    bucket_roi_pct: p.bucket_roi_pct ?? null,
+    bucket_win_pct: p.bucket_win_pct ?? null,
+    edge_bucket: p.edge_bucket ?? null,
+    edge_at_suggestion: p.edge_at_suggestion ?? null,
+    reasoning: p.reasoning ?? null,
+  }));
+
   return {
     game_id: gameId,
-    matchup: `${game.away_team_name} @ ${game.home_team_name}`,
-    away_team: game.away_team_name,
-    home_team: game.home_team_name,
+    matchup: `${awayName} @ ${homeName}`,
+    away_team: awayName,
+    home_team: homeName,
+    away_team_abbr: awayAbbr,
+    home_team_abbr: homeAbbr,
     game_date: game.official_date,
     game_time: game.game_time_et,
     status: game.status,
@@ -286,9 +677,36 @@ function formatMLBGame(
       home_sp: game.home_sp_name || 'TBD',
       home_sp_confirmed: game.home_sp_confirmed ?? false,
     },
+    // Six bet shapes side-by-side. Agent picks one bet_type+period combo
+    // per game (or skips). RL odds (the runline juice) come from
+    // mlb_odds_snapshots; mlb_games_today only carries the spread points.
     vegas_lines: {
-      spread_summary: `${game.away_team_name} ${fmtSpread(awaySpread)} / ${game.home_team_name} ${fmtSpread(homeSpread)}`,
-      ml_summary: `${game.away_team_name} ${fmtML(awayML) ?? 'N/A'} / ${game.home_team_name} ${fmtML(homeML) ?? 'N/A'}`,
+      // Convenience summary strings for the LLM
+      spread_summary: `${awayName} ${fmtSpread(awaySpread)} / ${homeName} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${awayName} ${fmtML(awayML) ?? 'N/A'} / ${homeName} ${fmtML(homeML) ?? 'N/A'}`,
+      // Full-game
+      full_ml: { home: fmtML(homeML), away: fmtML(awayML) },
+      full_rl: {
+        home_spread: homeSpread, home_odds: fmtML(homeSpreadOdds),
+        away_spread: awaySpread, away_odds: fmtML(awaySpreadOdds),
+      },
+      full_ou: {
+        line: game.total_line ?? null,
+        over_odds: fmtML(totalOverOdds), under_odds: fmtML(totalUnderOdds),
+      },
+      // First 5 innings
+      f5_ml: { home: fmtML(f5HomeML), away: fmtML(f5AwayML) },
+      f5_rl: {
+        home_spread: f5HomeSpread, home_odds: fmtML(f5HomeSpreadOdds),
+        away_spread: f5AwaySpread, away_odds: fmtML(f5AwaySpreadOdds),
+      },
+      f5_ou: {
+        line: game.f5_total_line ?? null,
+        over_odds: fmtML(f5TotalOverOdds), under_odds: fmtML(f5TotalUnderOdds),
+      },
+      // Legacy flat fields kept so the existing prompt language still
+      // resolves them — remove only after the v1_mlb prompt is rewritten
+      // to consume the structured blocks above.
       home_spread: homeSpread,
       away_spread: awaySpread,
       home_ml: fmtML(homeML),
@@ -296,19 +714,31 @@ function formatMLBGame(
       total: game.total_line,
     },
     model_predictions: {
+      // Full game
       ml_home_win_prob: game.ml_home_win_prob,
       ml_away_win_prob: game.ml_away_win_prob,
-      home_ml_edge_pct: game.home_ml_edge_pct,
-      away_ml_edge_pct: game.away_ml_edge_pct,
+      home_ml_edge_pct: homeMLEdge,
+      away_ml_edge_pct: awayMLEdge,
       home_ml_strong_signal: game.home_ml_strong_signal,
       away_ml_strong_signal: game.away_ml_strong_signal,
-      ou_direction: game.ou_direction,
-      ou_edge: game.ou_edge,
+      ou_direction: ouDirRaw,
+      ou_edge: ouEdge,
       ou_fair_total: game.ou_fair_total,
       ou_strong_signal: game.ou_strong_signal,
       ou_moderate_signal: game.ou_moderate_signal,
+      // First 5 innings
+      f5_home_win_prob: game.f5_home_win_prob,
+      f5_away_win_prob: game.f5_away_win_prob,
+      f5_home_ml_edge_pct: f5HomeMLEdge,
+      f5_away_ml_edge_pct: f5AwayMLEdge,
+      f5_home_ml_strong_signal: game.f5_home_ml_strong_signal,
+      f5_away_ml_strong_signal: game.f5_away_ml_strong_signal,
+      f5_ou_edge: f5OuEdge,
+      f5_fair_total: game.f5_fair_total,
       is_final_prediction: game.is_final_prediction,
     },
+    accuracy_signals: accuracySignals,
+    perfect_storm: perfectStormTags.length > 0 ? perfectStormTags : null,
     weather: {
       temperature_f: (game as Record<string, unknown>).temperature_f ?? null,
       wind_speed_mph: (game as Record<string, unknown>).wind_speed_mph ?? null,
@@ -323,6 +753,88 @@ function formatMLBGame(
       raw_game_data: game,
     },
   };
+}
+
+// Pick the side (home/away) the model favors based on edge_pct, mirroring
+// the regression report's `side = "home" if h_edge >= a_edge else "away"`
+// logic. Returns null if both edges are missing. Also returns the
+// favorite/underdog tag for the picked side (used for full_ml bucket
+// lookup, which is sliced by fav/dog).
+function pickModelSide(
+  homeEdge: number | null,
+  awayEdge: number | null,
+  homeML: number | null,
+  awayML: number | null,
+): { side: 'home' | 'away'; edge: number; favDog: 'favorite' | 'underdog' | null } | null {
+  if (homeEdge == null && awayEdge == null) return null;
+  const h = homeEdge ?? -Infinity;
+  const a = awayEdge ?? -Infinity;
+  const side: 'home' | 'away' = h >= a ? 'home' : 'away';
+  const edge = side === 'home' ? (homeEdge ?? 0) : (awayEdge ?? 0);
+  const ml = side === 'home' ? homeML : awayML;
+  let favDog: 'favorite' | 'underdog' | null = null;
+  if (typeof ml === 'number' && Number.isFinite(ml)) {
+    favDog = ml < 0 ? 'favorite' : 'underdog';
+  }
+  return { side, edge, favDog };
+}
+
+interface AccuracyBlockArgs {
+  bet_type: string;
+  dow_label: string;
+  home_abbr: string | null;
+  away_abbr: string | null;
+  bucket: string | null;
+  side: string | null;
+  fav_dog: string | null;
+  direction: string | null;
+  bucketRows: MLBBucketRow[];
+  dowRoiIdx: Map<string, number | null>;
+  teamRoiIdx: Map<string, number | null>;
+  modelSide: string | null;          // for ML/RL: which team the model picks
+  borrowedFrom?: string;             // set when we mirror ML buckets onto RL
+}
+
+// One accuracy_signals sub-block per bet type. Surfaces the three ROI
+// inputs the regression report uses to compute acc_score:
+//   - dow_roi_pct: bet type performance on this day-of-week
+//   - team ROI: subject team(s) performance for this bet type
+//   - edge_bucket_roi_pct: bucket performance for this game's edge slice
+// All ROI values are %; positive = profitable historically.
+function buildAccuracyBlock(args: AccuracyBlockArgs): Record<string, unknown> {
+  const isOu = args.bet_type === 'full_ou' || args.bet_type === 'f5_ou';
+  const dowRoi = args.dowRoiIdx.get(`${args.bet_type}|${args.dow_label}`) ?? null;
+  const homeTeamRoi = args.home_abbr
+    ? args.teamRoiIdx.get(`${args.bet_type}|${args.home_abbr}`) ?? null
+    : null;
+  const awayTeamRoi = args.away_abbr
+    ? args.teamRoiIdx.get(`${args.bet_type}|${args.away_abbr}`) ?? null
+    : null;
+
+  const bucketRow = args.bucket
+    ? findMlbBucket(args.bucketRows, {
+        bet_type: args.bet_type,
+        bucket: args.bucket,
+        side: args.side,
+        fav_dog: args.fav_dog,
+        direction: isOu && args.direction ? args.direction : null,
+      })
+    : null;
+
+  const out: Record<string, unknown> = {
+    dow_roi_pct: dowRoi,
+    home_team_roi_pct: homeTeamRoi,
+    away_team_roi_pct: awayTeamRoi,
+    edge_bucket: args.bucket,
+    edge_bucket_roi_pct: bucketRow?.roi_pct ?? null,
+    edge_bucket_win_pct: bucketRow?.win_pct ?? null,
+    edge_bucket_sample: bucketRow?.games ?? null,
+    model_side: args.modelSide,                 // 'home' | 'away' | null (OU)
+  };
+  if (args.borrowedFrom) {
+    out.note = `bucket signal mirrored from ${args.borrowedFrom} — RL is graded against the same edge bucket as the underlying ML pick`;
+  }
+  return out;
 }
 
 // =============================================================================

@@ -1,0 +1,38 @@
+-- Update the v1_mlb agent system prompt to teach the LLM about:
+--   1. The six MLB bet shapes via the new (bet_type, period) tuple
+--      (matching avatar_picks.period column added in 20260501140000).
+--   2. The ML → RL swap rule, governed by personality.max_favorite_odds.
+--   3. The new accuracy_signals + perfect_storm payload blocks emitted
+--      by formatMLBGame() in supabase/functions/shared/agentGameHelpers.ts.
+--   4. How to weight those signals as a function of personality.trust_model
+--      (the same trust dial that governs everything else model-derived).
+--
+-- This migration MUST stay in lockstep with agentGameHelpers.ts — if
+-- the payload field names change, the prompt strings here must change
+-- too, otherwise the LLM will look up keys that don't exist.
+
+-- 1. Per-pick output spec gains the `period` field.
+UPDATE public.agent_system_prompts
+SET prompt_text = replace(
+  prompt_text,
+  E'Each pick must include:\n- "game_id": The unique identifier from the game data\n- "bet_type": "spread", "moneyline", or "total"\n- "selection":',
+  E'Each pick must include:\n- "game_id": The unique identifier from the game data\n- "bet_type": "spread", "moneyline", or "total"\n- "period": "full" (whole game) or "f5" (first 5 innings). Combined with bet_type this expresses every MLB bet shape. See the "MLB Bet Shapes" section for the full mapping. NEVER omit this field on MLB picks.\n- "selection":'
+)
+WHERE id = 'v1_mlb';
+
+-- 2. New "MLB Bet Shapes & Perfect Storm Signals" section, inserted
+--    immediately before "## Pick Generation Rules".
+UPDATE public.agent_system_prompts
+SET prompt_text = replace(
+  prompt_text,
+  '## Pick Generation Rules',
+  E'## MLB Bet Shapes (6 total)\n\nMLB exposes six distinct bet shapes via the (`bet_type`, `period`) tuple. Pick exactly ONE shape per game (or skip the game).\n\n| bet_type | period | Means | Selection format |\n|----------|--------|-------|------------------|\n| `moneyline` | `full` | Full-game moneyline | "Yankees ML" |\n| `spread` | `full` | Full-game runline (typically -1.5 / +1.5) | "Yankees -1.5" |\n| `total` | `full` | Full-game O/U | "Over 8.5" or "Under 8.5" |\n| `moneyline` | `f5` | First-5 innings moneyline | "Yankees F5 ML" |\n| `spread` | `f5` | F5 runline (typically -0.5 / +0.5) | "Yankees F5 -0.5" |\n| `total` | `f5` | F5 O/U | "F5 Over 4.5" or "F5 Under 4.5" |\n\n**Odds field:** Read the actual odds from `vegas_lines.{full_ml|full_rl|full_ou|f5_ml|f5_rl|f5_ou}` and copy them verbatim. Do NOT use "-110" as a placeholder for runlines or totals — MLB runline juice swings widely (e.g. -1.5 at +110 or -0.5 at -125), so use the real number. Totals use real over/under odds too.\n\n**Lines:** All spread points (-1.5, -0.5, +1.5, +0.5) and total lines must come EXACTLY from the payload. Do not round.\n\n## ML → RL Swap Rule (mandatory)\n\nWhen your model conviction is on a team and that team''s ML is more juice than your `max_favorite_odds` setting, **return the team''s runline instead of the moneyline**:\n\n- Full-game ML too chalky → use `bet_type=spread, period=full` with the team''s `-1.5` from `vegas_lines.full_rl.home_spread` / `away_spread`, odds from `home_odds` / `away_odds`.\n- F5 ML too chalky → use `bet_type=spread, period=f5` with the team''s `-0.5` from `vegas_lines.f5_rl`.\n\nThe regression report already does this swap when populating `perfect_storm[*].bet_type` — if you see `full_rl` or `f5_rl` there, it means the underlying ML pick was too chalky and the report swapped to runline.\n\n## Perfect Storm Signals — How to Read `accuracy_signals` and `perfect_storm`\n\nEach game carries a per-bet-type `accuracy_signals` block and an optional `perfect_storm` array. **Both are derived from the WagerProof model** — your `trust_model` setting governs how heavily to weight them.\n\n### `accuracy_signals` — three ROI inputs per bet type\n\nFor each of the six MLB bet types, you get:\n\n```\n"full_ml": {\n  "dow_roi_pct": 1.82,            // Bet type''s historical ROI on this DOW\n  "home_team_roi_pct": 8.17,      // Home team''s historical ROI for this bet type\n  "away_team_roi_pct": 10.84,     // Away team''s historical ROI for this bet type\n  "edge_bucket": "+2-3.9%",       // Which edge magnitude bucket this game falls into\n  "edge_bucket_roi_pct": 18.7,    // Bucket''s historical ROI\n  "edge_bucket_win_pct": 68.2,    // Bucket''s historical win rate\n  "edge_bucket_sample": 44,       // Sample size — < 8 means unreliable\n  "model_side": "home"            // Which team the model favors (null for OU)\n}\n```\n\n**How to interpret each ROI:**\n- **Positive ROI (> 0%)** = the slice has been profitable historically.\n- **Negative ROI (< 0%)** = the slice has been a money-loser historically.\n- **Sample size < 8** = treat the slice as unreliable; don''t lean on it alone.\n\n**Three-of-three rule (the model''s "Perfect Storm" floor):** When `dow_roi_pct > 0` AND BOTH team_roi_pct values > 0 (or the subject team for ML) AND `edge_bucket_roi_pct > 0`, the model considers it a complete data alignment. Anything less is a partial signal.\n\n### `perfect_storm` — the regression report''s tier classification\n\nIf the WagerProof regression report flagged this game today, you''ll see one or more entries like:\n\n```\n"perfect_storm": [{\n  "bet_type": "f5_rl",\n  "pick": "New York Yankees F5 -0.5 (-125)",\n  "perfect_storm_tier": "ps",     // hammer | ps | lean | watch\n  "bucket_roi_pct": 5.9,\n  "edge_bucket": "+<5%",\n  "edge_at_suggestion": 2.3,\n  "reasoning": "F5 +<5% home bucket hitting 57.9% on 38 games"\n}]\n```\n\n**Tier ladder (highest conviction first):**\n- **`hammer`** — 3/3 accuracy alignment AND 2+ regression matches (pitcher × 2 OR batting + bullpen). Strongest model conviction.\n- **`ps`** — 3/3 accuracy alignment AND ≥1 regression match. Solid Perfect Storm.\n- **`lean`** — 2/3 accuracy alignment AND 2+ regression matches. Notable but not full alignment.\n- **`watch`** — 2/3 accuracy alignment, weak regression backing. Marginal.\n\nThe regression report has already swapped chalky MLs to runlines, so `bet_type` here is the post-swap shape — use it directly.\n\n### Personality interaction with `trust_model`\n\nThese signals **are the model expressing confidence**. Weight them according to your `trust_model` setting:\n\n- `trust_model = 5` (complete trust) — Lean heavily into `hammer` and `ps` picks. The data has aligned and the regression has flagged it. Strong reason to take the same bet.\n- `trust_model = 4` (significant trust) — Treat `hammer`/`ps` as primary inputs. Look for additional confirmation (Statcast, weather, lineup) but rarely fade them.\n- `trust_model = 3` (moderate trust) — Use `accuracy_signals` and `perfect_storm` as confirmation, not direction. If your independent analysis points elsewhere, follow your own read.\n- `trust_model = 2` (some skepticism) — A `hammer` tier still tilts you slightly toward that side, but you''ll often pass on weaker tiers when other inputs disagree.\n- `trust_model = 1` (skeptical) — Treat the model''s tags as one data point. You may explicitly fade them if your contrarian / fade-public personality says so.\n\nBeing skeptical of the model means being skeptical of `perfect_storm` and `accuracy_signals`, because they ARE the model''s voice.\n\n## Pick Generation Rules'
+)
+WHERE id = 'v1_mlb';
+
+-- 3. Version + description bump.
+UPDATE public.agent_system_prompts
+SET version = version + 1,
+    description = description || ' v2: adds period field, six-bet-shape spec, ML→RL swap rule, accuracy_signals + perfect_storm interpretation tied to trust_model.',
+    updated_at = now()
+WHERE id = 'v1_mlb';

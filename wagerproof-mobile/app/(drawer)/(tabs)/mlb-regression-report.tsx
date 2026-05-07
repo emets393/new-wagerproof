@@ -855,7 +855,10 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
       <View style={{ gap: 10 }}>
         {picks.map((p, i) => {
           const tier = tierMeta(p.perfect_storm_tier);
-          const confColor = p.confidence_at_suggestion === 'high' ? WIN_GREEN : WARN_AMBER;
+          // Tier color is the canonical conviction signal now — the legacy
+          // HIGH/MODERATE confidence badge was removed because it could
+          // contradict the tier (e.g. "Hammer" + "MODERATE CONF").
+          const tagColor = tier.color;
           const timeLabel = p.game_time_et
             ? new Date(p.game_time_et).toLocaleTimeString('en-US', {
                 hour: 'numeric',
@@ -1030,19 +1033,9 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
               ) : null}
 
               <View style={styles.pickFooter}>
-                <View style={[styles.pickBetTypeTag, { backgroundColor: `${confColor}1a` }]}>
-                  <Text style={[styles.pickBetTypeText, { color: confColor }]}>
+                <View style={[styles.pickBetTypeTag, { backgroundColor: `${tagColor}1a` }]}>
+                  <Text style={[styles.pickBetTypeText, { color: tagColor }]}>
                     {betTypeLabel(p.bet_type)}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.pickConfTag,
-                    { backgroundColor: `${confColor}1a` },
-                  ]}
-                >
-                  <Text style={[styles.pickConfText, { color: confColor }]}>
-                    {p.confidence_at_suggestion.toUpperCase()} CONF
                   </Text>
                 </View>
                 {p.locked ? (
@@ -2126,16 +2119,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   pickBetTypeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  pickConfTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  pickConfText: {
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.3,

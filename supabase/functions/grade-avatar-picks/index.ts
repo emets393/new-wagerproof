@@ -15,6 +15,10 @@ interface AvatarPick {
   matchup: string;
   game_date: string;
   bet_type: 'spread' | 'moneyline' | 'total';
+  /** MLB-only: 'full' = whole game, 'f5' = first 5 innings.
+   *  Defaults to 'full' on the row (DB CHECK + DEFAULT). Older picks
+   *  written before migration 20260501140000 will read back as 'full'. */
+  period: 'full' | 'f5';
   pick_selection: string;
   odds: string | null;
   units: number;
@@ -43,6 +47,16 @@ interface GameResult {
   /** Actual final scores — used to render a useful actual_result string. */
   home_score?: number | null;
   away_score?: number | null;
+  // ── F5 (first-5-innings) parallel fields, MLB only. ──
+  // Populated from mlb_training_snapshots.f5_runs_scored / f5_runs_allowed
+  // when both are non-null and result_filled_at is set. The grader routes
+  // here for picks with period === 'f5'. RL grade against -0.5 (positive
+  // margin only) instead of full-game's -1.5.
+  f5_ml_result?: string | null;
+  f5_home_score?: number | null;
+  f5_away_score?: number | null;
+  f5_total_runs?: number | null;
+  f5_ou_result?: string | null;
 }
 
 interface ParsedSpreadPick {
@@ -159,10 +173,30 @@ function isLikelyPushLine(value: number): boolean {
 // =============================================================================
 
 /**
- * Parse spread pick selection like "Bills -3" or "Chiefs +3.5"
+ * Strip the optional "F5 " period marker from a selection string before
+ * parsing. The period is now tracked on the pick row itself, so the
+ * marker in selection text is descriptive only — parsers should ignore it.
+ * Matches standalone "F5" tokens at the start, end, or middle of the
+ * string (case insensitive). Examples normalized:
+ *   "F5 Under 4.5"          -> "Under 4.5"
+ *   "Yankees F5 -0.5"       -> "Yankees -0.5"
+ *   "Yankees F5 ML"         -> "Yankees ML"
+ */
+function stripF5Marker(selection: string): string {
+  return selection
+    .replace(/\bF5\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Parse spread pick selection like "Bills -3" or "Chiefs +3.5".
+ * Accepts MLB F5 markers ("Yankees F5 -0.5") — the F5 token is stripped
+ * before parsing because period is tracked on the pick row.
  */
 function parseSpreadPick(selection: string): ParsedSpreadPick | null {
-  const match = selection.match(/^(.+?)\s*([+-]?\d+\.?\d*)$/);
+  const cleaned = stripF5Marker(selection);
+  const match = cleaned.match(/^(.+?)\s*([+-]?\d+\.?\d*)$/);
   if (!match) {
     console.log(`[grade-avatar-picks] Could not parse spread selection: ${selection}`);
     return null;
@@ -174,10 +208,13 @@ function parseSpreadPick(selection: string): ParsedSpreadPick | null {
 }
 
 /**
- * Parse total pick selection like "Over 48.5" or "Under 48.5"
+ * Parse total pick selection like "Over 48.5" or "Under 48.5".
+ * Accepts MLB F5 markers ("F5 Under 4.5") — the F5 token is stripped
+ * before parsing because period is tracked on the pick row.
  */
 function parseTotalPick(selection: string): ParsedTotalPick | null {
-  const match = selection.match(/^(over|under)\s+(\d+\.?\d*)$/i);
+  const cleaned = stripF5Marker(selection);
+  const match = cleaned.match(/^(over|under)\s+(\d+\.?\d*)$/i);
   if (!match) {
     console.log(`[grade-avatar-picks] Could not parse total selection: ${selection}`);
     return null;
@@ -193,7 +230,9 @@ function parseTotalPick(selection: string): ParsedTotalPick | null {
  * Returns the team name
  */
 function parseMoneylinePick(selection: string): string | null {
-  let cleaned = selection.replace(/\s*ML$/i, '').trim();
+  // Strip the optional MLB F5 marker first ("Yankees F5 ML" → "Yankees ML").
+  // Period is on the pick row; the marker is descriptive only.
+  let cleaned = stripF5Marker(selection).replace(/\s*ML$/i, '').trim();
   cleaned = cleaned.replace(/\s*[+-]\d+$/, '').trim();
   if (!cleaned) {
     console.log(`[grade-avatar-picks] Could not parse moneyline selection: ${selection}`);
@@ -259,7 +298,7 @@ async function fetchMLBGameResults(
 
   const { data, error } = await cfbClient
     .from('mlb_training_snapshots')
-    .select('game_pk, official_date, team_name, opp_team_name, home_away, runs_scored, runs_allowed, won, ou_result, result_filled_at')
+    .select('game_pk, official_date, team_name, opp_team_name, home_away, runs_scored, runs_allowed, won, ou_result, f5_runs_scored, f5_runs_allowed, f5_ou_result, result_filled_at')
     .eq('home_away', 'home')
     .not('result_filled_at', 'is', null)
     .in('official_date', gameDates);
@@ -298,6 +337,22 @@ async function fetchMLBGameResults(
     }
     // margin === 0 shouldn't happen in baseball (no ties in completed games)
 
+    // ── First-5 fields. F5 can tie (margin === 0) when both teams score
+    // equal runs through 5, so f5_ml_result needs to handle that case.
+    // F5 RL is typically -0.5 / +0.5 — winner by ANY runs covers -0.5,
+    // tie pushes -0.5 (impossible if tied f5 runs scored), and loser
+    // never covers +0.5 (since they didn't lose). The actual grading
+    // happens in gradePickFromView via f5_home_score/f5_away_score margin.
+    const hasF5 = row.f5_runs_scored != null && row.f5_runs_allowed != null;
+    const f5HomeScore = hasF5 ? Number(row.f5_runs_scored) : null;
+    const f5AwayScore = hasF5 ? Number(row.f5_runs_allowed) : null;
+    let f5MlResult: string | null = null;
+    if (hasF5 && f5HomeScore != null && f5AwayScore != null) {
+      if (f5HomeScore > f5AwayScore) f5MlResult = homeTeam;
+      else if (f5AwayScore > f5HomeScore) f5MlResult = awayTeam;
+      else f5MlResult = 'push';  // tied through 5 = F5 ML push
+    }
+
     results.set(gameId, {
       league: 'MLB',
       game_id: gameId,
@@ -310,6 +365,14 @@ async function fetchMLBGameResults(
       total_runs: homeScore + awayScore,
       home_score: homeScore,
       away_score: awayScore,
+      // F5 parallels — null for any game without F5 data captured.
+      f5_ml_result: f5MlResult,
+      f5_home_score: f5HomeScore,
+      f5_away_score: f5AwayScore,
+      f5_total_runs: hasF5 && f5HomeScore != null && f5AwayScore != null
+        ? f5HomeScore + f5AwayScore
+        : null,
+      f5_ou_result: row.f5_ou_result ? String(row.f5_ou_result) : null,
     });
   }
 
@@ -394,10 +457,23 @@ function gradePickFromView(
   gameResult: GameResult
 ): { result: 'won' | 'lost' | 'push'; actual_result: string } | null {
   const actualResultPrefix = `${gameResult.away_team} vs ${gameResult.home_team}`;
+  // Period-aware routing for MLB. Non-MLB picks have period === 'full'
+  // by default (DB column default) so the full-game branches still apply.
+  // For F5 picks, swap in the f5_* parallel fields. If the F5 fields are
+  // missing (e.g. game cancelled before bottom of 5th, or older data
+  // captured before F5 results were recorded), return null so the pick
+  // stays pending — never silently grade an F5 bet against full-game
+  // results.
+  const isF5 = pick.period === 'f5';
+  const periodLabel = isF5 ? 'F5' : 'Final';
 
   switch (pick.bet_type) {
     case 'moneyline': {
-      if (!gameResult.ml_result) return null;
+      const mlResult = isF5 ? gameResult.f5_ml_result : gameResult.ml_result;
+      if (!mlResult) {
+        if (isF5) console.log(`[grade-avatar-picks][f5_ml] no F5 result yet for pick=${pick.id} game=${pick.game_id}`);
+        return null;
+      }
 
       const pickedTeam = parseMoneylinePick(pick.pick_selection);
       if (!pickedTeam) return null;
@@ -405,10 +481,16 @@ function gradePickFromView(
       const canonical = resolveCanonicalTeamName(pickedTeam, gameResult, pick.matchup, pick.archived_game_data);
       if (!canonical) return null;
 
-      const result = canonical === gameResult.ml_result ? 'won' : 'lost';
+      // F5 ML can push when both teams score equally through 5.
+      let result: 'won' | 'lost' | 'push';
+      if (mlResult === 'push') {
+        result = 'push';
+      } else {
+        result = canonical === mlResult ? 'won' : 'lost';
+      }
       return {
         result,
-        actual_result: `${actualResultPrefix} — ML winner: ${gameResult.ml_result}`,
+        actual_result: `${actualResultPrefix} — ${periodLabel} ML winner: ${mlResult}`,
       };
     }
 
@@ -441,17 +523,28 @@ function gradePickFromView(
       let actual: string;
 
       // MLB path: we have raw scores so grade against actual margin.
-      if (typeof gameResult.home_score === 'number' && typeof gameResult.away_score === 'number') {
+      // For F5 picks, route to the parallel f5_home_score / f5_away_score
+      // fields. Same math: margin (from picked side) + signed spread,
+      // positive = won, negative = lost, zero = push. F5 RL is typically
+      // ±0.5, which can never push (margin is always integer); but we
+      // allow the math to express it cleanly in case the line is whole.
+      const homeScoreForGrade = isF5 ? gameResult.f5_home_score : gameResult.home_score;
+      const awayScoreForGrade = isF5 ? gameResult.f5_away_score : gameResult.away_score;
+      if (typeof homeScoreForGrade === 'number' && typeof awayScoreForGrade === 'number') {
         const homeNorm = normalizeTeamName(gameResult.home_team);
         const canonNorm = normalizeTeamName(canonical);
         const margin = canonNorm === homeNorm
-          ? (gameResult.home_score - gameResult.away_score)
-          : (gameResult.away_score - gameResult.home_score);
+          ? (homeScoreForGrade - awayScoreForGrade)
+          : (awayScoreForGrade - homeScoreForGrade);
         const cover = margin + parsed.spread;
         if (cover > 0) result = 'won';
         else if (cover < 0) result = 'lost';
         else result = 'push';
-        actual = `${actualResultPrefix} — Final ${gameResult.away_score}-${gameResult.home_score} (${canonical} margin ${margin >= 0 ? '+' : ''}${margin} vs spread ${parsed.spread >= 0 ? '+' : ''}${parsed.spread})`;
+        actual = `${actualResultPrefix} — ${periodLabel} ${awayScoreForGrade}-${homeScoreForGrade} (${canonical} margin ${margin >= 0 ? '+' : ''}${margin} vs spread ${parsed.spread >= 0 ? '+' : ''}${parsed.spread})`;
+      } else if (isF5) {
+        // F5 picks need F5 scores — never fall through to full-game scores.
+        console.log(`[grade-avatar-picks][f5_spread] no F5 scores for pick=${pick.id} game=${pick.game_id}`);
+        return null;
       } else {
         // Non-MLB fallback: trust the view's spread_result. This can
         // misgrade ±N.5 picks where the team and spread direction
@@ -489,21 +582,31 @@ function gradePickFromView(
       let result: 'won' | 'lost' | 'push';
       let actual: string;
 
-      if (typeof gameResult.total_runs === 'number') {
-        const total = gameResult.total_runs;
+      // For F5 totals use f5_total_runs / f5 scores; otherwise use full-game.
+      const totalForGrade = isF5 ? gameResult.f5_total_runs : gameResult.total_runs;
+      const homeScoreLabel = isF5 ? gameResult.f5_home_score : gameResult.home_score;
+      const awayScoreLabel = isF5 ? gameResult.f5_away_score : gameResult.away_score;
+      if (typeof totalForGrade === 'number') {
+        const total = totalForGrade;
         if (total > parsed.line) {
           result = parsed.direction === 'over' ? 'won' : 'lost';
         } else if (total < parsed.line) {
           result = parsed.direction === 'under' ? 'won' : 'lost';
         } else {
           // total === parsed.line — only possible on whole-number lines.
-          // Half-point hooks like 7.5 / 8.5 can never push since totals
-          // are always integers; if we got here with a hook, something
-          // is wrong upstream so return null and let it skip.
+          // Half-point hooks like 7.5 / 8.5 / 4.5 can never push since
+          // totals are always integers; if we got here with a hook,
+          // something is wrong upstream so return null and let it skip.
           if (!isLikelyPushLine(parsed.line)) return null;
           result = 'push';
         }
-        actual = `${actualResultPrefix} — Final ${gameResult.away_score ?? '?'}-${gameResult.home_score ?? '?'} (total ${total} vs ${parsed.line})`;
+        actual = `${actualResultPrefix} — ${periodLabel} ${awayScoreLabel ?? '?'}-${homeScoreLabel ?? '?'} (total ${total} vs ${parsed.line})`;
+      } else if (isF5) {
+        // F5 totals can't fall back to full-game numbers. If we don't
+        // have f5_total_runs the pick stays pending until grading runs
+        // again with the F5 result populated.
+        console.log(`[grade-avatar-picks][f5_total] no F5 total for pick=${pick.id} game=${pick.game_id}`);
+        return null;
       } else {
         // Non-MLB fallback: trust the view's ou_result (computed against
         // whatever line that view uses).

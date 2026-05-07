@@ -559,6 +559,8 @@ async function processAvatar(
         matchup: matchup || `Game ${pick.game_id}`,
         game_date: gameDate,
         bet_type: pick.bet_type,
+        // MLB picks may set period='f5'; non-MLB picks default to 'full'.
+        period: pick.period ?? 'full',
         pick_selection: pick.selection,
         odds: pick.odds,
         units: 1.0,

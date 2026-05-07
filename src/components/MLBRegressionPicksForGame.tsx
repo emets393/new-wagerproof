@@ -113,9 +113,9 @@ export function MLBRegressionPicksForGame(props: MLBRegressionPicksForGameProps)
             : alignment === 'contradicts'
               ? { bg: 'bg-red-500/15', border: 'border-red-400/40', fg: 'text-red-300', Icon: XCircle, label: 'Contradicts model' }
               : { bg: 'bg-slate-500/15', border: 'border-slate-400/30', fg: 'text-slate-300', Icon: HelpCircle, label: 'Comparison unavailable' };
-          const confTheme = p.confidence_at_suggestion === 'high'
-            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-            : 'bg-yellow-500/20 text-yellow-300 border-yellow-400/40';
+          // HIGH/MODERATE confidence label removed — Perfect Storm tier
+          // (Hammer/PS/Lean/Watch) is the canonical conviction signal now.
+          // Showing both made "Hammer + MODERATE" read as a contradiction.
 
           return (
             <div
@@ -126,9 +126,6 @@ export function MLBRegressionPicksForGame(props: MLBRegressionPicksForGameProps)
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   {BET_TYPE_LABEL[p.bet_type]}
                 </div>
-                <span className={`text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded border ${confTheme}`}>
-                  {p.confidence_at_suggestion.toUpperCase()}
-                </span>
               </div>
 
               <div className="text-sm sm:text-base font-bold text-white">{p.pick}</div>

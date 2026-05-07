@@ -11,6 +11,10 @@ interface AvatarPick {
   matchup: string;
   game_date: string;
   bet_type: 'spread' | 'moneyline' | 'total';
+  /** MLB-only: 'full' = whole game, 'f5' = first 5 innings.
+   *  Defaults to 'full' on the row (DB CHECK + DEFAULT). Older picks
+   *  written before migration 20260501140000 read back as 'full'. */
+  period: 'full' | 'f5';
   pick_selection: string;
   archived_game_data: Record<string, unknown>;
   result: 'won' | 'lost' | 'push' | 'pending';
@@ -26,6 +30,21 @@ interface GameResult {
   ml_result: string | null;
   spread_result: string | null;
   ou_result: string | null;
+  /** Raw scores (MLB only). Mirrors the fields the main grader populates
+   *  so we can do margin-based spread grading and line-based total
+   *  grading instead of trusting the closing-line ou_result. */
+  total_runs?: number | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  /** F5 parallels (MLB only). Same shape as the main grader so
+   *  period-aware regrading routes here for F5 picks. f5_ml_result
+   *  uses 'push' when both teams scored equally through 5. Null for
+   *  any game without F5 data captured. */
+  f5_ml_result?: string | null;
+  f5_home_score?: number | null;
+  f5_away_score?: number | null;
+  f5_total_runs?: number | null;
+  f5_ou_result?: string | null;
 }
 
 interface ParsedSpreadPick {
@@ -110,8 +129,22 @@ function isLikelyPushLine(value: number): boolean {
   return Number.isInteger(value);
 }
 
+/**
+ * Strip the optional MLB "F5" period marker from a selection string before
+ * parsing. Period is tracked on the pick row itself, so the marker in
+ * selection text is descriptive only — parsers must ignore it. Mirrors
+ * the same helper in grade-avatar-picks so behavior stays consistent.
+ */
+function stripF5Marker(selection: string): string {
+  return selection
+    .replace(/\bF5\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function parseSpreadPick(selection: string): ParsedSpreadPick | null {
-  const match = selection.match(/^(.+?)\s*([+-]?\d+\.?\d*)$/);
+  const cleaned = stripF5Marker(selection);
+  const match = cleaned.match(/^(.+?)\s*([+-]?\d+\.?\d*)$/);
   if (!match) return null;
   return {
     team: match[1].trim(),
@@ -120,7 +153,8 @@ function parseSpreadPick(selection: string): ParsedSpreadPick | null {
 }
 
 function parseTotalPick(selection: string): ParsedTotalPick | null {
-  const match = selection.match(/^(over|under)\s+(\d+\.?\d*)$/i);
+  const cleaned = stripF5Marker(selection);
+  const match = cleaned.match(/^(over|under)\s+(\d+\.?\d*)$/i);
   if (!match) return null;
   return {
     direction: match[1].toLowerCase() as 'over' | 'under',
@@ -129,7 +163,7 @@ function parseTotalPick(selection: string): ParsedTotalPick | null {
 }
 
 function parseMoneylinePick(selection: string): string | null {
-  let cleaned = selection.replace(/\s*ML$/i, '').trim();
+  let cleaned = stripF5Marker(selection).replace(/\s*ML$/i, '').trim();
   cleaned = cleaned.replace(/\s*[+-]\d+$/, '').trim();
   if (!cleaned) return null;
   return cleaned;
@@ -167,9 +201,11 @@ async function fetchMLBGameResults(
   const results = new Map<string, GameResult>();
   if (gameDates.length === 0) return results;
 
+  // Pull the same column set the main grader uses so we can do
+  // margin-based spread/total grading and route F5 picks correctly.
   const { data, error } = await cfbClient
     .from('mlb_training_snapshots')
-    .select('game_pk, official_date, team_name, opp_team_name, home_away, runs_scored, runs_allowed, won, ou_result, result_filled_at')
+    .select('game_pk, official_date, team_name, opp_team_name, home_away, runs_scored, runs_allowed, won, ou_result, f5_runs_scored, f5_runs_allowed, f5_ou_result, result_filled_at')
     .eq('home_away', 'home')
     .not('result_filled_at', 'is', null)
     .in('official_date', gameDates);
@@ -189,15 +225,24 @@ async function fetchMLBGameResults(
 
     const mlResult = row.won ? homeTeam : awayTeam;
 
+    // Standard MLB run-line cover lookup (used as a fallback signal —
+    // the regrader prefers raw-score margin math when scores are
+    // available, just like the main grader).
     let spreadResult: string | null = null;
-    if (margin > 1.5) {
-      spreadResult = homeTeam;
-    } else if (margin < -1.5) {
-      spreadResult = awayTeam;
-    } else if (margin === 1) {
-      spreadResult = awayTeam;
-    } else if (margin === -1) {
-      spreadResult = homeTeam;
+    if (margin > 1.5) spreadResult = homeTeam;
+    else if (margin < -1.5) spreadResult = awayTeam;
+    else if (margin === 1) spreadResult = awayTeam;
+    else if (margin === -1) spreadResult = homeTeam;
+
+    // F5 parallels — null for any game without F5 data captured.
+    const hasF5 = row.f5_runs_scored != null && row.f5_runs_allowed != null;
+    const f5HomeScore = hasF5 ? Number(row.f5_runs_scored) : null;
+    const f5AwayScore = hasF5 ? Number(row.f5_runs_allowed) : null;
+    let f5MlResult: string | null = null;
+    if (hasF5 && f5HomeScore != null && f5AwayScore != null) {
+      if (f5HomeScore > f5AwayScore) f5MlResult = homeTeam;
+      else if (f5AwayScore > f5HomeScore) f5MlResult = awayTeam;
+      else f5MlResult = 'push';  // tied through 5 = F5 ML push
     }
 
     results.set(gameId, {
@@ -209,6 +254,16 @@ async function fetchMLBGameResults(
       ml_result: mlResult,
       spread_result: spreadResult,
       ou_result: row.ou_result ? String(row.ou_result) : null,
+      total_runs: homeScore + awayScore,
+      home_score: homeScore,
+      away_score: awayScore,
+      f5_ml_result: f5MlResult,
+      f5_home_score: f5HomeScore,
+      f5_away_score: f5AwayScore,
+      f5_total_runs: hasF5 && f5HomeScore != null && f5AwayScore != null
+        ? f5HomeScore + f5AwayScore
+        : null,
+      f5_ou_result: row.f5_ou_result ? String(row.f5_ou_result) : null,
     });
   }
   return results;
@@ -284,25 +339,69 @@ function regradePick(
   gameResult: GameResult
 ): { result: 'won' | 'lost' | 'push'; actual_result: string } | { skip_reason: string } {
   const actualResultPrefix = `${gameResult.away_team} vs ${gameResult.home_team}`;
+  // Period-aware routing for MLB. Non-MLB picks have period === 'full'
+  // by default. For F5 picks, route to f5_* parallel fields and never
+  // fall back to full-game numbers — return a skip_reason if the F5
+  // result isn't captured yet so the pick stays unchanged.
+  const isF5 = pick.period === 'f5';
+  const periodLabel = isF5 ? 'F5' : 'Final';
+  const isMlb = pick.sport === 'mlb';
 
   switch (pick.bet_type) {
     case 'moneyline': {
-      if (!gameResult.ml_result) return { skip_reason: 'game_not_final_ml' };
+      const mlResult = isF5 ? gameResult.f5_ml_result : gameResult.ml_result;
+      if (!mlResult) {
+        return { skip_reason: isF5 ? 'game_not_final_f5_ml' : 'game_not_final_ml' };
+      }
       const pickedTeam = parseMoneylinePick(pick.pick_selection);
       if (!pickedTeam) return { skip_reason: 'parse_error_moneyline' };
       const canonical = resolveCanonicalTeamName(pickedTeam, gameResult, pick.matchup, pick.archived_game_data);
       if (!canonical) return { skip_reason: 'unresolved_team_moneyline' };
+      // F5 ML can push when both teams scored equally through 5.
+      let result: 'won' | 'lost' | 'push';
+      if (mlResult === 'push') result = 'push';
+      else result = canonical === mlResult ? 'won' : 'lost';
       return {
-        result: canonical === gameResult.ml_result ? 'won' : 'lost',
-        actual_result: `${actualResultPrefix} — ML winner: ${gameResult.ml_result}`,
+        result,
+        actual_result: `${actualResultPrefix} — ${periodLabel} ML winner: ${mlResult}`,
       };
     }
     case 'spread': {
-      if (!gameResult.spread_result) return { skip_reason: 'game_not_final_spread' };
       const parsed = parseSpreadPick(pick.pick_selection);
       if (!parsed) return { skip_reason: 'parse_error_spread' };
       const canonical = resolveCanonicalTeamName(parsed.team, gameResult, pick.matchup, pick.archived_game_data);
       if (!canonical) return { skip_reason: 'unresolved_team_spread' };
+
+      // MLB path: prefer raw-score margin math over the pre-computed
+      // spread_result. The latter is hardcoded to ±1.5 and misgrades
+      // any non-standard line (e.g. F5 ±0.5, or +1.5 in a 1-run game
+      // where both teams' "spread_result" pointers are the loser).
+      // This mirrors the main grader's correct math.
+      const homeScoreForGrade = isF5 ? gameResult.f5_home_score : gameResult.home_score;
+      const awayScoreForGrade = isF5 ? gameResult.f5_away_score : gameResult.away_score;
+
+      if (isMlb && typeof homeScoreForGrade === 'number' && typeof awayScoreForGrade === 'number') {
+        const homeNorm = normalizeTeamName(gameResult.home_team);
+        const canonNorm = normalizeTeamName(canonical);
+        const margin = canonNorm === homeNorm
+          ? (homeScoreForGrade - awayScoreForGrade)
+          : (awayScoreForGrade - homeScoreForGrade);
+        const cover = margin + parsed.spread;
+        let result: 'won' | 'lost' | 'push';
+        if (cover > 0) result = 'won';
+        else if (cover < 0) result = 'lost';
+        else result = 'push';
+        return {
+          result,
+          actual_result: `${actualResultPrefix} — ${periodLabel} ${awayScoreForGrade}-${homeScoreForGrade} (${canonical} margin ${margin >= 0 ? '+' : ''}${margin} vs spread ${parsed.spread >= 0 ? '+' : ''}${parsed.spread})`,
+        };
+      }
+
+      // F5 spreads MUST have F5 scores — never silently fall through.
+      if (isF5) return { skip_reason: 'game_not_final_f5_spread' };
+
+      // Non-MLB fallback: the existing spread_result lookup.
+      if (!gameResult.spread_result) return { skip_reason: 'game_not_final_spread' };
       if (gameResult.spread_result.toUpperCase() === 'PUSH') {
         if (!isLikelyPushLine(parsed.spread)) return { skip_reason: 'impossible_spread_push_hook_line' };
         return {
@@ -316,9 +415,35 @@ function regradePick(
       };
     }
     case 'total': {
-      if (!gameResult.ou_result) return { skip_reason: 'game_not_final_total' };
       const parsed = parseTotalPick(pick.pick_selection);
       if (!parsed) return { skip_reason: 'parse_error_total' };
+
+      // MLB path: grade against agent's picked line using raw runs.
+      // Mirrors the main grader (ou_result is computed against the
+      // closing line and can drift).
+      const totalForGrade = isF5 ? gameResult.f5_total_runs : gameResult.total_runs;
+      const homeScoreLabel = isF5 ? gameResult.f5_home_score : gameResult.home_score;
+      const awayScoreLabel = isF5 ? gameResult.f5_away_score : gameResult.away_score;
+
+      if (isMlb && typeof totalForGrade === 'number') {
+        const total = totalForGrade;
+        let result: 'won' | 'lost' | 'push';
+        if (total > parsed.line) result = parsed.direction === 'over' ? 'won' : 'lost';
+        else if (total < parsed.line) result = parsed.direction === 'under' ? 'won' : 'lost';
+        else {
+          if (!isLikelyPushLine(parsed.line)) return { skip_reason: 'impossible_total_push_hook_line' };
+          result = 'push';
+        }
+        return {
+          result,
+          actual_result: `${actualResultPrefix} — ${periodLabel} ${awayScoreLabel ?? '?'}-${homeScoreLabel ?? '?'} (total ${total} vs ${parsed.line})`,
+        };
+      }
+
+      if (isF5) return { skip_reason: 'game_not_final_f5_total' };
+
+      // Non-MLB fallback: trust the view's ou_result.
+      if (!gameResult.ou_result) return { skip_reason: 'game_not_final_total' };
       const ouResult = gameResult.ou_result.toLowerCase();
       if (ouResult === 'push') {
         if (!isLikelyPushLine(parsed.line)) return { skip_reason: 'impossible_total_push_hook_line' };

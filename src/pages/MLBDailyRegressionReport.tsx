@@ -51,11 +51,6 @@ function severityBg(severity: string) {
   return 'bg-green-500/10 border-green-500/30';
 }
 
-function confidenceBadge(conf: string) {
-  if (conf === 'high') return <Badge className="bg-green-600 text-white">HIGH</Badge>;
-  return <Badge className="bg-amber-600 text-white">MODERATE</Badge>;
-}
-
 function winPctColor(pct: number) {
   if (pct >= 65) return '#22c55e';
   if (pct >= 55) return '#eab308';
@@ -603,7 +598,10 @@ function PicksSection({ picks, reportDate }: { picks: SuggestedPick[]; reportDat
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="font-bold text-sm sm:text-lg leading-tight">{p.pick}</div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {confidenceBadge(p.confidence_at_suggestion)}
+                    {/* Confidence (HIGH/MODERATE) badge removed — the tier
+                        chip above already conveys conviction (Hammer > PS >
+                        Lean > Watch) and showing both at once was confusing
+                        ("Hammer" + "MODERATE" reads as a contradiction). */}
                     <Badge variant="outline" className="text-[10px] sm:text-xs">{betTypeLabel(p.bet_type)}</Badge>
                     {p.locked && <Badge variant="secondary" className="text-[10px]">LOCKED</Badge>}
                   </div>
