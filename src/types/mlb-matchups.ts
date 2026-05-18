@@ -87,7 +87,29 @@ export interface BatterSplitRow {
   center_pct: number | null;
   oppo_pct: number | null;
   season_avg_xwoba?: number | null;
+  other_hand_pa: number | null;
+  other_hand_avg: number | null;
+  other_hand_slg: number | null;
+  other_hand_ops: number | null;
+  other_hand_woba: number | null;
+  other_hand_xwoba: number | null;
+  avg_delta_vs_other_hand: number | null;
+  slg_delta_vs_other_hand: number | null;
+  ops_delta_vs_other_hand: number | null;
+  iso_delta_vs_other_hand: number | null;
+  woba_delta_vs_other_hand: number | null;
+  xwoba_delta_vs_other_hand: number | null;
+  platoon_signal: PlatoonSignal | null;
 }
+
+export type PlatoonSignal =
+  | 'strong_advantage'
+  | 'advantage'
+  | 'neutral'
+  | 'disadvantage'
+  | 'strong_disadvantage'
+  | 'reverse_split'
+  | 'small_sample';
 
 export interface BatterVsPitchTypeRow {
   batter_id: number;

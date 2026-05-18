@@ -76,13 +76,13 @@ async function fetchBatterSplits(
 
   const [splitRes, seasonRes] = await Promise.all([
     collegeFootballSupabase
-      .from('mlb_batter_split_profile')
+      .from('v_mlb_batter_platoon_summary')
       .select('*')
       .eq('season', season)
       .eq('vs_pitcher_hand', vsHand)
       .in('batter_id', playerIds),
     collegeFootballSupabase
-      .from('mlb_batter_split_profile')
+      .from('v_mlb_batter_platoon_summary')
       .select('batter_id, xwoba')
       .eq('season', season)
       .eq('vs_pitcher_hand', 'A')
@@ -101,6 +101,7 @@ async function fetchBatterSplits(
     ...row,
     batter_id: Number(row.batter_id),
     pa: Number(row.pa ?? 0),
+    other_hand_pa: row.other_hand_pa != null ? Number(row.other_hand_pa) : null,
     season_avg_xwoba: seasonAvg.get(Number(row.batter_id)) ?? null,
   }));
 }

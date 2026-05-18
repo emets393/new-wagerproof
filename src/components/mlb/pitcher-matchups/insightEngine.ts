@@ -105,6 +105,128 @@ function windIn(dir: string | null): boolean {
   return /in/i.test(dir ?? '');
 }
 
+function wobaMilli(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return value.toFixed(3).replace(/^0/, '');
+}
+
+function platoonInsightsForBatter(batter: BatterSplitRow): Insight[] {
+  const out: Insight[] = [];
+  if (!batter.platoon_signal) return out;
+
+  const deltaPts = Math.round((batter.woba_delta_vs_other_hand ?? 0) * 1000);
+  const thisWoba = wobaMilli(batter.woba);
+  const otherWoba = wobaMilli(batter.other_hand_woba);
+  const otherHand = batter.vs_pitcher_hand === 'R' ? 'L' : 'R';
+  const vsHand = batter.vs_pitcher_hand;
+
+  switch (batter.platoon_signal) {
+    case 'strong_advantage':
+      out.push({
+        id: `platoon_strong_advantage_${batter.batter_id}`,
+        dedupeKey: `platoon:${batter.batter_id}`,
+        icon: '💪',
+        tone: 'positive',
+        scope: 'batter',
+        batter_id: batter.batter_id,
+        priority: 78,
+        headline: `💪 Crushes ${vsHand}HP (+${deltaPts} wOBA pts)`,
+        detail: `${thisWoba} wOBA vs ${vsHand}HP this season (${batter.pa} PA), vs ${otherWoba} vs ${otherHand}HP. Strong platoon advantage tonight.`,
+      });
+      break;
+    case 'advantage':
+      out.push({
+        id: `platoon_advantage_${batter.batter_id}`,
+        dedupeKey: `platoon:${batter.batter_id}`,
+        icon: '⬆️',
+        tone: 'positive',
+        scope: 'batter',
+        batter_id: batter.batter_id,
+        priority: 55,
+        headline: `⬆️ Modest edge vs ${vsHand}HP (+${deltaPts} wOBA)`,
+        detail: `Modest platoon advantage tonight (${thisWoba} vs ${otherWoba}).`,
+      });
+      break;
+    case 'strong_disadvantage':
+      out.push({
+        id: `platoon_strong_disadvantage_${batter.batter_id}`,
+        dedupeKey: `platoon:${batter.batter_id}`,
+        icon: '🪦',
+        tone: 'danger',
+        scope: 'batter',
+        batter_id: batter.batter_id,
+        priority: 78,
+        headline: `🪦 Buried vs ${vsHand}HP (${deltaPts} wOBA pts)`,
+        detail: `Only ${thisWoba} wOBA vs ${vsHand}HP (${batter.pa} PA), vs ${otherWoba} vs ${otherHand}HP. Classic platoon disadvantage.`,
+      });
+      break;
+    case 'reverse_split': {
+      const sideLabel =
+        batter.bat_side === 'L' ? 'lefty' : batter.bat_side === 'R' ? 'righty' : 'switch hitter';
+      out.push({
+        id: `platoon_reverse_split_${batter.batter_id}`,
+        dedupeKey: `platoon:${batter.batter_id}`,
+        icon: '🔀',
+        tone: 'positive',
+        scope: 'batter',
+        batter_id: batter.batter_id,
+        priority: 82,
+        headline: `🔀 Reverse split — ${batter.bat_side ?? '?'}HB crushes ${vsHand}HP`,
+        detail: `${batter.batter_name} is a ${sideLabel} hitting same-handed pitching better than opposite (${thisWoba} vs ${otherWoba}). Market typically misprices this.`,
+      });
+      break;
+    }
+    default:
+      break;
+  }
+
+  return out;
+}
+
+function lineupPlatoonGameInsights(ctx: GameContext): Insight[] {
+  const insights: Insight[] = [];
+  const sides = [
+    {
+      splits: ctx.awayBatterSplits,
+      teamName: ctx.game.away_team_name,
+      opposingPitcherName: ctx.game.home_sp_name,
+      side: 'away',
+    },
+    {
+      splits: ctx.homeBatterSplits,
+      teamName: ctx.game.home_team_name,
+      opposingPitcherName: ctx.game.away_sp_name,
+      side: 'home',
+    },
+  ] as const;
+
+  for (const { splits, teamName, opposingPitcherName, side } of sides) {
+    const advantaged = splits.filter(
+      b => b.platoon_signal === 'strong_advantage' || b.platoon_signal === 'reverse_split',
+    );
+    if (advantaged.length < 3) continue;
+
+    const names = advantaged
+      .sort((a, b) => (b.woba_delta_vs_other_hand ?? 0) - (a.woba_delta_vs_other_hand ?? 0))
+      .slice(0, 3)
+      .map(b => `${b.batter_name} +${Math.round((b.woba_delta_vs_other_hand ?? 0) * 1000)}`)
+      .join(', ');
+
+    insights.push({
+      id: `lineup_platoon_${side}`,
+      dedupeKey: `lineup_platoon:${side}`,
+      icon: '🎯',
+      tone: 'positive',
+      scope: 'game',
+      priority: 80,
+      headline: `🎯 ${teamName} lineup has ${advantaged.length} platoon edges vs ${opposingPitcherName}`,
+      detail: `Strong-side hitters tonight: ${names}.`,
+    });
+  }
+
+  return insights;
+}
+
 function splitPaOk(pa: number | undefined): boolean {
   return (pa ?? 0) >= T.MIN_PA_SPLIT;
 }
@@ -360,7 +482,7 @@ export function generateGameInsights(ctx: GameContext): Insight[] {
     ...gameInsightsForPitcher(ctx, 'home'),
   ];
 
-  return finalize([...gameLevel, ...pitcherInsights], 5);
+  return finalize([...gameLevel, ...lineupPlatoonGameInsights(ctx), ...pitcherInsights], 5);
 }
 
 export function generatePitcherInsights(ctx: PitcherContext): Insight[] {
@@ -558,6 +680,8 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
       detail: `Pitcher allows ${formatPct(opposingBattedBall.overall?.hr_per_fb_pct)} HR/FB. Favorable wind for fly balls.`,
     });
   }
+
+  insights.push(...platoonInsightsForBatter(batter));
 
   return finalize(insights, 2);
 }
