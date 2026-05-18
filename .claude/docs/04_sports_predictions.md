@@ -42,6 +42,7 @@ WagerProof provides game predictions, live scores, and betting analytics for fiv
 - `NFL.tsx` (93KB), `CollegeFootball.tsx` (95KB)
 - `NBA.tsx` (75KB), `NCAAB.tsx` (82KB)
 - `MLB.tsx` - MLB predictions with game cards and bottom sheet details
+- `mlb/F5Splits.tsx` (`/mlb/f5-splits`) - Today's first-five inning team splits; data from `mlb_games_today`, `mlb_starter_pregame`, and materialized view `mv_mlb_f5_team_splits` (refreshed daily ~11:00 UTC)
 - `TodayInSports.tsx` (117KB) - Live dashboard
 
 ### Key Components
