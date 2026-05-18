@@ -43,6 +43,7 @@ WagerProof provides game predictions, live scores, and betting analytics for fiv
 - `NBA.tsx` (75KB), `NCAAB.tsx` (82KB)
 - `MLB.tsx` - MLB predictions with game cards and bottom sheet details
 - `mlb/F5Splits.tsx` (`/mlb/f5-splits`) - Today's first-five inning team splits; data from `mlb_games_today`, `mlb_starter_pregame`, and materialized view `mv_mlb_f5_team_splits` (refreshed daily ~11:00 UTC)
+- `mlb/PitcherMatchups.tsx` (`/mlb/pitcher-matchups`) - Starter arsenals, batted-ball profiles, lineup splits, and per-batter vs pitch-type drilldowns from `mlb_pitcher_arsenal`, `mlb_pitcher_batted_ball`, `mlb_game_lineups`, `mlb_batter_split_profile`, `mlb_batter_vs_pitch_type`
 - `TodayInSports.tsx` (117KB) - Live dashboard
 
 ### Key Components

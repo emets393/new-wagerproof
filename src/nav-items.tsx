@@ -178,6 +178,11 @@ export const navItems: NavItem[] = [
         to: "/mlb/f5-splits",
         icon: <BarChart2 className="h-4 w-4" />,
       },
+      {
+        title: "Pitcher Matchups",
+        to: "/mlb/pitcher-matchups",
+        icon: <BarChart2 className="h-4 w-4" />,
+      },
     ],
   },
   {
