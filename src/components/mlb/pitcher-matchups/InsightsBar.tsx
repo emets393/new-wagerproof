@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Insight } from './insightEngine';
+import type { Insight } from '@/types/mlb-matchups';
 import { InsightChips } from './InsightChips';
 
 interface InsightsBarProps {

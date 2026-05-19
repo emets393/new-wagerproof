@@ -1,9 +1,13 @@
+export type BatterHand = 'A' | 'R' | 'L';
+export type PitchHand = 'R' | 'L';
+
 export interface PitcherArsenalRow {
   pitcher_id: number;
   pitcher_name: string;
-  pitch_hand: 'R' | 'L' | null;
+  pitch_hand: PitchHand | null;
   pitch_type: string;
   pitch_type_label: string;
+  vs_batter_hand: BatterHand;
   pitches_thrown: number;
   usage_pct: number | null;
   avg_velo: number | null;
@@ -11,6 +15,7 @@ export interface PitcherArsenalRow {
   avg_horizontal_break: number | null;
   avg_vertical_break: number | null;
   whiff_pct: number | null;
+  put_away_pct: number | null;
   xwoba_allowed: number | null;
   hard_hit_pct: number | null;
   gb_pct: number | null;
@@ -22,20 +27,27 @@ export interface PitcherArsenalRow {
   season?: number;
 }
 
+export interface PitcherArsenalByHand {
+  A: PitcherArsenalRow[];
+  R: PitcherArsenalRow[];
+  L: PitcherArsenalRow[];
+}
+
 export interface PitcherBattedBallRow {
   pitcher_id: number;
-  vs_batter_hand: 'A' | 'R' | 'L';
+  pitcher_name?: string;
+  pitch_hand?: PitchHand | null;
+  vs_batter_hand: BatterHand;
   batters_faced: number;
+  k_pct: number | null;
+  bb_pct: number | null;
   gb_pct: number | null;
   fb_pct: number | null;
   ld_pct: number | null;
   hr_per_fb_pct: number | null;
   barrel_pct: number | null;
-  k_pct: number | null;
-  bb_pct: number | null;
   woba_allowed: number | null;
   xwoba_allowed: number | null;
-  season?: number;
 }
 
 export interface PitcherBattedBallProfile {
@@ -53,13 +65,23 @@ export interface LineupRow {
   position: string | null;
   bat_side: 'R' | 'L' | 'S' | null;
   is_confirmed: boolean;
+  source?: string;
 }
+
+export type PlatoonSignal =
+  | 'strong_advantage'
+  | 'advantage'
+  | 'neutral'
+  | 'disadvantage'
+  | 'strong_disadvantage'
+  | 'reverse_split'
+  | 'small_sample';
 
 export interface BatterSplitRow {
   batter_id: number;
   batter_name: string;
   bat_side: 'R' | 'L' | 'S' | null;
-  vs_pitcher_hand: 'A' | 'R' | 'L';
+  vs_pitcher_hand: BatterHand;
   pa: number;
   ab: number;
   avg: number | null;
@@ -102,18 +124,9 @@ export interface BatterSplitRow {
   platoon_signal: PlatoonSignal | null;
 }
 
-export type PlatoonSignal =
-  | 'strong_advantage'
-  | 'advantage'
-  | 'neutral'
-  | 'disadvantage'
-  | 'strong_disadvantage'
-  | 'reverse_split'
-  | 'small_sample';
-
 export interface BatterVsPitchTypeRow {
   batter_id: number;
-  vs_pitcher_hand: 'R' | 'L';
+  vs_pitcher_hand: PitchHand;
   pitch_type: string;
   pitch_type_label: string;
   pitches_seen: number;
@@ -122,13 +135,12 @@ export interface BatterVsPitchTypeRow {
   slg: number | null;
   woba: number | null;
   xwoba: number | null;
+  k_pct: number | null;
   whiff_pct: number | null;
   gb_pct: number | null;
   fb_pct: number | null;
   hr_per_fb_pct: number | null;
 }
-
-export type PitchHand = 'R' | 'L';
 
 export interface MatchupGame {
   game_pk: number;
@@ -155,26 +167,80 @@ export interface MatchupGame {
   home_sp_hand: PitchHand;
 }
 
-/** Batter IDs → pitch type labels they hit well among the opposing starter's top 3 pitches. */
-export type BatterTopPitchMatchMap = Record<number, string[]>;
+export interface Insight {
+  id: string;
+  icon: string;
+  tone: 'positive' | 'warn' | 'danger' | 'neutral';
+  scope: 'game' | 'pitcher' | 'batter';
+  pitcher_id?: number;
+  batter_id?: number;
+  /** Pitcher's team or lineup team for game-level matchup chips */
+  team_abbrev?: string;
+  team_name?: string;
+  priority: number;
+  headline: string;
+  detail: string;
+  dedupeKey?: string;
+}
+
+export interface TopPlayBreakdownLine {
+  component: string;
+  value: number;
+  detail?: string;
+}
+
+export interface TopPlayEntry {
+  player_id: number;
+  player_name: string;
+  team_name: string;
+  game_pk: number;
+  score: number;
+  context: string;
+  breakdown: TopPlayBreakdownLine[];
+}
+
+export interface PowerStackAlert {
+  team_name: string;
+  game_pk: number;
+  hr_count: number;
+  opp_pitcher: string;
+  stack_strength: number;
+  top_hitters: { player_name: string; score: number }[];
+}
+
+export interface TopPlays {
+  hr_threats: TopPlayEntry[];
+  hit_leans: TopPlayEntry[];
+  pitcher_plays: TopPlayEntry[];
+  k_props: TopPlayEntry[];
+  power_stacks: PowerStackAlert[];
+}
+
+export interface LeagueBenchmarkPercentiles {
+  p10: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
+}
+
+export type LeagueBenchmarks = Record<string, LeagueBenchmarkPercentiles>;
 
 export interface PitcherMatchupData {
-  awayArsenal: PitcherArsenalRow[];
-  homeArsenal: PitcherArsenalRow[];
+  awayArsenal: PitcherArsenalByHand;
+  homeArsenal: PitcherArsenalByHand;
   awayBattedBall: PitcherBattedBallProfile;
   homeBattedBall: PitcherBattedBallProfile;
   awayLineup: LineupRow[];
   homeLineup: LineupRow[];
-  awayBatterSplits: BatterSplitRow[];
-  homeBatterSplits: BatterSplitRow[];
+  awayLineupSplits: BatterSplitRow[];
+  homeLineupSplits: BatterSplitRow[];
   awayBatterVsPitch: BatterVsPitchTypeRow[];
   homeBatterVsPitch: BatterVsPitchTypeRow[];
 }
 
-export type InsightTone = 'warn' | 'positive' | 'neutral';
-
-export interface MatchupInsight {
-  icon: string;
-  tone: InsightTone;
-  text: string;
-}
+/** @deprecated use awayLineupSplits */
+export type PitcherMatchupDataLegacy = PitcherMatchupData & {
+  awayBatterSplits: BatterSplitRow[];
+  homeBatterSplits: BatterSplitRow[];
+};

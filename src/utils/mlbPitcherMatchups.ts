@@ -38,6 +38,10 @@ export function formatSlash(avg: number | null, obp: number | null, slg: number 
   return `${formatRate(avg)} / ${formatRate(obp)} / ${formatRate(slg)}`;
 }
 
+function cleanPitchLabel(text: string): string {
+  return text.replace(/\.+$/g, '').trim();
+}
+
 /** Short display label for pitch-type chips (fixed-width tables). */
 export function abbrevPitchLabel(pitchType: string, fullLabel?: string): string {
   const t = pitchType.toUpperCase();
@@ -60,21 +64,23 @@ export function abbrevPitchLabel(pitchType: string, fullLabel?: string): string 
     EP: 'Eephus',
   };
   if (byCode[t]) return byCode[t];
-  const label = (fullLabel ?? t).trim();
+  const label = cleanPitchLabel(fullLabel ?? t);
   if (label.length <= 10) return label;
-  return label
-    .replace(/^4-Seam Fastball$/i, '4-Seam')
-    .replace(/^2-Seam Fastball$/i, '2-Seam')
-    .replace(/^Four-Seam Fastball$/i, '4-Seam')
-    .replace(/ Fastball$/i, '')
-    .replace(/^Split-Finger$/i, 'Splitter')
-    .replace(/^Knuckle Curve$/i, 'Kn-Curve')
-    .replace(/^Changeup$/i, 'Change')
-    .replace(/^Curveball$/i, 'Curve')
-    .replace(/^Slider$/i, 'Slider')
-    .replace(/^Sinker$/i, 'Sinker')
-    .replace(/^Cutter$/i, 'Cutter')
-    .replace(/^Sweeper$/i, 'Sweeper');
+  return cleanPitchLabel(
+    label
+      .replace(/^4-Seam Fastball$/i, '4-Seam')
+      .replace(/^2-Seam Fastball$/i, '2-Seam')
+      .replace(/^Four-Seam Fastball$/i, '4-Seam')
+      .replace(/ Fastball$/i, '')
+      .replace(/^Split-Finger$/i, 'Splitter')
+      .replace(/^Knuckle Curve$/i, 'Kn-Curve')
+      .replace(/^Changeup$/i, 'Change')
+      .replace(/^Curveball$/i, 'Curve')
+      .replace(/^Slider$/i, 'Slider')
+      .replace(/^Sinker$/i, 'Sinker')
+      .replace(/^Cutter$/i, 'Cutter')
+      .replace(/^Sweeper$/i, 'Sweeper'),
+  );
 }
 
 export function formatMoneyline(ml: number | null): string {

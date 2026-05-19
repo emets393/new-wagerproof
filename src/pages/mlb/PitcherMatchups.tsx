@@ -1,7 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useTodaysMatchupGames } from '@/hooks/useTodaysMatchupGames';
-import { GameMatchupCard } from '@/components/mlb/pitcher-matchups/GameMatchupCard';
-import { formatGameDateLabel } from '@/utils/mlbPitcherMatchups';
+import { useAllMatchupData } from '@/hooks/useAllMatchupData';
+import { useLeagueBenchmarks } from '@/hooks/useLeagueBenchmarks';
+import { useParksMap } from '@/hooks/usePark';
+import { useTopPlays } from '@/hooks/useTopPlays';
+import { GameMatchupCard, type GameMatchupCardHandle } from '@/components/mlb/pitcher-matchups/GameMatchupCard';
+import { TopPlaysHeader } from '@/components/mlb/pitcher-matchups/TopPlaysHeader';
+import { PowerStackAlert } from '@/components/mlb/pitcher-matchups/PowerStackAlert';
+import { formatGameDateLabel, seasonFromDate } from '@/utils/mlbPitcherMatchups';
+import type { TopPlayEntry } from '@/types/mlb-matchups';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -26,6 +33,25 @@ function GameCardSkeleton() {
 
 export default function PitcherMatchups() {
   const { data: games = [], isLoading, isError, error, refetch } = useTodaysMatchupGames();
+  const season = games[0] ? seasonFromDate(games[0].official_date) : new Date().getFullYear();
+
+  const { dataByGamePk, isLoading: matchupLoading } = useAllMatchupData(games, games.length > 0);
+
+  const homeAbbrs = useMemo(() => games.map(g => g.home_abbr), [games]);
+  const { data: parksByAbbr = new Map() } = useParksMap(homeAbbrs);
+
+  const { data: benchmarksR = {} } = useLeagueBenchmarks(season, 'R');
+  const { data: benchmarksL = {} } = useLeagueBenchmarks(season, 'L');
+
+  const topPlays = useTopPlays(
+    games,
+    dataByGamePk,
+    parksByAbbr,
+    !matchupLoading && dataByGamePk.size > 0,
+  );
+
+  const [highlight, setHighlight] = useState<{ gamePk: number; playerId: number } | null>(null);
+  const cardRefs = useRef<Map<number, GameMatchupCardHandle | null>>(new Map());
 
   const gamesByDate = useMemo(() => {
     const map = new Map<string, typeof games>();
@@ -38,6 +64,14 @@ export default function PitcherMatchups() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [games]);
 
+  const handleSelectPlay = (entry: TopPlayEntry) => {
+    setHighlight({ gamePk: entry.game_pk, playerId: entry.player_id });
+    cardRefs.current.get(entry.game_pk)?.expand();
+    requestAnimationFrame(() => {
+      document.getElementById(`game-${entry.game_pk}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   const errorMessage = error instanceof Error ? error.message : 'Failed to load pitcher matchups';
 
   return (
@@ -48,7 +82,7 @@ export default function PitcherMatchups() {
             ⚾ Pitcher Matchups
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Tonight&apos;s starters, arsenals, and opposing lineup splits
+            Tonight&apos;s starters, arsenals, platoon edges, and model-ranked best plays
           </p>
         </div>
         <Button
@@ -77,7 +111,7 @@ export default function PitcherMatchups() {
 
       {isLoading ? (
         <div className="space-y-4">
-          <GameCardSkeleton />
+          <Skeleton className="h-48 w-full" />
           <GameCardSkeleton />
           <GameCardSkeleton />
         </div>
@@ -89,6 +123,15 @@ export default function PitcherMatchups() {
         </Card>
       ) : (
         <div className="space-y-8">
+          {matchupLoading ? (
+            <Skeleton className="h-40 w-full" />
+          ) : (
+            <>
+              <TopPlaysHeader topPlays={topPlays} onSelectPlay={handleSelectPlay} />
+              <PowerStackAlert stacks={topPlays.power_stacks} />
+            </>
+          )}
+
           {gamesByDate.map(([dateKey, dateGames]) => (
             <section key={dateKey} className="space-y-4">
               <h2 className="text-base sm:text-lg font-bold text-foreground border-b border-border pb-2 flex flex-wrap items-baseline gap-x-2">
@@ -99,7 +142,19 @@ export default function PitcherMatchups() {
               </h2>
               <div className="space-y-4 sm:space-y-6">
                 {dateGames.map((game, idx) => (
-                  <GameMatchupCard key={game.game_pk} game={game} eagerLoad={idx < 3} />
+                  <GameMatchupCard
+                    key={game.game_pk}
+                    ref={el => {
+                      if (el) cardRefs.current.set(game.game_pk, el);
+                    }}
+                    game={game}
+                    eagerLoad={idx < 5}
+                    benchmarksR={benchmarksR}
+                    benchmarksL={benchmarksL}
+                    highlightPlayerId={
+                      highlight?.gamePk === game.game_pk ? highlight.playerId : null
+                    }
+                  />
                 ))}
               </div>
             </section>

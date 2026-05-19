@@ -1,5 +1,6 @@
 import React from 'react';
-import type { MatchupGame, PitcherMatchupData } from '@/types/mlb-matchups';
+import type { ParkHRFactors } from '@/hooks/usePark';
+import type { LeagueBenchmarks, MatchupGame, PitcherMatchupData } from '@/types/mlb-matchups';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PitcherArsenalTable } from './PitcherArsenalTable';
 import { LineupTable } from './LineupTable';
@@ -8,17 +9,23 @@ import { Loader2 } from 'lucide-react';
 interface ExpandedMatchupProps {
   game: MatchupGame;
   data: PitcherMatchupData | undefined;
+  benchmarksR: LeagueBenchmarks;
+  benchmarksL: LeagueBenchmarks;
   isLoading: boolean;
   activeTab: 'away' | 'home';
   onTabChange: (tab: 'away' | 'home') => void;
+  park: ParkHRFactors | null;
 }
 
 export function ExpandedMatchup({
   game,
   data,
+  benchmarksR,
+  benchmarksL,
   isLoading,
   activeTab,
   onTabChange,
+  park,
 }: ExpandedMatchupProps) {
   if (isLoading || !data) {
     return (
@@ -44,7 +51,11 @@ export function ExpandedMatchup({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className="min-w-0 space-y-2">
             <h4 className="text-sm font-bold">Pitcher arsenal — {game.away_sp_name}</h4>
-            <PitcherArsenalTable arsenal={data.awayArsenal} />
+            <PitcherArsenalTable
+              arsenal={data.awayArsenal}
+              pitcherName={game.away_sp_name}
+              pitcherId={game.away_sp_id}
+            />
           </section>
           <section className="min-w-0 space-y-2">
             <h4 className="text-sm font-bold">
@@ -52,14 +63,16 @@ export function ExpandedMatchup({
             </h4>
             <LineupTable
               lineup={data.homeLineup}
-              batterSplits={data.homeBatterSplits}
+              batterSplits={data.homeLineupSplits}
               opposingPitcherHand={game.away_sp_hand}
               opposingPitcherId={game.away_sp_id}
               opposingPitcherName={game.away_sp_name}
               opposingArsenal={data.awayArsenal}
               opposingBattedBall={data.awayBattedBall}
               batterVsPitchByPlayer={data.homeBatterVsPitch}
+              benchmarks={benchmarksR}
               game={game}
+              park={park}
             />
           </section>
         </div>
@@ -69,7 +82,11 @@ export function ExpandedMatchup({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className="min-w-0 space-y-2">
             <h4 className="text-sm font-bold">Pitcher arsenal — {game.home_sp_name}</h4>
-            <PitcherArsenalTable arsenal={data.homeArsenal} />
+            <PitcherArsenalTable
+              arsenal={data.homeArsenal}
+              pitcherName={game.home_sp_name}
+              pitcherId={game.home_sp_id}
+            />
           </section>
           <section className="min-w-0 space-y-2">
             <h4 className="text-sm font-bold">
@@ -77,14 +94,16 @@ export function ExpandedMatchup({
             </h4>
             <LineupTable
               lineup={data.awayLineup}
-              batterSplits={data.awayBatterSplits}
+              batterSplits={data.awayLineupSplits}
               opposingPitcherHand={game.home_sp_hand}
               opposingPitcherId={game.home_sp_id}
               opposingPitcherName={game.home_sp_name}
               opposingArsenal={data.homeArsenal}
               opposingBattedBall={data.homeBattedBall}
               batterVsPitchByPlayer={data.awayBatterVsPitch}
+              benchmarks={benchmarksL}
               game={game}
+              park={park}
             />
           </section>
         </div>

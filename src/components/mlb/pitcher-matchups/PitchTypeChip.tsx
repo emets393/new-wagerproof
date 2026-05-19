@@ -10,7 +10,7 @@ interface PitchTypeChipProps {
 
 export function PitchTypeChip({ pitchType, label, className }: PitchTypeChipProps) {
   const short = abbrevPitchLabel(pitchType, label);
-  const full = label.trim() || pitchType;
+  const full = (label.trim() || pitchType).replace(/\.+$/g, '').trim();
 
   return (
     <span

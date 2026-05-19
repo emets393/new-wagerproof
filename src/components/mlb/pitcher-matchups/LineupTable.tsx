@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import type { ParkHRFactors } from '@/hooks/usePark';
 import type {
   BatterSplitRow,
   BatterVsPitchTypeRow,
   LineupRow,
+  LeagueBenchmarks,
   MatchupGame,
-  PitcherArsenalRow,
+  PitcherArsenalByHand,
   PitcherBattedBallProfile,
   PitchHand,
 } from '@/types/mlb-matchups';
@@ -17,10 +19,12 @@ interface LineupTableProps {
   opposingPitcherHand: PitchHand;
   opposingPitcherId: number;
   opposingPitcherName: string;
-  opposingArsenal: PitcherArsenalRow[];
+  opposingArsenal: PitcherArsenalByHand;
+  benchmarks: LeagueBenchmarks;
   opposingBattedBall: PitcherBattedBallProfile;
   batterVsPitchByPlayer: BatterVsPitchTypeRow[];
   game: MatchupGame;
+  park: ParkHRFactors | null;
 }
 
 export function LineupTable({
@@ -32,7 +36,9 @@ export function LineupTable({
   opposingArsenal,
   opposingBattedBall,
   batterVsPitchByPlayer,
+  benchmarks,
   game,
+  park,
 }: LineupTableProps) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const splitById = new Map(batterSplits.map(s => [s.batter_id, s]));
@@ -66,7 +72,9 @@ export function LineupTable({
             opposingArsenal={opposingArsenal}
             opposingBattedBall={opposingBattedBall}
             batterVsPitchType={rowsForBatter(row.player_id)}
+            benchmarks={benchmarks}
             game={game}
+            park={park}
             expanded={expandedId === row.player_id}
             onToggle={() =>
               setExpandedId(prev => (prev === row.player_id ? null : row.player_id))

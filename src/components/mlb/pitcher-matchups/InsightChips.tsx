@@ -1,5 +1,6 @@
 import React from 'react';
-import type { Insight } from './insightEngine';
+import type { Insight } from '@/types/mlb-matchups';
+import { MlbTeamLogo } from './MlbTeamLogo';
 import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
@@ -41,15 +42,26 @@ export function InsightChips({ insights, className, size = 'md' }: InsightChipsP
             <TooltipTrigger asChild>
               <Badge
                 variant="outline"
-                className={cn('cursor-help font-normal leading-snug max-w-full', textSize, toneClass(insight.tone))}
+                className={cn(
+                  'cursor-help font-normal leading-snug max-w-full inline-flex items-center gap-1.5',
+                  textSize,
+                  toneClass(insight.tone),
+                )}
               >
-                {insight.headline}
+                {insight.team_abbrev ? (
+                  <MlbTeamLogo
+                    abbrev={insight.team_abbrev}
+                    name={insight.team_name ?? insight.team_abbrev}
+                    size="xs"
+                  />
+                ) : null}
+                <span className="min-w-0">{insight.headline}</span>
                 {import.meta.env.DEV ? (
                   <span className="ml-1 opacity-50 text-[9px]">({insight.priority})</span>
                 ) : null}
               </Badge>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs text-xs leading-relaxed">
+            <TooltipContent side="top" className="z-[100] max-w-xs text-xs leading-relaxed">
               {insight.detail}
             </TooltipContent>
           </Tooltip>

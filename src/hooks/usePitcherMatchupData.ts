@@ -4,24 +4,18 @@ import type {
   BatterSplitRow,
   BatterVsPitchTypeRow,
   LineupRow,
+  MatchupGame,
   PitcherArsenalRow,
   PitcherBattedBallProfile,
   PitcherBattedBallRow,
   PitcherMatchupData,
   PitchHand,
 } from '@/types/mlb-matchups';
-function arsenalPitchTypes(arsenal: PitcherArsenalRow[]): string[] {
-  return [
-    ...new Set(
-      arsenal
-        .filter(p => (p.pitches_thrown ?? 0) >= 25)
-        .map(p => p.pitch_type),
-    ),
-  ];
-}
+import { arsenalPitchTypes, groupArsenalByHand, normalizeVsBatterHand } from '@/utils/mlbArsenal';
 
 function buildBattedBallProfile(rows: PitcherBattedBallRow[]): PitcherBattedBallProfile {
-  const byHand = (h: 'A' | 'R' | 'L') => rows.find(r => r.vs_batter_hand === h) ?? null;
+  const byHand = (h: 'A' | 'R' | 'L') =>
+    rows.find(r => normalizeVsBatterHand(r.vs_batter_hand) === h) ?? null;
   return {
     overall: byHand('A'),
     vs_R: byHand('R'),
@@ -36,7 +30,12 @@ async function fetchArsenal(pitcherId: number, season: number): Promise<PitcherA
     .eq('pitcher_id', pitcherId)
     .eq('season', season);
   if (error) throw error;
-  return (data ?? []) as PitcherArsenalRow[];
+  return ((data ?? []) as PitcherArsenalRow[]).map(row => ({
+    ...row,
+    pitcher_id: Number(row.pitcher_id),
+    pitches_thrown: Number(row.pitches_thrown ?? 0),
+    vs_batter_hand: normalizeVsBatterHand(row.vs_batter_hand),
+  }));
 }
 
 async function fetchBattedBall(pitcherId: number, season: number): Promise<PitcherBattedBallProfile> {
@@ -46,7 +45,13 @@ async function fetchBattedBall(pitcherId: number, season: number): Promise<Pitch
     .eq('pitcher_id', pitcherId)
     .eq('season', season);
   if (error) throw error;
-  return buildBattedBallProfile((data ?? []) as PitcherBattedBallRow[]);
+  return buildBattedBallProfile(
+    ((data ?? []) as PitcherBattedBallRow[]).map(row => ({
+      ...row,
+      pitcher_id: Number(row.pitcher_id),
+      batters_faced: Number(row.batters_faced ?? 0),
+    })),
+  );
 }
 
 async function fetchLineup(gamePk: number, teamId: number): Promise<LineupRow[]> {
@@ -127,73 +132,69 @@ async function fetchBatterVsPitchTypes(
     ...row,
     batter_id: Number(row.batter_id),
     pitches_seen: Number(row.pitches_seen ?? 0),
+    pa: Number(row.pa ?? 0),
   }));
 }
 
+export async function fetchPitcherMatchupDataForGame(
+  game: MatchupGame,
+  season: number,
+): Promise<PitcherMatchupData> {
+  const [awayArsenalRaw, homeArsenalRaw, awayBattedBall, homeBattedBall, awayLineup, homeLineup] =
+    await Promise.all([
+      fetchArsenal(game.away_sp_id, season),
+      fetchArsenal(game.home_sp_id, season),
+      fetchBattedBall(game.away_sp_id, season),
+      fetchBattedBall(game.home_sp_id, season),
+      fetchLineup(game.game_pk, game.away_team_id),
+      fetchLineup(game.game_pk, game.home_team_id),
+    ]);
+
+  const awayArsenal = groupArsenalByHand(awayArsenalRaw);
+  const homeArsenal = groupArsenalByHand(homeArsenalRaw);
+
+  const awayIds = awayLineup.map(l => l.player_id);
+  const homeIds = homeLineup.map(l => l.player_id);
+
+  const [awayLineupSplits, homeLineupSplits] = await Promise.all([
+    fetchBatterSplits(awayIds, game.home_sp_hand, season),
+    fetchBatterSplits(homeIds, game.away_sp_hand, season),
+  ]);
+
+  const [awayBatterVsPitch, homeBatterVsPitch] = await Promise.all([
+    fetchBatterVsPitchTypes(awayIds, game.home_sp_hand, arsenalPitchTypes(homeArsenal), season),
+    fetchBatterVsPitchTypes(homeIds, game.away_sp_hand, arsenalPitchTypes(awayArsenal), season),
+  ]);
+
+  return {
+    awayArsenal,
+    homeArsenal,
+    awayBattedBall,
+    homeBattedBall,
+    awayLineup,
+    homeLineup,
+    awayLineupSplits,
+    homeLineupSplits,
+    awayBatterVsPitch,
+    homeBatterVsPitch,
+  };
+}
+
 export function usePitcherMatchupData(
-  gamePk: number,
-  awaySpId: number,
-  homeSpId: number,
-  awayTeamId: number,
-  homeTeamId: number,
-  homeSpHand: PitchHand,
-  awaySpHand: PitchHand,
+  game: MatchupGame | null,
   season: number,
   enabled: boolean,
 ) {
   return useQuery<PitcherMatchupData>({
     queryKey: [
       'mlb-pitcher-matchup-data',
-      gamePk,
-      awaySpId,
-      homeSpId,
-      awayTeamId,
-      homeTeamId,
-      homeSpHand,
-      awaySpHand,
+      game?.game_pk,
+      game?.away_sp_id,
+      game?.home_sp_id,
       season,
     ],
-    enabled: enabled && gamePk > 0 && awaySpId > 0 && homeSpId > 0,
-    queryFn: async () => {
-      const [awayArsenal, homeArsenal, awayBattedBall, homeBattedBall, awayLineup, homeLineup] =
-        await Promise.all([
-          fetchArsenal(awaySpId, season),
-          fetchArsenal(homeSpId, season),
-          fetchBattedBall(awaySpId, season),
-          fetchBattedBall(homeSpId, season),
-          fetchLineup(gamePk, awayTeamId),
-          fetchLineup(gamePk, homeTeamId),
-        ]);
-
-      const awayIds = awayLineup.map(l => l.player_id);
-      const homeIds = homeLineup.map(l => l.player_id);
-
-      const [awayBatterSplits, homeBatterSplits] = await Promise.all([
-        fetchBatterSplits(awayIds, homeSpHand, season),
-        fetchBatterSplits(homeIds, awaySpHand, season),
-      ]);
-
-      const homePitchTypes = arsenalPitchTypes(homeArsenal);
-      const awayPitchTypes = arsenalPitchTypes(awayArsenal);
-
-      const [awayBatterVsPitch, homeBatterVsPitch] = await Promise.all([
-        fetchBatterVsPitchTypes(awayIds, homeSpHand, homePitchTypes, season),
-        fetchBatterVsPitchTypes(homeIds, awaySpHand, awayPitchTypes, season),
-      ]);
-
-      return {
-        awayArsenal,
-        homeArsenal,
-        awayBattedBall,
-        homeBattedBall,
-        awayLineup,
-        homeLineup,
-        awayBatterSplits,
-        homeBatterSplits,
-        awayBatterVsPitch,
-        homeBatterVsPitch,
-      };
-    },
+    enabled: enabled && game != null && game.game_pk > 0 && game.away_sp_id > 0 && game.home_sp_id > 0,
+    queryFn: () => fetchPitcherMatchupDataForGame(game!, season),
     staleTime: 10 * 60 * 1000,
   });
 }

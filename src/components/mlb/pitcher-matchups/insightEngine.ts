@@ -1,13 +1,24 @@
+import type { ParkHRFactors } from '@/hooks/usePark';
 import type {
   BatterSplitRow,
   BatterVsPitchTypeRow,
+  Insight,
   LineupRow,
   MatchupGame,
+  PitcherArsenalByHand,
   PitcherArsenalRow,
   PitcherBattedBallProfile,
   PitchHand,
 } from '@/types/mlb-matchups';
+import { defaultArsenalTab, effectiveBatSide, getArsenalForBatter } from '@/utils/mlbArsenal';
+import {
+  effectiveBatSideForPark,
+  hrFactorForBatterSide,
+  parkSuppressesHr,
+} from '@/utils/parkHr';
 import { formatPct, formatRate, pitchFamily } from '@/utils/mlbPitcherMatchups';
+
+export type { Insight };
 
 /** Centralized thresholds — tune here only. */
 export const T = {
@@ -41,35 +52,21 @@ export const T = {
   LINEUP_CRUSH_COUNT: 3,
   LINEUP_CRUSH_MIN_PA: 20,
   HIGH_TOTAL: 8.5,
+  PLATOON_MIX_SHIFT_PP: 15,
 } as const;
-
-export interface Insight {
-  id: string;
-  icon: string;
-  tone: 'positive' | 'warn' | 'danger' | 'neutral';
-  scope: 'game' | 'pitcher' | 'batter';
-  pitcher_id?: number;
-  batter_id?: number;
-  priority: number;
-  headline: string;
-  detail: string;
-  /** Dedupe key for suppressing lower-priority related insights */
-  dedupeKey?: string;
-}
 
 export interface GameContext {
   game: MatchupGame;
-  awayArsenal: PitcherArsenalRow[];
-  homeArsenal: PitcherArsenalRow[];
+  park: ParkHRFactors | null;
+  awayArsenal: PitcherArsenalByHand;
+  homeArsenal: PitcherArsenalByHand;
   awayBattedBall: PitcherBattedBallProfile;
   homeBattedBall: PitcherBattedBallProfile;
   awayLineup: LineupRow[];
   homeLineup: LineupRow[];
-  awayBatterSplits: BatterSplitRow[];
-  homeBatterSplits: BatterSplitRow[];
-  /** Away lineup batters vs home SP hand (all relevant pitch types) */
+  awayLineupSplits: BatterSplitRow[];
+  homeLineupSplits: BatterSplitRow[];
   awayBatterVsPitch: BatterVsPitchTypeRow[];
-  /** Home lineup batters vs away SP hand */
   homeBatterVsPitch: BatterVsPitchTypeRow[];
 }
 
@@ -77,7 +74,7 @@ export interface PitcherContext {
   pitcherId: number;
   pitcherName: string;
   pitchHand: PitchHand;
-  arsenal: PitcherArsenalRow[];
+  arsenal: PitcherArsenalByHand;
   battedBall: PitcherBattedBallProfile;
   opposingLineup: LineupRow[];
   opposingSplits: BatterSplitRow[];
@@ -91,10 +88,68 @@ export interface BatterContext {
   opposingPitcherId: number;
   opposingPitcherName: string;
   opposingPitcherHand: PitchHand;
-  opposingArsenal: PitcherArsenalRow[];
+  opposingArsenal: PitcherArsenalByHand;
   opposingBattedBall: PitcherBattedBallProfile;
   batterVsPitchType: BatterVsPitchTypeRow[];
   game: MatchupGame;
+  park: ParkHRFactors | null;
+}
+
+function arsenalForOpposingLineup(
+  arsenal: PitcherArsenalByHand,
+  opposingLineup: LineupRow[],
+  pitcherHand: PitchHand,
+): PitcherArsenalRow[] {
+  const tab = defaultArsenalTab(opposingLineup, pitcherHand);
+  const rows = arsenal[tab];
+  return rows.filter(p => (p.pitches_thrown ?? 0) >= 25).length >= 3 ? rows : arsenal.A;
+}
+
+function teamForSide(side: 'away' | 'home', game: MatchupGame): Pick<Insight, 'team_abbrev' | 'team_name'> {
+  return side === 'away'
+    ? { team_abbrev: game.away_abbr, team_name: game.away_team_name }
+    : { team_abbrev: game.home_abbr, team_name: game.home_team_name };
+}
+
+function platoonMixShiftInsights(
+  pitcherId: number,
+  pitcherName: string,
+  arsenal: PitcherArsenalByHand,
+  team: Pick<Insight, 'team_abbrev' | 'team_name'>,
+): Insight[] {
+  const insights: Insight[] = [];
+  const byType = new Map<string, { r?: PitcherArsenalRow; l?: PitcherArsenalRow }>();
+  for (const row of arsenal.R) {
+    const cur = byType.get(row.pitch_type) ?? {};
+    cur.r = row;
+    byType.set(row.pitch_type, cur);
+  }
+  for (const row of arsenal.L) {
+    const cur = byType.get(row.pitch_type) ?? {};
+    cur.l = row;
+    byType.set(row.pitch_type, cur);
+  }
+  for (const [pitchType, { r, l }] of byType) {
+    if (!r || !l) continue;
+    const diff = Math.abs((r.usage_pct ?? 0) - (l.usage_pct ?? 0));
+    if (diff < T.PLATOON_MIX_SHIFT_PP) continue;
+    const moreVs = (r.usage_pct ?? 0) > (l.usage_pct ?? 0) ? 'right-handed' : 'left-handed';
+    const label = r.pitch_type_label || l.pitch_type_label || pitchType;
+    insights.push({
+      id: `mix_shift_${pitcherId}_${pitchType}`,
+      dedupeKey: `mix_shift:${pitcherId}:${pitchType}`,
+      icon: '💡',
+      tone: 'neutral',
+      scope: 'game',
+      pitcher_id: pitcherId,
+      ...team,
+      priority: 60,
+      headline: `💡 Platoon mix shift — ${label} +${Math.round(diff)}pp vs ${moreVs} bats`,
+      detail: `${pitcherName} throws ${label} ${Math.round(r.usage_pct ?? 0)}% vs RHB and ${Math.round(l.usage_pct ?? 0)}% vs LHB.`,
+    });
+    if (insights.length >= 2) break;
+  }
+  return insights;
 }
 
 function windOut(dir: string | null): boolean {
@@ -183,17 +238,144 @@ function platoonInsightsForBatter(batter: BatterSplitRow): Insight[] {
   return out;
 }
 
+function shortPorchBatterInsight(
+  batter: BatterSplitRow,
+  park: ParkHRFactors,
+  pitcherHand: PitchHand,
+): Insight | null {
+  const effSide = effectiveBatSideForPark(batter.bat_side, pitcherHand);
+  const isShortPorchSide =
+    (effSide === 'L' && park.rf_short_porch) || (effSide === 'R' && park.lf_short_porch);
+
+  if (
+    !isShortPorchSide ||
+    (batter.pull_air_pct ?? 0) < 35 ||
+    (batter.hr_per_fb_pct ?? 0) < 12 ||
+    batter.pa < 30
+  ) {
+    return null;
+  }
+
+  const distance = effSide === 'L' ? park.rf_line_ft : park.lf_line_ft;
+  const hrFactor = hrFactorForBatterSide(park, effSide);
+
+  return {
+    id: `short_porch_${batter.batter_id}`,
+    dedupeKey: `short_porch:${batter.batter_id}`,
+    icon: '🏟️',
+    tone: 'positive',
+    scope: 'batter',
+    batter_id: batter.batter_id,
+    priority: 80,
+    headline: `🏟️ Short porch matchup — ${distance} ft ${effSide === 'L' ? 'RF' : 'LF'}`,
+    detail: `${park.venue_name}'s ${distance} ft ${effSide === 'L' ? 'right' : 'left'} field is HR-friendly for this batter (${formatPct(batter.pull_air_pct)} pull-air, ${formatPct(batter.hr_per_fb_pct)} HR/FB). Park HR factor ${hrFactor.toFixed(2)}x.`,
+  };
+}
+
+function parkGameInsights(ctx: GameContext): Insight[] {
+  const park = ctx.park;
+  if (!park) return [];
+
+  const insights: Insight[] = [];
+  const homeTeam = teamForSide('home', ctx.game);
+
+  const lineupConfigs = [
+    {
+      splits: ctx.awayLineupSplits,
+      pitcherHand: ctx.game.home_sp_hand,
+      teamName: ctx.game.away_team_name,
+      team: teamForSide('away', ctx.game),
+    },
+    {
+      splits: ctx.homeLineupSplits,
+      pitcherHand: ctx.game.away_sp_hand,
+      teamName: ctx.game.home_team_name,
+      team: homeTeam,
+    },
+  ] as const;
+
+  for (const favoredHand of ['L', 'R'] as const) {
+    const benefits = favoredHand === 'L' ? park.lhb_hr_factor >= 1.08 : park.rhb_hr_factor >= 1.08;
+    const factor = favoredHand === 'L' ? park.lhb_hr_factor : park.rhb_hr_factor;
+    if (!benefits) continue;
+
+    for (const { splits, pitcherHand, teamName, team } of lineupConfigs) {
+      const favored = splits.filter(
+        b =>
+          effectiveBatSide(b, pitcherHand) === favoredHand &&
+          (b.pull_air_pct ?? 0) >= 30 &&
+          (b.barrel_pct ?? 0) >= 9 &&
+          b.pa >= 30,
+      );
+      if (favored.length < 2) continue;
+
+      const names = favored
+        .slice(0, 3)
+        .map(b => b.batter_name)
+        .join(', ');
+      insights.push({
+        id: `park_friendly_${favoredHand}_${teamName}`,
+        dedupeKey: `park_friendly:${favoredHand}:${teamName}`,
+        icon: '🏟️',
+        tone: 'positive',
+        scope: 'game',
+        ...team,
+        priority: 75,
+        headline: `🏟️ ${park.venue_name} HR-friendly for ${favoredHand}HB (${factor.toFixed(2)}x)`,
+        detail: `${favored.length} ${favoredHand}HB hitters in ${teamName}'s lineup with pull-air ≥ 30% + barrel ≥ 9%: ${names}.`,
+      });
+    }
+  }
+
+  for (const favoredHand of ['L', 'R'] as const) {
+    const suppresses =
+      favoredHand === 'L' ? park.lhb_hr_factor <= 0.92 : park.rhb_hr_factor <= 0.92;
+    const factor = favoredHand === 'L' ? park.lhb_hr_factor : park.rhb_hr_factor;
+    if (!suppresses) continue;
+
+    for (const { splits, pitcherHand, teamName, team } of lineupConfigs) {
+      const threats = splits.filter(
+        b =>
+          effectiveBatSide(b, pitcherHand) === favoredHand &&
+          (b.pull_air_pct ?? 0) >= 30 &&
+          (b.barrel_pct ?? 0) >= 9 &&
+          (b.hr_per_fb_pct ?? 0) >= 12 &&
+          b.pa >= 30,
+      );
+      if (threats.length < 2) continue;
+
+      const names = threats
+        .slice(0, 3)
+        .map(b => b.batter_name)
+        .join(', ');
+      insights.push({
+        id: `park_suppress_${favoredHand}_${teamName}`,
+        dedupeKey: `park_suppress:${favoredHand}:${teamName}`,
+        icon: '🏟️',
+        tone: 'danger',
+        scope: 'game',
+        ...team,
+        priority: 70,
+        headline: `🏟️ ${park.venue_name} HR-suppressing for ${favoredHand}HB (${factor.toFixed(2)}x)`,
+        detail: `Park typically -${Math.round((1 - factor) * 100)}% HR rate for ${favoredHand}HB. Notable hitters who may underperform: ${names}.`,
+      });
+    }
+  }
+
+  return insights;
+}
+
 function lineupPlatoonGameInsights(ctx: GameContext): Insight[] {
   const insights: Insight[] = [];
   const sides = [
     {
-      splits: ctx.awayBatterSplits,
+      splits: ctx.awayLineupSplits,
       teamName: ctx.game.away_team_name,
       opposingPitcherName: ctx.game.home_sp_name,
       side: 'away',
     },
     {
-      splits: ctx.homeBatterSplits,
+      splits: ctx.homeLineupSplits,
       teamName: ctx.game.home_team_name,
       opposingPitcherName: ctx.game.away_sp_name,
       side: 'home',
@@ -218,6 +400,7 @@ function lineupPlatoonGameInsights(ctx: GameContext): Insight[] {
       icon: '🎯',
       tone: 'positive',
       scope: 'game',
+      ...teamForSide(side, ctx.game),
       priority: 80,
       headline: `🎯 ${teamName} lineup has ${advantaged.length} platoon edges vs ${opposingPitcherName}`,
       detail: `Strong-side hitters tonight: ${names}.`,
@@ -304,9 +487,12 @@ function gameInsightsForPitcher(
           arsenal: ctx.homeArsenal,
           bb: ctx.homeBattedBall,
         };
-  const oppSplits = side === 'away' ? ctx.homeBatterSplits : ctx.awayBatterSplits;
+  const oppLineup = side === 'away' ? ctx.homeLineup : ctx.awayLineup;
+  const oppSplits = side === 'away' ? ctx.homeLineupSplits : ctx.awayLineupSplits;
   const oppVsPitch = side === 'away' ? ctx.homeBatterVsPitch : ctx.awayBatterVsPitch;
+  const handArsenal = arsenalForOpposingLineup(pitcher.arsenal, oppLineup, pitcher.hand);
   const handLabel = pitcher.hand === 'R' ? 'right' : 'left';
+  const team = teamForSide(side, ctx.game);
 
   const overall = pitcher.bb.overall;
   const wind = ctx.game.wind_speed_mph ?? 0;
@@ -316,7 +502,8 @@ function gameInsightsForPitcher(
     overall &&
     (overall.fb_pct ?? 0) >= T.FB_HEAVY_PITCHER &&
     wind >= T.WIND_OUT_THRESHOLD_MPH &&
-    windOut(ctx.game.wind_direction)
+    windOut(ctx.game.wind_direction) &&
+    !ctx.park?.has_roof
   ) {
     const threats = oppSplits.filter(
       s =>
@@ -339,6 +526,7 @@ function gameInsightsForPitcher(
         tone: 'danger',
         scope: 'game',
         pitcher_id: pitcher.id,
+        ...team,
         priority: 95,
         headline: `🌪️ ${pitcher.name} (fly-ball) vs ${pullAir.length} pull-air hitters, ${Math.round(wind)} mph out`,
         detail: `Pitcher fly-ball rate ${formatPct(overall.fb_pct)}. Wind blowing out. Threats: ${names}.`,
@@ -346,8 +534,10 @@ function gameInsightsForPitcher(
     }
   }
 
+  insights.push(...platoonMixShiftInsights(pitcher.id, pitcher.name, pitcher.arsenal, team));
+
   // K-prop over
-  const wipeout = wipeoutPitch(pitcher.arsenal);
+  const wipeout = wipeoutPitch(handArsenal);
   const lineupK = avgSplitStat(oppSplits, s => s.k_pct);
   const pitcherK = overall?.k_pct;
   if (
@@ -369,6 +559,7 @@ function gameInsightsForPitcher(
       tone: 'positive',
       scope: 'game',
       pitcher_id: pitcher.id,
+      ...team,
       priority: 90,
       headline: `🎯 Strikeout upside — ${wipeout.pitch_type_label} (${formatPct(wipeout.whiff_pct)} whiff), lineup ${Math.round(lineupK)}% K vs ${handLabel}HP`,
       detail: `${wipeout.pitch_type_label} used ${Math.round(wipeout.usage_pct ?? 0)}% with ${formatPct(wipeout.whiff_pct)} whiff. Pitcher K% ${formatPct(pitcherK)}. ${highKHitters.length} lineup hitters whiff ≥30% on this pitch.`,
@@ -376,7 +567,7 @@ function gameInsightsForPitcher(
   }
 
   // Pitch mismatch — lineup crushes heavily-used pitch
-  for (const pitch of pitcher.arsenal) {
+  for (const pitch of handArsenal) {
     if ((pitch.usage_pct ?? 0) < T.PITCH_USAGE_RELEVANT) continue;
     if ((pitch.xwoba_allowed ?? 0) < T.PITCHER_VULN_XWOBA) continue;
     const crushers = oppSplits.filter(s => {
@@ -399,6 +590,7 @@ function gameInsightsForPitcher(
         tone: 'warn',
         scope: 'game',
         pitcher_id: pitcher.id,
+        ...team,
         priority: 85,
         headline: `⚠️ ${pitcher.name}'s ${pitch.pitch_type_label} hittable — ${crushers.length} hitters crush it`,
         detail: `Usage ${Math.round(pitch.usage_pct ?? 0)}%, pitcher allows ${formatRate(pitch.xwoba_allowed)} xwOBA on pitch. ${list}.`,
@@ -423,6 +615,7 @@ function gameInsightsForPitcher(
         tone: 'neutral',
         scope: 'game',
         pitcher_id: pitcher.id,
+        ...team,
         priority: 70,
         headline: `🧱 Ground-ball profile — ${formatPct(overall.gb_pct)} ground-ball rate`,
         detail: `Fly-ball lineup (avg ${Math.round(lineupGb)}% GB vs ${handLabel}HP) vs extreme ground-ball pitcher. Often caps total upside.`,
@@ -449,6 +642,7 @@ function gameInsightsForPitcher(
       tone: 'positive',
       scope: 'game',
       pitcher_id: pitcher.id,
+      ...team,
       priority: 65,
       headline: `☀️ Platoon edge — ${platoonCount} ${handName} bats vs ${pitcher.name}`,
       detail: `Allows ${formatRate(vsHandBb.xwoba_allowed)} xwOBA to ${handName} batters this season.`,
@@ -482,14 +676,17 @@ export function generateGameInsights(ctx: GameContext): Insight[] {
     ...gameInsightsForPitcher(ctx, 'home'),
   ];
 
-  return finalize([...gameLevel, ...lineupPlatoonGameInsights(ctx), ...pitcherInsights], 5);
+  return finalize(
+    [...gameLevel, ...parkGameInsights(ctx), ...lineupPlatoonGameInsights(ctx), ...pitcherInsights],
+    5,
+  );
 }
 
 export function generatePitcherInsights(ctx: PitcherContext): Insight[] {
   const insights: Insight[] = [];
   const { arsenal, battedBall, pitcherId, pitcherName } = ctx;
 
-  const wipeout = arsenal.find(
+  const wipeout = arsenal.A.find(
     p =>
       (p.whiff_pct ?? 0) >= T.WIPEOUT_WHIFF_STRICT &&
       (p.usage_pct ?? 0) >= T.WIPEOUT_USAGE &&
@@ -509,7 +706,7 @@ export function generatePitcherInsights(ctx: PitcherContext): Insight[] {
     });
   }
 
-  const top = topUsagePitch(arsenal, 20);
+  const top = topUsagePitch(arsenal.A, 20);
   if (
     top &&
     pitchFamily(top.pitch_type) === 'fastball' &&
@@ -529,7 +726,7 @@ export function generatePitcherInsights(ctx: PitcherContext): Insight[] {
     });
   }
 
-  const diverse = arsenal.filter(
+  const diverse = arsenal.A.filter(
     p => (p.usage_pct ?? 0) >= 10 && (p.pitches_thrown ?? 0) >= T.MIN_PITCHES_PER_TYPE,
   ).length;
   if (diverse >= 5) {
@@ -554,7 +751,7 @@ export function generatePitcherInsights(ctx: PitcherContext): Insight[] {
 
 export function generateBatterInsights(ctx: BatterContext): Insight[] {
   const insights: Insight[] = [];
-  const { batter, opposingArsenal, opposingBattedBall, batterVsPitchType, game } = ctx;
+  const { batter, opposingArsenal, opposingBattedBall, batterVsPitchType, game, park } = ctx;
 
   if (!splitPaOk(batter.pa)) return [];
 
@@ -562,8 +759,10 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
   const pitcherFb = opposingBattedBall.overall?.fb_pct ?? 0;
   const wind = game.wind_speed_mph ?? 0;
 
+  const handArsenal = getArsenalForBatter(batter, ctx.opposingPitcherHand, opposingArsenal);
+
   // Crushes #1 pitch
-  const top = topUsagePitch(opposingArsenal, 25);
+  const top = topUsagePitch(handArsenal, 25);
   if (top) {
     const vs = batterVsPitchFor(batterVsPitchType, batter.batter_id, top.pitch_type);
     if (
@@ -587,7 +786,7 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
   }
 
   // Whiffs vs wipeout
-  const wipeout = wipeoutPitch(opposingArsenal);
+  const wipeout = wipeoutPitch(handArsenal);
   if (wipeout) {
     const vs = batterVsPitchFor(batterVsPitchType, batter.batter_id, wipeout.pitch_type);
     if (
@@ -615,7 +814,9 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
     (batter.pull_air_pct ?? 0) >= T.PULL_AIR_THREAT &&
     (batter.hr_per_fb_pct ?? 0) >= 12 &&
     pitcherFb >= 35 &&
-    (wind >= 10 && windOut(game.wind_direction))
+    wind >= 10 &&
+    windOut(game.wind_direction) &&
+    !park?.has_roof
   ) {
     insights.push({
       id: `batter_pull_hr_${batter.batter_id}`,
@@ -629,11 +830,8 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
     });
   }
 
-  // Hot vs hand
-  const delta =
-    batter.xwoba != null && batter.season_avg_xwoba != null
-      ? batter.xwoba - batter.season_avg_xwoba
-      : null;
+  // Hot vs hand (platoon delta)
+  const delta = batter.xwoba_delta_vs_other_hand;
   if (
     delta != null &&
     delta >= T.HOT_COLD_DELTA &&
@@ -647,7 +845,7 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
       batter_id: batter.batter_id,
       priority: 70,
       headline: `🔥 ${formatRate(batter.xwoba)} xwOBA vs ${handLabel}HP (+${delta.toFixed(3)})`,
-      detail: `${batter.pa} PA in split. ${formatPct(batter.barrel_pct)} barrel rate confirms quality contact.`,
+      detail: `${batter.pa} PA in split. ${formatPct(batter.barrel_pct)} barrel rate confirms quality contact vs other hand.`,
     });
   } else if (delta != null && delta <= -T.HOT_COLD_DELTA) {
     insights.push({
@@ -658,8 +856,30 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
       batter_id: batter.batter_id,
       priority: 65,
       headline: `❄️ ${formatRate(batter.xwoba)} xwOBA vs ${handLabel}HP (${delta.toFixed(3)})`,
-      detail: `${batter.pa} PA in split vs season baseline ${formatRate(batter.season_avg_xwoba)}.`,
+      detail: `${batter.pa} PA in split — ${Math.round(delta * 1000)} wOBA pts below opposite hand.`,
     });
+  }
+
+  // K-prone vs wipeout pitch type
+  if (wipeout) {
+    const vs = batterVsPitchFor(batterVsPitchType, batter.batter_id, wipeout.pitch_type);
+    if (
+      vs &&
+      pitchesSeenOk(vs.pitches_seen) &&
+      (vs.k_pct ?? 0) >= 35
+    ) {
+      insights.push({
+        id: `batter_k_pitch_${batter.batter_id}_${wipeout.pitch_type}`,
+        dedupeKey: `batter_k_pitch:${batter.batter_id}:${wipeout.pitch_type}`,
+        icon: '😬',
+        tone: 'warn',
+        scope: 'batter',
+        batter_id: batter.batter_id,
+        priority: 60,
+        headline: `😬 ${formatPct(vs.k_pct)} K vs ${wipeout.pitch_type_label}`,
+        detail: `${vs.pitches_seen} pitches seen. Pitcher uses ${wipeout.pitch_type_label} ${Math.round(wipeout.usage_pct ?? 0)}% vs this hand.`,
+      });
+    }
   }
 
   // Power profile
@@ -667,7 +887,9 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
     (batter.iso ?? 0) >= T.POWER_ISO &&
     (batter.barrel_pct ?? 0) >= T.POWER_BARREL &&
     (opposingBattedBall.overall?.hr_per_fb_pct ?? 0) >= 12 &&
-    (wind >= 10 && windOut(game.wind_direction))
+    wind >= 10 &&
+    windOut(game.wind_direction) &&
+    !park?.has_roof
   ) {
     insights.push({
       id: `batter_power_${batter.batter_id}`,
@@ -683,23 +905,31 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
 
   insights.push(...platoonInsightsForBatter(batter));
 
+  if (park) {
+    const porch = shortPorchBatterInsight(batter, park, ctx.opposingPitcherHand);
+    if (porch) insights.push(porch);
+  }
+
   return finalize(insights, 2);
 }
 
 export function buildGameContext(
   game: MatchupGame,
   data: {
-    awayArsenal: PitcherArsenalRow[];
-    homeArsenal: PitcherArsenalRow[];
+    awayArsenal: PitcherArsenalByHand;
+    homeArsenal: PitcherArsenalByHand;
     awayBattedBall: PitcherBattedBallProfile;
     homeBattedBall: PitcherBattedBallProfile;
     awayLineup: LineupRow[];
     homeLineup: LineupRow[];
-    awayBatterSplits: BatterSplitRow[];
-    homeBatterSplits: BatterSplitRow[];
+    awayLineupSplits: BatterSplitRow[];
+    homeLineupSplits: BatterSplitRow[];
     awayBatterVsPitch: BatterVsPitchTypeRow[];
     homeBatterVsPitch: BatterVsPitchTypeRow[];
   },
+  park: ParkHRFactors | null = null,
 ): GameContext {
-  return { game, ...data };
+  return { game, park, ...data };
 }
+
+export { parkSuppressesHr };

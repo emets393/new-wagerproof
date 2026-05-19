@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
+import type { ParkHRFactors } from '@/hooks/usePark';
 import type {
   BatterSplitRow,
   BatterVsPitchTypeRow,
   LineupRow,
   MatchupGame,
-  PitcherArsenalRow,
+  LeagueBenchmarks,
+  PitcherArsenalByHand,
   PitcherBattedBallProfile,
   PitchHand,
 } from '@/types/mlb-matchups';
@@ -13,12 +15,7 @@ import { BatterDrilldown } from './BatterDrilldown';
 import { InsightChips } from './InsightChips';
 import { generateBatterInsights } from './insightEngine';
 import { formatRate, formatSlash, hasEnoughPa } from '@/utils/mlbPitcherMatchups';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -33,10 +30,12 @@ interface BatterRowProps {
   vsPitcherHand: PitchHand;
   opposingPitcherId: number;
   opposingPitcherName: string;
-  opposingArsenal: PitcherArsenalRow[];
+  opposingArsenal: PitcherArsenalByHand;
   opposingBattedBall: PitcherBattedBallProfile;
   batterVsPitchType: BatterVsPitchTypeRow[];
+  benchmarks: LeagueBenchmarks;
   game: MatchupGame;
+  park: ParkHRFactors | null;
   expanded: boolean;
   onToggle: () => void;
 }
@@ -59,20 +58,24 @@ function PlatoonStatTooltip({
 
   if (!hasPlatoon) {
     return (
-      <span className="cursor-default">
+      <span>
         {slashLine} · {xwobaLine}
       </span>
     );
   }
 
   return (
-    <Tooltip>
+    <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
-        <span className="cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-2">
+        <span
+          className="cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-2"
+          onClick={e => e.stopPropagation()}
+          onKeyDown={e => e.stopPropagation()}
+        >
           {slashLine} · {xwobaLine}
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">
+      <TooltipContent side="top" className="z-[100] max-w-xs">
         <div className="space-y-1 text-sm">
           <div>
             vs {vsPitcherHand}HP: {wobaMilli(split.woba)} wOBA ({split.pa} PA)
@@ -109,7 +112,9 @@ export function BatterRow({
   opposingArsenal,
   opposingBattedBall,
   batterVsPitchType,
+  benchmarks,
   game,
+  park,
   expanded,
   onToggle,
 }: BatterRowProps) {
@@ -128,6 +133,7 @@ export function BatterRow({
       opposingBattedBall,
       batterVsPitchType,
       game,
+      park,
     });
   }, [
     split,
@@ -139,56 +145,70 @@ export function BatterRow({
     opposingBattedBall,
     batterVsPitchType,
     game,
+    park,
   ]);
 
   const enough = split && hasEnoughPa(split.pa);
   const slashLine = split ? formatSlash(split.avg, split.obp, split.slg) : '—';
   const xwobaLine = split ? `${formatRate(split.xwoba)} xwOBA` : '';
 
+  const handleRowKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onToggle();
+    }
+  };
+
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="border-b border-border/60 last:border-0">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="w-full flex items-start gap-2 sm:gap-3 py-3 px-1 sm:px-2 text-left hover:bg-muted/40 transition-colors"
-        >
-          <Headshot playerId={lineup.player_id} size={60} alt={lineup.player_name} />
-          <div className="flex-1 min-w-0 space-y-1">
-            <p className="text-sm font-semibold text-foreground leading-snug">
-              {lineup.batting_order}. {lineup.player_name}{' '}
-              <span className="text-muted-foreground font-normal">
-                ({hand}){lineup.position ? ` · ${lineup.position}` : ''}
-              </span>
+    <div className="border-b border-border/60 last:border-0">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={handleRowKeyDown}
+        className="w-full flex items-start gap-2 sm:gap-3 py-3 px-1 sm:px-2 text-left hover:bg-muted/40 transition-colors cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Headshot playerId={lineup.player_id} size={60} alt={lineup.player_name} />
+        <div className="flex-1 min-w-0 space-y-1">
+          <p className="text-sm font-semibold text-foreground leading-snug">
+            {lineup.batting_order}. {lineup.player_name}{' '}
+            <span className="text-muted-foreground font-normal">
+              ({hand}){lineup.position ? ` · ${lineup.position}` : ''}
+            </span>
+          </p>
+          {enough && split ? (
+            <p className="text-xs text-muted-foreground leading-snug">
+              vs {vsPitcherHand === 'R' ? 'right' : 'left'}: {split.pa} PA · AVG/OBP/SLG{' '}
+              <PlatoonStatTooltip
+                split={split}
+                vsPitcherHand={vsPitcherHand}
+                slashLine={slashLine}
+                xwobaLine={xwobaLine}
+              />
             </p>
-            {enough && split ? (
-              <p className="text-xs text-muted-foreground leading-snug">
-                vs {vsPitcherHand === 'R' ? 'right' : 'left'}: {split.pa} PA · AVG/OBP/SLG{' '}
-                <PlatoonStatTooltip
-                  split={split}
-                  vsPitcherHand={vsPitcherHand}
-                  slashLine={slashLine}
-                  xwobaLine={xwobaLine}
-                />
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground italic">Not enough data this season</p>
-            )}
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Not enough data this season</p>
+          )}
+          <div onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
             <InsightChips insights={batterInsights} size="sm" />
           </div>
-          <span className="shrink-0 text-muted-foreground pt-1">
-            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          </span>
-        </button>
-        {expanded && split ? (
-          <BatterDrilldown
-            split={split}
-            opposingArsenal={opposingArsenal}
-            vsPitcherHand={vsPitcherHand}
-            season={new Date(game.official_date).getFullYear()}
-          />
-        ) : null}
+        </div>
+        <span className="shrink-0 text-muted-foreground pt-1 pointer-events-none">
+          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </span>
       </div>
-    </TooltipProvider>
+      {expanded && split ? (
+        <BatterDrilldown
+          split={split}
+          opposingArsenal={opposingArsenal}
+          opposingPitcherName={opposingPitcherName}
+          opposingPitcherHand={vsPitcherHand}
+          vsPitcherHand={vsPitcherHand}
+          benchmarks={benchmarks}
+          season={new Date(game.official_date).getFullYear()}
+          batterVsPitchType={batterVsPitchType}
+        />
+      ) : null}
+    </div>
   );
 }
