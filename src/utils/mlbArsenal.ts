@@ -14,6 +14,7 @@ export function normalizeVsBatterHand(raw: string | null | undefined): BatterHan
     .toUpperCase();
   if (h === 'R' || h === 'RHB' || h === 'RH' || h === 'RIGHT') return 'R';
   if (h === 'L' || h === 'LHB' || h === 'LH' || h === 'LEFT') return 'L';
+  if (h === 'A' || h === 'ALL' || h === 'O' || h === 'OVERALL' || h === '') return 'A';
   return 'A';
 }
 

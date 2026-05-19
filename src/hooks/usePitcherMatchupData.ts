@@ -1,16 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import type {
+  BatterRecentForm,
   BatterSplitRow,
+  BatterVsArchetypeRow,
   BatterVsPitchTypeRow,
   LineupRow,
   MatchupGame,
+  PitcherArchetypeProfile,
+  PitcherArchetypeType,
   PitcherArsenalRow,
   PitcherBattedBallProfile,
   PitcherBattedBallRow,
   PitcherMatchupData,
   PitchHand,
 } from '@/types/mlb-matchups';
+import { isDisplayArchetype } from '@/utils/mlbPitcherArchetypes';
 import { arsenalPitchTypes, groupArsenalByHand, normalizeVsBatterHand } from '@/utils/mlbArsenal';
 
 function buildBattedBallProfile(rows: PitcherBattedBallRow[]): PitcherBattedBallProfile {
@@ -46,11 +51,18 @@ async function fetchBattedBall(pitcherId: number, season: number): Promise<Pitch
     .eq('season', season);
   if (error) throw error;
   return buildBattedBallProfile(
-    ((data ?? []) as PitcherBattedBallRow[]).map(row => ({
-      ...row,
-      pitcher_id: Number(row.pitcher_id),
-      batters_faced: Number(row.batters_faced ?? 0),
-    })),
+    ((data ?? []) as Record<string, unknown>[]).map(raw => {
+      const xwobaRaw =
+        raw.xwoba_allowed ?? raw.xwobacon_allowed ?? raw.xwobacon ?? raw.xwoba ?? null;
+      const wobaRaw = raw.woba_allowed ?? raw.woba ?? null;
+      return {
+        ...(raw as PitcherBattedBallRow),
+        pitcher_id: Number(raw.pitcher_id),
+        batters_faced: Number(raw.batters_faced ?? 0),
+        xwoba_allowed: xwobaRaw != null ? Number(xwobaRaw) : null,
+        woba_allowed: wobaRaw != null ? Number(wobaRaw) : null,
+      };
+    }),
   );
 }
 
@@ -136,6 +148,144 @@ async function fetchBatterVsPitchTypes(
   }));
 }
 
+function normalizeRecentFormRow(raw: Record<string, unknown>): BatterRecentForm {
+  return {
+    batter_id: Number(raw.batter_id),
+    season: raw.season != null ? Number(raw.season) : undefined,
+    vs_pitcher_hand: raw.vs_pitcher_hand as BatterRecentForm['vs_pitcher_hand'],
+    window_games: Number(raw.window_games ?? 10),
+    games_used: Number(raw.games_used ?? 0),
+    pa: Number(raw.pa ?? 0),
+    bbe: Number(raw.bbe ?? 0),
+    avg_exit_velo: raw.avg_exit_velo != null ? Number(raw.avg_exit_velo) : null,
+    hard_hit_pct: raw.hard_hit_pct != null ? Number(raw.hard_hit_pct) : null,
+    barrel_pct: raw.barrel_pct != null ? Number(raw.barrel_pct) : null,
+    pull_air_pct: raw.pull_air_pct != null ? Number(raw.pull_air_pct) : null,
+    gb_pct: raw.gb_pct != null ? Number(raw.gb_pct) : null,
+    fb_pct: raw.fb_pct != null ? Number(raw.fb_pct) : null,
+    ld_pct: raw.ld_pct != null ? Number(raw.ld_pct) : null,
+    k_pct: raw.k_pct != null ? Number(raw.k_pct) : null,
+    bb_pct: raw.bb_pct != null ? Number(raw.bb_pct) : null,
+    xwoba: raw.xwoba != null ? Number(raw.xwoba) : null,
+    as_of_date: raw.as_of_date != null ? String(raw.as_of_date) : null,
+  };
+}
+
+async function fetchBatterRecentForms(
+  playerIds: number[],
+  vsHand: PitchHand,
+  season: number,
+): Promise<Map<number, BatterRecentForm>> {
+  if (playerIds.length === 0 || (vsHand !== 'R' && vsHand !== 'L')) return new Map();
+
+  const { data, error } = await collegeFootballSupabase
+    .from('mlb_batter_recent_form')
+    .select('*')
+    .eq('season', season)
+    .eq('vs_pitcher_hand', vsHand)
+    .eq('window_games', 10)
+    .in('batter_id', playerIds);
+
+  if (error) throw error;
+
+  const map = new Map<number, BatterRecentForm>();
+  for (const row of data ?? []) {
+    const normalized = normalizeRecentFormRow(row as Record<string, unknown>);
+    map.set(normalized.batter_id, normalized);
+  }
+  return map;
+}
+
+async function fetchPitcherArchetype(
+  pitcherId: number,
+  season: number,
+): Promise<PitcherArchetypeProfile | null> {
+  const { data, error } = await collegeFootballSupabase
+    .from('v_mlb_pitcher_archetypes')
+    .select('archetype, k_pct, gb_pct, fb_pct, bb_pct, max_fb_velo')
+    .eq('pitcher_id', pitcherId)
+    .eq('season', season)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    archetype: String(data.archetype) as PitcherArchetypeType,
+    k_pct: data.k_pct != null ? Number(data.k_pct) : null,
+    gb_pct: data.gb_pct != null ? Number(data.gb_pct) : null,
+    fb_pct: data.fb_pct != null ? Number(data.fb_pct) : null,
+    bb_pct: data.bb_pct != null ? Number(data.bb_pct) : null,
+    max_fb_velo: data.max_fb_velo != null ? Number(data.max_fb_velo) : null,
+  };
+}
+
+function normalizeVsArchetypeRow(raw: Record<string, unknown>): BatterVsArchetypeRow {
+  const pa = Number(raw.pa ?? 0);
+  return {
+    batter_id: Number(raw.batter_id),
+    season: Number(raw.season),
+    vs_pitcher_hand: raw.vs_pitcher_hand as 'R' | 'L',
+    archetype: String(raw.archetype),
+    pa,
+    avg: raw.avg != null ? Number(raw.avg) : null,
+    obp: raw.obp != null ? Number(raw.obp) : null,
+    slg: raw.slg != null ? Number(raw.slg) : null,
+    xwoba: raw.xwoba != null ? Number(raw.xwoba) : null,
+    k_pct: raw.k_pct != null ? Number(raw.k_pct) : null,
+    barrel_pct: raw.barrel_pct != null ? Number(raw.barrel_pct) : null,
+    hard_hit_pct: raw.hard_hit_pct != null ? Number(raw.hard_hit_pct) : null,
+    hr_per_pa:
+      raw.hr_per_pa != null
+        ? Number(raw.hr_per_pa)
+        : raw.home_runs != null && pa > 0
+          ? Number(raw.home_runs) / pa
+          : null,
+  };
+}
+
+async function fetchBatterVsArchetypes(
+  batterIds: number[],
+  season: number,
+  vsHand: PitchHand,
+  archetype: PitcherArchetypeType,
+): Promise<Record<number, BatterVsArchetypeRow>> {
+  if (
+    batterIds.length === 0 ||
+    (vsHand !== 'R' && vsHand !== 'L') ||
+    !isDisplayArchetype(archetype)
+  ) {
+    return {};
+  }
+
+  const { data, error } = await collegeFootballSupabase
+    .from('mlb_batter_vs_archetype')
+    .select('*')
+    .eq('season', season)
+    .eq('vs_pitcher_hand', vsHand)
+    .eq('archetype', archetype)
+    .in('batter_id', batterIds);
+
+  if (error) throw error;
+
+  const out: Record<number, BatterVsArchetypeRow> = {};
+  for (const row of data ?? []) {
+    const normalized = normalizeVsArchetypeRow(row as Record<string, unknown>);
+    out[normalized.batter_id] = normalized;
+  }
+  return out;
+}
+
+function attachRecentForm(
+  splits: BatterSplitRow[],
+  recentById: Map<number, BatterRecentForm>,
+): BatterSplitRow[] {
+  return splits.map(split => {
+    const recent = recentById.get(split.batter_id);
+    return recent ? { ...split, recent_form: recent } : split;
+  });
+}
+
 export async function fetchPitcherMatchupDataForGame(
   game: MatchupGame,
   season: number,
@@ -161,9 +311,22 @@ export async function fetchPitcherMatchupDataForGame(
     fetchBatterSplits(homeIds, game.away_sp_hand, season),
   ]);
 
-  const [awayBatterVsPitch, homeBatterVsPitch] = await Promise.all([
-    fetchBatterVsPitchTypes(awayIds, game.home_sp_hand, arsenalPitchTypes(homeArsenal), season),
-    fetchBatterVsPitchTypes(homeIds, game.away_sp_hand, arsenalPitchTypes(awayArsenal), season),
+  const [awayBatterVsPitch, homeBatterVsPitch, awayRecent, homeRecent, awayArchetype, homeArchetype] =
+    await Promise.all([
+      fetchBatterVsPitchTypes(awayIds, game.home_sp_hand, arsenalPitchTypes(homeArsenal), season),
+      fetchBatterVsPitchTypes(homeIds, game.away_sp_hand, arsenalPitchTypes(awayArsenal), season),
+      fetchBatterRecentForms(awayIds, game.home_sp_hand, season),
+      fetchBatterRecentForms(homeIds, game.away_sp_hand, season),
+      fetchPitcherArchetype(game.away_sp_id, season),
+      fetchPitcherArchetype(game.home_sp_id, season),
+    ]);
+
+  const awayArchType = awayArchetype?.archetype ?? 'Insufficient';
+  const homeArchType = homeArchetype?.archetype ?? 'Insufficient';
+
+  const [awayVsArchetypeByBatter, homeVsArchetypeByBatter] = await Promise.all([
+    fetchBatterVsArchetypes(awayIds, season, game.home_sp_hand, homeArchType),
+    fetchBatterVsArchetypes(homeIds, season, game.away_sp_hand, awayArchType),
   ]);
 
   return {
@@ -173,10 +336,14 @@ export async function fetchPitcherMatchupDataForGame(
     homeBattedBall,
     awayLineup,
     homeLineup,
-    awayLineupSplits,
-    homeLineupSplits,
+    awayLineupSplits: attachRecentForm(awayLineupSplits, awayRecent),
+    homeLineupSplits: attachRecentForm(homeLineupSplits, homeRecent),
     awayBatterVsPitch,
     homeBatterVsPitch,
+    awayArchetype,
+    homeArchetype,
+    awayVsArchetypeByBatter,
+    homeVsArchetypeByBatter,
   };
 }
 

@@ -1,17 +1,22 @@
 import React, { useMemo } from 'react';
 import type {
   BatterSplitRow,
+  BatterVsArchetypeRow,
   BatterVsPitchTypeRow,
   LeagueBenchmarks,
+  PitcherArchetypeType,
   PitcherArsenalByHand,
   PitchHand,
 } from '@/types/mlb-matchups';
+import { BatterVsArchetypeSection } from './BatterVsArchetypeSection';
+import { useBatterRecentForm } from '@/hooks/useBatterRecentForm';
 import { useBatterVsPitchType } from '@/hooks/useBatterVsPitchType';
 import { resolveBenchmark } from '@/hooks/useLeagueBenchmarks';
 import { arsenalPitchTypes } from '@/utils/mlbArsenal';
 import { abbrevPitchLabel, formatPct, formatRate, formatSlash, hasEnoughPa } from '@/utils/mlbPitcherMatchups';
 import { PitchTypeChip } from './PitchTypeChip';
 import { ShadedStat } from './ShadedStat';
+import { StatWithRecent } from './StatWithRecent';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Loader2 } from 'lucide-react';
 import {
@@ -33,6 +38,8 @@ interface BatterDrilldownProps {
   season: number;
   /** Preloaded at game level when matchup details load */
   batterVsPitchType?: BatterVsPitchTypeRow[];
+  opposingArchetype?: PitcherArchetypeType;
+  batterVsArchetype?: BatterVsArchetypeRow | null;
 }
 
 function bench(benchmarks: LeagueBenchmarks, key: string) {
@@ -48,6 +55,8 @@ export function BatterDrilldown({
   benchmarks,
   season,
   batterVsPitchType: prefetchedVsPitch = [],
+  opposingArchetype = 'Insufficient',
+  batterVsArchetype,
 }: BatterDrilldownProps) {
   const pitchTypes = useMemo(() => arsenalPitchTypes(opposingArsenal), [opposingArsenal]);
   const hasPrefetch = prefetchedVsPitch.length > 0;
@@ -62,6 +71,13 @@ export function BatterDrilldown({
 
   const vsPitch = hasPrefetch ? prefetchedVsPitch : fetchedVsPitch;
   const isLoading = !hasPrefetch && isFetching;
+
+  const { data: recentForm } = useBatterRecentForm(
+    split.batter_id,
+    season,
+    vsPitcherHand,
+    hasEnoughPa(split.pa),
+  );
 
   const vsPitchByType = new Map(vsPitch.map(r => [r.pitch_type, r]));
   const handLong = vsPitcherHand === 'R' ? 'right-handed' : 'left-handed';
@@ -90,25 +106,76 @@ export function BatterDrilldown({
           <ShadedStat label="OPS" value={formatRate(split.ops)} raw={split.ops} benchmark={bench(benchmarks, 'ops')} />
           <ShadedStat label="ISO" value={formatRate(split.iso)} raw={split.iso} benchmark={bench(benchmarks, 'iso')} />
           <ShadedStat label="wOBA" value={formatRate(split.woba)} raw={split.woba} benchmark={bench(benchmarks, 'woba')} />
-          <ShadedStat label="xwOBA" value={formatRate(split.xwoba)} raw={split.xwoba} benchmark={bench(benchmarks, 'xwoba')} />
+          <StatWithRecent
+            label="xwOBA"
+            seasonValue={split.xwoba}
+            recentValue={recentForm?.xwoba}
+            formatted={formatRate}
+            benchmark={bench(benchmarks, 'xwoba')}
+          />
           <ShadedStat label="BABIP" value={formatRate(split.babip)} raw={split.babip} benchmark={bench(benchmarks, 'babip')} />
-          <ShadedStat label="K%" value={formatPct(split.k_pct)} raw={split.k_pct} benchmark={bench(benchmarks, 'k_pct')} higherIsBetter={false} />
-          <ShadedStat label="BB%" value={formatPct(split.bb_pct)} raw={split.bb_pct} benchmark={bench(benchmarks, 'bb_pct')} />
-          <ShadedStat label="Avg exit velo" value={split.avg_exit_velo?.toFixed(1) ?? '—'} raw={split.avg_exit_velo} benchmark={bench(benchmarks, 'avg_exit_velo')} />
-          <ShadedStat label="Hard-hit%" value={formatPct(split.hard_hit_pct)} raw={split.hard_hit_pct} benchmark={bench(benchmarks, 'hard_hit_pct')} />
-          <ShadedStat label="Barrel%" value={formatPct(split.barrel_pct)} raw={split.barrel_pct} benchmark={bench(benchmarks, 'barrel_pct')} />
+          <StatWithRecent
+            label="K%"
+            seasonValue={split.k_pct}
+            recentValue={recentForm?.k_pct}
+            formatted={formatPct}
+            benchmark={bench(benchmarks, 'k_pct')}
+            higherIsBetter={false}
+          />
+          <StatWithRecent
+            label="BB%"
+            seasonValue={split.bb_pct}
+            recentValue={recentForm?.bb_pct}
+            formatted={formatPct}
+            benchmark={bench(benchmarks, 'bb_pct')}
+          />
+          <StatWithRecent
+            label="Avg exit velo"
+            seasonValue={split.avg_exit_velo}
+            recentValue={recentForm?.avg_exit_velo}
+            formatted={v => (v != null && Number.isFinite(v) ? v.toFixed(1) : '—')}
+            benchmark={bench(benchmarks, 'avg_exit_velo')}
+          />
+          <StatWithRecent
+            label="Hard-hit%"
+            seasonValue={split.hard_hit_pct}
+            recentValue={recentForm?.hard_hit_pct}
+            formatted={formatPct}
+            benchmark={bench(benchmarks, 'hard_hit_pct')}
+          />
+          <StatWithRecent
+            label="Barrel%"
+            seasonValue={split.barrel_pct}
+            recentValue={recentForm?.barrel_pct}
+            formatted={formatPct}
+            benchmark={bench(benchmarks, 'barrel_pct')}
+          />
           <ShadedStat label="GB%" value={formatPct(split.gb_pct)} raw={split.gb_pct} benchmark={undefined} />
           <ShadedStat label="FB%" value={formatPct(split.fb_pct)} raw={split.fb_pct} benchmark={undefined} />
           <ShadedStat label="LD%" value={formatPct(split.ld_pct)} raw={split.ld_pct} benchmark={bench(benchmarks, 'ld_pct')} />
           <ShadedStat label="IFFB%" value={formatPct(split.iffb_pct)} raw={split.iffb_pct} benchmark={bench(benchmarks, 'iffb_pct')} higherIsBetter={false} />
           <ShadedStat label="HR/FB%" value={formatPct(split.hr_per_fb_pct)} raw={split.hr_per_fb_pct} benchmark={bench(benchmarks, 'hr_per_fb_pct')} />
           <ShadedStat label="Pull%" value={formatPct(split.pull_pct)} raw={split.pull_pct} benchmark={undefined} />
-          <ShadedStat label="Pull-air%" value={formatPct(split.pull_air_pct)} raw={split.pull_air_pct} benchmark={bench(benchmarks, 'pull_air_pct')} />
+          <StatWithRecent
+            label="Pull-air%"
+            seasonValue={split.pull_air_pct}
+            recentValue={recentForm?.pull_air_pct}
+            formatted={formatPct}
+            benchmark={bench(benchmarks, 'pull_air_pct')}
+          />
           <ShadedStat label="Center%" value={formatPct(split.center_pct)} raw={split.center_pct} benchmark={undefined} />
           <ShadedStat label="Oppo%" value={formatPct(split.oppo_pct)} raw={split.oppo_pct} benchmark={undefined} />
         </div>
         </TooltipProvider>
       </div>
+
+      <BatterVsArchetypeSection
+        split={split}
+        vsPitcherHand={vsPitcherHand}
+        opposingArchetype={opposingArchetype}
+        season={season}
+        prefetched={batterVsArchetype}
+      />
 
       <div>
         <h4 className="text-xs font-bold uppercase text-muted-foreground mb-1">

@@ -1,5 +1,6 @@
 import type { ParkHRFactors } from '@/hooks/usePark';
 import type {
+  BatterRecentForm,
   BatterSplitRow,
   BatterVsPitchTypeRow,
   MatchupGame,
@@ -9,6 +10,15 @@ import type {
   PitchHand,
 } from '@/types/mlb-matchups';
 import { effectiveBatSide, getArsenalForBatter } from '@/utils/mlbArsenal';
+import {
+  blendDeltaSubline,
+  blendStat,
+  BLEND_SEASON_WEIGHT,
+  formatPctStat,
+  formatXwobaStat,
+  HOTNESS_MIN_SCORE,
+  MIN_L10_BBE,
+} from '@/utils/mlbRecentForm';
 import { effectiveBatSideForPark, parkHrAdjustment } from '@/utils/parkHr';
 
 export const SCORE_CONSTANTS = {
@@ -21,7 +31,12 @@ export const SCORE_CONSTANTS = {
   POWER_STACK_MIN_HR_SCORE: 75,
   POWER_STACK_MIN_HITTERS: 3,
   POWER_STACK_MAX_DISPLAYED: 3,
+  HOTNESS_MIN_SCORE,
+  MIN_L10_BBE,
+  BLEND_SEASON_WEIGHT,
 } as const;
+
+export { blendStat, HOTNESS_MIN_SCORE, MIN_L10_BBE };
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
@@ -65,12 +80,35 @@ export function computeHrThreat(
   if (batter.pa < SCORE_CONSTANTS.MIN_PA_BATTER_SPLIT) return empty;
   if (oppPitcher.batters_faced < SCORE_CONSTANTS.MIN_BF_PITCHER) return empty;
 
+  const recent = batter.recent_form ?? null;
+  const recentBBE = recent?.bbe ?? 0;
+  const blendedBarrel = blendStat(batter.barrel_pct, recent?.barrel_pct ?? null, recentBBE);
+  const blendedPullAir = blendStat(batter.pull_air_pct, recent?.pull_air_pct ?? null, recentBBE);
+
   const power = avg([
-    clamp((batter.barrel_pct ?? 0) / 18 * 100, 0, 100),
+    clamp((blendedBarrel ?? 0) / 18 * 100, 0, 100),
     clamp((batter.hr_per_fb_pct ?? 0) / 20 * 100, 0, 100),
     clamp((batter.iso ?? 0) / 0.25 * 100, 0, 100),
-    clamp((batter.pull_air_pct ?? 0) / 45 * 100, 0, 100),
+    clamp((blendedPullAir ?? 0) / 45 * 100, 0, 100),
   ]);
+
+  const powerSubLines: string[] = [];
+  const barrelLine = blendDeltaSubline(
+    'Barrel%',
+    batter.barrel_pct,
+    recent?.barrel_pct,
+    formatPctStat,
+    3,
+  );
+  const pullLine = blendDeltaSubline(
+    'Pull-air',
+    batter.pull_air_pct,
+    recent?.pull_air_pct,
+    formatPctStat,
+    3,
+  );
+  if (barrelLine) powerSubLines.push(barrelLine);
+  if (pullLine) powerSubLines.push(pullLine);
 
   const vuln = avg([
     clamp((oppPitcher.fb_pct ?? 0) / 45 * 100, 0, 100),
@@ -124,11 +162,17 @@ export function computeHrThreat(
 
   const finalScore = clamp(Math.round(score), 0, 100);
 
+  const powerDetailBase = `barrel ${formatPct(blendedBarrel)} · ISO ${formatRate(batter.iso)} · HR/FB ${formatPct(batter.hr_per_fb_pct)} · pull-air ${formatPct(blendedPullAir)}`;
+  const powerDetail =
+    recentBBE >= MIN_L10_BBE
+      ? `${powerDetailBase} (blended season + L10)${powerSubLines.length ? `\n${powerSubLines.join('\n')}` : ''}`
+      : powerDetailBase;
+
   const breakdown: HrThreatBreakdownLine[] = [
     {
       component: 'Power profile',
       value: Math.round(power),
-      detail: `barrel ${formatPct(batter.barrel_pct)} · ISO ${formatRate(batter.iso)} · HR/FB ${formatPct(batter.hr_per_fb_pct)} · pull-air ${formatPct(batter.pull_air_pct)}`,
+      detail: powerDetail,
     },
     {
       component: 'Vulnerability',
@@ -191,22 +235,51 @@ export function hrThreatScore(
   ).score;
 }
 
-export function hitLeanScore(
+export interface HitLeanResult {
+  score: number;
+  breakdown: HrThreatBreakdownLine[];
+}
+
+export function computeHitLean(
   batter: BatterSplitRow,
   oppPitcher: PitcherBattedBallRow,
   arsenalsByHand: PitcherArsenalByHand,
   batterVsPitchType: BatterVsPitchTypeRow[],
   pitcher_hand: PitchHand,
-): number {
-  if (batter.pa < SCORE_CONSTANTS.MIN_PA_BATTER_SPLIT) return 0;
-  if (oppPitcher.batters_faced < SCORE_CONSTANTS.MIN_BF_PITCHER) return 0;
+): HitLeanResult {
+  const empty: HitLeanResult = { score: 0, breakdown: [] };
+  if (batter.pa < SCORE_CONSTANTS.MIN_PA_BATTER_SPLIT) return empty;
+  if (oppPitcher.batters_faced < SCORE_CONSTANTS.MIN_BF_PITCHER) return empty;
+
+  const recent = batter.recent_form ?? null;
+  const recentBBE = recent?.bbe ?? 0;
+  const blendedXwoba = blendStat(batter.xwoba, recent?.xwoba ?? null, recent?.pa ?? 0);
+  const blendedHardHit = blendStat(batter.hard_hit_pct, recent?.hard_hit_pct ?? null, recentBBE);
 
   const contact = avg([
-    clamp((batter.xwoba ?? 0) / 0.42 * 100, 0, 100),
-    clamp((batter.hard_hit_pct ?? 0) / 50 * 100, 0, 100),
+    clamp((blendedXwoba ?? 0) / 0.42 * 100, 0, 100),
+    clamp((blendedHardHit ?? 0) / 50 * 100, 0, 100),
     clamp((35 - (batter.k_pct ?? 35)) / 35 * 100, 0, 100),
     clamp((batter.babip ?? 0) / 0.35 * 100, 0, 100),
   ]);
+
+  const contactSubLines: string[] = [];
+  const xwobaLine = blendDeltaSubline(
+    'xwOBA',
+    batter.xwoba,
+    recent?.xwoba,
+    formatXwobaStat,
+    0.025,
+  );
+  const hardHitLine = blendDeltaSubline(
+    'Hard-hit',
+    batter.hard_hit_pct,
+    recent?.hard_hit_pct,
+    formatPctStat,
+    3,
+  );
+  if (xwobaLine) contactSubLines.push(xwobaLine);
+  if (hardHitLine) contactSubLines.push(hardHitLine);
 
   const handArsenal = getArsenalForBatter(batter, pitcher_hand, arsenalsByHand);
   const top3 = handArsenal
@@ -237,7 +310,84 @@ export function hitLeanScore(
     clamp((oppPitcher.bb_pct ?? 0) / 12 * 100, 0, 100),
   ]);
 
-  return clamp(Math.round(0.4 * contact + 0.35 * matchup + 0.25 * hittability), 0, 100);
+  const score = clamp(Math.round(0.4 * contact + 0.35 * matchup + 0.25 * hittability), 0, 100);
+
+  const contactDetailBase = `xwOBA ${formatXwobaStat(blendedXwoba)} · hard-hit ${formatPctStat(blendedHardHit)} · K ${formatPct(batter.k_pct)}`;
+  const contactDetail =
+    recentBBE >= MIN_L10_BBE
+      ? `${contactDetailBase} (blended season + L10)${contactSubLines.length ? `\n${contactSubLines.join('\n')}` : ''}`
+      : contactDetailBase;
+
+  return {
+    score,
+    breakdown: [
+      { component: 'Contact', value: Math.round(contact), detail: contactDetail },
+      { component: 'Matchup', value: Math.round(matchup) },
+      { component: 'Hittability', value: Math.round(hittability) },
+    ],
+  };
+}
+
+export function hitLeanScore(
+  batter: BatterSplitRow,
+  oppPitcher: PitcherBattedBallRow,
+  arsenalsByHand: PitcherArsenalByHand,
+  batterVsPitchType: BatterVsPitchTypeRow[],
+  pitcher_hand: PitchHand,
+): number {
+  return computeHitLean(batter, oppPitcher, arsenalsByHand, batterVsPitchType, pitcher_hand).score;
+}
+
+/**
+ * Pure recent-form delta vs season — surfaces batters crushing the ball in L10.
+ */
+export function hotnessScore(batter: BatterSplitRow, recent: BatterRecentForm | null | undefined): number {
+  if (!recent || (recent.bbe ?? 0) < MIN_L10_BBE) return 0;
+  if (batter.pa < SCORE_CONSTANTS.MIN_PA_BATTER_SPLIT) return 0;
+
+  const barrelDelta = (recent.barrel_pct ?? 0) - (batter.barrel_pct ?? 0);
+  const hardHitDelta = (recent.hard_hit_pct ?? 0) - (batter.hard_hit_pct ?? 0);
+  const pullAirDelta = (recent.pull_air_pct ?? 0) - (batter.pull_air_pct ?? 0);
+  const xwobaDelta = (recent.xwoba ?? 0) - (batter.xwoba ?? 0);
+
+  const composite =
+    barrelDelta * 4 + hardHitDelta * 2 + pullAirDelta * 1.5 + xwobaDelta * 100;
+
+  return clamp(Math.round(50 + composite), 0, 100);
+}
+
+export function hottestHitterContext(
+  batter: BatterSplitRow,
+  recent: BatterRecentForm,
+  oppPitcherName: string,
+  oppHand: PitchHand,
+): string {
+  const barrelDelta = (recent.barrel_pct ?? 0) - (batter.barrel_pct ?? 0);
+  const ppSign = barrelDelta >= 0 ? '+' : '';
+  const handLabel = oppHand === 'R' ? 'RHP' : 'LHP';
+  return `L10 barrel: ${formatPctStat(recent.barrel_pct)} (${ppSign}${barrelDelta.toFixed(0)}pp) · vs ${oppPitcherName} (${handLabel})`;
+}
+
+export function hottestHitterBreakdown(
+  batter: BatterSplitRow,
+  recent: BatterRecentForm,
+): HrThreatBreakdownLine[] {
+  const barrelDelta = (recent.barrel_pct ?? 0) - (batter.barrel_pct ?? 0);
+  const hardHitDelta = (recent.hard_hit_pct ?? 0) - (batter.hard_hit_pct ?? 0);
+  const xwobaDelta = (recent.xwoba ?? 0) - (batter.xwoba ?? 0);
+  const pullDelta = (recent.pull_air_pct ?? 0) - (batter.pull_air_pct ?? 0);
+
+  return [
+    {
+      component: 'L10 vs season',
+      value: hotnessScore(batter, recent),
+      detail:
+        `Barrel ${formatPctStat(recent.barrel_pct)} (season ${formatPctStat(batter.barrel_pct)}, ${barrelDelta >= 0 ? '+' : ''}${barrelDelta.toFixed(1)}pp)\n` +
+        `Hard-hit ${formatPctStat(recent.hard_hit_pct)} (season ${formatPctStat(batter.hard_hit_pct)}, ${hardHitDelta >= 0 ? '+' : ''}${hardHitDelta.toFixed(1)}pp)\n` +
+        `xwOBA ${formatXwobaStat(recent.xwoba)} (season ${formatXwobaStat(batter.xwoba)}, ${xwobaDelta >= 0 ? '+' : ''}${xwobaDelta.toFixed(3)})\n` +
+        `Pull-air ${formatPctStat(recent.pull_air_pct)} (season ${formatPctStat(batter.pull_air_pct)}, ${pullDelta >= 0 ? '+' : ''}${pullDelta.toFixed(1)}pp)`,
+    },
+  ];
 }
 
 export function pitcherPerformanceScore(

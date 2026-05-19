@@ -9,8 +9,8 @@ interface F5SplitsComparisonRowProps {
   homeSubtext?: React.ReactNode;
   awayClassName?: string;
   homeClassName?: string;
-  awayLabel?: string;
-  homeLabel?: string;
+  awayLabel?: React.ReactNode;
+  homeLabel?: React.ReactNode;
   className?: string;
 }
 

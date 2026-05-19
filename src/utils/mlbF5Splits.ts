@@ -1,5 +1,28 @@
 import type { F5SplitRow, PitchHand } from '@/types/mlbF5Splits';
-import { F5_SPLIT_MIN_GAMES } from '@/types/mlbF5Splits';
+import { SAMPLE_THRESHOLDS } from '@/types/mlbF5Splits';
+
+export { SAMPLE_THRESHOLDS };
+
+export type SplitSampleTier = 'hide' | 'small' | 'adequate' | 'robust';
+
+export function splitSampleTier(games: number | null | undefined): SplitSampleTier {
+  const g = games ?? 0;
+  if (g < SAMPLE_THRESHOLDS.HIDE) return 'hide';
+  if (g < SAMPLE_THRESHOLDS.SMALL) return 'small';
+  if (g < SAMPLE_THRESHOLDS.ADEQUATE) return 'adequate';
+  return 'robust';
+}
+
+export function splitIsShowable(games: number | null | undefined): boolean {
+  return splitSampleTier(games) !== 'hide';
+}
+
+export function gamesCountToneClass(games: number): string {
+  const tier = splitSampleTier(games);
+  if (tier === 'small') return 'text-amber-600 dark:text-amber-500';
+  if (tier === 'robust') return 'text-emerald-600 dark:text-emerald-400';
+  return 'text-foreground';
+}
 
 /** Materialized view uses game-log abbreviations (AZ, ATH). */
 export function toF5SplitTeamAbbr(abbr: string): string {
@@ -52,8 +75,10 @@ export function normalizePitchHand(raw: string | null | undefined): PitchHand {
   return null;
 }
 
-export function hasEnoughSplitGames(row: F5SplitRow | null): boolean {
-  return !!row && row.games >= F5_SPLIT_MIN_GAMES;
+/** True when the split has enough games to display (≥2). */
+export function hasEnoughSplitGames(row: F5SplitRow | null, gamesOverride?: number): boolean {
+  if (!row) return false;
+  return splitIsShowable(gamesOverride ?? row.games);
 }
 
 export function formatMoneyline(ml: number | null): string {
@@ -131,14 +156,14 @@ export interface TeamDefenseSplitStats {
   avgRa: number;
   games: number;
   diffVsSeason: number;
-  enough: boolean;
+  tier: SplitSampleTier;
 }
 
 export function getTeamDefenseSplitStats(
   splitRow: F5SplitRow | null,
   ownHand: PitchHand,
 ): TeamDefenseSplitStats | null {
-  if (!splitRow || !hasEnoughSplitGames(splitRow)) return null;
+  if (!splitRow) return null;
   if (ownHand !== 'R' && ownHand !== 'L') return null;
 
   const avgRa =
@@ -150,9 +175,9 @@ export function getTeamDefenseSplitStats(
       ? splitRow.ra_diff_vs_season_when_own_rhp
       : splitRow.ra_diff_vs_season_when_own_lhp;
 
-  if (games == null || games < F5_SPLIT_MIN_GAMES || avgRa == null || diffVsSeason == null) {
+  if (games == null || !splitIsShowable(games) || avgRa == null || diffVsSeason == null) {
     return null;
   }
 
-  return { avgRa, games, diffVsSeason, enough: true };
+  return { avgRa, games, diffVsSeason, tier: splitSampleTier(games) };
 }

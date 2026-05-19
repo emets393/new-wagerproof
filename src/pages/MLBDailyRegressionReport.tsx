@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
+import React, { useMemo, useState } from 'react';
+import { useMLBRegressionReport, type LRSplitEntry } from '@/hooks/useMLBRegressionReport';
+import { useF5Splits } from '@/hooks/useF5Splits';
+import { LRSplitF5Record } from '@/components/mlb/LRSplitF5Record';
+import { teamAbbrFromLrSplitName } from '@/utils/f5SplitLabels';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBSeriesSignals, type MLBSeriesSignal } from '@/hooks/useMLBSeriesSignals';
 import { useMLBModelBreakdownAccuracy, type ModelBreakdownRow, type ModelBreakdownBetType } from '@/hooks/useMLBModelBreakdownAccuracy';
@@ -1044,17 +1047,61 @@ function SeriesSignalsSection({ signals }: { signals: MLBSeriesSignal[] }) {
   );
 }
 
-function LRSplitsSection({ splits }: { splits: any[] }) {
-  if (!splits || !splits.length) return null;
-  const notable = splits.filter((s: any) => s.is_notable);
-  const rest = splits.filter((s: any) => !s.is_notable);
+function LRSplitRow({
+  split,
+  splitLookup,
+  notable,
+}: {
+  split: LRSplitEntry;
+  splitLookup: Map<string, import('@/types/mlbF5Splits').F5SplitRow>;
+  notable?: boolean;
+}) {
+  return (
+    <div
+      className={
+        notable
+          ? 'flex items-start justify-between gap-2 p-2 sm:p-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5'
+          : 'flex items-start justify-between gap-2 p-2 rounded bg-muted/10'
+      }
+    >
+      <div className="min-w-0 flex-1">
+        <div className={notable ? 'font-medium text-sm' : 'text-xs'}>
+          {split.team_name}{' '}
+          <span className="text-muted-foreground font-normal">{split.facing}</span>
+        </div>
+        <div className="text-[10px] sm:text-xs text-muted-foreground">
+          vs {split.opponent_sp || split.opponent} ({split.opponent_sp_hand}HP tonight)
+        </div>
+      </div>
+      <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
+        <div className={notable ? 'text-sm font-bold' : 'text-xs font-mono'}>
+          {split.avg_f5_runs} F5 R/G
+        </div>
+        <LRSplitF5Record split={split} splitLookup={splitLookup} compact={!notable} />
+      </div>
+    </div>
+  );
+}
+
+function LRSplitsSection({
+  splits,
+  splitLookup,
+}: {
+  splits: LRSplitEntry[];
+  splitLookup: Map<string, import('@/types/mlbF5Splits').F5SplitRow>;
+}) {
+  if (!splits?.length) return null;
+  const notable = splits.filter(s => s.is_notable);
+  const rest = splits.filter(s => !s.is_notable);
 
   return (
     <Card>
       <CardHeader className="py-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Target className="h-5 w-5 text-indigo-500" /> L/R Pitcher Splits
-          <span className="text-xs text-muted-foreground font-normal ml-1">How teams perform vs LHP/RHP this season</span>
+          <span className="text-xs text-muted-foreground font-normal ml-1">
+            Matchup split (⭐) vs season total vs same hand — from F5 splits data
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-2 sm:p-6">
@@ -1062,25 +1109,9 @@ function LRSplitsSection({ splits }: { splits: any[] }) {
           <div className="mb-4">
             <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Notable Matchups</div>
             <div className="space-y-2">
-              {notable.map((s: any, i: number) => {
-                const record = s.f5_ties > 0
-                  ? `F5: ${s.f5_wins}-${s.f5_losses}-${s.f5_ties}`
-                  : `F5: ${s.f5_wins}-${s.f5_losses}`;
-                return (
-                  <div key={i} className="flex items-center justify-between gap-2 p-2 sm:p-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm">{s.team_name} <span className="text-muted-foreground font-normal">{s.facing}</span></div>
-                      <div className="text-[10px] sm:text-xs text-muted-foreground">vs {s.opponent_sp || s.opponent} ({s.opponent_sp_hand}HP)</div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-sm font-bold">{s.avg_f5_runs} F5 R/G</div>
-                      <div className={`text-[10px] sm:text-xs font-medium ${(s.f5_win_pct ?? 50) >= 60 ? 'text-green-400' : (s.f5_win_pct ?? 50) <= 40 ? 'text-red-400' : ''}`}>
-                        {record} {s.f5_win_pct != null ? `(${s.f5_win_pct}%)` : ''}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {notable.map((s, i) => (
+                <LRSplitRow key={`n-${i}`} split={s} splitLookup={splitLookup} notable />
+              ))}
             </div>
           </div>
         )}
@@ -1092,24 +1123,9 @@ function LRSplitsSection({ splits }: { splits: any[] }) {
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2">
               <div className="space-y-1">
-                {rest.map((s: any, i: number) => {
-                  const record = s.f5_ties > 0
-                    ? `F5: ${s.f5_wins}-${s.f5_losses}-${s.f5_ties}`
-                    : `F5: ${s.f5_wins}-${s.f5_losses}`;
-                  return (
-                    <div key={i} className="flex items-center justify-between gap-2 p-2 rounded bg-muted/10 text-xs">
-                      <div className="min-w-0 flex-1">
-                        <span className="font-medium">{s.team_name}</span>
-                        <span className="text-muted-foreground ml-1">{s.facing}</span>
-                        <span className="text-muted-foreground ml-1">vs {s.opponent_sp_hand}HP</span>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className="font-mono">{s.avg_f5_runs} F5 R/G</span>
-                        <span className="text-muted-foreground ml-2">{record}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+                {rest.map((s, i) => (
+                  <LRSplitRow key={`r-${i}`} split={s} splitLookup={splitLookup} />
+                ))}
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -1158,6 +1174,18 @@ export default function MLBDailyRegressionReport() {
   // independently of the regression report's external ETL, so today's G2/G3 carryover
   // patterns are visible even on days the report itself doesn't mention them.
   const { data: seriesSignals = [] } = useMLBSeriesSignals();
+
+  const lrSplitTeamAbbrs = useMemo(
+    () =>
+      [
+        ...new Set(
+          (report?.lr_splits_today ?? []).map(s => teamAbbrFromLrSplitName(s.team_name)),
+        ),
+      ].filter(Boolean),
+    [report?.lr_splits_today],
+  );
+  const { data: f5SplitsData } = useF5Splits(lrSplitTeamAbbrs);
+  const f5SplitLookup = f5SplitsData?.lookup ?? new Map();
 
   if (isLoading) {
     return (
@@ -1248,7 +1276,7 @@ export default function MLBDailyRegressionReport() {
       <BullpenFatigueSection bullpens={report.bullpen_fatigue} />
 
       {/* L/R Pitcher Splits */}
-      <LRSplitsSection splits={report.lr_splits_today} />
+      <LRSplitsSection splits={report.lr_splits_today} splitLookup={f5SplitLookup} />
 
       {/* Weather & Park */}
       <WeatherSection flags={report.weather_park_flags} />

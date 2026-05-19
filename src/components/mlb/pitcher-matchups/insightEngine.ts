@@ -1,22 +1,35 @@
 import type { ParkHRFactors } from '@/hooks/usePark';
+import {
+  countColdSignals,
+  countHotSignals,
+  MIN_L10_BBE,
+} from '@/utils/mlbRecentForm';
 import type {
   BatterSplitRow,
+  BatterVsArchetypeRow,
   BatterVsPitchTypeRow,
   Insight,
   LineupRow,
   MatchupGame,
+  PitcherArchetypeType,
   PitcherArsenalByHand,
   PitcherArsenalRow,
   PitcherBattedBallProfile,
   PitchHand,
 } from '@/types/mlb-matchups';
+import {
+  ARCHETYPE_META,
+  ARCHETYPE_XWOBA_DELTA,
+  MIN_PA_VS_ARCHETYPE_INSIGHT,
+  isDisplayArchetype,
+} from '@/utils/mlbPitcherArchetypes';
 import { defaultArsenalTab, effectiveBatSide, getArsenalForBatter } from '@/utils/mlbArsenal';
 import {
   effectiveBatSideForPark,
   hrFactorForBatterSide,
   parkSuppressesHr,
 } from '@/utils/parkHr';
-import { formatPct, formatRate, pitchFamily } from '@/utils/mlbPitcherMatchups';
+import { formatPct, formatRate, pitchFamily, toMilliRate } from '@/utils/mlbPitcherMatchups';
 
 export type { Insight };
 
@@ -91,6 +104,8 @@ export interface BatterContext {
   opposingArsenal: PitcherArsenalByHand;
   opposingBattedBall: PitcherBattedBallProfile;
   batterVsPitchType: BatterVsPitchTypeRow[];
+  opposingPitcherArchetype: PitcherArchetypeType;
+  batterVsArchetype: BatterVsArchetypeRow | null;
   game: MatchupGame;
   park: ParkHRFactors | null;
 }
@@ -901,6 +916,85 @@ export function generateBatterInsights(ctx: BatterContext): Insight[] {
       headline: `💪 Power up — ${formatRate(batter.iso)} ISO, ${formatPct(batter.barrel_pct)} barrel`,
       detail: `Pitcher allows ${formatPct(opposingBattedBall.overall?.hr_per_fb_pct)} HR/FB. Favorable wind for fly balls.`,
     });
+  }
+
+  // L10 recent form vs season (independent of platoon delta)
+  if (batter.recent_form && (batter.recent_form.bbe ?? 0) >= MIN_L10_BBE) {
+    const recent = batter.recent_form;
+    const barrelDelta = (recent.barrel_pct ?? 0) - (batter.barrel_pct ?? 0);
+    const hardHitDelta = (recent.hard_hit_pct ?? 0) - (batter.hard_hit_pct ?? 0);
+    const xwobaDelta = (recent.xwoba ?? 0) - (batter.xwoba ?? 0);
+
+    if (countHotSignals(batter, recent) >= 2) {
+      insights.push({
+        id: `recent_hot_${batter.batter_id}`,
+        icon: '🔥',
+        tone: 'positive',
+        scope: 'batter',
+        batter_id: batter.batter_id,
+        priority: 72,
+        headline: `Hot — L10 barrel ${recent.barrel_pct?.toFixed(0)}%, hard-hit ${recent.hard_hit_pct?.toFixed(0)}%`,
+        detail:
+          `Last 10 games vs ${batter.vs_pitcher_hand}HP: ` +
+          `barrel ${recent.barrel_pct?.toFixed(1)}% (season ${batter.barrel_pct?.toFixed(1)}%, ` +
+          `${barrelDelta >= 0 ? '+' : ''}${barrelDelta.toFixed(1)}pp), ` +
+          `hard-hit ${recent.hard_hit_pct?.toFixed(1)}% (season ${batter.hard_hit_pct?.toFixed(1)}%, ` +
+          `${hardHitDelta >= 0 ? '+' : ''}${hardHitDelta.toFixed(1)}pp), ` +
+          `xwOBA .${Math.round((recent.xwoba ?? 0) * 1000)} (season .${Math.round((batter.xwoba ?? 0) * 1000)}).`,
+      });
+    }
+
+    if (countColdSignals(batter, recent) >= 2) {
+      insights.push({
+        id: `recent_cold_${batter.batter_id}`,
+        icon: '🥶',
+        tone: 'danger',
+        scope: 'batter',
+        batter_id: batter.batter_id,
+        priority: 68,
+        headline: 'Cold — L10 contact has fallen off',
+        detail:
+          `Recent form below season: barrel ${barrelDelta.toFixed(1)}pp, hard-hit ${hardHitDelta.toFixed(1)}pp, ` +
+          `xwOBA ${xwobaDelta >= 0 ? '+' : ''}${xwobaDelta.toFixed(3)}. Skip for player-prop OVERs.`,
+      });
+    }
+  }
+
+  const { opposingPitcherArchetype, batterVsArchetype } = ctx;
+  if (
+    isDisplayArchetype(opposingPitcherArchetype) &&
+    batterVsArchetype &&
+    batterVsArchetype.pa >= MIN_PA_VS_ARCHETYPE_INSIGHT &&
+    batterVsArchetype.xwoba != null &&
+    batter.xwoba != null
+  ) {
+    const xwobaDelta = batterVsArchetype.xwoba - batter.xwoba;
+    const archMeta = ARCHETYPE_META[opposingPitcherArchetype];
+    const handHp = ctx.opposingPitcherHand === 'R' ? 'R' : 'L';
+
+    if (xwobaDelta >= ARCHETYPE_XWOBA_DELTA) {
+      insights.push({
+        id: `crushes_archetype_${batter.batter_id}`,
+        icon: archMeta.icon,
+        tone: 'positive',
+        scope: 'batter',
+        batter_id: batter.batter_id,
+        priority: 80,
+        headline: `Crushes ${opposingPitcherArchetype} pitchers (+${toMilliRate(xwobaDelta)} xwOBA pts)`,
+        detail: `${batter.batter_name} has .${toMilliRate(batterVsArchetype.xwoba)} xwOBA vs ${opposingPitcherArchetype} ${handHp}HP this season (${batterVsArchetype.pa} PA), vs .${toMilliRate(batter.xwoba)} overall.`,
+      });
+    } else if (xwobaDelta <= -ARCHETYPE_XWOBA_DELTA) {
+      insights.push({
+        id: `struggles_archetype_${batter.batter_id}`,
+        icon: archMeta.icon,
+        tone: 'danger',
+        scope: 'batter',
+        batter_id: batter.batter_id,
+        priority: 75,
+        headline: `Struggles vs ${opposingPitcherArchetype} pitchers (${toMilliRate(xwobaDelta)} xwOBA pts)`,
+        detail: `${batter.batter_name} has .${toMilliRate(batterVsArchetype.xwoba)} xwOBA vs ${opposingPitcherArchetype} ${handHp}HP this season (${batterVsArchetype.pa} PA), vs .${toMilliRate(batter.xwoba)} overall.`,
+      });
+    }
   }
 
   insights.push(...platoonInsightsForBatter(batter));

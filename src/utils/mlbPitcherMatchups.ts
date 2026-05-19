@@ -7,6 +7,7 @@ import type {
   MatchupInsight,
   PitcherArsenalRow,
   PitcherBattedBallProfile,
+  PitcherBattedBallRow,
   PitchHand,
 } from '@/types/mlb-matchups';
 
@@ -26,6 +27,26 @@ export function normalizeHand(raw: string | null | undefined): PitchHand | null 
 export function formatPct(value: number | null | undefined, digits = 0): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return `${value.toFixed(digits)}%`;
+}
+
+export function hasPitcherBattedBallRow(row: PitcherBattedBallRow | null | undefined): boolean {
+  if (!row) return false;
+  if ((row.batters_faced ?? 0) > 0) return true;
+  return (
+    row.k_pct != null ||
+    row.gb_pct != null ||
+    row.fb_pct != null ||
+    row.xwoba_allowed != null ||
+    row.woba_allowed != null
+  );
+}
+
+/** xwOBA allowed with wOBA fallback when xwOBA column is empty in the feed. */
+export function pitcherXwobaAllowed(row: PitcherBattedBallRow | null | undefined): number | null {
+  if (!row) return null;
+  if (row.xwoba_allowed != null && Number.isFinite(row.xwoba_allowed)) return row.xwoba_allowed;
+  if (row.woba_allowed != null && Number.isFinite(row.woba_allowed)) return row.woba_allowed;
+  return null;
 }
 
 export function formatRate(value: number | null | undefined, digits = 3): string {
@@ -134,19 +155,37 @@ export function pitchFamilyClass(family: PitchFamily): string {
   }
 }
 
-export function dominantLineupHand(lineup: LineupRow[]): 'R' | 'L' {
-  let l = 0;
+/**
+ * Which batter hand dominates the opposing lineup (for highlighting pitcher splits).
+ * Returns null when balanced (within one batter of a tie). Switch hitters use platoon side vs `pitcherHand`.
+ */
+export function dominantLineupHand(
+  lineup: LineupRow[],
+  pitcherHand?: PitchHand | null,
+): 'R' | 'L' | null {
+  if (!lineup.length) return null;
   let r = 0;
+  let l = 0;
   for (const b of lineup) {
-    const side = b.bat_side === 'L' ? 'L' : b.bat_side === 'R' ? 'R' : null;
-    if (side === 'L') l += 1;
-    else if (side === 'R') r += 1;
-    else {
-      l += 1;
-      r += 1;
+    let eff: 'R' | 'L' | null = null;
+    if (b.bat_side === 'S' && pitcherHand) {
+      eff = pitcherHand === 'R' ? 'L' : 'R';
+    } else if (b.bat_side === 'R') {
+      eff = 'R';
+    } else if (b.bat_side === 'L') {
+      eff = 'L';
     }
+    if (eff === 'R') r += 1;
+    else if (eff === 'L') l += 1;
   }
-  return l >= r ? 'L' : 'R';
+  if (Math.abs(r - l) <= 1) return null;
+  return r > l ? 'R' : 'L';
+}
+
+/** xwOBA-style rate without leading zero: 0.318 → ".318" */
+export function toMilliRate(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return formatRate(value).replace(/^0/, '');
 }
 
 export function hasEnoughPa(pa: number | null | undefined): boolean {

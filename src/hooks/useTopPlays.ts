@@ -10,8 +10,11 @@ import type {
 import {
   SCORE_CONSTANTS,
   battedBallForBatter,
+  computeHitLean,
   computeHrThreat,
-  hitLeanScore,
+  hottestHitterBreakdown,
+  hottestHitterContext,
+  hotnessScore,
   pitcherPerformanceScore,
   strikeoutLeanScore,
 } from '@/components/mlb/pitcher-matchups/topPlaysScoring';
@@ -32,6 +35,7 @@ export function computeTopPlays(
   const hit_leans: TopPlayEntry[] = [];
   const pitcher_plays: TopPlayEntry[] = [];
   const k_props: TopPlayEntry[] = [];
+  const hottest_hitters: TopPlayEntry[] = [];
   const stackCandidates: {
     team_name: string;
     game_pk: number;
@@ -150,24 +154,40 @@ export function computeTopPlays(
           score: hr.score,
           context: `vs ${game.home_sp_name} (${game.home_sp_hand}HP)`,
           breakdown: hr.breakdown,
+          opposing_pitcher_archetype: data.homeArchetype?.archetype,
         });
       }
-      const hit = hitLeanScore(
+      const hit = computeHitLean(
         batter,
         opp,
         data.homeArsenal,
         data.awayBatterVsPitch.filter(r => r.batter_id === batter.batter_id),
         game.home_sp_hand,
       );
-      if (hit > 0) {
+      if (hit.score > 0) {
         hit_leans.push({
           player_id: batter.batter_id,
           player_name: batter.batter_name,
           team_name: game.away_team_name,
           game_pk: game.game_pk,
-          score: hit,
+          score: hit.score,
           context: `vs ${game.home_sp_name} (${game.home_sp_hand}HP)`,
-          breakdown: [{ component: 'Hit lean', value: hit }],
+          breakdown: hit.breakdown,
+          opposing_pitcher_archetype: data.homeArchetype?.archetype,
+        });
+      }
+
+      const recent = batter.recent_form;
+      const hot = hotnessScore(batter, recent);
+      if (recent && hot >= SCORE_CONSTANTS.HOTNESS_MIN_SCORE) {
+        hottest_hitters.push({
+          player_id: batter.batter_id,
+          player_name: batter.batter_name,
+          team_name: game.away_team_name,
+          game_pk: game.game_pk,
+          score: hot,
+          context: hottestHitterContext(batter, recent, game.home_sp_name, game.home_sp_hand),
+          breakdown: hottestHitterBreakdown(batter, recent),
         });
       }
     }
@@ -207,24 +227,40 @@ export function computeTopPlays(
           score: hr.score,
           context: `vs ${game.away_sp_name} (${game.away_sp_hand}HP)`,
           breakdown: hr.breakdown,
+          opposing_pitcher_archetype: data.awayArchetype?.archetype,
         });
       }
-      const hit = hitLeanScore(
+      const hit = computeHitLean(
         batter,
         opp,
         data.awayArsenal,
         data.homeBatterVsPitch.filter(r => r.batter_id === batter.batter_id),
         game.away_sp_hand,
       );
-      if (hit > 0) {
+      if (hit.score > 0) {
         hit_leans.push({
           player_id: batter.batter_id,
           player_name: batter.batter_name,
           team_name: game.home_team_name,
           game_pk: game.game_pk,
-          score: hit,
+          score: hit.score,
           context: `vs ${game.away_sp_name} (${game.away_sp_hand}HP)`,
-          breakdown: [{ component: 'Hit lean', value: hit }],
+          breakdown: hit.breakdown,
+          opposing_pitcher_archetype: data.awayArchetype?.archetype,
+        });
+      }
+
+      const recent = batter.recent_form;
+      const hot = hotnessScore(batter, recent);
+      if (recent && hot >= SCORE_CONSTANTS.HOTNESS_MIN_SCORE) {
+        hottest_hitters.push({
+          player_id: batter.batter_id,
+          player_name: batter.batter_name,
+          team_name: game.home_team_name,
+          game_pk: game.game_pk,
+          score: hot,
+          context: hottestHitterContext(batter, recent, game.away_sp_name, game.away_sp_hand),
+          breakdown: hottestHitterBreakdown(batter, recent),
         });
       }
     }
@@ -256,11 +292,17 @@ export function computeTopPlays(
     .sort((a, b) => b.stack_strength - a.stack_strength)
     .slice(0, SCORE_CONSTANTS.POWER_STACK_MAX_DISPLAYED);
 
+  const hottestSorted = hottest_hitters
+    .filter(e => e.score >= SCORE_CONSTANTS.HOTNESS_MIN_SCORE)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, SCORE_CONSTANTS.TOP_N_PER_COLUMN);
+
   return {
     hr_threats: topN(hr_threats),
     hit_leans: topN(hit_leans),
     pitcher_plays: topN(pitcher_plays),
     k_props: topN(k_props),
+    hottest_hitters: hottestSorted,
     power_stacks,
   };
 }
@@ -278,6 +320,7 @@ export function useTopPlays(
         hit_leans: [],
         pitcher_plays: [],
         k_props: [],
+        hottest_hitters: [],
         power_stacks: [],
       } satisfies TopPlays;
     }

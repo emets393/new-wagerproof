@@ -1,5 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
-import type { MatchupGame } from '@/types/mlb-matchups';
+import type { MatchupGame, PitcherMatchupData } from '@/types/mlb-matchups';
 import { usePitcherMatchupData } from '@/hooks/usePitcherMatchupData';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,20 +31,37 @@ interface GameMatchupCardProps {
   benchmarksR: LeagueBenchmarks;
   benchmarksL: LeagueBenchmarks;
   highlightPlayerId?: number | null;
+  /** Prefetched from page-level useAllMatchupData (avoids duplicate fetch + fixes loading UI) */
+  prefetchedData?: PitcherMatchupData | null;
+  prefetchedLoading?: boolean;
 }
 
 export const GameMatchupCard = forwardRef<GameMatchupCardHandle, GameMatchupCardProps>(
   function GameMatchupCard(
-    { game, eagerLoad = false, benchmarksR, benchmarksL, highlightPlayerId },
+    {
+      game,
+      eagerLoad = false,
+      benchmarksR,
+      benchmarksL,
+      highlightPlayerId,
+      prefetchedData = null,
+      prefetchedLoading = false,
+    },
     ref,
   ) {
     const [expanded, setExpanded] = useState(false);
     const [activeTab, setActiveTab] = useState<'away' | 'home'>('away');
     const season = seasonFromDate(game.official_date);
 
-    const shouldFetch = expanded || eagerLoad;
+    const shouldFetch = (expanded || eagerLoad) && !prefetchedData;
 
-    const { data, isLoading } = usePitcherMatchupData(game, season, shouldFetch);
+    const { data: fetchedData, isLoading: fetchLoading } = usePitcherMatchupData(
+      game,
+      season,
+      shouldFetch,
+    );
+    const data = prefetchedData ?? fetchedData;
+    const isLoading = prefetchedData ? false : fetchLoading || prefetchedLoading;
     const { data: park } = usePark(game.home_abbr);
 
     useImperativeHandle(ref, () => ({
@@ -104,6 +121,8 @@ export const GameMatchupCard = forwardRef<GameMatchupCardHandle, GameMatchupCard
               opposingVsPitch={data?.homeBatterVsPitch ?? []}
               game={game}
               park={park ?? null}
+              profileLoading={isLoading}
+              archetype={data?.awayArchetype}
             />
             <PitcherSummaryPanel
               teamLabel={game.home_team_name}
@@ -117,6 +136,8 @@ export const GameMatchupCard = forwardRef<GameMatchupCardHandle, GameMatchupCard
               opposingVsPitch={data?.awayBatterVsPitch ?? []}
               game={game}
               park={park ?? null}
+              profileLoading={isLoading}
+              archetype={data?.homeArchetype}
             />
           </div>
 

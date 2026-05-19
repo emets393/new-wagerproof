@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import type { ParkHRFactors } from '@/hooks/usePark';
 import type {
   BatterSplitRow,
+  BatterVsArchetypeRow,
   BatterVsPitchTypeRow,
   LineupRow,
   LeagueBenchmarks,
   MatchupGame,
+  PitcherArchetypeType,
   PitcherArsenalByHand,
   PitcherBattedBallProfile,
   PitchHand,
@@ -23,6 +25,8 @@ interface LineupTableProps {
   benchmarks: LeagueBenchmarks;
   opposingBattedBall: PitcherBattedBallProfile;
   batterVsPitchByPlayer: BatterVsPitchTypeRow[];
+  opposingArchetype: PitcherArchetypeType;
+  vsArchetypeByBatter: Record<number, BatterVsArchetypeRow>;
   game: MatchupGame;
   park: ParkHRFactors | null;
 }
@@ -36,6 +40,8 @@ export function LineupTable({
   opposingArsenal,
   opposingBattedBall,
   batterVsPitchByPlayer,
+  opposingArchetype,
+  vsArchetypeByBatter,
   benchmarks,
   game,
   park,
@@ -72,6 +78,8 @@ export function LineupTable({
             opposingArsenal={opposingArsenal}
             opposingBattedBall={opposingBattedBall}
             batterVsPitchType={rowsForBatter(row.player_id)}
+            opposingArchetype={opposingArchetype}
+            batterVsArchetype={vsArchetypeByBatter[row.player_id] ?? null}
             benchmarks={benchmarks}
             game={game}
             park={park}

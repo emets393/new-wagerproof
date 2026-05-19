@@ -1,6 +1,40 @@
 export type BatterHand = 'A' | 'R' | 'L';
 export type PitchHand = 'R' | 'L';
 
+export type PitcherArchetypeType =
+  | 'Power'
+  | 'Groundball'
+  | 'Flyball'
+  | 'Control'
+  | 'Finesse'
+  | 'Balanced'
+  | 'Insufficient';
+
+export interface PitcherArchetypeProfile {
+  archetype: PitcherArchetypeType;
+  k_pct: number | null;
+  gb_pct: number | null;
+  fb_pct: number | null;
+  bb_pct: number | null;
+  max_fb_velo: number | null;
+}
+
+export interface BatterVsArchetypeRow {
+  batter_id: number;
+  season: number;
+  vs_pitcher_hand: 'R' | 'L';
+  archetype: string;
+  pa: number;
+  avg: number | null;
+  obp: number | null;
+  slg: number | null;
+  xwoba: number | null;
+  k_pct: number | null;
+  barrel_pct: number | null;
+  hard_hit_pct: number | null;
+  hr_per_pa: number | null;
+}
+
 export interface PitcherArsenalRow {
   pitcher_id: number;
   pitcher_name: string;
@@ -122,7 +156,34 @@ export interface BatterSplitRow {
   woba_delta_vs_other_hand: number | null;
   xwoba_delta_vs_other_hand: number | null;
   platoon_signal: PlatoonSignal | null;
+  /** L10 split vs opposing starter hand (from `mlb_batter_recent_form`). */
+  recent_form?: BatterRecentForm;
 }
+
+/** Row from `public.mlb_batter_recent_form` (L10 vs pitcher hand). */
+export interface BatterRecentForm {
+  batter_id: number;
+  season?: number;
+  vs_pitcher_hand: BatterHand;
+  window_games: number;
+  games_used: number;
+  pa: number;
+  bbe: number;
+  avg_exit_velo: number | null;
+  hard_hit_pct: number | null;
+  barrel_pct: number | null;
+  pull_air_pct: number | null;
+  gb_pct: number | null;
+  fb_pct: number | null;
+  ld_pct: number | null;
+  k_pct: number | null;
+  bb_pct: number | null;
+  xwoba: number | null;
+  as_of_date: string | null;
+}
+
+/** @deprecated Use BatterRecentForm */
+export type BatterRecentFormRow = BatterRecentForm;
 
 export interface BatterVsPitchTypeRow {
   batter_id: number;
@@ -197,6 +258,8 @@ export interface TopPlayEntry {
   score: number;
   context: string;
   breakdown: TopPlayBreakdownLine[];
+  /** Opposing starter archetype for HR/hit lean filter chips */
+  opposing_pitcher_archetype?: string;
 }
 
 export interface PowerStackAlert {
@@ -213,6 +276,7 @@ export interface TopPlays {
   hit_leans: TopPlayEntry[];
   pitcher_plays: TopPlayEntry[];
   k_props: TopPlayEntry[];
+  hottest_hitters: TopPlayEntry[];
   power_stacks: PowerStackAlert[];
 }
 
@@ -237,6 +301,12 @@ export interface PitcherMatchupData {
   homeLineupSplits: BatterSplitRow[];
   awayBatterVsPitch: BatterVsPitchTypeRow[];
   homeBatterVsPitch: BatterVsPitchTypeRow[];
+  awayArchetype: PitcherArchetypeProfile | null;
+  homeArchetype: PitcherArchetypeProfile | null;
+  /** Home lineup batters vs away pitcher archetype */
+  homeVsArchetypeByBatter: Record<number, BatterVsArchetypeRow>;
+  /** Away lineup batters vs home pitcher archetype */
+  awayVsArchetypeByBatter: Record<number, BatterVsArchetypeRow>;
 }
 
 /** @deprecated use awayLineupSplits */

@@ -13,9 +13,16 @@ interface TopPlayColumnProps {
   emoji: string;
   entries: TopPlayEntry[];
   onSelect: (entry: TopPlayEntry) => void;
+  scoreLabel?: string;
 }
 
-export function TopPlayColumn({ title, emoji, entries, onSelect }: TopPlayColumnProps) {
+export function TopPlayColumn({
+  title,
+  emoji,
+  entries,
+  onSelect,
+  scoreLabel = 'Score',
+}: TopPlayColumnProps) {
   if (entries.length === 0) return null;
 
   return (
@@ -48,7 +55,9 @@ export function TopPlayColumn({ title, emoji, entries, onSelect }: TopPlayColumn
                   </button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-sm text-xs space-y-2">
-                  <p className="font-semibold">HR Threat: {entry.score}</p>
+                  <p className="font-semibold">
+                    {scoreLabel}: {entry.score}
+                  </p>
                   {entry.breakdown.map(b => (
                     <div key={b.component} className="space-y-0.5">
                       <div className="flex justify-between gap-3">
@@ -59,7 +68,9 @@ export function TopPlayColumn({ title, emoji, entries, onSelect }: TopPlayColumn
                         </span>
                       </div>
                       {b.detail ? (
-                        <p className="text-muted-foreground leading-snug">{b.detail}</p>
+                        <p className="text-muted-foreground leading-snug whitespace-pre-line">
+                          {b.detail}
+                        </p>
                       ) : null}
                     </div>
                   ))}

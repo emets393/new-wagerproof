@@ -2,10 +2,12 @@ import React, { useMemo } from 'react';
 import type { ParkHRFactors } from '@/hooks/usePark';
 import type {
   BatterSplitRow,
+  BatterVsArchetypeRow,
   BatterVsPitchTypeRow,
   LineupRow,
   MatchupGame,
   LeagueBenchmarks,
+  PitcherArchetypeType,
   PitcherArsenalByHand,
   PitcherBattedBallProfile,
   PitchHand,
@@ -33,6 +35,8 @@ interface BatterRowProps {
   opposingArsenal: PitcherArsenalByHand;
   opposingBattedBall: PitcherBattedBallProfile;
   batterVsPitchType: BatterVsPitchTypeRow[];
+  opposingArchetype: PitcherArchetypeType;
+  batterVsArchetype: BatterVsArchetypeRow | null;
   benchmarks: LeagueBenchmarks;
   game: MatchupGame;
   park: ParkHRFactors | null;
@@ -112,6 +116,8 @@ export function BatterRow({
   opposingArsenal,
   opposingBattedBall,
   batterVsPitchType,
+  opposingArchetype,
+  batterVsArchetype,
   benchmarks,
   game,
   park,
@@ -132,6 +138,8 @@ export function BatterRow({
       opposingArsenal,
       opposingBattedBall,
       batterVsPitchType,
+      opposingPitcherArchetype: opposingArchetype,
+      batterVsArchetype,
       game,
       park,
     });
@@ -144,6 +152,8 @@ export function BatterRow({
     opposingArsenal,
     opposingBattedBall,
     batterVsPitchType,
+    opposingArchetype,
+    batterVsArchetype,
     game,
     park,
   ]);
@@ -207,6 +217,8 @@ export function BatterRow({
           benchmarks={benchmarks}
           season={new Date(game.official_date).getFullYear()}
           batterVsPitchType={batterVsPitchType}
+          opposingArchetype={opposingArchetype}
+          batterVsArchetype={batterVsArchetype}
         />
       ) : null}
     </div>

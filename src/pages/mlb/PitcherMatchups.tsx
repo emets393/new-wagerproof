@@ -9,6 +9,7 @@ import { TopPlaysHeader } from '@/components/mlb/pitcher-matchups/TopPlaysHeader
 import { PowerStackAlert } from '@/components/mlb/pitcher-matchups/PowerStackAlert';
 import { formatGameDateLabel, seasonFromDate } from '@/utils/mlbPitcherMatchups';
 import type { TopPlayEntry } from '@/types/mlb-matchups';
+import type { DisplayPitcherArchetype } from '@/utils/mlbPitcherArchetypes';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -51,6 +52,7 @@ export default function PitcherMatchups() {
   );
 
   const [highlight, setHighlight] = useState<{ gamePk: number; playerId: number } | null>(null);
+  const [archetypeFilter, setArchetypeFilter] = useState<DisplayPitcherArchetype | null>(null);
   const cardRefs = useRef<Map<number, GameMatchupCardHandle | null>>(new Map());
 
   const gamesByDate = useMemo(() => {
@@ -127,7 +129,12 @@ export default function PitcherMatchups() {
             <Skeleton className="h-40 w-full" />
           ) : (
             <>
-              <TopPlaysHeader topPlays={topPlays} onSelectPlay={handleSelectPlay} />
+              <TopPlaysHeader
+                topPlays={topPlays}
+                onSelectPlay={handleSelectPlay}
+                archetypeFilter={archetypeFilter}
+                onArchetypeFilterChange={setArchetypeFilter}
+              />
               <PowerStackAlert stacks={topPlays.power_stacks} />
             </>
           )}
@@ -149,6 +156,8 @@ export default function PitcherMatchups() {
                     }}
                     game={game}
                     eagerLoad={idx < 5}
+                    prefetchedData={dataByGamePk.get(game.game_pk) ?? null}
+                    prefetchedLoading={matchupLoading}
                     benchmarksR={benchmarksR}
                     benchmarksL={benchmarksL}
                     highlightPlayerId={

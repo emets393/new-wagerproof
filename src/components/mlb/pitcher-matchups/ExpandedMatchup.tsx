@@ -70,6 +70,8 @@ export function ExpandedMatchup({
               opposingArsenal={data.awayArsenal}
               opposingBattedBall={data.awayBattedBall}
               batterVsPitchByPlayer={data.homeBatterVsPitch}
+              opposingArchetype={data.awayArchetype?.archetype ?? 'Insufficient'}
+              vsArchetypeByBatter={data.homeVsArchetypeByBatter}
               benchmarks={benchmarksR}
               game={game}
               park={park}
@@ -101,6 +103,8 @@ export function ExpandedMatchup({
               opposingArsenal={data.homeArsenal}
               opposingBattedBall={data.homeBattedBall}
               batterVsPitchByPlayer={data.awayBatterVsPitch}
+              opposingArchetype={data.homeArchetype?.archetype ?? 'Insufficient'}
+              vsArchetypeByBatter={data.awayVsArchetypeByBatter}
               benchmarks={benchmarksL}
               game={game}
               park={park}

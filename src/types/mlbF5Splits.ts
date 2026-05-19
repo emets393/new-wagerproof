@@ -54,4 +54,11 @@ export interface TodaysMlbGameForF5 {
   f5_home_ml: number | null;
 }
 
-export const F5_SPLIT_MIN_GAMES = 3;
+/** @deprecated Use SAMPLE_THRESHOLDS.HIDE from @/utils/mlbF5Splits */
+export const F5_SPLIT_MIN_GAMES = 2;
+
+export const SAMPLE_THRESHOLDS = {
+  HIDE: 2,
+  SMALL: 10,
+  ADEQUATE: 20,
+} as const;
