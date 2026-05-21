@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif">
+  <rect width="1920" height="1080" fill="#0b1220"/>
+  <defs>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="75%">
+      <stop offset="60%" stop-color="#0b1220" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.6"/>
+    </radialGradient>
+    <linearGradient id="redBar" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
+    </linearGradient>
+    <linearGradient id="blueBar" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#vignette)"/>
+
+  <!-- Eyebrow -->
+  <rect x="120" y="70" width="360" height="44" rx="22" fill="#8b5cf6" opacity="0.15" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="300" y="101" fill="#c4b5fd" font-size="22" font-weight="700" letter-spacing="2" text-anchor="middle">THE HR DISAPPEARING ACT</text>
+
+  <!-- Title -->
+  <text x="120" y="180" fill="#ffffff" font-size="64" font-weight="800">Opposing starter HR/9 vs Rockies</text>
+  <text x="120" y="230" fill="#94a3b8" font-size="28" font-weight="500">The power-outage pattern that repeats every single year</text>
+
+  <!-- Legend -->
+  <g transform="translate(1180,170)">
+    <rect x="0"   y="0" width="28" height="28" rx="4" fill="url(#redBar)"/>
+    <text x="40"  y="22" fill="#e2e8f0" font-size="24" font-weight="600">Post-home G1-2</text>
+    <rect x="290" y="0" width="28" height="28" rx="4" fill="url(#blueBar)"/>
+    <text x="330" y="22" fill="#e2e8f0" font-size="24" font-weight="600">Rest of road</text>
+  </g>
+
+  <!-- Y-axis -->
+  <line x1="260" y1="300" x2="260" y2="880" stroke="#1e293b" stroke-width="1.5"/>
+  <!-- Gridlines + labels -->
+  <line x1="260" y1="880"     x2="1720" y2="880"     stroke="#1e293b" stroke-width="1.5"/>
+  <line x1="260" y1="789.375" x2="1720" y2="789.375" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="260" y1="698.75"  x2="1720" y2="698.75"  stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="260" y1="608.125" x2="1720" y2="608.125" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="260" y1="517.5"   x2="1720" y2="517.5"   stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="260" y1="426.875" x2="1720" y2="426.875" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="260" y1="336.25"  x2="1720" y2="336.25"  stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+
+  <text x="240" y="888" fill="#64748b" font-size="22" text-anchor="end">0.00</text>
+  <text x="240" y="797" fill="#64748b" font-size="22" text-anchor="end">0.25</text>
+  <text x="240" y="707" fill="#64748b" font-size="22" text-anchor="end">0.50</text>
+  <text x="240" y="616" fill="#64748b" font-size="22" text-anchor="end">0.75</text>
+  <text x="240" y="525" fill="#64748b" font-size="22" text-anchor="end">1.00</text>
+  <text x="240" y="435" fill="#64748b" font-size="22" text-anchor="end">1.25</text>
+  <text x="240" y="344" fill="#64748b" font-size="22" text-anchor="end">1.50</text>
+  <text x="145" y="590" fill="#64748b" font-size="22" font-weight="600" transform="rotate(-90 145 590)">HR per 9 innings</text>
+
+  <!-- 2023 group (center x = 560) -->
+  <!-- G1-2: 0.70 -> h=253.75, y=626.25 -->
+  <rect x="445" y="626.25" width="100" height="253.75" fill="url(#redBar)" rx="4"/>
+  <text x="495" y="611" fill="#ffffff" font-size="30" font-weight="800" text-anchor="middle">0.70</text>
+  <!-- RoR: 1.11 -> h=402.4, y=477.6 -->
+  <rect x="575" y="477.6"  width="100" height="402.4"  fill="url(#blueBar)" rx="4"/>
+  <text x="625" y="463" fill="#ffffff" font-size="30" font-weight="800" text-anchor="middle">1.11</text>
+  <text x="560" y="945" fill="#e2e8f0" font-size="34" font-weight="800" text-anchor="middle">2023</text>
+  <text x="560" y="978" fill="#f87171" font-size="22" font-weight="700" text-anchor="middle">-37%</text>
+
+  <!-- 2024 group (center x = 900) -->
+  <!-- G1-2: 0.59 -> h=213.9, y=666.1 -->
+  <rect x="785" y="666.1"  width="100" height="213.9"  fill="url(#redBar)" rx="4"/>
+  <text x="835" y="651" fill="#ffffff" font-size="30" font-weight="800" text-anchor="middle">0.59</text>
+  <!-- RoR: 1.23 -> h=445.9, y=434.1 -->
+  <rect x="915" y="434.1"  width="100" height="445.9"  fill="url(#blueBar)" rx="4"/>
+  <text x="965" y="419" fill="#ffffff" font-size="30" font-weight="800" text-anchor="middle">1.23</text>
+  <text x="900" y="945" fill="#e2e8f0" font-size="34" font-weight="800" text-anchor="middle">2024</text>
+  <text x="900" y="978" fill="#f87171" font-size="22" font-weight="700" text-anchor="middle">-52%</text>
+
+  <!-- 2025 group (center x = 1240) -->
+  <!-- G1-2: 0.58 -> h=210.25, y=669.75 -->
+  <rect x="1125" y="669.75" width="100" height="210.25" fill="url(#redBar)" rx="4"/>
+  <text x="1175" y="655" fill="#ffffff" font-size="30" font-weight="800" text-anchor="middle">0.58</text>
+  <!-- RoR: 1.11 -> h=402.4, y=477.6 -->
+  <rect x="1255" y="477.6"  width="100" height="402.4" fill="url(#blueBar)" rx="4"/>
+  <text x="1305" y="463" fill="#ffffff" font-size="30" font-weight="800" text-anchor="middle">1.11</text>
+  <text x="1240" y="945" fill="#e2e8f0" font-size="34" font-weight="800" text-anchor="middle">2025</text>
+  <text x="1240" y="978" fill="#f87171" font-size="22" font-weight="700" text-anchor="middle">-48%</text>
+
+  <!-- 2026 group (center x = 1580) -->
+  <!-- G1-2: 0.77 -> h=279.1, y=600.9 -->
+  <rect x="1465" y="600.9"  width="100" height="279.1" fill="url(#redBar)" rx="4"/>
+  <text x="1515" y="586" fill="#ffffff" font-size="30" font-weight="800" text-anchor="middle">0.77</text>
+  <!-- RoR: 1.48 -> h=536.5, y=343.5 -->
+  <rect x="1595" y="343.5"  width="100" height="536.5" fill="url(#blueBar)" rx="4"/>
+  <text x="1645" y="329" fill="#ffffff" font-size="30" font-weight="800" text-anchor="middle">1.48</text>
+  <text x="1580" y="945" fill="#e2e8f0" font-size="34" font-weight="800" text-anchor="middle">2026</text>
+  <text x="1580" y="978" fill="#f87171" font-size="22" font-weight="700" text-anchor="middle">-48%</text>
+
+  <!-- Key insight banner -->
+  <rect x="120" y="1015" width="1680" height="50" rx="8" fill="#8b5cf6" opacity="0.18"/>
+  <text x="960" y="1049" fill="#e9d5ff" font-size="26" font-weight="700" text-anchor="middle">Rockies hit ~45% fewer home runs in G1-2 post-home — EVERY YEAR since 2023</text>
+
+</svg>

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif">
+  <rect width="1920" height="1080" fill="#0b1220"/>
+  <defs>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="75%">
+      <stop offset="60%" stop-color="#0b1220" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.6"/>
+    </radialGradient>
+    <linearGradient id="areaGrad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%"  stop-color="#22c55e" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#vignette)"/>
+
+  <!-- Eyebrow -->
+  <rect x="120" y="70" width="270" height="44" rx="22" fill="#22c55e" opacity="0.18" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="255" y="101" fill="#86efac" font-size="22" font-weight="700" letter-spacing="2" text-anchor="middle">THE BACKTEST</text>
+
+  <!-- Title -->
+  <text x="120" y="180" fill="#ffffff" font-size="64" font-weight="800">+8.82 units · 58.2% win · +11.2% ROI</text>
+  <text x="120" y="230" fill="#94a3b8" font-size="28" font-weight="500">82 bets · blind Rockies G1-2 post-home UNDER @ -110 · 2023-2026</text>
+
+  <!-- Y-axis -->
+  <line x1="200" y1="280" x2="200" y2="880" stroke="#1e293b" stroke-width="1.5"/>
+  <!-- Gridlines: v = -2, 0, 2, 4, 6, 8, 10, 12, 14 → y = 880, 805, 730, 655, 580, 505, 430, 355, 280 -->
+  <line x1="200" y1="880" x2="1800" y2="880" stroke="#1e293b" stroke-width="1.5"/>
+  <line x1="200" y1="805" x2="1800" y2="805" stroke="#475569" stroke-width="2"/>
+  <line x1="200" y1="730" x2="1800" y2="730" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="200" y1="655" x2="1800" y2="655" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="200" y1="580" x2="1800" y2="580" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="200" y1="505" x2="1800" y2="505" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="200" y1="430" x2="1800" y2="430" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="200" y1="355" x2="1800" y2="355" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+  <line x1="200" y1="280" x2="1800" y2="280" stroke="#1e293b" stroke-width="1" stroke-dasharray="4,6"/>
+
+  <!-- Y-axis labels -->
+  <text x="180" y="888" fill="#64748b" font-size="22" text-anchor="end">-2u</text>
+  <text x="180" y="813" fill="#64748b" font-size="22" text-anchor="end">0u</text>
+  <text x="180" y="738" fill="#64748b" font-size="22" text-anchor="end">+2u</text>
+  <text x="180" y="663" fill="#64748b" font-size="22" text-anchor="end">+4u</text>
+  <text x="180" y="588" fill="#64748b" font-size="22" text-anchor="end">+6u</text>
+  <text x="180" y="513" fill="#64748b" font-size="22" text-anchor="end">+8u</text>
+  <text x="180" y="438" fill="#64748b" font-size="22" text-anchor="end">+10u</text>
+  <text x="180" y="363" fill="#64748b" font-size="22" text-anchor="end">+12u</text>
+  <text x="180" y="288" fill="#64748b" font-size="22" text-anchor="end">+14u</text>
+
+  <!-- Season dividers -->
+  <line x1="697"  y1="260" x2="697"  y2="900" stroke="#334155" stroke-width="1.5" stroke-dasharray="2,8"/>
+  <line x1="1204" y1="260" x2="1204" y2="900" stroke="#334155" stroke-width="1.5" stroke-dasharray="2,8"/>
+  <line x1="1750" y1="260" x2="1750" y2="900" stroke="#334155" stroke-width="1.5" stroke-dasharray="2,8"/>
+  <!-- Season labels -->
+  <text x="450"  y="935" fill="#94a3b8" font-size="26" font-weight="700" text-anchor="middle">2023</text>
+  <text x="950"  y="935" fill="#94a3b8" font-size="26" font-weight="700" text-anchor="middle">2024</text>
+  <text x="1475" y="935" fill="#94a3b8" font-size="26" font-weight="700" text-anchor="middle">2025</text>
+  <text x="1770" y="935" fill="#94a3b8" font-size="26" font-weight="700" text-anchor="middle">'26</text>
+
+  <!-- Filled area under curve (to zero line) -->
+  <path d="M 200,842.5 L 219.5,808.4 L 239,774.3 L 258.5,811.8 L 278,777.7 L 297.5,743.6 L 317,709.6 L 336.5,675.4 L 356,641.4 L 375.5,678.8 L 395,716.4 L 414.5,682.3 L 434,648.2 L 453.5,685.8 L 473,651.6 L 492.5,689.1 L 512,655.0 L 531.5,620.9 L 551,658.4 L 570.5,624.3 L 590,661.8 L 609.5,699.3 L 629,665.3 L 648.5,631.2 L 668,668.7 L 687.5,634.6 L 707,672.1 L 726.5,709.6 L 746,747.1 L 765.5,712.9 L 785,750.4 L 804.5,716.4 L 824,753.8 L 843.5,791.3 L 863,757.3 L 882.5,723.2 L 902,689.1 L 921.5,726.6 L 941,692.5 L 960.5,658.4 L 980,624.3 L 999.5,661.8 L 1019,699.3 L 1038.5,665.3 L 1058,702.8 L 1077.5,668.7 L 1097,634.6 L 1116.5,600.4 L 1136,566.4 L 1155.5,532.3 L 1175,569.8 L 1194.5,569.8 L 1214,535.7 L 1233.5,501.6 L 1253,539.1 L 1272.5,505.0 L 1292,470.9 L 1311.5,508.4 L 1331,474.3 L 1350.5,440.2 L 1370,406.2 L 1389.5,372.1 L 1409,337.9 L 1428.5,337.9 L 1448,375.4 L 1467.5,341.3 L 1487,378.8 L 1506.5,344.8 L 1526,382.3 L 1545.5,419.8 L 1565,457.3 L 1584.5,494.8 L 1604,460.7 L 1623.5,498.2 L 1643,535.7 L 1662.5,501.6 L 1682,467.5 L 1701.5,467.5 L 1721,433.4 L 1740.5,470.9 L 1760,508.4 L 1779.5,474.3 L 1779.5,805 L 200,805 Z" fill="url(#areaGrad)"/>
+
+  <!-- Line -->
+  <polyline points="200,842.5 219.5,808.4 239,774.3 258.5,811.8 278,777.7 297.5,743.6 317,709.6 336.5,675.4 356,641.4 375.5,678.8 395,716.4 414.5,682.3 434,648.2 453.5,685.8 473,651.6 492.5,689.1 512,655.0 531.5,620.9 551,658.4 570.5,624.3 590,661.8 609.5,699.3 629,665.3 648.5,631.2 668,668.7 687.5,634.6 707,672.1 726.5,709.6 746,747.1 765.5,712.9 785,750.4 804.5,716.4 824,753.8 843.5,791.3 863,757.3 882.5,723.2 902,689.1 921.5,726.6 941,692.5 960.5,658.4 980,624.3 999.5,661.8 1019,699.3 1038.5,665.3 1058,702.8 1077.5,668.7 1097,634.6 1116.5,600.4 1136,566.4 1155.5,532.3 1175,569.8 1194.5,569.8 1214,535.7 1233.5,501.6 1253,539.1 1272.5,505.0 1292,470.9 1311.5,508.4 1331,474.3 1350.5,440.2 1370,406.2 1389.5,372.1 1409,337.9 1428.5,337.9 1448,375.4 1467.5,341.3 1487,378.8 1506.5,344.8 1526,382.3 1545.5,419.8 1565,457.3 1584.5,494.8 1604,460.7 1623.5,498.2 1643,535.7 1662.5,501.6 1682,467.5 1701.5,467.5 1721,433.4 1740.5,470.9 1760,508.4 1779.5,474.3"
+    fill="none" stroke="#22c55e" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- Peak marker (bet 63, +12.45) -->
+  <circle cx="1409" cy="337.9" r="10" fill="#facc15" stroke="#0b1220" stroke-width="3"/>
+  <text x="1409" y="310" fill="#facc15" font-size="24" font-weight="800" text-anchor="middle">PEAK +12.45u</text>
+
+  <!-- End marker (bet 82, +8.82) -->
+  <circle cx="1779.5" cy="474.3" r="12" fill="#22c55e" stroke="#0b1220" stroke-width="3"/>
+  <g transform="translate(1570,425)">
+    <rect x="0" y="0" width="200" height="54" rx="8" fill="#22c55e"/>
+    <text x="100" y="35" fill="#0b1220" font-size="26" font-weight="800" text-anchor="middle">+8.82u FINAL</text>
+  </g>
+
+  <!-- Start marker (bet 1, -1.00) -->
+  <circle cx="200" cy="842.5" r="8" fill="#ef4444" stroke="#0b1220" stroke-width="3"/>
+  <text x="200" y="870" fill="#f87171" font-size="20" text-anchor="middle" font-weight="700">start</text>
+
+  <!-- Stats panel -->
+  <g transform="translate(120,985)">
+    <rect x="0"   y="0" width="400" height="70" rx="8" fill="#1e293b" opacity="0.6"/>
+    <text x="20"  y="30" fill="#94a3b8" font-size="18" font-weight="600">BETS</text>
+    <text x="20"  y="60" fill="#ffffff" font-size="32" font-weight="800">82 (46W-33L-3P)</text>
+
+    <rect x="420" y="0" width="340" height="70" rx="8" fill="#1e293b" opacity="0.6"/>
+    <text x="440" y="30" fill="#94a3b8" font-size="18" font-weight="600">WIN RATE</text>
+    <text x="440" y="60" fill="#22c55e" font-size="32" font-weight="800">58.2%</text>
+
+    <rect x="780" y="0" width="340" height="70" rx="8" fill="#1e293b" opacity="0.6"/>
+    <text x="800" y="30" fill="#94a3b8" font-size="18" font-weight="600">ROI @ -110</text>
+    <text x="800" y="60" fill="#22c55e" font-size="32" font-weight="800">+11.16%</text>
+
+    <rect x="1140" y="0" width="540" height="70" rx="8" fill="#1e293b" opacity="0.6"/>
+    <text x="1160" y="30" fill="#94a3b8" font-size="18" font-weight="600">BREAKEVEN @ -110</text>
+    <text x="1160" y="60" fill="#ffffff" font-size="32" font-weight="800">52.4% · we beat by 5.8 pts</text>
+  </g>
+
+</svg>

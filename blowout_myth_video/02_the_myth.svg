@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif">
+  <rect width="1080" height="1920" fill="#0b1220"/>
+  <defs>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="80%">
+      <stop offset="55%" stop-color="#0b1220" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.65"/>
+    </radialGradient>
+    <linearGradient id="redBar" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="100%" stop-color="#7f1d1d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#vignette)"/>
+
+  <!-- Eyebrow -->
+  <g transform="translate(540,300)" text-anchor="middle">
+    <rect x="-180" y="-33" width="360" height="66" rx="33" fill="#ef4444" opacity="0.18" stroke="#ef4444" stroke-width="2"/>
+    <text y="12" fill="#fca5a5" font-size="30" font-weight="800" letter-spacing="6">THE MYTH</text>
+  </g>
+
+  <!-- Title -->
+  <text x="540" y="450" fill="#ffffff" font-size="64" font-weight="800" text-anchor="middle">Teams that lost Game 1...</text>
+  <text x="540" y="525" fill="#ffffff" font-size="64" font-weight="800" text-anchor="middle">DON'T bounce back</text>
+  <text x="540" y="585" fill="#94a3b8" font-size="28" font-weight="500" text-anchor="middle">Game 2 win rate · 2,790 series · 2023-2025</text>
+
+  <!-- Two big stats -->
+  <g transform="translate(540,790)" text-anchor="middle">
+    <!-- Lost by 5+ -->
+    <rect x="-460" y="0" width="920" height="320" rx="28" fill="#1e293b" opacity="0.5" stroke="#475569" stroke-width="1.5"/>
+    <text x="0" y="70" fill="#cbd5e1" font-size="34" font-weight="700">After losing G1 by 5+ runs</text>
+    <text x="0" y="220" fill="#ef4444" font-size="180" font-weight="900" letter-spacing="-3">45.0%</text>
+    <text x="0" y="280" fill="#94a3b8" font-size="26" font-weight="600">700 G2s · 315 wins · 385 losses</text>
+  </g>
+
+  <g transform="translate(540,1170)" text-anchor="middle">
+    <!-- Lost by 8+ -->
+    <rect x="-460" y="0" width="920" height="320" rx="28" fill="#1e293b" opacity="0.5" stroke="#475569" stroke-width="1.5"/>
+    <text x="0" y="70" fill="#cbd5e1" font-size="34" font-weight="700">After getting blown out by 8+</text>
+    <text x="0" y="220" fill="#ef4444" font-size="180" font-weight="900" letter-spacing="-3">41.6%</text>
+    <text x="0" y="280" fill="#94a3b8" font-size="26" font-weight="600">226 spots · barely 4 in 10 win</text>
+  </g>
+
+  <!-- Insight -->
+  <rect x="80" y="1620" width="920" height="180" rx="20" fill="#ef4444" opacity="0.15" stroke="#ef4444" stroke-width="2"/>
+  <text x="540" y="1685" fill="#fca5a5" font-size="38" font-weight="800" text-anchor="middle">The "revenge spot" is fiction</text>
+  <text x="540" y="1740" fill="#cbd5e1" font-size="28" font-weight="600" text-anchor="middle">The harder you got beat,</text>
+  <text x="540" y="1775" fill="#cbd5e1" font-size="28" font-weight="600" text-anchor="middle">the LESS you bounce back</text>
+
+</svg>

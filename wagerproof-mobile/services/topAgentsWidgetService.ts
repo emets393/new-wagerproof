@@ -133,7 +133,7 @@ export async function fetchTopAgentsForWidget(userId: string): Promise<TopAgentW
   const lookbackStr = lookbackDate.toISOString().split('T')[0];
   const { data: picks, error: picksError } = await supabase
     .from('avatar_picks')
-    .select('id, avatar_id, sport, matchup, pick_selection, pick_type, odds, result, game_date, game_id, created_at')
+    .select('id, avatar_id, sport, matchup, pick_selection, odds, result, game_date, game_id, created_at')
     .in('avatar_id', selectedIds)
     .gte('game_date', lookbackStr)
     .order('created_at', { ascending: false })
