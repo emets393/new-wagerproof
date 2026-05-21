@@ -1,21 +1,15 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTodaysMatchupGames } from '@/hooks/useTodaysMatchupGames';
 import { useAllMatchupData } from '@/hooks/useAllMatchupData';
 import { useLeagueBenchmarks } from '@/hooks/useLeagueBenchmarks';
-import { useParksMap } from '@/hooks/usePark';
-import { useTopPlays } from '@/hooks/useTopPlays';
 import {
   useMLBPitcherMatchupsReport,
   type MLBPitcherMatchupsReport,
   type PitcherReportHROpportunity,
   type PitcherReportPitchMatchup,
 } from '@/hooks/useMLBPitcherMatchupsReport';
-import { GameMatchupCard, type GameMatchupCardHandle } from '@/components/mlb/pitcher-matchups/GameMatchupCard';
-import { TopPlaysHeader } from '@/components/mlb/pitcher-matchups/TopPlaysHeader';
-import { PowerStackAlert } from '@/components/mlb/pitcher-matchups/PowerStackAlert';
+import { GameMatchupCard } from '@/components/mlb/pitcher-matchups/GameMatchupCard';
 import { formatGameDateLabel, seasonFromDate } from '@/utils/mlbPitcherMatchups';
-import type { TopPlayEntry } from '@/types/mlb-matchups';
-import type { DisplayPitcherArchetype } from '@/utils/mlbPitcherArchetypes';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -95,66 +89,6 @@ function reportTeaser(report: MLBPitcherMatchupsReport | null): string {
   const notable = topPlays.notable_pitch_matchups?.length ?? 0;
   if (notable > 0) return `${notable} notable pitch matchups`;
   return 'Daily AI breakdown of hitter, pitcher, and pitch-mix edges';
-}
-
-function PitcherMatchupsReportCard({
-  report,
-  isLoading,
-  onOpen,
-}: {
-  report: MLBPitcherMatchupsReport | null | undefined;
-  isLoading: boolean;
-  onOpen: () => void;
-}) {
-  const disabled = isLoading || !report;
-
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onOpen}
-      className="w-full text-left disabled:cursor-default"
-    >
-      <Card className="border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-              <BarChart3 className="h-5 w-5 text-primary" />
-            </div>
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-foreground">
-                  Today&apos;s Pitcher Matchups Report
-                </h2>
-                {report ? <ReportStatusBadge status={report.lineups_status} /> : null}
-              </div>
-              {isLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  Loading report...
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">{reportTeaser(report ?? null)}</p>
-                  {report ? (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        Updated {timeAgo(report.generated_at)}
-                      </span>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {report.games_count} games
-                      </Badge>
-                    </div>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </button>
-  );
 }
 
 function ScoreBadge({ score }: { score: number | null | undefined }) {
@@ -336,23 +270,10 @@ export default function PitcherMatchups() {
 
   const { dataByGamePk, isLoading: matchupLoading } = useAllMatchupData(games, games.length > 0);
 
-  const homeAbbrs = useMemo(() => games.map(g => g.home_abbr), [games]);
-  const { data: parksByAbbr = new Map() } = useParksMap(homeAbbrs);
-
   const { data: benchmarksR = {} } = useLeagueBenchmarks(season, 'R');
   const { data: benchmarksL = {} } = useLeagueBenchmarks(season, 'L');
 
-  const topPlays = useTopPlays(
-    games,
-    dataByGamePk,
-    parksByAbbr,
-    !matchupLoading && dataByGamePk.size > 0,
-  );
-
-  const [highlight, setHighlight] = useState<{ gamePk: number; playerId: number } | null>(null);
-  const [archetypeFilter, setArchetypeFilter] = useState<DisplayPitcherArchetype | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
-  const cardRefs = useRef<Map<number, GameMatchupCardHandle | null>>(new Map());
 
   const gamesByDate = useMemo(() => {
     const map = new Map<string, typeof games>();
@@ -365,14 +286,6 @@ export default function PitcherMatchups() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [games]);
 
-  const handleSelectPlay = (entry: TopPlayEntry) => {
-    setHighlight({ gamePk: entry.game_pk, playerId: entry.player_id });
-    cardRefs.current.get(entry.game_pk)?.expand();
-    requestAnimationFrame(() => {
-      document.getElementById(`game-${entry.game_pk}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  };
-
   const errorMessage = error instanceof Error ? error.message : 'Failed to load pitcher matchups';
 
   return (
@@ -383,22 +296,51 @@ export default function PitcherMatchups() {
             ⚾ Pitcher Matchups
           </h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Tonight&apos;s starters, arsenals, platoon edges, and model-ranked best plays
+            Tonight&apos;s starters, arsenals, platoon edges, and AI report breakdown
           </p>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {reportLoading ? (
+              <span className="inline-flex items-center gap-1">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Loading report
+              </span>
+            ) : report ? (
+              <>
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Report updated {timeAgo(report.generated_at)}
+                </span>
+                <ReportStatusBadge status={report.lineups_status} />
+              </>
+            ) : (
+              <span>Report not yet generated — check back closer to first pitch</span>
+            )}
+          </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            refetch();
-            refetchReport();
-          }}
-          disabled={isLoading}
-          className="w-full sm:w-auto shrink-0"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto shrink-0">
+          <Button
+            size="sm"
+            onClick={() => setReportOpen(true)}
+            disabled={reportLoading || !report}
+            className="w-full sm:w-auto"
+          >
+            <BarChart3 className="h-4 w-4 mr-2" />
+            View Pitcher Matchups Report
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetch();
+              refetchReport();
+            }}
+            disabled={isLoading}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {isError ? (
@@ -412,12 +354,6 @@ export default function PitcherMatchups() {
           </AlertDescription>
         </Alert>
       ) : null}
-
-      <PitcherMatchupsReportCard
-        report={report}
-        isLoading={reportLoading}
-        onOpen={() => setReportOpen(true)}
-      />
 
       {isLoading ? (
         <div className="space-y-4">
@@ -433,20 +369,6 @@ export default function PitcherMatchups() {
         </Card>
       ) : (
         <div className="space-y-8">
-          {matchupLoading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : (
-            <>
-              <TopPlaysHeader
-                topPlays={topPlays}
-                onSelectPlay={handleSelectPlay}
-                archetypeFilter={archetypeFilter}
-                onArchetypeFilterChange={setArchetypeFilter}
-              />
-              <PowerStackAlert stacks={topPlays.power_stacks} />
-            </>
-          )}
-
           {gamesByDate.map(([dateKey, dateGames]) => (
             <section key={dateKey} className="space-y-4">
               <h2 className="text-base sm:text-lg font-bold text-foreground border-b border-border pb-2 flex flex-wrap items-baseline gap-x-2">
@@ -459,18 +381,12 @@ export default function PitcherMatchups() {
                 {dateGames.map((game, idx) => (
                   <GameMatchupCard
                     key={game.game_pk}
-                    ref={el => {
-                      if (el) cardRefs.current.set(game.game_pk, el);
-                    }}
                     game={game}
                     eagerLoad={idx < 5}
                     prefetchedData={dataByGamePk.get(game.game_pk) ?? null}
                     prefetchedLoading={matchupLoading}
                     benchmarksR={benchmarksR}
                     benchmarksL={benchmarksL}
-                    highlightPlayerId={
-                      highlight?.gamePk === game.game_pk ? highlight.playerId : null
-                    }
                   />
                 ))}
               </div>
