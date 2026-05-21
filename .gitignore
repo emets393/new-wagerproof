@@ -35,3 +35,6 @@ dist-ssr
 
 # Keep machine-local Claude settings out of git
 .claude/settings.local.json
+
+# Local Claude Code worktrees (gitlinks break CI submodule checkout)
+.claude/worktrees/
