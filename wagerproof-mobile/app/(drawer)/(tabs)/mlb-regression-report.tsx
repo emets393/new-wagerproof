@@ -1022,7 +1022,7 @@ function PicksBody({ picks, reportDate }: { picks: SuggestedPick[]; reportDate: 
                     styles.reasoningQuote,
                     {
                       backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                      borderLeftColor: confColor,
+                      borderLeftColor: tagColor,
                     },
                   ]}
                 >
