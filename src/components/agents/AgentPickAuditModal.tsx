@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AgentPick } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
+import { formatAgentBetTypeLabel, formatAgentPickSelection } from '@/utils/agentPickDisplay';
 
 interface AgentPickAuditModalProps {
   open: boolean;
@@ -39,7 +40,7 @@ export function AgentPickAuditModal({ open, onOpenChange, pick }: AgentPickAudit
         <DialogHeader>
           <DialogTitle className="text-xl">Pick Audit</DialogTitle>
           <DialogDescription>
-            {pick ? `${pick.matchup} • ${pick.pick_selection}` : 'No pick selected'}
+            {pick ? `${pick.matchup} • ${formatAgentPickSelection(pick)}` : 'No pick selected'}
           </DialogDescription>
         </DialogHeader>
 
@@ -47,7 +48,7 @@ export function AgentPickAuditModal({ open, onOpenChange, pick }: AgentPickAudit
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">{pick.sport.toUpperCase()}</Badge>
-              <Badge variant="outline">{pick.bet_type.toUpperCase()}</Badge>
+              <Badge variant="outline">{formatAgentBetTypeLabel(pick.bet_type.toUpperCase(), pick)}</Badge>
               <Badge variant="outline">{pick.result.toUpperCase()}</Badge>
               <Badge variant="outline">Confidence {pick.confidence}/5</Badge>
               <Badge variant="outline">{pick.units}u</Badge>

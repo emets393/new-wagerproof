@@ -139,6 +139,7 @@ export interface AgentPick {
   matchup: string;
   game_date: string;
   bet_type: Exclude<BetType, 'any'>;
+  period?: 'full' | 'f5' | null;
   pick_selection: string;
   odds: string | null;
   units: number;
@@ -284,6 +285,7 @@ export type UpdateAgentInput = z.input<typeof UpdateAgentSchema>;
 export interface GeneratedPick {
   game_id: string;
   bet_type: Exclude<BetType, 'any'>;
+  period?: 'full' | 'f5';
   selection: string;
   odds: string;
   confidence: Scale1To5;

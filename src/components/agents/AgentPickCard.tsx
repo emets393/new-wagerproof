@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AgentPick, BetType, PickResult, Scale1To5, Sport } from '@/types/agent';
 import { AgentOverlapFooter } from './AgentOverlapFooter';
+import { formatAgentBetTypeLabel, formatAgentPickSelection } from '@/utils/agentPickDisplay';
 import {
   getCFBTeamColors,
   getCFBTeamInitials,
@@ -128,17 +129,18 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
   // names don't truncate. Spread keeps its line (e.g. "MIN -3.5"), ML renders
   // as "MIN ML", totals render verbatim ("Over 225.5").
   const displaySelection = useMemo(() => {
-    if (pick.bet_type === 'total') return pick.pick_selection;
+    if (pick.bet_type === 'total') return formatAgentPickSelection(pick);
     const selectionLower = (pick.pick_selection || '').toLowerCase();
     const pickedAbbr = selectionLower.includes(awayAbbr.toLowerCase()) || selectionLower.includes(away.toLowerCase())
       ? awayAbbr
       : homeAbbr;
     if (pick.bet_type === 'spread') {
       const lineMatch = (pick.pick_selection || '').match(/[+-]\d+(?:\.\d+)?/);
-      return lineMatch ? `${pickedAbbr} ${lineMatch[0]}` : pickedAbbr;
+      const compactSpread = lineMatch ? `${pickedAbbr} ${lineMatch[0]}` : pickedAbbr;
+      return formatAgentPickSelection(pick, compactSpread);
     }
-    return `${pickedAbbr} ML`;
-  }, [pick.bet_type, pick.pick_selection, awayAbbr, homeAbbr, away]);
+    return formatAgentPickSelection(pick, `${pickedAbbr} ML`);
+  }, [pick.bet_type, pick.period, pick.pick_selection, awayAbbr, homeAbbr, away]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
@@ -182,7 +184,7 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
                 className="text-[10px] font-bold px-2 py-1 rounded-md"
                 style={{ color: betTypeColor, backgroundColor: `${betTypeColor}20` }}
               >
-                {BET_TYPE_LABELS[pick.bet_type]}
+                {formatAgentBetTypeLabel(BET_TYPE_LABELS[pick.bet_type], pick)}
               </span>
               <p className="text-sm font-semibold truncate">{displaySelection}</p>
               {pick.odds ? <p className="text-xs text-muted-foreground">({pick.odds})</p> : null}

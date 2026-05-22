@@ -23,6 +23,7 @@ import { OutlierCardShimmer } from '@/components/OutlierCardShimmer';
 import { formatNetUnits } from '@/types/agent';
 import { useGameLookup } from '@/hooks/useGameLookup';
 import { SportType } from '@/components/TeamAvatar';
+import { formatAgentPickSelection } from '@/utils/agentPickDisplay';
 
 const FILTERS: { label: string; value: FeedFilter }[] = [
   { label: 'Top', value: 'top10' },
@@ -368,7 +369,7 @@ export function TopAgentPicksFeed({
                         pick.bet_type === 'total' ? 'arrow-up-down' :
                         'cards-outline'
                       }
-                      pickLabel={pick.pick_selection}
+                      pickLabel={formatAgentPickSelection(pick)}
                       pickValue={pick.odds || undefined}
                       accentColor={getPrimaryColor(agent.avatar_color)}
                       loading={loadingPickId === pick.id}

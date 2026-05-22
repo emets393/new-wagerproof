@@ -53,6 +53,13 @@ import { disableUserAutopilot, resolvePremiumAccess } from '../shared/entitlemen
 const MIN_GAMES_FOR_SLATE = 3;
 const WORKER_ID_PREFIX = 'worker-v2';
 
+function formatPickSelectionForPeriod(selection: string, period: 'full' | 'f5'): string {
+  if (period !== 'f5' || /\bF5\b/i.test(selection)) return selection;
+  const trimmed = selection.trim();
+  if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, ' F5 ML');
+  return `${trimmed} F5`;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-secret',
@@ -635,16 +642,15 @@ serve(async (req) => {
           : typeof vegasTotalRaw === 'string' && vegasTotalRaw.trim() !== '' ? Number(vegasTotalRaw)
           : null;
         if (direction && vegasTotal != null && !Number.isNaN(vegasTotal)) {
-          // Selection text gets a "F5 " prefix when period=f5 so the
-          // pick is self-describing in the UI and grader logs.
-          const prefix = effectivePeriod === 'f5' ? 'F5 ' : '';
-          const rebuilt = `${prefix}${direction} ${vegasTotal}`;
+          const rebuilt = formatPickSelectionForPeriod(`${direction} ${vegasTotal}`, effectivePeriod);
           if (rebuilt !== effectiveSelection) {
             console.warn(`[Validator] Rewrote total selection: "${effectiveSelection}" -> "${rebuilt}" (game ${pick.game_id}, period=${effectivePeriod})`);
           }
           effectiveSelection = rebuilt;
         }
       }
+
+      effectiveSelection = formatPickSelectionForPeriod(effectiveSelection, effectivePeriod);
 
       picksToInsert.push({
         avatar_id: run.avatar_id,

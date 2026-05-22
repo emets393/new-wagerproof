@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
+import { formatAgentBetTypeLabel, formatAgentPickSelection } from '@/utils/agentPickDisplay';
 
 interface AgentPickPayloadAuditWidgetProps {
   gameKeys: Array<string | number | null | undefined>;
@@ -51,7 +52,7 @@ export function AgentPickPayloadAuditWidget({ gameKeys }: AgentPickPayloadAuditW
       <View style={styles.lineRow}>
         <Text style={[styles.prefix, { color: isDark ? '#00E676' : '#00BA62' }]}>›</Text>
         <Text style={[styles.titleText, { color: isDark ? '#00E676' : '#1ecf7b' }]}>
-          Pick: {selectedAgentPick.pick_selection} ({selectedAgentPick.bet_type})
+          Pick: {formatAgentPickSelection(selectedAgentPick)} ({formatAgentBetTypeLabel(selectedAgentPick.bet_type, selectedAgentPick)})
         </Text>
       </View>
 

@@ -1,6 +1,7 @@
 import { supabase } from '@/services/supabase';
 import { AgentPick, AgentWithPerformance } from '@/types/agent';
 import { TopAgentWidgetData, AgentPickForWidget } from '@/modules/widget-data-bridge';
+import { formatAgentPickSelection } from '@/utils/agentPickDisplay';
 
 const MAX_WIDGET_AGENTS = 3;
 const PICKS_PER_AGENT = 2;
@@ -31,7 +32,7 @@ function formatPickForWidget(pick: AgentPick): AgentPickForWidget {
     id: pick.id,
     sport: pick.sport,
     matchup: pick.matchup,
-    pickSelection: pick.pick_selection,
+    pickSelection: formatAgentPickSelection(pick),
     odds: pick.odds || undefined,
     result: pick.result || undefined,
     gameDate: pick.game_date || undefined,
@@ -133,7 +134,7 @@ export async function fetchTopAgentsForWidget(userId: string): Promise<TopAgentW
   const lookbackStr = lookbackDate.toISOString().split('T')[0];
   const { data: picks, error: picksError } = await supabase
     .from('avatar_picks')
-    .select('id, avatar_id, sport, matchup, pick_selection, odds, result, game_date, game_id, created_at')
+    .select('id, avatar_id, sport, matchup, pick_selection, period, bet_type, odds, result, game_date, game_id, created_at')
     .in('avatar_id', selectedIds)
     .gte('game_date', lookbackStr)
     .order('created_at', { ascending: false })

@@ -20,6 +20,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { AgentPick } from '@/types/agent';
+import { formatAgentBetTypeLabel, formatAgentPickSelection } from '@/utils/agentPickDisplay';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -210,8 +211,8 @@ const BackFace = React.memo(function BackFace({
                 <Text style={backStyles.pickMatchup} numberOfLines={1}>{pick.matchup}</Text>
               </View>
               <View style={backStyles.pickRight}>
-                <Text style={backStyles.pickType}>{getBetTypeLabel(pick.bet_type)}</Text>
-                <Text style={backStyles.pickSelection} numberOfLines={1}>{pick.pick_selection}</Text>
+                <Text style={backStyles.pickType}>{formatAgentBetTypeLabel(getBetTypeLabel(pick.bet_type), pick)}</Text>
+                <Text style={backStyles.pickSelection} numberOfLines={1}>{formatAgentPickSelection(pick)}</Text>
                 {pick.odds && <Text style={backStyles.pickOdds}>{pick.odds}</Text>}
               </View>
             </View>

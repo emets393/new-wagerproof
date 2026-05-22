@@ -72,6 +72,13 @@ interface AutoGenerateSummary {
 
 const MIN_GAMES_FOR_SLATE = 3;
 
+function formatPickSelectionForPeriod(selection: string, period: 'full' | 'f5'): string {
+  if (period !== 'f5' || /\bF5\b/i.test(selection)) return selection;
+  const trimmed = selection.trim();
+  if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, ' F5 ML');
+  return `${trimmed} F5`;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -552,6 +559,7 @@ async function processAvatar(
       const formattedSnapshot = ensureFormattedGameSnapshot(gameSnapshot, sportType, pick.game_id);
 
       // Build pick record matching the actual database schema
+      const pickPeriod = pick.period ?? 'full';
       const avatarPickRecord = {
         avatar_id: avatar.avatar_id,
         game_id: pick.game_id,
@@ -560,8 +568,8 @@ async function processAvatar(
         game_date: gameDate,
         bet_type: pick.bet_type,
         // MLB picks may set period='f5'; non-MLB picks default to 'full'.
-        period: pick.period ?? 'full',
-        pick_selection: pick.selection,
+        period: pickPeriod,
+        pick_selection: formatPickSelectionForPeriod(pick.selection, pickPeriod),
         odds: pick.odds,
         units: 1.0,
         confidence: pick.confidence,

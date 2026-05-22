@@ -46,6 +46,7 @@ import { GlowAccentBar } from '@/components/agents/GlowAccentBar';
 import { LockedPickCard } from '@/components/LockedPickCard';
 import { useGameLookup } from '@/hooks/useGameLookup';
 import { TimePickerModal } from '@/components/agents/inputs/TimePickerModal';
+import { formatAgentPickSelection } from '@/utils/agentPickDisplay';
 import {
   AgentPick,
   AgentWithPerformance,
@@ -609,7 +610,7 @@ export default function AgentDetailScreen() {
       payload.model_response_payload || {
         game_id: selectedAuditPick.game_id,
         bet_type: selectedAuditPick.bet_type,
-        selection: selectedAuditPick.pick_selection,
+        selection: formatAgentPickSelection(selectedAuditPick),
         odds: selectedAuditPick.odds,
         confidence: selectedAuditPick.confidence,
         reasoning: selectedAuditPick.reasoning_text,
@@ -1518,7 +1519,7 @@ export default function AgentDetailScreen() {
               <View style={styles.auditLineRow}>
                 <Text style={styles.auditPrefix}>›</Text>
                 <Text style={styles.auditLineMain}>
-                  {selectedAuditPick.matchup} | {selectedAuditPick.pick_selection}
+                  {selectedAuditPick.matchup} | {formatAgentPickSelection(selectedAuditPick)}
                 </Text>
               </View>
 

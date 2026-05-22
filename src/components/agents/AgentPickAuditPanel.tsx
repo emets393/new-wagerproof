@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AgentPick } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from '@/contexts/ThemeContext';
+import { formatAgentBetTypeLabel, formatAgentPickSelection } from '@/utils/agentPickDisplay';
 
 interface AgentPickAuditPanelProps {
   pick: AgentPick;
@@ -51,7 +52,7 @@ export function AgentPickAuditPanel({ pick, onBack }: AgentPickAuditPanelProps) 
                 terminal://pick-audit/{pick.id}
               </p>
               <h3 className="text-lg font-semibold truncate">{pick.matchup}</h3>
-              <p className="text-sm text-muted-foreground truncate">{pick.pick_selection}</p>
+              <p className="text-sm text-muted-foreground truncate">{formatAgentPickSelection(pick)}</p>
             </div>
             <Button variant="outline" onClick={onBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -61,7 +62,7 @@ export function AgentPickAuditPanel({ pick, onBack }: AgentPickAuditPanelProps) 
 
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{pick.sport.toUpperCase()}</Badge>
-            <Badge variant="outline">{pick.bet_type.toUpperCase()}</Badge>
+            <Badge variant="outline">{formatAgentBetTypeLabel(pick.bet_type.toUpperCase(), pick)}</Badge>
             <Badge variant="outline">{pick.result.toUpperCase()}</Badge>
             <Badge variant="outline">Confidence {pick.confidence}/5</Badge>
             <Badge variant="outline">{pick.units}u</Badge>

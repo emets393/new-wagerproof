@@ -18,6 +18,7 @@ import { AgentPick, Sport } from '@/types/agent';
 import { AgentOverlapFooter } from './AgentOverlapFooter';
 import { useNCAABTeamMapping, lookupNCAABTeam } from '@/hooks/useNCAABTeamMapping';
 import { getMLBFallbackTeamInfo, getMLBTeamColors } from '@/constants/mlbTeams';
+import { formatAgentPickSelection } from '@/utils/agentPickDisplay';
 
 // ============================================================================
 // HELPERS
@@ -176,12 +177,13 @@ export const AgentPickItem = React.memo(function AgentPickItem({ pick, onPress, 
   // the avatar slot) on ML/spread picks so long team names don't get truncated.
   // Spread picks keep the line portion (e.g. "MIN -3.5"). O/U picks render verbatim.
   const displaySelection = (() => {
-    if (isTotal) return pick.pick_selection;
+    if (isTotal) return formatAgentPickSelection(pick);
     if (isSpread) {
       const lineMatch = (pick.pick_selection || '').match(/[+-]\d+(?:\.\d+)?/);
-      return lineMatch ? `${pickedAbbr} ${lineMatch[0]}` : pickedAbbr;
+      const compactSpread = lineMatch ? `${pickedAbbr} ${lineMatch[0]}` : pickedAbbr;
+      return formatAgentPickSelection(pick, compactSpread);
     }
-    return `${pickedAbbr} ML`;
+    return formatAgentPickSelection(pick, `${pickedAbbr} ML`);
   })();
 
   return (

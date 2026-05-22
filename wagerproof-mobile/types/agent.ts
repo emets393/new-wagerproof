@@ -165,6 +165,7 @@ export interface AgentPick {
   matchup: string;
   game_date: string;
   bet_type: Exclude<BetType, 'any'>; // Actual picks can't be 'any'
+  period?: 'full' | 'f5' | null;
   pick_selection: string;
   odds: string | null;
   units: number;
@@ -353,6 +354,7 @@ export interface GeneratePicksRequest {
 export interface GeneratedPick {
   game_id: string;
   bet_type: Exclude<BetType, 'any'>;
+  period?: 'full' | 'f5';
   selection: string;
   odds: string;
   confidence: Scale1To5;
@@ -370,6 +372,7 @@ export interface GeneratePicksResponse {
 export const GeneratedPickSchema = z.object({
   game_id: z.string(),
   bet_type: z.enum(['spread', 'moneyline', 'total']),
+  period: z.enum(['full', 'f5']).optional(),
   selection: z.string(),
   odds: z.string(),
   confidence: Scale1To5Schema,

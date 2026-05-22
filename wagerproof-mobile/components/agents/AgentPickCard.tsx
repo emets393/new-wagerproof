@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { AgentPick, BetType, PickResult, Scale1To5 } from '@/types/agent';
+import { formatAgentBetTypeLabel, formatAgentPickSelection } from '@/utils/agentPickDisplay';
 
 interface AgentPickCardProps {
   pick: AgentPick;
@@ -144,7 +145,7 @@ export function AgentPickCard({
               ]}
             >
               <Text style={[styles.betTypeText, { color: betTypeColor }]}>
-                {BET_TYPE_LABELS[pick.bet_type]}
+                {formatAgentBetTypeLabel(BET_TYPE_LABELS[pick.bet_type], pick)}
               </Text>
             </View>
 
@@ -152,7 +153,7 @@ export function AgentPickCard({
               style={[styles.selection, { color: theme.colors.onSurface }]}
               numberOfLines={1}
             >
-              {pick.pick_selection}
+              {formatAgentPickSelection(pick)}
             </Text>
 
             {pick.odds && (

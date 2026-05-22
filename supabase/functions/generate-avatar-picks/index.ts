@@ -36,6 +36,13 @@ import { fetchActiveSystemPrompt } from '../shared/promptFetcher.ts';
 const MAX_DAILY_GENERATIONS = 3;
 const MIN_GAMES_FOR_SLATE = 3;
 
+function formatPickSelectionForPeriod(selection: string, period: 'full' | 'f5'): string {
+  if (period !== 'f5' || /\bF5\b/i.test(selection)) return selection;
+  const trimmed = selection.trim();
+  if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, ' F5 ML');
+  return `${trimmed} F5`;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -432,6 +439,7 @@ serve(async (req) => {
       const units = unitsByConfidence[pick.confidence] || 1.0;
 
       // Build pick object matching database schema
+      const pickPeriod = pick.period ?? 'full';
       const avatarPick = {
         avatar_id,
         game_id: pick.game_id,
@@ -440,8 +448,8 @@ serve(async (req) => {
         game_date: gameDate,
         bet_type: pick.bet_type,
         // MLB picks may set period='f5'; non-MLB picks default to 'full'.
-        period: pick.period ?? 'full',
-        pick_selection: pick.selection,  // Database column is 'pick_selection'
+        period: pickPeriod,
+        pick_selection: formatPickSelectionForPeriod(pick.selection, pickPeriod),  // Database column is 'pick_selection'
         odds: pick.odds,
         units,
         confidence: pick.confidence,

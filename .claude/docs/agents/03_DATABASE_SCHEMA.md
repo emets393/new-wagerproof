@@ -203,13 +203,14 @@ CREATE TABLE public.avatar_picks (
 
   -- Game reference
   game_id text NOT NULL,
-  sport text NOT NULL CHECK (sport IN ('nfl', 'cfb', 'nba', 'ncaab')),
+  sport text NOT NULL CHECK (sport IN ('nfl', 'cfb', 'nba', 'ncaab', 'mlb')),
   matchup text NOT NULL,  -- "Kansas City Chiefs @ Buffalo Bills"
   game_date date NOT NULL,
 
   -- The pick
   bet_type text NOT NULL CHECK (bet_type IN ('spread', 'moneyline', 'total')),
-  pick_selection text NOT NULL,  -- "Bills -1.5", "Chiefs +150", "Over 48.5"
+  period text NOT NULL DEFAULT 'full' CHECK (period IN ('full', 'f5')),
+  pick_selection text NOT NULL,  -- "Bills -1.5", "LAD -0.5 F5", "Chiefs ML", "Over 48.5"
   odds text,  -- "-110", "+150"
   units numeric(3,1) NOT NULL DEFAULT 1.0,
 

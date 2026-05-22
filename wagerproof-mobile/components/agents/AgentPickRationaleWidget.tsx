@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from 'react-native-paper';
 import { useThemeContext } from '@/contexts/ThemeContext';
 import { useAgentPickAudit } from '@/contexts/AgentPickAuditContext';
+import { formatAgentBetTypeLabel, formatAgentPickSelection } from '@/utils/agentPickDisplay';
 
 interface AgentPickRationaleWidgetProps {
   gameKeys: Array<string | number | null | undefined>;
@@ -49,12 +50,12 @@ export function AgentPickRationaleWidget({ gameKeys }: AgentPickRationaleWidgetP
       <View style={styles.titleRow}>
         <MaterialCommunityIcons name="brain" size={16} color={isDark ? '#00E676' : '#1ecf7b'} />
         <Text style={[styles.titleText, { color: isDark ? '#00E676' : '#1ecf7b' }]}>
-          {selectedAgentPick.pick_selection}
+          {formatAgentPickSelection(selectedAgentPick)}
         </Text>
       </View>
 
       <Text style={[styles.agentMetaText, { color: theme.colors.onSurfaceVariant }]}>
-        {selectedAgentPick.bet_type.toUpperCase()} pick with {selectedAgentPick.confidence}/5 confidence
+        {formatAgentBetTypeLabel(selectedAgentPick.bet_type.toUpperCase(), selectedAgentPick)} pick with {selectedAgentPick.confidence}/5 confidence
       </Text>
 
       <Text style={[styles.bodyText, { color: theme.colors.onSurface }]}>

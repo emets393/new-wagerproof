@@ -85,7 +85,7 @@ export const AVATAR_PICKS_JSON_SCHEMA = {
             },
             selection: {
               type: 'string',
-              description: 'The specific pick. For spreads, use the team name and their EXACT spread value from spread_summary (e.g., "Bills -1.5", "Wizards +14.5"). For moneylines, use "TeamName ML". For totals, use "Over X.X" or "Under X.X".',
+              description: 'The specific pick. For spreads, use the team name and their EXACT spread value from spread_summary (e.g., "Bills -1.5", "Wizards +14.5"). For moneylines, use "TeamName ML". For totals, use "Over X.X" or "Under X.X". If period is "f5", explicitly include F5 in the selection (e.g., "LAD -0.5 F5", "LAD F5 ML", "Over 4.5 F5").',
             },
             odds: {
               type: 'string',
