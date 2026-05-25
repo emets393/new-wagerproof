@@ -505,10 +505,12 @@ export function useMLBPitcherMatchups() {
       };
 
       return games.map(game => {
-        const awayOppLineup =
-          game.home_team_id != null ? lineupByGameTeam.get(`${game.game_pk}|${game.home_team_id}`) ?? [] : [];
-        const homeOppLineup =
+        const awayLineup =
           game.away_team_id != null ? lineupByGameTeam.get(`${game.game_pk}|${game.away_team_id}`) ?? [] : [];
+        const homeLineup =
+          game.home_team_id != null ? lineupByGameTeam.get(`${game.game_pk}|${game.home_team_id}`) ?? [] : [];
+        const awayOppLineup = homeLineup;
+        const homeOppLineup = awayLineup;
         const homeBatterSplits = game.away_sp_hand === 'R' || game.away_sp_hand === 'L'
           ? splitsByHand.get(game.away_sp_hand) ?? new Map<number, BatterSplitRow>()
           : new Map<number, BatterSplitRow>();
@@ -531,8 +533,13 @@ export function useMLBPitcherMatchups() {
         const awayArch = archetypeByPitcher.get(game.away_sp_id) ?? null;
         const homeArch = archetypeByPitcher.get(game.home_sp_id) ?? null;
 
+        const sortLineup = (rows: LineupRow[]) =>
+          [...rows].sort((a, b) => a.batting_order - b.batting_order);
+
         return {
           game,
+          awayLineup: sortLineup(awayLineup),
+          homeLineup: sortLineup(homeLineup),
           awayPitcher: {
             archetype: awayArch,
             battedBall: battedBallByPitcher.get(game.away_sp_id) ?? null,

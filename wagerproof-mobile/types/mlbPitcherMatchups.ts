@@ -163,6 +163,8 @@ export interface PitcherMatchupGame {
 
 export interface PitcherMatchupSummary {
   game: PitcherMatchupGame;
+  awayLineup: LineupRow[];
+  homeLineup: LineupRow[];
   awayPitcher: {
     archetype: PitcherArchetypeProfile | null;
     battedBall: PitcherBattedBallRow | null;

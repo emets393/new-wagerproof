@@ -372,10 +372,11 @@ export function generateInsights(
 }
 
 /** MLB Static CDN (content.mlb.com headshots return 403 in browsers). */
-export function mlbHeadshotUrl(playerId: number, size: 60 | 213 = 60): string {
+export function mlbHeadshotUrl(playerId: number, size: number = 60): string {
   const id = Math.trunc(playerId);
+  const w = Math.max(48, Math.min(420, Math.round(size)));
   const generic = 'd_people:generic:headshot:67:current.png';
-  return `https://img.mlbstatic.com/mlb-photos/image/upload/${generic}/w_${size},q_auto:best/v1/people/${id}/headshot/67/current`;
+  return `https://img.mlbstatic.com/mlb-photos/image/upload/${generic}/w_${w},q_auto:best/v1/people/${id}/headshot/67/current`;
 }
 
 export function windBannerTone(direction: string | null): 'warn' | 'info' | 'neutral' {

@@ -179,9 +179,19 @@ export const navItems: NavItem[] = [
         icon: <BarChart2 className="h-4 w-4" />,
       },
       {
-        title: "Pitcher Matchups",
+        title: "Player Prop Matchups",
         to: "/mlb/pitcher-matchups",
         icon: <BarChart2 className="h-4 w-4" />,
+      },
+      {
+        title: "Best Picks Report",
+        to: "/mlb/picks-report",
+        icon: <Star className="h-4 w-4" />,
+      },
+      {
+        title: "Picks Performance",
+        to: "/mlb/picks-performance",
+        icon: <BarChart className="h-4 w-4" />,
       },
     ],
   },

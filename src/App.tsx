@@ -20,6 +20,8 @@ import MLBTodayBettingTrends from "./pages/MLBTodayBettingTrends";
 import MLBDailyRegressionReport from "./pages/MLBDailyRegressionReport";
 import F5Splits from "./pages/mlb/F5Splits";
 import PitcherMatchups from "./pages/mlb/PitcherMatchups";
+import PlayerPropsReport from "./pages/mlb/PlayerPropsReport";
+import PlayerPropsPerformance from "./pages/mlb/PlayerPropsPerformance";
 import NCAABTodayBettingTrends from "./pages/NCAABTodayBettingTrends";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
@@ -218,6 +220,8 @@ function AppRoutes() {
           <Route path="/mlb/daily-regression-report" element={<ProtectedRoute><MLBDailyRegressionReport /></ProtectedRoute>} />
           <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true}><F5Splits /></ProtectedRoute>} />
           <Route path="/mlb/pitcher-matchups" element={<ProtectedRoute allowFreemium={true}><PitcherMatchups /></ProtectedRoute>} />
+          <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true}><PlayerPropsReport /></ProtectedRoute>} />
+          <Route path="/mlb/picks-performance" element={<ProtectedRoute allowFreemium={true}><PlayerPropsPerformance /></ProtectedRoute>} />
           <Route path="/ncaab/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayBettingTrends /></ProtectedRoute>} />
           <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />

@@ -37,9 +37,9 @@ export function MLBPitcherMatchupsBanner() {
         </View>
 
         <View style={styles.textContainer}>
-          <Text style={[styles.title, { color: theme.colors.onSurface }]}>Pitcher Matchups</Text>
+          <Text style={[styles.title, { color: theme.colors.onSurface }]}>Player Prop Matchups</Text>
           <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
-            Starter archetypes, batted-ball profile, top bats
+            DraftKings lines, L10 hit rates, contextual splits
           </Text>
         </View>
 
