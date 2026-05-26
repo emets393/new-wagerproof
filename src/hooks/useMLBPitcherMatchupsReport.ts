@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { useTodaysMatchupGames } from '@/hooks/useTodaysMatchupGames';
 import { useAllMatchupData } from '@/hooks/useAllMatchupData';
 import { useAllPlayerProps } from '@/hooks/useAllPlayerProps';
+import { useAllPitcherRecentStarts } from '@/hooks/useAllPitcherRecentStarts';
 import { useLeagueBenchmarks } from '@/hooks/useLeagueBenchmarks';
 import { buildDailyPropsReport, type DailyPropsReport } from '@/utils/dailyPropsReport';
 import { seasonFromDate } from '@/utils/mlbPitcherMatchups';
@@ -20,6 +21,7 @@ import type {
   PitcherMatchupData,
 } from '@/types/mlb-matchups';
 import type { MlbPlayerPropRow } from '@/types/mlb-player-props';
+import type { PitcherStartLog } from '@/hooks/usePitcherRecentStarts';
 
 export type { DailyPropsReport, PropPick, PickTier, PickRationale } from '@/utils/dailyPropsReport';
 
@@ -41,6 +43,8 @@ export function useMLBPitcherMatchupsReport(): UseDailyPropsReportResult {
 
   const { dataByGamePk, isLoading: matchupLoading } = useAllMatchupData(games, games.length > 0);
   const { propsByGamePk, isLoading: propsLoading } = useAllPlayerProps(games, games.length > 0);
+  const { data: pitcherStartsByPitcherId = new Map<number, PitcherStartLog[]>() } =
+    useAllPitcherRecentStarts(games, season, games.length > 0);
 
   const { data: benchmarksR = {} } = useLeagueBenchmarks(season, 'R');
   const { data: benchmarksL = {} } = useLeagueBenchmarks(season, 'L');
@@ -54,10 +58,11 @@ export function useMLBPitcherMatchupsReport(): UseDailyPropsReportResult {
       games,
       propsByGamePk,
       matchupByGamePk: dataByGamePk,
+      pitcherStartsByPitcherId,
       benchmarksR,
       benchmarksL,
     });
-  }, [games, propsByGamePk, dataByGamePk, benchmarksR, benchmarksL]);
+  }, [games, propsByGamePk, dataByGamePk, pitcherStartsByPitcherId, benchmarksR, benchmarksL]);
 
   return {
     report,

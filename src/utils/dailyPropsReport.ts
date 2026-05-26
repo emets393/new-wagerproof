@@ -17,6 +17,7 @@ import {
   marketLabel,
 } from '@/utils/mlbPlayerProps';
 import { resolveBenchmark } from '@/hooks/useLeagueBenchmarks';
+import type { PitcherStartLog } from '@/hooks/usePitcherRecentStarts';
 
 export type PickTier = 'elite' | 'strong' | 'lean';
 
@@ -75,12 +76,12 @@ interface ScoreInput {
 // ~95 (40 L10 + 20 day/night + 15 archetype + 20 underlying), pitchers can
 // hit ~85 with the new season-quality bonus, so these thresholds keep tiering
 // meaningful without starving the page.
-// Tier cutoffs — minimum to surface is 50. Anything below is hidden so the
-// page stays tight. Adjust here if the slate produces too many / too few.
+// Tier cutoffs — minimum to surface is 60. Adjust here if the slate produces
+// too many / too few picks at any tier.
 function tierOf(score: number): PickTier | null {
-  if (score >= 75) return 'elite';
-  if (score >= 62) return 'strong';
-  if (score >= 50) return 'lean';
+  if (score >= 80) return 'elite';
+  if (score >= 70) return 'strong';
+  if (score >= 60) return 'lean';
   return null;
 }
 
@@ -360,10 +361,19 @@ interface PitcherContext {
   benchmarks: LeagueBenchmarks; // benchmarks vs this pitcher's hand
   /** This pitcher's season batted-ball / rate profile (overall + by batter hand). */
   pitcherBattedBall: PitcherBattedBallProfile | null;
+  /** This pitcher's last 3 completed starts (newest first). Drives the recent-form signal. */
+  recentStarts: PitcherStartLog[];
+}
+
+// Average a list of numbers, skipping nulls. Returns null if no real values.
+function avgOrNull(values: (number | null | undefined)[]): number | null {
+  const real = values.filter((v): v is number => v != null && Number.isFinite(v));
+  if (real.length === 0) return null;
+  return real.reduce((a, b) => a + b, 0) / real.length;
 }
 
 function scorePitcher(
-  { row, opposingLineupSplits, benchmarks, pitcherBattedBall }: PitcherContext,
+  { row, opposingLineupSplits, benchmarks, pitcherBattedBall, recentStarts }: PitcherContext,
   line: number,
   side: PickSide,
 ): {
@@ -451,6 +461,95 @@ function scorePitcher(
     }
   }
 
+  // 3b. Pitcher last-3-starts form (up to 15 pts) ---------------------------
+  // The recent-form signal pitchers were missing — they now have the same
+  // shot at >70 scores that batters do via their L10 underlying-form bonuses.
+  // Compares L3 K% / xwOBA-A / depth vs the pitcher's full-season baseline.
+  if (recentStarts.length >= 2 && pitcherBattedBall?.overall) {
+    const o = pitcherBattedBall.overall;
+    const l3K = avgOrNull(recentStarts.map(s => s.k_pct));
+    const l3Xwoba = avgOrNull(recentStarts.map(s => s.xwoba_allowed));
+    const l3Ip = avgOrNull(recentStarts.map(s => s.ip_official));
+
+    // K% trend — positive delta favors Over K (rising strikeouts), negative
+    // delta favors Under K. Apply direction × side.
+    if (l3K != null && o.k_pct != null) {
+      const rawDelta = l3K - o.k_pct;
+      const dirDelta = rawDelta * dir;
+      if (dirDelta >= 3) {
+        score += 5;
+        rationale.push({
+          label: `L3 K% ${rawDelta > 0 ? '+' : ''}${rawDelta.toFixed(1)}pp vs season`,
+          points: 5,
+        });
+      } else if (dirDelta >= 1.5) {
+        score += 3;
+        rationale.push({
+          label: `L3 K% ${rawDelta > 0 ? '+' : ''}${rawDelta.toFixed(1)}pp vs season`,
+          points: 3,
+        });
+      } else if (dirDelta <= -3) {
+        score -= 3;
+        rationale.push({
+          label: `L3 K% ${rawDelta.toFixed(1)}pp (wrong way for ${sideLabel})`,
+          points: -3,
+        });
+      }
+    }
+
+    // xwOBA-A trend — LOWER recent xwOBA-A means pitcher's been tougher to
+    // hit, which favors UNDER on hits/TB/runs-allowed and favors OVER on K
+    // (a pitcher dominating contact also tends to rack up Ks). We'll use
+    // direction × -1 (lower-is-better) modulated by side. For K market, a
+    // dropping xwOBA-A is a STRENGTH signal regardless of side, but Over
+    // benefits more — keep simple: lower xwOBA-A always favors strong Over /
+    // strong Under K (so add to whichever side scores higher elsewhere).
+    if (l3Xwoba != null && o.xwoba_allowed != null) {
+      const rawDelta = l3Xwoba - o.xwoba_allowed;
+      // For non-K markets, the direction of "lower xwOBA-A" depends on side:
+      // OVER hits-allowed wants HIGHER recent xwOBA-A (pitcher slipping),
+      // UNDER hits-allowed wants LOWER recent xwOBA-A (pitcher tightening).
+      const xwobaDir = row.market === 'pitcher_strikeouts' ? -1 : dir;
+      const dirDelta = rawDelta * xwobaDir;
+      if (dirDelta >= 0.020) {
+        score += 5;
+        rationale.push({
+          label: `L3 xwOBA-A ${rawDelta > 0 ? '+' : ''}${rawDelta.toFixed(3)} vs season`,
+          points: 5,
+        });
+      } else if (dirDelta >= 0.010) {
+        score += 3;
+        rationale.push({
+          label: `L3 xwOBA-A ${rawDelta > 0 ? '+' : ''}${rawDelta.toFixed(3)} vs season`,
+          points: 3,
+        });
+      } else if (dirDelta <= -0.020) {
+        score -= 3;
+        rationale.push({
+          label: `L3 xwOBA-A ${rawDelta.toFixed(3)} (wrong way for ${sideLabel})`,
+          points: -3,
+        });
+      }
+    }
+
+    // Depth — going deep into games gives more K opportunities (helps Over K)
+    // and tends to suppress hits-allowed Unders (pitcher staying in = more
+    // runners). Only counts for Over K props; otherwise we skip to avoid
+    // double-counting with the season quality signal.
+    if (l3Ip != null && row.market === 'pitcher_strikeouts' && side === 'over') {
+      if (l3Ip >= 6) {
+        score += 5;
+        rationale.push({ label: `L3 avg ${l3Ip.toFixed(1)} IP per start (deep workload)`, points: 5 });
+      } else if (l3Ip >= 5.3) {
+        score += 3;
+        rationale.push({ label: `L3 avg ${l3Ip.toFixed(1)} IP per start`, points: 3 });
+      } else if (l3Ip < 4.5) {
+        score -= 3;
+        rationale.push({ label: `L3 avg ${l3Ip.toFixed(1)} IP (short outings)`, points: -3 });
+      }
+    }
+  }
+
   // 4. Opponent vulnerability (20 pts) — flips for Under K props ------------
   const seasonKs = opposingLineupSplits
     .map(s => s.k_pct)
@@ -534,6 +633,8 @@ interface BuildOptions {
   games: MatchupGame[];
   propsByGamePk: Map<number, MlbPlayerPropRow[]>;
   matchupByGamePk: Map<number, PitcherMatchupData>;
+  /** Last 3 completed starts per starting-pitcher id, newest first. */
+  pitcherStartsByPitcherId: Map<number, PitcherStartLog[]>;
   benchmarksR: LeagueBenchmarks;
   benchmarksL: LeagueBenchmarks;
 }
@@ -546,6 +647,7 @@ export function buildDailyPropsReport({
   games,
   propsByGamePk,
   matchupByGamePk,
+  pitcherStartsByPitcherId,
   benchmarksR,
   benchmarksL,
 }: BuildOptions): DailyPropsReport {
@@ -626,9 +728,11 @@ export function buildDailyPropsReport({
         const pitcherBattedBall = isAwayPitcher
           ? md?.awayBattedBall ?? null
           : md?.homeBattedBall ?? null;
+        const recentStarts = pitcherStartsByPitcherId.get(row.player_id) ?? [];
         const ctx: PitcherContext = {
           row, game, team_name: team,
           opposingLineupSplits, opposingLineup, benchmarks, pitcherBattedBall,
+          recentStarts,
         };
         const over = scorePitcher(ctx, line, 'over');
         const under = scorePitcher(ctx, line, 'under');
