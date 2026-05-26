@@ -25,6 +25,20 @@ export const MLB_PLAYER_PROP_MARKET_LABELS: Record<string, string> = {
   pitcher_outs: 'Outs',
 };
 
+export const MLB_PLAYER_PROP_MARKET_EMOJIS: Record<string, string> = {
+  batter_home_runs: '💣',
+  batter_hits: '🏏',
+  batter_total_bases: '🚀',
+  batter_rbis: '🏃',
+  batter_hits_runs_rbis: '🔥',
+  batter_walks: '👁️',
+  batter_strikeouts: '💨',
+  pitcher_strikeouts: '⚡',
+  pitcher_hits_allowed: '🎯',
+  pitcher_walks: '🌪️',
+  pitcher_outs: '🛡️',
+};
+
 const BATTER_MARKET_ORDER: MlbPlayerPropMarket[] = [
   'batter_home_runs',
   'batter_hits',
@@ -44,6 +58,10 @@ const PITCHER_MARKET_ORDER: MlbPlayerPropMarket[] = [
 
 export function marketLabel(market: string): string {
   return MLB_PLAYER_PROP_MARKET_LABELS[market] ?? market;
+}
+
+export function marketEmoji(market: string): string {
+  return MLB_PLAYER_PROP_MARKET_EMOJIS[market] ?? '🎲';
 }
 
 export function marketSortIndex(market: string, isPitcher: boolean): number {

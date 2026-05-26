@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Headshot } from '@/components/mlb/pitcher-matchups/Headshot';
 import { PlayerPropDetail } from '@/components/mlb/player-props/PlayerPropDetail';
-import { formatPropLine, formatPropOdds } from '@/utils/mlbPlayerProps';
+import { formatPropLine, formatPropOdds, marketEmoji } from '@/utils/mlbPlayerProps';
 import { AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -170,7 +170,9 @@ function PickCard({ pick, context, locked }: PickCardProps) {
             {pick.game_label} · {pick.is_day ? '☀️ Day' : '🌙 Night'}
           </p>
           <div className="flex flex-wrap items-baseline gap-2 text-xs tabular-nums">
-            <span className="font-semibold text-foreground">{pick.market_label}</span>
+            <span className="font-semibold text-foreground">
+              {marketEmoji(pick.market)} {pick.market_label}
+            </span>
             <span className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5">
               {pick.side === 'over' ? 'Over' : 'Under'} {formatPropLine(pick.line)}{' '}
               {pick.market_label.toLowerCase()}{' '}

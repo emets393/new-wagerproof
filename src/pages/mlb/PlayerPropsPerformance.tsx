@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { formatPropOdds } from '@/utils/mlbPlayerProps';
+import { formatPropOdds, marketEmoji } from '@/utils/mlbPlayerProps';
 import { cn } from '@/lib/utils';
 
 const TIER_LABEL: Record<Tier, string> = {
@@ -124,10 +124,8 @@ function MarketTable({ rows }: { rows: GradeSummaryRow[] }) {
           {rows.map(r => (
             <tr key={`${r.market}`} className="border-t border-border/40">
               <td className="px-2 py-1.5">
-                <span className="font-medium">{r.market_label}</span>{' '}
-                <span className="text-muted-foreground text-[10px]">
-                  ({r.kind === 'pitcher' ? '⚾' : '🥎'})
-                </span>
+                <span className="mr-1.5">{marketEmoji(r.market)}</span>
+                <span className="font-medium">{r.market_label}</span>
               </td>
               <td className="px-2 py-1.5 text-right">{r.picks_total}</td>
               <td className="px-2 py-1.5 text-right">
@@ -188,6 +186,7 @@ function HistoryTable({ rows }: { rows: GradeRow[] }) {
                 </span>
               </td>
               <td className="px-2 py-1.5">
+                <span className="mr-1">{marketEmoji(r.market)}</span>
                 {r.market_label ?? r.market} O {r.line}
               </td>
               <td className="px-2 py-1.5">
