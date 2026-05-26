@@ -119,6 +119,13 @@ interface BatterContext {
   benchmarks: LeagueBenchmarks;
 }
 
+// Anything priced worse than -180 (implied prob ≥64.3%) is rejected outright —
+// you'd need >64% true win rate to break even, and a 10-game sample can't
+// confidently support that edge. This is the single biggest fix for "way
+// too many Under picks": heavy-favorite Unders (e.g. Under 0.5 HR at -480)
+// look great on L10 but offer zero long-term edge.
+const MAX_NEGATIVE_ODDS = -180;
+
 // "Flip" a split so its fraction represents the OPPOSITE side of the line.
 // Used to evaluate Under picks from the same `computed` data: over_count
 // becomes (games - over_count). Pushes are effectively impossible for the
@@ -166,6 +173,13 @@ function scoreBatter(
 } | null {
   const computed = computePropAtLine(row, line);
   if (!computed) return null;
+
+  // Gate on the price of the SIDE we're picking — never recommend something
+  // we don't have a posted price for, and never recommend juicier than the
+  // max-negative-odds threshold (no realistic long-term edge there).
+  const sideOddsGate = side === 'over' ? computed.overOdds : computed.underOdds;
+  if (sideOddsGate == null) return null;
+  if (sideOddsGate < MAX_NEGATIVE_ODDS) return null;
 
   const { l10, contextualDayNight, contextualArchetype } = sideSplits(computed, side);
   if (l10.pct == null || l10.games < 3) return null;
@@ -361,6 +375,10 @@ function scorePitcher(
 } | null {
   const computed = computePropAtLine(row, line);
   if (!computed) return null;
+
+  const sideOddsGate = side === 'over' ? computed.overOdds : computed.underOdds;
+  if (sideOddsGate == null) return null;
+  if (sideOddsGate < MAX_NEGATIVE_ODDS) return null;
 
   const { l10, contextualDayNight } = sideSplits(computed, side);
   if (l10.pct == null || l10.games < 3) return null;
