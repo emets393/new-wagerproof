@@ -25,7 +25,7 @@ function toRpcPayload(picks: PropPick[]) {
     game_pk: p.game_pk,
     player_id: p.player_id,
     market: p.market,
-    side: 'over' as const,
+    side: p.side,
     player_name: p.player_name,
     team_name: p.team_name,
     game_label: p.game_label,
@@ -97,5 +97,5 @@ export function useSnapshotPlayerPropPicks(
 }
 
 export function pickIsLocked(p: PropPick, lockedKeys: Set<string>): boolean {
-  return lockedKeys.has(keyOf({ ...p, side: 'over' }));
+  return lockedKeys.has(keyOf(p));
 }

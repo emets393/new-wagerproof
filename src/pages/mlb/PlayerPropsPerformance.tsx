@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatPropOdds } from '@/utils/mlbPlayerProps';
 import { cn } from '@/lib/utils';
 
 const TIER_LABEL: Record<Tier, string> = {
@@ -167,7 +168,7 @@ function HistoryTable({ rows }: { rows: GradeRow[] }) {
             <th className="text-left px-2 py-1.5 font-medium">Player</th>
             <th className="text-left px-2 py-1.5 font-medium">Market</th>
             <th className="text-left px-2 py-1.5 font-medium">Tier</th>
-            <th className="text-right px-2 py-1.5 font-medium">Line</th>
+            <th className="text-right px-2 py-1.5 font-medium" title="American odds at lock time. Negative = favorite, positive = underdog.">Odds</th>
             <th className="text-right px-2 py-1.5 font-medium">Actual</th>
             <th className="text-left px-2 py-1.5 font-medium">Result</th>
             <th className="text-right px-2 py-1.5 font-medium">Units</th>
@@ -202,7 +203,7 @@ function HistoryTable({ rows }: { rows: GradeRow[] }) {
                   {r.tier ? TIER_LABEL[r.tier] : '—'}
                 </Badge>
               </td>
-              <td className="px-2 py-1.5 text-right">{r.line ?? '—'}</td>
+              <td className="px-2 py-1.5 text-right">{formatPropOdds(r.over_odds)}</td>
               <td className="px-2 py-1.5 text-right">{r.actual_value ?? '—'}</td>
               <td className="px-2 py-1.5">
                 <span

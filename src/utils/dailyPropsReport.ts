@@ -26,6 +26,8 @@ export interface PickRationale {
   points: number;
 }
 
+export type PickSide = 'over' | 'under';
+
 export interface PropPick {
   kind: 'batter' | 'pitcher';
   tier: PickTier;
@@ -40,8 +42,11 @@ export interface PropPick {
   market: string;
   market_label: string;
   line: number;
+  /** Which side of the line the algo is recommending. */
+  side: PickSide;
   over_odds: number | null;
   under_odds: number | null;
+  /** Hit count + rate for the SIDE being recommended (i.e. cleared for Over, missed for Under). */
   l10_over: number;
   l10_games: number;
   l10_pct: number | null;
@@ -114,36 +119,82 @@ interface BatterContext {
   benchmarks: LeagueBenchmarks;
 }
 
-function scoreBatter({ row, split, benchmarks }: BatterContext, line: number): {
+// "Flip" a split so its fraction represents the OPPOSITE side of the line.
+// Used to evaluate Under picks from the same `computed` data: over_count
+// becomes (games - over_count). Pushes are effectively impossible for the
+// .5 lines that dominate the slate, so this is exact for those and a tiny
+// rounding error on rare integer lines.
+type Split = { over: number; games: number; pct: number | null };
+function flipSplit(s: Split | null | undefined): Split | null {
+  if (!s) return null;
+  const newOver = Math.max(0, s.games - s.over);
+  return {
+    over: newOver,
+    games: s.games,
+    pct: s.games > 0 ? Math.round((newOver / s.games) * 100) : null,
+  };
+}
+function sideSplits(c: PropComputedAtLine, side: PickSide): {
+  l10: Split;
+  contextualDayNight: Split | null;
+  contextualArchetype: Split | null;
+} {
+  if (side === 'over') {
+    return {
+      l10: c.l10,
+      contextualDayNight: c.contextualDayNight,
+      contextualArchetype: c.contextualArchetype,
+    };
+  }
+  return {
+    l10: flipSplit(c.l10) ?? c.l10,
+    contextualDayNight: flipSplit(c.contextualDayNight),
+    contextualArchetype: flipSplit(c.contextualArchetype),
+  };
+}
+
+function scoreBatter(
+  { row, split, benchmarks }: BatterContext,
+  line: number,
+  side: PickSide,
+): {
   score: number;
   computed: PropComputedAtLine;
   rationale: PickRationale[];
   oddsMultiplier: number;
+  l10: Split;
 } | null {
   const computed = computePropAtLine(row, line);
   if (!computed) return null;
+
+  const { l10, contextualDayNight, contextualArchetype } = sideSplits(computed, side);
+  if (l10.pct == null || l10.games < 3) return null;
+
+  const sideLabel = side === 'over' ? 'Over' : 'Under';
+  // For Under picks, "good batter trends" are inverted: declining xwOBA / barrel%
+  // and rising K% all favor going Under (the batter is contributing less).
+  const dir = side === 'over' ? 1 : -1;
 
   const rationale: PickRationale[] = [];
   let score = 0;
 
   // 1. L10 hit rate (40 pts) -------------------------------------------------
-  if (computed.l10.pct == null || computed.l10.games < 3) return null;
-  const l10Points = computed.l10.pct * 0.4;
+  const l10Points = l10.pct * 0.4;
   score += l10Points;
   rationale.push({
-    label: `L10 ${computed.l10.over}/${computed.l10.games} (${computed.l10.pct}%)`,
+    label: `L10 ${sideLabel} ${l10.over}/${l10.games} (${l10.pct}%)`,
     points: l10Points,
   });
-  if (computed.l10.games < 4) {
+  if (l10.games < 4) {
     score -= 6;
     rationale.push({ label: 'Small L10 sample', points: -6 });
   }
 
   // 2. Day/Night fit (15 pts) -----------------------------------------------
-  if (computed.contextualDayNight && computed.contextualDayNight.games >= 5) {
-    const dn = computed.contextualDayNight;
-    if (dn.pct != null && computed.l10.pct != null && dn.pct >= computed.l10.pct - 5) {
-      const dnPoints = 15 * Math.min(1, (dn.pct ?? 0) / 100);
+  if (contextualDayNight && contextualDayNight.games >= 5) {
+    const dn = contextualDayNight;
+    if (dn.pct != null && dn.pct >= l10.pct - 5) {
+      const dnPoints = 15 * Math.min(1, dn.pct / 100);
       score += dnPoints;
       rationale.push({
         label: `${row.game_is_day ? '☀️ Day' : '🌙 Night'} games ${dn.over}/${dn.games} (${dn.pct}%)`,
@@ -153,10 +204,10 @@ function scoreBatter({ row, split, benchmarks }: BatterContext, line: number): {
   }
 
   // 3. Archetype fit (15 pts) -----------------------------------------------
-  if (computed.contextualArchetype && computed.contextualArchetype.games >= 4 && row.opp_archetype_today) {
-    const arch = computed.contextualArchetype;
-    if (arch.pct != null && computed.l10.pct != null && arch.pct >= computed.l10.pct - 5) {
-      const archPoints = 15 * Math.min(1, (arch.pct ?? 0) / 100);
+  if (contextualArchetype && contextualArchetype.games >= 4 && row.opp_archetype_today) {
+    const arch = contextualArchetype;
+    if (arch.pct != null && arch.pct >= l10.pct - 5) {
+      const archPoints = 15 * Math.min(1, arch.pct / 100);
       score += archPoints;
       rationale.push({
         label: `vs ${row.opp_archetype_today} SP ${arch.over}/${arch.games} (${arch.pct}%)`,
@@ -165,83 +216,119 @@ function scoreBatter({ row, split, benchmarks }: BatterContext, line: number): {
     }
   }
 
-  // 4. Underlying form (20 pts) ---------------------------------------------
+  // 4. Underlying form (20 pts) — directions flip for Under picks ----------
   if (split) {
     const recent = split.recent_form;
     const xwoba = split.xwoba ?? null;
     const recentXwoba = recent?.xwoba ?? null;
     if (xwoba != null && recentXwoba != null) {
-      const delta = recentXwoba - xwoba;
+      const delta = (recentXwoba - xwoba) * dir;
       if (delta >= 0.020) {
         score += 8;
-        rationale.push({ label: `L10 xwOBA +${delta.toFixed(3)} vs season`, points: 8 });
+        rationale.push({
+          label: `L10 xwOBA ${dir > 0 ? '+' : ''}${(recentXwoba - xwoba).toFixed(3)} vs season`,
+          points: 8,
+        });
       } else if (delta >= 0.010) {
         score += 4;
-        rationale.push({ label: `L10 xwOBA +${delta.toFixed(3)} vs season`, points: 4 });
+        rationale.push({
+          label: `L10 xwOBA ${dir > 0 ? '+' : ''}${(recentXwoba - xwoba).toFixed(3)} vs season`,
+          points: 4,
+        });
       } else if (delta <= -0.020) {
         score -= 4;
-        rationale.push({ label: `L10 xwOBA ${delta.toFixed(3)} vs season`, points: -4 });
+        rationale.push({
+          label: `L10 xwOBA ${(recentXwoba - xwoba).toFixed(3)} vs season (wrong way for ${sideLabel})`,
+          points: -4,
+        });
       }
     }
     const barrel = split.barrel_pct ?? null;
     const recentBarrel = recent?.barrel_pct ?? null;
     if (barrel != null && recentBarrel != null) {
-      const delta = recentBarrel - barrel;
+      const delta = (recentBarrel - barrel) * dir;
       if (delta >= 3) {
         score += 6;
-        rationale.push({ label: `L10 barrel% +${delta.toFixed(1)}pp`, points: 6 });
+        rationale.push({
+          label: `L10 barrel% ${dir > 0 ? '+' : ''}${(recentBarrel - barrel).toFixed(1)}pp`,
+          points: 6,
+        });
       } else if (delta <= -3) {
         score -= 3;
-        rationale.push({ label: `L10 barrel% ${delta.toFixed(1)}pp`, points: -3 });
+        rationale.push({
+          label: `L10 barrel% ${(recentBarrel - barrel).toFixed(1)}pp (wrong way)`,
+          points: -3,
+        });
       }
     }
     const hard = split.hard_hit_pct ?? null;
     const recentHard = recent?.hard_hit_pct ?? null;
-    if (hard != null && recentHard != null && recentHard - hard >= 3) {
+    if (hard != null && recentHard != null && (recentHard - hard) * dir >= 3) {
       score += 3;
       rationale.push({
-        label: `L10 hard-hit% +${(recentHard - hard).toFixed(1)}pp`,
+        label: `L10 hard-hit% ${dir > 0 ? '+' : ''}${(recentHard - hard).toFixed(1)}pp`,
         points: 3,
       });
     }
+    // For K%, the natural direction is "more K = bad for OVER batter props" — so we
+    // flip the sign vs the other indicators (it's lower-is-better for hit/HR
+    // markets, but for the batter_strikeouts market UNDER, low K% is good).
+    const isBatterKMarket = row.market === 'batter_strikeouts';
+    const kDir = isBatterKMarket ? dir : -dir; // K% rising hurts most Over batter props
     const k = split.k_pct ?? null;
     const recentK = recent?.k_pct ?? null;
-    if (k != null && recentK != null && recentK - k >= 3) {
-      score -= 3;
-      rationale.push({
-        label: `L10 K% +${(recentK - k).toFixed(1)}pp (worse)`,
-        points: -3,
-      });
+    if (k != null && recentK != null) {
+      const delta = (recentK - k) * kDir;
+      if (delta >= 3) {
+        score += 3;
+        rationale.push({
+          label: `L10 K% ${recentK > k ? '+' : ''}${(recentK - k).toFixed(1)}pp`,
+          points: 3,
+        });
+      } else if (delta <= -3) {
+        score -= 3;
+        rationale.push({
+          label: `L10 K% ${(recentK - k).toFixed(1)}pp (wrong way for ${sideLabel})`,
+          points: -3,
+        });
+      }
     }
 
     // Season percentile bonus for xwOBA — "good batter regardless of trend"
+    // For Under picks, a POOR season xwOBA is the signal.
     const xwobaBench = resolveBenchmark(benchmarks, 'xwoba');
     const bucket = pctBucket(xwoba, xwobaBench);
-    if (bucket === 'elite') {
-      score += 5;
-      rationale.push({ label: 'Elite season xwOBA vs this hand', points: 5 });
-    } else if (bucket === 'good') {
-      score += 2;
-      rationale.push({ label: 'Above-avg season xwOBA vs this hand', points: 2 });
-    } else if (bucket === 'poor') {
-      score -= 4;
-      rationale.push({ label: 'Below-avg season xwOBA vs this hand', points: -4 });
+    if (side === 'over') {
+      if (bucket === 'elite')      { score += 5; rationale.push({ label: 'Elite season xwOBA vs this hand', points: 5 }); }
+      else if (bucket === 'good')  { score += 2; rationale.push({ label: 'Above-avg season xwOBA vs this hand', points: 2 }); }
+      else if (bucket === 'poor')  { score -= 4; rationale.push({ label: 'Below-avg season xwOBA vs this hand', points: -4 }); }
+    } else {
+      if (bucket === 'poor')       { score += 5; rationale.push({ label: 'Weak season xwOBA vs this hand (Under signal)', points: 5 }); }
+      else if (bucket === 'neutral') { /* neutral */ }
+      else if (bucket === 'elite') { score -= 4; rationale.push({ label: 'Elite season xwOBA vs this hand (wrong way for Under)', points: -4 }); }
     }
   }
 
-  // 5. Odds sanity (×modifier) ----------------------------------------------
+  // 5. Odds sanity (×modifier) — uses the price for the SIDE we're picking --
+  const sideOdds = side === 'over' ? computed.overOdds : computed.underOdds;
   let oddsMultiplier = 1;
-  if (computed.overOdds != null) {
-    if (computed.overOdds >= 150) {
+  if (sideOdds != null) {
+    if (sideOdds >= 150) {
       oddsMultiplier = 1.05;
-      rationale.push({ label: `Plus-money Over (${computed.overOdds})`, points: 0 });
-    } else if (computed.overOdds <= -180) {
+      rationale.push({ label: `Plus-money ${sideLabel} (${sideOdds})`, points: 0 });
+    } else if (sideOdds <= -180) {
       oddsMultiplier = 0.95;
-      rationale.push({ label: `Heavy juice on Over (${computed.overOdds})`, points: 0 });
+      rationale.push({ label: `Heavy juice on ${sideLabel} (${sideOdds})`, points: 0 });
     }
   }
 
-  return { score: Math.max(0, Math.min(100, score * oddsMultiplier)), computed, rationale, oddsMultiplier };
+  return {
+    score: Math.max(0, Math.min(100, score * oddsMultiplier)),
+    computed,
+    rationale,
+    oddsMultiplier,
+    l10,
+  };
 }
 
 // --------------------------------------------------------------------------
@@ -261,37 +348,42 @@ interface PitcherContext {
   pitcherBattedBall: PitcherBattedBallProfile | null;
 }
 
-function scorePitcher({
-  row,
-  opposingLineupSplits,
-  benchmarks,
-  pitcherBattedBall,
-}: PitcherContext, line: number): {
+function scorePitcher(
+  { row, opposingLineupSplits, benchmarks, pitcherBattedBall }: PitcherContext,
+  line: number,
+  side: PickSide,
+): {
   score: number;
   computed: PropComputedAtLine;
   rationale: PickRationale[];
   oddsMultiplier: number;
+  l10: Split;
 } | null {
   const computed = computePropAtLine(row, line);
   if (!computed) return null;
-  if (computed.l10.pct == null || computed.l10.games < 3) return null;
+
+  const { l10, contextualDayNight } = sideSplits(computed, side);
+  if (l10.pct == null || l10.games < 3) return null;
+
+  const sideLabel = side === 'over' ? 'Over' : 'Under';
+  const dir = side === 'over' ? 1 : -1;
 
   const rationale: PickRationale[] = [];
   let score = 0;
 
   // 1. L10 hit rate (40 pts) ------------------------------------------------
-  const l10Points = computed.l10.pct * 0.4;
+  const l10Points = l10.pct * 0.4;
   score += l10Points;
   rationale.push({
-    label: `L10 ${computed.l10.over}/${computed.l10.games} (${computed.l10.pct}%)`,
+    label: `L10 ${sideLabel} ${l10.over}/${l10.games} (${l10.pct}%)`,
     points: l10Points,
   });
 
   // 2. Day/Night fit (10 pts) -----------------------------------------------
-  if (computed.contextualDayNight && computed.contextualDayNight.games >= 4) {
-    const dn = computed.contextualDayNight;
-    if (dn.pct != null && computed.l10.pct != null && dn.pct >= computed.l10.pct - 5) {
-      const dnPoints = 10 * Math.min(1, (dn.pct ?? 0) / 100);
+  if (contextualDayNight && contextualDayNight.games >= 4) {
+    const dn = contextualDayNight;
+    if (dn.pct != null && dn.pct >= l10.pct - 5) {
+      const dnPoints = 10 * Math.min(1, dn.pct / 100);
       score += dnPoints;
       rationale.push({
         label: `${row.game_is_day ? '☀️ Day' : '🌙 Night'} starts ${dn.over}/${dn.games} (${dn.pct}%)`,
@@ -300,85 +392,95 @@ function scorePitcher({
     }
   }
 
-  // 3. Pitcher season quality (up to 15 pts) -------------------------------
-  // Uses the season batted-ball profile that's already loaded in matchup data —
-  // no extra fetch. For pitcher_strikeouts we weight K% heavily; for everything
-  // else we use overall xwOBA-allowed (lower = better).
+  // 3. Pitcher season quality (up to 15 pts) — directions flip for Under ----
   if (pitcherBattedBall?.overall) {
     const o = pitcherBattedBall.overall;
     if (row.market === 'pitcher_strikeouts') {
       const kBench = resolveBenchmark(benchmarks, 'k_pct');
-      // Note: this benchmark is FOR BATTERS, so league p75 K% is "high for a hitter".
-      // For pitchers we want HIGH K%, so we compare ascending: above p75 = elite.
-      if (o.k_pct != null && kBench?.p75 != null && o.k_pct >= kBench.p75) {
-        score += 15;
-        rationale.push({ label: `Elite season K% (${o.k_pct.toFixed(1)}%)`, points: 15 });
-      } else if (o.k_pct != null && kBench?.p50 != null && o.k_pct >= kBench.p50) {
-        score += 8;
-        rationale.push({ label: `Above-avg season K% (${o.k_pct.toFixed(1)}%)`, points: 8 });
-      } else if (o.k_pct != null && kBench?.p25 != null && o.k_pct <= kBench.p25) {
-        score -= 4;
-        rationale.push({ label: `Below-avg season K% (${o.k_pct.toFixed(1)}%)`, points: -4 });
+      // OVER strikeouts loves high pitcher K%; UNDER loves low pitcher K%.
+      if (o.k_pct != null && kBench) {
+        const elite = side === 'over'
+          ? (kBench.p75 != null && o.k_pct >= kBench.p75)
+          : (kBench.p25 != null && o.k_pct <= kBench.p25);
+        const good = side === 'over'
+          ? (kBench.p50 != null && o.k_pct >= kBench.p50)
+          : (kBench.p50 != null && o.k_pct <= kBench.p50);
+        const wrong = side === 'over'
+          ? (kBench.p25 != null && o.k_pct <= kBench.p25)
+          : (kBench.p75 != null && o.k_pct >= kBench.p75);
+        if (elite) {
+          score += 15;
+          rationale.push({ label: `Season K% ${o.k_pct.toFixed(1)}% (great for ${sideLabel})`, points: 15 });
+        } else if (good) {
+          score += 8;
+          rationale.push({ label: `Season K% ${o.k_pct.toFixed(1)}% (favors ${sideLabel})`, points: 8 });
+        } else if (wrong) {
+          score -= 4;
+          rationale.push({ label: `Season K% ${o.k_pct.toFixed(1)}% (against ${sideLabel})`, points: -4 });
+        }
       }
     } else {
-      // For hits-allowed / walks / outs we lean on xwOBA-A as a quality proxy.
-      if (o.xwoba_allowed != null && o.xwoba_allowed <= 0.300) {
-        score += 8;
-        rationale.push({ label: `Strong season xwOBA-A (${o.xwoba_allowed.toFixed(3)})`, points: 8 });
-      } else if (o.xwoba_allowed != null && o.xwoba_allowed >= 0.350) {
-        score -= 4;
-        rationale.push({ label: `Weak season xwOBA-A (${o.xwoba_allowed.toFixed(3)})`, points: -4 });
+      // hits-allowed / walks / outs: low xwOBA-A favors UNDER, high favors OVER.
+      if (o.xwoba_allowed != null) {
+        if (dir > 0) {
+          if (o.xwoba_allowed >= 0.350) { score += 8; rationale.push({ label: `Weak season xwOBA-A (${o.xwoba_allowed.toFixed(3)})`, points: 8 }); }
+          else if (o.xwoba_allowed <= 0.300) { score -= 4; rationale.push({ label: `Strong season xwOBA-A (${o.xwoba_allowed.toFixed(3)})`, points: -4 }); }
+        } else {
+          if (o.xwoba_allowed <= 0.300) { score += 8; rationale.push({ label: `Strong season xwOBA-A (${o.xwoba_allowed.toFixed(3)}) — Under signal`, points: 8 }); }
+          else if (o.xwoba_allowed >= 0.350) { score -= 4; rationale.push({ label: `Weak season xwOBA-A (${o.xwoba_allowed.toFixed(3)}) — wrong way for Under`, points: -4 }); }
+        }
       }
     }
   }
 
-  // 4. Opponent vulnerability (20 pts) -- THE pitcher-K signal -------------
-  // Average season K% of opposing lineup vs this pitcher's hand
+  // 4. Opponent vulnerability (20 pts) — flips for Under K props ------------
   const seasonKs = opposingLineupSplits
     .map(s => s.k_pct)
     .filter((v): v is number => v != null && Number.isFinite(v));
-  if (seasonKs.length >= 4) {
+  if (seasonKs.length >= 4 && row.market === 'pitcher_strikeouts') {
     const avgK = seasonKs.reduce((a, b) => a + b, 0) / seasonKs.length;
     const kBench = resolveBenchmark(benchmarks, 'k_pct');
-    // For batters, k_pct is "lower is better" — so a HIGH lineup avg K% is bad
-    // for the lineup and GREAT for the pitcher. We invert here.
-    if (kBench?.p75 != null && avgK >= kBench.p75) {
-      score += 10;
-      rationale.push({
-        label: `Opp lineup avg K% ${avgK.toFixed(1)}% (vulnerable)`,
-        points: 10,
-      });
-    } else if (kBench?.p50 != null && avgK >= kBench.p50) {
-      score += 5;
-      rationale.push({
-        label: `Opp lineup avg K% ${avgK.toFixed(1)}% (above league)`,
-        points: 5,
-      });
-    } else if (kBench?.p25 != null && avgK <= kBench.p25) {
-      score -= 5;
-      rationale.push({
-        label: `Opp lineup avg K% ${avgK.toFixed(1)}% (tough lineup)`,
-        points: -5,
-      });
+    // High lineup K% = strikeout-prone lineup = OVER K signal; low K% = contact
+    // lineup = UNDER K signal.
+    if (kBench) {
+      const vulnerable = side === 'over'
+        ? (kBench.p75 != null && avgK >= kBench.p75)
+        : (kBench.p25 != null && avgK <= kBench.p25);
+      const above = side === 'over'
+        ? (kBench.p50 != null && avgK >= kBench.p50)
+        : (kBench.p50 != null && avgK <= kBench.p50);
+      const tough = side === 'over'
+        ? (kBench.p25 != null && avgK <= kBench.p25)
+        : (kBench.p75 != null && avgK >= kBench.p75);
+      if (vulnerable) {
+        score += 10;
+        rationale.push({ label: `Opp lineup avg K% ${avgK.toFixed(1)}% (favors ${sideLabel})`, points: 10 });
+      } else if (above) {
+        score += 5;
+        rationale.push({ label: `Opp lineup avg K% ${avgK.toFixed(1)}% (slight ${sideLabel} lean)`, points: 5 });
+      } else if (tough) {
+        score -= 5;
+        rationale.push({ label: `Opp lineup avg K% ${avgK.toFixed(1)}% (against ${sideLabel})`, points: -5 });
+      }
     }
 
-    // L10 trend on the lineup's K% — has it been getting worse?
     const recentKs = opposingLineupSplits
       .map(s => s.recent_form?.k_pct)
       .filter((v): v is number => v != null && Number.isFinite(v));
     if (recentKs.length >= 4) {
       const avgRecentK = recentKs.reduce((a, b) => a + b, 0) / recentKs.length;
-      const delta = avgRecentK - avgK;
+      const rawDelta = avgRecentK - avgK;
+      const delta = rawDelta * dir;
       if (delta >= 2) {
         score += 5;
         rationale.push({
-          label: `Opp lineup L10 K% +${delta.toFixed(1)}pp vs season (slumping)`,
+          label: `Opp lineup L10 K% ${rawDelta > 0 ? '+' : ''}${rawDelta.toFixed(1)}pp vs season`,
           points: 5,
         });
       } else if (delta <= -2) {
         score -= 3;
         rationale.push({
-          label: `Opp lineup L10 K% ${delta.toFixed(1)}pp (cutting down K's)`,
+          label: `Opp lineup L10 K% ${rawDelta.toFixed(1)}pp (wrong way for ${sideLabel})`,
           points: -3,
         });
       }
@@ -386,14 +488,15 @@ function scorePitcher({
   }
 
   // 5. Odds sanity ----------------------------------------------------------
+  const sideOdds = side === 'over' ? computed.overOdds : computed.underOdds;
   let oddsMultiplier = 1;
-  if (computed.overOdds != null) {
-    if (computed.overOdds >= 150) {
+  if (sideOdds != null) {
+    if (sideOdds >= 150) {
       oddsMultiplier = 1.05;
-      rationale.push({ label: `Plus-money Over (${computed.overOdds})`, points: 0 });
-    } else if (computed.overOdds <= -180) {
+      rationale.push({ label: `Plus-money ${sideLabel} (${sideOdds})`, points: 0 });
+    } else if (sideOdds <= -180) {
       oddsMultiplier = 0.95;
-      rationale.push({ label: `Heavy juice on Over (${computed.overOdds})`, points: 0 });
+      rationale.push({ label: `Heavy juice on ${sideLabel} (${sideOdds})`, points: 0 });
     }
   }
 
@@ -402,6 +505,7 @@ function scorePitcher({
     computed,
     rationale,
     oddsMultiplier,
+    l10,
   };
 }
 
@@ -446,10 +550,7 @@ export function buildDailyPropsReport({
       if (line == null) continue;
 
       if (!row.is_pitcher) {
-        // Which team is the batter on? Use lineup home/away to pick benchmarks
-        // (vs OPPOSING pitcher hand = the hand stored on the matching split row).
         const split = splitsById.get(row.player_id);
-        // Benchmark set should mirror split's vs_pitcher_hand.
         const benchmarks = split?.vs_pitcher_hand === 'L' ? benchmarksL : benchmarksR;
         const team =
           md?.awayLineupSplits.some(s => s.batter_id === row.player_id)
@@ -457,18 +558,24 @@ export function buildDailyPropsReport({
             : md?.homeLineupSplits.some(s => s.batter_id === row.player_id)
               ? game.home_team_name
               : null;
-        const result = scoreBatter(
-          { row, game, team_name: team ?? '', split, benchmarks },
-          line,
-        );
-        if (!result) continue;
-        const tier = tierOf(result.score);
+        // Score both sides; emit whichever has the higher score (if any tiers).
+        const ctx: BatterContext = { row, game, team_name: team ?? '', split, benchmarks };
+        const over = scoreBatter(ctx, line, 'over');
+        const under = scoreBatter(ctx, line, 'under');
+        const best =
+          over && (!under || over.score >= under.score)
+            ? { result: over, side: 'over' as const }
+            : under
+              ? { result: under, side: 'under' as const }
+              : null;
+        if (!best) continue;
+        const tier = tierOf(best.result.score);
         if (!tier) continue;
         batterPicks.push({
           kind: 'batter',
           tier,
           emoji: emojiFor(tier),
-          score: Math.round(result.score),
+          score: Math.round(best.result.score),
           game_pk: game.game_pk,
           game_label: gameLabel(game),
           game_time: game.game_time,
@@ -479,15 +586,15 @@ export function buildDailyPropsReport({
           market: row.market,
           market_label: marketLabel(row.market),
           line,
-          over_odds: result.computed.overOdds,
-          under_odds: result.computed.underOdds,
-          l10_over: result.computed.l10.over,
-          l10_games: result.computed.l10.games,
-          l10_pct: result.computed.l10.pct,
-          rationale: result.rationale,
+          side: best.side,
+          over_odds: best.result.computed.overOdds,
+          under_odds: best.result.computed.underOdds,
+          l10_over: best.result.l10.over,
+          l10_games: best.result.l10.games,
+          l10_pct: best.result.l10.pct,
+          rationale: best.result.rationale,
         });
       } else {
-        // Pitcher — figure out which lineup is opposing.
         const isAwayPitcher = row.player_id === game.away_sp_id;
         const isHomePitcher = row.player_id === game.home_sp_id;
         if (!isAwayPitcher && !isHomePitcher) continue;
@@ -501,26 +608,26 @@ export function buildDailyPropsReport({
         const pitcherBattedBall = isAwayPitcher
           ? md?.awayBattedBall ?? null
           : md?.homeBattedBall ?? null;
-        const result = scorePitcher(
-          {
-            row,
-            game,
-            team_name: team,
-            opposingLineupSplits,
-            opposingLineup,
-            benchmarks,
-            pitcherBattedBall,
-          },
-          line,
-        );
-        if (!result) continue;
-        const tier = tierOf(result.score);
+        const ctx: PitcherContext = {
+          row, game, team_name: team,
+          opposingLineupSplits, opposingLineup, benchmarks, pitcherBattedBall,
+        };
+        const over = scorePitcher(ctx, line, 'over');
+        const under = scorePitcher(ctx, line, 'under');
+        const best =
+          over && (!under || over.score >= under.score)
+            ? { result: over, side: 'over' as const }
+            : under
+              ? { result: under, side: 'under' as const }
+              : null;
+        if (!best) continue;
+        const tier = tierOf(best.result.score);
         if (!tier) continue;
         pitcherPicks.push({
           kind: 'pitcher',
           tier,
           emoji: emojiFor(tier),
-          score: Math.round(result.score),
+          score: Math.round(best.result.score),
           game_pk: game.game_pk,
           game_label: gameLabel(game),
           game_time: game.game_time,
@@ -531,12 +638,13 @@ export function buildDailyPropsReport({
           market: row.market,
           market_label: marketLabel(row.market),
           line,
-          over_odds: result.computed.overOdds,
-          under_odds: result.computed.underOdds,
-          l10_over: result.computed.l10.over,
-          l10_games: result.computed.l10.games,
-          l10_pct: result.computed.l10.pct,
-          rationale: result.rationale,
+          side: best.side,
+          over_odds: best.result.computed.overOdds,
+          under_odds: best.result.computed.underOdds,
+          l10_over: best.result.l10.over,
+          l10_games: best.result.l10.games,
+          l10_pct: best.result.l10.pct,
+          rationale: best.result.rationale,
         });
       }
     }

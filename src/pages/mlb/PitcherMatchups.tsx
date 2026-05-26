@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
+import { AlertCircle, BarChart3, RefreshCw, Sparkles } from 'lucide-react';
 
 function GameCardSkeleton() {
   return (
@@ -68,6 +68,12 @@ export default function PitcherMatchups() {
             <Link to="/mlb/picks-report">
               <Sparkles className="h-4 w-4 mr-2" />
               🎯 Best Picks Report
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="secondary" className="w-full sm:w-auto">
+            <Link to="/mlb/picks-performance">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              📊 Picks Performance
             </Link>
           </Button>
           <Button

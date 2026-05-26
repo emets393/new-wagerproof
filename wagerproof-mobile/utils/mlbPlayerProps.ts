@@ -17,11 +17,11 @@ export const MLB_PLAYER_PROP_MARKET_LABELS: Record<string, string> = {
   batter_total_bases: 'Total Bases',
   batter_rbis: 'RBIs',
   batter_hits_runs_rbis: 'H+R+RBI',
-  batter_walks: 'Walks',
-  batter_strikeouts: 'Strikeouts',
-  pitcher_strikeouts: 'Strikeouts',
+  batter_walks: 'Batter Walks',
+  batter_strikeouts: 'Batter K',
+  pitcher_strikeouts: 'Pitcher K',
   pitcher_hits_allowed: 'Hits Allowed',
-  pitcher_walks: 'Walks',
+  pitcher_walks: 'Pitcher Walks',
   pitcher_outs: 'Outs',
 };
 

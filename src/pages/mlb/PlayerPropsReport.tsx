@@ -5,6 +5,7 @@ import {
   type UseDailyPropsReportResult,
 } from '@/hooks/useMLBPitcherMatchupsReport';
 import { useSnapshotPlayerPropPicks, pickIsLocked } from '@/hooks/useSnapshotPlayerPropPicks';
+import { PerformanceSummary } from '@/components/mlb/player-props/PerformanceSummary';
 import { Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -171,14 +172,12 @@ function PickCard({ pick, context, locked }: PickCardProps) {
           <div className="flex flex-wrap items-baseline gap-2 text-xs tabular-nums">
             <span className="font-semibold text-foreground">{pick.market_label}</span>
             <span className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5">
-              Over {formatPropLine(pick.line)} {pick.market_label.toLowerCase()}{' '}
-              <span className="font-bold text-primary ml-1">{formatPropOdds(pick.over_odds)}</span>
-            </span>
-            {pick.under_odds != null ? (
-              <span className="text-muted-foreground">
-                Under {formatPropOdds(pick.under_odds)}
+              {pick.side === 'over' ? 'Over' : 'Under'} {formatPropLine(pick.line)}{' '}
+              {pick.market_label.toLowerCase()}{' '}
+              <span className="font-bold text-primary ml-1">
+                {formatPropOdds(pick.side === 'over' ? pick.over_odds : pick.under_odds)}
               </span>
-            ) : null}
+            </span>
             <span className="text-primary font-semibold">
               {pick.l10_pct ?? '—'}% L10 · {pick.l10_over}/{pick.l10_games}
             </span>
@@ -335,6 +334,8 @@ export default function PlayerPropsReport() {
           <AlertDescription>Failed to load today&apos;s data.</AlertDescription>
         </Alert>
       ) : null}
+
+      <PerformanceSummary />
 
       {isLoading ? (
         <div className="space-y-4">
