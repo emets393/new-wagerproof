@@ -19,6 +19,24 @@ import {
 import { resolveBenchmark } from '@/hooks/useLeagueBenchmarks';
 import type { PitcherStartLog } from '@/hooks/usePitcherRecentStarts';
 
+/**
+ * Algorithm version — BUMP this on every meaningful scoring change in this
+ * file (new signals, changed weights, different cutoffs, juice cap, etc.).
+ *
+ * The snapshot RPC stamps each pick with the version that created it.
+ * The performance dashboard view auto-filters to the latest version present
+ * for each report_date, so a mid-day deploy never contaminates the
+ * dashboard with picks from the previous algo.
+ *
+ * Changelog:
+ *   1 — initial algo (over-only, 80/70/60 cutoffs)
+ *   2 — Under-side support, sample-size penalty relaxed
+ *   3 — juice cap at -180 and posted-odds requirement
+ *   4 — pitcher L3 form signal + cutoffs unified at 80/70/60
+ *   5 — current (locked in 2026-05-26 evening, post-tuning-day)
+ */
+export const ALGO_VERSION = 5;
+
 export type PickTier = 'elite' | 'strong' | 'lean';
 
 export interface PickRationale {

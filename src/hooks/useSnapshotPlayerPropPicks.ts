@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
-import type { PropPick } from '@/utils/dailyPropsReport';
+import { ALGO_VERSION, type PropPick } from '@/utils/dailyPropsReport';
 
 export interface LockedKey {
   game_pk: number;
@@ -61,6 +61,7 @@ export function useSnapshotPlayerPropPicks(
       const { error } = await collegeFootballSupabase.rpc('snapshot_player_prop_picks', {
         p_report_date: reportDate,
         p_picks: payload,
+        p_algo_version: ALGO_VERSION,
       });
       if (cancelled || error) {
         if (error) console.warn('[snapshot_player_prop_picks]', error.message);
