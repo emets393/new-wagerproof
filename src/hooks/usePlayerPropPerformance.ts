@@ -17,7 +17,9 @@ export interface GradeRow {
   tier: Tier | null;
   score: number | null;
   line: number | null;
+  side: 'over' | 'under' | null;
   over_odds: number | null;
+  under_odds: number | null;
   l10_pct: number | null;
   actual_value: number | null;
   result: PickResult | null;
@@ -62,7 +64,7 @@ export function usePlayerPropGradeHistory(limit = 200) {
       const { data, error } = await collegeFootballSupabase
         .from('mlb_player_prop_grades')
         .select(
-          'report_date, game_pk, player_id, player_name, team_name, market, market_label, kind, tier, score, line, over_odds, l10_pct, actual_value, result, units_staked, units_won',
+          'report_date, game_pk, player_id, player_name, team_name, market, market_label, kind, tier, score, line, side, over_odds, under_odds, l10_pct, actual_value, result, units_staked, units_won',
         )
         .order('report_date', { ascending: false })
         .order('score', { ascending: false })

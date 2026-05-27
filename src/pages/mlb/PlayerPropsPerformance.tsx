@@ -187,7 +187,7 @@ function HistoryTable({ rows }: { rows: GradeRow[] }) {
               </td>
               <td className="px-2 py-1.5">
                 <span className="mr-1">{marketEmoji(r.market)}</span>
-                {r.market_label ?? r.market} O {r.line}
+                {r.market_label ?? r.market} {r.side === 'under' ? 'U' : 'O'} {r.line}
               </td>
               <td className="px-2 py-1.5">
                 <Badge
@@ -202,7 +202,9 @@ function HistoryTable({ rows }: { rows: GradeRow[] }) {
                   {r.tier ? TIER_LABEL[r.tier] : '—'}
                 </Badge>
               </td>
-              <td className="px-2 py-1.5 text-right">{formatPropOdds(r.over_odds)}</td>
+              <td className="px-2 py-1.5 text-right">
+                {formatPropOdds(r.side === 'under' ? r.under_odds : r.over_odds)}
+              </td>
               <td className="px-2 py-1.5 text-right">{r.actual_value ?? '—'}</td>
               <td className="px-2 py-1.5">
                 <span
