@@ -1,79 +1,39 @@
-// Calls the snapshot_player_prop_picks RPC after the report computes picks.
-// The RPC persists every pick to mlb_player_prop_picks and freezes anything
-// whose game has already started, so subsequent runs of the algorithm can't
-// rewrite picks that bettors already saw / bet. Returns the set of (game_pk,
-// player_id, market, side) keys that the server reports as locked, so the UI
-// can show a 🔒 badge inline.
+// Reads which picks are locked for the given report date so the UI can show
+// 🔒 badges. As of the server-side scorer rollout, the CLIENT no longer
+// writes picks to mlb_player_prop_picks — the score-player-props edge
+// function (invoked by the MLB hourly runner after data ingest) is now the
+// only writer. The picks-report page just computes a preview locally for
+// instant display, then reads the locked set from the server.
 
 import { useEffect, useState } from 'react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
-import { ALGO_VERSION, type PropPick } from '@/utils/dailyPropsReport';
-
-export interface LockedKey {
-  game_pk: number;
-  player_id: number;
-  market: string;
-  side: 'over' | 'under';
-}
+import type { PropPick } from '@/utils/dailyPropsReport';
 
 function keyOf(p: { game_pk: number; player_id: number; market: string; side?: string }): string {
   return `${p.game_pk}|${p.player_id}|${p.market}|${p.side ?? 'over'}`;
 }
 
-function toRpcPayload(picks: PropPick[]) {
-  return picks.map(p => ({
-    game_pk: p.game_pk,
-    player_id: p.player_id,
-    market: p.market,
-    side: p.side,
-    player_name: p.player_name,
-    team_name: p.team_name,
-    game_label: p.game_label,
-    game_time: p.game_time,
-    is_day: p.is_day,
-    market_label: p.market_label,
-    kind: p.kind,
-    tier: p.tier,
-    score: p.score,
-    line: p.line,
-    over_odds: p.over_odds,
-    under_odds: p.under_odds,
-    l10_over: p.l10_over,
-    l10_games: p.l10_games,
-    l10_pct: p.l10_pct,
-    rationale: p.rationale,
-  }));
-}
-
 export function useSnapshotPlayerPropPicks(
   reportDate: string | null,
-  picks: PropPick[],
+  _picks: PropPick[],
   enabled: boolean,
 ): Set<string> {
   const [lockedKeys, setLockedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!enabled || !reportDate || picks.length === 0) return;
+    if (!enabled || !reportDate) return;
     let cancelled = false;
 
     (async () => {
-      const payload = toRpcPayload(picks);
-      const { error } = await collegeFootballSupabase.rpc('snapshot_player_prop_picks', {
-        p_report_date: reportDate,
-        p_picks: payload,
-        p_algo_version: ALGO_VERSION,
-      });
-      if (cancelled || error) {
-        if (error) console.warn('[snapshot_player_prop_picks]', error.message);
-        return;
-      }
-      // Re-query locked rows for this date so the UI can badge them.
-      const { data: locked } = await collegeFootballSupabase
+      const { data: locked, error } = await collegeFootballSupabase
         .from('mlb_player_prop_picks')
         .select('game_pk, player_id, market, side')
         .eq('report_date', reportDate)
         .eq('locked', true);
-      if (cancelled) return;
+      if (cancelled || error) {
+        if (error) console.warn('[picks_locked_read]', error.message);
+        return;
+      }
       const next = new Set<string>();
       for (const row of locked ?? []) {
         next.add(
@@ -88,11 +48,10 @@ export function useSnapshotPlayerPropPicks(
       setLockedKeys(next);
     })();
 
-    return () => {
-      cancelled = true;
-    };
-    // Only re-snapshot when the report date or the picks set changes meaningfully.
-  }, [reportDate, picks, enabled]);
+    return () => { cancelled = true; };
+    // Re-check the locked set if the user navigates away/back. Picks
+    // themselves change rarely (server cron) so we don't watch them.
+  }, [reportDate, enabled]);
 
   return lockedKeys;
 }
