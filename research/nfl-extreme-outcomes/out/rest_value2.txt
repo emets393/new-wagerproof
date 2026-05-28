@@ -1,0 +1,35 @@
+========================================================================================
+REST CONFIG vs TOTALS (clean buckets — the only significant edge coef)
+========================================================================================
+  baseline (all games)               n=2226 over%= 48.0 CI[46.0,50.1] mean_total_diff=+0.55
+  either team off bye (rest>=13)     n= 261 over%= 46.0 CI[40.0,52.0] mean_total_diff=+0.04
+  both teams normal (rest=7)         n=1122 over%= 48.8 CI[45.8,51.7] mean_total_diff=+0.60
+  both teams short (rest<=5)         n= 135 over%= 50.4 CI[42.0,58.7] mean_total_diff=+1.65
+  big rest mismatch (|diff|>=6)      n= 213 over%= 49.3 CI[42.7,56.0] mean_total_diff=+0.89
+  Thursday game                      n= 144 over%= 50.7 CI[42.6,58.7] mean_total_diff=+1.25
+
+  off-bye totals UNDER, per season (mean_total_diff was negative-ish?):
+    2018: n=34 hit=0.382 CI[0.239,0.550] roi=-27.0% edge=-14.1pp (betting UNDER off-bye games)
+    2019: n=35 hit=0.514 CI[0.356,0.670] roi=-1.8% edge=-0.9pp (betting UNDER off-bye games)
+    2020: n=31 hit=0.452 CI[0.292,0.622] roi=-13.8% edge=-7.2pp (betting UNDER off-bye games)
+    2021: n=32 hit=0.625 CI[0.453,0.771] roi=+19.3% edge=+10.1pp (betting UNDER off-bye games)
+    2022: n=32 hit=0.625 CI[0.453,0.771] roi=+19.3% edge=+10.1pp (betting UNDER off-bye games)
+    2023: n=28 hit=0.679 CI[0.493,0.821] roi=+29.5% edge=+15.5pp (betting UNDER off-bye games)
+    2024: n=32 hit=0.562 CI[0.393,0.718] roi=+7.4% edge=+3.9pp (betting UNDER off-bye games)
+    2025: n=32 hit=0.438 CI[0.282,0.607] roi=-16.5% edge=-8.6pp (betting UNDER off-bye games)
+    ALL: n=256 hit=0.531 CI[0.470,0.592] roi=+1.4% edge=+0.7pp (betting UNDER off-bye games)
+
+========================================================================================
+PROOF-OF-CONCEPT — build our own line from feature point-values
+========================================================================================
+  our_margin = HFA + 0.88*pr_diff + 0.14*rest_diff   (coefs from the OLS above)
+  corr(our_margin, market) = 0.887; mean|our-market| = 2.08 pts
+  corr(our_margin, actual) = 0.396; corr(market, actual) = 0.446
+  -> if our line ~ market and predicts no better, the features are already in the price.
+
+  our line disagrees by >=1.5 pts -> bet our side: thr1.5: n=1140 hit=0.497 CI[0.468,0.526] roi=-5.1% edge=-2.6pp
+  our line disagrees by >=2.5 pts -> bet our side: thr2.5: n=672 hit=0.490 CI[0.452,0.527] roi=-6.5% edge=-3.4pp
+  our line disagrees by >=3.5 pts -> bet our side: thr3.5: n=374 hit=0.484 CI[0.434,0.534] roi=-7.6% edge=-4.0pp
+
+  (This is the 'our model vs market' test. Brief #1 showed the PR piece alone loses ATS;
+   here we confirm whether adding a transparent rest term changes that.)

@@ -1,0 +1,66 @@
+[build] team-game outcomes 2002-2025: 12446 rows
+[validate] ATS cover vs master agreement: 99.8% (n=2060)
+[merge] stakes+outcomes joined: 10166 team-games (weeks>=4)
+
+==========================================================================================
+STAKES TESTS — ATS (team_cover), O/U (over), ML
+==========================================================================================
+
+[1] MUST-WIN team (lose->out, win->alive) — ATS & ML & total
+  >> must-win team ATS  [10/22 seasons beat vig | ALL ALL: n=228 hit=0.469 CI[0.406,0.534] roi=-10.4% edge=-5.5pp]
+  -- must-win ATS by era --
+     2002-19(6tm): n=166 hit=0.464 CI[0.390,0.540] roi=-11.5% edge=-6.0pp
+     2020(7/16): n=14 hit=0.357 CI[0.163,0.612] roi=-31.8% edge=-16.7pp
+     2021-25(7/17): n=48 hit=0.521 CI[0.383,0.655] roi=-0.6% edge=-0.3pp
+  >> must-win team -> OVER  [6/22 seasons beat vig | ALL ALL: n=233 hit=0.455 CI[0.392,0.519] roi=-13.2% edge=-6.9pp]
+  >> must-win team UNDER (fade over)  [11/22 seasons beat vig | ALL ALL: n=233 hit=0.545 CI[0.481,0.608] roi=+4.1% edge=+2.1pp]
+
+[2] ELIMINATED team — fade ATS? and totals UNDER?
+  >> eliminated team ATS (back)  [7/24 seasons beat vig | ALL ALL: n=2654 hit=0.502 CI[0.483,0.521] roi=-4.1% edge=-2.1pp]
+  -- eliminated ATS by era --
+     2002-19(6tm): n=2077 hit=0.505 CI[0.483,0.526] roi=-3.7% edge=-1.9pp
+     2020(7/16): n=100 hit=0.530 CI[0.433,0.625] roi=+1.2% edge=+0.6pp
+     2021-25(7/17): n=477 hit=0.486 CI[0.442,0.531] roi=-7.1% edge=-3.7pp
+  >> eliminated team games -> OVER  [8/24 seasons beat vig | ALL ALL: n=2678 hit=0.492 CI[0.473,0.511] roi=-6.0% edge=-3.2pp]
+
+[3] NO-STAKES team (elim or clinched) — fade ATS & totals UNDER
+  >> no-stakes team ATS  [4/24 seasons beat vig | ALL ALL: n=3792 hit=0.501 CI[0.485,0.517] roi=-4.3% edge=-2.3pp]
+  >> no-stakes team -> UNDER  [10/24 seasons beat vig | ALL ALL: n=3827 hit=0.506 CI[0.490,0.522] roi=-3.4% edge=-1.8pp]
+  -- no-stakes UNDER by era --
+     2002-19(6tm): n=2884 hit=0.510 CI[0.492,0.529] roi=-2.6% edge=-1.3pp
+     2020(7/16): n=148 hit=0.520 CI[0.440,0.599] roi=-0.7% edge=-0.4pp
+     2021-25(7/17): n=795 hit=0.487 CI[0.452,0.521] roi=-7.1% edge=-3.7pp
+   (esp. late season wk>=16):
+  >> no-stakes wk>=16 -> UNDER  [12/24 seasons beat vig | ALL ALL: n=1159 hit=0.506 CI[0.478,0.535] roi=-3.3% edge=-1.7pp]
+
+[4] HIGH LEVERAGE (top quartile |lev|) team ATS
+  >> high-leverage(|lev|>=0.19) team ATS  [5/24 seasons beat vig | ALL ALL: n=2471 hit=0.496 CI[0.476,0.515] roi=-5.4% edge=-2.8pp]
+
+[5] LEVERAGE DIFFERENTIAL — back the higher-leverage side ATS
+  >> higher-leverage side ATS (lev_diff>0.10)  [6/24 seasons beat vig | ALL ALL: n=2070 hit=0.484 CI[0.463,0.506] roi=-7.5% edge=-3.9pp]
+  >> lower-leverage side ATS (lev_diff<-0.10)  [9/24 seasons beat vig | ALL ALL: n=2070 hit=0.515 CI[0.494,0.537] roi=-1.6% edge=-0.8pp]
+
+[6] MISMATCH — must-win/high-lev team vs NO-STAKES opponent
+  >> must-win vs no-stakes opp ATS  [4/10 seasons beat vig | ALL ALL: n=106 hit=0.443 CI[0.352,0.538] roi=-15.3% edge=-8.0pp]
+  >> must-win vs no-stakes opp ML (SU)  [6/11 seasons beat vig | ALL ALL: n=109 hit=0.541 CI[0.448,0.632] roi=+3.3% edge=+1.8pp]
+  >> high-lev(>0.15) vs no-stakes opp ATS  [10/24 seasons beat vig | ALL ALL: n=1085 hit=0.488 CI[0.459,0.518] roi=-6.7% edge=-3.5pp]
+  -- hi-lev vs dead ATS by era --
+     2002-19(6tm): n=823 hit=0.479 CI[0.445,0.513] roi=-8.6% edge=-4.5pp
+     2020(7/16): n=47 hit=0.404 CI[0.276,0.547] roi=-22.8% edge=-12.0pp
+     2021-25(7/17): n=215 hit=0.544 CI[0.477,0.609] roi=+3.9% edge=+2.0pp
+
+[7] DIVISION-RACE SHOWDOWN — both high leverage + divisional
+  >> div showdown -> UNDER  [11/24 seasons beat vig | ALL ALL: n=888 hit=0.520 CI[0.487,0.553] roi=-0.7% edge=-0.4pp]
+  >> div showdown favorite ATS  [11/24 seasons beat vig | ALL ALL: n=436 hit=0.484 CI[0.437,0.531] roi=-7.6% edge=-4.0pp]
+
+[8] EARLY-SEASON high leverage (wk8-13) vs LATE (wk16-18) — ATS
+  >> early hi-lev wk8-13 ATS  [10/24 seasons beat vig | ALL ALL: n=1085 hit=0.502 CI[0.473,0.532] roi=-4.1% edge=-2.1pp]
+  >> late hi-lev wk16-18 ATS  [4/24 seasons beat vig | ALL ALL: n=363 hit=0.452 CI[0.401,0.503] roi=-13.8% edge=-7.2pp]
+
+==========================================================================================
+ORTHOGONALITY (2018-25) — is stakes already in the closing line?
+==========================================================================================
+  must-win home teams      n=41 mean(line - PR_expectation)=-0.13 pts | ATS cover=56.1%
+  no-stakes home teams     n=656 mean(line - PR_expectation)=-0.17 pts | ATS cover=47.9%
+  baseline home teams      n=1742 mean(line - PR_expectation)=-0.07 pts | ATS cover=49.2%
+  (if must-win line≈PR and cover≈50%, the market already prices the motivation -> no edge)

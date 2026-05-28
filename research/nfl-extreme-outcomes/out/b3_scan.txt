@@ -1,0 +1,193 @@
+==============================================================================================
+EXHAUSTIVE TREND SCAN — guarding principle: >=2 seasons (n>=5) beat vig, same direction
+==============================================================================================
+
+##############################################################################################
+ATS (team cover): screened 1414 conditions/combos -> 354 passed guarding principle
+##############################################################################################
+  [FADE] road_fav & letdown
+      n=196 pooled=57.1% CI[50,64] | seasons beat vig 7/8, right-dir 8/8
+      per-season: 2018:59%(n22) 2019:56%(n32) 2020:57%(n23) 2021:58%(n26) 2022:57%(n14) 2023:60%(n20) 2024:52%(n29) 2025:60%(n30)
+  [FADE] road_fav & fav & letdown
+      n=196 pooled=57.1% CI[50,64] | seasons beat vig 7/8, right-dir 8/8
+      per-season: 2018:59%(n22) 2019:56%(n32) 2020:57%(n23) 2021:58%(n26) 2022:57%(n14) 2023:60%(n20) 2024:52%(n29) 2025:60%(n30)
+  [FADE] big_dog>=7 & off_cover & div_game
+      n=91 pooled=59.3% CI[49,69] | seasons beat vig 7/8, right-dir 7/8
+      per-season: 2018:60%(n10) 2019:56%(n9) 2020:46%(n13) 2021:73%(n11) 2022:57%(n14) 2023:58%(n12) 2024:71%(n7) 2025:60%(n15)
+  [FADE] fav & letdown
+      n=503 pooled=57.1% CI[53,61] | seasons beat vig 7/8, right-dir 7/8
+      per-season: 2018:63%(n57) 2019:61%(n66) 2020:57%(n60) 2021:59%(n70) 2022:59%(n51) 2023:55%(n62) 2024:60%(n63) 2025:46%(n74)
+  [FADE] home_fav & letdown
+      n=307 pooled=57.0% CI[51,62] | seasons beat vig 7/8, right-dir 7/8
+      per-season: 2018:66%(n35) 2019:65%(n34) 2020:57%(n37) 2021:59%(n44) 2022:59%(n37) 2023:52%(n42) 2024:68%(n34) 2025:36%(n44)
+  [FADE] home_dog & off_cover & div_game
+      n=122 pooled=56.6% CI[48,65] | seasons beat vig 7/8, right-dir 7/8
+      per-season: 2018:59%(n17) 2019:67%(n15) 2020:52%(n21) 2021:58%(n12) 2022:54%(n13) 2023:64%(n14) 2024:40%(n10) 2025:55%(n20)
+  [FADE] road_fav & win_streak>=3 & pr_better>=3
+      n=137 pooled=56.2% CI[48,64] | seasons beat vig 7/8, right-dir 7/8
+      per-season: 2018:60%(n20) 2019:53%(n19) 2020:56%(n18) 2021:54%(n13) 2022:59%(n17) 2023:42%(n12) 2024:63%(n19) 2025:58%(n19)
+  [FADE] blowout_loss_last & home_fav & outdoor
+      n=94 pooled=58.5% CI[48,68] | seasons beat vig 6/8, right-dir 8/8
+      per-season: 2018:64%(n14) 2019:67%(n12) 2020:75%(n8) 2021:50%(n12) 2022:50%(n8) 2023:53%(n19) 2024:58%(n12) 2025:56%(n9)
+  [FADE] road_fav & big_fav<=-7 & win_streak>=3
+      n=53 pooled=58.5% CI[45,71] | seasons beat vig 6/6, right-dir 6/6
+      per-season: 2018:57%(n7) 2019:56%(n9) 2020:55%(n11) 2022:57%(n7) 2024:60%(n5) 2025:62%(n8)
+  [BACK] big_dog>=7 & primetime & outdoor
+      n=90 pooled=57.8% CI[47,67] | seasons beat vig 6/7, right-dir 7/7
+      per-season: 2018:50%(n6) 2019:62%(n8) 2020:60%(n15) 2021:53%(n15) 2022:59%(n17) 2023:67%(n12) 2025:54%(n13)
+  [FADE] off_bye & fav & off_noncover
+      n=63 pooled=66.7% CI[54,77] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:60%(n5) 2019:50%(n6) 2020:73%(n11) 2021:82%(n11) 2022:33%(n6) 2023:71%(n7) 2024:88%(n8) 2025:56%(n9)
+  [FADE] road_fav & off_cover & letdown
+      n=85 pooled=63.5% CI[53,73] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:38%(n8) 2019:64%(n14) 2020:70%(n10) 2021:70%(n10) 2022:50%(n6) 2023:88%(n8) 2024:55%(n11) 2025:67%(n18)
+  [BACK] pre_bye & fav & outdoor
+      n=105 pooled=62.9% CI[53,71] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:44%(n18) 2019:54%(n13) 2020:50%(n10) 2021:56%(n16) 2022:87%(n15) 2023:75%(n8) 2024:62%(n13) 2025:83%(n12)
+  [BACK] pre_bye & outdoor & pr_better>=3
+      n=67 pooled=62.7% CI[51,73] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:50%(n10) 2019:62%(n8) 2020:55%(n11) 2021:56%(n9) 2022:89%(n9) 2023:40%(n5) 2024:60%(n10) 2025:100%(n5)
+  [BACK] pre_bye & home_fav & outdoor
+      n=61 pooled=62.3% CI[50,73] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:38%(n13) 2019:57%(n7) 2020:57%(n7) 2021:50%(n8) 2022:86%(n7) 2023:60%(n5) 2024:78%(n9) 2025:100%(n5)
+  [FADE] big_dog>=7 & off_cover & div_revenge
+      n=45 pooled=62.2% CI[48,75] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:60%(n5) 2019:67%(n6) 2020:67%(n6) 2021:80%(n5) 2022:50%(n6) 2023:43%(n7) 2024:80%(n5) 2025:60%(n5)
+  [FADE] div_revenge & big_dog>=7 & off_cover
+      n=45 pooled=62.2% CI[48,75] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:60%(n5) 2019:67%(n6) 2020:67%(n6) 2021:80%(n5) 2022:50%(n6) 2023:43%(n7) 2024:80%(n5) 2025:60%(n5)
+  [FADE] blowout_loss_last & long_rest>=10 & rest_edge>=3
+      n=72 pooled=61.1% CI[50,72] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:67%(n12) 2019:62%(n8) 2020:60%(n10) 2021:55%(n11) 2022:33%(n6) 2023:62%(n8) 2024:82%(n11) 2025:50%(n6)
+  [BACK] fav & pre_bye
+      n=144 pooled=59.7% CI[52,67] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:50%(n22) 2019:53%(n17) 2020:38%(n16) 2021:52%(n21) 2022:84%(n19) 2023:67%(n15) 2024:67%(n15) 2025:68%(n19)
+  [FADE] rest_edge>=3 & blowout_loss_last
+      n=74 pooled=59.5% CI[48,70] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:67%(n12) 2019:62%(n8) 2020:60%(n10) 2021:55%(n11) 2022:29%(n7) 2023:56%(n9) 2024:82%(n11) 2025:50%(n6)
+  [FADE] blowout_loss_last & rest_edge>=3 & off_noncover
+      n=73 pooled=58.9% CI[47,69] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:67%(n12) 2019:57%(n7) 2020:60%(n10) 2021:55%(n11) 2022:29%(n7) 2023:56%(n9) 2024:82%(n11) 2025:50%(n6)
+  [FADE] road_fav & cover_streak>=3
+      n=102 pooled=58.8% CI[49,68] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:58%(n12) 2019:50%(n8) 2020:53%(n17) 2021:45%(n11) 2022:61%(n18) 2023:62%(n8) 2024:82%(n11) 2025:59%(n17)
+  [FADE] road_fav & fav & cover_streak>=3
+      n=102 pooled=58.8% CI[49,68] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:58%(n12) 2019:50%(n8) 2020:53%(n17) 2021:45%(n11) 2022:61%(n18) 2023:62%(n8) 2024:82%(n11) 2025:59%(n17)
+  [FADE] road_fav & off_cover & cover_streak>=3
+      n=102 pooled=58.8% CI[49,68] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:58%(n12) 2019:50%(n8) 2020:53%(n17) 2021:45%(n11) 2022:61%(n18) 2023:62%(n8) 2024:82%(n11) 2025:59%(n17)
+  [FADE] road_fav & cover_streak>=2 & cover_streak>=3
+      n=102 pooled=58.8% CI[49,68] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:58%(n12) 2019:50%(n8) 2020:53%(n17) 2021:45%(n11) 2022:61%(n18) 2023:62%(n8) 2024:82%(n11) 2025:59%(n17)
+  [BACK] win_streak>=3 & lookahead
+      n=178 pooled=58.4% CI[51,65] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:47%(n15) 2019:68%(n19) 2020:50%(n24) 2021:58%(n19) 2022:60%(n20) 2023:55%(n22) 2024:65%(n26) 2025:61%(n33)
+  [FADE] road_fav & cover_streak>=3 & good_form_l3>0
+      n=97 pooled=57.7% CI[48,67] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:55%(n11) 2019:50%(n8) 2020:53%(n15) 2021:45%(n11) 2022:56%(n16) 2023:62%(n8) 2024:82%(n11) 2025:59%(n17)
+  [BACK] road_dog & win_streak>=3
+      n=146 pooled=56.8% CI[49,65] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:71%(n17) 2019:36%(n14) 2020:73%(n15) 2021:62%(n21) 2022:50%(n18) 2023:54%(n24) 2024:53%(n19) 2025:56%(n18)
+  [BACK] off_noncover & lookahead
+      n=462 pooled=56.3% CI[52,61] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:54%(n41) 2019:66%(n61) 2020:49%(n53) 2021:59%(n58) 2022:55%(n53) 2023:58%(n53) 2024:50%(n66) 2025:58%(n77)
+  [FADE] blowout_loss_last & home_fav & bad_form_l3<0
+      n=96 pooled=56.2% CI[46,66] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:56%(n16) 2019:62%(n8) 2020:67%(n9) 2021:50%(n10) 2022:75%(n8) 2023:52%(n21) 2024:58%(n12) 2025:42%(n12)
+
+##############################################################################################
+O/U (over): screened 133 conditions/combos -> 55 passed guarding principle
+##############################################################################################
+  [FADE] high_total>=49 & big_fav_game
+      n=130 pooled=60.0% CI[51,68] | seasons beat vig 7/7, right-dir 7/7
+      per-season: 2018:64%(n28) 2019:62%(n13) 2020:53%(n34) 2021:67%(n21) 2022:75%(n8) 2024:71%(n7) 2025:53%(n15)
+  [BACK] wk>=15 & big_fav_game
+      n=198 pooled=57.1% CI[50,64] | seasons beat vig 7/8, right-dir 8/8
+      per-season: 2018:55%(n22) 2019:56%(n25) 2020:57%(n23) 2021:51%(n37) 2022:52%(n21) 2023:72%(n18) 2024:56%(n25) 2025:63%(n27)
+  [BACK] big_fav_game & div_game & wk>=15
+      n=100 pooled=60.0% CI[50,69] | seasons beat vig 7/8, right-dir 7/8
+      per-season: 2018:42%(n12) 2019:58%(n12) 2020:67%(n9) 2021:56%(n18) 2022:67%(n12) 2023:71%(n7) 2024:62%(n16) 2025:64%(n14)
+  [FADE] monday
+      n=155 pooled=58.1% CI[50,66] | seasons beat vig 7/8, right-dir 7/8
+      per-season: 2018:53%(n17) 2019:65%(n17) 2020:58%(n19) 2021:63%(n19) 2022:59%(n17) 2023:70%(n23) 2024:41%(n22) 2025:57%(n21)
+  [FADE] primetime & monday
+      n=149 pooled=57.7% CI[50,65] | seasons beat vig 7/8, right-dir 7/8
+      per-season: 2018:53%(n17) 2019:65%(n17) 2020:53%(n17) 2021:61%(n18) 2022:59%(n17) 2023:75%(n20) 2024:41%(n22) 2025:57%(n21)
+  [FADE] primetime
+      n=460 pooled=56.7% CI[52,61] | seasons beat vig 6/8, right-dir 8/8
+      per-season: 2018:50%(n54) 2019:65%(n51) 2020:54%(n52) 2021:54%(n59) 2022:64%(n58) 2023:64%(n61) 2024:52%(n62) 2025:52%(n63)
+  [FADE] primetime & wk<=4
+      n=108 pooled=59.3% CI[50,68] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:62%(n13) 2019:77%(n13) 2020:57%(n14) 2021:33%(n12) 2022:69%(n13) 2023:71%(n14) 2024:53%(n15) 2025:50%(n14)
+  [FADE] div_game & wk<=4
+      n=151 pooled=58.9% CI[51,66] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:53%(n19) 2019:75%(n20) 2020:27%(n15) 2021:62%(n16) 2022:77%(n22) 2023:52%(n23) 2024:54%(n13) 2025:61%(n23)
+  [FADE] outdoor & primetime
+      n=326 pooled=57.1% CI[52,62] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:50%(n40) 2019:65%(n40) 2020:60%(n40) 2021:53%(n38) 2022:64%(n45) 2023:62%(n42) 2024:53%(n38) 2025:49%(n43)
+  [FADE] high_total>=49
+      n=468 pooled=54.5% CI[50,59] | seasons beat vig 6/8, right-dir 7/8
+      per-season: 2018:55%(n85) 2019:57%(n49) 2020:48%(n117) 2021:54%(n74) 2022:65%(n37) 2023:68%(n25) 2024:55%(n38) 2025:51%(n43)
+  [FADE] outdoor & pre_bye_team
+      n=103 pooled=61.2% CI[52,70] | seasons beat vig 6/8, right-dir 6/8
+      per-season: 2018:58%(n19) 2019:47%(n15) 2020:67%(n9) 2021:40%(n15) 2022:79%(n14) 2023:80%(n10) 2024:67%(n12) 2025:67%(n9)
+  [FADE] wind>=17
+      n=52 pooled=61.5% CI[48,74] | seasons beat vig 5/5, right-dir 5/5
+      per-season: 2020:80%(n5) 2021:80%(n5) 2023:80%(n5) 2024:56%(n9) 2025:57%(n21)
+  [FADE] wind>=13 & wind>=17
+      n=52 pooled=61.5% CI[48,74] | seasons beat vig 5/5, right-dir 5/5
+      per-season: 2020:80%(n5) 2021:80%(n5) 2023:80%(n5) 2024:56%(n9) 2025:57%(n21)
+  [FADE] wind>=15 & wind>=17
+      n=52 pooled=61.5% CI[48,74] | seasons beat vig 5/5, right-dir 5/5
+      per-season: 2020:80%(n5) 2021:80%(n5) 2023:80%(n5) 2024:56%(n9) 2025:57%(n21)
+  [FADE] wind>=17 & outdoor
+      n=52 pooled=61.5% CI[48,74] | seasons beat vig 5/5, right-dir 5/5
+      per-season: 2020:80%(n5) 2021:80%(n5) 2023:80%(n5) 2024:56%(n9) 2025:57%(n21)
+  [FADE] wind>=13 & wind>=15 & wind>=17
+      n=52 pooled=61.5% CI[48,74] | seasons beat vig 5/5, right-dir 5/5
+      per-season: 2020:80%(n5) 2021:80%(n5) 2023:80%(n5) 2024:56%(n9) 2025:57%(n21)
+  [FADE] wind>=13 & wind>=17 & outdoor
+      n=52 pooled=61.5% CI[48,74] | seasons beat vig 5/5, right-dir 5/5
+      per-season: 2020:80%(n5) 2021:80%(n5) 2023:80%(n5) 2024:56%(n9) 2025:57%(n21)
+  [FADE] primetime & high_total>=49
+      n=127 pooled=59.8% CI[51,68] | seasons beat vig 5/8, right-dir 8/8
+      per-season: 2018:50%(n22) 2019:78%(n9) 2020:58%(n24) 2021:50%(n22) 2022:75%(n8) 2023:82%(n11) 2024:50%(n14) 2025:65%(n17)
+  [BACK] big_fav_game & outdoor & wk>=15
+      n=146 pooled=58.2% CI[50,66] | seasons beat vig 5/8, right-dir 8/8
+      per-season: 2018:50%(n14) 2019:67%(n18) 2020:67%(n15) 2021:52%(n29) 2022:50%(n18) 2023:69%(n16) 2024:59%(n17) 2025:58%(n19)
+  [FADE] big_fav_game & outdoor & high_total>=49
+      n=84 pooled=57.1% CI[46,67] | seasons beat vig 5/5, right-dir 5/5
+      per-season: 2018:53%(n19) 2019:56%(n9) 2020:55%(n22) 2021:58%(n12) 2025:64%(n11)
+  [FADE] outdoor & high_total>=49
+      n=280 pooled=56.4% CI[51,62] | seasons beat vig 5/8, right-dir 8/8
+      per-season: 2018:52%(n64) 2019:62%(n37) 2020:57%(n58) 2021:50%(n44) 2022:78%(n18) 2023:67%(n12) 2024:50%(n18) 2025:55%(n29)
+  [BACK] big_fav_game & outdoor & wk<=4
+      n=77 pooled=58.4% CI[47,69] | seasons beat vig 5/8, right-dir 7/8
+      per-season: 2018:67%(n9) 2019:50%(n12) 2020:71%(n14) 2021:50%(n12) 2022:33%(n6) 2023:67%(n12) 2024:60%(n5) 2025:57%(n7)
+  [BACK] div_game & big_fav_game
+      n=255 pooled=56.1% CI[50,62] | seasons beat vig 5/8, right-dir 7/8
+      per-season: 2018:48%(n33) 2019:52%(n33) 2020:53%(n32) 2021:50%(n36) 2022:55%(n29) 2023:71%(n28) 2024:59%(n29) 2025:63%(n35)
+  [FADE] dome & primetime
+      n=134 pooled=56.0% CI[48,64] | seasons beat vig 5/8, right-dir 7/8
+      per-season: 2018:50%(n14) 2019:64%(n11) 2020:33%(n12) 2021:57%(n21) 2022:62%(n13) 2023:68%(n19) 2024:50%(n24) 2025:60%(n20)
+  [BACK] low_total<=40 & big_fav_game
+      n=60 pooled=63.3% CI[51,74] | seasons beat vig 5/6, right-dir 5/6
+      per-season: 2018:70%(n10) 2019:67%(n6) 2021:60%(n5) 2022:67%(n9) 2023:71%(n14) 2025:45%(n11)
+  [FADE] wind>=13
+      n=164 pooled=56.7% CI[49,64] | seasons beat vig 5/8, right-dir 6/8
+      per-season: 2018:67%(n9) 2019:42%(n12) 2020:52%(n21) 2021:74%(n19) 2022:61%(n18) 2023:73%(n22) 2024:44%(n32) 2025:52%(n31)
+  [FADE] wind>=13 & outdoor
+      n=164 pooled=56.7% CI[49,64] | seasons beat vig 5/8, right-dir 6/8
+      per-season: 2018:67%(n9) 2019:42%(n12) 2020:52%(n21) 2021:74%(n19) 2022:61%(n18) 2023:73%(n22) 2024:44%(n32) 2025:52%(n31)
+  [FADE] outdoor & monday
+      n=111 pooled=55.0% CI[46,64] | seasons beat vig 5/8, right-dir 6/8
+      per-season: 2018:69%(n13) 2019:64%(n14) 2020:64%(n14) 2021:60%(n15) 2022:50%(n12) 2023:61%(n18) 2024:23%(n13) 2025:42%(n12)
+  [FADE] primetime & outdoor & monday
+      n=105 pooled=54.3% CI[45,63] | seasons beat vig 5/8, right-dir 6/8
+      per-season: 2018:69%(n13) 2019:64%(n14) 2020:58%(n12) 2021:57%(n14) 2022:50%(n12) 2023:67%(n15) 2024:23%(n13) 2025:42%(n12)
+  [FADE] monday & wk<=4
+      n=42 pooled=54.8% CI[40,69] | seasons beat vig 5/7, right-dir 5/7
+      per-season: 2018:60%(n5) 2019:60%(n5) 2020:83%(n6) 2022:60%(n5) 2023:83%(n6) 2024:17%(n6) 2025:40%(n5)
+
+[TOTAL screened] ATS=1414 + OU=133 = 1547 conditions/combinations

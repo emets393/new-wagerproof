@@ -1,0 +1,35 @@
+[build] team-game rows (wk>=4): 3684 | injury features attached
+
+==========================================================================================
+WALK-FORWARD: predict team-points RESIDUAL (actual - market-implied) from features
+==========================================================================================
+  OOS corr(pred resid, actual resid) = +0.002
+  OOS MAE: model=7.50 vs predict-0(market)=7.25  (lower than market => skill)
+
+  WHAT predicts a team scoring above/below the implied total (perm importance, 2025):
+     opp_blitz        +0.0752
+     off_ppd          +0.0331
+     opp_def_rush_epa +0.0284
+     opp_def_ppd      +0.0078
+     off_pass_epa     +0.0057
+     primetime        +0.0046
+     is_outdoor       +0.0042
+     pace             +0.0028
+     own_qb_out       +0.0009
+     own_air_out      +0.0005
+     off_proe         -0.0013
+     opp_def_out      -0.0025
+
+==========================================================================================
+Does the model's predicted TOTAL residual beat the O/U line? (walk-forward)
+==========================================================================================
+  |pred total resid|>=0: thr0: n=1170 hit=0.495 CI[0.466,0.523] roi=-5.5% edge=-2.9pp
+  |pred total resid|>=1: thr1: n=921 hit=0.494 CI[0.462,0.526] roi=-5.7% edge=-3.0pp
+  |pred total resid|>=2: thr2: n=674 hit=0.504 CI[0.467,0.542] roi=-3.7% edge=-1.9pp
+  |pred total resid|>=3: thr3: n=489 hit=0.505 CI[0.461,0.549] roi=-3.6% edge=-1.9pp
+  per-season at thr=2:
+    2021: n=137 hit=0.518 CI[0.435,0.600] roi=-1.1% edge=-0.6pp
+    2022: n=143 hit=0.475 CI[0.395,0.557] roi=-9.2% edge=-4.8pp
+    2023: n=145 hit=0.531 CI[0.450,0.610] roi=+1.4% edge=+0.7pp
+    2024: n=131 hit=0.473 CI[0.390,0.558] roi=-9.7% edge=-5.1pp
+    2025: n=118 hit=0.525 CI[0.436,0.613] roi=+0.3% edge=+0.2pp

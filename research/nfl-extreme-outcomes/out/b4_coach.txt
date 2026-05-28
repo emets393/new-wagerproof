@@ -1,0 +1,48 @@
+coach-game rows: 9900 | contention: 4926 | coaches: 161
+
+=== CONTENTION (high-leverage/must-win) ATS cover : 72 coaches with n>=25 ===
+  group cover=49.8%  SD across coaches=8.5pp
+  coach                   n   cov%  shrunk%        95%CI
+  Dan Campbell           29   69.0     56.2   [51,83]
+  Chuck Pagano           41   65.9     56.4   [51,78]
+  Mike Vrabel            54   64.8     57.0   [51,76]
+  Jim Harbaugh           51   64.7     56.8   [51,76]
+  Bill Belichick        125   62.4     58.4   [54,70]
+  Marty Schottenheimer   39   61.5     54.5   [46,75]
+  Jim Haslett            27   37.0     46.0   [22,56]
+  Dennis Allen           25   36.0     45.9   [20,55]
+  Doug Marrone           28   35.7     45.5   [21,54]
+  Brad Childress         39   33.3     43.4   [21,49]
+  Mike McCoy             25   32.0     44.7   [17,52]
+  Arthur Smith           29   27.6     42.7   [15,46]
+
+=== NO-STAKES (clinched/eliminated) ATS cover : 59 coaches with n>=25 ===
+  group cover=50.1%  SD across coaches=7.2pp
+  coach                   n   cov%  shrunk%        95%CI
+  Mike Smith             28   67.9     55.7   [49,82]
+  Dennis Green           30   63.3     54.4   [46,78]
+  Dan Campbell           33   60.6     53.8   [44,75]
+  Pat Shurmur            42   59.5     53.9   [44,73]
+  Dom Capers             42   59.5     53.9   [44,73]
+  Tom Coughlin           37   59.5     53.6   [43,74]
+  Dennis Allen           26   42.3     47.7   [26,61]
+  Kevin Stefanski        25   40.0     47.1   [23,59]
+  Jon Gruden             43   39.5     45.6   [26,54]
+  Steve Spagnuolo        28   39.3     46.6   [24,58]
+  Ken Whisenhunt         52   38.5     44.6   [26,52]
+  Hue Jackson            31   25.8     41.8   [14,43]
+
+======================================================================
+PERMUTATION NULL — does COACH IDENTITY matter in contention spots?
+======================================================================
+  coaches tested (n>=25): 72
+  SD of coach cover%: REAL=8.5pp vs NULL=7.4pp  (p=0.04)
+  # coaches >=58%: REAL=9 vs NULL avg=9.2
+  # coaches <=42%: REAL=16 vs NULL avg=9.9
+  -> REAL ~ NULL => coach identity adds nothing beyond chance.
+
+  per-season for top contention coach 'Dan Campbell' (stability check):
+   2022:5/6  2023:7/8  2024:4/4  2025:4/11
+  Bill Belichick contention ATS: 78/125=62.4% CI[54,70] | seasons beat vig 12/19
+  Andy Reid contention ATS: 89/165=53.9% CI[46,61] | seasons beat vig 14/22
+  Mike Tomlin contention ATS: 99/175=56.6% CI[49,64] | seasons beat vig 12/19

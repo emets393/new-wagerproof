@@ -1,0 +1,16 @@
+[merge] dropped 20 view cols that collide with team-week (identical): ['home_off_plays_per_game_s2d', 'home_off_proe_s2d', 'home_off_plays_per_drive_s2d', 'home_off_rz_td_rate_s2d']...
+[merge] team-week joined to 2210/2226 games (99.3%)
+[validate] team-week home off_pass_success vs view home_off_pass_sr_s2d: corr=1.000 |diff| mean=0.0000 (same metric -> should be ~1.0/near-0)
+[saved] matchup: (2226, 409) -> /Users/chrishabib/Documents/new-wagerproof/research/nfl-extreme-outcomes/data/matchup.parquet
+  matchup feature families: nets(40) + env/sep + interactions + targets
+  games week>=4 with team-week data: 1842
+
+[preview] corr of matchup nets with LINE-RELATIVE residuals (should be ~0 if priced):
+   corr(sep_ppd         , resid_margin ) = +0.027  (n=1842)
+   corr(exp_margin_ppd  , resid_margin ) = +0.027  (n=1842)
+   corr(exp_total_ppd   , resid_total  ) = -0.035  (n=1842)
+   corr(pace_sum        , resid_total  ) = -0.026  (n=1842)
+   corr(env_pass_epa    , resid_total  ) = +0.013  (n=1842)
+   corr(sep_pass_epa    , resid_margin ) = +0.012  (n=1842)
+   corr(mismatch_mag    , spread_miss  ) = +0.001  (n=1842)
+   corr(proe_sum        , resid_total  ) = -0.028  (n=1842)

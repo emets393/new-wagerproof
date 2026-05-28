@@ -1,0 +1,32 @@
+============================================================================================
+Is the discrepancy edge real when we're NOT missing obvious info (QB/rest)?
+============================================================================================
+
+  ALL games:
+   |disc|>=3                                      n= 280 OUR-side cover= 51.8% CI[46,58]
+   |disc|>=4                                      n= 147 OUR-side cover= 52.4% CI[44,60]
+   |disc|>=5                                      n=  77 OUR-side cover= 53.2% CI[42,64]
+
+  EXCLUDING backup-QB / QB-out games:
+   |disc|>=3 (full-strength QBs)                  n= 142 OUR-side cover= 50.0% CI[42,58]
+   |disc|>=4 (full-strength QBs)                  n=  61 OUR-side cover= 55.7% CI[43,67]
+   |disc|>=5 (full-strength QBs)                  n=  27 OUR-side cover= 55.6% CI[37,72]
+
+  EXCLUDING backup-QB/QB-out AND week>=17:
+   |disc|>=3 (clean & wk<=16)                     n= 103 OUR-side cover= 48.5% CI[39,58]
+   |disc|>=4 (clean & wk<=16)                     n=  40 OUR-side cover= 52.5% CI[37,67]
+   |disc|>=5 (clean & wk<=16)                     n=  15 OUR-side cover= 46.7% CI[25,70]
+
+  ONLY late-season (wk>=17):
+   |disc|>=3 (wk>=17)                             n=  80 OUR-side cover= 50.0% CI[39,61]
+   |disc|>=4 (wk>=17)                             n=  51 OUR-side cover= 49.0% CI[36,62]
+
+  per-season: clean & wk<=16 & |disc|>=3, bet OUR side:
+     2021: n=24 hit=0.583 CI[0.388,0.755] roi=+11.4% edge=+5.9pp
+     2022: n=17 hit=0.412 CI[0.216,0.640] roi=-21.4% edge=-11.2pp
+     2023: n=23 hit=0.522 CI[0.330,0.708] roi=-0.4% edge=-0.2pp
+     2024: n=26 hit=0.462 CI[0.288,0.645] roi=-11.9% edge=-6.2pp
+     2025: n=13 hit=0.385 CI[0.177,0.645] roi=-26.6% edge=-13.9pp
+     ALL: n=103 hit=0.485 CI[0.391,0.581] roi=-7.3% edge=-3.8pp
+
+  share of top-decile |disc| games explained by wk>=17 OR backup/QB-out: 76%

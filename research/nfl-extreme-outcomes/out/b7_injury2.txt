@@ -1,0 +1,25 @@
+[build] team-weeks with injuries: 3771 | skill-injury importance join rate: 30%
+[merge] team-games 2018-25: 4254 | with any skill air-share out: 708
+  airshare_out distribution: {'mean': 5.1, '75%': 0.0, 'max': 96.5}
+==================================================================================
+ROBUSTNESS: heavy skill-injury -> OVER (the new candidate)
+==================================================================================
+
+[dose-response] OVER% by team air-share-out threshold:
+  air-share-out>=10: OVER%= 54.8 n= 679 CI[51,58] mean(actual-line)=+2.2pts
+  air-share-out>=20: OVER%= 55.5 n= 521 CI[51,60] mean(actual-line)=+2.3pts
+  air-share-out>=30: OVER%= 58.5 n= 330 CI[53,64] mean(actual-line)=+2.8pts
+  air-share-out>=40: OVER%= 64.4 n= 177 CI[57,71] mean(actual-line)=+3.8pts
+  air-share-out>=50: OVER%= 67.2 n=  67 CI[55,77] mean(actual-line)=+3.9pts
+  air-share-out>=60: OVER%= 65.5 n=  29 CI[47,80] mean(actual-line)=+4.0pts
+
+[per-season] OVER when air-share-out>=30 and >=40:
+  >=30: 2018:61%(n28) 2019:62%(n47) 2020:59%(n32) 2021:54%(n37) 2022:48%(n42) 2023:59%(n37) 2024:54%(n52) 2025:69%(n55) 
+  >=40: 2018:65%(n17) 2019:80%(n20) 2020:59%(n17) 2021:53%(n15) 2022:46%(n24) 2023:69%(n13) 2024:63%(n35) 2025:75%(n36) 
+
+[fade injured team ATS] back the OPPONENT of a team missing >=40 air-share:
+  opponent ATS cover=55.7% (n=176) CI[48,63]
+    2018: 12/17=71%    2019: 13/19=68%    2020: 10/17=59%    2021: 8/15=53%    2022: 11/24=46%    2023: 7/13=54%    2024: 17/35=49%    2025: 20/36=56%
+
+[game-level OVER, de-duped] unique games with >=1 team missing >=40 air-share:
+  unique games=171 OVER%=63.7% CI[56,71]

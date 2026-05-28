@@ -1,0 +1,24 @@
+====================================================================================================
+(A) COLD-START — does Madden roster prior make EARLY weeks bettable? (held-out 2024-25 vs opener)
+====================================================================================================
+  base (no Madden)   ALL wks : n=428 hit=53.5% CI[49,58] roi=+2.1%
+  base (no Madden)   wks 1-3 : n= 74 hit=45.9% CI[35,57] roi=-12.3%
+  base (no Madden)   wks 4+  : n=354 hit=55.1% CI[50,60] roi=+5.2%
+  base + Madden      ALL wks : n=447 hit=54.8% CI[50,59] roi=+4.6%
+  base + Madden      wks 1-3 : n= 75 hit=44.0% CI[33,55] roi=-16.0%
+  base + Madden      wks 4+  : n=372 hit=57.0% CI[52,62] roi=+8.8%
+
+====================================================================================================
+(B) ABLATION — Madden added to the LOCKED sides model (wks 4+, conf>=.03)
+====================================================================================================
+  base (locked b14)   : n=383 hit=55.6% CI[51,61] roi=+6.2%
+  base + Madden       : n=402 hit=56.2% CI[51,61] roi=+7.3%
+  Madden ONLY         : n=381 hit=51.7% CI[47,57] roi=-1.3%
+
+====================================================================================================
+STANDALONE Madden injury spots vs the OPENER (held-out 2024-25)
+====================================================================================================
+  home QB downgrade>=8 -> fade home  n=23 hit=47.8% CI[29,67]
+  away QB downgrade>=8 -> fade away  n=23 hit=82.6% CI[63,93]
+  home OL-out>=15 -> fade home       n=94 hit=57.4% CI[47,67]
+  away OL-out>=15 -> fade away       n=104 hit=52.9% CI[43,62]

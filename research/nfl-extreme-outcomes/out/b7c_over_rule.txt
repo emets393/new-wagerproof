@@ -1,0 +1,33 @@
+==========================================================================================
+LOCKED INJURY-OVER RULE (2018-2025, vs closing total)
+==========================================================================================
+  thresholds: air-yards-share>=35.0% (WR/TE/RB Out/Dbt)  OR  combined def snap-out>=2.0
+
+  COMBINED (off OR def trigger)  [THE RULE]: n=443 OVER=56.4% CI[52,61] ROI@-110=+7.7% avg(actual-line)=+2.3 | fires 443/2107 games (21%)
+     per-season: 2018:48%(n42) 2019:65%(n54) 2020:62%(n39) 2021:48%(n40) 2022:45%(n67) 2023:60%(n50) 2024:58%(n71) 2025:64%(n80)
+     seasons beating vig: 5/8
+
+    component: OFF trigger only: n=185 OVER=64.9% CI[58,71] ROI@-110=+23.8% avg(actual-line)=+4.4 | fires 185/2107 games (9%)
+     per-season: 2018:73%(n15) 2019:75%(n20) 2020:73%(n15) 2021:62%(n13) 2022:50%(n28) 2023:67%(n21) 2024:53%(n32) 2025:73%(n41)
+     seasons beating vig: 7/8
+
+    component: DEF trigger only: n=303 OVER=54.5% CI[49,60] ROI@-110=+4.0% avg(actual-line)=+1.7 | fires 303/2107 games (14%)
+     per-season: 2018:42%(n31) 2019:62%(n37) 2020:59%(n29) 2021:47%(n30) 2022:47%(n43) 2023:54%(n39) 2024:63%(n43) 2025:59%(n51)
+     seasons beating vig: 5/8
+
+    baseline: NO trigger (control): n=1664 OVER=46.8% CI[44,49] ROI@-110=-10.6% avg(actual-line)=+0.1 | fires 1664/2107 games (78%)
+     per-season: 2018:47%(n211) 2019:46%(n201) 2020:49%(n212) 2021:46%(n229) 2022:44%(n201) 2023:43%(n220) 2024:53%(n198) 2025:47%(n192)
+     seasons beating vig: 1/8
+
+  -- sensitivity (rule is not one magic cutoff) --
+    OFF air-share>=30: OVER=58.5% n=284
+    OFF air-share>=35: OVER=64.5% n=186
+    OFF air-share>=40: OVER=63.4% n=123
+    DEF snap-out>=1.5: OVER=52.0% n=567
+    DEF snap-out>=2.0: OVER=54.5% n=303
+    DEF snap-out>=2.5: OVER=56.7% n=194
+    DEF snap-out>=3.0: OVER=59.6% n=104
+
+  [null] combined rule OVER=56.4% (n=443) vs random-same-n: p(|dev|>=)=0.0064
+
+[saved] per-game rule flags -> out/injury_over_rule.csv (2127 games)

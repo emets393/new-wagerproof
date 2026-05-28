@@ -1,0 +1,268 @@
+========================================================================================
+AVENUE A — SPREAD-MISS MAGNITUDE (variance): blow-up rate by condition
+========================================================================================
+  BASELINE all games: mean|miss|=9.81  blowup%=10.9
+
+-- by spread size --
+  pick'em (0-1.5)                    n= 236  mean|miss|= 9.52  blowup%= 10.6 CI[ 7.3,15.2]
+  small (2-3)                        n= 623  mean|miss|= 9.92  blowup%= 13.0 CI[10.6,15.9]
+  med (3.5-6.5)                      n= 722  mean|miss|= 9.33  blowup%=  8.3 CI[ 6.5,10.6]
+  big (7-9.5)                        n= 372  mean|miss|=10.15  blowup%= 11.6 CI[ 8.7,15.2]
+  huge (10-13.5)                     n= 201  mean|miss|=10.84  blowup%= 12.4 CI[ 8.6,17.7]
+  massive (14+)                      n=  72  mean|miss|=10.11  blowup%= 12.5 CI[ 6.7,22.1]
+
+-- home vs away favorite --
+  home favorite                      n=1367  mean|miss|= 9.77  blowup%= 10.3 CI[ 8.8,12.0]
+  away favorite                      n= 859  mean|miss|= 9.88  blowup%= 11.9 CI[ 9.9,14.2]
+
+-- divisional / conference --
+  divisional (div_game=1)            n= 784  mean|miss|= 9.79  blowup%= 11.1 CI[ 9.1,13.5]
+  non-divisional                     n=1442  mean|miss|= 9.83  blowup%= 10.8 CI[ 9.3,12.5]
+
+-- rest / schedule spot --
+  Thursday game                      n= 144  mean|miss|= 8.84  blowup%=  8.3 CI[ 4.8,14.0]
+  Monday game                        n= 157  mean|miss|=10.15  blowup%= 10.2 CI[ 6.4,15.9]
+  home off bye (rest>=10)            n= 279  mean|miss|= 8.74  blowup%=  9.3 CI[ 6.4,13.3]
+  away off bye (rest>=10)            n= 286  mean|miss|= 9.12  blowup%=  8.4 CI[ 5.7,12.2]
+  either short rest (<=4)            n= 130  mean|miss|= 9.25  blowup%= 10.0 CI[ 5.9,16.4]
+
+-- QB --
+  any backup QB (modal def)          n= 658  mean|miss|= 9.71  blowup%=  9.1 CI[ 7.1,11.6]
+  no backup QB                       n=1568  mean|miss|= 9.86  blowup%= 11.7 CI[10.2,13.4]
+
+-- PR mismatch magnitude (|pr_diff|) --
+  close (0-3)                        n= 829  mean|miss|= 9.23  blowup%=  9.5 CI[ 7.7,11.7]
+  mod (3-7)                          n= 794  mean|miss|= 9.89  blowup%= 11.2 CI[ 9.2,13.6]
+  big (7-12)                         n= 462  mean|miss|=10.44  blowup%= 11.5 CI[ 8.9,14.7]
+  huge (12+)                         n= 141  mean|miss|=10.79  blowup%= 15.6 CI[10.5,22.5]
+
+-- week bucket --
+  early (wk1-4)                      n= 508  mean|miss|= 9.58  blowup%= 11.0 CI[ 8.6,14.0]
+  mid (wk5-13)                       n=1038  mean|miss|= 9.83  blowup%= 11.4 CI[ 9.6,13.4]
+  late (wk14-18)                     n= 594  mean|miss|= 9.97  blowup%=  9.3 CI[ 7.2,11.9]
+  playoffs (wk19+)                   n=  86  mean|miss|= 9.90  blowup%= 16.3 CI[10.0,25.5]
+
+-- weather --
+  wind >= 15mph                      n=  99  mean|miss|= 9.35  blowup%=  9.1 CI[ 4.9,16.4]
+  wind >= 20mph                      n=  25  mean|miss|= 8.76  blowup%=  4.0 CI[ 0.7,19.5]
+  dome/closed                        n= 664  mean|miss|= 9.92  blowup%= 11.3 CI[ 9.1,13.9]
+  primetime                          n= 468  mean|miss|= 9.55  blowup%= 10.5 CI[ 8.0,13.6]
+
+========================================================================================
+AVENUE B — DIRECTION / ATS COVER EDGES (per-season replication)
+========================================================================================
+
+[B1] DOG cover rate by dog spread band (back the dog ATS):
+
+  >> DOG +1 to +2.5  (price -110)
+     2018: n=56 hit=0.607 CI[0.476,0.724] roi=+15.9% edge=+8.3pp
+     2019: n=50 hit=0.540 CI[0.404,0.670] roi=+3.1% edge=+1.6pp
+     2020: n=56 hit=0.536 CI[0.407,0.660] roi=+2.3% edge=+1.2pp
+     2021: n=55 hit=0.545 CI[0.415,0.670] roi=+4.1% edge=+2.2pp
+     2022: n=77 hit=0.480 CI[0.372,0.590] roi=-8.3% edge=-4.3pp
+     2023: n=75 hit=0.467 CI[0.358,0.578] roi=-10.9% edge=-5.7pp
+     2024: n=74 hit=0.513 CI[0.402,0.624] roi=-2.0% edge=-1.0pp
+     2025: n=73 hit=0.452 CI[0.343,0.566] roi=-13.7% edge=-7.2pp
+     ALL: n=516 hit=0.512 CI[0.469,0.554] roi=-2.3% edge=-1.2pp
+
+  >> DOG +3 to +6.5  (price -110)
+     2018: n=125 hit=0.528 CI[0.441,0.613] roi=+0.8% edge=+0.4pp
+     2019: n=131 hit=0.550 CI[0.464,0.632] roi=+4.9% edge=+2.6pp
+     2020: n=121 hit=0.587 CI[0.498,0.670] roi=+12.0% edge=+6.3pp
+     2021: n=125 hit=0.592 CI[0.504,0.674] roi=+13.0% edge=+6.8pp
+     2022: n=129 hit=0.558 CI[0.472,0.641] roi=+6.6% edge=+3.4pp
+     2023: n=129 hit=0.473 CI[0.389,0.559] roi=-9.7% edge=-5.1pp
+     2024: n=141 hit=0.411 CI[0.334,0.494] roi=-21.5% edge=-11.2pp
+     2025: n=127 hit=0.535 CI[0.449,0.620] roi=+2.2% edge=+1.2pp
+     ALL: n=1028 hit=0.527 CI[0.497,0.558] roi=+0.7% edge=+0.3pp
+
+  >> DOG +7 to +7  (price -110)
+     2018: n=15 hit=0.533 CI[0.301,0.752] roi=+1.8% edge=+0.9pp
+     2019: n=18 hit=0.389 CI[0.203,0.614] roi=-25.8% edge=-13.5pp
+     2020: n=28 hit=0.464 CI[0.295,0.642] roi=-11.4% edge=-5.9pp
+     2021: n=26 hit=0.577 CI[0.390,0.745] roi=+10.1% edge=+5.3pp
+     2022: n=12 hit=0.583 CI[0.320,0.807] roi=+11.4% edge=+5.9pp
+     2023: n=13 hit=0.385 CI[0.177,0.645] roi=-26.6% edge=-13.9pp
+     2024: n=17 hit=0.647 CI[0.413,0.827] roi=+23.5% edge=+12.3pp
+     2025: n=19 hit=0.368 CI[0.192,0.590] roi=-29.7% edge=-15.5pp
+     ALL: n=148 hit=0.493 CI[0.414,0.573] roi=-5.8% edge=-3.1pp
+
+  >> DOG +7.5 to +9.5  (price -110)
+     2018: n=29 hit=0.552 CI[0.376,0.716] roi=+5.3% edge=+2.8pp
+     2019: n=15 hit=0.467 CI[0.248,0.699] roi=-10.9% edge=-5.7pp
+     2020: n=31 hit=0.581 CI[0.408,0.736] roi=+10.8% edge=+5.7pp
+     2021: n=29 hit=0.414 CI[0.255,0.593] roi=-21.0% edge=-11.0pp
+     2022: n=30 hit=0.500 CI[0.332,0.668] roi=-4.5% edge=-2.4pp
+     2023: n=26 hit=0.577 CI[0.390,0.745] roi=+10.1% edge=+5.3pp
+     2024: n=26 hit=0.577 CI[0.390,0.745] roi=+10.1% edge=+5.3pp
+     2025: n=28 hit=0.714 CI[0.529,0.848] roi=+36.4% edge=+19.1pp
+     ALL: n=214 hit=0.551 CI[0.484,0.617] roi=+5.3% edge=+2.8pp
+
+  >> DOG +10 to +13.5  (price -110)
+     2018: n=25 hit=0.440 CI[0.267,0.629] roi=-16.0% edge=-8.4pp
+     2019: n=30 hit=0.533 CI[0.361,0.698] roi=+1.8% edge=+0.9pp
+     2020: n=25 hit=0.520 CI[0.335,0.700] roi=-0.7% edge=-0.4pp
+     2021: n=37 hit=0.351 CI[0.218,0.512] roi=-32.9% edge=-17.2pp
+     2022: n=19 hit=0.684 CI[0.460,0.846] roi=+30.6% edge=+16.0pp
+     2023: n=21 hit=0.476 CI[0.283,0.676] roi=-9.1% edge=-4.8pp
+     2024: n=14 hit=0.357 CI[0.163,0.612] roi=-31.8% edge=-16.7pp
+     2025: n=27 hit=0.370 CI[0.215,0.558] roi=-29.3% edge=-15.3pp
+     ALL: n=198 hit=0.460 CI[0.392,0.529] roi=-12.3% edge=-6.4pp
+
+  >> DOG +14+  (price -110)
+     2018: n=7 hit=0.714 CI[0.359,0.918] roi=+36.4% edge=+19.1pp
+     2019: n=13 hit=0.462 CI[0.232,0.709] roi=-11.9% edge=-6.2pp
+     2020: n=7 hit=0.571 CI[0.251,0.842] roi=+9.1% edge=+4.8pp
+     2021: n=10 hit=0.500 CI[0.237,0.763] roi=-4.5% edge=-2.4pp
+     2022: n=10 hit=0.600 CI[0.313,0.832] roi=+14.5% edge=+7.6pp
+     2023: n=8 hit=0.500 CI[0.215,0.785] roi=-4.5% edge=-2.4pp
+     2024: n=6 hit=0.500 CI[0.188,0.812] roi=-4.5% edge=-2.4pp
+     2025: n=8 hit=0.500 CI[0.215,0.785] roi=-4.5% edge=-2.4pp
+     ALL: n=69 hit=0.536 CI[0.420,0.649] roi=+2.4% edge=+1.2pp
+
+[B1b] restrict +7.5..+9.5 dogs to 2023-25 (brief's window):
+
+  >> DOG +7.5..9.5 (2023-25)  (price -110)
+     2023: n=26 hit=0.577 CI[0.390,0.745] roi=+10.1% edge=+5.3pp
+     2024: n=26 hit=0.577 CI[0.390,0.745] roi=+10.1% edge=+5.3pp
+     2025: n=28 hit=0.714 CI[0.529,0.848] roi=+36.4% edge=+19.1pp
+     ALL: n=80 hit=0.625 CI[0.515,0.723] roi=+19.3% edge=+10.1pp
+
+[B2] HOME DOG vs ROAD DOG (does venue matter for the dog cover):
+
+  >> HOME dogs (all)  (price -110)
+     2018: n=91 hit=0.538 CI[0.437,0.637] roi=+2.8% edge=+1.5pp
+     2019: n=96 hit=0.458 CI[0.362,0.558] roi=-12.5% edge=-6.6pp
+     2020: n=106 hit=0.557 CI[0.462,0.648] roi=+6.3% edge=+3.3pp
+     2021: n=112 hit=0.518 CI[0.426,0.608] roi=-1.1% edge=-0.6pp
+     2022: n=99 hit=0.556 CI[0.457,0.649] roi=+6.1% edge=+3.2pp
+     2023: n=100 hit=0.470 CI[0.375,0.567] roi=-10.3% edge=-5.4pp
+     2024: n=109 hit=0.468 CI[0.377,0.561] roi=-10.7% edge=-5.6pp
+     2025: n=120 hit=0.508 CI[0.420,0.596] roi=-2.9% edge=-1.6pp
+     ALL: n=833 hit=0.509 CI[0.475,0.543] roi=-2.8% edge=-1.5pp
+
+  >> ROAD dogs (all)  (price -110)
+     2018: n=166 hit=0.548 CI[0.472,0.622] roi=+4.7% edge=+2.4pp
+     2019: n=161 hit=0.565 CI[0.488,0.639] roi=+7.9% edge=+4.1pp
+     2020: n=162 hit=0.556 CI[0.479,0.630] roi=+6.1% edge=+3.2pp
+     2021: n=170 hit=0.535 CI[0.460,0.609] roi=+2.2% edge=+1.1pp
+     2022: n=178 hit=0.534 CI[0.461,0.606] roi=+1.9% edge=+1.0pp
+     2023: n=172 hit=0.483 CI[0.409,0.557] roi=-7.9% edge=-4.1pp
+     2024: n=169 hit=0.468 CI[0.394,0.543] roi=-10.8% edge=-5.6pp
+     2025: n=162 hit=0.500 CI[0.424,0.576] roi=-4.5% edge=-2.4pp
+     ALL: n=1340 hit=0.523 CI[0.496,0.550] roi=-0.1% edge=-0.1pp
+
+  >> HOME dog +7.5..9.5  (price -110)
+     2018: n=6 hit=0.333 CI[0.097,0.700] roi=-36.4% edge=-19.1pp
+     2019: n=2 hit=0.500 CI[0.095,0.905] roi=-4.5% edge=-2.4pp
+     2020: n=13 hit=0.615 CI[0.355,0.823] roi=+17.5% edge=+9.2pp
+     2021: n=10 hit=0.500 CI[0.237,0.763] roi=-4.5% edge=-2.4pp
+     2022: n=10 hit=0.600 CI[0.313,0.832] roi=+14.5% edge=+7.6pp
+     2023: n=7 hit=0.571 CI[0.251,0.842] roi=+9.1% edge=+4.8pp
+     2024: n=3 hit=1.000 CI[0.439,1.000] roi=+90.9% edge=+47.6pp
+     2025: n=11 hit=0.727 CI[0.434,0.902] roi=+38.8% edge=+20.3pp
+     ALL: n=62 hit=0.597 CI[0.472,0.710] roi=+13.9% edge=+7.3pp
+
+  >> ROAD dog +7.5..9.5  (price -110)
+     2018: n=23 hit=0.609 CI[0.408,0.778] roi=+16.2% edge=+8.5pp
+     2019: n=13 hit=0.462 CI[0.232,0.709] roi=-11.9% edge=-6.2pp
+     2020: n=18 hit=0.556 CI[0.337,0.754] roi=+6.1% edge=+3.2pp
+     2021: n=19 hit=0.368 CI[0.192,0.590] roi=-29.7% edge=-15.5pp
+     2022: n=20 hit=0.450 CI[0.258,0.658] roi=-14.1% edge=-7.4pp
+     2023: n=19 hit=0.579 CI[0.363,0.769] roi=+10.5% edge=+5.5pp
+     2024: n=23 hit=0.522 CI[0.330,0.708] roi=-0.4% edge=-0.2pp
+     2025: n=17 hit=0.706 CI[0.469,0.867] roi=+34.8% edge=+18.2pp
+     ALL: n=152 hit=0.533 CI[0.454,0.610] roi=+1.7% edge=+0.9pp
+
+[B3] ROAD FAVORITE ATS (is the road favorite a trap?):
+
+  >> Road favorites (all)  (price -110)
+     2018: n=91 hit=0.462 CI[0.363,0.563] roi=-11.9% edge=-6.2pp
+     2019: n=96 hit=0.542 CI[0.442,0.638] roi=+3.4% edge=+1.8pp
+     2020: n=106 hit=0.443 CI[0.352,0.538] roi=-15.3% edge=-8.0pp
+     2021: n=112 hit=0.482 CI[0.392,0.574] roi=-8.0% edge=-4.2pp
+     2022: n=99 hit=0.444 CI[0.350,0.543] roi=-15.2% edge=-7.9pp
+     2023: n=100 hit=0.530 CI[0.433,0.625] roi=+1.2% edge=+0.6pp
+     2024: n=109 hit=0.532 CI[0.439,0.623] roi=+1.6% edge=+0.8pp
+     2025: n=120 hit=0.492 CI[0.404,0.580] roi=-6.1% edge=-3.2pp
+     ALL: n=833 hit=0.491 CI[0.457,0.525] roi=-6.3% edge=-3.3pp
+
+  >> Away-team favorites ATS  (price -110)
+     2018: n=91 hit=0.462 CI[0.363,0.563] roi=-11.9% edge=-6.2pp
+     2019: n=96 hit=0.542 CI[0.442,0.638] roi=+3.4% edge=+1.8pp
+     2020: n=106 hit=0.443 CI[0.352,0.538] roi=-15.3% edge=-8.0pp
+     2021: n=112 hit=0.482 CI[0.392,0.574] roi=-8.0% edge=-4.2pp
+     2022: n=99 hit=0.444 CI[0.350,0.543] roi=-15.2% edge=-7.9pp
+     2023: n=100 hit=0.530 CI[0.433,0.625] roi=+1.2% edge=+0.6pp
+     2024: n=109 hit=0.532 CI[0.439,0.623] roi=+1.6% edge=+0.8pp
+     2025: n=120 hit=0.492 CI[0.404,0.580] roi=-6.1% edge=-3.2pp
+     ALL: n=833 hit=0.491 CI[0.457,0.525] roi=-6.3% edge=-3.3pp
+
+  >> Big away favorites (>=7) ATS  (price -110)
+     2018: n=18 hit=0.556 CI[0.337,0.754] roi=+6.1% edge=+3.2pp
+     2019: n=22 hit=0.636 CI[0.429,0.803] roi=+21.5% edge=+11.3pp
+     2020: n=33 hit=0.424 CI[0.272,0.592] roi=-19.0% edge=-10.0pp
+     2021: n=32 hit=0.438 CI[0.282,0.607] roi=-16.5% edge=-8.6pp
+     2022: n=19 hit=0.316 CI[0.154,0.540] roi=-39.7% edge=-20.8pp
+     2023: n=16 hit=0.500 CI[0.280,0.720] roi=-4.5% edge=-2.4pp
+     2024: n=15 hit=0.333 CI[0.152,0.583] roi=-36.4% edge=-19.1pp
+     2025: n=27 hit=0.370 CI[0.215,0.558] roi=-29.3% edge=-15.3pp
+     ALL: n=182 hit=0.445 CI[0.375,0.518] roi=-15.0% edge=-7.9pp
+
+[B4] SHORT-REST / Thursday favorites (lay the points on short rest?):
+
+  >> Favorite on Thursday ATS  (price -110)
+     2018: n=15 hit=0.667 CI[0.417,0.848] roi=+27.3% edge=+14.3pp
+     2019: n=17 hit=0.294 CI[0.133,0.531] roi=-43.9% edge=-23.0pp
+     2020: n=14 hit=0.357 CI[0.163,0.612] roi=-31.8% edge=-16.7pp
+     2021: n=18 hit=0.500 CI[0.290,0.710] roi=-4.5% edge=-2.4pp
+     2022: n=19 hit=0.474 CI[0.273,0.683] roi=-9.6% edge=-5.0pp
+     2023: n=17 hit=0.588 CI[0.360,0.784] roi=+12.3% edge=+6.4pp
+     2024: n=18 hit=0.556 CI[0.337,0.754] roi=+6.1% edge=+3.2pp
+     2025: n=20 hit=0.300 CI[0.145,0.519] roi=-42.7% edge=-22.4pp
+     ALL: n=138 hit=0.464 CI[0.383,0.547] roi=-11.5% edge=-6.0pp
+
+  >> Heavy fav (>=7) divisional ATS  (price -110)
+     2018: n=33 hit=0.485 CI[0.325,0.648] roi=-7.4% edge=-3.9pp
+     2019: n=31 hit=0.484 CI[0.320,0.652] roi=-7.6% edge=-4.0pp
+     2020: n=33 hit=0.455 CI[0.298,0.620] roi=-13.2% edge=-6.9pp
+     2021: n=34 hit=0.706 CI[0.538,0.832] roi=+34.8% edge=+18.2pp
+     2022: n=29 hit=0.345 CI[0.199,0.527] roi=-34.2% edge=-17.9pp
+     2023: n=26 hit=0.577 CI[0.390,0.745] roi=+10.1% edge=+5.3pp
+     2024: n=28 hit=0.429 CI[0.265,0.609] roi=-18.2% edge=-9.5pp
+     2025: n=34 hit=0.529 CI[0.367,0.685] roi=+1.1% edge=+0.6pp
+     ALL: n=248 hit=0.504 CI[0.442,0.566] roi=-3.8% edge=-2.0pp
+
+  >> Divisional DOG ATS  (price -110)
+     2018: n=79 hit=0.494 CI[0.386,0.602] roi=-5.8% edge=-3.0pp
+     2019: n=72 hit=0.500 CI[0.388,0.613] roi=-4.5% edge=-2.4pp
+     2020: n=80 hit=0.575 CI[0.466,0.677] roi=+9.8% edge=+5.1pp
+     2021: n=83 hit=0.470 CI[0.366,0.576] roi=-10.3% edge=-5.4pp
+     2022: n=80 hit=0.600 CI[0.490,0.700] roi=+14.5% edge=+7.6pp
+     2023: n=67 hit=0.448 CI[0.335,0.566] roi=-14.5% edge=-7.6pp
+     2024: n=73 hit=0.548 CI[0.434,0.657] roi=+4.6% edge=+2.4pp
+     2025: n=73 hit=0.562 CI[0.448,0.669] roi=+7.2% edge=+3.8pp
+     ALL: n=607 hit=0.525 CI[0.486,0.565] roi=+0.3% edge=+0.2pp
+
+========================================================================================
+AVENUE C — POWER-RATING vs SPREAD DIVERGENCE
+========================================================================================
+  mean home margin (HFA proxy) = 1.73
+  corr(pr_margin, actual_margin)  = 0.395
+  corr(mkt_margin, actual_margin) = 0.446
+  divergence: mean=-0.18 sd=3.01 p90=3.27 p10=-3.53
+
+[C1] Back the PR side when |divergence| is large (does PR beat the closing line ATS?):
+   |diverge|>=2: back PR side: n=939 hit=0.491 CI[0.459,0.523] roi=-6.3% edge=-3.3pp
+   |diverge|>=3: back PR side: n=560 hit=0.495 CI[0.453,0.536] roi=-5.6% edge=-2.9pp
+   |diverge|>=4: back PR side: n=320 hit=0.512 CI[0.458,0.567] roi=-2.2% edge=-1.1pp
+   |diverge|>=5: back PR side: n=195 hit=0.513 CI[0.443,0.582] roi=-2.1% edge=-1.1pp
+
+[C2] Does divergence predict BLOW-UPS (variance)?
+   |diverge|>=3: blowup%=11.0 (n=571) vs <3: 10.9 (n=1655)
+   |diverge|>=5: blowup%=10.7 (n=197) vs <5: 10.9 (n=2029)
+   |diverge|>=7: blowup%=6.9 (n=72) vs <7: 11.0 (n=2154)
+
+[C3] When PR & market disagree on the FAVORITE, who wins SU?
+   games where PR & market pick different favorites: n=261
+   PR-favorite won SU: 41.4%  (mkt-favorite won 58.6%)

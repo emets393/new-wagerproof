@@ -1,0 +1,66 @@
+AVENUE E — LAST-GAME EFFECTS (team perspective; cover next game?)
+==========================================================================================
+[E1] off a blowout WIN (prev margin>=14) -> team ATS next:
+
+  >> off blowout WIN, team ATS
+     2018: n=85 hit=0.459 CI[0.357,0.564] roi=-12.4% edge=-6.5pp
+     2019: n=92 hit=0.500 CI[0.400,0.600] roi=-4.5% edge=-2.4pp
+     2020: n=89 hit=0.506 CI[0.404,0.607] roi=-3.5% edge=-1.8pp
+     2021: n=102 hit=0.471 CI[0.377,0.567] roi=-10.2% edge=-5.3pp
+     2022: n=77 hit=0.455 CI[0.348,0.565] roi=-13.2% edge=-6.9pp
+     2023: n=100 hit=0.450 CI[0.356,0.548] roi=-14.1% edge=-7.4pp
+     2024: n=94 hit=0.500 CI[0.401,0.599] roi=-4.5% edge=-2.4pp
+     2025: n=96 hit=0.521 CI[0.422,0.618] roi=-0.6% edge=-0.3pp
+     ALL: n=735 hit=0.483 CI[0.447,0.519] roi=-7.8% edge=-4.1pp
+
+[E2] off a blowout LOSS (prev margin<=-14) -> team ATS next (bounce-back?):
+
+  >> off blowout LOSS, team ATS
+     2018: n=79 hit=0.532 CI[0.423,0.638] roi=+1.5% edge=+0.8pp
+     2019: n=84 hit=0.476 CI[0.373,0.582] roi=-9.1% edge=-4.8pp
+     2020: n=80 hit=0.512 CI[0.405,0.619] roi=-2.2% edge=-1.1pp
+     2021: n=97 hit=0.526 CI[0.427,0.622] roi=+0.4% edge=+0.2pp
+     2022: n=66 hit=0.545 CI[0.426,0.660] roi=+4.1% edge=+2.2pp
+     2023: n=94 hit=0.447 CI[0.350,0.547] roi=-14.7% edge=-7.7pp
+     2024: n=84 hit=0.441 CI[0.339,0.547] roi=-15.9% edge=-8.3pp
+     2025: n=89 hit=0.551 CI[0.447,0.650] roi=+5.1% edge=+2.7pp
+     ALL: n=673 hit=0.502 CI[0.465,0.540] roi=-4.1% edge=-2.2pp
+
+[E3] off a COVER vs off a NON-COVER -> team ATS next:
+
+  >> off a cover, team ATS
+     2018: n=237 hit=0.494 CI[0.431,0.557] roi=-5.8% edge=-3.0pp
+     2019: n=239 hit=0.502 CI[0.439,0.565] roi=-4.2% edge=-2.2pp
+     2020: n=255 hit=0.498 CI[0.437,0.559] roi=-4.9% edge=-2.6pp
+     2021: n=269 hit=0.472 CI[0.413,0.532] roi=-9.9% edge=-5.2pp
+     2022: n=259 hit=0.498 CI[0.438,0.558] roi=-4.9% edge=-2.6pp
+     2023: n=250 hit=0.504 CI[0.442,0.565] roi=-3.8% edge=-2.0pp
+     2024: n=260 hit=0.508 CI[0.447,0.568] roi=-3.1% edge=-1.6pp
+     2025: n=269 hit=0.480 CI[0.421,0.539] roi=-8.5% edge=-4.4pp
+     ALL: n=2038 hit=0.494 CI[0.472,0.516] roi=-5.7% edge=-3.0pp
+
+  >> off a non-cover, team ATS
+     2018: n=229 hit=0.507 CI[0.442,0.571] roi=-3.3% edge=-1.7pp
+     2019: n=227 hit=0.493 CI[0.429,0.558] roi=-5.8% edge=-3.0pp
+     2020: n=247 hit=0.502 CI[0.440,0.564] roi=-4.2% edge=-2.2pp
+     2021: n=257 hit=0.529 CI[0.468,0.589] roi=+1.0% edge=+0.5pp
+     2022: n=249 hit=0.506 CI[0.444,0.568] roi=-3.4% edge=-1.8pp
+     2023: n=238 hit=0.504 CI[0.441,0.567] roi=-3.7% edge=-2.0pp
+     2024: n=250 hit=0.476 CI[0.415,0.538] roi=-9.1% edge=-4.8pp
+     2025: n=259 hit=0.517 CI[0.457,0.578] roi=-1.2% edge=-0.6pp
+     ALL: n=1956 hit=0.505 CI[0.482,0.527] roi=-3.7% edge=-1.9pp
+
+[E4] off BYE (rest>=13 ~ prev_week gap>=2) team ATS:
+
+  >> off bye, team ATS
+     2018: n=34 hit=0.559 CI[0.395,0.711] roi=+6.7% edge=+3.5pp
+     2019: n=36 hit=0.444 CI[0.295,0.604] roi=-15.2% edge=-7.9pp
+     2020: n=34 hit=0.500 CI[0.341,0.659] roi=-4.5% edge=-2.4pp
+     2021: n=32 hit=0.438 CI[0.282,0.607] roi=-16.5% edge=-8.6pp
+     2022: n=36 hit=0.500 CI[0.345,0.655] roi=-4.5% edge=-2.4pp
+     2023: n=31 hit=0.516 CI[0.348,0.680] roi=-1.5% edge=-0.8pp
+     2024: n=33 hit=0.333 CI[0.198,0.504] roi=-36.4% edge=-19.1pp
+     2025: n=36 hit=0.556 CI[0.396,0.705] roi=+6.1% edge=+3.2pp
+     ALL: n=272 hit=0.482 CI[0.423,0.541] roi=-8.1% edge=-4.2pp
+
+[E5] FAVORITE coming off a blowout win (overvalued?) ATS:

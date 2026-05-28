@@ -1,0 +1,28 @@
+[build] team-week active-receiving-unit rows: 5340
+  features: ['pr_diff', 'home_predictive_pr', 'away_predictive_pr', 'recv_facet_diff', 'run_facet_diff', 'protect_facet_diff', 'expl_facet_diff', 'recvq_diff', 'recvair_diff', 'home_last5_pr', 'away_last5_pr']
+  TRAIN 1132 VAL 237 TEST 473
+
+[forward-selected on 2018-23]: ['pr_diff', 'home_predictive_pr'] (VAL MAE=10.26)
+
+HELD-OUT 2024-25 (the verdict):
+  [selected facets] TEST corr model=0.395 market=0.535
+     bet |disc|>=1: thr1: n=369 hit=0.499 CI[0.448,0.549] roi=-4.8% edge=-2.5pp
+     bet |disc|>=2: thr2: n=283 hit=0.488 CI[0.430,0.546] roi=-6.9% edge=-3.6pp
+     bet |disc|>=3: thr3: n=195 hit=0.503 CI[0.433,0.572] roi=-4.1% edge=-2.1pp
+  [engineered facets ONLY (no PR)] TEST corr model=0.135 market=0.535
+     bet |disc|>=1: thr1: n=409 hit=0.477 CI[0.429,0.525] roi=-9.0% edge=-4.7pp
+     bet |disc|>=2: thr2: n=346 hit=0.465 CI[0.413,0.518] roi=-11.2% edge=-5.9pp
+     bet |disc|>=3: thr3: n=293 hit=0.471 CI[0.415,0.528] roi=-10.1% edge=-5.3pp
+  [pr_diff only (baseline)] TEST corr model=0.399 market=0.535
+     bet |disc|>=1: thr1: n=337 hit=0.490 CI[0.437,0.543] roi=-6.5% edge=-3.4pp
+     bet |disc|>=2: thr2: n=237 hit=0.494 CI[0.431,0.557] roi=-5.8% edge=-3.0pp
+     bet |disc|>=3: thr3: n=179 hit=0.458 CI[0.387,0.531] roi=-12.5% edge=-6.6pp
+
+[ablation] does each facet, ADDED to pr_diff, reduce VAL MAE?
+  pr_diff-only VAL MAE=10.38
+  + recv_facet_diff      VAL MAE=10.58  (no)
+  + run_facet_diff       VAL MAE=10.90  (no)
+  + protect_facet_diff   VAL MAE=10.63  (no)
+  + expl_facet_diff      VAL MAE=10.50  (no)
+  + recvq_diff           VAL MAE=10.53  (no)
+  + recvair_diff         VAL MAE=10.68  (no)

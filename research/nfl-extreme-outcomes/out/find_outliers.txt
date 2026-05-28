@@ -1,0 +1,59 @@
+
+======================================================================================================================
+TOP 25 SPREAD OUTLIERS — posted line vs our reverse-engineered line (home_spread shown)
+======================================================================================================================
+  season/wk  matchup (away @ home)               posted    ours   disc    result    → why line moved off our model  
+  2025 wk17  Denver @ Kansas City                 +13.5    +0.8  +12.7     13-20  OUR ✓  HOME backup-QB                
+  2022 wk18  LA Chargers @ Denver                  -6.5    +5.0  -11.5     31-28  OUR ✓                                
+  2021 wk18  Cincinnati @ Cleveland                -6.5    +4.5  -11.0     21-16  OUR ✓  HOME backup-QB, AWAY backup-QB, wind 18
+  2024 wk18  Kansas City @ Denver                 -11.0    -1.2   -9.8      38-0  mkt ✓  AWAY backup-QB, away QB out/dbt
+  2021 wk9   Arizona @ San Francisco               -5.5    +3.8   -9.3     17-31  OUR ✓  AWAY backup-QB                
+  2025 wk18  LA Chargers @ Denver                 -14.0    -4.9   -9.1      19-3  mkt ✓  AWAY backup-QB                
+  2023 wk18  Kansas City @ LA Chargers             -3.5    +5.5   -9.0     12-13  OUR ✓  HOME backup-QB, AWAY backup-QB, away QB out/dbt
+  2025 wk18  Green Bay @ Minnesota                -10.5    -1.8   -8.7      16-3  mkt ✓  AWAY backup-QB                
+  2022 wk18  NY Giants @ Philadelphia             -17.0    -8.3   -8.7     22-16  OUR ✓  AWAY backup-QB                
+  2024 wk8   Arizona @ Miami                       -5.0    +3.3   -8.3     27-28  OUR ✓  HOME backup-QB, wind 15       
+  2021 wk4   Houston @ Buffalo                    -18.5   -10.3   -8.2      40-0  mkt ✓  away QB out/dbt               
+  2024 wk18  NY Giants @ Philadelphia              -3.0   -11.0   +8.0     20-13  OUR ✓  HOME backup-QB, AWAY backup-QB, home QB out/dbt, wind 17
+  2022 wk18  Tampa Bay @ Atlanta                   -6.0    +2.0   -8.0     30-17  mkt ✓  HOME backup-QB, AWAY backup-QB
+  2021 wk16  Baltimore @ Cincinnati                -7.5    +0.1   -7.6     41-21  mkt ✓  AWAY backup-QB                
+  2024 wk18  Buffalo @ New England                 +3.0   +10.4   -7.4     23-16  mkt ✓  HOME backup-QB, AWAY backup-QB, wind 15
+  2024 wk6   Jacksonville @ Chicago                +1.5    -5.9   +7.4     35-16  OUR ✓                                
+  2023 wk18  Pittsburgh @ Baltimore                +3.0    -4.4   +7.4     10-17  mkt ✓  HOME backup-QB, AWAY backup-QB, home QB out/dbt, wind 16
+  2021 wk9   Green Bay @ Kansas City               -7.0    +0.4   -7.4      13-7  OUR ✓  AWAY backup-QB                
+  2021 wk16  Miami @ New Orleans                   +3.0    -4.2   +7.2      3-20  mkt ✓  HOME backup-QB                
+  2024 wk18  Houston @ Tennessee                   -2.5    +4.6   -7.1     14-23  OUR ✓  AWAY backup-QB                
+  2023 wk8   Atlanta @ Tennessee                   +2.5    -4.6   +7.1     28-23  OUR ✓  home QB out/dbt               
+  2021 wk17  Minnesota @ Green Bay                -12.5    -5.5   -7.0     37-10  mkt ✓  AWAY backup-QB                
+  2022 wk6   Washington @ Chicago                  +1.0    -6.0   +7.0      7-12  mkt ✓  AWAY backup-QB                
+  2023 wk5   Green Bay @ Las Vegas                 -1.5    +5.4   -6.9     17-13  mkt ✓  HOME backup-QB                
+  2021 wk22  LA Rams @ Cincinnati                  +4.5    -2.3   +6.8     20-23  OUR ✓                                
+
+  -- summary: how often was OUR side right among the biggest spread discrepancies? --
+   top 10% |disc| (|disc|>=4.3, n=116): OUR side covered 63/116 = 54.3% CI[45,63] | 55% had a backup QB
+   top 5% |disc|  (|disc|>=5.4, n=60): OUR side covered 31/60 = 51.7% CI[39,64] | 62% had a backup QB
+
+======================================================================================================================
+TOP 18 TOTAL OUTLIERS — posted O/U vs our reconstruction
+======================================================================================================================
+  season/wk  matchup                             posted    ours   disc  actual       →  context
+  2023 wk18  Kansas City @ LA Chargers             35.0    44.9   +9.9      25   mkt ✓  dome
+  2024 wk17  Dallas @ Philadelphia                 37.5    47.3   +9.8      48   OUR ✓  
+  2024 wk18  Buffalo @ New England                 36.5    45.5   +9.0      39   OUR ✓  wind 15
+  2022 wk7   Tampa Bay @ Carolina                  38.5    47.2   +8.7      24   mkt ✓  
+  2023 wk14  Houston @ NY Jets                     33.5    41.6   +8.1      36   OUR ✓  
+  2025 wk17  Dallas @ Washington                   50.5    42.6   -7.9      53   mkt ✓  
+  2025 wk17  Arizona @ Cincinnati                  53.5    45.6   -7.9      51   OUR ✓  
+  2021 wk18  Cincinnati @ Cleveland                38.0    45.6   +7.6      37   mkt ✓  wind 18
+  2021 wk18  Green Bay @ Detroit                   45.0    52.5   +7.5      67   OUR ✓  dome
+  2023 wk15  Atlanta @ Carolina                    32.5    40.0   +7.5      16   mkt ✓  
+  2022 wk16  Jacksonville @ NY Jets                36.5    43.9   +7.4      22   mkt ✓  
+  2025 wk18  Green Bay @ Minnesota                 37.5    44.7   +7.2      19   mkt ✓  dome
+  2022 wk14  Miami @ LA Chargers                   55.0    47.9   -7.1      40   OUR ✓  dome
+  2025 wk9   Chicago @ Cincinnati                  51.5    44.4   -7.1      89   mkt ✓  
+  2023 wk18  NY Jets @ New England                 28.5    35.6   +7.1      20   mkt ✓  
+  2025 wk17  Denver @ Kansas City                  36.5    43.4   +6.9      33   mkt ✓  
+  2022 wk16  New Orleans @ Cleveland               32.0    38.8   +6.8      27   mkt ✓  wind 16
+  2025 wk9   Baltimore @ Miami                     51.5    44.8   -6.7      34   OUR ✓  
+
+  total top 10% |disc| (>= 4.4, n=118): OUR side hit 60/118 = 50.8%

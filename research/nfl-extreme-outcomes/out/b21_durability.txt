@@ -1,0 +1,27 @@
+[build] player-seasons (rostered proxy): 11223  mean wks_out=0.74
+[corr] weight_z vs wks_out (within pos): r=-0.023   height_z vs wks_out: r=-0.022
+  (negative r = lighter players miss MORE -> fragility signal)
+
+[by weight tercile within position] mean weeks-Out:
+wt_terc         light   mid  heavy
+position_group                    
+DB               0.87  0.82   0.77
+DL               0.69  0.75   0.50
+LB               0.79  0.73   0.67
+OL               0.70  0.77   0.78
+QB               0.65  0.77   0.71
+RB               0.77  0.76   0.66
+SPEC             0.41  0.31   0.12
+TE               0.86  0.70   0.75
+WR               0.82  0.77   0.95
+
+[per-position corr] weight_z vs wks_out:
+  DB   : r=-0.037 (n=2322, mean Out=0.82)
+  DL   : r=-0.060 (n=1649, mean Out=0.65)
+  LB   : r=-0.050 (n=1641, mean Out=0.73)
+  OL   : r=+0.026 (n=1874, mean Out=0.75)
+  QB   : r=+0.011 (n=390, mean Out=0.71)
+  RB   : r=-0.040 (n=904, mean Out=0.73)
+  SPEC : r=-0.154 (n=331, mean Out=0.28)
+  TE   : r=-0.049 (n=751, mean Out=0.77)
+  WR   : r=+0.027 (n=1361, mean Out=0.85)

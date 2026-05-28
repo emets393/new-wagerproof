@@ -1,0 +1,38 @@
+==========================================================================================
+AVENUE I (robustness) — PRIMETIME UNDER & PLAYOFF HOME-COVER per season
+==========================================================================================
+
+  >> UNDER in primetime (kick>=19 ET)
+     2018: n=54 hit=0.500 CI[0.371,0.629] roi=-4.5% edge=-2.4pp
+     2019: n=51 hit=0.647 CI[0.510,0.764] roi=+23.5% edge=+12.3pp
+     2020: n=52 hit=0.538 CI[0.405,0.667] roi=+2.8% edge=+1.5pp
+     2021: n=59 hit=0.542 CI[0.417,0.663] roi=+3.5% edge=+1.9pp
+     2022: n=58 hit=0.638 CI[0.509,0.750] roi=+21.8% edge=+11.4pp
+     2023: n=61 hit=0.639 CI[0.514,0.748] roi=+22.1% edge=+11.6pp
+     2024: n=62 hit=0.516 CI[0.395,0.636] roi=-1.5% edge=-0.8pp
+     2025: n=63 hit=0.524 CI[0.403,0.642] roi=+0.0% edge=+0.0pp
+     ALL: n=460 hit=0.567 CI[0.522,0.612] roi=+8.3% edge=+4.4pp
+
+  >> UNDER on Monday
+     2018: n=17 hit=0.529 CI[0.310,0.738] roi=+1.1% edge=+0.6pp
+     2019: n=17 hit=0.647 CI[0.413,0.827] roi=+23.5% edge=+12.3pp
+     2020: n=19 hit=0.579 CI[0.363,0.769] roi=+10.5% edge=+5.5pp
+     2021: n=19 hit=0.632 CI[0.410,0.808] roi=+20.6% edge=+10.8pp
+     2022: n=17 hit=0.588 CI[0.360,0.784] roi=+12.3% edge=+6.4pp
+     2023: n=23 hit=0.696 CI[0.491,0.844] roi=+32.8% edge=+17.2pp
+     2024: n=22 hit=0.409 CI[0.233,0.613] roi=-21.9% edge=-11.5pp
+     2025: n=21 hit=0.571 CI[0.365,0.755] roi=+9.1% edge=+4.8pp
+     ALL: n=155 hit=0.581 CI[0.502,0.655] roi=+10.8% edge=+5.7pp
+
+  >> HOME ATS in playoffs (wk>=19)
+     2018: n=7 hit=0.429 CI[0.158,0.750] roi=-18.2% edge=-9.5pp
+     2019: n=7 hit=0.857 CI[0.487,0.974] roi=+63.6% edge=+33.3pp
+     2020: n=7 hit=0.571 CI[0.251,0.842] roi=+9.1% edge=+4.8pp
+     2021: n=13 hit=0.538 CI[0.291,0.768] roi=+2.8% edge=+1.5pp
+     2022: n=13 hit=0.462 CI[0.232,0.709] roi=-11.9% edge=-6.2pp
+     2023: n=13 hit=0.538 CI[0.291,0.768] roi=+2.8% edge=+1.5pp
+     2024: n=13 hit=0.692 CI[0.424,0.873] roi=+32.2% edge=+16.9pp
+     2025: n=13 hit=0.692 CI[0.424,0.873] roi=+32.2% edge=+16.9pp
+     ALL: n=86 hit=0.593 CI[0.487,0.691] roi=+13.2% edge=+6.9pp
+
+  confound: primetime mean total line=46.3 vs non=45.1; actual total=45.4 vs 46.1

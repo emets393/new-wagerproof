@@ -1,0 +1,18 @@
+====================================================================================================
+RECEIVER-OUT OVER: can Madden OVR sharpen it? (OVER vs CLOSE 2018-25, proven bar)
+====================================================================================================
+  R1 air>=35 (CURRENT rule)          CLOSE: 64.7% (n=190) CI[58,71]  | OPEN: 61.2% (n=98)
+  R2 Madden OVR>=85 (talent trigger) CLOSE: 52.6% (n=390) CI[48,57]  | OPEN: 49.0% (n=153)
+  R2b Madden OVR>=88                 CLOSE: 56.5% (n=239) CI[50,63]  | OPEN: 53.2% (n=94)
+  R3 air>=35 AND ovr>=80 (filter scrubs) CLOSE: 66.9% (n=139) CI[59,74]  | OPEN: 63.6% (n=66)
+  R3b air>=35 AND ovr>=85            CLOSE: 68.0% (n=97) CI[58,76]  | OPEN: 64.0% (n=50)
+  R4 air>=35 OR ovr>=88 (catch misses) CLOSE: 58.7% (n=356) CI[54,64]  | OPEN: 54.5% (n=154)
+
+EARLY WEEKS (1-4) where air-share is thin — does Madden trigger work when air-share can't?
+  R1 air>=35  (wks1-4)               CLOSE: 75.0% (n=12) CI[47,91]  | OPEN: 71.4% (n=7)
+  R2 ovr>=85  (wks1-4)               CLOSE: 50.6% (n=81) CI[40,61]  | OPEN: 36.4% (n=33)
+  R4 air>=35 OR ovr>=88 (wks1-4)     CLOSE: 56.4% (n=55) CI[43,69]  | OPEN: 45.5% (n=22)
+
+PER-SEASON (the credibility check) for the CURRENT rule vs the best Madden variant, vs CLOSE:
+  R1 air>=35               2018:73%(n15) 2019:75%(n20) 2020:73%(n15) 2021:57%(n14) 2022:50%(n28) 2023:65%(n23) 2024:55%(n33) 2025:74%(n42)
+  R4 air>=35 OR ovr>=88    2018:67%(n30) 2019:63%(n49) 2020:69%(n42) 2021:49%(n37) 2022:48%(n44) 2023:65%(n43) 2024:46%(n54) 2025:65%(n57)

@@ -1,0 +1,48 @@
+==========================================================================================
+(2)+(3) CALIBRATION + LEVEL TEST (walk-forward): which rating predicts margin best?
+==========================================================================================
+  Out-of-sample corr & MAE vs actual margin, train seasons<Y, test Y (Y=2021..2025)
+
+   corr with actual margin (higher=better):
+   year   proc   res    pr   proc+pr  MARKET
+   2021  0.338 0.405 0.433  0.428   0.479
+   2022  0.088 0.140 0.313  0.312   0.387
+   2023  0.288 0.281 0.321  0.320   0.402
+   2024  0.222 0.214 0.460  0.460   0.558
+   2025  0.236 0.280 0.428  0.428   0.516
+   MEAN  0.235 0.264 0.391  0.390   0.469
+
+   MAE (lower=better):
+   MEAN  proc=10.77 res=10.72 pr=10.16 proc+pr=10.17  MARKET=9.71
+
+==========================================================================================
+(4) DIVERGENCE TEST — bet our rating's side when it disagrees with the market
+==========================================================================================
+  our line disagrees >=1 pts: thr1.0: n=806 hit=0.490 CI[0.456,0.525] roi=-6.4% edge=-3.4pp
+  our line disagrees >=2 pts: thr2.0: n=505 hit=0.477 CI[0.434,0.521] roi=-8.9% edge=-4.7pp
+  our line disagrees >=3 pts: thr3.0: n=304 hit=0.454 CI[0.399,0.510] roi=-13.3% edge=-7.0pp
+  our line disagrees >=4 pts: thr4.0: n=187 hit=0.492 CI[0.421,0.563] roi=-6.1% edge=-3.2pp
+  per-season (disagree>=3):
+    2021: n=64 hit=0.469 CI[0.352,0.589] roi=-10.5% edge=-5.5pp
+    2022: n=61 hit=0.443 CI[0.325,0.567] roi=-15.5% edge=-8.1pp
+    2023: n=62 hit=0.435 CI[0.319,0.559] roi=-16.9% edge=-8.8pp
+    2024: n=61 hit=0.492 CI[0.371,0.614] roi=-6.1% edge=-3.2pp
+    2025: n=56 hit=0.429 CI[0.308,0.559] roi=-18.2% edge=-9.5pp
+
+==========================================================================================
+(5) LUCK / REGRESSION TEST — fade teams whose RESULTS outran their EPA
+==========================================================================================
+  fade luckier team (|luck_diff|>=0.5): thr0.5: n=822 hit=0.471 CI[0.437,0.505] roi=-10.1% edge=-5.3pp
+  fade luckier team (|luck_diff|>=1.0): thr1.0: n=236 hit=0.508 CI[0.445,0.572] roi=-2.9% edge=-1.5pp
+  fade luckier team (|luck_diff|>=1.5): thr1.5: n=57 hit=0.439 CI[0.318,0.567] roi=-16.3% edge=-8.5pp
+  per-season (fade luckier, |luck_diff|>=1.0):
+    2018: n=69 hit=0.507 CI[0.392,0.622] roi=-3.2% edge=-1.7pp
+    2019: n=46 hit=0.435 CI[0.302,0.578] roi=-17.0% edge=-8.9pp
+    2020: n=26 hit=0.615 CI[0.425,0.776] roi=+17.5% edge=+9.2pp
+    2021: n=24 hit=0.583 CI[0.388,0.755] roi=+11.4% edge=+5.9pp
+    2022: n=28 hit=0.464 CI[0.295,0.642] roi=-11.4% edge=-5.9pp
+    2023: n=11 hit=0.636 CI[0.354,0.848] roi=+21.5% edge=+11.3pp
+    2024: n=22 hit=0.455 CI[0.269,0.653] roi=-13.2% edge=-6.9pp
+    2025: n=10 hit=0.500 CI[0.237,0.763] roi=-4.5% edge=-2.4pp
+
+  corr(luck_diff, spread_diff[margin-line]) = +0.030 (negative => lucky teams underperform the line next = exploitable)

@@ -1,0 +1,81 @@
+============================================================================================
+FAIR-VALUE MODEL — walk-forward reconstruction quality (out-of-sample R^2)
+============================================================================================
+  SPREAD (Ridge): 2021=0.869  2022=0.820  2023=0.783  2024=0.756  2025=0.827  | MEAN=0.811
+  TOTAL  (GBM)  : 2021=0.236  2022=0.076  2023=0.158  2024=0.387  2025=0.282  | MEAN=0.228
+
+[saved] per-game fair-value table -> out/fairvalue_games.csv  (1183 games)
+
+============================================================================================
+VALIDATION 1 — calibration: how close is our fair line to the market?
+============================================================================================
+  spread: corr(fair,market)=0.905 | MAE all=2.00  MAE non-abstain=1.22 pts
+  total : corr(fair,market)=0.600 | MAE all=2.98  MAE non-abstain=1.45 pts
+
+============================================================================================
+VALIDATION 2 — does the ABSTAIN flag isolate the missing-info / coin-flip games?
+============================================================================================
+  abstain_spread fires on 54% of games; abstain_total on 67%
+  -- spread: 'bet our side' cover% (we do NOT expect an edge; just checking abstain removes the worst) --
+     ABSTAIN games              n= 622 our-side cover= 52.7% CI[49,57]
+     NON-abstain (deployable)   n= 536 our-side cover= 48.7% CI[44,53]
+  -> abstaining is risk management: those games are coin flips because we lack the news, not edges.
+
+============================================================================================
+VALIDATION 3 — do the TOTALS LEANS survive on the deployable (non-abstain) subset?
+============================================================================================
+   UNDER lean: wind (outdoor>=15): n=67 hit=0.582 CI[0.463,0.693] roi=+11.1% edge=+5.8pp
+   UNDER lean: primetime: n=243 hit=0.568 CI[0.505,0.629] roi=+8.4% edge=+4.4pp
+   ALL emitted UNDER leans: n=310 hit=0.571 CI[0.515,0.625] roi=+9.0% edge=+4.7pp
+   per-season, all emitted UNDER leans:
+     2021: n=54 hit=0.648 CI[0.515,0.762] roi=+23.7% edge=+12.4pp
+     2022: n=55 hit=0.618 CI[0.486,0.735] roi=+18.0% edge=+9.4pp
+     2023: n=58 hit=0.621 CI[0.492,0.734] roi=+18.5% edge=+9.7pp
+     2024: n=68 hit=0.485 CI[0.370,0.602] roi=-7.3% edge=-3.9pp
+     2025: n=75 hit=0.520 CI[0.409,0.629] roi=-0.7% edge=-0.4pp
+
+============================================================================================
+FEATURE POINT-VALUE SHEET (what each feature is worth to the line)
+============================================================================================
+  SPREAD (home margin)  [intercept / base HFA = +1.60 pts]
+     pr_diff                     +0.702 pts/unit   (+4.62/SD)
+     away_backup_qb              +1.967 pts/unit   (+0.75/SD)
+     home_backup_qb              -1.765 pts/unit   (-0.68/SD)
+     home_qb_out_or_doubtful     -1.534 pts/unit   (-0.43/SD)
+     injury_diff                 -0.056 pts/unit   (-0.43/SD)
+     rest_diff                   +0.160 pts/unit   (+0.41/SD)
+     last5_diff                  +0.035 pts/unit   (+0.36/SD)
+     away_qb_out_or_doubtful     +0.846 pts/unit   (+0.23/SD)
+     passer_diff                 +0.024 pts/unit   (+0.22/SD)
+     hnet_pass_epa               +1.625 pts/unit   (+0.17/SD)
+
+  TOTAL  [intercept / base total = +3.56 pts]
+     backup_count                -2.239 pts/unit   (-1.26/SD)
+     home_predictive_pr          +0.193 pts/unit   (+0.94/SD)
+     away_predictive_pr          +0.180 pts/unit   (+0.85/SD)
+     exp_total_ppd               +3.273 pts/unit   (+0.65/SD)
+     wind_out                    -0.104 pts/unit   (-0.57/SD)
+     home_off_pts_per_drive_s2d  +1.946 pts/unit   (+0.53/SD)
+     temp_f                      +0.036 pts/unit   (+0.51/SD)
+     home_def_pts_per_drive_allowed_s2d  +2.424 pts/unit   (+0.43/SD)
+     away_def_pts_per_drive_allowed_s2d  +2.049 pts/unit   (+0.36/SD)
+     away_off_pass_epa_neutral_s2d  +4.083 pts/unit   (+0.34/SD)
+
+============================================================================================
+SAMPLE OUTPUT (5 confident plays + 5 abstains, 2025)
+============================================================================================
+  CONFIDENT (high):
+ week    away_team     home_team  market_spread  fair_spread  spread_disc  market_total  fair_total totals_lean confidence
+    4    Tennessee       Houston           -7.0    -8.250373     1.250373          39.5   43.982372                   HIGH
+    4 Indianapolis       LA Rams           -3.5    -2.552458    -0.947542          49.5   46.447247                   HIGH
+    4      Chicago     Las Vegas           -1.5    -0.168285    -1.331715          47.5   43.909930                   HIGH
+    4  LA Chargers     NY Giants            6.0     5.881166     0.118834          43.5   43.991004                   HIGH
+    4 Jacksonville San Francisco           -3.5    -2.402594    -1.097406          46.5   46.430522                   HIGH
+
+  ABSTAIN:
+ week   away_team   home_team  market_spread  fair_spread  spread_disc  market_total  fair_total       totals_lean          confidence                         abstain_reason
+    4     Seattle     Arizona            1.5     3.432083    -1.932083          43.5   45.370820 UNDER (primetime)  ABSTAIN(blindspot)                              backup-QB
+    4  Washington     Atlanta           -1.5     0.927781    -2.427781          43.5   48.101996                    ABSTAIN(blindspot) QB-out/doubtful; total-divergence +4.6
+    4 New Orleans     Buffalo          -14.5   -16.815285     2.315285          48.5   42.898583                    ABSTAIN(blindspot)       backup-QB; total-divergence -5.6
+    4   Cleveland     Detroit          -10.0   -13.412437     3.412437          44.5   45.360892                    ABSTAIN(blindspot)      backup-QB; spread-divergence +3.4
+    4   Baltimore Kansas City            2.5    -0.713848     3.213848          48.5   50.271896                   ABSTAIN(divergence)                 spread-divergence +3.2

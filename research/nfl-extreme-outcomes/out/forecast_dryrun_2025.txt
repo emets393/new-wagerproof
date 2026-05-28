@@ -1,0 +1,13 @@
+
+==============================================================================
+FORWARD-TEST REPORT 2025  (graded picks: 315 / logged: 321)
+==============================================================================
+  sides_model       : 126/242=52.1% CI[46,58] ROI=-0.6% CLV=-0.11pts
+  receiver_over     : 14/18=77.8% CI[55,91] ROI=+48.5% CLV=+0.03pts
+  receiver_over_HC  : 19/26=73.1% CI[54,86] ROI=+39.5% CLV=-0.56pts
+  wind_under        : 18/29=62.1% CI[44,77] ROI=+18.5% CLV=+2.16pts
+  ALL               : 177/315=56.2% CI[51,62] ROI=+7.3% CLV=+0.07pts
+  ------------------------------------------------------------
+  total units: +22.9 on 315 bets
+
+[dry-run] ledger written to /Users/chrishabib/Documents/new-wagerproof/research/nfl-extreme-outcomes/out/forecast_ledger_2025.csv

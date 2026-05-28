@@ -1,0 +1,117 @@
+[setup] candidate features: 332; games (week>=4): 1842
+
+============================================================================================
+REVERSE-ENGINEER: CLOSING SPREAD (home margin)  (target=mkt_margin)
+============================================================================================
+  2021: R^2  pr_diff-only=0.825  ridge-all=0.832  GBM-all=0.828  (n=237)
+  2022: R^2  pr_diff-only=0.741  ridge-all=0.806  GBM-all=0.804  (n=236)
+  2023: R^2  pr_diff-only=0.745  ridge-all=0.735  GBM-all=0.792  (n=237)
+  2024: R^2  pr_diff-only=0.705  ridge-all=0.737  GBM-all=0.762  (n=237)
+  2025: R^2  pr_diff-only=0.761  ridge-all=0.493  GBM-all=0.830  (n=236)
+  MEAN R^2: pr_diff-only=0.755  ridge-all=0.721  GBM-all=0.803
+
+  TOP DRIVERS of CLOSING SPREAD (home margin) (Ridge, points of line per 1 SD of feature):
+     pr_diff                              +1.984 pts/SD
+     home_predictive_pr                   +1.597 pts/SD
+     away_predictive_pr                   -1.113 pts/SD
+     away_off_plays_seen                  +0.995 pts/SD
+     home_off_plays_seen                  -0.872 pts/SD
+     home_backup_qb                       -0.794 pts/SD
+     home_off_passer_rating_s2d           +0.659 pts/SD
+     away_backup_qb                       +0.635 pts/SD
+     home_off_non_pa_epa_s2d              +0.601 pts/SD
+     away_off_non_pa_epa_s2d              -0.585 pts/SD
+     home_off_non_motion_epa_s2d          -0.537 pts/SD
+     home_off_motion_epa_s2d              -0.525 pts/SD
+     hpass_x_adeppass                     +0.497 pts/SD
+     home_pass_edge_s2d                   -0.486 pts/SD
+     away_injury_severity                 +0.485 pts/SD
+  NOISE (smallest |contribution|, market ~ignores):
+     conference_game                      -0.003 pts/SD
+     div_game                             -0.003 pts/SD
+     ref_games_in_career                  -0.002 pts/SD
+     away_off_early_down_pass_epa_s2d     -0.002 pts/SD
+     kick_hour_et                         -0.001 pts/SD
+     away_def_three_and_out_forced_s2d    +0.001 pts/SD
+     away_sos_pr                          +0.001 pts/SD
+     env_pass_epa                         -0.000 pts/SD
+
+  GBM permutation importance (Δ R^2, test 2025) — TOP 12:
+     pr_diff                              +0.9405
+     home_backup_qb                       +0.0534
+     away_backup_qb                       +0.0295
+     home_predictive_pr                   +0.0081
+     last5_diff                           +0.0053
+     any_backup_qb                        +0.0040
+     home_off_pass_success_rate_last3     +0.0039
+     away_qb_out_or_doubtful              +0.0036
+     home_qb_out_or_doubtful              +0.0032
+     away_injury_severity                 +0.0032
+     away_opp_3rddown_conv                +0.0029
+     away_predictive_pr                   +0.0029
+
+============================================================================================
+REVERSE-ENGINEER: CLOSING TOTAL  (target=ou_vegas_line)
+============================================================================================
+  2021: R^2  pr_diff-only=-0.037  ridge-all=0.971  GBM-all=0.975  (n=237)
+  2022: R^2  pr_diff-only=-0.432  ridge-all=0.988  GBM-all=0.974  (n=236)
+  2023: R^2  pr_diff-only=-0.485  ridge-all=0.991  GBM-all=0.959  (n=237)
+  2024: R^2  pr_diff-only=-0.054  ridge-all=0.988  GBM-all=0.981  (n=237)
+  2025: R^2  pr_diff-only=-0.020  ridge-all=0.953  GBM-all=0.970  (n=236)
+  MEAN R^2: pr_diff-only=-0.205  ridge-all=0.978  GBM-all=0.972
+
+  TOP DRIVERS of CLOSING TOTAL (Ridge, points of line per 1 SD of feature):
+     nv_total_line                        +4.345 pts/SD
+     wind_mph                             +0.144 pts/SD
+     home_def_pass_epa_s2d                +0.122 pts/SD
+     home_predictive_pr                   +0.101 pts/SD
+     away_off_passer_rating_s2d           -0.094 pts/SD
+     home_off_passer_rating_s2d           +0.093 pts/SD
+     min_plays_seen                       -0.088 pts/SD
+     home_ttt_x_awaypressure              -0.082 pts/SD
+     wind_speed                           -0.077 pts/SD
+     away_predictive_pr                   +0.076 pts/SD
+     away_off_drives_seen                 -0.074 pts/SD
+     away_def_pressure_rate_s2d           +0.071 pts/SD
+     game_stadium_dome                    +0.063 pts/SD
+     away_pass_edge_s2d                   +0.054 pts/SD
+     away_def_plays_seen                  +0.052 pts/SD
+  NOISE (smallest |contribution|, market ~ignores):
+     away_def_dib_s2d                     -0.001 pts/SD
+     away_oline_listed                    +0.001 pts/SD
+     home_off_early_down_success_rate_s2d -0.001 pts/SD
+     env_ed_pass                          -0.000 pts/SD
+     away_def_3andout_forced_s2d          -0.000 pts/SD
+     expl_pass_sum                        +0.000 pts/SD
+     away_off_no_huddle_s2d               -0.000 pts/SD
+     sos_diff                             -0.000 pts/SD
+
+  GBM permutation importance (Δ R^2, test 2025) — TOP 12:
+     nv_total_line                        +1.9353
+     wind_mph                             +0.0009
+     home_def_pass_epa_last3              +0.0003
+     ref_games_in_career                  +0.0002
+     anet_pass_epa                        +0.0002
+     away_redzone_scoring_perc            +0.0002
+     temp_f                               +0.0001
+     away_pass_epa_last3                  +0.0001
+     home_pass_epa_last3                  +0.0001
+     home_off_ryoe_last3                  +0.0001
+     home_off_cpoe_last3                  +0.0001
+     away_l3_to_margin                    +0.0001
+
+============================================================================================
+DISCREPANCY TEST — where our reconstructed line != posted line, who's right?
+============================================================================================
+  bet our side when reconstructed spread diverges from posted spread:
+   |our-posted|>=1: thr1.0: n=805 hit=0.494 CI[0.460,0.529] roi=-5.6% edge=-2.9pp
+   |our-posted|>=2: thr2.0: n=486 hit=0.518 CI[0.474,0.563] roi=-1.0% edge=-0.5pp
+   |our-posted|>=3: thr3.0: n=274 hit=0.540 CI[0.481,0.598] roi=+3.1% edge=+1.6pp
+
+  residual diagnostic: mean our_edge | backup-QB game = -0.29 vs no-backup = -0.07
+   (if our model over-rates teams that actually have a backup in -> market shades away from them -> residual)
+
+  TOTALS: bet our side when reconstructed total diverges from posted total:
+   |our-posted total|>=1: thr1.0: n=120 hit=0.458 CI[0.372,0.547] roi=-12.5% edge=-6.6pp
+   |our-posted total|>=2: thr2.0: n=21 hit=0.381 CI[0.207,0.591] roi=-27.3% edge=-14.3pp
+   |our-posted total|>=3: thr3.0: n=7 hit=0.286 CI[0.082,0.641] roi=-45.5% edge=-23.8pp

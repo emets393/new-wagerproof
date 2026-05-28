@@ -1,0 +1,6 @@
+T4  ATTRIBUTES as sides-model features (held-out 2024-25 vs opener, conf>=.03)
+============================================================================================
+  base (locked b14)           : n=383 hit=55.6% CI[51,61] roi=+6.2%
+  base + Madden OVR/injury    : n=402 hit=56.2% CI[51,61] roi=+7.3%
+  base + Madden + attributes  : n=382 hit=54.5% CI[49,59] roi=+4.0%
+  base + attributes only      : n=386 hit=55.7% CI[51,61] roi=+6.3%

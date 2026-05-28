@@ -1,0 +1,21 @@
+[parse] total Madden rows 2018-2023: 18430  (per yr: {2018: 2368, 2019: 2344, 2020: 2293, 2021: 2006, 2022: 2368, 2023: 2368, 2024: 2316, 2025: 2367})
+[parse] OVR range 23-99, median 70
+
+[crosswalk] Madden -> gsis_id match status by year:
+status  matched  ambiguous  none  match%
+season                                  
+2018       2273         40    55    96.0
+2019       2274         42    28    97.0
+2020       2228         33    32    97.2
+2021       1962         28    16    97.8
+2022       2293         40    35    96.8
+2023       2286         36    46    96.5
+2024       2263         33    20    97.7
+2025       2289         35    43    96.7
+
+[crosswalk] starter-caliber (OVR>=75): 5614 rows, matched 97.7%, ambiguous 1.5%
+
+[USE-CASE] injury-report players w/ a Madden OVR (by gsis): 92.0%  (n=11223)
+           Out/Doubtful only: 92.4% (n=4859)
+
+[save] data/madden_ratings.parquet (18430 rows, 17868 with gsis_id)

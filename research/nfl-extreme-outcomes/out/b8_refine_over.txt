@@ -1,0 +1,35 @@
+============================================================================================
+VALUE-WEIGHTED REFINEMENT of the key-receiver-out OVER (2018-25)
+============================================================================================
+
+[baseline reproduce] any team with air-share>=35 receiver out -> OVER:
+  key receiver out (>=35)                n=185 OVER= 64.9% CI[58,71] +pts=+4.4 [7/8szn]
+      2018:73%(n15) 2019:75%(n20) 2020:73%(n15) 2021:62%(n13) 2022:50%(n28) 2023:67%(n21) 2024:53%(n32) 2025:73%(n41)
+
+[A] ELITE vs VOLUME target out (elite = air-share>=35 AND prior YAC-over-exp>0):
+  ELITE target out                       n=125 OVER= 63.2% CI[54,71] +pts=+4.0 [7/8szn]
+      2018:73%(n11) 2019:82%(n11) 2020:67%(n12) 2021:62%(n8) 2022:53%(n19) 2023:64%(n14) 2024:52%(n23) 2025:67%(n27)
+  VOLUME target out                      n= 60 OVER= 68.3% CI[56,79] +pts=+5.1 [5/6szn]
+      2018:75%(n4) 2019:67%(n9) 2020:100%(n3) 2021:60%(n5) 2022:44%(n9) 2023:71%(n7) 2024:56%(n9) 2025:86%(n14)
+
+[B] CUMULATIVE air-share out (game max of team air-share-sum) dose:
+  max team air-share-out>=30             n=315 OVER= 57.5% CI[52,63] +pts=+2.6 [6/8szn]
+      2018:59%(n27) 2019:61%(n46) 2020:59%(n32) 2021:53%(n36) 2022:45%(n40) 2023:59%(n34) 2024:51%(n49) 2025:71%(n51)
+  max team air-share-out>=45             n=104 OVER= 65.4% CI[56,74] +pts=+3.5 [8/8szn]
+      2018:78%(n9) 2019:80%(n15) 2020:64%(n11) 2021:60%(n10) 2022:62%(n13) 2023:60%(n5) 2024:58%(n24) 2025:65%(n17)
+  max team air-share-out>=60             n= 29 OVER= 65.5% CI[47,80] +pts=+4.0 [3/3szn]
+      2018:100%(n4) 2019:67%(n3) 2020:60%(n5) 2022:60%(n5) 2023:0%(n2) 2024:67%(n6) 2025:75%(n4)
+  max team air-share-out>=80: n=2
+
+[C] QB starter out, by QB QUALITY (does direction flip?):
+  any starter QB out -> OVER             n=204 OVER= 53.4% CI[47,60] +pts=+1.8 [4/8szn]
+      2018:55%(n22) 2019:67%(n18) 2020:45%(n20) 2021:50%(n22) 2022:39%(n41) 2023:48%(n25) 2024:67%(n21) 2025:66%(n35)
+  GOOD QB out (rating>=95) -> OVER       n= 80 OVER= 61.3% CI[50,71] +pts=+2.7 [5/7szn]
+      2018:55%(n11) 2019:50%(n8) 2020:60%(n5) 2021:43%(n7) 2022:54%(n13) 2023:33%(n3) 2024:64%(n14) 2025:84%(n19)
+  BAD QB out (rating<95) -> OVER         n=128 OVER= 50.0% CI[41,59] +pts=+1.5 [5/8szn]
+      2018:55%(n11) 2019:80%(n10) 2020:40%(n15) 2021:53%(n15) 2022:34%(n29) 2023:50%(n22) 2024:71%(n7) 2025:53%(n19)
+
+  GOOD QB out -> UNDER: 31/80=38.8%
+
+[null] ELITE target out OVER vs chance:
+  OVER=63.2% (n=125) p(|dev|>=)=0.0028

@@ -1,0 +1,58 @@
+[build] kitchen-sink features: 333 | games (wk>=4): 1842
+  includes: PR, EPA nets, team EPA/SR/explosive, FTN scheme, NGS, INJURY(air/qb/def), weather, situational
+
+========================================================================================
+COMBINED MODEL -> MARGIN vs the SPREAD (target=actual_margin, predicted from fundamentals only)
+========================================================================================
+  OOS corr with actual: COMBINED MODEL=0.303  vs  MARKET LINE=0.471   (market is the bar)
+  OOS MAE: model=10.78  market=9.71   (model lower => beats the line)
+   bet our side |disc|>=1: thr1: n=973 hit=0.488 CI[0.457,0.520] roi=-6.8% edge=-3.6pp
+   bet our side |disc|>=2: thr2: n=809 hit=0.489 CI[0.455,0.524] roi=-6.6% edge=-3.4pp
+   bet our side |disc|>=3: thr3: n=644 hit=0.486 CI[0.448,0.525] roi=-7.2% edge=-3.8pp
+   bet our side |disc|>=4: thr4: n=513 hit=0.499 CI[0.456,0.542] roi=-4.7% edge=-2.5pp
+
+========================================================================================
+COMBINED MODEL -> TOTAL vs the O/U (target=actual_total, predicted from fundamentals only)
+========================================================================================
+  OOS corr with actual: COMBINED MODEL=0.180  vs  MARKET LINE=0.302   (market is the bar)
+  OOS MAE: model=11.18  market=10.27   (model lower => beats the line)
+   bet our side |disc|>=1: thr1: n=1013 hit=0.509 CI[0.479,0.540] roi=-2.8% edge=-1.4pp
+   bet our side |disc|>=2: thr2: n=875 hit=0.520 CI[0.487,0.553] roi=-0.7% edge=-0.4pp
+   bet our side |disc|>=3: thr3: n=722 hit=0.529 CI[0.493,0.565] roi=+1.0% edge=+0.5pp
+   bet our side |disc|>=4: thr4: n=594 hit=0.525 CI[0.485,0.565] roi=+0.3% edge=+0.1pp
+
+========================================================================================
+WHAT WINS WHEN ALL FEATURES COMPETE (perm importance)
+========================================================================================
+  MARGIN model top 15:
+     pr_diff                            +0.6571
+     home_last5_pr                      +0.1695
+     home_backup_qb                     +0.1198
+     mismatch_mag                       +0.0742
+     away_off_throwaway_rate_s2d        +0.0707
+     hnet_expl_rush                     +0.0561
+     away_injury_severity               +0.0546
+     home_injury_severity               +0.0421
+     a_qb_out                           +0.0342
+     away_l3_sec_per_play               +0.0273
+     hnet_pass_epa                      +0.0247
+     home_opp_points_per_play           +0.0244
+     home_pass_epa_last3                +0.0243
+     home_last_allowed_points           +0.0234
+     pace_sum                           +0.0221
+  TOTAL model top 15:
+     precipitation_pct                  +0.1905
+     home_points_per_play               +0.0770
+     wind_mph                           +0.0723
+     a_air_out                          +0.0557
+     away_off_pass_sr_last3             +0.0537
+     away_dline_listed                  +0.0501
+     any_backup_qb                      +0.0455
+     away_def_rush_epa_last3            +0.0449
+     home_rush_epa_last3                +0.0444
+     kick_hour_et                       +0.0410
+     home_off_rush_epa_neutral_s2d      +0.0325
+     home_off_ftn_no_huddle_s2d         +0.0324
+     away_def_blitz_rate_s2d            +0.0312
+     home_off_pass_sr_last3             +0.0262
+     home_def_td_pct_per_drive_allowed_s2d +0.0256

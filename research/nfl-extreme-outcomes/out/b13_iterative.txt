@@ -1,0 +1,18 @@
+============================================================================================
+ITERATIVE MODEL: add feature groups, held-out 2024-25 ATS vs OPENER (conf>=.03)
+============================================================================================
+  PR             feats= 6 | conf>=.03 vs OPEN: n=376 hit=51.9% CI[47,57] roi=-1.0%
+  +flags         feats=18 | conf>=.03 vs OPEN: n=356 hit=53.1% CI[48,58] roi=+1.4%
+  +referee       feats=23 | conf>=.03 vs OPEN: n=367 hit=52.9% CI[48,58] roi=+0.9%
+  +injury        feats=27 | conf>=.03 vs OPEN: n=370 hit=53.0% CI[48,58] roi=+1.1%
+  +defense       feats=30 | conf>=.03 vs OPEN: n=378 hit=53.2% CI[48,58] roi=+1.5%
+
+============================================================================================
+STANDALONE PROVEN SPOTS vs the OPENER (do they hold at the bettable number?)
+============================================================================================
+  home dog +7.5-10.5 vs OPEN: n=25 cover=68.0% CI[48,83]
+  away dog +7.5-10.5 vs OPEN: n=68 cover=45.6% CI[34,57]
+  ALL +7.5-10.5 dogs vs OPEN: n=93 cover=51.6%  per-season:
+    2023: 15/27=56%
+    2024: 14/31=45%
+    2025: 19/35=54%

@@ -1,0 +1,40 @@
+[build] team-games 2018-25: 4254; off_out>0: 1650, def_out>0: 2217
+======================================================================================
+WAVE 2 — injury -> totals, snap-usage-weighted (2018-25)
+======================================================================================
+
+[A] OFFENSE injury -> OVER (snap-weighted; robustness check on the air-share finding)
+
+  game OFFENSE production out -> OVER (OVER% by game_off_out; thresholds = pctiles of nonzero):
+    game_off_out>= 0.77 (p50): over%= 52.7 n=1298 CI[50,55] actual-line=+1.6
+    game_off_out>= 1.16 (p75): over%= 52.2 n= 648 CI[48,56] actual-line=+1.2
+    game_off_out>= 1.57 (p90): over%= 55.4 n= 260 CI[49,61] actual-line=+1.9
+    game_off_out>= 1.94 (p95): over%= 61.5 n= 130 CI[53,69] actual-line=+2.5
+    game_off_out top-decile OVER: 2018:61%(n36) 2019:50%(n36) 2020:40%(n30) 2021:33%(n30) 2022:44%(n32) 2023:78%(n18) 2024:65%(n40) 2025:74%(n38)
+  [null] game_off_out top-decile OVER: over=55.4% (n=260) p(|dev|>=)=0.103
+
+[B] DEFENSE injury -> OVER (the MIRROR: weak D -> opp scores)
+
+  game DEFENSE production out -> OVER (OVER% by game_def_out; thresholds = pctiles of nonzero):
+    game_def_out>= 1.13 (p50): over%= 51.2 n=1550 CI[49,54] actual-line=+1.1
+    game_def_out>= 1.81 (p75): over%= 53.9 n= 776 CI[50,57] actual-line=+2.1
+    game_def_out>= 2.65 (p90): over%= 57.4 n= 310 CI[52,63] actual-line=+2.5
+    game_def_out>= 3.16 (p95): over%= 55.1 n= 156 CI[47,63] actual-line=+2.6
+    game_def_out top-decile OVER: 2018:64%(n28) 2019:56%(n32) 2020:73%(n30) 2021:50%(n24) 2022:41%(n54) 2023:61%(n46) 2024:57%(n46) 2025:64%(n50)
+  [null] game_def_out top-decile OVER: over=57.4% (n=310) p(|dev|>=)=0.017
+
+  opp PASS-RUSH out -> team's game OVER (OVER% by opp_rush_out; thresholds = pctiles of nonzero):
+    opp_rush_out>= 0.54 (p50): over%= 54.1 n= 412 CI[49,59] actual-line=+1.7
+    opp_rush_out>= 0.72 (p75): over%= 51.9 n= 206 CI[45,59] actual-line=+1.1
+    opp_rush_out>= 0.97 (p90): over%= 52.4 n=  84 CI[42,63] actual-line=+1.8
+    opp_rush_out>= 1.18 (p95): over%= 47.6 n=  42 CI[33,62] actual-line=+3.1
+
+[C] Facing an injured DEFENSE -> does that offense COVER?
+
+  opp DEFENSE out -> OVER (OVER% by opp_def_out; thresholds = pctiles of nonzero):
+    opp_def_out>= 0.87 (p50): over%= 51.0 n=1110 CI[48,54] actual-line=+1.4
+    opp_def_out>= 1.22 (p75): over%= 51.9 n= 555 CI[48,56] actual-line=+1.5
+    opp_def_out>= 1.82 (p90): over%= 54.1 n= 222 CI[47,60] actual-line=+2.1
+    opp_def_out>= 2.22 (p95): over%= 53.2 n= 111 CI[44,62] actual-line=+1.6
+  facing opp_def_out>=1.82 (top decile): team ATS cover=52.7% n=222 CI[46,59]
+    facing injured-D: team ATS: 2018:54%(n24) 2019:48%(n27) 2020:50%(n24) 2021:47%(n19) 2022:45%(n38) 2023:57%(n28) 2024:65%(n31) 2025:55%(n31)

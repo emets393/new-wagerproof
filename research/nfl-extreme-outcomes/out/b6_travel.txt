@@ -1,0 +1,42 @@
+[build] team-game travel rows 2018-25: 4254 | intl team-games: 50
+  trip dist: mean=519mi max=5442 | season cum_miles entering: median=7526 max=33387
+
+======================================================================================
+TRAVEL / BODY-CLOCK TESTS (2018-2025, per-season)
+======================================================================================
+
+[A] Body clock — West team traveling East:
+  >> West team, EARLY East game: team ATS           [4/8 szn] ALL: n=150 hit=0.533 CI[0.454,0.611] roi=+1.8% edge=+0.9pp
+  >> West team, EARLY East game: FADE (bet opp)     [2/8 szn] ALL: n=150 hit=0.467 CI[0.389,0.546] roi=-10.9% edge=-5.7pp
+  >> West team, EARLY East game: UNDER              [5/8 szn] ALL: n=151 hit=0.517 CI[0.437,0.595] roi=-1.4% edge=-0.7pp
+  >> West team, NIGHT East game (circadian+): ATS   [2/4 szn] ALL: n=38 hit=0.500 CI[0.348,0.651] roi=-4.5% edge=-2.4pp
+
+[B] Raw trip distance / cross-country:
+  >> long-haul travel (>=2000mi) team ATS           [5/8 szn] ALL: n=255 hit=0.537 CI[0.476,0.597] roi=+2.6% edge=+1.3pp
+  >> cross-country (>=3 tz) team ATS                [5/8 szn] ALL: n=298 hit=0.557 CI[0.500,0.612] roi=+6.3% edge=+3.3pp
+  >> traveled east (tz>=2) team ATS                 [4/8 szn] ALL: n=278 hit=0.532 CI[0.474,0.590] roi=+1.6% edge=+0.9pp
+
+[C] CUMULATIVE season travel burden:
+  >> high season cum-miles team ATS                 [3/8 szn] ALL: n=825 hit=0.511 CI[0.477,0.545] roi=-2.4% edge=-1.2pp
+  >> high cum-miles, wk>=10 ATS                     [3/8 szn] ALL: n=786 hit=0.508 CI[0.473,0.542] roi=-3.1% edge=-1.6pp
+  >> heavy last-4 miles (top quint) ATS             [2/8 szn] ALL: n=831 hit=0.489 CI[0.455,0.522] roi=-6.7% edge=-3.5pp
+  >> heavy last-4 miles -> UNDER                    [1/8 szn] ALL: n=841 hit=0.503 CI[0.469,0.537] roi=-4.0% edge=-2.1pp
+
+[D] INTERNATIONAL games:
+  >> international game team ATS                    [0/5 szn] ALL: n=50 hit=0.500 CI[0.366,0.634] roi=-4.5% edge=-2.4pp
+  >> international game -> UNDER                    [3/5 szn] ALL: n=50 hit=0.640 CI[0.501,0.759] roi=+22.2% edge=+11.6pp
+  >> international game -> OVER                     [2/5 szn] ALL: n=50 hit=0.360 CI[0.241,0.499] roi=-31.3% edge=-16.4pp
+
+[E] TRAVEL x REST (need rest): short rest + long haul
+  >> short rest (<=4) + cross-country ATS           [0/0 szn] ALL: n=2 hit=0.000 CI[0.000,0.658] roi=-100.0% edge=-52.4pp
+  >> long rest (>=10) + long-haul ATS               [2/4 szn] ALL: n=43 hit=0.488 CI[0.346,0.632] roi=-6.8% edge=-3.5pp
+
+[F] continuous correlations (orthogonal-ish: cover/over already line-relative):
+  corr(dist        , cover)=+0.023  corr(.,over)=-0.015
+  corr(tz_delta    , cover)=+0.013  corr(.,over)=-0.025
+  corr(cum_miles   , cover)=+0.003  corr(.,over)=+0.032
+  corr(miles_last4 , cover)=-0.003  corr(.,over)=+0.011
+  corr(body_clock  , cover)=-0.005  corr(.,over)=-0.035
+
+[null] West-team-early-East ATS vs chance:
+  cover=53.3% (n=150) p(|dev|>=real)=0.45 null95=[42,58]

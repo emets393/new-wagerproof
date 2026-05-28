@@ -1,0 +1,53 @@
+[n] DK games with outcome: 828
+
+================================================================================================
+[A] CONFIRMATION vs DIVERGENCE (number moved >=0.5 pt)
+================================================================================================
+  of 685 games with a number move: confirm=229 diverge=287 juice-flat=169
+
+  -- follow the NUMBER move, split by what the juice did --
+  number move + juice CONFIRMS  -> follow #      n= 229 cover%= 52.0 CI[45.5,58.4] ROI@actual= -2.6% ROI@-110= -0.8%
+      2023: n= 66 cover%= 53.0 ROI@-110= +1.2%
+      2024: n= 87 cover%= 49.4 ROI@-110= -5.6%
+      2025: n= 76 cover%= 53.9 ROI@-110= +3.0%
+  number move + juice DIVERGES  -> follow #      n= 287 cover%= 49.8 CI[44.1,55.6] ROI@actual= -3.1% ROI@-110= -4.9%
+      2023: n= 85 cover%= 54.1 ROI@-110= +3.3%
+      2024: n= 88 cover%= 47.7 ROI@-110= -8.9%
+      2025: n=114 cover%= 48.2 ROI@-110= -7.9%
+  number move + juice FLAT      -> follow #      n= 169 cover%= 49.1 CI[41.7,56.6] ROI@actual= -6.3% ROI@-110= -6.2%
+
+  -- in DIVERGENCE games, who is right: the number or the juice? --
+  divergence: TRUST THE JUICE side               n= 287 cover%= 50.2 CI[44.4,55.9] ROI@actual= -5.9% ROI@-110= -4.2%
+  divergence: TRUST THE NUMBER side              n= 287 cover%= 49.8 CI[44.1,55.6] ROI@actual= -3.1% ROI@-110= -4.9%
+
+================================================================================================
+[B] TOTAL IMPLIED MOVE (number + juice-in-points) — follow the combined move
+================================================================================================
+  |combined move|>=0.5 pt: follow combined       n= 617 cover%= 50.9 CI[47.0,54.8] ROI@actual= -3.2% ROI@-110= -2.8%
+  |combined move|>=1.0 pt: follow combined       n= 457 cover%= 52.1 CI[47.5,56.6] ROI@actual= -0.9% ROI@-110= -0.6%
+  |combined move|>=1.5 pt: follow combined       n= 335 cover%= 50.4 CI[45.1,55.8] ROI@actual= -4.0% ROI@-110= -3.7%
+  |combined move|>=2.0 pt: follow combined       n= 251 cover%= 51.4 CI[45.2,57.5] ROI@actual= -2.2% ROI@-110= -1.9%
+
+  per-season, |combined move|>=1.0 pt:
+  |combined|>=1.0: follow                        n= 457 cover%= 52.1 CI[47.5,56.6] ROI@actual= -0.9% ROI@-110= -0.6%
+      2023: n=153 cover%= 52.9 ROI@-110= +1.1%
+      2024: n=141 cover%= 49.6 ROI@-110= -5.2%
+      2025: n=163 cover%= 53.4 ROI@-110= +1.9%
+
+  -- FADE the combined move (contrarian) --
+  |combined|>=1.0: FADE combined                 n= 457 cover%= 47.9 CI[43.4,52.5] ROI@actual= -8.2% ROI@-110= -8.5%
+
+================================================================================================
+[C] BIG CONFIRMED STEAM — number moved >=1 AND juice confirms, follow
+================================================================================================
+  BIG number move (>=1) + juice confirms         n= 180 cover%= 52.2 CI[45.0,59.4] ROI@actual= -2.1% ROI@-110= -0.3%
+      2023: n= 53 cover%= 56.6 ROI@-110= +8.1%
+      2024: n= 62 cover%= 46.8 ROI@-110=-10.7%
+      2025: n= 65 cover%= 53.8 ROI@-110= +2.8%
+
+================================================================================================
+[D] sanity: does combined move correlate with cover at all?
+================================================================================================
+  corr(toward_home_pts, home_cover) = +0.029 (n=828)
+  corr(-pt_move, home_cover)        = +0.026
+  corr(lean_move, home_cover)       = +0.025

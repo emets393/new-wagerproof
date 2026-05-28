@@ -1,0 +1,167 @@
+============================================================================================
+AVENUE G — TOTALS FORENSICS
+============================================================================================
+  BASELINE: over%=48.0 mean_td=+0.55 mean|miss|=10.43
+
+[G1] MEAN-REVERSION by closing total level:
+  very low (<=38)              n= 126 over%= 41.3 CI[33.1,50.0] mean_td= -0.89 mean|miss|= 9.91 bigU%= 1.6 bigO%= 7.1
+  low (38.5-42)                n= 418 over%= 53.1 CI[48.3,57.8] mean_td= +1.40 mean|miss|=10.00 bigU%= 3.1 bigO%= 6.7
+  mid (42.5-46)                n= 762 over%= 48.3 CI[44.8,51.8] mean_td= +0.63 mean|miss|=10.34 bigU%= 3.5 bigO%= 6.8
+  high (46.5-50)               n= 604 over%= 46.4 CI[42.4,50.3] mean_td= +0.08 mean|miss|=10.68 bigU%= 5.5 bigO%= 6.1
+  very high (50.5+)            n= 316 over%= 46.5 CI[41.1,52.0] mean_td= +0.72 mean|miss|=10.94 bigU%= 4.4 bigO%= 7.6
+
+[G2] WIND dose-response (OUTDOOR games only):
+  outdoor n=1562; with wind value: 1516
+  wind calm (0-5)              n= 460 over%= 48.9 CI[44.4,53.5] mean_td= +0.94 mean|miss|=10.36 bigU%= 4.3 bigO%= 6.1
+  wind light (5-10)            n= 668 over%= 47.9 CI[44.1,51.7] mean_td= +0.11 mean|miss|=10.55 bigU%= 3.9 bigO%= 6.3
+  wind mod (10-15)             n= 290 over%= 42.1 CI[36.5,47.8] mean_td= -1.03 mean|miss|= 9.80 bigU%= 3.8 bigO%= 5.5
+  wind strong (15-20)          n=  74 over%= 50.0 CI[38.9,61.1] mean_td= -0.78 mean|miss|=10.30 bigU%= 9.5 bigO%= 4.1
+  wind gale (20+)              n=  24 over%= 20.8 CI[ 9.2,40.5] mean_td= -6.27 mean|miss|= 8.44 bigU%=12.5 bigO%= 0.0
+
+[G3] BET THE UNDER at wind>=threshold (outdoor only), per-season + robustness:
+
+  >> UNDER, outdoor wind>=12mph
+     2018: n=13 hit=0.615 CI[0.355,0.823] roi=+17.5% edge=+9.2pp
+     2019: n=17 hit=0.412 CI[0.216,0.640] roi=-21.4% edge=-11.2pp
+     2020: n=26 hit=0.500 CI[0.321,0.679] roi=-4.5% edge=-2.4pp
+     2021: n=24 hit=0.667 CI[0.467,0.820] roi=+27.3% edge=+14.3pp
+     2022: n=28 hit=0.607 CI[0.424,0.764] roi=+15.9% edge=+8.3pp
+     2023: n=29 hit=0.724 CI[0.543,0.853] roi=+38.2% edge=+20.0pp
+     2024: n=37 hit=0.486 CI[0.335,0.641] roi=-7.1% edge=-3.7pp
+     2025: n=39 hit=0.538 CI[0.386,0.684] roi=+2.8% edge=+1.5pp
+     ALL: n=213 hit=0.568 CI[0.501,0.633] roi=+8.5% edge=+4.4pp
+
+  >> UNDER, outdoor wind>=13mph
+     2018: n=9 hit=0.667 CI[0.354,0.879] roi=+27.3% edge=+14.3pp
+     2019: n=12 hit=0.417 CI[0.193,0.680] roi=-20.4% edge=-10.7pp
+     2020: n=21 hit=0.524 CI[0.324,0.717] roi=+0.0% edge=+0.0pp
+     2021: n=19 hit=0.737 CI[0.512,0.882] roi=+40.7% edge=+21.3pp
+     2022: n=18 hit=0.611 CI[0.386,0.797] roi=+16.7% edge=+8.7pp
+     2023: n=22 hit=0.727 CI[0.518,0.869] roi=+38.8% edge=+20.3pp
+     2024: n=32 hit=0.438 CI[0.282,0.607] roi=-16.5% edge=-8.6pp
+     2025: n=31 hit=0.516 CI[0.348,0.680] roi=-1.5% edge=-0.8pp
+     ALL: n=164 hit=0.567 CI[0.491,0.640] roi=+8.3% edge=+4.3pp
+
+  >> UNDER, outdoor wind>=14mph
+     2018: n=4 hit=0.500 CI[0.150,0.850] roi=-4.5% edge=-2.4pp
+     2019: n=10 hit=0.400 CI[0.168,0.687] roi=-23.6% edge=-12.4pp
+     2020: n=13 hit=0.692 CI[0.424,0.873] roi=+32.2% edge=+16.9pp
+     2021: n=16 hit=0.688 CI[0.444,0.858] roi=+31.2% edge=+16.4pp
+     2022: n=13 hit=0.538 CI[0.291,0.768] roi=+2.8% edge=+1.5pp
+     2023: n=15 hit=0.733 CI[0.480,0.891] roi=+40.0% edge=+20.9pp
+     2024: n=22 hit=0.409 CI[0.233,0.613] roi=-21.9% edge=-11.5pp
+     2025: n=27 hit=0.518 CI[0.340,0.693] roi=-1.0% edge=-0.5pp
+     ALL: n=120 hit=0.558 CI[0.469,0.644] roi=+6.6% edge=+3.5pp
+
+  >> UNDER, outdoor wind>=15mph
+     2018: n=2 hit=0.500 CI[0.095,0.905] roi=-4.5% edge=-2.4pp
+     2019: n=5 hit=0.200 CI[0.036,0.625] roi=-61.8% edge=-32.4pp
+     2020: n=11 hit=0.727 CI[0.434,0.902] roi=+38.8% edge=+20.3pp
+     2021: n=10 hit=0.800 CI[0.490,0.943] roi=+52.7% edge=+27.6pp
+     2022: n=9 hit=0.444 CI[0.189,0.733] roi=-15.2% edge=-7.9pp
+     2023: n=10 hit=0.800 CI[0.490,0.943] roi=+52.7% edge=+27.6pp
+     2024: n=21 hit=0.429 CI[0.245,0.634] roi=-18.2% edge=-9.5pp
+     2025: n=27 hit=0.518 CI[0.340,0.693] roi=-1.0% edge=-0.5pp
+     ALL: n=95 hit=0.558 CI[0.458,0.654] roi=+6.5% edge=+3.4pp
+
+  >> UNDER, outdoor wind>=16mph
+     2018: n=2 hit=0.500 CI[0.095,0.905] roi=-4.5% edge=-2.4pp
+     2019: n=2 hit=0.500 CI[0.095,0.905] roi=-4.5% edge=-2.4pp
+     2020: n=9 hit=0.667 CI[0.354,0.879] roi=+27.3% edge=+14.3pp
+     2021: n=8 hit=0.750 CI[0.409,0.928] roi=+43.2% edge=+22.6pp
+     2022: n=7 hit=0.429 CI[0.158,0.750] roi=-18.2% edge=-9.5pp
+     2023: n=6 hit=0.833 CI[0.436,0.970] roi=+59.1% edge=+30.9pp
+     2024: n=15 hit=0.467 CI[0.248,0.699] roi=-10.9% edge=-5.7pp
+     2025: n=23 hit=0.522 CI[0.330,0.708] roi=-0.4% edge=-0.2pp
+     ALL: n=72 hit=0.569 CI[0.454,0.677] roi=+8.7% edge=+4.6pp
+
+  >> UNDER, outdoor wind>=18mph
+     2020: n=5 hit=0.800 CI[0.376,0.964] roi=+52.7% edge=+27.6pp
+     2021: n=4 hit=0.750 CI[0.301,0.954] roi=+43.2% edge=+22.6pp
+     2022: n=2 hit=0.500 CI[0.095,0.905] roi=-4.5% edge=-2.4pp
+     2023: n=5 hit=0.800 CI[0.376,0.964] roi=+52.7% edge=+27.6pp
+     2024: n=5 hit=0.800 CI[0.376,0.964] roi=+52.7% edge=+27.6pp
+     2025: n=17 hit=0.588 CI[0.360,0.784] roi=+12.3% edge=+6.4pp
+     ALL: n=38 hit=0.684 CI[0.525,0.809] roi=+30.6% edge=+16.0pp
+
+  >> UNDER, outdoor wind>=20mph
+     2020: n=3 hit=0.667 CI[0.208,0.939] roi=+27.3% edge=+14.3pp
+     2021: n=3 hit=0.667 CI[0.208,0.939] roi=+27.3% edge=+14.3pp
+     2023: n=1 hit=1.000 CI[0.206,1.000] roi=+90.9% edge=+47.6pp
+     2024: n=2 hit=1.000 CI[0.342,1.000] roi=+90.9% edge=+47.6pp
+     2025: n=13 hit=0.769 CI[0.497,0.918] roi=+46.9% edge=+24.5pp
+     ALL: n=22 hit=0.773 CI[0.566,0.899] roi=+47.5% edge=+24.9pp
+
+[G4] PRECIPITATION (outdoor):
+  precip_pct>=0.5 outdoor      n= 205 over%= 42.9 CI[36.3,49.8] mean_td= -1.51 mean|miss|=11.02 bigU%= 7.3 bigO%= 6.3
+  precip_pct>=0.7 outdoor      n= 185 over%= 43.8 CI[36.8,51.0] mean_td= -1.38 mean|miss|=10.98 bigU%= 7.6 bigO%= 6.5
+  any precip_type outdoor      n= 413 over%= 43.6 CI[38.9,48.4] mean_td= -1.04 mean|miss|=10.47 bigU%= 5.3 bigO%= 6.8
+
+[G5] TEMPERATURE (outdoor):
+  temp freezing (<=32)         n=  99 over%= 50.5 CI[40.8,60.1] mean_td= -0.09 mean|miss|= 9.40 bigU%= 5.1 bigO%= 5.1
+  temp cold (33-45)            n= 264 over%= 45.5 CI[39.6,51.5] mean_td= -0.28 mean|miss|=10.81 bigU%= 4.9 bigO%= 6.4
+  temp mild (46-65)            n= 550 over%= 48.0 CI[43.9,52.2] mean_td= +0.24 mean|miss|=10.06 bigU%= 3.8 bigO%= 6.0
+  temp warm (66-80)            n= 369 over%= 44.7 CI[39.7,49.8] mean_td= -0.46 mean|miss|=10.29 bigU%= 4.9 bigO%= 5.1
+  temp hot (81+)               n= 149 over%= 48.3 CI[40.4,56.3] mean_td= -0.23 mean|miss|=10.58 bigU%= 4.7 bigO%= 4.7
+
+[G6] ROOF type:
+  roof=dome                    n= 362 over%= 49.7 CI[44.6,54.9] mean_td= +1.11 mean|miss|=10.76 bigU%= 3.3 bigO%= 7.5
+  roof=closed                  n= 302 over%= 52.3 CI[46.7,57.9] mean_td= +2.40 mean|miss|=10.55 bigU%= 3.0 bigO%= 9.9
+  roof=outdoors                n=1521 over%= 46.7 CI[44.2,49.3] mean_td= -0.02 mean|miss|=10.32 bigU%= 4.5 bigO%= 5.9
+  roof=open                    n=  41 over%= 48.8 CI[34.3,63.5] mean_td= +3.00 mean|miss|=10.76 bigU%= 0.0 bigO%= 9.8
+  dome+closed (indoor)         n= 664 over%= 50.9 CI[47.1,54.7] mean_td= +1.69 mean|miss|=10.66 bigU%= 3.2 bigO%= 8.6
+  outdoor+open                 n=1562 over%= 46.8 CI[44.3,49.3] mean_td= +0.06 mean|miss|=10.33 bigU%= 4.4 bigO%= 6.0
+
+  >> OVER in domes/closed
+     2018: n=65 hit=0.446 CI[0.332,0.567] roi=-14.8% edge=-7.8pp
+     2019: n=61 hit=0.557 CI[0.433,0.675] roi=+6.4% edge=+3.4pp
+     2020: n=91 hit=0.560 CI[0.458,0.658] roi=+7.0% edge=+3.7pp
+     2021: n=83 hit=0.494 CI[0.389,0.599] roi=-5.7% edge=-3.0pp
+     2022: n=83 hit=0.554 CI[0.447,0.656] roi=+5.8% edge=+3.0pp
+     2023: n=85 hit=0.482 CI[0.379,0.587] roi=-7.9% edge=-4.2pp
+     2024: n=97 hit=0.515 CI[0.417,0.612] roi=-1.6% edge=-0.8pp
+     2025: n=92 hit=0.500 CI[0.400,0.600] roi=-4.5% edge=-2.4pp
+     ALL: n=657 hit=0.514 CI[0.476,0.552] roi=-1.8% edge=-0.9pp
+
+[G7] PACE / scheme (does fast pace -> over?):
+  combined plays/game top quartile n= 553 over%= 45.6 CI[41.5,49.7] mean_td= +0.01 mean|miss|=10.66 bigU%= 4.7 bigO%= 8.1
+  combined plays/game bot quartile n= 553 over%= 49.2 CI[45.0,53.3] mean_td= +0.58 mean|miss|=10.55 bigU%= 4.3 bigO%= 6.3
+  combined explosive pass top quartile n= 553 over%= 48.5 CI[44.3,52.6] mean_td= +0.36 mean|miss|=10.74 bigU%= 5.2 bigO%= 7.4
+  combined explosive pass bot quartile n= 553 over%= 51.9 CI[47.7,56.0] mean_td= +1.66 mean|miss|= 9.99 bigU%= 2.4 bigO%= 7.4
+
+[G8] SCORING ENVIRONMENT (PR sum, ppd sum vs total):
+  ppd_sum top quartile         n= 553 over%= 46.3 CI[42.2,50.5] mean_td= -0.28 mean|miss|=10.94 bigU%= 5.6 bigO%= 6.9
+  ppd_sum bot quartile         n= 553 over%= 49.0 CI[44.9,53.2] mean_td= +0.80 mean|miss|=10.37 bigU%= 3.6 bigO%= 6.7
+
+============================================================================================
+AVENUE H — REFEREE (ref_total_pts_avg)
+============================================================================================
+  ref_total_pts_avg: nn=2195 mean=46.4 sd=3.3 range=[24,88]
+  CAVEAT: verify leak-safety (is this career-to-date or full-sample average?)
+  ref low ref (<=43)           n= 159 over%= 47.2 CI[39.6,54.9] mean_td= +1.31 mean|miss|= 9.78 bigU%= 4.4 bigO%= 6.3
+  ref mid (43-46)              n= 836 over%= 49.9 CI[46.5,53.3] mean_td= +0.96 mean|miss|=10.49 bigU%= 3.6 bigO%= 7.2
+  ref high (46-49)             n= 897 over%= 46.8 CI[43.6,50.1] mean_td= +0.28 mean|miss|=10.60 bigU%= 3.9 bigO%= 6.9
+  ref very high (49+)          n= 303 over%= 46.9 CI[41.3,52.5] mean_td= -0.13 mean|miss|=10.20 bigU%= 5.3 bigO%= 5.3
+
+  corr(ref_total_pts_avg, actual_total) = -0.014
+  corr(ref_total_pts_avg, ou_vegas_line) = 0.037  (is it already in the line?)
+  corr(ref_total_pts_avg, total_diff) = -0.027  (residual signal?)
+
+  >> OVER when ref_total_pts_avg>=48
+     2018: n=116 hit=0.457 CI[0.369,0.547] roi=-12.8% edge=-6.7pp
+     2019: n=92 hit=0.467 CI[0.369,0.569] roi=-10.8% edge=-5.6pp
+     2020: n=81 hit=0.543 CI[0.435,0.647] roi=+3.7% edge=+1.9pp
+     2021: n=93 hit=0.505 CI[0.406,0.605] roi=-3.5% edge=-1.8pp
+     2022: n=64 hit=0.375 CI[0.267,0.497] roi=-28.4% edge=-14.9pp
+     2023: n=22 hit=0.227 CI[0.101,0.434] roi=-56.6% edge=-29.6pp
+     2025: n=13 hit=0.692 CI[0.424,0.873] roi=+32.2% edge=+16.9pp
+     ALL: n=481 hit=0.468 CI[0.424,0.512] roi=-10.7% edge=-5.6pp
+
+  >> UNDER when ref_total_pts_avg<=42
+     2018: n=37 hit=0.486 CI[0.335,0.641] roi=-7.1% edge=-3.7pp
+     2019: n=29 hit=0.517 CI[0.344,0.686] roi=-1.2% edge=-0.7pp
+     2020: n=3 hit=0.333 CI[0.061,0.792] roi=-36.4% edge=-19.1pp
+     2023: n=9 hit=0.667 CI[0.354,0.879] roi=+27.3% edge=+14.3pp
+     2024: n=15 hit=0.600 CI[0.357,0.802] roi=+14.5% edge=+7.6pp
+     2025: n=3 hit=0.000 CI[0.000,0.561] roi=-100.0% edge=-52.4pp
+     ALL: n=96 hit=0.510 CI[0.412,0.608] roi=-2.6% edge=-1.3pp

@@ -1,0 +1,25 @@
+[build] games w/ opener (2023-25): 710 | model OOS corr w/ margin=0.371 open corr=0.439 close corr=0.494
+
+======================================================================================
+[1] FULL-SLATE ATS vs the OPENING number (the website bar)
+======================================================================================
+  vs OPEN |edge|>=0: n=701 hit=51.4% CI[48,55] roi=-2.0%
+  vs OPEN |edge|>=1: n=574 hit=52.8% CI[49,57] roi=+0.8%
+  vs OPEN |edge|>=2: n=449 hit=53.5% CI[49,58] roi=+2.0%
+  vs OPEN |edge|>=3: n=331 hit=52.9% CI[47,58] roi=+0.9%
+  per-season vs OPEN (|edge|>=1):
+    2023: 95/189=50.3%
+    2024: 109/199=54.8%
+    2025: 99/186=53.2%
+
+[2] same picks vs the CLOSING number (contrast):
+  vs CLOSE |edge|>=0: n=698 hit=51.3% CI[48,55] roi=-2.1%
+  vs CLOSE |edge|>=1: n=571 hit=53.1% CI[49,57] roi=+1.3%
+
+======================================================================================
+[3] CLOSING-LINE VALUE (does the line move toward our pick?)
+======================================================================================
+  |edge|>=0: n=710 line moved TOWARD us 48.0% of games | avg CLV=+0.39 pts | corr(edge,move)=+0.267
+  |edge|>=1: n=579 line moved TOWARD us 51.5% of games | avg CLV=+0.53 pts | corr(edge,move)=+0.284
+  |edge|>=2: n=452 line moved TOWARD us 52.7% of games | avg CLV=+0.63 pts | corr(edge,move)=+0.309
+  (>52.4% 'toward' + positive avg CLV = we systematically get a better number than the close)

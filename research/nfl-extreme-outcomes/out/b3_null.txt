@@ -1,0 +1,8 @@
+================================================================================
+PERMUTATION NULL — passers on REAL vs SHUFFLED outcomes (singles + 2-way)
+================================================================================
+  ATS: screened 581 singles+2way | REAL passers=104 | NULL passers (4 shuffles)=[108, 111, 137, 124] mean=120
+  O/U: screened 87 singles+2way | REAL passers=32 | NULL passers (4 shuffles)=[22, 19, 30, 14] mean=21
+
+  Interpretation: REAL >> NULL => enrichment (real trends exist among them).
+  REAL ~ NULL => the bar mostly catches noise; trust only top survivors + mechanism.

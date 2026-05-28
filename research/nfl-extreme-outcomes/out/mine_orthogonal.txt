@@ -1,0 +1,125 @@
+============================================================================================
+PART A — LINEAR ORTHOGONALITY SCREEN (matchup feature vs line residual) + BH-FDR
+============================================================================================
+
+  target=resid_total: screened 61 feats; max|r|=0.060; BH-FDR(0.10) survivors=0
+     anet_3out              r=-0.060 p=0.010 n=1842 
+     mismatch_mag           r=-0.043 p=0.067 n=1842 
+     hnet_rush_epa          r=-0.042 p=0.070 n=1842 
+     home_proe_x_awaypressure r=-0.041 p=0.204 n=946 
+     sep_mag                r=-0.040 p=0.084 n=1842 
+
+  target=resid_margin: screened 61 feats; max|r|=0.050; BH-FDR(0.10) survivors=0
+     anet_ed_pass           r=-0.050 p=0.033 n=1842 
+     sep_ed_pass            r=+0.048 p=0.038 n=1842 
+     to_rate_sum            r=+0.043 p=0.062 n=1842 
+     anet_ppd               r=-0.042 p=0.072 n=1842 
+     anet_tdpd              r=-0.039 p=0.095 n=1842 
+
+  target=resid_home_pts: screened 61 feats; max|r|=0.065; BH-FDR(0.10) survivors=0
+     anet_3out              r=-0.065 p=0.005 n=1842 
+     anet_ed_pass           r=-0.047 p=0.042 n=1842 
+     exp_total_ppd          r=-0.042 p=0.074 n=1842 
+     home_proe_x_awaypressure r=-0.040 p=0.218 n=946 
+     exp_away_ppd           r=-0.040 p=0.088 n=1842 
+
+  target=resid_away_pts: screened 61 feats; max|r|=0.043; BH-FDR(0.10) survivors=0
+     mismatch_mag           r=-0.043 p=0.065 n=1842 
+     sep_mag                r=-0.043 p=0.066 n=1842 
+     sep_mag                r=-0.043 p=0.066 n=1842 
+     proe_sum               r=-0.039 p=0.098 n=1842 
+     anet_tdpd              r=+0.032 p=0.173 n=1842 
+
+  target=spread_miss: screened 61 feats; max|r|=0.078; BH-FDR(0.10) survivors=0
+     away_ttt_x_homepressure r=+0.078 p=0.017 n=946 
+     home_proe_x_awaypressure r=-0.075 p=0.021 n=946 
+     home_ttt_x_awaypressure r=+0.060 p=0.065 n=946 
+     to_rate_sum            r=+0.050 p=0.033 n=1842 
+     away_proe_x_homepressure r=-0.041 p=0.209 n=946 
+
+============================================================================================
+PART B — WALK-FORWARD: does matchup signal beat the close out-of-sample?
+============================================================================================
+
+  >> TOTALS: matchup model vs O/U line (bet model's predicted side)
+     |pred|>=0: thr0.0: n=1170 hit=0.501 CI[0.472,0.529] roi=-4.4% edge=-2.3pp
+     |pred|>=1: thr1.0: n=930 hit=0.504 CI[0.472,0.536] roi=-3.7% edge=-1.9pp
+     |pred|>=2: thr2.0: n=701 hit=0.514 CI[0.477,0.550] roi=-2.0% edge=-1.0pp
+     per-season (|pred|>=1):
+       2021: n=201 hit=0.512 CI[0.444,0.581] roi=-2.2% edge=-1.1pp
+       2022: n=180 hit=0.544 CI[0.471,0.616] roi=+3.9% edge=+2.1pp
+       2023: n=197 hit=0.508 CI[0.438,0.577] roi=-3.1% edge=-1.6pp
+       2024: n=175 hit=0.457 CI[0.385,0.531] roi=-12.7% edge=-6.7pp
+       2025: n=177 hit=0.497 CI[0.424,0.570] roi=-5.1% edge=-2.7pp
+
+  >> SPREAD: matchup model vs ATS line (bet model's predicted side)
+     |pred|>=0: thr0.0: n=1158 hit=0.490 CI[0.461,0.518] roi=-6.5% edge=-3.4pp
+     |pred|>=1: thr1.0: n=902 hit=0.494 CI[0.462,0.527] roi=-5.6% edge=-2.9pp
+     |pred|>=2: thr2.0: n=641 hit=0.490 CI[0.451,0.528] roi=-6.5% edge=-3.4pp
+     per-season (|pred|>=1):
+       2021: n=196 hit=0.444 CI[0.376,0.514] roi=-15.3% edge=-8.0pp
+       2022: n=185 hit=0.476 CI[0.405,0.547] roi=-9.2% edge=-4.8pp
+       2023: n=169 hit=0.527 CI[0.452,0.601] roi=+0.5% edge=+0.3pp
+       2024: n=170 hit=0.512 CI[0.437,0.586] roi=-2.3% edge=-1.2pp
+       2025: n=182 hit=0.522 CI[0.450,0.593] roi=-0.4% edge=-0.2pp
+
+  -- permutation importance, resid_total model (train<=2024 test 2025) --
+     env_expl_rush          +0.1103
+     expl_pass_sum          +0.0944
+     wind_mph               +0.0691
+     primetime              +0.0486
+     to_rate_sum            +0.0379
+     exp_home_ppd           +0.0368
+     anet_pass_sr           +0.0363
+     hnet_ppd               +0.0351
+     anet_expl_pass         +0.0346
+     sep_expl_pass          +0.0333
+     hpass_x_adeppass       +0.0316
+     exp_total_ppd          +0.0311
+
+============================================================================================
+PART C — ARCHETYPE PAIRING MINING (vs line residual) + FDR + per-season
+============================================================================================
+
+  HOME off-arch vs AWAY def-arch -> home pts resid (base mean resid=+0.95); BH-FDR survivors=0/13
+     pair   3v2 n=  46 mean_resid=+2.19 p=0.417 
+     pair   1v1 n=  70 mean_resid=+2.17 p=0.244 
+     pair   0v2 n=  99 mean_resid=+1.86 p=0.343 
+     pair   3v3 n=  32 mean_resid=+1.78 p=0.649 
+     pair   0v0 n=  50 mean_resid=+1.77 p=0.541 
+     pair   2v3 n=  39 mean_resid=-1.51 p=0.083 
+
+  AWAY off-arch vs HOME def-arch -> away pts resid (base mean resid=+0.16); BH-FDR survivors=0/14
+     pair   2v3 n=  43 mean_resid=+3.20 p=0.033 
+     pair   2v2 n=  42 mean_resid=-2.16 p=0.075 
+     pair   3v0 n=  27 mean_resid=+1.96 p=0.301 
+     pair   0v2 n=  93 mean_resid=-1.35 p=0.064 
+     pair   3v3 n=  39 mean_resid=+1.03 p=0.575 
+     pair   0v3 n=  59 mean_resid=+0.87 p=0.593 
+
+  HOME off vs AWAY def -> total resid (base mean resid=+1.11); BH-FDR survivors=0/13
+     pair   3v0 n=  26 mean_resid=-4.79 p=0.013 
+     pair   1v3 n=  31 mean_resid=+4.08 p=0.247 
+     pair   3v2 n=  46 mean_resid=+3.11 p=0.309 
+     pair   1v1 n=  70 mean_resid=+3.06 p=0.155 
+     pair   3v3 n=  32 mean_resid=+3.05 p=0.423 
+     pair   3v1 n=  87 mean_resid=+2.59 p=0.252 
+
+  HOME off vs AWAY def -> margin resid (base mean resid=+0.78); BH-FDR survivors=0/13
+     pair   3v0 n=  26 mean_resid=+4.52 p=0.066 
+     pair   0v2 n=  99 mean_resid=+2.52 p=0.164 
+     pair   2v3 n=  39 mean_resid=-2.32 p=0.107 
+     pair   2v1 n=  80 mean_resid=+1.41 p=0.635 
+     pair   0v3 n=  65 mean_resid=+1.39 p=0.734 
+     pair   3v2 n=  46 mean_resid=+1.27 p=0.813 
+
+============================================================================================
+PART D — HYPOTHESIZED INTERACTIONS (direct, vs line residual)
+============================================================================================
+  pace_sum high -> over?                           top-quintile mean=-0.36 vs bot=+0.28 diff=-0.64 p=0.512 (n_hi=369)
+  proe_sum high (two pass-happy) -> over?          top-quintile mean=+0.45 vs bot=+1.26 diff=-0.81 p=0.406 (n_hi=369)
+  expl_pass_sum high -> over?                      top-quintile mean=+0.40 vs bot=+1.75 diff=-1.36 p=0.171 (n_hi=369)
+  to_rate_sum high -> under?                       top-quintile mean=+0.98 vs bot=+1.44 diff=-0.46 p=0.645 (n_hi=369)
+  home expl_pass vs away leaky deep D -> home pts? top-quintile mean=-0.44 vs bot=+0.85 diff=-1.29 p=0.060 (n_hi=369)
+  mismatch_mag high -> blowout (|margin miss|)?    top-quintile mean=+9.67 vs bot=+9.07 diff=+0.61 p=0.277 (n_hi=369)
+  exp_total_ppd high -> over?                      top-quintile mean=-0.32 vs bot=+1.05 diff=-1.37 p=0.180 (n_hi=369)

@@ -1,0 +1,35 @@
+============================================================================================
+CRUX — does juice add cover info BEYOND the number? (within same spread)
+============================================================================================
+  For each spread value, do home-juiced games cover more than home-non-juiced games?
+  spreads with enough both-way data: 4
+  mean(home-cover | home-juiced) - mean(home-cover | home-not-juiced), pooled within-spread:
+    weighted mean diff = +12.4pp   (positive => juice adds cover info beyond the number)
+    spread  -3.5: juiced-home cover 68.8% (n=16) vs non-juiced 54.2% (n=24)  diff=+14.6pp
+    spread  -3.0: juiced-home cover 50.0% (n=28) vs non-juiced 52.0% (n=25)  diff= -2.0pp
+    spread  +2.5: juiced-home cover 69.2% (n=13) vs non-juiced 38.1% (n=21)  diff=+31.1pp
+    spread  +3.0: juiced-home cover 47.8% (n=23) vs non-juiced 34.6% (n=26)  diff=+13.2pp
+
+============================================================================================
+KEY-NUMBER mechanism — is the juice-cover effect concentrated near 3 / 7?
+============================================================================================
+  back juiced side @ key numbers (2.5-3.5,6.5-7.5) n= 344 cover%= 50.3 CI[45.0,55.5] ROI@actual= -6.4%
+  back juiced side @ non-key numbers       n= 274 cover%= 53.6 CI[47.7,59.5] ROI@actual= +0.7%
+
+============================================================================================
+FAVORITE vs DOG — is the juiced side better when it's the favorite or the dog?
+============================================================================================
+  back juiced side WHEN it's the favorite  n= 344 cover%= 54.1 CI[48.8,59.3] ROI@actual= +0.9%
+  back juiced side WHEN it's the dog       n= 274 cover%= 48.9 CI[43.0,54.8] ROI@actual= -8.5%
+
+============================================================================================
+PRICE TYPE — standard both-minus juice vs plus-money spreads
+============================================================================================
+  back juiced side (both-minus prices)     n= 523 cover%= 51.1 CI[46.8,55.3] ROI@actual= -4.2%
+  back juiced side (a plus-money side)     n=  95 cover%= 55.8 CI[45.8,65.4] ROI@actual= +2.1%
+
+============================================================================================
+LINE-SHOPPING framing — same bet at flat -110 vs paying DK's juice
+============================================================================================
+  back juiced side @ DK actual juice       n= 618 cover%= 51.8 CI[47.8,55.7] ROI@actual= -3.3%
+  back juiced side IF bought at -110 elsewhere n= 618 cover%= 51.8 CI[47.8,55.7] ROI@-110= -1.1%

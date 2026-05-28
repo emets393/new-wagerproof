@@ -1,0 +1,10 @@
+# Reproducible data pulls — regenerate from Supabase via fetch.py / build*.py / b7_pull.py / b16/b19 parsers.
+# (Not diffable, ~30M; kept out of git to avoid repo bloat.)
+data/*.parquet
+
+# Madden SOURCE xlsx (data/madden/*.xlsx) ARE committed on purpose: the 2024/2025 files are manually
+# exported from Google Sheets and not easily re-downloadable (weebly only archives through Madden 24/2023).
+
+# python cruft
+__pycache__/
+*.pyc

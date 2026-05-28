@@ -1,0 +1,19 @@
+
+
+
+[baseline] 2024-25 home covers the OPENER: 51.7% (n=557)  <- context for any 'bet home' spot
+
+[QB downgrade] DOWNGRADED team's cover rate vs opener (pooled both sides), by threshold:
+  dn>= 5: downgraded-team cover=34.0% (n=50) CI[22,48]  | home-dn n=25 away-dn n=25
+  dn>= 8: downgraded-team cover=34.8% (n=46) CI[23,49]  | home-dn n=23 away-dn n=23
+  dn>=12: downgraded-team cover=36.4% (n=33) CI[22,53]  | home-dn n=17 away-dn n=16
+  (if FADE works, downgraded-team cover should be WELL BELOW 50%)
+
+  2024 home-dn (cover=home)  : downgraded cover=33.3% (n=9)
+  2024 away-dn (cover=away)  : downgraded cover=12.5% (n=8)
+  2025 home-dn (cover=home)  : downgraded cover=64.3% (n=14)
+  2025 away-dn (cover=away)  : downgraded cover=20.0% (n=15)
+
+  2024 : OL-injured-team cover=41.8% (n=91) CI[32,52]
+  2025 : OL-injured-team cover=47.7% (n=107) CI[38,57]
+  both : OL-injured-team cover=44.9% (n=198) CI[38,52]

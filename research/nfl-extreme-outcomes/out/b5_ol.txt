@@ -1,0 +1,30 @@
+[build] OL continuity rows: 6814 (2013-2025)
+[merge] team-games with >=3 prior (continuity meaningful): 5566
+
+====================================================================================
+OL CONTINUITY TESTS (leak-safe chronic instability, 2013-2025)
+====================================================================================
+  distribution: same5_streak {'mean': 2.5, '50%': 2.0, 'max': 16.0} | n_starters_used median=7 max=13
+
+[1] UNSTABLE OL team (many starters churned) — ATS & OU
+  >> OL starters_used>=8: team ATS cover  [3/13 seasons beat vig | ALL: n=2223 hit=0.503 CI[0.483,0.524] roi=-3.9% edge=-2.0pp]
+  >> OL starters_used>=9: team ATS cover  [1/13 seasons beat vig | ALL: n=1059 hit=0.493 CI[0.463,0.523] roi=-5.9% edge=-3.1pp]
+  >> OL starters_used>=10: team ATS cover  [4/11 seasons beat vig | ALL: n=447 hit=0.488 CI[0.442,0.534] roi=-6.9% edge=-3.6pp]
+  >> OL starters_used>=9: team -> UNDER  [7/13 seasons beat vig | ALL: n=1082 hit=0.518 CI[0.489,0.548] roi=-1.0% edge=-0.5pp]
+
+[2] STABLE OL (same 5 for 4+ straight) — ATS & OU
+  >> same5_streak>=4: team ATS cover  [2/13 seasons beat vig | ALL: n=1195 hit=0.484 CI[0.456,0.513] roi=-7.5% edge=-3.9pp]
+  >> same5_streak>=4: team -> OVER  [3/13 seasons beat vig | ALL: n=1209 hit=0.486 CI[0.458,0.514] roi=-7.1% edge=-3.8pp]
+
+[3] line just BROKEN (streak reset: prior two games differed) ATS
+  >> same5_streak==1 (unstable recent) ATS  [3/13 seasons beat vig | ALL: n=2460 hit=0.505 CI[0.485,0.525] roi=-3.6% edge=-1.9pp]
+
+[4] MISMATCH: unstable OL team vs STABLE-OL opponent
+  >> unstable-OL vs stable-OL opp: ATS (fade unstable?)  [6/10 seasons beat vig | ALL: n=181 hit=0.541 CI[0.469,0.612] roi=+3.4% edge=+1.8pp]
+
+[5] continuous corr: does instability relate to cover / over (orthogonal to line)?
+  corr(n_starters_used, cover)=+0.002  corr(n_starters_used, over)=-0.022
+  corr(same5_streak, cover)=-0.015  corr(same5_streak, over)=+0.004
+
+[null] permutation: unstable-OL (starters>=9) ATS cover vs shuffled
+  unstable-OL cover=49.3% (n=1059) vs random-same-n |dev| p=0.62 (null mean=50.1%, p2.5/97.5=[47.4,52.8])

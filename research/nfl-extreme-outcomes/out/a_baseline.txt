@@ -1,0 +1,90 @@
+========================================================================================
+BASELINE: distributions & market unbiasedness
+========================================================================================
+n games = 2226  (2018-2025)
+  spread_miss      mean= +9.814 sd=  8.14 p50= +8.00 p90=+21.50 p10= +1.00 max=47.0
+  total_miss       mean=+10.430 sd=  8.08 p50= +8.50 p90=+21.50 p10= +1.50 max=49.0
+  spread_diff      mean= +0.014 sd= 12.75 p50= +0.00 p90=+16.50 p10=-16.00 max=44.0
+  total_diff       mean= +0.550 sd= 13.19 p50= -0.50 p90=+18.00 p10=-15.00 max=49.0
+  fav_spread_diff  mean= -0.108 sd= 12.75 p50= -0.50 p90=+16.50 p10=-15.50 max=44.0
+
+-- Is the closing line ~ power rating? (corr of -home_spread with PR diff) --
+  corr(-home_spread, pr_diff) = 0.885  (n=2226)
+  corr(-home_spread, actual_margin) = -0.446
+  corr(ou_vegas_line, actual_total) = 0.320
+
+-- Direction split of EXTREME spread misses (blow-up >=21) --
+  n blow-ups=243; favorite COVERED in 130 (53.5%), favorite lost SU (upset) in 113 (46.5%)
+
+-- Direction split of EXTREME total misses (|miss|>=21) --
+  n=239; OVER 150 (62.8%) vs UNDER 89 (37.2%)
+  mechanism check: top-decile total_miss over-rate vs all-games over-rate
+    all games over rate = 48.0%  (line ~ unbiased, slight over)
+
+========================================================================================
+LINEAR-SIGNAL SCAN: |corr(feature, spread_miss)| and |corr(feature, total_miss)|
+========================================================================================
+
+  TOP 15 |corr| with spread_miss:
+    away_off_rpo_rate_s2d                  corr=-0.064 n=1122
+    home_off_screen_rate_s2d               corr=-0.064 n=1122
+    away_redzone_scoring_perc              corr=+0.053 n=2226
+    home_def_pressure_rate_s2d             corr=+0.050 n=1122
+    home_off_proe_s2d                      corr=-0.048 n=2210
+    home_off_rz_td_rate_s2d                corr=-0.042 n=2210
+    away_off_time_to_throw_s2d             corr=-0.042 n=2210
+    home_off_ryoe_s2d                      corr=+0.039 n=2206
+    away_def_ed_pass_epa_allowed_s2d       corr=+0.039 n=2210
+    away_3rddown_conv                      corr=-0.038 n=2226
+    home_off_throwaway_rate_s2d            corr=-0.038 n=1122
+    home_def_pass_epa_last3                corr=-0.037 n=2226
+    away_off_pa_rate_s2d                   corr=-0.036 n=1122
+    away_def_pressure_rate_s2d             corr=+0.036 n=1122
+    away_opp_3rddown_conv                  corr=+0.035 n=2226
+  -> max |corr| = 0.064
+
+  TOP 15 |corr| with total_miss:
+    away_def_pressure_rate_s2d             corr=-0.097 n=1122
+    precipitation_pct                      corr=+0.058 n=830
+    away_off_oop_rate_s2d                  corr=-0.055 n=1122
+    away_off_ppd_s2d                       corr=+0.055 n=2210
+    home_off_oop_rate_s2d                  corr=-0.054 n=1122
+    away_off_td_per_drive_s2d              corr=+0.053 n=2210
+    nv_wind                                corr=-0.052 n=1396
+    home_off_throwaway_rate_s2d            corr=-0.051 n=1122
+    away_off_explosive_pass_s2d            corr=+0.050 n=2210
+    home_off_screen_rate_s2d               corr=-0.049 n=1122
+    away_off_pa_rate_s2d                   corr=+0.048 n=1122
+    nv_total_line                          corr=+0.046 n=2226
+    away_off_pass_epa_neutral_s2d          corr=+0.046 n=2210
+    away_off_no_huddle_s2d                 corr=-0.045 n=2210
+    away_off_passer_rating_s2d             corr=+0.045 n=2210
+  -> max |corr| = 0.097
+
+  TOP 12 |corr| with SIGNED total_diff (over=+):
+    nv_wind                                corr=-0.088 n=1396
+    wind_speed                             corr=-0.069 n=1553
+    wind_mph                               corr=-0.068 n=1576
+    home_def_pressure_rate_s2d             corr=+0.065 n=1122
+    home_dline_listed                      corr=+0.058 n=2214
+    home_off_motion_rate_s2d               corr=-0.057 n=1122
+    away_off_pa_epa_s2d                    corr=-0.054 n=1122
+    kick_hour_et                           corr=-0.052 n=2226
+    home_off_ftn_no_huddle_s2d             corr=+0.050 n=1122
+    away_rest                              corr=-0.049 n=2226
+    home_def_motion_epa_allowed_s2d        corr=-0.048 n=1122
+    home_off_rush_efficiency_s2d           corr=-0.047 n=2206
+
+  TOP 12 |corr| with SIGNED fav_spread_diff (fav beats number=+):
+    home_def_pressure_rate_s2d             corr=+0.083 n=1122
+    away_off_shotgun_rate_s2d              corr=-0.077 n=1122
+    away_off_motion_rate_s2d               corr=+0.073 n=1122
+    away_off_pa_rate_s2d                   corr=+0.068 n=1122
+    away_off_rpo_rate_s2d                  corr=-0.067 n=1122
+    home_def_pa_epa_allowed_s2d            corr=-0.065 n=1122
+    home_off_non_pa_epa_s2d                corr=+0.063 n=1122
+    wind_speed                             corr=+0.060 n=1553
+    wind_mph                               corr=+0.057 n=1576
+    temp_f                                 corr=-0.051 n=1577
+    spread                                 corr=+0.051 n=2226
+    home_off_pa_rate_s2d                   corr=-0.050 n=1122

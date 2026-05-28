@@ -1,0 +1,18 @@
+============================================================================================
+T1  receiver-OUT OVER split by OUT-player POSITION (vs CLOSE, air-share>=35)
+============================================================================================
+  WRTE-out   -> OVER: 64.7% (n=190) CI[58,71]
+  RB-out     -> OVER: 0.0% (n=0) CI[0,0]
+  WR/TE-out by out-player WEIGHT tercile (does a bigger skill player matter more?):
+    light WR/TE   (wt) OVER: 62.7% (n=83) CI[52,72]
+    mid           (wt) OVER: 71.4% (n=42) CI[56,83]
+    heavy WR/TE   (wt) OVER: 63.1% (n=65) CI[51,74]
+  RB-out by weight (bell-cow vs scatback):
+
+============================================================================================
+T2  TRENCH SIZE MISMATCH (big OL vs light opp DL -> run control)
+============================================================================================
+  top-25% trench mismatch -> UNDER: 47.7% (n=551) CI[44,52]
+  bigger-trench team ATS (in top-25% mismatch): 51.1% (n=560) CI[47,55]
+  per-season top-25% mismatch UNDER:
+    2018:47%(n59) 2019:53%(n49) 2020:38%(n45) 2021:43%(n54) 2022:55%(n69) 2023:48%(n48) 2024:44%(n78) 2025:50%(n149)

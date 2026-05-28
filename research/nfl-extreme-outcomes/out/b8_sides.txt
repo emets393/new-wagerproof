@@ -1,0 +1,38 @@
+[build] team-games 2018-25: 4254
+
+========================================================================================
+SIDES / ML on the injury layer (vs close, 2018-25)
+========================================================================================
+
+[A] FADE the more-injured team ATS (air-share differential):
+  >> we 15%+ more air-out -> our ATS (expect fade) [2/8szn] ALL: n=534 hit=0.485 CI[0.443,0.527] roi=-7.4% edge=-3.9pp
+  >> opp 15%+ more air-out -> our ATS (expect back) [3/8szn] ALL: n=534 hit=0.515 CI[0.473,0.557] roi=-1.7% edge=-0.9pp
+
+[B] INJURED FAVORITE ATS (favorite missing a key receiver):
+  >> favorite w/ key-rec-out: ATS                 [2/5szn] ALL: n=71 hit=0.493 CI[0.380,0.607] roi=-5.9% edge=-3.1pp
+  >> favorite w/ key-rec-out: ML(SU)              [3/6szn] ALL: n=72 hit=0.611 CI[0.496,0.715] roi=+16.7% edge=+8.7pp
+
+[C] BACK the OPPONENT of a key-receiver-out team ATS:
+  >> opp has key-rec-out -> our ATS               [6/8szn] ALL: n=190 hit=0.526 CI[0.456,0.596] roi=+0.5% edge=+0.2pp
+  >> opp key-rec-out & we're dog -> ATS           [1/5szn] ALL: n=71 hit=0.507 CI[0.393,0.620] roi=-3.2% edge=-1.7pp
+
+[D] Facing an injured DEFENSE (opp_def high) -> ATS:
+  >> opp def-out top-quartile -> our ATS          [4/8szn] ALL: n=535 hit=0.510 CI[0.468,0.552] roi=-2.6% edge=-1.4pp
+
+[E] QB starter OUT -> ATS / ML (vs close):
+  >> own QB out -> our ATS                        [3/8szn] ALL: n=204 hit=0.461 CI[0.394,0.529] roi=-12.0% edge=-6.3pp
+  >> opp QB out -> our ATS (back us)              [4/8szn] ALL: n=204 hit=0.539 CI[0.471,0.606] roi=+2.9% edge=+1.5pp
+   opp QB out -> back us ML: n=210 hit=0.648 roi=+0.7% (impl_be~0.638)
+
+[null] best-looking cut: opponent-of-key-rec-out ATS vs chance:
+  ATS cover=52.6% (n=190) p(|dev|>=)=0.493
+
+========================================================================================
+vs OPENER (2023-25): injured-team ATS at the opening number
+========================================================================================
+Traceback (most recent call last):
+  File "/Users/chrishabib/Documents/new-wagerproof/research/nfl-extreme-outcomes/b8_sides.py", line 102, in <module>
+    home["open_cov"]=np.where(home.result> -home.open_spread,1.0,np.where(home.result< -home.open_spread,0.0,np.nan))  # home covers open
+  File "/Users/chrishabib/Library/Python/3.9/lib/python/site-packages/pandas/core/generic.py", line 6321, in __getattr__
+    return object.__getattribute__(self, name)
+AttributeError: 'DataFrame' object has no attribute 'result'

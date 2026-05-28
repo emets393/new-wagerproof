@@ -1,0 +1,22 @@
+[build] madden_attributes.parquet: 18430 rows. attr coverage: speed=100%, acceleration=100%, agility=100%, strength=100%, awareness=100%, jumping=100%, catching=87%, ht=100%, wt=100%
+
+============================================================================================
+T1 PHYSICALITY -> ATS (does the bigger/stronger team cover? overall + in bad weather)
+============================================================================================
+  all games                              more-physical-team ATS: 50.6% (n=2226) CI[49,53]
+  wind>=15                               more-physical-team ATS: 47.5% (n=99) CI[38,57]
+  cold<=35                               more-physical-team ATS: 52.6% (n=152) CI[45,60]
+  wind>=12 OR cold<=35                   more-physical-team ATS: 51.8% (n=340) CI[46,57]
+
+============================================================================================
+T2 PHYSICALITY -> TOTALS (two big physical teams -> UNDER? amplified in wind?)
+============================================================================================
+  top-25% physical games                 UNDER: 51.4% (n=555) CI[47,55]
+  top-25% physical AND wind>=12          UNDER: 58.0% (n=50) CI[44,71]
+
+============================================================================================
+T3 SPEED -> TOTALS (fast skill units -> OVER, esp domes)
+============================================================================================
+  top-25% team speed                     OVER: 48.8% (n=580) CI[45,53]
+  top-25% speed AND dome                 OVER: 57.4% (n=155) CI[50,65]
+  fast(top40%) AND dome                  OVER: 55.7% (n=255) CI[50,62]

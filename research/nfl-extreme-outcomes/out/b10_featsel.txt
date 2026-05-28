@@ -1,0 +1,27 @@
+==========================================================================================
+FEATURE SELECTION (select on 2018-23, evaluate on HELD-OUT 2024-25)
+==========================================================================================
+
+[TOTAL] forward-selected (6 feats, VAL MAE=10.59): ['precipitation_pct', 'wind_mph', 'primetime', 'a_qb_out', 'dome_closed', 'kick_hour_et']
+  held-out TEST performance of the SELECTED subset:
+    TEST(24-25): model corr=0.081 vs market 0.318 | MAE model=11.12 market=9.90
+      bet |disc|>=1: thr1: n=420 hit=0.529 CI[0.481,0.576] roi=+0.9% edge=+0.5pp
+      bet |disc|>=2: thr2: n=369 hit=0.528 CI[0.477,0.579] roi=+0.9% edge=+0.5pp
+      bet |disc|>=3: thr3: n=318 hit=0.525 CI[0.470,0.579] roi=+0.3% edge=+0.1pp
+  vs FULL pool (30 feats) on held-out TEST:
+    TEST(24-25): model corr=0.183 vs market 0.318 | MAE model=10.70 market=9.90
+      bet |disc|>=1: thr1: n=401 hit=0.521 CI[0.472,0.570] roi=-0.5% edge=-0.3pp
+      bet |disc|>=2: thr2: n=338 hit=0.512 CI[0.459,0.565] roi=-2.3% edge=-1.2pp
+      bet |disc|>=3: thr3: n=271 hit=0.542 CI[0.483,0.601] roi=+3.6% edge=+1.9pp
+
+[MARGIN] forward-selected (5 feats, VAL MAE=10.05): ['pr_diff', 'home_predictive_pr', 'def_diff', 'a_qb_out', 'h_qb_out']
+  held-out TEST performance of the SELECTED subset:
+    TEST(24-25): model corr=0.416 vs market 0.535 | MAE model=10.18 market=9.61
+      bet |disc|>=1: thr1: n=382 hit=0.516 CI[0.466,0.565] roi=-1.6% edge=-0.8pp
+      bet |disc|>=2: thr2: n=290 hit=0.545 CI[0.487,0.601] roi=+4.0% edge=+2.1pp
+      bet |disc|>=3: thr3: n=208 hit=0.524 CI[0.456,0.591] roi=+0.0% edge=+0.0pp
+  vs FULL pool (25 feats) on held-out TEST:
+    TEST(24-25): model corr=0.436 vs market 0.535 | MAE model=10.20 market=9.61
+      bet |disc|>=1: thr1: n=371 hit=0.515 CI[0.464,0.565] roi=-1.7% edge=-0.9pp
+      bet |disc|>=2: thr2: n=286 hit=0.531 CI[0.474,0.589] roi=+1.5% edge=+0.8pp
+      bet |disc|>=3: thr3: n=208 hit=0.534 CI[0.466,0.600] roi=+1.9% edge=+1.0pp

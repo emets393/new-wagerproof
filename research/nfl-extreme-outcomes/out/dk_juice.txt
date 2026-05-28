@@ -1,0 +1,55 @@
+[merge] DK games joined to master: 850  seasons=[np.int64(2023), np.int64(2024), np.int64(2025)]
+[validate] DK close point vs stored home_spread: |diff| median=0.00 within1=97%
+
+==============================================================================================
+DK SPREAD JUICE — descriptive
+==============================================================================================
+  close juice |home cents| distribution: {0.5: 4.0, 0.75: 10.0, 0.9: 220.0, 0.99: 224.0}
+  games where number NEVER moved (pt_move==0): 146 (17%)
+  corr(early lean_move, pt_move) — does juice lead the number? +0.068
+
+==============================================================================================
+[1] CLOSING JUICE ASYMMETRY — back the more-juiced (expensive) side
+==============================================================================================
+  |close_lean|>=0.00: back juiced side       n= 828 cover%= 53.5 CI[50.1,56.9] ROI@actual= +0.6% (flat-110 edge=+1.1pp)
+  |close_lean|>=0.02: back juiced side       n= 396 cover%= 53.0 CI[48.1,57.9] ROI@actual= -1.6% (flat-110 edge=+0.6pp)
+  |close_lean|>=0.04: back juiced side       n=  93 cover%= 57.0 CI[46.8,66.6] ROI@actual= +4.3% (flat-110 edge=+4.6pp)
+  |close_lean|>=0.06: back juiced side       n=   8 cover%= 50.0 CI[21.5,78.5] ROI@actual=-10.0% (flat-110 edge=-2.4pp)
+
+  per-season (back juiced side, |close_lean|>=0.02):
+    2023                                     n= 105 cover%= 56.2 CI[46.6,65.3] ROI@actual= +4.2% (flat-110 edge=+3.8pp)
+    2024                                     n= 117 cover%= 45.3 CI[36.6,54.3] ROI@actual=-15.8% (flat-110 edge=-7.1pp)
+    2025                                     n= 174 cover%= 56.3 CI[48.9,63.5] ROI@actual= +4.5% (flat-110 edge=+3.9pp)
+
+==============================================================================================
+[2] JUICE MOVEMENT — back the side whose juice INCREASED open->close
+==============================================================================================
+  |lean_move|>=0.00: back juiced-up side     n= 828 cover%= 51.9 CI[48.5,55.3] ROI@actual= -2.2% (flat-110 edge=-0.5pp)
+  |lean_move|>=0.02: back juiced-up side     n= 421 cover%= 51.5 CI[46.8,56.3] ROI@actual= -4.0% (flat-110 edge=-0.9pp)
+  |lean_move|>=0.04: back juiced-up side     n= 120 cover%= 52.5 CI[43.6,61.2] ROI@actual= -3.2% (flat-110 edge=+0.1pp)
+
+  per-season (back juiced-up side, |lean_move|>=0.02):
+    2023                                     n= 108 cover%= 51.9 CI[42.5,61.0] ROI@actual= -3.8% (flat-110 edge=-0.5pp)
+    2024                                     n= 136 cover%= 46.3 CI[38.2,54.7] ROI@actual=-13.4% (flat-110 edge=-6.1pp)
+    2025                                     n= 177 cover%= 55.4 CI[48.0,62.5] ROI@actual= +3.1% (flat-110 edge=+3.0pp)
+
+==============================================================================================
+[3] HIDDEN MOVEMENT — number held (pt_move==0) but juice moved
+==============================================================================================
+  pt held & |lean_move|>=0.000: back juiced-up side n= 143 cover%= 52.4 CI[44.3,60.5] ROI@actual= -1.6% (flat-110 edge=+0.0pp)
+  pt held & |lean_move|>=0.015: back juiced-up side n=  81 cover%= 56.8 CI[45.9,67.0] ROI@actual= +5.8% (flat-110 edge=+4.4pp)
+  pt held & |lean_move|>=0.030: back juiced-up side n=  50 cover%= 52.0 CI[38.5,65.2] ROI@actual= -3.5% (flat-110 edge=-0.4pp)
+
+==============================================================================================
+[4] POINT MOVE (DK) — back the side the NUMBER moved toward (steam baseline)
+==============================================================================================
+  |pt_move|>=0.5: follow the number          n= 685 cover%= 50.4 CI[46.6,54.1] ROI@actual= -3.7% (flat-110 edge=-2.0pp)
+  |pt_move|>=1.0: follow the number          n= 510 cover%= 50.0 CI[45.7,54.3] ROI@actual= -4.6% (flat-110 edge=-2.4pp)
+
+==============================================================================================
+[5] TOTALS JUICE — back the side (over/under) whose price got juiced
+==============================================================================================
+  |close total lean|>=0.00: back juiced O/U side n= 842 hit%= 50.8 CI[47.5,54.2] ROI@actual= -3.8%
+  |close total lean|>=0.02: back juiced O/U side n= 201 hit%= 49.8 CI[42.9,56.6] ROI@actual= -7.2%
+  |close total lean|>=0.04: back juiced O/U side n=  11 hit%= 27.3 CI[ 9.7,56.6] ROI@actual=-50.0%
+  totals juice MOVED toward a side (|move|>=0.02) n= 201 hit%= 47.8 CI[41.0,54.6] ROI@actual=-10.8%

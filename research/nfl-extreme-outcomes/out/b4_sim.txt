@@ -1,0 +1,40 @@
+  simulated 2002 (weeks 1-17)
+  simulated 2003 (weeks 1-17)
+  simulated 2004 (weeks 1-17)
+  simulated 2005 (weeks 1-17)
+  simulated 2006 (weeks 1-17)
+  simulated 2007 (weeks 1-17)
+  simulated 2008 (weeks 1-17)
+  simulated 2009 (weeks 1-17)
+  simulated 2010 (weeks 1-17)
+  simulated 2011 (weeks 1-17)
+  simulated 2012 (weeks 1-17)
+  simulated 2013 (weeks 1-17)
+  simulated 2014 (weeks 1-17)
+  simulated 2015 (weeks 1-17)
+  simulated 2016 (weeks 1-17)
+  simulated 2017 (weeks 1-17)
+  simulated 2018 (weeks 1-17)
+  simulated 2019 (weeks 1-17)
+  simulated 2020 (weeks 1-17)
+  simulated 2021 (weeks 1-18)
+  simulated 2022 (weeks 1-18)
+  simulated 2023 (weeks 1-18)
+  simulated 2024 (weeks 1-18)
+  simulated 2025 (weeks 1-18)
+
+[saved] b4_stakes: (10166, 15)
+
+[validate] effectively-eliminated teams by end of season should be the non-playoff teams:
+  teams flagged eliminated in their last sim-week that ACTUALLY made playoffs: 1 (want ~0)
+  final-week mean playoff_pct: made-real=0.89 missed=0.07 (want ~1 vs ~0)
+
+  mean |leverage| by week (should rise into late season):
+    wk5: mean|lev|=0.123  must_win%=0.0  elim%=12.0  clinch%=3.4
+    wk8: mean|lev|=0.115  must_win%=0.0  elim%=18.3  clinch%=6.0
+    wk10: mean|lev|=0.113  must_win%=0.4  elim%=23.2  clinch%=6.8
+    wk12: mean|lev|=0.112  must_win%=1.5  elim%=30.1  clinch%=10.8
+    wk14: mean|lev|=0.109  must_win%=2.9  elim%=35.5  clinch%=16.4
+    wk16: mean|lev|=0.107  must_win%=5.5  elim%=41.1  clinch%=22.1
+    wk17: mean|lev|=0.128  must_win%=12.3  elim%=46.5  clinch%=27.5
+    wk18: mean|lev|=0.153  must_win%=16.2  elim%=43.1  clinch%=33.8

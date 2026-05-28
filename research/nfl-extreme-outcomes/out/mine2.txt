@@ -1,0 +1,31 @@
+==========================================================================================
+(a) PRESSURE x TIME-TO-THROW -> spread-miss variance (best raw hit, FDR-failed)
+==========================================================================================
+  corr(trench_var, spread_miss) = +0.114 (n=946)
+  blow-up rate by trench_var quintile:
+    Q1: n=190 blowup%= 4.2 CI[2.1,8.1] mean|miss|=7.86
+    Q2: n=189 blowup%=10.6 CI[7.0,15.8] mean|miss|=9.60
+    Q3: n=189 blowup%= 8.5 CI[5.3,13.3] mean|miss|=9.35
+    Q4: n=189 blowup%=13.8 CI[9.6,19.4] mean|miss|=9.77
+    Q5: n=189 blowup%=15.3 CI[10.9,21.2] mean|miss|=10.75
+  per-season top-quintile blow-up rate (is it stable?):
+    2022: n=55 blowup%=20%
+    2023: n=51 blowup%=16%
+    2024: n=41 blowup%=20%
+    2025: n=42 blowup%=5%
+
+==========================================================================================
+(b) ML MARKET — matchup win-prob model vs REAL closing prices (2023-25)
+==========================================================================================
+  games with clean ML prices (2023-25, week>=4): 706
+  model-edge>=0.00: n=470 hit=0.515 roi=-8.2% units=-38.3 (impl_be~0.541)
+  model-edge>=0.03: n=376 hit=0.513 roi=-10.1% units=-38.0 (impl_be~0.541)
+  model-edge>=0.06: n=257 hit=0.514 roi=-9.3% units=-23.8 (impl_be~0.533)
+
+==========================================================================================
+(c) Matchup signal INSIDE the PR-vs-spread divergence subset
+==========================================================================================
+  divergence subset (|line-PR|>=3, wk>=4): n=516
+    exp_margin_ppd  : home-cover% when matchup favors home=46.2 (n=253) vs favors away=52.6 (n=253)
+    sep_ppd         : home-cover% when matchup favors home=51.0 (n=253) vs favors away=47.8 (n=253)
+    sep_ed_pass     : home-cover% when matchup favors home=51.4 (n=253) vs favors away=47.4 (n=253)

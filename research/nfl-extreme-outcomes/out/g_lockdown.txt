@@ -1,0 +1,113 @@
+==========================================================================================
+LOCKDOWN 1 — Is PRIMETIME-UNDER independent of weather?
+==========================================================================================
+
+  >> UNDER primetime, INDOOR only (dome/closed)  [7/8 seasons >=50%]
+     2018: n=14 hit=0.500 CI[0.268,0.732] roi=-4.5% edge=-2.4pp
+     2019: n=11 hit=0.636 CI[0.354,0.848] roi=+21.5% edge=+11.3pp
+     2020: n=12 hit=0.333 CI[0.138,0.609] roi=-36.4% edge=-19.1pp
+     2021: n=21 hit=0.571 CI[0.365,0.755] roi=+9.1% edge=+4.8pp
+     2022: n=13 hit=0.615 CI[0.355,0.823] roi=+17.5% edge=+9.2pp
+     2023: n=19 hit=0.684 CI[0.460,0.846] roi=+30.6% edge=+16.0pp
+     2024: n=24 hit=0.500 CI[0.314,0.686] roi=-4.5% edge=-2.4pp
+     2025: n=20 hit=0.600 CI[0.387,0.781] roi=+14.5% edge=+7.6pp
+     ALL: n=134 hit=0.560 CI[0.475,0.641] roi=+6.9% edge=+3.6pp
+
+  >> UNDER primetime, OUTDOOR only  [7/8 seasons >=50%]
+     2018: n=40 hit=0.500 CI[0.352,0.648] roi=-4.5% edge=-2.4pp
+     2019: n=40 hit=0.650 CI[0.495,0.779] roi=+24.1% edge=+12.6pp
+     2020: n=40 hit=0.600 CI[0.446,0.737] roi=+14.5% edge=+7.6pp
+     2021: n=38 hit=0.526 CI[0.373,0.675] roi=+0.5% edge=+0.2pp
+     2022: n=45 hit=0.644 CI[0.498,0.768] roi=+23.0% edge=+12.1pp
+     2023: n=42 hit=0.619 CI[0.468,0.750] roi=+18.2% edge=+9.5pp
+     2024: n=38 hit=0.526 CI[0.373,0.675] roi=+0.5% edge=+0.2pp
+     2025: n=43 hit=0.488 CI[0.346,0.632] roi=-6.8% edge=-3.5pp
+     ALL: n=326 hit=0.571 CI[0.516,0.623] roi=+8.9% edge=+4.7pp
+
+  >> UNDER NON-primetime (baseline)  [4/8 seasons >=50%]
+     2018: n=212 hit=0.538 CI[0.470,0.604] roi=+2.7% edge=+1.4pp
+     2019: n=214 hit=0.467 CI[0.402,0.534] roi=-10.8% edge=-5.7pp
+     2020: n=209 hit=0.488 CI[0.421,0.555] roi=-6.8% edge=-3.6pp
+     2021: n=224 hit=0.545 CI[0.479,0.609] roi=+4.0% edge=+2.1pp
+     2022: n=221 hit=0.534 CI[0.468,0.599] roi=+1.9% edge=+1.0pp
+     2023: n=221 hit=0.511 CI[0.446,0.577] roi=-2.4% edge=-1.2pp
+     2024: n=218 hit=0.450 CI[0.385,0.516] roi=-14.2% edge=-7.4pp
+     2025: n=221 hit=0.466 CI[0.401,0.532] roi=-11.0% edge=-5.8pp
+     ALL: n=1740 hit=0.500 CI[0.476,0.523] roi=-4.5% edge=-2.4pp
+
+  primetime mean wind=6.4 vs non=7.8
+  indoor primetime n=136 -> if still <50% over, weather is NOT the cause
+
+==========================================================================================
+LOCKDOWN 2 — best WIND rule + total-level interaction
+==========================================================================================
+
+  >> UNDER outdoor wind>=15  [5/8 seasons >=50%]
+     2018: n=2 hit=0.500 CI[0.095,0.905] roi=-4.5% edge=-2.4pp
+     2019: n=5 hit=0.200 CI[0.036,0.625] roi=-61.8% edge=-32.4pp
+     2020: n=11 hit=0.727 CI[0.434,0.902] roi=+38.8% edge=+20.3pp
+     2021: n=10 hit=0.800 CI[0.490,0.943] roi=+52.7% edge=+27.6pp
+     2022: n=9 hit=0.444 CI[0.189,0.733] roi=-15.2% edge=-7.9pp
+     2023: n=10 hit=0.800 CI[0.490,0.943] roi=+52.7% edge=+27.6pp
+     2024: n=21 hit=0.429 CI[0.245,0.634] roi=-18.2% edge=-9.5pp
+     2025: n=27 hit=0.518 CI[0.340,0.693] roi=-1.0% edge=-0.5pp
+     ALL: n=95 hit=0.558 CI[0.458,0.654] roi=+6.5% edge=+3.4pp
+
+  >> UNDER outdoor wind>=15 & total>=44  [4/8 seasons >=50%]
+     2018: n=1 hit=0.000 CI[0.000,0.793] roi=-100.0% edge=-52.4pp
+     2019: n=3 hit=0.000 CI[0.000,0.561] roi=-100.0% edge=-52.4pp
+     2020: n=8 hit=1.000 CI[0.676,1.000] roi=+90.9% edge=+47.6pp
+     2021: n=4 hit=0.750 CI[0.301,0.954] roi=+43.2% edge=+22.6pp
+     2022: n=4 hit=0.250 CI[0.046,0.699] roi=-52.3% edge=-27.4pp
+     2023: n=2 hit=0.500 CI[0.095,0.905] roi=-4.5% edge=-2.4pp
+     2024: n=6 hit=0.333 CI[0.097,0.700] roi=-36.4% edge=-19.1pp
+     2025: n=14 hit=0.714 CI[0.454,0.883] roi=+36.4% edge=+19.1pp
+     ALL: n=42 hit=0.595 CI[0.445,0.730] roi=+13.6% edge=+7.1pp
+
+  >> UNDER outdoor wind>=17  [7/8 seasons >=50%]
+     2018: n=2 hit=0.500 CI[0.095,0.905] roi=-4.5% edge=-2.4pp
+     2019: n=2 hit=0.500 CI[0.095,0.905] roi=-4.5% edge=-2.4pp
+     2020: n=5 hit=0.800 CI[0.376,0.964] roi=+52.7% edge=+27.6pp
+     2021: n=5 hit=0.800 CI[0.376,0.964] roi=+52.7% edge=+27.6pp
+     2022: n=3 hit=0.333 CI[0.061,0.792] roi=-36.4% edge=-19.1pp
+     2023: n=5 hit=0.800 CI[0.376,0.964] roi=+52.7% edge=+27.6pp
+     2024: n=9 hit=0.556 CI[0.267,0.811] roi=+6.1% edge=+3.2pp
+     2025: n=21 hit=0.571 CI[0.365,0.755] roi=+9.1% edge=+4.8pp
+     ALL: n=52 hit=0.615 CI[0.480,0.735] roi=+17.5% edge=+9.2pp
+
+  >> UNDER outdoor (wind>=15 OR precip>=0.7)  [6/8 seasons >=50%]
+     2018: n=10 hit=0.800 CI[0.490,0.943] roi=+52.7% edge=+27.6pp
+     2019: n=14 hit=0.500 CI[0.268,0.732] roi=-4.5% edge=-2.4pp
+     2020: n=14 hit=0.714 CI[0.454,0.883] roi=+36.4% edge=+19.1pp
+     2021: n=11 hit=0.818 CI[0.523,0.949] roi=+56.2% edge=+29.4pp
+     2022: n=12 hit=0.500 CI[0.254,0.746] roi=-4.5% edge=-2.4pp
+     2023: n=35 hit=0.743 CI[0.579,0.858] roi=+41.8% edge=+21.9pp
+     2024: n=39 hit=0.462 CI[0.316,0.614] roi=-11.9% edge=-6.2pp
+     2025: n=122 hit=0.492 CI[0.405,0.579] roi=-6.1% edge=-3.2pp
+     ALL: n=257 hit=0.560 CI[0.499,0.620] roi=+7.0% edge=+3.6pp
+
+==========================================================================================
+LOCKDOWN 3 — combined PRIMETIME-or-WIND under (the actionable totals rule)
+==========================================================================================
+
+  >> UNDER if primetime OR (outdoor wind>=15)  [7/8 seasons >=50%]
+     2018: n=56 hit=0.500 CI[0.373,0.627] roi=-4.5% edge=-2.4pp
+     2019: n=56 hit=0.607 CI[0.476,0.724] roi=+15.9% edge=+8.3pp
+     2020: n=62 hit=0.565 CI[0.441,0.681] roi=+7.8% edge=+4.1pp
+     2021: n=66 hit=0.576 CI[0.456,0.688] roi=+9.9% edge=+5.2pp
+     2022: n=65 hit=0.631 CI[0.509,0.738] roi=+20.4% edge=+10.7pp
+     2023: n=69 hit=0.652 CI[0.534,0.754] roi=+24.5% edge=+12.8pp
+     2024: n=83 hit=0.494 CI[0.389,0.599] roi=-5.7% edge=-3.0pp
+     2025: n=87 hit=0.517 CI[0.414,0.619] roi=-1.2% edge=-0.7pp
+     ALL: n=544 hit=0.564 CI[0.522,0.605] roi=+7.7% edge=+4.0pp
+
+==========================================================================================
+MULTIPLE-COMPARISON HONESTY CHECK
+==========================================================================================
+  Distinct directional betting cuts tested across A-I (approx): ~70
+  At true 50%, expected # of cuts hitting >=55% on n~200 by chance is non-trivial.
+  Credible only if: per-season replication + mechanism + dose-response. The survivors:
+   - WIND-under: dose-response + physical mechanism (passing/kicking) -> CREDIBLE
+   - PRIMETIME-under: 8/8 non-losing seasons + holds indoors + line/result gap -> CREDIBLE
+   - +7.5..9.5 dog / road-fav-fade: recent-only, fails 2019&2021 -> CANDIDATE
+   - 2025 sharp-money & RLM: single season, unconfirmable -> WATCH

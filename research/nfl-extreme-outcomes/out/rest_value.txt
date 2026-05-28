@@ -1,0 +1,94 @@
+==========================================================================================
+REST VALUE IN POINTS — three estimands
+==========================================================================================
+  rest_diff = home_rest - away_rest (positive = home better rested)
+
+  (1) TRUE value: actual_margin ~ rest_diff + pr_diff  [const=HFA]
+    const        coef=+1.584 ± 0.278  95%CI[+1.040,+2.128]  t=+5.7
+    rest_diff    coef=+0.136 ± 0.113  95%CI[-0.087,+0.358]  t=+1.2
+    pr_diff      coef=+0.881 ± 0.044  95%CI[+0.796,+0.967]  t=+20.2
+    (n=2226)
+
+  (2) MARKET value: mkt_margin (-home_spread) ~ rest_diff + pr_diff
+    const        coef=+1.576 ± 0.060  95%CI[+1.459,+1.694]  t=+26.4
+    rest_diff    coef=+0.143 ± 0.024  95%CI[+0.095,+0.191]  t=+5.8
+    pr_diff      coef=+0.844 ± 0.009  95%CI[+0.826,+0.863]  t=+90.0
+    (n=2226)
+
+  (3) EDGE: spread_diff (margin - line) ~ rest_diff + pr_diff
+    const        coef=+0.008 ± 0.270  95%CI[-0.522,+0.538]  t=+0.0
+    rest_diff    coef=-0.007 ± 0.111  95%CI[-0.224,+0.210]  t=-0.1
+    pr_diff      coef=+0.037 ± 0.042  95%CI[-0.046,+0.120]  t=+0.9
+    (n=2226)
+
+  Interpretation: if (1)~(2), the market prices rest correctly and (3)~0 (no edge).
+
+  (0) RAW (uncontrolled): actual_margin ~ rest_diff
+    const        coef=+1.732 ± 0.302  95%CI[+1.141,+2.324]  t=+5.7
+    rest_diff    coef=+0.184 ± 0.123  95%CI[-0.058,+0.426]  t=+1.5
+    (n=2226)
+
+==========================================================================================
+SPOT-SPECIFIC point values (indicator vs market, controlling for PR)
+==========================================================================================
+
+  margin ~ bye_edge + short_edge + pr_diff (TRUE points of a bye/short spot)
+    const        coef=+1.668 ± 0.304  95%CI[+1.072,+2.264]  t=+5.5
+    home_off_bye coef=+0.619 ± 1.114  95%CI[-1.564,+2.801]  t=+0.6
+    away_off_bye coef=-0.661 ± 1.163  95%CI[-2.941,+1.620]  t=-0.6
+    home_short   coef=+5.750 ± 13.148  95%CI[-20.020,+31.519]  t=+0.4
+    away_short   coef=-7.167 ± 13.100  95%CI[-32.844,+18.509]  t=-0.5
+    pr_diff      coef=+0.883 ± 0.044  95%CI[+0.797,+0.968]  t=+20.3
+    (n=2226)
+
+  spread_diff ~ same (EDGE: do these spots beat the line?)
+    const        coef=+0.055 ± 0.296  95%CI[-0.526,+0.635]  t=+0.2
+    home_off_bye coef=-0.283 ± 1.085  95%CI[-2.410,+1.843]  t=-0.3
+    away_off_bye coef=+0.609 ± 1.134  95%CI[-1.613,+2.831]  t=+0.5
+    home_short   coef=-1.137 ± 12.810  95%CI[-26.244,+23.970]  t=-0.1
+    away_short   coef=+0.010 ± 12.764  95%CI[-25.007,+25.026]  t=+0.0
+    pr_diff      coef=+0.038 ± 0.042  95%CI[-0.045,+0.121]  t=+0.9
+    (n=2226)
+
+==========================================================================================
+EDGE check — ATS cover of the BETTER-RESTED side, per season
+==========================================================================================
+
+  back better-rested side, rest edge >=3 days (n=472):
+    2018: n=59 hit=0.491 CI[0.368,0.616] roi=-6.2% edge=-3.2pp
+    2019: n=62 hit=0.468 CI[0.349,0.590] roi=-10.7% edge=-5.6pp
+    2020: n=56 hit=0.500 CI[0.373,0.627] roi=-4.5% edge=-2.4pp
+    2021: n=57 hit=0.526 CI[0.399,0.650] roi=+0.5% edge=+0.2pp
+    2022: n=56 hit=0.536 CI[0.407,0.660] roi=+2.3% edge=+1.2pp
+    2023: n=56 hit=0.589 CI[0.459,0.708] roi=+12.5% edge=+6.6pp
+    2024: n=66 hit=0.424 CI[0.312,0.544] roi=-19.0% edge=-10.0pp
+    2025: n=60 hit=0.500 CI[0.377,0.623] roi=-4.5% edge=-2.4pp
+    ALL: n=472 hit=0.502 CI[0.457,0.547] roi=-4.1% edge=-2.2pp
+
+  back better-rested side, rest edge >=6 days (n=209):
+    2018: n=28 hit=0.536 CI[0.358,0.705] roi=+2.3% edge=+1.2pp
+    2019: n=31 hit=0.452 CI[0.292,0.622] roi=-13.8% edge=-7.2pp
+    2020: n=31 hit=0.516 CI[0.348,0.680] roi=-1.5% edge=-0.8pp
+    2021: n=23 hit=0.348 CI[0.188,0.551] roi=-33.6% edge=-17.6pp
+    2022: n=23 hit=0.478 CI[0.292,0.670] roi=-8.7% edge=-4.5pp
+    2023: n=22 hit=0.545 CI[0.347,0.731] roi=+4.1% edge=+2.2pp
+    2024: n=27 hit=0.296 CI[0.159,0.485] roi=-43.4% edge=-22.8pp
+    2025: n=24 hit=0.625 CI[0.427,0.788] roi=+19.3% edge=+10.1pp
+    ALL: n=209 hit=0.474 CI[0.407,0.541] roi=-9.6% edge=-5.0pp
+
+==========================================================================================
+TOTALS — does rest affect total points (beyond the line)?
+==========================================================================================
+
+  actual_total ~ abs_rest + max_rest + ou_vegas_line
+    const        coef=+5.364 ± 3.174  95%CI[-0.858,+11.586]  t=+1.7
+    abs_rest     coef=+0.678 ± 0.269  95%CI[+0.152,+1.205]  t=+2.5
+    max_rest     coef=-0.622 ± 0.228  95%CI[-1.070,-0.175]  t=-2.7
+    ou_line      coef=+0.987 ± 0.062  95%CI[+0.866,+1.108]  t=+16.0
+    (n=2226)
+
+  total_diff (total - line) ~ abs_rest + max_rest (EDGE on totals)
+    const        coef=+4.765 ± 1.590  95%CI[+1.649,+7.881]  t=+3.0
+    abs_rest     coef=+0.679 ± 0.269  95%CI[+0.152,+1.205]  t=+2.5
+    max_rest     coef=-0.624 ± 0.228  95%CI[-1.071,-0.177]  t=-2.7
+    (n=2226)
