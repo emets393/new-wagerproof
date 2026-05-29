@@ -1,0 +1,44 @@
+[build] team-games 13934 | teams w/ detected bye 99% | pre-bye games 853 | post-bye 853
+[sanity] overall ATS cover 50.0% | pre-bye (all) 53.2% | post-bye (all) 50.4%
+
+========================================================================
+PRE-BYE ATS by coach (n>=10); baseline 53.2%
+========================================================================
+  coach                  cover%   n         CI
+  Jon Gruden              76.9%  13  [50,92]
+  Sean Payton             72.2%  18  [49,88]
+  Gary Kubiak             70.0%  10  [40,89]
+  Pete Carroll            68.8%  16  [44,86]
+  Mike Tomlin             63.2%  19  [41,81]
+  Bill Belichick          62.5%  24  [43,79]
+  Jack Del Rio            60.0%  10  [31,83]
+  Marvin Lewis            56.2%  16  [33,77]
+  John Fox                56.2%  16  [33,77]
+  Ron Rivera              53.8%  13  [29,77]
+  Mike McCarthy           47.1%  17  [26,69]
+  Tom Coughlin            46.7%  15  [25,70]
+  Andy Reid               46.2%  26  [29,65]
+  Jeff Fisher             43.8%  16  [23,67]
+  John Harbaugh           41.2%  17  [22,64]
+  coaches >=65%: observed=4 vs null mean=3.1 (95th=6) -> within chance
+
+========================================================================
+POST-BYE ATS by coach (n>=10); baseline 50.4%
+========================================================================
+  coach                  cover%   n         CI
+  Mike McCarthy           76.5%  17  [53,90]
+  Jeff Fisher             62.5%  16  [39,82]
+  Jon Gruden              61.5%  13  [36,82]
+  John Harbaugh           61.1%  18  [39,80]
+  Andy Reid               59.3%  27  [41,75]
+  Mike Tomlin             57.9%  19  [36,77]
+  Mike Shanahan           57.1%  14  [33,79]
+  John Fox                56.2%  16  [33,77]
+  Sean Payton             55.6%  18  [34,75]
+  Bill Belichick          52.2%  23  [33,71]
+  Gary Kubiak             40.0%  10  [17,69]
+  Marvin Lewis            37.5%  16  [18,61]
+  Lovie Smith             36.4%  11  [15,65]
+  Ron Rivera              30.8%  13  [13,58]
+  Mike Holmgren           10.0%  10  [2,40]
+  coaches >=65%: observed=1 vs null mean=2.2 (95th=5) -> within chance

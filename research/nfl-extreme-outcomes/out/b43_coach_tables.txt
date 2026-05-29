@@ -1,0 +1,31 @@
+[coach table] current (active-2025) coaches: 32
+               coach  pre_n  pre_pct  post_n  post_pct
+         Aaron Glenn      1    100.0       1     100.0
+Brian Schottenheimer      1      0.0       1     100.0
+         Ben Johnson      1    100.0       1     100.0
+      Mike Macdonald      2     50.0       2     100.0
+         Mike Vrabel      7     57.1       7      85.7
+       Nick Sirianni      5     80.0       4      75.0
+      Sean McDermott      9     55.6       7      71.4
+      Shane Steichen      3     33.3       3      66.7
+       John Harbaugh     17     41.2      18      61.1
+        Dan Campbell      5     60.0       5      60.0
+           Andy Reid     26     46.2      27      59.3
+         Mike Tomlin     19     63.2      19      57.9
+
+[matchups] bye-spot collision games (both teams pre/post-bye): 214
+  ** IN-SAMPLE/CIRCULAR (coach% includes these games): gap>=15 edge covered 82.4% (n=125)
+  cleaner (both coaches n>=8, still in-sample): gap>=15 edge covered 73.7% (n=19)
+  recent mismatch examples (gap>=20):
+    2025 wk13: Brian Daboll(pre 25%) @ Mike Vrabel(pre 57%) -> edge=NE COVERED
+    2025 wk11: Dan Quinn(pre 29%) @ Mike McDaniel(pre 75%) -> edge=MIA COVERED
+    2025 wk10: Kevin Stefanski(post 17%) @ Aaron Glenn(post 100%) -> edge=NYJ COVERED
+    2025 wk9: Jonathan Gannon(post 33%) @ Brian Schottenheimer(pre 0%) -> edge=ARI COVERED
+    2025 wk9: Liam Coen(post 0%) @ Pete Carroll(post 47%) -> edge=LV COVERED
+    2025 wk7: Sean McVay(pre 50%) @ Liam Coen(pre 0%) -> edge=LA COVERED
+    2024 wk13: DeMeco Ryans(pre 67%) @ Doug Pederson(post 38%) -> edge=HOU no
+    2024 wk10: Brian Daboll(pre 25%) @ Dave Canales(pre 100%) -> edge=CAR COVERED
+    2024 wk8: Mike McCarthy(post 76%) @ Kyle Shanahan(pre 44%) -> edge=DAL no
+    2024 wk13: Shane Steichen(pre 33%) @ Jerod Mayo(pre 100%) -> edge=NE COVERED
+
+[sql] wrote out/sql/coach_bye_ats.sql (32 rows) + coach_bye_matchups.sql (214 rows)

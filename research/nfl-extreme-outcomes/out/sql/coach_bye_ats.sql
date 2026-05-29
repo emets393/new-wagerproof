@@ -1,0 +1,37 @@
+CREATE TABLE IF NOT EXISTS public.nfl_coach_bye_ats (coach text PRIMARY KEY, first_season int, last_season int, pre_n int, pre_pct numeric, post_n int, post_pct numeric);
+ALTER TABLE public.nfl_coach_bye_ats ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS read_all ON public.nfl_coach_bye_ats; CREATE POLICY read_all ON public.nfl_coach_bye_ats FOR SELECT USING (true);
+TRUNCATE public.nfl_coach_bye_ats;
+INSERT INTO public.nfl_coach_bye_ats (coach,first_season,last_season,pre_n,pre_pct,post_n,post_pct) VALUES
+('Aaron Glenn',2025,2025,1,100.0,1,100.0),
+('Andy Reid',1999,2025,26,46.2,27,59.3),
+('Ben Johnson',2025,2025,1,100.0,1,100.0),
+('Brian Callahan',2024,2025,2,100.0,2,50.0),
+('Brian Daboll',2022,2025,4,25.0,4,50.0),
+('Brian Schottenheimer',2025,2025,1,0.0,1,100.0),
+('Dan Campbell',2021,2025,5,60.0,5,60.0),
+('Dan Quinn',2015,2025,7,28.6,7,57.1),
+('Dave Canales',2024,2025,2,100.0,2,50.0),
+('DeMeco Ryans',2023,2025,3,66.7,3,33.3),
+('Jim Harbaugh',2011,2025,6,66.7,6,50.0),
+('John Harbaugh',2008,2025,17,41.2,18,61.1),
+('Jonathan Gannon',2023,2025,3,100.0,3,33.3),
+('Kellen Moore',2025,2025,1,100.0,1,0.0),
+('Kevin O''Connell',2022,2025,4,75.0,3,33.3),
+('Kevin Stefanski',2020,2025,6,16.7,6,16.7),
+('Kyle Shanahan',2017,2025,9,44.4,9,44.4),
+('Liam Coen',2025,2025,1,0.0,1,0.0),
+('Matt LaFleur',2019,2025,7,57.1,7,28.6),
+('Mike Macdonald',2024,2025,2,50.0,2,100.0),
+('Mike McDaniel',2022,2025,4,75.0,4,25.0),
+('Mike Tomlin',2007,2025,19,63.2,19,57.9),
+('Mike Vrabel',2018,2025,7,57.1,7,85.7),
+('Nick Sirianni',2021,2025,5,80.0,4,75.0),
+('Pete Carroll',1999,2025,16,68.8,15,46.7),
+('Raheem Morris',2009,2025,6,33.3,6,50.0),
+('Sean McDermott',2017,2025,9,55.6,7,71.4),
+('Sean McVay',2017,2025,8,50.0,9,44.4),
+('Sean Payton',2006,2025,18,72.2,18,55.6),
+('Shane Steichen',2023,2025,3,33.3,3,66.7),
+('Todd Bowles',2011,2025,8,62.5,8,37.5),
+('Zac Taylor',2019,2025,7,42.9,7,42.9);
