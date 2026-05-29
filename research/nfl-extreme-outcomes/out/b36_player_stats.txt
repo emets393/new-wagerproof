@@ -1,0 +1,8 @@
+[pull] all seasons: (147223, 115)  seasons [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+[cols] ['air_yards_share', 'attempts', 'carries', 'def_interception_yards', 'def_sack_yards', 'def_tackles_for_loss_yards', 'def_tds', 'fumble_recovery_tds', 'fumble_recovery_yards_opp', 'fumble_recovery_yards_own', 'kickoff_return_yards', 'misc_yards', 'opponent_team', 'passing_air_yards', 'passing_tds', 'passing_yards', 'passing_yards_after_catch', 'penalty_yards', 'player_id', 'position', 'position_group', 'punt_return_yards', 'receiving_air_yards', 'receiving_tds', 'receiving_yards', 'receiving_yards_after_catch', 'receptions', 'rushing_tds', 'rushing_yards', 'sack_yards_lost']
+
+[save] player_offense.parquet: (44078, 20)  seasons 2018-2025
+[check] rows w/ rushing_tds col: True, receiving_tds: True
+[check] player-games: 44078 | anytime-TD rate (any rush/rec TD): 20.8%
+[check] player-games joined to a birthdate: 100.0%  (enables the birthday-TD analysis)
+[sanity] top career rec-TD in window: {'D.Adams': 96, 'T.Hill': 89, 'A.Brown': 87}

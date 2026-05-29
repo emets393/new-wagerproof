@@ -14,6 +14,7 @@ This is the consolidation step — no more feature mining; we forward-test what'
 | `wind_under` | forecast wind ≥15 mph | UNDER @ opener | best CLV of the set |
 | `legacy_fade` | legacy EPA spread prob ≥.80 / ≤.20, **non-primetime** | bet the OPPOSITE side @ opener | model is anti-calibrated at extremes (dose-response to 65%+) |
 | `legacy_primetime` | **primetime** game w/ a legacy spread pick | FOLLOW the legacy side @ opener | legacy's primetime specialty (61.8% 2025) |
+| `week1_def_under` | **Week 1** only, defenses out-class offenses (Madden `o_minus_d` in bottom third) | UNDER @ opener | WATCH flag — b35 ~60% but n~40/8yr; accumulates W1 games |
 
 **Legacy dependency:** the two `legacy_*` rules pull `nfl_predictions_epa` (project `jpxnjuwglavsjbgbasnl`) FRESH each run
 via `load_legacy()` and join by `unique_id` (earliest snapshot = pregame). If the legacy model isn't producing
@@ -70,7 +71,8 @@ Train 2018–2024, generate for 2025 (true single-season held-out), graded vs op
 | wind_under | 62.1% (n=29) | +18.5% | +2.16 |
 | legacy_fade | 65.2% (n=23) | +24.5% | +0.80 |
 | legacy_primetime | 59.6% (n=57) | +13.9% | −0.03 |
-| **ALL** | **57.2% (n=395)** | **+9.2%** | +0.10 |
+| week1_def_under | 66.7% (n=3, watch) | +27.3% | +0.33 |
+| **ALL** | **57.3% (n=398)** | **+9.4%** | +0.10 |
 
 Reproduces the held-out picture: **totals spots are the moneymaker; the full-slate sides model is marginal**
 (2025 was its soft year, as flagged). 2026 live results go in the same ledger to confirm.

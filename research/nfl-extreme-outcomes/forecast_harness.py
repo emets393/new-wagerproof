@@ -97,6 +97,26 @@ def build():
     # ---- legacy EPA model spread prob (for fade + primetime-follow rules) ----
     leg=load_legacy()
     m=m.merge(leg,on="unique_id",how="left") if len(leg) else m.assign(leg_sp=np.nan)
+    # ---- Week-1 Madden team off/def ratings (PRESEASON expected starters by OVR; forward-usable at bet time) ----
+    if mad is not None and len(mad):
+        NICK={'49ers':'SF','cardinals':'ARI','falcons':'ATL','ravens':'BAL','bills':'BUF','panthers':'CAR','bears':'CHI',
+         'bengals':'CIN','browns':'CLE','cowboys':'DAL','broncos':'DEN','lions':'DET','packers':'GB','texans':'HOU',
+         'colts':'IND','jaguars':'JAX','chiefs':'KC','chargers':'LAC','rams':'LAR','dolphins':'MIA','vikings':'MIN',
+         'patriots':'NE','saints':'NO','giants':'NYG','jets':'NYJ','eagles':'PHI','steelers':'PIT','seahawks':'SEA',
+         'buccaneers':'TB','titans':'TEN','commanders':'WAS','redskins':'WAS','team':'WAS'}
+        def _ab(t,s):
+            tok=str(t).split(); last=tok[-1].lower() if tok else ''
+            return ('OAK' if s<=2019 else 'LV') if last=='raiders' else NICK.get(last)
+        mm=mad[mad.status=="matched"].copy(); mm["ab"]=[_ab(t,s) for t,s in zip(mm.team,mm.season)]; mm=mm.dropna(subset=["ab"])
+        OFFP={'QB','HB','FB','WR','TE','LT','LG','C','RG','RT'}; DEFP={'LE','RE','DT','NT','LOLB','MLB','ROLB','CB','FS','SS'}
+        offr=mm[mm.pos.isin(OFFP)].sort_values("ovr",ascending=False).groupby(["season","ab"]).head(11).groupby(["season","ab"]).ovr.mean().rename("off_rtg")
+        defr=mm[mm.pos.isin(DEFP)].sort_values("ovr",ascending=False).groupby(["season","ab"]).head(11).groupby(["season","ab"]).ovr.mean().rename("def_rtg")
+        rr=pd.concat([offr,defr],axis=1).reset_index()
+        for side in ["home","away"]:
+            m=m.merge(rr.rename(columns={"ab":f"{side}_ab","off_rtg":f"{side}_off_rtg","def_rtg":f"{side}_def_rtg"}),on=["season",f"{side}_ab"],how="left")
+        m["o_minus_d"]=(m.home_off_rtg-m.away_def_rtg)+(m.away_off_rtg-m.home_def_rtg)  # high=offenses favored, low=defenses dominate
+    else:
+        m["o_minus_d"]=np.nan
     return m, BASE
 
 def train_predict(m, BASE, target):
@@ -109,6 +129,7 @@ def train_predict(m, BASE, target):
 def generate(m, BASE, target, week=None):
     """Produce ledger rows (picks logged at the OPENER) for target season (optionally one week)."""
     od=pd.read_parquet(os.path.join(DATA,"odds_consensus.parquet"))
+    W1CUT=m[m.week==1].o_minus_d.quantile(0.33) if m.o_minus_d.notna().any() else None  # defense-dominant W1 cutoff
     te=train_predict(m,BASE,target)
     te=te.merge(od[["season","home_ab","away_ab","open_spread","open_total","close_spread","close_total"]],on=["season","home_ab","away_ab"],how="left")
     if week is not None: te=te[te.week==week]
@@ -145,6 +166,11 @@ def generate(m, BASE, target, week=None):
                 rows.append(dict(pick_id=gid+"-LF",season=g.season,week=int(g.week),game=mtchp,rule="legacy_fade",
                     market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
                     bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(abs(lsp-0.5),3)))
+        # WEEK-1 WATCH: defenses out-class offenses -> UNDER (b35 ~60%, thin -> tracking flag only)
+        omd=g.get("o_minus_d",np.nan)
+        if int(g.week)==1 and W1CUT is not None and pd.notna(omd) and omd<=W1CUT and pd.notna(g.open_total):
+            rows.append(dict(pick_id=gid+"-W1U",season=g.season,week=int(g.week),game=mtchp,rule="week1_def_under",
+                market="total",side=f"UNDER {g.open_total:g}",bet_home=-2,open_num=g.open_total,close_num=g.close_total,edge=round(float(omd),1)))
     led=pd.DataFrame(rows)
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv")
     if os.path.exists(path):
@@ -179,7 +205,7 @@ def report(target):
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv"); led=pd.read_csv(path)
     g=led.dropna(subset=["win"])
     L(f"\n{'='*78}\nFORWARD-TEST REPORT {target}  (graded picks: {len(g)} / logged: {len(led)})\n{'='*78}")
-    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","ALL"]:
+    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","ALL"]:
         s=g if rule=="ALL" else g[g.rule==rule]
         if len(s)==0: L(f"  {rule:18s}: (none yet)"); continue
         k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100

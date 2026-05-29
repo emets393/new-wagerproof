@@ -1,0 +1,29 @@
+[build] W1 snap rows 18814; with Madden OVR 59%
+[build] team-season W1 ratings: 256  off 78.5 def 79.0 team 78.7
+[build] W1 games with both teams rated: 128 (over 2018-2025)
+
+==============================================================================
+BETTER TEAM by rating -> WIN (ML) and COVER (ATS vs close), Week 1
+==============================================================================
+  better OVERALL:
+      wins (ML)                           66.4%  n=128  CI[58,74]
+      covers (ATS)                        53.2%  n=126  CI[44,62]
+  better OFFENSE:
+      wins (ML)                           62.5%  n=128  CI[54,70]
+      covers (ATS)                        47.6%  n=126  CI[39,56]
+  better DEFENSE:
+      wins (ML)                           53.9%  n=128  CI[45,62]
+      covers (ATS)                        48.4%  n=126  CI[40,57]
+  talent MISMATCH (|team rating diff|>=3) -> does the better team cover?
+    big talent gap -> better team ATS     46.3%  n=41  CI[32,61]
+
+==============================================================================
+TOTALS — offense/defense talent -> OVER/UNDER (vs close), Week 1
+==============================================================================
+    top-third combined OFFENSE               OVER  52.4%  n= 42  CI[38,67]
+    bottom-third combined OFFENSE            OVER  42.9%  n= 42  CI[29,58]
+    top-third combined DEFENSE               OVER  42.9%  n= 42  CI[29,58]
+    bottom-third combined DEFENSE            OVER  50.0%  n= 42  CI[36,64]
+    offenses >> defenses (shootout setup)    OVER  52.4%  n= 42  CI[38,67]
+    defenses >> offenses (weak O vs strong D) OVER  38.1%  n= 42  CI[25,53]
+    one O badly outmatched by opp D          OVER  37.5%  n= 32  CI[23,55]

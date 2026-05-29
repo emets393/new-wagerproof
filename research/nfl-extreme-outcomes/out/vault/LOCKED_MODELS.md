@@ -13,13 +13,16 @@ HistGradientBoostingClassifier; bet the confident side (|p-0.5| >= .03) vs the o
 
 **Features (33):** PR core (pr_diff, home/away predictive_pr, last5_diff, home/away consistency)
 + proven flags (home_dog_7_10, away_dog_7_10, div/conf/league, primetime, week, home_fav, abs_spread)
-+ defense (dprod_team_diff, h/a_dprod_team) + injury (air_diff) + referee (4)
++ injury (air_diff) + referee (4)
 + **schedule spots** (h/a pre_bye, blowout_win_last, blowout_loss_last, third_road, div_revenge).
-**Dropped:** pass-rush facet (it *hurt*: 55.6 -> 53.7).
+**Dropped:** pass-rush facet (hurt: 55.6→53.7); **defense features** (dprod_team_diff/h/a_dprod_team —
+leave-one-out ablation b30 showed they overfit: cutting them improved held-out 55.6→56.4% & CLV +0.14→+0.27).
 
-**Held-out 2024-25:** conf>=.03 → **55.6%, +6.2% ROI** (n=383); conf>=.10 → 57.8%.
-**Per-season caveat:** 2024 **58.2%** vs 2025 **53.1%** — pooled number is 2024-weighted.
+**Held-out 2024-25 (refined, defense cut):** conf>=.03 → **56.4%, CLV +0.27** (n=369); baseline w/ defense 55.6%.
+**Per-season caveat:** 2024 ~58% vs 2025 ~53% — pooled number is 2024-weighted.
 Status: *promising, NOT confirmed.* CI[51,61] touches breakeven. 2025 is the soft year to watch.
+New sides flags (rest/short-week/big-fav/div-late/off-bye) FAIL the permutation null (b30: real 3 ≤ null 4) —
+ATS trend well is tapped; do not add. `div_late` (57.6%, 53/60/59) = WATCH only.
 
 ## 2. TOTALS model (full-slate O/U) — `b15_totals.py`
 
@@ -49,6 +52,13 @@ totals *pricing inefficiencies* around injuries/weather, not a model that beats 
   is a floor-raising refinement, not a transformation.
 
 ---
+
+## Forward-test harness (the consolidation step)
+`forecast_harness.py` (+ `README_HARNESS.md`) freezes all of the above and produces a weekly pick ledger
+with CLV tracking. Run `--dry-run 2025` to validate (reproduces: sides 52.1%, receiver_over 73-78%,
+wind_under 62.1%, ALL 56.2% / +22.9u), then `--season 2026 --week N` weekly, `--grade`/`--report` after.
+Madden-gap-safe (high-conviction OVER tier auto-disables until 2026 launch ratings load). 2026 live results
+go in `out/forecast_ledger_2026.csv` — sustained +CLV over breakeven is the confirmation signal.
 
 ## Website product shape
 - **Sides:** full-slate model picks (~53-55%, lean on the confident tier), tracked w/ CLV.

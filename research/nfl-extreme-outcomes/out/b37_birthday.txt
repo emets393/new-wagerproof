@@ -1,0 +1,22 @@
+[build] player-games w/ date+birthdate: 43746 (100% dated)
+[build] exact-birthday games played: 131 | within +/-3 days: 886
+
+==============================================================================
+EXACT BIRTHDAY — observed anytime-TDs vs expected (player's own baseline)
+==============================================================================
+  ALL players                games= 131  observed= 32  expected= 27.7  ratio=1.16  MC p=0.334
+  QB                         games=  14  observed=  3  expected=  1.7  ratio=1.79  MC p=0.453
+  RB                         games=  33  observed= 11  expected=  9.2  ratio=1.19  MC p=0.552
+  WR                         games=  57  observed= 14  expected= 11.5  ratio=1.22  MC p=0.442
+  TE                         games=  26  observed=  4  expected=  5.1  ratio=0.79  MC p=0.752
+
+  raw rates: birthday anytime-TD rate vs baseline:
+    birthday games anytime-TD rate = 24.4%  |  their expected baseline = 21.1%  |  league all-games = 20.9%
+
+==============================================================================
+SENSITIVITY — 'birthday week' windows (more games, less exact)
+==============================================================================
+  within +/-0 days           games= 131  observed= 31  expected= 26.4  ratio=1.17  MC p=0.307
+  within +/-1 days           games= 379  observed= 86  expected= 75.6  ratio=1.14  MC p=0.154
+  within +/-3 days           games= 886  observed=174  expected=173.7  ratio=1.00  MC p=1.011
+  within +/-7 days           games=1883  observed=356  expected=371.9  ratio=0.96  MC p=0.324
