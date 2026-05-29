@@ -1,0 +1,48 @@
+============================================================================================
+BENEFICIARIES — does the stat RISE with a backup QB? (paired by player-season, starter->backup)
+============================================================================================
+ RUNNING BACKS:
+  RB receptions/g                    n=590 | 1.55 -> 1.65  (delta +0.10, p=0.074)
+  RB rec-yds/g                       n=590 | 11.68 -> 11.30  (delta -0.38, p=0.441)
+  RB carries/g                       n=590 | 7.12 -> 7.17  (delta +0.05, p=0.768)
+  RB rush-yds/g                      n=590 | 29.81 -> 29.59  (delta -0.22, p=0.827)
+ short-aDOT WRs (<8, possession/slot):
+  short-WR targets/g                 n=135 | 4.55 -> 4.75  (delta +0.19, p=0.402)
+  short-WR rec/g                     n=135 | 3.12 -> 3.16  (delta +0.04, p=0.825)
+  short-WR rec-yds/g                 n=135 | 32.65 -> 31.19  (delta -1.46, p=0.490)
+ TIGHT ENDS:
+  TE receptions/g                    n=466 | 2.09 -> 2.11  (delta +0.03, p=0.645)
+  TE rec-yds/g                       n=466 | 21.85 -> 21.24  (delta -0.61, p=0.384)
+  TE targets/g                       n=466 | 3.03 -> 3.15  (delta +0.12, p=0.072)
+ injury-confirmed (primary Out) — RB receptions & rec-yds, TE rec-yds:
+  RB receptions/g (inj)              n=262 | 1.51 -> 1.67  (delta +0.16, p=0.067)
+  RB rec-yds/g (inj)                 n=262 | 11.38 -> 12.09  (delta +0.71, p=0.390)
+  TE rec-yds/g (inj)                 n=197 | 23.35 -> 22.15  (delta -1.19, p=0.319)
+
+ RB receptions — biggest RISERS (career, >=4 backup games):
+  player                  start backup   rise nBack
+  L.Bell                    2.1    5.5   +3.4     4
+  T.Benson                  0.5    3.2   +2.8     4
+  Bre.Hall                  3.5    6.2   +2.6     6
+  M.Gaskin                  1.8    4.2   +2.3    13
+  Mi.Carter                 1.8    3.8   +2.0    12
+  T.Cohen                   4.2    6.0   +1.8     5
+  D.Sproles                 1.1    2.8   +1.7     6
+  D.Montgomery              2.0    3.2   +1.2    18
+  K.Gainwell                2.0    3.2   +1.2    10
+  C.Ivory                   0.6    1.8   +1.2     4
+  group avg (n=154): 1.66->1.74 (+0.07)
+
+ RB receiving yards — biggest RISERS (career, >=4 backup games):
+  player                  start backup   rise nBack
+  T.Cohen                  31.7   53.4  +21.7     5
+  D.Sproles                 7.2   26.8  +19.6     6
+  L.Bell                   15.7   35.2  +19.5     4
+  T.Tracy                  11.6   28.3  +16.7    12
+  Mi.Carter                12.8   29.3  +16.5    12
+  M.Gaskin                 14.0   26.7  +12.7    13
+  D.Evans                   3.6   16.0  +12.4     5
+  T.Benson                  4.9   16.0  +11.1     4
+  D.Williams                5.2   15.8  +10.6     4
+  D.Jackson                12.4   22.2   +9.8     5
+  group avg (n=154): 12.64->12.12 (-0.52)

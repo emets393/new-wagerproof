@@ -1,0 +1,36 @@
+[build] team-weeks: 4409 | backup-QB starts: 727 | injury-confirmed (primary Out): 191
+
+==============================================================================================
+POSITION-GROUP TARGET SHARE: backup-QB games vs the team's own starter games (paired)
+==============================================================================================
+  RB target share                    starter=0.191 backup=0.200  delta=+0.009  (58% teams up, n=172, p=0.079)
+  TE target share                    starter=0.223 backup=0.223  delta=+0.000  (51% teams up, n=172, p=0.945)
+  WR target share                    starter=0.585 backup=0.576  delta=-0.010  (44% teams up, n=172, p=0.138)
+  RB rush attempts/game (team RB carries):
+  RB carries/game                    starter=21.449 backup=21.090  delta=-0.359  (48% teams up, n=172, p=0.349)
+  team total pass attempts proxy (team targets/game):
+  team targets/game                  starter=31.860 backup=31.925  delta=+0.065  (46% teams up, n=172, p=0.895)
+
+==============================================================================================
+RECEIVER ARCHETYPE (aDOT) target-share shift with backup QB
+==============================================================================================
+  short(<7) aDOT target share        starter=0.192 backup=0.192  delta=-0.001  (50% teams up, n=139, p=0.926)
+  mid(7-11) aDOT target share        starter=0.334 backup=0.336  delta=+0.002  (52% teams up, n=157, p=0.826)
+  deep(>11) aDOT target share        starter=0.316 backup=0.293  delta=-0.022  (42% teams up, n=161, p=0.006)
+
+==============================================================================================
+PLAYER SPIKES — targets/game in backup-QB games vs starter games (>=3 backup games)
+==============================================================================================
+  player                 startTg backTg  delta nBack
+  P.Garcon                   1.0    7.0   +6.0     5
+  P.Williams                10.0   12.0   +2.0     5
+  H.Fannin                   7.0    9.0   +2.0     6
+  K.Cole Sr.                 6.0    7.0   +1.0     4
+  E.Moore                   34.0   35.0   +1.0     5
+  M.Nabers                   9.0   10.0   +1.0    10
+  Di.Johnson                 4.0    5.0   +1.0     7
+  K.Wilkerson                1.0    1.0   +0.0     3
+  G.Tate III                 2.0    2.0   +0.0     3
+  L.Shenault Jr.             6.0    5.0   -1.0     4
+  C.Thompson                14.0   13.0   -1.0     5
+  Dio.Johnson                2.0    1.0   -1.0    14
