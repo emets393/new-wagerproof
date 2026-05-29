@@ -1,0 +1,44 @@
+==============================================================================================
+PART 1 — MECHANISM: do attribute mismatches predict passing OUTPUT? (and beyond team quality?)
+==============================================================================================
+  n=4391. corr with CPOE (raw | partial after removing pass-quality-diff):
+    m_wr_db_speed                      raw r=+0.010   partial r=+0.006
+    m_wr_cb_speed                      raw r=+0.016   partial r=+0.013
+    m_wr_cb_wt                         raw r=-0.006   partial r=-0.008
+    m_wr_cb_ht                         raw r=+0.010   partial r=+0.009
+    m_wr_db_agility                    raw r=+0.033   partial r=+0.028
+    m_ol_pr_str                        raw r=-0.013   partial r=-0.012
+    m_wr_acc                           raw r=+0.006   partial r=+0.007
+    H1_fastWR_protect_vs_slowbigD      raw r=+0.000   partial r=+0.006
+    H2_bigWR_vs_smallCB                raw r=-0.010   partial r=-0.008
+    off_pass_quality_diff              raw r=+0.125   partial r=   n/a
+  walk-forward OOS corr predicting CPOE:  quality-only=+0.066   quality+mismatches=+0.045
+  (if quality+mismatches ~ quality-only, the attribute matchups add NO on-field passing signal)
+
+==============================================================================================
+PART 2 — BETTING: quartile spots vs the CLOSE, with PERMUTATION NULL (FP control)
+==============================================================================================
+
+  [off_cover] real passers=0  vs null mean=0.1 (95th pct=1)  -> NO signal (within noise)
+     top: m_ol_pr_str_LO                     51.6% (n=1090) CI[49,55]
+     top: m_wr_cb_speed_LO                   51.0% (n=1323) CI[48,54]
+     top: m_wr_acc_HI                        50.9% (n=1145) CI[48,54]
+     top: m_wr_db_agility_LO                 50.7% (n=1089) CI[48,54]
+
+  [over_close] real passers=0  vs null mean=0.0 (95th pct=0)  -> NO signal (within noise)
+     top: m_wr_cb_speed_HI                   51.8% (n=1123) CI[49,55]
+     top: m_wr_db_speed_HI                   50.5% (n=1105) CI[48,53]
+     top: m_wr_db_agility_HI                 49.5% (n=1111) CI[47,52]
+     top: m_ol_pr_str_LO                     49.5% (n=1103) CI[47,52]
+
+==============================================================================================
+THE USER'S NAMED HYPOTHESES (top-quartile), vs CLOSE + per-season
+==============================================================================================
+  fast WR + protection vs slow/big secon ATS     : 48.7% (n=1079) CI[46,52]
+  fast WR + protection vs slow/big secon OVER    : 49.6% (n=1097) CI[47,53]
+  fast WR + protection vs slow/big secon ATS-open: 14.8% (n=1105) CI[13,17]
+     -> CPOE in spot +0.13 vs league +0.06 (pass output UP)
+  big WR vs small CB                     ATS     : 49.5% (n=1093) CI[47,52]
+  big WR vs small CB                     OVER    : 48.9% (n=1103) CI[46,52]
+  big WR vs small CB                     ATS-open: 22.2% (n=1106) CI[20,25]
+     -> CPOE in spot -0.07 vs league +0.06 (pass output flat/down)

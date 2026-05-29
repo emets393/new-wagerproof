@@ -1,0 +1,24 @@
+==========================================================================================
+ABLATION — predict team game points (walk-forward OOS), which groups help? team-points MAE + game corr
+==========================================================================================
+  +PR    (feats= 2): team-pts MAE=7.68  game margin corr=0.390  total corr=0.101
+  +PPD   (feats= 4): team-pts MAE=7.75  game margin corr=0.386  total corr=0.069
+  +EPA   (feats= 8): team-pts MAE=7.81  game margin corr=0.376  total corr=0.024
+  +PACE  (feats=10): team-pts MAE=7.86  game margin corr=0.367  total corr=0.019
+  +HFA   (feats=11): team-pts MAE=7.82  game margin corr=0.355  total corr=0.029
+  [market benchmark] margin corr=0.458   total corr=0.320
+
+  leave-one-out (drop each group from FULL; corr DROP = it was helping):
+    drop PR   : margin corr 0.211 (-0.144)  total corr 0.001 (-0.028)
+    drop PPD  : margin corr 0.355 (-0.000)  total corr 0.021 (-0.008)
+    drop EPA  : margin corr 0.373 (+0.018)  total corr 0.078 (+0.049)
+    drop PACE : margin corr 0.367 (+0.012)  total corr 0.031 (+0.002)
+    drop HFA  : margin corr 0.367 (+0.012)  total corr 0.019 (-0.010)
+
+==========================================================================================
+RECALIBRATED model-mean vs the OPENER (held-out 2024-25) — does it beat the line now?
+==========================================================================================
+  SPREAD |edge|>=2 vs open: 49.4% (n=231) CI[43,56]
+  SPREAD |edge|>=3 vs open: 50.0% (n=150) CI[42,58]
+  TOTAL  |edge|>=2 vs open: 50.5% (n=311) CI[45,56]
+  TOTAL  |edge|>=3 vs open: 49.6% (n=232) CI[43,56]

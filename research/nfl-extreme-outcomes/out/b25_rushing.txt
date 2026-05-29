@@ -1,0 +1,21 @@
+==========================================================================================
+RUSHING — mechanism: do OL/RB mismatches predict rush-yards-over-expected?
+==========================================================================================
+  m_ol_dl_str        corr with RYOE: r=+0.049
+  m_ol_dl_wt         corr with RYOE: r=+0.024
+  m_rb_lb_speed      corr with RYOE: r=-0.040
+  m_rb_box_agility   corr with RYOE: r=-0.054
+  m_rb_power         corr with RYOE: r=+0.082
+  (n=3844)
+
+==========================================================================================
+RUSHING — betting: quartile spots -> offense ATS + game UNDER (close), permutation null
+==========================================================================================
+  [off_cover] real passers=0 vs null mean=0.0 (95th=0) -> NO signal
+     top: m_ol_dl_wt_LO        51.6% (n=1087) CI[49,55]
+     top: m_ol_dl_str_LO       51.5% (n=1104) CI[49,54]
+     top: m_rb_box_agility_LO  51.4% (n=1119) CI[48,54]
+  [under_close] real passers=1 vs null mean=0.5 (95th=2) -> NO signal
+     top: m_rb_box_agility_HI  54.8% (n=1122) CI[52,58]
+     top: m_ol_dl_str_LO       52.8% (n=1109) CI[50,56]
+     top: m_rb_lb_speed_LO     52.5% (n=1111) CI[50,55]

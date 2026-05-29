@@ -12,6 +12,14 @@ This is the consolidation step — no more feature mining; we forward-test what'
 | `receiver_over` | a WR/TE Out/Doubtful w/ prior NGS air-share ≥35% | OVER @ opener | standard tier |
 | `receiver_over_HC` | same **AND** that player's Madden OVR ≥80 | OVER @ opener | high-conviction (needs Madden) |
 | `wind_under` | forecast wind ≥15 mph | UNDER @ opener | best CLV of the set |
+| `legacy_fade` | legacy EPA spread prob ≥.80 / ≤.20, **non-primetime** | bet the OPPOSITE side @ opener | model is anti-calibrated at extremes (dose-response to 65%+) |
+| `legacy_primetime` | **primetime** game w/ a legacy spread pick | FOLLOW the legacy side @ opener | legacy's primetime specialty (61.8% 2025) |
+
+**Legacy dependency:** the two `legacy_*` rules pull `nfl_predictions_epa` (project `jpxnjuwglavsjbgbasnl`) FRESH each run
+via `load_legacy()` and join by `unique_id` (earliest snapshot = pregame). If the legacy model isn't producing
+predictions (table empty) the rules simply don't fire — harness still runs. Decision tree per game: **primetime →
+follow; non-primetime extreme (≥.80/≤.20) → fade; otherwise no legacy bet** (legacy has no edge in non-PT non-extreme spots).
+Both are **single-season (2025) signals** — the whole point of logging them is 2026 out-of-sample confirmation.
 
 ## Run modes
 
@@ -60,7 +68,9 @@ Train 2018–2024, generate for 2025 (true single-season held-out), graded vs op
 | receiver_over | 77.8% (n=18) | +48.5% | +0.03 |
 | receiver_over_HC | 73.1% (n=26) | +39.5% | −0.56 |
 | wind_under | 62.1% (n=29) | +18.5% | +2.16 |
-| **ALL** | **56.2% (n=315)** | **+7.3%** | +0.07 |
+| legacy_fade | 65.2% (n=23) | +24.5% | +0.80 |
+| legacy_primetime | 59.6% (n=57) | +13.9% | −0.03 |
+| **ALL** | **57.2% (n=395)** | **+9.2%** | +0.10 |
 
 Reproduces the held-out picture: **totals spots are the moneymaker; the full-slate sides model is marginal**
 (2025 was its soft year, as flagged). 2026 live results go in the same ledger to confirm.

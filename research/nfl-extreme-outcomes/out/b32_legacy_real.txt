@@ -1,0 +1,26 @@
+[pull ] nfl_predictions_epa ...
+[saved] nfl_predictions_epa: (978, 23) -> /Users/chrishabib/Documents/new-wagerproof/research/nfl-extreme-outcomes/data/nfl_predictions_epa.parquet
+[legacy] 254 games (earliest snapshot). spread prob range 0.05-0.94
+[join] 2025 games matched to legacy: 236 / our 2025 games 236  (join 100%)
+
+==================================================================================
+LEGACY 2025 standalone (vs CLOSE): spread accuracy, primetime, .40/.60 buckets, OU
+==================================================================================
+  spread acc all: 51.3% (n=236)  | PRIMETIME: 59.6% (n=52)
+  O/U acc all: 48.3% (n=236)  | PRIMETIME: 48.1% (n=52)
+  spread confidence buckets -> actual home-cover rate:
+    leg_spread[0.0-0.40): home covers 48.2% (n=83)
+    leg_spread[0.4-0.50): home covers 51.5% (n=33)
+    leg_spread[0.5-0.60): home covers 44.2% (n=43)
+    leg_spread[0.6-1.01): home covers 55.8% (n=77)
+
+==================================================================================
+AGREEMENT — OUR pick filtered by LEGACY confident split, graded vs the OPENER (2025)
+==================================================================================
+  OUR model alone (2025)                    : n=194 hit=53.1% CI[46,60]
+  LEGACY confident alone (>=.60/<=.40)      : n=158 hit=51.9% CI[44,60]
+  OUR + LEGACY agree & confident            : n=84 hit=51.2% CI[41,62]
+    ^ primetime subset                      : n=21 hit=57.1% CI[37,76]
+  OUR pick but LEGACY DISAGREES (fade check): n=46 hit=50.0% CI[36,64]
+
+  corr(legacy_spread, our) = 0.308

@@ -1,0 +1,18 @@
+========================================================================================
+MARKET-ANCHORED SIM: spread-implied win prob vs the MONEYLINE (derivative-market edge?)
+========================================================================================
+  n=472  mean |spread_pwin - ml_pwin| = 2.99%  (small = ML already consistent w/ spread)
+  |edge|>=2%: bets=305 win%=23.3% CI[19,28] ROI=+43.8%
+  |edge|>=3%: bets=228 win%=25.0% CI[20,31] ROI=+76.0%
+  |edge|>=5%: bets=45 win%=31.1% CI[20,46] ROI=+466.4%
+
+========================================================================================
+ENGINE DEMO — coherent derivative pricing around the market (what the sim is FOR)
+========================================================================================
+  Given market total T and sd~10, the sim yields any derivative price coherently. Examples:
+    total=44.0: P(OVER by 3+ alt)=38%  P(a team scores 28+)=21%
+    total=47.5: P(OVER by 3+ alt)=38%  P(a team scores 28+)=29%
+    total=51.0: P(OVER by 3+ alt)=38%  P(a team scores 28+)=37%
+  When key-receiver-out fires (proven OVER edge ~+1.7 exp pts the market under-prices), shift T up ->
+  the sim reprices OVER, team-totals, and alt-overs together; bet where the book's derivative lags.
+  (NOTE: monetizing alt-lines/team-totals needs those ODDS, which we don't currently have.)

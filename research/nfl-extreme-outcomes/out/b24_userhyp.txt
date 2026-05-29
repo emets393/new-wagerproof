@@ -1,0 +1,10 @@
+THE USER'S NAMED HYPOTHESES (top-quartile), vs CLOSE + per-season
+==============================================================================================
+  fast WR + protection vs slow/big secon ATS     : 48.7% (n=1079) CI[46,52]
+  fast WR + protection vs slow/big secon OVER    : 49.6% (n=1097) CI[47,53]
+  fast WR + protection vs slow/big secon ATS-open: 46.7% (n=351) CI[42,52]
+     -> CPOE in spot +0.13 vs league +0.06 (pass output UP)
+  big WR vs small CB                     ATS     : 49.5% (n=1093) CI[47,52]
+  big WR vs small CB                     OVER    : 48.9% (n=1103) CI[46,52]
+  big WR vs small CB                     ATS-open: 47.9% (n=512) CI[44,52]
+     -> CPOE in spot -0.07 vs league +0.06 (pass output flat/down)

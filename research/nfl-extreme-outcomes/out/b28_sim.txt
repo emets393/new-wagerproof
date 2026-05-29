@@ -1,0 +1,24 @@
+====================================================================================
+CALIBRATED total adjustments (pts vs close, train 2018-2023):
+====================================================================================
+  recv_out   delta=+3.39 pts  (n_train=115)
+  wind15     delta=-4.67 pts  (n_train=45)
+  dome       delta=+1.45 pts  (n_train=394)
+  cold       delta=+1.05 pts  (n_train=61)
+  baseline resid (no flag) = +0.30
+
+====================================================================================
+HELD-OUT 2024-25: bet OVER/UNDER where composite repriced diverges from OPENER
+====================================================================================
+  |divergence|>=0.75: bets=272 hit=55.1% CI[49,61] CLV=+0.26pts  (~136/yr)
+  |divergence|>=1.5: bets=103 hit=63.1% CI[53,72] CLV=+0.55pts  (~52/yr)
+  |divergence|>=2.5: bets=103 hit=63.1% CI[53,72] CLV=+0.55pts  (~52/yr)
+  per-season (|div|>=1.5):
+    2024: 19/41=46% CLV=+0.20
+    2025: 46/62=74% CLV=+0.77
+
+====================================================================================
+BASELINE single-signal (recv_out->OVER, wind15->UNDER) vs opener, same held-out
+====================================================================================
+  single-signal: bets=110 hit=63.6% CI[54,72]  (~55/yr)
+  -> composite adds bets from STACKED small adjustments (dome+cold etc.) the single flags miss; check if hit-rate holds.

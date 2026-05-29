@@ -1,0 +1,31 @@
+[setup] league ppd=2.03  games(wk>=4)=1842
+
+======================================================================================
+CALIBRATION
+======================================================================================
+  sim_margin vs MARKET margin: corr=0.630   (high = tracks the line)
+  predicting ACTUAL margin:  sim corr=0.300  vs  MARKET corr=0.458
+  sim_total vs MARKET total:  corr=0.520
+  predicting ACTUAL total:   sim corr=0.142  vs  MARKET corr=0.320
+  realism: sim margin sd=13.4 (NFL~13.5) | actual margin sd=14.3 | sim total mean=46.1 (NFL~44-45)
+  bias: sim_margin mean=+1.64 vs market +1.69 | sim_total 46.1 vs market 45.3
+  win-prob calibration (sim P(home win) -> actual home win rate):
+     pwin[0.0-0.2): predicted~  16% actual=   6% (n=16)
+     pwin[0.2-0.4): predicted~  33% actual=  40% (n=378)
+     pwin[0.4-0.6): predicted~  50% actual=  53% (n=881)
+     pwin[0.6-0.8): predicted~  68% actual=  67% (n=528)
+     pwin[0.8-1.0): predicted~  84% actual=  74% (n=39)
+
+======================================================================================
+EDGE: bet where SIM disagrees with the market (held-out 2024-25)
+======================================================================================
+  spread |edge|>=2 vs CLOSE: 46.2% (n=320) CI[41,52]
+  spread |edge|>=2 vs OPEN: 43.5% (n=322) CI[38,49]
+  spread |edge|>=3 vs CLOSE: 47.5% (n=257) CI[41,54]
+  spread |edge|>=3 vs OPEN: 43.6% (n=257) CI[38,50]
+  spread |edge|>=4 vs CLOSE: 46.2% (n=210) CI[40,53]
+  spread |edge|>=4 vs OPEN: 42.4% (n=210) CI[36,49]
+  total  |edge|>=2 vs CLOSE: 50.0% (n=306) CI[44,56]
+  total  |edge|>=2 vs OPEN: 46.9% (n=305) CI[41,52]
+  total  |edge|>=3 vs CLOSE: 50.6% (n=231) CI[44,57]
+  total  |edge|>=3 vs OPEN: 48.0% (n=229) CI[42,54]

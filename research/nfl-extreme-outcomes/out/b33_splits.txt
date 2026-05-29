@@ -1,0 +1,51 @@
+[cache] nfl_predictions_epa: (978, 23) (loaded)
+[data] 2025 games w/ legacy preds: 252  (home_cover vs close avail: 250, openers: 252)
+
+==============================================================================
+SPREAD — pick accuracy vs CLOSE
+==============================================================================
+  by RAW probability band (p_sp; <.5 => picks AWAY, >.5 => picks HOME):
+    p_sp[0.0-0.30) acc              44.4%  n= 45  CI[31,59]
+    p_sp[0.3-0.40) acc              59.1%  n= 44  CI[44,72]
+    p_sp[0.4-0.50) acc              45.7%  n= 35  CI[30,62]
+    p_sp[0.5-0.60) acc              45.7%  n= 46  CI[32,60]
+    p_sp[0.6-0.70) acc              68.4%  n= 38  CI[53,81]
+    p_sp[0.7-1.01) acc              45.2%  n= 42  CI[31,60]
+  by CONFIDENCE magnitude (calibration — higher should = more accurate):
+    conf[0.5-0.60) acc              45.7%  n= 81  CI[35,56]
+    conf[0.6-0.70) acc              63.4%  n= 82  CI[53,73]
+    conf[0.7-0.80) acc              49.2%  n= 61  CI[37,61]
+    conf[0.8-1.01) acc              34.6%  n= 26  CI[19,54]
+  HOME pick vs AWAY pick:
+    picked HOME                     52.4%  n=126  CI[44,61]
+    picked AWAY                     50.0%  n=124  CI[41,59]
+  FAVORITE pick vs UNDERDOG pick:
+    picked FAVORITE                 50.0%  n=134  CI[42,58]
+    picked UNDERDOG                 52.6%  n=116  CI[44,61]
+  PRIMETIME vs non-primetime:
+    primetime                       61.8%  n= 55  CI[49,73]
+    non-primetime                   48.2%  n=195  CI[41,55]
+  bettable lens — high-confidence (conf>=.6) ATS vs OPENER:
+    conf>=.6 ATS vs open            51.8%  n=168  CI[44,59]
+
+==============================================================================
+OVER/UNDER — pick accuracy vs CLOSE
+==============================================================================
+  by RAW probability band (p_ou; <.5 => picks UNDER, >.5 => picks OVER):
+    p_ou[0.0-0.30) acc              50.0%  n= 46  CI[36,64]
+    p_ou[0.3-0.40) acc              34.9%  n= 43  CI[22,50]
+    p_ou[0.4-0.50) acc              50.9%  n= 53  CI[38,64]
+    p_ou[0.5-0.60) acc              41.2%  n= 51  CI[29,55]
+    p_ou[0.6-0.70) acc              58.1%  n= 31  CI[41,74]
+    p_ou[0.7-1.01) acc              64.3%  n= 28  CI[46,79]
+  by CONFIDENCE magnitude:
+    conf[0.5-0.60) acc              46.2%  n=104  CI[37,56]
+    conf[0.6-0.70) acc              44.6%  n= 74  CI[34,56]
+    conf[0.7-1.01) acc              55.4%  n= 74  CI[44,66]
+  OVER pick vs UNDER pick:
+    picked OVER                     51.8%  n=110  CI[43,61]
+    picked UNDER                    45.8%  n=142  CI[38,54]
+  PRIMETIME O/U:
+    primetime O/U                   47.3%  n= 55  CI[35,60]
+  bettable lens — high-confidence (conf>=.6) O/U vs OPENER:
+    conf>=.6 O/U vs open            51.4%  n=148  CI[43,59]

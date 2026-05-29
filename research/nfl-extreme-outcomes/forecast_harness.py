@@ -25,7 +25,22 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 DATA=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
 OUT=os.path.join(os.path.dirname(os.path.abspath(__file__)),"out"); L=print
 CONF=0.03; AIR_THR=35.0; OVR_THR=80.0; WIND_THR=15.0
+FADE_HI=0.80; FADE_LO=0.20   # legacy-model fade: >=.80 (model loves home) -> bet away; <=.20 -> bet home
 nv2our={"LA":"LAR","SD":"LAC","STL":"LAR"}
+
+def load_legacy():
+    """Legacy EPA model's spread cover prob per game (earliest=pregame snapshot). Empty -> legacy rules just don't fire.
+    Pulled FRESH each run so 2026 weekly use picks up new predictions from nfl_predictions_epa."""
+    try:
+        from fetch import fetch_table
+        leg=fetch_table("nfl_predictions_epa", select="unique_id,home_away_spread_cover_prob,as_of_ts")
+        if leg is None or len(leg)==0: return pd.DataFrame(columns=["unique_id","leg_sp"])
+        leg["leg_sp"]=pd.to_numeric(leg.home_away_spread_cover_prob,errors="coerce")
+        leg["as_of_ts"]=pd.to_datetime(leg.as_of_ts,errors="coerce",utc=True)
+        leg=leg.sort_values("as_of_ts").groupby("unique_id",as_index=False).first()
+        return leg[["unique_id","leg_sp"]]
+    except Exception as e:
+        print(f"  ! legacy preds unavailable ({e}); legacy rules disabled"); return pd.DataFrame(columns=["unique_id","leg_sp"])
 
 def carry(df,kid,col,out):
     df=df.sort_values([kid,"season","week"]).copy(); df["_c"]=df.groupby([kid,"season"])[col].apply(lambda s:s.shift(1).expanding().mean()).reset_index(level=[0,1],drop=True)
@@ -79,6 +94,9 @@ def build():
     for side,p in [("home","h_"),("away","a_")]:
         m=m.merge(trg.rename(columns={"ab":f"{side}_ab","max_air":f"{p}rcv_air","max_ovr":f"{p}rcv_ovr"})[["season","week",f"{side}_ab",f"{p}rcv_air",f"{p}rcv_ovr"]],on=["season","week",f"{side}_ab"],how="left")
     m["wind_mph"]=pd.to_numeric(m.get("wind_mph"),errors="coerce").fillna(pd.to_numeric(m.get("wind_speed"),errors="coerce"))
+    # ---- legacy EPA model spread prob (for fade + primetime-follow rules) ----
+    leg=load_legacy()
+    m=m.merge(leg,on="unique_id",how="left") if len(leg) else m.assign(leg_sp=np.nan)
     return m, BASE
 
 def train_predict(m, BASE, target):
@@ -114,6 +132,19 @@ def generate(m, BASE, target, week=None):
         if pd.notna(g.wind_mph) and g.wind_mph>=WIND_THR and pd.notna(g.open_total):
             rows.append(dict(pick_id=gid+"-U",season=g.season,week=int(g.week),game=mtchp,rule="wind_under",
                 market="total",side=f"UNDER {g.open_total:g}",bet_home=-2,open_num=g.open_total,close_num=g.close_total,edge=round(g.wind_mph,1)))
+        # LEGACY spread signals (vs opener): primetime -> FOLLOW the model; non-primetime extreme -> FADE it
+        lsp=g.get("leg_sp",np.nan)
+        if pd.notna(lsp) and pd.notna(g.open_spread):
+            if int(g.primetime_i)==1:                                  # FOLLOW legacy in primetime (61.8% in 2025)
+                home_pick=lsp>=0.5
+                rows.append(dict(pick_id=gid+"-LPT",season=g.season,week=int(g.week),game=mtchp,rule="legacy_primetime",
+                    market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
+                    bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(lsp-0.5,3)))
+            elif lsp>=FADE_HI or lsp<=FADE_LO:                          # FADE legacy at non-primetime extremes (dose-response to 65%+)
+                home_pick=lsp<=FADE_LO                                 # model loves away(<=.20)->bet home; loves home(>=.80)->bet away
+                rows.append(dict(pick_id=gid+"-LF",season=g.season,week=int(g.week),game=mtchp,rule="legacy_fade",
+                    market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
+                    bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(abs(lsp-0.5),3)))
     led=pd.DataFrame(rows)
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv")
     if os.path.exists(path):
@@ -123,7 +154,10 @@ def generate(m, BASE, target, week=None):
 def grade(m, target):
     """Fill result + CLV for finished games in the ledger."""
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv")
-    led=pd.read_csv(path); res=m[m.season==target][["home_ab","away_ab","actual_margin","actual_total"]]
+    led=pd.read_csv(path)
+    for c in ["away_ab","home_ab","actual_margin","actual_total","win","clv_pts","roi_u"]:  # idempotent re-grade
+        if c in led.columns: led=led.drop(columns=c)
+    res=m[m.season==target][["home_ab","away_ab","actual_margin","actual_total"]]
     led["away_ab"]=led.game.str.split("@").str[0]; led["home_ab"]=led.game.str.split("@").str[1]
     led=led.merge(res,on=["home_ab","away_ab"],how="left")
     def grade_row(r):
@@ -145,7 +179,7 @@ def report(target):
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv"); led=pd.read_csv(path)
     g=led.dropna(subset=["win"])
     L(f"\n{'='*78}\nFORWARD-TEST REPORT {target}  (graded picks: {len(g)} / logged: {len(led)})\n{'='*78}")
-    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","ALL"]:
+    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","ALL"]:
         s=g if rule=="ALL" else g[g.rule==rule]
         if len(s)==0: L(f"  {rule:18s}: (none yet)"); continue
         k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100

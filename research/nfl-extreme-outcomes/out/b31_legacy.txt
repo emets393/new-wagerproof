@@ -1,0 +1,26 @@
+[legacy] reconstructed from 28 EPA features; target=home_away_spread_cover (home covers close)
+
+====================================================================================
+LEGACY standalone — accuracy vs CLOSE (predict home covers), per season + primetime
+====================================================================================
+  2021: all 47.7% (n=237)  | primetime 45.1% (n=51)
+  2022: all 50.0% (n=236)  | primetime 51.0% (n=49)
+  2023: all 50.6% (n=237)  | primetime 52.9% (n=51)
+  2024: all 55.7% (n=237)  | primetime 46.2% (n=52)
+  2025: all 53.4% (n=236)  | primetime 50.0% (n=52)
+  confidence buckets (legacy prob) -> home-cover rate (the .40/.60 idea):
+    leg[0.0-0.40): home covers 49.6% (n=361)  -> confident AWAY
+    leg[0.4-0.50): home covers 47.2% (n=305)  -> lean
+    leg[0.5-0.60): home covers 52.8% (n=299)  -> lean
+    leg[0.6-1.01): home covers 49.5% (n=218)  -> confident HOME
+
+====================================================================================
+AGREEMENT — OUR pick filtered by LEGACY confident split (>=.60 home / <=.40 away) vs OPENER
+====================================================================================
+  OUR model alone: n=383 hit=55.6% CI[51,61]
+  OUR + LEGACY agree & confident: n=86 hit=51.2% CI[41,61]  (~43/yr)
+     of which PRIMETIME: n=18 hit=50.0%
+     2024: n=46 hit=52.2%
+     2025: n=40 hit=50.0%
+
+  corr(legacy, our) = 0.053  (high => agreement is near-redundant, not independent)

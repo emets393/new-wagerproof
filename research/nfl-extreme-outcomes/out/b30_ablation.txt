@@ -1,0 +1,31 @@
+========================================================================================
+A) PRUNE — leave-one-out on flag groups (held-out 2024-25 ATS vs opener, conf>=.03)
+========================================================================================
+  FULL locked model: n=383 hit=55.6% CI[51,61] CLV=+0.14
+  drop dog7_10           : hit=54.1% (-1.5) n=381 CLV=+0.16   keep
+  drop matchup           : hit=55.6% (-0.1) n=378 CLV=+0.17   keep
+  drop primetime         : hit=54.5% (-1.1) n=374 CLV=+0.12   keep
+  drop homefav_absspread : hit=54.8% (-0.9) n=378 CLV=+0.10   keep
+  drop schedule          : hit=54.5% (-1.1) n=387 CLV=+0.35   keep
+  drop injury            : hit=54.1% (-1.5) n=377 CLV=+0.21   keep
+  drop defense           : hit=56.4% (+0.8) n=369 CLV=+0.27   CUT?
+  drop referee           : hit=50.9% (-4.7) n=393 CLV=-0.07   keep
+
+========================================================================================
+B) DISCOVER — new mechanism-based candidate flags: standalone home-cover vs OPENER + null
+========================================================================================
+  baseline home-cover vs opener=52.4%. Candidate spots passing(|dev|->=55%,n>=60): real=3 vs null mean=2.0 (95th=4) -> NO signal
+  home_rest_edge3  home-cover=36.5% (n=  74) seasons|dev|: ['61', '31', '26'] 
+  away_rest_edge3  home-cover=58.7% (n=  92) seasons|dev|: ['43', '69', '69'] 
+  short_week       home-cover=55.0% (n=  40) seasons|dev|: ['57', '50', '58'] 
+  big_home_fav7    home-cover=46.7% (n= 150) seasons|dev|: ['57', '43', '42'] 
+  big_road_fav7    home-cover=54.2% (n=  59) seasons|dev|: ['42', '69', '54'] 
+  div_late         home-cover=57.6% (n=  99) seasons|dev|: ['53', '60', '59'] 
+  div_early        home-cover=52.5% (n=  80) seasons|dev|: ['70', '43', '44'] 
+  home_off_bye     home-cover=35.4% (n=  48) seasons|dev|: ['50', '32', '32'] 
+  away_off_bye     home-cover=60.3% (n=  58) seasons|dev|: ['45', '74', '65'] 
+
+========================================================================================
+C) REBUILD — pruned + surviving new flags, held-out vs opener + CLV
+========================================================================================
+  pruned (cut 3 feats) + 0 new flags: n=369 hit=56.4% CI[51,61] CLV=+0.27  (baseline 55.6%)

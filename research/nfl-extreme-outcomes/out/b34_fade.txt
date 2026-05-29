@@ -1,0 +1,32 @@
+[cache] nfl_predictions_epa: (978, 23) (loaded)
+[data] 2025 games w/ legacy preds: 252
+
+================================================================================
+SPREAD FADE — fade model when >= thr (bet away) / <= 1-thr (bet home). Dose-response.
+================================================================================
+  fade>= 0.65 vs CLOSE  (home-side n=66, away-side n=68)  51.5%  n=132  CI[43,60]
+  fade>= 0.70 vs CLOSE  (home-side n=43, away-side n=46)  55.2%  n= 87  CI[45,65]
+  fade>= 0.75 vs CLOSE  (home-side n=31, away-side n=25)  60.0%  n= 55  CI[47,72]
+  fade>= 0.80 vs CLOSE  (home-side n=12, away-side n=14)  65.4%  n= 26  CI[46,81]
+  fade>= 0.85 vs CLOSE  (home-side n=5, away-side n=7)  83.3%  n= 12  CI[55,95] (thin)
+  vs the OPENER (bettable):
+  fade>= 0.70 vs OPEN                 56.3%  n= 87  CI[46,66]
+  fade>= 0.80 vs OPEN                 65.4%  n= 26  CI[46,81]
+  fade>=.80 primetime vs non-primetime (vs close):
+  fade>=.80 primetime                 50.0%  n=  4  CI[15,85] (thin)
+  fade>=.80 non-primetime             68.2%  n= 22  CI[47,84] (thin)
+
+================================================================================
+O/U FADE — fade model when >= thr (bet under) / <= 1-thr (bet over)
+================================================================================
+  fade>= 0.65 vs CLOSE                48.7%  n=117  CI[40,58]
+  fade>= 0.70 vs CLOSE                44.6%  n= 74  CI[34,56]
+  fade>= 0.75 vs CLOSE                42.6%  n= 47  CI[30,57]
+  fade>= 0.80 vs CLOSE                43.5%  n= 23  CI[26,63] (thin)
+  fade>= 0.70 vs OPEN                 43.2%  n= 74  CI[33,55]
+  fade>= 0.80 vs OPEN                 43.5%  n= 23  CI[26,63] (thin)
+
+================================================================================
+CONTRAST — FOLLOW the model at >=.80 (should be BAD if fade is right)
+================================================================================
+  FOLLOW spread >=.80/<=.20 vs close  34.6%  n= 26  CI[19,54]
