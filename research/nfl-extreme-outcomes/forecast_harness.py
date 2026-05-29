@@ -26,6 +26,7 @@ DATA=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
 OUT=os.path.join(os.path.dirname(os.path.abspath(__file__)),"out"); L=print
 CONF=0.03; AIR_THR=35.0; OVR_THR=80.0; WIND_THR=15.0
 FADE_HI=0.80; FADE_LO=0.20   # legacy-model fade: >=.80 (model loves home) -> bet away; <=.20 -> bet home
+BYE_GAP=15.0; BYE_MIN_N=5    # bye-collision: bet the coach w/ better career pre/post-bye ATS% if gap>=15 & both n>=5
 nv2our={"LA":"LAR","SD":"LAC","STL":"LAR"}
 
 def load_legacy():
@@ -41,6 +42,47 @@ def load_legacy():
         return leg[["unique_id","leg_sp"]]
     except Exception as e:
         print(f"  ! legacy preds unavailable ({e}); legacy rules disabled"); return pd.DataFrame(columns=["unique_id","leg_sp"])
+
+def load_bye_collisions(target, gap_thr=BYE_GAP, min_n=BYE_MIN_N):
+    """Bye-collision signal for target season: coach career pre/post-bye ATS% from seasons < target (walk-forward
+    boundary), applied to the target schedule's bye-spot collisions. Fires when gap>=gap_thr & both coaches n>=min_n.
+    Bets the better-record coach's team ATS. Empty if data missing -> rule just doesn't fire."""
+    gp=os.path.join(DATA,"nflverse_games.parquet")
+    if not os.path.exists(gp): return pd.DataFrame(columns=["season","home_ab","away_ab"])
+    g=pd.read_parquet(gp); g=g[g.game_type=="REG"].copy()
+    def teamgames(df, cover):
+        h=df[["season","week","home_team","home_coach"]].rename(columns={"home_team":"team","home_coach":"coach"})
+        h["line"]=df.spread_line; h["margin"]=(df.home_score-df.away_score) if cover else np.nan
+        a=df[["season","week","away_team","away_coach"]].rename(columns={"away_team":"team","away_coach":"coach"})
+        a["line"]=-df.spread_line; a["margin"]=(df.away_score-df.home_score) if cover else np.nan
+        return pd.concat([h,a],ignore_index=True)
+    def add_spot(t):
+        def bw(wk):
+            wk=set(wk)
+            for w in range(min(wk),max(wk)+1):
+                if w not in wk: return w
+            return None
+        bye=t.groupby(["season","team"]).week.apply(lambda s:bw(s.tolist())).rename("bye").reset_index()
+        t=t.merge(bye,on=["season","team"],how="left")
+        t["spot"]=np.where(t.week==t.bye-1,"pre",np.where(t.week==t.bye+1,"post",None)); return t
+    prior=g[g.season<target].dropna(subset=["home_score","away_score","spread_line"])
+    if len(prior)<200: return pd.DataFrame(columns=["season","home_ab","away_ab"])
+    pt=add_spot(teamgames(prior,True)); pt["cover"]=np.where(pt.margin>pt.line,1.0,np.where(pt.margin<pt.line,0.0,np.nan))
+    ps=pt[pt.spot.notna()].dropna(subset=["cover"]); agg=ps.groupby(["coach","spot"]).cover.agg(p="mean",c="size")
+    pct={idx:(r.p*100,int(r.c)) for idx,r in agg.iterrows()}
+    tgt=g[(g.season==target)&g.spread_line.notna()]
+    if len(tgt)==0: return pd.DataFrame(columns=["season","home_ab","away_ab"])
+    spotmap={(r.season,r.week,r.team):r.spot for _,r in add_spot(teamgames(tgt,False)).iterrows() if r.spot is not None}
+    out=[]
+    for _,r in tgt.iterrows():
+        hs=spotmap.get((r.season,r.week,r.home_team)); az=spotmap.get((r.season,r.week,r.away_team))
+        if hs is None or az is None: continue
+        hp=pct.get((r.home_coach,hs)); ap=pct.get((r.away_coach,az))
+        if not hp or not ap or hp[1]<min_n or ap[1]<min_n or abs(hp[0]-ap[0])<gap_thr: continue
+        eh=hp[0]>=ap[0]
+        out.append(dict(season=int(r.season),home_ab=nv2our.get(r.home_team,r.home_team),away_ab=nv2our.get(r.away_team,r.away_team),
+            bye_edge_home=int(eh),bye_gap=round(abs(hp[0]-ap[0]),1),bye_edge_coach=(r.home_coach if eh else r.away_coach)))
+    return pd.DataFrame(out)
 
 def carry(df,kid,col,out):
     df=df.sort_values([kid,"season","week"]).copy(); df["_c"]=df.groupby([kid,"season"])[col].apply(lambda s:s.shift(1).expanding().mean()).reset_index(level=[0,1],drop=True)
@@ -132,6 +174,8 @@ def generate(m, BASE, target, week=None):
     W1CUT=m[m.week==1].o_minus_d.quantile(0.33) if m.o_minus_d.notna().any() else None  # defense-dominant W1 cutoff
     te=train_predict(m,BASE,target)
     te=te.merge(od[["season","home_ab","away_ab","open_spread","open_total","close_spread","close_total"]],on=["season","home_ab","away_ab"],how="left")
+    bc=load_bye_collisions(target)
+    te=te.merge(bc,on=["season","home_ab","away_ab"],how="left") if len(bc) else te.assign(bye_edge_home=np.nan,bye_gap=np.nan)
     if week is not None: te=te[te.week==week]
     rows=[]
     for _,g in te.iterrows():
@@ -171,6 +215,13 @@ def generate(m, BASE, target, week=None):
         if int(g.week)==1 and W1CUT is not None and pd.notna(omd) and omd<=W1CUT and pd.notna(g.open_total):
             rows.append(dict(pick_id=gid+"-W1U",season=g.season,week=int(g.week),game=mtchp,rule="week1_def_under",
                 market="total",side=f"UNDER {g.open_total:g}",bet_home=-2,open_num=g.open_total,close_num=g.close_total,edge=round(float(omd),1)))
+        # BYE-COLLISION: both teams in a bye-spot -> bet the coach with the better career pre/post-bye ATS% (signal, unproven)
+        beh=g.get("bye_edge_home",np.nan)
+        if pd.notna(beh) and pd.notna(g.open_spread):
+            home_pick=int(beh)==1
+            rows.append(dict(pick_id=gid+"-BC",season=g.season,week=int(g.week),game=mtchp,rule="bye_collision",
+                market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
+                bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(float(g.bye_gap),1)))
     led=pd.DataFrame(rows)
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv")
     if os.path.exists(path):
@@ -205,7 +256,7 @@ def report(target):
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv"); led=pd.read_csv(path)
     g=led.dropna(subset=["win"])
     L(f"\n{'='*78}\nFORWARD-TEST REPORT {target}  (graded picks: {len(g)} / logged: {len(led)})\n{'='*78}")
-    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","ALL"]:
+    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","bye_collision","ALL"]:
         s=g if rule=="ALL" else g[g.rule==rule]
         if len(s)==0: L(f"  {rule:18s}: (none yet)"); continue
         k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100
