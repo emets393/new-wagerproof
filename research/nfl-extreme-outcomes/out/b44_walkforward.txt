@@ -1,0 +1,17 @@
+[build] bye-spot team-games 1668 | with >=1 prior in-spot game 1343
+[build] bye-spot COLLISION games (real matchups): 214
+
+==============================================================================
+WALK-FORWARD: bet the coach with the better PRIOR bye-spot record (out-of-sample)
+==============================================================================
+  both coaches prior_n>=1: edge covered 47.0%  n=115  CI[38,56]
+  both coaches prior_n>=3: edge covered 54.7%  n=53  CI[41,67]
+  both coaches prior_n>=5: edge covered 53.6%  n=28  CI[36,70]
+  both coaches prior_n>=8: edge covered 55.6%  n=9  CI[27,81]
+  prior-gap>=20 (clear mismatch, n>=3): edge covered 48.0%  n=25  CI[30,67]
+  per-era (prior_n>=3, any gap):
+    1999-2012: 52.9% (n=17)
+    2013-2019: 61.1% (n=18)
+    2020-2025: 50.0% (n=18)
+
+[sql] wrote out/sql/coach_bye_matchups_wf.sql (135 rows, walk-forward priors; valid_wf flags both prior_n>=3 & non-tie)
