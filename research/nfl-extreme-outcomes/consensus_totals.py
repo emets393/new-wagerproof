@@ -45,7 +45,22 @@ USAGE
   python3 consensus_totals.py --report 2026                   # summary
 
 FILE OUTPUTS
-  out/consensus_totals_ledger_<season>.csv          — pick log + results + CLV
+  out/predictions_totals_<season>.csv               — EVERY game gets a row (for website DISPLAY)
+                                                       columns: display_total, pt_b15, pt_b55, open/close_total,
+                                                       edge_open, direction (OVER/UNDER/NEUTRAL),
+                                                       tier (HC | STD | LEAN | LEAN_EARLY | NONE),
+                                                       bet_quality (1 if HC/STD, else 0)
+  out/consensus_totals_ledger_<season>.csv          — bet-quality picks only (tier in HC/STD) + grade + CLV
+
+DISPLAY vs BET distinction:
+  - Every game gets a `display_total` (for the website) — even Weeks 1-3 (b55 alone)
+  - Only games where both models agree + min |edge|>=2 are "bets" (tagged bet_quality=1)
+  - Tiers:
+      HC          = both agree + min|edge|>=3   -> recommended bet
+      STD         = both agree + min|edge|>=2   -> supplementary bet
+      LEAN        = both agree + small edge     -> display lean, no bet
+      LEAN_EARLY  = W1-3 (b55 only) + edge>=2   -> display lean, no bet (b15 warming up)
+      NONE        = no signal / models disagree -> display total only, no direction
 """
 import os, sys, argparse, warnings
 import numpy as np, pandas as pd
@@ -264,13 +279,10 @@ def build_b55(target, strict_open=False):
 # =========================================================================
 # ENSEMBLE — combine b15 + b55, identify consensus picks
 # =========================================================================
-def generate(target, week=None, strict_open=False):
-    """For target season (optionally one week), produce consensus_totals picks: agree on direction +
-    min |edge| >= 2 (std tier) or >= 3 (HC tier). Logs at OPENER. Appends to ledger CSV.
-    strict_open=True strips injury features (b57 timing-honest) — use for true opener bets.
-    Default (strict_open=False) uses full features — intended for Fri-Sat betting after injury reports."""
-    mode="STRICT-OPEN (no-injury)" if strict_open else "FULL (post-injury, bet Fri-Sat)"
-    L(f"[mode] {mode}")
+def predict_all(target, week=None, strict_open=False):
+    """Produce a prediction for EVERY game in target (optionally one week). Used by the website to
+    DISPLAY a totals number on every game card. Weeks 1-3: b55 alone (b15 needs s2d warmup);
+    Week 4+: ensemble. Confidence tier separately tags which subset are bet-quality."""
     b15=build_b15(target, strict_open=strict_open); b55=build_b55(target, strict_open=strict_open)
     od=pd.read_parquet(os.path.join(DATA,"odds_consensus.parquet"))
     m=pd.read_parquet(os.path.join(DATA,"matchup.parquet"))
@@ -282,25 +294,72 @@ def generate(target, week=None, strict_open=False):
     if week is not None: gp=gp[gp.week==week]
     rows=[]
     for _,g in gp.iterrows():
-        if pd.isna(g.pt_b15) or pd.isna(g.pt_b55) or pd.isna(g.open_total): continue
-        edge_b15=g.pt_b15-g.open_total; edge_b55=g.pt_b55-g.open_total
-        if np.sign(edge_b15)!=np.sign(edge_b55): continue        # must agree on direction
-        min_edge=min(abs(edge_b15),abs(edge_b55))                 # tier by the WEAKER of the two
-        if min_edge<MIN_EDGE_STD: continue                        # gate at >=2
-        direction="OVER" if edge_b15>0 else "UNDER"
-        tier="consensus_totals_HC" if min_edge>=MIN_EDGE_HC else "consensus_totals"
-        gid=f"{g.season}-W{int(g.week):02d}-{g.away_ab}@{g.home_ab}"
-        rows.append(dict(pick_id=gid+("-CTHC" if tier=="consensus_totals_HC" else "-CT"),
-            season=int(g.season),week=int(g.week),game=f"{g.away_ab}@{g.home_ab}",rule=tier,market="total",
-            side=f"{direction} {g.open_total:g}",bet_home=(-1 if direction=="OVER" else -2),
-            open_num=g.open_total,close_num=g.close_total,edge=round(min_edge,2),
-            pt_b15=round(float(g.pt_b15),2),pt_b55=round(float(g.pt_b55),2),
-            edge_b15=round(float(edge_b15),2),edge_b55=round(float(edge_b55),2)))
+        has_b15=pd.notna(g.pt_b15); has_b55=pd.notna(g.pt_b55)
+        if not has_b55: continue                                  # b55 is the floor; if missing, skip
+        # Display total: ensemble avg when both, else b55 alone
+        display_total=(g.pt_b15+g.pt_b55)/2 if has_b15 else g.pt_b55
+        edge_b15_open=g.pt_b15-g.open_total if (has_b15 and pd.notna(g.open_total)) else np.nan
+        edge_b55_open=g.pt_b55-g.open_total if pd.notna(g.open_total) else np.nan
+        edge_disp_open=display_total-g.open_total if pd.notna(g.open_total) else np.nan
+        # Tier decision (only Week 4+ has both models -> ensemble)
+        tier="NONE"; direction="NEUTRAL"; bet_quality=0
+        if has_b15 and pd.notna(g.open_total):
+            if np.sign(edge_b15_open)==np.sign(edge_b55_open):
+                min_edge=min(abs(edge_b15_open),abs(edge_b55_open))
+                direction="OVER" if edge_b15_open>0 else "UNDER"
+                if min_edge>=MIN_EDGE_HC: tier="HC"; bet_quality=1
+                elif min_edge>=MIN_EDGE_STD: tier="STD"; bet_quality=1
+                else: tier="LEAN"          # agree on direction but small edge — display, don't bet
+        elif has_b55 and pd.notna(g.open_total):
+            # Early season (W1-3): b55 only, display-only lean
+            if abs(edge_b55_open)>=2: tier="LEAN_EARLY"; direction="OVER" if edge_b55_open>0 else "UNDER"
+        rows.append(dict(season=int(g.season),week=int(g.week),
+            game=f"{g.away_ab}@{g.home_ab}",away_ab=g.away_ab,home_ab=g.home_ab,
+            display_total=round(float(display_total),2),
+            pt_b15=round(float(g.pt_b15),2) if has_b15 else None,
+            pt_b55=round(float(g.pt_b55),2),
+            open_total=float(g.open_total) if pd.notna(g.open_total) else None,
+            close_total=float(g.close_total) if pd.notna(g.close_total) else None,
+            edge_open=round(float(edge_disp_open),2) if pd.notna(edge_disp_open) else None,
+            edge_b15=round(float(edge_b15_open),2) if pd.notna(edge_b15_open) else None,
+            edge_b55=round(float(edge_b55_open),2) if pd.notna(edge_b55_open) else None,
+            direction=direction, tier=tier, bet_quality=bet_quality,
+            actual_total=float(g.actual_total) if pd.notna(g.actual_total) else None))
+    return pd.DataFrame(rows)
+
+def generate(target, week=None, strict_open=False):
+    """Wraps predict_all: writes the full predictions CSV (for the website) AND appends bet-quality
+    picks (tier in HC/STD) to the bet ledger (for tracking + grading).
+    strict_open=True strips injury features (b57 timing-honest) — use for true opener bets.
+    Default (strict_open=False) uses full features — intended for Fri-Sat betting after injury reports."""
+    mode="STRICT-OPEN (no-injury)" if strict_open else "FULL (post-injury, bet Fri-Sat)"
+    L(f"[mode] {mode}")
+    preds=predict_all(target, week=week, strict_open=strict_open)
+    # Write FULL predictions table — for website display (every game gets a row)
+    pred_path=os.path.join(OUT,f"predictions_totals_{target}.csv")
+    if os.path.exists(pred_path):
+        old=pd.read_csv(pred_path); key=['season','week','game']
+        preds=pd.concat([old.merge(preds[key].assign(_new=1),on=key,how='left').query('_new!=1').drop(columns=['_new']),preds],ignore_index=True)
+    preds.to_csv(pred_path,index=False)
+    L(f"[display] {len(preds)} predictions written -> {pred_path}")
+    # Filter to bet-quality picks (HC + STD) for the bet ledger
+    bets=preds[preds.bet_quality==1].copy()
+    rows=[]
+    for _,g in bets.iterrows():
+        rule="consensus_totals_HC" if g.tier=="HC" else "consensus_totals"
+        gid=f"{int(g.season)}-W{int(g.week):02d}-{g.away_ab}@{g.home_ab}"
+        rows.append(dict(pick_id=gid+("-CTHC" if g.tier=="HC" else "-CT"),
+            season=int(g.season),week=int(g.week),game=g.game,rule=rule,market="total",
+            side=f"{g.direction} {g.open_total:g}",bet_home=(-1 if g.direction=="OVER" else -2),
+            open_num=g.open_total,close_num=g.close_total,
+            edge=round(min(abs(g.edge_b15),abs(g.edge_b55)),2),
+            pt_b15=g.pt_b15,pt_b55=g.pt_b55,edge_b15=g.edge_b15,edge_b55=g.edge_b55))
     led=pd.DataFrame(rows)
     path=os.path.join(OUT,f"consensus_totals_ledger_{target}.csv")
     if os.path.exists(path):
         old=pd.read_csv(path); led=pd.concat([old[~old.pick_id.isin(led.pick_id)],led],ignore_index=True)
     led.to_csv(path,index=False)
+    L(f"[bet ledger] {len(led)} bet-quality picks (HC+STD) -> {path}")
     return led,path
 
 def grade(target):
