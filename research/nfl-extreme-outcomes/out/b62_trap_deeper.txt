@@ -1,0 +1,131 @@
+[data] CLOSE-line test set (all seasons 2018+): n=1842 games
+
+================================================================================================
+FADE-THE-TRAP, vs CLOSE LINE, all seasons 2018-2025
+================================================================================================
+
+TOTAL OVER trap fires -> BET UNDER (mean reversion thesis)
+  sum>=3, line_vs_league<=-1                                     n= 208 hit= 55.3% CI[48,62] ROI=+5.6%
+  sum>=3, line_vs_league<=-2                                     n= 150 hit= 55.3% CI[47,63] ROI=+5.6%
+  sum>=3, line_vs_league<=-3                                     n= 103 hit= 52.4% CI[43,62] ROI=+0.1%
+  sum>=3, line_vs_league<=-4                                     n=  67 hit= 56.7% CI[45,68] ROI=+8.3%
+  sum>=4, line_vs_league<=-1                                     n= 177 hit= 54.8% CI[47,62] ROI=+4.6%
+  sum>=4, line_vs_league<=-2                                     n= 128 hit= 55.5% CI[47,64] ROI=+5.9%
+  sum>=4, line_vs_league<=-3                                     n=  85 hit= 52.9% CI[42,63] ROI=+1.1%
+  sum>=4, line_vs_league<=-4                                     n=  58 hit= 56.9% CI[44,69] ROI=+8.6%
+  sum>=5, line_vs_league<=-1                                     n= 135 hit= 53.3% CI[45,62] ROI=+1.8%
+  sum>=5, line_vs_league<=-2                                     n=  95 hit= 53.7% CI[44,63] ROI=+2.5%
+  sum>=5, line_vs_league<=-3                                     n=  62 hit= 48.4% CI[36,61] ROI=-7.6%
+  sum>=5, line_vs_league<=-4                                     n=  39 hit= 51.3% CI[36,66] ROI=-2.1%
+  sum>=6, line_vs_league<=-1                                     n= 114 hit= 53.5% CI[44,62] ROI=+2.2%
+  sum>=6, line_vs_league<=-2                                     n=  81 hit= 55.6% CI[45,66] ROI=+6.1%
+  sum>=6, line_vs_league<=-3                                     n=  54 hit= 51.9% CI[39,65] ROI=-1.0%
+  sum>=6, line_vs_league<=-4                                     n=  35 hit= 54.3% CI[38,70] ROI=+3.6%
+  sum>=8, line_vs_league<=-1                                     n=  72 hit= 52.8% CI[41,64] ROI=+0.8%
+  sum>=8, line_vs_league<=-2                                     n=  49 hit= 55.1% CI[41,68] ROI=+5.2%
+  sum>=8, line_vs_league<=-3                                     n=  30 hit= 53.3% CI[36,70] ROI=+1.8%
+  sum>=8, line_vs_league<=-4                                     n=  21 hit= 57.1% CI[37,76] ROI=+9.1%
+
+TOTAL UNDER trap fires -> BET OVER (mean reversion thesis)
+  sum<=-3, line_vs_league>=1                                     n= 144 hit= 47.2% CI[39,55] ROI=-9.8%
+  sum<=-3, line_vs_league>=2                                     n=  99 hit= 46.5% CI[37,56] ROI=-11.3%
+  sum<=-3, line_vs_league>=3                                     n=  71 hit= 47.9% CI[37,59] ROI=-8.6%
+  sum<=-3, line_vs_league>=4                                     n=  50 hit= 48.0% CI[35,61] ROI=-8.4%
+  sum<=-4, line_vs_league>=1                                     n= 114 hit= 49.1% CI[40,58] ROI=-6.2%
+  sum<=-4, line_vs_league>=2                                     n=  78 hit= 48.7% CI[38,60] ROI=-7.0%
+  sum<=-4, line_vs_league>=3                                     n=  52 hit= 50.0% CI[37,63] ROI=-4.5%
+  sum<=-4, line_vs_league>=4                                     n=  37 hit= 51.4% CI[36,67] ROI=-2.0%
+  sum<=-5, line_vs_league>=1                                     n=  96 hit= 49.0% CI[39,59] ROI=-6.5%
+  sum<=-5, line_vs_league>=2                                     n=  65 hit= 50.8% CI[39,63] ROI=-3.1%
+  sum<=-5, line_vs_league>=3                                     n=  44 hit= 50.0% CI[36,64] ROI=-4.5%
+  sum<=-5, line_vs_league>=4                                     n=  32 hit= 50.0% CI[34,66] ROI=-4.5%
+  sum<=-6, line_vs_league>=1                                     n=  69 hit= 49.3% CI[38,61] ROI=-5.9%
+  sum<=-6, line_vs_league>=2                                     n=  49 hit= 51.0% CI[37,64] ROI=-2.6%
+  sum<=-6, line_vs_league>=3                                     n=  37 hit= 48.6% CI[33,64] ROI=-7.1%
+  sum<=-6, line_vs_league>=4                                     n=  27 hit= 44.4% CI[28,63] ROI=-15.2%
+  sum<=-8, line_vs_league>=1                                     n=  37 hit= 59.5% CI[43,74] ROI=+13.5%
+  sum<=-8, line_vs_league>=2                                     n=  25 hit= 68.0% CI[48,83] ROI=+29.8%
+  sum<=-8, line_vs_league>=3                                     n=  20 hit= 65.0% CI[43,82] ROI=+24.1%
+  sum<=-8, line_vs_league>=4                                     n=  13 hit= 61.5% CI[36,82] ROI=+17.5%
+
+================================================================================================
+PER-SEASON: fade-OVER-trap (sum>=4, line<=-2 -> bet UNDER)
+================================================================================================
+  2018: n= 15 UNDER hit= 60.0% CI[36,80]
+  2019: n=  9 UNDER hit= 66.7% CI[35,88]
+  2020: n= 20 UNDER hit= 70.0% CI[48,85]
+  2021: n= 16 UNDER hit= 50.0% CI[28,72]
+  2022: n= 14 UNDER hit= 71.4% CI[45,88]
+  2023: n= 19 UNDER hit= 47.4% CI[27,68]
+  2024: n= 11 UNDER hit= 27.3% CI[10,57]
+  2025: n= 24 UNDER hit= 50.0% CI[31,69]
+
+PER-SEASON: fade-UNDER-trap (sum<=-4, line>=+2 -> bet OVER)
+  2018: n= 14 OVER hit= 42.9% CI[21,67]
+  2019: n=  8 OVER hit= 50.0% CI[22,78]
+  2020: n=  7 OVER hit= 71.4% CI[36,92]
+  2021: n= 11 OVER hit= 27.3% CI[10,57]
+  2022: n=  9 OVER hit= 44.4% CI[19,73]
+  2023: n= 11 OVER hit= 45.5% CI[21,72]
+  2024: n=  9 OVER hit= 55.6% CI[27,81]
+  2025: n=  9 OVER hit= 66.7% CI[35,88]
+
+[data] OPEN-line test set (2023-2025 only): n=710 games
+
+================================================================================================
+FADE-THE-TRAP, vs OPEN LINE, 2023-2025
+================================================================================================
+
+TOTAL OVER trap fires -> BET UNDER (open)
+  sum>=3, line_vs_league<=-1                                     n=  91 hit= 47.3% CI[37,57] ROI=-9.8%
+  sum>=3, line_vs_league<=-2                                     n=  66 hit= 48.5% CI[37,60] ROI=-7.4%
+  sum>=3, line_vs_league<=-3                                     n=  44 hit= 47.7% CI[34,62] ROI=-8.9%
+  sum>=4, line_vs_league<=-1                                     n=  77 hit= 46.8% CI[36,58] ROI=-10.7%
+  sum>=4, line_vs_league<=-2                                     n=  57 hit= 49.1% CI[37,62] ROI=-6.2%
+  sum>=4, line_vs_league<=-3                                     n=  38 hit= 50.0% CI[35,65] ROI=-4.5%
+  sum>=5, line_vs_league<=-1                                     n=  57 hit= 45.6% CI[33,58] ROI=-12.9%
+  sum>=5, line_vs_league<=-2                                     n=  42 hit= 50.0% CI[36,64] ROI=-4.5%
+  sum>=5, line_vs_league<=-3                                     n=  26 hit= 50.0% CI[32,68] ROI=-4.5%
+  sum>=6, line_vs_league<=-1                                     n=  49 hit= 46.9% CI[34,61] ROI=-10.4%
+  sum>=6, line_vs_league<=-2                                     n=  37 hit= 51.4% CI[36,67] ROI=-2.0%
+  sum>=6, line_vs_league<=-3                                     n=  23 hit= 52.2% CI[33,71] ROI=-0.4%
+
+TOTAL UNDER trap fires -> BET OVER (open)
+  sum<=-3, line_vs_league>=1                                     n=  66 hit= 50.0% CI[38,62] ROI=-4.5%
+  sum<=-3, line_vs_league>=2                                     n=  46 hit= 52.2% CI[38,66] ROI=-0.4%
+  sum<=-3, line_vs_league>=3                                     n=  32 hit= 53.1% CI[36,69] ROI=+1.4%
+  sum<=-4, line_vs_league>=1                                     n=  54 hit= 50.0% CI[37,63] ROI=-4.5%
+  sum<=-4, line_vs_league>=2                                     n=  36 hit= 52.8% CI[37,68] ROI=+0.8%
+  sum<=-4, line_vs_league>=3                                     n=  22 hit= 54.5% CI[35,73] ROI=+4.1%
+  sum<=-5, line_vs_league>=1                                     n=  44 hit= 54.5% CI[40,68] ROI=+4.1%
+  sum<=-5, line_vs_league>=2                                     n=  29 hit= 58.6% CI[41,74] ROI=+11.9%
+  sum<=-5, line_vs_league>=3                                     n=  18 hit= 61.1% CI[39,80] ROI=+16.7%
+  sum<=-6, line_vs_league>=1                                     n=  35 hit= 51.4% CI[36,67] ROI=-1.8%
+  sum<=-6, line_vs_league>=2                                     n=  22 hit= 54.5% CI[35,73] ROI=+4.1%
+  sum<=-6, line_vs_league>=3                                     n=  13 hit= 53.8% CI[29,77] ROI=+2.8%
+
+================================================================================================
+SPREAD COVER TRAPS — FADE direction, vs CLOSE, all seasons
+================================================================================================
+
+Home-dog covering vs away-fav not covering -> FADE = bet AWAY
+  h_miss>=2, a_miss<=-2, home_dog: FADE=AWAY n= 19 hit= 52.6% CI[32,73]
+  a_miss>=2, h_miss<=-2, home_fav: FADE=HOME n= 45 hit= 51.1% CI[37,65]
+  h_miss>=3, a_miss<=-3, home_dog: FADE=AWAY n= 10 hit= 70.0% CI[40,89]
+  a_miss>=3, h_miss<=-3, home_fav: FADE=HOME n= 26 hit= 53.8% CI[35,71]
+  a_miss>=4, h_miss<=-4, home_fav: FADE=HOME n= 11 hit= 63.6% CI[35,85]
+
+================================================================================================
+ORIGINAL HYPOTHESIS (FOLLOW the trap, not fade) — for comparison
+================================================================================================
+
+FOLLOW: OVER trap -> bet OVER, all seasons vs CLOSE
+  FOLLOW sum>=3, line<=-1: bet OVER                              n= 208 hit= 44.7% CI[38,52] ROI=-14.6%
+  FOLLOW sum>=3, line<=-2: bet OVER                              n= 150 hit= 44.7% CI[37,53] ROI=-14.7%
+  FOLLOW sum>=3, line<=-3: bet OVER                              n= 103 hit= 47.6% CI[38,57] ROI=-9.2%
+  FOLLOW sum>=4, line<=-1: bet OVER                              n= 177 hit= 45.2% CI[38,53] ROI=-13.7%
+  FOLLOW sum>=4, line<=-2: bet OVER                              n= 128 hit= 44.5% CI[36,53] ROI=-15.0%
+  FOLLOW sum>=4, line<=-3: bet OVER                              n=  85 hit= 47.1% CI[37,58] ROI=-10.2%
+  FOLLOW sum>=6, line<=-1: bet OVER                              n= 114 hit= 46.5% CI[38,56] ROI=-11.2%
+  FOLLOW sum>=6, line<=-2: bet OVER                              n=  81 hit= 44.4% CI[34,55] ROI=-15.2%
+  FOLLOW sum>=6, line<=-3: bet OVER                              n=  54 hit= 48.1% CI[35,61] ROI=-8.1%

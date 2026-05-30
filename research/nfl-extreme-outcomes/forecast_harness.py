@@ -4,9 +4,12 @@
 Locked assets (see LOCKED_MODELS.md):
   SIDES   : walk-forward HistGBM on home_cover (vs close); bet the confident side (|p-.5|>=.03) vs the OPENER.
             Feature set = b14 "base" (Madden-independent so it runs before Aug-2026 launch ratings exist).
-  TOTALS  : spot alerts only (the slate is breakeven) —
-            * key WR/TE out (NGS air-share>=35%) -> OVER ; high-conviction tier adds Madden OVR>=80 if available
+  TOTALS  : spot alerts (slate-level totals live in consensus_totals.py):
+            * key WR/TE out (NGS air-share>=35%) -> OVER ; high-conviction tier adds Madden OVR>=80
             * wind >= 15mph -> UNDER
+            * total_low_line_over: both teams' total_miss_sum_last3 <=-8 AND line >=+2 vs avg -> OVER (b62, 68% n=25)
+            * total_high_line_under: sum_last3 >=4 AND line <=-2 vs avg -> UNDER (b62, 55% n=200+)
+            * spread_dog_cover_fade_away / fade_home (b62, 63-70% n=10-11 small but suggestive)
 Every pick is logged at the OPENER with the model edge; grade() later fills result + CLOSE + CLV; report()
 summarizes hit%, ROI, CLV by market/rule. Validated here with a 2025 dry-run (train 2018-2024).
 
@@ -159,6 +162,26 @@ def build():
         m["o_minus_d"]=(m.home_off_rtg-m.away_def_rtg)+(m.away_off_rtg-m.home_def_rtg)  # high=offenses favored, low=defenses dominate
     else:
         m["o_minus_d"]=np.nan
+    # ---- ROLLING TEAM-vs-LINE MISS (b61/b62 trap-fade spots) ----
+    # team_total_miss = actual_team_pts - implied_team_total; team_margin_miss = actual_margin + team_spread
+    mb=m.copy()
+    mb["h_implied"]=(mb.nv_total_line - mb.home_spread)/2; mb["a_implied"]=(mb.nv_total_line + mb.home_spread)/2
+    mb["h_total_miss"]=mb.home_score - mb.h_implied; mb["a_total_miss"]=mb.away_score - mb.a_implied
+    mb["h_margin_miss"]=mb.actual_margin + mb.home_spread; mb["a_margin_miss"]=-(mb.actual_margin + mb.home_spread)
+    h=mb[["season","week","home_ab","h_total_miss","h_margin_miss"]].rename(columns={"home_ab":"team","h_total_miss":"total_miss","h_margin_miss":"margin_miss"})
+    a=mb[["season","week","away_ab","a_total_miss","a_margin_miss"]].rename(columns={"away_ab":"team","a_total_miss":"total_miss","a_margin_miss":"margin_miss"})
+    tgm=pd.concat([h,a],ignore_index=True).sort_values(["team","season","week"]).reset_index(drop=True)
+    for col in ["total_miss","margin_miss"]:
+        tgm[f"{col}_s2d"]=tgm.groupby(["team","season"])[col].transform(lambda s:s.shift(1).expanding().mean())
+        tgm[f"{col}_last3"]=tgm.groupby(["team","season"])[col].transform(lambda s:s.shift(1).rolling(3,min_periods=1).mean())
+    roll_cols=["total_miss_s2d","total_miss_last3","margin_miss_s2d","margin_miss_last3"]
+    for side,p in [("home","h_"),("away","a_")]:
+        sub=tgm[["season","week","team"]+roll_cols].rename(columns={"team":f"{side}_ab",**{c:f"{p}{c}" for c in roll_cols}})
+        m=m.merge(sub,on=["season","week",f"{side}_ab"],how="left")
+    m["total_miss_sum_last3"]=m.h_total_miss_last3 + m.a_total_miss_last3
+    # league avg total per season for "line vs avg" trap detection
+    league_tot=m.groupby("season").nv_total_line.transform("mean")
+    m["line_vs_league"]=m.nv_total_line - league_tot
     return m, BASE
 
 def train_predict(m, BASE, target):
@@ -222,6 +245,27 @@ def generate(m, BASE, target, week=None):
             rows.append(dict(pick_id=gid+"-BC",season=g.season,week=int(g.week),game=mtchp,rule="bye_collision",
                 market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
                 bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(float(g.bye_gap),1)))
+        # ROLLING TEAM-vs-LINE MISS spots (b61/b62 — FADE the trap, mean reversion)
+        sum_l3=g.get("total_miss_sum_last3",np.nan); lvl=g.get("line_vs_league",np.nan)
+        # EXTREME UNDER-reversion (star signal): both teams way under-performed + line high -> bet OVER (68% n=25)
+        if pd.notna(sum_l3) and pd.notna(lvl) and sum_l3<=-8 and lvl>=2 and pd.notna(g.open_total):
+            rows.append(dict(pick_id=gid+"-LLO",season=g.season,week=int(g.week),game=mtchp,rule="total_low_line_over",
+                market="total",side=f"OVER {g.open_total:g}",bet_home=-1,open_num=g.open_total,close_num=g.close_total,edge=round(float(sum_l3),2)))
+        # Broad FADE-OVER-trap: teams over-performed + line low -> bet UNDER (55% n=200+)
+        if pd.notna(sum_l3) and pd.notna(lvl) and sum_l3>=4 and lvl<=-2 and pd.notna(g.open_total):
+            rows.append(dict(pick_id=gid+"-HLU",season=g.season,week=int(g.week),game=mtchp,rule="total_high_line_under",
+                market="total",side=f"UNDER {g.open_total:g}",bet_home=-2,open_num=g.open_total,close_num=g.close_total,edge=round(float(sum_l3),2)))
+        # Spread cover FADE traps
+        hmm=g.get("h_margin_miss_s2d",np.nan); amm=g.get("a_margin_miss_s2d",np.nan)
+        if pd.notna(hmm) and pd.notna(amm) and pd.notna(g.open_spread):
+            # home-dog covering vs away-fav not-covering -> FADE = bet AWAY (70% n=10)
+            if hmm>=3 and amm<=-3 and g.home_spread>0:
+                rows.append(dict(pick_id=gid+"-SDFA",season=g.season,week=int(g.week),game=mtchp,rule="spread_dog_cover_fade_away",
+                    market="spread",side=f"{g.away_ab} {-g.open_spread:+g}",bet_home=0,open_num=g.open_spread,close_num=g.close_spread,edge=round(float(hmm-amm),2)))
+            # away-dog covering vs home-fav not-covering -> FADE = bet HOME (63% n=11)
+            if amm>=3 and hmm<=-3 and g.home_spread<0:
+                rows.append(dict(pick_id=gid+"-SDFH",season=g.season,week=int(g.week),game=mtchp,rule="spread_dog_cover_fade_home",
+                    market="spread",side=f"{g.home_ab} {g.open_spread:+g}",bet_home=1,open_num=g.open_spread,close_num=g.close_spread,edge=round(float(amm-hmm),2)))
     led=pd.DataFrame(rows)
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv")
     if os.path.exists(path):
@@ -256,7 +300,7 @@ def report(target):
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv"); led=pd.read_csv(path)
     g=led.dropna(subset=["win"])
     L(f"\n{'='*78}\nFORWARD-TEST REPORT {target}  (graded picks: {len(g)} / logged: {len(led)})\n{'='*78}")
-    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","bye_collision","ALL"]:
+    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","bye_collision","total_low_line_over","total_high_line_under","spread_dog_cover_fade_away","spread_dog_cover_fade_home","ALL"]:
         s=g if rule=="ALL" else g[g.rule==rule]
         if len(s)==0: L(f"  {rule:18s}: (none yet)"); continue
         k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100

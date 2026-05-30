@@ -202,7 +202,43 @@ spot rules (key-WR-out OVER, wind UNDER) but NOT by `consensus_totals.py`.
 
 ---
 
-## 3. TOTALS spot signals (still in play, supplementary to consensus) — `b15_totals.py` standalone, `b7c_over_rule.py`
+## 3. SPOT SIGNALS (the bet-flag layer — overlays on §1 sides + §2 totals predictions)
+
+These are situational/trend signals tested across full 2018-2025 sample. When a spot fires AND the
+underlying model points the same direction → high-confidence pick. Validation grades vs OPENER where
+available, CLOSE otherwise (noted per spot).
+
+### 3a. NEW: Trap-fade spots (b61 + b62, vaulted 2026-05-30)
+
+The "trap" pattern: rolling team-vs-line miss diverges from the posted line. Tests showed FOLLOWING
+the trap loses (44-48%, -10 to -15% ROI). FADING the trap (mean reversion thesis) is the real edge.
+
+Computed pre-game per-team rolling miss:
+- `team_total_miss` = actual_team_pts - implied_team_total (implied = (total ± spread)/2)
+- `team_margin_miss` = actual_margin + team_spread (positive = covered)
+- Rolling: shifted s2d + shifted last3, populated W2+
+
+| Spot | Direction | n | Hit % | ROI | Notes |
+|---|---|---|---|---|---|
+| **EXTREME UNDER reversion** (sum≤-8 last3 AND line ≥+2 vs league avg) | **OVER** | 25 | **68.0%** | **+29.8%** | star signal; vs CLOSE 8 seasons |
+| same, line ≥+3 | OVER | 20 | 65.0% | +24.1% | tighter cut, same direction |
+| same, vs OPENER (2023-25) sum≤-5, line≥+3 | OVER | 18 | 61.1% | +16.7% | holds at opener too |
+| **FADE-OVER-trap broad** (sum≥3 last3 AND line ≤-1) | **UNDER** | 208 | **55.3%** | **+5.6%** | broad sample, modest+stable |
+| FADE-OVER-trap, sum≥4, line≤-4 | UNDER | 58 | 56.9% | +8.6% | tighter cut |
+| FADE-OVER-trap, sum≥8, line≤-4 | UNDER | 21 | 57.1% | +9.1% | strictest |
+| **Spread cover FADE: home-dog covering** (h_miss≥3, a_miss≤-3, home_spread>0) | **AWAY** | 10 | **70.0%** | +33.6% | small n, suggestive |
+| Spread cover FADE: away-dog covering (a_miss≥4, h_miss≤-4, home_spread<0) | HOME | 11 | 63.6% | +21.5% | small n, suggestive |
+
+**Per-season note**: fade-OVER-trap was 60-70% in 2018-2022, decayed to ~50% in 2023-2025 (edge
+decay observed). The EXTREME UNDER reversion signal has been more stable. **Track 2026 CLV closely.**
+
+**Production rules (added to forecast_harness as tracking spots)**:
+- `total_low_line_over` — sum_last3 ≤ -8 AND line ≥ league_avg + 2 → bet OVER
+- `total_high_line_under` — sum_last3 ≥ 4 AND line ≤ league_avg - 2 → bet UNDER (modest, broad)
+- `spread_dog_cover_fade_away` — h_margin_miss ≥ 3 AND a_margin_miss ≤ -3 AND home_dog → bet AWAY
+- `spread_dog_cover_fade_home` — a_margin_miss ≥ 3 AND h_margin_miss ≤ -3 AND home_fav → bet HOME
+
+### 3b. PROVEN totals spots (older, from `b15_totals.py` + `b7c_over_rule.py`)
 
 Held-out 2024-25 vs the opening total:
 | Spot | n | hit | note |

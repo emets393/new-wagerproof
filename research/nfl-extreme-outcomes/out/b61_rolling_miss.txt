@@ -1,0 +1,47 @@
+[rolling] team-game records: 4452
+[rolling] s2d notna by week: W1=0, W2=256, W3=256, W4=248, W5=236
+
+[trap fire rates 2024-25, W4+]
+  total_over_trap:   19 games
+  total_under_trap:  11 games
+  home_cover_trap:   1 games
+  away_cover_trap:   4 games
+
+============================================================================================
+TOTALS — does rolling total_miss add signal?
+============================================================================================
+  PR baseline                            MAE=10.55  edge>=2: n=317 hit=55.2% CI[50,61] ROI=+5.4%
+  PR + rolling_total_miss (6 new)        MAE=10.57  edge>=2: n=322 hit=55.6% CI[50,61] ROI=+6.1%
+
+============================================================================================
+SIDES — does rolling margin_miss add signal?
+============================================================================================
+  PR baseline                            conf>=.03: n=360 hit=52.8% CI[48,58] ROI=+0.8%
+  PR + rolling_margin_miss (6 new)       conf>=.03: n=376 hit=47.1% CI[42,52] ROI=-10.1%
+
+============================================================================================
+TRAP FLAGS — standalone hit rate vs OPENER (2024-25 W4+)
+============================================================================================
+  TOTAL OVER trap (both teams +6 miss, line <-2 vs avg) n= 18 hit= 38.9% CI[20,61] ROI=-25.8%
+  TOTAL UNDER trap (both teams -6 miss, line >+2 vs avg) n= 11 hit= 27.3% CI[10,57] ROI=-47.9%
+  HOME COVER trap (home dog covering vs away non-covering fav) n=1 (too few)
+  AWAY COVER trap (away dog covering vs home non-covering fav) n=  4 hit= 25.0% CI[5,70] ROI=-52.3%
+
+============================================================================================
+TRAP threshold sensitivity (total OVER variant)
+============================================================================================
+  sum>=4, line_vs_league<=-1: n= 46 hit= 47.8% CI[34,62]
+  sum>=4, line_vs_league<=-2: n= 34 hit= 50.0% CI[34,66]
+  sum>=4, line_vs_league<=-3: n= 24 hit= 45.8% CI[28,65]
+  sum>=4, line_vs_league<=-4: n= 18 hit= 38.9% CI[20,61]
+  sum>=5, line_vs_league<=-1: n= 32 hit= 43.8% CI[28,61]
+  sum>=5, line_vs_league<=-2: n= 22 hit= 45.5% CI[27,65]
+  sum>=5, line_vs_league<=-3: n= 16 hit= 43.8% CI[23,67]
+  sum>=5, line_vs_league<=-4: n= 10 hit= 30.0% CI[11,60]
+  sum>=6, line_vs_league<=-1: n= 25 hit= 44.0% CI[27,63]
+  sum>=6, line_vs_league<=-2: n= 18 hit= 38.9% CI[20,61]
+  sum>=6, line_vs_league<=-3: n= 13 hit= 38.5% CI[18,64]
+  sum>=8, line_vs_league<=-1: n= 16 hit= 37.5% CI[18,61]
+  sum>=8, line_vs_league<=-2: n= 11 hit= 36.4% CI[15,65]
+
+TRAP threshold sensitivity (HOME cover variant)
