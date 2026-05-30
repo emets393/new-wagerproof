@@ -1,0 +1,21 @@
+[opener join] 1708/4452 team-weeks have opener_ts
+
+[air injury rates 2024-25]
+  FULL: 191 team-weeks with air-share>0 from out players
+  PREOP: 7 team-weeks with air-share>0 from out players
+
+======================================================================================
+SIDES — held-out 2024-25 vs OPENER, conf>=.03
+======================================================================================
+
+  A) STRICT (no air_diff)  n=460 hit=53.5% CI[49,58] ROI=+2.1% CLV=+0.232pts
+    2024: n=227 hit=55.5% ROI=+6.0% CLV=+0.204
+    2025: n=233 hit=51.5% ROI=-1.7% CLV=+0.259
+
+  E) PREOP (pre-opener air_diff) n=460 hit=53.5% CI[49,58] ROI=+2.1% CLV=+0.232pts
+    2024: n=227 hit=55.5% ROI=+6.0% CLV=+0.204
+    2025: n=233 hit=51.5% ROI=-1.7% CLV=+0.259
+
+  C) FULL (all-injury air_diff = current locked) n=447 hit=55.0% CI[50,60] ROI=+5.1% CLV=+0.262pts
+    2024: n=221 hit=57.5% ROI=+9.7% CLV=+0.348
+    2025: n=226 hit=52.7% ROI=+0.5% CLV=+0.177

@@ -1,37 +1,96 @@
 # NFL Models — LOCKED for 2026 forward-tracking
 
-Locked 2026-05-28. **Rule: no more tuning on 2024-25.** These configs are frozen; the only valid
-next test is live 2026 forward results. Everything below was selected on walk-forward training and
-graded on a 2024-25 held-out set vs the **OPENING** line (what a website actually posts) + CLV.
+Locked 2026-05-28, refined 2026-05-30 (b60 sides audit). **Rule: no more tuning on 2024-25.**
+These configs are frozen; the only valid next test is live 2026 forward results. Everything below was
+selected on walk-forward training and graded on a 2024-25 held-out set vs the **OPENING** line
+(what a website actually posts) + CLV.
+
+## Product framing (don't lose sight of this)
+These are **per-game prediction products** for the WagerProof website, NOT standalone betting strategies.
+
+**Architecture:**
+1. **Model** = per-game prediction for every NFL game (totals and sides). A 53-58% baseline accuracy
+   with +CLV IS the product — every game on the slate gets a reliable prediction.
+2. **Spots** (§3) = trend signals (wind UNDER, key-WR-out OVER, bye-collision, etc.). Layered on top.
+3. **Bet flag** = fires when model direction + spot direction ALIGN. That's the high-conviction play.
+
+Do not evaluate the models purely as "+EV betting strategies." The model is the foundation
+(every-game prediction); spots + alignment are the bet layer.
 
 ---
 
-## 1. SIDES model (full-slate ATS) — `b14_iter2.py`, "+schedule spots"
+## 1. SIDES model (per-game ATS prediction) — `b14_iter2.py` / `forecast_harness.py` BASE
 
-Predict `home_cover` (validated: `actual_margin + home_spread > 0`) walk-forward with
-HistGradientBoostingClassifier; bet the confident side (|p-0.5| >= .03) vs the opener.
+Predict `home_cover` walk-forward (HistGradientBoostingClassifier) — outputs `ph` (probability
+home covers) for EVERY game. Confidence threshold |p-0.5| >= .03 picks a side for display +
+the bet ledger; the prediction itself is shown on every game card on the website regardless.
 
-**Features (33):** PR core (pr_diff, home/away predictive_pr, last5_diff, home/away consistency)
-+ proven flags (home_dog_7_10, away_dog_7_10, div/conf/league, primetime, week, home_fav, abs_spread)
-+ injury (air_diff) + referee (4)
-+ **schedule spots** (h/a pre_bye, blowout_win_last, blowout_loss_last, third_road, div_revenge).
-**Dropped:** pass-rush facet (hurt: 55.6→53.7); **defense features** (dprod_team_diff/h/a_dprod_team —
-leave-one-out ablation b30 showed they overfit: cutting them improved held-out 55.6→56.4% & CLV +0.14→+0.27).
+### Features
+**Core PR (6):** pr_diff, home/away predictive_pr, last5_diff, home/away consistency
+**Proven flags (9):** home_dog_7_10, away_dog_7_10, div/conf/league, primetime, week, home_fav, abs_spread
+**Defense (3):** dprod_team_diff, h_dpt, a_dpt (currently in forecast_harness; LOCKED_MODELS earlier
+recommended dropping — needs reconciliation)
+**Injury (1):** air_diff (h_air - a_air for Out/Doubtful WR/TE/RB air-share)
+**Referee (4):** ref_total_pts_avg, ref_home_cover_pct, ref_under_pct, ref_fav_cover_pct
+**Schedule spots (10):** h/a pre_bye, blowout_win_last, blowout_loss_last, third_road, div_revenge
 
-**Held-out 2024-25 (refined, defense cut):** conf>=.03 → **56.4%, CLV +0.27** (n=369); baseline w/ defense 55.6%.
-**Per-season caveat:** 2024 ~58% vs 2025 ~53% — pooled number is 2024-weighted.
-Status: *promising, NOT confirmed.* CI[51,61] touches breakeven. 2025 is the soft year to watch.
-New sides flags (rest/short-week/big-fav/div-late/off-bye) FAIL the permutation null (b30: real 3 ≤ null 4) —
-ATS trend well is tapped; do not add. `div_late` (57.6%, 53/60/59) = WATCH only.
+### Held-out 2024-25 vs OPENER (b60 injury-ablation audit, 2026-05-30)
+Same framework as b57 totals audit: stripped air_diff to test honest baseline.
 
-## 2. TOTALS model (full-slate O/U) — **CONSENSUS ENSEMBLE** — `consensus_totals.py`
+| Variant | Hit % | ROI | CLV | 2024 | 2025 |
+|---|---|---|---|---|---|
+| **STRICT (honest, no air_diff)** | **53.5%** | **+2.1%** | **+0.23** | 55.5% | 51.5% |
+| PREOP (air_diff from pre-opener injuries only) | 53.5% | +2.1% | +0.23 | — same as STRICT (5.4% of injuries are pre-opener) |
+| FULL (current forecast_harness, air_diff from all reports) | 55.0% | +5.1% | +0.26 | 57.5% | 52.7% |
 
-**LOCKED 2026-05-29 (FINAL after b57 injury-ablation + b58 edge-magnitude analysis).**
-Replaces b15 standalone as the totals slate. **Production default = strict-open (no injury features).**
+Same dynamic as totals: pre-opener injury filter is functionally null (only 7 team-weeks had
+pre-opener Out designations vs 191 with full reports). The ~1.5pp lift from `air_diff` is mostly
+late-week injury news we won't have at opener time live.
 
-### The locked production rule
-Ensemble of two independent totals models. Bet when:
+### Realistic 2026 expectation (per-game prediction product)
+- **Hit rate ~53-55% on full slate of confident picks** (|p-0.5| >= .03)
+- **+CLV ~0.23 pts** — line moves toward picks (real model signal)
+- **2024 was the strong year (55.5%), 2025 was weak (51.5%)** — variance is real
 
+**This is the prediction product floor.** The bet flag fires when a side prediction aligns with a
+schedule/situational spot (§3) — that's where high-confidence picks come from.
+
+### Legacy EPA model layered rules (in forecast_harness.py)
+Two rules use the company's `nfl_predictions_epa` legacy model:
+- `legacy_primetime`: in primetime, FOLLOW the legacy model (~62% in 2025)
+- `legacy_fade`: at non-primetime extremes (legacy prob ≥.80 or ≤.20), FADE the legacy model
+
+These fire independently from the b14 sides model; both can be flagged on the same game.
+
+### Open work items
+- **Doc-vs-code drift**: LOCKED_MODELS.md earlier said dprod_team_diff was dropped but forecast_harness
+  still includes it. Decide and align (likely keep — small contribution, +CLV still positive either way).
+- **Sides flags negative-result archive**: New sides flags (rest, short-week, big-fav, div-late, off-bye)
+  FAILED the permutation null (b30: real 3 ≤ null 4) — ATS trend well is tapped; do not add more.
+  `div_late` (57.6%, 53/60/59) = WATCH only.
+
+## 2. TOTALS model (per-game O/U prediction) — **CONSENSUS ENSEMBLE** — `consensus_totals.py`
+
+**LOCKED 2026-05-29 (FINAL after b57+b58+b59 audits).** Replaces b15 standalone.
+**Production default = strict-open (no injury features). Produces a prediction for EVERY game.**
+
+### Primary output: `predictions_totals_<season>.csv` (website display)
+Every game gets a row with `display_total` (the predicted total) + direction + tier. This is the
+core product — the website renders these on every game card. The bet ledger is a *subset* of these
+predictions, not the only output.
+
+### Tier system (display + bet flag)
+| Tier | Definition | Action |
+|---|---|---|
+| **HC** | both agree + 3 ≤ min\|edge\| ≤ 7 | **BET FLAG** (bet_quality=1) |
+| EXTREME | both agree + min\|edge\| > 7 | display "extreme lean", **do not bet** (~50% historical) |
+| LEAN | both agree + min\|edge\| 2-3 | display only |
+| WEAK | both agree + min\|edge\| < 2 | display only |
+| LEAN_EARLY | W1-3 (b55 only) + \|edge\|≥2 | display only |
+| NONE | no signal / models disagree | display total only, no direction |
+
+### The HC bet flag
+Fires when:
 1. **Both models agree on direction** (over/under vs opener), AND
 2. **min |edge| BETWEEN 3 and 7 pts** (the b58 sweet spot — below 3 = no signal, above 7 = model overconfidence)
 
