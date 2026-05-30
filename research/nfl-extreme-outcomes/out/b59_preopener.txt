@@ -1,0 +1,56 @@
+[load] matchup (2226, 409) | injuries (45335, 11) | odds (853, 19)
+[team-week opener] 1708 / 4452 team-weeks have opener_ts (38.4%)
+[seasons with opener_ts]: [2023, 2024, 2025]
+
+[pre-opener filter]
+  injuries w/ opener_ts available: 17,417 / 45,335
+  PRE-OPENER (date_modified <= open_ts): 949 (5.4%)
+  POST-OPENER (the leak): 16,468
+
+[key_recv_out fire rate on test years 2024+2025]
+  PREOP version:  2 / 569 = 0.4%
+  FULL version:   69 / 569 = 12.1%
+  Games where FULL fires but PREOP doesn't (post-opener news): 67
+
+[train] b15 variants...
+  strict: 473 preds | preop: 473 preds | full: 473 preds
+
+[train] b55 strict-open...
+[train] b55 full (with injuries)...
+
+[assemble] n games with all predictions: 473
+
+======================================================================================
+A) STRICT b15 + STRICT b55  -- current locked baseline
+======================================================================================
+  HC (3-7 sweet spot, agree): n=102 hit=55.9% CI[46,65] ROI=+6.7%
+    2024: n=54 hit=51.9% ROI=-1.0%
+    2025: n=48 hit=60.4% ROI=+15.3%
+
+======================================================================================
+E) PRE-OPENER b15 + STRICT b55  -- NEW middle tier (honest)
+======================================================================================
+  HC (3-7 sweet spot, agree): n=102 hit=55.9% CI[46,65] ROI=+6.7%
+    2024: n=54 hit=51.9% ROI=-1.0%
+    2025: n=48 hit=60.4% ROI=+15.3%
+
+======================================================================================
+E2) PRE-OPENER b15 + FULL b55  -- mixed (b55 features still uncontrolled)
+======================================================================================
+  HC (3-7 sweet spot, agree): n=87 hit=57.5% CI[47,67] ROI=+9.7%
+    2024: n=44 hit=56.8% ROI=+8.5%
+    2025: n=43 hit=58.1% ROI=+11.0%
+
+======================================================================================
+C) FULL b15 + FULL b55  -- LEAKY reference (post-opener info)
+======================================================================================
+  HC (3-7 sweet spot, agree): n=96 hit=59.4% CI[49,69] ROI=+13.4%
+    2024: n=48 hit=58.3% ROI=+11.4%
+    2025: n=48 hit=60.4% ROI=+15.3%
+
+======================================================================================
+SUMMARY
+======================================================================================
+  If E (pre-opener b15 + strict b55) beats A (current baseline): swap b15 preop into production
+  If E2 (pre-opener b15 + full b55) > E: matchup pipeline injury features are mostly pre-opener -> include them too
+  If all variants are similar: the b15 injury features add little; b55 + scheme is doing most of the work
