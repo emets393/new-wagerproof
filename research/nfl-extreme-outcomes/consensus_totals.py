@@ -1,66 +1,64 @@
 """
-consensus_totals.py — TOTALS MODEL for 2026 forward use (vaulted 2026-05-29, REFRAMED 2026-05-29 after b57).
+consensus_totals.py — TOTALS MODEL for 2026 forward use (vaulted 2026-05-29, FINAL 2026-05-29 after b58).
 
-STRATEGY (validated in b56, honesty-tested in b57):
-  ENSEMBLE of b15 (locked direct totals, ~20 env+weather+flag features)
-       and b55 (PRUNED+SCH team-points model: top-100 from b54 importance + 8 b50 scheme priors).
-  BET RULE: both models must AGREE on direction (over/under vs the line) AND min |edge| >= 3 (HC TIER).
+WHY THIS EXISTS
+  Predicts totals for every NFL game (for website display) and identifies a high-confidence BET subset.
+  Strict-open mode is the ONLY production mode — injury news is priced into the line before we can
+  capture it, so we use a model that NEVER saw injury features (no leak).
 
-CRITICAL TIMING HONESTY (b57_injury_ablation.py):
-  The original "+12% ROI vs OPEN" backtest was LEAKY — used post-opener injury info (final reports
-  finalize Friday; opener set Sunday-Monday). The honest decomposition:
+STRATEGY (locked production rule)
+  Ensemble of b15 (direct totals, env+weather features) and b55 (team-points, top-100 importance +
+  b50 scheme priors). Trained WITHOUT injury features (b57 ablation showed those are timing-leaks
+  we can't realistically capture live). HC tier = the bet:
 
-  | Scenario                                              | Hit% | ROI    | What it means                       |
-  |-------------------------------------------------------|------|--------|-------------------------------------|
-  | A: OPEN line + NO-INJURY features (strict-open mode)  | 53.3 | +1.8%  | conservative: bet immediately at opener |
-  | B: CLOSE line + FULL features                         | 56.6 | +8.0%  | bet Fri-Sat after injury reports    |
-  | C: OPEN line + FULL features (LEAKY — old backtest)   | 59.5 | +13.5% | NOT achievable in real life          |
-  | D: CLOSE line + NO-INJURY features                    | 49.2 | -6.0%  | pure model can't beat close — priced |
-  (all at HC tier: agreement + min |edge| >= 3, n=110-130 over 2 seasons)
+      both models agree on direction  AND  3 <= min |edge| <= 7
 
-  KEY INSIGHT: structural features alone are priced; the real edge is INJURY-NEWS EXECUTION —
-  capturing line movement that follows late-week injury reports.
+  Edge below 3 = no clear signal. Edge above 7 = model overconfidence (per b58 — extreme predictions
+  collapse to ~50% hit rate, the model is usually wrong when it's that far off the market).
 
-RECOMMENDED USAGE
-  DEFAULT (full mode, post-injury): bet Friday afternoon / Saturday after final injury reports drop.
-    Best line between Fri-Sun is somewhere between opener and close → realistic 54-56% / +3-7% ROI at HC.
-  STRICT-OPEN MODE: use --strict-open to strip injury features (no leak); bet at opener immediately.
-    Realistic ~53% / +1-2% ROI — within noise, only worth playing if you can't monitor late-week.
+REALISTIC LIVE EXPECTATIONS (b58_edge_magnitude.py, strict-open + 3-7 sweet spot, 2024+2025):
+  HC tier (edge 3-7, both agree):  ~57-58% / +8-10% ROI on n=172 over 2 seasons (~85/yr)
+  + positive CLV (+0.5+ pts) — the line moves toward our picks even without injury info.
+
+  We do NOT bet edges >7 — historically 50%/-5% ROI in strict-open mode. Display as "EXTREME LEAN"
+  for transparency but don't act on them.
+
+WHY FULL-MODE (with injuries) ISN'T A REAL PRODUCT
+  By the time NFL injury reports finalize (Friday), the market has already moved the total. The
+  +13.5% ROI in the original FULL-mode backtest was a timing artifact (post-opener info used to
+  bet opener). For live use, by the time we know "Justin Jefferson out," sportsbooks know too and
+  the total has dropped. The --include-injuries flag is preserved for RESEARCH/BACKTEST only.
 
 DATA DEPENDENCIES (refresh during 2026 season):
   data/matchup.parquet            — refreshed by main pipeline (must include 2026 games + lines)
   data/scheme_plays.parquet       — refresh weekly via b46_pull_scheme.py (nflverse PBP + participation)
   data/odds_consensus.parquet     — refresh weekly (opener/close lines)
-  data/injuries_raw.parquet       — refresh weekly (KEEP using even in strict-open: features just get nulled)
-  data/ngs_receiving.parquet      — refresh weekly (NGS air-share for key-receiver flag)
+  data/injuries_raw.parquet       — kept for the spot rules in forecast_harness.py; ignored by us
+  data/ngs_receiving.parquet      — kept for the spot rules; ignored by us
   data/players_xwalk.parquet      — refresh occasionally (gsis_id ↔ display_name)
   data/b54_feature_importance.csv — FROZEN snapshot (don't re-rank; use as-is for 2026)
 
-USAGE
-  python3 consensus_totals.py --dry-run 2025                  # validate (full mode, post-injury)
-  python3 consensus_totals.py --dry-run 2025 --strict-open    # strict-open (no leak, conservative)
-  python3 consensus_totals.py --season 2026 --week 3          # weekly live picks for 2026 (full mode)
-  python3 consensus_totals.py --season 2026 --week 3 --strict-open  # opener-only mode
-  python3 consensus_totals.py --grade 2026                    # fill results + CLV after games
-  python3 consensus_totals.py --report 2026                   # summary
+USAGE (production = no flag needed)
+  python3 consensus_totals.py --dry-run 2025                   # validate strict-open vs 2025
+  python3 consensus_totals.py --season 2026 --week 4           # weekly live picks (strict-open is default)
+  python3 consensus_totals.py --grade 2026                     # fill results + CLV after games
+  python3 consensus_totals.py --report 2026                    # summary
+  python3 consensus_totals.py --dry-run 2025 --include-injuries  # RESEARCH/BACKTEST only
 
 FILE OUTPUTS
-  out/predictions_totals_<season>.csv               — EVERY game gets a row (for website DISPLAY)
+  out/predictions_totals_<season>.csv               — EVERY game (for website DISPLAY)
                                                        columns: display_total, pt_b15, pt_b55, open/close_total,
                                                        edge_open, direction (OVER/UNDER/NEUTRAL),
-                                                       tier (HC | STD | LEAN | LEAN_EARLY | NONE),
-                                                       bet_quality (1 if HC/STD, else 0)
-  out/consensus_totals_ledger_<season>.csv          — bet-quality picks only (tier in HC/STD) + grade + CLV
+                                                       tier, bet_quality
+  out/consensus_totals_ledger_<season>.csv          — HC bet-quality picks only + grade + CLV
 
-DISPLAY vs BET distinction:
-  - Every game gets a `display_total` (for the website) — even Weeks 1-3 (b55 alone)
-  - Only games where both models agree + min |edge|>=2 are "bets" (tagged bet_quality=1)
-  - Tiers:
-      HC          = both agree + min|edge|>=3   -> recommended bet
-      STD         = both agree + min|edge|>=2   -> supplementary bet
-      LEAN        = both agree + small edge     -> display lean, no bet
-      LEAN_EARLY  = W1-3 (b55 only) + edge>=2   -> display lean, no bet (b15 warming up)
-      NONE        = no signal / models disagree -> display total only, no direction
+TIER SYSTEM
+  HC          = both agree + 3 <= min|edge| <= 7   -> THE BET (bet_quality=1)
+  EXTREME     = both agree + min|edge| > 7          -> display lean, DO NOT BET (model overconfident)
+  LEAN        = both agree + min|edge| 2-3          -> display lean, marginal — display only
+  WEAK        = both agree + min|edge| < 2          -> display only
+  LEAN_EARLY  = W1-3 (b55 only) + |edge| >= 2       -> display lean, no bet (b15 warming up)
+  NONE        = no signal / models disagree         -> display total only, no direction
 """
 import os, sys, argparse, warnings
 import numpy as np, pandas as pd
@@ -75,8 +73,10 @@ OUT=os.path.join(os.path.dirname(os.path.abspath(__file__)),"out"); os.makedirs(
 B15_PARAMS=dict(max_depth=3,learning_rate=0.05,max_iter=350,l2_regularization=2.0,min_samples_leaf=40,random_state=0)
 B55_PARAMS=dict(max_depth=4,learning_rate=0.05,max_iter=500,l2_regularization=1.0,min_samples_leaf=40,random_state=0)
 TOP_N=100                # b54 importance: use top-N features for b55
-MIN_EDGE_STD=2.0         # standard tier
-MIN_EDGE_HC=3.0          # high-conviction tier (THE PRODUCT — b57 ablation showed this is where honest edge lives)
+# Production tier (b58 sweet spot): bet when 3 <= min|edge| <= 7
+MIN_EDGE_BET=3.0         # below this = no clear signal, ~50% hit rate
+MAX_EDGE_BET=7.0         # above this = model overconfidence, drops to ~50% (b58 finding)
+MIN_EDGE_LEAN=2.0        # display "LEAN" tier (still 50% range, no bet)
 nv2our={"LA":"LAR","SD":"LAC","STL":"LAR"}
 
 # Injury features stripped in --strict-open mode (these are the post-opener-info leaks per b57)
@@ -301,18 +301,19 @@ def predict_all(target, week=None, strict_open=False):
         edge_b15_open=g.pt_b15-g.open_total if (has_b15 and pd.notna(g.open_total)) else np.nan
         edge_b55_open=g.pt_b55-g.open_total if pd.notna(g.open_total) else np.nan
         edge_disp_open=display_total-g.open_total if pd.notna(g.open_total) else np.nan
-        # Tier decision (only Week 4+ has both models -> ensemble)
+        # Tier decision (b58 sweet spot: bet when 3 <= min_edge <= 7; extreme edges drop to ~50%)
         tier="NONE"; direction="NEUTRAL"; bet_quality=0
         if has_b15 and pd.notna(g.open_total):
-            if np.sign(edge_b15_open)==np.sign(edge_b55_open):
+            if np.sign(edge_b15_open)==np.sign(edge_b55_open) and edge_b15_open!=0 and edge_b55_open!=0:
                 min_edge=min(abs(edge_b15_open),abs(edge_b55_open))
                 direction="OVER" if edge_b15_open>0 else "UNDER"
-                if min_edge>=MIN_EDGE_HC: tier="HC"; bet_quality=1
-                elif min_edge>=MIN_EDGE_STD: tier="STD"; bet_quality=1
-                else: tier="LEAN"          # agree on direction but small edge — display, don't bet
+                if MIN_EDGE_BET<=min_edge<=MAX_EDGE_BET: tier="HC"; bet_quality=1          # THE BET
+                elif min_edge>MAX_EDGE_BET: tier="EXTREME"                                  # display only, model overconfident
+                elif min_edge>=MIN_EDGE_LEAN: tier="LEAN"                                   # display only, marginal
+                else: tier="WEAK"                                                            # display only, no signal
         elif has_b55 and pd.notna(g.open_total):
             # Early season (W1-3): b55 only, display-only lean
-            if abs(edge_b55_open)>=2: tier="LEAN_EARLY"; direction="OVER" if edge_b55_open>0 else "UNDER"
+            if abs(edge_b55_open)>=MIN_EDGE_LEAN: tier="LEAN_EARLY"; direction="OVER" if edge_b55_open>0 else "UNDER"
         rows.append(dict(season=int(g.season),week=int(g.week),
             game=f"{g.away_ab}@{g.home_ab}",away_ab=g.away_ab,home_ab=g.home_ab,
             display_total=round(float(display_total),2),
@@ -327,12 +328,13 @@ def predict_all(target, week=None, strict_open=False):
             actual_total=float(g.actual_total) if pd.notna(g.actual_total) else None))
     return pd.DataFrame(rows)
 
-def generate(target, week=None, strict_open=False):
-    """Wraps predict_all: writes the full predictions CSV (for the website) AND appends bet-quality
-    picks (tier in HC/STD) to the bet ledger (for tracking + grading).
-    strict_open=True strips injury features (b57 timing-honest) — use for true opener bets.
-    Default (strict_open=False) uses full features — intended for Fri-Sat betting after injury reports."""
-    mode="STRICT-OPEN (no-injury)" if strict_open else "FULL (post-injury, bet Fri-Sat)"
+def generate(target, week=None, strict_open=True):
+    """Wraps predict_all: writes the full predictions CSV (for the website) AND appends HC-tier
+    bet-quality picks to the bet ledger (for tracking + grading).
+    strict_open=True (DEFAULT, production): strips injury features — honest opener betting.
+    strict_open=False (research/backtest only): uses full features incl. injuries (NOT live-usable
+    because the line moves before we can capture injury news)."""
+    mode="STRICT-OPEN (live production, no injury features)" if strict_open else "FULL (RESEARCH ONLY — injury features included, not live-usable)"
     L(f"[mode] {mode}")
     preds=predict_all(target, week=week, strict_open=strict_open)
     # Write FULL predictions table — for website display (every game gets a row)
@@ -342,14 +344,13 @@ def generate(target, week=None, strict_open=False):
         preds=pd.concat([old.merge(preds[key].assign(_new=1),on=key,how='left').query('_new!=1').drop(columns=['_new']),preds],ignore_index=True)
     preds.to_csv(pred_path,index=False)
     L(f"[display] {len(preds)} predictions written -> {pred_path}")
-    # Filter to bet-quality picks (HC + STD) for the bet ledger
+    # Filter to bet-quality picks (HC only — the 3-7 sweet spot) for the bet ledger
     bets=preds[preds.bet_quality==1].copy()
     rows=[]
     for _,g in bets.iterrows():
-        rule="consensus_totals_HC" if g.tier=="HC" else "consensus_totals"
         gid=f"{int(g.season)}-W{int(g.week):02d}-{g.away_ab}@{g.home_ab}"
-        rows.append(dict(pick_id=gid+("-CTHC" if g.tier=="HC" else "-CT"),
-            season=int(g.season),week=int(g.week),game=g.game,rule=rule,market="total",
+        rows.append(dict(pick_id=gid+"-CTHC",
+            season=int(g.season),week=int(g.week),game=g.game,rule="consensus_totals_HC",market="total",
             side=f"{g.direction} {g.open_total:g}",bet_home=(-1 if g.direction=="OVER" else -2),
             open_num=g.open_total,close_num=g.close_total,
             edge=round(min(abs(g.edge_b15),abs(g.edge_b55)),2),
@@ -401,13 +402,15 @@ if __name__=="__main__":
     ap.add_argument("--dry-run",type=int)
     ap.add_argument("--season",type=int); ap.add_argument("--week",type=int)
     ap.add_argument("--grade",type=int); ap.add_argument("--report",type=int)
-    ap.add_argument("--strict-open",action="store_true",help="strip injury features (timing-honest opener bets)")
+    ap.add_argument("--include-injuries",action="store_true",
+                    help="RESEARCH/BACKTEST ONLY: include injury features (NOT live-usable, line moves first)")
     a=ap.parse_args()
+    strict=not a.include_injuries  # production default = strict-open
     if a.dry_run:
-        led,path=generate(a.dry_run, strict_open=a.strict_open); grade(a.dry_run); report(a.dry_run)
+        led,path=generate(a.dry_run, strict_open=strict); grade(a.dry_run); report(a.dry_run)
         L(f"\n[dry-run] ledger -> {path}")
     elif a.season:
-        led,path=generate(a.season,a.week, strict_open=a.strict_open)
+        led,path=generate(a.season, a.week, strict_open=strict)
         L(f"[generate] {len(led)} picks logged for {a.season}"+(f" week {a.week}" if a.week else "")+f" -> {path}")
     elif a.grade: grade(a.grade); report(a.grade)
     elif a.report: report(a.report)

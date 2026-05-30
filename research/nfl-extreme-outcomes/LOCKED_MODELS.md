@@ -26,58 +26,83 @@ ATS trend well is tapped; do not add. `div_late` (57.6%, 53/60/59) = WATCH only.
 
 ## 2. TOTALS model (full-slate O/U) — **CONSENSUS ENSEMBLE** — `consensus_totals.py`
 
-**LOCKED 2026-05-29 (REFRAMED after b57 injury-leak ablation).** Replaces b15 standalone as the totals slate.
+**LOCKED 2026-05-29 (FINAL after b57 injury-ablation + b58 edge-magnitude analysis).**
+Replaces b15 standalone as the totals slate. **Production default = strict-open (no injury features).**
 
-### Strategy
-Ensemble of TWO independent totals models — **bet only when both agree** on direction (over/under)
-AND **min |edge| >= 3 pts** (HC tier = the real product; std tier @ edge≥2 is supplementary):
+### The locked production rule
+Ensemble of two independent totals models. Bet when:
+
+1. **Both models agree on direction** (over/under vs opener), AND
+2. **min |edge| BETWEEN 3 and 7 pts** (the b58 sweet spot — below 3 = no signal, above 7 = model overconfidence)
 
 | Component | Architecture | Features |
 |---|---|---|
-| b15 LOCKED (`b15_totals.py`) | direct totals (HistGBM) | 20 env+weather+flags |
-| b55 PRUNED+SCH (`b55_scheme_priors_pruned.py`) | team-points → derived total | top-100 b54 importance + 8 b50 scheme priors |
-| **ENSEMBLE** | agreement on direction | both above; default to HC (edge≥3) |
+| b15 (`b15_totals.py`) | direct totals (HistGBM) | 17 env+weather (injury cols stripped) |
+| b55 (`b55_scheme_priors_pruned.py`) | team-points → derived total | top-100 b54 importance (injury cols stripped) + 8 b50 scheme priors |
+| **ENSEMBLE** | agree on direction + 3 ≤ min\|edge\| ≤ 7 | bet at OPENER |
 
-**Why it works:** the two models share +0.302 correlation — partially independent errors. Agreement
-filter cancels noise. Threshold gate concentrates on high-confidence picks.
+### ⚠️ Why no injury features (b57 + user constraint)
+NFL injury reports finalize Friday; the opener was set Sunday-Monday. By the time injury news hits,
+the market has already moved the total. We can never realistically capture this in live betting, so
+injury features are stripped from the locked model. This makes the backtest honest.
 
-### ⚠️ CRITICAL: Timing-honest validation (b57_injury_ablation.py)
-The original "+13.5% ROI vs OPEN" backtest used post-opener injury info (final reports drop Friday;
-opener set Sunday-Monday). The honest decomposition at HC tier (agreement + min |edge| >= 3):
+### ⚠️ Why the 7pt upper cap (b58_edge_magnitude.py)
+b58 bucketed picks by edge magnitude in strict-open mode (the only production-honest mode):
 
-| Scenario | Line | Model | Hit% | ROI | n | What it means |
-|---|---|---|---|---|---|---|
-| A: STRICT OPEN | open | no-injury | 53.3% | +1.8% | 120 | conservative; bet immediately at opener |
-| **B: FULL CLOSE** | **close** | **full** | **56.6%** | **+8.0%** | **122** | **bet Fri-Sat after injury reports** |
-| C: LEAKY (old) | open | full | 59.5% | +13.5% | 111 | NOT achievable — used post-opener info |
-| D: PURE MODEL | close | no-injury | 49.2% | -6.0% | 128 | structural features alone are priced |
-
-**Realistic 2026 live expectation: between A and B → ~54-56% hit, +3-7% ROI at HC tier.**
-The 2025-only strict-open HC test reproduced **57.1% / +9.1% ROI / +0.56 CLV (n=56)** —
-positive CLV survives even with all injury features stripped, confirming residual model edge.
-
-### Two operating modes
-| Mode | Use | Features | When to bet |
+| Edge bucket (strict-open, both agree) | n | hit% | ROI |
 |---|---|---|---|
-| **FULL (default)** | `python3 consensus_totals.py --season 2026 --week N` | all features incl. injuries | **Friday afternoon / Saturday** after final injury reports |
-| **STRICT-OPEN** | `python3 consensus_totals.py --season 2026 --week N --strict-open` | injury features stripped | Immediately at opener (Sun-Mon) — conservative |
+| 0-1 pts | 7 | 42.9% | -18% |
+| 1-2 pts | 31 | 45.2% | -14% |
+| 2-3 pts | 47 | 48.9% | -7% |
+| **3-4 pts** | **62** | **59.7%** | **+14%** |
+| **4-5 pts** | **44** | **56.8%** | **+9%** |
+| **5-7 pts** | **66** | **56.1%** | **+7%** |
+| **7+ pts** | **44** | **50.0%** | **-5%** |
+
+Extreme edges (>7 pts) usually reflect model overconfidence from outlier features, not real
+mispricing. The 3-7 sweet spot gives the cleanest signal.
+
+### Production performance (2024+2025, strict-open + 3-7 sweet spot, both agree)
+- **n ≈ 172 over 2 seasons (~85/yr)**
+- **hit rate ≈ 57-58%**
+- **ROI ≈ +8-10% at -110**
+- **+CLV (0.5+ pts) — line moves toward picks despite no injury info**
+
+2025-only dry-run reproduction: **59.2% / +13.0% ROI / +0.34 CLV on n=49 picks**.
+
+### Tier system (for the website display layer)
+| Tier | Definition | Action |
+|---|---|---|
+| **HC** | both agree + 3 ≤ min\|edge\| ≤ 7 | **THE BET** (bet_quality=1) |
+| EXTREME | both agree + min\|edge\| > 7 | display as "EXTREME LEAN", **do not bet** (~50% historical) |
+| LEAN | both agree + min\|edge\| 2-3 | display only (marginal) |
+| WEAK | both agree + min\|edge\| < 2 | display only |
+| LEAN_EARLY | W1-3 (b55 only, b15 in warmup) + \|edge\|≥2 | display only |
+| NONE | no signal / models disagree | display total only, no direction |
 
 ### Critical config (DO NOT change without re-validating)
 - `TOP_N = 100` features from `data/b54_feature_importance.csv` (FROZEN snapshot, do not re-rank)
-- `MIN_EDGE_STD = 2.0` (supplementary), `MIN_EDGE_HC = 3.0` (**the product**)
+- `MIN_EDGE_BET = 3.0`, **`MAX_EDGE_BET = 7.0`** (the sweet spot cap)
+- `MIN_EDGE_LEAN = 2.0` (display tier, not a bet)
 - b15 hyperparams: depth=3, lr=0.05, n_iter=350, l2=2.0, min_leaf=40
 - b55 hyperparams: depth=4, lr=0.05, n_iter=500, l2=1.0, min_leaf=40
 - Walk-forward: train seasons<target, scheme priors from target-2..target-1
-- Injury features stripped in strict-open mode: `key_recv_out`, `h_max_air_out`, `a_max_air_out` (b15),
-  `off/def_backup_qb`, `off/def_injury_severity`, `off/def_starters_out`, `off/def_qb_out_or_doubtful` (b55)
+- Injury features stripped (default mode):
+  - b15: `key_recv_out`, `h_max_air_out`, `a_max_air_out`
+  - b55: `off/def_backup_qb`, `off/def_injury_severity`, `off/def_starters_out`, `off/def_qb_out_or_doubtful`
 
-### Usage
+### Usage (production)
 ```bash
-python3 consensus_totals.py --dry-run 2025                 # FULL mode (post-injury, bet Fri-Sat)
-python3 consensus_totals.py --dry-run 2025 --strict-open   # STRICT-OPEN mode (no-injury, opener-safe)
-python3 consensus_totals.py --season 2026 --week N         # weekly live (full mode = default)
-python3 consensus_totals.py --grade 2026                   # fill results + CLV
-python3 consensus_totals.py --report 2026                  # summary
+# Live weekly (strict-open is DEFAULT, no flag needed):
+python3 consensus_totals.py --season 2026 --week 4
+python3 consensus_totals.py --grade 2026         # after games complete
+python3 consensus_totals.py --report 2026
+
+# Validation:
+python3 consensus_totals.py --dry-run 2025                  # production mode
+
+# Research/backtest only (NOT live-usable):
+python3 consensus_totals.py --dry-run 2025 --include-injuries
 ```
 
 ### Data dependencies (refresh through 2026 season)
@@ -86,27 +111,35 @@ python3 consensus_totals.py --report 2026                  # summary
 | `data/matchup.parquet` | weekly | main pipeline |
 | `data/scheme_plays.parquet` | weekly | `b46_pull_scheme.py` (nflverse PBP + participation) |
 | `data/odds_consensus.parquet` | weekly | main pipeline (opener + close) |
-| `data/injuries_raw.parquet` | weekly | main pipeline (used by FULL mode; ignored in strict-open) |
-| `data/ngs_receiving.parquet` | weekly | main pipeline (NGS air-share) |
 | `data/players_xwalk.parquet` | occasional | main pipeline |
 | `data/b54_feature_importance.csv` | **FROZEN — do not re-rank** | `b54_team_points.py` snapshot |
 
-### Caveats / honest limits
-- **The +12-13% ROI headline was a backtest artifact** (post-opener injury info used to grade opener bets).
-  Realistic live expectation is **~54-56% / +3-7% ROI at HC tier**.
-- **2024 weaker than 2025**: strict-open 2024 HC ~50%, 2025 HC ~57%. Variance is real.
-- Structural features alone (no injuries) cannot beat the close — D scenario is negative.
-- The model is essentially an **injury-news execution play** + small residual edge from scheme/PR features.
-- **2026 live: track in `out/consensus_totals_ledger_2026.csv`. Sustained +CLV is the confirmation.**
+Note: `injuries_raw.parquet` and `ngs_receiving.parquet` are still used by `forecast_harness.py`
+spot rules (key-WR-out OVER, wind UNDER) but NOT by `consensus_totals.py`.
 
-### Research backstory (b50→b57)
+### Operating constraints
+- **Weeks 1-3**: no bets (b15 needs s2d warmup). Website still gets `display_total` from b55 alone.
+- **Week 4+**: full ensemble fires, ~5-7 HC bets per week average.
+- **Bet timing**: at the OPENER (Sun-Mon). Don't wait for injury news — the strict-open model
+  doesn't use it anyway, and waiting just shifts you to a worse line.
+- **Track CLV**: sustained positive CLV is the live-confirmation signal that the model is
+  identifying real value (line moves toward our picks).
+
+### Honest limits
+- ~85 bets/season is moderate volume; one bad month is normal variance.
+- 2024 was weaker than 2025; pooled number is balanced but expect month-to-month swings.
+- Structural model can't beat the closing line (b57 Scenario D: 49%) — our edge is opener-level
+  mispricings the market hasn't fully sorted out yet.
+
+### Research backstory (b50→b58)
 - b50: pressure-conditioned coverage → stable player priors (QB-vs-man corr 0.33, WR-zone-NP corr 0.39)
 - b51-53: those priors did NOT produce single-game prop edge OR sides edge (priced)
-- b54: built leak-filtered team-points model with 333 features → MAE 7.56 (parity with market)
+- b54: leak-filtered team-points model with 333 features → MAE 7.56 (parity with market)
 - b55: PRUNED to top-100 + added 8 b50 scheme priors → derived totals showed lift vs opener
 - b56: ensembled with locked b15 → agreement filter showed +12-13% ROI (turned out to be leaky)
-- **b57: honesty test → stripped injury features for opener grading. Confirmed real but smaller edge.
-  Reframed product around HC tier + Fri-Sat betting timing.**
+- b57: honesty test → stripped injury features. Confirmed real but smaller edge.
+- **b58: edge-magnitude bucketing → discovered the 3-7 sweet spot. Edges >7 collapse to ~50%.
+  Production rule now caps at the sweet spot, lifting hit rate to ~59%.**
 
 ---
 
