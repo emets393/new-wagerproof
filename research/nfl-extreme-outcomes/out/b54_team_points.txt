@@ -1,0 +1,151 @@
+[load] matchup: (2226, 409) | odds_consensus: (853, 19)
+
+[exclude] 17 betting cols: ['ou_vegas_line', 'away_spread', 'home_spread', 'spread', 'home_away_spread_cover', 'home_away_ml', 'home_last_spread', 'home_last_ml', 'away_last_spread', 'away_last_ml', 'spread_diff', 'spread_miss', 'fav_spread_diff', 'nv_spread_line', 'nv_total_line', 'implied_home_pts', 'implied_away_pts']
+[exclude] 24 outcome cols: ['total_points', 'favorite_covered', 'underdog_covered', 'home_away_favorite', 'home_away_spread_cover', 'ou_result', 'actual_margin', 'actual_total', 'spread_diff', 'spread_miss', 'total_diff', 'total_miss', 'fav_margin', 'fav_spread_diff', 'upset_outright', 'exp_total_ppd', 'exp_margin_ppd', 'mkt_margin', 'resid_home_pts', 'resid_away_pts', 'resid_margin', 'resid_total', 'over_win', 'home_cover']
+
+[LEAK SCAN] columns with |corr|>0.80 vs home/away/total/margin (auto-excluded):
+
+[features] 130 paired, 4 unpaired-home, 3 unpaired-away, 96 neutral
+
+[build] team-game frame: 4452 rows (2226 games)
+[features] 333 retained (>=50% non-null)
+
+[fit] test=2024: train n=3314 test n=570
+  MODEL  MAE 7.56  RMSE 9.50
+  naive-mean baseline (23.0): MAE 7.86
+  market implied team total: MAE 8.95  <- the BENCHMARK
+
+[fit] test=2025: train n=3884 test n=568
+  MODEL  MAE 7.64  RMSE 9.53
+  naive-mean baseline (23.0): MAE 7.93
+  market implied team total: MAE 9.04  <- the BENCHMARK
+
+[importance] permutation importance on 2025 (n_repeats=5)...
+  done in 23s
+
+=== TOP 30 features by permutation importance (test=2025) ===
+  off_predictive_pr                                       +0.0322 ± 0.0089
+  off_backup_qb                                           +0.0143 ± 0.0112
+  def_predictive_pr                                       +0.0123 ± 0.0032
+  off_rush_epa_last3                                      +0.0076 ± 0.0040
+  off_off_stacked_box_s2d                                 +0.0054 ± 0.0021
+  is_home                                                 +0.0053 ± 0.0051
+  def_injury_severity                                     +0.0051 ± 0.0025
+  def_l3_scoring_margin                                   +0.0045 ± 0.0027
+  off_dline_listed                                        +0.0045 ± 0.0020
+  off_last5_pr                                            +0.0038 ± 0.0030
+  def_def_dib_s2d                                         +0.0036 ± 0.0010
+  def_off_aggressiveness_s2d                              +0.0030 ± 0.0010
+  def_def_pass_epa_last3                                  +0.0030 ± 0.0012
+  off_cover_streak                                        +0.0029 ± 0.0024
+  def_dline_listed                                        +0.0029 ± 0.0015
+  def_starters_out                                        +0.0025 ± 0.0020
+  def_l3_sec_per_play                                     +0.0024 ± 0.0017
+  def_rush_epa_last3                                      +0.0022 ± 0.0025
+  sep_rush_sr                                             +0.0022 ± 0.0017
+  anet_ed_pass                                            +0.0022 ± 0.0016
+  def_def_rush_epa_s2d                                    +0.0022 ± 0.0013
+  def_rush_epa_s2d                                        +0.0021 ± 0.0017
+  off_def_rush_epa_s2d                                    +0.0020 ± 0.0015
+  off_off_non_pa_epa_s2d                                  +0.0020 ± 0.0008
+  def_def_rush_epa_last3                                  +0.0020 ± 0.0041
+  sep_pass_epa                                            +0.0019 ± 0.0015
+  proe_prod                                               +0.0018 ± 0.0013
+  def_def_pass_epa_s2d                                    +0.0018 ± 0.0005
+  off_off_rush_success_rate_last3                         +0.0017 ± 0.0005
+  to_rate_sum                                             +0.0016 ± 0.0009
+
+=== Categorized — OFFENSE features in top 30 ===
+  off_predictive_pr                                       +0.0322
+  off_backup_qb                                           +0.0143
+  off_rush_epa_last3                                      +0.0076
+  off_off_stacked_box_s2d                                 +0.0054
+  off_dline_listed                                        +0.0045
+  off_last5_pr                                            +0.0038
+  off_cover_streak                                        +0.0029
+  off_def_rush_epa_s2d                                    +0.0020
+  off_off_non_pa_epa_s2d                                  +0.0020
+  off_off_rush_success_rate_last3                         +0.0017
+
+=== Categorized — DEFENSE features in top 30 ===
+  def_predictive_pr                                       +0.0123
+  def_injury_severity                                     +0.0051
+  def_l3_scoring_margin                                   +0.0045
+  def_def_dib_s2d                                         +0.0036
+  def_off_aggressiveness_s2d                              +0.0030
+  def_def_pass_epa_last3                                  +0.0030
+  def_dline_listed                                        +0.0029
+  def_starters_out                                        +0.0025
+  def_l3_sec_per_play                                     +0.0024
+  def_rush_epa_last3                                      +0.0022
+  def_def_rush_epa_s2d                                    +0.0022
+  def_rush_epa_s2d                                        +0.0021
+  def_def_rush_epa_last3                                  +0.0020
+  def_def_pass_epa_s2d                                    +0.0018
+
+=== Categorized — NEUTRAL (game-level) features in top 30 ===
+  is_home                                                 +0.0053
+  sep_rush_sr                                             +0.0022
+  anet_ed_pass                                            +0.0022
+  sep_pass_epa                                            +0.0019
+  proe_prod                                               +0.0018
+  to_rate_sum                                             +0.0016
+
+[save] full importance ranking -> data/b54_feature_importance.csv (333 features)
+
+========================================================================================
+DERIVED SIDES + TOTALS — does team-points model beat market opener?
+========================================================================================
+[debug] te 2024: shape=(570, 362), off_abv notna=570, season notna=570, week notna=570, target notna=570
+[debug]   te.off_abv head: ['ATL', 'BUF', 'CHI']
+[debug] t shape=(570, 5), t.off_abv head: ['ATL', 'BUF', 'CHI'], t.pred head: [24.418213929913296, 25.13514493453439, 20.771810405074135]
+[debug] te 2025: shape=(568, 362), off_abv notna=568, season notna=568, week notna=568, target notna=568
+[debug]   te.off_abv head: ['ATL', 'BUF', 'CHI']
+[debug] t shape=(568, 5), t.off_abv head: ['ATL', 'BUF', 'CHI'], t.pred head: [19.954676458173903, 28.6348245780023, 17.707389110508323]
+[debug] preds shape=(1138, 5), off_abv notna=1138, pred notna=1138
+[debug] ptab shape after groupby: (1138, 5)
+[debug] ptab head:
+   season  week off_abv       pred  actual
+0    2024     1     ARI  16.560136      28
+1    2024     1     ATL  24.418214      10
+2    2024     1     BAL  25.500176      20
+[debug] ptab dtypes: {'season': dtype('int64'), 'week': dtype('int64'), 'off_abv': dtype('O'), 'pred': dtype('float64'), 'actual': dtype('int64')}
+[debug] gp head:
+      season  week home_ab away_ab
+1657    2024     1     ATL     PIT
+1658    2024     1     BUF     ARI
+1659    2024     1     CHI     TEN
+
+[debug] gp shape: (569, 18)  pred_margin notna 569  close_spread notna 569  open_spread notna 569
+
+  SIDES vs CLOSE (home_cover quintile of pred_margin - implied_margin): n=564
+    Q1: n= 113  hit= 14.2%  CI[9,22]
+    Q2: n= 113  hit= 31.0%  CI[23,40]
+    Q3: n= 112  hit= 58.0%  CI[49,67]
+    Q4: n= 113  hit= 84.1%  CI[76,90]
+    Q5: n= 113  hit= 94.7%  CI[89,98]
+    BET Q5+flip-Q1: n=226 hit=90.3% CI[86,93]  (52.4% breakeven)
+
+  SIDES vs OPEN  (subset with opener data): n=557
+    Q1: n= 112  hit= 46.4%  CI[37,56]
+    Q2: n= 111  hit= 49.5%  CI[40,59]
+    Q3: n= 111  hit= 58.6%  CI[49,67]
+    Q4: n= 111  hit= 55.0%  CI[46,64]
+    Q5: n= 112  hit= 49.1%  CI[40,58]
+    BET Q5+flip-Q1: n=224 hit=51.3% CI[45,58]  (52.4% breakeven)
+
+  TOTALS vs CLOSE (over_close quintile of pred_total - close_total): n=566
+    Q1: n= 114  hit= 53.5%  CI[44,62]
+    Q2: n= 113  hit= 47.8%  CI[39,57]
+    Q3: n= 113  hit= 58.4%  CI[49,67]
+    Q4: n= 113  hit= 51.3%  CI[42,60]
+    Q5: n= 113  hit= 54.0%  CI[45,63]
+    BET Q5+flip-Q1: n=227 hit=50.2% CI[44,57]  (52.4% breakeven)
+
+  TOTALS vs OPEN  (subset with opener data): n=566
+    Q1: n= 114  hit= 49.1%  CI[40,58]
+    Q2: n= 113  hit= 52.2%  CI[43,61]
+    Q3: n= 113  hit= 48.7%  CI[40,58]
+    Q4: n= 113  hit= 54.0%  CI[45,63]
+    Q5: n= 113  hit= 54.9%  CI[46,64]
+    BET Q5+flip-Q1: n=227 hit=52.9% CI[46,59]  (52.4% breakeven)

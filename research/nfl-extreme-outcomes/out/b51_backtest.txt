@@ -1,0 +1,64 @@
+[priors] QB-vs-MAN EPA: 59 QBs. Q25=-0.191 (man-strugglers ≤ this), Q75=+0.043
+[priors] WR zone-no-pressure EPA: 151 WRs. Q75=+0.418 (zone-killers ≥ this)
+[priors] DEF: man-heavy (Q75)≥51%, pressure-strong (Q75)≥32%, zone-heavy≥60%, pressure-weak (Q25)≤29%
+
+========================================================================================
+QB UNDER backtest: man-struggler (prior bottom-quartile vs man) vs man-heavy + pressure-strong D
+========================================================================================
+  SPOT     n=  2 | actual yds 248.5  vs LOO baseline 253.9  diff   -5.4  (median diff   -5.4)
+  CONTROL  n=450 | actual yds 229.7  vs LOO baseline 229.7  diff   +0.0  (median diff   -1.1)
+
+========================================================================================
+WR OVER backtest: zone-killer (prior top-quartile zone-no-pressure) vs zone-heavy + pressure-weak D
+========================================================================================
+  SPOT     n= 22 | actual yds  63.0  vs LOO baseline  55.9  diff   +7.2  (median diff   +9.8)
+  CONTROL  n=1471 | actual yds  47.8  vs LOO baseline  47.9  diff   -0.1  (median diff   -4.1)
+  t-test: t=1.02, p=0.3213 (not sig)
+  OVER baseline: 13/22 = 59.1% (vs 50% null)
+
+  spot games (sorted by diff descending — biggest OVER first):
+  WR                      wk matchup        yds  base  diff  prior(EPA/Z-NP) D(zone%,pr%)
+  Rashee Rice             12 KC@IND         141    61   +80     +0.685        63%, 27%
+  George Kittle           16 SF@IND         115    57   +58     +0.541        63%, 27%
+  Brian Thomas Jr.        14 JAX@IND          87    48   +39     +0.430        63%, 27%
+  Chris Godwin Jr.        13 TB@ARI          78    39   +39     +0.553        63%, 25%
+  Dalton Schultz          15 HOU@ARI          76    42   +34     +0.480        63%, 25%
+  Jauan Jennings          16 SF@IND          71    40   +31     +0.533        63%, 27%
+  Dalton Schultz          18 HOU@IND          73    42   +31     +0.480        63%, 27%
+  Romeo Doubs              7 GB@ARI          72    54   +18     +0.473        63%, 25%
+  Xavier Worthy           12 KC@IND          59    43   +16     +0.435        63%, 27%
+  Jauan Jennings          11 SF@ARI          54    41   +13     +0.533        63%, 25%
+  Dalton Schultz          13 HOU@IND          55    43   +12     +0.480        63%, 27%
+  Jonnu Smith              9 PIT@IND          25    17    +8     +0.419        63%, 27%
+  George Kittle           11 SF@ARI          67    62    +5     +0.541        63%, 25%
+  Tee Higgins             17 CIN@ARI          59    63    -4     +0.660        63%, 25%
+  CeeDee Lamb              9 DAL@ARI          85    90    -5     +0.430        63%, 25%
+  Brian Thomas Jr.        17 JAX@IND          39    51   -12     +0.430        63%, 27%
+  Michael Wilson           6 ARI@IND          44    68   -24     +0.424        63%, 27%
+  Ja'Marr Chase           17 CIN@ARI          60    90   -30     +0.442        63%, 25%
+  Quentin Johnston         7 LAC@IND          30    60   -30     +0.577        63%, 27%
+  Jaylen Waddle            1 MIA@IND          30    63   -33     +0.465        63%, 27%
+  Alec Pierce              6 IND@ARI          48    83   -35     +0.637        63%, 25%
+  Tutu Atwell             18 LA@ARI          19    72   -53     +0.484        63%, 25%
+
+========================================================================================
+SENSITIVITY: vary thresholds, track spot diff vs control diff
+========================================================================================
+
+  QB UNDER
+   qpct  n_spot  spot_diff  ctrl_diff       p
+   0.10       5      +11.9       -0.1  0.6753
+   0.15       9       +6.7       -0.1  0.8839
+   0.20      10       +3.9       -0.1  0.9238
+   0.25      12       +6.1       -0.2  0.8578
+   0.30      14       +4.8       -0.2  0.8675
+   0.35      15       +2.7       -0.1  0.9201
+
+  WR OVER
+   qpct  n_spot  spot_diff  ctrl_diff       p
+   0.10       9      +17.3       -0.1  0.2109
+   0.15      13      +13.8       -0.1  0.2083
+   0.20      15      +11.0       -0.1  0.2648
+   0.25      20       +8.7       -0.1  0.2689
+   0.30      25       +7.8       -0.1  0.2273
+   0.35      34      +10.1       -0.2  0.1063

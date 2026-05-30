@@ -1,0 +1,14 @@
+  2018: pbp 47109 + part 47875 -> joined 47109 | man/zone labeled 39%
+  2019: pbp 47260 + part 48034 -> joined 47260 | man/zone labeled 39%
+  2020: pbp 47705 + part 48513 -> joined 47705 | man/zone labeled 40%
+  2021: pbp 49922 + part 50714 -> joined 49922 | man/zone labeled 39%
+  2022: pbp 49434 + part 50150 -> joined 49434 | man/zone labeled 38%
+  2023: pbp 49665 + part 46168 -> joined 49665 | man/zone labeled 46%
+  2024: pbp 49492 + part 45919 -> joined 49492 | man/zone labeled 45%
+  2025: pbp 48771 + part 45184 -> joined 48771 | man/zone labeled 45%
+
+[save] scheme_plays.parquet: (389358, 35)  seasons [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+[check] pass plays: 179187 | with man/zone label: 90% | with receiver_id: 81%
+[check] man/zone mix (labeled pass plays): {'ZONE_COVERAGE': 102872, 'MAN_COVERAGE': 58902}
+[check] offense_formation: {'SHOTGUN': 167498, 'SINGLEBACK': 44488, 'UNDER CENTER': 32613, 'EMPTY': 15653, 'I_FORM': 13727, 'PISTOL': 12093, 'JUMBO': 1796}
+[check] coverage shells: {'COVER_1': 45902, 'COVER_3': 44096, 'COVER_2': 25746, 'COVER_4': 19202, 'COVER_6': 10196, 'COVER_0': 6866, '2_MAN': 6134, 'COMBO': 1746, 'COVER_9': 1354, 'PREVENT': 431, 'BLOWN': 101}

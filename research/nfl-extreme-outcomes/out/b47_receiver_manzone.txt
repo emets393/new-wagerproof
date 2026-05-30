@@ -1,0 +1,40 @@
+[data] targeted pass plays 2023-25 w/ man/zone: 53801 | MAN 21597 / ZONE 32204
+[league baseline] yds/target: MAN 7.07  ZONE 7.58 | catch%: MAN 60.6 ZONE 72.0 | TD/tgt: MAN 6.8 ZONE 3.2
+
+[build] 177 receivers w/ >=40 targets vs BOTH man & zone (2023-25)
+========================================================================================
+BIGGEST 'BEATS ZONE' (yds/target zone - man), n shown
+========================================================================================
+  receiver               ypt_M ypt_Z  split tgtM tgtZ tdM% tdZ%
+  N.Brown                  5.7  12.0   +6.3   57   65    2    3
+  T.Tremble                4.1   8.4   +4.3   41   62   12    2
+  D.Wicks                  5.1   9.4   +4.3   93   97   10    3
+  J.Reed                   7.0  11.3   +4.3   93  118   11    5
+  M.Harrison               6.1  10.2   +4.1  102   86    9    3
+  D.Vele                   5.8   9.7   +3.9   44   53    9    2
+  Q.Johnston               5.5   9.4   +3.9  122  131    8    6
+  N.Fant                   5.5   9.1   +3.6   41  107    5    2
+  T.Franklin               4.1   7.6   +3.5   61  102    8    4
+  N.Westbrook-Ikhine       5.7   9.2   +3.5   56   70   12    7
+
+========================================================================================
+BIGGEST 'BEATS MAN' (yds/target man - zone)
+========================================================================================
+  receiver               ypt_M ypt_Z  split tgtM tgtZ
+  J.Cook                   9.7   5.7   -4.1   61   92
+  S.Barkley                7.5   4.0   -3.4   64  112
+  J.Coker                 11.3   8.4   -2.8   50   53
+  A.Gibson                 7.8   5.5   -2.3   43   48
+  D.Douglas                8.8   6.6   -2.1  110  113
+  A.Iosivas                8.3   6.2   -2.1   68   76
+  G.Dortch                 7.9   5.9   -2.1   49   75
+  T.Dell                   9.1   7.1   -2.0   44   45
+  B.Robinson               8.0   6.0   -1.9   99  247
+  T.Tucker                 8.6   6.7   -1.9   91  116
+
+========================================================================================
+STABILITY — does the per-receiver split PERSIST (2023->2024->2025)?
+========================================================================================
+  receiver man/zone split: corr(2023, 2024) = +0.222 (n=90)  [>0 = persists/stable skill]
+  receiver man/zone split: corr(2024, 2025) = +0.077 (n=73)
+  (low/zero corr => the split is mostly noise year-to-year, NOT a reliable prop prior)

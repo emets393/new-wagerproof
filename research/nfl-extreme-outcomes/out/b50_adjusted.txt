@@ -1,0 +1,78 @@
+[data] dropback plays 2023-25: 67303
+
+======================================================================================
+(1) LEAGUE BASELINE — pressure x coverage 2x2 (EPA/play, success%, catch%, CPOE)
+======================================================================================
+                      n    epa   succ   cpoe    yds
+MAN +pressure     18736  0.281  0.515 -1.508  6.749
+MAN no-pressure    8991 -0.353  0.324 -7.054  2.936
+ZONE +pressure    28127  0.221  0.531  3.991  7.426
+ZONE no-pressure  11449 -0.410  0.304 -2.045  2.924
+  -> 'how much does pressure matter PER coverage?'
+     MAN: pressure drops EPA by 0.634
+     ZONE: pressure drops EPA by 0.631
+
+======================================================================================
+(2) TEAM-DEF effective coverage rating — pressure-adjusted (lower EPA-allowed = better)
+======================================================================================
+  league pressure rate: 30.4%
+
+  example: team-seasons with HIGH man rate but LOW pressure rate ('fake good vs man'):
+  team  yr    man%   pr%   epa/M  epa/M+P  epa/M-P
+  JAX   2024    59    27  +0.291   -0.096   +0.441
+  TEN   2024    50    30  +0.196   -0.274   +0.411
+  LA    2023    48    26  +0.147   -0.195   +0.270
+  ATL   2024    52    24  +0.145   -0.304   +0.327
+  CAR   2024    54    23  +0.135   -0.249   +0.238
+  DEN   2023    51    29  +0.068   -0.370   +0.275
+
+  HIGH zone rate + HIGH pressure rate ('really good zone, helped by pass rush'):
+  team  yr    zone%   pr%   epa/Z  epa/Z+P  epa/Z-P
+
+======================================================================================
+(3) QB 4-way splits (EPA/play). 'Zone killer' = high EPA vs zone, esp w/o pressure
+======================================================================================
+  qualifying QB-seasons (>=30 plays in each of 4 cells): 102
+
+  Top ZONE KILLERS (highest EPA vs zone, no pressure):
+  QB                     yr      M+P    M-P    Z+P    Z-P  (n cells)
+  C.J. Stroud            2023  -0.77  +0.22  -0.48  +0.56  (72/192/99/224)
+  Lamar Jackson          2024  -0.11  +0.47  -0.06  +0.54  (92/172/72/208)
+  Jordan Love            2025  -0.21  +0.62  -0.73  +0.52  (47/125/90/246)
+  Josh Allen             2024  +0.06  +0.32  -0.25  +0.46  (93/235/67/191)
+  Drake Maye             2025  -0.53  +0.46  -0.43  +0.46  (75/149/132/326)
+  Matthew Stafford       2025  -0.34  +0.29  -0.33  +0.44  (65/185/108/383)
+  Will Levis             2023  -0.88  -0.01  -0.43  +0.42  (41/66/59/116)
+  Jared Goff             2023  -0.80  +0.35  -0.54  +0.42  (71/242/119/318)
+
+  Top MAN STRUGGLERS (lowest EPA vs man w/ pressure):
+  Spencer Rattler        2024  -1.21  +0.20  -0.50  -0.33
+  Aidan O'Connell        2023  -1.13  +0.22  -0.44  +0.14
+  Drew Lock              2024  -1.09  +0.22  -0.50  +0.08
+  Geno Smith             2025  -1.08  +0.68  -0.93  +0.09
+  Caleb Williams         2024  -1.06  +0.25  -0.32  +0.14
+  Daniel Jones           2023  -0.94  +0.32  -0.75  -0.01
+  Joe Flacco             2024  -0.91  +0.31  -0.74  +0.32
+  Lamar Jackson          2025  -0.89  +0.61  -0.53  +0.20
+
+======================================================================================
+(4) STABILITY — prior 2 yrs (2023+2024) cell EPA vs 2025 EPA, per QB
+======================================================================================
+
+  metric: QB EPA per play (4-cell)
+    QB EPA in M_P: prior-vs-2025 corr = +0.059  (n=24)  -> noisy
+    QB EPA in M_N: prior-vs-2025 corr = +0.276  (n=30)  -> noisy
+    QB EPA in Z_P: prior-vs-2025 corr = +0.097  (n=29)  -> noisy
+    QB EPA in Z_N: prior-vs-2025 corr = +0.180  (n=37)  -> noisy
+
+  metric: QB EPA per play (2-way man/zone, no pressure split)
+    QB EPA vs M: prior-vs-2025 corr = +0.331  (n=28)  -> STABLE
+    QB EPA vs Z: prior-vs-2025 corr = +0.145  (n=33)  -> noisy
+
+======================================================================================
+(4b) STABILITY — receiver EPA/target by 4-way bucket (prior 2023-24 vs 2025)
+======================================================================================
+    REC M_P: n=0 (few)
+    REC EPA/tgt in M_N: prior-vs-2025 corr = +0.108  (n=50)  -> noisy
+    REC Z_P: n=0 (few)
+    REC EPA/tgt in Z_N: prior-vs-2025 corr = +0.394  (n=111)  -> STABLE

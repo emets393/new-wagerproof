@@ -1,0 +1,153 @@
+[load] matchup (2226, 409)  scheme_plays (389358, 43)  b54_imp (333, 3)
+[build] team-game frame: 4452 rows  (2226 games)
+
+[scheme] new features added: ['qb_epa_vs_man', 'qb_epa_vs_zone', 'wr_zNP_w', 'def_man_rate', 'def_pressure_rate', 'def_zone_rate', 'int_qbman_x_def', 'int_wrzNP_x_def']
+[scheme] coverage on test seasons (2024+2025): qb_epa_vs_man=80%, qb_epa_vs_zone=81%, wr_zNP_w=99%, def_man_rate=100%, def_pressure_rate=100%, def_zone_rate=100%, int_qbman_x_def=80%, int_wrzNP_x_def=99%
+
+[features] top-100 from b54 (after coverage filter): 100 | + 8 new = 108
+
+================================================================================
+VARIANT 1: BASELINE (top 100 from b54 only — PRUNING only)
+================================================================================
+  [PRUNED] 2024: MAE 7.455
+  [PRUNED] 2025: MAE 7.333
+
+================================================================================
+VARIANT 2: PRUNED + SCHEME priors (NEW features added)
+================================================================================
+  [PRUNED+SCH] 2024: MAE 7.496
+  [PRUNED+SCH] 2025: MAE 7.347
+  [PRUNED+SCH] permutation importance on 2025 ...
+    done in 11s
+
+=== Where do the 8 NEW scheme features rank? ===
+  qb_epa_vs_man              imp=+0.0000  (rank #76/108)
+  qb_epa_vs_zone             imp=+0.0063  (rank #7/108)
+  wr_zNP_w                   imp=+0.0034  (rank #23/108)
+  def_man_rate               imp=-0.0009  (rank #95/108)
+  def_pressure_rate          imp=-0.0036  (rank #105/108)
+  def_zone_rate              imp=-0.0003  (rank #84/108)
+  int_qbman_x_def            imp=+0.0035  (rank #19/108)
+  int_wrzNP_x_def            imp=+0.0022  (rank #32/108)
+
+=== Top 20 features in PRUNED+SCH model ===
+  off_predictive_pr                                       +0.0716
+  def_predictive_pr                                       +0.0171
+  off_backup_qb                                           +0.0128
+  off_rush_epa_last3                                      +0.0106
+  def_def_dib_s2d                                         +0.0074
+  is_home                                                 +0.0073
+  qb_epa_vs_zone                                          +0.0063 <-- NEW
+  kick_hour_et                                            +0.0059
+  off_dline_listed                                        +0.0059
+  def_l3_scoring_margin                                   +0.0058
+  def_off_early_down_pass_epa_s2d                         +0.0041
+  def_injury_severity                                     +0.0041
+  def_l3_sec_per_play                                     +0.0040
+  def_def_td_pct_per_drive_allowed_s2d                    +0.0040
+  def_off_pass_success_rate_last3                         +0.0040
+  off_consecutive_home_away                               +0.0037
+  sep_ed_rush                                             +0.0036
+  off_off_rush_success_rate_last3                         +0.0035
+  int_qbman_x_def                                         +0.0035 <-- NEW
+  def_dline_listed                                        +0.0035
+
+================================================================================
+DERIVED SIDES + TOTALS — PRUNED+SCH model vs market
+================================================================================
+
+  SIDES vs CLOSE: n=564
+    Q1: n= 113  hit= 57.5%  CI[48,66]
+    Q2: n= 113  hit= 52.2%  CI[43,61]
+    Q3: n= 112  hit= 43.8%  CI[35,53]
+    Q4: n= 113  hit= 46.9%  CI[38,56]
+    Q5: n= 113  hit= 55.8%  CI[47,65]
+    BET Q5+flip-Q1: n=226 hit=49.1% CI[43,56]  (52.4% breakeven)
+
+  SIDES vs OPEN: n=557
+    Q1: n= 112  hit= 54.5%  CI[45,63]
+    Q2: n= 111  hit= 55.9%  CI[47,65]
+    Q3: n= 111  hit= 41.4%  CI[33,51]
+    Q4: n= 111  hit= 53.2%  CI[44,62]
+    Q5: n= 112  hit= 53.6%  CI[44,63]
+    BET Q5+flip-Q1: n=224 hit=49.6% CI[43,56]  (52.4% breakeven)
+
+  TOTALS vs CLOSE: n=566
+    Q1: n= 114  hit= 46.5%  CI[38,56]
+    Q2: n= 113  hit= 52.2%  CI[43,61]
+    Q3: n= 113  hit= 48.7%  CI[40,58]
+    Q4: n= 113  hit= 53.1%  CI[44,62]
+    Q5: n= 113  hit= 64.6%  CI[55,73]
+    BET Q5+flip-Q1: n=227 hit=59.0% CI[53,65]  (52.4% breakeven)
+
+  TOTALS vs OPEN: n=566
+    Q1: n= 114  hit= 44.7%  CI[36,54]
+    Q2: n= 113  hit= 49.6%  CI[41,59]
+    Q3: n= 113  hit= 51.3%  CI[42,60]
+    Q4: n= 113  hit= 46.0%  CI[37,55]
+    Q5: n= 113  hit= 67.3%  CI[58,75]
+    BET Q5+flip-Q1: n=227 hit=61.2% CI[55,67]  (52.4% breakeven)
+
+================================================================================
+FINAL COMPARISON: b54 (all 333) vs PRUNED-only (top 100) vs PRUNED+SCH (top 100 + 8 new)
+================================================================================
+  2024: b54=7.56  PRUNED(100)=7.455  PRUNED+SCH(108)=7.496
+  2025: b54=7.64  PRUNED(100)=7.333  PRUNED+SCH(108)=7.347
+
+================================================================================
+ABLATION: derived TOTALS for PRUNED-only (no scheme priors) to isolate the scheme effect
+================================================================================
+
+  TOTALS vs CLOSE (PRUNED-only, no scheme): n=566
+    Q1: n= 114  hit= 50.0%  CI[41,59]
+    Q2: n= 113  hit= 52.2%  CI[43,61]
+    Q3: n= 113  hit= 47.8%  CI[39,57]
+    Q4: n= 113  hit= 52.2%  CI[43,61]
+    Q5: n= 113  hit= 62.8%  CI[54,71]
+    BET Q5+flip-Q1: n=227 hit=56.4% CI[50,63]  (52.4% breakeven)
+
+  TOTALS vs OPEN (PRUNED-only, no scheme): n=566
+    Q1: n= 114  hit= 49.1%  CI[40,58]
+    Q2: n= 113  hit= 46.0%  CI[37,55]
+    Q3: n= 113  hit= 48.7%  CI[40,58]
+    Q4: n= 113  hit= 54.0%  CI[45,63]
+    Q5: n= 113  hit= 61.1%  CI[52,70]
+    BET Q5+flip-Q1: n=227 hit=55.9% CI[49,62]  (52.4% breakeven)
+
+================================================================================
+PER-SEASON BREAKDOWN — TOTALS PRUNED+SCH (check consistency)
+================================================================================
+  2024 TOTALS vs CLOSE: n=114, hit=56.1%, CI[47,65]
+  2024 TOTALS vs OPEN:  n=114, hit=57.0%, CI[48,66]
+  2025 TOTALS vs CLOSE: n=114, hit=56.1%, CI[47,65]
+  2025 TOTALS vs OPEN:  n=114, hit=59.6%, CI[50,68]
+
+================================================================================
+EDGE DISTRIBUTION — t_edge_open for PRUNED+SCH
+================================================================================
+  t_edge_open: mean=-1.36, std=4.83, range=[-18.93, 11.80]
+  Q boundaries (20/40/60/80%): ['-5.24', '-2.66', '-0.22', '+2.85']
+
+  TOP 10 OVER plays (highest t_edge_open):
+    2025 W15 GB@DEN  pred_tot= 53.8  open_tot= 42.0  edge=+11.80  act_tot=60  over=1
+    2024 W14 CAR@PHI  pred_tot= 55.1  open_tot= 44.5  edge=+10.61  act_tot=38  over=0
+    2025 W 6 DET@KC   pred_tot= 59.5  open_tot= 49.0  edge=+10.49  act_tot=47  over=0
+    2025 W15 ARI@HOU  pred_tot= 52.4  open_tot= 42.5  edge=+9.91  act_tot=60  over=1
+    2025 W 2 WAS@GB   pred_tot= 58.1  open_tot= 48.5  edge=+9.57  act_tot=45  over=0
+    2025 W17 SEA@CAR  pred_tot= 51.9  open_tot= 42.5  edge=+9.42  act_tot=37  over=0
+    2025 W 9 DEN@HOU  pred_tot= 48.1  open_tot= 39.0  edge=+9.14  act_tot=33  over=0
+    2025 W13 GB@DET  pred_tot= 57.4  open_tot= 48.5  edge=+8.87  act_tot=55  over=1
+    2025 W15 CLE@CHI  pred_tot= 48.7  open_tot= 40.0  edge=+8.71  act_tot=34  over=0
+    2025 W14 LAR@ARI  pred_tot= 56.2  open_tot= 47.5  edge=+8.68  act_tot=62  over=1
+
+  TOP 10 UNDER plays (lowest t_edge_open):
+    2024 W18 CAR@ATL  pred_tot= 28.6  open_tot= 47.5  edge=-18.93  act_tot=82  over=1
+    2024 W 7 MIA@IND  pred_tot= 28.2  open_tot= 43.0  edge=-14.78  act_tot=26  over=0
+    2024 W 9 NO@CAR  pred_tot= 32.2  open_tot= 46.0  edge=-13.84  act_tot=45  over=0
+    2024 W 4 TEN@MIA  pred_tot= 26.0  open_tot= 39.5  edge=-13.48  act_tot=43  over=1
+    2024 W 2 PIT@DEN  pred_tot= 27.0  open_tot= 40.5  edge=-13.46  act_tot=19  over=0
+    2024 W16 LAR@NYJ  pred_tot= 32.9  open_tot= 46.2  edge=-13.38  act_tot=28  over=0
+    2024 W14 LV@TB   pred_tot= 32.0  open_tot= 45.0  edge=-12.96  act_tot=41  over=0
+    2024 W 2 NYJ@TEN  pred_tot= 30.6  open_tot= 43.5  edge=-12.86  act_tot=41  over=0
+    2024 W17 ARI@LAR  pred_tot= 36.3  open_tot= 49.0  edge=-12.72  act_tot=22  over=0
+    2024 W 2 LAC@CAR  pred_tot= 28.9  open_tot= 41.5  edge=-12.64  act_tot=29  over=0

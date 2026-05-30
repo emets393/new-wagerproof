@@ -24,13 +24,93 @@ Status: *promising, NOT confirmed.* CI[51,61] touches breakeven. 2025 is the sof
 New sides flags (rest/short-week/big-fav/div-late/off-bye) FAIL the permutation null (b30: real 3 ≤ null 4) —
 ATS trend well is tapped; do not add. `div_late` (57.6%, 53/60/59) = WATCH only.
 
-## 2. TOTALS model (full-slate O/U) — `b15_totals.py`
+## 2. TOTALS model (full-slate O/U) — **CONSENSUS ENSEMBLE** — `consensus_totals.py`
 
-Predict `actual_total` walk-forward; bet edge>=2 vs `open_total`.
-**Verdict: breakeven (51.6%, CI[46,57], -1.6% ROI, +0.47 CLV). DO NOT ship as a full-slate product.**
-The market's total is efficient game-to-game. The value is in *spots*, not the slate (below).
+**LOCKED 2026-05-29 (REFRAMED after b57 injury-leak ablation).** Replaces b15 standalone as the totals slate.
 
-## 3. TOTALS spot signals (the real totals edge) — `b15_totals.py` standalone, `b7c_over_rule.py`
+### Strategy
+Ensemble of TWO independent totals models — **bet only when both agree** on direction (over/under)
+AND **min |edge| >= 3 pts** (HC tier = the real product; std tier @ edge≥2 is supplementary):
+
+| Component | Architecture | Features |
+|---|---|---|
+| b15 LOCKED (`b15_totals.py`) | direct totals (HistGBM) | 20 env+weather+flags |
+| b55 PRUNED+SCH (`b55_scheme_priors_pruned.py`) | team-points → derived total | top-100 b54 importance + 8 b50 scheme priors |
+| **ENSEMBLE** | agreement on direction | both above; default to HC (edge≥3) |
+
+**Why it works:** the two models share +0.302 correlation — partially independent errors. Agreement
+filter cancels noise. Threshold gate concentrates on high-confidence picks.
+
+### ⚠️ CRITICAL: Timing-honest validation (b57_injury_ablation.py)
+The original "+13.5% ROI vs OPEN" backtest used post-opener injury info (final reports drop Friday;
+opener set Sunday-Monday). The honest decomposition at HC tier (agreement + min |edge| >= 3):
+
+| Scenario | Line | Model | Hit% | ROI | n | What it means |
+|---|---|---|---|---|---|---|
+| A: STRICT OPEN | open | no-injury | 53.3% | +1.8% | 120 | conservative; bet immediately at opener |
+| **B: FULL CLOSE** | **close** | **full** | **56.6%** | **+8.0%** | **122** | **bet Fri-Sat after injury reports** |
+| C: LEAKY (old) | open | full | 59.5% | +13.5% | 111 | NOT achievable — used post-opener info |
+| D: PURE MODEL | close | no-injury | 49.2% | -6.0% | 128 | structural features alone are priced |
+
+**Realistic 2026 live expectation: between A and B → ~54-56% hit, +3-7% ROI at HC tier.**
+The 2025-only strict-open HC test reproduced **57.1% / +9.1% ROI / +0.56 CLV (n=56)** —
+positive CLV survives even with all injury features stripped, confirming residual model edge.
+
+### Two operating modes
+| Mode | Use | Features | When to bet |
+|---|---|---|---|
+| **FULL (default)** | `python3 consensus_totals.py --season 2026 --week N` | all features incl. injuries | **Friday afternoon / Saturday** after final injury reports |
+| **STRICT-OPEN** | `python3 consensus_totals.py --season 2026 --week N --strict-open` | injury features stripped | Immediately at opener (Sun-Mon) — conservative |
+
+### Critical config (DO NOT change without re-validating)
+- `TOP_N = 100` features from `data/b54_feature_importance.csv` (FROZEN snapshot, do not re-rank)
+- `MIN_EDGE_STD = 2.0` (supplementary), `MIN_EDGE_HC = 3.0` (**the product**)
+- b15 hyperparams: depth=3, lr=0.05, n_iter=350, l2=2.0, min_leaf=40
+- b55 hyperparams: depth=4, lr=0.05, n_iter=500, l2=1.0, min_leaf=40
+- Walk-forward: train seasons<target, scheme priors from target-2..target-1
+- Injury features stripped in strict-open mode: `key_recv_out`, `h_max_air_out`, `a_max_air_out` (b15),
+  `off/def_backup_qb`, `off/def_injury_severity`, `off/def_starters_out`, `off/def_qb_out_or_doubtful` (b55)
+
+### Usage
+```bash
+python3 consensus_totals.py --dry-run 2025                 # FULL mode (post-injury, bet Fri-Sat)
+python3 consensus_totals.py --dry-run 2025 --strict-open   # STRICT-OPEN mode (no-injury, opener-safe)
+python3 consensus_totals.py --season 2026 --week N         # weekly live (full mode = default)
+python3 consensus_totals.py --grade 2026                   # fill results + CLV
+python3 consensus_totals.py --report 2026                  # summary
+```
+
+### Data dependencies (refresh through 2026 season)
+| File | Refresh cadence | Source |
+|---|---|---|
+| `data/matchup.parquet` | weekly | main pipeline |
+| `data/scheme_plays.parquet` | weekly | `b46_pull_scheme.py` (nflverse PBP + participation) |
+| `data/odds_consensus.parquet` | weekly | main pipeline (opener + close) |
+| `data/injuries_raw.parquet` | weekly | main pipeline (used by FULL mode; ignored in strict-open) |
+| `data/ngs_receiving.parquet` | weekly | main pipeline (NGS air-share) |
+| `data/players_xwalk.parquet` | occasional | main pipeline |
+| `data/b54_feature_importance.csv` | **FROZEN — do not re-rank** | `b54_team_points.py` snapshot |
+
+### Caveats / honest limits
+- **The +12-13% ROI headline was a backtest artifact** (post-opener injury info used to grade opener bets).
+  Realistic live expectation is **~54-56% / +3-7% ROI at HC tier**.
+- **2024 weaker than 2025**: strict-open 2024 HC ~50%, 2025 HC ~57%. Variance is real.
+- Structural features alone (no injuries) cannot beat the close — D scenario is negative.
+- The model is essentially an **injury-news execution play** + small residual edge from scheme/PR features.
+- **2026 live: track in `out/consensus_totals_ledger_2026.csv`. Sustained +CLV is the confirmation.**
+
+### Research backstory (b50→b57)
+- b50: pressure-conditioned coverage → stable player priors (QB-vs-man corr 0.33, WR-zone-NP corr 0.39)
+- b51-53: those priors did NOT produce single-game prop edge OR sides edge (priced)
+- b54: built leak-filtered team-points model with 333 features → MAE 7.56 (parity with market)
+- b55: PRUNED to top-100 + added 8 b50 scheme priors → derived totals showed lift vs opener
+- b56: ensembled with locked b15 → agreement filter showed +12-13% ROI (turned out to be leaky)
+- **b57: honesty test → stripped injury features for opener grading. Confirmed real but smaller edge.
+  Reframed product around HC tier + Fri-Sat betting timing.**
+
+---
+
+## 3. TOTALS spot signals (still in play, supplementary to consensus) — `b15_totals.py` standalone, `b7c_over_rule.py`
 
 Held-out 2024-25 vs the opening total:
 | Spot | n | hit | note |

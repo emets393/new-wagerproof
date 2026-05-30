@@ -1,0 +1,12 @@
+[mode] STRICT-OPEN (no-injury)
+
+==============================================================================
+CONSENSUS TOTALS REPORT 2025  (graded: 86 / logged: 87)
+==============================================================================
+  consensus_totals      : 14/30=46.7% CI[30,64] ROI=-10.9% CLV=+0.57pts
+  consensus_totals_HC   : 32/56=57.1% CI[44,69] ROI=+9.1% CLV=+0.56pts
+  ALL                   : 46/86=53.5% CI[43,64] ROI=+2.1% CLV=+0.57pts
+  ----------------------------------------------------------------
+  total units: +1.8 on 86 bets
+
+[dry-run] ledger -> /Users/chrishabib/Documents/new-wagerproof/research/nfl-extreme-outcomes/out/consensus_totals_ledger_2025.csv

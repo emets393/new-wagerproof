@@ -1,0 +1,41 @@
+[test] games eligible (2023+2024+2025, ATS vs opener, scheme features present): 479
+
+Quintile of matchup_diff -> home cover vs OPENER:
+  Q1: n=  96  home_cover= 49.0%  CI[39,59]
+  Q2: n=  96  home_cover= 45.8%  CI[36,56]
+  Q3: n=  95  home_cover= 49.5%  CI[40,59]
+  Q4: n=  96  home_cover= 47.9%  CI[38,58]
+  Q5: n=  96  home_cover= 50.0%  CI[40,60]
+
+Bet matchup-favored side (Q5 home + Q1 away): n=192, hit=50.5%, CI[44,58] (52.4% breakeven)
+OLS hco_open ~ diff: slope=+0.048, p=0.6605, R^2=0.0004
+
+Per-season Q5+Q1-flip ATS (sanity check):
+  2023: n=51, hit=58.8%
+  2024: n=70, hit=52.9%
+  2025: n=72, hit=47.2%
+
+Top 10 home-matchup-favored spots (highest diff):
+   wk matchup      diff  open margin cov  QB(h)        QB(a)
+    4 NO@BUF    +0.650 -15.5    +12  0    Josh Allen   Spencer Ratt
+   12 CAR@SF     +0.595  -6.5    +11  1    Brock Purdy  Bryce Young
+    3 CHI@KC     +0.524 -11.5    +31  1    Patrick Maho Justin Field
+   18 CAR@TB     +0.484  -3.0     +2  0    Baker Mayfie Bryce Young
+    9 CAR@GB     +0.473 -10.5     -3  0    Jordan Love  Bryce Young
+    5 ARI@SF     +0.468  -7.0     -1  0    Brock Purdy  Kyler Murray
+    1 CAR@NO     +0.451  -4.2    +37  1    Derek Carr   Bryce Young
+   12 IND@KC     +0.442  -4.0     +3  0    Patrick Maho Daniel Jones
+    7 CAR@NYJ    +0.442  -2.5     -7  0    Tyrod Taylor Bryce Young
+    2 CHI@DET    +0.440  -4.5    +31  1    Jared Goff   Caleb Willia
+
+Top 10 away-matchup-favored spots (lowest diff):
+    8 BUF@CAR    -0.597  +7.5    -31  0    Andy Dalton  Josh Allen
+   12 KC@CAR    -0.591 +11.2     -3  1    Bryce Young  Patrick Maho
+    2 LAC@CAR    -0.535  +3.5    -23  0    Bryce Young  Justin Herbe
+   15 SF@ARI    -0.487 +13.5    -16  0    Kyler Murray Brock Purdy
+    5 MIA@CAR    -0.481  +0.0     +3  1    Bryce Young  Tua Tagovail
+    1 MIA@IND    -0.448  -1.5    +25  1    Daniel Jones Tua Tagovail
+    3 DET@ARI    -0.447  +4.5     -7  0    Kyler Murray Jared Goff
+   21 KC@BAL    -0.427  -3.5     -7  0    Lamar Jackso Patrick Maho
+   16 TB@CAR    -0.426  +2.0     +3  1    Bryce Young  Baker Mayfie
+    1 SF@PIT    -0.426  +2.5    -23  0    Kenny Picket Brock Purdy

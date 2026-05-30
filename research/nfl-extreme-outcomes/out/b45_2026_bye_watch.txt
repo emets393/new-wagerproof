@@ -1,0 +1,38 @@
+================================================================================
+(1) 2026 COACHES with LITTLE/NO bye record (treat their bye spots as unknown)
+================================================================================
+  ARI  Jonathan Gannon        pre n=3 post n=3
+  BAL  Jesse Minter           pre n=0 post n=0
+  CAR  Dave Canales           pre n=2 post n=2
+  CHI  Ben Johnson            pre n=1 post n=1
+  CLE  Todd Monken            pre n=0 post n=0
+  DAL  Brian Schottenheimer   pre n=1 post n=1
+  HOU  DeMeco Ryans           pre n=3 post n=3
+  IND  Shane Steichen         pre n=3 post n=3
+  JAX  Liam Coen              pre n=1 post n=1
+  LV   Klint Kubliak          pre n=0 post n=0
+  MIA  Jeff Hafley            pre n=0 post n=0
+  MIN  Kevin O'Connell        pre n=4 post n=3
+  NO   Kellen Moore           pre n=1 post n=1
+  NYJ  Aaron Glenn            pre n=1 post n=1
+  SEA  Mike Macdonald         pre n=2 post n=2
+  TEN  Robert Saleh           pre n=4 post n=3
+  (16 teams w/ thin bye record — new/recent HCs)
+
+================================================================================
+(2) 2026 BYE-COLLISION games (BOTH teams in a pre/post-bye spot)
+================================================================================
+  7 collision games. (* = both coaches established n>=5, the bye_collision rule's targets)
+  W9  TB Bowles(pre 62.5%/n8) @ CHI Johnson(pre 100.0%/n1)  gap=38
+  W7  NYG Harbaugh(pre 41.2%/n17) @ HOU Ryans(pre 66.7%/n3)  gap=26
+ *W9  NYG Harbaugh(post 61.1%/n18) @ PHI Sirianni(pre 80.0%/n5)  gap=19
+ *W12 GB LaFleur(post 28.6%/n7) @ LA McVay(post 44.4%/n9)  gap=16
+  W6  LAC Harbaugh(pre 66.7%/n6) @ KC Reid(post 59.3%/n27)  gap=7
+  W5  CIN Taylor(pre 42.9%/n7) @ MIA Hafley(pre nan%/n0)  gap=nan
+  W12 LV Kubliak(pre nan%/n0) @ CLE Monken(post nan%/n0)  gap=nan
+
+================================================================================
+(3) NOTABLE single-coach pre/post-bye spots in 2026 (established n>=10, pct>=62 or <=40)
+================================================================================
+  W9  DEN (Payton) pre-bye 72.2% n=18 -> BACK  [@ CAR]
+  W10 PIT (McCarthy) post-bye 76.5% n=17 -> BACK  [@ CIN]

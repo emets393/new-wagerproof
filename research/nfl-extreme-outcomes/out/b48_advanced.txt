@@ -1,0 +1,70 @@
+  2018: joined 47109  | advanced cols present: ['comp_air_epa', 'comp_yac_epa', 'cpoe', 'epa', 'qb_epa', 'success', 'xpass', 'xyac_epa', 'xyac_success']
+  2019: joined 47260  | advanced cols present: ['comp_air_epa', 'comp_yac_epa', 'cpoe', 'epa', 'qb_epa', 'success', 'xpass', 'xyac_epa', 'xyac_success']
+  2020: joined 47705  | advanced cols present: ['comp_air_epa', 'comp_yac_epa', 'cpoe', 'epa', 'qb_epa', 'success', 'xpass', 'xyac_epa', 'xyac_success']
+  2021: joined 49922  | advanced cols present: ['comp_air_epa', 'comp_yac_epa', 'cpoe', 'epa', 'qb_epa', 'success', 'xpass', 'xyac_epa', 'xyac_success']
+  2022: joined 49434  | advanced cols present: ['comp_air_epa', 'comp_yac_epa', 'cpoe', 'epa', 'qb_epa', 'success', 'xpass', 'xyac_epa', 'xyac_success']
+  2023: joined 49665  | advanced cols present: ['comp_air_epa', 'comp_yac_epa', 'cpoe', 'epa', 'qb_epa', 'success', 'xpass', 'xyac_epa', 'xyac_success']
+  2024: joined 49492  | advanced cols present: ['comp_air_epa', 'comp_yac_epa', 'cpoe', 'epa', 'qb_epa', 'success', 'xpass', 'xyac_epa', 'xyac_success']
+  2025: joined 48771  | advanced cols present: ['comp_air_epa', 'comp_yac_epa', 'cpoe', 'epa', 'qb_epa', 'success', 'xpass', 'xyac_epa', 'xyac_success']
+[refresh] scheme_plays: (389358, 43)
+
+LEAGUE BASELINE 2023-25 (per target):
+  vs MAN_COVERAGE   n= 21597 | EPA/tgt=+0.187  success=47.6%  CPOE=-2.8  yac_EPA-x=-0.257
+  vs ZONE_COVERAGE  n= 32204 | EPA/tgt=+0.179  success=51.1%  CPOE=+2.8  yac_EPA-x=-0.242
+
+=== SPLIT: EPA/target ===  (n_receivers w/ >=60 ea: 127)  league split (Z-M): +0.030
+  top BEATS ZONE:
+    T.Franklin             M=-0.390  Z=+0.184  split=+0.574  (M n=61 Z n=102)
+    K.Bourne               M=-0.187  Z=+0.324  split=+0.511  (M n=64 Z n=84)
+    J.Smith-Schuster       M=-0.292  Z=+0.216  split=+0.508  (M n=61 Z n=63)
+    D.Kincaid              M=+0.084  Z=+0.548  split=+0.464  (M n=114 Z n=133)
+    J.Mingo                M=-0.551  Z=-0.091  split=+0.460  (M n=62 Z n=68)
+    J.Tolbert              M=+0.014  Z=+0.407  split=+0.394  (M n=83 Z n=69)
+  top BEATS MAN:
+    S.Barkley              M=+0.409  Z=-0.217  split=-0.626  (M n=64 Z n=112)
+    T.Kraft                M=+0.802  Z=+0.302  split=-0.500  (M n=78 Z n=91)
+    A.Iosivas              M=+0.512  Z=+0.082  split=-0.430  (M n=68 Z n=76)
+    J.Cook                 M=+0.495  Z=+0.073  split=-0.421  (M n=61 Z n=92)
+    A.Thielen              M=+0.664  Z=+0.295  split=-0.369  (M n=106 Z n=131)
+    D.Douglas              M=+0.389  Z=+0.040  split=-0.349  (M n=110 Z n=113)
+
+=== SPLIT: CPOE per target ===  (n_receivers w/ >=60 ea: 127)  league split (Z-M): +5.564
+  top BEATS ZONE:
+    J.Reed                 M=-8.130  Z=+19.403  split=+27.533  (M n=93 Z n=118)
+    J.Mingo                M=-30.475  Z=-6.825  split=+23.650  (M n=62 Z n=68)
+    D.Schultz              M=-10.385  Z=+8.605  split=+18.990  (M n=115 Z n=188)
+    M.Gesicki              M=+0.055  Z=+16.089  split=+16.034  (M n=96 Z n=76)
+    C.Otton                M=-11.487  Z=+4.243  split=+15.730  (M n=87 Z n=168)
+    D.Kincaid              M=-2.702  Z=+12.819  split=+15.521  (M n=114 Z n=133)
+  top BEATS MAN:
+    C.McCaffrey            M=+11.397  Z=+1.251  split=-10.146  (M n=78 Z n=192)
+    S.Barkley              M=+3.481  Z=-5.514  split=-8.995  (M n=64 Z n=112)
+    N.Gray                 M=+7.601  Z=-0.033  split=-7.633  (M n=62 Z n=81)
+    M.Evans                M=+4.143  Z=-2.869  split=-7.012  (M n=174 Z n=186)
+    R.Doubs                M=+8.220  Z=+2.181  split=-6.039  (M n=123 Z n=157)
+    D.Douglas              M=+3.944  Z=-0.627  split=-4.571  (M n=110 Z n=113)
+
+=== SPLIT: success rate per target ===  (n_receivers w/ >=60 ea: 127)  league split (Z-M): +0.053
+  top BEATS ZONE:
+    T.Conklin              M=+0.325  Z=+0.591  split=+0.267  (M n=77 Z n=93)
+    M.Gesicki              M=+0.490  Z=+0.711  split=+0.221  (M n=96 Z n=76)
+    C.Samuel               M=+0.346  Z=+0.564  split=+0.218  (M n=78 Z n=78)
+    J.Mingo                M=+0.210  Z=+0.412  split=+0.202  (M n=62 Z n=68)
+    C.Otton                M=+0.368  Z=+0.565  split=+0.198  (M n=87 Z n=168)
+    D.Kincaid              M=+0.465  Z=+0.662  split=+0.197  (M n=114 Z n=133)
+  top BEATS MAN:
+    J.Cook                 M=+0.590  Z=+0.435  split=-0.155  (M n=61 Z n=92)
+    C.McCaffrey            M=+0.603  Z=+0.495  split=-0.108  (M n=78 Z n=192)
+    E.Engram               M=+0.527  Z=+0.423  split=-0.105  (M n=91 Z n=201)
+    S.Barkley              M=+0.469  Z=+0.366  split=-0.103  (M n=64 Z n=112)
+    M.Evans                M=+0.603  Z=+0.511  split=-0.093  (M n=174 Z n=186)
+    C.Olave                M=+0.592  Z=+0.511  split=-0.080  (M n=120 Z n=219)
+
+==================================================================================
+STABILITY — does each metric's man/zone split PERSIST? (prior 2023-24 -> 2025)
+==================================================================================
+  raw yds/target       corr(2023-24 split, 2025 split) = +0.129  (n=72) -> noisy
+  EPA/target           corr(2023-24 split, 2025 split) = +0.064  (n=72) -> noisy
+  CPOE                 corr(2023-24 split, 2025 split) = +0.004  (n=72) -> noisy
+  success rate         corr(2023-24 split, 2025 split) = +0.112  (n=72) -> noisy
+  YAC EPA              corr(2023-24 split, 2025 split) = +0.195  (n=72) -> modest

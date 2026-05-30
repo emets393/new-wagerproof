@@ -1,0 +1,65 @@
+[b15] LOCKED model trained. n predictions (week>=4): 473
+[b55] PRUNED+SCH trained. n team-game predictions: 1138
+
+[ensemble] games with both models + opener (week>=4): 473
+
+[edge stats]
+  b15 edge mean=-1.14  std=4.96
+  b55 edge mean=-1.37  std=4.83
+  corr(edge_b15, edge_b55) = +0.302  (lower = more independent = better for ensemble)
+
+========================================================================================
+INDIVIDUAL MODELS — vs opener
+========================================================================================
+
+  b15 LOCKED direct totals:
+    edge>=1.0: n= 398 hit= 52.3% CI[47,57] ROI= -0.2%
+    edge>=2.0: n= 332 hit= 53.6% CI[48,59] ROI= +2.4%
+    edge>=3.0: n= 269 hit= 54.6% CI[49,60] ROI= +4.3%
+
+  b55 PRUNED+SCH team-points -> totals:
+    edge>=1.0: n= 416 hit= 52.9% CI[48,58] ROI= +1.0%
+    edge>=2.0: n= 340 hit= 55.0% CI[50,60] ROI= +5.0%
+    edge>=3.0: n= 262 hit= 56.1% CI[50,62] ROI= +7.1%
+
+========================================================================================
+(A) AVERAGE PREDICTIONS — bet edge of (avg pred) - opener
+========================================================================================
+
+  avg(b15, b55) - open_total:
+    edge>=1.0: n= 392 hit= 53.3% CI[48,58] ROI= +1.8%
+    edge>=2.0: n= 306 hit= 52.9% CI[47,58] ROI= +1.1%
+    edge>=3.0: n= 222 hit= 55.0% CI[48,61] ROI= +4.9%
+
+========================================================================================
+(B) AGREEMENT FILTER — bet only when both agree on direction
+========================================================================================
+  Games where both models agree on direction: 295 / 473 (62%)
+
+  agreement filter, |edge| = min of two (more conservative):
+    edge>=1.0: n= 222 hit= 55.0% CI[48,61] ROI= +4.9%
+    edge>=2.0: n= 162 hit= 58.6% CI[51,66] ROI=+12.0%
+    edge>=3.0: n= 111 hit= 59.5% CI[50,68] ROI=+13.5%
+
+  agreement filter, |edge| = avg of two:
+    edge>=1.0: n= 280 hit= 53.6% CI[48,59] ROI= +2.3%
+    edge>=2.0: n= 251 hit= 53.8% CI[48,60] ROI= +2.7%
+    edge>=3.0: n= 202 hit= 55.0% CI[48,62] ROI= +4.9%
+
+========================================================================================
+(C) SUM OF EDGES quintile
+========================================================================================
+
+  Quintile of edge_sum (n=470):
+    Q1: n=  94 hit= 46.8% CI[37,57]
+    Q2: n=  94 hit= 55.3% CI[45,65]
+    Q3: n=  94 hit= 53.2% CI[43,63]
+    Q4: n=  94 hit= 48.9% CI[39,59]
+    Q5: n=  94 hit= 62.8% CI[53,72]
+    BET Q5+flip-Q1: n=188 hit=58.0% CI[51,65] ROI=+10.7%
+
+========================================================================================
+PER-SEASON BREAKDOWN — best ensemble (agreement filter, edge_avg>=2)
+========================================================================================
+  2024: n=124 hit=51.6% CI[43,60] ROI=-1.5%
+  2025: n=127 hit=55.9% CI[47,64] ROI=+6.7%

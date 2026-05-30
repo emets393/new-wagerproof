@@ -1,0 +1,32 @@
+[build] def-scheme team-seasons: 256 | off-scheme: 256
+[merge] games with scheme features: 1610 / 1842
+
+====================================================================================
+(B) SIDES ablation — does scheme add to PR baseline? (held-out 2024-25 vs opener)
+====================================================================================
+  PR baseline                        n=345 hit=48.1% CI[43,53]
+  PR + scheme                        n=389 hit=48.1% CI[43,53]
+
+====================================================================================
+(B) TOTALS ablation — scheme as features (held-out 2024-25 vs open_total, edge>=2)
+====================================================================================
+  EPA baseline                       edge>=2: n=318 hit=51.3% CI[46,57]
+  EPA + scheme                       edge>=2: n=337 hit=51.6% CI[46,57]
+
+====================================================================================
+(C) Scheme-environment matchup trends (with permutation null)
+====================================================================================
+  OVER rate vs CLOSE — permutation null: real passers=1 vs null mean=1.4 (95th=3) -> within chance
+    both Ds man-heavy(>=40)                    OVER  51.1% (n= 311) CI[46,57]
+    both Ds zone-heavy(<=30)                   OVER  50.2% (n= 219) CI[44,57]
+    both Os rush-strong                        OVER  53.0% (n=  66) CI[41,65]
+    both Ds blitz-heavy(>=30)                  OVER  45.1% (n= 173) CI[38,53]
+    USER: man-heavy Ds + rush-strong Os        OVER  50.0% (n=  10) CI[24,76]
+    zone-heavy Ds + pass-strong Os             OVER  55.4% (n=  74) CI[44,66]
+  HOME COVER vs CLOSE — real passers=1 (null trivial; ATS spots are mostly priced):
+    both Ds man-heavy(>=40)                    cover  50.8% (n= 311)
+    both Ds zone-heavy(<=30)                   cover  47.9% (n= 219)
+    both Os rush-strong                        cover  51.5% (n=  66)
+    both Ds blitz-heavy(>=30)                  cover  57.2% (n= 173)
+    USER: man-heavy Ds + rush-strong Os        cover  40.0% (n=  10)
+    zone-heavy Ds + pass-strong Os             cover  51.4% (n=  74)
