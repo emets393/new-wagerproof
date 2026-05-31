@@ -32,6 +32,36 @@ FADE_HI=0.80; FADE_LO=0.20   # legacy-model fade: >=.80 (model loves home) -> be
 BYE_GAP=15.0; BYE_MIN_N=5    # bye-collision: bet the coach w/ better career pre/post-bye ATS% if gap>=15 & both n>=5
 nv2our={"LA":"LAR","SD":"LAC","STL":"LAR"}
 
+def load_dk_open(target):
+    """Load DraftKings OPENING-line snapshot per game for target season. Used by dk_giant_fav_over
+    and dk_heavy_home_juice spots (b63). Trigger AT OPEN + bet AT OPEN = honest, no CLV inflation.
+    Returns empty df if odds_hist missing — spots just don't fire."""
+    hp=os.path.join(DATA,"odds_hist.parquet")
+    if not os.path.exists(hp): return pd.DataFrame(columns=["season","home_ab","away_ab"])
+    o=pd.read_parquet(hp)
+    dk=o[o.book=="draftkings"].copy()
+    if len(dk)==0: return pd.DataFrame(columns=["season","home_ab","away_ab"])
+    dk["snap_ts"]=pd.to_datetime(dk.snap_ts,errors="coerce",utc=True)
+    dk["commence_time"]=pd.to_datetime(dk.commence_time,errors="coerce",utc=True)
+    dk=dk.dropna(subset=["snap_ts","commence_time"])
+    dk=dk[dk.snap_ts<=dk.commence_time]
+    dk_close=dk.sort_values("snap_ts").drop_duplicates(["season","home_team","away_team","commence_time"],keep="first")
+    TM={'Arizona':'ARI','Atlanta':'ATL','Baltimore':'BAL','Buffalo':'BUF','Carolina':'CAR','Chicago':'CHI','Cincinnati':'CIN','Cleveland':'CLE','Dallas':'DAL','Denver':'DEN','Detroit':'DET','Green Bay':'GB','Houston':'HOU','Indianapolis':'IND','Jacksonville':'JAX','Kansas City':'KC','Los Angeles Chargers':'LAC','Los Angeles Rams':'LAR','Las Vegas':'LV','Miami':'MIA','Minnesota':'MIN','New England':'NE','New Orleans':'NO','New York Giants':'NYG','New York Jets':'NYJ','Philadelphia':'PHI','Pittsburgh':'PIT','San Francisco':'SF','Seattle':'SEA','Tampa Bay':'TB','Tennessee':'TEN','Washington':'WAS'}
+    dk_close["home_ab"]=dk_close.home_team.map(TM); dk_close["away_ab"]=dk_close.away_team.map(TM)
+    out=dk_close[dk_close.season==target][["season","home_ab","away_ab","commence_time","spread_home","spread_home_price","ml_home","ml_away"]].rename(
+        columns={"spread_home":"dk_spread","spread_home_price":"dk_juice","ml_home":"dk_ml_home","ml_away":"dk_ml_away"})
+    # de-dupe to one row per (season,home,away) — keep earliest (regular season before playoffs)
+    out=out.sort_values("commence_time").drop_duplicates(["season","home_ab","away_ab"],keep="first").drop(columns=["commence_time"])
+    return out.dropna(subset=["home_ab","away_ab"])
+
+def build_spread_lookup():
+    """Empirical spread -> SU favorite win rate (b63 lookup table)."""
+    m=pd.read_parquet(os.path.join(DATA,"matchup.parquet"))
+    m["am"]=m.home_score-m.away_score
+    m["fav_won"]=((m.home_spread<0)&(m.am>0))|((m.home_spread>0)&(m.am<0))
+    m["sp_b"]=(m.home_spread.abs()/0.5).round()*0.5
+    return dict(zip(m.groupby("sp_b").fav_won.mean().index, m.groupby("sp_b").fav_won.mean().values))
+
 def load_legacy():
     """Legacy EPA model's spread cover prob per game (earliest=pregame snapshot). Empty -> legacy rules just don't fire.
     Pulled FRESH each run so 2026 weekly use picks up new predictions from nfl_predictions_epa."""
@@ -199,6 +229,11 @@ def generate(m, BASE, target, week=None):
     te=te.merge(od[["season","home_ab","away_ab","open_spread","open_total","close_spread","close_total"]],on=["season","home_ab","away_ab"],how="left")
     bc=load_bye_collisions(target)
     te=te.merge(bc,on=["season","home_ab","away_ab"],how="left") if len(bc) else te.assign(bye_edge_home=np.nan,bye_gap=np.nan)
+    dk=load_dk_open(target); sp_lookup=build_spread_lookup()
+    te=te.merge(dk,on=["season","home_ab","away_ab"],how="left") if len(dk) else te.assign(dk_spread=np.nan,dk_juice=np.nan,dk_ml_home=np.nan,dk_ml_away=np.nan)
+    def _ml_p(ml):
+        if pd.isna(ml) or ml==0: return np.nan
+        return -ml/(-ml+100) if ml<0 else 100/(ml+100)
     if week is not None: te=te[te.week==week]
     rows=[]
     for _,g in te.iterrows():
@@ -245,6 +280,36 @@ def generate(m, BASE, target, week=None):
             rows.append(dict(pick_id=gid+"-BC",season=g.season,week=int(g.week),game=mtchp,rule="bye_collision",
                 market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
                 bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(float(g.bye_gap),1)))
+        # DK GIANT FAV OVER (b63): spread >=7 + ML softer than spread implies (div<=-0.05) -> OVER
+        if pd.notna(g.dk_spread) and pd.notna(g.dk_ml_home) and pd.notna(g.dk_ml_away) and pd.notna(g.open_total):
+            abs_dk=abs(g.dk_spread)
+            if abs_dk>=7:
+                ml_h=_ml_p(g.dk_ml_home); ml_a=_ml_p(g.dk_ml_away)
+                if pd.notna(ml_h) and pd.notna(ml_a) and (ml_h+ml_a)>0:
+                    ml_h_nv=ml_h/(ml_h+ml_a)
+                    is_h_fav=g.dk_spread<0
+                    fav_ml_nv=ml_h_nv if is_h_fav else (1-ml_h_nv)
+                    fav_sp_imp=sp_lookup.get(round(abs_dk/0.5)*0.5,0.5)
+                    fav_div=fav_ml_nv - fav_sp_imp
+                    if fav_div<=-0.05:
+                        rows.append(dict(pick_id=gid+"-DKO",season=g.season,week=int(g.week),game=mtchp,
+                            rule="dk_giant_fav_over",market="total",side=f"OVER {g.open_total:g}",
+                            bet_home=-1,open_num=g.open_total,close_num=g.close_total,edge=round(float(-fav_div*100),1)))
+        # DK HEAVY HOME JUICE (b63): DK spread_home_price <=-120 -> bet HOME spread side
+        if pd.notna(g.dk_juice) and g.dk_juice<=-120 and pd.notna(g.open_spread):
+            rows.append(dict(pick_id=gid+"-DKJ",season=g.season,week=int(g.week),game=mtchp,
+                rule="dk_heavy_home_juice",market="spread",
+                side=f"{g.home_ab} {g.open_spread:+g}",bet_home=1,
+                open_num=g.open_spread,close_num=g.close_spread,edge=round(float(-g.dk_juice),0)))
+        # FADE-PR IN TIGHT GAME (b65): 1.5 line + |pr_diff|>=3 -> bet AGAINST better-PR team
+        # Mechanism: tight lines are tight FOR A REASON; market priced reasons we don't see
+        pr_d=g.get("pr_diff",np.nan)
+        if pd.notna(pr_d) and pd.notna(g.open_spread) and abs(g.open_spread)<=1.5 and abs(pr_d)>=3:
+            home_pick=pr_d<0   # home has worse PR -> bet home (FADE the better-PR away team)
+            rows.append(dict(pick_id=gid+"-FPR",season=g.season,week=int(g.week),game=mtchp,
+                rule="fade_pr_in_tight_game",market="spread",
+                side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
+                bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(float(abs(pr_d)),2)))
         # ROLLING TEAM-vs-LINE MISS spots (b61/b62 — FADE the trap, mean reversion)
         sum_l3=g.get("total_miss_sum_last3",np.nan); lvl=g.get("line_vs_league",np.nan)
         # EXTREME UNDER-reversion (star signal): both teams way under-performed + line high -> bet OVER (68% n=25)
@@ -300,7 +365,7 @@ def report(target):
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv"); led=pd.read_csv(path)
     g=led.dropna(subset=["win"])
     L(f"\n{'='*78}\nFORWARD-TEST REPORT {target}  (graded picks: {len(g)} / logged: {len(led)})\n{'='*78}")
-    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","bye_collision","total_low_line_over","total_high_line_under","spread_dog_cover_fade_away","spread_dog_cover_fade_home","ALL"]:
+    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","bye_collision","total_low_line_over","total_high_line_under","spread_dog_cover_fade_away","spread_dog_cover_fade_home","fade_pr_in_tight_game","dk_giant_fav_over","dk_heavy_home_juice","ALL"]:
         s=g if rule=="ALL" else g[g.rule==rule]
         if len(s)==0: L(f"  {rule:18s}: (none yet)"); continue
         k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100
