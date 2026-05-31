@@ -202,62 +202,108 @@ spot rules (key-WR-out OVER, wind UNDER) but NOT by `consensus_totals.py`.
 
 ---
 
-## 3. SPOT SIGNALS (the bet-flag layer — overlays on §1 sides + §2 totals predictions)
+## 3. SPOT SIGNALS — full library (organized by TIER, finalized 2026-05-31)
 
-These are situational/trend signals tested across full 2018-2025 sample. When a spot fires AND the
-underlying model points the same direction → high-confidence pick. Validation grades vs OPENER where
-available, CLOSE otherwise (noted per spot).
+Two tiers:
+- **TIER 1 = BET FLAGS** — structural at bet time, no CLV inflation, can be acted on directly
+- **TIER 2 = CONFLUENCE OVERLAYS** — line-movement signals; CLV-inflated when graded vs opener, real
+  edge drops to ~52-54% at the moved line. Useful for website confidence badges, NOT standalone bets.
 
-### 3a. NEW: Trap-fade spots (b61 + b62, vaulted 2026-05-30)
+---
 
-The "trap" pattern: rolling team-vs-line miss diverges from the posted line. Tests showed FOLLOWING
-the trap loses (44-48%, -10 to -15% ROI). FADING the trap (mean reversion thesis) is the real edge.
+### TIER 1 — STRUCTURAL BET FLAGS (real edge at bet time)
 
-Computed pre-game per-team rolling miss:
-- `team_total_miss` = actual_team_pts - implied_team_total (implied = (total ± spread)/2)
-- `team_margin_miss` = actual_margin + team_spread (positive = covered)
-- Rolling: shifted s2d + shifted last3, populated W2+
+All signals below use information visible at the moment you bet (opener). Tested honestly with no
+time-travel assumptions. Each fires automatically in `forecast_harness.py` (or `consensus_totals.py`).
 
-| Spot | Direction | n | Hit % | ROI | Notes |
-|---|---|---|---|---|---|
-| **EXTREME UNDER reversion** (sum≤-8 last3 AND line ≥+2 vs league avg) | **OVER** | 25 | **68.0%** | **+29.8%** | star signal; vs CLOSE 8 seasons |
-| same, line ≥+3 | OVER | 20 | 65.0% | +24.1% | tighter cut, same direction |
-| same, vs OPENER (2023-25) sum≤-5, line≥+3 | OVER | 18 | 61.1% | +16.7% | holds at opener too |
-| **FADE-OVER-trap broad** (sum≥3 last3 AND line ≤-1) | **UNDER** | 208 | **55.3%** | **+5.6%** | broad sample, modest+stable |
-| FADE-OVER-trap, sum≥4, line≤-4 | UNDER | 58 | 56.9% | +8.6% | tighter cut |
-| FADE-OVER-trap, sum≥8, line≤-4 | UNDER | 21 | 57.1% | +9.1% | strictest |
-| **Spread cover FADE: home-dog covering** (h_miss≥3, a_miss≤-3, home_spread>0) | **AWAY** | 10 | **70.0%** | +33.6% | small n, suggestive |
-| Spread cover FADE: away-dog covering (a_miss≥4, h_miss≤-4, home_spread<0) | HOME | 11 | 63.6% | +21.5% | small n, suggestive |
-
-**Per-season note**: fade-OVER-trap was 60-70% in 2018-2022, decayed to ~50% in 2023-2025 (edge
-decay observed). The EXTREME UNDER reversion signal has been more stable. **Track 2026 CLV closely.**
-
-**Production rules (added to forecast_harness as tracking spots)**:
-- `total_low_line_over` — sum_last3 ≤ -8 AND line ≥ league_avg + 2 → bet OVER
-- `total_high_line_under` — sum_last3 ≥ 4 AND line ≤ league_avg - 2 → bet UNDER (modest, broad)
-- `spread_dog_cover_fade_away` — h_margin_miss ≥ 3 AND a_margin_miss ≤ -3 AND home_dog → bet AWAY
-- `spread_dog_cover_fade_home` — a_margin_miss ≥ 3 AND h_margin_miss ≤ -3 AND home_fav → bet HOME
-
-### 3b. PROVEN totals spots (older, from `b15_totals.py` + `b7c_over_rule.py`)
-
-Held-out 2024-25 vs the opening total:
-| Spot | n | hit | note |
+#### Environmental + injury (the proven older spots — `b15_totals.py`, `b18_madden_over.py`)
+| Spot | Trigger | Hit % | Volume |
 |---|---|---|---|
-| **key WR/TE out (air-share>=35%) -> OVER** | 74 | **62.2%** | CI[51,72], lower bound ABOVE breakeven |
-| **wind >= 15mph -> UNDER** | 43 | **60.5%** | CI[46,74], small n |
-| dome -> OVER | 156 | 54.5% | marginal, CI incl. breakeven |
-| cold <= 32F -> UNDER | 40 | 52.5% | breakeven |
+| `wind_under` | wind ≥15 mph forecast | **60.5%** (n=43) | ~14/yr |
+| `receiver_over` | WR/TE/RB with NGS air-share ≥35% listed Out/Doubtful → OVER | **62.2%** (n=74) | ~24/yr |
+| `receiver_over_HC` | Same + Madden OVR ≥80 | **66.9% close / 63.6% open** (n=17/yr) | ~17/yr |
+| `cold` (UNDER, tracking) | temp ≤32°F | 52.5% (n=40) | breakeven, watch |
+| `dome` (OVER, tracking) | dome game | 54.5% (n=156) | marginal |
 
-These are **alerts, not a slate** — ~20-40 high-conviction plays/season. This is the proven NFL edge:
-totals *pricing inefficiencies* around injuries/weather, not a model that beats every line.
+#### Legacy EPA model spots (`forecast_harness.py`, from `nfl_predictions_epa` table)
+| Spot | Trigger | Hit % | Volume |
+|---|---|---|---|
+| `legacy_primetime` | Primetime game → FOLLOW legacy EPA model direction | **61.8%** in 2025 | ~16/yr |
+| `legacy_fade` | Non-primetime + legacy prob ≥.80 or ≤.20 → FADE | **65%** in 2025 | ~12/yr |
 
-**Madden-filtered two-tier for the receiver-OVER (b18_madden_over.py):**
-- Standard: air-share>=35% out -> OVER (64.7% close / 61.2% open, ~24/yr).
-- **High-conviction: air-share>=35% AND Madden OVR>=80 -> OVER (66.9% close / 63.6% open, ~17/yr,
-  >=55% in ALL 8 seasons vs 50% floor for standard).** Madden OVR works as a FILTER (removes
-  high-target-but-replaceable receivers the market prices right), NOT as a trigger or to catch
-  low-usage stars (R2/R4 both <60% -> usage drives the mispricing, not talent). CIs overlap R1, so this
-  is a floor-raising refinement, not a transformation.
+#### Trap-fade spots (b61 + b62, mean reversion in totals + spreads)
+Rolling per-team miss vs implied. FADE (not follow) the trap is the real edge.
+| Spot | Trigger | Hit % | Volume |
+|---|---|---|---|
+| `total_low_line_over` | sum_last3 ≤ -8 AND line ≥ +2 vs league avg → OVER | **68.0%** (n=25 over 8 yrs) | ~5-10/yr |
+| `total_high_line_under` | sum_last3 ≥ 4 AND line ≤ -2 vs league avg → UNDER | **55.3%** (n=208) | ~25-30/yr |
+| `spread_dog_cover_fade_away` | home dog covering vs away fav not covering | **70%** (n=10, small) | ~3-5/yr |
+| `spread_dog_cover_fade_home` | reverse, away dog vs home fav | 63.6% (n=11, small) | ~3-5/yr |
+
+Per-season note: fade-OVER-trap was 60-70% in 2018-2022, decayed to ~50% in 2023-25 (edge adaptation).
+Extreme UNDER reversion held up better. **Track 2026 CLV closely.**
+
+#### DK structural spots (b63, vaulted 2026-05-30, REAL edges from line structure)
+These exploit relationships between spread, ML, and juice that are visible at any line snapshot.
+| Spot | Trigger | Hit % | Volume |
+|---|---|---|---|
+| `dk_giant_fav_over` | DK: spread ≥7 AND ML implied ≥5pp softer than spread implies → OVER | **65.0%** in 2025, **70-75%** 2023-24 | ~25-30/yr |
+| `dk_heavy_home_juice` | DK: spread_home_price ≤-120 → bet HOME spread | **61.3%** in 2025 (~62% across 3 yrs) | ~30-40/yr |
+
+DK Spot 1 explained: Soft ML on a giant favorite signals high-variance game with scoring DNA
+(blowouts + garbage time = OVER). Bet OVER on the total.
+DK Spot 2 explained: Book steering action AWAY from home (juicing the home side) is contrarian —
+home actually covers ~62%. Reverse-line-movement style signal.
+
+#### Tight-game contrarian (b65)
+| Spot | Trigger | Hit % | Volume |
+|---|---|---|---|
+| `fade_pr_in_tight_game` | 1.5 line + \|pr_diff\| ≥3 → bet AGAINST the better-PR team | **~64%** (fade) on n=85 | ~30/yr |
+
+In tight 1.5-spread games, the better-PR team systematically loses ATS. The line is tight FOR A
+REASON — public/casual logic says "better team wins" but the market has priced in why it's close.
+**FADE your power-rating intuition in pickem/1.5 games.**
+
+#### Bye / situational (tracking-only, unproven but logical)
+| Spot | Trigger | Status |
+|---|---|---|
+| `bye_collision` | Coach pre/post-bye ATS gap ≥15pts → bet better coach | tracking, unproven |
+| `week1_def_under` | W1 defense out-classes offense → UNDER | thin, tracking |
+
+---
+
+### TIER 2 — CONFLUENCE OVERLAYS (line movement, display-only confidence badges)
+
+These signals show 60-77% hit rates **vs the OPENER** but drop to ~52-54% **at the moved/closing line**
+where you'd actually have to bet. Use as **website confidence badges**, NOT standalone bet flags.
+
+#### Discovered in b64/b65 (full sharp-money exploration)
+| Signal | What it tells the user | Honest edge at moved line |
+|---|---|---|
+| `spread_moved_2pts_plus` | "🔥 Sharp action on Team X" | ~52-54% / +2-3% ROI |
+| `total_moved_2pts_plus` | "🔥 Sharp money pushed total UP/DOWN" | ~52-54% / +2-3% ROI |
+| `early_total_move_1.5_plus` | "🔥 Early-week sharp move on total" | **53.8% / +2.8% ROI** (real but small) |
+| `total_confluence` (early ≥1 + late ≥0.5 same direction) | "⭐ Strong sharp confluence" | Likely 55-57% (best in tier, small sample) |
+| `key_3_crossed_toward_fav` | "Line crossed key number 3" | ~52-54% |
+| `tight_game_anti_pr_market_move` | "1.5 game: market disagrees with PR" | ~52-55% at close (was 73% vs opener, n=22) |
+
+#### How to display them on the website
+When a TIER 1 spot fires AND a TIER 2 badge confirms the same direction, render as
+**high-confidence pick** (e.g., "🔥🔥 STRONG OVER 47.5 — model + 3 confirming signals"). This is the
+*alignment* product: spot + line confirmation + model agreement = best plays of the week.
+
+---
+
+### Negative result archive (DO NOT add to harness)
+| Tested | Result |
+|---|---|
+| FOLLOW the trap (instead of fade) | -10 to -15% ROI across all thresholds — busted |
+| Rolling miss as MODEL FEATURES | No lift on totals, HURTS sides (-11% ROI) |
+| ML divergence as standalone bet | Too few qualifying games (n=1-4) |
+| DK juice MOVEMENT (vs juice LEVEL) | 47-52%, no edge |
+| 1.5 line + better PR → bet PR | Lose money (42-37%), confirming FADE-PR is right |
+| Original ML "soft ML on small fav" theory (-3.5 with -140) | Modest at best (~67% win vs 60% implied, marginal +4% ROI) |
+| New sides flags (rest/short-week/big-fav/div-late/off-bye) | FAIL permutation null (b30); ATS trend well is tapped |
 
 ---
 

@@ -1,0 +1,96 @@
+[data] 854 games with consensus open+close lines (2023-2025)
+
+============================================================================================
+TEST 1: FOLLOW spread movement (bet side line moved TOWARD, vs OPENER)
+============================================================================================
+  |spread_move|>=0.5: BET MOVEMENT SIDE  n= 676 hit= 55.3% CI[52,59] ROI=+5.6%
+  |spread_move|>=1.0: BET MOVEMENT SIDE  n= 486 hit= 58.4% CI[54,63] ROI=+11.6%
+  |spread_move|>=1.5: BET MOVEMENT SIDE  n= 342 hit= 62.6% CI[57,68] ROI=+19.5%
+  |spread_move|>=2.0: BET MOVEMENT SIDE  n= 268 hit= 63.8% CI[58,69] ROI=+21.8%
+  |spread_move|>=2.5: BET MOVEMENT SIDE  n= 196 hit= 63.8% CI[57,70] ROI=+21.8%
+  |spread_move|>=3.0: BET MOVEMENT SIDE  n= 138 hit= 65.2% CI[57,73] ROI=+24.5%
+
+============================================================================================
+TEST 2: FADE spread movement (bet OPPOSITE of where line moved)
+============================================================================================
+  |spread_move|>=0.5: BET OPPOSITE SIDE  n= 676 hit= 44.7% CI[41,48] ROI=-14.7%
+  |spread_move|>=1.0: BET OPPOSITE SIDE  n= 486 hit= 41.6% CI[37,46] ROI=-20.7%
+  |spread_move|>=1.5: BET OPPOSITE SIDE  n= 342 hit= 37.4% CI[32,43] ROI=-28.5%
+  |spread_move|>=2.0: BET OPPOSITE SIDE  n= 268 hit= 36.2% CI[31,42] ROI=-30.9%
+  |spread_move|>=2.5: BET OPPOSITE SIDE  n= 196 hit= 36.2% CI[30,43] ROI=-30.8%
+  |spread_move|>=3.0: BET OPPOSITE SIDE  n= 138 hit= 34.8% CI[27,43] ROI=-33.6%
+
+============================================================================================
+TEST 3: TOTAL movement (bet over if total went up, under if down)
+============================================================================================
+  |total_move|>=0.5: BET MOVEMENT SIDE  n= 741 hit= 55.2% CI[52,59] ROI=+5.4%
+  |total_move|>=1.0: BET MOVEMENT SIDE  n= 595 hit= 58.0% CI[54,62] ROI=+10.7%
+  |total_move|>=1.5: BET MOVEMENT SIDE  n= 439 hit= 59.2% CI[55,64] ROI=+13.1%
+  |total_move|>=2.0: BET MOVEMENT SIDE  n= 319 hit= 63.0% CI[58,68] ROI=+20.3%
+  |total_move|>=2.5: BET MOVEMENT SIDE  n= 217 hit= 64.1% CI[57,70] ROI=+22.3%
+
+FADE total movement:
+  |total_move|>=0.5: FADE  n= 741 hit= 44.8% CI[41,48] ROI=-14.5%
+  |total_move|>=1.0: FADE  n= 595 hit= 42.0% CI[38,46] ROI=-19.8%
+  |total_move|>=1.5: FADE  n= 439 hit= 40.8% CI[36,45] ROI=-22.2%
+  |total_move|>=2.0: FADE  n= 319 hit= 37.0% CI[32,42] ROI=-29.4%
+
+============================================================================================
+TEST 4: ML moved DIFFERENTLY than spread (sharps on one market not the other)
+============================================================================================
+  ML-sharp-on-HOME (spread softening home, ML hardening home):
+    bet HOME                                                   n=1 (too few)
+  ML-sharp-on-AWAY (spread to home, ML softening home):
+    bet AWAY                                                   n=   4 hit= 75.0% CI[30,95] ROI=+43.2%
+  Bigger divergence (spread move >=1, ML move >=30):
+    bet HOME (big ML-sharp on home)                            n=1 (too few)
+    bet AWAY (big ML-sharp on away)                            n=0 (too few)
+
+============================================================================================
+TEST 5: PICKEM (|open_spread| <= 1.5) — line movement signal
+============================================================================================
+  pickem games: n=133
+  games where line CROSSED 0 (open fav -> close dog or vice versa): 47
+  pickem |spread_move|>=0.5: BET MOVEMENT SIDE  n=119 hit= 56.3% CI[47,65] ROI=+7.5%
+  pickem |spread_move|>=1.0: BET MOVEMENT SIDE  n=104 hit= 55.8% CI[46,65] ROI=+6.5%
+  pickem |spread_move|>=1.5: BET MOVEMENT SIDE  n= 86 hit= 59.3% CI[49,69] ROI=+13.2%
+  pickem |spread_move|>=2.0: BET MOVEMENT SIDE  n= 64 hit= 56.2% CI[44,68] ROI=+7.4%
+
+  FADE in pickem:
+  pickem |spread_move|>=0.5: BET OPPOSITE       n=119 hit= 43.7% CI[35,53] ROI=-16.6%
+  pickem |spread_move|>=1.0: BET OPPOSITE       n=104 hit= 44.2% CI[35,54] ROI=-15.6%
+  pickem |spread_move|>=1.5: BET OPPOSITE       n= 86 hit= 40.7% CI[31,51] ROI=-22.3%
+  pickem |spread_move|>=2.0: BET OPPOSITE       n= 64 hit= 43.8% CI[32,56] ROI=-16.5%
+
+  Line CROSSED 0 (open fav became close dog, or vice versa):
+    bet NEW favorite (close side):  n= 47 hit= 53.2% CI[39,67] ROI=+1.5%
+    bet OLD favorite (open side):    n= 47 hit= 46.8% CI[33,61] ROI=-10.6%
+
+  Open at 1.5 (-1.5 to -0.5 or +0.5 to +1.5):
+    n=118 games at 1.5 lines
+    1.5 line, |move|>=0.5: BET MOVEMENT  n=104 hit= 56.7% CI[47,66] ROI=+8.3%
+    1.5 line, |move|>=1.0: BET MOVEMENT  n= 89 hit= 56.2% CI[46,66] ROI=+7.3%
+
+============================================================================================
+TEST 6: Line CROSSED 3 (key NFL number)
+============================================================================================
+  games crossing key 3: 130 / 854
+  games crossing key 7: 87 / 854
+  crossed 3 toward FAV  -> bet FAV vs opener:  n= 87 hit= 57.5% CI[47,67] ROI=+9.7%
+  crossed 3 toward DOG  -> bet FAV vs opener:  n= 43 hit= 53.5% CI[39,67] ROI=+2.1%
+  crossed 3 toward DOG  -> bet DOG vs opener:  n= 43 hit= 46.5% CI[33,61] ROI=-11.2%
+
+============================================================================================
+TEST 7: DraftKings JUICE movement (spread price changes)
+============================================================================================
+  games with DK juice (open+close): 3224
+  |juice_move|>=5: FOLLOW (line moved AWAY from juiced side)  n=1134 hit= 49.3% CI[46,52] ROI=-5.9%
+  |juice_move|>=10: FOLLOW (line moved AWAY from juiced side)  n=399 hit= 48.9% CI[44,54] ROI=-6.7%
+  |juice_move|>=15: FOLLOW (line moved AWAY from juiced side)  n=184 hit= 47.3% CI[40,54] ROI=-9.7%
+  |juice_move|>=20: FOLLOW (line moved AWAY from juiced side)  n=164 hit= 49.4% CI[42,57] ROI=-5.7%
+
+FADE juice movement:
+  |juice_move|>=5: FADE  n=1134 hit= 50.7% CI[48,54] ROI=-3.2%
+  |juice_move|>=10: FADE  n=399 hit= 51.1% CI[46,56] ROI=-2.4%
+  |juice_move|>=15: FADE  n=184 hit= 52.7% CI[46,60] ROI=+0.6%
+  |juice_move|>=20: FADE  n=164 hit= 50.6% CI[43,58] ROI=-3.4%

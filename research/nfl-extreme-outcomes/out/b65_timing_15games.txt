@@ -1,0 +1,92 @@
+[load] DK snapshots: 31,586 | unique games: 1660
+
+[snapshots] games with timing data: open+close=1259, +early=854, +late=674
+[joined] games with timing + outcomes: 1306
+
+============================================================================================
+PART A: LINE MOVEMENT TIMING — early (sharp) vs late (square)?
+============================================================================================
+
+EARLY-WEEK moves (open -> 4-7 days before kickoff):
+    early_move bet movement                               |move|>=0.5: n=484 hit= 50.6% CI[46,55] ROI=-3.4%
+    early_move bet movement                               |move|>=1.0: n=301 hit= 51.2% CI[46,57] ROI=-2.3%
+    early_move bet movement                               |move|>=1.5: n=188 hit= 52.7% CI[46,60] ROI=+0.5%
+    early_move bet movement                               |move|>=2.0: n=120 hit= 50.0% CI[41,59] ROI=-4.5%
+
+LATE-WEEK moves (late window 12-48hr -> close):
+    late_move bet movement                                |move|>=0.5: n=333 hit= 55.6% CI[50,61] ROI=+6.1%
+    late_move bet movement                                |move|>=1.0: n=133 hit= 56.4% CI[48,65] ROI=+7.7%
+    late_move bet movement                                |move|>=1.5: n= 38 hit= 52.6% CI[37,68] ROI=+0.5%
+    late_move bet movement                                |move|>=2.0: n= 19 hit= 52.6% CI[32,73] ROI=+0.5%
+
+FADE late-week moves (assume public is wrong late):
+  late_move FADE |move|>=0.5: n=333 hit= 44.4% CI[39,50] ROI=-15.2%
+  late_move FADE |move|>=1.0: n=133 hit= 43.6% CI[35,52] ROI=-16.7%
+  late_move FADE |move|>=1.5: n= 38 hit= 47.4% CI[32,63] ROI=-9.6%
+  late_move FADE |move|>=2.0: n= 19 hit= 47.4% CI[27,68] ROI=-9.6%
+
+TOTAL movement timing (similar test for over/under):
+Early total move (open -> 4-7 days):
+  early_total_move bet movement |>=0.5: n=522 hit= 55.0% CI[51,59] ROI=+5.0%
+  early_total_move bet movement |>=1.0: n=404 hit= 56.4% CI[52,61] ROI=+7.7%
+  early_total_move bet movement |>=1.5: n=230 hit= 61.3% CI[55,67] ROI=+17.0%
+  early_total_move bet movement |>=2.0: n=167 hit= 61.1% CI[54,68] ROI=+16.6%
+Late total move (late -> close):
+  late_total_move bet movement |>=0.5: n=387 hit= 52.2% CI[47,57] ROI=-0.4%
+  late_total_move bet movement |>=1.0: n=217 hit= 51.2% CI[45,58] ROI=-2.3%
+  late_total_move bet movement |>=1.5: n= 46 hit= 54.3% CI[40,68] ROI=+3.8%
+  late_total_move bet movement |>=2.0: n= 18 hit= 50.0% CI[29,71] ROI=-4.5%
+
+CONFLUENCE: early & late move SAME direction (sharps + late confirms)
+  early(>=1)+late(>=0.5) same direction, total_move >=1: n=52 hit=76.9% ROI=+46.9%
+
+DIVERGENCE: early & late move OPPOSITE directions (sharp gets faded by public)
+  divergent games: n=89
+  divergent: bet EARLY-move side n=89 hit=49.4% ROI=-5.6%
+  divergent: bet LATE-move side  n=89 hit=50.6% ROI=-3.5%
+
+============================================================================================
+PART B: 1.5 LINE GAMES — comprehensive analysis
+============================================================================================
+
+[data] 1.5 line games (|open_spread|<=1.5): n=237
+  with early snapshot: 159
+  with late snapshot:  122
+
+B1: Movement TIMING in 1.5 games
+    1.5 early_move                                        |move|>=0.5: n= 94 hit= 52.1% CI[42,62] ROI=-0.5%
+    1.5 early_move                                        |move|>=1.0: n= 76 hit= 53.9% CI[43,65] ROI=+3.0%
+    1.5 early_move                                        |move|>=1.5: n= 54 hit= 55.6% CI[42,68] ROI=+6.1%
+    1.5 late_move                                         |move|>=0.5: n= 61 hit= 50.8% CI[39,63] ROI=-3.0%
+    1.5 late_move                                         |move|>=1.0: n= 32 hit= 50.0% CI[34,66] ROI=-4.5%
+    1.5 late_move                                         |move|>=1.5: n= 12 hit= 50.0% CI[25,75] ROI=-4.5%
+
+B2: JUICE in 1.5 games
+  games with home juice <=-120 at close: 7
+
+B3: POWER RATINGS in 1.5 games
+  1.5 + |pr_diff|>=1 bet better-PR team: n=189 hit= 42.9% CI[36,50] ROI=-18.2%
+  1.5 + |pr_diff|>=2 bet better-PR team: n=127 hit= 48.0% CI[40,57] ROI=-8.3%
+  1.5 + |pr_diff|>=3 bet better-PR team: n= 85 hit= 36.5% CI[27,47] ROI=-30.4%
+  1.5 + |pr_diff|>=4 bet better-PR team: n= 45 hit= 44.4% CI[31,59] ROI=-15.2%
+  1.5 + |pr_diff|>=5 bet better-PR team: n= 32 hit= 37.5% CI[23,55] ROI=-28.4%
+
+B4: PR + line CROSSED 0 in 1.5 games
+  crossed-zero 1.5 games: n=53
+    confluence (close-fav AND PR-fav same team) home=3 away=28
+    bet confluence team: n=31 hit=61.3% ROI=+17.0%
+    anti-confluence (close-fav opposite PR-fav) home=14 away=8
+    anti-conf: bet close fav (follow market): n=22 hit=72.7% ROI=+38.8%
+    anti-conf: bet PR fav (fade market):    n=22 hit=27.3% ROI=-47.9%
+
+B5: TOTAL movement in 1.5 games
+  1.5 game total_move bet movement |>=0.5: n=137 hit= 50.4% CI[42,59] ROI=-3.8%
+  1.5 game total_move bet movement |>=1.0: n=110 hit= 50.9% CI[42,60] ROI=-2.8%
+  1.5 game total_move bet movement |>=1.5: n= 67 hit= 56.7% CI[45,68] ROI=+8.3%
+  1.5 game total_move bet movement |>=2.0: n= 49 hit= 57.1% CI[43,70] ROI=+9.1%
+
+B6: ML MOVEMENT in 1.5 games
+  1.5 ml_move bet movement |>=10: n=124 hit= 59.7% CI[51,68] ROI=+13.9%
+  1.5 ml_move bet movement |>=20: n=104 hit= 54.8% CI[45,64] ROI=+4.6%
+  1.5 ml_move bet movement |>=30: n= 88 hit= 54.5% CI[44,65] ROI=+4.1%
+  1.5 ml_move bet movement |>=50: n= 67 hit= 53.7% CI[42,65] ROI=+2.6%
