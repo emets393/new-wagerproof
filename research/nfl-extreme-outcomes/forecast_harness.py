@@ -231,6 +231,10 @@ def generate(m, BASE, target, week=None):
     te=te.merge(bc,on=["season","home_ab","away_ab"],how="left") if len(bc) else te.assign(bye_edge_home=np.nan,bye_gap=np.nan)
     dk=load_dk_open(target); sp_lookup=build_spread_lookup()
     te=te.merge(dk,on=["season","home_ab","away_ab"],how="left") if len(dk) else te.assign(dk_spread=np.nan,dk_juice=np.nan,dk_ml_home=np.nan,dk_ml_away=np.nan)
+    # Recompute line_vs_league using OPEN total (was using CLOSE total in build() — fixed per framework
+    # rule: signal uses OPEN-line data when bet+grade are at OPEN)
+    open_league=te.groupby("season").open_total.transform("mean")
+    te["line_vs_league"]=te.open_total - open_league   # overrides the close-based version from build()
     def _ml_p(ml):
         if pd.isna(ml) or ml==0: return np.nan
         return -ml/(-ml+100) if ml<0 else 100/(ml+100)
@@ -323,12 +327,13 @@ def generate(m, BASE, target, week=None):
         # Spread cover FADE traps
         hmm=g.get("h_margin_miss_s2d",np.nan); amm=g.get("a_margin_miss_s2d",np.nan)
         if pd.notna(hmm) and pd.notna(amm) and pd.notna(g.open_spread):
-            # home-dog covering vs away-fav not-covering -> FADE = bet AWAY (70% n=10)
-            if hmm>=3 and amm<=-3 and g.home_spread>0:
+            # Use OPEN spread for fav/dog direction (signal uses open-line data, bets at open)
+            # home-dog covering vs away-fav not-covering -> FADE = bet AWAY
+            if hmm>=3 and amm<=-3 and g.open_spread>0:
                 rows.append(dict(pick_id=gid+"-SDFA",season=g.season,week=int(g.week),game=mtchp,rule="spread_dog_cover_fade_away",
                     market="spread",side=f"{g.away_ab} {-g.open_spread:+g}",bet_home=0,open_num=g.open_spread,close_num=g.close_spread,edge=round(float(hmm-amm),2)))
-            # away-dog covering vs home-fav not-covering -> FADE = bet HOME (63% n=11)
-            if amm>=3 and hmm<=-3 and g.home_spread<0:
+            # away-dog covering vs home-fav not-covering -> FADE = bet HOME
+            if amm>=3 and hmm<=-3 and g.open_spread<0:
                 rows.append(dict(pick_id=gid+"-SDFH",season=g.season,week=int(g.week),game=mtchp,rule="spread_dog_cover_fade_home",
                     market="spread",side=f"{g.home_ab} {g.open_spread:+g}",bet_home=1,open_num=g.open_spread,close_num=g.close_spread,edge=round(float(amm-hmm),2)))
     led=pd.DataFrame(rows)

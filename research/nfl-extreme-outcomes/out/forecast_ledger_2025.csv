@@ -51,17 +51,19 @@ pick_id,season,week,game,rule,market,side,bet_home,open_num,close_num,edge,away_
 2025-W03-DEN@LAC-S,2025,3,DEN@LAC,sides_model,spread,DEN +2.5,0,-2.5,-2.5,-0.155,DEN,LAC,3,43,0.0,0.0,-1.0
 2025-W03-CIN@MIN-S,2025,3,CIN@MIN,sides_model,spread,CIN +1.5,0,-1.5,-3.0,-0.101,CIN,MIN,38,58,0.0,-1.5,-1.0
 2025-W03-PIT@NE-S,2025,3,PIT@NE,sides_model,spread,PIT -1,0,1.0,1.0,-0.076,PIT,NE,-7,35,1.0,0.0,0.9090909090909091
+2025-W03-PIT@NE-HLU,2025,3,PIT@NE,total_high_line_under,total,UNDER 42.75,-2,42.75,44.5,5.25,PIT,NE,-7,35,1.0,-1.75,0.9090909090909091
 2025-W03-KC@NYG-S,2025,3,KC@NYG,sides_model,spread,KC -6,0,6.0,6.0,-0.167,KC,NYG,-13,31,1.0,0.0,0.9090909090909091
 2025-W03-KC@NYG-LPT,2025,3,KC@NYG,legacy_primetime,spread,KC -6,0,6.0,6.0,-0.267,KC,NYG,-13,31,1.0,0.0,0.9090909090909091
 2025-W03-LAR@PHI-U,2025,3,LAR@PHI,wind_under,total,UNDER 45.5,-2,45.5,45.5,18.8,LAR,PHI,7,59,0.0,0.0,-1.0
 2025-W03-ARI@SF-S,2025,3,ARI@SF,sides_model,spread,ARI +2.5,0,-2.5,-1.5,-0.075,ARI,SF,1,31,1.0,1.0,0.9090909090909091
 2025-W03-NYJ@TB-S,2025,3,NYJ@TB,sides_model,spread,TB -5.5,1,-5.5,-6.5,0.125,NYJ,TB,2,56,0.0,1.0,-1.0
 2025-W03-IND@TEN-S,2025,3,IND@TEN,sides_model,spread,IND -2.5,0,2.5,6.0,-0.236,IND,TEN,-21,61,1.0,3.5,0.9090909090909091
+2025-W03-IND@TEN-HLU,2025,3,IND@TEN,total_high_line_under,total,UNDER 43,-2,43.0,43.5,6.5,IND,TEN,-21,61,0.0,-0.5,-1.0
 2025-W03-LV@WAS-S,2025,3,LV@WAS,sides_model,spread,LV +6.5,0,-6.5,-3.0,-0.237,LV,WAS,17,65,0.0,3.5,-1.0
+2025-W03-LV@WAS-LLO,2025,3,LV@WAS,total_low_line_over,total,OVER 47.5,-1,47.5,43.5,-11.38,LV,WAS,17,65,1.0,-4.0,0.9090909090909091
 2025-W04-SEA@ARI-S,2025,4,SEA@ARI,sides_model,spread,SEA +2.5,0,-2.5,1.5,-0.119,SEA,ARI,-3,43,1.0,4.0,0.9090909090909091
 2025-W04-SEA@ARI-LPT,2025,4,SEA@ARI,legacy_primetime,spread,ARI -2.5,1,-2.5,1.5,0.067,SEA,ARI,-3,43,0.0,-4.0,-1.0
 2025-W04-WAS@ATL-S,2025,4,WAS@ATL,sides_model,spread,WAS -2.5,0,2.5,-2.5,-0.123,WAS,ATL,7,61,0.0,-5.0,-1.0
-2025-W04-WAS@ATL-SDFH,2025,4,WAS@ATL,spread_dog_cover_fade_home,spread,ATL +2.5,1,2.5,-2.5,11.5,WAS,ATL,7,61,1.0,5.0,0.9090909090909091
 2025-W04-NO@BUF-S,2025,4,NO@BUF,sides_model,spread,BUF -15.5,1,-15.5,-14.5,0.06,NO,BUF,12,50,0.0,-1.0,-1.0
 2025-W04-GB@DAL-S,2025,4,GB@DAL,sides_model,spread,GB -5,0,5.0,6.5,-0.163,GB,DAL,0,80,0.0,1.5,-1.0
 2025-W04-GB@DAL-O,2025,4,GB@DAL,receiver_over_HC,total,OVER 48.5,-1,48.5,46.5,51.5,GB,DAL,0,80,1.0,-2.0,0.9090909090909091
@@ -76,6 +78,7 @@ pick_id,season,week,game,rule,market,side,bet_home,open_num,close_num,edge,away_
 2025-W04-MIN@PIT-S,2025,4,MIN@PIT,sides_model,spread,PIT -1.5,1,-1.5,2.5,0.049,MIN,PIT,3,45,1.0,-4.0,0.9090909090909091
 2025-W04-MIN@PIT-FPR,2025,4,MIN@PIT,fade_pr_in_tight_game,spread,PIT -1.5,1,-1.5,2.5,3.4,MIN,PIT,3,45,1.0,-4.0,0.9090909090909091
 2025-W04-MIN@PIT-HLU,2025,4,MIN@PIT,total_high_line_under,total,UNDER 41.25,-2,41.25,41.0,6.42,MIN,PIT,3,45,0.0,0.25,-1.0
+2025-W04-MIN@PIT-SDFH,2025,4,MIN@PIT,spread_dog_cover_fade_home,spread,PIT -1.5,1,-1.5,2.5,9.83,MIN,PIT,3,45,1.0,-4.0,0.9090909090909091
 2025-W04-JAX@SF-S,2025,4,JAX@SF,sides_model,spread,JAX +3.5,0,-3.5,-3.0,-0.158,JAX,SF,-5,47,1.0,0.5,0.9090909090909091
 2025-W04-PHI@TB-S,2025,4,PHI@TB,sides_model,spread,PHI -2.5,0,2.5,3.5,-0.036,PHI,TB,-6,56,1.0,1.0,0.9090909090909091
 2025-W04-PHI@TB-O,2025,4,PHI@TB,receiver_over_HC,total,OVER 45.5,-1,45.5,44.0,44.7,PHI,TB,-6,56,1.0,-1.5,0.9090909090909091
@@ -142,6 +145,7 @@ pick_id,season,week,game,rule,market,side,bet_home,open_num,close_num,edge,away_
 2025-W07-IND@LAC-FPR,2025,7,IND@LAC,fade_pr_in_tight_game,spread,LAC -1.5,1,-1.5,-2.5,3.1,IND,LAC,-14,62,0.0,1.0,-1.0
 2025-W07-PHI@MIN-S,2025,7,PHI@MIN,sides_model,spread,PHI -2.5,0,2.5,2.5,-0.24,PHI,MIN,-6,50,1.0,0.0,0.9090909090909091
 2025-W07-PHI@MIN-LF,2025,7,PHI@MIN,legacy_fade,spread,MIN +2.5,1,2.5,2.5,0.354,PHI,MIN,-6,50,0.0,0.0,-1.0
+2025-W07-PHI@MIN-HLU,2025,7,PHI@MIN,total_high_line_under,total,UNDER 42.5,-2,42.5,43.5,6.33,PHI,MIN,-6,50,0.0,-1.0,-1.0
 2025-W07-CAR@NYJ-S,2025,7,CAR@NYJ,sides_model,spread,NYJ -2.5,1,-2.5,-1.0,0.053,CAR,NYJ,-7,19,0.0,-1.5,-1.0
 2025-W07-CAR@NYJ-O,2025,7,CAR@NYJ,receiver_over_HC,total,OVER 44.5,-1,44.5,40.0,47.1,CAR,NYJ,-7,19,0.0,-4.5,-1.0
 2025-W07-ATL@SF-S,2025,7,ATL@SF,sides_model,spread,SF -4,1,-4.0,1.0,0.074,ATL,SF,10,30,1.0,-5.0,0.9090909090909091
@@ -159,7 +163,6 @@ pick_id,season,week,game,rule,market,side,bet_home,open_num,close_num,edge,away_
 2025-W08-DAL@DEN-S,2025,8,DAL@DEN,sides_model,spread,DAL +4.5,0,-4.5,-3.5,-0.089,DAL,DEN,20,68,0.0,1.0,-1.0
 2025-W08-SF@HOU-S,2025,8,SF@HOU,sides_model,spread,HOU -2,1,-2.0,-2.5,0.182,SF,HOU,11,41,1.0,0.5,0.9090909090909091
 2025-W08-SF@HOU-O,2025,8,SF@HOU,receiver_over_HC,total,OVER 43.5,-1,43.5,41.0,49.5,SF,HOU,11,41,0.0,-2.5,-1.0
-2025-W08-SF@HOU-HLU,2025,8,SF@HOU,total_high_line_under,total,UNDER 43.5,-2,43.5,41.0,9.0,SF,HOU,11,41,1.0,2.5,0.9090909090909091
 2025-W08-TEN@IND-S,2025,8,TEN@IND,sides_model,spread,TEN +12,0,-12.0,-15.0,-0.212,TEN,IND,24,52,0.0,-3.0,-1.0
 2025-W08-TEN@IND-O,2025,8,TEN@IND,receiver_over_HC,total,OVER 45,-1,45.0,47.5,35.5,TEN,IND,24,52,1.0,2.5,0.9090909090909091
 2025-W08-TEN@IND-LF,2025,8,TEN@IND,legacy_fade,spread,IND -12,1,-12.0,-15.0,0.355,TEN,IND,24,52,1.0,3.0,0.9090909090909091
@@ -170,6 +173,7 @@ pick_id,season,week,game,rule,market,side,bet_home,open_num,close_num,edge,away_
 2025-W08-CLE@NE-HLU,2025,8,CLE@NE,total_high_line_under,total,UNDER 40.5,-2,40.5,40.5,5.42,CLE,NE,19,45,0.0,0.0,-1.0
 2025-W08-NYG@PHI-S,2025,8,NYG@PHI,sides_model,spread,PHI -7.5,1,-7.5,-7.0,0.09,NYG,PHI,18,58,1.0,-0.5,0.9090909090909091
 2025-W08-NYG@PHI-O,2025,8,NYG@PHI,receiver_over_HC,total,OVER 42.5,-1,42.5,43.5,43.7,NYG,PHI,18,58,1.0,1.0,0.9090909090909091
+2025-W08-NYG@PHI-HLU,2025,8,NYG@PHI,total_high_line_under,total,UNDER 42.5,-2,42.5,43.5,6.17,NYG,PHI,18,58,0.0,-1.0,-1.0
 2025-W08-GB@PIT-S,2025,8,GB@PIT,sides_model,spread,GB -3,0,3.0,2.5,-0.234,GB,PIT,-10,60,1.0,-0.5,0.9090909090909091
 2025-W08-GB@PIT-LPT,2025,8,GB@PIT,legacy_primetime,spread,GB -3,0,3.0,2.5,-0.331,GB,PIT,-10,60,1.0,-0.5,0.9090909090909091
 2025-W09-KC@BUF-S,2025,9,KC@BUF,sides_model,spread,BUF +1.5,1,1.5,2.0,0.042,KC,BUF,7,49,1.0,-0.5,0.9090909090909091
@@ -376,8 +380,6 @@ pick_id,season,week,game,rule,market,side,bet_home,open_num,close_num,edge,away_
 2025-W16-LAR@SEA-U,2025,16,LAR@SEA,wind_under,total,UNDER 47.5,-2,47.5,45.5,17.0,LAR,SEA,4,58,0.0,2.0,-1.0
 2025-W16-LAR@SEA-LPT,2025,16,LAR@SEA,legacy_primetime,spread,SEA -1,1,-1.0,-2.5,0.174,LAR,SEA,1,75,,1.5,0.0
 2025-W16-LAR@SEA-LPT,2025,16,LAR@SEA,legacy_primetime,spread,SEA -1,1,-1.0,-2.5,0.174,LAR,SEA,4,58,1.0,1.5,0.9090909090909091
-2025-W16-LAR@SEA-HLU,2025,16,LAR@SEA,total_high_line_under,total,UNDER 47.5,-2,47.5,45.5,9.25,LAR,SEA,1,75,0.0,2.0,-1.0
-2025-W16-LAR@SEA-HLU,2025,16,LAR@SEA,total_high_line_under,total,UNDER 47.5,-2,47.5,45.5,9.25,LAR,SEA,4,58,0.0,2.0,-1.0
 2025-W16-KC@TEN-S,2025,16,KC@TEN,sides_model,spread,TEN +11,1,11.0,3.0,0.206,KC,TEN,17,35,1.0,8.0,0.9090909090909091
 2025-W16-KC@TEN-O,2025,16,KC@TEN,receiver_over,total,OVER 41,-1,41.0,37.5,55.2,KC,TEN,17,35,0.0,-3.5,-1.0
 2025-W17-LAR@ATL-S,2025,17,LAR@ATL,sides_model,spread,ATL +8.5,1,8.5,7.5,0.153,LAR,ATL,3,51,1.0,1.0,0.9090909090909091
