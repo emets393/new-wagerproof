@@ -389,12 +389,40 @@ error from prior 2 seasons (walk-forward, no leak). **Filter: drop legs where ma
 **Spread+spread teasers LOSE money. Total+total wins. Mixed (spread+total) wins.**
 The ranker prioritizes totals first (by edge magnitude), then spreads. Pair top-2 distinct games.
 
-### Honest performance expectations (2024+2025 validation)
-- Top-2 per week + sharpness filter ≤ 50th pct
-- Joint hit: **70-75%**
-- ROI @ -120: **+22% to +37%**
-- ROI @ -110: **+27% to +47%**
-- 2025 dry-run on harness: 66.7% joint, +22% ROI @ -120 (18 graded teasers)
+### Honest performance — what the HARNESS actually produced (the only number to trust)
+
+| Season | Graded teasers | Joint hit | ROI @ -120 | ROI @ -110 |
+|---|---|---|---|---|
+| 2024 dry-run | 19 | **52.6%** | **-3.5%** | +0.5% |
+| 2025 dry-run | 18 | **66.7%** | **+22.2%** | +27.3% |
+| **Pooled** | **37** | **~59.5%** | **~+9%** | **~+14%** |
+
+**Realistic forward expectation: +5 to +20% ROI pooled, with substantial per-season variance.**
+Some years will be ~break-even, some will be +20-30%. NOT the +30% headline that earlier
+backtests (b73/b74) suggested — those numbers had selection bias and used top-3-all-combos
+rather than the operational top-2-distinct.
+
+### Why earlier backtest numbers (b73/b74) were inflated — documented mistakes
+1. **b73's "89.1% teased" for receiver_over_HC** was a 2024+2025 pooled number. 2024 alone was
+   12/22 = 54.5% straight (~75% teased). 2025 alone much stronger. Pooling hid the variance.
+2. **b74's "+34.8% ROI on 2024" used top-3-all-combos** (3 synthetic pairs/week from a 3-pick
+   pool). Harness is top-2-distinct (1 teaser/week). Different products; I presented the
+   favorable one.
+3. **Selection bias re-introduced**: the eligibility list (TEASER_RULES) was chosen by looking
+   at 2024+2025 data, then tested on 2024+2025. Same peek I called out in b72 and let happen
+   again. The honest test is whether 2024-OOS-only or 2026 live confirms.
+4. **Data limitation in 2024**: nfl_predictions_epa.parquet only has 2025 data, so legacy_fade
+   never fires in 2024. That forced sides_model into 18/20 leg2 slots — sides_model is the
+   weakest eligible rule (77.7% teased) and shouldn't dominate. In 2026 with current legacy
+   data flowing, the mix will look more like 2025.
+
+### What we'll actually learn in 2026
+The 2024 vs 2025 gap could be:
+- Real per-season variance (most likely)
+- Data limitation (legacy_fade missing in 2024)
+- Receiver_over_HC having a down 2024
+- Some combination
+Run live in 2026 with no further tuning. After 8-10 weeks we'll have the honest signal.
 
 ### Pricing reference
 | Book | 2-team 6pt price | Per-leg breakeven | Joint breakeven |
