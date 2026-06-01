@@ -30,6 +30,10 @@ OUT=os.path.join(os.path.dirname(os.path.abspath(__file__)),"out"); L=print
 CONF=0.03; AIR_THR=35.0; OVR_THR=80.0; WIND_THR=15.0
 FADE_HI=0.80; FADE_LO=0.20   # legacy-model fade: >=.80 (model loves home) -> bet away; <=.20 -> bet home
 BYE_GAP=15.0; BYE_MIN_N=5    # bye-collision: bet the coach w/ better career pre/post-bye ATS% if gap>=15 & both n>=5
+# TRACKING-ONLY rules: still fire and grade, but NOT presented as active bet flags on the website.
+# Demoted because 2025 per-season performance regressed sharply (variance OR market adaptation).
+# 2026 live data will determine whether to promote (revert) or remove.
+TRACKING_ONLY={"bye_collision","week1_def_under","primetime_tight_favorite","primetime_tight_under","bot_vs_bot_under"}
 nv2our={"LA":"LAR","SD":"LAC","STL":"LAR"}
 
 def load_dk_open(target):
@@ -422,13 +426,26 @@ def grade(m, target):
 def report(target):
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv"); led=pd.read_csv(path)
     g=led.dropna(subset=["win"])
-    L(f"\n{'='*78}\nFORWARD-TEST REPORT {target}  (graded picks: {len(g)} / logged: {len(led)})\n{'='*78}")
-    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","bye_collision","total_low_line_over","total_high_line_under","spread_dog_cover_fade_away","spread_dog_cover_fade_home","fade_pr_in_tight_game","dk_giant_fav_over","dk_heavy_home_juice","tight_soft_ml_fade_home","primetime_tight_favorite","primetime_tight_under","top_vs_top_pt_home","bot_vs_bot_under","ALL"]:
-        s=g if rule=="ALL" else g[g.rule==rule]
-        if len(s)==0: L(f"  {rule:18s}: (none yet)"); continue
+    L(f"\n{'='*82}\nFORWARD-TEST REPORT {target}  (graded picks: {len(g)} / logged: {len(led)})\n{'='*82}")
+    L("ACTIVE BET FLAGS (recommended picks):")
+    active_rules=["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","total_low_line_over","total_high_line_under","spread_dog_cover_fade_away","spread_dog_cover_fade_home","fade_pr_in_tight_game","dk_giant_fav_over","dk_heavy_home_juice","tight_soft_ml_fade_home","top_vs_top_pt_home"]
+    tracking_rules=["bye_collision","week1_def_under","primetime_tight_favorite","primetime_tight_under","bot_vs_bot_under"]
+    for rule in active_rules:
+        s=g[g.rule==rule]
+        if len(s)==0: L(f"  {rule:28s}: (none yet)"); continue
         k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100
-        L(f"  {rule:18s}: {k}/{n}={k/n*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={roi:+.1f}% CLV={clv:+.2f}pts")
-    L(f"  {'-'*60}\n  total units: {g.roi_u.sum():+.1f} on {len(g)} bets")
+        L(f"  {rule:28s}: {k}/{n}={k/n*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={roi:+.1f}% CLV={clv:+.2f}pts")
+    active=g[g.rule.isin(active_rules)]
+    if len(active)>0:
+        k=int(active.win.sum()); n=len(active); lo,hi=wilson_ci(k,n); roi=active.roi_u.sum()/n*100
+        L(f"  {'ACTIVE TOTAL':28s}: {k}/{n}={k/n*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={roi:+.1f}%")
+    L(f"\nTRACKING ONLY (still graded but NOT presented as bet flags; demoted due to 2025 regression):")
+    for rule in tracking_rules:
+        s=g[g.rule==rule]
+        if len(s)==0: L(f"  {rule:28s}: (none yet)"); continue
+        k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100
+        L(f"  {rule:28s}: {k}/{n}={k/n*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={roi:+.1f}% CLV={clv:+.2f}pts")
+    L(f"\nTOTAL (all rules): {int(g.win.sum())}/{len(g)}={g.win.sum()/len(g)*100:.1f}% ROI={g.roi_u.sum()/len(g)*100:+.1f}% units {g.roi_u.sum():+.1f}")
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser()

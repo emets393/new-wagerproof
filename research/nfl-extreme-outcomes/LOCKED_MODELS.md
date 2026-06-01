@@ -256,14 +256,25 @@ DK Spot 2 explained: Book steering action AWAY from home (juicing the home side)
 home actually covers ~62%. Reverse-line-movement style signal.
 
 #### Tight-game contrarian + structural (b65/b66/b67)
-| Spot | Trigger | Hit % | Volume |
-|---|---|---|---|
-| `fade_pr_in_tight_game` | 1.5 line + \|pr_diff\| ≥3 → bet AGAINST the better-PR team | **~64%** (fade) on n=85 | ~30/yr |
-| ⭐ `tight_soft_ml_fade_home` | \|open_spread\| ≤3 + home no-vig ML ≥4pp softer than spread implies → bet AWAY | **62%** (n=42 over 3 yrs); consistent 60-64% all 3 seasons | ~15/yr |
-| `primetime_tight_favorite` | PT + \|open_spread\| ≤3 → bet the FAVORITE (home or away) | **61%** pooled (n=77 over 3 yrs) | ~25/yr |
-| `primetime_tight_under` | PT + \|open_spread\| ≤3 → bet UNDER | **57%** (n=82) | ~25/yr |
-| `top_vs_top_pt_home` | PT + tight + both top-tier PR → bet HOME | **65%** (n=23, small) | ~7/yr |
-| `bot_vs_bot_under` | Tight + both bottom-tier PR → bet UNDER | **56%** (n=64) | ~20/yr |
+
+**ACTIVE BET FLAGS (per-season consistent, recommended picks):**
+| Spot | Trigger | Hit % | Per-season | Volume |
+|---|---|---|---|---|
+| `fade_pr_in_tight_game` | 1.5 line + \|pr_diff\| ≥3 → bet AGAINST the better-PR team | ~64% (fade) n=85 | (n too small per yr) | ~30/yr |
+| ⭐ `tight_soft_ml_fade_home` | \|open_spread\| ≤3 + home no-vig ML ≥4pp softer than spread implies → bet AWAY | **62% pooled** n=42 | **60% / 64% / 63%** all 3 yrs ✅ | ~15/yr |
+| ⭐ `top_vs_top_pt_home` | PT + tight + both top-tier PR → bet HOME | **65%** pooled n=23 | 56% / 67% / **75%** ✅ improving | ~7/yr |
+
+**TRACKING ONLY (demoted from active flags due to 2025 regression — kept firing for 2026 validation):**
+| Spot | 2023 | 2024 | 2025 | Pattern |
+|---|---|---|---|---|
+| `primetime_tight_favorite` | 62.5% | 74.1% | **46.2%** | sharp 2025 regression |
+| `primetime_tight_under` | **80.0%** | 51.7% | **42.9%** | monotonic decay 80→52→43 (looks like market adaptation) |
+| `bot_vs_bot_under` | 64.0% | 64.7% | **40.9%** | cliff in 2025 |
+
+The 3 tracking spots had strong 2023-24 numbers but cliffed in 2025. Two possibilities:
+1. Variance (n=20-30/yr per spot — one bad season can swing big)
+2. Market adaptation (especially `primetime_tight_under` 80→52→43 looks like decay)
+**Will re-evaluate after 2026.** If they revert → promote back to active. If they continue weak → remove.
 
 In tight 1.5-spread games, the better-PR team systematically loses ATS. The line is tight FOR A
 REASON. **FADE your power-rating intuition in pickem/1.5 games.**
