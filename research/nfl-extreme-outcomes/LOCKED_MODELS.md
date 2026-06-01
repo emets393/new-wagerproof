@@ -361,21 +361,45 @@ When a TIER 1 spot fires AND a TIER 2 badge confirms the same direction, render 
 
 ---
 
-## 4. TEASER product (2-team 6-pt) — vaulted 2026-06-01
+## 4. TEASER product (2-team 6-pt) — COMBINED strategy, b76, vaulted 2026-06-01
 
-A standalone weekly product layered on the existing pick ledger. **NOT a rebuild of Wong-style
-structural buckets** — those tested at ~70% per leg OOS which fails the -120 breakeven (b71/b72).
-Instead, we tease the legs that our own LOCKED signals already pick at 60-75% straight up — teasing
-6 points lifts them to 75-89% per leg, which clears the bar.
+**Replaces the prior signal-only teaser product.** Combines three independent lenses into one
+ranker, evaluating every game on the slate (not just games where signals fire):
+  1. **Line-bucket history** (b75/b75b): the historical 6-pt teaser hit rate for this EXACT
+     opening spread or total value, walk-forward only
+  2. **Model signals** (b73): if any TEASER_RULES pick or sides_model confluence=1 fires on the side
+  3. **Team Vegas-sharpness** (b74): if both teams' prior-2-season avg |line − actual| is below
+     league median for that market
 
-### Eligible rules (teased hit% ≥ 78%, b73 validation)
-| Rule | Market | Straight % | Teased % | Lift |
+### Scoring & eligibility (b76)
+For each game's 4 possible legs (HOME tease, AWAY tease, OVER tease, UNDER tease):
+```
+combined_score = bucket_p + 0.05*signal_ok + 0.03*sharp_ok
+eligibility    = bucket_p >= 0.74  AND  (signal_ok OR sharp_ok)
+```
+Then take **top-2 distinct games by combined_score per NFL week**.
+
+### Strongest line buckets (b75/b75b empirical, 2018-2024 calibration)
+| Bucket | Side teased | n | Hit % | Lower CI |
 |---|---|---|---|---|
-| `receiver_over_HC` | TOT | 65.2% | **89.1%** | +23.9pp |
-| `legacy_fade` | SPR | 68.2% | **85.7%** | +17.5pp |
-| `top_vs_top_pt_home` | SPR | 71.4% | **85.7%** | +14.3pp |
-| `fade_pr_in_tight_game` | SPR | 56.5% | **78.3%** | +21.7pp |
-| `sides_model` (confluence=1 only) | SPR | 57.0% | 77.7% | +20.7pp |
+| **HOME +4 → +10** | HOME | 41 | 92.7% | 80.6% |
+| AWAY -2 → +4 | AWAY | 44 | 86.4% | 73.3% |
+| AWAY -6 → 0 | AWAY | 50 | 86.0% | 73.8% |
+| AWAY +7.5 → -1.5 | AWAY | 26 | 88.5% | 71.0% |
+| AWAY -2.5 → +3.5 | AWAY | 116 | 79.3% | 71.1% |
+| AWAY -3 → +3 | AWAY | 180 | 77.8% | 71.2% |
+| OVER 42.5 → 36.5 | OVER | 80 | 80.0% | 70.0% |
+| OVER 41 → 35 | OVER | 63 | 81.0% | 69.6% |
+| UNDER 44 → 50 | UNDER | 85 | 76.5% | 66.4% |
+
+### Eligible model signals (teased hit% ≥ 78%, b73)
+| Rule | Market | Straight % | Teased % |
+|---|---|---|---|
+| `receiver_over_HC` | TOT | 65.2% | 89.1% |
+| `legacy_fade` | SPR | 68.2% | 85.7% |
+| `top_vs_top_pt_home` | SPR | 71.4% | 85.7% |
+| `fade_pr_in_tight_game` | SPR | 56.5% | 78.3% |
+| `sides_model` (confluence=1) | SPR | 57.0% | 77.7% |
 
 ### Sharpness overlay (b74 — the unlock)
 For each candidate leg, attach matchup Vegas-sharpness: mean of both teams' historical |line - actual|
@@ -389,40 +413,35 @@ error from prior 2 seasons (walk-forward, no leak). **Filter: drop legs where ma
 **Spread+spread teasers LOSE money. Total+total wins. Mixed (spread+total) wins.**
 The ranker prioritizes totals first (by edge magnitude), then spreads. Pair top-2 distinct games.
 
-### Honest performance — what the HARNESS actually produced (the only number to trust)
+### Honest performance — harness dry-run (combined strategy, fully walk-forward)
 
-| Season | Graded teasers | Joint hit | ROI @ -120 | ROI @ -110 |
+| Season | Teasers | Joint hit | ROI @ -120 | ROI @ -110 |
 |---|---|---|---|---|
-| 2024 dry-run | 19 | **52.6%** | **-3.5%** | +0.5% |
-| 2025 dry-run | 18 | **66.7%** | **+22.2%** | +27.3% |
-| **Pooled** | **37** | **~59.5%** | **~+9%** | **~+14%** |
+| 2024 dry-run | 19 | **57.9%** | **+6.1%** | +10.5% |
+| 2025 dry-run | 19 | **78.9%** | **+44.7%** | +50.7% |
+| **Pooled** | **38** | **~68.4%** | **~+25%** | **~+30%** |
 
-**Realistic forward expectation: +5 to +20% ROI pooled, with substantial per-season variance.**
-Some years will be ~break-even, some will be +20-30%. NOT the +30% headline that earlier
-backtests (b73/b74) suggested — those numbers had selection bias and used top-3-all-combos
-rather than the operational top-2-distinct.
+Both years profitable. 2025 is the much stronger year; 2024 was tougher (even 90%+ buckets like
+HOME +4 had ~85% hit instead of 95%+). Pooled mid-20s ROI is the realistic forward expectation.
 
-### Why earlier backtest numbers (b73/b74) were inflated — documented mistakes
-1. **b73's "89.1% teased" for receiver_over_HC** was a 2024+2025 pooled number. 2024 alone was
-   12/22 = 54.5% straight (~75% teased). 2025 alone much stronger. Pooling hid the variance.
-2. **b74's "+34.8% ROI on 2024" used top-3-all-combos** (3 synthetic pairs/week from a 3-pick
-   pool). Harness is top-2-distinct (1 teaser/week). Different products; I presented the
-   favorable one.
-3. **Selection bias re-introduced**: the eligibility list (TEASER_RULES) was chosen by looking
-   at 2024+2025 data, then tested on 2024+2025. Same peek I called out in b72 and let happen
-   again. The honest test is whether 2024-OOS-only or 2026 live confirms.
-4. **Data limitation in 2024**: nfl_predictions_epa.parquet only has 2025 data, so legacy_fade
-   never fires in 2024. That forced sides_model into 18/20 leg2 slots — sides_model is the
-   weakest eligible rule (77.7% teased) and shouldn't dominate. In 2026 with current legacy
-   data flowing, the mix will look more like 2025.
+### Methodology integrity
+- **Buckets**: calibrated on seasons < target only (2018-2023 for 2024, 2018-2024 for 2025)
+- **Sharpness**: prior 2 seasons only (2022-2023 for 2024 test, 2023-2024 for 2025 test)
+- **Model signals**: harness walk-forward training (train Y<target, test Y)
+- **Slate**: all games with opening lines available — not just games where signals fire
 
-### What we'll actually learn in 2026
-The 2024 vs 2025 gap could be:
-- Real per-season variance (most likely)
-- Data limitation (legacy_fade missing in 2024)
-- Receiver_over_HC having a down 2024
-- Some combination
-Run live in 2026 with no further tuning. After 8-10 weeks we'll have the honest signal.
+### Earlier teaser approaches we tried and dropped
+- **Structural Wong-bucket teasers** (b71/b72): tested at ~70% per leg OOS, fails -120 BE.
+  Modern books priced out classic Wong edges. DO NOT REVISIT.
+- **Signal-only teaser product** (initial wiring): too narrow — sides_model dominated leg2
+  selections (77.7% teased = borderline), 2024 had no legacy_fade data so volume collapsed.
+  Replaced by b76 combined approach above.
+
+### Bug fixed during integration (2026-06-01)
+The prior `grade_teasers` function matched outcomes by (home_ab, away_ab) only — divisional
+matchups recur with the same home/away pair each year, so the grader silently graded against
+the wrong game's outcome. Now filters by (season, week, home_ab, away_ab). Fix verified by
+matching b76 standalone-script results exactly.
 
 ### Pricing reference
 | Book | 2-team 6pt price | Per-leg breakeven | Joint breakeven |

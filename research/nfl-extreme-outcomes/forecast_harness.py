@@ -249,47 +249,131 @@ def load_team_sharpness(target, lookback=TEASER_SHARP_LOOKBACK):
                                   sharp_spread=("spread_err","mean"),
                                   sharp_total=("total_err","mean")).reset_index()
 
+def build_teaser_buckets(target, min_n=15):
+    """Walk-forward 6-pt teaser bucket hit rates from matchup_arch (seasons < target only).
+    Returns 4 dicts keyed by exact line value: HOME, AWAY, OVER, UNDER → (hit_pct, lo_ci, n).
+    See b75/b75b for the empirical derivation — these are the structural edges (e.g. HOME +4
+    teased to +10 hits ~93% historically, AWAY -2 teased to +4 hits ~86%)."""
+    ma = pd.read_parquet(os.path.join(DATA,"matchup_arch.parquet"))
+    od = pd.read_parquet(os.path.join(DATA,"odds_consensus.parquet"))
+    ma["actual_margin"] = ma.home_score - ma.away_score
+    ma["actual_total"]  = ma.home_score + ma.away_score
+    hist = ma.merge(od[["season","home_ab","away_ab","open_spread","open_total"]],
+                    on=["season","home_ab","away_ab"], how="left")
+    hist["spread"] = hist.open_spread.fillna(hist.home_spread)
+    hist["total"]  = hist.open_total.fillna(hist.ou_vegas_line)
+    hist = hist[(hist.season<target) & hist.spread.notna() & hist.total.notna()].copy()
+    hist["spread_r"] = (hist.spread*2).round()/2
+    hist["total_r"]  = (hist.total*2).round()/2
+    # 4 teaser outcomes per game
+    hist["h"] = (hist.actual_margin + hist.spread + 6 > 0).astype(float)
+    hist.loc[hist.actual_margin + hist.spread + 6 == 0, "h"] = np.nan
+    hist["a"] = (hist.actual_margin + hist.spread - 6 < 0).astype(float)
+    hist.loc[hist.actual_margin + hist.spread - 6 == 0, "a"] = np.nan
+    hist["o"] = (hist.actual_total > hist.total - 6).astype(float)
+    hist.loc[hist.actual_total == hist.total - 6, "o"] = np.nan
+    hist["u"] = (hist.actual_total < hist.total + 6).astype(float)
+    hist.loc[hist.actual_total == hist.total + 6, "u"] = np.nan
+    def bucket(df, key, col):
+        out={}
+        for v in sorted(df[key].unique()):
+            w = df[df[key]==v][col].dropna()
+            if len(w)<min_n: continue
+            n=len(w); k=int(w.sum()); lo,hi = wilson_ci(k,n)
+            out[v] = (k/n, lo, n)
+        return out
+    return bucket(hist,"spread_r","h"), bucket(hist,"spread_r","a"), bucket(hist,"total_r","o"), bucket(hist,"total_r","u")
+
+# Teaser combined-score weights — bucket history is the primary signal, with model + sharpness as bonuses
+TEASER_BUCKET_MIN = 0.74     # eligibility: bucket historical hit must clear this (~-110 BE pool)
+TEASER_SIG_BONUS  = 0.05     # bonus for a signal pick on this side
+TEASER_SHRP_BONUS = 0.03     # bonus for both teams in sharper half of league
+
 def generate_teasers(target, week=None):
-    """Build 2-team 6-pt teaser ledger from already-generated picks. The pipeline:
-      1) Load this season's pick ledger (`forecast_ledger_<target>.csv`)
-      2) Filter to TEASER_RULES + sides_model rows where confluence=1
-      3) Attach team Vegas-sharpness from prior-2-seasons walk-forward
-      4) Compute matchup sharpness per leg; filter to max_sharp <= league 50th pct
-         (both teams must be in the sharper half of the league this year)
-      5) Rank legs per week — TOTALS first (stronger structural edge per b73b), then SPREADS
-      6) Pair top-2 distinct games into a 2-team teaser; write the ledger
-    Each leg's teased line shifts 6pt in our pick's favor. See LOCKED_MODELS.md §teaser for theory."""
-    led_path = os.path.join(OUT, f"forecast_ledger_{target}.csv")
-    led = pd.read_csv(led_path)
-    led = led[led.rule.isin(TEASER_RULES) | ((led.rule=="sides_model") & (led.get("confluence",0)==1))].copy()
-    if week is not None: led = led[led.week==week]
-    if len(led)==0: L(f"[teasers] no eligible picks for {target}"); return None,None
-    # Attach away_ab/home_ab from the game string
-    led["away_ab"] = led.game.str.split("@").str[0]
-    led["home_ab"] = led.game.str.split("@").str[1]
-    # Walk-forward sharpness
+    """COMBINED teaser strategy (b76, vaulted 2026-06-01) — replaces the prior signal-only approach.
+    Every game on the slate is evaluated through 3 lenses for each of its 4 possible legs
+    (HOME spread tease, AWAY spread tease, OVER total tease, UNDER total tease):
+      bucket_p  : historical 6-pt teaser hit % for this EXACT line value, walk-forward only
+      signal_ok : 1 if any TEASER_RULES pick (or sides_model confluence=1) fires on this side
+      sharp_ok  : 1 if matchup avg Vegas-error in prior 2 seasons <= league median for that market
+    combined_score = bucket_p + 0.05*signal_ok + 0.03*sharp_ok
+    Eligibility: bucket_p >= 0.74 AND (signal_ok OR sharp_ok). Take top 2 distinct games per week.
+    See LOCKED_MODELS.md §4 for the b75/b75b/b76 derivation and honest 2024+2025 backtest."""
+    HOME, AWAY, OVER, UNDER = build_teaser_buckets(target)
+    if len(HOME)==0: L(f"[teasers] no historical buckets for target={target}"); return None,None
     sharp = load_team_sharpness(target)
-    if len(sharp)==0: L(f"[teasers] no prior-season sharpness for {target} — abort"); return None,None
-    led = led.merge(sharp.add_prefix("home_").rename(columns={"home_team":"home_ab"}), on="home_ab", how="left")
-    led = led.merge(sharp.add_prefix("away_").rename(columns={"away_team":"away_ab"}), on="away_ab", how="left")
-    # Matchup sharpness — relevant market only (totals use total-err, spreads use spread-err)
-    led["matchup_sharp"] = np.where(
-        led.market=="total",
-        (led.home_sharp_total + led.away_sharp_total)/2,
-        (led.home_sharp_spread + led.away_sharp_spread)/2)
-    # League sharpness percentile per market (cuts based on this season's candidate pool)
-    # Use the eligible-pick pool itself as the reference distribution (avoid leak on full-season outcomes)
-    sharp_thr = led.groupby("market").matchup_sharp.transform(lambda s: s.quantile(TEASER_SHARP_PCT))
-    led["sharp_qualifies"] = (led.matchup_sharp <= sharp_thr) & led.matchup_sharp.notna()
-    qual = led[led.sharp_qualifies].copy()
-    if len(qual)==0: L(f"[teasers] no legs pass sharpness filter for {target}"); return None,None
-    # Per-week ranking: totals first, then spreads, each by |edge|
-    qual["edge_mag"] = qual.edge.abs()
-    qual["mkt_pri"]  = np.where(qual.market=="total", 0, 1)   # 0 ranks first
+    if len(sharp)==0: L(f"[teasers] no prior-season sharpness for {target}"); return None,None
+    SHARP_S = dict(zip(sharp.team, sharp.sharp_spread))
+    SHARP_T = dict(zip(sharp.team, sharp.sharp_total))
+    # League medians for sharpness qualification (cuts on the prior-2-seasons pool, NOT target year)
+    med_s = float(np.median(list(SHARP_S.values())))
+    med_t = float(np.median(list(SHARP_T.values())))
+
+    # Signal-eligible side selections from the harness pick ledger
+    led_path = os.path.join(OUT, f"forecast_ledger_{target}.csv")
+    sig=set()
+    if os.path.exists(led_path):
+        led_picks = pd.read_csv(led_path)
+        for _,r in led_picks.iterrows():
+            if not (r.rule in TEASER_RULES or (r.rule=="sides_model" and r.get("confluence",0)==1)): continue
+            if r.market=="spread":
+                side = "HOME" if r.bet_home==1 else "AWAY"
+            else:
+                side = "OVER" if r.bet_home==-1 else "UNDER"
+            ab_away, ab_home = r.game.split("@")
+            sig.add((int(r.season), int(r.week), ab_home, ab_away, r.market, side))
+
+    # Build target slate: every game with opening spread + total
+    od = pd.read_parquet(os.path.join(DATA,"odds_consensus.parquet"))
+    ma = pd.read_parquet(os.path.join(DATA,"matchup_arch.parquet"))
+    slate = ma[ma.season==target].merge(
+        od[["season","home_ab","away_ab","open_spread","open_total","close_spread","close_total"]],
+        on=["season","home_ab","away_ab"], how="left")
+    slate = slate.dropna(subset=["open_spread","open_total"]).copy()
+    if week is not None: slate = slate[slate.week==week]
+
+    def round_half(x): return round(x*2)/2
+
+    legs=[]
+    for _,g in slate.iterrows():
+        sp = round_half(g.open_spread); tt = round_half(g.open_total)
+        sharp_spread = np.nanmean([SHARP_S.get(g.home_ab,np.nan), SHARP_S.get(g.away_ab,np.nan)])
+        sharp_total  = np.nanmean([SHARP_T.get(g.home_ab,np.nan), SHARP_T.get(g.away_ab,np.nan)])
+        # 4 candidate legs
+        # bet_home convention preserved: 1=HOME spread, 0=AWAY spread, -1=OVER, -2=UNDER
+        candidates = [
+            ("HOME","spread",sp,HOME, g.open_spread+6, sharp_spread, med_s, 1),
+            ("AWAY","spread",sp,AWAY, g.open_spread-6, sharp_spread, med_s, 0),
+            ("OVER","total", tt,OVER, g.open_total-6,  sharp_total,  med_t,-1),
+            ("UNDER","total",tt,UNDER,g.open_total+6,  sharp_total,  med_t,-2),
+        ]
+        for side, market, line, lookup, teased, sharp_val, med, bet_home in candidates:
+            if line not in lookup: continue
+            bucket_p, bucket_lo, bucket_n = lookup[line]
+            if bucket_p < TEASER_BUCKET_MIN: continue
+            signal_ok = int((target, int(g.week), g.home_ab, g.away_ab, market, side) in sig)
+            sharp_ok  = int(pd.notna(sharp_val) and sharp_val <= med)
+            if signal_ok==0 and sharp_ok==0: continue   # need at least one confirmation
+            score = bucket_p + TEASER_SIG_BONUS*signal_ok + TEASER_SHRP_BONUS*sharp_ok
+            # Side string consistent with pick ledger format
+            if market=="spread":
+                disp = f"{g.home_ab} {g.open_spread:+g}" if side=="HOME" else f"{g.away_ab} {-g.open_spread:+g}"
+            else:
+                disp = f"{side} {g.open_total:g}"
+            legs.append({"season":int(target),"week":int(g.week),"home_ab":g.home_ab,"away_ab":g.away_ab,
+                         "side":side,"market":market,"line":line,"teased":teased,
+                         "bucket_p":round(bucket_p,3),"bucket_n":bucket_n,
+                         "signal_ok":signal_ok,"sharp_ok":sharp_ok,
+                         "matchup_sharp":round(float(sharp_val),2) if pd.notna(sharp_val) else None,
+                         "score":round(score,4),"bet_home":bet_home,"display":disp})
+    if not legs:
+        L(f"[teasers] no eligible legs for {target}"); return None,None
+    ldf = pd.DataFrame(legs)
+
+    # Top-2 distinct games per week by combined score
     rows=[]
-    for (sea,wk), grp in qual.groupby(["season","week"]):
-        grp = grp.sort_values(["mkt_pri","edge_mag"], ascending=[True,False])
-        # Top-2 DISTINCT games (avoid pairing two legs of same matchup)
+    for (sea,wk), grp in ldf.groupby(["season","week"]):
+        grp = grp.sort_values("score", ascending=False)
         seen=set(); top=[]
         for _,r in grp.iterrows():
             gid = (r.home_ab, r.away_ab)
@@ -298,20 +382,18 @@ def generate_teasers(target, week=None):
             if len(top)==2: break
         if len(top)<2: continue
         l1,l2 = top
-        # Teased line per leg
-        def teased_line(r):
-            if r.market=="spread":  return r.open_num + 6 if r.bet_home==1 else r.open_num - 6
-            return r.open_num - 6 if r.bet_home==-1 else r.open_num + 6   # OVER:-, UNDER:+
         rows.append({
             "teaser_id": f"{sea}-W{int(wk):02d}-T2",
             "season":int(sea),"week":int(wk),
-            "leg1_pick_id":l1.pick_id,"leg1_rule":l1.rule,"leg1_game":l1.game,
-            "leg1_market":l1.market,"leg1_side":l1.side,"leg1_open":l1.open_num,
-            "leg1_teased":teased_line(l1),"leg1_sharp":round(float(l1.matchup_sharp),2),
-            "leg2_pick_id":l2.pick_id,"leg2_rule":l2.rule,"leg2_game":l2.game,
-            "leg2_market":l2.market,"leg2_side":l2.side,"leg2_open":l2.open_num,
-            "leg2_teased":teased_line(l2),"leg2_sharp":round(float(l2.matchup_sharp),2),
-            "combo":"+".join(sorted([l1.market,l2.market])),
+            "leg1_game":f"{l1.away_ab}@{l1.home_ab}","leg1_market":l1.market,"leg1_side":l1.display,
+            "leg1_open":l1.line,"leg1_teased":l1.teased,
+            "leg1_bucket":l1.bucket_p,"leg1_signal":int(l1.signal_ok),"leg1_sharp":int(l1.sharp_ok),
+            "leg1_score":l1.score,
+            "leg2_game":f"{l2.away_ab}@{l2.home_ab}","leg2_market":l2.market,"leg2_side":l2.display,
+            "leg2_open":l2.line,"leg2_teased":l2.teased,
+            "leg2_bucket":l2.bucket_p,"leg2_signal":int(l2.signal_ok),"leg2_sharp":int(l2.sharp_ok),
+            "leg2_score":l2.score,
+            "combo":"+".join(sorted([l1.market, l2.market])),
         })
     out_df = pd.DataFrame(rows)
     out_path = os.path.join(OUT, f"teaser_ledger_{target}.csv")
@@ -320,9 +402,8 @@ def generate_teasers(target, week=None):
     return out_df, out_path
 
 def grade_teasers(m, target):
-    """Grade the teaser ledger. Each leg evaluated vs teased line; both must hit for the
-    teaser to win. Push handling (rare on 6-pt): if both push, void; if one push, demote
-    to a single-bet straight on the surviving leg at -110."""
+    """Grade the combined teaser ledger. Each leg vs its teased line; both legs must hit. Push
+    handling (rare on 6-pt): both-push → void; one-push → demote to single straight bet at -110."""
     path = os.path.join(OUT, f"teaser_ledger_{target}.csv")
     if not os.path.exists(path): L(f"[grade_teasers] no ledger at {path}"); return None
     led = pd.read_csv(path)
@@ -330,38 +411,43 @@ def grade_teasers(m, target):
     res = m[["season","week","home_ab","away_ab","home_score","away_score"]].dropna(subset=["home_score","away_score"]).copy()
     res["actual_margin"] = res.home_score - res.away_score
     res["actual_total"]  = res.home_score + res.away_score
-    def grade_leg(pick_id, game, market, teased, side, leg_rules_known_bet_home):
-        # We re-derive bet_home from the side string for portability
-        # spread: side like "BUF -3" (home_pick if home_ab in side); total: "OVER 47" / "UNDER 47"
-        ab_away,ab_home = game.split("@")
-        r = res[(res.home_ab==ab_home)&(res.away_ab==ab_away)]
-        if len(r)==0: return np.nan,np.nan
+
+    def grade_leg(season, week, game, market, teased, side_disp):
+        # Match by (season, week, home_ab, away_ab) — divisional matchups recur with same
+        # home/away pair every year, so we MUST filter by season+week. Earlier version missed
+        # this and silently graded against the wrong game's outcome (b76 vs harness divergence).
+        ab_away, ab_home = game.split("@")
+        r = res[(res.season==season)&(res.week==week)&(res.home_ab==ab_home)&(res.away_ab==ab_away)]
+        if len(r)==0: return (np.nan, np.nan)
         r = r.iloc[0]
         if market=="spread":
-            home_pick = side.startswith(ab_home)
+            home_pick = side_disp.startswith(ab_home)
             if home_pick:
-                if r.actual_margin + teased == 0: return np.nan, r.actual_margin
-                return int(r.actual_margin + teased > 0), r.actual_margin
+                if r.actual_margin + teased == 0: return (np.nan, r.actual_margin)
+                return (int(r.actual_margin + teased > 0), r.actual_margin)
             else:
-                if r.actual_margin + teased == 0: return np.nan, r.actual_margin
-                return int(r.actual_margin + teased < 0), r.actual_margin
+                if r.actual_margin + teased == 0: return (np.nan, r.actual_margin)
+                return (int(r.actual_margin + teased < 0), r.actual_margin)
         else:
-            over = side.startswith("OVER")
-            if r.actual_total == teased: return np.nan, r.actual_total
-            return int((r.actual_total > teased) if over else (r.actual_total < teased)), r.actual_total
-    led[["leg1_win","leg1_outcome"]] = led.apply(lambda r: pd.Series(grade_leg(r.leg1_pick_id, r.leg1_game, r.leg1_market, r.leg1_teased, r.leg1_side, None)), axis=1)
-    led[["leg2_win","leg2_outcome"]] = led.apply(lambda r: pd.Series(grade_leg(r.leg2_pick_id, r.leg2_game, r.leg2_market, r.leg2_teased, r.leg2_side, None)), axis=1)
+            over = side_disp.startswith("OVER")
+            if r.actual_total == teased: return (np.nan, r.actual_total)
+            return (int((r.actual_total > teased) if over else (r.actual_total < teased)), r.actual_total)
+
+    led[["leg1_win","leg1_outcome"]] = led.apply(
+        lambda r: pd.Series(grade_leg(r.season, r.week, r.leg1_game, r.leg1_market, r.leg1_teased, r.leg1_side)), axis=1)
+    led[["leg2_win","leg2_outcome"]] = led.apply(
+        lambda r: pd.Series(grade_leg(r.season, r.week, r.leg2_game, r.leg2_market, r.leg2_teased, r.leg2_side)), axis=1)
+
     def joint(r):
         if pd.isna(r.leg1_win) and pd.isna(r.leg2_win): return ("void",0.0,np.nan)
-        if pd.isna(r.leg1_win): return ("push1",(100/110 if r.leg2_win==1 else -1.0),float(r.leg2_win))
-        if pd.isna(r.leg2_win): return ("push1",(100/110 if r.leg1_win==1 else -1.0),float(r.leg1_win))
+        if pd.isna(r.leg1_win): return ("push1", (100/110 if r.leg2_win==1 else -1.0), float(r.leg2_win))
+        if pd.isna(r.leg2_win): return ("push1", (100/110 if r.leg1_win==1 else -1.0), float(r.leg1_win))
         both = int(r.leg1_win==1 and r.leg2_win==1)
-        # Default to -120 pricing; report() will also compute -110 view
         return ("graded", (100/120) if both else -1.0, float(both))
     led[["status","pnl_120","both"]] = led.apply(lambda r: pd.Series(joint(r)), axis=1)
     led["pnl_110"] = np.where(led.status=="graded",
         np.where(led.both==1, 100/110, -1.0),
-        led.pnl_120)   # push handling same for both pricings
+        led.pnl_120)
     led.to_csv(path, index=False)
     return led
 
@@ -377,13 +463,22 @@ def report_teasers(target):
     L(f"\n{'='*82}\n2-TEAM 6-PT TEASER REPORT {target}  (graded: {len(g)} / logged: {len(led)})\n{'='*82}")
     n=len(g); k=int(g.both.sum()); lo,hi=wilson_ci(k,n)
     L(f"  ALL teasers @ -120: {k}/{n}={k/n*100:.1f}%  CI[{lo*100:.0f},{hi*100:.0f}]  ROI={g.pnl_120.mean()*100:+.1f}%  units={g.pnl_120.sum():+.1f}")
-    L(f"  ALL teasers @ -110: {k}/{n}={k/n*100:.1f}%  ROI={g.pnl_110.mean()*100:+.1f}%  units={g.pnl_110.sum():+.1f}")
+    L(f"  ALL teasers @ -110: {k}/{n}={k/n*100:.1f}%                  ROI={g.pnl_110.mean()*100:+.1f}%  units={g.pnl_110.sum():+.1f}")
     L(f"  By market combo:")
     for combo in ["total+total","spread+total","spread+spread"]:
         c = g[g.combo==combo]
         if len(c)==0: L(f"    {combo:14s}: (none)"); continue
-        k=int(c.both.sum()); n=len(c); lo,hi=wilson_ci(k,n)
-        L(f"    {combo:14s}: n={n:2d}  hit={k}/{n}={k/n*100:.1f}%  CI[{lo*100:.0f},{hi*100:.0f}]  ROI@-120={c.pnl_120.mean()*100:+.1f}%")
+        kc=int(c.both.sum()); nc=len(c); lo,hi=wilson_ci(kc,nc)
+        L(f"    {combo:14s}: n={nc:2d}  hit={kc}/{nc}={kc/nc*100:.1f}%  CI[{lo*100:.0f},{hi*100:.0f}]  ROI@-120={c.pnl_120.mean()*100:+.1f}%")
+    L(f"  By confirmation profile:")
+    for tag, mask in [("both legs signal=1",      (g.leg1_signal==1)&(g.leg2_signal==1)),
+                      ("both legs sharp=1",       (g.leg1_sharp==1)&(g.leg2_sharp==1)),
+                      ("at least one signal",     (g.leg1_signal==1)|(g.leg2_signal==1)),
+                      ("at least one sharp",      (g.leg1_sharp==1)|(g.leg2_sharp==1))]:
+        sub = g[mask]
+        if len(sub)==0: continue
+        kc=int(sub.both.sum()); nc=len(sub)
+        L(f"    {tag:24s}: n={nc:2d}  hit={kc}/{nc}={kc/nc*100:.1f}%  ROI@-120={sub.pnl_120.mean()*100:+.1f}%")
 
 def train_predict(m, BASE, target):
     """Train on all seasons < target, predict target. Returns target games with:
