@@ -192,6 +192,11 @@ def build():
         m["o_minus_d"]=(m.home_off_rtg-m.away_def_rtg)+(m.away_off_rtg-m.home_def_rtg)  # high=offenses favored, low=defenses dominate
     else:
         m["o_minus_d"]=np.nan
+    # ---- PR TIER classification (within-season percentile, for b66 spots) ----
+    m["h_pr_pct"]=m.groupby("season").home_predictive_pr.rank(pct=True)
+    m["a_pr_pct"]=m.groupby("season").away_predictive_pr.rank(pct=True)
+    m["h_tier"]=pd.cut(m.h_pr_pct,bins=[0,0.33,0.67,1.01],labels=["bot","mid","top"]).astype(str)
+    m["a_tier"]=pd.cut(m.a_pr_pct,bins=[0,0.33,0.67,1.01],labels=["bot","mid","top"]).astype(str)
     # ---- ROLLING TEAM-vs-LINE MISS (b61/b62 trap-fade spots) ----
     # team_total_miss = actual_team_pts - implied_team_total; team_margin_miss = actual_margin + team_spread
     mb=m.copy()
@@ -226,7 +231,7 @@ def generate(m, BASE, target, week=None):
     od=pd.read_parquet(os.path.join(DATA,"odds_consensus.parquet"))
     W1CUT=m[m.week==1].o_minus_d.quantile(0.33) if m.o_minus_d.notna().any() else None  # defense-dominant W1 cutoff
     te=train_predict(m,BASE,target)
-    te=te.merge(od[["season","home_ab","away_ab","open_spread","open_total","close_spread","close_total"]],on=["season","home_ab","away_ab"],how="left")
+    te=te.merge(od[["season","home_ab","away_ab","open_spread","open_total","close_spread","close_total","open_ml_home","open_ml_away","close_ml_home","close_ml_away"]],on=["season","home_ab","away_ab"],how="left")
     bc=load_bye_collisions(target)
     te=te.merge(bc,on=["season","home_ab","away_ab"],how="left") if len(bc) else te.assign(bye_edge_home=np.nan,bye_gap=np.nan)
     dk=load_dk_open(target); sp_lookup=build_spread_lookup()
@@ -284,6 +289,24 @@ def generate(m, BASE, target, week=None):
             rows.append(dict(pick_id=gid+"-BC",season=g.season,week=int(g.week),game=mtchp,rule="bye_collision",
                 market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
                 bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(float(g.bye_gap),1)))
+        # TIGHT + SOFT HOME ML (b66): |open_spread|<=3 + home no-vig ML implies >=4pp softer than spread -> bet AWAY
+        # Signal source = OPEN spread + OPEN ML, grade vs OPEN spread (framework-compliant)
+        # Computed FIRST so fade_pr can defer to it per b67 conflict resolution
+        softml_fires=False
+        if pd.notna(g.open_spread) and abs(g.open_spread)<=3 and pd.notna(g.open_ml_home) and pd.notna(g.open_ml_away):
+            ml_h_i=_ml_p(g.open_ml_home); ml_a_i=_ml_p(g.open_ml_away)
+            if pd.notna(ml_h_i) and pd.notna(ml_a_i) and (ml_h_i+ml_a_i)>0:
+                ml_h_nv=ml_h_i/(ml_h_i+ml_a_i)
+                sp_imp_h=sp_lookup.get(round(abs(g.open_spread)/0.5)*0.5,0.5)
+                if g.open_spread>0: sp_imp_h=1-sp_imp_h
+                elif g.open_spread==0: sp_imp_h=0.5
+                div_h=ml_h_nv - sp_imp_h
+                if div_h<=-0.04:
+                    softml_fires=True
+                    rows.append(dict(pick_id=gid+"-TSML",season=g.season,week=int(g.week),game=mtchp,
+                        rule="tight_soft_ml_fade_home",market="spread",
+                        side=f"{g.away_ab} {-g.open_spread:+g}",bet_home=0,
+                        open_num=g.open_spread,close_num=g.close_spread,edge=round(float(-div_h*100),1)))
         # DK GIANT FAV OVER (b63): spread >=7 + ML softer than spread implies (div<=-0.05) -> OVER
         if pd.notna(g.dk_spread) and pd.notna(g.dk_ml_home) and pd.notna(g.dk_ml_away) and pd.notna(g.open_total):
             abs_dk=abs(g.dk_spread)
@@ -306,14 +329,44 @@ def generate(m, BASE, target, week=None):
                 side=f"{g.home_ab} {g.open_spread:+g}",bet_home=1,
                 open_num=g.open_spread,close_num=g.close_spread,edge=round(float(-g.dk_juice),0)))
         # FADE-PR IN TIGHT GAME (b65): 1.5 line + |pr_diff|>=3 -> bet AGAINST better-PR team
-        # Mechanism: tight lines are tight FOR A REASON; market priced reasons we don't see
+        # CONFLICT RESOLUTION (b67): if soft_ml ALSO fires here and they'd clash (soft_ml picks AWAY,
+        # fade_pr picks HOME because pr_diff<0), SKIP fade_pr. Soft_ml wins 6/7 historical clashes.
         pr_d=g.get("pr_diff",np.nan)
         if pd.notna(pr_d) and pd.notna(g.open_spread) and abs(g.open_spread)<=1.5 and abs(pr_d)>=3:
             home_pick=pr_d<0   # home has worse PR -> bet home (FADE the better-PR away team)
-            rows.append(dict(pick_id=gid+"-FPR",season=g.season,week=int(g.week),game=mtchp,
-                rule="fade_pr_in_tight_game",market="spread",
+            # Conflict: soft_ml fires + fade_pr would pick HOME (clashing with soft_ml's AWAY pick)
+            if not (softml_fires and home_pick):
+                rows.append(dict(pick_id=gid+"-FPR",season=g.season,week=int(g.week),game=mtchp,
+                    rule="fade_pr_in_tight_game",market="spread",
+                    side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
+                    bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(float(abs(pr_d)),2)))
+        # ============ b66 TIGHT-GAME SPOTS ============
+        # primetime_tight_favorite (b66): PT + tight -> bet the favorite (home or away)
+        pt=int(g.primetime_i) if pd.notna(g.primetime_i) else 0
+        if pt==1 and pd.notna(g.open_spread) and abs(g.open_spread)<=3 and g.open_spread!=0:
+            home_pick=g.open_spread<0   # home is fav
+            rows.append(dict(pick_id=gid+"-PTF",season=g.season,week=int(g.week),game=mtchp,
+                rule="primetime_tight_favorite",market="spread",
                 side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
-                bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(float(abs(pr_d)),2)))
+                bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(float(abs(g.open_spread)),2)))
+        # primetime_tight_under (b66): PT + tight -> bet UNDER
+        if pt==1 and pd.notna(g.open_spread) and abs(g.open_spread)<=3 and pd.notna(g.open_total):
+            rows.append(dict(pick_id=gid+"-PTU",season=g.season,week=int(g.week),game=mtchp,
+                rule="primetime_tight_under",market="total",
+                side=f"UNDER {g.open_total:g}",bet_home=-2,
+                open_num=g.open_total,close_num=g.close_total,edge=round(float(g.open_total),1)))
+        # top_vs_top_pt_home (b66): PT + tight + both top PR tier -> bet HOME
+        if pt==1 and pd.notna(g.open_spread) and abs(g.open_spread)<=3 and g.get("h_tier","")=="top" and g.get("a_tier","")=="top":
+            rows.append(dict(pick_id=gid+"-TTH",season=g.season,week=int(g.week),game=mtchp,
+                rule="top_vs_top_pt_home",market="spread",
+                side=f"{g.home_ab} {g.open_spread:+g}",bet_home=1,
+                open_num=g.open_spread,close_num=g.close_spread,edge=0))
+        # bot_vs_bot_under (b66): tight + both bottom PR tier -> bet UNDER
+        if pd.notna(g.open_spread) and abs(g.open_spread)<=3 and g.get("h_tier","")=="bot" and g.get("a_tier","")=="bot" and pd.notna(g.open_total):
+            rows.append(dict(pick_id=gid+"-BBU",season=g.season,week=int(g.week),game=mtchp,
+                rule="bot_vs_bot_under",market="total",
+                side=f"UNDER {g.open_total:g}",bet_home=-2,
+                open_num=g.open_total,close_num=g.close_total,edge=round(float(g.open_total),1)))
         # ROLLING TEAM-vs-LINE MISS spots (b61/b62 — FADE the trap, mean reversion)
         sum_l3=g.get("total_miss_sum_last3",np.nan); lvl=g.get("line_vs_league",np.nan)
         # EXTREME UNDER-reversion (star signal): both teams way under-performed + line high -> bet OVER (68% n=25)
@@ -370,7 +423,7 @@ def report(target):
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv"); led=pd.read_csv(path)
     g=led.dropna(subset=["win"])
     L(f"\n{'='*78}\nFORWARD-TEST REPORT {target}  (graded picks: {len(g)} / logged: {len(led)})\n{'='*78}")
-    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","bye_collision","total_low_line_over","total_high_line_under","spread_dog_cover_fade_away","spread_dog_cover_fade_home","fade_pr_in_tight_game","dk_giant_fav_over","dk_heavy_home_juice","ALL"]:
+    for rule in ["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","week1_def_under","bye_collision","total_low_line_over","total_high_line_under","spread_dog_cover_fade_away","spread_dog_cover_fade_home","fade_pr_in_tight_game","dk_giant_fav_over","dk_heavy_home_juice","tight_soft_ml_fade_home","primetime_tight_favorite","primetime_tight_under","top_vs_top_pt_home","bot_vs_bot_under","ALL"]:
         s=g if rule=="ALL" else g[g.rule==rule]
         if len(s)==0: L(f"  {rule:18s}: (none yet)"); continue
         k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100

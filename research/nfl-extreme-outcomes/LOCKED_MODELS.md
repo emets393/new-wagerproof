@@ -255,14 +255,31 @@ DK Spot 1 explained: Soft ML on a giant favorite signals high-variance game with
 DK Spot 2 explained: Book steering action AWAY from home (juicing the home side) is contrarian —
 home actually covers ~62%. Reverse-line-movement style signal.
 
-#### Tight-game contrarian (b65)
+#### Tight-game contrarian + structural (b65/b66/b67)
 | Spot | Trigger | Hit % | Volume |
 |---|---|---|---|
 | `fade_pr_in_tight_game` | 1.5 line + \|pr_diff\| ≥3 → bet AGAINST the better-PR team | **~64%** (fade) on n=85 | ~30/yr |
+| ⭐ `tight_soft_ml_fade_home` | \|open_spread\| ≤3 + home no-vig ML ≥4pp softer than spread implies → bet AWAY | **62%** (n=42 over 3 yrs); consistent 60-64% all 3 seasons | ~15/yr |
+| `primetime_tight_favorite` | PT + \|open_spread\| ≤3 → bet the FAVORITE (home or away) | **61%** pooled (n=77 over 3 yrs) | ~25/yr |
+| `primetime_tight_under` | PT + \|open_spread\| ≤3 → bet UNDER | **57%** (n=82) | ~25/yr |
+| `top_vs_top_pt_home` | PT + tight + both top-tier PR → bet HOME | **65%** (n=23, small) | ~7/yr |
+| `bot_vs_bot_under` | Tight + both bottom-tier PR → bet UNDER | **56%** (n=64) | ~20/yr |
 
 In tight 1.5-spread games, the better-PR team systematically loses ATS. The line is tight FOR A
-REASON — public/casual logic says "better team wins" but the market has priced in why it's close.
-**FADE your power-rating intuition in pickem/1.5 games.**
+REASON. **FADE your power-rating intuition in pickem/1.5 games.**
+
+The `tight_soft_ml_fade_home` exploits opening-line mispricings: when the book opens with a softer
+ML than its own spread implies, that's the book's own pricing inconsistency. Bet AWAY immediately
+at OPEN — don't wait for movement (alpha decays during the week; per-season comparison shows OPEN
+betting beats CLOSE betting by 3-10pp across all 3 seasons).
+
+#### Conflict resolution: `tight_soft_ml_fade_home` vs `fade_pr_in_tight_game` (b67)
+When both signals fire on the same game and pick DIFFERENT sides (8 historical collisions, 7 of
+which clashed), the soft_ml pick wins **6/7 = 85.7%**. Mechanism: the book's own ML pricing
+inconsistency is a stronger tell than our PR-vs-spread disagreement.
+
+**Resolution coded in forecast_harness.py**: when soft_ml fires AND fade_pr would pick HOME (the
+clash scenario), the fade_pr pick is SKIPPED. Soft_ml takes precedence.
 
 #### Bye / situational (tracking-only, unproven but logical)
 | Spot | Trigger | Status |

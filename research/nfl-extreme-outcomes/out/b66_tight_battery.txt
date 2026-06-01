@@ -1,0 +1,120 @@
+[data] tight games (|open_spread|<=3) n=373 over 2023-2025
+
+============================================================================================
+TEST 1: ML DIVERGENCE in tight games (signal: open ML; grade: vs OPEN)
+============================================================================================
+  home ML SOFT by 2pp -> bet HOME                                   n= 90 hit= 48.9% CI[39,59] ROI= -6.7%  
+    same set -> bet AWAY                                            n= 90 hit= 51.1% CI[41,61] ROI= -2.4%
+  home ML SOFT by 3pp -> bet HOME                                   n= 59 hit= 42.4% CI[31,55] ROI=-19.1%  
+    same set -> bet AWAY                                            n= 59 hit= 57.6% CI[45,69] ROI=+10.0%
+  home ML SOFT by 4pp -> bet HOME                                   n= 42 hit= 38.1% CI[25,53] ROI=-27.3%  
+    same set -> bet AWAY                                            n= 42 hit= 61.9% CI[47,75] ROI=+18.2%
+  home ML SOFT by 5pp -> bet HOME                                   n= 38 hit= 39.5% CI[26,55] ROI=-24.6%  
+    same set -> bet AWAY                                            n= 38 hit= 60.5% CI[45,74] ROI=+15.6%
+  home ML TIGHT by 2pp -> bet HOME                                  n= 94 hit= 46.8% CI[37,57] ROI=-10.6%  
+  home ML TIGHT by 3pp -> bet HOME                                  n= 61 hit= 49.2% CI[37,61] ROI= -6.1%  
+  home ML TIGHT by 4pp -> bet HOME                                  n= 57 hit= 50.9% CI[38,63] ROI= -2.9%  
+  home ML TIGHT by 5pp -> bet HOME                                  n= 50 hit= 48.0% CI[35,61] ROI= -8.4%  
+
+============================================================================================
+TEST 2: DK SPREAD JUICE in tight games (signal: open juice; grade: vs OPEN)
+============================================================================================
+  DK home_juice_open<=-110 -> bet HOME                              n=224 hit= 47.8% CI[41,54] ROI= -8.8%  
+  DK home_juice_open<=-115 -> bet HOME                              n= 56 hit= 50.0% CI[37,63] ROI= -4.5%  
+  DK home_juice_open<=-120 -> bet HOME                              n=9 (too few)
+  DK home_juice_open<=-125 -> bet HOME                              n=0 (too few)
+  DK home_juice_open>=-105 (away juiced) -> bet AWAY (1-hco)        n= 45 hit= 55.6% CI[41,69] ROI= +6.1% *
+    bet AWAY                                                        n= 45 hit= 44.4% CI[31,59] ROI=-15.2%
+  DK home_juice_open>=-100 (away juiced) -> bet AWAY (1-hco)        n=9 (too few)
+  DK home_juice_open>=100 (away juiced) -> bet AWAY (1-hco)         n=9 (too few)
+
+============================================================================================
+TEST 3: PR TIER MATCHUPS in tight games (signal: pre-game PR; grade: vs OPEN)
+============================================================================================
+  HOME=top, AWAY=top:
+     bet HOME                                                       n= 66 hit= 54.5% CI[43,66] ROI= +4.1% *
+     bet AWAY                                                       n= 66 hit= 45.5% CI[34,57] ROI=-13.2%
+  HOME=top, AWAY=mid:
+     bet HOME                                                       n= 21 hit= 61.9% CI[41,79] ROI=+18.2% *
+     bet AWAY                                                       n= 21 hit= 38.1% CI[21,59] ROI=-27.3%
+  HOME=mid, AWAY=top:
+     bet HOME                                                       n= 68 hit= 42.6% CI[32,54] ROI=-18.6%  
+     bet AWAY                                                       n= 68 hit= 57.4% CI[46,68] ROI= +9.5%
+  HOME=mid, AWAY=mid:
+     bet HOME                                                       n= 62 hit= 48.4% CI[36,61] ROI= -7.6%  
+     bet AWAY                                                       n= 62 hit= 51.6% CI[39,64] ROI= -1.5%
+  HOME=mid, AWAY=bot:
+     bet HOME                                                       n= 19 hit= 42.1% CI[23,64] ROI=-19.6%  
+     bet AWAY                                                       n= 19 hit= 57.9% CI[36,77] ROI=+10.5%
+  HOME=bot, AWAY=top:
+     bet HOME                                                       n= 15 hit= 53.3% CI[30,75] ROI= +1.8% *
+     bet AWAY                                                       n= 15 hit= 46.7% CI[25,70] ROI=-10.9%
+  HOME=bot, AWAY=mid:
+     bet HOME                                                       n= 48 hit= 45.8% CI[33,60] ROI=-12.5%  
+     bet AWAY                                                       n= 48 hit= 54.2% CI[40,67] ROI= +3.4%
+  HOME=bot, AWAY=bot:
+     bet HOME                                                       n= 66 hit= 43.9% CI[33,56] ROI=-16.1%  
+     bet AWAY                                                       n= 66 hit= 56.1% CI[44,67] ROI= +7.0%
+
+PR DIFFERENTIAL in tight games (signal: pre-game PR; grade: vs OPEN)
+  pr_diff>=+1 (home better) -> bet HOME                             n= 87 hit= 46.0% CI[36,56] ROI=-12.2%  
+    pr_diff<=-1 (away better) -> bet AWAY                           n=207 hit= 52.7% CI[46,59] ROI= +0.5%
+  pr_diff>=+2 (home better) -> bet HOME                             n= 54 hit= 51.9% CI[39,65] ROI= -1.0%  
+    pr_diff<=-2 (away better) -> bet AWAY                           n=168 hit= 54.8% CI[47,62] ROI= +4.5%
+  pr_diff>=+3 (home better) -> bet HOME                             n= 33 hit= 48.5% CI[33,65] ROI= -7.4%  
+    pr_diff<=-3 (away better) -> bet AWAY                           n=117 hit= 50.4% CI[41,59] ROI= -3.7%
+  pr_diff>=+5 (home better) -> bet HOME                             n= 12 hit= 66.7% CI[39,86] ROI=+27.3% *
+    pr_diff<=-5 (away better) -> bet AWAY                           n= 55 hit= 50.9% CI[38,64] ROI= -2.8%
+
+FADE-PR signal (already locked, retest in tight context):
+  FADE: pr_diff>=+1 -> bet AWAY                                     n= 87 hit= 54.0% CI[44,64] ROI= +3.1%
+  FADE: pr_diff<=-1 -> bet HOME                                     n=207 hit= 47.3% CI[41,54] ROI= -9.6%  
+  FADE: pr_diff>=+2 -> bet AWAY                                     n= 54 hit= 48.1% CI[35,61] ROI= -8.1%
+  FADE: pr_diff<=-2 -> bet HOME                                     n=168 hit= 45.2% CI[38,53] ROI=-13.6%  
+  FADE: pr_diff>=+3 -> bet AWAY                                     n= 33 hit= 51.5% CI[35,67] ROI= -1.7%
+  FADE: pr_diff<=-3 -> bet HOME                                     n=117 hit= 49.6% CI[41,59] ROI= -5.4%  
+  FADE: pr_diff>=+5 -> bet AWAY                                     n= 12 hit= 33.3% CI[14,61] ROI=-36.4%
+  FADE: pr_diff<=-5 -> bet HOME                                     n= 55 hit= 49.1% CI[36,62] ROI= -6.3%  
+
+============================================================================================
+TEST 4: LAST GAME ATS effect in tight games (signal: last week result; grade: vs OPEN)
+============================================================================================
+  home covered, away DIDN'T cover -> bet HOME                       n= 74 hit= 51.4% CI[40,62] ROI= -2.0%  
+  away covered, home DIDN_T -> bet AWAY                             n= 79 hit= 53.2% CI[42,64] ROI= +1.5%
+  home covered LAST WEEK -> bet HOME this week                      n=170 hit= 50.6% CI[43,58] ROI= -3.4%  
+  home FAILED to cover LAST WEEK -> bet HOME this week (fade)       n=163 hit= 44.8% CI[37,52] ROI=-14.5%  
+  away covered LAST WEEK -> bet AWAY this week                      n=174 hit= 51.1% CI[44,58] ROI= -2.4%
+
+============================================================================================
+TEST 5: PRIMETIME in tight games (signal: scheduled primetime; grade: vs OPEN)
+============================================================================================
+  primetime tight games: n=82, non-primetime tight: n=291
+  PRIMETIME + home fav -> bet HOME                                  n= 42 hit= 59.5% CI[44,73] ROI=+13.6% *
+  PRIMETIME + home dog -> bet AWAY                                  n= 35 hit= 62.9% CI[46,77] ROI=+20.0%
+  PRIMETIME + home DOG -> bet HOME (dog cover)                      n= 35 hit= 37.1% CI[23,54] ROI=-29.1%  
+  PRIMETIME tight -> bet OVER                                       n= 82 hit= 42.7% CI[33,53] ROI=-18.5%  
+  PRIMETIME tight -> bet UNDER                                      n= 82 hit= 57.3% CI[47,67] ROI= +9.4%
+
+============================================================================================
+TEST 6: LINE MOVEMENT in tight games (signal: movement; grade: vs CLOSE per framework)
+============================================================================================
+  spread_move>=0.5: BET MOVEMENT side (vs CLOSE)              n=276 hit= 48.9% CI[43,55] ROI= -6.6%
+  spread_move>=1.0: BET MOVEMENT side (vs CLOSE)              n=204 hit= 47.5% CI[41,54] ROI= -9.2%
+  spread_move>=1.5: BET MOVEMENT side (vs CLOSE)              n=151 hit= 53.0% CI[45,61] ROI= +1.1%
+  spread_move>=2.0: BET MOVEMENT side (vs CLOSE)              n=114 hit= 50.0% CI[41,59] ROI= -4.5%
+  total_move>=0.5: BET MOVEMENT side (vs CLOSE)              n=318 hit= 46.9% CI[41,52] ROI=-10.5%
+  total_move>=1.0: BET MOVEMENT side (vs CLOSE)              n=257 hit= 47.1% CI[41,53] ROI=-10.1%
+  total_move>=1.5: BET MOVEMENT side (vs CLOSE)              n=191 hit= 47.6% CI[41,55] ROI= -9.0%
+
+============================================================================================
+TEST 7: COMBO SPOTS
+============================================================================================
+  top-vs-top + primetime -> bet HOME                                n= 23 hit= 65.2% CI[45,81] ROI=+24.5% *
+  top-vs-top + primetime -> bet OVER                                n= 24 hit= 37.5% CI[21,57] ROI=-28.4%  
+  bot-vs-bot tight -> bet HOME                                      n= 66 hit= 43.9% CI[33,56] ROI=-16.1%  
+  bot-vs-bot tight -> bet OVER                                      n= 64 hit= 43.8% CI[32,56] ROI=-16.5%  
+  bot-vs-bot tight -> bet UNDER                                     n= 64 hit= 56.2% CI[44,68] ROI= +7.4%
+  mid-vs-mid tight -> bet HOME                                      n= 62 hit= 48.4% CI[36,61] ROI= -7.6%  
+  mid-vs-mid tight -> bet OVER                                      n= 62 hit= 43.5% CI[32,56] ROI=-16.9%  
+  heavy home juice + home PR adv -> bet HOME (confluence)           n=1 (too few)
+  heavy home juice + away PR adv -> bet HOME (mismatch)             n=3 (too few)
