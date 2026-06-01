@@ -1,0 +1,32 @@
+[team-row] 4436 rows from 2218 games
+[features] 333 after coverage filter
+[features] 333 after leak scan (excluded 0 with |corr|>0.5)
+
+[predictions] 668 team-game rows
+
+[joined] 334 games with model preds + vegas ML
+Divergence stats: mean=+0.0097, std=0.1888
+  Model SU prediction accuracy (raw): 62.9% (n=334)
+  Vegas ML SU prediction accuracy:    69.8% (n=334)
+
+============================================================================================
+BET ML on direction of divergence (vs OPEN ML, framework-compliant)
+============================================================================================
+  |div|>=1pp: n= 317 SU_win= 51.1% CI[46,57] ROI= -3.0%
+  |div|>=2pp: n= 304 SU_win= 50.0% CI[44,56] ROI= -6.1%
+  |div|>=3pp: n= 293 SU_win= 48.8% CI[43,55] ROI=-10.2%
+  |div|>=5pp: n= 271 SU_win= 47.6% CI[42,54] ROI=-13.4%
+  |div|>=7pp: n= 255 SU_win= 48.2% CI[42,54] ROI=-12.0%
+  |div|>=10pp: n= 212 SU_win= 48.1% CI[41,55] ROI= -8.3%
+
+PER-SEASON breakdown at |div|>=5pp:
+  2024: n=142 SU_win=46.5% ROI=-19.2%
+  2025: n=129 SU_win=48.8% ROI=-7.0%
+
+============================================================================================
+ALSO TEST: use SU model prediction to bet the SPREAD instead of ML
+============================================================================================
+  |div_vs_spread|>=2pp: n=302 hit=54.0% CI[48,60] ROI=+3.0%
+  |div_vs_spread|>=3pp: n=287 hit=54.7% CI[49,60] ROI=+4.4%
+  |div_vs_spread|>=5pp: n=263 hit=52.9% CI[47,59] ROI=+0.9%
+  |div_vs_spread|>=7pp: n=250 hit=52.0% CI[46,58] ROI=-0.7%

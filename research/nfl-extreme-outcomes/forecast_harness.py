@@ -24,10 +24,11 @@ import numpy as np, pandas as pd
 warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from stats_helpers import wilson_ci
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 DATA=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
 OUT=os.path.join(os.path.dirname(os.path.abspath(__file__)),"out"); L=print
 CONF=0.03; AIR_THR=35.0; OVR_THR=80.0; WIND_THR=15.0
+REG_EDGE=1.5   # regression-margin edge (points) for confluence; magnitude that historically tracks classification conf=.03
 FADE_HI=0.80; FADE_LO=0.20   # legacy-model fade: >=.80 (model loves home) -> bet away; <=.20 -> bet home
 BYE_GAP=15.0; BYE_MIN_N=5    # bye-collision: bet the coach w/ better career pre/post-bye ATS% if gap>=15 & both n>=5
 # TRACKING-ONLY rules: still fire and grade, but NOT presented as active bet flags on the website.
@@ -224,10 +225,21 @@ def build():
     return m, BASE
 
 def train_predict(m, BASE, target):
-    """Train on all seasons < target, predict target. Returns target games with ph (P home covers close)."""
+    """Train on all seasons < target, predict target. Returns target games with:
+       - ph: P(home covers close) from classification model (primary sides signal)
+       - pred_margin: predicted home margin from regression model (internal confirmation layer; b70)
+    The regression model is NOT bet on directly — it provides confluence flag when its direction
+    agrees with classification (~3pp hit-rate boost, ~+4pp ROI). See LOCKED_MODELS.md §1 + b70 vault.
+    """
     tr=m[(m.season<target)&(m.week>=4)].dropna(subset=["home_cover"])
     clf=HistGradientBoostingClassifier(max_depth=3,learning_rate=0.05,max_iter=300,l2_regularization=2.0,min_samples_leaf=40,random_state=0).fit(tr[BASE],tr.home_cover)
-    te=m[m.season==target].copy(); te["ph"]=clf.predict_proba(te[BASE])[:,1]
+    # Regression model: same features, same train fold, target = actual_margin. Leak profile identical
+    # to classification (see b70 audit) — uses BASE only, no betting lines added.
+    tr_r=tr.dropna(subset=["actual_margin"])
+    reg=HistGradientBoostingRegressor(max_depth=3,learning_rate=0.05,max_iter=300,l2_regularization=2.0,min_samples_leaf=40,random_state=0).fit(tr_r[BASE],tr_r.actual_margin)
+    te=m[m.season==target].copy()
+    te["ph"]=clf.predict_proba(te[BASE])[:,1]
+    te["pred_margin"]=reg.predict(te[BASE])
     return te
 
 def generate(m, BASE, target, week=None):
@@ -252,11 +264,24 @@ def generate(m, BASE, target, week=None):
     for _,g in te.iterrows():
         gid=f"{g.season}-W{int(g.week):02d}-{g.away_ab}@{g.home_ab}"; mtchp=f"{g.away_ab}@{g.home_ab}"
         # SIDES (needs opener + confident model)
+        # Regression model runs in parallel as INTERNAL confirmation layer (b70). When both classification
+        # and regression agree on direction with |reg_edge|>=REG_EDGE, we flag confluence=1. UI uses this
+        # as a confidence indicator but does NOT show the regression number directly to users.
         if pd.notna(g.open_spread) and pd.notna(g.ph) and abs(g.ph-0.5)>=CONF:
             home_pick=g.ph>=0.5+CONF
+            # reg_edge = predicted home margin vs market expected home margin (-open_spread). +ve = model
+            # expects home to outperform market. Confluence = clf says home & reg_edge>=+REG_EDGE, or vice versa.
+            reg_edge=(g.pred_margin - (-g.open_spread)) if pd.notna(g.pred_margin) else np.nan
+            if pd.notna(reg_edge):
+                reg_picks_home = reg_edge >= REG_EDGE
+                reg_picks_away = reg_edge <= -REG_EDGE
+                confluence = int((home_pick and reg_picks_home) or ((not home_pick) and reg_picks_away))
+            else:
+                confluence = 0
             rows.append(dict(pick_id=gid+"-S",season=g.season,week=int(g.week),game=mtchp,rule="sides_model",
                 market="spread",side=(f"{g.home_ab} {g.open_spread:+g}" if home_pick else f"{g.away_ab} {-g.open_spread:+g}"),
-                bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(g.ph-0.5,3)))
+                bet_home=int(home_pick),open_num=g.open_spread,close_num=g.close_spread,edge=round(g.ph-0.5,3),
+                confluence=confluence,reg_edge=round(float(reg_edge),2) if pd.notna(reg_edge) else None))
         # TOTALS: receiver-out OVER (two-tier)
         air=max(g.get("h_rcv_air",np.nan) if pd.notna(g.get("h_rcv_air")) else 0, g.get("a_rcv_air",0) if pd.notna(g.get("a_rcv_air")) else 0)
         ovr=np.nanmax([g.get("h_rcv_ovr",np.nan),g.get("a_rcv_ovr",np.nan)])
@@ -446,6 +471,18 @@ def report(target):
         k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100
         L(f"  {rule:28s}: {k}/{n}={k/n*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={roi:+.1f}% CLV={clv:+.2f}pts")
     L(f"\nTOTAL (all rules): {int(g.win.sum())}/{len(g)}={g.win.sum()/len(g)*100:.1f}% ROI={g.roi_u.sum()/len(g)*100:+.1f}% units {g.roi_u.sum():+.1f}")
+    # Confluence breakdown — INTERNAL signal only (not a separate bet flag). Shows how sides_model picks
+    # perform when the regression confirmation layer agrees on direction (b70). Frontend uses this as a
+    # confidence badge ("high conviction"), but never exposes the underlying margin prediction.
+    if "confluence" in g.columns:
+        sm=g[g.rule=="sides_model"].copy()
+        if len(sm)>0:
+            sm["confluence"]=sm.confluence.fillna(0).astype(int)
+            L(f"\nSIDES_MODEL CONFLUENCE BREAKDOWN (internal confidence layer — not a separate bet flag):")
+            for tag,sub in [("BOTH MODELS AGREE (high conv)",sm[sm.confluence==1]),("clf only (std conv)",sm[sm.confluence==0])]:
+                if len(sub)==0: L(f"  {tag:34s}: (none)"); continue
+                k=int(sub.win.sum()); n=len(sub); lo,hi=wilson_ci(k,n); roi=sub.roi_u.sum()/n*100; clv=sub.clv_pts.mean()
+                L(f"  {tag:34s}: {k}/{n}={k/n*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={roi:+.1f}% CLV={clv:+.2f}pts")
 
 if __name__=="__main__":
     ap=argparse.ArgumentParser()

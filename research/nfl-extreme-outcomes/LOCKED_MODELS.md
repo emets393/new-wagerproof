@@ -69,6 +69,32 @@ These fire independently from the b14 sides model; both can be flagged on the sa
   FAILED the permutation null (b30: real 3 ≤ null 4) — ATS trend well is tapped; do not add more.
   `div_late` (57.6%, 53/60/59) = WATCH only.
 
+### Regression confirmation layer (b70, vaulted 2026-06-01) — INTERNAL CONFIDENCE ONLY
+Trained alongside the classification model in `train_predict()`. Same 33 BASE features, same walk-forward
+fold; target is `actual_margin` (HistGradientBoostingRegressor). NOT a separate bet flag — used as a
+confluence indicator on the sides_model row.
+
+| Setup | n (2024+25) | Hit % | ROI | CLV |
+|---|---|---|---|---|
+| Classification only (\|p-.5\|≥.03) | 368 | 56.5% | +7.9% | +0.31 |
+| Regression only (\|edge\|≥1.5) | 319 | 55.8% | +6.5% | +0.98 |
+| **Confluence (both agree)** | **191** | **58.6%** | **+11.9%** | — |
+| 2024 confluence | 94 | 63.8% | +21.9% | — |
+| 2025 confluence | 97 | 53.6% | +2.3% | — |
+| 2025 dry-run confluence (live harness) | 120 | 54.2% | +3.4% | +0.90 |
+| 2025 dry-run non-confluence (clf alone) | 122 | 50.0% | -4.5% | -1.10 |
+
+**Key finding**: regression at the CLOSE line drops to 51.6% / -1.5% ROI — it's heavily CLV-dependent.
+That's why it's a CONFIRMATION LAYER, not a standalone bet. Classification is the more robust standalone
+model; regression separates the high-conviction subset.
+
+**Leakage compliance**: regression uses the EXACT same BASE features as classification — no additional
+betting line columns, no outcome features, walk-forward only, push handled identically. Inherits the same
+~1.5pp `air_diff` partial-injury-leak documented in b60 (no new leak introduced).
+
+**Frontend treatment**: the `confluence` field in the ledger is the "high conviction" badge. We do NOT
+expose `reg_edge` or `pred_margin` to users — internal confidence only. See b70_margin_regression_confluence.py.
+
 ## 2. TOTALS model (per-game O/U prediction) — **CONSENSUS ENSEMBLE** — `consensus_totals.py`
 
 **LOCKED 2026-05-29 (FINAL after b57+b58+b59 audits).** Replaces b15 standalone.

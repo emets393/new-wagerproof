@@ -1,0 +1,67 @@
+[load] matchup: (2226, 409)
+[exclude] 17 betting + 24 outcome cols
+
+[features] candidates after coverage filter: 339
+
+[leak scan] cols with |corr|>0.5 vs home_cover (auto-exclude):
+  home_win: corr=+0.644
+
+[features] FINAL count: 338
+
+====================================================================================
+EXPANDED SIDES MODEL (338 features) — held-out 2024+2025
+====================================================================================
+  EXP(338f) conf>=.02: n=444 hit=47.5% CI[43,52] ROI=-9.3% CLV=+0.185
+  EXP(338f) conf>=.03: n=434 hit=47.5% CI[43,52] ROI=-9.4% CLV=+0.195
+  EXP(338f) conf>=.05: n=408 hit=47.1% CI[42,52] ROI=-10.2% CLV=+0.209
+  EXP(338f) conf>=.07: n=385 hit=48.1% CI[43,53] ROI=-8.3% CLV=+0.183
+
+Per-season:
+  2024: n=221 hit=48.9% ROI=-6.7% CLV=+0.323
+  2025: n=213 hit=46.0% ROI=-12.2% CLV=+0.062
+
+====================================================================================
+COMPARE: Current locked 33-feature sides model (same train/test split)
+====================================================================================
+  LOCKED(33f) conf>=.02: n=401 hit=54.1% CI[49,59] ROI=+3.3% CLV=+0.295
+  LOCKED(33f) conf>=.03: n=368 hit=56.5% CI[51,61] ROI=+7.9% CLV=+0.312
+  LOCKED(33f) conf>=.05: n=301 hit=55.8% CI[50,61] ROI=+6.6% CLV=+0.310
+  LOCKED(33f) conf>=.07: n=246 hit=57.3% CI[51,63] ROI=+9.4% CLV=+0.302
+
+====================================================================================
+TOP-30 features by permutation importance (test=2025)
+====================================================================================
+  done in 10s
+
+  away_def_explosive_rush_allowed_s2d                +0.0197 ± 0.0175    new
+  away_rush_epa_s2d                                  +0.0155 ± 0.0163    new
+  home_rush_epa_last3                                +0.0127 ± 0.0028    new
+  anet_3out                                          +0.0099 ± 0.0096    new
+  away_off_aggressiveness_s2d                        +0.0085 ± 0.0053    new
+  away_off_ftn_no_huddle_s2d                         +0.0085 ± 0.0028    new
+  away_off_motion_epa_s2d                            +0.0085 ± 0.0028    new
+  env_rush_epa                                       +0.0070 ± 0.0077    new
+  home_redzone_scoring_perc                          +0.0056 ± 0.0093    new
+  env_expl_pass                                      +0.0056 ± 0.0028    new
+  conference_game                                    +0.0056 ± 0.0028    new
+  away_rush_edge_s2d                                 +0.0056 ± 0.0053    new
+  home_last_allowed_points                           +0.0042 ± 0.0034    new
+  home_def_blitz_rate_s2d                            +0.0042 ± 0.0034    new
+  home_off_ryoe_last3                                +0.0042 ± 0.0072    new
+  away_last_allowed_points                           +0.0042 ± 0.0034    new
+  away_off_ryoe_s2d                                  +0.0042 ± 0.0072    new
+  away_off_rush_sr_s2d                               +0.0042 ± 0.0072    new
+  sep_tdpd                                           +0.0042 ± 0.0056    new
+  temperature                                        +0.0042 ± 0.0034    new
+  away_rush_edge_last3                               +0.0028 ± 0.0034    new
+  home_opp_3rddown_conv                              +0.0028 ± 0.0072    new
+  away_off_screen_rate_s2d                           +0.0028 ± 0.0034    new
+  home_predictive_pr                                 +0.0028 ± 0.0072  ✓ in locked
+  away_pass_edge_s2d                                 +0.0028 ± 0.0034    new
+  hnet_ed_rush                                       +0.0028 ± 0.0034    new
+  home_def_ed_pass_epa_allowed_s2d                   +0.0028 ± 0.0056    new
+  home_off_rz_td_rate_s2d                            +0.0028 ± 0.0034    new
+  home_def_rush_sr_allowed_s2d                       +0.0028 ± 0.0034    new
+  away_points_per_play                               +0.0014 ± 0.0053    new
+
+[save] full importance ranking -> data/b68_sides_importance.csv
