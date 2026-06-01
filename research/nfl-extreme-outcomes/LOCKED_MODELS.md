@@ -361,6 +361,69 @@ When a TIER 1 spot fires AND a TIER 2 badge confirms the same direction, render 
 
 ---
 
+## 4. TEASER product (2-team 6-pt) — vaulted 2026-06-01
+
+A standalone weekly product layered on the existing pick ledger. **NOT a rebuild of Wong-style
+structural buckets** — those tested at ~70% per leg OOS which fails the -120 breakeven (b71/b72).
+Instead, we tease the legs that our own LOCKED signals already pick at 60-75% straight up — teasing
+6 points lifts them to 75-89% per leg, which clears the bar.
+
+### Eligible rules (teased hit% ≥ 78%, b73 validation)
+| Rule | Market | Straight % | Teased % | Lift |
+|---|---|---|---|---|
+| `receiver_over_HC` | TOT | 65.2% | **89.1%** | +23.9pp |
+| `legacy_fade` | SPR | 68.2% | **85.7%** | +17.5pp |
+| `top_vs_top_pt_home` | SPR | 71.4% | **85.7%** | +14.3pp |
+| `fade_pr_in_tight_game` | SPR | 56.5% | **78.3%** | +21.7pp |
+| `sides_model` (confluence=1 only) | SPR | 57.0% | 77.7% | +20.7pp |
+
+### Sharpness overlay (b74 — the unlock)
+For each candidate leg, attach matchup Vegas-sharpness: mean of both teams' historical |line - actual|
+error from prior 2 seasons (walk-forward, no leak). **Filter: drop legs where matchup_sharp > league
+50th percentile.** Both teams must be in the "sharper" half. This:
+- boosts top-2 ROI from +19% → +37%
+- rescues spread+spread combos from -15% ROI to +24%
+- collapses per-season variance: 2024 +34.8% / 2025 +32.0%
+
+### Cross-market ranking (b73b)
+**Spread+spread teasers LOSE money. Total+total wins. Mixed (spread+total) wins.**
+The ranker prioritizes totals first (by edge magnitude), then spreads. Pair top-2 distinct games.
+
+### Honest performance expectations (2024+2025 validation)
+- Top-2 per week + sharpness filter ≤ 50th pct
+- Joint hit: **70-75%**
+- ROI @ -120: **+22% to +37%**
+- ROI @ -110: **+27% to +47%**
+- 2025 dry-run on harness: 66.7% joint, +22% ROI @ -120 (18 graded teasers)
+
+### Pricing reference
+| Book | 2-team 6pt price | Per-leg breakeven | Joint breakeven |
+|---|---|---|---|
+| DraftKings / FanDuel | -120 | 73.85% | 54.5% |
+| BetMGM / Caesars / Pinnacle | -110 | 72.4% | 52.4% |
+| Bad retail | -130 | 75.16% | 56.5% |
+
+### Operational cadence (per teaser-product rules)
+- **Mon (opener)**: lock `top_vs_top_pt_home`, `legacy_fade`, `fade_pr_in_tight_game` legs
+- **Wed**: refresh `sides_model` w/ refs loaded — confluence flag becomes reliable
+- **Fri**: lock `receiver_over_HC` legs (needs final injury report)
+- **Sat AM**: assemble 2-team teaser from top-ranked legs (totals first; both teams must pass sharpness filter)
+
+### Implementation
+`forecast_harness.py`:
+- `load_team_sharpness(target, lookback=2)` — walk-forward team Vegas-error from `matchup_arch.parquet`
+- `generate_teasers(target, week=None)` — produces `out/teaser_ledger_<target>.csv`
+- `grade_teasers(m, target)` — both legs vs teased line; push handling (single-leg fallback at -110)
+- `report_teasers(target)` — joint hit %, ROI @ -120 and -110, combo breakdown
+- CLI: `python forecast_harness.py --teasers 2026`
+- Auto-runs after `--dry-run`, `--grade`, `--report` flows
+
+### What we tried and rejected
+- **Structural Wong-spot buckets** (b71/b72): tested at 70% per leg OOS, fails -120 breakeven.
+  Modern books have priced out the classic Wong edges. **DO NOT REVISIT.**
+- **Margin-regression as standalone teaser leg generator**: poor calibration at tails.
+  Reused as confirmation layer (sides_model confluence=1) instead.
+
 ## Forward-test harness (the consolidation step)
 `forecast_harness.py` (+ `README_HARNESS.md`) freezes all of the above and produces a weekly pick ledger
 with CLV tracking. Run `--dry-run 2025` to validate (reproduces: sides 52.1%, receiver_over 73-78%,

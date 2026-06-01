@@ -37,6 +37,13 @@ BYE_GAP=15.0; BYE_MIN_N=5    # bye-collision: bet the coach w/ better career pre
 TRACKING_ONLY={"bye_collision","week1_def_under","primetime_tight_favorite","primetime_tight_under","bot_vs_bot_under"}
 nv2our={"LA":"LAR","SD":"LAC","STL":"LAR"}
 
+# 2-team 6pt teaser product (b71-b74, vaulted 2026-06-01)
+# Eligible rules = those whose 6-pt teased hit rate >= 78% historically (b73 validation 2024+2025).
+# sides_model is eligible ONLY when confluence=1 (regression-layer agreement).
+TEASER_RULES = {"receiver_over_HC","top_vs_top_pt_home","legacy_fade","fade_pr_in_tight_game"}
+TEASER_SHARP_LOOKBACK = 2   # use prior 2 seasons to compute team Vegas-sharpness
+TEASER_SHARP_PCT = 0.50     # max_sharp threshold = league 50th percentile (both teams in sharper half)
+
 def load_dk_open(target):
     """Load DraftKings OPENING-line snapshot per game for target season. Used by dk_giant_fav_over
     and dk_heavy_home_juice spots (b63). Trigger AT OPEN + bet AT OPEN = honest, no CLV inflation.
@@ -223,6 +230,160 @@ def build():
     league_tot=m.groupby("season").nv_total_line.transform("mean")
     m["line_vs_league"]=m.nv_total_line - league_tot
     return m, BASE
+
+def load_team_sharpness(target, lookback=TEASER_SHARP_LOOKBACK):
+    """Compute per-team Vegas-line sharpness from PRIOR seasons only (walk-forward, no leak).
+    Returns DataFrame indexed by team with sharp_spread, sharp_total (lower = sharper line).
+    Used by generate_teasers() — see b74 vault for derivation."""
+    ma = pd.read_parquet(os.path.join(DATA,"matchup_arch.parquet"))
+    ma["actual_margin"] = ma.home_score - ma.away_score
+    ma["actual_total"]  = ma.home_score + ma.away_score
+    ma["spread_err"]    = (ma.actual_margin - (-ma.home_spread)).abs()
+    ma["total_err"]     = (ma.actual_total - ma.ou_vegas_line).abs()
+    prior = ma[(ma.season>=target-lookback) & (ma.season<target)]
+    if len(prior)==0: return pd.DataFrame(columns=["team","sharp_spread","sharp_total","n"])
+    home = prior[["season","week","home_ab","spread_err","total_err"]].rename(columns={"home_ab":"team"})
+    away = prior[["season","week","away_ab","spread_err","total_err"]].rename(columns={"away_ab":"team"})
+    tg = pd.concat([home,away], ignore_index=True)
+    return tg.groupby("team").agg(n=("spread_err","count"),
+                                  sharp_spread=("spread_err","mean"),
+                                  sharp_total=("total_err","mean")).reset_index()
+
+def generate_teasers(target, week=None):
+    """Build 2-team 6-pt teaser ledger from already-generated picks. The pipeline:
+      1) Load this season's pick ledger (`forecast_ledger_<target>.csv`)
+      2) Filter to TEASER_RULES + sides_model rows where confluence=1
+      3) Attach team Vegas-sharpness from prior-2-seasons walk-forward
+      4) Compute matchup sharpness per leg; filter to max_sharp <= league 50th pct
+         (both teams must be in the sharper half of the league this year)
+      5) Rank legs per week — TOTALS first (stronger structural edge per b73b), then SPREADS
+      6) Pair top-2 distinct games into a 2-team teaser; write the ledger
+    Each leg's teased line shifts 6pt in our pick's favor. See LOCKED_MODELS.md §teaser for theory."""
+    led_path = os.path.join(OUT, f"forecast_ledger_{target}.csv")
+    led = pd.read_csv(led_path)
+    led = led[led.rule.isin(TEASER_RULES) | ((led.rule=="sides_model") & (led.get("confluence",0)==1))].copy()
+    if week is not None: led = led[led.week==week]
+    if len(led)==0: L(f"[teasers] no eligible picks for {target}"); return None,None
+    # Attach away_ab/home_ab from the game string
+    led["away_ab"] = led.game.str.split("@").str[0]
+    led["home_ab"] = led.game.str.split("@").str[1]
+    # Walk-forward sharpness
+    sharp = load_team_sharpness(target)
+    if len(sharp)==0: L(f"[teasers] no prior-season sharpness for {target} — abort"); return None,None
+    led = led.merge(sharp.add_prefix("home_").rename(columns={"home_team":"home_ab"}), on="home_ab", how="left")
+    led = led.merge(sharp.add_prefix("away_").rename(columns={"away_team":"away_ab"}), on="away_ab", how="left")
+    # Matchup sharpness — relevant market only (totals use total-err, spreads use spread-err)
+    led["matchup_sharp"] = np.where(
+        led.market=="total",
+        (led.home_sharp_total + led.away_sharp_total)/2,
+        (led.home_sharp_spread + led.away_sharp_spread)/2)
+    # League sharpness percentile per market (cuts based on this season's candidate pool)
+    # Use the eligible-pick pool itself as the reference distribution (avoid leak on full-season outcomes)
+    sharp_thr = led.groupby("market").matchup_sharp.transform(lambda s: s.quantile(TEASER_SHARP_PCT))
+    led["sharp_qualifies"] = (led.matchup_sharp <= sharp_thr) & led.matchup_sharp.notna()
+    qual = led[led.sharp_qualifies].copy()
+    if len(qual)==0: L(f"[teasers] no legs pass sharpness filter for {target}"); return None,None
+    # Per-week ranking: totals first, then spreads, each by |edge|
+    qual["edge_mag"] = qual.edge.abs()
+    qual["mkt_pri"]  = np.where(qual.market=="total", 0, 1)   # 0 ranks first
+    rows=[]
+    for (sea,wk), grp in qual.groupby(["season","week"]):
+        grp = grp.sort_values(["mkt_pri","edge_mag"], ascending=[True,False])
+        # Top-2 DISTINCT games (avoid pairing two legs of same matchup)
+        seen=set(); top=[]
+        for _,r in grp.iterrows():
+            gid = (r.home_ab, r.away_ab)
+            if gid in seen: continue
+            seen.add(gid); top.append(r)
+            if len(top)==2: break
+        if len(top)<2: continue
+        l1,l2 = top
+        # Teased line per leg
+        def teased_line(r):
+            if r.market=="spread":  return r.open_num + 6 if r.bet_home==1 else r.open_num - 6
+            return r.open_num - 6 if r.bet_home==-1 else r.open_num + 6   # OVER:-, UNDER:+
+        rows.append({
+            "teaser_id": f"{sea}-W{int(wk):02d}-T2",
+            "season":int(sea),"week":int(wk),
+            "leg1_pick_id":l1.pick_id,"leg1_rule":l1.rule,"leg1_game":l1.game,
+            "leg1_market":l1.market,"leg1_side":l1.side,"leg1_open":l1.open_num,
+            "leg1_teased":teased_line(l1),"leg1_sharp":round(float(l1.matchup_sharp),2),
+            "leg2_pick_id":l2.pick_id,"leg2_rule":l2.rule,"leg2_game":l2.game,
+            "leg2_market":l2.market,"leg2_side":l2.side,"leg2_open":l2.open_num,
+            "leg2_teased":teased_line(l2),"leg2_sharp":round(float(l2.matchup_sharp),2),
+            "combo":"+".join(sorted([l1.market,l2.market])),
+        })
+    out_df = pd.DataFrame(rows)
+    out_path = os.path.join(OUT, f"teaser_ledger_{target}.csv")
+    out_df.to_csv(out_path, index=False)
+    L(f"[teasers] {len(out_df)} 2-team teasers logged -> {out_path}")
+    return out_df, out_path
+
+def grade_teasers(m, target):
+    """Grade the teaser ledger. Each leg evaluated vs teased line; both must hit for the
+    teaser to win. Push handling (rare on 6-pt): if both push, void; if one push, demote
+    to a single-bet straight on the surviving leg at -110."""
+    path = os.path.join(OUT, f"teaser_ledger_{target}.csv")
+    if not os.path.exists(path): L(f"[grade_teasers] no ledger at {path}"); return None
+    led = pd.read_csv(path)
+    if len(led)==0: return led
+    res = m[["season","week","home_ab","away_ab","home_score","away_score"]].dropna(subset=["home_score","away_score"]).copy()
+    res["actual_margin"] = res.home_score - res.away_score
+    res["actual_total"]  = res.home_score + res.away_score
+    def grade_leg(pick_id, game, market, teased, side, leg_rules_known_bet_home):
+        # We re-derive bet_home from the side string for portability
+        # spread: side like "BUF -3" (home_pick if home_ab in side); total: "OVER 47" / "UNDER 47"
+        ab_away,ab_home = game.split("@")
+        r = res[(res.home_ab==ab_home)&(res.away_ab==ab_away)]
+        if len(r)==0: return np.nan,np.nan
+        r = r.iloc[0]
+        if market=="spread":
+            home_pick = side.startswith(ab_home)
+            if home_pick:
+                if r.actual_margin + teased == 0: return np.nan, r.actual_margin
+                return int(r.actual_margin + teased > 0), r.actual_margin
+            else:
+                if r.actual_margin + teased == 0: return np.nan, r.actual_margin
+                return int(r.actual_margin + teased < 0), r.actual_margin
+        else:
+            over = side.startswith("OVER")
+            if r.actual_total == teased: return np.nan, r.actual_total
+            return int((r.actual_total > teased) if over else (r.actual_total < teased)), r.actual_total
+    led[["leg1_win","leg1_outcome"]] = led.apply(lambda r: pd.Series(grade_leg(r.leg1_pick_id, r.leg1_game, r.leg1_market, r.leg1_teased, r.leg1_side, None)), axis=1)
+    led[["leg2_win","leg2_outcome"]] = led.apply(lambda r: pd.Series(grade_leg(r.leg2_pick_id, r.leg2_game, r.leg2_market, r.leg2_teased, r.leg2_side, None)), axis=1)
+    def joint(r):
+        if pd.isna(r.leg1_win) and pd.isna(r.leg2_win): return ("void",0.0,np.nan)
+        if pd.isna(r.leg1_win): return ("push1",(100/110 if r.leg2_win==1 else -1.0),float(r.leg2_win))
+        if pd.isna(r.leg2_win): return ("push1",(100/110 if r.leg1_win==1 else -1.0),float(r.leg1_win))
+        both = int(r.leg1_win==1 and r.leg2_win==1)
+        # Default to -120 pricing; report() will also compute -110 view
+        return ("graded", (100/120) if both else -1.0, float(both))
+    led[["status","pnl_120","both"]] = led.apply(lambda r: pd.Series(joint(r)), axis=1)
+    led["pnl_110"] = np.where(led.status=="graded",
+        np.where(led.both==1, 100/110, -1.0),
+        led.pnl_120)   # push handling same for both pricings
+    led.to_csv(path, index=False)
+    return led
+
+def report_teasers(target):
+    """Summary of 2-team teaser performance — printed alongside the standard pick report."""
+    path = os.path.join(OUT, f"teaser_ledger_{target}.csv")
+    if not os.path.exists(path): return
+    led = pd.read_csv(path)
+    if len(led)==0 or "status" not in led.columns: return
+    g = led[led.status=="graded"]
+    if len(g)==0:
+        L(f"\nTEASER REPORT {target}: {len(led)} teasers logged, none graded yet"); return
+    L(f"\n{'='*82}\n2-TEAM 6-PT TEASER REPORT {target}  (graded: {len(g)} / logged: {len(led)})\n{'='*82}")
+    n=len(g); k=int(g.both.sum()); lo,hi=wilson_ci(k,n)
+    L(f"  ALL teasers @ -120: {k}/{n}={k/n*100:.1f}%  CI[{lo*100:.0f},{hi*100:.0f}]  ROI={g.pnl_120.mean()*100:+.1f}%  units={g.pnl_120.sum():+.1f}")
+    L(f"  ALL teasers @ -110: {k}/{n}={k/n*100:.1f}%  ROI={g.pnl_110.mean()*100:+.1f}%  units={g.pnl_110.sum():+.1f}")
+    L(f"  By market combo:")
+    for combo in ["total+total","spread+total","spread+spread"]:
+        c = g[g.combo==combo]
+        if len(c)==0: L(f"    {combo:14s}: (none)"); continue
+        k=int(c.both.sum()); n=len(c); lo,hi=wilson_ci(k,n)
+        L(f"    {combo:14s}: n={n:2d}  hit={k}/{n}={k/n*100:.1f}%  CI[{lo*100:.0f},{hi*100:.0f}]  ROI@-120={c.pnl_120.mean()*100:+.1f}%")
 
 def train_predict(m, BASE, target):
     """Train on all seasons < target, predict target. Returns target games with:
@@ -488,14 +649,21 @@ if __name__=="__main__":
     ap=argparse.ArgumentParser()
     ap.add_argument("--dry-run",type=int); ap.add_argument("--season",type=int); ap.add_argument("--week",type=int)
     ap.add_argument("--grade",type=int); ap.add_argument("--report",type=int)
+    ap.add_argument("--teasers",type=int,help="generate+grade+report teasers for season")
     a=ap.parse_args()
     if a.dry_run:
         m,BASE=build(); led,path=generate(m,BASE,a.dry_run); grade(m,a.dry_run); report(a.dry_run)
+        # Teaser pipeline runs after the standard pick grading so it has graded outcomes available
+        generate_teasers(a.dry_run); grade_teasers(m, a.dry_run); report_teasers(a.dry_run)
         L(f"\n[dry-run] ledger written to {path}")
     elif a.season:
         m,BASE=build(); led,path=generate(m,BASE,a.season,a.week)
         L(f"[generate] {len(led)} picks logged for {a.season}" + (f" week {a.week}" if a.week else "") + f" -> {path}")
+        generate_teasers(a.season, a.week)
     elif a.grade:
         m,BASE=build(); grade(m,a.grade); report(a.grade)
-    elif a.report: report(a.report)
+        grade_teasers(m, a.grade); report_teasers(a.grade)
+    elif a.report: report(a.report); report_teasers(a.report)
+    elif a.teasers:
+        m,BASE=build(); generate_teasers(a.teasers); grade_teasers(m, a.teasers); report_teasers(a.teasers)
     else: ap.print_help()
