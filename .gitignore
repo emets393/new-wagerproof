@@ -38,3 +38,7 @@ dist-ssr
 
 # Local Claude Code worktrees (gitlinks break CI submodule checkout)
 .claude/worktrees/
+
+# CFB model research — large data + generated outputs (not source)
+research/cfb-model/data/
+research/cfb-model/out/
