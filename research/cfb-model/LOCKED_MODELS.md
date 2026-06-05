@@ -74,11 +74,22 @@ passed per-season + recent-year (2021-25) validation + mechanism (out of ~190 ce
 | Spot | Rule | Hit (21-25) | n | Mechanism |
 |---|---|---|---|---|
 | CONF SunBelt fade home-fav | Sun Belt, home favored → take dog (AWAY) | 57.7% | 156 | home favs overvalued |
-| CONF SEC total 52+ UNDER | SEC, total>52 → under | 56.7% | 141 | defensive league |
-| CONF AAC total 52-59 OVER | American, 52<tot≤59 → over | 56.7% | 104 | up-tempo pass-happy G5 |
+| CONF AAC total 52-59 OVER | American, 52<tot≤59 → over | 56.7% | 104 | up-tempo G5; +8.7pts vs band (real) |
 | CONF BigTen away-fav cover | Big Ten, away favored → AWAY | 55.2% | 145 | road favs undervalued |
-| CONF SunBelt total 59-66 UNDER | Sun Belt, 59<tot≤66 → under | 67.9% | 56 | run-heavy (thin n) |
+| CONF SunBelt total 59-66 UNDER | Sun Belt, 59<tot≤66 → under | 67.9% | 56 | run-heavy; +13.5pts vs band (real) |
 > Caveat: multiple-comparisons risk; thin ones (SunBelt 59-66 n56, BigTen≥14.5 n37) are higher variance.
+> RETRACTED: "SEC total 52+ UNDER" was only +1.6pts vs the same-total-band baseline = generic mean reversion,
+> not an SEC edge (confound audit). Replaced by the total-level + form spots below.
+
+### 2d-2. TOTAL-LEVEL & TEAM-FORM spots (mean reversion) · grade @ close
+The exploitable totals error is one-directional (books shade totals UP → public over-bias) so edges point UNDER.
+| Spot | Rule | Hit | n | Notes |
+|---|---|---|---|---|
+| TOTAL fade high≥60 UNDER | posted total ≥60 → under | 55.1% | 709 | solid, every season |
+| TOTAL fade low≤50 OVER | posted total ≤50 → over | 52.5% | 1319 | weak (near breakeven) |
+| **FORM over-hot fade UNDER** | both teams season over-rate≥.60 & total≤58 → under | **58.4%** | 373 | BEST totals edge; survives total-level confound (+9.5pts within-band) + 2025 holdout; over-streaks regress (form_signals.py) |
+> Archetype game-environment "totals edge" was RETRACTED — it was this same total-level mean reversion in disguise
+> (archetypes add nothing within total bands). Putting archetype/env features into the model does NOT help.
 
 ### 2e. TOTALS — fundamentals model spots · grade @ open
 | Spot | Rule | Mechanism |
@@ -106,6 +117,15 @@ A late spread reversal (open→24h and 24h→close move in opposite directions, 
 
 ---
 
+## 3b. LIQUIDITY (P5 vs G5) LINE MOVEMENT — `conf_movement.py`
+Market popularity drives efficiency. P5 (both Power-5) = heavy two-sided action → moves are efficient
+(can't follow OR fade, ~50%). G5 (both Group-5) = thin → moves **overshoot**.
+- **FADE G5 spread move ≥1.0** (bet the side the line moved away from, grade @ close): **~53%**
+  (n=1150 at ≥0.5, every season positive, 2023-25 = 54%). Mechanism: small/uninformed action pushes
+  thin lines too far. **Not yet wired** (needs consensus sp_open/sp_close move added to line_signals).
+- P5 late moves mildly predictive (~53%); G5 moves uninformative (~45% either window).
+- Reversal-follow-late is liquidity-independent (~55% in both P5 & G5) — already a STACK input/veto.
+
 ## 4. NEGATIVE-RESULT ARCHIVE (tested & rejected — do not revisit without new data)
 - **Moneyline**: market is well-calibrated; no edge. Earlier "huge ROI" were corrupted/stale ML data
   artifacts (−100000 placeholders, big-dog variance). `moneyline_value.py`, `phase2_ml_divergence.py`.
@@ -116,6 +136,12 @@ A late spread reversal (open→24h and 24h→close move in opposite directions, 
 - **Soft-book general lag (snipe everything early)**: rejected — soft chases sharp only 49% (coin flip);
   only gap≥1 is early-bettable. `book_lag_analysis.py`.
 - Many conference×number cells: noise (efficient). Only the §2d survivors held up.
+- **Spread↔ML internal divergence (the NFL "soft ML vs spread" theory)**: DOES NOT EXIST in CFB.
+  `spread_ml_divergence.py`. At every book, open & close, |p_spread − p_ml|≥0.06 is ~0% of games. The
+  favorite ML is a near-deterministic function of the spread (a −4.5 fav is ALWAYS −179..−208, never −140;
+  the whole 5th-95th pct ML range at a fixed spread is ~30 cents = vig/rounding). CFB books derive the ML
+  algorithmically from the spread — 60+ lightly-bet games/wk means no independent ML price discovery, unlike
+  the NFL's deep ML market. Forced buckets predict nothing (dog cover 49.8%). Do not revisit for CFB.
 
 ---
 

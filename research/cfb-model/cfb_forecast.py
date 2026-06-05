@@ -143,9 +143,19 @@ def spot_library(df):
     # ===== CONFERENCE structural numbers (conf_numbers.py) — grade @ close =====
     S["CONF SunBelt fade home-fav (dog)"] = (((conf == "Sun Belt") & (sc < 0)).fillna(False), "AWAY", "side", "close")
     S["CONF BigTen away-fav cover"] = (((conf == "Big Ten") & (sc > 0)).fillna(False), "AWAY", "side", "close")
-    S["CONF SEC total 52+ UNDER"] = (((conf == "SEC") & (tc > 52)).fillna(False), "UNDER", "total", "close")
+    # AAC over / SunBelt under SURVIVED the mean-reversion audit (+8.7 / +13.5 pts vs same-band baseline).
     S["CONF AAC total 52-59 OVER"] = (((conf == "American Athletic") & (tc > 52) & (tc <= 59)).fillna(False), "OVER", "total", "close")
     S["CONF SunBelt total 59-66 UNDER"] = (((conf == "Sun Belt") & (tc > 59) & (tc <= 66)).fillna(False), "UNDER", "total", "close")
+    # ===== TOTAL-LEVEL MEAN REVERSION (replaces retracted SEC spot + archetype-env "edge") — grade @ close =====
+    # Fade extreme posted totals: high>=60 -> UNDER 55% (solid); low<=50 -> OVER 52.5% (weak). Books shade totals UP.
+    S["TOTAL fade high>=60 UNDER"] = ((tc >= 60).fillna(False), "UNDER", "total", "close")
+    S["TOTAL fade low<=50 OVER (weak)"] = ((tc <= 50).fillna(False), "OVER", "total", "close")
+    # ===== TEAM FORM (team_form.py) — over-hot teams REGRESS -> UNDER, strongest when total not inflated =====
+    # Best totals edge: both teams' season over-rate>=.60 & total<=58 -> UNDER ~58-59% (survives confound + holdout).
+    hor = pd.to_numeric(df.get("h_over_rate", z), errors="coerce"); aor = pd.to_numeric(df.get("a_over_rate", z), errors="coerce")
+    hgp = pd.to_numeric(df.get("h_form_gp", z), errors="coerce"); agp = pd.to_numeric(df.get("a_form_gp", z), errors="coerce")
+    form_ok = (hgp >= 4) & (agp >= 4); comb_or = (hor + aor) / 2
+    S["FORM over-hot fade UNDER (tot<=58)"] = ((form_ok & (comb_or >= 0.60) & (tc <= 58)).fillna(False), "UNDER", "total", "close")
     # ===== TOTALS (fundamentals model spots) — grade @ open =====
     S["T1 under: model+high-total/weakD"] = (((df.total_edge <= -3) & ((to >= 62) | both_weak) & (df.tier != "mix")).fillna(False), "UNDER", "total", "open")
     S["T1 over: low-total+fast (P5)"] = (((to <= 48) & (ep >= ep66) & (df.tier == "P5")).fillna(False), "OVER", "total", "open")
@@ -201,6 +211,13 @@ def main():
     ls = line_signals.build(sorted(set(gm.homeTeam) | set(gm.awayTeam)))
     if len(ls):
         te = te.merge(ls, left_on=["season", "homeTeam", "awayTeam"], right_on=["season", "home", "away"], how="left")
+    # walk-forward team OVER-form (as-of season-to-date) for the over-hot-fade-under spot
+    import form_signals
+    fs = form_signals.build(gm)
+    te = te.merge(fs.rename(columns={"team": "homeTeam", "over_rate": "h_over_rate", "form_gp": "h_form_gp"}),
+                  on=["season", "game_id", "homeTeam"], how="left")
+    te = te.merge(fs.rename(columns={"team": "awayTeam", "over_rate": "a_over_rate", "form_gp": "a_form_gp"}),
+                  on=["season", "game_id", "awayTeam"], how="left")
     te = add_situational_flags(te)
     te, S = apply_spots(te)
 

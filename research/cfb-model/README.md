@@ -498,3 +498,123 @@ RECONCILES 'totals dead': those edges were market-microstructure (movement/key#/
 (conf style/pace/defense) = different mechanism, consistent w/ model structural totals spots.
 CAVEAT: multiple comparisons (~190 cells); thin ones (SunBelt 59-66 n56, BigTen14.5 n37) higher variance;
 robust = SunBelt-fade-homefav, SEC-under, AAC-over, BigTen-awayfav. Most other conf cells = noise.
+
+## LINE MOVEMENT by LIQUIDITY: P5 vs G5 (conf_movement.py) -- user theory CONFIRMED
+P5 spreads move more (avg |move| 1.84) than thin G5 (1.38). FOLLOWING moves fails everywhere (P5 coinflip,
+G5 sub-50=overshoot). KEY: FADE the spread move (bet side line moved AWAY from, grade @ close):
+  G5 fade move>=0.5: 53.2% n1150 [50/54/53/54/55] recent23-25 54.0% n726 (EVERY season +); move>=1.5: 54.3% n571
+  P5 fade: 50.1% (EFFICIENT - heavy 2-sided action prices it); MIX: 50.4% (nothing)
+TIMING: P5 LATE move mildly predictive (53%); G5 early+late both ~45% (uninformative). REVERSAL follow-late
+liquidity-INDEPENDENT: P5 54.8% n104, G5 55.7% n70 (already in harness). TOTALS: P5 mild (small-move follow 55%,
+down->under 53%), G5 nothing, MIX noisy.
+=> NEW SPOT candidate: FADE G5 spread move>=1.0 ~53%, every season +, mech=thin-market overshoot. Grade @ close.
+   (not yet wired; needs consensus sp_open/sp_close move in line_signals.)
+
+## SIGNAL CONDITIONING: sharpening signals with team stats/matchups (signal_conditioner.py)
+Cross each signal with bet-team-oriented stats (EPA/OL-DL/explosiveness/pace/field-pos/bye/rank/talent).
+Filter: lift>=6pts, n>=20, per-season consistency>=60%. ~200 cells tested (multiple-comparisons -> HYPOTHESES).
+HEADLINE = EXPLOSIVENESS is the master conditioner for spread signals (mechanism: explosive=high-variance=
+unreliable ATS; methodical low-expl=covers predictably):
+ - STACK (base 55%) x bet-team LOW explosiveness -> 69% (+14, n100, every season>50). Holds within FAV (63%,n30)
+   & DOG (71%,n70) separately = NOT a favorite proxy (confound-checked). HIGH-expl STACK = FADE (expl fav 41.6%).
+   Correlated cuts (slow pace 66%, good field-pos 64%, low EPA 64%) = same 1 underlying 'methodical team' factor.
+ - SOFT-BOOK GAP (base 54%) x bet-team good field-position 60.5% (n271,100%) OR low explosiveness 60.4% (n255,100%).
+ - MODEL high-edge |edge_close|>=6 (base 52%) x bet-team RANKED -> 60% (+8, n271, every season); high-talent 60% (soft 2025).
+ - KEY dog+3: CANNOT be sharpened (uniform across all conditions = honest null).
+2 real factors found (not 9): team VARIANCE (explosiveness/pace) + team QUALITY (ranked/talent). ACTIONABLE:
+add explosiveness filter to STACK (prefer low-expl bet team, avoid/fade high-expl) -> 55%->66-69%. Track as
+hypotheses (sub-buckets n=30-100).
+
+## SIGNAL CONDITIONING — HOLDOUT VERIFICATION (FAILED): explosiveness sharpener REJECTED
+Verified the explosiveness conditioner on 2025 holdout + blanket. RESULTS DISCONFIRM:
+ - Blanket low-expl team ATS 2025 = 48.1% (226-244) ~ high-expl 48.9% -> NOT a standalone edge.
+ - 2025 soft-gap split by bet-team expl: LOW 62.5%(15-9) vs HIGH 61.8%(47-29) = NO sharpening.
+ - 2025 STACK split: LOW 66.7%(n9) vs HIGH 60.0%(n30) -> n too thin, not confirmation.
+=> The pooled 69%-vs-47% explosiveness lift was 2021-24 in-sample / multiple-comparisons artifact; does NOT
+replicate 2025. REJECTED, do NOT wire. Lesson: treat ALL conditioning-sweep hits (ranked/field-pos/pace) as
+likely-overfit unless each passes a 2025 holdout split. The BASE signals DID hold in 2025 (soft-gap ~62%,
+STACK ~60-67% regardless of expl) -- those remain the product; the conditioning layer added nothing verifiable.
+
+## ARCHETYPE MATCHUP MIXTURES (archetypes.py + matchup_archetypes.py)
+Built as-of/walk-forward archetype engine: 6 OFF axes (identity[car/(car+rec) since `tar` field broken], OL,
+style, pass, QB-mobility[from qb_starts+player_usage], tempo) + 5 DEF axes (front7, secondary, runD, aggression,
+bigplay) from model_games adj_* + player data. Sanity-checked vs known team identities (Iowa/AirForce/OSU/etc -> correct).
+MATCHUP findings (graded ATS@close, baseline 50.0%, holdout discipline = pooled 21-24 AND 2025 both required):
+  BACKING obvious mismatches = DEAD (market prices them): run+OL vs soft-runD 50.5/50.0; vert-WR vs weak-sec 49.3/49.7.
+  FADING NEUTRALIZED-STRENGTH teams = WORKS & HOLDS OUT (mild ~52-53%):
+   - Pocket-QB vs Blitz-D: FADE 52.1%(21-24)/55.8%(2025) [49/61/53/46/56]
+   - Pocket-QB vs Dominant-front: FADE 51.6%/60.2% [54/56/51/46/60]   (these 2 = one factor: pocket QB vs pressure)
+   - Run-heavy+Elite-OL vs Stout-runD: FADE 52.7%/52.4% [58/54/55/49/52]
+  TOTALS archetype clashes: ALL fail holdout (both-uptempo over 51.8/45.5; methodical-under 39.6/49.0 etc).
+MECHANISM: market overvalues teams whose paper-strength (pocket passing / power run) is canceled by opp's matching
+strength. MILD leans (~breakeven 52.4) -> best use = conditioner/tiebreaker on soft-gap/STACK, not standalone.
+2 real factors: (a) fade pocket-QB vs pressure, (b) fade run-team vs stout-runD. 2024 soft for pocket fades.
+
+## ARCHETYPE MIXTURES -> TOTALS (matchup_totals.py): mostly DEAD (totals efficient, consistent w/ all prior).
+Game-level mixture counts (n explosive/leaky-D/stout/etc), graded @close, baseline over 49.6%, holdout-disciplined.
+NOTHING clears 52.4% breakeven in BOTH pool(21-24) AND 2025 w/ adequate n. Closest:
+ - PROMISING but UNDERSIZED: 2 explosive O + >=1 leaky D -> OVER 55.1% (pool 55.2/2025 53.8) [52/70/57/46/54] but
+   2025 n=13 too thin. Clean shootout mechanism. TRACK, not bettable yet.
+ - Stable but SUB-breakeven: 2 vertical-WR -> over 52.0% (pool=2025=52.0 exactly); >=3 strong-D + 0 explosive ->
+   under ~51-52%. Real leans, not profitable.
+ - FAILED holdout: 2-lockdown-sec under (58.6 2025 but 50.5 pool=mirage), 2-uptempo over, 2-methodical under.
+CONCLUSION: only surviving totals edges remain STRUCTURAL CONFERENCE spots (SEC under/AAC over/SunBelt under).
+Archetype mixtures echo shootout->over / rockfight->under faintly but don't beat market OOS. Don't re-mine.
+
+## ARCHETYPE MIXTURES x CONFERENCE (conf_archetype_trends.py) -- EXPLORATORY (tiny cells, no usable holdout)
+Smallest-sample cut. Findings: (1) conf-level archetype TOTALS just RE-EXPRESS existing conference spots -
+SEC rockfight under 56%(n164)/BigTen 53%(n167) = same SEC/BigTen under; AAC rockfight only 37% under = AAC
+over-friendly (already known). Archetypes add ~nothing on top of conference identity for totals.
+(2) NEW interaction leads (theory-fit but thin, TRACK not bet): BigTen fade run+OL-vs-stout-runD 63.8%(n47)
+[--/64/--/60/59] (run conference -> run brand overvalued vs stout run-D); G5 (MAC 58.5/CUSA 59/AAC 55) fade
+pocket-QB-vs-pressure (weak G5 passers exposed). All cells n<70, bouncy per-season, 2025 cells n<15 = unconfirmable.
+CONCLUSION: conference identity already captures most archetype info at conf level; interaction samples too thin.
+
+## GAME-ENVIRONMENT vs POSTED TOTAL (game_env_totals.py) -- REAL totals edge (holds out), user reframing
+Archetype env score (shootout<->rockfight) -> walk-forward linear archetype-IMPLIED total; resid=implied-posted.
+Bet when posted DISAGREES with archetype environment. UNDER side is the edge (books shade totals UP -> one-directional):
+  UNDER resid<=-3.5: 55.1% n720 +5.3% roi, pool 55%/2025 55% [52/58/58/55] HOLDS every recent season.
+  UNDER resid<=-4.5: 54.8% holds; resid<=-1.5: 53.7% holds. OVER side weak (~53%, fails 2025 holdout=public loves overs).
+NOT redundant w/ model (corr env_resid vs model_resid only 0.52). ADDS MOST where it DISAGREES w/ model:
+  env-under>=3.5 & model NOT under -> 57.6% n264 +9.9% (orthogonal 'game-type' info EPA model misses);
+  both-under = 52.2% (already priced). Game-type conditional: rockfight(env<=-2) priced-high -> under 54.1% (pool54/2025 54).
+ACTIONABLE: add archetype-env-residual UNDER spot to harness (complement to model totals, strongest when model disagrees).
+First archetype-totals edge to survive holdout -- the RELATIVE-to-environment framing unlocked it (blanket archetype totals were dead).
+
+## CAN WE PUT ARCHETYPE/ENV INTO THE MODEL? (model_archetype_test.py) -> NO, keep it as a SEPARATE overlay
+Walk-forward 2022-25 totals, BASE vs adding archetype features:
+  BASE MAE 13.163, UNDER<=-3.5 53.2% | +player(QB mob/identity) ONLY: MAE 13.170, under 51.0% (HURT) |
+  +env ONLY: 13.134, 52.4% | +both: 13.124, 54.1%. Gains marginal/noisy; player-alone hurt.
+Decisive: env IN-model 54.1% < env as OVERLAY 55.1% < overlay-on-DISAGREEMENT 57.6%. Dissolving the signal into
+the 180-feature booster AVERAGES it away (correlated feats -> down-weighted); the edge is specifically the
+DISAGREEMENT between qualitative game-type and quantitative model, which is impossible to capture inside one model.
+ARCHITECTURE DECISION: keep EPA model as-is (do NOT add archetype feats); keep archetype-env as separate overlay
+spot; bet under hardest when env & model DISAGREE. Ensemble of 2 different views @ decision layer > 1 bigger model.
+
+## *** CORRECTION (user challenge): ARCHETYPE-ENV TOTALS "EDGE" RETRACTED -> it was MEAN REVERSION ***
+Decisive within-band test: within each posted-total band, env does NOT separate over/under (total 0-50 lowEnv
+53.4/highEnv 52.2; 50-57 51.5/49.2; 57+ 45.0/44.9). env adds NOTHING beyond posted-total LEVEL. The earlier
+"archetype-env residual under 55% / disagreement 57.6%" was ~entirely fading extreme posted totals (env only
+moves a total +-3pts -> residual ~= mean-posted). game_env_totals/model_archetype_test edges = mean reversion mislabeled.
+HONEST TOTALS EFFECT = FADE EXTREME POSTED TOTALS:
+  HIGH total >=60 -> UNDER 55.1% n709 +5.3% roi [57/52/58/55/53] every season (SOLID, bettable).
+  LOW total <=50 -> OVER 52.5% n1319 [51/47/53/57/53] (WEAK/near-breakeven but REAL -> there IS an over signal).
+Asymmetry real: under(55%)>over(52.5%) bc books shade totals UP (public over-bias). Archetypes do NOT improve either.
+FLAG: re-check conference totals spots (SEC under/AAC over) for same total-level confound.
+
+## CONFERENCE TOTALS CONFOUND AUDIT (vs same-total-band baseline) -> SEC retracted, AAC/SunBelt survive
+Marginal effect beyond same-band baseline: SEC total52+ under +1.6pts (=MEAN REVERSION, retract); AAC 52-59 over
++8.7pts (REAL, goes OVER in an under-leaning band); SunBelt 59-66 under +13.5pts (REAL). HARNESS UPDATED: removed
+"CONF SEC total 52+ UNDER"; added generic "TOTAL fade high>=60 UNDER" (55%) + "TOTAL fade low<=50 OVER" (weak 52.5%);
+kept CONF AAC over + CONF SunBelt under. (Other conf SPREAD spots: SunBelt fade-home-fav, BigTen away-fav unaffected.)
+
+## WALK-FORWARD TEAM FORM (team_form.py) -> O/U form is CONTRARIAN (mean-reverts), NOT persistent. REAL EDGE:
+As-of season-to-date team over-rate/cover-rate/avg-total (>=4 prior games). Tested form persistence:
+ - HYPOTHESIS (both teams hot to over -> over) is FALSE/backwards: over-hot teams REGRESS -> game goes UNDER.
+ - **BEST TOTALS EDGE: over-hot (comb over-rate>=.60) & posted total<=58 -> UNDER 58.4% n373, pool 58.1/2025 60.3,
+   +11.6% roi [76/69/52/56/60] every season >50.** total<=55 version 59.3% n253 +13.2%. Survives total-level
+   confound (within-band marginal +9.5pts at totals<=58, so NOT just fade-high-total) AND 2025 holdout.
+ - Mechanism: over-streak partly luck -> teams regress; cleanest where total NOT inflated (<=58). Asymmetric:
+   reverse (under-hot->over) FAILS (49%) = books shade totals UP, exploitable side is always toward UNDER.
+ - ATS form: NO edge (ATS-hot revert only ~52%, market prices streaks). Form-implied-total>posted->over also fails (contrarian).
+TODO: wire as spot (needs as-of team over-rate in a form module / line_signals).
