@@ -618,3 +618,25 @@ As-of season-to-date team over-rate/cover-rate/avg-total (>=4 prior games). Test
    reverse (under-hot->over) FAILS (49%) = books shade totals UP, exploitable side is always toward UNDER.
  - ATS form: NO edge (ATS-hot revert only ~52%, market prices streaks). Form-implied-total>posted->over also fails (contrarian).
 TODO: wire as spot (needs as-of team over-rate in a form module / line_signals).
+
+## STRENGTH OF SCHEDULE (sos_analysis.py) -- we had NONE explicit; built as-of SOS (overall + home/away split)
+Had: implicit opp-adjustment in adj_* feats + adjacent-opp net (last/next/cur). MISSING: cumulative season SOS,
+home/away SOS split. Built from each model_games row carrying BOTH teams' as-of net_rating (leak-free).
+FINDINGS (ATS @close, holdout-disciplined):
+ - ROAD-SOS hypotheses FAILED: road-tested away teams (high road-SOS) cover only 47% (every season 40-46) = NOT
+   battle-tested, overvalued. "Tougher-schedule team covers" also false (46%).
+ - REAL EDGE (survives confound + holdout): FADE THE PADDED ROAD TEAM = away team net_rating>median & SOS bottom-40%
+   -> bet HOME 55.1% n361 +5.2roi [49/52/55/55/61] (2025 61.3%). Confound check: within good-away-teams, weak-SOS
+   55.1% vs strong-SOS 50.7% (SOS adds +4.4pts beyond rating; vs plain fade-good-away-team 51.5%). net_rating only
+   0.58 corr w/ SOS (distinct info). Mechanism: gaudy rating vs cupcakes -> overvalued, exposed on road.
+TODO: wire as spot (needs as-of SOS module like form_signals.py). Note: the ROAD-specific SOS split didn't pay; OVERALL SOS did.
+
+## PADDED ROAD TEAM x POWER-RATING-vs-LINE (sos_pr_line.py) -- SHARPENS the SOS fade to 62.5%
+PR calibration: ~56.5 pts per net_rating unit, HFA intercept 2.47pts. PR_margin = HFA + 56.5*net_rating_diff.
+resid = market_margin(-spread_close) - PR_margin. Within padded-road spots (away rating>median & SOS bottom40%):
+avg market road spread +4.3 vs PR-implied -5.3 -> market already discounts padding ~1pt ON AVERAGE. BUT the split:
+ - market TRUSTS padding (resid<=-1, line>=PR on road) -> bet HOME 62.5% n72 pool61/2025 75 +19roi [55/63/62/67/75] EVERY season
+ - market NEUTRAL 56.8% n37 ; market DISCOUNTS (resid>=+1) -> 47.9% n94 NO EDGE (priced in, pass)
+CREDIBILITY: resid ALONE predicts nothing (all-games 50.5/49.2) -> edge is the INTERACTION (padded + market still
+trusts it), not generic line-vs-PR. Sharpens SOS fade 54.7%->62.5%. Mechanism: padded rating + market buying it = double overvaluation, exposed on road.
+TODO: wire (needs SOS module + net_rating_diff PR calibration in harness). Pass when market already discounts (line<PR).

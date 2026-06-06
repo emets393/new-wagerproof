@@ -143,6 +143,11 @@ def spot_library(df):
     # ===== CONFERENCE structural numbers (conf_numbers.py) — grade @ close =====
     S["CONF SunBelt fade home-fav (dog)"] = (((conf == "Sun Belt") & (sc < 0)).fillna(False), "AWAY", "side", "close")
     S["CONF BigTen away-fav cover"] = (((conf == "Big Ten") & (sc > 0)).fillna(False), "AWAY", "side", "close")
+    # ===== SOS: FADE PADDED ROAD TEAM when market still trusts the inflated rating (sos_pr_line.py) — grade @ close =====
+    # away good rating + weak SOS (padded) AND line >= power-rating-implied (resid<=-1) -> bet HOME 62.5% (pass if mkt already discounts)
+    ap = pd.to_numeric(df.get("away_padded", z), errors="coerce") == 1
+    rr = pd.to_numeric(df.get("sos_resid", z), errors="coerce")
+    S["SOS fade padded road (mkt trusts) HOME"] = ((ap & (rr <= -1)).fillna(False), "HOME", "side", "close")
     # AAC over / SunBelt under SURVIVED the mean-reversion audit (+8.7 / +13.5 pts vs same-band baseline).
     S["CONF AAC total 52-59 OVER"] = (((conf == "American Athletic") & (tc > 52) & (tc <= 59)).fillna(False), "OVER", "total", "close")
     S["CONF SunBelt total 59-66 UNDER"] = (((conf == "Sun Belt") & (tc > 59) & (tc <= 66)).fillna(False), "UNDER", "total", "close")
@@ -218,6 +223,20 @@ def main():
                   on=["season", "game_id", "homeTeam"], how="left")
     te = te.merge(fs.rename(columns={"team": "awayTeam", "over_rate": "a_over_rate", "form_gp": "a_form_gp"}),
                   on=["season", "game_id", "awayTeam"], how="left")
+    # strength of schedule + power-rating-vs-line for the padded-road-team fade spot
+    import sos_signals
+    ss = sos_signals.build(gm)
+    te = te.merge(ss.rename(columns={"team": "homeTeam", "sos": "h_sos", "sos_np": "h_sos_np"}), on=["season", "game_id", "homeTeam"], how="left")
+    te = te.merge(ss.rename(columns={"team": "awayTeam", "sos": "a_sos", "sos_np": "a_sos_np"}), on=["season", "game_id", "awayTeam"], how="left")
+    tr_nr = gm[(gm.season < a.season) & gm.net_rating_diff.notna() & gm.actual_margin.notna()]
+    b1, b0 = np.polyfit(tr_nr.net_rating_diff, tr_nr.actual_margin, 1)   # PR -> points; b0 = HFA
+    tr_sos = ss.merge(gm[["season", "game_id"]], on=["season", "game_id"]); tr_sos = tr_sos[tr_sos.season < a.season]
+    nr_med = pd.concat([gm[gm.season < a.season].home_net_rating, gm[gm.season < a.season].away_net_rating]).median()
+    sos_q40 = tr_sos.sos.quantile(0.40)
+    te["pr_margin"] = b0 + b1 * te.net_rating_diff                       # power-rating-implied home margin (incl HFA)
+    te["sos_resid"] = (-te.spread_close) - te.pr_margin                  # <0 = market favors road team MORE than PR
+    te["pr_b0"] = b0; te["pr_b1"] = b1                                   # stash calibration for display
+    te["away_padded"] = ((te.away_net_rating > nr_med) & (te.a_sos < sos_q40) & (te.a_sos_np >= 4)).astype(int)
     te = add_situational_flags(te)
     te, S = apply_spots(te)
 
