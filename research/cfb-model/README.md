@@ -791,3 +791,18 @@ BOTH AP-RANKED -> HOME covers 57.3% n398 +9.4roi, per-season 2021-25 [55/56/64/5
 NOT generic HFA. Home FAV 60.0% (n245) > home DOG 52.6% (n152); independent of which team ranked higher (56.6/57.9).
 MECHANISM: HFA underpriced in marquee games (public backs ranked road 'name' team; crowd impact underweighted in
 big games). ~44/yr. Exception to 'watched=priced' (structural HFA mispricing not narrative). WIRE: both ranked -> HOME, Tier 2.
+
+## TEAM / COACH ATS RECORDS (by side, threshold, home/away) -> NOISE, NO EDGE. DEFINITIVE NEGATIVE.
+Screened every D1 team + coach: ATS as dog/fav, overall + by spread tier (+0-3/3-7/7-10/10-14/14+, fav mirror).
+"Best/worst" lists exist (Marshall 71% dog, Duke 86% small-dog, Temple 87% +3-7, etc.) BUT they are PURE SAMPLING
+NOISE, proven 3 ways:
+ 1. PERSISTENCE: team ATS first-half vs second-half corr = -0.073 (n=130 teams) = ZERO. A good-ATS team does NOT
+    stay one. No skill.
+ 2. SPREAD-vs-CHANCE: std of team ATS records = 4.8%, std expected if EVERY team were a 50% coin flip (n~98) = 5.0%.
+    IDENTICAL -> the entire Marshall(71)->UTEP(35) range is exactly what random produces.
+ 3. WITHIN-TEAM TIER CONTRADICTIONS: Duke 86% as +0-3 dog but 17% as +14+ dog; Temple 87% +3-7 but 29% +14+; Mike
+    Norvell 31% small-fav but 67% big-fav. A real skill can't flip 86%<->17% across adjacent tiers -> noise fingerprint.
+Tier cells are n=12-24 (had to drop min-n to populate) = far too small. VERDICT: per-team/per-coach ATS at any
+threshold has ZERO predictive value; market prices teams/coaches efficiently. This is the deepest bettor rabbit hole.
+DON'T build team/coach-history ATS systems. (Same answer as the Mississippi State single-team check.) Edges live in
+STRUCTURAL/MARKET signals (soft-book gaps, mean-reversion, marquee-HFA, padded-SOS), never "who covers as a dog."
