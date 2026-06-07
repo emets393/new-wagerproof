@@ -676,3 +676,101 @@ soft sharp-side ALREADY on fade (gap confirms) -> 40.0% (n15); soft against fade
 SKIP fading into a line already moving your way (value bid out). Wired as exclusion on G5 fade spot.
 NOTE: settled-line (base+settled, 65% n83) is a DIFFERENT/larger cut than next-opp-strong (wired, 62% n56);
 both refine base (60.8% n153). Combining all -> n38. Decision pending: make settled-line the PRIMARY filter (bigger n+higher hit)?
+
+## PACE / POSSESSION ADAPTATION (pace_adaptation.py, pace_model_test.py) -> REAL football, FULLY PRICED. NEGATIVE.
+Theory: ball-control team drags tempo vs fast team -> fewer possessions -> under. CONFIRMED mechanism: slow team
+controls tug-of-war (regress actual game drives ~ slow_norm coef +0.95 vs fast_norm +0.66; mismatch games run
+~0.5 drives below naive avg). BUT: (1) betting edge DECAYED - mismatch->under [61/54/54/46/47] per-season = market
+caught up, fails 2025; (2) MODEL test: adding drives-based pace norms (slow/fast/gap/sum) does NOT improve totals
+MAE (13.107->13.060 noise) or game-type ranking (corr 0.288->0.286, tercile 41.4->40.6 WORSE) - model already has
+pace_off_plays + EPA. (3) possessions corr only 0.26 w/ total (efficiency dominates). (4) MARKET MAE 12.47 < model
+13.1 = market out-predicts us on totals. Pace is industry-modeled -> priced. Edges live in unwatched/structural spots.
+
+## IMPOSER vs ADAPTER at scale (adaptation_scale.py) -> ADAPTABILITY IS NOT A RELIABLE TEAM TRAIT. NEGATIVE.
+Built flexibility metric = z(std run-rate)+z(std pace) per team-season (FBS-only). KEY: split-half reliability
+(odd vs even games) run-flex r=0.16, pace-flex r=0.11 = MOSTLY NOISE -> cannot classify imposer/adapter from
+variance, any # of games (first-K-vs-full 0.8 was illusion=overlapping sample). Coach: same-coach YoY flex corr
+0.15 vs changed -0.06 (faint coach signal). CONTRAST: MEAN run-rate (IDENTITY) YoY corr 0.69 = identity IS stable.
+Scaled bet adapter-vs-explosive->under FAILS (49.6%, adapter class = noise). CONCLUSION: adaptation is a per-game
+RESPONSE (real, case-study confirmed for OU) not a stable TRAIT; identity persists (0.69, schedule/game-flow drive
+variance). We already use identity (season-avg archetype/form) = right abstraction level. Don't build imposer/adapter
+classifier. Boundary finding: can predict WHO a team is, not HOW MUCH they morph.
+
+## *** CORRECTION (user pushback): adaptation IS real, I tested it wrong ***  (responsiveness_scale.py)
+Earlier I scaled with VARIANCE (wrong - contaminated by blowouts) + concluded "doesn't work". Correct test =
+directional RESPONSIVENESS (within-team deviation vs opponent trait). RESULTS:
+ Q1 AGGREGATE: teams DO run more vs soft run-D: r=+0.125 p=6e-44 (REAL, +3.1pts run-rate soft vs stout). BUT
+   pace-vs-explosive (the totals theory): r=+0.005 p=0.58 = does NOT generalize (OU case study was 12-game eyeball).
+ Q2 PER-TEAM TRAIT: run-responsiveness split-half reliability r=0.01 = NOT classifiable per team.
+RESOLUTION of "3 worked but all didn't": run/pass adaptation is real league-wide (validates user) but (a) PACE
+adaptation (what drives totals) doesn't generalize, (b) can't classify individual adapters, (c) effect small + about
+play-TYPE not points. Identity stable (0.69). So phenomenon real, just not in the dimension/form that yields a totals edge.
+
+## IDENTITY x DEFENSE MATCHUP (identity_matchup.py) -> run/pass adaptation REAL but PRICED. NEGATIVE (closes adaptation thread).
+Identity is stable (0.69) so reliable; tested forced-off-identity -> underperform. ALL quadrants dead:
+run-heavy vs stout-run-D (fade) 49.1%, run-heavy vs soft (back) 51.0%, pass-heavy vs lockdown (fade) 50.8%,
+pass-heavy vs weak-sec (back) 49.6%. Totals identity-mismatch -> under 49.6% dead. P5/G5 split: dead BOTH (49.4/48.7)
+-> not a P5-efficiency thing, genuinely priced everywhere (G5 2025 61% = small-sample bounce, pool 47%).
+WHY real-but-priced: adaptation = OPTIMAL play (attack weakness -> perform AT expectation not above); forced-off-identity
+DOES lose efficiency but spread/total already price the obvious matchup. ADAPTATION THREAD CLOSED: real football, fully
+priced (like pace/bounce-back). Map reinforced: edges = market-structure/behavioral (soft books, G5, form/SOS mean-rev),
+NOT football-fundamental matchups (market prices those well).
+
+## TEAM TOTALS contrived from total+spread (team_totals.py) -> EFFICIENT, no edge. NEGATIVE (but points to real move).
+implied_team_total=(total_close - team_spread)/2. baseline OVER 49.0%. ALL features dead: fav/dog (50.2/48.1),
+identity-matchup isolated on offense (49-51%, none hold), G5/P5 cuts nothing. KEY MATH: team-total-over == (game
+total result)+(team ATS result)>0 = RECOMBINATION of totals+sides (both efficient) -> contrived team total is
+efficient by construction. Adaptation doesn't show even isolated bc SPREAD already prices the matchup.
+REAL MOVE (user instinct correct): the ACTUAL posted team-total market is softer/thinner -> would need to SCRAPE
+team-total lines (Odds API team_totals market) and find where posted team total deviates from contrived/model value.
+Contriving from main lines CANNOT find it (efficient algebra). Fits 'edges live in soft markets' thesis.
+
+## TEAM-TOTAL MODEL (team_total_model.py) -> REAL UNDER EDGE (user was right; few-feature test was wrong)
+Built proper team-points model: self-offense + opp-defense fundamentals + adaptation (id_run, id_pace) + market
+anchor (open lines), walk-forward, target=team points. Overall MAE 9.13 vs market implied 8.75 (market sharper
+on avg) BUT the UNDER side is a real edge: MARKET-ANCHORED edge(pred-implied)<=-3 -> team-total UNDER 54.5% n1179
+[57/51/57/53/59] roi+4.1; edge<=-4 -> 56.3% n746 [58/53/58/58/59] roi+7.5. Every season >50, 2025 strong (59%).
+CONFOUND SURVIVED (vs implied-team-total band baseline): low +3.8, MID +6.7, high +1.9 -> NOT just fade-high-total,
+real team-specific signal (strongest mid-band 24-30). Over side dead (one-directional under bias). Graded vs CONTRIVED
+(efficient) team total -> on ACTUAL (softer) team-total market should be better. LESSON: build the model before
+declaring dead; few hand-picked features != a test. TODO: isolate adaptation's marginal contribution; wire spot;
+consider scraping actual team-total lines.
+
+## OVERS — proper investigation (user pushed on under-only concern). OVERS ARE FINDABLE (weaker than unders).
+Sanity: grading symmetric (over% by season 46.5-52, baseline 49, mean line-miss +0.37 ~ balanced; 2023-24 were
+OVER-leaning). EXTREME overs (>=+14, 20.0%) vs extreme unders (<=-14, 19.6%) = SYMMETRIC freq but STATISTICALLY
+IDENTICAL on all pre-game features (pace/expl/def/wx/ppo) -> extreme scoring = VARIANCE, unpredictable. (elo_diff
+'even matchup' lead was signed-mean artifact; pickem-by-spread over 48.9% = dead.)
+KEY: overs found via UNANCHORED (pure-fundamentals) model, NOT market-anchored. pure-fund edge(pred-implied)>=+6
+-> team-total OVER 53.6% n591 [52/54/56/49/57] 2025 57% +2.4roi; survives confound (+2.0/+2.5 low/mid band).
+RESOLUTION: under edge (anchored model, 56%) > over edge (unanchored, 54%) - asymmetry REAL (books shade totals UP,
+public over-bias -> too-high mispricing bigger). NOT a bug. Two sides need DIFFERENT models: ANCHORED for unders
+(catch over-shading), UNANCHORED for overs (catch lines set too low). Both holdout-validated.
+
+## TEAM-TOTAL PRODUCTION RULE (over vs under model assignment) -- the two triggers are MUTUALLY EXCLUSIVE
+Q: run both over+under models and pick better number? -> NO NEED. Tested both on 7393 team-games:
+  UNDER trigger (ANCHORED model edge<=-3): fires 1179, 54.5% (2025 59%)
+  OVER  trigger (UNANCHORED fund model edge>=+6): fires 591, 53.6% (2025 57%)
+  BOTH fire (conflict): 0 games. neither: 5623.
+ZERO conflicts (mechanical: anchored-under needs fund BELOW line, unanchored-over needs fund FAR ABOVE line;
+shared inputs -> can't be both). PRODUCTION RULE: run both models; anchored edge<=-3 -> UNDER; unanchored edge>=+6
+-> OVER; else no bet. At most one fires -> NO per-game cherry-picking/selection bias. ~24% of team-games bet
+(~354/yr, 2/3 under 1/3 over) @ ~54%. Two specialized detectors for opposite line errors (over-shaded->under, under-set->over).
+
+## EXTREME OVERS - game totals (extreme_over.py) -> FOUND (user pushed again; earlier univariate test missed it)
+Single features don't separate extreme overs (confirmed earlier) but UNANCHORED model + conjunctive archetype recipe DO:
+ 1. UNANCHORED game-total model over edge>=+6 -> OVER 54.9% n741 (~148/yr) [53/56/54/56/58] 2025 58% +4.9roi;
+    survives confound (+1.7/+6.0/+5.2 by total band). edge>=+8 54.2%, edge>=+12 54.6% n130 (rarer tail).
+ 2. SHOOTOUT RECIPE (the rare ~10/yr trigger): 2 explosive offenses + BOTH up-tempo -> OVER 56.5% n46 (~9/yr)
+    [50/60/50/62/60] +7.9roi (recent strong 60/62/60; 2021/23 were 50). 2expl+>=1weak-sec 54.4% n136.
+    env COMPOSITE alone DEAD (~50%) - needs specific 2expl+2uptempo stack.
+KEY: overs need UNANCHORED model (anchored pinned to shaded line, can't see overs) + conjunctive stack (no single
+feature works). Parallels team-total over finding. 3rd time pushing found over signal i'd dismissed.
+
+## *** CORRECTION: shootout RECIPE (2expl+2uptempo) is NOISE; only the MODEL over-edge is real ***
+Recency check on 2016-2025 (2x sample, components from model_games): recipe over% by yr 33/58/50/23/46/44/48/54/33,
+ALL=45.4% (94/207) = UNDER, dead. 2025 flips 60%(archetype-tag n46) vs 33%(component n24) on cosmetic definition
+change = noise signature. Game-evolution premise BACKWARDS: CFB avg total FELL 58.2(2016)->52.4(2025), scoring DOWN
+not up, market tracks it. Recent "good" years (2024/25) were ~1-game swings on n~9. RECIPE RETRACTED.
+ROBUST over edge STANDS: UNANCHORED model edge>=+6 -> over 54.9% n741 [53/56/54/56/58] confound-survived. Use MODEL not recipe.
+NOTE: discipline cuts both ways - earlier today proper tests found MORE (rescued G5/teamtotal/over); here finds LESS (recipe=noise).

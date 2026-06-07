@@ -158,6 +158,12 @@ def spot_library(df):
     # Fade extreme posted totals: high>=60 -> UNDER 55% (solid); low<=50 -> OVER 52.5% (weak). Books shade totals UP.
     S["TOTAL fade high>=60 UNDER"] = ((tc >= 60).fillna(False), "UNDER", "total", "close")
     S["TOTAL fade low<=50 OVER (weak)"] = ((tc <= 50).fillna(False), "OVER", "total", "close")
+    # ===== GAME-TOTAL OVER: unanchored model (existing tm) projects well above the line (extreme_over.py) =====
+    # edge(pred_total - close)>=6 -> over ~55%; sharpens in G5 & normal totals; DEAD on high totals (>=54 mean-revert).
+    pt = pd.to_numeric(df.get("pred_total", z), errors="coerce")
+    g5g = (~df.homeConference.isin(P5)) & (~df.awayConference.isin(P5))
+    S["TOTAL model over-edge>=6 OVER"] = (((pt - tc) >= 6).fillna(False), "OVER", "total", "close")
+    S["TOTAL model over-edge>=8 G5 OVER"] = (((pt - tc >= 8) & g5g & (tc < 54)).fillna(False), "OVER", "total", "close")
     # ===== TEAM FORM (team_form.py) — over-hot teams REGRESS -> UNDER, strongest when total not inflated =====
     # Best totals edge: both teams' season over-rate>=.60 & total<=58 -> UNDER ~58-59% (survives confound + holdout).
     hor = pd.to_numeric(df.get("h_over_rate", z), errors="coerce"); aor = pd.to_numeric(df.get("a_over_rate", z), errors="coerce")
@@ -299,6 +305,23 @@ def main():
             print(f"\nMODEL CLV (|edge|>=2): n={len(ml)} avg {np.nanmean(clv):+.2f} pts, positive {100*np.nanmean(clv>0):.0f}%")
     bets.to_csv(os.path.join(OUT, f"cfb_bets_{a.season}.csv"), index=False)
     print(f"\n{len(disp)} games (display) | {len(bets)} with >=1 spot flag -> out/cfb_bets_{a.season}.csv")
+
+    # ===== TEAM TOTALS (separate bet type: 2 mutually-exclusive models) — team_total_signals.py =====
+    import team_total_signals
+    tt = team_total_signals.build(gm, a.season)
+    tt = tt[(tt.tt_under == 1) | (tt.tt_over == 1)].copy()
+    if len(tt):
+        tt["bet"] = np.where(tt.tt_under == 1, "UNDER", "OVER")
+        tt = tt.merge(te[["season", "game_id", "homeTeam", "awayTeam"]], on=["season", "game_id"], how="left")
+        tt.to_csv(os.path.join(OUT, f"cfb_team_totals_{a.season}.csv"), index=False)
+        g = tt[tt.pts.notna() & (tt.pts != tt.implied)].copy()
+        if len(g):
+            win = np.where(g.bet == "UNDER", g.pts < g.implied, g.pts > g.implied)
+            u = g[g.bet == "UNDER"]; o = g[g.bet == "OVER"]
+            uw = (u.pts < u.implied); ow = (o.pts > o.implied)
+            print(f"\n=== {a.season} TEAM TOTALS (team_total_signals) ===")
+            print(f"  UNDER (anchored<=-3): n={len(u)} hit {100*uw.mean() if len(u) else 0:.1f}% | OVER (unanchored>=+6): n={len(o)} hit {100*ow.mean() if len(o) else 0:.1f}%")
+            print(f"  {len(tt)} team-total bets -> out/cfb_team_totals_{a.season}.csv")
 
 
 if __name__ == "__main__":
