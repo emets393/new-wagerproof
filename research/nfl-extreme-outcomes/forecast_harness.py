@@ -44,6 +44,15 @@ TEASER_RULES = {"receiver_over_HC","top_vs_top_pt_home","legacy_fade","fade_pr_i
 TEASER_SHARP_LOOKBACK = 2   # use prior 2 seasons to compute team Vegas-sharpness
 TEASER_SHARP_PCT = 0.50     # max_sharp threshold = league 50th percentile (both teams in sharper half)
 
+# CFB-replication survivor picks (b77-b83, vaulted 2026-06-07). Two independent UNDER signals:
+#   S1: cross-book total gap (microstructure) — sharp/soft books disagree, bet UNDER at soft
+#   S2: both teams' season-to-date over-rate >=60% AND mid-band total (42-46.5) → UNDER
+# TIER 1 (high conviction): late line move CONTRADICTS the pick direction. NFL specific finding:
+#   contradicting late move = market overshoot, pick hits 65% vs 53% when move agrees (b83).
+CFB_REPL_BUCKET_BAND = (42.0, 46.5)   # S2 mid-band constraint (b78 confound passes here)
+CFB_REPL_PRIOR_OR = 0.60              # S2: both teams need >=60% prior over-rate
+CFB_REPL_GAP_THR = 0.5                # S1: soft - sharp total gap threshold
+
 def load_dk_open(target):
     """Load DraftKings OPENING-line snapshot per game for target season. Used by dk_giant_fav_over
     and dk_heavy_home_juice spots (b63). Trigger AT OPEN + bet AT OPEN = honest, no CLV inflation.
@@ -451,6 +460,191 @@ def grade_teasers(m, target):
     led.to_csv(path, index=False)
     return led
 
+def _cfb_team_map():
+    return {"Arizona":"ARI","Atlanta":"ATL","Baltimore":"BAL","Buffalo":"BUF","Carolina":"CAR","Chicago":"CHI",
+            "Cincinnati":"CIN","Cleveland":"CLE","Dallas":"DAL","Denver":"DEN","Detroit":"DET","Green Bay":"GB",
+            "Houston":"HOU","Indianapolis":"IND","Jacksonville":"JAX","Kansas City":"KC","Las Vegas":"LV",
+            "Los Angeles Chargers":"LAC","Los Angeles Rams":"LAR","LA Chargers":"LAC","LA Rams":"LAR",
+            "Miami":"MIA","Minnesota":"MIN","New England":"NE","New Orleans":"NO",
+            "New York Giants":"NYG","New York Jets":"NYJ","NY Giants":"NYG","NY Jets":"NYJ",
+            "Philadelphia":"PHI","Pittsburgh":"PIT","San Francisco":"SF","Seattle":"SEA","Tampa Bay":"TB",
+            "Tennessee":"TEN","Washington":"WAS"}
+
+def _book_sharpness_total(target):
+    """Walk-forward per-book total-sharpness ranking from odds_hist (seasons<target only).
+    Returns (sharp_books_set, soft_books_set) — top-3 sharps and bottom-3 softs per b77/b82."""
+    oh = pd.read_parquet(os.path.join(DATA,"odds_hist.parquet"))
+    ma = pd.read_parquet(os.path.join(DATA,"matchup_arch.parquet"))
+    oh["snap_ts"] = pd.to_datetime(oh.snap_ts); oh["commence_time"] = pd.to_datetime(oh.commence_time)
+    ma["actual_total"] = ma.home_score + ma.away_score
+    coverage = oh.groupby("book").season.nunique()
+    full = coverage[coverage>=3].index.tolist()
+    oh = oh[oh.book.isin(full) & (oh.snap_ts<=oh.commence_time)].copy()
+    oh = oh.sort_values("snap_ts").drop_duplicates(subset=["season","home_team","away_team","book"], keep="last")
+    tm = _cfb_team_map()
+    oh["home_ab"] = oh.home_team.map(tm); oh["away_ab"] = oh.away_team.map(tm)
+    oh = oh.dropna(subset=["home_ab","away_ab"])
+    oh = oh.merge(ma[["season","home_ab","away_ab","actual_total"]], on=["season","home_ab","away_ab"], how="inner")
+    train = oh[oh.season<target]
+    if len(train)==0: return set(), set(), None
+    cons = train.groupby(["season","home_ab","away_ab"]).total_point.mean().rename("cons_total").reset_index()
+    train = train.merge(cons, on=["season","home_ab","away_ab"])
+    rows=[]
+    for book in train.book.unique():
+        sub = train[train.book==book]
+        if len(sub)<50: continue
+        sub = sub.copy(); sub["lean"] = sub.total_point-sub.cons_total; sub["resid"] = sub.actual_total-sub.cons_total
+        c = sub[["lean","resid"]].corr().iloc[0,1]
+        rows.append((book,c))
+    rk = pd.DataFrame(rows, columns=["book","sharp"]).sort_values("sharp",ascending=False)
+    return set(rk.head(3).book.tolist()), set(rk.tail(3).book.tolist()), oh
+
+def generate_cfb_picks(target, week=None):
+    """Generate Survivor #1 (cross-book total gap) + Survivor #2 (form mean-rev UNDER) picks
+    for target season. Tags each with TIER (1 = high conviction when late line move contradicts;
+    2 = standard). See LOCKED_MODELS.md §5 and b77-b83 for derivation.
+    Writes out/cfb_repl_ledger_<target>.csv."""
+    sharps, softs, oh = _book_sharpness_total(target)
+    if oh is None: L(f"[cfb_picks] no training data for {target}"); return None,None
+    od = pd.read_parquet(os.path.join(DATA,"odds_consensus.parquet"))
+    ma = pd.read_parquet(os.path.join(DATA,"matchup_arch.parquet"))
+    ma["actual_total"] = ma.home_score + ma.away_score
+
+    # ---- S1: cross-book total gap ----
+    tgt = oh[oh.season==target]
+    s1_rows=[]
+    for (sea,hm,aw), g in tgt.groupby(["season","home_ab","away_ab"]):
+        s_in = g[g.book.isin(sharps)]; so_in = g[g.book.isin(softs)]
+        if s_in.empty or so_in.empty: continue
+        sp = s_in.total_point.mean(); so = so_in.total_point.mean()
+        gap = so - sp
+        if abs(gap) < CFB_REPL_GAP_THR: continue
+        pick = "UNDER" if gap>0 else "OVER"
+        s1_rows.append(dict(source="S1_cross_book", season=sea, home_ab=hm, away_ab=aw,
+                            pick=pick, bet_line=so, open_total=g.total_point.iloc[0], gap=gap,
+                            week=int(g.commence_time.iloc[0].isocalendar().week) if False else np.nan))
+    s1_df = pd.DataFrame(s1_rows)
+
+    # ---- S2: both teams over-hot, mid-band totals → UNDER ----
+    ma2 = ma.merge(od[["season","home_ab","away_ab","open_total","close_total","total_move"]],
+                   on=["season","home_ab","away_ab"], how="left")
+    ma2["total_line"] = ma2.open_total.fillna(ma2.ou_vegas_line)
+    ma2 = ma2.dropna(subset=["total_line","actual_total","week","season"]).copy()
+    ma2["went_over"] = (ma2.actual_total > ma2.total_line).astype(int)
+    ma2.loc[ma2.actual_total==ma2.total_line, "went_over"] = np.nan
+    # As-of over-rate per team
+    hr = ma2[["season","week","home_ab","went_over"]].rename(columns={"home_ab":"team"})
+    ar = ma2[["season","week","away_ab","went_over"]].rename(columns={"away_ab":"team"})
+    tg = pd.concat([hr,ar], ignore_index=True).sort_values(["season","team","week"])
+    def asof(group):
+        group = group.sort_values("week")
+        cn = group.went_over.expanding().count().shift(1)
+        co = group.went_over.expanding().sum().shift(1)
+        group["prior_n"] = cn; group["prior_or"] = co/cn
+        return group
+    tg = tg.groupby(["season","team"], group_keys=False).apply(asof)
+    m_y = ma2[ma2.season==target].copy()
+    m_y = m_y.merge(tg[["season","week","team","prior_or","prior_n"]].rename(
+        columns={"team":"home_ab","prior_or":"h_or","prior_n":"h_n"}), on=["season","week","home_ab"], how="left")
+    m_y = m_y.merge(tg[["season","week","team","prior_or","prior_n"]].rename(
+        columns={"team":"away_ab","prior_or":"a_or","prior_n":"a_n"}), on=["season","week","away_ab"], how="left")
+    band_lo, band_hi = CFB_REPL_BUCKET_BAND
+    qual = m_y[(m_y.h_n>=3) & (m_y.a_n>=3) &
+               (m_y.h_or>=CFB_REPL_PRIOR_OR) & (m_y.a_or>=CFB_REPL_PRIOR_OR) &
+               (m_y.total_line>=band_lo) & (m_y.total_line<=band_hi)].copy()
+    s2_df = pd.DataFrame({"source":"S2_form_under_mid", "season":qual.season, "week":qual.week,
+                          "home_ab":qual.home_ab, "away_ab":qual.away_ab, "pick":"UNDER",
+                          "bet_line":qual.total_line, "open_total":qual.total_line,
+                          "h_or":qual.h_or.round(3), "a_or":qual.a_or.round(3)})
+
+    # Attach week + line movement to S1 from odds_consensus
+    if len(s1_df):
+        s1_df = s1_df.drop(columns=["week"], errors="ignore").merge(
+            ma2[["season","week","home_ab","away_ab"]].drop_duplicates(),
+            on=["season","home_ab","away_ab"], how="left")
+        s1_df = s1_df.merge(od[["season","home_ab","away_ab","total_move","close_total"]],
+                            on=["season","home_ab","away_ab"], how="left")
+
+    # Add total_move to S2 (already merged via ma2)
+    if len(s2_df):
+        s2_df = s2_df.merge(od[["season","home_ab","away_ab","total_move","close_total"]],
+                            on=["season","home_ab","away_ab"], how="left")
+
+    # Combine + dedup + week filter + tier classification
+    picks = pd.concat([s1_df, s2_df], ignore_index=True, sort=False)
+    if week is not None and len(picks):
+        picks = picks[picks.week==week]
+    if len(picks)==0:
+        L(f"[cfb_picks] no eligible picks for {target}"); return None,None
+    # Drop conflicts: same game flagged for opposite picks
+    picks = picks.sort_values(["season","week","home_ab","away_ab"])
+    keep_idx=[]
+    for (sea,hm,aw), g in picks.groupby(["season","home_ab","away_ab"]):
+        if g.pick.nunique()>1: continue
+        keep_idx.extend(g.index.tolist())
+    picks = picks.loc[keep_idx].copy()
+    # Tier classification per b83: contradicting late line move = TIER 1 (high conviction)
+    picks["move_contradicts"] = ((picks.pick=="UNDER")&(picks.total_move>0)) | ((picks.pick=="OVER")&(picks.total_move<0))
+    picks["tier"] = np.where(picks.move_contradicts, 1, 2)
+    # Pick id
+    picks["pick_id"] = picks.apply(lambda r: f"{int(r.season)}-W{int(r.week):02d}-{r.away_ab}@{r.home_ab}-{r.source[:2]}-{r.pick}", axis=1)
+
+    out_cols = ["pick_id","season","week","home_ab","away_ab","source","pick","bet_line","open_total",
+                "close_total","total_move","tier","move_contradicts"]
+    out_cols = [c for c in out_cols if c in picks.columns]
+    out_df = picks[out_cols].copy()
+    out_path = os.path.join(OUT, f"cfb_repl_ledger_{target}.csv")
+    out_df.to_csv(out_path, index=False)
+    L(f"[cfb_picks] {len(out_df)} survivor picks logged -> {out_path}")
+    L(f"  TIER 1 (move contradicts, high conv): {(out_df.tier==1).sum()}")
+    L(f"  TIER 2 (move agrees/neutral):         {(out_df.tier==2).sum()}")
+    return out_df, out_path
+
+def grade_cfb_picks(m, target):
+    """Grade the CFB-replication ledger. Filters by (season, week, home_ab, away_ab) to avoid
+    the divisional-rematch bug we caught in grade_teasers."""
+    path = os.path.join(OUT, f"cfb_repl_ledger_{target}.csv")
+    if not os.path.exists(path): L(f"[grade_cfb] no ledger at {path}"); return None
+    led = pd.read_csv(path)
+    if len(led)==0: return led
+    res = m[["season","week","home_ab","away_ab","home_score","away_score"]].dropna(subset=["home_score","away_score"]).copy()
+    res["actual_total"] = res.home_score + res.away_score
+    def grade(r):
+        sub = res[(res.season==r.season)&(res.week==r.week)&(res.home_ab==r.home_ab)&(res.away_ab==r.away_ab)]
+        if len(sub)==0: return (np.nan, np.nan)
+        actual = sub.iloc[0].actual_total
+        if actual == r.bet_line: return (np.nan, actual)   # push
+        if r.pick=="UNDER":
+            return (int(actual < r.bet_line), actual)
+        return (int(actual > r.bet_line), actual)
+    led[["won","actual_total"]] = led.apply(lambda r: pd.Series(grade(r)), axis=1)
+    led["pnl_110"] = np.where(led.won.isna(), 0.0, np.where(led.won==1, 100/110, -1.0))
+    led.to_csv(path, index=False); return led
+
+def report_cfb_picks(target):
+    """Per-tier and total summary of CFB-replication survivors."""
+    path = os.path.join(OUT, f"cfb_repl_ledger_{target}.csv")
+    if not os.path.exists(path): return
+    led = pd.read_csv(path)
+    if len(led)==0 or "won" not in led.columns: return
+    g = led.dropna(subset=["won"])
+    if len(g)==0: L(f"\nCFB-REPL REPORT {target}: {len(led)} picks, none graded yet"); return
+    L(f"\n{'='*82}\nCFB-REPLICATION SURVIVOR REPORT {target} (graded: {len(g)} / logged: {len(led)})\n{'='*82}")
+    n=len(g); k=int(g.won.sum()); lo,hi=wilson_ci(k,n)
+    L(f"  ALL picks @ -110: {k}/{n}={k/n*100:.1f}%  CI[{lo*100:.0f},{hi*100:.0f}]  ROI={g.pnl_110.mean()*100:+.1f}%  units={g.pnl_110.sum():+.1f}")
+    L(f"  By tier:")
+    for tier_n, tier_name in [(1,"TIER 1 (late move contradicts — high conv)"),(2,"TIER 2 (move neutral/agrees)")]:
+        sub = g[g.tier==tier_n]
+        if len(sub)==0: L(f"    {tier_name}: (none)"); continue
+        ksub=int(sub.won.sum()); nsub=len(sub); lo,hi=wilson_ci(ksub,nsub)
+        L(f"    {tier_name}: n={nsub:2d} hit={ksub}/{nsub}={ksub/nsub*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={sub.pnl_110.mean()*100:+.1f}%")
+    L(f"  By source:")
+    for src in ["S1_cross_book","S2_form_under_mid"]:
+        sub = g[g.source==src]
+        if len(sub)==0: continue
+        ksub=int(sub.won.sum()); nsub=len(sub); lo,hi=wilson_ci(ksub,nsub)
+        L(f"    {src:24s}: n={nsub:2d} hit={ksub}/{nsub}={ksub/nsub*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={sub.pnl_110.mean()*100:+.1f}%")
+
 def report_teasers(target):
     """Summary of 2-team teaser performance — printed alongside the standard pick report."""
     path = os.path.join(OUT, f"teaser_ledger_{target}.csv")
@@ -750,6 +944,8 @@ if __name__=="__main__":
         m,BASE=build(); led,path=generate(m,BASE,a.dry_run); grade(m,a.dry_run); report(a.dry_run)
         # Teaser pipeline runs after the standard pick grading so it has graded outcomes available
         generate_teasers(a.dry_run); grade_teasers(m, a.dry_run); report_teasers(a.dry_run)
+        # CFB-replication survivors (b77-b83) — independent UNDER signals
+        generate_cfb_picks(a.dry_run); grade_cfb_picks(m, a.dry_run); report_cfb_picks(a.dry_run)
         L(f"\n[dry-run] ledger written to {path}")
     elif a.season:
         m,BASE=build(); led,path=generate(m,BASE,a.season,a.week)

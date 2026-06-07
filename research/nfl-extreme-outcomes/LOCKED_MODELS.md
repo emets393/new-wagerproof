@@ -555,11 +555,47 @@ The NFL market efficiently prices opponent quality, schedule strength, and unit-
 The exploitable edges live in (a) book-to-book pricing inefficiencies and (b) bettor recency bias
 on streaks. Future NFL research should focus there, not on better fundamentals models.
 
-### Not yet wired into the harness
+### Line-reversal veto (b83) — INVERTED in NFL vs CFB
 
-S1 + S2 picks live in b82 only. Decision pending whether to wire as a separate UNDER-totals
-pickset in `forecast_harness.py` (alongside the existing teaser product) or hold as research until
-2026 live data confirms.
+CFB user said a late reversal contradicting the pick dropped CFB hit rates to 40%. In NFL, the
+opposite happens — late moves AGAINST our UNDER pick correlate with HIGHER hit rate (market
+overshoot / late public-money buying):
+
+| Cohort | n | Hit % | ROI |
+|---|---|---|---|
+| Portfolio ALL picks | 73 | 58.9% | +12.5% |
+| Move neutral/agrees (would-be-veto-kept) | 36 | 52.8% | +0.8% |
+| Move CONTRADICTS (would-be-veto-cut) | 37 | **64.9%** | **+23.8%** |
+
+Not a veto in NFL — a **TIER classifier**. TIER 1 (move contradicts) = high conviction,
+TIER 2 (move agrees) = standard. Both bet, but track separately.
+
+### Wired into `forecast_harness.py` (2026-06-07)
+
+New constants: `CFB_REPL_BUCKET_BAND=(42,46.5)`, `CFB_REPL_PRIOR_OR=0.60`, `CFB_REPL_GAP_THR=0.5`.
+New functions:
+- `_book_sharpness_total(target)` — walk-forward per-book total-sharpness ranking from odds_hist
+- `generate_cfb_picks(target, week=None)` — produces S1 + S2 picks, dedup conflicts, tag tier
+- `grade_cfb_picks(m, target)` — grade vs OPEN/SOFT total (signal-line = grade-line); pushes excluded
+- `report_cfb_picks(target)` — per-tier + per-source breakdown
+- CLI auto-runs in `--dry-run` flow alongside existing teaser pipeline
+
+### Harness performance (combined survivor pickset)
+
+| Year | n | All-picks hit% | All ROI | TIER 1 hit% | TIER 1 ROI |
+|---|---|---|---|---|---|
+| 2024 | 35 | 54.3% | +3.6% | 57.9% (n=19) | +10.5% |
+| 2025 | 41 | 61.0% | +16.4% | 68.4% (n=19) | +30.6% |
+| **Combined** | **76** | **57.9%** | **~+10%** | **63.2% (n=38)** | **~+20%** |
+
+Volume: ~35-40 picks per year. Operational, not bet-every-game.
+
+### Honest 2026 forward expectation
+
+- All-picks pooled: ~55-60% hit / +5-15% ROI at -110
+- TIER 1 only: ~58-65% hit / +12-25% ROI at -110
+- Per-season variance is real (2024 vs 2025 gap shows it)
+- Real unbiased test is 2026 live with no further tuning
 
 ## Forward-test harness (the consolidation step)
 `forecast_harness.py` (+ `README_HARNESS.md`) freezes all of the above and produces a weekly pick ledger
