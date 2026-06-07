@@ -471,6 +471,96 @@ matching b76 standalone-script results exactly.
 - **Margin-regression as standalone teaser leg generator**: poor calibration at tails.
   Reused as confirmation layer (sides_model confluence=1) instead.
 
+## 5. CFB-signal replication study (b77-b82, vaulted 2026-06-07)
+
+User ran a deep signal exploration in their CFB thread and asked us to replicate the 8 signals
+in NFL data. This section documents what survived, what didn't, and the methodology lessons.
+
+### Methodology rules (strict, from CFB user)
+1. Walk-forward only — no peek
+2. Per-season breakdown AND 2025 holdout
+3. **Confound-check every finding** — esp. totals signals masquerading as fade-high-totals
+4. Anchored vs unanchored model distinction matters (totals)
+5. Independent signals STACK, same-flavor don't
+6. Build proper models before declaring "dead"
+7. Low cover% is a high fade%
+8. Don't trust ~10-bet hot streaks
+9. Signal-line = grade-line
+10. Markets adapt — decay check year-over-year
+11. NFL is the most efficient market — expect microstructure/behavioral edges, not analytical
+
+### Final scorecard (8 signals tested, b77-b82)
+
+| # | Signal | Verdict | Best metric |
+|---|---|---|---|
+| 1 spread | Cross-book sharp/soft gap | **DEAD** | 23/44 = 52% pooled |
+| **1 total** | **Cross-book total gap** | **SURVIVES** | 60% pool, 64% 2025 holdout, confound passes |
+| 2 | Model × soft-book stack | **Already vaulted** (b70 confluence layer §1) | — |
+| **3 under** | **Both-teams-over-hot → UNDER at mid totals** | **SURVIVES** | +11.8pp confound lift, 62.5% on mid-band n=40 |
+| 3 over | Mirror (both-cold → OVER) | DEAD | 53% — books shade totals up |
+| 4 | SOS-padded road-fav fade (overall) | DEAD | 48% pool, NFL schedules too uniform |
+| 5a | Anchored team-UNDER model | DEAD | 47% pool, NFL team-total markets efficient |
+| 5b | Unanchored team-OVER model | DECAYING | 60% in 2019-22, 44% in 2023-25 |
+| 6 | Padded offense/defense unit-level | DEAD | 51% pool — NFL prices SOS effectively |
+| 7 | Pace/identity matchups | Skipped — user said priced in CFB |
+| 8 | Line-reversal veto | Not tested — useful future addition |
+
+### The two real survivors
+
+**Survivor #1 — Cross-book total gap (microstructure)** — b77, confound b82
+- Sharp top-3 books (consistent across 2024+2025 training): `betmgm`, `fanduel`, `betonlineag`
+- Soft bottom-3: `bovada`, `betrivers`, `betus`
+- Rule: when soft books' avg total > sharp books' by ≥0.5 → bet UNDER at soft
+  Inverse: when soft < sharp by ≥0.5 → bet OVER at soft
+- 2024: 5/11 = 45.5% (anti-edge year)
+- 2025: 14/22 = 63.6% (CONFOUND PASSES — naive "UNDER at slate-max" only hits 50.6%)
+- Pooled 2024+2025: 19/33 = 57.6%
+- **Real signal, not outlier-fade, but per-season variance is large**
+
+**Survivor #2 — Form mean reversion UNDER at mid totals (behavioral)** — b78
+- Both teams come in with ≥60% over-rate in prior games this season (each needs ≥3 priors)
+- AND posted total in 42-46.5 band (the mid-band where baseline UNDER is 50.7%)
+- Bet UNDER
+- Pooled (all years, all bands): 73/120 = 60.8%
+- Mid-band specifically: 25/40 = 62.5% (vs 50.7% baseline = **+11.8pp lift**, confound passes)
+- Per-season: 2019-22 was 70-100%, 2024-25 is 50-54% — signs of decay
+- **Asymmetric: mirror over signal does NOT work (53% pool)**
+
+### Portfolio backtest on 2025 holdout (b82)
+
+| Signal | n | Hit % | ROI @ -110 |
+|---|---|---|---|
+| S1 UNDER | 22 | 63.6% | +21.5% |
+| S1 OVER (inverse, thin) | 7 | 57.1% | +9.1% |
+| S2 UNDER (mid totals) | 12 | 58.3% | +11.4% |
+| **PORTFOLIO TOTAL** | **40** | **60.0%** | **+14.5% / +5.8 units** |
+
+Honest caveats:
+- 2025 IS the holdout; using to validate is OPTIMISTIC (rule 2)
+- 2024 was much weaker for S1 (45.5%)
+- Realistic 2026 forward expectation: **55-62% hit / +8 to +15% ROI**
+- Real test is 2026 live with no further tuning
+
+### What this study CONFIRMED about the NFL market
+
+> CFB user's prediction: "Expect the real edges to come from market microstructure and
+> behavioral mean-reversion, not from out-analyzing the football."
+
+**Confirmed exactly.** Every analytical-football angle (SOS overall, padded offense/defense, anchored
+team totals, unanchored team totals, identity matchups) came up dead in NFL. The two survivors are:
+- One microstructure (cross-book disagreement)
+- One behavioral (form-streak mean reversion)
+
+The NFL market efficiently prices opponent quality, schedule strength, and unit-level fundamentals.
+The exploitable edges live in (a) book-to-book pricing inefficiencies and (b) bettor recency bias
+on streaks. Future NFL research should focus there, not on better fundamentals models.
+
+### Not yet wired into the harness
+
+S1 + S2 picks live in b82 only. Decision pending whether to wire as a separate UNDER-totals
+pickset in `forecast_harness.py` (alongside the existing teaser product) or hold as research until
+2026 live data confirms.
+
 ## Forward-test harness (the consolidation step)
 `forecast_harness.py` (+ `README_HARNESS.md`) freezes all of the above and produces a weekly pick ledger
 with CLV tracking. Run `--dry-run 2025` to validate (reproduces: sides 52.1%, receiver_over 73-78%,
