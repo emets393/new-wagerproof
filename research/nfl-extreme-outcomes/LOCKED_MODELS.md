@@ -502,7 +502,7 @@ in NFL data. This section documents what survived, what didn't, and the methodol
 | 5a | Anchored team-UNDER model | DEAD | 47% pool, NFL team-total markets efficient |
 | 5b | Unanchored team-OVER model | DECAYING | 60% in 2019-22, 44% in 2023-25 |
 | 6 | Padded offense/defense unit-level | DEAD | 51% pool — NFL prices SOS effectively |
-| 7 | Pace/identity matchups | Skipped — user said priced in CFB |
+| 7 | Pace dominator/adapter | **DEAD** (b84) — CFB user's prediction confirmed, priced in NFL |
 | 8 | Line-reversal veto | Not tested — useful future addition |
 
 ### The two real survivors
