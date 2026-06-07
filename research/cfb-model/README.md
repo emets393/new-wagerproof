@@ -663,3 +663,16 @@ P5 ranked lostToHiPR + next-opp-strong = 52.3% pool55 but 2025=38% (FAILS holdou
 = 50.3% nothing. G5 robust = 60.7% pool62. -> edge is G5-specific (soft/thin market over-respects top-2 name team
 post-loss). P5 efficient bc bounce/letdown is the most public CFB narrative. Wired spot correctly G5-only. Same theme:
 edges live in G5 + unwatched signals; P5 + popular narratives are priced.
+
+## G5 fade x SOFT-BOOK GAP stacking -> DOES NOT STACK (keep G5 fade standalone)
+G5 fade base n=153 (60.8%). By soft-gap state: gap CONFIRMS fade -> 40.0% (n15, worse!); small/no gap (books agree)
+-> 65.1% (n83, consistent); nogap 59.6%. No positive synergy; requiring soft-book confirmation HURTS (and shrinks n to 15).
+Reason: both signals = "team overvalued" (overlap, not independent) + tiny intersection. Contrast model x soft-book STACK
+which works (fundamentals view + market view = truly independent). KEEP G5 fade standalone (no soft-book filter).
+
+## G5 fade SETTLED-LINE refinement (saved): fade works on settled lines, fails when sharp money already moving it
+Among G5-fade games WITH odds (n106): settled line (|soft_gap|<0.5) -> 65.1% (n83, per-season [50/72/67/65/61]);
+soft sharp-side ALREADY on fade (gap confirms) -> 40.0% (n15); soft against fade -> 62.5% (n8). Principled filter:
+SKIP fading into a line already moving your way (value bid out). Wired as exclusion on G5 fade spot.
+NOTE: settled-line (base+settled, 65% n83) is a DIFFERENT/larger cut than next-opp-strong (wired, 62% n56);
+both refine base (60.8% n153). Combining all -> n38. Decision pending: make settled-line the PRIMARY filter (bigger n+higher hit)?
