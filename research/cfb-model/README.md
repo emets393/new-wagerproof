@@ -640,3 +640,26 @@ avg market road spread +4.3 vs PR-implied -5.3 -> market already discounts paddi
 CREDIBILITY: resid ALONE predicts nothing (all-games 50.5/49.2) -> edge is the INTERACTION (padded + market still
 trusts it), not generic line-vs-PR. Sharpens SOS fade 54.7%->62.5%. Mechanism: padded rating + market buying it = double overvaluation, exposed on road.
 TODO: wire (needs SOS module + net_rating_diff PR calibration in harness). Pass when market already discounts (line<PR).
+
+## AFTER-BIG-GAME bounce-back / regression (team_bigame.py) -> THEORY FAILS, efficiently priced. NEGATIVE.
+Team ranked(P5)/top-2 conf PR(G5) whose prior opp was ranked/high-PR; split by win/loss of that big game.
+Theory: LOST->bounce(cover), WON->regress(fade). RESULT: P5 LOST->team covers 48.3%(pool46.8), WON->fade 49.2%
+(pool48.5) = neither works, ~noise, mild MOMENTUM not regression. 2025 spikes (60%) = small-sample, pool fails.
+G5 top-2: after loss cover only 38% (gets worse); "fade after loss" ~62% but per-season inconsistent [2021=43 opp]
+and just RE-EXPRESSES padded-good-G5-team overvaluation (sos_pr_line). No new edge. Bounce/letdown is the most
+PUBLIC narrative in CFB -> market prices it. (Contrast: our edges exploit UNwatched things-SOS padding, season over-rate.)
+
+## *** CORRECTION (user pushback): G5 fade-after-loss IS a real candidate (dissected) ***
+Earlier dismissed citing 2021 (=only n=7, meaningless) + "overlap padded-road" WITHOUT checking. Dissection:
+BASE fade G5 top-2 after loss to hi-PR opp -> opp covers 61.6% n151 +17.6roi, per-season 43(7)/69(26)/69(29)/60(25)/52(21)
+= strong+well-sampled 2022-24, 2025 soft(52). 2025 softness splits CLEANLY: when NEXT opp also strong(PR>=med) ->
+61.8% holds 2025 (63.6% n11); next opp weak -> 2025 fails (40%). G5-dog-next holds 2025 (60%). DISTINCT from padded-road
+(works home 60% n75 AND away). ROBUST FORM = user's original framing: fade G5 top-2 after loss to hi-PR opp WHEN next
+game ALSO vs strong team (two high-PR teams) ~62%, holds every well-sampled season incl 2025. Thin (robust cut n76,
+2025 n11) -> wire-and-track. Mechanism: deflated top-G5 team, market still respects name, faces another strong team -> overvalued.
+
+## G5 fade-after-loss: P5 CHECK -> G5-ONLY (P5 doesn't work). Tested P5 with SAME next-opp-strong filter:
+P5 ranked lostToHiPR + next-opp-strong = 52.3% pool55 but 2025=38% (FAILS holdout) [57/53/52/61/38]; P5 won/regress
+= 50.3% nothing. G5 robust = 60.7% pool62. -> edge is G5-specific (soft/thin market over-respects top-2 name team
+post-loss). P5 efficient bc bounce/letdown is the most public CFB narrative. Wired spot correctly G5-only. Same theme:
+edges live in G5 + unwatched signals; P5 + popular narratives are priced.

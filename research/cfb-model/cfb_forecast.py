@@ -148,6 +148,9 @@ def spot_library(df):
     ap = pd.to_numeric(df.get("away_padded", z), errors="coerce") == 1
     rr = pd.to_numeric(df.get("sos_resid", z), errors="coerce")
     S["SOS fade padded road (mkt trusts) HOME"] = ((ap & (rr <= -1)).fillna(False), "HOME", "side", "close")
+    # ===== G5 top-2 conf-PR team fading after a loss to a hi-PR opp, when this game also vs a strong team (team_bigame_dissect.py) =====
+    S["G5 fade top2 post-loss vs strong -> AWAY"] = ((pd.to_numeric(df.get("home_g5fade", z), errors="coerce") == 1).fillna(False), "AWAY", "side", "close")
+    S["G5 fade top2 post-loss vs strong -> HOME"] = ((pd.to_numeric(df.get("away_g5fade", z), errors="coerce") == 1).fillna(False), "HOME", "side", "close")
     # AAC over / SunBelt under SURVIVED the mean-reversion audit (+8.7 / +13.5 pts vs same-band baseline).
     S["CONF AAC total 52-59 OVER"] = (((conf == "American Athletic") & (tc > 52) & (tc <= 59)).fillna(False), "OVER", "total", "close")
     S["CONF SunBelt total 59-66 UNDER"] = (((conf == "Sun Belt") & (tc > 59) & (tc <= 66)).fillna(False), "UNDER", "total", "close")
@@ -237,6 +240,17 @@ def main():
     te["sos_resid"] = (-te.spread_close) - te.pr_margin                  # <0 = market favors road team MORE than PR
     te["pr_b0"] = b0; te["pr_b1"] = b1                                   # stash calibration for display
     te["away_padded"] = ((te.away_net_rating > nr_med) & (te.a_sos < sos_q40) & (te.a_sos_np >= 4)).astype(int)
+    # G5 top-2 conference-PR team fading after a loss to a high-PR opp, when THIS game is also vs a strong team
+    import pr_rank_signals
+    pr = pr_rank_signals.build(gm)
+    te = te.merge(pr.rename(columns={"team": "homeTeam", "pr_rank": "h_pr_rank"}), on=["season", "game_id", "homeTeam"], how="left")
+    te = te.merge(pr.rename(columns={"team": "awayTeam", "pr_rank": "a_pr_rank"}), on=["season", "game_id", "awayTeam"], how="left")
+    hi_lastopp = pd.concat([gm[gm.season < a.season].home_last_opp_net, gm[gm.season < a.season].away_last_opp_net]).quantile(0.66)
+    G5 = lambda s: ~s.isin(P5)
+    te["home_g5fade"] = (G5(te.homeConference) & (te.h_pr_rank <= 2) & (te.home_last_opp_net >= hi_lastopp)
+                         & (te.home_last_win == 0) & (te.away_net_rating >= nr_med)).astype(int)   # fade home -> bet AWAY
+    te["away_g5fade"] = (G5(te.awayConference) & (te.a_pr_rank <= 2) & (te.away_last_opp_net >= hi_lastopp)
+                         & (te.away_last_win == 0) & (te.home_net_rating >= nr_med)).astype(int)    # fade away -> bet HOME
     te = add_situational_flags(te)
     te, S = apply_spots(te)
 
