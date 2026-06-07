@@ -143,6 +143,13 @@ def spot_library(df):
     # ===== CONFERENCE structural numbers (conf_numbers.py) — grade @ close =====
     S["CONF SunBelt fade home-fav (dog)"] = (((conf == "Sun Belt") & (sc < 0)).fillna(False), "AWAY", "side", "close")
     S["CONF BigTen away-fav cover"] = (((conf == "Big Ten") & (sc > 0)).fillna(False), "AWAY", "side", "close")
+    # ===== RANKED-vs-RANKED: HFA underpriced in marquee games -> bet HOME (matchup_history exploration) =====
+    # both AP-ranked -> home covers 57.3% (n398, 8/9 seasons); home-favored subset 60.0% (confound-clean: general home 49.7%).
+    hr = pd.to_numeric(df.get("home_self_rank_is", z), errors="coerce")
+    ar = pd.to_numeric(df.get("away_self_rank_is", z), errors="coerce")
+    rr = (hr == 1) & (ar == 1)
+    S["RvR ranked-vs-ranked home-fav -> HOME"] = ((rr & (sc < 0)).fillna(False), "HOME", "side", "close")
+    S["RvR ranked-vs-ranked home-dog -> HOME"] = ((rr & (sc > 0)).fillna(False), "HOME", "side", "close")
     # ===== SOS: FADE PADDED ROAD TEAM when market still trusts the inflated rating (sos_pr_line.py) — grade @ close =====
     # away good rating + weak SOS (padded) AND line >= power-rating-implied (resid<=-1) -> bet HOME 62.5% (pass if mkt already discounts)
     ap = pd.to_numeric(df.get("away_padded", z), errors="coerce") == 1
@@ -203,11 +210,10 @@ def apply_spots(df):
     return df, S
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--season", type=int, default=2025)
-    ap.add_argument("--week", type=int, default=None)
-    a = ap.parse_args()
+def build_season(season, week=None):
+    """Train on <season (no leak), build every signal/spot for `season`. Returns (gm, feats, te, S).
+    Used by both main() and the portfolio backtest so they share identical logic."""
+    a = type("A", (), {"season": season, "week": week})()
     gm, feats = load()
     tr = gm[(gm.season < a.season) & gm.actual_total.notna()]
     te = gm[gm.season == a.season].copy()
@@ -263,6 +269,15 @@ def main():
                          & (te.away_last_win == 0) & settled).astype(int)    # fade away -> bet HOME
     te = add_situational_flags(te)
     te, S = apply_spots(te)
+    return gm, feats, te, S
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--season", type=int, default=2025)
+    ap.add_argument("--week", type=int, default=None)
+    a = ap.parse_args()
+    gm, feats, te, S = build_season(a.season, a.week)
 
     disp = te[["season", "week", "homeTeam", "awayTeam", "total_open", "pred_total", "totals_bet",
                "spread_open", "pred_spread", "sides_bet", "rev_veto", "spots"]].copy()

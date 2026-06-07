@@ -774,3 +774,20 @@ change = noise signature. Game-evolution premise BACKWARDS: CFB avg total FELL 5
 not up, market tracks it. Recent "good" years (2024/25) were ~1-game swings on n~9. RECIPE RETRACTED.
 ROBUST over edge STANDS: UNANCHORED model edge>=+6 -> over 54.9% n741 [53/56/54/56/58] confound-survived. Use MODEL not recipe.
 NOTE: discipline cuts both ways - earlier today proper tests found MORE (rescued G5/teamtotal/over); here finds LESS (recipe=noise).
+
+## RECURRING-MATCHUP / SERIES HISTORY (matchup_history.py) -> DEAD (watched narrative, priced). NEGATIVE.
+Linked prior meeting (within 2yr) per game, 2016-2025. Revenge ATS (lost last->cover): 50.5% priced. SPECIFIC
+(blown out 21+ by ranked-away -> avenge): 33.3% n33 = OPPOSITE (blown-out teams KEEP losing; too thin anyway).
+Keep-losing SU 46.8% (priced in spread). Coach: same(50.8)≈changed(49.7)=no series trend. TOTALS style persistence:
+prior-high->over 49.5%, prior-low->under 50.7% = NO persistence (rosters/coordinators turn over, market prices
+current teams). Rivalry over/under 49/51 nothing. Flickers: winner-regress-ATS (fade won-last ~52% but FAILS 2025
+holdout 48); prior-total>>line->under 53.6% = just fade-high-total confound. VERDICT: series memory priced or absent.
+Confirms: watched narratives (revenge/avenge) priced; edges live in unwatched mechanical corners.
+
+## RANKED-vs-RANKED -> BET HOME ATS (matchup_history/rank exploration) -> REAL EDGE
+User spot (ranked AWAY vs unranked HOME, home favored) = DEAD (49% n98, coin flip, priced). BUT pivot found:
+BOTH AP-RANKED -> HOME covers 57.3% n398 +9.4roi, per-season 2021-25 [55/56/64/56/53] every season, 8/9 yrs
+(only 2019=47). CONFOUND-CLEAN: general home cover 49.7% (home fav 49.1) -> both-ranked home +7.6pt specific lift,
+NOT generic HFA. Home FAV 60.0% (n245) > home DOG 52.6% (n152); independent of which team ranked higher (56.6/57.9).
+MECHANISM: HFA underpriced in marquee games (public backs ranked road 'name' team; crowd impact underweighted in
+big games). ~44/yr. Exception to 'watched=priced' (structural HFA mispricing not narrative). WIRE: both ranked -> HOME, Tier 2.
