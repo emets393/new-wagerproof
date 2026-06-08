@@ -819,3 +819,14 @@ spread-vs-PR within GameDay: efficient (PR side ~46-50%; only |resid|>=6 hints 5
 MECHANISM: GameDay public hammers marquee fav + over -> line/total inflate -> FADE move, bet UNDER. Stronger than
 broad findings bc GameDay concentrates public bias. CAVEAT: small n (movement only 2021-25), ~13 games/yr -> TRACK LIVE,
 sample grows slowly. Real lead, not noise (clean mechanism + directionally strong). RvR home edge is the bigger-sample cousin.
+
+## RIVALRY BIG-DOG (+14 to +21) trends (rivalry_bigdog.py) -- strong findings, small n
+Rivalry games (RIVALRIES list) where underdog gets +14 to +21, regular season. n=95 ATS / 96 totals (~11/yr).
+ATS (dog cover) flips HARD by dog location:
+  AWAY dog -> BACK it: 63.5% (40-23, n63) +21roi; per-season mostly + (strong 2022-24: 18-3), down 2016/2021/2025.
+  HOME dog -> FADE it (lay road favorite): dog covers only 31.2% (10-22, n32) -40roi; MOST CONSISTENT - dog failed
+    to cover 7 of 9 seasons (per-season 2-1/0-3/1-3/1-5/1-3/1-2/2-1/1-3/1-1).
+  ALL dogs 52.6% (coin flip - the split cancels).
+TOTALS: UNDER 60.4% (38-58, n96) +15roi; under 7/9 seasons (huge 2017 2-11, 2019 4-10, 2021 2-7) but 2023-25
+  flattened (mild recency cooloff). Mechanism: rivalry mismatch -> favorite grinds w/ lead, overmatched dog can't score.
+SAVE/TRACK: home-dog-fade most consistent; away-dog-back + under real but streakier. Small n (~11/yr) -> track live.
