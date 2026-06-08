@@ -42,3 +42,7 @@ dist-ssr
 # CFB model research — large data + generated outputs (not source)
 research/cfb-model/data/
 research/cfb-model/out/
+
+# keep the curated College GameDay source list (small, hand-sourced)
+!research/cfb-model/data/gameday/
+!research/cfb-model/data/gameday/gameday_raw.txt

@@ -806,3 +806,16 @@ Tier cells are n=12-24 (had to drop min-n to populate) = far too small. VERDICT:
 threshold has ZERO predictive value; market prices teams/coaches efficiently. This is the deepest bettor rabbit hole.
 DON'T build team/coach-history ATS systems. (Same answer as the Mississippi State single-team check.) Edges live in
 STRUCTURAL/MARKET signals (soft-book gaps, mean-reversion, marquee-HFA, padded-SOS), never "who covers as a dog."
+
+## COLLEGE GAMEDAY analysis (gameday_raw.txt, gameday_analysis.py, gameday_movement.py)
+GameDay games (ESPN editorial pick) sourced from Wikipedia -> data/gameday/gameday_raw.txt (123 reg-season FBS,
+93% matched to model_games). GameDay = peak public attention = purest public-bias filter.
+ATS/totals (full 2016-25, n~110): HOME cover 53.5% (mostly the ranked-vs-ranked HFA effect, GameDay=marquee both-ranked);
+totals lean UNDER 53.6%; night/day no diff; both-ranked vs one no diff. Streaks=trivia (away went 4-in-a-row 3x).
+spread-vs-PR within GameDay: efficient (PR side ~46-50%; only |resid|>=6 hints 56% n32). First-GameDay-of-season: n=9, too small.
+*** LINE MOVEMENT (2021-25, n~55-94) - PROMISING, mechanism-backed: ***
+  FADE the spread move: 55.9% (n68); line-moved-toward-away -> away covers only 38.9% (fade hard).
+  TOTALS heavy UNDER: over 34.5% (UNDER 65.5%, n55); total-moved-UP -> over only 30.8% (public over-bias, fade to under).
+MECHANISM: GameDay public hammers marquee fav + over -> line/total inflate -> FADE move, bet UNDER. Stronger than
+broad findings bc GameDay concentrates public bias. CAVEAT: small n (movement only 2021-25), ~13 games/yr -> TRACK LIVE,
+sample grows slowly. Real lead, not noise (clean mechanism + directionally strong). RvR home edge is the bigger-sample cousin.
