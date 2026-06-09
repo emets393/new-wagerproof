@@ -83,10 +83,10 @@ eas submit --platform android
 ## App Configuration
 
 Key settings in `app.json`:
-- **Version**: 3.5.0
+- **Version**: 3.5.5
 - **Bundle ID**: `com.wagerproof.mobile`
-- **iOS Build Number**: 30
-- **Android Version Code**: 40
+- **iOS Build Number**: 40
+- **Android Version Code**: 46
 - **New Architecture**: Enabled
 - **Typed Routes**: Enabled
 

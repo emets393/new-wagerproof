@@ -1,0 +1,43 @@
+{
+  // Template for the WagerProof MCP connector worker.
+  // Copy to `wrangler.jsonc` and fill in your own values. The real wrangler.jsonc
+  // is gitignored so the service-role key never lands in the repo (it is set as a
+  // secret anyway — see below — but origins/ids stay private too).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wagerproof-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Create with: wrangler kv namespace create OAUTH_KV  → paste the id here.
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "<YOUR_KV_NAMESPACE_ID>"
+    }
+  ],
+
+  // Publishable (non-secret) config. Anon keys are safe to ship to the browser
+  // consent page. The service-role key + token-encryption key are SECRETS:
+  //   wrangler secret put MAIN_SERVICE_ROLE_KEY
+  //   wrangler secret put TOKEN_ENC_KEY   # openssl rand -base64 32
+  "vars": {
+    "MAIN_URL": "https://gnjrklxotmbvnxbnnqgq.supabase.co",
+    "MAIN_ANON_KEY": "<main-anon-key>",
+    "CFB_URL": "https://jpxnjuwglavsjbgbasnl.supabase.co",
+    "CFB_ANON_KEY": "<cfb-anon-key>",
+    "MCP_BASE_URL": "https://<your-worker-host>",
+    "ALLOWED_ORIGINS": "https://claude.ai,https://claude.com,https://chatgpt.com,https://chat.openai.com",
+    // Flip to "true" once the corresponding Supabase provider is enabled + the
+    // worker origin is added to the provider's authorized redirect domains.
+    "GOOGLE_ENABLED": "false",
+    "APPLE_ENABLED": "false",
+    "EMAIL_ENABLED": "true"
+  }
+
+  // Custom domain (after the zone is on Cloudflare):
+  // "routes": [
+  //   { "pattern": "mcp.wagerproof.bet", "custom_domain": true }
+  // ]
+}

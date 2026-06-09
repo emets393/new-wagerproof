@@ -1,0 +1,3 @@
+# Resources directory — design system assets (colors xcassets, fonts, images)
+# land here so `Bundle.module` lookups resolve. Phase 0 leaves this empty;
+# Phase 2 implementer agents add brand assets as they need them.

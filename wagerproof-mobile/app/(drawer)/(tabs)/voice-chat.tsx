@@ -7,11 +7,12 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -28,6 +29,7 @@ import {
 } from '@/services/revenuecat';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import type { WagerBotVoice } from '@/services/wagerBotVoiceService';
+import type { AudioRouteDebugInfo, AudioRoutePortInfo } from '@/modules/audio-route';
 
 // Per-voice Lottie character animations — same 3 Monster files from Honeydew
 const VOICE_LOTTIE_MAP: Record<string, any> = {
@@ -51,7 +53,71 @@ function formatDuration(connectedAt: Date | null): string {
   return `${minutes}:${seconds}`;
 }
 
-export default function VoiceChatScreen() {
+function getAudioPortLabel(port?: AudioRoutePortInfo): string {
+  if (!port) return 'Unknown';
+
+  switch (port.portType) {
+    case 'Speaker':
+    case 'BuiltInSpeaker':
+      return 'Speaker';
+    case 'Receiver':
+    case 'BuiltInReceiver':
+      return 'Receiver';
+    case 'Headphones':
+    case 'HeadsetMic':
+      return 'Headphones';
+    case 'BluetoothA2DP':
+    case 'BluetoothHFP':
+    case 'BluetoothLE':
+      return 'Bluetooth';
+    case 'AirPlay':
+      return 'AirPlay';
+    default:
+      return port.portName || port.portType;
+  }
+}
+
+function getAudioRouteSummary(info: AudioRouteDebugInfo | null): string {
+  if (!info) return 'Current route unavailable';
+
+  const primaryOutput = info.outputs[0];
+  const outputLabel = getAudioPortLabel(primaryOutput);
+  const preferenceLabel = info.speakerPreferred ? 'speaker preferred' : 'speaker not preferred';
+  return `${outputLabel} • ${info.mode} • ${preferenceLabel}`;
+}
+
+function buildAudioRouteDebugMessage(info: AudioRouteDebugInfo | null, forceSpeakerEnabled: boolean): string {
+  if (!info) {
+    return 'No iPhone audio-route details are available right now.';
+  }
+
+  const outputLines = info.outputs.length > 0
+    ? info.outputs.map((port) => `- ${getAudioPortLabel(port)} (${port.portName})`).join('\n')
+    : '- None';
+  const inputLines = info.inputs.length > 0
+    ? info.inputs.map((port) => `- ${port.portName} (${port.portType})`).join('\n')
+    : '- None';
+  const optionLines = info.categoryOptions.length > 0
+    ? info.categoryOptions.join(', ')
+    : 'none';
+
+  return [
+    `Force loudspeaker setting: ${forceSpeakerEnabled ? 'ON' : 'OFF'}`,
+    `Speaker lock active: ${info.speakerLockEnabled ? 'YES' : 'NO'}`,
+    `Current output: ${info.isSpeakerOutput ? 'Speaker' : getAudioPortLabel(info.outputs[0])}`,
+    `Category: ${info.category}`,
+    `Mode: ${info.mode}`,
+    `Options: ${optionLines}`,
+    '',
+    'Outputs:',
+    outputLines,
+    '',
+    'Inputs:',
+    inputLines,
+  ].join('\n');
+}
+
+export function WagerBotVoiceChatScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
@@ -71,16 +137,20 @@ export default function VoiceChatScreen() {
     isSpeaking,
     selectedVoice,
     selectedPersonality,
+    forceSpeakerEnabled,
     lastError,
     connectedAt,
     promptSource,
     promptText,
+    audioRouteInfo,
     connect,
     startTalking,
     stopTalking,
     hangUp,
     changeVoice,
     changePersonality,
+    changeForceSpeaker,
+    refreshAudioRouteInfo,
   } = useWagerBotVoice(gameContext);
 
   // Animation controllers
@@ -234,6 +304,14 @@ export default function VoiceChatScreen() {
     }
   };
 
+  const handleAudioRouteDebugPress = useCallback(async () => {
+    const info = await refreshAudioRouteInfo();
+    Alert.alert(
+      'Audio Route Debug',
+      buildAudioRouteDebugMessage(info, forceSpeakerEnabled),
+    );
+  }, [forceSpeakerEnabled, refreshAudioRouteInfo]);
+
   if (!user) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: '#000' }]}>
@@ -344,6 +422,36 @@ export default function VoiceChatScreen() {
             </Text>
           </TouchableOpacity>
         )}
+        {Platform.OS === 'ios' && (
+          <TouchableOpacity
+            onPress={handleAudioRouteDebugPress}
+            style={[
+              styles.statusPill,
+              {
+                backgroundColor: audioRouteInfo?.isSpeakerOutput
+                  ? 'rgba(34,197,94,0.12)'
+                  : 'rgba(245,158,11,0.12)',
+                borderColor: audioRouteInfo?.isSpeakerOutput
+                  ? 'rgba(34,197,94,0.3)'
+                  : 'rgba(245,158,11,0.3)',
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={audioRouteInfo?.isSpeakerOutput ? 'volume-high' : 'ear-hearing'}
+              size={12}
+              color={audioRouteInfo?.isSpeakerOutput ? '#22c55e' : '#f59e0b'}
+            />
+            <Text
+              style={[
+                styles.statusText,
+                { color: audioRouteInfo?.isSpeakerOutput ? '#22c55e' : '#f59e0b' },
+              ]}
+            >
+              {audioRouteInfo ? getAudioPortLabel(audioRouteInfo.outputs[0]) : 'Audio Route'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Title */}
@@ -443,12 +551,20 @@ export default function VoiceChatScreen() {
         visible={showVoiceSettings}
         selectedVoice={selectedVoice}
         selectedPersonality={selectedPersonality}
+        forceSpeakerEnabled={forceSpeakerEnabled}
+        audioRouteSummary={getAudioRouteSummary(audioRouteInfo)}
         onVoiceChanged={changeVoice}
         onPersonalityChanged={changePersonality}
+        onForceSpeakerChanged={changeForceSpeaker}
+        onShowAudioDebug={handleAudioRouteDebugPress}
         onClose={() => setShowVoiceSettings(false)}
       />
     </LinearGradient>
   );
+}
+
+export default function LegacyVoiceChatRedirect() {
+  return <Redirect href="/wagerbot-voice" />;
 }
 
 const styles = StyleSheet.create({

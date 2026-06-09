@@ -397,7 +397,7 @@ export default function SecretSettingsScreen() {
               iconBackground="#e9faf0"
               title="WagerBot Voice"
               subtitle="Talk to WagerBot — real-time voice analysis"
-              onPress={() => router.push('/(drawer)/(tabs)/voice-chat')}
+              onPress={() => router.replace('/(drawer)/wagerbot-voice')}
               last
             />
           </SectionCard>

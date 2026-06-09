@@ -38,3 +38,19 @@ dist-ssr
 
 # Local Claude Code worktrees (gitlinks break CI submodule checkout)
 .claude/worktrees/
+
+# --- iOS / Xcode build output (wagerproof-ios-native) — multi-GB, never commit ---
+wagerproof-ios-native/build/
+wagerproof-ios-native/build-device/
+# SwiftPM build dir (carries embedded dependency git repos that break checkout)
+**/.build/
+**/DerivedData/
+# Xcode per-user state
+*.xcuserstate
+**/xcuserdata/
+
+# --- Supabase local temp ---
+supabase/.temp/
+
+# --- Cloudflare Workers local state ---
+.wrangler/

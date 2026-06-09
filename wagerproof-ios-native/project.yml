@@ -1,0 +1,108 @@
+# XcodeGen spec for the native Swift port of Wagerproof.
+# Run `xcodegen generate` from this directory to (re)create Wagerproof.xcodeproj.
+# The .xcodeproj is gitignored; project.yml is the source of truth.
+#
+# Migration plan: ../docs/wagerproof-migration/REBUILD_PLAN.md
+# Native primitive catalog: see Honeydew's docs/swift-migration/07-native-interactions.md
+
+name: Wagerproof
+
+options:
+  bundleIdPrefix: com.wagerproof
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  groupSortPosition: top
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    DEVELOPMENT_TEAM: 88DXY6L653
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_STRICT_CONCURRENCY: minimal
+
+packages:
+  WagerproofKit:
+    path: WagerproofKit
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.0.0
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios
+    from: 5.0.0
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: 7.0.0
+  Mixpanel:
+    url: https://github.com/mixpanel/mixpanel-swift
+    from: 4.3.0
+
+targets:
+  Wagerproof:
+    type: application
+    platform: iOS
+    sources:
+      - path: Wagerproof
+        excludes:
+          - Configuration/**
+          - Wagerproof.entitlements
+          - Info.plist
+    configFiles:
+      Debug: Wagerproof/Configuration/Debug.xcconfig
+      Release: Wagerproof/Configuration/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wagerproof.mobile
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_EMIT_LOC_STRINGS: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Wagerproof/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: Wagerproof/Wagerproof.entitlements
+        # Match Honeydew's strategy: skip entitlement baking on iphonesimulator SDK
+        # to avoid iOS 26 sim "Security policy issue" rejections (NSPOSIXErrorDomain 163)
+        # when ad-hoc-signed binaries carry team-prefixed entitlements.
+        "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "Apple Development"
+        CODE_SIGN_IDENTITY: ""
+    dependencies:
+      - package: WagerproofKit
+        product: WagerproofModels
+      - package: WagerproofKit
+        product: WagerproofServices
+      - package: WagerproofKit
+        product: WagerproofStores
+      - package: WagerproofKit
+        product: WagerproofDesign
+      - package: WagerproofKit
+        product: WagerproofSharedKit
+      - package: Supabase
+        product: Supabase
+      - package: RevenueCat
+        product: RevenueCat
+      - package: RevenueCat
+        product: RevenueCatUI
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      - package: GoogleSignIn
+        product: GoogleSignInSwift
+      - package: Mixpanel
+        product: Mixpanel
+    postCompileScripts:
+      - name: Strip entitlements on sim builds
+        script: |
+          if [ "${EFFECTIVE_PLATFORM_NAME}" = "-iphonesimulator" ]; then
+            EMPTY_PLIST='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict/></plist>'
+            for XCENT_FILE in "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app.xcent" "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app-Simulated.xcent"; do
+              if [ -f "$XCENT_FILE" ]; then
+                printf '%s' "$EMPTY_PLIST" > "$XCENT_FILE"
+              fi
+            done
+          fi
+        basedOnDependencyAnalysis: false

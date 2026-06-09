@@ -8,6 +8,9 @@ RCT_EXTERN_METHOD(forceToSpeaker:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(resetRoute:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(getRouteDebugInfo:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return NO;

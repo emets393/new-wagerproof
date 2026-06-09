@@ -1,1 +1,6 @@
-export { forceToSpeaker, resetAudioRoute } from './src/AudioRoute';
+export {
+  forceToSpeaker,
+  resetAudioRoute,
+  getAudioRouteDebugInfo,
+} from './src/AudioRoute';
+export type { AudioRouteDebugInfo, AudioRoutePortInfo } from './src/AudioRoute';

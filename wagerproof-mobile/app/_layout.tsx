@@ -19,7 +19,6 @@ import { NCAABBettingTrendsSheetProvider } from '../contexts/NCAABBettingTrendsS
 import { MLBBettingTrendsSheetProvider } from '../contexts/MLBBettingTrendsSheetContext';
 import { AdminModeProvider } from '../contexts/AdminModeContext';
 import { EditorPickSheetProvider } from '../contexts/EditorPickSheetContext';
-import { WagerBotChatSheetProvider } from '../contexts/WagerBotChatSheetContext';
 import { WagerBotSuggestionProvider, useWagerBotSuggestion } from '../contexts/WagerBotSuggestionContext';
 import { RevenueCatProvider, useRevenueCat } from '../contexts/RevenueCatContext';
 import { LearnWagerProofProvider } from '../contexts/LearnWagerProofContext';
@@ -41,7 +40,6 @@ import { MLBGameBottomSheet } from '../components/MLBGameBottomSheet';
 import { NBABettingTrendsBottomSheet } from '../components/NBABettingTrendsBottomSheet';
 import { NCAABBettingTrendsBottomSheet } from '../components/NCAABBettingTrendsBottomSheet';
 import { MLBBettingTrendsBottomSheet } from '../components/MLBBettingTrendsBottomSheet';
-import { WagerBotChatBottomSheet } from '../components/WagerBotChatBottomSheet';
 import { EditorPickCreatorBottomSheet } from '../components/EditorPickCreatorBottomSheet';
 import { FloatingAssistantBubble } from '../components/FloatingAssistantBubble';
 import { AnimatedSplash } from '../components/AnimatedSplash';
@@ -434,7 +432,6 @@ function RootNavigator() {
         <NBAGameBottomSheet />
         <NCAABGameBottomSheet />
         <MLBGameBottomSheet />
-        <WagerBotChatBottomSheet />
         {/* Floating assistant - renders above everything when detached */}
         <FloatingAssistantWrapper />
         {/* Deferred work — runs after onboarding, inside OnboardingProvider scope */}
@@ -488,25 +485,23 @@ function RootLayoutContent() {
                           <NBABettingTrendsSheetProvider>
                             <NCAABBettingTrendsSheetProvider>
                             <MLBBettingTrendsSheetProvider>
-                              <WagerBotChatSheetProvider>
-                                <LearnWagerProofProvider>
-                                  <MetaTestSheetProvider>
-                                    <AgentHRSheetProvider>
-                                    <RootNavigator />
-                                    <OfflineBanner />
-                                    <WebPurchaseRedemptionHandler />
-                                    <NotificationHandler />
-                                    <EditorPickCreatorBottomSheet />
-                                    <NBABettingTrendsBottomSheet />
-                                    <NCAABBettingTrendsBottomSheet />
-                                    <MLBBettingTrendsBottomSheet />
-                                    <LearnWagerProofBottomSheet />
-                                    <MetaTestBottomSheet />
-                                    <AgentHRBottomSheet />
-                                    </AgentHRSheetProvider>
-                                  </MetaTestSheetProvider>
-                                </LearnWagerProofProvider>
-                              </WagerBotChatSheetProvider>
+                              <LearnWagerProofProvider>
+                                <MetaTestSheetProvider>
+                                  <AgentHRSheetProvider>
+                                  <RootNavigator />
+                                  <OfflineBanner />
+                                  <WebPurchaseRedemptionHandler />
+                                  <NotificationHandler />
+                                  <EditorPickCreatorBottomSheet />
+                                  <NBABettingTrendsBottomSheet />
+                                  <NCAABBettingTrendsBottomSheet />
+                                  <MLBBettingTrendsBottomSheet />
+                                  <LearnWagerProofBottomSheet />
+                                  <MetaTestBottomSheet />
+                                  <AgentHRBottomSheet />
+                                  </AgentHRSheetProvider>
+                                </MetaTestSheetProvider>
+                              </LearnWagerProofProvider>
                             </MLBBettingTrendsSheetProvider>
                             </NCAABBettingTrendsSheetProvider>
                           </NBABettingTrendsSheetProvider>

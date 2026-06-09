@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
+import type { AudioRouteDebugInfo } from '@/modules/audio-route';
 import {
   WagerBotVoiceService,
   WagerBotVoice,
@@ -14,6 +15,7 @@ const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
 
 const VOICE_STORAGE_KEY = '@wagerbot_voice';
 const PERSONALITY_STORAGE_KEY = '@wagerbot_personality';
+const FORCE_SPEAKER_STORAGE_KEY = '@wagerbot_force_speaker';
 
 export function useWagerBotVoice(gameContext?: string) {
   const [isConnecting, setIsConnecting] = useState(true);
@@ -23,10 +25,12 @@ export function useWagerBotVoice(gameContext?: string) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<WagerBotVoice>('marin');
   const [selectedPersonality, setSelectedPersonality] = useState<WagerBotPersonality>('friendly');
+  const [forceSpeakerEnabled, setForceSpeakerEnabled] = useState(true);
   const [lastError, setLastError] = useState<string | null>(null);
   const [connectedAt, setConnectedAt] = useState<Date | null>(null);
   const [promptSource, setPromptSource] = useState<'supabase' | 'fallback' | null>(null);
   const [promptText, setPromptText] = useState<string | null>(null);
+  const [audioRouteInfo, setAudioRouteInfo] = useState<AudioRouteDebugInfo | null>(null);
 
   const serviceRef = useRef(WagerBotVoiceService.getInstance());
   const gameContextRef = useRef(gameContext);
@@ -37,14 +41,23 @@ export function useWagerBotVoice(gameContext?: string) {
   voiceRef.current = selectedVoice;
   const personalityRef = useRef(selectedPersonality);
   personalityRef.current = selectedPersonality;
+  const forceSpeakerRef = useRef(forceSpeakerEnabled);
+  forceSpeakerRef.current = forceSpeakerEnabled;
+
+  const refreshAudioRouteInfo = useCallback(async () => {
+    const info = await serviceRef.current.getAudioRouteDebugInfo();
+    setAudioRouteInfo(info);
+    return info;
+  }, []);
 
   // Load persisted preferences on mount (runs once, tabs stay mounted)
   useEffect(() => {
     (async () => {
       try {
-        const [storedVoice, storedPersonality] = await Promise.all([
+        const [storedVoice, storedPersonality, storedForceSpeaker] = await Promise.all([
           AsyncStorage.getItem(VOICE_STORAGE_KEY),
           AsyncStorage.getItem(PERSONALITY_STORAGE_KEY),
+          AsyncStorage.getItem(FORCE_SPEAKER_STORAGE_KEY),
         ]);
         if (storedVoice) {
           const v = WagerBotVoiceService.normalizeVoice(storedVoice);
@@ -56,6 +69,10 @@ export function useWagerBotVoice(gameContext?: string) {
           setSelectedPersonality(p);
           personalityRef.current = p;
         }
+        const shouldForceSpeaker = storedForceSpeaker == null ? true : storedForceSpeaker === 'true';
+        setForceSpeakerEnabled(shouldForceSpeaker);
+        forceSpeakerRef.current = shouldForceSpeaker;
+        await serviceRef.current.setForceSpeakerEnabled(shouldForceSpeaker);
       } catch {}
     })();
   }, []);
@@ -73,6 +90,7 @@ export function useWagerBotVoice(gameContext?: string) {
       setConnectedAt(new Date());
       setPromptSource(service.promptSource);
       setPromptText(service.promptText);
+      refreshAudioRouteInfo().catch(() => {});
     };
 
     service.onDisconnected = () => {
@@ -82,6 +100,7 @@ export function useWagerBotVoice(gameContext?: string) {
       setIsWaitingForResponse(false);
       setIsSpeaking(false);
       setConnectedAt(null);
+      setAudioRouteInfo(null);
     };
 
     service.onListeningStarted = () => {
@@ -106,11 +125,13 @@ export function useWagerBotVoice(gameContext?: string) {
       setIsListening(false);
       setIsWaitingForResponse(false);
       setIsSpeaking(true);
+      refreshAudioRouteInfo().catch(() => {});
     };
 
     service.onSpeakingFinished = () => {
       setIsSpeaking(false);
       setIsWaitingForResponse(false);
+      refreshAudioRouteInfo().catch(() => {});
     };
 
     service.onError = (error: string) => {
@@ -120,13 +141,14 @@ export function useWagerBotVoice(gameContext?: string) {
       setIsSpeaking(false);
       setLastError(error);
     };
-  }, []);
+  }, [refreshAudioRouteInfo]);
 
   const connect = useCallback(async () => {
     setIsConnecting(true);
     setIsConnected(false);
     setLastError(null);
     setConnectedAt(null);
+    await serviceRef.current.setForceSpeakerEnabled(forceSpeakerRef.current);
     await serviceRef.current.initialize(
       voiceRef.current,
       personalityRef.current,
@@ -140,6 +162,7 @@ export function useWagerBotVoice(gameContext?: string) {
   useFocusEffect(
     useCallback(() => {
       setupCallbacks();
+      serviceRef.current.setForceSpeakerEnabled(forceSpeakerRef.current).catch(() => {});
 
       // Small delay to let persisted preferences load on first focus
       const timeout = setTimeout(() => {
@@ -159,8 +182,9 @@ export function useWagerBotVoice(gameContext?: string) {
         setLastError(null);
         setPromptSource(null);
         setPromptText(null);
+        setAudioRouteInfo(null);
       };
-    }, [])
+    }, [connect, setupCallbacks])
   );
 
   // Disconnect when app goes to background/inactive
@@ -240,6 +264,16 @@ export function useWagerBotVoice(gameContext?: string) {
     await serviceRef.current.updatePersonality(normalized, gameContextRef.current);
   }, []);
 
+  const changeForceSpeaker = useCallback(async (enabled: boolean) => {
+    Haptics.selectionAsync();
+    setForceSpeakerEnabled(enabled);
+    forceSpeakerRef.current = enabled;
+
+    AsyncStorage.setItem(FORCE_SPEAKER_STORAGE_KEY, enabled ? 'true' : 'false').catch(() => {});
+    await serviceRef.current.setForceSpeakerEnabled(enabled);
+    await refreshAudioRouteInfo();
+  }, [refreshAudioRouteInfo]);
+
   return {
     isConnecting,
     isConnected,
@@ -248,15 +282,19 @@ export function useWagerBotVoice(gameContext?: string) {
     isSpeaking,
     selectedVoice,
     selectedPersonality,
+    forceSpeakerEnabled,
     lastError,
     connectedAt,
     promptSource,
     promptText,
+    audioRouteInfo,
     connect,
     startTalking,
     stopTalking,
     hangUp,
     changeVoice,
     changePersonality,
+    changeForceSpeaker,
+    refreshAudioRouteInfo,
   };
 }

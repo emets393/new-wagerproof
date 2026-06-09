@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+dist/
+# Real wrangler config holds project ids / origins — keep it out of the repo.
+wrangler.jsonc
+.dev.vars
+*.log
+.DS_Store

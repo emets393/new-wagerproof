@@ -1,0 +1,309 @@
+rn_path,name,type,status,note,reviewer,reviewed_at
+wagerproof-mobile/app/(drawer)/(tabs)/scoreboard.tsx,scoreboard,screen,candidate,B07 ported; fidelity table at docs/wagerproof-migration/fidelity/b07-scoreboard.md,,
+wagerproof-mobile/components/LiveScoreCard.tsx,LiveScoreCard,component,candidate,B07 ported,,
+wagerproof-mobile/components/LiveScoreCardShimmer.tsx,LiveScoreCardShimmer,component,candidate,B07 ported,,
+wagerproof-mobile/components/LiveScorePredictionCard.tsx,LiveScorePredictionCard,component,candidate,B07 ported; team colors deferred to ticket #008,,
+wagerproof-mobile/components/LiveScoreDetailModal.tsx,LiveScoreDetailModal,sheet,candidate,B07 ported as native .sheet,,
+wagerproof-mobile/services/liveScoresService.ts,liveScoresService,service,candidate,B07 ported to WagerproofServices/LiveScoresService.swift,,
+wagerproof-mobile/hooks/useLiveScores.ts,useLiveScores,hook,candidate,B07 ported to WagerproofStores/LiveScoresStore.swift,,
+wagerproof-mobile/types/liveScores.ts,liveScores,type,candidate,B07 ported to WagerproofModels/LiveScore.swift,,
+wagerproof-mobile/app/(auth)/_layout.tsx,(auth)/_layout,layout,candidate,B01 ported to Features/Auth/AuthRouter.swift,,
+wagerproof-mobile/app/(auth)/login.tsx,login,screen,candidate,B01 ported to Features/Auth/LoginView.swift; waivers #001 #002 #003,,
+wagerproof-mobile/app/(auth)/email-login.tsx,email-login,screen,candidate,B01 ported to Features/Auth/EmailLoginView.swift; waiver #004,,
+wagerproof-mobile/app/(auth)/signup.tsx,signup,screen,candidate,B01 ported to Features/Auth/SignupView.swift; waiver #004,,
+wagerproof-mobile/app/(auth)/forgot-password.tsx,forgot-password,screen,candidate,B01 ported to Features/Auth/ForgotPasswordView.swift; waiver #004,,
+wagerproof-mobile/contexts/AuthContext.tsx,AuthContext,store (context),candidate,B01 extended WagerproofStores/AuthStore.swift with signInWithApple/signInWithGoogle,,
+wagerproof-mobile/app/(drawer)/(tabs)/_layout.tsx,_layout,layout,candidate,B03 ported to Features/Navigation/MainTabView.swift,b03-implementer,2026-05-20
+wagerproof-mobile/app/(drawer)/_layout.tsx,_layout,layout,candidate,B03 collapsed into MainTabView + SideMenuSheet,b03-implementer,2026-05-20
+wagerproof-mobile/components/SideMenu.tsx,SideMenu,component,candidate,B03 ported (structural rows); subscription state lands in B08,b03-implementer,2026-05-20
+wagerproof-mobile/components/FloatingAssistantBubble.tsx,FloatingAssistantBubble,component,candidate,B03 launcher pill shipped; draggable mode lands in B17,b03-implementer,2026-05-20
+wagerproof-mobile/components/OfflineBanner.tsx,OfflineBanner,component,candidate,B03 ported (NWPathMonitor),b03-implementer,2026-05-20
+wagerproof-mobile/components/GlobalErrorBoundary.tsx,GlobalErrorBoundary,component,candidate,B03 deferred to per-screen .alert integration,b03-implementer,2026-05-20
+wagerproof-mobile/app/(drawer)/(tabs)/_layout.tsx,_layout,layout,reviewed,B03 reviewer PASS — MainTabView native TabView + .sheet drawer,b03-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(drawer)/_layout.tsx,_layout,layout,reviewed,B03 reviewer PASS — drawer collapsed into MainTabView + SideMenuSheet,b03-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/SideMenu.tsx,SideMenu,component,reviewed,B03 reviewer PASS — structural rows + nav; sub state lands B08,b03-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/FloatingAssistantBubble.tsx,FloatingAssistantBubble,component,reviewed,B03 reviewer PASS — launcher pill shipped; draggable mode lands B17,b03-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/OfflineBanner.tsx,OfflineBanner,component,reviewed,B03 reviewer PASS — NWPathMonitor port,b03-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/GlobalErrorBoundary.tsx,GlobalErrorBoundary,component,reviewed,B03 reviewer PASS — deferred to per-screen .alert per RN→Swift idiom delta,b03-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(drawer)/(tabs)/feature-requests.tsx,feature-requests,screen,candidate,B09 ported to Features/FeatureRequests/FeatureRequestsView.swift; fidelity table at docs/wagerproof-migration/fidelity/b09-feature-requests.md,,
+wagerproof-mobile/app/(drawer)/(tabs)/scoreboard.tsx,scoreboard,screen,reviewed,B07 reviewer PASS — 3 ⚠️ waivers tracked (#009 #010 #011),b07-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/LiveScoreCard.tsx,LiveScoreCard,component,reviewed,B07 reviewer PASS,b07-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/LiveScoreCardShimmer.tsx,LiveScoreCardShimmer,component,reviewed,B07 reviewer PASS,b07-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/LiveScorePredictionCard.tsx,LiveScorePredictionCard,component,reviewed,B07 reviewer PASS; team colors ticket #008 still open,b07-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/LiveScoreDetailModal.tsx,LiveScoreDetailModal,sheet,reviewed,B07 reviewer PASS — native .sheet with .presentationDetents,b07-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/services/liveScoresService.ts,liveScoresService,service,reviewed,B07 reviewer PASS — backend byte-identical,b07-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/hooks/useLiveScores.ts,useLiveScores,hook,reviewed,B07 reviewer PASS — ported to LiveScoresStore,b07-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/types/liveScores.ts,liveScores,type,reviewed,B07 reviewer PASS — ported to WagerproofModels/LiveScore.swift,b07-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(drawer)/(tabs)/feature-requests.tsx,feature-requests,screen,reviewed,b09-reviewer-2026-05-20 signoff,b09-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(auth)/_layout.tsx,(auth)/_layout,layout,reviewed,B01 reviewer PASS — ported to Features/Auth/AuthRouter.swift,b01-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(auth)/login.tsx,login,screen,reviewed,B01 reviewer PASS — waivers #001 #002 #003 tracked,b01-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(auth)/email-login.tsx,email-login,screen,reviewed,B01 reviewer PASS — waiver #004 tracked,b01-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(auth)/signup.tsx,signup,screen,reviewed,B01 reviewer PASS — waiver #004 tracked,b01-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(auth)/forgot-password.tsx,forgot-password,screen,reviewed,B01 reviewer PASS — waiver #004 tracked,b01-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/contexts/AuthContext.tsx,AuthContext,store (context),reviewed,B01 reviewer PASS — extended AuthStore with signInWithApple/signInWithGoogle,b01-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(drawer)/(tabs)/picks.tsx,picks,screen,candidate,B05 ported to Features/Picks/PicksView.swift; waivers #008 #014 #015 #016; fidelity table at docs/wagerproof-migration/fidelity/b05-picks.md,,
+wagerproof-mobile/components/EditorPickCard.tsx,EditorPickCard,component,candidate,B05 ported to Features/Picks/Components/EditorPickCard.swift,,
+wagerproof-mobile/components/CompactPickCard.tsx,CompactPickCard,component,candidate,B05 ported to Features/Picks/Components/CompactPickCard.swift,,
+wagerproof-mobile/components/LockedPickCard.tsx,LockedPickCard,component,candidate,B05 ported to Features/Picks/Components/LockedPickCard.swift; paywall presenter wires in B08,,
+wagerproof-mobile/components/PickCardErrorBoundary.tsx,PickCardErrorBoundary,component,candidate,B05 ported to Features/Picks/Components/PickCardErrorBoundary.swift; shape-invariant guard (SwiftUI views don't throw),,
+wagerproof-mobile/components/PickDetailBottomSheet.tsx,PickDetailBottomSheet,sheet,candidate,B05 ported to Features/Picks/Sheets/PickDetailBottomSheet.swift,,
+wagerproof-mobile/components/EditorPickCreatorBottomSheet.tsx,EditorPickCreatorBottomSheet,sheet,candidate,B05 ported to Features/EditorPicks/Sheets/EditorPickCreatorBottomSheet.swift; waiver #014 for game-picker,,
+wagerproof-mobile/components/EditorPicksStatsBanner.tsx,EditorPicksStatsBanner,component,candidate,B05 ported to Features/EditorPicks/Components/EditorPicksStatsBanner.swift; editor-picks-stats route push deferred to B16,,
+wagerproof-mobile/contexts/EditorPickSheetContext.tsx,EditorPickSheetContext,store (context),candidate,B05 ported to WagerproofStores/PickDetailSheetStore.swift (EditorPickSheetStore),,
+wagerproof-mobile/contexts/PickDetailSheetContext.tsx,PickDetailSheetContext,store (context),candidate,B05 ported to WagerproofStores/PickDetailSheetStore.swift,,
+wagerproof-mobile/types/editorsPicks.ts,editorsPicks,type,candidate,B05 ported to WagerproofModels/EditorPick.swift,,
+wagerproof-mobile/utils/unitsCalculation.ts,unitsCalculation,util,candidate,B05 ported to WagerproofModels/UnitsCalculation.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/picks.tsx,picks,screen,reviewed,B05 reviewer PASS — waivers #008 #012 #013 #014 #015 #016,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/EditorPickCard.tsx,EditorPickCard,component,reviewed,B05 reviewer PASS,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/CompactPickCard.tsx,CompactPickCard,component,reviewed,B05 reviewer PASS,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/LockedPickCard.tsx,LockedPickCard,component,reviewed,B05 reviewer PASS — paywall presenter wires in B08,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/PickCardErrorBoundary.tsx,PickCardErrorBoundary,component,reviewed,B05 reviewer PASS — shape-invariant guard,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/PickDetailBottomSheet.tsx,PickDetailBottomSheet,sheet,reviewed,B05 reviewer PASS,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/EditorPickCreatorBottomSheet.tsx,EditorPickCreatorBottomSheet,sheet,reviewed,B05 reviewer PASS — waiver #014 for game-picker,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/EditorPicksStatsBanner.tsx,EditorPicksStatsBanner,component,reviewed,B05 reviewer PASS — waiver #013 for route push,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/contexts/EditorPickSheetContext.tsx,EditorPickSheetContext,store (context),reviewed,B05 reviewer PASS,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/contexts/PickDetailSheetContext.tsx,PickDetailSheetContext,store (context),reviewed,B05 reviewer PASS,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/types/editorsPicks.ts,editorsPicks,type,reviewed,B05 reviewer PASS,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/utils/unitsCalculation.ts,unitsCalculation,util,reviewed,B05 reviewer PASS — Formula B unit math byte-identical,b05-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(drawer)/(tabs)/roast.tsx,roast,screen,candidate,B19 ported to Features/Roast/RoastView.swift; reached from SideMenu (not bottom tab) per REBUILD_PLAN,,
+wagerproof-mobile/components/roast/RoastScreen.tsx,RoastScreen,screen-component,candidate,B19 ported to Features/Roast/RoastView.swift,,
+wagerproof-mobile/components/roast/RoastMicButton.tsx,RoastMicButton,component,candidate,B19 ported to Features/Roast/Components/RoastMicButtonView.swift,,
+wagerproof-mobile/components/roast/RoastIntensitySelector.tsx,RoastIntensitySelector,component,candidate,B19 ported to Features/Roast/Components/RoastIntensitySelectorView.swift,,
+wagerproof-mobile/hooks/useRoastSession.ts,useRoastSession,hook,candidate,B19 ported to WagerproofStores/RoastSessionStore.swift; driver protocol seam — Gemini Live + STT driver lands in follow-up,,
+wagerproof-mobile/types/roast.ts,roast,type,candidate,B19 ported as nested types in WagerproofStores/RoastSessionStore.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/outliers.tsx,outliers,screen,candidate,B06 ported to Features/Outliers/OutliersView.swift + OutliersDetailView.swift; waivers #021 #022 #023 #024 #019 #020; fidelity table at docs/wagerproof-migration/fidelity/b06-outliers.md,,
+wagerproof-mobile/components/OutlierMatchupCard.tsx,OutlierMatchupCard,component,candidate,B06 ported to Features/Outliers/Components/OutlierMatchupCard.swift; team palette fallback tracked by waiver #024,,
+wagerproof-mobile/components/OutliersHeroHeader.tsx,OutliersHeroHeader,component,candidate,B06 ported to Features/Outliers/Components/OutliersHeroHeader.swift,,
+wagerproof-mobile/components/OutlierCardShimmer.tsx,OutlierCardShimmer,component,candidate,B06 ported to Features/Outliers/Components/OutlierCardShimmer.swift,,
+wagerproof-mobile/components/ToolExplainerBanner.tsx,ToolExplainerBanner,component,candidate,B06 ported to Features/Outliers/Components/ToolExplainerBanner.swift,,
+wagerproof-mobile/services/outliersService.ts,outliersService,service,candidate,B06 ported to WagerproofServices/OutliersService.swift; queries byte-identical,,
+wagerproof-mobile/app/(onboarding)/_layout.tsx,(onboarding)/_layout,layout,candidate,B02 collapsed into RootView .onboarding branch + OnboardingView,,
+wagerproof-mobile/app/(onboarding)/index.tsx,(onboarding)/index,screen,candidate,B02 ported to Features/Onboarding/OnboardingView.swift; fidelity table at docs/wagerproof-migration/fidelity/b02-onboarding.md,,
+wagerproof-mobile/contexts/OnboardingContext.tsx,OnboardingContext,store (context),candidate,B02 extended WagerproofStores/OnboardingStore.swift; survey + agent draft + completion sync,,
+wagerproof-mobile/components/OnboardingGuard.tsx,OnboardingGuard,component,candidate,B02 subsumed into RootRouter.resolve(authPhase:onboardingComplete:),,
+wagerproof-mobile/components/PostOnboardingPaywall.tsx,PostOnboardingPaywall,component,candidate,B02 ported as placeholder; RevenueCat paywall waivered #026,,
+wagerproof-mobile/components/onboarding/ProgressIndicator.tsx,ProgressIndicator,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingProgressIndicator.swift,,
+wagerproof-mobile/components/onboarding/onboardingStyles.ts,onboardingStyles,constant,candidate,B02 ported as OnboardingCTAButton + OnboardingBottomBar in Components/OnboardingCTA.swift,,
+wagerproof-mobile/components/onboarding/steps/Step1_PersonalizationIntro.tsx,Step1_PersonalizationIntro,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingPersonalizationIntroView.swift; waiver #029 Lottie,,
+wagerproof-mobile/components/onboarding/steps/Step1b_TermsAcceptance.tsx,Step1b_TermsAcceptance,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingTermsView.swift,,
+wagerproof-mobile/components/onboarding/steps/Step2_SportsSelection.tsx,Step2_SportsSelection,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingSportsView.swift,,
+wagerproof-mobile/components/onboarding/steps/Step3_AgeConfirmation.tsx,Step3_AgeConfirmation,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingAgeView.swift,,
+wagerproof-mobile/components/onboarding/steps/Step4_BettorType.tsx,Step4_BettorType,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingBettorTypeView.swift,,
+wagerproof-mobile/components/onboarding/steps/Step5_PrimaryGoal.tsx,Step5_PrimaryGoal,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingPrimaryGoalView.swift,,
+wagerproof-mobile/components/onboarding/steps/Step6_FeatureSpotlight.tsx,Step6_FeatureSpotlight,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingFeatureSpotlightView.swift; waiver #028 multi-phase tutorial,,
+wagerproof-mobile/components/onboarding/steps/Step10_ValueClaim.tsx,Step10_ValueClaim,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingValueClaimView.swift,,
+wagerproof-mobile/components/onboarding/steps/Step13_AcquisitionSource.tsx,Step13_AcquisitionSource,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingAcquisitionView.swift,,
+wagerproof-mobile/components/onboarding/steps/Step14_DataTransparency.tsx,Step14_DataTransparency,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingDataTransparencyView.swift; ATTrackingManager wired,,
+wagerproof-mobile/components/onboarding/steps/AgentValue1_247.tsx,AgentValue1_247,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingAgentValueViews.swift; PixelOffice waivered #001,,
+wagerproof-mobile/components/onboarding/steps/AgentValue2_VirtualAssistant.tsx,AgentValue2_VirtualAssistant,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingAgentValueViews.swift,,
+wagerproof-mobile/components/onboarding/steps/AgentValue3_MultipleStrategies.tsx,AgentValue3_MultipleStrategies,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingAgentValueViews.swift,,
+wagerproof-mobile/components/onboarding/steps/AgentValue4_Leaderboard.tsx,AgentValue4_Leaderboard,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingAgentValueViews.swift,,
+wagerproof-mobile/components/onboarding/steps/AgentValueScreen.tsx,AgentValueScreen,component,candidate,B02 collapsed into AgentValueScaffold inside OnboardingAgentValueViews.swift,,
+wagerproof-mobile/components/onboarding/steps/OnboardingAgentBuilder.tsx,OnboardingAgentBuilder,component,candidate,B02 ported to Features/Onboarding/Components/OnboardingAgentBuilderView.swift; waiver #025 personality/conditions/insights deferred to B14,,
+wagerproof-mobile/components/onboarding/steps/StepAgentGeneration.tsx,StepAgentGeneration,component,candidate,B02 ported to Features/Onboarding/Components/AgentGenerationView.swift; Lottie planets → PhaseAnimator brain,,
+wagerproof-mobile/components/onboarding/steps/StepAgentBorn.tsx,StepAgentBorn,component,candidate,B02 ported to Features/Onboarding/Components/AgentBornView.swift; waiver #026 confetti + feedback modal,,
+wagerproof-mobile/app/(drawer)/(tabs)/outliers.tsx,outliers,screen,reviewed,B06 reviewer PASS — waivers #019 #020 #021 #022 #023 #024 #062; follow-ups: parity screenshots + .searchable + ticket body cleanup in next polish pass,b06-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/OutlierMatchupCard.tsx,OutlierMatchupCard,component,reviewed,B06 reviewer PASS — team palette waiver #024,b06-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/OutliersHeroHeader.tsx,OutliersHeroHeader,component,reviewed,B06 reviewer PASS,b06-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/OutlierCardShimmer.tsx,OutlierCardShimmer,component,reviewed,B06 reviewer PASS — RN-faithful pulse loop,b06-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/ToolExplainerBanner.tsx,ToolExplainerBanner,component,reviewed,B06 reviewer PASS,b06-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/services/outliersService.ts,outliersService,service,reviewed,B06 reviewer PASS — backend byte-identical,b06-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(onboarding)/_layout.tsx,(onboarding)/_layout,layout,reviewed,b02 — collapsed into RootView .onboarding,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(onboarding)/index.tsx,(onboarding)/index,screen,reviewed,b02 — Features/Onboarding/OnboardingView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/contexts/OnboardingContext.tsx,OnboardingContext,store (context),reviewed,b02 — WagerproofStores/OnboardingStore.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/OnboardingGuard.tsx,OnboardingGuard,component,reviewed,b02 — subsumed into RootRouter,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/PostOnboardingPaywall.tsx,PostOnboardingPaywall,component,reviewed,b02 — placeholder; full RevenueCat #026,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/ProgressIndicator.tsx,ProgressIndicator,component,reviewed,b02 — OnboardingProgressIndicator.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/onboardingStyles.ts,onboardingStyles,constant,reviewed,b02 — OnboardingCTA.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step1_PersonalizationIntro.tsx,Step1_PersonalizationIntro,component,reviewed,b02 — OnboardingPersonalizationIntroView.swift; #029,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step1b_TermsAcceptance.tsx,Step1b_TermsAcceptance,component,reviewed,b02 — OnboardingTermsView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step2_SportsSelection.tsx,Step2_SportsSelection,component,reviewed,b02 — OnboardingSportsView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step3_AgeConfirmation.tsx,Step3_AgeConfirmation,component,reviewed,b02 — OnboardingAgeView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step4_BettorType.tsx,Step4_BettorType,component,reviewed,b02 — OnboardingBettorTypeView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step5_PrimaryGoal.tsx,Step5_PrimaryGoal,component,reviewed,b02 — OnboardingPrimaryGoalView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step6_FeatureSpotlight.tsx,Step6_FeatureSpotlight,component,reviewed,b02 — OnboardingFeatureSpotlightView.swift; #028,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step10_ValueClaim.tsx,Step10_ValueClaim,component,reviewed,b02 — OnboardingValueClaimView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step13_AcquisitionSource.tsx,Step13_AcquisitionSource,component,reviewed,b02 — OnboardingAcquisitionView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/Step14_DataTransparency.tsx,Step14_DataTransparency,component,reviewed,b02 — OnboardingDataTransparencyView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/AgentValue1_247.tsx,AgentValue1_247,component,reviewed,b02 — OnboardingAgentValueViews.swift; PixelOffice #001,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/AgentValue2_VirtualAssistant.tsx,AgentValue2_VirtualAssistant,component,reviewed,b02 — OnboardingAgentValueViews.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/AgentValue3_MultipleStrategies.tsx,AgentValue3_MultipleStrategies,component,reviewed,b02 — OnboardingAgentValueViews.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/AgentValue4_Leaderboard.tsx,AgentValue4_Leaderboard,component,reviewed,b02 — OnboardingAgentValueViews.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/AgentValueScreen.tsx,AgentValueScreen,component,reviewed,b02 — AgentValueScaffold private subview,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/OnboardingAgentBuilder.tsx,OnboardingAgentBuilder,component,reviewed,b02 — OnboardingAgentBuilderView.swift; #025,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/StepAgentGeneration.tsx,StepAgentGeneration,component,reviewed,b02 — AgentGenerationView.swift,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/components/onboarding/steps/StepAgentBorn.tsx,StepAgentBorn,component,reviewed,b02 — AgentBornView.swift; #026,b02-reviewer-2026-05-20,2026-05-20
+wagerproof-mobile/app/(drawer)/(tabs)/settings.tsx,settings,screen,candidate,B08 ported to Features/Settings/SettingsView.swift; waivers #050 #052,,
+wagerproof-mobile/app/(drawer)/settings.tsx,settings (re-export),layout,candidate,B08 collapsed into tab routing,,
+wagerproof-mobile/app/(modals)/_layout.tsx,(modals)/_layout,layout,candidate,B08 collapsed into SettingsView .sheet/.fullScreenCover,,
+wagerproof-mobile/app/(modals)/delete-account.tsx,delete-account,screen,candidate,B08 ported to Features/Settings/DeleteAccountView.swift; waiver #054,,
+wagerproof-mobile/app/(modals)/discord.tsx,discord,screen,candidate,B08 ported to Features/Settings/DiscordView.swift,,
+wagerproof-mobile/app/(modals)/ios-widget.tsx,ios-widget,screen,candidate,B08 ported to Features/Settings/IosWidgetView.swift,,
+wagerproof-mobile/app/(modals)/secret-settings.tsx,secret-settings,screen,candidate,B08 ported to Features/Settings/SecretSettingsView.swift; waivers #053 #055,,
+wagerproof-mobile/components/RevenueCatPaywall.tsx,RevenueCatPaywall,component,candidate,B08 ported to Features/Paywall/RevenueCatPaywallView.swift; waiver #052,,
+wagerproof-mobile/components/CustomerCenter.tsx,CustomerCenter,component,candidate,B08 ported to Features/Paywall/CustomerCenterView.swift,,
+wagerproof-mobile/components/ProContentSection.tsx,ProContentSection,component,candidate,B08 ported to Features/Paywall/ProContentSection.swift,,
+wagerproof-mobile/components/ProFeatureGate.tsx,ProFeatureGate,component,candidate,B08 ported to Features/Paywall/ProFeatureGate.swift,,
+wagerproof-mobile/components/LockedGameCard.tsx,LockedGameCard,component,candidate,B08 ported to Features/Paywall/LockedGameCard.swift,,
+wagerproof-mobile/components/LockedOverlay.tsx,LockedOverlay,component,candidate,B08 ported to Features/Paywall/LockedOverlay.swift,,
+wagerproof-mobile/components/DeleteAccountBottomSheet.tsx,DeleteAccountBottomSheet,component,candidate,B08 ported to Features/Settings/Sheets/DeleteAccountBottomSheet.swift,,
+wagerproof-mobile/components/ReviewRequestModal.tsx,ReviewRequestModal,component,candidate,B08 ported to Features/Settings/Sheets/ReviewRequestModal.swift,,
+wagerproof-mobile/contexts/SettingsContext.tsx,SettingsContext,store (context),candidate,B08 ported to WagerproofStores/SettingsStore.swift,,
+wagerproof-mobile/contexts/RevenueCatContext.tsx,RevenueCatContext,store (context),candidate,B08 ported to WagerproofStores/RevenueCatStore.swift,,
+wagerproof-mobile/contexts/AdminModeContext.tsx,AdminModeContext,store (context),candidate,B08 ported to WagerproofStores/AdminModeStore.swift,,
+wagerproof-mobile/services/revenuecat.ts,revenuecat,service,candidate,B08 ported to WagerproofServices/RevenueCatService.swift,,
+wagerproof-mobile/services/notificationService.ts,notificationService,service,candidate,B08 ported to WagerproofServices/NotificationService.swift; waiver #051,,
+wagerproof-mobile/hooks/useProAccess.ts,useProAccess,hook,candidate,B08 ported to WagerproofStores/ProAccessStore.swift,,
+wagerproof-mobile/hooks/useIsAdmin.ts,useIsAdmin,hook,candidate,B08 ported into AdminModeStore.checkRole(for:),,
+wagerproof-mobile/app/(drawer)/(tabs)/roast.tsx,roast,screen,reviewed,B19 reviewer PASS (re-review) — waiver #061 Gemini Live driver deferred,b19-reviewer-2026-05-20,2026-05-21
+wagerproof-mobile/components/roast/RoastScreen.tsx,RoastScreen,component,reviewed,B19 reviewer PASS — RoastView.swift,b19-reviewer-2026-05-20,2026-05-21
+wagerproof-mobile/components/roast/RoastMicButton.tsx,RoastMicButton,component,reviewed,B19 reviewer PASS — RoastMicButtonView.swift,b19-reviewer-2026-05-20,2026-05-21
+wagerproof-mobile/components/roast/RoastIntensitySelector.tsx,RoastIntensitySelector,component,reviewed,B19 reviewer PASS — RoastIntensitySelectorView.swift,b19-reviewer-2026-05-20,2026-05-21
+wagerproof-mobile/hooks/useRoastSession.ts,useRoastSession,hook,reviewed,B19 reviewer PASS — WagerproofStores/RoastSessionStore.swift (#061 driver deferred),b19-reviewer-2026-05-20,2026-05-21
+wagerproof-mobile/types/roast.ts,roast,type,reviewed,B19 reviewer PASS,b19-reviewer-2026-05-20,2026-05-21
+wagerproof-mobile/app/(drawer)/(tabs)/index.tsx,GamesView,screen,candidate,B04 ported; NFL+CFB cards real, NBA/NCAAB/MLB placeholder (#036/#030/#031); fidelity at docs/wagerproof-migration/fidelity/b04-games.md,,
+wagerproof-mobile/components/NFLGameCard.tsx,NFLGameCard,component,candidate,B04 ported; team colors deferred to ticket #008,,
+wagerproof-mobile/components/NFLGameBottomSheet.tsx,NFLGameBottomSheet,sheet,candidate,B04 ported; H2H data #032, line movement #033, fade tooltip #034,,
+wagerproof-mobile/components/CFBGameCard.tsx,CFBGameCard,component,candidate,B04 ported; team colors deferred to ticket #008,,
+wagerproof-mobile/components/CFBGameBottomSheet.tsx,CFBGameBottomSheet,sheet,candidate,B04 ported; line movement #033,,
+wagerproof-mobile/components/CFBPredictionCard.tsx,CFBPredictionCard,component,candidate,B04 ported,,
+wagerproof-mobile/components/cfb/LineMovementSection.tsx,CFBLineMovementSection,component,candidate,B04 ported as placeholder; chart data #033,,
+wagerproof-mobile/components/cfb/PublicBettingBars.tsx,CFBPublicBettingBars,component,candidate,B04 ported,,
+wagerproof-mobile/components/GameCardShimmer.tsx,GameCardShimmer,component,candidate,B04 ported,,
+wagerproof-mobile/components/SportFilter.tsx,SportPickerBar,component,candidate,B04 ported as SportPickerBar,,
+wagerproof-mobile/components/SportsbookButtons.tsx,SportsbookButtons,component,candidate,B04 ported,,
+wagerproof-mobile/components/WeatherDisplay.tsx,WeatherDisplay,component,candidate,B04 ported,,
+wagerproof-mobile/components/BettingSplitsCard.tsx,BettingSplitsCard,component,candidate,B04 ported,,
+wagerproof-mobile/components/H2HModal.tsx,H2HModal,sheet,candidate,B04 ported shell; historical data #032,,
+wagerproof-mobile/components/LineMovementModal.tsx,LineMovementModal,sheet,candidate,B04 ported shell; chart data #033,,
+wagerproof-mobile/components/PolymarketWidget.tsx,PolymarketWidget,component,candidate,B04 ported; live API fallback #035,,
+wagerproof-mobile/contexts/NFLGameSheetContext.tsx,NFLGameSheetStore,store,candidate,B04 ported,,
+wagerproof-mobile/contexts/CFBGameSheetContext.tsx,CFBGameSheetStore,store,candidate,B04 ported,,
+wagerproof-mobile/services/polymarketService.ts,PolymarketService,service,candidate,B04 ported as actor; cache-only (#035),,
+wagerproof-mobile/types/nfl.ts,NFLPrediction,type,candidate,B04 ported to WagerproofModels/NFLPrediction.swift,,
+wagerproof-mobile/types/cfb.ts,CFBPrediction,type,candidate,B04 ported to WagerproofModels/CFBPrediction.swift,,
+wagerproof-mobile/contexts/LearnWagerProofContext.tsx,LearnWagerProofContext,store,candidate,B21 ported to WagerproofStores/LearnWagerProofStore.swift; fidelity table at docs/wagerproof-migration/fidelity/b21-learnmore.md,,
+wagerproof-mobile/components/learn-wagerproof/LearnWagerProofBottomSheet.tsx,LearnWagerProofBottomSheet,sheet,candidate,B21 ported to Features/LearnMore/Sheets/LearnWagerProofBottomSheet.swift,,
+wagerproof-mobile/components/learn-wagerproof/LearnSlide.tsx,LearnSlide,component,candidate,B21 ported to Features/LearnMore/Components/LearnSlide.swift,,
+wagerproof-mobile/components/learn-wagerproof/SlideProgressIndicator.tsx,SlideProgressIndicator,component,candidate,B21 ported to Features/LearnMore/Components/SlideProgressIndicator.swift,,
+wagerproof-mobile/components/learn-wagerproof/slides/Slide1_Create247Agent.tsx,Slide1_Create247Agent,component,candidate,B21 ported to Features/LearnMore/Components/Slide1_Create247Agent.swift; waiver #063 (Lottie),,
+wagerproof-mobile/components/learn-wagerproof/slides/Slide1_GameCards.tsx,Slide1_GameCards,component,candidate,B21 ported to Features/LearnMore/Components/Slide1_GameCards.swift,,
+wagerproof-mobile/components/learn-wagerproof/slides/Slide2_GameDetails.tsx,Slide2_GameDetails,component,candidate,B21 ported to Features/LearnMore/Components/Slide2_GameDetails.swift,,
+wagerproof-mobile/components/learn-wagerproof/slides/Slide3_WagerBot.tsx,Slide3_WagerBot,component,candidate,B21 ported to Features/LearnMore/Components/Slide3_WagerBot.swift,,
+wagerproof-mobile/components/learn-wagerproof/slides/Slide4_EditorPicks.tsx,Slide4_EditorPicks,component,candidate,B21 RN dead code; not exported from slides/index.ts and not referenced in SLIDES — intentionally not ported,,
+wagerproof-mobile/components/learn-wagerproof/slides/Slide5_Outliers.tsx,Slide5_Outliers,component,candidate,B21 ported to Features/LearnMore/Components/Slide5_Outliers.swift,,
+wagerproof-mobile/components/learn-wagerproof/slides/Slide6_MoreFeatures.tsx,Slide6_MoreFeatures,component,candidate,B21 ported to Features/LearnMore/Components/Slide6_MoreFeatures.swift,,
+wagerproof-mobile/components/learn-wagerproof/slides/index.ts,index,component,candidate,B21 barrel-export collapsed; Swift uses module-internal types,,
+wagerproof-mobile/components/ComingSoonBanner.tsx,ComingSoonBanner,component,candidate,B21 ported to Features/LearnMore/Components/ComingSoonBanner.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/index.tsx,GamesView,screen,reviewed,B04 reviewer PASS — NBA/NCAAB/MLB placeholders #036/#030/#031,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/NFLGameCard.tsx,NFLGameCard,component,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/NFLGameBottomSheet.tsx,NFLGameBottomSheet,sheet,reviewed,B04 reviewer PASS — gaps #032/#033/#034 tracked,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/CFBGameCard.tsx,CFBGameCard,component,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/CFBGameBottomSheet.tsx,CFBGameBottomSheet,sheet,reviewed,B04 reviewer PASS — gaps #033/#034 tracked,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/CFBPredictionCard.tsx,CFBPredictionCard,component,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/cfb/LineMovementSection.tsx,CFBLineMovementSection,component,reviewed,B04 reviewer PASS — #033,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/cfb/PublicBettingBars.tsx,CFBPublicBettingBars,component,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/GameCardShimmer.tsx,GameCardShimmer,component,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/SportFilter.tsx,SportPickerBar,component,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/SportsbookButtons.tsx,SportsbookButtons,component,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/WeatherDisplay.tsx,WeatherDisplay,component,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/BettingSplitsCard.tsx,BettingSplitsCard,component,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/H2HModal.tsx,H2HModal,sheet,reviewed,B04 reviewer PASS — #032 shell,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/LineMovementModal.tsx,LineMovementModal,sheet,reviewed,B04 reviewer PASS — #033 shell,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/PolymarketWidget.tsx,PolymarketWidget,component,reviewed,B04 reviewer PASS — #035 live fallback,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/contexts/NFLGameSheetContext.tsx,NFLGameSheetStore,store,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/contexts/CFBGameSheetContext.tsx,CFBGameSheetStore,store,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/services/polymarketService.ts,PolymarketService,service,reviewed,B04 reviewer PASS — #035 cache-only,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/types/nfl.ts,NFLPrediction,type,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/types/cfb.ts,CFBPrediction,type,reviewed,B04 reviewer PASS,b04-reviewer-2026-05-21,2026-05-21
+wagerproof-mobile/components/NCAABGameCard.tsx,NCAABGameCard,component,candidate,B11 ported (agent interrupted mid-task; build green; fidelity table + parity pending),,
+wagerproof-mobile/components/NCAABGameBottomSheet.tsx,NCAABGameBottomSheet,sheet,candidate,B11 ported (agent interrupted; build green),,
+wagerproof-mobile/components/NCAABBettingTrendsBottomSheet.tsx,NCAABBettingTrendsBottomSheet,sheet,candidate,B11 ported (agent interrupted; build green),,
+wagerproof-mobile/contexts/NCAABGameSheetContext.tsx,NCAABGameSheetStore,store,candidate,B11 ported to WagerproofStores/NCAABGameSheetStore.swift,,
+wagerproof-mobile/contexts/NCAABBettingTrendsSheetContext.tsx,NCAABBettingTrendsSheetStore,store,candidate,B11 ported to WagerproofStores/NCAABBettingTrendsStore.swift,,
+wagerproof-mobile/hooks/useNCAABBettingTrends.ts,useNCAABBettingTrends,hook,candidate,B11 folded into NCAABBettingTrendsStore,,
+wagerproof-mobile/hooks/useNCAABModelAccuracy.ts,useNCAABModelAccuracy,hook,candidate,B11 folded into NCAABModelAccuracyStore,,
+wagerproof-mobile/hooks/useNCAABTeamMapping.ts,useNCAABTeamMapping,hook,candidate,B11 folded into NCAABTeamMappingStore,,
+wagerproof-mobile/types/ncaab.ts,NCAABGame,type,candidate,B11 ported to WagerproofModels/NCAABGame.swift,,
+wagerproof-mobile/components/MLBGameCard.tsx,MLBGameCard,component,candidate,B12 ported to Features/MLB/Components/MLBGameCard.swift,,
+wagerproof-mobile/components/MLBGameBottomSheet.tsx,MLBGameBottomSheet,sheet,candidate,B12 ported to Features/MLB/Sheets/MLBGameBottomSheet.swift,,
+wagerproof-mobile/components/MLBBettingTrendsBottomSheet.tsx,MLBBettingTrendsBottomSheet,sheet,candidate,B12 ported to Features/MLB/Sheets/MLBBettingTrendsBottomSheet.swift,,
+wagerproof-mobile/components/mlb/MLBTrendsSituationSection.tsx,MLBTrendsSituationSection,component,candidate,B12 ported to Features/MLB/Components/MLBTrendsSituationSection.swift,,
+wagerproof-mobile/components/mlb/MLBRegressionPicksSection.tsx,MLBRegressionPicksSection,component,candidate,B12 ported to Features/MLB/Components/MLBRegressionPicksSection.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/mlb-regression-report.tsx,mlb-regression-report,screen,candidate,B12 ported to Features/Analytics/MlbRegressionReportView.swift; waiver #110 for sticky headers / tabs / markdown / paywall,,
+wagerproof-mobile/types/mlb.ts,mlb (types),type,candidate,B12 ported to WagerproofModels/MLBGame.swift + MLBTeam.swift,,
+wagerproof-mobile/constants/mlbTeams.ts,mlbTeams,constant,candidate,B12 ported to WagerproofModels/MLBTeam.swift MLBTeams enum,,
+wagerproof-mobile/app/(drawer)/(tabs)/agents/index.tsx,agents (landing),screen,candidate,B13 ported to Features/Agents/AgentsView.swift; placeholders for B14/B15/B16 routes (tickets #070-#073),,
+wagerproof-mobile/app/(drawer)/(tabs)/agents/_layout.tsx,agents (layout),layout,candidate,B13 ported into NavigationStack inside AgentsView.swift,,
+wagerproof-mobile/components/agents/AgentCard.tsx,AgentCard,component,candidate,B13 ported to Features/Agents/Components/AgentCard.swift,,
+wagerproof-mobile/components/agents/AgentIdCard.tsx,AgentIdCard,component,candidate,B13 ported to Features/Agents/Components/AgentIdCard.swift,,
+wagerproof-mobile/components/agents/AgentLeaderboard.tsx,AgentLeaderboard,component,candidate,B13 ported to Features/Agents/Components/AgentLeaderboard.swift,,
+wagerproof-mobile/components/agents/AgentOverlapFooter.tsx,AgentOverlapFooter,component,candidate,B13 ported to Features/Agents/Components/AgentOverlapFooter.swift,,
+wagerproof-mobile/components/agents/GlowAccentBar.tsx,GlowAccentBar,component,candidate,B13 ported (static gradient — animated glow waivered as #071),,
+wagerproof-mobile/components/agents/GlowingCardWrapper.tsx,GlowingCardWrapper,component,candidate,B13 ported (static gradient halo — animated glow waivered as #071),,
+wagerproof-mobile/hooks/useAgents.ts,useAgents,hook,candidate,B13 ported to WagerproofStores/AgentsStore.swift,,
+wagerproof-mobile/hooks/useFollowedAgents.ts,useFollowedAgents,hook,candidate,B13 ported to WagerproofStores/FollowedAgentsStore.swift,,
+wagerproof-mobile/hooks/useLeaderboard.ts,useLeaderboard,hook,candidate,B13 ported to WagerproofStores/LeaderboardStore.swift,,
+wagerproof-mobile/hooks/useAgentEntitlements.ts,useAgentEntitlements,hook,candidate,B13 ported to WagerproofStores/AgentEntitlementsStore.swift,,
+wagerproof-mobile/services/agentService.ts,agentService,service,candidate,B13 ported to WagerproofServices/AgentService.swift (create/update edge-fn calls deferred to B14/B15),,
+wagerproof-mobile/services/agentPicksService.ts,agentPicksService,service,candidate,B13 ported to WagerproofServices/AgentPicksService.swift (read paths; generation lands in B14),,
+wagerproof-mobile/services/agentPerformanceService.ts,agentPerformanceService,service,candidate,B13 ported to WagerproofServices/AgentPerformanceService.swift (V2 RPC only; fallback skipped),,
+wagerproof-mobile/types/agent.ts,agent (types),type,candidate,B13 ported to WagerproofModels/{Agent,AgentPersonalityParams,AgentPerformance,AgentPick}.swift,,
+wagerproof-mobile/components/agents/TopAgentPicksFeed.tsx,TopAgentPicksFeed,component,candidate,B16 ported to Features/Agents/Components/TopAgentPicksFeed.swift; AgentsView wiring deferred to ticket #081,,
+wagerproof-mobile/hooks/useTopAgentPicksFeed.ts,useTopAgentPicksFeed,hook,candidate,B16 ported to WagerproofStores/TopAgentPicksFeedStore.swift,,
+wagerproof-mobile/hooks/useTopAgentsWidgetSync.ts,useTopAgentsWidgetSync,hook,candidate,B16 ported to WagerproofServices/TopAgentsWidgetService.swift (hash + sync entry point); foreground re-sync wiring deferred to ticket #081,,
+wagerproof-mobile/hooks/useWidgetDataSync.ts,useWidgetDataSync,hook,partial,B16 ported the topAgentPicks path only; editor-picks / fade / polymarket transforms still owned by their respective batches,,
+wagerproof-mobile/services/topAgentsWidgetService.ts,topAgentsWidgetService,service,candidate,B16 ported to WagerproofServices/TopAgentsWidgetService.swift; widget extension target deferred to ticket #079,,
+wagerproof-mobile/modules/widget-data-bridge/src/WidgetDataBridge.ts,widget-data-bridge,module,candidate,B16 reimplemented as Swift facade in TopAgentsWidgetService.swift + WagerproofModels/WidgetDataPayload.swift; native widget binary deferred to ticket #079,,
+wagerproof-mobile/app/(drawer)/(tabs)/agents/[id]/index.tsx,agents/[id]/index,screen,candidate,B15 ported to Features/Agents/AgentDetailView.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/agents/[id]/settings.tsx,agents/[id]/settings,screen,candidate,B15 ported to Features/Agents/AgentSettingsView.swift; conditional fields tracked at ticket #080,,
+wagerproof-mobile/app/(drawer)/(tabs)/agents/public/[id].tsx,agents/public/[id],screen,candidate,B15 ported to Features/Agents/PublicAgentDetailView.swift,,
+wagerproof-mobile/components/agents/AgentChatRoom.tsx,AgentChatRoom,component,candidate,B15 ported to Features/Agents/Components/AgentChatRoom.swift (real user-agent thread replaces RN dummy data),,
+wagerproof-mobile/components/agents/AgentHRBottomSheet.tsx,AgentHRBottomSheet,sheet,candidate,B15 ported to Features/Agents/Sheets/AgentHRBottomSheet.swift,,
+wagerproof-mobile/components/agents/AgentPerformanceCharts.tsx,AgentPerformanceCharts,component,candidate,B15 ported to Features/Agents/Components/AgentPerformanceCharts.swift using Apple Charts,,
+wagerproof-mobile/components/agents/AgentPickCard.tsx,AgentPickCard,component,candidate,B15 ported to Features/Agents/Components/AgentPickCard.swift,,
+wagerproof-mobile/components/agents/AgentPickItem.tsx,AgentPickItem,component,candidate,B15 ported to Features/Agents/Components/AgentPickItem.swift; team colors deferred to ticket #008,,
+wagerproof-mobile/components/agents/AgentPickPayloadAuditWidget.tsx,AgentPickPayloadAuditWidget,component,candidate,B15 ported to Features/Agents/Components/AgentPickPayloadAuditWidget.swift; real JSONB sourcing tracked at ticket #079,,
+wagerproof-mobile/components/agents/AgentPickRationaleWidget.tsx,AgentPickRationaleWidget,component,candidate,B15 ported to Features/Agents/Components/AgentPickRationaleWidget.swift,,
+wagerproof-mobile/components/agents/AgentTimeline.tsx,AgentTimeline,component,candidate,B15 ported to Features/Agents/Components/AgentTimeline.swift (synthesized events; server log deferred to ticket #076),,
+wagerproof-mobile/components/agents/CompanyDashboardBanner.tsx,CompanyDashboardBanner,component,candidate,B15 ported to Features/Agents/Components/CompanyDashboardBanner.swift,,
+wagerproof-mobile/components/agents/PixelEmojiInline.tsx,PixelEmojiInline,component,candidate,B15 ported to Features/Agents/Components/PixelEmojiInline.swift,,
+wagerproof-mobile/components/agents/PixelOffice.tsx,PixelOffice,component,candidate,B15 ported to Features/Agents/Components/PixelOffice.swift as SwiftUI placeholder (existing waiver #074),,
+wagerproof-mobile/components/agents/PrinterSlipAnimation.tsx,PrinterSlipAnimation,component,candidate,B15 ported to Features/Agents/Components/PrinterSlipAnimation.swift; pixel world-map background dropped,,
+wagerproof-mobile/components/agents/ThinkingAnimation.tsx,ThinkingAnimation,component,candidate,B15 ported to Features/Agents/Components/ThinkingAnimation.swift,,
+wagerproof-mobile/contexts/AgentPickAuditContext.tsx,AgentPickAuditContext,context,candidate,B15 ported to WagerproofStores/AgentPickAuditStore.swift,,
+wagerproof-mobile/services/agentAuthorizedActions.ts,agentAuthorizedActions,service,candidate,B15 ported to WagerproofServices/AgentAuthorizedActionsService.swift,,
+wagerproof-mobile/services/agentV2Flags.ts,agentV2Flags,service,candidate,B15 ported to WagerproofStores/AgentV2FlagsStore.swift,,
+wagerproof-mobile/services/agentV2DebugSettings.ts,agentV2DebugSettings,service,candidate,B15 ported to WagerproofStores/AgentV2DebugSettingsStore.swift,,
+wagerproof-mobile/hooks/useAgentPicks.ts,useAgentPicks,hook,candidate,B15 ported to WagerproofStores/AgentDetailStore.swift (snapshot + history + generation),,
+wagerproof-mobile/hooks/useAgentV2Flags.ts,useAgentV2Flags,hook,candidate,B15 ported to WagerproofStores/AgentV2FlagsStore.swift,,
+wagerproof-mobile/hooks/useAgentV2DebugSettings.ts,useAgentV2DebugSettings,hook,candidate,B15 ported to WagerproofStores/AgentV2DebugSettingsStore.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/agents/create.tsx,agents-create,screen,candidate,B14 ported to Features/Agents/Creation/AgentCreationView.swift (6-step wizard host),,
+wagerproof-mobile/components/agents/creation/Screen1_SportArchetype.tsx,Screen1_SportArchetype,component,candidate,B14 ported to Features/Agents/Creation/Step1SportArchetypeView.swift,,
+wagerproof-mobile/components/agents/creation/Screen2_Identity.tsx,Screen2_Identity,component,candidate,B14 ported to Features/Agents/Creation/Step2IdentityView.swift,,
+wagerproof-mobile/components/agents/creation/Screen3_Personality.tsx,Screen3_Personality,component,candidate,B14 ported to Features/Agents/Creation/Step3PersonalityView.swift,,
+wagerproof-mobile/components/agents/creation/Screen4_DataAndConditions.tsx,Screen4_DataAndConditions,component,candidate,B14 ported to Features/Agents/Creation/Step4DataAndConditionsView.swift,,
+wagerproof-mobile/components/agents/creation/Screen5_CustomInsights.tsx,Screen5_CustomInsights,component,candidate,B14 ported to Features/Agents/Creation/Step5CustomInsightsView.swift,,
+wagerproof-mobile/components/agents/creation/Screen6_Review.tsx,Screen6_Review,component,candidate,B14 ported to Features/Agents/Creation/Step6ReviewView.swift,,
+wagerproof-mobile/components/agents/creation/AgentCreationGenerationIntro.tsx,AgentCreationGenerationIntro,component,candidate,B14 ported to Features/Agents/Creation/AgentCreationGenerationIntroView.swift (Lottie planets waivered as #080),,
+wagerproof-mobile/components/agents/creation/AgentBornCreationCelebration.tsx,AgentBornCreationCelebration,component,candidate,B14 ported to Features/Agents/Creation/AgentBornCelebrationView.swift (Lottie wave/confetti waivered as #081),,
+wagerproof-mobile/components/agents/creation/index.ts,agents/creation index,export,candidate,B14 ported — Swift files have no index barrel; modules import directly,,
+wagerproof-mobile/components/agents/inputs/ArchetypeCard.tsx,ArchetypeCard,component,candidate,B14 ported to Features/Agents/Creation/Inputs/ArchetypeCard.swift,,
+wagerproof-mobile/components/agents/inputs/OddsInput.tsx,OddsInput,component,candidate,B14 ported to Features/Agents/Creation/Inputs/OddsInput.swift,,
+wagerproof-mobile/components/agents/inputs/SliderInput.tsx,SliderInput,component,candidate,B14 ported to Features/Agents/Creation/Inputs/SliderInput.swift,,
+wagerproof-mobile/components/agents/inputs/SwipeableEmojiPicker.tsx,SwipeableEmojiPicker,component,candidate,B14 ported to Features/Agents/Creation/Inputs/SwipeableEmojiPicker.swift,,
+wagerproof-mobile/components/agents/inputs/TimePickerModal.tsx,TimePickerModal,component,candidate,B14 ported to Features/Agents/Creation/Inputs/TimePickerModal.swift (5-min snap waivered as #079),,
+wagerproof-mobile/components/agents/inputs/TimezonePickerModal.tsx,TimezonePickerModal,component,candidate,B14 ported to Features/Agents/Creation/Inputs/TimezonePickerModal.swift,,
+wagerproof-mobile/components/agents/inputs/ToggleInput.tsx,ToggleInput,component,candidate,B14 ported to Features/Agents/Creation/Inputs/ToggleInput.swift,,
+wagerproof-mobile/hooks/usePresetArchetypes.ts,usePresetArchetypes,hook,candidate,B14 ported to WagerproofServices/PresetArchetypeService.swift + AgentCreationStore cache,,
+wagerproof-mobile/app/(drawer)/(tabs)/nba-betting-trends.tsx,nba-betting-trends,screen,candidate,Ported as Features/Outliers/NBABettingTrendsView.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/ncaab-betting-trends.tsx,ncaab-betting-trends,screen,candidate,Ported as Features/Outliers/NCAABBettingTrendsView.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/mlb-betting-trends.tsx,mlb-betting-trends,screen,candidate,Ported as Features/Outliers/MLBBettingTrendsView.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/nba-model-accuracy.tsx,nba-model-accuracy,screen,candidate,Ported as Features/Outliers/NBAModelAccuracyView.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/ncaab-model-accuracy.tsx,ncaab-model-accuracy,screen,candidate,Ported as Features/Outliers/NCAABModelAccuracyView.swift,,
+wagerproof-mobile/app/(drawer)/(tabs)/mlb-regression-report.tsx,mlb-regression-report,screen,candidate,Ported as Features/Outliers/MLBRegressionReportView.swift,,
+wagerproof-mobile/components/nba/BettingTrendsMatchupCard.tsx,BettingTrendsMatchupCard,component,candidate,Ported as Features/NBA/Components/NBABettingTrendsMatchupCard.swift,,
+wagerproof-mobile/components/nba/ModelAccuracyMatchupCard.tsx,ModelAccuracyMatchupCard,component,candidate,Ported as Features/NBA/Components/NBAModelAccuracyMatchupCard.swift,,
+wagerproof-mobile/components/ncaab/BettingTrendsMatchupCard.tsx,NCAABBettingTrendsMatchupCard,component,candidate,Ported as Features/NCAAB/Components/NCAABBettingTrendsMatchupCard.swift,,
+wagerproof-mobile/components/ncaab/ModelAccuracyMatchupCard.tsx,NCAABModelAccuracyMatchupCard,component,candidate,Ported as Features/NCAAB/Components/NCAABModelAccuracyMatchupCard.swift,,
+wagerproof-mobile/components/mlb/MLBBettingTrendsMatchupCard.tsx,MLBBettingTrendsMatchupCard,component,candidate,Ported as Features/MLB/Components/MLBBettingTrendsMatchupCard.swift,,

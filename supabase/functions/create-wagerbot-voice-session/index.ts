@@ -144,11 +144,16 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { voice = 'ash', rudeness = 'friendly', gameContext = '' } = body;
+    const { voice = 'ash', rudeness = 'friendly', gameContext = '', model = '', guidance = '' } = body;
 
     const supportedVoices = ['ash', 'ballad', 'coral', 'sage', 'verse', 'marin', 'cedar'];
     const validVoice = supportedVoices.includes(voice) ? voice : 'marin';
     const validRudeness = rudeness === 'spicy' ? 'spicy' : 'friendly';
+
+    // The iOS voice settings expose a model picker (parity with Honeydew).
+    // Only the GA realtime models are allowed; anything else → flagship.
+    const supportedModels = ['gpt-realtime', 'gpt-realtime-mini'];
+    const validModel = supportedModels.includes(model) ? model : 'gpt-realtime';
 
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -211,24 +216,38 @@ serve(async (req) => {
     if (gameContext && gameContext.length > 0) {
       instructions += `\n\nCURRENT GAME DATA (use this to answer questions about today's games):\n${gameContext}`;
     }
+    // Free-text steering from the iOS "Custom Guidance" field (parity with
+    // Honeydew). Capped at 1500 chars — the client shows a counter at the
+    // same limit.
+    if (typeof guidance === 'string' && guidance.trim().length > 0) {
+      instructions += `\n\nUSER GUIDANCE (follow this unless it conflicts with safety):\n${guidance.slice(0, 1500)}`;
+    }
 
-    const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
+    // OpenAI removed the Realtime *beta* (POST /v1/realtime/sessions) on
+    // 2026-05-12. GA mints ephemeral keys at /v1/realtime/client_secrets with a
+    // nested `session` object — audio config moved under session.audio.
+    // WebRTC negotiates Opus in the SDP, so the old pcm16 format fields are
+    // dropped. turn_detection is null because the app drives turns manually
+    // (push-to-talk via startListening/stopListening).
+    const response = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-realtime',
-        voice: validVoice,
-        modalities: ['audio', 'text'],
-        instructions: `${instructions}\n\nVOICE OVERRIDE: Ignore any earlier instruction that says you must use a specific voice or gender. The app chooses the synthetic voice for this session.`,
-        input_audio_format: 'pcm16',
-        output_audio_format: 'pcm16',
-        input_audio_noise_reduction: { type: 'near_field' },
-        turn_detection: null,
-        temperature: 0.9,
-        max_response_output_tokens: 500,
+        session: {
+          type: 'realtime',
+          model: validModel,
+          instructions: `${instructions}\n\nVOICE OVERRIDE: Ignore any earlier instruction that says you must use a specific voice or gender. The app chooses the synthetic voice for this session.`,
+          audio: {
+            input: {
+              noise_reduction: { type: 'near_field' },
+              turn_detection: null,
+            },
+            output: { voice: validVoice },
+          },
+        },
       }),
     });
 
@@ -240,8 +259,8 @@ serve(async (req) => {
 
     const data = await response.json();
     console.log('OpenAI session created:', {
-      model: data.model,
-      voice: data.voice,
+      model: data.session?.model ?? 'gpt-realtime',
+      voice: validVoice,
       rudeness: validRudeness,
       instructionsLength: instructions.length,
       promptSource,
@@ -257,9 +276,11 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        clientSecret: data.client_secret?.value,
-        expiresAt: data.client_secret?.expires_at,
-        model: 'gpt-realtime',
+        // GA returns the ephemeral key at the top level (`value`, prefix ek_),
+        // not nested under client_secret like the old beta endpoint did.
+        clientSecret: data.value,
+        expiresAt: data.expires_at,
+        model: validModel,
         voice: validVoice,
         rudeness: validRudeness,
         promptSource,

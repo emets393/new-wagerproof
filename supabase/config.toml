@@ -106,3 +106,6 @@ verify_jwt = false  # Admin/CLI backfill, auth via x-backfill-secret header or a
 
 [functions.wagerbot-chat]
 verify_jwt = true  # Client-facing, authenticated via JWT
+
+[functions.wagerbot-agent]
+verify_jwt = true  # Client-facing (multi-provider chat), authenticated via JWT

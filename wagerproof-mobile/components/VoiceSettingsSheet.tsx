@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Modal,
   Pressable,
   Alert,
+  Platform,
+  Switch,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,8 +55,12 @@ interface VoiceSettingsSheetProps {
   visible: boolean;
   selectedVoice: WagerBotVoice;
   selectedPersonality: WagerBotPersonality;
+  forceSpeakerEnabled: boolean;
+  audioRouteSummary: string;
   onVoiceChanged: (voice: WagerBotVoice) => void;
   onPersonalityChanged: (personality: WagerBotPersonality) => void;
+  onForceSpeakerChanged: (enabled: boolean) => void;
+  onShowAudioDebug: () => void;
   onClose: () => void;
 }
 
@@ -110,8 +116,12 @@ export function VoiceSettingsSheet({
   visible,
   selectedVoice,
   selectedPersonality,
+  forceSpeakerEnabled,
+  audioRouteSummary,
   onVoiceChanged,
   onPersonalityChanged,
+  onForceSpeakerChanged,
+  onShowAudioDebug,
   onClose,
 }: VoiceSettingsSheetProps) {
   const insets = useSafeAreaInsets();
@@ -136,12 +146,24 @@ export function VoiceSettingsSheet({
           style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}
           onPress={(e) => e.stopPropagation()}
         >
-          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
-          <View style={styles.sheetContent}>
-            {/* Drag handle */}
-            <View style={styles.dragHandle} />
+	          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
+	          <View style={styles.sheetContent}>
+	            {/* Drag handle */}
+	            <View style={styles.dragHandle} />
 
-            <Text style={styles.sheetTitle}>Voice Settings</Text>
+	            <View style={styles.headerRow}>
+	              <TouchableOpacity
+	                onPress={onClose}
+	                style={styles.headerBackButton}
+	                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+	                accessibilityRole="button"
+	                accessibilityLabel="Back"
+	              >
+	                <MaterialCommunityIcons name="arrow-left" size={22} color="#ffffff" />
+	              </TouchableOpacity>
+	              <Text style={styles.sheetTitle}>Voice Settings</Text>
+	              <View style={styles.headerSpacer} />
+	            </View>
 
             {/* Voice section */}
             <Text style={styles.sectionLabel}>VOICE</Text>
@@ -229,6 +251,67 @@ export function VoiceSettingsSheet({
                 </TouchableOpacity>
               );
             })}
+
+            {Platform.OS === 'ios' && (
+              <>
+                <Text style={[styles.sectionLabel, { marginTop: 20 }]}>AUDIO ROUTING</Text>
+
+                <View
+                  style={[
+                    styles.optionTile,
+                    forceSpeakerEnabled && styles.optionTileSelected,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.optionIcon,
+                      forceSpeakerEnabled && styles.optionIconSelected,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="volume-high"
+                      size={22}
+                      color={forceSpeakerEnabled ? '#ffffff' : 'rgba(255,255,255,0.5)'}
+                    />
+                  </View>
+                  <View style={styles.optionText}>
+                    <Text style={styles.optionLabel}>Force Loudspeaker</Text>
+                    <Text style={styles.optionSubtitle}>
+                      Keep WagerBot on the bottom speaker instead of the phone receiver.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={forceSpeakerEnabled}
+                    onValueChange={onForceSpeakerChanged}
+                    trackColor={{ false: 'rgba(255,255,255,0.18)', true: 'rgba(34,197,94,0.45)' }}
+                    thumbColor={forceSpeakerEnabled ? '#22c55e' : '#f4f4f5'}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.optionTile}
+                  onPress={onShowAudioDebug}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.optionIcon}>
+                    <MaterialCommunityIcons
+                      name="bug-outline"
+                      size={22}
+                      color="rgba(255,255,255,0.7)"
+                    />
+                  </View>
+                  <View style={styles.optionText}>
+                    <Text style={styles.optionLabel}>Audio Route Debug</Text>
+                    <Text style={styles.optionSubtitle}>{audioRouteSummary}</Text>
+                  </View>
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={22}
+                    color="rgba(255,255,255,0.45)"
+                  />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </Pressable>
       </Pressable>
@@ -258,14 +341,34 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: 'rgba(255,255,255,0.3)',
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  headerBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  headerSpacer: {
+    width: 40,
+    height: 40,
   },
   sheetTitle: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '600',
     color: '#ffffff',
     textAlign: 'center',
-    marginBottom: 24,
   },
   sectionLabel: {
     fontSize: 12,

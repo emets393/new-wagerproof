@@ -1,14 +1,9 @@
-import { Tabs, usePathname, useRouter, useSegments } from 'expo-router';
-import { useTheme } from 'react-native-paper';
+import React, { useCallback } from 'react';
+import { NativeTabs, Icon, Label, Badge, VectorIcon } from 'expo-router/unstable-native-tabs';
+import { useRouter, usePathname } from 'expo-router';
+import { Platform, View } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import React, { useEffect, useRef, useCallback } from 'react';
-import { ScrollProvider, useScroll } from '@/contexts/ScrollContext';
-import { ActivityIndicator, Animated, TouchableOpacity, Text, StyleSheet, Platform, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeContext } from '@/contexts/ThemeContext';
-import { useSettings } from '@/contexts/SettingsContext';
-import { AndroidBlurView } from '@/components/AndroidBlurView';
-import { WagerBotSuggestionBubble } from '@/components/WagerBotSuggestionBubble';
+import { ScrollProvider } from '@/contexts/ScrollContext';
 import { useWagerBotSuggestion } from '@/contexts/WagerBotSuggestionContext';
 import { useNFLGameSheet } from '@/contexts/NFLGameSheetContext';
 import { useCFBGameSheet } from '@/contexts/CFBGameSheetContext';
@@ -16,276 +11,27 @@ import { useNBAGameSheet } from '@/contexts/NBAGameSheetContext';
 import { useNCAABGameSheet } from '@/contexts/NCAABGameSheetContext';
 import { useMLBGameSheet } from '@/contexts/MLBGameSheetContext';
 import { useLiveScores } from '@/hooks/useLiveScores';
+import { WagerBotSuggestionBubble } from '@/components/WagerBotSuggestionBubble';
 import { PickDetailSheetProvider } from '@/contexts/PickDetailSheetContext';
 import { PickDetailBottomSheet } from '@/components/PickDetailBottomSheet';
 
-// Lift live-scores state out of FloatingTabBar so it doesn't re-mount the hook
-// on every pathname change. TabsContent owns the hook; FloatingTabBar receives
-// only the derived boolean.
-const LiveScoresContext = React.createContext(false);
-function useLiveGames() { return React.useContext(LiveScoresContext); }
-
-function LiveIndicator() {
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: false,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: false,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [pulseAnim]);
-
-  const animatedOpacity = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.4, 1],
-  });
-
-  const animatedScale = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.2],
-  });
-
-  return (
-    <View style={styles.liveIndicatorContainer}>
-      <Animated.View
-        style={[
-          styles.liveIndicatorPulse,
-          {
-            opacity: animatedOpacity,
-            transform: [{ scale: animatedScale }],
-          },
-        ]}
-      />
-      <View style={styles.liveIndicatorDot} />
-    </View>
-  );
-}
-
-const FloatingTabBar = React.memo(function FloatingTabBar() {
-  const theme = useTheme();
-  const { isDark } = useThemeContext();
-  const { scrollYClamped } = useScroll();
-  const pathname = usePathname();
-  const segments = useSegments() as string[];
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const hasLiveGames = useLiveGames();
-  
-  // Hide tab bar on chat, roast, and agent sub-screens
-  const isOnChatScreen = pathname.includes('/chat') || segments.includes('chat');
-  const isOnVoiceChatScreen = pathname.includes('/voice-chat') || segments.includes('voice-chat');
-  const isOnRoastScreen = pathname.includes('/roast') || segments.includes('roast');
-  const isOnSettingsScreen = pathname.includes('/settings') || segments.includes('settings');
-  const isOnAgentSubScreen = pathname.includes('/agents/create')
-    || pathname.includes('/agents/public')
-    || (pathname.includes('/agents/') && pathname !== '/(drawer)/(tabs)/agents' && pathname !== '/(drawer)/(tabs)/agents/');
-  if (isOnChatScreen || isOnVoiceChatScreen || isOnAgentSubScreen || isOnRoastScreen || isOnSettingsScreen) {
-    return null;
-  }
-  
-  const tabs = [
-    { name: 'index', path: '/(drawer)/(tabs)/', title: 'Games', icon: 'trophy' },
-    { name: 'agents', path: '/(drawer)/(tabs)/agents', title: 'Agents', icon: 'brain' },
-    { name: 'outliers', path: '/(drawer)/(tabs)/outliers', title: 'Alerts', icon: 'bell-alert-outline' },
-    { name: 'scoreboard', path: '/(drawer)/(tabs)/scoreboard', title: 'Scores', icon: 'scoreboard' },
-  ];
-
-  // Calculate collapsible height (must match feed screen: 56 header + 48 tabs)
-  const HEADER_TOP_HEIGHT = 56;
-  const TABS_HEIGHT = 48;
-  const TOTAL_COLLAPSIBLE_HEIGHT = insets.top + HEADER_TOP_HEIGHT + TABS_HEIGHT;
-  const TAB_BAR_BASE_HEIGHT = 65;
-  const TAB_BAR_HEIGHT = TAB_BAR_BASE_HEIGHT + insets.bottom;
-
-  // Tab bar stays fixed (no scroll-based hiding)
-  const tabBarTranslate = scrollYClamped.interpolate({
-    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [0, 0],
-    extrapolate: 'clamp',
-  });
-
-  const tabBarOpacity = scrollYClamped.interpolate({
-    inputRange: [0, TOTAL_COLLAPSIBLE_HEIGHT],
-    outputRange: [1, 1],
-    extrapolate: 'clamp',
-  });
-
-  return (
-    <Animated.View
-      style={[
-        styles.floatingTabBar,
-        {
-          transform: [{ translateY: tabBarTranslate }],
-          opacity: tabBarOpacity,
-          height: TAB_BAR_HEIGHT,
-        },
-      ]}
-    >
-      <AndroidBlurView
-        intensity={80}
-        tint={isDark ? 'dark' : 'light'}
-        style={[
-          styles.blurContainer,
-          {
-            borderTopColor: theme.colors.outlineVariant,
-            paddingBottom: insets.bottom,
-          },
-        ]}
-      >
-        {/* Tab buttons */}
-        <View style={styles.tabsContainer}>
-          {tabs.map((tab) => {
-            // Normalize both pathname and tab path by removing trailing slashes
-            const normalizedPathname = pathname.replace(/\/$/, '');
-            const normalizedTabPath = tab.path.replace(/\/$/, '');
-            
-            // Determine if this tab is active using both pathname and segments for reliability
-            let isActive = false;
-            if (tab.path === '/(drawer)/(tabs)/') {
-              // For Feed tab: check if we're on the root tabs route
-              // Using segments: should be ['(drawer)', '(tabs)'] or ['(drawer)', '(tabs)', 'index']
-              // Using pathname: should match /(drawer)/(tabs) (with or without trailing slash)
-              const isRootTabsRoute = normalizedPathname === normalizedTabPath 
-                || normalizedPathname === '/(drawer)/(tabs)';
-              const segmentsMatch = (segments.length === 2 
-                && segments[0] === '(drawer)' 
-                && segments[1] === '(tabs)')
-                || (segments.length === 3 
-                  && segments[0] === '(drawer)' 
-                  && segments[1] === '(tabs)' 
-                  && segments[2] === 'index');
-              const isNotOtherTab = !normalizedPathname.includes('/picks')
-                && !normalizedPathname.includes('/chat')
-                && !normalizedPathname.includes('/feature-requests')
-                && !normalizedPathname.includes('/settings')
-                && !normalizedPathname.includes('/outliers')
-                && !normalizedPathname.includes('/scoreboard')
-                && !normalizedPathname.includes('/agents')
-                && !normalizedPathname.includes('/learn')
-                && !normalizedPathname.includes('/roast')
-                && !normalizedPathname.includes('/voice-chat');
-              isActive = (isRootTabsRoute || segmentsMatch) && isNotOtherTab;
-            } else {
-              // For other tabs: check if pathname matches or segments include the tab name
-              const pathnameMatches = normalizedPathname === normalizedTabPath 
-                || normalizedPathname.includes(`/${tab.name}`);
-              const segmentsMatch = segments.includes(tab.name);
-              isActive = pathnameMatches || segmentsMatch;
-            }
-            
-            // Force green color for active tabs
-            const color = isActive ? '#00E676' : theme.colors.onSurfaceVariant;
-
-            return (
-              <TouchableOpacity
-                key={tab.name}
-                style={styles.tabButton}
-                onPress={() => router.push(tab.path as any)}
-              >
-                <View style={styles.tabIconContainer}>
-                  <MaterialCommunityIcons name={tab.icon as any} size={24} color={color} />
-                  {tab.name === 'scoreboard' && hasLiveGames && <LiveIndicator />}
-                </View>
-                <Text style={[styles.tabLabel, { color }]}>{tab.title}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </AndroidBlurView>
-    </Animated.View>
-  );
-});
-
-const styles = StyleSheet.create({
-  floatingTabBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    elevation: 12,
-    zIndex: 1000,
-    overflow: 'hidden',
-  },
-  blurContainer: {
-    flex: 1,
-    flexDirection: 'column',
-    borderTopWidth: 1,
-    width: '100%',
-    height: '100%',
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    height: 65,
-  },
-  tabButton: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  tabIconContainer: {
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tabLabel: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  liveIndicatorContainer: {
-    position: 'absolute',
-    top: -2,
-    right: -6,
-    width: 10,
-    height: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  liveIndicatorPulse: {
-    position: 'absolute',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#00E676',
-  },
-  liveIndicatorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00E676',
-    shadowColor: '#00E676',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-});
+// Native UITabBar via expo-router's `unstable-native-tabs`. Replaces the
+// hand-rolled FloatingTabBar (BlurView + Animated + custom active-state
+// matching) with the platform-native bottom bar so we get:
+//   - System Liquid Glass / translucency for free on iOS 26
+//   - SF Symbols with `selected` variant (filled-on-active for free)
+//   - Native badge rendering for the "live games" dot on Scores
+//   - Proper accessibility traits + reduce-motion handling
+//
+// In SDK 54 the API uses standalone `Icon`, `Label`, `Badge` children
+// (not dotted on `Trigger`). The dotted shape `NativeTabs.Trigger.Icon`
+// lands in SDK 56 — easy migration when we upgrade.
 
 function TabsContent() {
-  const theme = useTheme();
   const router = useRouter();
   const pathname = usePathname();
+  const { hasLiveGames } = useLiveScores();
 
-  // Game sheet contexts for opening game details
-  const { openGameSheet: openNFLGameSheet } = useNFLGameSheet();
-  const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
-  const { openGameSheet: openNBAGameSheet } = useNBAGameSheet();
-  const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
-  const { openGameSheet: openMLBGameSheet } = useMLBGameSheet();
-
-  // WagerBot suggestion bubble state
   const {
     isVisible: suggestionVisible,
     bubbleMode,
@@ -300,199 +46,129 @@ function TabsContent() {
     findGameById,
   } = useWagerBotSuggestion();
 
-  // Handle suggestion tap - open game details sheet
+  const { openGameSheet: openNFLGameSheet } = useNFLGameSheet();
+  const { openGameSheet: openCFBGameSheet } = useCFBGameSheet();
+  const { openGameSheet: openNBAGameSheet } = useNBAGameSheet();
+  const { openGameSheet: openNCAABGameSheet } = useNCAABGameSheet();
+  const { openGameSheet: openMLBGameSheet } = useMLBGameSheet();
+
   const handleSuggestionTap = useCallback((gameId: string, sport: string) => {
-    console.log('🤖 Suggestion tapped, opening game:', gameId, sport);
-
-    // Find the game from WagerBot's stored game data
     const game = findGameById(gameId);
-
-    if (!game) {
-      console.log('🤖 Game not found:', gameId);
-      return;
-    }
-
-    // Open the appropriate game sheet based on sport
+    if (!game) return;
     switch (sport) {
-      case 'nfl':
-        openNFLGameSheet(game as any);
-        break;
-      case 'cfb':
-        openCFBGameSheet(game as any);
-        break;
-      case 'nba':
-        openNBAGameSheet(game as any);
-        break;
-      case 'ncaab':
-        openNCAABGameSheet(game as any);
-        break;
-      case 'mlb':
-        openMLBGameSheet(game as any);
-        break;
-      default:
-        console.log('🤖 Unknown sport:', sport);
+      case 'nfl': openNFLGameSheet(game as any); break;
+      case 'cfb': openCFBGameSheet(game as any); break;
+      case 'nba': openNBAGameSheet(game as any); break;
+      case 'ncaab': openNCAABGameSheet(game as any); break;
+      case 'mlb': openMLBGameSheet(game as any); break;
     }
   }, [findGameById, openNFLGameSheet, openCFBGameSheet, openNBAGameSheet, openNCAABGameSheet, openMLBGameSheet]);
 
-  // Determine current sport based on pathname (for bubble display)
-  const getCurrentSport = () => {
-    if (pathname.includes('/nfl')) return 'nfl';
+  const getCurrentSport = (): 'nfl' | 'cfb' | 'nba' | 'ncaab' => {
     if (pathname.includes('/cfb')) return 'cfb';
     if (pathname.includes('/nba')) return 'nba';
     if (pathname.includes('/ncaab')) return 'ncaab';
-    return 'nfl'; // default
+    return 'nfl';
   };
 
-  // Check if on scoreboard page to hide scan feature
   const isOnScoreboard = pathname.includes('/scoreboard');
 
   return (
     <>
-      {/* WagerBot Suggestion Bubble - Available on all tab pages */}
-      {/* Hide attached bubble when in detached/floating mode */}
       {!isDetached && (
         <WagerBotSuggestionBubble
           visible={suggestionVisible}
           mode={bubbleMode}
           suggestion={currentSuggestion}
           gameId={currentGameId}
-          sport={suggestionSport || getCurrentSport()}
+          sport={(suggestionSport as any) || getCurrentSport()}
           onDismiss={dismissSuggestion}
           onTap={handleSuggestionTap}
           onScanPage={scanCurrentPage}
           onOpenChat={() => {
             openChat();
-            router.push('/chat' as any);
+            router.push('/wagerbot-chat' as any);
           }}
           onDetach={(x, y) => detachBubble(x, y)}
           hideScanPage={isOnScoreboard}
         />
       )}
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          lazy: true,
-          lazyPlaceholder: () => (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-            </View>
-          ),
-          tabBarActiveTintColor: theme.colors.primary,
-          tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
-          tabBarStyle: {
-            display: 'none', // Hide the default tab bar
-          },
-        }}
+
+      <NativeTabs
+        tintColor="#00E676"
+        // iOS 26: collapse the tab bar into a pill on downward scroll,
+        // expand on scroll-up. No-op on iOS <26 / Android.
+        minimizeBehavior={Platform.OS === 'ios' ? 'onScrollDown' : undefined}
       >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Games',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="trophy" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="picks"
-        options={{
-          title: 'Picks',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="star" size={size} color={color} />
-          ),
-          href: null, // Moved to drawer, Agents tab replaces it
-        }}
-      />
-      <Tabs.Screen
-        name="outliers"
-        options={{
-          title: 'Alerts',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="bell-alert-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="scoreboard"
-        options={{
-          title: 'Scores',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="scoreboard" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="agents"
-        options={{
-          title: 'Agents',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="brain" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: 'Chat',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="message-text" size={size} color={color} />
-          ),
-          href: null, // Chat is now accessed via navigation from header
-          presentation: 'modal', // Present as modal for bottom-to-top animation
-        }}
-      />
-      <Tabs.Screen
-        name="feature-requests"
-        options={{
-          title: 'Features',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="lightbulb-on" size={size} color={color} />
-          ),
-          href: null, // Hide from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="roast"
-        options={{
-          title: 'Roast Mode',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="fire" size={size} color={color} />
-          ),
-          href: null, // Hide from tab bar - accessed via sidebar
-        }}
-      />
-      <Tabs.Screen
-        name="voice-chat"
-        options={{
-          title: 'Voice Chat',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="phone" size={size} color={color} />
-          ),
-          href: null, // Hide from tab bar - accessed via navigation
-        }}
-      />
-    </Tabs>
-    <FloatingTabBar />
+        <NativeTabs.Trigger name="index">
+          <Label>Games</Label>
+          <Icon
+            sf={{ default: 'trophy', selected: 'trophy.fill' }}
+            drawable="emoji_events"
+          />
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="agents">
+          <Label>Agents</Label>
+          <Icon
+            sf={{ default: 'brain', selected: 'brain.fill' }}
+            // Android: route to MaterialCommunityIcons since "brain" isn't a
+            // stock drawable resource and Material Symbols don't have a clean
+            // match. `androidSrc` is the cross-platform companion to `sf` —
+            // unlike `src`, it can coexist with an iOS `sf` declaration.
+            androidSrc={<VectorIcon family={MaterialCommunityIcons} name="brain" />}
+          />
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="outliers">
+          <Label>Alerts</Label>
+          <Icon
+            sf={{ default: 'bell.badge', selected: 'bell.badge.fill' }}
+            androidSrc={<VectorIcon family={MaterialCommunityIcons} name="bell-alert-outline" />}
+          />
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="scoreboard">
+          <Label>Scores</Label>
+          <Icon
+            sf={{ default: 'sportscourt', selected: 'sportscourt.fill' }}
+            androidSrc={<VectorIcon family={MaterialCommunityIcons} name="scoreboard" />}
+          />
+          {/* Native badge surfaces the "live games right now" indicator.
+              The SDK 54 Badge requires a string child — we use "•" so the
+              badge renders as a compact dot rather than empty space. */}
+          {hasLiveGames ? <Badge>•</Badge> : null}
+        </NativeTabs.Trigger>
+
+        {/* Hidden routes — expo-router still owns them as tab children so
+            navigation works, but `hidden` keeps them out of the bar. */}
+        <NativeTabs.Trigger name="picks" hidden />
+        <NativeTabs.Trigger name="chat" hidden />
+        <NativeTabs.Trigger name="voice-chat" hidden />
+        <NativeTabs.Trigger name="roast" hidden />
+        <NativeTabs.Trigger name="feature-requests" hidden />
+        <NativeTabs.Trigger name="mlb-betting-trends" hidden />
+        <NativeTabs.Trigger name="mlb-regression-report" hidden />
+        <NativeTabs.Trigger name="nba-betting-trends" hidden />
+        <NativeTabs.Trigger name="nba-model-accuracy" hidden />
+        <NativeTabs.Trigger name="ncaab-betting-trends" hidden />
+        <NativeTabs.Trigger name="ncaab-model-accuracy" hidden />
+      </NativeTabs>
     </>
   );
 }
 
 export default function TabsLayout() {
-  // Own the live-scores hook here so FloatingTabBar gets a stable boolean
-  // without re-mounting the hook on every pathname change.
-  const { hasLiveGames } = useLiveScores();
-
   return (
-    <LiveScoresContext.Provider value={hasLiveGames}>
-      <ScrollProvider>
-        <PickDetailSheetProvider>
-          <TabsContent />
-          {/* Wrap in View with higher zIndex to appear above FloatingTabBar (zIndex: 1000) */}
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, pointerEvents: 'box-none' }}>
-            <PickDetailBottomSheet />
-          </View>
-        </PickDetailSheetProvider>
-      </ScrollProvider>
-    </LiveScoresContext.Provider>
+    <ScrollProvider>
+      <PickDetailSheetProvider>
+        <TabsContent />
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, pointerEvents: 'box-none' }}
+        >
+          <PickDetailBottomSheet />
+        </View>
+      </PickDetailSheetProvider>
+    </ScrollProvider>
   );
 }

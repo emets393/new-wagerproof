@@ -1,0 +1,24 @@
+{
+  "name": "wagerproof-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WagerProof MCP connector — remote MCP server with OAuth (\"Sign in with WagerProof\") exposing a user's agents/picks and WagerProof's model analytics to AI assistants. Read-only v1.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "^0.0.5",
+    "@supabase/supabase-js": "^2.50.0",
+    "@wagerproof/tool-core": "file:../wagerproof-tool-core",
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^4.0.0"
+  }
+}

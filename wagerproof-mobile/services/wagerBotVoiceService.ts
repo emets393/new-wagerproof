@@ -5,7 +5,12 @@ import {
   mediaDevices,
 } from 'react-native-webrtc';
 import { Audio } from 'expo-av';
-import { forceToSpeaker, resetAudioRoute } from '@/modules/audio-route';
+import {
+  forceToSpeaker,
+  getAudioRouteDebugInfo as fetchAudioRouteDebugInfo,
+  resetAudioRoute,
+} from '@/modules/audio-route';
+import type { AudioRouteDebugInfo } from '@/modules/audio-route';
 import { supabase } from './supabase';
 
 export type WagerBotVoice = 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'marin' | 'cedar';
@@ -45,6 +50,7 @@ export class WagerBotVoiceService {
   private _model = 'gpt-realtime';
   private _promptSource: 'supabase' | 'fallback' | null = null;
   private _promptText: string | null = null;
+  private _forceSpeakerEnabled = true;
   private _sessionTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Hard ceiling — service tears itself down after 10 min even if hook doesn't
@@ -74,6 +80,7 @@ export class WagerBotVoiceService {
   get isSpeaking() { return this._isSpeaking; }
   get currentVoice() { return this._voice; }
   get currentPersonality() { return this._personality; }
+  get forceSpeakerEnabled() { return this._forceSpeakerEnabled; }
   get promptSource() { return this._promptSource; }
   get promptText() { return this._promptText; }
 
@@ -118,6 +125,7 @@ export class WagerBotVoiceService {
         playsInSilentModeIOS: true,
         playThroughEarpieceAndroid: false,
       });
+      await this.ensureSpeakerRoute('audio session setup');
 
       // 1. Get ephemeral token from Supabase edge function
       const session = await this.createRealtimeSession(gameContext);
@@ -125,7 +133,7 @@ export class WagerBotVoiceService {
       if (!clientSecret) {
         throw new Error('No client secret returned from session endpoint.');
       }
-      this._model = session.model || 'gpt-4o-realtime-preview';
+      this._model = session.model || 'gpt-realtime';
       this._promptSource = session.promptSource || 'fallback';
       this._promptText = session.promptText || null;
 
@@ -215,6 +223,24 @@ export class WagerBotVoiceService {
     await this.reconnect(this._voice, normalized, gameContext);
   }
 
+  async setForceSpeakerEnabled(enabled: boolean) {
+    this._forceSpeakerEnabled = enabled;
+
+    if (!this._isConnected && !this._isConnecting) {
+      return;
+    }
+
+    if (enabled) {
+      await this.ensureSpeakerRoute('force speaker enabled');
+    } else {
+      await this.clearSpeakerRoute('force speaker disabled');
+    }
+  }
+
+  async getAudioRouteDebugInfo(): Promise<AudioRouteDebugInfo | null> {
+    return await fetchAudioRouteDebugInfo();
+  }
+
   async startListening() {
     if (!this.isConnected || !this.micTrack) {
       this.onError?.('WagerBot is not connected yet.');
@@ -278,6 +304,12 @@ export class WagerBotVoiceService {
    */
   teardownSync() {
     this.clearSessionTimer();
+    resetAudioRoute().catch(() => {});
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: false,
+      playThroughEarpieceAndroid: false,
+    }).catch(() => {});
     this._isConnecting = false;
     this._isListening = false;
     this._isWaitingForResponse = false;
@@ -350,8 +382,7 @@ export class WagerBotVoiceService {
         case 'connected':
           if (!this._isConnected) {
             this._isConnected = true;
-            // WebRTC's PlayAndRecord category defaults to earpiece — override to loudspeaker
-            forceToSpeaker().catch(() => {});
+            void this.ensureSpeakerRoute('peer connected');
             this.startSessionTimer();
             this.onConnected?.();
           }
@@ -427,7 +458,10 @@ export class WagerBotVoiceService {
     clientSecret: string,
     offerSdp: string,
   ): Promise<string> {
-    const uri = `https://api.openai.com/v1/realtime?model=${this._model}`;
+    // GA WebRTC SDP exchange moved to /v1/realtime/calls (the beta
+    // /v1/realtime SDP endpoint was removed 2026-05-12 alongside the beta
+    // session API).
+    const uri = `https://api.openai.com/v1/realtime/calls?model=${this._model}`;
 
     const response = await fetch(uri, {
       method: 'POST',
@@ -468,6 +502,7 @@ export class WagerBotVoiceService {
 
         case 'output_audio_buffer.started':
           this._isWaitingForResponse = false;
+          void this.ensureSpeakerRoute('audio playback started');
           if (!this._isSpeaking) {
             this._isSpeaking = true;
             this.onSpeakingStarted?.();
@@ -518,6 +553,24 @@ export class WagerBotVoiceService {
     this._isWaitingForResponse = false;
     this._isSpeaking = false;
     if (wasSpeaking) this.onSpeakingFinished?.();
+  }
+
+  private async ensureSpeakerRoute(reason: string) {
+    if (!this._forceSpeakerEnabled) return;
+
+    try {
+      await forceToSpeaker();
+    } catch (error) {
+      console.warn(`[WagerBotVoice] Failed to force speaker route during ${reason}:`, error);
+    }
+  }
+
+  private async clearSpeakerRoute(reason: string) {
+    try {
+      await resetAudioRoute();
+    } catch (error) {
+      console.warn(`[WagerBotVoice] Failed to clear speaker route during ${reason}:`, error);
+    }
   }
 
   private humanizeError(error: any): string {

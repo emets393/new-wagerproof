@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleDisplayName</key>
+    <string>WagerProof</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>3.5.5</string>
+    <key>CFBundleVersion</key>
+    <string>40</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <true/>
+    </dict>
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIColorName</key>
+        <string>SplashBackground</string>
+    </dict>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arm64</string>
+    </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+    <key>NSUserTrackingUsageDescription</key>
+    <string>WagerProof uses this to deliver more relevant content and measure the performance of our features.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>WagerProof needs camera access to upload a profile photo for your agents.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>WagerProof needs microphone access to power voice chat with WagerBot.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>WagerProof needs photo library access so you can pick a profile image for your agents.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>WagerProof uses speech recognition to transcribe your voice questions for WagerBot.</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.wagerproof.mobile</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>wagerproof</string>
+                <string>rc-ff2fe0e0af</string>
+                <string>com.googleusercontent.apps.142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq</string>
+            </array>
+        </dict>
+    </array>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>remote-notification</string>
+    </array>
+    <key>UIRequiresFullScreen</key>
+    <false/>
+    <key>FacebookAppID</key>
+    <string>$(FACEBOOK_APP_ID)</string>
+    <key>FacebookClientToken</key>
+    <string>$(FACEBOOK_CLIENT_TOKEN)</string>
+    <key>FacebookDisplayName</key>
+    <string>WagerProof</string>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>fbapi</string>
+        <string>fb-messenger-share-api</string>
+        <string>fbauth2</string>
+        <string>fbshareextension</string>
+    </array>
+</dict>
+</plist>

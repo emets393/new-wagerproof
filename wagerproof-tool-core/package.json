@@ -1,0 +1,17 @@
+{
+  "name": "@wagerproof/tool-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared, runtime-agnostic WagerProof MCP tool definitions + data access. Zero runtime deps — callers pass their own Supabase-like clients. Consumed by the public MCP connector (Cloudflare Worker) and, later, the WagerBot chat loop and agent generation.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

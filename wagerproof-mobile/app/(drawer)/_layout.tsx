@@ -64,13 +64,65 @@ export default function DrawerLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: 'transparent' },
+            // SDK 54+ react-native-screens defaults — every push-screen below
+            // overrides these per-screen. Setting them here keeps the global
+            // shell consistent and means individual `<Stack.Screen options>`
+            // calls in each screen file own the title / right buttons.
+            headerLargeTitle: false,
+            headerBlurEffect: 'systemMaterial',
+            headerTransparent: false,
+            headerShadowVisible: false,
+            headerBackTitle: 'Back',
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="settings"
             options={{
+              // Native iOS large-title nav bar — mirrors Honeydew SettingsView's
+              // `.navigationTitle("Settings") + .navigationBarTitleDisplayMode(.large)`.
+              // The title sits big below the chrome on initial paint and
+              // shrinks into the inline slot as the user scrolls.
+              //
+              // DO NOT set `headerStyle.backgroundColor` or
+              // `headerLargeStyle.backgroundColor` — that overrides the
+              // system blur backdrop. Leaving them unset lets iOS apply the
+              // automatic transparent-at-top → blurred-on-scroll transition.
+              headerShown: true,
+              headerLargeTitle: true,
+              headerTitle: 'Settings',
+              headerTintColor: '#ffffff',
+              headerLargeTitleStyle: { color: '#ffffff' },
+              headerTitleStyle: { color: '#ffffff' },
+              headerBlurEffect: 'systemMaterialDark',
+              presentation: 'card',
+              animation: 'slide_from_right',
+              animationDuration: 220,
+            }}
+          />
+          <Stack.Screen
+            name="wagerbot-voice"
+            options={{
+              // Voice screen owns its full-bleed UI — no native header.
               headerShown: false,
+              presentation: 'card',
+              animation: 'slide_from_right',
+              animationDuration: 220,
+            }}
+          />
+          <Stack.Screen
+            name="wagerbot-chat"
+            options={{
+              // Chat uses the iOS-native inline title pattern (see Honeydew's
+              // ChatV3View). `headerTransparent: true` + a dark blur effect
+              // lets messages scroll under the chrome with a system blur,
+              // matching the iMessage / Honeydew chat feel.
+              headerShown: true,
+              headerTitle: 'WagerBot',
+              headerTransparent: true,
+              headerBlurEffect: 'systemUltraThinMaterialDark',
+              headerTintColor: '#ffffff',
+              headerTitleStyle: { color: '#ffffff' },
               presentation: 'card',
               animation: 'slide_from_right',
               animationDuration: 220,

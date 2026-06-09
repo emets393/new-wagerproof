@@ -1,0 +1,531 @@
+import SwiftUI
+import WagerproofDesign
+import WagerproofModels
+import WagerproofStores
+
+/// Home Games tab. Ports `wagerproof-mobile/app/(drawer)/(tabs)/index.tsx`.
+///
+/// Layout (per spec §8):
+///   - Sport pills under the navigation header
+///   - 2-column `LazyVGrid` of per-sport game cards
+///   - Pull-to-refresh
+///   - Searchable + sortable per sport
+///   - Sheet presentations for per-sport game detail (NFL/CFB/NBA/NCAAB/MLB)
+struct GamesView: View {
+    @Environment(MainTabStore.self) private var tabStore
+    // All stores hoisted to MainTabView so cross-tab surfaces (Outliers
+    // matchups, SearchView results) drive game detail pushes via the same
+    // shared instances.
+    @Environment(GamesStore.self) private var store
+    @Environment(NFLGameSheetStore.self) private var nflSheetStore
+    @Environment(CFBGameSheetStore.self) private var cfbSheetStore
+    @Environment(NBAGameSheetStore.self) private var nbaSheetStore
+    @Environment(NCAABGameSheetStore.self) private var ncaabSheetStore
+    @Environment(MLBGameSheetStore.self) private var mlbSheetStore
+    @State private var sortMenuVisible: Bool = false
+    /// Drives the push to a per-sport analytics tool page (banner tap). New
+    /// payload type, so it doesn't collide with the game-detail `item:`
+    /// destinations on this stack.
+    @State private var selectedTool: SportTool?
+    /// Current page of the swipeable tool-banner carousel (reset when the
+    /// selected sport changes so we never land on an out-of-range index).
+    @State private var toolPage: Int = 0
+
+    // Shared namespace for the card→detail zoom transition. The source card
+    // (`matchedTransitionSource`) and the pushed detail view
+    // (`navigationTransition(.zoom)`) must reference the SAME namespace +
+    // sourceID for the expand/collapse morph to fire; otherwise SwiftUI
+    // falls back to a plain push. Source IDs are sport-prefixed so IDs can't
+    // collide across leagues. iOS 18+ (deployment target is 18.0).
+    @Namespace private var cardTransition
+
+    init() {}
+
+    var body: some View {
+        @Bindable var binding = store
+        @Bindable var nflSheet = nflSheetStore
+        @Bindable var cfbSheet = cfbSheetStore
+        @Bindable var nbaSheet = nbaSheetStore
+        @Bindable var ncaabSheet = ncaabSheetStore
+        @Bindable var mlbSheet = mlbSheetStore
+        NavigationStack {
+            // ScrollView at the root so the system can attach large-title
+            // scroll-shrink. The sport picker is the FIRST row of scroll
+            // content (it scrolls away with the content, mirroring Honeydew
+            // MainMealPlanView where category controls scroll naturally
+            // rather than being pinned). The user gets the iconic large-title
+            // transition (big title at top → shrinks inline as you scroll)
+            // and a native `.searchable` drawer that pins inside the nav bar.
+            ScrollView {
+                // The sport picker is the pinned header of an outer Section
+                // (stays fixed under the nav bar). The inner LazyVStack does
+                // NOT pin, so per-date headers scroll away inline with the
+                // cards. Keeping the picker as scroll content (rather than a
+                // safe-area inset) preserves the system's scroll-under glass
+                // behavior for the large title and bars.
+                LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
+                    Section {
+                        LazyVStack(spacing: 8) {
+                            toolBanners
+                            bodyContent
+                        }
+                    } header: {
+                        pickerBar
+                    }
+                }
+            }
+            .background(Color.appSurface.ignoresSafeArea())
+                .navigationTitle("Games")
+                .navigationBarTitleDisplayMode(.large)
+                // Per-tab `.searchable()` was dropped — search now lives in
+                // the dedicated `Tab(role: .search)` slot (SearchView) which
+                // queries across games/agents/outliers/scores.
+                // Pattern §7 — single `await`, no nested Task. The store's
+                // `refresh(sport:force:)` is the canonical refresh entry point;
+                // we pass `force: true` here so pull-to-refresh always bypasses
+                // the 5-minute cache TTL.
+                .refreshable {
+                    await store.refresh(sport: store.selectedSport, force: true)
+                }
+                .task {
+                    await store.refreshAll()
+                }
+                .toolbar { mainToolbar }
+            // Game details are full-page pushes now (was bottom sheets).
+            // `navigationDestination(item:)` watches the store's
+            // `selectedGame` binding — flipping it non-nil pushes the
+            // detail view; the system clears it on back-nav. Same store is
+            // shared via env so OutliersView / SearchView can drive the
+            // push from other tabs.
+            .navigationDestination(item: $nflSheet.selectedGame) { game in
+                NFLGameCarousel(games: store.sortedNFL(), initialGame: game) {
+                    nflSheetStore.closeGameSheet()
+                }
+                .navigationTransition(.zoom(sourceID: "nfl-\(game.id)", in: cardTransition))
+            }
+            .navigationDestination(item: $cfbSheet.selectedGame) { game in
+                CFBGameCarousel(games: store.sortedCFB(), initialGame: game) {
+                    cfbSheetStore.closeGameSheet()
+                }
+                .navigationTransition(.zoom(sourceID: "cfb-\(game.id)", in: cardTransition))
+            }
+            .navigationDestination(item: $nbaSheet.selectedGame) { game in
+                NBAGameCarousel(games: store.sortedNBA(), initialGame: game) {
+                    nbaSheetStore.closeGameSheet()
+                }
+                .navigationTransition(.zoom(sourceID: "nba-\(game.id)", in: cardTransition))
+            }
+            .navigationDestination(item: $ncaabSheet.selectedGame) { game in
+                NCAABGameCarousel(games: store.sortedNCAAB(), initialGame: game) {
+                    ncaabSheetStore.closeGameSheet()
+                }
+                .navigationTransition(.zoom(sourceID: "ncaab-\(game.id)", in: cardTransition))
+            }
+            .navigationDestination(item: $mlbSheet.selectedGame) { game in
+                // MLB detail is a swipeable carousel of the sport's sorted slate,
+                // starting at the tapped game.
+                MLBGameCarousel(games: store.sortedMLB(), initialGame: game) {
+                    mlbSheetStore.closeGameSheet()
+                }
+                .navigationTransition(.zoom(sourceID: "mlb-\(game.id)", in: cardTransition))
+            }
+            // Settings pushes onto this stack (tapping the trailing gear) instead
+            // of covering the screen as a modal — see MainTabToolbar.swift.
+            .wagerProofSettingsDestination(tabStore: tabStore, tab: .games)
+            // WagerBot chat pushes onto this stack (sparkles toolbar icon) as a
+            // real page instead of a bottom sheet — see MainTabToolbar.swift.
+            .wagerProofChatDestination(tabStore: tabStore, tab: .games)
+            // Per-sport analytics tools push onto this stack (banner tap). The
+            // shared ToolRouter resolves the same leaf views the Outliers hub
+            // opens, so both entry points stay in sync.
+            .navigationDestination(item: $selectedTool) { tool in
+                ToolRouter.leafView(for: tool.category)
+            }
+            .animation(.appQuick, value: store.selectedSport)
+            // Reset the tool carousel to the first page when the sport changes
+            // so a higher index (e.g. MLB's 4th tool) can't carry into a sport
+            // with fewer tools.
+            .onChange(of: store.selectedSport) { _, _ in toolPage = 0 }
+        }
+    }
+
+    // MARK: - Tool banners
+
+    /// Per-sport analytics tool banners (HoneydewOptionCard promo cards) shown
+    /// above the game list for the selected sport — a swipeable paged carousel
+    /// (one banner per page) with dot indicators, instead of a tall stack.
+    /// NFL/CFB have none so this renders nothing for them.
+    @ViewBuilder
+    private var toolBanners: some View {
+        let tools = SportTool.tools(for: store.selectedSport)
+        if !tools.isEmpty {
+            VStack(spacing: 8) {
+                // Paged TabView for native horizontal swipe. Fixed height —
+                // `.page` TabViews don't size to content; the banner card's
+                // 64pt min height fits comfortably inside 78.
+                TabView(selection: $toolPage) {
+                    ForEach(Array(tools.enumerated()), id: \.element.id) { index, tool in
+                        ToolBannerCard(tool: tool) { selectedTool = tool }
+                            .padding(.horizontal, 12)
+                            .tag(index)
+                    }
+                }
+                .frame(height: 78)
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .animation(.appQuick, value: toolPage)
+
+                if tools.count > 1 {
+                    HStack(spacing: 6) {
+                        ForEach(tools.indices, id: \.self) { i in
+                            Circle()
+                                .fill(i == toolPage ? Color.appPrimary : Color.appBorder)
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                    .animation(.appQuick, value: toolPage)
+                }
+            }
+            .padding(.top, 4)
+            .padding(.bottom, 6)
+        }
+    }
+
+    // MARK: - Toolbar
+
+    /// Native large-title toolbar. Top-leading is the WagerProof wordmark
+    /// (tap to open Settings); the trailing group hosts the WagerBot launcher
+    /// (shared across every main tab — see `MainTabToolbar.swift`). The
+    /// per-sport sort menu lives in the pinned section header, not the toolbar.
+    @ToolbarContentBuilder
+    private var mainToolbar: some ToolbarContent {
+        WagerProofLeadingToolbarItem()
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            WagerBotToolbarButton(tabStore: tabStore)
+            SettingsToolbarButton(tabStore: tabStore)
+        }
+    }
+
+    /// Per-sport sort menu — sits next to the sport picker in the pinned
+    /// section header so the user can change ordering without reaching to
+    /// the toolbar. Picker change adjusts which sport's sort mode the menu
+    /// targets (each sport has its own remembered sort).
+    @ViewBuilder
+    private var sortMenu: some View {
+        Menu {
+            Button {
+                store.sortModes[store.selectedSport] = .time
+            } label: {
+                Label("Sort by Time", systemImage: "clock")
+            }
+            Button {
+                store.sortModes[store.selectedSport] = .spread
+            } label: {
+                Label("Sort by Spread Value", systemImage: "chart.line.uptrend.xyaxis")
+            }
+            Button {
+                store.sortModes[store.selectedSport] = .ou
+            } label: {
+                Label("Sort by O/U Value", systemImage: "number")
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.appTextPrimary)
+                .frame(width: 32, height: 32)
+        }
+        .tint(Color.appTextPrimary)
+        .sensoryFeedback(.selection, trigger: store.sortModes[store.selectedSport])
+        .accessibilityLabel("Sort games")
+    }
+
+    // MARK: - Sport switcher
+
+    /// The picker + sort bar, rendered as the pinned header of the outer
+    /// scroll Section. Left as a floating glass capsule (no full-width
+    /// opaque fill) so content scrolls under the nav bar / large title with
+    /// the system's translucent treatment intact.
+    @ViewBuilder
+    private var pickerBar: some View {
+        HStack(spacing: 8) {
+            sportPicker
+            sortMenu
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 4)
+        .modifier(LiquidGlassCapsule())
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+
+    /// Native segmented sport picker. Lives inside `pickerBar`, the pinned
+    /// header of the scroll content, so it stays beneath the nav bar while
+    /// game cards scroll under it.
+    @ViewBuilder
+    private var sportPicker: some View {
+        @Bindable var binding = store
+        Picker("Sport", selection: $binding.selectedSport) {
+            ForEach(GamesStore.Sport.allCases) { sport in
+                Text(sport.label).tag(sport)
+            }
+        }
+        .pickerStyle(.segmented)
+        // UISegmentedControl's selected-segment highlight uses a small fixed
+        // corner radius. Inside the outer Liquid Glass capsule that looked
+        // visually square. Clipping the whole picker to a capsule shape
+        // rounds the highlight's edges (it inherits the parent mask).
+        .clipShape(.capsule)
+        .sensoryFeedback(.selection, trigger: store.selectedSport)
+    }
+
+    // MARK: - Content
+
+    /// Body content rendered as direct children of the top-level
+    /// LazyVStack so that per-date Section headers can pin alongside
+    /// the sport-picker header.
+    @ViewBuilder
+    private var bodyContent: some View {
+        if store.isLoading(sport: store.selectedSport) && noCachedGames {
+            loadingSkeleton
+        } else if let msg = store.errorMessage(sport: store.selectedSport), noCachedGames {
+            errorState(msg)
+        } else {
+            sportDateSections
+        }
+    }
+
+    private var noCachedGames: Bool {
+        switch store.selectedSport {
+        case .nfl: return store.games.nfl.isEmpty
+        case .cfb: return store.games.cfb.isEmpty
+        case .nba: return store.games.nba.isEmpty
+        case .ncaab: return store.games.ncaab.isEmpty
+        case .mlb: return store.games.mlb.isEmpty
+        }
+    }
+
+    @ViewBuilder
+    private var loadingSkeleton: some View {
+        VStack(spacing: 8) {
+            // No forced height — the skeleton sizes to GameRowCard's natural
+            // footprint so the crossfade to loaded cards doesn't shift layout.
+            ForEach(0..<5, id: \.self) { _ in
+                GameCardShimmer()
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 16)
+        .transition(.opacity)
+    }
+
+    @ViewBuilder
+    private func errorState(_ message: String) -> some View {
+        VStack {
+            Spacer().frame(height: 40)
+            ContentUnavailableView {
+                Label("Failed to load games", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(message)
+            } actions: {
+                Button {
+                    Task { await store.refresh(sport: store.selectedSport, force: true) }
+                } label: {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.appPrimary)
+            }
+            Spacer()
+        }
+    }
+
+    // MARK: - Per-sport date Sections
+
+    @ViewBuilder
+    private var sportDateSections: some View {
+        switch store.selectedSport {
+        case .nfl: nflDateSections
+        case .cfb: cfbDateSections
+        case .ncaab: ncaabDateSections
+        case .mlb: mlbDateSections
+        case .nba: nbaDateSections
+        }
+    }
+
+    @ViewBuilder
+    private var nflDateSections: some View {
+        let games = store.sortedNFL()
+        if games.isEmpty {
+            emptyTile(label: "No NFL games today", systemImage: "football")
+        } else {
+            let sections = GameDateGrouping.group(
+                games,
+                key: { GameDateGrouping.dateKey(from: $0.gameDate) },
+                label: { GameCardFormatting.formatCompactDate($0.gameDate) }
+            )
+            ForEach(sections, id: \.key) { section in
+                Section {
+                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                        NFLGameCard(game: game) {
+                            nflSheetStore.openGameSheet(game)
+                        }
+                        .matchedTransitionSource(id: "nfl-\(game.id)", in: cardTransition)
+                        .padding(.horizontal, 12)
+                        .staggeredAppear(index: index)
+                    }
+                } header: {
+                    sectionHeader(section.label)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var cfbDateSections: some View {
+        let games = store.sortedCFB()
+        if games.isEmpty {
+            emptyTile(label: "No CFB games today", systemImage: "graduationcap")
+        } else {
+            let sections = GameDateGrouping.group(
+                games,
+                key: { GameDateGrouping.dateKey(from: $0.gameDate) },
+                label: { GameCardFormatting.formatCompactDate($0.gameDate) }
+            )
+            ForEach(sections, id: \.key) { section in
+                Section {
+                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                        CFBGameCard(game: game) {
+                            cfbSheetStore.openGameSheet(game)
+                        }
+                        .matchedTransitionSource(id: "cfb-\(game.id)", in: cardTransition)
+                        .padding(.horizontal, 12)
+                        .staggeredAppear(index: index)
+                    }
+                } header: {
+                    sectionHeader(section.label)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var ncaabDateSections: some View {
+        let games = store.sortedNCAAB()
+        if games.isEmpty {
+            emptyTile(label: "No NCAAB games today", systemImage: "basketball")
+        } else {
+            let sections = GameDateGrouping.group(
+                games,
+                key: { GameDateGrouping.dateKey(from: $0.gameDate) },
+                label: { GameCardFormatting.formatCompactDate($0.gameDate) }
+            )
+            ForEach(sections, id: \.key) { section in
+                Section {
+                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                        NCAABGameCard(game: game) {
+                            ncaabSheetStore.openGameSheet(game)
+                        }
+                        .matchedTransitionSource(id: "ncaab-\(game.id)", in: cardTransition)
+                        .padding(.horizontal, 12)
+                        .staggeredAppear(index: index)
+                    }
+                } header: {
+                    sectionHeader(section.label)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var mlbDateSections: some View {
+        let games = store.sortedMLB()
+        if games.isEmpty {
+            emptyTile(label: "No MLB games today", systemImage: "baseball")
+        } else {
+            let sections = GameDateGrouping.group(
+                games,
+                key: { GameDateGrouping.dateKey(from: $0.officialDate) },
+                label: { MLBFormatting.dateLabel($0.officialDate) }
+            )
+            ForEach(sections, id: \.key) { section in
+                Section {
+                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                        MLBGameCard(game: game) {
+                            mlbSheetStore.openGameSheet(game)
+                        }
+                        .matchedTransitionSource(id: "mlb-\(game.id)", in: cardTransition)
+                        .padding(.horizontal, 12)
+                        .staggeredAppear(index: index)
+                    }
+                } header: {
+                    sectionHeader(section.label)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var nbaDateSections: some View {
+        let games = store.sortedNBA()
+        if games.isEmpty {
+            emptyTile(label: "No NBA games today", systemImage: "basketball")
+        } else {
+            let sections = GameDateGrouping.group(
+                games,
+                key: { GameDateGrouping.dateKey(from: $0.gameDate) },
+                label: { GameCardFormatting.formatCompactDate($0.gameDate) }
+            )
+            ForEach(sections, id: \.key) { section in
+                Section {
+                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                        NBAGameCard(game: game) {
+                            nbaSheetStore.openGameSheet(game)
+                        }
+                        .matchedTransitionSource(id: "nba-\(game.id)", in: cardTransition)
+                        .padding(.horizontal, 12)
+                        .staggeredAppear(index: index)
+                    }
+                } header: {
+                    sectionHeader(section.label)
+                }
+            }
+        }
+    }
+
+    /// Section header rendered above each per-date group of cards. Scrolls
+    /// inline with the content (not pinned).
+    @ViewBuilder
+    private func sectionHeader(_ label: String) -> some View {
+        HStack {
+            Text(label.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .tracking(0.8)
+                .foregroundStyle(Color.appTextSecondary)
+                // Align the date label's leading edge with the card content
+                // (card sits 12 from the screen + ~7 content inset) so the date
+                // lines up with the matchup rather than floating to its left.
+                .padding(.leading, 20)
+                .padding(.trailing, 16)
+                .padding(.vertical, 6)
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private func emptyTile(label: String, systemImage: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(Color.appTextMuted)
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color.appTextSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 200)
+    }
+}
+
+#Preview {
+    GamesView()
+}
