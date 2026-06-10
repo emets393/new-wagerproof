@@ -161,3 +161,35 @@ Market popularity drives efficiency. P5 (both Power-5) = heavy two-sided action 
 ## 6. STILL TODO
 - Supabase write-path (predictions → website) + weekly orchestration runner + persistent CLV ledger.
 - Optional: market-anchored totals variant; QB backfill pre-2021; rivalry table FIU fix.
+
+---
+## 7. MODEL UPGRADE (2026-06): A2 CROSS-TEAM NETS — CONFIRMED & LOCKED
+Sweep (exp_a1_a2/a3_a4.py, identical walk-forward folds, product-style grade @ open, Wilson CIs):
+| Variant (sides, gate>=4) | n | hit% | ROI | CLV | per-season |
+|---|---|---|---|---|---|
+| BASE (old locked) | 1703 | 53.2 [50.8,55.6] | +1.6 | +0.42 | 51/53/60/54/49 |
+| **BASE+nets (NEW LOCKED)** | 1648 | **54.7** [52.3,57.1] | +4.4 | +0.44 | 56/53/59/54/51 |
+nets = 12 cross-team features, SUM semantics (hexp = home_off_X + away_def_allowed_X; net = hexp − aexp).
+PRE-REGISTERED CONFIRMATION (exp_confirm_a2.py, 5-seed): beats BASE at ALL gates 3/4/5; 2025 holdout 50.8 vs 48.8;
+CLV intact → **UPGRADE CONFIRMED**. Sides model now FEATS+nets; TOTALS stays BASE (+0.2pp only, not adopted).
+Ledgers regenerated from scratch (out/ backed up to out_backup_pre_nets_upgrade/). Dry-run reproduces.
+NEGATIVES from sweep: A1 spot-flags-in-model (fire 1.4-3.9%, +0.6pp within CI = noise; overlay architecture
+stands). A3 architectures: 5-seed ensemble identical; ridge 50.9% (worse); blend +1.2pp but fewer picks &
+unconfirmed — GBM stands. A4 calibration: sides edge-buckets weakly monotonic 48→57 with flat 6-14 zone (no
+fantasy tail like NFL, but confidence alone cannot gate big plays); totals cleanly monotonic 48→54.
+
+## 8. MAMMOTH TIER (pre-registered, exp_b_mammoth.py) — SIDES VALIDATED, TOTALS FAILED
+**SIDES MAMMOTH** (def in script docstring BEFORE results): |side_edge_open|>=8 AND confirm-classifier
+(close-cover HistGB, independent layer) agrees AND >=1 non-model spot (RvR/SunBelt/BigTen/padded-road) same dir.
+Dose-response (textbook): control (no confirm, no spot) 50.0% → confirm-only 54.5% → **MAMMOTH 70.0% (n=30,
+CI[52,83], CLV+0.62, per-season 57/71/86/62/100)** ≈ 6/season. Mirrors NFL (ingredients 49-54 alone, ~70 together).
+Wired: `mammoth` column in cfb_predictions CSV (2025 dry-run: 7 flagged). Small-n stated: 2026 live = true test.
+**TOTALS MAMMOTH: NOT REAL** — big-edge+struct 53.7% vs control-without-struct 54.5% (control better), >=2-struct
+28.6%(n7); no monotonic dose-response → per pre-registration, rejected. **MULTI-RULE MAMMOTH: n=0** (non-model
+spots never co-fire 2+ same direction in CFB) — not feasible with current spot set.
+
+## 9. GRADER BUG FOUND & FIXED (predicted by the NFL warning)
+GameDay merges on (season, team-pair) DOUBLE-MATCHED same-season rematches (e.g. 2024 Georgia-Texas wk8 + SEC CG).
+Fixed via show-date proximity dedup (±3 days) + (season,home,away,actual_margin) join for movement. Post-fix:
+matched 111 (was 115, 4 dups), movement n=88 (was 94). Findings SURVIVE slightly tempered: GameDay fade-move
+54.8% (was 55.9), GameDay under 61.2% (was 65.5), line-toward-away fade-to-home unchanged (away covers 38.9%).

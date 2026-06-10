@@ -28,16 +28,21 @@ for ln in open(os.path.join(HERE, "data", "gameday", "gameday_raw.txt")):
     p = [x.strip() for x in ln.split("|")]
     if len(p) < 5: continue
     vis, host = to_db(p[1]), to_db(p[3])
-    rows.append({"season": season, "vis_raw": p[1], "host_raw": p[3], "vis": vis, "host": host})
+    rows.append({"season": season, "show_date": p[0], "vis_raw": p[1], "host_raw": p[3], "vis": vis, "host": host})
 G = pd.DataFrame(rows)
 unmatched = G[G.vis.isna() | G.host.isna()]
 if len(unmatched): print("UNMATCHED:", unmatched[["vis_raw", "host_raw"]].values.tolist())
 G = G.dropna(subset=["vis", "host"])
+G["show_dt"] = pd.to_datetime(G.show_date, errors="coerce")
 
-# join to model_games by team-pair (orientation-agnostic) via string key
+# join by team-pair, then DEDUPE by date proximity — same pair can play twice in a season
+# (e.g. 2024 Georgia-Texas wk8 + SEC CG); pair-only merge double-matches. Keep the game closest to the show date.
 gm["pk"] = ["|".join(sorted([h, a])) for h, a in zip(gm.homeTeam, gm.awayTeam)]
 G["pk"] = ["|".join(sorted([v, h])) for v, h in zip(G.vis, G.host)]
-M = G[["season", "pk"]].merge(gm, on=["season", "pk"], how="inner")
+M = G[["season", "pk", "show_dt"]].merge(gm, on=["season", "pk"], how="inner")
+M["dd"] = (pd.to_datetime(M.date, errors="coerce").dt.tz_localize(None) - M.show_dt).abs()
+M = M.sort_values("dd").drop_duplicates(["season", "pk", "show_dt"], keep="first")
+M = M[M.dd <= pd.Timedelta(days=3)]
 print(f"\nGameDay games parsed: {len(G)} | matched to model_games: {len(M)} ({len(M)/len(G)*100:.0f}%)")
 M = M[M.spread_close.notna() & M.actual_margin.notna()].copy()
 M = M[(M.actual_margin + M.spread_close) != 0]

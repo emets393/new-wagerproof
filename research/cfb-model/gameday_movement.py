@@ -28,10 +28,17 @@ for ln in open(os.path.join(HERE, "data", "gameday", "gameday_raw.txt")):
     p = [x.strip() for x in ln.split("|")]
     if len(p) < 5: continue
     v, h = to_db(p[1]), to_db(p[3])
-    if v and h: rows.append({"season": season, "pk": "|".join(sorted([v, h]))})
-G = pd.DataFrame(rows)
-mw["pk"] = ["|".join(sorted([h, a])) for h, a in zip(mw.home, mw.away)]
-M = G.merge(mw, on=["season", "pk"], how="inner").dropna(subset=["sp_open", "sp_close", "actual_margin"])
+    if v and h: rows.append({"season": season, "show_date": p[0], "pk": "|".join(sorted([v, h]))})
+G = pd.DataFrame(rows); G["show_dt"] = pd.to_datetime(G.show_date, errors="coerce")
+# date-dedupe via model_games first (same pair can play twice/season -> pair-only merge double-matches),
+# then join movement on (season, home, away, actual_margin) which is effectively unique.
+gm["pk"] = ["|".join(sorted([h, a])) for h, a in zip(gm.homeTeam, gm.awayTeam)]
+GM = G.merge(gm[["season", "pk", "date", "homeTeam", "awayTeam", "actual_margin"]], on=["season", "pk"], how="inner")
+GM["dd"] = (pd.to_datetime(GM.date, errors="coerce").dt.tz_localize(None) - GM.show_dt).abs()
+GM = GM.sort_values("dd").drop_duplicates(["season", "pk", "show_dt"], keep="first")
+GM = GM[GM.dd <= pd.Timedelta(days=3)]
+M = GM[["season", "homeTeam", "awayTeam", "actual_margin"]].rename(columns={"homeTeam": "home", "awayTeam": "away"}) \
+    .merge(mw, on=["season", "home", "away", "actual_margin"], how="inner").dropna(subset=["sp_open", "sp_close", "actual_margin"])
 M = M[(M.actual_margin + M.sp_close) != 0]
 M["home_cover"] = (M.actual_margin + M.sp_close) > 0
 M["sp_move"] = M.sp_close - M.sp_open       # <0 = line moved toward HOME

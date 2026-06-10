@@ -32,7 +32,15 @@ def load():
     num = gm.select_dtypes(include=[np.number, "Int64", "boolean"])
     feats = [c for c in num.columns if c not in EXCLUDE]
     gm[feats] = gm[feats].apply(pd.to_numeric, errors="coerce")
-    return gm, feats
+    # cross-team matchup NETS (A2 upgrade, exp_confirm_a2.py CONFIRMED): SUM semantics — def metrics measure
+    # what they ALLOW: hexp = home_off + away_allowed; net = hexp - aexp. SIDES model only (totals showed no lift).
+    nets = []
+    for b in [c[len("home_adj_"):-len("_allowed")] for c in gm.columns
+              if c.startswith("home_adj_") and c.endswith("_allowed")]:
+        gm[f"net_{b}"] = (gm[f"home_adj_{b}"] + gm[f"away_adj_{b}_allowed"]) - \
+                         (gm[f"away_adj_{b}"] + gm[f"home_adj_{b}_allowed"])
+        nets.append(f"net_{b}")
+    return gm, feats, nets
 
 
 def add_situational_flags(df):
@@ -214,14 +222,15 @@ def build_season(season, week=None):
     """Train on <season (no leak), build every signal/spot for `season`. Returns (gm, feats, te, S).
     Used by both main() and the portfolio backtest so they share identical logic."""
     a = type("A", (), {"season": season, "week": week})()
-    gm, feats = load()
+    gm, feats, nets = load()
+    sfeats = feats + nets   # UPGRADED sides model (A2 nets, confirmed); totals stays BASE (no lift)
     tr = gm[(gm.season < a.season) & gm.actual_total.notna()]
     te = gm[gm.season == a.season].copy()
     if a.week:
         te = te[te.week == a.week]
     tm = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_depth=4, l2_regularization=1.0, random_state=0).fit(tr[feats], tr.actual_total)
-    sm = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_depth=4, l2_regularization=1.0, random_state=0).fit(tr[feats], tr.actual_margin)
-    te["pred_total"] = tm.predict(te[feats]); te["pred_margin"] = sm.predict(te[feats])
+    sm = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_depth=4, l2_regularization=1.0, random_state=0).fit(tr[sfeats], tr.actual_margin)
+    te["pred_total"] = tm.predict(te[feats]); te["pred_margin"] = sm.predict(te[sfeats])
     te["total_edge"] = te.pred_total - te.total_open
     te["side_edge"] = te.pred_margin + te.spread_open
     te["side_edge_close"] = te.pred_margin + te.spread_close   # model lean @ close (for the stack spots)
@@ -269,6 +278,25 @@ def build_season(season, week=None):
                          & (te.away_last_win == 0) & settled).astype(int)    # fade away -> bet HOME
     te = add_situational_flags(te)
     te, S = apply_spots(te)
+    # ===== MAMMOTH flag (pre-registered, exp_b_mammoth.py; validated 70% n=30, dose-response 50->54.5->70) =====
+    # SIDES MAMMOTH = |side_edge|>=8 (2x gate) AND confirm-classifier agrees AND >=1 non-model spot same direction.
+    from sklearn.ensemble import HistGradientBoostingClassifier
+    trc = gm[(gm.season < a.season) & gm.spread_close.notna() & gm.actual_margin.notna()]
+    trc = trc[(trc.actual_margin + trc.spread_close) != 0]
+    cc = HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, max_depth=4,
+                                        l2_regularization=1.0, random_state=0).fit(trc[feats], (trc.actual_margin + trc.spread_close) > 0)
+    te["p_home_conf"] = cc.predict_proba(te[feats])[:, 1]
+    pick_home = te.side_edge > 0
+    confirm = (te.p_home_conf > 0.5) == pick_home
+    rvr_h = (te.home_self_rank_is == 1) & (te.away_self_rank_is == 1) & (te.spread_close < 0)
+    confx = np.where(te.homeConference == te.awayConference, te.homeConference, "NON")
+    sb_a = (pd.Series(confx, index=te.index) == "Sun Belt") & (te.spread_close < 0)
+    bt_a = (pd.Series(confx, index=te.index) == "Big Ten") & (te.spread_close > 0)
+    pad_h = te.away_padded == 1
+    n_home = rvr_h.astype(int) + pad_h.astype(int)
+    n_away = sb_a.astype(int) + bt_a.astype(int)
+    spot_agree = np.where(pick_home, n_home, n_away)
+    te["mammoth"] = ((te.side_edge.abs() >= 8) & confirm & (spot_agree >= 1)).astype(int)
     return gm, feats, te, S
 
 
@@ -280,7 +308,7 @@ def main():
     gm, feats, te, S = build_season(a.season, a.week)
 
     disp = te[["season", "week", "homeTeam", "awayTeam", "total_open", "pred_total", "totals_bet",
-               "spread_open", "pred_spread", "sides_bet", "rev_veto", "spots"]].copy()
+               "spread_open", "pred_spread", "sides_bet", "rev_veto", "mammoth", "spots"]].copy()
     disp.to_csv(os.path.join(OUT, f"cfb_predictions_{a.season}.csv"), index=False)
     bets = te[(te.totals_bet != "") | (te.sides_bet != "")]
 
