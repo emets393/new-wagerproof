@@ -193,3 +193,37 @@ GameDay merges on (season, team-pair) DOUBLE-MATCHED same-season rematches (e.g.
 Fixed via show-date proximity dedup (±3 days) + (season,home,away,actual_margin) join for movement. Post-fix:
 matched 111 (was 115, 4 dups), movement n=88 (was 94). Findings SURVIVE slightly tempered: GameDay fade-move
 54.8% (was 55.9), GameDay under 61.2% (was 65.5), line-toward-away fade-to-home unchanged (away covers 38.9%).
+
+---
+## 10. THE VAULT (final state, 2026-06) — what's LIVE vs DISCARDED
+
+### LIVE — models
+| Piece | Status |
+|---|---|
+| SIDES model = GBM on FEATS + 12 cross-team nets | LOCKED (upgraded §7; 54.7% @gate4 vs open, +CLV) |
+| TOTALS model = GBM on FEATS (unanchored) | LOCKED (over-edge>=6 -> 55%, calibrated monotonic) |
+| TEAM-TOTAL models = anchored (UNDER<=-3) + unanchored (OVER>=+6) | LOCKED (54-56%, mutually exclusive) |
+| Confirm-classifier (close-cover) | LOCKED (mammoth ingredient) |
+| MAMMOTH tier (sides) | LOCKED (70% backtest, 5-2 2025 dry-run, ~6-7/season, auto-flagged) |
+
+### LIVE — spots (all in cfb_forecast.py; tiers in STRATEGY.md)
+T1: model x soft-book STACK (gap>=1 72.7%) · padded-road fade w/ market-trust (62-74%) · G5 fade-after-loss
+settled-line (65%) · soft-book gap>=1 (64%) — T2: soft-book gap .5-1 · RvR home-fav (60%) · FORM over-hot
+fade UNDER (58%) · team-total UNDER · lay -6.5 · AAC over · SunBelt 59-66 under · PREMIUM lay-fav — T3:
+model over-edge>=6 (+G5 cut) · fade-high>=60 UNDER · fade-low<=50 OVER · team-total OVER · dog +2.5/3/3.5 ·
+SunBelt fade-home-fav · BigTen away-fav · RvR home-dog · T2/T3 model spots. VETOES: reversal-contra,
+model-vs-softbook disagreement, don't-fade-moving-line.
+
+### TRACK-LIVE (real lead, small n — bet small or paper-track)
+GameDay fade-the-move (54.8%) + GameDay under (61.2%) · GameDay-morning fade (57%, n28) · rivalry big-dog
++14-21: home-dog fade (7/9 seasons), away-dog back (63.5%), under (60.4%) · wk1 ranked-10-25 (55%, home 58%
+wk1-3) · G5 fade line move (53%, not yet wired) · 2-expl+leaky-D over (track) · WH-vs-soft 24h-early entry.
+
+### DISCARDED (do not revisit — full evidence in README negatives)
+Spread<->ML divergence (all 22 books) · pace/possession adaptation & identity-matchup ATS (real football,
+priced) · imposer/adapter classification (unreliable trait) · archetype-env totals (mean-reversion confound)
+· SEC total 52+ under (confound) · explosiveness sharpener (failed holdout) · team/coach ATS records at any
+threshold (pure noise, 3 proofs) · series/revenge/avenge history (priced/absent) · bounce-back & post-big-game
+narratives (P5) · shootout recipe 2expl+2uptempo (noise on 2x sample) · totals MAMMOTH + multi-rule mammoth
+(no dose-response / n=0) · spot-flags-in-model · ridge/blend architectures · ranked-away vs unranked-home
+(coin flip) · unranked-home-fav vs ranked-away · contrived team totals w/o model · public-splits (no data).
