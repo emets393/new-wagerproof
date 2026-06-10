@@ -29,6 +29,14 @@ DATA=os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
 OUT=os.path.join(os.path.dirname(os.path.abspath(__file__)),"out"); L=print
 CONF=0.03; AIR_THR=35.0; OVR_THR=80.0; WIND_THR=15.0
 REG_EDGE=1.5   # regression-margin edge (points) for confluence; magnitude that historically tracks classification conf=.03
+# ---- MAMMOTH plays (b91, vaulted 2026-06): independent edges aligning on one game ----
+# SPREAD: sides_model conf>=MAM_CONF & confluence=1 & >=1 aligned spread spot. TOTAL: >=2 distinct
+# total rules, same game+direction. Pre-registered defs; backtest 2023-25 in LOCKED_MODELS §6.
+MAM_CONF=0.06
+MAMMOTH_SPREAD_SPOTS={"legacy_fade","legacy_primetime","spread_dog_cover_fade_away","spread_dog_cover_fade_home",
+                      "fade_pr_in_tight_game","dk_heavy_home_juice","tight_soft_ml_fade_home","top_vs_top_pt_home"}
+MAMMOTH_TOTAL_RULES={"receiver_over","receiver_over_HC","wind_under","total_low_line_over",
+                     "total_high_line_under","dk_giant_fav_over"}
 FADE_HI=0.80; FADE_LO=0.20   # legacy-model fade: >=.80 (model loves home) -> bet away; <=.20 -> bet home
 BYE_GAP=15.0; BYE_MIN_N=5    # bye-collision: bet the coach w/ better career pre/post-bye ATS% if gap>=15 & both n>=5
 # TRACKING-ONLY rules: still fire and grade, but NOT presented as active bet flags on the website.
@@ -178,6 +186,30 @@ def build():
           "home_dog_7_10","away_dog_7_10","div_game_i","conf_game_i","league_game_i","primetime_i","week","home_fav","abs_spread",
           "air_diff","dprod_team_diff","h_dpt","a_dpt"]+ref+sched
     for c in BASE: m[c]=pd.to_numeric(m[c],errors="coerce")
+    # ---- b89/b90b MATCHUP-NET features (vaulted 2026-06) ----
+    # off_X + opp_def_allowed_X = production expectation in dimension X; net = home edge.
+    # All ingredients are as-of (s2d) -> same leak profile as BASE. Product-style lift vs old BASE:
+    # 2023-25 opener-graded 51.0%->53.4%, ROI -2.6%->+1.9%, CLV +0.07 (see b90b + LOCKED_MODELS §1).
+    NET_PAIRS={
+        "pass_epa_neutral_s2d":"pass_epa_allowed_neutral_s2d","rush_epa_neutral_s2d":"rush_epa_allowed_neutral_s2d",
+        "ed_pass_epa_s2d":"ed_pass_epa_allowed_s2d","ed_rush_epa_s2d":"ed_rush_epa_allowed_s2d",
+        "early_down_pass_epa_s2d":"early_down_pass_epa_allowed_s2d","early_down_rush_epa_s2d":"early_down_rush_epa_allowed_s2d",
+        "explosive_pass_s2d":"explosive_pass_allowed_s2d","explosive_rush_s2d":"explosive_rush_allowed_s2d",
+        "pa_epa_s2d":"pa_epa_allowed_s2d","motion_epa_s2d":"motion_epa_allowed_s2d",
+        "ppd_s2d":"ppd_allowed_s2d","pts_per_drive_s2d":"pts_per_drive_allowed_s2d",
+        "pass_sr_s2d":"pass_sr_allowed_s2d","rush_sr_s2d":"rush_sr_allowed_s2d",
+        "pass_success_rate_s2d":"pass_success_allowed_s2d","rush_success_rate_s2d":"rush_success_allowed_s2d",
+        "rz_td_rate_s2d":"rz_td_rate_allowed_s2d","td_pct_per_drive_s2d":"td_pct_per_drive_allowed_s2d",
+        "td_per_drive_s2d":"td_per_drive_allowed_s2d","three_and_out_rate_s2d":"three_and_out_forced_s2d",
+        "3andout_s2d":"3andout_forced_s2d"}
+    NETS=[]
+    for x,dx in NET_PAIRS.items():
+        ho,ad,ao,hd=f"home_off_{x}",f"away_def_{dx}",f"away_off_{x}",f"home_def_{dx}"
+        if not all(c in m.columns for c in (ho,ad,ao,hd)): continue
+        hexp=pd.to_numeric(m[ho],errors="coerce")+pd.to_numeric(m[ad],errors="coerce")
+        aexp=pd.to_numeric(m[ao],errors="coerce")+pd.to_numeric(m[hd],errors="coerce")
+        m[f"net_{x}"]=hexp-aexp; NETS.append(f"net_{x}")
+    BASE=BASE+NETS
     # ---- totals triggers ----
     msk=inj[inj.report_status.isin(["Out","Doubtful"])].merge(air,on=["season","week","player_id"],how="left")
     msk=msk[msk.position.astype(str).str.strip().isin(["WR","TE","RB","FB"])]; msk["airshare"]=msk.airshare.fillna(0)
@@ -869,9 +901,25 @@ def generate(m, BASE, target, week=None):
                 rows.append(dict(pick_id=gid+"-SDFH",season=g.season,week=int(g.week),game=mtchp,rule="spread_dog_cover_fade_home",
                     market="spread",side=f"{g.home_ab} {g.open_spread:+g}",bet_home=1,open_num=g.open_spread,close_num=g.close_spread,edge=round(float(amm-hmm),2)))
     led=pd.DataFrame(rows)
+    # ---- MAMMOTH flags (b91): set AFTER all rules exist so alignment can be checked ----
+    led["mammoth"]=0
+    if len(led):
+        spd=led[(led.market=="spread")&led.rule.isin(MAMMOTH_SPREAD_SPOTS)]
+        for i,r in led[led.rule=="sides_model"].iterrows():
+            if r.get("confluence",0)!=1 or abs(r.edge)<MAM_CONF: continue
+            al=spd[(spd.season==r.season)&(spd.week==r.week)&(spd.game==r.game)&(spd.bet_home==r.bet_home)]
+            if len(al): led.loc[i,"mammoth"]=1
+        tt=led[(led.market=="total")&led.rule.isin(MAMMOTH_TOTAL_RULES)]
+        if len(tt):
+            cnt=tt.assign(d=np.where(tt.bet_home==-1,"O","U")).groupby(["season","week","game","d"]).rule.nunique()
+            for (s,w,gm,d),nr in cnt.items():
+                if nr>=2:
+                    sel=(led.market=="total")&led.rule.isin(MAMMOTH_TOTAL_RULES)&(led.season==s)&(led.week==w)&(led.game==gm)&((led.bet_home==-1)==(d=="O"))
+                    led.loc[sel,"mammoth"]=1
     path=os.path.join(OUT,f"forecast_ledger_{target}.csv")
     if os.path.exists(path):
         old=pd.read_csv(path); led=pd.concat([old[~old.pick_id.isin(led.pick_id)],led],ignore_index=True)
+        led["mammoth"]=pd.to_numeric(led.mammoth,errors="coerce").fillna(0).astype(int)
     led.to_csv(path,index=False); return led,path
 
 def grade(m, target):
@@ -880,9 +928,11 @@ def grade(m, target):
     led=pd.read_csv(path)
     for c in ["away_ab","home_ab","actual_margin","actual_total","win","clv_pts","roi_u"]:  # idempotent re-grade
         if c in led.columns: led=led.drop(columns=c)
-    res=m[m.season==target][["home_ab","away_ab","actual_margin","actual_total"]]
+    # week in merge keys: same-venue rematches within a season (REG + playoff, e.g. 2025 GB@CHI
+    # W? and W19) double-match on team abbrevs alone — same bug class as the b76 teaser grader
+    res=m[m.season==target][["week","home_ab","away_ab","actual_margin","actual_total"]]
     led["away_ab"]=led.game.str.split("@").str[0]; led["home_ab"]=led.game.str.split("@").str[1]
-    led=led.merge(res,on=["home_ab","away_ab"],how="left")
+    led=led.merge(res,on=["week","home_ab","away_ab"],how="left")
     def grade_row(r):
         if pd.isna(r.actual_margin): return pd.Series([np.nan,np.nan,np.nan])
         if r.market=="spread":
@@ -921,6 +971,25 @@ def report(target):
         k=int(s.win.sum()); n=len(s); lo,hi=wilson_ci(k,n); clv=s.clv_pts.mean(); roi=s.roi_u.sum()/n*100
         L(f"  {rule:28s}: {k}/{n}={k/n*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={roi:+.1f}% CLV={clv:+.2f}pts")
     L(f"\nTOTAL (all rules): {int(g.win.sum())}/{len(g)}={g.win.sum()/len(g)*100:.1f}% ROI={g.roi_u.sum()/len(g)*100:+.1f}% units {g.roi_u.sum():+.1f}")
+    # MAMMOTH plays — 3-unit candidates (b91). Spread rows are sides_model picks; total plays are
+    # deduped to one row per game+direction (multiple contributing rules = one bet).
+    if "mammoth" in g.columns:
+        mm=g[g.mammoth==1]
+        L(f"\nMAMMOTH PLAYS (3-unit candidates — independent edges aligned, b91 §6):")
+        sm_m=mm[mm.rule=="sides_model"]
+        if len(sm_m):
+            k=int(sm_m.win.sum()); n=len(sm_m); lo,hi=wilson_ci(k,n); roi=sm_m.roi_u.sum()/n*100
+            L(f"  {'SPREAD MAMMOTH':28s}: {k}/{n}={k/n*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={roi:+.1f}% CLV={sm_m.clv_pts.mean():+.2f}pts")
+            for _,r in sm_m.sort_values("week").iterrows(): L(f"    W{int(r.week):>2} {r.game:14s} {r.side:14s} win={r.win:.0f}")
+        else: L(f"  {'SPREAD MAMMOTH':28s}: (none)")
+        tm=mm[mm.market=="total"].copy()
+        if len(tm):
+            tm["d"]=np.where(tm.bet_home==-1,"OVER","UNDER")
+            tg_=tm.groupby(["season","week","game","d"]).agg(win=("win","first"),roi_u=("roi_u","first"),clv=("clv_pts","mean"),rules=("rule",lambda s:"+".join(sorted(set(s))))).reset_index()
+            k=int(tg_.win.sum()); n=len(tg_); lo,hi=wilson_ci(k,n); roi=tg_.roi_u.sum()/n*100
+            L(f"  {'TOTAL MAMMOTH':28s}: {k}/{n}={k/n*100:.1f}% CI[{lo*100:.0f},{hi*100:.0f}] ROI={roi:+.1f}% CLV={tg_.clv.mean():+.2f}pts")
+            for _,r in tg_.sort_values("week").iterrows(): L(f"    W{int(r.week):>2} {r.game:14s} {r.d:5s} ({r.rules}) win={r.win:.0f}")
+        else: L(f"  {'TOTAL MAMMOTH':28s}: (none)")
     # Confluence breakdown — INTERNAL signal only (not a separate bet flag). Shows how sides_model picks
     # perform when the regression confirmation layer agrees on direction (b70). Frontend uses this as a
     # confidence badge ("high conviction"), but never exposes the underlying margin prediction.

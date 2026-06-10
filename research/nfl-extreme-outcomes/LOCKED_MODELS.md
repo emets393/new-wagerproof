@@ -33,6 +33,42 @@ recommended dropping — needs reconciliation)
 **Injury (1):** air_diff (h_air - a_air for Out/Doubtful WR/TE/RB air-share)
 **Referee (4):** ref_total_pts_avg, ref_home_cover_pct, ref_under_pct, ref_fav_cover_pct
 **Schedule spots (10):** h/a pre_bye, blowout_win_last, blowout_loss_last, third_road, div_revenge
+**Matchup nets (21, added 2026-06-10):** see upgrade note below
+
+### Matchup-nets upgrade (b89 + b90b confirmation, vaulted 2026-06-10)
+First real model upgrade since b14. BASE is now **33 original features + 21 `net_X` matchup features**
+(54 total), fed to BOTH the classifier and the b70 confluence regressor.
+
+**Construction** (in `build()`, NET_PAIRS dict): for each off-metric X with a def "allowed/forced"
+counterpart (pass/rush EPA neutral, early-down EPA, explosive rates, PA/motion EPA, pts-per-drive,
+success rates, RZ TD rate, TD/drive, three-and-out):
+```
+hexp = home_off_X + away_def_allowed_X     # what home offense should produce vs THIS defense
+aexp = away_off_X + home_def_allowed_X
+net_X = hexp - aexp                        # net home edge in this dimension
+```
+Note the SUM semantics — def metrics measure what the defense ALLOWS, so the matchup expectation
+is off + opp_allowed, not a difference.
+
+**Evidence (b90b pre-registered confirmation, product-style: pick at conf≥0.03, bet+grade at OPENER):**
+| Variant | 2023-25 pooled | ROI | CLV | 2023 | 2024 | 2025 |
+|---|---|---|---|---|---|---|
+| hist_BASE (old locked) | 51.0% | -2.6% | +0.07 | 43.6% | 57.5% | 51.9% |
+| **hist_NETS (new locked)** | **53.4%** | **+1.9%** | **+0.14** | 48.3% | 57.5% | 54.5% |
+
+Logreg and 50/50 blend variants were REJECTED — small AUC gains vs CLOSE did not survive
+opener-grading and carried negative CLV. HistGBM with locked hyperparams stands.
+
+**Multiplicity honesty:** b88-b90 explored many variants on the same folds; b90b was the
+pre-registered confirmation of the single winner. b88 (spot signals as in-model boolean features)
+was NEGATIVE — overlay architecture confirmed correct (rare flags can't split with min_samples_leaf=40).
+
+**Fresh dry-run reproduction (post-upgrade, post-grade-fix, regenerated ledgers):**
+| Season | sides_model | ROI | CLV | confluence=1 subset |
+|---|---|---|---|---|
+| 2023 | 113/234 = 48.3% | -7.8% | — | weak year |
+| 2024 | 130/226 = 57.5% | +9.8% | — | — |
+| 2025 | 120/220 = 54.5% | +4.1% | +0.27 | 72/133 = 54.1%, CLV +1.17 |
 
 ### Held-out 2024-25 vs OPENER (b60 injury-ablation audit, 2026-05-30)
 Same framework as b57 totals audit: stripped air_diff to test honest baseline.
@@ -596,6 +632,68 @@ Volume: ~35-40 picks per year. Operational, not bet-every-game.
 - TIER 1 only: ~58-65% hit / +12-25% ROI at -110
 - Per-season variance is real (2024 vs 2025 gap shows it)
 - Real unbiased test is 2026 live with no further tuning
+
+## 6. MAMMOTH PLAYS — rare 3-unit alignment plays (b91, vaulted 2026-06-10)
+
+User bets ~5 games/week and wants the rare games where INDEPENDENT edges all line up —
+a handful per season, not per week. Definitions were **pre-registered before looking at results**
+(no threshold tuning), then wired into `forecast_harness.py` as a `mammoth` column in the ledger.
+
+### Pre-registered definitions (constants in forecast_harness.py)
+**SPREAD MAMMOTH** = a sides_model pick where ALL THREE of:
+1. classifier edge ≥ `MAM_CONF` = 0.06 (2× the standard 0.03 gate)
+2. `confluence == 1` (b70 margin regressor independently agrees on direction)
+3. ≥1 ACTIVE TIER-1 spread spot fires on the SAME game picking the SAME side
+   (`MAMMOTH_SPREAD_SPOTS` = legacy_fade, legacy_primetime, spread_dog_cover_fade_away/home,
+   fade_pr_in_tight_game, dk_heavy_home_juice, tight_soft_ml_fade_home, top_vs_top_pt_home)
+
+**TOTAL MAMMOTH** = ≥2 distinct ACTIVE total rules fire on the SAME game, SAME direction
+(`MAMMOTH_TOTAL_RULES` = receiver_over, receiver_over_HC, wind_under, total_low_line_over,
+total_high_line_under, dk_giant_fav_over).
+
+### Why this works (dose-response evidence, b91)
+Each ingredient ALONE is mediocre — the intersection is where the edge lives:
+| Cell (sides_model picks, 2023-25) | Hit % |
+|---|---|
+| confluence=0 & 0 aligned spots | ~49% |
+| confluence=0 & ≥1 aligned | ~52% |
+| confluence=1 & 0 aligned | ~54% |
+| **confluence=1 & ≥1 aligned** | **~70.8%** |
+
+Calibration finding (b90): every architecture's high-confidence probabilities are fantasy
+(predicted 72% → real ~49%) — confidence ALONE can never define a big play. Alignment of
+independent signals is the only honest definition.
+
+### Fresh dry-run numbers (upgraded nets model, regenerated ledgers, 2026-06-10)
+| Season | SPREAD MAMMOTH | ROI | TOTAL MAMMOTH | ROI |
+|---|---|---|---|---|
+| 2023 | 4/6 = 66.7% | +27.3% | 4/4 = 100% | +90.9% |
+| 2024 | 2/3 = 66.7% | — | 2/4 = 50% | — |
+| 2025 | **14/16 = 87.5%** | **+67.0%** (CLV +1.94) | 2/3 = 66.7% | +27.3% (CLV +3.17) |
+| Pooled | ~20/25 = 80% | — | 8/11 = 72.7% | +38.8% (CLV +2.25) |
+
+Frequency: ~0.4-0.5 plays/week pooled — exactly the "handful per season" cadence requested.
+
+### Honest caveats
+- **n is small** (25 spread + 11 total plays over 3 seasons). Wilson CIs are wide.
+- The ingredients (spots, confluence) were developed on this same era — the dose-response
+  table is descriptive, not independent validation. **2026 live is the true test.**
+- The upgraded nets model produces a different (larger) mammoth set than the b91 script's
+  original run because nets changed both the classifier and the regressor.
+- Mammoth ≠ guaranteed: 2024 totals went 2/4. Treat as 3-unit sizing on a 70%-ish true rate.
+
+### Implementation
+- `generate()` flags `mammoth=1` on qualifying sides_model rows and on total-rule rows
+  participating in a ≥2-rule same-direction cluster
+- `report()` prints a MAMMOTH PLAYS section (per-play list + per-season summary)
+- Old pre-nets ledgers backed up to `out/bak_pre_nets/`; 2023-25 ledgers regenerated fresh
+  (stale old-model pick_ids would otherwise contaminate — generate() concat keeps unregenerated rows)
+
+### grade() rematch bug — FIXED 2026-06-10 (found via b91)
+`grade()` merged results on (home_ab, away_ab) within a season — same-venue rematches
+(regular season + playoff, e.g. 2025 GB@CHI W? and W19) double-matched and duplicated ledger
+rows with wrong results. Same bug class as the b76 teaser-grader fix. Now merges on
+(week, home_ab, away_ab). `grade_cfb_picks` and `grade_teasers` verified already safe.
 
 ## Forward-test harness (the consolidation step)
 `forecast_harness.py` (+ `README_HARNESS.md`) freezes all of the above and produces a weekly pick ledger
