@@ -356,7 +356,15 @@ def main():
     evp = os.path.join(HERE, "data", "event_odds", f"events_{a.season}.parquet")
     if os.path.exists(evp):
         ev = pd.read_parquet(evp)
-        ev = ev[(ev.market == "team_totals") & (ev.snap_tag == "h2") & (ev.name == "Over")].copy()
+        # TAG-AGNOSTIC close selection: last pre-kick snapshot per (game, team, book) by timestamp —
+        # works for the 3-snap archive AND the 2026 hourly feed (snap_tag not required).
+        ev = ev[(ev.market == "team_totals") & (ev.name == "Over")].copy()
+        kicks = pd.read_parquet(os.path.join(DATA, f"games_{a.season}.parquet"))[["id", "startDate"]]
+        ev = ev.merge(kicks.rename(columns={"id": "game_id"}), on="game_id", how="left")
+        ev["hrs"] = (pd.to_datetime(ev.startDate, utc=True) - pd.to_datetime(ev.snap, utc=True)).dt.total_seconds() / 3600
+        ev = ev[ev.hrs > 0]
+        ev["minh"] = ev.groupby(["season", "game_id", "description", "book"]).hrs.transform("min")
+        ev = ev[ev.hrs == ev.minh]
         names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
         AL2 = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i",
                "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State",
@@ -401,7 +409,12 @@ def main():
     # ===== 1H SPOT: posted 1H total >=31 & both-P5 -> UNDER (63.4%; G5 dead 49%) — needs event-odds archive
     if os.path.exists(evp):
         h1 = pd.read_parquet(evp)
-        h1 = h1[(h1.market == "totals_h1") & (h1.snap_tag == "h2") & (h1.name == "Over")]
+        h1 = h1[(h1.market == "totals_h1") & (h1.name == "Over")].copy()
+        h1 = h1.merge(kicks.rename(columns={"id": "game_id"}), on="game_id", how="left")
+        h1["hrs"] = (pd.to_datetime(h1.startDate, utc=True) - pd.to_datetime(h1.snap, utc=True)).dt.total_seconds() / 3600
+        h1 = h1[h1.hrs > 0]
+        h1["minh"] = h1.groupby(["season", "game_id", "book"]).hrs.transform("min")
+        h1 = h1[h1.hrs == h1.minh]
         h1c = h1.groupby(["season", "game_id"]).point.median().rename("h1_line").reset_index()
         h1c = h1c.merge(te[["season", "game_id", "homeTeam", "awayTeam", "homeConference", "awayConference"]],
                         on=["season", "game_id"], how="inner")
