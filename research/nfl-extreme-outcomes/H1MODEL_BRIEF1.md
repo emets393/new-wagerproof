@@ -183,6 +183,23 @@ pricing inconsistencies that fuel the FG structural spots don't exist intra-1H a
 The 2023 soft-ML result was real money at the time but non-replicable (market repaired).
 1H spread edges remain confluence-only: M3/M4 (context + model tilt). Don't re-litigate.
 
+# TEAM-TOTAL VERDICT (h1m_tt_derived.py, 2026-06-12) — DISPLAY DERIVED, BET SIGNALS ONLY
+
+**User decision: no TT model — signal triggers only (K1/K2/K5/K6) for TT betting.**
+
+Tested the derived approach (TT split from walk-forward FG total + margin residual
+models — coherent with our total/spread by construction). 1,140 team-lines 2024-25,
+graded at TT close:
+- MAE: derived 7.38 vs posted TT line 7.16 — model never beats the line.
+- No bettable bucket: best |edge|≥1.5 = 53.1%/+0.2% (breakeven, no season consistency);
+  baseline implied-vs-posted 48.1%/−9.5%; confluence 50%/−7.5%; cap zone −9.1%.
+- **Key finding:** posted TT ≈ spread/total-implied TT (MAE 7.18 vs 7.16) — books derive
+  TTs too. When tt_sum disagrees with fg_tot, the GAME TOTAL is the mispriced leg (=K1),
+  not the team totals. Same "bet the game line, not the derived market" asymmetry as P11.
+- Product use: derived TTs are fine as every-game display numbers (market-grade, zero
+  contradiction). Do NOT build a standalone TT model — levels are efficient; context
+  edges are already harvested by the K-signals.
+
 ## Caveats
 - Same thin-market caveats as H1TT_BRIEF1 (9-12 books, ~−115, lower limits).
 - Peak windows/cutoffs chosen after seeing LOSO results — the conservative claims
