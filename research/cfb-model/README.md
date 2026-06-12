@@ -853,3 +853,16 @@ C. 1H STRUCTURAL: blanket 1H under 49.7% = books do NOT over-shade 1H. BUT fade-
 D. TT MOVEMENT (72h->close): follow dead (48-51%) — totals movement dead in every market, again.
 NEW PRODUCT VERDICT: TT model + line-shop (58.4U/55.7O) = the flagship; 1H high-total fade (55.7%) + 1H total
 model shop (~54.5) = secondary; 1H spreads & TT movement & TT soft-book-as-spot = negatives.
+
+## DERIVATIVES ROUND 2 (test_deriv2.py): movement windows + P5/G5 + matchup conditions
+1. MOVEMENT: TT + 1H totals, all windows (72->24, 24->2, full), follow AND fade = 48-52% DEAD. Totals-style
+   movement now dead in EVERY market ever tested (game/TT/1H). Final negative.
+2. *** P5/G5 SPLIT — INVERSE of spreads: TT/1H edges are P5-CONCENTRATED ***
+   TT UNDER shop: P5 59.9% (n379 +14.3) vs G5 56.6% | TT OVER shop: P5 62.0% (n192 +18.3 [58/60/73]) vs G5 51.3% DEAD
+   1H total>=31 UNDER: both-P5 63.4% (n82 +21.1) vs both-G5 49.0% DEAD.
+   MECHANISM: spread edges = market softness (G5 thin); TT/1H edges = MODEL-vs-derivative-market, which needs
+   model precision -> P5 (richer data, less garbage-time noise). Two edge families, opposite habitats.
+3. MATCHUP CONDITIONS: TT OVER + team over-COLD form (over_rate<=.4) -> 61.2% (n165 +16.9) = form mean-reversion
+   stacks with TT over. TT UNDER conditions add nothing beyond base.
+REFINED PRODUCT: TT OVER -> P5 ONLY (62%); TT UNDER -> both, P5 preferred (60/57); 1H>=31 under -> P5 ONLY (63%);
+TT over x over-cold form = high-conviction stack (61%).
