@@ -830,3 +830,14 @@ ATS (dog cover) flips HARD by dog location:
 TOTALS: UNDER 60.4% (38-58, n96) +15roi; under 7/9 seasons (huge 2017 2-11, 2019 4-10, 2021 2-7) but 2023-25
   flattened (mild recency cooloff). Mechanism: rivalry mismatch -> favorite grinds w/ lead, overmatched dog can't score.
 SAVE/TRACK: home-dog-fade most consistent; away-dog-back + under real but streakier. Small n (~11/yr) -> track live.
+
+## EVENT-ODDS ARCHIVE: TEAM TOTALS + 1H MARKETS (fetch_event_odds.py) — 2023-2025 pulled (~270k credits)
+Historical EVENT endpoint (10cr x 4mkts x 1region per event-snapshot; additional-markets history starts May 2023).
+Markets: team_totals (incl laddered alts), spreads_h1, totals_h1, h2h_h1. Snapshots: T-72h/T-24h/T-2h.
+data/event_odds/events_<yr>.parquet (~417k rows, 97-98% pull success). PROBE findings (2024 wk6-7): coverage 100%
+all markets incl G5; TT books = DK/FD/BetRivers/BetOnline/BOVADA; TT main lines |dev vs contrived| 0.68 avg but
+32% >=1pt off + cross-book range 1.18 avg (30% >=2pts = soft-book raw material); 1H spreads 42% >=1pt off
+half-spread (not formulaic); 1H totals level formulaic (50.7%+-1.7) but books disagree >=1pt in 70%.
+PARSING NOTES: outcome name/description use FULL Odds-API team names (map via to_db); team_totals includes
+ALTERNATE lines -> main line = point w/ price closest to -110 per (game,team,book).
+NEXT: grade team-total model vs POSTED lines; TT soft-book gap; build 1H model (targets free via line scores).
