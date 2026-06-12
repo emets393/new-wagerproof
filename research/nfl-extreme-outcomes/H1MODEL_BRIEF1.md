@@ -115,10 +115,10 @@ has no prior season → dropped (570 graded rows). 95% Wilson CIs added.
    in walk-forward — but magnitudes halve and every CI includes or nears break-even.
 3. The "model rescues K1" claim does NOT survive: with point-in-time K1 the model
    filter adds ~+2pp, it doesn't flip the drops negative.
-4. Verdict: **promising tracking-tier model, not a vault candidate.** The K1-K8
-   signals (no trained model needed) remain the stronger validated layer.
-   Paper-track the model + M1/M3 through 2026, retrain weekly/offseason, revisit
-   with a third honest season.
+4. Verdict (superseded): originally judged tracking-tier. **User decision
+   2026-06-11: VAULTED — production 1H model + M1-M4 flags (LOCKED_MODELS.md §8).**
+   The caveats above still apply: one honest test season; ledger every 2026 pick;
+   retrain on 2023-25 in the offseason.
 
 # MODEL CARD (h1m_model_card.py) — raw walk-forward, NO signals — ADOPTED
 
@@ -159,7 +159,8 @@ Train 23-24, test 2025, weekly-slate K1, all at close. The HC-tier portfolio:
 
 93 distinct games, 22 weeks (~5.7 bets/wk), 25 games with 2+ flags. M1/M2/M3
 match the walk-forward audit's 2025 columns; M4 is new (thinnest edge, 0-3 wk16).
-One honest season — ledger as tracking-tier through 2026.
+**VAULTED 2026-06-11 (user decision) → LOCKED_MODELS.md §8.** One honest season —
+ledger every 2026 pick as the confirmation test.
 
 ## Caveats
 - Same thin-market caveats as H1TT_BRIEF1 (9-12 books, ~−115, lower limits).

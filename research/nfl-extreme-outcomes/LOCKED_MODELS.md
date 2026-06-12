@@ -740,6 +740,54 @@ Natural overlay on the §2 consensus-totals model: P11-OVER + ensemble-OVER agre
 has NOT been backtested yet (different bet timing: close vs opener). Track the overlap live
 before formalizing a combined tier.
 
+## 8. FIRST-HALF (1H) MODEL + CONFLUENCE FLAGS M1-M4 (vaulted 2026-06-11)
+
+User decision 2026-06-11: production 1H model + the four M-flags are VAULTED. Full detail in
+`H1MODEL_BRIEF1.md`; scripts `h1m_models.py` (frame) + `h1m_models2.py` (features/GBM) +
+`h1m_model_card.py` (raw card) + `h1m_2025_combined.py` (the 2025 ledger).
+
+### Architecture (frozen)
+- **Market-anchored residual**: prediction = 1H consensus CLOSE line + GBM-predicted residual.
+  Unanchored models LOSE to the market (MAE 7.03 vs 6.82) — never rebuild unanchored.
+- GBM = HistGradientBoostingRegressor(max_iter=150, depth=2, lr=0.04, min_leaf=60, L2=2.0).
+  Features = cross-market gaps (`add_xmkt`: 0.49·fg_tot−h1_tot, 0.55·fg_sp−h1_sp, tt_sum−fg_tot,
+  −tt_diff−fg_sp) + point-in-time context. NaN-native → every game incl. weeks 1-3 gets a number.
+- All bets AND grades at 1H consensus close (median line, median payout) — signal/bet/grade aligned.
+- **Retrain each offseason** on all completed seasons (2026 model = 2023-25 train).
+
+### Production tiers (every-game product + bet overlay)
+1. **Display** (every game): 1H total, 1H spread, 1H win prob (logistic of close 1H spread; brier ties market).
+2. **Lean**: totals 0.5 ≤ |edge| < 3.0 → "model lean" (~6-7/wk; walk-forward 54.3% / +3.7%).
+3. **HC**: totals window 1.25-2.75 + the M-flags below.
+4. **Cap**: |edge| ≥ 3.0 → show number, SUPPRESS confidence (falloff confirmed both seasons).
+5. Spread model NEVER bets alone (resid corr ≈ 0) — confluence filter only. ML betting = −EV, display only.
+
+### The M-flags (model band × point-in-time signal), 2025 walk-forward ledger
+K1(pit) = weekly-slate rank of (tt_sum − fg_tot), top 20% — NO look-ahead.
+
+| Flag | Rule | 2025 | ROI |
+|---|---|---|---|
+| M1 | model e_tot in +1.25..+2.75 AND K1(pit) → 1H OVER | 16-7 (69.6%) | +34.1% |
+| M2 | K1(pit) AND e_tot > +0.5 → FG OVER | 28-19 (59.6%) | +13.7% |
+| M3 | SNF/MNF fav AND spread-tilt agrees → fav 1H spread | 15-9-1 (62.5%) | +19.7% |
+| M4 | slow-start dog (≤8 1H ppg, ≥4 games) AND tilt agrees → fade dog 1H | 17-13 (56.7%) | +8.8% |
+| **Portfolio** | 125 bets / 93 games / ~5.7 per wk | **76-48-1 (61.3%)** | **+17.5% / +21.8u** |
+
+### Honest caveats (carry into 2026)
+- ONE honest test season with an adequately-trained model (2024's 1-train-season model was weak:
+  totals window −13%). Walk-forward CIs touch break-even (M1 CI 48-78%).
+- Totals-2024 and spread-2025 were each negative — no simultaneous good season yet for the raw
+  model. 2026 (3 training seasons) is the confirmation year; ledger every pick.
+- M4 is the thinnest/newest flag (no 2024 walk-forward check); weight it lowest.
+- Thin market: 9-12 books, ~−115, lower limits than FG.
+
+### Data dependency (OPEN — deferred to pre-season workflow work)
+1H spread/total/ML + team-total odds in `nfl_historical_odds` are a one-time HISTORICAL backfill
+(`h1tt_backfill.py`, per-event endpoint, reused FG snap_ts). The live FG snapshot collector does
+NOT capture these markets yet — must be added before Week 1 2026 or the model/K1 can't run live.
+Also needs: nflverse schedule/results refresh (`nflverse_games.parquet`) + the context rebuild
+chain (`h1tt_frame.py` → `h1tt_p6_context.py`).
+
 ## Forward-test harness (the consolidation step)
 `forecast_harness.py` (+ `README_HARNESS.md`) freezes all of the above and produces a weekly pick ledger
 with CLV tracking. Run `--dry-run 2025` to validate (reproduces: sides 52.1%, receiver_over 73-78%,
