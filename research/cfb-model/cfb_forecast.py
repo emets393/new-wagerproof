@@ -349,22 +349,67 @@ def main():
     bets.to_csv(os.path.join(OUT, f"cfb_bets_{a.season}.csv"), index=False)
     print(f"\n{len(disp)} games (display) | {len(bets)} with >=1 spot flag -> out/cfb_bets_{a.season}.csv")
 
-    # ===== TEAM TOTALS (separate bet type: 2 mutually-exclusive models) — team_total_signals.py =====
-    import team_total_signals
+    # ===== TEAM TOTALS — REFINED (test_deriv2): grade @ posted BEST line when archive exists; OVER = P5 ONLY
+    # (G5 overs dead 51.3%); UNDER both (P5 59.9 / G5 56.6); form-stack flag = OVER + team over-cold (61.2%).
+    import team_total_signals, form_signals
     tt = team_total_signals.build(gm, a.season)
+    evp = os.path.join(HERE, "data", "event_odds", f"events_{a.season}.parquet")
+    if os.path.exists(evp):
+        ev = pd.read_parquet(evp)
+        ev = ev[(ev.market == "team_totals") & (ev.snap_tag == "h2") & (ev.name == "Over")].copy()
+        names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
+        AL2 = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i",
+               "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State",
+               "Southern Miss Golden Eagles": "Southern Miss"}
+        def _tdb(o):
+            if pd.isna(o): return None
+            if o in AL2: return AL2[o]
+            c = [x for x in names if o.startswith(x + " ") or o == x]; c.sort(key=len, reverse=True)
+            return c[0] if c else None
+        ev["team"] = ev.description.map(_tdb); ev = ev.dropna(subset=["team", "point"])
+        ev["vig"] = (ev.price + 110).abs()
+        ev = ev.sort_values("vig").drop_duplicates(["season", "game_id", "team", "book"], keep="first")
+        bb = ev.groupby(["season", "game_id", "team"]).agg(best_u=("point", "max"), best_o=("point", "min")).reset_index()
+        tt = tt.merge(bb, on=["season", "game_id", "team"], how="left")
+        tt["pred_anch"] = tt.implied + tt.anch_edge; tt["pred_fund"] = tt.implied + tt.fund_edge
+        tt["tt_under"] = ((tt.pred_anch <= tt.best_u - 3)).fillna(False).astype(int)   # re-gate vs BEST posted
+        tt["tt_over"] = ((tt.pred_fund >= tt.best_o + 6)).fillna(False).astype(int)
+        tt["line_u"] = tt.best_u; tt["line_o"] = tt.best_o
+    else:
+        tt["line_u"] = tt.implied; tt["line_o"] = tt.implied
+    confmap = {}
+    for _, r in te.iterrows():
+        confmap[(r.game_id, r.homeTeam)] = r.homeConference; confmap[(r.game_id, r.awayTeam)] = r.awayConference
+    tt["p5"] = [confmap.get((g_, t_)) in P5 for g_, t_ in zip(tt.game_id, tt.team)]
+    tt.loc[(tt.tt_over == 1) & (~tt.p5), "tt_over"] = 0   # G5 overs CUT
+    fsig = form_signals.build(gm)
+    tt = tt.merge(fsig[["season", "game_id", "team", "over_rate"]], on=["season", "game_id", "team"], how="left")
+    tt["form_stack"] = ((tt.tt_over == 1) & (tt.over_rate <= 0.4)).astype(int)        # 61.2% high-conviction
     tt = tt[(tt.tt_under == 1) | (tt.tt_over == 1)].copy()
     if len(tt):
         tt["bet"] = np.where(tt.tt_under == 1, "UNDER", "OVER")
+        tt["line"] = np.where(tt.tt_under == 1, tt.line_u, tt.line_o)
         tt = tt.merge(te[["season", "game_id", "homeTeam", "awayTeam"]], on=["season", "game_id"], how="left")
         tt.to_csv(os.path.join(OUT, f"cfb_team_totals_{a.season}.csv"), index=False)
-        g = tt[tt.pts.notna() & (tt.pts != tt.implied)].copy()
+        g = tt[tt.pts.notna() & (tt.pts != tt.line)].copy()
         if len(g):
-            win = np.where(g.bet == "UNDER", g.pts < g.implied, g.pts > g.implied)
-            u = g[g.bet == "UNDER"]; o = g[g.bet == "OVER"]
-            uw = (u.pts < u.implied); ow = (o.pts > o.implied)
-            print(f"\n=== {a.season} TEAM TOTALS (team_total_signals) ===")
-            print(f"  UNDER (anchored<=-3): n={len(u)} hit {100*uw.mean() if len(u) else 0:.1f}% | OVER (unanchored>=+6): n={len(o)} hit {100*ow.mean() if len(o) else 0:.1f}%")
-            print(f"  {len(tt)} team-total bets -> out/cfb_team_totals_{a.season}.csv")
+            u = g[g.bet == "UNDER"]; o = g[g.bet == "OVER"]; fstk = g[g.form_stack == 1]
+            uw = (u.pts < u.line); ow = (o.pts > o.line)
+            print(f"\n=== {a.season} TEAM TOTALS (refined: posted-best lines, P5-only overs) ===")
+            print(f"  UNDER: n={len(u)} hit {100*uw.mean() if len(u) else 0:.1f}% (P5 {100*uw[u.p5].mean() if u.p5.any() else 0:.0f}%) | OVER(P5): n={len(o)} hit {100*ow.mean() if len(o) else 0:.1f}% | form-stack n={len(fstk)} hit {100*(fstk.pts>fstk.line).mean() if len(fstk) else 0:.0f}%")
+            print(f"  {len(tt)} TT bets -> out/cfb_team_totals_{a.season}.csv")
+    # ===== 1H SPOT: posted 1H total >=31 & both-P5 -> UNDER (63.4%; G5 dead 49%) — needs event-odds archive
+    if os.path.exists(evp):
+        h1 = pd.read_parquet(evp)
+        h1 = h1[(h1.market == "totals_h1") & (h1.snap_tag == "h2") & (h1.name == "Over")]
+        h1c = h1.groupby(["season", "game_id"]).point.median().rename("h1_line").reset_index()
+        h1c = h1c.merge(te[["season", "game_id", "homeTeam", "awayTeam", "homeConference", "awayConference"]],
+                        on=["season", "game_id"], how="inner")
+        h1c = h1c[(h1c.h1_line >= 31) & h1c.homeConference.isin(P5) & h1c.awayConference.isin(P5)]
+        if len(h1c):
+            h1c["bet"] = "1H UNDER"
+            h1c.to_csv(os.path.join(OUT, f"cfb_h1_{a.season}.csv"), index=False)
+            print(f"  1H spot: {len(h1c)} both-P5 1H-total>=31 UNDERs -> out/cfb_h1_{a.season}.csv")
 
 
 if __name__ == "__main__":

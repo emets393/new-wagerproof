@@ -227,3 +227,10 @@ threshold (pure noise, 3 proofs) · series/revenge/avenge history (priced/absent
 narratives (P5) · shootout recipe 2expl+2uptempo (noise on 2x sample) · totals MAMMOTH + multi-rule mammoth
 (no dose-response / n=0) · spot-flags-in-model · ridge/blend architectures · ranked-away vs unranked-home
 (coin flip) · unranked-home-fav vs ranked-away · contrived team totals w/o model · public-splits (no data).
+
+## 11. TT/1H REFINED SPOTS WIRED (test_deriv2 -> cfb_forecast)
+TT graded/gated vs POSTED BEST line when event-odds archive exists (fallback contrived). OVER = P5 ONLY (G5 dead
+51.3%); UNDER both (P5 59.9/G5 56.6); form_stack col = OVER + team over-cold (61.2%). 1H spot: posted 1H total
+>=31 & both-P5 -> UNDER (63.4%; G5 dead). Outputs: cfb_team_totals_<yr>.csv, cfb_h1_<yr>.csv. 2025 dry-run:
+UNDER 58.6% (P5 62) / OVER-P5 73.2% / 15 1H unders. Movement in TT/1H = dead (all windows, follow+fade).
+PRODUCTION NOTE: TT/1H spots need current-season event-odds pulls (fetch_event_odds.py weekly in 2026).
