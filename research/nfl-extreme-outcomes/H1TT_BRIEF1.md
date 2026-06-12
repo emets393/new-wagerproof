@@ -80,6 +80,77 @@ direction at the stale US book's line+price (graded at that line+price, not clos
    flipped to −13.5% in 2025.
 9. **TT-sum q1 → game UNDER** (the K1 mirror): −7.8% — over-only asymmetry, same as P11.
 
+---
+
+# PART 2 — Contextual / situational mining (h1tt_p6-p8)
+
+**Context frame:** `h1tt_p6_context.py` → `data/h1tt_context.parquet`. Point-in-time
+features per side (only prior games feed each row): L3 ppg/papg, season-to-date ppg,
+signed W/L streak, last-meeting result vs this opponent (back to 2020), season-to-date
+1H ATS cover / 1H ML win / 1H ppg (min 4 graded), coach, QB, rest, slot. Batteries:
+`h1tt_p7_situational.py` (form gaps, divisional, streaks, revenge, 1H persistence,
+slots), `h1tt_p8_coach.py` (coach profiles + honest OOS tests).
+
+## NEW KEEPERS
+
+### K5. TT overreaction bounce-back → OVER  `tt_cut_bounceback_over`
+Team missed its own prior-game TT by ≥ 8 AND the book cut this week's TT ≥ 2
+→ bet their TT OVER.
+- 2023 +14.4% | 2024 +11.0% | 2025 +24.3% — **61.3% / +16.8% (n=113, ~1.2/wk)**
+- Robust across thresholds (drop≥3/miss≥8: 64.6%/+23.1%, every cell positive).
+- **The cut is the signal, not the miss**: missed-by-10 with NO cut = −16.6%/−30.6%
+  in 2023/24. Books over-cut team totals off one bad offensive game.
+
+### K6. TT raise momentum → OVER  `tt_raise_momentum_over`
+Team beat its prior-game TT by ≥ 10 AND the book raised this week's TT ≥ 3
+→ bet their TT OVER anyway.
+- 2023 +12.7% | 2024 +9.9% | 2025 +18.2% — **59.4% / +13.7% (n=64, ~0.7/wk)**
+- Fading the raise (UNDER) loses every season (−18 to −30%). K5+K6 unify:
+  **when one extreme performance moves a team total, the OVER is the side in
+  BOTH directions** — books under-raise on beats and over-cut on misses.
+
+### K7. Fade slow-starting dogs in the 1H  `slow_start_dog_fade_1h`
+Team averaging ≤ 8 first-half points season-to-date (min 4 games) AND a FG dog
+→ bet AGAINST them on the 1H spread.
+- 2023 +14.9% | 2024 +13.9% | 2025 +4.2% — **58.3% / +11.2% (n=155, ~1.7/wk)**
+- Dies when the slow starter is a favorite (−6.6%). Threshold cliff: ≤8 works,
+  ≤10 is −6.5% — thin-extreme signal, respect the cutoff.
+- General 1H cover-rate persistence is PRICED (hot 1H teams ON = −2.6%,
+  hot-vs-cold matchup = −6.3%); only the extreme scoring-profile fade survives.
+
+### K8. Primetime 1H favorites  `primetime_1h_fav`
+SNF or MNF game → bet the FG favorite on the 1H spread.
+- 2023 +16.7% | 2024 +7.3% | 2025 +5.8% — **57.6% / +10.0% (n=121, ~1.3/wk)**
+- SNF alone 61.1%/+16.8% (n=56); Monday alone +4% all three seasons.
+  Fits the legacy primetime-favorite family in the locked NFL spots.
+
+## TRACKING ONLY (Part 2)
+
+- **Trust the TT over recent form**: line ≥7 ABOVE L3 ppg → OVER +1.8/+4.0/+8.5
+  (n=103, +4.2% pooled) — the user-hypothesized UNDER loses −14.6% every season.
+  Same lesson as QB props: the line knows more than L3 form. Track the over.
+- **Thu/Fri home TT over** +4.6/+9.0/+10.5 (n=64) — consistent but thin slot split.
+- **Within-season hot-coach follow** (1H cover ≥65% wks 1-9 → ON wks 10+):
+  +0.0/+13.4/+2.1 (n=145) — 2024-driven, sub-conviction.
+- **Coach 1H profiles = product content, not edge**: Campbell 65.5% 1H ATS /
+  Vrabel 75% 1H ML / Saleh-Canales sub-40% covers are great website stats, but
+  every honest OOS test fails (2023-24 top quartile → 2025 = +2.3%; against
+  bottom = −8.1%; top-vs-bottom = −10.5%; 1H ML version = −3.4%). Priced.
+
+## DEAD ENDS (Part 2 — don't re-litigate)
+
+10. **Divisional games**: 1H spread/ML/total and TT splits ≈ identical to
+    non-div. No revenge interaction either.
+11. **Streaks** (lost/won 2+ or 3+): every TT/1H spread/1H ML angle sub-vig.
+12. **Revenge** (lost last meeting, any framing incl div/dog): all −3 to −8%.
+13. **1H season-to-date ATS persistence** ON or AGAINST: priced (only K7's
+    extreme scoring-profile version survives).
+14. **TT week-over-week line-jump quintiles**: flat. **Fading big TT jumps**
+    (≥4.5 → UNDER): −4.4/−9.2/−24.2 — never fade a raised team total.
+15. **Coach 1H skill OOS**: see above — descriptive only.
+16. **TT line vs L3/season form, under side**: line-above-form UNDER loses all
+    seasons; line-below-form both sides negative.
+
 ## Caveats
 
 - 1H/TT markets are thin: fewer books (~9-12 carry them), lower limits, ~−115 typical
