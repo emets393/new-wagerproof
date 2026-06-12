@@ -841,3 +841,15 @@ half-spread (not formulaic); 1H totals level formulaic (50.7%+-1.7) but books di
 PARSING NOTES: outcome name/description use FULL Odds-API team names (map via to_db); team_totals includes
 ALTERNATE lines -> main line = point w/ price closest to -110 per (game,team,book).
 NEXT: grade team-total model vs POSTED lines; TT soft-book gap; build 1H model (targets free via line scores).
+
+## DERIVATIVES TEST BATTERY (test_derivatives.py) — full sweep of TT/1H markets
+A. TT SOFT-BOOK FADE: every book's deviant main TT (>=1 off others) loses faded at its own line: betonline 54.5%
+(n903 [56/53/55]), WH 55.4, MGM 55.7, Bovada 53.9, DK 53.4; FanDuel 51.1 (again not fadeable). UNIVERSAL ~53-55%
+= mostly the better-number effect -> already harvested by TT line-shop grading; do NOT wire as separate spot.
+B. 1H MODELS (targets=Q1+Q2 line scores, walk-forward): 1H totals @consensus 52-53% weak; LINE-SHOP 54.3% under
+/ 54.8% over (+3.6/+4.5 roi). 1H spreads 52-52.8% = WEAK (below breakeven, not a product).
+C. 1H STRUCTURAL: blanket 1H under 49.7% = books do NOT over-shade 1H. BUT fade-extreme extends: 1H total>=31
+-> UNDER 55.7% (n246, [53/59/56] consistent) = REAL, mirrors full-game fade-high.
+D. TT MOVEMENT (72h->close): follow dead (48-51%) — totals movement dead in every market, again.
+NEW PRODUCT VERDICT: TT model + line-shop (58.4U/55.7O) = the flagship; 1H high-total fade (55.7%) + 1H total
+model shop (~54.5) = secondary; 1H spreads & TT movement & TT soft-book-as-spot = negatives.
