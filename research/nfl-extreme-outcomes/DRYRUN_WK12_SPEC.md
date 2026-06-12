@@ -19,6 +19,35 @@ will be:
 **Generators**: `dryrun_wk12_games.py` (games + flags), `dryrun_wk12_props.py` (props).
 Both are idempotent (delete-then-insert for season=2025, week=12).
 
+## 0. How to connect
+
+All three tables are public-read (RLS allows anon select). Use the standard
+Supabase JS client or plain REST — same patterns as the production app.
+
+```
+URL:      https://jpxnjuwglavsjbgbasnl.supabase.co
+anon key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5qdXdnbGF2c2piZ2Jhc25sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2OTc4NjEsImV4cCI6MjA2ODI3Mzg2MX0.BjOHMysQh3wST-_UR6bJxHngRThlAmOOx4FfSVKRzWo
+```
+
+Example queries:
+
+```js
+const sb = createClient(URL, ANON_KEY);
+
+// all game cards for the slate
+await sb.from('nfl_dryrun_games').select('*').order('gameday');
+
+// active bet signals (the picks the app surfaces)
+await sb.from('nfl_dryrun_flags').select('*').eq('tier', 'active');
+
+// props for one game, flagged players first
+await sb.from('nfl_dryrun_props').select('*')
+  .eq('game_id', '2025_12_BUF_HOU')
+  .order('flags', { ascending: false, nullsFirst: false });
+```
+
+Join key across all three tables: `game_id` (e.g. `2025_12_BUF_HOU`).
+
 ---
 
 ## 1. `nfl_dryrun_games` — game cards
