@@ -162,6 +162,27 @@ match the walk-forward audit's 2025 columns; M4 is new (thinnest edge, 0-3 wk16)
 **VAULTED 2026-06-11 (user decision) → LOCKED_MODELS.md §8.** One honest season —
 ledger every 2026 pick as the confirmation test.
 
+# FG SPREAD-SPOT PORTS TO 1H (h1m_spread_spots.py, 2026-06-12) — ALL DEAD
+
+Tested every vaulted FG spread/structure spot on the 1H market (grading: bet line =
+grade line; LOSO spread→prob calibration, tie-corrected — 1H MLs push on ties so the
+curve must be fit on no-tie games or you get a phantom −7pp offset).
+
+| Port | Result | Verdict |
+|---|---|---|
+| S1 soft-ML fade home, 1H-native (tight 1H sp + home 1H ML ≥3pp soft → AWAY at open) | 2023: 14/18 +22% (mirror −31%) — **2024-25: ZERO fires** | DEAD — books fixed 1H open ML pricing after 2023; gap dist went mean +9.1%/σ.11 → −4%/σ.03; inconsistency no longer occurs |
+| S1 relative version (soft vs trailing-season median) | 48.6% / −12.7%, negative 2024+2025 | DEAD |
+| S1 at CLOSE | 38.9% / −26.4% even in 2023 | DEAD (open-only alpha, now gone) |
+| S2 FG soft-ML trigger → bet 1H spread away | 55.8%/−1.5% (4pp), 47.7%/−17% (3pp) | DEAD |
+| S3 heavy home juice (cons ≤−120 → home 1H) | 55.4%/+0.5%, seasons −39/+26/+4; DK-specific 55.0%/−0.2% | DEAD (juice eats it, inconsistent) |
+| S4 dk_giant_fav_over → 1H over | DK FG trigger 60%/+14% pooled but 2025 −27%; 1H-native +34/+1/−10 monotonic decay | DEAD (decay pattern) |
+| S5 dog-cover trap fade via 1H cov rates | n=6 | too thin, nothing |
+
+**Takeaway:** the 1H market is thin but internally CONSISTENT since 2024 — cross-market
+pricing inconsistencies that fuel the FG structural spots don't exist intra-1H anymore.
+The 2023 soft-ML result was real money at the time but non-replicable (market repaired).
+1H spread edges remain confluence-only: M3/M4 (context + model tilt). Don't re-litigate.
+
 ## Caveats
 - Same thin-market caveats as H1TT_BRIEF1 (9-12 books, ~−115, lower limits).
 - Peak windows/cutoffs chosen after seeing LOSO results — the conservative claims
