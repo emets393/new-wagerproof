@@ -695,6 +695,51 @@ Frequency: ~0.4-0.5 plays/week pooled — exactly the "handful per season" caden
 rows with wrong results. Same bug class as the b76 teaser-grader fix. Now merges on
 (week, home_ab, away_ab). `grade_cfb_picks` and `grade_teasers` verified already safe.
 
+## 7. PROPS-IMPLIED TOTALS OVERLAY — "P11 OVER" (vaulted 2026-06-11)
+
+From the player-props deep dive (`props_p8_gamelines.py`, PROPS_BRIEF1.md §4d). **The prop market
+and the totals market are the same opinion (R² 0.84-0.88) — except when they disagree, the props
+are right and the total is too LOW.**
+
+### Pre-registered rule (frozen)
+1. For each game, sum the consensus (median-across-books) **anytime-TD yes-probability** of every
+   player on both teams at close → `atd_exp_gm`.
+2. Map to an implied total with the **prior-season** OLS fit. For 2026 use the frozen 2025 fit:
+   `implied_total = 8.445 + 7.392 × atd_exp_gm`
+3. `resid = implied_total − posted close total`. Flag the **top ~20% of the slate by resid** → bet
+   the **OVER** at the posted total.
+4. **OVER ONLY.** The under mirror is dead (sign flip). The spread version is dead (flips every
+   bucket both seasons) — do not resurrect.
+
+### Evidence (cross-season out-of-sample, graded at close total + close juice, 514 games)
+| Test season | n (top quintile) | Over % | ROI |
+|---|---|---|---|
+| 2025 (fit on 2024) | 51 | **60.8%** | **+16.0%** |
+| 2024 (fit on 2025) | 53 | **58.5%** | **+11.3%** |
+
+- Full 5-feature version (QB pass yds/TDs, rush/rec sums + ATD) is slightly weaker (56.6-58.8%) —
+  **ATD-only is the locked spec.**
+- Not a totals-level artifact: flagged games average mid-range 42-45 totals; over% is not
+  monotonic in the posted total. Stable in every half-season split (53-65%).
+- Mechanism: ATD probs encode TD-vs-FG scoring composition; books don't reconcile the prop book
+  against the game total when they price many TD scorers into a modest total.
+
+### Deployment constraints (why rank, not threshold)
+Fit coefficients and residual scale drift season-to-season (intercept 3.9 → 8.4; top-quintile
+cutoff +5.2 → +1.3 pts). A fixed point-threshold is NOT stable — **always rank within the slate**
+(top ~20% of the week's games, ≈ 3/week) and refit the ATD→total mapping each offseason on the
+just-completed season.
+
+### Data dependency
+Needs live ATD close prices across the 4 books → covered by the planned live props cadence
+(~2,800 Odds API credits/mo, same feed as P5/P6 ATD movement flags). Without live props this
+flag cannot fire.
+
+### Confluence (untested, high priority for 2026)
+Natural overlay on the §2 consensus-totals model: P11-OVER + ensemble-OVER agreement vs conflict
+has NOT been backtested yet (different bet timing: close vs opener). Track the overlap live
+before formalizing a combined tier.
+
 ## Forward-test harness (the consolidation step)
 `forecast_harness.py` (+ `README_HARNESS.md`) freezes all of the above and produces a weekly pick ledger
 with CLV tracking. Run `--dry-run 2025` to validate (reproduces: sides 52.1%, receiver_over 73-78%,
