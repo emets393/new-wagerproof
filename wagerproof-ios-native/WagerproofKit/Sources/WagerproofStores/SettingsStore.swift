@@ -9,7 +9,6 @@ import WagerproofSharedKit
 /// The RN side keeps very little global state under SettingsContext (it was
 /// emptied during a refactor) but the Settings screen itself owns:
 ///   - notification permission status (granted/denied/undetermined)
-///   - WagerBot suggestions toggle (from WagerBotSuggestionContext)
 ///   - dark-mode toggle (from ThemeContext — owned by `ThemeStore` here)
 ///
 /// We collect these into `SettingsStore` so the SettingsView can stay
@@ -42,25 +41,7 @@ public final class SettingsStore {
     public private(set) var notificationPermission: NotificationPermission = .undetermined
     public private(set) var isCheckingNotificationPermission: Bool = true
 
-    /// WagerBot suggestion toggle. Persisted to App Group user defaults so
-    /// the iOS widget / chat extension can read it.
-    public var wagerBotSuggestionsEnabled: Bool {
-        didSet {
-            AppGroup.defaults.set(wagerBotSuggestionsEnabled, forKey: AppGroupKey.wagerbotSuggestionsEnabled)
-        }
-    }
-
-    public init() {
-        // RN default: suggestions enabled unless the user has explicitly
-        // turned them off. Match by reading the App Group default; missing
-        // value defaults to `true`.
-        if AppGroup.defaults.object(forKey: AppGroupKey.wagerbotSuggestionsEnabled) == nil {
-            self.wagerBotSuggestionsEnabled = true
-            AppGroup.defaults.set(true, forKey: AppGroupKey.wagerbotSuggestionsEnabled)
-        } else {
-            self.wagerBotSuggestionsEnabled = AppGroup.defaults.bool(forKey: AppGroupKey.wagerbotSuggestionsEnabled)
-        }
-    }
+    public init() {}
 
     /// Refresh the notification permission cache. Called whenever the
     /// settings view appears so a user who changed the system setting
@@ -111,12 +92,8 @@ public final class SettingsStore {
     // MARK: - DEBUG
 
     #if DEBUG
-    public func debugSet(
-        notificationPermission: NotificationPermission,
-        wagerBotSuggestionsEnabled: Bool
-    ) {
+    public func debugSet(notificationPermission: NotificationPermission) {
         self.notificationPermission = notificationPermission
-        self.wagerBotSuggestionsEnabled = wagerBotSuggestionsEnabled
         self.isCheckingNotificationPermission = false
     }
     #endif

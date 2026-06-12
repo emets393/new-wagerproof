@@ -83,6 +83,9 @@ verify_jwt = false  # Internal cron/service-role endpoint for RC-verified auto-g
 [functions.process-agent-generation-job-v2]
 verify_jwt = false  # Internal worker, auth via x-internal-secret header
 
+[functions.process-agent-generation-job-v3]
+verify_jwt = false  # Internal V3 agentic worker, auth via x-internal-secret / service-role
+
 [functions.grade-avatar-picks]
 verify_jwt = false  # Cron calls don't have JWT, auth via service key
 

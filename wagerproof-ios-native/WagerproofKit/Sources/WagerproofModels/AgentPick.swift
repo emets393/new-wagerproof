@@ -21,6 +21,12 @@ public struct AgentPick: Codable, Identifiable, Sendable, Hashable {
     public let actualResult: String?
     public let gradedAt: String?
     public let createdAt: String
+    /// Raw `ai_decision_trace` JSONB (leaned metrics, rationale, alignment).
+    /// Loosely typed — schema drifts across generation versions (v2/v3).
+    public let aiDecisionTrace: JSONValue?
+    /// Raw `ai_audit_payload` JSONB. V3 payloads carry run_id, steering,
+    /// model_response_payload, decision_trace, validator overrides.
+    public let aiAuditPayload: JSONValue?
 
     public enum PickResultStatus: String, Codable, Sendable, Hashable {
         case won
@@ -47,6 +53,8 @@ public struct AgentPick: Codable, Identifiable, Sendable, Hashable {
         case actualResult = "actual_result"
         case gradedAt = "graded_at"
         case createdAt = "created_at"
+        case aiDecisionTrace = "ai_decision_trace"
+        case aiAuditPayload = "ai_audit_payload"
     }
 
     public init(from decoder: Decoder) throws {
@@ -74,6 +82,8 @@ public struct AgentPick: Codable, Identifiable, Sendable, Hashable {
         self.actualResult = try? c.decodeIfPresent(String.self, forKey: .actualResult)
         self.gradedAt = try? c.decodeIfPresent(String.self, forKey: .gradedAt)
         self.createdAt = try c.decode(String.self, forKey: .createdAt)
+        self.aiDecisionTrace = try? c.decodeIfPresent(JSONValue.self, forKey: .aiDecisionTrace)
+        self.aiAuditPayload = try? c.decodeIfPresent(JSONValue.self, forKey: .aiAuditPayload)
     }
 
     public init(
@@ -93,7 +103,9 @@ public struct AgentPick: Codable, Identifiable, Sendable, Hashable {
         result: PickResultStatus,
         actualResult: String?,
         gradedAt: String?,
-        createdAt: String
+        createdAt: String,
+        aiDecisionTrace: JSONValue? = nil,
+        aiAuditPayload: JSONValue? = nil
     ) {
         self.id = id
         self.avatarId = avatarId
@@ -112,6 +124,8 @@ public struct AgentPick: Codable, Identifiable, Sendable, Hashable {
         self.actualResult = actualResult
         self.gradedAt = gradedAt
         self.createdAt = createdAt
+        self.aiDecisionTrace = aiDecisionTrace
+        self.aiAuditPayload = aiAuditPayload
     }
 }
 

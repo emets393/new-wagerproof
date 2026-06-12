@@ -330,12 +330,14 @@ public enum WagerBotStreamEvent: Sendable {
     case done
 }
 
-// MARK: - JSONValue (private helper)
+// MARK: - JSONValue
 
 /// Tiny JSON sum type for round-tripping arbitrary subtrees through
 /// Codable without dragging in a runtime library. Used for rawGame
-/// envelopes on game cards / widgets.
-enum JSONValue: Codable, Equatable, Sendable, Hashable {
+/// envelopes on game cards / widgets, and for loosely-typed JSONB columns
+/// (`ai_decision_trace`, `ai_audit_payload`). Convenience accessors live in
+/// JSONValue.swift.
+public enum JSONValue: Codable, Equatable, Sendable, Hashable {
     case null
     case bool(Bool)
     case int(Int)
@@ -344,7 +346,7 @@ enum JSONValue: Codable, Equatable, Sendable, Hashable {
     case array([JSONValue])
     case object([String: JSONValue])
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()
         if c.decodeNil() { self = .null; return }
         if let v = try? c.decode(Bool.self) { self = .bool(v); return }
@@ -356,7 +358,7 @@ enum JSONValue: Codable, Equatable, Sendable, Hashable {
         throw DecodingError.dataCorruptedError(in: c, debugDescription: "Unsupported JSON value")
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
         switch self {
         case .null: try c.encodeNil()

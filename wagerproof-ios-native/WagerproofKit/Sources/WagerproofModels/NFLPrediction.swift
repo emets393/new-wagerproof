@@ -27,6 +27,10 @@ public struct NFLPrediction: Identifiable, Codable, Hashable, Sendable {
     public let homeAwaySpreadCoverProb: Double?
     /// Probability the total goes Over. Below 0.5 → Under.
     public let ouResultProb: Double?
+    /// Model fair total (`fg_pred_total` in the dry-run contract). The legacy
+    /// pipeline doesn't publish one — nil there, and the card falls back to
+    /// `ouResultProb` for O/U direction.
+    public let predTotal: Double?
     public let runId: String?
     // Weather
     public let temperature: Double?
@@ -67,6 +71,7 @@ public struct NFLPrediction: Identifiable, Codable, Hashable, Sendable {
         homeAwayMlProb: Double? = nil,
         homeAwaySpreadCoverProb: Double? = nil,
         ouResultProb: Double? = nil,
+        predTotal: Double? = nil,
         runId: String? = nil,
         temperature: Double? = nil,
         precipitation: Double? = nil,
@@ -103,6 +108,7 @@ public struct NFLPrediction: Identifiable, Codable, Hashable, Sendable {
         self.homeAwayMlProb = homeAwayMlProb
         self.homeAwaySpreadCoverProb = homeAwaySpreadCoverProb
         self.ouResultProb = ouResultProb
+        self.predTotal = predTotal
         self.runId = runId
         self.temperature = temperature
         self.precipitation = precipitation
@@ -141,6 +147,7 @@ public struct NFLPrediction: Identifiable, Codable, Hashable, Sendable {
         case homeAwayMlProb = "home_away_ml_prob"
         case homeAwaySpreadCoverProb = "home_away_spread_cover_prob"
         case ouResultProb = "ou_result_prob"
+        case predTotal = "pred_total"
         case runId = "run_id"
         case temperature
         case precipitation

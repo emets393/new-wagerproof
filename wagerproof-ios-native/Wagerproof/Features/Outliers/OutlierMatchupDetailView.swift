@@ -33,8 +33,20 @@ struct OutlierMatchupDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        // Same shared sheet the MLB Betting Trends tool presents — one trends
+        // design across entry points. No "View matchup" action here: the user
+        // is already on this matchup's detail page.
         .sheet(item: $trendsSheet) { game in
-            MLBBettingTrendsBottomSheet(game: game) { trendsSheet = nil }
+            BettingTrendsDetailSheet(
+                awayName: game.awayTeam.teamName,
+                homeName: game.homeTeam.teamName,
+                timeDisplay: MLBTrendsMatrixAdapter.timeDisplay(for: game),
+                stripeColors: MLBTrendsMatrixAdapter.stripeColors(for: game),
+                accent: MLBTrendsMatrixAdapter.accent,
+                sections: MLBTrendsMatrixAdapter.sections(for: game),
+                guide: .mlb,
+                avatar: MLBTrendsMatrixAdapter.avatarProvider(for: game)
+            )
         }
     }
 

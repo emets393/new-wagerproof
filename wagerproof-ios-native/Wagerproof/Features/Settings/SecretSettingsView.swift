@@ -12,6 +12,7 @@ import UserNotifications
 /// Surfaces dev-only toggles + diagnostics:
 ///   - Simulate Freemium (force `RevenueCatStore.forceFreemiumMode = true`)
 ///   - Admin Mode toggle (only shown when `adminMode.canEnableAdminMode`)
+///   - WagerBot Voice (incubating — moved here from the public Settings page)
 ///   - Push diagnostics / register & test
 ///   - RevenueCat sync / fetch offerings / present paywall
 ///   - Reset onboarding
@@ -26,6 +27,15 @@ struct SecretSettingsView: View {
     #endif
     @State private var diagnosticsMessage: DiagMessage?
     @State private var isPaywallPresented = false
+    @State private var isVoicePresented = false
+
+    /// Persisted WagerBot Voice personality — read here only so the voice
+    /// row subtitle reflects the user's current mode. Owned/written by
+    /// `WagerBotVoiceView` (same `@AppStorage` key).
+    @AppStorage("wagerbot.personality") private var voicePersonality: String = "friendly"
+    // V3 agentic generation opt-in (new-client only). Local store reads/writes
+    // UserDefaults; AgentDetailStore.generatePicks() reads the same keys.
+    @State private var v3Settings = AgentV3SettingsStore()
 
     private struct DiagMessage: Identifiable {
         let id = UUID()
@@ -42,6 +52,7 @@ struct SecretSettingsView: View {
         NavigationStack {
             Form {
                 testingTogglesSection
+                agentV3Section
                 diagnosticsSection
                 if case let .authenticated(userId) = auth.phase {
                     Section("Info") {
@@ -76,6 +87,9 @@ struct SecretSettingsView: View {
             }
             .sheet(isPresented: $isPaywallPresented) {
                 RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
+            }
+            .fullScreenCover(isPresented: $isVoicePresented) {
+                WagerBotVoiceView()
             }
         }
     }
@@ -135,6 +149,73 @@ struct SecretSettingsView: View {
             }
             .tint(Color.appPrimary)
             #endif
+
+            // WagerBot Voice — incubating; lives here instead of the public
+            // Settings page until it's ready for general availability.
+            Button {
+                isVoicePresented = true
+            } label: {
+                row(
+                    icon: "waveform",
+                    iconColor: Color(hex: 0x16A34A),
+                    iconBackground: Color(hex: 0xE9F8F2),
+                    title: "WagerBot Voice",
+                    subtitle: voicePersonality == "spicy"
+                        ? "Spicy mode — talk picks out loud"
+                        : "Friendly mode — talk picks out loud"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var agentV3Section: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { v3Settings.useV3Engine },
+                set: { v3Settings.setUseV3Engine($0) }
+            )) {
+                rowLabel(
+                    icon: "cpu.fill",
+                    iconColor: Color(hex: 0x6366F1),
+                    iconBackground: Color(hex: 0xEEF0FF),
+                    title: "V3 Agentic Engine",
+                    subtitle: v3Settings.useV3Engine
+                        ? "Generation uses the new tool-loop engine"
+                        : "Off — generation uses the V2 engine"
+                )
+            }
+            .tint(Color.appPrimary)
+
+            if v3Settings.useV3Engine {
+                Toggle(isOn: Binding(
+                    get: { v3Settings.dryRun },
+                    set: { v3Settings.setDryRun($0) }
+                )) {
+                    rowLabel(
+                        icon: "eye.fill",
+                        iconColor: Color(hex: 0x0EA5E9),
+                        iconBackground: Color(hex: 0xE6F6FE),
+                        title: "Dry Run",
+                        subtitle: v3Settings.dryRun
+                            ? "Runs the loop + records trace, writes NO picks"
+                            : "Writes picks normally"
+                    )
+                }
+                .tint(Color.appPrimary)
+
+                Picker("Model", selection: Binding(
+                    get: { v3Settings.model },
+                    set: { v3Settings.setModel($0) }
+                )) {
+                    ForEach(AgentV3SettingsStore.models, id: \.self) { Text($0).tag($0) }
+                }
+            }
+        } header: {
+            Text("Agent V3 Engine (Beta)")
+        } footer: {
+            Text("Opt this client into the V3 agentic pick-generation engine. Off matches V2 exactly. Affects only generation requests from this device.")
         }
     }
 

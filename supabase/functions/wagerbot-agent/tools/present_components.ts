@@ -33,13 +33,8 @@ const GAME_LINKED = new Set([
 
 // Tool/report banners — title/subtitle/icon by ToolRouter category id.
 const TOOL_CATALOG: Record<string, { title: string; subtitle: string; icon: string }> = {
-  mlbTrends: { title: "MLB Betting Trends", subtitle: "ATS & O/U situational trends", icon: "chart.bar.fill" },
   mlbRegression: { title: "MLB Regression Report", subtitle: "Model regression candidates", icon: "waveform.path.ecg" },
-  mlbPitcherMatchups: { title: "Player Prop Matchups", subtitle: "Pitcher vs lineup edges", icon: "baseball.fill" },
-  mlbF5Splits: { title: "MLB F5 Splits", subtitle: "First-5-innings model splits", icon: "5.circle.fill" },
-  nbaTrends: { title: "NBA Betting Trends", subtitle: "ATS & O/U trends", icon: "chart.bar.fill" },
   nbaAccuracy: { title: "NBA Model Accuracy", subtitle: "Historical accuracy buckets", icon: "scope" },
-  ncaabTrends: { title: "NCAAB Betting Trends", subtitle: "ATS & O/U trends", icon: "chart.bar.fill" },
   ncaabAccuracy: { title: "NCAAB Model Accuracy", subtitle: "Historical accuracy buckets", icon: "scope" },
 };
 
@@ -111,7 +106,7 @@ export const tool: ToolDefinition = {
             prop_id: { type: "string", description: "For prop components." },
             tool_category: {
               type: "string",
-              description: "For tool components — one of: mlbTrends, mlbRegression, mlbPitcherMatchups, mlbF5Splits, nbaTrends, nbaAccuracy, ncaabTrends, ncaabAccuracy.",
+              description: "For tool components — one of: mlbRegression, nbaAccuracy, ncaabAccuracy.",
             },
             pick: { type: "string", description: "Optional human pick label, e.g. 'Lakers -3.5 (-110)'." },
             analysis: { type: "string", description: "Optional 1-2 sentence analysis for this component." },

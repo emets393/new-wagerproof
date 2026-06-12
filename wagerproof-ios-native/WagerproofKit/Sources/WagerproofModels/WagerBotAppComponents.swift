@@ -27,7 +27,7 @@ public struct WagerBotChatNav: Codable, Equatable, Sendable, Hashable {
     public let gameId: String?
     public let agentId: String?
     public let propId: String?
-    /// ToolRouter category id (e.g. "mlbF5Splits", "nbaAccuracy").
+    /// ToolRouter category id (e.g. "nbaAccuracy", "mlbRegression").
     public let toolCategory: String?
 
     enum CodingKeys: String, CodingKey {

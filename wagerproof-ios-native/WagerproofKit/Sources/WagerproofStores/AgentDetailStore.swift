@@ -152,8 +152,22 @@ public final class AgentDetailStore {
         lastGenerationError = nil
         defer { isGenerating = false }
         do {
-            _ = try await AgentPicksService.requestGeneration(agentId: agentId)
-            await refreshSnapshot()
+            // V3 opt-in is a Secret Settings debug toggle persisted to UserDefaults;
+            // a fresh store reads the current values. Off → nil params → V2 path.
+            let v3 = AgentV3SettingsStore()
+            // Generation runs ASYNC on the server (enqueue → queue → worker).
+            // request_generation returns immediately with {queued}; the worker
+            // then takes seconds (V2) to ~2 min (V3 deepseek-reasoner). Capture
+            // the current run id so we can poll until a NEW completed run lands —
+            // otherwise the spinner would clear in ~1s and the user sees nothing.
+            let priorRunId = todaysGenerationRun?.id
+            _ = try await AgentPicksService.requestGeneration(
+                agentId: agentId,
+                engineVersion: v3.engineVersionForRequest,
+                dryRun: v3.useV3Engine ? v3.dryRun : nil,
+                modelName: v3.useV3Engine ? v3.model : nil
+            )
+            await pollUntilGenerationCompletes(priorRunId: priorRunId)
             // Reload history so the new picks show up there too.
             if case .loaded = historyLoadState {
                 await loadHistory()
@@ -162,6 +176,23 @@ public final class AgentDetailStore {
         } catch {
             lastGenerationError = Self.message(from: error)
             return false
+        }
+    }
+
+    /// Poll the detail snapshot until a NEW succeeded run appears (its id differs
+    /// from `priorRunId`) or we hit the cap. The snapshot RPC only surfaces
+    /// `status='succeeded'` runs, so a changed id == "this generation finished".
+    /// Failed runs never surface here, so we also cap the wait (~4 min) to cover
+    /// the V3 worst case (210s wall-clock + dispatch/lease latency). Uses a
+    /// silent fetch so `snapshotLoadState` doesn't flicker under the spinner.
+    private func pollUntilGenerationCompletes(priorRunId: String?) async {
+        let maxAttempts = 60
+        let intervalNanos: UInt64 = 4_000_000_000 // 4s
+        for _ in 0..<maxAttempts {
+            try? await Task.sleep(nanoseconds: intervalNanos)
+            guard let snap = try? await AgentPicksService.fetchDetailSnapshot(agentId: agentId) else { continue }
+            self.snapshot = snap
+            if let cur = snap.todaysGenerationRun?.id, cur != priorRunId { return }
         }
     }
 

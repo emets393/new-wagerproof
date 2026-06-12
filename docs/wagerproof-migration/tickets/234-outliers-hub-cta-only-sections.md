@@ -1,9 +1,9 @@
 # Ticket #234 — Outliers hub sections render CTA-only (no preview cards)
 
-**Status:** open
+**Status:** closed
 **Filed by:** B-Outliers-Detail implementer
 **Filed:** 2026-05-24
-**Closed:** —
+**Closed:** 2026-06-11 (see note at bottom)
 **Affects screen / file:** `wagerproof-mobile/app/(drawer)/(tabs)/outliers.tsx` → `wagerproof_ios_native/Wagerproof/Features/Outliers/OutliersView.swift`
 
 ## What we couldn't ship in scope
@@ -31,3 +31,7 @@ The hub looks slightly different from RN — instead of horizontal-scrolling pre
 ## Notes
 
 The detail views (`NBABettingTrendsView`, `MLBBettingTrendsView`, etc.) are full-fidelity ports of the RN list screens. The waiver only covers the hub-row preview cards.
+
+---
+
+**2026-06-11 — CLOSED.** The hub CTA-only sections this waiver covered were deleted with the merged-feed rewrite, and the per-category detail list views themselves retired when trends/F5/props became per-matchup insight widgets on the game detail sheets.

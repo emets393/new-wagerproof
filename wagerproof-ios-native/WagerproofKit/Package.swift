@@ -36,7 +36,9 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/supabase/supabase-swift", from: "2.0.0"),
-        .package(url: "https://github.com/RevenueCat/purchases-ios", from: "5.0.0"),
+        // 5.78.0+: older releases fail under Xcode 26 / Swift 6.2 (PaywallColor
+        // synthesized memberwise init collision)
+        .package(url: "https://github.com/RevenueCat/purchases-ios", from: "5.78.0"),
         .package(url: "https://github.com/google/GoogleSignIn-iOS", from: "7.0.0"),
         .package(url: "https://github.com/mixpanel/mixpanel-swift", from: "4.3.0"),
         // Lottie powers the onboarding animations (PersonalizationIntro,

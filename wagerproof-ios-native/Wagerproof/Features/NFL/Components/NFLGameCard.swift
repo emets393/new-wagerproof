@@ -15,8 +15,11 @@ struct NFLGameCard: View {
     }
 
     private var rowModel: GameRowCard.Model {
-        let awayAbbr = TeamInitials.from(game.awayTeam)
-        let homeAbbr = TeamInitials.from(game.homeTeam)
+        // Canonical abbr + logo come from the `nfl_teams` reference table
+        // (NFLTeamAssets, hydrated by the NFL fetch paths), with the static
+        // identity map as the fallback.
+        let awayAbbr = NFLTeamAssets.abbr(for: game.awayTeam)
+        let homeAbbr = NFLTeamAssets.abbr(for: game.homeTeam)
         return GameRowCard.Model(
             id: game.id,
             league: "nfl",
@@ -27,7 +30,7 @@ struct NFLGameCard: View {
                 initials: awayAbbr,
                 moneyline: game.awayMl,
                 spread: game.awaySpread,
-                logoURL: nil,
+                logoURL: NFLTeamAssets.logo(for: game.awayTeam),
                 colors: NFLTeamColors.colorPair(for: game.awayTeam)
             ),
             home: GameRowCard.TeamSide(
@@ -35,7 +38,7 @@ struct NFLGameCard: View {
                 initials: homeAbbr,
                 moneyline: game.homeMl,
                 spread: game.homeSpread,
-                logoURL: nil,
+                logoURL: NFLTeamAssets.logo(for: game.homeTeam),
                 colors: NFLTeamColors.colorPair(for: game.homeTeam)
             ),
             overLine: game.overLine,
@@ -46,9 +49,10 @@ struct NFLGameCard: View {
                 homeAbbr: homeAbbr,
                 awayAbbr: awayAbbr
             ),
-            // NFL has no fair-total — direction + probability only.
+            // Dry-run pipeline publishes a fair total (`fg_pred_total`); the
+            // legacy pipeline publishes a direction probability instead.
             ouEdge: GameEdgeMath.ouEdge(
-                modelFairTotal: nil,
+                modelFairTotal: game.predTotal,
                 marketLine: game.overLine,
                 ouResultProb: game.ouResultProb
             ),
@@ -65,13 +69,13 @@ struct NFLGameCard: View {
         let hasTotal = game.overLine != nil
         return GameRowCard.OddsBreakdown(
             away: GameRowCard.OddsBreakdown.Row(
-                abbr: TeamInitials.from(game.awayTeam),
+                abbr: NFLTeamAssets.abbr(for: game.awayTeam),
                 spread: GameCardFormatting.formatSpread(game.awaySpread),
                 moneyline: GameCardFormatting.formatMoneyline(game.awayMl),
                 total: hasTotal ? "O\(totalText)" : "—"
             ),
             home: GameRowCard.OddsBreakdown.Row(
-                abbr: TeamInitials.from(game.homeTeam),
+                abbr: NFLTeamAssets.abbr(for: game.homeTeam),
                 spread: GameCardFormatting.formatSpread(game.homeSpread),
                 moneyline: GameCardFormatting.formatMoneyline(game.homeMl),
                 total: hasTotal ? "U\(totalText)" : "—"

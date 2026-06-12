@@ -24,7 +24,6 @@ import WagerproofStores
 ///   so it reads as a dedicated page rather than a tab-level surface.
 struct SettingsView: View {
     @Environment(AuthStore.self) private var auth
-    @Environment(ThemeStore.self) private var theme
     @Environment(SettingsStore.self) private var settings
     @Environment(RevenueCatStore.self) private var revenueCat
     @Environment(AdminModeStore.self) private var adminMode
@@ -32,13 +31,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var modal: SettingsModal?
-    @State private var isVoicePresented = false
     @State private var isPaywallPresented = false
-
-    /// Persisted WagerBot Voice personality — read here only so the settings
-    /// row subtitle reflects the user's current mode. Owned/written by
-    /// `WagerBotVoiceView` (same `@AppStorage` key).
-    @AppStorage("wagerbot.personality") private var voicePersonality: String = "friendly"
     @State private var isCustomerCenterPresented = false
     @State private var isLogoutAlertPresented = false
     @State private var isSigningOut = false
@@ -70,7 +63,7 @@ struct SettingsView: View {
             communitySupportSection
             legalSection
             accountSection
-            dangerSection
+            footerSection
         }
         .scrollContentBackground(.hidden)
         .background(Color.appSurface.ignoresSafeArea())
@@ -116,9 +109,6 @@ struct SettingsView: View {
             set: { if !$0 { modal = nil } }
         )) {
             SecretSettingsView()
-        }
-        .fullScreenCover(isPresented: $isVoicePresented) {
-            WagerBotVoiceView()
         }
         .sheet(isPresented: $isPaywallPresented) {
             RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
@@ -189,7 +179,9 @@ struct SettingsView: View {
                 onTap: handleHeroTap
             )
             .disabled(proAccess.isLoading)
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            // Zero horizontal insets so the card spans the same width as the
+            // inset-grouped section containers below it.
+            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
             .listRowBackground(Color.clear)
         }
     }
@@ -198,45 +190,14 @@ struct SettingsView: View {
     @ViewBuilder
     private var preferencesSection: some View {
         Section("Preferences") {
-            @Bindable var binding = theme
-            Toggle(isOn: Binding(
-                get: { theme.mode != .light },
-                set: { newValue in
-                    theme.mode = newValue ? .dark : .light
-                }
-            )) {
-                rowLabel(
-                    icon: "circle.righthalf.filled",
-                    iconColor: Color(hex: 0x5F56D8),
-                    iconBackground: Color(hex: 0xF1EFFF),
-                    title: "Dark Mode",
-                    subtitle: theme.mode == .dark ? "Dark theme enabled" : "Light theme enabled"
-                )
-            }
-            .tint(Color.appPrimary)
-
-            @Bindable var settingsBinding = settings
-            Toggle(isOn: $settingsBinding.wagerBotSuggestionsEnabled) {
-                rowLabel(
-                    icon: "bubble.left.fill",
-                    iconColor: Color(hex: 0x2B9E76),
-                    iconBackground: Color(hex: 0xE9F8F2),
-                    title: "WagerBot Suggestions",
-                    subtitle: settings.wagerBotSuggestionsEnabled
-                        ? "Proactive suggestions enabled"
-                        : "Suggestions are off"
-                )
-            }
-            .tint(Color.appPrimary)
-
+            // Theme changer intentionally hidden — the app ships dark-mode-only.
+            // See ThemeStore (default `.dark`).
             HStack {
                 if settings.isCheckingNotificationPermission {
-                    rowLabel(
-                        icon: "bell.fill",
-                        iconColor: Color(hex: 0xE65100),
-                        iconBackground: Color(hex: 0xFFF3E0),
-                        title: "Push Notifications",
-                        subtitle: "Checking permission…"
+                    SettingsRow(
+                        icon: "bell.fill", iconColor: Color.appPrimary,
+                        title: "Push Notifications", subtitle: "Checking permission…",
+                        chevron: false
                     )
                     Spacer()
                     ProgressView()
@@ -247,23 +208,20 @@ struct SettingsView: View {
                             Task {
                                 if newValue {
                                     let result = await settings.enableNotifications(userId: currentUserId)
-                                    if result == .denied {
-                                        notificationDeniedAlert = true
-                                    }
+                                    if result == .denied { notificationDeniedAlert = true }
                                 } else {
                                     await settings.disableNotifications(userId: currentUserId)
                                 }
                             }
                         }
                     )) {
-                        rowLabel(
-                            icon: "bell.fill",
-                            iconColor: Color(hex: 0xE65100),
-                            iconBackground: Color(hex: 0xFFF3E0),
+                        SettingsRow(
+                            icon: "bell.fill", iconColor: Color.appPrimary,
                             title: "Push Notifications",
                             subtitle: settings.notificationPermission.isEnabled
-                                ? "Get notified when agent picks are ready"
-                                : "Notifications are off"
+                                ? "On — agent picks & alerts"
+                                : "Off",
+                            chevron: false
                         )
                     }
                     .tint(Color.appPrimary)
@@ -273,34 +231,14 @@ struct SettingsView: View {
             // FIDELITY-WAIVER #050: Thinking Sprite picker row (RN settings.tsx:438-445)
             // not yet ported — sprite asset bundle deferred to B14 (Pixel Office).
 
-            // WagerBot Voice — opens the realtime voice chat full-screen.
-            // Subtitle reflects the current personality mode (Friendly/Spicy).
-            Button {
-                isVoicePresented = true
-            } label: {
-                row(
-                    icon: "waveform",
-                    iconColor: Color(hex: 0x16A34A),
-                    iconBackground: Color(hex: 0xE9F8F2),
-                    title: "WagerBot Voice",
-                    subtitle: voicePersonality == "spicy"
-                        ? "Spicy mode — talk picks out loud"
-                        : "Friendly mode — talk picks out loud"
-                )
-            }
-            .buttonStyle(.plain)
+            // WagerBot Voice row moved to SecretSettingsView while the
+            // feature is incubating — not ready for general availability.
 
-            // iOS Home Screen Widget row — iOS-only feature so the row is
-            // always visible on this build.
-            Button {
-                modal = .iosWidget
-            } label: {
-                row(
+            Button { modal = .iosWidget } label: {
+                SettingsRow(
                     icon: "square.grid.2x2.fill",
-                    iconColor: Color(hex: 0xF08B00),
-                    iconBackground: Color(hex: 0xFFF2DE),
-                    title: "iOS Home Screen Widget",
-                    subtitle: "Add a quick access widget"
+                    iconColor: Color(hex: 0x7C83FD),
+                    title: "iOS Home Screen Widget"
                 )
             }
             .buttonStyle(.plain)
@@ -331,7 +269,8 @@ struct SettingsView: View {
                 yJitter: -0.04,
                 onTap: { modal = .discord }
             )
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            // Zero horizontal insets — match the Pro hero card / section width.
+            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
             .listRowBackground(Color.clear)
         }
     }
@@ -341,12 +280,10 @@ struct SettingsView: View {
     private var communitySupportSection: some View {
         Section("Community & Support") {
             Button { modal = .discord } label: {
-                row(
+                SettingsRow(
                     icon: "bubble.left.and.bubble.right.fill",
                     iconColor: Color(hex: 0x7289DA),
-                    iconBackground: Color(hex: 0xEEF1FF),
-                    title: "Discord Channel",
-                    subtitle: proAccess.isPro ? "Join our community" : "Member community access"
+                    title: "Discord Channel"
                 )
             }
             .buttonStyle(.plain)
@@ -354,12 +291,10 @@ struct SettingsView: View {
             Button {
                 openURL(URL(string: "mailto:admin@wagerproof.bet?subject=Contact%20Us%20-%20WagerProof%20Mobile")!)
             } label: {
-                row(
+                SettingsRow(
                     icon: "envelope.fill",
-                    iconColor: Color(hex: 0xEB7A00),
-                    iconBackground: Color(hex: 0xFFF1E3),
-                    title: "Contact Us",
-                    subtitle: "Reach support directly"
+                    iconColor: Color(hex: 0x42A5F5),
+                    title: "Contact Us"
                 )
             }
             .buttonStyle(.plain)
@@ -373,12 +308,10 @@ struct SettingsView: View {
             Button {
                 openURL(URL(string: "https://wagerproof.bet/privacy-policy")!)
             } label: {
-                row(
+                SettingsRow(
                     icon: "shield.lefthalf.filled",
-                    iconColor: Color(hex: 0xF4A000),
-                    iconBackground: Color(hex: 0xFFF6DF),
-                    title: "Privacy Policy",
-                    subtitle: "How we collect and use data"
+                    iconColor: Color(hex: 0x607D8B),
+                    title: "Privacy Policy"
                 )
             }
             .buttonStyle(.plain)
@@ -386,25 +319,10 @@ struct SettingsView: View {
             Button {
                 openURL(URL(string: "https://wagerproof.bet/terms-and-conditions")!)
             } label: {
-                row(
+                SettingsRow(
                     icon: "doc.text.fill",
-                    iconColor: Color(hex: 0xF4A000),
-                    iconBackground: Color(hex: 0xFFF6DF),
-                    title: "Terms of Use",
-                    subtitle: "Service terms and billing rules"
-                )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                handleVersionTap()
-            } label: {
-                row(
-                    icon: "info.circle.fill",
-                    iconColor: Color(hex: 0x8B8B8B),
-                    iconBackground: Color(hex: 0xF4F1EC),
-                    title: "App Version",
-                    subtitle: appVersionString
+                    iconColor: Color(hex: 0x607D8B),
+                    title: "Terms of Use"
                 )
             }
             .buttonStyle(.plain)
@@ -416,56 +334,53 @@ struct SettingsView: View {
     private var accountSection: some View {
         if case .authenticated = auth.phase {
             Section("Account") {
-                // The signed-in account's email leads the section so the user
-                // can confirm which account they're in before signing out.
-                // Static row (no chevron) — informational, not tappable.
+                // Static email row — informational only, no chevron.
                 if let email = auth.profile?.email ?? authEmail {
-                    row(
+                    SettingsRow(
                         icon: "envelope.fill",
-                        iconColor: Color(hex: 0xEB7A00),
-                        iconBackground: Color(hex: 0xFFF1E3),
+                        iconColor: Color(hex: 0x78909C),
                         title: "Email",
                         subtitle: email,
                         chevron: false
                     )
                 }
+
+                // Logout — custom trailing so we can swap in a spinner mid-sign-out.
                 Button {
                     isLogoutAlertPresented = true
                 } label: {
-                    row(
-                        icon: "rectangle.portrait.and.arrow.right",
-                        iconColor: Color(hex: 0xD16A00),
-                        iconBackground: Color(hex: 0xFFF0E1),
-                        title: isSigningOut ? "Logging out…" : "Log Out",
-                        subtitle: "Sign out of this device",
-                        trailing: {
-                            if isSigningOut {
-                                ProgressView()
-                            } else {
-                                chevron()
-                            }
+                    HStack(spacing: 14) {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 34, height: 34)
+                            .foregroundStyle(Color(hex: 0xFF7043))
+                            .background(Color(hex: 0xFF7043).opacity(0.18),
+                                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        Text(isSigningOut ? "Logging out…" : "Log Out")
+                            .font(AppFont.headline)
+                            .foregroundStyle(Color.appTextPrimary)
+                        Spacer(minLength: 8)
+                        if isSigningOut {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.appTextMuted)
                         }
-                    )
+                    }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(isSigningOut)
-            }
-        }
-    }
 
-    @ViewBuilder
-    private var dangerSection: some View {
-        if case .authenticated = auth.phase {
-            Section("Danger Zone") {
                 Button {
                     modal = .deleteAccount
                 } label: {
-                    row(
+                    SettingsRow(
                         icon: "exclamationmark.octagon.fill",
-                        iconColor: Color(hex: 0xDD4D3F),
-                        iconBackground: Color(hex: 0xFFF0EE),
+                        iconColor: Color(hex: 0xE53935),
                         title: "Delete Account",
-                        subtitle: "Opens the delete-account tool with swipe confirmation",
+                        subtitle: "Permanently delete your account and data",
                         destructive: true
                     )
                 }
@@ -474,98 +389,72 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Footer
+
+    @ViewBuilder
+    private var footerSection: some View {
+        Section {
+            Button {
+                handleVersionTap()
+            } label: {
+                VStack(spacing: 4) {
+                    Text(appVersionString)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.appTextMuted)
+                    Text("Developed by nerds from Ohio.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.appTextMuted)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.plain)
+        }
+        .listRowBackground(Color.clear)
+    }
+
     // MARK: - Row primitive
 
-    /// A compact `HStack` row that matches the RN `ActionRow`: rounded icon
-    /// chip on the left, two-line text in the middle, optional trailing
-    /// view on the right.
-    private func row<Trailing: View>(
-        icon: String,
-        iconColor: Color,
-        iconBackground: Color,
-        title: String,
-        subtitle: String? = nil,
-        destructive: Bool = false,
-        chevron: Bool = true,
-        @ViewBuilder trailing: () -> Trailing
-    ) -> some View {
-        HStack(spacing: Spacing.md) {
-            rowIcon(icon, color: iconColor, background: iconBackground)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(AppFont.headline)
-                    .foregroundStyle(destructive ? Color(hex: 0xDD4D3F) : Color.appTextPrimary)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(AppFont.caption)
-                        .foregroundStyle(Color.appTextSecondary)
-                        .lineLimit(2)
+    /// Native-style settings row: SF Symbol chip + title + optional subtitle +
+    /// optional disclosure chevron. The chip background is derived from the icon
+    /// color at 18% opacity so it reads correctly on both dark and light surfaces
+    /// without requiring separate background hex tokens.
+    private struct SettingsRow: View {
+        let icon: String
+        let iconColor: Color
+        let title: String
+        var subtitle: String? = nil
+        var chevron: Bool = true
+        var destructive: Bool = false
+
+        var body: some View {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(iconColor)
+                    .background(iconColor.opacity(0.18),
+                                in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(AppFont.headline)
+                        .foregroundStyle(destructive ? Color(hex: 0xE53935) : Color.appTextPrimary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(AppFont.caption)
+                            .foregroundStyle(Color.appTextSecondary)
+                            .lineLimit(2)
+                    }
+                }
+                Spacer(minLength: 8)
+                if chevron {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.appTextMuted)
                 }
             }
-            Spacer(minLength: 8)
-            trailing()
+            .contentShape(Rectangle())
         }
-        .contentShape(Rectangle())
-    }
-
-    private func row(
-        icon: String,
-        iconColor: Color,
-        iconBackground: Color,
-        title: String,
-        subtitle: String? = nil,
-        destructive: Bool = false,
-        chevron showChevron: Bool = true
-    ) -> some View {
-        row(
-            icon: icon,
-            iconColor: iconColor,
-            iconBackground: iconBackground,
-            title: title,
-            subtitle: subtitle,
-            destructive: destructive,
-            chevron: showChevron,
-            trailing: { showChevron ? AnyView(chevron()) : AnyView(EmptyView()) }
-        )
-    }
-
-    private func rowLabel(
-        icon: String,
-        iconColor: Color,
-        iconBackground: Color,
-        title: String,
-        subtitle: String? = nil
-    ) -> some View {
-        HStack(spacing: Spacing.md) {
-            rowIcon(icon, color: iconColor, background: iconBackground)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(AppFont.headline)
-                    .foregroundStyle(Color.appTextPrimary)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(AppFont.caption)
-                        .foregroundStyle(Color.appTextSecondary)
-                }
-            }
-        }
-    }
-
-    private func rowIcon(_ system: String, color: Color, background: Color) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 13)
-                .fill(background)
-                .frame(width: 42, height: 42)
-            Image(systemName: system)
-                .font(.system(size: 18, weight: .regular))
-                .foregroundStyle(color)
-        }
-    }
-
-    private func chevron() -> some View {
-        Image(systemName: "chevron.right")
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(Color.appTextMuted)
     }
 
     // MARK: - Helpers

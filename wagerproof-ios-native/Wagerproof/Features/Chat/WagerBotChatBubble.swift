@@ -262,21 +262,12 @@ struct WagerBotChatBubble: View {
         return 530
     }
 
+    // Bare muted text — no container/icon, reads as the model "muttering".
     private func thinkingBlock(_ text: String) -> some View {
-        HStack(spacing: 6) {
-            WagerBotIcon(size: 14)
-                .foregroundStyle(ui.accent)
-            Text(text)
-                .font(.system(size: 12, weight: .medium).italic())
-                .foregroundStyle(ui.mutedText)
-                .lineLimit(4)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(ui.accent.opacity(0.10))
-        )
+        Text(text)
+            .font(.system(size: 12, weight: .medium).italic())
+            .foregroundStyle(ui.mutedText)
+            .lineLimit(4)
     }
 
     /// Perplexity-style vertical follow-up list. Direct visual port of

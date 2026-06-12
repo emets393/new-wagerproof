@@ -155,8 +155,7 @@ struct NBAModelAccuracyView: View {
         .padding(.horizontal, Spacing.lg)
     }
 
-    /// Same lookup pattern as `NBABettingTrendsView.openGamePage`: resolve
-    /// the accuracy row's `gameId` to a typed `NBAGame` in `GamesStore`, ask
+    /// Resolve the accuracy row's `gameId` to a typed `NBAGame` in `GamesStore`, ask
     /// the NBA sheet store to open it, then switch to `.games` so the
     /// detail page push fires. No-op if the game isn't cached.
     private func openGamePage(for gameId: Int) {

@@ -21,10 +21,12 @@ import WagerproofStores
 ///      `FadeAlertTooltip` on extreme totals edges
 ///   6. Regression report picks for this game (filtered) — Pro-gated via
 ///      `ProContentSection`
-///   7. Game signals — Pro-gated via `ProContentSection`
-///   8. Weather (with wind arrow + venue roof type) — Pro-gated via
+///   7. Betting trends — compact situational matrix from the shared
+///      `MLBBettingTrendsStore` slate; hidden when the game has no trends
+///   8. Game signals — Pro-gated via `ProContentSection`
+///   9. Weather (with wind arrow + venue roof type) — Pro-gated via
 ///      `ProContentSection`
-///   9. Agent pick rationale widget — only renders when the audit store has
+///  10. Agent pick rationale widget — only renders when the audit store has
 ///      a selected pick for this game (matches RN's `gameKeySet.has(...)`)
 ///
 /// Postponed games short-circuit to a simple banner.
@@ -51,11 +53,28 @@ struct MLBGameBottomSheet: View {
     @State private var ouExpanded: Bool = false
     /// Fallback zoom namespace for standalone use (no carousel parent).
     @Namespace private var fallbackPropNS
+    /// Slate-wide trends store injected by the carousel — one fetch serves
+    /// every page. nil (previews/standalone) falls back to a sheet-local
+    /// store hydrated in `.task`.
+    var trendsStore: MLBBettingTrendsStore? = nil
+    @State private var localTrendsStore = MLBBettingTrendsStore()
+    private var resolvedTrendsStore: MLBBettingTrendsStore { trendsStore ?? localTrendsStore }
+
+    /// Slate-wide F5 splits store — same injected-or-local pattern as trends.
+    var f5Store: MLBF5SplitsStore? = nil
+    @State private var localF5Store = MLBF5SplitsStore()
+    private var resolvedF5Store: MLBF5SplitsStore { f5Store ?? localF5Store }
+
+    /// Which insight widget's expanded surface is presented (trends matrix /
+    /// full props list / full F5 breakdown). One `.sheet(item:)` for all three.
+    @State private var insightDetail: MLBInsightDetail?
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(PropsStore.self) private var propsStore
 
-    // Optional store inputs — passed by the parent at present time. Kept
-    // optional so previews + parity screenshots can render without DB wiring.
+    // Slate-wide companion stores, injected by the carousel (the live call
+    // site). Kept optional so previews + parity screenshots can render
+    // without DB wiring — their sections simply hide when nil.
     var accuracyStore: MLBBucketAccuracyStore? = nil
     var regressionStore: MLBRegressionReportStore? = nil
 
@@ -104,7 +123,9 @@ struct MLBGameBottomSheet: View {
                     playerPropsSection
                     moneylineCard
                     overUnderCard
+                    f5SplitsCard
                     regressionPicksCard
+                    bettingTrendsCard
                     signalsCard
                     weatherCard
                     // Agent rationale scrolls away at the very bottom (no pin).
@@ -130,6 +151,37 @@ struct MLBGameBottomSheet: View {
             projView = .full
             mlExpanded = false
             ouExpanded = false
+        }
+        .task(id: game.gamePk) {
+            // No-ops when the carousel-injected stores are already fresh; only
+            // the standalone/preview fallback stores actually fetch here. The
+            // three hydrates run concurrently — independent tables.
+            async let t: () = resolvedTrendsStore.refreshIfNeeded()
+            async let f: () = resolvedF5Store.refreshIfStale()
+            async let p: () = propsStore.refreshMLB()
+            _ = await (t, f, p)
+        }
+        // Expanded insight surfaces — full trends matrix / props list / F5
+        // breakdown — share one sheet slot.
+        .sheet(item: $insightDetail) { detail in
+            switch detail {
+            case .trends(let trends):
+                BettingTrendsDetailSheet(
+                    awayName: trends.awayTeam.teamName,
+                    homeName: trends.homeTeam.teamName,
+                    timeDisplay: MLBTrendsMatrixAdapter.timeDisplay(for: trends),
+                    stripeColors: MLBTrendsMatrixAdapter.stripeColors(for: trends),
+                    accent: MLBTrendsMatrixAdapter.accent,
+                    sections: MLBTrendsMatrixAdapter.sections(for: trends),
+                    guide: .mlb,
+                    avatar: MLBTrendsMatrixAdapter.avatarProvider(for: trends),
+                    onViewMatchup: nil   // already on the matchup page
+                )
+            case .props(let matchup):
+                MatchupPropsDetailSheet(matchup: matchup)
+            case .f5(let matchup):
+                F5SplitsDetailSheet(matchup: matchup)
+            }
         }
     }
 
@@ -314,15 +366,43 @@ struct MLBGameBottomSheet: View {
 
     // MARK: - Player props
 
-    /// Players in this matchup that have prop pages — pulled from the shared
-    /// PropsStore by `gamePk`, tappable through to their `PlayerPropDetailView`.
+    /// Player-props insight digest for this matchup — pulled from the shared
+    /// PropsStore by `gamePk`. Rows zoom-push `PlayerPropDetailView`; the
+    /// expand affordance opens the full team-grouped list. First-hydrate-only
+    /// skeleton; once the slate is stamped, a missing matchup hides the card.
     @ViewBuilder
     private var playerPropsSection: some View {
-        MLBMatchupPropsWidget(
-            game: game,
-            namespace: propNamespace ?? fallbackPropNS,
-            onSelect: onSelectProp
-        )
+        if let matchup = propsStore.matchup(for: game.gamePk) {
+            MLBMatchupPropsWidget(
+                game: game,
+                namespace: propNamespace ?? fallbackPropNS,
+                onSelect: onSelectProp,
+                onExpand: { insightDetail = .props(matchup) }
+            )
+        } else if propsStore.isLoadingMLB, !propsStore.hasLoadedMLB {
+            WidgetCollapsingSection(title: "Player Props", systemImage: "figure.baseball") {
+                InsightWidgetSkeleton()
+            }
+        }
+    }
+
+    // MARK: - First-5 splits
+
+    /// F5 head-to-head digest (win % / runs scored / runs allowed in the
+    /// matching home-away × starter-hand split). Hidden when the game isn't on
+    /// the F5 slate or neither side clears the 2-game showable floor.
+    @ViewBuilder
+    private var f5SplitsCard: some View {
+        if let matchup = resolvedF5Store.matchup(for: game.gamePk),
+           let summary = MLBF5Insight.summary(for: matchup) {
+            F5SplitsInsightWidget(summary: summary) {
+                insightDetail = .f5(matchup)
+            }
+        } else if resolvedF5Store.isLoading, resolvedF5Store.lastFetched == nil {
+            WidgetCollapsingSection(title: "First-5 Innings", systemImage: "baseball.diamond.bases") {
+                InsightWidgetSkeleton()
+            }
+        }
     }
 
     // MARK: - Polymarket
@@ -633,6 +713,31 @@ struct MLBGameBottomSheet: View {
         }
     }
 
+    // MARK: - Betting trends
+
+    /// Situational trends insight digest for this matchup, fed from the shared
+    /// trends slate (`mlb_situational_trends_today`). Per-game lookup against
+    /// the carousel-shared store; the card hides entirely when the game isn't
+    /// in today's trends view. Expanding presents the full 7-section matrix.
+    @ViewBuilder
+    private var bettingTrendsCard: some View {
+        if let trends = resolvedTrendsStore.trends(for: game.gamePk) {
+            BettingTrendsInsightWidget(
+                summary: MLBTrendsInsight.summary(for: trends),
+                awayAbbr: game.awayAbbr,
+                homeAbbr: game.homeAbbr,
+                accent: MLBTrendsMatrixAdapter.accent,
+                onExpand: { insightDetail = .trends(trends) }
+            )
+        } else if resolvedTrendsStore.loading, resolvedTrendsStore.lastFetched == nil {
+            // First hydrate only — once the slate is cached, a missing game
+            // means "no trends" and the card stays hidden (no skeleton flash).
+            WidgetCollapsingSection(title: "Betting Trends", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color(hex: 0x8B5CF6)) {
+                InsightWidgetSkeleton()
+            }
+        }
+    }
+
     // MARK: - Signals
 
     /// Pro-gated signals block. Cross-sport convention: situational +
@@ -806,6 +911,23 @@ struct MLBGameBottomSheet: View {
                         .foregroundStyle(Color.appTextSecondary)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Insight expand routing
+
+/// Which insight widget's expanded surface the MLB game sheet is presenting.
+enum MLBInsightDetail: Identifiable {
+    case trends(MLBGameTrends)
+    case props(MLBPropMatchup)
+    case f5(MLBF5Matchup)
+
+    var id: String {
+        switch self {
+        case .trends(let t): return "trends-\(t.gamePk)"
+        case .props(let m): return "props-\(m.gamePk)"
+        case .f5(let m): return "f5-\(m.game.gamePk)"
         }
     }
 }

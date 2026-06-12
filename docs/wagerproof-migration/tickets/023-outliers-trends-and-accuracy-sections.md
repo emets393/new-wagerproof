@@ -61,3 +61,12 @@ comments were removed from `OutliersView.swift` and `OutliersDetailView.swift`.
 Two follow-up waivers were filed:
 - #233 — NBA betting-trends bottom sheet is inlined in the detail view; the dedicated `NBABettingTrendsBottomSheet.swift` lands with the NBA sheet integration batch.
 - #234 — Outliers hub sections still render a single CTA card each instead of real preview cards (to keep cold-start cost bounded).
+
+## Addendum (2026-06-10 tools revamp)
+
+- The trends list views now open the shared `Features/Outliers/Components/BettingTrendsDetailSheet.swift` (+ `TrendsMatrixView`) as the primary tap action; per-sport trends bottom sheets were deleted and #233 is resolved.
+- `Features/Outliers/MLBRegressionReportView.swift` was deleted — `OutliersStore.Category.mlbRegression` now routes (via `ToolRouter`) to the rebuilt `Features/Analytics/MlbRegressionReportView.swift`.
+
+---
+
+**2026-06-11 note:** The trends list views referenced above (`MLBBettingTrendsView` / `NBABettingTrendsView` / `NCAABBettingTrendsView`) were retired — the datasets now render as `BettingTrendsInsightWidget` on the game detail sheets, expanding to the shared `BettingTrendsDetailSheet`.

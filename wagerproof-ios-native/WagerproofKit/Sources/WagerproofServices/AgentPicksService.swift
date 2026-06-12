@@ -129,13 +129,21 @@ public enum AgentPicksService {
 
     /// Request a fresh generation run. Returns the result; the caller refreshes
     /// the snapshot afterwards. Mirrors `generatePicks`.
+    ///
+    /// V3 opt-in params default to nil → omitted on the wire → V2 path unchanged.
     public static func requestGeneration(
         agentId: String,
-        idempotencyKey: String? = nil
+        idempotencyKey: String? = nil,
+        engineVersion: String? = nil,
+        dryRun: Bool? = nil,
+        modelName: String? = nil
     ) async throws -> GenerationRequestResult {
         try await AgentAuthorizedActionsService.requestGeneration(
             agentId: agentId,
-            idempotencyKey: idempotencyKey
+            idempotencyKey: idempotencyKey,
+            engineVersion: engineVersion,
+            dryRun: dryRun,
+            modelName: modelName
         )
     }
 

@@ -35,6 +35,20 @@ public final class GamesStore {
             case .mlb: return "MLB"
             }
         }
+
+        /// Picker display order, seasonal: football-first from Sept 1 through
+        /// Feb 15 (kickoff → Super Bowl), MLB-first the rest of the year.
+        /// Uses ET to match the rest of the app's sports-date logic.
+        public static func displayOrder(on date: Date = Date()) -> [Sport] {
+            var cal = Calendar(identifier: .gregorian)
+            cal.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+            let month = cal.component(.month, from: date)
+            let day = cal.component(.day, from: date)
+            let footballSeason = month >= 9 || month == 1 || (month == 2 && day <= 15)
+            return footballSeason
+                ? [.nfl, .cfb, .mlb, .nba, .ncaab]
+                : [.mlb, .nfl, .cfb, .nba, .ncaab]
+        }
     }
 
     public enum SortMode: String, Hashable, Sendable {
@@ -66,8 +80,9 @@ public final class GamesStore {
     public private(set) var loadState: [Sport: LoadState] = Dictionary(uniqueKeysWithValues: Sport.allCases.map { ($0, .idle) })
     public private(set) var lastFetched: [Sport: Date] = [:]
 
-    /// Currently-selected sport. Mirrors RN `useState<Sport>('mlb')`.
-    public var selectedSport: Sport = .mlb
+    /// Currently-selected sport. Defaults to the first sport in the seasonal
+    /// picker order (NFL during the football window, MLB otherwise).
+    public var selectedSport: Sport = Sport.displayOrder().first ?? .mlb
     /// Per-sport sort mode. Mirrors RN `sortModes` record.
     public var sortModes: [Sport: SortMode] = Dictionary(uniqueKeysWithValues: Sport.allCases.map { ($0, .time) })
     /// Per-sport search text. Mirrors RN `searchTexts` record.
@@ -100,8 +115,10 @@ public final class GamesStore {
         // Dummy Data Mode: serve a captured real slate so the offseason-empty
         // Games tab populates for UI development. Checked before the TTL guard
         // so toggling takes effect on the next tab appear / pull-to-refresh.
-        // MLB is in-season (live data works), so it's left on the real path.
-        if DummyDataMode.isEnabled, sport != .mlb {
+        // MLB is in-season (live data works) and NFL serves the dry-run
+        // contract slate year-round (see fetchNFLDryrun) — both stay on the
+        // real path.
+        if DummyDataMode.isEnabled, sport != .mlb, sport != .nfl {
             loadDummy(sport: sport)
             return
         }
@@ -432,6 +449,79 @@ public final class GamesStore {
         }
     }
 
+    /// One row of `nfl_dryrun_games` — the new app data contract (consensus
+    /// close lines + locked-model predictions). See the "NFL Week 12 2025 Dry
+    /// Run" doc; the 2026 in-season tables will follow this shape.
+    private struct NFLDryrunGameRow: Decodable, Sendable {
+        let gameId: String
+        let gameday: String?
+        let slot: String?
+        let homeTeam: String?
+        let awayTeam: String?
+        let fgSpreadClose: Double?
+        let fgTotalClose: Double?
+        let fgMlHomeClose: Double?
+        let fgMlAwayClose: Double?
+        let fgPredTotal: Double?
+        let fgHomeCoverProb: Double?
+        let fgHomeWinProb: Double?
+
+        enum CodingKeys: String, CodingKey {
+            case gameId = "game_id"
+            case gameday, slot
+            case homeTeam = "home_team"
+            case awayTeam = "away_team"
+            case fgSpreadClose = "fg_spread_close"
+            case fgTotalClose = "fg_total_close"
+            case fgMlHomeClose = "fg_ml_home_close"
+            case fgMlAwayClose = "fg_ml_away_close"
+            case fgPredTotal = "fg_pred_total"
+            case fgHomeCoverProb = "fg_home_cover_prob"
+            case fgHomeWinProb = "fg_home_win_prob"
+        }
+    }
+
+    private static let nflSlotLabels: [String: String] = [
+        "thu_fri": "Thu/Fri", "sun_early": "Sun Early",
+        "sun_late_sat": "Sun Late", "snf": "SNF", "monday": "MNF",
+    ]
+
+    /// Dry-run slate mapped onto the card model. Spreads in the contract are
+    /// home-relative (negative = home favored) — same convention as the card.
+    private func fetchNFLDryrun(_ cfb: SupabaseClient) async -> [NFLPrediction] {
+        // Team logos/abbrs come from the `nfl_teams` reference table — warm
+        // the cache so the cards can read it synchronously.
+        await NFLTeamsService.shared.ensureLoaded()
+        let rows: [NFLDryrunGameRow] = (try? await cfb
+            .from("nfl_dryrun_games")
+            .select("game_id, gameday, slot, home_team, away_team, fg_spread_close, fg_total_close, fg_ml_home_close, fg_ml_away_close, fg_pred_total, fg_home_cover_prob, fg_home_win_prob")
+            .order("gameday", ascending: true)
+            .execute()
+            .value) ?? []
+        return rows.map { row in
+            NFLPrediction(
+                id: row.gameId,
+                awayTeam: row.awayTeam ?? "",
+                homeTeam: row.homeTeam ?? "",
+                homeMl: row.fgMlHomeClose.map { Int($0.rounded()) },
+                awayMl: row.fgMlAwayClose.map { Int($0.rounded()) },
+                homeSpread: row.fgSpreadClose,
+                awaySpread: row.fgSpreadClose.map { -$0 },
+                overLine: row.fgTotalClose,
+                gameDate: row.gameday ?? "",
+                // Schedule slot, not a clock time — the card's time formatter
+                // passes unparseable strings through verbatim.
+                gameTime: row.slot.flatMap { Self.nflSlotLabels[$0] } ?? "",
+                trainingKey: row.gameId,
+                uniqueId: row.gameId,
+                homeAwayMlProb: row.fgHomeWinProb,
+                homeAwaySpreadCoverProb: row.fgHomeCoverProb,
+                ouResultProb: nil,
+                predTotal: row.fgPredTotal
+            )
+        }
+    }
+
     private func fetchNFL() async throws {
         let cfb = await CFBSupabase.shared.client
 
@@ -443,7 +533,9 @@ public final class GamesStore {
             .value
 
         if viewRows.isEmpty {
-            games.nfl = []
+            // Legacy pipeline is empty (offseason / post-cutover) — serve the
+            // dry-run contract slate instead. See fetchNFLDryrun.
+            games.nfl = await fetchNFLDryrun(cfb)
             return
         }
 

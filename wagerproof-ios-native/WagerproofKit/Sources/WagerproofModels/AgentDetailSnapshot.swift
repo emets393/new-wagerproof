@@ -230,6 +230,32 @@ public struct AgentPickAuditPayload: Sendable, Hashable {
     public var modelInputPersonalityJSON: String
     public var modelResponseJSON: String
     public var payloadIsFormatted: Bool
+    /// The COMPLETE audit dump (pick fields + ai_decision_trace +
+    /// ai_audit_payload) as one pretty-printed JSON string — what the
+    /// "Copy Full Trace" button puts on the clipboard for debugging.
+    public var fullTraceJSON: String
+    /// V3 only: the generation loop's tool calls (name, timing, result excerpt)
+    /// embedded in `ai_audit_payload.tool_trace`. Empty for V2/legacy picks.
+    public var toolTrace: [ToolTraceEntry]
+    /// Raw `tool_trace` array pretty-printed for the section copy button.
+    public var toolTraceJSON: String
+
+    public struct ToolTraceEntry: Hashable, Sendable, Identifiable {
+        public let id = UUID()
+        public let seq: Int
+        public let name: String
+        public let ms: Int
+        public let ok: Bool
+        public let resultExcerpt: String
+
+        public init(seq: Int, name: String, ms: Int, ok: Bool, resultExcerpt: String) {
+            self.seq = seq
+            self.name = name
+            self.ms = ms
+            self.ok = ok
+            self.resultExcerpt = resultExcerpt
+        }
+    }
 
     public struct LeanedMetric: Hashable, Sendable, Identifiable {
         public let id = UUID()
@@ -253,7 +279,10 @@ public struct AgentPickAuditPayload: Sendable, Hashable {
         modelInputGameJSON: String = "{}",
         modelInputPersonalityJSON: String = "{}",
         modelResponseJSON: String = "{}",
-        payloadIsFormatted: Bool = false
+        payloadIsFormatted: Bool = false,
+        fullTraceJSON: String = "{}",
+        toolTrace: [ToolTraceEntry] = [],
+        toolTraceJSON: String = "[]"
     ) {
         self.leanedMetrics = leanedMetrics
         self.rationaleText = rationaleText
@@ -262,6 +291,9 @@ public struct AgentPickAuditPayload: Sendable, Hashable {
         self.modelInputPersonalityJSON = modelInputPersonalityJSON
         self.modelResponseJSON = modelResponseJSON
         self.payloadIsFormatted = payloadIsFormatted
+        self.fullTraceJSON = fullTraceJSON
+        self.toolTrace = toolTrace
+        self.toolTraceJSON = toolTraceJSON
     }
 }
 

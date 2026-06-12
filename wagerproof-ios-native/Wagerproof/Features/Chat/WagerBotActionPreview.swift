@@ -133,7 +133,9 @@ struct WagerBotActionPreview: View {
                 kvRow("Spread pick", pick)
             }
             if let prob = obj["ml_prob"] as? Double {
-                kvRow("Moneyline", String(format: "%.1f%%", prob * 100))
+                // ml_prob arrives as a 0-1 fraction for some sports and an
+                // already-scaled percent for others (MLB) — never double-scale.
+                kvRow("Moneyline", String(format: "%.1f%%", prob <= 1 ? prob * 100 : prob))
             }
             if let ouPick = obj["ou_pick"] as? String {
                 let ouLine = obj["over_under"] as? Double
@@ -220,7 +222,7 @@ struct WagerBotActionPreview: View {
                 kvRow("Matchup", "\(away) @ \(home)")
             }
             if let time = obj["game_time"] as? String {
-                kvRow("Time", time)
+                kvRow("Time", Self.formatGameTime(time))
             }
             if let venue = obj["venue"] as? String {
                 kvRow("Venue", venue)
@@ -267,6 +269,20 @@ struct WagerBotActionPreview: View {
 
     private func humanize(_ key: String) -> String {
         key.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    /// Server widgets carry raw ISO-8601 game times — show "Tue, Jun 9 · 7:07 PM"
+    /// instead. Non-ISO strings (already formatted) pass through unchanged.
+    static func formatGameTime(_ raw: String) -> String {
+        let iso = ISO8601DateFormatter()
+        let date = iso.date(from: raw) ?? {
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return iso.date(from: raw)
+        }()
+        guard let date else { return raw }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "EEE, MMM d · h:mm a"
+        return fmt.string(from: date)
     }
 
     private func stringify(_ value: Any) -> String {

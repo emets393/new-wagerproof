@@ -671,7 +671,7 @@ TabView(selection: $tab.current) {
   - Left: `Button(systemImage: "gearshape", size: 31)` → `mainRouter.path.append(.settings)`.
   - Center: branded title "Wager" (foreground primary) + "Proof" (brand green `#00E676`), two `Text` runs in an `HStack`.
   - Right: `Button` cluster (max 2): admin test-trigger (`bolt.fill`, only when `wagerBotStore.testModeEnabled`), and the WagerBot launcher (`bubble.left.and.text.bubble.right` or branded asset).
-  - Below header: horizontal `ScrollView(.horizontal, showsIndicators: false)` of sport pill buttons (MLB, NBA, NCAAB, NFL, CFB). Selected sport gets bold weight + a 3pt-tall `Capsule().fill(Color.brandGreen)` underline at the bottom (`.overlay(alignment: .bottom)`).
+  - Below header: horizontal `ScrollView(.horizontal, showsIndicators: false)` of sport pill buttons ordered by `GamesStore.Sport.displayOrder()` — seasonal: NFL, CFB, MLB, NBA, NCAAB from Sept 1 through Feb 15 (football season), MLB, NFL, CFB, NBA, NCAAB otherwise. The default selected sport follows the first pill. Selected sport gets bold weight + a 3pt-tall `Capsule().fill(Color.brandGreen)` underline at the bottom (`.overlay(alignment: .bottom)`).
 - Each game tile: a `Button` with a custom `RoundedRectangle`-shaped content view that wraps the per-sport card (`NFLGameCard`, `CFBGameCard`, `NBAGameCard`, `NCAABGameCard`, `MLBGameCard`). On tap → call the matching `*GameSheetStore.openGameSheet(game)` (e.g. `NFLGameSheetStore.openGameSheet(game)`), which triggers a `.sheet(item:)` on this view's root.
 - `.searchable(text: $searchTexts[selectedSport], prompt: "Search teams or cities…")` — RN uses an inline `TextInput` inside the listHeader, but the iOS-native `.searchable` is the correct port. Pin to the navigation header (RN's header is custom but functionally identical).
 - `Menu` for sort selection (replaces RN `react-native-paper` `Menu`):
@@ -1220,11 +1220,15 @@ Each sub-screen view (RN files `Screen1_SportArchetype.tsx` through `Screen6_Rev
 The RN app surfaced per-sport "tools" as gradient banners on the Games screen. In Swift these are **HoneydewOptionCard** promo banners (same component as the Settings membership/Discord cards) shown on `GamesView` for the selected sport, AND kept as CTA entries in the Outliers hub. Both entry points resolve through one map.
 
 - **`Wagerproof/Features/Games/Tools/`** — `SportTool` (struct + `registry: [GamesStore.Sport: [SportTool]]`, the data-driven inventory: MLB×4, NBA×2, NCAAB×2, NFL/CFB none); `ToolBannerCard` (wraps `HoneydewOptionCard`); `ToolRouter.leafView(for: OutliersStore.Category)` (the single category→view map used by both `GamesView.navigationDestination(item:)` and `OutliersDetailView`).
-- **Tools** (all reachable from both Games banner and Outliers): MLB/NBA/NCAAB Betting Trends, NBA/NCAAB Model Accuracy, MLB Regression Report, **MLB F5 Splits** (`MLBF5SplitsView`+`F5GameCardView`, store `MLBF5SplitsStore`, model `MLBF5Splits.swift`), **MLB Player Prop Matchups** (`MLBPitcherMatchupsView`+`PropMatchupCardView`, store wraps `MLBPlayerPropsService`), and **Editor's Picks Stats** (`EditorPicksStatsView`, Picks-tab banner) — the last three were newly built.
+- **Tools** (reachable from both Games banner and Outliers): NBA/NCAAB Model Accuracy, MLB Regression Report, and **Editor's Picks Stats** (`EditorPicksStatsView`, Picks-tab banner). The MLB/NBA/NCAAB Betting Trends, MLB F5 Splits, and MLB Player Prop Matchups tools were RETIRED 2026-06-11 — those datasets are now per-matchup insight widgets on the game detail sheets (`BettingTrendsInsightWidget` / `F5SplitsInsightWidget` / `MLBMatchupPropsWidget`) and search insight chips; `F5GameCardView` + `MLBF5SplitsStore` + `MLBF5Splits.swift` survive behind the F5 widget's expand sheet.
 - **List-page style:** every tool list view uses the MLB feed shell — `ScrollView { LazyVStack(pinnedViews:[.sectionHeaders]) { Section { cards } header: { pinned LiquidGlassCapsule sort/filter bar } } }`, cornerRadius-26 `.ultraThinMaterial` cards.
-- **Deferred:** `MLBRegressionReportView` + the betting-trends detail bottom sheets are NOT yet converted to the `CollapsingWidgetScroll` collapsing-hero engine (they render polished per-item cards today; conversion is a sizable follow-up).
+- **Deferred:** the regression report (rebuilt 2026-06-10 as `Features/Analytics/MlbRegressionReportView` with pinned section headers) and the shared betting-trends detail sheet (`Features/Outliers/Components/BettingTrendsDetailSheet` + `TrendsMatrixView`, which replaced the per-sport trends bottom sheets) are NOT yet converted to the `CollapsingWidgetScroll` collapsing-hero engine (they render polished per-item cards today; conversion is a sizable follow-up).
 
 ### 1. `OutliersView` — Spotify-style hub of value, fade, trend, and accuracy outliers across NFL/CFB/NBA/NCAAB/MLB
+
+> **Partially superseded 2026-06-11:** the shipped hub is a merged outlier feed, and the
+> per-category trends detail pushes described below were retired with the insight-widget
+> refactor (see `fidelity/b06-outliers.md` for the current mapping).
 
 **RN source:** `wagerproof-mobile/app/(drawer)/(tabs)/outliers.tsx`
 **Container:** `NavigationStack` rooted in a `ZStack` with a custom blurred header (`.background(.ultraThinMaterial)`) over a `ScrollView` of category sections. The "Outliers" inner-tab carousel is a `Picker(.segmented)` selecting between three branches: `outliers` hub, `Top Agent Picks` (embed `TopAgentPicksFeedView`), and `Leaderboard` (embed `AgentLeaderboardView`). Hub branch is a vertical `ScrollView` of 7 horizontal Spotify-style sections; tapping a section header pushes the matching detail view via `NavigationLink`.
@@ -1652,6 +1656,10 @@ The RN app surfaced per-sport "tools" as gradient banners on the Games screen. I
 
 ### 8. `MlbBettingTrendsView` — situational ATS / O/U / ML trends per MLB game
 
+> **SUPERSEDED 2026-06-11:** this standalone list screen was retired — the dataset now
+> renders as `BettingTrendsInsightWidget` on the MLB game detail sheet (expanding to the
+> shared `BettingTrendsDetailSheet`) and as Search insight chips. Spec kept for RN mapping.
+
 **RN source:** `wagerproof-mobile/app/(drawer)/(tabs)/mlb-betting-trends.tsx`
 **Container:** `NavigationStack` → `ScrollView` (or `List`) of `MLBBettingTrendsMatchupCardView`s with a sticky animated header (collapses on scroll). `ToolExplainerBannerView` + `Picker(.segmented)` sort pills (`Time / O/U / ML`) anchored at top of list. `List` style: plain.
 **Navigation chrome:** Animated blurred header (`.background(.ultraThinMaterial)`) with leading `arrow.left` (back), trailing `arrow.clockwise` (refresh, replaced with `ProgressView` when loading). Inline; tab hidden via `.toolbar(.hidden, for: .tabBar)`.
@@ -1799,6 +1807,9 @@ The RN app surfaced per-sport "tools" as gradient banners on the Games screen. I
 
 ### 10. `NbaBettingTrendsView` — situational ATS / O/U trends per NBA game
 
+> **SUPERSEDED 2026-06-11:** retired with the insight-widget refactor — see section 8's note;
+> NBA renders `BettingTrendsInsightWidget` on the NBA game detail sheet.
+
 **RN source:** `wagerproof-mobile/app/(drawer)/(tabs)/nba-betting-trends.tsx`
 **Container:** Same layout as MLB Betting Trends (`NavigationStack` → animated header → `Picker(.segmented)` sort + `ToolExplainerBannerView` → `List` of `BettingTrendsMatchupCardView`s).
 **Navigation chrome:** Animated blurred header, leading back, trailing refresh. Tab hidden.
@@ -1877,6 +1888,9 @@ The RN app surfaced per-sport "tools" as gradient banners on the Games screen. I
 ---
 
 ### 12. `NcaabBettingTrendsView` — situational trends per NCAAB game
+
+> **SUPERSEDED 2026-06-11:** retired with the insight-widget refactor — see section 8's note;
+> NCAAB renders `BettingTrendsInsightWidget` on the NCAAB game detail sheet.
 
 **RN source:** `wagerproof-mobile/app/(drawer)/(tabs)/ncaab-betting-trends.tsx`
 **Container:** Identical to `NbaBettingTrendsView` shape. List of `NCAABBettingTrendsMatchupCardView`s.

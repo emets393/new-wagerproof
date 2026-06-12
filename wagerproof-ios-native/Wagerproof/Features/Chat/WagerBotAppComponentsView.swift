@@ -28,11 +28,15 @@ struct WagerBotAppComponentsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let summary, !summary.isEmpty {
-                Text(summary)
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(ui.primaryText)
-                    .padding(.leading, 4)
-                    .padding(.trailing, 12)
+                // Markdown, not plain Text — summaries arrive with **bold** etc.
+                WagerBotMarkdownText(
+                    summary,
+                    baseFont: .system(size: 14, weight: .regular),
+                    primaryColor: ui.primaryText,
+                    secondaryColor: ui.mutedText
+                )
+                .padding(.leading, 4)
+                .padding(.trailing, 12)
             }
             if components.count <= 1 {
                 // Single component reads best full-width.

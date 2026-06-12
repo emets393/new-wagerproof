@@ -136,7 +136,9 @@ struct NFLGameBottomSheet: View {
 
     @ViewBuilder
     private func heroTeamColumn(team: String, colors: TeamColorPair, size: CGFloat, nameOpacity: Double, ml: Int?, mlReveal: Double) -> some View {
-        let abbr = TeamInitials.from(team)
+        // Canonical abbr from the `nfl_teams` reference table ("BUF", not the
+        // naive initials of "Buffalo Bills").
+        let abbr = NFLTeamAssets.abbr(for: team)
         let parts = TeamInitials.parts(of: team)
         VStack(spacing: 4) {
             GameCardTeamAvatar(teamName: team, sport: "nfl", size: size, colors: colors)

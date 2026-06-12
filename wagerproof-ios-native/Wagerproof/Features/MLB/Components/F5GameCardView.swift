@@ -13,6 +13,27 @@ struct F5GameCardView: View {
 
     @State private var helpItem: F5MetricHelp?
 
+    init(game: MLBF5Game, lookup: [String: MLBF5SplitRow]) {
+        self.game = game
+        self.lookup = lookup
+    }
+
+    /// Convenience for callers that already resolved the two splits (the F5
+    /// insight widget's detail sheet) — builds the 2-entry lookup internally.
+    init(game: MLBF5Game, awaySplit: MLBF5SplitRow?, homeSplit: MLBF5SplitRow?) {
+        self.game = game
+        var map: [String: MLBF5SplitRow] = [:]
+        if let awaySplit,
+           let key = MLBF5.splitLookupKey(teamAbbr: game.awayAbbr, homeAway: "away", oppSpHand: game.homeSpHand) {
+            map[key] = awaySplit
+        }
+        if let homeSplit,
+           let key = MLBF5.splitLookupKey(teamAbbr: game.homeAbbr, homeAway: "home", oppSpHand: game.awaySpHand) {
+            map[key] = homeSplit
+        }
+        self.lookup = map
+    }
+
     private var awaySplit: MLBF5SplitRow? {
         MLBF5.findSplitRow(lookup, teamAbbr: game.awayAbbr, homeAway: "away", oppSpHand: game.homeSpHand)
     }

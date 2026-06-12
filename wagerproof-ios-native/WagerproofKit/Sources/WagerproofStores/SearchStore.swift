@@ -39,6 +39,7 @@ public final class SearchStore {
     public enum SearchScope: String, Hashable, CaseIterable, Sendable {
         case all
         case games
+        case players
         case agents
         case outliers
         case scores
@@ -47,6 +48,7 @@ public final class SearchStore {
             switch self {
             case .all: return "All"
             case .games: return "Games"
+            case .players: return "Players"
             case .agents: return "Agents"
             case .outliers: return "Alerts"
             case .scores: return "Live"
@@ -74,6 +76,11 @@ public final class SearchStore {
             /// `training_key`; for NBA/NCAAB/MLB it's the integer game id
             /// stringified. The owning tab resolves the model from this id.
             public let resolvedId: String
+            /// SearchTeamAliases rank — drives result ordering (desc).
+            public let matchScore: Int
+            /// Which side matched the query (abbr) — weights the MLB insight
+            /// chips toward the team the user actually searched.
+            public let matchedAbbr: String?
 
             public init(
                 id: String,
@@ -81,7 +88,9 @@ public final class SearchStore {
                 awayTeam: String,
                 homeTeam: String,
                 gameTime: String?,
-                resolvedId: String
+                resolvedId: String,
+                matchScore: Int = 0,
+                matchedAbbr: String? = nil
             ) {
                 self.id = id
                 self.sport = sport
@@ -89,6 +98,32 @@ public final class SearchStore {
                 self.homeTeam = homeTeam
                 self.gameTime = gameTime
                 self.resolvedId = resolvedId
+                self.matchScore = matchScore
+                self.matchedAbbr = matchedAbbr
+            }
+        }
+
+        /// MLB player match resolved against the PropsStore slate. Carries ids
+        /// only — the view re-resolves the app-target `PlayerPropSelection`
+        /// payload from the matchup at render time.
+        public struct Player: Identifiable, Hashable, Sendable {
+            public let id: String              // "player-mlb-{gamePk}-{playerId}"
+            public let gamePk: Int
+            public let playerId: Int
+            public let playerName: String
+            public let teamAbbr: String
+            public let isPitcher: Bool
+            public let matchScore: Int
+
+            public init(id: String, gamePk: Int, playerId: Int, playerName: String,
+                        teamAbbr: String, isPitcher: Bool, matchScore: Int) {
+                self.id = id
+                self.gamePk = gamePk
+                self.playerId = playerId
+                self.playerName = playerName
+                self.teamAbbr = teamAbbr
+                self.isPitcher = isPitcher
+                self.matchScore = matchScore
             }
         }
 
@@ -225,9 +260,6 @@ public final class SearchStore {
     public enum OutlierCategoryRef: String, Hashable, Sendable {
         case value
         case fade
-        case nbaTrends
-        case ncaabTrends
-        case mlbTrends
     }
 
     // MARK: - Bound upstream stores
@@ -240,6 +272,7 @@ public final class SearchStore {
     private weak var agentsRef: AgentsStore?
     private weak var outliersRef: OutliersStore?
     private weak var liveScoresRef: LiveScoresStore?
+    private weak var propsRef: PropsStore?
 
     // MARK: - Observable state
 
@@ -289,12 +322,14 @@ public final class SearchStore {
         games: GamesStore?,
         agents: AgentsStore?,
         outliers: OutliersStore?,
-        liveScores: LiveScoresStore?
+        liveScores: LiveScoresStore?,
+        props: PropsStore? = nil
     ) {
         self.gamesRef = games
         self.agentsRef = agents
         self.outliersRef = outliers
         self.liveScoresRef = liveScores
+        self.propsRef = props
     }
 
     /// Fire the leaderboard fetch for cross-user agent matches. Idempotent
@@ -398,91 +433,203 @@ public final class SearchStore {
 
     /// Total result count across all scopes. Drives the empty-state branch.
     public var totalResultCount: Int {
-        gameResults.count + agentResults.count + outlierResults.count + scoreResults.count
+        gameResults.count + playerResults.count + agentResults.count
+            + outlierResults.count + scoreResults.count
     }
 
     public var gameResults: [SearchResult.Game] {
         let q = normalizedQuery
         guard !q.isEmpty, let games = gamesRef else { return [] }
         var out: [SearchResult.Game] = []
-        // NFL / CFB / NBA / NCAAB / MLB — all flat string matches on team
-        // names + abbreviations + first-letter initials. We keep the predicate
-        // tight (substring on lowercased team strings) so results feel
-        // instant even at 100+ games loaded.
+
+        // SearchTeamAliases owns the rank table (exact abbr 100 → mascot/city
+        // 90 → prefix 70 → substring 40 → initials 30). The generic fallback
+        // covers everything the old substring+initials predicate matched, so
+        // there's no result regression — just ordering by score.
+        func matchSides(
+            awayName: String, homeName: String,
+            awayAbbr: String?, homeAbbr: String?,
+            sport: SearchStoreSport
+        ) -> (score: Int, matchedAbbr: String?)? {
+            let away = SearchTeamAliases.match(query: q, teamName: awayName, abbr: awayAbbr, sport: sport)
+            let home = SearchTeamAliases.match(query: q, teamName: homeName, abbr: homeAbbr, sport: sport)
+            switch (away, home) {
+            case (nil, nil): return nil
+            case (let a?, nil): return (a.score, awayAbbr)
+            case (nil, let h?): return (h.score, homeAbbr)
+            case (let a?, let h?):
+                return a.score >= h.score ? (a.score, awayAbbr) : (h.score, homeAbbr)
+            }
+        }
+
         for g in games.games.nfl {
-            if matches(team: g.homeTeam, q: q) || matches(team: g.awayTeam, q: q) {
+            if let m = matchSides(awayName: g.awayTeam, homeName: g.homeTeam,
+                                  awayAbbr: nil, homeAbbr: nil, sport: .nfl) {
                 out.append(.init(
-                    id: "nfl-\(g.id)",
-                    sport: .nfl,
-                    awayTeam: g.awayTeam,
-                    homeTeam: g.homeTeam,
+                    id: "nfl-\(g.id)", sport: .nfl,
+                    awayTeam: g.awayTeam, homeTeam: g.homeTeam,
                     gameTime: g.gameTime.isEmpty ? g.gameDate : g.gameTime,
-                    resolvedId: g.uniqueId
+                    resolvedId: g.uniqueId, matchScore: m.score, matchedAbbr: m.matchedAbbr
                 ))
             }
         }
         for g in games.games.cfb {
-            if matches(team: g.homeTeam, q: q) || matches(team: g.awayTeam, q: q) {
+            if let m = matchSides(awayName: g.awayTeam, homeName: g.homeTeam,
+                                  awayAbbr: nil, homeAbbr: nil, sport: .cfb) {
                 out.append(.init(
-                    id: "cfb-\(g.id)",
-                    sport: .cfb,
-                    awayTeam: g.awayTeam,
-                    homeTeam: g.homeTeam,
+                    id: "cfb-\(g.id)", sport: .cfb,
+                    awayTeam: g.awayTeam, homeTeam: g.homeTeam,
                     gameTime: g.gameTime.isEmpty ? g.gameDate : g.gameTime,
-                    resolvedId: g.uniqueId
+                    resolvedId: g.uniqueId, matchScore: m.score, matchedAbbr: m.matchedAbbr
                 ))
             }
         }
         for g in games.games.nba {
-            if matches(team: g.homeTeam, q: q)
-                || matches(team: g.awayTeam, q: q)
-                || matches(team: g.homeAbbr, q: q)
-                || matches(team: g.awayAbbr, q: q) {
+            if let m = matchSides(awayName: g.awayTeam, homeName: g.homeTeam,
+                                  awayAbbr: g.awayAbbr, homeAbbr: g.homeAbbr, sport: .nba) {
                 out.append(.init(
-                    id: "nba-\(g.id)",
-                    sport: .nba,
-                    awayTeam: g.awayTeam,
-                    homeTeam: g.homeTeam,
+                    id: "nba-\(g.id)", sport: .nba,
+                    awayTeam: g.awayTeam, homeTeam: g.homeTeam,
                     gameTime: g.gameTime.isEmpty ? g.gameDate : g.gameTime,
-                    resolvedId: g.id
+                    resolvedId: g.id, matchScore: m.score, matchedAbbr: m.matchedAbbr
                 ))
             }
         }
         for g in games.games.ncaab {
-            let awayAbbr = g.awayTeamAbbrev ?? ""
-            let homeAbbr = g.homeTeamAbbrev ?? ""
-            if matches(team: g.homeTeam, q: q)
-                || matches(team: g.awayTeam, q: q)
-                || matches(team: awayAbbr, q: q)
-                || matches(team: homeAbbr, q: q) {
+            if let m = matchSides(awayName: g.awayTeam, homeName: g.homeTeam,
+                                  awayAbbr: g.awayTeamAbbrev, homeAbbr: g.homeTeamAbbrev, sport: .ncaab) {
                 out.append(.init(
-                    id: "ncaab-\(g.id)",
-                    sport: .ncaab,
-                    awayTeam: g.awayTeam,
-                    homeTeam: g.homeTeam,
+                    id: "ncaab-\(g.id)", sport: .ncaab,
+                    awayTeam: g.awayTeam, homeTeam: g.homeTeam,
                     gameTime: g.gameTime.isEmpty ? g.gameDate : g.gameTime,
-                    resolvedId: g.id
+                    resolvedId: g.id, matchScore: m.score, matchedAbbr: m.matchedAbbr
                 ))
             }
         }
         for g in games.games.mlb {
             let away = g.awayTeamName ?? g.awayTeam ?? ""
             let home = g.homeTeamName ?? g.homeTeam ?? ""
-            if matches(team: away, q: q)
-                || matches(team: home, q: q)
-                || matches(team: g.awayAbbr, q: q)
-                || matches(team: g.homeAbbr, q: q) {
+            if let m = matchSides(awayName: away, homeName: home,
+                                  awayAbbr: g.awayAbbr, homeAbbr: g.homeAbbr, sport: .mlb) {
                 out.append(.init(
-                    id: "mlb-\(g.id)",
-                    sport: .mlb,
-                    awayTeam: away,
-                    homeTeam: home,
+                    id: "mlb-\(g.id)", sport: .mlb,
+                    awayTeam: away, homeTeam: home,
                     gameTime: g.gameTimeEt ?? g.officialDate,
-                    resolvedId: g.id
+                    resolvedId: g.id, matchScore: m.score, matchedAbbr: m.matchedAbbr
                 ))
             }
         }
-        return out
+        // Score desc; explicit insertion-order tiebreak (per-sport, roughly
+        // time-ascending) — Swift's sorted(by:) does not guarantee stability.
+        return out.enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.matchScore != rhs.element.matchScore {
+                    return lhs.element.matchScore > rhs.element.matchScore
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
+    }
+
+    // MARK: - Player results (MLB props slate)
+
+    private struct PlayerIndexEntry {
+        let gamePk: Int
+        let playerId: Int
+        let name: String
+        let teamAbbr: String
+        let isPitcher: Bool
+        let headlinePct: Double
+    }
+
+    // Cached name index over the props slate — rebuilding per keystroke would
+    // re-run pickHeadlineProp (line-ladder math) for every player.
+    @ObservationIgnored private var playerIndex: [PlayerIndexEntry] = []
+    @ObservationIgnored private var playerIndexKey: Set<Int> = []
+
+    /// MLB player matches (min query 3 chars, cap 8). Rank: 100 last-name
+    /// prefix · 90 "initial + last name" · 70 first-name prefix · 50 full-name
+    /// substring; ties by headline L10 pct desc.
+    public var playerResults: [SearchResult.Player] {
+        let q = normalizedQuery
+        guard q.count >= 3, let props = propsRef, !props.matchups.isEmpty else { return [] }
+        rebuildPlayerIndexIfNeeded(props.matchups)
+
+        var scored: [(entry: PlayerIndexEntry, score: Int)] = []
+        for entry in playerIndex {
+            guard let score = playerScore(query: q, name: entry.name) else { continue }
+            scored.append((entry, score))
+        }
+        return scored
+            .sorted {
+                if $0.score != $1.score { return $0.score > $1.score }
+                return $0.entry.headlinePct > $1.entry.headlinePct
+            }
+            .prefix(8)
+            .map { item in
+                SearchResult.Player(
+                    id: "player-mlb-\(item.entry.gamePk)-\(item.entry.playerId)",
+                    gamePk: item.entry.gamePk,
+                    playerId: item.entry.playerId,
+                    playerName: item.entry.name,
+                    teamAbbr: item.entry.teamAbbr,
+                    isPitcher: item.entry.isPitcher,
+                    matchScore: item.score
+                )
+            }
+    }
+
+    private func rebuildPlayerIndexIfNeeded(_ matchups: [MLBPropMatchup]) {
+        let key = Set(matchups.map(\.gamePk))
+        guard key != playerIndexKey else { return }
+        var entries: [PlayerIndexEntry] = []
+        for m in matchups {
+            func headlinePct(_ rows: [MLBPlayerPropRow]) -> Double {
+                Double(MLBPlayerProps.pickHeadlineProp(rows)?.computed.l10.pct ?? 0)
+            }
+            for (starter, abbr) in [(m.awayStarter, m.awayAbbr), (m.homeStarter, m.homeAbbr)] {
+                let rows = m.pitcherProps(for: starter.pitcherId)
+                guard !rows.isEmpty else { continue }
+                entries.append(PlayerIndexEntry(
+                    gamePk: m.gamePk, playerId: starter.pitcherId, name: starter.name,
+                    teamAbbr: abbr, isPitcher: true, headlinePct: headlinePct(rows)
+                ))
+            }
+            for (lineup, abbr) in [(m.awayLineup, m.awayAbbr), (m.homeLineup, m.homeAbbr)] {
+                for row in lineup {
+                    let rows = m.batterProps(for: row.playerId)
+                    guard !rows.isEmpty else { continue }
+                    entries.append(PlayerIndexEntry(
+                        gamePk: m.gamePk, playerId: row.playerId, name: row.playerName,
+                        teamAbbr: abbr, isPitcher: false, headlinePct: headlinePct(rows)
+                    ))
+                }
+            }
+            for group in m.extraBatterGroups {
+                entries.append(PlayerIndexEntry(
+                    gamePk: m.gamePk, playerId: group.playerId,
+                    name: group.props.first?.playerName ?? "Player",
+                    teamAbbr: "", isPitcher: false, headlinePct: headlinePct(group.props)
+                ))
+            }
+        }
+        playerIndex = entries
+        playerIndexKey = key
+    }
+
+    private func playerScore(query q: String, name: String) -> Int? {
+        let lower = name.lowercased()
+        let tokens = lower.split(separator: " ").map(String.init)
+        guard let last = tokens.last else { return nil }
+        if last.hasPrefix(q) { return 100 }
+        // "a judge" → first-initial + last-name form.
+        if let first = tokens.first, tokens.count >= 2 {
+            let initialForm = "\(first.prefix(1)) \(last)"
+            if initialForm.hasPrefix(q) || q == initialForm { return 90 }
+        }
+        if let first = tokens.first, first.hasPrefix(q) { return 70 }
+        if lower.contains(q) { return 50 }
+        return nil
     }
 
     public var agentResults: [SearchResult.Agent] {

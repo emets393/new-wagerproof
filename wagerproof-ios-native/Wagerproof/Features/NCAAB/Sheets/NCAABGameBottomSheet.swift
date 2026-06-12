@@ -42,6 +42,8 @@ struct NCAABGameBottomSheet: View {
     // the cost paid per-sheet-open, on demand.
     @State private var trendsStore = NCAABBettingTrendsStore()
     @State private var accuracyStore = NCAABModelAccuracyStore()
+    /// Expanded trends surface (full 5-section matrix sheet).
+    @State private var trendsDetail: NCAABGameTrendsData?
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -111,8 +113,21 @@ struct NCAABGameBottomSheet: View {
             // Hydrate trends + accuracy for this sheet. Refresh is idempotent
             // and cheap when the cache is warm; running it on every open
             // mirrors RN's hook re-mount on game change.
-            await trendsStore.refresh()
+            await trendsStore.refreshIfNeeded()
             await accuracyStore.refresh()
+        }
+        .sheet(item: $trendsDetail) { trends in
+            BettingTrendsDetailSheet(
+                awayName: trends.awayTeam.teamName,
+                homeName: trends.homeTeam.teamName,
+                timeDisplay: NCAABTrendsMatrixAdapter.timeDisplay(for: trends),
+                stripeColors: NCAABTrendsMatrixAdapter.stripeColors(for: trends),
+                accent: NCAABTrendsMatrixAdapter.accent,
+                sections: NCAABTrendsMatrixAdapter.sections(for: trends),
+                guide: .basketball,
+                avatar: NCAABTrendsMatrixAdapter.avatarProvider(for: trends),
+                onViewMatchup: nil   // already on the matchup page
+            )
         }
     }
 
@@ -449,22 +464,25 @@ struct NCAABGameBottomSheet: View {
 
     // MARK: - Betting trends + model accuracy
 
-    /// Betting trends widget — reads the per-game payload from
-    /// `NCAABBettingTrendsStore.trends(for:)`. RN renders the widget only
-    /// when the lookup returns a row (today's trends slate), so we mirror
-    /// that with the `if let` guard.
+    /// Situational trends insight digest — reads the per-game payload from
+    /// `NCAABBettingTrendsStore.trends(for:)`. Hidden when the gameId isn't in
+    /// today's slate; first-hydrate skeleton only. Expanding presents the full
+    /// matrix sheet.
     @ViewBuilder
     private var bettingTrendsSection: some View {
         if let trends = trendsStore.trends(for: game.gameId) {
+            BettingTrendsInsightWidget(
+                summary: NCAABTrendsInsight.summary(for: trends),
+                awayAbbr: game.awayTeamAbbrev?.trimmingCharacters(in: .whitespaces).nonEmpty
+                    ?? TeamInitials.from(game.awayTeam),
+                homeAbbr: game.homeTeamAbbrev?.trimmingCharacters(in: .whitespaces).nonEmpty
+                    ?? TeamInitials.from(game.homeTeam),
+                accent: NCAABTrendsMatrixAdapter.accent,
+                onExpand: { trendsDetail = trends }
+            )
+        } else if trendsStore.loadState == .loading, trendsStore.lastFetched == nil {
             WidgetCollapsingSection(title: "Betting Trends", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color(hex: 0x8B5CF6)) {
-                BettingTrendsWidget(
-                    awayAbbr: game.awayTeamAbbrev?.trimmingCharacters(in: .whitespaces).nonEmpty
-                        ?? TeamInitials.from(game.awayTeam),
-                    homeAbbr: game.homeTeamAbbrev?.trimmingCharacters(in: .whitespaces).nonEmpty
-                        ?? TeamInitials.from(game.homeTeam),
-                    away: trends.awayTeam,
-                    home: trends.homeTeam
-                )
+                InsightWidgetSkeleton()
             }
         }
     }

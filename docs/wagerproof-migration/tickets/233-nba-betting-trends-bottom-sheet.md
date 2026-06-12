@@ -1,9 +1,9 @@
 # Ticket #233 — NBA betting-trends bottom sheet inlined
 
-**Status:** open
+**Status:** resolved
 **Filed by:** B-Outliers-Detail implementer
 **Filed:** 2026-05-24
-**Closed:** —
+**Closed:** 2026-06-10 — superseded by the shared `BettingTrendsDetailSheet` + `TrendsMatrixView` (Features/Outliers/Components), which all three sports' trends views now present with full RN parity (all situational pairs, records, consensus badges, How-to-Use guide); the inline NBA sheet and its `// FIDELITY-WAIVER #233` comment were removed from `NBABettingTrendsView.swift`.
 **Affects screen / file:** `wagerproof-mobile/components/NBABettingTrendsBottomSheet.tsx` → `wagerproof_ios_native/Wagerproof/Features/Outliers/NBABettingTrendsView.swift`
 
 ## What we couldn't ship in scope
@@ -31,3 +31,7 @@ The inlined sheet renders 5 situation sections (last game, fav/dog, side fav/dog
 ## Notes
 
 Lands naturally as part of the NBA sheet integration batch — that agent already owns the NBA Sheets directory, so they can lift the inlined struct in their pass.
+
+---
+
+**2026-06-11 note:** The trends list views referenced above (`MLBBettingTrendsView` / `NBABettingTrendsView` / `NCAABBettingTrendsView`) were retired — the datasets now render as `BettingTrendsInsightWidget` on the game detail sheets, expanding to the shared `BettingTrendsDetailSheet`.

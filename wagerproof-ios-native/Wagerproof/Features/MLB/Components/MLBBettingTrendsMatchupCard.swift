@@ -4,7 +4,7 @@ import WagerproofModels
 
 /// Compact matchup row used in the MLB Betting Trends list screen. Mirrors
 /// `wagerproof-mobile/components/mlb/MLBBettingTrendsMatchupCard.tsx`. Tap
-/// routes to the existing `MLBBettingTrendsBottomSheet` via the parent's
+/// routes to the shared `BettingTrendsDetailSheet` via the parent's
 /// store binding.
 ///
 /// MLB uses a separate team palette (real team colors live in `MLBTeams`)

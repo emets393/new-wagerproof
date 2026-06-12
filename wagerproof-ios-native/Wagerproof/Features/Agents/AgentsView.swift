@@ -63,6 +63,12 @@ struct AgentsView: View {
     @Environment(AuthStore.self) private var auth
     @Environment(ProAccessStore.self) private var proAccess
     @Environment(MainTabStore.self) private var tabStore
+    // Re-injected explicitly into the Settings navigationDestination so iOS 18+
+    // configurePreferredTransition can resolve them before the nav environment
+    // chain is established. See MainTabToolbar.wagerProofSettingsDestination.
+    @Environment(SettingsStore.self) private var settingsStore
+    @Environment(RevenueCatStore.self) private var revenueCat
+    @Environment(AdminModeStore.self) private var adminMode
     @State private var store: AgentsStore
     @State private var pendingDeleteId: String?
     @State private var pendingLongPressAgent: AgentWithPerformance?
@@ -153,7 +159,7 @@ struct AgentsView: View {
                 }
                 // Settings pushes onto this stack (tapping the trailing gear) instead
                 // of covering the screen as a modal — see MainTabToolbar.swift.
-                .wagerProofSettingsDestination(tabStore: tabStore, tab: .agents)
+                .wagerProofSettingsDestination(tabStore: tabStore, tab: .agents, auth: auth, settingsStore: settingsStore, revenueCat: revenueCat, adminMode: adminMode, proAccess: proAccess)
                 .wagerProofChatDestination(tabStore: tabStore, tab: .agents)
                 .task {
                     // Bind the active user and trigger the first refresh.

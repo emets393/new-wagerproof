@@ -296,7 +296,7 @@ Each brief is the prompt-ready scope for the implementer agent. The agent receiv
 **Swift targets:**
 - `Features/NBA/Components/NBAGameCard.swift`
 - `Features/NBA/Sheets/NBAGameBottomSheet.swift`
-- `Features/NBA/Sheets/NBABettingTrendsBottomSheet.swift`
+- ~~`Features/NBA/Sheets/NBABettingTrendsBottomSheet.swift`~~ (superseded 2026-06-10: all sports share `Features/Outliers/Components/BettingTrendsDetailSheet.swift` + `TrendsMatrixView.swift`; per-sport trends bottom sheets were deleted)
 - `Features/NBA/Components/BettingTrendsBanner.swift`
 - `Features/NBA/Components/ModelAccuracyBanner.swift`
 - `WagerproofStores/NBAGameSheetStore.swift`
@@ -479,6 +479,12 @@ Mirror of B10 for NCAAB.
 - `components/charts/*.tsx`
 
 **Swift targets:** mirror.
+
+> **2026-06-11 note:** the betting-trends list screens (`mlb/nba/ncaab-betting-trends`) were
+> later RETIRED on iOS — those datasets now render as per-matchup `BettingTrendsInsightWidget`
+> on the game detail sheets plus Search insight chips (see
+> `.claude/docs/14_ios_primitives_index.md` §7b). The model-accuracy dashboards remain routed
+> tool surfaces.
 
 ### B21 — LearnMore + ToolExplainer + Pro gating
 

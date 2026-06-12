@@ -25,29 +25,41 @@ private enum PropSortMode: String, CaseIterable {
         case .name: return "textformat"
         }
     }
+
+    /// MLB and NFL both carry per-market game logs, so every mode applies.
+    static func modes(for sport: PropsStore.Sport) -> [PropSortMode] {
+        allCases
+    }
 }
 
 /// Props tab. Mirrors `GamesView`'s structure (large title, pinned sport
 /// picker, date-grouped sections, pull-to-refresh, settings/WagerBot
 /// toolbar) but the feed items are player-prop matchup cards.
 ///
-/// Player props exist for MLB today; the sport picker is kept for parity and
-/// future sports — non-MLB sports show a "coming soon" state. Tapping a
-/// player's list-item card pushes `PlayerPropDetailView`, where the trend
-/// chart + line slider adapt in real time.
+/// Player props exist for MLB (game-log trends + line ladder) and NFL
+/// (consensus close + season trends, per the dry-run data contract);
+/// remaining sports show a "coming soon" state. Tapping an MLB card pushes
+/// `PlayerPropDetailView` (trend chart + line slider); tapping an NFL card
+/// pushes `NFLPropDetailView` (per-market trend board).
 struct PropsView: View {
     @Environment(MainTabStore.self) private var tabStore
     // Shared at the tab shell so the MLB game-detail Player Props widget reads
     // the same slate (see MainTabView).
     @Environment(PropsStore.self) private var store
+    // Re-injected explicitly into the Settings navigationDestination so iOS 18+
+    // configurePreferredTransition can resolve them before the nav environment
+    // chain is established. See MainTabToolbar.wagerProofSettingsDestination.
+    @Environment(AuthStore.self) private var auth
+    @Environment(SettingsStore.self) private var settingsStore
+    @Environment(RevenueCatStore.self) private var revenueCat
+    @Environment(AdminModeStore.self) private var adminMode
+    @Environment(ProAccessStore.self) private var proAccess
     @State private var selectedProp: PlayerPropSelection?
+    @State private var selectedNFLProp: NFLPlayerPropSelection?
     /// Player ordering within each date section (view-level presentation only —
     /// the shared store stays sort-agnostic so the MLB game-detail widget that
     /// reads the same slate is unaffected).
     @State private var sortMode: PropSortMode = .time
-    /// Drives the push to the Player Prop Matchups tool when its banner is tapped
-    /// (same `SportTool`/`ToolRouter` plumbing the Games page uses).
-    @State private var selectedTool: SportTool?
 
     // Shared namespace for the card→detail zoom transition (same pattern as
     // GamesView). The source card and the pushed detail reference the same
@@ -61,7 +73,6 @@ struct PropsView: View {
                 LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
                     Section {
                         LazyVStack(spacing: 8) {
-                            toolBanner
                             bodyContent
                         }
                     } header: {
@@ -76,6 +87,11 @@ struct PropsView: View {
                 await store.refresh(force: true)
             }
             .task(id: store.selectedSport) {
+                // L10 sort doesn't exist outside MLB — snap back to time order
+                // when the picker lands on a sport that can't honor it.
+                if !PropSortMode.modes(for: store.selectedSport).contains(sortMode) {
+                    sortMode = .time
+                }
                 await store.refresh()
             }
             .toolbar { mainToolbar }
@@ -83,15 +99,13 @@ struct PropsView: View {
                 PlayerPropDetailView(selection: selection)
                     .navigationTransition(.zoom(sourceID: selection.transitionID, in: cardTransition))
             }
-            // Player Prop Matchups tool pushes onto this stack (banner tap) — the
-            // shared ToolRouter resolves the same leaf the Games page / Outliers
-            // hub open, so every entry point stays in sync.
-            .navigationDestination(item: $selectedTool) { tool in
-                ToolRouter.leafView(for: tool.category)
+            .navigationDestination(item: $selectedNFLProp) { selection in
+                NFLPropDetailView(selection: selection)
+                    .navigationTransition(.zoom(sourceID: selection.transitionID, in: cardTransition))
             }
             // Settings pushes onto this stack (tapping the trailing gear) instead
             // of covering the screen as a modal — see MainTabToolbar.swift.
-            .wagerProofSettingsDestination(tabStore: tabStore, tab: .props)
+            .wagerProofSettingsDestination(tabStore: tabStore, tab: .props, auth: auth, settingsStore: settingsStore, revenueCat: revenueCat, adminMode: adminMode, proAccess: proAccess)
             .wagerProofChatDestination(tabStore: tabStore, tab: .props)
             .animation(.appQuick, value: store.selectedSport)
         }
@@ -129,7 +143,7 @@ struct PropsView: View {
     private var sortMenu: some View {
         Menu {
             Picker("Sort by", selection: $sortMode) {
-                ForEach(PropSortMode.allCases, id: \.self) { mode in
+                ForEach(PropSortMode.modes(for: store.selectedSport), id: \.self) { mode in
                     Label(mode.label, systemImage: mode.icon).tag(mode)
                 }
             }
@@ -157,23 +171,6 @@ struct PropsView: View {
         .sensoryFeedback(.selection, trigger: store.selectedSport)
     }
 
-    // MARK: - Tool banner
-
-    /// "Player Prop Matchups" analytics tool shown above the list — the same
-    /// HoneydewOptionCard banner the MLB Games page surfaces. Player props are
-    /// MLB-only today, so the banner appears only when the selected sport has
-    /// props; tapping it pushes the shared `MLBPitcherMatchupsView` leaf.
-    @ViewBuilder
-    private var toolBanner: some View {
-        if store.selectedSport.hasProps,
-           let tool = SportTool.tools(for: .mlb).first(where: { $0.category == .mlbPitcherMatchups }) {
-            ToolBannerCard(tool: tool) { selectedTool = tool }
-                .padding(.horizontal, 12)
-                .padding(.top, 4)
-                .padding(.bottom, 6)
-        }
-    }
-
     // MARK: - Content
 
     @ViewBuilder
@@ -184,8 +181,64 @@ struct PropsView: View {
             loadingSkeleton
         } else if let msg = store.errorMessage, !store.hasCachedMatchups {
             errorState(msg)
+        } else if store.selectedSport == .nfl {
+            nflSections
         } else {
             matchupSections
+        }
+    }
+
+    // MARK: - NFL sections
+
+    @ViewBuilder
+    private var nflSections: some View {
+        // Same shape as the MLB feed: one card per player, date-grouped with
+        // sticky headers; the sort mode reorders players within a date.
+        let items = sortedNFLItems(NFLPropFeed.items(from: store.nflPlayers))
+        if items.isEmpty {
+            emptyTile(label: "No NFL player props posted today", systemImage: "football")
+        } else {
+            let sections = GameDateGrouping.group(
+                items,
+                key: { GameDateGrouping.dateKey(from: $0.sortDate) },
+                label: { MLBFormatting.dateLabel($0.player.gameDate) }
+            )
+            ForEach(sections, id: \.key) { section in
+                Section {
+                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
+                        NFLPropPlayerCard(
+                            item: item,
+                            namespace: cardTransition,
+                            onSelect: { selectedNFLProp = $0 }
+                        )
+                        .padding(.horizontal, 12)
+                        .staggeredAppear(index: index)
+                    }
+                } header: {
+                    sectionHeader(section.label)
+                }
+            }
+        }
+    }
+
+    private func sortedNFLItems(_ items: [NFLPropFeedItem]) -> [NFLPropFeedItem] {
+        switch sortMode {
+        case .name:
+            return items.sorted { a, b in
+                let cmp = a.player.playerName.localizedCaseInsensitiveCompare(b.player.playerName)
+                if cmp != .orderedSame { return cmp == .orderedAscending }
+                return a.sortTime < b.sortTime
+            }
+        case .hitRate:
+            return items.sorted { a, b in
+                if a.hitRate != b.hitRate { return a.hitRate > b.hitRate }
+                return a.sortTime < b.sortTime
+            }
+        case .time:
+            return items.sorted { a, b in
+                if a.sortTime != b.sortTime { return a.sortTime < b.sortTime }
+                return a.player.playerName < b.player.playerName
+            }
         }
     }
 
@@ -296,7 +349,7 @@ struct PropsView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Color.appTextPrimary)
                 .multilineTextAlignment(.center)
-            Text("We're starting with MLB — model-driven prop trends across more sports are on the way.")
+            Text("MLB and NFL props are live — model-driven prop trends across more sports are on the way.")
                 .font(.system(size: 13))
                 .foregroundStyle(Color.appTextSecondary)
                 .multilineTextAlignment(.center)

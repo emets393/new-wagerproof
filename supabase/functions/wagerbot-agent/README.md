@@ -21,19 +21,33 @@ iterate without risking the live chat.
   `error`.
 - The **tool set is a verbatim copy** of `wagerbot-chat/tools/` (the "parallel
   set of tools" — copy first, evolve freely without touching the live chat).
+  Exception: `present_analysis` (legacy V1 widgets) is copied but NOT registered
+  — it competed with `present_components` (both descriptions say "REQUIRED") and
+  models picked the legacy one, rendering raw key-value cards. This chat renders
+  `app_components` exclusively.
+- One V2-only tool beyond the copy: `get_mlb_player_props` — the Props tab's
+  data path (CFB `mlb_games_today` + `get_mlb_player_props_l10` RPC), computing
+  L10 hit rate vs odds-implied probability per alternate line and returning the
+  ranked edges. Prompt directs prop questions to it (MLB only) and pairs answers
+  with the matching `game` card (the matchup sheet's Player Props widget carries
+  the full per-game list; the standalone pitcher-matchups tool was retired).
 
 ## Providers (`providers.ts`)
 | model | provider | endpoint | key env |
 |-------|----------|----------|---------|
 | `gpt-4o`, `gpt-4o-mini` | openai | `api.openai.com/v1/chat/completions` | `OPENAI_API_KEY` |
-| `deepseek-chat`, `deepseek-reasoner` | deepseek | `api.deepseek.com/v1/chat/completions` | `DEEPSEEK_API_KEY` |
+| `deepseek-v4-flash`, `deepseek-v4-pro` | deepseek | `api.deepseek.com/v1/chat/completions` | `DEEPSEEK_API_KEY` |
 
-Unknown/absent `model` → defaults to `gpt-4o`. `deepseek-reasoner`'s
-`reasoning_content` is surfaced as the `wagerbot.thinking_*` stream.
+Unknown/absent `model` → defaults to `gpt-4o`. DeepSeek V4 models run in
+thinking mode by default: `reasoning_content` is surfaced as the
+`wagerbot.thinking_*` stream AND passed back on tool-calling assistant turns
+(V4 API requirement — omitting it is an HTTP 400). Thread titling disables
+thinking (`thinking: {type:"disabled"}`). The old `deepseek-chat`/`-reasoner`
+aliases are retired by DeepSeek after 2026-07-24 and no longer allowlisted.
 
 ## Request body
 ```jsonc
-{ "user_message": "…", "thread_id": "…optional…", "model": "deepseek-chat" }
+{ "user_message": "…", "thread_id": "…optional…", "model": "deepseek-v4-flash" }
 ```
 `model` is optional (defaults to gpt-4o). iOS only sends it when a DEBUG model is
 picked; otherwise iOS calls `wagerbot-chat` as before.

@@ -31,18 +31,14 @@ enum SettingsFixtures {
         return store
     }
 
-    /// Build a `SettingsStore` with the requested notification permission and
-    /// WagerBot toggle so the Preferences section renders deterministically.
+    /// Build a `SettingsStore` with the requested notification permission so
+    /// the Preferences section renders deterministically.
     @MainActor
     static func makeSettings(
-        notificationPermission: SettingsStore.NotificationPermission = .granted,
-        wagerBotSuggestionsEnabled: Bool = true
+        notificationPermission: SettingsStore.NotificationPermission = .granted
     ) -> SettingsStore {
         let store = SettingsStore()
-        store.debugSet(
-            notificationPermission: notificationPermission,
-            wagerBotSuggestionsEnabled: wagerBotSuggestionsEnabled
-        )
+        store.debugSet(notificationPermission: notificationPermission)
         return store
     }
 

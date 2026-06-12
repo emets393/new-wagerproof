@@ -72,6 +72,10 @@ enum WidgetHeaderAccessory: Equatable {
     case tapHint(expanded: Bool, expandedLabel: String = "Tap")
     /// A chevron that flips up when expanded — MLB's projection cards use this.
     case chevron(expanded: Bool)
+    /// Categorical verdict capsule ("3 SIGNALS" / "NYY EDGE" / "NO EDGE") —
+    /// the matchup insight widgets surface their headline state here so it
+    /// reads even when the card is pinned/collapsed.
+    case verdict(text: String, tintHex: UInt32)
 }
 
 /// A single pinning widget for `PinnedWidgetScroll`.
@@ -184,6 +188,26 @@ struct WidgetSection<Content: View>: View {
             Image(systemName: expanded ? "chevron.up" : "chevron.down")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.appTextSecondary)
+        case let .verdict(text, tintHex):
+            WidgetVerdictAccessoryBadge(text: text, tintHex: tintHex)
         }
+    }
+}
+
+/// Shared renderer for `WidgetHeaderAccessory.verdict` — used by both widget
+/// scroll systems so the capsule can't drift between them.
+struct WidgetVerdictAccessoryBadge: View {
+    let text: String
+    let tintHex: UInt32
+
+    var body: some View {
+        let tint = Color(hex: Int(tintHex))
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.5)
+            .foregroundStyle(tint)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(tint.opacity(0.14), in: Capsule())
     }
 }

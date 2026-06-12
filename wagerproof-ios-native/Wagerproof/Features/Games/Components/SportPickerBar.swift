@@ -4,7 +4,8 @@ import WagerproofStores
 
 /// Horizontal sport pill bar pinned under the Games header. Mirrors RN
 /// `components/SportFilter.tsx` + the inline sport tabs in
-/// `(tabs)/index.tsx`: MLB / NBA / NCAAB / NFL / CFB. Selected pill gets
+/// `(tabs)/index.tsx`. Pill order is seasonal via `Sport.displayOrder()`
+/// (football-first Sept–mid-Feb, MLB-first otherwise). Selected pill gets
 /// bold weight + an underline rule animated via `.matchedGeometryEffect`.
 ///
 /// Pure presentation — the parent owns the selection state.
@@ -12,7 +13,7 @@ struct SportPickerBar: View {
     @Binding var selectedSport: GamesStore.Sport
     @Namespace private var pillNamespace
 
-    private let sports: [GamesStore.Sport] = [.mlb, .nba, .ncaab, .nfl, .cfb]
+    private let sports: [GamesStore.Sport] = GamesStore.Sport.displayOrder()
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {

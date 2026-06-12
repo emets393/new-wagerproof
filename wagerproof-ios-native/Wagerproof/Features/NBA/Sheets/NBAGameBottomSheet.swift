@@ -38,6 +38,8 @@ struct NBAGameBottomSheet: View {
     // `trends(for:)` / `accuracy(for:)` lookup after `refresh()`.
     @State private var trendsStore = NBABettingTrendsStore()
     @State private var accuracyStore = NBAModelAccuracyStore()
+    /// Expanded trends surface (full 5-section matrix sheet).
+    @State private var trendsDetail: NBAGameTrendsData?
     @State private var spreadExpanded: Bool = false
     @State private var ouExpanded: Bool = false
     @State private var injuryExpanded: Bool = false
@@ -114,9 +116,22 @@ struct NBAGameBottomSheet: View {
                 homeTeam: game.homeTeam,
                 gameDate: game.gameDate
             )
-            async let trends: Void = trendsStore.refresh()
+            async let trends: Void = trendsStore.refreshIfNeeded()
             async let accuracy: Void = accuracyStore.refresh()
             _ = await (matchup, trends, accuracy)
+        }
+        .sheet(item: $trendsDetail) { trends in
+            BettingTrendsDetailSheet(
+                awayName: trends.awayTeam.teamName,
+                homeName: trends.homeTeam.teamName,
+                timeDisplay: NBATrendsMatrixAdapter.timeDisplay(for: trends),
+                stripeColors: NBATrendsMatrixAdapter.stripeColors(for: trends),
+                accent: NBATrendsMatrixAdapter.accent,
+                sections: NBATrendsMatrixAdapter.sections(for: trends),
+                guide: .basketball,
+                avatar: NBATrendsMatrixAdapter.avatarProvider(for: trends),
+                onViewMatchup: nil   // already on the matchup page
+            )
         }
     }
 
@@ -180,19 +195,22 @@ struct NBAGameBottomSheet: View {
         }
     }
 
-    /// Renders BettingTrendsWidget when the per-game lookup succeeds. RN's
-    /// `useNBABettingTrendsForGame` returns `null` when the gameId isn't in
-    /// the cached map — mirror that with a guard.
+    /// Situational trends insight digest (verdict + top 3 ranked ATS / O-U
+    /// signals). Hidden when the gameId isn't in today's trends slate;
+    /// first-hydrate skeleton only. Expanding presents the full matrix sheet.
     @ViewBuilder
     private var bettingTrendsSection: some View {
-        if let game = trendsStore.trends(for: game.gameId) {
+        if let trends = trendsStore.trends(for: game.gameId) {
+            BettingTrendsInsightWidget(
+                summary: NBATrendsInsight.summary(for: trends),
+                awayAbbr: game.awayAbbr,
+                homeAbbr: game.homeAbbr,
+                accent: NBATrendsMatrixAdapter.accent,
+                onExpand: { trendsDetail = trends }
+            )
+        } else if trendsStore.loadState == .loading, trendsStore.lastFetched == nil {
             WidgetCollapsingSection(title: "Betting Trends", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color(hex: 0x8B5CF6)) {
-                BettingTrendsWidget(
-                    awayAbbr: self.game.awayAbbr,
-                    homeAbbr: self.game.homeAbbr,
-                    away: game.awayTeam,
-                    home: game.homeTeam
-                )
+                InsightWidgetSkeleton()
             }
         }
     }

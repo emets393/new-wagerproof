@@ -37,11 +37,13 @@ public enum WagerBotModelSelection {
         functionName: "wagerbot-chat"
     )
 
+    // deepseek-chat/-reasoner aliases are retired by DeepSeek after 2026-07-24;
+    // a stale stored id falls back to defaultOption via `current`.
     public static let options: [WagerBotModelOption] = [
         defaultOption,
         WagerBotModelOption(id: "gpt-4o", label: "GPT-4o (Chat)", model: "gpt-4o", functionName: "wagerbot-agent"),
-        WagerBotModelOption(id: "deepseek-chat", label: "DeepSeek Chat", model: "deepseek-chat", functionName: "wagerbot-agent"),
-        WagerBotModelOption(id: "deepseek-reasoner", label: "DeepSeek Reasoner", model: "deepseek-reasoner", functionName: "wagerbot-agent"),
+        WagerBotModelOption(id: "deepseek-v4-flash", label: "DeepSeek V4 Flash", model: "deepseek-v4-flash", functionName: "wagerbot-agent"),
+        WagerBotModelOption(id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", model: "deepseek-v4-pro", functionName: "wagerbot-agent"),
     ]
 
     /// Persisted selection id (App Group defaults). Defaults to the production option.

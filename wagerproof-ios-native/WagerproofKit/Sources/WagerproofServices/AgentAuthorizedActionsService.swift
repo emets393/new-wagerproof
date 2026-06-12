@@ -144,20 +144,33 @@ public enum AgentAuthorizedActionsService {
 
     /// Kick off a new pick generation run. Maps to the V2 enqueue +
     /// worker pipeline server-side. Mirrors `generatePicks`.
+    ///
+    /// `engineVersion`/`dryRun`/`modelName` are the V3 opt-in (default nil). Nil
+    /// optionals are omitted from the JSON body (Swift's synthesized Codable uses
+    /// `encodeIfPresent`), so a default call is byte-for-byte the old V2 request.
     public static func requestGeneration(
         agentId: String,
-        idempotencyKey: String? = nil
+        idempotencyKey: String? = nil,
+        engineVersion: String? = nil,
+        dryRun: Bool? = nil,
+        modelName: String? = nil
     ) async throws -> GenerationRequestResult {
         struct Body: Encodable {
             let action: String
             let agent_id: String
             let idempotency_key: String?
+            let engine_version: String?
+            let dry_run: Bool?
+            let model_name: String?
         }
         return try await invoke(
             body: Body(
                 action: "request_generation",
                 agent_id: agentId,
-                idempotency_key: idempotencyKey
+                idempotency_key: idempotencyKey,
+                engine_version: engineVersion,
+                dry_run: dryRun,
+                model_name: modelName
             ),
             as: GenerationRequestResult.self,
             fallbackMessage: "Failed to start generation"

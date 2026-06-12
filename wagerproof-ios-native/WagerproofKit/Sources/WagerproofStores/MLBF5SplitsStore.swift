@@ -26,6 +26,14 @@ public final class MLBF5SplitsStore {
     public private(set) var lastRefreshedAt: String?
     public private(set) var loadState: LoadState = .idle
 
+    // Mirrors the RN hook's react-query staleTime (games 10m). An EMPTY slate
+    // (off-day) is cached too — otherwise every carousel swipe / search
+    // keystroke would re-fire the full two-query fetch. Public so the game
+    // sheets can apply the first-hydrate skeleton rule
+    // (`isLoading && lastFetched == nil`).
+    public private(set) var lastFetched: Date?
+    private let staleWindow: TimeInterval = 10 * 60
+
     public var isLoading: Bool {
         if case .loading = loadState { return true }
         return false
@@ -36,6 +44,15 @@ public final class MLBF5SplitsStore {
     }
 
     public init() {}
+
+    public func refreshIfStale(force: Bool = false) async {
+        if !force,
+           let last = lastFetched,
+           Date().timeIntervalSince(last) < staleWindow {
+            return
+        }
+        await refresh()
+    }
 
     public func refresh() async {
         loadState = .loading
@@ -105,6 +122,7 @@ public final class MLBF5SplitsStore {
         if abbrs.isEmpty {
             games = builtGames
             splitLookup = [:]
+            lastFetched = Date()
             loadState = .loaded
             return
         }
@@ -119,7 +137,31 @@ public final class MLBF5SplitsStore {
         games = builtGames
         splitLookup = MLBF5.buildSplitLookup(splitRows)
         lastRefreshedAt = splitRows.compactMap { $0.lastRefreshedAt }.first
+        lastFetched = Date()
         loadState = .loaded
+    }
+
+    #if DEBUG
+    /// Fixture seeding for the screenshot harness / DummyDataMode, matching
+    /// the `debugSet` hooks on the sibling trends stores.
+    public func debugSet(games: [MLBF5Game], splits: [MLBF5SplitRow]) {
+        self.games = games
+        self.splitLookup = MLBF5.buildSplitLookup(splits)
+        self.lastFetched = Date()
+        self.loadState = .loaded
+    }
+    #endif
+
+    /// Per-game lookup for the game-sheet F5 widget. Returns nil only when the
+    /// game isn't on the slate — `MLBF5Insight.summary` owns the
+    /// not-enough-sample gating, not the store.
+    public func matchup(for gamePk: Int) -> MLBF5Matchup? {
+        guard let game = games.first(where: { $0.gamePk == gamePk }) else { return nil }
+        return MLBF5Matchup(
+            game: game,
+            awaySplit: split(for: game, side: "away"),
+            homeSplit: split(for: game, side: "home")
+        )
     }
 
     public func split(for game: MLBF5Game, side: String) -> MLBF5SplitRow? {

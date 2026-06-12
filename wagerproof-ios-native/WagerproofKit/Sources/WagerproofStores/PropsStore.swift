@@ -5,18 +5,19 @@ import WagerproofServices
 
 /// Drives the Props tab. Mirrors `GamesStore`'s shape (per-sport selection,
 /// 5-minute cache TTL, pull-to-refresh bypass) but the feed items are
-/// `MLBPropMatchup`s instead of games.
+/// player-prop entities instead of games.
 ///
-/// Player props currently exist only for MLB. The sport picker is kept (for
-/// visual parity with the Games tab and to leave room for future sports);
-/// non-MLB sports render a "coming soon" empty state and never fetch.
+/// Two sports have props today: MLB (matchups feed with game logs + alt-line
+/// ladders) and NFL (odds-board feed with cross-book price comparison).
+/// Remaining sports render a "coming soon" empty state and never fetch.
 @Observable
 @MainActor
 public final class PropsStore {
-    /// Sports surfaced in the picker. Order puts MLB first since it's the
-    /// only sport with posted props today.
+    /// Sports surfaced in the picker. Order puts MLB first since it carries
+    /// the deepest props data today. No CFB — college player props aren't
+    /// offered (NCAA restrictions), so the segment would be a dead end.
     public enum Sport: String, CaseIterable, Identifiable, Sendable {
-        case mlb, nfl, nba, ncaab, cfb
+        case mlb, nfl, nba, ncaab
 
         public var id: String { rawValue }
 
@@ -26,12 +27,11 @@ public final class PropsStore {
             case .nfl: return "NFL"
             case .nba: return "NBA"
             case .ncaab: return "NCAAB"
-            case .cfb: return "CFB"
             }
         }
 
         /// Whether this sport has a player-props feed yet.
-        public var hasProps: Bool { self == .mlb }
+        public var hasProps: Bool { self == .mlb || self == .nfl }
     }
 
     public enum LoadState: Equatable {
@@ -41,28 +41,65 @@ public final class PropsStore {
 
     public var selectedSport: Sport = .mlb
     public private(set) var matchups: [MLBPropMatchup] = []
-    private var loadState: LoadState = .idle
-    private var lastFetched: Date?
+    public private(set) var nflPlayers: [NFLPropPlayer] = []
+    private var loadState: [Sport: LoadState] = [:]
+    private var lastFetched: [Sport: Date] = [:]
 
     /// 5-minute cache TTL — matches the games feed.
     private let ttl: TimeInterval = 300
 
     private let service: MLBPlayerPropsService
+    private let nflService: NFLPlayerPropsService
 
-    public init(service: MLBPlayerPropsService = .shared) {
+    public init(service: MLBPlayerPropsService = .shared, nflService: NFLPlayerPropsService = .shared) {
         self.service = service
+        self.nflService = nflService
     }
 
-    // MARK: - Derived state (MLB only for now)
+    // MARK: - Derived state (selected sport)
 
-    public var isLoading: Bool { loadState == .loading }
+    public var isLoading: Bool { loadState[selectedSport] == .loading }
 
     public var errorMessage: String? {
-        if case let .failed(msg) = loadState { return msg }
+        if case let .failed(msg) = loadState[selectedSport] { return msg }
         return nil
     }
 
-    public var hasCachedMatchups: Bool { !matchups.isEmpty }
+    public var hasCachedMatchups: Bool {
+        switch selectedSport {
+        case .mlb: return !matchups.isEmpty
+        case .nfl: return !nflPlayers.isEmpty
+        default: return false
+        }
+    }
+
+    /// Per-game lookup for the MLB game-sheet "Player Props" widget.
+    public func matchup(for gamePk: Int) -> MLBPropMatchup? {
+        matchups.first { $0.gamePk == gamePk }
+    }
+
+    /// MLB-specific load state, independent of the Props tab's selected sport
+    /// — the MLB game sheet reads these for the first-hydrate skeleton rule.
+    public var isLoadingMLB: Bool { loadState[.mlb] == .loading }
+    public var hasLoadedMLB: Bool { lastFetched[.mlb] != nil }
+
+    /// MLB-specific hydrate for the game-sheet widget. `refresh()` keys off
+    /// `selectedSport` (the Props tab picker), which may be parked on another
+    /// sport while the user opens an MLB game sheet — so the sheet calls this.
+    public func refreshMLB(force: Bool = false) async {
+        if !force, loadState[.mlb] == .loaded, let last = lastFetched[.mlb],
+           Date().timeIntervalSince(last) < ttl {
+            return
+        }
+        if matchups.isEmpty { loadState[.mlb] = .loading }
+        do {
+            matchups = try await service.fetchMatchups()
+            lastFetched[.mlb] = Date()
+            loadState[.mlb] = .loaded
+        } catch {
+            loadState[.mlb] = matchups.isEmpty ? .failed(friendlyError(error)) : .loaded
+        }
+    }
 
     /// Matchups ordered by game time (the service already orders by date then
     /// time; this keeps a stable secondary sort if the API order drifts).
@@ -75,25 +112,35 @@ public final class PropsStore {
 
     // MARK: - Fetch
 
-    /// Refresh the selected sport's feed. Only MLB fetches today; other
-    /// sports no-op. `force` bypasses the cache TTL (pull-to-refresh).
+    /// Refresh the selected sport's feed. Sports without props no-op.
+    /// `force` bypasses the cache TTL (pull-to-refresh).
+    /// No Dummy Data Mode branch here — props always come from the live
+    /// tables, so an offseason board is honestly empty.
     public func refresh(force: Bool = false) async {
-        guard selectedSport.hasProps else { return }
+        let sport = selectedSport
+        guard sport.hasProps else { return }
 
-        if !force, loadState == .loaded, let last = lastFetched, Date().timeIntervalSince(last) < ttl {
+        if !force, loadState[sport] == .loaded, let last = lastFetched[sport],
+           Date().timeIntervalSince(last) < ttl {
             return
         }
         // Don't show the skeleton over a populated cache during a silent
         // background refresh — only when there's nothing to show.
-        if matchups.isEmpty { loadState = .loading }
+        if !hasCachedMatchups { loadState[sport] = .loading }
 
         do {
-            let fetched = try await service.fetchMatchups()
-            matchups = fetched
-            lastFetched = Date()
-            loadState = .loaded
+            switch sport {
+            case .mlb:
+                matchups = try await service.fetchMatchups()
+            case .nfl:
+                nflPlayers = try await nflService.fetchPlayers()
+            default:
+                return
+            }
+            lastFetched[sport] = Date()
+            loadState[sport] = .loaded
         } catch {
-            loadState = matchups.isEmpty ? .failed(friendlyError(error)) : .loaded
+            loadState[sport] = hasCachedMatchups ? .loaded : .failed(friendlyError(error))
         }
     }
 
@@ -109,8 +156,14 @@ public final class PropsStore {
     /// Test-only seeding hook for parity-screenshot builds.
     public func debugSet(matchups: [MLBPropMatchup]) {
         self.matchups = matchups
-        self.loadState = .loaded
-        self.lastFetched = Date()
+        self.loadState[.mlb] = .loaded
+        self.lastFetched[.mlb] = Date()
+    }
+
+    public func debugSet(nflPlayers: [NFLPropPlayer]) {
+        self.nflPlayers = nflPlayers
+        self.loadState[.nfl] = .loaded
+        self.lastFetched[.nfl] = Date()
     }
     #endif
 }

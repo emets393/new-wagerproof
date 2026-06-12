@@ -27,7 +27,6 @@ public enum AppGroupKey {
     // on the network. Source of truth remains RevenueCat; this is a mirror.
     public static let proEntitlementGranted = "pro_entitlement_granted_v1"
     public static let proSubscriptionType = "pro_subscription_type_v1"
-    public static let wagerbotSuggestionsEnabled = "wagerbot_suggestions_enabled_v1"
     /// DEBUG-only: selected WagerBot chat model id (see `WagerBotModelSelection`).
     /// Non-default values route the chat to the parallel `wagerbot-agent` function.
     public static let wagerBotChatModel = "wagerbot_chat_model_debug"

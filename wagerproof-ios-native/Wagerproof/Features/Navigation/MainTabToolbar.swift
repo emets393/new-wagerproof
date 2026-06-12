@@ -182,15 +182,31 @@ extension View {
     /// switching tabs. Settings hides the tab bar while pushed, so the back
     /// button (which clears the flag via the binding's setter) is the only way
     /// out — no tab-switch-while-open edge to handle.
+    ///
+    /// The 5 store parameters are explicitly re-injected into the destination so
+    /// iOS 18+'s `configurePreferredTransition` (which evaluates the destination
+    /// view before the NavigationStack's environment chain is fully established)
+    /// can resolve `@Environment(T.self)` reads without crashing. Callers must
+    /// read these from their own `@Environment` and pass them through.
     func wagerProofSettingsDestination(
         tabStore: MainTabStore,
-        tab: MainTabStore.Tab
+        tab: MainTabStore.Tab,
+        auth: AuthStore,
+        settingsStore: SettingsStore,
+        revenueCat: RevenueCatStore,
+        adminMode: AdminModeStore,
+        proAccess: ProAccessStore
     ) -> some View {
         navigationDestination(isPresented: Binding(
             get: { tabStore.isSettingsPresented && tabStore.selected == tab },
             set: { tabStore.isSettingsPresented = $0 }
         )) {
             SettingsView()
+                .environment(auth)
+                .environment(settingsStore)
+                .environment(revenueCat)
+                .environment(adminMode)
+                .environment(proAccess)
         }
     }
 

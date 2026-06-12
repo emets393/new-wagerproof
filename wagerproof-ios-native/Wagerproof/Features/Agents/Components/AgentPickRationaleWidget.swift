@@ -79,10 +79,11 @@ struct AgentPickRationaleWidget: View {
                 .foregroundStyle(Color.appTextSecondary)
                 .padding(.bottom, 10)
 
-            // RN falls back to `reasoning_text` when `rationale_summary` is
-            // missing. The audit store doesn't yet decode `ai_decision_trace`
-            // (ticket #079), so we always read `reasoningText`.
-            Text(pick.reasoningText.isEmpty ? "No rationale text available." : pick.reasoningText)
+            // Prefer the decision trace's rationale_summary (now decoded on
+            // AgentPick); fall back to reasoning_text exactly like RN.
+            let rationale = pick.aiDecisionTrace?["rationale_summary"]?.stringValue
+                ?? pick.reasoningText
+            Text(rationale.isEmpty ? "No rationale text available." : rationale)
                 .font(.system(size: 13))
                 .lineSpacing(3)
                 .foregroundStyle(Color.appTextPrimary)

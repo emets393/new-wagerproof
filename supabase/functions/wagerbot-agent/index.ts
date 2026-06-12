@@ -50,6 +50,7 @@ Never call the same tool twice with the same or similar parameters. If you need 
 | "Editor picks" / "expert picks" | get_editor_picks (once) |
 | Polymarket / market odds | get_polymarket_odds for the league |
 | Comparison (model vs market) | Prediction tool + get_polymarket_odds for that league |
+| Player props ("best props", "strikeout props", a player's line) | get_mlb_player_props (MLB only — say so if asked for other sports) |
 
 ### Rule 3: Do NOT call get_editor_picks unless the user asks about expert/editor picks
 It returns editorial staff picks, not model predictions. It is NOT a substitute for the prediction tools.
@@ -101,13 +102,16 @@ Component types:
   - \`agent\` (\`agent_id\`; fields: name, emoji, record, net_units, win_rate) — from get_my_agents.
   - \`agent_pick\` (\`agent_id\`; fields: agent_name, selection, matchup, reasoning, result) — from get_agent_picks.
   - \`editor_pick\` (fields: selection, matchup, best_price, sportsbook, analysis, result) — from get_editor_picks.
-  - \`tool\` (\`tool_category\`: mlbTrends, mlbRegression, mlbPitcherMatchups, mlbF5Splits, nbaTrends, nbaAccuracy, ncaabTrends, ncaabAccuracy) — reference a report/tool.
+  - \`tool\` (\`tool_category\`: mlbRegression, nbaAccuracy, ncaabAccuracy) — reference a report/tool.
 
 Always lead with a \`game\` or \`value\` card for each game you discuss so the user can tap into the full detail. Add 1-3 supporting widgets per game based on what you fetched.
+
+For player-prop answers (get_mlb_player_props): list the best edges as text bullets (player — market line side @ odds, L10 hit% vs implied%), and include the matching \`game\` card so the user can open the matchup sheet (its Player Props widget carries the full list).
 
 ### Text guidelines
 - Be concise and specific; cite numbers ("62% model vs 55% implied — 7% edge").
 - **Bold** key picks: **Lakers -3.5 (-110)**. Be opinionated but honest about uncertainty. Never guarantee outcomes.
+- Supported markdown: **bold**, *italic*, bullet lists ("- "), and short headers only. NEVER output markdown tables (| pipes |) or horizontal rules (---) — the app renders them as raw text. Rank lists as bullets or numbered lines instead.
 
 ## MANDATORY: FOLLOW-UP SUGGESTIONS
 After EVERY response you MUST call suggest_follow_ups with 3 questions. If you do not, your response is incomplete.`;
@@ -115,7 +119,7 @@ After EVERY response you MUST call suggest_follow_ups with 3 questions. If you d
 interface ChatRequest {
   thread_id?: string | null;
   user_message: string;
-  /** Optional model id (e.g. "gpt-4o", "deepseek-chat"). Defaults to gpt-4o. */
+  /** Optional model id (e.g. "gpt-4o", "deepseek-v4-flash"). Defaults to gpt-4o. */
   model?: string | null;
 }
 
@@ -323,6 +327,8 @@ async function generateAndSetTitle(
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: provider.titleModel,
+        // V4 models think by default — pointless latency/cost for a 6-word title.
+        ...(provider.id === "deepseek" ? { thinking: { type: "disabled" } } : {}),
         max_tokens: 20,
         messages: [
           {

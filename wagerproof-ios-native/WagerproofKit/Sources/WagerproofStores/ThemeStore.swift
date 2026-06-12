@@ -28,11 +28,10 @@ public final class ThemeStore {
     }
 
     public init() {
-        if let raw = AppGroup.defaults.string(forKey: AppGroupKey.themePreference),
-           let parsed = Mode(rawValue: raw) {
-            self.mode = parsed
-        } else {
-            self.mode = .system
-        }
+        // The in-app theme changer is hidden and the app ships dark-only, so we
+        // always resolve to dark. Coercing any stored light/system preference (or
+        // none) to dark guarantees existing users land in dark with no way — or
+        // need — to switch back.
+        self.mode = .dark
     }
 }

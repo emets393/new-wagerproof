@@ -413,8 +413,9 @@ public func formatNCAABSituation(_ situation: String?) -> String {
 
 // MARK: - Model accuracy bucket
 
-/// Cached edge-bucket accuracy lookup row. Built from
-/// `ncaab_edge_accuracy_by_bucket`. Used by the in-sheet
+/// Edge-bucket accuracy pair (sample size + hit rate). Decoded from the
+/// `*_accuracy_pct` / `*_bucket_games` columns of
+/// `ncaab_todays_games_predictions_with_accuracy`. Used by the in-sheet
 /// "Model Accuracy" widget. Mirrors RN `AccuracyBucket` shape.
 public struct NCAABAccuracyBucket: Codable, Hashable, Sendable {
     public let games: Int
@@ -427,9 +428,10 @@ public struct NCAABAccuracyBucket: Codable, Hashable, Sendable {
 }
 
 /// Per-game accuracy payload for the in-sheet model accuracy widget.
-/// Mirrors RN `GameAccuracyData` from `types/modelAccuracy.ts`. Used by
-/// `NCAABModelAccuracyStore` to merge live predictions with historical
-/// edge accuracy buckets.
+/// Mirrors RN `GameAccuracyData` from `types/modelAccuracy.ts`. Built by
+/// `NCAABModelAccuracyStore` from the
+/// `ncaab_todays_games_predictions_with_accuracy` view (logos joined
+/// separately via `ncaab_team_mapping`).
 public struct NCAABModelAccuracyGame: Identifiable, Hashable, Sendable {
     public let gameId: Int
     public let awayTeam: String

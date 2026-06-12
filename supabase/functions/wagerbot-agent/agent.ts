@@ -27,10 +27,13 @@ export interface AgentConfig {
 }
 
 // Chat Completions message shapes.
+// reasoning_content: DeepSeek V4 thinking mode (default-on) REQUIRES each
+// tool-calling assistant turn's CoT passed back on subsequent requests, or it
+// 400s. Only attached for deepseek models — OpenAI must never see the field.
 export type ChatMessage =
   | { role: "system"; content: string }
   | { role: "user"; content: string }
-  | { role: "assistant"; content: string | null; tool_calls?: ChatToolCall[] }
+  | { role: "assistant"; content: string | null; tool_calls?: ChatToolCall[]; reasoning_content?: string }
   | { role: "tool"; tool_call_id: string; content: string };
 
 interface ChatToolCall {
@@ -133,6 +136,7 @@ export async function runAgentLoop(opts: {
         type: "function" as const,
         function: { name: c.name, arguments: c.arguments },
       })),
+      ...(config.model.startsWith("deepseek") ? { reasoning_content: result.reasoning ?? "" } : {}),
     });
 
     for (const call of result.toolCalls) {
@@ -221,6 +225,8 @@ export async function runAgentLoop(opts: {
 
 interface StreamResult {
   textContent: string | null;
+  /** Accumulated thinking-mode CoT — passed back on deepseek tool-call turns. */
+  reasoning: string | null;
   toolCalls: PendingToolCall[];
 }
 
@@ -233,10 +239,12 @@ async function consumeChatStream(
   let buffer = "";
 
   let textContent = "";
+  let reasoning = "";
   let streamError: string | null = null;
-  // deepseek-reasoner streams reasoning_content before the answer; we surface it
-  // as a thinking stream and close it (thinking_done) once the answer begins so
-  // the iOS client collapses the thinking block.
+  // DeepSeek thinking mode streams reasoning_content before the answer; we
+  // surface it as a thinking stream and close it (thinking_done) once the answer
+  // begins so the iOS client collapses the thinking block. We ALSO accumulate it
+  // — V4 requires it passed back on tool-calling turns.
   let reasoningActive = false;
   // Tool calls accumulate by their stream index; id/name arrive once, args stream.
   const toolCallsByIndex: Record<number, PendingToolCall> = {};
@@ -268,9 +276,10 @@ async function consumeChatStream(
       const delta = choice.delta;
       if (!delta) continue;
 
-      // Reasoning tokens (deepseek-reasoner) → thinking stream.
+      // Reasoning tokens (DeepSeek thinking mode) → thinking stream + capture.
       if (typeof delta.reasoning_content === "string" && delta.reasoning_content) {
         reasoningActive = true;
+        reasoning += delta.reasoning_content;
         sink.emit("wagerbot.thinking_delta", { text: delta.reasoning_content });
       }
 
@@ -306,7 +315,7 @@ async function consumeChatStream(
     .filter((c) => c.name)
     .map((c) => ({ ...c, id: c.id || `call_${c.index}` }));
 
-  return { textContent: textContent || null, toolCalls };
+  return { textContent: textContent || null, reasoning: reasoning || null, toolCalls };
 }
 
 // ---- helpers (parallel copies of wagerbot-chat/agent.ts) -------------------

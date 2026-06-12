@@ -24,17 +24,23 @@ struct WagerBotMarkdownText: View {
     let baseFont: Font
     let primaryColor: Color
     let secondaryColor: Color
+    /// When set, blockquotes render with this accent (tinted background +
+    /// colored bar) instead of the chat-gray default — the regression
+    /// report's AI summary uses its purple (RN-parity blockquote chrome).
+    let quoteAccent: Color?
 
     init(
         _ text: String,
         baseFont: Font = .system(size: 15, weight: .regular),
         primaryColor: Color = .appTextPrimary,
-        secondaryColor: Color = .appTextSecondary
+        secondaryColor: Color = .appTextSecondary,
+        quoteAccent: Color? = nil
     ) {
         self.text = text
         self.baseFont = baseFont
         self.primaryColor = primaryColor
         self.secondaryColor = secondaryColor
+        self.quoteAccent = quoteAccent
     }
 
     var body: some View {
@@ -201,12 +207,24 @@ struct WagerBotMarkdownText: View {
             }
 
         case .quote(let body):
-            HStack(alignment: .top, spacing: 8) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(secondaryColor.opacity(0.4))
-                    .frame(width: 3)
-                inlineText(body, font: baseFont.italic(), color: secondaryColor)
-                    .padding(.vertical, 2)
+            if let accent = quoteAccent {
+                HStack(alignment: .top, spacing: 8) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(accent)
+                        .frame(width: 3)
+                    inlineText(body, font: baseFont.italic(), color: primaryColor)
+                        .padding(.vertical, 2)
+                }
+                .padding(8)
+                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+            } else {
+                HStack(alignment: .top, spacing: 8) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(secondaryColor.opacity(0.4))
+                        .frame(width: 3)
+                    inlineText(body, font: baseFont.italic(), color: secondaryColor)
+                        .padding(.vertical, 2)
+                }
             }
         }
     }

@@ -29,20 +29,26 @@ Legend: `✅ matches` / `🔧 fixed` (deliberately diverged + better) / `⚠️ 
 | `hubSectionIconCircle` w/ tinted bg (1532+) | `Circle().fill(accent.opacity(0.15))` overlay w/ SF Symbol | ✅ matches |
 | Horizontal `ScrollView` of cards (1545+, 1592+, etc.) | `ScrollView(.horizontal) { LazyHStack }` + `.scrollTargetBehavior(.viewAligned)` | ✅ matches |
 | Shimmer row (3 cards staggered 150ms) (1539–1543) | `LazyHStack { ForEach { OutlierCardShimmerView(phase: i) } }` | ✅ matches |
-| Empty `hubCtaCard` (1564–1572) | `ctaCard(icon:title:desc:accent:category:)` that wraps `NavigationLink` | ✅ matches |
+| Empty `hubCtaCard` (1564–1572) | RETIRED 2026-06-11 — per-category CTA cards deleted with the merged feed | superseded |
 | Pull-to-refresh haptic / animation (1517–1522) | `.refreshable` system feedback | 🔧 fixed |
 
 ## Hub sections (7 total)
 
 | RN section | Swift counterpart | Match |
 |---|---|---|
-| Prediction Market Alerts (1529–1574) | `section(.value, …)` w/ `valueHubRow` | ✅ matches |
-| Model Fade Alerts (1576–1621) | `section(.fade, …)` w/ `fadeHubRow` | ✅ matches |
-| NBA Betting Trends (1623–1671) | `deferredSection(.nbaTrends, …)` | ⚠️ #023 |
-| NCAAB Betting Trends (1673–1723) | `deferredSection(.ncaabTrends, …)` | ⚠️ #023 |
-| MLB Betting Trends (1725–1791) | `deferredSection(.mlbTrends, …)` | ⚠️ #023 |
-| NBA Model Accuracy (1793–1846) | `deferredSection(.nbaAccuracy, …)` | ⚠️ #023 |
-| NCAAB Model Accuracy (1848–1901) | `deferredSection(.ncaabAccuracy, …)` | ⚠️ #023 |
+| Prediction Market Alerts (1529–1574) | merged `OutlierAggregator` feed (`outlierItems` in `OutliersView`) | superseded |
+| Model Fade Alerts (1576–1621) | merged `OutlierAggregator` feed (`outlierItems` in `OutliersView`) | superseded |
+| NBA Betting Trends (1623–1671) | RETIRED 2026-06-11 — `BettingTrendsInsightWidget` on the NBA game sheet | superseded |
+| NCAAB Betting Trends (1673–1723) | RETIRED 2026-06-11 — `BettingTrendsInsightWidget` on the NCAAB game sheet | superseded |
+| MLB Betting Trends (1725–1791) | RETIRED 2026-06-11 — `BettingTrendsInsightWidget` on the MLB game sheet | superseded |
+| NBA Model Accuracy (1793–1846) | `NBAModelAccuracyView` via ToolRouter (`nba-model-accuracy`) | superseded |
+| NCAAB Model Accuracy (1848–1901) | `NCAABModelAccuracyView` via ToolRouter (`ncaab-model-accuracy`) | superseded |
+
+> #023 resolved 2026-05-24; superseded again 2026-06-11 — the per-category hub
+> sections (`section`/`deferredSection`/`valueHubRow`/`fadeHubRow`/`ctaCard`) were deleted.
+> The hub now renders ONE merged, ranked per-game feed (`OutlierAggregator` over value,
+> fade, trends, F5, regression sources); trends/props/F5 per-game depth moved into the
+> game-sheet insight widgets, and Model Accuracy remains a routed tool surface.
 
 ## Detail views (7 total)
 
@@ -67,9 +73,9 @@ Legend: `✅ matches` / `🔧 fixed` (deliberately diverged + better) / `⚠️ 
 | Example row with icon circle + label + value (76–88) | `exampleRow(_:)` matching shape | ✅ matches |
 | Value Alert banner copy (1944–1955) | `OutliersDetailView.explainerBanner.case .value` | ✅ matches |
 | Fade Alert banner copy (1979–1990) | `case .fade` | ✅ matches |
-| NBA Trends banner copy (2014–2025) | `case .nbaTrends` | ✅ matches |
-| NCAAB Trends banner copy (2048–2059) | `case .ncaabTrends` | ✅ matches |
-| MLB Trends banner copy (2082–2093) | `case .mlbTrends` | ✅ matches |
+| NBA Trends banner copy (2014–2025) | RETIRED with the trends tool category | superseded |
+| NCAAB Trends banner copy (2048–2059) | RETIRED with the trends tool category | superseded |
+| MLB Trends banner copy (2082–2093) | RETIRED with the trends tool category | superseded |
 | NBA Accuracy banner copy (2116–2127) | `case .nbaAccuracy` | ✅ matches |
 | NCAAB Accuracy banner copy (2150–2161) | `case .ncaabAccuracy` | ✅ matches |
 

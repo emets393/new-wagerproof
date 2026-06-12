@@ -20,7 +20,8 @@ Signals are stored as JSON objects with three keys: `category`, `severity`, `mes
 | **Stats refresh fn** | `public.refresh_mlb_signal_stats()` | Recomputes stats from `mlb_game_log`. Run by `pg_cron` job `refresh_mlb_signal_stats_daily` at 10:00 UTC. |
 | **The view** | `mlb_game_signals` (CFB project) | Reads today's slate + the signal definitions/stats and emits per-game `home_signals`/`away_signals`/`game_signals` JSON arrays. |
 | **Web FE** | `src/pages/MLB.tsx`, `src/pages/MLBDailyRegressionReport.tsx` | Renders signal pills on game cards and as a section on the report page. |
-| **Mobile FE** | `wagerproof-mobile/app/(drawer)/(tabs)/mlb-regression-report.tsx` | Mobile equivalent. |
+| **Mobile FE (RN)** | `wagerproof-mobile/app/(drawer)/(tabs)/mlb-regression-report.tsx` | Mobile equivalent. |
+| **iOS native FE** | `wagerproof-ios-native/.../MLB/Sheets/MLBGameBottomSheet.swift` (Game Signals card), `Features/Analytics/Components/SeriesSignalCard.swift` + `WagerproofStores/MLBSeriesSignalsStore.swift` (regression report series section) | Swift equivalent — reads the same `mlb_game_signals` view; series cards filter `category == "series"`. |
 | **WagerBot** | `supabase/functions/wagerbot-chat/tools/get_mlb_predictions.ts` | Passes the signals array to the LLM as part of game context. |
 
 ## The full process for adding a NEW signal
@@ -105,9 +106,9 @@ If no rows fire today, find a historical date that should have triggered it and 
 
 ### Step 7 — FE — usually no work needed
 
-The web (`src/pages/MLBDailyRegressionReport.tsx`) and mobile (`wagerproof-mobile/app/(drawer)/(tabs)/mlb-regression-report.tsx`) `SeriesSignalsSection` components dynamically pick up any signal from `mlb_game_signals` with `category: 'series'` and render it. Same goes for game card pills via the existing signal-array consumer. **No FE changes are needed when you add a new series signal** — it auto-appears.
+The web (`src/pages/MLBDailyRegressionReport.tsx`), RN mobile (`wagerproof-mobile/app/(drawer)/(tabs)/mlb-regression-report.tsx`), and iOS native (`MLBSeriesSignalsStore` → `SeriesSignalCard`) series-signal consumers dynamically pick up any signal from `mlb_game_signals` with `category: 'series'` and render it. Same goes for game card pills via the existing signal-array consumer. **No FE changes are needed when you add a new series signal** — it auto-appears.
 
-If you create a NEW category (not 'series'), update the FE filter in `useMLBSeriesSignals.ts` (or create a new hook) to include it.
+If you create a NEW category (not 'series'), update the FE filter in `useMLBSeriesSignals.ts` and the iOS `MLBSeriesSignalsStore` category filter (or create new hooks/stores) to include it.
 
 ### Step 8 — WagerBot — automatic
 

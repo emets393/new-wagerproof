@@ -109,9 +109,10 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
 }
 
 /// Team-color "aurora" glows that bleed in from the left and right screen edges
-/// (away color left, home color right), tall and soft, with a slow wobble. Dims
-/// and shrinks as `progress` (0 = expanded … 1 = collapsed) increases. The
-/// `appSurface` base is opaque so this can double as the hero's masking bg.
+/// (away color left, home color right), tall and soft, and STATIC — no idle
+/// wobble (user call: the background shouldn't oscillate). Dims and shrinks as
+/// `progress` (0 = expanded … 1 = collapsed) increases. The `appSurface` base
+/// is opaque so this can double as the hero's masking bg.
 ///
 /// Glow positions are anchored in GLOBAL screen coordinates so the page
 /// instance and the hero instance line up seamlessly.
@@ -129,8 +130,6 @@ struct TeamAuraBackground: View {
     private let blobWidth: CGFloat = 300
     private let blobHeight: CGFloat = 580
 
-    @State private var wobble: CGFloat = 0
-
     var body: some View {
         let p = min(1, max(0, progress))
         // Dim + shrink WITH the logo as it collapses, but keep a baseline glow
@@ -145,21 +144,16 @@ struct TeamAuraBackground: View {
                 let yLocal = anchorY - g.minY
                 ZStack {
                     blob(awayColor)
-                        .scaleEffect(shrink * (1 + 0.06 * wobble))
-                        .position(x: 0, y: yLocal + wobble * 16)
+                        .scaleEffect(shrink)
+                        .position(x: 0, y: yLocal)
                     blob(homeColor)
-                        .scaleEffect(shrink * (1 - 0.06 * wobble))
-                        .position(x: geo.size.width, y: yLocal - wobble * 16)
+                        .scaleEffect(shrink)
+                        .position(x: geo.size.width, y: yLocal)
                 }
                 .opacity(intensity)
-                // Rasterize the blurred glows once, then animate cheap
-                // transforms on the layer for the aurora wobble.
+                // Rasterize the blurred glows once — static layer, cheap to
+                // composite under the scrolling content.
                 .drawingGroup()
-            }
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) {
-                wobble = 1
             }
         }
     }
@@ -360,6 +354,8 @@ struct WidgetCollapsingSection<Content: View>: View {
             Image(systemName: expanded ? "chevron.up" : "chevron.down")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.appTextSecondary)
+        case let .verdict(text, tintHex):
+            WidgetVerdictAccessoryBadge(text: text, tintHex: tintHex)
         }
     }
 }

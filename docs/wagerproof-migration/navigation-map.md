@@ -63,12 +63,18 @@ Tab routes:
 | Roast | `/roast` | `app/(drawer)/(tabs)/roast.tsx` | `Features/Roast/RoastView.swift` |
 | Settings | `/settings` | `app/(drawer)/(tabs)/settings.tsx` | `Features/Settings/SettingsView.swift` |
 | Feature Requests | `/feature-requests` | `app/(drawer)/(tabs)/feature-requests.tsx` | `Features/FeatureRequests/FeatureRequestsView.swift` |
-| MLB Betting Trends | `/mlb-betting-trends` | `app/(drawer)/(tabs)/mlb-betting-trends.tsx` | `Features/Analytics/MlbBettingTrendsView.swift` |
-| MLB Regression | `/mlb-regression-report` | `app/(drawer)/(tabs)/mlb-regression-report.tsx` | `Features/Analytics/MlbRegressionReportView.swift` |
-| NBA Betting Trends | `/nba-betting-trends` | `app/(drawer)/(tabs)/nba-betting-trends.tsx` | `Features/Analytics/NbaBettingTrendsView.swift` |
-| NBA Model Accuracy | `/nba-model-accuracy` | `app/(drawer)/(tabs)/nba-model-accuracy.tsx` | `Features/Analytics/NbaModelAccuracyView.swift` |
-| NCAAB Betting Trends | `/ncaab-betting-trends` | `app/(drawer)/(tabs)/ncaab-betting-trends.tsx` | `Features/Analytics/NcaabBettingTrendsView.swift` |
-| NCAAB Model Accuracy | `/ncaab-model-accuracy` | `app/(drawer)/(tabs)/ncaab-model-accuracy.tsx` | `Features/Analytics/NcaabModelAccuracyView.swift` |
+| MLB Betting Trends | `/mlb-betting-trends` | `app/(drawer)/(tabs)/mlb-betting-trends.tsx` | RETIRED — per-matchup `BettingTrendsInsightWidget` on the MLB game sheet (+ search chips) |
+| MLB Regression | `/mlb-regression-report` | `app/(drawer)/(tabs)/mlb-regression-report.tsx` | `Features/Analytics/MlbRegressionReportView.swift` (shipped) |
+| NBA Betting Trends | `/nba-betting-trends` | `app/(drawer)/(tabs)/nba-betting-trends.tsx` | RETIRED — per-matchup `BettingTrendsInsightWidget` on the NBA game sheet |
+| NBA Model Accuracy | `/nba-model-accuracy` | `app/(drawer)/(tabs)/nba-model-accuracy.tsx` | `Features/Outliers/NBAModelAccuracyView.swift` (shipped) |
+| NCAAB Betting Trends | `/ncaab-betting-trends` | `app/(drawer)/(tabs)/ncaab-betting-trends.tsx` | RETIRED — per-matchup `BettingTrendsInsightWidget` on the NCAAB game sheet |
+| NCAAB Model Accuracy | `/ncaab-model-accuracy` | `app/(drawer)/(tabs)/ncaab-model-accuracy.tsx` | `Features/Outliers/NCAABModelAccuracyView.swift` (shipped) |
+
+> Shipped note: on iOS the surviving tools (regression report, NBA/NCAAB model accuracy) are
+> leaf surfaces routed by `Features/Games/Tools/ToolRouter.swift` from the Games-page banners
+> and the Outliers hub. The betting-trends / pitcher-matchups / F5-splits tools retired in
+> favor of per-matchup insight widgets on the game detail sheets (`BettingTrendsInsightWidget`,
+> `MLBMatchupPropsWidget`, `F5SplitsInsightWidget`) and search insight chips.
 
 `(tabs)/_layout.tsx` also surfaces a floating WagerBot launcher that does `router.push('/wagerbot-chat')`. Mirror with a `.toolbar` button on every tab's `NavigationStack` root, scoped via shared `WagerBotLauncherStore`.
 
@@ -136,9 +142,9 @@ Wagerproof uses `@gorhom/bottom-sheet` heavily. Each sheet is a singleton owned 
 | `NBAGameSheetContext` | `NBAGameBottomSheet.tsx` | `openGameSheet(NBAGame)` | `Features/NBA/Sheets/NBAGameBottomSheet.swift` |
 | `NCAABGameSheetContext` | `NCAABGameBottomSheet.tsx` | `openGameSheet(NCAABGame)` | `Features/NCAAB/Sheets/NCAABGameBottomSheet.swift` |
 | `MLBGameSheetContext` | `MLBGameBottomSheet.tsx` | `openGameSheet(MLBGame)` | `Features/MLB/Sheets/MLBGameBottomSheet.swift` |
-| `NBABettingTrendsSheetContext` | `NBABettingTrendsBottomSheet.tsx` | `openTrendsSheet(NBAGameTrendsData)` | `Features/NBA/Sheets/NBABettingTrendsBottomSheet.swift` |
-| `NCAABBettingTrendsSheetContext` | `NCAABBettingTrendsBottomSheet.tsx` | `openTrendsSheet(...)` | `Features/NCAAB/Sheets/NCAABBettingTrendsBottomSheet.swift` |
-| `MLBBettingTrendsSheetContext` | `MLBBettingTrendsBottomSheet.tsx` | `openTrendsSheet(...)` | `Features/MLB/Sheets/MLBBettingTrendsBottomSheet.swift` |
+| `NBABettingTrendsSheetContext` | `NBABettingTrendsBottomSheet.tsx` | sheet-local `trendsDetail` state on the NBA game sheet | shared `Features/Outliers/Components/BettingTrendsDetailSheet.swift` (expand of the trends insight widget) |
+| `NCAABBettingTrendsSheetContext` | `NCAABBettingTrendsBottomSheet.tsx` | sheet-local `trendsDetail` state on the NCAAB game sheet | shared `Features/Outliers/Components/BettingTrendsDetailSheet.swift` (expand of the trends insight widget) |
+| `MLBBettingTrendsSheetContext` | `MLBBettingTrendsBottomSheet.tsx` | sheet-local `trendsDetail` state on the MLB game sheet | shared `Features/Outliers/Components/BettingTrendsDetailSheet.swift` (expand of the trends insight widget) |
 | `EditorPickSheetContext` | `EditorPickCreatorBottomSheet.tsx` | `openCreateSheet()` / `openEditSheet(pick)` | `Features/EditorPicks/Sheets/EditorPickCreatorBottomSheet.swift` |
 | `PickDetailSheetContext` | `PickDetailBottomSheet.tsx` | `openPickDetail(pick)` | `Features/Picks/Sheets/PickDetailBottomSheet.swift` |
 | `LearnWagerProofContext` | `LearnWagerProofBottomSheet.tsx` (under `components/learn-wagerproof/`) | `openLearnSheet()` | `Features/LearnMore/Sheets/LearnWagerProofBottomSheet.swift` |
@@ -272,8 +278,8 @@ CFB Supabase reads (predictions):
 - NFL: `v_input_values_with_epa`, `nfl_predictions_epa`, `nfl_betting_lines`, `nfl_line_movement`, `nfl_historical_games`
 - CFB: `cfb_live_weekly_inputs`, `cfb_api_predictions`, `cfb_team_mapping`
 - NBA: `nba_input_values_view`, `nba_predictions`, `nba_todays_games_predictions_with_accuracy`, `nba_injury_report`, `nba_game_situational_trends(_today)`, `nba_betting_lines`
-- NCAAB: `v_cbb_input_values`, `ncaab_predictions`, `ncaab_team_mapping`, `ncaab_edge_accuracy_by_bucket`, `ncaab_game_situational_trends(_today)`
-- MLB: `mlb_games_today`, `mlb_game_signals`, `mlb_predictions_current`, `mlb_team_mapping`, `mlb_situational_trends(_today)`, `mlb_model_bucket_accuracy`, `mlb_regression_report`
+- NCAAB: `v_cbb_input_values`, `ncaab_predictions`, `ncaab_team_mapping`, `ncaab_todays_games_predictions_with_accuracy` (replaced the old 4-table hand-join incl. `ncaab_edge_accuracy_by_bucket`), `ncaab_game_situational_trends(_today)`
+- MLB: `mlb_games_today`, `mlb_game_signals`, `mlb_predictions_current`, `mlb_team_mapping`, `mlb_situational_trends(_today)`, `mlb_model_bucket_accuracy`, `mlb_model_breakdown_accuracy`, `mlb_graded_picks`, `mv_mlb_f5_team_splits`, `mlb_regression_report`
 - Shared: `production_weather`
 
 ### 7.2 RPCs (Postgres functions)

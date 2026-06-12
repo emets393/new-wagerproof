@@ -38,33 +38,23 @@ public final class OutliersStore {
         }
     }
 
-    /// Hub categories. Mirrors the RN `OutlierCategory` union plus the new
-    /// `mlbRegression` slot, which has its own hub section in RN as well
-    /// (the MLB regression report is a peer of the situational trends).
+    /// Hub categories. The situational-trends / F5 / pitcher-matchup tool
+    /// categories retired when those datasets became per-matchup insight
+    /// widgets on the game detail sheets (and search chips).
     public enum Category: String, Hashable, Sendable {
         case value
         case fade
-        case nbaTrends = "nba-trends"
-        case ncaabTrends = "ncaab-trends"
-        case mlbTrends = "mlb-trends"
         case nbaAccuracy = "nba-accuracy"
         case ncaabAccuracy = "ncaab-accuracy"
         case mlbRegression = "mlb-regression"
-        case mlbF5Splits = "mlb-f5-splits"
-        case mlbPitcherMatchups = "mlb-pitcher-matchups"
 
         public var displayName: String {
             switch self {
             case .value: return "Prediction Market Alerts"
             case .fade: return "Model Fade Alerts"
-            case .nbaTrends: return "NBA Betting Trends"
-            case .ncaabTrends: return "NCAAB Betting Trends"
-            case .mlbTrends: return "MLB Betting Trends"
             case .nbaAccuracy: return "NBA Model Accuracy"
             case .ncaabAccuracy: return "NCAAB Model Accuracy"
             case .mlbRegression: return "MLB Regression Report"
-            case .mlbF5Splits: return "MLB F5 Splits"
-            case .mlbPitcherMatchups: return "Player Prop Matchups"
             }
         }
     }

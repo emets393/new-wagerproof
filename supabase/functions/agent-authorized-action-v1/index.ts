@@ -45,6 +45,11 @@ interface AgentActionRequest {
   include_overlap?: boolean;
   game_date?: string | null;
   idempotency_key?: string | null;
+  // V3 opt-in (new clients only). Default-safe: anything but the literal 'v3'
+  // routes to the untouched V2 enqueue, so old clients are byte-for-byte V2.
+  engine_version?: string;
+  dry_run?: boolean;
+  model_name?: string;
 }
 
 serve(async (req) => {
@@ -151,12 +156,24 @@ serve(async (req) => {
         const agentId = body.agent_id;
         if (!agentId || !userId) return errorResponse(400, 'Missing agent_id');
 
-        const { data: runId, error } = await serviceClient.rpc('enqueue_manual_generation_run_v3', {
-          p_user_id: userId,
-          p_avatar_id: agentId,
-          p_has_active_entitlement: hasPremiumAccess,
-          p_idempotency_key: body.idempotency_key ?? null,
-        });
+        // Default-safe engine routing: only the literal 'v3' opts into the new
+        // agentic engine; everything else (incl. omitted field) stays on V2.
+        const useV3 = body.engine_version === 'v3';
+        const { data: runId, error } = useV3
+          ? await serviceClient.rpc('enqueue_manual_generation_run_v3_engine', {
+              p_user_id: userId,
+              p_avatar_id: agentId,
+              p_has_active_entitlement: hasPremiumAccess,
+              p_idempotency_key: body.idempotency_key ?? null,
+              p_dry_run: body.dry_run ?? false,
+              p_model_name: body.model_name ?? null,
+            })
+          : await serviceClient.rpc('enqueue_manual_generation_run_v3', {
+              p_user_id: userId,
+              p_avatar_id: agentId,
+              p_has_active_entitlement: hasPremiumAccess,
+              p_idempotency_key: body.idempotency_key ?? null,
+            });
 
         if (error) {
           console.error('[agent-authorized-action-v1] request_generation error:', error);
@@ -170,9 +187,10 @@ serve(async (req) => {
         }
 
         void (async () => {
-          const { error: dispatchError } = await serviceClient.rpc('dispatch_generation_workers_v2', {
-            p_max_dispatches: 1,
-          });
+          const { error: dispatchError } = await serviceClient.rpc(
+            useV3 ? 'dispatch_generation_workers_v3' : 'dispatch_generation_workers_v2',
+            { p_max_dispatches: 1 },
+          );
           if (dispatchError) {
             console.warn('[agent-authorized-action-v1] dispatch hint failed:', dispatchError);
           }

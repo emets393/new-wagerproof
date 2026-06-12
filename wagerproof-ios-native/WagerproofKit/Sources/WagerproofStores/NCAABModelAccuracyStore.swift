@@ -4,16 +4,18 @@ import Supabase
 import WagerproofModels
 import WagerproofServices
 
-/// NCAAB model accuracy store. Mirrors RN `hooks/useNCAABModelAccuracy.ts`.
-/// Joins today's games (`v_cbb_input_values` filtered by `game_date_et`),
-/// the latest `ncaab_predictions` run, edge-bucket accuracy
-/// (`ncaab_edge_accuracy_by_bucket`), and team logos
-/// (`ncaab_team_mapping`) — then computes per-bucket lookups for spread
-/// edge, moneyline probability, and O/U edge.
+/// NCAAB model-accuracy store. Reads the single
+/// `ncaab_todays_games_predictions_with_accuracy` view (same shape and
+/// decoder as the NBA `nba_todays_games_predictions_with_accuracy` view),
+/// replacing the old 4-table hand-join of `v_cbb_input_values` +
+/// `ncaab_predictions` + `ncaab_edge_accuracy_by_bucket` +
+/// `ncaab_team_mapping`. The view already resolves the latest run and the
+/// per-game edge buckets server-side.
 ///
-/// Backend queries are byte-identical to RN. The bucket keys use the same
-/// rounding rules: spread/OU round to nearest 0.5; ML rounds to nearest
-/// 0.05 (Math.round(max * 20) / 20).
+/// The view carries no team ids or logo columns, so ESPN logos and
+/// abbreviations are still resolved via `v_cbb_input_values` (game_id →
+/// team ids) + `ncaab_team_mapping` — both best-effort: a mapping failure
+/// degrades to initials, never to a load error.
 @Observable
 @MainActor
 public final class NCAABModelAccuracyStore {
@@ -46,147 +48,73 @@ public final class NCAABModelAccuracyStore {
         #endif
         loadState = .loading
         let cfb = await CFBSupabase.shared.client
-        let today = Self.todayET()
 
-        // Fire 4 queries in sequence (RN uses Promise.all but the Swift
-        // client is sequential per-call; ordering matches RN exactly so
-        // any error surfaces with the same precedence).
-        let inputGames: [InputRow]
+        let rows: [AccuracyRow]
         do {
-            inputGames = try await cfb
-                .from("v_cbb_input_values")
+            rows = try await cfb
+                .from("ncaab_todays_games_predictions_with_accuracy")
                 .select()
-                .eq("game_date_et", value: today)
-                .order("game_date_et", ascending: true)
+                .order("game_date", ascending: true)
                 .order("tipoff_time_et", ascending: true)
                 .execute()
                 .value
         } catch {
-            loadState = .failed("Games: \(error.localizedDescription)")
+            loadState = .failed("Failed to fetch NCAAB model accuracy")
             return
         }
 
-        let latestRun: LatestRunRow? = try? await cfb
-            .from("ncaab_predictions")
-            .select("run_id, as_of_ts_utc")
-            .order("as_of_ts_utc", ascending: false)
-            .limit(1)
-            .single()
-            .execute()
-            .value
-
-        let bucketRows: [BucketRow]
-        do {
-            bucketRows = try await cfb
-                .from("ncaab_edge_accuracy_by_bucket")
-                .select("edge_type, bucket, games, correct, accuracy_pct")
-                .execute()
-                .value
-        } catch {
-            loadState = .failed("Edge accuracy: \(error.localizedDescription)")
-            return
-        }
-
-        let mappingRows: [MappingRow] = (try? await cfb
-            .from("ncaab_team_mapping")
-            .select("api_team_id, espn_team_id, team_abbrev")
-            .execute()
-            .value) ?? []
-
-        // Build team map keyed by api_team_id.
-        var teamMap: [Int: (logoUrl: String, abbrev: String?)] = [:]
-        for row in mappingRows {
-            let espnId: Int? = {
-                if let n = row.espnTeamIdInt { return n }
-                if let s = row.espnTeamIdString, let parsed = Int(s) { return parsed }
-                return nil
-            }()
-            var logoUrl = ""
-            if let espnId {
-                logoUrl = "https://a.espncdn.com/i/teamlogos/ncaa/500/\(espnId).png"
-            }
-            teamMap[row.apiTeamId] = (logoUrl, row.teamAbbrev)
-        }
-
-        // Build bucket lookup table.
-        var bucketMap: [String: NCAABAccuracyBucket] = [:]
-        for row in bucketRows {
-            let key = "\(row.edgeType)|\(row.bucket)"
-            bucketMap[key] = NCAABAccuracyBucket(games: row.games, accuracyPct: row.accuracyPct)
-        }
-
-        if inputGames.isEmpty {
+        if rows.isEmpty {
             games = []
             loadState = .loaded
             return
         }
 
-        // Pull predictions for today's game ids using the latest run.
-        var predictionMap: [Int: PredictionRow] = [:]
-        if let latestRun {
-            let gameIds = inputGames.map { $0.gameId }
-            let preds: [PredictionRow] = (try? await cfb
-                .from("ncaab_predictions")
-                .select("game_id, home_win_prob, away_win_prob, pred_total_points, vegas_total, vegas_home_spread, model_fair_home_spread")
-                .eq("run_id", value: latestRun.runId)
-                .in("game_id", values: gameIds)
-                .execute()
-                .value) ?? []
-            for p in preds {
-                predictionMap[p.gameId] = p
-            }
-        }
+        let teamLookup = await fetchTeamLookup(gameIds: rows.map { $0.gameId })
 
-        let merged: [NCAABModelAccuracyGame] = inputGames.map { game in
-            let pred = predictionMap[game.gameId]
-            let vegasHomeSpread = pred?.vegasHomeSpread ?? game.spread
-            let modelFair = pred?.modelFairHomeSpread
+        let merged: [NCAABModelAccuracyGame] = rows.map { row in
             let homeSpreadDiff: Double? = {
-                guard let vegasHomeSpread, let modelFair else { return nil }
-                return vegasHomeSpread - modelFair
+                guard let vegas = row.vegasHomeSpread, let fair = row.modelFairHomeSpread else { return nil }
+                return vegas - fair
             }()
-            let vegasTotal = pred?.vegasTotal ?? game.overUnder
-            let predTotal = pred?.predTotalPoints
             let overLineDiff: Double? = {
-                guard let vegasTotal, let predTotal else { return nil }
-                return predTotal - vegasTotal
+                guard let vegas = row.vegasTotal, let pred = row.predTotalPoints else { return nil }
+                return pred - vegas
             }()
-            let homeWinProb = pred?.homeWinProb
-            let awayWinProb = pred?.awayWinProb
-            let mlBucketKey = Self.mlBucketKey(home: homeWinProb, away: awayWinProb)
+            // Prefer the view's explicit winner; fall back to comparing probs
+            // (the old hand-join's behavior) so the ML pick never blanks out.
             let mlPickIsHome: Bool? = {
-                guard let h = homeWinProb, let a = awayWinProb else { return nil }
-                return h >= a
+                switch row.modelMlWinner {
+                case "home": return true
+                case "away": return false
+                default:
+                    guard let h = row.homeWinProb, let a = row.awayWinProb else { return nil }
+                    return h >= a
+                }
             }()
-            let spreadBucketKey = Self.spreadBucketKey(homeSpreadDiff)
-            let ouBucketKey = Self.ouBucketKey(overLineDiff)
 
-            let awayMapping = teamMap[game.awayTeamId ?? -1]
-            let homeMapping = teamMap[game.homeTeamId ?? -1]
-            let awayAbbr = awayMapping?.abbrev ?? Self.initials(of: game.awayTeam ?? "")
-            let homeAbbr = homeMapping?.abbrev ?? Self.initials(of: game.homeTeam ?? "")
-
+            let awayInfo = teamLookup[row.gameId]?.away
+            let homeInfo = teamLookup[row.gameId]?.home
             return NCAABModelAccuracyGame(
-                gameId: game.gameId,
-                awayTeam: game.awayTeam ?? "",
-                homeTeam: game.homeTeam ?? "",
-                awayAbbr: awayAbbr,
-                homeAbbr: homeAbbr,
-                gameDate: game.gameDateEt ?? "",
-                tipoffTime: game.tipoffTimeEt,
-                homeSpread: vegasHomeSpread,
+                gameId: row.gameId,
+                awayTeam: row.awayTeam ?? "",
+                homeTeam: row.homeTeam ?? "",
+                awayAbbr: awayInfo?.abbrev ?? Self.initials(of: row.awayTeam ?? ""),
+                homeAbbr: homeInfo?.abbrev ?? Self.initials(of: row.homeTeam ?? ""),
+                gameDate: row.gameDate ?? "",
+                tipoffTime: row.tipoffTimeEt,
+                homeSpread: row.vegasHomeSpread,
                 homeSpreadDiff: homeSpreadDiff,
-                spreadAccuracy: Self.lookup(bucketMap, type: "SPREAD_EDGE", key: spreadBucketKey),
-                homeWinProb: homeWinProb,
-                awayWinProb: awayWinProb,
+                spreadAccuracy: Self.bucket(pct: row.spreadAccuracyPct, games: row.spreadBucketGames),
+                homeWinProb: row.homeWinProb,
+                awayWinProb: row.awayWinProb,
                 mlPickIsHome: mlPickIsHome,
-                mlPickProbRounded: mlBucketKey,
-                mlAccuracy: Self.lookup(bucketMap, type: "MONEYLINE_PROB", key: mlBucketKey),
-                overLine: vegasTotal,
+                mlPickProbRounded: row.mlBucket,
+                mlAccuracy: Self.bucket(pct: row.mlAccuracyPct, games: row.mlBucketGames),
+                overLine: row.vegasTotal,
                 overLineDiff: overLineDiff,
-                ouAccuracy: Self.lookup(bucketMap, type: "OU_EDGE", key: ouBucketKey),
-                awayTeamLogo: awayMapping?.logoUrl,
-                homeTeamLogo: homeMapping?.logoUrl
+                ouAccuracy: Self.bucket(pct: row.ouAccuracyPct, games: row.ouBucketGames),
+                awayTeamLogo: awayInfo?.logoUrl,
+                homeTeamLogo: homeInfo?.logoUrl
             )
         }
 
@@ -201,41 +129,59 @@ public final class NCAABModelAccuracyStore {
         games.first(where: { $0.gameId == gameId })
     }
 
-    // MARK: - Bucket helpers
+    // MARK: - Team logo/abbrev resolution
 
-    /// Round to nearest 0.5 (matches RN `roundToNearestHalf`).
-    private static func roundHalf(_ value: Double) -> Double {
-        (value * 2).rounded() / 2
+    private struct TeamInfo: Sendable {
+        let abbrev: String?
+        let logoUrl: String?
     }
 
-    private static func spreadBucketKey(_ diff: Double?) -> Double? {
-        guard let diff, !diff.isNaN else { return nil }
-        return roundHalf(abs(diff))
+    /// Best-effort per-game team lookup: the accuracy view exposes only team
+    /// NAMES, so we join `v_cbb_input_values` for the api team ids and
+    /// `ncaab_team_mapping` for ESPN logo ids + abbreviations.
+    private func fetchTeamLookup(gameIds: [Int]) async -> [Int: (away: TeamInfo?, home: TeamInfo?)] {
+        let cfb = await CFBSupabase.shared.client
+
+        let idRows: [InputIdRow] = (try? await cfb
+            .from("v_cbb_input_values")
+            .select("game_id, away_team_id, home_team_id")
+            .in("game_id", values: gameIds)
+            .execute()
+            .value) ?? []
+        if idRows.isEmpty { return [:] }
+
+        let mappingRows: [MappingRow] = (try? await cfb
+            .from("ncaab_team_mapping")
+            .select("api_team_id, espn_team_id, team_abbrev")
+            .execute()
+            .value) ?? []
+
+        var teamMap: [Int: TeamInfo] = [:]
+        for row in mappingRows {
+            let espnId: Int? = {
+                if let n = row.espnTeamIdInt { return n }
+                if let s = row.espnTeamIdString, let parsed = Int(s) { return parsed }
+                return nil
+            }()
+            let logoUrl = espnId.map { "https://a.espncdn.com/i/teamlogos/ncaa/500/\($0).png" }
+            teamMap[row.apiTeamId] = TeamInfo(abbrev: row.teamAbbrev, logoUrl: logoUrl)
+        }
+
+        var lookup: [Int: (away: TeamInfo?, home: TeamInfo?)] = [:]
+        for row in idRows {
+            lookup[row.gameId] = (
+                away: row.awayTeamId.flatMap { teamMap[$0] },
+                home: row.homeTeamId.flatMap { teamMap[$0] }
+            )
+        }
+        return lookup
     }
 
-    private static func ouBucketKey(_ diff: Double?) -> Double? {
-        guard let diff, !diff.isNaN else { return nil }
-        return roundHalf(diff)
-    }
+    // MARK: - Helpers
 
-    private static func mlBucketKey(home: Double?, away: Double?) -> Double? {
-        let h = (home?.isNaN == false ? home : 0) ?? 0
-        let a = (away?.isNaN == false ? away : 0) ?? 0
-        let m = max(h, a)
-        if m <= 0 { return nil }
-        return (m * 20).rounded() / 20
-    }
-
-    private static func lookup(_ map: [String: NCAABAccuracyBucket], type: String, key: Double?) -> NCAABAccuracyBucket? {
-        guard let key else { return nil }
-        // Key formatting matches RN — number → JS string coercion would
-        // produce "1.5" or "1" depending on trailing zero. Bucket values in
-        // the DB are stored as the raw decimal string, so we mirror that.
-        let formatted: String = {
-            if key == key.rounded() { return String(format: "%g", key) }
-            return String(format: "%g", key)
-        }()
-        return map["\(type)|\(formatted)"]
+    private static func bucket(pct: Double?, games: Int?) -> NCAABAccuracyBucket? {
+        guard let pct, let games else { return nil }
+        return NCAABAccuracyBucket(games: games, accuracyPct: pct)
     }
 
     private static func initials(of team: String) -> String {
@@ -245,14 +191,6 @@ public final class NCAABModelAccuracyStore {
             return String(words.prefix(2).map { $0.first ?? "?" })
         }
         return String(cleaned.prefix(3)).uppercased()
-    }
-
-    private static func todayET() -> String {
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_CA")
-        fmt.timeZone = TimeZone(identifier: "America/New_York")
-        fmt.dateFormat = "yyyy-MM-dd"
-        return fmt.string(from: Date())
     }
 
     private func sortGames(_ list: [NCAABModelAccuracyGame], mode: SortMode) -> [NCAABModelAccuracyGame] {
@@ -288,92 +226,61 @@ public final class NCAABModelAccuracyStore {
 
     // MARK: - Decoder structs
 
-    private struct InputRow: Decodable, Sendable {
+    /// One row of `ncaab_todays_games_predictions_with_accuracy` — column
+    /// parity with the NBA view verified 2026-06-10 (no rank columns).
+    private struct AccuracyRow: Decodable, Sendable {
         let gameId: Int
         let awayTeam: String?
         let homeTeam: String?
-        let awayTeamId: Int?
-        let homeTeamId: Int?
-        let gameDateEt: String?
+        let gameDate: String?
         let tipoffTimeEt: String?
-        let spread: Double?
-        let overUnder: Double?
+        let vegasHomeSpread: Double?
+        let vegasTotal: Double?
+        let modelFairHomeSpread: Double?
+        let predTotalPoints: Double?
+        let homeWinProb: Double?
+        let awayWinProb: Double?
+        let modelMlWinner: String?
+        let mlBucket: Double?
+        let spreadAccuracyPct: Double?
+        let spreadBucketGames: Int?
+        let ouAccuracyPct: Double?
+        let ouBucketGames: Int?
+        let mlAccuracyPct: Double?
+        let mlBucketGames: Int?
 
         enum CodingKeys: String, CodingKey {
             case gameId = "game_id"
             case awayTeam = "away_team"
             case homeTeam = "home_team"
-            case awayTeamId = "away_team_id"
-            case homeTeamId = "home_team_id"
-            case gameDateEt = "game_date_et"
+            case gameDate = "game_date"
             case tipoffTimeEt = "tipoff_time_et"
-            case spread
-            case overUnder = "over_under"
+            case vegasHomeSpread = "vegas_home_spread"
+            case vegasTotal = "vegas_total"
+            case modelFairHomeSpread = "model_fair_home_spread"
+            case predTotalPoints = "pred_total_points"
+            case homeWinProb = "home_win_prob"
+            case awayWinProb = "away_win_prob"
+            case modelMlWinner = "model_ml_winner"
+            case mlBucket = "ml_bucket"
+            case spreadAccuracyPct = "spread_accuracy_pct"
+            case spreadBucketGames = "spread_bucket_games"
+            case ouAccuracyPct = "ou_accuracy_pct"
+            case ouBucketGames = "ou_bucket_games"
+            case mlAccuracyPct = "ml_accuracy_pct"
+            case mlBucketGames = "ml_bucket_games"
         }
     }
 
-    private struct PredictionRow: Decodable, Sendable {
+    private struct InputIdRow: Decodable, Sendable {
         let gameId: Int
-        let homeWinProb: Double?
-        let awayWinProb: Double?
-        let predTotalPoints: Double?
-        let vegasTotal: Double?
-        let vegasHomeSpread: Double?
-        let modelFairHomeSpread: Double?
+        let awayTeamId: Int?
+        let homeTeamId: Int?
 
         enum CodingKeys: String, CodingKey {
             case gameId = "game_id"
-            case homeWinProb = "home_win_prob"
-            case awayWinProb = "away_win_prob"
-            case predTotalPoints = "pred_total_points"
-            case vegasTotal = "vegas_total"
-            case vegasHomeSpread = "vegas_home_spread"
-            case modelFairHomeSpread = "model_fair_home_spread"
-        }
-    }
-
-    private struct LatestRunRow: Decodable, Sendable {
-        let runId: String
-        let asOfTsUtc: String?
-        enum CodingKeys: String, CodingKey {
-            case runId = "run_id"
-            case asOfTsUtc = "as_of_ts_utc"
-        }
-    }
-
-    private struct BucketRow: Decodable, Sendable {
-        let edgeType: String
-        let bucket: String // stored as numeric but the lookup key is a string
-        let games: Int
-        let correct: Int?
-        let accuracyPct: Double
-
-        enum CodingKeys: String, CodingKey {
-            case edgeType = "edge_type"
-            case bucket
-            case games
-            case correct
-            case accuracyPct = "accuracy_pct"
-        }
-
-        init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            edgeType = try c.decode(String.self, forKey: .edgeType)
-            // bucket may be Number or String — coerce to canonical %g string.
-            if let n = try? c.decode(Double.self, forKey: .bucket) {
-                if n == n.rounded() {
-                    bucket = String(format: "%g", n)
-                } else {
-                    bucket = String(format: "%g", n)
-                }
-            } else if let s = try? c.decode(String.self, forKey: .bucket) {
-                bucket = s
-            } else {
-                bucket = ""
-            }
-            games = try c.decode(Int.self, forKey: .games)
-            correct = try? c.decode(Int.self, forKey: .correct)
-            accuracyPct = try c.decode(Double.self, forKey: .accuracyPct)
+            case awayTeamId = "away_team_id"
+            case homeTeamId = "home_team_id"
         }
     }
 
@@ -392,6 +299,7 @@ public final class NCAABModelAccuracyStore {
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             apiTeamId = try c.decode(Int.self, forKey: .apiTeamId)
+            // espn_team_id arrives as Int or String depending on the row.
             if let n = try? c.decode(Int.self, forKey: .espnTeamId) {
                 espnTeamIdInt = n
                 espnTeamIdString = nil

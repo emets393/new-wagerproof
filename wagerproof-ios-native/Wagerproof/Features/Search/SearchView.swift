@@ -71,9 +71,30 @@ struct SearchView: View {
     @Environment(NCAABGameSheetStore.self) private var ncaabSheetEnv: NCAABGameSheetStore?
     @Environment(MLBGameSheetStore.self) private var mlbSheetEnv: MLBGameSheetStore?
 
+    // Shell-hoisted MLB insight slates — drive the per-game insight chips and
+    // the Players results. Optional: without them the chips/players simply
+    // don't render (graceful degrade, same convention as the stores above).
+    @Environment(PropsStore.self) private var propsEnv: PropsStore?
+    @Environment(MLBBettingTrendsStore.self) private var mlbTrendsEnv: MLBBettingTrendsStore?
+    @Environment(MLBF5SplitsStore.self) private var mlbF5Env: MLBF5SplitsStore?
+
     @State private var store = SearchStore()
 
-    public init() {}
+    /// Player-prop detail pushed locally (Players row tap, props chip tap).
+    @State private var selectedProp: PlayerPropSelection?
+    @Namespace private var propNS
+    /// Expanded insight surface pushed locally (insight chip tap).
+    @State private var insightDestination: SearchInsightDestination?
+
+    /// `initialQuery` pre-seeds the search field — screenshot harness only.
+    init(initialQuery: String = "") {
+        let seeded = SearchStore()
+        if !initialQuery.isEmpty {
+            seeded.query = initialQuery
+            seeded.flushDebounce()
+        }
+        _store = State(initialValue: seeded)
+    }
 
     var body: some View {
         @Bindable var binding = store
@@ -96,13 +117,16 @@ struct SearchView: View {
                 prompt: "Search games, agents, alerts\u{2026}"
             )
             // Scope chips render in the system-provided slot just under the
-            // search field. We only show them when there's an active query
-            // — an empty query has nothing to scope, and a 5-chip row above
-            // the suggestions grid is visual noise.
-            .modifier(ScopedSearchModifier(
-                showScopes: !store.debouncedQuery.isEmpty,
-                scope: $binding.scope
-            ))
+            // search field. `.onTextEntry` shows them only while the field
+            // has text — an empty query has nothing to scope. Must be
+            // attached unconditionally: wrapping this in an if/else keyed on
+            // the query flips the view's structural identity on the first
+            // keystroke, which rebuilds the search field and drops focus.
+            .searchScopes($binding.scope, activation: .onTextEntry) {
+                ForEach(SearchStore.SearchScope.allCases, id: \.self) { s in
+                    Text(s.label).tag(s)
+                }
+            }
             .task {
                 // Wire the SearchStore to whatever upstream stores the tab
                 // shell injected. Safe to re-call if any env value changes
@@ -111,18 +135,44 @@ struct SearchView: View {
                     games: gamesEnv,
                     agents: agentsEnv,
                     outliers: outliersEnv,
-                    liveScores: liveScoresEnv
+                    liveScores: liveScoresEnv,
+                    props: propsEnv
                 )
+                // A harness-seeded query skips the keystroke hook below, so
+                // hydrate the insight slates here too (all TTL-idempotent).
+                if !store.debouncedQuery.isEmpty { hydrateInsightSources() }
+            }
+            .navigationDestination(item: $insightDestination) { dest in
+                insightDestinationView(dest)
+            }
+            .navigationDestination(item: $selectedProp) { selection in
+                PlayerPropDetailView(selection: selection)
+                    .navigationTransition(.zoom(sourceID: selection.transitionID, in: propNS))
             }
             .onChange(of: store.debouncedQuery) { _, newQuery in
                 // First real keystroke that produces a debounced query →
                 // fetch the public agents leaderboard so cross-user agent
-                // matches start surfacing. Idempotent; runs at most once
-                // per app session.
+                // matches start surfacing, plus the MLB insight slates that
+                // feed the matchup cards' chips. All idempotent/TTL-guarded.
                 if !newQuery.isEmpty {
                     Task { await store.loadPublicAgentsIfNeeded() }
+                    hydrateInsightSources()
                 }
             }
+        }
+    }
+
+    /// Lazily hydrate the slates behind the insight chips — fired on the
+    /// first non-empty query, not at shell mount (search may never be used).
+    private func hydrateInsightSources() {
+        if let trends = mlbTrendsEnv {
+            Task { await trends.refreshIfNeeded() }
+        }
+        if let f5 = mlbF5Env {
+            Task { await f5.refreshIfStale() }
+        }
+        if let props = propsEnv {
+            Task { await props.refreshMLB() }
         }
     }
 
@@ -133,6 +183,8 @@ struct SearchView: View {
     /// surface never looks barren.
     @ViewBuilder
     private var emptyStateSections: some View {
+        exploreCardsSection
+
         if !store.recentQueries.isEmpty {
             Section {
                 ForEach(store.recentQueries, id: \.self) { recent in
@@ -209,6 +261,82 @@ struct SearchView: View {
         }
     }
 
+    /// Explore rail — animated feature cards for the app's browsable sections
+    /// and tools (see SearchToolCards.swift for the looping graphics) in a
+    /// horizontal scroller with view-aligned snapping. Fixed card width keeps
+    /// ~2 cards visible with the next one peeking in from the trailing edge.
+    private var exploreCardsSection: some View {
+        Section {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 12) {
+                SearchToolCard(
+                    title: "Props",
+                    subtitle: "Player prop matchups",
+                    action: {
+                        store.commitCurrentQueryToRecents()
+                        tabStore.select(.props)
+                    }
+                ) {
+                    AngledStatSheetGraphic(rows: [
+                        ("figure.baseball", "Judge O 1.5 total bases"),
+                        ("target", "Has 4 hits in last 10"),
+                        ("flame.fill", "8+ K's in 3 straight"),
+                        ("baseball.fill", "Ohtani O 0.5 HR +320"),
+                        ("chart.bar.fill", "Hits prop cashing 70%"),
+                        ("bolt.fill", "Skenes 7+ K streak"),
+                    ], startDelay: 0.8)
+                }
+                .frame(width: Self.exploreCardWidth)
+
+                SearchToolCard(
+                    title: "Agents",
+                    subtitle: "Top performing AI experts",
+                    action: {
+                        store.commitCurrentQueryToRecents()
+                        tabStore.select(.agents)
+                    }
+                ) {
+                    StackedStatCardsGraphic(items: [
+                        ("100%", "10/10"),
+                        ("+12.4u", "Last 30"),
+                        ("73%", "ATS picks"),
+                        ("58-31", "Season"),
+                    ], startDelay: 0.4)
+                }
+                .frame(width: Self.exploreCardWidth)
+
+                SearchToolCard(
+                    title: "Outliers",
+                    subtitle: "Value & fade alerts",
+                    action: {
+                        store.commitCurrentQueryToRecents()
+                        tabStore.select(.outliers)
+                    }
+                ) { RadarSweepGraphic() }
+                .frame(width: Self.exploreCardWidth)
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.viewAligned)
+            // The insetGrouped List keeps ~16pt section margins no matter
+            // what the row insets say. Disabling the scroll clip lets cards
+            // draw across those margins to the physical screen edges while
+            // scrolling; at rest they snap to the section margin (16pt
+            // gutter), which doubles as the design's resting inset.
+            .scrollClipDisabled()
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        } header: {
+            Text("Explore").textCase(.uppercase)
+        }
+    }
+
+    /// Width of one explore card — sized so two cards show on a 393pt screen
+    /// with the third peeking ~30pt in from the trailing edge to invite the
+    /// scroll.
+    private static let exploreCardWidth: CGFloat = 158
+
     /// Horizontal row of one-tap sport pills — pre-seeds the search field
     /// with the sport's label so the user can drill into "NBA" without
     /// typing it. Each pill is a button rather than a NavigationLink so the
@@ -265,13 +393,49 @@ struct SearchView: View {
             if showsScope(.games) && !store.gameResults.isEmpty {
                 Section(header: sectionHeader("Games", count: store.gameResults.count)) {
                     ForEach(store.gameResults) { result in
-                        SearchResultRow(
-                            icon: "trophy.fill",
-                            tint: Color.appPrimary,
-                            primary: "\(result.awayTeam) @ \(result.homeTeam)",
-                            secondary: gameSecondary(result),
-                            onTap: { openGame(result) }
-                        )
+                        // MLB (in season) gets the rich matchup card with the
+                        // insight-chip rail; other sports keep the plain row —
+                        // zero regression while their chips are deferred.
+                        if result.sport == .mlb, let gamePk = mlbGamePk(for: result) {
+                            SearchMatchupCard(
+                                result: result,
+                                teasers: insightTeasers(for: result, gamePk: gamePk),
+                                loadingKinds: insightLoadingKinds(gamePk: gamePk),
+                                onOpenGame: { openGame(result) },
+                                onOpenInsight: { kind in openInsight(kind, gamePk: gamePk) }
+                            )
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                        } else {
+                            SearchResultRow(
+                                icon: "trophy.fill",
+                                tint: Color.appPrimary,
+                                primary: "\(result.awayTeam) @ \(result.homeTeam)",
+                                secondary: gameSecondary(result),
+                                onTap: { openGame(result) }
+                            )
+                        }
+                    }
+                }
+            }
+            if showsScope(.players) {
+                let players = store.playerResults.compactMap { player in
+                    propItem(for: player).map { (player: player, item: $0) }
+                }
+                if !players.isEmpty {
+                    Section(header: sectionHeader("Players", count: players.count)) {
+                        ForEach(players, id: \.player.id) { entry in
+                            PropPlayerCard(item: entry.item, namespace: propNS) { selection in
+                                store.commitCurrentQueryToRecents()
+                                selectedProp = selection
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                        }
                     }
                 }
             }
@@ -484,6 +648,134 @@ struct SearchView: View {
         // game card and taps to drill in.
     }
 
+    // MARK: - MLB insight chips (matchup cards)
+
+    /// Resolve the typed MLB game for a search result — chips key off gamePk.
+    private func mlbGamePk(for result: SearchStore.SearchResult.Game) -> Int? {
+        gamesEnv?.games.mlb.first(where: { $0.id == result.resolvedId })?.gamePk
+    }
+
+    /// Teasers computed from the Kit insight adapters over the env slates.
+    /// Absent kind (slate loaded, game missing) = chip hidden; SwiftUI
+    /// observation re-renders the chips as the stores land.
+    private func insightTeasers(for result: SearchStore.SearchResult.Game, gamePk: Int) -> [InsightTeaser] {
+        var out: [InsightTeaser] = []
+        if let trends = mlbTrendsEnv?.trends(for: gamePk) {
+            out.append(MLBTrendsInsight.teaser(for: trends, matchedAbbr: result.matchedAbbr))
+        }
+        if let matchup = mlbF5Env?.matchup(for: gamePk),
+           let teaser = MLBF5Insight.teaser(for: matchup, matchedAbbr: result.matchedAbbr) {
+            out.append(teaser)
+        }
+        if let matchup = propsEnv?.matchup(for: gamePk),
+           let teaser = MLBPropsInsight.teaser(for: matchup) {
+            out.append(teaser)
+        }
+        return out
+    }
+
+    /// First-hydrate shimmer chips — only while a slate has never loaded.
+    private func insightLoadingKinds(gamePk: Int) -> Set<InsightTeaser.Kind> {
+        var kinds: Set<InsightTeaser.Kind> = []
+        if let trends = mlbTrendsEnv, trends.loading, trends.lastFetched == nil { kinds.insert(.trends) }
+        if let f5 = mlbF5Env, f5.isLoading, f5.lastFetched == nil { kinds.insert(.f5) }
+        if let props = propsEnv, props.isLoadingMLB, !props.hasLoadedMLB { kinds.insert(.props) }
+        return kinds
+    }
+
+    /// Insight chips push their expanded surface LOCALLY in Search's stack
+    /// (only the matchup header row does the cross-tab handoff).
+    private func openInsight(_ kind: InsightTeaser.Kind, gamePk: Int) {
+        store.commitCurrentQueryToRecents()
+        switch kind {
+        case .trends:
+            insightDestination = SearchInsightDestination(kind: .trends(gamePk: gamePk))
+        case .f5:
+            insightDestination = SearchInsightDestination(kind: .f5(gamePk: gamePk))
+        case .props:
+            // One unambiguous hot play (≥70% L10) goes straight to that
+            // player's detail page; otherwise the full list.
+            if let matchup = propsEnv?.matchup(for: gamePk) {
+                let hot = PlayerPropFeed.items(from: [matchup]).filter {
+                    $0.headline.computed.l10.games > 0 && ($0.headline.computed.l10.pct ?? 0) >= 70
+                }
+                if hot.count == 1, let only = hot.first {
+                    selectedProp = only.selection
+                    return
+                }
+            }
+            insightDestination = SearchInsightDestination(kind: .propsList(gamePk: gamePk))
+        }
+    }
+
+    /// Resolve a Player result's app-target feed item at render time (Kit
+    /// only returns ids — `PlayerPropSelection` lives in the app target).
+    private func propItem(for player: SearchStore.SearchResult.Player) -> PlayerPropFeedItem? {
+        guard let matchup = propsEnv?.matchup(for: player.gamePk) else { return nil }
+        return PlayerPropFeed.items(from: [matchup]).first { $0.selection.playerId == player.playerId }
+    }
+
+    @ViewBuilder
+    private func insightDestinationView(_ dest: SearchInsightDestination) -> some View {
+        switch dest.kind {
+        case .trends(let gamePk):
+            if let trends = mlbTrendsEnv?.trends(for: gamePk) {
+                BettingTrendsDetailSheet(
+                    awayName: trends.awayTeam.teamName,
+                    homeName: trends.homeTeam.teamName,
+                    timeDisplay: MLBTrendsMatrixAdapter.timeDisplay(for: trends),
+                    stripeColors: MLBTrendsMatrixAdapter.stripeColors(for: trends),
+                    accent: MLBTrendsMatrixAdapter.accent,
+                    sections: MLBTrendsMatrixAdapter.sections(for: trends),
+                    guide: .mlb,
+                    avatar: MLBTrendsMatrixAdapter.avatarProvider(for: trends),
+                    onViewMatchup: mlbMatchupHandoff(gamePk: gamePk)
+                )
+            } else {
+                insightUnavailable
+            }
+        case .f5(let gamePk):
+            if let matchup = mlbF5Env?.matchup(for: gamePk) {
+                F5SplitsDetailSheet(matchup: matchup)
+            } else {
+                insightUnavailable
+            }
+        case .propsList(let gamePk):
+            if let matchup = propsEnv?.matchup(for: gamePk) {
+                ScrollView {
+                    MatchupPropsListBody(matchup: matchup, zoomNamespace: propNS) { selectedProp = $0 }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 32)
+                }
+                .background(Color.appSurface)
+                .navigationTitle("\(matchup.awayAbbr) @ \(matchup.homeAbbr) Props")
+                .navigationBarTitleDisplayMode(.inline)
+            } else {
+                insightUnavailable
+            }
+        }
+    }
+
+    private var insightUnavailable: some View {
+        ContentUnavailableView(
+            "Not available",
+            systemImage: "chart.bar",
+            description: Text("This data isn't loaded right now. Pull the source tab to refresh and try again.")
+        )
+    }
+
+    /// Game-page handoff for the trends detail's "View matchup" button —
+    /// ported from the retired MLBBettingTrendsView.matchupAction. nil (game
+    /// not in the Games cache) hides the button instead of dead-ending.
+    private func mlbMatchupHandoff(gamePk: Int) -> (() -> Void)? {
+        guard let game = gamesEnv?.games.mlb.first(where: { $0.gamePk == gamePk }) else { return nil }
+        return {
+            insightDestination = nil
+            tabStore.select(.games)
+            mlbSheetEnv?.openGameSheet(game)
+        }
+    }
+
     private func activate(_ entry: BrowseEntry) {
         store.commitCurrentQueryToRecents()
         switch entry {
@@ -495,6 +787,18 @@ struct SearchView: View {
             tabStore.select(.scoreboard)
         }
     }
+}
+
+/// Which expanded insight surface an insight chip pushes (locally, inside
+/// Search's own NavigationStack — the Angles-card precedent).
+struct SearchInsightDestination: Identifiable, Hashable {
+    enum Kind: Hashable {
+        case trends(gamePk: Int)
+        case f5(gamePk: Int)
+        case propsList(gamePk: Int)
+    }
+    let kind: Kind
+    var id: Kind { kind }
 }
 
 // MARK: - Browse entries
@@ -537,29 +841,6 @@ private enum BrowseEntry: CaseIterable, Hashable {
         case .trendingAgents: return "Browse the leaderboard"
         case .topOutliers: return "Value & fade alerts"
         case .liveGames: return "Current scoreboard"
-        }
-    }
-}
-
-// MARK: - Scope chips modifier
-
-/// Wraps the `.searchScopes` modifier so we only attach it when there's an
-/// active query. Attaching `.searchScopes` unconditionally would show the
-/// segmented bar even with an empty query (compressing the empty-state
-/// surface above), which doesn't match the system Spotlight pattern.
-private struct ScopedSearchModifier: ViewModifier {
-    let showScopes: Bool
-    @Binding var scope: SearchStore.SearchScope
-
-    func body(content: Content) -> some View {
-        if showScopes {
-            content.searchScopes($scope) {
-                ForEach(SearchStore.SearchScope.allCases, id: \.self) { s in
-                    Text(s.label).tag(s)
-                }
-            }
-        } else {
-            content
         }
     }
 }

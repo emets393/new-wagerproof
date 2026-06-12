@@ -20,24 +20,21 @@ public final class MLBBettingTrendsStore {
     public private(set) var errorMessage: String?
     public private(set) var lastFetched: Date?
 
-    public var sortMode: MLBTrendsSortMode = .time {
-        didSet {
-            if oldValue != sortMode {
-                games = Self.sortGames(games, mode: sortMode)
-            }
-        }
-    }
-
-    public var selectedGame: MLBGameTrends?
-
     public init() {}
 
-    public func openTrendsSheet(_ game: MLBGameTrends) {
-        selectedGame = game
+    /// Per-game lookup for the MLB game-sheet widget. Mirrors the cached
+    /// `trends(for:)` helpers on the NBA/NCAAB sibling stores.
+    public func trends(for gamePk: Int) -> MLBGameTrends? {
+        games.first(where: { $0.gamePk == gamePk })
     }
 
-    public func closeTrendsSheet() {
-        selectedGame = nil
+    /// Idempotent hydrate for sheet-local stores — skips the network while a
+    /// fetch is in flight or when the slate is fresh, so swiping through the
+    /// game carousel doesn't refetch the whole trends view per page.
+    public func refreshIfNeeded(maxAge: TimeInterval = 600) async {
+        if loading { return }
+        if let lastFetched, Date().timeIntervalSince(lastFetched) < maxAge { return }
+        await refresh()
     }
 
     public func refresh() async {
@@ -134,7 +131,7 @@ public final class MLBBettingTrendsStore {
                 return c
             }
 
-            games = Self.sortGames(combined, mode: sortMode)
+            games = Self.sortGames(combined, mode: .time)
             lastFetched = Date()
         }
     }
@@ -224,9 +221,8 @@ public final class MLBBettingTrendsStore {
     }
 
     #if DEBUG
-    public func debugSet(games: [MLBGameTrends], selected: MLBGameTrends? = nil) {
+    public func debugSet(games: [MLBGameTrends]) {
         self.games = games
-        self.selectedGame = selected
         self.lastFetched = Date()
     }
     #endif

@@ -30,25 +30,16 @@ public final class NBABettingTrendsStore {
 
     public private(set) var games: [NBAGameTrendsData] = []
     public private(set) var loadState: LoadState = .idle
-    public var sortMode: SortMode = .time {
-        didSet { games = sortGames(games, mode: sortMode) }
-    }
-    /// Sheet-presentation state for the per-game trends detail.
-    public var selectedGame: NBAGameTrendsData?
+    /// Set on every successful refresh (including the DummyData branch).
+    /// Drives both the TTL guard below and the game sheets' first-hydrate
+    /// skeleton rule (`loading && lastFetched == nil`).
+    public private(set) var lastFetched: Date?
 
     private let minGamesThreshold: Int = 5
     private let minPercentage: Double = 55
     private let minATSDifference: Double = 10
 
     public init() {}
-
-    public func openTrendsSheet(_ game: NBAGameTrendsData) {
-        selectedGame = game
-    }
-
-    public func closeTrendsSheet() {
-        selectedGame = nil
-    }
 
     /// Lookup a single game by id. Mirrors RN's
     /// `useNBABettingTrendsForGame(gameId)` which reads from the same
@@ -57,13 +48,24 @@ public final class NBABettingTrendsStore {
         games.first(where: { $0.gameId == gameId })
     }
 
+    /// Idempotent hydrate for sheet-local stores — skips the network while a
+    /// fetch is in flight or the slate is fresh, so swiping through the game
+    /// carousel doesn't refetch the whole trends view per page. Mirrors
+    /// `MLBBettingTrendsStore.refreshIfNeeded`.
+    public func refreshIfNeeded(maxAge: TimeInterval = 600) async {
+        if loadState == .loading || loadState == .refreshing { return }
+        if let lastFetched, Date().timeIntervalSince(lastFetched) < maxAge { return }
+        await refresh()
+    }
+
     public func refresh() async {
         #if DEBUG
         // Dummy Data Mode: synthesized situational trends keyed to the captured
         // NBA slate so the per-game betting-trends widget populates offseason.
         if DummyDataMode.isEnabled {
-            games = sortGames(DummyData.nbaTrendsData(), mode: sortMode)
+            games = sortGames(DummyData.nbaTrendsData(), mode: .time)
             loadState = .loaded
+            lastFetched = Date()
             return
         }
         #endif
@@ -100,6 +102,7 @@ public final class NBABettingTrendsStore {
         if trendsRows.isEmpty {
             games = []
             loadState = .loaded
+            lastFetched = Date()
             return
         }
 
@@ -151,8 +154,9 @@ public final class NBABettingTrendsStore {
             }
         }
 
-        games = sortGames(built, mode: sortMode)
+        games = sortGames(built, mode: .time)
         loadState = .loaded
+        lastFetched = Date()
     }
 
     // MARK: - Sort scoring (mirrors RN logic byte-for-byte)
@@ -257,6 +261,7 @@ public final class NBABettingTrendsStore {
     public func debugSet(_ list: [NBAGameTrendsData], state: LoadState = .loaded) {
         self.games = list
         self.loadState = state
+        self.lastFetched = Date()
     }
     #endif
 }

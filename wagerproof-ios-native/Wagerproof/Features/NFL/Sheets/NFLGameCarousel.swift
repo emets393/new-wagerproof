@@ -27,8 +27,8 @@ struct NFLGameCarousel: View {
             },
             chip: { game, isCurrent in
                 CarouselMatchupChip(
-                    awayAbbr: TeamInitials.from(game.awayTeam),
-                    homeAbbr: TeamInitials.from(game.homeTeam),
+                    awayAbbr: NFLTeamAssets.abbr(for: game.awayTeam),
+                    homeAbbr: NFLTeamAssets.abbr(for: game.homeTeam),
                     isCurrent: isCurrent
                 ) {
                     GameCardTeamAvatar(teamName: game.awayTeam, sport: "nfl", size: 18, colors: NFLTeamColors.colorPair(for: game.awayTeam))

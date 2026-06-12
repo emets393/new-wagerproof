@@ -18,10 +18,10 @@ import { tool as getGameDetail } from "./get_game_detail.ts";
 import { tool as searchGames } from "./search_games.ts";
 import { tool as getEditorPicks } from "./get_editor_picks.ts";
 import { tool as suggestFollowUps } from "./suggest_follow_ups.ts";
-import { tool as presentAnalysis } from "./present_analysis.ts";
 import { tool as presentComponents } from "./present_components.ts";
 import { tool as getMyAgents } from "./get_my_agents.ts";
 import { tool as getAgentPicks } from "./get_agent_picks.ts";
+import { tool as getMlbPlayerProps } from "./get_mlb_player_props.ts";
 
 export interface ToolContext {
   /** Main Supabase client (user data, Polymarket, editor picks). */
@@ -59,10 +59,14 @@ const ALL_TOOLS: Record<string, ToolDefinition> = {
   [searchGames.name]: searchGames,
   [getEditorPicks.name]: getEditorPicks,
   [suggestFollowUps.name]: suggestFollowUps,
-  [presentAnalysis.name]: presentAnalysis,
+  // present_analysis (legacy V1 widgets) is deliberately NOT registered here:
+  // both tools say "REQUIRED" in their descriptions, and models pick the legacy
+  // one over present_components (raw ISO times, k/v rows). The file stays as a
+  // verbatim copy of wagerbot-chat's; this V2 chat renders app_components only.
   [presentComponents.name]: presentComponents,
   [getMyAgents.name]: getMyAgents,
   [getAgentPicks.name]: getAgentPicks,
+  [getMlbPlayerProps.name]: getMlbPlayerProps,
 };
 
 /** Get all tool definitions for the agent config. */

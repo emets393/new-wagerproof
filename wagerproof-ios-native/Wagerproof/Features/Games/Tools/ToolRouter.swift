@@ -9,14 +9,9 @@ enum ToolRouter {
     @ViewBuilder
     static func leafView(for category: OutliersStore.Category) -> some View {
         switch category {
-        case .nbaTrends:          NBABettingTrendsView()
-        case .ncaabTrends:        NCAABBettingTrendsView()
-        case .mlbTrends:          MLBBettingTrendsView()
         case .nbaAccuracy:        NBAModelAccuracyView()
         case .ncaabAccuracy:      NCAABModelAccuracyView()
-        case .mlbRegression:      MLBRegressionReportView()
-        case .mlbF5Splits:        MLBF5SplitsView()
-        case .mlbPitcherMatchups: MLBPitcherMatchupsView()
+        case .mlbRegression:      MlbRegressionReportView()
         case .value, .fade:       EmptyView()
         }
     }

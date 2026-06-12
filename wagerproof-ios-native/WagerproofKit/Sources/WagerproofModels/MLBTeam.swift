@@ -345,6 +345,43 @@ public enum MLBTrendsSortMode: String, CaseIterable, Sendable {
     case time, ouConsensus, mlDominance
 }
 
+/// Convert an encoded MLB situation tag into its display label. Mirrors RN
+/// `formatMLBSituation` (`types/mlbBettingTrends.ts`) — the shared map plus
+/// the MLB-only home/rest/league/division entries; unknown tags fall back to
+/// title-cased words, nil to an em dash.
+public func formatMLBSituation(_ situation: String?) -> String {
+    guard let situation, !situation.isEmpty else { return "—" }
+    let map: [String: String] = [
+        "is_after_loss": "After Loss",
+        "is_after_win": "After Win",
+        "is_fav": "Favorite",
+        "is_dog": "Underdog",
+        "is_home_fav": "Home Favorite",
+        "is_away_fav": "Away Favorite",
+        "is_home_dog": "Home Underdog",
+        "is_away_dog": "Away Underdog",
+        "one_day_off": "1 Day Off",
+        "two_three_days_off": "2-3 Days Off",
+        "four_plus_days_off": "4+ Days Off",
+        "rest_advantage": "Rest Advantage",
+        "rest_disadvantage": "Rest Disadvantage",
+        "rest_equal": "Equal Rest",
+        "is_home": "Home",
+        "is_away": "Away",
+        "no_rest": "No Rest",
+        "equal_rest": "Equal Rest",
+        "non_league": "Non-League",
+        "non_division": "Non-Division",
+        "league": "League",
+        "division": "Division"
+    ]
+    if let mapped = map[situation] { return mapped }
+    return situation.replacingOccurrences(of: "_", with: " ")
+        .split(separator: " ")
+        .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+        .joined(separator: " ")
+}
+
 // MARK: - Bucket accuracy
 
 /// One row from `mlb_model_bucket_accuracy`. Mirrors RN `BucketAccuracyRow`.
@@ -713,6 +750,9 @@ public struct MLBSuggestedPick: Codable, Hashable, Sendable, Identifiable {
     public let awaySp: String?
     public let firstSuggestedAt: String?
     public let locked: Bool?
+    /// hammer | ps | lean | watch — drives the tier badge + accent color.
+    public let perfectStormTier: String?
+    public let isDoubleheader: Bool?
 
     enum CodingKeys: String, CodingKey {
         case gamePk = "game_pk"
@@ -736,6 +776,8 @@ public struct MLBSuggestedPick: Codable, Hashable, Sendable, Identifiable {
         case awaySp = "away_sp"
         case firstSuggestedAt = "first_suggested_at"
         case locked
+        case perfectStormTier = "perfect_storm_tier"
+        case isDoubleheader = "is_doubleheader"
     }
 }
 

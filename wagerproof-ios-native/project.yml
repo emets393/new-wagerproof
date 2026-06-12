@@ -34,7 +34,9 @@ packages:
     from: 2.0.0
   RevenueCat:
     url: https://github.com/RevenueCat/purchases-ios
-    from: 5.0.0
+    # 5.78.0+: older releases fail under Xcode 26 / Swift 6.2 (PaywallColor
+    # synthesized memberwise init collision)
+    from: 5.78.0
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: 7.0.0

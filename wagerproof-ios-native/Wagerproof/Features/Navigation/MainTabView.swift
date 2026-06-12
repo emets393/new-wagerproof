@@ -54,6 +54,11 @@ struct MainTabView: View {
     // game-detail "Player Props" widget read the same player-prop slate (one
     // fetch, shared 5-min cache) and link to the same detail pages.
     @State private var propsStore = PropsStore()
+    // MLB trends + F5 slates live at the shell so the game-detail widgets and
+    // SearchView's insight chips share one fetch. NOT eagerly hydrated —
+    // sheets/carousel/search hydrate lazily via TTL-guarded calls.
+    @State private var mlbTrendsStore = MLBBettingTrendsStore()
+    @State private var mlbF5Store = MLBF5SplitsStore()
 
     /// Production callers use the default initializer. The screenshot harness
     /// can pass a starting tab + an optional pre-opened side menu so reviewer
@@ -63,6 +68,21 @@ struct MainTabView: View {
         store.select(initialTab)
         if openSideMenu { store.isSideMenuPresented = true }
         _tabStore = State(initialValue: store)
+        #if DEBUG
+        // Harness hooks: `-propsSport nfl` / `-gamesSport nfl` land the Props
+        // and Games tabs on a specific sport segment (same family as `-tab` /
+        // `-showSideMenu`) — there's no tap automation in the screenshot
+        // pipeline to switch segments post-launch.
+        let args = ProcessInfo.processInfo.arguments
+        if let idx = args.firstIndex(of: "-propsSport"), idx + 1 < args.count,
+           let sport = PropsStore.Sport(rawValue: args[idx + 1].lowercased()) {
+            propsStore.selectedSport = sport
+        }
+        if let idx = args.firstIndex(of: "-gamesSport"), idx + 1 < args.count,
+           let sport = GamesStore.Sport(rawValue: args[idx + 1].lowercased()) {
+            gamesStore.selectedSport = sport
+        }
+        #endif
     }
 
     var body: some View {
@@ -86,10 +106,17 @@ struct MainTabView: View {
 
             // Detached search role (iOS 18+). On iOS 26 this renders as a
             // standalone pill outside the bar; on 18.x it falls back to a
-            // fifth tab cell. Needs a `value:` because `TabView(selection:)`
-            // requires every `Tab` to share a value type. SearchView owns
-            // its own NavigationStack and calls back into the tab shell via
-            // the env-injected `MainTabStore` to switch tabs / open detail
+            // fifth tab cell. On iOS 27 this tab gets the detached
+            // trailing-edge "prominent" circle, but ONLY in combination with
+            // `.tabViewSearchActivation(.searchTabSelection)` below — see
+            // UITabBarController.prominentTabIdentifier header docs: the
+            // search tab is prominent-by-default only when selecting it
+            // auto-activates search. Don't use `role: .prominent` here: it
+            // drops the search semantics (no field-morph transition).
+            // Needs a `value:` because `TabView(selection:)` requires every
+            // `Tab` to share a value type. SearchView owns its own
+            // NavigationStack and calls back into the tab shell via the
+            // env-injected `MainTabStore` to switch tabs / open detail
             // sheets on result tap.
             Tab(value: MainTabStore.Tab.search, role: .search) {
                 SearchView()
@@ -102,9 +129,17 @@ struct MainTabView: View {
         // a tab's content, expanding again on scroll up (iOS 26 Liquid Glass
         // behavior). No-op on earlier OSes.
         .tabBarMinimizeOnScroll()
+        // Activate search the moment the search tab is selected (and restore
+        // the previous tab on cancel). On iOS 27 this is also what earns the
+        // search tab the detached prominent circle at the trailing edge —
+        // verified on the 27.0 beta sim; without it the search tab renders
+        // merged into the bar.
+        .searchActivationOnTabSelection()
         .environment(tabStore)
         .environment(gamesStore)
         .environment(propsStore)
+        .environment(mlbTrendsStore)
+        .environment(mlbF5Store)
         .environment(nflSheetStore)
         .environment(cfbSheetStore)
         .environment(nbaSheetStore)
@@ -239,6 +274,18 @@ private extension View {
     func tabBarMinimizeOnScroll() -> some View {
         if #available(iOS 26.0, *) {
             self.tabBarMinimizeBehavior(.onScrollDown)
+        } else {
+            self
+        }
+    }
+
+    /// iOS 26's `tabViewSearchActivation(.searchTabSelection)` — the SwiftUI
+    /// counterpart of `UISearchTab.automaticallyActivatesSearch`. No-op on
+    /// earlier OSes so we stay buildable against the iOS 18 floor.
+    @ViewBuilder
+    func searchActivationOnTabSelection() -> some View {
+        if #available(iOS 26.0, *) {
+            self.tabViewSearchActivation(.searchTabSelection)
         } else {
             self
         }

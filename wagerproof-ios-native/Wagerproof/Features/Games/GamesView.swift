@@ -17,11 +17,25 @@ struct GamesView: View {
     // matchups, SearchView results) drive game detail pushes via the same
     // shared instances.
     @Environment(GamesStore.self) private var store
+    // Re-injected explicitly into the Settings navigationDestination so iOS 18+
+    // configurePreferredTransition can resolve them before the nav environment
+    // chain is established. See MainTabToolbar.wagerProofSettingsDestination.
+    @Environment(AuthStore.self) private var auth
+    @Environment(SettingsStore.self) private var settingsStore
+    @Environment(RevenueCatStore.self) private var revenueCat
+    @Environment(AdminModeStore.self) private var adminMode
+    @Environment(ProAccessStore.self) private var proAccess
     @Environment(NFLGameSheetStore.self) private var nflSheetStore
     @Environment(CFBGameSheetStore.self) private var cfbSheetStore
     @Environment(NBAGameSheetStore.self) private var nbaSheetStore
     @Environment(NCAABGameSheetStore.self) private var ncaabSheetStore
     @Environment(MLBGameSheetStore.self) private var mlbSheetStore
+    // Shell-hoisted MLB insight slates — handed to the MLB carousel so every
+    // detail page (and SearchView) shares one trends/F5 fetch. Optional so
+    // preview/harness mounts without the shell still render (the carousel
+    // falls back to its own local stores).
+    @Environment(MLBBettingTrendsStore.self) private var mlbTrendsStore: MLBBettingTrendsStore?
+    @Environment(MLBF5SplitsStore.self) private var mlbF5Store: MLBF5SplitsStore?
     @State private var sortMenuVisible: Bool = false
     /// Drives the push to a per-sport analytics tool page (banner tap). New
     /// payload type, so it doesn't collide with the game-detail `item:`
@@ -124,14 +138,19 @@ struct GamesView: View {
             .navigationDestination(item: $mlbSheet.selectedGame) { game in
                 // MLB detail is a swipeable carousel of the sport's sorted slate,
                 // starting at the tapped game.
-                MLBGameCarousel(games: store.sortedMLB(), initialGame: game) {
+                MLBGameCarousel(
+                    games: store.sortedMLB(),
+                    initialGame: game,
+                    trendsStore: mlbTrendsStore,
+                    f5Store: mlbF5Store
+                ) {
                     mlbSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "mlb-\(game.id)", in: cardTransition))
             }
             // Settings pushes onto this stack (tapping the trailing gear) instead
             // of covering the screen as a modal — see MainTabToolbar.swift.
-            .wagerProofSettingsDestination(tabStore: tabStore, tab: .games)
+            .wagerProofSettingsDestination(tabStore: tabStore, tab: .games, auth: auth, settingsStore: settingsStore, revenueCat: revenueCat, adminMode: adminMode, proAccess: proAccess)
             // WagerBot chat pushes onto this stack (sparkles toolbar icon) as a
             // real page instead of a bottom sheet — see MainTabToolbar.swift.
             .wagerProofChatDestination(tabStore: tabStore, tab: .games)
@@ -143,8 +162,7 @@ struct GamesView: View {
             }
             .animation(.appQuick, value: store.selectedSport)
             // Reset the tool carousel to the first page when the sport changes
-            // so a higher index (e.g. MLB's 4th tool) can't carry into a sport
-            // with fewer tools.
+            // so a stale page index can't carry into a sport with fewer tools.
             .onChange(of: store.selectedSport) { _, _ in toolPage = 0 }
         }
     }
@@ -264,7 +282,7 @@ struct GamesView: View {
     private var sportPicker: some View {
         @Bindable var binding = store
         Picker("Sport", selection: $binding.selectedSport) {
-            ForEach(GamesStore.Sport.allCases) { sport in
+            ForEach(GamesStore.Sport.displayOrder()) { sport in
                 Text(sport.label).tag(sport)
             }
         }

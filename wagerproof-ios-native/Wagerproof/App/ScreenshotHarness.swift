@@ -20,15 +20,35 @@ import WagerproofStores
 /// settings`) to land on a specific tab inside `mainTabs`. The harness
 /// applies this on first appear via the shared `RootRouter` deep-link buffer
 /// so `MainTabView` can consume it through its existing onChange handler —
-/// no parallel "harness-only" code path.
+/// no parallel "harness-only" code path. `-tab props` additionally honors
+/// `-propsSport <mlb|nfl|nba|ncaab>` to land on a specific sport segment
+/// (see MainTabView.init).
 struct ScreenshotHarnessView: View {
     @State private var authStore = AuthStore()
     @State private var router = RootRouter()
     @State private var onboardingStore = OnboardingStore()
     @State private var themeStore = ThemeStore()
-    // MainTabView (the `.mainTabs` target) reads this via @Environment; inject
-    // it so the harness doesn't trip the missing-environment precondition.
+    // MainTabView (the `.mainTabs` target) reads these via @Environment; inject
+    // them so the harness doesn't trip the missing-environment precondition.
     @State private var debugDataModeStore = DebugDataModeStore()
+    @State private var learnStore = LearnWagerProofStore()
+    // B08 subscription/settings stores — tab screens (Games/Props/etc.) read
+    // these for the pushed Settings destination + pro gating, so `mainTabs`
+    // crashes without them. Built once in init so ProAccessStore wraps the
+    // SAME instances injected below (mirrors WagerproofApp.init).
+    @State private var revenueCatStore: RevenueCatStore
+    @State private var adminModeStore: AdminModeStore
+    @State private var settingsStore = SettingsStore()
+    @State private var proAccessStore: ProAccessStore
+    @State private var agentPickAuditStore = AgentPickAuditStore()
+
+    init() {
+        let rc = RevenueCatStore()
+        let admin = AdminModeStore()
+        _revenueCatStore = State(initialValue: rc)
+        _adminModeStore = State(initialValue: admin)
+        _proAccessStore = State(initialValue: ProAccessStore(revenueCat: rc, adminMode: admin))
+    }
 
     var body: some View {
         // Split into helper @ViewBuilder properties because SwiftUI's
@@ -50,6 +70,12 @@ struct ScreenshotHarnessView: View {
         .environment(onboardingStore)
         .environment(themeStore)
         .environment(debugDataModeStore)
+        .environment(learnStore)
+        .environment(revenueCatStore)
+        .environment(adminModeStore)
+        .environment(settingsStore)
+        .environment(proAccessStore)
+        .environment(agentPickAuditStore)
         .preferredColorScheme(themeStore.mode.colorScheme)
         .onAppear {
             // B08 — Settings / paywall / delete-account harness targets all
@@ -122,11 +148,12 @@ struct ScreenshotHarnessView: View {
             learnTargets
         case .gamesEmpty, .gamesLoadedNFL, .gamesLoadedCFB, .gamesError,
              .nflGameSheet, .cfbGameSheet, .h2hModal, .lineMovementModal,
-             .propsLoaded, .propDetail, .propDetailHighLine:
+             .propsLoaded, .propDetail, .propDetailHighLine,
+             .nflPropsLoaded, .nflPropDetail:
             gamesTargets
         case .agentsLoaded, .topAgentPicks:
             agentsTargets
-        case .mlbF5Splits, .mlbPitcherMatchups, .editorStats:
+        case .editorStats, .mlbInsightWidgets, .searchInsights:
             toolTargets
         case .settings, .settingsLoaded, .settingsError,
              .deleteAccount, .deleteAccountError,
@@ -139,23 +166,65 @@ struct ScreenshotHarnessView: View {
         }
     }
 
-    /// Per-sport analytics tool pages. F5 Splits / Pitcher Matchups own their
-    /// stores and fetch live (anon CFB). Editor Stats needs an EditorPicksStore
-    /// in the environment. All three are wrapped in a NavigationStack so the
-    /// pushed-page nav bar renders in the screenshot.
+    /// Analytics tool + matchup-insight targets. `mlbInsightWidgets` mounts
+    /// the MLB game sheet against fixture-fed trends/F5/props stores so all
+    /// three insight widgets render deterministically; `searchInsights` mounts
+    /// SearchView with the same fixture slates + a pre-seeded "Yankees" query
+    /// so the matchup card's insight chips + a Players row render.
     @ViewBuilder
     private var toolTargets: some View {
         switch ScreenshotHarness.target {
-        case .mlbF5Splits:
-            NavigationStack { MLBF5SplitsView() }
-        case .mlbPitcherMatchups:
-            NavigationStack { MLBPitcherMatchupsView() }
         case .editorStats:
             NavigationStack { EditorPicksStatsView() }
                 .environment(EditorPicksStore())
+        case .mlbInsightWidgets:
+            makeInsightWidgets()
+        case .searchInsights:
+            makeSearchInsights()
         default:
             EmptyView()
         }
+    }
+
+    /// MLB game sheet with every insight widget fed from fixtures.
+    @MainActor
+    private func makeInsightWidgets() -> some View {
+        let rc = RevenueCatStore()
+        rc.debugSet(status: .granted, subscriptionType: "monthly", isLoading: false)
+        let admin = AdminModeStore()
+        admin.debugSet(isAdmin: false)
+        return NavigationStack {
+            MLBGameBottomSheet(
+                game: InsightWidgetFixtures.game,
+                trendsStore: InsightWidgetFixtures.trendsStore(),
+                f5Store: InsightWidgetFixtures.f5Store()
+            )
+        }
+        .environment(InsightWidgetFixtures.propsStore())
+        .environment(rc)
+        .environment(admin)
+        .environment(ProAccessStore(revenueCat: rc, adminMode: admin))
+        .environment(AgentPickAuditStore())
+    }
+
+    /// SearchView pre-seeded with "Yankees" (override via `-searchQuery <q>`,
+    /// e.g. "judge" to capture the Players results) over the fixture slates.
+    @MainActor
+    private func makeSearchInsights() -> some View {
+        let games = GamesStore()
+        games.debugSet(mlb: [InsightWidgetFixtures.game], sport: .mlb, state: .loaded)
+        let args = ProcessInfo.processInfo.arguments
+        let query: String = {
+            guard let idx = args.firstIndex(of: "-searchQuery"), idx + 1 < args.count else { return "Yankees" }
+            return args[idx + 1]
+        }()
+        return SearchView(initialQuery: query)
+            .environment(MainTabStore())
+            .environment(games)
+            .environment(InsightWidgetFixtures.propsStore())
+            .environment(InsightWidgetFixtures.trendsStore())
+            .environment(InsightWidgetFixtures.f5Store())
+            .environment(MLBGameSheetStore())
     }
 
     @ViewBuilder
@@ -453,6 +522,16 @@ struct ScreenshotHarnessView: View {
             .environment(NBAGameSheetStore())
             .environment(NCAABGameSheetStore())
             .environment(MLBGameSheetStore())
+            // The hub's primitive rails read these from the env (hoisted to
+            // MainTabView in the live app); seed them with the same NYY@BOS
+            // fixture the insight-widget targets use so the rails populate.
+            .environment(InsightWidgetFixtures.trendsStore())
+            .environment(InsightWidgetFixtures.f5Store())
+            .environment(InsightWidgetFixtures.propsStore())
+            // OutliersView reads these for its pushed Settings destination.
+            .environment(SettingsStore())
+            .environment(rc)
+            .environment(admin)
     }
 
     /// Construct an `OnboardingView` against an in-memory `OnboardingStore`
@@ -503,9 +582,7 @@ struct ScreenshotHarnessView: View {
         case .propsLoaded:
             // PropsStore is now shell-hoisted (shared with the MLB game-detail
             // Player Props widget); inject one here for the standalone harness.
-            PropsView()
-                .environment(MainTabStore())
-                .environment(PropsStore())
+            makeProps(store: PropsStore())
         case .propDetail:
             // Detail page from a fixture selection — wrapped in a
             // NavigationStack since it's normally a pushed destination.
@@ -518,6 +595,14 @@ struct ScreenshotHarnessView: View {
             NavigationStack {
                 PlayerPropDetailView(selection: PropsFixtures.sampleSelection, initialLine: 2.5)
             }
+        case .nflPropsLoaded:
+            makeProps(store: Self.seededNFLPropsStore())
+        case .nflPropDetail:
+            NavigationStack {
+                if let selection = Self.sampleNFLSelection() {
+                    NFLPropDetailView(selection: selection)
+                }
+            }
         case .h2hModal:
             H2HModal(awayTeam: "Dallas Cowboys", homeTeam: "Philadelphia Eagles")
         case .lineMovementModal:
@@ -529,6 +614,38 @@ struct ScreenshotHarnessView: View {
         default:
             EmptyView()
         }
+    }
+
+    /// PropsView reads Settings/RevenueCat/AdminMode/ProAccess via
+    /// @Environment (for the pushed Settings destination + pro gating) —
+    /// inject the full stack so the props targets don't trip the
+    /// missing-environment precondition.
+    private func makeProps(store: PropsStore) -> some View {
+        let rc = RevenueCatStore()
+        rc.debugSet(status: .granted, subscriptionType: "monthly", isLoading: false)
+        let admin = AdminModeStore()
+        admin.debugSet(isAdmin: false)
+        return PropsView()
+            .environment(MainTabStore())
+            .environment(store)
+            .environment(SettingsStore())
+            .environment(rc)
+            .environment(admin)
+            .environment(ProAccessStore(revenueCat: rc, adminMode: admin))
+    }
+
+    /// PropsStore pre-seeded with the NFL fixture odds board and landed on the
+    /// NFL segment — drives `.nflPropsLoaded` without a network fetch.
+    private static func seededNFLPropsStore() -> PropsStore {
+        let store = PropsStore()
+        store.selectedSport = .nfl
+        store.debugSet(nflPlayers: PropsFixtures.nflBoard)
+        return store
+    }
+
+    /// First feed item from the same fixture board — drives `.nflPropDetail`.
+    private static func sampleNFLSelection() -> NFLPlayerPropSelection? {
+        NFLPropFeed.items(from: PropsFixtures.nflBoard).first?.selection
     }
 
     /// Agents hub parity target — mounts the real `AgentsView` against an
@@ -662,7 +779,7 @@ struct ScreenshotHarnessView: View {
         let admin = AdminModeStore()
         admin.debugSet(isAdmin: isAdmin)
         let settings = SettingsStore()
-        settings.debugSet(notificationPermission: notification, wagerBotSuggestionsEnabled: true)
+        settings.debugSet(notificationPermission: notification)
         let proAccess = ProAccessStore(revenueCat: rc, adminMode: admin)
         // SettingsView no longer owns a NavigationStack (in the app it's pushed
         // onto the active tab's stack), so wrap it here to keep the nav title
@@ -688,7 +805,7 @@ struct ScreenshotHarnessView: View {
         let admin = AdminModeStore()
         admin.debugSet(isAdmin: false)
         let settings = SettingsStore()
-        settings.debugSet(notificationPermission: .granted, wagerBotSuggestionsEnabled: true)
+        settings.debugSet(notificationPermission: .granted)
         let proAccess = ProAccessStore(revenueCat: rc, adminMode: admin)
         return content()
             .environment(rc)
@@ -858,6 +975,226 @@ enum TopAgentPicksFixtures {
     }()
 }
 
+/// DEBUG-only fixtures for the matchup-insight harness targets: one NYY @ BOS
+/// game with a known 26-pt After-a-Loss trends gap, a one-sided F5 split (BOS
+/// side thin-sample), and a props matchup whose slot algorithm yields starters
+/// + a 9/10 hot bat + a 1/10 cold bat (the spec's acceptance shapes).
+enum InsightWidgetFixtures {
+    static let gamePk = 999_001
+
+    static let game = MLBGame(
+        id: "999001",
+        gamePk: gamePk,
+        officialDate: "2026-06-11",
+        gameTimeEt: "2026-06-11T19:05:00-04:00",
+        awayTeamName: "New York Yankees",
+        homeTeamName: "Boston Red Sox",
+        awayAbbr: "NYY",
+        homeAbbr: "BOS",
+        awayLogoUrl: "https://a.espncdn.com/i/teamlogos/mlb/500/nyy.png",
+        homeLogoUrl: "https://a.espncdn.com/i/teamlogos/mlb/500/bos.png",
+        awayMl: -130,
+        homeMl: 110,
+        awaySpread: -1.5,
+        homeSpread: 1.5,
+        totalLine: 8.5,
+        mlHomeWinProb: 0.44,
+        mlAwayWinProb: 0.56,
+        homeImpliedProb: 0.48,
+        awayImpliedProb: 0.57,
+        homeMlEdgePct: -4.0,
+        awayMlEdgePct: 3.2,
+        ouEdge: 4.1,
+        ouDirection: "OVER",
+        ouFairTotal: 9.2,
+        f5HomeMl: 120,
+        f5AwayMl: -140,
+        f5FairTotal: 5.1,
+        f5TotalLine: 4.5,
+        f5OuEdge: 5.0,
+        f5HomeWinProb: 0.42,
+        f5AwayWinProb: 0.58,
+        homeSpName: "Garrett Crochet",
+        awaySpName: "Gerrit Cole",
+        homeSpConfirmed: true,
+        awaySpConfirmed: true,
+        isFinalPrediction: true,
+        venueName: "Fenway Park"
+    )
+
+    // MARK: Trends
+
+    @MainActor
+    static func trendsStore() -> MLBBettingTrendsStore {
+        let store = MLBBettingTrendsStore()
+        store.debugSet(games: [trends])
+        return store
+    }
+
+    static let trends = MLBGameTrends(
+        gamePk: gamePk,
+        gameDateEt: "2026-06-11",
+        gameTimeEt: "2026-06-11T19:05:00-04:00",
+        awayTeam: MLBSituationalTrendRow(
+            gamePk: gamePk, gameDateEt: "2026-06-11", teamId: 147,
+            teamName: "New York Yankees", teamSide: "away",
+            lastGameSituation: "is_after_loss", homeAwaySituation: "is_away",
+            favDogSituation: "is_fav", restBucket: "one_day_off",
+            restComp: "equal_rest", leagueSituation: "league", divisionSituation: "non_division",
+            winPctLastGame: 71, winPctHomeAway: 58, winPctFavDog: 60,
+            winPctRestBucket: 55, winPctRestComp: 50, winPctLeague: 52, winPctDivision: 49,
+            overPctLastGame: 67, overPctHomeAway: 52, overPctFavDog: 56,
+            overPctRestBucket: 57, overPctRestComp: 48, overPctLeague: 50, overPctDivision: 53
+        ),
+        homeTeam: MLBSituationalTrendRow(
+            gamePk: gamePk, gameDateEt: "2026-06-11", teamId: 111,
+            teamName: "Boston Red Sox", teamSide: "home",
+            lastGameSituation: "is_after_win", homeAwaySituation: "is_home",
+            favDogSituation: "is_dog", restBucket: "one_day_off",
+            restComp: "equal_rest", leagueSituation: "league", divisionSituation: "non_division",
+            winPctLastGame: 45, winPctHomeAway: 47, winPctFavDog: 42,
+            winPctRestBucket: 50, winPctRestComp: 52, winPctLeague: 48, winPctDivision: 51,
+            overPctLastGame: 62, overPctHomeAway: 58, overPctFavDog: 57,
+            overPctRestBucket: 56, overPctRestComp: 44, overPctLeague: 52, overPctDivision: 49
+        )
+    )
+
+    // MARK: F5
+
+    @MainActor
+    static func f5Store() -> MLBF5SplitsStore {
+        let store = MLBF5SplitsStore()
+        store.debugSet(games: [f5Game], splits: f5Splits)
+        return store
+    }
+
+    static let f5Game = MLBF5Game(
+        gamePk: gamePk,
+        officialDate: "2026-06-11",
+        gameTimeEt: "2026-06-11T19:05:00-04:00",
+        awayTeamName: "New York Yankees",
+        homeTeamName: "Boston Red Sox",
+        venueName: "Fenway Park",
+        awayAbbr: "NYY",
+        homeAbbr: "BOS",
+        awaySpName: "Gerrit Cole",
+        homeSpName: "Garrett Crochet",
+        awaySpHand: .right,
+        homeSpHand: .left,
+        totalLine: 8.5,
+        f5AwayMl: -140,
+        f5HomeMl: 120,
+        f5TotalLine: 4.5
+    )
+
+    /// `MLBF5SplitRow` is decode-only (mirrors PostgREST rows) — hydrate the
+    /// two splits from JSON. NYY away vs LHP is the strong side; BOS home vs
+    /// RHP is the thin-sample side (8 games → small-sample caution).
+    static let f5Splits: [MLBF5SplitRow] = {
+        let json = """
+        [
+          {"team_abbr":"NYY","season":2026,"home_away":"away","opp_sp_hand":"L","games":14,
+           "f5_wins":9,"f5_losses":4,"f5_ties":1,"f5_record":"9-4-1","f5_win_pct":64.3,
+           "f5_overs":9,"f5_unders":4,"f5_pushes":1,"f5_ou_record":"9-4-1","f5_over_pct":64.3,
+           "avg_f5_rs":3.1,"avg_f5_total":5.6,"avg_f5_line":4.5,"f5_line_edge":1.1,
+           "avg_f5_ra_when_own_rhp":2.1,"games_with_own_rhp":10,
+           "avg_f5_ra_when_own_lhp":2.6,"games_with_own_lhp":4,
+           "season_avg_f5_rs":2.4,"season_avg_f5_ra":2.5,"season_avg_f5_total":4.9,
+           "rs_diff_vs_season":0.7,"total_diff_vs_season":0.7,
+           "ra_diff_vs_season_when_own_rhp":-0.4,"ra_diff_vs_season_when_own_lhp":0.1,
+           "last_refreshed_at":"2026-06-11T08:00:00Z"},
+          {"team_abbr":"BOS","season":2026,"home_away":"home","opp_sp_hand":"R","games":8,
+           "f5_wins":3,"f5_losses":5,"f5_ties":0,"f5_record":"3-5-0","f5_win_pct":37.5,
+           "f5_overs":5,"f5_unders":3,"f5_pushes":0,"f5_ou_record":"5-3-0","f5_over_pct":62.5,
+           "avg_f5_rs":2.2,"avg_f5_total":5.2,"avg_f5_line":4.5,"f5_line_edge":0.7,
+           "avg_f5_ra_when_own_rhp":2.4,"games_with_own_rhp":5,
+           "avg_f5_ra_when_own_lhp":3.2,"games_with_own_lhp":3,
+           "season_avg_f5_rs":2.5,"season_avg_f5_ra":2.6,"season_avg_f5_total":5.1,
+           "rs_diff_vs_season":-0.3,"total_diff_vs_season":0.1,
+           "ra_diff_vs_season_when_own_rhp":-0.2,"ra_diff_vs_season_when_own_lhp":0.6,
+           "last_refreshed_at":"2026-06-11T08:00:00Z"}
+        ]
+        """
+        return (try? JSONDecoder().decode([MLBF5SplitRow].self, from: Data(json.utf8))) ?? []
+    }()
+
+    // MARK: Props
+
+    @MainActor
+    static func propsStore() -> PropsStore {
+        let store = PropsStore()
+        store.debugSet(matchups: [propMatchup])
+        return store
+    }
+
+    private static func games(_ values: [Double]) -> [MLBPlayerPropGameEntry] {
+        values.enumerated().map { idx, v in
+            MLBPlayerPropGameEntry(v: v, d: idx % 3 == 0 ? 1 : 0, a: nil, dt: "2026-06-\(String(format: "%02d", 10 - min(idx, 9)))")
+        }
+    }
+
+    private static func propRow(playerId: Int, name: String, isPitcher: Bool,
+                                market: String, line: Double, values: [Double]) -> MLBPlayerPropRow {
+        MLBPlayerPropRow(
+            playerId: playerId, playerName: name, isPitcher: isPitcher, market: market,
+            gameIsDay: false, oppArchetypeToday: nil,
+            lines: [MLBPlayerPropLineEntry(line: line, over: -115, under: -105)],
+            games: games(values)
+        )
+    }
+
+    static let propMatchup = MLBPropMatchup(
+        gamePk: gamePk,
+        officialDate: "2026-06-11",
+        gameTimeEt: "2026-06-11T19:05:00-04:00",
+        awayTeamName: "New York Yankees",
+        homeTeamName: "Boston Red Sox",
+        awayAbbr: "NYY",
+        homeAbbr: "BOS",
+        awayLogoUrl: "https://a.espncdn.com/i/teamlogos/mlb/500/nyy.png",
+        homeLogoUrl: "https://a.espncdn.com/i/teamlogos/mlb/500/bos.png",
+        awayStarter: MLBPropStarter(pitcherId: 543_037, name: "Gerrit Cole", teamLabel: "NYY", hand: "R", archetype: nil),
+        homeStarter: MLBPropStarter(pitcherId: 676_979, name: "Garrett Crochet", teamLabel: "BOS", hand: "L", archetype: nil),
+        awayLineup: [
+            MLBLineupRow(gamePk: gamePk, teamId: 147, playerId: 592_450, playerName: "Aaron Judge",
+                         battingOrder: 2, position: "RF", batSide: "R", isConfirmed: true),
+            MLBLineupRow(gamePk: gamePk, teamId: 147, playerId: 624_413, playerName: "Cody Bellinger",
+                         battingOrder: 3, position: "CF", batSide: "L", isConfirmed: true),
+        ],
+        homeLineup: [
+            MLBLineupRow(gamePk: gamePk, teamId: 111, playerId: 690_144, playerName: "Roman Anthony",
+                         battingOrder: 2, position: "LF", batSide: "L", isConfirmed: true),
+            MLBLineupRow(gamePk: gamePk, teamId: 111, playerId: 608_324, playerName: "Alex Bregman",
+                         battingOrder: 3, position: "3B", batSide: "R", isConfirmed: true),
+        ],
+        props: [
+            // Starters' K ladders.
+            propRow(playerId: 543_037, name: "Gerrit Cole", isPitcher: true,
+                    market: "pitcher_strikeouts", line: 5.5,
+                    values: [7, 5, 6, 8, 4, 6, 7, 5, 9, 6]),
+            propRow(playerId: 676_979, name: "Garrett Crochet", isPitcher: true,
+                    market: "pitcher_strikeouts", line: 6.5,
+                    values: [7, 6, 8, 5, 6, 9, 4, 7, 5, 6]),
+            // Hot bat — 9/10 over 1.5 TB (the spec's verdict shape).
+            propRow(playerId: 592_450, name: "Aaron Judge", isPitcher: false,
+                    market: "batter_total_bases", line: 1.5,
+                    values: [2, 3, 2, 4, 2, 1, 2, 5, 2, 3]),
+            // Second hot bat — 7/10 over 0.5 H.
+            propRow(playerId: 624_413, name: "Cody Bellinger", isPitcher: false,
+                    market: "batter_hits", line: 0.5,
+                    values: [1, 0, 1, 1, 0, 1, 1, 0, 1, 1]),
+            // Cold bat — 1/10 over 1.5 TB.
+            propRow(playerId: 690_144, name: "Roman Anthony", isPitcher: false,
+                    market: "batter_total_bases", line: 1.5,
+                    values: [1, 0, 2, 1, 0, 1, 0, 1, 1, 0]),
+            // Thin-sample fill — 2/4 over 0.5 RBI (lowConfidence path).
+            propRow(playerId: 608_324, name: "Alex Bregman", isPitcher: false,
+                    market: "batter_rbis", line: 0.5,
+                    values: [1, 0, 0, 1]),
+        ]
+    )
+}
+
 /// Static helper read once at scene-creation time so the WagerproofApp body
 /// can branch before the environment is even installed.
 enum ScreenshotHarness {
@@ -915,10 +1252,18 @@ enum ScreenshotHarness {
         case propDetail
         // Same fixture detail pinned to the 2.5 line (adaptation proof).
         case propDetailHighLine
+        // NFL props feed seeded from the DummyData odds-board rows (6 markets
+        // × 4 books) — no fetch, deterministic.
+        case nflPropsLoaded
+        // NFL prop detail (cross-book price board) from the same fixture.
+        case nflPropDetail
         // Per-sport analytics tool pages (Games-banner / Outliers destinations).
-        case mlbF5Splits
-        case mlbPitcherMatchups
         case editorStats
+        // MLB game sheet with fixture-fed trends/F5/props insight widgets.
+        case mlbInsightWidgets
+        // SearchView with fixture slates + pre-seeded "Yankees" query (matchup
+        // card insight chips + Players results).
+        case searchInsights
         // Agents hub with a debug-populated AgentsStore — used to verify the
         // full-width AgentRowCard list + the animated PixelOffice loop without
         // a real Supabase round-trip.
@@ -1003,6 +1348,7 @@ enum ScreenshotHarness {
         case "outliers": return .outliers
         case "scoreboard", "scores": return .scoreboard
         case "settings": return .settings
+        case "search": return .search
         default: return .games
         }
     }

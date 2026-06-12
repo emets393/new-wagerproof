@@ -12,21 +12,30 @@ import WagerproofStores
 ///     `TopAgentPicksFeedContainer` (B16) and Leaderboard reuses
 ///     `AgentLeaderboardView`, both duplicated from the Agents tab by product
 ///     direction (resolved waiver #022).
-///   - Hub branch: vertical `ScrollView` with a hero banner + 7 horizontal
-///     Spotify-style sections, each a `LazyHStack` of `OutlierMatchupCardView`.
-///   - Each section header is a `NavigationLink(value: Category)` that pushes
-///     a per-category `OutliersDetailView`.
-///   - `.refreshable` re-runs the store's pipeline.
+///   - Hub branch: vertical `ScrollView` of **primitive-typed rails** — a
+///     Betting Trends rail, a First-5 rail, and a Player Props rail, each a
+///     horizontal `ScrollView` of the strongest cards across the slate
+///     (`OutlierSections` ranks each source off the shared Kit insight
+///     adapters). A card opens that primitive's detail surface (trends/F5
+///     sheet, or the player-prop detail); the rail header's "See all" pushes
+///     the full ranked list.
+///   - `.refreshable` re-hydrates the three shared stores.
 ///
-/// The hub still renders CTA-only cards for the trend / accuracy / regression
-/// sections because the hub doesn't pre-fetch each per-sport store — that
-/// would explode cold-start cost. Tapping the section header pushes the
-/// dedicated list view which owns its own data hydration. See FIDELITY-WAIVER
-/// #234 for the rationale on keeping hub sections CTA-only.
+/// The rails read the SAME hoisted stores (`MLBBettingTrendsStore`,
+/// `MLBF5SplitsStore`, `PropsStore`) the Games tab + Search use, so the hub
+/// surfaces the real matchup/widget/prop primitives rather than abstract tiles.
+/// The old merged `OutlierGameTile` feed + `OutlierMatchupDetailView` are no
+/// longer mounted here.
 struct OutliersView: View {
     @Environment(AuthStore.self) private var auth
     @Environment(ProAccessStore.self) private var proAccess
     @Environment(MainTabStore.self) private var tabStore
+    // Re-injected explicitly into the Settings navigationDestination so iOS 18+
+    // configurePreferredTransition can resolve them before the nav environment
+    // chain is established. See MainTabToolbar.wagerProofSettingsDestination.
+    @Environment(SettingsStore.self) private var settingsStore
+    @Environment(RevenueCatStore.self) private var revenueCat
+    @Environment(AdminModeStore.self) private var adminMode
     // For matchup-card tap routing: look up the typed game from GamesStore
     // by sport + gameId, then ask the corresponding sport's sheet store to
     // open it. GamesView's NavigationStack observes the sheet store and
@@ -37,18 +46,19 @@ struct OutliersView: View {
     @Environment(NBAGameSheetStore.self) private var nbaSheetStore
     @Environment(NCAABGameSheetStore.self) private var ncaabSheetStore
     @Environment(MLBGameSheetStore.self) private var mlbSheetStore
+    // The hub's three primitive rails read the SAME hydrated stores the Games
+    // tab + Search use (hoisted to MainTabView), so the data is shared, not
+    // re-fetched. Optional because the SwiftUI preview / some harness mounts
+    // don't inject them — the rails degrade to empty in that case.
+    @Environment(MLBBettingTrendsStore.self) private var mlbTrendsStore: MLBBettingTrendsStore?
+    @Environment(MLBF5SplitsStore.self) private var mlbF5Store: MLBF5SplitsStore?
+    @Environment(PropsStore.self) private var propsStore: PropsStore?
     @State private var store: OutliersStore
     /// The Top Agent Picks + Leaderboard surfaces live in BOTH Agents and
     /// Outliers (per product direction). We instantiate a separate
     /// `LeaderboardStore` here — the Agents tab owns its own — so each tab's
     /// pill filters and refresh timestamp stay isolated.
     @State private var leaderboardStore: LeaderboardStore
-    /// Live outlier sources for the merged hub list. Phase 1 = MLB Betting
-    /// Trends + MLB F5 Splits (the only sources with live offseason-proof data);
-    /// `OutlierAggregator` fans them into one ranked per-game feed. More sources
-    /// (value/fade/accuracy/pitcher) join the aggregator in later phases.
-    @State private var mlbTrendsStore: MLBBettingTrendsStore
-    @State private var mlbF5Store: MLBF5SplitsStore
     /// Top Agent Picks feed state, owned here (not in a child container) so its
     /// Top 10 / Following / Favorites filter can be lifted into the pinned glass
     /// header alongside the inner-tab picker — matching how Games/Props pin
@@ -61,12 +71,15 @@ struct OutliersView: View {
     /// works via `.navigationDestination(for: Category.self)`; both routes
     /// coexist on the same stack.
     @State private var navPath = NavigationPath()
+    /// Detail surfaces a rail card opens. Trends/F5 present as sheets (the same
+    /// expand surfaces the game-sheet widgets use); a prop pushes its detail.
+    @State private var trendsSheet: MLBGameTrends?
+    @State private var f5Sheet: MLBF5Matchup?
+    @State private var selectedProp: PlayerPropSelection?
 
     init() {
         _store = State(initialValue: OutliersStore())
         _leaderboardStore = State(initialValue: LeaderboardStore())
-        _mlbTrendsStore = State(initialValue: MLBBettingTrendsStore())
-        _mlbF5Store = State(initialValue: MLBF5SplitsStore())
         _topPicksStore = State(initialValue: TopAgentPicksFeedStore())
         _topPicksFavorites = State(initialValue: FavoriteAgentsStore())
     }
@@ -79,8 +92,6 @@ struct OutliersView: View {
     init(store: OutliersStore, leaderboardStore: LeaderboardStore) {
         _store = State(initialValue: store)
         _leaderboardStore = State(initialValue: leaderboardStore)
-        _mlbTrendsStore = State(initialValue: MLBBettingTrendsStore())
-        _mlbF5Store = State(initialValue: MLBF5SplitsStore())
         _topPicksStore = State(initialValue: TopAgentPicksFeedStore())
         _topPicksFavorites = State(initialValue: FavoriteAgentsStore())
     }
@@ -181,8 +192,38 @@ struct OutliersView: View {
             .navigationDestination(for: OutliersStore.Category.self) { category in
                 OutliersDetailView(store: store, category: category)
             }
-            .navigationDestination(for: OutlierFeedItem.self) { item in
-                OutlierMatchupDetailView(item: item)
+            // "See all" on a rail header pushes that primitive's full ranked
+            // list (re-derived from the same stores).
+            .navigationDestination(for: OutlierSections.Kind.self) { kind in
+                OutlierSectionListView(
+                    kind: kind,
+                    trends: trendsItems,
+                    f5Games: f5Items,
+                    props: propItems,
+                    onTrends: { trendsSheet = $0 },
+                    onF5: { f5Sheet = mlbF5Store?.matchup(for: $0.gamePk) },
+                    onProp: { selectedProp = $0 }
+                )
+            }
+            .navigationDestination(item: $selectedProp) { selection in
+                PlayerPropDetailView(selection: selection)
+            }
+            // Trends/F5 rail cards open the same expand surfaces the game-sheet
+            // widgets present — one detail design per primitive across surfaces.
+            .sheet(item: $trendsSheet) { game in
+                BettingTrendsDetailSheet(
+                    awayName: game.awayTeam.teamName,
+                    homeName: game.homeTeam.teamName,
+                    timeDisplay: MLBTrendsMatrixAdapter.timeDisplay(for: game),
+                    stripeColors: MLBTrendsMatrixAdapter.stripeColors(for: game),
+                    accent: MLBTrendsMatrixAdapter.accent,
+                    sections: MLBTrendsMatrixAdapter.sections(for: game),
+                    guide: .mlb,
+                    avatar: MLBTrendsMatrixAdapter.avatarProvider(for: game)
+                )
+            }
+            .sheet(item: $f5Sheet) { matchup in
+                F5SplitsDetailSheet(matchup: matchup)
             }
             .navigationDestination(for: AgentsRoute.self) { route in
                 // Reuse the B15 factory so the public-agent detail screen is
@@ -203,7 +244,7 @@ struct OutliersView: View {
             .toolbar { mainToolbar }
             // Settings pushes onto this stack (tapping the trailing gear) instead
             // of covering the screen as a modal — see MainTabToolbar.swift.
-            .wagerProofSettingsDestination(tabStore: tabStore, tab: .outliers)
+            .wagerProofSettingsDestination(tabStore: tabStore, tab: .outliers, auth: auth, settingsStore: settingsStore, revenueCat: revenueCat, adminMode: adminMode, proAccess: proAccess)
             .wagerProofChatDestination(tabStore: tabStore, tab: .outliers)
             .sensoryFeedback(.selection, trigger: store.activeTab)
         }
@@ -320,19 +361,20 @@ struct OutliersView: View {
         .accessibilityLabel("Sort leaderboard")
     }
 
-    // MARK: - Hub branch
+    // MARK: - Hub branch (primitive-typed rails)
 
     @ViewBuilder
     private var hubScroll: some View {
-        // Inner ScrollView removed — the outer body ScrollView now owns
-        // scrolling so the pinned section-header pattern can attach to it.
-        let items = outlierItems
-        LazyVStack(alignment: .leading, spacing: 12, pinnedViews: []) {
-            // How-to is now a tap-to-open tool button (see `OutliersHowToBanner`
-            // → `OutliersLearnMoreSheet`) so the hub leads with the merged list.
+        let trends = trendsItems
+        let f5 = f5Items
+        let props = propItems
+        LazyVStack(alignment: .leading, spacing: 18, pinnedViews: []) {
+            // How-to is a tap-to-open tool button (`OutliersHowToBanner` →
+            // `OutliersLearnMoreSheet`) so the hub leads with the rails.
             OutliersHowToBanner()
+                .padding(.horizontal, Spacing.lg)
 
-            if items.isEmpty {
+            if trends.isEmpty && f5.isEmpty && props.isEmpty {
                 if outlierSourcesLoading {
                     ProgressView()
                         .frame(maxWidth: .infinity)
@@ -341,37 +383,101 @@ struct OutliersView: View {
                     outlierEmptyState
                 }
             } else {
-                // One ranked, merged tile per game — every live source
-                // (Phase 1: MLB Trends + F5) folds into this single list.
-                ForEach(items) { item in
-                    NavigationLink(value: item) {
-                        OutlierGameTile(item: item)
+                // One horizontal rail per primitive type, each ranked strongest
+                // first. Empty rails hide entirely (no dead headers).
+                if !trends.isEmpty {
+                    rail(.trends) {
+                        ForEach(trends) { game in
+                            trendsCard(game)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, Spacing.lg)
+                }
+                if !f5.isEmpty {
+                    rail(.f5) {
+                        ForEach(f5) { game in
+                            f5Card(game)
+                        }
+                    }
+                }
+                if !props.isEmpty {
+                    rail(.props) {
+                        ForEach(props) { item in
+                            OutlierPropCard(item: item) { selectedProp = $0 }
+                        }
+                    }
                 }
             }
         }
         .padding(.vertical, Spacing.md)
     }
 
-    /// Merged, ranked per-game outlier feed across the live sources.
-    private var outlierItems: [OutlierFeedItem] {
-        OutlierAggregator.build(
-            trends: mlbTrendsStore.games,
-            f5Games: mlbF5Store.games,
-            f5Store: mlbF5Store
-        )
+    /// Section shell: header (icon + title + "See all") over a horizontal rail.
+    @ViewBuilder
+    private func rail<Content: View>(_ kind: OutlierSections.Kind, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            NavigationLink(value: kind) {
+                HStack(spacing: 7) {
+                    Image(systemName: kind.icon)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(kind.accent)
+                    Text(kind.title)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(Color.appTextPrimary)
+                    Spacer(minLength: 0)
+                    Text("See all")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.appTextSecondary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.appTextMuted)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, Spacing.lg)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    content()
+                }
+                .padding(.horizontal, Spacing.lg)
+            }
+        }
+    }
+
+    private func trendsCard(_ game: MLBGameTrends) -> some View {
+        OutlierCardBuilder.trends(game) { trendsSheet = game }
+    }
+
+    private func f5Card(_ game: MLBF5Game) -> some View {
+        OutlierCardBuilder.f5(game, store: mlbF5Store) { f5Sheet = mlbF5Store?.matchup(for: game.gamePk) }
+    }
+
+    // MARK: - Rail data (ranked off the shared stores)
+
+    private var trendsItems: [MLBGameTrends] {
+        OutlierSections.trends(mlbTrendsStore?.games ?? [])
+    }
+
+    private var f5Items: [MLBF5Game] {
+        guard let store = mlbF5Store else { return [] }
+        return OutlierSections.f5(store.games, store: store)
+    }
+
+    private var propItems: [PlayerPropFeedItem] {
+        OutlierSections.props(propsStore?.matchups ?? [])
     }
 
     private var outlierSourcesLoading: Bool {
-        mlbTrendsStore.loading || mlbF5Store.isLoading
+        (mlbTrendsStore?.loading ?? false) || (mlbF5Store?.isLoading ?? false) || (propsStore?.isLoadingMLB ?? false)
     }
 
-    /// Hydrate the live outlier sources that feed the merged list.
+    /// Hydrate the three live sources that feed the rails. All read the shared
+    /// hoisted stores, so this is a no-op when the Games tab already loaded them.
     private func loadOutlierSources() async {
-        await mlbTrendsStore.refresh()
-        await mlbF5Store.refresh()
+        await mlbTrendsStore?.refresh()
+        await mlbF5Store?.refresh()
+        await propsStore?.refreshMLB()
     }
 
     private var outlierEmptyState: some View {
@@ -390,248 +496,6 @@ struct OutliersView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 48)
-    }
-
-    // MARK: Hub section scaffolding
-
-    /// Generic hub section: header (tap → detail), then either a horizontal
-    /// scroll of cards, a row of shimmers (while loading), or a CTA card if
-    /// the list is empty.
-    @ViewBuilder
-    private func section(
-        category: OutliersStore.Category,
-        title: String,
-        icon: String,
-        accent: Color,
-        isLoading: Bool,
-        @ViewBuilder cards: () -> AnyView,
-        @ViewBuilder emptyCta: () -> AnyView
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            NavigationLink(value: category) {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle().fill(accent.opacity(0.15))
-                        Image(systemName: icon)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(accent)
-                    }
-                    .frame(width: 28, height: 28)
-
-                    Text(title)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color.appTextPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.appTextSecondary)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, Spacing.lg)
-
-            if isLoading {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 12) {
-                        ForEach(0..<3, id: \.self) { i in
-                            OutlierCardShimmerView(phase: i)
-                        }
-                    }
-                    .padding(.horizontal, Spacing.lg)
-                }
-                .scrollTargetBehavior(.viewAligned)
-            } else if isSectionEmpty(category) {
-                emptyCta().padding(.horizontal, Spacing.lg)
-            } else {
-                cards()
-            }
-        }
-    }
-
-    /// CTA-only hub section. Tap pushes the dedicated detail view (which
-    /// hydrates its own per-sport store). FIDELITY-WAIVER #234: the hub
-    /// scroll row stays a single CTA card per section instead of paginating
-    /// real preview cards — that would require pre-fetching every per-sport
-    /// store on cold-start. The detail-view push is full-fidelity.
-    private func deferredSection(
-        category: OutliersStore.Category,
-        title: String,
-        icon: String,
-        accent: Color,
-        desc: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            NavigationLink(value: category) {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle().fill(accent.opacity(0.15))
-                        Image(systemName: icon)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(accent)
-                    }
-                    .frame(width: 28, height: 28)
-                    Text(title)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color.appTextPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.appTextSecondary)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, Spacing.lg)
-
-            ctaCard(icon: icon, title: title, desc: desc, accent: accent, category: category)
-                .padding(.horizontal, Spacing.lg)
-        }
-    }
-
-    private func ctaCard(icon: String, title: String, desc: String, accent: Color, category: OutliersStore.Category) -> some View {
-        NavigationLink(value: category) {
-            VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(accent)
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.appTextPrimary)
-                Text(desc)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.appTextSecondary)
-                HStack(spacing: 4) {
-                    Text("View All")
-                    Image(systemName: "arrow.right")
-                }
-                .font(.system(size: 11, weight: .bold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(accent.opacity(0.15))
-                .foregroundStyle(accent)
-                .clipShape(Capsule())
-                .padding(.top, 4)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(accent.opacity(0.05))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(accent.opacity(0.25), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func isSectionEmpty(_ category: OutliersStore.Category) -> Bool {
-        switch category {
-        case .value: return searchedValueAlerts.isEmpty
-        case .fade: return searchedFadeAlerts.isEmpty
-        // Deferred sections (#017) — treat as empty so we always render the CTA card.
-        default: return true
-        }
-    }
-
-    // Per-view team-name filter was removed when search moved to the
-    // global SearchView tab. These accessors pass through to the store's
-    // already-filtered arrays.
-    private var searchedValueAlerts: [OutlierValueAlert] { store.filteredValueAlerts }
-    private var searchedFadeAlerts: [OutlierFadeAlert] { store.filteredFadeAlerts }
-
-    // MARK: Hub rows
-
-    private var valueHubRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 12) {
-                ForEach(Array(searchedValueAlerts.prefix(4).enumerated()), id: \.offset) { _, alert in
-                    OutlierMatchupCardView(
-                        awayTeam: alert.game.awayTeam,
-                        homeTeam: alert.game.homeTeam,
-                        sport: alert.sport,
-                        awayTeamLogo: alert.game.awayTeamLogo,
-                        homeTeamLogo: alert.game.homeTeamLogo,
-                        pickIcon: "chart.line.uptrend.xyaxis",
-                        pickLabel: "\(alert.side) \(alert.marketType.rawValue)",
-                        pickValue: "\(Int(alert.percentage))% consensus",
-                        accentColor: Color(hex: 0x22C55E),
-                        loading: store.loadingGameId == alert.gameId,
-                        onTap: { handleGameTap(alert.gameId) }
-                    )
-                    .contextMenu {
-                        Button {
-                            handleGameTap(alert.gameId)
-                        } label: { Label("Open game sheet", systemImage: "rectangle.expand.vertical") }
-                    }
-                }
-            }
-            .padding(.horizontal, Spacing.lg)
-        }
-        .scrollTargetBehavior(.viewAligned)
-    }
-
-    private var fadeHubRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 12) {
-                ForEach(Array(searchedFadeAlerts.prefix(4).enumerated()), id: \.offset) { _, alert in
-                    OutlierMatchupCardView(
-                        awayTeam: alert.game.awayTeam,
-                        homeTeam: alert.game.homeTeam,
-                        sport: alert.sport,
-                        awayTeamLogo: alert.game.awayTeamLogo,
-                        homeTeamLogo: alert.game.homeTeamLogo,
-                        pickIcon: "bolt.fill",
-                        pickLabel: "Fade \(alert.predictedTeam) \(alert.pickType.rawValue)",
-                        pickValue: "\(alert.confidence)\(alert.sport == .nfl ? "%" : "pt") confidence",
-                        accentColor: Color(hex: 0xF59E0B),
-                        loading: store.loadingGameId == alert.gameId,
-                        onTap: { handleGameTap(alert.gameId) }
-                    )
-                    .contextMenu {
-                        Button {
-                            handleGameTap(alert.gameId)
-                        } label: { Label("Open game sheet", systemImage: "rectangle.expand.vertical") }
-                    }
-                }
-            }
-            .padding(.horizontal, Spacing.lg)
-        }
-        .scrollTargetBehavior(.viewAligned)
-    }
-
-    // MARK: Card tap handler
-
-    /// Look up the alert's underlying game by id, ask the matching sport's
-    /// sheet store to open it, then jump the user to the Games tab where
-    /// the `navigationDestination(item:)` push fires. `GamesStore` is the
-    /// canonical source — sport stores carry the typed payloads keyed by
-    /// `id: String`, which matches `OutlierValueAlert.gameId` / `OutlierFadeAlert.gameId`.
-    private func handleGameTap(_ gameId: String) {
-        // Try every sport — alerts don't always carry an unambiguous sport
-        // marker, and the same id never overlaps across sport feeds.
-        if let game = gamesStore.games.nfl.first(where: { $0.id == gameId }) {
-            nflSheetStore.openGameSheet(game)
-        } else if let game = gamesStore.games.cfb.first(where: { $0.id == gameId }) {
-            cfbSheetStore.openGameSheet(game)
-        } else if let game = gamesStore.games.nba.first(where: { $0.id == gameId }) {
-            nbaSheetStore.openGameSheet(game)
-        } else if let game = gamesStore.games.ncaab.first(where: { $0.id == gameId }) {
-            ncaabSheetStore.openGameSheet(game)
-        } else if let game = gamesStore.games.mlb.first(where: { $0.id == gameId }) {
-            mlbSheetStore.openGameSheet(game)
-        } else {
-            // No matching game in cache — flash spinner so the tap isn't
-            // silent. Falls through with no navigation; the next refresh
-            // will populate the cache for a future tap.
-            store.loadingGameId = gameId
-            Task {
-                try? await Task.sleep(nanoseconds: 500_000_000)
-                await MainActor.run { store.loadingGameId = nil }
-            }
-            return
-        }
-        tabStore.select(.games)
     }
 
     // MARK: Inner-tab content branches

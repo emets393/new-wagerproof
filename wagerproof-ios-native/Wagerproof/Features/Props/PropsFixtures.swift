@@ -100,5 +100,69 @@ enum PropsFixtures {
             transitionID: "fixture-judge-hits"
         )
     }
+
+    // MARK: - NFL trend board (harness `nflPropsLoaded` / `nflPropDetail`)
+
+    /// Compact `nfl_dryrun_props`-shaped board: two players × a few markets
+    /// with consensus close lines and season game logs so the trend surfaces
+    /// render. Screenshot-parity only — the app itself always fetches the
+    /// live tables.
+    static var nflBoard: [NFLPropPlayer] {
+        func log(_ values: [Double]) -> [NFLPropRecentGame] {
+            let opps = ["BAL", "MIA", "NE", "NYJ", "DEN", "KC", "ATL", "TB", "CAR", "LAC"]
+            return values.enumerated().map { i, v in
+                NFLPropRecentGame(opp: opps[i % opps.count], week: i + 1, actual: v)
+            }
+        }
+
+        let rows: [NFLDryrunPropRow] = [
+            NFLDryrunPropRow(
+                gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
+                playerId: "00-0034857", playerName: "Josh Allen", position: "QB",
+                team: "BUF", opponent: "KC", isHome: true,
+                market: "player_pass_yds", closeLine: 262.5, overPrice: -110, underPrice: -110,
+                openLine: 258.5, lineDelta: 4.0, lineRange: 6.0, nBooks: 4,
+                lastGame: 280, l3Avg: 265.7, l5Avg: 254.2, l10Avg: 249.8,
+                sznAvg: 251.3, sznMax: 342, sznMin: 169,
+                overRateL5: 0.6, overRateL10: 0.5,
+                recentGames: log([232, 274, 169, 256, 213, 342, 280, 248, 262, 280]),
+                defMatchupIdx: 1.08, flags: ["P4"]
+            ),
+            NFLDryrunPropRow(
+                gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
+                playerId: "00-0034857", playerName: "Josh Allen", position: "QB",
+                team: "BUF", opponent: "KC", isHome: true,
+                market: "player_rush_yds", closeLine: 38.5, overPrice: -115, underPrice: -105,
+                openLine: 38.5, lineDelta: 0, lineRange: 3.0, nBooks: 4,
+                lastGame: 44, l3Avg: 41.3, l5Avg: 37.8, l10Avg: 39.1,
+                sznAvg: 40.2, sznMax: 84, sznMin: 12,
+                overRateL5: 0.6, overRateL10: 0.5,
+                recentGames: log([28, 52, 12, 44, 36, 84, 31, 47, 26, 44])
+            ),
+            NFLDryrunPropRow(
+                gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
+                playerId: "00-0033873", playerName: "Patrick Mahomes", position: "QB",
+                team: "KC", opponent: "BUF", isHome: false,
+                market: "player_pass_yds", closeLine: 285.5, overPrice: -112, underPrice: -108,
+                openLine: 287.5, lineDelta: -2.0, lineRange: 4.0, nBooks: 4,
+                lastGame: 269, l3Avg: 278.0, l5Avg: 281.4, l10Avg: 274.6,
+                sznAvg: 276.9, sznMax: 331, sznMin: 210,
+                overRateL5: 0.4, overRateL10: 0.5,
+                recentGames: log([291, 246, 331, 262, 210, 305, 286, 254, 269, 269])
+            ),
+            NFLDryrunPropRow(
+                gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
+                playerId: "00-0033873", playerName: "Patrick Mahomes", position: "QB",
+                team: "KC", opponent: "BUF", isHome: false,
+                market: "player_anytime_td", closeLine: nil, overPrice: 460, underPrice: nil,
+                nBooks: 4, closeYesProb: 0.18, openYesProb: 0.16,
+                lastGame: 0, l3Avg: 0.33, l5Avg: 0.2, l10Avg: 0.2,
+                sznAvg: 0.2, sznMax: 1, sznMin: 0,
+                recentGames: log([0, 0, 1, 0, 0, 1, 0, 0, 0, 0])
+            ),
+        ]
+        let games = ["2025_12_KC_BUF": NFLPropGameContext(gameDate: "2025-11-23", slot: "sun_late_sat")]
+        return NFLPlayerProps.group(rows, games: games)
+    }
 }
 #endif
