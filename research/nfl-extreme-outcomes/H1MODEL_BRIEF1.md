@@ -145,6 +145,22 @@ Known weakness to track: totals-2024 and spread-2025 were each negative — the 
 markets haven't had a simultaneous good honest season. 2026 (3 training seasons)
 is the confirmation year; ledger it like tracking-tier flags until then.
 
+# 2025 COMBINED LEDGER (h1m_2025_combined.py) — model bands x point-in-time signals
+
+Train 23-24, test 2025, weekly-slate K1, all at close. The HC-tier portfolio:
+
+| Flag | Bets | Record | Win% | ROI | Units |
+|---|---|---|---|---|---|
+| M1 window-over + K1 → 1H OVER | 23 | 16-7 | 69.6% | +34.1% | +7.8 |
+| M2 K1 + model lean → FG OVER | 47 | 28-19 | 59.6% | +13.7% | +6.4 |
+| M3 SNF/MNF fav + tilt agree → fav 1H | 25 | 15-9-1 | 62.5% | +19.7% | +4.9 |
+| M4 slow-start dog fade + tilt agree | 30 | 17-13 | 56.7% | +8.8% | +2.6 |
+| **PORTFOLIO** | **125** | **76-48-1** | **61.3%** | **+17.5%** | **+21.8** |
+
+93 distinct games, 22 weeks (~5.7 bets/wk), 25 games with 2+ flags. M1/M2/M3
+match the walk-forward audit's 2025 columns; M4 is new (thinnest edge, 0-3 wk16).
+One honest season — ledger as tracking-tier through 2026.
+
 ## Caveats
 - Same thin-market caveats as H1TT_BRIEF1 (9-12 books, ~−115, lower limits).
 - Peak windows/cutoffs chosen after seeing LOSO results — the conservative claims
