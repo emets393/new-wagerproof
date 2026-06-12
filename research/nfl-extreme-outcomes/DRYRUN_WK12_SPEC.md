@@ -15,6 +15,7 @@ will be:
 | `nfl_dryrun_games` | 14 | game — every prediction the app displays |
 | `nfl_dryrun_flags` | 51 | fired bet signal (the badge layer) |
 | `nfl_dryrun_props` | 942 | (player, market) — line + trends + P-flags |
+| `nfl_teams` | 32 | team — logos, wordmarks, colors (static reference) |
 
 **Generators**: `dryrun_wk12_games.py` (games + flags), `dryrun_wk12_props.py` (props).
 Both are idempotent (delete-then-insert for season=2025, week=12).
@@ -47,6 +48,14 @@ await sb.from('nfl_dryrun_props').select('*')
 ```
 
 Join key across all three tables: `game_id` (e.g. `2025_12_BUF_HOU`).
+
+**Team logos/colors**: fetch `nfl_teams` ONCE at app start and cache it in
+memory (32 static rows — never refetch per card). Key is `team_abbr`, which
+matches `home_ab`/`away_ab` on games and `team`/`opponent` on props exactly.
+`logo_espn` (transparent PNG) for cards, `logo_squared` for tight layouts,
+`wordmark` for headers, `team_color`/`team_color2` for theming. All ESPN/nflverse
+CDN-hosted, browser-safe. Loader: `nfl_teams_load.py` (only re-run if a team
+rebrands).
 
 ---
 
