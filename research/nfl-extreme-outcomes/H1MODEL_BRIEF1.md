@@ -120,6 +120,31 @@ has no prior season → dropped (570 graded rows). 95% Wilson CIs added.
    Paper-track the model + M1/M3 through 2026, retrain weekly/offseason, revisit
    with a third honest season.
 
+# MODEL CARD (h1m_model_card.py) — raw walk-forward, NO signals — ADOPTED
+
+**Decision (user, 2026-06-11): this is the production 1H model.** Product framing
+(see wagerproof-nfl-model-purpose): every game gets a number; tiers below.
+
+570 games (2024 from 2023-train; 2025 from 23-24-train), bets/grades at close:
+
+| Market | Full slate | Best band | 2024 | 2025 |
+|---|---|---|---|---|
+| TOTAL | 53.1% / +1.3% | mod band 0.5-3.0: 54.3% / +3.7% (n=359) | 50% / −5% | 58% / +12% |
+| TOTAL HC | — | window 1.25-2.75: 54.0% / +3.1% (n=217) | 46% / −13% | 62% / +19% |
+| SPREAD | 51.6% / −0.9% | ≥2.0: 54.0% / +3.8% (n=241) | 57% / +10% | 50% / −3% |
+| ML | brier 0.2317 (mkt 0.2302) | winner acc 61-63%; betting = −EV | — | — |
+
+**Production tiers:**
+1. Display (every game): 1H total, 1H spread, 1H win prob.
+2. Lean: totals moderate band (0.5 ≤ |edge| < 3.0) → "model lean" label (~6-7/wk).
+3. HC: window picks + confluence M1 (window-over + K1 → 1H over) and M3
+   (K8 primetime fav + spread-tilt agree). Spread model NEVER bets alone — filter only.
+4. Cap: |edge| ≥ 3.0 → show number, suppress confidence (falloff confirmed both seasons).
+
+Known weakness to track: totals-2024 and spread-2025 were each negative — the two
+markets haven't had a simultaneous good honest season. 2026 (3 training seasons)
+is the confirmation year; ledger it like tracking-tier flags until then.
+
 ## Caveats
 - Same thin-market caveats as H1TT_BRIEF1 (9-12 books, ~−115, lower limits).
 - Peak windows/cutoffs chosen after seeing LOSO results — the conservative claims
