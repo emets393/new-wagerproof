@@ -16,6 +16,41 @@ const EmojiSchema = z.string().min(1).refine(
 export const SPORTS = ['nfl', 'cfb', 'nba', 'ncaab', 'mlb'] as const;
 export type Sport = (typeof SPORTS)[number];
 
+// An agent may only cover sports within a single family. Football and basketball
+// each pair their pro/college sports; baseball stands alone. Mixing families is
+// disallowed because each sport family routes to its own large system prompt +
+// data payload (see AGENT_PAYLOAD_SPEC.md), and a single agent maps to one prompt.
+export const SPORT_FAMILIES = {
+  football: ['nfl', 'cfb'],
+  basketball: ['nba', 'ncaab'],
+  baseball: ['mlb'],
+} as const satisfies Record<string, readonly Sport[]>;
+
+export type SportFamily = keyof typeof SPORT_FAMILIES;
+
+export function sportFamily(sport: Sport): SportFamily {
+  if ((SPORT_FAMILIES.football as readonly Sport[]).includes(sport)) return 'football';
+  if ((SPORT_FAMILIES.basketball as readonly Sport[]).includes(sport)) return 'basketball';
+  return 'baseball';
+}
+
+export function isSingleSportFamily(sports: Sport[]): boolean {
+  if (sports.length === 0) return true;
+  const fam = sportFamily(sports[0]);
+  return sports.every((s) => sportFamily(s) === fam);
+}
+
+// Pure toggle used by every sport-picker: purely additive — any sport can be
+// added to any selection. Cross-family agents are allowed and run on the V3
+// engine (see .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md); the old
+// same-family reset has been removed.
+export function toggleSportSelection(selected: Sport[], sport: Sport): Sport[] {
+  if (selected.includes(sport)) {
+    return selected.filter((s) => s !== sport);
+  }
+  return [...selected, sport];
+}
+
 export const BET_TYPES = ['spread', 'moneyline', 'total', 'any'] as const;
 export type BetType = (typeof BET_TYPES)[number];
 
@@ -42,6 +77,7 @@ export interface PersonalityParams {
   over_under_lean: Scale1To5;
   confidence_threshold: Scale1To5;
   chase_value: boolean;
+  parlay_appetite?: Scale1To5;  // 1 = straights only, 5 = loves parlays (always-on, not sport-gated)
 
   preferred_bet_type: BetType;
   max_favorite_odds: number | null;
@@ -220,6 +256,7 @@ export const PersonalityParamsSchema = z.object({
   over_under_lean: Scale1To5Schema,
   confidence_threshold: Scale1To5Schema,
   chase_value: z.boolean(),
+  parlay_appetite: Scale1To5Schema.optional(),  // 1 = straights only, 5 = loves parlays
 
   preferred_bet_type: z.enum(BET_TYPES),
   max_favorite_odds: z.number().max(-100).nullable(),
@@ -264,6 +301,9 @@ export const CreateAgentSchema = z.object({
     (val) => /^#[0-9a-fA-F]{6}$/.test(val) || /^gradient:#[0-9a-fA-F]{6},#[0-9a-fA-F]{6}$/.test(val),
     { message: 'Must be hex (#xxxxxx) or gradient (gradient:#xxxxxx,#xxxxxx)' }
   ),
+  // Cross-family selections are allowed — they run on the V3 engine (the
+  // single-family refine was removed). isSingleSportFamily is kept as a soft UI
+  // signal. See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md.
   preferred_sports: z.array(z.enum(SPORTS)).min(1),
   archetype: z.enum(ARCHETYPE_IDS).nullable(),
   personality_params: PersonalityParamsSchema,
@@ -277,6 +317,10 @@ export const CreateAgentSchema = z.object({
 export const UpdateAgentSchema = CreateAgentSchema.partial().extend({
   is_public: z.boolean().optional(),
   is_active: z.boolean().optional(),
+  // No family constraint: cross-family agents are now allowed (they run on the
+  // V3 engine — see .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md), which also
+  // grandfathers legacy mixed agents whose preferred_sports predate the old rule.
+  preferred_sports: z.array(z.enum(SPORTS)).min(1).optional(),
 });
 
 export type CreateAgentInput = z.input<typeof CreateAgentSchema>;
@@ -306,6 +350,7 @@ export const DEFAULT_PERSONALITY_PARAMS: PersonalityParams = {
   over_under_lean: 3,
   confidence_threshold: 3,
   chase_value: false,
+  parlay_appetite: 1,  // conservative default — straights only until the user dials it up
   preferred_bet_type: 'any',
   max_favorite_odds: -200,
   min_underdog_odds: null,

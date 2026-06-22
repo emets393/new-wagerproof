@@ -12,6 +12,8 @@ import type { SteeringProfile } from "./deriveSteeringProfile.ts";
 
 export function buildV3SystemPrompt(steering: SteeringProfile, today: string): string {
   const mlbOnly = steering.preferredSports.length === 1 && steering.preferredSports[0] === "mlb";
+  const multiSport = steering.preferredSports.length > 1;
+  const sportsList = steering.preferredSports.map((s) => s.toUpperCase()).join(", ");
   const lenses = Object.entries(steering.lensVotes)
     .sort((a, b) => (b[1] as number) - (a[1] as number))
     .map(([l, p]) => `${l}(${p})`)
@@ -49,10 +51,12 @@ export function buildV3SystemPrompt(steering: SteeringProfile, today: string): s
 - Lead with these tools: ${toolPriority || "get_model_predictions, get_market_odds"}.
 - Weighting policy:\n${steering.weightingPolicy.map((w) => `  - ${w}`).join("\n")}
 - Unit sizing: ${steering.unitPolicy}
+- Parlay policy: ${steering.parlayPolicy}
 - Max picks today: ${steering.maxPicks}. ${c.skipWeakSlates ? "If nothing clears your bar, submit ZERO picks with a slate_note." : "Find your best plays."}
 ${c.maxFavoriteOdds != null ? `- Do not lay a favorite worse than ${c.maxFavoriteOdds}.` : ""}
 ${c.minUnderdogOdds != null ? `- Do not take a dog shorter than +${c.minUnderdogOdds}.` : ""}
 ${mlbOnly ? "- MLB: start from the starting-pitcher matchup; cross-check Perfect Storm accuracy buckets (get_mlb_perfect_storm) before firing." : ""}
+${multiSport ? `- You cover multiple sports: ${sportsList}. Apply each sport's lenses to its own games; never cross signals between sports.` : ""}
 ${ciBlock ? "\n" + ciBlock : ""}
 
 Be decisive and honest about uncertainty. Quality over quantity — a few well-grounded picks beat a full card.`;
