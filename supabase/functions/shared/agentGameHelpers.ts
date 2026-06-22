@@ -71,20 +71,29 @@ async function fetchNFLGames(
     return { games: [], formattedGames: [] };
   }
 
-  const [polymarketByGameKey, lineMovementByTrainingKey, h2hByGameKey] = await Promise.all([
+  // Slate game_ids are whatever formatNFLGame assigns (training_key today; the
+  // 2026 contract migrates this to the nflverse id, e.g. 2025_12_BUF_HOU). Props
+  // join on that same id — see DRYRUN_WK12_SPEC.md "Join key … game_id". When the
+  // feed's game_id and nfl_dryrun_props.game_id share a scheme, props light up.
+  const gameIds = [...new Set(games.map(g => String(g.training_key || `${g.away_team}_${g.home_team}`)).filter(Boolean))];
+
+  const [polymarketByGameKey, lineMovementByTrainingKey, h2hByGameKey, propsByGameId] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nfl', games),
     fetchLineMovementByTrainingKey(cfbClient, 'nfl_betting_lines', games),
     fetchNFLH2HByGameKey(cfbClient, games),
+    fetchNFLPropsByGameId(cfbClient, gameIds),
   ]);
 
-  const formattedGames = games.map(game =>
-    formatNFLGame(
+  const formattedGames = games.map(game => {
+    const gameId = String(game.training_key || `${game.away_team}_${game.home_team}`);
+    return formatNFLGame(
       game,
       polymarketByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || null,
       lineMovementByTrainingKey.get(String(game.training_key || '')) || [],
-      h2hByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || []
-    )
-  );
+      h2hByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || [],
+      propsByGameId.get(gameId) || []
+    );
+  });
   return { games, formattedGames };
 }
 
@@ -943,6 +952,64 @@ async function fetchNFLH2HByGameKey(
   return result;
 }
 
+// Player props for the slate, keyed by game_id (the dryrun nflverse id, e.g.
+// 2025_12_BUF_HOU). Mirrors the other per-game fetchers: one `.in` query, then
+// group rows by game_id. Lives on the research (cfb) client alongside
+// nfl_dryrun_games. NFL-only — no other sport has nfl_dryrun_props.
+async function fetchNFLPropsByGameId(
+  cfbClient: SupabaseClient,
+  gameIds: string[]
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const result = new Map<string, Record<string, unknown>[]>();
+  if (gameIds.length === 0) return result;
+
+  try {
+    const { data, error } = await cfbClient
+      .from('nfl_dryrun_props')
+      .select('game_id, player_name, position, team, opponent, is_home, market, close_line, over_price, under_price, l3_avg, l5_avg, l10_avg, szn_avg, over_rate_l5, over_rate_l10, def_matchup_idx, report_status, flags')
+      .in('game_id', gameIds);
+
+    if (error || !data) {
+      console.warn('[agentGameHelpers] NFL props fetch failed:', error?.message || 'No data');
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const gameId = String(row.game_id || '');
+      if (!gameId) continue;
+      if (!result.has(gameId)) result.set(gameId, []);
+      result.get(gameId)!.push(formatNFLProp(row));
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] NFL props fetch threw:', (error as Error).message);
+  }
+
+  return result;
+}
+
+// Project one nfl_dryrun_props row to the agent-facing prop shape. is_bettable
+// is the signal gate: a non-empty `flags` array means a validated P-flag fired,
+// so the prop is bettable; everything else is read-only form context.
+function formatNFLProp(row: Record<string, unknown>): Record<string, unknown> {
+  const flags = Array.isArray(row.flags) ? row.flags : [];
+  return {
+    player_name: row.player_name,
+    position: row.position,
+    market: row.market,
+    line: row.close_line,
+    over_price: row.over_price,
+    under_price: row.under_price,
+    l5_avg: row.l5_avg,
+    l10_avg: row.l10_avg,
+    szn_avg: row.szn_avg,
+    over_rate_l5: row.over_rate_l5,
+    over_rate_l10: row.over_rate_l10,
+    def_matchup_idx: row.def_matchup_idx,
+    flags,
+    is_bettable: Array.isArray(flags) && flags.length > 0,
+  };
+}
+
 async function fetchNBAInjuriesByTeam(
   cfbClient: SupabaseClient,
   games: Record<string, unknown>[],
@@ -1065,7 +1132,8 @@ function formatNFLGame(
   game: Record<string, unknown>,
   polymarket: Record<string, unknown> | null,
   lineMovement: Record<string, unknown>[],
-  h2hGames: Record<string, unknown>[]
+  h2hGames: Record<string, unknown>[],
+  props: Record<string, unknown>[] = []
 ): Record<string, unknown> {
   const gameId = game.training_key || `${game.away_team}_${game.home_team}`;
   const homeSpread = game.home_spread as number | null;
@@ -1121,6 +1189,10 @@ function formatNFLGame(
       ou_prob: game.ou_result_prob,
       predicted_team: Number(game.home_away_spread_cover_prob || 0) > 0.5 ? game.home_team : game.away_team,
     },
+    // Player props are SIGNAL-GATED: only props with a non-empty `flags` array
+    // (a validated P-flag fired) are bettable. is_bettable carries that gate to
+    // the agent + the submit grounding check. See nfl_dryrun_props.flags.
+    props: props.length > 0 ? props : null,
     game_data_complete: {
       source_table: 'nfl_predictions_epa',
       raw_game_data: game,

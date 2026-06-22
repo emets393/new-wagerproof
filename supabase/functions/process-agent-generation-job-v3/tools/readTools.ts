@@ -34,6 +34,10 @@ const DEEP_TOOLS: Record<string, DeepToolDef> = {
   get_mlb_perfect_storm: { groups: ["perfect_storm", "accuracy_signals"], sports: ["mlb"], grounds: "all", desc: "Perfect Storm tiers + per-bet-type accuracy buckets (DOW/team/edge)." },
   get_mlb_statcast_signals: { groups: ["signals"], sports: ["mlb"], grounds: "none", desc: "Statcast / pitcher / bullpen signal messages." },
   get_polymarket: { groups: ["polymarket"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "none", desc: "Polymarket prediction-market prices." },
+  // get_props is dispatched by name (runProps) so it can populate
+  // ctx.bettableProps, but it lives in DEEP_TOOLS so it's advertised + sport-gated
+  // + budgeted like the other deep fetches. grounds:"all" → bettable props ground.
+  get_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form." },
 };
 
 /** Tools the loop should charge against the deep-fetch budget. */
@@ -58,9 +62,7 @@ export async function runReadTool(
   ctx: AgentGenContext,
 ): Promise<ReadToolResult> {
   if (name === "get_editor_picks") return runEditorPicks(args, ctx);
-  if (name === "get_props") {
-    return { content: JSON.stringify({ applicable: false, note: "player props are read-only context and not available to bet in V3" }), ok: true, summary: "props unavailable" };
-  }
+  if (name === "get_props") return runProps(args, ctx);
 
   const def = DEEP_TOOLS[name];
   if (!def) return { content: JSON.stringify({ error: `unknown tool: ${name}` }), ok: false, summary: "unknown tool" };
@@ -83,6 +85,51 @@ export async function runReadTool(
     content: compactDeepFetch(name, { tool: name, games: results }),
     ok: true,
     summary: `${name}: ${results.length} game(s)`,
+  };
+}
+
+/** Build the bettable-prop ledger key. MUST stay byte-identical to the key the
+ *  submit tool checks and to the format documented in context.ts:
+ *  `${player_name.toLowerCase()}::${market}::${line}` (line = close_line). */
+function propKey(playerName: unknown, market: unknown, line: unknown): string {
+  return `${String(playerName ?? "").toLowerCase()}::${String(market ?? "")}::${String(line ?? "")}`;
+}
+
+/** get_props — project each game's `props` array and register every bettable
+ *  prop (is_bettable === true) in ctx.bettableProps so the submit tool can gate
+ *  prop bets. Mirrors the generic deep-tool loop (slate/sport checks, grounding,
+ *  recordFacts) since get_props can't go through projectGroups + the ledger pop
+ *  in one pass. NFL-only (DEEP_TOOLS.get_props.sports). */
+function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadToolResult {
+  const def = DEEP_TOOLS.get_props;
+  const gameIds = Array.isArray(args.game_ids) ? args.game_ids.map(String) : [];
+  if (gameIds.length === 0) return { content: JSON.stringify({ error: "game_ids is required (from the slate)" }), ok: false, summary: "no game_ids" };
+
+  const results: Record<string, unknown>[] = [];
+  for (const id of gameIds) {
+    const loaded = ctx.games.get(id);
+    if (!loaded) { results.push({ game_id: id, error: "not_in_slate" }); continue; }
+    if (!def.sports.includes(loaded.sport)) { results.push({ game_id: id, applicable: false, note: `get_props not available for ${loaded.sport}` }); continue; }
+
+    const props = Array.isArray(loaded.fg.props) ? (loaded.fg.props as Record<string, unknown>[]) : [];
+    results.push({ game_id: id, matchup: loaded.fg.matchup, props });
+    recordFacts(ctx, id, { props });
+
+    // Register bettable props (signal-backed) so submit can gate prop bets.
+    let bettable = ctx.bettableProps.get(id);
+    for (const p of props) {
+      if (p.is_bettable !== true) continue;
+      if (!bettable) { bettable = new Set<string>(); ctx.bettableProps.set(id, bettable); }
+      bettable.add(propKey(p.player_name, p.market, p.line));
+    }
+    // grounds:"all" — a deep prop fetch grounds the game for any bet type.
+    for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);
+  }
+
+  return {
+    content: compactDeepFetch("get_props", { tool: "get_props", games: results }),
+    ok: true,
+    summary: `get_props: ${results.length} game(s)`,
   };
 }
 

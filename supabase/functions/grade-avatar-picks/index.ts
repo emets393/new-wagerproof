@@ -85,6 +85,70 @@ interface GradingSummary {
   skipped_reasons?: Record<string, number>;
 }
 
+// --- Parlay types (avatar_parlays + avatar_parlay_legs) ---------------------
+// A parlay is one staked ticket with N legs. Legs are graded with the SAME
+// per-leg machinery straights use (gradePickFromView); the ticket finalizes
+// only once every leg is graded. See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md
+interface ParlayLeg {
+  id: string;
+  parlay_id: string;
+  game_id: string;
+  sport: string;
+  matchup: string;
+  game_date: string;
+  bet_type: 'spread' | 'moneyline' | 'total' | 'prop';
+  /** 'full' | 'f5' | 'h1'. Only 'full'/'f5' are gradable here (matches the
+   *  straight grader). 'h1' (NFL/CFB first half) stays pending — football
+   *  results aren't wired yet (doc §13). */
+  period: 'full' | 'f5' | 'h1';
+  pick_selection: string;
+  odds: string | null;
+  archived_game_data: Record<string, unknown>;
+  leg_result: 'won' | 'lost' | 'push' | 'pending';
+  graded_at: string | null;
+}
+
+interface AvatarParlay {
+  id: string;
+  avatar_id: string;
+  sport: string;
+  legs_count: number;
+  combined_odds: string | null;
+  units: number;
+  result: 'won' | 'lost' | 'push' | 'pending';
+  actual_result: string | null;
+  graded_at: string | null;
+  ai_audit_payload: Record<string, unknown> | null;
+  target_date: string | null;
+}
+
+interface ParlaySummary {
+  parlays_processed: number;
+  legs_graded: number;
+  won: number;
+  lost: number;
+  push: number;
+  still_pending: number;
+  errors: number;
+}
+
+/**
+ * Convert American odds to decimal odds.
+ *   a > 0  → 1 + a/100
+ *   a < 0  → 1 + 100/|a|
+ * Returns null for malformed / zero odds so the caller can decide how to
+ * handle it (a leg with no usable price contributes 1.0 to the product, i.e.
+ * even money, rather than silently zeroing the ticket).
+ */
+function americanToDecimal(odds: string | null | undefined): number | null {
+  if (odds == null) return null;
+  const str = String(odds).trim();
+  if (!/^[+-]?[0-9]+$/.test(str)) return null;
+  const a = parseInt(str, 10);
+  if (a === 0) return null;
+  return a > 0 ? 1 + a / 100 : 1 + 100 / Math.abs(a);
+}
+
 // =============================================================================
 // Constants
 // =============================================================================
@@ -680,6 +744,256 @@ function findGameResult(
 }
 
 // =============================================================================
+// Parlay Grading (avatar_parlays + avatar_parlay_legs)
+// =============================================================================
+
+/**
+ * Grade pending parlays. Each NON-prop leg is graded with the SAME logic
+ * straight picks use (gradePickFromView, against the same per-sport result
+ * sources), then the ticket is rolled up ONLY when every leg is graded.
+ *
+ * Conservative gating (correctness-critical — this feeds real W-L + units):
+ *   - prop legs are LEFT pending (props grading is a separate task).
+ *   - h1 legs (NFL/CFB first half) are LEFT pending — football finals aren't
+ *     wired into this grader yet (doc §13), and gradePickFromView has no h1
+ *     branch (would mis-grade against full-game scores).
+ *   - any leg in an unsupported sport / not-final / parse-ambiguous stays
+ *     pending, which keeps the whole parlay pending. We never finalize a
+ *     ticket with an ungraded leg.
+ *
+ * Roll-up (only when NO leg is pending):
+ *   - any leg lost            → parlay 'lost'
+ *   - else every leg won      → parlay 'won'
+ *   - else (push + won, none lost): push legs DROP OUT; re-price on the
+ *     surviving won legs (product of their decimal odds). No survivors
+ *     (all push) → parlay 'push'.
+ * The re-priced decimal is stored in ai_audit_payload.settled_decimal for the
+ * payout step.
+ */
+async function gradeParlays(
+  supabase: SupabaseClient,
+  cfbClient: SupabaseClient,
+  dryRun: boolean,
+  affectedAvatars: Set<string>,
+): Promise<ParlaySummary> {
+  const summary: ParlaySummary = {
+    parlays_processed: 0,
+    legs_graded: 0,
+    won: 0,
+    lost: 0,
+    push: 0,
+    still_pending: 0,
+    errors: 0,
+  };
+
+  // 1. Fetch pending parlays and their legs.
+  const { data: pendingParlays, error: parlayErr } = await supabase
+    .from('avatar_parlays')
+    .select('*')
+    .eq('result', 'pending');
+
+  if (parlayErr) {
+    console.error('[grade-avatar-picks][parlay] Failed to fetch pending parlays:', parlayErr);
+    summary.errors++;
+    return summary;
+  }
+  if (!pendingParlays || pendingParlays.length === 0) {
+    console.log('[grade-avatar-picks][parlay] No pending parlays to grade');
+    return summary;
+  }
+
+  const parlayIds = (pendingParlays as AvatarParlay[]).map(p => p.id);
+  const { data: allLegs, error: legErr } = await supabase
+    .from('avatar_parlay_legs')
+    .select('*')
+    .in('parlay_id', parlayIds);
+
+  if (legErr) {
+    console.error('[grade-avatar-picks][parlay] Failed to fetch parlay legs:', legErr);
+    summary.errors++;
+    return summary;
+  }
+
+  const legsByParlay = new Map<string, ParlayLeg[]>();
+  for (const leg of (allLegs || []) as ParlayLeg[]) {
+    const arr = legsByParlay.get(leg.parlay_id) ?? [];
+    arr.push(leg);
+    legsByParlay.set(leg.parlay_id, arr);
+  }
+
+  // 2. Batch-fetch game results per sport across ALL gradable legs at once,
+  //    mirroring the straight-pick path. Only legs we will actually try to
+  //    grade (full/f5, non-prop, supported sport) contribute dates.
+  const nbaDates = new Set<string>();
+  const ncaabDates = new Set<string>();
+  const mlbDates = new Set<string>();
+  for (const leg of (allLegs || []) as ParlayLeg[]) {
+    if (leg.bet_type === 'prop' || leg.period === 'h1') continue;
+    if (leg.sport === 'nba') nbaDates.add(leg.game_date);
+    else if (leg.sport === 'ncaab') ncaabDates.add(leg.game_date);
+    else if (leg.sport === 'mlb') mlbDates.add(leg.game_date);
+  }
+
+  const [nbaResults, ncaabResults, mlbResults] = await Promise.all([
+    nbaDates.size > 0
+      ? fetchGameResults(cfbClient, 'NBA', [...nbaDates])
+      : Promise.resolve(new Map<string, GameResult>()),
+    ncaabDates.size > 0
+      ? fetchGameResults(cfbClient, 'NCAAB', [...ncaabDates])
+      : Promise.resolve(new Map<string, GameResult>()),
+    mlbDates.size > 0
+      ? fetchMLBGameResults(cfbClient, [...mlbDates])
+      : Promise.resolve(new Map<string, GameResult>()),
+  ]);
+
+  const resultsByLeague: Record<string, { map: Map<string, GameResult>; all: GameResult[] }> = {
+    nba: { map: nbaResults, all: [...nbaResults.values()] },
+    ncaab: { map: ncaabResults, all: [...ncaabResults.values()] },
+    mlb: { map: mlbResults, all: [...mlbResults.values()] },
+  };
+
+  // 3. Grade each parlay's legs, then roll up.
+  for (const parlay of pendingParlays as AvatarParlay[]) {
+    summary.parlays_processed++;
+    try {
+      const legs = legsByParlay.get(parlay.id) ?? [];
+      if (legs.length === 0) {
+        console.warn(`[grade-avatar-picks][parlay] Parlay ${parlay.id} has no legs — leaving pending`);
+        summary.still_pending++;
+        continue;
+      }
+
+      // --- Grade each not-yet-graded, gradable leg ---
+      for (const leg of legs) {
+        if (leg.leg_result !== 'pending') continue;          // already settled
+        if (leg.bet_type === 'prop') continue;               // props: separate task → stays pending
+        if (leg.period === 'h1') continue;                   // football 1H not wired → stays pending
+
+        const leagueData = resultsByLeague[leg.sport];
+        if (!leagueData) continue;                           // unsupported sport (nfl/cfb) → stays pending
+
+        // gradePickFromView/findGameResult read the same shape on a straight
+        // pick; build an AvatarPick view over the leg so we reuse it verbatim.
+        const legAsPick: AvatarPick = {
+          id: leg.id,
+          avatar_id: parlay.avatar_id,
+          game_id: leg.game_id,
+          sport: leg.sport,
+          matchup: leg.matchup,
+          game_date: leg.game_date,
+          bet_type: leg.bet_type as AvatarPick['bet_type'],
+          period: leg.period as AvatarPick['period'],
+          pick_selection: leg.pick_selection,
+          odds: leg.odds,
+          units: 0,
+          confidence: 0,
+          reasoning_text: '',
+          key_factors: null,
+          archived_game_data: leg.archived_game_data,
+          result: 'pending',
+          actual_result: null,
+          graded_at: null,
+        };
+
+        const gameResult = findGameResult(legAsPick, leagueData.map, leagueData.all);
+        if (!gameResult) continue;                           // game not found yet → stays pending
+
+        const grading = gradePickFromView(legAsPick, gameResult);
+        if (!grading) continue;                              // not final / parse-ambiguous → stays pending
+
+        // Persist the leg result (mutate local copy too so roll-up sees it).
+        leg.leg_result = grading.result;
+        leg.graded_at = new Date().toISOString();
+        summary.legs_graded++;
+        if (!dryRun) {
+          const { error: legUpdErr } = await supabase
+            .from('avatar_parlay_legs')
+            .update({ leg_result: grading.result, graded_at: leg.graded_at })
+            .eq('id', leg.id);
+          if (legUpdErr) {
+            console.error(`[grade-avatar-picks][parlay] Failed to update leg ${leg.id}:`, legUpdErr);
+            summary.errors++;
+          }
+        }
+        console.log(`[grade-avatar-picks][parlay] Leg ${leg.id} (${leg.bet_type}/${leg.period}) → ${grading.result}`);
+      }
+
+      // --- Roll up: only finalize when NO leg is pending ---
+      const anyPending = legs.some(l => l.leg_result === 'pending');
+      if (anyPending) {
+        summary.still_pending++;
+        continue;
+      }
+
+      const anyLost = legs.some(l => l.leg_result === 'lost');
+      const survivors = legs.filter(l => l.leg_result === 'won');   // push legs drop out
+      const wonCount = survivors.length;
+      const pushCount = legs.filter(l => l.leg_result === 'push').length;
+
+      let parlayResult: 'won' | 'lost' | 'push';
+      let settledDecimal: number;   // 1.0 = no payout beyond stake (full push)
+
+      if (anyLost) {
+        parlayResult = 'lost';
+        settledDecimal = 0;         // unused on a loss (payout = -units)
+      } else if (survivors.length > 0) {
+        // No leg lost and at least one won → 'won', re-priced on the surviving
+        // won legs only (push legs already dropped out of `survivors`). When
+        // every leg won this is just the product over all legs.
+        parlayResult = 'won';
+        settledDecimal = survivors.reduce(
+          (acc, l) => acc * (americanToDecimal(l.odds) ?? 1),
+          1,
+        );
+      } else {
+        // No survivors → every leg pushed → ticket pushes (stake returned).
+        parlayResult = 'push';
+        settledDecimal = 1;
+      }
+
+      const actualResult = anyLost
+        ? `${legs.filter(l => l.leg_result === 'lost').length}/${legs.length} legs lost`
+        : pushCount > 0
+          ? `${wonCount}/${legs.length} legs won, ${pushCount} push`
+          : `${wonCount}/${legs.length} legs won`;
+
+      // Preserve the rest of ai_audit_payload; stash settled_decimal for payout.
+      const mergedAudit = {
+        ...(parlay.ai_audit_payload ?? {}),
+        settled_decimal: parlayResult === 'won' ? settledDecimal : (parlayResult === 'push' ? 1 : 0),
+      };
+
+      if (!dryRun) {
+        const { error: parlayUpdErr } = await supabase
+          .from('avatar_parlays')
+          .update({
+            result: parlayResult,
+            actual_result: actualResult,
+            graded_at: new Date().toISOString(),
+            ai_audit_payload: mergedAudit,
+          })
+          .eq('id', parlay.id);
+        if (parlayUpdErr) {
+          console.error(`[grade-avatar-picks][parlay] Failed to finalize parlay ${parlay.id}:`, parlayUpdErr);
+          summary.errors++;
+          continue;
+        }
+      }
+
+      summary[parlayResult]++;
+      affectedAvatars.add(parlay.avatar_id);
+      console.log(`[grade-avatar-picks][parlay] Parlay ${parlay.id} → ${parlayResult} (${actualResult}, settled_decimal=${mergedAudit.settled_decimal})`);
+    } catch (error) {
+      console.error(`[grade-avatar-picks][parlay] Error grading parlay ${parlay.id}:`, error);
+      summary.errors++;
+    }
+  }
+
+  console.log(`[grade-avatar-picks][parlay] Summary: ${JSON.stringify(summary)}`);
+  return summary;
+}
+
+// =============================================================================
 // Main Handler
 // =============================================================================
 
@@ -754,20 +1068,15 @@ serve(async (req) => {
       throw new Error(`Failed to fetch pending picks: ${fetchError.message}`);
     }
 
-    if (!pendingPicks || pendingPicks.length === 0) {
-      console.log('[grade-avatar-picks] No pending picks to grade');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          summary: { total_processed: 0, won: 0, lost: 0, push: 0, skipped: 0, errors: 0 },
-          avatars_updated: [],
-          details: [],
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // NOTE: don't early-return on zero pending straight picks — pending
+    // PARLAYS still need grading below. The date-collection + grading loop
+    // both no-op on an empty array, so we just fall through with [].
+    const straightPicks: AvatarPick[] = (pendingPicks ?? []) as AvatarPick[];
+    if (straightPicks.length === 0) {
+      console.log('[grade-avatar-picks] No pending straight picks to grade (checking parlays)');
+    } else {
+      console.log(`[grade-avatar-picks] Found ${straightPicks.length} pending NBA/NCAAB/MLB picks to process`);
     }
-
-    console.log(`[grade-avatar-picks] Found ${pendingPicks.length} pending NBA/NCAAB/MLB picks to process`);
 
     // -------------------------------------------------------------------------
     // 2. Collect unique game dates per league and batch fetch results
@@ -776,7 +1085,7 @@ serve(async (req) => {
     const ncaabDates = new Set<string>();
     const mlbDates = new Set<string>();
 
-    for (const pick of pendingPicks) {
+    for (const pick of straightPicks) {
       if (pick.sport === 'nba') nbaDates.add(pick.game_date);
       else if (pick.sport === 'ncaab') ncaabDates.add(pick.game_date);
       else if (pick.sport === 'mlb') mlbDates.add(pick.game_date);
@@ -814,7 +1123,7 @@ serve(async (req) => {
     const gradedDetails: GradingResult[] = [];
     const affectedAvatars = new Set<string>();
 
-    for (const pick of pendingPicks as AvatarPick[]) {
+    for (const pick of straightPicks) {
       summary.total_processed++;
 
       try {
@@ -920,6 +1229,13 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
+    // 3b. Grade pending PARLAYS (reuses the same per-leg grader). Runs before
+    //     the recalc loop so any avatar whose parlay just finalized is included
+    //     in affectedAvatars and gets its performance recomputed below.
+    // -------------------------------------------------------------------------
+    const parlaySummary = await gradeParlays(supabase, cfbClient, dryRun, affectedAvatars);
+
+    // -------------------------------------------------------------------------
     // 4. Recalculate performance for affected avatars (or ALL if recalc_all)
     // -------------------------------------------------------------------------
     const avatarsUpdated: string[] = [];
@@ -972,6 +1288,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         summary,
+        parlay_summary: parlaySummary,
         avatars_updated: avatarsUpdated,
         details: gradedDetails,
         dry_run: dryRun,
