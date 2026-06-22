@@ -6,6 +6,9 @@
 - [wagerproof-mobile/README.md](wagerproof-mobile/README.md) — Mobile app setup, navigation, and build process
 - [GIT_SUPABASE_SETUP.md](GIT_SUPABASE_SETUP.md) — Git and Supabase project setup notes
 
+## Current Status & Roadmap
+- [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) — **Live build status & roadmap** — start here for what's built, staged, and remaining (2026 NFL/CFB pipeline, V3 agent upgrade)
+
 ## Architecture & Systems
 - [.claude/docs/00_CODEBASE_OVERVIEW.md](.claude/docs/00_CODEBASE_OVERVIEW.md) — Full codebase overview (pages, components, services, hooks)
 - [.claude/docs/08_database_caching.md](.claude/docs/08_database_caching.md) — Dual-Supabase architecture and caching strategy
@@ -39,6 +42,9 @@
 - [.claude/docs/agents/10_GENERATION_V2_QUEUE.md](.claude/docs/agents/10_GENERATION_V2_QUEUE.md) — V2 queue-based generation (enqueue/dispatch/worker)
 - [.claude/docs/agents/11_PUSH_NOTIFICATIONS.md](.claude/docs/agents/11_PUSH_NOTIFICATIONS.md) — Push notification system
 - [.claude/docs/agents/12_PICK_OVERLAP.md](.claude/docs/agents/12_PICK_OVERLAP.md) — Pick overlap tracking and visualization
+- [.claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md](.claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md) — Cross-sport agents + parlays design (V3)
+- [.claude/docs/agents/14_SEASON_2026_PIPELINE_READINESS.md](.claude/docs/agents/14_SEASON_2026_PIPELINE_READINESS.md) — 2026 NFL/CFB live pipeline audit + readiness
+- [.claude/docs/agents/15_V3_PERSONALITY_QUESTIONS.md](.claude/docs/agents/15_V3_PERSONALITY_QUESTIONS.md) — V3 personality question set (redesign)
 - [.claude/docs/agents/20_PIXEL_OFFICE_FULL_SPEC.md](.claude/docs/agents/20_PIXEL_OFFICE_FULL_SPEC.md) — Pixel Office visual system spec
 - [.claude/docs/agents/21_PIXEL_OFFICE_ROOM_DESIGN.md](.claude/docs/agents/21_PIXEL_OFFICE_ROOM_DESIGN.md) — Pixel Office room design specs
 - [docs/agent-system-prompt-full.md](docs/agent-system-prompt-full.md) — Complete agent system prompt
