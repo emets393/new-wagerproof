@@ -1,0 +1,787 @@
+season,week,homeTeam,awayTeam,total_open,pred_total,totals_bet,spread_open,pred_spread,sides_bet,rev_veto,spots
+2025,1,Kansas State,Iowa State,49.5,54.21764137974917,UNDER,-3.0,-2.809859402408673,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; T2 under: week 1 opener; 
+2025,1,Kansas,Fresno State,51.5,55.79089556777989,UNDER,-14.0,-4.598736137734463,,0,T2 under: week 1 opener; 
+2025,1,Western Kentucky,Sam Houston,61.5,56.06310809364046,UNDER,-9.5,-4.188902910145001,,0,TOTAL fade high>=60 UNDER; T2 under: week 1 opener; 
+2025,1,Hawai'i,Stanford,53.5,58.872132876058366,OVER,-1.5,7.434867772314612,HOME,0,SB volume gap.5-1 (sharp=HOME); KEY dog +2.5/3/3.5 (AWAY dog); TOTAL model over-edge>=6 OVER; T2 under: week 1 opener; 
+2025,1,South Florida,Boise State,63.5,56.26218319484339,UNDER,8.5,3.9453180942178276,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T2 under: week 1 opener; 
+2025,1,Rutgers,Ohio,46.5,56.89596294960306,UNDER,-11.5,-16.289953529853225,,0,T2 under: week 1 opener; 
+2025,1,UCF,Jacksonville State,53.5,55.83844313419926,UNDER,-16.5,-11.827609147625855,,0,T2 under: week 1 opener; T2 under: backup QB (open>=50); 
+2025,1,NC State,East Carolina,58.5,51.36713244516275,UNDER,-12.5,-3.705556384921695,,0,TOTAL fade high>=60 UNDER; T2 under: week 1 opener; 
+2025,1,Akron,Wyoming,49.5,55.242842157476026,OVER,8.5,-3.9297125046839003,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: week 1 opener; 
+2025,1,Minnesota,Buffalo,45.5,53.63834700707246,OVER,-17.0,-15.893517600874963,AWAY,0,SB premium gap>=1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: week 1 opener; 
+2025,1,Wisconsin,Miami (OH),40.5,53.17830465371025,OVER,-17.5,-12.658244885254998,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: week 1 opener; 
+2025,1,Cincinnati,Nebraska,52.5,52.96419214604882,UNDER,6.5,5.857718064328205,AWAY,0,T2 under: week 1 opener; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,1,Charlotte,App State,53.5,53.75246763860913,UNDER,8.5,2.111293765128219,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 under: week 1 opener; T2 under: backup QB (open>=50); 
+2025,1,Wake Forest,Kennesaw State,51.5,55.78627120685654,UNDER,-17.5,-17.41697360763632,,0,T2 under: week 1 opener; T2 under: backup QB (open>=50); 
+2025,1,Michigan State,Western Michigan,49.5,54.08660738143723,OVER,-18.5,-12.839629534900963,,0,TOTAL fade low<=50 OVER (weak); T2 under: week 1 opener; 
+2025,1,Colorado,Georgia Tech,55.5,51.123181540722435,UNDER,4.0,-1.3870743776020205,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 under: week 1 opener; 
+2025,1,Baylor,Auburn,57.5,54.11855043676927,UNDER,1.5,5.805299587091132,AWAY,0,T2 under: week 1 opener; T3 away: P5 edge -4to-8; 
+2025,1,Sam Houston,UNLV,58.5,57.64043157979839,UNDER,13.5,8.474215487330406,,0,TOTAL fade high>=60 UNDER; T2 under: week 1 opener; 
+2025,1,San José State,Central Michigan,50.5,53.58795097245393,UNDER,-11.5,-2.287492009031751,,0,T2 under: week 1 opener; 
+2025,1,Ohio State,Texas,49.5,50.40957800563092,OVER,-3.0,-10.279125996222776,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade low<=50 OVER (weak); T2 under: week 1 opener; 
+2025,1,Tennessee,Syracuse,53.5,54.83452273352891,UNDER,-14.0,-5.8097801497305355,AWAY,0,T2 under: week 1 opener; T2 high-edge dog away (P5); 
+2025,1,Purdue,Ball State,50.5,53.56559214022199,OVER,-16.5,-15.180712457908369,,0,TOTAL fade low<=50 OVER (weak); T2 under: week 1 opener; 
+2025,1,Southern Miss,Mississippi State,59.5,53.098826057622794,UNDER,12.5,6.575155013457563,,0,T2 under: week 1 opener; 
+2025,1,Tulane,Northwestern,47.5,53.164388373158424,OVER,-6.5,-6.605152202533139,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: week 1 opener; 
+2025,1,Maryland,Florida Atlantic,57.5,55.01448666438857,UNDER,-16.5,-4.22063218219332,,0,T2 under: week 1 opener; 
+2025,1,Kentucky,Toledo,48.5,54.08649539278564,OVER,-10.0,-5.185257011203609,,0,TOTAL fade low<=50 OVER (weak); T2 under: week 1 opener; 
+2025,1,Indiana,Old Dominion,54.5,57.21458279151537,UNDER,-23.5,-28.714531201033612,,0,T2 under: week 1 opener; 
+2025,1,Florida State,Alabama,50.5,54.22732598564381,OVER,13.5,10.6061349282157,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: week 1 opener; 
+2025,1,Penn State,Nevada,58.5,54.4827585954109,UNDER,-45.5,-38.52042164077466,AWAY,0,STACK model+gap>=1 AWAY; SB premium gap>=1 (sharp=AWAY); T2 under: week 1 opener; 
+2025,1,Massachusetts,Temple,51.5,54.87825036575833,OVER,3.0,-0.10484922352748233,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: week 1 opener; 
+2025,1,Georgia,Marshall,55.5,57.250676008555395,UNDER,-39.5,-37.78814424902451,,0,T2 under: week 1 opener; 
+2025,1,Virginia,Coastal Carolina,57.5,53.03661465111971,UNDER,-12.5,-8.660532208079577,,0,T2 under: week 1 opener; 
+2025,1,Texas A&M,UTSA,56.5,55.18516887192652,UNDER,-21.5,-19.454509422617512,,0,T2 under: week 1 opener; 
+2025,1,Michigan,New Mexico,52.5,54.90155768980922,OVER,-36.0,-32.97412730955502,,0,TOTAL fade low<=50 OVER (weak); T2 under: week 1 opener; 
+2025,1,Clemson,LSU,57.5,52.95730645786034,UNDER,-3.5,-10.020696140809877,AWAY,0,SB volume gap.5-1 (sharp=AWAY); RvR ranked-vs-ranked home-fav -> HOME; T2 under: week 1 opener; T2 under: backup QB (open>=50); 
+2025,1,USC,Missouri State,59.5,56.99531121043191,UNDER,-34.5,-31.271148096827584,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade high>=60 UNDER; T2 under: week 1 opener; 
+2025,1,Utah State,UTEP,59.5,57.34538854109526,UNDER,-3.5,-0.17261167996465013,,0,T2 under: week 1 opener; 
+2025,1,Ole Miss,Georgia State,62.5,54.70872186415662,UNDER,-38.5,-27.354015455487954,AWAY,0,STACK model+gap>=1 AWAY; SB premium gap>=1 (sharp=AWAY); TOTAL fade high>=60 UNDER; T2 under: week 1 opener; 
+2025,1,Louisiana,Rice,49.5,54.06196616732467,OVER,-14.5,-2.767886031939445,,0,TOTAL fade low<=50 OVER (weak); T2 under: week 1 opener; 
+2025,1,Texas State,Eastern Michigan,58.5,55.79089556777989,UNDER,-14.0,-2.9007991433867804,,0,T2 under: week 1 opener; 
+2025,1,Fresno State,Georgia Southern,54.5,57.311331500750924,UNDER,-2.0,0.17550232195529938,HOME,0,SB volume gap.5-1 (sharp=HOME); T2 under: week 1 opener; 
+2025,1,Arizona,Hawai'i,55.5,56.282030423317366,UNDER,-13.5,-15.212865306474706,,0,T2 under: week 1 opener; 
+2025,1,Oregon State,California,51.5,51.56475456278437,OVER,1.5,0.4116458955542822,,0,TOTAL fade low<=50 OVER (weak); T2 under: week 1 opener; 
+2025,1,Washington,Colorado State,52.5,53.071962047206135,UNDER,-19.5,-3.791482249731366,,0,T2 under: week 1 opener; 
+2025,1,UCLA,Utah,50.5,54.71602789881086,OVER,6.5,1.401363015726328,,0,TOTAL fade low<=50 OVER (weak); T2 under: week 1 opener; 
+2025,1,South Carolina,Virginia Tech,47.5,54.78036514284767,UNDER,-8.5,-11.318678792342197,,0,T2 under: week 1 opener; 
+2025,1,Miami,Notre Dame,53.5,52.90975889144097,UNDER,2.5,-6.515332624554939,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); RvR ranked-vs-ranked home-dog -> HOME; T2 under: week 1 opener; 
+2025,1,North Carolina,TCU,59.5,53.199147878013704,UNDER,3.0,4.443394593596734,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 under: week 1 opener; T2 under: backup QB (open>=50); 
+2025,2,Louisville,James Madison,57.5,53.52690315098952,,-14.75,-17.136853702151203,AWAY,0,SB volume gap.5-1 (sharp=AWAY); 
+2025,2,Maryland,Northern Illinois,48.5,49.66462488696776,OVER,-16.0,-15.343793086798653,,0,TOTAL fade low<=50 OVER (weak); 
+2025,2,Penn State,Florida International,54.5,55.686191264947595,UNDER,-41.75,-31.543679144489566,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,2,Syracuse,UConn,59.25,53.95253578379264,,-8.25,-1.807384358429416,,0,
+2025,2,Iowa State,Iowa,43.75,44.88330455727467,OVER,-2.5,2.3643696444816027,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,2,Texas Tech,Kent State,60.5,51.87870076651907,,-48.75,-40.01143523256672,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); 
+2025,2,NC State,Virginia,55.0,48.9469403678661,,-2.75,4.630949507908546,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); T3 away: P5 edge -4to-8; 
+2025,2,Texas,San José State,51.25,45.64286960473213,,-35.75,-27.541633392112313,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); 
+2025,2,Duke,Illinois,49.75,56.67726229668827,OVER,2.5,3.608008280227116,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,2,Indiana,Kennesaw State,50.75,48.48645695814983,,-35.5,-28.071322123932234,,0,
+2025,2,Pittsburgh,Central Michigan,53.25,48.53212199901029,OVER,-21.5,-16.789114230067643,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,2,Jacksonville State,Liberty,51.75,47.108512004649064,,5.75,0.30721085202870774,,0,
+2025,2,SMU,Baylor,62.75,53.14304906583299,UNDER,-4.25,-11.739023388752935,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,2,Texas A&M,Utah State,56.0,45.764596112010665,,-30.0,-30.759610476354407,,0,
+2025,2,Western Michigan,North Texas,60.25,50.744888588580906,UNDER,10.25,8.922986357771457,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,2,Navy,UAB,59.0,52.82992742568078,OVER,-21.25,-13.497788592816502,,0,CONF AAC total 52-59 OVER; 
+2025,2,Missouri,Kansas,53.0,52.3574736162745,,-6.5,0.23353214736160968,AWAY,0,T3 away: P5 edge -4to-8; 
+2025,2,Colorado,Delaware,50.25,53.554939566752275,OVER,-24.0,-23.03401271758938,,0,TOTAL fade low<=50 OVER (weak); 
+2025,2,UTSA,Texas State,65.5,56.92212009786918,UNDER,-4.75,12.225149587990384,,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,2,Oregon State,Fresno State,48.5,51.30275946824465,OVER,-2.25,-1.462324863190498,HOME,0,SB premium gap>=1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,2,Cincinnati,Bowling Green,48.0,38.39521867115087,OVER,-19.25,-3.7199685332570356,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); 
+2025,2,Clemson,Troy,51.5,52.64168762090493,UNDER,-31.75,-22.104002688927466,HOME,0,SB volume gap.5-1 (sharp=HOME); T2 under: PT rr letdown; 
+2025,2,Kentucky,Ole Miss,52.0,54.62355126536342,UNDER,9.0,17.677678644097952,AWAY,0,T2 under: backup QB (open>=50); PREMIUM lay-fav away (P5 edge<=-8); 
+2025,2,Rutgers,Miami (OH),48.25,50.83618509788015,OVER,-13.75,-16.816482524902764,,0,TOTAL fade low<=50 OVER (weak); 
+2025,2,Oregon,Oklahoma State,58.5,48.261563991222175,UNDER,-27.75,-31.376950125853543,,0,T1 under: model+high-total/weakD; 
+2025,2,Wisconsin,Middle Tennessee,46.5,42.429868695112575,OVER,-28.0,-22.64704053059443,,0,TOTAL fade low<=50 OVER (weak); 
+2025,2,Ohio,West Virginia,59.0,57.394709553516115,,2.75,9.720242581406357,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); 
+2025,2,Florida,South Florida,54.75,48.8706870704738,UNDER,-17.25,-18.522287023822646,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,2,Arkansas,Arkansas State,64.0,54.94470500993266,UNDER,-22.5,-7.529034009424648,,0,TOTAL fade high>=60 UNDER; 
+2025,2,Marshall,Missouri State,56.5,56.55146481998167,UNDER,-9.75,-20.07100973397967,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,2,Charlotte,North Carolina,48.5,55.83600052068172,OVER,14.75,10.48277711903467,,1,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,2,Toledo,Western Kentucky,59.0,57.63738045709385,,-6.0,-7.086781289933681,,0,
+2025,2,Georgia State,Memphis,54.25,55.21618210156994,UNDER,13.75,21.340636780811213,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,2,South Alabama,Tulane,51.5,49.65376175528791,,10.25,0.5169918962005928,,0,
+2025,2,Kansas State,Army,47.75,51.655161305934485,OVER,-16.0,-24.355766194866742,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); 
+2025,2,Rice,Houston,41.0,48.18317975475737,OVER,13.0,0.5190606146810878,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 fade home backup QB (bet away); 
+2025,2,Nebraska,Akron,47.75,50.10546264046424,OVER,-33.75,-24.75723180631266,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); 
+2025,2,Virginia Tech,Vanderbilt,47.5,50.82309870098592,OVER,-1.25,2.8967637607149945,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,2,USC,Georgia Southern,64.25,62.52244919109177,UNDER,-27.75,-34.514768732318565,,0,TOTAL fade high>=60 UNDER; 
+2025,2,Michigan State,Boston College,48.0,52.80351880684204,OVER,-3.25,4.4020076074288,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 away: P5 edge -4to-8; 
+2025,2,Oklahoma,Michigan,47.5,48.03566212302945,OVER,-3.0,-3.6149981685309616,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade low<=50 OVER (weak); 
+2025,2,Mississippi State,Arizona State,59.25,55.94540227410734,,6.75,2.3506014177788104,AWAY,0,KEY lay -6.5 (AWAY fav); 
+2025,2,Auburn,Ball State,55.0,36.96341006896641,,-43.0,-29.90362950634443,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); 
+2025,2,LSU,Louisiana Tech,52.5,42.74640964143095,OVER,-35.25,-16.027772083873852,,0,TOTAL fade low<=50 OVER (weak); T2 under: PT rr letdown; 
+2025,2,Alabama,UL Monroe,50.75,47.85338884324882,UNDER,-37.0,-24.43046158772081,HOME,0,SB volume gap.5-1 (sharp=HOME); T2 under: ranked upset last wk; 
+2025,2,UNLV,UCLA,56.0,55.57669265215359,,2.25,-16.958489231196697,,0,
+2025,2,New Mexico State,Tulsa,53.0,48.52988417508247,,3.0,0.773488349280328,AWAY,0,SB volume gap.5-1 (sharp=AWAY); KEY dog +2.5/3/3.5 (HOME dog); 
+2025,2,Washington State,San Diego State,45.25,48.45484355516265,OVER,-2.25,-1.2529578271627115,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,2,BYU,Stanford,47.75,40.960908592363914,OVER,-18.0,-13.443934082876336,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,2,Hawai'i,Sam Houston,49.25,57.47055948660085,OVER,-8.75,0.39034340340099843,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; T3 fade home backup QB (bet away); 
+2025,3,Wake Forest,NC State,55.0,54.231832175722694,,7.25,4.575139560294067,,0,
+2025,3,Houston,Colorado,43.5,53.323491545838834,OVER,-4.0,6.34052981958025,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 high-edge dog away (P5); 
+2025,3,Arizona,Kansas State,54.5,48.86211874209481,,0.75,-2.3486510637804696,,0,
+2025,3,UCLA,New Mexico,52.75,53.96356113580353,,-14.75,-19.86174078931992,,0,
+2025,3,Temple,Oklahoma,51.5,58.78658534479478,OVER,25.0,8.89155368647598,,1,TOTAL model over-edge>=6 OVER; T2 under: PT rr letdown; 
+2025,3,Kent State,Buffalo,48.75,50.159603546302165,OVER,22.75,17.687448248213567,,1,TOTAL fade low<=50 OVER (weak); 
+2025,3,Michigan,Central Michigan,42.0,49.557390799149566,OVER,-27.5,-32.84845093373174,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: PT rr letdown; 
+2025,3,Alabama,Wisconsin,46.75,52.31873495095906,OVER,-21.25,-18.3040948321138,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,3,Georgia Tech,Clemson,55.5,49.27326784218647,,8.5,3.3408040270835615,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); 
+2025,3,Troy,Memphis,51.0,53.72839167346062,UNDER,6.5,3.401897060966897,AWAY,1,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,3,Northwestern,Oregon,51.5,54.648251548285096,,27.75,34.66351368170188,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); CONF BigTen away-fav cover; T3 away: P5 edge -4to-8; 
+2025,3,Auburn,South Alabama,53.5,53.37825009912687,,-25.75,-22.414539739365484,,0,
+2025,3,Missouri,Louisiana,49.25,51.65531786762878,OVER,-24.5,-20.04854574815792,,0,TOTAL fade low<=50 OVER (weak); 
+2025,3,Delaware,UConn,51.5,54.98189750607838,,10.25,8.144842194425022,,0,
+2025,3,North Texas,Washington State,58.25,60.149107277588136,,-5.5,1.6318455175925928,HOME,0,KEY lay -6.5 (HOME fav); 
+2025,3,West Virginia,Pittsburgh,57.75,56.00036054740468,,2.5,7.454825449405568,AWAY,0,T3 away: P5 edge -4to-8; 
+2025,3,Texas Tech,Oregon State,60.5,58.47295750291903,UNDER,-24.25,-24.17756862822129,,0,TOTAL fade high>=60 UNDER; 
+2025,3,Tennessee,Georgia,50.5,60.579890249905134,OVER,7.0,3.9017614634503994,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); RvR ranked-vs-ranked home-dog -> HOME; TOTAL model over-edge>=6 OVER; 
+2025,3,Purdue,USC,58.25,55.25362945898382,,21.25,27.59978801928048,AWAY,0,CONF BigTen away-fav cover; T3 away: P5 edge -4to-8; 
+2025,3,Missouri State,SMU,61.5,61.89927124068854,UNDER,27.75,21.665043753750542,AWAY,0,SB premium gap>=1 (sharp=AWAY); TOTAL fade high>=60 UNDER; T2 under: ranked upset last wk; 
+2025,3,Arkansas State,Iowa State,55.0,66.06583589448334,OVER,21.25,16.17073969035104,,0,TOTAL model over-edge>=6 OVER; 
+2025,3,Texas,UTEP,51.0,50.61683440319716,,-39.0,-37.572583413963606,,0,
+2025,3,Miami,South Florida,54.5,49.20771770043746,,-15.75,-20.433329836824203,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,3,Bowling Green,Liberty,51.5,49.592185160525005,,7.0,0.5077263126325322,AWAY,0,SB volume gap.5-1 (sharp=AWAY); 
+2025,3,Nevada,Middle Tennessee,45.5,56.18265950095259,OVER,-9.0,-7.858656333300605,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 fade home backup QB (bet away); 
+2025,3,Florida International,Florida Atlantic,55.75,57.91262643040401,,-3.0,-2.945577743314193,HOME,0,SB volume gap.5-1 (sharp=HOME); KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,3,Georgia Southern,Jacksonville State,55.5,54.12988589375646,,-3.5,19.04337590991038,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,3,Illinois,Western Michigan,51.5,52.624633603327574,,-28.25,-27.206950588126556,,0,
+2025,3,Ohio State,Ohio,53.5,56.61274118362248,OVER,-29.5,-33.83308687978737,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,3,Virginia Tech,Old Dominion,51.0,56.70530983719151,OVER,-7.25,-14.59045315312918,HOME,0,G5 fade top2 post-loss (settled) -> HOME; TOTAL model over-edge>=6 OVER; 
+2025,3,Southern Miss,App State,52.5,61.1444765044346,UNDER,-0.75,8.004535594081101,,0,T2 under: backup QB (open>=50); 
+2025,3,Ole Miss,Arkansas,62.0,65.2892266761045,UNDER,-8.5,-12.345239137489562,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; 
+2025,3,Louisiana Tech,New Mexico State,42.5,46.21186282022076,OVER,-11.25,-5.452965475135071,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,3,Kentucky,Eastern Michigan,47.5,60.82671180198776,OVER,-25.5,-28.51148796346166,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 fade home backup QB (bet away); 
+2025,3,Notre Dame,Texas A&M,49.5,47.44855078979504,OVER,-7.0,-11.406253119878706,HOME,0,KEY lay -6.5 (HOME fav); RvR ranked-vs-ranked home-fav -> HOME; G5 fade top2 post-loss (settled) -> AWAY; TOTAL fade low<=50 OVER (weak); 
+2025,3,Iowa,Massachusetts,44.5,46.29434217930977,OVER,-33.5,-24.394205691405674,HOME,0,G5 fade top2 post-loss (settled) -> HOME; TOTAL fade low<=50 OVER (weak); 
+2025,3,Coastal Carolina,East Carolina,55.5,48.98827101844917,UNDER,6.25,9.084254031572685,AWAY,1,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,3,LSU,Florida,54.5,43.39835444707064,OVER,-5.5,-7.648728383921184,,1,TOTAL fade low<=50 OVER (weak); T2 under: ranked upset last wk; 
+2025,3,South Carolina,Vanderbilt,47.5,49.764693994796325,OVER,-5.5,-1.7411736331767842,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,3,Wyoming,Utah,47.75,46.30887426860752,OVER,22.5,21.79751566258525,,0,TOTAL fade low<=50 OVER (weak); 
+2025,3,Tulsa,Navy,53.75,50.70197359670994,OVER,14.5,17.89324122208195,AWAY,0,CONF AAC total 52-59 OVER; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,3,Tulane,Duke,52.5,60.19060462932948,OVER,-2.5,-2.3625106653534744,,0,TOTAL model over-edge>=6 OVER; 
+2025,3,UAB,Akron,53.0,55.1716288257494,,-11.5,-19.96115958694759,,0,
+2025,3,Utah State,Air Force,51.5,47.47868332165136,UNDER,3.5,9.601103418389789,,0,T2 under: backup QB (open>=50); 
+2025,3,Arizona State,Texas State,59.0,64.38255623869549,UNDER,-14.5,-12.35885497535856,,0,TOTAL fade high>=60 UNDER; T2 under: ranked upset last wk; 
+2025,3,California,Minnesota,43.75,52.187036913775515,OVER,2.5,2.435356848726185,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,3,Stanford,Boston College,44.0,60.10340235868567,OVER,10.5,6.6545363974272504,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,4,Charlotte,Rice,44.5,56.823858295188224,OVER,5.5,11.48972761363198,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; T3 fade home backup QB (bet away); 
+2025,4,Oklahoma State,Tulsa,56.0,52.63140956665838,UNDER,-13.5,3.3151738209089157,,0,T2 under: backup QB (open>=50); 
+2025,4,Rutgers,Iowa,46.0,56.15104382008933,OVER,2.5,6.158939999565111,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,4,Miami (OH),UNLV,48.5,55.78323630446229,OVER,3.5,11.576150066452897,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 fade home backup QB (bet away); 
+2025,4,Louisville,Bowling Green,52.25,54.34953645972847,,-27.5,-9.095680875060305,,0,
+2025,4,Wisconsin,Maryland,43.5,43.5630888403151,OVER,-7.0,-4.2124791075277,,0,TOTAL fade low<=50 OVER (weak); 
+2025,4,Clemson,Syracuse,54.75,55.656215486725586,UNDER,-17.0,-11.607263239631312,AWAY,0,T2 under: ranked upset last wk; T3 away: P5 edge -4to-8; 
+2025,4,TCU,SMU,63.25,68.73938834762608,UNDER,-6.5,0.3113195438244144,HOME,0,KEY lay -6.5 (HOME fav); TOTAL fade high>=60 UNDER; T3 away: P5 edge -4to-8; 
+2025,4,Army,North Texas,52.75,63.04613742101079,OVER,-1.5,6.403035363333253,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,4,Memphis,Arkansas,62.5,60.70284675577709,,6.5,4.454079430576706,,0,
+2025,4,Utah,Texas Tech,55.5,61.72107116260003,,-4.0,-2.4039194320685806,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; 
+2025,4,Tennessee,UAB,67.75,66.69452283970877,UNDER,-38.0,-27.82122979910084,,0,TOTAL fade high>=60 UNDER; 
+2025,4,Oregon,Oregon State,56.5,58.34517623523246,,-34.5,-35.307792819161875,AWAY,1,SB volume gap.5-1 (sharp=AWAY); 
+2025,4,Liberty,James Madison,49.0,40.586618654045914,OVER,10.5,1.310840390116611,,0,TOTAL fade low<=50 OVER (weak); 
+2025,4,UConn,Ball State,52.5,57.447454482648475,,-20.5,-25.23755516930465,,0,
+2025,4,Nebraska,Michigan,44.5,59.45691917352618,OVER,3.0,5.043408391210663,AWAY,0,STACK model+gap>=1 AWAY; SB premium gap>=1 (sharp=AWAY); CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,4,Buffalo,Troy,43.0,56.16909623701946,OVER,-6.5,0.4820553696953305,HOME,0,G5 fade top2 post-loss (settled) -> HOME; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,4,Oklahoma,Auburn,49.5,53.245908803976846,OVER,-6.0,-0.5542177333856833,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,4,Florida State,Kent State,55.75,53.364468479471014,,-43.5,-36.13911194538166,,0,
+2025,4,Notre Dame,Purdue,52.5,56.82711289839753,UNDER,-27.0,-25.625312884852733,AWAY,0,G5 fade top2 post-loss (settled) -> AWAY; T2 under: PT rr letdown; 
+2025,4,Ole Miss,Tulane,61.0,67.33546305450862,UNDER,-12.5,-17.090683804543144,HOME,0,STACK model+gap>=1 HOME; SB premium gap>=1 (sharp=HOME); TOTAL fade high>=60 UNDER; 
+2025,4,Ole Miss,Tulane,61.0,67.33546305450862,UNDER,-12.5,-17.090683804543144,HOME,0,STACK model+gap>=1 HOME; SB premium gap>=1 (sharp=HOME); TOTAL fade high>=60 UNDER; 
+2025,4,UCF,North Carolina,50.25,54.61525282444827,OVER,-6.5,-9.324943024364384,HOME,0,STACK model+gap>=1 HOME; SB premium gap>=1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: backup QB (open>=50); 
+2025,4,UCF,North Carolina,50.25,54.61525282444827,OVER,-6.5,-9.324943024364384,HOME,0,STACK model+gap>=1 HOME; SB premium gap>=1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: backup QB (open>=50); 
+2025,4,Western Michigan,Toledo,52.0,56.32384692732547,OVER,13.0,19.228620929166325,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,4,Eastern Michigan,Louisiana,51.75,64.77089844338,OVER,3.0,1.5881136400799163,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; T2 under: backup QB (open>=50); 
+2025,4,Duke,NC State,59.0,60.39204053257841,,-2.5,0.5969768278770976,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,4,Mississippi State,Northern Illinois,49.25,47.87247963303566,OVER,-22.0,-15.96208254955615,HOME,0,G5 fade top2 post-loss (settled) -> HOME; TOTAL fade low<=50 OVER (weak); 
+2025,4,Georgia Tech,Temple,53.5,57.26079994250033,,-24.0,-21.04762498788055,,0,
+2025,4,Florida International,Delaware,54.5,50.49245376812781,,-4.5,1.156477564678806,,0,
+2025,4,Kansas,West Virginia,54.75,50.448062390211255,,-12.5,-10.924737332455356,,0,
+2025,4,Kennesaw State,Arkansas State,54.5,57.45463147958575,,7.0,0.08840571850282943,,0,
+2025,4,Air Force,Boise State,51.5,60.30095822816377,OVER,8.5,1.3743410426115332,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,4,South Alabama,Coastal Carolina,51.5,52.214836969709026,,-14.5,-19.09537870580737,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); CONF SunBelt fade home-fav (dog); 
+2025,4,Missouri,South Carolina,46.0,51.15035806623763,OVER,-11.5,-14.663112491684224,,0,TOTAL fade low<=50 OVER (weak); T2 under: ranked upset last wk; 
+2025,4,Middle Tennessee,Marshall,46.75,46.17376394680143,OVER,3.5,5.835516864523846,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); 
+2025,4,Western Kentucky,Nevada,54.5,51.642126161811035,,-11.5,-9.53547511583573,,0,
+2025,4,Baylor,Arizona State,59.0,65.21815134764385,UNDER,-2.5,3.5673469978243086,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; T3 away: P5 edge -4to-8; 
+2025,4,Vanderbilt,Georgia State,53.25,57.903460498247455,,-26.5,-29.952131158491646,,0,
+2025,4,Indiana,Illinois,52.5,47.19621387074335,,-4.5,-5.925912346911481,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,4,East Carolina,BYU,49.0,52.52743607173829,OVER,7.5,0.09194888395982012,AWAY,0,KEY lay -6.5 (AWAY fav); TOTAL fade low<=50 OVER (weak); 
+2025,4,Louisiana Tech,Southern Miss,51.5,56.12079844860752,UNDER,-2.5,-10.580259916020008,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,4,Virginia,Stanford,48.75,46.43156714796964,OVER,-16.0,-8.891814342700533,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,4,Miami,Florida,54.0,42.954487052050226,,-3.5,-5.8885100808423765,,0,
+2025,4,Washington State,Washington,53.5,53.2796577892615,UNDER,20.5,17.4358033610674,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,4,Texas,Sam Houston,51.5,47.17655080746022,,-41.5,-34.80678293446098,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); 
+2025,4,UTEP,UL Monroe,47.0,56.205993635396574,OVER,-4.5,-10.07604921454378,AWAY,1,G5 fade top2 post-loss (settled) -> AWAY; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,4,Colorado State,UTSA,58.25,51.04302997223241,UNDER,4.0,4.093705203414002,,0,T1 under: model+high-total/weakD; 
+2025,4,Colorado,Wyoming,43.75,51.21564192357696,OVER,-13.5,-12.556684859122953,HOME,0,G5 fade top2 post-loss (settled) -> HOME; TOTAL fade low<=50 OVER (weak); 
+2025,4,San Diego State,California,48.5,54.241115145433426,OVER,13.5,11.534801673634455,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,4,USC,Michigan State,56.0,55.26758995394256,,-15.5,-22.735013750399176,,0,
+2025,4,Hawai'i,Fresno State,47.5,51.965202901982266,OVER,3.5,11.273938164448282,HOME,0,SB volume gap.5-1 (sharp=HOME); KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); 
+2025,5,East Carolina,Army,52.5,67.3889968728366,OVER,-3.0,-4.211854628683583,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); CONF AAC total 52-59 OVER; TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,5,Virginia,Florida State,54.5,52.2600361686617,UNDER,7.5,6.834935346808003,,0,TOTAL fade high>=60 UNDER; 
+2025,5,Arizona State,TCU,55.5,57.38870988152146,,-2.5,-6.107271759541612,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,5,Oregon State,Houston,48.5,49.426367093245446,OVER,12.5,4.151381642835365,HOME,0,TOTAL fade low<=50 OVER (weak); T2 high-edge dog home (P5); 
+2025,5,Minnesota,Rutgers,51.5,54.768812435963255,,-4.5,1.7741512812230793,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); T3 away: P5 edge -4to-8; 
+2025,5,Illinois,USC,57.5,54.92824276303658,UNDER,1.5,18.868156623500816,AWAY,0,KEY lay -6.5 (AWAY fav); CONF BigTen away-fav cover; RvR ranked-vs-ranked home-dog -> HOME; TOTAL fade high>=60 UNDER; T2 under: PT rr letdown; PREMIUM lay-fav away (P5 edge<=-8); 
+2025,5,Pittsburgh,Louisville,56.0,55.56632007568692,,3.5,1.2446029020537845,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); 
+2025,5,North Texas,South Alabama,63.25,63.9878882527394,UNDER,-12.5,-10.529353303147216,,0,TOTAL fade high>=60 UNDER; 
+2025,5,Syracuse,Duke,58.75,72.9684457315057,OVER,5.5,-3.4906625060923564,HOME,0,TOTAL model over-edge>=6 OVER; T2 under: backup QB (open>=50); T2 high-edge dog home (P5); T3 fade home backup QB (bet away); 
+2025,5,Arkansas,Notre Dame,61.5,64.82052517548733,UNDER,6.5,10.841772152081015,,0,TOTAL fade high>=60 UNDER; 
+2025,5,Kansas State,UCF,49.0,56.50962311549745,OVER,-5.5,-8.197373302321108,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,5,Kansas,Cincinnati,55.0,53.792423688019525,,-6.0,3.651924510019779,AWAY,0,T2 high-edge dog away (P5); 
+2025,5,Ohio,Bowling Green,50.75,47.94773948163762,OVER,-10.5,4.028316309738111,,0,TOTAL fade low<=50 OVER (weak); 
+2025,5,Wake Forest,Georgia Tech,53.75,50.708866104767104,,15.5,7.877115783674263,,0,
+2025,5,Vanderbilt,Utah State,59.5,54.93684566954551,,-22.5,-19.039712757321677,,0,
+2025,5,Central Michigan,Eastern Michigan,54.25,54.64101358187735,,-5.5,7.393399263172731,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,5,James Madison,Georgia Southern,53.75,54.74110236554518,,-16.0,-9.733679637699842,AWAY,0,CONF SunBelt fade home-fav (dog); 
+2025,5,UL Monroe,Arkansas State,56.5,51.6368340926208,UNDER,-3.0,3.6239576247738503,AWAY,0,CONF SunBelt fade home-fav (dog); T1 under: model+high-total/weakD; 
+2025,5,Northwestern,UCLA,45.75,50.99670333026032,OVER,-6.5,-1.9887285325450585,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,5,Toledo,Akron,48.0,51.359997940418545,OVER,-21.0,-23.60609971389678,,0,TOTAL fade low<=50 OVER (weak); 
+2025,5,West Virginia,Utah,50.0,53.256075559079164,OVER,10.5,1.8746247638151934,HOME,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 high-edge dog home (P5); 
+2025,5,Buffalo,UConn,51.5,59.7678983816064,OVER,2.5,0.6951560461620349,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,5,Northern Illinois,San Diego State,42.75,44.40211176657495,OVER,2.5,3.293340321577412,AWAY,0,G5 fade top2 post-loss (settled) -> AWAY; TOTAL fade low<=50 OVER (weak); 
+2025,5,Boston College,California,51.75,50.14991075815761,,-6.0,-7.362694683795015,,0,
+2025,5,Iowa,Indiana,49.25,45.81863280906508,OVER,3.0,9.139151662194248,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); T2 under: PT rr letdown; T3 away: P5 edge -4to-8; 
+2025,5,Washington,Ohio State,50.5,52.53124265862317,,11.5,10.98810598351159,AWAY,0,SB volume gap.5-1 (sharp=AWAY); CONF BigTen away-fav cover; 
+2025,5,Ole Miss,LSU,56.0,63.16968309328905,,-2.0,-7.521519502694098,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; 
+2025,5,Ole Miss,LSU,56.0,63.16968309328905,,-2.0,-7.521519502694098,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; 
+2025,5,Texas A&M,Auburn,49.0,58.39201962692305,OVER,-6.5,-8.180136977157101,HOME,0,KEY lay -6.5 (HOME fav); TOTAL model over-edge>=6 OVER; T2 under: PT rr letdown; 
+2025,5,Navy,Rice,45.5,47.15900794543376,OVER,-14.5,-15.595190522304781,,0,TOTAL fade low<=50 OVER (weak); 
+2025,5,Oklahoma State,Baylor,59.5,58.272620253866066,,20.5,18.732327210243728,,0,
+2025,5,Tulsa,Tulane,54.25,60.577095800833334,OVER,13.5,7.732485334395183,,0,CONF AAC total 52-59 OVER; TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,5,New Mexico,New Mexico State,54.5,44.772852013086464,,-13.5,-11.343510473573012,,0,
+2025,5,Air Force,Hawai'i,53.75,65.17632418533724,OVER,-4.5,-6.011430570675216,AWAY,0,SB volume gap.5-1 (sharp=AWAY); KEY lay -6.5 (HOME fav); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,5,Mississippi State,Tennessee,62.5,61.86621435497888,UNDER,9.0,8.352247280046242,,0,TOTAL fade high>=60 UNDER; 
+2025,5,Kennesaw State,Middle Tennessee,51.75,57.93937051714587,,-6.5,-7.732931340276015,,0,
+2025,5,Old Dominion,Liberty,51.75,53.601027897322936,UNDER,-15.5,-10.723560621879622,,0,T2 under: backup QB (open>=50); 
+2025,5,Florida Atlantic,Memphis,61.5,57.172499754275684,UNDER,13.5,12.62289604572311,,0,TOTAL fade high>=60 UNDER; 
+2025,5,Southern Miss,Jacksonville State,57.25,53.5162602533849,UNDER,-3.5,0.4911367332107126,,0,T2 under: backup QB (open>=50); 
+2025,5,Missouri State,Western Kentucky,60.0,53.06239850066586,UNDER,5.5,2.0814635114143583,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T1 under: model+high-total/weakD; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,5,Iowa State,Arizona,49.5,52.80911128845313,OVER,-7.0,-13.884194493268387,,0,TOTAL fade low<=50 OVER (weak); 
+2025,5,NC State,Virginia Tech,57.75,51.04965873147082,,-10.5,-6.690640892211097,,0,
+2025,5,Boise State,App State,60.0,56.16401693776114,UNDER,-17.5,-13.918844205282728,,1,T1 under: model+high-total/weakD; 
+2025,5,Colorado State,Washington State,50.5,44.838116914356455,OVER,-4.5,-6.797493898129107,AWAY,0,G5 fade top2 post-loss (settled) -> AWAY; TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,5,Penn State,Oregon,52.5,50.57347656166049,,-5.5,0.7734844705717603,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; T3 away: P5 edge -4to-8; 
+2025,5,Stanford,San José State,49.5,49.49780512209956,OVER,-1.5,3.8890802186817495,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); 
+2025,5,Missouri,Massachusetts,55.25,53.98115218266502,UNDER,-42.5,-36.09929070611139,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); T2 under: backup QB (open>=50); 
+2025,5,Georgia,Alabama,53.0,49.25411886092092,,-4.0,7.370490011904357,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; T2 high-edge dog away (P5); 
+2025,5,South Carolina,Kentucky,47.25,44.34243435317948,OVER,-6.5,-1.5959342743133136,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,5,Louisiana,Marshall,46.5,46.47329685593763,OVER,-2.5,0.9972112033056724,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); 
+2025,5,UTEP,Louisiana Tech,48.5,52.68443601236623,OVER,3.5,3.579145548296704,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); 
+2025,5,Colorado,BYU,47.5,53.53305632943329,OVER,6.5,-0.6797942503366718,AWAY,0,KEY lay -6.5 (AWAY fav); TOTAL fade low<=50 OVER (weak); 
+2025,6,New Mexico State,Sam Houston,52.25,55.639241176079786,,2.0,-0.09446729203561073,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); 
+2025,6,South Florida,Charlotte,55.0,59.008047928012296,OVER,-27.5,-19.727621987996557,AWAY,0,G5 fade top2 post-loss (settled) -> AWAY; CONF AAC total 52-59 OVER; T2 under: backup QB (open>=50); 
+2025,6,Delaware,Western Kentucky,62.0,58.8036588305873,UNDER,-1.5,-4.648994775507773,AWAY,0,SB volume gap.5-1 (sharp=AWAY); KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,6,San José State,New Mexico,56.5,53.260863091331444,,-2.5,-2.6926147448091333,,0,
+2025,6,BYU,West Virginia,48.75,56.51673254517967,OVER,-19.5,-18.77242254007174,,1,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,6,San Diego State,Colorado State,38.75,43.80367449329447,OVER,-5.5,-4.511815790377261,,0,TOTAL fade low<=50 OVER (weak); 
+2025,6,Cincinnati,Iowa State,51.5,54.36229134065478,,-1.5,0.9676753700589634,,0,
+2025,6,Georgia,Kentucky,49.5,42.915922996116585,OVER,-20.75,-23.157362007664844,,0,TOTAL fade low<=50 OVER (weak); T2 under: PT rr letdown; 
+2025,6,Purdue,Illinois,55.0,49.31656634290554,,10.0,11.479488955833435,AWAY,0,CONF BigTen away-fav cover; 
+2025,6,Ball State,Ohio,51.5,54.687239581522434,,16.5,13.115894938515872,,0,
+2025,6,North Carolina,Clemson,47.5,38.249590076991005,OVER,13.5,11.993888369055595,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,6,Michigan,Wisconsin,41.5,51.90948355351458,OVER,-16.5,-20.016966051122353,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; FORM over-hot fade UNDER (tot<=58); 
+2025,6,Navy,Air Force,49.0,56.68446552766182,,-11.5,-11.583142255212932,,0,
+2025,6,Baylor,Kansas State,61.5,59.913240707037495,UNDER,-5.5,-8.233734467128725,,0,TOTAL fade high>=60 UNDER; 
+2025,6,UAB,Army,58.0,63.40966613345777,OVER,7.5,7.590357235890068,AWAY,0,KEY lay -6.5 (AWAY fav); CONF AAC total 52-59 OVER; TOTAL model over-edge>=6 OVER; 
+2025,6,Pittsburgh,Boston College,56.0,60.60072848485593,OVER,-4.5,-6.6823019218609625,AWAY,0,TOTAL model over-edge>=6 OVER; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,6,Temple,UTSA,58.5,56.71334055015775,OVER,6.5,9.826661187048412,AWAY,0,KEY lay -6.5 (AWAY fav); CONF AAC total 52-59 OVER; 
+2025,6,Virginia Tech,Wake Forest,50.5,48.472087071959365,,-5.5,-7.1496166294146635,,0,
+2025,6,Massachusetts,Western Michigan,46.5,47.609588733544655,OVER,11.5,6.313591585753046,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,6,Arizona,Oklahoma State,56.0,51.292303746294735,,-18.5,-15.693591285005501,,0,
+2025,6,SMU,Syracuse,58.5,58.10170791926503,UNDER,-16.5,-10.193700041462318,AWAY,0,T2 under: backup QB (open>=50); T3 away: P5 edge -4to-8; 
+2025,6,Akron,Central Michigan,45.0,47.20854206976271,OVER,7.0,6.409530701982655,,0,TOTAL fade low<=50 OVER (weak); 
+2025,6,Notre Dame,Boise State,59.0,63.30299278682023,UNDER,-16.5,-29.229711717667726,,0,TOTAL fade high>=60 UNDER; 
+2025,6,UConn,Florida International,54.5,52.3496900049666,,-8.5,-6.592112161631532,HOME,0,G5 fade top2 post-loss (settled) -> HOME; 
+2025,6,Northwestern,UL Monroe,40.5,43.17089340903873,OVER,-10.5,-8.578601136458772,,0,TOTAL fade low<=50 OVER (weak); 
+2025,6,Maryland,Washington,53.0,51.2323935708751,,5.5,3.0919453352679507,AWAY,0,CONF BigTen away-fav cover; 
+2025,6,App State,Oregon State,54.75,47.792354138795694,UNDER,-1.5,0.3377553009986518,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,6,UCLA,Penn State,49.75,55.41450012464122,OVER,25.5,26.58027456249441,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: PT rr letdown; 
+2025,6,Northern Illinois,Miami (OH),39.0,45.31262079492894,OVER,3.5,-0.013541943384724319,AWAY,0,G5 fade top2 post-loss (settled) -> AWAY; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 fade home backup QB (bet away); 
+2025,6,Louisville,Virginia,62.0,53.31275632612969,UNDER,-6.5,-2.4225488727093865,HOME,0,KEY lay -6.5 (HOME fav); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T3 away: P5 edge -4to-8; 
+2025,6,Buffalo,Eastern Michigan,48.5,63.24008886020832,OVER,-9.5,-7.000481561201189,,0,TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,6,Georgia State,James Madison,53.75,54.06270496373745,,19.5,18.30711302135292,,0,
+2025,6,Florida,Texas,48.75,39.44149233443448,OVER,6.5,9.12739681616911,,0,TOTAL fade low<=50 OVER (weak); 
+2025,6,Alabama,Vanderbilt,54.0,54.76229622827605,UNDER,-13.5,-19.902769917890566,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; FORM over-hot fade UNDER (tot<=58); T2 under: PT rr letdown; 
+2025,6,Arkansas State,Texas State,64.5,63.762406630456546,UNDER,12.5,11.854442381944581,,0,CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; 
+2025,6,Oklahoma,Kent State,53.5,60.38330937342533,OVER,-45.5,-53.45362813860944,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL model over-edge>=6 OVER; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,6,Nebraska,Michigan State,53.5,52.91189215418161,OVER,-10.5,-14.589667526998037,,0,TOTAL fade low<=50 OVER (weak); 
+2025,6,Old Dominion,Coastal Carolina,55.25,51.88812651466891,,-17.5,-15.614517503041474,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); CONF SunBelt fade home-fav (dog); 
+2025,6,Wyoming,UNLV,52.75,54.49897421640324,,5.5,8.25863939937878,,0,
+2025,6,Rice,Florida Atlantic,52.5,54.89212473067984,OVER,-5.5,3.419557271262329,,0,CONF AAC total 52-59 OVER; 
+2025,6,Troy,South Alabama,47.0,49.14944129857208,OVER,3.0,-3.6150786466209275,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); 
+2025,6,Houston,Texas Tech,50.25,55.94353516033842,UNDER,12.0,14.753528713334227,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,6,Texas A&M,Mississippi State,58.25,54.89688810089095,,-14.0,-16.82309217116318,,0,
+2025,6,Ohio State,Minnesota,44.5,48.53142370603715,OVER,-24.0,-27.72633427295712,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,6,TCU,Colorado,58.75,58.793290718439714,UNDER,-14.5,-6.792540911944106,AWAY,0,T2 under: ranked upset last wk; T3 away: P5 edge -4to-8; 
+2025,6,UCF,Kansas,55.5,55.55334701659629,,3.5,2.516890071341122,,0,
+2025,6,Florida State,Miami,53.5,51.89385836417371,UNDER,6.5,13.636923957178093,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); RvR ranked-vs-ranked home-dog -> HOME; T2 under: ranked upset last wk; T3 away: P5 edge -4to-8; 
+2025,6,Memphis,Tulsa,56.0,52.67933366462003,OVER,-21.0,-27.716843371867146,,0,CONF AAC total 52-59 OVER; T2 under: backup QB (open>=50); 
+2025,6,Fresno State,Nevada,44.25,44.921200650924,OVER,-13.5,-13.651146102580876,,0,TOTAL fade low<=50 OVER (weak); 
+2025,6,California,Duke,56.25,60.41015586714731,UNDER,3.0,6.296000728395318,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); FORM over-hot fade UNDER (tot<=58); 
+2025,7,Middle Tennessee,Missouri State,52.0,54.478505651352435,UNDER,3.0,-0.09953059032706592,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 under: backup QB (open>=50); 
+2025,7,UTEP,Liberty,46.75,50.142288213366676,OVER,2.5,-1.8879734898662828,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); G5 fade top2 post-loss (settled) -> AWAY; TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,7,Kennesaw State,Louisiana Tech,45.5,53.368425353741664,OVER,5.5,11.172255964640371,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 fade home backup QB (bet away); 
+2025,7,Tulane,East Carolina,54.0,52.135022463942185,OVER,-7.0,-5.547869186747386,,0,CONF AAC total 52-59 OVER; 
+2025,7,Georgia Southern,Southern Miss,60.0,61.94438059809251,UNDER,1.5,0.4819930731827249,,0,CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; 
+2025,7,Sam Houston,Jacksonville State,55.5,51.801111521145735,UNDER,9.0,14.656768703592292,,0,FORM over-hot fade UNDER (tot<=58); T1 under: model+high-total/weakD; T2 under: backup QB (open>=50); 
+2025,7,North Texas,South Florida,66.0,63.445748874566476,UNDER,-1.5,0.20860290134224616,AWAY,1,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; 
+2025,7,Colorado State,Fresno State,45.5,54.2224266833659,OVER,6.75,7.324309446671153,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 fade home backup QB (bet away); 
+2025,7,Washington,Rutgers,59.0,56.66533692579607,UNDER,-10.0,-10.769143794259826,,0,TOTAL fade high>=60 UNDER; 
+2025,7,Florida State,Pittsburgh,58.25,54.676320714350666,UNDER,-9.5,-1.049744603422809,AWAY,0,T2 under: PT rr letdown; T2 under: backup QB (open>=50); T2 high-edge dog away (P5); 
+2025,7,Cincinnati,UCF,56.0,53.46659721741579,UNDER,-10.5,-6.60828648290201,,0,T2 under: backup QB (open>=50); 
+2025,7,Army,Charlotte,47.0,56.71686104891987,OVER,-20.5,-17.852459301882188,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,7,James Madison,Louisiana,46.5,47.73874751322055,OVER,-17.5,-15.298005999764435,AWAY,0,CONF SunBelt fade home-fav (dog); TOTAL fade low<=50 OVER (weak); 
+2025,7,Michigan State,UCLA,55.5,52.417671016778094,UNDER,-7.5,-4.685464820833193,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,7,Illinois,Ohio State,50.5,57.25441453316851,,13.5,24.904254401369677,HOME,0,SB volume gap.5-1 (sharp=HOME); CONF BigTen away-fav cover; RvR ranked-vs-ranked home-dog -> HOME; PREMIUM lay-fav away (P5 edge<=-8); 
+2025,7,Bowling Green,Toledo,49.5,42.43463267669128,OVER,8.5,7.923890492562632,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,7,Akron,Miami (OH),45.5,45.11836912969553,OVER,9.5,15.317154324875151,,0,TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); 
+2025,7,Missouri,Alabama,53.5,53.77951847532342,UNDER,5.5,4.803223409985649,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); RvR ranked-vs-ranked home-dog -> HOME; FORM over-hot fade UNDER (tot<=58); 
+2025,7,SMU,Stanford,56.5,49.049886050046766,,-18.0,-13.705717914135096,AWAY,0,T3 away: P5 edge -4to-8; 
+2025,7,Oklahoma State,Houston,47.0,49.358296463537805,OVER,14.0,13.656645221930987,AWAY,0,TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T3 fade home backup QB (bet away); 
+2025,7,Ole Miss,Washington State,59.25,56.48225518305048,,-32.5,-32.25295672671131,,0,
+2025,7,Eastern Michigan,Northern Illinois,49.0,56.42630053741415,OVER,-1.0,1.472603288047473,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,7,Kent State,Massachusetts,48.75,49.07082783899059,OVER,-2.5,2.1233323924217933,HOME,0,SB volume gap.5-1 (sharp=HOME); KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); 
+2025,7,Maryland,Nebraska,47.75,58.77927301348589,OVER,5.5,2.0047700451159822,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,7,Kansas State,TCU,57.5,56.45100812025682,,1.5,1.3167042393975998,HOME,0,SB volume gap.5-1 (sharp=HOME); KEY dog +2.5/3/3.5 (HOME dog); 
+2025,7,Western Michigan,Ball State,43.25,43.68612358079697,OVER,-9.5,-11.222982197908978,,0,TOTAL fade low<=50 OVER (weak); 
+2025,7,UNLV,Air Force,68.5,55.46934357063852,UNDER,-7.0,-14.499930133553557,,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,7,Colorado,Iowa State,52.5,51.12108134929541,UNDER,4.5,0.15510036628084842,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 under: ranked upset last wk; 
+2025,7,Georgia Tech,Virginia Tech,55.5,56.305370084219966,,-14.5,-8.744631984985663,AWAY,0,T3 away: P5 edge -4to-8; 
+2025,7,Oregon State,Wake Forest,52.5,49.26565155999329,OVER,2.5,2.6162792408684257,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); 
+2025,7,Texas,Oklahoma,49.5,48.748852141219515,OVER,-9.5,0.9739224000465196,AWAY,1,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T2 under: ranked upset last wk; T2 high-edge dog away (P5); 
+2025,7,Penn State,Northwestern,48.5,50.62590851428884,OVER,-21.5,-22.20227381864988,,0,TOTAL fade low<=50 OVER (weak); T2 under: ranked upset last wk; 
+2025,7,Notre Dame,NC State,62.5,59.32524613895776,,-22.5,-25.29120801561993,,0,
+2025,7,Oregon,Indiana,55.0,51.8421041300428,UNDER,-14.0,-8.391354750975836,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; T2 under: PT rr letdown; T3 away: P5 edge -4to-8; 
+2025,7,Marshall,Old Dominion,55.25,61.758484485233005,UNDER,14.0,0.7687133392448466,,0,FORM over-hot fade UNDER (tot<=58); 
+2025,7,Georgia State,App State,55.75,50.30888582178158,UNDER,3.5,2.70508194851494,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,7,Temple,Navy,53.0,54.0385976053288,OVER,8.5,12.236675014804575,HOME,0,SB volume gap.5-1 (sharp=HOME); SOS fade padded road (mkt trusts) HOME; CONF AAC total 52-59 OVER; FORM over-hot fade UNDER (tot<=58); 
+2025,7,Tennessee,Arkansas,69.5,69.1281555055943,UNDER,-13.5,-11.375962285355271,,0,TOTAL fade high>=60 UNDER; 
+2025,7,Florida Atlantic,UAB,69.5,65.13480050555535,UNDER,-4.5,-2.4299164151874315,,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,7,Wisconsin,Iowa,37.5,43.62090195904781,OVER,3.5,2.6228291994439807,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 fade home backup QB (bet away); 
+2025,7,Wyoming,San José State,49.5,49.51499073138435,OVER,1.5,3.885962533389441,,0,TOTAL fade low<=50 OVER (weak); 
+2025,7,Coastal Carolina,UL Monroe,44.0,48.984123829987425,OVER,2.5,-5.595913493597618,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,7,Texas A&M,Florida,46.25,46.37829364173167,OVER,-8.5,-10.394829179223597,,0,TOTAL fade low<=50 OVER (weak); 
+2025,7,UTSA,Rice,49.5,47.989351699962704,OVER,-12.5,-12.287825534687826,,0,TOTAL fade low<=50 OVER (weak); 
+2025,7,Auburn,Georgia,48.5,45.928535583284905,OVER,7.0,16.58475063462446,AWAY,0,TOTAL fade low<=50 OVER (weak); PREMIUM lay-fav away (P5 edge<=-8); 
+2025,7,Minnesota,Purdue,52.0,53.617108390354105,OVER,-10.0,-2.6025941274413187,AWAY,0,TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T3 away: P5 edge -4to-8; 
+2025,7,USC,Michigan,56.0,57.68122497494823,UNDER,-1.5,0.42471105117022856,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); KEY dog +2.5/3/3.5 (AWAY dog); FORM over-hot fade UNDER (tot<=58); 
+2025,7,Texas Tech,Kansas,60.5,61.326645116885494,UNDER,-14.5,-6.464819478079794,AWAY,0,T2 under: backup QB (open>=50); T2 high-edge dog away (P5); T3 fade home backup QB (bet away); 
+2025,7,Boston College,Clemson,54.5,56.725472473164054,,13.5,5.660089917772413,,0,
+2025,7,LSU,South Carolina,44.5,45.33153018389674,OVER,-10.0,-8.724168386926426,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); 
+2025,7,Texas State,Troy,54.0,55.39931544660402,,-10.5,-4.998323895025983,AWAY,0,CONF SunBelt fade home-fav (dog); 
+2025,7,Arizona,BYU,48.0,50.2249990617164,OVER,2.5,3.2157307741755687,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); 
+2025,7,Boise State,New Mexico,60.0,51.36491770895035,,-16.5,-13.205758580084805,AWAY,0,G5 fade top2 post-loss (settled) -> AWAY; 
+2025,7,Utah,Arizona State,49.0,43.668946488269874,OVER,-4.5,-4.558791668379849,,0,TOTAL fade low<=50 OVER (weak); 
+2025,7,Nevada,San Diego State,42.0,45.58181258765549,OVER,6.5,5.393035601672806,AWAY,0,KEY lay -6.5 (AWAY fav); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,7,Hawai'i,Utah State,58.5,53.900038218955,,-1.5,-3.773472597699542,,0,
+2025,8,Liberty,New Mexico State,47.5,44.21956414448247,OVER,-10.5,-11.327370221789835,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); 
+2025,8,South Alabama,Arkansas State,59.5,56.374459641976834,UNDER,-7.5,-8.399684463135346,AWAY,0,CONF SunBelt fade home-fav (dog); T1 under: model+high-total/weakD; 
+2025,8,Western Kentucky,Florida International,56.5,52.29583517478368,,-8.5,-10.1992415328193,,0,
+2025,8,Jacksonville State,Delaware,57.5,55.861155528878925,UNDER,2.5,-5.763436229321338,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,8,Sam Houston,UTEP,47.5,47.97473120253346,OVER,2.5,3.516513882926188,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); 
+2025,8,East Carolina,Tulsa,53.5,54.53995783058611,OVER,-16.5,-21.610888037342633,,0,CONF AAC total 52-59 OVER; 
+2025,8,Miami,Louisville,54.0,41.18702139328556,OVER,-13.0,-12.53651624451953,,1,TOTAL fade low<=50 OVER (weak); T2 under: PT rr letdown; 
+2025,8,Minnesota,Nebraska,47.75,57.21901947619256,OVER,5.5,5.448735828930917,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; FORM over-hot fade UNDER (tot<=58); 
+2025,8,Utah State,San José State,58.75,59.229286408211905,UNDER,-4.0,-3.1865439099218444,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; 
+2025,8,California,North Carolina,47.0,45.91364775419489,OVER,-12.5,-7.032054032081829,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,8,Houston,Arizona,46.75,47.41338340744418,OVER,2.0,-0.9290526125560793,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); 
+2025,8,Duke,Georgia Tech,60.75,64.00186395620956,UNDER,-2.5,-2.704729660407225,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; 
+2025,8,Miami (OH),Eastern Michigan,48.0,54.627647971467404,OVER,-11.5,-10.138260527978117,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; FORM over-hot fade UNDER (tot<=58); 
+2025,8,Tulane,Army,46.5,47.70417636195229,OVER,-10.5,-12.786862079724509,,0,TOTAL fade low<=50 OVER (weak); 
+2025,8,Boston College,UConn,56.0,56.590789981182,UNDER,2.0,3.5592907925399606,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); SOS fade padded road (mkt trusts) HOME; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,8,Bowling Green,Central Michigan,43.5,40.499490836991,OVER,-6.0,-14.914403130655874,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T3 fade home backup QB (bet away); 
+2025,8,Vanderbilt,LSU,49.0,51.00411755695405,OVER,-1.5,-9.066719887215864,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade low<=50 OVER (weak); 
+2025,8,Michigan,Washington,49.25,54.01615833038621,UNDER,-10.5,-6.674425248441925,,0,T2 under: ranked upset last wk; 
+2025,8,TCU,Baylor,66.5,64.12347029563364,UNDER,-3.0,-1.0515709872466006,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; 
+2025,8,South Carolina,Oklahoma,42.5,42.73945350421037,OVER,4.5,3.1058455316979288,,0,TOTAL fade low<=50 OVER (weak); T2 under: ranked upset last wk; 
+2025,8,UCF,West Virginia,49.0,50.723314909668524,OVER,-7.5,-7.566222784601736,,0,TOTAL fade low<=50 OVER (weak); 
+2025,8,Toledo,Kent State,52.5,52.02995878775924,OVER,-24.5,-28.09346965690793,,1,TOTAL fade low<=50 OVER (weak); 
+2025,8,Massachusetts,Buffalo,45.0,53.878645020427314,OVER,17.5,19.30066917744152,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,8,UL Monroe,Troy,46.5,55.0813077608125,OVER,5.5,14.078580175643205,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,8,Northwestern,Purdue,48.5,51.97940695836332,OVER,-3.5,0.24438055167674924,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); 
+2025,8,James Madison,Old Dominion,47.5,45.93365292738699,OVER,-2.5,1.238029892664676,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); CONF SunBelt fade home-fav (dog); TOTAL fade low<=50 OVER (weak); 
+2025,8,Ball State,Akron,43.5,51.9501471374154,OVER,-1.5,1.618249504779572,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,8,Air Force,Wyoming,58.5,56.58398497841189,UNDER,-5.5,0.8841320784411586,,0,FORM over-hot fade UNDER (tot<=58); 
+2025,8,Indiana,Michigan State,53.0,52.1378111370828,OVER,-26.5,-20.07125390083165,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,8,Clemson,SMU,54.75,48.79559030822294,OVER,-10.0,-9.704837545608651,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,8,Georgia,Ole Miss,53.75,55.34398276415402,,-10.5,-13.788352099665826,AWAY,0,SB volume gap.5-1 (sharp=AWAY); KEY lay -6.5 (HOME fav); RvR ranked-vs-ranked home-fav -> HOME; 
+2025,8,Georgia,Ole Miss,53.75,55.34398276415402,,-10.5,-13.788352099665826,AWAY,0,SB volume gap.5-1 (sharp=AWAY); KEY lay -6.5 (HOME fav); RvR ranked-vs-ranked home-fav -> HOME; 
+2025,8,Arkansas,Texas A&M,61.75,57.331007374203125,UNDER,8.0,9.891324009760817,,0,FORM over-hot fade UNDER (tot<=58); 
+2025,8,Marshall,Texas State,64.75,59.73612274668587,UNDER,4.0,-9.329237858990329,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); SOS fade padded road (mkt trusts) HOME; CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,8,Ohio,Northern Illinois,43.5,45.98385524182276,OVER,-12.0,-14.63766781860322,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); 
+2025,8,Wisconsin,Ohio State,41.25,49.95262426389554,OVER,27.0,33.4002992647449,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 away: P5 edge -4to-8; T3 fade home backup QB (bet away); 
+2025,8,Charlotte,Temple,47.0,59.64197012062462,OVER,11.5,6.638221150588722,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; T3 fade home backup QB (bet away); 
+2025,8,North Texas,UTSA,67.5,58.36591083222471,UNDER,-5.5,-2.9233910090892565,,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,8,App State,Coastal Carolina,49.5,45.44456244582123,OVER,-11.5,-4.675196582454501,AWAY,0,CONF SunBelt fade home-fav (dog); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,8,Boise State,UNLV,63.0,60.52882101172111,UNDER,-10.5,-5.7186367828865015,,0,TOTAL fade high>=60 UNDER; 
+2025,8,Boise State,UNLV,63.0,60.52882101172111,UNDER,-10.5,-5.7186367828865015,,0,TOTAL fade high>=60 UNDER; 
+2025,8,Boise State,UNLV,63.0,60.52882101172111,UNDER,-10.5,-5.7186367828865015,,0,TOTAL fade high>=60 UNDER; 
+2025,8,Boise State,UNLV,63.0,60.52882101172111,UNDER,-10.5,-5.7186367828865015,,0,TOTAL fade high>=60 UNDER; 
+2025,8,UAB,Memphis,64.5,63.97456581477255,UNDER,21.5,25.39021966927755,HOME,0,SOS fade padded road (mkt trusts) HOME; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,8,Arizona State,Texas Tech,49.5,53.27903637021585,UNDER,10.5,1.0286804471203572,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); KEY lay -6.5 (AWAY fav); T2 under: ranked upset last wk; T2 high-edge dog home (P5); 
+2025,8,Florida,Mississippi State,52.5,52.28929702758848,,-9.5,-5.453435297034943,AWAY,0,T3 away: P5 edge -4to-8; 
+2025,8,Louisiana,Southern Miss,54.0,53.202001638028236,UNDER,4.0,0.34595554557811636,AWAY,0,FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,8,Virginia,Washington State,57.0,52.29746799857308,UNDER,-18.0,-12.334315539216634,AWAY,0,FORM over-hot fade UNDER (tot<=58); T3 away: P5 edge -4to-8; 
+2025,8,Rutgers,Oregon,58.75,61.51994447973019,UNDER,15.5,20.23600794780101,AWAY,0,CONF BigTen away-fav cover; TOTAL fade high>=60 UNDER; T3 away: P5 edge -4to-8; 
+2025,8,Georgia Southern,Georgia State,57.75,59.119253512307154,UNDER,-6.5,-5.331622154890197,HOME,0,KEY lay -6.5 (HOME fav); CONF SunBelt fade home-fav (dog); T2 under: backup QB (open>=50); 
+2025,8,Iowa,Penn State,42.0,47.76485870261288,OVER,-1.5,0.15583418601255855,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,8,Colorado State,Hawai'i,54.0,52.015003127848416,UNDER,1.5,-10.23908007691943,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,8,UCLA,Maryland,52.5,44.50866339070589,,-2.5,1.6726835588011224,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); T3 away: P5 edge -4to-8; 
+2025,8,Kentucky,Texas,43.5,48.431256675723404,OVER,12.5,13.71097391141048,,0,TOTAL fade low<=50 OVER (weak); 
+2025,8,Syracuse,Pittsburgh,56.75,58.890780600711096,UNDER,11.5,9.933670221947125,AWAY,0,FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,8,Notre Dame,USC,57.5,58.394537072972014,UNDER,-10.0,-17.389833106306043,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade high>=60 UNDER; 
+2025,8,Alabama,Tennessee,57.0,59.10986949336643,UNDER,-11.5,-7.0168621667110225,HOME,1,RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade high>=60 UNDER; T3 away: P5 edge -4to-8; 
+2025,8,South Florida,Florida Atlantic,73.75,64.89659937535477,UNDER,-22.5,-21.84808981829628,,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,8,Auburn,Missouri,44.5,51.196623120007224,OVER,-1.5,-4.215623930445866,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,8,BYU,Utah,47.5,53.82123527669704,OVER,3.5,0.6071882203440857,HOME,0,RvR ranked-vs-ranked home-dog -> HOME; TOTAL fade low<=50 OVER (weak); 
+2025,8,Oklahoma State,Cincinnati,57.75,54.01781895209031,UNDER,20.5,18.21919474575584,AWAY,0,FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,8,New Mexico,Nevada,48.5,47.16159057233951,OVER,-10.5,-10.92080948474673,,0,TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); 
+2025,8,Stanford,Florida State,54.5,52.95319751644524,UNDER,17.5,18.859738217428347,,0,FORM over-hot fade UNDER (tot<=58); T2 under: ranked upset last wk; 
+2025,9,Florida International,Kennesaw State,48.5,51.609116993204864,OVER,1.5,1.116454793784564,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); SOS fade padded road (mkt trusts) HOME; TOTAL fade low<=50 OVER (weak); 
+2025,9,Louisiana Tech,Western Kentucky,50.25,50.37606109026197,OVER,-3.0,-3.0886035901216085,,0,TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); 
+2025,9,Delaware,Middle Tennessee,53.75,54.44977332387609,,-10.5,-10.970908837666906,,0,
+2025,9,New Mexico State,Missouri State,52.25,50.481449642411626,,2.0,0.2778538135691074,HOME,1,KEY dog +2.5/3/3.5 (HOME dog); 
+2025,9,Georgia State,South Alabama,54.5,56.19025755614094,UNDER,6.5,4.525687270392104,AWAY,0,KEY lay -6.5 (AWAY fav); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,9,Charlotte,North Texas,58.75,62.06207041802866,UNDER,27.0,24.18686347149737,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade high>=60 UNDER; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,9,Virginia Tech,California,49.5,51.16593420326911,,-2.5,-8.31733422864184,,0,
+2025,9,Nevada,Boise State,52.0,54.5686670714903,,21.5,21.656728928718664,,0,
+2025,9,North Carolina,Virginia,52.25,48.67943918962329,,9.5,8.184069027510978,,0,
+2025,9,Kansas,Kansas State,54.25,52.53917287683426,,-3.5,-3.8125547481728246,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,9,Memphis,South Florida,67.0,59.56035787753446,OVER,3.5,3.477326771419979,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); CONF AAC total 52-59 OVER; T1 under: model+high-total/weakD; T2 under: ranked upset last wk; 
+2025,9,Wake Forest,SMU,55.0,46.18043385173177,UNDER,3.5,5.557894159367841,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,9,Oklahoma,Ole Miss,51.0,56.02787093924325,,-3.5,-7.458863727709869,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,9,Georgia Tech,Syracuse,54.75,55.5600605517233,UNDER,-18.0,-14.73697577429417,,0,T2 under: backup QB (open>=50); 
+2025,9,Eastern Michigan,Ohio,59.25,64.47061843969864,UNDER,10.5,13.022535149656244,,0,TOTAL fade high>=60 UNDER; 
+2025,9,Kent State,Bowling Green,50.75,44.280739362775485,OVER,8.5,12.402447127586743,,0,TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T1 under: model+high-total/weakD; T2 under: backup QB (open>=50); 
+2025,9,Indiana,UCLA,54.5,52.594823312479434,,-24.5,-21.995700813174103,,0,
+2025,9,Nebraska,Northwestern,43.75,47.736759715042425,OVER,-8.5,-7.367649448350202,,0,TOTAL fade low<=50 OVER (weak); T2 under: ranked upset last wk; 
+2025,9,Purdue,Rutgers,58.5,60.101099176316374,UNDER,-2.5,-4.033335273934274,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; 
+2025,9,Old Dominion,App State,60.25,57.45462517651668,UNDER,-13.5,-7.525769918337762,AWAY,0,CONF SunBelt fade home-fav (dog); G5 fade top2 post-loss (settled) -> AWAY; CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; T2 under: backup QB (open>=50); 
+2025,9,Arkansas,Auburn,57.0,57.32084581336229,,-1.5,2.5450512278121296,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); T3 away: P5 edge -4to-8; 
+2025,9,Buffalo,Akron,47.5,51.68411003024524,OVER,-10.5,-16.086561056329366,,0,TOTAL fade low<=50 OVER (weak); 
+2025,9,Rice,UConn,48.5,52.111575846301555,OVER,9.5,14.590997468348917,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); SOS fade padded road (mkt trusts) HOME; TOTAL fade low<=50 OVER (weak); 
+2025,9,New Mexico,Utah State,62.5,56.91714410892636,UNDER,-1.5,-3.3780237042485677,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,9,Iowa State,BYU,48.75,53.701941549279624,OVER,-2.0,-0.38777754448209234,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T2 under: ranked upset last wk; T2 under: PT rr letdown; 
+2025,9,Fresno State,San Diego State,48.5,44.59427099064301,OVER,2.5,4.459778431993385,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,9,Washington State,Toledo,50.75,42.56837692306951,OVER,1.5,7.72809681101308,,0,TOTAL fade low<=50 OVER (weak); 
+2025,9,Pittsburgh,NC State,57.0,54.37205529540761,UNDER,-7.5,-7.577249095384459,,0,FORM over-hot fade UNDER (tot<=58); 
+2025,9,Northern Illinois,Ball State,41.5,45.78319427985887,OVER,-5.0,-12.10186640009036,HOME,0,KEY lay -6.5 (HOME fav); TOTAL fade low<=50 OVER (weak); 
+2025,9,Central Michigan,Massachusetts,46.75,46.16587706251448,OVER,-16.5,-11.985350112997319,,0,TOTAL fade low<=50 OVER (weak); 
+2025,9,Vanderbilt,Missouri,52.5,53.340437604159696,UNDER,-2.5,-9.063961317653703,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); 
+2025,9,Navy,Florida Atlantic,62.75,63.5278617432883,UNDER,-14.5,-19.785773661492176,,0,TOTAL fade high>=60 UNDER; 
+2025,9,South Carolina,Alabama,46.75,45.12296258867506,OVER,13.0,14.597036955598288,,0,TOTAL fade low<=50 OVER (weak); T2 under: PT rr letdown; 
+2025,9,Southern Miss,UL Monroe,49.5,49.89920426927185,OVER,-10.5,-12.565502506218767,AWAY,0,CONF SunBelt fade home-fav (dog); TOTAL fade low<=50 OVER (weak); 
+2025,9,Tulsa,Temple,53.5,55.55467598209224,OVER,6.0,11.957842668452207,,0,CONF AAC total 52-59 OVER; 
+2025,9,Iowa,Minnesota,38.5,41.41104603025711,OVER,-7.5,-8.133856925652857,,1,TOTAL fade low<=50 OVER (weak); 
+2025,9,Washington,Illinois,56.0,53.58566669719754,,-4.5,-5.357478731078621,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,9,Miami (OH),Western Michigan,41.5,42.07759847659432,OVER,-2.5,-4.208131365217647,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); 
+2025,9,Cincinnati,Baylor,66.5,59.92618459942068,UNDER,-5.5,-3.7944329140088393,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,9,Texas Tech,Oklahoma State,56.75,53.94319204840352,UNDER,-38.5,-31.07457034316961,HOME,0,SB volume gap.5-1 (sharp=HOME); T2 under: ranked upset last wk; T2 under: backup QB (open>=50); T3 away: P5 edge -4to-8; T3 fade home backup QB (bet away); 
+2025,9,Mississippi State,Texas,45.75,53.30197024680956,OVER,6.5,10.275326759321437,,0,TOTAL fade low<=50 OVER (weak); 
+2025,9,West Virginia,TCU,56.25,57.57215029342961,UNDER,14.5,11.194663360448732,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,9,Oregon,Wisconsin,44.75,50.88756719009402,OVER,-34.0,-26.597034766491646,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,9,Arkansas State,Georgia Southern,62.5,62.648839409560026,UNDER,-2.5,4.047384938689159,HOME,0,SB premium gap>=1 (sharp=HOME); CONF SunBelt total 59-66 UNDER; 
+2025,9,Troy,Louisiana,50.75,45.20074885872135,OVER,-8.5,-7.97388997465947,AWAY,0,CONF SunBelt fade home-fav (dog); TOTAL fade low<=50 OVER (weak); 
+2025,9,Miami,Stanford,48.5,43.61990632013284,OVER,-30.0,-23.48362885979523,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); T2 under: ranked upset last wk; T3 away: P5 edge -4to-8; 
+2025,9,Louisville,Boston College,55.5,51.9547315824047,UNDER,-24.5,-21.196100333625967,,0,T2 under: backup QB (open>=50); 
+2025,9,LSU,Texas A&M,51.0,54.086316133983054,,-5.5,-0.0936237690369851,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); RvR ranked-vs-ranked home-dog -> HOME; T3 away: P5 edge -4to-8; 
+2025,9,Wyoming,Colorado State,46.0,48.42852619594955,OVER,-4.5,1.0678602685521152,,0,TOTAL fade low<=50 OVER (weak); 
+2025,9,Michigan State,Michigan,47.75,52.6051119129947,OVER,8.5,21.33890629754751,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); PREMIUM lay-fav away (P5 edge<=-8); 
+2025,9,Kentucky,Tennessee,53.0,55.7797175483725,UNDER,9.0,13.864002137564569,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); FORM over-hot fade UNDER (tot<=58); T2 under: PT rr letdown; T3 away: P5 edge -4to-8; 
+2025,9,Kentucky,Tennessee,53.0,55.7797175483725,UNDER,9.0,13.864002137564569,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); FORM over-hot fade UNDER (tot<=58); T2 under: PT rr letdown; T3 away: P5 edge -4to-8; 
+2025,9,Arizona State,Houston,47.5,48.67756146352645,OVER,-8.5,-6.073635017208555,,0,TOTAL fade low<=50 OVER (weak); 
+2025,9,Utah,Colorado,53.25,56.631465414102315,OVER,-14.5,-10.633092134748306,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 under: PT rr letdown; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,10,Kennesaw State,UTEP,49.75,47.16657502155189,,-9.5,-9.37121672815464,AWAY,1,T3 fade home backup QB (bet away); 
+2025,10,Texas State,James Madison,59.0,54.53717565367764,,6.5,1.9486259018180896,,0,
+2025,10,Middle Tennessee,Jacksonville State,54.0,52.831104207797246,UNDER,6.5,7.192143638696582,,0,FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); 
+2025,10,Missouri State,Florida International,52.0,48.1962567008556,OVER,-3.5,-3.232995741227416,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T1 under: model+high-total/weakD; 
+2025,10,UTSA,Tulane,55.5,51.89192535410674,OVER,4.0,2.4707533675227804,AWAY,0,SB volume gap.5-1 (sharp=AWAY); CONF AAC total 52-59 OVER; 
+2025,10,Coastal Carolina,Marshall,54.75,49.89153174600809,UNDER,4.0,10.303507154189763,HOME,0,SB volume gap.5-1 (sharp=HOME); KEY lay -6.5 (AWAY fav); FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,10,Rice,Memphis,52.0,51.811493796650744,OVER,14.0,17.18694700772882,,0,TOTAL fade low<=50 OVER (weak); 
+2025,10,Syracuse,North Carolina,47.25,43.39149568586739,OVER,-1.75,-0.5496160526521496,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,10,Louisiana Tech,Sam Houston,49.75,41.805686296002605,OVER,-17.0,-12.562070676128805,,0,TOTAL fade low<=50 OVER (weak); 
+2025,10,SMU,Miami,50.5,45.526742804845256,,10.5,12.095325433034693,,1,
+2025,10,North Texas,Navy,63.75,58.567594379911235,UNDER,-5.5,-6.892729665322874,HOME,0,KEY lay -6.5 (HOME fav); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,10,Houston,West Virginia,49.5,50.41756262389419,OVER,-15.5,-6.319000112609788,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T2 high-edge dog away (P5); 
+2025,10,Baylor,UCF,60.5,60.88244590093879,,-4.5,-1.5821036654651384,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,10,Air Force,Army,49.5,52.912579377961855,OVER,1.5,9.346060270615498,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); 
+2025,10,UConn,UAB,64.25,60.40082623924723,UNDER,-11.5,-11.664510750829523,,1,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T2 under: backup QB (open>=50); 
+2025,10,Illinois,Rutgers,63.0,56.70221744456026,UNDER,-13.0,-8.405990414410425,AWAY,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T2 under: ranked upset last wk; T3 away: P5 edge -4to-8; 
+2025,10,Ohio State,Penn State,47.0,51.030429758070646,OVER,-4.0,-11.087993698044787,,0,TOTAL fade low<=50 OVER (weak); 
+2025,10,Texas,Vanderbilt,45.5,48.288881608347445,OVER,-3.0,-13.375241659185813,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade low<=50 OVER (weak); PREMIUM lay-fav home (P5 edge>=8); 
+2025,10,Bowling Green,Buffalo,43.5,48.56802466586587,OVER,-2.0,-3.9127239861415957,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); 
+2025,10,Clemson,Duke,54.75,57.343045431829786,,-3.5,-6.529369099463553,,0,
+2025,10,Iowa State,Arizona State,50.5,52.85255895316026,OVER,-3.5,-3.173011601166033,,0,TOTAL fade low<=50 OVER (weak); T2 under: ranked upset last wk; T2 under: backup QB (open>=50); 
+2025,10,Temple,East Carolina,57.5,57.32171764325894,OVER,4.5,4.8685321174521645,,0,CONF AAC total 52-59 OVER; 
+2025,10,UNLV,New Mexico,62.25,56.512533125374425,UNDER,-5.5,-6.035493047405716,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,10,Virginia Tech,Louisville,53.75,54.810716905856786,,10.5,8.025521815072837,,0,
+2025,10,Kansas State,Texas Tech,56.5,52.15231322857716,,4.5,1.7443529270025786,,0,
+2025,10,Stanford,Pittsburgh,52.0,49.65253481167336,UNDER,14.0,15.263877147251904,,0,FORM over-hot fade UNDER (tot<=58); 
+2025,10,Western Kentucky,New Mexico State,54.0,47.74811956550856,UNDER,-9.5,-9.937970120801191,AWAY,0,T1 under: model+high-total/weakD; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,10,UL Monroe,Old Dominion,53.5,55.455120831213684,UNDER,14.5,13.636163137281544,HOME,0,SOS fade padded road (mkt trusts) HOME; FORM over-hot fade UNDER (tot<=58); 
+2025,10,South Alabama,Louisiana,54.75,55.59184466090876,,-4.5,-5.123025765342513,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); CONF SunBelt fade home-fav (dog); 
+2025,10,Minnesota,Michigan State,44.0,45.819583640502664,OVER,-5.5,-1.782132418697126,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); 
+2025,10,Boise State,Fresno State,51.25,49.726969113530025,OVER,-17.5,-15.003376227083502,AWAY,0,TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,10,Florida,Georgia,51.0,46.9295210881844,,7.5,13.931422460190745,AWAY,0,T3 away: P5 edge -4to-8; 
+2025,10,Liberty,Delaware,51.25,51.221682499648395,,-3.0,-3.0897545901919035,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,10,Boston College,Notre Dame,57.5,57.03617186495526,UNDER,28.5,26.82739887733773,AWAY,0,FORM over-hot fade UNDER (tot<=58); T2 under: PT rr letdown; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,10,Maryland,Indiana,51.5,50.50351500489542,,21.0,16.040154167257075,AWAY,0,CONF BigTen away-fav cover; 
+2025,10,California,Virginia,54.25,50.41217130652434,,4.0,4.671012881960619,AWAY,0,KEY lay -6.5 (AWAY fav); 
+2025,10,Arkansas,Mississippi State,68.0,60.87236460502828,UNDER,-3.5,-7.54960669031498,,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,10,Kansas,Oklahoma State,56.75,48.651407906878745,UNDER,-24.5,-20.099716678728715,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); T1 under: model+high-total/weakD; T3 away: P5 edge -4to-8; 
+2025,10,Western Michigan,Central Michigan,41.5,41.39579565908954,OVER,-6.0,-5.9709636068117415,,0,TOTAL fade low<=50 OVER (weak); 
+2025,10,Colorado,Arizona,53.0,50.73116904760902,UNDER,4.5,-2.729828755784644,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,10,Ole Miss,South Carolina,54.0,54.93488622359372,,-13.5,-15.171912982786193,,0,
+2025,10,Michigan,Purdue,51.0,45.75535965168589,OVER,-21.0,-25.29389413966514,,0,TOTAL fade low<=50 OVER (weak); 
+2025,10,San Diego State,Wyoming,42.0,44.13818267879845,OVER,-10.5,-5.264050317561904,,0,TOTAL fade low<=50 OVER (weak); 
+2025,10,Auburn,Kentucky,47.0,45.27018647315413,OVER,-10.0,-7.408981105114242,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,10,Tennessee,Oklahoma,56.25,56.42735963369889,,-3.5,-10.274497373086334,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; 
+2025,10,Oregon State,Washington State,49.5,51.039661753278764,OVER,3.5,1.796051105365558,HOME,0,SB volume gap.5-1 (sharp=HOME); KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,10,Nebraska,USC,58.25,58.582699699839175,UNDER,6.0,4.020851068316403,HOME,0,SB volume gap.5-1 (sharp=HOME); CONF BigTen away-fav cover; T2 under: PT rr letdown; 
+2025,10,Florida State,Wake Forest,52.25,52.217349479563815,UNDER,-7.5,-11.321961684356946,,0,FORM over-hot fade UNDER (tot<=58); 
+2025,10,NC State,Georgia Tech,57.5,53.99091580973963,,6.5,4.848898043279067,,1,
+2025,10,Troy,Arkansas State,54.75,46.87880472176391,,-7.5,-9.838642714804427,AWAY,0,CONF SunBelt fade home-fav (dog); 
+2025,10,Utah,Cincinnati,56.75,58.701770760449804,,-7.0,-10.86777297896949,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,10,San José State,Hawai'i,56.25,61.2951747149155,,-2.5,-8.485406477870619,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,11,Akron,Massachusetts,48.75,46.57135030476969,,-10.0,-12.181480561476834,,0,
+2025,11,Ohio,Miami (OH),50.0,46.822587173263614,,-3.5,-0.7371992823316349,HOME,0,SB volume gap.5-1 (sharp=HOME); KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,11,Toledo,Northern Illinois,42.0,47.43851358325745,OVER,-14.5,-20.015261753240672,AWAY,0,G5 fade top2 post-loss (settled) -> AWAY; TOTAL fade low<=50 OVER (weak); 
+2025,11,Ball State,Kent State,46.0,48.117259619173296,OVER,-3.0,-4.752361047317931,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); 
+2025,11,App State,Georgia Southern,62.5,61.27258222931259,UNDER,-5.5,-9.28349592109196,AWAY,0,SB premium gap>=1 (sharp=AWAY); CONF SunBelt fade home-fav (dog); CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,11,App State,Georgia Southern,62.5,61.27258222931259,UNDER,-5.5,-9.28349592109196,AWAY,0,SB premium gap>=1 (sharp=AWAY); CONF SunBelt fade home-fav (dog); CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,11,South Florida,UTSA,68.0,56.62638554605315,UNDER,-13.0,-9.29903432877339,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T2 under: ranked upset last wk; 
+2025,11,UCF,Houston,48.0,47.06904905976312,OVER,2.5,-3.382661601216655,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T2 under: ranked upset last wk; 
+2025,11,USC,Northwestern,51.5,57.68466800643639,,-15.5,-21.690376783232015,,0,
+2025,11,Memphis,Tulane,56.5,54.740804136513255,OVER,-6.5,-6.605876041306471,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); CONF AAC total 52-59 OVER; 
+2025,11,West Virginia,Colorado,55.0,53.22997935367866,UNDER,-5.5,-1.6731848873717758,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,11,Arkansas State,Southern Miss,59.5,54.316857664205706,,5.5,0.25306554584608576,HOME,0,SOS fade padded road (mkt trusts) HOME; 
+2025,11,Boston College,SMU,53.25,52.47765686636921,,12.5,11.226761645673912,,0,
+2025,11,Texas Tech,BYU,53.0,52.43101919133576,,-10.5,-11.536690916563291,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,11,Texas Tech,BYU,53.0,52.43101919133576,,-10.5,-11.536690916563291,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,11,Texas Tech,BYU,53.0,52.43101919133576,,-10.5,-11.536690916563291,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,11,Texas Tech,BYU,53.0,52.43101919133576,,-10.5,-11.536690916563291,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,11,Marshall,James Madison,55.5,51.23383881340289,,12.5,10.423927426517121,,0,
+2025,11,Army,Temple,47.0,54.090205628241904,OVER,-6.5,-10.382553139534929,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 
+2025,11,Penn State,Indiana,51.5,54.18307271293608,UNDER,11.5,3.9495284158068205,AWAY,0,CONF BigTen away-fav cover; FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,11,Mississippi State,Georgia,57.5,54.759470701730585,,8.5,14.656704649627837,AWAY,0,T3 away: P5 edge -4to-8; 
+2025,11,Eastern Michigan,Bowling Green,51.5,54.023211598858914,OVER,-1.5,2.9188382907255686,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); 
+2025,11,Purdue,Ohio State,48.5,50.40071169535611,OVER,28.5,34.121287215537635,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,11,Liberty,Missouri State,50.5,53.73027326079727,,-7.5,-10.693569786136935,,0,
+2025,11,Rice,UAB,54.0,54.02879210892086,UNDER,-3.5,3.6093617937461824,AWAY,0,STACK model+gap>=1 AWAY; SB premium gap>=1 (sharp=AWAY); T2 under: backup QB (open>=50); 
+2025,11,Rutgers,Maryland,59.0,54.7596912350232,,-1.5,3.7794350853780454,HOME,0,SB premium gap>=1 (sharp=HOME); KEY dog +2.5/3/3.5 (AWAY dog); T3 away: P5 edge -4to-8; 
+2025,11,Delaware,Louisiana Tech,57.5,58.30649853519403,UNDER,4.5,8.228650430062668,HOME,0,SOS fade padded road (mkt trusts) HOME; T2 under: backup QB (open>=50); 
+2025,11,UTEP,Jacksonville State,49.25,51.49665703566329,OVER,1.5,5.701870485053931,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,11,Middle Tennessee,Florida International,52.0,54.165840418477,UNDER,1.5,-7.289809495216554,,0,T2 under: backup QB (open>=50); 
+2025,11,Florida Atlantic,Tulsa,65.5,61.93071404304087,UNDER,-5.5,-8.072110796490128,,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,11,East Carolina,Charlotte,55.5,53.017198611742465,OVER,-28.5,-21.54171376240628,,0,CONF AAC total 52-59 OVER; 
+2025,11,Miami,Syracuse,46.5,50.08467712631606,OVER,-28.0,-24.370486181621022,,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T2 under: ranked upset last wk; 
+2025,11,UConn,Duke,66.5,64.78810464821947,UNDER,8.5,2.624514884475533,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); TOTAL fade high>=60 UNDER; 
+2025,11,Missouri,Texas A&M,49.5,51.36379774923114,OVER,6.0,-1.8697451508938405,AWAY,0,KEY lay -6.5 (AWAY fav); RvR ranked-vs-ranked home-dog -> HOME; TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T2 under: PT rr letdown; T3 fade home backup QB (bet away); 
+2025,11,TCU,Iowa State,57.5,57.746680513510746,,-6.5,-3.921166738559158,,0,
+2025,11,Iowa,Oregon,43.5,45.574879559354784,OVER,6.0,6.488287029642533,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); 
+2025,11,Arizona,Kansas,56.5,57.69404465380851,,-5.5,-4.5981531739139285,,0,
+2025,11,New Mexico State,Kennesaw State,54.0,50.093718800702426,UNDER,7.0,3.9914211041166765,HOME,0,SOS fade padded road (mkt trusts) HOME; T1 under: model+high-total/weakD; 
+2025,11,Vanderbilt,Auburn,45.5,52.410921495102016,OVER,-7.5,-0.6437966275558931,AWAY,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T3 away: P5 edge -4to-8; 
+2025,11,Coastal Carolina,Georgia State,56.5,51.711635787498516,UNDER,-7.5,-8.299081537872704,AWAY,0,CONF SunBelt fade home-fav (dog); FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,11,North Carolina,Stanford,43.0,43.02545638055926,OVER,-8.5,-7.1719012919420475,,0,TOTAL fade low<=50 OVER (weak); 
+2025,11,Wisconsin,Washington,45.5,52.09909954881799,OVER,11.5,8.690886153924106,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T3 fade home backup QB (bet away); 
+2025,11,Louisiana,Texas State,64.5,56.92613111889186,UNDER,2.5,0.1392353881887384,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); SOS fade padded road (mkt trusts) HOME; CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,11,San José State,Air Force,66.0,69.36109560320173,UNDER,-3.5,-6.0129672514028165,,0,TOTAL fade high>=60 UNDER; 
+2025,11,Louisville,California,50.0,50.204265517861266,OVER,-18.5,-23.96768685319847,,0,TOTAL fade low<=50 OVER (weak); 
+2025,11,Clemson,Florida State,55.5,61.37198120423722,,-16.5,-3.051929349804749,AWAY,0,T2 high-edge dog away (P5); 
+2025,11,Virginia,Wake Forest,49.0,47.80390252089396,OVER,-6.5,-14.17752899346274,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,11,Alabama,LSU,52.0,49.731166157924854,OVER,-5.5,-14.339516715166486,HOME,0,TOTAL fade low<=50 OVER (weak); T2 under: PT rr letdown; PREMIUM lay-fav home (P5 edge>=8); 
+2025,11,Kentucky,Florida,45.0,44.02319251613396,OVER,4.5,4.83765718157974,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); 
+2025,11,Utah State,Nevada,53.0,48.626816877296996,UNDER,-11.0,-9.014192848723459,,0,T2 under: backup QB (open>=50); 
+2025,11,Notre Dame,Navy,56.5,47.35097704432111,UNDER,-24.5,-23.515423810946658,,0,FORM over-hot fade UNDER (tot<=58); 
+2025,11,UCLA,Nebraska,43.75,53.871013208200175,OVER,-2.5,10.399088415992404,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T2 high-edge dog away (P5); 
+2025,11,Colorado State,UNLV,61.5,59.553649026261304,UNDER,6.0,1.664457259424652,,1,TOTAL fade high>=60 UNDER; 
+2025,11,Oregon State,Sam Houston,51.5,52.52101191952316,UNDER,-18.5,-14.149553697151385,AWAY,0,FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,11,Hawai'i,San Diego State,51.0,43.28138147468188,OVER,4.5,13.395144536687567,AWAY,0,KEY lay -6.5 (AWAY fav); TOTAL fade low<=50 OVER (weak); 
+2025,12,Akron,Kent State,47.5,43.68307898463128,OVER,-4.5,-9.959057118915457,,0,TOTAL fade low<=50 OVER (weak); 
+2025,12,Western Michigan,Ohio,47.5,45.28383219312661,OVER,1.5,-0.6079598386208667,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); 
+2025,12,Massachusetts,Northern Illinois,42.75,47.17837673749035,OVER,11.0,6.4070280343965464,,0,TOTAL fade low<=50 OVER (weak); 
+2025,12,Miami (OH),Toledo,44.5,44.22799343836511,OVER,3.0,6.804019811697593,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,12,Central Michigan,Buffalo,43.5,49.94435184478565,OVER,-2.5,1.9580189970664112,,0,TOTAL fade low<=50 OVER (weak); 
+2025,12,Old Dominion,Troy,53.25,50.5543736122586,UNDER,-10.5,-4.488122442827682,AWAY,0,CONF SunBelt fade home-fav (dog); T2 under: backup QB (open>=50); 
+2025,12,Louisville,Clemson,60.5,50.09004519483351,UNDER,5.5,-5.996905034987286,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); T2 under: ranked upset last wk; T2 high-edge dog home (P5); 
+2025,12,Oregon,Minnesota,45.0,51.18536317481214,OVER,-22.5,-24.130270910742798,,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); 
+2025,12,Indiana,Wisconsin,44.0,45.35221998708696,OVER,-30.5,-17.608994669208,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T2 high-edge dog away (P5); 
+2025,12,Texas A&M,South Carolina,48.25,52.356309429979675,OVER,-18.5,-14.291149392644952,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,12,Northwestern,Michigan,40.5,48.11713677261763,OVER,10.0,17.71191941921143,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T1 over: low-total+fast (P5); T3 away: P5 edge -4to-8; 
+2025,12,Cincinnati,Arizona,56.5,53.603432178931996,UNDER,-5.75,-2.657528642225172,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); T2 under: PT rr letdown; 
+2025,12,Charlotte,UTSA,60.75,59.33541612722448,OVER,18.0,17.475581047569886,,0,CONF AAC total 52-59 OVER; FORM over-hot fade UNDER (tot<=58); 
+2025,12,Oklahoma State,Kansas State,54.5,45.220209528390036,UNDER,20.0,11.676536675823272,HOME,0,FORM over-hot fade UNDER (tot<=58); T2 high-edge dog home (P5); 
+2025,12,UConn,Air Force,63.5,61.578664256718206,UNDER,-8.0,-0.6740408967819094,,0,TOTAL fade high>=60 UNDER; 
+2025,12,Navy,South Florida,64.0,61.56584525237037,UNDER,10.0,2.7919268599764515,,0,TOTAL fade high>=60 UNDER; 
+2025,12,Ball State,Eastern Michigan,50.0,53.004317649625044,OVER,3.0,2.9485841127588124,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); 
+2025,12,Pittsburgh,Notre Dame,56.5,57.15821782263829,UNDER,10.5,12.977315489826733,,0,FORM over-hot fade UNDER (tot<=58); 
+2025,12,LSU,Arkansas,55.5,56.82855743743795,UNDER,-6.5,-11.799645566812991,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,12,Tulsa,Oregon State,50.5,53.04746702755762,UNDER,-0.25,0.839798079474355,,0,T2 under: backup QB (open>=50); 
+2025,12,Arizona State,West Virginia,47.5,55.32728816846498,OVER,-10.5,-11.64424143981654,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T1 over: low-total+fast (P5); T3 fade home backup QB (bet away); 
+2025,12,Georgia State,Marshall,63.0,55.911679898155654,UNDER,6.5,10.011504967612792,,0,CONF SunBelt total 59-66 UNDER; T1 under: model+high-total/weakD; 
+2025,12,UAB,North Texas,69.5,65.63699707780896,UNDER,18.0,13.175144517791757,,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,12,Missouri State,UTEP,50.5,46.438769505642064,OVER,-4.5,-2.944110519335128,,0,TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); 
+2025,12,New Mexico,Colorado State,53.5,55.80735077897866,UNDER,-14.5,-9.955440042308041,HOME,0,SB volume gap.5-1 (sharp=HOME); T2 under: backup QB (open>=50); 
+2025,12,Illinois,Maryland,53.5,48.09878576537288,,-14.0,-10.096531348807835,,0,
+2025,12,Alabama,Oklahoma,56.5,45.69430131761732,OVER,-12.5,-6.765155255996529,HOME,0,KEY lay -6.5 (HOME fav); TOTAL fade low<=50 OVER (weak); T2 under: PT rr letdown; T3 away: P5 edge -4to-8; 
+2025,12,Duke,Virginia,59.0,58.18635560735348,UNDER,-6.5,-8.057615194377124,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade high>=60 UNDER; T2 under: ranked upset last wk; 
+2025,12,Boston College,Georgia Tech,57.75,59.20172381750696,UNDER,16.5,10.143202686659277,,0,TOTAL fade high>=60 UNDER; T2 under: ranked upset last wk; 
+2025,12,Michigan State,Penn State,49.5,51.19683214084375,OVER,7.5,9.233237511280244,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T3 fade home backup QB (bet away); 
+2025,12,UL Monroe,South Alabama,51.5,53.468018060118446,OVER,3.5,10.13047178074778,,0,TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); 
+2025,12,Western Kentucky,Middle Tennessee,56.25,55.96948825508673,UNDER,-13.5,-8.694723220510753,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,12,Nevada,San José State,52.5,49.870120786824614,OVER,8.5,15.989978102586685,HOME,0,SOS fade padded road (mkt trusts) HOME; TOTAL fade low<=50 OVER (weak); 
+2025,12,Miami,NC State,55.25,51.558947458110126,,-14.5,-14.712959775556476,,0,
+2025,12,USC,Iowa,49.5,45.41061874451896,OVER,-6.5,-5.1052165818879285,,0,TOTAL fade low<=50 OVER (weak); 
+2025,12,Southern Miss,Texas State,64.75,59.132853896205866,UNDER,-6.5,-3.540257211627123,AWAY,0,CONF SunBelt fade home-fav (dog); SOS fade padded road (mkt trusts) HOME; CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,12,Texas Tech,UCF,47.5,50.82047280735658,OVER,-23.5,-17.77213030216439,AWAY,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T3 away: P5 edge -4to-8; 
+2025,12,James Madison,App State,53.75,52.00984372939935,,-19.5,-12.792853802514145,AWAY,0,CONF SunBelt fade home-fav (dog); 
+2025,12,Tulane,Florida Atlantic,63.0,63.67515489846089,UNDER,-16.5,-18.327307675513005,,0,TOTAL fade high>=60 UNDER; 
+2025,12,East Carolina,Memphis,60.5,58.88511353209499,OVER,-2.5,-4.7621956426003775,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); CONF AAC total 52-59 OVER; T2 under: ranked upset last wk; 
+2025,12,Tennessee,New Mexico State,61.5,59.55796742687678,UNDER,-38.5,-35.192938269287936,,0,TOTAL fade high>=60 UNDER; T2 under: PT rr letdown; 
+2025,12,Wake Forest,North Carolina,39.0,42.36977554665008,OVER,-6.0,0.6477496856489885,AWAY,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T3 away: P5 edge -4to-8; 
+2025,12,Florida International,Liberty,54.0,46.11495885833106,UNDER,3.0,2.0279656092584006,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,12,Georgia Southern,Coastal Carolina,57.75,62.54201280349332,UNDER,-2.5,1.1771834840800037,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); CONF SunBelt fade home-fav (dog); CONF SunBelt total 59-66 UNDER; 
+2025,12,Sam Houston,Delaware,56.5,57.763348224616564,UNDER,8.5,11.172264699184936,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,12,Ole Miss,Florida,52.75,54.76355000296016,,-13.5,-12.329473811125768,,0,
+2025,12,Washington,Purdue,53.75,53.91832887497322,UNDER,-16.5,-18.9761274954984,AWAY,1,SB volume gap.5-1 (sharp=AWAY); T2 under: ranked upset last wk; T2 under: backup QB (open>=50); 
+2025,12,Baylor,Utah,60.5,65.36800181039192,UNDER,9.0,7.87744539480487,,0,TOTAL fade high>=60 UNDER; T2 under: PT rr letdown; 
+2025,12,UNLV,Utah State,70.5,57.39362953595523,UNDER,-5.0,-15.877506815164404,,0,TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,12,Florida State,Virginia Tech,54.5,57.02960540030143,,-11.5,-7.174608417062792,AWAY,0,T3 away: P5 edge -4to-8; 
+2025,12,Georgia,Texas,49.5,47.98923011417923,,-2.5,-4.056470175990068,,1,
+2025,12,Ohio State,UCLA,48.5,53.02586352067,OVER,-31.5,-27.81274616403245,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,12,Missouri,Mississippi State,51.5,53.282645860782836,UNDER,-6.0,-13.439304460007225,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,12,Jacksonville State,Kennesaw State,51.5,55.92412507968255,,2.5,-4.704909692511325,HOME,0,SOS fade padded road (mkt trusts) HOME; 
+2025,12,Jacksonville State,Kennesaw State,51.5,55.92412507968255,,2.5,-4.704909692511325,HOME,0,SOS fade padded road (mkt trusts) HOME; 
+2025,12,Jacksonville State,Kennesaw State,51.5,55.92412507968255,,2.5,-4.704909692511325,HOME,0,SOS fade padded road (mkt trusts) HOME; 
+2025,12,Jacksonville State,Kennesaw State,51.5,55.92412507968255,,2.5,-4.704909692511325,HOME,0,SOS fade padded road (mkt trusts) HOME; 
+2025,12,Washington State,Louisiana Tech,47.25,42.106019106103275,OVER,-6.5,0.1316584664132077,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); 
+2025,12,BYU,TCU,52.0,54.04560327903352,,-5.5,-4.391255993042202,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,12,San Diego State,Boise State,42.0,49.24282886926023,OVER,-2.5,2.125402697585759,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,12,Fresno State,Wyoming,39.5,40.266804253709125,OVER,-4.5,-4.814825572934121,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,13,Bowling Green,Akron,47.25,46.18647678857331,OVER,-4.5,-7.496258088973651,AWAY,0,SB volume gap.5-1 (sharp=AWAY); KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; T3 fade home backup QB (bet away); 
+2025,13,Ohio,Massachusetts,51.25,48.0395499683444,OVER,-31.5,-22.044387753475142,,0,T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); 
+2025,13,Northern Illinois,Western Michigan,38.5,45.27263107007684,OVER,6.0,4.638012111872403,,0,TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; 
+2025,13,Buffalo,Miami (OH),39.5,43.8684521235903,OVER,2.5,2.492170241437225,HOME,1,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; 
+2025,13,Kent State,Central Michigan,47.0,51.28504676759576,UNDER,7.5,13.247586876371473,,0,FORM over-hot fade UNDER (tot<=58); T2 over: week 13 rivalry wk; 
+2025,13,Arkansas State,Louisiana,54.0,50.64385820135639,UNDER,-3.5,0.9150115976369941,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); CONF SunBelt fade home-fav (dog); T1 under: model+high-total/weakD; T2 over: week 13 rivalry wk; 
+2025,13,NC State,Florida State,61.5,59.33452591885138,OVER,4.5,3.820527985964592,,0,T2 over: week 13 rivalry wk; 
+2025,13,UNLV,Hawai'i,64.5,58.56565255835426,UNDER,-3.0,-12.013365118831844,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T2 over: week 13 rivalry wk; 
+2025,13,Northwestern,Minnesota,41.0,42.25857526925326,OVER,-4.0,-6.338267225466795,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T2 over: week 13 rivalry wk; 
+2025,13,Ohio State,Rutgers,55.75,58.6382622309611,OVER,-32.5,-34.07197572040866,,0,T2 over: week 13 rivalry wk; 
+2025,13,Oklahoma,Missouri,48.5,44.371792132064776,OVER,-9.5,-11.078491762430556,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; 
+2025,13,Iowa State,Kansas,55.25,51.263339970770296,OVER,-4.0,-4.832250696419804,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); T2 over: week 13 rivalry wk; 
+2025,13,Virginia Tech,Miami,49.0,50.48888562404693,OVER,16.5,25.982376585272245,AWAY,0,TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; PREMIUM lay-fav away (P5 edge<=-8); 
+2025,13,SMU,Louisville,53.25,49.68825843585175,OVER,-3.0,-7.6504061280153985,,0,TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); 
+2025,13,Wake Forest,Delaware,52.75,54.012429130887426,OVER,-18.0,-19.116752229451407,,0,TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; 
+2025,13,Army,Tulsa,46.5,54.82932888043105,OVER,-10.5,-12.705785811228397,,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; T2 over: week 13 rivalry wk; 
+2025,13,Georgia,Charlotte,54.75,56.06247777842744,OVER,-44.5,-42.60512373389481,AWAY,0,SB premium gap>=1 (sharp=AWAY); T2 over: week 13 rivalry wk; 
+2025,13,Georgia Southern,Old Dominion,62.75,65.37253491891707,UNDER,10.0,11.017369060830086,,0,CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; T2 over: week 13 rivalry wk; 
+2025,13,Arizona,Baylor,62.75,57.43516227749235,UNDER,-6.5,1.6931862206348098,HOME,0,KEY lay -6.5 (HOME fav); TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T2 over: week 13 rivalry wk; T2 high-edge dog away (P5); 
+2025,13,James Madison,Washington State,43.0,49.51117410586146,OVER,-13.5,-8.455299640169706,,0,TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; 
+2025,13,Kennesaw State,Missouri State,58.5,56.47647096239467,OVER,-6.5,1.4905617736556789,HOME,0,KEY lay -6.5 (HOME fav); T2 over: week 13 rivalry wk; 
+2025,13,Wyoming,Nevada,41.5,44.941348484326085,OVER,-6.5,-1.8374704129485357,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; 
+2025,13,Toledo,Ball State,47.75,49.74737299421105,OVER,-26.5,-30.20055747294408,,0,TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; 
+2025,13,App State,Marshall,54.0,51.761463984422754,UNDER,3.5,9.487932572397543,HOME,0,SOS fade padded road (mkt trusts) HOME; FORM over-hot fade UNDER (tot<=58); T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,13,Florida Atlantic,UConn,67.5,63.90260241750332,UNDER,7.5,5.092309783010044,AWAY,0,KEY lay -6.5 (AWAY fav); SOS fade padded road (mkt trusts) HOME; TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T2 over: week 13 rivalry wk; 
+2025,13,UAB,South Florida,69.25,65.54953855105853,UNDER,21.5,21.972040649389893,HOME,0,G5 fade top2 post-loss (settled) -> HOME; TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; T2 over: week 13 rivalry wk; 
+2025,13,Louisiana Tech,Liberty,45.25,50.07981384706569,OVER,0.0,3.3258826091876497,AWAY,0,SB volume gap.5-1 (sharp=AWAY); TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; T3 fade home backup QB (bet away); 
+2025,13,Middle Tennessee,Sam Houston,53.75,52.95946112738162,OVER,-6.5,-7.855202185383568,AWAY,0,SB volume gap.5-1 (sharp=AWAY); KEY lay -6.5 (HOME fav); T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,13,UTEP,New Mexico State,45.25,45.0230960362142,OVER,-3.0,-4.438774651109717,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; T3 fade home backup QB (bet away); 
+2025,13,Florida International,Jacksonville State,56.0,49.9752752531266,UNDER,-1.0,0.03940244250499348,AWAY,1,FORM over-hot fade UNDER (tot<=58); T1 under: model+high-total/weakD; T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,13,UTSA,East Carolina,61.75,55.28848710023635,UNDER,-3.0,-0.2108299173284615,,0,TOTAL fade high>=60 UNDER; T2 over: week 13 rivalry wk; 
+2025,13,South Alabama,Southern Miss,56.0,54.32006315981847,OVER,3.0,0.8497195925995131,HOME,0,SOS fade padded road (mkt trusts) HOME; T2 over: week 13 rivalry wk; 
+2025,13,Texas,Arkansas,56.5,58.51224618407791,OVER,-10.5,-16.56524471194855,,0,T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); 
+2025,13,Vanderbilt,Kentucky,53.0,52.729524045744164,UNDER,-10.0,-4.247389178121425,AWAY,0,FORM over-hot fade UNDER (tot<=58); T2 over: week 13 rivalry wk; T3 away: P5 edge -4to-8; 
+2025,13,Oregon,USC,57.75,55.54633038451019,OVER,-12.0,-15.481116115025074,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; T2 over: week 13 rivalry wk; 
+2025,13,Iowa,Michigan State,42.5,45.102490895480265,OVER,-16.5,-19.188363768018338,,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T2 over: week 13 rivalry wk; 
+2025,13,Notre Dame,Syracuse,51.5,57.62786302732495,OVER,-35.0,-29.17254567515245,AWAY,0,STACK model+gap.5-1 AWAY; SB volume gap.5-1 (sharp=AWAY); TOTAL model over-edge>=6 OVER; T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); 
+2025,13,North Carolina,Duke,51.75,57.059997768939766,OVER,1.5,4.893935457891303,,0,TOTAL model over-edge>=6 OVER; T2 over: week 13 rivalry wk; 
+2025,13,Temple,Tulane,54.75,56.56495218797375,OVER,8.5,10.426554830138436,,1,CONF AAC total 52-59 OVER; T2 over: week 13 rivalry wk; 
+2025,13,Maryland,Michigan,45.5,48.198448249402,OVER,11.5,11.430822128344563,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T2 over: week 13 rivalry wk; 
+2025,13,UCF,Oklahoma State,48.0,48.227138548269224,OVER,-14.0,-14.932664650870608,,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T2 over: week 13 rivalry wk; 
+2025,13,Houston,TCU,54.75,57.12573894923799,UNDER,-2.5,3.3144048531965233,AWAY,0,FORM over-hot fade UNDER (tot<=58); T2 over: week 13 rivalry wk; T3 away: P5 edge -4to-8; 
+2025,13,Utah,Kansas State,53.5,55.200701299893865,UNDER,-16.5,-20.90025405965575,,0,FORM over-hot fade UNDER (tot<=58); T2 over: week 13 rivalry wk; 
+2025,13,Troy,Georgia State,51.25,50.998508599570236,OVER,-10.5,-5.933150181721125,AWAY,0,CONF SunBelt fade home-fav (dog); T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,13,South Carolina,Coastal Carolina,53.25,48.136648151559385,OVER,-23.5,-20.845536202557547,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; 
+2025,13,Texas State,UL Monroe,55.75,56.61404764383978,UNDER,-18.5,-24.50798743091222,AWAY,0,CONF SunBelt fade home-fav (dog); CONF SunBelt total 59-66 UNDER; T2 over: week 13 rivalry wk; 
+2025,13,Boise State,Colorado State,45.5,54.17629899740501,OVER,-16.5,-16.856792095108634,AWAY,0,G5 fade top2 post-loss (settled) -> AWAY; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; T2 over: week 13 rivalry wk; T3 fade home backup QB (bet away); 
+2025,13,Penn State,Nebraska,44.0,51.86637641988779,OVER,-9.5,-15.144034242404222,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; FORM over-hot fade UNDER (tot<=58); T1 over: low-total+fast (P5); T2 over: week 13 rivalry wk; T3 fade home backup QB (bet away); 
+2025,13,Air Force,New Mexico,58.25,56.63478077316551,OVER,2.0,2.3300834348972206,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 over: week 13 rivalry wk; 
+2025,13,Georgia Tech,Pittsburgh,61.75,53.235686590522064,UNDER,-2.5,-4.014367520799787,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade high>=60 UNDER; T2 over: week 13 rivalry wk; 
+2025,13,Rice,North Texas,55.0,57.25298049673175,OVER,17.5,15.806850955693996,,0,CONF AAC total 52-59 OVER; FORM over-hot fade UNDER (tot<=58); T2 over: week 13 rivalry wk; 
+2025,13,Florida,Tennessee,57.5,60.953389734648944,OVER,3.5,5.89652054679631,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 over: week 13 rivalry wk; 
+2025,13,Wisconsin,Illinois,41.75,44.045281066301904,OVER,9.5,5.799851044718785,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T2 over: week 13 rivalry wk; T3 fade home backup QB (bet away); 
+2025,13,Stanford,California,50.0,46.27071581826616,OVER,3.0,2.47972570043033,AWAY,0,TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,13,LSU,Western Kentucky,51.0,52.015434807030886,OVER,-22.5,-23.17708498544754,AWAY,0,T2 over: week 13 rivalry wk; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,13,Cincinnati,BYU,53.75,50.641146854624864,OVER,2.0,0.5161983813132467,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); T2 over: week 13 rivalry wk; 
+2025,13,Colorado,Arizona State,48.75,49.23266314665367,OVER,7.5,3.4383598376725573,AWAY,0,TOTAL fade low<=50 OVER (weak); T2 over: week 13 rivalry wk; T3 fade home backup QB (bet away); 
+2025,13,Fresno State,Utah State,51.0,49.80643153328406,OVER,-2.5,-7.361086027631426,,0,T2 over: week 13 rivalry wk; 
+2025,13,San Diego State,San José State,49.5,53.00293653261476,OVER,-12.0,-10.502947372575784,,0,T2 over: week 13 rivalry wk; 
+2025,13,UCLA,Washington,52.0,55.745114428222436,OVER,10.5,7.841502859514407,AWAY,0,CONF BigTen away-fav cover; T2 over: week 13 rivalry wk; 
+2025,14,Massachusetts,Bowling Green,45.0,48.41472512262654,OVER,15.5,20.045276381038224,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,14,Eastern Michigan,Western Michigan,46.0,51.334363143569526,OVER,6.5,4.350246031764055,,0,TOTAL fade low<=50 OVER (weak); 
+2025,14,Memphis,Navy,58.5,51.315670466029786,OVER,-5.5,-8.086870656897856,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); CONF AAC total 52-59 OVER; FORM over-hot fade UNDER (tot<=58); T1 under: model+high-total/weakD; 
+2025,14,Kansas,Utah,59.5,58.11705425507341,UNDER,13.5,12.389114989366492,,0,TOTAL fade high>=60 UNDER; 
+2025,14,Nebraska,Iowa,42.0,44.911825018144995,OVER,4.0,8.622041884550228,AWAY,0,CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T1 over: low-total+fast (P5); T3 away: P5 edge -4to-8; T3 fade home backup QB (bet away); 
+2025,14,Buffalo,Ohio,47.5,47.2683366359062,OVER,6.0,8.965782558720203,,0,TOTAL fade low<=50 OVER (weak); 
+2025,14,Northern Illinois,Kent State,44.75,49.06843036448492,OVER,-4.5,-14.596343804983814,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,14,Mississippi State,Ole Miss,61.5,60.728372637680174,UNDER,9.5,18.990777926550674,AWAY,0,TOTAL fade high>=60 UNDER; T2 under: backup QB (open>=50); PREMIUM lay-fav away (P5 edge<=-8); T3 fade home backup QB (bet away); 
+2025,14,Colorado State,Air Force,49.5,54.52446413784038,OVER,2.75,5.085983392475499,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,14,New Mexico,San Diego State,41.5,45.515278663496055,OVER,1.5,2.2664152711629684,HOME,0,SB premium gap>=1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); 
+2025,14,Georgia Tech,Georgia,56.5,61.79746318771976,UNDER,13.0,22.799064118348017,HOME,0,RvR ranked-vs-ranked home-dog -> HOME; T2 under: ranked upset last wk; PREMIUM lay-fav away (P5 edge<=-8); 
+2025,14,North Texas,Temple,65.5,69.92889923371328,UNDER,-19.5,-18.47633911051669,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade high>=60 UNDER; 
+2025,14,Utah State,Boise State,55.5,58.430560788377385,UNDER,3.75,5.571002960481253,,0,T2 under: backup QB (open>=50); 
+2025,14,Purdue,Indiana,53.5,50.52979355393269,,28.5,25.439110918653252,AWAY,0,CONF BigTen away-fav cover; 
+2025,14,Texas,Texas A&M,51.5,54.17170437931533,UNDER,2.5,3.1129457158266742,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); RvR ranked-vs-ranked home-dog -> HOME; FORM over-hot fade UNDER (tot<=58); 
+2025,14,Arizona State,Arizona,49.25,50.8598814007006,OVER,1.5,0.3289928140466843,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,14,Louisville,Kentucky,47.5,48.365112369995195,OVER,-4.5,-2.248823763134614,,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); 
+2025,14,Florida Atlantic,East Carolina,67.0,66.73300786812271,UNDER,6.5,9.471527459978015,,0,TOTAL fade high>=60 UNDER; 
+2025,14,Oklahoma State,Iowa State,49.5,52.390477550638046,OVER,14.5,18.97780201514294,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 away: P5 edge -4to-8; 
+2025,14,Kansas State,Colorado,51.5,53.04937264800131,OVER,-17.0,-15.411442330637787,,0,TOTAL fade low<=50 OVER (weak); 
+2025,14,Baylor,Houston,61.0,52.96406617669071,UNDER,-2.5,1.154589695766053,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); FORM over-hot fade UNDER (tot<=58); T2 under: ranked upset last wk; 
+2025,14,Pittsburgh,Miami,51.5,52.84417527406377,OVER,7.0,13.514927831216967,AWAY,0,KEY lay -6.5 (AWAY fav); RvR ranked-vs-ranked home-dog -> HOME; TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T3 away: P5 edge -4to-8; 
+2025,14,West Virginia,Texas Tech,53.0,54.82314447547691,,20.5,28.386246214943206,AWAY,0,T3 away: P5 edge -4to-8; 
+2025,14,Miami (OH),Ball State,42.0,43.107921936006015,OVER,-17.5,-20.834671625595373,AWAY,0,TOTAL fade low<=50 OVER (weak); T3 fade home backup QB (bet away); 
+2025,14,Central Michigan,Toledo,44.5,39.172779155053775,OVER,9.5,14.717692897235793,HOME,0,SOS fade padded road (mkt trusts) HOME; TOTAL fade low<=50 OVER (weak); 
+2025,14,Michigan,Ohio State,47.5,51.24441578510836,OVER,5.5,12.833646823559354,AWAY,0,CONF BigTen away-fav cover; RvR ranked-vs-ranked home-dog -> HOME; TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T1 over: low-total+fast (P5); T3 away: P5 edge -4to-8; 
+2025,14,South Carolina,Clemson,50.0,48.61718931755834,OVER,-2.5,-2.7369020647228193,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); 
+2025,14,Delaware,UTEP,54.75,52.72476868400286,UNDER,-5.0,-4.446999864867267,,0,T2 under: backup QB (open>=50); 
+2025,14,Sam Houston,Florida International,51.5,45.47343959447364,UNDER,10.5,17.00966055938795,AWAY,0,T1 under: model+high-total/weakD; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,14,BYU,UCF,48.0,50.35086180601095,OVER,-18.5,-17.582976226018054,,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); 
+2025,14,Marshall,Georgia Southern,61.25,65.42266616618548,UNDER,-6.5,-10.562873287299846,HOME,0,SB volume gap.5-1 (sharp=HOME); CONF SunBelt fade home-fav (dog); CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,14,Missouri State,Louisiana Tech,51.5,51.19066866919831,OVER,-3.0,2.9903672266984103,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); 
+2025,14,Old Dominion,Georgia State,59.0,58.91684957413711,UNDER,-26.5,-22.6821233876087,AWAY,0,CONF SunBelt fade home-fav (dog); T2 under: backup QB (open>=50); 
+2025,14,Jacksonville State,Western Kentucky,55.0,53.05458995464724,UNDER,2.5,-2.6325207686403025,HOME,0,SOS fade padded road (mkt trusts) HOME; G5 fade top2 post-loss (settled) -> HOME; T2 under: backup QB (open>=50); 
+2025,14,App State,Arkansas State,56.5,51.218973253520176,UNDER,-1.5,-4.716680393598634,HOME,0,STACK model+gap>=1 HOME; SB premium gap>=1 (sharp=HOME); T1 under: model+high-total/weakD; T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,14,New Mexico State,Middle Tennessee,54.5,54.24893698607264,UNDER,-4.5,-4.742755975725364,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,14,Louisiana,UL Monroe,48.5,45.35538402783912,OVER,-13.5,-11.529449490194025,AWAY,0,SB volume gap.5-1 (sharp=AWAY); CONF SunBelt fade home-fav (dog); TOTAL fade low<=50 OVER (weak); FORM over-hot fade UNDER (tot<=58); T1 under: model+high-total/weakD; 
+2025,14,Tulsa,UAB,60.0,57.91202913969429,OVER,-7.5,-6.2737843898270595,,0,CONF AAC total 52-59 OVER; 
+2025,14,Texas State,South Alabama,63.5,61.09963979167327,UNDER,-9.0,-9.535556960441921,AWAY,0,CONF SunBelt fade home-fav (dog); CONF SunBelt total 59-66 UNDER; TOTAL fade high>=60 UNDER; 
+2025,14,Syracuse,Boston College,53.25,60.88865658504186,OVER,3.0,2.4663328240261477,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL model over-edge>=6 OVER; FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,14,UTSA,Army,52.0,57.17462045781429,OVER,-6.5,-13.730092586236314,,0,TOTAL model over-edge>=6 OVER; 
+2025,14,Oklahoma,LSU,38.5,46.78293299439614,OVER,-10.0,-4.469803443959312,AWAY,0,TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; T1 over: low-total+fast (P5); T3 away: P5 edge -4to-8; 
+2025,14,Rutgers,Penn State,55.5,56.34726314742627,UNDER,10.5,21.356014727110153,AWAY,0,CONF BigTen away-fav cover; FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); PREMIUM lay-fav away (P5 edge<=-8); 
+2025,14,Arkansas,Missouri,58.0,53.74182353058852,UNDER,2.5,0.16623427803670296,AWAY,0,FORM over-hot fade UNDER (tot<=58); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,14,TCU,Cincinnati,58.25,56.34398149634596,,-4.5,-2.6888108095541003,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,14,Duke,Wake Forest,54.75,54.05546337358861,UNDER,-3.5,-3.9603863074071524,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); FORM over-hot fade UNDER (tot<=58); 
+2025,14,Minnesota,Wisconsin,38.0,37.276134519655976,OVER,2.5,0.958022724534034,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); CONF BigTen away-fav cover; TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); 
+2025,14,Liberty,Kennesaw State,54.5,60.57834382412145,UNDER,2.0,-4.2510971882317605,AWAY,0,T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,14,Southern Miss,Troy,50.0,49.594310854399836,UNDER,-6.5,4.36424543604009,AWAY,0,CONF SunBelt fade home-fav (dog); T2 under: backup QB (open>=50); 
+2025,14,Washington,Oregon,52.5,57.32856254922212,,7.5,9.730124001181004,AWAY,0,CONF BigTen away-fav cover; 
+2025,14,Tennessee,Vanderbilt,64.5,73.55697055597693,UNDER,-3.5,-9.541518519779663,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade high>=60 UNDER; TOTAL model over-edge>=6 OVER; 
+2025,14,Coastal Carolina,James Madison,53.5,53.87489822574859,,21.5,15.136329384841355,HOME,0,STACK model+gap.5-1 HOME; SB volume gap.5-1 (sharp=HOME); 
+2025,14,Florida,Florida State,51.0,57.92555404648775,OVER,-2.5,0.9154062706903594,HOME,0,SB volume gap.5-1 (sharp=HOME); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; 
+2025,14,Washington State,Oregon State,43.5,46.67490070140499,OVER,-12.5,-10.99720597918882,,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); 
+2025,14,South Florida,Rice,59.5,56.951324117181315,OVER,-26.0,-26.492815797984736,HOME,0,SB volume gap.5-1 (sharp=HOME); CONF AAC total 52-59 OVER; FORM over-hot fade UNDER (tot<=58); 
+2025,14,Michigan State,Maryland,48.0,47.32971508801528,OVER,-4.5,-2.3593852126593773,AWAY,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); T3 fade home backup QB (bet away); 
+2025,14,Virginia,Virginia Tech,52.5,56.24795457840431,,-10.5,-8.070963014364049,,0,
+2025,14,USC,UCLA,61.0,58.07637141660918,,-20.5,-16.904904430153035,,0,
+2025,14,NC State,North Carolina,50.5,48.684864947822426,OVER,-7.5,-3.8294801380092056,,0,TOTAL fade low<=50 OVER (weak); 
+2025,14,Auburn,Alabama,50.0,47.02747437242711,OVER,5.5,12.754754499038706,AWAY,0,TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); T3 away: P5 edge -4to-8; T3 fade home backup QB (bet away); 
+2025,14,Tulane,Charlotte,52.5,49.92767746318506,OVER,-29.5,-25.11986968113482,,0,CONF AAC total 52-59 OVER; 
+2025,14,Illinois,Northwestern,47.5,46.67392897436637,OVER,-7.0,-5.316502385641019,,0,TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); 
+2025,14,California,SMU,53.75,47.97284230006027,,10.5,21.06641483783178,AWAY,0,PREMIUM lay-fav away (P5 edge<=-8); 
+2025,14,Nevada,UNLV,53.0,54.62333839495511,,9.5,6.466177117776541,HOME,0,SOS fade padded road (mkt trusts) HOME; 
+2025,14,Stanford,Notre Dame,52.0,52.32865002905831,OVER,32.5,30.523361013384484,AWAY,0,TOTAL fade low<=50 OVER (weak); T2 under: backup QB (open>=50); T3 fade home backup QB (bet away); 
+2025,14,San José State,Fresno State,47.0,58.48061693018585,OVER,2.5,9.042729537335832,HOME,0,KEY dog +2.5/3/3.5 (HOME dog); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; T3 fade home backup QB (bet away); 
+2025,14,Hawai'i,Wyoming,44.5,46.52726858034553,OVER,-10.5,-3.1601091105717862,,0,TOTAL fade low<=50 OVER (weak); 
+2025,15,James Madison,Troy,47.5,50.042838720245435,OVER,-21.5,-16.9765827204779,AWAY,0,CONF SunBelt fade home-fav (dog); TOTAL fade low<=50 OVER (weak); 
+2025,15,Jacksonville State,Kennesaw State,58.5,58.425656412386466,UNDER,-1.25,-5.261916449431084,,0,TOTAL fade high>=60 UNDER; 
+2025,15,Jacksonville State,Kennesaw State,58.5,58.425656412386466,UNDER,-1.25,-5.261916449431084,,0,TOTAL fade high>=60 UNDER; 
+2025,15,Jacksonville State,Kennesaw State,58.5,58.425656412386466,UNDER,-1.25,-5.261916449431084,,0,TOTAL fade high>=60 UNDER; 
+2025,15,Jacksonville State,Kennesaw State,58.5,58.425656412386466,UNDER,-1.25,-5.261916449431084,,0,TOTAL fade high>=60 UNDER; 
+2025,15,Boise State,UNLV,57.5,58.09697578500209,,-3.0,-5.554066263269036,,0,
+2025,15,Boise State,UNLV,57.5,58.09697578500209,,-3.0,-5.554066263269036,,0,
+2025,15,Boise State,UNLV,57.5,58.09697578500209,,-3.0,-5.554066263269036,,0,
+2025,15,Boise State,UNLV,57.5,58.09697578500209,,-3.0,-5.554066263269036,,0,
+2025,15,Tulane,North Texas,66.5,62.84946805214798,UNDER,2.75,0.9972824360650481,AWAY,0,SB volume gap.5-1 (sharp=AWAY); RvR ranked-vs-ranked home-dog -> HOME; TOTAL fade high>=60 UNDER; T1 under: model+high-total/weakD; 
+2025,15,Texas Tech,BYU,50.5,54.28260586357295,,-12.0,-11.546398247234118,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,15,Texas Tech,BYU,50.5,54.28260586357295,,-12.0,-11.546398247234118,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,15,Texas Tech,BYU,50.5,54.28260586357295,,-12.0,-11.546398247234118,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,15,Texas Tech,BYU,50.5,54.28260586357295,,-12.0,-11.546398247234118,HOME,0,RvR ranked-vs-ranked home-fav -> HOME; 
+2025,15,Western Michigan,Miami (OH),43.5,41.2985187919561,OVER,-2.5,1.182930683967524,HOME,0,SB volume gap.5-1 (sharp=HOME); KEY dog +2.5/3/3.5 (AWAY dog); TOTAL fade low<=50 OVER (weak); 
+2025,15,Alabama,Georgia,47.5,54.29432830039141,OVER,2.0,-0.7788495278960464,AWAY,0,SB volume gap.5-1 (sharp=AWAY); RvR ranked-vs-ranked home-dog -> HOME; TOTAL fade low<=50 OVER (weak); T1 over: low-total+fast (P5); 
+2025,15,Ohio State,Indiana,48.5,47.98405998648093,OVER,-6.0,-8.469436297961503,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); RvR ranked-vs-ranked home-fav -> HOME; TOTAL fade low<=50 OVER (weak); 
+2025,15,Virginia,Duke,57.5,56.03022058765177,,-2.5,-8.153623162135862,AWAY,0,KEY dog +2.5/3/3.5 (AWAY dog); 
+2025,16,Navy,Army,38.5,62.05574970577985,OVER,-4.0,2.621341090327775,HOME,0,KEY lay -6.5 (HOME fav); TOTAL fade low<=50 OVER (weak); TOTAL model over-edge>=6 OVER; TOTAL model over-edge>=8 G5 OVER; 

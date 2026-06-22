@@ -9,6 +9,7 @@ Usage:  python3 dryrun_wk12_props.py [--no-load]
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -19,7 +20,10 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-SEASON, WEEK = 2025, 12
+# Target slate — override per week via env NFL_SEASON / NFL_WEEK; defaults to the
+# Wk12-2025 dry-run so an unparameterized run stays byte-for-byte the original.
+SEASON = int(os.environ.get("NFL_SEASON", 2025))
+WEEK = int(os.environ.get("NFL_WEEK", 12))
 BATCH = 500
 STAT_OF = {
     "player_pass_yds": "passing_yards", "player_pass_tds": "passing_tds",
@@ -131,9 +135,26 @@ def weekly_panel(pf, market):
     return {pid: d for pid, d in p.groupby("player_id")}
 
 
+# Fixed top-quintile (P80) NGS cutoffs from the 2024-25 backtest (props_signal_mine).
+# Hardcoded so the threshold is stable week-to-week, not refit on one thin slate.
+P12_SEP_Q80 = 3.6335   # entering L3 avg_separation, receiving
+P13_EFF_Q80 = 4.8384   # entering L3 rush efficiency, rushing
+
+
+def ngs_l3_entering(fname, col):
+    """{player_id: mean of the player's last 3 NGS weeks before WEEK this season}."""
+    d = pd.read_parquet(DATA / fname)
+    d = d[(d.season == SEASON) & (d.week < WEEK)].sort_values(["player_id", "week"])
+    return (d.groupby("player_id")[col].apply(lambda s: s.dropna().tail(3).mean())
+            .dropna().to_dict())
+
+
 def add_flags(c, pf):
     p9_hist = weekly_panel(pf, "player_pass_tds")
     p10_hist = weekly_panel(pf, "player_receptions")
+    # featured-player NGS form: separation (receivers) / efficiency (backs), entering
+    sep_l3 = ngs_l3_entering("ngs_receiving.parquet", "avg_separation")
+    eff_l3 = ngs_l3_entering("ngs_rushing.parquet", "efficiency")
     flags = []
     for _, r in c.iterrows():
         f = []
@@ -169,6 +190,13 @@ def add_flags(c, pf):
             d = p10_hist[r.player_id].dropna(subset=["line"]).tail(2)
             if len(d) == 2 and r.close_line > d.line.iloc[1] > d.line.iloc[0]:
                 f.append("P10")                        # line raised 2 straight weeks -> UNDER
+        line_lags = pd.notna(r.close_line) and pd.notna(r.l3_avg) and r.close_line <= r.l3_avg
+        if (r.market == "player_reception_yds" and line_lags
+                and sep_l3.get(r.player_id, -1) >= P12_SEP_Q80):
+            f.append("P12")                            # featured WR, line lags form -> OVER
+        if (r.market == "player_rush_yds" and line_lags
+                and eff_l3.get(r.player_id, -1) >= P13_EFF_Q80):
+            f.append("P13")                            # featured RB, line lags form -> OVER
         flags.append(f)
     c["p_flags"] = flags
     return c

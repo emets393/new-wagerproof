@@ -1,0 +1,10 @@
+# Python deps for the new-wagerproof model pipeline (research/nfl-extreme-outcomes/,
+# research/cfb-model/). Render installs these per render.yaml; locally, `pip install -r
+# requirements.txt` covers the runners (fetch -> build -> .pkl predict -> slate -> grade).
+numpy
+pandas
+scipy
+scikit-learn
+requests
+pyarrow
+openpyxl

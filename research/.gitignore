@@ -1,0 +1,13 @@
+# Regenerable pipeline data — the runners fetch/build these from live sources on every run, and
+# Render's filesystem is ephemeral, so they're NOT committed (keeps the repo lean). Frozen model
+# inputs that ARE committed: *.pkl (models), *.xlsx (Madden), the small *_importance.csv.
+**/*.parquet
+*/data/*.json
+*/data/h1tt_snapshots/
+*/data/props_snapshots/
+*/data/event_odds/
+*/data/odds_history/
+*/data/pbp_cache/
+*/data/cfbd/
+*/data/props_rows_*.csv
+*/out/*.csv

@@ -139,8 +139,15 @@ def build_b15(target, strict_open=False):
     W=m[m.week>=4].copy(); W["pt_b15"]=np.nan
     trn=W[W.season<target].dropna(subset=["actual_total"]+B15)
     te=W[W.season==target]
-    if len(trn)<200 or len(te)==0: return pd.DataFrame(columns=['season','week','home_ab','away_ab','pt_b15'])
-    gb=HistGradientBoostingRegressor(**B15_PARAMS).fit(trn[B15],trn.actual_total)
+    if len(te)==0: return pd.DataFrame(columns=['season','week','home_ab','away_ab','pt_b15'])
+    import sys, joblib
+    _pkl=os.path.join(DATA,f"totals_b15_{target}.pkl")  # frozen .pkl serving (task #13)
+    if os.path.exists(_pkl) and "--train" not in sys.argv:
+        gb,B15=joblib.load(_pkl)
+    else:
+        if len(trn)<200: return pd.DataFrame(columns=['season','week','home_ab','away_ab','pt_b15'])
+        gb=HistGradientBoostingRegressor(**B15_PARAMS).fit(trn[B15],trn.actual_total)
+        joblib.dump((gb,list(B15)),_pkl)
     W.loc[te.index,"pt_b15"]=gb.predict(te[B15])
     return W[W.season==target][['season','week','home_ab','away_ab','pt_b15']].dropna(subset=['pt_b15'])
 
@@ -264,8 +271,15 @@ def build_b55(target, strict_open=False):
     # ---- train walk-forward, predict target ----
     tr=tg[tg.season<target].dropna(subset=['target']).copy()
     te=tg_predict[tg_predict.season==target].copy()
-    if len(tr)<500 or len(te)==0: return pd.DataFrame(columns=['season','week','home_ab','away_ab','pt_b55'])
-    gbm=HistGradientBoostingRegressor(**B55_PARAMS).fit(tr[final_feats],tr.target)
+    if len(te)==0: return pd.DataFrame(columns=['season','week','home_ab','away_ab','pt_b55'])
+    import sys, joblib
+    _pkl=os.path.join(DATA,f"totals_b55_{target}.pkl")  # frozen .pkl serving (task #13)
+    if os.path.exists(_pkl) and "--train" not in sys.argv:
+        gbm,final_feats=joblib.load(_pkl)
+    else:
+        if len(tr)<500: return pd.DataFrame(columns=['season','week','home_ab','away_ab','pt_b55'])
+        gbm=HistGradientBoostingRegressor(**B55_PARAMS).fit(tr[final_feats],tr.target)
+        joblib.dump((gbm,list(final_feats)),_pkl)
     te['pred']=gbm.predict(te[final_feats])
 
     # ---- derive per-game total ----

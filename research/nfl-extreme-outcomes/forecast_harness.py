@@ -713,12 +713,19 @@ def train_predict(m, BASE, target):
     The regression model is NOT bet on directly — it provides confluence flag when its direction
     agrees with classification (~3pp hit-rate boost, ~+4pp ROI). See LOCKED_MODELS.md §1 + b70 vault.
     """
-    tr=m[(m.season<target)&(m.week>=4)].dropna(subset=["home_cover"])
-    clf=HistGradientBoostingClassifier(max_depth=3,learning_rate=0.05,max_iter=300,l2_regularization=2.0,min_samples_leaf=40,random_state=0).fit(tr[BASE],tr.home_cover)
-    # Regression model: same features, same train fold, target = actual_margin. Leak profile identical
-    # to classification (see b70 audit) — uses BASE only, no betting lines added.
-    tr_r=tr.dropna(subset=["actual_margin"])
-    reg=HistGradientBoostingRegressor(max_depth=3,learning_rate=0.05,max_iter=300,l2_regularization=2.0,min_samples_leaf=40,random_state=0).fit(tr_r[BASE],tr_r.actual_margin)
+    # Frozen-.pkl serving (task #13): fit once with --train (or when no model is saved),
+    # otherwise load (clf, reg, BASE) and only predict -> the weekly run is pure inference.
+    import sys, joblib
+    pkl = os.path.join(DATA, f"sides_models_{target}.pkl")
+    if os.path.exists(pkl) and "--train" not in sys.argv:
+        clf, reg, BASE = joblib.load(pkl)
+    else:
+        tr=m[(m.season<target)&(m.week>=4)].dropna(subset=["home_cover"])
+        clf=HistGradientBoostingClassifier(max_depth=3,learning_rate=0.05,max_iter=300,l2_regularization=2.0,min_samples_leaf=40,random_state=0).fit(tr[BASE],tr.home_cover)
+        # Regression: same features/fold, target = actual_margin (b70).
+        tr_r=tr.dropna(subset=["actual_margin"])
+        reg=HistGradientBoostingRegressor(max_depth=3,learning_rate=0.05,max_iter=300,l2_regularization=2.0,min_samples_leaf=40,random_state=0).fit(tr_r[BASE],tr_r.actual_margin)
+        joblib.dump((clf, reg, list(BASE)), pkl)
     te=m[m.season==target].copy()
     te["ph"]=clf.predict_proba(te[BASE])[:,1]
     te["pred_margin"]=reg.predict(te[BASE])

@@ -1,0 +1,108 @@
+# =============================================================================
+# WagerProof MODEL PIPELINE — Render Blueprint (new-wagerproof repo)
+#
+# Runs the NEW NFL/CFB model runners + the post-game grade job. Parallel to the
+# cfb_automation/render.yaml blueprint (which holds the legacy + MLB/NBA/NCAAB crons),
+# so "everything is in Render" across the two repos.
+#
+# DEPLOY STEPS (one-time):
+#   1) Connect this repo to Render as a Blueprint (New > Blueprint > new-wagerproof).
+#   2) Fill the env group `wagerproof-model-secrets` (values are sync:false = set in dashboard):
+#        SUPABASE_SERVICE_KEY, CFBD_API_KEY, ODDS_API_KEY, DATABASE_URL
+#      DATABASE_URL = Supabase direct/pooler URI (the grade RPC exceeds PostgREST's 8s timeout).
+#   3) COMMIT the frozen models: research/{nfl-extreme-outcomes/data,cfb-model/out}/*_<season>.pkl.
+#      Render cron filesystems are EPHEMERAL — a `--train` run does NOT persist between runs, so
+#      the scoring crons load the committed .pkl. Preseason: run with --train locally (or a one-off
+#      Render job), commit the new sides_models_<season>.pkl / totals_b15|b55 / cfb_models|confirm.
+#   4) COMMIT the runners + scripts (run_nfl_week.sh, run_cfb_week.sh, grade_week.sh, fill_finals.py,
+#      ingest_player_logs.py, fetch.py, the build/model code) — they are not all tracked yet.
+#
+# OPEN OPERATIONAL ITEMS (before Week 1):
+#   - WEEK is auto-derived by current_week.py (first unplayed week from the schedule), so the slate
+#     crons need no manual week setting; the grade cron is season-scoped (grades all weeks idempotently).
+#   - Dynamic weather/injury re-score: add a game-day cron (e.g. every 2-3h Thu/Sat/Sun) that re-runs
+#     the slate runner (idempotent) so weather/injury changes re-score before kickoff.
+#   - Migrate the legacy NFL/CFB GitHub Actions crons here too (the dual-feed legacy prediction tables
+#     that feed the legacy_* signals — see 14_SEASON_2026_PIPELINE_READINESS.md).
+# =============================================================================
+
+envVarGroups:
+  - name: wagerproof-model-secrets
+    envVars:
+      - key: SUPABASE_SERVICE_KEY      # service-role key (writes dryrun_* tables, finals, logs)
+        sync: false
+      - key: CFBD_API_KEY              # College Football Data API (CFB fetch)
+        sync: false
+      - key: ODDS_API_KEY             # The Odds API (event/odds history)
+        sync: false
+      - key: DATABASE_URL             # Supabase direct/pooler URI (grade RPC, bypasses 8s API timeout)
+        sync: false
+
+services:
+  # --- NFL weekly slate: fetch -> build -> .pkl predict -> nfl_dryrun_* tables ----------
+  - type: cron
+    name: nfl-slate-weekly
+    runtime: python
+    schedule: "0 11 * 9-12,1-2 2"          # Tue ~6-7am ET, NFL season (Sep–Feb)
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh 2026 $(python3 current_week.py nfl 2026)
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+
+  # --- CFB weekly slate: fetch CFBD -> build features -> model -> cfb_dryrun_* tables ----
+  - type: cron
+    name: cfb-slate-weekly
+    runtime: python
+    schedule: "0 11 * 8-12,1 1"            # Mon ~6-7am ET, CFB season (Aug–Jan)
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/cfb-model && bash run_cfb_week.sh 2026 $(python3 ../nfl-extreme-outcomes/current_week.py cfb 2026)
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+
+  # --- Post-game grading (both sports): finals -> player logs -> grade picks/props/signals
+  - type: cron
+    name: nfl-cfb-grade-daily
+    runtime: python
+    schedule: "0 13 * 8-12,1-2 *"          # daily ~8-9am ET, both seasons
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && bash grade_week.sh 2026
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+
+  # --- Live PRE-GAME odds collector (NFL) -> nfl_historical_odds (open/movement/close series) ---
+  # Hourly; the script self-gates: 3x/day for future-day games, hourly for today's, PRE-GAME only
+  # (skips any event already kicked off). Feeds the FG + 1H models. Cost-guards on idle hours.
+  - type: cron
+    name: nfl-live-odds-hourly
+    runtime: python
+    schedule: "0 * * 9-12,1-2 *"            # every hour, NFL season — script controls 3x vs hourly
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && python3 live_odds.py --write
+    envVars:
+      - fromGroup: wagerproof-model-secrets
+
+  # --- Live PRE-GAME odds collector (CFB) -> ncaaf_odds_history (FG; bulk endpoint, ~3 credits/run).
+  # Same cadence + pre-game guard as NFL. CFB 1H/TT odds ride fetch_event_odds.py separately.
+  - type: cron
+    name: cfb-live-odds-hourly
+    runtime: python
+    schedule: "0 * * 8-12,1 *"              # every hour, CFB season — script controls 3x vs hourly
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/cfb-model && python3 live_odds_cfb.py --write && python3 live_odds_cfb_1h.py --write
+    envVars:
+      - fromGroup: wagerproof-model-secrets
