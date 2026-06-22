@@ -32,6 +32,7 @@ struct MainTabView: View {
     // shell so any screen can call `learnStore.openSheet(...)` and the sheet
     // mounts in one well-known place.
     @Environment(LearnWagerProofStore.self) private var learnStore
+    @Environment(AdminModeStore.self) private var adminMode
     #if DEBUG
     @Environment(DebugDataModeStore.self) private var debugDataMode
     #endif
@@ -218,11 +219,23 @@ struct MainTabView: View {
             }
         }
         .task {
+            syncDryRunPreviewEnabled()
             // Eagerly hydrate GamesStore at the shell so cross-tab surfaces
             // (Outliers matchup taps, SearchView results) can resolve a
             // gameId to a typed game on first interaction — not only after
             // the user has visited the Games tab.
             await gamesStore.refreshAll()
+        }
+        .onChange(of: adminMode.adminModeEnabled) { _, _ in
+            syncDryRunPreviewEnabled()
+            Task { await gamesStore.refreshAll(force: true) }
+        }
+        .onChange(of: adminMode.isAdmin) { _, _ in
+            syncDryRunPreviewEnabled()
+            Task {
+                await gamesStore.refreshAll(force: true)
+                await propsStore.refreshNFL(force: true)
+            }
         }
         #if DEBUG
         // Flipping Dummy Data Mode (Secret Settings) force-reloads the slate so
@@ -231,6 +244,13 @@ struct MainTabView: View {
             Task { await gamesStore.refreshAll(force: true) }
         }
         #endif
+    }
+
+    /// Keep dry-run preview flags in sync with Secret Settings admin mode.
+    private func syncDryRunPreviewEnabled() {
+        let enabled = adminMode.dryRunPreviewEnabled
+        gamesStore.dryRunPreviewEnabled = enabled
+        propsStore.dryRunPreviewEnabled = enabled
     }
 
     // MARK: - Tab content

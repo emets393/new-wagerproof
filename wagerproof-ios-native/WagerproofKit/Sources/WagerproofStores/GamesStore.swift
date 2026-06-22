@@ -88,6 +88,10 @@ public final class GamesStore {
     /// Per-sport search text. Mirrors RN `searchTexts` record.
     public var searchTexts: [Sport: String] = Dictionary(uniqueKeysWithValues: Sport.allCases.map { ($0, "") })
 
+    /// When true, NFL/CFB load from dry-run staging tables. Set by the tab
+    /// shell from `AdminModeStore.dryRunPreviewEnabled`.
+    public var dryRunPreviewEnabled: Bool = false
+
     private let cacheTTL: TimeInterval = 5 * 60
 
     public init() {}
@@ -702,10 +706,12 @@ public final class GamesStore {
     private func fetchNFL() async throws {
         let cfb = await CFBSupabase.shared.client
 
-        let dryrun = await fetchNFLDryrun(cfb)
-        if !dryrun.isEmpty {
-            games.nfl = dryrun
-            return
+        if dryRunPreviewEnabled {
+            let dryrun = await fetchNFLDryrun(cfb)
+            if !dryrun.isEmpty {
+                games.nfl = dryrun
+                return
+            }
         }
 
         // Step 1: input view (no filters — matches RN exactly).
@@ -1154,6 +1160,78 @@ public final class GamesStore {
     }
 
     private func fetchCFB() async throws {
+        if dryRunPreviewEnabled {
+            try await fetchCFBDryrun()
+        } else {
+            try await fetchCFBLegacy()
+        }
+    }
+
+    private func fetchCFBLegacy() async throws {
+        let cfb = await CFBSupabase.shared.client
+        let inputs: [CFBInputRow] = try await cfb
+            .from("cfb_live_weekly_inputs")
+            .select()
+            .execute()
+            .value
+        let preds: [CFBAPIRow] = (try? await cfb
+            .from("cfb_api_predictions")
+            .select()
+            .execute()
+            .value) ?? []
+        let predsById: [Int: CFBAPIRow] = Dictionary(uniqueKeysWithValues: preds.map { ($0.id, $0) })
+
+        let merged: [CFBPrediction] = inputs.map { input in
+            let api = predsById[input.id]
+            let homeSpread = input.apiSpread ?? input.homeSpread
+            let awaySpread: Double? = {
+                if let s = input.apiSpread { return -s }
+                if let s = input.awaySpread { return s }
+                return nil
+            }()
+            return CFBPrediction(
+                id: String(input.id),
+                awayTeam: input.awayTeam ?? "",
+                homeTeam: input.homeTeam ?? "",
+                homeMl: input.homeMoneyline ?? input.homeMl,
+                awayMl: input.awayMoneyline ?? input.awayMl,
+                homeSpread: homeSpread,
+                awaySpread: awaySpread,
+                overLine: input.apiOverLine ?? input.totalLine,
+                gameDate: input.startTime ?? input.startDate ?? input.gameDate ?? "",
+                gameTime: input.startTime ?? input.startDate ?? input.gameTime ?? "",
+                trainingKey: input.trainingKey ?? "",
+                uniqueId: input.uniqueId ?? "\(input.awayTeam ?? "")_\(input.homeTeam ?? "")_\(input.startTime ?? "")",
+                homeAwayMlProb: input.predMlProba ?? input.homeAwayMlProb,
+                homeAwaySpreadCoverProb: input.predSpreadProba ?? input.homeAwaySpreadCoverProb,
+                ouResultProb: input.predTotalProba ?? input.ouResultProb,
+                runId: input.runId,
+                temperature: input.weatherTempF ?? input.temperature,
+                precipitation: input.precipitation,
+                windSpeed: input.weatherWindspeedMph ?? input.windSpeed,
+                icon: input.weatherIconText ?? input.icon,
+                spreadSplitsLabel: input.spreadSplitsLabel,
+                totalSplitsLabel: input.totalSplitsLabel,
+                mlSplitsLabel: input.mlSplitsLabel,
+                conference: input.conference,
+                predAwayScore: api?.predAwayScore ?? input.predAwayScore,
+                predHomeScore: api?.predHomeScore ?? input.predHomeScore,
+                predAwayPoints: api?.predAwayPoints ?? api?.awayPoints,
+                predHomePoints: api?.predHomePoints ?? api?.homePoints,
+                predSpread: api?.predSpread ?? api?.runLinePrediction ?? api?.spreadPrediction,
+                homeSpreadDiff: api?.homeSpreadDiff ?? api?.spreadDiff ?? api?.edge,
+                predTotal: api?.predTotal ?? api?.totalPrediction ?? api?.ouPrediction,
+                totalDiff: api?.totalDiff ?? api?.totalEdge,
+                predOverLine: api?.predOverLine,
+                overLineDiff: api?.overLineDiff,
+                openingSpread: input.spread,
+                openingTotal: input.totalLine
+            )
+        }
+        games.cfb = merged
+    }
+
+    private func fetchCFBDryrun() async throws {
         let cfb = await CFBSupabase.shared.client
         await CFBTeamsService.shared.ensureLoaded()
 

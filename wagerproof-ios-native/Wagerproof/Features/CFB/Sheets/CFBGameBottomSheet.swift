@@ -2118,6 +2118,10 @@ struct CFBGameBottomSheet: View {
     }
 
     private func loadDryRunPicks() async {
+        guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else {
+            dryRunPicks = []
+            return
+        }
         let cfb = await CFBSupabase.shared.client
         let definitions = await CFBSignalDefinitionsService.shared.definitionsBySource()
         signalDefinitionsBySource = definitions

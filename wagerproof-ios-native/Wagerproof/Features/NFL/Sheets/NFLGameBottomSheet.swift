@@ -896,6 +896,7 @@ struct NFLGameBottomSheet: View {
     // MARK: - Data
 
     private func loadDryrunData() async {
+        guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else { return }
         await NFLTeamsService.shared.ensureLoaded()
         let cfb = await CFBSupabase.shared.client
 

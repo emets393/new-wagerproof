@@ -166,6 +166,7 @@ struct CFBGameCard: View {
     }
 
     private func loadSlatePicks() async {
+        guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else { return }
         let cfb = await CFBSupabase.shared.client
         guard let rows: [CFBSlatePickRow] = try? await cfb
             .from("cfb_dryrun_picks")

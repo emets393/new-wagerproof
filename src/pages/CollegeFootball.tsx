@@ -570,21 +570,27 @@ ${contextParts}
         chatSessionManager.clearPageSession(user.id, 'college-football');
       }
       
-      debug.log('Fetching college football data...');
-      
-      // Dry-run CFB uses the normalized team table, not the legacy mapping.
-      const { data: mappings, error: mappingsError } = await collegeFootballSupabase
-        .from('cfb_teams')
-        .select('team_name, abbr, logo, logo_dark, color, alt_color, conference');
-      
-      if (mappingsError) {
-        debug.error('Error fetching team mappings:', mappingsError);
-        setError(`Team mappings error: ${mappingsError.message}`);
-        return;
-      }
-      
-      debug.log('Team mappings fetched:', mappings?.length || 0);
-      setTeamMappings(mappings || []);
+      debug.log('Fetching college football data...', { adminModeEnabled });
+
+      let predictionsWithWeather: any[] = [];
+      let mappings: any[] = [];
+      let generatedAt: string | null = null;
+
+      if (adminModeEnabled) {
+        // Dry-run CFB uses the normalized team table, not the legacy mapping.
+        const { data: dryRunMappings, error: mappingsError } = await collegeFootballSupabase
+          .from('cfb_teams')
+          .select('team_name, abbr, logo, logo_dark, color, alt_color, conference');
+        
+        if (mappingsError) {
+          debug.error('Error fetching team mappings:', mappingsError);
+          setError(`Team mappings error: ${mappingsError.message}`);
+          return;
+        }
+        
+        mappings = dryRunMappings || [];
+        debug.log('Team mappings fetched:', mappings.length);
+        setTeamMappings(mappings);
 
         const { data: preds, error: predsError } = await collegeFootballSupabase
           .from('cfb_dryrun_games')
@@ -599,10 +605,9 @@ ${contextParts}
         }
 
         debug.log('Dry-run games fetched:', preds?.length || 0);
-        debug.log('Sample dry-run game data:', preds?.[0]);
 
-        const teamByName = new Map((mappings || []).map((team: any) => [String(team.team_name || '').toLowerCase(), team]));
-        const predictionsWithWeather = (preds || []).map(prediction => {
+        const teamByName = new Map(mappings.map((team: any) => [String(team.team_name || '').toLowerCase(), team]));
+        predictionsWithWeather = (preds || []).map(prediction => {
           const awayTeam = teamByName.get(String(prediction.away_team || '').toLowerCase());
           const homeTeam = teamByName.get(String(prediction.home_team || '').toLowerCase());
           const predTotal = Number(prediction.fg_pred_total);
@@ -648,25 +653,81 @@ ${contextParts}
             home_spread_diff: prediction.fg_spread_edge ?? null,
           };
         });
+        generatedAt = preds?.[0]?.generated_at ?? null;
+      } else {
+        const { data: legacyMappings, error: mappingsError } = await collegeFootballSupabase
+          .from('cfb_team_mapping')
+          .select('api, logo_light');
+        
+        if (mappingsError) {
+          debug.error('Error fetching team mappings:', mappingsError);
+          setError(`Team mappings error: ${mappingsError.message}`);
+          return;
+        }
+        
+        mappings = legacyMappings || [];
+        debug.log('Team mappings fetched:', mappings.length);
+        setTeamMappings(mappings);
+
+        const { data: preds, error: predsError } = await collegeFootballSupabase
+          .from('cfb_live_weekly_inputs')
+          .select('*');
+
+        if (predsError) {
+          debug.error('Error fetching predictions:', predsError);
+          setError(`Predictions error: ${predsError.message}`);
+          return;
+        }
+
+        const { data: apiPreds, error: apiPredsError } = await collegeFootballSupabase
+          .from('cfb_api_predictions')
+          .select('*');
+
+        if (apiPredsError) {
+          debug.error('Error fetching API predictions:', apiPredsError);
+          setError(`API predictions error: ${apiPredsError.message}`);
+          return;
+        }
+
+        debug.log('Predictions fetched:', preds?.length || 0);
+
+        predictionsWithWeather = (preds || []).map(prediction => {
+          const apiPred = apiPreds?.find(ap => ap.id === prediction.id);
+          return {
+            ...prediction,
+            opening_spread: (prediction as any)?.spread ?? null,
+            pred_spread: apiPred?.pred_spread || apiPred?.run_line_prediction || apiPred?.spread_prediction || null,
+            home_spread_diff: apiPred?.home_spread_diff || apiPred?.spread_diff || apiPred?.edge || null,
+            pred_total: apiPred?.pred_total || apiPred?.total_prediction || apiPred?.ou_prediction || null,
+            total_diff: apiPred?.total_diff || apiPred?.total_edge || null,
+            pred_over_line: apiPred?.pred_over_line ?? null,
+            over_line_diff: apiPred?.over_line_diff ?? null,
+            pred_away_score: apiPred?.pred_away_score ?? (apiPred as any)?.away_points ?? (prediction as any)?.pred_away_score ?? null,
+            pred_home_score: apiPred?.pred_home_score ?? (apiPred as any)?.home_points ?? (prediction as any)?.pred_home_score ?? null,
+            pred_away_points: apiPred?.pred_away_points ?? (apiPred as any)?.away_points ?? null,
+            pred_home_points: apiPred?.pred_home_points ?? (apiPred as any)?.home_points ?? null,
+          };
+        });
+        generatedAt = preds?.[0]?.generated_at ?? null;
+      }
 
       setPredictions(predictionsWithWeather);
-      // Use the generated_at time from the first prediction if available
-      if (preds && preds.length > 0 && preds[0].generated_at) {
-        setLastUpdated(new Date(preds[0].generated_at));
+      if (generatedAt) {
+        setLastUpdated(new Date(generatedAt));
       } else {
         setLastUpdated(new Date());
       }
       
-      // Save to cache (mappings are already set earlier with setTeamMappings)
       setCachedData({
         predictions: predictionsWithWeather,
-        teamMappings: mappings || [],
+        teamMappings: mappings,
         lastUpdated: Date.now(),
         searchQuery: searchText,
-        sortKey: sortMode, // CollegeFootball uses sortMode instead of sortKey
+        sortKey: sortMode,
         sortAscending,
         scrollPosition: 0,
         activeFilters,
+        adminModeEnabled,
       });
     } catch (err) {
       debug.error('Error fetching data:', err);
@@ -723,8 +784,9 @@ ${contextParts}
     const cached = getCachedData();
     
     const hasDryRunCache = cached?.predictions?.[0]?.game_id || cached?.predictions?.[0]?.conviction_summary;
+    const cacheMatchesAdminMode = (cached?.adminModeEnabled ?? false) === adminModeEnabled;
 
-    if (cached && cached.predictions.length > 0 && hasDryRunCache) {
+    if (cached && cached.predictions.length > 0 && cacheMatchesAdminMode && (adminModeEnabled ? hasDryRunCache : !hasDryRunCache)) {
       // Restore from cache
       setPredictions(cached.predictions);
       if (cached.teamMappings) {
@@ -1667,6 +1729,7 @@ ${contextParts}
                     alwaysShowAurora={isMammothCard}
                     className={isLocked ? 'blur-sm opacity-50' : ''}
                   >
+                  {adminModeEnabled ? (
                   <CFBDryRunSlateCardContent
                     prediction={prediction}
                     isLocked={isLocked}
@@ -1682,7 +1745,7 @@ ${contextParts}
                       setPayloadViewerOpen(true);
                     }}
                   />
-                  {false && (
+                  ) : (
                   <>
                   {/* Star Button for Admin Mode */}
                   <StarButton 
@@ -2098,12 +2161,14 @@ ${contextParts}
         </div>
       )}
 
-      {/* CFB dry-run detail modal */}
+      {/* CFB dry-run detail modal — admin preview only */}
+      {adminModeEnabled && (
       <CFBDryRunGameDetailsModal
         isOpen={selectedGameForModal !== null}
         onClose={() => setSelectedGameForModal(null)}
         prediction={selectedGameForModal}
       />
+      )}
 
       {/* Mini WagerBot Chat */}
       <MiniWagerBotChat pageContext={cfbContext} pageId="college-football" />

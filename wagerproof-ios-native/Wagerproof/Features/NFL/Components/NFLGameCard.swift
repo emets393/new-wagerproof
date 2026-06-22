@@ -152,6 +152,7 @@ struct NFLGameCard: View {
     }
 
     private func loadSlatePicks() async {
+        guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else { return }
         let cfb = await CFBSupabase.shared.client
         guard let rows: [NFLSlatePickRow] = try? await cfb
             .from("nfl_dryrun_picks")

@@ -114,6 +114,12 @@ public final class PropsStore {
 
     /// NFL-specific hydrate for search — mirrors `refreshMLB`.
     public func refreshNFL(force: Bool = false) async {
+        if !dryRunPreviewEnabled {
+            nflPlayers = []
+            loadState[.nfl] = .loaded
+            lastFetched[.nfl] = Date()
+            return
+        }
         if !force, loadState[.nfl] == .loaded, let last = lastFetched[.nfl],
            Date().timeIntervalSince(last) < ttl {
             return
@@ -130,6 +136,9 @@ public final class PropsStore {
 
     public var isLoadingNFL: Bool { loadState[.nfl] == .loading }
     public var hasLoadedNFL: Bool { lastFetched[.nfl] != nil }
+
+    /// When true, NFL props load from `nfl_dryrun_*` staging tables.
+    public var dryRunPreviewEnabled: Bool = false
 
     /// Matchups ordered by game time (the service already orders by date then
     /// time; this keeps a stable secondary sort if the API order drifts).
@@ -163,6 +172,12 @@ public final class PropsStore {
             case .mlb:
                 matchups = try await service.fetchMatchups()
             case .nfl:
+                guard dryRunPreviewEnabled else {
+                    nflPlayers = []
+                    lastFetched[sport] = Date()
+                    loadState[sport] = .loaded
+                    return
+                }
                 nflPlayers = try await nflService.fetchPlayers()
             default:
                 return
