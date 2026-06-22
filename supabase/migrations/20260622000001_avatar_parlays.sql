@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.avatar_parlays (
   actual_result text,            -- human-readable settle, e.g. "2/3 legs hit, 1 push"
   graded_at timestamptz,
 
+  target_date date,              -- the run's slate date (manual-regen dedup + display)
   is_auto_generated boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS public.avatar_parlay_legs (
 
 -- 3. Indexes ----------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_avatar_parlays_avatar ON public.avatar_parlays(avatar_id);
+CREATE INDEX IF NOT EXISTS idx_avatar_parlays_avatar_date ON public.avatar_parlays(avatar_id, target_date);  -- manual-regen dedup
 CREATE INDEX IF NOT EXISTS idx_avatar_parlay_legs_parlay ON public.avatar_parlay_legs(parlay_id);
 CREATE INDEX IF NOT EXISTS idx_avatar_parlay_legs_game ON public.avatar_parlay_legs(game_id);  -- grading lookups
 

@@ -129,3 +129,63 @@ export function buildSubmitPicksSchema(band: UnitBand): Record<string, unknown> 
     required: ["picks"],
   };
 }
+
+/** Build the submit_parlay tool JSON Schema. Each parlay carries legs[] (2..maxLegs,
+ *  hard-capped at 4) plus ONE ticket-level stake — a parlay has a single units bet for
+ *  the whole ticket, not per-leg. Leg fields mirror submit_picks. Only offered to the
+ *  model when the agent's maxParlayLegs > 0. See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md. */
+export function buildSubmitParlaySchema(band: UnitBand, maxLegs: number): Record<string, unknown> {
+  const cap = Math.min(4, Math.max(2, maxLegs));
+  return {
+    type: "object",
+    properties: {
+      slate_note: {
+        type: "string",
+        description: "One sentence on the slate, or why you are submitting zero parlays.",
+      },
+      parlays: {
+        type: "array",
+        description:
+          "Multi-leg parlay tickets. Submit an empty array if you have no parlay worth staking.",
+        items: {
+          type: "object",
+          properties: {
+            legs: {
+              type: "array",
+              minItems: 2,
+              maxItems: cap,
+              description: `The legs of this parlay (2-${cap}). Each leg must be a game whose data you fetched first.`,
+              items: {
+                type: "object",
+                properties: {
+                  game_id: { type: "string", description: "Must be a game_id from the slate (verbatim)." },
+                  bet_type: { type: "string", enum: ["spread", "moneyline", "total"] },
+                  period: { type: "string", enum: ["full", "f5"] },
+                  selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120".' },
+                  odds: { type: "string", description: 'American odds with explicit sign, e.g. "-110" / "+150".' },
+                },
+                required: ["game_id", "bet_type", "selection", "odds"],
+              },
+            },
+            units: {
+              type: "number",
+              enum: band.enumValues,
+              description: `ONE stake for the whole ticket. Allowed for this agent: ${band.enumValues.join(", ")}.`,
+            },
+            confidence: { type: "integer", minimum: 1, maximum: 5 },
+            reasoning: { type: "string", description: "50-600 chars: why these legs together, citing fetched numbers." },
+            key_factors: {
+              type: "array",
+              items: { type: "string" },
+              minItems: 2,
+              maxItems: 5,
+              description: "2-5 short factors grounding the parlay.",
+            },
+          },
+          required: ["legs", "units", "confidence", "reasoning", "key_factors"],
+        },
+      },
+    },
+    required: ["parlays"],
+  };
+}

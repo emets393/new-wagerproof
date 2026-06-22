@@ -7,11 +7,12 @@ import type { ChatMessage } from "./types.ts";
 import { consumeChatStreamV3 } from "./consumeChatStreamV3.ts";
 import { compactDeepFetch } from "./compactDeepFetch.ts";
 import { buildV3SystemPrompt } from "./v3SystemPrompt.ts";
-import { buildSubmitPicksSchema } from "./pickSchemaV3.ts";
+import { buildSubmitPicksSchema, buildSubmitParlaySchema } from "./pickSchemaV3.ts";
 import type { AgentGenContext } from "./tools/context.ts";
 import type { SlateResult } from "./tools/gameSource.ts";
 import { buildReadToolDefs, DEEP_TOOL_NAMES, runReadTool } from "./tools/readTools.ts";
 import { submitPicks } from "./tools/submitPicks.ts";
+import { submitParlay } from "./tools/submitParlay.ts";
 
 export interface LoopResult {
   engineUsed: "v3";
@@ -52,6 +53,17 @@ export async function runAgenticLoop(
         parameters: buildSubmitPicksSchema(steering.unitBand),
       },
     },
+    // Parlay ticket tool — only offered when the agent's appetite allows it.
+    ...(steering.maxParlayLegs > 0
+      ? [{
+          type: "function" as const,
+          function: {
+            name: "submit_parlay",
+            description: "Submit multi-leg parlay tickets (legs drawn from games you fetched). After any parlays, still call submit_picks to finalize the run (use an empty picks array if you have no straight picks).",
+            parameters: buildSubmitParlaySchema(steering.unitBand, steering.maxParlayLegs),
+          },
+        }]
+      : []),
   ];
 
   const slateContent = compactDeepFetch("get_slate", slate, 16000);
@@ -166,7 +178,12 @@ export async function runAgenticLoop(
     });
 
     let finished = false;
-    for (const call of res.toolCalls) {
+    // Process submit_parlay (and reads) BEFORE the terminal submit_picks, so an
+    // agent that emits both in one turn gets its parlays written before the run ends.
+    const orderedCalls = [...res.toolCalls].sort(
+      (a, b) => (a.name === "submit_picks" ? 1 : 0) - (b.name === "submit_picks" ? 1 : 0),
+    );
+    for (const call of orderedCalls) {
       const started = Date.now();
       if (call.name === "submit_picks") {
         ctx.gov.submitAttempts += 1;
@@ -195,6 +212,22 @@ export async function runAgenticLoop(
           break;
         }
         continue;
+      }
+
+      if (call.name === "submit_parlay") {
+        let args: Record<string, unknown> | null = null;
+        try { args = JSON.parse(call.arguments || "{}"); } catch { ctx.gov.recordMalformed(); }
+        if (args === null) {
+          const content = JSON.stringify({ ok: false, error: "submit_parlay arguments were not valid JSON (likely truncated). Resubmit with fewer/shorter legs." });
+          messages.push({ role: "tool", tool_call_id: call.id, content });
+          trace(call.id, call.name, (call.arguments || "").slice(0, 200), content, Date.now() - started, false);
+          continue;
+        }
+        const report = await submitParlay(ctx, args);
+        const content = JSON.stringify(report);
+        messages.push({ role: "tool", tool_call_id: call.id, content });
+        trace(call.id, call.name, call.arguments || "{}", content, Date.now() - started, report.ok);
+        continue; // non-terminal — the agent still calls submit_picks to finalize
       }
 
       // read tool — charge budget first
