@@ -81,7 +81,7 @@ public struct AgentPick: Codable, Identifiable, Sendable, Hashable {
         self.result = (try? c.decode(PickResultStatus.self, forKey: .result)) ?? .pending
         self.actualResult = try? c.decodeIfPresent(String.self, forKey: .actualResult)
         self.gradedAt = try? c.decodeIfPresent(String.self, forKey: .gradedAt)
-        self.createdAt = try c.decode(String.self, forKey: .createdAt)
+        self.createdAt = (try? c.decode(String.self, forKey: .createdAt)) ?? ""
         self.aiDecisionTrace = try? c.decodeIfPresent(JSONValue.self, forKey: .aiDecisionTrace)
         self.aiAuditPayload = try? c.decodeIfPresent(JSONValue.self, forKey: .aiAuditPayload)
     }
@@ -126,6 +126,41 @@ public struct AgentPick: Codable, Identifiable, Sendable, Hashable {
         self.createdAt = createdAt
         self.aiDecisionTrace = aiDecisionTrace
         self.aiAuditPayload = aiAuditPayload
+    }
+}
+
+public extension AgentPick {
+    /// Decode a pick array from raw PostgREST JSON, skipping rows that fail to
+    /// parse instead of failing the whole batch (one bad row used to blank all
+    /// of history + performance charts).
+    static func decodeLossyArray(from data: Data) -> [AgentPick] {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) else { return [] }
+        return decodeLossyElements(raw)
+    }
+
+    static func decodeLossyArray<K: CodingKey>(
+        from container: KeyedDecodingContainer<K>,
+        forKey key: K
+    ) -> [AgentPick] {
+        guard var nested = try? container.nestedUnkeyedContainer(forKey: key) else { return [] }
+        var picks: [AgentPick] = []
+        while !nested.isAtEnd {
+            if let pick = try? nested.decode(AgentPick.self) {
+                picks.append(pick)
+            } else {
+                _ = try? nested.decode(JSONValue.self)
+            }
+        }
+        return picks
+    }
+
+    private static func decodeLossyElements(_ raw: Any) -> [AgentPick] {
+        guard let rows = raw as? [Any] else { return [] }
+        let decoder = JSONDecoder()
+        return rows.compactMap { element in
+            guard let elementData = try? JSONSerialization.data(withJSONObject: element) else { return nil }
+            return try? decoder.decode(AgentPick.self, from: elementData)
+        }
     }
 }
 

@@ -96,6 +96,8 @@ enum PropsFixtures {
             opposingArchetypeName: "Power",
             gameTimeEt: "7:05 PM",
             officialDate: "2026-05-31",
+            gamePk: 777_001,
+            preferredMarket: nil,
             props: [hitsRow, totalBasesRow],
             transitionID: "fixture-judge-hits"
         )
@@ -126,7 +128,7 @@ enum PropsFixtures {
                 sznAvg: 251.3, sznMax: 342, sznMin: 169,
                 overRateL5: 0.6, overRateL10: 0.5,
                 recentGames: log([232, 274, 169, 256, 213, 342, 280, 248, 262, 280]),
-                defMatchupIdx: 1.08, flags: ["P4"]
+                defMatchupIdx: 1.08, flags: ["P1"]
             ),
             NFLDryrunPropRow(
                 gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
@@ -158,7 +160,8 @@ enum PropsFixtures {
                 nBooks: 4, closeYesProb: 0.18, openYesProb: 0.16,
                 lastGame: 0, l3Avg: 0.33, l5Avg: 0.2, l10Avg: 0.2,
                 sznAvg: 0.2, sznMax: 1, sznMin: 0,
-                recentGames: log([0, 0, 1, 0, 0, 1, 0, 0, 0, 0])
+                recentGames: log([0, 0, 1, 0, 0, 1, 0, 0, 0, 0]),
+                flags: ["P5"]
             ),
         ]
         let games = ["2025_12_KC_BUF": NFLPropGameContext(gameDate: "2025-11-23", slot: "sun_late_sat")]

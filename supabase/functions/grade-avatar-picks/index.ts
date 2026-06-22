@@ -15,10 +15,10 @@ interface AvatarPick {
   matchup: string;
   game_date: string;
   bet_type: 'spread' | 'moneyline' | 'total';
-  /** MLB-only: 'full' = whole game, 'f5' = first 5 innings.
+  /** 'full' = whole game, 'f5' = MLB first 5 innings, 'h1' = football first half.
    *  Defaults to 'full' on the row (DB CHECK + DEFAULT). Older picks
    *  written before migration 20260501140000 will read back as 'full'. */
-  period: 'full' | 'f5';
+  period: 'full' | 'f5' | 'h1';
   pick_selection: string;
   odds: string | null;
   units: number;
@@ -57,6 +57,14 @@ interface GameResult {
   f5_away_score?: number | null;
   f5_total_runs?: number | null;
   f5_ou_result?: string | null;
+  // ── H1 (first-half) parallel fields, football (NFL/CFB) only. ──
+  // Populated from football_game_results (h1 scores + h1_ml_result). The grader
+  // routes here for picks with period === 'h1', grading against actual H1 margin
+  // + the agent's line — same score-based path as full game.
+  h1_ml_result?: string | null;
+  h1_home_score?: number | null;
+  h1_away_score?: number | null;
+  h1_total_runs?: number | null;
 }
 
 interface ParsedSpreadPick {
@@ -381,6 +389,63 @@ async function fetchMLBGameResults(
 }
 
 // =============================================================================
+// Football Game Results from football_game_results View (CFB Supabase)
+// =============================================================================
+
+/**
+ * Fetch NFL/CFB game results from the football_game_results view (full + 1H).
+ * Provides actual scores so spreads/totals grade against the AGENT's locked
+ * line (score-based, like MLB) instead of the view's closing-line strings.
+ * period === 'h1' picks route to the h1_* parallel fields.
+ */
+async function fetchFootballGameResults(
+  cfbClient: SupabaseClient,
+  league: string,
+  gameDates: string[]
+): Promise<Map<string, GameResult>> {
+  const results = new Map<string, GameResult>();
+  if (gameDates.length === 0) return results;
+
+  const { data, error } = await cfbClient
+    .from('football_game_results')
+    .select('*')
+    .eq('league', league.toUpperCase())
+    .in('game_date', gameDates);
+
+  if (error) {
+    console.error(`[grade-avatar-picks] Error fetching ${league} football results:`, error);
+    return results;
+  }
+
+  for (const row of data || []) {
+    const homeScore = row.home_score != null ? Number(row.home_score) : null;
+    const awayScore = row.away_score != null ? Number(row.away_score) : null;
+    const h1Home = row.h1_home_score != null ? Number(row.h1_home_score) : null;
+    const h1Away = row.h1_away_score != null ? Number(row.h1_away_score) : null;
+    results.set(row.game_id, {
+      league: row.league,
+      game_id: row.game_id,
+      game_date: row.game_date,
+      home_team: row.home_team,
+      away_team: row.away_team,
+      ml_result: row.ml_result ?? null,
+      spread_result: row.spread_result ?? null,
+      ou_result: row.ou_result ?? null,
+      home_score: homeScore,
+      away_score: awayScore,
+      total_runs: homeScore != null && awayScore != null ? homeScore + awayScore : null,
+      h1_ml_result: row.h1_ml_result ?? null,
+      h1_home_score: h1Home,
+      h1_away_score: h1Away,
+      h1_total_runs: h1Home != null && h1Away != null ? h1Home + h1Away : null,
+    });
+  }
+
+  console.log(`[grade-avatar-picks] Fetched ${results.size} ${league.toUpperCase()} football results for dates: ${gameDates.join(', ')}`);
+  return results;
+}
+
+// =============================================================================
 // Team Name Resolution
 // =============================================================================
 
@@ -465,13 +530,14 @@ function gradePickFromView(
   // stays pending — never silently grade an F5 bet against full-game
   // results.
   const isF5 = pick.period === 'f5';
-  const periodLabel = isF5 ? 'F5' : 'Final';
+  const isH1 = pick.period === 'h1';
+  const periodLabel = isF5 ? 'F5' : isH1 ? 'H1' : 'Final';
 
   switch (pick.bet_type) {
     case 'moneyline': {
-      const mlResult = isF5 ? gameResult.f5_ml_result : gameResult.ml_result;
+      const mlResult = isF5 ? gameResult.f5_ml_result : isH1 ? gameResult.h1_ml_result : gameResult.ml_result;
       if (!mlResult) {
-        if (isF5) console.log(`[grade-avatar-picks][f5_ml] no F5 result yet for pick=${pick.id} game=${pick.game_id}`);
+        if (isF5 || isH1) console.log(`[grade-avatar-picks][${isF5 ? 'f5' : 'h1'}_ml] no ${periodLabel} result yet for pick=${pick.id} game=${pick.game_id}`);
         return null;
       }
 
@@ -528,8 +594,8 @@ function gradePickFromView(
       // positive = won, negative = lost, zero = push. F5 RL is typically
       // ±0.5, which can never push (margin is always integer); but we
       // allow the math to express it cleanly in case the line is whole.
-      const homeScoreForGrade = isF5 ? gameResult.f5_home_score : gameResult.home_score;
-      const awayScoreForGrade = isF5 ? gameResult.f5_away_score : gameResult.away_score;
+      const homeScoreForGrade = isF5 ? gameResult.f5_home_score : isH1 ? gameResult.h1_home_score : gameResult.home_score;
+      const awayScoreForGrade = isF5 ? gameResult.f5_away_score : isH1 ? gameResult.h1_away_score : gameResult.away_score;
       if (typeof homeScoreForGrade === 'number' && typeof awayScoreForGrade === 'number') {
         const homeNorm = normalizeTeamName(gameResult.home_team);
         const canonNorm = normalizeTeamName(canonical);
@@ -541,9 +607,9 @@ function gradePickFromView(
         else if (cover < 0) result = 'lost';
         else result = 'push';
         actual = `${actualResultPrefix} — ${periodLabel} ${awayScoreForGrade}-${homeScoreForGrade} (${canonical} margin ${margin >= 0 ? '+' : ''}${margin} vs spread ${parsed.spread >= 0 ? '+' : ''}${parsed.spread})`;
-      } else if (isF5) {
-        // F5 picks need F5 scores — never fall through to full-game scores.
-        console.log(`[grade-avatar-picks][f5_spread] no F5 scores for pick=${pick.id} game=${pick.game_id}`);
+      } else if (isF5 || isH1) {
+        // Period picks (F5/H1) need their own scores — never fall through to full-game.
+        console.log(`[grade-avatar-picks][${isF5 ? 'f5' : 'h1'}_spread] no ${periodLabel} scores for pick=${pick.id} game=${pick.game_id}`);
         return null;
       } else {
         // Non-MLB fallback: trust the view's spread_result. This can
@@ -583,9 +649,9 @@ function gradePickFromView(
       let actual: string;
 
       // For F5 totals use f5_total_runs / f5 scores; otherwise use full-game.
-      const totalForGrade = isF5 ? gameResult.f5_total_runs : gameResult.total_runs;
-      const homeScoreLabel = isF5 ? gameResult.f5_home_score : gameResult.home_score;
-      const awayScoreLabel = isF5 ? gameResult.f5_away_score : gameResult.away_score;
+      const totalForGrade = isF5 ? gameResult.f5_total_runs : isH1 ? gameResult.h1_total_runs : gameResult.total_runs;
+      const homeScoreLabel = isF5 ? gameResult.f5_home_score : isH1 ? gameResult.h1_home_score : gameResult.home_score;
+      const awayScoreLabel = isF5 ? gameResult.f5_away_score : isH1 ? gameResult.h1_away_score : gameResult.away_score;
       if (typeof totalForGrade === 'number') {
         const total = totalForGrade;
         if (total > parsed.line) {
@@ -601,11 +667,11 @@ function gradePickFromView(
           result = 'push';
         }
         actual = `${actualResultPrefix} — ${periodLabel} ${awayScoreLabel ?? '?'}-${homeScoreLabel ?? '?'} (total ${total} vs ${parsed.line})`;
-      } else if (isF5) {
-        // F5 totals can't fall back to full-game numbers. If we don't
-        // have f5_total_runs the pick stays pending until grading runs
-        // again with the F5 result populated.
-        console.log(`[grade-avatar-picks][f5_total] no F5 total for pick=${pick.id} game=${pick.game_id}`);
+      } else if (isF5 || isH1) {
+        // Period totals (F5/H1) can't fall back to full-game numbers. If we
+        // don't have the period total the pick stays pending until grading
+        // runs again with the period result populated.
+        console.log(`[grade-avatar-picks][${isF5 ? 'f5' : 'h1'}_total] no ${periodLabel} total for pick=${pick.id} game=${pick.game_id}`);
         return null;
       } else {
         // Non-MLB fallback: trust the view's ou_result (computed against
@@ -740,15 +806,15 @@ serve(async (req) => {
     console.log(`[grade-avatar-picks] Today (ET): ${today}`);
 
     // -------------------------------------------------------------------------
-    // 1. Fetch pending picks — NBA and NCAAB only
-    //    (NFL/CFB seasons are over; view doesn't cover them yet)
+    // 1. Fetch pending picks — NBA, NCAAB, MLB, NFL, CFB
+    //    (football grades off football_game_results; hoops/MLB off their own views)
     // -------------------------------------------------------------------------
     const { data: pendingPicks, error: fetchError } = await supabase
       .from('avatar_picks')
       .select('*')
       .eq('result', 'pending')
       .lte('game_date', today)
-      .in('sport', ['nba', 'ncaab', 'mlb']);
+      .in('sport', ['nba', 'ncaab', 'mlb', 'nfl', 'cfb']);
 
     if (fetchError) {
       throw new Error(`Failed to fetch pending picks: ${fetchError.message}`);
@@ -767,7 +833,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[grade-avatar-picks] Found ${pendingPicks.length} pending NBA/NCAAB/MLB picks to process`);
+    console.log(`[grade-avatar-picks] Found ${pendingPicks.length} pending picks to process`);
 
     // -------------------------------------------------------------------------
     // 2. Collect unique game dates per league and batch fetch results
@@ -775,14 +841,18 @@ serve(async (req) => {
     const nbaDates = new Set<string>();
     const ncaabDates = new Set<string>();
     const mlbDates = new Set<string>();
+    const nflDates = new Set<string>();
+    const cfbDates = new Set<string>();
 
     for (const pick of pendingPicks) {
       if (pick.sport === 'nba') nbaDates.add(pick.game_date);
       else if (pick.sport === 'ncaab') ncaabDates.add(pick.game_date);
       else if (pick.sport === 'mlb') mlbDates.add(pick.game_date);
+      else if (pick.sport === 'nfl') nflDates.add(pick.game_date);
+      else if (pick.sport === 'cfb') cfbDates.add(pick.game_date);
     }
 
-    const [nbaResults, ncaabResults, mlbResults] = await Promise.all([
+    const [nbaResults, ncaabResults, mlbResults, nflResults, cfbResults] = await Promise.all([
       nbaDates.size > 0
         ? fetchGameResults(cfbClient, 'NBA', [...nbaDates])
         : Promise.resolve(new Map<string, GameResult>()),
@@ -792,12 +862,20 @@ serve(async (req) => {
       mlbDates.size > 0
         ? fetchMLBGameResults(cfbClient, [...mlbDates])
         : Promise.resolve(new Map<string, GameResult>()),
+      nflDates.size > 0
+        ? fetchFootballGameResults(cfbClient, 'NFL', [...nflDates])
+        : Promise.resolve(new Map<string, GameResult>()),
+      cfbDates.size > 0
+        ? fetchFootballGameResults(cfbClient, 'CFB', [...cfbDates])
+        : Promise.resolve(new Map<string, GameResult>()),
     ]);
 
     const resultsByLeague: Record<string, { map: Map<string, GameResult>; all: GameResult[] }> = {
       nba: { map: nbaResults, all: [...nbaResults.values()] },
       ncaab: { map: ncaabResults, all: [...ncaabResults.values()] },
       mlb: { map: mlbResults, all: [...mlbResults.values()] },
+      nfl: { map: nflResults, all: [...nflResults.values()] },
+      cfb: { map: cfbResults, all: [...cfbResults.values()] },
     };
 
     // -------------------------------------------------------------------------

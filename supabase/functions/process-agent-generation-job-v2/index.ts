@@ -45,6 +45,7 @@ import {
   gameMatchesRawGame,
 } from '../shared/agentGameHelpers.ts';
 import { disableUserAutopilot, resolvePremiumAccess } from '../shared/entitlements.ts';
+import { computeEffectiveSports } from '../shared/sportFamily.ts';
 
 // =============================================================================
 // Constants
@@ -199,7 +200,12 @@ serve(async (req) => {
     const targetDate = run.target_date;
     const allGamesData: { sport: string; games: unknown[]; formattedGames: unknown[] }[] = [];
 
-    for (const sport of avatarProfile.preferred_sports) {
+    // Football wall: NFL/CFB games are generated ONLY for football-only agents.
+    // Legacy mixed agents (e.g. [nba,nfl]) lose football here and keep the rest.
+    // See memory agent-sport-family-rule + shared/sportFamily.ts.
+    const effectiveSports = computeEffectiveSports(avatarProfile.preferred_sports);
+
+    for (const sport of effectiveSports) {
       const { games, formattedGames } = await fetchGamesForSport(cfbClient, supabaseClient, sport, targetDate);
       if (games.length > 0) {
         allGamesData.push({ sport, games, formattedGames });

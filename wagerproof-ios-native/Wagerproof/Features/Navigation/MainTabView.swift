@@ -206,6 +206,17 @@ struct MainTabView: View {
             }
         }
         .sensoryFeedback(.selection, trigger: tabStore.selected)
+        .onChange(of: tabStore.selected) { _, newTab in
+            // Games ↔ Props sport pickers stay in sync when switching tabs.
+            switch newTab {
+            case .props:
+                propsStore.selectedSport = PropsStore.Sport.matching(gamesSport: gamesStore.selectedSport)
+            case .games:
+                gamesStore.selectedSport = propsStore.selectedSport.gamesSport
+            default:
+                break
+            }
+        }
         .task {
             // Eagerly hydrate GamesStore at the shell so cross-tab surfaces
             // (Outliers matchup taps, SearchView results) can resolve a

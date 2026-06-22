@@ -648,7 +648,7 @@ public struct MLBBattingRegression: Codable, Hashable, Sendable {
     public let obp: Double?
     public let kPct: Double?
     public let bbPct: Double?
-    public let hr: Int
+    public let hr: Int?
     public let hrPerGame: Double?
     public let l5Woba: Double?
     public let l5Xwobacon: Double?
@@ -858,8 +858,11 @@ public struct MLBPerfectStorm: Codable, Hashable, Sendable {
     public let matchup: String
     public let direction: String
     public let stormScore: Double
-    public let pitcher: MLBPitcherRegression
-    public let batting: MLBBattingRegression
+    /// Batting-only storms omit the opposing SP regression block.
+    public let pitcher: MLBPitcherRegression?
+    /// Pitcher-only storms omit the batting regression block — the ETL can
+    /// emit either side as null (see jun-2026 payloads with mixed nulls).
+    public let batting: MLBBattingRegression?
     public let narrative: String
 
     enum CodingKeys: String, CodingKey {

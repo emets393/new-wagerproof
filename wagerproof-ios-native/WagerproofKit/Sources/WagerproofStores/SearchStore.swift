@@ -103,27 +103,37 @@ public final class SearchStore {
             }
         }
 
-        /// MLB player match resolved against the PropsStore slate. Carries ids
-        /// only — the view re-resolves the app-target `PlayerPropSelection`
-        /// payload from the matchup at render time.
+        /// Player-prop match resolved against the PropsStore slate (MLB or NFL).
+        /// Carries ids only — the view re-resolves the app-target selection
+        /// payload at render/tap time.
         public struct Player: Identifiable, Hashable, Sendable {
-            public let id: String              // "player-mlb-{gamePk}-{playerId}"
-            public let gamePk: Int
-            public let playerId: Int
+            public enum Kind: Hashable, Sendable {
+                case mlb(gamePk: Int, playerId: Int, isPitcher: Bool)
+                case nfl(playerKey: String, gameId: String)
+            }
+
+            public let id: String
+            public let kind: Kind
             public let playerName: String
             public let teamAbbr: String
-            public let isPitcher: Bool
             public let matchScore: Int
+            /// Tie-break rank — MLB L10 hit %, NFL headline-market L10 rate.
+            public let headlineRank: Double
 
-            public init(id: String, gamePk: Int, playerId: Int, playerName: String,
-                        teamAbbr: String, isPitcher: Bool, matchScore: Int) {
+            public init(
+                id: String,
+                kind: Kind,
+                playerName: String,
+                teamAbbr: String,
+                matchScore: Int,
+                headlineRank: Double
+            ) {
                 self.id = id
-                self.gamePk = gamePk
-                self.playerId = playerId
+                self.kind = kind
                 self.playerName = playerName
                 self.teamAbbr = teamAbbr
-                self.isPitcher = isPitcher
                 self.matchScore = matchScore
+                self.headlineRank = headlineRank
             }
         }
 
@@ -531,90 +541,142 @@ public final class SearchStore {
             .map(\.element)
     }
 
-    // MARK: - Player results (MLB props slate)
+    // MARK: - Player results (MLB + NFL props slates)
 
-    private struct PlayerIndexEntry {
+    private struct MLBPlayerIndexEntry {
         let gamePk: Int
         let playerId: Int
         let name: String
         let teamAbbr: String
         let isPitcher: Bool
-        let headlinePct: Double
+        let headlineRank: Double
     }
 
-    // Cached name index over the props slate — rebuilding per keystroke would
-    // re-run pickHeadlineProp (line-ladder math) for every player.
-    @ObservationIgnored private var playerIndex: [PlayerIndexEntry] = []
-    @ObservationIgnored private var playerIndexKey: Set<Int> = []
+    private struct NFLPlayerIndexEntry {
+        let playerKey: String
+        let gameId: String
+        let name: String
+        let teamAbbr: String
+        let headlineRank: Double
+    }
 
-    /// MLB player matches (min query 3 chars, cap 8). Rank: 100 last-name
+    // Cached name indexes — rebuilding per keystroke would re-run headline
+    // math for every player on the slate.
+    @ObservationIgnored private var mlbPlayerIndex: [MLBPlayerIndexEntry] = []
+    @ObservationIgnored private var mlbPlayerIndexKey: Set<Int> = []
+    @ObservationIgnored private var nflPlayerIndex: [NFLPlayerIndexEntry] = []
+    @ObservationIgnored private var nflPlayerIndexKey: Set<String> = []
+
+    /// Player-prop matches (min query 3 chars, cap 8). Rank: 100 last-name
     /// prefix · 90 "initial + last name" · 70 first-name prefix · 50 full-name
-    /// substring; ties by headline L10 pct desc.
+    /// substring; ties by headline L10 rank desc. MLB + NFL interleaved.
     public var playerResults: [SearchResult.Player] {
         let q = normalizedQuery
-        guard q.count >= 3, let props = propsRef, !props.matchups.isEmpty else { return [] }
-        rebuildPlayerIndexIfNeeded(props.matchups)
+        guard q.count >= 3, let props = propsRef else { return [] }
 
-        var scored: [(entry: PlayerIndexEntry, score: Int)] = []
-        for entry in playerIndex {
-            guard let score = playerScore(query: q, name: entry.name) else { continue }
-            scored.append((entry, score))
+        var scored: [(entry: SearchResult.Player, score: Int)] = []
+
+        if !props.matchups.isEmpty {
+            rebuildMLBPlayerIndexIfNeeded(props.matchups)
+            for entry in mlbPlayerIndex {
+                guard let score = playerScore(query: q, name: entry.name) else { continue }
+                scored.append((
+                    SearchResult.Player(
+                        id: "player-mlb-\(entry.gamePk)-\(entry.playerId)",
+                        kind: .mlb(
+                            gamePk: entry.gamePk,
+                            playerId: entry.playerId,
+                            isPitcher: entry.isPitcher
+                        ),
+                        playerName: entry.name,
+                        teamAbbr: entry.teamAbbr,
+                        matchScore: score,
+                        headlineRank: entry.headlineRank
+                    ),
+                    score
+                ))
+            }
         }
+
+        if !props.nflPlayers.isEmpty {
+            rebuildNFLPlayerIndexIfNeeded(props.nflPlayers)
+            for entry in nflPlayerIndex {
+                guard let score = playerScore(query: q, name: entry.name) else { continue }
+                scored.append((
+                    SearchResult.Player(
+                        id: "player-nfl-\(entry.playerKey)",
+                        kind: .nfl(playerKey: entry.playerKey, gameId: entry.gameId),
+                        playerName: entry.name,
+                        teamAbbr: entry.teamAbbr,
+                        matchScore: score,
+                        headlineRank: entry.headlineRank
+                    ),
+                    score
+                ))
+            }
+        }
+
         return scored
             .sorted {
                 if $0.score != $1.score { return $0.score > $1.score }
-                return $0.entry.headlinePct > $1.entry.headlinePct
+                return $0.entry.headlineRank > $1.entry.headlineRank
             }
             .prefix(8)
-            .map { item in
-                SearchResult.Player(
-                    id: "player-mlb-\(item.entry.gamePk)-\(item.entry.playerId)",
-                    gamePk: item.entry.gamePk,
-                    playerId: item.entry.playerId,
-                    playerName: item.entry.name,
-                    teamAbbr: item.entry.teamAbbr,
-                    isPitcher: item.entry.isPitcher,
-                    matchScore: item.score
-                )
-            }
+            .map(\.entry)
     }
 
-    private func rebuildPlayerIndexIfNeeded(_ matchups: [MLBPropMatchup]) {
+    private func rebuildMLBPlayerIndexIfNeeded(_ matchups: [MLBPropMatchup]) {
         let key = Set(matchups.map(\.gamePk))
-        guard key != playerIndexKey else { return }
-        var entries: [PlayerIndexEntry] = []
+        guard key != mlbPlayerIndexKey else { return }
+        var entries: [MLBPlayerIndexEntry] = []
         for m in matchups {
-            func headlinePct(_ rows: [MLBPlayerPropRow]) -> Double {
+            func headlineRank(_ rows: [MLBPlayerPropRow]) -> Double {
                 Double(MLBPlayerProps.pickHeadlineProp(rows)?.computed.l10.pct ?? 0)
             }
             for (starter, abbr) in [(m.awayStarter, m.awayAbbr), (m.homeStarter, m.homeAbbr)] {
                 let rows = m.pitcherProps(for: starter.pitcherId)
                 guard !rows.isEmpty else { continue }
-                entries.append(PlayerIndexEntry(
+                entries.append(MLBPlayerIndexEntry(
                     gamePk: m.gamePk, playerId: starter.pitcherId, name: starter.name,
-                    teamAbbr: abbr, isPitcher: true, headlinePct: headlinePct(rows)
+                    teamAbbr: abbr, isPitcher: true, headlineRank: headlineRank(rows)
                 ))
             }
             for (lineup, abbr) in [(m.awayLineup, m.awayAbbr), (m.homeLineup, m.homeAbbr)] {
                 for row in lineup {
                     let rows = m.batterProps(for: row.playerId)
                     guard !rows.isEmpty else { continue }
-                    entries.append(PlayerIndexEntry(
+                    entries.append(MLBPlayerIndexEntry(
                         gamePk: m.gamePk, playerId: row.playerId, name: row.playerName,
-                        teamAbbr: abbr, isPitcher: false, headlinePct: headlinePct(rows)
+                        teamAbbr: abbr, isPitcher: false, headlineRank: headlineRank(rows)
                     ))
                 }
             }
             for group in m.extraBatterGroups {
-                entries.append(PlayerIndexEntry(
+                entries.append(MLBPlayerIndexEntry(
                     gamePk: m.gamePk, playerId: group.playerId,
                     name: group.props.first?.playerName ?? "Player",
-                    teamAbbr: "", isPitcher: false, headlinePct: headlinePct(group.props)
+                    teamAbbr: "", isPitcher: false, headlineRank: headlineRank(group.props)
                 ))
             }
         }
-        playerIndex = entries
-        playerIndexKey = key
+        mlbPlayerIndex = entries
+        mlbPlayerIndexKey = key
+    }
+
+    private func rebuildNFLPlayerIndexIfNeeded(_ players: [NFLPropPlayer]) {
+        let key = Set(players.map(\.id))
+        guard key != nflPlayerIndexKey else { return }
+        nflPlayerIndex = players.map { player in
+            let abbr = NFLTeamAssets.abbr(for: player.team ?? "")
+            return NFLPlayerIndexEntry(
+                playerKey: player.id,
+                gameId: player.gameId,
+                name: player.playerName,
+                teamAbbr: abbr.isEmpty ? (player.team ?? "") : abbr,
+                headlineRank: player.headlineMarket?.l10HitRate ?? -1
+            )
+        }
+        nflPlayerIndexKey = key
     }
 
     private func playerScore(query q: String, name: String) -> Int? {

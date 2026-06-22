@@ -17,7 +17,7 @@ struct PublicAgentDetailView: View {
     @State private var auditStore = AgentPickAuditStore()
     @State private var isFollowing: Bool = false
     @State private var followBusy: Bool = false
-    @State private var showHistory: Bool = false
+    @State private var showHistory: Bool = true
     @State private var errorMessage: String? = nil
 
     init(agentId: String) {
@@ -31,7 +31,22 @@ struct PublicAgentDetailView: View {
 
     private var agent: Agent? { store.snapshot?.agent }
     private var canViewPicks: Bool { entitlements.canViewAgentPicks }
-    private var isOwnAgent: Bool { currentUserId == agent?.userId }
+    /// Owners can always view their own agent's picks/charts (web parity).
+    private var canSeePicks: Bool { canViewPicks || isOwnAgent }
+    private var isOwnAgent: Bool {
+        guard let uid = currentUserId, let ownerId = agent?.userId else { return false }
+        return uid == ownerId.lowercased()
+    }
+    private var historyReloadKey: String {
+        "\(agentId)-\(canSeePicks)-\(isOwnAgent)-\(currentUserId ?? "")"
+    }
+    private var todaysPicksContentKey: String {
+        let loading: Bool = {
+            if case .loading = store.snapshotLoadState { return true }
+            return false
+        }()
+        return "\(loading)-\(store.todaysPicks.count)"
+    }
     private var currentUserId: String? {
         if case .authenticated(let userId) = auth.phase {
             return userId.uuidString.lowercased()
@@ -56,12 +71,17 @@ struct PublicAgentDetailView: View {
         .navigationTitle(agent?.name ?? "Public Agent")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await refresh() }
-        .task(id: agentId) {
+        .task(id: historyReloadKey) {
             if store.snapshot == nil {
                 await store.refreshSnapshot()
             }
             if let following = store.isFollowingFromSnapshot {
                 isFollowing = following
+            }
+            if canSeePicks {
+                async let history: Void = store.loadHistory(isOwner: isOwnAgent)
+                async let performance: Void = store.loadPerformancePicks(isOwner: isOwnAgent)
+                _ = await (history, performance)
             }
         }
         .sheet(isPresented: $auditStore.isPresented) {
@@ -98,7 +118,7 @@ struct PublicAgentDetailView: View {
             AgentGlassHero(
                 agent: agent,
                 performance: store.snapshot?.performance,
-                lockedNetUnits: !canViewPicks,
+                lockedNetUnits: !canSeePicks,
                 subtitleSystemImage: "globe",
                 subtitle: "Public Agent",
                 progress: progress
@@ -171,9 +191,14 @@ struct PublicAgentDetailView: View {
 
     @ViewBuilder
     private var todaysPicksCard: some View {
-        WidgetCollapsingSection(title: "Today's Picks", systemImage: "doc.text.image", iconTint: Color(hex: 0x00E676)) {
+        WidgetCollapsingSection(
+            title: "Today's Picks",
+            systemImage: "doc.text.image",
+            iconTint: Color(hex: 0x00E676),
+            contentKey: todaysPicksContentKey
+        ) {
             VStack(alignment: .leading, spacing: 12) {
-                if !canViewPicks {
+                if !canSeePicks {
                     lockedPickPlaceholder
                     lockedPickPlaceholder
                 } else if case .loading = store.snapshotLoadState, store.todaysPicks.isEmpty {
@@ -209,8 +234,8 @@ struct PublicAgentDetailView: View {
             accessory: .chevron(expanded: showHistory),
             onHeaderTap: {
                 showHistory.toggle()
-                if showHistory, case .idle = store.historyLoadState {
-                    Task { await store.loadHistory() }
+                if showHistory {
+                    Task { await store.loadHistory(isOwner: isOwnAgent) }
                 }
             }
         ) {
@@ -227,7 +252,7 @@ struct PublicAgentDetailView: View {
 
     @ViewBuilder
     private var historyContent: some View {
-        if !canViewPicks {
+        if !canSeePicks {
             VStack(spacing: 8) { lockedPickPlaceholder; lockedPickPlaceholder }
         } else if case .loading = store.historyLoadState, store.pickHistory.isEmpty {
             VStack(spacing: 8) { PickCardSkeleton(); PickCardSkeleton() }
@@ -239,7 +264,7 @@ struct PublicAgentDetailView: View {
                 .padding(.vertical, 20)
         } else {
             VStack(spacing: 8) {
-                ForEach(Array(store.pickHistory.prefix(20).enumerated()), id: \.element.id) { index, pick in
+                ForEach(Array(store.pickHistory.enumerated()), id: \.element.id) { index, pick in
                     AgentPickItem(pick: pick, showReasoning: .none, onTap: { auditStore.present(pick: pick) })
                         .staggeredAppear(index: index)
                 }
@@ -252,7 +277,7 @@ struct PublicAgentDetailView: View {
     @ViewBuilder
     private var performanceCard: some View {
         WidgetCollapsingSection(title: "Performance", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color.appPrimary) {
-            if !canViewPicks {
+            if !canSeePicks {
                 VStack(spacing: 8) {
                     Image(systemName: "lock.fill").font(.system(size: 22)).foregroundStyle(Color.appTextSecondary)
                     Text("Unlock performance with Pro")
@@ -261,15 +286,17 @@ struct PublicAgentDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 24)
+            } else if case .loading = store.performanceLoadState, store.performancePicks.isEmpty {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 28)
             } else if let agent = agent {
                 AgentPerformanceCharts(
-                    allPicks: store.pickHistory,
+                    allPicks: store.performancePicks,
                     preferredSports: agent.preferredSports,
                     agentColor: AgentColorPalette.primary(for: agent.avatarColor)
                 )
                 .task {
-                    if case .idle = store.historyLoadState {
-                        await store.loadHistory()
+                    if store.performancePicks.isEmpty {
+                        await store.loadPerformancePicks(isOwner: isOwnAgent)
                     }
                 }
             }
@@ -331,8 +358,10 @@ struct PublicAgentDetailView: View {
 
     private func refresh() async {
         await store.refreshSnapshot()
-        if case .loaded = store.historyLoadState {
-            await store.loadHistory()
+        if canSeePicks {
+            async let history: Void = store.loadHistory(isOwner: isOwnAgent)
+            async let performance: Void = store.loadPerformancePicks(isOwner: isOwnAgent)
+            _ = await (history, performance)
         }
         if let following = store.isFollowingFromSnapshot {
             isFollowing = following

@@ -1,6 +1,87 @@
 import Foundation
 import WagerproofModels
 
+// MARK: - MLB feed filters (Props tab only)
+
+/// MLB-only Props tab narrowing — game matchup and/or prop market.
+struct MLBPropFeedFilters: Equatable {
+    var gamePk: Int?
+    var market: String?
+
+    var isDefault: Bool { gamePk == nil && market == nil }
+
+    /// Markets offered in the picker sheet (home runs excluded — not posted).
+    private static let excludedSheetMarkets: Set<String> = ["batter_home_runs"]
+
+    static var sheetPitcherMarkets: [String] {
+        MLBPlayerPropMarket.allCases
+            .map(\.rawValue)
+            .filter { $0.hasPrefix("pitcher_") && !excludedSheetMarkets.contains($0) }
+    }
+
+    static var sheetBatterMarkets: [String] {
+        MLBPlayerPropMarket.allCases
+            .map(\.rawValue)
+            .filter { $0.hasPrefix("batter_") && !excludedSheetMarkets.contains($0) }
+    }
+
+    static func marketLabel(_ market: String?) -> String {
+        guard let market else { return "All Markets" }
+        return MLBPlayerProps.marketLabel(market)
+    }
+}
+
+/// One game tile in the horizontal matchup filter row.
+struct MLBPropGameFilterOption: Identifiable, Hashable {
+    let gamePk: Int?
+    let awayAbbr: String
+    let homeAbbr: String
+    let awayName: String
+    let homeName: String
+    let awayLogoUrl: String?
+    let homeLogoUrl: String?
+
+    var id: String { gamePk.map(String.init) ?? "all" }
+
+    var isAllGames: Bool { gamePk == nil }
+
+    var accessibilityLabel: String {
+        guard let _ = gamePk else { return "All games" }
+        return "\(awayAbbr) at \(homeAbbr)"
+    }
+}
+
+enum MLBPropGameFilterOptions {
+    static func build(matchups: [MLBPropMatchup]) -> [MLBPropGameFilterOption] {
+        let sorted = matchups.sorted { a, b in
+            if a.officialDate != b.officialDate { return a.officialDate < b.officialDate }
+            return (a.gameTimeEt ?? "") < (b.gameTimeEt ?? "")
+        }
+        var options: [MLBPropGameFilterOption] = [
+            MLBPropGameFilterOption(
+                gamePk: nil,
+                awayAbbr: "", homeAbbr: "",
+                awayName: "", homeName: "",
+                awayLogoUrl: nil, homeLogoUrl: nil
+            ),
+        ]
+        for m in sorted {
+            options.append(MLBPropGameFilterOption(
+                gamePk: m.gamePk,
+                awayAbbr: m.awayAbbr,
+                homeAbbr: m.homeAbbr,
+                awayName: m.awayTeamName,
+                homeName: m.homeTeamName,
+                awayLogoUrl: m.awayLogoUrl,
+                homeLogoUrl: m.homeLogoUrl
+            ))
+        }
+        return options
+    }
+}
+
+// MARK: - Feed items
+
 /// One player-specific item in the Props feed. Carries the headline prop for
 /// the card plus the full `PlayerPropSelection` for the detail push. The feed
 /// is flat (one card per player), so the matchup's starters + lineups are
@@ -13,6 +94,8 @@ struct PlayerPropFeedItem: Identifiable {
     let teamSecondaryHex: UInt32
     /// Batting order (nil for pitchers / unlisted batters) — shown as "1. Name".
     let lineOrder: Int?
+    /// Bottom-row metric label — "BEST" on the default feed, market name when filtered.
+    let metricLabel: String
 
     var id: String { selection.transitionID }
 
@@ -28,25 +111,30 @@ struct PlayerPropFeedItem: Identifiable {
 enum PlayerPropFeed {
     /// Flatten a slate of matchups into per-player feed items. Pitchers come
     /// first (K-anchored), then each lineup batter, then posted-but-unlisted
-    /// batters. Players without a headline prop are dropped.
-    static func items(from matchups: [MLBPropMatchup]) -> [PlayerPropFeedItem] {
-        var out: [PlayerPropFeedItem] = []
-        for m in matchups {
-            // Starters (pitchers) — prioritise the strikeouts market.
-            out.append(contentsOf: starterItem(m, starter: m.awayStarter, isAway: true))
-            out.append(contentsOf: starterItem(m, starter: m.homeStarter, isAway: false))
+    /// batters. Players without a headline prop for the active filter are dropped.
+    static func items(
+        from matchups: [MLBPropMatchup],
+        filters: MLBPropFeedFilters = MLBPropFeedFilters()
+    ) -> [PlayerPropFeedItem] {
+        let scoped = filters.gamePk.map { pk in matchups.filter { $0.gamePk == pk } } ?? matchups
+        let metricLabel = filters.market == nil
+            ? "BEST"
+            : MLBPlayerProps.marketLabel(filters.market!).uppercased()
 
-            // Batting orders.
+        var out: [PlayerPropFeedItem] = []
+        for m in scoped {
+            out.append(contentsOf: starterItem(m, starter: m.awayStarter, isAway: true, filters: filters, metricLabel: metricLabel))
+            out.append(contentsOf: starterItem(m, starter: m.homeStarter, isAway: false, filters: filters, metricLabel: metricLabel))
+
             for row in m.awayLineup {
-                out.append(contentsOf: batterItem(m, row: row, isAway: true))
+                out.append(contentsOf: batterItem(m, row: row, isAway: true, filters: filters, metricLabel: metricLabel))
             }
             for row in m.homeLineup {
-                out.append(contentsOf: batterItem(m, row: row, isAway: false))
+                out.append(contentsOf: batterItem(m, row: row, isAway: false, filters: filters, metricLabel: metricLabel))
             }
 
-            // Posted batters not in either lineup — team unknown.
             for group in m.extraBatterGroups {
-                guard let headline = MLBPlayerProps.pickHeadlineProp(group.props) else { continue }
+                guard let headline = resolveHeadline(group.props, filters: filters) else { continue }
                 let name = group.props.first?.playerName ?? "Player"
                 let sel = PlayerPropSelection(
                     playerId: group.playerId,
@@ -64,6 +152,8 @@ enum PlayerPropFeed {
                     opposingArchetypeName: nil,
                     gameTimeEt: m.gameTimeEt,
                     officialDate: m.officialDate,
+                    gamePk: m.gamePk,
+                    preferredMarket: filters.market,
                     props: group.props,
                     transitionID: "prop-\(m.gamePk)-\(group.playerId)-batter"
                 )
@@ -71,19 +161,37 @@ enum PlayerPropFeed {
                 out.append(PlayerPropFeedItem(
                     selection: sel, headline: headline,
                     teamPrimaryHex: colors.primary, teamSecondaryHex: colors.secondary,
-                    lineOrder: nil
+                    lineOrder: nil, metricLabel: metricLabel
                 ))
             }
         }
         return out
     }
 
+    // MARK: - Headline resolution
+
+    private static func resolveHeadline(
+        _ props: [MLBPlayerPropRow],
+        filters: MLBPropFeedFilters
+    ) -> MLBHeadlineProp? {
+        if let market = filters.market {
+            return MLBPlayerProps.pickHeadlineProp(props, market: market)
+        }
+        let kProps = props.filter { $0.market == "pitcher_strikeouts" }
+        return MLBPlayerProps.pickHeadlineProp(kProps.isEmpty ? props : kProps)
+    }
+
     // MARK: - Per-player builders
 
-    private static func starterItem(_ m: MLBPropMatchup, starter: MLBPropStarter, isAway: Bool) -> [PlayerPropFeedItem] {
+    private static func starterItem(
+        _ m: MLBPropMatchup,
+        starter: MLBPropStarter,
+        isAway: Bool,
+        filters: MLBPropFeedFilters,
+        metricLabel: String
+    ) -> [PlayerPropFeedItem] {
         let myProps = m.pitcherProps(for: starter.pitcherId)
-        let kProps = myProps.filter { $0.market == "pitcher_strikeouts" }
-        guard let headline = MLBPlayerProps.pickHeadlineProp(kProps.isEmpty ? myProps : kProps) else { return [] }
+        guard let headline = resolveHeadline(myProps, filters: filters) else { return [] }
         let opp = isAway ? m.homeStarter : m.awayStarter
         let sel = PlayerPropSelection(
             playerId: starter.pitcherId,
@@ -101,6 +209,8 @@ enum PlayerPropFeed {
             opposingArchetypeName: nil,
             gameTimeEt: m.gameTimeEt,
             officialDate: m.officialDate,
+            gamePk: m.gamePk,
+            preferredMarket: filters.market,
             props: myProps,
             transitionID: "prop-\(m.gamePk)-\(starter.pitcherId)-pitcher"
         )
@@ -108,13 +218,19 @@ enum PlayerPropFeed {
         return [PlayerPropFeedItem(
             selection: sel, headline: headline,
             teamPrimaryHex: colors.primary, teamSecondaryHex: colors.secondary,
-            lineOrder: nil
+            lineOrder: nil, metricLabel: metricLabel
         )]
     }
 
-    private static func batterItem(_ m: MLBPropMatchup, row: MLBLineupRow, isAway: Bool) -> [PlayerPropFeedItem] {
+    private static func batterItem(
+        _ m: MLBPropMatchup,
+        row: MLBLineupRow,
+        isAway: Bool,
+        filters: MLBPropFeedFilters,
+        metricLabel: String
+    ) -> [PlayerPropFeedItem] {
         let myProps = m.batterProps(for: row.playerId)
-        guard let headline = MLBPlayerProps.pickHeadlineProp(myProps) else { return [] }
+        guard let headline = resolveHeadline(myProps, filters: filters) else { return [] }
         let opp = isAway ? m.homeStarter : m.awayStarter
         let sel = PlayerPropSelection(
             playerId: row.playerId,
@@ -132,6 +248,8 @@ enum PlayerPropFeed {
             opposingArchetypeName: opp.archetype?.archetype,
             gameTimeEt: m.gameTimeEt,
             officialDate: m.officialDate,
+            gamePk: m.gamePk,
+            preferredMarket: filters.market,
             props: myProps,
             transitionID: "prop-\(m.gamePk)-\(row.playerId)-batter"
         )
@@ -139,7 +257,7 @@ enum PlayerPropFeed {
         return [PlayerPropFeedItem(
             selection: sel, headline: headline,
             teamPrimaryHex: colors.primary, teamSecondaryHex: colors.secondary,
-            lineOrder: row.battingOrder
+            lineOrder: row.battingOrder, metricLabel: metricLabel
         )]
     }
 }

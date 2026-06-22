@@ -296,19 +296,21 @@ public final class GamesStore {
     private func sortCFB(_ list: [CFBPrediction], mode: SortMode) -> [CFBPrediction] {
         switch mode {
         case .time:
-            return list.sorted { a, b in
-                (Self.parseEpoch(a.gameDate) ?? .greatestFiniteMagnitude) <
-                    (Self.parseEpoch(b.gameDate) ?? .greatestFiniteMagnitude)
-            }
+            return sortCFBByConviction(list)
         case .spread:
-            // CFB uses edge-based sorting (home_spread_diff).
-            return list.sorted { a, b in
-                abs(a.homeSpreadDiff ?? 0) > abs(b.homeSpreadDiff ?? 0)
-            }
+            return sortCFBByConviction(list)
         case .ou:
-            return list.sorted { a, b in
-                abs(a.overLineDiff ?? 0) > abs(b.overLineDiff ?? 0)
+            return sortCFBByConviction(list)
+        }
+    }
+
+    private func sortCFBByConviction(_ list: [CFBPrediction]) -> [CFBPrediction] {
+        list.sorted { a, b in
+            if a.convictionTier.sortRank != b.convictionTier.sortRank {
+                return a.convictionTier.sortRank < b.convictionTier.sortRank
             }
+            return (Self.parseEpoch(a.kickoff ?? a.gameTime) ?? .greatestFiniteMagnitude) <
+                (Self.parseEpoch(b.kickoff ?? b.gameTime) ?? .greatestFiniteMagnitude)
         }
     }
 
@@ -454,30 +456,133 @@ public final class GamesStore {
     /// Run" doc; the 2026 in-season tables will follow this shape.
     private struct NFLDryrunGameRow: Decodable, Sendable {
         let gameId: String
+        let season: Int?
+        let week: Int?
         let gameday: String?
+        let kickoff: String?
         let slot: String?
+        let homeAb: String?
+        let awayAb: String?
         let homeTeam: String?
         let awayTeam: String?
+        let fgSpreadOpen: Double?
         let fgSpreadClose: Double?
+        let fgTotalOpen: Double?
         let fgTotalClose: Double?
         let fgMlHomeClose: Double?
         let fgMlAwayClose: Double?
+        let ttHomeClose: Double?
+        let ttAwayClose: Double?
+        let ttHomeBestOver: Double?
+        let ttHomeBestUnder: Double?
+        let ttAwayBestOver: Double?
+        let ttAwayBestUnder: Double?
+        let ttHomePick: String?
+        let ttAwayPick: String?
+        let ttHomeEdge: Double?
+        let ttAwayEdge: Double?
+        let ttHomePred: Double?
+        let ttAwayPred: Double?
+        let h1SpreadClose: Double?
+        let h1TotalClose: Double?
+        let h1MlHomeClose: Double?
+        let h1MlAwayClose: Double?
+        let h1SpreadPick: String?
+        let h1TotalPick: String?
+        let h1MlPick: String?
+        let fgPredMargin: Double?
+        let fgPredSpread: Double?
+        let fgPredHomePts: Double?
+        let fgPredAwayPts: Double?
+        let fgSpreadEdge: Double?
+        let fgSpreadPick: String?
+        let fgSpreadConfluence: Int?
         let fgPredTotal: Double?
+        let fgTotalEdge: Double?
+        let fgTotalPick: String?
+        let fgTotalTier: String?
         let fgHomeCoverProb: Double?
         let fgHomeWinProb: Double?
+        let h1PredTotal: Double?
+        let h1PredMargin: Double?
+        let h1TotalEdge: Double?
+        let h1CoverTilt: Double?
+        let h1HomeWinProb: Double?
+        let convictionTier: String?
+        let stakeUnits: Double?
+        let convictionSummary: NFLPrediction.ConvictionSummary?
+        let flagsActive: Int?
+        let flagsTracking: Int?
+        let mammoth: Bool?
+        let wxTempF: Double?
+        let wxWindMph: Double?
+        let wxPrecipMm: Double?
+        let wxIndoors: Bool?
+        let wxIcon: String?
+        let wxSummary: String?
 
         enum CodingKeys: String, CodingKey {
             case gameId = "game_id"
-            case gameday, slot
+            case season, week, gameday, kickoff, slot
+            case homeAb = "home_ab"
+            case awayAb = "away_ab"
             case homeTeam = "home_team"
             case awayTeam = "away_team"
+            case fgSpreadOpen = "fg_spread_open"
             case fgSpreadClose = "fg_spread_close"
+            case fgTotalOpen = "fg_total_open"
             case fgTotalClose = "fg_total_close"
             case fgMlHomeClose = "fg_ml_home_close"
             case fgMlAwayClose = "fg_ml_away_close"
+            case ttHomeClose = "tt_home_close"
+            case ttAwayClose = "tt_away_close"
+            case ttHomeBestOver = "tt_home_best_over"
+            case ttHomeBestUnder = "tt_home_best_under"
+            case ttAwayBestOver = "tt_away_best_over"
+            case ttAwayBestUnder = "tt_away_best_under"
+            case ttHomePick = "tt_home_pick"
+            case ttAwayPick = "tt_away_pick"
+            case ttHomeEdge = "tt_home_edge"
+            case ttAwayEdge = "tt_away_edge"
+            case ttHomePred = "tt_home_pred"
+            case ttAwayPred = "tt_away_pred"
+            case h1SpreadClose = "h1_spread_close"
+            case h1TotalClose = "h1_total_close"
+            case h1MlHomeClose = "h1_ml_home_close"
+            case h1MlAwayClose = "h1_ml_away_close"
+            case h1SpreadPick = "h1_spread_pick"
+            case h1TotalPick = "h1_total_pick"
+            case h1MlPick = "h1_ml_pick"
+            case fgPredMargin = "fg_pred_margin"
+            case fgPredSpread = "fg_pred_spread"
+            case fgPredHomePts = "fg_pred_home_pts"
+            case fgPredAwayPts = "fg_pred_away_pts"
+            case fgSpreadEdge = "fg_spread_edge"
+            case fgSpreadPick = "fg_spread_pick"
+            case fgSpreadConfluence = "fg_spread_confluence"
             case fgPredTotal = "fg_pred_total"
+            case fgTotalEdge = "fg_total_edge"
+            case fgTotalPick = "fg_total_pick"
+            case fgTotalTier = "fg_total_tier"
             case fgHomeCoverProb = "fg_home_cover_prob"
             case fgHomeWinProb = "fg_home_win_prob"
+            case h1PredTotal = "h1_pred_total"
+            case h1PredMargin = "h1_pred_margin"
+            case h1TotalEdge = "h1_total_edge"
+            case h1CoverTilt = "h1_cover_tilt"
+            case h1HomeWinProb = "h1_home_win_prob"
+            case convictionTier = "conviction_tier"
+            case stakeUnits = "stake_units"
+            case convictionSummary = "conviction_summary"
+            case flagsActive = "flags_active"
+            case flagsTracking = "flags_tracking"
+            case mammoth
+            case wxTempF = "wx_temp_f"
+            case wxWindMph = "wx_wind_mph"
+            case wxPrecipMm = "wx_precip_mm"
+            case wxIndoors = "wx_indoors"
+            case wxIcon = "wx_icon"
+            case wxSummary = "wx_summary"
         }
     }
 
@@ -494,36 +599,114 @@ public final class GamesStore {
         await NFLTeamsService.shared.ensureLoaded()
         let rows: [NFLDryrunGameRow] = (try? await cfb
             .from("nfl_dryrun_games")
-            .select("game_id, gameday, slot, home_team, away_team, fg_spread_close, fg_total_close, fg_ml_home_close, fg_ml_away_close, fg_pred_total, fg_home_cover_prob, fg_home_win_prob")
-            .order("gameday", ascending: true)
+            .select()
+            .order("kickoff", ascending: true)
             .execute()
             .value) ?? []
-        return rows.map { row in
-            NFLPrediction(
+        return rows.map(nflPrediction)
+        .sorted {
+            if $0.topConvictionRank != $1.topConvictionRank { return $0.topConvictionRank < $1.topConvictionRank }
+            return ($0.kickoff ?? $0.gameDate) < ($1.kickoff ?? $1.gameDate)
+        }
+    }
+
+    private func nflPrediction(from row: NFLDryrunGameRow) -> NFLPrediction {
+            let gameDate = row.kickoff ?? row.gameday ?? ""
+            let homeMl = row.fgMlHomeClose.map { Int($0.rounded()) }
+            let awayMl = row.fgMlAwayClose.map { Int($0.rounded()) }
+            return NFLPrediction(
                 id: row.gameId,
                 awayTeam: row.awayTeam ?? "",
                 homeTeam: row.homeTeam ?? "",
-                homeMl: row.fgMlHomeClose.map { Int($0.rounded()) },
-                awayMl: row.fgMlAwayClose.map { Int($0.rounded()) },
+                awayAb: row.awayAb,
+                homeAb: row.homeAb,
+                homeMl: homeMl,
+                awayMl: awayMl,
                 homeSpread: row.fgSpreadClose,
                 awaySpread: row.fgSpreadClose.map { -$0 },
                 overLine: row.fgTotalClose,
-                gameDate: row.gameday ?? "",
-                // Schedule slot, not a clock time — the card's time formatter
-                // passes unparseable strings through verbatim.
-                gameTime: row.slot.flatMap { Self.nflSlotLabels[$0] } ?? "",
+                gameDate: gameDate,
+                gameTime: row.kickoff ?? row.slot.flatMap { Self.nflSlotLabels[$0] } ?? "",
                 trainingKey: row.gameId,
                 uniqueId: row.gameId,
                 homeAwayMlProb: row.fgHomeWinProb,
                 homeAwaySpreadCoverProb: row.fgHomeCoverProb,
                 ouResultProb: nil,
-                predTotal: row.fgPredTotal
+                predTotal: row.fgPredTotal,
+                runId: "nfl-dryrun-\(row.season ?? 2025)-\(row.week ?? 12)",
+                temperature: row.wxTempF,
+                precipitation: row.wxPrecipMm,
+                windSpeed: row.wxWindMph,
+                icon: row.wxIcon,
+                gameId: row.gameId,
+                season: row.season,
+                week: row.week,
+                gameday: row.gameday,
+                kickoff: row.kickoff,
+                slot: row.slot,
+                fgSpreadOpen: row.fgSpreadOpen,
+                fgSpreadClose: row.fgSpreadClose,
+                fgTotalOpen: row.fgTotalOpen,
+                fgTotalClose: row.fgTotalClose,
+                fgMlHomeClose: homeMl,
+                fgMlAwayClose: awayMl,
+                ttHomeClose: row.ttHomeClose,
+                ttAwayClose: row.ttAwayClose,
+                ttHomeBestOver: row.ttHomeBestOver,
+                ttHomeBestUnder: row.ttHomeBestUnder,
+                ttAwayBestOver: row.ttAwayBestOver,
+                ttAwayBestUnder: row.ttAwayBestUnder,
+                ttHomePick: row.ttHomePick,
+                ttAwayPick: row.ttAwayPick,
+                ttHomeEdge: row.ttHomeEdge,
+                ttAwayEdge: row.ttAwayEdge,
+                ttHomePred: row.ttHomePred,
+                ttAwayPred: row.ttAwayPred,
+                h1SpreadClose: row.h1SpreadClose,
+                h1TotalClose: row.h1TotalClose,
+                h1MlHomeClose: row.h1MlHomeClose.map { Int($0.rounded()) },
+                h1MlAwayClose: row.h1MlAwayClose.map { Int($0.rounded()) },
+                h1SpreadPick: row.h1SpreadPick,
+                h1TotalPick: row.h1TotalPick,
+                h1MlPick: row.h1MlPick,
+                fgPredMargin: row.fgPredMargin,
+                fgPredSpread: row.fgPredSpread,
+                fgPredHomePts: row.fgPredHomePts,
+                fgPredAwayPts: row.fgPredAwayPts,
+                fgSpreadEdge: row.fgSpreadEdge,
+                fgSpreadPick: row.fgSpreadPick,
+                fgSpreadConfluence: row.fgSpreadConfluence,
+                fgTotalEdge: row.fgTotalEdge,
+                fgTotalPick: row.fgTotalPick,
+                fgTotalTier: row.fgTotalTier,
+                h1PredTotal: row.h1PredTotal,
+                h1PredMargin: row.h1PredMargin,
+                h1TotalEdge: row.h1TotalEdge,
+                h1CoverTilt: row.h1CoverTilt,
+                h1HomeWinProb: row.h1HomeWinProb,
+                convictionTierRaw: row.convictionTier ?? "none",
+                stakeUnits: row.stakeUnits,
+                convictionSummary: row.convictionSummary,
+                flagsActive: row.flagsActive,
+                flagsTracking: row.flagsTracking,
+                mammoth: row.mammoth ?? false,
+                wxTempF: row.wxTempF,
+                wxWindMph: row.wxWindMph,
+                wxPrecipMm: row.wxPrecipMm,
+                wxIndoors: row.wxIndoors,
+                wxIcon: row.wxIcon,
+                wxSummary: row.wxSummary
             )
-        }
     }
 
     private func fetchNFL() async throws {
         let cfb = await CFBSupabase.shared.client
+
+        let dryrun = await fetchNFLDryrun(cfb)
+        if !dryrun.isEmpty {
+            games.nfl = dryrun
+            return
+        }
 
         // Step 1: input view (no filters — matches RN exactly).
         let viewRows: [NFLViewRow] = try await cfb
@@ -532,12 +715,7 @@ public final class GamesStore {
             .execute()
             .value
 
-        if viewRows.isEmpty {
-            // Legacy pipeline is empty (offseason / post-cutover) — serve the
-            // dry-run contract slate instead. See fetchNFLDryrun.
-            games.nfl = await fetchNFLDryrun(cfb)
-            return
-        }
+        if viewRows.isEmpty { return }
 
         // Step 2: predictions, latest run_id only.
         let predictionRows: [NFLPredictionRow] = (try? await cfb
@@ -678,6 +856,12 @@ public final class GamesStore {
         let windSpeed: Double?
         let weatherIconText: String?
         let icon: String?
+        let wxTempF: Double?
+        let wxWindMph: Double?
+        let wxPrecipMm: Double?
+        let wxIndoors: Bool?
+        let wxIcon: String?
+        let wxSummary: String?
         let spreadSplitsLabel: String?
         let totalSplitsLabel: String?
         let mlSplitsLabel: String?
@@ -719,6 +903,12 @@ public final class GamesStore {
             case windSpeed = "wind_speed"
             case weatherIconText = "weather_icon_text"
             case icon
+            case wxTempF = "wx_temp_f"
+            case wxWindMph = "wx_wind_mph"
+            case wxPrecipMm = "wx_precip_mm"
+            case wxIndoors = "wx_indoors"
+            case wxIcon = "wx_icon"
+            case wxSummary = "wx_summary"
             case spreadSplitsLabel = "spread_splits_label"
             case totalSplitsLabel = "total_splits_label"
             case mlSplitsLabel = "ml_splits_label"
@@ -774,68 +964,335 @@ public final class GamesStore {
         }
     }
 
-    private func fetchCFB() async throws {
-        let cfb = await CFBSupabase.shared.client
-        let inputs: [CFBInputRow] = try await cfb
-            .from("cfb_live_weekly_inputs")
-            .select()
-            .execute()
-            .value
-        let preds: [CFBAPIRow] = (try? await cfb
-            .from("cfb_api_predictions")
-            .select()
-            .execute()
-            .value) ?? []
-        let predsById: [Int: CFBAPIRow] = Dictionary(uniqueKeysWithValues: preds.map { ($0.id, $0) })
+    private struct FlexibleString: Decodable, Hashable, Sendable {
+        let value: String
 
-        let merged: [CFBPrediction] = inputs.map { input in
-            let api = predsById[input.id]
-            let homeSpread = input.apiSpread ?? input.homeSpread
-            let awaySpread: Double? = {
-                if let s = input.apiSpread { return -s }
-                if let s = input.awaySpread { return s }
-                return nil
-            }()
-            return CFBPrediction(
-                id: String(input.id),
-                awayTeam: input.awayTeam ?? "",
-                homeTeam: input.homeTeam ?? "",
-                homeMl: input.homeMoneyline ?? input.homeMl,
-                awayMl: input.awayMoneyline ?? input.awayMl,
-                homeSpread: homeSpread,
-                awaySpread: awaySpread,
-                overLine: input.apiOverLine ?? input.totalLine,
-                gameDate: input.startTime ?? input.startDate ?? input.gameDate ?? "",
-                gameTime: input.startTime ?? input.startDate ?? input.gameTime ?? "",
-                trainingKey: input.trainingKey ?? "",
-                uniqueId: input.uniqueId ?? "\(input.awayTeam ?? "")_\(input.homeTeam ?? "")_\(input.startTime ?? "")",
-                homeAwayMlProb: input.predMlProba ?? input.homeAwayMlProb,
-                homeAwaySpreadCoverProb: input.predSpreadProba ?? input.homeAwaySpreadCoverProb,
-                ouResultProb: input.predTotalProba ?? input.ouResultProb,
-                runId: input.runId,
-                temperature: input.weatherTempF ?? input.temperature,
-                precipitation: input.precipitation,
-                windSpeed: input.weatherWindspeedMph ?? input.windSpeed,
-                icon: input.weatherIconText ?? input.icon,
-                spreadSplitsLabel: input.spreadSplitsLabel,
-                totalSplitsLabel: input.totalSplitsLabel,
-                mlSplitsLabel: input.mlSplitsLabel,
-                conference: input.conference,
-                predAwayScore: api?.predAwayScore ?? input.predAwayScore,
-                predHomeScore: api?.predHomeScore ?? input.predHomeScore,
-                predAwayPoints: api?.predAwayPoints ?? api?.awayPoints,
-                predHomePoints: api?.predHomePoints ?? api?.homePoints,
-                predSpread: api?.predSpread ?? api?.runLinePrediction ?? api?.spreadPrediction,
-                homeSpreadDiff: api?.homeSpreadDiff ?? api?.spreadDiff ?? api?.edge,
-                predTotal: api?.predTotal ?? api?.totalPrediction ?? api?.ouPrediction,
-                totalDiff: api?.totalDiff ?? api?.totalEdge,
-                predOverLine: api?.predOverLine,
-                overLineDiff: api?.overLineDiff,
-                openingSpread: input.spread,
-                openingTotal: input.totalLine
+        init(from decoder: Decoder) throws {
+            let c = try decoder.singleValueContainer()
+            if let s = try? c.decode(String.self) {
+                value = s
+            } else if let i = try? c.decode(Int.self) {
+                value = String(i)
+            } else if let d = try? c.decode(Double.self) {
+                value = d.rounded(.towardZero) == d ? String(Int(d)) : String(d)
+            } else {
+                value = ""
+            }
+        }
+    }
+
+    private struct CFBDryrunGameRow: Decodable, Sendable {
+        let gameId: FlexibleString
+        let season: Int?
+        let week: Int?
+        let kickoff: String?
+        let neutralSite: Bool?
+        let homeTeam: String?
+        let awayTeam: String?
+        let homeConf: String?
+        let awayConf: String?
+        let homeRank: Int?
+        let awayRank: Int?
+        let classification: String?
+        let fgSpreadOpen: Double?
+        let fgSpreadClose: Double?
+        let fgTotalOpen: Double?
+        let fgTotalClose: Double?
+        let fgMlHomeClose: Double?
+        let fgMlAwayClose: Double?
+        let ttHomeClose: Double?
+        let ttAwayClose: Double?
+        let ttHomeBestUnder: Double?
+        let ttHomeBestOver: Double?
+        let ttAwayBestUnder: Double?
+        let ttAwayBestOver: Double?
+        let h1SpreadClose: Double?
+        let h1TotalClose: Double?
+        let h1MlHomeClose: Double?
+        let h1MlAwayClose: Double?
+        let fgPredMargin: Double?
+        let fgPredHomePts: Double?
+        let fgPredAwayPts: Double?
+        let fgPredSpread: Double?
+        let fgSpreadEdge: Double?
+        let fgSpreadPick: String?
+        let fgSpreadCapped: Bool?
+        let fgPredTotal: Double?
+        let fgTotalEdge: Double?
+        let fgTotalPick: String?
+        let ttHomePred: Double?
+        let ttAwayPred: Double?
+        let ttHomePick: String?
+        let ttAwayPick: String?
+        let h1PredMargin: Double?
+        let h1PredTotal: Double?
+        let h1SpreadPick: String?
+        let h1TotalPick: String?
+        let h1MlPick: String?
+        let fgHomeCoverProb: Double?
+        let fgHomeWinProb: Double?
+        let wxTempF: Double?
+        let wxWindMph: Double?
+        let wxPrecipMm: Double?
+        let wxIndoors: Bool?
+        let wxIcon: String?
+        let wxSummary: String?
+        let convictionTier: String?
+        let stakeUnits: Double?
+        let nFlagsActive: Int?
+        let nFlagsTracking: Int?
+        let mammoth: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case gameId = "game_id"
+            case season, week, kickoff
+            case neutralSite = "neutral_site"
+            case homeTeam = "home_team"
+            case awayTeam = "away_team"
+            case homeConf = "home_conf"
+            case awayConf = "away_conf"
+            case homeRank = "home_rank"
+            case awayRank = "away_rank"
+            case classification
+            case fgSpreadOpen = "fg_spread_open"
+            case fgSpreadClose = "fg_spread_close"
+            case fgTotalOpen = "fg_total_open"
+            case fgTotalClose = "fg_total_close"
+            case fgMlHomeClose = "fg_ml_home_close"
+            case fgMlAwayClose = "fg_ml_away_close"
+            case ttHomeClose = "tt_home_close"
+            case ttAwayClose = "tt_away_close"
+            case ttHomeBestUnder = "tt_home_best_under"
+            case ttHomeBestOver = "tt_home_best_over"
+            case ttAwayBestUnder = "tt_away_best_under"
+            case ttAwayBestOver = "tt_away_best_over"
+            case h1SpreadClose = "h1_spread_close"
+            case h1TotalClose = "h1_total_close"
+            case h1MlHomeClose = "h1_ml_home_close"
+            case h1MlAwayClose = "h1_ml_away_close"
+            case fgPredMargin = "fg_pred_margin"
+            case fgPredHomePts = "fg_pred_home_pts"
+            case fgPredAwayPts = "fg_pred_away_pts"
+            case fgPredSpread = "fg_pred_spread"
+            case fgSpreadEdge = "fg_spread_edge"
+            case fgSpreadPick = "fg_spread_pick"
+            case fgSpreadCapped = "fg_spread_capped"
+            case fgPredTotal = "fg_pred_total"
+            case fgTotalEdge = "fg_total_edge"
+            case fgTotalPick = "fg_total_pick"
+            case ttHomePred = "tt_home_pred"
+            case ttAwayPred = "tt_away_pred"
+            case ttHomePick = "tt_home_pick"
+            case ttAwayPick = "tt_away_pick"
+            case h1PredMargin = "h1_pred_margin"
+            case h1PredTotal = "h1_pred_total"
+            case h1SpreadPick = "h1_spread_pick"
+            case h1TotalPick = "h1_total_pick"
+            case h1MlPick = "h1_ml_pick"
+            case fgHomeCoverProb = "fg_home_cover_prob"
+            case fgHomeWinProb = "fg_home_win_prob"
+            case wxTempF = "wx_temp_f"
+            case wxWindMph = "wx_wind_mph"
+            case wxPrecipMm = "wx_precip_mm"
+            case wxIndoors = "wx_indoors"
+            case wxIcon = "wx_icon"
+            case wxSummary = "wx_summary"
+            case convictionTier = "conviction_tier"
+            case stakeUnits = "stake_units"
+            case nFlagsActive = "n_flags_active"
+            case nFlagsTracking = "n_flags_tracking"
+            case mammoth
+        }
+    }
+
+    private struct CFBDryrunFlagRow: Decodable, Sendable {
+        let id: FlexibleString
+        let gameId: FlexibleString
+        let season: Int?
+        let week: Int?
+        let game: String?
+        let source: String?
+        let market: String?
+        let side: String?
+        let line: Double?
+        let price: Int?
+        let edge: Double?
+        let conviction: String?
+        let tier: String?
+        let stakeUnits: Double?
+        let gradeLine: String?
+        let mammoth: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case gameId = "game_id"
+            case season, week, game, source, market, side, line, price, edge, conviction, tier, mammoth
+            case stakeUnits = "stake_units"
+            case gradeLine = "grade_line"
+        }
+
+        var model: CFBDryRunFlag {
+            CFBDryRunFlag(
+                id: id.value,
+                gameId: gameId.value,
+                season: season,
+                week: week,
+                game: game,
+                source: source ?? "Signal",
+                market: market ?? "",
+                side: side ?? "",
+                line: line,
+                price: price,
+                edge: edge,
+                conviction: conviction ?? "track",
+                tier: tier ?? "tracking",
+                stakeUnits: stakeUnits,
+                gradeLine: gradeLine,
+                mammoth: mammoth
             )
         }
-        games.cfb = merged
+    }
+
+    private func fetchCFB() async throws {
+        let cfb = await CFBSupabase.shared.client
+        await CFBTeamsService.shared.ensureLoaded()
+
+        async let gameRows: [CFBDryrunGameRow] = cfb
+            .from("cfb_dryrun_games")
+            .select()
+            .eq("week", value: 7)
+            .execute()
+            .value
+        async let flagRows: [CFBDryrunFlagRow] = cfb
+            .from("cfb_dryrun_flags")
+            .select()
+            .eq("week", value: 7)
+            .execute()
+            .value
+
+        async let signalDefs = CFBSignalDefinitionsService.shared.definitionsBySource()
+        let (rows, flags, definitionsBySource) = try await (gameRows, flagRows, signalDefs)
+        let flagModels = flags.map { row in
+            let flag = row.model
+            let definition = CFBSignalDefinitionsService.definition(for: flag.source, in: definitionsBySource)
+            return flag.withSignalDefinition(definition)
+        }
+        let flagsByGame = Dictionary(grouping: flagModels, by: \.gameId)
+
+        games.cfb = rows.map { row in
+            let gameId = row.gameId.value
+            let away = row.awayTeam ?? "Away"
+            let home = row.homeTeam ?? "Home"
+            let attachedFlags = (flagsByGame[gameId] ?? []).sorted { a, b in
+                if a.isActive != b.isActive { return a.isActive && !b.isActive }
+                if a.convictionTier.sortRank != b.convictionTier.sortRank {
+                    return a.convictionTier.sortRank < b.convictionTier.sortRank
+                }
+                return (a.stakeUnits ?? 0) > (b.stakeUnits ?? 0)
+            }
+            let score = Self.cfbPredictedScore(home: row.fgPredHomePts, away: row.fgPredAwayPts, total: row.fgPredTotal, margin: row.fgPredMargin)
+            return CFBPrediction(
+                id: gameId,
+                awayTeam: away,
+                homeTeam: home,
+                homeMl: row.fgMlHomeClose.map { Int($0.rounded()) },
+                awayMl: row.fgMlAwayClose.map { Int($0.rounded()) },
+                homeSpread: row.fgSpreadClose,
+                awaySpread: row.fgSpreadClose.map { -$0 },
+                overLine: row.fgTotalClose,
+                gameDate: row.kickoff ?? "",
+                gameTime: row.kickoff ?? "",
+                trainingKey: gameId,
+                uniqueId: gameId,
+                homeAwayMlProb: row.fgHomeWinProb,
+                homeAwaySpreadCoverProb: row.fgHomeCoverProb,
+                ouResultProb: nil,
+                runId: "cfb-dryrun-wk7-2025",
+                temperature: row.wxTempF,
+                precipitation: row.wxPrecipMm,
+                windSpeed: row.wxWindMph,
+                icon: row.wxIcon,
+                wxTempF: row.wxTempF,
+                wxWindMph: row.wxWindMph,
+                wxPrecipMm: row.wxPrecipMm,
+                wxIndoors: row.wxIndoors,
+                wxIcon: row.wxIcon,
+                wxSummary: row.wxSummary,
+                conference: [row.awayConf, row.homeConf].compactMap { $0 }.joined(separator: " / "),
+                predAwayScore: score?.away,
+                predHomeScore: score?.home,
+                predAwayPoints: score?.away,
+                predHomePoints: score?.home,
+                predSpread: row.fgPredSpread,
+                homeSpreadDiff: row.fgSpreadEdge,
+                predTotal: row.fgPredTotal,
+                totalDiff: row.fgTotalEdge,
+                predOverLine: row.fgPredTotal,
+                overLineDiff: row.fgTotalEdge,
+                openingSpread: row.fgSpreadOpen,
+                openingTotal: row.fgTotalOpen,
+                gameId: gameId,
+                season: row.season,
+                week: row.week,
+                kickoff: row.kickoff,
+                neutralSite: row.neutralSite,
+                homeConf: row.homeConf,
+                awayConf: row.awayConf,
+                homeRank: row.homeRank,
+                awayRank: row.awayRank,
+                homeClassification: CFBTeamAssets.team(for: home)?.classification ?? row.classification,
+                awayClassification: CFBTeamAssets.team(for: away)?.classification ?? row.classification,
+                homeTeamRef: CFBTeamAssets.team(for: home),
+                awayTeamRef: CFBTeamAssets.team(for: away),
+                fgSpreadOpen: row.fgSpreadOpen,
+                fgSpreadClose: row.fgSpreadClose,
+                fgTotalOpen: row.fgTotalOpen,
+                fgTotalClose: row.fgTotalClose,
+                fgMlHomeClose: row.fgMlHomeClose.map { Int($0.rounded()) },
+                fgMlAwayClose: row.fgMlAwayClose.map { Int($0.rounded()) },
+                ttHomeClose: row.ttHomeClose,
+                ttAwayClose: row.ttAwayClose,
+                ttHomeBestUnder: row.ttHomeBestUnder,
+                ttHomeBestOver: row.ttHomeBestOver,
+                ttAwayBestUnder: row.ttAwayBestUnder,
+                ttAwayBestOver: row.ttAwayBestOver,
+                h1SpreadClose: row.h1SpreadClose,
+                h1TotalClose: row.h1TotalClose,
+                h1MlHomeClose: row.h1MlHomeClose.map { Int($0.rounded()) },
+                h1MlAwayClose: row.h1MlAwayClose.map { Int($0.rounded()) },
+                fgPredMargin: row.fgPredMargin,
+                fgPredSpread: row.fgPredSpread,
+                fgSpreadEdge: row.fgSpreadEdge,
+                fgSpreadPick: row.fgSpreadPick,
+                fgSpreadCapped: row.fgSpreadCapped,
+                fgPredTotal: row.fgPredTotal,
+                fgTotalEdge: row.fgTotalEdge,
+                fgTotalPick: row.fgTotalPick,
+                ttHomePred: row.ttHomePred,
+                ttAwayPred: row.ttAwayPred,
+                ttHomePick: row.ttHomePick,
+                ttAwayPick: row.ttAwayPick,
+                h1PredMargin: row.h1PredMargin,
+                h1PredTotal: row.h1PredTotal,
+                h1SpreadPick: row.h1SpreadPick,
+                h1TotalPick: row.h1TotalPick,
+                h1MlPick: row.h1MlPick,
+                fgHomeCoverProb: row.fgHomeCoverProb,
+                fgHomeWinProb: row.fgHomeWinProb,
+                convictionTierRaw: row.convictionTier ?? "none",
+                stakeUnits: row.stakeUnits,
+                nFlagsActive: row.nFlagsActive,
+                nFlagsTracking: row.nFlagsTracking,
+                mammoth: row.mammoth ?? false,
+                flags: attachedFlags
+            )
+        }
+    }
+
+    private static func cfbPredictedScore(home: Double?, away: Double?, total: Double?, margin: Double?) -> (home: Double, away: Double)? {
+        if let home, let away { return (home, away) }
+        guard let total, let margin else { return nil }
+        return ((total + margin) / 2, (total - margin) / 2)
     }
 
     // MARK: - NBA / NCAAB / MLB
@@ -1424,10 +1881,25 @@ public final class GamesStore {
 
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
-            self.gamePk = try? c.decodeIfPresent(Int.self, forKey: .gamePk)
+            self.gamePk = MLBSignalsRow.decodeGamePk(from: c)
             self.homeSignals = MLBSignalsRow.decode(from: c, key: .homeSignals)
             self.awaySignals = MLBSignalsRow.decode(from: c, key: .awaySignals)
             self.gameSignals = MLBSignalsRow.decode(from: c, key: .gameSignals)
+        }
+
+        private static func decodeGamePk(from c: KeyedDecodingContainer<CodingKeys>) -> Int? {
+            if let value = try? c.decodeIfPresent(Int.self, forKey: .gamePk) {
+                return value
+            }
+            if let value = try? c.decodeIfPresent(Double.self, forKey: .gamePk), value.isFinite {
+                return Int(value.rounded(.towardZero))
+            }
+            if let value = try? c.decodeIfPresent(String.self, forKey: .gamePk),
+               let parsed = Double(value.trimmingCharacters(in: .whitespacesAndNewlines)),
+               parsed.isFinite {
+                return Int(parsed.rounded(.towardZero))
+            }
+            return nil
         }
 
         private static func decode(
@@ -1436,6 +1908,11 @@ public final class GamesStore {
         ) -> [MLBSignalItem] {
             if let arr = try? c.decode([SignalPayloadItem].self, forKey: key) {
                 return arr.compactMap { $0.asSignal }
+            }
+            // The live view stores these as text[] where each entry is a JSON
+            // object string; web/RN parse each entry individually.
+            if let arr = try? c.decode([String].self, forKey: key) {
+                return arr.compactMap { SignalPayloadItem.parseJSONString($0)?.asSignal }
             }
             if let s = try? c.decode(String.self, forKey: key),
                let data = s.data(using: .utf8),
@@ -1482,6 +1959,11 @@ public final class GamesStore {
         var asSignal: MLBSignalItem? {
             guard let m = message, !m.isEmpty else { return nil }
             return MLBSignalItem(category: category ?? "", severity: severity ?? "", message: m)
+        }
+
+        static func parseJSONString(_ raw: String) -> SignalPayloadItem? {
+            guard let data = raw.data(using: .utf8) else { return nil }
+            return try? JSONDecoder().decode(SignalPayloadItem.self, from: data)
         }
     }
 
@@ -1542,7 +2024,6 @@ public final class GamesStore {
         let signalsRows: [MLBSignalsRow] = (try? await cfb
             .from("mlb_game_signals")
             .select()
-            .in("game_pk", values: pks)
             .execute()
             .value) ?? []
         let signalsByPk: [Int: MLBSignalsRow] = Dictionary(

@@ -28,6 +28,9 @@ struct PlayerPropSelection: Identifiable, Hashable {
     let opposingArchetypeName: String?
     let gameTimeEt: String?
     let officialDate: String
+    let gamePk: Int
+    /// When set, the detail page opens on this market (feed market filter).
+    let preferredMarket: String?
 
     /// The player's prop rows (one per market), already filtered to this
     /// player + role.

@@ -23,6 +23,10 @@ export interface CFBPrediction {
   total_splits_label: string | null;
   ml_splits_label: string | null;
   conference?: string | null;
+  home_rank?: number | null;
+  away_rank?: number | null;
+  home_ranking?: number | null;
+  away_ranking?: number | null;
   // CFB-specific prediction fields
   pred_away_score?: number | null;
   pred_home_score?: number | null;

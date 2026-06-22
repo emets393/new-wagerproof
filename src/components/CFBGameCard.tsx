@@ -14,6 +14,7 @@ interface CFBGameCardProps {
   homeTeamColors: { primary: string; secondary: string };
   homeSpread: number | null;
   awaySpread: number | null;
+  alwaysShowAurora?: boolean;
 }
 
 export default function CFBGameCard({
@@ -25,7 +26,8 @@ export default function CFBGameCard({
   awayTeamColors,
   homeTeamColors,
   homeSpread,
-  awaySpread
+  awaySpread,
+  alwaysShowAurora = false
 }: CFBGameCardProps) {
   
   // Determine the favored team (negative spread) and create aurora color stops
@@ -57,15 +59,33 @@ export default function CFBGameCard({
         color={["#93c5fd", "#c4b5fd", "#93c5fd"]}
         className="relative z-10 !bg-transparent p-0 min-h-0 w-full max-w-full min-w-0"
       >
-        {/* Aurora Effect - Only visible when this card is hovered */}
-        <AnimatePresence>
-          {isHovered && (
+        {/* Aurora Effect - Visible on hover, or always on for mammoth dry-run cards. */}
+        {alwaysShowAurora ? (
+          <div
+            className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg"
+            style={{
+              mixBlendMode: 'screen',
+              filter: 'brightness(1.2) contrast(1.1)',
+              opacity: isHovered ? 0.8 : 0.6,
+              transition: 'opacity 0.5s ease-in-out'
+            }}
+          >
+            <Aurora
+              colorStops={auroraColors}
+              amplitude={1.2}
+              blend={0.6}
+              speed={0.8}
+            />
+          </div>
+        ) : (
+          <AnimatePresence>
+            {isHovered && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-xl"
+              className="absolute top-0 left-0 right-0 h-40 z-[1] pointer-events-none overflow-hidden rounded-t-lg"
               style={{ 
                 mixBlendMode: 'screen',
                 filter: 'brightness(1.2) contrast(1.1)'
@@ -78,8 +98,9 @@ export default function CFBGameCard({
                 speed={0.8}
               />
             </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
+        )}
         <motion.div
           whileHover={{ 
             scale: 1.015,
@@ -90,8 +111,8 @@ export default function CFBGameCard({
         >
           <Card className={`relative overflow-hidden w-full ${isHovered ? 'bg-sidebar/85 backdrop-blur-sm' : 'bg-sidebar/95 backdrop-blur-sm'} border-0 shadow-lg transition-all duration-300 z-[2] ${isHovered ? 'shadow-2xl shadow-blue-400/30 dark:shadow-blue-900/30' : ''} ${className}`}>
             {/* Dynamic team colors gradient top border */}
-            <div 
-              className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
+            <div
+              className="absolute top-0 left-0 right-0 h-1 rounded-t-lg"
               style={{
                 background: `linear-gradient(to right, ${awayTeamColors.primary}, ${awayTeamColors.secondary}, ${homeTeamColors.primary}, ${homeTeamColors.secondary})`,
                 opacity: 0.9

@@ -56,6 +56,46 @@ target 'WagerProof' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    # Xcode 16+/iOS 18+ SDK: SwiftUI was split into SwiftUI + private SwiftUICore.
+    # SwiftUICore.tbd allows only Apple frameworks as direct clients, but Swift
+    # autolinks an explicit `-framework SwiftUICore` from any SwiftUI-using target
+    # (RevenueCatUI pods AND the app target's own Swift), so ld rejects the app
+    # ("not an allowed client"). Suppress the bad autolink at the frontend; symbols
+    # still resolve via SwiftUI's re-export. See allowable-clients on SwiftUICore.tbd.
+    # Applied to the Pods project AND the user (app) project so it survives reinstalls.
+    disable_swiftuicore_autolink = lambda do |project|
+      project.targets.each do |target|
+        target.build_configurations.each do |config|
+          flags = config.build_settings['OTHER_SWIFT_FLAGS'] || '$(inherited)'
+          flags = flags.join(' ') if flags.is_a?(Array)
+          unless flags.include?('disable-autolink-framework')
+            config.build_settings['OTHER_SWIFT_FLAGS'] =
+              "#{flags} -Xfrontend -disable-autolink-framework -Xfrontend SwiftUICore"
+          end
+        end
+      end
+      project.save
+    end
+    disable_swiftuicore_autolink.call(installer.pods_project)
+    installer.aggregate_targets.map(&:user_project).compact.uniq.each do |user_project|
+      disable_swiftuicore_autolink.call(user_project)
+    end
+
+    # fmt 11.0.2 + Xcode 26 Clang: the consteval format-string check miscompiles
+    # ("call to consteval function ... is not a constant expression") while building
+    # React Native from source. fmt's base.h hard-selects FMT_USE_CONSTEVAL from the
+    # compiler version with no #ifndef guard, so -D can't override it — patch the file
+    # to force the constexpr fallback. Idempotent: re-applied on every pod install.
+    fmt_base = File.join(__dir__, 'Pods', 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base)
+      contents = File.read(fmt_base)
+      patched = contents.gsub('#  define FMT_USE_CONSTEVAL 1', '#  define FMT_USE_CONSTEVAL 0')
+      if patched != contents
+        File.chmod(0644, fmt_base) # CocoaPods marks pod sources read-only
+        File.write(fmt_base, patched)
+      end
+    end
   end
 end
 

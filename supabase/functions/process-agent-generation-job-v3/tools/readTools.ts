@@ -16,23 +16,29 @@ interface DeepToolDef {
   desc: string;
 }
 
-/** Deep projection tools. Each returns the named group(s) from the cached game. */
+/** Deep projection tools. Each returns the named group(s) from the cached game.
+ *  NFL/CFB and MLB/NBA/NCAAB all share the same group keys (vegas_lines,
+ *  model_predictions, h2h_recent, …); the rewritten NFL/CFB builder adds
+ *  conviction/signals/props on top. projectGroups only emits keys present on the
+ *  cached game, so a group listed for a sport that lacks it is simply skipped. */
 const DEEP_TOOLS: Record<string, DeepToolDef> = {
-  get_game_data: { groups: ["vegas_lines", "model_predictions", "weather", "public_betting", "team_stats", "trends", "injuries", "situational_trends", "prediction_accuracy", "accuracy_signals", "perfect_storm", "starting_pitchers", "polymarket"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Full data for a game: lines, model, and all available context." },
+  get_game_data: { groups: ["vegas_lines", "model_predictions", "conviction", "signals", "props", "weather", "public_betting", "team_stats", "trends", "injuries", "situational_trends", "prediction_accuracy", "accuracy_signals", "perfect_storm", "starting_pitchers", "h2h_recent", "line_movement", "polymarket"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Full data for a game: lines, model, conviction, signals, and all available context." },
   get_model_predictions: { groups: ["model_predictions", "prediction_accuracy", "accuracy_signals"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Model win/cover/total probabilities and edges." },
-  get_market_odds: { groups: ["vegas_lines"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Vegas lines / odds (MLB incl. F5 + runline)." },
-  get_line_movement: { groups: ["line_movement", "opening_lines"], sports: ["nfl", "cfb"], grounds: "none", desc: "Line-movement history." },
+  get_market_odds: { groups: ["vegas_lines"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Vegas lines / odds (NFL/CFB incl. team-total + 1H markets; MLB incl. F5 + runline)." },
+  get_signals: { groups: ["signals", "conviction"], sports: ["nfl", "cfb"], grounds: "none", desc: "Validated betting signals (action/stance/tier + live hit-rate & ROI record) and the game's conviction tier." },
+  get_line_movement: { groups: ["line_movement", "opening_lines"], sports: ["nfl", "cfb"], grounds: "none", desc: "Line-movement history (open → close, snapshots where available)." },
   get_public_betting: { groups: ["public_betting", "public_betting_detailed"], sports: ["nfl", "cfb"], grounds: "none", desc: "Public money/ticket splits." },
   get_weather: { groups: ["weather"], sports: ["nfl", "cfb", "mlb"], grounds: "none", desc: "Game-time weather." },
   get_team_ratings: { groups: ["team_stats"], sports: ["nba", "ncaab"], grounds: "none", desc: "Adjusted off/def/pace ratings (+ rankings for NCAAB)." },
   get_recent_form: { groups: ["trends", "team_stats"], sports: ["nba"], grounds: "none", desc: "Recent form / L3-L5 trends." },
-  get_ats_trends: { groups: ["trends"], sports: ["nba", "ncaab"], grounds: "none", desc: "ATS and O/U trend percentages." },
+  get_ats_trends: { groups: ["trends"], sports: ["nba", "ncaab", "nfl", "cfb"], grounds: "none", desc: "ATS and O/U trend percentages." },
   get_injuries: { groups: ["injuries"], sports: ["nba"], grounds: "none", desc: "Injury report with player impact." },
   get_situational_trends: { groups: ["situational_trends"], sports: ["nba", "ncaab"], grounds: "none", desc: "Situational splits for the matchup." },
   get_h2h_history: { groups: ["h2h_recent"], sports: ["nfl"], grounds: "none", desc: "Recent head-to-head results." },
   get_prediction_accuracy: { groups: ["prediction_accuracy", "accuracy_signals"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "none", desc: "Historical model accuracy buckets for this matchup." },
   get_mlb_perfect_storm: { groups: ["perfect_storm", "accuracy_signals"], sports: ["mlb"], grounds: "all", desc: "Perfect Storm tiers + per-bet-type accuracy buckets (DOW/team/edge)." },
   get_mlb_statcast_signals: { groups: ["signals"], sports: ["mlb"], grounds: "none", desc: "Statcast / pitcher / bullpen signal messages." },
+  get_props: { groups: ["props"], sports: ["nfl"], grounds: "none", desc: "Player-prop matchups with L3/L5/L10 form and any validated prop signals (read-only context — props are not bettable in V3)." },
   get_polymarket: { groups: ["polymarket"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "none", desc: "Polymarket prediction-market prices." },
 };
 
@@ -58,9 +64,6 @@ export async function runReadTool(
   ctx: AgentGenContext,
 ): Promise<ReadToolResult> {
   if (name === "get_editor_picks") return runEditorPicks(args, ctx);
-  if (name === "get_props") {
-    return { content: JSON.stringify({ applicable: false, note: "player props are read-only context and not available to bet in V3" }), ok: true, summary: "props unavailable" };
-  }
 
   const def = DEEP_TOOLS[name];
   if (!def) return { content: JSON.stringify({ error: `unknown tool: ${name}` }), ok: false, summary: "unknown tool" };

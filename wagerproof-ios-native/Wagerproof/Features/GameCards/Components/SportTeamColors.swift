@@ -1,5 +1,6 @@
 import SwiftUI
 import WagerproofDesign
+import WagerproofModels
 
 /// Per-team color tables / resolvers used by the game-detail team-aura glow,
 /// hero avatars, and list cards. MLB has `MLBTeams.colors`; NFL has
@@ -87,6 +88,28 @@ enum NBATeams {
 }
 
 // MARK: - Hashed fallback (CFB / NCAAB)
+
+@MainActor
+enum CFBTeamColors {
+    static func colorPair(for team: String) -> TeamColorPair {
+        let hex = CFBTeamAssets.colorHex(for: team)
+        if let primary = parse(hex.primary) {
+            return TeamColorPair(
+                primary: Color(hex: primary),
+                secondary: Color(hex: parse(hex.secondary) ?? primary)
+            )
+        }
+        return FallbackTeamColor.colorPair(for: team)
+    }
+
+    private static func parse(_ raw: String?) -> Int? {
+        guard let raw else { return nil }
+        let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "#", with: "")
+        guard !cleaned.isEmpty else { return nil }
+        return Int(cleaned, radix: 16)
+    }
+}
 
 enum FallbackTeamColor {
     /// Deterministic, pleasant color derived from a stable hash of the team
