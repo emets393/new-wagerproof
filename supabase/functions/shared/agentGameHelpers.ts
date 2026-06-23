@@ -183,14 +183,17 @@ async function fetchNFLGamesFromDryrun(
   // No line-movement source: dryrun games carry no training_key, so the legacy
   // nfl_betting_lines join key doesn't exist here → line_movement stays [].
   // signal_performance (RESEARCH project, same cfbClient) carries each signal's
-  // LIVE track record. One row-set per run (not per game) → fetch once, build a
-  // perfMap keyed by signal_key keeping the latest season per key.
-  const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId, perfMap] = await Promise.all([
+  // LIVE season-to-date record; {sport}_signal_defs carries the STATIC all-time
+  // validated record (typical_hit) + the human one-liner. One row-set per run
+  // (not per game) for each → fetch once, build perfMap (latest season per key)
+  // + defMap (one def per signal_key). Both keyed by signal_key.
+  const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId, perfMap, defMap] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nfl', games),
     fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_picks', gameIds),
     fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_flags', gameIds),
     fetchNFLPropsByGameId(cfbClient, gameIds),
     fetchSignalPerformanceMap(cfbClient, 'nfl'),
+    fetchSignalDefsMap(cfbClient, 'nfl'),
   ]);
 
   const formattedGames = games.map(game => {
@@ -201,7 +204,8 @@ async function fetchNFLGamesFromDryrun(
       propsByGameId.get(gameId) || [],
       picksByGameId.get(gameId) || [],
       flagsByGameId.get(gameId) || [],
-      perfMap
+      perfMap,
+      defMap
     );
   });
   return { games, formattedGames };
@@ -239,14 +243,15 @@ async function fetchCFBGamesFromDryrun(
   const gameIds = [...new Set(games.map(g => String(g.game_id ?? '')).filter(Boolean))];
   const teamNames = [...new Set(games.flatMap(g => [String(g.home_team || ''), String(g.away_team || '')]).filter(Boolean))];
 
-  // signal_performance (RESEARCH project, same cfbClient) — see the NFL fetcher.
-  // One row-set per run; keyed by signal_key, latest season per key.
-  const [polymarketByGameKey, picksByGameId, flagsByGameId, trendsByTeam, perfMap] = await Promise.all([
+  // signal_performance (season-to-date) + cfb_signal_defs (all-time validated) —
+  // see the NFL fetcher. One row-set per run each; both keyed by signal_key.
+  const [polymarketByGameKey, picksByGameId, flagsByGameId, trendsByTeam, perfMap, defMap] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'cfb', games),
     fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_picks', gameIds),
     fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_flags', gameIds),
     fetchCFBTeamTrendsByTeam(cfbClient, teamNames),
     fetchSignalPerformanceMap(cfbClient, 'cfb'),
+    fetchSignalDefsMap(cfbClient, 'cfb'),
   ]);
 
   const formattedGames = games.map(game => {
@@ -258,7 +263,8 @@ async function fetchCFBGamesFromDryrun(
       flagsByGameId.get(gameId) || [],
       trendsByTeam.get(normalizeTeamKey(game.home_team)) || null,
       trendsByTeam.get(normalizeTeamKey(game.away_team)) || null,
-      perfMap
+      perfMap,
+      defMap
     );
   });
   return { games, formattedGames };
@@ -332,6 +338,43 @@ async function fetchSignalPerformanceMap(
     }
   } catch (error) {
     console.warn(`[agentGameHelpers] signal_performance fetch threw (${sport}):`, (error as Error).message);
+  }
+
+  return result;
+}
+
+// {sport}_signal_defs (RESEARCH project) holds each signal's STATIC validated
+// definition — the all-time backtested record (`typical_hit`, TEXT e.g. "~64%")
+// plus the human-readable one_liner / why_it_works / bet_direction. No season
+// dimension: these are the locked definitions, keyed by signal_key alone. This
+// is the all-time counterpart to fetchSignalPerformanceMap's season-to-date
+// numbers — the two are kept separate so the model never conflates them. NFL +
+// CFB only (nfl_signal_defs / cfb_signal_defs). undefined sport → empty map.
+async function fetchSignalDefsMap(
+  cfbClient: SupabaseClient,
+  sport: string
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+  const tableName = sport === 'nfl' ? 'nfl_signal_defs' : sport === 'cfb' ? 'cfb_signal_defs' : null;
+  if (!tableName) return result;
+
+  try {
+    const { data, error } = await cfbClient
+      .from(tableName)
+      .select('signal_key, display_name, one_liner, why_it_works, bet_direction, typical_hit');
+
+    if (error || !data) {
+      console.warn(`[agentGameHelpers] ${tableName} fetch failed:`, error?.message || 'No data');
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const key = String(row.signal_key ?? '');
+      if (!key) continue;
+      result.set(key, row);
+    }
+  } catch (error) {
+    console.warn(`[agentGameHelpers] ${tableName} fetch threw:`, (error as Error).message);
   }
 
   return result;
@@ -1521,7 +1564,8 @@ function formatNFLGameFromDryrun(
   props: Record<string, unknown>[] = [],
   picks: Record<string, unknown>[] = [],
   flags: Record<string, unknown>[] = [],
-  perfMap?: Map<string, Record<string, unknown>>
+  perfMap?: Map<string, Record<string, unknown>>,
+  defMap?: Map<string, Record<string, unknown>>
 ): Record<string, unknown> {
   // game_id = the nflverse id verbatim (text). Props + results join on it.
   const gameId = String(game.game_id || `${game.away_team}_${game.home_team}`);
@@ -1687,8 +1731,10 @@ function formatNFLGameFromDryrun(
     // Signal flags for the game (nfl_dryrun_flags rows) projected to a compact,
     // agent-readable shape under the `signals` group (matches the deep-tool
     // group name used elsewhere). Each carries its own grade_line + tier, plus
-    // the signal's LIVE track_record via perfMap (keyed by signal_key).
-    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap)) : null,
+    // season_to_date (perfMap, live record) and all_time (defMap, validated
+    // backtest) — both keyed by signal_key, kept separate so they're never
+    // conflated.
+    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap, defMap)) : null,
     // Pick cards (nfl_dryrun_picks) — the per-bet-type cards the app shows.
     pick_cards: picks.length > 0 ? picks.map(formatDryrunPick) : null,
     // Player props — SIGNAL-GATED exactly as in the legacy formatter:
@@ -1709,7 +1755,8 @@ function formatCFBGameFromDryrun(
   flags: Record<string, unknown>[] = [],
   homeTrends: Record<string, unknown> | null = null,
   awayTrends: Record<string, unknown> | null = null,
-  perfMap?: Map<string, Record<string, unknown>>
+  perfMap?: Map<string, Record<string, unknown>>,
+  defMap?: Map<string, Record<string, unknown>>
 ): Record<string, unknown> {
   // game_id = the CFBD id verbatim (bigint → string). Picks/flags join on it.
   const gameId = String(game.game_id ?? `${game.away_team}_${game.home_team}`);
@@ -1844,7 +1891,9 @@ function formatCFBGameFromDryrun(
       flags_tracking: game.n_flags_tracking ?? null,
       mammoth: game.mammoth ?? false,
     },
-    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap)) : null,
+    // Each flag carries season_to_date (perfMap) + all_time (defMap), kept
+    // separate so the two records are never conflated.
+    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap, defMap)) : null,
     pick_cards: picks.length > 0 ? picks.map(formatDryrunPick) : null,
     // Season-to-date ATS/OU/TT + 1H trends per team (cfb_team_trends). Keyed by
     // team_name; surfaced under `trends` so it's a stable named group.
@@ -1862,14 +1911,22 @@ function formatCFBGameFromDryrun(
 // Project one dryrun flag row (nfl_dryrun_flags / cfb_dryrun_flags) to a compact
 // agent-facing shape. grade_line is load-bearing: the line on the row is the
 // line the signal was computed from (open vs close vs best) — grade against it.
-// perfMap (optional) keys signal_performance rows by signal_key → attaches the
-// signal's LIVE track record. undefined/no-row → track_record null (any other
-// caller is unaffected; some tracking signals have no perf row yet).
+// Two records ride along, kept STRICTLY separate so the model never conflates
+// them (both keyed by signal_key, both optional → both null when absent):
+//   - season_to_date: this season's LIVE numeric record from signal_performance
+//     via perfMap (sample/record/hit_rate/roi). No row → null (some tracking
+//     signals have no perf row yet).
+//   - all_time: the STATIC validated backtest from {sport}_signal_defs via
+//     defMap (validated_hit = typical_hit TEXT, plus the human one-liner /
+//     why-it-works / bet-direction). No def → null.
 function formatDryrunFlag(
   row: Record<string, unknown>,
-  perfMap?: Map<string, Record<string, unknown>>
+  perfMap?: Map<string, Record<string, unknown>>,
+  defMap?: Map<string, Record<string, unknown>>
 ): Record<string, unknown> {
-  const perf = perfMap?.get(String(row.signal_key ?? row.rule ?? ''));
+  const signalKey = String(row.signal_key ?? row.rule ?? '');
+  const perf = perfMap?.get(signalKey);
+  const def = defMap?.get(signalKey);
   return {
     source: row.source ?? null,
     rule: row.rule ?? row.signal_key ?? null,
@@ -1883,7 +1940,16 @@ function formatDryrunFlag(
     stake_units: row.stake_units ?? null,
     grade_line: row.grade_line ?? null,
     mammoth: row.mammoth ?? false,
-    track_record: perf ? {
+    // All-time validated record (static, from the signal definition).
+    all_time: def ? {
+      validated_hit: def.typical_hit ?? null,
+      one_liner: def.one_liner ?? null,
+      why_it_works: def.why_it_works ?? null,
+      bet_direction: def.bet_direction ?? null,
+    } : null,
+    // This season's live record to date (renamed from track_record so the two
+    // records are unambiguous).
+    season_to_date: perf ? {
       sample: perf.n ?? null,
       record: `${perf.wins ?? 0}-${perf.losses ?? 0}`,
       hit_rate: perf.hit_rate != null ? Number(perf.hit_rate) : null,
