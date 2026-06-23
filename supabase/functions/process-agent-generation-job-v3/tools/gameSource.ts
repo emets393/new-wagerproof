@@ -55,7 +55,11 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
   const bySport: { sport: Sport; count: number }[] = [];
   for (const sport of ctx.steering.preferredSports as Sport[]) {
     try {
-      const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate);
+      // V3 reads the 2026 dryrun staging tables (nfl_dryrun_games /
+      // cfb_dryrun_games) — the production data contract — via the additive
+      // `source: 'dryrun'` param. NFL/CFB switch tables; other sports ignore it
+      // and read their legacy table. V2 omits this arg → stays on legacy.
+      const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate, 'dryrun');
       let n = 0;
       for (const fg of formattedGames as FormattedGame[]) {
         const id = String((fg as Record<string, unknown>).game_id ?? "");
