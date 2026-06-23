@@ -58,12 +58,13 @@ export async function submitPicks(
     }
     if (betType === "prop") {
       // Props ground against the bettableProps ledger (NOT deepFetched): only the
-      // signal-backed props get_props surfaced as is_bettable can be staked. The
-      // four prop_* fields must all be present so we can build the gate key.
+      // signal-backed props get_props surfaced as is_bettable can be staked.
+      // prop_line is NOT required: player_anytime_td has no line, and propKey
+      // coerces an undefined line → "" which matches the ledger's null-line key.
       const rawRec = raw as Record<string, unknown>;
       const pPlayer = rawRec.prop_player, pMarket = rawRec.prop_market, pLine = rawRec.prop_line, pDir = rawRec.prop_direction;
-      if (pPlayer == null || pMarket == null || pLine == null || pDir == null) {
-        reject(gameId, betType, "prop_fields_required — prop bets need prop_player, prop_market, prop_line, and prop_direction (copy them verbatim from get_props)");
+      if (pPlayer == null || pMarket == null || pDir == null) {
+        reject(gameId, betType, "prop_fields_required — prop bets need prop_player, prop_market, and prop_direction (copy them verbatim from get_props; prop_line too for lined markets)");
         continue;
       }
       const pk = propKey(pPlayer, pMarket, pLine);

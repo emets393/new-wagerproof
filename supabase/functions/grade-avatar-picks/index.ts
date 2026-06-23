@@ -14,14 +14,22 @@ interface AvatarPick {
   sport: string;
   matchup: string;
   game_date: string;
-  bet_type: 'spread' | 'moneyline' | 'total';
+  bet_type: 'spread' | 'moneyline' | 'total' | 'prop';
   /** Period of the bet. 'full' = whole game (all sports, DB default).
    *  'f5' = MLB first 5 innings. 'h1' = NFL/CFB first half.
    *  Defaults to 'full' on the row (DB CHECK + DEFAULT). Older picks
    *  written before migration 20260501140000 will read back as 'full'.
-   *  gradePickFromView routes f5 → f5_* fields and h1 → h1_* fields. */
+   *  gradePickFromView routes f5 → f5_* fields and h1 → h1_* fields.
+   *  Prop picks are always 'full'. */
   period: 'full' | 'f5' | 'h1';
   pick_selection: string;
+  // ── Player-prop columns (bet_type === 'prop', NFL-only). Copied verbatim by
+  // submit_picks from get_props. prop_line is NULL for player_anytime_td (it
+  // has no posted line). gradeProp routes these via the player_id bridge. ──
+  prop_player?: string;
+  prop_market?: string;
+  prop_line?: number | null;
+  prop_direction?: 'over' | 'under';
   odds: string | null;
   units: number;
   confidence: number;
@@ -169,6 +177,18 @@ function americanToDecimal(odds: string | null | undefined): number | null {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Map each agent prop_market to its stat column in nfl_player_game_logs.
+// anytime_td is a boolean column; the rest are numeric. Markets here mirror
+// exactly the six get_props surfaces (NFL-only). See gradeProp below.
+const PROP_MARKET_STAT: Record<string, string> = {
+  player_pass_yds: 'pass_yds',
+  player_pass_tds: 'pass_tds',
+  player_rush_yds: 'rush_yds',
+  player_reception_yds: 'rec_yds',
+  player_receptions: 'receptions',
+  player_anytime_td: 'anytime_td',
 };
 
 // =============================================================================
@@ -516,6 +536,177 @@ async function fetchFootballGameResults(
 
   console.log(`[grade-avatar-picks] Fetched ${results.size} football game results for game_ids: ${gameIds.join(', ')}`);
   return results;
+}
+
+// =============================================================================
+// NFL Player-Prop Grading Data (nfl_dryrun_props + nfl_player_game_logs, RESEARCH)
+// =============================================================================
+
+/**
+ * Fetch the two tables needed to grade NFL player props, both on the RESEARCH
+ * project (read via the same cfbClient as fetchFootballGameResults).
+ *
+ * 1. BRIDGE — `nfl_dryrun_props` carries `player_id` alongside the verbatim
+ *    `(game_id, player_name, market)` the agent copied into the pick. Direct
+ *    name→stat matching is only ~74% reliable, so we resolve the agent pick to
+ *    its dryrun-props row by `(game_id, lower(player_name), market)` (unique) to
+ *    get a stable `player_id`. Keyed `${game_id}::${player.toLowerCase()}::${market}`.
+ * 2. STATS — `nfl_player_game_logs` holds the realized stat columns keyed by
+ *    `(player_id, season, week)` (parsed from the pick's game_id). Keyed
+ *    `${player_id}::${season}::${week}`.
+ *
+ * Defensive (same style as fetchFootballGameResults): any error → empty maps, so
+ * every prop pick stays pending rather than false-grading. A missing bridge or
+ * stats row also yields a miss in gradeProp → null → pending.
+ */
+async function fetchPropGradingData(
+  cfbClient: SupabaseClient,
+  propPicks: AvatarPick[],
+): Promise<{ bridge: Map<string, string>; stats: Map<string, Record<string, unknown>> }> {
+  const bridge = new Map<string, string>();
+  const stats = new Map<string, Record<string, unknown>>();
+  if (propPicks.length === 0) return { bridge, stats };
+
+  try {
+    // Distinct game_ids across the pending prop picks.
+    const gameIds = [...new Set(propPicks.map(p => p.game_id).filter(Boolean))];
+    if (gameIds.length === 0) return { bridge, stats };
+
+    // 1. Bridge: nfl_dryrun_props → player_id, keyed by (game_id, player, market).
+    const { data: bridgeRows, error: bridgeErr } = await cfbClient
+      .from('nfl_dryrun_props')
+      .select('game_id, player_name, market, player_id')
+      .in('game_id', gameIds);
+
+    if (bridgeErr) {
+      console.error('[grade-avatar-picks] Error fetching nfl_dryrun_props (prop bridge):', bridgeErr);
+      return { bridge, stats };
+    }
+
+    for (const row of bridgeRows || []) {
+      if (row.player_id == null) continue;
+      const key = `${String(row.game_id)}::${String(row.player_name ?? '').toLowerCase()}::${String(row.market ?? '')}`;
+      bridge.set(key, String(row.player_id));
+    }
+
+    // 2. Stats: nfl_player_game_logs keyed by (player_id, season, week). Collect
+    //    the distinct (season, week) pairs from the prop picks' game_ids
+    //    ("{season}_{week}_{AWAY}_{HOME}") and fetch all logs for those weeks.
+    const seasons = new Set<number>();
+    const weeks = new Set<number>();
+    for (const id of gameIds) {
+      const parts = id.split('_');
+      const season = Number(parts[0]);
+      const week = Number(parts[1]);
+      if (Number.isFinite(season)) seasons.add(season);
+      if (Number.isFinite(week)) weeks.add(week);
+    }
+
+    if (seasons.size > 0 && weeks.size > 0) {
+      const { data: statRows, error: statErr } = await cfbClient
+        .from('nfl_player_game_logs')
+        .select('player_id, season, week, pass_yds, pass_tds, rush_yds, rec_yds, receptions, anytime_td')
+        .in('season', [...seasons])
+        .in('week', [...weeks]);
+
+      if (statErr) {
+        console.error('[grade-avatar-picks] Error fetching nfl_player_game_logs (prop stats):', statErr);
+        return { bridge, stats };
+      }
+
+      for (const row of statRows || []) {
+        const key = `${String(row.player_id)}::${Number(row.season)}::${Number(row.week)}`;
+        stats.set(key, row as Record<string, unknown>);
+      }
+    }
+
+    console.log(`[grade-avatar-picks] Prop grading data: ${bridge.size} bridge rows, ${stats.size} stat rows for ${gameIds.length} game_ids`);
+    return { bridge, stats };
+  } catch (error) {
+    console.error('[grade-avatar-picks] Unexpected error fetching prop grading data:', error);
+    return { bridge, stats };
+  }
+}
+
+/**
+ * Grade one NFL player-prop pick via the player_id bridge.
+ *
+ * Returns the SAME shape as gradePickFromView. Returns null (pick stays pending)
+ * whenever the bridge row or the stats row is missing — NEVER false-grade a
+ * player we can't positively resolve. Coverage ceiling is ~77% for the dryrun
+ * week (game-log completeness), so misses are expected and must stay pending.
+ *
+ * - anytime_td: graded against the boolean `anytime_td`. over → won if true;
+ *   under → won if false. No push.
+ * - lined markets: graded against the numeric stat vs the pick's prop_line and
+ *   direction, with a push on an exact tie (same over/under math as totals).
+ */
+function gradeProp(
+  pick: AvatarPick,
+  bridge: Map<string, string>,
+  stats: Map<string, Record<string, unknown>>,
+): { result: 'won' | 'lost' | 'push'; actual_result: string } | null {
+  const parts = pick.game_id.split('_');
+  const season = Number(parts[0]);
+  const week = Number(parts[1]);
+  const player = pick.prop_player ?? '';
+  const market = pick.prop_market ?? '';
+  const direction = pick.prop_direction;
+  const dirLabel = direction === 'over' ? 'Over' : 'Under';
+
+  // Bridge: pick → player_id. Miss → stays pending (no false grade).
+  const playerId = bridge.get(`${pick.game_id}::${player.toLowerCase()}::${market}`);
+  if (!playerId) {
+    console.log(`[grade-avatar-picks][prop] no bridge row for pick=${pick.id} game=${pick.game_id} player="${player}" market=${market} — staying pending`);
+    return null;
+  }
+
+  // Stats row for (player_id, season, week). Miss → stays pending.
+  const row = stats.get(`${playerId}::${season}::${week}`);
+  if (!row) {
+    console.log(`[grade-avatar-picks][prop] no stats row for pick=${pick.id} player_id=${playerId} season=${season} week=${week} — staying pending`);
+    return null;
+  }
+
+  const statCol = PROP_MARKET_STAT[market];
+  if (!statCol) {
+    console.log(`[grade-avatar-picks][prop] unknown prop_market="${market}" for pick=${pick.id} — staying pending`);
+    return null;
+  }
+  const actual = row[statCol];
+
+  // anytime_td — boolean outcome, no push.
+  if (market === 'player_anytime_td') {
+    const scored = actual === true;
+    let result: 'won' | 'lost' | 'push';
+    if (direction === 'over') result = scored ? 'won' : 'lost';
+    else result = scored ? 'lost' : 'won'; // under: win when NO TD
+    return {
+      result,
+      actual_result: `${player} anytime TD: ${scored ? 'yes' : 'no'} (${dirLabel}) → ${result}`,
+    };
+  }
+
+  // Lined markets — numeric stat vs the pick's picked line.
+  const line = pick.prop_line;
+  const actualNum = typeof actual === 'number' ? actual : Number(actual);
+  if (line == null || !Number.isFinite(actualNum)) {
+    console.log(`[grade-avatar-picks][prop] missing line/stat for pick=${pick.id} market=${market} line=${line} actual=${String(actual)} — staying pending`);
+    return null;
+  }
+
+  let result: 'won' | 'lost' | 'push';
+  if (actualNum > line) {
+    result = direction === 'over' ? 'won' : 'lost';
+  } else if (actualNum < line) {
+    result = direction === 'under' ? 'won' : 'lost';
+  } else {
+    result = 'push'; // exact tie on the line
+  }
+  return {
+    result,
+    actual_result: `${player} ${statCol} ${actualNum} vs ${line} ${dirLabel} → ${result}`,
+  };
 }
 
 // =============================================================================
@@ -1246,10 +1437,56 @@ serve(async (req) => {
     const gradedDetails: GradingResult[] = [];
     const affectedAvatars = new Set<string>();
 
+    // Prop picks don't live in football_game_results — they grade off the
+    // player_id bridge (nfl_dryrun_props) + nfl_player_game_logs. Fetch that
+    // data ONCE up front, only when there's at least one pending prop pick.
+    const propPicks = straightPicks.filter(p => p.bet_type === 'prop');
+    const hasProps = propPicks.length > 0;
+    const propData = hasProps ? await fetchPropGradingData(cfbClient, propPicks) : null;
+
     for (const pick of straightPicks) {
       summary.total_processed++;
 
       try {
+        // ── Prop picks: route to the prop grader and skip the game-result
+        //    lookup entirely (props aren't in football_game_results). A null
+        //    result (missing bridge/stats row) keeps the pick pending —
+        //    identical downstream handling to a straight not-final skip. ──
+        if (pick.bet_type === 'prop') {
+          const grading = propData ? gradeProp(pick, propData.bridge, propData.stats) : null;
+          if (!grading) {
+            console.log(`[grade-avatar-picks] Skipping prop pick ${pick.id} — bridge/stats row missing (stays pending)`);
+            summary.skipped++;
+            incrementSkipReason(summary, 'prop_not_gradable');
+            continue;
+          }
+          if (!dryRun) {
+            const { error: updateError } = await supabase
+              .from('avatar_picks')
+              .update({
+                result: grading.result,
+                actual_result: grading.actual_result,
+                graded_at: new Date().toISOString(),
+                grading_skip_reason: null,
+              })
+              .eq('id', pick.id);
+            if (updateError) {
+              console.error(`[grade-avatar-picks] Failed to update prop pick ${pick.id}:`, updateError);
+              summary.errors++;
+              continue;
+            }
+          }
+          summary[grading.result]++;
+          affectedAvatars.add(pick.avatar_id);
+          gradedDetails.push({
+            pick_id: pick.id,
+            result: grading.result,
+            actual_result: grading.actual_result,
+          });
+          console.log(`[grade-avatar-picks] Graded prop pick ${pick.id}: ${grading.result} (${grading.actual_result})`);
+          continue;
+        }
+
         const leagueData = resultsByLeague[pick.sport];
         if (!leagueData) {
           summary.skipped++;

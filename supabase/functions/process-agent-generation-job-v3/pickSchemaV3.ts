@@ -91,7 +91,7 @@ export function buildSubmitPicksSchema(band: UnitBand): Record<string, unknown> 
             odds: { type: "string", description: 'American odds with explicit sign, e.g. "-110" / "+150".' },
             prop_player: { type: "string", description: 'REQUIRED when bet_type="prop". The player name copied VERBATIM from the get_props result, e.g. "Patrick Mahomes".' },
             prop_market: { type: "string", description: 'REQUIRED when bet_type="prop". The prop market copied VERBATIM from the get_props result, e.g. "passing_yards".' },
-            prop_line: { type: "number", description: 'REQUIRED when bet_type="prop". The posted line copied VERBATIM from the get_props result, e.g. 275.5.' },
+            prop_line: { type: "number", description: 'REQUIRED for lined markets (yards/receptions/TD-count); OMIT for player_anytime_td (it has no line).' },
             prop_direction: { type: "string", enum: ["over", "under"], description: 'REQUIRED when bet_type="prop". Which side of the line — "over" or "under".' },
             units: {
               type: "number",
