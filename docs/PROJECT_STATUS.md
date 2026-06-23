@@ -42,8 +42,8 @@ it's all staged to ship together when V3 is enabled.
 | Part | What | Status |
 |---|---|---|
 | **Cross-sport agents** | One agent can cover NFL + NBA + MLB, etc. (auto-routed to V3) | ✅ Built, staged |
-| **Parlays** | Agents combine picks into multi-leg tickets (2–4 legs) | 🟡 Submit tool + grading **built & working for NBA/NCAAB/MLB**; football legs wait on the data repoint below |
-| **Bettable player props** | Agents bet props — **only props with a validated signal** — straight or as parlay legs | 🟡 Surfacing + signal-gate code built but **inert** until the agent slate is repointed to the dryrun tables |
+| **Parlays** | Agents combine picks into multi-leg tickets (2–4 legs) | ✅ Submit tool + grading **built & working, all five sports** (NFL/CFB graded via the repoint + football results view) |
+| **Bettable player props** | Agents bet props — **only props with a validated signal** — straight or as parlay legs | 🟡 Surfacing + signal-gate **working** (104 signal-backed props validated on the test slate); the *betting* submit path is the remaining piece |
 | **New creation questions** | Simplified, V3-aware personality questions | ✅ Spec'd; not yet wired into the create-agent screens |
 
 **Locked design decisions:**
@@ -58,18 +58,21 @@ it's all staged to ship together when V3 is enabled.
 
 **Testing it safely before launch:** V3 is isolated — it runs in "dry-run" mode (generates picks,
 writes nothing), it's behind an on/off switch with spend/run caps, and test agents stay private (no
-user sees them). ⚠️ **But:** the agent slate currently reads the **legacy** prediction tables
-(`nfl_predictions_epa` / `cfb_live_weekly_inputs`), **not** the new 2026 dryrun tables — so running
-the new model data + player props through an agent first requires repointing the slate (see below).
+user sees them). The agent slate now reads the **2026 dryrun tables** (done *additively* — live V2
+stays on legacy, untouched). Validated on the Week-12-2025 slate: all 14 games join their props
+(104 signal-backed) and their results by the same `game_id` — so an agent picks real games and
+grades against real finals. The remaining test is running the live agent loop end-to-end, which
+needs the staged code deployed to a preview branch or prod (a deploy decision, not yet taken).
 
-**Remaining V3 work (dependency order):**
-1. **Foundational — repoint the agent slate** (`fetchNFLGames`/`fetchCFBGames`) from the legacy
-   prediction tables to the 2026 **dryrun tables**. This is what connects the new model data + props
-   to the agents; until it's done, props are inert and football data is stale.
-2. **Foundational — wire NFL/CFB grading** into `grade-avatar-picks` (read the dryrun finals). Until
-   this, football agent picks + parlay legs don't grade.
-3. Bettable signal-gated props — the submit/grade path (the surfacing + signal-gate code is built, awaiting #1).
-4. Wire the new question set into the create-agent screens (web + mobile + iOS) + archetype presets.
+**Remaining V3 work:**
+1. **Bettable player props — the submit path:** `prop` bet type (migration + schema), the
+   `bettableProps` signal-gate in `submitPicks`, prop legs in `submitParlay`, and prop grading vs
+   `nfl_player_game_logs`. (Props already surface + are signal-gated — they just can't be staked yet.)
+2. Wire the new question set into the create-agent screens (web + mobile + iOS) + archetype presets.
+3. Backfill the first-pass payload nulls when convenient (public-betting, line-movement, H2H, O/U probability).
+4. Run the live agent loop on a preview branch (a deploy step).
 
-**Done & staged (PR #15):** cross-family gating · parlay submit tool · parlay grading + props
-*surfacing* code — all functional for **NBA/NCAAB/MLB** today; football waits on #1–#2.
+**Done & staged (PR #15):** cross-family gating · parlay submit tool · parlay grading **(all five
+sports)** · NFL/CFB football grading re-wired · **agent-slate repoint to the 2026 dryrun tables
+(additive — V2 untouched)** · props surfacing + signal-gate — data plumbing validated on the
+Week-12-2025 slate (14 games ↔ 104 signal-backed props ↔ results, all by `game_id`).
