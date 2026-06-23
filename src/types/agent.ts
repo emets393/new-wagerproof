@@ -54,6 +54,22 @@ export function toggleSportSelection(selected: Sport[], sport: Sport): Sport[] {
 export const BET_TYPES = ['spread', 'moneyline', 'total', 'any'] as const;
 export type BetType = (typeof BET_TYPES)[number];
 
+// ── V3 market allowlist + new dials. These back the OPTIONAL/additive fields on
+//    PersonalityParams below — V2 creations omit them, so live agent creation is
+//    unaffected. Source of truth for the create-agent form is the LOCKED CONTRACT
+//    in .claude/docs/agents/15_V3_PERSONALITY_QUESTIONS.md. ───────────────────────
+export const MARKET_KEYS = [
+  'fg_ml', 'fg_spread', 'fg_total', 'h1_ml', 'h1_spread', 'h1_total',
+  'f5_ml', 'f5_spread', 'f5_total', 'team_total', 'prop',
+] as const;
+export type MarketKey = (typeof MARKET_KEYS)[number];
+/** Per-sport market allowlist: which markets the agent may bet for each selected sport. */
+export type AllowedMarkets = Partial<Record<Sport, MarketKey[]>>;
+export const LINE_TIMINGS = ['early', 'balanced', 'late'] as const; // NFL/CFB only
+export type LineTiming = (typeof LINE_TIMINGS)[number];
+export const STAKING_STYLES = ['flat', 'scaled'] as const;
+export type StakingStyle = (typeof STAKING_STYLES)[number];
+
 export const PICK_RESULTS = ['won', 'lost', 'push', 'pending'] as const;
 export type PickResult = (typeof PICK_RESULTS)[number];
 
@@ -106,6 +122,17 @@ export interface PersonalityParams {
   home_court_boost: Scale1To5;
   fade_back_to_backs?: boolean;
   upset_alert?: boolean;
+
+  // ── V3 personality (OPTIONAL — additive; consumed when V3 ships, ignored by V2.
+  //    LOCKED CONTRACT: .claude/docs/agents/15_V3_PERSONALITY_QUESTIONS.md) ─────────
+  allowed_markets?: AllowedMarkets;   // per-sport market allowlist (supersedes preferred_bet_type in V3)
+  trust_signals?: Scale1To5;          // lean on validated signals (get_signals)
+  public_lean?: Scale1To5;            // public betting fade↔follow (supersedes fade_public + public_threshold)
+  respect_line_movement?: Scale1To5;  // respect line movement / sharp money (get_line_movement)
+  line_timing?: LineTiming;           // NFL/CFB ONLY — openers (early) ↔ wait for movement (late)
+  staking_style?: StakingStyle;       // flat units ↔ scaled by conviction
+  parlays_enabled?: boolean;          // V3 parlay toggle (supersedes parlay_appetite)
+  max_parlay_legs?: 2 | 3 | 4;        // leg cap when parlays_enabled
 }
 
 export interface CustomInsights {
@@ -285,6 +312,26 @@ export const PersonalityParamsSchema = z.object({
   home_court_boost: Scale1To5Schema,
   fade_back_to_backs: z.boolean().optional(),
   upset_alert: z.boolean().optional(),
+
+  // ── V3 (OPTIONAL — additive; absent on V2 creations, so live production keeps
+  //    validating unchanged). LOCKED CONTRACT — 15_V3_PERSONALITY_QUESTIONS.md. ────
+  // Explicit per-sport object + .partial() so an agent may set markets for ONLY its
+  // sports (NFL-only → { nfl: [...] }) while the sport keys + market values stay
+  // validated. .partial() makes every sport key optional (the Partial<Record> shape).
+  allowed_markets: z.object({
+    nfl: z.array(z.enum(MARKET_KEYS)),
+    cfb: z.array(z.enum(MARKET_KEYS)),
+    nba: z.array(z.enum(MARKET_KEYS)),
+    ncaab: z.array(z.enum(MARKET_KEYS)),
+    mlb: z.array(z.enum(MARKET_KEYS)),
+  }).partial().optional(),
+  trust_signals: Scale1To5Schema.optional(),
+  public_lean: Scale1To5Schema.optional(),
+  respect_line_movement: Scale1To5Schema.optional(),
+  line_timing: z.enum(LINE_TIMINGS).optional(),
+  staking_style: z.enum(STAKING_STYLES).optional(),
+  parlays_enabled: z.boolean().optional(),
+  max_parlay_legs: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
 });
 
 export const CustomInsightsSchema = z.object({
