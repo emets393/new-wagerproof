@@ -15,10 +15,12 @@ interface AvatarPick {
   matchup: string;
   game_date: string;
   bet_type: 'spread' | 'moneyline' | 'total';
-  /** MLB-only: 'full' = whole game, 'f5' = first 5 innings.
+  /** Period of the bet. 'full' = whole game (all sports, DB default).
+   *  'f5' = MLB first 5 innings. 'h1' = NFL/CFB first half.
    *  Defaults to 'full' on the row (DB CHECK + DEFAULT). Older picks
-   *  written before migration 20260501140000 will read back as 'full'. */
-  period: 'full' | 'f5';
+   *  written before migration 20260501140000 will read back as 'full'.
+   *  gradePickFromView routes f5 → f5_* fields and h1 → h1_* fields. */
+  period: 'full' | 'f5' | 'h1';
   pick_selection: string;
   odds: string | null;
   units: number;
@@ -57,6 +59,16 @@ interface GameResult {
   f5_away_score?: number | null;
   f5_total_runs?: number | null;
   f5_ou_result?: string | null;
+  // ── H1 (first-half) parallel fields, NFL/CFB only. ──
+  // Populated from football_game_results.h1_* when the game is final.
+  // The grader routes here for picks with period === 'h1', mirroring the
+  // F5 (MLB) branch: ML uses h1_ml_result; spread/total grade score-based
+  // against h1_home_score / h1_away_score and the agent's picked line.
+  h1_ml_result?: string | null;
+  h1_spread_result?: string | null;
+  h1_total_result?: string | null;
+  h1_home_score?: number | null;
+  h1_away_score?: number | null;
 }
 
 interface ParsedSpreadPick {
@@ -97,9 +109,10 @@ interface ParlayLeg {
   matchup: string;
   game_date: string;
   bet_type: 'spread' | 'moneyline' | 'total' | 'prop';
-  /** 'full' | 'f5' | 'h1'. Only 'full'/'f5' are gradable here (matches the
-   *  straight grader). 'h1' (NFL/CFB first half) stays pending — football
-   *  results aren't wired yet (doc §13). */
+  /** 'full' | 'f5' | 'h1'. All three are gradable here (matches the straight
+   *  grader): 'f5' (MLB) routes to f5_* fields, 'h1' (NFL/CFB first half)
+   *  routes to h1_* fields, both via gradePickFromView. Football results
+   *  (full + h1) are looked up by game_id in football_game_results. */
   period: 'full' | 'f5' | 'h1';
   pick_selection: string;
   odds: string | null;
@@ -445,6 +458,67 @@ async function fetchMLBGameResults(
 }
 
 // =============================================================================
+// NFL/CFB Game Results from football_game_results view (RESEARCH Supabase)
+// =============================================================================
+
+/**
+ * Fetch NFL/CFB game results from the football_game_results view.
+ *
+ * UNLIKE NBA/NCAAB (fetched by date) and MLB, football results are looked up
+ * by `game_id` — NFL uses the nflverse scheme, CFB uses the CFBD id, and the
+ * agent's pick already stores that exact `game_id`. We therefore query
+ * `.in('game_id', gameIds)` and return a Map keyed by game_id for O(1) lookup.
+ *
+ * The view exposes both precomputed result strings (ml/spread/ou + h1_*) and
+ * raw scores. We map ML straight from `ml_result`/`h1_ml_result`, but spread
+ * and total are graded SCORE-BASED in gradePickFromView (against the agent's
+ * picked line, not the view's closing-line result) — same as the MLB path.
+ * See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md §"NFL/CFB grading".
+ */
+async function fetchFootballGameResults(
+  cfbClient: SupabaseClient,
+  gameIds: string[]
+): Promise<Map<string, GameResult>> {
+  const results = new Map<string, GameResult>();
+  if (gameIds.length === 0) return results;
+
+  const { data, error } = await cfbClient
+    .from('football_game_results')
+    .select('league, game_id, game_date, home_team, away_team, home_score, away_score, h1_home_score, h1_away_score, ml_result, spread_result, ou_result, h1_ml_result, h1_spread_result, h1_total_result')
+    .in('game_id', gameIds);
+
+  if (error) {
+    console.error('[grade-avatar-picks] Error fetching football game results from football_game_results:', error);
+    return results;
+  }
+
+  for (const row of data || []) {
+    const gameId = String(row.game_id);
+    results.set(gameId, {
+      league: row.league ? String(row.league) : '',
+      game_id: gameId,
+      game_date: String(row.game_date),
+      home_team: String(row.home_team),
+      away_team: String(row.away_team),
+      ml_result: row.ml_result != null ? String(row.ml_result) : null,
+      spread_result: row.spread_result != null ? String(row.spread_result) : null,
+      ou_result: row.ou_result != null ? String(row.ou_result) : null,
+      home_score: row.home_score != null ? Number(row.home_score) : null,
+      away_score: row.away_score != null ? Number(row.away_score) : null,
+      // H1 parallels — null until the game is final / 1H scores are filled.
+      h1_ml_result: row.h1_ml_result != null ? String(row.h1_ml_result) : null,
+      h1_spread_result: row.h1_spread_result != null ? String(row.h1_spread_result) : null,
+      h1_total_result: row.h1_total_result != null ? String(row.h1_total_result) : null,
+      h1_home_score: row.h1_home_score != null ? Number(row.h1_home_score) : null,
+      h1_away_score: row.h1_away_score != null ? Number(row.h1_away_score) : null,
+    });
+  }
+
+  console.log(`[grade-avatar-picks] Fetched ${results.size} football game results for game_ids: ${gameIds.join(', ')}`);
+  return results;
+}
+
+// =============================================================================
 // Team Name Resolution
 // =============================================================================
 
@@ -521,21 +595,25 @@ function gradePickFromView(
   gameResult: GameResult
 ): { result: 'won' | 'lost' | 'push'; actual_result: string } | null {
   const actualResultPrefix = `${gameResult.away_team} vs ${gameResult.home_team}`;
-  // Period-aware routing for MLB. Non-MLB picks have period === 'full'
+  // Period-aware routing. Non-MLB/football picks have period === 'full'
   // by default (DB column default) so the full-game branches still apply.
-  // For F5 picks, swap in the f5_* parallel fields. If the F5 fields are
-  // missing (e.g. game cancelled before bottom of 5th, or older data
-  // captured before F5 results were recorded), return null so the pick
-  // stays pending — never silently grade an F5 bet against full-game
-  // results.
+  // For F5 (MLB) picks, swap in the f5_* parallel fields; for H1 (NFL/CFB
+  // first-half) picks, swap in the h1_* parallel fields. If the period
+  // fields are missing (e.g. game not final yet, or older data captured
+  // before period results were recorded), return null so the pick stays
+  // pending — never silently grade a period bet against full-game results.
   const isF5 = pick.period === 'f5';
-  const periodLabel = isF5 ? 'F5' : 'Final';
+  const isH1 = pick.period === 'h1';
+  const periodLabel = isF5 ? 'F5' : isH1 ? '1H' : 'Final';
 
   switch (pick.bet_type) {
     case 'moneyline': {
-      const mlResult = isF5 ? gameResult.f5_ml_result : gameResult.ml_result;
+      // Period routing: F5 → f5_ml_result (MLB), H1 → h1_ml_result (NFL/CFB),
+      // else full-game ml_result. Missing period result → stays pending.
+      const mlResult = isF5 ? gameResult.f5_ml_result : isH1 ? gameResult.h1_ml_result : gameResult.ml_result;
       if (!mlResult) {
         if (isF5) console.log(`[grade-avatar-picks][f5_ml] no F5 result yet for pick=${pick.id} game=${pick.game_id}`);
+        if (isH1) console.log(`[grade-avatar-picks][h1_ml] no 1H result yet for pick=${pick.id} game=${pick.game_id}`);
         return null;
       }
 
@@ -545,7 +623,7 @@ function gradePickFromView(
       const canonical = resolveCanonicalTeamName(pickedTeam, gameResult, pick.matchup, pick.archived_game_data);
       if (!canonical) return null;
 
-      // F5 ML can push when both teams score equally through 5.
+      // F5/H1 ML can push when both teams score equally in the period.
       let result: 'won' | 'lost' | 'push';
       if (mlResult === 'push') {
         result = 'push';
@@ -586,14 +664,13 @@ function gradePickFromView(
       let result: 'won' | 'lost' | 'push';
       let actual: string;
 
-      // MLB path: we have raw scores so grade against actual margin.
-      // For F5 picks, route to the parallel f5_home_score / f5_away_score
-      // fields. Same math: margin (from picked side) + signed spread,
-      // positive = won, negative = lost, zero = push. F5 RL is typically
-      // ±0.5, which can never push (margin is always integer); but we
-      // allow the math to express it cleanly in case the line is whole.
-      const homeScoreForGrade = isF5 ? gameResult.f5_home_score : gameResult.home_score;
-      const awayScoreForGrade = isF5 ? gameResult.f5_away_score : gameResult.away_score;
+      // Score-based path (MLB always; NFL/CFB via football_game_results):
+      // grade against actual margin. For F5 picks route to f5_home_score /
+      // f5_away_score; for H1 (NFL/CFB) picks route to h1_home_score /
+      // h1_away_score. Same math: margin (from picked side) + signed spread,
+      // positive = won, negative = lost, zero = push (only on whole lines).
+      const homeScoreForGrade = isF5 ? gameResult.f5_home_score : isH1 ? gameResult.h1_home_score : gameResult.home_score;
+      const awayScoreForGrade = isF5 ? gameResult.f5_away_score : isH1 ? gameResult.h1_away_score : gameResult.away_score;
       if (typeof homeScoreForGrade === 'number' && typeof awayScoreForGrade === 'number') {
         const homeNorm = normalizeTeamName(gameResult.home_team);
         const canonNorm = normalizeTeamName(canonical);
@@ -608,6 +685,10 @@ function gradePickFromView(
       } else if (isF5) {
         // F5 picks need F5 scores — never fall through to full-game scores.
         console.log(`[grade-avatar-picks][f5_spread] no F5 scores for pick=${pick.id} game=${pick.game_id}`);
+        return null;
+      } else if (isH1) {
+        // H1 picks need 1H scores — never fall through to full-game scores.
+        console.log(`[grade-avatar-picks][h1_spread] no 1H scores for pick=${pick.id} game=${pick.game_id}`);
         return null;
       } else {
         // Non-MLB fallback: trust the view's spread_result. This can
@@ -646,10 +727,15 @@ function gradePickFromView(
       let result: 'won' | 'lost' | 'push';
       let actual: string;
 
-      // For F5 totals use f5_total_runs / f5 scores; otherwise use full-game.
-      const totalForGrade = isF5 ? gameResult.f5_total_runs : gameResult.total_runs;
-      const homeScoreLabel = isF5 ? gameResult.f5_home_score : gameResult.home_score;
-      const awayScoreLabel = isF5 ? gameResult.f5_away_score : gameResult.away_score;
+      // For F5 totals use f5_total_runs; for H1 (NFL/CFB) totals derive the
+      // 1H total from h1_home_score + h1_away_score (score-based, graded
+      // against the agent's picked line — same as MLB); otherwise full-game.
+      const h1TotalForGrade = (isH1 && typeof gameResult.h1_home_score === 'number' && typeof gameResult.h1_away_score === 'number')
+        ? gameResult.h1_home_score + gameResult.h1_away_score
+        : null;
+      const totalForGrade = isF5 ? gameResult.f5_total_runs : isH1 ? h1TotalForGrade : gameResult.total_runs;
+      const homeScoreLabel = isF5 ? gameResult.f5_home_score : isH1 ? gameResult.h1_home_score : gameResult.home_score;
+      const awayScoreLabel = isF5 ? gameResult.f5_away_score : isH1 ? gameResult.h1_away_score : gameResult.away_score;
       if (typeof totalForGrade === 'number') {
         const total = totalForGrade;
         if (total > parsed.line) {
@@ -670,6 +756,12 @@ function gradePickFromView(
         // have f5_total_runs the pick stays pending until grading runs
         // again with the F5 result populated.
         console.log(`[grade-avatar-picks][f5_total] no F5 total for pick=${pick.id} game=${pick.game_id}`);
+        return null;
+      } else if (isH1) {
+        // H1 totals can't fall back to full-game numbers — never grade a
+        // 1H bet against the full-game total. Stays pending until the 1H
+        // scores are populated in football_game_results.
+        console.log(`[grade-avatar-picks][h1_total] no 1H scores for pick=${pick.id} game=${pick.game_id}`);
         return null;
       } else {
         // Non-MLB fallback: trust the view's ou_result (computed against
@@ -714,6 +806,15 @@ function findGameResult(
     return resultsMap.get(pick.game_id)!;
   }
 
+  // NFL/CFB are keyed by game_id ONLY (nflverse / CFBD ids). The view isn't
+  // fetched by date and team names don't normalize cleanly across feeds, so
+  // never fall back to date/team matching for football — a miss means the
+  // game isn't final yet and the pick should stay pending.
+  if (pick.sport === 'nfl' || pick.sport === 'cfb') {
+    console.log(`[grade-avatar-picks] No football game result for pick ${pick.id} (game_id: ${pick.game_id}) — staying pending`);
+    return null;
+  }
+
   const pickDate = toDateOnly(pick.game_date);
   const parsedMatchup = parseMatchup(pick.matchup);
   const archivedTeams = getArchivedTeamNames(pick.archived_game_data);
@@ -754,12 +855,11 @@ function findGameResult(
  *
  * Conservative gating (correctness-critical — this feeds real W-L + units):
  *   - prop legs are LEFT pending (props grading is a separate task).
- *   - h1 legs (NFL/CFB first half) are LEFT pending — football finals aren't
- *     wired into this grader yet (doc §13), and gradePickFromView has no h1
- *     branch (would mis-grade against full-game scores).
  *   - any leg in an unsupported sport / not-final / parse-ambiguous stays
  *     pending, which keeps the whole parlay pending. We never finalize a
  *     ticket with an ungraded leg.
+ * Football (NFL/CFB) full + h1 legs ARE graded: looked up by game_id in
+ * football_game_results, with h1 routed to the h1_* fields by gradePickFromView.
  *
  * Roll-up (only when NO leg is pending):
  *   - any leg lost            → parlay 'lost'
@@ -823,18 +923,21 @@ async function gradeParlays(
 
   // 2. Batch-fetch game results per sport across ALL gradable legs at once,
   //    mirroring the straight-pick path. Only legs we will actually try to
-  //    grade (full/f5, non-prop, supported sport) contribute dates.
+  //    grade (non-prop, supported sport) contribute keys. NFL/CFB legs —
+  //    including h1 — are looked up by game_id via football_game_results.
   const nbaDates = new Set<string>();
   const ncaabDates = new Set<string>();
   const mlbDates = new Set<string>();
+  const footballGameIds = new Set<string>();
   for (const leg of (allLegs || []) as ParlayLeg[]) {
-    if (leg.bet_type === 'prop' || leg.period === 'h1') continue;
+    if (leg.bet_type === 'prop') continue;
     if (leg.sport === 'nba') nbaDates.add(leg.game_date);
     else if (leg.sport === 'ncaab') ncaabDates.add(leg.game_date);
     else if (leg.sport === 'mlb') mlbDates.add(leg.game_date);
+    else if (leg.sport === 'nfl' || leg.sport === 'cfb') footballGameIds.add(leg.game_id);
   }
 
-  const [nbaResults, ncaabResults, mlbResults] = await Promise.all([
+  const [nbaResults, ncaabResults, mlbResults, footballResults] = await Promise.all([
     nbaDates.size > 0
       ? fetchGameResults(cfbClient, 'NBA', [...nbaDates])
       : Promise.resolve(new Map<string, GameResult>()),
@@ -844,12 +947,18 @@ async function gradeParlays(
     mlbDates.size > 0
       ? fetchMLBGameResults(cfbClient, [...mlbDates])
       : Promise.resolve(new Map<string, GameResult>()),
+    footballGameIds.size > 0
+      ? fetchFootballGameResults(cfbClient, [...footballGameIds])
+      : Promise.resolve(new Map<string, GameResult>()),
   ]);
 
+  const footballAll = [...footballResults.values()];
   const resultsByLeague: Record<string, { map: Map<string, GameResult>; all: GameResult[] }> = {
     nba: { map: nbaResults, all: [...nbaResults.values()] },
     ncaab: { map: ncaabResults, all: [...ncaabResults.values()] },
     mlb: { map: mlbResults, all: [...mlbResults.values()] },
+    nfl: { map: footballResults, all: footballAll },
+    cfb: { map: footballResults, all: footballAll },
   };
 
   // 3. Grade each parlay's legs, then roll up.
@@ -867,10 +976,11 @@ async function gradeParlays(
       for (const leg of legs) {
         if (leg.leg_result !== 'pending') continue;          // already settled
         if (leg.bet_type === 'prop') continue;               // props: separate task → stays pending
-        if (leg.period === 'h1') continue;                   // football 1H not wired → stays pending
+        // h1 (NFL/CFB first half) IS gradable now — gradePickFromView routes
+        // it to the h1_* fields; football results are looked up by game_id.
 
         const leagueData = resultsByLeague[leg.sport];
-        if (!leagueData) continue;                           // unsupported sport (nfl/cfb) → stays pending
+        if (!leagueData) continue;                           // unsupported sport → stays pending
 
         // gradePickFromView/findGameResult read the same shape on a straight
         // pick; build an AvatarPick view over the leg so we reuse it verbatim.
@@ -1054,15 +1164,17 @@ serve(async (req) => {
     console.log(`[grade-avatar-picks] Today (ET): ${today}`);
 
     // -------------------------------------------------------------------------
-    // 1. Fetch pending picks — NBA and NCAAB only
-    //    (NFL/CFB seasons are over; view doesn't cover them yet)
+    // 1. Fetch pending picks — NBA, NCAAB, MLB (by date) and NFL/CFB (by
+    //    game_id via football_game_results). Football finals only populate
+    //    when the dryrun build runs live, so off-season football picks just
+    //    stay pending — no harm in including them in the filter.
     // -------------------------------------------------------------------------
     const { data: pendingPicks, error: fetchError } = await supabase
       .from('avatar_picks')
       .select('*')
       .eq('result', 'pending')
       .lte('game_date', today)
-      .in('sport', ['nba', 'ncaab', 'mlb']);
+      .in('sport', ['nba', 'ncaab', 'mlb', 'nfl', 'cfb']);
 
     if (fetchError) {
       throw new Error(`Failed to fetch pending picks: ${fetchError.message}`);
@@ -1084,14 +1196,17 @@ serve(async (req) => {
     const nbaDates = new Set<string>();
     const ncaabDates = new Set<string>();
     const mlbDates = new Set<string>();
+    // NFL/CFB are looked up by game_id (not date) via football_game_results.
+    const footballGameIds = new Set<string>();
 
     for (const pick of straightPicks) {
       if (pick.sport === 'nba') nbaDates.add(pick.game_date);
       else if (pick.sport === 'ncaab') ncaabDates.add(pick.game_date);
       else if (pick.sport === 'mlb') mlbDates.add(pick.game_date);
+      else if (pick.sport === 'nfl' || pick.sport === 'cfb') footballGameIds.add(pick.game_id);
     }
 
-    const [nbaResults, ncaabResults, mlbResults] = await Promise.all([
+    const [nbaResults, ncaabResults, mlbResults, footballResults] = await Promise.all([
       nbaDates.size > 0
         ? fetchGameResults(cfbClient, 'NBA', [...nbaDates])
         : Promise.resolve(new Map<string, GameResult>()),
@@ -1101,12 +1216,20 @@ serve(async (req) => {
       mlbDates.size > 0
         ? fetchMLBGameResults(cfbClient, [...mlbDates])
         : Promise.resolve(new Map<string, GameResult>()),
+      footballGameIds.size > 0
+        ? fetchFootballGameResults(cfbClient, [...footballGameIds])
+        : Promise.resolve(new Map<string, GameResult>()),
     ]);
 
+    // NFL and CFB share one football_game_results Map (each row carries its
+    // own league); both sports resolve picks by game_id against it.
+    const footballAll = [...footballResults.values()];
     const resultsByLeague: Record<string, { map: Map<string, GameResult>; all: GameResult[] }> = {
       nba: { map: nbaResults, all: [...nbaResults.values()] },
       ncaab: { map: ncaabResults, all: [...ncaabResults.values()] },
       mlb: { map: mlbResults, all: [...mlbResults.values()] },
+      nfl: { map: footballResults, all: footballAll },
+      cfb: { map: footballResults, all: footballAll },
     };
 
     // -------------------------------------------------------------------------
