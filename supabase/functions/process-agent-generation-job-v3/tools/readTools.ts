@@ -105,7 +105,7 @@ export async function runReadTool(
 /** Build the bettable-prop ledger key. MUST stay byte-identical to the key the
  *  submit tool checks and to the format documented in context.ts:
  *  `${player_name.toLowerCase()}::${market}::${line}` (line = close_line). */
-function propKey(playerName: unknown, market: unknown, line: unknown): string {
+export function propKey(playerName: unknown, market: unknown, line: unknown): string {
   return `${String(playerName ?? "").toLowerCase()}::${String(market ?? "")}::${String(line ?? "")}`;
 }
 

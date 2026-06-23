@@ -11,6 +11,9 @@ import { clampUnits } from "../unitBands.ts";
 import { ensureFormattedGameSnapshot, normalizeDecisionTrace } from "../../shared/agentGameHelpers.ts";
 import { getMaxPicks } from "../../generate-avatar-picks/promptBuilder.ts";
 import { type AgentGenContext, type SubmitReport } from "./context.ts";
+// Reuse the ONE prop-key builder so the submit gate keys byte-identically to the
+// keys get_props registers in ctx.bettableProps. Do NOT re-define it here.
+import { propKey } from "./readTools.ts";
 
 // Copied verbatim from process-agent-generation-job-v2/index.ts:56.
 function formatPickSelectionForPeriod(selection: string, period: "full" | "f5"): string {
@@ -53,10 +56,27 @@ export async function submitPicks(
       reject(gameId, betType, `game_not_in_slate — valid ids: ${validSlateGameIds.slice(0, 20).join(", ")}`);
       continue;
     }
-    const grounded = ctx.deepFetched.get(gameId);
-    if (!grounded || !grounded.has(betType)) {
-      reject(gameId, betType, `bet_type_not_grounded — fetch this game's data (e.g. get_market_odds) before betting ${betType}`);
-      continue;
+    if (betType === "prop") {
+      // Props ground against the bettableProps ledger (NOT deepFetched): only the
+      // signal-backed props get_props surfaced as is_bettable can be staked. The
+      // four prop_* fields must all be present so we can build the gate key.
+      const rawRec = raw as Record<string, unknown>;
+      const pPlayer = rawRec.prop_player, pMarket = rawRec.prop_market, pLine = rawRec.prop_line, pDir = rawRec.prop_direction;
+      if (pPlayer == null || pMarket == null || pLine == null || pDir == null) {
+        reject(gameId, betType, "prop_fields_required — prop bets need prop_player, prop_market, prop_line, and prop_direction (copy them verbatim from get_props)");
+        continue;
+      }
+      const pk = propKey(pPlayer, pMarket, pLine);
+      if (!ctx.bettableProps.get(gameId)?.has(pk)) {
+        reject(gameId, betType, "prop_not_bettable — only signal-backed props surfaced by get_props can be bet");
+        continue;
+      }
+    } else {
+      const grounded = ctx.deepFetched.get(gameId);
+      if (!grounded || !grounded.has(betType)) {
+        reject(gameId, betType, `bet_type_not_grounded — fetch this game's data (e.g. get_market_odds) before betting ${betType}`);
+        continue;
+      }
     }
 
     // ── Zod (V2 schema + units) ───────────────────────────────────────────
@@ -74,19 +94,29 @@ export async function submitPicks(
     const gameDate = String(gameSnapshot.game_date || gameSnapshot.game_date_et || ctx.targetDate);
 
     // ── Deterministic validator (copied from V2) ─────────────────────────
-    // Check 2: dedup (game_id, bet_type) — keep last.
-    const dedupKey = `${pick.game_id}::${pick.bet_type}`;
+    // Check 2: dedup — keep last. Props key on player+market so two distinct
+    // props in one game coexist (they all share bet_type 'prop'); non-props key
+    // on (game_id, bet_type) as before.
+    const dedupKey = pick.bet_type === "prop"
+      ? `${pick.game_id}::prop::${String(pick.prop_player ?? "").toLowerCase()}::${String(pick.prop_market ?? "").toLowerCase()}`
+      : `${pick.game_id}::${pick.bet_type}`;
     if (seenGameBetTypes.has(dedupKey)) {
-      const idx = picksToInsert.findIndex((p) => p.game_id === pick.game_id && p.bet_type === pick.bet_type);
+      const idx = pick.bet_type === "prop"
+        ? picksToInsert.findIndex((p) =>
+            p.game_id === pick.game_id && p.bet_type === "prop" &&
+            String(p.prop_player ?? "").toLowerCase() === String(pick.prop_player ?? "").toLowerCase() &&
+            String(p.prop_market ?? "").toLowerCase() === String(pick.prop_market ?? "").toLowerCase())
+        : picksToInsert.findIndex((p) => p.game_id === pick.game_id && p.bet_type === pick.bet_type);
       if (idx >= 0) picksToInsert.splice(idx, 1);
     }
     seenGameBetTypes.add(dedupKey);
 
-    // Check 3: team-in-selection for spread/moneyline.
+    // Check 3: team-in-selection for spread/moneyline. Skipped for props — a
+    // prop selection is a player name, not a team.
     const awayTeam = String(gameSnapshot.away_team || "").toLowerCase().trim();
     const homeTeam = String(gameSnapshot.home_team || "").toLowerCase().trim();
     const selectionLower = pick.selection.toLowerCase().trim();
-    if (pick.bet_type !== "total" && awayTeam && homeTeam) {
+    if (pick.bet_type !== "total" && pick.bet_type !== "prop" && awayTeam && homeTeam) {
       const awayLast = awayTeam.split(/\s+/).pop() || "";
       const homeLast = homeTeam.split(/\s+/).pop() || "";
       const first = selectionLower.split(/\s+/)[0] || "___";
@@ -101,13 +131,14 @@ export async function submitPicks(
 
     const formattedSnapshot = ensureFormattedGameSnapshot(gameSnapshot, sportType, pick.game_id);
 
-    let effectiveBetType: "spread" | "moneyline" | "total" = pick.bet_type;
+    let effectiveBetType: "spread" | "moneyline" | "total" | "prop" = pick.bet_type;
     const effectivePeriod: "full" | "f5" = (pick.period ?? "full") as "full" | "f5";
     let effectiveSelection = pick.selection;
     let effectiveOdds = pick.odds;
     let mlSwapInfo: string | null = null;
 
-    // ML→RL auto-swap (MLB, max_favorite_odds).
+    // ML→RL auto-swap (MLB, max_favorite_odds). Inherently prop-safe: props are
+    // NFL-only and bet_type 'prop' (never 'moneyline'), so this never fires.
     if (sportType === "mlb" && effectiveBetType === "moneyline") {
       const maxFav = (ctx.personalityParams as Record<string, unknown>)?.max_favorite_odds;
       const oddsNum = parseInt(String(effectiveOdds), 10);
@@ -143,7 +174,8 @@ export async function submitPicks(
       }
     }
 
-    // Totals line rewrite to the Vegas line (period-aware).
+    // Totals line rewrite to the Vegas line (period-aware). Inherently prop-safe:
+    // a prop's bet_type is 'prop' (never 'total'), so props keep their prop_line.
     if (effectiveBetType === "total") {
       const dirMatch = String(effectiveSelection || "").match(/\b(over|under)\b/i);
       const direction = dirMatch ? (dirMatch[1].toLowerCase() === "over" ? "Over" : "Under") : null;
@@ -187,6 +219,9 @@ export async function submitPicks(
         : undefined;
 
     const dt = (pick as Record<string, unknown>).decision_trace;
+    // Props are always full-game and carry the model's verbatim selection (a
+    // player line, never period-rewritten) plus the four structured columns.
+    const isProp = effectiveBetType === "prop";
     picksToInsert.push({
       avatar_id: ctx.avatarId,
       game_id: pick.game_id,
@@ -194,9 +229,17 @@ export async function submitPicks(
       matchup: matchup || `Game ${pick.game_id}`,
       game_date: gameDate,
       bet_type: effectiveBetType,
-      period: effectivePeriod,
-      pick_selection: effectiveSelection,
+      period: isProp ? "full" : effectivePeriod,
+      pick_selection: isProp ? pick.selection : effectiveSelection,
       odds: effectiveOdds,
+      ...(isProp
+        ? {
+            prop_player: pick.prop_player,
+            prop_market: pick.prop_market,
+            prop_line: pick.prop_line,
+            prop_direction: pick.prop_direction,
+          }
+        : {}),
       units: clamp.units,
       confidence: pick.confidence,
       reasoning_text: pick.reasoning,
@@ -233,17 +276,45 @@ export async function submitPicks(
   report.allAccepted = report.rejected.length === 0;
 
   // ── Write (skipped on dry_run) ────────────────────────────────────────
+  // Props CANNOT ride the straights upsert: two props in one game both key to
+  // (avatar_id, game_id, 'prop'), so they'd collide on unique_avatar_pick and a
+  // dup-key upsert array errors in Postgres. So we partition: straights keep the
+  // per-row upsert (unchanged); props use a delete-then-insert per game.
+  const straightRows = picksToInsert.filter((p) => p.bet_type !== "prop");
+  const propRows = picksToInsert.filter((p) => p.bet_type === "prop");
+
   if (!ctx.dryRun && picksToInsert.length > 0) {
     if (ctx.generationType === "manual") {
       const ids = picksToInsert.map((p) => p.game_id as string);
       await ctx.main.from("avatar_picks").delete().eq("avatar_id", ctx.avatarId).in("game_id", ids);
     }
-    const { error } = await ctx.main
-      .from("avatar_picks")
-      .upsert(picksToInsert, { onConflict: "avatar_id,game_id,bet_type" });
-    if (error) {
-      report.ok = false;
-      report.rejected.push({ game_id: "*", bet_type: "*", reason: `db_upsert_failed: ${error.message}` });
+
+    if (straightRows.length > 0) {
+      const { error } = await ctx.main
+        .from("avatar_picks")
+        .upsert(straightRows, { onConflict: "avatar_id,game_id,bet_type" });
+      if (error) {
+        report.ok = false;
+        report.rejected.push({ game_id: "*", bet_type: "*", reason: `db_upsert_failed: ${error.message}` });
+      }
+    }
+
+    if (propRows.length > 0) {
+      // Idempotent re-run safety (manual + auto): clear this avatar's existing
+      // prop rows for the touched games, then plain-insert the new ones. (The
+      // manual delete above already cleared them; this also covers auto re-runs.)
+      const propGameIds = [...new Set(propRows.map((p) => p.game_id as string))];
+      await ctx.main
+        .from("avatar_picks")
+        .delete()
+        .eq("avatar_id", ctx.avatarId)
+        .eq("bet_type", "prop")
+        .in("game_id", propGameIds);
+      const { error: propError } = await ctx.main.from("avatar_picks").insert(propRows);
+      if (propError) {
+        report.ok = false;
+        report.rejected.push({ game_id: "*", bet_type: "prop", reason: `db_prop_insert_failed: ${propError.message}` });
+      }
     }
   }
 

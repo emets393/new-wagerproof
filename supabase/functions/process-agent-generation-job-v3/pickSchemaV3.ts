@@ -49,6 +49,15 @@ export const GeneratedPickV3Schema = GeneratedPickSchema.extend({
     .max(5.0)
     .refine((u) => Math.round(u * 2) === u * 2, "units must be in 0.5 increments"),
   decision_trace: V3DecisionTrace, // override the strict base with the lenient one
+  // Props are a fourth bet_type (NFL-only, signal-gated). extend() overrides the
+  // base enum cleanly, exactly like it overrides decision_trace above. The four
+  // prop_* fields are optional at the Zod layer (straights omit them) — the
+  // submit tool enforces they're all present when bet_type==='prop'.
+  bet_type: z.enum(["spread", "moneyline", "total", "prop"]),
+  prop_player: z.string().optional(),
+  prop_market: z.string().optional(),
+  prop_line: z.number().optional(),
+  prop_direction: z.enum(["over", "under"]).optional(),
 });
 
 export type GeneratedPickV3 = z.infer<typeof GeneratedPickV3Schema>;
@@ -72,10 +81,18 @@ export function buildSubmitPicksSchema(band: UnitBand): Record<string, unknown> 
           type: "object",
           properties: {
             game_id: { type: "string", description: "Must be a game_id from the slate (verbatim)." },
-            bet_type: { type: "string", enum: ["spread", "moneyline", "total"] },
+            bet_type: {
+              type: "string",
+              enum: ["spread", "moneyline", "total", "prop"],
+              description: 'The bet type. Use "prop" for a player prop (NFL-only) — only props surfaced as bettable by get_props can be staked, and the four prop_* fields below are REQUIRED.',
+            },
             period: { type: "string", enum: ["full", "f5"] },
-            selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120".' },
+            selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120". For a prop, the full human-readable selection, e.g. "Patrick Mahomes Over 275.5 Passing Yards".' },
             odds: { type: "string", description: 'American odds with explicit sign, e.g. "-110" / "+150".' },
+            prop_player: { type: "string", description: 'REQUIRED when bet_type="prop". The player name copied VERBATIM from the get_props result, e.g. "Patrick Mahomes".' },
+            prop_market: { type: "string", description: 'REQUIRED when bet_type="prop". The prop market copied VERBATIM from the get_props result, e.g. "passing_yards".' },
+            prop_line: { type: "number", description: 'REQUIRED when bet_type="prop". The posted line copied VERBATIM from the get_props result, e.g. 275.5.' },
+            prop_direction: { type: "string", enum: ["over", "under"], description: 'REQUIRED when bet_type="prop". Which side of the line — "over" or "under".' },
             units: {
               type: "number",
               enum: band.enumValues,
