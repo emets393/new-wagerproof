@@ -14,6 +14,9 @@ interface DeepToolDef {
   sports: Sport[];
   grounds: "all" | "none"; // 'all' → game becomes bettable for any bet type
   desc: string;
+  /** Optional: project only this nested sub-key of each group (e.g. "first_half"
+   *  inside vegas_lines/model_predictions). Lets one period get its own focused tool. */
+  subkey?: string;
 }
 
 /** Deep projection tools. Each returns the named group(s) from the cached game. */
@@ -38,14 +41,25 @@ const DEEP_TOOLS: Record<string, DeepToolDef> = {
   // ctx.bettableProps, but it lives in DEEP_TOOLS so it's advertised + sport-gated
   // + budgeted like the other deep fetches. grounds:"all" → bettable props ground.
   get_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form." },
+
+  // ── NFL/CFB-specific tools (our dryrun model output + validated signals) ──
+  get_signals: { groups: ["signals"], sports: ["nfl", "cfb"], grounds: "all", desc: "Validated betting signals firing on this game — each with its stance (the side/market it triggers) + tier. These are our proven high-ROI SPOT triggers, not just model output; a firing signal makes the game bettable on its side." },
+  get_conviction: { groups: ["conviction"], sports: ["nfl", "cfb"], grounds: "none", desc: "Our conviction read for the game: conviction tier, stake units, and the mammoth flag (the 3-unit, highest-confidence plays where the model + signals align)." },
+  get_full_game: { groups: ["vegas_lines", "model_predictions"], subkey: "full_game", sports: ["nfl", "cfb"], grounds: "all", desc: "Full-game model + lines: spread cover prob, predicted margin/total, spread + total edges, predicted scores, and the model's pick + tier." },
+  get_first_half: { groups: ["vegas_lines", "model_predictions"], subkey: "first_half", sports: ["nfl", "cfb"], grounds: "all", desc: "First-half (1H) model + 1H lines: 1H predicted margin/total, 1H edges, cover-tilt, and 1H picks. (Our vaulted 1H model.)" },
+  get_team_totals: { groups: ["vegas_lines", "model_predictions"], subkey: "team_totals", sports: ["nfl", "cfb"], grounds: "all", desc: "Team-totals model + lines: each team's predicted points, the TT edges + picks, and over/under prices." },
 };
 
 /** Tools the loop should charge against the deep-fetch budget. */
 export const DEEP_TOOL_NAMES = new Set(Object.keys(DEEP_TOOLS));
 
-function projectGroups(fg: Record<string, unknown>, groups: string[]): Record<string, unknown> {
+function projectGroups(fg: Record<string, unknown>, groups: string[], subkey?: string): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const g of groups) if (fg[g] != null) out[g] = fg[g];
+  for (const g of groups) {
+    const v = fg[g];
+    if (v == null) continue;
+    out[g] = subkey ? ((v as Record<string, unknown>)[subkey] ?? null) : v;
+  }
   return out;
 }
 
@@ -75,7 +89,7 @@ export async function runReadTool(
     const loaded = ctx.games.get(id);
     if (!loaded) { results.push({ game_id: id, error: "not_in_slate" }); continue; }
     if (!def.sports.includes(loaded.sport)) { results.push({ game_id: id, applicable: false, note: `${name} not available for ${loaded.sport}` }); continue; }
-    const data = projectGroups(loaded.fg, def.groups);
+    const data = projectGroups(loaded.fg, def.groups, def.subkey);
     results.push({ game_id: id, matchup: loaded.fg.matchup, ...data });
     recordFacts(ctx, id, data);
     if (def.grounds === "all") for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);
