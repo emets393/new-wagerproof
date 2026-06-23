@@ -124,6 +124,13 @@ interface ParlayLeg {
   period: 'full' | 'f5' | 'h1';
   pick_selection: string;
   odds: string | null;
+  // ── Player-prop columns (bet_type === 'prop', NFL-only). Mirror avatar_picks'
+  // prop cols; written by submitParlay.ts, read by gradeProp via the player_id
+  // bridge. NULL on non-prop legs. See migration 20260622000004. ──
+  prop_player?: string;
+  prop_market?: string;
+  prop_line?: number | null;
+  prop_direction?: 'over' | 'under';
   archived_game_data: Record<string, unknown>;
   leg_result: 'won' | 'lost' | 'push' | 'pending';
   graded_at: string | null;
@@ -1045,7 +1052,9 @@ function findGameResult(
  * sources), then the ticket is rolled up ONLY when every leg is graded.
  *
  * Conservative gating (correctness-critical — this feeds real W-L + units):
- *   - prop legs are LEFT pending (props grading is a separate task).
+ *   - prop legs ARE graded, via gradeProp (player_id bridge + game logs) — the
+ *     same path straight prop picks use. A null (missing bridge/stats row) keeps
+ *     that leg pending, which keeps the whole parlay pending (never false-grade).
  *   - any leg in an unsupported sport / not-final / parse-ambiguous stays
  *     pending, which keeps the whole parlay pending. We never finalize a
  *     ticket with an ungraded leg.
@@ -1152,6 +1161,16 @@ async function gradeParlays(
     cfb: { map: footballResults, all: footballAll },
   };
 
+  // 2b. Prop legs grade off the player_id bridge (nfl_dryrun_props) +
+  //     nfl_player_game_logs, NOT football_game_results — same path straight
+  //     prop picks use. Fetch that data ONCE across every pending parlay's prop
+  //     legs (fetchPropGradingData only reads .game_id, so a leg-shaped view is
+  //     enough). A missing bridge/stats row → gradeProp null → leg stays pending.
+  const propLegs = ((allLegs || []) as ParlayLeg[]).filter(l => l.bet_type === 'prop');
+  const propData = propLegs.length > 0
+    ? await fetchPropGradingData(cfbClient, propLegs as unknown as AvatarPick[])
+    : null;
+
   // 3. Grade each parlay's legs, then roll up.
   for (const parlay of pendingParlays as AvatarParlay[]) {
     summary.parlays_processed++;
@@ -1166,7 +1185,55 @@ async function gradeParlays(
       // --- Grade each not-yet-graded, gradable leg ---
       for (const leg of legs) {
         if (leg.leg_result !== 'pending') continue;          // already settled
-        if (leg.bet_type === 'prop') continue;               // props: separate task → stays pending
+
+        // Prop legs grade via gradeProp (player_id bridge + game logs), NOT the
+        // football_game_results lookup below — the same path straight prop picks
+        // use. A null (missing bridge/stats row) leaves this leg pending, which
+        // keeps the whole parlay pending via the roll-up's anyPending gate.
+        if (leg.bet_type === 'prop') {
+          const propAsPick: AvatarPick = {
+            id: leg.id,
+            avatar_id: parlay.avatar_id,
+            game_id: leg.game_id,
+            sport: leg.sport,
+            matchup: leg.matchup,
+            game_date: leg.game_date,
+            bet_type: 'prop',
+            period: leg.period as AvatarPick['period'],
+            pick_selection: leg.pick_selection,
+            prop_player: leg.prop_player,
+            prop_market: leg.prop_market,
+            prop_line: leg.prop_line,
+            prop_direction: leg.prop_direction,
+            odds: leg.odds,
+            units: 0,
+            confidence: 0,
+            reasoning_text: '',
+            key_factors: null,
+            archived_game_data: leg.archived_game_data,
+            result: 'pending',
+            actual_result: null,
+            graded_at: null,
+          };
+          const propGrading = propData ? gradeProp(propAsPick, propData.bridge, propData.stats) : null;
+          if (!propGrading) continue;                        // missing bridge/stats → stays pending
+
+          leg.leg_result = propGrading.result;
+          leg.graded_at = new Date().toISOString();
+          summary.legs_graded++;
+          if (!dryRun) {
+            const { error: legUpdErr } = await supabase
+              .from('avatar_parlay_legs')
+              .update({ leg_result: propGrading.result, graded_at: leg.graded_at })
+              .eq('id', leg.id);
+            if (legUpdErr) {
+              console.error(`[grade-avatar-picks][parlay] Failed to update prop leg ${leg.id}:`, legUpdErr);
+              summary.errors++;
+            }
+          }
+          console.log(`[grade-avatar-picks][parlay] Prop leg ${leg.id} → ${propGrading.result} (${propGrading.actual_result})`);
+          continue;
+        }
         // h1 (NFL/CFB first half) IS gradable now — gradePickFromView routes
         // it to the h1_* fields; football results are looked up by game_id.
 

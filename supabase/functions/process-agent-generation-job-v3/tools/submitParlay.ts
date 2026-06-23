@@ -13,6 +13,9 @@
 import { clampUnits } from "../unitBands.ts";
 import { ensureFormattedGameSnapshot } from "../../shared/agentGameHelpers.ts";
 import { type AgentGenContext, type SubmitReport } from "./context.ts";
+// Reuse the ONE prop-key builder so a prop leg's gate keys byte-identically to
+// the keys get_props registers in ctx.bettableProps (same as submitPicks.ts).
+import { propKey } from "./readTools.ts";
 
 // Copied verbatim from tools/submitPicks.ts (which copied it from V2).
 function formatPickSelectionForPeriod(selection: string, period: "full" | "f5"): string {
@@ -43,6 +46,13 @@ interface LegRow {
   period: string;
   pick_selection: string;
   odds: string;
+  // Structured prop columns (bet_type==='prop' only; null on non-prop legs).
+  // Mirror avatar_picks' prop cols so the parlay grader resolves the leg via
+  // gradeProp. See migration 20260622000004_avatar_parlay_legs_props.sql.
+  prop_player?: string;
+  prop_market?: string;
+  prop_line?: number | null;
+  prop_direction?: string;
   archived_game_data: Record<string, unknown>;
   leg_result: string;
 }
@@ -88,10 +98,26 @@ export async function submitParlay(
 
       // ── Grounding gate (identical to submit_picks) ──────────────────────
       if (!ctx.slateGameIds.has(gameId)) { legFailure = `leg ${gameId}: game_not_in_slate`; break; }
-      const grounded = ctx.deepFetched.get(gameId);
-      if (!grounded || !grounded.has(betType)) { legFailure = `leg ${gameId} ${betType}: not_grounded — fetch this game's data first`; break; }
-      if (!(betType === "spread" || betType === "moneyline" || betType === "total")) { legFailure = `leg ${gameId}: invalid bet_type ${betType}`; break; }
-      const legKey = `${gameId}::${betType}`;
+      if (!(betType === "spread" || betType === "moneyline" || betType === "total" || betType === "prop")) { legFailure = `leg ${gameId}: invalid bet_type ${betType}`; break; }
+
+      // Props ground against the bettableProps ledger (NOT deepFetched), exactly
+      // like submit_picks: only signal-backed props get_props surfaced as
+      // bettable can be a leg. Non-prop legs keep the deepFetched grounding gate.
+      let legKey: string;
+      if (betType === "prop") {
+        const pPlayer = leg?.prop_player, pMarket = leg?.prop_market, pDir = leg?.prop_direction;
+        if (pPlayer == null || pMarket == null || pDir == null) { legFailure = `leg ${gameId}: prop_fields_required`; break; }
+        // prop_line omitted for player_anytime_td; propKey coerces undefined → "".
+        const pk = propKey(pPlayer, pMarket, leg?.prop_line);
+        if (!ctx.bettableProps.get(gameId)?.has(pk)) { legFailure = `leg ${gameId}: prop_not_bettable`; break; }
+        // Key on player+market so two distinct props in one game coexist in one
+        // ticket (they all share bet_type 'prop').
+        legKey = `${gameId}::prop::${String(pPlayer).toLowerCase()}::${pMarket}`;
+      } else {
+        const grounded = ctx.deepFetched.get(gameId);
+        if (!grounded || !grounded.has(betType)) { legFailure = `leg ${gameId} ${betType}: not_grounded — fetch this game's data first`; break; }
+        legKey = `${gameId}::${betType}`;
+      }
       if (seenLegKeys.has(legKey)) { legFailure = `duplicate leg ${legKey} in one ticket`; break; }
       seenLegKeys.add(legKey);
 
@@ -102,7 +128,7 @@ export async function submitParlay(
       const matchup = String(gameSnapshot.matchup || `${gameSnapshot.away_team} @ ${gameSnapshot.home_team}`);
       const gameDate = String(gameSnapshot.game_date || gameSnapshot.game_date_et || ctx.targetDate);
 
-      let effectiveBetType: "spread" | "moneyline" | "total" = betType as "spread" | "moneyline" | "total";
+      let effectiveBetType: "spread" | "moneyline" | "total" | "prop" = betType as "spread" | "moneyline" | "total" | "prop";
       const effectivePeriod: "full" | "f5" = String(leg?.period ?? "full") === "f5" ? "f5" : "full";
       let effectiveSelection = String(leg?.selection ?? "");
       let effectiveOdds = String(leg?.odds ?? "");
@@ -111,7 +137,8 @@ export async function submitParlay(
       const awayTeam = String(gameSnapshot.away_team || "").toLowerCase().trim();
       const homeTeam = String(gameSnapshot.home_team || "").toLowerCase().trim();
       const selLower = effectiveSelection.toLowerCase().trim();
-      if (effectiveBetType !== "total" && awayTeam && homeTeam) {
+      // Skipped for total + prop: a prop selection is a player name, not a team.
+      if (effectiveBetType !== "total" && effectiveBetType !== "prop" && awayTeam && homeTeam) {
         const awayLast = awayTeam.split(/\s+/).pop() || "";
         const homeLast = homeTeam.split(/\s+/).pop() || "";
         const first = selLower.split(/\s+/)[0] || "___";
@@ -167,16 +194,30 @@ export async function submitParlay(
       }
       effectiveSelection = formatPickSelectionForPeriod(effectiveSelection, effectivePeriod);
 
-      // price the leg + accumulate combined decimal odds
+      // price the leg + accumulate combined decimal odds (prop odds are American
+      // strings too, so they price identically via americanToDecimal)
       const dec = americanToDecimal(effectiveOdds);
       if (!Number.isFinite(dec)) { legFailure = `leg ${gameId}: unpriceable odds "${effectiveOdds}"`; break; }
       decimalProduct *= dec;
       sports.add(sportType);
 
+      // Props are always full-game and carry the model's verbatim selection (a
+      // player line, never period-rewritten) plus the four structured columns
+      // the parlay grader resolves via gradeProp. Non-prop legs unchanged.
+      const isProp = effectiveBetType === "prop";
       legs.push({
         game_id: gameId, sport: sportType, matchup, game_date: gameDate,
-        bet_type: effectiveBetType, period: effectivePeriod,
-        pick_selection: effectiveSelection, odds: effectiveOdds,
+        bet_type: effectiveBetType, period: isProp ? "full" : effectivePeriod,
+        pick_selection: isProp ? String(leg?.selection ?? effectiveSelection) : effectiveSelection,
+        odds: effectiveOdds,
+        ...(isProp
+          ? {
+              prop_player: leg?.prop_player != null ? String(leg.prop_player) : undefined,
+              prop_market: leg?.prop_market != null ? String(leg.prop_market) : undefined,
+              prop_line: typeof leg?.prop_line === "number" ? leg.prop_line : null,
+              prop_direction: leg?.prop_direction != null ? String(leg.prop_direction) : undefined,
+            }
+          : {}),
         archived_game_data: ensureFormattedGameSnapshot(gameSnapshot, sportType, gameId),
         leg_result: "pending",
       });
