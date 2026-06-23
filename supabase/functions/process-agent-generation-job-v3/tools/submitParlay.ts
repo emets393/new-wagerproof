@@ -97,7 +97,8 @@ export async function submitParlay(
 
     const legs: LegRow[] = [];
     const sports = new Set<string>();
-    const seenLegKeys = new Set<string>(); // no duplicate (game,bet_type) within a ticket
+    const seenLegKeys = new Set<string>(); // exact-duplicate leg guard (props key on game+player+market)
+    const seenNonPropGames = new Set<string>(); // correlation guard: ≤1 non-prop leg per game (props exempt)
     let decimalProduct = 1;
     let legFailure: string | null = null;
 
@@ -126,6 +127,13 @@ export async function submitParlay(
       } else {
         const grounded = ctx.deepFetched.get(gameId);
         if (!grounded || !grounded.has(betType)) { legFailure = `leg ${gameId} ${betType}: not_grounded — fetch this game's data first`; break; }
+        // Correlation guard: at most ONE non-prop leg per game (full-game + 1H +
+        // team-total all count). No book lets you parlay e.g. both team totals +
+        // the game total of one game — they're correlated. Player props are exempt
+        // (handled in the branch above; they may share a game with each other and
+        // with a single non-prop leg).
+        if (seenNonPropGames.has(gameId)) { legFailure = `leg ${gameId}: same_game_non_prop_not_allowed — only one full-game/1H/team-total leg per game in a parlay (player props can share a game)`; break; }
+        seenNonPropGames.add(gameId);
         legKey = `${gameId}::${betType}`;
       }
       if (seenLegKeys.has(legKey)) { legFailure = `duplicate leg ${legKey} in one ticket`; break; }

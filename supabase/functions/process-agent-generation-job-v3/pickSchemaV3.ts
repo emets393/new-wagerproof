@@ -176,7 +176,7 @@ export function buildSubmitParlaySchema(band: UnitBand, maxLegs: number): Record
               type: "array",
               minItems: 2,
               maxItems: cap,
-              description: `The legs of this parlay (2-${cap}). Each leg must be a game whose data you fetched first.`,
+              description: `The legs of this parlay (2-${cap}). Each leg must be a game whose data you fetched first. At most ONE non-prop leg (full-game or 1H spread/ML/total, or a team total) per game — those are correlated and no book allows them in one ticket; player props are EXEMPT and may share a game with a non-prop leg and with each other (e.g. Cowboys ML + Dak Over 1.5 Pass TD is fine; Cowboys team total + Seahawks team total + game Over is NOT).`,
               items: {
                 type: "object",
                 properties: {
