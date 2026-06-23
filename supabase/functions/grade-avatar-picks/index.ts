@@ -14,13 +14,13 @@ interface AvatarPick {
   sport: string;
   matchup: string;
   game_date: string;
-  bet_type: 'spread' | 'moneyline' | 'total' | 'prop';
+  bet_type: 'spread' | 'moneyline' | 'total' | 'prop' | 'team_total';
   /** Period of the bet. 'full' = whole game (all sports, DB default).
    *  'f5' = MLB first 5 innings. 'h1' = NFL/CFB first half.
    *  Defaults to 'full' on the row (DB CHECK + DEFAULT). Older picks
    *  written before migration 20260501140000 will read back as 'full'.
    *  gradePickFromView routes f5 → f5_* fields and h1 → h1_* fields.
-   *  Prop picks are always 'full'. */
+   *  Prop + team_total picks are always 'full'. */
   period: 'full' | 'f5' | 'h1';
   pick_selection: string;
   // ── Player-prop columns (bet_type === 'prop', NFL-only). Copied verbatim by
@@ -116,11 +116,12 @@ interface ParlayLeg {
   sport: string;
   matchup: string;
   game_date: string;
-  bet_type: 'spread' | 'moneyline' | 'total' | 'prop';
+  bet_type: 'spread' | 'moneyline' | 'total' | 'prop' | 'team_total';
   /** 'full' | 'f5' | 'h1'. All three are gradable here (matches the straight
    *  grader): 'f5' (MLB) routes to f5_* fields, 'h1' (NFL/CFB first half)
    *  routes to h1_* fields, both via gradePickFromView. Football results
-   *  (full + h1) are looked up by game_id in football_game_results. */
+   *  (full + h1) are looked up by game_id in football_game_results.
+   *  team_total legs are full-game and grade against that team's full-game score. */
   period: 'full' | 'f5' | 'h1';
   pick_selection: string;
   odds: string | null;
@@ -978,6 +979,49 @@ function gradePickFromView(
       }
 
       return { result, actual_result: actual };
+    }
+
+    case 'team_total': {
+      // A single team's FULL-GAME points (NFL/CFB). selection is
+      // "{Team} {Over|Under} {line}", e.g. "Buffalo Bills Over 24.5". Grade the
+      // named team's full-game score against the picked line. Always full-game —
+      // there is no 1H team-total here, so we never touch the h1_* fields.
+      const m = pick.pick_selection.match(/^(.*?)\s+(over|under)\s+(\d+\.?\d*)\s*$/i);
+      if (!m) {
+        console.log(`[grade-avatar-picks][team_total] could not parse selection="${pick.pick_selection}" pick=${pick.id}`);
+        return null;
+      }
+      const teamPart = m[1].trim();
+      const direction = m[2].toLowerCase() as 'over' | 'under';
+      const line = parseFloat(m[3]);
+
+      const canonical = resolveCanonicalTeamName(teamPart, gameResult, pick.matchup, pick.archived_game_data);
+      if (!canonical) {
+        console.log(`[grade-avatar-picks][team_total] CANONICAL_FAIL pick=${pick.id} team="${teamPart}"`);
+        return null;
+      }
+
+      // Pick that team's full-game score. Miss (game not final) → stays pending.
+      const homeNorm = normalizeTeamName(gameResult.home_team);
+      const canonNorm = normalizeTeamName(canonical);
+      const teamScore = canonNorm === homeNorm ? gameResult.home_score : gameResult.away_score;
+      if (typeof teamScore !== 'number') {
+        console.log(`[grade-avatar-picks][team_total] no score yet for pick=${pick.id} game=${pick.game_id}`);
+        return null;
+      }
+
+      let result: 'won' | 'lost' | 'push';
+      if (teamScore > line) {
+        result = direction === 'over' ? 'won' : 'lost';
+      } else if (teamScore < line) {
+        result = direction === 'under' ? 'won' : 'lost';
+      } else {
+        result = 'push'; // exact tie on a whole-number team-total line
+      }
+      return {
+        result,
+        actual_result: `${actualResultPrefix} — ${canonical} team total ${teamScore} vs ${line} (${direction === 'over' ? 'Over' : 'Under'}) → ${result}`,
+      };
     }
 
     default:

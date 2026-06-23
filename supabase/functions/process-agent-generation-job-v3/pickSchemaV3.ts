@@ -49,11 +49,16 @@ export const GeneratedPickV3Schema = GeneratedPickSchema.extend({
     .max(5.0)
     .refine((u) => Math.round(u * 2) === u * 2, "units must be in 0.5 increments"),
   decision_trace: V3DecisionTrace, // override the strict base with the lenient one
-  // Props are a fourth bet_type (NFL-only, signal-gated). extend() overrides the
-  // base enum cleanly, exactly like it overrides decision_trace above. The four
-  // prop_* fields are optional at the Zod layer (straights omit them) — the
-  // submit tool enforces they're all present when bet_type==='prop'.
-  bet_type: z.enum(["spread", "moneyline", "total", "prop"]),
+  // Props are a fourth bet_type (NFL-only, signal-gated) and team_total a fifth
+  // (NFL/CFB only). extend() overrides the base enum cleanly, exactly like it
+  // overrides decision_trace above. The four prop_* fields are optional at the
+  // Zod layer (straights omit them) — the submit tool enforces they're all
+  // present when bet_type==='prop'. A team_total names the team in `selection`.
+  bet_type: z.enum(["spread", "moneyline", "total", "prop", "team_total"]),
+  // Override the base period enum (full|f5) to add 'h1' (NFL/CFB first half).
+  // Without this override a period='h1' pick would fail Zod parse → schema_invalid
+  // even though the tool JSON Schema offers it. V2's base schema stays f5-only.
+  period: z.enum(["full", "f5", "h1"]).optional().default("full"),
   prop_player: z.string().optional(),
   prop_market: z.string().optional(),
   prop_line: z.number().optional(),
@@ -83,11 +88,11 @@ export function buildSubmitPicksSchema(band: UnitBand): Record<string, unknown> 
             game_id: { type: "string", description: "Must be a game_id from the slate (verbatim)." },
             bet_type: {
               type: "string",
-              enum: ["spread", "moneyline", "total", "prop"],
-              description: 'The bet type. Use "prop" for a player prop (NFL-only) — only props surfaced as bettable by get_props can be staked, and the four prop_* fields below are REQUIRED.',
+              enum: ["spread", "moneyline", "total", "prop", "team_total"],
+              description: 'The bet type. Use "prop" for a player prop (NFL-only) — only props surfaced as bettable by get_props can be staked, and the four prop_* fields below are REQUIRED. Use "team_total" for a single team\'s total points (NFL/CFB) — put the team in `selection`, e.g. "Buffalo Bills Over 24.5".',
             },
-            period: { type: "string", enum: ["full", "f5"] },
-            selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120". For a prop, the full human-readable selection, e.g. "Patrick Mahomes Over 275.5 Passing Yards".' },
+            period: { type: "string", enum: ["full", "f5", "h1"], description: 'f5 = first 5 innings (MLB only). h1 = first half — NFL/CFB only. Omit (defaults to full game) otherwise.' },
+            selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120". For a 1H bet (period="h1"), the 1H line, e.g. "Bills 1H -1.5" / "Over 24.5 1H". For a team_total, the team + side + line, e.g. "Buffalo Bills Over 24.5". For a prop, the full human-readable selection, e.g. "Patrick Mahomes Over 275.5 Passing Yards".' },
             odds: { type: "string", description: 'American odds with explicit sign, e.g. "-110" / "+150".' },
             prop_player: { type: "string", description: 'REQUIRED when bet_type="prop". The player name copied VERBATIM from the get_props result, e.g. "Patrick Mahomes".' },
             prop_market: { type: "string", description: 'REQUIRED when bet_type="prop". The prop market copied VERBATIM from the get_props result, e.g. "passing_yards".' },
@@ -178,11 +183,11 @@ export function buildSubmitParlaySchema(band: UnitBand, maxLegs: number): Record
                   game_id: { type: "string", description: "Must be a game_id from the slate (verbatim)." },
                   bet_type: {
                     type: "string",
-                    enum: ["spread", "moneyline", "total", "prop"],
-                    description: 'The leg bet type. Use "prop" for a player prop (NFL-only) — only props surfaced as bettable by get_props can be a leg, and the four prop_* fields below are REQUIRED.',
+                    enum: ["spread", "moneyline", "total", "prop", "team_total"],
+                    description: 'The leg bet type. Use "prop" for a player prop (NFL-only) — only props surfaced as bettable by get_props can be a leg, and the four prop_* fields below are REQUIRED. Use "team_total" for a single team\'s total points (NFL/CFB) — put the team in `selection`, e.g. "Buffalo Bills Over 24.5".',
                   },
-                  period: { type: "string", enum: ["full", "f5"] },
-                  selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120". For a prop leg, the full human-readable selection, e.g. "Patrick Mahomes Over 275.5 Passing Yards".' },
+                  period: { type: "string", enum: ["full", "f5", "h1"], description: 'f5 = first 5 innings (MLB only). h1 = first half — NFL/CFB only. Omit (defaults to full game) otherwise.' },
+                  selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120". For a 1H leg (period="h1"), the 1H line, e.g. "Bills 1H -1.5" / "Over 24.5 1H". For a team_total leg, the team + side + line, e.g. "Buffalo Bills Over 24.5". For a prop leg, the full human-readable selection, e.g. "Patrick Mahomes Over 275.5 Passing Yards".' },
                   odds: { type: "string", description: 'American odds with explicit sign, e.g. "-110" / "+150".' },
                   prop_player: { type: "string", description: 'REQUIRED when bet_type="prop". The player name copied VERBATIM from the get_props result, e.g. "Patrick Mahomes".' },
                   prop_market: { type: "string", description: 'REQUIRED when bet_type="prop". The prop market copied VERBATIM from the get_props result, e.g. "passing_yards".' },

@@ -15,12 +15,24 @@ import { type AgentGenContext, type SubmitReport } from "./context.ts";
 // keys get_props registers in ctx.bettableProps. Do NOT re-define it here.
 import { propKey } from "./readTools.ts";
 
-// Copied verbatim from process-agent-generation-job-v2/index.ts:56.
-function formatPickSelectionForPeriod(selection: string, period: "full" | "f5"): string {
-  if (period !== "f5" || /\bF5\b/i.test(selection)) return selection;
-  const trimmed = selection.trim();
-  if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, " F5 ML");
-  return `${trimmed} F5`;
+// Period-tags the human-readable selection. f5 (MLB) branch copied verbatim from
+// process-agent-generation-job-v2/index.ts:56; h1 (NFL/CFB first half) mirrors it
+// with a "1H" tag so a graded selection reads "Bills 1H -1.5" / "Over 24.5 1H".
+// 'full' is a pass-through.
+function formatPickSelectionForPeriod(selection: string, period: "full" | "f5" | "h1"): string {
+  if (period === "f5") {
+    if (/\bF5\b/i.test(selection)) return selection;
+    const trimmed = selection.trim();
+    if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, " F5 ML");
+    return `${trimmed} F5`;
+  }
+  if (period === "h1") {
+    if (/\b1H\b/i.test(selection)) return selection;
+    const trimmed = selection.trim();
+    if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, " 1H ML");
+    return `${trimmed} 1H`;
+  }
+  return selection;
 }
 
 export async function submitPicks(
@@ -132,8 +144,12 @@ export async function submitPicks(
 
     const formattedSnapshot = ensureFormattedGameSnapshot(gameSnapshot, sportType, pick.game_id);
 
-    let effectiveBetType: "spread" | "moneyline" | "total" | "prop" = pick.bet_type;
-    const effectivePeriod: "full" | "f5" = (pick.period ?? "full") as "full" | "f5";
+    let effectiveBetType: "spread" | "moneyline" | "total" | "prop" | "team_total" = pick.bet_type;
+    // team_total is always a full-game market (a single team's full-game points),
+    // so it never carries a period — force 'full' regardless of what's sent.
+    const effectivePeriod: "full" | "f5" | "h1" = pick.bet_type === "team_total"
+      ? "full"
+      : ((pick.period ?? "full") as "full" | "f5" | "h1");
     let effectiveSelection = pick.selection;
     let effectiveOdds = pick.odds;
     let mlSwapInfo: string | null = null;
@@ -177,6 +193,7 @@ export async function submitPicks(
 
     // Totals line rewrite to the Vegas line (period-aware). Inherently prop-safe:
     // a prop's bet_type is 'prop' (never 'total'), so props keep their prop_line.
+    // SKIPPED for team_total — that's a per-team line, rewritten in its own block.
     if (effectiveBetType === "total") {
       const dirMatch = String(effectiveSelection || "").match(/\b(over|under)\b/i);
       const direction = dirMatch ? (dirMatch[1].toLowerCase() === "over" ? "Over" : "Under") : null;
@@ -185,6 +202,10 @@ export async function submitPicks(
       if (effectivePeriod === "f5") {
         const f5Ou = vegasLines?.f5_ou as Record<string, unknown> | undefined;
         vegasTotalRaw = f5Ou?.line ?? gameSnapshot.f5_total_line;
+      } else if (effectivePeriod === "h1") {
+        // 1H total (NFL/CFB). Dryrun key: vegas_lines.first_half.total_close.
+        const firstHalf = vegasLines?.first_half as Record<string, unknown> | undefined;
+        vegasTotalRaw = firstHalf?.total_close;
       } else {
         const fullOu = vegasLines?.full_ou as Record<string, unknown> | undefined;
         vegasTotalRaw = fullOu?.line ?? vegasLines?.total ?? gameSnapshot.total_line ?? gameSnapshot.vegas_total;
@@ -194,6 +215,36 @@ export async function submitPicks(
         : null;
       if (direction && vegasTotal != null && !Number.isNaN(vegasTotal)) {
         effectiveSelection = formatPickSelectionForPeriod(`${direction} ${vegasTotal}`, effectivePeriod);
+      }
+    }
+
+    // team_total line rewrite (NFL/CFB). Resolve which side the selection names,
+    // pull THAT team's posted team-total line from vegas_lines.team_totals
+    // (home_close / away_close — same key on both the NFL + CFB dryrun formatters),
+    // and rewrite to "{Team} {Over|Under} {line}". period stays 'full'. If the
+    // team or line can't be resolved we keep the model's verbatim selection (the
+    // team-in-selection validator above already confirmed a team is named).
+    if (effectiveBetType === "team_total") {
+      const dirMatch = String(effectiveSelection || "").match(/\b(over|under)\b/i);
+      const direction = dirMatch ? (dirMatch[1].toLowerCase() === "over" ? "Over" : "Under") : null;
+      const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
+      const teamTotals = vegasLines?.team_totals as Record<string, unknown> | undefined;
+      const homeName = String(gameSnapshot.home_team || "");
+      const awayName = String(gameSnapshot.away_team || "");
+      const selLower = String(effectiveSelection).toLowerCase();
+      const homeLast = homeName.toLowerCase().split(/\s+/).pop() || "";
+      const awayLast = awayName.toLowerCase().split(/\s+/).pop() || "";
+      // Prefer the home match; fall back to away. Use last-word too (e.g. "Bills").
+      const isHome = !!homeName && (selLower.includes(homeName.toLowerCase()) || (!!homeLast && selLower.includes(homeLast)));
+      const isAway = !!awayName && (selLower.includes(awayName.toLowerCase()) || (!!awayLast && selLower.includes(awayLast)));
+      const side: "home" | "away" | null = isHome ? "home" : isAway ? "away" : null;
+      const teamName = side === "home" ? homeName : side === "away" ? awayName : null;
+      const ttRaw = side ? teamTotals?.[`${side}_close`] : undefined;
+      const ttLine = typeof ttRaw === "number" ? ttRaw
+        : typeof ttRaw === "string" && ttRaw.trim() !== "" ? Number(ttRaw)
+        : null;
+      if (direction && teamName && ttLine != null && !Number.isNaN(ttLine)) {
+        effectiveSelection = `${teamName} ${direction} ${ttLine}`;
       }
     }
 

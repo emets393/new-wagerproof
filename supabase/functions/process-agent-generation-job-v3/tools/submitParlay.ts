@@ -17,12 +17,22 @@ import { type AgentGenContext, type SubmitReport } from "./context.ts";
 // the keys get_props registers in ctx.bettableProps (same as submitPicks.ts).
 import { propKey } from "./readTools.ts";
 
-// Copied verbatim from tools/submitPicks.ts (which copied it from V2).
-function formatPickSelectionForPeriod(selection: string, period: "full" | "f5"): string {
-  if (period !== "f5" || /\bF5\b/i.test(selection)) return selection;
-  const trimmed = selection.trim();
-  if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, " F5 ML");
-  return `${trimmed} F5`;
+// Copied verbatim from tools/submitPicks.ts (f5 branch from V2; h1 mirrors it for
+// NFL/CFB first-half legs so a graded leg reads "Bills 1H -1.5" / "Over 24.5 1H").
+function formatPickSelectionForPeriod(selection: string, period: "full" | "f5" | "h1"): string {
+  if (period === "f5") {
+    if (/\bF5\b/i.test(selection)) return selection;
+    const trimmed = selection.trim();
+    if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, " F5 ML");
+    return `${trimmed} F5`;
+  }
+  if (period === "h1") {
+    if (/\b1H\b/i.test(selection)) return selection;
+    const trimmed = selection.trim();
+    if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, " 1H ML");
+    return `${trimmed} 1H`;
+  }
+  return selection;
 }
 
 // American odds <-> decimal, for combining parlay legs into one price.
@@ -98,7 +108,7 @@ export async function submitParlay(
 
       // ── Grounding gate (identical to submit_picks) ──────────────────────
       if (!ctx.slateGameIds.has(gameId)) { legFailure = `leg ${gameId}: game_not_in_slate`; break; }
-      if (!(betType === "spread" || betType === "moneyline" || betType === "total" || betType === "prop")) { legFailure = `leg ${gameId}: invalid bet_type ${betType}`; break; }
+      if (!(betType === "spread" || betType === "moneyline" || betType === "total" || betType === "prop" || betType === "team_total")) { legFailure = `leg ${gameId}: invalid bet_type ${betType}`; break; }
 
       // Props ground against the bettableProps ledger (NOT deepFetched), exactly
       // like submit_picks: only signal-backed props get_props surfaced as
@@ -128,8 +138,12 @@ export async function submitParlay(
       const matchup = String(gameSnapshot.matchup || `${gameSnapshot.away_team} @ ${gameSnapshot.home_team}`);
       const gameDate = String(gameSnapshot.game_date || gameSnapshot.game_date_et || ctx.targetDate);
 
-      let effectiveBetType: "spread" | "moneyline" | "total" | "prop" = betType as "spread" | "moneyline" | "total" | "prop";
-      const effectivePeriod: "full" | "f5" = String(leg?.period ?? "full") === "f5" ? "f5" : "full";
+      let effectiveBetType: "spread" | "moneyline" | "total" | "prop" | "team_total" = betType as "spread" | "moneyline" | "total" | "prop" | "team_total";
+      // team_total is full-game only; h1 = NFL/CFB first half (mirrors f5/MLB).
+      const rawPeriod = String(leg?.period ?? "full");
+      const effectivePeriod: "full" | "f5" | "h1" = effectiveBetType === "team_total"
+        ? "full"
+        : rawPeriod === "f5" ? "f5" : rawPeriod === "h1" ? "h1" : "full";
       let effectiveSelection = String(leg?.selection ?? "");
       let effectiveOdds = String(leg?.odds ?? "");
 
@@ -174,7 +188,8 @@ export async function submitParlay(
         }
       }
 
-      // totals→Vegas rewrite (identical to submit_picks)
+      // totals→Vegas rewrite (identical to submit_picks). SKIPPED for team_total
+      // (per-team line, rewritten in its own block below).
       if (effectiveBetType === "total") {
         const dirMatch = effectiveSelection.match(/\b(over|under)\b/i);
         const direction = dirMatch ? (dirMatch[1].toLowerCase() === "over" ? "Over" : "Under") : null;
@@ -183,6 +198,10 @@ export async function submitParlay(
         if (effectivePeriod === "f5") {
           const f5Ou = vegasLines?.f5_ou as Record<string, unknown> | undefined;
           vtRaw = f5Ou?.line ?? gameSnapshot.f5_total_line;
+        } else if (effectivePeriod === "h1") {
+          // 1H total (NFL/CFB). Dryrun key: vegas_lines.first_half.total_close.
+          const firstHalf = vegasLines?.first_half as Record<string, unknown> | undefined;
+          vtRaw = firstHalf?.total_close;
         } else {
           const fullOu = vegasLines?.full_ou as Record<string, unknown> | undefined;
           vtRaw = fullOu?.line ?? vegasLines?.total ?? gameSnapshot.total_line ?? gameSnapshot.vegas_total;
@@ -190,6 +209,30 @@ export async function submitParlay(
         const vt = typeof vtRaw === "number" ? vtRaw : typeof vtRaw === "string" && vtRaw.trim() !== "" ? Number(vtRaw) : null;
         if (direction && vt != null && !Number.isNaN(vt)) {
           effectiveSelection = formatPickSelectionForPeriod(`${direction} ${vt}`, effectivePeriod);
+        }
+      }
+
+      // team_total→Vegas rewrite (identical to submit_picks): resolve the team the
+      // leg names, pull THAT team's line from vegas_lines.team_totals.{side}_close
+      // (same key on NFL + CFB dryrun formatters), rewrite to "{Team} {O|U} {line}".
+      if (effectiveBetType === "team_total") {
+        const dirMatch = effectiveSelection.match(/\b(over|under)\b/i);
+        const direction = dirMatch ? (dirMatch[1].toLowerCase() === "over" ? "Over" : "Under") : null;
+        const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
+        const teamTotals = vegasLines?.team_totals as Record<string, unknown> | undefined;
+        const homeName = String(gameSnapshot.home_team || "");
+        const awayName = String(gameSnapshot.away_team || "");
+        const selLower = effectiveSelection.toLowerCase();
+        const homeLast = homeName.toLowerCase().split(/\s+/).pop() || "";
+        const awayLast = awayName.toLowerCase().split(/\s+/).pop() || "";
+        const isHome = !!homeName && (selLower.includes(homeName.toLowerCase()) || (!!homeLast && selLower.includes(homeLast)));
+        const isAway = !!awayName && (selLower.includes(awayName.toLowerCase()) || (!!awayLast && selLower.includes(awayLast)));
+        const side: "home" | "away" | null = isHome ? "home" : isAway ? "away" : null;
+        const teamName = side === "home" ? homeName : side === "away" ? awayName : null;
+        const ttRaw = side ? teamTotals?.[`${side}_close`] : undefined;
+        const ttLine = typeof ttRaw === "number" ? ttRaw : typeof ttRaw === "string" && ttRaw.trim() !== "" ? Number(ttRaw) : null;
+        if (direction && teamName && ttLine != null && !Number.isNaN(ttLine)) {
+          effectiveSelection = `${teamName} ${direction} ${ttLine}`;
         }
       }
       effectiveSelection = formatPickSelectionForPeriod(effectiveSelection, effectivePeriod);

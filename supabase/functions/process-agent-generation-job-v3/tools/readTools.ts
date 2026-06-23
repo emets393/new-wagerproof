@@ -7,7 +7,14 @@ import type { ToolDef } from "../types.ts";
 import type { SteeringProfile } from "../deriveSteeringProfile.ts";
 import { type AgentGenContext, markGrounded, recordFacts, type Sport } from "./context.ts";
 
-const ALL_BET_TYPES = ["spread", "moneyline", "total"];
+// A grounds:"all" deep fetch makes the game bettable on every market it surfaces.
+// team_total rides the same lines/model groups (vegas_lines.team_totals +
+// model_predictions.team_totals), so any grounds:"all" tool grounds it too —
+// notably get_team_totals, get_market_odds, get_game_data. (h1 bets need no extra
+// entry: they reuse spread/moneyline/total, which are grounded here; the submit
+// gate keys on bet_type, not period.) team_total markets only exist for NFL/CFB,
+// where these tools fire — other sports never carry a team-total line to stake.
+const ALL_BET_TYPES = ["spread", "moneyline", "total", "team_total"];
 
 interface DeepToolDef {
   groups: string[]; // formatted-game keys this tool projects (first present wins per group)
