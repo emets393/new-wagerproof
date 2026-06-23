@@ -182,11 +182,15 @@ async function fetchNFLGamesFromDryrun(
   // (nfl_dryrun_picks) and signal flags (nfl_dryrun_flags) join on game_id.
   // No line-movement source: dryrun games carry no training_key, so the legacy
   // nfl_betting_lines join key doesn't exist here → line_movement stays [].
-  const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId] = await Promise.all([
+  // signal_performance (RESEARCH project, same cfbClient) carries each signal's
+  // LIVE track record. One row-set per run (not per game) → fetch once, build a
+  // perfMap keyed by signal_key keeping the latest season per key.
+  const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId, perfMap] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nfl', games),
     fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_picks', gameIds),
     fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_flags', gameIds),
     fetchNFLPropsByGameId(cfbClient, gameIds),
+    fetchSignalPerformanceMap(cfbClient, 'nfl'),
   ]);
 
   const formattedGames = games.map(game => {
@@ -196,7 +200,8 @@ async function fetchNFLGamesFromDryrun(
       polymarketByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || null,
       propsByGameId.get(gameId) || [],
       picksByGameId.get(gameId) || [],
-      flagsByGameId.get(gameId) || []
+      flagsByGameId.get(gameId) || [],
+      perfMap
     );
   });
   return { games, formattedGames };
@@ -234,11 +239,14 @@ async function fetchCFBGamesFromDryrun(
   const gameIds = [...new Set(games.map(g => String(g.game_id ?? '')).filter(Boolean))];
   const teamNames = [...new Set(games.flatMap(g => [String(g.home_team || ''), String(g.away_team || '')]).filter(Boolean))];
 
-  const [polymarketByGameKey, picksByGameId, flagsByGameId, trendsByTeam] = await Promise.all([
+  // signal_performance (RESEARCH project, same cfbClient) — see the NFL fetcher.
+  // One row-set per run; keyed by signal_key, latest season per key.
+  const [polymarketByGameKey, picksByGameId, flagsByGameId, trendsByTeam, perfMap] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'cfb', games),
     fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_picks', gameIds),
     fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_flags', gameIds),
     fetchCFBTeamTrendsByTeam(cfbClient, teamNames),
+    fetchSignalPerformanceMap(cfbClient, 'cfb'),
   ]);
 
   const formattedGames = games.map(game => {
@@ -249,7 +257,8 @@ async function fetchCFBGamesFromDryrun(
       picksByGameId.get(gameId) || [],
       flagsByGameId.get(gameId) || [],
       trendsByTeam.get(normalizeTeamKey(game.home_team)) || null,
-      trendsByTeam.get(normalizeTeamKey(game.away_team)) || null
+      trendsByTeam.get(normalizeTeamKey(game.away_team)) || null,
+      perfMap
     );
   });
   return { games, formattedGames };
@@ -285,6 +294,44 @@ async function fetchDryrunChildByGameId(
     }
   } catch (error) {
     console.warn(`[agentGameHelpers] dryrun child fetch threw (${tableName}):`, (error as Error).message);
+  }
+
+  return result;
+}
+
+// signal_performance (RESEARCH project) holds each signal's LIVE track record,
+// keyed by (sport, signal_key, season). One row-set per sport per run — fetch
+// once and index by signal_key, keeping the highest (latest) season per key so
+// a firing flag surfaces its most recent record. signal_key here aligns with
+// the dryrun flags' signal_key (most match; tracking signals may have no row).
+async function fetchSignalPerformanceMap(
+  cfbClient: SupabaseClient,
+  sport: string
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+
+  try {
+    const { data, error } = await cfbClient
+      .from('signal_performance')
+      .select('signal_key, n, wins, losses, hit_rate, roi, season')
+      .eq('sport', sport);
+
+    if (error || !data) {
+      console.warn(`[agentGameHelpers] signal_performance fetch failed (${sport}):`, error?.message || 'No data');
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const key = String(row.signal_key ?? '');
+      if (!key) continue;
+      const existing = result.get(key);
+      // Keep the latest season per signal_key.
+      if (!existing || Number(row.season ?? -Infinity) > Number(existing.season ?? -Infinity)) {
+        result.set(key, row);
+      }
+    }
+  } catch (error) {
+    console.warn(`[agentGameHelpers] signal_performance fetch threw (${sport}):`, (error as Error).message);
   }
 
   return result;
@@ -1473,7 +1520,8 @@ function formatNFLGameFromDryrun(
   polymarket: Record<string, unknown> | null,
   props: Record<string, unknown>[] = [],
   picks: Record<string, unknown>[] = [],
-  flags: Record<string, unknown>[] = []
+  flags: Record<string, unknown>[] = [],
+  perfMap?: Map<string, Record<string, unknown>>
 ): Record<string, unknown> {
   // game_id = the nflverse id verbatim (text). Props + results join on it.
   const gameId = String(game.game_id || `${game.away_team}_${game.home_team}`);
@@ -1638,8 +1686,9 @@ function formatNFLGameFromDryrun(
     },
     // Signal flags for the game (nfl_dryrun_flags rows) projected to a compact,
     // agent-readable shape under the `signals` group (matches the deep-tool
-    // group name used elsewhere). Each carries its own grade_line + tier.
-    signals: flags.length > 0 ? flags.map(formatDryrunFlag) : null,
+    // group name used elsewhere). Each carries its own grade_line + tier, plus
+    // the signal's LIVE track_record via perfMap (keyed by signal_key).
+    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap)) : null,
     // Pick cards (nfl_dryrun_picks) — the per-bet-type cards the app shows.
     pick_cards: picks.length > 0 ? picks.map(formatDryrunPick) : null,
     // Player props — SIGNAL-GATED exactly as in the legacy formatter:
@@ -1659,7 +1708,8 @@ function formatCFBGameFromDryrun(
   picks: Record<string, unknown>[] = [],
   flags: Record<string, unknown>[] = [],
   homeTrends: Record<string, unknown> | null = null,
-  awayTrends: Record<string, unknown> | null = null
+  awayTrends: Record<string, unknown> | null = null,
+  perfMap?: Map<string, Record<string, unknown>>
 ): Record<string, unknown> {
   // game_id = the CFBD id verbatim (bigint → string). Picks/flags join on it.
   const gameId = String(game.game_id ?? `${game.away_team}_${game.home_team}`);
@@ -1794,7 +1844,7 @@ function formatCFBGameFromDryrun(
       flags_tracking: game.n_flags_tracking ?? null,
       mammoth: game.mammoth ?? false,
     },
-    signals: flags.length > 0 ? flags.map(formatDryrunFlag) : null,
+    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap)) : null,
     pick_cards: picks.length > 0 ? picks.map(formatDryrunPick) : null,
     // Season-to-date ATS/OU/TT + 1H trends per team (cfb_team_trends). Keyed by
     // team_name; surfaced under `trends` so it's a stable named group.
@@ -1812,7 +1862,14 @@ function formatCFBGameFromDryrun(
 // Project one dryrun flag row (nfl_dryrun_flags / cfb_dryrun_flags) to a compact
 // agent-facing shape. grade_line is load-bearing: the line on the row is the
 // line the signal was computed from (open vs close vs best) — grade against it.
-function formatDryrunFlag(row: Record<string, unknown>): Record<string, unknown> {
+// perfMap (optional) keys signal_performance rows by signal_key → attaches the
+// signal's LIVE track record. undefined/no-row → track_record null (any other
+// caller is unaffected; some tracking signals have no perf row yet).
+function formatDryrunFlag(
+  row: Record<string, unknown>,
+  perfMap?: Map<string, Record<string, unknown>>
+): Record<string, unknown> {
+  const perf = perfMap?.get(String(row.signal_key ?? row.rule ?? ''));
   return {
     source: row.source ?? null,
     rule: row.rule ?? row.signal_key ?? null,
@@ -1826,6 +1883,12 @@ function formatDryrunFlag(row: Record<string, unknown>): Record<string, unknown>
     stake_units: row.stake_units ?? null,
     grade_line: row.grade_line ?? null,
     mammoth: row.mammoth ?? false,
+    track_record: perf ? {
+      sample: perf.n ?? null,
+      record: `${perf.wins ?? 0}-${perf.losses ?? 0}`,
+      hit_rate: perf.hit_rate != null ? Number(perf.hit_rate) : null,
+      roi: perf.roi != null ? Number(perf.roi) : null,
+    } : null,
   };
 }
 
