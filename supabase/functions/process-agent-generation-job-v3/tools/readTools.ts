@@ -30,7 +30,7 @@ const DEEP_TOOLS: Record<string, DeepToolDef> = {
   get_team_ratings: { groups: ["team_stats"], sports: ["nba", "ncaab"], grounds: "none", desc: "Adjusted off/def/pace ratings (+ rankings for NCAAB)." },
   get_recent_form: { groups: ["trends", "team_stats"], sports: ["nba"], grounds: "none", desc: "Recent form / L3-L5 trends." },
   get_ats_trends: { groups: ["trends"], sports: ["nba", "ncaab"], grounds: "none", desc: "ATS and O/U trend percentages." },
-  get_injuries: { groups: ["injuries"], sports: ["nba"], grounds: "none", desc: "Injury report with player impact." },
+  get_injuries: { groups: ["injuries"], sports: ["nba", "nfl"], grounds: "none", desc: "Injury report with player impact. For NFL: each team's injury digest (QB status, starters out, severity score, key-position counts) plus the notable Out/Doubtful/Questionable players." },
   get_situational_trends: { groups: ["situational_trends"], sports: ["nba", "ncaab"], grounds: "none", desc: "Situational splits for the matchup." },
   get_h2h_history: { groups: ["h2h_recent"], sports: ["nfl"], grounds: "none", desc: "Recent head-to-head results." },
   get_prediction_accuracy: { groups: ["prediction_accuracy", "accuracy_signals"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "none", desc: "Historical model accuracy buckets for this matchup." },

@@ -178,6 +178,12 @@ async function fetchNFLGamesFromDryrun(
   // makes props (nfl_dryrun_props) and results join cleanly. See DRYRUN spec §0.
   const gameIds = [...new Set(games.map(g => String(g.game_id || '')).filter(Boolean))];
 
+  // season/week are uniform across the slate (it's one (season, week) pull), so
+  // read them off the first row to scope the one-shot injury fetch. The dryrun
+  // game rows carry these columns directly (e.g. 2025/12).
+  const slateSeason = Number(games[0]?.season);
+  const slateWeek = Number(games[0]?.week);
+
   // Polymarket is keyable off team display names (same as legacy). Pick cards
   // (nfl_dryrun_picks) and signal flags (nfl_dryrun_flags) join on game_id.
   // No line-movement source: dryrun games carry no training_key, so the legacy
@@ -186,14 +192,16 @@ async function fetchNFLGamesFromDryrun(
   // LIVE season-to-date record; {sport}_signal_defs carries the STATIC all-time
   // validated record (typical_hit) + the human one-liner. One row-set per run
   // (not per game) for each → fetch once, build perfMap (latest season per key)
-  // + defMap (one def per signal_key). Both keyed by signal_key.
-  const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId, perfMap, defMap] = await Promise.all([
+  // + defMap (one def per signal_key). Both keyed by signal_key. injuryMap is
+  // keyed by nflverse abbr (same scheme as game_id) — fetched once per slate.
+  const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId, perfMap, defMap, injuryMap] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'nfl', games),
     fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_picks', gameIds),
     fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_flags', gameIds),
     fetchNFLPropsByGameId(cfbClient, gameIds),
     fetchSignalPerformanceMap(cfbClient, 'nfl'),
     fetchSignalDefsMap(cfbClient, 'nfl'),
+    fetchNFLInjuryMap(cfbClient, slateSeason, slateWeek),
   ]);
 
   const formattedGames = games.map(game => {
@@ -205,7 +213,8 @@ async function fetchNFLGamesFromDryrun(
       picksByGameId.get(gameId) || [],
       flagsByGameId.get(gameId) || [],
       perfMap,
-      defMap
+      defMap,
+      injuryMap
     );
   });
   return { games, formattedGames };
@@ -300,6 +309,132 @@ async function fetchDryrunChildByGameId(
     }
   } catch (error) {
     console.warn(`[agentGameHelpers] dryrun child fetch threw (${tableName}):`, (error as Error).message);
+  }
+
+  return result;
+}
+
+// nfl_injuries_raw.team is the nflverse abbr scheme (ARI, LA=Rams, LAC=Chargers,
+// NYG, NYJ) — same as the dryrun game_id, so that table joins by abbr directly.
+// nfl_pregame_injuries_team_week.team is a CITY string ("Arizona", "NY Jets",
+// "LA Rams"); this static map bridges abbr→city so the team-week digest can be
+// reverse-looked-up per abbr. All 32 verified against the live distinct values.
+const NFL_ABBR_TO_INJURY_CITY: Record<string, string> = {
+  ARI: 'Arizona', ATL: 'Atlanta', BAL: 'Baltimore', BUF: 'Buffalo', CAR: 'Carolina', CHI: 'Chicago',
+  CIN: 'Cincinnati', CLE: 'Cleveland', DAL: 'Dallas', DEN: 'Denver', DET: 'Detroit', GB: 'Green Bay',
+  HOU: 'Houston', IND: 'Indianapolis', JAX: 'Jacksonville', KC: 'Kansas City', LA: 'LA Rams',
+  LAC: 'LA Chargers', LV: 'Las Vegas', MIA: 'Miami', MIN: 'Minnesota', NE: 'New England',
+  NO: 'New Orleans', NYG: 'NY Giants', NYJ: 'NY Jets', PHI: 'Philadelphia', PIT: 'Pittsburgh',
+  SF: 'San Francisco', SEA: 'Seattle', TB: 'Tampa Bay', TEN: 'Tennessee', WAS: 'Washington',
+};
+
+// Sort order for report_status so the most impactful absences surface first.
+const NFL_INJURY_STATUS_RANK: Record<string, number> = {
+  Out: 0, Doubtful: 1, Questionable: 2,
+};
+
+interface NFLInjuryEntry {
+  digest: Record<string, unknown> | null;
+  players: Record<string, unknown>[];
+}
+
+// NFL injury map for one dryrun slate (RESEARCH project, same cfbClient as the
+// dryrun games). Pulls both injury tables filtered by season+week and keys the
+// result by nflverse ABBR — the same scheme the dryrun game_id uses, so the
+// formatter can look up home/away directly off the parsed game_id. Mirrors
+// fetchSignalPerformanceMap: one fetch per run, try/catch → empty map on error.
+//   - nfl_injuries_raw joins by abbr (team col is already abbr) → per-team
+//     `players` list (report_status != null, sorted Out→Doubtful→Questionable,
+//     capped at 10).
+//   - nfl_pregame_injuries_team_week is keyed by city → indexed by city string,
+//     then reverse-looked-up per abbr via NFL_ABBR_TO_INJURY_CITY → `digest`.
+// NFL-only — there is no CFB injury data, so CFB never calls this.
+async function fetchNFLInjuryMap(
+  cfbClient: SupabaseClient,
+  season: number,
+  week: number,
+): Promise<Map<string, NFLInjuryEntry>> {
+  const result = new Map<string, NFLInjuryEntry>();
+  if (!Number.isFinite(season) || !Number.isFinite(week)) return result;
+
+  try {
+    const [rawResp, teamWeekResp] = await Promise.all([
+      cfbClient
+        .from('nfl_injuries_raw')
+        .select('team, player_name, position, report_status, body_part')
+        .eq('season', season)
+        .eq('week', week),
+      cfbClient
+        .from('nfl_pregame_injuries_team_week')
+        .select('team, qb_status, qb_out_or_doubtful, starters_out, skill_position_listed, oline_listed, dline_listed, secondary_listed, injury_severity_score')
+        .eq('season', season)
+        .eq('week', week),
+    ]);
+
+    if (rawResp.error) {
+      console.warn('[agentGameHelpers] nfl_injuries_raw fetch failed:', rawResp.error.message);
+    }
+    if (teamWeekResp.error) {
+      console.warn('[agentGameHelpers] nfl_pregame_injuries_team_week fetch failed:', teamWeekResp.error.message);
+    }
+
+    // Group raw rows by abbr → player list (keep only listed report statuses).
+    const playersByAbbr = new Map<string, Record<string, unknown>[]>();
+    for (const row of (rawResp.data ?? []) as Record<string, unknown>[]) {
+      const abbr = String(row.team ?? '');
+      if (!abbr) continue;
+      const status = row.report_status as string | null;
+      if (status == null) continue; // null status = not on the report; skip
+      if (!playersByAbbr.has(abbr)) playersByAbbr.set(abbr, []);
+      playersByAbbr.get(abbr)!.push({
+        player: row.player_name ?? null,
+        position: row.position ?? null,
+        status,
+        body_part: row.body_part ?? null,
+      });
+    }
+    // Sort Out→Doubtful→Questionable, then cap at 10 per team.
+    for (const [abbr, players] of playersByAbbr) {
+      players.sort((a, b) =>
+        (NFL_INJURY_STATUS_RANK[String(a.status)] ?? 99) - (NFL_INJURY_STATUS_RANK[String(b.status)] ?? 99)
+      );
+      playersByAbbr.set(abbr, players.slice(0, 10));
+    }
+
+    // Index the team-week digest by city string for reverse-lookup per abbr.
+    const digestByCity = new Map<string, Record<string, unknown>>();
+    for (const row of (teamWeekResp.data ?? []) as Record<string, unknown>[]) {
+      const city = String(row.team ?? '');
+      if (!city) continue;
+      digestByCity.set(city, row);
+    }
+
+    // Build one entry per abbr that appears in either source.
+    const abbrs = new Set<string>([...playersByAbbr.keys(), ...Object.keys(NFL_ABBR_TO_INJURY_CITY)]);
+    for (const abbr of abbrs) {
+      const players = playersByAbbr.get(abbr) ?? [];
+      const city = NFL_ABBR_TO_INJURY_CITY[abbr];
+      const digestRow = city ? digestByCity.get(city) : undefined;
+      // Only emit an entry when there's actually injury data for the team.
+      if (players.length === 0 && !digestRow) continue;
+      result.set(abbr, {
+        digest: digestRow
+          ? {
+              qb_status: digestRow.qb_status ?? null,
+              qb_out_or_doubtful: digestRow.qb_out_or_doubtful ?? null,
+              starters_out: digestRow.starters_out ?? null,
+              skill_positions_listed: digestRow.skill_position_listed ?? null,
+              oline_listed: digestRow.oline_listed ?? null,
+              dline_listed: digestRow.dline_listed ?? null,
+              secondary_listed: digestRow.secondary_listed ?? null,
+              severity_score: digestRow.injury_severity_score ?? null,
+            }
+          : null,
+        players,
+      });
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] NFL injury fetch threw:', (error as Error).message);
   }
 
   return result;
@@ -1565,10 +1700,18 @@ function formatNFLGameFromDryrun(
   picks: Record<string, unknown>[] = [],
   flags: Record<string, unknown>[] = [],
   perfMap?: Map<string, Record<string, unknown>>,
-  defMap?: Map<string, Record<string, unknown>>
+  defMap?: Map<string, Record<string, unknown>>,
+  injuryMap?: Map<string, NFLInjuryEntry>
 ): Record<string, unknown> {
   // game_id = the nflverse id verbatim (text). Props + results join on it.
   const gameId = String(game.game_id || `${game.away_team}_${game.home_team}`);
+
+  // game_id is "{season}_{week}_{AWAY}_{HOME}" (nflverse abbrs) → away = p[2],
+  // home = p[3]. injuryMap is keyed by that same abbr scheme, so look up each
+  // side directly. Null-safe: undefined map or missing entry → null.
+  const idParts = gameId.split('_');
+  const awayAbbr = idParts[2] ?? '';
+  const homeAbbr = idParts[3] ?? '';
 
   // Dryrun spreads are home-relative (negative = home favored), same convention
   // as the legacy formatter's home_spread/away_spread pair.
@@ -1717,6 +1860,16 @@ function formatNFLGameFromDryrun(
         total_pick: game.h1_total_pick ?? null,
         ml_pick: game.h1_ml_pick ?? null,
       },
+    },
+    // Per-team injury group (nfl_injuries_raw + nfl_pregame_injuries_team_week),
+    // keyed off the game_id abbrs. Each side carries a `digest` (QB status,
+    // starters out, severity score, key-position counts) + notable `players`
+    // (Out/Doubtful/Questionable). NFL-only — no CFB injury source. Null-safe:
+    // empty/undefined map or no entry → null for that side. Surfaced via the
+    // get_injuries deep tool (group name "injuries", matching NBA).
+    injuries: {
+      home: injuryMap?.get(homeAbbr) ?? null,
+      away: injuryMap?.get(awayAbbr) ?? null,
     },
     // Conviction summary + counts from the game row (additive group). The agent
     // can weight these per its trust_model dial; mirrors how MLB surfaces PS.
