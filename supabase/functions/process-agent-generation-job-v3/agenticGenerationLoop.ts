@@ -5,11 +5,11 @@
 
 import type { ChatMessage } from "./types.ts";
 import { consumeChatStreamV3 } from "./consumeChatStreamV3.ts";
-import { compactDeepFetch } from "./compactDeepFetch.ts";
 import { buildV3SystemPrompt } from "./v3SystemPrompt.ts";
 import { buildSubmitPicksSchema, buildSubmitParlaySchema } from "./pickSchemaV3.ts";
 import type { AgentGenContext } from "./tools/context.ts";
 import type { SlateResult } from "./tools/gameSource.ts";
+import { compactSlate } from "./tools/gameSource.ts";
 import { buildReadToolDefs, DEEP_TOOL_NAMES, runReadTool } from "./tools/readTools.ts";
 import { submitPicks } from "./tools/submitPicks.ts";
 import { submitParlay } from "./tools/submitParlay.ts";
@@ -66,7 +66,7 @@ export async function runAgenticLoop(
       : []),
   ];
 
-  const slateContent = compactDeepFetch("get_slate", slate, 16000);
+  const slateContent = compactSlate(slate, 16000);
   const messages: ChatMessage[] = [
     { role: "system", content: buildV3SystemPrompt(steering, ctx.targetDate) },
     { role: "user", content: "Generate today's picks for this agent. The slate is already provided below." },

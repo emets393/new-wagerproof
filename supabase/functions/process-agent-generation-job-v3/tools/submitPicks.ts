@@ -322,6 +322,46 @@ export async function submitPicks(
     });
   }
 
+  // ── Same-game correlation guard (V3 quality floor, always on) ──────────────
+  // Stacking correlated bets on ONE game — e.g. full Under + that team's TT Under
+  // + 1H Under — is one thesis bet three times, not three independent edges, and
+  // reads as a broken card to users. Per game we keep at most ONE "scoring" pick
+  // (full/1H total + team_total) and ONE "sides" pick (spread/moneyline, full/1H);
+  // player props are exempt (player-level, signal-gated). On a collision we keep
+  // the higher-conviction pick (units, then confidence). Runs post-validation, so
+  // only already-valid picks are ever dropped — and the drops are reported back.
+  const corrBucket = (bt: unknown): "scoring" | "sides" | null => {
+    const b = String(bt);
+    if (b === "total" || b === "team_total") return "scoring";
+    if (b === "spread" || b === "moneyline") return "sides";
+    return null; // props (and anything new) exempt from the per-game cap
+  };
+  const corrGroups = new Map<string, Record<string, unknown>[]>();
+  for (const p of picksToInsert) {
+    const bucket = corrBucket(p.bet_type);
+    if (!bucket) continue;
+    const key = `${bucket}::${p.game_id}`; // bucket first → unambiguous split
+    let arr = corrGroups.get(key);
+    if (!arr) { arr = []; corrGroups.set(key, arr); }
+    arr.push(p);
+  }
+  const corrLosers = new Set<Record<string, unknown>>();
+  for (const [key, group] of corrGroups) {
+    if (group.length <= 1) continue;
+    const bucket = key.split("::")[0];
+    group.sort((a, b) => (Number(b.units) - Number(a.units)) || (Number(b.confidence) - Number(a.confidence)));
+    for (const loser of group.slice(1)) {
+      corrLosers.add(loser);
+      const reason = `same_game_correlated_${bucket}: dropped "${loser.pick_selection}" — kept higher-conviction "${group[0].pick_selection}" (max one ${bucket} bet per game; stacking the same thesis is one correlated position, not independent edges)`;
+      validatorDrops.push({ game_id: String(loser.game_id), reason });
+      reject(String(loser.game_id), String(loser.bet_type), reason);
+    }
+  }
+  if (corrLosers.size > 0) {
+    const kept = picksToInsert.filter((p) => !corrLosers.has(p));
+    picksToInsert.splice(0, picksToInsert.length, ...kept);
+  }
+
   ctx.acceptedPicks = picksToInsert;
   ctx.dropReports = validatorDrops;
   report.accepted = picksToInsert.length;
