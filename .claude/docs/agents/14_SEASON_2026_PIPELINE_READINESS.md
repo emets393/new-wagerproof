@@ -40,6 +40,44 @@ The legacy NFL pipeline runs on **BOTH GitHub Actions (`.github/workflows/`, 9 f
 
 > Supporting refs that must be current for 2026: `nfl_week_ranges` (2026 week windows — no cron writes it, manual load), `nfl_team_mapping`, and the DB views `v_input_values_with_epa` / `v_current_nfl_week`. Also: `nfl_training_data` (the results/outcomes table feeding the training set) has **no in-repo writer** — refreshed externally/manually; no automated in-season training refresh exists.
 
+### A-bis. Legacy-model recreation recipe (verified 2026-06-23) — every feature → exact source
+
+The legacy spread model (`nfl_predict_with_epa.py`, XGBoost on `v_input_values_with_epa` → `nfl_predictions_epa.home_away_spread_cover_prob`) needs ~106 features. **All are STATIC within the week (scraped Tuesday) except Vegas lines + weather, which are joined latest each run.** Verified: `v_nfl_pregame_features_full` carries every feature with values **100% identical** to `nfl_training_data_epa` (2,226 games, maxdiff 0.000000) — so the model can read its full input from the pregame view; the standalone training table is redundant.
+
+**STATIC — scraped Tuesday** (`nfl-epa-weekly` Tue 10am, `nfl-team-stats-weekly` Tue, `nfl-pregame-weekly` Tue, `nfl-schedule-updater`):
+- **EPA (16 cols)** — `epa_upsert_current_week.py` / `nfl_training_data_epa_backfill_2025.py`, from `nfl_data_py.import_pbp_data`. **Exact filter (verified reproducible to 6 decimals):** PASS = `pass_attempt==1 OR qb_scramble==1`; RUSH = `rush_attempt==1`; exclude `qb_kneel` + `two_point_attempt`. Per-team-week mean → `s2d` = `expanding().mean()` of the weekly means (shift 1 for pre-game, ffill through byes); `last3` = `rolling(3).mean()`. Edges = team off-EPA − opponent matching def-EPA (`home_pass_edge = home_pass_epa − away_def_pass_epa`, …; `edge_home = Σ home edges − Σ away edges`).
+- **Power ratings (4) + L3 efficiency** — `nfl_tr_scrape_team_stats.py`, scraped from **teamrankings.com**: `future_sos_rating`→`sos_pr`, `predictive_rating`→`predictive_pr`, `consistency_rating`→`consistency_pr`, `last5_games_rating`→`last5_pr`; plus L3 efficiency (3rd-down %, opp 3rd-down, scoring margin, seconds/play, turnover margin, opp points/play, (opp) red-zone %, points/play). **← these power ratings are also a feature in the NEW model.**
+- **Streaks / last-game / advanced-PBP / NGS / injuries / officials** — `nfl_pregame/{advanced_pbp,ngs,ftn,injuries,officials}.py` + `nfl_tr_scrape_nfl_schedules.py`.
+
+**DYNAMIC — joined latest each run:** Vegas lines (`vsin_nfl_week_to_supabase.py` → `nfl_betting_lines`, Mon–Fri + gameday) · weather (`fetch_nfl_weather.py` → `production_weather`, daily).
+
+**Recreate the model:** Tuesday static scrape → assemble `v_nfl_pregame_features_full` → join latest lines + weather → score `nfl_predict_with_epa.py`. `unique_id` (`homeCity+awayCity+season+week`) ↔ nflverse `game_id` via `nflverse_games`.
+
+> **⚠️ Correction to the TL;DR / §A** ("the new model computes EPA itself from nflverse PBP"): it does **not** compute EPA in-pipeline — `research/nfl-extreme-outcomes/fetch.py` PULLS `training_epa`/`pregame` from the cfb_automation Supabase tables. The EPA *is* reproducible from nflverse (verified above), but today it's sourced from the cron's output. The cfb_automation code is a **sibling repo**: `~/Documents/cfb_automation/scripts/cfb/`. To make the new pipeline self-sufficient, port the EPA filter (above) + the TeamRankings scrape into it.
+
+### A-ter. Unify legacy + new model onto ONE feature table (verified 2026-06-23)
+
+**Goal (per owner):** both models read the *same* table; drop the redundant `nfl_training_data_epa` + `v_input_values_with_epa`. **Verified feasible as a pure CONFIG change — zero model code.**
+
+- The legacy model (`nfl_predict_with_epa.py`) is **view-agnostic**: it reads `NFL_TRAIN_TABLE` (default `nfl_training_data_epa`) + `NFL_INPUT_VIEW` (default `v_input_values_with_epa`) from env, **builds `unique_id` itself** from home/away/season/week (code comment: *"NO dependency on home_away_unique"*), and selects features from `GROUPS`. `ID_KEEP` carries `unique_id`/`training_key`, never `home_away_unique`.
+- The new model's views are a **verified superset**: `v_nfl_pregame_features_full` (TRAIN, 249 cols — has the `home_away_spread_cover` target + every GROUPS feature; values **100% identical** to `nfl_training_data_epa` across 2,226 games) and `v_nfl_slate_inputs` (SCORE, 249 cols — **0 model feature columns missing**). The only legacy-view column absent from the pregame view is `home_away_unique`, which the model doesn't use.
+
+**The unification = set two env vars on the `nfl-predictions` job** (GitHub Actions), no code:
+- `NFL_TRAIN_TABLE = v_nfl_pregame_features_full`
+- `NFL_INPUT_VIEW  = v_nfl_slate_inputs`
+
+Then retire `nfl_training_data_epa` + `v_input_values_with_epa`. (The TeamRankings power ratings in these views are *also* a new-model feature, so one table genuinely serves both.)
+
+**Shadow first (the one open check):** the TRAIN side is value-verified identical; the SLATE side is only **column**-verified (both views empty offseason, can't value-compare). So before flipping production, run the model with the unified env vars + `NFL_PRED_TABLE=nfl_predictions_epa_shadow` on the first live 2026 week, leaving production on the old vars, then compare:
+```sql
+SELECT s.unique_id, s.home_away_spread_cover_prob AS shadow, p.home_away_spread_cover_prob AS prod,
+       abs(s.home_away_spread_cover_prob - p.home_away_spread_cover_prob) AS diff
+FROM nfl_predictions_epa_shadow s JOIN nfl_predictions_epa p USING (unique_id) ORDER BY diff DESC;
+```
+If `diff ≈ 0` across the slate, flip the production env vars + retire the old view/table. If not, it's a same-name-different-definition column in the slate view to reconcile first.
+
+**Timing (comfortable, low-stakes):** the s2d / last-3 features need ~2 weeks of games, so the legacy model first produces meaningful output around **Week 3** — making **Weeks 1–2 the natural shadow-validation window** to confirm the slate-view data flows correctly before the first real run. And the legacy model feeds **only the 2 signals (`legacy_fade` / `legacy_primetime`), never a displayed prediction** — so a not-yet-running or still-validating legacy model has **zero** user-facing impact (shown predictions come from the new model + other feeds). No rush to flip; validate through Weeks 1–2, cut over by Week 3.
+
 ### B. New model — PRODUCTIONIZE (research/nfl-extreme-outcomes, hand-run)
 
 Locked models and their **live weekly inputs**: TOTALS (`consensus_totals.py`, b15+b55 ensemble) ← `matchup.parquet` (own EPA-s2d features) + `scheme_plays.parquet` + `odds_consensus.parquet`; SIDES (`forecast_harness.py`, BASE+21 matchup-nets) ← `matchup.parquet` (power ratings + EPA nets) + odds + NGS/def; 1H model (tracking tier) ← `h1m_preds.parquet` + `h1tt_frame.parquet`; PROPS P11/P12/P13 ← `props_frame.parquet` + NGS. Build = `dryrun_wk12_games.py` + `dryrun_wk12_props.py` → `nfl_dryrun_*`.

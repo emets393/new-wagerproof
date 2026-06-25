@@ -17,33 +17,13 @@ export interface GameFetchResult {
   formattedGames: unknown[];
 }
 
-// Supabase returns numeric/decimal columns as strings. Coerce for the payload.
-function toNum(v: unknown): number | null {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-// The dryrun tables identify NFL teams by full name + abbreviation, but the
-// legacy line-movement (nfl_betting_lines via training_key) and polymarket
-// tables key on short city names. This static map bridges abbr → short city so
-// we can KEEP both enrichments without re-keying those tables.
-const NFL_ABBR_TO_SHORT: Record<string, string> = {
-  ARI: 'Arizona', ATL: 'Atlanta', BAL: 'Baltimore', BUF: 'Buffalo',
-  CAR: 'Carolina', CHI: 'Chicago', CIN: 'Cincinnati', CLE: 'Cleveland',
-  DAL: 'Dallas', DEN: 'Denver', DET: 'Detroit', GB: 'Green Bay',
-  HOU: 'Houston', IND: 'Indianapolis', JAX: 'Jacksonville', KC: 'Kansas City',
-  LV: 'Las Vegas', LAC: 'LA Chargers', LA: 'LA Rams', LAR: 'LA Rams',
-  MIA: 'Miami', MIN: 'Minnesota', NE: 'New England', NO: 'New Orleans',
-  NYG: 'NY Giants', NYJ: 'NY Jets', PHI: 'Philadelphia', PIT: 'Pittsburgh',
-  SF: 'San Francisco', SEA: 'Seattle', TB: 'Tampa Bay', TEN: 'Tennessee',
-  WAS: 'Washington', WSH: 'Washington',
-};
-
-function nflShort(abbr: unknown): string | null {
-  const a = String(abbr || '').toUpperCase();
-  return NFL_ABBR_TO_SHORT[a] ?? null;
-}
+// Which underlying tables the formatted slate is sourced from. 'legacy' = the
+// in-season live tables every existing caller (incl. V2) reads. 'dryrun' = the
+// 2026 dryrun staging tables (nfl_dryrun_games / cfb_dryrun_games), the
+// production data contract. ADDITIVE + opt-in: only V3's gameSource.ts passes
+// 'dryrun'; the default keeps legacy/V2 byte-for-byte unchanged. NFL + CFB only
+// — every other sport ignores `source` and reads its legacy table.
+export type GameSource = 'legacy' | 'dryrun';
 
 // =============================================================================
 // Game Fetching — Top-Level Router
@@ -53,13 +33,14 @@ export async function fetchGamesForSport(
   cfbClient: SupabaseClient,
   mainClient: SupabaseClient,
   sport: string,
-  targetDate: string
+  targetDate: string,
+  source: GameSource = 'legacy'
 ): Promise<GameFetchResult> {
   switch (sport) {
     case 'nfl':
-      return fetchNFLGames(cfbClient, mainClient);
+      return fetchNFLGames(cfbClient, mainClient, source);
     case 'cfb':
-      return fetchCFBGames(cfbClient, mainClient);
+      return fetchCFBGames(cfbClient, mainClient, source);
     case 'nba':
       return fetchNBAGames(cfbClient, mainClient, targetDate);
     case 'ncaab':
@@ -75,143 +56,498 @@ export async function fetchGamesForSport(
 // Sport-Specific Game Fetchers
 // =============================================================================
 
-// NFL/CFB now read the precomputed display contract (the dryrun tables) as the
-// spine — same data the app's picks pages show: 7-market lines, model preds +
-// edges, conviction, fired signals, props. We subset that already-validated
-// contract rather than re-deriving model math here.
-// See research/nfl-extreme-outcomes/AGENT_PAYLOAD_SPEC.md for the full shape.
-
 async function fetchNFLGames(
   cfbClient: SupabaseClient,
-  mainClient: SupabaseClient
+  mainClient: SupabaseClient,
+  source: GameSource = 'legacy'
 ): Promise<GameFetchResult> {
-  // Spine: most recent slate in the display contract.
-  const { data: latest } = await cfbClient
-    .from('nfl_dryrun_games')
-    .select('season, week')
-    .order('season', { ascending: false })
-    .order('week', { ascending: false })
+  if (source === 'dryrun') return fetchNFLGamesFromDryrun(cfbClient, mainClient);
+
+  const { data: latestRun } = await cfbClient
+    .from('nfl_predictions_epa')
+    .select('run_id')
+    .order('run_id', { ascending: false })
     .limit(1)
-    .maybeSingle();
-  if (!latest) return { games: [], formattedGames: [] };
+    .single();
 
-  const season = Number(latest.season);
-  const week = Number(latest.week);
-
-  const { data: allGames } = await cfbClient
-    .from('nfl_dryrun_games')
-    .select('*')
-    .eq('season', season)
-    .eq('week', week);
-  if (!allGames || allGames.length === 0) return { games: [], formattedGames: [] };
-
-  // §1 slate pre-filter — drop dead games (no fired signal AND no model edge).
-  // This is THE overload control; a quiet game adds tokens for zero value.
-  const games = (allGames as Record<string, unknown>[]).filter(g =>
-    Number(g.flags_active || 0) >= 1 ||
-    Number(g.flags_tracking || 0) >= 1 ||
-    (g.conviction_tier != null && g.conviction_tier !== 'none')
-  );
-  if (games.length === 0) return { games: [], formattedGames: [] };
-
-  const gameIds = games.map(g => String(g.game_id));
-
-  // The dryrun tables identify teams by full name + abbr; the legacy
-  // line-movement (nfl_betting_lines) and polymarket tables key on short city
-  // names. Bridge via the static abbr→short map so we can KEEP both.
-  const trainingKeyByGameId = new Map<string, string>();
-  const polyKeyByGameId = new Map<string, string>();
-  const polyGamesForKey: Record<string, unknown>[] = [];
-  for (const g of games) {
-    const homeShort = nflShort(g.home_ab);
-    const awayShort = nflShort(g.away_ab);
-    if (!homeShort || !awayShort) continue;
-    trainingKeyByGameId.set(String(g.game_id), `${homeShort}${awayShort}${season}${week}`);
-    const pk = toGameKey('nfl', awayShort, homeShort);
-    polyKeyByGameId.set(String(g.game_id), pk);
-    polyGamesForKey.push({ away_team: awayShort, home_team: homeShort });
+  if (!latestRun) {
+    return { games: [], formattedGames: [] };
   }
 
-  const [picks, props, defs, perf, trends, h2h, polymarket, lineMove] = await Promise.all([
-    fetchDryrunPicks(cfbClient, 'nfl_dryrun_picks', gameIds),
-    fetchFlaggedProps(cfbClient, gameIds),
-    fetchSignalDefs(cfbClient, 'nfl_signal_defs'),
-    fetchSignalPerformance(cfbClient, 'nfl', season),
-    fetchTeamTrends(cfbClient, 'nfl_team_trends', 'team_abbr', season),
-    fetchNFLMatchupHistory(cfbClient, games),
-    fetchPolymarketByGameKey(mainClient, 'nfl', polyGamesForKey),
-    fetchLineMovementByTrainingKey(cfbClient, 'nfl_betting_lines',
-      [...trainingKeyByGameId.values()].map(tk => ({ training_key: tk }))),
+  const { data: games } = await cfbClient
+    .from('nfl_predictions_epa')
+    .select('*')
+    .eq('run_id', latestRun.run_id);
+
+  if (!games) {
+    return { games: [], formattedGames: [] };
+  }
+
+  // Slate game_ids are whatever formatNFLGame assigns (training_key today; the
+  // 2026 contract migrates this to the nflverse id, e.g. 2025_12_BUF_HOU). Props
+  // join on that same id — see DRYRUN_WK12_SPEC.md "Join key … game_id". When the
+  // feed's game_id and nfl_dryrun_props.game_id share a scheme, props light up.
+  const gameIds = [...new Set(games.map(g => String(g.training_key || `${g.away_team}_${g.home_team}`)).filter(Boolean))];
+
+  const [polymarketByGameKey, lineMovementByTrainingKey, h2hByGameKey, propsByGameId] = await Promise.all([
+    fetchPolymarketByGameKey(mainClient, 'nfl', games),
+    fetchLineMovementByTrainingKey(cfbClient, 'nfl_betting_lines', games),
+    fetchNFLH2HByGameKey(cfbClient, games),
+    fetchNFLPropsByGameId(cfbClient, gameIds),
   ]);
 
   const formattedGames = games.map(game => {
-    const gid = String(game.game_id);
-    return formatNFLGame(game, {
-      picks: picks.get(gid) || [],
-      props: props.get(gid) || [],
-      defs, perf, trends,
-      h2h: h2h.get(gid) || [],
-      polymarket: polymarket.get(polyKeyByGameId.get(gid) || '') || null,
-      lineMovement: lineMove.get(trainingKeyByGameId.get(gid) || '') || [],
-    });
+    const gameId = String(game.training_key || `${game.away_team}_${game.home_team}`);
+    return formatNFLGame(
+      game,
+      polymarketByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || null,
+      lineMovementByTrainingKey.get(String(game.training_key || '')) || [],
+      h2hByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || [],
+      propsByGameId.get(gameId) || []
+    );
   });
   return { games, formattedGames };
 }
 
 async function fetchCFBGames(
   cfbClient: SupabaseClient,
+  mainClient: SupabaseClient,
+  source: GameSource = 'legacy'
+): Promise<GameFetchResult> {
+  if (source === 'dryrun') return fetchCFBGamesFromDryrun(cfbClient, mainClient);
+
+  const { data: games } = await cfbClient
+    .from('cfb_live_weekly_inputs')
+    .select('*');
+
+  if (!games) {
+    return { games: [], formattedGames: [] };
+  }
+
+  const [polymarketByGameKey, lineMovementByTrainingKey] = await Promise.all([
+    fetchPolymarketByGameKey(mainClient, 'cfb', games),
+    fetchLineMovementByTrainingKey(cfbClient, 'cfb_betting_lines', games),
+  ]);
+
+  const formattedGames = games.map(game =>
+    formatCFBGame(
+      game,
+      polymarketByGameKey.get(toGameKey('cfb', game.away_team, game.home_team)) || null,
+      lineMovementByTrainingKey.get(String(game.training_key || '')) || []
+    )
+  );
+  return { games, formattedGames };
+}
+
+// =============================================================================
+// Dryrun Game Fetchers (V3-only, source='dryrun')
+// Reads the 2026 production-contract staging tables on the research (cfb)
+// project instead of the legacy live tables. Emits the SAME formatted-game
+// shape as formatNFLGame/formatCFBGame so V3's tools + prompt are unchanged.
+// See research/nfl-extreme-outcomes/DRYRUN_WK12_SPEC.md for the table contract.
+// =============================================================================
+
+async function fetchNFLGamesFromDryrun(
+  cfbClient: SupabaseClient,
   mainClient: SupabaseClient
 ): Promise<GameFetchResult> {
-  const { data: latest } = await cfbClient
+  // "Latest slate" = newest (season, week), mirroring the legacy latest-run idea.
+  const { data: latestSlate } = await cfbClient
+    .from('nfl_dryrun_games')
+    .select('season, week')
+    .order('season', { ascending: false })
+    .order('week', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!latestSlate) {
+    return { games: [], formattedGames: [] };
+  }
+
+  const { data: games } = await cfbClient
+    .from('nfl_dryrun_games')
+    .select('*')
+    .eq('season', latestSlate.season)
+    .eq('week', latestSlate.week);
+
+  if (!games || games.length === 0) {
+    return { games: [], formattedGames: [] };
+  }
+
+  // game_id is the nflverse id verbatim (e.g. 2025_12_BUF_HOU) — this is what
+  // makes props (nfl_dryrun_props) and results join cleanly. See DRYRUN spec §0.
+  const gameIds = [...new Set(games.map(g => String(g.game_id || '')).filter(Boolean))];
+
+  // season/week are uniform across the slate (it's one (season, week) pull), so
+  // read them off the first row to scope the one-shot injury fetch. The dryrun
+  // game rows carry these columns directly (e.g. 2025/12).
+  const slateSeason = Number(games[0]?.season);
+  const slateWeek = Number(games[0]?.week);
+
+  // Polymarket is keyable off team display names (same as legacy). Pick cards
+  // (nfl_dryrun_picks) and signal flags (nfl_dryrun_flags) join on game_id.
+  // No line-movement source: dryrun games carry no training_key, so the legacy
+  // nfl_betting_lines join key doesn't exist here → line_movement stays [].
+  // signal_performance (RESEARCH project, same cfbClient) carries each signal's
+  // LIVE season-to-date record; {sport}_signal_defs carries the STATIC all-time
+  // validated record (typical_hit) + the human one-liner. One row-set per run
+  // (not per game) for each → fetch once, build perfMap (latest season per key)
+  // + defMap (one def per signal_key). Both keyed by signal_key. injuryMap is
+  // keyed by nflverse abbr (same scheme as game_id) — fetched once per slate.
+  const [polymarketByGameKey, picksByGameId, flagsByGameId, propsByGameId, perfMap, defMap, injuryMap] = await Promise.all([
+    fetchPolymarketByGameKey(mainClient, 'nfl', games),
+    fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_picks', gameIds),
+    fetchDryrunChildByGameId(cfbClient, 'nfl_dryrun_flags', gameIds),
+    fetchNFLPropsByGameId(cfbClient, gameIds),
+    fetchSignalPerformanceMap(cfbClient, 'nfl'),
+    fetchSignalDefsMap(cfbClient, 'nfl'),
+    fetchNFLInjuryMap(cfbClient, slateSeason, slateWeek),
+  ]);
+
+  const formattedGames = games.map(game => {
+    const gameId = String(game.game_id || '');
+    return formatNFLGameFromDryrun(
+      game,
+      polymarketByGameKey.get(toGameKey('nfl', game.away_team, game.home_team)) || null,
+      propsByGameId.get(gameId) || [],
+      picksByGameId.get(gameId) || [],
+      flagsByGameId.get(gameId) || [],
+      perfMap,
+      defMap,
+      injuryMap
+    );
+  });
+  return { games, formattedGames };
+}
+
+async function fetchCFBGamesFromDryrun(
+  cfbClient: SupabaseClient,
+  mainClient: SupabaseClient
+): Promise<GameFetchResult> {
+  const { data: latestSlate } = await cfbClient
     .from('cfb_dryrun_games')
     .select('season, week')
     .order('season', { ascending: false })
     .order('week', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!latest) return { games: [], formattedGames: [] };
 
-  const season = Number(latest.season);
-  const week = Number(latest.week);
+  if (!latestSlate) {
+    return { games: [], formattedGames: [] };
+  }
 
-  const { data: allGames } = await cfbClient
+  const { data: games } = await cfbClient
     .from('cfb_dryrun_games')
     .select('*')
-    .eq('season', season)
-    .eq('week', week);
-  if (!allGames || allGames.length === 0) return { games: [], formattedGames: [] };
+    .eq('season', latestSlate.season)
+    .eq('week', latestSlate.week);
 
-  // §1 slate pre-filter — matters most for CFB (40-60 game Saturdays).
-  // CFB uses n_flags_* column names (NFL uses flags_*).
-  const games = (allGames as Record<string, unknown>[]).filter(g =>
-    Number(g.n_flags_active || 0) >= 1 ||
-    Number(g.n_flags_tracking || 0) >= 1 ||
-    (g.conviction_tier != null && g.conviction_tier !== 'none')
-  );
-  if (games.length === 0) return { games: [], formattedGames: [] };
+  if (!games || games.length === 0) {
+    return { games: [], formattedGames: [] };
+  }
 
-  const gameIds = games.map(g => String(g.game_id));
+  // game_id is the CFBD id (bigint, e.g. 401760389) verbatim. Picks + flags
+  // join on it. cfb_team_trends is keyed by team_name (not game_id), so it's
+  // fetched once and looked up per home/away display name.
+  const gameIds = [...new Set(games.map(g => String(g.game_id ?? '')).filter(Boolean))];
+  const teamNames = [...new Set(games.flatMap(g => [String(g.home_team || ''), String(g.away_team || '')]).filter(Boolean))];
 
-  const [picks, defs, perf, trends, polymarket] = await Promise.all([
-    fetchDryrunPicks(cfbClient, 'cfb_dryrun_picks', gameIds),
-    fetchSignalDefs(cfbClient, 'cfb_signal_defs'),
-    fetchSignalPerformance(cfbClient, 'cfb', season),
-    fetchTeamTrends(cfbClient, 'cfb_team_trends', 'team_name', season),
-    // Best-effort: polymarket keys on team names; CFB naming is messy so this
-    // resolves null when names don't line up. There is no cfb_betting_lines
-    // table, so CFB line movement comes from the dryrun open→close only.
+  // signal_performance (season-to-date) + cfb_signal_defs (all-time validated) —
+  // see the NFL fetcher. One row-set per run each; both keyed by signal_key.
+  const [polymarketByGameKey, picksByGameId, flagsByGameId, trendsByTeam, perfMap, defMap] = await Promise.all([
     fetchPolymarketByGameKey(mainClient, 'cfb', games),
+    fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_picks', gameIds),
+    fetchDryrunChildByGameId(cfbClient, 'cfb_dryrun_flags', gameIds),
+    fetchCFBTeamTrendsByTeam(cfbClient, teamNames),
+    fetchSignalPerformanceMap(cfbClient, 'cfb'),
+    fetchSignalDefsMap(cfbClient, 'cfb'),
   ]);
 
   const formattedGames = games.map(game => {
-    const gid = String(game.game_id);
-    return formatCFBGame(game, {
-      picks: picks.get(gid) || [],
-      defs, perf, trends,
-      polymarket: polymarket.get(toGameKey('cfb', game.away_team, game.home_team)) || null,
-    });
+    const gameId = String(game.game_id ?? '');
+    return formatCFBGameFromDryrun(
+      game,
+      polymarketByGameKey.get(toGameKey('cfb', game.away_team, game.home_team)) || null,
+      picksByGameId.get(gameId) || [],
+      flagsByGameId.get(gameId) || [],
+      trendsByTeam.get(normalizeTeamKey(game.home_team)) || null,
+      trendsByTeam.get(normalizeTeamKey(game.away_team)) || null,
+      perfMap,
+      defMap
+    );
   });
   return { games, formattedGames };
+}
+
+// Generic child-table fetcher for the dryrun pick/flag tables: one `.in` query,
+// grouped by game_id. game_id is text (NFL) or bigint (CFB) — we stringify both
+// sides so the map keys line up with the parent's String(game.game_id).
+async function fetchDryrunChildByGameId(
+  cfbClient: SupabaseClient,
+  tableName: string,
+  gameIds: string[]
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const result = new Map<string, Record<string, unknown>[]>();
+  if (gameIds.length === 0) return result;
+
+  try {
+    const { data, error } = await cfbClient
+      .from(tableName)
+      .select('*')
+      .in('game_id', gameIds);
+
+    if (error || !data) {
+      console.warn(`[agentGameHelpers] dryrun child fetch failed (${tableName}):`, error?.message || 'No data');
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const gameId = String(row.game_id ?? '');
+      if (!gameId) continue;
+      if (!result.has(gameId)) result.set(gameId, []);
+      result.get(gameId)!.push(row);
+    }
+  } catch (error) {
+    console.warn(`[agentGameHelpers] dryrun child fetch threw (${tableName}):`, (error as Error).message);
+  }
+
+  return result;
+}
+
+// nfl_injuries_raw.team is the nflverse abbr scheme (ARI, LA=Rams, LAC=Chargers,
+// NYG, NYJ) — same as the dryrun game_id, so that table joins by abbr directly.
+// nfl_pregame_injuries_team_week.team is a CITY string ("Arizona", "NY Jets",
+// "LA Rams"); this static map bridges abbr→city so the team-week digest can be
+// reverse-looked-up per abbr. All 32 verified against the live distinct values.
+const NFL_ABBR_TO_INJURY_CITY: Record<string, string> = {
+  ARI: 'Arizona', ATL: 'Atlanta', BAL: 'Baltimore', BUF: 'Buffalo', CAR: 'Carolina', CHI: 'Chicago',
+  CIN: 'Cincinnati', CLE: 'Cleveland', DAL: 'Dallas', DEN: 'Denver', DET: 'Detroit', GB: 'Green Bay',
+  HOU: 'Houston', IND: 'Indianapolis', JAX: 'Jacksonville', KC: 'Kansas City', LA: 'LA Rams',
+  LAC: 'LA Chargers', LV: 'Las Vegas', MIA: 'Miami', MIN: 'Minnesota', NE: 'New England',
+  NO: 'New Orleans', NYG: 'NY Giants', NYJ: 'NY Jets', PHI: 'Philadelphia', PIT: 'Pittsburgh',
+  SF: 'San Francisco', SEA: 'Seattle', TB: 'Tampa Bay', TEN: 'Tennessee', WAS: 'Washington',
+};
+
+// Sort order for report_status so the most impactful absences surface first.
+const NFL_INJURY_STATUS_RANK: Record<string, number> = {
+  Out: 0, Doubtful: 1, Questionable: 2,
+};
+
+interface NFLInjuryEntry {
+  digest: Record<string, unknown> | null;
+  players: Record<string, unknown>[];
+}
+
+// NFL injury map for one dryrun slate (RESEARCH project, same cfbClient as the
+// dryrun games). Pulls both injury tables filtered by season+week and keys the
+// result by nflverse ABBR — the same scheme the dryrun game_id uses, so the
+// formatter can look up home/away directly off the parsed game_id. Mirrors
+// fetchSignalPerformanceMap: one fetch per run, try/catch → empty map on error.
+//   - nfl_injuries_raw joins by abbr (team col is already abbr) → per-team
+//     `players` list (report_status != null, sorted Out→Doubtful→Questionable,
+//     capped at 10).
+//   - nfl_pregame_injuries_team_week is keyed by city → indexed by city string,
+//     then reverse-looked-up per abbr via NFL_ABBR_TO_INJURY_CITY → `digest`.
+// NFL-only — there is no CFB injury data, so CFB never calls this.
+async function fetchNFLInjuryMap(
+  cfbClient: SupabaseClient,
+  season: number,
+  week: number,
+): Promise<Map<string, NFLInjuryEntry>> {
+  const result = new Map<string, NFLInjuryEntry>();
+  if (!Number.isFinite(season) || !Number.isFinite(week)) return result;
+
+  try {
+    const [rawResp, teamWeekResp] = await Promise.all([
+      cfbClient
+        .from('nfl_injuries_raw')
+        .select('team, player_name, position, report_status, body_part')
+        .eq('season', season)
+        .eq('week', week),
+      cfbClient
+        .from('nfl_pregame_injuries_team_week')
+        .select('team, qb_status, qb_out_or_doubtful, starters_out, skill_position_listed, oline_listed, dline_listed, secondary_listed, injury_severity_score')
+        .eq('season', season)
+        .eq('week', week),
+    ]);
+
+    if (rawResp.error) {
+      console.warn('[agentGameHelpers] nfl_injuries_raw fetch failed:', rawResp.error.message);
+    }
+    if (teamWeekResp.error) {
+      console.warn('[agentGameHelpers] nfl_pregame_injuries_team_week fetch failed:', teamWeekResp.error.message);
+    }
+
+    // Group raw rows by abbr → player list (keep only listed report statuses).
+    const playersByAbbr = new Map<string, Record<string, unknown>[]>();
+    for (const row of (rawResp.data ?? []) as Record<string, unknown>[]) {
+      const abbr = String(row.team ?? '');
+      if (!abbr) continue;
+      const status = row.report_status as string | null;
+      if (status == null) continue; // null status = not on the report; skip
+      if (!playersByAbbr.has(abbr)) playersByAbbr.set(abbr, []);
+      playersByAbbr.get(abbr)!.push({
+        player: row.player_name ?? null,
+        position: row.position ?? null,
+        status,
+        body_part: row.body_part ?? null,
+      });
+    }
+    // Sort Out→Doubtful→Questionable, then cap at 10 per team.
+    for (const [abbr, players] of playersByAbbr) {
+      players.sort((a, b) =>
+        (NFL_INJURY_STATUS_RANK[String(a.status)] ?? 99) - (NFL_INJURY_STATUS_RANK[String(b.status)] ?? 99)
+      );
+      playersByAbbr.set(abbr, players.slice(0, 10));
+    }
+
+    // Index the team-week digest by city string for reverse-lookup per abbr.
+    const digestByCity = new Map<string, Record<string, unknown>>();
+    for (const row of (teamWeekResp.data ?? []) as Record<string, unknown>[]) {
+      const city = String(row.team ?? '');
+      if (!city) continue;
+      digestByCity.set(city, row);
+    }
+
+    // Build one entry per abbr that appears in either source.
+    const abbrs = new Set<string>([...playersByAbbr.keys(), ...Object.keys(NFL_ABBR_TO_INJURY_CITY)]);
+    for (const abbr of abbrs) {
+      const players = playersByAbbr.get(abbr) ?? [];
+      const city = NFL_ABBR_TO_INJURY_CITY[abbr];
+      const digestRow = city ? digestByCity.get(city) : undefined;
+      // Only emit an entry when there's actually injury data for the team.
+      if (players.length === 0 && !digestRow) continue;
+      result.set(abbr, {
+        digest: digestRow
+          ? {
+              qb_status: digestRow.qb_status ?? null,
+              qb_out_or_doubtful: digestRow.qb_out_or_doubtful ?? null,
+              starters_out: digestRow.starters_out ?? null,
+              skill_positions_listed: digestRow.skill_position_listed ?? null,
+              oline_listed: digestRow.oline_listed ?? null,
+              dline_listed: digestRow.dline_listed ?? null,
+              secondary_listed: digestRow.secondary_listed ?? null,
+              severity_score: digestRow.injury_severity_score ?? null,
+            }
+          : null,
+        players,
+      });
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] NFL injury fetch threw:', (error as Error).message);
+  }
+
+  return result;
+}
+
+// signal_performance (RESEARCH project) holds each signal's LIVE track record,
+// keyed by (sport, signal_key, season). One row-set per sport per run — fetch
+// once and index by signal_key, keeping the highest (latest) season per key so
+// a firing flag surfaces its most recent record. signal_key here aligns with
+// the dryrun flags' signal_key (most match; tracking signals may have no row).
+async function fetchSignalPerformanceMap(
+  cfbClient: SupabaseClient,
+  sport: string
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+
+  try {
+    const { data, error } = await cfbClient
+      .from('signal_performance')
+      .select('signal_key, n, wins, losses, hit_rate, roi, season')
+      .eq('sport', sport);
+
+    if (error || !data) {
+      console.warn(`[agentGameHelpers] signal_performance fetch failed (${sport}):`, error?.message || 'No data');
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const key = String(row.signal_key ?? '');
+      if (!key) continue;
+      const existing = result.get(key);
+      // Keep the latest season per signal_key.
+      if (!existing || Number(row.season ?? -Infinity) > Number(existing.season ?? -Infinity)) {
+        result.set(key, row);
+      }
+    }
+  } catch (error) {
+    console.warn(`[agentGameHelpers] signal_performance fetch threw (${sport}):`, (error as Error).message);
+  }
+
+  return result;
+}
+
+// {sport}_signal_defs (RESEARCH project) holds each signal's STATIC validated
+// definition — the all-time backtested record (`typical_hit`, TEXT e.g. "~64%")
+// plus the human-readable one_liner / why_it_works / bet_direction. No season
+// dimension: these are the locked definitions, keyed by signal_key alone. This
+// is the all-time counterpart to fetchSignalPerformanceMap's season-to-date
+// numbers — the two are kept separate so the model never conflates them. NFL +
+// CFB only (nfl_signal_defs / cfb_signal_defs). undefined sport → empty map.
+async function fetchSignalDefsMap(
+  cfbClient: SupabaseClient,
+  sport: string
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+  const tableName = sport === 'nfl' ? 'nfl_signal_defs' : sport === 'cfb' ? 'cfb_signal_defs' : null;
+  if (!tableName) return result;
+
+  try {
+    const { data, error } = await cfbClient
+      .from(tableName)
+      .select('signal_key, display_name, one_liner, why_it_works, bet_direction, typical_hit');
+
+    if (error || !data) {
+      console.warn(`[agentGameHelpers] ${tableName} fetch failed:`, error?.message || 'No data');
+      return result;
+    }
+
+    for (const row of data as Record<string, unknown>[]) {
+      const key = String(row.signal_key ?? '');
+      if (!key) continue;
+      result.set(key, row);
+    }
+  } catch (error) {
+    console.warn(`[agentGameHelpers] ${tableName} fetch threw:`, (error as Error).message);
+  }
+
+  return result;
+}
+
+// cfb_team_trends is keyed by team_name (one row per team for the latest week),
+// not by game_id. Fetch all subject teams once and index by normalized name.
+async function fetchCFBTeamTrendsByTeam(
+  cfbClient: SupabaseClient,
+  teamNames: string[]
+): Promise<Map<string, Record<string, unknown>>> {
+  const result = new Map<string, Record<string, unknown>>();
+  if (teamNames.length === 0) return result;
+
+  try {
+    const { data, error } = await cfbClient
+      .from('cfb_team_trends')
+      .select('*')
+      .in('team_name', teamNames);
+
+    if (error || !data) {
+      console.warn('[agentGameHelpers] cfb_team_trends fetch failed:', error?.message || 'No data');
+      return result;
+    }
+
+    // Keep the newest (season, through_week) row per team if duplicates exist.
+    for (const row of data as Record<string, unknown>[]) {
+      const key = normalizeTeamKey(row.team_name);
+      const existing = result.get(key);
+      if (!existing || Number(row.through_week || 0) > Number(existing.through_week || 0)) {
+        result.set(key, row);
+      }
+    }
+  } catch (error) {
+    console.warn('[agentGameHelpers] cfb_team_trends fetch threw:', (error as Error).message);
+  }
+
+  return result;
 }
 
 async function fetchNBAGames(
@@ -1011,357 +1347,93 @@ async function fetchLineMovementByTrainingKey(
   return result;
 }
 
-// =============================================================================
-// Dryrun-contract fetchers + builders (NFL + CFB share these)
-// =============================================================================
-
-// Per-game pick cards (the 7-market rows). Keyed by game_id (as string).
-async function fetchDryrunPicks(
-  cfbClient: SupabaseClient,
-  tableName: string,
-  gameIds: string[]
-): Promise<Map<string, Record<string, unknown>[]>> {
-  const result = new Map<string, Record<string, unknown>[]>();
-  if (gameIds.length === 0) return result;
-  try {
-    const { data, error } = await cfbClient.from(tableName).select('*').in('game_id', gameIds);
-    if (error || !data) {
-      console.warn(`[agentGameHelpers] ${tableName} fetch failed:`, error?.message || 'No data');
-      return result;
-    }
-    for (const row of data as Record<string, unknown>[]) {
-      const gid = String(row.game_id ?? '');
-      if (!gid) continue;
-      if (!result.has(gid)) result.set(gid, []);
-      result.get(gid)!.push(row);
-    }
-  } catch (err) {
-    console.warn(`[agentGameHelpers] ${tableName} fetch threw:`, (err as Error).message);
-  }
-  return result;
-}
-
-// NFL player props that carry at least one curated P-flag. Keyed by game_id.
-// Props with no actionable flag (e.g. only the dropped P8) are excluded by
-// formatNFLGame; here we just gate on flags being present at all.
-async function fetchFlaggedProps(
-  cfbClient: SupabaseClient,
-  gameIds: string[]
-): Promise<Map<string, Record<string, unknown>[]>> {
-  const result = new Map<string, Record<string, unknown>[]>();
-  if (gameIds.length === 0) return result;
-  try {
-    const { data, error } = await cfbClient
-      .from('nfl_dryrun_props')
-      .select('*')
-      .in('game_id', gameIds)
-      .not('flags', 'is', null);
-    if (error || !data) {
-      console.warn('[agentGameHelpers] nfl_dryrun_props fetch failed:', error?.message || 'No data');
-      return result;
-    }
-    for (const row of data as Record<string, unknown>[]) {
-      const flags = Array.isArray(row.flags) ? row.flags as string[] : [];
-      if (flags.length === 0) continue;
-      const gid = String(row.game_id ?? '');
-      if (!gid) continue;
-      if (!result.has(gid)) result.set(gid, []);
-      result.get(gid)!.push(row);
-    }
-  } catch (err) {
-    console.warn('[agentGameHelpers] nfl_dryrun_props fetch threw:', (err as Error).message);
-  }
-  return result;
-}
-
-// Signal definitions (static reference: display_name, one_liner, typical_hit…).
-async function fetchSignalDefs(
-  cfbClient: SupabaseClient,
-  tableName: string
-): Promise<Map<string, Record<string, unknown>>> {
-  const result = new Map<string, Record<string, unknown>>();
-  try {
-    const { data, error } = await cfbClient.from(tableName).select('*');
-    if (error || !data) return result;
-    for (const row of data as Record<string, unknown>[]) {
-      const key = String(row.signal_key ?? '');
-      if (key) result.set(key, row);
-    }
-  } catch (err) {
-    console.warn(`[agentGameHelpers] ${tableName} fetch threw:`, (err as Error).message);
-  }
-  return result;
-}
-
-// Live season-to-date record per signal_key (this sport + season only).
-async function fetchSignalPerformance(
-  cfbClient: SupabaseClient,
-  sport: string,
-  season: number
-): Promise<Map<string, Record<string, unknown>>> {
-  const result = new Map<string, Record<string, unknown>>();
-  try {
-    const { data, error } = await cfbClient
-      .from('signal_performance')
-      .select('*')
-      .eq('sport', sport)
-      .eq('season', season);
-    if (error || !data) return result;
-    for (const row of data as Record<string, unknown>[]) {
-      const key = String(row.signal_key ?? '');
-      if (key) result.set(key, row);
-    }
-  } catch (err) {
-    console.warn('[agentGameHelpers] signal_performance fetch threw:', (err as Error).message);
-  }
-  return result;
-}
-
-// Team season trends. NFL keys on team_abbr, CFB on team_name. When a team has
-// multiple rows (one per through_week) we keep the latest.
-async function fetchTeamTrends(
-  cfbClient: SupabaseClient,
-  tableName: string,
-  keyField: string,
-  season: number
-): Promise<Map<string, Record<string, unknown>>> {
-  const result = new Map<string, Record<string, unknown>>();
-  try {
-    const { data, error } = await cfbClient.from(tableName).select('*').eq('season', season);
-    if (error || !data) return result;
-    for (const row of data as Record<string, unknown>[]) {
-      const key = String(row[keyField] ?? '');
-      if (!key) continue;
-      const existing = result.get(key);
-      if (!existing || Number(row.through_week || 0) > Number(existing.through_week || 0)) {
-        result.set(key, row);
-      }
-    }
-  } catch (err) {
-    console.warn(`[agentGameHelpers] ${tableName} fetch threw:`, (err as Error).message);
-  }
-  return result;
-}
-
-// Last-5 head-to-head per game (NFL only). nfl_matchup_history keys on a
-// sorted abbr pair ("DAL|PHI"); build that from the dryrun abbrs.
-async function fetchNFLMatchupHistory(
+async function fetchNFLH2HByGameKey(
   cfbClient: SupabaseClient,
   games: Record<string, unknown>[]
 ): Promise<Map<string, Record<string, unknown>[]>> {
   const result = new Map<string, Record<string, unknown>[]>();
-  const keyByMatchup = new Map<string, string[]>(); // matchup_key -> [game_id…]
-  for (const g of games) {
-    const h = String(g.home_ab || '');
-    const a = String(g.away_ab || '');
-    if (!h || !a) continue;
-    const mk = [h, a].sort().join('|');
-    if (!keyByMatchup.has(mk)) keyByMatchup.set(mk, []);
-    keyByMatchup.get(mk)!.push(String(g.game_id));
-  }
-  const matchupKeys = [...keyByMatchup.keys()];
-  if (matchupKeys.length === 0) return result;
 
-  try {
-    const { data, error } = await cfbClient
-      .from('nfl_matchup_history')
-      .select('matchup_key, date, season, week, away_team, home_team, away_score, home_score, ats_result, ou_result, winner_team, closing_spread_home, closing_total')
-      .in('matchup_key', matchupKeys)
-      .order('date', { ascending: false });
-    if (error || !data) return result;
+  const h2hPromises = games.map(async (game) => {
+    const away = String(game.away_team || '');
+    const home = String(game.home_team || '');
+    const key = toGameKey('nfl', away, home);
 
-    const byMatchup = new Map<string, Record<string, unknown>[]>();
-    for (const row of data as Record<string, unknown>[]) {
-      const mk = String(row.matchup_key ?? '');
-      if (!byMatchup.has(mk)) byMatchup.set(mk, []);
-      const list = byMatchup.get(mk)!;
-      if (list.length < 5) list.push(row);
+    try {
+      const { data, error } = await cfbClient
+        .from('nfl_training_data')
+        .select('game_date, home_team, away_team, home_score, away_score, home_spread, away_spread, over_line')
+        .or(`and(home_team.eq."${home}",away_team.eq."${away}"),and(home_team.eq."${away}",away_team.eq."${home}")`)
+        .order('game_date', { ascending: false })
+        .limit(5);
+
+      if (!error && data) {
+        result.set(key, data as Record<string, unknown>[]);
+      }
+    } catch (error) {
+      console.warn(`[agentGameHelpers] NFL H2H fetch failed for ${away} @ ${home}:`, (error as Error).message);
     }
-    for (const [mk, gids] of keyByMatchup) {
-      const rows = byMatchup.get(mk) || [];
-      for (const gid of gids) result.set(gid, rows);
-    }
-  } catch (err) {
-    console.warn('[agentGameHelpers] nfl_matchup_history fetch threw:', (err as Error).message);
-  }
+  });
+
+  await Promise.all(h2hPromises);
   return result;
 }
 
-// ── Builders shared by both formatters ──
+// Player props for the slate, keyed by game_id (the dryrun nflverse id, e.g.
+// 2025_12_BUF_HOU). Mirrors the other per-game fetchers: one `.in` query, then
+// group rows by game_id. Lives on the research (cfb) client alongside
+// nfl_dryrun_games. NFL-only — no other sport has nfl_dryrun_props.
+async function fetchNFLPropsByGameId(
+  cfbClient: SupabaseClient,
+  gameIds: string[]
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const result = new Map<string, Record<string, unknown>[]>();
+  if (gameIds.length === 0) return result;
 
-interface SignalBase {
-  action: unknown; stance: unknown; tier: unknown; label: unknown; team: unknown;
-}
+  try {
+    const { data, error } = await cfbClient
+      .from('nfl_dryrun_props')
+      .select('game_id, player_name, position, team, opponent, is_home, market, close_line, over_price, under_price, l3_avg, l5_avg, l10_avg, szn_avg, over_rate_l5, over_rate_l10, def_matchup_idx, report_status, flags')
+      .in('game_id', gameIds);
 
-// Fold a fired signal's per-game context together with its static definition
-// and live season record. The result is what lets an agent say "this fired,
-// here's why, and it's hitting 64% / +18% ROI this season."
-function enrichSignal(
-  key: string,
-  base: SignalBase,
-  defs: Map<string, Record<string, unknown>>,
-  perf: Map<string, Record<string, unknown>>
-): Record<string, unknown> {
-  const d = defs.get(key) || {};
-  const r = perf.get(key) || null;
-  return {
-    key,
-    market: d.market ?? null,
-    display_name: d.display_name ?? null,
-    action: base.action ?? null,
-    stance: base.stance ?? null,
-    tier: base.tier ?? null,
-    label: base.label ?? null,
-    one_liner: d.one_liner ?? null,
-    why_it_works: d.why_it_works ?? null,
-    bet_direction: d.bet_direction ?? null,
-    typical_hit: d.typical_hit ?? null,        // STATIC backtest — lead with this
-    record: r ? {                              // LIVE season-to-date — confirmation
-      n: r.n, wins: r.wins, losses: r.losses, pushes: r.pushes,
-      hit_rate: toNum(r.hit_rate), units: toNum(r.units), roi: toNum(r.roi),
-      last_week: r.last_week,
-    } : null,
-  };
-}
-
-// NFL picks carry a `signals` jsonb (key/team/tier/label/action/stance per
-// fired signal). Aggregate across the game's pick cards, dedupe by key.
-function buildSignalsFromJsonb(
-  picks: Record<string, unknown>[],
-  defs: Map<string, Record<string, unknown>>,
-  perf: Map<string, Record<string, unknown>>
-): Record<string, unknown>[] {
-  const out = new Map<string, Record<string, unknown>>();
-  for (const p of picks) {
-    const sigs = Array.isArray(p.signals) ? p.signals as Record<string, unknown>[] : [];
-    for (const s of sigs) {
-      const key = String(s.key ?? '');
-      if (!key || out.has(key)) continue;
-      out.set(key, enrichSignal(key, {
-        action: s.action, stance: s.stance, tier: s.tier, label: s.label, team: s.team,
-      }, defs, perf));
+    if (error || !data) {
+      console.warn('[agentGameHelpers] NFL props fetch failed:', error?.message || 'No data');
+      return result;
     }
-  }
-  return [...out.values()];
-}
 
-// CFB picks only carry a `signal_keys` array (no per-signal stance jsonb), so
-// derive the directive from the pick card itself.
-function buildSignalsFromKeys(
-  picks: Record<string, unknown>[],
-  defs: Map<string, Record<string, unknown>>,
-  perf: Map<string, Record<string, unknown>>
-): Record<string, unknown>[] {
-  const out = new Map<string, Record<string, unknown>>();
-  for (const p of picks) {
-    const keys = Array.isArray(p.signal_keys) ? p.signal_keys as unknown[] : [];
-    for (const k of keys) {
-      const key = String(k ?? '');
-      if (!key || out.has(key)) continue;
-      out.set(key, enrichSignal(key, {
-        action: p.pick_label, stance: null,
-        tier: p.display_only ? 'tracking' : 'active',
-        label: p.pick_label, team: p.pick_team,
-      }, defs, perf));
+    for (const row of data as Record<string, unknown>[]) {
+      const gameId = String(row.game_id || '');
+      if (!gameId) continue;
+      if (!result.has(gameId)) result.set(gameId, []);
+      result.get(gameId)!.push(formatNFLProp(row));
     }
+  } catch (error) {
+    console.warn('[agentGameHelpers] NFL props fetch threw:', (error as Error).message);
   }
-  return [...out.values()];
+
+  return result;
 }
 
-// Curated NFL prop flags → registered signal_key + bet direction.
-// P6 = ATD steam-up: an AVOID warning, never a bet. P8 = dropped (CLV-only).
-const NFL_PROP_FLAGS: Record<string, { signal_key: string; direction: string }> = {
-  P1: { signal_key: 'P1_pass_yds_form_over', direction: 'OVER' },
-  P2: { signal_key: 'P2_pass_yds_form_under', direction: 'UNDER' },
-  P3: { signal_key: 'P3_pass_tds_form_over', direction: 'OVER' },
-  P4: { signal_key: 'P4_no_history_qb_under', direction: 'UNDER' },
-  P5: { signal_key: 'P5_atd_drift_yes', direction: 'YES' },
-  P7: { signal_key: 'P7_rush_yds_tough_d_under', direction: 'UNDER' },
-  P9: { signal_key: 'P9_pass_tds_regression_over', direction: 'OVER' },
-  P10: { signal_key: 'P10_receptions_raised_under', direction: 'UNDER' },
-  P12: { signal_key: 'P12_featured_wr_over', direction: 'OVER' },
-  P13: { signal_key: 'P13_featured_rb_over', direction: 'OVER' },
-};
-
-function buildProps(
-  propRows: Record<string, unknown>[],
-  defs: Map<string, Record<string, unknown>>,
-  perf: Map<string, Record<string, unknown>>
-): Record<string, unknown>[] {
-  const out: Record<string, unknown>[] = [];
-  for (const row of propRows) {
-    const flags = Array.isArray(row.flags) ? row.flags as string[] : [];
-    const actionable = flags.filter(f => NFL_PROP_FLAGS[f]);
-    if (actionable.length === 0) continue; // only P8/P6 → no bettable signal
-
-    const propSignals = actionable.map(f => {
-      const { signal_key, direction } = NFL_PROP_FLAGS[f];
-      const s = enrichSignal(signal_key, {
-        action: `${row.player_name} ${direction} ${row.close_line} ${row.market}`,
-        stance: null, tier: 'active', label: null, team: row.team,
-      }, defs, perf);
-      return { ...s, flag: f, direction };
-    });
-
-    out.push({
-      player: row.player_name,
-      position: row.position,
-      team: row.team,
-      opponent: row.opponent,
-      is_home: row.is_home,
-      market: row.market,
-      line: toNum(row.close_line),
-      over_price: toNum(row.over_price),
-      under_price: toNum(row.under_price),
-      open_line: toNum(row.open_line),
-      line_delta: toNum(row.line_delta),
-      form: {
-        last_game: toNum(row.last_game),
-        l3_avg: toNum(row.l3_avg),
-        l5_avg: toNum(row.l5_avg),
-        l10_avg: toNum(row.l10_avg),
-        szn_avg: toNum(row.szn_avg),
-        over_rate_l5: toNum(row.over_rate_l5),
-        over_rate_l10: toNum(row.over_rate_l10),
-      },
-      def_matchup_idx: toNum(row.def_matchup_idx),
-      report_status: row.report_status ?? null,
-      practice_status: row.practice_status ?? null,
-      avoid: flags.includes('P6') ? true : null, // P6 steam-up warning
-      headshot_url: row.headshot_url ?? null,
-      signals: propSignals,
-    });
-  }
-  return out;
-}
-
-function buildTrendBlock(t: Record<string, unknown> | undefined): Record<string, unknown> | null {
-  if (!t) return null;
-  const rec = (w: unknown, l: unknown, p: unknown) => {
-    const base = `${Number(w || 0)}-${Number(l || 0)}`;
-    return Number(p || 0) > 0 ? `${base}-${Number(p)}` : base;
-  };
+// Project one nfl_dryrun_props row to the agent-facing prop shape. is_bettable
+// is the signal gate: a non-empty `flags` array means a validated P-flag fired,
+// so the prop is bettable; everything else is read-only form context.
+function formatNFLProp(row: Record<string, unknown>): Record<string, unknown> {
+  const flags = Array.isArray(row.flags) ? row.flags : [];
   return {
-    ats_pct: toNum(t.ats_pct),
-    ats_record: rec(t.ats_w, t.ats_l, t.ats_p),
-    over_pct: toNum(t.over_pct),
-    ou_record: rec(t.ou_o, t.ou_u, t.ou_p),
-    tt_over_pct: toNum(t.tt_over_pct),
-    h1_ats_pct: toNum(t.h1_ats_pct),
-    h1_over_pct: toNum(t.h1_over_pct),
-    last5_ats: t.last5_ats ?? null,
-    last5_ou: t.last5_ou ?? null,
+    player_name: row.player_name,
+    position: row.position,
+    market: row.market,
+    line: row.close_line,
+    over_price: row.over_price,
+    under_price: row.under_price,
+    l5_avg: row.l5_avg,
+    l10_avg: row.l10_avg,
+    szn_avg: row.szn_avg,
+    over_rate_l5: row.over_rate_l5,
+    over_rate_l10: row.over_rate_l10,
+    def_matchup_idx: row.def_matchup_idx,
+    flags,
+    is_bettable: Array.isArray(flags) && flags.length > 0,
   };
-}
-
-// "HOU +2.5" / "Houston Texans -3" → HOME | AWAY by matching the leading team
-// token against the home/away identifiers we know for the game.
-function spreadPickToSide(pick: unknown, homeIds: string[], awayIds: string[]): string | null {
-  const s = String(pick || '').trim();
-  if (!s) return null;
-  for (const h of homeIds) if (h && s.startsWith(h)) return 'HOME';
-  for (const a of awayIds) if (a && s.startsWith(a)) return 'AWAY';
-  return null;
 }
 
 async function fetchNBAInjuriesByTeam(
@@ -1482,234 +1554,605 @@ async function fetchPredictionAccuracyByGameId(
 // Game Formatting Functions
 // =============================================================================
 
-interface NFLFormatEnrich {
-  picks: Record<string, unknown>[];
-  props: Record<string, unknown>[];
-  defs: Map<string, Record<string, unknown>>;
-  perf: Map<string, Record<string, unknown>>;
-  trends: Map<string, Record<string, unknown>>;
-  h2h: Record<string, unknown>[];
-  polymarket: Record<string, unknown> | null;
-  lineMovement: Record<string, unknown>[];
-}
-
-// Projects one nfl_dryrun_games row (+ enrichment) into the agent payload
-// shape. See research/nfl-extreme-outcomes/AGENT_PAYLOAD_SPEC.md §2.
-function formatNFLGame(game: Record<string, unknown>, e: NFLFormatEnrich): Record<string, unknown> {
-  const homeAb = String(game.home_ab || '');
-  const awayAb = String(game.away_ab || '');
-  const homeSpread = toNum(game.fg_spread_close);
-  const homeWinProb = toNum(game.fg_home_win_prob);
-
-  const h2h = e.h2h.map(r => ({
-    date: r.date,
-    season: r.season,
-    matchup: `${r.away_team} @ ${r.home_team}`,
-    result: `${r.away_team} ${r.away_score}-${r.home_score} ${r.home_team}`,
-    winner: r.winner_team,
-    ats: r.ats_result,
-    ou: r.ou_result,
-  }));
+function formatNFLGame(
+  game: Record<string, unknown>,
+  polymarket: Record<string, unknown> | null,
+  lineMovement: Record<string, unknown>[],
+  h2hGames: Record<string, unknown>[],
+  props: Record<string, unknown>[] = []
+): Record<string, unknown> {
+  const gameId = game.training_key || `${game.away_team}_${game.home_team}`;
+  const homeSpread = game.home_spread as number | null;
+  const awaySpread = game.away_spread as number | null;
 
   return {
-    game_id: game.game_id,
+    game_id: gameId,
     matchup: `${game.away_team} @ ${game.home_team}`,
     away_team: game.away_team,
     home_team: game.home_team,
-    away_team_abbr: awayAb,
-    home_team_abbr: homeAb,
-    season: game.season,
-    week: game.week,
-    kickoff: game.kickoff,
-    game_date: game.gameday,
-    slot: game.slot,
-    weather: {
-      summary: game.wx_summary ?? null,
-      icon: game.wx_icon ?? null,
-      indoors: game.wx_indoors ?? null,
-      temperature_f: toNum(game.wx_temp_f),
-      wind_mph: toNum(game.wx_wind_mph),
-      precip_mm: toNum(game.wx_precip_mm),
-    },
-    // ---- VEGAS LINES for all 7 markets (consensus close; spreads home-perspective).
-    // `total` stays a bare number (submitPicks.ts totals-rewrite reads vegas_lines.total
-    // as a number); per-market prices live in sibling *_price fields. ----
+    game_date: game.game_date,
+    game_time: game.game_time || '00:00:00',
     vegas_lines: {
-      spread: { home: homeSpread, away: homeSpread == null ? null : -homeSpread, price: -110 },
-      moneyline: { home: toNum(game.fg_ml_home_close), away: toNum(game.fg_ml_away_close) },
-      total: toNum(game.fg_total_close),
-      total_over_price: -110,
-      total_under_price: -110,
-      team_total: {
-        home: toNum(game.tt_home_close), away: toNum(game.tt_away_close),
-        home_over_price: toNum(game.tt_home_over_price), home_under_price: toNum(game.tt_home_under_price),
-        away_over_price: toNum(game.tt_away_over_price), away_under_price: toNum(game.tt_away_under_price),
-      },
-      h1_spread: {
-        home: toNum(game.h1_spread_close),
-        home_price: toNum(game.h1_spread_home_price), away_price: toNum(game.h1_spread_away_price),
-      },
-      h1_total: {
-        line: toNum(game.h1_total_close),
-        over_price: toNum(game.h1_total_over_price), under_price: toNum(game.h1_total_under_price),
-      },
-      h1_moneyline: { home: toNum(game.h1_ml_home_close), away: toNum(game.h1_ml_away_close) },
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${game.away_team} ${fmtML(game.away_ml) ?? 'N/A'} / ${game.home_team} ${fmtML(game.home_ml) ?? 'N/A'}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
+      home_ml: fmtML(game.home_ml),
+      away_ml: fmtML(game.away_ml),
+      total: game.over_line,
     },
-    // ---- MODEL PREDICTIONS (locked models; per market). predicted_team/ou_direction
-    // are flat leans the V3 slate builder (gameSource.ts) reads directly. ----
+    weather: {
+      temperature: game.temperature,
+      wind_speed: game.wind_speed,
+      precipitation: game.precipitation,
+      icon: game.icon,
+    },
+    public_betting: {
+      spread_split: game.spread_splits_label,
+      ml_split: game.ml_splits_label,
+      total_split: game.total_splits_label,
+    },
+    public_betting_detailed: {
+      home_ml_handle: game.home_ml_handle,
+      away_ml_handle: game.away_ml_handle,
+      home_ml_bets: game.home_ml_bets,
+      away_ml_bets: game.away_ml_bets,
+      home_spread_handle: game.home_spread_handle,
+      away_spread_handle: game.away_spread_handle,
+      home_spread_bets: game.home_spread_bets,
+      away_spread_bets: game.away_spread_bets,
+      over_handle: game.over_handle,
+      under_handle: game.under_handle,
+      over_bets: game.over_bets,
+      under_bets: game.under_bets,
+    },
+    line_movement: lineMovement,
+    h2h_recent: h2hGames,
+    polymarket,
     model_predictions: {
-      predicted_team: homeWinProb == null ? null : (homeWinProb >= 0.5 ? game.home_team : game.away_team),
-      ou_direction: game.fg_total_pick ?? null,
-      predicted_score: { home: toNum(game.fg_pred_home_pts), away: toNum(game.fg_pred_away_pts) },
-      win_prob: { home: homeWinProb, away: homeWinProb == null ? null : 1 - homeWinProb },
-      spread: {
-        model_line: toNum(game.fg_pred_spread), edge: toNum(game.fg_spread_edge),
-        pick_side: spreadPickToSide(game.fg_spread_pick, [homeAb], [awayAb]),
-        pick_label: game.fg_spread_pick ?? null,
-        cover_prob: toNum(game.fg_home_cover_prob), confluence: toNum(game.fg_spread_confluence),
-      },
-      total: {
-        predicted_total: toNum(game.fg_pred_total), edge: toNum(game.fg_total_edge),
-        pick_side: game.fg_total_pick ?? null, tier: game.fg_total_tier ?? null,
-      },
-      team_total: {
-        home_pred: toNum(game.tt_home_pred), away_pred: toNum(game.tt_away_pred),
-        home_pick: game.tt_home_pick ?? null, away_pick: game.tt_away_pick ?? null,
-        home_edge: toNum(game.tt_home_edge), away_edge: toNum(game.tt_away_edge),
-      },
-      // 1H markets are display/paper-trade tier — reference, don't headline.
-      h1: {
-        pred_total: toNum(game.h1_pred_total), pred_margin: toNum(game.h1_pred_margin),
-        total_edge: toNum(game.h1_total_edge), cover_tilt: toNum(game.h1_cover_tilt),
-        home_win_prob: toNum(game.h1_home_win_prob),
-        spread_pick: game.h1_spread_pick ?? null, total_pick: game.h1_total_pick ?? null,
-        ml_pick: game.h1_ml_pick ?? null,
-      },
+      spread_cover_prob: game.home_away_spread_cover_prob,
+      ml_prob: game.home_away_ml_prob,
+      ou_prob: game.ou_result_prob,
+      predicted_team: Number(game.home_away_spread_cover_prob || 0) > 0.5 ? game.home_team : game.away_team,
     },
-    // ---- CONVICTION (precomputed; do not recompute) ----
-    conviction: {
-      tier: game.conviction_tier ?? null,
-      top_market: (game.conviction_summary as Record<string, unknown> | null)?.top_card ?? null,
-      mammoth: game.mammoth ?? false,
-      stake_units: toNum(game.stake_units),
-      flags_active: game.flags_active ?? null,
-      flags_tracking: game.flags_tracking ?? null,
+    // Player props are SIGNAL-GATED: only props with a non-empty `flags` array
+    // (a validated P-flag fired) are bettable. is_bettable carries that gate to
+    // the agent + the submit grounding check. See nfl_dryrun_props.flags.
+    props: props.length > 0 ? props : null,
+    game_data_complete: {
+      source_table: 'nfl_predictions_epa',
+      raw_game_data: game,
     },
-    signals: (() => { const s = buildSignalsFromJsonb(e.picks, e.defs, e.perf); return s.length ? s : null; })(),
-    props: (() => { const p = buildProps(e.props, e.defs, e.perf); return p.length ? p : null; })(),
-    trends: {
-      home: buildTrendBlock(e.trends.get(homeAb) ?? e.trends.get(String(game.home_team))),
-      away: buildTrendBlock(e.trends.get(awayAb) ?? e.trends.get(String(game.away_team))),
-    },
-    h2h_recent: h2h.length ? h2h : null,
-    public_betting: null, // source (nfl_predictions_epa) no longer carries splits
-    line_movement: {
-      spread: { open: toNum(game.fg_spread_open), close: homeSpread },
-      total: { open: toNum(game.fg_total_open), close: toNum(game.fg_total_close) },
-      snapshots: e.lineMovement.length ? e.lineMovement : null,
-    },
-    polymarket: e.polymarket,
-    game_data_complete: { source_table: 'nfl_dryrun_games', raw_game_data: game },
   };
 }
 
-interface CFBFormatEnrich {
-  picks: Record<string, unknown>[];
-  defs: Map<string, Record<string, unknown>>;
-  perf: Map<string, Record<string, unknown>>;
-  trends: Map<string, Record<string, unknown>>;
-  polymarket: Record<string, unknown> | null;
-}
-
-// CFB mirrors the NFL shape (AGENT_PAYLOAD_SPEC.md §7): no player props, no
-// H2H card, no cfb_betting_lines (line movement = dryrun open→close only),
-// and team-total/1H markets lack book prices.
-function formatCFBGame(game: Record<string, unknown>, e: CFBFormatEnrich): Record<string, unknown> {
-  const homeTeam = String(game.home_team || '');
-  const awayTeam = String(game.away_team || '');
-  const homeSpread = toNum(game.fg_spread_close);
-  const homeWinProb = toNum(game.fg_home_win_prob);
+function formatCFBGame(
+  game: Record<string, unknown>,
+  polymarket: Record<string, unknown> | null,
+  lineMovement: Record<string, unknown>[]
+): Record<string, unknown> {
+  const gameId = game.training_key || game.unique_id || `${game.away_team}_${game.home_team}`;
+  const spreadProb = game.pred_spread_proba || game.home_away_spread_cover_prob;
+  const homeSpread = (game.api_spread || game.home_spread) as number | null;
+  const awaySpread = game.api_spread ? -(game.api_spread as number) : game.away_spread as number | null;
 
   return {
-    game_id: game.game_id,
-    matchup: `${awayTeam} @ ${homeTeam}`,
-    away_team: awayTeam,
-    home_team: homeTeam,
-    season: game.season,
-    week: game.week,
-    kickoff: game.kickoff,
+    game_id: gameId,
+    matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
+    game_date: game.game_date || game.start_date,
+    game_time: game.game_time || game.start_time || '00:00:00',
+    vegas_lines: {
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${game.away_team} ${fmtML(game.away_moneyline || game.away_ml) ?? 'N/A'} / ${game.home_team} ${fmtML(game.home_moneyline || game.home_ml) ?? 'N/A'}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
+      home_ml: fmtML(game.home_moneyline || game.home_ml),
+      away_ml: fmtML(game.away_moneyline || game.away_ml),
+      total: game.api_over_line || game.total_line,
+    },
+    weather: {
+      temperature: game.weather_temp_f || game.temperature,
+      wind_speed: game.weather_windspeed_mph || game.wind_speed,
+      precipitation: game.precipitation,
+      icon: game.weather_icon_text || game.icon_code,
+    },
+    public_betting: {
+      spread_split: game.spread_splits_label,
+      ml_split: game.ml_splits_label,
+      total_split: game.total_splits_label,
+    },
+    line_movement: lineMovement,
+    opening_lines: {
+      opening_spread: game.opening_spread,
+      opening_total: game.opening_total,
+    },
+    polymarket,
+    model_predictions: {
+      spread_cover_prob: spreadProb,
+      ml_prob: game.pred_ml_proba || game.home_away_ml_prob,
+      ou_prob: game.pred_total_proba || game.ou_result_prob,
+      predicted_team: Number(spreadProb || 0) > 0.5 ? game.home_team : game.away_team,
+    },
+    game_data_complete: {
+      source_table: 'cfb_live_weekly_inputs',
+      raw_game_data: game,
+    },
+  };
+}
+
+// =============================================================================
+// Dryrun Game Formatters (V3-only)
+// Map nfl_dryrun_games / cfb_dryrun_games columns onto the EXACT formatted-game
+// shape that formatNFLGame / formatCFBGame emit (same top-level keys + nesting),
+// so V3's deep tools (DEEP_TOOLS group projections) and prompt consume them
+// identically. Legacy keys are reproduced 1:1; richer dryrun-only data (FG/TT/1H
+// blocks, conviction, flag rows) is added under additive sub-keys that don't
+// collide with any legacy key. Columns the dryrun table lacks are set null/[]
+// (never fabricated). Column map documented in the task return.
+// =============================================================================
+
+function formatNFLGameFromDryrun(
+  game: Record<string, unknown>,
+  polymarket: Record<string, unknown> | null,
+  props: Record<string, unknown>[] = [],
+  picks: Record<string, unknown>[] = [],
+  flags: Record<string, unknown>[] = [],
+  perfMap?: Map<string, Record<string, unknown>>,
+  defMap?: Map<string, Record<string, unknown>>,
+  injuryMap?: Map<string, NFLInjuryEntry>
+): Record<string, unknown> {
+  // game_id = the nflverse id verbatim (text). Props + results join on it.
+  const gameId = String(game.game_id || `${game.away_team}_${game.home_team}`);
+
+  // game_id is "{season}_{week}_{AWAY}_{HOME}" (nflverse abbrs) → away = p[2],
+  // home = p[3]. injuryMap is keyed by that same abbr scheme, so look up each
+  // side directly. Null-safe: undefined map or missing entry → null.
+  const idParts = gameId.split('_');
+  const awayAbbr = idParts[2] ?? '';
+  const homeAbbr = idParts[3] ?? '';
+
+  // Dryrun spreads are home-relative (negative = home favored), same convention
+  // as the legacy formatter's home_spread/away_spread pair.
+  const homeSpread = game.fg_spread_close as number | null;
+  const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
+  const homeML = game.fg_ml_home_close as number | null;
+  const awayML = game.fg_ml_away_close as number | null;
+
+  // Model cover prob → predicted side. ou_prob has no dryrun equivalent (the
+  // total model emits a pick/edge/tier, not a probability) → null, and the OU
+  // direction is surfaced as predicted_ou_direction + via fg_total_pick.
+  const coverProb = game.fg_home_cover_prob as number | null;
+  const predictedTeam = coverProb != null
+    ? (Number(coverProb) > 0.5 ? game.home_team : game.away_team)
+    : null;
+  const ouDirection = typeof game.fg_total_pick === 'string' && game.fg_total_pick
+    ? String(game.fg_total_pick).toUpperCase()
+    : null;
+
+  return {
+    game_id: gameId,
+    matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
+    home_ab: game.home_ab ?? null,
+    away_ab: game.away_ab ?? null,
+    // gameday is a DATE; kickoff is a full tstz. Keep game_date/game_time keys
+    // (consumed by the slate's game_datetime builder) sourced from gameday +
+    // kickoff's time component.
+    game_date: game.gameday ?? null,
+    game_time: typeof game.kickoff === 'string' && game.kickoff.includes('T')
+      ? String(game.kickoff).split('T')[1]?.split('+')[0] || '00:00:00'
+      : '00:00:00',
+    slot: game.slot ?? null,
+    vegas_lines: {
+      // Legacy keys (1:1 with formatNFLGame).
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${game.away_team} ${fmtML(awayML) ?? 'N/A'} / ${game.home_team} ${fmtML(homeML) ?? 'N/A'}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
+      home_ml: fmtML(homeML),
+      away_ml: fmtML(awayML),
+      total: game.fg_total_close ?? null,
+      // Additive dryrun blocks: full-game open, team totals, and the 1H strip.
+      // These let the agent reason about TT/1H markets the dryrun product ships.
+      full_game: {
+        spread_open: game.fg_spread_open ?? null,
+        spread_close: game.fg_spread_close ?? null,
+        total_open: game.fg_total_open ?? null,
+        total_close: game.fg_total_close ?? null,
+        ml_home_close: game.fg_ml_home_close ?? null,
+        ml_away_close: game.fg_ml_away_close ?? null,
+      },
+      team_totals: {
+        home_close: game.tt_home_close ?? null,
+        home_over_price: game.tt_home_over_price ?? null,
+        home_under_price: game.tt_home_under_price ?? null,
+        away_close: game.tt_away_close ?? null,
+        away_over_price: game.tt_away_over_price ?? null,
+        away_under_price: game.tt_away_under_price ?? null,
+      },
+      first_half: {
+        spread_close: game.h1_spread_close ?? null,
+        spread_home_price: game.h1_spread_home_price ?? null,
+        spread_away_price: game.h1_spread_away_price ?? null,
+        total_close: game.h1_total_close ?? null,
+        total_over_price: game.h1_total_over_price ?? null,
+        total_under_price: game.h1_total_under_price ?? null,
+        ml_home_close: game.h1_ml_home_close ?? null,
+        ml_away_close: game.h1_ml_away_close ?? null,
+      },
+    },
+    weather: {
+      // Legacy keys map to wx_* columns. precipitation ← wx_precip_mm.
+      temperature: game.wx_temp_f ?? null,
+      wind_speed: game.wx_wind_mph ?? null,
+      precipitation: game.wx_precip_mm ?? null,
+      icon: game.wx_icon ?? null,
+      // Additive dryrun extras.
+      indoors: game.wx_indoors ?? null,
+      summary: game.wx_summary ?? null,
+    },
+    // No public-betting splits in the dryrun contract → same key shape, null
+    // values (the lens/tool reads these keys; nulls keep the projection valid).
+    public_betting: {
+      spread_split: null,
+      ml_split: null,
+      total_split: null,
+    },
+    public_betting_detailed: {
+      home_ml_handle: null, away_ml_handle: null,
+      home_ml_bets: null, away_ml_bets: null,
+      home_spread_handle: null, away_spread_handle: null,
+      home_spread_bets: null, away_spread_bets: null,
+      over_handle: null, under_handle: null,
+      over_bets: null, under_bets: null,
+    },
+    // Dryrun games carry no training_key → the legacy nfl_betting_lines join key
+    // is absent, so there's no line-movement series. Opening lines DO exist on
+    // the game row (fg_spread_open / fg_total_open).
+    line_movement: [],
+    opening_lines: {
+      opening_spread: game.fg_spread_open ?? null,
+      opening_total: game.fg_total_open ?? null,
+    },
+    h2h_recent: [],
+    polymarket,
+    model_predictions: {
+      // Legacy keys (1:1). ou_prob has no dryrun probability → null.
+      spread_cover_prob: coverProb,
+      ml_prob: game.fg_home_win_prob ?? null,
+      ou_prob: null,
+      predicted_team: predictedTeam,
+      // Additive dryrun model detail (FG pred/edge/pick, TT, 1H, win prob).
+      predicted_ou_direction: ouDirection,
+      full_game: {
+        pred_total: game.fg_pred_total ?? null,
+        total_edge: game.fg_total_edge ?? null,
+        total_pick: game.fg_total_pick ?? null,
+        total_tier: game.fg_total_tier ?? null,
+        home_cover_prob: game.fg_home_cover_prob ?? null,
+        pred_margin: game.fg_pred_margin ?? null,
+        pred_spread: game.fg_pred_spread ?? null,
+        spread_edge: game.fg_spread_edge ?? null,
+        spread_pick: game.fg_spread_pick ?? null,
+        spread_confluence: game.fg_spread_confluence ?? null,
+        home_win_prob: game.fg_home_win_prob ?? null,
+        pred_home_pts: game.fg_pred_home_pts ?? null,
+        pred_away_pts: game.fg_pred_away_pts ?? null,
+      },
+      team_totals: {
+        home_pred: game.tt_home_pred ?? null,
+        home_pick: game.tt_home_pick ?? null,
+        home_edge: game.tt_home_edge ?? null,
+        away_pred: game.tt_away_pred ?? null,
+        away_pick: game.tt_away_pick ?? null,
+        away_edge: game.tt_away_edge ?? null,
+      },
+      first_half: {
+        pred_total: game.h1_pred_total ?? null,
+        total_edge: game.h1_total_edge ?? null,
+        pred_margin: game.h1_pred_margin ?? null,
+        home_win_prob: game.h1_home_win_prob ?? null,
+        cover_tilt: game.h1_cover_tilt ?? null,
+        spread_pick: game.h1_spread_pick ?? null,
+        total_pick: game.h1_total_pick ?? null,
+        ml_pick: game.h1_ml_pick ?? null,
+      },
+    },
+    // Per-team injury group (nfl_injuries_raw + nfl_pregame_injuries_team_week),
+    // keyed off the game_id abbrs. Each side carries a `digest` (QB status,
+    // starters out, severity score, key-position counts) + notable `players`
+    // (Out/Doubtful/Questionable). NFL-only — no CFB injury source. Null-safe:
+    // empty/undefined map or no entry → null for that side. Surfaced via the
+    // get_injuries deep tool (group name "injuries", matching NBA).
+    injuries: {
+      home: injuryMap?.get(homeAbbr) ?? null,
+      away: injuryMap?.get(awayAbbr) ?? null,
+    },
+    // Conviction summary + counts from the game row (additive group). The agent
+    // can weight these per its trust_model dial; mirrors how MLB surfaces PS.
+    conviction: {
+      tier: game.conviction_tier ?? null,
+      stake_units: game.stake_units ?? null,
+      summary: game.conviction_summary ?? null,
+      flags_active: game.flags_active ?? null,
+      flags_tracking: game.flags_tracking ?? null,
+      mammoth: game.mammoth ?? false,
+    },
+    // Signal flags for the game (nfl_dryrun_flags rows) projected to a compact,
+    // agent-readable shape under the `signals` group (matches the deep-tool
+    // group name used elsewhere). Each carries its own grade_line + tier, plus
+    // season_to_date (perfMap, live record) and all_time (defMap, validated
+    // backtest) — both keyed by signal_key, kept separate so they're never
+    // conflated.
+    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap, defMap)) : null,
+    // Pick cards (nfl_dryrun_picks) — the per-bet-type cards the app shows.
+    pick_cards: picks.length > 0 ? picks.map(formatDryrunPick) : null,
+    // Player props — SIGNAL-GATED exactly as in the legacy formatter:
+    // is_bettable carries the gate (non-empty flags array) to the agent +
+    // the submit grounding check. See nfl_dryrun_props.flags.
+    props: props.length > 0 ? props : null,
+    game_data_complete: {
+      source_table: 'nfl_dryrun_games',
+      raw_game_data: game,
+    },
+  };
+}
+
+function formatCFBGameFromDryrun(
+  game: Record<string, unknown>,
+  polymarket: Record<string, unknown> | null,
+  picks: Record<string, unknown>[] = [],
+  flags: Record<string, unknown>[] = [],
+  homeTrends: Record<string, unknown> | null = null,
+  awayTrends: Record<string, unknown> | null = null,
+  perfMap?: Map<string, Record<string, unknown>>,
+  defMap?: Map<string, Record<string, unknown>>
+): Record<string, unknown> {
+  // game_id = the CFBD id verbatim (bigint → string). Picks/flags join on it.
+  const gameId = String(game.game_id ?? `${game.away_team}_${game.home_team}`);
+
+  const homeSpread = game.fg_spread_close as number | null;
+  const awaySpread = homeSpread !== null && homeSpread !== undefined ? -homeSpread : null;
+  const homeML = game.fg_ml_home_close as number | null;
+  const awayML = game.fg_ml_away_close as number | null;
+
+  // CFB dryrun spread model: fg_home_cover_prob is frequently null (the CFB
+  // model leads with margin/edge, not a cover probability). Fall back to the
+  // spread pick text for predicted_team when the prob is absent.
+  const coverProb = game.fg_home_cover_prob as number | null;
+  let predictedTeam: unknown = null;
+  if (coverProb != null) {
+    predictedTeam = Number(coverProb) > 0.5 ? game.home_team : game.away_team;
+  } else if (typeof game.fg_spread_pick === 'string') {
+    const pick = String(game.fg_spread_pick).toUpperCase();
+    if (pick === 'HOME') predictedTeam = game.home_team;
+    else if (pick === 'AWAY') predictedTeam = game.away_team;
+  }
+  const ouDirection = typeof game.fg_total_pick === 'string' && game.fg_total_pick
+    ? String(game.fg_total_pick).toUpperCase()
+    : null;
+
+  return {
+    game_id: gameId,
+    matchup: `${game.away_team} @ ${game.home_team}`,
+    away_team: game.away_team,
+    home_team: game.home_team,
+    // CFB dryrun has only `kickoff` (tstz) — derive date + time from it.
+    game_date: typeof game.kickoff === 'string' && game.kickoff.includes('T')
+      ? String(game.kickoff).split('T')[0]
+      : null,
+    game_time: typeof game.kickoff === 'string' && game.kickoff.includes('T')
+      ? String(game.kickoff).split('T')[1]?.split('+')[0] || '00:00:00'
+      : '00:00:00',
     neutral_site: game.neutral_site ?? null,
     home_conf: game.home_conf ?? null,
     away_conf: game.away_conf ?? null,
     home_rank: game.home_rank ?? null,
     away_rank: game.away_rank ?? null,
+    vegas_lines: {
+      spread_summary: `${game.away_team} ${fmtSpread(awaySpread)} / ${game.home_team} ${fmtSpread(homeSpread)}`,
+      ml_summary: `${game.away_team} ${fmtML(awayML) ?? 'N/A'} / ${game.home_team} ${fmtML(homeML) ?? 'N/A'}`,
+      home_spread: homeSpread,
+      away_spread: awaySpread,
+      home_ml: fmtML(homeML),
+      away_ml: fmtML(awayML),
+      total: game.fg_total_close ?? null,
+      full_game: {
+        spread_open: game.fg_spread_open ?? null,
+        spread_close: game.fg_spread_close ?? null,
+        total_open: game.fg_total_open ?? null,
+        total_close: game.fg_total_close ?? null,
+        ml_home_close: game.fg_ml_home_close ?? null,
+        ml_away_close: game.fg_ml_away_close ?? null,
+      },
+      team_totals: {
+        home_close: game.tt_home_close ?? null,
+        home_best_over: game.tt_home_best_over ?? null,
+        home_best_under: game.tt_home_best_under ?? null,
+        away_close: game.tt_away_close ?? null,
+        away_best_over: game.tt_away_best_over ?? null,
+        away_best_under: game.tt_away_best_under ?? null,
+      },
+      first_half: {
+        spread_close: game.h1_spread_close ?? null,
+        total_close: game.h1_total_close ?? null,
+        ml_home_close: game.h1_ml_home_close ?? null,
+        ml_away_close: game.h1_ml_away_close ?? null,
+      },
+    },
     weather: {
-      summary: game.wx_summary ?? null,
+      temperature: game.wx_temp_f ?? null,
+      wind_speed: game.wx_wind_mph ?? null,
+      precipitation: game.wx_precip_mm ?? null,
       icon: game.wx_icon ?? null,
       indoors: game.wx_indoors ?? null,
-      temperature_f: toNum(game.wx_temp_f),
-      wind_mph: toNum(game.wx_wind_mph),
-      precip_mm: toNum(game.wx_precip_mm),
+      summary: game.wx_summary ?? null,
     },
-    vegas_lines: {
-      spread: { home: homeSpread, away: homeSpread == null ? null : -homeSpread, price: -110 },
-      moneyline: { home: toNum(game.fg_ml_home_close), away: toNum(game.fg_ml_away_close) },
-      total: toNum(game.fg_total_close),
-      total_over_price: -110,
-      total_under_price: -110,
-      team_total: {
-        home: toNum(game.tt_home_close), away: toNum(game.tt_away_close),
-        home_best_over: toNum(game.tt_home_best_over), home_best_under: toNum(game.tt_home_best_under),
-        away_best_over: toNum(game.tt_away_best_over), away_best_under: toNum(game.tt_away_best_under),
-      },
-      h1_spread: { home: toNum(game.h1_spread_close), price: -110 },
-      h1_total: { line: toNum(game.h1_total_close), over_price: -110, under_price: -110 },
-      h1_moneyline: { home: toNum(game.h1_ml_home_close), away: toNum(game.h1_ml_away_close) },
+    public_betting: {
+      spread_split: null,
+      ml_split: null,
+      total_split: null,
     },
+    // No keyable line-movement (no training_key on dryrun rows).
+    line_movement: [],
+    opening_lines: {
+      opening_spread: game.fg_spread_open ?? null,
+      opening_total: game.fg_total_open ?? null,
+    },
+    polymarket,
     model_predictions: {
-      predicted_team: homeWinProb == null ? null : (homeWinProb >= 0.5 ? homeTeam : awayTeam),
-      ou_direction: game.fg_total_pick ?? null,
-      predicted_score: { home: toNum(game.fg_pred_home_pts), away: toNum(game.fg_pred_away_pts) },
-      win_prob: { home: homeWinProb, away: homeWinProb == null ? null : 1 - homeWinProb },
-      spread: {
-        model_line: toNum(game.fg_pred_spread), edge: toNum(game.fg_spread_edge),
-        pick_side: spreadPickToSide(game.fg_spread_pick, [homeTeam], [awayTeam]),
-        pick_label: game.fg_spread_pick ?? null,
-        cover_prob: toNum(game.fg_home_cover_prob), capped: game.fg_spread_capped ?? null,
+      spread_cover_prob: coverProb,
+      ml_prob: game.fg_home_win_prob ?? null,
+      ou_prob: null,
+      predicted_team: predictedTeam,
+      predicted_ou_direction: ouDirection,
+      full_game: {
+        pred_margin: game.fg_pred_margin ?? null,
+        pred_spread: game.fg_pred_spread ?? null,
+        spread_edge: game.fg_spread_edge ?? null,
+        spread_pick: game.fg_spread_pick ?? null,
+        pred_total: game.fg_pred_total ?? null,
+        total_edge: game.fg_total_edge ?? null,
+        total_pick: game.fg_total_pick ?? null,
+        home_cover_prob: game.fg_home_cover_prob ?? null,
+        home_win_prob: game.fg_home_win_prob ?? null,
+        pred_home_pts: game.fg_pred_home_pts ?? null,
+        pred_away_pts: game.fg_pred_away_pts ?? null,
       },
-      total: {
-        predicted_total: toNum(game.fg_pred_total), edge: toNum(game.fg_total_edge),
-        pick_side: game.fg_total_pick ?? null,
+      team_totals: {
+        home_pred: game.tt_home_pred ?? null,
+        home_pick: game.tt_home_pick ?? null,
+        away_pred: game.tt_away_pred ?? null,
+        away_pick: game.tt_away_pick ?? null,
       },
-      team_total: {
-        home_pred: toNum(game.tt_home_pred), away_pred: toNum(game.tt_away_pred),
-        home_pick: game.tt_home_pick ?? null, away_pick: game.tt_away_pick ?? null,
-      },
-      h1: {
-        pred_total: toNum(game.h1_pred_total), pred_margin: toNum(game.h1_pred_margin),
-        spread_pick: game.h1_spread_pick ?? null, total_pick: game.h1_total_pick ?? null,
+      first_half: {
+        pred_total: game.h1_pred_total ?? null,
+        pred_margin: game.h1_pred_margin ?? null,
+        spread_pick: game.h1_spread_pick ?? null,
+        total_pick: game.h1_total_pick ?? null,
         ml_pick: game.h1_ml_pick ?? null,
       },
     },
     conviction: {
       tier: game.conviction_tier ?? null,
-      top_market: (game.conviction_summary as Record<string, unknown> | null)?.top_card ?? null,
-      mammoth: game.mammoth ?? false,
-      stake_units: toNum(game.stake_units),
+      stake_units: game.stake_units ?? null,
+      summary: game.conviction_summary ?? null,
       flags_active: game.n_flags_active ?? null,
       flags_tracking: game.n_flags_tracking ?? null,
+      mammoth: game.mammoth ?? false,
     },
-    signals: (() => { const s = buildSignalsFromKeys(e.picks, e.defs, e.perf); return s.length ? s : null; })(),
-    trends: {
-      home: buildTrendBlock(e.trends.get(homeTeam)),
-      away: buildTrendBlock(e.trends.get(awayTeam)),
+    // Each flag carries season_to_date (perfMap) + all_time (defMap), kept
+    // separate so the two records are never conflated.
+    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap, defMap)) : null,
+    pick_cards: picks.length > 0 ? picks.map(formatDryrunPick) : null,
+    // Season-to-date ATS/OU/TT + 1H trends per team (cfb_team_trends). Keyed by
+    // team_name; surfaced under `trends` so it's a stable named group.
+    trends: (homeTrends || awayTrends) ? {
+      home_team: homeTrends ? filterCFBTrend(homeTrends) : null,
+      away_team: awayTrends ? filterCFBTrend(awayTrends) : null,
+    } : null,
+    game_data_complete: {
+      source_table: 'cfb_dryrun_games',
+      raw_game_data: game,
     },
-    line_movement: {
-      spread: { open: toNum(game.fg_spread_open), close: homeSpread },
-      total: { open: toNum(game.fg_total_open), close: toNum(game.fg_total_close) },
-    },
-    polymarket: e.polymarket,
-    game_data_complete: { source_table: 'cfb_dryrun_games', raw_game_data: game },
+  };
+}
+
+// Project one dryrun flag row (nfl_dryrun_flags / cfb_dryrun_flags) to a compact
+// agent-facing shape. grade_line is load-bearing: the line on the row is the
+// line the signal was computed from (open vs close vs best) — grade against it.
+// Two records ride along, kept STRICTLY separate so the model never conflates
+// them (both keyed by signal_key, both optional → both null when absent):
+//   - season_to_date: this season's LIVE numeric record from signal_performance
+//     via perfMap (sample/record/hit_rate/roi). No row → null (some tracking
+//     signals have no perf row yet).
+//   - all_time: the STATIC validated backtest from {sport}_signal_defs via
+//     defMap (validated_hit = typical_hit TEXT, plus the human one-liner /
+//     why-it-works / bet-direction). No def → null.
+function formatDryrunFlag(
+  row: Record<string, unknown>,
+  perfMap?: Map<string, Record<string, unknown>>,
+  defMap?: Map<string, Record<string, unknown>>
+): Record<string, unknown> {
+  const signalKey = String(row.signal_key ?? row.rule ?? '');
+  const perf = perfMap?.get(signalKey);
+  const def = defMap?.get(signalKey);
+  return {
+    source: row.source ?? null,
+    rule: row.rule ?? row.signal_key ?? null,
+    market: row.market ?? null,
+    side: row.side ?? null,
+    line: row.line ?? null,
+    price: row.price ?? null,
+    edge: row.edge ?? null,
+    tier: row.tier ?? null,
+    conviction: row.conviction ?? null,
+    stake_units: row.stake_units ?? null,
+    grade_line: row.grade_line ?? null,
+    mammoth: row.mammoth ?? false,
+    // All-time validated record (static, from the signal definition).
+    all_time: def ? {
+      validated_hit: def.typical_hit ?? null,
+      one_liner: def.one_liner ?? null,
+      why_it_works: def.why_it_works ?? null,
+      bet_direction: def.bet_direction ?? null,
+    } : null,
+    // This season's live record to date (renamed from track_record so the two
+    // records are unambiguous).
+    season_to_date: perf ? {
+      sample: perf.n ?? null,
+      record: `${perf.wins ?? 0}-${perf.losses ?? 0}`,
+      hit_rate: perf.hit_rate != null ? Number(perf.hit_rate) : null,
+      roi: perf.roi != null ? Number(perf.roi) : null,
+    } : null,
+  };
+}
+
+// Project one dryrun pick-card row (nfl_dryrun_picks / cfb_dryrun_picks). These
+// are the per-bet-type cards the app renders. has_play / display_only mark
+// whether the card is an actual recommendation vs display-only context.
+function formatDryrunPick(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    card_group: row.card_group ?? null,
+    bet_type: row.bet_type ?? null,
+    pick_side: row.pick_side ?? null,
+    pick_team: row.pick_team ?? null,
+    pick_label: row.pick_label ?? null,
+    model_number: row.model_number ?? null,
+    model_line: row.model_line ?? null,
+    vegas_line: row.vegas_line ?? null,
+    vegas_price: row.vegas_price ?? null,
+    edge: row.edge ?? null,
+    best_book_name: row.best_book_name ?? null,
+    best_line: row.best_line ?? null,
+    best_odds: row.best_odds ?? null,
+    conviction: row.conviction ?? null,
+    recommendation: row.recommendation ?? null,
+    is_mammoth: row.is_mammoth ?? false,
+    stake_units: row.stake_units ?? null,
+    has_play: row.has_play ?? false,
+    display_only: row.display_only ?? false,
+    signal_keys: Array.isArray(row.signal_keys) ? row.signal_keys : [],
+  };
+}
+
+// Trim the heavy game_log jsonb off a cfb_team_trends row — the agent wants the
+// summary rates (ATS%, OVER%, TT OVER%, 1H), not the full per-game log blob.
+function filterCFBTrend(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    games: row.games ?? null,
+    su_record: row.su_record ?? null,
+    ats_pct: row.ats_pct ?? null,
+    over_pct: row.over_pct ?? null,
+    tt_over_pct: row.tt_over_pct ?? null,
+    h1_ats_pct: row.h1_ats_pct ?? null,
+    h1_over_pct: row.h1_over_pct ?? null,
+    last5_su: Array.isArray(row.last5_su) ? row.last5_su : null,
+    last5_ats: Array.isArray(row.last5_ats) ? row.last5_ats : null,
+    last5_ou: Array.isArray(row.last5_ou) ? row.last5_ou : null,
   };
 }
 

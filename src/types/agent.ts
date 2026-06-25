@@ -16,8 +16,59 @@ const EmojiSchema = z.string().min(1).refine(
 export const SPORTS = ['nfl', 'cfb', 'nba', 'ncaab', 'mlb'] as const;
 export type Sport = (typeof SPORTS)[number];
 
+// An agent may only cover sports within a single family. Football and basketball
+// each pair their pro/college sports; baseball stands alone. Mixing families is
+// disallowed because each sport family routes to its own large system prompt +
+// data payload (see AGENT_PAYLOAD_SPEC.md), and a single agent maps to one prompt.
+export const SPORT_FAMILIES = {
+  football: ['nfl', 'cfb'],
+  basketball: ['nba', 'ncaab'],
+  baseball: ['mlb'],
+} as const satisfies Record<string, readonly Sport[]>;
+
+export type SportFamily = keyof typeof SPORT_FAMILIES;
+
+export function sportFamily(sport: Sport): SportFamily {
+  if ((SPORT_FAMILIES.football as readonly Sport[]).includes(sport)) return 'football';
+  if ((SPORT_FAMILIES.basketball as readonly Sport[]).includes(sport)) return 'basketball';
+  return 'baseball';
+}
+
+export function isSingleSportFamily(sports: Sport[]): boolean {
+  if (sports.length === 0) return true;
+  const fam = sportFamily(sports[0]);
+  return sports.every((s) => sportFamily(s) === fam);
+}
+
+// Pure toggle used by every sport-picker: purely additive — any sport can be
+// added to any selection. Cross-family agents are allowed and run on the V3
+// engine (see .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md); the old
+// same-family reset has been removed.
+export function toggleSportSelection(selected: Sport[], sport: Sport): Sport[] {
+  if (selected.includes(sport)) {
+    return selected.filter((s) => s !== sport);
+  }
+  return [...selected, sport];
+}
+
 export const BET_TYPES = ['spread', 'moneyline', 'total', 'any'] as const;
 export type BetType = (typeof BET_TYPES)[number];
+
+// ── V3 market allowlist + new dials. These back the OPTIONAL/additive fields on
+//    PersonalityParams below — V2 creations omit them, so live agent creation is
+//    unaffected. Source of truth for the create-agent form is the LOCKED CONTRACT
+//    in .claude/docs/agents/15_V3_PERSONALITY_QUESTIONS.md. ───────────────────────
+export const MARKET_KEYS = [
+  'fg_ml', 'fg_spread', 'fg_total', 'h1_ml', 'h1_spread', 'h1_total',
+  'f5_ml', 'f5_spread', 'f5_total', 'team_total', 'prop',
+] as const;
+export type MarketKey = (typeof MARKET_KEYS)[number];
+/** Per-sport market allowlist: which markets the agent may bet for each selected sport. */
+export type AllowedMarkets = Partial<Record<Sport, MarketKey[]>>;
+export const LINE_TIMINGS = ['early', 'balanced', 'late'] as const; // NFL/CFB only
+export type LineTiming = (typeof LINE_TIMINGS)[number];
+export const STAKING_STYLES = ['flat', 'scaled'] as const;
+export type StakingStyle = (typeof STAKING_STYLES)[number];
 
 export const PICK_RESULTS = ['won', 'lost', 'push', 'pending'] as const;
 export type PickResult = (typeof PICK_RESULTS)[number];
@@ -42,6 +93,7 @@ export interface PersonalityParams {
   over_under_lean: Scale1To5;
   confidence_threshold: Scale1To5;
   chase_value: boolean;
+  parlay_appetite?: Scale1To5;  // 1 = straights only, 5 = loves parlays (always-on, not sport-gated)
 
   preferred_bet_type: BetType;
   max_favorite_odds: number | null;
@@ -70,6 +122,17 @@ export interface PersonalityParams {
   home_court_boost: Scale1To5;
   fade_back_to_backs?: boolean;
   upset_alert?: boolean;
+
+  // ── V3 personality (OPTIONAL — additive; consumed when V3 ships, ignored by V2.
+  //    LOCKED CONTRACT: .claude/docs/agents/15_V3_PERSONALITY_QUESTIONS.md) ─────────
+  allowed_markets?: AllowedMarkets;   // per-sport market allowlist (supersedes preferred_bet_type in V3)
+  trust_signals?: Scale1To5;          // lean on validated signals (get_signals)
+  public_lean?: Scale1To5;            // public betting fade↔follow (supersedes fade_public + public_threshold)
+  respect_line_movement?: Scale1To5;  // respect line movement / sharp money (get_line_movement)
+  line_timing?: LineTiming;           // NFL/CFB ONLY — openers (early) ↔ wait for movement (late)
+  staking_style?: StakingStyle;       // flat units ↔ scaled by conviction
+  parlays_enabled?: boolean;          // V3 parlay toggle (supersedes parlay_appetite)
+  max_parlay_legs?: 2 | 3 | 4;        // leg cap when parlays_enabled
 }
 
 export interface CustomInsights {
@@ -220,6 +283,7 @@ export const PersonalityParamsSchema = z.object({
   over_under_lean: Scale1To5Schema,
   confidence_threshold: Scale1To5Schema,
   chase_value: z.boolean(),
+  parlay_appetite: Scale1To5Schema.optional(),  // 1 = straights only, 5 = loves parlays
 
   preferred_bet_type: z.enum(BET_TYPES),
   max_favorite_odds: z.number().max(-100).nullable(),
@@ -248,6 +312,26 @@ export const PersonalityParamsSchema = z.object({
   home_court_boost: Scale1To5Schema,
   fade_back_to_backs: z.boolean().optional(),
   upset_alert: z.boolean().optional(),
+
+  // ── V3 (OPTIONAL — additive; absent on V2 creations, so live production keeps
+  //    validating unchanged). LOCKED CONTRACT — 15_V3_PERSONALITY_QUESTIONS.md. ────
+  // Explicit per-sport object + .partial() so an agent may set markets for ONLY its
+  // sports (NFL-only → { nfl: [...] }) while the sport keys + market values stay
+  // validated. .partial() makes every sport key optional (the Partial<Record> shape).
+  allowed_markets: z.object({
+    nfl: z.array(z.enum(MARKET_KEYS)),
+    cfb: z.array(z.enum(MARKET_KEYS)),
+    nba: z.array(z.enum(MARKET_KEYS)),
+    ncaab: z.array(z.enum(MARKET_KEYS)),
+    mlb: z.array(z.enum(MARKET_KEYS)),
+  }).partial().optional(),
+  trust_signals: Scale1To5Schema.optional(),
+  public_lean: Scale1To5Schema.optional(),
+  respect_line_movement: Scale1To5Schema.optional(),
+  line_timing: z.enum(LINE_TIMINGS).optional(),
+  staking_style: z.enum(STAKING_STYLES).optional(),
+  parlays_enabled: z.boolean().optional(),
+  max_parlay_legs: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
 });
 
 export const CustomInsightsSchema = z.object({
@@ -264,6 +348,9 @@ export const CreateAgentSchema = z.object({
     (val) => /^#[0-9a-fA-F]{6}$/.test(val) || /^gradient:#[0-9a-fA-F]{6},#[0-9a-fA-F]{6}$/.test(val),
     { message: 'Must be hex (#xxxxxx) or gradient (gradient:#xxxxxx,#xxxxxx)' }
   ),
+  // Cross-family selections are allowed — they run on the V3 engine (the
+  // single-family refine was removed). isSingleSportFamily is kept as a soft UI
+  // signal. See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md.
   preferred_sports: z.array(z.enum(SPORTS)).min(1),
   archetype: z.enum(ARCHETYPE_IDS).nullable(),
   personality_params: PersonalityParamsSchema,
@@ -277,6 +364,10 @@ export const CreateAgentSchema = z.object({
 export const UpdateAgentSchema = CreateAgentSchema.partial().extend({
   is_public: z.boolean().optional(),
   is_active: z.boolean().optional(),
+  // No family constraint: cross-family agents are now allowed (they run on the
+  // V3 engine — see .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md), which also
+  // grandfathers legacy mixed agents whose preferred_sports predate the old rule.
+  preferred_sports: z.array(z.enum(SPORTS)).min(1).optional(),
 });
 
 export type CreateAgentInput = z.input<typeof CreateAgentSchema>;
@@ -306,6 +397,7 @@ export const DEFAULT_PERSONALITY_PARAMS: PersonalityParams = {
   over_under_lean: 3,
   confidence_threshold: 3,
   chase_value: false,
+  parlay_appetite: 1,  // conservative default — straights only until the user dials it up
   preferred_bet_type: 'any',
   max_favorite_odds: -200,
   min_underdog_odds: null,

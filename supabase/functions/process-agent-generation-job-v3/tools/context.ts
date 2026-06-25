@@ -51,6 +51,11 @@ export interface AgentGenContext {
   slateGameIds: Set<string>;
   deepFetched: Map<string, Set<string>>; // game_id → grounded bet_types
   fetchedFacts: Map<string, Record<string, unknown>>; // game_id → merged fetched values
+  // game_id → set of bettable prop keys. A prop key is
+  // `${player_name.toLowerCase()}::${market}::${line}` (line = close_line).
+  // get_props populates this for props with is_bettable; the submit tool gates
+  // prop bets against it. MUST match the key format readTools.ts builds.
+  bettableProps: Map<string, Set<string>>;
 
   // outputs / audit
   acceptedPicks: Record<string, unknown>[];

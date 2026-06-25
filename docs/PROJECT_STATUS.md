@@ -42,8 +42,8 @@ it's all staged to ship together when V3 is enabled.
 | Part | What | Status |
 |---|---|---|
 | **Cross-sport agents** | One agent can cover NFL + NBA + MLB, etc. (auto-routed to V3) | ✅ Built, staged |
-| **Parlays** | Agents combine picks into multi-leg tickets (2–4 legs) | 🟡 Foundation built (storage, personality dial, steering); bet-submission tool + grading remain |
-| **Bettable player props** | Agents bet props — **only props with a validated signal** — straight or as parlay legs | ⬜ Designed, not built |
+| **Parlays** | Agents combine picks into multi-leg tickets (2–4 legs) | ✅ Submit tool + grading **built & working, all five sports** (NFL/CFB graded via the repoint + football results view) |
+| **Bettable player props** | Agents bet props — **only props with a validated signal** — straight or as parlay legs | 🟡 Surfacing + signal-gate **working** (104 signal-backed props validated on the test slate); the *betting* submit path is the remaining piece |
 | **New creation questions** | Simplified, V3-aware personality questions | ✅ Spec'd; not yet wired into the create-agent screens |
 
 **Locked design decisions:**
@@ -56,12 +56,23 @@ it's all staged to ship together when V3 is enabled.
 
 **Detail:** [13_CROSS_SPORT_AND_PARLAYS.md](../.claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md) (cross-sport + parlays) · [15_V3_PERSONALITY_QUESTIONS.md](../.claude/docs/agents/15_V3_PERSONALITY_QUESTIONS.md) (the question set)
 
-**Testing it safely before launch:** V3 is fully isolated — it runs in "dry-run" mode (generates
-picks, writes nothing), it's behind an on/off switch with spend/run caps, and we can test on the
-completed **Week-12-2025 dry-run slate** (real games, known results) using private agents no user
-can see. So we can exercise the whole generate → grade loop before a single 2026 game.
+**Testing it safely before launch:** V3 is isolated — it runs in "dry-run" mode (generates picks,
+writes nothing), it's behind an on/off switch with spend/run caps, and test agents stay private (no
+user sees them). The agent slate now reads the **2026 dryrun tables** (done *additively* — live V2
+stays on legacy, untouched). Validated on the Week-12-2025 slate: all 14 games join their props
+(104 signal-backed) and their results by the same `game_id` — so an agent picks real games and
+grades against real finals. The remaining test is running the live agent loop end-to-end, which
+needs the staged code deployed to a preview branch or prod (a deploy decision, not yet taken).
 
 **Remaining V3 work:**
-1. Parlay bet-submission tool + parlay grading (drop-&-re-price when a leg pushes).
-2. Bettable signal-gated props (submit path + grading vs player game-logs).
-3. Wire the new question set into the create-agent screens (web + mobile + iOS) + archetype presets.
+1. **Bettable player props — the submit path:** `prop` bet type (migration + schema), the
+   `bettableProps` signal-gate in `submitPicks`, prop legs in `submitParlay`, and prop grading vs
+   `nfl_player_game_logs`. (Props already surface + are signal-gated — they just can't be staked yet.)
+2. Wire the new question set into the create-agent screens (web + mobile + iOS) + archetype presets.
+3. Backfill the first-pass payload nulls when convenient (public-betting, line-movement, H2H, O/U probability).
+4. Run the live agent loop on a preview branch (a deploy step).
+
+**Done & staged (PR #15):** cross-family gating · parlay submit tool · parlay grading **(all five
+sports)** · NFL/CFB football grading re-wired · **agent-slate repoint to the 2026 dryrun tables
+(additive — V2 untouched)** · props surfacing + signal-gate — data plumbing validated on the
+Week-12-2025 slate (14 games ↔ 104 signal-backed props ↔ results, all by `game_id`).

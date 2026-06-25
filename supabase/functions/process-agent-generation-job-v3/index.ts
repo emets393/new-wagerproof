@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       targetDate, generationType: (run.generation_type as string) ?? "manual",
       dryRun: run.dry_run === true,
       main, cfb,
-      games: new Map(), slateGameIds: new Set(), deepFetched: new Map(), fetchedFacts: new Map(),
+      games: new Map(), slateGameIds: new Set(), deepFetched: new Map(), fetchedFacts: new Map(), bettableProps: new Map(),
       acceptedPicks: [], dropReports: [], toolTrace: [], reasoningTrace: "", lastSubmitReport: null,
       gov,
     };

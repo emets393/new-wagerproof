@@ -12,6 +12,44 @@ ships. See [13_CROSS_SPORT_AND_PARLAYS.md](13_CROSS_SPORT_AND_PARLAYS.md).
 - **Cross-sport allowed** (runs on V3). Sport-dependent questions are **grouped by sport**.
 - **Signal-gated props** — agents only bet props that have a validated signal attached.
 
+## 🔒 LOCKED CONTRACT — `personality_params` keys (build the form to emit EXACTLY these)
+
+Frozen in `src/types/agent.ts` (`PersonalityParams` interface + `PersonalityParamsSchema` Zod) on
+2026-06-22 as **optional / additive**. V2 creations omit these and still validate, so **live agent
+creation is unaffected** — the old keys (`preferred_bet_type`, `parlay_appetite`, `fade_public`,
+`public_threshold`, the V2 toggles) are LEFT IN PLACE and retired only when the V3 form goes live.
+The Cursor form writes these into `avatar_profiles.personality_params`; `deriveSteeringProfile` (V3
+edge fn) reads them. **Field names + enums are frozen** — form, schema, and steering all key on these
+exact strings, or the answer is silently ignored.
+
+**Reused keys (already in the schema — do NOT rename):** `risk_tolerance` · `confidence_threshold` ·
+`underdog_lean` · `over_under_lean` · `max_picks_per_day` · `trust_model` · `trust_polymarket` ·
+`weather_sensitivity` · `trust_team_ratings` (all `1..5`) · `max_favorite_odds` · `min_underdog_odds`
+(`number | null`, straights only) · `betting_philosophy` (in `custom_insights`, free text).
+
+**New V3 keys (all OPTIONAL):**
+| Key | Type / enum | Drives |
+|---|---|---|
+| `allowed_markets` | `Partial<Record<Sport, MarketKey[]>>` | per-sport allowlist (see below) |
+| `trust_signals` | `1..5` | `get_signals` |
+| `public_lean` | `1..5` | public fade↔follow (supersedes `fade_public`+`public_threshold`) |
+| `respect_line_movement` | `1..5` | `get_line_movement` |
+| `line_timing` | `'early' \| 'balanced' \| 'late'` | **NFL/CFB only** — also gates generation time |
+| `staking_style` | `'flat' \| 'scaled'` | stake sizing |
+| `parlays_enabled` | `boolean` | supersedes `parlay_appetite` |
+| `max_parlay_legs` | `2 \| 3 \| 4` | leg cap when `parlays_enabled` |
+
+`MarketKey` = `fg_ml` `fg_spread` `fg_total` `h1_ml` `h1_spread` `h1_total` `f5_ml` `f5_spread`
+`f5_total` `team_total` `prop`. **Per-sport checkbox sets:**
+- **NFL** → `fg_ml fg_spread fg_total h1_ml h1_spread h1_total team_total prop`
+- **CFB** → `fg_ml fg_spread fg_total h1_ml h1_spread h1_total team_total`
+- **NBA / NCAAB** → `fg_ml fg_spread fg_total h1_ml h1_spread h1_total team_total` *(1H+TT land '26-27)*
+- **MLB** → `fg_ml fg_spread fg_total f5_ml f5_spread f5_total` *(spread renders as "Run Line"; no team totals)*
+
+> **Mirror** these exact keys into `wagerproof-mobile/types/agent.ts` and iOS
+> `AgentPersonalityParams.swift` when building those forms. **Not yet consumed:** `deriveSteeringProfile`
+> still reads the V2 fields — wiring the new keys into steering is the backend follow-up (separate task).
+
 ## The question set
 
 ### A. Identity & setup (not personality)

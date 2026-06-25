@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArchetypeId, PersonalityParams, CustomInsights, PresetArchetype, Sport, SPORTS } from '@/types/agent';
+import { ArchetypeId, PersonalityParams, CustomInsights, PresetArchetype, Sport, SPORTS, toggleSportSelection } from '@/types/agent';
 import { usePresetArchetypes } from '@/hooks/useAgents';
 
 type CreationPath = 'scratch' | 'preset' | null;
@@ -34,18 +34,7 @@ export function Screen1_SportArchetype({ selectedSports, selectedArchetype, onSp
   );
 
   const toggleSport = (sport: Sport) => {
-    const exists = selectedSports.includes(sport);
-    if (exists) {
-      onSportsChange(selectedSports.filter((s) => s !== sport));
-    } else if (sport === 'mlb') {
-      // MLB is exclusive — cannot be combined with other sports
-      onSportsChange(['mlb']);
-    } else if (selectedSports.includes('mlb')) {
-      // Selecting a non-MLB sport while MLB is active: replace MLB
-      onSportsChange([sport]);
-    } else {
-      onSportsChange([...selectedSports, sport]);
-    }
+    onSportsChange(toggleSportSelection(selectedSports, sport));
   };
 
   const applyArchetype = (a: PresetArchetype) => {
@@ -143,10 +132,10 @@ export function Screen1_SportArchetype({ selectedSports, selectedArchetype, onSp
                 );
               })}
             </div>
-            {selectedSports.includes('mlb') && (
+            {selectedSports.length > 0 && (
               <p className="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-lg px-3 py-2 flex items-start gap-2">
                 <span className="mt-0.5">ℹ️</span>
-                MLB agents run standalone due to the size of baseball data. They cannot be combined with other sports.
+                Pick any sports you like. Stay within one family — football (NFL + CFB), basketball (NBA + NCAAB), or baseball (MLB) — for a standard agent; mix families to build a cross-sport agent (powered by the V3 engine).
               </p>
             )}
             <Button type="button" variant="ghost" onClick={() => setPath(null)}>
