@@ -373,8 +373,15 @@ public enum MLBPlayerProps {
     }
 
     /// Player's best prop by L10 over-rate at each market's default line.
+    /// When `market` is set, returns that market only (for feed filters).
     /// Mirrors `pickHeadlineProp`.
-    public static func pickHeadlineProp(_ props: [MLBPlayerPropRow]) -> MLBHeadlineProp? {
+    public static func pickHeadlineProp(_ props: [MLBPlayerPropRow], market: String? = nil) -> MLBHeadlineProp? {
+        if let market {
+            guard let row = props.first(where: { $0.market == market }),
+                  let dl = defaultLine(row.lines),
+                  let computed = computePropAtLine(row, line: dl) else { return nil }
+            return MLBHeadlineProp(row: row, computed: computed)
+        }
         var best: (row: MLBPlayerPropRow, computed: MLBPropComputedAtLine, rate: Double)?
         for row in props {
             guard let dl = defaultLine(row.lines),

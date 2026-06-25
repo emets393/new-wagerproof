@@ -17,7 +17,7 @@ public final class PropsStore {
     /// the deepest props data today. No CFB — college player props aren't
     /// offered (NCAA restrictions), so the segment would be a dead end.
     public enum Sport: String, CaseIterable, Identifiable, Sendable {
-        case mlb, nfl, nba, ncaab
+        case mlb, nfl, cfb, nba, ncaab
 
         public var id: String { rawValue }
 
@@ -25,6 +25,7 @@ public final class PropsStore {
             switch self {
             case .mlb: return "MLB"
             case .nfl: return "NFL"
+            case .cfb: return "CFB"
             case .nba: return "NBA"
             case .ncaab: return "NCAAB"
             }
@@ -32,6 +33,16 @@ public final class PropsStore {
 
         /// Whether this sport has a player-props feed yet.
         public var hasProps: Bool { self == .mlb || self == .nfl }
+
+        /// Mirror the Games tab's selected sport when the user switches to Props.
+        public static func matching(gamesSport: GamesStore.Sport) -> Sport {
+            Sport(rawValue: gamesSport.rawValue) ?? .mlb
+        }
+
+        /// Mirror this Props segment back onto the Games tab.
+        public var gamesSport: GamesStore.Sport {
+            GamesStore.Sport(rawValue: rawValue) ?? .mlb
+        }
     }
 
     public enum LoadState: Equatable {
@@ -101,6 +112,34 @@ public final class PropsStore {
         }
     }
 
+    /// NFL-specific hydrate for search — mirrors `refreshMLB`.
+    public func refreshNFL(force: Bool = false) async {
+        if !dryRunPreviewEnabled {
+            nflPlayers = []
+            loadState[.nfl] = .loaded
+            lastFetched[.nfl] = Date()
+            return
+        }
+        if !force, loadState[.nfl] == .loaded, let last = lastFetched[.nfl],
+           Date().timeIntervalSince(last) < ttl {
+            return
+        }
+        if nflPlayers.isEmpty { loadState[.nfl] = .loading }
+        do {
+            nflPlayers = try await nflService.fetchPlayers()
+            lastFetched[.nfl] = Date()
+            loadState[.nfl] = .loaded
+        } catch {
+            loadState[.nfl] = nflPlayers.isEmpty ? .failed(friendlyError(error)) : .loaded
+        }
+    }
+
+    public var isLoadingNFL: Bool { loadState[.nfl] == .loading }
+    public var hasLoadedNFL: Bool { lastFetched[.nfl] != nil }
+
+    /// When true, NFL props load from `nfl_dryrun_*` staging tables.
+    public var dryRunPreviewEnabled: Bool = false
+
     /// Matchups ordered by game time (the service already orders by date then
     /// time; this keeps a stable secondary sort if the API order drifts).
     public func sortedMatchups() -> [MLBPropMatchup] {
@@ -133,6 +172,12 @@ public final class PropsStore {
             case .mlb:
                 matchups = try await service.fetchMatchups()
             case .nfl:
+                guard dryRunPreviewEnabled else {
+                    nflPlayers = []
+                    lastFetched[sport] = Date()
+                    loadState[sport] = .loaded
+                    return
+                }
                 nflPlayers = try await nflService.fetchPlayers()
             default:
                 return

@@ -6,6 +6,7 @@
 // =============================================================================
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { resolvePromptSport } from './sportFamily.ts';
 
 export interface FetchedPrompt {
   remotePromptTemplate: string | null;
@@ -28,20 +29,22 @@ export async function fetchActiveSystemPrompt(
   let remotePromptTemplate: string | null = null;
   let systemPromptVersion = 'hardcoded_fallback';
 
-  // For single-sport agents, try a sport-specific prompt first
-  if (preferredSports.length === 1) {
-    const sport = preferredSports[0];
+  // Resolve which sport-specific prompt this agent should use. Football-only
+  // agents (nfl and/or cfb) map to the 'nfl' row (v1_nfl serves both); single
+  // non-football sports map to themselves; mixed/multi-family → null (default).
+  const promptSport = resolvePromptSport(preferredSports);
+  if (promptSport) {
     const { data: sportPromptRow } = await client
       .from('agent_system_prompts')
       .select('id, prompt_text')
       .eq('is_active', true)
-      .eq('sport', sport)
+      .eq('sport', promptSport)
       .single();
 
     if (sportPromptRow) {
       remotePromptTemplate = sportPromptRow.prompt_text;
       systemPromptVersion = String(sportPromptRow.id || 'unknown');
-      console.log(`${logPrefix} Loaded sport-specific system prompt: ${systemPromptVersion} (sport=${sport})`);
+      console.log(`${logPrefix} Loaded sport-specific system prompt: ${systemPromptVersion} (sport=${promptSport})`);
       return { remotePromptTemplate, systemPromptVersion };
     }
   }

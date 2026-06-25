@@ -602,6 +602,7 @@ enum NFLTeamColors {
     static func colors(for team: String) -> Pair {
         if team.isEmpty { return fallback }
         if let direct = colorMap[team] { return direct }
+        if let full = NFLTeams.fullName(for: team), let hit = colorMap[full] { return hit }
         // Try stripping the trailing mascot to fall back on the city-only key.
         // E.g. "Kansas City Chiefs" → "Kansas City".
         for mascot in mascots {

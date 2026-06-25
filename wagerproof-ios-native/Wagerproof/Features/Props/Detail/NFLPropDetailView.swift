@@ -15,6 +15,7 @@ struct NFLPropDetailView: View {
     let selection: NFLPlayerPropSelection
 
     @State private var activeMarket: String
+    @State private var selectedSignal: NFLPropSignalDefinition?
 
     private var player: NFLPropPlayer { selection.player }
     private var markets: [NFLPropMarket] { player.markets }
@@ -26,7 +27,14 @@ struct NFLPropDetailView: View {
 
     init(selection: NFLPlayerPropSelection) {
         self.selection = selection
-        _activeMarket = State(initialValue: selection.player.headlineMarket?.market ?? "")
+        let preferred = selection.preferredMarket
+        let initial = preferred.flatMap { m in
+            selection.player.markets.first { $0.market == m }?.market
+        }
+        ?? selection.player.markets.first { !$0.flags.isEmpty }?.market
+        ?? selection.player.markets.first?.market
+        ?? ""
+        _activeMarket = State(initialValue: initial)
     }
 
     private var teamColor: Color {
@@ -37,18 +45,25 @@ struct NFLPropDetailView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            CollapsingWidgetScroll(heroMaxHeight: heroMax, heroMinHeight: heroMin) { progress in
-                TeamAuraBackground(awayColor: teamColor, homeColor: oppColor, progress: progress)
-            } hero: { progress in
-                heroView(progress: progress, proxy: proxy)
-            } content: {
-                LazyVStack(spacing: 0) {
-                    ForEach(markets) { market in
-                        marketWidget(market)
-                            .id(market.market)
+        GeometryReader { root in
+            ScrollViewReader { proxy in
+                CollapsingWidgetScroll(heroMaxHeight: heroMax, heroMinHeight: heroMin) { progress in
+                    TeamAuraBackground(awayColor: teamColor, homeColor: oppColor, progress: progress)
+                } hero: { progress in
+                    heroView(progress: progress, proxy: proxy, viewportHeight: root.size.height)
+                } content: {
+                    // Eager VStack — a player only carries a handful of markets,
+                    // and LazyVStack + scrollTo on open skipped off-screen widgets
+                    // so the page looked like a single-market detail sheet.
+                    VStack(spacing: 0) {
+                        ForEach(markets) { market in
+                            marketWidget(market)
+                        }
+                        footnote
                     }
-                    footnote
+                    .task(id: selection.id) {
+                        await scrollToPreferredMarket(proxy, viewportHeight: root.size.height)
+                    }
                 }
             }
         }
@@ -56,12 +71,15 @@ struct NFLPropDetailView: View {
         // Name lives permanently in the hero — keep the nav title empty.
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $selectedSignal) { signal in
+            NFLPropSignalDetailSheet(signal: signal)
+        }
     }
 
     // MARK: - Collapsing hero
 
     @ViewBuilder
-    private func heroView(progress p: CGFloat, proxy: ScrollViewProxy) -> some View {
+    private func heroView(progress p: CGFloat, proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
         let headSize = lerp(50, 32, p)
         let detail = Double(max(0, 1 - p * 1.9))
 
@@ -90,7 +108,7 @@ struct NFLPropDetailView: View {
                 priceBadge(detail: detail, progress: p)
             }
             if markets.count > 1 {
-                marketPicker(proxy: proxy)
+                marketPicker(proxy: proxy, viewportHeight: viewportHeight)
             }
         }
         .padding(.horizontal, 16)
@@ -145,8 +163,8 @@ struct NFLPropDetailView: View {
         }
     }
 
-    private func marketPicker(proxy: ScrollViewProxy) -> some View {
-        Picker("Market", selection: pickerBinding(proxy: proxy)) {
+    private func marketPicker(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
+        Picker("Market", selection: pickerBinding(proxy: proxy, viewportHeight: viewportHeight)) {
             ForEach(markets) { market in
                 Text(market.label).tag(market.market)
             }
@@ -155,14 +173,49 @@ struct NFLPropDetailView: View {
         .sensoryFeedback(.selection, trigger: activeMarket)
     }
 
-    private func pickerBinding(proxy: ScrollViewProxy) -> Binding<String> {
+    private func pickerBinding(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> Binding<String> {
         Binding(
             get: { activeMarket },
             set: { market in
                 activeMarket = market
-                withAnimation(.snappy) { proxy.scrollTo(market, anchor: UnitPoint(x: 0.5, y: 0.18)) }
+                scrollToMarket(market, proxy: proxy, viewportHeight: viewportHeight)
             }
         )
+    }
+
+    /// Y anchor that lands the widget header flush under the collapsed hero.
+    private func scrollAnchorY(viewportHeight: CGFloat) -> CGFloat {
+        min(0.4, max(0.05, heroMin / max(viewportHeight, 1)))
+    }
+
+    /// Land on the feed card's headline market when the detail page opens.
+    private func scrollToPreferredMarket(_ proxy: ScrollViewProxy, viewportHeight: CGFloat) async {
+        guard markets.count > 1, !activeMarket.isEmpty else { return }
+        // Let the zoom transition finish and LazyVStack materialize off-screen widgets.
+        try? await Task.sleep(for: .milliseconds(380))
+        scrollToMarket(
+            activeMarket,
+            proxy: proxy,
+            viewportHeight: viewportHeight,
+            animated: true
+        )
+    }
+
+    private func scrollToMarket(
+        _ market: String,
+        proxy: ScrollViewProxy,
+        viewportHeight: CGFloat,
+        animated: Bool = true
+    ) {
+        guard markets.contains(where: { $0.market == market }) else { return }
+        let anchor = UnitPoint(x: 0.5, y: scrollAnchorY(viewportHeight: viewportHeight))
+        if animated {
+            withAnimation(.smooth(duration: 0.45)) {
+                proxy.scrollTo(market, anchor: anchor)
+            }
+        } else {
+            proxy.scrollTo(market, anchor: anchor)
+        }
     }
 
     private var subtitle: String {
@@ -177,15 +230,21 @@ struct NFLPropDetailView: View {
 
     @ViewBuilder
     private func marketWidget(_ market: NFLPropMarket) -> some View {
-        WidgetCollapsingSection(title: market.label, systemImage: "chart.bar.fill") {
-            VStack(alignment: .leading, spacing: 12) {
-                lineSummary(market)
-                if !market.flags.isEmpty {
-                    flagChips(market)
+        VStack(spacing: 0) {
+            // Scroll target — pins the card title flush under the collapsed hero.
+            Color.clear
+                .frame(height: 1)
+                .id(market.market)
+            WidgetCollapsingSection(title: market.label, systemImage: "chart.bar.fill") {
+                VStack(alignment: .leading, spacing: 12) {
+                    lineSummary(market)
+                    if !market.flags.isEmpty {
+                        NFLPropSignalGroup(flags: market.flags) { selectedSignal = $0 }
+                    }
+                    NFLPropTrendChart(games: market.recentGames, line: market.clearThreshold, isYesNo: market.isYesNo)
+                    statTiles(market)
+                    lineMovementRow(market)
                 }
-                NFLPropTrendChart(games: market.recentGames, line: market.clearThreshold, isYesNo: market.isYesNo)
-                statTiles(market)
-                lineMovementRow(market)
             }
         }
     }
@@ -201,24 +260,6 @@ struct NFLPropDetailView: View {
         .font(.system(size: 13))
         .lineSpacing(3)
         .foregroundStyle(Color.appTextPrimary)
-    }
-
-    /// Fired P-flag chips — the contract's badge layer for props.
-    private func flagChips(_ market: NFLPropMarket) -> some View {
-        HStack(spacing: 6) {
-            ForEach(market.flags, id: \.self) { flag in
-                Text(flag)
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundStyle(Color.appPrimary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.appPrimary.opacity(0.14), in: Capsule())
-                    .overlay(Capsule().stroke(Color.appPrimary.opacity(0.4), lineWidth: 0.5))
-            }
-            Text("signal fired")
-                .font(.system(size: 10))
-                .foregroundStyle(Color.appTextSecondary)
-        }
     }
 
     // MARK: Stat tiles

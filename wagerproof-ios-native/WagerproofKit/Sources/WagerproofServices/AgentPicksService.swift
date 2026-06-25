@@ -7,19 +7,39 @@ import WagerproofModels
 /// avatar-picks-generation-v2` + polling) lands in B14 — this file only
 /// surfaces the read paths the B13 hub needs.
 public enum AgentPicksService {
-    /// Fetch every pick for an agent, newest first. Mirrors `fetchAgentPicks`
-    /// (no filter overload).
-    public static func fetchPicks(agentId: String) async throws -> [AgentPick] {
+    /// Fetch recent picks for an agent, newest first. Mirrors `fetchAgentPicks`.
+    /// Pass `limit` to cap rows (pick-history preview); omit for the full set.
+    public static func fetchPicks(agentId: String, limit: Int? = nil) async throws -> [AgentPick] {
         let main = await MainSupabase.shared.client
-        let picks: [AgentPick] = try await main
+        var query = main
             .from("avatar_picks")
             .select()
             .eq("avatar_id", value: agentId)
             .order("game_date", ascending: false)
             .order("created_at", ascending: false)
+        if let limit {
+            query = query.limit(limit)
+        }
+        let response = try await query.execute()
+        return AgentPick.decodeLossyArray(from: response.data)
+    }
+
+    /// Graded picks from prior game dates — used by the pick-history preview
+    /// (excludes today's slate and any pending/ungraded rows).
+    public static func fetchGradedPickHistory(agentId: String, limit: Int) async throws -> [AgentPick] {
+        let main = await MainSupabase.shared.client
+        let todayStr = localDateString(Date())
+        let response = try await main
+            .from("avatar_picks")
+            .select()
+            .eq("avatar_id", value: agentId)
+            .lt("game_date", value: todayStr)
+            .in("result", values: ["won", "lost", "push"])
+            .order("game_date", ascending: false)
+            .order("created_at", ascending: false)
+            .limit(limit)
             .execute()
-            .value
-        return picks
+        return AgentPick.decodeLossyArray(from: response.data)
     }
 
     /// Today's picks for an agent. Used by the AgentTimeline section (B14).

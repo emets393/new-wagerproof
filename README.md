@@ -144,3 +144,18 @@ npm run test:avatar-pick-audit-flow     # Test agent pick audit
 ## Documentation
 
 See [DOCS.md](DOCS.md) for a complete index of all documentation.
+
+## TEAM-TOTAL MODEL vs POSTED LINES (grade_tt_posted.py) — EDGE CONFIRMED ON BETTABLE NUMBERS, line-shop is the win
+4,418 team-games w/ model + posted close TT (2023-25, avg 4.3 books). Posted~contrived on consensus (corr .996).
+UNDER (anchored<=line-3): contrived-ref 56.3% | POSTED consensus 55.6% (edge survives on real lines) |
+  **POSTED BEST-LINE SHOP 58.4% n=681 +11.6% roi [59/58/58 per-season — dead consistent]**
+OVER (unanchored>=line+6): contrived 54.1% | posted 53.1% | **BEST-LINE SHOP 55.7% n=467 +6.3% [56/53/59]**
+Line-shopping the 4-5 posting books adds ~+2.7pp AND more triggers (best line creates more qualifying edges).
+Posted-vs-contrived gap alone: thin (n29-43), under-side suggestive (58.6%) — not standalone.
+=> TT product: bet UNDER at the HIGHEST posted book / OVER at the LOWEST when model edge gates hit. ~225 unders
++ ~155 overs per season at 56-58%. The 270k-credit archive paid for itself with this one grading.
+
+## 1H MONEYLINE (gap closed): model h1-margin vs no-vig h2h_h1 close. SU win 50.6-52.9% with NO dose-response
+(52.6->52.9->50.6 as edge rises); inflated "roi" = big-dog variance artifact (same trap as full-game ML). VERDICT:
+1H ML DEAD — derived/calibrated market like full-game ML. Bet-type ledger final: WIRED = spread, game O/U, team
+totals, 1H O/U (4). DEAD = ML, 1H spread, 1H ML (3). MAMMOTH = conviction tier, not a bet type.

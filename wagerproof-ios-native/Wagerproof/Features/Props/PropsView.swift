@@ -8,13 +8,12 @@ import WagerproofStores
 /// sections always stay chronological — the mode only reorders players *within*
 /// each date.
 private enum PropSortMode: String, CaseIterable {
-    case time, hitRate, name
+    case time, hitRate
 
     var label: String {
         switch self {
         case .time: return "Game Time"
         case .hitRate: return "L10 Hit Rate"
-        case .name: return "Player Name"
         }
     }
 
@@ -22,13 +21,14 @@ private enum PropSortMode: String, CaseIterable {
         switch self {
         case .time: return "clock"
         case .hitRate: return "flame"
-        case .name: return "textformat"
         }
     }
 
-    /// MLB and NFL both carry per-market game logs, so every mode applies.
     static func modes(for sport: PropsStore.Sport) -> [PropSortMode] {
-        allCases
+        switch sport {
+        case .mlb, .nfl: return allCases
+        default: return [.time]
+        }
     }
 }
 
@@ -60,6 +60,12 @@ struct PropsView: View {
     /// the shared store stays sort-agnostic so the MLB game-detail widget that
     /// reads the same slate is unaffected).
     @State private var sortMode: PropSortMode = .time
+    /// MLB-only feed filters — reset when leaving the MLB segment.
+    @State private var mlbFilters = MLBPropFeedFilters()
+    @State private var showMLBMarketSheet = false
+    /// NFL-only feed filters — reset when leaving the NFL segment.
+    @State private var nflFilters = NFLPropFeedFilters()
+    @State private var showNFLMarketSheet = false
 
     // Shared namespace for the card→detail zoom transition (same pattern as
     // GamesView). The source card and the pushed detail reference the same
@@ -76,7 +82,7 @@ struct PropsView: View {
                             bodyContent
                         }
                     } header: {
-                        pickerBar
+                        propsHeader
                     }
                 }
             }
@@ -87,12 +93,59 @@ struct PropsView: View {
                 await store.refresh(force: true)
             }
             .task(id: store.selectedSport) {
-                // L10 sort doesn't exist outside MLB — snap back to time order
-                // when the picker lands on a sport that can't honor it.
+                if store.selectedSport != .mlb {
+                    mlbFilters = MLBPropFeedFilters()
+                }
+                if store.selectedSport != .nfl {
+                    nflFilters = NFLPropFeedFilters()
+                }
                 if !PropSortMode.modes(for: store.selectedSport).contains(sortMode) {
                     sortMode = .time
                 }
                 await store.refresh()
+            }
+            .onChange(of: mlbFilters.market) { _, market in
+                if market == "batter_home_runs" {
+                    mlbFilters.market = nil
+                    return
+                }
+                if market != nil, store.selectedSport == .mlb {
+                    sortMode = .hitRate
+                }
+            }
+            .onChange(of: nflFilters.market) { _, market in
+                if market != nil {
+                    nflFilters.signalsOnly = false
+                }
+                if market != nil, store.selectedSport == .nfl {
+                    sortMode = .hitRate
+                }
+            }
+            .onChange(of: nflFilters.signalsOnly) { _, signalsOnly in
+                guard store.selectedSport == .nfl else { return }
+                if signalsOnly {
+                    sortMode = .hitRate
+                    if let gameId = nflFilters.gameId,
+                       !NFLPropFeedFilters.hasFlaggedPlayers(in: store.nflPlayers, gameId: gameId) {
+                        nflFilters.gameId = nil
+                    }
+                }
+            }
+            .onChange(of: store.nflPlayers) { _, players in
+                guard let market = nflFilters.market else { return }
+                if !NFLPropFeedFilters.sheetMarkets(from: players).allKeys.contains(market) {
+                    nflFilters.market = nil
+                }
+            }
+            .sheet(isPresented: $showMLBMarketSheet) {
+                MLBPropMarketFilterSheet(selectedMarket: $mlbFilters.market)
+            }
+            .sheet(isPresented: $showNFLMarketSheet) {
+                NFLPropMarketFilterSheet(
+                    filters: $nflFilters,
+                    players: store.nflPlayers,
+                    sheetMarkets: NFLPropFeedFilters.sheetMarkets(from: store.nflPlayers)
+                )
             }
             .toolbar { mainToolbar }
             .navigationDestination(item: $selectedProp) { selection in
@@ -123,6 +176,42 @@ struct PropsView: View {
     }
 
     // MARK: - Sport picker
+
+    @ViewBuilder
+    private var propsHeader: some View {
+        VStack(spacing: 0) {
+            pickerBar
+            if store.selectedSport == .mlb {
+                MLBPropFilterBar(
+                    filters: $mlbFilters,
+                    gameOptions: mlbGameFilterOptions,
+                    showMarketSheet: $showMLBMarketSheet
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            } else if store.selectedSport == .nfl {
+                NFLPropFilterBar(
+                    filters: $nflFilters,
+                    players: store.nflPlayers,
+                    gameOptions: nflGameFilterOptions,
+                    showMarketSheet: $showNFLMarketSheet
+                )
+                .id("nfl-prop-filter-bar")
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .animation(.appQuick, value: store.selectedSport)
+    }
+
+    private var mlbGameFilterOptions: [MLBPropGameFilterOption] {
+        MLBPropGameFilterOptions.build(matchups: store.sortedMatchups())
+    }
+
+    private var nflGameFilterOptions: [NFLPropGameFilterOption] {
+        NFLPropGameFilterOptions.build(
+            players: store.nflPlayers,
+            signalsOnly: nflFilters.signalsOnly
+        )
+    }
 
     @ViewBuilder
     private var pickerBar: some View {
@@ -194,9 +283,9 @@ struct PropsView: View {
     private var nflSections: some View {
         // Same shape as the MLB feed: one card per player, date-grouped with
         // sticky headers; the sort mode reorders players within a date.
-        let items = sortedNFLItems(NFLPropFeed.items(from: store.nflPlayers))
+        let items = sortedNFLItems(NFLPropFeed.items(from: store.nflPlayers, filters: nflFilters))
         if items.isEmpty {
-            emptyTile(label: "No NFL player props posted today", systemImage: "football")
+            emptyTile(label: nflFilteredEmptyLabel, systemImage: "football")
         } else {
             let sections = GameDateGrouping.group(
                 items,
@@ -222,13 +311,8 @@ struct PropsView: View {
     }
 
     private func sortedNFLItems(_ items: [NFLPropFeedItem]) -> [NFLPropFeedItem] {
-        switch sortMode {
-        case .name:
-            return items.sorted { a, b in
-                let cmp = a.player.playerName.localizedCaseInsensitiveCompare(b.player.playerName)
-                if cmp != .orderedSame { return cmp == .orderedAscending }
-                return a.sortTime < b.sortTime
-            }
+        let mode: PropSortMode = nflFilters.signalsOnly ? .hitRate : sortMode
+        switch mode {
         case .hitRate:
             return items.sorted { a, b in
                 if a.hitRate != b.hitRate { return a.hitRate > b.hitRate }
@@ -244,12 +328,9 @@ struct PropsView: View {
 
     @ViewBuilder
     private var matchupSections: some View {
-        // Flatten the slate into one card per player, then group by date
-        // (sticky headers like the Games feed). Within a date, the player order
-        // follows the selected sort mode.
-        let items = sortedFeedItems(PlayerPropFeed.items(from: store.sortedMatchups()))
+        let items = sortedFeedItems(PlayerPropFeed.items(from: store.sortedMatchups(), filters: mlbFilters))
         if items.isEmpty {
-            emptyTile(label: "No MLB player props posted today", systemImage: "baseball")
+            emptyTile(label: mlbFilteredEmptyLabel, systemImage: "baseball")
         } else {
             let sections = GameDateGrouping.group(
                 items,
@@ -276,6 +357,58 @@ struct PropsView: View {
         }
     }
 
+    private var nflFilteredEmptyLabel: String {
+        if store.nflPlayers.isEmpty {
+            return "No NFL player props posted today"
+        }
+        let marketLabel = nflFilters.market.map { NFLPlayerProps.marketLabel($0) }
+        if nflFilters.signalsOnly {
+            if let gameId = nflFilters.gameId,
+               let option = nflGameFilterOptions.first(where: { $0.gameId == gameId }) {
+                let matchup = "\(option.awayAbbr) @ \(option.homeAbbr)"
+                if let marketLabel {
+                    return "No \(marketLabel) prop signals for \(matchup)"
+                }
+                return "No prop signals for \(matchup)"
+            }
+            if let marketLabel {
+                return "No \(marketLabel) prop signals posted today"
+            }
+            return "No prop signals posted today"
+        }
+        if let gameId = nflFilters.gameId,
+           let option = nflGameFilterOptions.first(where: { $0.gameId == gameId }) {
+            let matchup = "\(option.awayAbbr) @ \(option.homeAbbr)"
+            if let marketLabel {
+                return "No \(marketLabel) props for \(matchup)"
+            }
+            return "No props posted for \(matchup)"
+        }
+        if let marketLabel {
+            return "No \(marketLabel) props posted today"
+        }
+        return "No NFL player props match these filters"
+    }
+
+    private var mlbFilteredEmptyLabel: String {
+        if store.sortedMatchups().isEmpty {
+            return "No MLB player props posted today"
+        }
+        let marketLabel = mlbFilters.market.map { MLBPlayerProps.marketLabel($0) }
+        if let pk = mlbFilters.gamePk,
+           let game = store.sortedMatchups().first(where: { $0.gamePk == pk }) {
+            let matchup = "\(game.awayAbbr) @ \(game.homeAbbr)"
+            if let marketLabel {
+                return "No \(marketLabel) props for \(matchup)"
+            }
+            return "No props posted for \(matchup)"
+        }
+        if let marketLabel {
+            return "No \(marketLabel) props posted today"
+        }
+        return "No MLB player props match these filters"
+    }
+
     /// Order the flat feed by the active `sortMode`. Each mode falls back to
     /// game time as a stable tiebreak; `GameDateGrouping` re-buckets the result
     /// into chronological date sections, so this only sets within-date order.
@@ -289,12 +422,6 @@ struct PropsView: View {
         case .hitRate:
             return items.sorted { a, b in
                 if a.hitRate != b.hitRate { return a.hitRate > b.hitRate }
-                return a.sortTime < b.sortTime
-            }
-        case .name:
-            return items.sorted { a, b in
-                let cmp = a.selection.playerName.localizedCaseInsensitiveCompare(b.selection.playerName)
-                if cmp != .orderedSame { return cmp == .orderedAscending }
                 return a.sortTime < b.sortTime
             }
         }
@@ -388,5 +515,415 @@ struct PropsView: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 200)
+    }
+}
+
+// MARK: - MLB filter chrome
+
+/// MLB Props tab filter bar: logo matchup tiles + centered market picker pill.
+private struct MLBPropFilterBar: View {
+    @Binding var filters: MLBPropFeedFilters
+    let gameOptions: [MLBPropGameFilterOption]
+    @Binding var showMarketSheet: Bool
+
+    private let logoSize: CGFloat = 34
+    private let cardShape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+
+    var body: some View {
+        VStack(spacing: 10) {
+            gameRow
+            marketPickerPill
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+    }
+
+    private var gameRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(gameOptions) { option in
+                    gameTile(option)
+                }
+            }
+            .padding(.horizontal, 2)
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func gameTile(_ option: MLBPropGameFilterOption) -> some View {
+        let isActive = filters.gamePk == option.gamePk
+        return Button {
+            filters.gamePk = option.gamePk
+        } label: {
+            Group {
+                if option.isAllGames {
+                    VStack(spacing: 4) {
+                        Image(systemName: "baseball.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                        Text("All")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .frame(width: 72, height: 56)
+                } else {
+                    HStack(spacing: 6) {
+                        MLBTeamLogo(
+                            logoUrl: option.awayLogoUrl,
+                            abbrev: option.awayAbbr,
+                            name: option.awayName,
+                            size: logoSize
+                        )
+                        Text("@")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.appTextMuted)
+                        MLBTeamLogo(
+                            logoUrl: option.homeLogoUrl,
+                            abbrev: option.homeAbbr,
+                            name: option.homeName,
+                            size: logoSize
+                        )
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 56)
+                }
+            }
+            .foregroundStyle(isActive ? Color(hex: 0x00E676) : Color.appTextSecondary)
+            .background(
+                cardShape.fill(
+                    isActive
+                        ? Color(hex: 0x00E676).opacity(0.12)
+                        : Color.appSurfaceMuted.opacity(0.55)
+                )
+            )
+            .overlay(
+                cardShape.stroke(
+                    isActive
+                        ? Color(hex: 0x00E676).opacity(0.5)
+                        : Color.appBorder.opacity(0.45),
+                    lineWidth: isActive ? 1.5 : 1
+                )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(option.accessibilityLabel)
+    }
+
+    private var marketPickerPill: some View {
+        Button { showMarketSheet = true } label: {
+            HStack(spacing: 6) {
+                Text(MLBPropFeedFilters.marketLabel(filters.market))
+                    .font(.system(size: 13, weight: .semibold))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .bold))
+            }
+            .foregroundStyle(Color.appTextPrimary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .liquidGlassBackground(in: Capsule())
+            .overlay(Capsule().stroke(Color.appBorder.opacity(0.55), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("Prop market filter")
+        .accessibilityValue(MLBPropFeedFilters.marketLabel(filters.market))
+    }
+}
+
+private struct MLBPropMarketFilterSheet: View {
+    @Binding var selectedMarket: String?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    marketRow(nil, label: "All Markets")
+                }
+                Section("Pitching") {
+                    ForEach(MLBPropFeedFilters.sheetPitcherMarkets, id: \.self) { key in
+                        marketRow(key, label: MLBPlayerProps.marketLabel(key))
+                    }
+                }
+                Section("Hitting") {
+                    ForEach(MLBPropFeedFilters.sheetBatterMarkets, id: \.self) { key in
+                        marketRow(key, label: MLBPlayerProps.marketLabel(key))
+                    }
+                }
+            }
+            .navigationTitle("Prop Market")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .tint(Color.appPrimary)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private func marketRow(_ key: String?, label: String) -> some View {
+        Button {
+            selectedMarket = key
+            dismiss()
+        } label: {
+            HStack {
+                Text(label)
+                    .foregroundStyle(Color.appTextPrimary)
+                Spacer()
+                if selectedMarket == key {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.appPrimary)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - NFL filter chrome
+
+private struct NFLPropFilterBar: View {
+    @Binding var filters: NFLPropFeedFilters
+    let players: [NFLPropPlayer]
+    let gameOptions: [NFLPropGameFilterOption]
+    @Binding var showMarketSheet: Bool
+
+    private let logoSize: CGFloat = 34
+    private let cardShape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+
+    var body: some View {
+        VStack(spacing: 10) {
+            gameRow
+            marketPickerPill
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+    }
+
+    private var gameRow: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(gameOptions) { option in
+                        gameTile(option)
+                            .id(option.id)
+                    }
+                }
+                .padding(.horizontal, 2)
+                .padding(.vertical, 2)
+            }
+            .onAppear { scrollToSelectedGame(proxy) }
+            .onChange(of: filters.gameId) { _, _ in scrollToSelectedGame(proxy) }
+            .onChange(of: filters.signalsOnly) { _, _ in scrollToSelectedGame(proxy) }
+            .onChange(of: gameOptions.map(\.id)) { _, _ in scrollToSelectedGame(proxy) }
+        }
+    }
+
+    private func scrollToSelectedGame(_ proxy: ScrollViewProxy) {
+        let target = filters.gameId ?? "all"
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                proxy.scrollTo(target, anchor: .center)
+            }
+        }
+    }
+
+    private func selectGame(_ option: NFLPropGameFilterOption) {
+        if let gameId = option.gameId, filters.signalsOnly,
+           !NFLPropFeedFilters.hasFlaggedPlayers(in: players, gameId: gameId) {
+            return
+        }
+        filters.gameId = option.gameId
+    }
+
+    private func gameTile(_ option: NFLPropGameFilterOption) -> some View {
+        let isActive = filters.gameId == option.gameId
+        return Button {
+            selectGame(option)
+        } label: {
+            Group {
+                if option.isAllGames {
+                    VStack(spacing: 4) {
+                        Image(systemName: "football.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                        Text("All")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .frame(width: 72, height: 56)
+                } else {
+                    HStack(spacing: 6) {
+                        GameCardTeamAvatar(
+                            teamName: option.awayAbbr,
+                            sport: "nfl",
+                            size: logoSize,
+                            colors: NFLTeamColors.colorPair(for: option.awayTeam)
+                        )
+                        Text("@")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.appTextMuted)
+                        GameCardTeamAvatar(
+                            teamName: option.homeAbbr,
+                            sport: "nfl",
+                            size: logoSize,
+                            colors: NFLTeamColors.colorPair(for: option.homeTeam)
+                        )
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 56)
+                }
+            }
+            .foregroundStyle(isActive ? Color(hex: 0x00E676) : Color.appTextSecondary)
+            .background(
+                cardShape.fill(
+                    isActive
+                        ? Color(hex: 0x00E676).opacity(0.12)
+                        : Color.appSurfaceMuted.opacity(0.55)
+                )
+            )
+            .overlay(
+                cardShape.stroke(
+                    isActive
+                        ? Color(hex: 0x00E676).opacity(0.5)
+                        : Color.appBorder.opacity(0.45),
+                    lineWidth: isActive ? 1.5 : 1
+                )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(option.accessibilityLabel)
+    }
+
+    private var marketPickerPill: some View {
+        Button { showMarketSheet = true } label: {
+            HStack(spacing: 6) {
+                Text(NFLPropFeedFilters.filterLabel(filters))
+                    .font(.system(size: 13, weight: .semibold))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .bold))
+            }
+            .foregroundStyle(Color.appTextPrimary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .liquidGlassBackground(in: Capsule())
+            .overlay(Capsule().stroke(Color.appBorder.opacity(0.55), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("Prop market filter")
+        .accessibilityValue(NFLPropFeedFilters.filterLabel(filters))
+    }
+}
+
+private struct NFLPropMarketFilterSheet: View {
+    @Binding var filters: NFLPropFeedFilters
+    let players: [NFLPropPlayer]
+    let sheetMarkets: NFLPropFeedFilters.SheetMarkets
+    @Environment(\.dismiss) private var dismiss
+
+    private var signalCount: Int {
+        NFLPropFeedFilters.flaggedPlayerCount(from: players, gameId: filters.gameId)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    filterRow(allMarkets: true)
+                    signalsRow
+                }
+                if !sheetMarkets.passing.isEmpty {
+                    Section("Passing") {
+                        ForEach(sheetMarkets.passing, id: \.self) { key in
+                            filterRow(market: key, label: NFLPlayerProps.marketLabel(key))
+                        }
+                    }
+                }
+                if !sheetMarkets.rushing.isEmpty {
+                    Section("Rushing") {
+                        ForEach(sheetMarkets.rushing, id: \.self) { key in
+                            filterRow(market: key, label: NFLPlayerProps.marketLabel(key))
+                        }
+                    }
+                }
+                if !sheetMarkets.receiving.isEmpty {
+                    Section("Receiving") {
+                        ForEach(sheetMarkets.receiving, id: \.self) { key in
+                            filterRow(market: key, label: NFLPlayerProps.marketLabel(key))
+                        }
+                    }
+                }
+                if !sheetMarkets.other.isEmpty {
+                    Section("Other") {
+                        ForEach(sheetMarkets.other, id: \.self) { key in
+                            filterRow(market: key, label: NFLPlayerProps.marketLabel(key))
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Prop Market")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .tint(Color.appPrimary)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var signalsRow: some View {
+        Button {
+            filters.market = nil
+            filters.signalsOnly = true
+            dismiss()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(Color(hex: 0xF97316))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Prop Signals")
+                        .foregroundStyle(Color.appTextPrimary)
+                    if signalCount > 0 {
+                        Text("\(signalCount) player\(signalCount == 1 ? "" : "s") with a signal")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.appTextSecondary)
+                    }
+                }
+                Spacer()
+                if filters.signalsOnly {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.appPrimary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func filterRow(allMarkets: Bool = false, market: String? = nil, label: String = "All Markets") -> some View {
+        let isSelected = allMarkets
+            ? (!filters.signalsOnly && filters.market == nil)
+            : (!filters.signalsOnly && filters.market == market)
+        Button {
+            filters.signalsOnly = false
+            filters.market = market
+            dismiss()
+        } label: {
+            HStack {
+                Text(label)
+                    .foregroundStyle(Color.appTextPrimary)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.appPrimary)
+                }
+            }
+        }
     }
 }

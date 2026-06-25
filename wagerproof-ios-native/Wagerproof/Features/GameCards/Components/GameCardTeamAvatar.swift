@@ -57,11 +57,17 @@ struct GameCardTeamAvatar: View {
             .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 1)
     }
 
-    /// NFL logos come from the `nfl_teams` reference table (`logo_espn`),
-    /// cached in `NFLTeamAssets`; other sports don't have a logo source here
-    /// yet and stay on initials.
+    /// NFL / CFB logos come from their sport reference tables, cached in
+    /// process-wide model helpers before the Games slate renders.
     private var logoUrl: String? {
-        sport.lowercased() == "nfl" ? NFLTeamAssets.logo(for: teamName) : nil
+        switch sport.lowercased() {
+        case "nfl":
+            return NFLTeamAssets.logo(for: teamName)
+        case "cfb", "ncaaf":
+            return CFBTeamAssets.logo(for: teamName)
+        default:
+            return nil
+        }
     }
 
     private var defaultColors: TeamColorPair {

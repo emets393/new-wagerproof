@@ -573,6 +573,13 @@ public enum NFLTeams {
         return trimmed.split(separator: " ").compactMap(\.first).prefix(3).map(String.init).joined().uppercased()
     }
 
+    /// "Buffalo Bills" for any alias/abbr format; nil when unmapped.
+    public static func fullName(for team: String) -> String? {
+        guard let slug = slug(for: team),
+              let entry = teams.first(where: { $0.slug == slug }) else { return nil }
+        return "\(entry.city) \(entry.mascot)"
+    }
+
     public static func logoUrl(for team: String) -> String? {
         guard let slug = slug(for: team) else { return nil }
         return "https://a.espncdn.com/i/teamlogos/nfl/500/\(slug).png"

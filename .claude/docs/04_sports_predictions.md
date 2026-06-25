@@ -25,11 +25,14 @@ WagerProof provides game predictions, live scores, and betting analytics for fiv
 | Sport | Input Data | Predictions |
 |-------|------------|-------------|
 | **NFL** | `v_input_values_with_epa` | `nfl_predictions_epa` |
-| **CFB** | `cfb_live_weekly_inputs` | `cfb_api_predictions` |
+| **CFB** | `cfb_dryrun_games` | `cfb_dryrun_picks` |
 | **NBA** | `nba_input_values_view` | `nba_predictions` |
 | **NCAAB** | `v_cbb_input_values` | `ncaab_predictions` |
 
 ### Additional Tables
+- `cfb_teams` - CFB team abbreviations, logos, colors, and conference metadata
+- `cfb_signal_defs` - Plain-English definitions for CFB supporting signal pills
+- `cfb_sportsbooks` - CFB sportsbook display names/logos for best-line rows
 - `production_weather` - Weather for NFL
 - `live_scores` - Real-time scores
 - `polymarket_markets` / `polymarket_events` - Polymarket cache
@@ -48,6 +51,8 @@ WagerProof provides game predictions, live scores, and betting analytics for fiv
 
 ### Key Components
 - `NFLGameCard.tsx` - With Aurora/ShineBorder effects
+- `CFBDryRunSlateCardContent.tsx` - CFB dry-run slate content using NFL-style card hierarchy
+- `CFBDryRunGameDetailsModal.tsx` - CFB 7-card prediction detail modal from `cfb_dryrun_picks`
 - `GameDetailsModal.tsx` (119KB) - Full details
 - `LiveScoreTicker.tsx` - Marquee ticker
 - `PolymarketWidget.tsx` - Prediction markets

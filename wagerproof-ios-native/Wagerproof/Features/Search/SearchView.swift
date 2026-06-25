@@ -80,8 +80,10 @@ struct SearchView: View {
 
     @State private var store = SearchStore()
 
-    /// Player-prop detail pushed locally (Players row tap, props chip tap).
+    /// MLB player-prop detail pushed locally (Players row tap, props chip tap).
     @State private var selectedProp: PlayerPropSelection?
+    /// NFL player-prop detail pushed locally from Players search results.
+    @State private var selectedNFLProp: NFLPlayerPropSelection?
     @Namespace private var propNS
     /// Expanded insight surface pushed locally (insight chip tap).
     @State private var insightDestination: SearchInsightDestination?
@@ -114,7 +116,7 @@ struct SearchView: View {
             .searchable(
                 text: $binding.query,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search games, agents, alerts\u{2026}"
+                prompt: "Search games, players, agents\u{2026}"
             )
             // Scope chips render in the system-provided slot just under the
             // search field. `.onTextEntry` shows them only while the field
@@ -149,6 +151,10 @@ struct SearchView: View {
                 PlayerPropDetailView(selection: selection)
                     .navigationTransition(.zoom(sourceID: selection.transitionID, in: propNS))
             }
+            .navigationDestination(item: $selectedNFLProp) { selection in
+                NFLPropDetailView(selection: selection)
+                    .navigationTransition(.zoom(sourceID: selection.transitionID, in: propNS))
+            }
             .onChange(of: store.debouncedQuery) { _, newQuery in
                 // First real keystroke that produces a debounced query →
                 // fetch the public agents leaderboard so cross-user agent
@@ -172,7 +178,10 @@ struct SearchView: View {
             Task { await f5.refreshIfStale() }
         }
         if let props = propsEnv {
-            Task { await props.refreshMLB() }
+            Task {
+                await props.refreshMLB()
+                await props.refreshNFL()
+            }
         }
     }
 
@@ -420,21 +429,11 @@ struct SearchView: View {
                 }
             }
             if showsScope(.players) {
-                let players = store.playerResults.compactMap { player in
-                    propItem(for: player).map { (player: player, item: $0) }
-                }
+                let players = store.playerResults
                 if !players.isEmpty {
                     Section(header: sectionHeader("Players", count: players.count)) {
-                        ForEach(players, id: \.player.id) { entry in
-                            PropPlayerCard(item: entry.item, namespace: propNS) { selection in
-                                store.commitCurrentQueryToRecents()
-                                selectedProp = selection
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 4)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
+                        ForEach(players) { player in
+                            playerResultRow(player)
                         }
                     }
                 }
@@ -708,11 +707,48 @@ struct SearchView: View {
         }
     }
 
-    /// Resolve a Player result's app-target feed item at render time (Kit
-    /// only returns ids — `PlayerPropSelection` lives in the app target).
-    private func propItem(for player: SearchStore.SearchResult.Player) -> PlayerPropFeedItem? {
-        guard let matchup = propsEnv?.matchup(for: player.gamePk) else { return nil }
-        return PlayerPropFeed.items(from: [matchup]).first { $0.selection.playerId == player.playerId }
+    @ViewBuilder
+    private func playerResultRow(_ player: SearchStore.SearchResult.Player) -> some View {
+        switch player.kind {
+        case .mlb:
+            if let item = mlbPropItem(for: player) {
+                PropPlayerCard(item: item, namespace: propNS) { selection in
+                    store.commitCurrentQueryToRecents()
+                    selectedProp = selection
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+        case .nfl:
+            if let item = nflPropItem(for: player) {
+                NFLPropPlayerCard(item: item, namespace: propNS) { selection in
+                    store.commitCurrentQueryToRecents()
+                    selectedNFLProp = selection
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+        }
+    }
+
+    /// Resolve an MLB player result's feed item at render time.
+    private func mlbPropItem(for player: SearchStore.SearchResult.Player) -> PlayerPropFeedItem? {
+        guard case .mlb(let gamePk, let playerId, _) = player.kind else { return nil }
+        guard let matchup = propsEnv?.matchup(for: gamePk) else { return nil }
+        return PlayerPropFeed.items(from: [matchup]).first { $0.selection.playerId == playerId }
+    }
+
+    /// Resolve an NFL player result's feed item at render time.
+    private func nflPropItem(for player: SearchStore.SearchResult.Player) -> NFLPropFeedItem? {
+        guard case .nfl(let playerKey, _) = player.kind else { return nil }
+        guard let nflPlayer = propsEnv?.nflPlayers.first(where: { $0.id == playerKey }) else { return nil }
+        return NFLPropFeed.items(from: [nflPlayer]).first
     }
 
     @ViewBuilder

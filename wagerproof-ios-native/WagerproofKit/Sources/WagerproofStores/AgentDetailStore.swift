@@ -11,15 +11,13 @@ import WagerproofServices
 /// The store fetches:
 ///   - `snapshot` (agent + perf + today's picks + today's run + can_view +
 ///     is_following) via `agent-authorized-action-v1 / detail_snapshot`.
-///   - `pickHistory` (all picks, newest first) via direct table reads. Loaded
-///     lazily when the user expands the history section.
-///
-/// Generation is a separate concern handled by `requestGeneration` — the
-/// detail screen drives the loading state and refreshes the snapshot when
-/// the call resolves.
+///   - `pickHistory` — recent preview for the history list.
+///   - `performancePicks` — full history for performance charts.
 @Observable
 @MainActor
 public final class AgentDetailStore {
+    public static let pickHistoryPreviewLimit = 7
+
     public enum LoadState: Equatable, Sendable {
         case idle
         case loading
@@ -31,14 +29,12 @@ public final class AgentDetailStore {
         case all
         case won
         case lost
-        case pending
 
         public var label: String {
             switch self {
             case .all: return "All"
             case .won: return "Won"
             case .lost: return "Lost"
-            case .pending: return "Pending"
             }
         }
     }
@@ -53,6 +49,8 @@ public final class AgentDetailStore {
     // MARK: - History state
     public private(set) var pickHistory: [AgentPick] = []
     public private(set) var historyLoadState: LoadState = .idle
+    public private(set) var performancePicks: [AgentPick] = []
+    public private(set) var performanceLoadState: LoadState = .idle
 
     // MARK: - Generation state
     public private(set) var isGenerating: Bool = false
@@ -75,7 +73,13 @@ public final class AgentDetailStore {
     }
 
     public var todaysPicks: [AgentPick] {
-        snapshot?.todaysPicks ?? []
+        let fromSnapshot = snapshot?.todaysPicks ?? []
+        if !fromSnapshot.isEmpty { return fromSnapshot }
+        // Snapshot only includes today's picks when the server grants Pro
+        // entitlement. Owners on the free tier still load history via direct
+        // reads — surface today's slice from that cache when available.
+        let todayStr = Self.localDateString(Date())
+        return performancePicks.filter { $0.gameDate == todayStr }
     }
 
     public var todaysGenerationRun: AgentGenerationRunSummary? {
@@ -100,8 +104,25 @@ public final class AgentDetailStore {
         case .all: return pickHistory
         case .won: return pickHistory.filter { $0.result == .won }
         case .lost: return pickHistory.filter { $0.result == .lost }
-        case .pending: return pickHistory.filter { $0.result == .pending }
         }
+    }
+
+    /// Graded picks from prior game dates only — excludes today and pending rows.
+    static func isPickHistoryEligible(_ pick: AgentPick, todayStr: String) -> Bool {
+        guard pick.gameDate < todayStr else { return false }
+        switch pick.result {
+        case .won, .lost, .push: return true
+        case .pending: return false
+        }
+    }
+
+    static func filterPickHistoryPreview(_ picks: [AgentPick], limit: Int) -> [AgentPick] {
+        let todayStr = Self.localDateString(Date())
+        return Array(
+            picks
+                .filter { isPickHistoryEligible($0, todayStr: todayStr) }
+                .prefix(limit)
+        )
     }
 
     /// Mirrors RN's `regensRemaining` derivation: 3-per-day, reset at midnight.
@@ -127,17 +148,93 @@ public final class AgentDetailStore {
         }
     }
 
-    /// Load the full pick history. Called when the history section expands,
-    /// or on pull-to-refresh once already loaded.
-    public func loadHistory() async {
+    /// Load the recent pick-history preview (last `pickHistoryPreviewLimit` picks).
+    public func loadHistory(isOwner: Bool = false) async {
         historyLoadState = .loading
         do {
-            let picks = try await AgentPicksService.fetchPicks(agentId: agentId)
-            self.pickHistory = picks
+            let preview: [AgentPick]
+            if isOwner {
+                preview = try await loadHistoryPreviewPreferringDirectRead()
+            } else {
+                preview = try await loadHistoryPreviewPreferringAuthorizedPage()
+            }
+            self.pickHistory = preview
             self.historyLoadState = .loaded
         } catch {
             self.historyLoadState = .failed(Self.message(from: error))
         }
+    }
+
+    /// Load the full pick set used by performance charts.
+    public func loadPerformancePicks(isOwner: Bool = false) async {
+        performanceLoadState = .loading
+        do {
+            let allPicks: [AgentPick]
+            if isOwner {
+                allPicks = try await loadAllPicksPreferringDirectRead()
+            } else {
+                allPicks = try await loadAllPicksPreferringAuthorizedPage()
+            }
+            self.performancePicks = allPicks
+            self.performanceLoadState = .loaded
+        } catch {
+            self.performanceLoadState = .failed(Self.message(from: error))
+        }
+    }
+
+    private func loadHistoryPreviewPreferringDirectRead() async throws -> [AgentPick] {
+        let limit = Self.pickHistoryPreviewLimit
+        let direct = try await AgentPicksService.fetchGradedPickHistory(agentId: agentId, limit: limit)
+        if !direct.isEmpty { return direct }
+        return try await loadHistoryPage(limit: limit)
+    }
+
+    private func loadHistoryPreviewPreferringAuthorizedPage() async throws -> [AgentPick] {
+        let limit = Self.pickHistoryPreviewLimit
+        let paged = try await loadHistoryPage(limit: limit)
+        if !paged.isEmpty { return paged }
+        return try await AgentPicksService.fetchGradedPickHistory(agentId: agentId, limit: limit)
+    }
+
+    private func loadAllPicksPreferringDirectRead() async throws -> [AgentPick] {
+        let direct = try await AgentPicksService.fetchPicks(agentId: agentId)
+        if !direct.isEmpty { return direct }
+        return try await loadAllPicksViaAuthorizedPage()
+    }
+
+    private func loadAllPicksPreferringAuthorizedPage() async throws -> [AgentPick] {
+        let paged = try await loadAllPicksViaAuthorizedPage()
+        if !paged.isEmpty { return paged }
+        return try await AgentPicksService.fetchPicks(agentId: agentId)
+    }
+
+    private func loadHistoryPage(limit: Int) async throws -> [AgentPick] {
+        let page = try await AgentPicksService.fetchPicksPage(
+            agentId: agentId,
+            filter: "all",
+            pageSize: 50,
+            cursor: nil,
+            includeOverlap: false
+        )
+        return Self.filterPickHistoryPreview(page.picks, limit: limit)
+    }
+
+    private func loadAllPicksViaAuthorizedPage() async throws -> [AgentPick] {
+        var allPicks: [AgentPick] = []
+        var cursor: String? = nil
+        repeat {
+            let page = try await AgentPicksService.fetchPicksPage(
+                agentId: agentId,
+                filter: "all",
+                pageSize: 50,
+                cursor: cursor,
+                includeOverlap: false
+            )
+            allPicks.append(contentsOf: page.picks)
+            guard page.hasMore, let next = page.nextCursor, !next.isEmpty else { break }
+            cursor = next
+        } while true
+        return allPicks
     }
 
     // MARK: - Mutations
@@ -168,10 +265,8 @@ public final class AgentDetailStore {
                 modelName: v3.useV3Engine ? v3.model : nil
             )
             await pollUntilGenerationCompletes(priorRunId: priorRunId)
-            // Reload history so the new picks show up there too.
-            if case .loaded = historyLoadState {
-                await loadHistory()
-            }
+            await loadHistory(isOwner: true)
+            await loadPerformancePicks(isOwner: true)
             return true
         } catch {
             lastGenerationError = Self.message(from: error)

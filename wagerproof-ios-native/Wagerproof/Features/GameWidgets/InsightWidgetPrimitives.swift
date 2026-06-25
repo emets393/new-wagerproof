@@ -326,3 +326,84 @@ struct InsightWidgetSkeleton: View {
         .shimmering()
     }
 }
+
+// MARK: - Signal performance stats (NFL / CFB dry-run signal cards)
+
+/// Backtest + live season record grouped in one readable card on signal detail sheets.
+struct SignalPerformanceStatsSection: View {
+    let backtestHit: String?
+    let seasonDisplay: SignalSeasonRecordDisplay
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let backtestHit, !backtestHit.isEmpty {
+                SignalBacktestStatRow(value: backtestHit)
+                Divider().opacity(0.35)
+            }
+            SignalSeasonStatRow(display: seasonDisplay)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.appSurfaceMuted.opacity(0.45), in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+/// Static multi-season backtest hit rate (`typical_hit` from signal defs).
+private struct SignalBacktestStatRow: View {
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("HISTORICAL BACKTEST")
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(0.6)
+                .foregroundStyle(Color.appTextSecondary)
+            Text("Hit rate from multi-season backtesting — not this year's live results.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.appTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(value)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Color.appTextPrimary)
+        }
+    }
+}
+
+/// Live season-to-date row from `signal_performance`.
+private struct SignalSeasonStatRow: View {
+    let display: SignalSeasonRecordDisplay
+
+    private var detailColor: Color {
+        switch display.tone {
+        case .empty: return Color.appTextSecondary
+        case .neutral: return Color.appTextPrimary
+        case .positive: return Color(hex: 0x22C55E)
+        case .negative: return Color(hex: 0xEF4444)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("THIS SEASON")
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(0.6)
+                .foregroundStyle(Color.appPrimary)
+            Text("Live graded record for the current season.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.appTextSecondary)
+            Text(display.detail)
+                .font(.system(size: display.isSmallSample ? 15 : 16, weight: .bold))
+                .foregroundStyle(detailColor)
+                .opacity(display.isSmallSample && display.tone != .empty ? 0.88 : 1)
+        }
+    }
+}
+
+/// Legacy alias — prefer `SignalPerformanceStatsSection`.
+struct SignalSeasonRecordLine: View {
+    let display: SignalSeasonRecordDisplay
+
+    var body: some View {
+        SignalSeasonStatRow(display: display)
+    }
+}

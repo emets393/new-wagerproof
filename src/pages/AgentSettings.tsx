@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgent, useDeleteAgent, useUpdateAgent } from '@/hooks/useAgents';
-import { CustomInsights, PersonalityParams, Sport, SPORTS, US_TIMEZONES } from '@/types/agent';
+import { CustomInsights, PersonalityParams, Sport, SPORTS, US_TIMEZONES, toggleSportSelection } from '@/types/agent';
 import { Screen3_Personality, Screen4_DataAndConditions, Screen5_CustomInsights } from '@/components/agents/creation';
 
 interface AgentSettingsForm {
@@ -94,11 +94,7 @@ export default function AgentSettings() {
 
   const toggleSport = (sport: Sport) => {
     if (!form) return;
-    const exists = form.preferred_sports.includes(sport);
-    const nextSports = exists
-      ? form.preferred_sports.filter((s) => s !== sport)
-      : [...form.preferred_sports, sport];
-    setForm({ ...form, preferred_sports: nextSports });
+    setForm({ ...form, preferred_sports: toggleSportSelection(form.preferred_sports, sport) });
   };
 
   const handleSave = async () => {
