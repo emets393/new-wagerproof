@@ -62,7 +62,8 @@ avatar_parlays
 avatar_parlay_legs
   id uuid PK · parlay_id uuid FK→avatar_parlays (CASCADE)
   game_id text · sport text · matchup text · game_date date
-  bet_type text CHECK (spread|moneyline|total) · period text CHECK (full|f5)
+  bet_type text CHECK (spread|moneyline|total|prop|team_total) · period text CHECK (full|f5|h1)
+  prop_player text · prop_market text · prop_line numeric · prop_direction text  -- prop legs only (NFL)
   pick_selection text · odds text          -- individual leg American odds
   archived_game_data jsonb
   leg_result text CHECK (won|lost|push|pending) DEFAULT 'pending' · graded_at timestamptz
@@ -103,6 +104,8 @@ The grader [grade-avatar-picks/index.ts:749](../../supabase/functions/grade-avat
 **Results source (confirmed against live DB, 2026-06-21):** finals live on the dryrun game row the agent picked from — `nfl_dryrun_games.final_home / final_away` (+ `h1_home / h1_away` for first half), and `cfb_dryrun_games.final_home / final_away` (CFBD-sourced). Pregame-null, populated post-game, keyed by `game_id`. The agent's pick already stores `game_id`, so grading is a row lookup → read `final_*` → compute the result. **Do NOT use the `all_game_results` view** (that's the NBA/NCAAB source); grade NFL/CFB off the dryrun tables — they ARE the 2026 production contract.
 
 **Grade math** (identical to `dryrun_wk12_games.py:grade_play` and the existing `gradePickFromView`): spread = picked-side margin + signed line (`>0` won, `<0` lost, `=0` push on whole numbers); total = `final_home + final_away` vs the picked line; moneyline = winner (higher final). The grader computes from raw finals, so it grades spread/total/ML itself — it does **not** depend on the dryrun pick layer's precomputed `result` (which only covers FG spread+total on NFL, and is unpopulated on CFB). Watch the enum: dryrun picks use `win/loss/push`; `avatar_picks` use `won/lost/push/pending` — emit the avatar enum.
+
+**1H + team-total markets (stakeable, migration `20260622000005`):** NFL/CFB agents can stake first-half (`period='h1'`, with spread/moneyline/total) and per-team totals (`bet_type='team_total'`, full-game only, team named in `pick_selection`). `gradePickFromView` routes `h1` to the `football_game_results` `h1_*` fields (ML→`h1_ml_result`; spread/total graded score-based off `h1_home_score`/`h1_away_score`), and grades `team_total` against the named team's full-game score (`home_score`/`away_score`) vs the picked line (push on a whole-number tie). Submit-side line lookups read `vegas_lines.first_half.total_close` (1H total) and `vegas_lines.team_totals.{home,away}_close` (team total) off the dryrun formatter. Both flow through the same straight + parlay-leg grading paths — no separate grader.
 
 **⚠️ The real dependency is upstream, not in the grader.** The grade logic + table contract exist, but the live pipeline that *fills* `final_*` is not yet wired for production:
 - `dryrun_wk12_games.py` (which computes finals + grades) is a **hand-run research script reading historical parquet** — not on any Render cron.

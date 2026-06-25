@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { resolvePremiumAccess } from '../shared/entitlements.ts';
+import { isCrossFamily } from '../shared/sportFamily.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -156,9 +157,21 @@ serve(async (req) => {
         const agentId = body.agent_id;
         if (!agentId || !userId) return errorResponse(400, 'Missing agent_id');
 
-        // Default-safe engine routing: only the literal 'v3' opts into the new
-        // agentic engine; everything else (incl. omitted field) stays on V2.
-        const useV3 = body.engine_version === 'v3';
+        // Default-safe engine routing: the literal 'v3' opts in explicitly, and
+        // cross-family agents (preferred_sports spanning >1 family) are FORCED to
+        // V3 — V2's prompt router + football wall would silently drop their
+        // non-primary-family games. See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md.
+        let useV3 = body.engine_version === 'v3';
+        if (!useV3) {
+          const { data: prof } = await serviceClient
+            .from('avatar_profiles')
+            .select('preferred_sports')
+            .eq('id', agentId)
+            .single();
+          if (prof?.preferred_sports && isCrossFamily(prof.preferred_sports)) {
+            useV3 = true;
+          }
+        }
         const { data: runId, error } = useV3
           ? await serviceClient.rpc('enqueue_manual_generation_run_v3_engine', {
               p_user_id: userId,

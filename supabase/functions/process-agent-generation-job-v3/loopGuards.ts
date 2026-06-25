@@ -21,14 +21,18 @@ export interface V3Limits {
 export const V3_LIMITS: V3Limits = {
   maxTurns: 7,
   // These caps are the REAL latency bound: each deep fetch adds (compacted)
-  // context that makes the next thinking-mode turn slower. Tuned 2026-06-09 on
-  // deepseek-v4-flash/-pro via dry-run experiments (15-game MLB slate): 18/10
-  // lands flash ~85-107s and pro ~109-131s with ~0 budget refusals; 22/12 made
-  // flash SLOWER and thrashy (2x tokens, more refusals, fewer picks). Budget
-  // exhaustion here is a feature — it forces a timely submit. Per-run overrides
-  // via agent_generation_runs.v3_limit_overrides (clamped in resolveLimits).
-  maxToolCalls: 18,
-  maxDeepFetches: 10,
+  // context that makes the next thinking-mode turn slower. Originally tuned
+  // 2026-06-09 on deepseek-v4 (15-game MLB slate): 18/10 landed flash ~85-107s
+  // with ~0 budget refusals. RAISED 2026-06-23 to 24/16 because NFL/CFB gained 6
+  // deep tools (get_signals, get_conviction, get_full_game, get_first_half,
+  // get_team_totals, get_props) — at 10 a football agent ran dry before reaching
+  // conviction/injuries/1H/TT (verified in a Wk12 dry-run: exhausted at fetch 11).
+  // 16 still finalizes under the 240s wall-clock (~13s/fetch → ~210-230s); sports
+  // with fewer tools (MLB ~10) never reach the higher cap, so they're unaffected.
+  // Budget exhaustion is still a feature — it forces a timely submit. Per-run
+  // overrides via agent_generation_runs.v3_limit_overrides (clamped in resolveLimits).
+  maxToolCalls: 24,
+  maxDeepFetches: 16,
   // 3 (not 2) submit attempts: deepseek often omits a required field on its
   // first submit and self-corrects from the reject report; 2 left no slack.
   maxSubmitAttempts: 3,

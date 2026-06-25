@@ -55,7 +55,11 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
   const bySport: { sport: Sport; count: number }[] = [];
   for (const sport of ctx.steering.preferredSports as Sport[]) {
     try {
-      const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate);
+      // V3 reads the 2026 dryrun staging tables (nfl_dryrun_games /
+      // cfb_dryrun_games) — the production data contract — via the additive
+      // `source: 'dryrun'` param. NFL/CFB switch tables; other sports ignore it
+      // and read their legacy table. V2 omits this arg → stays on legacy.
+      const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate, 'dryrun');
       let n = 0;
       for (const fg of formattedGames as FormattedGame[]) {
         const id = String((fg as Record<string, unknown>).game_id ?? "");
@@ -142,4 +146,36 @@ export function buildSlate(ctx: AgentGenContext): SlateResult {
     games: rows,
     truncated,
   };
+}
+
+/** Serialize the slate for the seed message WITHOUT ever dropping a game — the
+ *  agent must see EVERY game_id (verbatim) to be able to bet it. The generic
+ *  compactDeepFetch caps every array to 12, which would hide all but the first 12
+ *  games; on a multi-sport slate (NFL loaded first, MLB last) that drops whole
+ *  sports, so the agent guesses ids and they all miss as not_in_slate. So the
+ *  slate gets its own compaction: keep ALL rows, shed per-game DETAIL until under
+ *  budget (the detail is re-fetchable via the data tools; the ids are not). */
+export function compactSlate(slate: SlateResult, targetChars = 16000): string {
+  const rows = slate.games as unknown as Record<string, unknown>[];
+  const wrap = (games: unknown[]) => JSON.stringify({ ...slate, games });
+  // Tier 1: full detail.
+  let s = wrap(rows);
+  if (s.length <= targetChars) return s;
+  // Tier 2: drop lens detail (re-fetchable via the data tools).
+  const noLens = rows.map(({ lenses: _lenses, ...rest }) => rest);
+  s = wrap(noLens);
+  if (s.length <= targetChars) return s;
+  // Tier 3: + collapse vegas to a one-line summary.
+  const lean = rows.map((r) => {
+    const v = (r.vegas ?? {}) as Record<string, unknown>;
+    return {
+      game_id: r.game_id, sport: r.sport, matchup: r.matchup, game_datetime: r.game_datetime,
+      vegas: { spread: v.spread_summary ?? null, ml: v.ml_summary ?? null, total: v.total ?? null },
+      model_pick: r.model_pick,
+    };
+  });
+  s = wrap(lean);
+  if (s.length <= targetChars) return s;
+  // Tier 4 (last resort): identity only — still EVERY game, never drop one.
+  return wrap(rows.map((r) => ({ game_id: r.game_id, sport: r.sport, matchup: r.matchup, model_pick: r.model_pick })));
 }

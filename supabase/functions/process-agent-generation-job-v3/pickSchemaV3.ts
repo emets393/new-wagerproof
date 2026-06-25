@@ -49,6 +49,20 @@ export const GeneratedPickV3Schema = GeneratedPickSchema.extend({
     .max(5.0)
     .refine((u) => Math.round(u * 2) === u * 2, "units must be in 0.5 increments"),
   decision_trace: V3DecisionTrace, // override the strict base with the lenient one
+  // Props are a fourth bet_type (NFL-only, signal-gated) and team_total a fifth
+  // (NFL/CFB only). extend() overrides the base enum cleanly, exactly like it
+  // overrides decision_trace above. The four prop_* fields are optional at the
+  // Zod layer (straights omit them) — the submit tool enforces they're all
+  // present when bet_type==='prop'. A team_total names the team in `selection`.
+  bet_type: z.enum(["spread", "moneyline", "total", "prop", "team_total"]),
+  // Override the base period enum (full|f5) to add 'h1' (NFL/CFB first half).
+  // Without this override a period='h1' pick would fail Zod parse → schema_invalid
+  // even though the tool JSON Schema offers it. V2's base schema stays f5-only.
+  period: z.enum(["full", "f5", "h1"]).optional().default("full"),
+  prop_player: z.string().optional(),
+  prop_market: z.string().optional(),
+  prop_line: z.number().optional(),
+  prop_direction: z.enum(["over", "under"]).optional(),
 });
 
 export type GeneratedPickV3 = z.infer<typeof GeneratedPickV3Schema>;
@@ -72,10 +86,18 @@ export function buildSubmitPicksSchema(band: UnitBand): Record<string, unknown> 
           type: "object",
           properties: {
             game_id: { type: "string", description: "Must be a game_id from the slate (verbatim)." },
-            bet_type: { type: "string", enum: ["spread", "moneyline", "total"] },
-            period: { type: "string", enum: ["full", "f5"] },
-            selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120".' },
+            bet_type: {
+              type: "string",
+              enum: ["spread", "moneyline", "total", "prop", "team_total"],
+              description: 'The bet type. Use "prop" for a player prop (NFL-only) — only props surfaced as bettable by get_props can be staked, and the four prop_* fields below are REQUIRED. Use "team_total" for a single team\'s total points (NFL/CFB) — put the team in `selection`, e.g. "Buffalo Bills Over 24.5".',
+            },
+            period: { type: "string", enum: ["full", "f5", "h1"], description: 'f5 = first 5 innings (MLB only). h1 = first half — NFL/CFB only. Omit (defaults to full game) otherwise.' },
+            selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120". For a 1H bet (period="h1"), the 1H line, e.g. "Bills 1H -1.5" / "Over 24.5 1H". For a team_total, the team + side + line, e.g. "Buffalo Bills Over 24.5". For a prop, the full human-readable selection, e.g. "Patrick Mahomes Over 275.5 Passing Yards".' },
             odds: { type: "string", description: 'American odds with explicit sign, e.g. "-110" / "+150".' },
+            prop_player: { type: "string", description: 'REQUIRED when bet_type="prop". The player name copied VERBATIM from the get_props result, e.g. "Patrick Mahomes".' },
+            prop_market: { type: "string", description: 'REQUIRED when bet_type="prop". The prop market copied VERBATIM from the get_props result, e.g. "passing_yards".' },
+            prop_line: { type: "number", description: 'REQUIRED for lined markets (yards/receptions/TD-count); OMIT for player_anytime_td (it has no line).' },
+            prop_direction: { type: "string", enum: ["over", "under"], description: 'REQUIRED when bet_type="prop". Which side of the line — "over" or "under".' },
             units: {
               type: "number",
               enum: band.enumValues,
@@ -127,5 +149,73 @@ export function buildSubmitPicksSchema(band: UnitBand): Record<string, unknown> 
       },
     },
     required: ["picks"],
+  };
+}
+
+/** Build the submit_parlay tool JSON Schema. Each parlay carries legs[] (2..maxLegs,
+ *  hard-capped at 4) plus ONE ticket-level stake — a parlay has a single units bet for
+ *  the whole ticket, not per-leg. Leg fields mirror submit_picks. Only offered to the
+ *  model when the agent's maxParlayLegs > 0. See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md. */
+export function buildSubmitParlaySchema(band: UnitBand, maxLegs: number): Record<string, unknown> {
+  const cap = Math.min(4, Math.max(2, maxLegs));
+  return {
+    type: "object",
+    properties: {
+      slate_note: {
+        type: "string",
+        description: "One sentence on the slate, or why you are submitting zero parlays.",
+      },
+      parlays: {
+        type: "array",
+        description:
+          "Multi-leg parlay tickets. Submit an empty array if you have no parlay worth staking.",
+        items: {
+          type: "object",
+          properties: {
+            legs: {
+              type: "array",
+              minItems: 2,
+              maxItems: cap,
+              description: `The legs of this parlay (2-${cap}). Each leg must be a game whose data you fetched first. At most ONE non-prop leg (full-game or 1H spread/ML/total, or a team total) per game — those are correlated and no book allows them in one ticket; player props are EXEMPT and may share a game with a non-prop leg and with each other (e.g. Cowboys ML + Dak Over 1.5 Pass TD is fine; Cowboys team total + Seahawks team total + game Over is NOT).`,
+              items: {
+                type: "object",
+                properties: {
+                  game_id: { type: "string", description: "Must be a game_id from the slate (verbatim)." },
+                  bet_type: {
+                    type: "string",
+                    enum: ["spread", "moneyline", "total", "prop", "team_total"],
+                    description: 'The leg bet type. Use "prop" for a player prop (NFL-only) — only props surfaced as bettable by get_props can be a leg, and the four prop_* fields below are REQUIRED. Use "team_total" for a single team\'s total points (NFL/CFB) — put the team in `selection`, e.g. "Buffalo Bills Over 24.5".',
+                  },
+                  period: { type: "string", enum: ["full", "f5", "h1"], description: 'f5 = first 5 innings (MLB only). h1 = first half — NFL/CFB only. Omit (defaults to full game) otherwise.' },
+                  selection: { type: "string", description: 'e.g. "Bills -1.5" / "Over 48.5" / "Yankees -120". For a 1H leg (period="h1"), the 1H line, e.g. "Bills 1H -1.5" / "Over 24.5 1H". For a team_total leg, the team + side + line, e.g. "Buffalo Bills Over 24.5". For a prop leg, the full human-readable selection, e.g. "Patrick Mahomes Over 275.5 Passing Yards".' },
+                  odds: { type: "string", description: 'American odds with explicit sign, e.g. "-110" / "+150".' },
+                  prop_player: { type: "string", description: 'REQUIRED when bet_type="prop". The player name copied VERBATIM from the get_props result, e.g. "Patrick Mahomes".' },
+                  prop_market: { type: "string", description: 'REQUIRED when bet_type="prop". The prop market copied VERBATIM from the get_props result, e.g. "passing_yards".' },
+                  prop_line: { type: "number", description: 'REQUIRED for lined markets (yards/receptions/TD-count); OMIT for player_anytime_td (it has no line).' },
+                  prop_direction: { type: "string", enum: ["over", "under"], description: 'REQUIRED when bet_type="prop". Which side of the line — "over" or "under".' },
+                },
+                required: ["game_id", "bet_type", "selection", "odds"],
+              },
+            },
+            units: {
+              type: "number",
+              enum: band.enumValues,
+              description: `ONE stake for the whole ticket. Allowed for this agent: ${band.enumValues.join(", ")}.`,
+            },
+            confidence: { type: "integer", minimum: 1, maximum: 5 },
+            reasoning: { type: "string", description: "50-600 chars: why these legs together, citing fetched numbers." },
+            key_factors: {
+              type: "array",
+              items: { type: "string" },
+              minItems: 2,
+              maxItems: 5,
+              description: "2-5 short factors grounding the parlay.",
+            },
+          },
+          required: ["legs", "units", "confidence", "reasoning", "key_factors"],
+        },
+      },
+    },
+    required: ["parlays"],
   };
 }

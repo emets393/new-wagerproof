@@ -11,13 +11,28 @@ import { clampUnits } from "../unitBands.ts";
 import { ensureFormattedGameSnapshot, normalizeDecisionTrace } from "../../shared/agentGameHelpers.ts";
 import { getMaxPicks } from "../../generate-avatar-picks/promptBuilder.ts";
 import { type AgentGenContext, type SubmitReport } from "./context.ts";
+// Reuse the ONE prop-key builder so the submit gate keys byte-identically to the
+// keys get_props registers in ctx.bettableProps. Do NOT re-define it here.
+import { propKey } from "./readTools.ts";
 
-// Copied verbatim from process-agent-generation-job-v2/index.ts:56.
-function formatPickSelectionForPeriod(selection: string, period: "full" | "f5"): string {
-  if (period !== "f5" || /\bF5\b/i.test(selection)) return selection;
-  const trimmed = selection.trim();
-  if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, " F5 ML");
-  return `${trimmed} F5`;
+// Period-tags the human-readable selection. f5 (MLB) branch copied verbatim from
+// process-agent-generation-job-v2/index.ts:56; h1 (NFL/CFB first half) mirrors it
+// with a "1H" tag so a graded selection reads "Bills 1H -1.5" / "Over 24.5 1H".
+// 'full' is a pass-through.
+function formatPickSelectionForPeriod(selection: string, period: "full" | "f5" | "h1"): string {
+  if (period === "f5") {
+    if (/\bF5\b/i.test(selection)) return selection;
+    const trimmed = selection.trim();
+    if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, " F5 ML");
+    return `${trimmed} F5`;
+  }
+  if (period === "h1") {
+    if (/\b1H\b/i.test(selection)) return selection;
+    const trimmed = selection.trim();
+    if (/\bML$/i.test(trimmed)) return trimmed.replace(/\s+ML$/i, " 1H ML");
+    return `${trimmed} 1H`;
+  }
+  return selection;
 }
 
 export async function submitPicks(
@@ -53,10 +68,28 @@ export async function submitPicks(
       reject(gameId, betType, `game_not_in_slate — valid ids: ${validSlateGameIds.slice(0, 20).join(", ")}`);
       continue;
     }
-    const grounded = ctx.deepFetched.get(gameId);
-    if (!grounded || !grounded.has(betType)) {
-      reject(gameId, betType, `bet_type_not_grounded — fetch this game's data (e.g. get_market_odds) before betting ${betType}`);
-      continue;
+    if (betType === "prop") {
+      // Props ground against the bettableProps ledger (NOT deepFetched): only the
+      // signal-backed props get_props surfaced as is_bettable can be staked.
+      // prop_line is NOT required: player_anytime_td has no line, and propKey
+      // coerces an undefined line → "" which matches the ledger's null-line key.
+      const rawRec = raw as Record<string, unknown>;
+      const pPlayer = rawRec.prop_player, pMarket = rawRec.prop_market, pLine = rawRec.prop_line, pDir = rawRec.prop_direction;
+      if (pPlayer == null || pMarket == null || pDir == null) {
+        reject(gameId, betType, "prop_fields_required — prop bets need prop_player, prop_market, and prop_direction (copy them verbatim from get_props; prop_line too for lined markets)");
+        continue;
+      }
+      const pk = propKey(pPlayer, pMarket, pLine);
+      if (!ctx.bettableProps.get(gameId)?.has(pk)) {
+        reject(gameId, betType, "prop_not_bettable — only signal-backed props surfaced by get_props can be bet");
+        continue;
+      }
+    } else {
+      const grounded = ctx.deepFetched.get(gameId);
+      if (!grounded || !grounded.has(betType)) {
+        reject(gameId, betType, `bet_type_not_grounded — fetch this game's data (e.g. get_market_odds) before betting ${betType}`);
+        continue;
+      }
     }
 
     // ── Zod (V2 schema + units) ───────────────────────────────────────────
@@ -74,19 +107,29 @@ export async function submitPicks(
     const gameDate = String(gameSnapshot.game_date || gameSnapshot.game_date_et || ctx.targetDate);
 
     // ── Deterministic validator (copied from V2) ─────────────────────────
-    // Check 2: dedup (game_id, bet_type) — keep last.
-    const dedupKey = `${pick.game_id}::${pick.bet_type}`;
+    // Check 2: dedup — keep last. Props key on player+market so two distinct
+    // props in one game coexist (they all share bet_type 'prop'); non-props key
+    // on (game_id, bet_type) as before.
+    const dedupKey = pick.bet_type === "prop"
+      ? `${pick.game_id}::prop::${String(pick.prop_player ?? "").toLowerCase()}::${String(pick.prop_market ?? "").toLowerCase()}`
+      : `${pick.game_id}::${pick.bet_type}`;
     if (seenGameBetTypes.has(dedupKey)) {
-      const idx = picksToInsert.findIndex((p) => p.game_id === pick.game_id && p.bet_type === pick.bet_type);
+      const idx = pick.bet_type === "prop"
+        ? picksToInsert.findIndex((p) =>
+            p.game_id === pick.game_id && p.bet_type === "prop" &&
+            String(p.prop_player ?? "").toLowerCase() === String(pick.prop_player ?? "").toLowerCase() &&
+            String(p.prop_market ?? "").toLowerCase() === String(pick.prop_market ?? "").toLowerCase())
+        : picksToInsert.findIndex((p) => p.game_id === pick.game_id && p.bet_type === pick.bet_type);
       if (idx >= 0) picksToInsert.splice(idx, 1);
     }
     seenGameBetTypes.add(dedupKey);
 
-    // Check 3: team-in-selection for spread/moneyline.
+    // Check 3: team-in-selection for spread/moneyline. Skipped for props — a
+    // prop selection is a player name, not a team.
     const awayTeam = String(gameSnapshot.away_team || "").toLowerCase().trim();
     const homeTeam = String(gameSnapshot.home_team || "").toLowerCase().trim();
     const selectionLower = pick.selection.toLowerCase().trim();
-    if (pick.bet_type !== "total" && awayTeam && homeTeam) {
+    if (pick.bet_type !== "total" && pick.bet_type !== "prop" && awayTeam && homeTeam) {
       const awayLast = awayTeam.split(/\s+/).pop() || "";
       const homeLast = homeTeam.split(/\s+/).pop() || "";
       const first = selectionLower.split(/\s+/)[0] || "___";
@@ -101,13 +144,18 @@ export async function submitPicks(
 
     const formattedSnapshot = ensureFormattedGameSnapshot(gameSnapshot, sportType, pick.game_id);
 
-    let effectiveBetType: "spread" | "moneyline" | "total" = pick.bet_type;
-    const effectivePeriod: "full" | "f5" = (pick.period ?? "full") as "full" | "f5";
+    let effectiveBetType: "spread" | "moneyline" | "total" | "prop" | "team_total" = pick.bet_type;
+    // team_total is always a full-game market (a single team's full-game points),
+    // so it never carries a period — force 'full' regardless of what's sent.
+    const effectivePeriod: "full" | "f5" | "h1" = pick.bet_type === "team_total"
+      ? "full"
+      : ((pick.period ?? "full") as "full" | "f5" | "h1");
     let effectiveSelection = pick.selection;
     let effectiveOdds = pick.odds;
     let mlSwapInfo: string | null = null;
 
-    // ML→RL auto-swap (MLB, max_favorite_odds).
+    // ML→RL auto-swap (MLB, max_favorite_odds). Inherently prop-safe: props are
+    // NFL-only and bet_type 'prop' (never 'moneyline'), so this never fires.
     if (sportType === "mlb" && effectiveBetType === "moneyline") {
       const maxFav = (ctx.personalityParams as Record<string, unknown>)?.max_favorite_odds;
       const oddsNum = parseInt(String(effectiveOdds), 10);
@@ -143,7 +191,9 @@ export async function submitPicks(
       }
     }
 
-    // Totals line rewrite to the Vegas line (period-aware).
+    // Totals line rewrite to the Vegas line (period-aware). Inherently prop-safe:
+    // a prop's bet_type is 'prop' (never 'total'), so props keep their prop_line.
+    // SKIPPED for team_total — that's a per-team line, rewritten in its own block.
     if (effectiveBetType === "total") {
       const dirMatch = String(effectiveSelection || "").match(/\b(over|under)\b/i);
       const direction = dirMatch ? (dirMatch[1].toLowerCase() === "over" ? "Over" : "Under") : null;
@@ -152,6 +202,10 @@ export async function submitPicks(
       if (effectivePeriod === "f5") {
         const f5Ou = vegasLines?.f5_ou as Record<string, unknown> | undefined;
         vegasTotalRaw = f5Ou?.line ?? gameSnapshot.f5_total_line;
+      } else if (effectivePeriod === "h1") {
+        // 1H total (NFL/CFB). Dryrun key: vegas_lines.first_half.total_close.
+        const firstHalf = vegasLines?.first_half as Record<string, unknown> | undefined;
+        vegasTotalRaw = firstHalf?.total_close;
       } else {
         const fullOu = vegasLines?.full_ou as Record<string, unknown> | undefined;
         vegasTotalRaw = fullOu?.line ?? vegasLines?.total ?? gameSnapshot.total_line ?? gameSnapshot.vegas_total;
@@ -161,6 +215,36 @@ export async function submitPicks(
         : null;
       if (direction && vegasTotal != null && !Number.isNaN(vegasTotal)) {
         effectiveSelection = formatPickSelectionForPeriod(`${direction} ${vegasTotal}`, effectivePeriod);
+      }
+    }
+
+    // team_total line rewrite (NFL/CFB). Resolve which side the selection names,
+    // pull THAT team's posted team-total line from vegas_lines.team_totals
+    // (home_close / away_close — same key on both the NFL + CFB dryrun formatters),
+    // and rewrite to "{Team} {Over|Under} {line}". period stays 'full'. If the
+    // team or line can't be resolved we keep the model's verbatim selection (the
+    // team-in-selection validator above already confirmed a team is named).
+    if (effectiveBetType === "team_total") {
+      const dirMatch = String(effectiveSelection || "").match(/\b(over|under)\b/i);
+      const direction = dirMatch ? (dirMatch[1].toLowerCase() === "over" ? "Over" : "Under") : null;
+      const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
+      const teamTotals = vegasLines?.team_totals as Record<string, unknown> | undefined;
+      const homeName = String(gameSnapshot.home_team || "");
+      const awayName = String(gameSnapshot.away_team || "");
+      const selLower = String(effectiveSelection).toLowerCase();
+      const homeLast = homeName.toLowerCase().split(/\s+/).pop() || "";
+      const awayLast = awayName.toLowerCase().split(/\s+/).pop() || "";
+      // Prefer the home match; fall back to away. Use last-word too (e.g. "Bills").
+      const isHome = !!homeName && (selLower.includes(homeName.toLowerCase()) || (!!homeLast && selLower.includes(homeLast)));
+      const isAway = !!awayName && (selLower.includes(awayName.toLowerCase()) || (!!awayLast && selLower.includes(awayLast)));
+      const side: "home" | "away" | null = isHome ? "home" : isAway ? "away" : null;
+      const teamName = side === "home" ? homeName : side === "away" ? awayName : null;
+      const ttRaw = side ? teamTotals?.[`${side}_close`] : undefined;
+      const ttLine = typeof ttRaw === "number" ? ttRaw
+        : typeof ttRaw === "string" && ttRaw.trim() !== "" ? Number(ttRaw)
+        : null;
+      if (direction && teamName && ttLine != null && !Number.isNaN(ttLine)) {
+        effectiveSelection = `${teamName} ${direction} ${ttLine}`;
       }
     }
 
@@ -187,6 +271,9 @@ export async function submitPicks(
         : undefined;
 
     const dt = (pick as Record<string, unknown>).decision_trace;
+    // Props are always full-game and carry the model's verbatim selection (a
+    // player line, never period-rewritten) plus the four structured columns.
+    const isProp = effectiveBetType === "prop";
     picksToInsert.push({
       avatar_id: ctx.avatarId,
       game_id: pick.game_id,
@@ -194,9 +281,17 @@ export async function submitPicks(
       matchup: matchup || `Game ${pick.game_id}`,
       game_date: gameDate,
       bet_type: effectiveBetType,
-      period: effectivePeriod,
-      pick_selection: effectiveSelection,
+      period: isProp ? "full" : effectivePeriod,
+      pick_selection: isProp ? pick.selection : effectiveSelection,
       odds: effectiveOdds,
+      ...(isProp
+        ? {
+            prop_player: pick.prop_player,
+            prop_market: pick.prop_market,
+            prop_line: pick.prop_line,
+            prop_direction: pick.prop_direction,
+          }
+        : {}),
       units: clamp.units,
       confidence: pick.confidence,
       reasoning_text: pick.reasoning,
@@ -227,23 +322,91 @@ export async function submitPicks(
     });
   }
 
+  // ── Same-game correlation guard (V3 quality floor, always on) ──────────────
+  // Stacking correlated bets on ONE game — e.g. full Under + that team's TT Under
+  // + 1H Under — is one thesis bet three times, not three independent edges, and
+  // reads as a broken card to users. Per game we keep at most ONE "scoring" pick
+  // (full/1H total + team_total) and ONE "sides" pick (spread/moneyline, full/1H);
+  // player props are exempt (player-level, signal-gated). On a collision we keep
+  // the higher-conviction pick (units, then confidence). Runs post-validation, so
+  // only already-valid picks are ever dropped — and the drops are reported back.
+  const corrBucket = (bt: unknown): "scoring" | "sides" | null => {
+    const b = String(bt);
+    if (b === "total" || b === "team_total") return "scoring";
+    if (b === "spread" || b === "moneyline") return "sides";
+    return null; // props (and anything new) exempt from the per-game cap
+  };
+  const corrGroups = new Map<string, Record<string, unknown>[]>();
+  for (const p of picksToInsert) {
+    const bucket = corrBucket(p.bet_type);
+    if (!bucket) continue;
+    const key = `${bucket}::${p.game_id}`; // bucket first → unambiguous split
+    let arr = corrGroups.get(key);
+    if (!arr) { arr = []; corrGroups.set(key, arr); }
+    arr.push(p);
+  }
+  const corrLosers = new Set<Record<string, unknown>>();
+  for (const [key, group] of corrGroups) {
+    if (group.length <= 1) continue;
+    const bucket = key.split("::")[0];
+    group.sort((a, b) => (Number(b.units) - Number(a.units)) || (Number(b.confidence) - Number(a.confidence)));
+    for (const loser of group.slice(1)) {
+      corrLosers.add(loser);
+      const reason = `same_game_correlated_${bucket}: dropped "${loser.pick_selection}" — kept higher-conviction "${group[0].pick_selection}" (max one ${bucket} bet per game; stacking the same thesis is one correlated position, not independent edges)`;
+      validatorDrops.push({ game_id: String(loser.game_id), reason });
+      reject(String(loser.game_id), String(loser.bet_type), reason);
+    }
+  }
+  if (corrLosers.size > 0) {
+    const kept = picksToInsert.filter((p) => !corrLosers.has(p));
+    picksToInsert.splice(0, picksToInsert.length, ...kept);
+  }
+
   ctx.acceptedPicks = picksToInsert;
   ctx.dropReports = validatorDrops;
   report.accepted = picksToInsert.length;
   report.allAccepted = report.rejected.length === 0;
 
   // ── Write (skipped on dry_run) ────────────────────────────────────────
+  // Props CANNOT ride the straights upsert: two props in one game both key to
+  // (avatar_id, game_id, 'prop'), so they'd collide on unique_avatar_pick and a
+  // dup-key upsert array errors in Postgres. So we partition: straights keep the
+  // per-row upsert (unchanged); props use a delete-then-insert per game.
+  const straightRows = picksToInsert.filter((p) => p.bet_type !== "prop");
+  const propRows = picksToInsert.filter((p) => p.bet_type === "prop");
+
   if (!ctx.dryRun && picksToInsert.length > 0) {
     if (ctx.generationType === "manual") {
       const ids = picksToInsert.map((p) => p.game_id as string);
       await ctx.main.from("avatar_picks").delete().eq("avatar_id", ctx.avatarId).in("game_id", ids);
     }
-    const { error } = await ctx.main
-      .from("avatar_picks")
-      .upsert(picksToInsert, { onConflict: "avatar_id,game_id,bet_type" });
-    if (error) {
-      report.ok = false;
-      report.rejected.push({ game_id: "*", bet_type: "*", reason: `db_upsert_failed: ${error.message}` });
+
+    if (straightRows.length > 0) {
+      const { error } = await ctx.main
+        .from("avatar_picks")
+        .upsert(straightRows, { onConflict: "avatar_id,game_id,bet_type" });
+      if (error) {
+        report.ok = false;
+        report.rejected.push({ game_id: "*", bet_type: "*", reason: `db_upsert_failed: ${error.message}` });
+      }
+    }
+
+    if (propRows.length > 0) {
+      // Idempotent re-run safety (manual + auto): clear this avatar's existing
+      // prop rows for the touched games, then plain-insert the new ones. (The
+      // manual delete above already cleared them; this also covers auto re-runs.)
+      const propGameIds = [...new Set(propRows.map((p) => p.game_id as string))];
+      await ctx.main
+        .from("avatar_picks")
+        .delete()
+        .eq("avatar_id", ctx.avatarId)
+        .eq("bet_type", "prop")
+        .in("game_id", propGameIds);
+      const { error: propError } = await ctx.main.from("avatar_picks").insert(propRows);
+      if (propError) {
+        report.ok = false;
+        report.rejected.push({ game_id: "*", bet_type: "prop", reason: `db_prop_insert_failed: ${propError.message}` });
+      }
     }
   }
 

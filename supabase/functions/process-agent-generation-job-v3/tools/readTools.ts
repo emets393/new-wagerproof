@@ -7,13 +7,23 @@ import type { ToolDef } from "../types.ts";
 import type { SteeringProfile } from "../deriveSteeringProfile.ts";
 import { type AgentGenContext, markGrounded, recordFacts, type Sport } from "./context.ts";
 
-const ALL_BET_TYPES = ["spread", "moneyline", "total"];
+// A grounds:"all" deep fetch makes the game bettable on every market it surfaces.
+// team_total rides the same lines/model groups (vegas_lines.team_totals +
+// model_predictions.team_totals), so any grounds:"all" tool grounds it too —
+// notably get_team_totals, get_market_odds, get_game_data. (h1 bets need no extra
+// entry: they reuse spread/moneyline/total, which are grounded here; the submit
+// gate keys on bet_type, not period.) team_total markets only exist for NFL/CFB,
+// where these tools fire — other sports never carry a team-total line to stake.
+const ALL_BET_TYPES = ["spread", "moneyline", "total", "team_total"];
 
 interface DeepToolDef {
   groups: string[]; // formatted-game keys this tool projects (first present wins per group)
   sports: Sport[];
   grounds: "all" | "none"; // 'all' → game becomes bettable for any bet type
   desc: string;
+  /** Optional: project only this nested sub-key of each group (e.g. "first_half"
+   *  inside vegas_lines/model_predictions). Lets one period get its own focused tool. */
+  subkey?: string;
 }
 
 /** Deep projection tools. Each returns the named group(s) from the cached game. */
@@ -27,21 +37,36 @@ const DEEP_TOOLS: Record<string, DeepToolDef> = {
   get_team_ratings: { groups: ["team_stats"], sports: ["nba", "ncaab"], grounds: "none", desc: "Adjusted off/def/pace ratings (+ rankings for NCAAB)." },
   get_recent_form: { groups: ["trends", "team_stats"], sports: ["nba"], grounds: "none", desc: "Recent form / L3-L5 trends." },
   get_ats_trends: { groups: ["trends"], sports: ["nba", "ncaab"], grounds: "none", desc: "ATS and O/U trend percentages." },
-  get_injuries: { groups: ["injuries"], sports: ["nba"], grounds: "none", desc: "Injury report with player impact." },
+  get_injuries: { groups: ["injuries"], sports: ["nba", "nfl"], grounds: "none", desc: "Injury report with player impact. For NFL: each team's injury digest (QB status, starters out, severity score, key-position counts) plus the notable Out/Doubtful/Questionable players." },
   get_situational_trends: { groups: ["situational_trends"], sports: ["nba", "ncaab"], grounds: "none", desc: "Situational splits for the matchup." },
   get_h2h_history: { groups: ["h2h_recent"], sports: ["nfl"], grounds: "none", desc: "Recent head-to-head results." },
   get_prediction_accuracy: { groups: ["prediction_accuracy", "accuracy_signals"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "none", desc: "Historical model accuracy buckets for this matchup." },
   get_mlb_perfect_storm: { groups: ["perfect_storm", "accuracy_signals"], sports: ["mlb"], grounds: "all", desc: "Perfect Storm tiers + per-bet-type accuracy buckets (DOW/team/edge)." },
   get_mlb_statcast_signals: { groups: ["signals"], sports: ["mlb"], grounds: "none", desc: "Statcast / pitcher / bullpen signal messages." },
   get_polymarket: { groups: ["polymarket"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "none", desc: "Polymarket prediction-market prices." },
+  // get_props is dispatched by name (runProps) so it can populate
+  // ctx.bettableProps, but it lives in DEEP_TOOLS so it's advertised + sport-gated
+  // + budgeted like the other deep fetches. grounds:"all" → bettable props ground.
+  get_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form." },
+
+  // ── NFL/CFB-specific tools (our dryrun model output + validated signals) ──
+  get_signals: { groups: ["signals"], sports: ["nfl", "cfb"], grounds: "all", desc: "Validated betting signals firing on this game — each with its stance (the side/market it triggers) + tier. These are our proven high-ROI SPOT triggers, not just model output; a firing signal makes the game bettable on its side. Each signal carries TWO distinct records (do not conflate): all_time = the validated backtest record (validated_hit + one_liner/why_it_works/bet_direction), and season_to_date = this season's live record so far (sample/record/hit_rate/roi, may be null early in the season)." },
+  get_conviction: { groups: ["conviction"], sports: ["nfl", "cfb"], grounds: "none", desc: "Our conviction read for the game: conviction tier, stake units, and the mammoth flag (the 3-unit, highest-confidence plays where the model + signals align)." },
+  get_full_game: { groups: ["vegas_lines", "model_predictions"], subkey: "full_game", sports: ["nfl", "cfb"], grounds: "all", desc: "Full-game model + lines: spread cover prob, predicted margin/total, spread + total edges, predicted scores, and the model's pick + tier." },
+  get_first_half: { groups: ["vegas_lines", "model_predictions"], subkey: "first_half", sports: ["nfl", "cfb"], grounds: "all", desc: "First-half (1H) model + 1H lines: 1H predicted margin/total, 1H edges, cover-tilt, and 1H picks. (Our vaulted 1H model.)" },
+  get_team_totals: { groups: ["vegas_lines", "model_predictions"], subkey: "team_totals", sports: ["nfl", "cfb"], grounds: "all", desc: "Team-totals model + lines: each team's predicted points, the TT edges + picks, and over/under prices." },
 };
 
 /** Tools the loop should charge against the deep-fetch budget. */
 export const DEEP_TOOL_NAMES = new Set(Object.keys(DEEP_TOOLS));
 
-function projectGroups(fg: Record<string, unknown>, groups: string[]): Record<string, unknown> {
+function projectGroups(fg: Record<string, unknown>, groups: string[], subkey?: string): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const g of groups) if (fg[g] != null) out[g] = fg[g];
+  for (const g of groups) {
+    const v = fg[g];
+    if (v == null) continue;
+    out[g] = subkey ? ((v as Record<string, unknown>)[subkey] ?? null) : v;
+  }
   return out;
 }
 
@@ -58,9 +83,7 @@ export async function runReadTool(
   ctx: AgentGenContext,
 ): Promise<ReadToolResult> {
   if (name === "get_editor_picks") return runEditorPicks(args, ctx);
-  if (name === "get_props") {
-    return { content: JSON.stringify({ applicable: false, note: "player props are read-only context and not available to bet in V3" }), ok: true, summary: "props unavailable" };
-  }
+  if (name === "get_props") return runProps(args, ctx);
 
   const def = DEEP_TOOLS[name];
   if (!def) return { content: JSON.stringify({ error: `unknown tool: ${name}` }), ok: false, summary: "unknown tool" };
@@ -73,7 +96,7 @@ export async function runReadTool(
     const loaded = ctx.games.get(id);
     if (!loaded) { results.push({ game_id: id, error: "not_in_slate" }); continue; }
     if (!def.sports.includes(loaded.sport)) { results.push({ game_id: id, applicable: false, note: `${name} not available for ${loaded.sport}` }); continue; }
-    const data = projectGroups(loaded.fg, def.groups);
+    const data = projectGroups(loaded.fg, def.groups, def.subkey);
     results.push({ game_id: id, matchup: loaded.fg.matchup, ...data });
     recordFacts(ctx, id, data);
     if (def.grounds === "all") for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);
@@ -83,6 +106,51 @@ export async function runReadTool(
     content: compactDeepFetch(name, { tool: name, games: results }),
     ok: true,
     summary: `${name}: ${results.length} game(s)`,
+  };
+}
+
+/** Build the bettable-prop ledger key. MUST stay byte-identical to the key the
+ *  submit tool checks and to the format documented in context.ts:
+ *  `${player_name.toLowerCase()}::${market}::${line}` (line = close_line). */
+export function propKey(playerName: unknown, market: unknown, line: unknown): string {
+  return `${String(playerName ?? "").toLowerCase()}::${String(market ?? "")}::${String(line ?? "")}`;
+}
+
+/** get_props — project each game's `props` array and register every bettable
+ *  prop (is_bettable === true) in ctx.bettableProps so the submit tool can gate
+ *  prop bets. Mirrors the generic deep-tool loop (slate/sport checks, grounding,
+ *  recordFacts) since get_props can't go through projectGroups + the ledger pop
+ *  in one pass. NFL-only (DEEP_TOOLS.get_props.sports). */
+function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadToolResult {
+  const def = DEEP_TOOLS.get_props;
+  const gameIds = Array.isArray(args.game_ids) ? args.game_ids.map(String) : [];
+  if (gameIds.length === 0) return { content: JSON.stringify({ error: "game_ids is required (from the slate)" }), ok: false, summary: "no game_ids" };
+
+  const results: Record<string, unknown>[] = [];
+  for (const id of gameIds) {
+    const loaded = ctx.games.get(id);
+    if (!loaded) { results.push({ game_id: id, error: "not_in_slate" }); continue; }
+    if (!def.sports.includes(loaded.sport)) { results.push({ game_id: id, applicable: false, note: `get_props not available for ${loaded.sport}` }); continue; }
+
+    const props = Array.isArray(loaded.fg.props) ? (loaded.fg.props as Record<string, unknown>[]) : [];
+    results.push({ game_id: id, matchup: loaded.fg.matchup, props });
+    recordFacts(ctx, id, { props });
+
+    // Register bettable props (signal-backed) so submit can gate prop bets.
+    let bettable = ctx.bettableProps.get(id);
+    for (const p of props) {
+      if (p.is_bettable !== true) continue;
+      if (!bettable) { bettable = new Set<string>(); ctx.bettableProps.set(id, bettable); }
+      bettable.add(propKey(p.player_name, p.market, p.line));
+    }
+    // grounds:"all" — a deep prop fetch grounds the game for any bet type.
+    for (const bt of ALL_BET_TYPES) markGrounded(ctx, id, bt);
+  }
+
+  return {
+    content: compactDeepFetch("get_props", { tool: "get_props", games: results }),
+    ok: true,
+    summary: `get_props: ${results.length} game(s)`,
   };
 }
 
