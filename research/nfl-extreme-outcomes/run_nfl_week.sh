@@ -56,6 +56,7 @@ step "1H: model -> h1m_preds";       python3 h1m_models.py; python3 h1m_models2.
 # --- 4) WRITE THE APP DATA CONTRACT (idempotent per week) ----------------------
 # (filenames say "wk12" for historical reasons but are season/week-parameterized via env)
 step "dryrun slate: games + flags";  python3 dryrun_wk12_games.py
+step "assign referees to slate";     python3 backfill_dryrun_referees.py
 step "dryrun slate: player props";   python3 dryrun_wk12_props.py
 step "team trends (Outliers tab)";    python3 dryrun_wk12_trends.py
 step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
