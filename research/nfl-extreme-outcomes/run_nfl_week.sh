@@ -57,8 +57,10 @@ step "1H: model -> h1m_preds";       python3 h1m_models.py; python3 h1m_models2.
 # (filenames say "wk12" for historical reasons but are season/week-parameterized via env)
 step "dryrun slate: games + flags";  python3 dryrun_wk12_games.py
 step "dryrun slate: player props";   python3 dryrun_wk12_props.py
-step "team trends (Outliers tab)";   python3 dryrun_wk12_trends.py
-step "coach trends (Outliers tab)";  python3 gen_nfl_coach_trends.py
+step "team trends (Outliers tab)";    python3 dryrun_wk12_trends.py
+step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
+step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py
+step "player-prop trends (Outliers)"; python3 gen_nfl_player_prop_trends.py
 
 echo
-echo "=== DONE :: nfl_dryrun_games/_flags/_picks/_props + nfl_team_trends + nfl_coach_trends loaded for $SEASON wk$WEEK ==="
+echo "=== DONE :: dryrun_* + nfl_{team,coach,referee,player_prop}_trends loaded for $SEASON wk$WEEK ==="

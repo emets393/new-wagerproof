@@ -1,0 +1,190 @@
+"""Generate nfl_player_prop_trends — per-player prop OVER trends for the Outliers tab.
+
+How often a player goes OVER their posted prop line, by market, in situations.
+Markets (hit = OVER; ATD hit = scored): player_pass_yds, player_pass_tds,
+player_receptions, player_reception_yds, player_rush_yds, player_anytime_td.
+NO defensive/ST props ever. Props data only exists 2024-2025 (coverage flagged).
+
+Dimensions: overall, home, away, favorite, underdog, division, non_division.
+Windows: last 3/5/7 (most players have few seasons). Point-in-time via NFL_SEASON/NFL_WEEK.
+
+Usage:  python3 gen_nfl_player_prop_trends.py [--no-load]
+"""
+import argparse
+import io
+import json
+import os
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import requests
+
+ROOT = Path(__file__).resolve().parent
+DATA = ROOT / "data"
+BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
+SEASON = int(os.environ.get("NFL_SEASON", 2025))
+THROUGH_WEEK = int(os.environ.get("NFL_WEEK", 12)) - 1
+GAMES_CSV = "https://github.com/nflverse/nfldata/raw/master/data/games.csv"
+
+PROP_MKT = {"player_pass_yds": ("O", "U"), "player_pass_tds": ("O", "U"),
+            "player_receptions": ("O", "U"), "player_reception_yds": ("O", "U"),
+            "player_rush_yds": ("O", "U"), "player_anytime_td": ("Y", "N")}
+DIMS = ["overall", "home", "away", "favorite", "underdog", "division", "non_division"]
+WINDOWS = [3, 5, 7]
+NORM = {"LAR": "LA", "WSH": "WAS", "JAC": "JAX", "OAK": "LV", "SD": "LAC", "STL": "LA"}
+TEAM_NAMES = {
+    "Arizona Cardinals": "ARI", "Atlanta Falcons": "ATL", "Baltimore Ravens": "BAL",
+    "Buffalo Bills": "BUF", "Carolina Panthers": "CAR", "Chicago Bears": "CHI",
+    "Cincinnati Bengals": "CIN", "Cleveland Browns": "CLE", "Dallas Cowboys": "DAL",
+    "Denver Broncos": "DEN", "Detroit Lions": "DET", "Green Bay Packers": "GB",
+    "Houston Texans": "HOU", "Indianapolis Colts": "IND", "Jacksonville Jaguars": "JAX",
+    "Kansas City Chiefs": "KC", "Los Angeles Rams": "LA", "Los Angeles Chargers": "LAC",
+    "Las Vegas Raiders": "LV", "Miami Dolphins": "MIA", "Minnesota Vikings": "MIN",
+    "New England Patriots": "NE", "New Orleans Saints": "NO", "New York Giants": "NYG",
+    "New York Jets": "NYJ", "Philadelphia Eagles": "PHI", "Pittsburgh Steelers": "PIT",
+    "Seattle Seahawks": "SEA", "San Francisco 49ers": "SF", "Tampa Bay Buccaneers": "TB",
+    "Tennessee Titans": "TEN", "Washington Commanders": "WAS"}
+
+
+def load_key():
+    for line in (ROOT.parent.parent / ".env.local").read_text().splitlines():
+        if line.startswith("SUPABASE_SERVICE_KEY="):
+            return line.split("=", 1)[1].strip()
+    sys.exit("SUPABASE_SERVICE_KEY not found in .env.local")
+
+
+def pct(h, n):
+    return round(h / n, 3) if n else None
+
+
+def game_context():
+    """{(season,week,home_ab,away_ab): (spread_line, div_game)} from nflverse, 2024-25."""
+    g = pd.read_csv(io.StringIO(requests.get(GAMES_CSV, timeout=90).text))
+    g = g[g.season.isin([2024, 2025])].copy()
+    g["home_ab"] = g.home_team.replace(NORM)
+    g["away_ab"] = g.away_team.replace(NORM)
+    return {(int(r.season), int(r.week), r.home_ab, r.away_ab):
+            (r.spread_line, bool(r.div_game == 1) if pd.notna(r.div_game) else False)
+            for r in g.itertuples()}
+
+
+def build_logs():
+    pf = pd.read_parquet(DATA / "props_frame.parquet")
+    pf = pf[pf.market.isin(PROP_MKT)].copy()
+    pf = pf[(pf.season < SEASON) | ((pf.season == SEASON) & (pf.week <= THROUGH_WEEK))]
+    pf["home_ab"] = pf.home_team.map(TEAM_NAMES)
+    pf["away_ab"] = pf.away_team.map(TEAM_NAMES)
+    ctx = game_context()
+
+    # consensus per (player, market, game): median close line + realized actual/result
+    grp = pf.groupby(["season", "week", "player_id", "player_name", "position", "team",
+                      "home_ab", "away_ab", "market"]).agg(
+        close_line=("close_line", "median"), actual=("actual", "first"),
+        result_close=("result_close", "first")).reset_index()
+
+    logs = {}   # player_id -> {game_key: game record}
+    meta = {}
+    for r in grp.itertuples():
+        hit_l, loss_l = PROP_MKT[r.market]
+        if r.market == "player_anytime_td":
+            res = "Y" if r.result_close == "yes" else ("N" if r.result_close == "no" else None)
+        else:
+            if pd.isna(r.actual) or pd.isna(r.close_line):
+                res = None
+            else:
+                res = "O" if r.actual > r.close_line else ("U" if r.actual < r.close_line else "P")
+        if res is None:
+            continue
+        is_home = (r.team == r.home_ab)
+        sl, is_div = ctx.get((int(r.season), int(r.week), r.home_ab, r.away_ab), (np.nan, False))
+        team_spread = (-sl if is_home else sl) if pd.notna(sl) else None
+        gk = (int(r.season), int(r.week))
+        pl = logs.setdefault(r.player_id, {})
+        rec = pl.setdefault(gk, dict(
+            season=int(r.season), week=int(r.week),
+            opp=(r.away_ab if is_home else r.home_ab), is_home=is_home, is_div=is_div,
+            team_spread=round(float(team_spread), 1) if team_spread is not None else None,
+            markets={}))
+        rec["markets"][r.market] = res
+        meta[r.player_id] = (r.player_name, r.position, r.team)
+    # to newest-first game lists
+    out = {}
+    for pid, games in logs.items():
+        out[pid] = sorted(games.values(), key=lambda g: (g["season"], g["week"]), reverse=True)
+    return out, meta
+
+
+def _dim_ok(g, dim):
+    return {"overall": True, "home": g["is_home"], "away": not g["is_home"],
+            "favorite": g["team_spread"] is not None and g["team_spread"] < 0,
+            "underdog": g["team_spread"] is not None and g["team_spread"] > 0,
+            "division": g["is_div"], "non_division": not g["is_div"]}[dim]
+
+
+def compute_splits(gl):
+    present = sorted({m for g in gl for m in g["markets"]})
+    out = {}
+    for mkt in present:
+        hit_l, loss_l = PROP_MKT[mkt]
+        out[mkt] = {}
+        for dim in DIMS:
+            games = [g for g in gl if _dim_ok(g, dim) and g["markets"].get(mkt) is not None]
+            out[mkt][dim] = {}
+            for w in WINDOWS:
+                win = games[:w]
+                h = sum(1 for g in win if g["markets"][mkt] == hit_l)
+                l = sum(1 for g in win if g["markets"][mkt] == loss_l)
+                p = sum(1 for g in win if g["markets"][mkt] == "P")
+                out[mkt][dim][str(w)] = {"h": h, "l": l, "p": p, "n": h + l, "pct": pct(h, h + l)}
+    return out, present
+
+
+def build():
+    logs, meta = build_logs()
+    rows = []
+    for pid, gl in logs.items():
+        splits, present = compute_splits(gl)
+        if not present:
+            continue
+        name, pos, team = meta[pid]
+        rows.append(dict(
+            player_id=pid, player_name=name, position=pos, current_team=team,
+            markets=present, career_games=len(gl),
+            through_season=SEASON, through_week=THROUGH_WEEK, coverage="2024-2025",
+            splits=splits, recent_game_log=gl[:10]))
+    return pd.DataFrame(rows)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--no-load", action="store_true")
+    args = ap.parse_args()
+    df = build()
+    print(f"{len(df)} players with prop trends | games {df.career_games.min()}-{df.career_games.max()}")
+    top = df.sort_values("career_games", ascending=False).head(6)
+    print(top[["player_name", "position", "current_team", "career_games"]].to_string(index=False))
+    if args.no_load:
+        s = df[df.player_name.str.contains("Henry", na=False)].head(1)
+        s = s.iloc[0] if len(s) else df.sort_values("career_games", ascending=False).iloc[0]
+        print(f"\nsample {s.player_name} markets={s.markets}")
+        mk = "player_rush_yds" if "player_rush_yds" in s.splits else s.markets[0]
+        print(f"{mk} splits:", json.dumps(s.splits[mk], indent=0)[:500])
+        return
+    recs = json.loads(df.to_json(orient="records"))
+    key = load_key()
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}",
+           "Content-Type": "application/json", "Prefer": "return=minimal"}
+    requests.delete(f"{BASE_URL}/nfl_player_prop_trends?through_season=eq.{SEASON}&through_week=eq.{THROUGH_WEEK}",
+                    headers=hdr, timeout=60)
+    for i in range(0, len(recs), 200):
+        resp = requests.post(f"{BASE_URL}/nfl_player_prop_trends", headers=hdr, json=recs[i:i + 200], timeout=120)
+        if resp.status_code != 201:
+            sys.exit(f"insert: {resp.status_code} {resp.text[:300]}")
+        print(f"  loaded {min(i+200,len(recs))}/{len(recs)}", end="\r")
+    print(f"\nloaded {len(recs)} rows -> nfl_player_prop_trends")
+
+
+if __name__ == "__main__":
+    main()
