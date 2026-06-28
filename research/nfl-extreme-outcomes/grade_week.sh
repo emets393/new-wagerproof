@@ -11,8 +11,9 @@
 #   4) grade picks + roll up signals (refresh_all_signal_performance: game AND prop signals)
 #
 # Steps 3-4 run the grading RPCs, which scan large prop tables and exceed PostgREST's 8s
-# statement timeout — so they go over a DIRECT connection. Set DATABASE_URL = Supabase
-# pooler URI (Render's grade job provides it). Without it, steps 3-4 are skipped with a note.
+# statement timeout — so they go over a DIRECT connection (psycopg2 over DATABASE_URL =
+# Supabase pooler URI, provided by Render's grade job). run_grade_rpcs.py uses psycopg2
+# (a pip dep) — NO psql binary needed. Without DATABASE_URL it skips with a note.
 #
 # NOT here: agent picks (grade-avatar-picks edge fn, deploy = task #12); 1H finals h1_*
 # (PBP / CFBD line scores, tracking-tier = task #4).
@@ -25,26 +26,14 @@ cd "$(dirname "$0")"
 SEASON="${1:-${NFL_SEASON:-2026}}"
 echo "=== grade run :: season=$SEASON ==="
 
-SQL() {  # run a statement over a direct DB connection; skip (with a note) if unavailable
-  if [ -n "${DATABASE_URL:-}" ] && command -v psql >/dev/null 2>&1; then
-    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "$1"
-  else
-    echo "  [skip] no DATABASE_URL/psql -> '$1'"
-    echo "         (set DATABASE_URL = Supabase pooler URI in production; PostgREST's 8s"
-    echo "          timeout is too short for the prop-table scan)"
-  fi
-}
-
 echo; echo ">>> 1) finals (NFL nflverse + CFB cfb_games)"
 python3 fill_finals.py --write
 
 echo; echo ">>> 2) NFL player game logs (nflverse), whole season (idempotent upsert)"
 python3 ingest_player_logs.py "$SEASON" --write
 
-echo; echo ">>> 3) grade NFL props, all weeks (idempotent; only grades result IS NULL)"
-SQL "select gs.w as week, grade_nfl_props($SEASON, gs.w) as graded from generate_series(1,22) gs(w);"
-
-echo; echo ">>> 4) grade picks + refresh signal_performance (NFL+CFB game + prop signals)"
-SQL "select * from refresh_all_signal_performance($SEASON);"
+echo; echo ">>> 3-4) grade NFL props + grade picks + refresh signal_performance"
+# psycopg2 over DATABASE_URL (no psql binary). Idempotent; skips with a note if DATABASE_URL unset.
+python3 run_grade_rpcs.py "$SEASON"
 
 echo; echo "=== grade run done :: season=$SEASON ==="
