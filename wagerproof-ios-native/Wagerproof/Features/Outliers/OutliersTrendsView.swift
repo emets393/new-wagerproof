@@ -277,9 +277,9 @@ struct OutliersTrendsView: View {
         case .ml: return "ML"
         case .rl: return "RL"
         case .ou: return "Total"
-        case .f5Ml: return "F5 ML"
-        case .f5Rl: return "F5 RL"
-        case .f5Ou: return "F5 Tot"
+        case .f5Ml: return "1st 5 ML"
+        case .f5Rl: return "1st 5 RL"
+        case .f5Ou: return "1st 5 Tot"
         }
     }
 

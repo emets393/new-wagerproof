@@ -83,9 +83,9 @@ public enum OutliersTrendsGameMarket: String, CaseIterable, Identifiable, Sendab
         case .ml: return "Moneyline"
         case .rl: return "Run Line"
         case .ou: return "Total"
-        case .f5Ml: return "F5 Moneyline"
-        case .f5Rl: return "F5 Run Line"
-        case .f5Ou: return "F5 Total"
+        case .f5Ml: return "1st 5 Moneyline"
+        case .f5Rl: return "1st 5 Run Line"
+        case .f5Ou: return "1st 5 Total"
         }
     }
 

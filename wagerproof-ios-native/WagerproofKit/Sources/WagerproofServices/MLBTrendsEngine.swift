@@ -216,7 +216,7 @@ public enum MLBTrendsEngine {
             idPrefix: "team-\(team.teamAbbr)-\(game.id)-\(market)",
             gameId: game.id,
             matchupLabel: matchupLabel,
-            subjectName: team.teamName ?? team.teamAbbr,
+            subjectName: MLBTeams.nickname(for: team.teamName ?? team.teamAbbr),
             subjectDetail: team.teamAbbr,
             teamAbbr: team.teamAbbr,
             market: market,
@@ -458,9 +458,9 @@ public enum MLBTrendsEngine {
         case "ml": return "Moneyline"
         case "rl": return "Run Line"
         case "ou": return "Total"
-        case "f5_ml": return "F5 Moneyline"
-        case "f5_rl": return "F5 Run Line"
-        case "f5_ou": return "F5 Total"
+        case "f5_ml": return "1st 5 Moneyline"
+        case "f5_rl": return "1st 5 Run Line"
+        case "f5_ou": return "1st 5 Total"
         default: return market.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
@@ -533,8 +533,8 @@ public enum MLBTrendsEngine {
             return [
                 OutliersTrendsBettingLine(
                     id: "\(prefix)-f5-ml",
-                    label: "F5 Moneyline",
-                    lineText: "F5 ML",
+                    label: "1st 5 Moneyline",
+                    lineText: "1st 5 ML",
                     oddsText: formatAmerican(odds),
                     teamAbbr: teamAbbr
                 ),
@@ -546,7 +546,7 @@ public enum MLBTrendsEngine {
             return [
                 OutliersTrendsBettingLine(
                     id: "\(prefix)-f5-rl",
-                    label: "F5 Run Line",
+                    label: "1st 5 Run Line",
                     lineText: formatSpread(spread),
                     oddsText: juice.map(formatAmerican),
                     teamAbbr: teamAbbr
@@ -575,7 +575,7 @@ public enum MLBTrendsEngine {
             if lines.isEmpty {
                 lines.append(OutliersTrendsBettingLine(
                     id: "\(prefix)-f5-total",
-                    label: "F5 Total",
+                    label: "1st 5 Total",
                     lineText: totalText,
                     oddsText: nil
                 ))

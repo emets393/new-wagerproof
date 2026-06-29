@@ -122,6 +122,33 @@ public enum MLBTeams {
         return (brand.abbrev, "https://a.espncdn.com/i/teamlogos/mlb/500/\(brand.espnSlug).png")
     }
 
+    /// Short display name — e.g. "Marlins", "White Sox", "Red Sox".
+    public static func nickname(for nameOrAbbrev: String) -> String {
+        let upper = nameOrAbbrev.uppercased()
+        if let key = byNormalizedName.first(where: { $0.value.team == upper })?.key {
+            return mascot(fromNormalizedFullName: key)
+        }
+        let normalized = normalize(nameOrAbbrev)
+        if byNormalizedName[normalized] != nil {
+            return mascot(fromNormalizedFullName: normalized)
+        }
+        return mascot(fromNormalizedFullName: normalized)
+    }
+
+    private static let twoTokenMascots: Set<String> = ["red sox", "white sox", "blue jays"]
+
+    private static func mascot(fromNormalizedFullName normalized: String) -> String {
+        let tokens = normalized.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        guard tokens.count >= 2 else {
+            return tokens.first.map { $0.capitalized } ?? normalized.capitalized
+        }
+        let lastTwo = tokens.suffix(2).joined(separator: " ")
+        if twoTokenMascots.contains(lastTwo) {
+            return lastTwo.split(separator: " ").map { $0.capitalized }.joined(separator: " ")
+        }
+        return tokens.last.map { $0.capitalized } ?? normalized.capitalized
+    }
+
     /// Team primary/secondary hex colors by name or abbreviation. Falls
     /// back to a neutral pair if nothing matches. Matches RN
     /// `getMLBTeamColors`.
