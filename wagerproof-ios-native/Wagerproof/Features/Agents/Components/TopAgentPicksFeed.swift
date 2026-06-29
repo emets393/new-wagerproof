@@ -28,6 +28,10 @@ struct TopAgentPicksFeed: View {
     /// (Outliers tab) lifts it into its pinned glass header instead. Still
     /// binds to the same `store.filterMode`, so the lifted picker drives this.
     var showsFilters: Bool = true
+    /// Optional view pinned at the top of the scroll content as a section header
+    /// (the Agents hub passes its tab/filter bar here). Rendered as scroll
+    /// content — NOT a `safeAreaInset` — so the host's large title stays visible.
+    var pinnedHeader: AnyView = AnyView(EmptyView())
     var onAgentTap: (String) -> Void
     var onPickTap: (TopAgentPickFeedRow) -> Void
 
@@ -35,16 +39,22 @@ struct TopAgentPicksFeed: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                if showsFilters {
-                    filterRow
-                        .padding(.horizontal, Spacing.lg)
-                        .padding(.top, Spacing.sm)
-                        .padding(.bottom, Spacing.md)
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    VStack(spacing: 0) {
+                        if showsFilters {
+                            filterRow
+                                .padding(.horizontal, Spacing.lg)
+                                .padding(.top, Spacing.sm)
+                                .padding(.bottom, Spacing.md)
+                        }
+                        content
+                    }
+                    .padding(.bottom, Spacing.xxl)
+                } header: {
+                    pinnedHeader
                 }
-                content
             }
-            .padding(.bottom, Spacing.xxl)
         }
         // The `.searchable` modifier on the parent (AgentsView) drives
         // `store.searchText`. We debounce here via `.task(id:)` to avoid

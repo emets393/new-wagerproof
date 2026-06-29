@@ -29,6 +29,20 @@ private enum AgentSortOption: String, CaseIterable {
     }
 }
 
+/// Inner-tab sections of the Agents hub, surfaced by the pinned segmented
+/// `Picker` below the "Agents" title. Mirrors the RN `AgentsHubScreen` tabs.
+private enum AgentsTab: String, CaseIterable {
+    case myAgents, leaderboard, topPicks
+
+    var label: String {
+        switch self {
+        case .myAgents: return "My Agents"
+        case .leaderboard: return "Leaderboard"
+        case .topPicks: return "Top Picks"
+        }
+    }
+}
+
 /// Agents tab landing view. Ports the RN `AgentsHubScreen` at
 /// `app/(drawer)/(tabs)/agents/index.tsx`.
 ///
@@ -36,21 +50,29 @@ private enum AgentSortOption: String, CaseIterable {
 /// an iOS-idiomatic `Picker(.segmented)`):
 ///   - `NavigationStack` rooted in the tab cell
 ///   - Title row "Wager**Proof** Agents" (matches `headerTop` brand pill)
-///   - Inner-tab `Picker(.segmented)` — My Agents / Leaderboard / Top Picks
+///   - Large collapsing "Agents" title (matches Games/Props/Outliers)
+///   - Inner-tab picker — My Agents / Leaderboard / Top Picks — with a
+///     contextual filter menu on its right (see `tabPicker` / `filterMenu`).
+///     It is NOT a toolbar bar (a frosted inset there covers the large title):
+///     My Agents renders it as a pinned `List` section header; the other two
+///     ride a surface-styled `.safeAreaInset`. The branch switch lives in
+///     `tabbedContent`.
 ///   - Branch body:
-///       * `.myAgents`  → 2-up `LazyVGrid` of `AgentIdCard`, empty state, or skeleton
-///       * `.leaderboard` → `AgentLeaderboardView`
-///       * `.topPicks` → list of `TopPickRow` (RPC `get_top_agent_picks_feed_v2`)
-///   - Floating "+" FAB on the My Agents branch (or lock chip when limit hit)
-///   - Long-press on an AgentIdCard → confirmation dialog (Settings / Autopilot
+///       * `.myAgents`  → pixel-office hero row + single-column `List` of
+///         `AgentRowCard`, empty state, or skeleton
+///       * `.leaderboard` → `AgentLeaderboardView` (rows route to public detail)
+///       * `.topPicks` → `TopAgentPicksFeed` (RPC `get_top_agent_picks_feed_v2`;
+///         rows/picks route to public detail)
+///   - Create-agent "+" in the top bar (or lock glyph when the limit is hit)
+///   - Long-press on an AgentRowCard → confirmation dialog (Settings / Autopilot
 ///     toggle / Delete) — matches RN `ActionSheetIOS.showActionSheetWithOptions`.
 ///
-/// **PixelOffice + CompanyDashboardBanner**: The RN hub embeds two hero
-/// surfaces above the agent grid — the pixel-office SKScene
-/// (`PixelOffice` here, ported as SpriteKit) and the agency-wide stats
-/// rollup (`CompanyDashboardBanner`). Both are wired on the My Agents
-/// branch once the agent list has loaded. PixelOffice now runs the full
-/// walk/pathfind/state-churn simulation (FIDELITY-WAIVER #082 resolved).
+/// **PixelOffice ("Agent HQ")**: The pixel-office SKScene (`PixelOffice`, ported
+/// as SpriteKit) is the hero — the FIRST row of the My Agents list (see
+/// `officeRow`), so it scrolls away naturally with the content. The "Agent HQ —
+/// Live" status pill and the agency-wide stats rollup (`AgencyStatsPill`) ride in
+/// its corners. PixelOffice runs the full walk/pathfind/state-churn simulation
+/// (FIDELITY-WAIVER #082 resolved).
 ///
 /// **Integration history**:
 /// - B14 wired `.createAgent` → real `AgentCreationView` wizard.
@@ -70,16 +92,21 @@ struct AgentsView: View {
     @Environment(RevenueCatStore.self) private var revenueCat
     @Environment(AdminModeStore.self) private var adminMode
     @State private var store: AgentsStore
+    /// Owns the public leaderboard fetch. It needs no user binding (the
+    /// leaderboard is public), so we just hand it to `AgentLeaderboardView`,
+    /// which kicks off the first refresh via its own `.task`.
+    @State private var leaderboardStore = LeaderboardStore()
+    /// Top Picks feed store + favorites, lifted here (instead of being owned by
+    /// `TopAgentPicksFeedContainer`) so the bar's contextual filter menu can
+    /// drive `filterMode` — the feed renders with `showsFilters: false`.
+    @State private var topPicksStore = TopAgentPicksFeedStore()
+    @State private var topPicksFavorites = FavoriteAgentsStore()
+    /// Active inner tab (My Agents / Leaderboard / Top Picks).
+    @State private var selectedTab: AgentsTab = .myAgents
     @State private var pendingDeleteId: String?
     @State private var pendingLongPressAgent: AgentWithPerformance?
     @State private var navPath = NavigationPath()
-    /// Vertical scroll offset of the agent list, used to drive the collapsing
-    /// pixel-office hero header.
-    @State private var scrollY: CGFloat = 0
-    /// Which screen corner the collapsed floating office is docked to (the user
-    /// can drag it between corners while collapsed).
-    @State private var officeCorner: OfficeCorner = .topTrailing
-    /// Sort order for the agent list (driven by the sort pill above the list).
+    /// Sort order for the agent list (driven by the bar's filter menu).
     @State private var sortOption: AgentSortOption = .winRate
     /// Mirrors the office's persisted day/night toggle so the relocated
     /// "Agent HQ — Live" pill reads the same Live/Night status.
@@ -92,23 +119,30 @@ struct AgentsView: View {
 
     init() {
         _store = State(initialValue: AgentsStore())
+        _selectedTab = State(initialValue: Self.initialTab)
     }
 
-    /// DEBUG-only forced collapse progress (`-agentsCollapse <0..1>`), so the
-    /// scroll-driven header's end-states can be captured without a live swipe.
-    private var debugCollapseOverride: CGFloat? {
+    /// DEBUG-only forced inner tab (`-agentsTab myAgents|leaderboard|topPicks`),
+    /// so the screenshot harness can land directly on each branch. Defaults to
+    /// `.myAgents` in release.
+    private static var initialTab: AgentsTab {
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
-        if let i = args.firstIndex(of: "-agentsCollapse"), i + 1 < args.count, let v = Double(args[i + 1]) {
-            return CGFloat(min(max(v, 0), 1))
+        if let i = args.firstIndex(of: "-agentsTab"), i + 1 < args.count {
+            switch args[i + 1].lowercased() {
+            case "leaderboard": return .leaderboard
+            case "toppicks", "top-picks", "picks": return .topPicks
+            default: return .myAgents
+            }
         }
         #endif
-        return nil
+        return .myAgents
     }
 
     #if DEBUG
     init(store: AgentsStore) {
         _store = State(initialValue: store)
+        _selectedTab = State(initialValue: Self.initialTab)
     }
     #endif
 
@@ -124,21 +158,27 @@ struct AgentsView: View {
     var body: some View {
         @Bindable var binding = store
         NavigationStack(path: $navPath) {
-            // The populated branch uses a custom collapsing hero: the pixel
+            // The My Agents branch uses a custom collapsing hero: the pixel
             // office shrinks into the top-right corner as the user scrolls,
             // the agency stats slide into the freed space, and the agent list
             // scrolls underneath (see `collapsingPopulatedBody`). Large title
             // mode gives the tab a prominent "Agents" heading that matches the
-            // other main tabs (Games / Props / Outliers).
-            myAgentsContent
+            // other main tabs (Games / Props / Outliers). The pinned segmented
+            // picker (see `.safeAreaInset` below) switches between the three
+            // inner sections.
+            tabbedContent
             .background(Color.appSurface.ignoresSafeArea())
                 .navigationTitle("Agents")
+                // Large collapsing title (matches Games/Props/Outliers): the
+                // big "Agents" header shrinks into the bar as you scroll. The
+                // inner-tab picker is NOT a toolbar / safe-area bar — a frosted
+                // `.bar` inset sits over the large title and hides it. Each
+                // branch instead renders the picker as a pinned section header
+                // INSIDE its scroll content (the GamesView pattern), so it sits
+                // below the title and the title stays visible.
                 .navigationBarTitleDisplayMode(.large)
                 // Per-tab `.searchable()` removed — search lives in the
                 // dedicated `Tab(role: .search)` slot now.
-                // Inner-tab picker (My Agents / Leaderboard / Top Picks)
-                // removed — Leaderboard + Top Picks live in the Outliers
-                // tab. AgentsView is now the My Agents surface only.
                 .toolbar {
                     // Top-leading WagerProof wordmark (shared across main tabs);
                     // passive brand mark — Settings now lives on the trailing gear.
@@ -205,6 +245,137 @@ struct AgentsView: View {
         .environment(entitlements)
     }
 
+    // MARK: - Inner-tab switcher
+
+    /// Segmented control that selects the inner section, plus a contextual
+    /// filter menu on the right (mirrors GamesView's sport-picker + sort menu).
+    /// Rendered as a pinned section header inside each branch's scroll content
+    /// (NOT a toolbar / safe-area bar — a frosted inset there covers the large
+    /// title). Styled as a floating Liquid Glass capsule like GamesView's
+    /// pickerBar (no full-width opaque bar behind it).
+    private var tabPicker: some View {
+        HStack(spacing: 8) {
+            Picker("Section", selection: $selectedTab) {
+                ForEach(AgentsTab.allCases, id: \.self) { tab in
+                    Text(tab.label).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .clipShape(.capsule)
+            .sensoryFeedback(.selection, trigger: selectedTab)
+
+            filterMenu
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 4)
+        .modifier(LiquidGlassCapsule())
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+
+    /// Filter/sort menu whose options switch with the active tab (like the
+    /// GamesView sort menu adapts to the selected sport):
+    ///   - My Agents → sort the agent list (Win % / Units / Streak / Name / …)
+    ///   - Leaderboard → sort mode + timeframe + 10+ picks toggle
+    ///   - Top Picks → Top 10 / Following / Favorites
+    private var filterMenu: some View {
+        Menu {
+            filterMenuContent
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.appTextPrimary)
+                .frame(width: 32, height: 32)
+        }
+        .tint(Color.appTextPrimary)
+        .accessibilityLabel("Filter")
+    }
+
+    @ViewBuilder
+    private var filterMenuContent: some View {
+        switch selectedTab {
+        case .myAgents:
+            Picker("Sort by", selection: $sortOption) {
+                ForEach(AgentSortOption.allCases, id: \.self) { opt in
+                    Label(opt.label, systemImage: opt.icon).tag(opt)
+                }
+            }
+        case .leaderboard:
+            Picker("Sort", selection: Bindable(leaderboardStore).sortMode) {
+                ForEach(LeaderboardStore.SortMode.allCases, id: \.self) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            Picker("Timeframe", selection: Bindable(leaderboardStore).timeframe) {
+                ForEach(LeaderboardStore.Timeframe.allCases, id: \.self) { tf in
+                    Text(tf.label).tag(tf)
+                }
+            }
+            Toggle("10+ picks only", isOn: Bindable(leaderboardStore).excludeUnder10Picks)
+        case .topPicks:
+            Picker("Show", selection: Bindable(topPicksStore).filterMode) {
+                ForEach(TopAgentPicksFeedStore.FilterMode.allCases, id: \.self) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+        }
+    }
+
+    /// Branches the body by the selected inner tab. My Agents keeps its full
+    /// collapsing-office experience; the other two reuse the existing public
+    /// surfaces (`AgentLeaderboardView`, `TopAgentPicksFeedContainer`) whose
+    /// row/pick taps route into the public agent detail.
+    @ViewBuilder
+    private var tabbedContent: some View {
+        switch selectedTab {
+        case .myAgents:
+            // My Agents renders the picker as a pinned List section header (so
+            // its large title shows — see `agentsList`).
+            myAgentsContent
+        case .leaderboard:
+            // The picker rides a PINNED SECTION HEADER inside the feed's scroll
+            // content (`pinnedHeader`), exactly like My Agents — a `safeAreaInset`
+            // bar would cover the large title. `showsFilters: false` — the
+            // sort/timeframe filters live in the bar's contextual filter menu.
+            AgentLeaderboardView(
+                store: leaderboardStore,
+                showsFilters: false,
+                pinnedHeader: AnyView(tabPicker)
+            ) { entry in
+                navPath.append(AgentsRoute.publicAgentDetail(agentId: entry.avatarId))
+            }
+        case .topPicks:
+            // Feed driven by the lifted `topPicksStore` so the bar's filter menu
+            // controls its Top 10 / Following / Favorites mode (`showsFilters:
+            // false` hides the feed's own picker). The picker is the feed's
+            // pinned section header. Binding/refresh plumbing here mirrors the
+            // old `TopAgentPicksFeedContainer`.
+            TopAgentPicksFeed(
+                store: topPicksStore,
+                showsFilters: false,
+                pinnedHeader: AnyView(tabPicker),
+                onAgentTap: { id in
+                    navPath.append(AgentsRoute.publicAgentDetail(agentId: id))
+                },
+                onPickTap: { row in
+                    // No public pick-detail sheet yet — open the picking agent.
+                    navPath.append(AgentsRoute.publicAgentDetail(agentId: row.avatarId))
+                }
+            )
+            .environment(topPicksFavorites)
+            .task {
+                topPicksStore.bind(viewerUserId: currentUserId)
+                if case .idle = topPicksStore.loadState {
+                    await topPicksStore.refresh()
+                }
+            }
+            .onChange(of: currentUserId) { _, newId in
+                topPicksStore.bind(viewerUserId: newId)
+                Task { await topPicksStore.refresh() }
+            }
+        }
+    }
+
     // MARK: - My Agents content
 
     @ViewBuilder
@@ -212,18 +383,21 @@ struct AgentsView: View {
         switch store.loadState {
         case .idle, .loading:
             if store.agents.isEmpty {
-                ScrollView { myAgentsSkeleton }
+                // Empty/loading/failed aren't the populated `List`, so they wrap
+                // their content in the same pinned-section-header pattern (the
+                // picker as scroll content, never a title-hiding inset).
+                pickerHeaderScroll { myAgentsSkeleton }
             } else {
                 collapsingPopulatedBody
             }
         case .loaded:
             if store.agents.isEmpty {
-                ScrollView { emptyState }
+                pickerHeaderScroll { emptyState }
             } else {
                 collapsingPopulatedBody
             }
         case .failed(let msg):
-            ScrollView {
+            pickerHeaderScroll {
                 ContentUnavailableView {
                     Label("Couldn't load agents", systemImage: "exclamationmark.triangle")
                 } description: {
@@ -241,116 +415,145 @@ struct AgentsView: View {
         }
     }
 
-    /// Populated hub: the agent list scrolls full-screen beneath a scroll-driven
-    /// floating pixel-office widget. At the top the office fills the page above
-    /// the list; as the user scrolls it shrinks into a small draggable minimap
-    /// (`FloatingOfficeWidget`) pinned to a screen corner with the agency stats
-    /// as a liquid-glass pill over it. A constant top spacer = `expandedHeight`
-    /// (the full collapse distance) means the list reaches the top of the screen
-    /// exactly as the office finishes collapsing — no reserved header bar.
-    @ViewBuilder
-    private var collapsingPopulatedBody: some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let progress = debugCollapseOverride
-                ?? min(1, max(0, scrollY / AgentsHeaderMetrics.collapseDistance(width)))
-            ZStack(alignment: .topLeading) {
-                agentsList(width: width)
-                    .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in
-                        scrollY = max(0, y)
-                    }
-
-                // Floating office. It only intercepts touches once collapsed
-                // (so it's draggable), passing scroll drags through otherwise.
-                FloatingOfficeWidget(
-                    agents: store.agents,
-                    progress: progress,
-                    width: width,
-                    height: geo.size.height,
-                    corner: $officeCorner
-                )
+    /// Wraps a non-`List` My Agents state (skeleton / empty / error) so the tab
+    /// picker rides a pinned section header — matching the populated list and
+    /// keeping the large title visible (a `safeAreaInset` bar would hide it).
+    private func pickerHeaderScroll<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    content()
+                } header: {
+                    tabPicker
+                }
             }
         }
     }
 
+    /// Populated hub: the agent list. The inner-tab picker is the list's pinned
+    /// section header (under the collapsing large "Agents" title); the pixel
+    /// office ("Agent HQ") is the first row and scrolls away naturally with the
+    /// content. (A scroll-driven "minimize" was tried but removed — shrinking a
+    /// list row on scroll feeds back into the scroll and jitters.)
+    @ViewBuilder
+    private var collapsingPopulatedBody: some View {
+        agentsList
+    }
+
+    /// The Agent HQ hero — a normal list row that scrolls with the content. The
+    /// "Agent HQ — Live" pill rides its top-leading corner, the agency stats its
+    /// top-trailing corner.
+    private var officeRow: some View {
+        PixelOffice(agents: store.agents, isActive: true)
+            .overlay(alignment: .topLeading) {
+                agentHQStatusPill.padding(10)
+            }
+            .overlay(alignment: .topTrailing) {
+                AgencyStatsPill(agents: store.agents).padding(10)
+            }
+    }
+
     /// Single-column agent feed rendered as a `List` so rows get NATIVE swipe
     /// actions — leading: activate/pause, pin, edit, details; trailing: delete.
-    /// A clear header row reserves the office's `expandedHeight`, so the scroll-
-    /// driven collapse still works (the office is a sibling overlay; `scrollY`
-    /// comes from `onScrollGeometryChange`). All List chrome (separators, row
-    /// backgrounds, default insets) is stripped so the cards read identically to
-    /// the old VStack feed; `listRowSpacing(10)` restores the 10pt gaps.
-    private func agentsList(width: CGFloat) -> some View {
+    /// All List chrome (separators, row backgrounds, default insets) is stripped
+    /// so the cards read identically to the old VStack feed; `listRowSpacing(10)`
+    /// restores the 10pt gaps.
+    private var agentsList: some View {
         List {
-            // Office spacer — reserves the collapsing hero's vertical space.
-            Color.clear
-                .frame(height: AgentsHeaderMetrics.expandedHeight(width))
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
+            // The inner-tab picker is the section's PINNED header — it stays
+            // under the (collapsing) large title while the office + cards scroll
+            // beneath it. Keeping it here (not a safe-area inset) is what lets
+            // the large "Agents" title render.
+            Section {
+                // Agent HQ hero — the first row; scrolls away with the content.
+                officeRow
+                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
 
-            sortRow
-                .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
+                sortRow
+                    .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
 
-            ForEach(Array(sortedAgents.enumerated()), id: \.element.id) { index, agent in
-                AgentRowCard(
-                    agent: agent,
-                    onTap: { navPath.append(AgentsRoute.agentDetail(agentId: agent.id)) },
-                    onLongPress: { pendingLongPressAgent = agent }
-                )
-                // Cascade each card in when it replaces the loading shimmer.
-                .staggeredAppear(index: index)
-                .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                    ForEach(leadingSwipeActions(for: agent)) { a in
-                        Button { a.action() } label: {
-                            Label(a.title, systemImage: a.systemImage)
+                ForEach(Array(sortedAgents.enumerated()), id: \.element.id) { index, agent in
+                    AgentRowCard(
+                        agent: agent,
+                        onTap: { navPath.append(AgentsRoute.agentDetail(agentId: agent.id)) },
+                        onLongPress: { pendingLongPressAgent = agent }
+                    )
+                    // Cascade each card in when it replaces the loading shimmer.
+                    .staggeredAppear(index: index)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        ForEach(leadingSwipeActions(for: agent)) { a in
+                            Button { a.action() } label: {
+                                Label(a.title, systemImage: a.systemImage)
+                            }
+                            .tint(a.tint)
                         }
-                        .tint(a.tint)
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        ForEach(trailingSwipeActions(for: agent)) { a in
+                            Button(role: .destructive) { a.action() } label: {
+                                Label(a.title, systemImage: a.systemImage)
+                            }
+                            .tint(a.tint)
+                        }
                     }
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    ForEach(trailingSwipeActions(for: agent)) { a in
-                        Button(role: .destructive) { a.action() } label: {
-                            Label(a.title, systemImage: a.systemImage)
-                        }
-                        .tint(a.tint)
-                    }
-                }
+
+                // Bottom clearance for the floating tab bar.
+                Color.clear
+                    .frame(height: 96)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } header: {
+                // Picker only is the pinned header. `listRowBackground(.clear)`
+                // removes the List header's default material (the "weird bar" the
+                // other tabs don't have).
+                tabPicker
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .textCase(nil)
             }
-
-            // Bottom clearance for the floating tab bar.
-            Color.clear
-                .frame(height: 96)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
         .listRowSpacing(10)
         .scrollContentBackground(.hidden)
-        .contentMargins(.top, 0, for: .scrollContent)
         .environment(\.defaultMinListRowHeight, 1)
         // Slide cards into place when the sort order (or pin set) changes.
         .animation(.spring(response: 0.45, dampingFraction: 0.82), value: sortOption)
         .animation(.spring(response: 0.45, dampingFraction: 0.82), value: pinnedIdsRaw)
     }
 
-    // MARK: - Sort row (relocated Agent HQ status + sort control)
+    // MARK: - Sort row (active-sort indicator)
 
-    /// Row just above the list: the "Agent HQ — Live" status pill (moved out of
-    /// the office HUD) on the left, and a liquid-glass sort control on the right.
+    /// Slim row between the office hero and the cards: a read-only indicator of
+    /// the active sort, right-aligned. The sort *control* lives in the bar's
+    /// filter menu; the "Agent HQ — Live" pill moved back into the office hero.
     private var sortRow: some View {
         HStack(spacing: 8) {
-            agentHQStatusPill
             Spacer(minLength: 8)
-            sortByMenu
+            sortIndicator
         }
         .padding(.bottom, 2)
+    }
+
+    /// Non-interactive label showing how the list is currently sorted (the
+    /// control moved to the bar's filter menu). Muted styling, no capsule, so it
+    /// doesn't read as a tappable button.
+    private var sortIndicator: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.system(size: 10, weight: .bold))
+            Text(sortOption.label)
+                .font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundStyle(Color.appTextMuted)
     }
 
     /// Day/night resolution mirroring `PixelOffice` so the pill matches the
@@ -371,36 +574,15 @@ struct AgentsView: View {
                 .fill(Color(hex: 0x22C55E))
                 .frame(width: 6, height: 6)
             Text("Agent HQ — \(officeIsNight ? "Night Shift" : "Live")")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 11, weight: .bold))
                 .tracking(0.3)
-                .foregroundStyle(Color.appTextSecondary)
+                // White text — the pill sits over the colorful pixel office.
+                .foregroundStyle(.white)
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 6)
-        .liquidGlassBackground(in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.appBorder.opacity(0.4), lineWidth: 0.5))
-    }
-
-    private var sortByMenu: some View {
-        Menu {
-            Picker("Sort by", selection: $sortOption) {
-                ForEach(AgentSortOption.allCases, id: \.self) { opt in
-                    Label(opt.label, systemImage: opt.icon).tag(opt)
-                }
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "arrow.up.arrow.down")
-                    .font(.system(size: 10, weight: .bold))
-                Text(sortOption.label)
-                    .font(.system(size: 11, weight: .semibold))
-            }
-            .foregroundStyle(Color.appTextPrimary)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 6)
-            .liquidGlassBackground(in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.appBorder.opacity(0.4), lineWidth: 0.5))
-        }
+        .background(Color.black.opacity(0.45), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5))
     }
 
     /// `store.agents` ordered by the selected sort, with pinned agents floated to
@@ -592,9 +774,8 @@ struct AgentsView: View {
         )
     }
 
-    // Top Picks + Leaderboard branches removed — those surfaces live in the
-    // Outliers tab now. The container types still exist in
-    // `Features/Agents/...` and `WagerproofStores/...` for Outliers' use.
+    // Leaderboard + Top Picks branches are wired in `tabbedContent` above via
+    // `AgentLeaderboardView` and `TopAgentPicksFeedContainer`.
 
     // MARK: - Create-agent toolbar button
 
