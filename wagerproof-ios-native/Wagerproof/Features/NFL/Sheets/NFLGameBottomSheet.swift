@@ -42,9 +42,11 @@ struct NFLGameBottomSheet: View {
     private var homeColors: TeamColorPair { NFLTeamColors.colorPair(for: game.homeTeam) }
 
     var body: some View {
+        // Heights mirror the MLB sheet (236/122) minus its starting-pitchers
+        // row — same topRow + MatchupGlassHero block otherwise.
         CollapsingWidgetScroll(
-            heroMaxHeight: 196,
-            heroMinHeight: 124,
+            heroMaxHeight: 206,
+            heroMinHeight: 122,
             transparentPage: !showAura,
             heroTopInset: heroTopInset,
             contentBottomInset: contentBottomInset
@@ -104,77 +106,50 @@ struct NFLGameBottomSheet: View {
 
     // MARK: - Collapsing hero
 
-    /// Matchup hero rendered as ONE layout that continuously shrinks with scroll
-    /// `progress` (0 = expanded, 1 = collapsed): avatars scale down, spacing
-    /// tightens, team names + the centered spread/total fade, and each team's
-    /// moneyline cross-fades in under its avatar — so the compact state is a
-    /// smaller mirror of the large one. Mirrors `MLBGameBottomSheet.heroView`.
+    /// Matchup hero — same format as `MLBGameBottomSheet.heroView`: date/time
+    /// row on top of a `MatchupGlassHero` (fused liquid-glass team discs that
+    /// flow apart as the hero collapses). Expanded shows full ML / Spread /
+    /// O/U stacked under the discs; collapsed keeps Spread + O/U centered
+    /// while each team's ML moves under its disc.
     @ViewBuilder
     private func heroView(progress p: CGFloat) -> some View {
-        let logoSize = heroLerp(56, 30, p)
-        let detail = Double(max(0, 1 - p * 1.9))
-        let mlReveal = Double(min(1, max(0, (p - 0.35) / 0.4)))
-
         VStack(spacing: heroLerp(12, 6, p)) {
             topRow
-            HStack(alignment: .center, spacing: heroLerp(14, 10, p)) {
-                heroTeamColumn(team: game.awayTeam, colors: awayColors, size: logoSize,
-                               nameOpacity: detail, ml: game.awayMl, mlReveal: mlReveal)
-                heroLinesColumn(detail: detail, p: p)
-                heroTeamColumn(team: game.homeTeam, colors: homeColors, size: logoSize,
-                               nameOpacity: detail, ml: game.homeMl, mlReveal: mlReveal)
-            }
+            MatchupGlassHero(
+                away: heroSide(team: game.awayTeam, ml: game.awayMl),
+                home: heroSide(team: game.homeTeam, ml: game.homeMl),
+                expandedStats: [
+                    .init(label: "ML", value: "\(GameCardFormatting.formatMoneyline(game.awayMl)) / \(GameCardFormatting.formatMoneyline(game.homeMl))"),
+                    .init(label: "Spread", value: "\(GameCardFormatting.formatSpread(game.awaySpread)) / \(GameCardFormatting.formatSpread(game.homeSpread))"),
+                    .init(label: "O/U", value: GameCardFormatting.roundToNearestHalf(game.overLine))
+                ],
+                collapsedStats: [
+                    .init(label: "Spread", value: "\(GameCardFormatting.formatSpread(game.awaySpread)) / \(GameCardFormatting.formatSpread(game.homeSpread))"),
+                    .init(label: "O/U", value: GameCardFormatting.roundToNearestHalf(game.overLine))
+                ],
+                progress: p
+            )
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .frame(maxWidth: .infinity, alignment: .top)
     }
 
+    /// Build a `MatchupGlassHero.Side` from an NFL team string — logo + abbr
+    /// from the `nfl_teams` reference table, colors from the static map.
+    private func heroSide(team: String, ml: Int?) -> MatchupGlassHero.Side {
+        let pair = NFLTeamColors.colorPair(for: team)
+        return MatchupGlassHero.Side(
+            logoURL: NFLTeamAssets.logo(for: team),
+            abbr: NFLTeamAssets.abbr(for: team),
+            primary: pair.primary,
+            secondary: pair.secondary,
+            ml: ml
+        )
+    }
+
     private func heroLerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat {
         a + (b - a) * min(1, max(0, t))
-    }
-
-    @ViewBuilder
-    private func heroTeamColumn(team: String, colors: TeamColorPair, size: CGFloat, nameOpacity: Double, ml: Int?, mlReveal: Double) -> some View {
-        // Canonical abbr from the `nfl_teams` reference table ("BUF", not the
-        // naive initials of "Buffalo Bills").
-        let abbr = NFLTeamAssets.abbr(for: team)
-        let parts = TeamInitials.parts(of: team)
-        VStack(spacing: 4) {
-            GameCardTeamAvatar(teamName: team, sport: "nfl", size: size, colors: colors)
-            Text(abbr)
-                .font(.system(size: 16, weight: .heavy))
-                .foregroundStyle(Color.appTextPrimary)
-            // Cross-fade the team name (large) → the team's moneyline (collapsed).
-            ZStack {
-                Text(parts.name.isEmpty ? parts.city : parts.name)
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .lineLimit(1)
-                    .opacity(nameOpacity)
-                Text(GameCardFormatting.formatMoneyline(ml))
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color.appTextPrimary)
-                    .opacity(mlReveal)
-            }
-            .frame(height: 15)
-        }
-        .frame(width: 96)
-    }
-
-    /// Center lines column. ML lives here large and fades on collapse (it moves
-    /// to each team); the Spread + O/U stay centered.
-    @ViewBuilder
-    private func heroLinesColumn(detail: Double, p: CGFloat) -> some View {
-        VStack(spacing: heroLerp(6, 2, p)) {
-            if detail > 0.04 {
-                heroLineRow(label: "ML", value: "\(GameCardFormatting.formatMoneyline(game.awayMl)) / \(GameCardFormatting.formatMoneyline(game.homeMl))")
-                    .opacity(detail)
-            }
-            heroLineRow(label: "Spread", value: "\(GameCardFormatting.formatSpread(game.awaySpread)) / \(GameCardFormatting.formatSpread(game.homeSpread))")
-            heroLineRow(label: "O/U", value: GameCardFormatting.roundToNearestHalf(game.overLine))
-        }
-        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -190,19 +165,6 @@ struct NFLGameBottomSheet: View {
                 .padding(.vertical, 4)
                 .liquidGlassBackground(in: Capsule())
             Spacer()
-        }
-    }
-
-    @ViewBuilder
-    private func heroLineRow(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold))
-                .tracking(0.5)
-                .foregroundStyle(Color.appTextSecondary)
-            Text(value)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.appTextPrimary)
         }
     }
 
