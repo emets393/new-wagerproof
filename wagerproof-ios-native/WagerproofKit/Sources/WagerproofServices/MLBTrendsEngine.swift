@@ -211,6 +211,7 @@ public enum MLBTrendsEngine {
         if let h2h = headToHeadRow(team: team, opponent: opponent, market: market) {
             extraRows.append(h2h)
         }
+        let lines = bettingLines(for: market, game: game, teamAbbr: team.teamAbbr)
         return buildSplitCard(
             idPrefix: "team-\(team.teamAbbr)-\(game.id)-\(market)",
             gameId: game.id,
@@ -221,7 +222,7 @@ public enum MLBTrendsEngine {
             market: market,
             splits: team.splits,
             dimensions: dims,
-            lineContext: lineContext(for: market, game: game, teamAbbr: team.teamAbbr),
+            bettingLines: lines,
             extraRows: extraRows
         )
     }
@@ -251,7 +252,7 @@ public enum MLBTrendsEngine {
         market: String,
         splits: NFLTrendSplits,
         dimensions: [TrendDimensionSpec],
-        lineContext: String?,
+        bettingLines: [OutliersTrendsBettingLine],
         extraRows: [OutliersTrendsCardRow] = []
     ) -> OutliersTrendsCard? {
         var rows: [OutliersTrendsCardRow] = []
@@ -284,7 +285,8 @@ public enum MLBTrendsEngine {
             betTypeLabel: marketLabel(market),
             trendValue: strongest.dominantPct,
             trendSampleN: strongest.sampleN,
-            lineContext: lineContext,
+            lineContext: nil,
+            bettingLines: bettingLines,
             rows: rows
         )
     }
@@ -345,6 +347,10 @@ public enum MLBTrendsEngine {
         market == "ou" || market == "f5_ou"
     }
 
+    private static func isRunLineMarket(_ market: String) -> Bool {
+        market == "rl" || market == "f5_rl"
+    }
+
     private static func h2hCellMetrics(market: String, cell: NFLTrendH2HCell) -> TrendRowMetrics? {
         guard cell.n >= 1 else { return nil }
         let pct = cell.pct ?? (cell.n > 0 ? Double(cell.h) / Double(cell.n) : 0)
@@ -373,12 +379,18 @@ public enum MLBTrendsEngine {
         let dominant = max(cell.pct, 1 - cell.pct)
         let hitSide = cell.pct >= 0.5
         let count = hitSide ? cell.h : cell.l
+        let verb: String
+        if isRunLineMarket(market) {
+            verb = hitSide ? "Covered" : "Didn't cover"
+        } else {
+            verb = hitSide ? "Won" : "Lost"
+        }
         return TrendRowMetrics(
             count: count,
             displayPct: dominant,
             sortPct: dominant,
             hitSide: hitSide,
-            verb: hitSide ? "Won" : "Lost"
+            verb: verb
         )
     }
 
@@ -453,25 +465,124 @@ public enum MLBTrendsEngine {
         }
     }
 
-    private static func lineContext(for market: String, game: OutliersTrendsGame, teamAbbr: String) -> String? {
-        guard let ctx = game.mlbContext else { return nil }
+    static func bettingLines(
+        for market: String,
+        game: OutliersTrendsGame,
+        teamAbbr: String
+    ) -> [OutliersTrendsBettingLine] {
+        guard let ctx = game.mlbContext else { return [] }
+        let isHome = teamAbbr.uppercased() == game.homeAb.uppercased()
+        let prefix = "\(teamAbbr)-\(game.id)-\(market)"
+
         switch market {
         case "ml":
-            let ml = teamAbbr == game.homeAb ? ctx.homeMl : ctx.awayMl
-            return ml.map { "ML \(formatAmerican($0))" }
+            guard let odds = isHome ? ctx.homeMl : ctx.awayMl else { return [] }
+            return [
+                OutliersTrendsBettingLine(
+                    id: "\(prefix)-ml",
+                    label: "Moneyline",
+                    lineText: "ML",
+                    oddsText: formatAmerican(odds),
+                    teamAbbr: teamAbbr
+                ),
+            ]
         case "rl":
-            let spread = teamAbbr == game.homeAb ? ctx.homeSpread : ctx.homeSpread.map { -$0 }
-            return spread.map { "Run line \(formatSpread($0))" }
+            let spread = isHome ? ctx.homeSpread : ctx.awaySpread
+            let juice = isHome ? ctx.homeSpreadOdds : ctx.awaySpreadOdds
+            guard let spread else { return [] }
+            return [
+                OutliersTrendsBettingLine(
+                    id: "\(prefix)-rl",
+                    label: "Run Line",
+                    lineText: formatSpread(spread),
+                    oddsText: juice.map(formatAmerican),
+                    teamAbbr: teamAbbr
+                ),
+            ]
         case "ou":
-            return ctx.totalLine.map { "Total \($0.formattedLine())" }
+            guard let total = ctx.totalLine else { return [] }
+            let totalText = total.formattedLine()
+            var lines: [OutliersTrendsBettingLine] = []
+            if let overOdds = ctx.totalOverOdds {
+                lines.append(OutliersTrendsBettingLine(
+                    id: "\(prefix)-over",
+                    label: "Over",
+                    lineText: "Over \(totalText)",
+                    oddsText: formatAmerican(overOdds)
+                ))
+            }
+            if let underOdds = ctx.totalUnderOdds {
+                lines.append(OutliersTrendsBettingLine(
+                    id: "\(prefix)-under",
+                    label: "Under",
+                    lineText: "Under \(totalText)",
+                    oddsText: formatAmerican(underOdds)
+                ))
+            }
+            if lines.isEmpty {
+                lines.append(OutliersTrendsBettingLine(
+                    id: "\(prefix)-total",
+                    label: "Total",
+                    lineText: totalText,
+                    oddsText: nil
+                ))
+            }
+            return lines
         case "f5_ml":
-            return "F5 moneyline on slate"
+            guard let odds = isHome ? ctx.f5HomeMl : ctx.f5AwayMl else { return [] }
+            return [
+                OutliersTrendsBettingLine(
+                    id: "\(prefix)-f5-ml",
+                    label: "F5 Moneyline",
+                    lineText: "F5 ML",
+                    oddsText: formatAmerican(odds),
+                    teamAbbr: teamAbbr
+                ),
+            ]
         case "f5_rl":
-            return ctx.f5HomeSpread.map { _ in "F5 run line on slate" }
+            let spread = isHome ? ctx.f5HomeSpread : ctx.f5AwaySpread
+            let juice = isHome ? ctx.f5HomeSpreadOdds : ctx.f5AwaySpreadOdds
+            guard let spread else { return [] }
+            return [
+                OutliersTrendsBettingLine(
+                    id: "\(prefix)-f5-rl",
+                    label: "F5 Run Line",
+                    lineText: formatSpread(spread),
+                    oddsText: juice.map(formatAmerican),
+                    teamAbbr: teamAbbr
+                ),
+            ]
         case "f5_ou":
-            return ctx.f5TotalLine.map { "F5 total \($0.formattedLine())" }
+            guard let total = ctx.f5TotalLine else { return [] }
+            let totalText = total.formattedLine()
+            var lines: [OutliersTrendsBettingLine] = []
+            if let overOdds = ctx.f5TotalOverOdds {
+                lines.append(OutliersTrendsBettingLine(
+                    id: "\(prefix)-f5-over",
+                    label: "Over",
+                    lineText: "Over \(totalText)",
+                    oddsText: formatAmerican(overOdds)
+                ))
+            }
+            if let underOdds = ctx.f5TotalUnderOdds {
+                lines.append(OutliersTrendsBettingLine(
+                    id: "\(prefix)-f5-under",
+                    label: "Under",
+                    lineText: "Under \(totalText)",
+                    oddsText: formatAmerican(underOdds)
+                ))
+            }
+            if lines.isEmpty {
+                lines.append(OutliersTrendsBettingLine(
+                    id: "\(prefix)-f5-total",
+                    label: "F5 Total",
+                    lineText: totalText,
+                    oddsText: nil
+                ))
+            }
+            return lines
         default:
-            return nil
+            return []
         }
     }
 

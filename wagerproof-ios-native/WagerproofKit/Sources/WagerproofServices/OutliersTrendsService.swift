@@ -42,7 +42,8 @@ public actor OutliersTrendsService {
 
     private static let mlbGameColumns = """
         game_pk,official_date,game_time_et,away_team_name,home_team_name,\
-        away_team_id,home_team_id,away_ml,home_ml,away_spread,home_spread,total_line,is_postponed
+        away_team_id,home_team_id,away_ml,home_ml,away_spread,home_spread,total_line,\
+        f5_away_ml,f5_home_ml,f5_away_spread,f5_home_spread,f5_total_line,is_postponed
         """
 
     /// Pre-rendered trend cards for the active sport.
@@ -185,7 +186,7 @@ public actor OutliersTrendsService {
 
         let pks = active.compactMap(\.gamePk)
         let scheduleMeta = await fetchMLBScheduleMeta(gamePks: pks, client: cfb)
-        let preds = try await fetchMLBPredictionMeta(gamePks: pks, client: cfb)
+        let oddsMeta = await fetchMLBOddsSnapshots(gamePks: pks, client: cfb)
         let teamMaps = try await fetchMLBTeamAbbrMaps(client: cfb)
         let season = currentMLBSeason()
 
@@ -195,7 +196,7 @@ public actor OutliersTrendsService {
                 mapping: teamMaps.byName,
                 mappingById: teamMaps.byId,
                 schedule: scheduleMeta[row.gamePk ?? -1],
-                prediction: preds[row.gamePk ?? -1]
+                odds: oddsMeta[row.gamePk ?? -1]
             )
         }
     }
@@ -245,20 +246,28 @@ public actor OutliersTrendsService {
         return byPk
     }
 
-    private func fetchMLBPredictionMeta(
+    private func fetchMLBOddsSnapshots(
         gamePks: [Int],
         client: SupabaseClient
-    ) async throws -> [Int: MLBPredictionMetaRow] {
+    ) async -> [Int: MLBOddsSnapshotRow] {
         guard !gamePks.isEmpty else { return [:] }
-        let rows: [MLBPredictionMetaRow] = try await client
-            .from("mlb_predictions_current")
-            .select("game_pk,f5_home_spread,f5_total_line")
+        let rows: [MLBOddsSnapshotRow] = (try? await client
+            .from("mlb_odds_snapshots")
+            .select("""
+                game_pk,home_spread_odds,away_spread_odds,total_over_odds,total_under_odds,\
+                f5_home_spread_odds,f5_away_spread_odds,f5_total_over_odds,f5_total_under_odds
+                """)
             .in("game_pk", values: gamePks)
+            .order("fetched_at", ascending: false)
             .execute()
-            .value
-        return Dictionary(uniqueKeysWithValues: rows.compactMap { row in
-            row.gamePk.map { ($0, row) }
-        })
+            .value) ?? []
+        var byPk: [Int: MLBOddsSnapshotRow] = [:]
+        for row in rows {
+            if let pk = row.gamePk, byPk[pk] == nil {
+                byPk[pk] = row
+            }
+        }
+        return byPk
     }
 
     private struct MLBTeamAbbrMaps {
@@ -485,15 +494,55 @@ public actor OutliersTrendsService {
         }
     }
 
-    private struct MLBPredictionMetaRow: Decodable {
+    private struct MLBOddsSnapshotRow: Decodable {
         let gamePk: Int?
-        let f5HomeSpread: Double?
-        let f5TotalLine: Double?
+        let homeSpreadOdds: Double?
+        let awaySpreadOdds: Double?
+        let totalOverOdds: Double?
+        let totalUnderOdds: Double?
+        let f5HomeSpreadOdds: Double?
+        let f5AwaySpreadOdds: Double?
+        let f5TotalOverOdds: Double?
+        let f5TotalUnderOdds: Double?
 
         enum CodingKeys: String, CodingKey {
             case gamePk = "game_pk"
-            case f5HomeSpread = "f5_home_spread"
-            case f5TotalLine = "f5_total_line"
+            case homeSpreadOdds = "home_spread_odds"
+            case awaySpreadOdds = "away_spread_odds"
+            case totalOverOdds = "total_over_odds"
+            case totalUnderOdds = "total_under_odds"
+            case f5HomeSpreadOdds = "f5_home_spread_odds"
+            case f5AwaySpreadOdds = "f5_away_spread_odds"
+            case f5TotalOverOdds = "f5_total_over_odds"
+            case f5TotalUnderOdds = "f5_total_under_odds"
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            if let i = try? c.decode(Int.self, forKey: .gamePk) {
+                gamePk = i
+            } else if let s = try? c.decode(String.self, forKey: .gamePk), let i = Int(s) {
+                gamePk = i
+            } else {
+                gamePk = nil
+            }
+            homeSpreadOdds = Self.decodeNumeric(c, key: .homeSpreadOdds)
+            awaySpreadOdds = Self.decodeNumeric(c, key: .awaySpreadOdds)
+            totalOverOdds = Self.decodeNumeric(c, key: .totalOverOdds)
+            totalUnderOdds = Self.decodeNumeric(c, key: .totalUnderOdds)
+            f5HomeSpreadOdds = Self.decodeNumeric(c, key: .f5HomeSpreadOdds)
+            f5AwaySpreadOdds = Self.decodeNumeric(c, key: .f5AwaySpreadOdds)
+            f5TotalOverOdds = Self.decodeNumeric(c, key: .f5TotalOverOdds)
+            f5TotalUnderOdds = Self.decodeNumeric(c, key: .f5TotalUnderOdds)
+        }
+
+        private static func decodeNumeric(
+            _ c: KeyedDecodingContainer<CodingKeys>,
+            key: CodingKeys
+        ) -> Double? {
+            if let d = try? c.decodeIfPresent(Double.self, forKey: key) { return d }
+            if let i = try? c.decodeIfPresent(Int.self, forKey: key) { return Double(i) }
+            return nil
         }
     }
 
@@ -510,6 +559,11 @@ public actor OutliersTrendsService {
         let awaySpread: Double?
         let homeSpread: Double?
         let totalLine: Double?
+        let f5AwayMl: Double?
+        let f5HomeMl: Double?
+        let f5AwaySpread: Double?
+        let f5HomeSpread: Double?
+        let f5TotalLine: Double?
         let isPostponed: Bool?
 
         enum CodingKeys: String, CodingKey {
@@ -525,6 +579,11 @@ public actor OutliersTrendsService {
             case awaySpread = "away_spread"
             case homeSpread = "home_spread"
             case totalLine = "total_line"
+            case f5AwayMl = "f5_away_ml"
+            case f5HomeMl = "f5_home_ml"
+            case f5AwaySpread = "f5_away_spread"
+            case f5HomeSpread = "f5_home_spread"
+            case f5TotalLine = "f5_total_line"
             case isPostponed = "is_postponed"
         }
 
@@ -548,6 +607,11 @@ public actor OutliersTrendsService {
             awaySpread = Self.decodeNumeric(c, key: .awaySpread)
             homeSpread = Self.decodeNumeric(c, key: .homeSpread)
             totalLine = Self.decodeNumeric(c, key: .totalLine)
+            f5AwayMl = Self.decodeNumeric(c, key: .f5AwayMl)
+            f5HomeMl = Self.decodeNumeric(c, key: .f5HomeMl)
+            f5AwaySpread = Self.decodeNumeric(c, key: .f5AwaySpread)
+            f5HomeSpread = Self.decodeNumeric(c, key: .f5HomeSpread)
+            f5TotalLine = Self.decodeNumeric(c, key: .f5TotalLine)
             isPostponed = try? c.decodeIfPresent(Bool.self, forKey: .isPostponed)
         }
 
@@ -568,7 +632,7 @@ public actor OutliersTrendsService {
             mapping: [String: String],
             mappingById: [Int: String],
             schedule: MLBScheduleMetaRow?,
-            prediction: MLBPredictionMetaRow?
+            odds: MLBOddsSnapshotRow?
         ) -> OutliersTrendsGame? {
             guard let pk = gamePk else { return nil }
             let awayName = awayTeamName ?? "Away"
@@ -588,9 +652,21 @@ public actor OutliersTrendsService {
                 homeMl: homeMl,
                 awayMl: awayMl,
                 homeSpread: homeSpread,
+                awaySpread: awaySpread,
                 totalLine: totalLine,
-                f5HomeSpread: prediction?.f5HomeSpread,
-                f5TotalLine: prediction?.f5TotalLine,
+                f5HomeMl: f5HomeMl,
+                f5AwayMl: f5AwayMl,
+                f5HomeSpread: f5HomeSpread,
+                f5AwaySpread: f5AwaySpread,
+                f5TotalLine: f5TotalLine,
+                homeSpreadOdds: odds?.homeSpreadOdds,
+                awaySpreadOdds: odds?.awaySpreadOdds,
+                totalOverOdds: odds?.totalOverOdds,
+                totalUnderOdds: odds?.totalUnderOdds,
+                f5HomeSpreadOdds: odds?.f5HomeSpreadOdds,
+                f5AwaySpreadOdds: odds?.f5AwaySpreadOdds,
+                f5TotalOverOdds: odds?.f5TotalOverOdds,
+                f5TotalUnderOdds: odds?.f5TotalUnderOdds,
                 isDivisional: isDivisional,
                 isDayGame: isDay,
                 seriesGameNumber: schedule?.seriesGameNumber

@@ -154,28 +154,33 @@ struct OutliersTrendCard: View {
         .background(Color.appSurfaceMuted.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
     }
 
+    @ViewBuilder
     private func sportsbookTrailingBlock(line: OutliersTrendsBettingLine, showBookName: Bool) -> some View {
-        HStack(spacing: 4) {
-            if showBookName {
-                Text("@")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.appTextMuted)
+        if line.bookName == nil && line.bookLogoUrl == nil {
+            EmptyView()
+        } else {
+            HStack(spacing: 4) {
+                if showBookName {
+                    Text("@")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.appTextMuted)
+                }
+                SportsbookLogoView(
+                    logoURL: line.bookLogoUrl,
+                    bookKey: nil,
+                    bookName: line.bookName,
+                    style: .compact
+                )
+                if showBookName, let book = line.bookName {
+                    Text(book)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.appTextSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
             }
-            SportsbookLogoView(
-                logoURL: line.bookLogoUrl,
-                bookKey: nil,
-                bookName: line.bookName,
-                style: .compact
-            )
-            if showBookName, let book = line.bookName {
-                Text(book)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-            }
+            .fixedSize(horizontal: true, vertical: false)
         }
-        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func rowDisplayText(_ row: OutliersTrendsCardRow) -> String {
@@ -187,7 +192,7 @@ struct OutliersTrendCard: View {
 
     private var isOverUnderMarket: Bool {
         switch card.marketKey {
-        case "total", "h1_total", "team_total": return true
+        case "total", "h1_total", "team_total", "ou", "f5_ou": return true
         default: return false
         }
     }

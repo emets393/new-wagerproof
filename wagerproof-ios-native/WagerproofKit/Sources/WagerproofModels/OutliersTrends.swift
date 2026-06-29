@@ -141,9 +141,21 @@ public struct OutliersTrendsMLBContext: Sendable, Hashable {
     public let homeMl: Double?
     public let awayMl: Double?
     public let homeSpread: Double?
+    public let awaySpread: Double?
     public let totalLine: Double?
+    public let f5HomeMl: Double?
+    public let f5AwayMl: Double?
     public let f5HomeSpread: Double?
+    public let f5AwaySpread: Double?
     public let f5TotalLine: Double?
+    public let homeSpreadOdds: Double?
+    public let awaySpreadOdds: Double?
+    public let totalOverOdds: Double?
+    public let totalUnderOdds: Double?
+    public let f5HomeSpreadOdds: Double?
+    public let f5AwaySpreadOdds: Double?
+    public let f5TotalOverOdds: Double?
+    public let f5TotalUnderOdds: Double?
     public let isDivisional: Bool
     public let isDayGame: Bool
     public let seriesGameNumber: Int?
@@ -152,9 +164,21 @@ public struct OutliersTrendsMLBContext: Sendable, Hashable {
         homeMl: Double?,
         awayMl: Double?,
         homeSpread: Double?,
+        awaySpread: Double?,
         totalLine: Double?,
+        f5HomeMl: Double?,
+        f5AwayMl: Double?,
         f5HomeSpread: Double?,
+        f5AwaySpread: Double?,
         f5TotalLine: Double?,
+        homeSpreadOdds: Double? = nil,
+        awaySpreadOdds: Double? = nil,
+        totalOverOdds: Double? = nil,
+        totalUnderOdds: Double? = nil,
+        f5HomeSpreadOdds: Double? = nil,
+        f5AwaySpreadOdds: Double? = nil,
+        f5TotalOverOdds: Double? = nil,
+        f5TotalUnderOdds: Double? = nil,
         isDivisional: Bool,
         isDayGame: Bool,
         seriesGameNumber: Int?
@@ -162,9 +186,21 @@ public struct OutliersTrendsMLBContext: Sendable, Hashable {
         self.homeMl = homeMl
         self.awayMl = awayMl
         self.homeSpread = homeSpread
+        self.awaySpread = awaySpread
         self.totalLine = totalLine
+        self.f5HomeMl = f5HomeMl
+        self.f5AwayMl = f5AwayMl
         self.f5HomeSpread = f5HomeSpread
+        self.f5AwaySpread = f5AwaySpread
         self.f5TotalLine = f5TotalLine
+        self.homeSpreadOdds = homeSpreadOdds
+        self.awaySpreadOdds = awaySpreadOdds
+        self.totalOverOdds = totalOverOdds
+        self.totalUnderOdds = totalUnderOdds
+        self.f5HomeSpreadOdds = f5HomeSpreadOdds
+        self.f5AwaySpreadOdds = f5AwaySpreadOdds
+        self.f5TotalOverOdds = f5TotalOverOdds
+        self.f5TotalUnderOdds = f5TotalUnderOdds
         self.isDivisional = isDivisional
         self.isDayGame = isDayGame
         self.seriesGameNumber = seriesGameNumber
