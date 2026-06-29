@@ -31,7 +31,7 @@ GAMES_CSV = "https://github.com/nflverse/nfldata/raw/master/data/games.csv"
 PROP_MKT = {"player_pass_yds": ("O", "U"), "player_pass_tds": ("O", "U"),
             "player_receptions": ("O", "U"), "player_reception_yds": ("O", "U"),
             "player_rush_yds": ("O", "U"), "player_anytime_td": ("Y", "N")}
-DIMS = ["overall", "home", "away", "favorite", "underdog", "division", "non_division"]
+DIMS = ["overall", "home", "away", "division", "non_division", "primetime", "regular"]
 WINDOWS = [3, 5, 7]
 NORM = {"LAR": "LA", "WSH": "WAS", "JAC": "JAX", "OAK": "LV", "SD": "LAC", "STL": "LA"}
 TEAM_NAMES = {
@@ -59,14 +59,24 @@ def pct(h, n):
     return round(h / n, 3) if n else None
 
 
+def _primetime(t):
+    if not isinstance(t, str) or ":" not in t:
+        return False
+    try:
+        return int(t.split(":")[0]) >= 19
+    except ValueError:
+        return False
+
+
 def game_context():
-    """{(season,week,home_ab,away_ab): (spread_line, div_game)} from nflverse, 2024-25."""
+    """{(season,week,home_ab,away_ab): (div_game, is_primetime)} from nflverse, 2024-25."""
     g = pd.read_csv(io.StringIO(requests.get(GAMES_CSV, timeout=90).text))
     g = g[g.season.isin([2024, 2025])].copy()
     g["home_ab"] = g.home_team.replace(NORM)
     g["away_ab"] = g.away_team.replace(NORM)
     return {(int(r.season), int(r.week), r.home_ab, r.away_ab):
-            (r.spread_line, bool(r.div_game == 1) if pd.notna(r.div_game) else False)
+            (bool(r.div_game == 1) if pd.notna(r.div_game) else False,
+             _primetime(getattr(r, "gametime", None)))
             for r in g.itertuples()}
 
 
@@ -98,15 +108,13 @@ def build_logs():
         if res is None:
             continue
         is_home = (r.team == r.home_ab)
-        sl, is_div = ctx.get((int(r.season), int(r.week), r.home_ab, r.away_ab), (np.nan, False))
-        team_spread = (-sl if is_home else sl) if pd.notna(sl) else None
+        is_div, is_pt = ctx.get((int(r.season), int(r.week), r.home_ab, r.away_ab), (False, False))
         gk = (int(r.season), int(r.week))
         pl = logs.setdefault(r.player_id, {})
         rec = pl.setdefault(gk, dict(
             season=int(r.season), week=int(r.week),
             opp=(r.away_ab if is_home else r.home_ab), is_home=is_home, is_div=is_div,
-            team_spread=round(float(team_spread), 1) if team_spread is not None else None,
-            markets={}))
+            is_primetime=is_pt, markets={}))
         rec["markets"][r.market] = res
         meta[r.player_id] = (r.player_name, r.position, r.team)
     # to newest-first game lists
@@ -118,9 +126,8 @@ def build_logs():
 
 def _dim_ok(g, dim):
     return {"overall": True, "home": g["is_home"], "away": not g["is_home"],
-            "favorite": g["team_spread"] is not None and g["team_spread"] < 0,
-            "underdog": g["team_spread"] is not None and g["team_spread"] > 0,
-            "division": g["is_div"], "non_division": not g["is_div"]}[dim]
+            "division": g["is_div"], "non_division": not g["is_div"],
+            "primetime": g["is_primetime"], "regular": not g["is_primetime"]}[dim]
 
 
 def compute_splits(gl):
@@ -141,6 +148,27 @@ def compute_splits(gl):
     return out, present
 
 
+def compute_matchups(gl):
+    """Player's record per market vs each opponent, CROSS-SEASON (all meetings, all years)."""
+    by_opp = {}
+    for g in gl:
+        by_opp.setdefault(g["opp"], []).append(g)
+    out = {}
+    for opp, games in by_opp.items():
+        rec = {"meetings": len(games)}
+        any_mkt = False
+        for mkt, (hit_l, loss_l) in PROP_MKT.items():
+            dec = [g for g in games if g["markets"].get(mkt) in (hit_l, loss_l)]
+            if not dec:
+                continue
+            h = sum(1 for g in dec if g["markets"][mkt] == hit_l)
+            rec[mkt] = {"h": h, "n": len(dec), "pct": pct(h, len(dec))}
+            any_mkt = True
+        if any_mkt:
+            out[opp] = rec
+    return out
+
+
 def build():
     logs, meta = build_logs()
     rows = []
@@ -153,7 +181,7 @@ def build():
             player_id=pid, player_name=name, position=pos, current_team=team,
             markets=present, career_games=len(gl),
             through_season=SEASON, through_week=THROUGH_WEEK, coverage="2024-2025",
-            splits=splits, recent_game_log=gl[:10]))
+            splits=splits, matchups=compute_matchups(gl), recent_game_log=gl[:10]))
     return pd.DataFrame(rows)
 
 
