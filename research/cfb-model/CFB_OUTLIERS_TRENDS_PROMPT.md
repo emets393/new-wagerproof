@@ -85,3 +85,18 @@ create policy "public read cfb_coach_trends" on public.cfb_coach_trends for sele
 
 ## 4. Out of scope (no data)
 - **No CFB referee trends, no CFB player-prop trends.** Teams + coaches only.
+
+---
+
+## STATUS — BUILT (2026-06-29)
+- Shared helpers: `trends_common.py` (`build_cross_season_logs`, `compute_splits`, `compute_matchups`,
+  `head_coach_map`). Cross-season FG (spread/ml/total) from `model_games.parquet` (2016-2025, no 2020);
+  team_total + 1H from the event-odds archive (2023-2025).
+- Team: `gen_cfb_team_trends.py` now also writes `splits` (season-scoped, 6 mkt × 5 dim × 3/5/7, pct 0-1)
+  + `matchups` (cross-season, last 6 H2H, FG markets).
+- Coach: `gen_cfb_coach_trends.py` → `cfb_coach_trends` (career, 5/10/15, 9 dims incl. division=conference,
+  primetime=kick≥19:00 ET; matchups career; `market_coverage` flags FG 2016-2025 vs deriv 2023-2025).
+- Wired into `run_cfb_week.sh`. **Prerequisite:** apply `cfb_outliers_trends.sql` (DDL) once in the data
+  project's SQL editor — until then both builders preflight-skip the load and leave existing data intact.
+- Validated: 136 teams, 290 coaches, 100% coach attribution; ATS/SU/OU/TT/1H all ~.500 (not inverted),
+  favorites 73.9% SU (sign correct); matchups reciprocal; windows cap to games available.
