@@ -513,15 +513,9 @@ struct ScreenshotHarnessView: View {
         rc.debugSet(status: .granted, subscriptionType: "monthly", isLoading: false)
         let admin = AdminModeStore()
         admin.debugSet(isAdmin: false)
-        return OutliersView(store: store, leaderboardStore: LeaderboardStore())
+        return OutliersView()
             .environment(ProAccessStore(revenueCat: rc, adminMode: admin))
             .environment(MainTabStore())
-            .environment(GamesStore())
-            .environment(NFLGameSheetStore())
-            .environment(CFBGameSheetStore())
-            .environment(NBAGameSheetStore())
-            .environment(NCAABGameSheetStore())
-            .environment(MLBGameSheetStore())
             // The hub's primitive rails read these from the env (hoisted to
             // MainTabView in the live app); seed them with the same NYY@BOS
             // fixture the insight-widget targets use so the rails populate.

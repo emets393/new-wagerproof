@@ -119,6 +119,7 @@
 		5DE46069FA242BA2E607C494 /* GlowingCardWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFC2055CABADF806768BD943 /* GlowingCardWrapper.swift */; };
 		5EACB93606C90957BD791E22 /* Slide1_Create247Agent.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB0D790D42EF9779CD687AB6 /* Slide1_Create247Agent.swift */; };
 		60A1C785CB61C518EA424D76 /* GameCardTeamAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA4B814965D42A3CE8C0E49C /* GameCardTeamAvatar.swift */; };
+		60B2D896CB72D629FB535F87 /* SportsbookLogoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA5C925076E53B4DF9D1F5AD /* SportsbookLogoView.swift */; };
 		60CCB720B16852DEEFB8DDED /* RegressionAccuracySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29B0187446F2DC61D600F002 /* RegressionAccuracySection.swift */; };
 		61A1970F8A4158B79BD48E20 /* SlideProgressIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02C4D320DD3978E87C3BAAE /* SlideProgressIndicator.swift */; };
 		61F60E72460D803F014B23D0 /* MLBGameBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E0943FB92748E889B3111C /* MLBGameBottomSheet.swift */; };
@@ -280,6 +281,10 @@
 		F63C935D30F4D277825A938A /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B45C6B45BC62B9AB882ECF /* LoginView.swift */; };
 		F6F54013A3168EA5C60F6D19 /* NCAABGameBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04661E77B0A77B0A982F58F4 /* NCAABGameBottomSheet.swift */; };
 		F78D581138171BB3B88E0F9B /* PropPlayerCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFC9F15738DD88AC6E52F533 /* PropPlayerCard.swift */; };
+		BB01VIEW0000000000000001 /* MLBBestPicksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB01VIEW0000000000000002 /* MLBBestPicksView.swift */; };
+		BB02TREND0000000000000001 /* OutliersTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB02TREND0000000000000002 /* OutliersTrendsView.swift */; };
+		BB02TREND0000000000000003 /* OutliersTrendCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB02TREND0000000000000004 /* OutliersTrendCard.swift */; };
+		BB02BANN0000000000000001 /* MLBBestPicksBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB02BANN0000000000000002 /* MLBBestPicksBanner.swift */; };
 		F82A42A8679D4EA61D14C6AA /* MLBBettingTrendsMatchupCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC0695C94F77FD81B3852B93 /* MLBBettingTrendsMatchupCard.swift */; };
 		F946967B53F8123FAECDF441 /* BullpenFatigueCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5D472437832BE76291DFEF /* BullpenFatigueCard.swift */; };
 		FA1FFD03ABF204BDB7720C1D /* Mixpanel in Frameworks */ = {isa = PBXBuildFile; productRef = BB703698D35FE4C863A7AB90 /* Mixpanel */; };
@@ -501,6 +506,10 @@
 		CE051AB365284675E46BF3BF /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		CFC80B26AB1614DCD2C1F98E /* OutlierGameTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutlierGameTile.swift; sourceTree = "<group>"; };
 		CFC9F15738DD88AC6E52F533 /* PropPlayerCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropPlayerCard.swift; sourceTree = "<group>"; };
+		BB01VIEW0000000000000002 /* MLBBestPicksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBBestPicksView.swift; sourceTree = "<group>"; };
+		BB02TREND0000000000000002 /* OutliersTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutliersTrendsView.swift; sourceTree = "<group>"; };
+		BB02TREND0000000000000004 /* OutliersTrendCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutliersTrendCard.swift; sourceTree = "<group>"; };
+		BB02BANN0000000000000002 /* MLBBestPicksBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBBestPicksBanner.swift; sourceTree = "<group>"; };
 		D02C4D320DD3978E87C3BAAE /* SlideProgressIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlideProgressIndicator.swift; sourceTree = "<group>"; };
 		D167B32D4107094EC28EDDA3 /* PixelOfficeAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelOfficeAssets.swift; sourceTree = "<group>"; };
 		D2BE9456E12BBF6829C690D7 /* NBAGameCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NBAGameCarousel.swift; sourceTree = "<group>"; };
@@ -535,6 +544,7 @@
 		E9C131E9EC58831A3C929871 /* PlayerPropDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPropDetailView.swift; sourceTree = "<group>"; };
 		EA38B96D577AA409A60E1A83 /* OnboardingSportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSportsView.swift; sourceTree = "<group>"; };
 		EA4B814965D42A3CE8C0E49C /* GameCardTeamAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCardTeamAvatar.swift; sourceTree = "<group>"; };
+		EA5C925076E53B4DF9D1F5AD /* SportsbookLogoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsbookLogoView.swift; sourceTree = "<group>"; };
 		EB0D790D42EF9779CD687AB6 /* Slide1_Create247Agent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Slide1_Create247Agent.swift; sourceTree = "<group>"; };
 		EBAD868D351E282132897170 /* GameDetailCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailCarousel.swift; sourceTree = "<group>"; };
 		EBBE34DC0FE659C53FC8A973 /* AgentPerformanceCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPerformanceCharts.swift; sourceTree = "<group>"; };
@@ -901,6 +911,7 @@
 				F9C3F68E01DE931002FE6E2B /* PlayerPropFeed.swift */,
 				95EA61E0EA58C705B94892F3 /* PlayerPropSelection.swift */,
 				EF853BEA3D4656EE099A4256 /* PropsFixtures.swift */,
+				BB01VIEW0000000000000002 /* MLBBestPicksView.swift */,
 				A2B8E49F05A64F21952381FA /* PropsView.swift */,
 			);
 			path = Props;
@@ -912,6 +923,7 @@
 				3852E235DD8FBA8C146E52A6 /* NFLPropPlayerCard.swift */,
 				526A41B5EA26D2064DD4B2A9 /* PlayerHeadshot.swift */,
 				3D6BBD93DC13A735BF2DB271 /* PropCardShimmer.swift */,
+				BB02BANN0000000000000002 /* MLBBestPicksBanner.swift */,
 				CFC9F15738DD88AC6E52F533 /* PropPlayerCard.swift */,
 			);
 			path = Components;
@@ -968,6 +980,7 @@
 				21406CE341E7F2ED58CDF478 /* OutlierSectionListView.swift */,
 				5C7B86B318D01E5B0CE458EE /* OutlierSections.swift */,
 				5373C13CD5C18C3A3ABE337C /* OutliersFixtures.swift */,
+				BB02TREND0000000000000002 /* OutliersTrendsView.swift */,
 				134F41664E275C25FE989D9C /* OutliersView.swift */,
 			);
 			path = Outliers;
@@ -987,6 +1000,7 @@
 				40A338903F6463736FA9DE1D /* OutlierInsightCard.swift */,
 				959A14DA9DEE718E0F9EFD2B /* OutlierMatchupCard.swift */,
 				8EE2236989C050C40B7F9C24 /* OutlierPropCard.swift */,
+				BB02TREND0000000000000004 /* OutliersTrendCard.swift */,
 				37FAD03649A5FBB39AA7B91E /* OutliersHeroHeader.swift */,
 				607878C2269AE18E1FA9DA5C /* OutliersHowToBanner.swift */,
 				A205627D0141D3B0822A1FD9 /* OutliersLearnMoreSheet.swift */,
@@ -1358,6 +1372,7 @@
 				BEC09E7AC7904877588142A6 /* MatchupGlassHero.swift */,
 				E853F2E6DAF54359DB2EAFAB /* ModelAccuracyWidget.swift */,
 				F6E6B563F7DB67C3446527A8 /* SportsbookButtons.swift */,
+				EA5C925076E53B4DF9D1F5AD /* SportsbookLogoView.swift */,
 				CC95998D490BF3E25989D082 /* SportTeamColors.swift */,
 				6872050AEA0E79DAB8FF199A /* WeatherDisplay.swift */,
 			);
@@ -1645,6 +1660,7 @@
 				3FCD7C1711706FBF1FE9AF12 /* GameCardFormatting.swift in Sources */,
 				C8338DAD98AE4782C42FFFE6 /* GameCardShimmer.swift in Sources */,
 				60A1C785CB61C518EA424D76 /* GameCardTeamAvatar.swift in Sources */,
+				60B2D896CB72D629FB535F87 /* SportsbookLogoView.swift in Sources */,
 				DBD7B66201115FE214465919 /* GameDateGrouping.swift in Sources */,
 				D0D7900E75C1351AFC2635D7 /* GameDetailCarousel.swift in Sources */,
 				B58605F9FDF7E5E8E0CAC1FF /* GameRowCard.swift in Sources */,
@@ -1732,6 +1748,8 @@
 				A4A8994506C67BAB51CC64FE /* OutlierPropCard.swift in Sources */,
 				BE29E260AAD1AD71FCEE3303 /* OutlierSectionListView.swift in Sources */,
 				BEBFD351029C913ED269548E /* OutlierSections.swift in Sources */,
+				BB02TREND0000000000000003 /* OutliersTrendCard.swift in Sources */,
+				BB02TREND0000000000000001 /* OutliersTrendsView.swift in Sources */,
 				764BF04DBD0E6DABD3B2956F /* OutliersDetailView.swift in Sources */,
 				2A05983E5362C3C1D611D365 /* OutliersFixtures.swift in Sources */,
 				D7AF26278573246D37D30B09 /* OutliersHeroHeader.swift in Sources */,
@@ -1764,6 +1782,8 @@
 				9A05EE7D55F104FC301C7F9D /* PropContextTiles.swift in Sources */,
 				AB9761DB8ACA71A17D8E1286 /* PropLineScrubber.swift in Sources */,
 				F78D581138171BB3B88E0F9B /* PropPlayerCard.swift in Sources */,
+				BB01VIEW0000000000000001 /* MLBBestPicksView.swift in Sources */,
+				BB02BANN0000000000000001 /* MLBBestPicksBanner.swift in Sources */,
 				9614E431495F590D2539411B /* PropsFixtures.swift in Sources */,
 				0C20F100A981961DA7FBF636 /* PropsView.swift in Sources */,
 				5C422E4A51DA4732D2708AC2 /* PublicAgentDetailView.swift in Sources */,

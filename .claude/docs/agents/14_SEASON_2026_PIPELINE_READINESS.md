@@ -8,12 +8,12 @@
 - **The NFL "dual-feed" constraint is real but NARROW.** The new model is self-sufficient **except one legacy column**: `nfl_predictions_epa.home_away_spread_cover_prob`, consumed by exactly **2 signals** (`legacy_primetime`, `legacy_fade`). Keep the legacy cron alive for that one column; everything else the new model computes itself from nflverse PBP.
 - **CFB has NO legacy coupling.** The new CFB model re-runs in-process (no join to a stored legacy prediction). The legacy `cfb_api_predictions` is dead and should be retired.
 - **Umbrella gap:** both new models are hand-run, hardcoded to 2025 (wk12 NFL / wk7 CFB), read backfill parquet, and live in `new-wagerproof/research/` — the wrong repo for cron. **Productionizing them is job #1.**
-- **Finals/grading:** CFB finals already land live (CFBD → `cfb_games`); NFL has **no** live finals writer (the existing scrape writes an incompatible schema). `signal_performance` and NFL/CFB agent-pick grading are unbuilt.
+- **Finals/grading:** CFB finals already land live (CFBD → `cfb_games`). **UPDATE 2026-06-18/27: NFL finals + signal/prop grading ARE now built** (`fill_finals.py`, `ingest_player_logs.py`, `grade_nfl_props`, `refresh_all_signal_performance`, `grade_week.sh` → `nfl-cfb-grade-daily` cron — see Cross-cutting gap #1). Still unbuilt: **AGENT-pick** grading for NFL/CFB (`grade-avatar-picks`, staged on PR #15).
 
 ## Current DB snapshot (offseason, 2026-06-21, project `jpxnjuwglavsjbgbasnl`)
 
 - **Legacy outputs EMPTY** (expected in June): `nfl_predictions_epa` 0, `nfl_betting_lines` 0, `nfl_epa_data` 0, `nfl_team_stats` 0, all 32 `nfl_<team>_games` 0, `nfl_week_ranges` 0; CFB legacy `cfb_api_predictions` 0, `cfb_weather_data` 0.
-- **Dryrun DUMMY data present:** `nfl_dryrun_games` 14 / `_picks` 112 / `_flags` 64 / `_props` 942; `cfb_dryrun_games` 56 / `_picks` 448 / `_flags` 196. `signal_performance` 56 rows (hand-loaded — **no automated writer**).
+- **Dryrun DUMMY data present:** `nfl_dryrun_games` 14 / `_picks` 112 / `_flags` 64 / `_props` 942; `cfb_dryrun_games` 56 / `_picks` 448 / `_flags` 196. `signal_performance` 56 rows (**automated writer now exists**: `refresh_all_signal_performance` — the 56 rows were its first run on the dryrun snapshot).
 - **Historical/static intact:** `nfl_historical_odds` 323K, `nfl_player_props` 915K, `nfl_player_game_logs` 11K, `cfb_games` 1688, `cfb_training` 1595, `cfb_team_mapping` 265.
 
 ---
@@ -112,8 +112,8 @@ CFBD finals **already land live**: `games_schedule_snapshot.py` writes `cfb_game
 
 ## Cross-cutting gaps (both sports)
 
-1. **`signal_performance` has no automated writer.** The Swift client expects an RPC `refresh_all_signal_performance(season)` that doesn't exist. Build: DDL + an aggregation RPC that grades each flag against its `grade_line`-selected line (`grade_play` math) and rolls up `n/wins/losses/pushes/hit_rate/units/roi` per `(sport, signal_key, season)`. **Units convention: flat −110** (`pnl_110 = won ? 100/110 : −1.0`, push 0) per `forecast_harness.py:653`.
-2. **`grade-avatar-picks` walls out NFL/CFB** ([index.ts:751](../../supabase/functions/grade-avatar-picks/index.ts)). Per doc 13: drop the filter, add a dryrun `final_*` source keyed by `game_id`, apply `grade_play` math, emit the `won/lost/push` enum (note dryrun uses `win/loss`).
+1. **✅ BUILT 2026-06-18 — `signal_performance` writer + grading RPCs exist** (this gap is closed; verified live 2026-06-27). `signal_performance` table + `refresh_all_signal_performance(p_season)` (the single weekly call: grades NFL picks → CFB picks → rebuilds the rollup) + `refresh_signal_performance(p_season)` + the per-market `_grade_pick(...)` math, all live on `jpxnjuwglavsjbgbasnl`. Units = flat −110. **Player props and game sides grade THE SAME WAY** — same daily cron, same RPC pattern, same DB connection: sides via `grade_nfl_dryrun_picks`/`grade_cfb_dryrun_picks` (inside `refresh_all_signal_performance`), props via `grade_nfl_props(season, week)` (per-week; fills `nfl_player_props.actual_value`/`result`). Orchestrated by `research/nfl-extreme-outcomes/grade_week.sh` → Render cron `nfl-cfb-grade-daily`: finals (`fill_finals.py`) → player logs (`ingest_player_logs.py` → `nfl_player_game_logs`, ATD = generated col) → `grade_nfl_props` weeks 1-22 → `refresh_all_signal_performance`. **8s API-timeout handling (already designed):** the heavy rollup runs over a DIRECT connection via `DATABASE_URL` (provisioned in the `wagerproof-model-secrets` env group for exactly this) — NOT PostgREST. `grade_nfl_props` itself runs in ~1.8s and is REST-safe. Proven: 800,502 / 915,174 `nfl_player_props` rows already graded (~87%; rest = DNP voids). **Operational hardening (only open item): `grade_week.sh` shells out to `psql`; if the Render runtime lacks it, steps 3-4 skip with a printed note. Either confirm `psql` is present or switch those two calls to `psycopg2` (a pip dep) over the same `DATABASE_URL`.** This is shared by sides+props (not prop-specific).
+2. **`grade-avatar-picks` walls out NFL/CFB** ([index.ts:751](../../supabase/functions/grade-avatar-picks/index.ts)) — AGENT-pick grading (separate from the dryrun signal/prop grading above; staged on PR #15 per the v3 prep, not yet shipped). Per doc 13: drop the filter, add a dryrun `final_*` source keyed by `game_id`, apply `grade_play` math, emit the `won/lost/push` enum (note dryrun uses `win/loss`).
 3. **Repo location.** The new models live in `new-wagerproof/research/`; the cron infra is in `cfb_automation/`. Decide where the productionized weekly pipelines live (and how the parquet-builder chain is sourced live).
 4. **GitHub-vs-Render ownership** of NFL/CFB crons is ambiguous (per the render-cron-migration note, NFL/CFB stayed on GitHub while others moved to Render). Confirm the authoritative owner and un-pause for Aug/Sep 2026.
 
@@ -131,12 +131,15 @@ CFBD finals **already land live**: `games_schedule_snapshot.py` writes `cfb_game
 - [ ] Live-source the weekly inputs currently faked by backfill parquet (NFL: matchup/odds_consensus/h1tt/props; CFB: CFBD + Odds API + event-odds).
 - [ ] Orchestration runners (fetch → build → forecast → generators), wired onto Render cron, season-scoped.
 
-**P2 — finals + grading**
-- [ ] NFL fill-results job (nfl_data_py finals + H1) → `nfl_dryrun_games.final_*`.
-- [ ] CFB join job `cfb_games` → `cfb_dryrun_games.final_*`.
-- [ ] `signal_performance` DDL + `refresh_all_signal_performance(season)` aggregation RPC.
-- [ ] Extend `grade-avatar-picks` to NFL/CFB (doc 13).
-- [ ] New Render fill+grade runners (mirror `mlb-morning-runner`): NFL Tue/Wed, CFB Sun/Mon, season-scoped.
+**P2 — finals + grading** (mostly BUILT 2026-06-18; verified live 2026-06-27)
+- [x] NFL fill-results job → `nfl_dryrun_games.final_*` (`fill_finals.py`, in `grade_week.sh`).
+- [x] CFB join job `cfb_games` → `cfb_dryrun_games.final_*` (`fill_finals.py`).
+- [x] `signal_performance` DDL + `refresh_all_signal_performance(season)` aggregation RPC (live).
+- [x] Player-prop grading: `grade_nfl_props(season, week)` + `nfl_player_game_logs` via `ingest_player_logs.py` (~87% of the 915K backfill already graded).
+- [x] Render fill+grade runner: `nfl-cfb-grade-daily` cron → `grade_week.sh` (season-scoped, daily, idempotent).
+- [ ] Extend `grade-avatar-picks` (AGENT picks) to NFL/CFB (doc 13) — staged on PR #15, not shipped.
+- [ ] **Op hardening:** ensure the grade cron can run the direct-connection RPCs on Render — confirm `DATABASE_URL` is set in the env group AND `psql` is available, OR switch `grade_week.sh` steps 3-4 from `psql` to `psycopg2` (removes the binary dependency). Affects sides+props equally.
+- [ ] **Live player-props feed:** `live_props.py` + Render cron `nfl-live-props-hourly` (BUILT 2026-06-27, in working tree, not yet committed) — writes `nfl_player_props` hourly so the prop signals have live lines to grade. See [[closing-line-definition]].
 
 ## Needs your confirmation
 - **The missing NFL builders** (`matchup.parquet` builder, the 1H-model trainer, `fetch.py`) — do these exist in another thread / elsewhere on disk, or do we rebuild them?

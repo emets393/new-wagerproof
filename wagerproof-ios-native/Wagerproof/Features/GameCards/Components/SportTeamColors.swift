@@ -87,6 +87,18 @@ enum NBATeams {
     ]
 }
 
+// MARK: - MLB
+
+enum MLBTeamColors {
+    static func colorPair(for team: String) -> TeamColorPair {
+        let pair = MLBTeams.colors(for: team)
+        return TeamColorPair(
+            primary: Color(hex: Int(pair.primary)),
+            secondary: Color(hex: Int(pair.secondary))
+        )
+    }
+}
+
 // MARK: - Hashed fallback (CFB / NCAAB)
 
 @MainActor

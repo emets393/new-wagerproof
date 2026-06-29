@@ -12,6 +12,7 @@ Usage:  python3 dryrun_wk12_trends.py [--no-load]
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -22,7 +23,19 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-SEASON, THROUGH_WEEK = 2025, 11
+# Season/week parametrized for production (env), defaulting to the Wk12-2025 dry-run so
+# an unparameterized run stays byte-for-byte the original. THROUGH_WEEK = completed weeks.
+SEASON = int(os.environ.get("NFL_SEASON", 2025))
+THROUGH_WEEK = int(os.environ.get("NFL_WEEK", 12)) - 1
+
+# splits spec: 6 markets x 5 dimensions x 3 windows, derived from game_log (current season).
+# market -> (game_log field, hit-letter, loss-letter). hit = cover/win/over.
+MKT = {"spread": ("ats", "W", "L"), "moneyline": ("su", "W", "L"),
+       "total": ("ou", "O", "U"), "team_total": ("tt", "O", "U"),
+       "h1_spread": ("h1_ats", "W", "L"), "h1_total": ("h1_ou", "O", "U")}
+DIMS = ["overall", "home", "away", "favorite", "underdog"]
+WINDOWS = [3, 5, 7]
+MATCHUP_CAP = 6   # last N head-to-head meetings (cross-season) per opponent
 
 _tm = pd.read_parquet(DATA / "team_mapping.parquet")
 NORM = {"LAR": "LA", "WSH": "WAS", "JAC": "JAX"}
@@ -119,9 +132,83 @@ def pct(w, total):
     return round(w / total, 3) if total else None
 
 
-def build():
+def _dim_ok(g, dim):
+    if dim == "overall":
+        return True
+    if dim == "home":
+        return g["is_home"]
+    if dim == "away":
+        return not g["is_home"]
+    if dim == "favorite":
+        return g["spread"] is not None and g["spread"] < 0
+    if dim == "underdog":
+        return g["spread"] is not None and g["spread"] > 0
+    return False
+
+
+def compute_splits(gl):
+    """game_log (newest-first) -> {market: {dimension: {window: {h,l,p,n,pct}}}}.
+    Per market, drop games missing that line, take the last `window` -> 'h of n'."""
+    out = {}
+    for mkt, (fld, hit, loss) in MKT.items():
+        out[mkt] = {}
+        for dim in DIMS:
+            games = [g for g in gl if _dim_ok(g, dim) and g.get(fld) is not None]
+            out[mkt][dim] = {}
+            for w in WINDOWS:
+                win = games[:w]
+                h = sum(1 for g in win if g[fld] == hit)
+                l = sum(1 for g in win if g[fld] == loss)
+                p = sum(1 for g in win if g[fld] == "P")
+                out[mkt][dim][str(w)] = {"h": h, "l": l, "p": p, "n": h + l,
+                                         "pct": pct(h, h + l)}
+    return out
+
+
+def fetch_matchup_history(key):
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+    cols = "matchup_key,date,away_team,home_team,winner_team,cover_team,ou_result"
+    rows, offset = [], 0
+    while True:
+        r = requests.get(f"{BASE_URL}/nfl_matchup_history?select={cols}&limit=1000&offset={offset}",
+                         headers=hdr, timeout=60).json()
+        if not isinstance(r, list) or not r:
+            break
+        rows.extend(r)
+        if len(r) < 1000:
+            break
+        offset += 1000
+    return rows
+
+
+def compute_matchups(history, ab):
+    """Last MATCHUP_CAP H2H meetings vs each opponent (cross-season): spread/ml/total."""
+    mine = [r for r in history if r["home_team"] == ab or r["away_team"] == ab]
+    by_opp = {}
+    for r in mine:
+        opp = r["away_team"] if r["home_team"] == ab else r["home_team"]
+        by_opp.setdefault(opp, []).append(r)
+    out = {}
+    for opp, rs in by_opp.items():
+        rs = sorted(rs, key=lambda r: r["date"] or "", reverse=True)[:MATCHUP_CAP]
+        ats_w = sum(1 for r in rs if r.get("cover_team") == ab)
+        ats_n = sum(1 for r in rs if r.get("cover_team") in (ab, opp))   # exclude push
+        ou_o = sum(1 for r in rs if (r.get("ou_result") or "").upper() == "OVER")
+        ou_n = sum(1 for r in rs if (r.get("ou_result") or "").upper() in ("OVER", "UNDER"))
+        su_w = sum(1 for r in rs if r.get("winner_team") == ab)
+        out[opp] = {
+            "meetings": len(rs),
+            "spread": {"h": ats_w, "n": ats_n, "pct": pct(ats_w, ats_n)},
+            "moneyline": {"h": su_w, "n": len(rs), "pct": pct(su_w, len(rs))},
+            "total": {"h": ou_o, "n": ou_n, "pct": pct(ou_o, ou_n)},
+        }
+    return out
+
+
+def build(history=None):
     f = pd.read_parquet(DATA / "h1tt_frame.parquet")
     f = f[(f.season == SEASON) & (f.week <= THROUGH_WEEK)].copy()
+    history = history or []
     teams = sorted(set(f.home_ab) | set(f.away_ab))
     out = []
     for ab in teams:
@@ -158,6 +245,8 @@ def build():
             last5_ats=[g["ats"] for g in gl[:5]],
             last5_ou=[g["ou"] for g in gl[:5]],
             game_log=gl,
+            splits=compute_splits(gl),                      # home/away + fav/dog x 3/5/7 x 6 markets
+            matchups=compute_matchups(history, ab),         # H2H vs each opponent (cross-season)
         ))
     return pd.DataFrame(out)
 
@@ -167,14 +256,19 @@ def main():
     ap.add_argument("--no-load", action="store_true")
     args = ap.parse_args()
 
-    df = build()
-    print(f"{len(df)} teams through week {THROUGH_WEEK}")
+    key = load_key()
+    history = fetch_matchup_history(key)
+    df = build(history)
+    print(f"{len(df)} teams through week {THROUGH_WEEK} | matchup-history rows: {len(history)}")
     print(df[["team_abbr", "su_record", "ats_w", "ats_l", "over_pct", "games"]].to_string(index=False))
     if args.no_load:
+        # show one team's splits sample for sanity
+        s = df.iloc[0]
+        print(f"\nsample splits for {s.team_abbr} — spread:", json.dumps(s.splits["spread"], indent=0))
+        print(f"sample matchups for {s.team_abbr}:", json.dumps(s.matchups, indent=0)[:400])
         return
 
     recs = json.loads(df.to_json(orient="records"))
-    key = load_key()
     hdr = {"apikey": key, "Authorization": f"Bearer {key}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
     requests.delete(f"{BASE_URL}/nfl_team_trends?season=eq.{SEASON}&through_week=eq.{THROUGH_WEEK}",

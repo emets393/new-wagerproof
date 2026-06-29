@@ -34,6 +34,11 @@ public enum CFBTeamAssets {
         team(for: name)?.abbr?.uppercased() ?? fallbackAbbr(from: name)
     }
 
+    /// School name for display (e.g. "Kansas", "Texas Tech") — not the abbreviation.
+    public static func displayName(for name: String) -> String {
+        team(for: name)?.teamName ?? name
+    }
+
     public static func logo(for name: String, dark: Bool = false) -> String? {
         guard let team = team(for: name) else { return nil }
         return dark ? (team.logoDark ?? team.logo) : (team.logo ?? team.logoDark)

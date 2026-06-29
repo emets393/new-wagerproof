@@ -260,4 +260,168 @@ enum PlayerPropFeed {
             lineOrder: row.battingOrder, metricLabel: metricLabel
         )]
     }
+
+    // MARK: - Best Picks Report → detail
+
+    /// Resolve a Best Picks row to the same detail payload the main Props
+    /// feed uses, preferring the pick's market on open.
+    static func selection(
+        for pick: MLBPlayerPropBestPick,
+        in matchups: [MLBPropMatchup]
+    ) -> PlayerPropSelection? {
+        guard let matchup = matchups.first(where: { $0.gamePk == pick.gamePk }) else { return nil }
+        return selection(for: pick, matchup: matchup)
+    }
+
+    static func selection(
+        for pick: MLBPlayerPropBestPick,
+        matchup: MLBPropMatchup
+    ) -> PlayerPropSelection? {
+        let filters = MLBPropFeedFilters(gamePk: matchup.gamePk, market: pick.market)
+
+        if pick.kind == .pitcher {
+            if matchup.awayStarter.pitcherId == pick.playerId {
+                return starterItem(matchup, starter: matchup.awayStarter, isAway: true, filters: filters, metricLabel: "BEST").first?.selection
+            }
+            if matchup.homeStarter.pitcherId == pick.playerId {
+                return starterItem(matchup, starter: matchup.homeStarter, isAway: false, filters: filters, metricLabel: "BEST").first?.selection
+            }
+            let props = matchup.pitcherProps(for: pick.playerId)
+            guard !props.isEmpty else { return nil }
+            return pitcherSelection(for: pick, matchup: matchup, props: props)
+        }
+
+        if let row = matchup.awayLineup.first(where: { $0.playerId == pick.playerId }) {
+            return batterItem(matchup, row: row, isAway: true, filters: filters, metricLabel: "BEST").first?.selection
+        }
+        if let row = matchup.homeLineup.first(where: { $0.playerId == pick.playerId }) {
+            return batterItem(matchup, row: row, isAway: false, filters: filters, metricLabel: "BEST").first?.selection
+        }
+        let props = matchup.batterProps(for: pick.playerId)
+        guard !props.isEmpty else { return nil }
+        return batterSelection(for: pick, matchup: matchup, props: props)
+    }
+
+    /// Last-resort builder when the matchup card isn't in the Props cache —
+    /// props rows still carry the charts/game log the detail page renders.
+    static func selection(
+        for pick: MLBPlayerPropBestPick,
+        props: [MLBPlayerPropRow],
+        officialDate: String,
+        gameTimeEt: String?
+    ) -> PlayerPropSelection? {
+        let isPitcher = pick.kind == .pitcher
+        let myProps = props.filter { row in
+            row.playerId == pick.playerId && row.isPitcher == isPitcher
+        }
+        guard !myProps.isEmpty else { return nil }
+
+        let sides = parseGameLabel(pick.gameLabel)
+        let teamName = pick.teamName ?? sides?.away ?? ""
+        let isAway = sides.map { MLBTeams.normalize(teamName) == MLBTeams.normalize($0.away) } ?? true
+        let opponentName = isAway ? (sides?.home ?? "Opponent") : (sides?.away ?? "Opponent")
+        let teamInfo = MLBTeams.info(for: teamName)
+        let oppInfo = MLBTeams.info(for: opponentName)
+
+        return PlayerPropSelection(
+            playerId: pick.playerId,
+            playerName: pick.playerName,
+            isPitcher: isPitcher,
+            position: isPitcher ? "SP" : nil,
+            batSide: nil,
+            teamName: teamName,
+            teamAbbr: teamInfo?.team ?? String(teamName.prefix(3)).uppercased(),
+            teamLogoUrl: teamInfo?.logoUrl,
+            opponentName: opponentName,
+            opponentAbbr: oppInfo?.team ?? String(opponentName.prefix(3)).uppercased(),
+            opposingStarterName: "Opposing starter",
+            opposingStarterHand: "R",
+            opposingArchetypeName: myProps.first?.oppArchetypeToday,
+            gameTimeEt: gameTimeEt,
+            officialDate: officialDate,
+            gamePk: pick.gamePk,
+            preferredMarket: pick.market,
+            props: myProps,
+            transitionID: "best-pick-\(pick.id)"
+        )
+    }
+
+    private static func pitcherSelection(
+        for pick: MLBPlayerPropBestPick,
+        matchup: MLBPropMatchup,
+        props: [MLBPlayerPropRow]
+    ) -> PlayerPropSelection? {
+        let isAway = teamMatches(pick.teamName, matchup.awayTeamName)
+        let starter = isAway ? matchup.awayStarter : matchup.homeStarter
+        let opp = isAway ? matchup.homeStarter : matchup.awayStarter
+        return PlayerPropSelection(
+            playerId: pick.playerId,
+            playerName: pick.playerName,
+            isPitcher: true,
+            position: "\(starter.hand)HP",
+            batSide: nil,
+            teamName: isAway ? matchup.awayTeamName : matchup.homeTeamName,
+            teamAbbr: isAway ? matchup.awayAbbr : matchup.homeAbbr,
+            teamLogoUrl: isAway ? matchup.awayLogoUrl : matchup.homeLogoUrl,
+            opponentName: isAway ? matchup.homeTeamName : matchup.awayTeamName,
+            opponentAbbr: isAway ? matchup.homeAbbr : matchup.awayAbbr,
+            opposingStarterName: opp.name,
+            opposingStarterHand: opp.hand,
+            opposingArchetypeName: nil,
+            gameTimeEt: matchup.gameTimeEt,
+            officialDate: matchup.officialDate,
+            gamePk: matchup.gamePk,
+            preferredMarket: pick.market,
+            props: props,
+            transitionID: "best-pick-\(pick.id)"
+        )
+    }
+
+    private static func batterSelection(
+        for pick: MLBPlayerPropBestPick,
+        matchup: MLBPropMatchup,
+        props: [MLBPlayerPropRow]
+    ) -> PlayerPropSelection? {
+        let isAway = teamMatches(pick.teamName, matchup.awayTeamName)
+        let opp = isAway ? matchup.homeStarter : matchup.awayStarter
+        return PlayerPropSelection(
+            playerId: pick.playerId,
+            playerName: pick.playerName,
+            isPitcher: false,
+            position: nil,
+            batSide: nil,
+            teamName: isAway ? matchup.awayTeamName : matchup.homeTeamName,
+            teamAbbr: isAway ? matchup.awayAbbr : matchup.homeAbbr,
+            teamLogoUrl: isAway ? matchup.awayLogoUrl : matchup.homeLogoUrl,
+            opponentName: isAway ? matchup.homeTeamName : matchup.awayTeamName,
+            opponentAbbr: isAway ? matchup.homeAbbr : matchup.awayAbbr,
+            opposingStarterName: opp.name,
+            opposingStarterHand: opp.hand,
+            opposingArchetypeName: opp.archetype?.archetype,
+            gameTimeEt: matchup.gameTimeEt,
+            officialDate: matchup.officialDate,
+            gamePk: matchup.gamePk,
+            preferredMarket: pick.market,
+            props: props,
+            transitionID: "best-pick-\(pick.id)"
+        )
+    }
+
+    private static func teamMatches(_ pickTeam: String?, _ matchupTeam: String) -> Bool {
+        guard let pickTeam, !pickTeam.isEmpty else { return false }
+        return MLBTeams.normalize(pickTeam) == MLBTeams.normalize(matchupTeam)
+    }
+
+    private static func parseGameLabel(_ label: String) -> (away: String, home: String)? {
+        let separators = [" @ ", " at ", " vs ", " vs. "]
+        for sep in separators {
+            let parts = label.components(separatedBy: sep)
+            if parts.count == 2 {
+                let away = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                let home = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+                if !away.isEmpty, !home.isEmpty { return (away, home) }
+            }
+        }
+        return nil
+    }
 }

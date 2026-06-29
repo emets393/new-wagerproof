@@ -106,3 +106,20 @@ services:
     startCommand: cd research/cfb-model && python3 live_odds_cfb.py --write && python3 live_odds_cfb_1h.py --write
     envVars:
       - fromGroup: wagerproof-model-secrets
+
+  # --- Live PRE-GAME player-props collector (NFL) -> nfl_player_props (6 markets, 4 books;
+  # per-event endpoint). Live counterpart to props_backfill+parse+load. Self-contained:
+  # rosters come from nfl_player_profiles (Supabase), so no gitignored parquet dependency.
+  # Same hourly cadence + pre-game guard + idle cost-guard as nfl-live-odds-hourly. Feeds
+  # the prop signals P1-P13 (closing line = T-60 snapshot per the closing-line policy).
+  - type: cron
+    name: nfl-live-props-hourly
+    runtime: python
+    schedule: "0 * * 9-12,1-2 *"            # every hour, NFL season — script controls 3x vs hourly
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
+      "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
+    startCommand: cd research/nfl-extreme-outcomes && python3 live_props.py --write
+    envVars:
+      - fromGroup: wagerproof-model-secrets
