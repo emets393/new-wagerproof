@@ -166,6 +166,37 @@ public struct AgentWithPerformance: Identifiable, Sendable, Hashable {
         self.agent = agent
         self.performance = performance
     }
+
+    /// Build a display model from a public-leaderboard row so Search can render the
+    /// same `AgentRowCard` the Agents tab uses. Personality/archetype aren't in the
+    /// leaderboard projection, so strategy chips are absent — avatar, name, sports,
+    /// record, and the form chart all match.
+    public init(leaderboard entry: AgentLeaderboardEntry) {
+        let agent = Agent(
+            id: entry.avatarId,
+            userId: entry.userId,
+            name: entry.name,
+            avatarEmoji: entry.avatarEmoji,
+            avatarColor: entry.avatarColor,
+            preferredSports: entry.preferredSports,
+            archetype: nil,
+            isPublic: true,
+            createdAt: "",
+            updatedAt: ""
+        )
+        let performance = AgentPerformance(
+            avatarId: entry.avatarId,
+            totalPicks: entry.totalPicks,
+            wins: entry.wins,
+            losses: entry.losses,
+            pushes: entry.pushes,
+            winRate: entry.winRate,
+            netUnits: entry.netUnits,
+            currentStreak: entry.currentStreak,
+            bestStreak: entry.bestStreak
+        )
+        self.init(agent: agent, performance: performance)
+    }
 }
 
 /// Category of a strategy tag, used to color-code the AgentRowCard's bottom

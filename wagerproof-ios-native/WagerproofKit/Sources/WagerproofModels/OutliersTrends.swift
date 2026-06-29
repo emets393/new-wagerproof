@@ -368,6 +368,78 @@ public struct OutliersTrendsCard: Identifiable, Hashable, Sendable {
     }
 }
 
+// MARK: - Market sections
+
+/// One bet-type group on the Outliers page: a section header + a horizontal card carousel.
+/// Market stopped being a filter pill — it's now the page's organizing dimension.
+public struct OutliersTrendsMarketSection: Identifiable, Hashable, Sendable {
+    public let marketKey: String
+    public let title: String
+    public let cards: [OutliersTrendsCard]
+
+    public var id: String { marketKey }
+
+    public init(marketKey: String, title: String, cards: [OutliersTrendsCard]) {
+        self.marketKey = marketKey
+        self.title = title
+        self.cards = cards
+    }
+
+    /// Canonical section order across every sport; unranked markets fall to the end.
+    private static let marketOrder: [String] = [
+        "spread", "moneyline", "total", "team_total", "h1_spread", "h1_total",
+        "ml", "rl", "ou", "f5_ml", "f5_rl", "f5_ou",
+        "player_pass_yds", "player_pass_tds", "player_rush_yds",
+        "player_reception_yds", "player_receptions", "player_anytime_td",
+    ]
+
+    private static func rank(_ key: String) -> Int {
+        marketOrder.firstIndex(of: key) ?? marketOrder.count
+    }
+
+    /// Buckets an already-sorted (best-first) card list by market into ordered sections,
+    /// capping each carousel. Overflow placeholder cards are dropped — carousels scroll instead.
+    public static func sections(from cards: [OutliersTrendsCard], cap: Int) -> [OutliersTrendsMarketSection] {
+        var keyOrder: [String] = []
+        var groups: [String: [OutliersTrendsCard]] = [:]
+        for card in cards where !card.isPlayerOverflow {
+            if groups[card.marketKey] == nil {
+                keyOrder.append(card.marketKey)
+                groups[card.marketKey] = []
+            }
+            groups[card.marketKey]?.append(card)
+        }
+        return keyOrder.map { key in
+            let bucket = groups[key] ?? []
+            return OutliersTrendsMarketSection(
+                marketKey: key,
+                title: bucket.first?.betTypeLabel ?? key,
+                cards: Array(bucket.prefix(cap))
+            )
+        }
+        .sorted { rank($0.marketKey) < rank($1.marketKey) }
+    }
+}
+
+// MARK: - Search index entry
+
+/// A trend card plus the context Search needs to render the exact `OutliersTrendCard`
+/// from the Outliers tab — the card's sport (for logos) and its game (for the schedule
+/// label + matchup names). The cross-sport search index is a list of these.
+public struct OutliersTrendsSearchEntry: Identifiable, Hashable, Sendable {
+    public let card: OutliersTrendsCard
+    public let sport: OutliersTrendsSport
+    public let game: OutliersTrendsGame?
+
+    public var id: String { "\(sport.rawValue)-\(card.id)" }
+
+    public init(card: OutliersTrendsCard, sport: OutliersTrendsSport, game: OutliersTrendsGame?) {
+        self.card = card
+        self.sport = sport
+        self.game = game
+    }
+}
+
 // MARK: - Split primitives
 
 public struct NFLTrendSplitCell: Codable, Sendable, Hashable {

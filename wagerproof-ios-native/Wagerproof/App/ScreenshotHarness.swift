@@ -225,6 +225,9 @@ struct ScreenshotHarnessView: View {
             .environment(InsightWidgetFixtures.trendsStore())
             .environment(InsightWidgetFixtures.f5Store())
             .environment(MLBGameSheetStore())
+            // OutliersTrendsStore drives the "Outliers" results section; it hydrates its
+            // cross-sport index live on first query (no fixture seed available).
+            .environment(OutliersTrendsStore())
     }
 
     @ViewBuilder
@@ -514,6 +517,7 @@ struct ScreenshotHarnessView: View {
         let admin = AdminModeStore()
         admin.debugSet(isAdmin: false)
         return OutliersView()
+            .environment(OutliersTrendsStore())
             .environment(ProAccessStore(revenueCat: rc, adminMode: admin))
             .environment(MainTabStore())
             // The hub's primitive rails read these from the env (hoisted to
