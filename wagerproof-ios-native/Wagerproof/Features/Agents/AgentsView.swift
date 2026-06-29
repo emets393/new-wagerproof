@@ -893,7 +893,8 @@ struct AgentsView: View {
 ///
 /// The inner placeholder group carries the unified `.shimmering()` sweep; the
 /// card chrome stays solid (applied via `.background` *after* the shimmer).
-private struct AgentRowCardShimmer: View {
+/// Internal (not private) so the Search "Agents" section reuses it for loading parity.
+struct AgentRowCardShimmer: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {

@@ -13,10 +13,9 @@ import WagerproofStores
 // Optional but strongly recommended (without them, the corresponding result
 // scope returns empty rows but the UI degrades gracefully):
 //
-//   .environment(GamesStore.self)          — game results across NFL/CFB/NBA/NCAAB/MLB
+//   .environment(GamesStore.self)          — matchup results across NFL/CFB/NBA/NCAAB/MLB
 //   .environment(AgentsStore.self)         — own-agent name matches
-//   .environment(OutliersStore.self)       — value & fade alert matches
-//   .environment(LiveScoresStore.self)     — live-score team matches
+//   .environment(OutliersTrendsStore.self) — Outliers trend-card matches (loaded sport)
 //   .environment(NFLGameSheetStore.self)   — opens NFL detail sheet on game tap
 //   .environment(CFBGameSheetStore.self)   — opens CFB detail sheet on game tap
 //   .environment(NBAGameSheetStore.self)   — opens NBA detail sheet on game tap
@@ -39,7 +38,7 @@ import WagerproofStores
 ///   - "Suggestions" — sport chips + browse-by-section entry points
 ///
 /// Active search layout:
-///   - Segmented scope chip row (`All / Games / Agents / Alerts / Live`)
+///   - Segmented scope chip row (`All / Matchup / Props / Agents / Outliers`)
 ///   - One `Section` per scope with a count header
 ///   - Each row is a `SearchResultRow` — tap fires the navigation handoff
 ///
@@ -58,8 +57,7 @@ struct SearchView: View {
     // lifted to the shell.
     @Environment(GamesStore.self) private var gamesEnv: GamesStore?
     @Environment(AgentsStore.self) private var agentsEnv: AgentsStore?
-    @Environment(OutliersStore.self) private var outliersEnv: OutliersStore?
-    @Environment(LiveScoresStore.self) private var liveScoresEnv: LiveScoresStore?
+    @Environment(OutliersTrendsStore.self) private var trendsEnv: OutliersTrendsStore?
 
     // Per-sport game sheet stores. Optional for the same reason — until
     // MainTabView lifts them, tapping a game result falls back to a tab
@@ -87,6 +85,9 @@ struct SearchView: View {
     @Namespace private var propNS
     /// Expanded insight surface pushed locally (insight chip tap).
     @State private var insightDestination: SearchInsightDestination?
+    /// Tapped Outliers trend card → presented full in a bottom sheet (the same
+    /// one the Outliers tab uses), keeping the user in their search results.
+    @State private var selectedTrend: SearchStore.SearchResult.Trend?
 
     /// `initialQuery` pre-seeds the search field — screenshot harness only.
     init(initialQuery: String = "") {
@@ -108,7 +109,13 @@ struct SearchView: View {
                     activeSearchSections
                 }
             }
-            .listStyle(.insetGrouped)
+            // Plain (not insetGrouped) so rows span the full screen width — that's
+            // what lets the horizontal scrollers (Explore / sport chips / Outliers
+            // rail) run true edge-to-edge instead of being clipped at grouped margins.
+            .listStyle(.plain)
+            // Hide the system list backing so our appSurface shows through every row /
+            // section header uniformly (no stray plain-list cell shading behind sections).
+            .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .background(Color.appSurface)
             .navigationTitle("Search")
@@ -136,8 +143,7 @@ struct SearchView: View {
                 store.bind(
                     games: gamesEnv,
                     agents: agentsEnv,
-                    outliers: outliersEnv,
-                    liveScores: liveScoresEnv,
+                    trends: trendsEnv,
                     props: propsEnv
                 )
                 // A harness-seeded query skips the keystroke hook below, so
@@ -155,6 +161,9 @@ struct SearchView: View {
                 NFLPropDetailView(selection: selection)
                     .navigationTransition(.zoom(sourceID: selection.transitionID, in: propNS))
             }
+            .sheet(item: $selectedTrend) { trend in
+                OutliersTrendDetailSheet(card: trend.card, sport: trend.sport, game: trend.game)
+            }
             .onChange(of: store.debouncedQuery) { _, newQuery in
                 // First real keystroke that produces a debounced query →
                 // fetch the public agents leaderboard so cross-user agent
@@ -171,6 +180,11 @@ struct SearchView: View {
     /// Lazily hydrate the slates behind the insight chips — fired on the
     /// first non-empty query, not at shell mount (search may never be used).
     private func hydrateInsightSources() {
+        // Lazy-load the cross-sport Outliers trend index the first time search is
+        // used (internally guarded — no-op once loaded or while a load is in flight).
+        if let outlierTrends = trendsEnv {
+            Task { await outlierTrends.loadSearchIndexIfNeeded() }
+        }
         if let trends = mlbTrendsEnv {
             Task { await trends.refreshIfNeeded() }
         }
@@ -196,29 +210,40 @@ struct SearchView: View {
 
         if !store.recentQueries.isEmpty {
             Section {
-                ForEach(store.recentQueries, id: \.self) { recent in
-                    Button {
-                        store.applyRecent(recent)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Color.appTextSecondary)
-                                .frame(width: 24)
-                            Text(recent)
-                                .font(.system(size: 16))
-                                .foregroundStyle(Color.appTextPrimary)
-                            Spacer()
-                            Image(systemName: "arrow.up.left")
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color.appTextMuted)
+                // Recents as a single edge-to-edge chip rail (tap to re-run).
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(store.recentQueries, id: \.self) { recent in
+                            Button {
+                                store.applyRecent(recent)
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "clock.arrow.circlepath")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Color.appTextSecondary)
+                                    Text(recent)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Color.appTextPrimary)
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Capsule().fill(Color.appSurfaceMuted))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .padding(.vertical, 4)
                 }
+                .contentMargins(.horizontal, 16, for: .scrollContent)
+                .scrollClipDisabled()
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             } header: {
-                HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 11, weight: .bold))
                     Text("Recent")
                         .textCase(.uppercase)
                     Spacer()
@@ -229,6 +254,7 @@ struct SearchView: View {
                     .textCase(nil)
                     .tint(Color.appPrimary)
                 }
+                .foregroundStyle(.secondary)
             }
         }
 
@@ -264,9 +290,11 @@ struct SearchView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
         } header: {
-            Text("Suggestions").textCase(.uppercase)
+            sectionHeader("Suggestions", icon: "lightbulb.fill")
         }
     }
 
@@ -316,7 +344,7 @@ struct SearchView: View {
 
                 SearchToolCard(
                     title: "Outliers",
-                    subtitle: "Value & fade alerts",
+                    subtitle: "Situational betting trends",
                     action: {
                         store.commitCurrentQueryToRecents()
                         tabStore.select(.outliers)
@@ -327,17 +355,16 @@ struct SearchView: View {
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
-            // The insetGrouped List keeps ~16pt section margins no matter
-            // what the row insets say. Disabling the scroll clip lets cards
-            // draw across those margins to the physical screen edges while
-            // scrolling; at rest they snap to the section margin (16pt
-            // gutter), which doubles as the design's resting inset.
+            // Full-bleed row (leading/trailing insets 0) + 16pt content margin gives
+            // the cards breathing room while the scroller itself runs screen-edge to
+            // screen-edge; scrollClipDisabled lets cards bleed past the edges, unmasked.
+            .contentMargins(.horizontal, 16, for: .scrollContent)
             .scrollClipDisabled()
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
         } header: {
-            Text("Explore").textCase(.uppercase)
+            sectionHeader("Explore", icon: "sparkles")
         }
     }
 
@@ -376,62 +403,47 @@ struct SearchView: View {
             }
             .padding(.vertical, 4)
         }
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 0))
+        // Full-bleed, edge-to-edge, unmasked — same treatment as the other scrollers.
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+        .scrollClipDisabled()
+        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     // MARK: - Active search (with query)
 
     @ViewBuilder
     private var activeSearchSections: some View {
-        if store.isDebouncing && store.totalResultCount == 0 {
-            // Skeleton rows shaped like SearchResultRow while the 200ms
-            // debounce settles, so the loading state reads as results
-            // arriving rather than a spinner. Suppressed once we have stale
-            // results to render (the `== 0` guard above).
-            Section(header: Text("Searching").textCase(.uppercase)) {
-                ForEach(0..<5, id: \.self) { _ in
-                    SearchResultRowSkeleton()
-                }
-            }
-        }
+        // The Outliers cross-sport index loads over the network; the other sources
+        // are in-memory, so this is the one section that needs a real loading state.
+        let trendsLoading = trendsEnv?.isLoadingSearchIndex ?? false
 
-        if store.totalResultCount == 0 && !store.isDebouncing {
+        if store.isDebouncing && store.totalResultCount == 0 {
+            // Card-shaped scaffold while the 200ms debounce settles, so the loading
+            // state reads as result cards arriving rather than a spinner.
+            searchLoadingScaffold
+        } else if store.totalResultCount == 0 && !trendsLoading && !store.isDebouncing {
             ContentUnavailableView.search(text: store.debouncedQuery)
                 .listRowBackground(Color.clear)
         } else {
             if showsScope(.games) && !store.gameResults.isEmpty {
-                Section(header: sectionHeader("Games", count: store.gameResults.count)) {
+                Section(header: sectionHeader("Matchup", icon: "sportscourt.fill", count: store.gameResults.count)) {
                     ForEach(store.gameResults) { result in
-                        // MLB (in season) gets the rich matchup card with the
-                        // insight-chip rail; other sports keep the plain row —
-                        // zero regression while their chips are deferred.
-                        if result.sport == .mlb, let gamePk = mlbGamePk(for: result) {
-                            SearchMatchupCard(
-                                result: result,
-                                teasers: insightTeasers(for: result, gamePk: gamePk),
-                                loadingKinds: insightLoadingKinds(gamePk: gamePk),
-                                onOpenGame: { openGame(result) },
-                                onOpenInsight: { kind in openInsight(kind, gamePk: gamePk) }
-                            )
+                        // Render the EXACT per-sport matchup card from the Games feed.
+                        matchupCard(result)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
                             .listRowInsets(EdgeInsets())
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
-                        } else {
-                            SearchResultRow(
-                                icon: "trophy.fill",
-                                tint: Color.appPrimary,
-                                primary: "\(result.awayTeam) @ \(result.homeTeam)",
-                                secondary: gameSecondary(result),
-                                onTap: { openGame(result) }
-                            )
-                        }
                     }
                 }
             }
             if showsScope(.players) {
                 let players = store.playerResults
                 if !players.isEmpty {
-                    Section(header: sectionHeader("Players", count: players.count)) {
+                    Section(header: sectionHeader("Props", icon: "figure.run", count: players.count)) {
                         ForEach(players) { player in
                             playerResultRow(player)
                         }
@@ -439,131 +451,145 @@ struct SearchView: View {
                 }
             }
             if showsScope(.agents) && !store.agentResults.isEmpty {
-                Section(header: sectionHeader("Agents", count: store.agentResults.count)) {
+                Section(header: sectionHeader("Agents", icon: "brain.head.profile", count: store.agentResults.count)) {
                     ForEach(store.agentResults) { result in
-                        SearchResultRow(
-                            icon: "brain.head.profile",
-                            tint: Color.appAccentPurple,
-                            primary: result.name,
-                            secondary: agentSecondary(result),
-                            trailingDetail: agentTrailing(result),
-                            onTap: { openAgent(result) }
-                        )
+                        // The same AgentRowCard the Agents tab renders.
+                        AgentRowCard(agent: result.model, onTap: { openAgent(result) })
+                            .padding(.vertical, 4)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
                 }
             }
-            if showsScope(.outliers) && !store.outlierResults.isEmpty {
-                Section(header: sectionHeader("Alerts", count: store.outlierResults.count)) {
-                    ForEach(store.outlierResults) { result in
-                        SearchResultRow(
-                            icon: "bell.badge.fill",
-                            tint: Color.appAccentAmber,
-                            primary: result.primaryLabel,
-                            secondary: result.secondaryLabel,
-                            onTap: { openOutlier(result) }
-                        )
+            if showsScope(.outliers) {
+                if !store.trendResults.isEmpty {
+                    Section(header: sectionHeader("Outliers", icon: "chart.line.uptrend.xyaxis", count: store.trendResults.count)) {
+                        outliersRail(store.trendResults)
                     }
-                }
-            }
-            if showsScope(.scores) && !store.scoreResults.isEmpty {
-                Section(header: sectionHeader("Live", count: store.scoreResults.count)) {
-                    ForEach(store.scoreResults) { result in
-                        SearchResultRow(
-                            icon: "sportscourt.fill",
-                            tint: Color.appAccentBlue,
-                            primary: scorePrimary(result),
-                            secondary: scoreSecondary(result),
-                            trailingDetail: result.isLive ? "LIVE" : nil,
-                            onTap: { openScore(result) }
-                        )
+                } else if trendsLoading {
+                    // Cross-sport index still fetching → shimmer rail in its place.
+                    Section(header: sectionHeader("Outliers", icon: "chart.line.uptrend.xyaxis")) {
+                        outliersShimmerRail
                     }
                 }
             }
         }
+    }
+
+    /// Real Outliers carousel — the OutliersTrendCard rail, edge-to-edge + unmasked.
+    private func outliersRail(_ results: [SearchStore.SearchResult.Trend]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(alignment: .top, spacing: 12) {
+                ForEach(results) { result in
+                    // The same OutliersTrendCard the Outliers tab renders.
+                    Button { openTrend(result) } label: {
+                        OutliersTrendCard(card: result.card, sport: result.sport, game: result.game)
+                            .frame(width: 300)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+        .scrollClipDisabled()
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    // MARK: - Loading shimmer scaffolding
+
+    /// Shown the instant a search is submitted (debounce window): representative
+    /// card skeletons under real section headers so the result cards appear to
+    /// fade in rather than pop after a blank pause. Reuses each feed's own shimmer.
+    @ViewBuilder
+    private var searchLoadingScaffold: some View {
+        Section(header: sectionHeader("Matchup", icon: "sportscourt.fill")) {
+            GameCardShimmer()
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+        Section(header: sectionHeader("Outliers", icon: "chart.line.uptrend.xyaxis")) {
+            outliersShimmerRail
+        }
+    }
+
+    /// Shimmer placeholder rail for the Outliers section while the cross-sport
+    /// index fetches — same geometry as `outliersRail` so the swap doesn't shift.
+    private var outliersShimmerRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(0..<4, id: \.self) { _ in
+                    OutliersTrendCardShimmer()
+                        .frame(width: 300)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+        .scrollClipDisabled()
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     private func showsScope(_ s: SearchStore.SearchScope) -> Bool {
         store.scope == .all || store.scope == s
     }
 
-    private func sectionHeader(_ title: String, count: Int) -> some View {
-        HStack {
+    private func sectionHeader(_ title: String, icon: String, count: Int? = nil) -> some View {
+        HStack(spacing: 6) {
+            // Icon inherits the header's secondary label color so it matches the title.
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .bold))
             Text(title)
                 .textCase(.uppercase)
             Spacer()
-            Text("\(count)")
-                .foregroundStyle(Color.appTextMuted)
-                .textCase(nil)
+            if let count {
+                Text("\(count)")
+                    .foregroundStyle(Color.appTextMuted)
+                    .textCase(nil)
+            }
         }
+        .foregroundStyle(.secondary)
     }
 
-    // MARK: - Result row formatters
+    // MARK: - Result cards
 
-    private func gameSecondary(_ result: SearchStore.SearchResult.Game) -> String? {
-        var parts: [String] = [result.sport.label]
-        if let time = result.gameTime, !time.isEmpty {
-            parts.append(prettyTime(time))
+    /// The exact per-sport matchup card from the Games feed, resolved from the
+    /// bound GamesStore by `resolvedId`. Tapping hands off to the Games tab and
+    /// opens the detail sheet (same `openGame` path the plain row used).
+    @ViewBuilder
+    private func matchupCard(_ result: SearchStore.SearchResult.Game) -> some View {
+        let onPress = { openGame(result) }
+        switch result.sport {
+        case .nfl:
+            if let g = gamesEnv?.games.nfl.first(where: { $0.uniqueId == result.resolvedId }) {
+                NFLGameCard(game: g, onPress: onPress)
+            }
+        case .cfb:
+            if let g = gamesEnv?.games.cfb.first(where: { $0.uniqueId == result.resolvedId }) {
+                CFBGameCard(game: g, onPress: onPress)
+            }
+        case .nba:
+            if let g = gamesEnv?.games.nba.first(where: { $0.id == result.resolvedId }) {
+                NBAGameCard(game: g, onPress: onPress)
+            }
+        case .ncaab:
+            if let g = gamesEnv?.games.ncaab.first(where: { $0.id == result.resolvedId }) {
+                NCAABGameCard(game: g, onPress: onPress)
+            }
+        case .mlb:
+            if let g = gamesEnv?.games.mlb.first(where: { $0.id == result.resolvedId }) {
+                MLBGameCard(game: g, onPress: onPress)
+            }
         }
-        return parts.joined(separator: " \u{00B7} ")
     }
-
-    private func agentSecondary(_ result: SearchStore.SearchResult.Agent) -> String? {
-        var parts: [String] = []
-        parts.append(result.isPublic ? "Public agent" : "Your agent")
-        if let rate = result.winRate {
-            // Win rate is stored as 0.0–1.0 in the leaderboard payload.
-            parts.append("\(Int((rate * 100).rounded()))% W")
-        }
-        return parts.joined(separator: " \u{00B7} ")
-    }
-
-    private func agentTrailing(_ result: SearchStore.SearchResult.Agent) -> String? {
-        guard let n = result.netUnits else { return nil }
-        let sign = n >= 0 ? "+" : ""
-        return String(format: "\(sign)%.1fu", n)
-    }
-
-    private func scorePrimary(_ result: SearchStore.SearchResult.Score) -> String {
-        // "LAL 88 vs GSW 82" — fits in one line at body size; the result row
-        // truncates if the abbreviations are unusually long.
-        "\(result.awayAbbr) \(result.awayScore) vs \(result.homeAbbr) \(result.homeScore)"
-    }
-
-    private func scoreSecondary(_ result: SearchStore.SearchResult.Score) -> String {
-        if result.timeRemaining.isEmpty {
-            return result.league.uppercased()
-        }
-        return "\(result.league.uppercased()) \u{00B7} \(result.timeRemaining)"
-    }
-
-    /// Best-effort time formatter for game cards. The upstream `gameTime`
-    /// fields are a mix of ISO 8601, "yyyy-MM-dd HH:mm:ss", and bare dates;
-    /// we surface what we can parse, otherwise return the raw string.
-    private func prettyTime(_ raw: String) -> String {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = iso.date(from: raw) {
-            return Self.shortFormatter.string(from: d)
-        }
-        iso.formatOptions = [.withInternetDateTime]
-        if let d = iso.date(from: raw) {
-            return Self.shortFormatter.string(from: d)
-        }
-        let df = DateFormatter()
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        if let d = df.date(from: raw) {
-            return Self.shortFormatter.string(from: d)
-        }
-        return raw
-    }
-
-    private static let shortFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale.current
-        f.dateFormat = "EEE h:mm a"
-        return f
-    }()
 
     private func sportIcon(_ sport: SearchStore.GamesStoreSport) -> String {
         switch sport {
@@ -630,21 +656,11 @@ struct SearchView: View {
         tabStore.select(.agents)
     }
 
-    private func openOutlier(_ result: SearchStore.SearchResult.Outlier) {
+    private func openTrend(_ result: SearchStore.SearchResult.Trend) {
         store.commitCurrentQueryToRecents()
-        tabStore.select(.outliers)
-        // Same caveat as agents — outlier detail push lives inside
-        // OutliersView's stack. The user lands on the Outliers hub; a
-        // future MainTabStore extension can carry the target category and
-        // OutliersView can react.
-    }
-
-    private func openScore(_ result: SearchStore.SearchResult.Score) {
-        store.commitCurrentQueryToRecents()
-        tabStore.select(.scoreboard)
-        // Live score detail modal opens from ScoreboardView's own sheet
-        // store. Same handoff pattern — switch tab, user sees the live
-        // game card and taps to drill in.
+        // Present the full trend card in the same bottom sheet the Outliers tab
+        // uses, rather than switching tabs — the user stays in their results.
+        selectedTrend = result
     }
 
     // MARK: - MLB insight chips (matchup cards)
@@ -875,7 +891,7 @@ private enum BrowseEntry: CaseIterable, Hashable {
     var subtitle: String {
         switch self {
         case .trendingAgents: return "Browse the leaderboard"
-        case .topOutliers: return "Value & fade alerts"
+        case .topOutliers: return "Situational betting trends"
         case .liveGames: return "Current scoreboard"
         }
     }
@@ -883,24 +899,45 @@ private enum BrowseEntry: CaseIterable, Hashable {
 
 // MARK: - Loading skeleton
 
-/// Skeleton mirror of `SearchResultRow`: a 36pt leading icon square, a
-/// two-line text stack (16pt primary / 13pt secondary), and a trailing
-/// chevron placeholder. Shown while the debounce settles so the search list
-/// reads as results arriving rather than a spinner. Only the inner
-/// placeholder group shimmers (see GameCardShimmer for the shared pattern).
-private struct SearchResultRowSkeleton: View {
+/// Skeleton mirror of `OutliersTrendCard` for the Search "Outliers" rail while the
+/// cross-sport index fetches. Lays Skeleton* primitives where the avatar / name /
+/// betting line / trend rows land so the crossfade to real cards never shifts the
+/// layout. The placeholder group shimmers; the card chrome is applied solid after.
+private struct OutliersTrendCardShimmer: View {
     var body: some View {
-        HStack(spacing: 12) {
-            // Matches SearchResultRow.iconBadge — 36pt rounded square.
-            SkeletonBlock(width: 36, height: 36, cornerRadius: 8)
-            VStack(alignment: .leading, spacing: 2) {
-                SkeletonBlock(width: 170, height: 14)   // primary (16pt)
-                SkeletonBlock(width: 110, height: 11)   // secondary (13pt)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                SkeletonCircle(36)
+                VStack(alignment: .leading, spacing: 5) {
+                    SkeletonBlock(width: 150, height: 12) // name — bet type
+                    SkeletonBlock(width: 90, height: 10)  // detail
+                    SkeletonBlock(width: 120, height: 10) // matchup
+                }
+                Spacer(minLength: 4)
+                VStack(alignment: .trailing, spacing: 3) {
+                    SkeletonBlock(width: 44, height: 9)
+                    SkeletonBlock(width: 36, height: 9)
+                }
             }
-            Spacer(minLength: 8)
-            SkeletonBlock(width: 10, height: 13, cornerRadius: 3) // chevron
+            SkeletonBlock(height: 34, cornerRadius: 10)   // betting line block
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(0..<5, id: \.self) { _ in
+                    HStack(spacing: 6) {
+                        SkeletonCircle(6)
+                        SkeletonBlock(width: 150, height: 10)
+                        Spacer(minLength: 8)
+                        SkeletonBlock(width: 30, height: 10)
+                    }
+                }
+            }
         }
-        .padding(.vertical, 8)
         .shimmering()
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.appBorder.opacity(0.35), lineWidth: 0.5)
+        )
     }
 }

@@ -233,6 +233,17 @@ only), or run live via `-uiScreenshotMode mainTabs -tab props -propsSport nfl`
 
 ## 3. Outliers (Outliers tab) — `Features/Outliers/OutliersView.swift`
 
+> **Current hub (`outliers-trends-ios`):** `OutliersView` mounts `OutliersTrendsView(store: OutliersTrendsStore)` —
+> pinned filter pills (sport / subject / matchup) over per-market section carousels of **`OutliersTrendCard`**
+> (`Outliers/Components/OutliersTrendCard.swift`, width 300), grouped by `OutliersTrendsMarketSection`. Each card is a
+> **fixed-height compact preview** (`compactCardHeight`, `compactRowCap` = 3 single-line trend rows). Its footer previews
+> the hidden rows' strengths as colored **% chips** (`● 80% ● 73% …`, tinted by `trendColor`, capped at `footerPreviewCap`
+> with "+N") next to a "More ›" CTA — or just a "View breakdown ›" CTA when nothing is hidden. Tapping the card presents
+> **`OutliersTrendDetailSheet`** (`Outliers/Components/OutliersTrendDetailSheet.swift`),
+> which renders the same card `.expanded` (every betting line + trend row) — so the card never grows vertically in the
+> rail. The Search "Outliers" rail reuses the identical card → same sheet. The rails/cards below are the prior
+> (2026-06-11) design and are no longer mounted by `OutliersView`.
+
 The hub branch is **three primitive-typed rails** (2026-06-11 redesign): Betting Trends,
 First-5, and Player Props — each a horizontal rail of the strongest cards across the slate,
 ranked by `OutlierSections` (`Outliers/OutlierSections.swift`) off the same Kit insight
@@ -319,12 +330,35 @@ The consumer of this index. Current primitives:
 | AngledStatSheetGraphic / StackedStatCardsGraphic / RadarSweepGraphic | 3 | `SearchToolCards.swift:66,213,310` | row/item pools, timing |
 | SearchResultRow (generic result line item) | 1 | `Search/Components/SearchResultRow.swift:19` | icon + tint + two lines + trailing |
 | SearchMatchupCard + InsightChip (MLB game result w/ teaser chips) | 1 | `Search/Components/SearchMatchupCard.swift:11,124` | `SearchResult.Game` + `[InsightTeaser]` |
-| SearchResultRowSkeleton | 3 | `SearchView.swift` | — |
+| OutliersTrendCardShimmer | 3 | `SearchView.swift` | — (mirrors `OutliersTrendCard` for the loading rail) |
 
-MLB game results render through `SearchMatchupCard` — header (game-sheet handoff) + a rail of
-Trends / First-5 / Props `InsightChip` teasers (Kit adapters `MLBTrendsInsight` /
-`MLBF5Insight` / `MLBPropsInsight`) that push the expanded surface locally in Search's stack.
-MLB player results render the real `PropPlayerCard`. Other sports still use `SearchResultRow`.
+Section headers (both empty-state `Explore`/`Recent`/`Suggestions` and active-search
+`Matchup`/`Props`/`Agents`/`Outliers`) use the shared `sectionHeader(title, icon:, count:)` —
+icon + title share the `.secondary` label color. Recent searches render as an edge-to-edge chip
+rail. **Loading scaffolding**: a card-shaped `searchLoadingScaffold` (a `GameCardShimmer` + the
+`outliersShimmerRail`) shows during the debounce window; the **Outliers** section swaps in
+`outliersShimmerRail` (4 × `OutliersTrendCardShimmer`) whenever `OutliersTrendsStore.isLoadingSearchIndex`
+is true and no trend results are in yet — the one section that loads over the network.
+
+**Every result renders its parent feed's exact card** (not a generic row): **Matchup** →
+per-sport `NFLGameCard` / `CFBGameCard` / `NBAGameCard` / `NCAABGameCard` / `MLBGameCard`
+(resolved from the bound `GamesStore` by `resolvedId`, tap = game-sheet handoff); **Props** →
+`PropPlayerCard` / `NFLPropPlayerCard`; **Agents** → `AgentRowCard` (own agents use the real
+`AgentWithPerformance`; public/leaderboard agents adapt via `AgentWithPerformance(leaderboard:)`,
+which lacks personality so strategy chips are absent); **Outliers** → `OutliersTrendCard`. The
+result structs (`SearchResult.Game/Agent/Trend`) carry the full underlying model so the view can
+reconstruct each card. `SearchResultRow` / `SearchMatchupCard` are now only used by the empty-state
++ skeletons (and the dormant MLB insight-chip path).
+
+Result scopes / sections are **Matchup** (`gameResults`), **Props** (`playerResults`),
+**Agents** (`agentResults`), and **Outliers** (`trendResults`). The Outliers section searches
+`OutliersTrendsStore.searchIndex` — a **cross-sport** index of `OutliersTrendsSearchEntry`
+(card + sport + game, NFL + NCAAF + MLB) loaded once + cached via `loadSearchIndexIfNeeded()`,
+independent of the Outliers tab's active sport. The store is shell-hoisted in `MainTabView`
+(shared with the Outliers tab) and the index hydrates lazily on the first search query.
+`SearchStore.bind(games:agents:trends:props:)` wires the upstream stores. The legacy value/fade
+"Alerts" and "Live" scores scopes were removed (their `OutliersStore` / `LiveScoresStore` were
+never injected into the shell).
 
 ---
 
@@ -443,7 +477,7 @@ The entity types a search index needs, with the primitive to render and the key 
 | Agent | AgentRowCard or chat `agent` component | agent id | Agents tab → AgentDetailView |
 | Agent pick | AgentPickItem or chat `agent_pick` | agent pick id | agent detail picks list |
 | Editor pick | CompactPickCard or chat `editor_pick` | editor pick id | Picks tab → PickDetailBottomSheet |
-| Outlier alert | OutlierAlertCard / OutlierGameTile | game id + signal | Outliers tab |
+| Outlier trend | OutliersTrendCard (also a Search Outliers result via `trendResults`) | card id (subject + market + game) | tap → `OutliersTrendDetailSheet` bottom sheet (full card; same sheet from Outliers carousel + Search rail) |
 | Live game | LiveScoreCard | live game id | Scoreboard |
 | Tool | ToolBannerCard or chat `tool` | tool category (ToolRouter; survivors: mlbRegression, nbaAccuracy, ncaabAccuracy) | Games tab banners / Outliers hub |
 | Game trends matrix (MLB/NBA/NCAAB) | BettingTrendsInsightWidget (digest) → BettingTrendsDetailSheet (via sport adapter) | sport + game id | game detail sheet widget → expand sheet |

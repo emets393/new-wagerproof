@@ -3,10 +3,24 @@ import WagerproofDesign
 import WagerproofModels
 
 struct OutliersTrendCard: View {
+    /// Carousel cards are a fixed-size compact preview; the detail sheet renders
+    /// the same card `.expanded` (all rows, no height cap, no footer).
+    enum DisplayMode { case compact, expanded }
+
     let card: OutliersTrendsCard
     var sport: OutliersTrendsSport = .nfl
     var game: OutliersTrendsGame?
+    var displayMode: DisplayMode = .compact
     var onExpandPlayers: (() -> Void)?
+
+    /// Compact carousel cards show at most this many trend rows; the rest are
+    /// summarized by the "+N more" footer and revealed in the detail sheet.
+    private let compactRowCap = 3
+    /// Every compact card locks to one height so a carousel reads as a tidy,
+    /// uniform row instead of a ragged staircase. Tall enough for the worst case:
+    /// header (title + optional detail + matchup) + a betting-line chip row +
+    /// `compactRowCap` single-line trend rows + the % preview footer.
+    private let compactCardHeight: CGFloat = 240
 
     private var avatarSport: String {
         switch sport {
@@ -14,6 +28,32 @@ struct OutliersTrendCard: View {
         case .mlb: return "mlb"
         default: return "nfl"
         }
+    }
+
+    private var isCompact: Bool { displayMode == .compact }
+
+    private var visibleRows: [OutliersTrendsCardRow] {
+        isCompact ? Array(card.rows.prefix(compactRowCap)) : card.rows
+    }
+
+    /// Trend rows not shown in the compact body — previewed as % chips in the footer.
+    private var hiddenRows: [OutliersTrendsCardRow] {
+        isCompact ? Array(card.rows.dropFirst(compactRowCap)) : []
+    }
+
+    /// Footer shows at most this many hidden-row % chips; the rest roll into "+N".
+    private let footerPreviewCap = 3
+
+    private var footerPreviewRows: [OutliersTrendsCardRow] {
+        Array(hiddenRows.prefix(footerPreviewCap))
+    }
+
+    private var footerOverflowCount: Int {
+        max(0, hiddenRows.count - footerPreviewCap)
+    }
+
+    private func pctText(_ row: OutliersTrendsCardRow) -> String {
+        "\(Int((row.dominantPct * 100).rounded()))%"
     }
 
     var body: some View {
@@ -28,7 +68,7 @@ struct OutliersTrendCard: View {
     }
 
     private var cardContent: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top, spacing: 8) {
                 header
                 Spacer(minLength: 4)
@@ -42,36 +82,114 @@ struct OutliersTrendCard: View {
                     .foregroundStyle(Color.appPrimary)
             }
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(card.rows) { row in
-                    HStack(alignment: .top, spacing: 7) {
-                        // Icon keyed to the bullet's trend dimension (road games,
-                        // underdog, non-division, vs OPP, …) so each split reads
-                        // at a glance. Tinted by trend strength like the old dot.
-                        Image(systemName: Self.rowIcon(for: row.text))
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(trendColor(row.dominantPct))
-                            .frame(width: 14, alignment: .center)
-                            .padding(.top, 1)
-                        Text(rowDisplayText(row))
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Color.appTextSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 4)
-                        Text("\(Int((row.dominantPct * 100).rounded()))%")
-                            .font(.system(size: 12, weight: .heavy, design: .rounded))
-                            .foregroundStyle(trendColor(row.dominantPct))
-                            .monospacedDigit()
-                    }
+                ForEach(visibleRows) { row in
+                    trendRow(row)
                 }
+            }
+            // Pin the footer to the bottom of the fixed-height compact card so
+            // sparse cards still read as deliberate (header top, footer bottom).
+            if isCompact {
+                Spacer(minLength: 0)
+                compactFooter
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: isCompact ? compactCardHeight : nil, alignment: .top)
         .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Color.appBorder.opacity(0.35), lineWidth: 0.5)
         )
+        // Make the whole fixed-height frame (incl. the footer gap) the tap target.
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func trendRow(_ row: OutliersTrendsCardRow) -> some View {
+        HStack(alignment: .top, spacing: 7) {
+            // Icon keyed to the bullet's trend dimension (road games, underdog,
+            // non-division, vs OPP, …) so each split reads at a glance. Tinted
+            // by trend strength like the old dot.
+            Image(systemName: Self.rowIcon(for: row.text))
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(trendColor(row.dominantPct))
+                .frame(width: 14, alignment: .center)
+                .padding(.top, isCompact ? 0 : 1)
+            // Compact rows stay single-line so the card height is predictable;
+            // the full text wraps in the expanded detail sheet.
+            Text(rowDisplayText(row))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.appTextSecondary)
+                .lineLimit(isCompact ? 1 : nil)
+                .fixedSize(horizontal: false, vertical: !isCompact)
+            Spacer(minLength: 4)
+            Text("\(Int((row.dominantPct * 100).rounded()))%")
+                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .foregroundStyle(trendColor(row.dominantPct))
+                .monospacedDigit()
+        }
+    }
+
+    /// Bottom strip of the compact card. When rows are hidden it previews their
+    /// strengths as colored % chips (informative at a glance) next to a "More"
+    /// CTA; with nothing hidden it's just a "View breakdown" CTA. Both signal
+    /// that a tap opens the full card in the detail sheet.
+    private var compactFooter: some View {
+        VStack(spacing: 6) {
+            // Hairline divider sets the preview strip apart from the trend rows.
+            Rectangle()
+                .fill(Color.appBorder.opacity(0.25))
+                .frame(height: 0.5)
+            HStack(spacing: 5) {
+                if !footerPreviewRows.isEmpty {
+                    // Leading "+" signals these chips are additional stats beyond
+                    // the rows shown above.
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.appPrimary)
+                    ForEach(footerPreviewRows) { row in
+                        pctPreviewChip(row)
+                    }
+                    if footerOverflowCount > 0 {
+                        Text("+\(footerOverflowCount)")
+                            .font(.system(size: 10, weight: .heavy))
+                            .foregroundStyle(Color.appTextMuted)
+                    }
+                    Spacer(minLength: 4)
+                    footerCTA("More")
+                } else {
+                    Spacer(minLength: 0)
+                    footerCTA("View breakdown")
+                }
+            }
+        }
+    }
+
+    /// A hidden trend as a tinted strength chip: its dimension icon (matching the
+    /// row icons) + dominant percentage, so the preview reads at a glance.
+    private func pctPreviewChip(_ row: OutliersTrendsCardRow) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: Self.rowIcon(for: row.text))
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(trendColor(row.dominantPct))
+            Text(pctText(row))
+                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                .foregroundStyle(trendColor(row.dominantPct))
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(trendColor(row.dominantPct).opacity(0.14), in: Capsule())
+    }
+
+    private func footerCTA(_ label: String) -> some View {
+        HStack(spacing: 3) {
+            Text(label)
+                .font(.system(size: 11, weight: .bold))
+            Image(systemName: "chevron.right")
+                .font(.system(size: 9, weight: .bold))
+        }
+        .foregroundStyle(Color.appPrimary)
     }
 
     private var overflowContent: some View {
@@ -280,7 +398,10 @@ struct OutliersTrendCard: View {
                 Text("\(card.subjectName) — \(card.betTypeLabel)")
                     .font(.system(size: 14, weight: .heavy))
                     .foregroundStyle(Color.appTextPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    // Compact = one predictable line (the section header already names
+                    // the market; the full title wraps in the detail sheet).
+                    .lineLimit(isCompact ? 1 : nil)
+                    .fixedSize(horizontal: false, vertical: !isCompact)
                 if let detail = displaySubjectDetail {
                     Text(detail)
                         .font(.system(size: 11, weight: .medium))
