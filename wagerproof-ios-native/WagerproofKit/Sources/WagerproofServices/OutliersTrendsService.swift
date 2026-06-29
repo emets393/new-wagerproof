@@ -160,23 +160,20 @@ public actor OutliersTrendsService {
         return month >= 3 ? year : year - 1
     }
 
+    /// Today's MLB slate only (`official_date` in ET). The nightly render job
+    /// repopulates `mlb_games_today` each morning; we keep showing this slate all day.
     private func fetchMLBSlateGames() async throws -> [OutliersTrendsGame] {
         let cfb = await CFBSupabase.shared.client
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "en_US_POSIX")
         fmt.timeZone = TimeZone(identifier: "America/New_York")
         fmt.dateFormat = "yyyy-MM-dd"
-        let today = Date()
-        let cal = Calendar(identifier: .gregorian)
-        guard let end = cal.date(byAdding: .day, value: 2, to: today) else { return [] }
-        let startDate = fmt.string(from: today)
-        let endDate = fmt.string(from: end)
+        let todayDate = fmt.string(from: Date())
 
         let rows: [MLBGameRow] = try await cfb
             .from("mlb_games_today")
             .select(Self.mlbGameColumns)
-            .gte("official_date", value: startDate)
-            .lte("official_date", value: endDate)
+            .eq("official_date", value: todayDate)
             .order("game_time_et", ascending: true)
             .execute()
             .value
