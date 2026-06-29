@@ -104,7 +104,7 @@ struct OutliersTrendsView: View {
                 } else {
                     Image(systemName: "sportscourt.fill")
                         .font(.system(size: 18, weight: .semibold))
-                    Text("All games (top 50)")
+                    Text("All games")
                         .font(.system(size: 14, weight: .semibold))
                 }
                 Spacer()
@@ -526,7 +526,7 @@ private struct CFBMatchupPickerSheet: View {
                         HStack(spacing: 10) {
                             Image(systemName: "square.grid.2x2.fill")
                                 .foregroundStyle(Color.appPrimary)
-                            Text("All games (top 50 trends)")
+                            Text("All games")
                                 .foregroundStyle(Color.appTextPrimary)
                             Spacer()
                             if case .allGames = selection {
@@ -543,33 +543,11 @@ private struct CFBMatchupPickerSheet: View {
                             selection = .game(id: game.id)
                             dismiss()
                         } label: {
-                            HStack(spacing: 10) {
-                                GameCardTeamAvatar(
-                                    teamName: game.awayTeam,
-                                    sport: "cfb",
-                                    size: 28,
-                                    colors: CFBTeamColors.colorPair(for: game.awayTeam)
+                            HStack(spacing: 8) {
+                                CFBMatchupPickerRow(
+                                    awayTeam: game.awayTeam,
+                                    homeTeam: game.homeTeam
                                 )
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(CFBTeamAssets.displayName(for: game.awayTeam))
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .lineLimit(1)
-                                }
-                                Text("@")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(Color.appTextMuted)
-                                GameCardTeamAvatar(
-                                    teamName: game.homeTeam,
-                                    sport: "cfb",
-                                    size: 28,
-                                    colors: CFBTeamColors.colorPair(for: game.homeTeam)
-                                )
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(CFBTeamAssets.displayName(for: game.homeTeam))
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .lineLimit(1)
-                                }
-                                Spacer()
                                 if case .game(let id) = selection, id == game.id {
                                     Image(systemName: "checkmark")
                                         .foregroundStyle(Color.appPrimary)
@@ -589,6 +567,50 @@ private struct CFBMatchupPickerSheet: View {
                     Button("Close") { dismiss() }
                 }
             }
+        }
+    }
+}
+
+// MARK: - CFB matchup picker row
+
+private struct CFBMatchupPickerRow: View {
+    let awayTeam: String
+    let homeTeam: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                GameCardTeamAvatar(
+                    teamName: awayTeam,
+                    sport: "cfb",
+                    size: 28,
+                    colors: CFBTeamColors.colorPair(for: awayTeam)
+                )
+                Text(CFBTeamAssets.displayName(for: awayTeam))
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("@")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color.appTextMuted)
+                .frame(width: 14)
+
+            HStack(spacing: 8) {
+                GameCardTeamAvatar(
+                    teamName: homeTeam,
+                    sport: "cfb",
+                    size: 28,
+                    colors: CFBTeamColors.colorPair(for: homeTeam)
+                )
+                Text(CFBTeamAssets.displayName(for: homeTeam))
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

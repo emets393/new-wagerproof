@@ -29,7 +29,11 @@ struct OutliersTrendCard: View {
 
     private var cardContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            header
+            HStack(alignment: .top, spacing: 8) {
+                header
+                Spacer(minLength: 4)
+                gameScheduleLabel
+            }
             if !card.bettingLines.isEmpty {
                 bettingLinesBlock
             } else if let line = card.lineContext {
@@ -282,7 +286,19 @@ struct OutliersTrendCard: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(Color.appTextSecondary)
             }
-            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private var gameScheduleLabel: some View {
+        if let kickoff = game?.kickoff, !kickoff.isEmpty {
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(GameCardFormatting.formatCompactDate(kickoff))
+                Text(GameCardFormatting.convertTimeToEST(kickoff))
+            }
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(Color.appTextMuted)
+            .multilineTextAlignment(.trailing)
         }
     }
 
