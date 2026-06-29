@@ -33,13 +33,13 @@ struct MlbRegressionReportView: View {
             LazyVStack(alignment: .leading, spacing: 16, pinnedViews: [.sectionHeaders]) {
                 if let report = reportStore.report {
                     reportFeed(report)
-                } else if reportStore.errorMessage != nil {
-                    errorState
                 } else if reportStore.loading || reportStore.lastFetchedKey == nil {
                     // Never-fetched counts as loading — `.task` hasn't flipped
                     // `loading` yet on the first frame, and falling through
                     // would flash the "no report" box before the skeleton.
                     loadingState
+                } else if reportStore.errorMessage != nil {
+                    errorState
                 } else {
                     noReportState
                 }

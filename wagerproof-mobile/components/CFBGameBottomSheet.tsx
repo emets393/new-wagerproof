@@ -101,6 +101,8 @@ export function CFBGameBottomSheet() {
 
   const awayColors = game ? getCFBTeamColors(game.away_team) : { primary: '#000', secondary: '#000' };
   const homeColors = game ? getCFBTeamColors(game.home_team) : { primary: '#000', secondary: '#000' };
+  const awayRank = game?.away_rank ?? game?.away_ranking ?? null;
+  const homeRank = game?.home_rank ?? game?.home_ranking ?? null;
 
   // CFB uses edge values instead of probabilities
   const spreadPrediction = game && game.home_spread_diff !== null && game.home_spread_diff !== undefined ? {
@@ -232,26 +234,28 @@ export function CFBGameBottomSheet() {
             />
             <View style={styles.headerContent}>
               <View style={styles.dateTimeRow}>
-              <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>
-                {formatCompactDate(game.game_date)}
-              </Text>
-              <View style={[styles.timeBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
-                <Text style={[styles.timeText, { color: theme.colors.onSurfaceVariant }]}>
-                  {convertTimeToEST(game.game_time)}
+                <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>
+                  {formatCompactDate(game.game_date)}
                 </Text>
+                <View style={[styles.timeBadge, { backgroundColor: theme.colors.surfaceVariant }]}>
+                  <Text style={[styles.timeText, { color: theme.colors.onSurfaceVariant }]}>
+                    {convertTimeToEST(game.game_time)}
+                  </Text>
+                </View>
               </View>
-              {game.conference && (
-                <Chip style={{ height: 22 }} textStyle={{ fontSize: 9 }}>
-                  {game.conference}
-                </Chip>
-              )}
-            </View>
 
             <View style={styles.teamsRow}>
               {/* Away Team */}
               <View style={styles.teamSection}>
-                <TeamAvatar teamName={game.away_team} sport="cfb" size={88} />
-                <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
+                <View style={styles.logoWithRank}>
+                  <TeamAvatar teamName={game.away_team} sport="cfb" size={88} />
+                  {awayRank && awayRank <= 25 && (
+                    <View style={styles.rankBadge}>
+                      <Text style={styles.rankBadgeText}>#{awayRank}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
                   {game.away_team}
                 </Text>
                 <View style={styles.teamLines}>
@@ -285,8 +289,15 @@ export function CFBGameBottomSheet() {
 
               {/* Home Team */}
               <View style={styles.teamSection}>
-                <TeamAvatar teamName={game.home_team} sport="cfb" size={88} />
-                <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2}>
+                <View style={styles.logoWithRank}>
+                  <TeamAvatar teamName={game.home_team} sport="cfb" size={88} />
+                  {homeRank && homeRank <= 25 && (
+                    <View style={styles.rankBadge}>
+                      <Text style={styles.rankBadgeText}>#{homeRank}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.teamName, { color: theme.colors.onSurface }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>
                   {game.home_team}
                 </Text>
                 <View style={styles.teamLines}>
@@ -756,10 +767,11 @@ const styles = StyleSheet.create({
   sectionContent: {},
   dateTimeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
     gap: 8,
+    width: '100%',
   },
   dateText: {
     fontSize: 16,
@@ -784,6 +796,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flex: 1,
+    minWidth: 0,
+  },
+  logoWithRank: {
+    width: 104,
+    height: 92,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  rankBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 4,
+    backgroundColor: '#22c55e',
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)',
+  },
+  rankBadgeText: {
+    color: '#06130b',
+    fontSize: 10,
+    fontWeight: '900',
   },
   teamCircleLarge: {
     width: 88,
@@ -800,9 +836,12 @@ const styles = StyleSheet.create({
     maxWidth: 76,
   },
   teamName: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '800',
     textAlign: 'center',
+    maxWidth: 118,
+    minHeight: 36,
+    lineHeight: 18,
   },
   teamLines: {
     flexDirection: 'row',

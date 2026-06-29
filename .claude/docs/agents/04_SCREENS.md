@@ -111,7 +111,9 @@ interface AgentsHubState {
 |------|----------|--------------|---------|
 | 1 | "Let's build your betting agent! What should we call them?" | Text input | `name` |
 | 2 | "Pick a look for {name}" | Emoji grid + Color swatches | `avatar_emoji`, `avatar_color` |
-| 3 | "Which sports should {name} analyze?" | Multi-select chips | `preferred_sports[]` |
+| 3 | "Which sports should {name} analyze?" | Multi-select chips (single-family) | `preferred_sports[]` |
+
+> **Sport-family constraint:** an agent may only span one family — football (NFL + CFB), basketball (NBA + NCAAB), or baseball (MLB). Selecting a sport from a different family replaces the current selection. Each family routes to its own large system prompt + data payload, and one agent = one prompt. Enforced in code via `toggleSportSelection` / `isSingleSportFamily` in `src/types/agent.ts` (Zod `.refine` on `preferred_sports`).
 | 4 | "Start from a template or build custom?" | Archetype cards OR "Build Custom" | Pre-fills OR continues |
 | 5 | "How aggressive is {name}?" | Illustrated slider | `risk_tolerance` |
 | 6 | "What data should {name} trust most?" | Allocation sliders (sum to 100) | `data_weights.*` |
@@ -351,9 +353,11 @@ const VALIDATION = {
     return null;
   },
 
-  // At least one sport selected
+  // At least one sport, all within a single family (see toggleSportSelection)
   preferred_sports: (sports) => {
-    return sports.length > 0 ? null : 'Select at least one sport';
+    if (sports.length === 0) return 'Select at least one sport';
+    if (!isSingleSportFamily(sports)) return 'An agent can only cover one sport family (e.g. NFL + CFB)';
+    return null;
   },
 
   // Min picks <= max picks

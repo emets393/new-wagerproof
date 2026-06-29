@@ -34,6 +34,7 @@ import {
   DEFAULT_PERSONALITY_PARAMS,
   DEFAULT_CUSTOM_INSIGHTS,
   getTimezoneAbbr,
+  toggleSportSelection,
 } from '@/types/agent';
 import { useAuth } from '@/contexts/AuthContext';
 import { ensureAutoPickNotificationPermission } from '@/services/notificationService';
@@ -212,11 +213,9 @@ export default function AgentSettingsScreen() {
   const handleSportToggle = useCallback(
     (sport: Sport) => {
       setSports((prev) => {
-        if (prev.includes(sport)) {
-          if (prev.length === 1) return prev; // Keep at least one
-          return prev.filter((s) => s !== sport);
-        }
-        return [...prev, sport];
+        // Keep at least one sport selected
+        if (prev.includes(sport) && prev.length === 1) return prev;
+        return toggleSportSelection(prev, sport);
       });
       markChanged();
     },

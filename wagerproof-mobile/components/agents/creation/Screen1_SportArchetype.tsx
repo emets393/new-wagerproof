@@ -14,6 +14,7 @@ import {
   PersonalityParams,
   CustomInsights,
   PresetArchetype,
+  toggleSportSelection,
 } from '@/types/agent';
 
 // ============================================================================
@@ -105,19 +106,7 @@ export function Screen1_SportArchetype({
   const toggleSport = useCallback(
     (sport: Sport) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      const isSelected = selectedSports.includes(sport);
-      if (isSelected) {
-        onSportsChange(selectedSports.filter((s) => s !== sport));
-      } else if (sport === 'mlb') {
-        // MLB is exclusive: deselect all other sports
-        onSportsChange(['mlb']);
-      } else if (selectedSports.includes('mlb')) {
-        // Selecting a non-MLB sport while MLB is active: replace MLB
-        onSportsChange([sport]);
-      } else {
-        onSportsChange([...selectedSports, sport]);
-      }
+      onSportsChange(toggleSportSelection(selectedSports, sport));
     },
     [selectedSports, onSportsChange]
   );
@@ -332,11 +321,11 @@ export function Screen1_SportArchetype({
           })}
         </View>
 
-        {selectedSports.includes('mlb') && (
+        {selectedSports.length > 0 && (
           <View style={styles.mlbNotice}>
             <MaterialCommunityIcons name="information-outline" size={14} color="#60a5fa" />
             <Text style={[styles.mlbNoticeText, { color: theme.colors.onSurfaceVariant }]}>
-              MLB agents run standalone due to the size of baseball data. They cannot be combined with other sports.
+              An agent covers one sport family: football (NFL + CFB), basketball (NBA + NCAAB), or baseball (MLB). Picking a sport from another family switches the agent over.
             </Text>
           </View>
         )}

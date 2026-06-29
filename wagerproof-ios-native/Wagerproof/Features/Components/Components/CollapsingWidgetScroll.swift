@@ -192,9 +192,15 @@ struct WidgetCollapsingSection<Content: View>: View {
     let title: String
     let systemImage: String
     var iconTint: Color = .appPrimary
+    var icon: AnyView? = nil
+    var showsHeader: Bool = true
     var accessory: WidgetHeaderAccessory = .none
     var onHeaderTap: (() -> Void)? = nil
     var bodyPadding: CGFloat = 16
+    /// When this value changes the card remeasures its natural height. Use when
+    /// section content shrinks (e.g. loading skeleton → empty state) so the
+    /// collapsing scroll shell does not keep a stale tall layout box.
+    var contentKey: String = ""
     @ViewBuilder var content: Content
 
     @Environment(\.widgetPinLine) private var pinLine
@@ -204,13 +210,54 @@ struct WidgetCollapsingSection<Content: View>: View {
     /// Cached natural (uncollapsed) height. Measured whenever the card is at
     /// full size so the collapse math has a stable reference.
     @State private var naturalHeight: CGFloat = 0
+    @State private var lastContentKey: String = ""
 
     /// Fixed header band height (icon/title row + vertical padding).
-    private let headerHeight: CGFloat = 48
+    private var headerHeight: CGFloat { showsHeader ? 48 : 0 }
     /// Distance the pill fades out over, in place, once fully collapsed.
     private let fadeRange: CGFloat = 44
 
+    init(
+        title: String,
+        systemImage: String,
+        iconTint: Color = .appPrimary,
+        icon: AnyView? = nil,
+        showsHeader: Bool = true,
+        accessory: WidgetHeaderAccessory = .none,
+        onHeaderTap: (() -> Void)? = nil,
+        bodyPadding: CGFloat = 16,
+        contentKey: String = "",
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.iconTint = iconTint
+        self.icon = icon
+        self.showsHeader = showsHeader
+        self.accessory = accessory
+        self.onHeaderTap = onHeaderTap
+        self.bodyPadding = bodyPadding
+        self.contentKey = contentKey
+        self.content = content()
+    }
+
     var body: some View {
+        if !showsHeader {
+            // Headerless cards (NFL/CFB pick rows render their own title inside
+            // the body). Skip pin/collapse — with headerHeight=0 the collapse
+            // math shrinks the card to zero height as soon as it sits below the
+            // hero pin line, which made game detail pages look blank.
+            cardVisual(collapse: 0, visualHeight: nil)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, WidgetCard.hInset)
+                .padding(.bottom, WidgetCard.gap)
+        } else {
+            collapsingBody
+        }
+    }
+
+    @ViewBuilder
+    private var collapsingBody: some View {
         let H = naturalHeight
         // How far the card's natural top has scrolled past the pin line.
         let over = max(0, pinLine - minY)
@@ -248,6 +295,18 @@ struct WidgetCollapsingSection<Content: View>: View {
             .padding(.bottom, WidgetCard.gap)
             // The pinned/collapsing card draws above the next one during handoff.
             .zIndex(collapsing ? 1 : 0)
+            .onChange(of: contentKey) { _, newKey in
+                if newKey != lastContentKey {
+                    naturalHeight = 0
+                    lastContentKey = newKey
+                }
+            }
+            .onAppear {
+                if lastContentKey != contentKey {
+                    naturalHeight = 0
+                    lastContentKey = contentKey
+                }
+            }
     }
 
     private func measure(_ geo: GeometryProxy) {
@@ -280,7 +339,9 @@ struct WidgetCollapsingSection<Content: View>: View {
 
         let stack = VStack(spacing: 0) {
             // Header band — reserved; nothing of the body is ever behind it.
-            Color.clear.frame(height: headerHeight)
+            if showsHeader {
+                Color.clear.frame(height: headerHeight)
+            }
             // Body window — clips the body so it disappears at the header's
             // bottom edge as it slides up, and never renders behind the header.
             content
@@ -294,10 +355,12 @@ struct WidgetCollapsingSection<Content: View>: View {
 
         ZStack(alignment: .top) {
             stack
-            headerButton
-                .frame(height: headerHeight)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .zIndex(1)
+            if showsHeader {
+                headerButton
+                    .frame(height: headerHeight)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .zIndex(1)
+            }
         }
         .clipShape(cardShape)
         .liquidGlassBackground(in: cardShape)
@@ -320,11 +383,15 @@ struct WidgetCollapsingSection<Content: View>: View {
     /// iOS section-header style: translucent, uppercase, no pill behind it.
     private var headerRow: some View {
         HStack(spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.system(size: 13, weight: .semibold))
-                // Match the title color (translucent secondary) so icon + label
-                // read as one iOS-style section header.
-                .foregroundStyle(Color.appTextSecondary)
+            if let icon {
+                icon
+            } else {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                    // Match the title color (translucent secondary) so icon + label
+                    // read as one iOS-style section header.
+                    .foregroundStyle(Color.appTextSecondary)
+            }
             Text(title.uppercased())
                 .font(.system(size: 13, weight: .semibold))
                 .tracking(0.6)

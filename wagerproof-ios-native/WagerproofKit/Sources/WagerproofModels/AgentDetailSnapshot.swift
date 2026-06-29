@@ -33,7 +33,7 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
         self.apiVersion = (try? c.decode(String.self, forKey: .apiVersion)) ?? "v3"
         self.agent = try? c.decodeIfPresent(Agent.self, forKey: .agent)
         self.performance = try? c.decodeIfPresent(AgentPerformance.self, forKey: .performance)
-        self.todaysPicks = (try? c.decode([AgentPick].self, forKey: .todaysPicks)) ?? []
+        self.todaysPicks = AgentPick.decodeLossyArray(from: c, forKey: .todaysPicks)
         self.todaysGenerationRun = try? c.decodeIfPresent(AgentGenerationRunSummary.self, forKey: .todaysGenerationRun)
         self.canViewAgentPicks = (try? c.decode(Bool.self, forKey: .canViewAgentPicks)) ?? false
         self.isFollowing = try? c.decodeIfPresent(Bool.self, forKey: .isFollowing)
@@ -76,7 +76,7 @@ public struct AgentPicksPage: Codable, Sendable, Hashable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.apiVersion = (try? c.decode(String.self, forKey: .apiVersion)) ?? "v3"
-        self.picks = (try? c.decode([AgentPick].self, forKey: .picks)) ?? []
+        self.picks = AgentPick.decodeLossyArray(from: c, forKey: .picks)
         self.nextCursor = try? c.decodeIfPresent(String.self, forKey: .nextCursor)
         self.hasMore = (try? c.decode(Bool.self, forKey: .hasMore)) ?? false
     }

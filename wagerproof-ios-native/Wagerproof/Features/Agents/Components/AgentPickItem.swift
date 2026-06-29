@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import WagerproofDesign
 import WagerproofModels
@@ -86,11 +87,7 @@ struct AgentPickItem: View {
 
     private var headerRow: some View {
         HStack(spacing: 8) {
-            // Matchup as plain text — sport-aware team logos arrive with #008.
-            Text(pick.matchup)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Color.appTextPrimary)
-                .lineLimit(1)
+            matchupTitle
 
             Spacer(minLength: 0)
 
@@ -129,10 +126,7 @@ struct AgentPickItem: View {
             }
             .frame(width: 30, height: 30)
 
-            Text(pick.pickSelection)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(Color.appTextPrimary)
-                .lineLimit(1)
+            pickSelectionDisplay
 
             Spacer(minLength: 4)
 
@@ -166,6 +160,58 @@ struct AgentPickItem: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(Color.appBorder.opacity(0.4), lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private var matchupTitle: some View {
+        if let teams = parsedMLBMatchup {
+            HStack(spacing: 5) {
+                compactTeam(team: teams.away, logoSize: 20, textSize: 13)
+                Text("@")
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(Color.appTextMuted)
+                compactTeam(team: teams.home, logoSize: 20, textSize: 13)
+            }
+            .lineLimit(1)
+        } else {
+            Text(pick.matchup)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Color.appTextPrimary)
+                .lineLimit(1)
+        }
+    }
+
+    @ViewBuilder
+    private var pickSelectionDisplay: some View {
+        if let compact = compactMLBPick {
+            HStack(spacing: 7) {
+                compactTeam(team: compact.team, logoSize: 24, textSize: 15)
+                Text(compact.label)
+                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
+        } else {
+            Text(pick.pickSelection)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Color.appTextPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+    }
+
+    @ViewBuilder
+    private func compactTeam(team: MLBPickTeam, logoSize: CGFloat, textSize: CGFloat) -> some View {
+        HStack(spacing: 4) {
+            MLBTeamLogo(logoUrl: team.logoUrl, abbrev: team.abbr, name: team.name, size: logoSize)
+            Text(team.abbr)
+                .font(.system(size: textSize, weight: .black))
+                .foregroundStyle(Color.appTextPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     @ViewBuilder
@@ -280,6 +326,136 @@ struct AgentPickItem: View {
         let out = DateFormatter()
         out.dateFormat = "MMM d"
         return out.string(from: date)
+    }
+
+    // MARK: - Compact MLB labels
+
+    private struct MLBPickTeam {
+        let name: String
+        let abbr: String
+        let logoUrl: String?
+    }
+
+    private struct MLBPickMatchup {
+        let away: MLBPickTeam
+        let home: MLBPickTeam
+    }
+
+    private struct CompactMLBPick {
+        let team: MLBPickTeam
+        let label: String
+    }
+
+    private var parsedMLBMatchup: MLBPickMatchup? {
+        guard pick.sport == .mlb else { return nil }
+        let parts = splitMatchup(pick.matchup)
+        guard parts.count == 2 else { return nil }
+        return MLBPickMatchup(
+            away: mlbPickTeam(named: parts[0]),
+            home: mlbPickTeam(named: parts[1])
+        )
+    }
+
+    private var compactMLBPick: CompactMLBPick? {
+        guard pick.sport == .mlb,
+              !isTotalPick,
+              let matchup = parsedMLBMatchup,
+              let team = selectedMLBTeam(from: matchup)
+        else { return nil }
+
+        return CompactMLBPick(team: team, label: compactMLBMarketLabel)
+    }
+
+    private var isTotalPick: Bool {
+        let haystack = "\(pick.betType) \(pick.pickSelection)".lowercased()
+        return haystack.contains("total") || haystack.contains("over") || haystack.contains("under")
+    }
+
+    private var compactMLBMarketLabel: String {
+        let haystack = "\(pick.betType) \(pick.pickSelection)".lowercased()
+        let isF5 = haystack.contains("f5") || haystack.contains("first 5") || haystack.contains("first-five")
+        let isML = haystack.contains("moneyline") || haystack.contains(" ml")
+
+        if isML {
+            return isF5 ? "F5 ML" : "ML"
+        }
+
+        if haystack.contains("runline") || haystack.contains("run line") || haystack.contains("spread") {
+            let line = extractLine(from: pick.pickSelection) ?? extractLine(from: pick.betType)
+            if let line {
+                return isF5 ? "\(line) F5" : "\(line) Runline"
+            }
+            return isF5 ? "F5 RL" : "Runline"
+        }
+
+        return pick.pickSelection
+    }
+
+    private func selectedMLBTeam(from matchup: MLBPickMatchup) -> MLBPickTeam? {
+        let selection = normalized(pick.pickSelection)
+        let betType = normalized(pick.betType)
+        for team in [matchup.away, matchup.home] where selectionMatches(team, in: selection) || selectionMatches(team, in: betType) {
+            return team
+        }
+        return nil
+    }
+
+    private func selectionMatches(_ team: MLBPickTeam, in text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+        let name = normalized(team.name)
+        let abbr = normalized(team.abbr)
+        let tokens = name.split(separator: " ").map(String.init)
+        let nickname = tokens.last ?? name
+        let city = tokens.dropLast().joined(separator: " ")
+
+        return text.contains(name)
+            || (!abbr.isEmpty && text.contains(abbr))
+            || (!nickname.isEmpty && text.contains(nickname))
+            || (!city.isEmpty && text.contains(city))
+    }
+
+    private func mlbPickTeam(named raw: String) -> MLBPickTeam {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let info = MLBTeams.info(for: trimmed) {
+            return MLBPickTeam(name: trimmed, abbr: info.team, logoUrl: info.logoUrl)
+        }
+        return MLBPickTeam(name: trimmed, abbr: fallbackAbbr(trimmed), logoUrl: nil)
+    }
+
+    private func splitMatchup(_ matchup: String) -> [String] {
+        let separators = [" @ ", " at ", " vs. ", " vs ", " v. ", " v "]
+        for separator in separators {
+            let parts = matchup.components(separatedBy: separator)
+            if parts.count == 2 {
+                return parts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            }
+        }
+        return []
+    }
+
+    private func extractLine(from raw: String) -> String? {
+        let pattern = #"([+-]\d+(?:\.\d+)?)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(raw.startIndex..<raw.endIndex, in: raw)
+        guard let match = regex.firstMatch(in: raw, range: range),
+              let swiftRange = Range(match.range(at: 1), in: raw)
+        else { return nil }
+        return String(raw[swiftRange])
+    }
+
+    private func normalized(_ raw: String) -> String {
+        raw.lowercased()
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: "-", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func fallbackAbbr(_ name: String) -> String {
+        let words = name.split(separator: " ").map(String.init)
+        if words.count >= 2 {
+            return words.compactMap(\.first).map(String.init).joined().uppercased()
+        }
+        return String(name.prefix(3)).uppercased()
     }
 }
 

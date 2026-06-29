@@ -173,7 +173,7 @@ struct PropPlayerCard: View {
 
     private var bottomInfoRow: some View {
         HStack(alignment: .center, spacing: 16) {
-            infoItem(label: "BEST", value: MLBPlayerProps.marketLabel(row.market), valueColor: Color.appPrimary)
+            infoItem(label: item.metricLabel, value: MLBPlayerProps.marketLabel(row.market), valueColor: Color.appPrimary)
             // Summary stats for that market: last-10 over rate + hit rate.
             infoItem(label: "L10", value: "\(computed.l10.fractionLabel) Over", valueColor: Color.appTextPrimary)
             infoItem(label: "HIT", value: computed.l10.pctLabel, valueColor: hitColor)

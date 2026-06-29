@@ -26,12 +26,16 @@ interface DeepToolDef {
   subkey?: string;
 }
 
-/** Deep projection tools. Each returns the named group(s) from the cached game. */
+/** Deep projection tools. Each returns the named group(s) from the cached game.
+ *  NFL/CFB and MLB/NBA/NCAAB all share the same group keys (vegas_lines,
+ *  model_predictions, h2h_recent, …); the rewritten NFL/CFB builder adds
+ *  conviction/signals/props on top. projectGroups only emits keys present on the
+ *  cached game, so a group listed for a sport that lacks it is simply skipped. */
 const DEEP_TOOLS: Record<string, DeepToolDef> = {
-  get_game_data: { groups: ["vegas_lines", "model_predictions", "weather", "public_betting", "team_stats", "trends", "injuries", "situational_trends", "prediction_accuracy", "accuracy_signals", "perfect_storm", "starting_pitchers", "polymarket"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Full data for a game: lines, model, and all available context." },
+  get_game_data: { groups: ["vegas_lines", "model_predictions", "conviction", "signals", "props", "weather", "public_betting", "team_stats", "trends", "injuries", "situational_trends", "prediction_accuracy", "accuracy_signals", "perfect_storm", "starting_pitchers", "h2h_recent", "line_movement", "polymarket"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Full data for a game: lines, model, conviction, signals, and all available context." },
   get_model_predictions: { groups: ["model_predictions", "prediction_accuracy", "accuracy_signals"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Model win/cover/total probabilities and edges." },
-  get_market_odds: { groups: ["vegas_lines"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Vegas lines / odds (MLB incl. F5 + runline)." },
-  get_line_movement: { groups: ["line_movement", "opening_lines"], sports: ["nfl", "cfb"], grounds: "none", desc: "Line-movement history." },
+  get_market_odds: { groups: ["vegas_lines"], sports: ["nfl", "cfb", "nba", "ncaab", "mlb"], grounds: "all", desc: "Vegas lines / odds (NFL/CFB incl. team-total + 1H markets; MLB incl. F5 + runline)." },
+  get_line_movement: { groups: ["line_movement", "opening_lines"], sports: ["nfl", "cfb"], grounds: "none", desc: "Line-movement history (open → close, snapshots where available)." },
   get_public_betting: { groups: ["public_betting", "public_betting_detailed"], sports: ["nfl", "cfb"], grounds: "none", desc: "Public money/ticket splits." },
   get_weather: { groups: ["weather"], sports: ["nfl", "cfb", "mlb"], grounds: "none", desc: "Game-time weather." },
   get_team_ratings: { groups: ["team_stats"], sports: ["nba", "ncaab"], grounds: "none", desc: "Adjusted off/def/pace ratings (+ rankings for NCAAB)." },

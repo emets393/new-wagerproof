@@ -37,6 +37,7 @@ struct GameRowCard: View {
     private var content: some View {
         let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
         let isBreakdown = model.oddsBreakdown != nil
+        let mammothTint = Color(hex: 0xF97316)
         return ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 8) {
                 if let breakdown = model.oddsBreakdown {
@@ -48,6 +49,8 @@ struct GameRowCard: View {
                     .background(Color.appBorder.opacity(0.5))
                 extraInfoRow
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .clipped()
             // Breakdown cards use leading/top = cornerRadius − logoRadius so
             // the away logo lands pixel-concentric inside the rounded corner
             // (see `diagonalLogos`); trailing is tight so Pred Mkt hugs the
@@ -67,19 +70,45 @@ struct GameRowCard: View {
             }
         }
         .background {
-            // Plain glass material — no team-color tint on the card
-            // surface. The only color hint lives behind the overlapping
-            // avatars (see `avatar(for:isLeading:)`). In dark mode we dim the
-            // material slightly so the page background reads through a touch
-            // more (lighter, more translucent card surface).
-            ZStack {
-                shape.fill(.ultraThinMaterial)
-                    .opacity(colorScheme == .dark ? 0.78 : 1)
-                shape.strokeBorder(Color.appBorder.opacity(0.4), lineWidth: 0.5)
+            shape.fill(.ultraThinMaterial)
+                .opacity(colorScheme == .dark ? 0.78 : 1)
+        }
+        .overlay {
+            if model.isMammoth {
+                shape.fill(
+                    LinearGradient(
+                        colors: [
+                            mammothTint.opacity(colorScheme == .dark ? 0.20 : 0.12),
+                            mammothTint.opacity(colorScheme == .dark ? 0.08 : 0.04),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .allowsHitTesting(false)
             }
         }
+        .compositingGroup()
         .clipShape(shape)
-        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+        .overlay {
+            shape.strokeBorder(
+                model.isMammoth
+                    ? mammothTint.opacity(0.55)
+                    : Color.appBorder.opacity(0.4),
+                lineWidth: model.isMammoth ? 1.2 : 0.5
+            )
+        }
+        .overlay {
+            if model.isMammoth {
+                MammothElectricBorder(shape: shape, tint: mammothTint)
+            }
+        }
+        .shadow(
+            color: model.isMammoth ? mammothTint.opacity(0.32) : .black.opacity(0.06),
+            radius: model.isMammoth ? 10 : 4,
+            x: 0,
+            y: model.isMammoth ? 5 : 2
+        )
     }
 
     // MARK: - Main row
@@ -346,14 +375,44 @@ struct GameRowCard: View {
 
     @ViewBuilder
     private var extraInfoRow: some View {
-        HStack(spacing: 6) {
-            ouEdgeBlock
-            mlEdgeBlock
-            Spacer(minLength: 0)
-            // Time relocates here when the breakdown table takes over the
-            // main row's upper-right corner.
-            if model.oddsBreakdown != nil {
-                timePill
+        if let slatePicks = model.slatePicks {
+            HStack(alignment: .bottom, spacing: 8) {
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 8) {
+                        slateTotalPill(slatePicks.total)
+                        slateSpreadPill(slatePicks.spread)
+                    }
+                    if !slatePicks.badges.isEmpty {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 7) {
+                                ForEach(slatePicks.badges) { badge in
+                                    slateBadgePill(badge)
+                                }
+                            }
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(slatePicks.badges) { badge in
+                                    slateBadgePill(badge)
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 0)
+                if model.oddsBreakdown != nil {
+                    timePill
+                }
+            }
+        } else {
+            HStack(spacing: 6) {
+                ouEdgeBlock
+                mlEdgeBlock
+                Spacer(minLength: 0)
+                // Time relocates here when the breakdown table takes over the
+                // main row's upper-right corner.
+                if model.oddsBreakdown != nil {
+                    timePill
+                }
             }
         }
     }
@@ -427,6 +486,112 @@ struct GameRowCard: View {
                     .foregroundStyle(Color.appTextMuted)
             }
         }
+    }
+
+    /// Pill chrome for dry-run spread / total picks (NFL + CFB slates).
+    @ViewBuilder
+    private func slatePickPill<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack(spacing: SlatePickMetrics.contentSpacing) {
+            content()
+        }
+        .lineLimit(1)
+        .padding(.horizontal, SlatePickMetrics.hPadding)
+        .padding(.vertical, SlatePickMetrics.vPadding)
+        .background(Color.appSurfaceMuted.opacity(0.6), in: Capsule())
+        .overlay(Capsule().stroke(Color.appBorder.opacity(0.6), lineWidth: 0.5))
+    }
+
+    @ViewBuilder
+    private func slateTotalPill(_ pick: SlateTotalPick?) -> some View {
+        slatePickPill {
+            Text("O/U")
+                .font(.system(size: SlatePickMetrics.labelSize, weight: .black))
+                .tracking(0.3)
+                .foregroundStyle(Color.appTextMuted)
+            if let pick {
+                Text(pick.direction)
+                    .font(.system(size: SlatePickMetrics.valueSize, weight: .black))
+                    .foregroundStyle(pick.color)
+                    .minimumScaleFactor(0.85)
+                Text(pick.line)
+                    .font(.system(size: SlatePickMetrics.valueSize, weight: .black, design: .monospaced))
+                    .foregroundStyle(pick.color)
+                    .minimumScaleFactor(0.85)
+            } else {
+                Text("—")
+                    .font(.system(size: SlatePickMetrics.valueSize, weight: .medium))
+                    .foregroundStyle(Color.appTextMuted)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func slateSpreadPill(_ pick: SlateSpreadPick?) -> some View {
+        slatePickPill {
+            Text("Spread")
+                .font(.system(size: SlatePickMetrics.labelSize, weight: .black))
+                .tracking(0.3)
+                .foregroundStyle(Color.appTextMuted)
+            if let pick {
+                avatar(
+                    for: TeamSide(abbr: pick.abbr, initials: pick.abbr, moneyline: nil, spread: nil, logoURL: pick.logoURL, colors: pick.colors),
+                    isLeading: true,
+                    size: SlatePickMetrics.logoSize
+                )
+                Text(pick.line)
+                    .font(.system(size: SlatePickMetrics.valueSize, weight: .black, design: .monospaced))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .minimumScaleFactor(0.85)
+            } else {
+                Text("—")
+                    .font(.system(size: SlatePickMetrics.valueSize, weight: .medium))
+                    .foregroundStyle(Color.appTextMuted)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func slateBadgePill(_ badge: SlateBadge) -> some View {
+        let content = HStack(spacing: 4) {
+            Image(systemName: badge.systemImage)
+                .font(.system(size: 10, weight: .black))
+            Text(badge.text)
+                .font(.system(size: 10, weight: .black))
+                .tracking(badge.isMammothPlay ? 0.6 : 0)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+
+        if badge.isMammothPlay {
+            content
+                .foregroundStyle(Color.appSurface)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: 0xF97316), Color(hex: 0xFACC15)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    in: Capsule()
+                )
+                .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 0.5))
+                .shadow(color: Color(hex: 0xF97316).opacity(0.45), radius: 6, x: 0, y: 2)
+        } else {
+            content
+                .foregroundStyle(badge.tint)
+                .background(Color.appSurfaceMuted.opacity(0.6), in: Capsule())
+                .overlay(Capsule().stroke(Color.appBorder.opacity(0.6), lineWidth: 0.5))
+        }
+    }
+
+    private enum SlatePickMetrics {
+        static let labelSize: CGFloat = 10
+        static let valueSize: CGFloat = 13
+        static let logoSize: CGFloat = 22
+        static let hPadding: CGFloat = 10
+        static let vPadding: CGFloat = 6
+        static let contentSpacing: CGFloat = 5
     }
 
     // MARK: - Spread / Money / Total breakdown (scan-line layout)
@@ -531,7 +696,7 @@ struct GameRowCard: View {
             Spacer(minLength: BD.colSpacing)
             HStack(spacing: BD.innerGap) {
                 Color.clear.frame(width: BD.abbrW, height: 1)
-                breakdownHeader("SPRD", width: BD.cellW)
+                breakdownHeader("Spread", width: BD.cellW)
                 breakdownHeader("ML", width: BD.cellW)
                 breakdownHeader("TOT", width: BD.cellW)
             }
@@ -592,10 +757,13 @@ extension GameRowCard {
         let ouEdge: OUEdgeInfo?
         let awayTeamFullName: String
         let homeTeamFullName: String
+        let slatePicks: SlatePicks?
         /// Optional Spread / Money / Total breakdown table rendered below
         /// the edge row. Only MLB populates this today; other sports leave
         /// it nil and the card falls back to the compact pills.
         let oddsBreakdown: OddsBreakdown?
+        /// Rare mammoth play — lights the card orange on the games slate.
+        let isMammoth: Bool
 
         init(
             id: String,
@@ -609,7 +777,9 @@ extension GameRowCard {
             ouEdge: OUEdgeInfo?,
             awayTeamFullName: String,
             homeTeamFullName: String,
-            oddsBreakdown: OddsBreakdown? = nil
+            slatePicks: SlatePicks? = nil,
+            oddsBreakdown: OddsBreakdown? = nil,
+            isMammoth: Bool = false
         ) {
             self.id = id
             self.league = league
@@ -622,8 +792,72 @@ extension GameRowCard {
             self.ouEdge = ouEdge
             self.awayTeamFullName = awayTeamFullName
             self.homeTeamFullName = homeTeamFullName
+            self.slatePicks = slatePicks
             self.oddsBreakdown = oddsBreakdown
+            self.isMammoth = isMammoth
         }
+    }
+
+    /// Mammoth trumps high conviction; signals badge is unchanged.
+    static func convictionBadges(
+        hasMammoth: Bool,
+        highCount: Int,
+        signalCount: Int
+    ) -> [SlateBadge] {
+        let orange = Color(hex: 0xF97316)
+        var badges: [SlateBadge] = []
+        if hasMammoth {
+            badges.append(SlateBadge(
+                id: "mammoth",
+                text: "MAMMOTH PLAY",
+                systemImage: "flame.fill",
+                tint: orange,
+                isMammothPlay: true
+            ))
+        } else if highCount > 0 {
+            badges.append(SlateBadge(
+                id: "high-conviction",
+                text: "\(highCount) High Conviction",
+                systemImage: "flame.fill",
+                tint: orange
+            ))
+        }
+        if signalCount > 0 {
+            badges.append(SlateBadge(
+                id: "signals",
+                text: "\(signalCount) Signal\(signalCount == 1 ? "" : "s")",
+                systemImage: "bolt.fill",
+                tint: Color.appTextSecondary
+            ))
+        }
+        return badges
+    }
+
+    struct SlatePicks {
+        let total: SlateTotalPick?
+        let spread: SlateSpreadPick?
+        let badges: [SlateBadge]
+    }
+
+    struct SlateBadge: Identifiable {
+        let id: String
+        let text: String
+        let systemImage: String
+        let tint: Color
+        var isMammothPlay: Bool = false
+    }
+
+    struct SlateTotalPick {
+        let direction: String
+        let line: String
+        let color: Color
+    }
+
+    struct SlateSpreadPick {
+        let abbr: String
+        let logoURL: String?
+        let line: String
+        let colors: TeamColorPair
     }
 
     /// Spread / Money / Total breakdown — one row per team, three columns.
@@ -918,6 +1152,43 @@ struct PolymarketMoneylineSparkline: View {
         }
         .foregroundStyle(Color.appTextMuted.opacity(0.6))
         .frame(height: 24)
+    }
+}
+
+// MARK: - Mammoth electric border
+
+/// Animated orange energy ring for rare mammoth plays on the games slate.
+private struct MammothElectricBorder: View {
+    let shape: RoundedRectangle
+    let tint: Color
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let pulse = 0.55 + 0.45 * sin(t * 5.5)
+            let spin = Angle.degrees(t * 95)
+            ZStack {
+                shape
+                    .strokeBorder(
+                        AngularGradient(
+                            gradient: Gradient(colors: [
+                                tint.opacity(0.05),
+                                tint.opacity(0.95),
+                                Color(hex: 0xFACC15).opacity(0.85),
+                                tint.opacity(0.15),
+                                tint.opacity(0.9),
+                                tint.opacity(0.05),
+                            ]),
+                            center: .center,
+                            angle: spin
+                        ),
+                        lineWidth: 2.5
+                    )
+                shape
+                    .strokeBorder(tint.opacity(0.30 + 0.30 * pulse), lineWidth: 1)
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 

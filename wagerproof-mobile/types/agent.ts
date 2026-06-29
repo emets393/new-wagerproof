@@ -20,6 +20,41 @@ const EmojiSchema = z.string().min(1).refine(
 export const SPORTS = ['nfl', 'cfb', 'nba', 'ncaab', 'mlb'] as const;
 export type Sport = (typeof SPORTS)[number];
 
+// An agent may only cover sports within a single family. Football and basketball
+// each pair their pro/college sports; baseball stands alone. Mixing families is
+// disallowed because each sport family routes to its own large system prompt +
+// data payload (see AGENT_PAYLOAD_SPEC.md), and a single agent maps to one prompt.
+export const SPORT_FAMILIES = {
+  football: ['nfl', 'cfb'],
+  basketball: ['nba', 'ncaab'],
+  baseball: ['mlb'],
+} as const satisfies Record<string, readonly Sport[]>;
+
+export type SportFamily = keyof typeof SPORT_FAMILIES;
+
+export function sportFamily(sport: Sport): SportFamily {
+  if ((SPORT_FAMILIES.football as readonly Sport[]).includes(sport)) return 'football';
+  if ((SPORT_FAMILIES.basketball as readonly Sport[]).includes(sport)) return 'basketball';
+  return 'baseball';
+}
+
+export function isSingleSportFamily(sports: Sport[]): boolean {
+  if (sports.length === 0) return true;
+  const fam = sportFamily(sports[0]);
+  return sports.every((s) => sportFamily(s) === fam);
+}
+
+// Pure toggle used by every sport-picker: adding a sport from a different family
+// replaces the whole selection with just that sport (mirrors the old MLB rule,
+// generalized to all families).
+export function toggleSportSelection(selected: Sport[], sport: Sport): Sport[] {
+  if (selected.includes(sport)) {
+    return selected.filter((s) => s !== sport);
+  }
+  const sameFamily = selected.every((s) => sportFamily(s) === sportFamily(sport));
+  return sameFamily ? [...selected, sport] : [sport];
+}
+
 export const BET_TYPES = ['spread', 'moneyline', 'total', 'any'] as const;
 export type BetType = (typeof BET_TYPES)[number];
 
@@ -328,7 +363,9 @@ export const CreateAgentSchema = z.object({
     (val) => /^#[0-9a-fA-F]{6}$/.test(val) || /^gradient:#[0-9a-fA-F]{6},#[0-9a-fA-F]{6}$/.test(val),
     { message: 'Must be a hex color (#xxxxxx) or gradient (gradient:#xxxxxx,#xxxxxx)' }
   ),
-  preferred_sports: z.array(z.enum(SPORTS)).min(1),
+  preferred_sports: z.array(z.enum(SPORTS)).min(1).refine(isSingleSportFamily, {
+    message: 'An agent can only cover one sport family (e.g. NFL + CFB, or NBA + NCAAB).',
+  }),
   archetype: z.enum(ARCHETYPE_IDS).nullable(),
   personality_params: PersonalityParamsSchema,
   custom_insights: CustomInsightsSchema,
@@ -341,6 +378,10 @@ export const CreateAgentSchema = z.object({
 export const UpdateAgentSchema = CreateAgentSchema.partial().extend({
   is_public: z.boolean().optional(),
   is_active: z.boolean().optional(),
+  // Grandfather legacy multi-family agents: edits must still save even though
+  // their stored preferred_sports predate the single-family rule. New mixes are
+  // prevented by toggleSportSelection (UI) + the strict rule on CreateAgentSchema.
+  preferred_sports: z.array(z.enum(SPORTS)).min(1).optional(),
 });
 
 // ============================================================================

@@ -14,19 +14,18 @@ import WagerproofStores
 ///      compact "AWAY @ HOME" bar)
 ///   2. Market Odds (Polymarket)
 ///   3. Projected score with Full Game / 1st 5 toggle
-///   4. Moneyline projection (Vegas vs Model) — collapsible, embeds
-///      `FadeAlertTooltip` when the model's edge clears the 9.5% extreme
-///      threshold (mirrors NBA/NCAAB fade detection — see ticket #034)
-///   5. O/U projection (Vegas vs Model) — collapsible, embeds
-///      `FadeAlertTooltip` on extreme totals edges
-///   6. Regression report picks for this game (filtered) — Pro-gated via
+///   4. Moneyline projection (Vegas vs Model) — collapsible
+///   5. O/U projection (Vegas vs Model) — collapsible
+///   6. First-5 innings splits
+///   7. Regression report picks for this game (filtered) — Pro-gated via
 ///      `ProContentSection`
-///   7. Betting trends — compact situational matrix from the shared
+///   8. Player props for this matchup
+///   9. Betting trends — compact situational matrix from the shared
 ///      `MLBBettingTrendsStore` slate; hidden when the game has no trends
-///   8. Game signals — Pro-gated via `ProContentSection`
-///   9. Weather (with wind arrow + venue roof type) — Pro-gated via
+///  10. Game signals — Pro-gated via `ProContentSection`
+///  11. Weather (with wind arrow + venue roof type) — Pro-gated via
 ///      `ProContentSection`
-///  10. Agent pick rationale widget — only renders when the audit store has
+///  12. Agent pick rationale widget — only renders when the audit store has
 ///      a selected pick for this game (matches RN's `gameKeySet.has(...)`)
 ///
 /// Postponed games short-circuit to a simple banner.
@@ -120,11 +119,11 @@ struct MLBGameBottomSheet: View {
                 } content: {
                     marketOddsSection
                     projectedScoreCard
-                    playerPropsSection
                     moneylineCard
                     overUnderCard
                     f5SplitsCard
                     regressionPicksCard
+                    playerPropsSection
                     bettingTrendsCard
                     signalsCard
                     weatherCard
@@ -584,17 +583,6 @@ struct MLBGameBottomSheet: View {
                                 .lineSpacing(4)
                                 .foregroundStyle(Color.appTextSecondary)
                         }
-                        // Fade alert — extreme edges (≥9.5%) historically
-                        // fade more profitably than they follow. Mirrors the
-                        // NBA/NCAAB criterion (see ticket #034). MLB RN
-                        // currently omits this; the cross-sport pattern is
-                        // applied here per FIDELITY-WAIVER #100.
-                        if let pickEdge, abs(pickEdge) >= 9.5 {
-                            FadeAlertTooltip(
-                                betType: .spread,
-                                suggestedBet: "\(pickSide == "home" ? game.awayAbbr : game.homeAbbr) Moneyline"
-                            )
-                        }
                     }
             }
         }
@@ -668,25 +656,6 @@ struct MLBGameBottomSheet: View {
                                 .font(.system(size: 13))
                                 .lineSpacing(4)
                                 .foregroundStyle(Color.appTextSecondary)
-                        }
-                        // Same 9.5%-equivalent threshold for totals — fair
-                        // total ≥ ~1.0 run from the market line earns the
-                        // tooltip. RN MLB omits this; FIDELITY-WAIVER #100
-                        // standardizes with the rest of the sport sheets.
-                        if let edgeRaw, abs(edgeRaw) >= 9.5,
-                           let line, fairTotal != nil {
-                            // `fairTotal` is required as a precondition (we
-                            // don't show a fade tooltip on rows missing the
-                            // model's fair total), but the suggestion copy
-                            // reads only from the market line. The
-                            // `fairTotal != nil` guard keeps the gate without
-                            // forcing an unused-binding warning inside a
-                            // ViewBuilder (where the warning-suppressing
-                            // `_ = fairTotal` is an expression, not a View).
-                            let suggestion = isOver
-                                ? "Under \(String(format: "%.1f", line))"
-                                : "Over \(String(format: "%.1f", line))"
-                            FadeAlertTooltip(betType: .total, suggestedBet: suggestion)
                         }
                     }
             }

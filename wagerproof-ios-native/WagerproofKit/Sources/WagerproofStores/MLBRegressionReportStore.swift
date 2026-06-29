@@ -18,6 +18,8 @@ public final class MLBRegressionReportStore {
     /// 5-minute stale window — matches RN `staleTime: 5 * 60 * 1000`.
     private let staleWindow: TimeInterval = 5 * 60
     private var lastFetched: Date?
+    /// Coalesces overlapping `.task` / pull-to-refresh / toolbar refresh calls.
+    private var inFlightRefresh: Task<Void, Never>?
 
     public init() {}
 
@@ -40,27 +42,51 @@ public final class MLBRegressionReportStore {
     }
 
     public func refresh() async {
+        if let inFlightRefresh {
+            await inFlightRefresh.value
+            return
+        }
+        let task = Task { @MainActor in
+            await performRefresh()
+        }
+        inFlightRefresh = task
+        await task.value
+        inFlightRefresh = nil
+    }
+
+    private func performRefresh() async {
         loading = true
         errorMessage = nil
+        defer { loading = false }
         let today = MLBRegressionReportStore.todayInET()
         do {
+            try Task.checkCancellation()
             let cfb = await CFBSupabase.shared.client
-            // `maybeSingle()`: returns null instead of throwing when no row.
-            let row: MLBRegressionReport? = try? await cfb
+            // RN uses `maybeSingle()` — fetch as an array and take the first
+            // row so a missing report returns nil instead of throwing.
+            let rows: [MLBRegressionReport] = try await cfb
                 .from("mlb_regression_report")
                 .select()
                 .eq("report_date", value: today)
                 .limit(1)
-                .single()
                 .execute()
                 .value
-            self.report = row
+            try Task.checkCancellation()
+            self.report = rows.first
             self.lastFetchedKey = today
             self.lastFetched = Date()
+            self.errorMessage = nil
+        } catch is CancellationError {
+            // SwiftUI `.task` cancellation — keep any cached report/error state.
+            return
         } catch {
-            errorMessage = "Failed to load regression report."
+            // Preserve a previously loaded report (matches MLBBucketAccuracyStore
+            // and friends) so a stale-window re-fetch or cancelled overlap
+            // doesn't wipe a good payload.
+            if report == nil {
+                errorMessage = "Failed to load regression report."
+            }
         }
-        loading = false
     }
 
     /// Picks generated for the given `game_pk`. Mirrors the

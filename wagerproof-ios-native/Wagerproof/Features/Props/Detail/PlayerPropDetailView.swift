@@ -40,7 +40,9 @@ struct PlayerPropDetailView: View {
 
     init(selection: PlayerPropSelection, initialLine: Double? = nil) {
         self.selection = selection
-        let firstRow = selection.props.first
+        let preferred = selection.preferredMarket
+        let firstRow = preferred.flatMap { m in selection.props.first { $0.market == m } }
+            ?? selection.props.first
         let firstMarket = firstRow?.market ?? ""
         _activeMarket = State(initialValue: firstMarket)
         var seed: [String: Double] = [:]
