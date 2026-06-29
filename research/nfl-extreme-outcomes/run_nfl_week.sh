@@ -62,6 +62,8 @@ step "team trends (Outliers tab)";    python3 dryrun_wk12_trends.py
 step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
 step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py
 step "player-prop trends (Outliers)"; python3 gen_nfl_player_prop_trends.py
+step "outliers trend cards (weekly)"; python3 gen_nfl_outliers_trend_cards.py
+step "outliers trend lines (live books)"; python3 refresh_nfl_outliers_trend_lines.py
 
 echo
-echo "=== DONE :: dryrun_* + nfl_{team,coach,referee,player_prop}_trends loaded for $SEASON wk$WEEK ==="
+echo "=== DONE :: dryrun_* + nfl_{team,coach,referee,player_prop}_trends + outliers cards for $SEASON wk$WEEK ==="

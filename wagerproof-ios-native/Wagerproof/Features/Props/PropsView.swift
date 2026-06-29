@@ -66,6 +66,8 @@ struct PropsView: View {
     /// NFL-only feed filters — reset when leaving the NFL segment.
     @State private var nflFilters = NFLPropFeedFilters()
     @State private var showNFLMarketSheet = false
+    @State private var showBestPicks = false
+    @State private var bestPicksStore = MLBPlayerPropPicksStore()
 
     // Shared namespace for the card→detail zoom transition (same pattern as
     // GamesView). The source card and the pushed detail reference the same
@@ -103,6 +105,9 @@ struct PropsView: View {
                     sortMode = .time
                 }
                 await store.refresh()
+                if store.selectedSport == .mlb {
+                    await bestPicksStore.refreshSummaryOnly()
+                }
             }
             .onChange(of: mlbFilters.market) { _, market in
                 if market == "batter_home_runs" {
@@ -156,6 +161,9 @@ struct PropsView: View {
                 NFLPropDetailView(selection: selection)
                     .navigationTransition(.zoom(sourceID: selection.transitionID, in: cardTransition))
             }
+            .navigationDestination(isPresented: $showBestPicks) {
+                MLBBestPicksView(store: bestPicksStore)
+            }
             // Settings pushes onto this stack (tapping the trailing gear) instead
             // of covering the screen as a modal — see MainTabToolbar.swift.
             .wagerProofSettingsDestination(tabStore: tabStore, tab: .props, auth: auth, settingsStore: settingsStore, revenueCat: revenueCat, adminMode: adminMode, proAccess: proAccess)
@@ -182,6 +190,8 @@ struct PropsView: View {
         VStack(spacing: 0) {
             pickerBar
             if store.selectedSport == .mlb {
+                mlbBestPicksBanner
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 MLBPropFilterBar(
                     filters: $mlbFilters,
                     gameOptions: mlbGameFilterOptions,
@@ -275,6 +285,16 @@ struct PropsView: View {
         } else {
             matchupSections
         }
+    }
+
+    @ViewBuilder
+    private var mlbBestPicksBanner: some View {
+        MLBBestPicksBanner(store: bestPicksStore) {
+            showBestPicks = true
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
     }
 
     // MARK: - NFL sections

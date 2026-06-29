@@ -5,8 +5,8 @@ Markets (hit = OVER; ATD hit = scored): player_pass_yds, player_pass_tds,
 player_receptions, player_reception_yds, player_rush_yds, player_anytime_td.
 NO defensive/ST props ever. Props data only exists 2024-2025 (coverage flagged).
 
-Dimensions: overall, home, away, favorite, underdog, division, non_division.
-Windows: last 3/5/7 (most players have few seasons). Point-in-time via NFL_SEASON/NFL_WEEK.
+Dimensions: overall, home, away, division, non_division, primetime, regular.
+Matchups: per-opponent prop record cross-season (2024–25). Windows: last 3/5/7.
 
 Usage:  python3 gen_nfl_player_prop_trends.py [--no-load]
 """

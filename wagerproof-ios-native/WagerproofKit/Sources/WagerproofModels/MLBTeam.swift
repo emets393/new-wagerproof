@@ -135,6 +135,15 @@ public enum MLBTeams {
         }
         return (0x1F2937, 0x6B7280)
     }
+
+    /// ESPN logo URL by abbreviation or full team name.
+    public static func logoUrl(for nameOrAbbrev: String) -> String? {
+        let upper = nameOrAbbrev.uppercased()
+        for info in byNormalizedName.values where info.team == upper {
+            return info.logoUrl
+        }
+        return info(for: nameOrAbbrev)?.logoUrl
+    }
 }
 
 // MARK: - Trends + bucket accuracy + regression-report payload types
