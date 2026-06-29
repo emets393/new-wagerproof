@@ -18,19 +18,29 @@ struct AgentLeaderboardView: View {
     /// When false the sort/timeframe pills are hidden — the host (Outliers tab)
     /// lifts `LeaderboardFilterBar` into its pinned glass header instead.
     var showsFilters: Bool = true
+    /// Optional view pinned at the top of the scroll content as a section header
+    /// (the Agents hub passes its tab/filter bar here). Rendered as scroll
+    /// content — NOT a `safeAreaInset` — so the host's large title stays visible.
+    var pinnedHeader: AnyView = AnyView(EmptyView())
     var onRowTap: (AgentLeaderboardEntry) -> Void
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12) {
-                if showsFilters {
-                    LeaderboardFilterBar(store: store)
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        if showsFilters {
+                            LeaderboardFilterBar(store: store)
+                        }
+                        content
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.md)
+                    .padding(.bottom, Spacing.xl)
+                } header: {
+                    pinnedHeader
                 }
-                content
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.md)
-            .padding(.bottom, Spacing.xl)
         }
         .refreshable {
             await store.refresh()

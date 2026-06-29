@@ -106,11 +106,13 @@ struct OutliersTrendCard: View {
     }
 
     private func trendRow(_ row: OutliersTrendsCardRow) -> some View {
-        HStack(alignment: .top, spacing: 6) {
-            Circle()
-                .fill(trendColor(row.dominantPct))
-                .frame(width: 6, height: 6)
-                .padding(.top, 5)
+        HStack(alignment: .top, spacing: 7) {
+            // Icon keyed to the row's trend dimension, tinted by trend strength.
+            Image(systemName: Self.rowIcon(for: row.text))
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(trendColor(row.dominantPct))
+                .frame(width: 14, alignment: .center)
+                .padding(.top, 1)
             // Compact rows stay single-line so the card height is predictable;
             // the full text wraps in the expanded detail sheet.
             Text(rowDisplayText(row))
@@ -512,5 +514,57 @@ struct OutliersTrendCard: View {
         if pct > 0.75 { return Color.appWin }
         if pct >= 0.60 { return Color.appAccentAmber }
         return Color.appTextSecondary
+    }
+
+    /// Maps a trend row to an SF Symbol keyed on its *dimension* — the trailing
+    /// context phrase (road games, as an underdog, non-division, vs OPP, …). Every
+    /// row is phrased "<verb> <count> of last <n> <dimension>" by the NFL/MLB
+    /// engines and the precomputed server cards, so we isolate the part after
+    /// "of last <n>" and match on that. Matching the trailing phrase (not the
+    /// whole string) is required: referee verbs like "Home won"/"Away covered"
+    /// contain "home"/"away" and would otherwise collide with the home/road icons.
+    static func rowIcon(for text: String) -> String {
+        let dimension = trendDimension(from: text)
+        guard !dimension.isEmpty else { return "circle.fill" }
+
+        // Order matters: "non-" negations before their base, and home/road/etc.
+        // before the generic "games" fallback.
+        if dimension.hasPrefix("non-division") { return "globe.americas.fill" }
+        if dimension.hasPrefix("non-primetime") { return "sun.max.fill" }
+        if dimension.contains("road") || dimension == "away" || dimension.hasPrefix("away ") {
+            return "airplane"
+        }
+        if dimension.contains("home") { return "house.fill" }
+        if dimension.contains("underdog") { return "pawprint.fill" }
+        if dimension.contains("favorite") || dimension.contains("favourite") { return "star.fill" }
+        if dimension.contains("division") { return "person.2.fill" }
+        if dimension.contains("primetime") || dimension.contains("night") { return "moon.stars.fill" }
+        if dimension.contains("day game") { return "sun.max.fill" }
+        if dimension.hasPrefix("vs") { return "person.line.dotted.person.fill" }
+        if dimension.contains("series g1") { return "1.circle.fill" }
+        if dimension.contains("series g2") { return "2.circle.fill" }
+        if dimension.contains("series g3") { return "3.circle.fill" }
+        if dimension.contains("series g4") { return "4.circle.fill" }
+        if dimension.hasSuffix("games") || dimension == "games" { return "sportscourt.fill" }
+        return "circle.fill"
+    }
+
+    /// Pulls the lowercased dimension phrase out of a row's text, e.g.
+    /// "Lost 10 of last 10 road games (100%)" -> "road games". Returns "" when
+    /// the expected "of last <n>" structure isn't present.
+    private static func trendDimension(from text: String) -> String {
+        let lower = text.lowercased()
+        guard let range = lower.range(of: " of last ") else { return "" }
+        var context = String(lower[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+        // Drop the trailing "(NN%)" the engines append.
+        if let paren = context.lastIndex(of: "(") {
+            context = String(context[..<paren]).trimmingCharacters(in: .whitespaces)
+        }
+        // Drop the leading sample-count token ("10 road games" -> "road games").
+        let parts = context.split(separator: " ", maxSplits: 1)
+        if let first = parts.first, first.allSatisfy(\.isNumber) {
+            context = parts.count > 1 ? String(parts[1]) : ""
+        }
+        return context.trimmingCharacters(in: .whitespaces)
     }
 }
