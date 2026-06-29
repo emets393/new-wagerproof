@@ -107,12 +107,14 @@ struct OutliersTrendCard: View {
 
     private func trendRow(_ row: OutliersTrendsCardRow) -> some View {
         HStack(alignment: .top, spacing: 7) {
-            // Icon keyed to the row's trend dimension, tinted by trend strength.
+            // Icon keyed to the bullet's trend dimension (road games, underdog,
+            // non-division, vs OPP, …) so each split reads at a glance. Tinted
+            // by trend strength like the old dot.
             Image(systemName: Self.rowIcon(for: row.text))
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(trendColor(row.dominantPct))
                 .frame(width: 14, alignment: .center)
-                .padding(.top, 1)
+                .padding(.top, isCompact ? 0 : 1)
             // Compact rows stay single-line so the card height is predictable;
             // the full text wraps in the expanded detail sheet.
             Text(rowDisplayText(row))
@@ -163,12 +165,13 @@ struct OutliersTrendCard: View {
         }
     }
 
-    /// A hidden trend's dominant percentage as a tinted strength chip.
+    /// A hidden trend as a tinted strength chip: its dimension icon (matching the
+    /// row icons) + dominant percentage, so the preview reads at a glance.
     private func pctPreviewChip(_ row: OutliersTrendsCardRow) -> some View {
         HStack(spacing: 3) {
-            Circle()
-                .fill(trendColor(row.dominantPct))
-                .frame(width: 5, height: 5)
+            Image(systemName: Self.rowIcon(for: row.text))
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(trendColor(row.dominantPct))
             Text(pctText(row))
                 .font(.system(size: 10, weight: .heavy, design: .rounded))
                 .foregroundStyle(trendColor(row.dominantPct))
