@@ -19,7 +19,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "trigger:dev": "npm --prefix agents-v3 run dev",
+    "trigger:deploy": "npm --prefix agents-v3 run deploy"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

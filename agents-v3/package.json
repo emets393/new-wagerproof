@@ -8,12 +8,13 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "trigger.dev dev",
+    "dev": "trigger dev",
     "build": "tsc --noEmit",
-    "deploy": "trigger.dev deploy"
+    "deploy": "trigger deploy"
   },
   "devDependencies": {
     "@types/node": "^26.0.1",
+    "trigger.dev": "^4.4.6",
     "typescript": "^5.9.3"
   },
   "dependencies": {

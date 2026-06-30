@@ -64,7 +64,9 @@ struct PublicAgentDetailView: View {
                 notFoundView
             }
         }
-        .background(Color.appSurface.ignoresSafeArea())
+        // Match AgentDetailView: commit the page to the always-dark pixelwave
+        // aesthetic so the glass cards + text read over the near-black field.
+        .preferredColorScheme(.dark)
         .toolbarBackground(.hidden, for: .navigationBar)
         // Hide the app tab bar on the detail page (pushed from the Agents tab).
         .toolbar(.hidden, for: .tabBar)
@@ -96,7 +98,7 @@ struct PublicAgentDetailView: View {
 
     private var detailScroll: some View {
         CollapsingWidgetScroll(heroMaxHeight: 256, heroMinHeight: 132) { progress in
-            AgentAuraBackground(avatarColor: agent?.avatarColor ?? "#6366f1", progress: progress)
+            AgentPixelWaveBackground(avatarColor: agent?.avatarColor ?? "#6366f1", progress: progress)
         } hero: { progress in
             heroView(progress: progress)
         } content: {
