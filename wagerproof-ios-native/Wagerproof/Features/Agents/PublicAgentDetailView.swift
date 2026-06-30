@@ -17,7 +17,7 @@ struct PublicAgentDetailView: View {
     @State private var auditStore = AgentPickAuditStore()
     @State private var isFollowing: Bool = false
     @State private var followBusy: Bool = false
-    @State private var showHistory: Bool = true
+    @State private var showHistorySheet: Bool = false
     @State private var errorMessage: String? = nil
 
     init(agentId: String) {
@@ -30,6 +30,10 @@ struct PublicAgentDetailView: View {
     }
 
     private var agent: Agent? { store.snapshot?.agent }
+    /// Agent brand tint for the pick tickets + folder (matches the perf chart).
+    private var agentTint: Color {
+        agent.map { AgentColorPalette.primary(for: $0.avatarColor) } ?? Color(hex: 0x00E676)
+    }
     private var canViewPicks: Bool { entitlements.canViewAgentPicks }
     /// Owners can always view their own agent's picks/charts (web parity).
     private var canSeePicks: Bool { canViewPicks || isOwnAgent }
@@ -91,6 +95,13 @@ struct PublicAgentDetailView: View {
                 AgentPickPayloadAuditSheet(pick: pick, payload: auditStore.payload)
             }
         }
+        .sheet(isPresented: $showHistorySheet) {
+            PickHistorySheet(
+                picks: store.fullPickHistory,
+                agentName: agent?.name ?? "Agent",
+                agentColor: agentTint
+            )
+        }
         .alert("Error", isPresented: errorAlertBinding, presenting: errorMessage) { _ in
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: { msg in Text(msg) }
@@ -104,7 +115,7 @@ struct PublicAgentDetailView: View {
         } content: {
             followBlock
             todaysPicksCard
-            pickHistoryCard
+            pickHistorySlot
             performanceCard
             disclaimer
                 .padding(.horizontal, 16)
@@ -225,53 +236,31 @@ struct PublicAgentDetailView: View {
         }
     }
 
-    // MARK: - Pick History card
+    // MARK: - Pick History folder
 
+    /// Replaces the old Pick History list: the agent's recent pick tickets poke
+    /// out of a manila folder embossed "PICK HISTORY". Tapping the folder opens
+    /// the full rolodex + result/sport/sort filter sheet (`PickHistorySheet`).
+    /// Ported from the Orbital Focus Mission Log — see AgentPickTicket.swift and
+    /// PickHistoryFolder.swift.
     @ViewBuilder
-    private var pickHistoryCard: some View {
-        WidgetCollapsingSection(
-            title: "Pick History",
-            systemImage: "clock.arrow.circlepath",
-            iconTint: Color.appPrimary,
-            accessory: .chevron(expanded: showHistory),
-            onHeaderTap: {
-                showHistory.toggle()
-                if showHistory {
-                    Task { await store.loadHistory(isOwner: isOwnAgent) }
-                }
-            }
-        ) {
-            if showHistory {
-                historyContent
-            } else {
-                Text("Tap to view this agent's graded pick history")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
+    private var pickHistorySlot: some View {
+        AgentPickFolderCard(
+            recentPicks: canSeePicks ? store.fullPickHistory : [],
+            totalCount: store.fullPickHistory.count,
+            loading: canSeePicks && isHistoryLoading && store.fullPickHistory.isEmpty,
+            locked: !canSeePicks,
+            agentColor: agentTint,
+            onTap: { showHistorySheet = true }
+        )
+        .padding(.horizontal, WidgetCard.hInset)
+        .padding(.bottom, WidgetCard.gap)
     }
 
-    @ViewBuilder
-    private var historyContent: some View {
-        if !canSeePicks {
-            VStack(spacing: 8) { lockedPickPlaceholder; lockedPickPlaceholder }
-        } else if case .loading = store.historyLoadState, store.pickHistory.isEmpty {
-            VStack(spacing: 8) { PickCardSkeleton(); PickCardSkeleton() }
-        } else if store.pickHistory.isEmpty {
-            Text("No picks yet")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.appTextSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-        } else {
-            VStack(spacing: 8) {
-                ForEach(Array(store.pickHistory.enumerated()), id: \.element.id) { index, pick in
-                    AgentPickItem(pick: pick, showReasoning: .none, onTap: { auditStore.present(pick: pick) })
-                        .staggeredAppear(index: index)
-                }
-            }
-        }
+    private var isHistoryLoading: Bool {
+        if case .loading = store.historyLoadState { return true }
+        if case .loading = store.performanceLoadState { return true }
+        return false
     }
 
     // MARK: - Performance card
