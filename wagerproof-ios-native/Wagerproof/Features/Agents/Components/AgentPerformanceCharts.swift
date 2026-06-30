@@ -14,6 +14,9 @@ struct AgentPerformanceCharts: View {
     let allPicks: [AgentPick]
     let preferredSports: [AgentSport]
     let agentColor: Color
+    /// When false the internal "Performance" heading is suppressed — used when a
+    /// parent already provides a section header (the inline agent-detail layout).
+    var showsTitle: Bool = true
 
     private struct ChartPoint: Identifiable {
         let id = UUID()
@@ -53,9 +56,11 @@ struct AgentPerformanceCharts: View {
             if overallStats.points.count < 3 {
                 emptyState
             } else {
-                Text("Performance")
-                    .font(.system(size: 18, weight: .heavy))
-                    .foregroundStyle(Color.appTextPrimary)
+                if showsTitle {
+                    Text("Performance")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundStyle(Color.appTextPrimary)
+                }
                 overallCard
                 if sportStats.count > 1 {
                     Text("By Sport")

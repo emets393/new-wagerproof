@@ -462,6 +462,13 @@ Shared in-app (not in Kit yet): GameCardTeamAvatar, SportTeamColors, GameCardFor
 (`GameCards/Components/`), TeamAuraBackground (aura glow used by game/prop detail heroes; the
 agent detail heroes use the pixelwave `PixelWaveBackground` / `AgentPixelWaveBackground` instead).
 
+Easter egg — avatar ripple: `PixelGlyphField` accepts an optional `GlyphRippleEmitter`
+(`@Observable`, in `PixelGlyphField.swift`) so a foreground view can inject a tap-ripple. On
+`AgentDetailView`, tapping the `AgentGlassHero` avatar disc reports its global center
+(`onAvatarTap`) and the view calls `emitter.emit(at:)` (+ light haptic) — the screen-anchored
+pixelwave field draws at global (0,0), so the global point maps 1:1 and the ripple blooms from
+the avatar through the background pixels.
+
 ---
 
 ## 11. Search-surfacing shortlist (Tier-1 entities + data keys)

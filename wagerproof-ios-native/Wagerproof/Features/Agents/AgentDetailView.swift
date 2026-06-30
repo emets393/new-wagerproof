@@ -3,6 +3,9 @@ import WagerproofDesign
 import WagerproofModels
 import WagerproofServices
 import WagerproofStores
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Owner agent detail screen. Ports `app/(drawer)/(tabs)/agents/[id]/index.tsx`.
 ///
@@ -13,13 +16,15 @@ import WagerproofStores
 /// continuous scroll (no segmented tabs) mirrors the RN source and the rest of
 /// the app's detail surfaces.
 ///
-/// Cards (top → bottom):
-///   - Autopilot (auto-generate time + autopilot toggle + regenerate status)
-///   - Today's Picks (today's picks list + audit/game-card actions + terminal
-///     "no picks" conclusion + ThinkingAnimation while generating)
-///   - Pick History (collapsible; filter chips + history list)
-///   - Performance (Apple Charts, Pro-gated)
-///   - Strategy (personality pills + archetype + generation timeline + disclaimer)
+/// Sections (top → bottom). Performance + Recent Activity are deliberately NOT
+/// glass cards — they render inline under a plain `AgentSectionHeader` so the
+/// chart and the timeline read as the page's highlights, not boxed-in content:
+///   - Picks (inline — the headline section: a generate prompt with a shimmer
+///     CTA + tucked autopilot chip, the live `AgentGeneratingView` while a run
+///     is in flight, or today's pick cards once generated)
+///   - Pick History (manila folder — opens the full rolodex sheet)
+///   - Performance (inline — Apple Charts, Pro-gated)
+///   - Recent Activity (inline — `AgentTimeline`, self-hides when empty)
 ///
 /// Settings is a toolbar push (gear); the audit modal is a `.sheet`. Chat is no
 /// longer surfaced here (the RN detail page has none).
@@ -31,11 +36,13 @@ struct AgentDetailView: View {
     @Environment(ProAccessStore.self) private var proAccess
     @State private var store: AgentDetailStore
     @State private var auditStore = AgentPickAuditStore()
-    @State private var showHistory: Bool = true
+    @State private var showHistorySheet: Bool = false
     @State private var loadingPickId: String? = nil
     @State private var errorMessage: String? = nil
     @State private var showPrinterSlip: Bool = false
     @State private var lastGenerationResultPicks: [AgentPick] = []
+    /// Easter egg: tapping the hero avatar ripples the pixelwave background.
+    @State private var rippleEmitter = GlyphRippleEmitter()
 
     init(agentId: String, initialAgent: AgentWithPerformance? = nil) {
         self.agentId = agentId
@@ -49,15 +56,18 @@ struct AgentDetailView: View {
 
     var body: some View {
         CollapsingWidgetScroll(heroMaxHeight: 244, heroMinHeight: 132) { progress in
-            AgentPixelWaveBackground(avatarColor: agent?.avatarColor ?? "#6366f1", progress: progress)
+            AgentPixelWaveBackground(
+                avatarColor: agent?.avatarColor ?? "#6366f1",
+                progress: progress,
+                rippleEmitter: rippleEmitter
+            )
         } hero: { progress in
             heroView(progress: progress)
         } content: {
-            autopilotCard
-            todaysPicksCard
-            pickHistoryCard
-            performanceCard
-            strategyCard
+            picksSection
+            pickHistorySlot
+            performanceSection
+            recentActivitySection
         }
         // Commit the page to the always-dark pixelwave aesthetic of the auth
         // gate so the glass cards + text read correctly over the near-black
@@ -71,7 +81,9 @@ struct AgentDetailView: View {
         // Hide the app tab bar on the detail page so the collapsing aura hero
         // reads as a full-screen surface (pushed from the Agents tab).
         .toolbar(.hidden, for: .tabBar)
-        .navigationTitle(agent?.name ?? "Agent")
+        // No nav-bar title — the collapsing hero header already shows the agent
+        // name, so a toolbar title would just duplicate it.
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -80,6 +92,8 @@ struct AgentDetailView: View {
                 } label: {
                     Image(systemName: "gearshape")
                 }
+                // White, not the brand-green accent the toolbar tints controls with.
+                .tint(.white)
             }
         }
         .refreshable {
@@ -99,6 +113,13 @@ struct AgentDetailView: View {
             if let pick = auditStore.selectedPick {
                 AgentPickPayloadAuditSheet(pick: pick, payload: auditStore.payload)
             }
+        }
+        .sheet(isPresented: $showHistorySheet) {
+            PickHistorySheet(
+                picks: store.fullPickHistory,
+                agentName: agent?.name ?? "Agent",
+                agentColor: agentTint
+            )
         }
         .overlay {
             if showPrinterSlip, let agent = store.snapshot?.agent {
@@ -130,7 +151,8 @@ struct AgentDetailView: View {
                 agent: agent,
                 performance: store.snapshot?.performance ?? initialAgent?.performance,
                 lockedNetUnits: !canSeePicks,
-                progress: progress
+                progress: progress,
+                onAvatarTap: rippleAvatar
             )
             .padding(.horizontal, 16)
             .padding(.top, 6)
@@ -141,193 +163,133 @@ struct AgentDetailView: View {
         }
     }
 
-    // MARK: - Autopilot card
+    // MARK: - Picks section (container-less)
 
+    /// The headline first section. Three states, none boxed in a glass card:
+    ///   • generating → `AgentGeneratingView` (glyph matrix + thinking verbs +
+    ///     real progress bar over a dense pixel fill),
+    ///   • has picks  → a plain `AgentSectionHeader` + the pick cards + a small
+    ///     regenerate / autopilot footer,
+    ///   • idle/empty → `AgentGeneratePrompt` (shimmer Generate button, with the
+    ///     autopilot toggle tucked into a small chip).
     @ViewBuilder
-    private var autopilotCard: some View {
-        WidgetCollapsingSection(title: "Autopilot", systemImage: "wand.and.stars", iconTint: Color(hex: 0x00E676)) {
-            VStack(alignment: .leading, spacing: 10) {
-                if let agent = store.snapshot?.agent, agent.autoGenerate {
-                    HStack(spacing: 8) {
-                        Image(systemName: "clock")
-                        Text("Auto-generates daily at \(agent.autoGenerateTime) \(Self.tzAbbr(agent.autoGenerateTimezone))")
-                        Spacer(minLength: 0)
-                    }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.appTextPrimary)
-                    .padding(10)
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.appSurfaceMuted.opacity(0.6)))
-                }
-
-                HStack {
-                    Label("Autopilot", systemImage: "bolt.badge.automatic")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.appTextPrimary)
-                    Spacer()
-                    Toggle(
-                        "",
-                        isOn: Binding(
-                            get: { store.snapshot?.agent?.autoGenerate ?? false },
-                            set: { value in Task { await store.setAutoGenerate(value) } }
-                        )
-                    )
-                    .labelsHidden()
-                    .tint(Color(hex: 0x00E676))
-                }
-
-                if !store.todaysPicks.isEmpty {
-                    regenerateRow
-                }
-            }
-        }
-    }
-
-    private var regenerateRow: some View {
-        HStack {
-            Text(regenerationSummary)
-                .font(.system(size: 11))
-                .foregroundStyle(Color.appTextSecondary)
-            Spacer()
-            Button {
-                Task { await runGeneration() }
-            } label: {
-                Label(canRegenerate ? "Regenerate" : "Locked", systemImage: canRegenerate ? "arrow.clockwise" : "lock.fill")
-                    .font(.system(size: 12, weight: .heavy))
-            }
-            .buttonStyle(.bordered)
-            .tint(canRegenerate ? Color(hex: 0x00E676) : Color.appBorder)
-            .disabled(!canRegenerate || store.isGenerating)
-        }
-    }
-
-    // MARK: - Today's Picks card
-
-    @ViewBuilder
-    private var todaysPicksCard: some View {
-        WidgetCollapsingSection(
-            title: "Today's Picks",
-            systemImage: "doc.text.image",
-            iconTint: Color(hex: 0x00E676),
-            contentKey: todaysPicksContentKey
-        ) {
-            VStack(alignment: .leading, spacing: 12) {
-                if store.isGenerating {
-                    if let live = store.liveRunState {
-                        LiveAgentRunView(state: live)
-                    } else {
-                        ThinkingAnimation(variant: .generatingPicks)
-                    }
-                }
-
-                if !canSeePicks {
-                    lockedPickCardPlaceholder
-                    lockedPickCardPlaceholder
-                } else if case .loading = store.snapshotLoadState, store.todaysPicks.isEmpty {
-                    PickCardSkeleton(); PickCardSkeleton()
-                } else if store.todaysPicks.isEmpty {
-                    emptyTodaysPicks
-                } else {
-                    ForEach(Array(store.todaysPicks.enumerated()), id: \.element.id) { index, pick in
-                        AgentPickCard(
-                            pick: pick,
-                            loading: loadingPickId == pick.id,
-                            onTap: { auditStore.present(pick: pick) }
-                        )
-                        .staggeredAppear(index: index)
-                    }
-                }
-
-                if let runConclusion = noPicksConclusion {
-                    terminalConclusion(text: runConclusion)
-                }
-            }
-        }
-    }
-
-    // MARK: - Pick History card
-
-    @ViewBuilder
-    private var pickHistoryCard: some View {
-        WidgetCollapsingSection(
-            title: "Pick History",
-            systemImage: "clock.arrow.circlepath",
-            iconTint: Color.appPrimary,
-            accessory: .chevron(expanded: showHistory),
-            onHeaderTap: {
-                showHistory.toggle()
-                if showHistory {
-                    Task { await store.loadHistory(isOwner: isOwnAgent) }
-                }
-            }
-        ) {
-            if showHistory {
-                historyContent
-            } else {
-                Text("Tap to view this agent's graded pick history")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var historyContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(AgentDetailStore.PickFilter.allCases, id: \.self) { f in
-                        Button {
-                            store.pickFilter = f
-                        } label: {
-                            Text(f.label)
-                                .font(.system(size: 12, weight: .semibold))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(
-                                    Capsule().fill(
-                                        store.pickFilter == f
-                                            ? Color(hex: 0x00E676).opacity(0.18)
-                                            : Color.appBorder.opacity(0.3)
-                                    )
-                                )
-                                .foregroundStyle(
-                                    store.pickFilter == f
-                                        ? Color(hex: 0x00E676)
-                                        : Color.appTextSecondary
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            if case .loading = store.historyLoadState, store.pickHistory.isEmpty {
+    private var picksSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if store.isGenerating {
+                AgentGeneratingView(state: store.liveRunState, accent: agentTint)
+            } else if !canSeePicks {
+                lockedPickCardPlaceholder
+                lockedPickCardPlaceholder
+            } else if case .loading = store.snapshotLoadState, store.todaysPicks.isEmpty {
                 PickCardSkeleton(); PickCardSkeleton()
-            } else if store.filteredPickHistory.isEmpty {
-                Text(store.pickFilter == .all ? "No picks in history" : "No \(store.pickFilter.label.lowercased()) picks")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
-            } else {
-                ForEach(Array(store.filteredPickHistory.enumerated()), id: \.element.id) { index, pick in
-                    AgentPickItem(
+            } else if !store.todaysPicks.isEmpty {
+                AgentSectionHeader(title: "Today's Picks", systemImage: "doc.text.image")
+                ForEach(Array(store.todaysPicks.enumerated()), id: \.element.id) { index, pick in
+                    AgentPickCard(
                         pick: pick,
-                        showReasoning: .none,
+                        loading: loadingPickId == pick.id,
                         onTap: { auditStore.present(pick: pick) }
                     )
                     .staggeredAppear(index: index)
                 }
+                generateFooter
+            } else {
+                AgentGeneratePrompt(
+                    accent: agentTint,
+                    title: "You can generate your picks right now",
+                    subtitle: idleSubtitle,
+                    autoGenerate: agent?.autoGenerate ?? false,
+                    onToggleAuto: { value in Task { await store.setAutoGenerate(value) } },
+                    canGenerate: canRegenerate,
+                    buttonLabel: generationLabel,
+                    onGenerate: { Task { await runGeneration() } }
+                )
+            }
+
+            if let runConclusion = noPicksConclusion {
+                terminalConclusion(text: runConclusion)
             }
         }
+        .padding(.horizontal, WidgetCard.hInset)
+        .padding(.bottom, WidgetCard.gap)
     }
 
-    // MARK: - Performance card
+    /// Small footer under an existing pick list: tucked autopilot chip + a
+    /// low-emphasis regenerate control (the prominent CTA only shows when there
+    /// are no picks yet).
+    private var generateFooter: some View {
+        HStack(spacing: 10) {
+            AutopilotChip(
+                isOn: agent?.autoGenerate ?? false,
+                accent: agentTint,
+                onToggle: { value in Task { await store.setAutoGenerate(value) } }
+            )
+            Spacer(minLength: 0)
+            Button { Task { await runGeneration() } } label: {
+                Label(canRegenerate ? "Regenerate" : "Limit reached",
+                      systemImage: canRegenerate ? "arrow.clockwise" : "lock.fill")
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundStyle(canRegenerate ? agentTint : Color.appTextSecondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(canRegenerate ? agentTint.opacity(0.14) : Color.appSurfaceMuted.opacity(0.5)))
+                    .overlay(Capsule().strokeBorder(canRegenerate ? agentTint.opacity(0.4) : Color.clear, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canRegenerate)
+        }
+        .padding(.top, 2)
+    }
 
+    /// Subtitle under the idle generate prompt: surfaces the autopilot schedule
+    /// as the "or wait" alternative, plus the remaining-regenerations note.
+    private var idleSubtitle: String {
+        if let agent = agent, agent.autoGenerate {
+            return "Or wait — autopilot runs daily at \(agent.autoGenerateTime) \(Self.tzAbbr(agent.autoGenerateTimezone)). \(regenerationSummary)"
+        }
+        return regenerationSummary
+    }
+
+    // MARK: - Pick History folder
+
+    /// Replaces the old Pick History list: the agent's recent pick tickets poke
+    /// out of a manila folder embossed "PICK HISTORY". Tapping the folder opens
+    /// the full rolodex + result/sport/sort filter sheet (`PickHistorySheet`).
+    /// Ported from the Orbital Focus Mission Log — see AgentPickTicket.swift and
+    /// PickHistoryFolder.swift.
     @ViewBuilder
-    private var performanceCard: some View {
-        WidgetCollapsingSection(title: "Performance", systemImage: "chart.line.uptrend.xyaxis", iconTint: Color.appPrimary) {
+    private var pickHistorySlot: some View {
+        AgentPickFolderCard(
+            recentPicks: canSeePicks ? store.fullPickHistory : [],
+            totalCount: store.fullPickHistory.count,
+            loading: canSeePicks && isHistoryLoading && store.fullPickHistory.isEmpty,
+            locked: !canSeePicks,
+            agentColor: agentTint,
+            onTap: { showHistorySheet = true }
+        )
+        .padding(.horizontal, WidgetCard.hInset)
+        .padding(.bottom, WidgetCard.gap)
+    }
+
+    private var isHistoryLoading: Bool {
+        if case .loading = store.historyLoadState { return true }
+        if case .loading = store.performanceLoadState { return true }
+        return false
+    }
+
+    // MARK: - Performance section
+
+    /// Performance lives inline in the scroll — no Liquid-Glass container — so the
+    /// cumulative-units chart reads as the highlight of the page. Just a plain
+    /// section header over the chart component (which keeps its own elevated card).
+    /// Header indents 16pt past the chart's left edge, mirroring how the cards
+    /// above inset their header from their glass surface, so the header column
+    /// still lines up with Autopilot / Today's Picks / Pick History.
+    @ViewBuilder
+    private var performanceSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            AgentSectionHeader(title: "Performance", systemImage: "chart.line.uptrend.xyaxis")
+
             if !canSeePicks {
                 VStack(spacing: 8) {
                     Image(systemName: "lock.fill").font(.system(size: 26))
@@ -341,10 +303,12 @@ struct AgentDetailView: View {
             } else if case .loading = store.performanceLoadState, store.performancePicks.isEmpty {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 28)
             } else {
+                // `showsTitle: false` — the section header above already names it.
                 AgentPerformanceCharts(
                     allPicks: store.performancePicks,
                     preferredSports: store.snapshot?.agent?.preferredSports ?? [],
-                    agentColor: agent.map { AgentColorPalette.primary(for: $0.avatarColor) } ?? Color(hex: 0x00E676)
+                    agentColor: agent.map { AgentColorPalette.primary(for: $0.avatarColor) } ?? Color(hex: 0x00E676),
+                    showsTitle: false
                 )
                 .task {
                     if store.performancePicks.isEmpty {
@@ -353,48 +317,27 @@ struct AgentDetailView: View {
                 }
             }
         }
+        .padding(.horizontal, WidgetCard.hInset)
+        .padding(.bottom, WidgetCard.gap)
     }
 
-    // MARK: - Strategy card
+    // MARK: - Recent Activity section
 
+    /// The activity timeline, standing on its own directly under Performance.
+    /// `AgentTimeline` renders its own section header and self-hides (EmptyView)
+    /// when there are no events, so this whole section disappears for brand-new
+    /// agents.
     @ViewBuilder
-    private var strategyCard: some View {
+    private var recentActivitySection: some View {
         if let agent = agent {
-            WidgetCollapsingSection(title: "Strategy", systemImage: "slider.horizontal.3", iconTint: Color(hex: 0xA855F7)) {
-                VStack(alignment: .leading, spacing: 14) {
-                    personalityPills(for: agent, tint: AgentColorPalette.primary(for: agent.avatarColor))
-
-                    if let archetype = agent.archetype {
-                        HStack(spacing: 6) {
-                            Image(systemName: "person.crop.square.badge.camera")
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.appTextSecondary)
-                            Text("Archetype: \(archetype.displayName)")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color.appTextPrimary)
-                        }
-                    }
-
-                    AgentTimeline(
-                        agent: agent,
-                        performance: store.snapshot?.performance,
-                        todaysPicks: store.todaysPicks,
-                        todaysRun: store.todaysGenerationRun
-                    )
-
-                    disclaimer
-                }
-            }
-        }
-    }
-
-    // MARK: - Shared section bits
-
-    @ViewBuilder
-    private func personalityPills(for agent: Agent, tint: Color) -> some View {
-        let pills = Self.personalityPills(for: agent.personalityParams)
-        if !pills.isEmpty {
-            FlowPills(pills: pills, tint: tint)
+            AgentTimeline(
+                agent: agent,
+                performance: store.snapshot?.performance,
+                todaysPicks: store.todaysPicks,
+                todaysRun: store.todaysGenerationRun
+            )
+            .padding(.horizontal, WidgetCard.hInset)
+            .padding(.bottom, WidgetCard.gap)
         }
     }
 
@@ -439,39 +382,6 @@ struct AgentDetailView: View {
         )
     }
 
-    private var emptyTodaysPicks: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "calendar.badge.exclamationmark")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(Color.appTextSecondary)
-            Text("No picks yet today")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.appTextPrimary)
-            Text("Agents study throughout the day. Picks generate overnight when ready.")
-                .font(.system(size: 12))
-                .foregroundStyle(Color.appTextSecondary)
-                .multilineTextAlignment(.center)
-
-            Button {
-                Task { await runGeneration() }
-            } label: {
-                Label(generationLabel, systemImage: canRegenerate ? "bolt.fill" : "lock.fill")
-                    .font(.system(size: 14, weight: .bold))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(canRegenerate ? Color(hex: 0x00E676) : Color.appBorder)
-            .disabled(!canRegenerate || store.isGenerating)
-
-            Text(regenerationSummary)
-                .font(.system(size: 11))
-                .foregroundStyle(Color.appTextSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-    }
-
     private var lockedPickCardPlaceholder: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -500,21 +410,16 @@ struct AgentDetailView: View {
         )
     }
 
-    // MARK: - Disclaimer
-
-    private var disclaimer: some View {
-        HStack(alignment: .top, spacing: 6) {
-            Image(systemName: "info.circle")
-                .font(.system(size: 12))
-                .foregroundStyle(Color.appTextSecondary)
-            Text("AI agents analyze data and perform research — they do not constitute betting advice. Always verify information independently and wager responsibly. Errors may occur.")
-                .font(.system(size: 11))
-                .foregroundStyle(Color.appTextSecondary)
-        }
-        .opacity(0.7)
-    }
-
     // MARK: - Actions
+
+    /// Easter egg: a tap on the hero avatar fires a glyph ripple from the disc's
+    /// global center through the pixelwave background, plus a light haptic.
+    private func rippleAvatar(at globalCenter: CGPoint) {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        rippleEmitter.emit(at: globalCenter)
+    }
 
     private func refresh() async {
         await store.refreshSnapshot()
@@ -541,6 +446,10 @@ struct AgentDetailView: View {
     // MARK: - Derived
 
     private var agent: Agent? { store.snapshot?.agent ?? initialAgent?.agent }
+    /// Agent brand tint for the pick tickets + folder (matches the perf chart).
+    private var agentTint: Color {
+        agent.map { AgentColorPalette.primary(for: $0.avatarColor) } ?? Color(hex: 0x00E676)
+    }
     private var canViewPicks: Bool { entitlements.canViewAgentPicks }
     /// Owners can always view their own agent's picks/charts (web parity).
     private var isOwnAgent: Bool {
@@ -550,13 +459,6 @@ struct AgentDetailView: View {
     private var canSeePicks: Bool { canViewPicks || isOwnAgent }
     private var historyReloadKey: String {
         "\(agentId)-\(canSeePicks)-\(isOwnAgent)-\(currentUserId ?? "")"
-    }
-    private var todaysPicksContentKey: String {
-        let loading: Bool = {
-            if case .loading = store.snapshotLoadState { return true }
-            return false
-        }()
-        return "\(loading)-\(store.todaysPicks.count)-\(store.isGenerating)-\(store.liveRunState?.status ?? "")-\(store.liveRunState?.metadata.phase ?? "")-\(store.liveRunState?.metadata.currentTool ?? "")"
     }
     private var currentUserId: String? {
         if case .authenticated(let userId) = auth.phase {
@@ -585,23 +487,6 @@ struct AgentDetailView: View {
         Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
     }
 
-    // MARK: - Personality pill helper
-
-    static func personalityPills(for p: AgentPersonalityParams) -> [String] {
-        var pills: [String] = []
-        let riskMap = [1: "Very Safe", 2: "Conservative", 4: "Aggressive", 5: "High Risk"]
-        if let label = riskMap[p.riskTolerance] { pills.append(label) }
-        let bt = p.preferredBetType.lowercased()
-        if bt == "spread" { pills.append("Spreads") }
-        else if bt == "moneyline" { pills.append("Moneylines") }
-        else if bt == "total" { pills.append("Totals") }
-        let dogMap = [1: "Chalk Only", 2: "Favors Favorites", 4: "Likes Underdogs", 5: "Underdog Hunter"]
-        if let label = dogMap[p.underdogLean] { pills.append(label) }
-        if p.chaseValue { pills.append("Value Hunter") }
-        if p.fadePublic == true { pills.append("Fades Public") }
-        return Array(pills.prefix(5))
-    }
-
     static func tzAbbr(_ tz: String) -> String {
         if tz.contains("New_York") { return "ET" }
         if tz.contains("Chicago") { return "CT" }
@@ -611,68 +496,29 @@ struct AgentDetailView: View {
     }
 }
 
-/// Wrapping pill row for the personality tags. Uses a simple flow layout so the
-/// pills wrap onto a second line when they overflow (the strategy card is full
-/// width, unlike the old single-line profile-card row).
-struct FlowPills: View {
-    let pills: [String]
-    let tint: Color
+/// Plain section header for the inline (container-less) detail sections —
+/// Performance and Recent Activity. Mirrors the `WidgetCollapsingSection` header
+/// style (uppercase, translucent, leading icon) so the inline sections read as
+/// peers of the Liquid-Glass cards above them, just without the glass body.
+/// The 16pt horizontal padding matches the card header inset, so the header
+/// column stays aligned across both the cards and these inline sections.
+struct AgentSectionHeader: View {
+    let title: String
+    let systemImage: String
 
     var body: some View {
-        AgentPillFlowLayout(spacing: 6, lineSpacing: 6) {
-            ForEach(pills, id: \.self) { pill in
-                Text(pill)
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(tint.opacity(0.15)))
-                    .foregroundStyle(tint)
-            }
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.appTextSecondary)
+            Text(title.uppercased())
+                .font(.system(size: 13, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(Color.appTextSecondary)
+            Spacer(minLength: 8)
         }
-    }
-}
-
-/// Minimal flow layout — lays children left-to-right, wrapping to the next line
-/// when the row width is exceeded. Used for the wrapping personality pills.
-/// (File-private to avoid clashing with the other per-file `FlowLayout` copies.)
-private struct AgentPillFlowLayout: Layout {
-    var spacing: CGFloat = 6
-    var lineSpacing: CGFloat = 6
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var lineHeight: CGFloat = 0
-        for sub in subviews {
-            let size = sub.sizeThatFits(.unspecified)
-            if x + size.width > maxWidth, x > 0 {
-                x = 0
-                y += lineHeight + lineSpacing
-                lineHeight = 0
-            }
-            x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
-        }
-        return CGSize(width: maxWidth == .infinity ? x : maxWidth, height: y + lineHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
-        let maxWidth = bounds.width
-        var x: CGFloat = bounds.minX
-        var y: CGFloat = bounds.minY
-        var lineHeight: CGFloat = 0
-        for sub in subviews {
-            let size = sub.sizeThatFits(.unspecified)
-            if x + size.width > bounds.minX + maxWidth, x > bounds.minX {
-                x = bounds.minX
-                y += lineHeight + lineSpacing
-                lineHeight = 0
-            }
-            sub.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
-        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

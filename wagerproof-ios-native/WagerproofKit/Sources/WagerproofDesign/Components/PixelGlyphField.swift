@@ -1,5 +1,35 @@
 import SwiftUI
 
+/// An observable command channel for spawning tap-style ripples in a
+/// `PixelGlyphField` from OUTSIDE the field. The field installs its own tap
+/// gesture for ambient ripples; this lets a foreground view inject one
+/// programmatically — e.g. tapping the agent avatar ripples the background
+/// pixels behind it (an easter egg on the agent detail hero).
+///
+/// `point` is in the field's OWN coordinate space. A screen-anchored field
+/// (`PixelWaveBackground(screenAnchored:)`) draws at global (0,0) sized to the
+/// full screen, so a GLOBAL screen point maps 1:1 — pass the tapped view's
+/// global center (`frame(in: .global)` midpoint).
+@MainActor
+@Observable
+public final class GlyphRippleEmitter {
+    public struct Pulse: Equatable {
+        public var point: CGPoint
+        /// Monotonic id so two ripples at the same point still read as distinct
+        /// events (a plain point wouldn't trip `.onChange` on a repeat tap).
+        public var token: Int
+    }
+
+    public private(set) var pulse = Pulse(point: .zero, token: 0)
+
+    public init() {}
+
+    /// Spawn a ripple centered on `point` (field-local / screen-anchored-global).
+    public func emit(at point: CGPoint) {
+        pulse = Pulse(point: point, token: pulse.token + 1)
+    }
+}
+
 /// A stepped, organic field of small pixel "glyphs" that bloom and dissipate
 /// like bacteria colonies or cloud poofs.
 ///
@@ -26,6 +56,9 @@ public struct PixelGlyphField: View {
     private let spacing: CGFloat
     private let dotSize: CGFloat
     private let peakOpacity: Double
+    /// Optional external trigger so another view can ripple this field (see
+    /// `GlyphRippleEmitter`). Nil for fields that only ripple on direct taps.
+    private let rippleEmitter: GlyphRippleEmitter?
 
     @State private var sim = GlyphAutomaton()
     /// Reference time of the most recent simulation step — drives the brief
@@ -59,7 +92,8 @@ public struct PixelGlyphField: View {
         accentColor: Color? = .appPrimary,
         spacing: CGFloat = 26,
         dotSize: CGFloat = 5.5,
-        peakOpacity: Double = 0.45
+        peakOpacity: Double = 0.45,
+        rippleEmitter: GlyphRippleEmitter? = nil
     ) {
         self.intervals = intervals.isEmpty ? [0.3] : intervals
         self.baseColor = baseColor
@@ -67,6 +101,7 @@ public struct PixelGlyphField: View {
         self.spacing = spacing
         self.dotSize = dotSize
         self.peakOpacity = peakOpacity
+        self.rippleEmitter = rippleEmitter
     }
 
     public var body: some View {
@@ -110,6 +145,12 @@ public struct PixelGlyphField: View {
         .contentShape(Rectangle())
         .onTapGesture { location in
             addRipple(at: location)
+        }
+        // External ripples (e.g. tapping the agent avatar). Bypasses hit testing,
+        // so it still fires when the field itself is inert (`allowsHitTesting`
+        // off behind a scroll). The pulse point is in this field's space.
+        .onChange(of: rippleEmitter?.pulse) { _, newPulse in
+            if let p = newPulse, p.token > 0 { addRipple(at: p.point) }
         }
     }
 

@@ -989,6 +989,12 @@ Each sub-screen view (RN files `Screen1_SportArchetype.tsx` through `Screen6_Rev
 5. Generate-picks status block (or thinking animation if generating).
 6. "Today's Picks" section.
 7. Collapsible "Pick History" section.
+   - **Native port divergence:** the collapsible list is replaced by a "Pick
+     History" folder (manila folder with the agent's recent pick tickets poking
+     out — `AgentPickFolderCard`). Tapping it opens `PickHistorySheet`, a bottom
+     sheet rolodex of boarding-pass `AgentPickTicket`s with result/sport/sort
+     filters and tap-to-expand passes. Ported from the Orbital Focus Mission Log;
+     see `Features/Agents/Components/{AgentPickTicket,PickHistoryFolder}.swift`.
 8. Performance charts (lazy-mounted).
 9. Disclaimer footer.
 10. Audit `BottomSheet` (Gorhom) — port to `.sheet` with detents `[.fraction(0.85), .large]`.
@@ -1150,6 +1156,10 @@ Each sub-screen view (RN files `Screen1_SportArchetype.tsx` through `Screen6_Rev
 3. Follow / Unfollow button (only when viewing someone else's agent).
 4. Today's Picks section (Pro-gated; non-Pro users see `LockedPickCard` placeholders).
 5. Collapsible Pick History section.
+   - **Native port divergence:** same redesign as the owner detail (#13) — a
+     "Pick History" folder (`AgentPickFolderCard`) that opens the
+     `PickHistorySheet` ticket rolodex. Locked (non-Pro, non-owner) shows the
+     folder closed with a lock + upgrade caption.
 6. Performance charts.
 7. Disclaimer.
 

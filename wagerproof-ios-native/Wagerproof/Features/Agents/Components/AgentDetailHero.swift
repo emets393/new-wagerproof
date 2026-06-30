@@ -20,12 +20,17 @@ import WagerproofModels
 struct AgentPixelWaveBackground: View {
     let avatarColor: String
     var progress: CGFloat
+    /// Lets the hero avatar ripple this field (easter egg). The page paints this
+    /// background twice (full-bleed + hero mask); both share one emitter so the
+    /// ripple lands identically in each, matching how the glyph colonies align.
+    var rippleEmitter: GlyphRippleEmitter? = nil
 
     var body: some View {
         PixelWaveBackground(
             accentColor: AgentColorPalette.primary(for: avatarColor),
             progress: progress,
-            screenAnchored: true
+            screenAnchored: true,
+            rippleEmitter: rippleEmitter
         )
     }
 }
@@ -42,11 +47,17 @@ struct AgentGlassHero: View {
     var subtitleSystemImage: String? = nil
     var subtitle: String? = nil
     let progress: CGFloat
+    /// Easter egg: when set, tapping the avatar disc reports its global center so
+    /// the caller can ripple the pixelwave background behind it. Nil = inert disc.
+    var onAvatarTap: ((CGPoint) -> Void)? = nil
 
     var bigSize: CGFloat = 76
     var smallSize: CGFloat = 44
 
     @Environment(\.colorScheme) private var colorScheme
+    /// Live global center of the avatar disc (it shrinks + shifts as the hero
+    /// collapses), captured so a tap can ripple the background at the right spot.
+    @State private var avatarGlobalCenter: CGPoint = .zero
 
     private var primary: Color { AgentColorPalette.primary(for: agent.avatarColor) }
     private var secondary: Color { AgentColorPalette.secondary(for: agent.avatarColor) }
@@ -102,11 +113,25 @@ struct AgentGlassHero: View {
     private func avatarDisc(size: CGFloat) -> some View {
         let p = primary.teamVisible(in: colorScheme)
         let s = secondary.teamVisible(in: colorScheme)
-        PixelSpriteAvatar(spriteIndex: agent.spriteIndex)
+        let disc = PixelSpriteAvatar(spriteIndex: agent.spriteIndex)
             .padding(size * 0.18)
             .frame(width: size, height: size)
             .teamGlassDisc(primary: p, secondary: s, tint: 0.5)
             .shadow(color: p.opacity(0.3), radius: 7, x: 0, y: 3)
+
+        if let onAvatarTap {
+            disc
+                // Track the disc's global center every frame (it moves while the
+                // hero collapses) so the tap ripples from the live position.
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { f in
+                    avatarGlobalCenter = CGPoint(x: f.midX, y: f.midY)
+                }
+                // Circular hit area so corner taps fall through to the field below.
+                .contentShape(Circle())
+                .onTapGesture { onAvatarTap(avatarGlobalCenter) }
+        } else {
+            disc
+        }
     }
 
     // MARK: Sport pills

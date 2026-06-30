@@ -24,15 +24,18 @@ public struct PixelWaveBackground: View {
     private let accentColor: Color
     private let progress: CGFloat
     private let screenAnchored: Bool
+    private let rippleEmitter: GlyphRippleEmitter?
 
     public init(
         accentColor: Color = .appPrimary,
         progress: CGFloat = 0,
-        screenAnchored: Bool = false
+        screenAnchored: Bool = false,
+        rippleEmitter: GlyphRippleEmitter? = nil
     ) {
         self.accentColor = accentColor
         self.progress = progress
         self.screenAnchored = screenAnchored
+        self.rippleEmitter = rippleEmitter
     }
 
     public var body: some View {
@@ -86,7 +89,8 @@ public struct PixelWaveBackground: View {
                 accentColor: accentColor,
                 spacing: 26,
                 dotSize: 5.5,
-                peakOpacity: 0.45
+                peakOpacity: 0.45,
+                rippleEmitter: rippleEmitter
             )
         }
 
