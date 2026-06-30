@@ -1,12 +1,12 @@
 // ForgotPasswordView.swift
 //
-// Request a password-reset email. 1:1 port of
-// `wagerproof-mobile/app/(auth)/forgot-password.tsx`.
+// Request a password-reset email. Submits via
+// `AuthStore.sendPasswordReset(email:)` which uses `wagerproof://reset-password`
+// as the Supabase `redirectTo`. Success state replaces the form with a
+// "check your email" confirmation that highlights the entered address.
 //
-// Form state → submits via `AuthStore.sendPasswordReset(email:)` which uses
-// `wagerproof://reset-password` as the Supabase `redirectTo` (matches RN).
-// Success state replaces the form with a "check your email" confirmation
-// that highlights the entered address in teal.
+// Visual: shared pixel-glyph gate background, left-aligned minimalist logo +
+// header, Liquid Glass input row + CTA — matching the rest of the auth stack.
 
 import SwiftUI
 import WagerproofDesign
@@ -25,7 +25,7 @@ struct ForgotPasswordView: View {
 
     var body: some View {
         ZStack {
-            AuthGradientBackground()
+            AuthGateBackground()
 
             Group {
                 if success {
@@ -49,35 +49,27 @@ struct ForgotPasswordView: View {
     private var formView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                backButton.padding(.bottom, 24)
-                logo.padding(.bottom, 32)
+                backButton.padding(.bottom, 28)
 
-                VStack(spacing: 24) {
-                    ZStack {
-                        Circle()
-                            .fill(Color(hex: 0x00BFA5).opacity(0.12))
-                            .frame(width: 80, height: 80)
-                        Image(systemName: "lock.rotation")
-                            .font(.system(size: 36))
-                            .foregroundStyle(Color(hex: 0x00BFA5))
-                    }
+                Image("WagerproofLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .padding(.bottom, 18)
+                    .accessibilityHidden(true)
 
-                    VStack(spacing: 12) {
-                        Text("Forgot Password?")
-                            .font(.system(size: 28, weight: .heavy))
-                            .foregroundStyle(.white)
-                            .multilineTextAlignment(.center)
-                        Text("No worries! Enter your email and we'll send you a link to reset your password.")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.white.opacity(0.5))
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(4)
-                    }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Forgot password?")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("Enter your email and we'll send you a reset link.")
+                        .font(.system(size: 15))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .lineSpacing(2)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 36)
+                .padding(.bottom, 28)
 
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 16) {
                     AuthFieldRow(label: "Email", icon: "envelope") {
                         TextField("", text: $email, prompt:
                             Text("you@example.com").foregroundStyle(.white.opacity(0.3)))
@@ -87,7 +79,7 @@ struct ForgotPasswordView: View {
                             .autocorrectionDisabled()
                             .submitLabel(.send)
                             .foregroundStyle(.white)
-                            .tint(Color(hex: 0x00BFA5))
+                            .tint(.appPrimary)
                             .onChange(of: email) { _, _ in errorMessage = nil }
                             .onSubmit { Task { await sendReset() } }
                             .disabled(loading)
@@ -97,39 +89,30 @@ struct ForgotPasswordView: View {
                         AuthErrorBanner(message: error).transition(.opacity)
                     }
 
-                    Button {
+                    LiquidGlassPillButton(
+                        title: "Send Reset Link",
+                        loading: loading,
+                        isEnabled: !email.isEmpty
+                    ) {
                         submitTapCount += 1
                         Task { await sendReset() }
-                    } label: {
-                        ZStack {
-                            if loading {
-                                ProgressView().tint(.black)
-                            } else {
-                                Text("Send Reset Link")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundStyle(.black)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 54)
-                        .background(RoundedRectangle(cornerRadius: 30).fill(.white))
                     }
-                    .buttonStyle(.plain)
-                    .disabled(loading || email.isEmpty)
-                    .opacity((loading || email.isEmpty) ? 0.4 : 1.0)
+                    .padding(.top, 4)
+                    .animation(.easeInOut(duration: 0.2), value: errorMessage)
                 }
-                .padding(.bottom, 32)
+                .padding(.bottom, 28)
 
                 HStack(spacing: 0) {
                     Spacer()
                     Text("Remember your password? ")
                         .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(.white.opacity(0.45))
                     Button {
                         dismiss()
                     } label: {
                         Text("Sign In")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color(hex: 0x00BFA5))
+                            .foregroundStyle(Color.appPrimary)
                     }
                     .buttonStyle(.plain)
                     .disabled(loading)
@@ -137,7 +120,7 @@ struct ForgotPasswordView: View {
                 }
             }
             .padding(.horizontal, 24)
-            .padding(.top, 16)
+            .padding(.top, 8)
             .padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
@@ -152,63 +135,51 @@ struct ForgotPasswordView: View {
 
             ZStack {
                 Circle()
-                    .fill(Color(hex: 0x00BFA5).opacity(0.12))
+                    .fill(Color.appPrimary.opacity(0.12))
                     .frame(width: 96, height: 96)
                 Image(systemName: "envelope.badge")
                     .font(.system(size: 44))
-                    .foregroundStyle(Color(hex: 0x00BFA5))
+                    .foregroundStyle(Color.appPrimary)
                     .symbolEffect(.bounce, value: success)
             }
             .padding(.bottom, 28)
 
-            Text("Check Your Email")
-                .font(.system(size: 28, weight: .heavy))
+            Text("Check your email")
+                .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(.white)
                 .padding(.bottom, 16)
 
             Text("We've sent a password reset link to:")
-                .font(.system(size: 16))
-                .foregroundStyle(.white.opacity(0.5))
+                .font(.system(size: 15))
+                .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
                 .padding(.bottom, 8)
 
             Text(submittedEmail)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color(hex: 0x00BFA5))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.appPrimary)
                 .padding(.bottom, 12)
 
-            Text("Please check your email and follow the instructions to reset your password.")
-                .font(.system(size: 16))
-                .foregroundStyle(.white.opacity(0.5))
+            Text("Follow the instructions in the email to reset your password.")
+                .font(.system(size: 15))
+                .foregroundStyle(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
-                .padding(.bottom, 24)
+                .padding(.bottom, 20)
 
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "info.circle")
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundStyle(.white.opacity(0.4))
                 Text("If you don't see the email, check your spam folder.")
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundStyle(.white.opacity(0.4))
             }
             .padding(.bottom, 24)
 
-            Button {
+            LiquidGlassPillButton(title: "Back to Login") {
                 dismiss()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.black)
-                    Text("Back to Login")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.black)
-                }
-                .frame(maxWidth: .infinity, minHeight: 54)
-                .background(RoundedRectangle(cornerRadius: 30).fill(.white))
             }
-            .buttonStyle(.plain)
 
             Spacer()
         }
@@ -222,10 +193,10 @@ struct ForgotPasswordView: View {
             dismiss()
         } label: {
             Image(systemName: "chevron.left")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 40, height: 40)
-                .background(Circle().fill(.white.opacity(0.1)))
+                .liquidGlassBackground(in: Circle())
         }
         .buttonStyle(.plain)
         // Visual stays 40pt; tap area expands to 44pt (matches RN hitSlop).
@@ -233,23 +204,6 @@ struct ForgotPasswordView: View {
         .frame(minWidth: 44, minHeight: 44)
         .disabled(loading)
         .accessibilityLabel("Back")
-    }
-
-    private var logo: some View {
-        HStack {
-            Spacer()
-            // FIDELITY-WAIVER #004: wagerproofGreenDark.png asset not yet imported.
-            HStack(spacing: 8) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(Color(hex: 0x00BFA5))
-                Text("WagerProof")
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-            .frame(height: 50)
-            Spacer()
-        }
     }
 
     // MARK: - Actions

@@ -1,17 +1,16 @@
 // SignupView.swift
 //
 // Create-account form with email + password + confirm, plus Apple/Google
-// social fallback. 1:1 port of `wagerproof-mobile/app/(auth)/signup.tsx`.
+// social fallback. Wired to `AuthStore.signUp(email:password:)`. After success
+// the auth state listener routes the user; on email-verification we show a
+// "check your email" message and bounce back to login after 3s.
 //
-// Wired to `AuthStore.signUp(email:password:)`. After success the auth state
-// listener routes the user. The RN code branches on whether a session is
-// returned (auto-confirm vs email verification). We mirror by showing one of
-// two success strings — the auto-route back to login on email-verification is
-// preserved via a 3-second sleep.
+// Visual: shared pixel-glyph gate background, left-aligned minimalist logo +
+// header, Liquid Glass input rows + CTA, and the shared Apple/Google sign-in
+// pills (matching the welcome gate).
 
 import SwiftUI
 import AuthenticationServices
-import CryptoKit
 import WagerproofDesign
 import WagerproofStores
 
@@ -30,24 +29,36 @@ struct SignupView: View {
     @State private var currentNonce: String?
     @State private var googleLoading: Bool = false
     @State private var appleLoading: Bool = false
+    @State private var appleCoordinator = AppleSignInCoordinator()
     @FocusState private var focused: Field?
 
     enum Field { case email, password, confirm }
 
+    private var anyLoading: Bool { loading || googleLoading || appleLoading }
+    private var formIncomplete: Bool {
+        loading || email.isEmpty || password.isEmpty || confirmPassword.isEmpty || successMessage != nil
+    }
+
     var body: some View {
         ZStack {
-            AuthGradientBackground()
+            AuthGateBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    backButton.padding(.bottom, 24)
-                    logo.padding(.bottom, 32)
-                    header.padding(.bottom, 36)
-                    form.padding(.bottom, 32)
-                    footer
+                    topBar.padding(.bottom, 28)
+
+                    Image("WagerproofLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .padding(.bottom, 18)
+                        .accessibilityHidden(true)
+
+                    header.padding(.bottom, 28)
+                    form
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .padding(.top, 8)
                 .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -69,10 +80,10 @@ struct SignupView: View {
             dismiss()
         } label: {
             Image(systemName: "chevron.left")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 40, height: 40)
-                .background(Circle().fill(.white.opacity(0.1)))
+                .liquidGlassBackground(in: Circle())
         }
         .buttonStyle(.plain)
         // Visual stays 40pt; tap area expands to 44pt (matches RN hitSlop).
@@ -82,36 +93,19 @@ struct SignupView: View {
         .accessibilityLabel("Back")
     }
 
-    private var logo: some View {
-        HStack {
-            Spacer()
-            // FIDELITY-WAIVER #004: wagerproofGreenDark.png asset not yet imported.
-            HStack(spacing: 8) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(Color(hex: 0x00BFA5))
-                Text("WagerProof")
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-            .frame(height: 50)
-            Spacer()
-        }
-    }
-
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Create Account")
-                .font(.system(size: 32, weight: .heavy))
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Create account")
+                .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(.white)
             Text("Get started with professional sports analytics")
-                .font(.system(size: 16))
-                .foregroundStyle(.white.opacity(0.5))
+                .font(.system(size: 15))
+                .foregroundStyle(.white.opacity(0.6))
         }
     }
 
     private var form: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 16) {
             // Email
             AuthFieldRow(label: "Email", icon: "envelope") {
                 TextField("", text: $email, prompt:
@@ -123,7 +117,7 @@ struct SignupView: View {
                     .submitLabel(.next)
                     .focused($focused, equals: .email)
                     .foregroundStyle(.white)
-                    .tint(Color(hex: 0x00BFA5))
+                    .tint(.appPrimary)
                     .onChange(of: email) { _, _ in clearMessages() }
                     .onSubmit { focused = .password }
                     .disabled(loading || successMessage != nil)
@@ -147,24 +141,12 @@ struct SignupView: View {
                 .submitLabel(.next)
                 .focused($focused, equals: .password)
                 .foregroundStyle(.white)
-                .tint(Color(hex: 0x00BFA5))
+                .tint(.appPrimary)
                 .onChange(of: password) { _, _ in clearMessages() }
                 .onSubmit { focused = .confirm }
                 .disabled(loading || successMessage != nil)
             } trailing: {
-                Button {
-                    isPasswordVisible.toggle()
-                } label: {
-                    Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .frame(width: 32, height: 32)
-                }
-                .buttonStyle(.plain)
-                // Visual stays 32pt; tap area expands to 44pt (matches RN hitSlop).
-                .contentShape(Rectangle())
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel(isPasswordVisible ? "Hide password" : "Show password")
+                visibilityToggle(isOn: $isPasswordVisible)
             }
 
             // Confirm password
@@ -185,36 +167,25 @@ struct SignupView: View {
                 .submitLabel(.go)
                 .focused($focused, equals: .confirm)
                 .foregroundStyle(.white)
-                .tint(Color(hex: 0x00BFA5))
+                .tint(.appPrimary)
                 .onChange(of: confirmPassword) { _, _ in clearMessages() }
                 .onSubmit { Task { await signUp() } }
                 .disabled(loading || successMessage != nil)
             } trailing: {
-                Button {
-                    isConfirmVisible.toggle()
-                } label: {
-                    Image(systemName: isConfirmVisible ? "eye.slash" : "eye")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .frame(width: 32, height: 32)
-                }
-                .buttonStyle(.plain)
-                // Visual stays 32pt; tap area expands to 44pt (matches RN hitSlop).
-                .contentShape(Rectangle())
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel(isConfirmVisible ? "Hide password" : "Show password")
+                visibilityToggle(isOn: $isConfirmVisible)
             }
 
             // Disclaimer
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "info.circle")
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundStyle(.white.opacity(0.4))
                 Text("By signing up, you confirm that you are 18+ and understand this platform is for analytics only.")
                     .font(.system(size: 12))
                     .foregroundStyle(.white.opacity(0.4))
                     .lineSpacing(2)
             }
+            .padding(.top, 2)
 
             if let error = errorMessage {
                 AuthErrorBanner(message: error).transition(.opacity)
@@ -224,100 +195,116 @@ struct SignupView: View {
             }
 
             // Create Account CTA
-            Button {
+            LiquidGlassPillButton(
+                title: "Create Account",
+                loading: loading,
+                isEnabled: !formIncomplete
+            ) {
                 Task { await signUp() }
-            } label: {
-                ZStack {
-                    if loading {
-                        ProgressView().tint(.black)
-                    } else {
-                        Text("Create Account")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.black)
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: 54)
-                .background(RoundedRectangle(cornerRadius: 30).fill(.white))
             }
-            .buttonStyle(.plain)
-            .disabled(loading
-                      || email.isEmpty
-                      || password.isEmpty
-                      || confirmPassword.isEmpty
-                      || successMessage != nil)
-            .opacity(formIncomplete ? 0.4 : 1.0)
+            .padding(.top, 4)
 
-            // Divider
-            HStack(spacing: 12) {
-                Rectangle().fill(.white.opacity(0.12)).frame(height: 1)
-                Text("or continue with")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.white.opacity(0.4))
-                Rectangle().fill(.white.opacity(0.12)).frame(height: 1)
+            divider
+
+            // Social fallback — same pills as the welcome gate.
+            appleButton
+            googleButton
+        }
+        .animation(.easeInOut(duration: 0.2), value: errorMessage)
+        .animation(.easeInOut(duration: 0.2), value: successMessage)
+    }
+
+    private var divider: some View {
+        HStack(spacing: 12) {
+            Rectangle().fill(.white.opacity(0.12)).frame(height: 1)
+            Text("or continue with")
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.4))
+            Rectangle().fill(.white.opacity(0.12)).frame(height: 1)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var appleButton: some View {
+        Button {
+            startAppleSignIn()
+        } label: {
+            AuthPillLabel(title: "Continue with Apple", style: .light, loading: appleLoading) {
+                Image(systemName: "applelogo")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.black)
             }
-            .padding(.vertical, 4)
+        }
+        .buttonStyle(PillPressStyle())
+        .disabled(anyLoading || successMessage != nil)
+        .opacity((anyLoading && !appleLoading) || successMessage != nil ? 0.6 : 1)
+    }
 
-            // Social buttons
-            VStack(spacing: 12) {
-                SignInWithAppleButton(.continue, onRequest: { request in
-                    let nonce = Self.makeRandomNonce()
-                    currentNonce = nonce
-                    request.requestedScopes = [.fullName, .email]
-                    request.nonce = Self.sha256Hex(nonce)
-                    appleLoading = true
-                }, onCompletion: { result in
-                    handleAppleCompletion(result)
-                })
-                .signInWithAppleButtonStyle(.white)
-                .frame(height: 54)
-                .clipShape(RoundedRectangle(cornerRadius: 30))
-                .disabled(loading || appleLoading || googleLoading || successMessage != nil)
-                .opacity((loading || successMessage != nil) ? 0.4 : 1)
-
-                SocialSignInButton(
-                    provider: .google,
-                    compact: false,
-                    loading: googleLoading,
-                    disabled: loading || appleLoading || successMessage != nil
-                ) {
-                    Task {
-                        googleLoading = true
-                        await authStore.signInWithGoogle()
-                        googleLoading = false
-                        if let raw = authStore.lastError {
-                            errorMessage = raw
-                            authStore.clearError()
-                        }
-                    }
+    private var googleButton: some View {
+        Button {
+            Task {
+                clearMessages()
+                googleLoading = true
+                await authStore.signInWithGoogle()
+                googleLoading = false
+                if let raw = authStore.lastError {
+                    errorMessage = raw
+                    authStore.clearError()
                 }
+            }
+        } label: {
+            AuthPillLabel(title: "Continue with Google", style: .dark, loading: googleLoading) {
+                Text("G")
+                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+        }
+        .buttonStyle(PillPressStyle())
+        .disabled(anyLoading || successMessage != nil)
+        .opacity((anyLoading && !googleLoading) || successMessage != nil ? 0.6 : 1)
+    }
+
+    /// Back button on the left and the "Already have an account? Sign In" link
+    /// on the right — kept at the top so users who meant to sign in don't have
+    /// to scroll past the whole form to find it.
+    private var topBar: some View {
+        HStack(spacing: 8) {
+            backButton
+            Spacer(minLength: 8)
+            HStack(spacing: 4) {
+                Text("Already have an account?")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.5))
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Sign In")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.appPrimary)
+                }
+                .buttonStyle(.plain)
+                .disabled(loading)
             }
         }
     }
 
-    private var footer: some View {
-        HStack(spacing: 0) {
-            Spacer()
-            Text("Already have an account? ")
-                .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.4))
-            Button {
-                dismiss()
-            } label: {
-                Text("Sign In")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: 0x00BFA5))
-            }
-            .buttonStyle(.plain)
-            .disabled(loading)
-            Spacer()
+    private func visibilityToggle(isOn: Binding<Bool>) -> some View {
+        Button {
+            isOn.wrappedValue.toggle()
+        } label: {
+            Image(systemName: isOn.wrappedValue ? "eye.slash" : "eye")
+                .font(.system(size: 17))
+                .foregroundStyle(.white.opacity(0.45))
+                .frame(width: 32, height: 32)
         }
+        .buttonStyle(.plain)
+        // Visual stays 32pt; tap area expands to 44pt (matches RN hitSlop).
+        .contentShape(Rectangle())
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(isOn.wrappedValue ? "Hide password" : "Show password")
     }
 
     // MARK: - State helpers
-
-    private var formIncomplete: Bool {
-        loading || email.isEmpty || password.isEmpty || confirmPassword.isEmpty || successMessage != nil
-    }
 
     private func clearMessages() {
         errorMessage = nil
@@ -385,7 +372,17 @@ struct SignupView: View {
         return raw
     }
 
-    // MARK: - Apple plumbing
+    // MARK: - Apple plumbing (programmatic)
+
+    private func startAppleSignIn() {
+        clearMessages()
+        let nonce = AppleNonce.random()
+        currentNonce = nonce
+        appleLoading = true
+        appleCoordinator.start(nonceSHA256: AppleNonce.sha256Hex(nonce)) { result in
+            Task { @MainActor in handleAppleCompletion(result) }
+        }
+    }
 
     private func handleAppleCompletion(_ result: Result<ASAuthorization, Error>) {
         appleLoading = false
@@ -414,19 +411,6 @@ struct SignupView: View {
             errorMessage = error.localizedDescription
         }
     }
-
-    private static func makeRandomNonce(length: Int = 32) -> String {
-        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._")
-        var random = [UInt8](repeating: 0, count: length)
-        _ = SecRandomCopyBytes(kSecRandomDefault, length, &random)
-        return String(random.map { charset[Int($0) % charset.count] })
-    }
-
-    private static func sha256Hex(_ input: String) -> String {
-        SHA256.hash(data: Data(input.utf8))
-            .map { String(format: "%02x", $0) }
-            .joined()
-    }
 }
 
 // MARK: - Success banner
@@ -438,16 +422,16 @@ struct AuthSuccessBanner: View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.circle")
                 .font(.system(size: 18))
-                .foregroundStyle(Color(hex: 0x00BFA5))
+                .foregroundStyle(Color.appPrimary)
             Text(message)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color(hex: 0x00BFA5))
+                .foregroundStyle(Color.appPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(hex: 0x00BFA5).opacity(0.12))
+                .fill(Color.appPrimary.opacity(0.12))
         )
     }
 }
