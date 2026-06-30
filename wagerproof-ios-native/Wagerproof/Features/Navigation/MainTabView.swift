@@ -60,6 +60,10 @@ struct MainTabView: View {
     // sheets/carousel/search hydrate lazily via TTL-guarded calls.
     @State private var mlbTrendsStore = MLBBettingTrendsStore()
     @State private var mlbF5Store = MLBF5SplitsStore()
+    // Outliers trend slate is shell-hoisted so the Outliers tab AND SearchView's
+    // "Outliers" results section read the same fetch. Lazily hydrated by whichever
+    // surface is used first (the tab's `.task` or search's first query).
+    @State private var outliersTrendsStore = OutliersTrendsStore()
 
     /// Production callers use the default initializer. The screenshot harness
     /// can pass a starting tab + an optional pre-opened side menu so reviewer
@@ -141,6 +145,7 @@ struct MainTabView: View {
         .environment(propsStore)
         .environment(mlbTrendsStore)
         .environment(mlbF5Store)
+        .environment(outliersTrendsStore)
         .environment(nflSheetStore)
         .environment(cfbSheetStore)
         .environment(nbaSheetStore)

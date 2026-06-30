@@ -10,7 +10,9 @@ struct OutliersView: View {
     @Environment(RevenueCatStore.self) private var revenueCat
     @Environment(AdminModeStore.self) private var adminMode
     @Environment(ProAccessStore.self) private var proAccess
-    @State private var trendsStore = OutliersTrendsStore()
+    // Shell-hoisted (MainTabView) so the Outliers tab and SearchView's "Outliers"
+    // results section share one fetch. See .claude/docs/14_ios_primitives_index.md.
+    @Environment(OutliersTrendsStore.self) private var trendsStore
 
     var body: some View {
         NavigationStack {
@@ -59,5 +61,6 @@ struct OutliersView: View {
         .environment(SettingsStore())
         .environment(RevenueCatStore())
         .environment(AdminModeStore())
+        .environment(OutliersTrendsStore())
 }
 #endif

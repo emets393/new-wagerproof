@@ -9,8 +9,8 @@ import WagerproofServices
 /// them into one cross-tab search.
 ///
 /// Architecture: this store does NOT duplicate the fetch logic in
-/// `GamesStore`, `AgentsStore`, `OutliersStore`, `LiveScoresStore`. Instead it
-/// is `bind(games:agents:outliers:liveScores:)`-ed by the tab shell at mount
+/// `GamesStore`, `AgentsStore`, `OutliersTrendsStore`, `PropsStore`. Instead it
+/// is `bind(games:agents:trends:props:)`-ed by the tab shell at mount
 /// time, and then derives result arrays from those stores' already-resolved
 /// data via computed properties. The view subscribes to this store; SwiftUI's
 /// observation tracking re-runs the computed properties whenever the upstream
@@ -42,16 +42,14 @@ public final class SearchStore {
         case players
         case agents
         case outliers
-        case scores
 
         public var label: String {
             switch self {
             case .all: return "All"
-            case .games: return "Games"
-            case .players: return "Players"
+            case .games: return "Matchup"
+            case .players: return "Props"
             case .agents: return "Agents"
-            case .outliers: return "Alerts"
-            case .scores: return "Live"
+            case .outliers: return "Outliers"
             }
         }
     }
@@ -137,111 +135,46 @@ public final class SearchStore {
             }
         }
 
+        /// Carries the full `AgentWithPerformance` so Search renders the exact
+        /// `AgentRowCard` from the Agents tab (own agents) — public/leaderboard
+        /// agents are adapted via `AgentWithPerformance(leaderboard:)`.
         public struct Agent: Identifiable, Hashable, Sendable {
             public let id: String
-            public let agentId: String
-            public let name: String
-            public let avatarEmoji: String
-            public let avatarColor: String
-            public let netUnits: Double?
-            public let winRate: Double?
+            public let model: AgentWithPerformance
             /// `true` when this row came from the public-agents leaderboard
-            /// (vs the signed-in user's own agents). Drives the navigation
-            /// route — `.publicAgentDetail` vs `.agentDetail`.
+            /// (vs the signed-in user's own agents).
             public let isPublic: Bool
 
-            public init(
-                id: String,
-                agentId: String,
-                name: String,
-                avatarEmoji: String,
-                avatarColor: String,
-                netUnits: Double?,
-                winRate: Double?,
-                isPublic: Bool
-            ) {
+            public var agentId: String { model.agent.id }
+
+            public init(id: String, model: AgentWithPerformance, isPublic: Bool) {
                 self.id = id
-                self.agentId = agentId
-                self.name = name
-                self.avatarEmoji = avatarEmoji
-                self.avatarColor = avatarColor
-                self.netUnits = netUnits
-                self.winRate = winRate
+                self.model = model
                 self.isPublic = isPublic
             }
         }
 
-        public struct Outlier: Identifiable, Hashable, Sendable {
-            public enum Kind: String, Hashable, Sendable {
-                case value
-                case fade
-            }
-
+        /// One Outliers trend card surfaced in search. Carries the full card + its
+        /// sport + game so Search renders the exact `OutliersTrendCard` from the tab.
+        public struct Trend: Identifiable, Hashable, Sendable {
             public let id: String
-            public let kind: Kind
-            public let sport: SportLeague
-            public let awayTeam: String
-            public let homeTeam: String
-            public let primaryLabel: String
-            public let secondaryLabel: String
-            /// The `OutliersStore.Category` the result should push when tapped.
-            public let category: OutlierCategoryRef
+            public let card: OutliersTrendsCard
+            public let sport: OutliersTrendsSport
+            public let game: OutliersTrendsGame?
+            public let matchScore: Int
 
             public init(
                 id: String,
-                kind: Kind,
-                sport: SportLeague,
-                awayTeam: String,
-                homeTeam: String,
-                primaryLabel: String,
-                secondaryLabel: String,
-                category: OutlierCategoryRef
+                card: OutliersTrendsCard,
+                sport: OutliersTrendsSport,
+                game: OutliersTrendsGame?,
+                matchScore: Int
             ) {
                 self.id = id
-                self.kind = kind
+                self.card = card
                 self.sport = sport
-                self.awayTeam = awayTeam
-                self.homeTeam = homeTeam
-                self.primaryLabel = primaryLabel
-                self.secondaryLabel = secondaryLabel
-                self.category = category
-            }
-        }
-
-        public struct Score: Identifiable, Hashable, Sendable {
-            public let id: String
-            public let league: String
-            public let awayTeam: String
-            public let homeTeam: String
-            public let awayAbbr: String
-            public let homeAbbr: String
-            public let awayScore: Int
-            public let homeScore: Int
-            public let isLive: Bool
-            public let timeRemaining: String
-
-            public init(
-                id: String,
-                league: String,
-                awayTeam: String,
-                homeTeam: String,
-                awayAbbr: String,
-                homeAbbr: String,
-                awayScore: Int,
-                homeScore: Int,
-                isLive: Bool,
-                timeRemaining: String
-            ) {
-                self.id = id
-                self.league = league
-                self.awayTeam = awayTeam
-                self.homeTeam = homeTeam
-                self.awayAbbr = awayAbbr
-                self.homeAbbr = homeAbbr
-                self.awayScore = awayScore
-                self.homeScore = homeScore
-                self.isLive = isLive
-                self.timeRemaining = timeRemaining
+                self.game = game
+                self.matchScore = matchScore
             }
         }
     }
@@ -263,15 +196,6 @@ public final class SearchStore {
         }
     }
 
-    /// Lightweight reference to an `OutliersStore.Category` so the result type
-    /// stays decoupled from the OutliersStore's internal enum (which carries
-    /// rawValue strings used by the RN deep-link layer). The view maps this
-    /// back to the real category on tap.
-    public enum OutlierCategoryRef: String, Hashable, Sendable {
-        case value
-        case fade
-    }
-
     // MARK: - Bound upstream stores
     //
     // These are weak-style references owned by the tab shell. We do not
@@ -280,8 +204,7 @@ public final class SearchStore {
 
     private weak var gamesRef: GamesStore?
     private weak var agentsRef: AgentsStore?
-    private weak var outliersRef: OutliersStore?
-    private weak var liveScoresRef: LiveScoresStore?
+    private weak var trendsRef: OutliersTrendsStore?
     private weak var propsRef: PropsStore?
 
     // MARK: - Observable state
@@ -331,14 +254,12 @@ public final class SearchStore {
     public func bind(
         games: GamesStore?,
         agents: AgentsStore?,
-        outliers: OutliersStore?,
-        liveScores: LiveScoresStore?,
+        trends: OutliersTrendsStore?,
         props: PropsStore? = nil
     ) {
         self.gamesRef = games
         self.agentsRef = agents
-        self.outliersRef = outliers
-        self.liveScoresRef = liveScores
+        self.trendsRef = trends
         self.propsRef = props
     }
 
@@ -444,7 +365,7 @@ public final class SearchStore {
     /// Total result count across all scopes. Drives the empty-state branch.
     public var totalResultCount: Int {
         gameResults.count + playerResults.count + agentResults.count
-            + outlierResults.count + scoreResults.count
+            + trendResults.count
     }
 
     public var gameResults: [SearchResult.Game] {
@@ -698,122 +619,70 @@ public final class SearchStore {
         let q = normalizedQuery
         guard !q.isEmpty else { return [] }
         var out: [SearchResult.Agent] = []
-        // Own agents first (private to the signed-in user) — these match by
-        // direct name substring and route to the owner detail screen.
+        // Own agents first (private to the signed-in user) — full model, full card.
         if let agents = agentsRef {
             for a in agents.agents where a.agent.name.lowercased().contains(q) {
-                out.append(.init(
-                    id: "own-\(a.agent.id)",
-                    agentId: a.agent.id,
-                    name: a.agent.name,
-                    avatarEmoji: a.agent.avatarEmoji,
-                    avatarColor: a.agent.avatarColor,
-                    netUnits: a.performance?.netUnits,
-                    winRate: a.performance?.winRate,
-                    isPublic: false
-                ))
+                out.append(.init(id: "own-\(a.agent.id)", model: a, isPublic: false))
             }
         }
-        // Public agents — leaderboard cache. We exclude any avatar id already
-        // surfaced from the own-agents pass so a user searching their own
-        // public agent doesn't get a duplicate row.
+        // Public agents — leaderboard cache, adapted to a card model. Exclude any
+        // avatar id already surfaced from the own-agents pass so a user searching
+        // their own public agent doesn't get a duplicate row.
         let seen = Set(out.map { $0.agentId })
         for entry in publicAgents where entry.name.lowercased().contains(q) && !seen.contains(entry.avatarId) {
             out.append(.init(
                 id: "public-\(entry.avatarId)",
-                agentId: entry.avatarId,
-                name: entry.name,
-                avatarEmoji: entry.avatarEmoji,
-                avatarColor: entry.avatarColor,
-                netUnits: entry.netUnits,
-                winRate: entry.winRate,
+                model: AgentWithPerformance(leaderboard: entry),
                 isPublic: true
             ))
         }
         return out
     }
 
-    public var outlierResults: [SearchResult.Outlier] {
+    /// Outliers trend-card matches over the loaded slate (min query 2 chars, cap 12).
+    /// Ranks subject-name prefix highest, then team abbr, then matchup / bet-type hits.
+    public var trendResults: [SearchResult.Trend] {
         let q = normalizedQuery
-        guard !q.isEmpty, let outliers = outliersRef else { return [] }
-        var out: [SearchResult.Outlier] = []
-        for alert in outliers.valueAlerts {
-            if matches(team: alert.homeTeam, q: q) || matches(team: alert.awayTeam, q: q) {
-                out.append(.init(
-                    id: "value-\(alert.id)",
-                    kind: .value,
-                    sport: alert.sport,
-                    awayTeam: alert.awayTeam,
-                    homeTeam: alert.homeTeam,
-                    primaryLabel: "\(alert.awayTeam) @ \(alert.homeTeam)",
-                    secondaryLabel: "\(alert.sport.displayName) · \(alert.marketType.rawValue) · \(alert.side)",
-                    category: .value
-                ))
-            }
+        guard q.count >= 2, let trends = trendsRef else { return [] }
+        var scored: [(result: SearchResult.Trend, score: Int)] = []
+        for entry in trends.searchIndex {
+            guard let score = trendMatchScore(entry.card, q: q) else { continue }
+            scored.append((
+                SearchResult.Trend(
+                    id: "trend-\(entry.id)",
+                    card: entry.card,
+                    sport: entry.sport,
+                    game: entry.game,
+                    matchScore: score
+                ),
+                score
+            ))
         }
-        for alert in outliers.fadeAlerts {
-            if matches(team: alert.homeTeam, q: q) || matches(team: alert.awayTeam, q: q) {
-                out.append(.init(
-                    id: "fade-\(alert.id)",
-                    kind: .fade,
-                    sport: alert.sport,
-                    awayTeam: alert.awayTeam,
-                    homeTeam: alert.homeTeam,
-                    primaryLabel: "Fade \(alert.predictedTeam)",
-                    secondaryLabel: "\(alert.sport.displayName) · \(alert.pickType.rawValue) · \(alert.confidence)% model",
-                    category: .fade
-                ))
+        return scored
+            .sorted {
+                if $0.score != $1.score { return $0.score > $1.score }
+                return $0.result.card.trendValue > $1.result.card.trendValue
             }
-        }
-        return out
+            .prefix(12)
+            .map(\.result)
     }
 
-    public var scoreResults: [SearchResult.Score] {
-        let q = normalizedQuery
-        guard !q.isEmpty, let scores = liveScoresRef else { return [] }
-        return scores.games.compactMap { game in
-            guard matches(team: game.homeTeam, q: q)
-                || matches(team: game.awayTeam, q: q)
-                || matches(team: game.homeAbbr, q: q)
-                || matches(team: game.awayAbbr, q: q) else { return nil }
-            return .init(
-                id: "live-\(game.id)",
-                league: game.league,
-                awayTeam: game.awayTeam,
-                homeTeam: game.homeTeam,
-                awayAbbr: game.awayAbbr,
-                homeAbbr: game.homeAbbr,
-                awayScore: game.awayScore,
-                homeScore: game.homeScore,
-                isLive: game.isLive,
-                timeRemaining: game.timeRemaining
-            )
-        }
+    /// Match a trend card: subject name (player/coach/team/ref) > team abbr >
+    /// matchup (so searching one team surfaces its whole game) > bet type.
+    private func trendMatchScore(_ card: OutliersTrendsCard, q: String) -> Int? {
+        let subject = card.subjectName.lowercased()
+        if subject.hasPrefix(q) { return 100 }
+        if let abbr = card.teamAbbr?.lowercased(), !abbr.isEmpty, abbr == q { return 95 }
+        if subject.contains(q) { return 85 }
+        if card.matchupLabel.lowercased().contains(q) { return 70 }
+        if card.betTypeLabel.lowercased().contains(q) { return 50 }
+        return nil
     }
 
     // MARK: - Matching helpers
 
     private var normalizedQuery: String {
         debouncedQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    }
-
-    /// Team-string match: substring OR initial-letters match. "LAL" matches
-    /// "Los Angeles Lakers" because the lower-cased initials of the team's
-    /// words ("lal") equal the query. Handles the city + name forms
-    /// ("Los Angeles", "Lakers") without forcing the user to know full
-    /// franchise spelling.
-    private func matches(team: String, q: String) -> Bool {
-        guard !team.isEmpty else { return false }
-        let lower = team.lowercased()
-        if lower.contains(q) { return true }
-        // Initials: take the first character of each whitespace-delimited
-        // token. "Los Angeles Lakers" → "lal". Cheap to compute, no regex.
-        let initials = team
-            .split(separator: " ")
-            .compactMap { $0.first }
-            .map { String($0).lowercased() }
-            .joined()
-        return !initials.isEmpty && initials.contains(q)
     }
 
     // MARK: - Debug helpers
