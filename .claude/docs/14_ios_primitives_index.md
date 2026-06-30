@@ -311,7 +311,7 @@ Sheet: `LiveScoreDetailModal`.
 | Primitive | Tier | File | Renders from |
 |---|---|---|---|
 | **AgentPickCard** / **AgentPickItem** (pick line item) | 1 | `Agents/Components/AgentPickCard.swift:12`, `AgentPickItem.swift:12` | `AgentPick` — i.e. **agent pick id** |
-| AgentGlassHero + AgentAuraBackground + AgentStatStrip | 3 | `Agents/Components/AgentDetailHero.swift:49,20,191` | `Agent` + `AgentPerformance` + progress |
+| AgentGlassHero + AgentPixelWaveBackground + AgentStatStrip | 3 | `Agents/Components/AgentDetailHero.swift:35,20,177` | `Agent` + `AgentPerformance` + progress |
 | AgentPerformanceCharts | 2 | `Agents/Components/AgentPerformanceCharts.swift:13` | `[AgentPick]` history |
 | AgentTimeline | 2 | `Agents/Components/AgentTimeline.swift:10` | agent + picks + run summary |
 | AgentPickPayloadAuditWidget (debug trace) | 2 | `Agents/Components/AgentPickPayloadAuditWidget.swift:13` | `AgentPick` + `AgentPickAuditPayload` |
@@ -459,7 +459,8 @@ build any new primitive:
   WagerBotIcon, LottieView, OfflineToolbarIcon.
 
 Shared in-app (not in Kit yet): GameCardTeamAvatar, SportTeamColors, GameCardFormatting
-(`GameCards/Components/`), TeamAuraBackground (aura glow used by game/prop/agent detail heroes).
+(`GameCards/Components/`), TeamAuraBackground (aura glow used by game/prop detail heroes; the
+agent detail heroes use the pixelwave `PixelWaveBackground` / `AgentPixelWaveBackground` instead).
 
 ---
 

@@ -49,7 +49,7 @@ struct AgentDetailView: View {
 
     var body: some View {
         CollapsingWidgetScroll(heroMaxHeight: 244, heroMinHeight: 132) { progress in
-            AgentAuraBackground(avatarColor: agent?.avatarColor ?? "#6366f1", progress: progress)
+            AgentPixelWaveBackground(avatarColor: agent?.avatarColor ?? "#6366f1", progress: progress)
         } hero: { progress in
             heroView(progress: progress)
         } content: {
@@ -59,7 +59,11 @@ struct AgentDetailView: View {
             performanceCard
             strategyCard
         }
-        .background(Color.appSurface.ignoresSafeArea())
+        // Commit the page to the always-dark pixelwave aesthetic of the auth
+        // gate so the glass cards + text read correctly over the near-black
+        // animated field (the opaque pixelwave base covers the full bleed, so no
+        // separate appSurface base is needed).
+        .preferredColorScheme(.dark)
         // Transparent nav bar so the agent aura glows continuously to the top
         // behind the back button (the collapsing hero is opaque and masks the
         // content scrolling under it). Mirrors the MLB sheet.

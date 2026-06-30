@@ -24,10 +24,25 @@ npm run build
 npm run dev
 ```
 
-In Conductor, `scripts/conductor-setup.sh` copies your canonical `agents-v3/.env`
-into every new workspace automatically — fill it in once in the root checkout
-(or `$WAGERPROOF_SECRETS_DIR`). See `.conductor/README.md`. `npm run dev`/`deploy`
-read `TRIGGER_SECRET_KEY` and the rest from this `.env`.
+`trigger.config.ts` lives in this directory, so the CLI must run from here — run
+`npm run dev` from `agents-v3/`, not the worktree root (from the root the CLI
+errors with "Couldn't find your trigger.config.ts file"). For convenience the
+**root** `package.json` proxies it so you don't have to `cd`:
+
+```bash
+npm run trigger:dev      # from the worktree root → runs agents-v3's worker
+npm run trigger:deploy   # from the worktree root → deploys to prod
+```
+
+The `trigger.dev` CLI is a pinned devDependency, so `npm run dev` / `npm run deploy`
+resolve it from `node_modules` — no global install or `npx` needed. (Its npm bin
+is `trigger`, which is what those scripts call.)
+
+In Conductor, every new workspace is provisioned automatically (`.conductor/settings.toml`):
+`scripts/conductor-setup.sh` copies your canonical `agents-v3/.env` (fill it in once
+in the root checkout or `$WAGERPROOF_SECRETS_DIR`), and `scripts/conductor-deps.sh`
+runs `npm install` here so `npm run dev` works out of the box. See `.conductor/README.md`.
+`npm run dev`/`deploy` read `TRIGGER_SECRET_KEY` and the rest from this `.env`.
 
 The Trigger.dev project ref is pinned in `trigger.config.ts`:
 `proj_ughxoicacuqodceiwlus`.

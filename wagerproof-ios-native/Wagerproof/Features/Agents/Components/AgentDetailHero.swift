@@ -10,37 +10,23 @@ import WagerproofModels
 ///
 /// Used by both `AgentDetailView` (owner) and `PublicAgentDetailView`.
 
-// MARK: - Aura
+// MARK: - Background
 
-/// Single-color agent aura. Reuses the shared `TeamAuraBackground` engine by
-/// feeding the agent's primary as the left glow and its secondary (or a shaded
-/// partner for solid colors) as the right glow — so a solid-color agent reads as
-/// a symmetric bloom and a gradient agent reads as two-tone, with the same
-/// dim/shrink/wobble choreography as the sport sheets.
-struct AgentAuraBackground: View {
+/// Per-agent "pixelwave" backdrop — the animated pixel-glyph field from the auth
+/// gate (`PixelWaveBackground`), tinted with the agent's primary color so the
+/// glyphs glow in the agent's hue. Screen-anchored so the `CollapsingWidgetScroll`
+/// page background and its opaque hero mask render one seamless field. Replaces
+/// the old team-style aura glow.
+struct AgentPixelWaveBackground: View {
     let avatarColor: String
     var progress: CGFloat
-    /// Opaque `appSurface` base (page/hero background) vs. glow-only overlay.
-    var showBase: Bool = true
 
     var body: some View {
-        TeamAuraBackground(
-            awayColor: AgentColorPalette.primary(for: avatarColor),
-            homeColor: auraSecondary,
+        PixelWaveBackground(
+            accentColor: AgentColorPalette.primary(for: avatarColor),
             progress: progress,
-            showBase: showBase
+            screenAnchored: true
         )
-    }
-
-    /// Solid agent colors (primary == secondary) get a darker partner so the two
-    /// glows still read as distinct edges instead of one flat wash.
-    private var auraSecondary: Color {
-        let primaryHex = AgentColorPalette.primaryHex(for: avatarColor)
-        let secondaryHex = AgentColorPalette.secondaryHex(for: avatarColor)
-        if primaryHex.caseInsensitiveCompare(secondaryHex) == .orderedSame {
-            return AgentColorPalette.primary(for: avatarColor).shaded(by: 0.6)
-        }
-        return AgentColorPalette.secondary(for: avatarColor)
     }
 }
 
