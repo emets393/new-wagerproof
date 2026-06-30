@@ -1,0 +1,9 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+# Securely materialize gitignored .env files into each new workspace from a
+# single secret source (the root checkout, or $WAGERPROOF_SECRETS_DIR).
+# Without this, a fresh worktree has no .env and local tooling can't boot —
+# e.g. the agents-v3 Trigger.dev worker fails with "supabaseUrl is required".
+# See .conductor/README.md.
+setup = "bash scripts/conductor-setup.sh"

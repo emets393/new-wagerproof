@@ -57,6 +57,10 @@ step "slate: dryrun games";  python3 gen_cfb_dryrun_games.py
 step "slate: pick cards";    python3 gen_cfb_picks.py
 step "slate: bet flags";     python3 gen_cfb_dryrun_flags.py
 step "slate: team trends";   python3 gen_cfb_team_trends.py
+# Outliers trends (team splits/matchups + coach career trends). Both no-op safely if the
+# Outliers DDL (cfb_outliers_trends.sql) hasn't been applied to the data project yet.
+step "outliers: coach trends"; python3 gen_cfb_coach_trends.py
+step "outliers: trend cards";  python3 gen_cfb_outliers_trend_cards.py
 
 echo
-echo "=== DONE :: cfb_dryrun_games/_picks/_flags + cfb_team_trends loaded for $SEASON wk$WEEK ==="
+echo "=== DONE :: cfb_dryrun_games/_picks/_flags + cfb_team_trends/_coach_trends/_outliers_trend_cards loaded for $SEASON wk$WEEK ==="

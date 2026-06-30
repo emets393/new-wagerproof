@@ -251,12 +251,26 @@ public enum MLBPlayerProps {
         "batter_total_bases": "Total Bases",
         "batter_rbis": "RBIs",
         "batter_hits_runs_rbis": "H+R+RBI",
-        "batter_walks": "Walks",
-        "batter_strikeouts": "Strikeouts",
-        "pitcher_strikeouts": "Strikeouts",
+        "batter_walks": "Batter Walks",
+        "batter_strikeouts": "Batter K",
+        "pitcher_strikeouts": "Pitcher K",
         "pitcher_hits_allowed": "Hits Allowed",
-        "pitcher_walks": "Walks",
+        "pitcher_walks": "Pitcher Walks",
         "pitcher_outs": "Outs",
+    ]
+
+    static let marketEmojis: [String: String] = [
+        "batter_home_runs": "💣",
+        "batter_hits": "🏏",
+        "batter_total_bases": "🚀",
+        "batter_rbis": "🏃",
+        "batter_hits_runs_rbis": "🔥",
+        "batter_walks": "👁️",
+        "batter_strikeouts": "💨",
+        "pitcher_strikeouts": "⚡",
+        "pitcher_hits_allowed": "🎯",
+        "pitcher_walks": "🌪️",
+        "pitcher_outs": "🛡️",
     ]
 
     static let batterMarketOrder: [String] = [
@@ -269,6 +283,10 @@ public enum MLBPlayerProps {
 
     public static func marketLabel(_ market: String) -> String {
         marketLabels[market] ?? market
+    }
+
+    public static func marketEmoji(_ market: String) -> String {
+        marketEmojis[market] ?? "🎲"
     }
 
     static func marketSortIndex(_ market: String, isPitcher: Bool) -> Int {

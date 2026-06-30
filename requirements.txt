@@ -8,3 +8,4 @@ scikit-learn
 requests
 pyarrow
 openpyxl
+psycopg2-binary   # grade_week.sh runs the grading RPCs over DATABASE_URL (no psql binary needed)

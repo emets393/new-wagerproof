@@ -1,11 +1,22 @@
 """Generate cfb_team_trends — per-team season-to-date betting trends, AS OF before 2025 Week 7 (uses only
 weeks 1-6, point-in-time/no look-ahead). Rates: SU record, ATS%, Over%, Team-Total Over%, 1H ATS%, 1H Over%
-+ last-5 arrays + full game_log (jsonb) for last-5 chips and the over/under graph."""
++ last-5 arrays + full game_log (jsonb) for last-5 chips and the over/under graph.
+
+Also writes the Outliers `splits` + `matchups` jsonb (mirror of nfl_team_trends): splits are season-scoped
+(this season's game_log, 6 markets x 5 dims x windows 3/5/7, pct 0-1); matchups are cross-season (last ~6
+H2H meetings per opponent, FG markets). Shapes match NFL so one app code path renders both sports.
+
+Usage:  python3 gen_cfb_team_trends.py [season week] [--no-load]"""
+import sys
 import numpy as np, pandas as pd, warnings, json
 import dry_common as C
+import trends_common as T
 warnings.filterwarnings("ignore")
 SEASON, _wk = C.season_week()
 THRU = _wk - 1  # team trends run "through" the week before the slate
+NO_LOAD = "--no-load" in sys.argv
+DIMS = ["overall", "home", "away", "favorite", "underdog"]
+WINDOWS = [3, 5, 7]
 
 gm = pd.read_parquet("data/model_games.parquet")
 pre = gm[(gm.season == SEASON) & (gm.week <= THRU) & gm.actual_margin.notna()].copy()
@@ -70,6 +81,8 @@ for _, r in pre.sort_values("week").iterrows():
 
 def pct(w, n): return round(100 * w / n, 1) if n else None
 def last5(lst, key): return [g[key] for g in lst[::-1] if g[key] is not None][:5]
+# cross-season per-team logs power the H2H matchups (last 6 meetings, FG markets)
+cross = T.build_cross_season_logs(SEASON, THRU)
 rows = []
 for team, log in logs.items():
     n = len(log)
@@ -87,8 +100,22 @@ for team, log in logs.items():
         "h1_ats_w": haw, "h1_ats_l": hal, "h1_ats_p": hap, "h1_ats_games": han, "h1_ats_pct": pct(haw, haw + hal),
         "h1_ou_o": hoo, "h1_ou_u": hou, "h1_ou_games": hon, "h1_over_pct": pct(hoo, hon),
         "last5_su": last5(log, "su"), "last5_ats": last5(log, "ats"), "last5_ou": last5(log, "ou"),
-        "game_log": log[::-1]})   # newest first; real list -> stored as jsonb array (loader handles JSON)
+        "game_log": log[::-1],   # newest first; real list -> stored as jsonb array (loader handles JSON)
+        # Outliers: season-scoped splits (6 markets x 5 dims x 3/5/7) + cross-season H2H matchups
+        "splits": T.compute_splits(log[::-1], DIMS, WINDOWS, sk="spread"),
+        "matchups": T.compute_matchups(cross.get(team, []), markets=T.FG_MKT, cap=6)})
 df = pd.DataFrame(rows)
 print(f"cfb_team_trends: {len(df)} teams | avg games {df.games.mean():.1f} | with TT {(df.tt_games>0).sum()} | with 1H {(df.h1_ats_games>0).sum()}")
+if NO_LOAD:
+    s = df.sort_values("games", ascending=False).iloc[0]
+    print(f"  [no-load] sample {s.team_name} spread splits:", json.dumps(s.splits["spread"], indent=0)[:400])
+    print(f"  [no-load] sample {s.team_name} matchups:", json.dumps(s.matchups, indent=0)[:300])
+    sys.exit(0)
+# Preflight: don't wipe the existing season if the Outliers columns aren't in place yet
+# (the insert would reject splits/matchups and leave the table empty). Apply cfb_outliers_trends.sql.
+import requests
+if requests.get(f"{C.URL}/rest/v1/cfb_team_trends?select=splits&limit=1", headers=C.H).status_code != 200:
+    print("  ! cfb_team_trends.splits/matchups missing — apply cfb_outliers_trends.sql first (load skipped, existing data preserved)")
+    sys.exit(0)
 C.wipe("cfb_team_trends", f"season=eq.{SEASON}")
 C.insert("cfb_team_trends", df)

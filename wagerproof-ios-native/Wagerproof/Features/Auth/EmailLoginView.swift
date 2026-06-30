@@ -1,16 +1,13 @@
 // EmailLoginView.swift
 //
-// Email + password sign-in form. 1:1 port of
-// `wagerproof-mobile/app/(auth)/email-login.tsx`.
-//
-// Wired to `AuthStore.signIn(email:password:)`. Error classification matches
-// the RN strings verbatim:
+// Email + password sign-in form. Wired to `AuthStore.signIn(email:password:)`.
+// Error classification matches the RN strings verbatim:
 //   - "Invalid login credentials" → "Invalid email or password"
 //   - "Email not confirmed"       → "Please verify your email before signing in"
 //   - else                        → raw error.message
 //
-// Visual: ScrollView + VStack, teal-to-black background gradient,
-// custom circular back button, styled text-field rows, white pill CTA.
+// Visual: shared pixel-glyph gate background, left-aligned minimalist logo +
+// header, Liquid Glass input rows and a Liquid Glass "Sign In" CTA.
 
 import SwiftUI
 import WagerproofDesign
@@ -32,26 +29,30 @@ struct EmailLoginView: View {
 
     var body: some View {
         ZStack {
-            AuthGradientBackground()
+            AuthGateBackground()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     backButton
-                        .padding(.bottom, 24)
+                        .padding(.bottom, 28)
 
-                    logo
-                        .padding(.bottom, 32)
+                    Image("WagerproofLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .padding(.bottom, 18)
+                        .accessibilityHidden(true)
 
                     header
-                        .padding(.bottom, 36)
+                        .padding(.bottom, 28)
 
                     form
-                        .padding(.bottom, 32)
 
                     footer
+                        .padding(.top, 28)
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 16)
+                .padding(.top, 8)
                 .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -74,10 +75,10 @@ struct EmailLoginView: View {
             dismiss()
         } label: {
             Image(systemName: "chevron.left")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 40, height: 40)
-                .background(Circle().fill(.white.opacity(0.1)))
+                .liquidGlassBackground(in: Circle())
         }
         .buttonStyle(.plain)
         // Visual stays 40pt; tap area expands to 44pt (matches RN hitSlop).
@@ -87,36 +88,19 @@ struct EmailLoginView: View {
         .accessibilityLabel("Back")
     }
 
-    private var logo: some View {
-        HStack {
-            Spacer()
-            // FIDELITY-WAIVER #004: wagerproofGreenDark.png asset not yet imported.
-            HStack(spacing: 8) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(Color(hex: 0x00BFA5))
-                Text("WagerProof")
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-            .frame(height: 50)
-            Spacer()
-        }
-    }
-
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Welcome Back")
-                .font(.system(size: 32, weight: .heavy))
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Welcome back")
+                .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(.white)
-            Text("Sign in with your email")
-                .font(.system(size: 16))
-                .foregroundStyle(.white.opacity(0.5))
+            Text("Sign in to your account")
+                .font(.system(size: 15))
+                .foregroundStyle(.white.opacity(0.6))
         }
     }
 
     private var form: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 16) {
             // Email
             AuthFieldRow(
                 label: "Email",
@@ -132,7 +116,7 @@ struct EmailLoginView: View {
                     .submitLabel(.next)
                     .focused($focused, equals: .email)
                     .foregroundStyle(.white)
-                    .tint(Color(hex: 0x00BFA5))
+                    .tint(.appPrimary)
                     .onChange(of: email) { _, _ in errorMessage = nil }
                     .onSubmit { focused = .password }
                     .disabled(loading)
@@ -156,7 +140,7 @@ struct EmailLoginView: View {
                 .submitLabel(.go)
                 .focused($focused, equals: .password)
                 .foregroundStyle(.white)
-                .tint(Color(hex: 0x00BFA5))
+                .tint(.appPrimary)
                 .onChange(of: password) { _, _ in errorMessage = nil }
                 .onSubmit { Task { await signIn() } }
                 .disabled(loading)
@@ -165,8 +149,8 @@ struct EmailLoginView: View {
                     isPasswordVisible.toggle()
                 } label: {
                     Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .font(.system(size: 17))
+                        .foregroundStyle(.white.opacity(0.45))
                         .frame(width: 32, height: 32)
                 }
                 .buttonStyle(.plain)
@@ -182,12 +166,12 @@ struct EmailLoginView: View {
                 NavigationLink(value: AuthRoute.forgotPassword) {
                     Text("Forgot Password?")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0x00BFA5))
+                        .foregroundStyle(Color.appPrimary)
                 }
                 .buttonStyle(.plain)
                 .disabled(loading)
             }
-            .padding(.top, -8)
+            .padding(.top, -4)
 
             // Inline error banner
             if let error = errorMessage {
@@ -196,25 +180,15 @@ struct EmailLoginView: View {
             }
 
             // Sign-in CTA
-            Button {
+            LiquidGlassPillButton(
+                title: "Sign In",
+                loading: loading,
+                isEnabled: !email.isEmpty && !password.isEmpty
+            ) {
                 signInTapCount += 1
                 Task { await signIn() }
-            } label: {
-                ZStack {
-                    if loading {
-                        ProgressView().tint(.black)
-                    } else {
-                        Text("Sign In")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.black)
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: 54)
-                .background(RoundedRectangle(cornerRadius: 30).fill(.white))
             }
-            .buttonStyle(.plain)
-            .disabled(loading || email.isEmpty || password.isEmpty)
-            .opacity((loading || email.isEmpty || password.isEmpty) ? 0.4 : 1.0)
+            .padding(.top, 4)
             .animation(.easeInOut(duration: 0.2), value: errorMessage)
         }
     }
@@ -224,11 +198,11 @@ struct EmailLoginView: View {
             Spacer()
             Text("Don't have an account? ")
                 .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(.white.opacity(0.45))
             NavigationLink(value: AuthRoute.signup) {
                 Text("Sign Up")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: 0x00BFA5))
+                    .foregroundStyle(Color.appPrimary)
             }
             .buttonStyle(.plain)
             .disabled(loading)
@@ -281,7 +255,7 @@ struct EmailLoginView: View {
     }
 }
 
-// MARK: - Shared auth field row
+// MARK: - Shared auth field row (Liquid Glass)
 
 struct AuthFieldRow<Field: View, Trailing: View>: View {
     let label: String
@@ -293,13 +267,13 @@ struct AuthFieldRow<Field: View, Trailing: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.65))
 
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .font(.system(size: 17))
+                    .foregroundStyle(.white.opacity(0.45))
                     .frame(width: 20)
                 field()
                     .frame(maxWidth: .infinity)
@@ -307,12 +281,11 @@ struct AuthFieldRow<Field: View, Trailing: View>: View {
             }
             .padding(.horizontal, 16)
             .frame(minHeight: 52)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(.white.opacity(0.08))
-            )
+            // Liquid Glass input container — frosted, touch-reactive (iOS 26+),
+            // ultraThinMaterial fallback below.
+            .liquidGlassBackground(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
             .overlay(
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(isError ? Color(hex: 0xFF6B6B) : .white.opacity(0.12), lineWidth: 1)
             )
         }
@@ -352,22 +325,5 @@ struct AuthErrorBanner: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(hex: 0xFF6B6B).opacity(0.12))
         )
-    }
-}
-
-// MARK: - Shared gradient background
-
-struct AuthGradientBackground: View {
-    var body: some View {
-        LinearGradient(
-            stops: [
-                .init(color: Color(hex: 0x00BFA5).opacity(0.15), location: 0),
-                .init(color: .black.opacity(0.95), location: 0.4),
-                .init(color: .black, location: 1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
     }
 }

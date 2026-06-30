@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext"],
+    "types": ["node"],
+    // The src/loop + src/shared modules are verbatim ports of the Supabase edge
+    // worker, which deployed (like Trigger.dev) via esbuild with no tsc gate, so
+    // they carry a few production-proven type-imperfect spots. We don't rewrite
+    // working logic to satisfy a stricter compiler than the original ever used;
+    // the Trigger.dev bundler is the real build. New code (trigger/, runV3Generation)
+    // is authored type-clean regardless.
+    "strict": false,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false
+  },
+  "include": ["src", "trigger", "trigger.config.ts"]
+}

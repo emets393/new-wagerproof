@@ -65,6 +65,8 @@ struct GameCardTeamAvatar: View {
             return NFLTeamAssets.logo(for: teamName)
         case "cfb", "ncaaf":
             return CFBTeamAssets.logo(for: teamName)
+        case "mlb":
+            return MLBTeams.logoUrl(for: teamName)
         default:
             return nil
         }
@@ -73,6 +75,12 @@ struct GameCardTeamAvatar: View {
     private var defaultColors: TeamColorPair {
         switch sport.lowercased() {
         case "cfb", "ncaaf": return .neutralCFB
+        case "mlb":
+            let pair = MLBTeams.colors(for: teamName)
+            return TeamColorPair(
+                primary: Color(hex: Int(pair.primary)),
+                secondary: Color(hex: Int(pair.secondary))
+            )
         case "ncaab": return .neutralNCAAB
         case "nba": return .neutralNBA
         default: return .neutralNFL

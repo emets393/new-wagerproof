@@ -150,9 +150,10 @@ struct AgentRowCard: View {
             Image(systemName: sport.sfSymbol)
                 .font(.system(size: 8, weight: .semibold))
             Text(sport.label)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 9, weight: .bold))
         }
-        .foregroundStyle(Color.appTextSecondary)
+        // White text for readability against the muted pill background.
+        .foregroundStyle(Color.appTextPrimary)
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
         .background(Color.appSurfaceMuted.opacity(0.6), in: Capsule())

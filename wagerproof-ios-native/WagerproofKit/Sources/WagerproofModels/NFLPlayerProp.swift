@@ -580,6 +580,23 @@ public enum NFLTeams {
         return "\(entry.city) \(entry.mascot)"
     }
 
+    /// "Chiefs" for any alias/abbr format; nil when unmapped.
+    public static func mascot(for team: String) -> String? {
+        guard let slug = slug(for: team),
+              let entry = teams.first(where: { $0.slug == slug }) else { return nil }
+        return entry.mascot
+    }
+
+    /// Short display name for matchup labels — e.g. "Cowboys".
+    public static func nickname(for team: String) -> String {
+        if let mascot = mascot(for: team) { return mascot }
+        let trimmed = team.trimmingCharacters(in: .whitespaces)
+        if trimmed.contains(" "), let last = trimmed.split(separator: " ").last {
+            return String(last)
+        }
+        return trimmed
+    }
+
     public static func logoUrl(for team: String) -> String? {
         guard let slug = slug(for: team) else { return nil }
         return "https://a.espncdn.com/i/teamlogos/nfl/500/\(slug).png"

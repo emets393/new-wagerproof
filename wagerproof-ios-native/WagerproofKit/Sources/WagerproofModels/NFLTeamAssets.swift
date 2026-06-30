@@ -57,4 +57,15 @@ public enum NFLTeamAssets {
         if let hit = byAbbr[abbr(for: team)]?.logoEspn { return hit }
         return NFLTeams.logoUrl(for: team)
     }
+
+    /// Short display name (nickname) for matchup labels — e.g. "Cowboys".
+    public static func nickname(for team: String) -> String {
+        let key = abbr(for: team).uppercased()
+        if let nick = byAbbr[key]?.nick, !nick.isEmpty { return nick }
+        if let name = byAbbr[key]?.name, !name.isEmpty {
+            return name.split(separator: " ").last.map(String.init) ?? name
+        }
+        if let mascot = NFLTeams.mascot(for: team) { return mascot }
+        return NFLTeams.nickname(for: team)
+    }
 }
