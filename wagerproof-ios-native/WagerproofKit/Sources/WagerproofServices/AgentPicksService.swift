@@ -167,6 +167,40 @@ public enum AgentPicksService {
         )
     }
 
+    /// Start the Trigger.dev-backed V3 path. This is used only by the native
+    /// client V3 opt-in; legacy clients keep using `requestGeneration`.
+    public static func requestTriggerV3Generation(
+        agentId: String,
+        idempotencyKey: String? = nil,
+        dryRun: Bool? = nil,
+        modelName: String? = nil
+    ) async throws -> GenerationRequestResult {
+        let client = await MainSupabase.shared.client
+        let session = try? await client.auth.session
+        guard let token = session?.accessToken else {
+            throw AgentAuthorizedActionsService.ActionError.noSession
+        }
+        struct Body: Encodable {
+            let avatar_id: String
+            let idempotency_key: String?
+            let dry_run: Bool?
+            let model_name: String?
+        }
+        let response: GenerationRequestResult = try await client.functions.invoke(
+            "trigger-v3-run",
+            options: FunctionInvokeOptions(
+                headers: ["Authorization": "Bearer \(token)"],
+                body: Body(
+                    avatar_id: agentId,
+                    idempotency_key: idempotencyKey,
+                    dry_run: dryRun,
+                    model_name: modelName
+                )
+            )
+        )
+        return response
+    }
+
     /// Local YYYY-MM-DD (matches RN's `getLocalDateString`).
     private static func localDateString(_ date: Date) -> String {
         let cal = Calendar(identifier: .gregorian)

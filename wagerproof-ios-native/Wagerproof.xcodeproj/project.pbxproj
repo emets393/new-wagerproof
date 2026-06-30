@@ -206,6 +206,7 @@
 		ADAB1B640965BCCE72473EC8 /* PickDetailBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B12F4149A20750B66C9BEFFD /* PickDetailBottomSheet.swift */; };
 		AE713FA6FF97DFECB6E8A4F8 /* WagerBotPendingActionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D760B254BA0C13325ED0D8 /* WagerBotPendingActionAdapter.swift */; };
 		B11A3632C4237C400184A3A1 /* WagerBotChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BA0974F9BFD2FE671BE2066 /* WagerBotChatView.swift */; };
+		B12DFC174295830D021C8E76 /* LiveAgentRunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B57A2D2382790C01222D096 /* LiveAgentRunView.swift */; };
 		B19BF7F848106DF59302415A /* ScoreboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3942D54D94ABC07915CB2AE8 /* ScoreboardView.swift */; };
 		B31C87F4DF792367CDC5C734 /* AgentPickItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8485E0C3DE14E3A2BF9EC0F /* AgentPickItem.swift */; };
 		B58605F9FDF7E5E8E0CAC1FF /* GameRowCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B577FF76D1EE044BD839C20C /* GameRowCard.swift */; };
@@ -300,6 +301,7 @@
 		06063DA3891C5CA3E7ED6B22 /* GameCardShimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCardShimmer.swift; sourceTree = "<group>"; };
 		0A741A69F9AD882ACDF46614 /* SearchToolCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchToolCards.swift; sourceTree = "<group>"; };
 		0B01F1166984FCBA9CF20132 /* ScaffoldPlaceholder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScaffoldPlaceholder.swift; sourceTree = "<group>"; };
+		0B57A2D2382790C01222D096 /* LiveAgentRunView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveAgentRunView.swift; sourceTree = "<group>"; };
 		0BC2C9456F8DAFC13A9915C4 /* OnboardingStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingStep.swift; sourceTree = "<group>"; };
 		0BF9318EFC11E9A5E800B7D2 /* MlbRegressionReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MlbRegressionReportView.swift; sourceTree = "<group>"; };
 		0CAA008473C3791D36F0C47E /* CompactPickCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactPickCard.swift; sourceTree = "<group>"; };
@@ -876,6 +878,7 @@
 				E065C8AD8D74622EE3B9C4DE /* CompanyDashboardBanner.swift */,
 				AFA9E564BC6C848BAE6F7737 /* GlowAccentBar.swift */,
 				DFC2055CABADF806768BD943 /* GlowingCardWrapper.swift */,
+				0B57A2D2382790C01222D096 /* LiveAgentRunView.swift */,
 				72C3DD16424DA1D0BA0FFE66 /* PixelEmojiInline.swift */,
 				BDF8600C4ACB45BB17941985 /* PixelOffice.swift */,
 				DAF58E968FD5B4CD523FBDE6 /* PixelOfficeAgentNode.swift */,
@@ -1644,6 +1647,7 @@
 				EC631A365E510A211AA12F53 /* LearnWagerProofView.swift in Sources */,
 				51099676817D0E656C3ADC8C /* LineMovementModal.swift in Sources */,
 				1DBF0178D920B72CF4048F78 /* LineMovementSection.swift in Sources */,
+				B12DFC174295830D021C8E76 /* LiveAgentRunView.swift in Sources */,
 				4251BB9F52E2FA9FD75957B9 /* LiveScoreCard.swift in Sources */,
 				F2B96536C42BD434D228C636 /* LiveScoreCardShimmer.swift in Sources */,
 				0A9486F2A0FCF754A4A66737 /* LiveScoreDetailModal.swift in Sources */,

@@ -55,6 +55,7 @@ public final class AgentDetailStore {
     // MARK: - Generation state
     public private(set) var isGenerating: Bool = false
     public private(set) var lastGenerationError: String?
+    public private(set) var liveRunState: TriggerV3RunStatus?
 
     // MARK: - View-driven filter (history)
     public var pickFilter: PickFilter = .all
@@ -247,7 +248,11 @@ public final class AgentDetailStore {
         guard !isGenerating else { return false }
         isGenerating = true
         lastGenerationError = nil
-        defer { isGenerating = false }
+        liveRunState = nil
+        defer {
+            isGenerating = false
+            liveRunState = nil
+        }
         do {
             // V3 opt-in is a Secret Settings debug toggle persisted to UserDefaults;
             // a fresh store reads the current values. Off → nil params → V2 path.
@@ -258,13 +263,26 @@ public final class AgentDetailStore {
             // the current run id so we can poll until a NEW completed run lands —
             // otherwise the spinner would clear in ~1s and the user sees nothing.
             let priorRunId = todaysGenerationRun?.id
-            _ = try await AgentPicksService.requestGeneration(
-                agentId: agentId,
-                engineVersion: v3.engineVersionForRequest,
-                dryRun: v3.useV3Engine ? v3.dryRun : nil,
-                modelName: v3.useV3Engine ? v3.model : nil
-            )
-            await pollUntilGenerationCompletes(priorRunId: priorRunId)
+            if v3.useV3Engine {
+                let trigger = try await AgentPicksService.requestTriggerV3Generation(
+                    agentId: agentId,
+                    dryRun: v3.dryRun,
+                    modelName: v3.model
+                )
+                if let runId = trigger.runId, let token = trigger.publicAccessToken {
+                    await pollTriggerRunUntilComplete(runId: runId, publicAccessToken: token, priorRunId: priorRunId)
+                } else {
+                    await pollUntilGenerationCompletes(priorRunId: priorRunId)
+                }
+            } else {
+                _ = try await AgentPicksService.requestGeneration(
+                    agentId: agentId,
+                    engineVersion: nil,
+                    dryRun: nil,
+                    modelName: nil
+                )
+                await pollUntilGenerationCompletes(priorRunId: priorRunId)
+            }
             await loadHistory(isOwner: true)
             await loadPerformancePicks(isOwner: true)
             return true
@@ -272,6 +290,23 @@ public final class AgentDetailStore {
             lastGenerationError = Self.message(from: error)
             return false
         }
+    }
+
+    /// Poll Trigger.dev's run-retrieve endpoint for real metadata while the task
+    /// executes. Snapshot polling remains the completion/fallback source of
+    /// truth because picks still land in Supabase.
+    private func pollTriggerRunUntilComplete(runId: String, publicAccessToken: String, priorRunId: String?) async {
+        let maxAttempts = 440 // ~11 min at 1.5s; task maxDuration is 600s
+        let intervalNanos: UInt64 = 1_500_000_000
+        for _ in 0..<maxAttempts {
+            if Task.isCancelled { return }
+            if let state = try? await TriggerRunStatusService.fetch(runId: runId, publicAccessToken: publicAccessToken) {
+                liveRunState = state
+                if state.isTerminal { break }
+            }
+            try? await Task.sleep(nanoseconds: intervalNanos)
+        }
+        await pollUntilGenerationCompletes(priorRunId: priorRunId)
     }
 
     /// Poll the detail snapshot until a NEW succeeded run appears (its id differs

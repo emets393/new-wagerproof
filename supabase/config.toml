@@ -74,6 +74,9 @@ verify_jwt = false  # Cron calls don't have JWT, auth via service key
 [functions.request-avatar-picks-generation-v2]
 verify_jwt = true  # Client-facing, authenticated via JWT
 
+[functions.trigger-v3-run]
+verify_jwt = true  # Client-facing gateway for Trigger.dev V3 generation
+
 [functions.agent-authorized-action-v1]
 verify_jwt = false  # Optional JWT; public reads and authenticated writes handled inside the gateway
 
