@@ -151,7 +151,7 @@ struct ScreenshotHarnessView: View {
              .propsLoaded, .propDetail, .propDetailHighLine,
              .nflPropsLoaded, .nflPropDetail:
             gamesTargets
-        case .agentsLoaded, .topAgentPicks:
+        case .agentsLoaded, .topAgentPicks, .agentHeaderShowcase:
             agentsTargets
         case .editorStats, .mlbInsightWidgets, .searchInsights:
             toolTargets
@@ -656,6 +656,8 @@ struct ScreenshotHarnessView: View {
             makeAgents()
         case .topAgentPicks:
             makeTopAgentPicks()
+        case .agentHeaderShowcase:
+            AgentHeaderShowcase(agent: AgentsFixtures.sample[0].agent)
         default:
             EmptyView()
         }
@@ -1269,6 +1271,9 @@ enum ScreenshotHarness {
         // Top Agent Picks feed — square matchup cards (concentric corners +
         // liquid-glass merged team discs). Seeded with MLB fixtures.
         case topAgentPicks
+        // DEBUG-only showcase for the redesigned agent-detail header
+        // (autopilot/generate action zone + pixel-glyph generation loader).
+        case agentHeaderShowcase
         // B08 — Settings / Paywall / modals parity screenshots.
         // `settings` is the default state (empty notification permission +
         // free tier). `settingsLoaded` swaps in a Pro entitlement so the
@@ -1351,4 +1356,96 @@ enum ScreenshotHarness {
         }
     }
 }
+
+/// DEBUG showcase for the redesigned agent-detail picks section. Renders the
+/// idle `AgentGeneratePrompt` (shimmer CTA + tucked autopilot chip) in both
+/// autopilot states, and the live `AgentGeneratingView` (3×3 glyph matrix +
+/// thinking verbs + real progress bar over a dense pixel fill), driven by a
+/// SIMULATED Trigger.dev run that steps through phases/turns on a loop. Mounted
+/// via `-uiScreenshotMode agentHeaderShowcase` so it can be verified without a
+/// live agent or network.
+struct AgentHeaderShowcase: View {
+    let agent: Agent
+    @State private var run: TriggerV3RunStatus?
+
+    private var accent: Color { AgentColorPalette.primary(for: agent.avatarColor) }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                section("Idle · autopilot on") {
+                    idlePrompt(auto: true).padding(14)
+                }
+                section("Idle · autopilot off") {
+                    idlePrompt(auto: false).padding(14)
+                }
+                section("Generating (live sim)") {
+                    AgentGeneratingView(state: run, accent: accent).padding(6)
+                }
+            }
+            .padding(16)
+        }
+        .preferredColorScheme(.dark)
+        .background(AgentPixelWaveBackground(avatarColor: agent.avatarColor, progress: 0).ignoresSafeArea())
+        .task { await driveSimulation() }
+    }
+
+    @ViewBuilder
+    private func idlePrompt(auto: Bool) -> some View {
+        AgentGeneratePrompt(
+            accent: accent,
+            title: "You can generate your picks right now",
+            subtitle: auto
+                ? "Or wait — autopilot runs daily at 9:00 AM ET. 3 of 3 manual regenerations remaining today."
+                : "3 of 3 manual regenerations remaining today.",
+            autoGenerate: auto,
+            onToggleAuto: { _ in },
+            canGenerate: true,
+            buttonLabel: "Generate Today's Picks",
+            onGenerate: {}
+        )
+    }
+
+    @ViewBuilder
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 12, weight: .heavy))
+                .foregroundStyle(Color.appTextSecondary)
+            content()
+                .frame(maxWidth: .infinity)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.03)))
+        }
+    }
+
+    /// Loops a fake run through starting → collecting → reasoning → finalizing,
+    /// stepping turn + toolCalls so the bar fills and the circles accumulate.
+    private func driveSimulation() async {
+        let tools = ["get_slate", "get_model_predictions", "get_market_odds", "get_polymarket",
+                     "get_weather", "get_injuries", "get_recent_form", "get_line_movement",
+                     "get_editor_picks", "submit_picks"]
+        var loop = 0
+        while !Task.isCancelled {
+            loop += 1
+            for i in 0...tools.count {
+                if Task.isCancelled { return }
+                let tool = i < tools.count ? tools[i] : nil
+                let phase = i == 0 ? "starting" : (i < 4 ? "loading_slate" : (i < tools.count ? "analyzing" : "finalizing"))
+                let picks = i >= tools.count ? 2 : (i >= 8 ? 1 : 0)
+                run = Self.mockRun(id: "sim_\(loop)", phase: phase, tool: tool, turn: i + 1, toolCalls: i, picks: picks)
+                try? await Task.sleep(nanoseconds: 850_000_000)
+            }
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+        }
+    }
+
+    static func mockRun(id: String, phase: String, tool: String?, turn: Int, toolCalls: Int, picks: Int) -> TriggerV3RunStatus? {
+        let toolField = tool.map { "\"\($0)\"" } ?? "null"
+        let json = """
+        {"id":"\(id)","status":"EXECUTING","metadata":{"phase":"\(phase)","currentTool":\(toolField),"turn":\(turn),"maxTurns":12,"toolCalls":\(toolCalls),"picksAccepted":\(picks)}}
+        """
+        return try? JSONDecoder().decode(TriggerV3RunStatus.self, from: Data(json.utf8))
+    }
+}
+
 #endif

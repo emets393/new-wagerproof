@@ -76,12 +76,12 @@ struct AgentTimeline: View {
         if events.isEmpty {
             EmptyView()
         } else {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Recent Activity")
-                    .font(.system(size: 14, weight: .heavy))
-                    .tracking(0.3)
-                    .foregroundStyle(Color.appTextPrimary)
-                    .padding(.bottom, 8)
+            VStack(alignment: .leading, spacing: 12) {
+                // Shared inline section header (see AgentSectionHeader). The header
+                // owns its 16pt inset so it lines up with the Performance header and
+                // the card headers above; the rows below sit flush at the section's
+                // left edge.
+                AgentSectionHeader(title: "Recent Activity", systemImage: "clock")
 
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(events.enumerated()), id: \.element.id) { idx, event in

@@ -1,20 +1,31 @@
 # Conductor setup for WagerProof
 
-How Conductor provisions secrets into each workspace, and how to operate it.
+How Conductor gets each workspace ready to run — secrets and dependencies — and
+how to operate it.
 
 ## The problem
 
-Every Conductor workspace is a separate git worktree. The `.env` files that
-local tooling needs are gitignored (they hold secrets), so a freshly created
-workspace starts with **no env files**. Anything that reads them fails — most
-visibly the `agents-v3` Trigger.dev worker, which dies immediately with
-`supabaseUrl is required` when `agents-v3/.env` is missing.
+Every Conductor workspace is a separate git worktree. Two things a worktree needs
+are gitignored, so a freshly created workspace starts without them:
+
+- **`.env` files** (they hold secrets). Anything that reads them fails — most
+  visibly the `agents-v3` Trigger.dev worker, which dies immediately with
+  `supabaseUrl is required` when `agents-v3/.env` is missing.
+- **`node_modules`**. npm tooling can't run until deps are installed — e.g.
+  `agents-v3`'s `npm run dev` / `npx trigger.dev dev` can't resolve the
+  Trigger.dev CLI.
 
 ## How it works
 
-`.conductor/settings.toml` runs `scripts/conductor-setup.sh` on every new
-workspace (Conductor's `scripts.setup` hook). That script copies the canonical
-`.env` files from a single **secret source** into the new workspace.
+`.conductor/settings.toml` runs two scripts on every new workspace (Conductor's
+`scripts.setup` hook), chained:
+
+1. **`scripts/conductor-setup.sh`** — copies the canonical `.env` files from a
+   single **secret source** into the new workspace.
+2. **`scripts/conductor-deps.sh`** — `npm install`s the workspace's node projects
+   (the `NPM_DIRS` manifest; currently `agents-v3`) so `npm run dev` works out of
+   the box. Idempotent: a dir whose `node_modules` already exists is skipped, and
+   an install failure (e.g. offline) warns without aborting setup.
 
 Secrets never enter git:
 
@@ -67,15 +78,18 @@ copying.
 
 ## Re-provisioning an existing workspace
 
-Safe to run any time (idempotent):
+Both scripts are safe to run any time (idempotent). Workspaces created before
+this setup existed won't have run them automatically — run them once by hand:
 
 ```bash
-bash scripts/conductor-setup.sh
+bash scripts/conductor-setup.sh   # .env files
+bash scripts/conductor-deps.sh    # node_modules (agents-v3)
 ```
 
-If a secret is missing in the source, the script warns and continues (the
-workspace is still usable for code work — you just can't run the worker until
-the secret exists).
+If a secret is missing in the source, `conductor-setup.sh` warns and continues
+(the workspace is still usable for code work — you just can't run the worker
+until the secret exists). `conductor-deps.sh` skips any dir that already has
+`node_modules`; force a fresh install with `cd agents-v3 && npm install`.
 
 ## Production note
 

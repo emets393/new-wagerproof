@@ -108,6 +108,21 @@ public final class AgentDetailStore {
         }
     }
 
+    /// The COMPLETE graded pick history (prior-date won/lost/push picks),
+    /// newest first. Backs the Pick History folder + its browse sheet. Derived
+    /// from the full `performancePicks` set; falls back to the loaded preview
+    /// when performance picks haven't arrived yet, so the folder is never empty
+    /// while history exists.
+    public var fullPickHistory: [AgentPick] {
+        let todayStr = Self.localDateString(Date())
+        let graded = performancePicks.filter { Self.isPickHistoryEligible($0, todayStr: todayStr) }
+        let base = graded.isEmpty ? pickHistory : graded
+        return base.sorted { lhs, rhs in
+            if lhs.gameDate != rhs.gameDate { return lhs.gameDate > rhs.gameDate }
+            return lhs.createdAt > rhs.createdAt
+        }
+    }
+
     /// Graded picks from prior game dates only — excludes today and pending rows.
     static func isPickHistoryEligible(_ pick: AgentPick, todayStr: String) -> Bool {
         guard pick.gameDate < todayStr else { return false }
