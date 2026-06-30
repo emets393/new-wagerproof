@@ -1,0 +1,26 @@
+{
+  "name": "wagerproof-agents-v3",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "V3 agentic pick-generation worker on Trigger.dev. Parallel path to the legacy Supabase edge-function pipeline; serves only the new wagerproof-ios-native client.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "trigger.dev dev",
+    "build": "tsc --noEmit",
+    "deploy": "trigger.dev deploy"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
+    "@trigger.dev/sdk": "^4.4.6",
+    "date-fns": "^4.4.0",
+    "date-fns-tz": "^3.2.0",
+    "zod": "^3.25.76"
+  }
+}

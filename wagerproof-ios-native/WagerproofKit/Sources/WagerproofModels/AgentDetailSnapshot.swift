@@ -171,11 +171,19 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
 public struct GenerationRequestResult: Codable, Sendable, Hashable {
     public let queued: Bool
     public let jobId: String?
+    public let ledgerRunId: String?
+    public let runId: String?
+    public let publicAccessToken: String?
+    public let status: String?
     public let result: GenerationResult?
 
     enum CodingKeys: String, CodingKey {
         case queued
         case jobId = "job_id"
+        case ledgerRunId = "ledger_run_id"
+        case runId = "run_id"
+        case publicAccessToken = "public_access_token"
+        case status
         case result
     }
 
@@ -183,12 +191,28 @@ public struct GenerationRequestResult: Codable, Sendable, Hashable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.queued = (try? c.decode(Bool.self, forKey: .queued)) ?? false
         self.jobId = try? c.decodeIfPresent(String.self, forKey: .jobId)
+        self.ledgerRunId = try? c.decodeIfPresent(String.self, forKey: .ledgerRunId)
+        self.runId = try? c.decodeIfPresent(String.self, forKey: .runId)
+        self.publicAccessToken = try? c.decodeIfPresent(String.self, forKey: .publicAccessToken)
+        self.status = try? c.decodeIfPresent(String.self, forKey: .status)
         self.result = try? c.decodeIfPresent(GenerationResult.self, forKey: .result)
     }
 
-    public init(queued: Bool, jobId: String?, result: GenerationResult?) {
+    public init(
+        queued: Bool,
+        jobId: String?,
+        ledgerRunId: String? = nil,
+        runId: String? = nil,
+        publicAccessToken: String? = nil,
+        status: String? = nil,
+        result: GenerationResult?
+    ) {
         self.queued = queued
         self.jobId = jobId
+        self.ledgerRunId = ledgerRunId
+        self.runId = runId
+        self.publicAccessToken = publicAccessToken
+        self.status = status
         self.result = result
     }
 }

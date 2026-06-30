@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofModels
+import WagerproofServices
 import WagerproofStores
 
 /// Owner agent detail screen. Ports `app/(drawer)/(tabs)/agents/[id]/index.tsx`.
@@ -207,7 +208,11 @@ struct AgentDetailView: View {
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 if store.isGenerating {
-                    ThinkingAnimation(variant: .generatingPicks)
+                    if let live = store.liveRunState {
+                        LiveAgentRunView(state: live)
+                    } else {
+                        ThinkingAnimation(variant: .generatingPicks)
+                    }
                 }
 
                 if !canSeePicks {
@@ -547,7 +552,7 @@ struct AgentDetailView: View {
             if case .loading = store.snapshotLoadState { return true }
             return false
         }()
-        return "\(loading)-\(store.todaysPicks.count)-\(store.isGenerating)"
+        return "\(loading)-\(store.todaysPicks.count)-\(store.isGenerating)-\(store.liveRunState?.status ?? "")-\(store.liveRunState?.metadata.phase ?? "")-\(store.liveRunState?.metadata.currentTool ?? "")"
     }
     private var currentUserId: String? {
         if case .authenticated(let userId) = auth.phase {
