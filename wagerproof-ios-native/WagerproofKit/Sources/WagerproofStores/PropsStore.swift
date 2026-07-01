@@ -114,12 +114,6 @@ public final class PropsStore {
 
     /// NFL-specific hydrate for search — mirrors `refreshMLB`.
     public func refreshNFL(force: Bool = false) async {
-        if !dryRunPreviewEnabled {
-            nflPlayers = []
-            loadState[.nfl] = .loaded
-            lastFetched[.nfl] = Date()
-            return
-        }
         if !force, loadState[.nfl] == .loaded, let last = lastFetched[.nfl],
            Date().timeIntervalSince(last) < ttl {
             return
@@ -172,12 +166,6 @@ public final class PropsStore {
             case .mlb:
                 matchups = try await service.fetchMatchups()
             case .nfl:
-                guard dryRunPreviewEnabled else {
-                    nflPlayers = []
-                    lastFetched[sport] = Date()
-                    loadState[sport] = .loaded
-                    return
-                }
                 nflPlayers = try await nflService.fetchPlayers()
             default:
                 return
