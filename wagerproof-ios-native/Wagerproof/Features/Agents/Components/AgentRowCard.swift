@@ -21,6 +21,9 @@ import WagerproofModels
 /// Tap → onTap; long-press → onLongPress (drives the hub action sheet).
 struct AgentRowCard: View {
     let agent: AgentWithPerformance
+    /// Shows the unread dot — the agent generated picks this device hasn't
+    /// opened yet (see AgentPicksSeenStore).
+    var hasUnreadPicks: Bool = false
     var onTap: () -> Void
     var onLongPress: () -> Void = {}
 
@@ -116,6 +119,17 @@ struct AgentRowCard: View {
         .frame(width: 52, height: 52)
         .shadow(color: primary.opacity(0.32), radius: 6, x: 0, y: 0)
         .shadow(color: primary.opacity(0.18), radius: 10, x: 0, y: 2)
+        // Unread-picks dot, notification-badge style on the avatar corner.
+        .overlay(alignment: .topTrailing) {
+            if hasUnreadPicks {
+                Circle()
+                    .fill(Color(hex: 0x00E676))
+                    .frame(width: 11, height: 11)
+                    .overlay(Circle().strokeBorder(Color.appSurfaceElevated, lineWidth: 1.5))
+                    .offset(x: 4, y: -4)
+                    .accessibilityLabel("New picks")
+            }
+        }
     }
 
     // MARK: - Identity (name + active dot + two-row sport pills)

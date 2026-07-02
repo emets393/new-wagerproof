@@ -31,9 +31,6 @@ struct PublicAgentDetailView: View {
     /// Full-screen pick focus presentation (tap a mini ticket → the large card).
     /// No print intro here — public viewers never trigger a generation run.
     @State private var focusStartIndex: Int? = nil
-    /// A tapped parlay ticket from the rail — presented as its own expanded
-    /// sheet (the pick focus pager is pick-shaped).
-    @State private var focusParlay: AgentParlay? = nil
     /// Easter egg parity with the owner view: tapping the hero avatar ripples the
     /// pixelwave background.
     @State private var rippleEmitter = GlyphRippleEmitter()
@@ -120,18 +117,10 @@ struct PublicAgentDetailView: View {
                 agentColor: agentTint
             )
         }
-        .sheet(item: $focusParlay) { parlay in
-            ScrollView(showsIndicators: false) {
-                ExpandedAgentParlayTicket(parlay: parlay, accent: agentTint, showsBranding: true)
-                    .padding(20)
-            }
-            .presentationBackground(Color(hex: 0x0B1011))
-            .preferredColorScheme(.dark)
-        }
         .overlay {
             if let start = focusStartIndex {
                 AgentPickFocusView(
-                    picks: store.todaysPicks,
+                    items: store.todaysBetItems,
                     accent: agentTint,
                     startIndex: start,
                     printIntro: false,
@@ -269,12 +258,15 @@ struct PublicAgentDetailView: View {
                     items: store.todaysBetItems,
                     accent: agentTint,
                     onTapPick: { pick in
-                        if let idx = store.todaysPicks.firstIndex(where: { $0.id == pick.id }) {
+                        if let idx = store.todaysBetItems.firstIndex(where: { $0.id == AgentBetItem.pick(pick).id }) {
                             focusStartIndex = idx
                         }
                     },
                     onTapParlay: { parlay in
-                        focusParlay = parlay
+                        // Parlays ride the same focus pager as picks (share included).
+                        if let idx = store.todaysBetItems.firstIndex(where: { $0.id == AgentBetItem.parlay(parlay).id }) {
+                            focusStartIndex = idx
+                        }
                     }
                 )
                 .padding(.horizontal, -WidgetCard.hInset)

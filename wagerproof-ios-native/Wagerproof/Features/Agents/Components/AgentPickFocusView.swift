@@ -26,11 +26,14 @@ import UIKit
 // =====================================================================
 
 struct AgentPickFocusView: View {
-    let picks: [AgentPick]
+    /// Straight picks + parlay tickets, interleaved — parlays page, print, and
+    /// share exactly like picks (their card is `ExpandedAgentParlayTicket`).
+    let items: [AgentBetItem]
     var accent: Color = .appPrimary
     /// When true, open on the pixel-wave + printer feed before paging is live.
     var printIntro: Bool = false
     /// Surfaces the per-pick data audit (the card's "View data audit" button).
+    /// Parlay cards have no audit — the audit sheet resolves by pick id.
     var onAudit: (AgentPick) -> Void = { _ in }
     let onClose: () -> Void
 
@@ -59,6 +62,24 @@ struct AgentPickFocusView: View {
     private let maxDots = 8
 
     init(
+        items: [AgentBetItem],
+        accent: Color = .appPrimary,
+        startIndex: Int = 0,
+        printIntro: Bool = false,
+        onAudit: @escaping (AgentPick) -> Void = { _ in },
+        onClose: @escaping () -> Void
+    ) {
+        self.items = items
+        self.accent = accent
+        self.printIntro = printIntro
+        self.onAudit = onAudit
+        self.onClose = onClose
+        _index = State(initialValue: max(0, min(startIndex, max(0, items.count - 1))))
+        _printed = State(initialValue: !printIntro)
+    }
+
+    /// Picks-only convenience — callers without parlay data keep their shape.
+    init(
         picks: [AgentPick],
         accent: Color = .appPrimary,
         startIndex: Int = 0,
@@ -66,13 +87,14 @@ struct AgentPickFocusView: View {
         onAudit: @escaping (AgentPick) -> Void = { _ in },
         onClose: @escaping () -> Void
     ) {
-        self.picks = picks
-        self.accent = accent
-        self.printIntro = printIntro
-        self.onAudit = onAudit
-        self.onClose = onClose
-        _index = State(initialValue: max(0, min(startIndex, max(0, picks.count - 1))))
-        _printed = State(initialValue: !printIntro)
+        self.init(
+            items: picks.map(AgentBetItem.pick),
+            accent: accent,
+            startIndex: startIndex,
+            printIntro: printIntro,
+            onAudit: onAudit,
+            onClose: onClose
+        )
     }
 
     var body: some View {
@@ -146,15 +168,16 @@ struct AgentPickFocusView: View {
 
     private var header: some View {
         VStack(spacing: 8) {
-            Text("Pick \(index + 1)/\(picks.count)")
+            // "Play" not "Pick" — the pager can hold parlay tickets too.
+            Text("Play \(index + 1)/\(items.count)")
                 .font(.system(size: 13, weight: .heavy))
                 .tracking(0.5)
                 .foregroundStyle(Color.appTextSecondary)
                 .contentTransition(.numericText())
                 .monospacedDigit()
-            if picks.count > 1 && picks.count <= maxDots {
+            if items.count > 1 && items.count <= maxDots {
                 HStack(spacing: 6) {
-                    ForEach(picks.indices, id: \.self) { i in
+                    ForEach(items.indices, id: \.self) { i in
                         Circle()
                             .fill(i == index ? accent : Color.white.opacity(0.25))
                             .frame(width: 6, height: 6)
@@ -233,7 +256,7 @@ struct AgentPickFocusView: View {
         let topY = topInset + (h - topInset) * (1 - printProgress)
         let centerY = topY + cardHeight / 2
         return ZStack {
-            if let first = picks.first {
+            if let first = items.first {
                 ticketView(first, width: cardW, measure: true)
                     .position(x: regionSize.width / 2, y: centerY)
             }
@@ -254,9 +277,9 @@ struct AgentPickFocusView: View {
     /// in sync; the current page leans with the accelerometer.
     private func pager(regionSize: CGSize, cardW: CGFloat, topInset: CGFloat) -> some View {
         TabView(selection: $index) {
-            ForEach(Array(picks.enumerated()), id: \.element.id) { i, pick in
+            ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                 ScrollView(.vertical, showsIndicators: false) {
-                    ticketView(pick, width: cardW, measure: false, onAudit: { onAudit(pick) })
+                    ticketView(item, width: cardW, measure: false, withAudit: true)
                         .frame(maxWidth: .infinity)
                         .padding(.top, topInset)
                         .padding(.bottom, 48)
@@ -275,18 +298,31 @@ struct AgentPickFocusView: View {
     /// One ticket at `width`, optionally measured into `cardHeight` (which only
     /// grows, so the top-anchor rest position is stable once the tallest card has
     /// been seen).
-    private func ticketView(_ pick: AgentPick, width: CGFloat, measure: Bool, onAudit: (() -> Void)? = nil) -> some View {
-        ExpandedAgentPickTicket(pick: pick, accent: accent, onAudit: onAudit, showsBranding: true)
-            .frame(width: width)
-            .background {
-                if measure {
-                    GeometryReader { g in
-                        Color.clear
-                            .onAppear { cardHeight = max(cardHeight, g.size.height) }
-                            .onChange(of: g.size.height) { _, h in cardHeight = max(cardHeight, h) }
-                    }
+    @ViewBuilder
+    private func ticketView(_ item: AgentBetItem, width: CGFloat, measure: Bool, withAudit: Bool = false) -> some View {
+        Group {
+            switch item {
+            case .pick(let pick):
+                ExpandedAgentPickTicket(
+                    pick: pick,
+                    accent: accent,
+                    onAudit: withAudit ? { onAudit(pick) } : nil,
+                    showsBranding: true
+                )
+            case .parlay(let parlay):
+                ExpandedAgentParlayTicket(parlay: parlay, accent: accent, showsBranding: true)
+            }
+        }
+        .frame(width: width)
+        .background {
+            if measure {
+                GeometryReader { g in
+                    Color.clear
+                        .onAppear { cardHeight = max(cardHeight, g.size.height) }
+                        .onChange(of: g.size.height) { _, h in cardHeight = max(cardHeight, h) }
                 }
             }
+        }
     }
 
     private var slotBar: some View {
@@ -363,13 +399,12 @@ struct AgentPickFocusView: View {
         }
     }
 
-    /// Render JUST the current pick card (its own cardstock; transparent
-    /// everywhere else — no darkened backdrop) to an image and open the share
-    /// sheet, so the user shares the card alone.
+    /// Render JUST the current card (its own cardstock; transparent everywhere
+    /// else — no darkened backdrop) to an image and open the share sheet, so
+    /// the user shares the card alone. Works for picks AND parlay tickets.
     @MainActor private func shareCurrentCard() {
-        guard picks.indices.contains(index) else { return }
-        let card = ExpandedAgentPickTicket(pick: picks[index], accent: accent, showsBranding: true)
-            .frame(width: 340)
+        guard items.indices.contains(index) else { return }
+        let card = ticketView(items[index], width: 340, measure: false)
             .environment(\.colorScheme, .dark)
         let renderer = ImageRenderer(content: card)
         renderer.scale = 3

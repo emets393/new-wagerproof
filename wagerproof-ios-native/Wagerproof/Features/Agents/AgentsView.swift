@@ -108,6 +108,9 @@ struct AgentsView: View {
     @State private var navPath = NavigationPath()
     /// Sort order for the agent list (driven by the bar's filter menu).
     @State private var sortOption: AgentSortOption = .winRate
+    /// Bumped on appear (incl. pop-back from a detail page) so the unread-picks
+    /// dots re-read the device-local seen ledger and clear after viewing.
+    @State private var unreadRefreshToken = 0
     /// Mirrors the office's persisted day/night toggle so the relocated
     /// "Agent HQ — Live" pill reads the same Live/Night status.
     @AppStorage("pixel-office-time-mode") private var officeTimeMode: String = "auto"
@@ -479,6 +482,7 @@ struct AgentsView: View {
                 ForEach(Array(sortedAgents.enumerated()), id: \.element.id) { index, agent in
                     AgentRowCard(
                         agent: agent,
+                        hasUnreadPicks: hasUnreadPicks(agent),
                         onTap: { navPath.append(AgentsRoute.agentDetail(agentId: agent.id)) },
                         onLongPress: { pendingLongPressAgent = agent }
                     )
@@ -528,6 +532,20 @@ struct AgentsView: View {
         // Slide cards into place when the sort order (or pin set) changes.
         .animation(.spring(response: 0.45, dampingFraction: 0.82), value: sortOption)
         .animation(.spring(response: 0.45, dampingFraction: 0.82), value: pinnedIdsRaw)
+        // Re-read the device-local seen ledger when the list re-appears (incl.
+        // pop-back from a detail visit) so unread dots clear after viewing.
+        .onAppear { unreadRefreshToken &+= 1 }
+    }
+
+    /// Unread-picks dot state for a row. References `unreadRefreshToken` so
+    /// SwiftUI recomputes rows after a detail visit marks picks seen
+    /// (UserDefaults itself isn't observable).
+    private func hasUnreadPicks(_ agent: AgentWithPerformance) -> Bool {
+        _ = unreadRefreshToken
+        return AgentPicksSeenStore.hasUnread(
+            agentId: agent.id,
+            latestActivity: agent.agent.lastGeneratedAt
+        )
     }
 
     // MARK: - Sort row (active-sort indicator)

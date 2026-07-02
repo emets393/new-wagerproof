@@ -45,10 +45,7 @@ struct AgentDetailView: View {
     /// reveal freshly generated picks).
     @State private var focusStartIndex: Int? = nil
     @State private var focusPrintIntro: Bool = false
-    @State private var lastGenerationResultPicks: [AgentPick] = []
-    /// A tapped parlay ticket from the rail — presented as its own expanded
-    /// sheet (the pick focus pager is pick-shaped).
-    @State private var focusParlay: AgentParlay? = nil
+    @State private var lastGenerationResultItems: [AgentBetItem] = []
     /// Easter egg: tapping the hero avatar ripples the pixelwave background.
     @State private var rippleEmitter = GlyphRippleEmitter()
 
@@ -143,6 +140,8 @@ struct AgentDetailView: View {
             // back up: shows the generating card + polls the SAME run instead
             // of leaving an idle screen that invites a racing re-trigger.
             await store.resumeActiveGenerationIfNeeded()
+            // Unseen picks (autopilot / finished-while-away) → printer cinematic.
+            maybeAutoplayUnreadPicks()
         }
         .sheet(isPresented: $auditStore.isPresented) {
             if let pick = auditStore.selectedPick {
@@ -155,14 +154,6 @@ struct AgentDetailView: View {
                 agentName: agent?.name ?? "Agent",
                 agentColor: agentTint
             )
-        }
-        .sheet(item: $focusParlay) { parlay in
-            ScrollView(showsIndicators: false) {
-                ExpandedAgentParlayTicket(parlay: parlay, accent: agentTint, showsBranding: true)
-                    .padding(20)
-            }
-            .presentationBackground(Color(hex: 0x0B1011))
-            .preferredColorScheme(.dark)
         }
         .sheet(isPresented: $showRegenSheet) {
             RegenerateBottomSheet(
@@ -194,7 +185,7 @@ struct AgentDetailView: View {
         .overlay {
             if let start = focusStartIndex {
                 AgentPickFocusView(
-                    picks: focusPicks,
+                    items: focusItems,
                     accent: agentTint,
                     startIndex: start,
                     printIntro: focusPrintIntro,
@@ -302,13 +293,17 @@ struct AgentDetailView: View {
                 onTapPick: { pick in
                     // Tap → large card into focus (print/page presentation). Audit is
                     // reachable from the focused card's "View data audit" button.
-                    if let idx = store.todaysPicks.firstIndex(where: { $0.id == pick.id }) {
+                    if let idx = store.todaysBetItems.firstIndex(where: { $0.id == AgentBetItem.pick(pick).id }) {
                         focusPrintIntro = false
                         focusStartIndex = idx
                     }
                 },
                 onTapParlay: { parlay in
-                    focusParlay = parlay
+                    // Parlays ride the same focus pager as picks (share included).
+                    if let idx = store.todaysBetItems.firstIndex(where: { $0.id == AgentBetItem.parlay(parlay).id }) {
+                        focusPrintIntro = false
+                        focusStartIndex = idx
+                    }
                 }
             )
             .padding(.horizontal, -WidgetCard.hInset)
@@ -511,22 +506,50 @@ struct AgentDetailView: View {
     private func runGeneration() async {
         let succeeded = await store.generatePicks()
         if succeeded {
-            let fresh = store.todaysPicks
+            let fresh = store.todaysBetItems
             if !fresh.isEmpty {
-                // Reveal the fresh picks with the printer feed + fan-out.
-                lastGenerationResultPicks = fresh
+                // Reveal the fresh picks + parlays with the printer feed.
+                lastGenerationResultItems = fresh
                 focusPrintIntro = true
                 focusStartIndex = 0
             }
+            markPicksSeen()
         } else if let err = store.lastGenerationError {
             errorMessage = err
         }
     }
 
-    /// Picks backing the focus overlay: the just-generated set during the print
-    /// reveal, otherwise today's live picks (tap-to-focus from the rail).
-    private var focusPicks: [AgentPick] {
-        focusPrintIntro ? lastGenerationResultPicks : store.todaysPicks
+    /// Items backing the focus overlay: the just-generated set during the print
+    /// reveal, otherwise today's live picks + parlays (tap-to-focus from the rail).
+    private var focusItems: [AgentBetItem] {
+        focusPrintIntro ? lastGenerationResultItems : store.todaysBetItems
+    }
+
+    /// If this agent produced picks the device hasn't seen yet (autopilot ran, or
+    /// a manual run finished while the user was elsewhere), open straight into
+    /// the printer cinematic — the same reveal a live generation gets.
+    private func maybeAutoplayUnreadPicks() {
+        guard canSeePicks, focusStartIndex == nil, !store.isGenerating else { return }
+        let items = store.todaysBetItems
+        guard let newest = items.map(\.createdAt).max(), !newest.isEmpty else {
+            markPicksSeen() // no items — still clear the lastGeneratedAt-driven badge
+            return
+        }
+        if AgentPicksSeenStore.hasUnread(agentId: agentId, latestActivity: newest) {
+            lastGenerationResultItems = items
+            focusPrintIntro = true
+            focusStartIndex = 0
+        }
+        markPicksSeen()
+    }
+
+    /// Advance the device-local read receipt past everything currently visible
+    /// (newest item + the agent's lastGeneratedAt, whichever is later) so the
+    /// agents-list unread dot clears.
+    private func markPicksSeen() {
+        let newestItem = store.todaysBetItems.map(\.createdAt).max()
+        let candidates = [newestItem, agent?.lastGeneratedAt].compactMap { $0 }
+        AgentPicksSeenStore.markSeen(agentId: agentId, upTo: candidates.max())
     }
 
     // MARK: - Derived
