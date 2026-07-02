@@ -309,47 +309,24 @@ struct GamesView: View {
         .padding(.vertical, 8)
     }
 
-    /// Custom segmented sport switcher. Replaces the native `.segmented` Picker
-    /// (which can't style individual segments) so out-of-season sports render
-    /// dimmed — a signal that there's no live slate to expect. Lives inside
-    /// `pickerBar`, the pinned header, so it stays beneath the nav bar while
-    /// cards scroll under it.
+    /// Native segmented sport picker. Lives inside `pickerBar`, the pinned
+    /// header of the scroll content, so it stays beneath the nav bar while
+    /// game cards scroll under it.
     @ViewBuilder
     private var sportPicker: some View {
-        HStack(spacing: 2) {
+        @Bindable var binding = store
+        Picker("Sport", selection: $binding.selectedSport) {
             ForEach(GamesStore.Sport.displayOrder()) { sport in
-                sportSegment(sport)
+                Text(sport.label).tag(sport)
             }
         }
-        .animation(.appQuick, value: store.selectedSport)
+        .pickerStyle(.segmented)
+        // UISegmentedControl's selected-segment highlight uses a small fixed
+        // corner radius. Inside the outer Liquid Glass capsule that looked
+        // visually square. Clipping the whole picker to a capsule shape
+        // rounds the highlight's edges (it inherits the parent mask).
+        .clipShape(.capsule)
         .sensoryFeedback(.selection, trigger: store.selectedSport)
-    }
-
-    @ViewBuilder
-    private func sportSegment(_ sport: GamesStore.Sport) -> some View {
-        let selected = store.selectedSport == sport
-        // Only unselected off-season sports dim — the current selection always
-        // stays legible so you can tell what you're viewing.
-        let dim = !selected && !SportSeason.isInSeason(sport)
-        Button {
-            store.selectedSport = sport
-        } label: {
-            Text(sport.label)
-                .font(.system(size: 12.5, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .foregroundStyle(selected ? Color.white : Color.appTextPrimary)
-                .opacity(dim ? 0.45 : 1)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .background {
-                    if selected {
-                        Capsule().fill(Color.appPrimary)
-                    }
-                }
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Content
