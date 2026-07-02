@@ -108,25 +108,22 @@ enum Regression {
 
 // MARK: - AccentBarRow
 
-/// 3pt colored left bar + padded content on a muted fill — the report's
-/// dominant row chrome (RN `AccentBarRow`).
+/// Elevated-surface card with a color-tinted border — the report's dominant
+/// row chrome (RN `AccentBarRow`). Severity/tier is already communicated by
+/// each card's `RegressionPill` badge, so the border tint is enough context;
+/// no separate colored left bar needed.
 struct RegressionAccentRow<Content: View>: View {
     let color: Color
     var dim: Bool = false
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(color)
-                .frame(width: 3)
-            content()
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(Color.appSurfaceMuted.opacity(0.4))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .opacity(dim ? 0.6 : 1)
+        content()
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(color.opacity(0.28), lineWidth: 1))
+            .opacity(dim ? 0.6 : 1)
     }
 }
 

@@ -11,6 +11,9 @@ import WagerproofDesign
 struct SearchToolCard<Graphic: View>: View {
     let title: String
     var subtitle: String? = nil
+    /// When the card's category is the active browse scope, the border switches
+    /// to the accent color and thickens so the rail reads as a segmented control.
+    var isSelected: Bool = false
     let action: () -> Void
     @ViewBuilder let graphic: () -> Graphic
 
@@ -43,11 +46,12 @@ struct SearchToolCard<Graphic: View>: View {
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.appBorder, lineWidth: 1)
+                    .stroke(isSelected ? Color.appPrimary : Color.appBorder, lineWidth: isSelected ? 2 : 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.18), value: isSelected)
     }
 }
 

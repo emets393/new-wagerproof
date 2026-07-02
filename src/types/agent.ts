@@ -94,6 +94,7 @@ export interface PersonalityParams {
   confidence_threshold: Scale1To5;
   chase_value: boolean;
   parlay_appetite?: Scale1To5;  // 1 = straights only, 5 = loves parlays (always-on, not sport-gated)
+  parlays_only?: boolean;       // force every play into parlay tickets (V3 engine rejects straights)
 
   preferred_bet_type: BetType;
   max_favorite_odds: number | null;
@@ -284,6 +285,7 @@ export const PersonalityParamsSchema = z.object({
   confidence_threshold: Scale1To5Schema,
   chase_value: z.boolean(),
   parlay_appetite: Scale1To5Schema.optional(),  // 1 = straights only, 5 = loves parlays
+  parlays_only: z.boolean().optional(),         // force every play into parlay tickets (V3 engine rejects straights)
 
   preferred_bet_type: z.enum(BET_TYPES),
   max_favorite_odds: z.number().max(-100).nullable(),
@@ -330,6 +332,8 @@ export const PersonalityParamsSchema = z.object({
   respect_line_movement: Scale1To5Schema.optional(),
   line_timing: z.enum(LINE_TIMINGS).optional(),
   staking_style: z.enum(STAKING_STYLES).optional(),
+  // Dead fields — no engine reads these; the live V3 knobs are parlay_appetite
+  // + parlays_only above. Kept so old rows still parse.
   parlays_enabled: z.boolean().optional(),
   max_parlay_legs: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
 });

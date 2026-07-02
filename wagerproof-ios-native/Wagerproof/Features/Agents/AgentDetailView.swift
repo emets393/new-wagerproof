@@ -17,14 +17,14 @@ import UIKit
 /// the app's detail surfaces.
 ///
 /// Sections (top → bottom). Performance + Recent Activity are deliberately NOT
-/// glass cards — they render inline under a plain `AgentSectionHeader` so the
-/// chart and the timeline read as the page's highlights, not boxed-in content:
-///   - Picks (inline — the headline section: a generate prompt with a shimmer
-///     CTA + tucked autopilot chip, the live `AgentGeneratingView` while a run
-///     is in flight, or today's pick cards once generated)
-///   - Pick History (manila folder — opens the full rolodex sheet)
+/// glass cards — they render inline under a plain `AgentSectionHeader` (Search
+/// style) so the chart and the timeline read as the page's highlights, not boxed-in content:
+///   - Picks (inline — the headline section: the `AgentGenerationCard` that
+///     morphs from the idle "research" tile into the live polling run, or today's
+///     pick cards once generated)
 ///   - Performance (inline — Apple Charts, Pro-gated)
 ///   - Recent Activity (inline — `AgentTimeline`, self-hides when empty)
+///   - Pick History (manila folder — opens the full rolodex sheet)
 ///
 /// Settings is a toolbar push (gear); the audit modal is a `.sheet`. Chat is no
 /// longer surfaced here (the RN detail page has none).
@@ -37,12 +37,27 @@ struct AgentDetailView: View {
     @State private var store: AgentDetailStore
     @State private var auditStore = AgentPickAuditStore()
     @State private var showHistorySheet: Bool = false
-    @State private var loadingPickId: String? = nil
+    @State private var showRegenSheet: Bool = false
+    @State private var showAutoPilotSheet: Bool = false
     @State private var errorMessage: String? = nil
-    @State private var showPrinterSlip: Bool = false
+    /// Full-screen pick focus/print presentation. `focusStartIndex` non-nil = the
+    /// overlay is up; `focusPrintIntro` plays the printer feed + fan-out (used to
+    /// reveal freshly generated picks).
+    @State private var focusStartIndex: Int? = nil
+    @State private var focusPrintIntro: Bool = false
     @State private var lastGenerationResultPicks: [AgentPick] = []
+    /// A tapped parlay ticket from the rail — presented as its own expanded
+    /// sheet (the pick focus pager is pick-shaped).
+    @State private var focusParlay: AgentParlay? = nil
     /// Easter egg: tapping the hero avatar ripples the pixelwave background.
     @State private var rippleEmitter = GlyphRippleEmitter()
+
+    /// Gap below each top-level section (Picks / Performance / Recent Activity /
+    /// Pick History). Wider than `WidgetCard.gap` (12pt, shared by the other
+    /// collapsing-widget pages) — this page's sections read as page highlights
+    /// rather than a stack of cards, so they need more breathing room between
+    /// them than the standard card-to-card gap.
+    private let sectionGap: CGFloat = 28
 
     init(agentId: String, initialAgent: AgentWithPerformance? = nil) {
         self.agentId = agentId
@@ -55,7 +70,7 @@ struct AgentDetailView: View {
     }
 
     var body: some View {
-        CollapsingWidgetScroll(heroMaxHeight: 244, heroMinHeight: 132) { progress in
+        CollapsingWidgetScroll(heroMaxHeight: 196, heroMinHeight: 60) { progress in
             AgentPixelWaveBackground(
                 avatarColor: agent?.avatarColor ?? "#6366f1",
                 progress: progress,
@@ -65,9 +80,9 @@ struct AgentDetailView: View {
             heroView(progress: progress)
         } content: {
             picksSection
-            pickHistorySlot
             performanceSection
             recentActivitySection
+            pickHistorySlot
         }
         // Commit the page to the always-dark pixelwave aesthetic of the auth
         // gate so the glass cards + text read correctly over the near-black
@@ -81,6 +96,11 @@ struct AgentDetailView: View {
         // Hide the app tab bar on the detail page so the collapsing aura hero
         // reads as a full-screen surface (pushed from the Agents tab).
         .toolbar(.hidden, for: .tabBar)
+        // While the pick focus/print overlay is up, hide the whole nav bar (the
+        // system back button + the settings gear) so the ONLY control is the
+        // overlay's own chevron, which just dismisses the focused view. Otherwise
+        // there'd be two competing back buttons.
+        .toolbar(focusStartIndex == nil ? .visible : .hidden, for: .navigationBar)
         // No nav-bar title — the collapsing hero header already shows the agent
         // name, so a toolbar title would just duplicate it.
         .navigationTitle("")
@@ -99,6 +119,17 @@ struct AgentDetailView: View {
         .refreshable {
             await refresh()
         }
+        // Re-sync when returning from a pushed screen (Settings saves through
+        // its OWN store, so this view's snapshot goes stale after an edit).
+        // Guarded so the initial load stays owned by the .task below. Also
+        // resumes an in-flight generation run surfaced by the fresh snapshot.
+        .onAppear {
+            guard store.snapshot != nil else { return }
+            Task {
+                await store.refreshSnapshot()
+                await store.resumeActiveGenerationIfNeeded()
+            }
+        }
         .task(id: historyReloadKey) {
             if store.snapshot == nil {
                 await store.refreshSnapshot()
@@ -108,6 +139,10 @@ struct AgentDetailView: View {
                 async let performance: Void = store.loadPerformancePicks(isOwner: isOwnAgent)
                 _ = await (history, performance)
             }
+            // If a run is in flight (user left mid-run and came back), pick it
+            // back up: shows the generating card + polls the SAME run instead
+            // of leaving an idle screen that invites a racing re-trigger.
+            await store.resumeActiveGenerationIfNeeded()
         }
         .sheet(isPresented: $auditStore.isPresented) {
             if let pick = auditStore.selectedPick {
@@ -116,23 +151,57 @@ struct AgentDetailView: View {
         }
         .sheet(isPresented: $showHistorySheet) {
             PickHistorySheet(
-                picks: store.fullPickHistory,
+                items: store.fullBetHistory,
                 agentName: agent?.name ?? "Agent",
                 agentColor: agentTint
             )
         }
+        .sheet(item: $focusParlay) { parlay in
+            ScrollView(showsIndicators: false) {
+                ExpandedAgentParlayTicket(parlay: parlay, accent: agentTint, showsBranding: true)
+                    .padding(20)
+            }
+            .presentationBackground(Color(hex: 0x0B1011))
+            .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showRegenSheet) {
+            RegenerateBottomSheet(
+                remaining: store.regenerationsRemaining(),
+                maxDaily: 3,
+                accent: agentTint,
+                canRegenerate: canRegenerate,
+                onRequest: {
+                    showRegenSheet = false
+                    Task { await runGeneration() }
+                }
+            )
+        }
+        .sheet(isPresented: $showAutoPilotSheet) {
+            AutoPilotBottomSheet(
+                agentName: agent?.name ?? "This agent",
+                accent: agentTint,
+                canUseAutopilot: entitlements.canUseAutopilot,
+                remaining: store.regenerationsRemaining(),
+                maxDaily: 3,
+                initialAutoOn: agent?.autoGenerate ?? false,
+                initialTime: agent?.autoGenerateTime ?? "09:00",
+                initialTimezone: agent?.autoGenerateTimezone ?? "America/New_York",
+                recentRuns: recentRuns,
+                onSetAuto: { value in await store.setAutoGenerate(value) },
+                onSaveTime: { time, tz in await store.setAutoGenerateTime(time, timezone: tz) }
+            )
+        }
         .overlay {
-            if showPrinterSlip, let agent = store.snapshot?.agent {
-                PrinterSlipAnimation(
-                    visible: showPrinterSlip,
-                    picks: lastGenerationResultPicks,
-                    agentName: agent.name,
-                    agentEmoji: agent.avatarEmoji,
-                    spriteIndex: agent.spriteIndex,
-                    agentColor: AgentColorPalette.primary(for: agent.avatarColor),
-                    sports: agent.preferredSports.map { $0.label },
-                    onComplete: { showPrinterSlip = false }
+            if let start = focusStartIndex {
+                AgentPickFocusView(
+                    picks: focusPicks,
+                    accent: agentTint,
+                    startIndex: start,
+                    printIntro: focusPrintIntro,
+                    onAudit: { pick in auditStore.present(pick: pick) },
+                    onClose: { focusStartIndex = nil }
                 )
+                .transition(.opacity)
             }
         }
         .alert("Error", isPresented: errorAlertBinding, presenting: errorMessage) { _ in
@@ -152,6 +221,7 @@ struct AgentDetailView: View {
                 performance: store.snapshot?.performance ?? initialAgent?.performance,
                 lockedNetUnits: !canSeePicks,
                 progress: progress,
+                isGenerating: store.isGenerating,
                 onAvatarTap: rippleAvatar
             )
             .padding(.horizontal, 16)
@@ -165,89 +235,140 @@ struct AgentDetailView: View {
 
     // MARK: - Picks section (container-less)
 
-    /// The headline first section. Three states, none boxed in a glass card:
-    ///   • generating → `AgentGeneratingView` (glyph matrix + thinking verbs +
-    ///     real progress bar over a dense pixel fill),
+    /// The headline first section. States, none boxed in a glass card:
+    ///   • idle/generating → the `AgentGenerationCard` (one card that morphs the
+    ///     research tile → live polling run in place),
     ///   • has picks  → a plain `AgentSectionHeader` + the pick cards + a small
     ///     regenerate / autopilot footer,
-    ///   • idle/empty → `AgentGeneratePrompt` (shimmer Generate button, with the
-    ///     autopilot toggle tucked into a small chip).
+    ///   • locked / loading → the locked rail / skeleton.
     @ViewBuilder
     private var picksSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if store.isGenerating {
-                AgentGeneratingView(state: store.liveRunState, accent: agentTint)
-            } else if !canSeePicks {
-                lockedPickCardPlaceholder
-                lockedPickCardPlaceholder
-            } else if case .loading = store.snapshotLoadState, store.todaysPicks.isEmpty {
-                PickCardSkeleton(); PickCardSkeleton()
-            } else if !store.todaysPicks.isEmpty {
-                AgentSectionHeader(title: "Today's Picks", systemImage: "doc.text.image")
-                ForEach(Array(store.todaysPicks.enumerated()), id: \.element.id) { index, pick in
-                    AgentPickCard(
-                        pick: pick,
-                        loading: loadingPickId == pick.id,
-                        onTap: { auditStore.present(pick: pick) }
-                    )
-                    .staggeredAppear(index: index)
-                }
-                generateFooter
-            } else {
-                AgentGeneratePrompt(
-                    accent: agentTint,
-                    title: "You can generate your picks right now",
-                    subtitle: idleSubtitle,
-                    autoGenerate: agent?.autoGenerate ?? false,
-                    onToggleAuto: { value in Task { await store.setAutoGenerate(value) } },
-                    canGenerate: canRegenerate,
-                    buttonLabel: generationLabel,
-                    onGenerate: { Task { await runGeneration() } }
-                )
-            }
+            // `checklist` (thin line glyph) matches the Performance
+            // (`chart.line.uptrend.xyaxis`) and Recent Activity (`clock`) header
+            // icons — the old `doc.text.image` was a heavier filled symbol that
+            // read darker/busier and broke the shared section-header family.
+            AgentSectionHeader(title: "Today's Picks", systemImage: "checklist")
 
-            if let runConclusion = noPicksConclusion {
-                terminalConclusion(text: runConclusion)
+            if !canSeePicks {
+                AgentLockedPicksRail(accent: agentTint)
+                    .padding(.horizontal, -WidgetCard.hInset)
+            } else if case .loading = store.snapshotLoadState, store.todaysPicks.isEmpty {
+                AgentTodaysPicksRailSkeleton()
+                    .padding(.horizontal, -WidgetCard.hInset)
+            } else {
+                // Live rail ↔ generation-card swap. The idle rail (has picks) and
+                // the generation card (no picks OR generating) crossfade IN PLACE
+                // in one top-anchored slot under the fixed section header — no hard
+                // component swap / page flash. A ZStack (not if/else in the VStack)
+                // so the two states overlap during the dissolve instead of stacking
+                // vertically and ballooning the section height.
+                ZStack(alignment: .top) {
+                    if showsPicksRail {
+                        picksRail.transition(.opacity)
+                    } else {
+                        generationCard.transition(.opacity)
+                    }
+                }
+                // Scoped to THIS slot only (never the outer VStack — that would drag
+                // the rail's ScrollView internals into the transaction). The store
+                // flips `isGenerating` async inside generatePicks(), off the tap, so
+                // `withAnimation` at the tap site can't catch it; an ancestor
+                // `.animation(value:)` is the only hook. Keyed on `showsPicksRail`
+                // (not `isGenerating`) so only rail↔card crossings animate here —
+                // the in-card idle→polling morph stays owned by AgentGenerationCard.
+                .animation(.easeInOut(duration: 0.3), value: showsPicksRail)
             }
         }
         .padding(.horizontal, WidgetCard.hInset)
-        .padding(.bottom, WidgetCard.gap)
+        .padding(.bottom, sectionGap)
     }
 
-    /// Small footer under an existing pick list: tucked autopilot chip + a
-    /// low-emphasis regenerate control (the prominent CTA only shows when there
-    /// are no picks yet).
+    /// The single boundary the picks crossfade keys on: the idle rail shows only
+    /// when picks exist and no run is in flight; otherwise the generation card owns
+    /// the slot (idle-no-picks tile → live polling run).
+    private var showsPicksRail: Bool {
+        !store.todaysBetItems.isEmpty && !store.isGenerating
+    }
+
+    /// Has-picks state: the horizontal rail (date circle + mini tickets), edge-
+    /// bleeding past the section's `hInset` so cards scroll under the screen edge,
+    /// plus the small regenerate / autopilot footer.
+    private var picksRail: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            AgentTodaysPicksRail(
+                items: store.todaysBetItems,
+                accent: agentTint,
+                onTapPick: { pick in
+                    // Tap → large card into focus (print/page presentation). Audit is
+                    // reachable from the focused card's "View data audit" button.
+                    if let idx = store.todaysPicks.firstIndex(where: { $0.id == pick.id }) {
+                        focusPrintIntro = false
+                        focusStartIndex = idx
+                    }
+                },
+                onTapParlay: { parlay in
+                    focusParlay = parlay
+                }
+            )
+            .padding(.horizontal, -WidgetCard.hInset)
+            generateFooter
+        }
+    }
+
+    /// Idle / generating state: one persistent card for BOTH the idle "control
+    /// room" tile and the live run — it morphs research → polling in place (avatar
+    /// shrinks to the corner, glyph speeds up + oranges, verbs track the current
+    /// tool, tool skeletons stack) driven by `isGenerating`. A no-picks run
+    /// surfaces its green console conclusion at the top of the card. Swiping the
+    /// pill kicks off the real run.
+    private var generationCard: some View {
+        AgentGenerationCard(
+            spriteIndex: agent?.spriteIndex ?? 0,
+            accent: agentTint,
+            state: store.liveRunState,
+            isGenerating: store.isGenerating,
+            canGenerate: canRegenerate,
+            lockedLabel: generationLabel,
+            conclusion: noPicksConclusion,
+            onGenerate: { Task { await runGeneration() } }
+        )
+    }
+
+    /// Small footer under an existing pick list: the AutoPilot chip (opens the
+    /// autopilot sheet) + a Regenerate chip showing the runs left (opens the
+    /// regenerate sheet). Both are entry points now — the actual toggle/swipe live
+    /// in their sheets. See AgentGenerationControlSheets.swift.
     private var generateFooter: some View {
         HStack(spacing: 10) {
-            AutopilotChip(
+            AutoPilotControlButton(
                 isOn: agent?.autoGenerate ?? false,
-                accent: agentTint,
-                onToggle: { value in Task { await store.setAutoGenerate(value) } }
-            )
+                accent: agentTint
+            ) { showAutoPilotSheet = true }
             Spacer(minLength: 0)
-            Button { Task { await runGeneration() } } label: {
-                Label(canRegenerate ? "Regenerate" : "Limit reached",
-                      systemImage: canRegenerate ? "arrow.clockwise" : "lock.fill")
-                    .font(.system(size: 12, weight: .heavy))
-                    .foregroundStyle(canRegenerate ? agentTint : Color.appTextSecondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(Capsule().fill(canRegenerate ? agentTint.opacity(0.14) : Color.appSurfaceMuted.opacity(0.5)))
-                    .overlay(Capsule().strokeBorder(canRegenerate ? agentTint.opacity(0.4) : Color.clear, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .disabled(!canRegenerate)
+            RegenerateControlButton(
+                remaining: store.regenerationsRemaining(),
+                accent: agentTint,
+                enabled: canRegenerate
+            ) { showRegenSheet = true }
         }
         .padding(.top, 2)
     }
 
-    /// Subtitle under the idle generate prompt: surfaces the autopilot schedule
-    /// as the "or wait" alternative, plus the remaining-regenerations note.
-    private var idleSubtitle: String {
-        if let agent = agent, agent.autoGenerate {
-            return "Or wait — autopilot runs daily at \(agent.autoGenerateTime) \(Self.tzAbbr(agent.autoGenerateTimezone)). \(regenerationSummary)"
+    /// The agent's recent runs, derived from its picks (grouped by slate date) +
+    /// today's run summary. Deduped across the performance + today's pick sets so
+    /// a pick loaded by both paths counts once.
+    private var recentRuns: [AgentRunSummaryRow] {
+        var seen = Set<String>()
+        var merged: [AgentPick] = []
+        for pick in store.performancePicks + store.todaysPicks where seen.insert(pick.id).inserted {
+            merged.append(pick)
         }
-        return regenerationSummary
+        return AgentRunSummaryRow.derive(
+            picks: merged,
+            todaysRun: store.todaysGenerationRun,
+            todayStr: AgentRunSummaryRow.todayString()
+        )
     }
 
     // MARK: - Pick History folder
@@ -260,15 +381,15 @@ struct AgentDetailView: View {
     @ViewBuilder
     private var pickHistorySlot: some View {
         AgentPickFolderCard(
-            recentPicks: canSeePicks ? store.fullPickHistory : [],
-            totalCount: store.fullPickHistory.count,
-            loading: canSeePicks && isHistoryLoading && store.fullPickHistory.isEmpty,
+            recentItems: canSeePicks ? store.fullBetHistory : [],
+            totalCount: store.fullBetHistory.count,
+            loading: canSeePicks && isHistoryLoading && store.fullBetHistory.isEmpty,
             locked: !canSeePicks,
             agentColor: agentTint,
             onTap: { showHistorySheet = true }
         )
         .padding(.horizontal, WidgetCard.hInset)
-        .padding(.bottom, WidgetCard.gap)
+        .padding(.bottom, sectionGap)
     }
 
     private var isHistoryLoading: Bool {
@@ -281,10 +402,9 @@ struct AgentDetailView: View {
 
     /// Performance lives inline in the scroll — no Liquid-Glass container — so the
     /// cumulative-units chart reads as the highlight of the page. Just a plain
-    /// section header over the chart component (which keeps its own elevated card).
-    /// Header indents 16pt past the chart's left edge, mirroring how the cards
-    /// above inset their header from their glass surface, so the header column
-    /// still lines up with Autopilot / Today's Picks / Pick History.
+    /// section header (Search style) over the chart component (which keeps its own
+    /// elevated card). The header sits flush at the section's `WidgetCard.hInset`,
+    /// lined up with Today's Picks / Recent Activity / Pick History above and below.
     @ViewBuilder
     private var performanceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -300,25 +420,40 @@ struct AgentDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 28)
-            } else if case .loading = store.performanceLoadState, store.performancePicks.isEmpty {
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 28)
+            } else if isPerformanceSettling {
+                // Idle AND first-load both show the chart-shaped skeleton — never
+                // the empty-state card or a bare spinner — so the section doesn't
+                // flash empty → spinner → chart as performance picks stream in.
+                // (The top-level `.task(id:)` is the sole loader; no `.task` here.)
+                AgentPerformanceChartSkeleton()
+                    .transition(.opacity)
             } else {
                 // `showsTitle: false` — the section header above already names it.
                 AgentPerformanceCharts(
-                    allPicks: store.performancePicks,
+                    items: store.performancePicks.map(AgentBetItem.pick)
+                        + store.performanceParlays.map(AgentBetItem.parlay),
                     preferredSports: store.snapshot?.agent?.preferredSports ?? [],
                     agentColor: agent.map { AgentColorPalette.primary(for: $0.avatarColor) } ?? Color(hex: 0x00E676),
                     showsTitle: false
                 )
-                .task {
-                    if store.performancePicks.isEmpty {
-                        await store.loadPerformancePicks(isOwner: isOwnAgent)
-                    }
-                }
+                .transition(.opacity)
             }
         }
         .padding(.horizontal, WidgetCard.hInset)
-        .padding(.bottom, WidgetCard.gap)
+        .padding(.bottom, sectionGap)
+        // Crossfade skeleton → chart so the handoff reads as one smooth reveal.
+        .animation(.easeOut(duration: 0.25), value: isPerformanceSettling)
+    }
+
+    /// True while performance picks are doing their FIRST load (idle or loading
+    /// with nothing cached). Distinct from "loaded but empty", which hands off to
+    /// the chart's own graded-picks empty state rather than the skeleton.
+    private var isPerformanceSettling: Bool {
+        guard store.performancePicks.isEmpty && store.performanceParlays.isEmpty else { return false }
+        switch store.performanceLoadState {
+        case .idle, .loading: return true
+        case .loaded, .failed: return false
+        }
     }
 
     // MARK: - Recent Activity section
@@ -334,10 +469,11 @@ struct AgentDetailView: View {
                 agent: agent,
                 performance: store.snapshot?.performance,
                 todaysPicks: store.todaysPicks,
+                todaysParlays: store.todaysParlays,
                 todaysRun: store.todaysGenerationRun
             )
             .padding(.horizontal, WidgetCard.hInset)
-            .padding(.bottom, WidgetCard.gap)
+            .padding(.bottom, sectionGap)
         }
     }
 
@@ -350,64 +486,6 @@ struct AgentDetailView: View {
             return "This agent skipped today because the slate was too weak for its settings."
         }
         return run.slateNote ?? "The agent completed its analysis and passed on the slate."
-    }
-
-    private func terminalConclusion(text: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("terminal://generation-result")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.appTextSecondary)
-            HStack(alignment: .top, spacing: 8) {
-                Text("›").foregroundStyle(Color(hex: 0x00E676))
-                Text("Analysis complete: no high-confidence picks found.")
-                    .foregroundStyle(Color(hex: 0x00E676))
-            }
-            .font(.system(size: 12, design: .monospaced))
-            HStack(alignment: .top, spacing: 8) {
-                Text("›").foregroundStyle(Color(hex: 0x00E676))
-                Text(text)
-                    .foregroundStyle(Color.appTextSecondary)
-            }
-            .font(.system(size: 12, design: .monospaced))
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.appSurfaceMuted.opacity(0.6))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color(hex: 0x00E676).opacity(0.2), lineWidth: 1)
-        )
-    }
-
-    private var lockedPickCardPlaceholder: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("LOCKED PICK")
-                    .font(.system(size: 10, weight: .heavy, design: .monospaced))
-                    .tracking(1.5)
-                    .foregroundStyle(Color.appTextSecondary)
-                Spacer()
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.appTextSecondary)
-            }
-            Text("Upgrade to Pro to view this agent's picks")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.appTextSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.appSurfaceMuted)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.appBorder.opacity(0.4), lineWidth: 1)
-        )
     }
 
     // MARK: - Actions
@@ -435,12 +513,20 @@ struct AgentDetailView: View {
         if succeeded {
             let fresh = store.todaysPicks
             if !fresh.isEmpty {
+                // Reveal the fresh picks with the printer feed + fan-out.
                 lastGenerationResultPicks = fresh
-                showPrinterSlip = true
+                focusPrintIntro = true
+                focusStartIndex = 0
             }
         } else if let err = store.lastGenerationError {
             errorMessage = err
         }
+    }
+
+    /// Picks backing the focus overlay: the just-generated set during the print
+    /// reveal, otherwise today's live picks (tap-to-focus from the rail).
+    private var focusPicks: [AgentPick] {
+        focusPrintIntro ? lastGenerationResultPicks : store.todaysPicks
     }
 
     // MARK: - Derived
@@ -477,47 +563,33 @@ struct AgentDetailView: View {
         return "Generate Today's Picks"
     }
 
-    private var regenerationSummary: String {
-        if entitlements.isAdmin { return "Unlimited manual regenerations available." }
-        if !canViewPicks { return "Upgrade to Pro to regenerate this agent's picks." }
-        return "\(store.regenerationsRemaining()) of 3 manual regenerations remaining today."
-    }
-
     private var errorAlertBinding: Binding<Bool> {
         Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
     }
-
-    static func tzAbbr(_ tz: String) -> String {
-        if tz.contains("New_York") { return "ET" }
-        if tz.contains("Chicago") { return "CT" }
-        if tz.contains("Denver") { return "MT" }
-        if tz.contains("Los_Angeles") { return "PT" }
-        return tz
-    }
 }
 
-/// Plain section header for the inline (container-less) detail sections —
-/// Performance and Recent Activity. Mirrors the `WidgetCollapsingSection` header
-/// style (uppercase, translucent, leading icon) so the inline sections read as
-/// peers of the Liquid-Glass cards above them, just without the glass body.
-/// The 16pt horizontal padding matches the card header inset, so the header
-/// column stays aligned across both the cards and these inline sections.
+/// Section header for the inline (container-less) detail sections — Today's
+/// Picks, Performance, Recent Activity. Matches the Search page's section
+/// headers exactly: a small bold leading icon + an uppercased, secondary-color
+/// title (footnote weight). Carries no internal horizontal padding, so it sits
+/// flush at the section's outer `WidgetCard.hInset` and every header on the
+/// page shares one left edge with the content beneath it — the same uniform,
+/// low-key section labeling Search uses.
 struct AgentSectionHeader: View {
     let title: String
     let systemImage: String
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
+            // Icon inherits the header's secondary label color so it matches the title.
             Image(systemName: systemImage)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.appTextSecondary)
-            Text(title.uppercased())
-                .font(.system(size: 13, weight: .semibold))
-                .tracking(0.6)
-                .foregroundStyle(Color.appTextSecondary)
+                .font(.system(size: 11, weight: .bold))
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .textCase(.uppercase)
             Spacer(minLength: 8)
         }
-        .padding(.horizontal, 16)
+        .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

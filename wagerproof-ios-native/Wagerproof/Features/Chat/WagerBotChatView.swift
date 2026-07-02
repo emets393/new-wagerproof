@@ -654,10 +654,6 @@ struct WagerBotChatView: View {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             tabStore.select(.agents)
             dismiss()
-        case "editor_picks":
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            dismiss()
-            DispatchQueue.main.async { tabStore.isPicksPresented = true }
         case "tool":
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             tabStore.select(.games)

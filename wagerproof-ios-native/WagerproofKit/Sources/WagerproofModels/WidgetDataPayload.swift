@@ -16,6 +16,11 @@ public struct WidgetDataPayload: Codable, Sendable {
     public var fadeAlerts: [FadeAlertForWidget]
     public var polymarketValues: [PolymarketValueForWidget]
     public var topAgentPicks: [TopAgentWidgetData]
+    /// Top outliers (value + fade alerts, ranked by confidence) for the
+    /// native "Top Outliers" Home Screen widget. Additive field — the old
+    /// RN-shipped widget doesn't know about it and won't round-trip it, but
+    /// that widget is being retired alongside the RN app.
+    public var topOutliers: [OutlierAlertForWidget]
     public var lastUpdated: String
 
     public init(
@@ -23,13 +28,25 @@ public struct WidgetDataPayload: Codable, Sendable {
         fadeAlerts: [FadeAlertForWidget] = [],
         polymarketValues: [PolymarketValueForWidget] = [],
         topAgentPicks: [TopAgentWidgetData] = [],
+        topOutliers: [OutlierAlertForWidget] = [],
         lastUpdated: String
     ) {
         self.editorPicks = editorPicks
         self.fadeAlerts = fadeAlerts
         self.polymarketValues = polymarketValues
         self.topAgentPicks = topAgentPicks
+        self.topOutliers = topOutliers
         self.lastUpdated = lastUpdated
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        editorPicks = try container.decodeIfPresent([EditorPickForWidget].self, forKey: .editorPicks) ?? []
+        fadeAlerts = try container.decodeIfPresent([FadeAlertForWidget].self, forKey: .fadeAlerts) ?? []
+        polymarketValues = try container.decodeIfPresent([PolymarketValueForWidget].self, forKey: .polymarketValues) ?? []
+        topAgentPicks = try container.decodeIfPresent([TopAgentWidgetData].self, forKey: .topAgentPicks) ?? []
+        topOutliers = try container.decodeIfPresent([OutlierAlertForWidget].self, forKey: .topOutliers) ?? []
+        lastUpdated = try container.decode(String.self, forKey: .lastUpdated)
     }
 
     public static func empty() -> WidgetDataPayload {
@@ -38,8 +55,55 @@ public struct WidgetDataPayload: Codable, Sendable {
             fadeAlerts: [],
             polymarketValues: [],
             topAgentPicks: [],
+            topOutliers: [],
             lastUpdated: ""
         )
+    }
+}
+
+/// Lightweight widget projection of an Outliers alert — combines both
+/// `OutlierValueAlert` (market money on a side) and `OutlierFadeAlert` (model
+/// disagrees with the line) into one rankable shape via `kind`.
+public struct OutlierAlertForWidget: Codable, Sendable, Hashable, Identifiable {
+    public enum Kind: String, Codable, Sendable {
+        case value
+        case fade
+    }
+
+    public let id: String
+    public let kind: Kind
+    public let sport: String
+    public let awayTeam: String
+    public let homeTeam: String
+    public let marketType: String
+    /// The side/selection this alert is about (e.g. team name, "Over"/"Under").
+    public let side: String
+    /// Value alerts: market percentage on `side`. Fade alerts: model
+    /// confidence (0-100) or point-delta, depending on sport — see
+    /// `OutlierFadeAlert.confidenceDisplay` for the same ambiguity upstream.
+    public let confidence: Int
+    public var gameTime: String?
+
+    public init(
+        id: String,
+        kind: Kind,
+        sport: String,
+        awayTeam: String,
+        homeTeam: String,
+        marketType: String,
+        side: String,
+        confidence: Int,
+        gameTime: String? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.sport = sport
+        self.awayTeam = awayTeam
+        self.homeTeam = homeTeam
+        self.marketType = marketType
+        self.side = side
+        self.confidence = confidence
+        self.gameTime = gameTime
     }
 }
 

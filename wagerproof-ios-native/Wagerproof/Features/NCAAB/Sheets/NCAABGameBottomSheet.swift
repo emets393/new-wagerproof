@@ -343,7 +343,7 @@ struct NCAABGameBottomSheet: View {
     @ViewBuilder
     private var marketOddsSection: some View {
         WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
-            PolymarketWidget(league: "ncaab", awayTeam: game.awayTeam, homeTeam: game.homeTeam)
+            PolymarketWidget(league: "ncaab", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayColor: awayColors.primary, homeColor: homeColors.primary)
         }
     }
 

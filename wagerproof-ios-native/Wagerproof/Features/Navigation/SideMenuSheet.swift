@@ -89,11 +89,10 @@ struct SideMenuSheet: View {
         }
 
         Section {
-            // Picks + Settings were removed from the bottom bar but stay
-            // reachable here. Both use the dismiss-then-flip dance: close
-            // the menu sheet first, then flip the flag on `MainTabStore`
-            // that `MainTabView` observes to present the sheet.
-            picksRow
+            // Settings was removed from the bottom bar but stays reachable
+            // here, using the dismiss-then-flip dance: close the menu sheet
+            // first, then flip the flag on `MainTabStore` that `MainTabView`
+            // observes to present the sheet.
             settingsRow
             featureRequestsRow
             roastRow
@@ -115,30 +114,6 @@ struct SideMenuSheet: View {
         } label: {
             HStack {
                 Label("Settings", systemImage: "gearshape.fill")
-                    .foregroundStyle(Color.appTextPrimary)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(Color.appTextMuted)
-                    .font(.system(size: 12, weight: .semibold))
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// Picks row. Same dismiss-then-flip dance as Feature Requests / Roast —
-    /// the menu sheet closes first, then MainTabView presents PicksView via
-    /// `isPicksPresented`.
-    @ViewBuilder
-    private var picksRow: some View {
-        Button {
-            dismiss()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                tabStore.isPicksPresented = true
-            }
-        } label: {
-            HStack {
-                Label("Picks", systemImage: "star.fill")
                     .foregroundStyle(Color.appTextPrimary)
                 Spacer()
                 Image(systemName: "chevron.right")

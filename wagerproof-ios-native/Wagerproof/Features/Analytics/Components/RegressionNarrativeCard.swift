@@ -5,6 +5,10 @@ import WagerproofDesign
 /// blockquotes) via the app's shared `WagerBotMarkdownText` renderer. The
 /// narrative ships as GitHub-style markdown with emoji headers; inline-only
 /// `AttributedString` rendering used to flatten it (waiver #110).
+///
+/// Renders as plain flowing text (no card chrome) so the narrative reads
+/// like an article intro and gets the full content width — the pinned
+/// "AI Analysis Summary" header above already provides the section framing.
 struct RegressionNarrativeCard: View {
     let text: String
 
@@ -16,13 +20,6 @@ struct RegressionNarrativeCard: View {
             quoteAccent: Regression.accentPurple
         )
         .lineSpacing(4)
-        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appSurfaceMuted.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            // Purple accent edge mirrors RN's purple-tinted narrative chrome.
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Regression.accentPurple.opacity(0.25), lineWidth: 1)
-        )
     }
 }

@@ -94,7 +94,10 @@ until the secret exists). `conductor-deps.sh` skips any dir that already has
 ## Production note
 
 Production secrets are **not** sourced from these local files. The `agents-v3`
-worker reads its env from Trigger.dev Cloud (Project → Environment variables),
-and the `trigger-v3-run` edge function reads `TRIGGER_SECRET_KEY` from Supabase
-Edge secrets. Local `.env` files only power local `trigger.dev dev` runs and the
-local web app. See `agents-v3/README.md`.
+worker reads its env from Trigger.dev Cloud (Project → Environment variables,
+synced on `npm run deploy` via `trigger.config.ts`'s `syncEnvVars` extension),
+and `trigger-v3-run` / `trigger-run-status` read `TRIGGER_SECRET_KEY_PROD` from
+Supabase Edge secrets — a distinct key from the local `.env`'s dev-scoped
+`TRIGGER_SECRET_KEY`, so the edge functions can never accidentally target a
+developer's local `trigger dev` session. Local `.env` files only power local
+`trigger.dev dev` runs and the local web app. See `agents-v3/README.md`.

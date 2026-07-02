@@ -127,6 +127,73 @@ public final class NotificationService: @unchecked Sendable {
     public func currentDeviceToken() -> String? {
         cachedDeviceToken
     }
+
+    /// Post a LOCAL "pick generation finished" notification for a manual run.
+    ///
+    /// Fires only when the app is NOT foreground-active: on-screen the detail
+    /// page already shows the result live (and with no
+    /// UNUserNotificationCenterDelegate the OS wouldn't present a foreground
+    /// banner anyway). Undetermined permission quietly upgrades to PROVISIONAL
+    /// (delivers to Notification Center without ever showing the OS dialog).
+    ///
+    /// Delivery window caveat: this posts when the app OBSERVES the run finish
+    /// (the client-side poll). If iOS suspends the app mid-run, the poll — and
+    /// so the banner — waits for the next foreground, where the page itself
+    /// shows the picks. True locked-phone delivery needs the server push path
+    /// (see .claude/docs/agents/11_PUSH_NOTIFICATIONS.md) extended to manual runs.
+    public func postGenerationFinishedNotification(
+        agentId: String,
+        agentName: String,
+        picksGenerated: Int,
+        parlaysGenerated: Int,
+        succeeded: Bool,
+        note: String? = nil
+    ) async {
+        #if canImport(UserNotifications) && canImport(UIKit)
+        let isActive = await MainActor.run { UIApplication.shared.applicationState == .active }
+        if isActive { return }
+
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .denied:
+            return
+        case .notDetermined:
+            let granted = (try? await center.requestAuthorization(
+                options: [.alert, .sound, .badge, .provisional]
+            )) ?? false
+            if !granted { return }
+        default:
+            break
+        }
+
+        let content = UNMutableNotificationContent()
+        if succeeded {
+            var parts: [String] = []
+            if picksGenerated > 0 { parts.append("\(picksGenerated) pick\(picksGenerated == 1 ? "" : "s")") }
+            if parlaysGenerated > 0 { parts.append("\(parlaysGenerated) parlay\(parlaysGenerated == 1 ? "" : "s")") }
+            content.title = "\(agentName) finished its research"
+            content.body = parts.isEmpty
+                ? (note ?? "No plays today — the agent passed on the slate.")
+                : "\(parts.joined(separator: " + ")) ready to view."
+        } else {
+            content.title = "\(agentName) hit a snag"
+            content.body = note ?? "Pick generation failed. Tap to try again."
+        }
+        content.sound = .default
+        content.threadIdentifier = "agent-generation-\(agentId)"
+        content.userInfo = ["avatar_id": agentId, "type": "generation_finished"]
+
+        // Per-agent identifier: a rapid re-run replaces the stale banner
+        // instead of stacking duplicates.
+        let request = UNNotificationRequest(
+            identifier: "generation-finished-\(agentId)",
+            content: content,
+            trigger: nil // deliver immediately
+        )
+        try? await center.add(request)
+        #endif
+    }
 }
 
 /// Supabase row-level writer for push tokens. Split out of the main service

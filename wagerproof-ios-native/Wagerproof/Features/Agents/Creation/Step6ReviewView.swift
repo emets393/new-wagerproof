@@ -335,6 +335,15 @@ struct Step6ReviewView: View {
         if p.chaseValue {
             out.append("Seeks positive expected value opportunities")
         }
+        // Appetite 1 (the default) stays silent — "straights only" is the norm,
+        // not a trait worth a review line.
+        if p.parlaysOnly {
+            out.append("Builds parlay tickets only — no straight picks")
+        } else if p.parlayAppetite >= 4 {
+            out.append("Loves stacking legs into parlays")
+        } else if p.parlayAppetite >= 2 {
+            out.append("Mixes in the occasional parlay")
+        }
         if p.trustModel >= 4 {
             out.append("Heavily relies on WagerProof model predictions")
         }

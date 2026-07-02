@@ -99,7 +99,7 @@ struct MLBGameBottomSheet: View {
             } else {
                 // Weather-style: collapsing matchup hero on top, widget cards
                 // that pin → collapse under their header → fade out → hand off.
-                CollapsingWidgetScroll(heroMaxHeight: 236, heroMinHeight: 122, transparentPage: !showAura, heroTopInset: heroTopInset, contentBottomInset: contentBottomInset) { progress in
+                CollapsingWidgetScroll(heroMaxHeight: hasWeather ? 272 : 236, heroMinHeight: 122, transparentPage: !showAura, heroTopInset: heroTopInset, contentBottomInset: contentBottomInset) { progress in
                     // showAura (standalone): the page paints its own team aura.
                     // Carousel mode: the page base is transparent (see
                     // `transparentPage`) so the carousel's single shared glow
@@ -126,7 +126,6 @@ struct MLBGameBottomSheet: View {
                     playerPropsSection
                     bettingTrendsCard
                     signalsCard
-                    weatherCard
                     // Agent rationale scrolls away at the very bottom (no pin).
                     agentRationaleCard
                         .padding(.horizontal, 16)
@@ -222,6 +221,11 @@ struct MLBGameBottomSheet: View {
             if (game.awaySpName != nil || game.homeSpName != nil), detail > 0.04 {
                 startingPitchersRow
                     .opacity(detail)
+            }
+            if hasWeather, detail > 0.08 {
+                heroWeatherRow
+                    .opacity(detail)
+                    .padding(.top, 2)
             }
         }
         .padding(.horizontal, 16)
@@ -363,6 +367,92 @@ struct MLBGameBottomSheet: View {
         .frame(maxWidth: .infinity, alignment: .center)
     }
 
+    // MARK: - Weather (hero chip row)
+
+    /// Weather renders as a free capsule-chip row inside the hero, matching
+    /// the NFL/CFB Swift sheets — no Pro gate. (The prior MLB-only Pro-gated
+    /// card mirrored RN, but the Swift NFL/CFB sheets never actually gated
+    /// weather; they've always shown it free in the hero like this.)
+    private var hasWeather: Bool {
+        game.temperatureF != nil || game.sky != nil || game.windSpeedMph != nil
+    }
+
+    @ViewBuilder
+    private var heroWeatherRow: some View {
+        HStack(spacing: 8) {
+            if let sky = game.sky {
+                weatherConditionChip(systemImage: skyIcon(sky), text: sky, tint: Color.appPrimary)
+            }
+            if let temp = game.temperatureF {
+                weatherChip(systemImage: "thermometer.medium", title: "Temp", value: "\(Int(temp.rounded()))°F", tint: temperatureTint(temp))
+            }
+            if let wind = game.windSpeedMph {
+                weatherChip(systemImage: "wind", title: game.windDirection ?? "Wind", value: "\(Int(wind.rounded())) mph", tint: wind >= 15 ? Color.appAccentAmber : Color.appAccentBlue)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func weatherConditionChip(systemImage: String, text: String, tint: Color) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .bold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(tint)
+            Text(text)
+                .font(.system(size: 13, weight: .black, design: .rounded))
+                .foregroundStyle(Color.appTextPrimary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(tint.opacity(0.12), in: Capsule())
+        .overlay(Capsule().stroke(tint.opacity(0.22), lineWidth: 1))
+    }
+
+    private func weatherChip(systemImage: String, title: String, value: String, tint: Color) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title.uppercased())
+                    .font(.system(size: 8, weight: .heavy))
+                    .tracking(0.5)
+                    .foregroundStyle(Color.appTextSecondary)
+                Text(value)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(tint.opacity(0.12), in: Capsule())
+        .overlay(Capsule().stroke(tint.opacity(0.22), lineWidth: 1))
+    }
+
+    private func temperatureTint(_ temp: Double) -> Color {
+        if temp <= 35 { return Color.appAccentBlue }
+        if temp >= 80 { return Color.appAccentRed }
+        return Color.appAccentAmber
+    }
+
+    /// Mirrors RN `getSkyIcon` — maps a sky-condition string to a SF
+    /// Symbols name closest to the MaterialCommunityIcons RN equivalent.
+    private func skyIcon(_ sky: String) -> String {
+        let s = sky.lowercased()
+        if s.contains("rain") || s.contains("shower") { return "cloud.rain" }
+        if s.contains("storm") || s.contains("thunder") { return "cloud.bolt.rain" }
+        if s.contains("snow") || s.contains("flurr") { return "snowflake" }
+        if s.contains("overcast") { return "cloud" }
+        if s.contains("cloud") || s.contains("partly") { return "cloud.sun" }
+        if s.contains("fog") || s.contains("haz") { return "cloud.fog" }
+        if s.contains("clear") || s.contains("sunny") { return "sun.max" }
+        return "cloud.sun"
+    }
+
     // MARK: - Player props
 
     /// Player-props insight digest for this matchup — pulled from the shared
@@ -411,7 +501,13 @@ struct MLBGameBottomSheet: View {
         let awayName = game.awayTeamName ?? game.awayTeam ?? ""
         let homeName = game.homeTeamName ?? game.homeTeam ?? ""
         WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
-            PolymarketWidget(league: "mlb", awayTeam: awayName, homeTeam: homeName)
+            PolymarketWidget(
+                league: "mlb",
+                awayTeam: awayName,
+                homeTeam: homeName,
+                awayColor: Color(hex: Int(MLBTeams.colors(for: awayName).primary)),
+                homeColor: Color(hex: Int(MLBTeams.colors(for: homeName).primary))
+            )
         }
     }
 
@@ -424,10 +520,8 @@ struct MLBGameBottomSheet: View {
         if fullRuns != nil || f5Runs != nil {
             WidgetCollapsingSection(title: "Projected Score", systemImage: "sportscourt", iconTint: Color.appPrimary) {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Spacer()
-                        projToggle
-                    }
+                    projToggle
+                        .frame(maxWidth: .infinity, alignment: .center)
                     let active: (home: Double, away: Double)? = {
                         switch projView {
                         case .full:
@@ -493,6 +587,35 @@ struct MLBGameBottomSheet: View {
         .sensoryFeedback(.impact(weight: .light), trigger: isActive)
     }
 
+    // MARK: - Trend signals (shared by moneyline + total cards)
+
+    /// Same trends slate `bettingTrendsCard` reads, computed once and sliced
+    /// by kind so the projection cards can surface a couple of relevant
+    /// situational signals inline instead of only the isolated model number.
+    private var matchupTrendsSummary: TrendsInsightSummary? {
+        resolvedTrendsStore.trends(for: game.gamePk).map(MLBTrendsInsight.summary(for:))
+    }
+
+    /// Win%-angle signals (moneyline-relevant).
+    private var moneylineTrendSignals: [TrendsSignal] {
+        guard let summary = matchupTrendsSummary else { return [] }
+        return Array(summary.signals.filter {
+            if case .side = $0.kind { return true }
+            return false
+        }.prefix(2))
+    }
+
+    /// Over%-angle signals (total-relevant).
+    private var totalTrendSignals: [TrendsSignal] {
+        guard let summary = matchupTrendsSummary else { return [] }
+        return Array(summary.signals.filter {
+            switch $0.kind {
+            case .over, .under: return true
+            case .side: return false
+            }
+        }.prefix(2))
+    }
+
     // MARK: - Moneyline projection
 
     /// Pick side picks the higher edge if present, else the higher win prob.
@@ -547,7 +670,7 @@ struct MLBGameBottomSheet: View {
                 accessory: .chevron(expanded: mlExpanded),
                 onHeaderTap: { mlExpanded.toggle() }
             ) {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 14) {
                         comparisonRow(
                             leftLabel: "Vegas",
                             leftValue: pickImplied.map { String(format: "%.1f%%", $0 * 100) } ?? "-",
@@ -577,7 +700,20 @@ struct MLBGameBottomSheet: View {
                             Spacer()
                             accuracyBadge(for: pickEdge, betType: projView == .full ? "full_ml" : "f5_ml", side: pickSide)
                         }
+                        if !moneylineTrendSignals.isEmpty {
+                            Divider().overlay(Color.appBorder.opacity(0.3))
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("SITUATIONAL EDGE")
+                                    .font(.system(size: 10, weight: .heavy))
+                                    .tracking(0.6)
+                                    .foregroundStyle(Color.appTextSecondary)
+                                ForEach(moneylineTrendSignals) { signal in
+                                    TrendSignalRow(signal: signal)
+                                }
+                            }
+                        }
                         if mlExpanded {
+                            Divider().overlay(Color.appBorder.opacity(0.3))
                             Text(mlExplanation(pickSide: pickSide, pickProb: pickProb, implied: pickImplied, edge: pickEdge, abbr: pickAbbr))
                                 .font(.system(size: 13))
                                 .lineSpacing(4)
@@ -624,7 +760,7 @@ struct MLBGameBottomSheet: View {
                 accessory: .chevron(expanded: ouExpanded),
                 onHeaderTap: { ouExpanded.toggle() }
             ) {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 14) {
                         comparisonRow(
                             leftLabel: "Vegas O/U",
                             leftValue: MLBFormatting.line(line),
@@ -651,7 +787,20 @@ struct MLBGameBottomSheet: View {
                             Spacer()
                             accuracyBadge(for: edgeRaw, betType: projView == .full ? "full_ou" : "f5_ou", direction: direction)
                         }
+                        if !totalTrendSignals.isEmpty {
+                            Divider().overlay(Color.appBorder.opacity(0.3))
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("SITUATIONAL EDGE")
+                                    .font(.system(size: 10, weight: .heavy))
+                                    .tracking(0.6)
+                                    .foregroundStyle(Color.appTextSecondary)
+                                ForEach(totalTrendSignals) { signal in
+                                    TrendSignalRow(signal: signal)
+                                }
+                            }
+                        }
                         if ouExpanded {
+                            Divider().overlay(Color.appBorder.opacity(0.3))
                             Text("The model projects a fair\(projView == .f5 ? " F5" : "") total of \(fairTotal.map { String(format: "%.1f", $0) } ?? "N/A") vs the market line of \(MLBFormatting.line(line)), suggesting the \(isOver ? "Over" : "Under").")
                                 .font(.system(size: 13))
                                 .lineSpacing(4)
@@ -715,7 +864,15 @@ struct MLBGameBottomSheet: View {
     /// sibling sheets.
     @ViewBuilder
     private var signalsCard: some View {
-        WidgetCollapsingSection(title: "Game Signals", systemImage: "antenna.radiowaves.left.and.right", iconTint: Color.appPrimary) {
+        WidgetCollapsingSection(
+            title: "Game Signals",
+            systemImage: "antenna.radiowaves.left.and.right",
+            iconTint: Color.appPrimary,
+            accessory: game.signals.isEmpty ? .none : .verdict(
+                text: "\(game.signals.count) SIGNAL\(game.signals.count == 1 ? "" : "S")",
+                tintHex: 0x22C55E
+            )
+        ) {
             ProContentSection(title: "Game Signals", minHeight: 120) {
                 VStack(alignment: .leading, spacing: 12) {
                     if game.signals.isEmpty {
@@ -723,9 +880,10 @@ struct MLBGameBottomSheet: View {
                             .font(.system(size: 12))
                             .italic()
                             .foregroundStyle(Color.appTextSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         VStack(spacing: 8) {
-                            ForEach(Array(game.signals.enumerated()), id: \.offset) { _, sig in
+                            ForEach(game.signals, id: \.self) { sig in
                                 signalPill(signal: sig)
                             }
                         }
@@ -749,34 +907,11 @@ struct MLBGameBottomSheet: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(bg, in: RoundedRectangle(cornerRadius: 10))
+        .background(bg, in: RoundedRectangle(cornerRadius: 12))
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(border, lineWidth: 1)
         )
-    }
-
-    // MARK: - Weather
-
-    /// Pro-gated weather card. Cross-sport convention puts weather behind
-    /// Pro — NFL/CFB Swift sheets and the RN equivalents already do so.
-    /// RN MLB renders the card unconditionally; FIDELITY-WAIVER #100
-    /// brings the entitlement gate over.
-    @ViewBuilder
-    private var weatherCard: some View {
-        WidgetCollapsingSection(title: "Weather", systemImage: "cloud.sun", iconTint: Color.appPrimary) {
-            ProContentSection(title: "Weather", minHeight: 110) {
-                if game.temperatureF != nil {
-                    MLBWeatherSection(game: game)
-                } else {
-                    Text("Weather data updates ~4 hours before game time")
-                        .font(.system(size: 13))
-                        .italic()
-                        .foregroundStyle(Color.appTextSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
     }
 
     // MARK: - Agent rationale
@@ -898,155 +1033,6 @@ enum MLBInsightDetail: Identifiable {
         case .props(let m): return "props-\(m.gamePk)"
         case .f5(let m): return "f5-\(m.game.gamePk)"
         }
-    }
-}
-
-// MARK: - Weather sub-section
-
-/// Weather section with field visual, wind arrow, temp, sky, and roof
-/// indicator. Mirrors RN `MLBWeatherSection`. Animation is built in via
-/// `Animation.appQuick` — no raw `.spring(...)` per house rules.
-struct MLBWeatherSection: View {
-    let game: MLBGame
-    @State private var windDegrees: Double = 0
-
-    var body: some View {
-        // Title + card chrome now live in the hosting `WidgetSection`
-        // ("Weather"); keep just the venue subline + the weather cells.
-        VStack(alignment: .leading, spacing: 12) {
-            if let venue = game.venueName {
-                Text(venue)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.appTextSecondary)
-            }
-            HStack(spacing: 8) {
-                if let temp = game.temperatureF {
-                    weatherCard(
-                        icon: "thermometer",
-                        iconColor: Color(hex: 0xEF4444),
-                        value: "\(Int(temp.rounded()))°F",
-                        label: "Temp",
-                        bg: Color(hex: 0xFEF2F2).opacity(0.4)
-                    )
-                }
-                if let sky = game.sky {
-                    weatherCard(
-                        icon: skyIcon(sky),
-                        iconColor: Color.appPrimary,
-                        value: sky,
-                        label: "Sky",
-                        bg: Color(hex: 0xF0FDF4).opacity(0.4)
-                    )
-                }
-                if let wind = game.windSpeedMph {
-                    weatherCard(
-                        icon: "arrow.up",
-                        iconColor: Color.appAccentBlue,
-                        value: "\(Int(wind.rounded())) mph",
-                        label: game.windDirection ?? "Wind",
-                        bg: Color(hex: 0xEFF6FF).opacity(0.4),
-                        rotation: windDegrees
-                    )
-                }
-                weatherCard(
-                    icon: roofType(game.venueName) != nil ? "house.fill" : "diamond",
-                    iconColor: Color(hex: 0x7C3AED),
-                    value: roofLabel(game.venueName),
-                    label: "Field",
-                    bg: Color(hex: 0xF5F3FF).opacity(0.4)
-                )
-            }
-            if game.weatherImputed == true && game.weatherConfirmed != true {
-                Text("Weather is estimated — awaiting confirmed inputs")
-                    .font(.system(size: 11))
-                    .italic()
-                    .foregroundStyle(Color.appTextSecondary)
-                    .frame(maxWidth: .infinity)
-            }
-        }
-        .task {
-            if let degrees = windDirectionDegrees(game.windDirection) {
-                withAnimation(.easeOut(duration: 0.8)) { windDegrees = degrees }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func weatherCard(icon: String, iconColor: Color, value: String, label: String, bg: Color, rotation: Double = 0) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 22))
-                .foregroundStyle(iconColor)
-                .rotationEffect(.degrees(rotation))
-                .frame(height: 28)
-            Text(value)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Color.appTextPrimary)
-                .multilineTextAlignment(.center)
-                .lineLimit(1)
-            Text(label.uppercased())
-                .font(.system(size: 10, weight: .medium))
-                .tracking(0.5)
-                .foregroundStyle(Color.appTextSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .padding(.horizontal, 4)
-        .background(bg, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appBorder.opacity(0.3), lineWidth: 1))
-    }
-
-    /// Mirrors RN `getSkyIcon` — maps a sky-condition string to a SF
-    /// Symbols name closest to the MaterialCommunityIcons RN equivalent.
-    private func skyIcon(_ sky: String) -> String {
-        let s = sky.lowercased()
-        if s.contains("rain") || s.contains("shower") { return "cloud.rain" }
-        if s.contains("storm") || s.contains("thunder") { return "cloud.bolt.rain" }
-        if s.contains("snow") || s.contains("flurr") { return "snowflake" }
-        if s.contains("overcast") { return "cloud" }
-        if s.contains("cloud") || s.contains("partly") { return "cloud.sun" }
-        if s.contains("fog") || s.contains("haz") { return "cloud.fog" }
-        if s.contains("clear") || s.contains("sunny") { return "sun.max" }
-        return "cloud.sun"
-    }
-
-    /// Mirrors RN `getVenueRoofType` — returns "dome", "retractable", or nil.
-    private func roofType(_ venue: String?) -> String? {
-        guard let v = venue?.lowercased() else { return nil }
-        let domes = ["tropicana field": "dome",
-                     "minute maid park": "retractable",
-                     "daikin park": "retractable",
-                     "chase field": "retractable",
-                     "globe life field": "retractable",
-                     "rogers centre": "retractable",
-                     "loandepot park": "retractable",
-                     "t-mobile park": "retractable",
-                     "american family field": "retractable",
-                     "marlins park": "retractable",
-                     "safeco field": "retractable",
-                     "miller park": "retractable"]
-        for (key, type) in domes where v.contains(key) { return type }
-        return nil
-    }
-
-    private func roofLabel(_ venue: String?) -> String {
-        switch roofType(venue) {
-        case "dome": return "Dome"
-        case "retractable": return "Dome/Roof"
-        default: return "Open Air"
-        }
-    }
-
-    /// Mirrors RN `windDirectionToDegrees`.
-    private func windDirectionDegrees(_ dir: String?) -> Double? {
-        guard let dir = dir?.uppercased().trimmingCharacters(in: .whitespaces) else { return nil }
-        let map: [String: Double] = [
-            "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
-            "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
-            "S": 180, "SSW": 202.5, "SW": 225, "WSW": 247.5,
-            "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5
-        ]
-        return map[dir]
     }
 }
 

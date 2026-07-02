@@ -17,6 +17,12 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
     public var overUnderLean: Int
     public var confidenceThreshold: Int
     public var chaseValue: Bool
+    /// 1 = straights only (submit_parlay tool withheld server-side) … 5 = loves
+    /// parlays. Drives V3's maxParlayLegs/parlayPolicy steering.
+    public var parlayAppetite: Int
+    /// Force EVERY play into parlay tickets — the engine rejects straight
+    /// picks at submit. Overrides `parlayAppetite`'s tool gating.
+    public var parlaysOnly: Bool
 
     // MARK: Bet Selection (always present)
     public var preferredBetType: String
@@ -58,6 +64,8 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         case overUnderLean = "over_under_lean"
         case confidenceThreshold = "confidence_threshold"
         case chaseValue = "chase_value"
+        case parlayAppetite = "parlay_appetite"
+        case parlaysOnly = "parlays_only"
         case preferredBetType = "preferred_bet_type"
         case maxFavoriteOdds = "max_favorite_odds"
         case minUnderdogOdds = "min_underdog_odds"
@@ -98,7 +106,9 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         trustModel: 4,
         trustPolymarket: 3,
         polymarketDivergenceFlag: true,
-        homeCourtBoost: 3
+        homeCourtBoost: 3,
+        parlayAppetite: 1,
+        parlaysOnly: false
     )
 
     public init(
@@ -128,7 +138,9 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         regressLuck: Bool? = nil,
         homeCourtBoost: Int = 3,
         fadeBackToBacks: Bool? = nil,
-        upsetAlert: Bool? = nil
+        upsetAlert: Bool? = nil,
+        parlayAppetite: Int = 1,
+        parlaysOnly: Bool = false
     ) {
         self.riskTolerance = riskTolerance
         self.underdogLean = underdogLean
@@ -157,6 +169,8 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         self.homeCourtBoost = homeCourtBoost
         self.fadeBackToBacks = fadeBackToBacks
         self.upsetAlert = upsetAlert
+        self.parlayAppetite = parlayAppetite
+        self.parlaysOnly = parlaysOnly
     }
 
     public init(from decoder: Decoder) throws {
@@ -190,6 +204,8 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         self.homeCourtBoost = (try? c.decode(Int.self, forKey: .homeCourtBoost)) ?? Self.default.homeCourtBoost
         self.fadeBackToBacks = try? c.decodeIfPresent(Bool.self, forKey: .fadeBackToBacks)
         self.upsetAlert = try? c.decodeIfPresent(Bool.self, forKey: .upsetAlert)
+        self.parlayAppetite = (try? c.decode(Int.self, forKey: .parlayAppetite)) ?? Self.default.parlayAppetite
+        self.parlaysOnly = (try? c.decode(Bool.self, forKey: .parlaysOnly)) ?? Self.default.parlaysOnly
     }
 }
 

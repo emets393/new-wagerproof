@@ -9,7 +9,7 @@ WagerProof is a professional-grade sports betting analytics and predictions plat
 - Data-driven sports betting predictions using machine learning models
 - Model-generated probabilities for betting outcomes (spread, moneyline, totals)
 - Line movement and public betting sentiment analysis
-- Editor picks and community insights
+- AI agent picks and community insights
 - Multi-sport coverage: NFL, College Football (CFB), NBA, College Basketball (NCAAB), MLB
 
 ## Tech Stack
@@ -39,7 +39,7 @@ WagerProof is a professional-grade sports betting analytics and predictions plat
 ### Web App (`/src`)
 ```
 src/
-├── pages/              # Route pages (NFL.tsx, NBA.tsx, EditorsPicks.tsx)
+├── pages/              # Route pages (NFL.tsx, NBA.tsx, Scoreboard.tsx)
 ├── components/         # React components
 │   ├── ui/            # shadcn-ui primitives
 │   └── GameCard variants, PolymarketWidget, etc.
@@ -80,10 +80,12 @@ wagerproof-mobile/
 - Real-time game updates via ESPN/Sports API
 - Live score tracking with prediction overlays
 
-### 3. Editor's Picks (`/editors-picks`)
-- Professional picks with detailed reasoning
-- Win/loss tracking and performance history
-- AI-identified "Value Finds" for high-value opportunities
+### 3. Editor's Picks (Retired)
+- Human-curated picks with detailed reasoning + a win/loss stats dashboard, previously at `/editors-picks`.
+- **Retired** — replaced functionally by AI Agents (§7 below), which track performance the same way editor picks did (W-L-P, +/- units) but are AI-generated and user-configurable.
+- Removed from the web route/nav and from the iOS native app's side menu. `EditorsPicks.tsx`/`EditorPickCard.tsx` etc. still exist on disk on web as dead code (not yet deleted); iOS native's equivalent files were deleted outright.
+- AI-identified "Value Finds" (high-value opportunities) is a **separate**, still-active surface — see `ValueFindsSection`/`ValueFindEditorCard` in `/src/components` — despite the "Editor" naming, it's AI-generated, not tied to the retired human-curated feature.
+- The `editors_picks` Supabase table and WagerBot's `get_editor_picks` chat tool remain queryable for historical/AI-chat purposes only; there's no UI entry point to them anymore on iOS native.
 
 ### 4. WagerBot (`/wagerbot-chat`)
 - Agentic AI chat powered by Supabase Edge Function + OpenAI Responses API (gpt-4o)

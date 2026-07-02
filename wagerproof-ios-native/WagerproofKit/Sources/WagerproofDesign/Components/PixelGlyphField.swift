@@ -56,6 +56,11 @@ public struct PixelGlyphField: View {
     private let spacing: CGFloat
     private let dotSize: CGFloat
     private let peakOpacity: Double
+    /// Seeds the automaton's PRNG so two fields with different seeds bloom
+    /// different glyph patterns. Defaults to a shared constant so existing
+    /// callers (the hero) keep their familiar field; per-card callers pass a
+    /// stable per-entity seed so no two cards animate identically.
+    private let seed: UInt64
     /// Optional external trigger so another view can ripple this field (see
     /// `GlyphRippleEmitter`). Nil for fields that only ripple on direct taps.
     private let rippleEmitter: GlyphRippleEmitter?
@@ -93,6 +98,7 @@ public struct PixelGlyphField: View {
         spacing: CGFloat = 26,
         dotSize: CGFloat = 5.5,
         peakOpacity: Double = 0.45,
+        seed: UInt64 = 0x5EED_1234,
         rippleEmitter: GlyphRippleEmitter? = nil
     ) {
         self.intervals = intervals.isEmpty ? [0.3] : intervals
@@ -101,6 +107,7 @@ public struct PixelGlyphField: View {
         self.spacing = spacing
         self.dotSize = dotSize
         self.peakOpacity = peakOpacity
+        self.seed = seed
         self.rippleEmitter = rippleEmitter
     }
 
@@ -118,7 +125,7 @@ public struct PixelGlyphField: View {
             .onChange(of: proxy.size, initial: true) { _, newSize in
                 let cols = max(2, Int((newSize.width / spacing).rounded()))
                 let rows = max(2, Int((newSize.height / spacing).rounded()))
-                sim.configure(cols: cols, rows: rows)
+                sim.configure(cols: cols, rows: rows, seed: seed)
                 lastStep = .now
             }
             // Stepping loop. Alternates slow/fast intervals for the irregular
@@ -244,6 +251,7 @@ private struct GlyphAutomaton {
     /// view can pop previous→current within a tick.
     private var current: [Double] = []
     private var previous: [Double] = []
+    /// Re-seeded per `configure(seed:)` so each field gets a distinct pattern.
     private var rng = SeededGenerator(seed: 0x5EED_1234)
 
     // --- Reaction-diffusion tuning -----------------------------------------
@@ -268,9 +276,12 @@ private struct GlyphAutomaton {
     /// If total energy drops below this, force-seed so it never goes dark.
     private let lowEnergy = 2.5
 
-    mutating func configure(cols: Int, rows: Int) {
+    mutating func configure(cols: Int, rows: Int, seed: UInt64 = 0x5EED_1234) {
         self.cols = max(1, cols)
         self.rows = max(1, rows)
+        // Re-seed before stamping so the pre-warmed colonies (and every step
+        // after) differ per field — distinct cards never bloom in lockstep.
+        rng = SeededGenerator(seed: seed)
         current = Array(repeating: 0, count: self.cols * self.rows)
         previous = current
         // Seed a few colonies and pre-warm a little so the field opens with a

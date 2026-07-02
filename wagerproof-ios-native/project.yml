@@ -96,12 +96,55 @@ targets:
         product: GoogleSignInSwift
       - package: Mixpanel
         product: Mixpanel
+      - target: WagerProofWidgetExtension
+        embed: true
+        codeSign: true
     postCompileScripts:
       - name: Strip entitlements on sim builds
         script: |
           if [ "${EFFECTIVE_PLATFORM_NAME}" = "-iphonesimulator" ]; then
             EMPTY_PLIST='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict/></plist>'
             for XCENT_FILE in "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app.xcent" "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app-Simulated.xcent"; do
+              if [ -f "$XCENT_FILE" ]; then
+                printf '%s' "$EMPTY_PLIST" > "$XCENT_FILE"
+              fi
+            done
+          fi
+        basedOnDependencyAnalysis: false
+
+  WagerProofWidgetExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: WagerProofWidgetExtension
+        excludes:
+          - Info.plist
+          - WagerProofWidgetExtension.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wagerproof.mobile.widget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_EMIT_LOC_STRINGS: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: WagerProofWidgetExtension/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: WagerProofWidgetExtension/WagerProofWidgetExtension.entitlements
+        SKIP_INSTALL: YES
+        "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "Apple Development"
+        CODE_SIGN_IDENTITY: ""
+    dependencies:
+      - package: WagerproofKit
+        product: WagerproofModels
+      - package: WagerproofKit
+        product: WagerproofServices
+      - package: WagerproofKit
+        product: WagerproofDesign
+    postCompileScripts:
+      - name: Strip entitlements on sim builds
+        script: |
+          if [ "${EFFECTIVE_PLATFORM_NAME}" = "-iphonesimulator" ]; then
+            EMPTY_PLIST='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict/></plist>'
+            for XCENT_FILE in "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.appex.xcent" "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.appex-Simulated.xcent"; do
               if [ -f "$XCENT_FILE" ]; then
                 printf '%s' "$EMPTY_PLIST" > "$XCENT_FILE"
               fi

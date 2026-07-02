@@ -66,6 +66,13 @@ struct AgentRowCard: View {
                 // the container reads as more transparent "glass" (design request).
                 shape.fill(.ultraThinMaterial)
                     .opacity(colorScheme == .dark ? 0.55 : 1)
+                // Pixelwave sneak-peek: brand-hue glyphs pulsing across the card,
+                // a scaled echo of the agent detail hero so the list ties into it.
+                // Seeded per agent id so no two cards bloom in lockstep.
+                AgentCardGlyphTexture(
+                    avatarColor: agent.agent.avatarColor,
+                    seedString: "\(agent.id)"
+                )
                 shape.strokeBorder(Color.appBorder.opacity(0.4), lineWidth: 0.5)
             }
         }
@@ -168,12 +175,45 @@ struct AgentRowCard: View {
     /// down here.)
     private var infoRow: some View {
         HStack(spacing: 4) {
-            ForEach(Array(agent.agent.preferredSports), id: \.self) { sport in
-                sportPill(sport)
-            }
+            sportsCluster
             Spacer(minLength: 8)
             recordUnits
         }
+    }
+
+    /// Supported sports on the left of the info bar. Up to three render as full
+    /// icon+label pills; once an agent covers more than three the labels would
+    /// overflow the narrow row, so we collapse to a compact cluster of just the
+    /// sport icons, overlapped like stacked coins.
+    @ViewBuilder
+    private var sportsCluster: some View {
+        let sports = agent.agent.preferredSports
+        if sports.count > 3 {
+            HStack(spacing: -7) {
+                ForEach(Array(sports.enumerated()), id: \.element) { idx, sport in
+                    sportIconCoin(sport)
+                        // Leftmost coin sits on top so the cluster reads L→R.
+                        .zIndex(Double(sports.count - idx))
+                }
+            }
+        } else {
+            HStack(spacing: 4) {
+                ForEach(sports, id: \.self) { sportPill($0) }
+            }
+        }
+    }
+
+    /// A single overlapping sport "coin" — the SF symbol on a muted disc with a
+    /// hairline ring that punches it out from the coin it overlaps.
+    private func sportIconCoin(_ sport: AgentSport) -> some View {
+        ZStack {
+            Circle().fill(Color.appSurfaceMuted)
+            Image(systemName: sport.sfSymbol)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Color.appTextPrimary)
+        }
+        .frame(width: 22, height: 22)
+        .overlay(Circle().stroke(Color.appBorder.opacity(0.6), lineWidth: 1))
     }
 
     private func chip(_ tag: AgentStrategyTag) -> some View {

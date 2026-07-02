@@ -50,6 +50,22 @@ export async function submitPicks(
     return report;
   }
 
+  // Parlays-only agents may not stake straights — reject every pick so the
+  // model re-routes the plays into submit_parlay and finalizes with an empty
+  // list (the loop feeds this report back and retries submit_picks).
+  if (ctx.steering.parlaysOnly) {
+    report.ok = false;
+    for (const raw of rawPicks) {
+      const r = raw as Record<string, unknown>;
+      report.rejected.push({
+        game_id: String(r?.game_id ?? "?"),
+        bet_type: String(r?.bet_type ?? "?"),
+        reason: "parlays_only: this agent cannot submit straight picks — move this play into a submit_parlay ticket, then call submit_picks with an EMPTY picks array",
+      });
+    }
+    return report;
+  }
+
   const maxPicks = getMaxPicks(Number(ctx.personalityParams?.max_picks_per_day ?? 3));
   const limited = rawPicks.slice(0, maxPicks);
 

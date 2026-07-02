@@ -1,5 +1,8 @@
 import SwiftUI
 import WagerproofDesign
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// The idle "generate your picks" prompt — the main, container-less first
 /// section of the agent detail picks area. A short header invites the user to
@@ -52,30 +55,39 @@ struct ShimmerGenerateButton: View {
 
     var body: some View {
         Button(action: action) {
-            Label(label, systemImage: enabled ? "sparkles" : "lock.fill")
-                .font(.system(size: 15, weight: .heavy))
+            labelContent
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(enabled ? Color.black : Color.appTextSecondary)
         .background(Capsule().fill(enabled ? accent : Color.appSurfaceMuted))
-        .overlay {
-            if enabled {
-                Capsule()
-                    .fill(Color.white.opacity(0.45))
-                    .blendMode(.plusLighter)
-                    .shimmering()
-                    .allowsHitTesting(false)
-            }
-        }
         .clipShape(Capsule())
         .disabled(!enabled)
     }
+
+    /// The label with the shimmer glint sweeping across the *text itself* — a
+    /// white copy of the label masked to the shimmer band and composited
+    /// plus-lighter over the base, rather than a band over the whole capsule.
+    private var labelContent: some View {
+        ZStack {
+            Label(label, systemImage: enabled ? "sparkles" : "lock.fill")
+                .foregroundStyle(enabled ? Color.black : Color.appTextSecondary)
+            if enabled {
+                Label(label, systemImage: "sparkles")
+                    .foregroundStyle(.white.opacity(0.6))
+                    .shimmering()
+                    .blendMode(.plusLighter)
+                    .allowsHitTesting(false)
+            }
+        }
+        .font(.system(size: 15, weight: .heavy))
+    }
 }
 
-/// The tucked-away autopilot control: a small pill that toggles auto-generation
-/// on tap. Low-emphasis by design — autopilot is a setting, not a headline.
+/// The tucked-away autopilot control: a small **tinted** Liquid-Glass pill that
+/// toggles auto-generation on tap. The accent tint pulses stronger when on,
+/// fainter when off (manual), so both states read as translucent glass — never a
+/// flat solid fill.
 struct AutopilotChip: View {
     var isOn: Bool
     var accent: Color
@@ -89,12 +101,130 @@ struct AutopilotChip: View {
                 Text(isOn ? "Auto" : "Manual")
                     .font(.system(size: 11, weight: .heavy))
             }
-            .foregroundStyle(isOn ? accent : Color.appTextSecondary)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .background(Capsule().fill(isOn ? accent.opacity(0.14) : Color.appSurfaceMuted.opacity(0.5)))
-            .overlay(Capsule().strokeBorder(isOn ? accent.opacity(0.45) : Color.clear, lineWidth: 1))
+            // ON: white over the accent-tinted glass (the accent identity comes
+            // from the tint + border). Accent-colored text used to vanish into
+            // the accent glass on saturated agent colors (e.g. a pink agent).
+            .foregroundStyle(isOn ? Color.appTextPrimary : Color.appTextSecondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .glassChip(tint: accent.opacity(isOn ? 0.4 : 0.22))
+            .overlay(Capsule().strokeBorder(accent.opacity(isOn ? 0.6 : 0.25), lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Hold-to-confirm regenerate control. A tinted Liquid-Glass pill that fills
+/// left→right with the accent while pressed; completing a full `holdDuration`
+/// hold fires `onRegen` (with a success haptic). Releasing early rewinds the
+/// fill. Regeneration burns one of the day's limited runs, so the deliberate
+/// hold guards against an accidental tap. When `enabled` is false it shows a
+/// "Limit reached" lock and ignores touches.
+struct HoldToRegenButton: View {
+    var accent: Color
+    var enabled: Bool
+    var onRegen: () -> Void
+
+    /// Seconds the user must hold before the regeneration fires.
+    static let holdDuration: Double = 5.0
+
+    @State private var progress: CGFloat = 0
+    @State private var holding = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: enabled ? "arrow.clockwise" : "lock.fill")
+                .font(.system(size: 12, weight: .bold))
+            Text(label)
+                .font(.system(size: 12, weight: .heavy))
+                .lineLimit(1)
+        }
+        .foregroundStyle(foreground)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        // Accent progress fill grows left→right behind the label, over the glass.
+        .background(alignment: .leading) {
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(accent.opacity(0.85))
+                    .frame(width: geo.size.width * progress)
+            }
+        }
+        .glassChip(tint: enabled ? accent.opacity(0.35) : nil)
+        .clipShape(Capsule())
+        .overlay(Capsule().strokeBorder(enabled ? accent.opacity(0.55) : Color.white.opacity(0.12), lineWidth: 1))
+        .contentShape(Capsule())
+        .modifier(HoldGesture(
+            enabled: enabled,
+            duration: Self.holdDuration,
+            onChanged: { pressing in
+                holding = pressing
+                if pressing {
+                    withAnimation(.linear(duration: Self.holdDuration)) { progress = 1 }
+                } else {
+                    withAnimation(.easeOut(duration: 0.25)) { progress = 0 }
+                }
+            },
+            onComplete: {
+                #if canImport(UIKit)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                #endif
+                onRegen()
+                withAnimation(.easeOut(duration: 0.3)) { progress = 0 }
+                holding = false
+            }
+        ))
+        .animation(.easeInOut(duration: 0.2), value: holding)
+    }
+
+    private var label: String {
+        guard enabled else { return "Limit reached" }
+        return holding ? "Keep holding…" : "Hold to Regenerate"
+    }
+
+    private var foreground: Color {
+        guard enabled else { return Color.appTextSecondary }
+        // White reads over both states: the accent-tinted glass when idle AND
+        // the solid accent progress fill while holding. Accent-colored text used
+        // to disappear into the accent glass on saturated agent colors.
+        return .white
+    }
+}
+
+/// Wraps the long-press-to-fill gesture so the button body stays declarative.
+/// `onChanged(true)` fires on press-down, `onChanged(false)` on release (early
+/// OR after completion); `onComplete` fires once the hold reaches `duration`.
+/// Disabled → no gesture attached, so touches pass through inert.
+private struct HoldGesture: ViewModifier {
+    var enabled: Bool
+    var duration: Double
+    var onChanged: (Bool) -> Void
+    var onComplete: () -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.onLongPressGesture(
+                minimumDuration: duration,
+                maximumDistance: 60,
+                perform: onComplete,
+                onPressingChanged: onChanged
+            )
+        } else {
+            content
+        }
+    }
+}
+
+private extension View {
+    /// Tinted Liquid-Glass capsule fill. Pass an accent (with the desired alpha)
+    /// to tint the glass, or `nil` for neutral glass. Falls back to
+    /// `.ultraThinMaterial` on iOS < 26 (handled inside `liquidGlassBackground`).
+    @ViewBuilder
+    func glassChip(tint: Color?) -> some View {
+        if let tint {
+            self.liquidGlassBackground(in: Capsule(), tint: tint)
+        } else {
+            self.liquidGlassBackground(in: Capsule())
+        }
     }
 }

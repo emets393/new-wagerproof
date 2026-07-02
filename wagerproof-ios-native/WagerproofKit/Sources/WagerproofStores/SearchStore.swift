@@ -215,12 +215,21 @@ public final class SearchStore {
     public var query: String = "" {
         didSet {
             guard query != oldValue else { return }
+            // A real query takes over from any Explore browse session.
+            if !query.isEmpty { browseScope = nil }
             scheduleDebounce()
         }
     }
 
     /// Scope chip selection. Empty queries hide the chip row entirely.
     public var scope: SearchScope = .all
+
+    /// Set when the user taps an Explore card to browse a whole category
+    /// (Props / Agents / Outliers) without typing. While non-nil and the query
+    /// is empty, the view shows that scope's full result list (via the
+    /// `browse*Results` accessors) instead of the empty-state launchpad.
+    /// Cleared when the user types a query or taps Clear.
+    public var browseScope: SearchScope? = nil
 
     /// Debounced version of `query`. Result accessors filter against this.
     public private(set) var debouncedQuery: String = ""
@@ -325,6 +334,24 @@ public final class SearchStore {
         next.insert(trimmed, at: 0)
         recentQueries = Array(next.prefix(recentQueriesLimit))
         UserDefaults.standard.set(recentQueries, forKey: recentQueriesKey)
+    }
+
+    // MARK: - Explore browse
+
+    /// Enter "browse" mode for an Explore card — show the full result list for
+    /// `scope` with no text query. Clears the field so the query path stays
+    /// dormant and the `browse*Results` accessors drive the list. Pins the
+    /// scope chip so a follow-up query continues in the same category.
+    public func browse(_ scope: SearchScope) {
+        query = ""
+        flushDebounce()
+        self.scope = scope
+        browseScope = scope
+    }
+
+    /// Leave browse mode and return to the empty-state launchpad.
+    public func exitBrowse() {
+        browseScope = nil
     }
 
     // MARK: - Debounce
@@ -501,21 +528,7 @@ public final class SearchStore {
             rebuildMLBPlayerIndexIfNeeded(props.matchups)
             for entry in mlbPlayerIndex {
                 guard let score = playerScore(query: q, name: entry.name) else { continue }
-                scored.append((
-                    SearchResult.Player(
-                        id: "player-mlb-\(entry.gamePk)-\(entry.playerId)",
-                        kind: .mlb(
-                            gamePk: entry.gamePk,
-                            playerId: entry.playerId,
-                            isPitcher: entry.isPitcher
-                        ),
-                        playerName: entry.name,
-                        teamAbbr: entry.teamAbbr,
-                        matchScore: score,
-                        headlineRank: entry.headlineRank
-                    ),
-                    score
-                ))
+                scored.append((mlbPlayerResult(entry, score: score), score))
             }
         }
 
@@ -523,17 +536,7 @@ public final class SearchStore {
             rebuildNFLPlayerIndexIfNeeded(props.nflPlayers)
             for entry in nflPlayerIndex {
                 guard let score = playerScore(query: q, name: entry.name) else { continue }
-                scored.append((
-                    SearchResult.Player(
-                        id: "player-nfl-\(entry.playerKey)",
-                        kind: .nfl(playerKey: entry.playerKey, gameId: entry.gameId),
-                        playerName: entry.name,
-                        teamAbbr: entry.teamAbbr,
-                        matchScore: score,
-                        headlineRank: entry.headlineRank
-                    ),
-                    score
-                ))
+                scored.append((nflPlayerResult(entry, score: score), score))
             }
         }
 
@@ -544,6 +547,47 @@ public final class SearchStore {
             }
             .prefix(8)
             .map(\.entry)
+    }
+
+    /// Full Props slate for the Explore card (no text query) — MLB + NFL
+    /// interleaved, ranked by headline L10 rate desc, capped at 30 so the list
+    /// stays scrollable rather than endless.
+    public var browsePlayerResults: [SearchResult.Player] {
+        guard let props = propsRef else { return [] }
+        var entries: [SearchResult.Player] = []
+        if !props.matchups.isEmpty {
+            rebuildMLBPlayerIndexIfNeeded(props.matchups)
+            entries += mlbPlayerIndex.map { mlbPlayerResult($0, score: 0) }
+        }
+        if !props.nflPlayers.isEmpty {
+            rebuildNFLPlayerIndexIfNeeded(props.nflPlayers)
+            entries += nflPlayerIndex.map { nflPlayerResult($0, score: 0) }
+        }
+        return Array(entries.sorted { $0.headlineRank > $1.headlineRank }.prefix(30))
+    }
+
+    /// Map a cached index entry to a result row — shared by the query and
+    /// browse paths so the id/kind/payload stay identical.
+    private func mlbPlayerResult(_ entry: MLBPlayerIndexEntry, score: Int) -> SearchResult.Player {
+        SearchResult.Player(
+            id: "player-mlb-\(entry.gamePk)-\(entry.playerId)",
+            kind: .mlb(gamePk: entry.gamePk, playerId: entry.playerId, isPitcher: entry.isPitcher),
+            playerName: entry.name,
+            teamAbbr: entry.teamAbbr,
+            matchScore: score,
+            headlineRank: entry.headlineRank
+        )
+    }
+
+    private func nflPlayerResult(_ entry: NFLPlayerIndexEntry, score: Int) -> SearchResult.Player {
+        SearchResult.Player(
+            id: "player-nfl-\(entry.playerKey)",
+            kind: .nfl(playerKey: entry.playerKey, gameId: entry.gameId),
+            playerName: entry.name,
+            teamAbbr: entry.teamAbbr,
+            matchScore: score,
+            headlineRank: entry.headlineRank
+        )
     }
 
     private func rebuildMLBPlayerIndexIfNeeded(_ matchups: [MLBPropMatchup]) {
@@ -639,6 +683,25 @@ public final class SearchStore {
         return out
     }
 
+    /// Full agents slate for the Explore card (no text query) — the signed-in
+    /// user's own agents first, then the public leaderboard (already net-units
+    /// sorted), de-duped by avatar id and capped at 30.
+    public var browseAgentResults: [SearchResult.Agent] {
+        var out: [SearchResult.Agent] = []
+        if let agents = agentsRef {
+            out += agents.agents.map { .init(id: "own-\($0.agent.id)", model: $0, isPublic: false) }
+        }
+        let seen = Set(out.map { $0.agentId })
+        for entry in publicAgents where !seen.contains(entry.avatarId) {
+            out.append(.init(
+                id: "public-\(entry.avatarId)",
+                model: AgentWithPerformance(leaderboard: entry),
+                isPublic: true
+            ))
+        }
+        return Array(out.prefix(30))
+    }
+
     /// Outliers trend-card matches over the loaded slate (min query 2 chars, cap 12).
     /// Ranks subject-name prefix highest, then team abbr, then matchup / bet-type hits.
     public var trendResults: [SearchResult.Trend] {
@@ -665,6 +728,26 @@ public final class SearchStore {
             }
             .prefix(12)
             .map(\.result)
+    }
+
+    /// Full Outliers slate for the Explore card (no text query) — the loaded
+    /// cross-sport index sorted by trend strength desc, capped at 30.
+    public var browseTrendResults: [SearchResult.Trend] {
+        guard let trends = trendsRef else { return [] }
+        return Array(
+            trends.searchIndex
+                .sorted { $0.card.trendValue > $1.card.trendValue }
+                .prefix(30)
+                .map {
+                    SearchResult.Trend(
+                        id: "trend-\($0.id)",
+                        card: $0.card,
+                        sport: $0.sport,
+                        game: $0.game,
+                        matchScore: 0
+                    )
+                }
+        )
     }
 
     /// Match a trend card: subject name (player/coach/team/ref) > team abbr >

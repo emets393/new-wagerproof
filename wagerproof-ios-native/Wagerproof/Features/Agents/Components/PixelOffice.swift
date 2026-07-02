@@ -163,7 +163,8 @@ struct PixelOffice: View {
                     Text(timeModeLabel)
                         .font(.system(size: 12, weight: .semibold))
                         .tracking(0.3)
-                        .foregroundStyle(Color(red: 0x8b / 255, green: 0x94 / 255, blue: 0x9e / 255))
+                        // White text to match the corner HQ/stats glass pills.
+                        .foregroundStyle(.white)
                 }
                 .padding(.horizontal, 11)
                 .padding(.vertical, 7)
@@ -180,7 +181,8 @@ struct PixelOffice: View {
                     Text(floorStyle == "standard" ? "Standard" : "Future")
                         .font(.system(size: 12, weight: .semibold))
                         .tracking(0.3)
-                        .foregroundStyle(Color(red: 0x8b / 255, green: 0x94 / 255, blue: 0x9e / 255))
+                        // White text to match the corner HQ/stats glass pills.
+                        .foregroundStyle(.white)
                 }
                 .padding(.horizontal, 11)
                 .padding(.vertical, 7)

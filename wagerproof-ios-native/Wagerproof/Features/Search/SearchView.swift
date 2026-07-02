@@ -103,10 +103,15 @@ struct SearchView: View {
         @Bindable var binding = store
         NavigationStack {
             List {
-                if store.debouncedQuery.isEmpty {
-                    emptyStateSections
-                } else {
+                if !store.debouncedQuery.isEmpty {
                     activeSearchSections
+                } else if let browse = store.browseScope {
+                    // Explore card tapped → keep the rail as a category switcher
+                    // and show that category's full list below it.
+                    exploreCardsSection
+                    browseSections(browse)
+                } else {
+                    emptyStateSections
                 }
             }
             // Plain (not insetGrouped) so rows span the full screen width — that's
@@ -135,6 +140,15 @@ struct SearchView: View {
                 ForEach(SearchStore.SearchScope.allCases, id: \.self) { s in
                     Text(s.label).tag(s)
                 }
+            }
+            // Pressing return/search records the query into Recents — without
+            // this, a search was only ever captured when the user tapped a
+            // result, so submitted-but-not-tapped searches were lost. Flush the
+            // 200ms debounce first so the live text (not the lagging debounced
+            // value) is what gets committed.
+            .onSubmit(of: .search) {
+                store.flushDebounce()
+                store.commitCurrentQueryToRecents()
             }
             .task {
                 // Wire the SearchStore to whatever upstream stores the tab
@@ -174,6 +188,22 @@ struct SearchView: View {
                     hydrateInsightSources()
                 }
             }
+        }
+    }
+
+    /// Explore card tapped → enter browse mode for that category and kick off
+    /// whatever upstream fetch its results need (same lazy sources the query
+    /// path uses, all idempotent/TTL-guarded).
+    private func startBrowse(_ scope: SearchStore.SearchScope) {
+        store.commitCurrentQueryToRecents()
+        store.browse(scope)
+        switch scope {
+        case .players, .outliers:
+            hydrateInsightSources()
+        case .agents:
+            Task { await store.loadPublicAgentsIfNeeded() }
+        default:
+            break
         }
     }
 
@@ -309,10 +339,8 @@ struct SearchView: View {
                 SearchToolCard(
                     title: "Props",
                     subtitle: "Player prop matchups",
-                    action: {
-                        store.commitCurrentQueryToRecents()
-                        tabStore.select(.props)
-                    }
+                    isSelected: store.browseScope == .players,
+                    action: { startBrowse(.players) }
                 ) {
                     AngledStatSheetGraphic(rows: [
                         ("figure.baseball", "Judge O 1.5 total bases"),
@@ -328,10 +356,8 @@ struct SearchView: View {
                 SearchToolCard(
                     title: "Agents",
                     subtitle: "Top performing AI experts",
-                    action: {
-                        store.commitCurrentQueryToRecents()
-                        tabStore.select(.agents)
-                    }
+                    isSelected: store.browseScope == .agents,
+                    action: { startBrowse(.agents) }
                 ) {
                     StackedStatCardsGraphic(items: [
                         ("100%", "10/10"),
@@ -345,10 +371,8 @@ struct SearchView: View {
                 SearchToolCard(
                     title: "Outliers",
                     subtitle: "Situational betting trends",
-                    action: {
-                        store.commitCurrentQueryToRecents()
-                        tabStore.select(.outliers)
-                    }
+                    isSelected: store.browseScope == .outliers,
+                    action: { startBrowse(.outliers) }
                 ) { RadarSweepGraphic() }
                 .frame(width: Self.exploreCardWidth)
                 }
@@ -419,11 +443,18 @@ struct SearchView: View {
         // are in-memory, so this is the one section that needs a real loading state.
         let trendsLoading = trendsEnv?.isLoadingSearchIndex ?? false
 
+        // Outliers is the only async scope; its in-flight load should suppress
+        // the empty state only when the user is actually viewing it (or All).
+        let outliersScopeLoading = trendsLoading && (store.scope == .all || store.scope == .outliers)
+
         if store.isDebouncing && store.totalResultCount == 0 {
             // Card-shaped scaffold while the 200ms debounce settles, so the loading
             // state reads as result cards arriving rather than a spinner.
             searchLoadingScaffold
-        } else if store.totalResultCount == 0 && !trendsLoading && !store.isDebouncing {
+        } else if visibleResultCount == 0 && !outliersScopeLoading && !store.isDebouncing {
+            // Scope-aware: when a specific tab (Matchup / Props / Agents /
+            // Outliers) has no matches we still show the empty state, even if a
+            // *different* scope has results.
             ContentUnavailableView.search(text: store.debouncedQuery)
                 .listRowBackground(Color.clear)
         } else {
@@ -538,8 +569,127 @@ struct SearchView: View {
         .listRowSeparator(.hidden)
     }
 
+    // MARK: - Browse (Explore card tapped, no query)
+
+    /// One full-category result list shown when an Explore card is tapped. Each
+    /// case reuses the exact result rows the query path renders, falls back to
+    /// that feed's shimmer while its slate loads, and to a Back-to-Explore
+    /// empty state when nothing is available.
+    @ViewBuilder
+    private func browseSections(_ scope: SearchStore.SearchScope) -> some View {
+        switch scope {
+        case .players:
+            let players = store.browsePlayerResults
+            if !players.isEmpty {
+                Section(header: browseHeader("Props", icon: "figure.run", count: players.count)) {
+                    ForEach(players) { playerResultRow($0) }
+                }
+            } else if (propsEnv?.isLoadingMLB ?? false) || (propsEnv?.isLoadingNFL ?? false) {
+                Section(header: browseHeader("Props", icon: "figure.run")) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        PropCardShimmer()
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
+                }
+            } else {
+                browseEmpty("No props available", "Player props load in-season. Check back when games are on the board.")
+            }
+        case .agents:
+            let agents = store.browseAgentResults
+            if !agents.isEmpty {
+                Section(header: browseHeader("Agents", icon: "brain.head.profile", count: agents.count)) {
+                    ForEach(agents) { result in
+                        AgentRowCard(agent: result.model, onTap: { openAgent(result) })
+                            .padding(.vertical, 4)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
+                }
+            } else if store.isLoadingPublicAgents {
+                Section(header: browseHeader("Agents", icon: "brain.head.profile")) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        AgentRowCardShimmer()
+                            .padding(.vertical, 4)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
+                }
+            } else {
+                browseEmpty("No agents yet", "Create an agent or follow the leaderboard to see picks experts here.")
+            }
+        case .outliers:
+            let trends = store.browseTrendResults
+            if !trends.isEmpty {
+                Section(header: browseHeader("Outliers", icon: "chart.line.uptrend.xyaxis", count: trends.count)) {
+                    outliersRail(trends)
+                }
+            } else if trendsEnv?.isLoadingSearchIndex ?? false {
+                Section(header: browseHeader("Outliers", icon: "chart.line.uptrend.xyaxis")) {
+                    outliersShimmerRail
+                }
+            } else {
+                browseEmpty("No outliers available", "Situational trends load per sport. Try again once games are scheduled.")
+            }
+        default:
+            EmptyView()
+        }
+    }
+
+    /// Section header for a browse list — same look as `sectionHeader` plus a
+    /// trailing Clear button that returns to the empty-state launchpad.
+    private func browseHeader(_ title: String, icon: String, count: Int? = nil) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .bold))
+            Text(title)
+                .textCase(.uppercase)
+            if let count {
+                Text("\(count)")
+                    .foregroundStyle(Color.appTextMuted)
+                    .textCase(nil)
+            }
+            Spacer()
+            Button("Clear") { store.exitBrowse() }
+                .font(.system(size: 12, weight: .semibold))
+                .textCase(nil)
+                .tint(Color.appPrimary)
+        }
+        .foregroundStyle(.secondary)
+    }
+
+    /// Empty state for a browse category whose slate has no rows — offers a way
+    /// back to the launchpad rather than dead-ending.
+    private func browseEmpty(_ title: String, _ message: String) -> some View {
+        ContentUnavailableView {
+            Label(title, systemImage: "magnifyingglass")
+        } description: {
+            Text(message)
+        } actions: {
+            Button("Back to Explore") { store.exitBrowse() }
+        }
+        .listRowBackground(Color.clear)
+    }
+
     private func showsScope(_ s: SearchStore.SearchScope) -> Bool {
         store.scope == .all || store.scope == s
+    }
+
+    /// Result count for the currently selected scope — drives the scope-aware
+    /// empty state. `.all` sums every scope; a single scope counts only itself.
+    private var visibleResultCount: Int {
+        switch store.scope {
+        case .all: return store.totalResultCount
+        case .games: return store.gameResults.count
+        case .players: return store.playerResults.count
+        case .agents: return store.agentResults.count
+        case .outliers: return store.trendResults.count
+        }
     }
 
     private func sectionHeader(_ title: String, icon: String, count: Int? = nil) -> some View {
@@ -835,8 +985,6 @@ struct SearchView: View {
             tabStore.select(.agents)
         case .topOutliers:
             tabStore.select(.outliers)
-        case .liveGames:
-            tabStore.select(.scoreboard)
         }
     }
 }
@@ -862,13 +1010,11 @@ struct SearchInsightDestination: Identifiable, Hashable {
 private enum BrowseEntry: CaseIterable, Hashable {
     case trendingAgents
     case topOutliers
-    case liveGames
 
     var icon: String {
         switch self {
         case .trendingAgents: return "brain.head.profile"
         case .topOutliers: return "bell.badge.fill"
-        case .liveGames: return "sportscourt.fill"
         }
     }
 
@@ -876,7 +1022,6 @@ private enum BrowseEntry: CaseIterable, Hashable {
         switch self {
         case .trendingAgents: return Color.appAccentPurple
         case .topOutliers: return Color.appAccentAmber
-        case .liveGames: return Color.appAccentBlue
         }
     }
 
@@ -884,7 +1029,6 @@ private enum BrowseEntry: CaseIterable, Hashable {
         switch self {
         case .trendingAgents: return "Trending agents"
         case .topOutliers: return "Top outliers"
-        case .liveGames: return "Live games"
         }
     }
 
@@ -892,52 +1036,6 @@ private enum BrowseEntry: CaseIterable, Hashable {
         switch self {
         case .trendingAgents: return "Browse the leaderboard"
         case .topOutliers: return "Situational betting trends"
-        case .liveGames: return "Current scoreboard"
         }
-    }
-}
-
-// MARK: - Loading skeleton
-
-/// Skeleton mirror of `OutliersTrendCard` for the Search "Outliers" rail while the
-/// cross-sport index fetches. Lays Skeleton* primitives where the avatar / name /
-/// betting line / trend rows land so the crossfade to real cards never shifts the
-/// layout. The placeholder group shimmers; the card chrome is applied solid after.
-private struct OutliersTrendCardShimmer: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
-                SkeletonCircle(36)
-                VStack(alignment: .leading, spacing: 5) {
-                    SkeletonBlock(width: 150, height: 12) // name — bet type
-                    SkeletonBlock(width: 90, height: 10)  // detail
-                    SkeletonBlock(width: 120, height: 10) // matchup
-                }
-                Spacer(minLength: 4)
-                VStack(alignment: .trailing, spacing: 3) {
-                    SkeletonBlock(width: 44, height: 9)
-                    SkeletonBlock(width: 36, height: 9)
-                }
-            }
-            SkeletonBlock(height: 34, cornerRadius: 10)   // betting line block
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(0..<5, id: \.self) { _ in
-                    HStack(spacing: 6) {
-                        SkeletonCircle(6)
-                        SkeletonBlock(width: 150, height: 10)
-                        Spacer(minLength: 8)
-                        SkeletonBlock(width: 30, height: 10)
-                    }
-                }
-            }
-        }
-        .shimmering()
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.appBorder.opacity(0.35), lineWidth: 0.5)
-        )
     }
 }

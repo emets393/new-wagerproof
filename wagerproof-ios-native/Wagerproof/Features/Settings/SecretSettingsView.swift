@@ -22,12 +22,16 @@ struct SecretSettingsView: View {
     @Environment(RevenueCatStore.self) private var revenueCat
     @Environment(AdminModeStore.self) private var adminMode
     @Environment(OnboardingStore.self) private var onboarding
+    @Environment(RootRouter.self) private var router
     #if DEBUG
     @Environment(DebugDataModeStore.self) private var debugDataMode
     #endif
     @State private var diagnosticsMessage: DiagMessage?
     @State private var isPaywallPresented = false
     @State private var isVoicePresented = false
+    #if DEBUG
+    @State private var isGenerationPreviewPresented = false
+    #endif
 
     /// Persisted WagerBot Voice personality — read here only so the voice
     /// row subtitle reflects the user's current mode. Owned/written by
@@ -36,6 +40,11 @@ struct SecretSettingsView: View {
     // V3 agentic generation opt-in (new-client only). Local store reads/writes
     // UserDefaults; AgentDetailStore.generatePicks() reads the same keys.
     @State private var v3Settings = AgentV3SettingsStore()
+    // Agents "Platform Statistics" screen — win-rate distribution across all
+    // agents. Lives here (hidden) rather than a public tab. Store fetches once
+    // when the cover opens.
+    @State private var isAgentStatsPresented = false
+    @State private var platformStatsStore = PlatformStatsStore()
 
     private struct DiagMessage: Identifiable {
         let id = UUID()
@@ -52,6 +61,10 @@ struct SecretSettingsView: View {
         NavigationStack {
             Form {
                 testingTogglesSection
+                #if DEBUG
+                uiPreviewsSection
+                #endif
+                analyticsSection
                 agentV3Section
                 diagnosticsSection
                 if case let .authenticated(userId) = auth.phase {
@@ -91,10 +104,77 @@ struct SecretSettingsView: View {
             .fullScreenCover(isPresented: $isVoicePresented) {
                 WagerBotVoiceView()
             }
+            #if DEBUG
+            .fullScreenCover(isPresented: $isGenerationPreviewPresented) {
+                GenerationPreviewView()
+            }
+            #endif
+            .fullScreenCover(isPresented: $isAgentStatsPresented) {
+                NavigationStack {
+                    AgentStatsView(store: platformStatsStore)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button {
+                                    isAgentStatsPresented = false
+                                } label: {
+                                    Image(systemName: "chevron.left")
+                                        .font(.system(size: 17, weight: .semibold))
+                                }
+                                .tint(Color.appTextPrimary)
+                                .accessibilityLabel("Back")
+                            }
+                        }
+                }
+            }
+        }
+    }
+
+    /// Platform analytics — hidden win-rate distribution screen for all agents.
+    @ViewBuilder
+    private var analyticsSection: some View {
+        Section {
+            Button {
+                isAgentStatsPresented = true
+            } label: {
+                row(
+                    icon: "chart.bar.xaxis",
+                    iconColor: Color(hex: 0x2A86FF),
+                    iconBackground: Color(hex: 0xEDF5FF),
+                    title: "Agents Platform Stats",
+                    subtitle: "Win-rate distribution across all agents"
+                )
+            }
+            .buttonStyle(.plain)
+        } header: {
+            Text("Platform Analytics")
         }
     }
 
     // MARK: - Sections
+
+    #if DEBUG
+    /// DEBUG-only entry points to standalone UI harnesses so animations can be
+    /// reviewed without the real data/network path that drives them.
+    @ViewBuilder
+    private var uiPreviewsSection: some View {
+        Section {
+            Button {
+                isGenerationPreviewPresented = true
+            } label: {
+                row(
+                    icon: "rectangle.stack.badge.play.fill",
+                    iconColor: Color(hex: 0x8B5CF6),
+                    iconBackground: Color(hex: 0xF3EEFF),
+                    title: "Generation Card Preview",
+                    subtitle: "Watch the pick-generation animation without a run"
+                )
+            }
+            .buttonStyle(.plain)
+        } header: {
+            Text("UI Previews")
+        }
+    }
+    #endif
 
     @ViewBuilder
     private var testingTogglesSection: some View {
@@ -172,50 +252,34 @@ struct SecretSettingsView: View {
     @ViewBuilder
     private var agentV3Section: some View {
         Section {
+            // This client is V3-only; these are just DEBUG tuning knobs for the
+            // agentic engine (no on/off — generation always runs on V3).
             Toggle(isOn: Binding(
-                get: { v3Settings.useV3Engine },
-                set: { v3Settings.setUseV3Engine($0) }
+                get: { v3Settings.dryRun },
+                set: { v3Settings.setDryRun($0) }
             )) {
                 rowLabel(
-                    icon: "cpu.fill",
-                    iconColor: Color(hex: 0x6366F1),
-                    iconBackground: Color(hex: 0xEEF0FF),
-                    title: "V3 Agentic Engine",
-                    subtitle: v3Settings.useV3Engine
-                        ? "Generation uses the new tool-loop engine"
-                        : "Off — generation uses the V2 engine"
+                    icon: "eye.fill",
+                    iconColor: Color(hex: 0x0EA5E9),
+                    iconBackground: Color(hex: 0xE6F6FE),
+                    title: "Dry Run",
+                    subtitle: v3Settings.dryRun
+                        ? "Runs the loop + records trace, writes NO picks"
+                        : "Writes picks normally"
                 )
             }
             .tint(Color.appPrimary)
 
-            if v3Settings.useV3Engine {
-                Toggle(isOn: Binding(
-                    get: { v3Settings.dryRun },
-                    set: { v3Settings.setDryRun($0) }
-                )) {
-                    rowLabel(
-                        icon: "eye.fill",
-                        iconColor: Color(hex: 0x0EA5E9),
-                        iconBackground: Color(hex: 0xE6F6FE),
-                        title: "Dry Run",
-                        subtitle: v3Settings.dryRun
-                            ? "Runs the loop + records trace, writes NO picks"
-                            : "Writes picks normally"
-                    )
-                }
-                .tint(Color.appPrimary)
-
-                Picker("Model", selection: Binding(
-                    get: { v3Settings.model },
-                    set: { v3Settings.setModel($0) }
-                )) {
-                    ForEach(AgentV3SettingsStore.models, id: \.self) { Text($0).tag($0) }
-                }
+            Picker("Model", selection: Binding(
+                get: { v3Settings.model },
+                set: { v3Settings.setModel($0) }
+            )) {
+                ForEach(AgentV3SettingsStore.models, id: \.self) { Text($0).tag($0) }
             }
         } header: {
-            Text("Agent V3 Engine (Beta)")
+            Text("Agent V3 Engine")
         } footer: {
-            Text("Opt this client into the V3 agentic pick-generation engine. Off matches V2 exactly. Affects only generation requests from this device.")
+            Text("DEBUG tuning for the agentic pick-generation engine. Affects only generation requests from this device.")
         }
     }
 
@@ -402,10 +466,13 @@ struct SecretSettingsView: View {
                 .eq("user_id", value: userId)
                 .execute()
             // `onboarding.reset()` flips `isComplete=false` AND wipes the
-            // per-user AppGroup cache key, so RootRouter swaps to .onboarding
-            // immediately via the .onChange(of: onboardingStore.isComplete)
-            // observer in WagerproofApp. No relaunch needed.
+            // per-user AppGroup cache key, resetting the wizard to step 1.
             onboarding.reset()
+            // The isComplete observer alone can't re-enter the wizard while
+            // `RootRouter.temporarilyDisableOnboarding` is active (resolve()
+            // would still land on .ready) — and if isComplete was already
+            // false it never fires. Force the phase directly.
+            router.forceOnboardingForTestingNow()
             diagnosticsMessage = DiagMessage(
                 title: "Onboarding Reset",
                 body: "Tap OK to return to the onboarding wizard.",

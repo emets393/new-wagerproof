@@ -1,17 +1,24 @@
 import SwiftUI
+import UIKit
 import WagerproofDesign
 import WagerproofServices
 import WagerproofStores
 
 /// Settings screen — the SwiftUI port of `wagerproof-mobile/app/(drawer)/(tabs)/settings.tsx`.
 ///
-/// Layout strategy (spec §16):
-/// - `Form` with `.insetGrouped` `List` style — same affordance as iOS
-///   Settings.app. RN built this with hand-rolled `SectionCard` blocks; the
-///   native `Form` gives us free section spacing, dynamic-type sizing, dark
-///   mode, and HIG-correct row insets.
-/// - Hero membership card stays bespoke because it's a visual hook (gold
-///   gradient + "GO PRO TODAY") that doesn't map cleanly to a `Form` row.
+/// Layout strategy:
+/// - Flat, borderless "profile" list (NOT a `Form`/inset-grouped `List`). The
+///   reference design is the minimal Cursor-style profile page: monochrome
+///   outline SF Symbols (no tinted icon chips), airy muted section headers,
+///   hairline dividers between rows, an `arrow.up.right` accessory for rows
+///   that leave the app vs `chevron.right` for in-app navigation, and a red
+///   "Danger Zone". A native `Form` fights all of this (it forces grouped
+///   card backgrounds + system insets), so we hand-roll it as a `ScrollView`
+///   of `ProfileSectionHeader` + `ProfileRow` primitives.
+/// - The two `HoneydewOptionCard` hero banners (Pro CTA + Discord) are kept
+///   from the prior design — they're the visual hook (gradient + drifting
+///   chrome + glass pill) and double as the "Plan" affordance, so they sit at
+///   the top above the flat sections.
 /// - All sheet/modal triggers go through `@State` flags that flip
 ///   `.sheet(item:)` / `.sheet(isPresented:)` / `.fullScreenCover(isPresented:)`
 ///   to mount the modal views from the same file. The modals themselves
@@ -39,6 +46,8 @@ struct SettingsView: View {
     @State private var versionTapTask: Task<Void, Never>?
     @State private var isOpeningCustomerCenter = false
     @State private var notificationDeniedAlert = false
+    @State private var didCopyUserId = false
+    @State private var copyResetTask: Task<Void, Never>?
 
     /// Modal targets — `Identifiable` lets us drive `.sheet(item:)` with a
     /// single state variable instead of one bool per modal. Keeps animations
@@ -51,21 +60,35 @@ struct SettingsView: View {
         var id: String { rawValue }
     }
 
+    /// Leading inset that lines hairline row dividers up with the row title
+    /// (page padding + icon column + icon→title spacing). Kept as one constant
+    /// so the icon column width and divider inset never drift apart.
+    private static let iconColumnWidth: CGFloat = 26
+    private static let dividerInset = Spacing.lg + iconColumnWidth + Spacing.lg
+
     var body: some View {
         // No `NavigationStack` here — Settings is pushed onto the active tab's
         // stack (see MainTabToolbar.wagerProofSettingsDestination), so wrapping
         // it in its own stack would double the nav bar. The system back button
         // pops it.
-        Form {
-            heroSection
-            preferencesSection
-            discordPromoSection
-            communitySupportSection
-            legalSection
-            accountSection
-            footerSection
+        ScrollView {
+            VStack(spacing: 0) {
+                // Hero banners (kept) double as the "Plan" affordance.
+                VStack(spacing: 10) {
+                    heroCard
+                    discordCard
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.md)
+
+                preferencesSection
+                supportSection
+                legalSection
+                accountSection
+                footerSection
+            }
+            .padding(.bottom, Spacing.xl)
         }
-        .scrollContentBackground(.hidden)
         .background(Color.appSurface.ignoresSafeArea())
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.large)
@@ -139,14 +162,13 @@ struct SettingsView: View {
 
     // MARK: - Hero (Pro banner)
     //
-    // Full port of Honeydew's `optionCard` design language from
-    // `AddRecipeBottomSheet.swift:959-1117`: two-stop horizontal gradient,
-    // drifting SF Symbol chrome in the card's `primaryColor`, fade-over-
-    // icons overlay, white title/subtitle, liquid-glass action pill.
+    // Full port of Honeydew's `optionCard` design language: two-stop horizontal
+    // gradient, drifting SF Symbol chrome in the card's `primaryColor`, fade-
+    // over-icons overlay, white title/subtitle, liquid-glass action pill.
     // Implementation lives in `WagerproofDesign/Components/HoneydewOptionCard.swift`
     // so the Pro + Discord banners share the same animation engine.
     @ViewBuilder
-    private var heroSection: some View {
+    private var heroCard: some View {
         let isLoading = proAccess.isLoading
         let isPro = proAccess.isPro
         let title = isLoading
@@ -157,235 +179,278 @@ struct SettingsView: View {
             : (isPro ? "Premium picks unlocked" : "Unlock premium picks")
         let actionWord = isLoading ? "Hold" : (isPro ? "Manage" : "Upgrade")
 
-        Section {
-            HoneydewOptionCard(
-                title: title,
-                subtitle: subtitle,
-                actionWord: actionWord,
-                // Vivid pumpkin → warm gold gradient — Honeydew's `pantry`
-                // tile palette repurposed for the Pro CTA so the banner
-                // reads as "premium / unlock" without using the brand
-                // green (reserved for the WP onboarding CTA).
-                primaryColor: Color(red: 1.00, green: 0.50, blue: 0.00),
-                secondaryColor: Color(red: 1.00, green: 0.78, blue: 0.30),
-                symbols: [
-                    "crown.fill", "sparkles", "star.fill", "gift.fill",
-                    "dollarsign.circle.fill", "chart.line.uptrend.xyaxis",
-                    "bolt.fill", "trophy.fill", "flame.fill", "rosette"
-                ],
-                seed: 0.13,
-                speedFactor: 1.04,
-                yJitter: 0.02,
-                onTap: handleHeroTap
-            )
-            .disabled(proAccess.isLoading)
-            // Zero horizontal insets so the card spans the same width as the
-            // inset-grouped section containers below it.
-            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-            .listRowBackground(Color.clear)
-        }
+        HoneydewOptionCard(
+            title: title,
+            subtitle: subtitle,
+            actionWord: actionWord,
+            // Vivid pumpkin → warm gold gradient — Honeydew's `pantry`
+            // tile palette repurposed for the Pro CTA so the banner
+            // reads as "premium / unlock" without using the brand
+            // green (reserved for the WP onboarding CTA).
+            primaryColor: Color(red: 1.00, green: 0.50, blue: 0.00),
+            secondaryColor: Color(red: 1.00, green: 0.78, blue: 0.30),
+            symbols: [
+                "crown.fill", "sparkles", "star.fill", "gift.fill",
+                "dollarsign.circle.fill", "chart.line.uptrend.xyaxis",
+                "bolt.fill", "trophy.fill", "flame.fill", "rosette"
+            ],
+            seed: 0.13,
+            speedFactor: 1.04,
+            yJitter: 0.02,
+            onTap: handleHeroTap
+        )
+        .disabled(proAccess.isLoading)
+    }
+
+    // MARK: - Discord promo
+    @ViewBuilder
+    private var discordCard: some View {
+        HoneydewOptionCard(
+            title: "Join our Discord",
+            subtitle: "Picks, updates, and live chat",
+            actionWord: "Join",
+            // Discord blurple → lighter periwinkle. Same hue family
+            // as Honeydew's `askAI` violet tile, retuned to match
+            // Discord's brand palette.
+            primaryColor: Color(red: 0.36, green: 0.40, blue: 0.95),
+            secondaryColor: Color(red: 0.62, green: 0.66, blue: 1.00),
+            symbols: [
+                "bubble.left.and.bubble.right.fill", "message.fill",
+                "person.2.fill", "hand.wave.fill", "headphones",
+                "mic.fill", "heart.fill", "star.fill",
+                "ellipsis.bubble.fill", "person.3.fill"
+            ],
+            seed: 0.46,
+            speedFactor: 0.95,
+            yJitter: -0.04,
+            onTap: { modal = .discord }
+        )
     }
 
     // MARK: - Preferences
     @ViewBuilder
     private var preferencesSection: some View {
-        Section("Preferences") {
+        ProfileSectionHeader(title: "Preferences")
+        VStack(spacing: 0) {
             // Theme changer intentionally hidden — the app ships dark-mode-only.
             // See ThemeStore (default `.dark`).
-            HStack {
-                if settings.isCheckingNotificationPermission {
-                    SettingsRow(
-                        icon: "bell.fill", iconColor: Color.appPrimary,
-                        title: "Push Notifications", subtitle: "Checking permission…",
-                        chevron: false
-                    )
-                    Spacer()
-                    ProgressView()
-                } else {
-                    Toggle(isOn: Binding(
-                        get: { settings.notificationPermission.isEnabled },
-                        set: { newValue in
-                            Task {
-                                if newValue {
-                                    let result = await settings.enableNotifications(userId: currentUserId)
-                                    if result == .denied { notificationDeniedAlert = true }
-                                } else {
-                                    await settings.disableNotifications(userId: currentUserId)
-                                }
+            pushNotificationsRow
+            rowDivider
+            ProfileRow(
+                icon: "square.grid.2x2",
+                title: "iOS Home Screen Widget",
+                accessory: .chevron,
+                action: { modal = .iosWidget }
+            )
+        }
+    }
+
+    /// Push-notification row — bespoke because it carries a `Toggle` (or a
+    /// spinner while we re-poll the OS permission) rather than a tap accessory.
+    @ViewBuilder
+    private var pushNotificationsRow: some View {
+        HStack(spacing: Spacing.lg) {
+            Image(systemName: "bell")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundStyle(Color.appTextSecondary)
+                .frame(width: Self.iconColumnWidth)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Push Notifications")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(Color.appTextPrimary)
+                Text(notificationSubtitle)
+                    .font(AppFont.caption)
+                    .foregroundStyle(Color.appTextMuted)
+            }
+            Spacer(minLength: Spacing.sm)
+            if settings.isCheckingNotificationPermission {
+                ProgressView()
+            } else {
+                Toggle("", isOn: Binding(
+                    get: { settings.notificationPermission.isEnabled },
+                    set: { newValue in
+                        Task {
+                            if newValue {
+                                let result = await settings.enableNotifications(userId: currentUserId)
+                                if result == .denied { notificationDeniedAlert = true }
+                            } else {
+                                await settings.disableNotifications(userId: currentUserId)
                             }
                         }
-                    )) {
-                        SettingsRow(
-                            icon: "bell.fill", iconColor: Color.appPrimary,
-                            title: "Push Notifications",
-                            subtitle: settings.notificationPermission.isEnabled
-                                ? "On — agent picks & alerts"
-                                : "Off",
-                            chevron: false
-                        )
                     }
-                    .tint(Color.appPrimary)
-                }
+                ))
+                .labelsHidden()
+                .tint(Color.appPrimary)
             }
-
-            // FIDELITY-WAIVER #050: Thinking Sprite picker row (RN settings.tsx:438-445)
-            // not yet ported — sprite asset bundle deferred to B14 (Pixel Office).
-
-            // WagerBot Voice row moved to SecretSettingsView while the
-            // feature is incubating — not ready for general availability.
-
-            Button { modal = .iosWidget } label: {
-                SettingsRow(
-                    icon: "square.grid.2x2.fill",
-                    iconColor: Color(hex: 0x7C83FD),
-                    title: "iOS Home Screen Widget"
-                )
-            }
-            .buttonStyle(.plain)
         }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, 14)
     }
 
-    // MARK: - Discord promo
+    private var notificationSubtitle: String {
+        if settings.isCheckingNotificationPermission { return "Checking permission…" }
+        return settings.notificationPermission.isEnabled ? "On — agent picks & alerts" : "Off"
+    }
+
+    // MARK: - Support
     @ViewBuilder
-    private var discordPromoSection: some View {
-        Section {
-            HoneydewOptionCard(
-                title: "Join our Discord",
-                subtitle: "Picks, updates, and live chat",
-                actionWord: "Join",
-                // Discord blurple → lighter periwinkle. Same hue family
-                // as Honeydew's `askAI` violet tile, retuned to match
-                // Discord's brand palette.
-                primaryColor: Color(red: 0.36, green: 0.40, blue: 0.95),
-                secondaryColor: Color(red: 0.62, green: 0.66, blue: 1.00),
-                symbols: [
-                    "bubble.left.and.bubble.right.fill", "message.fill",
-                    "person.2.fill", "hand.wave.fill", "headphones",
-                    "mic.fill", "heart.fill", "star.fill",
-                    "ellipsis.bubble.fill", "person.3.fill"
-                ],
-                seed: 0.46,
-                speedFactor: 0.95,
-                yJitter: -0.04,
-                onTap: { modal = .discord }
+    private var supportSection: some View {
+        ProfileSectionHeader(title: "Support")
+        VStack(spacing: 0) {
+            ProfileRow(
+                icon: "bubble.left.and.bubble.right",
+                title: "Discord Channel",
+                accessory: .chevron,
+                action: { modal = .discord }
             )
-            // Zero horizontal insets — match the Pro hero card / section width.
-            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-            .listRowBackground(Color.clear)
-        }
-    }
-
-    // MARK: - Community & support
-    @ViewBuilder
-    private var communitySupportSection: some View {
-        Section("Community & Support") {
-            Button { modal = .discord } label: {
-                SettingsRow(
-                    icon: "bubble.left.and.bubble.right.fill",
-                    iconColor: Color(hex: 0x7289DA),
-                    title: "Discord Channel"
-                )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                openURL(URL(string: "mailto:admin@wagerproof.bet?subject=Contact%20Us%20-%20WagerProof%20Mobile")!)
-            } label: {
-                SettingsRow(
-                    icon: "envelope.fill",
-                    iconColor: Color(hex: 0x42A5F5),
-                    title: "Contact Us"
-                )
-            }
-            .buttonStyle(.plain)
+            rowDivider
+            ProfileRow(
+                icon: "envelope",
+                title: "Contact Us",
+                accessory: .external,
+                action: {
+                    openURL(URL(string: "mailto:admin@wagerproof.bet?subject=Contact%20Us%20-%20WagerProof%20Mobile")!)
+                }
+            )
         }
     }
 
     // MARK: - Legal & policies
     @ViewBuilder
     private var legalSection: some View {
-        Section("Legal & Policies") {
-            Button {
-                openURL(URL(string: "https://wagerproof.bet/privacy-policy")!)
-            } label: {
-                SettingsRow(
-                    icon: "shield.lefthalf.filled",
-                    iconColor: Color(hex: 0x607D8B),
-                    title: "Privacy Policy"
-                )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                openURL(URL(string: "https://wagerproof.bet/terms-and-conditions")!)
-            } label: {
-                SettingsRow(
-                    icon: "doc.text.fill",
-                    iconColor: Color(hex: 0x607D8B),
-                    title: "Terms of Use"
-                )
-            }
-            .buttonStyle(.plain)
+        ProfileSectionHeader(title: "Legal")
+        VStack(spacing: 0) {
+            ProfileRow(
+                icon: "lock.shield",
+                title: "Privacy Policy",
+                accessory: .external,
+                action: { openURL(URL(string: "https://wagerproof.bet/privacy-policy")!) }
+            )
+            rowDivider
+            ProfileRow(
+                icon: "doc.text",
+                title: "Terms of Use",
+                accessory: .external,
+                action: { openURL(URL(string: "https://wagerproof.bet/terms-and-conditions")!) }
+            )
         }
     }
 
-    // MARK: - Account
+    // MARK: - Account / More / Danger Zone
     @ViewBuilder
     private var accountSection: some View {
-        if case .authenticated = auth.phase {
-            Section("Account") {
-                // Static email row — informational only, no chevron.
+        if case let .authenticated(userId) = auth.phase {
+            ProfileSectionHeader(title: "Account")
+            VStack(spacing: 0) {
+                // Static email row — informational only, no accessory.
                 if let email = auth.profile?.email ?? authEmail {
-                    SettingsRow(
-                        icon: "envelope.fill",
-                        iconColor: Color(hex: 0x78909C),
+                    ProfileRow(
+                        icon: "at",
                         title: "Email",
                         subtitle: email,
-                        chevron: false
+                        accessory: .none
                     )
+                    rowDivider
                 }
-
-                // Logout — custom trailing so we can swap in a spinner mid-sign-out.
-                Button {
-                    isLogoutAlertPresented = true
-                } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .font(.system(size: 16, weight: .medium))
-                            .frame(width: 34, height: 34)
-                            .foregroundStyle(Color(hex: 0xFF7043))
-                            .background(Color(hex: 0xFF7043).opacity(0.18),
-                                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        Text(isSigningOut ? "Logging out…" : "Log Out")
-                            .font(AppFont.headline)
-                            .foregroundStyle(Color.appTextPrimary)
-                        Spacer(minLength: 8)
-                        if isSigningOut {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.appTextMuted)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(isSigningOut)
-
-                Button {
-                    modal = .deleteAccount
-                } label: {
-                    SettingsRow(
-                        icon: "exclamationmark.octagon.fill",
-                        iconColor: Color(hex: 0xE53935),
-                        title: "Delete Account",
-                        subtitle: "Permanently delete your account and data",
-                        destructive: true
-                    )
-                }
-                .buttonStyle(.plain)
+                userIdRow(userId: userId)
             }
+
+            ProfileSectionHeader(title: "More")
+            logOutRow
+
+            ProfileSectionHeader(title: "Danger Zone")
+            ProfileRow(
+                icon: "trash",
+                title: "Delete Account",
+                subtitle: "Permanently delete your account and data",
+                accessory: .none,
+                destructive: true,
+                action: { modal = .deleteAccount }
+            )
+        }
+    }
+
+    /// Sign-out row — bespoke so we can swap the leading glyph context for a
+    /// spinner + "Logging out…" label mid-sign-out.
+    @ViewBuilder
+    private var logOutRow: some View {
+        Button {
+            isLogoutAlertPresented = true
+        } label: {
+            HStack(spacing: Spacing.lg) {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .frame(width: Self.iconColumnWidth)
+                Text(isSigningOut ? "Logging out…" : "Sign out")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(Color.appTextPrimary)
+                Spacer(minLength: Spacing.sm)
+                if isSigningOut { ProgressView() }
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isSigningOut)
+    }
+
+    /// User ID row — tap anywhere on it to copy the authenticated user's UUID to
+    /// the clipboard (handy for support handoffs + debugging). The full id is
+    /// shown monospaced and truncated in the middle; the copy glyph flips to a
+    /// checkmark + "Copied" for a beat as confirmation.
+    @ViewBuilder
+    private func userIdRow(userId: UUID) -> some View {
+        let idString = userId.uuidString
+        Button {
+            UIPasteboard.general.string = idString
+            withAnimation(.easeInOut(duration: 0.2)) { didCopyUserId = true }
+            // Revert the "Copied" affordance after a short beat.
+            copyResetTask?.cancel()
+            copyResetTask = Task {
+                try? await Task.sleep(nanoseconds: 1_600_000_000)
+                if Task.isCancelled { return }
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.2)) { didCopyUserId = false }
+                }
+            }
+        } label: {
+            HStack(spacing: Spacing.lg) {
+                Image(systemName: "number")
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .frame(width: Self.iconColumnWidth)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("User ID")
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundStyle(Color.appTextPrimary)
+                    Text(idString)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.appTextMuted)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer(minLength: Spacing.sm)
+                HStack(spacing: 4) {
+                    if didCopyUserId {
+                        Text("Copied")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.appPrimary)
+                    }
+                    Image(systemName: didCopyUserId ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(didCopyUserId ? Color.appPrimary : Color.appTextMuted)
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        // Haptic only on copy (rising edge), not on the auto-reset back to false.
+        .sensoryFeedback(trigger: didCopyUserId) { _, newValue in
+            newValue ? .success : nil
         }
     }
 
@@ -393,68 +458,114 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var footerSection: some View {
-        Section {
-            Button {
-                handleVersionTap()
-            } label: {
-                VStack(spacing: 4) {
-                    Text(appVersionString)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.appTextMuted)
-                    Text("Developed by nerds from Ohio.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.appTextMuted)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+        Button {
+            handleVersionTap()
+        } label: {
+            VStack(spacing: 4) {
+                Text(appVersionString)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.appTextMuted)
+                Text("Developed by nerds from Ohio.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.appTextMuted)
             }
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+            .padding(.top, Spacing.xxl)
+            .padding(.bottom, Spacing.sm)
+            .contentShape(Rectangle())
         }
-        .listRowBackground(Color.clear)
+        .buttonStyle(.plain)
     }
 
-    // MARK: - Row primitive
+    // MARK: - Row primitives (flat "profile" aesthetic)
 
-    /// Native-style settings row: SF Symbol chip + title + optional subtitle +
-    /// optional disclosure chevron. The chip background is derived from the icon
-    /// color at 18% opacity so it reads correctly on both dark and light surfaces
-    /// without requiring separate background hex tokens.
-    private struct SettingsRow: View {
+    /// Muted, airy section header — sentence case, sits flush-left above its
+    /// rows with generous top breathing room between sections.
+    private struct ProfileSectionHeader: View {
+        let title: String
+        var body: some View {
+            Text(title)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(Color.appTextMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.xl)
+                .padding(.bottom, Spacing.sm)
+        }
+    }
+
+    /// Flat settings row: monochrome outline glyph + title (+ optional
+    /// subtitle) + trailing accessory. No tinted icon chip, no card background
+    /// — the row sits directly on the page surface. `action == nil` renders a
+    /// non-interactive display row (e.g. the email row).
+    private struct ProfileRow: View {
+        enum Accessory { case chevron, external, none }
+
         let icon: String
-        let iconColor: Color
         let title: String
         var subtitle: String? = nil
-        var chevron: Bool = true
+        var accessory: Accessory = .chevron
         var destructive: Bool = false
+        var action: (() -> Void)? = nil
 
         var body: some View {
-            HStack(spacing: 14) {
+            if let action {
+                Button(action: action) { rowContent }
+                    .buttonStyle(.plain)
+            } else {
+                rowContent
+            }
+        }
+
+        private var rowContent: some View {
+            HStack(spacing: Spacing.lg) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
-                    .frame(width: 34, height: 34)
-                    .foregroundStyle(iconColor)
-                    .background(iconColor.opacity(0.18),
-                                in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundStyle(destructive ? Color.appAccentRed : Color.appTextSecondary)
+                    .frame(width: SettingsView.iconColumnWidth)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(AppFont.headline)
-                        .foregroundStyle(destructive ? Color(hex: 0xE53935) : Color.appTextPrimary)
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundStyle(destructive ? Color.appAccentRed : Color.appTextPrimary)
                     if let subtitle {
                         Text(subtitle)
                             .font(AppFont.caption)
-                            .foregroundStyle(Color.appTextSecondary)
+                            .foregroundStyle(Color.appTextMuted)
                             .lineLimit(2)
                     }
                 }
-                Spacer(minLength: 8)
-                if chevron {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.appTextMuted)
-                }
+                Spacer(minLength: Spacing.sm)
+                accessoryView
             }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, 14)
             .contentShape(Rectangle())
         }
+
+        @ViewBuilder
+        private var accessoryView: some View {
+            switch accessory {
+            case .chevron:
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.appTextMuted)
+            case .external:
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.appTextMuted)
+            case .none:
+                EmptyView()
+            }
+        }
+    }
+
+    /// Hairline divider between rows in a section, inset to start under the
+    /// row title (so it clears the icon column).
+    private var rowDivider: some View {
+        Rectangle()
+            .fill(Color.appBorder)
+            .frame(height: 0.5)
+            .padding(.leading, Self.dividerInset)
     }
 
     // MARK: - Helpers

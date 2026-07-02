@@ -26,11 +26,8 @@ struct SeriesSignalCard: View {
                     .foregroundStyle(Color.appTextPrimary)
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(accent.opacity(0.1))
-                    .overlay(alignment: .leading) {
-                        Rectangle().fill(accent).frame(width: 3)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .background(accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(accent.opacity(0.25), lineWidth: 1))
             }
         }
     }

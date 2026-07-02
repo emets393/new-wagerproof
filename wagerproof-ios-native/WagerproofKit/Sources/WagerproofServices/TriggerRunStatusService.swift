@@ -1,4 +1,5 @@
 import Foundation
+import Supabase
 
 public struct TriggerV3RunStatus: Decodable, Sendable, Hashable {
     public let id: String
@@ -19,7 +20,11 @@ public struct TriggerV3RunStatus: Decodable, Sendable, Hashable {
 
     public var isTerminal: Bool {
         let upper = status.uppercased()
-        return upper == "COMPLETED" || upper == "CANCELED" || upper == "FAILED" || upper == "CRASHED" || upper == "INTERRUPTED" || upper == "EXPIRED"
+        // Trigger.dev's real terminal set (RunStatus in @trigger.dev/core) also
+        // includes TIMED_OUT (hit maxDuration, e.g. a runaway LLM loop) and
+        // SYSTEM_FAILURE — both were missing here, which let a genuinely-dead
+        // run poll for its full ~11 min budget before the client gave up.
+        return upper == "COMPLETED" || upper == "CANCELED" || upper == "FAILED" || upper == "CRASHED" || upper == "INTERRUPTED" || upper == "EXPIRED" || upper == "TIMED_OUT" || upper == "SYSTEM_FAILURE"
     }
 
     public var isSuccessful: Bool {
@@ -79,28 +84,34 @@ public struct TriggerV3RunMetadata: Decodable, Sendable, Hashable {
 
 public enum TriggerRunStatusService {
     public enum StatusError: LocalizedError {
-        case badURL
-        case badResponse(Int)
+        case noSession
 
         public var errorDescription: String? {
             switch self {
-            case .badURL: return "Invalid Trigger.dev run URL"
-            case .badResponse(let code): return "Trigger.dev status request failed (\(code))"
+            case .noSession: return "Not signed in"
             }
         }
     }
 
-    public static func fetch(runId: String, publicAccessToken: String) async throws -> TriggerV3RunStatus {
-        guard let url = URL(string: "https://api.trigger.dev/api/v3/runs/\(runId)") else {
-            throw StatusError.badURL
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(publicAccessToken)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw StatusError.badResponse((response as? HTTPURLResponse)?.statusCode ?? -1)
-        }
-        return try JSONDecoder().decode(TriggerV3RunStatus.self, from: data)
+    /// Fetch a Trigger.dev run's live status + metadata via the `trigger-run-status`
+    /// Supabase edge function.
+    ///
+    /// We deliberately do NOT hit Trigger.dev directly: its run-retrieve API rejects
+    /// hand-rolled "public access token" JWTs with 401 (those must be minted by
+    /// Trigger's own SDK). The edge function fetches the run with the Trigger SECRET
+    /// key server-side (verified working) and returns just the fields we render.
+    public static func fetch(runId: String) async throws -> TriggerV3RunStatus {
+        let client = await MainSupabase.shared.client
+        let session = try? await client.auth.session
+        guard let token = session?.accessToken else { throw StatusError.noSession }
+        struct Body: Encodable { let run_id: String }
+        let response: TriggerV3RunStatus = try await client.functions.invoke(
+            "trigger-run-status",
+            options: FunctionInvokeOptions(
+                headers: ["Authorization": "Bearer \(token)"],
+                body: Body(run_id: runId)
+            )
+        )
+        return response
     }
 }

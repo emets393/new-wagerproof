@@ -11,12 +11,39 @@ import WagerproofModels
 /// client-side from the pick result + units/odds — same Formula B used by the
 /// agent-performance recalc RPC.
 struct AgentPerformanceCharts: View {
-    let allPicks: [AgentPick]
+    /// Picks + parlay tickets — each settled parlay contributes exactly ONE
+    /// point on the curve (its ticket-level payout), never per leg.
+    let items: [AgentBetItem]
     let preferredSports: [AgentSport]
     let agentColor: Color
     /// When false the internal "Performance" heading is suppressed — used when a
     /// parent already provides a section header (the inline agent-detail layout).
     var showsTitle: Bool = true
+
+    /// Picks-only convenience for callers without parlay data.
+    init(
+        allPicks: [AgentPick],
+        preferredSports: [AgentSport],
+        agentColor: Color,
+        showsTitle: Bool = true
+    ) {
+        self.init(items: allPicks.map(AgentBetItem.pick),
+                  preferredSports: preferredSports,
+                  agentColor: agentColor,
+                  showsTitle: showsTitle)
+    }
+
+    init(
+        items: [AgentBetItem],
+        preferredSports: [AgentSport],
+        agentColor: Color,
+        showsTitle: Bool = true
+    ) {
+        self.items = items
+        self.preferredSports = preferredSports
+        self.agentColor = agentColor
+        self.showsTitle = showsTitle
+    }
 
     private struct ChartPoint: Identifiable {
         let id = UUID()
@@ -34,20 +61,22 @@ struct AgentPerformanceCharts: View {
         let points: [ChartPoint]
     }
 
-    private var settledPicks: [AgentPick] {
-        allPicks.filter { $0.result == .won || $0.result == .lost || $0.result == .push }
+    private var settledItems: [AgentBetItem] {
+        items.filter { $0.result == .won || $0.result == .lost || $0.result == .push }
             .sorted { $0.createdAt < $1.createdAt }
     }
 
     private var overallStats: SportStats {
-        compute(label: "Overall", picks: settledPicks, sport: nil)
+        compute(label: "Overall", items: settledItems, sport: nil)
     }
 
     private var sportStats: [SportStats] {
+        // Multi-sport parlays (sportForFilter == nil) count in Overall only —
+        // they don't belong to any single sport's curve.
         preferredSports.compactMap { sport in
-            let scoped = settledPicks.filter { $0.sport == sport }
+            let scoped = settledItems.filter { $0.sportForFilter == sport }
             guard scoped.count >= 2 else { return nil }
-            return compute(label: sport.label, picks: scoped, sport: sport)
+            return compute(label: sport.label, items: scoped, sport: sport)
         }
     }
 
@@ -77,6 +106,23 @@ struct AgentPerformanceCharts: View {
 
     // MARK: - Subviews
 
+    /// Translucent glass card chrome for the chart tiles — a blurred material base
+    /// under a faint dark tint, so the agent's pixelwave aura shows through
+    /// instead of the old flat/opaque `appSurfaceElevated` panel (per design: the
+    /// charts read as glass over the page). Shared by every chart tile below.
+    private var glassCardBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(hex: 0x0F131C).opacity(0.5))
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "chart.line.uptrend.xyaxis")
@@ -89,10 +135,7 @@ struct AgentPerformanceCharts: View {
         }
         .frame(maxWidth: .infinity)
         .padding(28)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.appSurfaceElevated)
-        )
+        .background { glassCardBackground }
     }
 
     private var overallCard: some View {
@@ -156,10 +199,7 @@ struct AgentPerformanceCharts: View {
             .frame(height: 180)
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.appSurfaceElevated)
-        )
+        .background { glassCardBackground }
     }
 
     private func sportCard(stats: SportStats) -> some View {
@@ -207,16 +247,15 @@ struct AgentPerformanceCharts: View {
             }
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.appSurfaceElevated)
-        )
+        .background { glassCardBackground }
     }
 
     // MARK: - Stats compute
 
     /// Cumulative-units series via Formula B (matches `recalculate_avatar_performance`).
-    private func compute(label: String, picks: [AgentPick], sport: AgentSport?) -> SportStats {
+    /// The per-item payout math lives on `AgentBetItem.netUnitsContribution` so
+    /// straight picks (odds) and parlays (settled/combined odds) share one curve.
+    private func compute(label: String, items: [AgentBetItem], sport: AgentSport?) -> SportStats {
         var cumulative: Double = 0
         var points: [ChartPoint] = []
         var wins = 0, losses = 0, pushes = 0
@@ -224,19 +263,14 @@ struct AgentPerformanceCharts: View {
         // Seed at 0
         points.append(ChartPoint(index: 0, cumulative: 0))
 
-        for (idx, pick) in picks.enumerated() {
-            switch pick.result {
-            case .won:
-                wins += 1
-                cumulative += unitDelta(units: pick.units, odds: pick.odds, won: true)
-            case .lost:
-                losses += 1
-                cumulative += unitDelta(units: pick.units, odds: pick.odds, won: false)
-            case .push:
-                pushes += 1
-            case .pending:
-                continue
+        for (idx, item) in items.enumerated() {
+            switch item.result {
+            case .won: wins += 1
+            case .lost: losses += 1
+            case .push: pushes += 1
+            case .pending: continue
             }
+            cumulative += item.netUnitsContribution
             points.append(ChartPoint(index: idx + 1, cumulative: cumulative))
         }
 
@@ -251,22 +285,42 @@ struct AgentPerformanceCharts: View {
         )
     }
 
-    private func unitDelta(units: Double, odds: String?, won: Bool) -> Double {
-        guard won else { return -units }
-        guard let oddsStr = odds,
-              let oddsInt = Int(oddsStr.replacingOccurrences(of: "+", with: ""))
-        else {
-            // Default to -110 payout on missing odds
-            return units * (100.0 / 110.0)
-        }
-        if oddsInt > 0 {
-            return units * (Double(oddsInt) / 100.0)
-        }
-        return units * (100.0 / Double(abs(oddsInt)))
-    }
-
     private func unitsLabel(_ n: Double) -> String {
         let sign = n >= 0 ? "+" : ""
         return String(format: "%@%.2fu", sign, n)
+    }
+}
+
+/// Loading placeholder for `AgentPerformanceCharts`. Mirrors the overall card's
+/// footprint — title row + 180pt chart area inside the same elevated card chrome
+/// — so the swap to the real chart never jumps the layout. Detail pages render
+/// this while performance picks do their first load, instead of the empty-state
+/// card or a bare spinner, so the section doesn't flash empty → spinner → chart.
+struct AgentPerformanceChartSkeleton: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                SkeletonBlock(width: 130, height: 15)
+                Spacer()
+                SkeletonBlock(width: 64, height: 13)
+            }
+            SkeletonBlock(height: 180, cornerRadius: 12)
+        }
+        .padding(14)
+        .shimmering()
+        // Same translucent glass chrome as the real chart tiles so the skeleton →
+        // chart handoff never flips the surface opacity.
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(hex: 0x0F131C).opacity(0.5))
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+            )
+        }
     }
 }

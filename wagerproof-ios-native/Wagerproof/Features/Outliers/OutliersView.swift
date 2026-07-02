@@ -42,11 +42,12 @@ struct OutliersView: View {
         }
     }
 
+    // WagerBot launcher hidden app-wide — see MainTabToolbar.swift's
+    // WagerBotToolbarButton.
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
         WagerProofLeadingToolbarItem()
         ToolbarItemGroup(placement: .topBarTrailing) {
-            WagerBotToolbarButton(tabStore: tabStore)
             SettingsToolbarButton(tabStore: tabStore)
         }
     }

@@ -21,9 +21,7 @@ public final class MainTabStore {
     /// pushed onto the active tab's `NavigationStack` via `isSettingsPresented`,
     /// triggered by tapping the WagerProof wordmark in the top-leading slot.
     ///
-    /// `.picks` remains in the enum so deep links (`wagerproof://picks`) and
-    /// the side menu's Picks row keep resolving — Picks is presented as a
-    /// sheet via `isPicksPresented`. `.settings` is retained for the
+    /// `.settings` is retained for the
     /// SideMenuSheet's still-present "Settings" row (sheet-driven now).
     /// `.search` is the value for the iOS 18+ detached `Tab(role: .search)`
     /// slot — required because `TabView(selection:)` enforces a common
@@ -32,7 +30,6 @@ public final class MainTabStore {
         case games
         case props
         case agents
-        case picks
         case outliers
         case scoreboard
         case settings
@@ -57,13 +54,6 @@ public final class MainTabStore {
     /// and then flips this flag so the tab shell can present the cover
     /// cleanly.
     public var isRoastPresented: Bool = false
-
-    /// `true` when the Picks screen should be presented as a sheet from the
-    /// tab shell. Picks was removed from the visible bottom bar (Games /
-    /// Agents / Outliers / Scoreboard / Settings) but stays reachable via
-    /// the side menu and deep links (`wagerproof://picks`). Same
-    /// dismiss-then-flip pattern as `isFeatureRequestsPresented`.
-    public var isPicksPresented: Bool = false
 
     /// `true` when the Settings screen should be pushed onto the active tab's
     /// `NavigationStack`. Settings used to be a bottom-bar tab; it's now reached
@@ -103,11 +93,6 @@ public final class MainTabStore {
     @discardableResult
     public func apply(deepLink route: DeepLinkRoute) -> Tab? {
         switch route {
-        case .picks:
-            // Picks is presented as a sheet, not a bottom tab. Flip the flag
-            // and keep the user's current tab selection.
-            isPicksPresented = true
-            return nil
         case .agents:
             // B13 — Agents now lives in the bottom tab bar as a first-class
             // destination, so a deep link routes straight to it instead of

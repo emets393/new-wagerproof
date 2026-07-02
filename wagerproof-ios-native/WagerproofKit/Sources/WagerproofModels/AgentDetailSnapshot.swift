@@ -14,7 +14,14 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
     public let agent: Agent?
     public let performance: AgentPerformance?
     public let todaysPicks: [AgentPick]
+    /// Today's parlay tickets. `[]` until the RPC migration that adds
+    /// `todays_parlays` is live — the key is decoded tolerantly.
+    public let todaysParlays: [AgentParlay]
     public let todaysGenerationRun: AgentGenerationRunSummary?
+    /// A LIVE run (queued/processing, started in the last ~12 min). Non-nil
+    /// means a generation is in flight right now — the client resumes polling
+    /// it instead of offering a fresh trigger (which would race).
+    public let activeGenerationRun: AgentGenerationRunSummary?
     public let canViewAgentPicks: Bool
     public let isFollowing: Bool?
 
@@ -23,7 +30,9 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
         case agent
         case performance
         case todaysPicks = "todays_picks"
+        case todaysParlays = "todays_parlays"
         case todaysGenerationRun = "todays_generation_run"
+        case activeGenerationRun = "active_generation_run"
         case canViewAgentPicks = "can_view_agent_picks"
         case isFollowing = "is_following"
     }
@@ -34,7 +43,9 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
         self.agent = try? c.decodeIfPresent(Agent.self, forKey: .agent)
         self.performance = try? c.decodeIfPresent(AgentPerformance.self, forKey: .performance)
         self.todaysPicks = AgentPick.decodeLossyArray(from: c, forKey: .todaysPicks)
+        self.todaysParlays = AgentParlay.decodeLossyArray(from: c, forKey: .todaysParlays)
         self.todaysGenerationRun = try? c.decodeIfPresent(AgentGenerationRunSummary.self, forKey: .todaysGenerationRun)
+        self.activeGenerationRun = try? c.decodeIfPresent(AgentGenerationRunSummary.self, forKey: .activeGenerationRun)
         self.canViewAgentPicks = (try? c.decode(Bool.self, forKey: .canViewAgentPicks)) ?? false
         self.isFollowing = try? c.decodeIfPresent(Bool.self, forKey: .isFollowing)
     }
@@ -44,7 +55,9 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
         agent: Agent? = nil,
         performance: AgentPerformance? = nil,
         todaysPicks: [AgentPick] = [],
+        todaysParlays: [AgentParlay] = [],
         todaysGenerationRun: AgentGenerationRunSummary? = nil,
+        activeGenerationRun: AgentGenerationRunSummary? = nil,
         canViewAgentPicks: Bool = false,
         isFollowing: Bool? = nil
     ) {
@@ -52,7 +65,9 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
         self.agent = agent
         self.performance = performance
         self.todaysPicks = todaysPicks
+        self.todaysParlays = todaysParlays
         self.todaysGenerationRun = todaysGenerationRun
+        self.activeGenerationRun = activeGenerationRun
         self.canViewAgentPicks = canViewAgentPicks
         self.isFollowing = isFollowing
     }
@@ -63,12 +78,17 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
 public struct AgentPicksPage: Codable, Sendable, Hashable {
     public let apiVersion: String
     public let picks: [AgentPick]
+    /// Parlay tickets — the RPC returns them on the FIRST page only (tickets
+    /// are few; they don't join the pick cursor). `[]` on cursor pages and
+    /// until the RPC migration is live.
+    public let parlays: [AgentParlay]
     public let nextCursor: String?
     public let hasMore: Bool
 
     enum CodingKeys: String, CodingKey {
         case apiVersion = "api_version"
         case picks
+        case parlays
         case nextCursor = "next_cursor"
         case hasMore = "has_more"
     }
@@ -77,6 +97,7 @@ public struct AgentPicksPage: Codable, Sendable, Hashable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.apiVersion = (try? c.decode(String.self, forKey: .apiVersion)) ?? "v3"
         self.picks = AgentPick.decodeLossyArray(from: c, forKey: .picks)
+        self.parlays = AgentParlay.decodeLossyArray(from: c, forKey: .parlays)
         self.nextCursor = try? c.decodeIfPresent(String.self, forKey: .nextCursor)
         self.hasMore = (try? c.decode(Bool.self, forKey: .hasMore)) ?? false
     }
@@ -84,11 +105,13 @@ public struct AgentPicksPage: Codable, Sendable, Hashable {
     public init(
         apiVersion: String = "v3",
         picks: [AgentPick] = [],
+        parlays: [AgentParlay] = [],
         nextCursor: String? = nil,
         hasMore: Bool = false
     ) {
         self.apiVersion = apiVersion
         self.picks = picks
+        self.parlays = parlays
         self.nextCursor = nextCursor
         self.hasMore = hasMore
     }
@@ -109,6 +132,9 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
     public let completedAt: String?
     public let createdAt: String?
     public let slateNote: String?
+    /// Trigger.dev run id — set on `active_generation_run` rows so the client
+    /// can resume live polling of an in-flight run.
+    public let triggerRunId: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -122,6 +148,7 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
         case completedAt = "completed_at"
         case createdAt = "created_at"
         case slateNote = "slate_note"
+        case triggerRunId = "trigger_run_id"
     }
 
     public init(from decoder: Decoder) throws {
@@ -137,6 +164,7 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
         self.completedAt = try? c.decodeIfPresent(String.self, forKey: .completedAt)
         self.createdAt = try? c.decodeIfPresent(String.self, forKey: .createdAt)
         self.slateNote = try? c.decodeIfPresent(String.self, forKey: .slateNote)
+        self.triggerRunId = try? c.decodeIfPresent(String.self, forKey: .triggerRunId)
     }
 
     public init(
@@ -150,7 +178,8 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
         picksGenerated: Int = 0,
         completedAt: String? = nil,
         createdAt: String? = nil,
-        slateNote: String? = nil
+        slateNote: String? = nil,
+        triggerRunId: String? = nil
     ) {
         self.id = id
         self.avatarId = avatarId
@@ -163,6 +192,7 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
         self.completedAt = completedAt
         self.createdAt = createdAt
         self.slateNote = slateNote
+        self.triggerRunId = triggerRunId
     }
 }
 

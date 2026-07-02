@@ -183,14 +183,14 @@ struct AgentsView: View {
                     // Top-leading WagerProof wordmark (shared across main tabs);
                     // passive brand mark — Settings now lives on the trailing gear.
                     WagerProofLeadingToolbarItem()
-                    // Trailing group (left → right): create-agent (+), WagerBot,
-                    // then the Settings gear pinned rightmost. The "+" replaces
-                    // the old floating action button so all chrome lives in the
-                    // top bar; it locks when the agent limit is hit (mirrors the
-                    // old FAB's lock chip).
+                    // Trailing group (left → right): create-agent (+), then the
+                    // Settings gear pinned rightmost. The "+" replaces the old
+                    // floating action button so all chrome lives in the top bar;
+                    // it locks when the agent limit is hit (mirrors the old FAB's
+                    // lock chip). WagerBot launcher hidden app-wide — see
+                    // MainTabToolbar.swift's WagerBotToolbarButton.
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         createAgentToolbarButton
-                        WagerBotToolbarButton(tabStore: tabStore)
                         SettingsToolbarButton(tabStore: tabStore)
                     }
                 }
@@ -581,8 +581,8 @@ struct AgentsView: View {
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 6)
-        .background(Color.black.opacity(0.45), in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5))
+        // Liquid glass to match the office's Auto/Future control pills.
+        .liquidGlassBackground(in: Capsule())
     }
 
     /// `store.agents` ordered by the selected sort, with pinned agents floated to
@@ -699,6 +699,9 @@ struct AgentsView: View {
 
     private var myAgentsSkeleton: some View {
         LazyVStack(spacing: 10) {
+            AgentHQShimmer()
+                .transition(.opacity)
+
             ForEach(0..<4, id: \.self) { _ in
                 AgentRowCardShimmer()
                     .transition(.opacity)
@@ -879,6 +882,36 @@ struct AgentsView: View {
 
     private func refreshActive() async {
         await store.refresh()
+    }
+}
+
+// MARK: - Agent HQ shimmer
+
+/// Skeleton placeholder for the Agent HQ hero (`officeRow` — the `PixelOffice`
+/// scene plus its `agentHQStatusPill` / `AgencyStatsPill` corner overlays),
+/// shown while the first agents fetch is in flight. The real scene needs live
+/// agent data to populate desks, so this swaps in a flat skeleton plate at the
+/// same footprint (864:800 aspect, 20pt corner radius) instead of spinning up
+/// SpriteKit with nothing to show — and reproduces both corner pills so the
+/// crossfade to the real hero never shifts the layout.
+struct AgentHQShimmer: View {
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.appSkeleton.opacity(0.55))
+
+            // Mirrors agentHQStatusPill's position/size.
+            SkeletonCapsule(width: 112, height: 20)
+                .padding(10)
+        }
+        .overlay(alignment: .topTrailing) {
+            // Mirrors AgencyStatsPill's position/size.
+            SkeletonCapsule(width: 92, height: 20)
+                .padding(10)
+        }
+        .aspectRatio(PixelOfficeGeo.mapWidth / PixelOfficeGeo.mapHeight, contentMode: .fit)
+        .shimmering()
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
 

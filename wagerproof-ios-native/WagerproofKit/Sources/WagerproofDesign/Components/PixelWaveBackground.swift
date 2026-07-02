@@ -20,28 +20,41 @@ import UIKit
 /// bottom seam. Anchored, both render an identical full-screen field: the waves
 /// (pure functions of time) align exactly and the sparse glyph colonies share one
 /// grid. Mirrors the global-anchoring trick `TeamAuraBackground` uses.
+/// Energy level of the pixelwave field. `.ambient` is the everyday hero/auth
+/// backdrop; `.high` is the loud, fast, bright pulse used as the agent
+/// generation-complete transition that washes over the whole screen before the
+/// print UI takes over.
+public enum PixelWaveIntensity: Sendable {
+    case ambient
+    case high
+}
+
 public struct PixelWaveBackground: View {
     private let accentColor: Color
     private let progress: CGFloat
     private let screenAnchored: Bool
+    private let intensity: PixelWaveIntensity
     private let rippleEmitter: GlyphRippleEmitter?
 
     public init(
         accentColor: Color = .appPrimary,
         progress: CGFloat = 0,
         screenAnchored: Bool = false,
+        intensity: PixelWaveIntensity = .ambient,
         rippleEmitter: GlyphRippleEmitter? = nil
     ) {
         self.accentColor = accentColor
         self.progress = progress
         self.screenAnchored = screenAnchored
+        self.intensity = intensity
         self.rippleEmitter = rippleEmitter
     }
 
     public var body: some View {
         // Field opacity eases 1.0 → 0.5 as the hero collapses, so the animation
         // calms into a compact bar instead of churning behind the small stats.
-        let calm = 1 - 0.5 * min(1, max(0, progress))
+        // The high-intensity transition never calms — it stays loud on purpose.
+        let calm = intensity == .high ? 1 : 1 - 0.5 * min(1, max(0, progress))
         ZStack {
             // Opaque near-black base — doubles as the collapsing hero's mask.
             LinearGradient(
@@ -71,25 +84,29 @@ public struct PixelWaveBackground: View {
 
     @ViewBuilder
     private var field: some View {
+        // `.high` cranks every dial: deeper wave shadows, a faster glyph beat,
+        // and denser/brighter glyphs so the field reads as an energetic pulse
+        // rather than an ambient drift.
+        let high = intensity == .high
         let content = ZStack {
             // Three background-colored "sheets" with wavy bottom edges whose soft
             // drop shadows paint gentle wave contours; they breathe amplitude +
             // wavelength so the deep background feels layered and alive.
             WaveBackground(
                 sheetColor: Color(hex: 0x111111),
-                shadowStrength: 0.28,
-                shadowRadius: 18,
-                shadowOffset: 8
+                shadowStrength: high ? 0.5 : 0.28,
+                shadowRadius: high ? 22 : 18,
+                shadowOffset: high ? 10 : 8
             )
-            // Small pixel "glyphs" that bloom and poof away on a steady 300ms beat,
-            // tinted with `accentColor` (the app primary on auth, the agent color
-            // on the agent detail).
+            // Small pixel "glyphs" that bloom and poof away on a steady beat (fast
+            // + dense on `.high`), tinted with `accentColor` (the app primary on
+            // auth, the agent color on the agent detail).
             PixelGlyphField(
-                intervals: [0.3],
+                intervals: high ? [0.12] : [0.3],
                 accentColor: accentColor,
-                spacing: 26,
-                dotSize: 5.5,
-                peakOpacity: 0.45,
+                spacing: high ? 22 : 26,
+                dotSize: high ? 6.5 : 5.5,
+                peakOpacity: high ? 0.9 : 0.45,
                 rippleEmitter: rippleEmitter
             )
         }

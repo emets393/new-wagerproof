@@ -1,6 +1,6 @@
 # 13 — Cross-Sport Agents & Parlays (V3)
 
-**Status:** Design spec — not yet built. Decisions locked 2026-06-21. **Target engine: V3 only** (`process-agent-generation-job-v3`). V2 is unchanged by this work.
+**Status:** Decisions locked 2026-06-21; largely built. Backend Part B is live (parlay tables `20260622000001-5`, `submit_parlay` tool, drop-and-reprice grading, performance union) and the iOS client ships parlay support end-to-end as of 2026-07-01 (see the file-by-file list below — web parlay rendering is the remaining client gap). **Target engine: V3 only** (`process-agent-generation-job-v3`). V2 is unchanged by this work.
 
 ## What & why
 
@@ -142,4 +142,8 @@ So: build the grader extension as above (reads `final_*` by `game_id`), but the 
 | Edge | `grade-avatar-picks/index.ts` | NFL/CFB results + parlay leg/roll-up grading |
 | Web | `src/types/agent.ts` | relax family refine; add `parlay_appetite` |
 | Web | `src/components/agents/creation/Screen1_SportArchetype.tsx` | additive sport toggle + copy |
-| Web/iOS | parlay rendering | multi-leg ticket UI (separate UI task) |
+| Web | parlay rendering | multi-leg ticket UI (separate UI task, still pending) |
+| DB | `supabase/migrations/20260701000000_agent_parlays_read_rpcs.sql` | ✅ `get_agent_detail_snapshot_v3` returns `todays_parlays`, `get_agent_picks_page_v3` returns `parlays` (first page only, legs embedded) — same `v_can_view_picks` gate as picks |
+| iOS | `WagerproofKit/.../WagerproofModels/AgentParlay.swift`, `AgentBetItem.swift` | ✅ `AgentParlay`/`AgentParlayLeg` models (tolerant decode, legs embedded) + pick/parlay union with shared `netUnitsContribution` payout math |
+| iOS | `WagerproofKit/.../AgentPicksService.swift`, `AgentDetailStore.swift` | ✅ direct-RLS parlay reads (`fetchParlays`/`fetchTodaysParlays`/`fetchGradedParlayHistory`/`fetchUpcomingParlaysFeed`) + store state (`todaysBetItems`, `fullBetHistory`) with the same owner/public dual-path as picks |
+| iOS | `Features/Agents/Components/AgentParlayTicket.swift` + folder/rail/chart/timeline | ✅ variable-height parlay tickets (stack/expanded/mini) interleaved with picks in the Today's rail, history rolodex, and performance chart (one point per settled ticket); `parlay_appetite` slider in creation Step 3 + Settings |

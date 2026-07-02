@@ -44,6 +44,12 @@ struct GamesView: View {
     /// Current page of the swipeable tool-banner carousel (reset when the
     /// selected sport changes so we never land on an out-of-range index).
     @State private var toolPage: Int = 0
+    // Model-accuracy reports back the NBA/NCAAB tool banners. Owned locally
+    // (not hoisted — the detail views own their own) purely so the banner can
+    // hide when the report has zero rows (offseason / no slate). Loaded lazily
+    // and only while their sport is selected. See `visibleTools`.
+    @State private var nbaAccuracy = NBAModelAccuracyStore()
+    @State private var ncaabAccuracy = NCAABModelAccuracyStore()
 
     // Shared namespace for the card→detail zoom transition. The source card
     // (`matchedTransitionSource`) and the pushed detail view
@@ -103,6 +109,19 @@ struct GamesView: View {
                 }
                 .task {
                     await store.refreshAll()
+                }
+                // Load the model-accuracy report for whichever of NBA/NCAAB is
+                // showing so `visibleTools` can drop the banner when it's empty.
+                // Only the two accuracy sports fetch; guarded to load once.
+                .task(id: store.selectedSport) {
+                    switch store.selectedSport {
+                    case .nba:
+                        if case .idle = nbaAccuracy.loadState { await nbaAccuracy.refresh() }
+                    case .ncaab:
+                        if case .idle = ncaabAccuracy.loadState { await ncaabAccuracy.refresh() }
+                    default:
+                        break
+                    }
                 }
                 .toolbar { mainToolbar }
             // Game details are full-page pushes now (was bottom sheets).
@@ -175,12 +194,13 @@ struct GamesView: View {
     /// NFL/CFB have none so this renders nothing for them.
     @ViewBuilder
     private var toolBanners: some View {
-        let tools = SportTool.tools(for: store.selectedSport)
+        let tools = visibleTools
         if !tools.isEmpty {
             VStack(spacing: 8) {
                 // Paged TabView for native horizontal swipe. Fixed height —
-                // `.page` TabViews don't size to content; the banner card's
-                // 64pt min height fits comfortably inside 78.
+                // `.page` TabViews don't size to content — set to the
+                // HoneydewOptionCard's own 64pt min height so this matches
+                // the Props page's "Best MLB Props" banner exactly.
                 TabView(selection: $toolPage) {
                     ForEach(Array(tools.enumerated()), id: \.element.id) { index, tool in
                         ToolBannerCard(tool: tool) { selectedTool = tool }
@@ -188,7 +208,7 @@ struct GamesView: View {
                             .tag(index)
                     }
                 }
-                .frame(height: 78)
+                .frame(height: 64)
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.appQuick, value: toolPage)
 
@@ -208,17 +228,31 @@ struct GamesView: View {
         }
     }
 
+    /// Tool banners for the selected sport, minus any NBA/NCAAB model-accuracy
+    /// tool whose report currently has no rows. We key off "report has rows"
+    /// (rather than a loaded-empty flag) so the banner simply appears once the
+    /// slate populates and never flashes in during the offseason fetch.
+    private var visibleTools: [SportTool] {
+        SportTool.tools(for: store.selectedSport).filter { tool in
+            switch tool.category {
+            case .nbaAccuracy:   return !nbaAccuracy.games.isEmpty
+            case .ncaabAccuracy: return !ncaabAccuracy.games.isEmpty
+            default:             return true
+            }
+        }
+    }
+
     // MARK: - Toolbar
 
     /// Native large-title toolbar. Top-leading is the WagerProof wordmark
-    /// (tap to open Settings); the trailing group hosts the WagerBot launcher
-    /// (shared across every main tab — see `MainTabToolbar.swift`). The
+    /// (tap to open Settings); the trailing group hosts the Settings gear. The
     /// per-sport sort menu lives in the pinned section header, not the toolbar.
+    /// WagerBot launcher hidden app-wide — see MainTabToolbar.swift's
+    /// WagerBotToolbarButton.
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
         WagerProofLeadingToolbarItem()
         ToolbarItemGroup(placement: .topBarTrailing) {
-            WagerBotToolbarButton(tabStore: tabStore)
             SettingsToolbarButton(tabStore: tabStore)
         }
     }
@@ -275,24 +309,47 @@ struct GamesView: View {
         .padding(.vertical, 8)
     }
 
-    /// Native segmented sport picker. Lives inside `pickerBar`, the pinned
-    /// header of the scroll content, so it stays beneath the nav bar while
-    /// game cards scroll under it.
+    /// Custom segmented sport switcher. Replaces the native `.segmented` Picker
+    /// (which can't style individual segments) so out-of-season sports render
+    /// dimmed — a signal that there's no live slate to expect. Lives inside
+    /// `pickerBar`, the pinned header, so it stays beneath the nav bar while
+    /// cards scroll under it.
     @ViewBuilder
     private var sportPicker: some View {
-        @Bindable var binding = store
-        Picker("Sport", selection: $binding.selectedSport) {
+        HStack(spacing: 2) {
             ForEach(GamesStore.Sport.displayOrder()) { sport in
-                Text(sport.label).tag(sport)
+                sportSegment(sport)
             }
         }
-        .pickerStyle(.segmented)
-        // UISegmentedControl's selected-segment highlight uses a small fixed
-        // corner radius. Inside the outer Liquid Glass capsule that looked
-        // visually square. Clipping the whole picker to a capsule shape
-        // rounds the highlight's edges (it inherits the parent mask).
-        .clipShape(.capsule)
+        .animation(.appQuick, value: store.selectedSport)
         .sensoryFeedback(.selection, trigger: store.selectedSport)
+    }
+
+    @ViewBuilder
+    private func sportSegment(_ sport: GamesStore.Sport) -> some View {
+        let selected = store.selectedSport == sport
+        // Only unselected off-season sports dim — the current selection always
+        // stays legible so you can tell what you're viewing.
+        let dim = !selected && !SportSeason.isInSeason(sport)
+        Button {
+            store.selectedSport = sport
+        } label: {
+            Text(sport.label)
+                .font(.system(size: 12.5, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .foregroundStyle(selected ? Color.white : Color.appTextPrimary)
+                .opacity(dim ? 0.45 : 1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background {
+                    if selected {
+                        Capsule().fill(Color.appPrimary)
+                    }
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Content
@@ -373,7 +430,7 @@ struct GamesView: View {
     private var nflDateSections: some View {
         let games = store.sortedNFL()
         if games.isEmpty {
-            emptyTile(label: "No NFL games today", systemImage: "football")
+            emptyTile(for: .nfl, systemImage: "football")
         } else {
             let sections = GameDateGrouping.group(
                 games,
@@ -401,7 +458,7 @@ struct GamesView: View {
     private var cfbDateSections: some View {
         let games = store.sortedCFB()
         if games.isEmpty {
-            emptyTile(label: "No CFB games today", systemImage: "graduationcap")
+            emptyTile(for: .cfb, systemImage: "graduationcap")
         } else {
             let sections = GameDateGrouping.group(
                 games,
@@ -429,7 +486,7 @@ struct GamesView: View {
     private var ncaabDateSections: some View {
         let games = store.sortedNCAAB()
         if games.isEmpty {
-            emptyTile(label: "No NCAAB games today", systemImage: "basketball")
+            emptyTile(for: .ncaab, systemImage: "basketball")
         } else {
             let sections = GameDateGrouping.group(
                 games,
@@ -457,7 +514,7 @@ struct GamesView: View {
     private var mlbDateSections: some View {
         let games = store.sortedMLB()
         if games.isEmpty {
-            emptyTile(label: "No MLB games today", systemImage: "baseball")
+            emptyTile(for: .mlb, systemImage: "baseball")
         } else {
             let sections = GameDateGrouping.group(
                 games,
@@ -485,7 +542,7 @@ struct GamesView: View {
     private var nbaDateSections: some View {
         let games = store.sortedNBA()
         if games.isEmpty {
-            emptyTile(label: "No NBA games today", systemImage: "basketball")
+            emptyTile(for: .nba, systemImage: "basketball")
         } else {
             let sections = GameDateGrouping.group(
                 games,
@@ -528,19 +585,31 @@ struct GamesView: View {
         }
     }
 
+    /// Empty state for a sport with no games on the board. Copy is season-aware
+    /// (see `SportSeason`): out of season we point the user at the season start
+    /// date; in season an empty board means the slate is mid-refresh.
     @ViewBuilder
-    private func emptyTile(label: String, systemImage: String) -> some View {
+    private func emptyTile(for sport: GamesStore.Sport, systemImage: String) -> some View {
+        let copy = SportSeason.emptyCopy(for: sport)
         VStack(spacing: 12) {
             Image(systemName: systemImage)
                 .font(.system(size: 44, weight: .light))
                 .foregroundStyle(Color.appTextMuted)
-            Text(label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color.appTextSecondary)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 6) {
+                Text(copy.title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.appTextPrimary)
+                Text(copy.message)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 200)
+        .frame(minHeight: 220)
+        .padding(.horizontal, 32)
+        .padding(.vertical, 24)
     }
 }
 

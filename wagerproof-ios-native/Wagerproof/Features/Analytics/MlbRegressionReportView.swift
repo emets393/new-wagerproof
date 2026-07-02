@@ -29,48 +29,122 @@ struct MlbRegressionReportView: View {
     @State private var seriesStore = MLBSeriesSignalsStore()
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16, pinnedViews: [.sectionHeaders]) {
-                if let report = reportStore.report {
-                    reportFeed(report)
-                } else if reportStore.loading || reportStore.lastFetchedKey == nil {
-                    // Never-fetched counts as loading — `.task` hasn't flipped
-                    // `loading` yet on the first frame, and falling through
-                    // would flash the "no report" box before the skeleton.
-                    loadingState
-                } else if reportStore.errorMessage != nil {
-                    errorState
-                } else {
-                    noReportState
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16, pinnedViews: [.sectionHeaders]) {
+                    if let report = reportStore.report {
+                        reportFeed(report)
+                    } else if reportStore.loading || reportStore.lastFetchedKey == nil {
+                        // Never-fetched counts as loading — `.task` hasn't flipped
+                        // `loading` yet on the first frame, and falling through
+                        // would flash the "no report" box before the skeleton.
+                        loadingState
+                    } else if reportStore.errorMessage != nil {
+                        errorState
+                    } else {
+                        noReportState
+                    }
+                }
+                .padding(.bottom, Spacing.xxl)
+            }
+            .background(Color.appSurface.ignoresSafeArea())
+            .navigationTitle("MLB Regression Report")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    jumpMenu(proxy: proxy)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await refreshAll() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .tint(Color.appPrimary)
+                    .accessibilityLabel("Refresh")
                 }
             }
-            .padding(.bottom, Spacing.xxl)
+            .refreshable { await refreshAll() }
+            .task {
+                // All five stores are independent — hydrate in parallel so
+                // cold-start stays one network round trip.
+                async let r: () = reportStore.refreshIfStale()
+                async let b: () = bucketStore.refreshIfStale()
+                async let m: () = breakdownStore.refreshIfStale()
+                async let p: () = psRecordsStore.refreshIfStale()
+                async let s: () = seriesStore.refreshIfStale()
+                _ = await (r, b, m, p, s)
+            }
         }
-        .background(Color.appSurface.ignoresSafeArea())
-        .navigationTitle("MLB Regression Report")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+    }
+
+    // MARK: - Jump-to-section menu
+
+    /// One entry per section that's actually rendered — mirrors the gating
+    /// conditions in `reportFeed(_:)` below so the menu never lists a
+    /// section that isn't on screen. `id` doubles as the `.id()` tag each
+    /// `Section` carries, so `title` must stay in sync with the string
+    /// passed to that section's `sectionHeader(...)` call.
+    private struct JumpTarget: Identifiable {
+        var id: String { title }
+        let title: String
+        let icon: String
+    }
+
+    private func jumpTargets(_ report: MLBRegressionReport) -> [JumpTarget] {
+        var targets: [JumpTarget] = []
+
+        if let narrative = report.narrativeText, !narrative.isEmpty {
+            targets.append(JumpTarget(title: "AI Analysis Summary", icon: "bolt.fill"))
+        }
+        targets.append(JumpTarget(title: "Model Accuracy", icon: "chart.bar.fill"))
+        if !breakdownStore.rows.isEmpty || breakdownStore.loading {
+            targets.append(JumpTarget(title: "Day-of-Week & Team Breakdown", icon: "chart.bar.doc.horizontal.fill"))
+        }
+        if report.yesterdayRecap != nil {
+            targets.append(JumpTarget(title: "Yesterday's Results", icon: "trophy.fill"))
+        }
+        targets.append(JumpTarget(title: "Regression Report Suggested Picks", icon: "bolt.fill"))
+        if !(report.pitcherNegativeRegression ?? []).isEmpty || !(report.pitcherPositiveRegression ?? []).isEmpty {
+            targets.append(JumpTarget(title: "Starting Pitcher Regression", icon: "flame.fill"))
+        }
+        if !(report.battingHeatUp ?? []).isEmpty || !(report.battingCoolDown ?? []).isEmpty {
+            targets.append(JumpTarget(title: "Team Batting Regression", icon: "chart.line.uptrend.xyaxis"))
+        }
+        if let bullpens = report.bullpenFatigue, !bullpens.isEmpty {
+            targets.append(JumpTarget(title: "Bullpen Fatigue & Trends", icon: "shield.lefthalf.filled"))
+        }
+        if let splits = report.lrSplitsToday, !splits.isEmpty {
+            targets.append(JumpTarget(title: "L/R Pitcher Splits", icon: "scope"))
+        }
+        if !seriesStore.signals.isEmpty {
+            targets.append(JumpTarget(title: "Series-Position Signals", icon: "target"))
+        }
+        if let weather = report.weatherParkFlags, !weather.isEmpty {
+            targets.append(JumpTarget(title: "Weather & Park Impact", icon: "wind"))
+        }
+        return targets
+    }
+
+    @ViewBuilder
+    private func jumpMenu(proxy: ScrollViewProxy) -> some View {
+        let targets = reportStore.report.map(jumpTargets) ?? []
+        Menu {
+            ForEach(targets) { target in
                 Button {
-                    Task { await refreshAll() }
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        proxy.scrollTo(target.id, anchor: .top)
+                    }
                 } label: {
-                    Image(systemName: "arrow.clockwise")
+                    Label(target.title, systemImage: target.icon)
                 }
-                .tint(Color.appPrimary)
-                .accessibilityLabel("Refresh")
             }
+        } label: {
+            Image(systemName: "list.bullet")
         }
-        .refreshable { await refreshAll() }
-        .task {
-            // All five stores are independent — hydrate in parallel so
-            // cold-start stays one network round trip.
-            async let r: () = reportStore.refreshIfStale()
-            async let b: () = bucketStore.refreshIfStale()
-            async let m: () = breakdownStore.refreshIfStale()
-            async let p: () = psRecordsStore.refreshIfStale()
-            async let s: () = seriesStore.refreshIfStale()
-            _ = await (r, b, m, p, s)
-        }
+        .tint(Color.appPrimary)
+        .disabled(targets.isEmpty)
+        .accessibilityLabel("Jump to section")
     }
 
     private func refreshAll() async {
@@ -97,6 +171,7 @@ struct MlbRegressionReportView: View {
             } header: {
                 sectionHeader("AI Analysis Summary", icon: "bolt.fill", color: Regression.accentPurple)
             }
+            .id("AI Analysis Summary")
         }
 
         // 2. Model Accuracy
@@ -107,6 +182,7 @@ struct MlbRegressionReportView: View {
         } header: {
             sectionHeader("Model Accuracy", icon: "chart.bar.fill", color: Regression.accentBlue)
         }
+        .id("Model Accuracy")
 
         // 3. Day-of-Week & Team Breakdown — skipped entirely when the table
         // is empty and settled (RN renders an empty body in that case).
@@ -118,6 +194,7 @@ struct MlbRegressionReportView: View {
             } header: {
                 sectionHeader("Day-of-Week & Team Breakdown", icon: "chart.bar.doc.horizontal.fill", color: Regression.accentPurple)
             }
+            .id("Day-of-Week & Team Breakdown")
         }
 
         // 4. Yesterday's Results — directly above the picks so the user sees
@@ -130,6 +207,7 @@ struct MlbRegressionReportView: View {
             } header: {
                 sectionHeader("Yesterday's Results", icon: "trophy.fill", color: Regression.accentYellow)
             }
+            .id("Yesterday's Results")
         }
 
         // 5. Suggested Picks (tier records grid always shown)
@@ -146,6 +224,7 @@ struct MlbRegressionReportView: View {
                 countBadge: picks.isEmpty ? nil : picks.count
             )
         }
+        .id("Regression Report Suggested Picks")
 
         // 6. Starting Pitcher Regression
         let negative = report.pitcherNegativeRegression ?? []
@@ -158,6 +237,7 @@ struct MlbRegressionReportView: View {
             } header: {
                 sectionHeader("Starting Pitcher Regression", icon: "flame.fill", color: Regression.accentOrange)
             }
+            .id("Starting Pitcher Regression")
         }
 
         // 7. Team Batting Regression
@@ -171,6 +251,7 @@ struct MlbRegressionReportView: View {
             } header: {
                 sectionHeader("Team Batting Regression", icon: "chart.line.uptrend.xyaxis", color: Regression.accentBlue)
             }
+            .id("Team Batting Regression")
         }
 
         // 8. Bullpen Fatigue & Trends
@@ -186,6 +267,7 @@ struct MlbRegressionReportView: View {
             } header: {
                 sectionHeader("Bullpen Fatigue & Trends", icon: "shield.lefthalf.filled", color: Regression.accentPurple)
             }
+            .id("Bullpen Fatigue & Trends")
         }
 
         // 9. L/R Pitcher Splits
@@ -197,6 +279,7 @@ struct MlbRegressionReportView: View {
             } header: {
                 sectionHeader("L/R Pitcher Splits", icon: "scope", color: Regression.accentIndigo)
             }
+            .id("L/R Pitcher Splits")
         }
 
         // 10. Series-Position Signals — independent live view, not part of
@@ -214,6 +297,7 @@ struct MlbRegressionReportView: View {
             } header: {
                 sectionHeader("Series-Position Signals", icon: "target", color: Regression.accentPurple)
             }
+            .id("Series-Position Signals")
         }
 
         // 11. Weather & Park Impact
@@ -229,6 +313,7 @@ struct MlbRegressionReportView: View {
             } header: {
                 sectionHeader("Weather & Park Impact", icon: "wind", color: Regression.accentCyan)
             }
+            .id("Weather & Park Impact")
         }
     }
 
@@ -348,6 +433,9 @@ struct MlbRegressionReportView: View {
 
     /// Pinned section header — `sectionHeaders` on the parent LazyVStack
     /// pins this flush to the safe-area edge as the user scrolls past.
+    /// Renders as a content-hugging Liquid Glass pill (matching the
+    /// filter-pill chrome in Props/Outliers) rather than a full-bleed bar,
+    /// so it floats over the scrolling content instead of masking it.
     private func sectionHeader(_ title: String, icon: String, color: Color, countBadge: Int? = nil) -> some View {
         HStack(spacing: 8) {
             ZStack {
@@ -361,23 +449,24 @@ struct MlbRegressionReportView: View {
             Text(title)
                 .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(Color.appTextPrimary)
-
-            Spacer()
+                .lineLimit(1)
 
             if let count = countBadge {
                 Text("\(count)")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Color.appTextSecondary)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(color)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(color.opacity(0.18), in: Capsule())
             }
         }
+        .padding(.horizontal, 12)
+        .frame(height: 40)
+        .liquidGlassBackground(in: Capsule())
+        .overlay(Capsule().stroke(Color.appBorder.opacity(0.35), lineWidth: 1))
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, 10)
-        .background(Color.appSurface)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.appBorder.opacity(0.5))
-                .frame(height: 0.5)
-        }
+        .padding(.vertical, 8)
     }
 
     // MARK: - Loading / error / empty
@@ -435,15 +524,15 @@ struct MlbRegressionReportView: View {
         HStack(spacing: 8) {
             SkeletonBlock(width: 24, height: 24, cornerRadius: 7)
             SkeletonBlock(width: 150, height: 14)
-            Spacer()
         }
         .shimmering()
+        .padding(.horizontal, 12)
+        .frame(height: 40)
+        .liquidGlassBackground(in: Capsule())
+        .overlay(Capsule().stroke(Color.appBorder.opacity(0.35), lineWidth: 1))
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, 10)
-        .background(Color.appSurface)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.appBorder.opacity(0.5)).frame(height: 0.5)
-        }
+        .padding(.vertical, 8)
     }
 
     private var heroTilePlaceholder: some View {
@@ -458,37 +547,34 @@ struct MlbRegressionReportView: View {
         .background(Color.appSurfaceMuted.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
     }
 
-    /// Mirrors `RegressionAccentRow`: 3pt stripe + stacked stat rows.
+    /// Mirrors `RegressionAccentRow`'s elevated-surface + border chrome.
     private func accentRowPlaceholder(lines: Int) -> some View {
-        HStack(spacing: 0) {
-            Rectangle().fill(Color.appSkeleton).frame(width: 3)
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        SkeletonBlock(width: 120, height: 13)
-                        SkeletonBlock(width: 80, height: 10)
-                    }
-                    Spacer()
-                    SkeletonCapsule(width: 56, height: 16)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    SkeletonBlock(width: 120, height: 13)
+                    SkeletonBlock(width: 80, height: 10)
                 }
-                ForEach(0..<max(0, lines - 1), id: \.self) { _ in
-                    HStack(spacing: 10) {
-                        ForEach(0..<4, id: \.self) { _ in
-                            VStack(alignment: .leading, spacing: 3) {
-                                SkeletonBlock(width: 34, height: 9)
-                                SkeletonBlock(width: 44, height: 13)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer()
+                SkeletonCapsule(width: 56, height: 16)
+            }
+            ForEach(0..<max(0, lines - 1), id: \.self) { _ in
+                HStack(spacing: 10) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        VStack(alignment: .leading, spacing: 3) {
+                            SkeletonBlock(width: 34, height: 9)
+                            SkeletonBlock(width: 44, height: 13)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .shimmering()
         }
-        .background(Color.appSurfaceMuted.opacity(0.4))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .shimmering()
+        .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 1))
     }
 
     private var errorState: some View {

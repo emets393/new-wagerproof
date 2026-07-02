@@ -61,12 +61,26 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
       // and read their legacy table. V2 omits this arg → stays on legacy.
       const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate, 'dryrun');
       let n = 0;
+      let pastDropped = 0;
       for (const fg of formattedGames as FormattedGame[]) {
         const id = String((fg as Record<string, unknown>).game_id ?? "");
         if (!id) continue;
+        // PRODUCTION runs must never be offered past games. Until the live
+        // pipeline fills them, the NFL/CFB dryrun tables hold 2025-dated test
+        // slates — without this gate an offseason prod run bets last season's
+        // games and the picks never surface (today's-picks filters by date).
+        // Dry runs keep past games so football stays testable offseason.
+        // See .claude/docs/agents/16_PARLAY_AGENTS.md (not-started rule).
+        if (!ctx.dryRun) {
+          const gd = String((fg as Record<string, unknown>).game_date ?? "");
+          if (gd && gd < ctx.targetDate) { pastDropped++; continue; }
+        }
         ctx.games.set(id, { sport, fg });
         ctx.slateGameIds.add(id);
         n++;
+      }
+      if (pastDropped > 0) {
+        console.log(`[v3] loadGames ${sport}: dropped ${pastDropped} past-dated game(s) (prod run)`);
       }
       bySport.push({ sport, count: n });
     } catch (e) {

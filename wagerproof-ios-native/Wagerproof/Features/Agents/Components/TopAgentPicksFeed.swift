@@ -7,8 +7,9 @@ import WagerproofStores
 ///
 /// Renders the Top Agent Picks tab as a Spotify-style sectioned feed: each
 /// section is an agent header (rank, avatar emoji bubble, record, net units)
-/// over a horizontally scrollable strip of up to 4 `OutlierMatchupCardView`s
-/// (one per pick). A native segmented `Picker` selects between
+/// over a horizontally scrollable rail of up to 4 `AgentPickMiniTicket`s (one
+/// per pick — the same boarding-pass card the agent detail's Today's Picks rail
+/// uses, tinted with the agent's brand color). A native segmented `Picker` selects between
 /// Top 10 / Following / Favorites. Search runs through `.searchable` on the
 /// parent and pumps the bound store's `searchText`.
 ///
@@ -161,10 +162,10 @@ struct TopAgentPicksFeed: View {
 
     private var skeletonRows: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            ForEach(0..<3, id: \.self) { i in
+            ForEach(0..<3, id: \.self) { _ in
                 // Mirror AgentSectionView's card shell: glass surface, a header
                 // (square avatar + name + record line), a divider, then the
-                // horizontal picks strip.
+                // horizontal mini-ticket strip.
                 let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 12) {
@@ -184,12 +185,14 @@ struct TopAgentPicksFeed: View {
                         .padding(.top, 10)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: Spacing.md) {
-                            ForEach(0..<3, id: \.self) { j in
-                                OutlierCardShimmerView(phase: (i + j) % 3)
+                            ForEach(0..<3, id: \.self) { _ in
+                                AgentPickMiniTicketSkeleton()
                             }
                         }
                         .padding(.horizontal, 14)
+                        .padding(.vertical, 4)
                     }
+                    .scrollClipDisabled()
                     .padding(.top, 10)
                     .padding(.bottom, 12)
                 }
@@ -460,26 +463,33 @@ private struct AgentSectionView: View {
         }
     }
 
+    /// The section's picks as a horizontal rail of `AgentPickMiniTicket`s — the
+    /// same boarding-pass card the agent detail's Today's Picks rail uses, tinted
+    /// with this agent's brand color so the strip reads as "this agent's slate".
     private var picksRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        let accent = AgentColorPalette.primary(for: header?.agentAvatarColor ?? "#6366f1")
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Spacing.md) {
-                ForEach(Array(section.rows.prefix(4)), id: \.id) { row in
-                    let teams = parseMatchup(row.matchup)
-                    OutlierMatchupCardView(
-                        awayTeam: teams.away,
-                        homeTeam: teams.home,
-                        sport: row.sport.asSportLeague,
-                        pickIcon: betTypeIcon(row.betType),
-                        pickLabel: row.pickSelection,
-                        pickValue: row.odds,
-                        accentColor: row.agentNetUnits >= 0 ? Color(hex: 0x00E676) : Color(hex: 0xF59E0B),
-                        loading: loadingPickId == row.id,
-                        onTap: { onPickTap(row) }
-                    )
+                ForEach(Array(section.rows.prefix(4).enumerated()), id: \.element.id) { index, row in
+                    AgentPickMiniTicket(pick: row.asAgentPick, accent: accent)
+                        // Dim + spinner while the parent presents the pick sheet,
+                        // preserving the tap feedback the outlier card used to give.
+                        .overlay {
+                            if loadingPickId == row.id {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Color.black.opacity(0.4))
+                                    .overlay { ProgressView().tint(.white) }
+                            }
+                        }
+                        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .onTapGesture { onPickTap(row) }
+                        .staggeredAppear(index: index)
                 }
             }
             .padding(.horizontal, 14)
+            .padding(.vertical, 4)   // room so the ticket drop-shadows aren't clipped
         }
+        .scrollClipDisabled()
     }
 
     private func rankBadge(rank: Int?) -> some View {
@@ -505,44 +515,5 @@ private struct AgentSectionView: View {
             }
         }
         .frame(minWidth: 28)
-    }
-
-    private func betTypeIcon(_ betType: String) -> String {
-        switch betType.lowercased() {
-        case "spread": return "number"
-        case "moneyline": return "dollarsign.circle"
-        case "total": return "arrow.up.arrow.down"
-        default: return "rectangle.on.rectangle"
-        }
-    }
-
-    private func parseMatchup(_ matchup: String) -> (away: String, home: String) {
-        // RN's parseMatchup splits on " @ " or " vs " — try both, fall back
-        // to the original string for both sides.
-        let separators = [" @ ", " vs ", " at "]
-        for sep in separators {
-            if let range = matchup.range(of: sep, options: .caseInsensitive) {
-                let away = String(matchup[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
-                let home = String(matchup[range.upperBound...]).trimmingCharacters(in: .whitespaces)
-                return (away, home)
-            }
-        }
-        return (matchup, matchup)
-    }
-}
-
-// MARK: - Sport bridge
-
-private extension AgentSport {
-    /// Bridges the AgentSport enum (agents domain) to SportLeague (games
-    /// domain) so we can reuse the shared OutlierMatchupCardView's palette.
-    var asSportLeague: SportLeague {
-        switch self {
-        case .nfl: return .nfl
-        case .cfb: return .cfb
-        case .nba: return .nba
-        case .ncaab: return .ncaab
-        case .mlb: return .mlb
-        }
     }
 }

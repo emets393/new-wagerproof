@@ -71,26 +71,22 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
                 // hero/content via the passed safe-area values instead.
                 TabView(selection: $selection) {
                     ForEach(Array(games.enumerated()), id: \.offset) { idx, game in
-                        // Paging TabView builds EVERY child eagerly — a full
-                        // slate is 14+ heavy detail sheets, which made the
-                        // whole screen (and the matchup strip) land slowly.
-                        // Only materialize the current page ± 1 neighbor;
-                        // distant pages are empty placeholders that fill in
-                        // as the selection approaches them.
-                        Group {
-                            if abs(idx - selection) <= 1 {
-                                page(
-                                    game,
-                                    // Pull the hero up to sit just clear of the back
-                                    // chevron rather than below the whole nav bar.
-                                    max(12, topInset - 36),
-                                    // Clear the floating strip + the home indicator.
-                                    stripHeight + 24 + bottomInset
-                                )
-                            } else {
-                                Color.clear
-                            }
-                        }
+                        // Build every page up front. A paging TabView keeps all
+                        // pages resident, so pre-building them means a swipe never
+                        // has to construct a heavy detail sheet mid-gesture — that
+                        // on-demand build is what made swiping jumpy. (Lazily
+                        // materializing pages fixes the open speed but reintroduces
+                        // the per-swipe hitch / pop-in flashing, so it's not worth
+                        // it here; gate the per-page data load instead if the open
+                        // needs to be faster.)
+                        page(
+                            game,
+                            // Pull the hero up to sit just clear of the back
+                            // chevron rather than below the whole nav bar.
+                            max(12, topInset - 36),
+                            // Clear the floating strip + the home indicator.
+                            stripHeight + 24 + bottomInset
+                        )
                         .tag(idx)
                     }
                 }

@@ -16,7 +16,7 @@ import WagerproofStores
 /// in a DEBUG-only file keeps prod code honest while still letting QA / batch
 /// reviewers verify the screen visually.
 ///
-/// Pair with `-tab <slug>` (one of `games | picks | outliers | scoreboard |
+/// Pair with `-tab <slug>` (one of `games | outliers | scoreboard |
 /// settings`) to land on a specific tab inside `mainTabs`. The harness
 /// applies this on first appear via the shared `RootRouter` deep-link buffer
 /// so `MainTabView` can consume it through its existing onChange handler —
@@ -125,10 +125,6 @@ struct ScreenshotHarnessView: View {
             scoreboardTargets
         case .featureRequestsEmpty, .featureRequestsLoaded, .featureRequestsError:
             featureRequestsTargets
-        case .picksEmpty, .picksLoaded, .picksError,
-             .pickDetail, .pickDetailBare, .pickDetailDegraded,
-             .editorPickCreator, .editorPickEditor:
-            picksTargets
         case .roastEmpty, .roastLoaded, .roastError:
             roastTargets
         case .outliersEmpty, .outliersLoaded, .outliersError:
@@ -151,9 +147,9 @@ struct ScreenshotHarnessView: View {
              .propsLoaded, .propDetail, .propDetailHighLine,
              .nflPropsLoaded, .nflPropDetail:
             gamesTargets
-        case .agentsLoaded, .topAgentPicks, .agentHeaderShowcase:
+        case .agentsLoaded, .topAgentPicks, .agentHeaderShowcase, .agentStats:
             agentsTargets
-        case .editorStats, .mlbInsightWidgets, .searchInsights:
+        case .mlbInsightWidgets, .searchInsights:
             toolTargets
         case .settings, .settingsLoaded, .settingsError,
              .deleteAccount, .deleteAccountError,
@@ -174,9 +170,6 @@ struct ScreenshotHarnessView: View {
     @ViewBuilder
     private var toolTargets: some View {
         switch ScreenshotHarness.target {
-        case .editorStats:
-            NavigationStack { EditorPicksStatsView() }
-                .environment(EditorPicksStore())
         case .mlbInsightWidgets:
             makeInsightWidgets()
         case .searchInsights:
@@ -285,48 +278,6 @@ struct ScreenshotHarnessView: View {
                 requests: [],
                 votes: []
             )
-        default:
-            EmptyView()
-        }
-    }
-
-    @ViewBuilder
-    private var picksTargets: some View {
-        switch ScreenshotHarness.target {
-        case .picksEmpty:
-            makePicks(state: .loaded, picks: [], gameData: [:])
-        case .picksLoaded:
-            makePicks(
-                state: .loaded,
-                picks: PicksFixtures.samplePicks,
-                gameData: PicksFixtures.gameDataMap,
-                isPro: true
-            )
-        case .picksError:
-            makePicks(
-                state: .failed("Network error: editors_picks fetch failed"),
-                picks: [],
-                gameData: [:]
-            )
-        case .pickDetail:
-            PickDetailBottomSheet(
-                pick: PicksFixtures.nbaPick,
-                gameData: PicksFixtures.nbaGameData
-            )
-        case .pickDetailBare:
-            PickDetailBottomSheet(
-                pick: PicksFixtures.bareNbaPick,
-                gameData: PicksFixtures.nbaGameData
-            )
-        case .pickDetailDegraded:
-            PickDetailBottomSheet(
-                pick: PicksFixtures.nbaPick,
-                gameData: PicksFixtures.degradedGameData
-            )
-        case .editorPickCreator:
-            EditorPickCreatorBottomSheet(editingPick: nil)
-        case .editorPickEditor:
-            EditorPickCreatorBottomSheet(editingPick: PicksFixtures.nbaPick)
         default:
             EmptyView()
         }
@@ -451,21 +402,6 @@ struct ScreenshotHarnessView: View {
         let store = FeatureRequestsStore()
         store.debugSet(requests: requests, userVotes: votes, state: state)
         return FeatureRequestsView(store: store)
-    }
-
-    /// Construct a `PicksView` against an in-memory `EditorPicksStore`
-    /// pre-loaded with the requested state. Refresh is gated on `.idle`
-    /// inside the view, so seeding `.loaded` keeps the fixture stable.
-    @MainActor
-    private func makePicks(
-        state: EditorPicksStore.LoadState,
-        picks: [EditorPick],
-        gameData: [String: EditorPickGameData],
-        isPro: Bool = false
-    ) -> some View {
-        let store = EditorPicksStore()
-        store.debugSet(picks: picks, gamesData: gameData, state: state)
-        return PicksView(store: store, isPro: isPro)
     }
 
     /// Construct a `RoastView` against an in-memory `RoastSessionStore`
@@ -658,8 +594,23 @@ struct ScreenshotHarnessView: View {
             makeTopAgentPicks()
         case .agentHeaderShowcase:
             AgentHeaderShowcase(agent: AgentsFixtures.sample[0].agent)
+        case .agentStats:
+            makeAgentStats()
         default:
             EmptyView()
+        }
+    }
+
+    /// Agents "Platform Statistics" parity target. Seeds a `PlatformStatsStore`
+    /// with a synthetic ~90-agent population (means/spreads mirroring the real
+    /// MLB/NBA/NCAAB curves) so the histogram, fitted bell curve, per-sport small
+    /// multiples, the NFL "Est." card, and the overlay all render offline.
+    @MainActor
+    private func makeAgentStats() -> some View {
+        let store = PlatformStatsStore()
+        store.debugSet(data: AgentStatsFixtures.sample, state: .loaded)
+        return NavigationStack {
+            AgentStatsView(store: store)
         }
     }
 
@@ -955,6 +906,59 @@ enum AgentsFixtures {
     ]
 }
 
+/// DEBUG-only synthetic agent population for the Platform Stats parity target.
+/// Deterministic (no RNG) so the screenshot is stable across runs. Per-sport
+/// means/spreads echo the real distribution (MLB ~49.7%, NBA ~53.1%, NCAAB
+/// ~55.5%) plus a few tiny-sample 0%/100% agents so the min-picks threshold has
+/// something to collapse as it rises.
+enum AgentStatsFixtures {
+    static let sample: [AgentStatDatum] = build()
+
+    private static func build() -> [AgentStatDatum] {
+        var rows: [AgentStatDatum] = []
+        let specs: [(key: String, mean: Double, spread: Double, count: Int)] = [
+            ("mlb", 0.497, 0.060, 40),
+            ("nba", 0.531, 0.075, 30),
+            ("ncaab", 0.555, 0.085, 20),
+        ]
+        for spec in specs {
+            for i in 0..<spec.count {
+                let t = Double(i) / Double(max(spec.count - 1, 1))   // 0…1 across cohort
+                let jitter = (sin(Double(i) * 2.399) * 0.6 + (t - 0.5) * 1.4) * spec.spread
+                let wr = min(0.95, max(0.15, spec.mean + jitter))
+                let decided = 22 + (i * 7) % 210                     // 22…~230 settled
+                let wins = Int((wr * Double(decided)).rounded())
+                let losses = decided - wins
+                let pushes = i % 6
+                let net = (wr - 0.5) * Double(decided) * 1.4 + sin(Double(i) * 1.3) * 3
+                rows.append(AgentStatDatum(
+                    avatarId: "fixture-\(spec.key)-\(i)",
+                    isPublic: i % 5 != 0,        // ~80% public
+                    wins: wins, losses: losses, pushes: pushes,
+                    winRate: Double(wins) / Double(max(wins + losses, 1)),
+                    netUnits: net,
+                    statsBySport: [spec.key: .init(wins: wins, losses: losses, pushes: pushes, total: decided + pushes)],
+                    lastCalculatedAt: "2026-06-30T12:00:00Z"
+                ))
+            }
+        }
+        // Tiny-sample spikes at 0% / 100% — visible only at a low threshold.
+        for i in 0..<6 {
+            let win = i % 2 == 0
+            rows.append(AgentStatDatum(
+                avatarId: "fixture-spike-\(i)",
+                isPublic: true,
+                wins: win ? 2 : 0, losses: win ? 0 : 2,
+                winRate: win ? 1.0 : 0.0,
+                netUnits: win ? 1.8 : -2.0,
+                statsBySport: ["mlb": .init(wins: win ? 2 : 0, losses: win ? 0 : 2, pushes: 0, total: 2)],
+                lastCalculatedAt: "2026-06-30T12:00:00Z"
+            ))
+        }
+        return rows
+    }
+}
+
 /// DEBUG-only seed rows for the Top Agent Picks feed parity screenshot. Two
 /// agents, each with a strip of MLB picks. Matchups use full team names so
 /// `OutlierMatchupCardView`'s internal resolver fills the logo discs from the
@@ -1210,14 +1214,6 @@ enum ScreenshotHarness {
         case featureRequestsEmpty
         case featureRequestsLoaded
         case featureRequestsError
-        case picksEmpty
-        case picksLoaded
-        case picksError
-        case pickDetail
-        case pickDetailBare
-        case pickDetailDegraded
-        case editorPickCreator
-        case editorPickEditor
         case roastEmpty
         case roastLoaded
         case roastError
@@ -1257,8 +1253,6 @@ enum ScreenshotHarness {
         case nflPropsLoaded
         // NFL prop detail (cross-book price board) from the same fixture.
         case nflPropDetail
-        // Per-sport analytics tool pages (Games-banner / Outliers destinations).
-        case editorStats
         // MLB game sheet with fixture-fed trends/F5/props insight widgets.
         case mlbInsightWidgets
         // SearchView with fixture slates + pre-seeded "Yankees" query (matchup
@@ -1274,6 +1268,10 @@ enum ScreenshotHarness {
         // DEBUG-only showcase for the redesigned agent-detail header
         // (autopilot/generate action zone + pixel-glyph generation loader).
         case agentHeaderShowcase
+        // Agents "Platform Statistics" screen — win-rate distribution histogram
+        // + fitted bell curve, per-sport small multiples, and overlay. Seeded
+        // with a synthetic ~90-agent population so the charts render offline.
+        case agentStats
         // B08 — Settings / Paywall / modals parity screenshots.
         // `settings` is the default state (empty notification permission +
         // free tier). `settingsLoaded` swaps in a Pro entitlement so the
@@ -1347,7 +1345,6 @@ enum ScreenshotHarness {
         switch args[idx + 1].lowercased() {
         case "games", "feed": return .games
         case "props": return .props
-        case "picks": return .picks
         case "outliers": return .outliers
         case "scoreboard", "scores": return .scoreboard
         case "settings": return .settings
@@ -1359,11 +1356,11 @@ enum ScreenshotHarness {
 
 /// DEBUG showcase for the redesigned agent-detail picks section. Renders the
 /// idle `AgentGeneratePrompt` (shimmer CTA + tucked autopilot chip) in both
-/// autopilot states, and the live `AgentGeneratingView` (3×3 glyph matrix +
-/// thinking verbs + real progress bar over a dense pixel fill), driven by a
-/// SIMULATED Trigger.dev run that steps through phases/turns on a loop. Mounted
-/// via `-uiScreenshotMode agentHeaderShowcase` so it can be verified without a
-/// live agent or network.
+/// autopilot states, and the live polling `AgentGenerationCard` (avatar shrunk to
+/// the corner, orange 3×3 glyph, action verbs, pixel loading bar, stacked tool
+/// skeletons), driven by a SIMULATED Trigger.dev run that steps through
+/// phases/turns on a loop. Mounted via `-uiScreenshotMode agentHeaderShowcase` so
+/// it can be verified without a live agent or network.
 struct AgentHeaderShowcase: View {
     let agent: Agent
     @State private var run: TriggerV3RunStatus?
@@ -1380,7 +1377,16 @@ struct AgentHeaderShowcase: View {
                     idlePrompt(auto: false).padding(14)
                 }
                 section("Generating (live sim)") {
-                    AgentGeneratingView(state: run, accent: accent).padding(6)
+                    AgentGenerationCard(
+                        spriteIndex: agent.spriteIndex,
+                        accent: accent,
+                        state: run,
+                        isGenerating: true,
+                        canGenerate: true,
+                        lockedLabel: "Daily limit reached",
+                        onGenerate: {}
+                    )
+                    .padding(6)
                 }
             }
             .padding(16)

@@ -48,8 +48,9 @@ struct AgencyStatsPill: View {
         .fixedSize()
         .padding(.horizontal, 11)
         .padding(.vertical, 6)
-        // Dark backing + white text — the pill sits over the colorful office.
-        .background(Color.black.opacity(0.45), in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5))
+        // Liquid glass to match the HQ status + Auto/Future control pills. Text
+        // stays white except the net-units value, which keeps its green/red P/L
+        // tint (a semantic accent, like the HQ pill's live dot).
+        .liquidGlassBackground(in: Capsule())
     }
 }

@@ -17,6 +17,7 @@ export type ToolAffinity = "+" | "=" | "-";
 export interface PersonalityParams {
   risk_tolerance?: number; underdog_lean?: number; over_under_lean?: number;
   confidence_threshold?: number; chase_value?: boolean; parlay_appetite?: number;
+  parlays_only?: boolean;
   preferred_bet_type?: "spread" | "moneyline" | "total" | "any";
   max_favorite_odds?: number | null; min_underdog_odds?: number | null;
   max_picks_per_day?: number; skip_weak_slates?: boolean;
@@ -58,6 +59,7 @@ export interface SteeringProfile {
   unitPolicy: string;
   parlayPolicy: string;
   maxParlayLegs: number;  // 0 = parlays disabled (appetite 1); else the leg cap
+  parlaysOnly: boolean;   // every play must be a parlay leg; submit_picks only finalizes (empty list)
   constraints: {
     maxFavoriteOdds: number | null;
     minUnderdogOdds: number | null;
@@ -164,8 +166,13 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
   const band = unitBand(risk, !!p.chase_value);
   // Parlay appetite (1 = straights only … 5 = loves parlays) → leg cap + prose
   // policy. maxParlayLegs 0 also withholds the submit_parlay tool entirely.
+  // parlays_only overrides the dial: the parlay tool is forced open (4-leg
+  // room even at appetite 1) and straight picks are rejected at submit.
   const parlayAppetite = num(p.parlay_appetite, 1);
-  const maxParlayLegs = parlayAppetite <= 1 ? 0 : parlayAppetite;
+  const parlaysOnly = p.parlays_only === true;
+  const maxParlayLegs = parlaysOnly
+    ? Math.max(parlayAppetite, 4)
+    : (parlayAppetite <= 1 ? 0 : parlayAppetite);
 
   return {
     preferredSports: sports,
@@ -180,10 +187,13 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
     toolAffinity,
     weightingPolicy: weighting,
     unitPolicy: `Size 0.5–${band.max}u within your band (base ${band.base}u at confidence 3); higher conviction → larger stake.`,
-    parlayPolicy: maxParlayLegs === 0
-      ? "Submit only straight single-game picks; never combine legs into a parlay."
-      : `You may combine your best plays into parlays of up to ${maxParlayLegs} legs (one stake per ticket). ${parlayAppetite >= 4 ? "Lean into parlays when your edges align." : "Use them selectively — only when the combined edge justifies the correlation risk."}`,
+    parlayPolicy: parlaysOnly
+      ? `PARLAYS ONLY: every play you stake MUST be a leg of a submit_parlay ticket (2–${maxParlayLegs} legs, one stake per ticket). Straight picks are forbidden and will be rejected — submit_picks accepts ONLY an empty picks array (call it once at the end to finalize the run).`
+      : maxParlayLegs === 0
+        ? "Submit only straight single-game picks; never combine legs into a parlay."
+        : `You may combine your best plays into parlays of up to ${maxParlayLegs} legs (one stake per ticket). ${parlayAppetite >= 4 ? "Lean into parlays when your edges align." : "Use them selectively — only when the combined edge justifies the correlation risk."}`,
     maxParlayLegs,
+    parlaysOnly,
     constraints: {
       maxFavoriteOdds: p.max_favorite_odds ?? null,
       minUnderdogOdds: p.min_underdog_odds ?? null,

@@ -24,8 +24,8 @@ import WagerproofStores
 /// recent tickets poke out the top, fanned and tucked into the folder; the
 /// whole card is one tap target that opens `PickHistorySheet`.
 struct AgentPickFolderCard: View {
-    /// Newest-first; only the first few peek out.
-    let recentPicks: [AgentPick]
+    /// Newest-first; only the first few peek out. Picks and parlays interleave.
+    let recentItems: [AgentBetItem]
     var totalCount: Int = 0
     var loading: Bool = false
     var locked: Bool = false
@@ -38,12 +38,11 @@ struct AgentPickFolderCard: View {
     private static let jitterX: [CGFloat] = [-6, 5, -3]
     private static let jitterTilt: [Double] = [-1.4, 1.0, -0.6]
 
-    private var peeks: [AgentPick] { Array(recentPicks.prefix(Self.peekCount)) }
+    private var peeks: [AgentBetItem] { Array(recentItems.prefix(Self.peekCount)) }
     private var isInteractive: Bool { !locked && !loading && !peeks.isEmpty }
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            folderBack
             ticketsLayer
             folderFront
         }
@@ -72,8 +71,8 @@ struct AgentPickFolderCard: View {
             } else if peeks.isEmpty {
                 emptyCaption
             } else {
-                ForEach(Array(peeks.enumerated()).reversed(), id: \.element.id) { index, pick in
-                    AgentPickTicket(pick: pick, accent: agentColor)
+                ForEach(Array(peeks.enumerated()).reversed(), id: \.element.id) { index, item in
+                    BetItemTicket(item: item, accent: agentColor)
                         .offset(x: Self.jitterX[index % Self.jitterX.count],
                                 y: 26 - CGFloat(index) * 10)
                         .rotationEffect(.degrees(Self.jitterTilt[index % Self.jitterTilt.count]))
@@ -111,15 +110,6 @@ struct AgentPickFolderCard: View {
     }
 
     // MARK: Folder shell
-
-    private var folderBack: some View {
-        PickFolderTabShape()
-            .fill(LinearGradient(colors: [Color(hex: 0x151A25), Color(hex: 0x0C0F17)],
-                                 startPoint: .top, endPoint: .bottom))
-            .frame(height: Self.cardHeight - 8)
-            .padding(.horizontal, 8)
-            .allowsHitTesting(false)
-    }
 
     private var folderFront: some View {
         Color.clear
@@ -167,7 +157,8 @@ struct AgentPickFolderCard: View {
 /// pulls tickets up out of the folder rolodex-style; tapping one expands it into
 /// the full pass. Filter by result / sport / sort from the floating glass pills.
 struct PickHistorySheet: View {
-    let picks: [AgentPick]
+    /// Picks + parlay tickets interleaved, newest first.
+    let items: [AgentBetItem]
     var agentName: String = "Agent"
     var agentColor: Color = .appPrimary
 
@@ -179,7 +170,7 @@ struct PickHistorySheet: View {
     @State private var statusFilter: AgentPick.PickResultStatus? = nil
     @State private var sportFilter: AgentSport? = nil
     @State private var sortOrder: PickSort = .newest
-    @State private var selected: AgentPick? = nil
+    @State private var selected: AgentBetItem? = nil
     @State private var detent: PresentationDetent = .height(440)
     @State private var scrollPos = ScrollPosition(edge: .top)
     @State private var stackRevealed = false
@@ -203,14 +194,19 @@ struct PickHistorySheet: View {
     private static let jitterTilt: [Double] = [-1.6, 1.2, -0.7, 1.8, -1.1, 0.5]
 
     private var sportsAvailable: [AgentSport] {
+        // A true multi-sport parlay has no single sport (sportForFilter == nil)
+        // — it only surfaces under "All Sports", never a specific pill.
         var seen = Set<AgentSport>()
-        return picks.compactMap { seen.insert($0.sport).inserted ? $0.sport : nil }
+        return items.compactMap { item in
+            guard let sport = item.sportForFilter else { return nil }
+            return seen.insert(sport).inserted ? sport : nil
+        }
     }
 
-    private var filteredPicks: [AgentPick] {
-        let filtered = picks
+    private var filteredItems: [AgentBetItem] {
+        let filtered = items
             .filter { statusFilter == nil || $0.result == statusFilter }
-            .filter { sportFilter == nil || $0.sport == sportFilter }
+            .filter { sportFilter == nil || $0.sportForFilter == sportFilter }
         switch sortOrder {
         case .newest: return filtered.sorted { sortKey($0) > sortKey($1) }
         case .oldest: return filtered.sorted { sortKey($0) < sortKey($1) }
@@ -218,7 +214,7 @@ struct PickHistorySheet: View {
         }
     }
 
-    private func sortKey(_ p: AgentPick) -> String { "\(p.gameDate)|\(p.createdAt)" }
+    private func sortKey(_ item: AgentBetItem) -> String { "\(item.gameDate)|\(item.createdAt)" }
 
     /// Fan the stack out: full-height sheet + the rolodex scrolled so a handful
     /// of tickets stand clear of the folder.
@@ -280,8 +276,7 @@ struct PickHistorySheet: View {
                 folderBack
                 if let selected {
                     ScrollView(showsIndicators: false) {
-                        ExpandedAgentPickTicket(pick: selected, accent: agentColor,
-                                                onAudit: { auditStore.present(pick: selected) })
+                        expandedTicket(for: selected)
                             .padding(.horizontal, 20)
                             .padding(.top, 64)   // rests below the floating bar
                             .padding(.bottom, Self.folderZone - 90)
@@ -321,8 +316,7 @@ struct PickHistorySheet: View {
 
                 if let selected {
                     ScrollView(showsIndicators: false) {
-                        ExpandedAgentPickTicket(pick: selected, accent: agentColor,
-                                                onAudit: { auditStore.present(pick: selected) })
+                        expandedTicket(for: selected)
                             .frame(maxWidth: 460)
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, 20)
@@ -332,16 +326,16 @@ struct PickHistorySheet: View {
                                 withAnimation(.spring(duration: 0.4)) { self.selected = nil }
                             }
                     }
-                } else if filteredPicks.isEmpty {
+                } else if filteredItems.isEmpty {
                     emptyState
                 } else {
                     ScrollView(showsIndicators: false) {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16)], spacing: 16) {
-                            ForEach(filteredPicks) { pick in
-                                AgentPickTicket(pick: pick, accent: agentColor)
+                            ForEach(filteredItems) { item in
+                                BetItemTicket(item: item, accent: agentColor)
                                     .onTapGesture {
                                         PickHaptics.select()
-                                        withAnimation(.spring(duration: 0.4)) { selected = pick }
+                                        withAnimation(.spring(duration: 0.4)) { selected = item }
                                     }
                             }
                         }
@@ -473,16 +467,19 @@ struct PickHistorySheet: View {
     private var ticketStack: some View {
         GeometryReader { geo in
             ScrollView(showsIndicators: false) {
-                if filteredPicks.isEmpty {
+                if filteredItems.isEmpty {
                     emptyState
                         .padding(.top, max(16, geo.size.height - 320))
                 } else {
                     // Negative spacing fans the pile (SwiftUI draws later
                     // siblings on top). Each ticket gets a small deterministic
-                    // x-offset + tilt so the pile reads hand-stuffed.
+                    // x-offset + tilt so the pile reads hand-stuffed. Parlay
+                    // tickets are taller than picks; the negative spacing +
+                    // per-ticket visualEffect are both position-driven, so a
+                    // mixed-height pile just shows more of the taller tickets.
                     VStack(spacing: -122) {
-                        ForEach(Array(filteredPicks.enumerated()), id: \.element.id) { index, pick in
-                            AgentPickTicket(pick: pick, accent: agentColor)
+                        ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
+                            BetItemTicket(item: item, accent: agentColor)
                                 .offset(x: Self.jitterX[index % Self.jitterX.count])
                                 .rotationEffect(.degrees(Self.jitterTilt[index % Self.jitterTilt.count]))
                                 .onTapGesture {
@@ -490,7 +487,7 @@ struct PickHistorySheet: View {
                                     if detent != .large {
                                         unstack()
                                     } else {
-                                        withAnimation(.spring(duration: 0.45)) { selected = pick }
+                                        withAnimation(.spring(duration: 0.45)) { selected = item }
                                     }
                                 }
                                 // Wallet physics, all position-driven: tickets
@@ -549,13 +546,13 @@ struct PickHistorySheet: View {
 
     private var emptyState: some View {
         VStack(spacing: 10) {
-            Image(systemName: picks.isEmpty ? "tray" : "line.3.horizontal.decrease.circle")
+            Image(systemName: items.isEmpty ? "tray" : "line.3.horizontal.decrease.circle")
                 .font(.system(size: 30, weight: .light))
                 .foregroundStyle(Color.appTextSecondary)
-            Text(picks.isEmpty ? "No graded picks yet" : "Nothing matches")
+            Text(items.isEmpty ? "No graded picks yet" : "Nothing matches")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Color.appTextPrimary)
-            Text(picks.isEmpty
+            Text(items.isEmpty
                  ? "Picks appear here once they're graded."
                  : "No picks match these filters.")
                 .font(.system(size: 13))
@@ -564,6 +561,19 @@ struct PickHistorySheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
+    }
+
+    /// The expanded pass for either item shape. Parlays skip the audit button —
+    /// the pick audit sheet resolves by avatar_picks id.
+    @ViewBuilder
+    private func expandedTicket(for item: AgentBetItem) -> some View {
+        switch item {
+        case .pick(let pick):
+            ExpandedAgentPickTicket(pick: pick, accent: agentColor,
+                                    onAudit: { auditStore.present(pick: pick) })
+        case .parlay(let parlay):
+            ExpandedAgentParlayTicket(parlay: parlay, accent: agentColor)
+        }
     }
 
     // MARK: - Folder shell

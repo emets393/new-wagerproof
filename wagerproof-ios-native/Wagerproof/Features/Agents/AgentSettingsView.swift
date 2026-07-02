@@ -29,6 +29,9 @@ struct AgentSettingsView: View {
     @State private var loadedAgent: Agent? = nil
     @State private var name: String = ""
     @State private var emoji: String = "🤖"
+    /// Pixel-office character pick (0…7). Replaces the old emoji picker; the
+    /// emoji value is still round-tripped untouched for the web/RN surfaces.
+    @State private var spriteIndex: Int = 0
     @State private var color: String = "#3B82F6"
     @State private var sports: Set<AgentSport> = []
     @State private var personality: AgentPersonalityParams = .default
@@ -47,7 +50,6 @@ struct AgentSettingsView: View {
         "#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b",
         "#ef4444", "#ec4899", "#6366f1", "#14b8a6", "#f97316"
     ]
-    private static let emojiOptions = ["🤖", "🦅", "🐺", "🦁", "🐉", "🎯", "🎲", "🔥", "⚡", "💎", "💰", "🧠", "🛡️", "📈", "🃏", "👁️"]
 
     // Label sets mirror the creation wizard (Step3 / Step4) exactly.
     private let riskLabels = ["Very Safe", "Conservative", "Balanced", "Aggressive", "High Risk"]
@@ -55,6 +57,7 @@ struct AgentSettingsView: View {
     private let overUnderLabels = ["Unders Only", "Prefer Under", "Balanced", "Prefer Over", "Overs Only"]
     private let confidenceLabels = ["Any Edge", "Low Bar", "Moderate", "High Bar", "Very Picky"]
     private let maxPicksLabels = ["1 Pick", "2 Picks", "3 Picks", "4 Picks", "5 Picks"]
+    private let parlayLabels = ["Straights Only", "Rarely", "Sometimes", "Often", "Loves Parlays"]
     private let trustLabels = ["Ignore", "Low Trust", "Moderate", "High Trust", "Full Trust"]
     private let sensitivityLabels = ["Minimal", "Low", "Moderate", "High", "Maximum"]
     private let publicThresholdLabels = ["55%", "60%", "65%", "70%", "75%"]
@@ -108,13 +111,16 @@ struct AgentSettingsView: View {
             }
         }
         .task(id: agentId) {
+            // Paint instantly from the pushed-in agent, but ALWAYS re-fetch —
+            // the parent screen's snapshot can be stale (it isn't refreshed
+            // after a save from this screen), which made saved settings appear
+            // to revert on reopen. `hydrate` is a no-op once the user edits.
             if let agent = initialAgent {
                 hydrate(from: agent)
-            } else {
-                await store.refreshSnapshot()
-                if let agent = store.snapshot?.agent {
-                    hydrate(from: agent)
-                }
+            }
+            await store.refreshSnapshot()
+            if let agent = store.snapshot?.agent {
+                hydrate(from: agent)
             }
         }
         .sheet(isPresented: $showTimePicker) {
@@ -175,27 +181,34 @@ struct AgentSettingsView: View {
                 .onChange(of: name) { _, _ in hasChanges = true }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Emoji").font(.system(size: 13, weight: .semibold))
+                Text("Character").font(.system(size: 13, weight: .semibold))
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(Self.emojiOptions, id: \.self) { e in
+                        // The 8 pixel-office people (avatar_0…avatar_7) replace
+                        // the old emoji grid — this is the same character that
+                        // sits at the agent's desk and fronts its cards.
+                        ForEach(0..<8, id: \.self) { idx in
+                            let isSelected = spriteIndex == idx
                             Button {
-                                emoji = e
+                                spriteIndex = idx
                                 hasChanges = true
                             } label: {
-                                Text(e)
-                                    .font(.system(size: 26))
-                                    .frame(width: 44, height: 44)
+                                PixelSpriteAvatar(spriteIndex: idx, animated: isSelected)
+                                    .frame(width: 42, height: 56)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 6)
                                     .background(
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .fill(emoji == e ? Color(hex: 0x00E676).opacity(0.18) : Color.appBorder.opacity(0.3))
+                                            .fill(isSelected ? Color(hex: 0x00E676).opacity(0.18) : Color.appBorder.opacity(0.3))
                                     )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .strokeBorder(emoji == e ? Color(hex: 0x00E676) : .clear, lineWidth: 2)
+                                            .strokeBorder(isSelected ? Color(hex: 0x00E676) : .clear, lineWidth: 2)
                                     )
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Character \(idx + 1)")
+                            .accessibilityAddTraits(isSelected ? .isSelected : [])
                         }
                     }
                 }
@@ -284,6 +297,10 @@ struct AgentSettingsView: View {
                         description: "How confident should your agent be before making a pick?", labels: confidenceLabels)
             ToggleInput(value: boolBind(\.chaseValue), label: "Chase Value",
                         description: "Seek out bets where odds exceed model probability (positive expected value)")
+            SliderInput(value: intBind(\.parlayAppetite), label: "Parlay Appetite",
+                        description: "Can your agent combine its best plays into multi-leg parlays?", labels: parlayLabels)
+            ToggleInput(value: boolBind(\.parlaysOnly), label: "Parlays Only",
+                        description: "Force every play into multi-leg parlay tickets — the agent never submits straight picks")
         } header: {
             Text("Core Personality")
         }
@@ -583,10 +600,16 @@ struct AgentSettingsView: View {
     // MARK: - Load / save
 
     private func hydrate(from agent: Agent) {
-        guard loadedAgent == nil else { return }
+        // Re-hydrate freely until the user touches the form — the fresh fetch
+        // must be able to replace a stale initialAgent, but must never clobber
+        // in-progress edits.
+        guard !hasChanges else { return }
         loadedAgent = agent
         name = agent.name
         emoji = agent.avatarEmoji
+        // Resolved pick: the stored override, else the legacy hash-derived
+        // character — so the picker highlights what the agent already shows.
+        spriteIndex = agent.spriteIndex
         color = agent.avatarColor
         sports = Set(agent.preferredSports)
         personality = agent.personalityParams
@@ -605,6 +628,7 @@ struct AgentSettingsView: View {
         let payload: [String: AnyEncodable] = [
             "name": AnyEncodable(name),
             "avatar_emoji": AnyEncodable(emoji),
+            "sprite_index": AnyEncodable(spriteIndex),
             "avatar_color": AnyEncodable(color),
             "preferred_sports": AnyEncodable(Array(sports).map { $0.rawValue }),
             "personality_params": AnyEncodable(personality),

@@ -40,6 +40,7 @@ struct CFBGameBottomSheet: View {
         } hero: { progress in
             heroView(progress: progress)
         } content: {
+            marketOddsSection
             ForEach(marketRows) { row in
                 marketSection(row)
             }
@@ -1348,6 +1349,13 @@ struct CFBGameBottomSheet: View {
             Text(value)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Color.appTextSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private var marketOddsSection: some View {
+        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
+            PolymarketWidget(league: "cfb", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayColor: awayColors.primary, homeColor: homeColors.primary)
         }
     }
 

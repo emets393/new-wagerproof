@@ -11,6 +11,7 @@ struct AgentTimeline: View {
     let agent: Agent
     let performance: AgentPerformance?
     let todaysPicks: [AgentPick]
+    var todaysParlays: [AgentParlay] = []
     let todaysRun: AgentGenerationRunSummary?
 
     private var events: [TimelineEvent] {
@@ -20,8 +21,18 @@ struct AgentTimeline: View {
             let title: String
             let detail: String
             let icon: String
-            if run.picksGenerated > 0 {
-                title = "Generated \(run.picksGenerated) pick\(run.picksGenerated == 1 ? "" : "s")"
+            // run.picksGenerated only counts straight picks; parlay tickets are
+            // spliced in client-side from today's loaded tickets.
+            let parlayCount = todaysParlays.count
+            if run.picksGenerated > 0 || parlayCount > 0 {
+                var parts: [String] = []
+                if run.picksGenerated > 0 {
+                    parts.append("\(run.picksGenerated) pick\(run.picksGenerated == 1 ? "" : "s")")
+                }
+                if parlayCount > 0 {
+                    parts.append("\(parlayCount) parlay\(parlayCount == 1 ? "" : "s")")
+                }
+                title = "Generated \(parts.joined(separator: " + "))"
                 detail = "Today's run completed successfully."
                 icon = "sparkles"
             } else if run.noGames {
@@ -43,7 +54,7 @@ struct AgentTimeline: View {
                 title: title,
                 detail: detail,
                 iconName: icon,
-                tint: run.picksGenerated > 0 ? Color(hex: 0x00E676) : Color.appTextSecondary
+                tint: (run.picksGenerated > 0 || !todaysParlays.isEmpty) ? Color(hex: 0x00E676) : Color.appTextSecondary
             ))
         }
 
@@ -77,10 +88,9 @@ struct AgentTimeline: View {
             EmptyView()
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                // Shared inline section header (see AgentSectionHeader). The header
-                // owns its 16pt inset so it lines up with the Performance header and
-                // the card headers above; the rows below sit flush at the section's
-                // left edge.
+                // Shared section header (see AgentSectionHeader, Search style) —
+                // sits flush at the section's outer inset, lined up with the
+                // Performance header and the timeline rows below it.
                 AgentSectionHeader(title: "Recent Activity", systemImage: "clock")
 
                 LazyVStack(alignment: .leading, spacing: 0) {

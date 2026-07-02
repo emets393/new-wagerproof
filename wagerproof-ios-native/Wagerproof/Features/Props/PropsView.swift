@@ -70,6 +70,10 @@ struct PropsView: View {
     @State private var showNFLMatchupSheet = false
     @State private var showBestPicks = false
     @State private var bestPicksStore = MLBPlayerPropPicksStore()
+    /// Sport chooser sheet — replaces the native Menu so out-of-season sports
+    /// can render dimmed (a Menu can't style its rows). Matches the Matchup /
+    /// Market filter-sheet pattern.
+    @State private var showSportSheet = false
 
     // Shared namespace for the card→detail zoom transition (same pattern as
     // GamesView). The source card and the pushed detail reference the same
@@ -166,6 +170,9 @@ struct PropsView: View {
             .sheet(isPresented: $showNFLMatchupSheet) {
                 NFLPropMatchupPickerSheet(options: nflGameFilterOptions, selection: $nflFilters.gameId)
             }
+            .sheet(isPresented: $showSportSheet) {
+                PropSportPickerSheet(selection: bindableSelectedSport)
+            }
             .toolbar { mainToolbar }
             .navigationDestination(item: $selectedProp) { selection in
                 PlayerPropDetailView(selection: selection)
@@ -188,11 +195,12 @@ struct PropsView: View {
 
     // MARK: - Toolbar (matches GamesView)
 
+    // WagerBot launcher hidden app-wide — see MainTabToolbar.swift's
+    // WagerBotToolbarButton.
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
         WagerProofLeadingToolbarItem()
         ToolbarItemGroup(placement: .topBarTrailing) {
-            WagerBotToolbarButton(tabStore: tabStore)
             SettingsToolbarButton(tabStore: tabStore)
         }
     }
@@ -249,17 +257,18 @@ struct PropsView: View {
     // markets (plus the NFL "Prop Signals" row) — neither renders in a Menu.
     @ViewBuilder
     private var sportPill: some View {
-        @Bindable var binding = store
-        Menu {
-            Picker("Sport", selection: $binding.selectedSport) {
-                ForEach(PropsStore.Sport.allCases) { sport in
-                    Label(sport.label, systemImage: sportIcon(sport)).tag(sport)
-                }
-            }
-        } label: {
-            pillLabel(icon: sportIcon(store.selectedSport), text: store.selectedSport.label)
+        Button { showSportSheet = true } label: {
+            // Dim the pill when you're viewing an off-season sport — the same
+            // cue the chooser rows use, so the state reads even while closed.
+            pillLabel(
+                icon: sportIcon(store.selectedSport),
+                text: store.selectedSport.label,
+                dimmed: sportIsOffSeason(store.selectedSport)
+            )
         }
+        .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: store.selectedSport)
+        .accessibilityLabel("Sport filter")
     }
 
     @ViewBuilder
@@ -359,7 +368,7 @@ struct PropsView: View {
 
     // MARK: - Pill chrome (shared visual treatment with Outliers Trends)
 
-    private func pillLabel(icon: String, text: String) -> some View {
+    private func pillLabel(icon: String, text: String, dimmed: Bool = false) -> some View {
         pillContainer {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .bold))
@@ -370,6 +379,9 @@ struct PropsView: View {
                 .lineLimit(1)
             pillChevron
         }
+        // Fade the whole pill when its sport is out of season — muted but still
+        // tappable, matching the dimmed rows in the chooser sheet.
+        .opacity(dimmed ? 0.5 : 1)
     }
 
     /// Floating Liquid Glass capsule chrome shared by every filter pill (iOS 26
@@ -394,6 +406,23 @@ struct PropsView: View {
         case .nfl, .cfb: return "football.fill"
         case .nba, .ncaab: return "basketball.fill"
         }
+    }
+
+    /// Manual binding to the shared store's sport so the chooser sheet can drive
+    /// it without restructuring `body` around an `@Bindable`.
+    private var bindableSelectedSport: Binding<PropsStore.Sport> {
+        Binding(get: { store.selectedSport }, set: { store.selectedSport = $0 })
+    }
+
+    /// Bridge Props' sport enum to the shared `GamesStore.Sport` the season
+    /// helper is keyed on — identical raw values, so this never fails.
+    private func gamesSport(_ sport: PropsStore.Sport) -> GamesStore.Sport {
+        GamesStore.Sport(rawValue: sport.rawValue) ?? .mlb
+    }
+
+    /// Out-of-season sports read dimmed in the picker (parity with the Games tab).
+    private func sportIsOffSeason(_ sport: PropsStore.Sport) -> Bool {
+        !SportSeason.isInSeason(gamesSport(sport))
     }
 
     // MARK: - Content
@@ -432,7 +461,13 @@ struct PropsView: View {
         // sticky headers; the sort mode reorders players within a date.
         let items = sortedNFLItems(NFLPropFeed.items(from: store.nflPlayers, filters: nflFilters))
         if items.isEmpty {
-            emptyTile(label: nflFilteredEmptyLabel, systemImage: "football")
+            if store.nflPlayers.isEmpty {
+                // Whole slate empty → season-aware copy (off-season vs. mid-refresh).
+                seasonEmptyTile(for: .nfl, systemImage: "football")
+            } else {
+                // Board has props, but the active filters exclude them all.
+                emptyTile(label: nflFilteredEmptyLabel, systemImage: "football")
+            }
         } else {
             let sections = GameDateGrouping.group(
                 items,
@@ -477,7 +512,13 @@ struct PropsView: View {
     private var matchupSections: some View {
         let items = sortedFeedItems(PlayerPropFeed.items(from: store.sortedMatchups(), filters: mlbFilters))
         if items.isEmpty {
-            emptyTile(label: mlbFilteredEmptyLabel, systemImage: "baseball")
+            if store.sortedMatchups().isEmpty {
+                // Whole slate empty → season-aware copy (off-season vs. mid-refresh).
+                seasonEmptyTile(for: .mlb, systemImage: "baseball")
+            } else {
+                // Board has props, but the active filters exclude them all.
+                emptyTile(label: mlbFilteredEmptyLabel, systemImage: "baseball")
+            }
         } else {
             let sections = GameDateGrouping.group(
                 items,
@@ -662,6 +703,104 @@ struct PropsView: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 200)
+    }
+
+    /// Season-aware empty tile — shown when a prop sport's whole slate is empty
+    /// (vs. `emptyTile`, used when filters exclude an otherwise-full board).
+    /// Off-season points at the season start; in-season reads as mid-refresh.
+    /// Copy/layout mirror the Games tab's season empty tile.
+    private func seasonEmptyTile(for sport: PropsStore.Sport, systemImage: String) -> some View {
+        let copy = SportSeason.emptyCopy(for: gamesSport(sport), itemsNoun: "player props", dataNoun: "prop data")
+        return VStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 44, weight: .light))
+                .foregroundStyle(Color.appTextMuted)
+            VStack(spacing: 6) {
+                Text(copy.title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.appTextPrimary)
+                Text(copy.message)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 220)
+        .padding(.horizontal, 32)
+        .padding(.vertical, 24)
+    }
+}
+
+// MARK: - Sport picker
+
+/// Sport chooser behind the Props sport pill. A sheet (not a native Menu) so
+/// each row carries its own styling: out-of-season sports render dimmed with an
+/// "Out of season" caption, mirroring the Games tab's dimmed segments.
+private struct PropSportPickerSheet: View {
+    @Binding var selection: PropsStore.Sport
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(PropsStore.Sport.allCases) { sport in
+                    Button {
+                        selection = sport
+                        dismiss()
+                    } label: {
+                        row(for: sport)
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Select sport")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private func row(for sport: PropsStore.Sport) -> some View {
+        let offSeason = !SportSeason.isInSeason(GamesStore.Sport(rawValue: sport.rawValue) ?? .mlb)
+        HStack(spacing: 12) {
+            Image(systemName: icon(for: sport))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(offSeason ? Color.appTextMuted : Color.appPrimary)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(sport.label)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.appTextPrimary)
+                if offSeason {
+                    Text("Out of season")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.appTextSecondary)
+                }
+            }
+            Spacer(minLength: 0)
+            if selection == sport {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.appPrimary)
+            }
+        }
+        // Dim off-season rows, but never the current selection (stays legible).
+        .opacity(offSeason && selection != sport ? 0.55 : 1)
+        .contentShape(Rectangle())
+    }
+
+    private func icon(for sport: PropsStore.Sport) -> String {
+        switch sport {
+        case .mlb: return "figure.baseball"
+        case .nfl, .cfb: return "football.fill"
+        case .nba, .ncaab: return "basketball.fill"
+        }
     }
 }
 

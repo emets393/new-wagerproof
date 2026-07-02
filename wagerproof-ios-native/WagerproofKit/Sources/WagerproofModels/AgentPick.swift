@@ -265,3 +265,20 @@ public struct TopAgentPickFeedRow: Codable, Identifiable, Sendable, Hashable {
         self.agentCurrentStreak = (try? c.decode(Int.self, forKey: .agentCurrentStreak)) ?? 0
     }
 }
+
+public extension TopAgentPickFeedRow {
+    /// Adapt a feed row into the `AgentPick` shape the ticket views consume, so
+    /// the Top Picks feed can render the same `AgentPickMiniTicket` as the agent
+    /// detail rail. The feed RPC omits `key_factors`/`actual_result`/`graded_at`
+    /// (they aren't shown on the mini ticket), so those default to nil.
+    var asAgentPick: AgentPick {
+        AgentPick(
+            id: id, avatarId: avatarId, gameId: gameId, sport: sport,
+            matchup: matchup, gameDate: gameDate, betType: betType,
+            pickSelection: pickSelection, odds: odds, units: units,
+            confidence: confidence, reasoningText: reasoningText,
+            keyFactors: nil, result: result, actualResult: nil,
+            gradedAt: nil, createdAt: createdAt
+        )
+    }
+}

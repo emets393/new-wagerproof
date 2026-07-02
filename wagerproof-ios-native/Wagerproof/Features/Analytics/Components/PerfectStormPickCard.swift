@@ -273,16 +273,13 @@ struct PerfectStormPickCard: View {
     private func reasoningQuote(_ reasoning: String) -> some View {
         Text(reasoning)
             .font(.system(size: 12))
+            .italic()
             .lineSpacing(3)
-            .foregroundStyle(Color.appTextPrimary)
+            .foregroundStyle(Color.appTextSecondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.appSurfaceMuted.opacity(0.5))
-            .overlay(alignment: .leading) {
-                Rectangle().fill(tier.color).frame(width: 2)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .background(Color.appSurfaceMuted.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
     }
 
     private var footer: some View {

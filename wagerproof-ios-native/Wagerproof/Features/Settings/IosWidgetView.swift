@@ -1,41 +1,41 @@
 import SwiftUI
 import WagerproofDesign
 
-/// iOS Widget walkthrough — port of `wagerproof-mobile/app/(modals)/ios-widget.tsx`.
+/// iOS Widget walkthrough — port of `wagerproof-mobile/app/(modals)/ios-widget.tsx`,
+/// updated for the native `WagerProofWidgetExtension` target (see
+/// `WagerProofWidgetExtension/WagerProofWidgetBundle.swift`).
 ///
-/// This modal explains how to add the WagerProof Home Screen widget. It is
-/// purely educational + showcases three widget content types (Picks / Fades /
-/// Market Value) with sample data. The real WidgetKit extension lives outside
-/// this batch and reads from App Group `widgetPayload`.
+/// Unlike the old RN-era widget (one configurable widget with an Editor
+/// Picks / Fade Alerts / Market Value / Top Agents picker), the native
+/// extension ships two separate, independently-addable widgets — "Top
+/// Outliers" and "Agent Monitor" — so there's no "Edit Widget to choose
+/// content type" step anymore, just two widgets to search for and add.
 struct IosWidgetView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var selected: WidgetType = .picks
+    @State private var selected: WidgetType = .outliers
 
     private enum WidgetType: String, CaseIterable, Identifiable {
-        case picks, fades, market
+        case outliers, agents
         var id: String { rawValue }
 
         var title: String {
             switch self {
-            case .picks: return "Editor Picks"
-            case .fades: return "Fade Alerts"
-            case .market: return "Market Value"
+            case .outliers: return "Top Outliers"
+            case .agents: return "Agent Monitor"
             }
         }
 
         var icon: String {
             switch self {
-            case .picks: return "star.fill"
-            case .fades: return "bolt.fill"
-            case .market: return "chart.line.uptrend.xyaxis"
+            case .outliers: return "bell.badge.fill"
+            case .agents: return "brain.head.profile"
             }
         }
 
         var label: String {
             switch self {
-            case .picks: return "Picks"
-            case .fades: return "Fades"
-            case .market: return "Market"
+            case .outliers: return "Outliers"
+            case .agents: return "Agents"
             }
         }
     }
@@ -53,7 +53,7 @@ struct IosWidgetView: View {
                 .padding(.vertical, Spacing.lg)
             }
             .background(Color.appSurface.ignoresSafeArea())
-            .navigationTitle("iOS Widget")
+            .navigationTitle("iOS Widgets")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -81,11 +81,11 @@ struct IosWidgetView: View {
                     .foregroundStyle(Color(hex: 0x22C55E))
             }
 
-            Text("WagerProof Widget")
+            Text("WagerProof Widgets")
                 .font(AppFont.display)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.appTextPrimary)
-            Text("Add our widget to your Home Screen for instant access to picks, fade alerts, and market insights.")
+            Text("Add Top Outliers and Agent Monitor to your Home Screen for instant access to today's sharpest signals and your agents' latest picks.")
                 .font(AppFont.body)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.appTextSecondary)
@@ -179,15 +179,15 @@ struct IosWidgetView: View {
 
     private var instructionsCard: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("How to Add the Widget")
+            Text("How to Add a Widget")
                 .font(AppFont.headline)
                 .foregroundStyle(Color.appTextPrimary)
 
             step(1, "Long press on your Home Screen until apps start jiggling")
             step(2, "Tap the + button in the top corner")
-            step(3, "Search for \"WagerProof\"")
-            step(4, "Choose Medium or Large size, then tap Add Widget")
-            step(5, "Long press the widget and select Edit Widget to choose content type")
+            step(3, "Search for \"WagerProof Outliers\" or \"WagerProof Agents\"")
+            step(4, "Choose Small, Medium, or Large size, then tap Add Widget")
+            step(5, "Repeat to add the other widget — each one lives on your Home Screen independently")
         }
         .padding(Spacing.lg)
         .background(Color.appSurfaceElevated)
@@ -215,7 +215,7 @@ struct IosWidgetView: View {
         HStack(alignment: .top, spacing: Spacing.sm) {
             Image(systemName: "info.circle.fill")
                 .foregroundStyle(Color(hex: 0x22C55E))
-            Text("The widget updates automatically when you open the app. Data refreshes every 30-60 minutes.")
+            Text("Widgets sync automatically when you open the app and refresh roughly every 60 minutes in the background.")
                 .font(AppFont.body)
                 .foregroundStyle(Color.appTextSecondary)
         }
@@ -237,26 +237,18 @@ struct IosWidgetView: View {
 
     private func sampleRows() -> [WidgetSampleRow] {
         switch selected {
-        case .picks:
-            return [
-                .init(sport: "NFL", matchup: "Ravens @ Chiefs", line: "Ravens -3.5", trailing: "-110", color: Color(hex: 0x013369)),
-                .init(sport: "NBA", matchup: "Lakers @ Celtics", line: "Over 224.5", trailing: "-105", color: Color(hex: 0x1D428A)),
-                .init(sport: "CFB", matchup: "Alabama @ Georgia", line: "Georgia -7", trailing: "-115", color: Color(hex: 0x8B0000)),
-                .init(sport: "NCAAB", matchup: "Duke @ UNC", line: "Duke +2.5", trailing: "-108", color: Color(hex: 0xFF6600))
-            ]
-        case .fades:
+        case .outliers:
             return [
                 .init(sport: "NFL", matchup: "49ers @ Cowboys", line: "Fade to Cowboys", trailing: "85%", color: Color(hex: 0x013369)),
-                .init(sport: "CFB", matchup: "Ohio State @ Michigan", line: "Fade to Under", trailing: "12pt", color: Color(hex: 0x8B0000)),
                 .init(sport: "NBA", matchup: "Warriors @ Suns", line: "Fade to Suns", trailing: "11pt", color: Color(hex: 0x1D428A)),
+                .init(sport: "CFB", matchup: "Alabama @ Georgia", line: "Over value", trailing: "62%", color: Color(hex: 0x8B0000)),
                 .init(sport: "NCAAB", matchup: "Kansas @ Kentucky", line: "Fade to Kansas", trailing: "7pt", color: Color(hex: 0xFF6600))
             ]
-        case .market:
+        case .agents:
             return [
-                .init(sport: "NFL", matchup: "Packers @ Bears", line: "Packers", trailing: "62%", color: Color(hex: 0x013369)),
-                .init(sport: "NBA", matchup: "Nuggets @ Heat", line: "Nuggets ML", trailing: "87%", color: Color(hex: 0x1D428A)),
-                .init(sport: "CFB", matchup: "Texas @ Oklahoma", line: "Over", trailing: "59%", color: Color(hex: 0x8B0000)),
-                .init(sport: "NCAAB", matchup: "Gonzaga @ UCLA", line: "Gonzaga", trailing: "64%", color: Color(hex: 0xFF6600))
+                .init(sport: "\u{1F3AF}", matchup: "Sharp Edge — 28-18", line: "Ravens @ Chiefs — Ravens -3.5", trailing: "+8.4u", color: Color(hex: 0x22C55E)),
+                .init(sport: "\u{1F9E0}", matchup: "Line Hunter — 24-18", line: "Alabama @ Georgia — Georgia -7", trailing: "+6.1u", color: Color(hex: 0x3B82F6)),
+                .init(sport: "\u{26A1}", matchup: "Market Fade — 20-17", line: "Duke @ UNC — Duke +2.5", trailing: "+4.2u", color: Color(hex: 0xF59E0B))
             ]
         }
     }

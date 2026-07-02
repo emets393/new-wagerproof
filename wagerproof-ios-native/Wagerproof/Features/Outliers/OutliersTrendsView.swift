@@ -244,17 +244,18 @@ struct OutliersTrendsView: View {
         }
     }
 
+    /// Market section header — matches the Search page's section headers: a small
+    /// bold leading icon + an uppercased, secondary-color title (footnote weight).
     private func sectionHeader(_ section: OutliersTrendsMarketSection) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Image(systemName: marketIcon(section.marketKey))
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Color.appPrimary)
-                .frame(width: 22)
+                .font(.system(size: 11, weight: .bold))
             Text(section.title)
-                .font(.system(size: 17, weight: .heavy))
-                .foregroundStyle(Color.appTextPrimary)
+                .font(.footnote.weight(.semibold))
+                .textCase(.uppercase)
             Spacer(minLength: 0)
         }
+        .foregroundStyle(.secondary)
     }
 
     /// SF Symbol per bet-type, shared across the game/run-line/total + player-prop markets.
@@ -324,15 +325,45 @@ struct OutliersTrendsView: View {
         .padding(.vertical, 48)
     }
 
+    /// Mirrors `sectionsList`'s shape (header + horizontal card carousel) with
+    /// `OutliersTrendCardShimmer` placeholders, so the initial fetch reads as
+    /// "trends are coming" instead of a bare spinner — same scaffolding
+    /// approach as `GamesView.loadingSkeleton`.
     private var loadingState: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-            Text("Loading trends…")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.appTextSecondary)
+        VStack(alignment: .leading, spacing: 22) {
+            ForEach(0..<3, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: 10) {
+                    sectionHeaderSkeleton
+                    shimmerCarousel
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 48)
+        .transition(.opacity)
+    }
+
+    private var sectionHeaderSkeleton: some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(.white.opacity(0.35))
+                .frame(width: 14, height: 14)
+            SkeletonBlock(width: 110, height: 12)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var shimmerCarousel: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(0..<3, id: \.self) { _ in
+                    OutliersTrendCardShimmer()
+                        .frame(width: cardWidth)
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, 2)
+        }
+        .padding(.horizontal, -Spacing.lg)
+        .scrollDisabled(true)
     }
 
     private func errorState(_ message: String) -> some View {

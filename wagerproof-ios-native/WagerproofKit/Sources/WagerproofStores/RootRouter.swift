@@ -22,6 +22,12 @@ public final class RootRouter {
     /// re-enable onboarding.
     public static let temporarilyDisableOnboarding = true
 
+    /// Set by Secret Settings' "Reset Onboarding" so testers can re-enter the
+    /// wizard even while `temporarilyDisableOnboarding` is active. In-memory
+    /// only — cleared when onboarding completes; a relaunch falls back to the
+    /// bypass, so this can never leak the wizard to real users.
+    public private(set) var forceOnboardingForTesting = false
+
     public private(set) var phase: Phase = .launching
 
     /// The deep-link path captured before auth resolved. After auth completes,
@@ -35,11 +41,29 @@ public final class RootRouter {
         case .launching:
             phase = .launching
         case .unauthenticated:
+            // Sign-out ends a forced test run — the next account shouldn't
+            // inherit the wizard override.
+            forceOnboardingForTesting = false
             phase = .unauthenticated
         case .authenticated:
+            // Completing the wizard ends a forced test run so subsequent
+            // resolves fall back to normal (bypassed) routing.
+            if onboardingComplete { forceOnboardingForTesting = false }
             // TEMPORARY onboarding bypass — see `temporarilyDisableOnboarding`.
-            phase = (onboardingComplete || Self.temporarilyDisableOnboarding) ? .ready : .onboarding
+            // The bypass yields to `forceOnboardingForTesting` so the Secret
+            // Settings reset can still run the wizard end-to-end.
+            let bypass = Self.temporarilyDisableOnboarding && !forceOnboardingForTesting
+            phase = (onboardingComplete || bypass) ? .ready : .onboarding
         }
+    }
+
+    /// Debug affordance backing Secret Settings' "Reset Onboarding": flips the
+    /// router straight into `.onboarding`, overriding the temporary bypass.
+    /// Callers must reset `OnboardingStore` first so the wizard starts at
+    /// step 1 with a clean draft.
+    public func forceOnboardingForTestingNow() {
+        forceOnboardingForTesting = true
+        phase = .onboarding
     }
 
     public func handle(deepLink url: URL) {
@@ -63,7 +87,6 @@ public final class RootRouter {
 
 /// Mirrors the deep-link map in `app/(drawer)/_layout.tsx`.
 public enum DeepLinkRoute: Equatable, Sendable {
-    case picks
     case agents
     case outliers
     case feed
@@ -73,7 +96,6 @@ public enum DeepLinkRoute: Equatable, Sendable {
         guard url.scheme == "wagerproof" else { return nil }
         let host = url.host ?? url.pathComponents.dropFirst().first
         switch host {
-        case "picks": self = .picks
         case "agents": self = .agents
         case "outliers": self = .outliers
         case "feed": self = .feed

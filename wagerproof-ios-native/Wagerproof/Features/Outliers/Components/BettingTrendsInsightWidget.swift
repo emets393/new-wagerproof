@@ -37,54 +37,10 @@ struct BettingTrendsInsightWidget: View {
                         .padding(.vertical, 6)
                 } else {
                     ForEach(Array(summary.signals.prefix(3))) { signal in
-                        signalRow(for: signal)
+                        TrendSignalRow(signal: signal)
                     }
                 }
             }
         }
-    }
-
-    // MARK: - Rows
-
-    private func signalRow(for signal: TrendsSignal) -> some View {
-        let badge = badgeContent(for: signal)
-        return InsightSignalRow(
-            title: "\(signal.situationTitle) · \(signal.metricLabel)",
-            badgeText: badge.text,
-            badgeTint: badge.tint,
-            bar: SignalSplitBar(
-                awayValue: signal.awayPct,
-                homeValue: signal.homePct,
-                awayNumeral: numeral(pct: signal.awayPct, record: signal.awayDetail),
-                homeNumeral: numeral(pct: signal.homePct, record: signal.homeDetail),
-                awayTint: trendsPctColor(signal.awayPct),
-                homeTint: trendsPctColor(signal.homePct)
-            )
-        )
-    }
-
-    private func badgeContent(for signal: TrendsSignal) -> (text: String, tint: Color) {
-        switch signal.kind {
-        case .side(let leader, let abbr, let gap):
-            // Leader badge tints by the leader's own pct color (green at the
-            // 55 floor by construction).
-            let leaderPct = leader == .away ? signal.awayPct : signal.homePct
-            return ("\(abbr) +\(Int(gap.rounded()))", trendsPctColor(leaderPct))
-        case .over:
-            return ("OVER", Color(hex: 0x22C55E))
-        case .under:
-            // Legacy adapter convention — under leans read blue, not red.
-            return ("UNDER", Color(hex: 0x3B82F6))
-        }
-    }
-
-    /// MLB numerals are percent-only ("71%"); NBA/NCAAB pair the record with
-    /// the pct ("12-5 (71%)", trailing "-0" push trimmed).
-    private func numeral(pct: Double?, record: String?) -> String {
-        guard let pct else { return "—" }
-        let pctLabel = "\(Int(pct.rounded()))%"
-        guard let record, !record.isEmpty, record != "-" else { return pctLabel }
-        let trimmed = record.hasSuffix("-0") ? String(record.dropLast(2)) : record
-        return "\(trimmed) (\(pctLabel))"
     }
 }

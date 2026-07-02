@@ -83,6 +83,85 @@ public enum AgentPicksService {
         return picks
     }
 
+    // MARK: - Parlays (direct RLS reads — mirror the pick methods above)
+
+    /// Embed alias keeps the JSON key `legs`, matching AgentParlay.CodingKeys
+    /// and the shape the v3 read RPCs emit.
+    private static let parlaySelect = "*, legs:avatar_parlay_legs(*)"
+
+    /// Fetch recent parlay tickets for an agent, newest first. Sibling of
+    /// `fetchPicks` over `avatar_parlays` (+ legs embedded).
+    public static func fetchParlays(agentId: String, limit: Int? = nil) async throws -> [AgentParlay] {
+        let main = await MainSupabase.shared.client
+        var query = main
+            .from("avatar_parlays")
+            .select(parlaySelect)
+            .eq("avatar_id", value: agentId)
+            .order("target_date", ascending: false)
+            .order("created_at", ascending: false)
+        if let limit {
+            query = query.limit(limit)
+        }
+        let response = try await query.execute()
+        return AgentParlay.decodeLossyArray(from: response.data)
+    }
+
+    /// Graded parlays from prior target dates — sibling of `fetchGradedPickHistory`.
+    public static func fetchGradedParlayHistory(agentId: String, limit: Int) async throws -> [AgentParlay] {
+        let main = await MainSupabase.shared.client
+        let todayStr = localDateString(Date())
+        let response = try await main
+            .from("avatar_parlays")
+            .select(parlaySelect)
+            .eq("avatar_id", value: agentId)
+            .lt("target_date", value: todayStr)
+            .in("result", values: ["won", "lost", "push"])
+            .order("target_date", ascending: false)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+        return AgentParlay.decodeLossyArray(from: response.data)
+    }
+
+    /// Today's parlay tickets for an agent — sibling of `fetchTodaysPicks`.
+    public static func fetchTodaysParlays(agentId: String) async throws -> [AgentParlay] {
+        let main = await MainSupabase.shared.client
+        let todayStr = Self.localDateString(Date())
+        let response = try await main
+            .from("avatar_parlays")
+            .select(parlaySelect)
+            .eq("avatar_id", value: agentId)
+            .eq("target_date", value: todayStr)
+            .order("created_at", ascending: false)
+            .limit(25)
+            .execute()
+        return AgentParlay.decodeLossyArray(from: response.data)
+    }
+
+    /// Upcoming parlays (today + next 3 days) from a set of agents — sibling
+    /// of `fetchUpcomingFeed`.
+    public static func fetchUpcomingParlaysFeed(
+        agentIds: [String],
+        limit: Int = 50
+    ) async throws -> [AgentParlay] {
+        guard !agentIds.isEmpty else { return [] }
+        let main = await MainSupabase.shared.client
+        let today = Date()
+        let todayStr = Self.localDateString(today)
+        let endDate = Calendar(identifier: .gregorian).date(byAdding: .day, value: 3, to: today) ?? today
+        let endStr = Self.localDateString(endDate)
+        let response = try await main
+            .from("avatar_parlays")
+            .select(parlaySelect)
+            .in("avatar_id", values: agentIds)
+            .gte("target_date", value: todayStr)
+            .lte("target_date", value: endStr)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+        return AgentParlay.decodeLossyArray(from: response.data)
+    }
+
     /// Top picks feed across all public agents (RPC `get_top_agent_picks_feed_v2`).
     /// Used by the Top Agent Picks inner tab on the agents hub. Mirrors
     /// `fetchTopAgentPicksFeedV2` in `services/agentPicksService.ts:315-343` —
@@ -147,28 +226,8 @@ public enum AgentPicksService {
         )
     }
 
-    /// Request a fresh generation run. Returns the result; the caller refreshes
-    /// the snapshot afterwards. Mirrors `generatePicks`.
-    ///
-    /// V3 opt-in params default to nil → omitted on the wire → V2 path unchanged.
-    public static func requestGeneration(
-        agentId: String,
-        idempotencyKey: String? = nil,
-        engineVersion: String? = nil,
-        dryRun: Bool? = nil,
-        modelName: String? = nil
-    ) async throws -> GenerationRequestResult {
-        try await AgentAuthorizedActionsService.requestGeneration(
-            agentId: agentId,
-            idempotencyKey: idempotencyKey,
-            engineVersion: engineVersion,
-            dryRun: dryRun,
-            modelName: modelName
-        )
-    }
-
-    /// Start the Trigger.dev-backed V3 path. This is used only by the native
-    /// client V3 opt-in; legacy clients keep using `requestGeneration`.
+    /// Start the Trigger.dev-backed V3 generation run (this client is V3-only).
+    /// Returns the result; the caller polls the run + refreshes the snapshot.
     public static func requestTriggerV3Generation(
         agentId: String,
         idempotencyKey: String? = nil,

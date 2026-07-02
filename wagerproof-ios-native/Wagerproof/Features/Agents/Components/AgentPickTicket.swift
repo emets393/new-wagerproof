@@ -50,7 +50,16 @@ struct AgentPickTicket: View {
                                      startPoint: .top, endPoint: .bottom),
                       style: FillStyle(eoFill: true))
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .shadow(color: .black.opacity(0.55), radius: 14, y: -8)
+                // Hairline rim instead of a heavy cast shadow: in the folder peek
+                // + rolodex these tickets stack ~10pt apart, so a strong black
+                // drop shadow compounds into dark blobs behind the front ticket.
+                // A faint top-lit stroke separates the stacked slivers cleanly and
+                // a soft ambient shadow keeps depth without pooling.
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(.white.opacity(0.07), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.22), radius: 5, y: 2)
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -121,11 +130,13 @@ struct AgentPickTicket: View {
             }
 
             HStack(spacing: 8) {
-                Text("“\(pick.pickSelection)”")
-                    .font(.system(size: 12, weight: .medium))
-                    .italic()
-                    .foregroundStyle(Color.appTextSecondary)
+                // The pick shown proud — no quotes, no italic; the loudest line
+                // in the bottom stub.
+                Text(pick.pickSelection)
+                    .font(.system(size: 15, weight: .heavy))
+                    .foregroundStyle(Color.appTextPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "gauge.medium")
@@ -152,6 +163,9 @@ struct ExpandedAgentPickTicket: View {
     let pick: AgentPick
     var accent: Color = .appPrimary
     var onAudit: (() -> Void)? = nil
+    /// When true, renders the WagerProof logo + wordmark at the bottom (for the
+    /// shareable focus card) and trims the long folder "tail" padding.
+    var showsBranding: Bool = false
 
     private static let notchY: CGFloat = 200
     private var status: PickTicketStatus { pick.ticketStatus }
@@ -309,10 +323,18 @@ struct ExpandedAgentPickTicket: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            if showsBranding {
+                WagerproofTicketFooter()
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 10)
+            }
         }
         .padding(.horizontal, 22)
         .padding(.top, 18)
-        .padding(.bottom, 110)   // tail of the pass rides down into the folder
+        // Branded (focus/share) cards end just below the logo; unbranded (folder)
+        // cards keep the long tail that rides down into the folder pocket.
+        .padding(.bottom, showsBranding ? 22 : 110)
     }
 
     private func detailRow(left: (String, String, Color), right: (String, String, Color)) -> some View {
@@ -342,12 +364,32 @@ struct ExpandedAgentPickTicket: View {
     }
 }
 
+// MARK: - Branding footer
+
+/// WagerProof logo + two-tone wordmark, shown at the bottom of a shareable pick
+/// card so exported images carry the brand.
+struct WagerproofTicketFooter: View {
+    var body: some View {
+        HStack(spacing: 7) {
+            Image("WagerproofLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+            HStack(spacing: 0) {
+                Text("Wager").foregroundStyle(Color.appTextPrimary.opacity(0.7))
+                Text("Proof").foregroundStyle(Color(hex: 0x00E676))
+            }
+            .font(.system(size: 13, weight: .heavy))
+        }
+        .opacity(0.9)
+    }
+}
+
 // MARK: - Shared ticket pieces
 
 /// "🟦KC ·――🏈――· BUF🟥" — the route header both ticket sizes share. Each end
-/// pairs the team's real abbreviation with a Liquid-Glass logo avatar disc (the
-/// same `teamGlassDisc` treatment `GameRowCard` / `PropPlayerCard` use); the
-/// sport glyph rides the dashed route line between them.
+/// pairs the team's real abbreviation with a flat (non-glass) logo avatar disc;
+/// the sport glyph rides the dashed route line between them.
 struct PickRouteLineRow: View {
     let pick: AgentPick
     let codeSize: CGFloat
@@ -361,34 +403,24 @@ struct PickRouteLineRow: View {
     }
 
     var body: some View {
-        // Wrap both discs in the merge container so they get the shared Liquid
-        // Glass treatment (they sit far apart across the route line, so they
-        // never actually fuse — this just matches the canonical avatar usage).
-        LiquidGlassMergeContainer(spacing: 0) {
-            HStack(alignment: .center, spacing: 10) {
-                teamEnd(visual: away, leading: true)
-                routeLine
-                teamEnd(visual: home, leading: false)
-            }
+        HStack(alignment: .center, spacing: 10) {
+            teamEnd(visual: away)
+            routeLine
+            teamEnd(visual: home)
         }
     }
 
+    /// Logo stacked ABOVE the abbreviation (rather than beside it) so the logo
+    /// can be the prominent, larger element and the code reads as its label.
     @ViewBuilder
-    private func teamEnd(visual: PickTeamVisual, leading: Bool) -> some View {
-        let avatar = PickTeamAvatar(visual: visual, size: codeSize * 0.85)
-        let code = Text(visual.code)
-            .font(.system(size: codeSize, weight: .heavy, design: .rounded))
-            .foregroundStyle(Color.appTextPrimary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-        HStack(spacing: 7) {
-            if leading {
-                avatar
-                code
-            } else {
-                code
-                avatar
-            }
+    private func teamEnd(visual: PickTeamVisual) -> some View {
+        VStack(spacing: 4) {
+            PickTeamAvatar(visual: visual, size: codeSize * 1.25)
+            Text(visual.code)
+                .font(.system(size: codeSize * 0.8, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.appTextPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -413,10 +445,15 @@ struct PickRouteLineRow: View {
     }
 }
 
-/// Liquid-Glass team logo avatar for the pick ticket. Mirrors `GameRowCard`'s
-/// avatar disc: a team-tinted `.teamGlassDisc` carrying the ESPN logo (MLB) or
-/// the abbreviation as fallback initials, plus a faint contrast plate so a
-/// same-color logo never vanishes into the disc.
+/// Flat (non-glass) team logo avatar for the pick ticket — carries the ESPN
+/// logo (MLB) or the abbreviation as fallback initials over a team-tinted
+/// gradient disc, plus a faint contrast plate so a same-color logo never
+/// vanishes into the disc.
+///
+/// Deliberately skips the `teamGlassDisc` treatment `GameRowCard` /
+/// `PropPlayerCard` use — Pick History can render dozens of these at once
+/// (folder peek + the full rolodex sheet), and real Liquid Glass per disc
+/// is too much compositing cost multiplied across a long scrolling list.
 struct PickTeamAvatar: View {
     let visual: PickTeamVisual
     var size: CGFloat = 28
@@ -446,7 +483,22 @@ struct PickTeamAvatar: View {
             }
         }
         .frame(width: size, height: size)
-        .teamGlassDisc(primary: visual.primary, secondary: visual.secondary, tint: 0.5)
+        .background(
+            Circle()
+                .fill(Color.appSurfaceElevated)
+                .overlay(
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [visual.primary, visual.secondary],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .opacity(0.45)
+                )
+                .overlay(Circle().strokeBorder(Color.appSurfaceElevated, lineWidth: 1.5))
+        )
     }
 
     private var initials: some View {

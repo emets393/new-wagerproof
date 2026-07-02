@@ -17,6 +17,7 @@ struct Step3PersonalityView: View {
     private let overUnderLabels = ["Unders Only", "Prefer Under", "Balanced", "Prefer Over", "Overs Only"]
     private let confidenceLabels = ["Any Edge", "Low Bar", "Moderate", "High Bar", "Very Picky"]
     private let maxPicksLabels = ["1 Pick", "2 Picks", "3 Picks", "4 Picks", "5 Picks"]
+    private let parlayLabels = ["Straights Only", "Rarely", "Sometimes", "Often", "Loves Parlays"]
 
     private let betTypes: [(value: String, label: String)] = [
         ("any", "Any"),
@@ -80,6 +81,17 @@ struct Step3PersonalityView: View {
                     value: $store.draft.personalityParams.chaseValue,
                     label: "Chase Value",
                     description: "Seek out bets where odds exceed model probability (positive expected value)"
+                )
+                SliderInput(
+                    value: $store.draft.personalityParams.parlayAppetite,
+                    label: "Parlay Appetite",
+                    description: "Can your agent combine its best plays into multi-leg parlays?",
+                    labels: parlayLabels
+                )
+                ToggleInput(
+                    value: $store.draft.personalityParams.parlaysOnly,
+                    label: "Parlays Only",
+                    description: "Force every play into multi-leg parlay tickets — the agent never submits straight picks"
                 )
             }
 

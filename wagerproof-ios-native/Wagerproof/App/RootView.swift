@@ -152,7 +152,7 @@ private struct SplashView: View {
                     Text("Wager").foregroundStyle(.white)
                     + Text("Proof").foregroundStyle(Color.appPrimary)
                 )
-                .font(.system(size: 38, weight: .heavy))
+                .font(.system(size: 20, weight: .heavy))
                 .tracking(-0.5)
 
                 SplashProgressBar(progress: progress)

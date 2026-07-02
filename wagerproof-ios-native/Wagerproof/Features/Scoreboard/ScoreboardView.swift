@@ -121,7 +121,8 @@ struct ScoreboardView: View {
     /// Native large-title toolbar. Leading slot flips
     /// `tabStore.isSettingsPresented` to open the Settings sheet centrally
     /// mounted on `MainTabView`. Trailing group has the expand/compact
-    /// toggle + the WagerBot launcher.
+    /// toggle. WagerBot launcher hidden app-wide — see MainTabToolbar.swift's
+    /// WagerBotToolbarButton.
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
@@ -150,15 +151,6 @@ struct ScoreboardView: View {
             .tint(Color.appTextPrimary)
             .symbolEffect(.bounce, value: isExpanded)
             .accessibilityLabel(isExpanded ? "Switch to compact layout" : "Switch to expanded layout")
-
-            Button {
-                tabStore.isChatPresented = true
-            } label: {
-                WagerBotIcon(size: 22)
-                    .foregroundStyle(Color.appTextPrimary)
-            }
-            .tint(Color.appTextPrimary)
-            .accessibilityLabel("WagerBot")
         }
     }
 

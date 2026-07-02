@@ -49,20 +49,39 @@ The Trigger.dev project ref is pinned in `trigger.config.ts`:
 
 ## Required Environment
 
-Set these in Trigger.dev Cloud for the task environment:
+The task itself reads these at runtime (`src/runtimeHelpers.ts`,
+`src/loop/runV3Generation.ts`, `src/shared/revenuecat.ts`):
 
-- `TRIGGER_SECRET_KEY` (used by the CLI/deploy environment)
 - `DEEPSEEK_API_KEY`
-- `OPENAI_API_KEY`
+- `OPENAI_API_KEY` (fallback provider; the loop defaults to `deepseek-reasoner`)
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CFB_SUPABASE_URL`
 - `CFB_SUPABASE_ANON_KEY`
+- `REVENUECAT_SECRET_API_KEY`
+- `REVENUECAT_ENTITLEMENT_IDENTIFIER`
 - `V3_DAILY_SPEND_CAP_USD` (optional; defaults to `25`)
 
-Set this in Supabase Edge Function secrets for `trigger-v3-run`:
+`trigger.config.ts` wires the `syncEnvVars` build extension to push these into
+whatever environment you deploy to (`npm run deploy` → prod), reading them
+from the CLI process env — which is loaded from this directory's `.env` by
+default. So filling in `.env` and running `npm run deploy` is enough; you
+don't need to hand-copy anything into the Trigger.dev dashboard.
 
-- `TRIGGER_SECRET_KEY`
+`TRIGGER_SECRET_KEY` (in `.env`) is different — it's the CLI/deploy
+credential Trigger.dev's own tooling uses to authenticate `npm run dev` /
+`npm run deploy`, not a var the task reads, so it is intentionally excluded
+from the sync list.
+
+Set this in Supabase Edge Function secrets (read by both `trigger-v3-run` and
+`trigger-run-status`):
+
+- `TRIGGER_SECRET_KEY_PROD` — the **Production** environment secret key from
+  the Trigger.dev dashboard (Project → API Keys). Deliberately a different
+  name from the local `.env`'s `TRIGGER_SECRET_KEY` (a dev key) so the two
+  can't be silently swapped for each other — the edge functions must always
+  trigger against the deployed prod tasks, never a developer's local `trigger
+  dev` session.
 
 The Supabase runtime already supplies `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY`.
@@ -70,12 +89,14 @@ The Supabase runtime already supplies `SUPABASE_URL` and
 ## Deployment Order
 
 1. Apply `supabase/migrations/20260629180000_agent_generation_v3_triggerdev.sql`.
-2. Deploy the gateway:
-   `supabase functions deploy trigger-v3-run`.
-3. Deploy Trigger.dev tasks from this directory:
-   `npm run deploy`.
-4. In Trigger.dev, confirm `generate-v3-picks` and `daily-auto-gen-v3` are
-   registered and the schedule is active for the target environment.
+2. Set `TRIGGER_SECRET_KEY_PROD` in Supabase Edge Function secrets (one-time,
+   or whenever the Trigger.dev prod key rotates).
+3. Deploy the gateways: `supabase functions deploy trigger-v3-run` and
+   `supabase functions deploy trigger-run-status`.
+4. Deploy Trigger.dev tasks from this directory: `npm run deploy` (syncs env
+   vars and deploys to prod).
+5. In Trigger.dev, confirm `generate-v3-picks` and `daily-auto-gen-v3` are
+   registered and the schedule is active for the `prod` environment.
 
 ## Client Flow
 

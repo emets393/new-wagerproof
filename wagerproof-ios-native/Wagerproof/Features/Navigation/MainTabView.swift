@@ -134,12 +134,12 @@ struct MainTabView: View {
         // a tab's content, expanding again on scroll up (iOS 26 Liquid Glass
         // behavior). No-op on earlier OSes.
         .tabBarMinimizeOnScroll()
-        // Activate search the moment the search tab is selected (and restore
-        // the previous tab on cancel). On iOS 27 this is also what earns the
-        // search tab the detached prominent circle at the trailing edge —
-        // verified on the 27.0 beta sim; without it the search tab renders
-        // merged into the bar.
-        .searchActivationOnTabSelection()
+        // NOTE: we deliberately do NOT auto-activate search on tab selection.
+        // SearchView is a browsable launchpad (Explore cards, recents, sport
+        // chips) meant to be used without the keyboard — auto-focusing the
+        // field on every tab tap fought that. `role: .search` still gives the
+        // detached prominent search button on iOS 26; the user taps the field
+        // to start typing.
         .environment(tabStore)
         .environment(gamesStore)
         .environment(propsStore)
@@ -184,12 +184,6 @@ struct MainTabView: View {
         // gradient + bottom mic CTA fill the screen.
         .fullScreenCover(isPresented: $binding.isRoastPresented) {
             RoastView()
-                .environment(tabStore)
-        }
-        // Picks is no longer a bottom-bar tab — present it as a sheet from
-        // the tab shell when the side menu (or a deep link) flips the flag.
-        .sheet(isPresented: $binding.isPicksPresented) {
-            PicksView()
                 .environment(tabStore)
         }
         // B21 — global Learn WagerProof walkthrough sheet.
@@ -310,18 +304,6 @@ private extension View {
     func tabBarMinimizeOnScroll() -> some View {
         if #available(iOS 26.0, *) {
             self.tabBarMinimizeBehavior(.onScrollDown)
-        } else {
-            self
-        }
-    }
-
-    /// iOS 26's `tabViewSearchActivation(.searchTabSelection)` — the SwiftUI
-    /// counterpart of `UISearchTab.automaticallyActivatesSearch`. No-op on
-    /// earlier OSes so we stay buildable against the iOS 18 floor.
-    @ViewBuilder
-    func searchActivationOnTabSelection() -> some View {
-        if #available(iOS 26.0, *) {
-            self.tabViewSearchActivation(.searchTabSelection)
         } else {
             self
         }

@@ -47,6 +47,7 @@ struct NFLGameBottomSheet: View {
         } hero: { progress in
             heroView(progress: progress)
         } content: {
+            marketOddsSection
             predictionSections
             matchupHistorySection
             AgentPickRationaleWidget(gameKeys: [game.trainingKey, game.uniqueId, "\(game.awayTeam)_\(game.homeTeam)"])
@@ -229,6 +230,15 @@ struct NFLGameBottomSheet: View {
         if temp <= 35 { return Color.appAccentBlue }
         if temp >= 80 { return Color.appAccentRed }
         return Color.appAccentAmber
+    }
+
+    // MARK: - Polymarket
+
+    @ViewBuilder
+    private var marketOddsSection: some View {
+        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
+            PolymarketWidget(league: "nfl", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayColor: awayColors.primary, homeColor: homeColors.primary)
+        }
     }
 
     // MARK: - Prediction Cards

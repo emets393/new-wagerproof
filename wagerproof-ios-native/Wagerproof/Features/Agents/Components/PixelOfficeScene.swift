@@ -6,14 +6,18 @@ import WagerproofModels
 /// full agent simulation ported from `PixelOffice.tsx`'s requestAnimationFrame
 /// loop:
 ///
-/// 1. Floor background (swapped on floor/time toggles).
-/// 2. Office structure background (office_bg) — desks, walls, plants.
-/// 3. 16 laptop sprites — open when the desk seat they map to is occupied.
-/// 4. Per-agent `PixelOfficeAgentNode` characters that spawn at random spots,
+/// 1. Floor background — the full office scene (desks, walls, plants, and
+///    day/night lighting all baked into the `floor_{style}_{day|night}` texture),
+///    swapped live on the floor/time toggles. This is the ONLY background layer,
+///    mirroring RN: RN draws only the floor texture (its imported `office_bg` is
+///    unused). Drawing the opaque `office_bg` on top here would permanently mask
+///    the floor and make both toggles no-ops — hence it's intentionally absent.
+/// 2. 16 laptop sprites — open when the desk seat they map to is occupied.
+/// 3. Per-agent `PixelOfficeAgentNode` characters that spawn at random spots,
 ///    pathfind (A*) to claimed desk/idle/meeting points, walk with directional
 ///    animations, sit and work, and churn state on a 5s timer.
-/// 5. A particle layer (night monitor-glow + dormant coffee/fire effects).
-/// 6. Office foreground overlay (office_fg) — chairs/plants over the characters.
+/// 4. A particle layer (night monitor-glow + dormant coffee/fire effects).
+/// 5. Office foreground overlay (office_fg) — chairs/plants over the characters.
 ///
 /// The simulation is stepped from `update(_:)`; SpriteKit pauses both the loop
 /// and the scheduled actions when `isPaused` is set (tab off-screen), so we get
@@ -40,7 +44,6 @@ final class PixelOfficeScene: SKScene {
     // MARK: - Scene nodes
 
     private var floorSprite: SKSpriteNode!
-    private var officeBgSprite: SKSpriteNode!
     private var officeFgSprite: SKSpriteNode!
     /// Laptop sprites keyed by laptop index (0..15).
     private var laptopSprites: [Int: SKSpriteNode] = [:]
@@ -102,15 +105,10 @@ final class PixelOfficeScene: SKScene {
         floorSprite.zPosition = 0
         addChild(floorSprite)
 
-        // ── Office structure ──
-        if let bgTex = PixelOfficeTextureCache.shared.staticTexture(named: "office_bg") {
-            officeBgSprite = SKSpriteNode(texture: bgTex)
-            officeBgSprite.size = CGSize(width: PixelOfficeGeo.mapWidth, height: PixelOfficeGeo.mapHeight)
-            officeBgSprite.anchorPoint = CGPoint(x: 0, y: 0)
-            officeBgSprite.position = .zero
-            officeBgSprite.zPosition = 1
-            addChild(officeBgSprite)
-        }
+        // NOTE: No separate office-structure layer. The floor_* texture already
+        // contains the full office (desks, walls, plants). RN's `office_bg` asset
+        // is imported-but-unused; drawing it opaque over the floor here would
+        // permanently hide the floor and break both the day/night + floor toggles.
 
         // ── Laptop layer ── (all 16; conference seats render closed forever).
         for (idx, spot) in PixelOfficeLaptops.spots.enumerated() {

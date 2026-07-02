@@ -54,7 +54,10 @@ struct PropPlayerCard: View {
         .padding(.vertical, 9)
         .background {
             ZStack {
-                shape.fill(cardFill)
+                // Matches AgentRowCard's glass treatment: ultraThinMaterial
+                // thinned in dark mode so more of the page shows through.
+                shape.fill(.ultraThinMaterial)
+                    .opacity(colorScheme == .dark ? 0.55 : 1)
                 shape.strokeBorder(Color.appBorder.opacity(0.5), lineWidth: 0.5)
             }
         }

@@ -70,8 +70,10 @@ struct GameRowCard: View {
             }
         }
         .background {
+            // Matches AgentRowCard's glass treatment: ultraThinMaterial
+            // thinned in dark mode so more of the page shows through.
             shape.fill(.ultraThinMaterial)
-                .opacity(colorScheme == .dark ? 0.78 : 1)
+                .opacity(colorScheme == .dark ? 0.55 : 1)
         }
         .overlay {
             if model.isMammoth {

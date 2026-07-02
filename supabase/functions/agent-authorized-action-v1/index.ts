@@ -17,6 +17,7 @@ const EDITABLE_AGENT_FIELDS = new Set([
   'name',
   'avatar_emoji',
   'avatar_color',
+  'sprite_index',
   'preferred_sports',
   'archetype',
   'personality_params',

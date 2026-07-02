@@ -9,6 +9,7 @@ import GoogleSignIn
 
 @main
 struct WagerproofApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var authStore = AuthStore()
     @State private var rootRouter = RootRouter()
     @State private var onboardingStore = OnboardingStore()
@@ -80,6 +81,13 @@ struct WagerproofApp: App {
             #else
             productionRoot
             #endif
+        }
+        // Re-sync both Home Screen widgets whenever the app comes back to
+        // the foreground — cheap, and keeps the widgets from going stale
+        // between the cron-driven backend refreshes and the next cold launch.
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active, case .authenticated(let userId) = authStore.phase else { return }
+            Task { await WidgetSyncCoordinator.syncAll(userId: userId.uuidString) }
         }
     }
 
@@ -186,6 +194,7 @@ struct WagerproofApp: App {
         case .authenticated(let userId):
             await revenueCatStore.attachUser(userId)
             await adminModeStore.checkRole(for: userId)
+            await WidgetSyncCoordinator.syncAll(userId: userId.uuidString)
         case .unauthenticated:
             await revenueCatStore.detachUser()
             adminModeStore.reset()

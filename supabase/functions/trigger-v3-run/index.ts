@@ -31,9 +31,9 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const triggerSecretKey = Deno.env.get('TRIGGER_SECRET_KEY') ?? '';
+    const triggerSecretKey = Deno.env.get('TRIGGER_SECRET_KEY_PROD') ?? '';
     if (!supabaseUrl || !supabaseServiceKey) throw new Error('Missing Supabase configuration');
-    if (!triggerSecretKey) throw new Error('Missing TRIGGER_SECRET_KEY');
+    if (!triggerSecretKey) throw new Error('Missing TRIGGER_SECRET_KEY_PROD');
 
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -60,6 +60,34 @@ serve(async (req) => {
     const { hasPremiumAccess } = await resolvePremiumAccess(serviceClient, userId);
     if (!hasPremiumAccess) {
       return errorResponse(403, 'Upgrade to Pro to generate picks for this agent.');
+    }
+
+    // In-flight coalesce: if this avatar already has a live run (queued or
+    // processing, started in the last ~12 min — the task ceiling is 600s), a
+    // second trigger JOINS it instead of enqueueing a duplicate. Prevents the
+    // leave-page-and-retap race where two runs write the same slate.
+    const inflightCutoff = new Date(Date.now() - 12 * 60 * 1000).toISOString();
+    const { data: activeRun } = await serviceClient
+      .from('agent_generation_runs')
+      .select('id, trigger_run_id, status, created_at')
+      .eq('avatar_id', avatarId)
+      .eq('user_id', userId)
+      .eq('engine_version', 'v3_trigger')
+      .in('status', ['queued', 'processing'])
+      .gte('created_at', inflightCutoff)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (activeRun?.trigger_run_id) {
+      console.log(`[trigger-v3-run] coalesced onto in-flight run ${activeRun.trigger_run_id} (ledger ${activeRun.id})`);
+      const publicAccessToken = await createTriggerPublicAccessToken(triggerSecretKey, activeRun.trigger_run_id);
+      return successResponse({
+        ledger_run_id: activeRun.id,
+        run_id: activeRun.trigger_run_id,
+        public_access_token: publicAccessToken,
+        status: 'queued',
+        coalesced: true,
+      });
     }
 
     const { data: ledgerRunId, error: enqueueError } = await serviceClient.rpc(
