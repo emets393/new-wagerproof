@@ -36,4 +36,16 @@ echo; echo ">>> 3-4) grade NFL props + grade picks + refresh signal_performance"
 # psycopg2 over DATABASE_URL (no psql binary). Idempotent; skips with a note if DATABASE_URL unset.
 python3 run_grade_rpcs.py "$SEASON"
 
+# --- 5) DAILY refresh of upcoming-week referees + Outliers cards ----------------
+# NFL officiating crews are announced ~Wednesday, AFTER the Tuesday slate build — so the
+# assigned_referee (and the ref trend cards that read it) won't exist until a mid-week run.
+# This daily step backfills refs once the league posts them and rebuilds the Outliers cards
+# so ref cards appear, plus refreshes live book lines. Targets the same slate the builders
+# default to (dry-run = 2025 wk12). AT GO-LIVE: export NFL_SEASON/NFL_WEEK to the current
+# week (e.g. `export NFL_WEEK=$(python3 current_week.py nfl "$SEASON")`) before these.
+echo; echo ">>> 5) refresh upcoming refs + Outliers cards (refs post ~Wed)"
+python3 backfill_dryrun_referees.py
+python3 gen_nfl_outliers_trend_cards.py
+python3 refresh_nfl_outliers_trend_lines.py
+
 echo; echo "=== grade run done :: season=$SEASON ==="

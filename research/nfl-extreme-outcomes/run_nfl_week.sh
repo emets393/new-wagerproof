@@ -58,6 +58,7 @@ step "1H: model -> h1m_preds";       python3 h1m_models.py; python3 h1m_models2.
 step "dryrun slate: games + flags";  python3 dryrun_wk12_games.py
 step "assign referees to slate";     python3 backfill_dryrun_referees.py
 step "dryrun slate: player props";   python3 dryrun_wk12_props.py
+step "H2H matchup history";           python3 dryrun_wk12_matchups.py
 step "team trends (Outliers tab)";    python3 dryrun_wk12_trends.py
 step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
 step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py

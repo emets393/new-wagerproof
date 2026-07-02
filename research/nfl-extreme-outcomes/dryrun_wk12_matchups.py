@@ -15,6 +15,7 @@ Usage:  python3 dryrun_wk12_matchups.py [--no-load]
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -25,7 +26,10 @@ import requests
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 BASE_URL = "https://jpxnjuwglavsjbgbasnl.supabase.co/rest/v1"
-SEASON, WEEK = 2025, 12
+# Season/week parametrized (env) to match the other slate builders; defaults to the
+# Wk12-2025 dry-run so an unparameterized run stays byte-for-byte the original.
+SEASON = int(os.environ.get("NFL_SEASON", 2025))
+WEEK = int(os.environ.get("NFL_WEEK", 12))
 N_LAST = 5
 # relocations + scheme normalization -> current abbreviation
 RELOC = {"OAK": "LV", "SD": "LAC", "STL": "LA", "LAR": "LA", "WSH": "WAS", "JAC": "JAX"}
