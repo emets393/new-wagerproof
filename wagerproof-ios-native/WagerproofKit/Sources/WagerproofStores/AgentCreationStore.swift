@@ -45,6 +45,11 @@ public final class AgentCreationStore {
         // Defaults match RN INITIAL_FORM_STATE (types/agent.ts:451-462).
         public var avatarEmoji: String = "\u{1F916}" // 🤖
         public var avatarColor: String = "gradient:#6366f1,#ec4899"
+        /// Chosen pixel character (avatar_0…avatar_7). nil = not chosen yet;
+        /// hosts seed it once so the preview doesn't reshuffle per keystroke
+        /// (create_agent has no sprite field — persisted via update_agent
+        /// right after creation).
+        public var spriteIndex: Int? = nil
         public var personalityParams: AgentPersonalityParams = .default
         public var customInsights: AgentCustomInsights = .empty
         public var autoGenerate: Bool = true
@@ -119,24 +124,16 @@ public final class AgentCreationStore {
         draft.customInsights = .empty
     }
 
-    /// Toggle a sport selection. MLB is exclusive — selecting it deselects
-    /// everything else, and selecting another sport while MLB is active
-    /// replaces it. Mirrors `toggleSport()` in create.tsx:105-123.
+    /// Toggle a sport selection. Plain multi-select — MLB used to be an
+    /// exclusive pick (single-sport Statcast payload) but the generation
+    /// pipeline now supports mixing it with other sports.
     public func toggleSport(_ sport: AgentSport) {
         let current = draft.preferredSports
         if current.contains(sport) {
             draft.preferredSports = current.filter { $0 != sport }
-            return
+        } else {
+            draft.preferredSports = current + [sport]
         }
-        if sport == .mlb {
-            draft.preferredSports = [.mlb]
-            return
-        }
-        if current.contains(.mlb) {
-            draft.preferredSports = [sport]
-            return
-        }
-        draft.preferredSports = current + [sport]
     }
 
     // MARK: - Validation

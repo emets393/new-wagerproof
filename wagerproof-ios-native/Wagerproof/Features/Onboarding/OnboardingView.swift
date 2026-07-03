@@ -1,21 +1,20 @@
 // OnboardingView.swift
 //
-// 21-step onboarding wizard. 1:1 SwiftUI port of
-// `wagerproof-mobile/app/(onboarding)/index.tsx` + every file under
-// `wagerproof-mobile/components/onboarding/steps/`.
+// Onboarding v2 root. Three persistent strata:
 //
-// Wired to the real `OnboardingStore`:
-//   - `store.currentStep` drives the pager selection and the cinematic branch.
-//   - `store.advance()` / `store.back()` are the only navigation surfaces.
-//   - `store.markComplete()` is called from `AgentBornView`'s "Let's go!" CTA.
+//   Layer 0 — ONE `AnimatedAccentPixelWave` (the login screen's pixelwave,
+//             identical entry params so RootView's auth → onboarding
+//             cross-fade reads as one continuous surface). Never torn down
+//             while the phase lasts; reacts to chip taps (ripples) and to
+//             bettor-type / archetype selections (tint glide).
+//   Layer 1 — phase switch derived from `store.currentStep`:
+//             carousel (steps 1–13, native page slides inside one shell) →
+//             generation cinematic (14) → reveal (15). Only the foreground
+//             cross-fades; the background never re-identifies.
 //
-// Container choreography mirrors RN exactly:
-//   - Steps 1..14 → individual pages in a `TabView(.page(indexDisplayMode: .never))`.
-//   - Steps 15..19 → a single pager page (`pagerIndex == 14`) hosted by
-//     `OnboardingAgentBuilderView` which owns its own sub-flow.
-//   - Steps 20..21 → cinematic full-screen views rendered OUTSIDE the pager.
-//
-// Spec: docs/wagerproof-migration/08-screen-native-spec.md §5.
+// The cinematic views are transparent by design — the pixelwave is their
+// backdrop. Completion (`markComplete()`) fires from the reveal CTA; the
+// paywall stays owned by RootView over MainTabView.
 
 import SwiftUI
 import WagerproofDesign
@@ -25,97 +24,134 @@ struct OnboardingView: View {
     @Environment(OnboardingStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    var body: some View {
-        ZStack {
-            // Layer 1: base background — solid dark + bottom-up teal
-            // gradient. Matches RN's #0F1117 +
-            // LinearGradient(transparent → rgba(34,197,94,.14)).
-            Color(hex: 0x0F1117).ignoresSafeArea()
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0.3),
-                    .init(color: Color.appPrimary.opacity(0.14), location: 1)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+    /// Ripple channel shared by the background and every selectable chip
+    /// (via the `\.glyphRippleEmitter` environment).
+    @State private var rippleEmitter = GlyphRippleEmitter()
+    /// The agent wizard draft — owned here (not in the carousel) so it
+    /// survives the carousel → cinematic swap and the genesis model can
+    /// submit it.
+    @State private var creationStore = AgentCreationStore()
+    /// Generation theater + real agent creation + teaser picks. Created on
+    /// entry to `.generation`; survives into `.reveal`.
+    @State private var genesis: OnboardingGenesisModel?
 
-            // Layer 2: per-step view, ZStack-switched on `currentStep`.
-            // Mirrors Honeydew's `OnboardingFlowView` (no TabView, no
-            // swipe — the system can never page horizontally because
-            // there's no pager container). Each branch attaches a
-            // `.transition(.opacity)` so SwiftUI cross-fades the swap
-            // when `store.currentStep` flips. AgentBuilder steps 15..19
-            // share one branch (the builder owns its own sub-flow).
-            stepLayer
+    // Accent tint interpolation (Canvas can't tween colors — see
+    // AnimatedAccentPixelWave). from/to/blend snapshot the on-screen color
+    // on every retarget so interrupted transitions never jump.
+    @State private var tintFrom: Color = .appPrimary
+    @State private var tintTo: Color = .appPrimary
+    @State private var tintBlend: Double = 1
+
+    private enum Phase: Equatable { case carousel, generation, reveal }
+
+    private var phase: Phase {
+        switch store.currentStep {
+        case .generation: .generation
+        case .reveal: .reveal
+        default: .carousel
         }
-        .preferredColorScheme(.dark)
-        // `.appSlow` per the motion spec — onboarding transitions are
-        // deliberately weighty so the user perceives the swap, not a
-        // hard cut. Reduce Motion gets a near-instant linear so the UI
-        // still updates but doesn't dissolve.
-        .animation(
-            reduceMotion ? .linear(duration: 0.001) : .appSlow,
-            value: store.currentStep
-        )
-        .sensoryFeedback(.impact(weight: .light), trigger: store.advanceCount)
     }
 
-    // MARK: - Step switcher
+    /// Where the tint should be heading right now. Archetype accent wins
+    /// once chosen; before that the bettor type drives; generation gets a
+    /// white-lifted boost so the field reads energized during the theater.
+    private var accentTarget: Color {
+        var base = OnboardingTheme.accent(for: store.survey.bettorType)
+        if store.hasChosenArchetype,
+           let id = store.agentDraft.archetype,
+           let hex = creationStore.archetypeRows.first(where: { $0.id == id })?.color,
+           let archetypeColor = Color(hexString: hex) {
+            base = archetypeColor
+        }
+        return phase == .generation ? OnboardingTheme.generationBoost(base) : base
+    }
 
-    @ViewBuilder
-    private var stepLayer: some View {
-        switch store.currentStep {
-        case .personalizationIntro:
-            OnboardingPersonalizationIntroView().transition(.opacity)
-        case .termsAcceptance:
-            OnboardingTermsView().transition(.opacity)
-        case .sportsSelection:
-            OnboardingSportsView().transition(.opacity)
-        case .ageConfirmation:
-            OnboardingAgeView().transition(.opacity)
-        case .bettorType:
-            OnboardingBettorTypeView().transition(.opacity)
-        case .acquisitionSource:
-            OnboardingAcquisitionView().transition(.opacity)
-        case .primaryGoal:
-            OnboardingPrimaryGoalView().transition(.opacity)
-        case .valueClaim:
-            OnboardingValueClaimView().transition(.opacity)
-        case .featureSpotlight:
-            OnboardingFeatureSpotlightView().transition(.opacity)
-        case .dataTransparency:
-            OnboardingDataTransparencyView().transition(.opacity)
-        case .agentValue247:
-            OnboardingAgentValue247View().transition(.opacity)
-        case .agentValueAssistant:
-            OnboardingAgentValueAssistantView().transition(.opacity)
-        case .agentValueStrategies:
-            OnboardingAgentValueStrategiesView().transition(.opacity)
-        case .agentValueLeaderboard:
-            OnboardingAgentValueLeaderboardView().transition(.opacity)
-        case .agentBuilderSport,
-             .agentBuilderIdentity,
-             .agentBuilderPersonality,
-             .agentBuilderData,
-             .agentBuilderInsights:
-            // The builder is a single host that internally swaps its
-            // five sub-pages off `currentStep`. ZStack-switch all five
-            // step values to the same view so the transition only fires
-            // when entering / leaving the builder, not between its inner
-            // sub-pages (the builder owns those animations).
-            OnboardingAgentBuilderView().transition(.opacity)
-        case .agentGeneration:
-            AgentGenerationView().transition(.opacity)
-        case .agentBorn:
-            AgentBornView().transition(.opacity)
+    var body: some View {
+        ZStack {
+            // Layer 0 — persistent reactive backdrop. Hit-inert (the field's
+            // own tap gesture would sit under the pager); ripples arrive via
+            // the emitter instead. `.ignoresSafeArea(.keyboard)` matters: a
+            // keyboard resize would reconfigure the glyph grid and visibly
+            // reset every colony while the agent-name field is up.
+            AnimatedAccentPixelWave(
+                from: tintFrom,
+                to: tintTo,
+                blend: tintBlend,
+                rippleEmitter: rippleEmitter
+            )
+            .ignoresSafeArea()
+            .ignoresSafeArea(.keyboard)
+            .allowsHitTesting(false)
+
+            // Layer 1 — foreground content, cross-faded per phase.
+            Group {
+                switch phase {
+                case .carousel:
+                    OnboardingCarouselContainer(
+                        creationStore: creationStore,
+                        accent: accentTarget,
+                        initialSlot: store.currentStep.carouselIndex ?? 0
+                    )
+                    .transition(.opacity)
+                case .generation:
+                    OnboardingGenerationCinematic(model: genesis, accent: accentTarget)
+                        .transition(.opacity)
+                case .reveal:
+                    OnboardingRevealView(model: genesis, accent: accentTarget)
+                        .transition(.opacity)
+                }
+            }
+            .animation(reduceMotion ? .linear(duration: 0.001) : .appSlow, value: phase)
+        }
+        .preferredColorScheme(.dark)
+        .environment(\.glyphRippleEmitter, rippleEmitter)
+        // Trigger on the step (not advanceCount) so BACK navigation gets the
+        // same light tick as forward.
+        .sensoryFeedback(.impact(weight: .light), trigger: store.currentStep)
+        .onChange(of: accentTarget) { _, target in
+            retargetTint(to: target)
+        }
+        .onChange(of: store.currentStep) { _, step in
+            startGenesisIfNeeded(for: step)
+        }
+        .onAppear {
+            // Harness/debug can land directly on a cinematic step.
+            startGenesisIfNeeded(for: store.currentStep)
+        }
+        // Archetype presets load early so the builder page never opens to a
+        // spinner (same pre-warm the standalone wizard does).
+        .task { await creationStore.loadArchetypesIfNeeded() }
+    }
+
+    /// Glide the field tint to `newColor`, restarting from whatever color is
+    /// currently painted (interruption-safe).
+    private func retargetTint(to newColor: Color) {
+        tintFrom = tintFrom.mix(with: tintTo, by: tintBlend)
+        tintTo = newColor
+        tintBlend = 0
+        withAnimation(reduceMotion ? .linear(duration: 0.001) : .appSlow) {
+            tintBlend = 1
+        }
+    }
+
+    private func startGenesisIfNeeded(for step: OnboardingStep) {
+        guard step.isCinematic, genesis == nil else { return }
+        let model = OnboardingGenesisModel(
+            onboarding: store,
+            creation: creationStore,
+            rippleEmitter: rippleEmitter
+        )
+        genesis = model
+        // Landing directly on .reveal (harness) skips the theater — the
+        // reveal falls back to rendering the draft card.
+        if step == .generation {
+            model.start()
         }
     }
 }
 
 #if DEBUG
-#Preview("Onboarding — step 1") {
+#Preview("Onboarding — terms") {
     OnboardingView()
         .environment(OnboardingStore())
 }

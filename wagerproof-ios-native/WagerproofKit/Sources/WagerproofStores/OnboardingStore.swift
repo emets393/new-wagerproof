@@ -5,55 +5,68 @@ import WagerproofModels
 import WagerproofServices
 import WagerproofSharedKit
 
-/// Mirrors RN `contexts/OnboardingContext.tsx`. Owns:
+/// Owns the onboarding wizard's state:
 ///   - Local-only completion flag (persisted via App Group `UserDefaults`)
-///   - Step pointer (1...21) — matches RN's 21-step pager
-///   - Survey form state (sports, age, bettor type, primary goal, etc.)
-///   - Agent builder form state (kept simple — full agent generation lives in B14)
+///   - Step pointer (1...15) — 13 carousel pages + 2 cinematic phases
+///   - Survey form state (sports, bettor type, primary goal, etc.)
+///   - Agent builder draft (projected from the embedded `AgentCreationStore`)
 ///
-/// Mutations follow the RN pattern: cache-first locally, fire-and-forget
-/// background sync to `profiles` (never blocks). Server fail → user still
-/// proceeds. See `.claude/docs/agents/06_IMPLEMENTATION.md` for the agent-
-/// generation pipeline that picks up `pendingAgentDraft` after onboarding.
+/// Mutations are cache-first locally with a fire-and-forget background sync to
+/// `profiles` (never blocks). Server fail → user still proceeds.
+///
+/// v2 (Onboarding redesign): answers are written to the store AT TAP TIME so
+/// the carousel's shared chrome can derive CTA enablement from `canAdvance` —
+/// pages themselves are stateless and can be unmounted by the pager's
+/// windowing without losing answers.
 @Observable
 @MainActor
 public final class OnboardingStore {
-    /// 21-step ordered list. Matches the RN `index.tsx` `PAGES` array +
-    /// the cinematic steps (`AgentGenerationStep`, `AgentBornStep`).
-    public enum Step: Int, CaseIterable, Sendable {
-        case personalizationIntro = 1
-        case termsAcceptance      = 2
-        case sportsSelection      = 3
-        case ageConfirmation      = 4
-        case bettorType           = 5
-        case acquisitionSource    = 6
-        case primaryGoal          = 7
-        case valueClaim           = 8
-        case featureSpotlight     = 9
-        case dataTransparency     = 10
-        case agentValue247        = 11
-        case agentValueAssistant  = 12
-        case agentValueStrategies = 13
-        case agentValueLeaderboard = 14
-        case agentBuilderSport     = 15
-        case agentBuilderIdentity  = 16
-        case agentBuilderPersonality = 17
-        case agentBuilderData      = 18
-        case agentBuilderInsights  = 19
-        case agentGeneration      = 20
-        case agentBorn            = 21
+    /// 20-step ordered flow. Steps 1...18 are pages inside the onboarding
+    /// carousel (`carouselIndex` 0...17); 19/20 are full-screen cinematic
+    /// phases rendered outside the pager. Raw values MUST stay contiguous —
+    /// `advance()`/`back()` navigate by ±1 arithmetic.
+    ///
+    /// The builder deliberately walks EVERY user (preset or custom) through
+    /// the per-section personality pages — each explains how the dials shape
+    /// the agent, which builds investment before the generation cinematic.
+    public enum Step: Int, CaseIterable, Sendable, Comparable {
+        case terms             = 1
+        case sportsSelection   = 2
+        case sportsShowcase    = 3
+        case bettorType        = 4
+        case personalizedValue = 5
+        case acquisitionSource = 6
+        case primaryGoal       = 7
+        case agentValueIntro   = 8
+        case agentValueProof   = 9
+        case attPriming        = 10
+        case builderSports     = 11
+        case builderArchetype  = 12
+        case builderMindset    = 13
+        case builderBetStyle   = 14
+        case builderDataTrust  = 15
+        case builderSportRules = 16
+        case builderInsights   = 17
+        case builderIdentity   = 18
+        case generation        = 19
+        case reveal            = 20
 
-        public var total: Int { Step.allCases.count }
+        public var isCinematic: Bool { self >= .generation }
 
-        public var isCinematic: Bool {
-            self == .agentGeneration || self == .agentBorn
+        /// TabView slot (0-based). nil for cinematic steps — they render
+        /// outside the pager, so misuse is loud rather than snapping the
+        /// carousel to a wrong page.
+        public var carouselIndex: Int? { isCinematic ? nil : rawValue - 1 }
+
+        public static let carouselPageCount = 18
+
+        /// Progress-bar fraction. nil for cinematic steps (no chrome there).
+        public var progress: Double? {
+            isCinematic ? nil : Double(rawValue) / Double(Self.carouselPageCount)
         }
 
-        /// RN's `AgentBuilderStep` lives in PagerView index 14 and runs an
-        /// internal sub-flow 0..4 — preserved here as `agentBuilderSport`…
-        /// `agentBuilderInsights` (steps 15..19).
-        public var isAgentBuilder: Bool {
-            (15...19).contains(rawValue)
+        public static func < (lhs: Step, rhs: Step) -> Bool {
+            lhs.rawValue < rhs.rawValue
         }
     }
 
@@ -61,15 +74,21 @@ public final class OnboardingStore {
         case casual, serious, professional
     }
 
-    /// Mirrors RN `OnboardingData` in `contexts/OnboardingContext.tsx`.
+    /// Survey answers synced to `profiles.onboarding_data`.
     public struct SurveyAnswers: Codable, Sendable, Equatable {
         public var favoriteSports: [String] = []
+        /// Dormant since the v2 redesign removed the age question (the 18+
+        /// attestation lives on the Terms checkbox instead). Kept so older
+        /// payloads that carried `age` keep their Codable shape; never set.
         public var age: Int?
         public var bettorType: BettorType?
         public var mainGoal: String?
         public var emailOptIn: Bool?
         public var acquisitionSource: String?
         public var termsAcceptedAt: String?
+        /// Set alongside `termsAcceptedAt` — the Terms checkbox copy includes
+        /// an explicit "I confirm I am 18 or older" attestation.
+        public var overEighteenAttested: Bool?
 
         public init() {}
     }
@@ -89,6 +108,8 @@ public final class OnboardingStore {
         // RN INITIAL_FORM_STATE defaults: emoji=🤖, color=gradient indigo→pink.
         public var avatarEmoji: String = "\u{1F916}"
         public var avatarColor: String = "gradient:#6366f1,#ec4899"
+        /// User-chosen pixel character (0...7). nil = legacy name-hash pick.
+        public var spriteIndex: Int? = nil
         public var personalityParams: AgentPersonalityParams = .default
         public var customInsights: AgentCustomInsights = .empty
         public var autoGenerate: Bool = true
@@ -106,6 +127,7 @@ public final class OnboardingStore {
             case name
             case avatarEmoji
             case avatarColor
+            case spriteIndex
             case personalityParams
             case customInsights
             case autoGenerate
@@ -120,6 +142,7 @@ public final class OnboardingStore {
             self.name = (try? c.decode(String.self, forKey: .name)) ?? ""
             self.avatarEmoji = (try? c.decode(String.self, forKey: .avatarEmoji)) ?? "\u{1F916}"
             self.avatarColor = (try? c.decode(String.self, forKey: .avatarColor)) ?? "gradient:#6366f1,#ec4899"
+            self.spriteIndex = try? c.decodeIfPresent(Int.self, forKey: .spriteIndex)
             self.personalityParams = (try? c.decode(AgentPersonalityParams.self, forKey: .personalityParams)) ?? .default
             self.customInsights = (try? c.decode(AgentCustomInsights.self, forKey: .customInsights)) ?? .empty
             self.autoGenerate = (try? c.decode(Bool.self, forKey: .autoGenerate)) ?? true
@@ -134,15 +157,34 @@ public final class OnboardingStore {
     /// `false` at launch — `RootRouter` waits in `.launching` until the auth
     /// listener calls `attachUser(userId:)` for the signed-in user, at which
     /// point the cached completion flag is loaded synchronously and Supabase
-    /// is queried in the background to reconcile. Mirrors RN
-    /// `OnboardingGuard.tsx` (local-cache-first + background DB validation).
+    /// is queried in the background to reconcile (local-cache-first +
+    /// background DB validation).
     public private(set) var isComplete: Bool = false
-    public private(set) var currentStep: Step = .personalizationIntro
+    public private(set) var currentStep: Step = .terms
     public private(set) var survey: SurveyAnswers = SurveyAnswers()
     public private(set) var agentDraft: AgentDraft = AgentDraft()
     /// Monotonic counter the views use for haptic triggers — bumps on each advance.
     public private(set) var advanceCount: Int = 0
     public private(set) var isTransitioning: Bool = false
+
+    // Transient per-run UI state. Lives here (not in the page views) so the
+    // pager's windowed unmounting can't lose it and the shared chrome can
+    // derive CTA enablement from `canAdvance(from:)`.
+    /// Terms page: user reached the bottom of the terms scroller.
+    public private(set) var hasScrolledTermsToBottom: Bool = false
+    /// Terms page: the agree + 18+ checkbox is ticked.
+    public private(set) var hasCheckedTerms: Bool = false
+    /// Builder archetype page: a preset (or "from scratch") was explicitly
+    /// chosen. Tracked separately from `agentDraft.archetype` because the
+    /// scratch path intentionally leaves the archetype nil.
+    public private(set) var hasChosenArchetype: Bool = false
+    /// Agent-pitch page: index of the visible reason-carousel slide (0...2).
+    /// Lives here so the shared chrome's Continue can step through every
+    /// slide before advancing the page — the user reads all three.
+    public private(set) var agentPitchSlide: Int = 0
+
+    /// Highest pitch-carousel slide index (0-based).
+    public static let agentPitchSlideCount = 3
 
     /// The user this store is currently scoped to. `nil` when signed out —
     /// completion checks return `false` until a user attaches.
@@ -161,8 +203,8 @@ public final class OnboardingStore {
         if attachedUserId == userId { return }
         attachedUserId = userId
 
-        // Step 1: instant cache read — matches RN's AsyncStorage check in
-        // OnboardingGuard. Local cache is authoritative on offline launches.
+        // Step 1: instant cache read. Local cache is authoritative on offline
+        // launches.
         let cached = AppGroup.defaults.bool(forKey: AppGroupKey.onboardingComplete(userId: userId))
         isComplete = cached
 
@@ -185,11 +227,7 @@ public final class OnboardingStore {
         validationTask = nil
         attachedUserId = nil
         isComplete = false
-        // Reset wizard state too so a fresh sign-in starts from step 1.
-        currentStep = .personalizationIntro
-        survey = SurveyAnswers()
-        agentDraft = AgentDraft()
-        advanceCount = 0
+        resetToStart()
     }
 
     private func validateAgainstSupabase(userId: String) async {
@@ -232,7 +270,8 @@ public final class OnboardingStore {
         isTransitioning = true
         currentStep = next
         advanceCount &+= 1
-        // Match RN's 350ms lock — prevents double-taps from skipping steps.
+        // 350ms lock — prevents double-taps from skipping steps and matches
+        // the carousel's page-slide duration.
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: 350_000_000)
             await MainActor.run { self?.isTransitioning = false }
@@ -251,12 +290,49 @@ public final class OnboardingStore {
     }
 
     /// Jump back to step 1 without firing transitions. Used by reviewers /
-    /// "reset onboarding" affordance in secret-settings.
+    /// "reset onboarding" affordance in secret-settings and by `detachUser`.
     public func resetToStart() {
-        currentStep = .personalizationIntro
+        currentStep = .terms
         survey = SurveyAnswers()
         agentDraft = AgentDraft()
         advanceCount = 0
+        hasScrolledTermsToBottom = false
+        hasCheckedTerms = false
+        hasChosenArchetype = false
+        agentPitchSlide = 0
+    }
+
+    // MARK: - CTA gating
+
+    /// Whether the shared chrome's Continue CTA should be enabled on `step`.
+    /// Pages write answers at tap time, so this is the single validation
+    /// surface the carousel container consults.
+    public func canAdvance(from step: Step) -> Bool {
+        switch step {
+        case .terms:
+            return hasCheckedTerms
+        case .sportsSelection:
+            return !survey.favoriteSports.isEmpty
+        case .bettorType:
+            return survey.bettorType != nil
+        case .acquisitionSource:
+            return survey.acquisitionSource != nil
+        case .primaryGoal:
+            return survey.mainGoal != nil
+        case .builderSports:
+            return !agentDraft.preferredSports.isEmpty
+        case .builderArchetype:
+            return hasChosenArchetype
+        case .builderIdentity:
+            let trimmed = agentDraft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !trimmed.isEmpty && trimmed.count <= 50
+        case .sportsShowcase, .personalizedValue, .agentValueIntro,
+             .agentValueProof, .attPriming,
+             .builderMindset, .builderBetStyle, .builderDataTrust,
+             .builderSportRules, .builderInsights,
+             .generation, .reveal:
+            return true
+        }
     }
 
     // MARK: - Survey mutators
@@ -265,8 +341,12 @@ public final class OnboardingStore {
         survey.favoriteSports = sports
     }
 
-    public func setAge(_ age: Int) {
-        survey.age = age
+    public func toggleFavoriteSport(_ sport: String) {
+        if let idx = survey.favoriteSports.firstIndex(of: sport) {
+            survey.favoriteSports.remove(at: idx)
+        } else {
+            survey.favoriteSports.append(sport)
+        }
     }
 
     public func setBettorType(_ type: BettorType) {
@@ -281,8 +361,19 @@ public final class OnboardingStore {
         survey.acquisitionSource = source
     }
 
+    public func setTermsScrolledToBottom() {
+        hasScrolledTermsToBottom = true
+    }
+
+    public func setTermsChecked(_ checked: Bool) {
+        hasCheckedTerms = checked
+    }
+
+    /// Stamps acceptance + the 18+ attestation. Called from the Terms page's
+    /// continue action (checkbox copy covers both).
     public func setTermsAccepted() {
         survey.termsAcceptedAt = ISO8601DateFormatter().string(from: Date())
+        survey.overEighteenAttested = true
     }
 
     // MARK: - Agent draft mutators
@@ -293,6 +384,14 @@ public final class OnboardingStore {
 
     public func setAgentArchetype(_ archetype: String?) {
         agentDraft.archetype = archetype
+    }
+
+    public func setArchetypeChosen() {
+        hasChosenArchetype = true
+    }
+
+    public func setAgentPitchSlide(_ index: Int) {
+        agentPitchSlide = max(0, min(Self.agentPitchSlideCount - 1, index))
     }
 
     public func setAgentName(_ name: String) {
@@ -307,9 +406,10 @@ public final class OnboardingStore {
         agentDraft.avatarColor = color
     }
 
-    /// Replace the entire agent draft. Used by `OnboardingAgentBuilderView`
-    /// to project mutations from the embedded `AgentCreationStore` back into
-    /// onboarding state so `markComplete()` can persist them.
+    /// Replace the entire agent draft. Used by the builder pages to project
+    /// mutations from the embedded `AgentCreationStore` back into onboarding
+    /// state so `markComplete()` can persist them and the cinematic screens
+    /// render the live draft.
     public func setAgentDraft(_ draft: AgentDraft) {
         agentDraft = draft
     }
@@ -317,9 +417,9 @@ public final class OnboardingStore {
     // MARK: - Completion
 
     /// Mark onboarding complete + background-sync `profiles.onboarding_completed`.
-    /// Matches RN's cache-first behaviour: local flag is set instantly so the
-    /// app NEVER re-shows onboarding on network failure. The Supabase write is
-    /// fire-and-forget — failure does NOT block the user.
+    /// Cache-first: local flag is set instantly so the app NEVER re-shows
+    /// onboarding on network failure. The Supabase write is fire-and-forget —
+    /// failure does NOT block the user.
     public func markComplete() {
         // Local cache write first — never blocks.
         isComplete = true
@@ -328,8 +428,7 @@ public final class OnboardingStore {
         }
 
         // Fire Meta SDK `fb_mobile_complete_registration` so the install →
-        // register funnel attributes correctly. Mirrors RN's
-        // `trackFacebookCompleteRegistration` call from analytics.ts.
+        // register funnel attributes correctly.
         MetaAnalyticsService.shared.trackCompleteRegistration(method: "email")
 
         // Snapshot data for the background sync. Pass copies so the
@@ -355,8 +454,8 @@ public final class OnboardingStore {
 
     // MARK: - Background sync
 
-    /// Mirrors RN's `syncOnboardingToServer` — 8s timeout, never blocks UI.
-    /// Failure intentionally swallowed; the local cache is the source of truth.
+    /// Fire-and-forget profile sync; never blocks UI. Failure intentionally
+    /// swallowed; the local cache is the source of truth.
     private static func syncToSupabase(survey: SurveyAnswers, agent: AgentDraft) async {
         do {
             let client = await MainSupabase.shared.client
@@ -372,8 +471,8 @@ public final class OnboardingStore {
                 .execute()
         } catch {
             // FIDELITY-WAIVER #027: Offline write queue not ported — failure log + drop.
-            // RN's syncOnboardingToServer falls back to `enqueueWrite({type: 'onboarding_completion', ...})`;
-            // the Swift port currently drops on failure (acceptable since the call is fire-and-forget).
+            // Acceptable since the call is fire-and-forget and the local cache
+            // is authoritative for gating.
         }
     }
 
@@ -394,7 +493,7 @@ public final class OnboardingStore {
         // Match RN's nested shape: { favoriteSports, age, ..., agentFormState }.
         enum CodingKeys: String, CodingKey {
             case favoriteSports, age, bettorType, mainGoal
-            case acquisitionSource, termsAcceptedAt
+            case acquisitionSource, termsAcceptedAt, overEighteenAttested
             case agentFormState
         }
 
@@ -406,6 +505,7 @@ public final class OnboardingStore {
             try c.encodeIfPresent(survey.mainGoal, forKey: .mainGoal)
             try c.encodeIfPresent(survey.acquisitionSource, forKey: .acquisitionSource)
             try c.encodeIfPresent(survey.termsAcceptedAt, forKey: .termsAcceptedAt)
+            try c.encodeIfPresent(survey.overEighteenAttested, forKey: .overEighteenAttested)
             try c.encode(AgentFormStatePayload(agent: agent), forKey: .agentFormState)
         }
     }
@@ -420,6 +520,7 @@ public final class OnboardingStore {
         let name: String
         let avatarEmoji: String
         let avatarColor: String
+        let spriteIndex: Int?
         let personalityParams: AgentPersonalityParams
         let customInsights: AgentCustomInsights
         let autoGenerate: Bool
@@ -432,6 +533,7 @@ public final class OnboardingStore {
             self.name = agent.name
             self.avatarEmoji = agent.avatarEmoji
             self.avatarColor = agent.avatarColor
+            self.spriteIndex = agent.spriteIndex
             self.personalityParams = agent.personalityParams
             self.customInsights = agent.customInsights
             self.autoGenerate = agent.autoGenerate
@@ -445,6 +547,7 @@ public final class OnboardingStore {
             case name
             case avatarEmoji = "avatar_emoji"
             case avatarColor = "avatar_color"
+            case spriteIndex = "sprite_index"
             case personalityParams = "personality_params"
             case customInsights = "custom_insights"
             case autoGenerate = "auto_generate"

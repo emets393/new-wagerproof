@@ -22,17 +22,26 @@ public struct OnboardingProgressBar: View {
     public let widthFraction: CGFloat
     public let height: CGFloat
     public let cornerRadius: CGFloat
+    /// Track/fill tints. Defaults preserve the original gray-on-gray look;
+    /// the onboarding v2 chrome passes its live accent as the fill so the
+    /// bar reads against the dark pixelwave and recolors with the theme.
+    public let trackColor: Color
+    public let fillColor: Color
 
     public init(
         value: Double,
         widthFraction: CGFloat = 0.70,
         height: CGFloat = 12,
-        cornerRadius: CGFloat = 20
+        cornerRadius: CGFloat = 20,
+        trackColor: Color = Color.gray.opacity(0.15),
+        fillColor: Color = Color.gray.opacity(0.40)
     ) {
         self.value = value
         self.widthFraction = widthFraction
         self.height = height
         self.cornerRadius = cornerRadius
+        self.trackColor = trackColor
+        self.fillColor = fillColor
     }
 
     public var body: some View {
@@ -46,11 +55,11 @@ public struct OnboardingProgressBar: View {
                 ZStack(alignment: .leading) {
                     // Track.
                     RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(Color.gray.opacity(0.15))
+                        .fill(trackColor)
                         .frame(width: trackWidth, height: height)
                     // Fill.
                     RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(Color.gray.opacity(0.40))
+                        .fill(fillColor)
                         .frame(width: fillWidth, height: height)
                         .animation(.easeInOut(duration: 0.3), value: clamped)
                 }

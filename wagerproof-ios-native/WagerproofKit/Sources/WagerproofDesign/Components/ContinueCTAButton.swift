@@ -22,6 +22,10 @@ public struct ContinueCTAButton: View {
     /// request is in flight (paywall purchase, terms acceptance) without
     /// changing the button's footprint.
     public var isLoading: Bool = false
+    /// Pill tint. Defaults to the brand green; the onboarding carousel
+    /// passes the live accent theme so the CTA recolors with the pixel
+    /// background when the user picks a bettor type / archetype.
+    public var tint: Color = .appPrimary
     public let action: () -> Void
 
     public init(
@@ -29,12 +33,14 @@ public struct ContinueCTAButton: View {
         trailingGlyph: String? = nil,
         isEnabled: Bool = true,
         isLoading: Bool = false,
+        tint: Color = .appPrimary,
         action: @escaping () -> Void
     ) {
         self.label = label
         self.trailingGlyph = trailingGlyph
         self.isEnabled = isEnabled
         self.isLoading = isLoading
+        self.tint = tint
         self.action = action
     }
 
@@ -42,10 +48,6 @@ public struct ContinueCTAButton: View {
     /// from the initial offset/opacity to resting.
     @State private var hasAppeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// Brand green — WagerProof primary (#00E676). Honeydew uses yellow;
-    /// this is the only material deviation from the source button.
-    private let tint = Color.appPrimary
 
     public var body: some View {
         Button(action: { if isEnabled && !isLoading { action() } }) {
@@ -70,26 +72,14 @@ public struct ContinueCTAButton: View {
                 )
                 .overlay(
                     // Specular highlight — white gradient fading top → mid.
+                    // No stroked rim: the Liquid Glass material provides its
+                    // own edge treatment.
                     Capsule()
                         .fill(LinearGradient(
                             colors: [Color.white.opacity(0.22), Color.white.opacity(0.0)],
                             startPoint: .top,
                             endPoint: .center
                         ))
-                        .allowsHitTesting(false)
-                )
-                .overlay(
-                    // Glass rim — stronger at top-leading, fades to
-                    // bottom-trailing.
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.45), Color.white.opacity(0.06)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
                         .allowsHitTesting(false)
                 )
                 .shadow(color: tint.opacity(0.30), radius: 8, x: 0, y: 4)

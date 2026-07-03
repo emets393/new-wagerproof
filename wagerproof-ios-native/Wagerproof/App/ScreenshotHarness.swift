@@ -138,7 +138,7 @@ struct ScreenshotHarnessView: View {
     @ViewBuilder
     private var secondaryClusters: some View {
         switch ScreenshotHarness.target {
-        case .onboardingIntro, .onboardingSports, .onboardingAgentBorn:
+        case .onboardingIntro, .onboardingSports, .onboardingAgentBorn, .onboardingPage:
             onboardingTargets
         case .learnEmpty, .learnLoaded, .learnError:
             learnTargets
@@ -332,11 +332,19 @@ struct ScreenshotHarnessView: View {
     private var onboardingTargets: some View {
         switch ScreenshotHarness.target {
         case .onboardingIntro:
-            makeOnboarding(step: .personalizationIntro)
+            // v2 flow starts at Terms — the welcome interstitial is gone.
+            makeOnboarding(step: .terms)
         case .onboardingSports:
             makeOnboarding(step: .sportsSelection)
         case .onboardingAgentBorn:
-            makeOnboarding(step: .agentBorn, agentDraft: OnboardingFixtures.born)
+            // v2 reveal — renders from the seeded draft (no genesis model).
+            makeOnboarding(step: .reveal, agentDraft: OnboardingFixtures.born)
+        case .onboardingPage:
+            makeOnboarding(
+                step: ScreenshotHarness.onboardingStepArg,
+                agentDraft: OnboardingFixtures.born,
+                survey: OnboardingFixtures.survey(bettor: ScreenshotHarness.onboardingBettorArg)
+            )
         default:
             EmptyView()
         }
@@ -471,15 +479,32 @@ struct ScreenshotHarnessView: View {
     /// Construct an `OnboardingView` against an in-memory `OnboardingStore`
     /// pre-positioned at a specific step. AgentBorn / cinematic targets seed
     /// an `AgentDraft` so the reveal card has data to render.
+    /// One store per PROCESS, not per body evaluation. Building + mutating a
+    /// fresh store inside `body` re-invalidates the harness view, which then
+    /// hands OnboardingView a brand-new environment store — resetting live
+    /// flows (the generation→reveal handoff would advance a store that was
+    /// immediately replaced by a fresh one still pinned at .generation).
+    @MainActor private static var onboardingHarnessStore: OnboardingStore?
+
     @MainActor
     private func makeOnboarding(
         step: OnboardingStore.Step,
-        agentDraft: OnboardingStore.AgentDraft? = nil
+        agentDraft: OnboardingStore.AgentDraft? = nil,
+        survey: OnboardingStore.SurveyAnswers? = nil
     ) -> some View {
-        let store = OnboardingStore()
-        store.debugSet(step: step)
-        if let agentDraft {
-            store.debugSet(agentDraft: agentDraft)
+        let store: OnboardingStore
+        if let cached = Self.onboardingHarnessStore {
+            store = cached
+        } else {
+            store = OnboardingStore()
+            store.debugSet(step: step)
+            if let agentDraft {
+                store.debugSet(agentDraft: agentDraft)
+            }
+            if let survey {
+                store.debugSet(survey: survey)
+            }
+            Self.onboardingHarnessStore = store
         }
         return OnboardingView()
             .environment(store)
@@ -824,6 +849,17 @@ enum OnboardingFixtures {
         d.archetype = "balanced"
         return d
     }()
+
+    /// Survey answers for the `onboardingPage` QA target — populated enough
+    /// that every page renders its answered state (sports chips selected,
+    /// bettor type driving the theme + personalizedValue branch, builder
+    /// pre-seeding fed).
+    static func survey(bettor: OnboardingStore.BettorType) -> OnboardingStore.SurveyAnswers {
+        var s = OnboardingStore.SurveyAnswers()
+        s.favoriteSports = ["NFL", "NBA"]
+        s.bettorType = bettor
+        return s
+    }
 }
 
 /// DEBUG-only seed agents for the Agents-hub parity screenshot. A spread of
@@ -1223,6 +1259,11 @@ enum ScreenshotHarness {
         case onboardingIntro
         case onboardingSports
         case onboardingAgentBorn
+        // v2 QA target: any onboarding step via `-onboardingStep <1...15>`
+        // (+ optional `-onboardingBettor casual|serious|professional` to
+        // exercise the personalizedValue branch). Seeds a survey + agent
+        // draft so every page renders populated.
+        case onboardingPage
         // B21 — LearnMore parity screenshots.
         // `empty` shows the hub at first load (no sheet open).
         // `loaded` shows the hub with the carousel sheet open at slide 0.
@@ -1319,6 +1360,29 @@ enum ScreenshotHarness {
         else {
             return .mainTabs
         }
+        return parsed
+    }
+
+    /// Reads `-onboardingStep <1...15>` for the `onboardingPage` target.
+    /// Falls back to `.terms` on missing/invalid values.
+    static var onboardingStepArg: OnboardingStore.Step {
+        let args = ProcessInfo.processInfo.arguments
+        guard let idx = args.firstIndex(of: "-onboardingStep"),
+              idx + 1 < args.count,
+              let raw = Int(args[idx + 1]),
+              let step = OnboardingStore.Step(rawValue: raw)
+        else { return .terms }
+        return step
+    }
+
+    /// Reads `-onboardingBettor <casual|serious|professional>` so the
+    /// `personalizedValue` page's branch can be exercised. Default: casual.
+    static var onboardingBettorArg: OnboardingStore.BettorType {
+        let args = ProcessInfo.processInfo.arguments
+        guard let idx = args.firstIndex(of: "-onboardingBettor"),
+              idx + 1 < args.count,
+              let parsed = OnboardingStore.BettorType(rawValue: args[idx + 1].lowercased())
+        else { return .casual }
         return parsed
     }
 

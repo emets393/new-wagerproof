@@ -26,6 +26,11 @@ struct AgentPickTicket: View {
     /// Agent brand tint — drives the units chip + confidence pill (the mission
     /// ticket used the crew-role color here).
     var accent: Color = .appPrimary
+    /// Onboarding-reveal teaser mode: teams/date stay legible but the actual
+    /// pick (market, odds, units, selection, confidence) blurs behind a lock —
+    /// the user sees WHAT was generated without the details until they enter
+    /// the app (where the paywall makes the ask).
+    var teaserBlur: Bool = false
 
     // Shared with the rolodex physics in PickHistorySheet — keep in sync.
     static let height: CGFloat = 250
@@ -98,6 +103,7 @@ struct AgentPickTicket: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.appTextSecondary)
                     .lineLimit(1)
+                    .blur(radius: teaserBlur ? 5 : 0)
                 Spacer()
                 Text(pick.awayHomeNames?.home ?? "")
                     .font(.system(size: 12))
@@ -150,6 +156,31 @@ struct AgentPickTicket: View {
         .padding(.horizontal, 20)
         .padding(.top, 14)
         .padding(.bottom, 14)
+        // Teaser: the whole stub (market/odds/units/selection/confidence)
+        // blurs unreadable; a lock chip explains why. Clip so the blur
+        // doesn't smear past the cardstock edges.
+        .blur(radius: teaserBlur ? 6 : 0)
+        .clipped()
+        .overlay {
+            if teaserBlur {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Unlock in the app")
+                        .font(.system(size: 12, weight: .heavy))
+                        .tracking(0.3)
+                }
+                .foregroundStyle(accent)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule().fill(Color(hex: 0x0D101A).opacity(0.85))
+                )
+                .overlay(
+                    Capsule().strokeBorder(accent.opacity(0.5), lineWidth: 1)
+                )
+            }
+        }
     }
 }
 

@@ -73,6 +73,10 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
     /// pinned band below the nav bar (since the principal slot stays empty
     /// for visual breathing room).
     public let useNativeChrome: Bool
+    /// CTA pill tint. Defaults to the brand green; the onboarding carousel
+    /// passes its live accent theme so the pill recolors with the reactive
+    /// pixel background.
+    public let ctaTint: Color
     /// Background — each screen passes its own gradient so the radial blob
     /// math doesn't get standardized away. Shell layers chrome over it.
     @ViewBuilder public let background: () -> Background
@@ -102,6 +106,7 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
         // as the canonical onboarding chrome; matching default keeps the
         // WagerProof flow visually consistent.
         useNativeChrome: Bool = true,
+        ctaTint: Color = .appPrimary,
         @ViewBuilder background: @escaping () -> Background,
         @ViewBuilder content: @escaping () -> Content,
         onContinue: @escaping () -> Void,
@@ -116,6 +121,7 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
         self.canGoBack = canGoBack
         self.showSkip = showSkip
         self.useNativeChrome = useNativeChrome
+        self.ctaTint = ctaTint
         self.background = background
         self.content = content
         self.onContinue = onContinue
@@ -139,12 +145,17 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
             background()
                 .ignoresSafeArea()
 
-            // --- Layer 2: chrome + content + CTA ---------------------------
-            VStack(spacing: 0) {
-                chromeBand
-                content()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            // --- Layer 2: content -----------------------------------------
+            content()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        // Chrome band pinned as a top inset, FULLY TRANSPARENT — no bar
+        // background. Scrollable content passes underneath and stays
+        // visible; only the individual controls carry material (the
+        // chevron's Liquid Glass disc), so the animated backdrop reads
+        // uninterrupted to the top edge.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            chromeBand
         }
         // CTA pinned to bottom — `safeAreaInset` is the canonical SwiftUI
         // pattern for pinning chrome above the home indicator without
@@ -202,6 +213,17 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
                     }
                 }
 
+                // Center: the progress bar lives IN the nav bar (principal
+                // slot) — one chrome strip instead of a bar-below-the-bar.
+                if let progress {
+                    ToolbarItem(placement: .principal) {
+                        OnboardingProgressBar(value: progress, widthFraction: 1.0)
+                            .frame(width: 170, height: 12)
+                            .accessibilityLabel("Progress")
+                            .accessibilityValue("\(Int((progress * 100).rounded())) percent")
+                    }
+                }
+
                 // Trailing: optional Skip.
                 if showSkip, let onSkip {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -211,20 +233,6 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
                         }
                         .tint(Color.appTextSecondary)
                     }
-                }
-            }
-            // Progress bar pinned just below the nav bar. `safeAreaInset`
-            // keeps it from scrolling with content and reserves vertical
-            // space so the content below doesn't underlap.
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if let progress {
-                    OnboardingProgressBar(value: progress)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        // Transparent backing so the gradient blur from the
-                        // nav bar above bleeds through visually — the band
-                        // reads as one continuous chrome strip.
-                        .background(Color.clear)
                 }
             }
             // CTA pinned to the bottom — attached INSIDE the NavigationStack
@@ -242,33 +250,49 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
 
     // MARK: - Chrome band
 
-    /// 44pt chrome at the top: back chevron (leading), progress bar (center),
-    /// optional Skip (trailing). Background is clear so the per-screen
-    /// gradient shows through.
+    /// 48pt chrome at the top: Liquid Glass back chevron (leading), fixed-
+    /// width accent progress bar (center), optional Skip (trailing). Fully
+    /// transparent behind the controls so an animated parent background
+    /// (the onboarding pixelwave) reads through — this is why onboarding
+    /// uses the custom band instead of a NavigationStack, whose hosting
+    /// layer paints an opaque system background over the parent.
     private var chromeBand: some View {
         ZStack {
-            // Progress bar centered.
+            // Progress bar centered at a fixed width so it reads as one
+            // stable element across pages regardless of chevron visibility.
             if let progress {
-                OnboardingProgressBar(value: progress)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 60)
+                OnboardingProgressBar(
+                    value: progress,
+                    widthFraction: 1.0,
+                    height: 10,
+                    trackColor: Color.white.opacity(0.12),
+                    fillColor: ctaTint.opacity(0.9)
+                )
+                .frame(width: 168)
             }
 
             HStack(spacing: 0) {
-                // Leading: back chevron (or 44pt placeholder so progress
-                // bar stays centered when chevron is hidden).
+                // Leading: back chevron in a Liquid Glass disc (or an equal
+                // placeholder so the centered bar never shifts).
                 if canGoBack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(Color.appPrimary)
-                            .frame(width: 44, height: 44, alignment: .center)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 40, height: 40)
+                            .contentShape(Circle())
+                            .liquidGlassBackground(
+                                in: Circle(),
+                                tint: Color.white.opacity(0.10),
+                                interactive: true
+                            )
                     }
                     .buttonStyle(.plain)
-                    .padding(.leading, 4)
+                    .padding(.leading, 12)
                     .accessibilityLabel("Back")
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
                 } else {
-                    Color.clear.frame(width: 48, height: 44)
+                    Color.clear.frame(width: 52, height: 44)
                 }
 
                 Spacer(minLength: 0)
@@ -279,21 +303,23 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
                     Button(action: onSkip) {
                         Text("Skip")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Color.appTextSecondary)
+                            .foregroundStyle(Color.white.opacity(0.7))
                             .padding(.horizontal, 12)
                             .frame(height: 44)
                     }
                     .buttonStyle(.plain)
+                    .padding(.trailing, 8)
                 } else {
                     // Placeholder mirrors the leading chevron width so the
                     // centered progress bar stays balanced even when there's
                     // no trailing affordance.
-                    Color.clear.frame(width: 48, height: 44)
+                    Color.clear.frame(width: 52, height: 44)
                 }
             }
         }
-        .frame(height: 44)
-        .padding(.top, 4)
+        .frame(height: 48)
+        .padding(.top, 2)
+        .animation(.easeInOut(duration: 0.2), value: canGoBack)
     }
 
     // MARK: - CTA bar
@@ -307,7 +333,8 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
             label: continueTitle,
             trailingGlyph: continueGlyph,
             isEnabled: isCTAEnabled,
-            isLoading: isCTALoading
+            isLoading: isCTALoading,
+            tint: ctaTint
         ) {
             onContinue()
         }

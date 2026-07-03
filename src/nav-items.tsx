@@ -76,6 +76,7 @@ export const navItems: NavItem[] = [
     to: "/wagerbot-chat",
     icon: <Bot className="h-4 w-4" />,
     page: <WagerBotChat />,
+    hidden: true,
   },
   {
     title: "Score Board",
@@ -224,6 +225,7 @@ export const navItems: NavItem[] = [
     title: "Feature Requests",
     to: "/feature-requests",
     icon: <MessageSquare className="h-4 w-4" />,
+    hidden: true,
   },
   {
     title: "iOS/Android App",
@@ -242,6 +244,7 @@ export const navItems: NavItem[] = [
     title: "Learn WagerProof",
     to: "/learn",
     icon: <GraduationCap className="h-4 w-4" />,
+    hidden: true,
   },
   {
     title: "ADMIN",

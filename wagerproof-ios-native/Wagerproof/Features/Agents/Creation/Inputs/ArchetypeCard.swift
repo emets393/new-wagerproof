@@ -18,13 +18,13 @@ struct ArchetypeCard: View {
         Button(action: onSelect) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(accentColor.opacity(0.18))
-                        Text(row.emoji)
-                            .font(.system(size: 24))
-                    }
-                    .frame(width: 48, height: 48)
+                    Text(row.emoji)
+                        .font(.system(size: 24))
+                        .frame(width: 48, height: 48)
+                        .liquidGlassBackground(
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                            tint: accentColor.opacity(0.20)
+                        )
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(row.name)
@@ -61,13 +61,15 @@ struct ArchetypeCard: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(selected ? Color.appBorder.opacity(0.5) : Color.appBorder.opacity(0.25))
+            // Liquid Glass card surface; the accent stroke remains as the
+            // selection indicator only.
+            .liquidGlassBackground(
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous),
+                tint: selected ? accentColor.opacity(0.16) : Color.white.opacity(0.05)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(selected ? accentColor : Color.appBorder, lineWidth: selected ? 2 : 1)
+                    .strokeBorder(selected ? accentColor : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)

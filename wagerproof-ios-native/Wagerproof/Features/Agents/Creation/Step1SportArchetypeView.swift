@@ -191,28 +191,6 @@ struct Step1SportArchetypeView: View {
                 sportRow(sport)
             }
 
-            if store.draft.preferredSports.contains(.mlb) {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(Color(hex: 0x60A5FA))
-                        .font(.system(size: 14))
-                    Text("MLB agents run standalone due to the size of baseball data. They cannot be combined with other sports.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.appTextSecondary)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color(hex: 0x3B82F6).opacity(0.08))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Color(hex: 0x3B82F6).opacity(0.2), lineWidth: 1)
-                )
-                .padding(.top, 4)
-            }
-
             if store.draft.preferredSports.isEmpty {
                 Text("Select at least one sport to continue")
                     .font(.system(size: 13))

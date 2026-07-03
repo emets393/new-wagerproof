@@ -437,90 +437,133 @@ Every place RN renders `<LockedOverlay>` or `<LockedGameCard>` in lieu of real c
 
 ---
 
-### 5. `OnboardingView` — 21-step onboarding wizard
+### 5. `OnboardingView` — 15-step onboarding (v2 redesign, iOS-native-first)
 
-**RN source:** `wagerproof-mobile/app/(onboarding)/index.tsx` (+ all 15 step components under `components/onboarding/steps/`)
-**Container:** `ZStack` of a teal-tinted bottom-up `LinearGradient` background + the active step view. The orchestrator switches between two modes:
-1. Steps 1–19 → a `TabView(selection:).tabViewStyle(.page(indexDisplayMode: .never))` (RN uses `PagerView` with `scrollEnabled={false}` — preserve the no-swipe constraint by disabling user gesture: render content inside a `.gesture(DragGesture().onChanged { _ in })` no-op overlay, or use a custom `OnboardingPager` view that animates `offset` on `currentStep` change).
-2. Steps 20–21 → render full-screen `AgentGenerationStep` / `AgentBornStep` outside the pager (cinematic).
+> **v2 (2026-07):** this flow intentionally DIVERGES from RN. The 21-step 1:1
+> port was replaced with a 13-page native carousel + 2 cinematic phases,
+> designed iOS-first. RN's `app/(onboarding)/index.tsx` is no longer the
+> source of truth for iOS — this section documents the shipped Swift design.
 
-`OnboardingStore` (the Swift port of `OnboardingContext`) exposes:
+**Container (`Features/Onboarding/OnboardingView.swift`):** a `ZStack` of
+1. **One persistent `AnimatedAccentPixelWave`** (the login screen's
+   `PixelWaveBackground`, identical entry params, so RootView's auth →
+   onboarding cross-fade reads as one continuous surface). Reactive: chip
+   taps ripple it via `GlyphRippleEmitter` (injected through the
+   `\.glyphRippleEmitter` environment); bettor-type/archetype selections
+   glide its accent tint (`OnboardingTheme`). Hit-inert, ignores keyboard
+   safe area (a Canvas resize would reset the glyph automaton).
+2. A **phase switch** derived from `store.currentStep` — carousel (1–13) →
+   generation cinematic (14) → reveal (15) — each `.transition(.opacity)`
+   with `.appSlow`. Only the foreground swaps; the background never
+   re-identifies.
+
+**Store (`WagerproofKit/.../OnboardingStore.swift`):**
 ```swift
-enum Step: Int, CaseIterable {
-    case personalizationIntro = 1
-    case termsAcceptance      = 2
-    case sportsSelection      = 3
-    case ageConfirmation      = 4
-    case bettorType           = 5
-    case acquisitionSource    = 6
-    case primaryGoal          = 7
-    case valueClaim           = 8
-    case featureSpotlight     = 9
-    case dataTransparency     = 10
-    case agentValue247        = 11
-    case agentValueAssistant  = 12
-    case agentValueStrategies = 13
-    case agentValueLeaderboard = 14
-    case agentBuilder         = 15  // internal sub-flow handles 15..19
-    case agentGeneration      = 20
-    case agentBorn            = 21
+enum Step: Int, CaseIterable, Comparable {
+    case terms = 1, sportsSelection, sportsShowcase, bettorType,
+         personalizedValue, acquisitionSource, primaryGoal,
+         agentValueIntro, agentValueProof, attPriming,
+         builderSports, builderArchetype, builderIdentity,   // …13
+         generation = 14, reveal = 15
 }
-var currentStep: Step
-func nextStep(); func prevStep(); func completeOnboarding(createdAgentId:) async
+// isCinematic (>= .generation) · carouselIndex (rawValue-1, nil cinematic)
+// carouselPageCount = 13 · progress (nil cinematic)
+// advance()/back() — rawValue ±1, 350ms double-tap lock
+// canAdvance(from:) — single CTA-gating surface (answers write at TAP time)
 ```
+The age question was removed — the Terms checkbox carries the 18+
+attestation (`overEighteenAttested` synced next to `termsAcceptedAt`;
+`SurveyAnswers.age` stays as a dormant Codable field).
 
-**Navigation chrome:** No `NavigationStack` chrome — onboarding takes over the whole screen. A top `ProgressIndicator` view shows current step / 21 and a back chevron (`chevron.left` button → `store.prevStep()`).
+**Carousel (`OnboardingCarouselContainer`):** ONE `OnboardingPageShell`
+(native chrome; the progress bar renders IN the nav bar via the `.principal`
+toolbar slot) wraps a custom directional-slide pager — the progress bar,
+back chevron, and `ContinueCTAButton` stay fixed while pages slide beneath.
+Deliberately NOT `TabView(.page)`: its internal pan recognizer ignores
+`.scrollDisabled(true)` on device, letting users swipe past unanswered
+questions. Instead the active page renders in a `ZStack` keyed by
+`.id(selection)` with asymmetric `.move` transitions (edge derived from
+travel direction, `.appCarousel` spring, `.opacity` under Reduce Motion) —
+same native slide, zero gesture surface. Navigation is strictly
+button-driven. Per-page CTA title/enablement/action comes from the static
+`OnboardingPageSpec` table whose closures read the `@Observable` store; the
+CTA is disabled until `canAdvance(from:)` passes, so a question can never be
+skipped. Only the active page is mounted (answers live in the store), and
+`\.onboardingPageIsActive` defaults true so entrances/ATT fire at mount.
 
-**Native primitives per step:**
+**Pages (`Features/Onboarding/Pages/`):**
 
-| Step | View | Primitives |
-|---|---|---|
-| 1 `.personalizationIntro` | `OnboardingPersonalizationIntroView` | Centered hero `Image` or SF Symbol `person.crop.circle.badge.checkmark`, headline + subhead, "Get Started" `.borderedProminent` button at bottom |
-| 2 `.termsAcceptance` | `OnboardingTermsView` | Scrolled `Text(.init(termsMarkdown))` (markdown) + a `Toggle("I agree to terms")` + "Continue" CTA. Disabled until toggled. |
-| 3 `.sportsSelection` | `OnboardingSportsView` | Multi-select chip grid (`LazyVGrid(columns: 2)`) of sport `Button(.bordered)` with leading SF symbol per sport (NFL `football`, NBA `basketball`, MLB `baseball.diamond`, CFB `graduationcap`, NCAAB `basketball.circle`). Tap toggles selection with `.sensoryFeedback(.selection)`. |
-| 4 `.ageConfirmation` | `OnboardingAgeView` | Big "Are you 18+" prompt + two `Button`s ("Yes, I'm 18+" / "No") laid out as primary + plain. |
-| 5 `.bettorType` | `OnboardingBettorTypeView` | Single-select chip list (`VStack` of pill `Button`s): "Casual", "Sharp", "Tracking", "New to betting". `.sensoryFeedback(.selection)` per tap. |
-| 6 `.acquisitionSource` | `OnboardingAcquisitionView` | Single-select list of "How did you hear about us?" options. Same chip pattern. |
-| 7 `.primaryGoal` | `OnboardingPrimaryGoalView` | Single-select goal chips ("Beat the books", "Track picks", "Get edges", "Learn"). |
-| 8 `.valueClaim` | `OnboardingValueClaimView` | Static value-prop screen: hero illustration + 3 bullet points + "Sounds good" CTA. |
-| 9 `.featureSpotlight` | `OnboardingFeatureSpotlightView` | Animated demo card (uses RN's `Animated`/`reanimated` widgets) — port using `TimelineView(.animation)` + `.symbolEffect(.bounce, options: .repeating)` on a featured SF Symbol. |
-| 10 `.dataTransparency` | `OnboardingDataTransparencyView` | Static section: shield/sources block. Hero SF Symbol `checkmark.shield`. |
-| 11–14 `.agentValueXxx` | 4 separate views | Each is a hero card + "Continue" CTA showcasing an agent value-prop (24/7, virtual assistant, multiple strategies, leaderboard). Use `LinearGradient` background tints per slide. |
-| 15 (sub-flow `OnboardingAgentBuilder`) | `OnboardingAgentBuilderView` | Internally handles 5 sub-screens (15–19): sport/archetype pick → identity → personality → custom insights → review. Mirror by reusing parts of `AgentCreateView` rendering but inside the onboarding shell. Sub-flow uses its own `@State var subStep: Int` 0..4 and only calls `store.nextStep()` once at the end. |
-| 20 `.agentGeneration` | `AgentGenerationView` | Full-screen cinematic. Pulsing brain SF Symbol (`brain.head.profile`) + scanning lines + multi-stage status text. Use `PhaseAnimator(0..<3) { phase in ... }` for the rotating status text. |
-| 21 `.agentBorn` | `AgentBornView` | Confetti + agent reveal card; "Let's Go!" CTA → `store.completeOnboarding(createdAgentId:)` → `RootRouter.phase = .ready`. Use a Lottie file for confetti (asset already exists). |
+| # | Step | Page | Notes |
+|---|---|---|---|
+| 1 | `.terms` | `OnboardingTermsPage` | scroll-to-bottom gate + checkbox incl. 18+ attestation; CTA "I agree — continue" stamps both |
+| 2 | `.sportsSelection` | `OnboardingSportsPage` | icon chips; persisted label strings unchanged; ripple + `.selection` haptic per tap |
+| 3 | `.sportsShowcase` | `OnboardingSportsShowcasePage` | 5 league tiles + Props/Outliers/Research-Agents rows |
+| 4 | `.bettorType` | `OnboardingBettorTypePage` | Casual/Serious/Professional; selection retints background+CTA live (green/blue/purple, `OnboardingTheme`) |
+| 5 | `.personalizedValue` | `OnboardingPersonalizedValuePage` | branches on bettor type: Casual = animated Swift Charts time-saved bars (~4h vs ~15min, grow on activation); Serious/Pro = drill-downs + market chips + strategy-tunable agents |
+| 6 | `.acquisitionSource` | `OnboardingAcquisitionPage` | chip grid, persisted strings unchanged |
+| 7 | `.primaryGoal` | `OnboardingPrimaryGoalPage` | 4 goal cards, persisted strings unchanged |
+| 8 | `.agentValueIntro` | `OnboardingAgentPitchIntroPage` | "Not another chatbot" — inner swipeable 3-slide carousel (safe: outer pager has no gestures): ① ChatGPT vs agent comparison, ② win-rate bell curves (~40% market vs ~65% agents, Swift Charts) + tail-the-leaderboard subtext, ③ real `OutlierAlertCard` example |
+| 9 | `.agentValueProof` | `OnboardingAgentPitchProofPage` | "An analyst who never sleeps" — `WorkingDeskAvatar` + 24/7/data/shows-work rows |
+| 10 | `.attPriming` | `OnboardingATTPage` | mock dialog; REAL ATT prompt fires when the page becomes ACTIVE (not on mount — neighbors pre-mount) |
+| 11 | `.builderSports` | `OnboardingBuilderSportsPage` | `AgentSport` chips pre-seeded from page 2 (plain multi-select — the old MLB-exclusive rule was lifted when the pipeline gained mixed-sport support) |
+| 12 | `.builderArchetype` | `OnboardingBuilderArchetypePage` | "Customize" card FIRST, then `ArchetypeCard` presets (`applyArchetype`, sports preserved; retints to `row.color`). Both paths continue into the personality walk below |
+| 13 | `.builderMindset` | `OnboardingBuilderMindsetPage` | risk / underdog / over-under / confidence sliders + explainer callout; "Pre-tuned by <preset>" note when an archetype was picked |
+| 14 | `.builderBetStyle` | `OnboardingBuilderBetStylePage` | bet-type segmented picker, max picks, skip weak slates, chase value, parlay appetite/only |
+| 15 | `.builderDataTrust` | `OnboardingBuilderDataTrustPage` | trust model / trust Polymarket / divergence flag + odds limits (`OddsInput`) |
+| 16 | `.builderSportRules` | `OnboardingBuilderSportRulesPage` | sport-conditional sections (football fade/weather, basketball ratings/pace/B2B, NBA trends, situational + NCAAB upset alert) — only for picked sports |
+| 17 | `.builderInsights` | `OnboardingBuilderInsightsPage` | 4 free-form standing-order fields (philosophy/edges/avoid/target, char-capped) injected verbatim into the research brief |
+| 18 | `.builderIdentity` | `OnboardingBuilderIdentityPage` | name + CHARACTER picker (8 sprites, stable — no per-keystroke reshuffle) + gradient grid; CTA "Create my agent" |
 
-**Gesture choreography:**
-- Swipe → DISABLED (RN explicitly sets `scrollEnabled={false}` on PagerView). Wrap the pager in `.allowsHitTesting(true)` but no `DragGesture` is exposed; transitions happen only via store mutations.
-- Tap "Continue" / option chips → `store.nextStep()`.
-- Tap back chevron in `ProgressIndicator` → `store.prevStep()` (no-op on step 1).
+The builder walks EVERY user (preset or custom) through the per-section
+personality pages — each opens with a "how this shapes your agent" explainer
+and reuses the standalone wizard's inputs (`SliderInput`/`ToggleInput`/
+`OddsInput`) bound to the SHARED `AgentCreationStore` owned by
+`OnboardingView`; the container mirrors every draft change into
+`OnboardingStore.agentDraft` (gating + persistence + reveal card). The chosen
+sprite is persisted post-create via `update_agent` (create_agent has no
+sprite field).
 
-**Animations:**
-- Step transitions: `withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { offset = -step * width }` — preserve RN's left-to-right slide.
-- Reduce-motion: when `accessibilityReduceMotion == true`, use `.transition(.opacity)` instead.
-- Step 20's cinematic animation: `KeyframeAnimator` driving brain symbol scale (1.0 → 1.1 → 1.0) + opacity pulse over 4 s, looping.
-- Step 21 confetti: Lottie autoplay, hide on completion.
+**Cinematics (`Features/Onboarding/Cinematic/`):** both TRANSPARENT over the
+persistent pixelwave (no black base, no backdrop Lottie).
+- `OnboardingGenesisModel` (`@Observable`, owned by OnboardingView, survives
+  the phase swap) runs a canned ~15s theater (min 15s / cap 30s): console
+  verbs, scripted `GenerationLoadingBar` progress, `ToolActivityStack`
+  ticket deals + haptic ticks, ripple bursts across the whole field — while
+  concurrently doing the REAL work: `AgentCreationStore.submit` (creates the
+  actual agent row; one retry, reveal degrades to draft card on failure) and
+  a display-only `fetchTopAgentPicksFeed` teaser fetch filtered to the
+  agent's sports (bundled fixtures as offseason/offline fallback; teasers
+  are NEVER written to the new agent — record stays 0-0).
+- `OnboardingGenerationCinematic` — `WorkingDeskAvatar` + `GlyphMatrix3x3` +
+  loading bar + fanning scaffolds (the SAME components as the in-app pick
+  generation card).
+- `OnboardingRevealView` — the generation→reveal transition is carried by
+  the PIXEL GRID, not a Lottie: the genesis finale fades the theater and
+  fires a ripple wave up the field; the reveal fades in with a few more
+  ripples, then confetti (the one remaining Lottie) and the tickets deal.
+  The agent renders via the REAL `AgentRowCard` (same component as the
+  Agents tab, display-only), above 2–3 `AgentPickTicket(teaserBlur: true)`
+  tickets (teams/date legible; market/odds/units/selection/confidence
+  blurred behind an "Unlock in the app" lock). CTA "See everything →" calls
+  `markComplete()` → RootRouter flips `.ready` → `PostOnboardingPaywall`
+  presents over MainTabView (unchanged).
 
-**Haptics:**
-- Step advance → `.sensoryFeedback(.impact(weight: .light), trigger: store.currentStep)`.
-- Multi-select chip toggle → `.sensoryFeedback(.selection, trigger: selectedSports)`.
-- Agent born reveal → `.sensoryFeedback(.success, trigger: bornRevealed)`.
+**Haptics:** advance `.impact(.light)` on `advanceCount`; chip toggles
+`.selection`; terms check + reveal `.success`; generation ticket deals
+`.impact(.light)` on `hapticTick`.
 
-**Loading state:** During step 20 generation, show the cinematic animation with rotating status copy ("Studying your slate…", "Calibrating personality…", "Generating today's picks…").
-**Empty state:** n/a (always a step).
-**Error state:** If agent generation fails on step 20, transition to step 21 anyway with a fallback "Your agent is ready — picks will follow shortly" message. Alert is suppressed (RN behavior).
+**Reduce Motion:** phase swaps near-instant, pixelwave freezes itself,
+ripples no-op, page entrances snap, reveal skips flood/confetti timeline.
 
-**SF Symbol swaps:**
-- RN `MaterialCommunityIcons` icons used in step components (per-step varies): swap canonically — `football` for NFL, `basketball` for NBA, `baseball.diamond` for MLB, `graduationcap` for CFB, `basketball.circle` for NCAAB, `brain.head.profile` for the agent brain, `chart.line.uptrend.xyaxis` for performance, `checkmark.shield` for trust/data, `wand.and.stars` for "AI generates", `person.3` for community/leaderboard, `bell.badge` for notifications, `clock` for 24/7.
-
-**Edge cases preserved from RN:**
-- `setStep` calls in step components persist `currentStep` to `AsyncStorage` — Swift port persists to `UserDefaults(suiteName: "group.com.wagerproof.mobile")` key `onboarding_current_step` so user resumes at last step on relaunch.
-- Steps 15–19 are handled inside one `OnboardingAgentBuilder` (no separate pager pages) — the orchestrator's pager only has 15 pages, with the builder occupying index 14 (RN: `if (step <= 14) return step - 1; return 14`).
-- Onboarding completion is the only way to leave — there's no "skip" button on the orchestrator. Individual steps may have a plain "Skip" but most don't.
-- Theme is forced dark: `.environment(\.colorScheme, .dark)`.
-- Onboarding completion must NOT fall through to Login on auth state change — `OnboardingGuard` (the RN double-check) is subsumed into `RootRouter.phase` (only transitions to `.ready` when both authed AND `onboarding_complete == true`).
-
-> ⚠️ Ambiguity: The exact branching graph between bettor type / primary goal answers and agent-builder defaults isn't enumerated in RN code paths sampled here. The agent builder reads earlier survey answers from `OnboardingContext` and pre-seeds archetype + personality. Implementer must read `OnboardingAgentBuilder.tsx` end-to-end to map every survey-answer → archetype default.
+**Edge cases:**
+- Step pointer is NOT persisted across relaunch (in-memory; relaunch under
+  the production onboarding bypass goes straight to `.ready`).
+- Theme forced dark for the whole flow.
+- Completion gating unchanged: cache-first `isComplete` + background
+  Supabase reconcile; server never downgrades true→false.
+- Secret Settings "Reset Onboarding" re-enters the flow at `.terms` even
+  while `RootRouter.temporarilyDisableOnboarding` is active
+  (`forceOnboardingForTestingNow()`).
 
 ---
 
