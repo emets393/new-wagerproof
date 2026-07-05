@@ -1892,8 +1892,17 @@ function formatNFLGameFromDryrun(
     pick_cards: picks.length > 0 ? picks.map(formatDryrunPick) : null,
     // Player props — SIGNAL-GATED exactly as in the legacy formatter:
     // is_bettable carries the gate (non-empty flags array) to the agent +
-    // the submit grounding check. See nfl_dryrun_props.flags.
-    props: props.length > 0 ? props : null,
+    // the submit grounding check. See nfl_dryrun_props.flags. Each flagged prop
+    // also gets `signals` = its flag codes RESOLVED to meanings (name, stance,
+    // all-time + season-to-date record) so the agent knows what P14/P17/etc. mean.
+    props: props.length > 0
+      ? props.map((p) => {
+          const codes = Array.isArray(p.flags) ? (p.flags as string[]) : [];
+          return codes.length > 0
+            ? { ...p, signals: codes.map((c) => formatPropSignal(c, perfMap, defMap)) }
+            : p;
+        })
+      : null,
     game_data_complete: {
       source_table: 'nfl_dryrun_games',
       raw_game_data: game,
@@ -2102,6 +2111,44 @@ function formatDryrunFlag(
     } : null,
     // This season's live record to date (renamed from track_record so the two
     // records are unambiguous).
+    season_to_date: perf ? {
+      sample: perf.n ?? null,
+      record: `${perf.wins ?? 0}-${perf.losses ?? 0}`,
+      hit_rate: perf.hit_rate != null ? Number(perf.hit_rate) : null,
+      roi: perf.roi != null ? Number(perf.roi) : null,
+    } : null,
+  };
+}
+
+// Resolve a PROP flag CODE (e.g. "P14") to its signal meaning + records, mirroring
+// formatDryrunFlag for game signals. nfl_dryrun_props.flags stores the SHORT code, but
+// nfl_signal_defs / signal_performance key on the full signal_key
+// ("P14_attempts_model_under"), so match by "<code>_" prefix — the underscore
+// disambiguates P1 from P14 (same rule as the DB rollup's split_part). Gives the agent
+// the stance (bet_direction), the all-time validated record, and the live season-to-date
+// so it can reason about WHY a prop is flagged instead of seeing a bare "P14".
+function formatPropSignal(
+  code: string,
+  perfMap?: Map<string, Record<string, unknown>>,
+  defMap?: Map<string, Record<string, unknown>>
+): Record<string, unknown> {
+  const prefix = `${code}_`;
+  let def: Record<string, unknown> | undefined;
+  let fullKey: string | undefined;
+  if (defMap) {
+    for (const [k, v] of defMap) { if (k.startsWith(prefix)) { def = v; fullKey = k; break; } }
+  }
+  const perf = fullKey && perfMap ? perfMap.get(fullKey) : undefined;
+  return {
+    code,
+    name: def?.display_name ?? null,
+    bet_direction: def?.bet_direction ?? null,
+    all_time: def ? {
+      validated_hit: def.typical_hit ?? null,
+      one_liner: def.one_liner ?? null,
+      why_it_works: def.why_it_works ?? null,
+      conviction: def.default_conviction ?? null,
+    } : null,
     season_to_date: perf ? {
       sample: perf.n ?? null,
       record: `${perf.wins ?? 0}-${perf.losses ?? 0}`,
