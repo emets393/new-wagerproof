@@ -17,6 +17,15 @@ import { type AgentGenContext, type SubmitReport } from "./context";
 // the keys get_props registers in ctx.bettableProps (same as submitPicks.ts).
 import { propKey } from "./readTools";
 
+// Volume markets (pass/rush attempts + completions) are the game-script latent factor — they
+// correlate with everything else in their game (proven in nfl-prop-model-deepdive), so no book
+// / our own model treats them as independent. Rule: a volume-market leg must be the ONLY leg for
+// its game in a parlay — it can't share a game with any other prop, side, total, or 1H leg.
+// See .claude/docs/agents/16_PARLAY_AGENTS.md.
+const VOLUME_MARKETS = new Set([
+  "player_pass_attempts", "player_rush_attempts", "player_pass_completions",
+]);
+
 // Copied verbatim from tools/submitPicks.ts (f5 branch from V2; h1 mirrors it for
 // NFL/CFB first-half legs so a graded leg reads "Bills 1H -1.5" / "Over 24.5 1H").
 function formatPickSelectionForPeriod(selection: string, period: "full" | "f5" | "h1"): string {
@@ -99,6 +108,8 @@ export async function submitParlay(
     const sports = new Set<string>();
     const seenLegKeys = new Set<string>(); // exact-duplicate leg guard (props key on game+player+market)
     const seenNonPropGames = new Set<string>(); // correlation guard: ≤1 non-prop leg per game (props exempt)
+    const gameLegCounts = new Map<string, number>(); // volume-market solo guard: legs per game
+    const volumeGames = new Set<string>();           // games that carry a volume-market leg
     let decimalProduct = 1;
     let legFailure: string | null = null;
 
@@ -138,6 +149,19 @@ export async function submitParlay(
       }
       if (seenLegKeys.has(legKey)) { legFailure = `duplicate leg ${legKey} in one ticket`; break; }
       seenLegKeys.add(legKey);
+
+      // Volume-market solo guard (see 16_PARLAY_AGENTS.md): rush/pass attempts + completions are
+      // the game-script latent factor, so a volume-market leg must be the ONLY leg for its game —
+      // it cannot share a game with any other prop, side, total, team-total, or 1H leg.
+      const isVolumeLeg = betType === "prop" && VOLUME_MARKETS.has(String(leg?.prop_market ?? ""));
+      if (isVolumeLeg && (gameLegCounts.get(gameId) ?? 0) >= 1) {
+        legFailure = `leg ${gameId}: volume_market_solo_only — ${String(leg?.prop_market)} (attempts/completions) must be the only leg for its game`; break;
+      }
+      if (!isVolumeLeg && volumeGames.has(gameId)) {
+        legFailure = `leg ${gameId}: volume_market_solo_only — this game already has an attempts/completions leg, which must be its only leg`; break;
+      }
+      gameLegCounts.set(gameId, (gameLegCounts.get(gameId) ?? 0) + 1);
+      if (isVolumeLeg) volumeGames.add(gameId);
 
       const loaded = ctx.games.get(gameId);
       if (!loaded) { legFailure = `leg ${gameId}: game_not_loaded`; break; }
