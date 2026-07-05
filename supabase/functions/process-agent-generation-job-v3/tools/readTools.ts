@@ -137,13 +137,18 @@ function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadTool
     if (!def.sports.includes(loaded.sport)) { results.push({ game_id: id, applicable: false, note: `get_props not available for ${loaded.sport}` }); continue; }
 
     const props = Array.isArray(loaded.fg.props) ? (loaded.fg.props as Record<string, unknown>[]) : [];
-    results.push({ game_id: id, matchup: loaded.fg.matchup, props });
-    recordFacts(ctx, id, { props });
+    // Return ONLY signal-backed (bettable) props. A game carries 70+ props but only a handful
+    // are flagged; returning all of them lets compaction (MAX_ARRAY=12) silently drop the flagged
+    // ones (incl. the volume markets) before the model sees them. The tool IS "signal-backed
+    // props," and submit gates on bettable anyway, so surface exactly those.
+    const bettableProps = props.filter((p) => p.is_bettable === true);
+    results.push({ game_id: id, matchup: loaded.fg.matchup,
+      n_props_total: props.length, n_signal_props: bettableProps.length, props: bettableProps });
+    recordFacts(ctx, id, { props: bettableProps });
 
     // Register bettable props (signal-backed) so submit can gate prop bets.
     let bettable = ctx.bettableProps.get(id);
-    for (const p of props) {
-      if (p.is_bettable !== true) continue;
+    for (const p of bettableProps) {
       if (!bettable) { bettable = new Set<string>(); ctx.bettableProps.set(id, bettable); }
       bettable.add(propKey(p.player_name, p.market, p.line));
     }
