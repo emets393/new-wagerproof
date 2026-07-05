@@ -18,6 +18,8 @@ PICK_GROUP = {
 }
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
+EXTRA_PROP_MARKETS = ("player_pass_attempts", "player_rush_attempts", "player_pass_completions")
+T60_MINS = 60.0
 
 
 def fmt_spread(v):
@@ -74,22 +76,48 @@ def index_props(props):
 
 
 def index_props_books(season: int, week: int, data_dir: Path | None = None) -> dict[tuple[str, str], list[dict]]:
-    """Per-book closing props from props_frame.parquet — keyed by (player_id, market)."""
-    path = (data_dir or DATA_DIR) / "props_frame.parquet"
-    if not path.exists():
-        return {}
-    import pandas as pd
+    """Per-book closing props — keyed by (player_id, market).
 
-    pf = pd.read_parquet(path)
-    w = pf[(pf.season == season) & (pf.week == week)]
+    Original 6 markets come from props_frame.parquet. Volume markets
+    (pass/rush attempts, completions) live in props_rows_extra.parquet only.
+    """
+    data_dir = data_dir or DATA_DIR
     idx: dict[tuple[str, str], list[dict]] = defaultdict(list)
-    for _, r in w.iterrows():
-        idx[(r.player_id, r.market)].append({
-            "bookmaker": r.bookmaker,
-            "close_line": None if pd.isna(r.close_line) else float(r.close_line),
-            "close_over": None if pd.isna(r.close_over) else float(r.close_over),
-            "close_under": None if pd.isna(r.close_under) else float(r.close_under),
-        })
+
+    path = data_dir / "props_frame.parquet"
+    if path.exists():
+        import pandas as pd
+
+        pf = pd.read_parquet(path)
+        w = pf[(pf.season == season) & (pf.week == week)]
+        for _, r in w.iterrows():
+            idx[(r.player_id, r.market)].append({
+                "bookmaker": r.bookmaker,
+                "close_line": None if pd.isna(r.close_line) else float(r.close_line),
+                "close_over": None if pd.isna(r.close_over) else float(r.close_over),
+                "close_under": None if pd.isna(r.close_under) else float(r.close_under),
+            })
+
+    extra_path = data_dir / "props_rows_extra.parquet"
+    if extra_path.exists():
+        import pandas as pd
+
+        ex = pd.read_parquet(extra_path)
+        ex = ex[(ex.season == season) & (ex.week == week) & ex.market.isin(EXTRA_PROP_MARKETS)].copy()
+        if not ex.empty:
+            ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
+            ex["comm"] = pd.to_datetime(ex.commence_time, utc=True, format="ISO8601")
+            ex["mins"] = (ex.comm - ex.snap).dt.total_seconds() / 60.0
+            act = ex[ex.mins >= T60_MINS].sort_values(["player_id", "market", "bookmaker", "snap"])
+            cl = act.groupby(["player_id", "market", "bookmaker"], as_index=False).last()
+            for _, r in cl.iterrows():
+                idx[(r.player_id, r.market)].append({
+                    "bookmaker": r.bookmaker,
+                    "close_line": None if pd.isna(r.line) else float(r.line),
+                    "close_over": None if pd.isna(r.over_odds) else float(r.over_odds),
+                    "close_under": None if pd.isna(r.under_odds) else float(r.under_odds),
+                })
+
     return idx
 
 

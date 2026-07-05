@@ -95,6 +95,9 @@ def market_label(market: str) -> str:
         "player_receptions": "Receptions",
         "player_pass_yds": "Passing Yards",
         "player_pass_tds": "Passing TDs",
+        "player_pass_attempts": "Pass Attempts",
+        "player_pass_completions": "Completions",
+        "player_rush_attempts": "Rush Attempts",
     }
     return labels.get(market, market.replace("_", " ").title())
 
@@ -109,7 +112,8 @@ def verb(market: str, hit_side: bool, is_referee: bool) -> str:
             return "Home won" if hit_side else "Away won"
         return "Won" if hit_side else "Lost"
     if market in ("total", "team_total", "h1_total", "player_pass_yds", "player_pass_tds",
-                  "player_receptions", "player_reception_yds", "player_rush_yds"):
+                  "player_receptions", "player_reception_yds", "player_rush_yds",
+                  "player_pass_attempts", "player_pass_completions", "player_rush_attempts"):
         return "Over" if hit_side else "Under"
     if market == "h1_spread":
         if is_referee:
@@ -362,7 +366,9 @@ def player_markets(player: dict) -> list[str]:
     if not mkts:
         return [
             "player_pass_yds", "player_pass_tds", "player_receptions",
-            "player_reception_yds", "player_rush_yds", "player_anytime_td",
+            "player_reception_yds", "player_rush_yds",
+            "player_pass_attempts", "player_pass_completions", "player_rush_attempts",
+            "player_anytime_td",
         ]
     return mkts
 

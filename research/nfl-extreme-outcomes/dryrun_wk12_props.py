@@ -31,7 +31,6 @@ STAT_OF = {
     "player_rush_yds": "rushing_yards", "player_anytime_td": "td_any",
 }
 
-
 def load_key():
     for line in (ROOT.parent.parent / ".env.local").read_text().splitlines():
         if line.startswith("SUPABASE_SERVICE_KEY="):
@@ -314,6 +313,64 @@ def attempts_form(d):
     return d
 
 
+def _def_allowed_tables(po):
+    """Season-to-date position-allowed averages per defense team, weeks < WEEK."""
+    tables = {}
+    for stat, pos in (("attempts", "QB"), ("completions", "QB"),
+                      ("carries", "RB"), ("carries", "QB")):
+        sub = po[po.position == pos].dropna(subset=[stat])
+        if sub.empty:
+            tables[(stat, pos)] = ({}, None)
+            continue
+        allowed = (sub.groupby(["week", "opp"])[stat].sum().reset_index()
+                   .rename(columns={"opp": "def_team", stat: "allowed"}))
+        def_avg = allowed.groupby("def_team")["allowed"].mean()
+        lg_avg = float(def_avg.mean())
+        tables[(stat, pos)] = (def_avg.to_dict(), lg_avg)
+    return tables
+
+
+def attempts_def_matchup(d):
+    """Opponent position-allowed vs league for volume markets (same idx as props_frame)."""
+    if d.empty:
+        return d
+    po = pd.read_parquet(DATA / "player_offense.parquet")
+    po = po[(po.season == SEASON) & (po.week < WEEK) & (po.season_type == "REG")].copy()
+    ge = pd.read_parquet(DATA / "games_enriched.parquet")
+    ge = ge[ge.season == SEASON]
+    opp_map = {}
+    for _, r in ge.iterrows():
+        opp_map[(r.week, r.home_team)] = r.away_team
+        opp_map[(r.week, r.away_team)] = r.home_team
+    po["opp"] = [opp_map.get((w, t)) for w, t in zip(po.week, po.team)]
+    tables = _def_allowed_tables(po)
+
+    tm = pd.read_parquet(DATA / "team_mapping.parquet")
+    name_ab = dict(zip(tm.city_and_name, tm["Team Abbrev"].replace({"LAR": "LA"})))
+    home_ab = d.home_team.map(name_ab)
+    away_ab = d.away_team.map(name_ab)
+    is_home = d.team == home_ab
+    opp = np.where(is_home, away_ab, home_ab)
+
+    def_allowed, lg_allowed, idx = [], [], []
+    for market, position, o in zip(d.market, d.position, opp):
+        stat = EXTRA_STAT[market]
+        def_avg, lg_avg = tables.get((stat, position), ({}, None))
+        if o in def_avg and lg_avg:
+            da = float(def_avg[o])
+            def_allowed.append(round(da, 1))
+            lg_allowed.append(lg_avg)
+            idx.append(da / lg_avg)
+        else:
+            def_allowed.append(None)
+            lg_allowed.append(None)
+            idx.append(None)
+    d["def_allowed_pos"] = def_allowed
+    d["lg_allowed_pos"] = lg_allowed
+    d["def_matchup_idx"] = idx
+    return d
+
+
 def attempts_flags(d):
     """P14 model-UNDER, P15 steam-UNDER, P16 confluence — pass/rush attempts only."""
     from attempts_predict import predict_slate
@@ -336,10 +393,45 @@ def attempts_flags(d):
     return d
 
 
+def best_book_fields(player_id, market, props_books_idx, book_meta):
+    """Precomputed best over/under (or yes-ATD) shops — same logic as Outliers."""
+    from nfl_outliers_betting_lines import best_prop_pick
+
+    rows = props_books_idx.get((player_id, market), [])
+    out = {}
+    if market == "player_anytime_td":
+        bk, _, odds = best_prop_pick(rows, "yes")
+        if bk:
+            nm, logo = book_meta.get(bk, (None, None))
+            out.update(
+                best_over_book=bk,
+                best_over_book_name=nm,
+                best_over_book_logo=logo,
+                best_over_line=None,
+                best_over_price=int(round(float(odds))) if odds is not None else None,
+            )
+        return out
+
+    for side, prefix in (("over", "best_over"), ("under", "best_under")):
+        bk, line, odds = best_prop_pick(rows, side)
+        if not bk:
+            continue
+        nm, logo = book_meta.get(bk, (None, None))
+        out[f"{prefix}_book"] = bk
+        out[f"{prefix}_book_name"] = nm
+        out[f"{prefix}_book_logo"] = logo
+        out[f"{prefix}_line"] = float(line) if line is not None else None
+        out[f"{prefix}_price"] = int(round(float(odds))) if odds is not None else None
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-load", action="store_true")
     args = ap.parse_args()
+
+    from dryrun_wk12_games import book_meta as fetch_book_meta
+    from nfl_outliers_betting_lines import best_prop_pick, index_props_books
 
     pf = pd.read_parquet(DATA / "props_frame.parquet")
     c = consensus(pf)
@@ -351,6 +443,7 @@ def main():
     a = attempts_consensus()
     if not a.empty:
         a = attempts_form(a)
+        a = attempts_def_matchup(a)
         a = attempts_flags(a)
         c = pd.concat([c, a], ignore_index=True)
 
@@ -372,6 +465,13 @@ def main():
     heads = fetch_headshots(key)
     c["headshot_url"] = c.player_id.map(heads)
 
+    props_books_idx = index_props_books(SEASON, WEEK, DATA)
+    meta = fetch_book_meta()
+    best_fields = [
+        best_book_fields(pid, mkt, props_books_idx, meta)
+        for pid, mkt in zip(c.player_id, c.market)
+    ]
+
     n_flag = (c.p_flags.str.len() > 0).sum()
     print(f"{len(c)} prop rows | {c.player_id.nunique()} players | "
           f"{c.game_id.nunique()} games | rows with flags: {n_flag} | "
@@ -379,7 +479,7 @@ def main():
     print(c.explode("p_flags").groupby("p_flags").size())
 
     rows = []
-    for _, r in c.iterrows():
+    for (_, r), best in zip(c.iterrows(), best_fields):
         rows.append(dict(
             game_id=r.game_id, event_id=r.event_id, season=SEASON, week=WEEK,
             player_id=r.player_id, player_name=r.player_name, position=r.position,
@@ -398,11 +498,14 @@ def main():
             def_allowed_pos=r.def_allowed_pos, lg_allowed_pos=r.lg_allowed_pos,
             def_matchup_idx=r.def_matchup_idx,
             report_status=r.report_status, practice_status=r.practice_status,
-            flags=r.p_flags, headshot_url=r.headshot_url))
+            flags=r.p_flags, headshot_url=r.headshot_url,
+            **best))
     df = pd.DataFrame(rows).replace({np.nan: None})
+    export_prop_best_books_json(c, props_books_idx, meta)
 
     if args.no_load:
         return
+
     hdr = {"apikey": key, "Authorization": f"Bearer {key}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
     resp = requests.delete(f"{BASE_URL}/nfl_dryrun_props?season=eq.{SEASON}&week=eq.{WEEK}",
@@ -410,6 +513,20 @@ def main():
     if resp.status_code not in (200, 204):
         sys.exit(f"delete: {resp.status_code} {resp.text[:300]}")
     recs = json.loads(df.to_json(orient="records"))
+    probe = requests.get(
+        f"{BASE_URL}/nfl_dryrun_props?select=best_over_book&limit=1",
+        headers={"apikey": key, "Authorization": f"Bearer {key}"},
+        timeout=30,
+    )
+    best_books_ready = probe.status_code == 200
+    if not best_books_ready:
+        print("note: best_over_book column missing — loading without best-shop fields (apply migration + re-run)")
+        best_keys = {
+            k for k in recs[0].keys() if k.startswith("best_")
+        } if recs else set()
+        for rec in recs:
+            for k in best_keys:
+                rec.pop(k, None)
     for i in range(0, len(recs), BATCH):
         resp = requests.post(f"{BASE_URL}/nfl_dryrun_props", headers=hdr,
                              json=recs[i:i + BATCH], timeout=120)
@@ -417,6 +534,22 @@ def main():
             sys.exit(f"batch {i}: {resp.status_code} {resp.text[:300]}")
         print(f"  loaded {min(i + BATCH, len(recs))}/{len(recs)}", end="\r")
     print(f"\nloaded {len(recs)} rows -> nfl_dryrun_props")
+
+
+def export_prop_best_books_json(c, props_books_idx, book_meta):
+    """Ship backend-precomputed best shops to the iOS bundle until DB columns land."""
+    out = {}
+    for pid, mkt in zip(c.player_id, c.market):
+        fields = best_book_fields(pid, mkt, props_books_idx, book_meta)
+        if fields:
+            out[f"{pid}|{mkt}"] = fields
+    dest = (
+        ROOT.parent.parent / "wagerproof-ios-native" / "WagerproofKit"
+        / "Sources" / "WagerproofServices" / "Resources" / "nfl_dryrun_prop_best_books.json"
+    )
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(out))
+    print(f"exported {len(out)} best-book keys -> {dest} ({dest.stat().st_size // 1024} KB)")
 
 
 if __name__ == "__main__":

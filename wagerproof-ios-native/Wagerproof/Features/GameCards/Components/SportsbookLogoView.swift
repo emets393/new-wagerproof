@@ -6,9 +6,9 @@ import WagerproofDesign
 /// resolved from book key/name, then a letter placeholder.
 struct SportsbookLogoView: View {
     enum Style {
-        /// CFB market rows and Outliers chips — 18×18 image in a white badge.
+        /// CFB market rows and Outliers chips — 18×18 logo, no background plate.
         case compact
-        /// NFL best-book row — 30×30 image with dark-mode-aware background.
+        /// NFL best-book row and prop detail — 30×30 logo, no background plate.
         case regular
     }
 
@@ -16,8 +16,6 @@ struct SportsbookLogoView: View {
     let bookKey: String?
     let bookName: String?
     var style: Style = .compact
-
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         if let logoURL, let imageURL = URL(string: logoURL) {
@@ -61,9 +59,7 @@ struct SportsbookLogoView: View {
     private var loadingPlaceholder: some View {
         ProgressView()
             .scaleEffect(0.55)
-            .frame(width: style == .compact ? 22 : 30, height: style == .compact ? 22 : 30)
-            .padding(style == .regular ? 4 : 0)
-            .background(logoBackground, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .frame(width: frameSize, height: frameSize)
     }
 
     private func bookLogoImage(_ image: Image) -> some View {
@@ -72,7 +68,6 @@ struct SportsbookLogoView: View {
             .scaledToFit()
             .frame(width: imageSize, height: imageSize)
             .padding(imagePadding)
-            .background(logoBackground, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     private var bookFallbackLogo: some View {
@@ -85,14 +80,9 @@ struct SportsbookLogoView: View {
 
     private var imageSize: CGFloat { style == .compact ? 18 : 30 }
     private var imagePadding: CGFloat { style == .compact ? 2 : 4 }
+    private var frameSize: CGFloat { style == .compact ? 22 : 38 }
     private var cornerRadius: CGFloat { style == .compact ? 5 : 8 }
     private var fallbackFrameSize: CGFloat { style == .compact ? 22 : 38 }
-
-    private var logoBackground: Color {
-        style == .compact
-            ? Color.white
-            : Color.white.opacity(colorScheme == .dark ? 0.92 : 1)
-    }
 }
 
 enum SportsbookDomainResolver {

@@ -30,7 +30,7 @@ grades). This is the list. Worked example = the attempts/completions markets (20
 - [ ] **The season graphs** = these fields MUST be populated or the card renders empty:
       `gp_prior, last_game, l3_avg, l5_avg, l10_avg, szn_avg, szn_max, szn_min,
       over_rate_l5, over_rate_l10, recent_games` (jsonb sparkline `[{week,opp,actual}]`).
-      See `attempts_form`. Non-applicable fields (def_matchup_idx, injury, ATD probs) → null.
+      See `attempts_form` + `attempts_def_matchup`. Non-applicable fields (injury, ATD probs) → null.
 
 ## 5. The signal layer (only if the market has a validated edge)
 - [ ] Fire flags in the generator's flag step (`attempts_flags`; keys like P14/P15/P16 — the

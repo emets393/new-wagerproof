@@ -10,31 +10,32 @@ import WagerproofDesign
 /// The dry-run contract carries a season game log + consensus close per
 /// market, so each market widget is a trend board: recent-games bar chart
 /// against the close line, season splits, defense matchup index, and the
-/// open→close line move. The pinned segmented picker jumps between markets.
+/// open→close line move. Markets stack vertically — no hero picker.
 struct NFLPropDetailView: View {
     let selection: NFLPlayerPropSelection
 
-    @State private var activeMarket: String
     @State private var selectedSignal: NFLPropSignalDefinition?
+    @State private var metricHelp: NFLPropMetricHelp?
 
     private var player: NFLPropPlayer { selection.player }
     private var markets: [NFLPropMarket] { player.markets }
 
-    // Sized to fit the hero content snugly (top row + identity + picker),
-    // matching the MLB detail's proportions.
-    private let heroMax: CGFloat = 134
-    private let heroMin: CGFloat = 116
+    /// Hero price badge — the market the user tapped on the feed, else the
+    /// first flagged market, else the first posted market.
+    private var headlineMarket: NFLPropMarket? {
+        if let preferred = selection.preferredMarket,
+           let hit = markets.first(where: { $0.market == preferred }) {
+            return hit
+        }
+        return markets.first { !$0.flags.isEmpty } ?? markets.first
+    }
+
+    /// Hero without the market picker — identity row only.
+    private let heroMax: CGFloat = 88
+    private let heroMin: CGFloat = 72
 
     init(selection: NFLPlayerPropSelection) {
         self.selection = selection
-        let preferred = selection.preferredMarket
-        let initial = preferred.flatMap { m in
-            selection.player.markets.first { $0.market == m }?.market
-        }
-        ?? selection.player.markets.first { !$0.flags.isEmpty }?.market
-        ?? selection.player.markets.first?.market
-        ?? ""
-        _activeMarket = State(initialValue: initial)
     }
 
     private var teamColor: Color {
@@ -74,6 +75,9 @@ struct NFLPropDetailView: View {
         .sheet(item: $selectedSignal) { signal in
             NFLPropSignalDetailSheet(signal: signal)
         }
+        .sheet(item: $metricHelp) { help in
+            NFLPropMetricHelpSheet(help: help)
+        }
     }
 
     // MARK: - Collapsing hero
@@ -105,10 +109,6 @@ struct NFLPropDetailView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                priceBadge(detail: detail, progress: p)
-            }
-            if markets.count > 1 {
-                marketPicker(proxy: proxy, viewportHeight: viewportHeight)
             }
         }
         .padding(.horizontal, 16)
@@ -141,48 +141,6 @@ struct NFLPropDetailView: View {
         return date
     }
 
-    /// Hero stat slot (MLB shows L10 hit rate here): the active market's
-    /// consensus over price, rolling as the picker/scroll changes markets.
-    @ViewBuilder
-    private func priceBadge(detail: Double, progress: CGFloat) -> some View {
-        let market = markets.first { $0.market == activeMarket } ?? markets.first
-        VStack(alignment: .trailing, spacing: 1) {
-            Text(NFLPlayerProps.formatOdds(market?.overPrice))
-                .font(.system(size: lerp(24, 19, progress), weight: .heavy, design: .monospaced))
-                .foregroundStyle(Color.appPrimary)
-                .contentTransition(.numericText())
-                .animation(.snappy(duration: 0.28), value: activeMarket)
-            if detail > 0.04, let market {
-                Text(market.isYesNo
-                     ? "Anytime TD · \(NFLPlayerProps.formatPct(market.closeYesProb)) implied"
-                     : "Over \(NFLPlayerProps.formatLine(market.closeLine)) · \(market.nBooks ?? 0) books")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .opacity(detail)
-            }
-        }
-    }
-
-    private func marketPicker(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> some View {
-        Picker("Market", selection: pickerBinding(proxy: proxy, viewportHeight: viewportHeight)) {
-            ForEach(markets) { market in
-                Text(market.label).tag(market.market)
-            }
-        }
-        .pickerStyle(.segmented)
-        .sensoryFeedback(.selection, trigger: activeMarket)
-    }
-
-    private func pickerBinding(proxy: ScrollViewProxy, viewportHeight: CGFloat) -> Binding<String> {
-        Binding(
-            get: { activeMarket },
-            set: { market in
-                activeMarket = market
-                scrollToMarket(market, proxy: proxy, viewportHeight: viewportHeight)
-            }
-        )
-    }
-
     /// Y anchor that lands the widget header flush under the collapsed hero.
     private func scrollAnchorY(viewportHeight: CGFloat) -> CGFloat {
         min(0.4, max(0.05, heroMin / max(viewportHeight, 1)))
@@ -190,15 +148,10 @@ struct NFLPropDetailView: View {
 
     /// Land on the feed card's headline market when the detail page opens.
     private func scrollToPreferredMarket(_ proxy: ScrollViewProxy, viewportHeight: CGFloat) async {
-        guard markets.count > 1, !activeMarket.isEmpty else { return }
-        // Let the zoom transition finish and LazyVStack materialize off-screen widgets.
+        guard let target = headlineMarket?.market else { return }
+        guard markets.count > 1 else { return }
         try? await Task.sleep(for: .milliseconds(380))
-        scrollToMarket(
-            activeMarket,
-            proxy: proxy,
-            viewportHeight: viewportHeight,
-            animated: true
-        )
+        scrollToMarket(target, proxy: proxy, viewportHeight: viewportHeight, animated: true)
     }
 
     private func scrollToMarket(
@@ -236,14 +189,29 @@ struct NFLPropDetailView: View {
                 .frame(height: 1)
                 .id(market.market)
             WidgetCollapsingSection(title: market.label, systemImage: "chart.bar.fill") {
-                VStack(alignment: .leading, spacing: 12) {
-                    lineSummary(market)
-                    if !market.flags.isEmpty {
-                        NFLPropSignalGroup(flags: market.flags) { selectedSignal = $0 }
+                VStack(alignment: .leading, spacing: 20) {
+                    propSectionBlock("Posted Line", helpKey: "posted_line", showsDivider: false) {
+                        lineSummary(market)
+                        if !market.flags.isEmpty {
+                            NFLPropSignalGroup(flags: market.flags) { selectedSignal = $0 }
+                        }
                     }
-                    NFLPropTrendChart(games: market.recentGames, line: market.clearThreshold, isYesNo: market.isYesNo)
-                    statTiles(market)
-                    lineMovementRow(market)
+                    propSectionBlock("Game Log", helpKey: "game_log") {
+                        NFLPropTrendChart(games: market.recentGames, line: market.clearThreshold, isYesNo: market.isYesNo)
+                    }
+                    if market.hasBestBooks {
+                        propSectionBlock("Best Lines", helpKey: "book_odds") {
+                            bestBooksSection(market)
+                        }
+                    }
+                    propSectionBlock("Season Stats", helpKey: "season_stats") {
+                        statTiles(market)
+                    }
+                    if hasLineMovement(market) {
+                        propSectionBlock("Line Movement", helpKey: "line_movement") {
+                            lineMovementRow(market)
+                        }
+                    }
                 }
             }
         }
@@ -262,17 +230,144 @@ struct NFLPropDetailView: View {
         .foregroundStyle(Color.appTextPrimary)
     }
 
+    // MARK: Best books
+
+    private func bestBooksSection(_ market: NFLPropMarket) -> some View {
+        VStack(spacing: 8) {
+            if market.isYesNo {
+                if !market.bestOver.isEmpty {
+                    bestBookRow(
+                        sideLabel: "Yes",
+                        quote: market.bestOver,
+                        showLine: false
+                    )
+                }
+            } else {
+                if !market.bestOver.isEmpty {
+                    bestBookRow(
+                        sideLabel: "Over",
+                        quote: market.bestOver,
+                        showLine: true
+                    )
+                }
+                if !market.bestUnder.isEmpty {
+                    bestBookRow(
+                        sideLabel: "Under",
+                        quote: market.bestUnder,
+                        showLine: true
+                    )
+                }
+            }
+        }
+    }
+
+    private func bestBookRow(sideLabel: String, quote: NFLPropBestQuote, showLine: Bool) -> some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Text(sideLabel)
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(Color.appTextPrimary)
+                Text(bestBookLineValue(quote: quote, showLine: showLine))
+                    .font(.system(size: 14, weight: .heavy, design: .monospaced))
+                    .foregroundStyle(Color.appPrimary)
+            }
+
+            Spacer(minLength: 8)
+
+            HStack(spacing: 4) {
+                Text("@")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.appTextMuted)
+                SportsbookLogoView(
+                    logoURL: quote.bookLogoUrl,
+                    bookKey: quote.bookKey,
+                    bookName: quote.bookName,
+                    style: .compact
+                )
+                Text(quote.bookName ?? quote.bookKey ?? "Book")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.appSurfaceMuted.opacity(0.35), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.appBorder.opacity(0.45), lineWidth: 0.5)
+        )
+    }
+
+    private func bestBookLineValue(quote: NFLPropBestQuote, showLine: Bool) -> String {
+        let odds = NFLPlayerProps.formatOdds(quote.price)
+        guard showLine, let line = quote.line else { return odds }
+        return "\(NFLPlayerProps.formatLine(line)) \(odds)"
+    }
+
     // MARK: Stat tiles
+
+    @ViewBuilder
+    private func propSectionBlock<Content: View>(
+        _ title: String,
+        helpKey: String,
+        showsDivider: Bool = true,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            propSectionHeader(title, helpKey: helpKey, showsDivider: showsDivider)
+            content()
+        }
+    }
+
+    private func propSectionHeader(_ title: String, helpKey: String, showsDivider: Bool = true) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if showsDivider {
+                Divider()
+                    .overlay(Color.appBorder.opacity(0.55))
+            }
+            HStack(spacing: 6) {
+                Text(title.uppercased())
+                    .font(.system(size: 12, weight: .heavy))
+                    .tracking(0.6)
+                    .foregroundStyle(Color.appTextPrimary)
+                Button {
+                    metricHelp = NFLPropMetricHelp.all[helpKey]
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.appTextSecondary)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func hasLineMovement(_ market: NFLPropMarket) -> Bool {
+        if market.isYesNo {
+            return market.openYesProb != nil && market.closeYesProb != nil
+        }
+        return market.openLine != nil && market.closeLine != nil
+    }
 
     private func statTiles(_ market: NFLPropMarket) -> some View {
         let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
         return LazyVGrid(columns: columns, spacing: 8) {
-            statTile("LAST", statValue(market.lastGame))
-            statTile("L3 AVG", statValue(market.l3Avg))
-            statTile("L5 AVG", statValue(market.l5Avg))
-            statTile("SZN AVG", statValue(market.sznAvg))
-            statTile("SZN HIGH", statValue(market.sznMax))
-            statTile("MATCHUP", matchupValue(market.defMatchupIdx), color: matchupColor(market.defMatchupIdx))
+            statTile(helpKey: "last_game", title: "Last Game", value: statValue(market.lastGame))
+            statTile(helpKey: "l3_avg", title: "L3 Avg", value: statValue(market.l3Avg))
+            statTile(helpKey: "l5_avg", title: "L5 Avg", value: statValue(market.l5Avg))
+            statTile(helpKey: "szn_avg", title: "Season Avg", value: statValue(market.sznAvg))
+            statTile(helpKey: "szn_high", title: "Season High", value: statValue(market.sznMax))
+            statTile(
+                helpKey: "opp_defense",
+                title: "Opp Defense",
+                value: matchupValue(market.defMatchupIdx, opponent: player.opponent),
+                color: matchupColor(market.defMatchupIdx)
+            )
         }
     }
 
@@ -281,12 +376,16 @@ struct NFLPropDetailView: View {
         return v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v)
     }
 
-    /// Defense matchup index: >1 = the opponent allows more than league
-    /// average to this position (softer matchup).
-    private func matchupValue(_ idx: Double?) -> String {
-        guard let idx, idx.isFinite else { return "-" }
+    /// How much this opponent allows to the player's position for this prop
+    /// stat, vs league average entering the week.
+    private func matchupValue(_ idx: Double?, opponent: String?) -> String {
+        guard let idx, idx.isFinite else { return "—" }
         let pct = (idx - 1) * 100
-        return String(format: "%+.0f%% vs lg", pct)
+        if let opponent, !opponent.isEmpty {
+            let abbr = NFLTeamAssets.abbr(for: opponent)
+            return String(format: "%@ %+.0f%%", abbr, pct)
+        }
+        return String(format: "%+.0f%% vs avg", pct)
     }
 
     private func matchupColor(_ idx: Double?) -> Color {
@@ -296,25 +395,44 @@ struct NFLPropDetailView: View {
         return Color.appTextPrimary
     }
 
-    private func statTile(_ label: String, _ value: String, color: Color = Color.appTextPrimary) -> some View {
-        VStack(spacing: 3) {
-            Text(label)
-                .font(.system(size: 9, weight: .bold))
-                .tracking(0.5)
-                .foregroundStyle(Color.appTextMuted)
-            Text(value)
-                .font(.system(size: 15, weight: .bold, design: .monospaced))
-                .foregroundStyle(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+    private func statTile(
+        helpKey: String,
+        title: String,
+        value: String,
+        color: Color = Color.appTextPrimary
+    ) -> some View {
+        Button {
+            metricHelp = NFLPropMetricHelp.all[helpKey]
+        } label: {
+            VStack(spacing: 4) {
+                HStack(spacing: 3) {
+                    Text(title.uppercased())
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(0.4)
+                        .foregroundStyle(Color.appTextMuted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(Color.appTextSecondary.opacity(0.85))
+                }
+                Text(value)
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundStyle(color)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.65)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 4)
+            .background(Color.appSurfaceMuted.opacity(0.35), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.appBorder.opacity(0.5), lineWidth: 0.5)
+            )
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(Color.appSurfaceMuted.opacity(0.35), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.appBorder.opacity(0.5), lineWidth: 0.5)
-        )
+        .buttonStyle(.plain)
     }
 
     // MARK: Line movement
@@ -397,9 +515,10 @@ struct NFLPropTrendChart: View {
                 .foregroundStyle(Color.appTextMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 chart
-                    .frame(height: 168)
+                    .frame(height: 176)
+                logoRow
                 Text("Season game log · oldest left → most recent right")
                     .font(.system(size: 10))
                     .foregroundStyle(Color.appTextMuted)
@@ -407,6 +526,18 @@ struct NFLPropTrendChart: View {
                     .multilineTextAlignment(.center)
             }
         }
+    }
+
+    /// Logos + week labels sit below the plot so bars never overlap them.
+    private var logoRow: some View {
+        HStack(spacing: 0) {
+            ForEach(bars) { bar in
+                NFLPropTrendChartAxisLabel(opp: bar.opp, week: bar.week)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: 40)
+        .padding(.horizontal, 2)
     }
 
     private var chart: some View {
@@ -431,32 +562,127 @@ struct NFLPropTrendChart: View {
             RuleMark(y: .value("Line", line))
                 .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
                 .foregroundStyle(Color.appPrimary.opacity(0.85))
-                .annotation(position: .top, alignment: .trailing, spacing: 1) {
+                .annotation(position: .top, alignment: .leading, spacing: 2) {
                     Text(isYesNo ? "TD" : "Line \(NFLPlayerProps.formatLine(line))")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(Color.appPrimary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.appSurface.opacity(0.92), in: Capsule())
+                        .overlay(Capsule().stroke(Color.appPrimary.opacity(0.35), lineWidth: 0.6))
                 }
         }
         // Fixed domain (oldest→newest) so bars keep game-log order.
         .chartXScale(domain: bars.map { String($0.id) })
         .chartYScale(domain: 0...maxVal)
-        .chartYAxis(.hidden)
-        .chartXAxis {
-            AxisMarks(values: bars.map { String($0.id) }) { value in
-                AxisValueLabel(orientation: .vertical) {
-                    if let label = value.as(String.self),
-                       let id = Int(label),
-                       let bar = bars.first(where: { $0.id == id }) {
-                        Text(bar.week.map { "W\($0)" } ?? bar.opp ?? "")
-                            .font(.system(size: 8))
-                            .foregroundStyle(Color.appTextMuted)
-                    }
-                }
-            }
+        .chartPlotStyle { plot in
+            plot.padding(.top, 16)
         }
+        .chartYAxis(.hidden)
+        .chartXAxis(.hidden)
     }
 
     private func barLabel(_ v: Double) -> String {
         v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v)
+    }
+}
+
+/// Compact opponent logo + week label under each bar in the season game log.
+private struct NFLPropTrendChartAxisLabel: View {
+    let opp: String?
+    let week: Int?
+
+    var body: some View {
+        VStack(spacing: 3) {
+            if let opp, !opp.isEmpty {
+                GameCardTeamAvatar(
+                    teamName: NFLTeamAssets.abbr(for: opp),
+                    sport: "nfl",
+                    size: 20,
+                    colors: NFLTeamColors.colorPair(for: opp)
+                )
+            } else {
+                Circle()
+                    .fill(Color.appSurfaceElevated)
+                    .frame(width: 20, height: 20)
+            }
+            Text(week.map { "W\($0)" } ?? "—")
+                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.appTextMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+    }
+}
+
+// MARK: - Metric help
+
+struct NFLPropMetricHelp: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let body: String
+
+    static let all: [String: NFLPropMetricHelp] = {
+        let entries: [(String, String, String)] = [
+            ("posted_line", "Posted Line",
+             "The consensus closing line and prices across sportsbooks for this prop market. For anytime TD, the price is the yes-side implied probability — there is no yardage line."),
+            ("game_log", "Game Log",
+             "Each bar is one prior game this season (oldest left, most recent right). Green cleared the posted line; red missed. The dashed line is today's consensus close. Opponent logos and week numbers sit below each bar."),
+            ("book_odds", "Best Lines",
+             "The best-shop over and under at the actionable close (T-60 before kickoff), precomputed in the props loader using the same logic as game picks and Outliers. For anytime TD, only the best yes price is shown."),
+            ("season_stats", "Season Stats",
+             "Point-in-time season form through last week — stats and averages before this game. Tap any tile's info icon for what that specific number means."),
+            ("last_game", "Last Game",
+             "The player's actual stat total in his most recent game before this week."),
+            ("l3_avg", "Last 3 Average",
+             "Average stat over the player's prior three games this season."),
+            ("l5_avg", "Last 5 Average",
+             "Average stat over the player's prior five games this season."),
+            ("szn_avg", "Season Average",
+             "Average stat across every game the player played this season before this week."),
+            ("szn_high", "Season High",
+             "The player's single-game high for this stat this season before this week."),
+            ("opp_defense", "Opponent Defense",
+             "How much this week's opponent allows to players at this position for this prop stat, compared to league average entering the week. Positive (green) = softer matchup (defense allows more than average). Negative (red) = tough matchup."),
+            ("line_movement", "Line Movement",
+             "How the consensus line moved from the open to the close across books. A rising line often means money came in on the over; a drop often means the under. The cross-book range shows how far apart the tightest and loosest books were at the close."),
+        ]
+        return Dictionary(uniqueKeysWithValues: entries.map {
+            ($0.0, NFLPropMetricHelp(id: $0.0, title: $0.1, body: $0.2))
+        })
+    }()
+}
+
+struct NFLPropMetricHelpSheet: View {
+    let help: NFLPropMetricHelp
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(help.title)
+                        .font(.system(size: 22, weight: .black))
+                        .foregroundStyle(Color.appTextPrimary)
+                    Text(help.body)
+                        .font(.system(size: 15))
+                        .lineSpacing(4)
+                        .foregroundStyle(Color.appTextSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(20)
+            }
+            .background(Color.appSurface)
+            .navigationTitle("About This Metric")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .tint(Color.appPrimary)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 }
