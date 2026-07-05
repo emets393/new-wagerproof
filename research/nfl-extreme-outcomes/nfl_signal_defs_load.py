@@ -182,6 +182,35 @@ DEFS = [
      "82%/79% across 2024/25 for +50% ROI; thinner sample (n=50) so medium conviction.",
      "Rushing yards Over", "80% / +50% ROI [82,79] (thin)", "med"),
 
+    # ---------------- props — attempts volume model (nfl-game-script-analysis) ----------------
+    ("P14_attempts_model_under", "Volume Model — Attempts Under", "player_prop",
+     "Our volume model projects fewer attempts/carries than the posted line -> Under.",
+     "A gradient-boosted model predicts a player's pass or rush attempts from team-offense "
+     "pace/pass-rate, the opponent defense, and the game script; when its projection sits "
+     "1.5+ below the posted attempts line, bet the Under. Fires on pass-attempts and "
+     "rush-attempts only.",
+     "Volume overs are shaded (the public loves overs), so the model can't beat the market's "
+     "point estimate on accuracy — but when it flags a line as inflated the Under is +EV. "
+     "Selective (beats betting every under), favorite-neutral, and held both seasons: "
+     "rush attempts 59% / +6-8% ROI, pass attempts 56% / +5%.",
+     "Rushing/passing attempts Under", "rush 59% / +7%, pass 56% / +5% [both yrs]", "med"),
+    ("P15_attempts_steam_under", "Attempts Steam Under", "player_prop",
+     "The attempts line steamed up into the close -> fade it to the Under.",
+     "A player's pass- or rush-attempts line rose 1+ from the open to the actionable "
+     "(T-60) close -> bet the Under. Pass-attempts and rush-attempts only.",
+     "The market over-reacts to a volume/game-script narrative and pushes the attempts "
+     "number too high; fading that steam to the Under has cleared both seasons "
+     "(rush 60% / +8%, pass 57% / +5%) and is independent of the volume model.",
+     "Rushing/passing attempts Under", "rush 60% / +8%, pass 57% / +5% [both yrs]", "med"),
+    ("P16_attempts_confluence", "Attempts Under — Model + Steam Confluence", "player_prop",
+     "Both the volume model AND the line movement agree on the attempts Under -> premium.",
+     "P14 and P15 fire on the same attempts prop: the model projects the line as inflated "
+     "AND the line steamed up into the close. Two independent reads on the same Under.",
+     "Fundamentals and market movement confirming the same Under is far stronger than "
+     "either alone — the confluence hit ~65% for +19% ROI both seasons. Thinner by "
+     "construction (agreement is rarer), so premium-but-track.",
+     "Rushing/passing attempts Under", "65% / +19% ROI [thin n~90-130, both yrs]", "high"),
+
     # ---------------- props — line-vs-form & regression keepers (PROPS_BRIEF1) ----------------
     ("P1_pass_yds_form_over", "QB Pass Yds — Line Above Form Over", "player_prop",
      "QB's posted passing line sits above his recent form -> Over.",

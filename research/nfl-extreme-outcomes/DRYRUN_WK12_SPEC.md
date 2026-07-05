@@ -14,7 +14,7 @@ will be:
 |---|---|---|
 | `nfl_dryrun_games` | 14 | game — every prediction the app displays |
 | `nfl_dryrun_flags` | 51 | fired bet signal (the badge layer) |
-| `nfl_dryrun_props` | 942 | (player, market) — line + trends + P-flags |
+| `nfl_dryrun_props` | 1086 | (player, market) — line + trends + P-flags |
 | `nfl_teams` | 32 | team — logos, wordmarks, colors (static reference) |
 
 **Generators**: `dryrun_wk12_games.py` (games + flags), `dryrun_wk12_props.py` (props).
@@ -122,10 +122,14 @@ Week 12 output: 51 flags (25 active / 26 tracking) across 14 games.
 
 ## 3. `nfl_dryrun_props` — player prop cards
 
-One row per (player, market); 942 rows, 387 players, all 6 markets:
-`player_pass_yds`, `player_pass_tds`, `player_rush_yds`, `player_receptions`,
-`player_reception_yds`, `player_anytime_td`. Offense positions only (QB/RB/WR/TE/FB
-— no defensive/ST TD props, ever).
+One row per (player, market); 1086 rows, 387 players. The original 6 markets
+(`player_pass_yds`, `player_pass_tds`, `player_rush_yds`, `player_receptions`,
+`player_reception_yds`, `player_anytime_td`) plus 3 **volume markets**
+(`player_pass_attempts`, `player_rush_attempts`, `player_pass_completions`) that carry the
+attempts model/steam signals (§P14-P16). Offense positions only (QB/RB/WR/TE/FB
+— no defensive/ST TD props, ever). The volume markets have no matchup/injury columns
+(`def_*`, `report_status` null); their line is the T-60 actionable close. Completions is a
+displayed card but fires no flag (no validated edge).
 
 | Group | Columns | Notes |
 |---|---|---|
@@ -149,8 +153,20 @@ One row per (player, market); 942 rows, 387 players, all 6 markets:
 | P8 | rush yds line spread ≥3 across books | UNDER at highest book | 18 |
 | P9 | QB under pass-TD line 2 straight prop-weeks | OVER | 10 |
 | P10 | receptions line raised 2 straight prop-weeks | UNDER | 7 |
+| P12 | featured WR (NGS top-quintile sep), line lags L3 form | OVER | 16 |
+| P13 | featured RB (NGS top-quintile eff), line lags L3 form | OVER | 4 |
+| P14 | **volume model** projects attempts 1.5+ below line (pass/rush attempts) | UNDER | 31 |
+| P15 | attempts line steamed up ≥1 open→T-60 (pass/rush attempts) | UNDER | 18 |
+| P16 | **P14 AND P15 agree** — model + steam confluence (premium) | UNDER | 8 |
 
 P11 is game-level → `nfl_dryrun_flags`.
+
+**P14-P16 (attempts volume model)**: a walk-forward HistGBR predicts pass/rush attempts from
+team-offense pace/pass-rate + opponent defense + game script (`attempts_predict.predict_slate`,
+trained on `nfl_pregame_advanced_team_week` + `nfl_player_game_logs`). The model's raw number is
+NOT displayed — it only drives the UNDER flag. Overs are shaded/dead so the signal is under-only.
+Validated 2024-25: P14 rush 59%/+7%, pass 56%/+5%; P15 rush 60%/+8%, pass 57%/+5%; P16 ~65%/+19%
+(thin). See `nfl-game-script-analysis` + `attempts_model.py`.
 
 ---
 

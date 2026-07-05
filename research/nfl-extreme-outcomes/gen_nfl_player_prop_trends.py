@@ -2,7 +2,9 @@
 
 How often a player goes OVER their posted prop line, by market, in situations.
 Markets (hit = OVER; ATD hit = scored): player_pass_yds, player_pass_tds,
-player_receptions, player_reception_yds, player_rush_yds, player_anytime_td.
+player_receptions, player_reception_yds, player_rush_yds, player_anytime_td,
+plus the 3 volume markets player_pass_attempts, player_rush_attempts,
+player_pass_completions (T-60 close from props_rows_extra + actuals from player_offense).
 NO defensive/ST props ever. Props data only exists 2024-2025 (coverage flagged).
 
 Dimensions: overall, home, away, division, non_division, primetime, regular.
@@ -30,7 +32,14 @@ GAMES_CSV = "https://github.com/nflverse/nfldata/raw/master/data/games.csv"
 
 PROP_MKT = {"player_pass_yds": ("O", "U"), "player_pass_tds": ("O", "U"),
             "player_receptions": ("O", "U"), "player_reception_yds": ("O", "U"),
-            "player_rush_yds": ("O", "U"), "player_anytime_td": ("Y", "N")}
+            "player_rush_yds": ("O", "U"), "player_anytime_td": ("Y", "N"),
+            # volume markets (over/under vs the T-60 close) — trends only, descriptive
+            "player_pass_attempts": ("O", "U"), "player_rush_attempts": ("O", "U"),
+            "player_pass_completions": ("O", "U")}
+# volume-market actual stat in player_offense
+EXTRA_STAT = {"player_pass_attempts": "attempts", "player_rush_attempts": "carries",
+              "player_pass_completions": "completions"}
+T60_MINS = 60.0
 DIMS = ["overall", "home", "away", "division", "non_division", "primetime", "regular"]
 WINDOWS = [3, 5, 7]
 NORM = {"LAR": "LA", "WSH": "WAS", "JAC": "JAX", "OAK": "LV", "SD": "LAC", "STL": "LA"}
@@ -80,9 +89,38 @@ def game_context():
             for r in g.itertuples()}
 
 
+def attempts_games():
+    """Per (player, volume-market, game): T-60 consensus close line + realized actual, so the
+    attempts/completions markets get the same OVER-trend treatment as the original 6. Same
+    raw columns build_logs consumes (home_team/away_team full names -> mapped there)."""
+    ex = pd.read_parquet(DATA / "props_rows_extra.parquet")
+    ex = ex[ex.market.isin(EXTRA_STAT)].copy()
+    if ex.empty:
+        return ex
+    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
+    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True, format="ISO8601")
+    ex["mins"] = (ex.comm - ex.snap).dt.total_seconds() / 60.0
+    keys = ["season", "week", "player_id", "player_name", "position", "team", "market",
+            "home_team", "away_team"]
+    snaps = ex.groupby(keys + ["snap", "mins"]).line.median().reset_index().sort_values(keys + ["snap"])
+    act = snaps[snaps.mins >= T60_MINS]                       # actionable close only
+    cl = act.groupby(keys).line.last().reset_index().rename(columns={"line": "close_line"})
+    po = pd.read_parquet(DATA / "player_offense.parquet")[
+        ["season", "week", "player_id", "attempts", "carries", "completions"]]
+    cl = cl.merge(po, on=["season", "week", "player_id"], how="left")
+    cl["actual"] = np.select(
+        [cl.market == "player_pass_attempts", cl.market == "player_rush_attempts"],
+        [cl.attempts, cl.carries], default=cl.completions)
+    cl["result_close"] = None                                # non-ATD result is computed from actual
+    return cl[keys + ["close_line", "actual", "result_close"]]
+
+
 def build_logs():
     pf = pd.read_parquet(DATA / "props_frame.parquet")
     pf = pf[pf.market.isin(PROP_MKT)].copy()
+    ag = attempts_games()
+    if not ag.empty:
+        pf = pd.concat([pf, ag], ignore_index=True)          # volume markets alongside the 6
     pf = pf[(pf.season < SEASON) | ((pf.season == SEASON) & (pf.week <= THROUGH_WEEK))]
     pf["home_ab"] = pf.home_team.map(TEAM_NAMES)
     pf["away_ab"] = pf.away_team.map(TEAM_NAMES)

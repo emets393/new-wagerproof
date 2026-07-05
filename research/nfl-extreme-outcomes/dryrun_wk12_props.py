@@ -202,6 +202,112 @@ def add_flags(c, pf):
     return c
 
 
+# ---- volume markets (attempts/completions) — model-UNDER + steam-UNDER prop signals ----
+# These 3 markets are NOT in props_frame (the original 6). They come from props_rows_extra
+# (raw snapshots), consensus'd at the T-60 actionable close, scored by the volume model
+# (attempts_predict.predict_slate). See attempts_model.py + nfl-game-script-analysis.
+EXTRA_MARKETS = ("player_pass_attempts", "player_rush_attempts", "player_pass_completions")
+EXTRA_STAT = {"player_pass_attempts": "attempts", "player_rush_attempts": "carries",
+              "player_pass_completions": "completions"}
+SIGNAL_MARKETS = ("player_pass_attempts", "player_rush_attempts")  # completions: card only, no flag
+T60_MINS = 60.0          # actionable close = last snapshot >= 60 min before kickoff
+MODEL_EDGE = 1.5         # model pred <= close_line - 1.5  -> P14 model UNDER (validated edge>=1.5)
+STEAM_MOVE = 1.0         # close_line - open_line >= 1     -> P15 steam UNDER
+
+
+def attempts_consensus():
+    """One consensus row per (player, attempts-market) for the slate: open line, T-60 close
+    line + prices (median across books), cross-book spread. Mirrors attempts_model.props_t60."""
+    ex = pd.read_parquet(DATA / "props_rows_extra.parquet")
+    ex = ex[(ex.season == SEASON) & (ex.week == WEEK) & (ex.market.isin(EXTRA_MARKETS))].copy()
+    if ex.empty:
+        return ex
+    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
+    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True, format="ISO8601")
+    ex["mins"] = (ex.comm - ex.snap).dt.total_seconds() / 60.0
+    keys = ["event_id", "player_id", "player_name", "position", "team", "market",
+            "home_team", "away_team"]
+    snaps = ex.groupby(keys + ["snap", "mins"]).agg(
+        line=("line", "median"), over=("over_odds", "median"), under=("under_odds", "median"),
+        nb=("bookmaker", "nunique"), lo=("line", "min"), hi=("line", "max")
+    ).reset_index().sort_values(keys + ["snap"])
+    op = snaps.groupby(keys).first().reset_index()[keys + ["line"]].rename(columns={"line": "open_line"})
+    act = snaps[snaps.mins >= T60_MINS]                      # actionable snapshots only
+    cl = act.groupby(keys).last().reset_index()[keys + ["line", "over", "under", "nb", "lo", "hi"]] \
+        .rename(columns={"line": "close_line", "over": "over_price", "under": "under_price", "nb": "n_books"})
+    d = op.merge(cl, on=keys)
+    d["line_delta"] = d.close_line - d.open_line
+    d["book_line_spread"] = d.hi - d.lo
+    return d
+
+
+def attempts_form(d):
+    """gp/L3/L5/L10/szn form + over-rates + sparkline history for the attempts stats,
+    weeks < WEEK only (point-in-time)."""
+    po = pd.read_parquet(DATA / "player_offense.parquet")
+    po = po[(po.season == SEASON) & (po.week < WEEK) & (po.season_type == "REG")].copy()
+    ge = pd.read_parquet(DATA / "games_enriched.parquet")
+    ge = ge[ge.season == SEASON]
+    opp_map = {}
+    for _, r in ge.iterrows():
+        opp_map[(r.week, r.home_team)] = r.away_team
+        opp_map[(r.week, r.away_team)] = r.home_team
+    po["opp"] = [opp_map.get((w, t)) for w, t in zip(po.week, po.team)]
+    hist = {pid: g.sort_values("week") for pid, g in po.groupby("player_id")}
+    cols = {k: [] for k in ("gp_prior", "last_game", "l3_avg", "l5_avg", "l10_avg",
+                            "szn_avg", "szn_max", "szn_min", "over_rate_l5", "over_rate_l10", "recent_games")}
+    for _, r in d.iterrows():
+        stat = EXTRA_STAT[r.market]
+        g = hist.get(r.player_id)
+        if g is None or stat not in g.columns:
+            for k in cols:
+                cols[k].append([] if k == "recent_games" else None)
+            continue
+        s = g.dropna(subset=[stat])
+        vals = s[stat].astype(float)
+        cols["gp_prior"].append(int(len(vals)))
+        cols["last_game"].append(round(float(vals.iloc[-1]), 2) if len(vals) else None)
+        cols["l3_avg"].append(round(float(vals.tail(3).mean()), 2) if len(vals) else None)
+        cols["l5_avg"].append(round(float(vals.tail(5).mean()), 2) if len(vals) else None)
+        cols["l10_avg"].append(round(float(vals.tail(10).mean()), 2) if len(vals) else None)
+        cols["szn_avg"].append(round(float(vals.mean()), 2) if len(vals) else None)
+        cols["szn_max"].append(round(float(vals.max()), 2) if len(vals) else None)
+        cols["szn_min"].append(round(float(vals.min()), 2) if len(vals) else None)
+        if pd.notna(r.close_line) and len(vals):
+            cols["over_rate_l10"].append(round(float((vals.tail(10) > r.close_line).mean()), 3))
+            cols["over_rate_l5"].append(round(float((vals.tail(5) > r.close_line).mean()), 3))
+        else:
+            cols["over_rate_l10"].append(None); cols["over_rate_l5"].append(None)
+        t = s.tail(10)
+        cols["recent_games"].append([dict(week=int(w), opp=o, actual=float(v))
+                                     for w, o, v in zip(t.week, t.opp, t[stat].astype(float))])
+    for k, v in cols.items():
+        d[k] = v
+    return d
+
+
+def attempts_flags(d):
+    """P14 model-UNDER, P15 steam-UNDER, P16 confluence — pass/rush attempts only."""
+    from attempts_predict import predict_slate
+    pred = predict_slate(SEASON, WEEK)[["player_id", "market", "pred"]]
+    d = d.merge(pred, on=["player_id", "market"], how="left")
+    out = []
+    for _, r in d.iterrows():
+        f = []
+        if r.market in SIGNAL_MARKETS and pd.notna(r.close_line):
+            model_under = pd.notna(r.pred) and (r.pred <= r.close_line - MODEL_EDGE)
+            steam_under = pd.notna(r.open_line) and (r.close_line - r.open_line >= STEAM_MOVE)
+            if model_under:
+                f.append("P14")
+            if steam_under:
+                f.append("P15")
+            if model_under and steam_under:
+                f.append("P16")                            # premium: both agree on the under
+        out.append(f)
+    d["p_flags"] = out
+    return d
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-load", action="store_true")
@@ -212,6 +318,13 @@ def main():
     c = recent_form(c)
     c = add_flags(c, pf)
 
+    # attempts/completions markets (model-UNDER + steam-UNDER signals) — same output schema
+    a = attempts_consensus()
+    if not a.empty:
+        a = attempts_form(a)
+        a = attempts_flags(a)
+        c = pd.concat([c, a], ignore_index=True)
+
     # map to dry-run game ids via home team
     tm = pd.read_parquet(DATA / "team_mapping.parquet")
     name_ab = dict(zip(tm.city_and_name, tm["Team Abbrev"].replace({"LAR": "LA"})))
@@ -219,8 +332,12 @@ def main():
     hp = hp[(hp.season == SEASON) & (hp.week == WEEK)]
     gid = dict(zip(hp.home_ab, hp.game_id))
     c["home_ab"] = c.home_team.map(name_ab)
+    c["away_ab"] = c.away_team.map(name_ab)
     c["game_id"] = c.home_ab.map(gid)
     c["is_home"] = c.team == c.home_ab
+    # attempts rows arrive without opp (the 6-market frame carries it); fill from home/away
+    opp_calc = pd.Series(np.where(c.is_home, c.away_ab, c.home_ab), index=c.index)
+    c["opp"] = c["opp"].fillna(opp_calc) if "opp" in c.columns else opp_calc
 
     key = load_key()
     heads = fetch_headshots(key)
