@@ -211,6 +211,25 @@ DEFS = [
      "construction (agreement is rarer), so premium-but-track.",
      "Rushing/passing attempts Under", "65% / +19% ROI [thin n~90-130, both yrs]", "high"),
 
+    ("P17_rush_yds_model_under", "Volume Model — Rush Yds Under", "player_prop",
+     "Our volume model projects a rusher's yards well below the posted line -> Under.",
+     "A gradient-boosted model predicts rushing yards from team-offense pace/run-rate, the "
+     "opponent run defense, and the game script; when its projection sits 10+ yards below the "
+     "posted rushing-yards line, bet the Under.",
+     "Rushing overs are shaded (public over-bias), so the model can't beat the market's point "
+     "estimate on accuracy — but when it flags a line as inflated the Under is +EV. Held both "
+     "seasons at 58.5% for +10% ROI, favorite-neutral. Same mechanism as the rush-attempts under.",
+     "Rushing yards Under", "58.5% / +10% ROI [55,63]", "med"),
+    ("P18_pass_tds_model_over", "Volume Model — Pass TDs Over", "player_prop",
+     "Our volume model projects a QB's passing TDs well above the posted line -> Over.",
+     "The model predicts passing touchdowns from team scoring/pass tendency, the opponent pass "
+     "defense, and the game script; when its projection sits 0.5+ TD above the posted line, bet "
+     "the Over. High-conviction only (fires ~2-3x/slate).",
+     "Passing-TD unders are shaded (the market/public fade multi-TD games), so when the model is "
+     "confidently high the Over clears. Monotonic with conviction — held ~63-69% for +5-9% ROI "
+     "both seasons at the 0.5+ threshold. The one OVER-side model edge (most prop edges are unders).",
+     "Passing TDs Over", "63-69% / +5-9% ROI [67,63]", "med"),
+
     # ---------------- props — line-vs-form & regression keepers (PROPS_BRIEF1) ----------------
     ("P1_pass_yds_form_over", "QB Pass Yds — Line Above Form Over", "player_prop",
      "QB's posted passing line sits above his recent form -> Over.",

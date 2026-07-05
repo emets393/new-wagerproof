@@ -149,6 +149,26 @@ def ngs_l3_entering(fname, col):
             .dropna().to_dict())
 
 
+# Model prop flags on EXISTING markets (rush_yds, pass_tds) — the volume model extended beyond
+# attempts (nfl-prop-model-deepdive). Thresholds = validated absolute edges (both seasons):
+#   P17 rush_yds model-UNDER: pred <= line - 10 yds  -> 58.5%/+10%
+#   P18 pass_tds model-OVER:  pred >= line + 0.5 TDs  -> ~63-69%/+5-9%
+RY_UNDER_EDGE = 10.0
+PT_OVER_EDGE = 0.5
+
+
+def add_model_preds(c):
+    """Merge the volume-model prediction for rush_yds + pass_tds into the frame (internal only —
+    never written to the DB; drives the P17/P18 flags). Same walk-forward model as attempts."""
+    from prop_model import predict_slate
+    pr = predict_slate(SEASON, WEEK, markets=["player_rush_yds", "player_pass_tds"])
+    if pr.empty:
+        c["model_pred"] = np.nan
+        return c
+    return c.merge(pr[["player_id", "market", "pred"]].rename(columns={"pred": "model_pred"}),
+                   on=["player_id", "market"], how="left")
+
+
 def add_flags(c, pf):
     p9_hist = weekly_panel(pf, "player_pass_tds")
     p10_hist = weekly_panel(pf, "player_receptions")
@@ -197,6 +217,14 @@ def add_flags(c, pf):
         if (r.market == "player_rush_yds" and line_lags
                 and eff_l3.get(r.player_id, -1) >= P13_EFF_Q80):
             f.append("P13")                            # featured RB, line lags form -> OVER
+        # volume-model flags on existing markets (model_pred is internal, never displayed)
+        mp = r.get("model_pred") if hasattr(r, "get") else getattr(r, "model_pred", None)
+        if (r.market == "player_rush_yds" and pd.notna(mp) and pd.notna(r.close_line)
+                and mp <= r.close_line - RY_UNDER_EDGE):
+            f.append("P17")                            # model projects rush yds well under -> UNDER
+        if (r.market == "player_pass_tds" and pd.notna(mp) and pd.notna(r.close_line)
+                and mp >= r.close_line + PT_OVER_EDGE):
+            f.append("P18")                            # model projects pass TDs well over -> OVER
         flags.append(f)
     c["p_flags"] = flags
     return c
@@ -316,6 +344,7 @@ def main():
     pf = pd.read_parquet(DATA / "props_frame.parquet")
     c = consensus(pf)
     c = recent_form(c)
+    c = add_model_preds(c)                              # rush_yds/pass_tds model preds (P17/P18)
     c = add_flags(c, pf)
 
     # attempts/completions markets (model-UNDER + steam-UNDER signals) — same output schema

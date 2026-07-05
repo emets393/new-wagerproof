@@ -158,6 +158,8 @@ displayed card but fires no flag (no validated edge).
 | P14 | **volume model** projects attempts 1.5+ below line (pass/rush attempts) | UNDER | 31 |
 | P15 | attempts line steamed up ≥1 open→T-60 (pass/rush attempts) | UNDER | 18 |
 | P16 | **P14 AND P15 agree** — model + steam confluence (premium) | UNDER | 8 |
+| P17 | **volume model** projects rush yds ≥10 below line (existing rush_yds market) | UNDER | 12 |
+| P18 | **volume model** projects pass TDs ≥0.5 above line (existing pass_tds market) | OVER | 3 |
 
 P11 is game-level → `nfl_dryrun_flags`.
 
