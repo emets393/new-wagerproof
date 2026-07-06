@@ -45,6 +45,10 @@ struct RootView: View {
         guard revenueCat.hasResolvedActiveUserEntitlement else { return false }
         guard !proAccess.isLoading else { return false }
         if paywallDismissed { return false }
+        // Secret Settings' "Reset Onboarding" sets this so testers on a
+        // Pro/admin account can still see the paywall; it self-clears on
+        // dismiss/purchase, so it never leaks into normal Pro usage.
+        if router.testPaywallOverride { return true }
         return !proAccess.isPro
     }
 
@@ -54,7 +58,10 @@ struct RootView: View {
         Binding(
             get: { shouldPresentPaywall },
             set: { newValue in
-                if !newValue { paywallDismissed = true }
+                if !newValue {
+                    paywallDismissed = true
+                    router.clearTestPaywallOverride()
+                }
             }
         )
     }
@@ -73,6 +80,7 @@ struct RootView: View {
                     .fullScreenCover(isPresented: paywallBinding) {
                         PostOnboardingPaywall(onUserDismissed: {
                             paywallDismissed = true
+                            router.clearTestPaywallOverride()
                         })
                             // Re-inject the environment — `fullScreenCover` in
                             // SwiftUI doesn't always propagate `@Observable`
@@ -86,6 +94,12 @@ struct RootView: View {
             }
         }
         .animation(.appStandard, value: router.phase)
+        .onChange(of: router.testPaywallOverride) { _, isActive in
+            // A tester re-running "Reset Onboarding" within the same session
+            // may have already dismissed a paywall earlier — clear that flag
+            // so the fresh test run reliably re-presents it.
+            if isActive { paywallDismissed = false }
+        }
         .onChange(of: auth.phase) { _, newPhase in
             // Sign-out resets the dismiss flag so the next user (or the same
             // user signing back in without Pro) sees the paywall again.

@@ -6,6 +6,7 @@ export interface LeaderboardEntry {
   name: string;
   avatar_emoji: string;
   avatar_color: string;
+  sprite_index?: number | null;
   user_id: string;
   preferred_sports: Sport[];
   total_picks: number;
@@ -124,7 +125,7 @@ export async function fetchLeaderboard(
   const effectiveLimit = Math.min(Math.max(limit, 1), 100);
   let agentsQuery = (supabase as any)
     .from('avatar_profiles')
-    .select('id, name, avatar_emoji, avatar_color, user_id, preferred_sports')
+    .select('id, name, avatar_emoji, avatar_color, sprite_index, user_id, preferred_sports')
     .eq('is_public', true);
 
   if (sport) {
@@ -156,6 +157,7 @@ export async function fetchLeaderboard(
             name: agent.name,
             avatar_emoji: agent.avatar_emoji,
             avatar_color: agent.avatar_color,
+            sprite_index: agent.sprite_index ?? null,
             user_id: agent.user_id,
             preferred_sports: agent.preferred_sports,
             total_picks: perf?.total_picks || 0,
@@ -207,6 +209,7 @@ export async function fetchLeaderboard(
           name: agent.name,
           avatar_emoji: agent.avatar_emoji,
           avatar_color: agent.avatar_color,
+          sprite_index: agent.sprite_index ?? null,
           user_id: agent.user_id,
           preferred_sports: agent.preferred_sports,
           total_picks: totalPicks,

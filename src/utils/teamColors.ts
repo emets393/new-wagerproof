@@ -400,3 +400,41 @@ export const getContrastingTextColor = (primaryColor: string, secondaryColor: st
   return avgLuminance < 0.5 ? '#ffffff' : '#000000';
 };
 
+
+// MLB team colors by abbreviation — mirrors the iOS MLBTeam.swift table.
+export const getMLBTeamColors = (abbrev: string): { primary: string; secondary: string } => {
+  const colorMap: { [key: string]: { primary: string; secondary: string } } = {
+    ARI: { primary: '#A71930', secondary: '#E3D4AD' },
+    ATL: { primary: '#CE1141', secondary: '#13274F' },
+    BAL: { primary: '#DF4601', secondary: '#27251F' },
+    BOS: { primary: '#BD3039', secondary: '#0C2340' },
+    CHC: { primary: '#0E3386', secondary: '#CC3433' },
+    CWS: { primary: '#27251F', secondary: '#C4CED4' },
+    CIN: { primary: '#C6011F', secondary: '#27251F' },
+    CLE: { primary: '#00385D', secondary: '#E31937' },
+    COL: { primary: '#333366', secondary: '#C4CED4' },
+    DET: { primary: '#0C2340', secondary: '#FA4616' },
+    HOU: { primary: '#002D62', secondary: '#EB6E1F' },
+    KC: { primary: '#004687', secondary: '#BD9B60' },
+    LAA: { primary: '#BA0021', secondary: '#003263' },
+    LAD: { primary: '#005A9C', secondary: '#EF3E42' },
+    MIA: { primary: '#00A3E0', secondary: '#EF3340' },
+    MIL: { primary: '#FFC52F', secondary: '#12284B' },
+    MIN: { primary: '#002B5C', secondary: '#D31145' },
+    NYM: { primary: '#002D72', secondary: '#FF5910' },
+    NYY: { primary: '#003087', secondary: '#132448' },
+    OAK: { primary: '#003831', secondary: '#EFB21E' },
+    ATH: { primary: '#003831', secondary: '#EFB21E' },
+    PHI: { primary: '#E81828', secondary: '#002D72' },
+    PIT: { primary: '#27251F', secondary: '#FDB827' },
+    SD: { primary: '#2F241D', secondary: '#FFC425' },
+    SF: { primary: '#FD5A1E', secondary: '#27251F' },
+    SEA: { primary: '#0C2C56', secondary: '#005C5C' },
+    STL: { primary: '#C41E3A', secondary: '#0C2340' },
+    TB: { primary: '#092C5C', secondary: '#8FBCE6' },
+    TEX: { primary: '#003278', secondary: '#C0111F' },
+    TOR: { primary: '#134A8E', secondary: '#1D2D5C' },
+    WSH: { primary: '#AB0003', secondary: '#14225A' },
+  };
+  return colorMap[abbrev.trim().toUpperCase()] || { primary: '#1f2937', secondary: '#6b7280' };
+};

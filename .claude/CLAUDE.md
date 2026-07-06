@@ -39,10 +39,19 @@ WagerProof is a professional-grade sports betting analytics and predictions plat
 ### Web App (`/src`)
 ```
 src/
-├── pages/              # Route pages (NFL.tsx, NBA.tsx, Scoreboard.tsx)
+├── pages/              # Route pages (Agents.tsx, Scoreboard.tsx, tool pages)
+├── features/
+│   └── games/          # Unified /games split view (all 5 sports)
+│       ├── api/        # Per-sport data adapters (fetch+merge, ex-page logic)
+│       ├── hooks/      # useGamesFeed, useGamesUrlState...
+│       ├── components/ # Feed panel, sport picker, game list cards
+│       └── detail/     # Detail pane + per-sport widget sections
 ├── components/         # React components
 │   ├── ui/            # shadcn-ui primitives
-│   └── GameCard variants, PolymarketWidget, etc.
+│   ├── ios/           # iOS-style primitives (GlassCard, FilterPill, shimmer...)
+│   ├── layout/        # SplitViewLayout (master/detail shell)
+│   ├── agents/        # Agent components (+ split/ for the split view)
+│   └── PolymarketWidget, etc.
 ├── services/          # API clients
 ├── contexts/          # React Context (Auth, Theme, RevenueCat)
 ├── hooks/             # Custom React hooks
@@ -70,11 +79,12 @@ wagerproof-mobile/
 
 ## Key Features
 
-### 1. Game Predictions
+### 1. Game Predictions (`/games`)
 - Machine learning models generate win/spread/total probabilities
 - Compare model odds vs Vegas lines to find value
 - Weather data integration for outdoor games
-- Routes: `/nfl`, `/cfb`, `/nba`, `/ncaab`
+- ONE unified iOS-style split-view page for all 5 sports (`/games?sport=nfl|cfb|nba|ncaab|mlb&game=<id>`): left = feed list (sport picker, search, sort), right = detail pane (per-sport widget sections in `src/features/games/detail/sections/`)
+- Legacy routes `/nfl`, `/college-football`, `/nba`, `/ncaab`, `/mlb` redirect into `/games`; per-sport tool sub-pages (`/nfl-analytics`, `/mlb/f5-splits`, ...) remain separate pages
 
 ### 2. Live Scores (`/scoreboard`)
 - Real-time game updates via ESPN/Sports API
@@ -84,7 +94,7 @@ wagerproof-mobile/
 - Human-curated picks with detailed reasoning + a win/loss stats dashboard, previously at `/editors-picks`.
 - **Retired** — replaced functionally by AI Agents (§7 below), which track performance the same way editor picks did (W-L-P, +/- units) but are AI-generated and user-configurable.
 - Removed from the web route/nav and from the iOS native app's side menu. `EditorsPicks.tsx`/`EditorPickCard.tsx` etc. still exist on disk on web as dead code (not yet deleted); iOS native's equivalent files were deleted outright.
-- AI-identified "Value Finds" (high-value opportunities) is a **separate**, still-active surface — see `ValueFindsSection`/`ValueFindEditorCard` in `/src/components` — despite the "Editor" naming, it's AI-generated, not tied to the retired human-curated feature.
+- AI-identified "Value Finds" (high-value opportunities) — despite the "Editor" naming, it's AI-generated, not tied to the retired human-curated feature — is no longer surfaced anywhere in the web app. It was removed from the `/games` pages (page-header banner + per-game high-value badges); `ValueFindsSection`/`ValueFindEditorCard` in `/src/components` remain wired only into the dead `EditorsPicks.tsx`. The underlying data can still be generated/managed via the admin-only `AIValueFindsPreview` on `/admin/ai-settings`.
 - The `editors_picks` Supabase table and WagerBot's `get_editor_picks` chat tool remain queryable for historical/AI-chat purposes only; there's no UI entry point to them anymore on iOS native.
 
 ### 4. WagerBot (`/wagerbot-chat`)
@@ -110,6 +120,7 @@ wagerproof-mobile/
 - On-demand pick generation based on agent personality
 - Automated performance tracking (W-L-P, +/- units)
 - Public leaderboard for shared agents
+- Web: `/agents` is an iOS-style split view (left: My Agents / Leaderboard + filter pills; right: unified detail pane in `src/components/agents/split/`). Legacy `/agents/:id` + `/agents/public/:id` redirect to `/agents?selected=<id>`; Create/Settings remain separate pages
 - **Documentation**: See `.claude/docs/agents/` for full specifications:
   - `00_OVERVIEW.md` - Feature overview and key decisions
   - `01_DATA_PAYLOADS.md` - 4-payload architecture for AI generation

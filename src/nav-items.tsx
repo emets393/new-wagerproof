@@ -1,11 +1,5 @@
 import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
-import { Index } from "./pages/index";
-import CollegeFootball from "./pages/CollegeFootball";
-import NFL from "./pages/NFL";
-import NBA from "./pages/NBA";
-import NCAAB from "./pages/NCAAB";
-import MLB from "./pages/MLB";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import WagerBotChat from "./pages/WagerBotChat";
@@ -61,6 +55,12 @@ export const navItems: NavItem[] = [
     page: <Agents />,
   },
   {
+    // Unified split-view page replacing the per-sport list routes.
+    title: "Games",
+    to: "/games",
+    icon: <Trophy className="h-4 w-4" />,
+  },
+  {
     title: "Todays Outliers",
     to: "/today-in-sports",
     icon: <Newspaper className="h-4 w-4" />,
@@ -89,16 +89,9 @@ export const navItems: NavItem[] = [
     isHeader: true,
   },
   {
-    title: "College Football",
-    to: "/college-football",
-    icon: <Trophy className="h-4 w-4" />,
-    page: <CollegeFootball />,
-  },
-  {
     title: "NFL",
-    to: "/nfl",
+    to: "/games?sport=nfl",
     icon: <ShieldIcon className="h-4 w-4" />,
-    page: <NFL />,
     subItems: [
       {
         title: "Historical Analytics",
@@ -113,10 +106,15 @@ export const navItems: NavItem[] = [
     ],
   },
   {
+    // No dedicated CFB tool pages exist yet, so this is a plain link (no subItems).
+    title: "CFB",
+    to: "/games?sport=cfb",
+    icon: <GraduationCap className="h-4 w-4" />,
+  },
+  {
     title: "NBA",
-    to: "/nba",
+    to: "/games?sport=nba",
     icon: <Basketball className="h-4 w-4" />,
-    page: <NBA />,
     subItems: [
       {
         title: "Today's Betting Trends",
@@ -136,10 +134,9 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    title: "College Basketball",
-    to: "/ncaab",
+    title: "CBB",
+    to: "/games?sport=ncaab",
     icon: <School className="h-4 w-4" />,
-    page: <NCAAB />,
     subItems: [
       {
         title: "Today's Betting Trends",
@@ -160,9 +157,8 @@ export const navItems: NavItem[] = [
   },
   {
     title: "MLB",
-    to: "/mlb",
+    to: "/games?sport=mlb",
     icon: <Trophy className="h-4 w-4" />,
-    page: <MLB />,
     subItems: [
       {
         title: "Today's Betting Trends",

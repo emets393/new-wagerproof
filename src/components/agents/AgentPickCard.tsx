@@ -1,19 +1,15 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Clock3, FileSearch, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock3, DollarSign, Diff, FileSearch, TrendingUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AgentPick, BetType, PickResult, Scale1To5, Sport } from '@/types/agent';
 import { AgentOverlapFooter } from './AgentOverlapFooter';
 import { formatAgentBetTypeLabel, formatAgentPickSelection } from '@/utils/agentPickDisplay';
 import {
-  getCFBTeamColors,
   getCFBTeamInitials,
-  getNCAABTeamColors,
   getNCAABTeamInitials,
-  getNBATeamColors,
   getNBATeamInitials,
-  getNFLTeamColors,
   getNFLTeamInitials,
 } from '@/utils/teamColors';
 import { MLB_FALLBACK_BY_NAME } from '@/utils/mlbTeamLogos';
@@ -35,12 +31,38 @@ const BET_TYPE_COLORS: Record<Exclude<BetType, 'any'>, string> = {
   total: '#06b6d4',
 };
 
+// Result colors aligned to the iOS bet-slip card (WIN/LOSS/PUSH).
 const RESULT_CONFIG: Record<PickResult, { label: string; color: string; bgColor: string }> = {
-  won: { label: 'WON', color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.15)' },
-  lost: { label: 'LOST', color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.15)' },
-  push: { label: 'PUSH', color: '#6b7280', bgColor: 'rgba(107, 114, 128, 0.15)' },
+  won: { label: 'WON', color: '#22C55E', bgColor: 'rgba(34, 197, 94, 0.15)' },
+  lost: { label: 'LOST', color: '#EF4444', bgColor: 'rgba(239, 68, 68, 0.15)' },
+  push: { label: 'PUSH', color: '#EAB308', bgColor: 'rgba(234, 179, 8, 0.15)' },
   pending: { label: 'PENDING', color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.15)' },
 };
+
+// iOS bet-slip top accent gradient (indigo → cyan → green → amber).
+const SLIP_ACCENT = 'linear-gradient(90deg, #4F46E5, #06B6D4, #10B981, #F59E0B)';
+
+/** Icon disc for the pick pill: O/U arrows, ± for spread, $ for moneyline. */
+function PickIconDisc({ pick }: { pick: AgentPick }) {
+  const isOver = (pick.pick_selection || '').toLowerCase().includes('over');
+  const config =
+    pick.bet_type === 'total'
+      ? isOver
+        ? { icon: <ArrowUp className="h-3 w-3" />, color: '#22C55E' }
+        : { icon: <ArrowDown className="h-3 w-3" />, color: '#EF4444' }
+      : pick.bet_type === 'spread'
+        ? { icon: <Diff className="h-3 w-3" />, color: '#3B82F6' }
+        : { icon: <DollarSign className="h-3 w-3" />, color: '#22C55E' };
+
+  return (
+    <span
+      className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
+      style={{ color: config.color, backgroundColor: `${config.color}20` }}
+    >
+      {config.icon}
+    </span>
+  );
+}
 
 function parseMatchup(matchup: string): { away: string; home: string } {
   const separators = [' @ ', ' vs. ', ' vs '];
@@ -69,13 +91,6 @@ function formatGameDate(dateStr: string | null | undefined): string {
   } catch {
     return dateStr;
   }
-}
-
-function teamColors(teamName: string, sport: Sport) {
-  if (sport === 'nfl') return getNFLTeamColors(teamName);
-  if (sport === 'cfb') return getCFBTeamColors(teamName);
-  if (sport === 'nba') return getNBATeamColors(teamName);
-  return getNCAABTeamColors(teamName);
 }
 
 function lookupMLBAbbr(teamName: string): string | null {
@@ -122,8 +137,6 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
   const { away, home } = useMemo(() => parseMatchup(pick.matchup), [pick.matchup]);
   const awayAbbr = teamAbbr(away, pick.sport);
   const homeAbbr = teamAbbr(home, pick.sport);
-  const awayColors = teamColors(away, pick.sport);
-  const homeColors = teamColors(home, pick.sport);
 
   // Compact pick text: use the team abbreviation on ML/spread picks so long
   // names don't truncate. Spread keeps its line (e.g. "MIN -3.5"), ML renders
@@ -144,13 +157,8 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
 
   return (
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-      <Card className="overflow-hidden border-border/70 bg-card/95 transition-colors hover:border-primary/45">
-        <div
-          className="h-1 w-full"
-          style={{
-            background: `linear-gradient(90deg, ${awayColors.primary}, ${awayColors.secondary}, ${homeColors.primary}, ${homeColors.secondary})`,
-          }}
-        />
+      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/95 transition-colors hover:border-primary/45">
+        <div className="h-[3px] w-full" style={{ background: SLIP_ACCENT }} />
 
         <CardContent className="p-4">
           <button type="button" onClick={() => onOpenAudit?.(pick)} className="w-full text-left">
@@ -180,6 +188,7 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
             </div>
 
             <div className="flex items-center gap-2 mt-3">
+              <PickIconDisc pick={pick} />
               <span
                 className="text-[10px] font-bold px-2 py-1 rounded-md"
                 style={{ color: betTypeColor, backgroundColor: `${betTypeColor}20` }}
@@ -187,8 +196,14 @@ export function AgentPickCard({ pick, onOpenAudit }: AgentPickCardProps) {
                 {formatAgentBetTypeLabel(BET_TYPE_LABELS[pick.bet_type], pick)}
               </span>
               <p className="text-sm font-semibold truncate">{displaySelection}</p>
-              {pick.odds ? <p className="text-xs text-muted-foreground">({pick.odds})</p> : null}
-              <span className="ml-auto text-xs text-muted-foreground">{pick.units}u</span>
+              {pick.odds ? (
+                <span className="rounded-full bg-muted/70 px-2 py-0.5 font-mono text-[11px] font-bold text-muted-foreground">
+                  {pick.odds}
+                </span>
+              ) : null}
+              <span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[11px] font-bold" style={{ color: '#3B82F6', backgroundColor: 'rgba(59, 130, 246, 0.15)' }}>
+                {pick.units}u
+              </span>
             </div>
 
             <div className="flex items-center mt-3 gap-2">

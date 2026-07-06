@@ -51,7 +51,7 @@ export default function Welcome() {
     if (user && !loading) {
       localStorage.setItem('wagerproof_show_welcome', 'true');
       // Redirect to home instead of protected route
-      navigate('/nfl', { replace: true });
+      navigate('/agents', { replace: true });
     }
   }, [user, loading, navigate]);
 

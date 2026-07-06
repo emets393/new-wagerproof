@@ -2,20 +2,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useParams, Navigate } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { useEffect } from "react";
 import { logMixpanelStatus } from "@/lib/mixpanel";
 import Landing from "./pages/NewLanding";
 import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./pages";
-import CollegeFootball from "./pages/CollegeFootball";
-import NFL from "./pages/NFL";
-import NBA from "./pages/NBA";
 import NBATodayBettingTrends from "./pages/NBATodayBettingTrends";
 import NBATodayHalftimeTrends from "./pages/NBATodayHalftimeTrends";
 import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
-import NCAAB from "./pages/NCAAB";
-import MLB from "./pages/MLB";
 import MLBTodayBettingTrends from "./pages/MLBTodayBettingTrends";
 import MLBDailyRegressionReport from "./pages/MLBDailyRegressionReport";
 import F5Splits from "./pages/mlb/F5Splits";
@@ -60,10 +55,9 @@ import SupportCenter from "./pages/support/SupportCenter";
 import SupportCollection from "./pages/support/SupportCollection";
 import SupportArticle from "./pages/support/SupportArticle";
 import Agents from "./pages/Agents";
+import GamesPage from "./features/games/GamesPage";
 import AgentCreate from "./pages/AgentCreate";
-import AgentDetail from "./pages/AgentDetail";
 import AgentSettings from "./pages/AgentSettings";
-import PublicAgentDetail from "./pages/PublicAgentDetail";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
@@ -133,19 +127,49 @@ function MixpanelStatusCheck() {
   return null;
 }
 
+// Routes that manage their own full-height split-view layout (no page padding,
+// panels scroll internally instead of the main scroller).
+const SPLIT_VIEW_ROUTES = ['/games', '/agents'];
+
+// Legacy /agents/:id and /agents/public/:id deep links land in the split view.
+function LegacyAgentRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/agents?selected=${encodeURIComponent(id ?? '')}`} replace />;
+}
+
+// Legacy per-sport list pages collapsed into the unified /games split view.
+function LegacySportRedirect({ sport }: { sport: string }) {
+  return <Navigate to={`/games?sport=${sport}`} replace />;
+}
+
 // Layout wrapper for authenticated pages
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const isSplitView = SPLIT_VIEW_ROUTES.includes(location.pathname);
+
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={true} className="h-svh overflow-hidden">
       <AppLayout />
-      <SidebarInset className="overflow-x-hidden">
-        <div className="overflow-x-hidden w-full">
+      <SidebarInset className="overflow-x-hidden dark:bg-black">
+        {/* h-full only resolves against a genuinely fixed-height ancestor — that's
+            why SidebarProvider above is pinned to h-svh + overflow-hidden instead of
+            its default min-h-svh (which lets the whole page grow with content). With
+            a real fixed height, this card scrolls internally in <main> below instead
+            of the whole page growing, so the recessed margin/rounding stays in view. */}
+        <div className="flex h-full flex-col overflow-x-hidden">
           <LiveScoreTicker />
           <MinimalHeader />
-          <main className="flex flex-1 flex-col overflow-auto">
-            <div className="w-full px-4 py-6 md:px-8 md:py-8">
-              {children}
-            </div>
+          <main
+            id={isSplitView ? undefined : "app-scroll-container"}
+            className={isSplitView ? "flex min-h-0 flex-1 flex-col" : "flex min-h-0 flex-1 flex-col overflow-auto"}
+          >
+            {isSplitView ? (
+              children
+            ) : (
+              <div className="w-full px-4 py-6 md:px-8 md:py-8">
+                {children}
+              </div>
+            )}
           </main>
         </div>
       </SidebarInset>
@@ -208,14 +232,15 @@ function AppRoutes() {
           <Route path="/account" element={<Account />} />
           <Route path="/access-denied" element={<AccessDenied />} />
           <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
-          <Route path="/college-football" element={<ProtectedRoute allowFreemium={true}><CollegeFootball /></ProtectedRoute>} />
-          <Route path="/nfl" element={<ProtectedRoute allowFreemium={true}><NFL /></ProtectedRoute>} />
-          <Route path="/nba" element={<ProtectedRoute allowFreemium={true}><NBA /></ProtectedRoute>} />
+          <Route path="/games" element={<ProtectedRoute allowFreemium={true}><GamesPage /></ProtectedRoute>} />
+          <Route path="/college-football" element={<LegacySportRedirect sport="cfb" />} />
+          <Route path="/nfl" element={<LegacySportRedirect sport="nfl" />} />
+          <Route path="/nba" element={<LegacySportRedirect sport="nba" />} />
           <Route path="/nba/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><NBATodayBettingTrends /></ProtectedRoute>} />
           <Route path="/nba/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NBATodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/nba/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NBATodayEdgeAccuracy /></ProtectedRoute>} />
-          <Route path="/ncaab" element={<ProtectedRoute allowFreemium={true}><NCAAB /></ProtectedRoute>} />
-          <Route path="/mlb" element={<ProtectedRoute allowFreemium={true}><MLB /></ProtectedRoute>} />
+          <Route path="/ncaab" element={<LegacySportRedirect sport="ncaab" />} />
+          <Route path="/mlb" element={<LegacySportRedirect sport="mlb" />} />
           <Route path="/mlb/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><MLBTodayBettingTrends /></ProtectedRoute>} />
           <Route path="/mlb/daily-regression-report" element={<ProtectedRoute><MLBDailyRegressionReport /></ProtectedRoute>} />
           <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true}><F5Splits /></ProtectedRoute>} />
@@ -244,8 +269,8 @@ function AppRoutes() {
           <Route path="/learn" element={<ProtectedRoute><LearnWagerProof /></ProtectedRoute>} />
           <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
           <Route path="/agents/create" element={<ProtectedRoute><AgentCreate /></ProtectedRoute>} />
-          <Route path="/agents/public/:id" element={<ProtectedRoute><PublicAgentDetail /></ProtectedRoute>} />
-          <Route path="/agents/:id" element={<ProtectedRoute><AgentDetail /></ProtectedRoute>} />
+          <Route path="/agents/public/:id" element={<LegacyAgentRedirect />} />
+          <Route path="/agents/:id" element={<LegacyAgentRedirect />} />
           <Route path="/agents/:id/settings" element={<ProtectedRoute><AgentSettings /></ProtectedRoute>} />
           {/* <Route path="/editors-picks" element={<ProtectedRoute><EditorsPicks /></ProtectedRoute>} /> */}
           <Route

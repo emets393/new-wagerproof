@@ -95,7 +95,7 @@ export default function AgentCreate() {
         auto_generate_time: form.auto_generate_time,
         auto_generate_timezone: form.auto_generate_timezone,
       });
-      navigate(`/agents/${created.id}`);
+      navigate(`/agents?selected=${created.id}`);
     } catch (err: any) {
       setSubmitError(err?.message || 'Failed to create agent.');
     }

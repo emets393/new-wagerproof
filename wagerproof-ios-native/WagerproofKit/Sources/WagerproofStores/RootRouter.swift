@@ -28,6 +28,15 @@ public final class RootRouter {
     /// bypass, so this can never leak the wizard to real users.
     public private(set) var forceOnboardingForTesting = false
 
+    /// Also set by "Reset Onboarding" — unlike `forceOnboardingForTesting`
+    /// (which only re-enters the wizard and clears itself the instant
+    /// onboarding completes), this survives into `.ready` so `RootView` can
+    /// force `PostOnboardingPaywall` to show even for a Pro/admin tester.
+    /// In-memory only; `RootView` calls `clearTestPaywallOverride()` the
+    /// moment the paywall is dismissed or purchased, so it never outlives
+    /// that single test run.
+    public private(set) var testPaywallOverride = false
+
     public private(set) var phase: Phase = .launching
 
     /// The deep-link path captured before auth resolved. After auth completes,
@@ -44,6 +53,7 @@ public final class RootRouter {
             // Sign-out ends a forced test run — the next account shouldn't
             // inherit the wizard override.
             forceOnboardingForTesting = false
+            testPaywallOverride = false
             phase = .unauthenticated
         case .authenticated:
             // Completing the wizard ends a forced test run so subsequent
@@ -63,7 +73,14 @@ public final class RootRouter {
     /// step 1 with a clean draft.
     public func forceOnboardingForTestingNow() {
         forceOnboardingForTesting = true
+        testPaywallOverride = true
         phase = .onboarding
+    }
+
+    /// Called by `RootView` once the test paywall presentation ends
+    /// (dismissed or purchased) so the override never outlives that run.
+    public func clearTestPaywallOverride() {
+        testPaywallOverride = false
     }
 
     public func handle(deepLink url: URL) {

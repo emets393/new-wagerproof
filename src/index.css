@@ -10,6 +10,7 @@
     overflow-x: hidden;
     max-width: 100vw;
   }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 10%;
@@ -41,7 +42,7 @@
     --radius: 0.75rem;
 
     /* Claude.ai inspired sidebar colors */
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 0 0% 92%;
     --sidebar-foreground: 0 0% 15%;
     --sidebar-primary: 142 76% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -85,7 +86,7 @@
     --ring: 142 76% 36%;
 
     /* Claude.ai inspired dark mode sidebar */
-    --sidebar-background: 0 0% 12%;
+    --sidebar-background: 0 0% 9%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 142 76% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -97,8 +98,16 @@
 }
 
 @layer base {
+  /* Scrollbars are hidden everywhere in the app; scrolling itself still works
+     via wheel/trackpad/touch/keyboard, only the visual track/thumb is removed. */
   * {
     @apply border-border;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  *::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
   }
 
   body {
@@ -265,29 +274,6 @@
     height: 100% !important;
   }
 
-  /* Custom scrollbar for onboarding modal */
-  .onboarding-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-  }
-
-  .onboarding-scroll::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .onboarding-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .onboarding-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-  }
-
-  .onboarding-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
-  }
-
   /* Transparent scrollbar - hides scrollbar completely */
   .scrollbar-transparent {
     scrollbar-width: none; /* Firefox */
@@ -313,5 +299,43 @@
     opacity: 0.05;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
     mix-blend-mode: overlay;
+  }
+
+  /* iOS-style skeleton shimmer (see src/components/ios/ShimmerSkeleton.tsx) */
+  .ios-skeleton {
+    background: linear-gradient(
+      105deg,
+      #e6ecf3 40%,
+      #f6f9fc 50%,
+      #e6ecf3 60%
+    );
+    background-size: 250% 100%;
+    animation: ios-shimmer 1.4s linear infinite;
+  }
+
+  .dark .ios-skeleton {
+    background: linear-gradient(
+      105deg,
+      #2b2b2b 40%,
+      #3d3d3d 50%,
+      #2b2b2b 60%
+    );
+    background-size: 250% 100%;
+    animation: ios-shimmer 1.4s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ios-skeleton {
+      animation: none;
+    }
+  }
+
+  @keyframes ios-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
   }
 }

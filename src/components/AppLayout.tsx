@@ -91,11 +91,24 @@ export function AppLayout() {
     return true;
   });
 
-  const isActivePath = (path: string) => {
+  const isActivePath = (to: string) => {
+    const [path, query] = to.split('?');
+    // Sport-filtered links (e.g. /games?sport=nfl) are only "active" when the
+    // current URL's sport param matches — plain pathname matching would treat
+    // every /games view as every sport's link being active.
+    if (query) {
+      if (location.pathname !== path) return false;
+      const toParams = new URLSearchParams(query);
+      const currentParams = new URLSearchParams(location.search);
+      for (const [key, value] of toParams.entries()) {
+        if (currentParams.get(key) !== value) return false;
+      }
+      return true;
+    }
     // Handle both /nfl/teaser-sharpness and /nfl-analytics patterns
     if (path === '/nfl') {
-      return location.pathname === path || 
-             location.pathname.startsWith(path + '/') || 
+      return location.pathname === path ||
+             location.pathname.startsWith(path + '/') ||
              location.pathname === '/nfl-analytics';
     }
     return location.pathname === path || location.pathname.startsWith(path + '/');
@@ -123,7 +136,7 @@ export function AppLayout() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar overflow-hidden">
+    <Sidebar collapsible="icon" variant="inset" className="bg-sidebar overflow-hidden">
       {/* Header Section */}
       <SidebarHeader className="border-b border-sidebar-border bg-sidebar px-4 py-4">
         <div className="flex items-center justify-between gap-2">
@@ -232,12 +245,13 @@ export function AppLayout() {
             // Items with sub-navigation
             if (subItems && subItems.length > 0) {
               return (
-                <Collapsible key={to} defaultOpen={to ? isActivePath(to) : false} className="group/collapsible">
+                <Collapsible key={to ?? title} defaultOpen={to ? isActivePath(to) : true} className="group/collapsible">
                   <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
+                    {/* Label navigates to the item's own page; the chevron is a separate
+                        trigger so expanding the tools list doesn't require leaving that page. */}
+                    <div className="flex items-center">
                       <SidebarMenuButton
-                        onClick={(e) => {
-                          e.preventDefault();
+                        onClick={() => {
                           if (!user) {
                             setSignInPromptOpen(true);
                           } else if (to) {
@@ -245,9 +259,9 @@ export function AppLayout() {
                           }
                         }}
                         isActive={to ? isActivePath(to) : false}
-                        className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 cursor-pointer ${
-                          to && isActivePath(to) 
-                            ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
+                        className={`flex-1 text-sm font-medium transition-all duration-200 rounded-md cursor-pointer ${
+                          to && isActivePath(to)
+                            ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10'
                             : subItems?.some(subItem => isActivePath(subItem.to))
                               ? 'bg-gradient-to-r from-honeydew-100 to-honeydew-50 dark:from-honeydew-900/20 dark:to-honeydew-800/10 text-honeydew-700 dark:text-honeydew-400 border-r-2 border-honeydew-500 shadow-md shadow-honeydew-400/15 dark:shadow-honeydew-400/8'
                               : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
@@ -266,13 +280,21 @@ export function AppLayout() {
                           </div>
                         )}
                         {((to && isActivePath(to)) || subItems?.some(subItem => isActivePath(subItem.to))) && (
-                          <div className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50 mr-2"></div>
+                          <div className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50"></div>
                         )}
-                        <ChevronRight className={`ml-auto h-4 w-4 transition-all duration-200 group-data-[state=open]/collapsible:rotate-90 ${
-                          to && isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
-                        }`} />
                       </SidebarMenuButton>
-                    </CollapsibleTrigger>
+                      <CollapsibleTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Toggle ${title} tools`}
+                          className={`mr-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md transition-colors duration-200 hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 group-data-[collapsible=icon]:hidden ${
+                            to && isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
+                          }`}
+                        >
+                          <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        </button>
+                      </CollapsibleTrigger>
+                    </div>
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         {subItems.map((subItem) => (

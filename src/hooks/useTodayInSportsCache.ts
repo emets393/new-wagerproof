@@ -24,6 +24,12 @@ interface TodayInSportsUIState {
 const CACHE_KEY = 'wagerproof_today_in_sports_ui_state';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// The page body no longer scrolls (AuthenticatedLayout pins the app shell to the
+// viewport so the recessed card frame stays put) — scrolling happens inside this
+// element instead of `window`. Id must match the <main> in App.tsx.
+const SCROLL_CONTAINER_ID = 'app-scroll-container';
+const getScrollContainer = () => document.getElementById(SCROLL_CONTAINER_ID);
+
 /**
  * Lightweight UI state cache for Today in Sports page
  * Note: Data is already cached by React Query, so we only cache UI state
@@ -89,7 +95,7 @@ export function useTodayInSportsCache() {
    * Save scroll position (optimized)
    */
   const saveScrollPosition = useCallback(() => {
-    const currentScroll = window.scrollY || 0;
+    const currentScroll = getScrollContainer()?.scrollTop || 0;
     const now = Date.now();
     
     // Only update if scroll changed significantly (> 10px) or 2+ seconds passed
@@ -120,7 +126,7 @@ export function useTodayInSportsCache() {
     
     // Use requestAnimationFrame to ensure DOM is ready
     requestAnimationFrame(() => {
-      window.scrollTo(0, position);
+      getScrollContainer()?.scrollTo(0, position);
       scrollPositionRef.current = position;
     });
   }, []);
@@ -130,7 +136,7 @@ export function useTodayInSportsCache() {
    */
   useEffect(() => {
     const handleBeforeUnload = () => {
-      const currentScroll = window.scrollY || 0;
+      const currentScroll = getScrollContainer()?.scrollTop || 0;
       scrollPositionRef.current = currentScroll;
       try {
         const cached = sessionStorage.getItem(CACHE_KEY);
@@ -151,12 +157,13 @@ export function useTodayInSportsCache() {
       scrollTimeout = setTimeout(saveScrollPosition, 2000);
     };
 
+    const scrollContainer = getScrollContainer();
     window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    scrollContainer?.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('scroll', handleScroll);
+      scrollContainer?.removeEventListener('scroll', handleScroll);
       clearTimeout(scrollTimeout);
     };
   }, [saveScrollPosition]);

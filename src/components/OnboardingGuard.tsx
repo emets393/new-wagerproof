@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,10 +16,24 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     completed: boolean | null;
     loading: boolean;
   }>({ completed: null, loading: true });
+  // User id that `completed: true` was confirmed for — lets the effect below
+  // skip re-querying on every nav without leaking one user's confirmed status
+  // onto the next user after a sign-out/sign-in in the same session.
+  const confirmedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Once confirmed complete for the current user, it can't become incomplete
+    // again — skip re-querying on every nav. Re-checking on location change is
+    // only for catching "just finished onboarding and navigated away" before
+    // that's confirmed; re-running it after confirmation just re-flashed the
+    // full-screen loader on every sidebar click.
+    if (onboardingStatus.completed === true && confirmedUserIdRef.current === user?.id) {
+      return;
+    }
+
     const checkOnboardingStatus = async () => {
       if (!user) {
+        confirmedUserIdRef.current = null;
         setOnboardingStatus({ completed: null, loading: false });
         return;
       }
@@ -42,11 +56,10 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
           return;
         }
 
-        debug.log('Onboarding status from database:', profile?.onboarding_completed);
-        setOnboardingStatus({ 
-          completed: profile?.onboarding_completed ?? false, 
-          loading: false 
-        });
+        const completed = profile?.onboarding_completed ?? false;
+        debug.log('Onboarding status from database:', completed);
+        confirmedUserIdRef.current = completed ? user.id : null;
+        setOnboardingStatus({ completed, loading: false });
       } catch (error) {
         debug.error("Unexpected error checking onboarding status:", error);
         setOnboardingStatus({ completed: false, loading: false });
@@ -54,7 +67,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     };
 
     checkOnboardingStatus();
-  }, [user, location.pathname]); // Also check when location changes
+  }, [user, location.pathname, onboardingStatus.completed]); // Also re-check on nav, until completion is confirmed
 
   // Show loading while checking auth or onboarding status
   if (authLoading || onboardingStatus.loading) {

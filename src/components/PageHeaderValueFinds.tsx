@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import debug from '@/utils/debug';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
 import { useNavigate } from 'react-router-dom';
-import NFLGameCard from '@/components/NFLGameCard';
+import { GlassCard } from '@/components/ios';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface CompactPick {
@@ -114,16 +114,14 @@ export function PageHeaderValueFinds({
   // Loading skeleton component
   if (isLoading) {
     return (
-      <NFLGameCard
-        isHovered={false}
-        onMouseEnter={() => {}}
-        onMouseLeave={() => {}}
-        awayTeamColors={defaultAwayColors}
-        homeTeamColors={defaultHomeColors}
-        homeSpread={null}
-        awaySpread={null}
-        alwaysShowAurora={true}
-      >
+      <GlassCard className="relative overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `radial-gradient(110% 80% at 10% 0%, ${defaultAwayColors.primary}1f 0%, transparent 60%), radial-gradient(110% 80% at 90% 100%, ${defaultHomeColors.primary}1c 0%, transparent 62%)`,
+          }}
+        />
         <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6 flex flex-col">
           {/* Header Skeleton */}
           <div className="flex items-center justify-between mb-2">
@@ -174,7 +172,7 @@ export function PageHeaderValueFinds({
             <Skeleton className="h-2.5 w-48 mx-auto" />
           </div>
         </CardContent>
-      </NFLGameCard>
+      </GlassCard>
     );
   }
 
@@ -242,16 +240,18 @@ export function PageHeaderValueFinds({
 
   return (
     <>
-      <NFLGameCard
-        isHovered={isHovered}
+      <GlassCard
+        className="relative overflow-hidden"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        awayTeamColors={defaultAwayColors}
-        homeTeamColors={defaultHomeColors}
-        homeSpread={null}
-        awaySpread={null}
-        alwaysShowAurora={true}
       >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: `radial-gradient(110% 80% at 10% 0%, ${defaultAwayColors.primary}1f 0%, transparent 60%), radial-gradient(110% 80% at 90% 100%, ${defaultHomeColors.primary}1c 0%, transparent 62%)`,
+          }}
+        />
         <CardContent className="space-y-4 sm:space-y-6 pt-4 pb-4 sm:pt-6 sm:pb-6 px-4 sm:px-6 flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between mb-2">
@@ -400,7 +400,7 @@ export function PageHeaderValueFinds({
             AI Analysing Model Data • Always do your own research before betting
           </div>
         </CardContent>
-      </NFLGameCard>
+      </GlassCard>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

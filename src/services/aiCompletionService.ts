@@ -520,69 +520,6 @@ export async function getUnpublishedValueFinds(
 }
 
 /**
- * Get high value badges for a sport (only published)
- */
-export async function getHighValueBadges(
-  sportType: SportType
-): Promise<Array<{ game_id: string; recommended_pick: string; confidence: number; tooltip_text: string }>> {
-  try {
-    const { data, error} = await supabase
-      .from('ai_value_finds')
-      .select('high_value_badges')
-      .eq('sport_type', sportType)
-      .eq('published', true)
-      .order('generated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    return data?.high_value_badges || [];
-  } catch (error) {
-    debug.error('Error fetching high value badges:', error);
-    return [];
-  }
-}
-
-/**
- * Get page header data for a sport (only published by default, unless admin mode is specified)
- */
-export async function getPageHeaderData(
-  sportType: SportType,
-  includeUnpublished: boolean = false
-): Promise<{ id: string; published: boolean; data: { summary_text: string; compact_picks: any[] } } | null> {
-  try {
-    let query = supabase
-      .from('ai_value_finds')
-      .select('id, published, page_header_data')
-      .eq('sport_type', sportType);
-    
-    // Only filter by published status if not including unpublished
-    if (!includeUnpublished) {
-      query = query.eq('published', true);
-    }
-    
-    const { data, error } = await query
-      .order('generated_at', { ascending: false})
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (!data?.page_header_data) return null;
-
-    return {
-      id: data.id,
-      published: data.published,
-      data: data.page_header_data,
-    };
-  } catch (error) {
-    debug.error('Error fetching page header data:', error);
-    return null;
-  }
-}
-
-/**
  * Get editor cards for a sport (only published)
  */
 export async function getEditorCards(

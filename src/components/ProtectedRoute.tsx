@@ -17,7 +17,7 @@ export function ProtectedRoute({ children, allowFreemium = false }: ProtectedRou
   // Priority 1: Check authentication first
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex items-center justify-center py-24">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -32,7 +32,7 @@ export function ProtectedRoute({ children, allowFreemium = false }: ProtectedRou
   // Priority 3: Check access for authenticated users
   if (accessLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex items-center justify-center py-24">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );

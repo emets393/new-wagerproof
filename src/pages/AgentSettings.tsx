@@ -126,7 +126,7 @@ export default function AgentSettings() {
           auto_generate_timezone: form.auto_generate_timezone,
         },
       });
-      navigate(`/agents/${id}`);
+      navigate(`/agents?selected=${id}`);
     } catch (err: any) {
       setError(err instanceof Error ? err.message : err?.message || 'Failed to save settings.');
     }
@@ -149,7 +149,7 @@ export default function AgentSettings() {
     <div className="space-y-5 max-w-5xl">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={() => navigate(`/agents/${id}`)}>
+          <Button variant="outline" size="icon" onClick={() => navigate(`/agents?selected=${id}`)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>

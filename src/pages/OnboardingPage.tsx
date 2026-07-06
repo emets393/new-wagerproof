@@ -24,8 +24,6 @@ import Dither from "@/components/Dither";
 import { useRef, useState, useEffect } from "react";
 import type { PaywallHandle } from "@/components/Paywall";
 import debug from "@/utils/debug";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
 const stepComponents = {
@@ -55,7 +53,6 @@ function OnboardingContent() {
   const paywallRef = useRef<PaywallHandle>(null);
   const [, forceUpdate] = useState({});
   const [onboardingMarkedComplete, setOnboardingMarkedComplete] = useState(false);
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   // Steps that have scrollable content and need floating buttons
@@ -64,49 +61,13 @@ function OnboardingContent() {
   const isPaywallStep = currentStep === 17;
 
   // Handle "Not Right Now" for freemium mode
-  const handleNotRightNow = async () => {
+  const handleNotRightNow = () => {
     debug.log('🚪 "Not Right Now" clicked - enabling freemium mode');
-    
+
     // Set localStorage flag to indicate user bypassed paywall
     localStorage.setItem('wagerproof_paywall_bypassed', 'true');
-    
-    // Fetch user's onboarding data to determine which sport page to redirect to
-    try {
-      if (!user) {
-        debug.warn('No user found, redirecting to NFL by default');
-        navigate('/nfl');
-        return;
-      }
 
-      const { data: profile, error } = await (supabase as any)
-        .from('profiles')
-        .select('onboarding_data')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) {
-        debug.error('Error fetching profile:', error);
-        navigate('/nfl'); // Default to NFL on error
-        return;
-      }
-
-      const onboardingData = profile?.onboarding_data as { favoriteSports?: string[] } | null;
-      const favoriteSports = onboardingData?.favoriteSports || [];
-      
-      debug.log('User favorite sports:', favoriteSports);
-
-      // Redirect to College Football if it's in favorites, otherwise NFL
-      if (favoriteSports.includes('College Football')) {
-        debug.log('Redirecting to College Football page');
-        navigate('/college-football');
-      } else {
-        debug.log('Redirecting to NFL page');
-        navigate('/nfl');
-      }
-    } catch (err) {
-      debug.error('Unexpected error fetching user data:', err);
-      navigate('/nfl'); // Default to NFL on error
-    }
+    navigate('/agents');
   };
 
   // Mark onboarding as complete when user reaches the paywall step
