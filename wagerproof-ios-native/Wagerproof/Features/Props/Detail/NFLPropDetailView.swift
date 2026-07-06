@@ -2,6 +2,7 @@ import SwiftUI
 import Charts
 import WagerproofModels
 import WagerproofDesign
+import WagerproofServices
 
 /// Full-page NFL player-prop detail, styled like the MLB prop detail
 /// (`PlayerPropDetailView`): a `CollapsingWidgetScroll` hero over a
@@ -16,6 +17,8 @@ struct NFLPropDetailView: View {
 
     @State private var selectedSignal: NFLPropSignalDefinition?
     @State private var metricHelp: NFLPropMetricHelp?
+    /// Prop flags are short codes (P14); `signal_performance` keys are full (P14_attempts_model_under).
+    @State private var propPerfByCode: [String: SignalPerformance] = [:]
 
     private var player: NFLPropPlayer { selection.player }
     private var markets: [NFLPropMarket] { player.markets }
@@ -72,8 +75,14 @@ struct NFLPropDetailView: View {
         // Name lives permanently in the hero — keep the nav title empty.
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: selection.id) {
+            await loadPropSignalPerformance()
+        }
         .sheet(item: $selectedSignal) { signal in
-            NFLPropSignalDetailSheet(signal: signal)
+            NFLPropSignalDetailSheet(
+                signal: signal,
+                seasonRecord: propPerfByCode[signal.id.uppercased()]
+            )
         }
         .sheet(item: $metricHelp) { help in
             NFLPropMetricHelpSheet(help: help)
@@ -169,6 +178,15 @@ struct NFLPropDetailView: View {
         } else {
             proxy.scrollTo(market, anchor: anchor)
         }
+    }
+
+    private func loadPropSignalPerformance() async {
+        let season = player.season ?? 2025
+        let perf = await SignalPerformanceService.shared.performances(for: .nfl, season: season)
+        propPerfByCode = Dictionary(
+            perf.map { (String($0.key.split(separator: "_").first ?? ""), $0.value) },
+            uniquingKeysWith: { a, _ in a }
+        )
     }
 
     private var subtitle: String {
