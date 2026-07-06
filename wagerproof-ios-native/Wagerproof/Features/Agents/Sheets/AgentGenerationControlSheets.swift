@@ -23,6 +23,8 @@ struct RegenerateControlButton: View {
     var remaining: Int
     var accent: Color
     var enabled: Bool
+    /// Override for the weekly-parlay footer ("Weekly Parlay"); default = daily.
+    var title: String = "Regenerate"
     var action: () -> Void
 
     var body: some View {
@@ -30,7 +32,7 @@ struct RegenerateControlButton: View {
             HStack(spacing: 6) {
                 Image(systemName: enabled ? "arrow.clockwise" : "lock.fill")
                     .font(.system(size: 12, weight: .bold))
-                Text("Regenerate")
+                Text(title)
                     .font(.system(size: 12, weight: .heavy))
                 Text("\(remaining) left")
                     .font(.system(size: 11, weight: .heavy, design: .rounded))
@@ -82,12 +84,30 @@ struct AutoPilotControlButton: View {
 
 /// Explains the daily regeneration quota + logic, then hosts the swipe pill that
 /// actually requests a fresh run. Presented from the picks footer.
+/// One "how it works" bullet in the regenerate sheet's logic card.
+struct RegenSheetBullet: Identifiable {
+    let id = UUID()
+    let icon: String
+    let text: String
+}
+
 struct RegenerateBottomSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let remaining: Int
     let maxDaily: Int
     var accent: Color
+    // Copy overrides — the Week Long Parlays section reuses this surface with
+    // its own wording; the defaults reproduce the daily sheet byte-for-byte.
+    var navTitle: String = "Regenerate"
+    var headerIcon: String = "arrow.clockwise"
+    var headerTitle: String = "Regenerate today's picks"
+    var headerSubtitle: String = "Re-run the agent against the current slate."
+    var quotaLabel: String = "RUNS LEFT TODAY"
+    var swipeTitle: String = "Swipe to request picks"
+    var lockedTitle: String = "Daily limit reached"
+    /// nil = the daily "how it works" bullets.
+    var bullets: [RegenSheetBullet]? = nil
     /// false → the swipe pill is a static locked capsule (limit reached / no Pro).
     let canRegenerate: Bool
     /// Fired at the top of the swipe commit; the host dismisses + kicks the run.
@@ -105,7 +125,7 @@ struct RegenerateBottomSheet: View {
             }
             .safeAreaInset(edge: .bottom) {
                 SwipeToGeneratePill(
-                    title: canRegenerate ? "Swipe to request picks" : "Daily limit reached",
+                    title: canRegenerate ? swipeTitle : lockedTitle,
                     accent: accent,
                     isEnabled: canRegenerate,
                     onCommit: onRequest
@@ -116,7 +136,7 @@ struct RegenerateBottomSheet: View {
                 .background(.ultraThinMaterial)
             }
             .background(Color(hex: 0x0B1011).ignoresSafeArea())
-            .navigationTitle("Regenerate")
+            .navigationTitle(navTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -133,15 +153,15 @@ struct RegenerateBottomSheet: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle().fill(accent.opacity(0.18)).frame(width: 44, height: 44)
-                Image(systemName: "arrow.clockwise")
+                Image(systemName: headerIcon)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(accent)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text("Regenerate today's picks")
+                Text(headerTitle)
                     .font(.system(size: 17, weight: .heavy))
                     .foregroundStyle(Color.appTextPrimary)
-                Text("Re-run the agent against the current slate.")
+                Text(headerSubtitle)
                     .font(.system(size: 12))
                     .foregroundStyle(Color.appTextSecondary)
             }
@@ -153,7 +173,7 @@ struct RegenerateBottomSheet: View {
     private var quotaCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("RUNS LEFT TODAY")
+                Text(quotaLabel)
                     .font(.system(size: 11, weight: .heavy))
                     .tracking(1)
                     .foregroundStyle(Color.appTextSecondary)
@@ -182,20 +202,28 @@ struct RegenerateBottomSheet: View {
         )
     }
 
+    private var defaultBullets: [RegenSheetBullet] {
+        [
+            RegenSheetBullet(icon: "gauge.with.dots.needle.67percent",
+                             text: "Each agent gets \(maxDaily) generations per day."),
+            RegenSheetBullet(icon: "sparkles",
+                             text: "A run re-analyzes today's games from scratch and adds fresh tickets to the rail — earlier tickets stay until you delete them."),
+            RegenSheetBullet(icon: "bolt.badge.automatic",
+                             text: "Autopilot runs count toward the same \(maxDaily)-per-day limit."),
+            RegenSheetBullet(icon: "clock.arrow.circlepath",
+                             text: "The quota resets at midnight in your local time."),
+        ]
+    }
+
     private var logicCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("HOW IT WORKS")
                 .font(.system(size: 11, weight: .heavy))
                 .tracking(1)
                 .foregroundStyle(Color.appTextSecondary)
-            bullet("gauge.with.dots.needle.67percent",
-                   "Each agent gets \(maxDaily) generations per day.")
-            bullet("sparkles",
-                   "A run re-analyzes today's games from scratch and reprints the ticket rail.")
-            bullet("bolt.badge.automatic",
-                   "Autopilot runs count toward the same \(maxDaily)-per-day limit.")
-            bullet("clock.arrow.circlepath",
-                   "The quota resets at midnight in your local time.")
+            ForEach(bullets ?? defaultBullets) { b in
+                bullet(b.icon, b.text)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)

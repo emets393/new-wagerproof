@@ -153,11 +153,13 @@ export function buildSubmitPicksSchema(band: UnitBand): Record<string, unknown> 
 }
 
 /** Build the submit_parlay tool JSON Schema. Each parlay carries legs[] (2..maxLegs,
- *  hard-capped at 4) plus ONE ticket-level stake — a parlay has a single units bet for
- *  the whole ticket, not per-leg. Leg fields mirror submit_picks. Only offered to the
- *  model when the agent's maxParlayLegs > 0. See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md. */
-export function buildSubmitParlaySchema(band: UnitBand, maxLegs: number): Record<string, unknown> {
-  const cap = Math.min(4, Math.max(2, maxLegs));
+ *  hard-capped at 4 — 6 on week-long runs) plus ONE ticket-level stake — a parlay has a
+ *  single units bet for the whole ticket, not per-leg. Leg fields mirror submit_picks.
+ *  Only offered to the model when the agent's maxParlayLegs > 0. Week runs (opts.weekly)
+ *  allow exactly ONE ticket. See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md. */
+export function buildSubmitParlaySchema(band: UnitBand, maxLegs: number, opts?: { weekly?: boolean }): Record<string, unknown> {
+  const weekly = opts?.weekly === true;
+  const cap = Math.min(weekly ? 6 : 4, Math.max(2, maxLegs));
   return {
     type: "object",
     properties: {
@@ -167,8 +169,10 @@ export function buildSubmitParlaySchema(band: UnitBand, maxLegs: number): Record
       },
       parlays: {
         type: "array",
-        description:
-          "Multi-leg parlay tickets. Submit an empty array if you have no parlay worth staking.",
+        ...(weekly ? { maxItems: 1 } : {}),
+        description: weekly
+          ? "Your ONE week-long parlay ticket (exactly one). Legs span the remaining games of the football week."
+          : "Multi-leg parlay tickets. Submit an empty array if you have no parlay worth staking.",
         items: {
           type: "object",
           properties: {

@@ -111,6 +111,9 @@ Deno.serve(async (req) => {
       systemPromptVersion: PROMPT_VERSION,
       targetDate, generationType: (run.generation_type as string) ?? "manual",
       dryRun: run.dry_run === true,
+      // Weekly runs execute only on the Trigger.dev path (engine_version
+      // 'v3_trigger'); this legacy worker claims 'v3' rows, always day-window.
+      window: "day", weekKey: null, weeklyTicketsSubmitted: 0,
       main, cfb,
       games: new Map(), slateGameIds: new Set(), deepFetched: new Map(), fetchedFacts: new Map(), bettableProps: new Map(),
       acceptedPicks: [], dropReports: [], toolTrace: [], reasoningTrace: "", lastSubmitReport: null,
@@ -124,7 +127,8 @@ Deno.serve(async (req) => {
     if (slate.weak && steering.constraints.skipWeakSlates) { await markSucceeded(0, "weak_slate", gov); await telemetry(main, ctx, "v3", "weak_slate"); return ok(runId, "succeeded"); }
 
     // Seed slate's preferred bet type as grounded (S2a).
-    for (const id of ctx.slateGameIds) ctx.deepFetched.set(id, new Set([steering.preferredBetType === "any" ? "spread" : steering.preferredBetType]));
+    const seedBetType = steering.preferredBetType === "any" || steering.preferredBetType === "prop" ? "spread" : steering.preferredBetType;
+    for (const id of ctx.slateGameIds) ctx.deepFetched.set(id, new Set([seedBetType]));
 
     const model = runModel;
     const provider = resolveProvider(model);

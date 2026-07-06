@@ -46,9 +46,14 @@ struct AgentPerformanceCharts: View {
     }
 
     private struct ChartPoint: Identifiable {
-        let id = UUID()
+        // The x-index doubles as the identity — it's unique within a series and
+        // stable across renders, so `Chart` diffs cheaply. (The old `UUID()`
+        // per point allocated hundreds of UUIDs on every body pass — a real
+        // main-thread cost for agents with long histories, and part of the
+        // hitch when the chart first mounts.)
         let index: Int
         let cumulative: Double
+        var id: Int { index }
     }
 
     private struct SportStats {
@@ -59,30 +64,41 @@ struct AgentPerformanceCharts: View {
         let pushes: Int
         let netUnits: Double
         let points: [ChartPoint]
+        /// Original x-index of the FINAL point (survives downsampling). The x-axis
+        /// "Now" label keys on this, not `points.count`, so it stays correct after
+        /// the render series is thinned.
+        var lastIndex: Int { points.last?.index ?? 0 }
     }
 
-    private var settledItems: [AgentBetItem] {
-        items.filter { $0.result == .won || $0.result == .lost || $0.result == .push }
+    /// Everything the body needs, computed in ONE pass. Building this once (a
+    /// local `let` in `body`) — instead of leaning on computed properties that
+    /// re-ran the filter/sort/cumulative loop on every access — is the main fix
+    /// for the "page freezes until the chart loads" hitch: the settled-items sort
+    /// and per-sport curves used to be recomputed ~10× per render.
+    private struct ChartModel {
+        let overall: SportStats
+        let bySport: [SportStats]
+    }
+
+    private func buildModel() -> ChartModel {
+        let settled = items
+            .filter { $0.result == .won || $0.result == .lost || $0.result == .push }
             .sorted { $0.createdAt < $1.createdAt }
-    }
-
-    private var overallStats: SportStats {
-        compute(label: "Overall", items: settledItems, sport: nil)
-    }
-
-    private var sportStats: [SportStats] {
+        let overall = compute(label: "Overall", items: settled, sport: nil)
         // Multi-sport parlays (sportForFilter == nil) count in Overall only —
         // they don't belong to any single sport's curve.
-        preferredSports.compactMap { sport in
-            let scoped = settledItems.filter { $0.sportForFilter == sport }
+        let bySport = preferredSports.compactMap { sport -> SportStats? in
+            let scoped = settled.filter { $0.sportForFilter == sport }
             guard scoped.count >= 2 else { return nil }
             return compute(label: sport.label, items: scoped, sport: sport)
         }
+        return ChartModel(overall: overall, bySport: bySport)
     }
 
     var body: some View {
+        let model = buildModel()
         VStack(alignment: .leading, spacing: 12) {
-            if overallStats.points.count < 3 {
+            if model.overall.points.count < 3 {
                 emptyState
             } else {
                 if showsTitle {
@@ -90,13 +106,13 @@ struct AgentPerformanceCharts: View {
                         .font(.system(size: 18, weight: .heavy))
                         .foregroundStyle(Color.appTextPrimary)
                 }
-                overallCard
-                if sportStats.count > 1 {
+                overallCard(model.overall)
+                if model.bySport.count > 1 {
                     Text("By Sport")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(Color.appTextPrimary)
                         .padding(.top, 4)
-                    ForEach(Array(sportStats.enumerated()), id: \.offset) { _, stats in
+                    ForEach(Array(model.bySport.enumerated()), id: \.offset) { _, stats in
                         sportCard(stats: stats)
                     }
                 }
@@ -138,25 +154,25 @@ struct AgentPerformanceCharts: View {
         .background { glassCardBackground }
     }
 
-    private var overallCard: some View {
+    private func overallCard(_ stats: SportStats) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Cumulative Units")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(Color.appTextPrimary)
                 Spacer()
-                Text(unitsLabel(overallStats.netUnits))
+                Text(unitsLabel(stats.netUnits))
                     .font(.system(size: 14, weight: .heavy, design: .monospaced))
-                    .foregroundStyle(overallStats.netUnits >= 0 ? Color.appWin : Color.appLoss)
+                    .foregroundStyle(stats.netUnits >= 0 ? Color.appWin : Color.appLoss)
             }
 
-            Chart(overallStats.points) { point in
+            Chart(stats.points) { point in
                 LineMark(
                     x: .value("Index", point.index),
                     y: .value("Units", point.cumulative)
                 )
                 .interpolationMethod(.monotone)
-                .foregroundStyle(overallStats.netUnits >= 0 ? Color.appWin : Color.appLoss)
+                .foregroundStyle(stats.netUnits >= 0 ? Color.appWin : Color.appLoss)
                 .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
 
                 AreaMark(
@@ -167,7 +183,7 @@ struct AgentPerformanceCharts: View {
                 .foregroundStyle(
                     LinearGradient(
                         colors: [
-                            (overallStats.netUnits >= 0 ? Color.appWin : Color.appLoss).opacity(0.2),
+                            (stats.netUnits >= 0 ? Color.appWin : Color.appLoss).opacity(0.2),
                             .clear
                         ],
                         startPoint: .top,
@@ -180,7 +196,7 @@ struct AgentPerformanceCharts: View {
                     AxisGridLine().foregroundStyle(Color.appBorder.opacity(0.3))
                     AxisValueLabel {
                         if let n = value.as(Int.self) {
-                            Text(n == 0 ? "Start" : (n == overallStats.points.count - 1 ? "Now" : ""))
+                            Text(n == 0 ? "Start" : (n == stats.lastIndex ? "Now" : ""))
                                 .font(.system(size: 10))
                         }
                     }
@@ -252,6 +268,13 @@ struct AgentPerformanceCharts: View {
 
     // MARK: - Stats compute
 
+    /// Upper bound on points fed to `Chart`. A cumulative-units curve is smooth,
+    /// so an agent with hundreds of graded picks reads identically at ~160 points
+    /// — but Swift Charts' first monotone-spline + gradient-area layout scales
+    /// with point count, so thinning long histories keeps the mount snappy (the
+    /// win/loss/push counts + net units are always computed from the FULL set).
+    private static let maxRenderedPoints = 160
+
     /// Cumulative-units series via Formula B (matches `recalculate_avatar_performance`).
     /// The per-item payout math lives on `AgentBetItem.netUnitsContribution` so
     /// straight picks (odds) and parlays (settled/combined odds) share one curve.
@@ -281,8 +304,32 @@ struct AgentPerformanceCharts: View {
             losses: losses,
             pushes: pushes,
             netUnits: cumulative,
-            points: points
+            points: Self.downsample(points, to: Self.maxRenderedPoints)
         )
+    }
+
+    /// Evenly thin a point series to at most `maxCount`, always keeping the first
+    /// (seed) and last (original x-index preserved, so the "Now" axis label still
+    /// lands). A no-op below the threshold.
+    private static func downsample(_ pts: [ChartPoint], to maxCount: Int) -> [ChartPoint] {
+        guard pts.count > maxCount, maxCount >= 2 else { return pts }
+        let stride = Double(pts.count - 1) / Double(maxCount - 1)
+        var out: [ChartPoint] = []
+        out.reserveCapacity(maxCount + 1)
+        var lastPicked = -1
+        for i in 0..<maxCount {
+            let idx = min(pts.count - 1, Int((Double(i) * stride).rounded()))
+            if idx != lastPicked {
+                out.append(pts[idx])
+                lastPicked = idx
+            }
+        }
+        // Guarantee the true final point is present (its original index backs the
+        // "Now" label + the endpoint value).
+        if let last = pts.last, out.last?.index != last.index {
+            out.append(last)
+        }
+        return out
     }
 
     private func unitsLabel(_ n: Double) -> String {

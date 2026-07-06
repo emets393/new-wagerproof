@@ -1413,9 +1413,19 @@ async function fetchNFLPropsByGameId(
   return result;
 }
 
+// Only markets that map to a realized-stat column in nfl_player_game_logs can be
+// graded (see grade-avatar-picks PROP_MARKET_STAT). Volume markets (pass/rush
+// attempts, completions) have no game-log column and would stay `pending` forever
+// if bet — so we don't surface them as bettable. Keep in lockstep with
+// PROP_MARKET_STAT. See plan D2.
+const GRADEABLE_PROP_MARKETS = new Set([
+  'player_pass_yds', 'player_pass_tds', 'player_rush_yds',
+  'player_reception_yds', 'player_receptions', 'player_anytime_td',
+]);
+
 // Project one nfl_dryrun_props row to the agent-facing prop shape. is_bettable
-// is the signal gate: a non-empty `flags` array means a validated P-flag fired,
-// so the prop is bettable; everything else is read-only form context.
+// is the signal gate: a non-empty `flags` array means a validated P-flag fired
+// AND the market is gradeable; everything else is read-only form context.
 function formatNFLProp(row: Record<string, unknown>): Record<string, unknown> {
   const flags = Array.isArray(row.flags) ? row.flags : [];
   return {
@@ -1432,7 +1442,7 @@ function formatNFLProp(row: Record<string, unknown>): Record<string, unknown> {
     over_rate_l10: row.over_rate_l10,
     def_matchup_idx: row.def_matchup_idx,
     flags,
-    is_bettable: Array.isArray(flags) && flags.length > 0,
+    is_bettable: Array.isArray(flags) && flags.length > 0 && GRADEABLE_PROP_MARKETS.has(String(row.market)),
   };
 }
 

@@ -224,17 +224,22 @@ struct AgentTodaysPicksRail: View {
     var accent: Color = .appPrimary
     var onTapPick: (AgentPick) -> Void
     var onTapParlay: (AgentParlay) -> Void
+    /// Owner-only swipe-to-trash. Nil (public views, BinAgentsSheet, previews)
+    /// = no delete gesture attached at all.
+    var onDeleteItem: ((AgentBetItem) -> Void)?
 
     init(
         items: [AgentBetItem],
         accent: Color = .appPrimary,
         onTapPick: @escaping (AgentPick) -> Void,
-        onTapParlay: @escaping (AgentParlay) -> Void = { _ in }
+        onTapParlay: @escaping (AgentParlay) -> Void = { _ in },
+        onDeleteItem: ((AgentBetItem) -> Void)? = nil
     ) {
         self.items = items
         self.accent = accent
         self.onTapPick = onTapPick
         self.onTapParlay = onTapParlay
+        self.onDeleteItem = onDeleteItem
     }
 
     /// Picks-only convenience — callers without parlays (BinAgentsSheet,
@@ -260,6 +265,11 @@ struct AgentTodaysPicksRail: View {
                             AgentParlayMiniTicket(parlay: parlay, accent: accent)
                                 .onTapGesture { onTapParlay(parlay) }
                         }
+                    }
+                    // Owner-only: long-press + swipe up reveals the trash under
+                    // the ticket (regens are additive — this is how users prune).
+                    .deletableTicket(enabled: onDeleteItem != nil) {
+                        onDeleteItem?(item)
                     }
                     .staggeredAppear(index: index)
                 }

@@ -23,12 +23,14 @@ const BET_TYPE_LABELS: Record<Exclude<BetType, 'any'>, string> = {
   spread: 'Spread',
   moneyline: 'ML',
   total: 'Total',
+  prop: 'Prop',
 };
 
 const BET_TYPE_COLORS: Record<Exclude<BetType, 'any'>, string> = {
   spread: '#3b82f6',
   moneyline: '#8b5cf6',
   total: '#06b6d4',
+  prop: '#f59e0b',
 };
 
 // Result colors aligned to the iOS bet-slip card (WIN/LOSS/PUSH).

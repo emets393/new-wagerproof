@@ -12,7 +12,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { resolvePremiumAccess } from "../shared/entitlements";
-import { getTodayInET } from "../shared/dateUtils";
+import { getTodayInET, getFootballWeekKeyET } from "../shared/dateUtils";
 import { deriveSteeringProfile } from "./deriveSteeringProfile";
 import { LoopGovernor, V3_LIMITS, type V3Limits } from "./loopGuards";
 import { runAgenticLoop } from "./agenticGenerationLoop";
@@ -49,6 +49,8 @@ export interface RunV3Payload {
   avatarId: string;
   targetDate?: string; // ET date; defaults to today
   generationType?: string; // 'manual' | 'auto'
+  /** 'week' = build ONE week-long NFL/CFB parlay from the remaining football week. */
+  window?: "day" | "week";
   dryRun?: boolean;
   modelName?: string;
   v3LimitOverrides?: unknown;
@@ -222,8 +224,29 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
       return { status: "succeeded", picks: 0, note: "not_entitled" };
     }
 
-    const steering = deriveSteeringProfile(avatar as Record<string, unknown>);
+    let steering = deriveSteeringProfile(avatar as Record<string, unknown>);
     const targetDate = payload.targetDate || getTodayInET();
+
+    // Week-long-parlay run: NFL/CFB only (their slates already span the whole
+    // football week). Force the run into parlays-only mode — the existing
+    // submit-gate + prompt machinery then guarantees the only output is a
+    // parlay ticket; no new terminal tool needed.
+    const window: "day" | "week" = payload.window === "week" ? "week" : "day";
+    let weekKey: string | null = null;
+    if (window === "week") {
+      const football = steering.preferredSports.filter((s) => s === "nfl" || s === "cfb");
+      if (football.length === 0) {
+        await markFailed("WEEKLY_NOT_AVAILABLE", "weekly parlays require NFL or CFB in preferred_sports", false);
+        return { status: "failed_terminal", picks: 0, code: "WEEKLY_NOT_AVAILABLE", note: "no NFL/CFB" };
+      }
+      weekKey = getFootballWeekKeyET();
+      steering = {
+        ...steering,
+        preferredSports: football,
+        parlaysOnly: true,
+        maxParlayLegs: steering.weeklyParlayLegs,
+      };
+    }
     // Per-run limit overrides (tuning experiments / staged rollout). resolveLimits
     // clamps everything so a bad row can't outrun the task's maxDuration.
     const gov = new LoopGovernor(resolveLimits(payload.v3LimitOverrides));
@@ -234,6 +257,7 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
       systemPromptVersion: PROMPT_VERSION,
       targetDate, generationType: payload.generationType ?? "manual",
       dryRun: payload.dryRun === true,
+      window, weekKey, weeklyTicketsSubmitted: 0,
       main, cfb,
       games: new Map(), slateGameIds: new Set(), deepFetched: new Map(), fetchedFacts: new Map(), bettableProps: new Map(),
       acceptedPicks: [], dropReports: [], toolTrace: [], reasoningTrace: "", lastSubmitReport: null,
@@ -252,14 +276,18 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
     }
 
     const slate = buildSlate(ctx);
-    if (slate.weak && steering.constraints.skipWeakSlates) {
+    // Week runs skip the weak-slate early-out: the user explicitly asked for a
+    // ticket, and even a 2-game remainder of the week is parlayable.
+    if (slate.weak && steering.constraints.skipWeakSlates && window !== "week") {
       await markSucceeded(0, "weak_slate", gov);
       await telemetry(main, ctx, "v3", "weak_slate");
       return { status: "succeeded", picks: 0, note: "weak_slate" };
     }
 
-    // Seed slate's preferred bet type as grounded (S2a).
-    for (const id of ctx.slateGameIds) ctx.deepFetched.set(id, new Set([steering.preferredBetType === "any" ? "spread" : steering.preferredBetType]));
+    // Seed slate's preferred bet type as grounded (S2a). 'prop' grounds via the
+    // bettableProps ledger (not deepFetched), so seed 'spread' for any/prop.
+    const seedBetType = steering.preferredBetType === "any" || steering.preferredBetType === "prop" ? "spread" : steering.preferredBetType;
+    for (const id of ctx.slateGameIds) ctx.deepFetched.set(id, new Set([seedBetType]));
 
     const model = runModel;
     const provider = resolveProvider(model);

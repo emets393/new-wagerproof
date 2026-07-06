@@ -176,6 +176,24 @@ struct PickHistorySheet: View {
     @State private var stackRevealed = false
     @State private var scrollNotch = 0
     @State private var auditStore = AgentPickAuditStore()
+    /// Gates the heavy ticket rolodex. The pile is an EAGER `VStack` (its wallet
+    /// physics need every ticket laid out at once, so it can't be lazy), and
+    /// building dozens of boarding-pass tickets synchronously is what made the
+    /// sheet feel like it hung on tap. We present a cheap loading state first,
+    /// then mount the pile a beat later. Seeded true for small histories, which
+    /// build instantly and need no spinner.
+    @State private var contentReady: Bool
+
+    /// Below this pick+parlay count the rolodex builds fast enough to skip the
+    /// deferred-mount spinner entirely.
+    private static let instantMountThreshold = 24
+
+    init(items: [AgentBetItem], agentName: String = "Agent", agentColor: Color = .appPrimary) {
+        self.items = items
+        self.agentName = agentName
+        self.agentColor = agentColor
+        _contentReady = State(initialValue: items.count <= Self.instantMountThreshold)
+    }
 
     private enum PickSort: String, CaseIterable {
         case newest = "Newest"
@@ -228,12 +246,27 @@ struct PickHistorySheet: View {
 
     var body: some View {
         Group {
-            if wide { landscapeLog } else { portraitLog }
+            if !contentReady {
+                loadingLog
+            } else if wide {
+                landscapeLog
+            } else {
+                portraitLog
+            }
         }
         .presentationDetents(wide ? [.large] : [.height(440), .large], selection: $detent)
         .presentationDragIndicator(.visible)
         .presentationBackground(Color(hex: 0x0B1011))
         .preferredColorScheme(.dark)
+        // Present the sheet FIRST over the cheap loading state, THEN build the
+        // ticket pile — the short sleep lets the present animation run so the
+        // heavy synchronous mount lands off the tap, behind the spinner, instead
+        // of stalling the tap with no feedback. Seeded-true small histories no-op.
+        .task {
+            guard !contentReady else { return }
+            try? await Task.sleep(for: .milliseconds(60))
+            contentReady = true
+        }
         .onChange(of: detent) { _, newValue in
             guard !wide else { return }
             if newValue == .large && selected == nil && !stackRevealed {
@@ -260,6 +293,53 @@ struct PickHistorySheet: View {
                 center: .top, startRadius: 0, endRadius: 420
             )
             .ignoresSafeArea()
+        }
+    }
+
+    // MARK: - Loading state (shown while the rolodex mounts)
+
+    /// The folder shell + a spinner where the pile will land. Cheap to build, so
+    /// the sheet can present instantly; the real rolodex swaps in from `.task`.
+    private var loadingLog: some View {
+        ZStack {
+            background
+            ZStack(alignment: .bottom) {
+                folderBack
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .controlSize(.large)
+                        .tint(agentColor)
+                    Text("Loading pick history…")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.appTextSecondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.bottom, Self.folderZone)
+                folderFront
+            }
+            .clipped()
+
+            // Only the close control during load — filters have nothing to act on
+            // yet, and this keeps the loading state cheap.
+            VStack {
+                HStack {
+                    Button {
+                        PickHaptics.tick()
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Color.appTextPrimary)
+                            .frame(width: 38, height: 38)
+                            .liquidGlassBackground(in: Circle())
+                    }
+                    .accessibilityLabel("Close")
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                Spacer()
+            }
         }
     }
 

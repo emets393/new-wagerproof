@@ -51,20 +51,24 @@ export function toggleSportSelection(selected: Sport[], sport: Sport): Sport[] {
   return [...selected, sport];
 }
 
-export const BET_TYPES = ['spread', 'moneyline', 'total', 'any'] as const;
+export const BET_TYPES = ['spread', 'moneyline', 'total', 'prop', 'any'] as const;
 export type BetType = (typeof BET_TYPES)[number];
 
 // ── V3 market allowlist + new dials. These back the OPTIONAL/additive fields on
 //    PersonalityParams below — V2 creations omit them, so live agent creation is
 //    unaffected. Source of truth for the create-agent form is the LOCKED CONTRACT
 //    in .claude/docs/agents/15_V3_PERSONALITY_QUESTIONS.md. ───────────────────────
-export const MARKET_KEYS = [
-  'fg_ml', 'fg_spread', 'fg_total', 'h1_ml', 'h1_spread', 'h1_total',
-  'f5_ml', 'f5_spread', 'f5_total', 'team_total', 'prop',
-] as const;
+// Flat, bet-type-level market allowlist — the values the V3 submit gate checks a
+// pick's bet_type against (see agents-v3 deriveSteeringProfile ALL_MARKETS).
+// Unset/empty ⇒ all markets allowed. 'prop' is NFL-only (stripped when the agent
+// has no NFL). Replaces the earlier per-sport/per-period model (never consumed).
+export const MARKET_KEYS = ['spread', 'moneyline', 'total', 'team_total', 'prop'] as const;
 export type MarketKey = (typeof MARKET_KEYS)[number];
-/** Per-sport market allowlist: which markets the agent may bet for each selected sport. */
-export type AllowedMarkets = Partial<Record<Sport, MarketKey[]>>;
+/** Which bet markets the agent may stake. Unset ⇒ all markets. */
+export type AllowedMarkets = MarketKey[];
+/** Player-props emphasis. 'off' disables props; 'emphasize' leans into them. */
+export const PROPS_EMPHASIS = ['off', 'allow', 'emphasize'] as const;
+export type PropsEmphasis = (typeof PROPS_EMPHASIS)[number];
 export const LINE_TIMINGS = ['early', 'balanced', 'late'] as const; // NFL/CFB only
 export type LineTiming = (typeof LINE_TIMINGS)[number];
 export const STAKING_STYLES = ['flat', 'scaled'] as const;
@@ -126,7 +130,8 @@ export interface PersonalityParams {
 
   // ── V3 personality (OPTIONAL — additive; consumed when V3 ships, ignored by V2.
   //    LOCKED CONTRACT: .claude/docs/agents/15_V3_PERSONALITY_QUESTIONS.md) ─────────
-  allowed_markets?: AllowedMarkets;   // per-sport market allowlist (supersedes preferred_bet_type in V3)
+  allowed_markets?: AllowedMarkets;   // flat market allowlist; unset ⇒ all markets (gates submit in V3)
+  props_emphasis?: PropsEmphasis;     // off = disable props, emphasize = lean into player props (NFL-only)
   trust_signals?: Scale1To5;          // lean on validated signals (get_signals)
   public_lean?: Scale1To5;            // public betting fade↔follow (supersedes fade_public + public_threshold)
   respect_line_movement?: Scale1To5;  // respect line movement / sharp money (get_line_movement)
@@ -317,16 +322,10 @@ export const PersonalityParamsSchema = z.object({
 
   // ── V3 (OPTIONAL — additive; absent on V2 creations, so live production keeps
   //    validating unchanged). LOCKED CONTRACT — 15_V3_PERSONALITY_QUESTIONS.md. ────
-  // Explicit per-sport object + .partial() so an agent may set markets for ONLY its
-  // sports (NFL-only → { nfl: [...] }) while the sport keys + market values stay
-  // validated. .partial() makes every sport key optional (the Partial<Record> shape).
-  allowed_markets: z.object({
-    nfl: z.array(z.enum(MARKET_KEYS)),
-    cfb: z.array(z.enum(MARKET_KEYS)),
-    nba: z.array(z.enum(MARKET_KEYS)),
-    ncaab: z.array(z.enum(MARKET_KEYS)),
-    mlb: z.array(z.enum(MARKET_KEYS)),
-  }).partial().optional(),
+  // Flat market allowlist — which bet markets the agent may stake (unset ⇒ all).
+  // The V3 submit gate checks each pick's bet_type against this. See plan D2.
+  allowed_markets: z.array(z.enum(MARKET_KEYS)).optional(),
+  props_emphasis: z.enum(PROPS_EMPHASIS).optional(),
   trust_signals: Scale1To5Schema.optional(),
   public_lean: Scale1To5Schema.optional(),
   respect_line_movement: Scale1To5Schema.optional(),

@@ -56,6 +56,10 @@ serve(async (req) => {
     const modelName = typeof body.model_name === 'string' && body.model_name.length > 0
       ? body.model_name
       : null;
+    // window: 'week' = build the ONE week-long NFL/CFB parlay (own 3/football-week
+    // budget via enqueue_weekly_parlay_run_v3_trigger); anything else = daily.
+    const window: 'day' | 'week' = body.window === 'week' ? 'week' : 'day';
+    const runScope = window === 'week' ? 'weekly' : 'daily';
 
     const { hasPremiumAccess } = await resolvePremiumAccess(serviceClient, userId);
     if (!hasPremiumAccess) {
@@ -67,12 +71,15 @@ serve(async (req) => {
     // second trigger JOINS it instead of enqueueing a duplicate. Prevents the
     // leave-page-and-retap race where two runs write the same slate.
     const inflightCutoff = new Date(Date.now() - 12 * 60 * 1000).toISOString();
+    // Scoped to the requested window: a weekly tap must never coalesce onto a
+    // live DAILY run (and vice versa) — they are different products.
     const { data: activeRun } = await serviceClient
       .from('agent_generation_runs')
       .select('id, trigger_run_id, status, created_at')
       .eq('avatar_id', avatarId)
       .eq('user_id', userId)
       .eq('engine_version', 'v3_trigger')
+      .eq('run_scope', runScope)
       .in('status', ['queued', 'processing'])
       .gte('created_at', inflightCutoff)
       .order('created_at', { ascending: false })
@@ -91,7 +98,7 @@ serve(async (req) => {
     }
 
     const { data: ledgerRunId, error: enqueueError } = await serviceClient.rpc(
-      'enqueue_manual_generation_run_v3_trigger',
+      window === 'week' ? 'enqueue_weekly_parlay_run_v3_trigger' : 'enqueue_manual_generation_run_v3_trigger',
       {
         p_user_id: userId,
         p_avatar_id: avatarId,
@@ -106,6 +113,12 @@ serve(async (req) => {
       if (enqueueError?.message?.includes('Not authorized')) {
         return errorResponse(403, 'Not authorized to generate picks for this agent');
       }
+      if (enqueueError?.message?.includes('Weekly parlay generation limit')) {
+        return errorResponse(429, 'Weekly parlay generation limit reached (3 per football week)');
+      }
+      if (enqueueError?.message?.includes('require NFL or College Football')) {
+        return errorResponse(400, 'Weekly parlays require NFL or College Football');
+      }
       if (enqueueError?.message?.includes('limit reached')) {
         return errorResponse(429, 'Daily manual generation limit reached (3 per day)');
       }
@@ -114,7 +127,7 @@ serve(async (req) => {
 
     const { data: ledger, error: ledgerError } = await serviceClient
       .from('agent_generation_runs')
-      .select('id, avatar_id, user_id, target_date, generation_type, trigger_run_id, model_name, dry_run')
+      .select('id, avatar_id, user_id, target_date, generation_type, trigger_run_id, model_name, dry_run, run_scope, week_key')
       .eq('id', ledgerRunId)
       .single();
     if (ledgerError || !ledger) {
@@ -144,18 +157,25 @@ serve(async (req) => {
           avatarId: ledger.avatar_id,
           targetDate: ledger.target_date,
           generationType: ledger.generation_type,
+          window: ledger.run_scope === 'weekly' ? 'week' : 'day',
           dryRun: ledger.dry_run,
           modelName: ledger.model_name,
         },
         options: {
           idempotencyKey: `manual:${ledger.id}`,
           ttl: '2h',
-          tags: [`avatar:${ledger.avatar_id}`, `user:${ledger.user_id}`, 'type:manual'],
+          tags: [
+            `avatar:${ledger.avatar_id}`,
+            `user:${ledger.user_id}`,
+            'type:manual',
+            ...(ledger.run_scope === 'weekly' ? ['scope:weekly'] : []),
+          ],
           metadata: {
             phase: 'queued',
             avatarId: ledger.avatar_id,
             ledgerRunId: ledger.id,
             targetDate: ledger.target_date,
+            ...(ledger.week_key ? { weekKey: ledger.week_key } : {}),
           },
           maxDuration: 600,
           machine: 'small-1x',

@@ -47,6 +47,7 @@ export const generateV3Picks = schemaTask({
     avatarId: z.string().uuid(),
     targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     generationType: z.string().optional(),
+    window: z.enum(["day", "week"]).optional(),
     dryRun: z.boolean().optional(),
     modelName: z.string().optional(),
     v3LimitOverrides: z.unknown().optional(),

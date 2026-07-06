@@ -54,10 +54,27 @@ public final class AgentDetailStore {
     public private(set) var performanceParlays: [AgentParlay] = []
     public private(set) var performanceLoadState: LoadState = .idle
 
+    /// Which product a generation run builds: today's picks or the ONE
+    /// week-long NFL/CFB parlay (separate server-side budgets).
+    public enum GenerationWindow: String, Sendable {
+        case day
+        case week
+    }
+
     // MARK: - Generation state
     public private(set) var isGenerating: Bool = false
+    /// Non-nil while a run is live — tells the view WHICH section renders the
+    /// live generation card (daily rail vs Week Long Parlays section).
+    public private(set) var generatingWindow: GenerationWindow?
     public private(set) var lastGenerationError: String?
     public private(set) var liveRunState: TriggerV3RunStatus?
+
+    // MARK: - Deletion state
+    /// Optimistic overlay for swipe-to-trash: `AgentBetItem.id`s removed
+    /// locally while the server delete is in flight. Cleared on success (the
+    /// refreshed data no longer contains them) or rollback on failure.
+    public private(set) var locallyDeletedItemIds: Set<String> = []
+    public var lastDeleteError: String?
 
     // MARK: - View-driven filter (history)
     public var pickFilter: PickFilter = .all
@@ -77,22 +94,44 @@ public final class AgentDetailStore {
 
     public var todaysPicks: [AgentPick] {
         let fromSnapshot = snapshot?.todaysPicks ?? []
-        if !fromSnapshot.isEmpty { return fromSnapshot }
+        if !fromSnapshot.isEmpty { return fromSnapshot.filter { !isDeleted(pickId: $0.id) } }
         // Snapshot only includes today's picks when the server grants Pro
         // entitlement. Owners on the free tier still load history via direct
         // reads — surface today's slice from that cache when available.
         let todayStr = Self.localDateString(Date())
-        return performancePicks.filter { $0.gameDate == todayStr }
+        return performancePicks.filter { $0.gameDate == todayStr && !isDeleted(pickId: $0.id) }
     }
 
     /// Today's parlay tickets — same snapshot-first / direct-read-fallback
     /// shape as `todaysPicks` (the snapshot only carries them when the server
-    /// grants pick visibility).
+    /// grants pick visibility). Weekly-scope tickets are excluded in BOTH
+    /// paths — they render in the Week Long Parlays section, never the rail.
     public var todaysParlays: [AgentParlay] {
-        let fromSnapshot = snapshot?.todaysParlays ?? []
+        let fromSnapshot = (snapshot?.todaysParlays ?? []).filter { !$0.isWeekly }
+        if !fromSnapshot.isEmpty { return fromSnapshot.filter { !isDeleted(parlayId: $0.id) } }
+        let todayStr = Self.localDateString(Date())
+        return performanceParlays.filter { !$0.isWeekly && $0.displayDate == todayStr && !isDeleted(parlayId: $0.id) }
+    }
+
+    /// Active week-long parlay tickets for the current football week —
+    /// snapshot-first, with a direct-read fallback for free-tier owners.
+    /// The ticket persists here through Monday night (server keys the window
+    /// by `week_key`; the fallback approximates it with displayDate >= today,
+    /// since a weekly ticket's target_date is the week's Monday).
+    public var weeklyParlays: [AgentParlay] {
+        let fromSnapshot = (snapshot?.weeklyParlays ?? []).filter { !isDeleted(parlayId: $0.id) }
         if !fromSnapshot.isEmpty { return fromSnapshot }
         let todayStr = Self.localDateString(Date())
-        return performanceParlays.filter { $0.displayDate == todayStr }
+        return performanceParlays.filter {
+            $0.isWeekly && !isDeleted(parlayId: $0.id)
+                && ($0.result == .pending || $0.displayDate >= todayStr)
+        }
+    }
+
+    /// Weekly tickets as bet items (newest first) — feeds the Week Long
+    /// Parlays section and its focus pager.
+    public var weeklyBetItems: [AgentBetItem] {
+        weeklyParlays.map(AgentBetItem.parlay).sorted { $0.createdAt > $1.createdAt }
     }
 
     /// Today's picks + parlays interleaved (newest first) — feeds the unified
@@ -100,6 +139,14 @@ public final class AgentDetailStore {
     public var todaysBetItems: [AgentBetItem] {
         let items = todaysPicks.map(AgentBetItem.pick) + todaysParlays.map(AgentBetItem.parlay)
         return items.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private func isDeleted(pickId: String) -> Bool {
+        locallyDeletedItemIds.contains("pick_\(pickId)")
+    }
+
+    private func isDeleted(parlayId: String) -> Bool {
+        locallyDeletedItemIds.contains("parlay_\(parlayId)")
     }
 
     public var todaysGenerationRun: AgentGenerationRunSummary? {
@@ -198,6 +245,13 @@ public final class AgentDetailStore {
         // Reset if the stored date doesn't match today.
         if agent.lastGenerationDate != todayStr { return maxDaily }
         return max(0, maxDaily - agent.dailyGenerationCount)
+    }
+
+    /// Weekly-parlay budget left this football week. Server-computed in the
+    /// snapshot (the client never replicates the Tue→Mon week math); optimistic
+    /// default before the snapshot lands.
+    public func weeklyGenerationsRemaining(maxWeekly: Int = 3) -> Int {
+        snapshot?.weeklyGenerationsRemaining ?? maxWeekly
     }
 
     // MARK: - Loaders
@@ -387,10 +441,14 @@ public final class AgentDetailStore {
               let runId = active.triggerRunId
         else { return }
         isGenerating = true
+        // Light up the RIGHT section's live card on re-entry: the ledger row
+        // carries run_scope, so a weekly run resumes in the weekly section.
+        generatingWindow = active.runScope == "weekly" ? .week : .day
         lastGenerationError = nil
         liveRunState = nil
         defer {
             isGenerating = false
+            generatingWindow = nil
             liveRunState = nil
         }
         // priorRunId: the last SUCCEEDED run — completion is detected by a new
@@ -433,6 +491,18 @@ public final class AgentDetailStore {
 
     @discardableResult
     public func generatePicks() async -> Bool {
+        await runGeneration(window: .day)
+    }
+
+    /// Build the ONE week-long NFL/CFB parlay for the current football week.
+    /// Same Trigger.dev run + polling machinery as daily; the server routes it
+    /// through the separate weekly enqueue RPC (3/football-week budget).
+    @discardableResult
+    public func generateWeeklyParlay() async -> Bool {
+        await runGeneration(window: .week)
+    }
+
+    private func runGeneration(window: GenerationWindow) async -> Bool {
         guard !isGenerating else { return false }
         // A run is already live (e.g. re-entered the page mid-run) — join it
         // rather than triggering a duplicate. The server coalesces too; this
@@ -442,10 +512,12 @@ public final class AgentDetailStore {
             return lastGenerationError == nil
         }
         isGenerating = true
+        generatingWindow = window
         lastGenerationError = nil
         liveRunState = nil
         defer {
             isGenerating = false
+            generatingWindow = nil
             liveRunState = nil
         }
         do {
@@ -458,13 +530,17 @@ public final class AgentDetailStore {
             // poll until a NEW completed run lands — otherwise the spinner would
             // clear in ~1s and the user sees nothing.
             let priorRunId = todaysGenerationRun?.id
+            // Weekly completion is detected by a NEW ticket appearing (the
+            // snapshot's todays_generation_run is daily-scoped).
+            let priorWeeklyIds = Set(weeklyParlays.map(\.id))
             let trigger = try await AgentPicksService.requestTriggerV3Generation(
                 agentId: agentId,
                 dryRun: v3.dryRun,
-                modelName: v3.model
+                modelName: v3.model,
+                window: window == .week ? "week" : nil
             )
             #if DEBUG
-            NSLog("%@", "[V3Gen] triggered runId=\(trigger.runId ?? "nil")")
+            NSLog("%@", "[V3Gen] triggered runId=\(trigger.runId ?? "nil") window=\(window.rawValue)")
             #endif
             let outcome: TriggerPollOutcome
             if let runId = trigger.runId {
@@ -476,7 +552,11 @@ public final class AgentDetailStore {
             case .succeeded:
                 // The ledger only surfaces `status='succeeded'` runs, so this is
                 // still needed to pick up the freshly-written picks/no-picks note.
-                await pollUntilGenerationCompletes(priorRunId: priorRunId)
+                if window == .week {
+                    await pollUntilWeeklyParlayAppears(priorIds: priorWeeklyIds)
+                } else {
+                    await pollUntilGenerationCompletes(priorRunId: priorRunId)
+                }
                 await loadHistory(isOwner: true)
                 await loadPerformancePicks(isOwner: true)
                 await notifyGenerationFinished(succeeded: true)
@@ -499,6 +579,13 @@ public final class AgentDetailStore {
                 }
                 await loadHistory(isOwner: true)
                 await loadPerformancePicks(isOwner: true)
+                if window == .week {
+                    guard weeklyParlays.contains(where: { !priorWeeklyIds.contains($0.id) }) else {
+                        lastGenerationError = "This is taking longer than usual — check back in a few minutes for your weekly parlay."
+                        return false
+                    }
+                    return true
+                }
                 guard todaysGenerationRun?.id != priorRunId else {
                     lastGenerationError = "This is taking longer than usual — check back in a few minutes for your picks."
                     return false
@@ -559,6 +646,25 @@ public final class AgentDetailStore {
         }
     }
 
+    /// Weekly analogue of `pollUntilGenerationCompletes`: the snapshot's
+    /// `todays_generation_run` is daily-scoped, so weekly completion is
+    /// detected by a NEW weekly ticket landing in `weekly_parlays`. Short
+    /// budget — the Trigger run already reached a terminal status; this only
+    /// covers ledger→read replication lag (and a legit zero-ticket outcome).
+    private func pollUntilWeeklyParlayAppears(priorIds: Set<String>) async {
+        let maxAttempts = 15
+        let intervalNanos: UInt64 = 2_000_000_000 // 2s
+        for _ in 0..<maxAttempts {
+            guard let snap = try? await AgentPicksService.fetchDetailSnapshot(agentId: agentId) else {
+                try? await Task.sleep(nanoseconds: intervalNanos)
+                continue
+            }
+            self.snapshot = snap
+            if snap.weeklyParlays.contains(where: { !priorIds.contains($0.id) }) { return }
+            try? await Task.sleep(nanoseconds: intervalNanos)
+        }
+    }
+
     /// Toggle autopilot via the granular service. Optimistic — refresh on
     /// failure restores truth.
     @discardableResult
@@ -596,6 +702,34 @@ public final class AgentDetailStore {
             return true
         } catch {
             lastGenerationError = Self.message(from: error)
+            return false
+        }
+    }
+
+    /// Swipe-to-trash: delete one pending pick or parlay ticket. Optimistic —
+    /// the item vanishes immediately via `locallyDeletedItemIds`; on success
+    /// the refreshed server data (which no longer contains it, and whose
+    /// performance was recalculated synchronously by the delete RPC) takes
+    /// over; on failure the overlay rolls back and `lastDeleteError` is set.
+    @discardableResult
+    public func deleteBetItem(_ item: AgentBetItem) async -> Bool {
+        guard !locallyDeletedItemIds.contains(item.id) else { return false }
+        locallyDeletedItemIds.insert(item.id)
+        lastDeleteError = nil
+        do {
+            switch item {
+            case .pick(let pick):
+                try await AgentAuthorizedActionsService.deletePick(agentId: agentId, pickId: pick.id)
+            case .parlay(let parlay):
+                try await AgentAuthorizedActionsService.deleteParlay(agentId: agentId, parlayId: parlay.id)
+            }
+            await refreshSnapshot()
+            await loadPerformancePicks(isOwner: true)
+            locallyDeletedItemIds.remove(item.id)
+            return true
+        } catch {
+            locallyDeletedItemIds.remove(item.id) // rollback — the ticket reappears
+            lastDeleteError = Self.message(from: error)
             return false
         }
     }

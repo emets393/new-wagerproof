@@ -67,21 +67,17 @@ struct AgentGlassHero: View {
 
     var body: some View {
         let p = clamp(progress)
-        // Two layouts crossfade as the hero collapses, both anchored top-leading
-        // so the avatar disc reads as staying put while only the stat treatment
-        // morphs. Expanded (avatar + name + pills on the left, 2×2 stat quadrant
-        // on the right) holds, then fades over the first half; the compact bar
-        // (small avatar + name + one-line stats) fades in over the back half.
-        let expanded = clamp(1 - p / 0.5)
-        let compact = clamp((p - 0.5) / 0.5)
-
+        // Hard cut (no crossfade) between the two layouts, both anchored
+        // top-leading so the avatar disc reads as staying put while only the
+        // stat treatment morphs. Expanded (avatar + name + pills on the left,
+        // 2×2 stat quadrant on the right) holds until the midpoint, then the
+        // compact bar (small avatar + name + one-line stats) takes over.
         ZStack(alignment: .topLeading) {
-            expandedHeader
-                .opacity(expanded)
-                .allowsHitTesting(expanded > 0.5)
-            compactHeader
-                .opacity(compact)
-                .allowsHitTesting(compact > 0.5)
+            if p < 0.5 {
+                expandedHeader
+            } else {
+                compactHeader
+            }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }

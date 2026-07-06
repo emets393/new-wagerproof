@@ -142,6 +142,45 @@ public enum AgentAuthorizedActionsService {
         )
     }
 
+    /// Ack for the swipe-to-trash delete actions. The server RPC also reruns
+    /// the performance recalc synchronously, so a snapshot refresh right after
+    /// a successful delete sees updated stats.
+    public struct DeleteAck: Decodable, Sendable {
+        public let deleted: Bool?
+    }
+
+    /// Delete one pending straight pick (owner-only; graded picks are on the
+    /// record and the server refuses with a 409-style error message).
+    public static func deletePick(agentId: String, pickId: String) async throws {
+        struct Data: Encodable { let pick_id: String }
+        struct Body: Encodable {
+            let action: String
+            let agent_id: String
+            let data: Data
+        }
+        _ = try await invoke(
+            body: Body(action: "delete_pick", agent_id: agentId, data: Data(pick_id: pickId)),
+            as: DeleteAck.self,
+            fallbackMessage: "Failed to delete pick"
+        )
+    }
+
+    /// Delete one pending parlay ticket (owner-only; refused once any leg has
+    /// settled — the ticket is then on the record).
+    public static func deleteParlay(agentId: String, parlayId: String) async throws {
+        struct Data: Encodable { let parlay_id: String }
+        struct Body: Encodable {
+            let action: String
+            let agent_id: String
+            let data: Data
+        }
+        _ = try await invoke(
+            body: Body(action: "delete_parlay", agent_id: agentId, data: Data(parlay_id: parlayId)),
+            as: DeleteAck.self,
+            fallbackMessage: "Failed to delete parlay"
+        )
+    }
+
 }
 
 // MARK: - Envelope

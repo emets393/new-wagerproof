@@ -39,6 +39,12 @@ export interface AgentGenContext {
   targetDate: string;
   generationType: string; // 'manual' | 'auto'
   dryRun: boolean;
+  /** 'day' (default) or 'week' — a week-long-parlay run (NFL/CFB only). */
+  window: "day" | "week";
+  /** ET Tuesday anchoring the football week (Tue→Mon); set only on week runs. */
+  weekKey: string | null;
+  /** Week runs allow exactly ONE ticket; submitParlay counts across calls. */
+  weeklyTicketsSubmitted: number;
 
   // data clients (service-role main, anon cfb)
   main: SupabaseClient;

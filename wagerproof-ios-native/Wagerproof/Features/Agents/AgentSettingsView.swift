@@ -64,7 +64,17 @@ struct AgentSettingsView: View {
     private let homeBoostLabels = ["Ignore", "Slight", "Moderate", "Strong", "Maximum"]
     private let recentFormLabels = ["Ignore", "Light", "Moderate", "Heavy", "Primary"]
     private let betTypes: [(value: String, label: String)] = [
-        ("any", "Any"), ("spread", "Spread"), ("moneyline", "ML"), ("total", "Total"),
+        ("any", "Any"), ("spread", "Spread"), ("moneyline", "ML"), ("total", "Total"), ("prop", "Props"),
+    ]
+
+    // Flat market allowlist options (mirrors agents-v3 ALL_MARKETS). 'prop' is
+    // NFL-only and only shown when the agent includes NFL. See plan D2.
+    private let marketOptions: [(value: String, label: String)] = [
+        ("spread", "Spread"), ("moneyline", "Moneyline"), ("total", "Total"),
+        ("team_total", "Team Total"), ("prop", "Player Props"),
+    ]
+    private let propsEmphasisOptions: [(value: String, label: String)] = [
+        ("off", "Off"), ("allow", "Allow"), ("emphasize", "Emphasize"),
     ]
 
     init(agentId: String, initialAgent: Agent?) {
@@ -154,6 +164,7 @@ struct AgentSettingsView: View {
     private var personalitySections: some View {
         corePersonalitySection
         betSelectionSection
+        marketsSection
         dataTrustSection
         oddsLimitsSection
     }
@@ -326,6 +337,73 @@ struct AgentSettingsView: View {
                         description: "Pass on days with few games or poor betting opportunities")
         } header: {
             Text("Bet Selection")
+        }
+    }
+
+    private var hasNFL: Bool { sports.contains(.nfl) }
+
+    /// Effective allowlist: nil/empty ⇒ all markets (back-compat). 'prop' is only
+    /// part of the implicit "all" default when the agent includes NFL.
+    private var effectiveMarkets: Set<String> {
+        if let m = personality.allowedMarkets, !m.isEmpty { return Set(m) }
+        return Set(marketOptions.map { $0.value }.filter { $0 != "prop" || hasNFL })
+    }
+
+    private func toggleMarket(_ key: String) {
+        var set = effectiveMarkets
+        if set.contains(key) {
+            if set.count > 1 { set.remove(key) }   // keep at least one market
+        } else {
+            set.insert(key)
+        }
+        // Persist in stable option order (nil ⇒ all is only for legacy rows).
+        personality.allowedMarkets = marketOptions.map { $0.value }.filter { set.contains($0) }
+        hasChanges = true
+    }
+
+    private var propsEmphasisBind: Binding<String> {
+        Binding(get: { personality.propsEmphasis ?? "allow" },
+                set: { personality.propsEmphasis = $0; hasChanges = true })
+    }
+
+    private var marketsSection: some View {
+        Section {
+            ForEach(marketOptions.filter { $0.value != "prop" || hasNFL }, id: \.value) { market in
+                Button {
+                    toggleMarket(market.value)
+                } label: {
+                    HStack {
+                        Text(market.label).foregroundStyle(Color.appTextPrimary)
+                        Spacer()
+                        if effectiveMarkets.contains(market.value) {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(Color(hex: 0x00E676))
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                    }
+                }
+            }
+            if hasNFL && effectiveMarkets.contains("prop") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Player Props Emphasis")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.appTextPrimary)
+                    Picker("Props Emphasis", selection: propsEmphasisBind) {
+                        ForEach(propsEmphasisOptions, id: \.value) { entry in
+                            Text(entry.label).tag(entry.value)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .padding(.vertical, 4)
+            }
+        } header: {
+            Text("Markets & Props")
+        } footer: {
+            Text(hasNFL
+                 ? "Which bet markets this agent may stake — also used as parlay legs. Player props are NFL-only and signal-gated."
+                 : "Which bet markets this agent may stake. Add NFL to enable player props.")
+                .font(.system(size: 11))
         }
     }
 

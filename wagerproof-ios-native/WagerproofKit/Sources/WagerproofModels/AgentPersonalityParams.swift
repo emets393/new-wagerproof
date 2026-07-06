@@ -23,6 +23,12 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
     /// Force EVERY play into parlay tickets — the engine rejects straight
     /// picks at submit. Overrides `parlayAppetite`'s tool gating.
     public var parlaysOnly: Bool
+    /// Week-long parlay opt-in (NFL/CFB only): each football week the agent
+    /// can build ONE week-long ticket that stays live through Monday night.
+    /// Nil = off. Also gates the weekly autopilot (with auto_generate).
+    public var weeklyParlayEnabled: Bool?
+    /// Preferred leg count for the weekly ticket (2–6). Nil = engine default 4.
+    public var weeklyParlayLegs: Int?
 
     // MARK: Bet Selection (always present)
     public var preferredBetType: String
@@ -30,6 +36,12 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
     public var minUnderdogOdds: Int?
     public var maxPicksPerDay: Int
     public var skipWeakSlates: Bool
+    /// Flat market allowlist: which bet markets the agent may stake
+    /// (spread/moneyline/total/team_total/prop). Nil/empty ⇒ all markets. 'prop'
+    /// is NFL-only. Gates the V3 submit tool. See plan D2.
+    public var allowedMarkets: [String]?
+    /// Player-props emphasis: "off" | "allow" | "emphasize". Nil ≈ "allow".
+    public var propsEmphasis: String?
 
     // MARK: Data Trust (always present)
     public var trustModel: Int
@@ -66,11 +78,15 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         case chaseValue = "chase_value"
         case parlayAppetite = "parlay_appetite"
         case parlaysOnly = "parlays_only"
+        case weeklyParlayEnabled = "weekly_parlay_enabled"
+        case weeklyParlayLegs = "weekly_parlay_legs"
         case preferredBetType = "preferred_bet_type"
         case maxFavoriteOdds = "max_favorite_odds"
         case minUnderdogOdds = "min_underdog_odds"
         case maxPicksPerDay = "max_picks_per_day"
         case skipWeakSlates = "skip_weak_slates"
+        case allowedMarkets = "allowed_markets"
+        case propsEmphasis = "props_emphasis"
         case trustModel = "trust_model"
         case trustPolymarket = "trust_polymarket"
         case polymarketDivergenceFlag = "polymarket_divergence_flag"
@@ -122,6 +138,8 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         minUnderdogOdds: Int? = nil,
         maxPicksPerDay: Int = 3,
         skipWeakSlates: Bool = true,
+        allowedMarkets: [String]? = nil,
+        propsEmphasis: String? = nil,
         trustModel: Int = 4,
         trustPolymarket: Int = 3,
         polymarketDivergenceFlag: Bool = true,
@@ -140,7 +158,9 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         fadeBackToBacks: Bool? = nil,
         upsetAlert: Bool? = nil,
         parlayAppetite: Int = 1,
-        parlaysOnly: Bool = false
+        parlaysOnly: Bool = false,
+        weeklyParlayEnabled: Bool? = nil,
+        weeklyParlayLegs: Int? = nil
     ) {
         self.riskTolerance = riskTolerance
         self.underdogLean = underdogLean
@@ -152,6 +172,8 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         self.minUnderdogOdds = minUnderdogOdds
         self.maxPicksPerDay = maxPicksPerDay
         self.skipWeakSlates = skipWeakSlates
+        self.allowedMarkets = allowedMarkets
+        self.propsEmphasis = propsEmphasis
         self.trustModel = trustModel
         self.trustPolymarket = trustPolymarket
         self.polymarketDivergenceFlag = polymarketDivergenceFlag
@@ -171,6 +193,8 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         self.upsetAlert = upsetAlert
         self.parlayAppetite = parlayAppetite
         self.parlaysOnly = parlaysOnly
+        self.weeklyParlayEnabled = weeklyParlayEnabled
+        self.weeklyParlayLegs = weeklyParlayLegs
     }
 
     public init(from decoder: Decoder) throws {
@@ -187,6 +211,8 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         self.minUnderdogOdds = try? c.decodeIfPresent(Int.self, forKey: .minUnderdogOdds)
         self.maxPicksPerDay = (try? c.decode(Int.self, forKey: .maxPicksPerDay)) ?? Self.default.maxPicksPerDay
         self.skipWeakSlates = (try? c.decode(Bool.self, forKey: .skipWeakSlates)) ?? Self.default.skipWeakSlates
+        self.allowedMarkets = try? c.decodeIfPresent([String].self, forKey: .allowedMarkets)
+        self.propsEmphasis = try? c.decodeIfPresent(String.self, forKey: .propsEmphasis)
         self.trustModel = (try? c.decode(Int.self, forKey: .trustModel)) ?? Self.default.trustModel
         self.trustPolymarket = (try? c.decode(Int.self, forKey: .trustPolymarket)) ?? Self.default.trustPolymarket
         self.polymarketDivergenceFlag = (try? c.decode(Bool.self, forKey: .polymarketDivergenceFlag)) ?? Self.default.polymarketDivergenceFlag
@@ -206,6 +232,8 @@ public struct AgentPersonalityParams: Codable, Hashable, Sendable {
         self.upsetAlert = try? c.decodeIfPresent(Bool.self, forKey: .upsetAlert)
         self.parlayAppetite = (try? c.decode(Int.self, forKey: .parlayAppetite)) ?? Self.default.parlayAppetite
         self.parlaysOnly = (try? c.decode(Bool.self, forKey: .parlaysOnly)) ?? Self.default.parlaysOnly
+        self.weeklyParlayEnabled = try? c.decodeIfPresent(Bool.self, forKey: .weeklyParlayEnabled)
+        self.weeklyParlayLegs = try? c.decodeIfPresent(Int.self, forKey: .weeklyParlayLegs)
     }
 }
 

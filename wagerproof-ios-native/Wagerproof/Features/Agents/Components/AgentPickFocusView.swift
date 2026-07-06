@@ -35,6 +35,9 @@ struct AgentPickFocusView: View {
     /// Surfaces the per-pick data audit (the card's "View data audit" button).
     /// Parlay cards have no audit — the audit sheet resolves by pick id.
     var onAudit: (AgentPick) -> Void = { _ in }
+    /// Owner-only delete affordance — a guaranteed, VoiceOver-accessible
+    /// alternative to the rail's swipe gesture. Nil hides the button entirely.
+    var onDelete: ((AgentBetItem) -> Void)? = nil
     let onClose: () -> Void
 
     @State private var index: Int
@@ -67,12 +70,14 @@ struct AgentPickFocusView: View {
         startIndex: Int = 0,
         printIntro: Bool = false,
         onAudit: @escaping (AgentPick) -> Void = { _ in },
+        onDelete: ((AgentBetItem) -> Void)? = nil,
         onClose: @escaping () -> Void
     ) {
         self.items = items
         self.accent = accent
         self.printIntro = printIntro
         self.onAudit = onAudit
+        self.onDelete = onDelete
         self.onClose = onClose
         _index = State(initialValue: max(0, min(startIndex, max(0, items.count - 1))))
         _printed = State(initialValue: !printIntro)
@@ -214,6 +219,21 @@ struct AgentPickFocusView: View {
                 }
                 .buttonStyle(.plain)
                 .opacity(printed ? 1 : 0)
+                // Guaranteed, VoiceOver-reachable delete path — the rail's swipe
+                // gesture is a custom drag a screen reader can't perform.
+                if let onDelete, items.indices.contains(index) {
+                    Button { onDelete(items[index]) } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color.appLoss)
+                            .frame(width: 42, height: 42)
+                            .liquidGlassBackground(in: Circle())
+                            .overlay(Circle().strokeBorder(.white.opacity(0.16), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(printed ? 1 : 0)
+                    .accessibilityLabel("Delete this play")
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)

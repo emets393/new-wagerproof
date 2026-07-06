@@ -70,8 +70,10 @@ export async function runAgenticLoop(
           type: "function" as const,
           function: {
             name: "submit_parlay",
-            description: "Submit multi-leg parlay tickets (legs drawn from games you fetched). After any parlays, still call submit_picks to finalize the run (use an empty picks array if you have no straight picks).",
-            parameters: buildSubmitParlaySchema(steering.unitBand, steering.maxParlayLegs),
+            description: ctx.window === "week"
+              ? "Submit your ONE week-long parlay ticket (legs drawn from games you fetched, spanning the remaining football week). Then call submit_picks with an empty picks array to finalize the run."
+              : "Submit multi-leg parlay tickets (legs drawn from games you fetched). After any parlays, still call submit_picks to finalize the run (use an empty picks array if you have no straight picks).",
+            parameters: buildSubmitParlaySchema(steering.unitBand, steering.maxParlayLegs, { weekly: ctx.window === "week" }),
           },
         }]
       : []),
@@ -79,8 +81,13 @@ export async function runAgenticLoop(
 
   const slateContent = compactSlate(slate, 16000);
   const messages: ChatMessage[] = [
-    { role: "system", content: buildV3SystemPrompt(steering, ctx.targetDate) },
-    { role: "user", content: "Generate today's picks for this agent. The slate is already provided below." },
+    { role: "system", content: buildV3SystemPrompt(steering, ctx.targetDate, { window: ctx.window, weekKey: ctx.weekKey }) },
+    {
+      role: "user",
+      content: ctx.window === "week"
+        ? "Build this agent's ONE week-long parlay ticket. The remaining week slate is already provided below."
+        : "Generate today's picks for this agent. The slate is already provided below.",
+    },
     {
       role: "assistant",
       content: null,

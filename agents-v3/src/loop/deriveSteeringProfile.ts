@@ -18,7 +18,19 @@ export interface PersonalityParams {
   risk_tolerance?: number; underdog_lean?: number; over_under_lean?: number;
   confidence_threshold?: number; chase_value?: boolean; parlay_appetite?: number;
   parlays_only?: boolean;
-  preferred_bet_type?: "spread" | "moneyline" | "total" | "any";
+  // Week-long parlay (NFL/CFB): opt-in + preferred leg count (2-6, default 4).
+  // Read by runV3Generation's week-window override and the weekly autopilot
+  // eligibility RPC; informational on daily runs.
+  weekly_parlay_enabled?: boolean;
+  weekly_parlay_legs?: number;
+  preferred_bet_type?: "spread" | "moneyline" | "total" | "prop" | "any";
+  // Per-market allowlist (spread/moneyline/total/team_total/prop). Unset/empty =
+  // all markets allowed (back-compat). props is NFL-only + gets stripped when the
+  // agent has no NFL. See plan D2.
+  allowed_markets?: string[];
+  // Player-props emphasis. 'off' hard-disables props (strips 'prop' from the
+  // allowlist); 'emphasize' raises prop tool-affinity + weighting. Unset ≈ 'allow'.
+  props_emphasis?: "off" | "allow" | "emphasize";
   max_favorite_odds?: number | null; min_underdog_odds?: number | null;
   max_picks_per_day?: number; skip_weak_slates?: boolean;
   trust_model?: number; trust_polymarket?: number; polymarket_divergence_flag?: boolean;
@@ -44,9 +56,16 @@ export interface AvatarLike {
   custom_insights?: CustomInsights | null;
 }
 
+// All bettable markets. Prop = NFL-only player prop; team_total = NFL/CFB.
+export const ALL_MARKETS = ["spread", "moneyline", "total", "team_total", "prop"] as const;
+
 export interface SteeringProfile {
   preferredSports: string[];
-  preferredBetType: "spread" | "moneyline" | "total" | "any";
+  preferredBetType: "spread" | "moneyline" | "total" | "prop" | "any";
+  /** Markets this agent may stake (submit gate). Always populated (default = all). */
+  allowedMarkets: string[];
+  /** Player props allowed for this agent (NFL present + 'prop' in allowedMarkets). */
+  propsEnabled: boolean;
   maxPicks: number;
   confidenceFloorPct: number; // win% floor from confidence_threshold
   riskTolerance: number;
@@ -60,6 +79,8 @@ export interface SteeringProfile {
   parlayPolicy: string;
   maxParlayLegs: number;  // 0 = parlays disabled (appetite 1); else the leg cap
   parlaysOnly: boolean;   // every play must be a parlay leg; submit_picks only finalizes (empty list)
+  weeklyParlayEnabled: boolean; // week-long parlay opt-in (NFL/CFB only)
+  weeklyParlayLegs: number;     // leg cap for week runs (2-6)
   constraints: {
     maxFavoriteOdds: number | null;
     minUnderdogOdds: number | null;
@@ -79,6 +100,21 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
   const ci: CustomInsights = avatar.custom_insights ?? {};
   const sports = (avatar.preferred_sports ?? ["nfl"]).map((s) => s.toLowerCase());
   const mlbOnly = sports.length === 1 && sports[0] === "mlb";
+  const hasNfl = sports.includes("nfl");
+
+  // Market allowlist (submit gate) — unset/empty ⇒ all markets. Props are
+  // NFL-only, so strip 'prop' when the agent has no NFL; props_emphasis:'off'
+  // hard-disables props. See plan D2.
+  let allowedMarkets = Array.isArray(p.allowed_markets) && p.allowed_markets.length > 0
+    ? p.allowed_markets.filter((m) => (ALL_MARKETS as readonly string[]).includes(m))
+    : [...ALL_MARKETS];
+  if (allowedMarkets.length === 0) allowedMarkets = [...ALL_MARKETS];
+  if (!hasNfl || p.props_emphasis === "off") allowedMarkets = allowedMarkets.filter((m) => m !== "prop");
+  const propsEnabled = allowedMarkets.includes("prop");
+  const propsEmphasized = propsEnabled && (p.props_emphasis === "emphasize" || p.preferred_bet_type === "prop");
+  // A 'prop' bet-type lean only makes sense when props are actually enabled.
+  const preferredBetType: SteeringProfile["preferredBetType"] =
+    p.preferred_bet_type === "prop" && !propsEnabled ? "any" : (p.preferred_bet_type ?? "any");
 
   const lensVotes: Partial<Record<LensName, number>> = {};
   const forceLenses: LensName[] = [];
@@ -145,6 +181,15 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
     weighting.push("Starting-pitcher matchup first; cross-check Perfect Storm accuracy buckets before firing.");
   }
 
+  // Player props (NFL-only, signal-gated). get_props is already offered to any
+  // agent with NFL; emphasis raises tool affinity + weighting prose. See plan D2.
+  if (propsEnabled) {
+    affin("get_props", "+");
+    weighting.push(propsEmphasized
+      ? "Hunt signal-backed player props — prioritize them when a validated prop signal fires, and use them as parlay legs."
+      : "Consider signal-backed player props when a validated signal supports the edge.");
+  }
+
   // home court / situational
   if (num(p.home_court_boost) >= 4) weighting.push("Weight home-court/home-field advantage heavily.");
 
@@ -176,7 +221,9 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
 
   return {
     preferredSports: sports,
-    preferredBetType: p.preferred_bet_type ?? "any",
+    preferredBetType,
+    allowedMarkets,
+    propsEnabled,
     maxPicks: MAX_PICKS[Math.min(Math.max(Math.round(num(p.max_picks_per_day)), 1), 5)] ?? 5,
     confidenceFloorPct: CONF_FLOOR[Math.min(Math.max(Math.round(num(p.confidence_threshold)), 1), 5)] ?? 65,
     riskTolerance: risk,
@@ -194,6 +241,8 @@ export function deriveSteeringProfile(avatar: AvatarLike): SteeringProfile {
         : `You may combine your best plays into parlays of up to ${maxParlayLegs} legs (one stake per ticket). ${parlayAppetite >= 4 ? "Lean into parlays when your edges align." : "Use them selectively — only when the combined edge justifies the correlation risk."}`,
     maxParlayLegs,
     parlaysOnly,
+    weeklyParlayEnabled: p.weekly_parlay_enabled === true,
+    weeklyParlayLegs: Math.min(6, Math.max(2, Math.round(num(p.weekly_parlay_legs, 4)))),
     constraints: {
       maxFavoriteOdds: p.max_favorite_odds ?? null,
       minUnderdogOdds: p.min_underdog_odds ?? null,

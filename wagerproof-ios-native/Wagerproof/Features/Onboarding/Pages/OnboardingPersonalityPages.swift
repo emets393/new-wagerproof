@@ -154,7 +154,35 @@ struct OnboardingBuilderBetStylePage: View {
         ("spread", "Spread"),
         ("moneyline", "ML"),
         ("total", "Total"),
+        ("prop", "Props"),
     ]
+
+    // Flat market allowlist (mirrors agents-v3 ALL_MARKETS). 'prop' is NFL-only.
+    private let marketOptions: [(value: String, label: String)] = [
+        ("spread", "Spread"), ("moneyline", "Moneyline"), ("total", "Total"),
+        ("team_total", "Team Total"), ("prop", "Player Props"),
+    ]
+    private let propsEmphasisOptions: [(value: String, label: String)] = [
+        ("off", "Off"), ("allow", "Allow"), ("emphasize", "Emphasize"),
+    ]
+    private var hasNFL: Bool { creation.draft.preferredSports.contains(.nfl) }
+    private var effectiveMarkets: Set<String> {
+        if let m = creation.draft.personalityParams.allowedMarkets, !m.isEmpty { return Set(m) }
+        return Set(marketOptions.map { $0.value }.filter { $0 != "prop" || hasNFL })
+    }
+    private func toggleMarket(_ key: String) {
+        var set = effectiveMarkets
+        if set.contains(key) {
+            if set.count > 1 { set.remove(key) }
+        } else {
+            set.insert(key)
+        }
+        creation.draft.personalityParams.allowedMarkets = marketOptions.map { $0.value }.filter { set.contains($0) }
+    }
+    private var propsEmphasisBind: Binding<String> {
+        Binding(get: { creation.draft.personalityParams.propsEmphasis ?? "allow" },
+                set: { creation.draft.personalityParams.propsEmphasis = $0 })
+    }
 
     var body: some View {
         OnboardingPageScaffold(
@@ -211,6 +239,41 @@ struct OnboardingBuilderBetStylePage: View {
                         label: "Parlays Only",
                         description: "Every play becomes a parlay leg — no straight picks"
                     )
+
+                    // Markets allowlist (+ NFL player-props emphasis). See plan D2.
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Markets")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color.appTextPrimary)
+                        Text("Which bet markets it may stake — also used as parlay legs.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.appTextSecondary)
+                        ForEach(marketOptions.filter { $0.value != "prop" || hasNFL }, id: \.value) { market in
+                            Button {
+                                toggleMarket(market.value)
+                            } label: {
+                                HStack {
+                                    Text(market.label).foregroundStyle(Color.appTextPrimary)
+                                    Spacer()
+                                    Image(systemName: effectiveMarkets.contains(market.value) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(effectiveMarkets.contains(market.value) ? Color(hex: 0x00E676) : Color.appTextSecondary)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                        if hasNFL && effectiveMarkets.contains("prop") {
+                            Text("Player Props Emphasis")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.appTextPrimary)
+                                .padding(.top, 4)
+                            Picker("Props Emphasis", selection: propsEmphasisBind) {
+                                ForEach(propsEmphasisOptions, id: \.value) { entry in
+                                    Text(entry.label).tag(entry.value)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                    }
                 }
                 .pageEntrance(index: 3)
             }

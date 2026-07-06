@@ -870,11 +870,15 @@ struct AgentsView: View {
                 prefetched: store.agents.first { $0.id == id }
             )
         case .createAgent:
-            // B14 — real wizard. Reads `AgentsStore` + `AgentEntitlementsStore`
-            // from env; both already injected on the parent NavigationStack.
-            AgentCreationView()
-                .environment(store)
-                .environment(entitlements)
+            // Onboarding-style pixelwave carousel builder (replaces the old
+            // Step 1–6 AgentCreationView wizard). On create it swaps this screen
+            // for the new agent's detail page, where the ticket-printer reveal
+            // plays once the agent generates picks.
+            AgentBuilderView(onCreated: { agent in
+                Task { await store.refresh() }
+                navPath.removeLast()
+                navPath.append(AgentsRoute.agentDetail(agentId: agent.id))
+            })
         case .publicAgentDetail(let id):
             // B15 — real public read-only detail w/ follow CTA.
             AgentsRouterB15.publicDetail(agentId: id)

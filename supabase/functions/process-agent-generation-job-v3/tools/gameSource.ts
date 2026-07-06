@@ -5,6 +5,7 @@
 // exact V2-formatted game.
 
 import { fetchGamesForSport } from "../../shared/agentGameHelpers.ts";
+import { getDateTimeInET } from "../../shared/dateUtils.ts";
 import type { AgentGenContext, FormattedGame, Sport } from "./context.ts";
 import type { LensName, SteeringProfile } from "../deriveSteeringProfile.ts";
 
@@ -53,6 +54,14 @@ const MIN_GAMES = (sports: Sport[]) => (sports.length === 1 && sports[0] === "ml
 /** Fetch + cache all games for the agent's preferred sports. Mutates ctx.games. */
 export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; bySport: { sport: Sport; count: number }[] }> {
   const bySport: { sport: Sport; count: number }[] = [];
+  // Week runs: never offer a game that has already kicked off (+10 min buffer)
+  // — a week-long parlay must be built from the REMAINING games of the football
+  // week. Dry runs skip this (dryrun football is 2025-dated; the filter would
+  // drop everything). See .claude/docs/agents/16_PARLAY_AGENTS.md.
+  const notStartedCutoff = ctx.window === "week" && !ctx.dryRun
+    ? getDateTimeInET(new Date(Date.now() + 10 * 60 * 1000))
+    : null;
+  let startedDropped = 0;
   for (const sport of ctx.steering.preferredSports as Sport[]) {
     try {
       // V3 reads the 2026 dryrun staging tables (nfl_dryrun_games /
@@ -64,6 +73,11 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
       for (const fg of formattedGames as FormattedGame[]) {
         const id = String((fg as Record<string, unknown>).game_id ?? "");
         if (!id) continue;
+        if (notStartedCutoff) {
+          const gd = String((fg as Record<string, unknown>).game_date ?? "");
+          const gt = String((fg as Record<string, unknown>).game_time ?? "00:00:00");
+          if (gd && `${gd}T${gt}` <= notStartedCutoff) { startedDropped++; continue; }
+        }
         ctx.games.set(id, { sport, fg });
         ctx.slateGameIds.add(id);
         n++;
@@ -73,6 +87,9 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
       console.error(`[v3] loadGames ${sport} failed:`, e instanceof Error ? e.message : e);
       bySport.push({ sport, count: 0 });
     }
+  }
+  if (startedDropped > 0) {
+    console.log(`[v3] loadGames: dropped ${startedDropped} already-started game(s) (week window)`);
   }
   return { total: ctx.games.size, bySport };
 }
@@ -140,7 +157,9 @@ export function buildSlate(ctx: AgentGenContext): SlateResult {
 
   return {
     count: rows.length,
-    weak: rows.length < MIN_GAMES(steering.preferredSports as Sport[]),
+    // Week windows: even one remaining game is a usable slate (the orchestrator
+    // also skips the weak-slate early-out for week runs).
+    weak: rows.length < (ctx.window === "week" ? 1 : MIN_GAMES(steering.preferredSports as Sport[])),
     sport_groups: [...groups.entries()].map(([sport, count]) => ({ sport, count })),
     lens_manifest: lenses.map((l) => ({ lens: l.lens, priority: l.priority })),
     games: rows,

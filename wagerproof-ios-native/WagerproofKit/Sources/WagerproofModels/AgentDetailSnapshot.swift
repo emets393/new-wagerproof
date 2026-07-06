@@ -17,6 +17,14 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
     /// Today's parlay tickets. `[]` until the RPC migration that adds
     /// `todays_parlays` is live — the key is decoded tolerantly.
     public let todaysParlays: [AgentParlay]
+    /// Active week-long parlay tickets for the current football week (Tue→Mon).
+    /// `[]` until the weekly-parlay RPC migration is live.
+    public let weeklyParlays: [AgentParlay]
+    /// Server-computed manual weekly-parlay budget left this football week
+    /// (0–3). Nil on pre-migration servers.
+    public let weeklyGenerationsRemaining: Int?
+    /// The current football week's key (its ET Tuesday, `yyyy-MM-dd`).
+    public let weekKey: String?
     public let todaysGenerationRun: AgentGenerationRunSummary?
     /// A LIVE run (queued/processing, started in the last ~12 min). Non-nil
     /// means a generation is in flight right now — the client resumes polling
@@ -31,6 +39,9 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
         case performance
         case todaysPicks = "todays_picks"
         case todaysParlays = "todays_parlays"
+        case weeklyParlays = "weekly_parlays"
+        case weeklyGenerationsRemaining = "weekly_generations_remaining"
+        case weekKey = "week_key"
         case todaysGenerationRun = "todays_generation_run"
         case activeGenerationRun = "active_generation_run"
         case canViewAgentPicks = "can_view_agent_picks"
@@ -44,6 +55,9 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
         self.performance = try? c.decodeIfPresent(AgentPerformance.self, forKey: .performance)
         self.todaysPicks = AgentPick.decodeLossyArray(from: c, forKey: .todaysPicks)
         self.todaysParlays = AgentParlay.decodeLossyArray(from: c, forKey: .todaysParlays)
+        self.weeklyParlays = AgentParlay.decodeLossyArray(from: c, forKey: .weeklyParlays)
+        self.weeklyGenerationsRemaining = try? c.decodeIfPresent(Int.self, forKey: .weeklyGenerationsRemaining)
+        self.weekKey = try? c.decodeIfPresent(String.self, forKey: .weekKey)
         self.todaysGenerationRun = try? c.decodeIfPresent(AgentGenerationRunSummary.self, forKey: .todaysGenerationRun)
         self.activeGenerationRun = try? c.decodeIfPresent(AgentGenerationRunSummary.self, forKey: .activeGenerationRun)
         self.canViewAgentPicks = (try? c.decode(Bool.self, forKey: .canViewAgentPicks)) ?? false
@@ -56,6 +70,9 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
         performance: AgentPerformance? = nil,
         todaysPicks: [AgentPick] = [],
         todaysParlays: [AgentParlay] = [],
+        weeklyParlays: [AgentParlay] = [],
+        weeklyGenerationsRemaining: Int? = nil,
+        weekKey: String? = nil,
         todaysGenerationRun: AgentGenerationRunSummary? = nil,
         activeGenerationRun: AgentGenerationRunSummary? = nil,
         canViewAgentPicks: Bool = false,
@@ -66,6 +83,9 @@ public struct AgentDetailSnapshot: Codable, Sendable, Hashable {
         self.performance = performance
         self.todaysPicks = todaysPicks
         self.todaysParlays = todaysParlays
+        self.weeklyParlays = weeklyParlays
+        self.weeklyGenerationsRemaining = weeklyGenerationsRemaining
+        self.weekKey = weekKey
         self.todaysGenerationRun = todaysGenerationRun
         self.activeGenerationRun = activeGenerationRun
         self.canViewAgentPicks = canViewAgentPicks
@@ -135,6 +155,9 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
     /// Trigger.dev run id — set on `active_generation_run` rows so the client
     /// can resume live polling of an in-flight run.
     public let triggerRunId: String?
+    /// 'daily' | 'weekly' — which product this run belongs to; the client uses
+    /// it to resume the live card in the right section. Nil pre-migration.
+    public let runScope: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -149,6 +172,7 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
         case createdAt = "created_at"
         case slateNote = "slate_note"
         case triggerRunId = "trigger_run_id"
+        case runScope = "run_scope"
     }
 
     public init(from decoder: Decoder) throws {
@@ -165,6 +189,7 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
         self.createdAt = try? c.decodeIfPresent(String.self, forKey: .createdAt)
         self.slateNote = try? c.decodeIfPresent(String.self, forKey: .slateNote)
         self.triggerRunId = try? c.decodeIfPresent(String.self, forKey: .triggerRunId)
+        self.runScope = try? c.decodeIfPresent(String.self, forKey: .runScope)
     }
 
     public init(
@@ -179,7 +204,8 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
         completedAt: String? = nil,
         createdAt: String? = nil,
         slateNote: String? = nil,
-        triggerRunId: String? = nil
+        triggerRunId: String? = nil,
+        runScope: String? = nil
     ) {
         self.id = id
         self.avatarId = avatarId
@@ -193,6 +219,7 @@ public struct AgentGenerationRunSummary: Codable, Sendable, Hashable, Identifiab
         self.createdAt = createdAt
         self.slateNote = slateNote
         self.triggerRunId = triggerRunId
+        self.runScope = runScope
     }
 }
 

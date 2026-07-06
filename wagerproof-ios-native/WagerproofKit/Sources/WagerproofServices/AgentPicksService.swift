@@ -232,7 +232,8 @@ public enum AgentPicksService {
         agentId: String,
         idempotencyKey: String? = nil,
         dryRun: Bool? = nil,
-        modelName: String? = nil
+        modelName: String? = nil,
+        window: String? = nil
     ) async throws -> GenerationRequestResult {
         let client = await MainSupabase.shared.client
         let session = try? await client.auth.session
@@ -244,6 +245,9 @@ public enum AgentPicksService {
             let idempotency_key: String?
             let dry_run: Bool?
             let model_name: String?
+            // "week" = build the ONE week-long NFL/CFB parlay (separate
+            // 3/football-week budget server-side); nil/anything else = daily.
+            let window: String?
         }
         let response: GenerationRequestResult = try await client.functions.invoke(
             "trigger-v3-run",
@@ -253,7 +257,8 @@ public enum AgentPicksService {
                     avatar_id: agentId,
                     idempotency_key: idempotencyKey,
                     dry_run: dryRun,
-                    model_name: modelName
+                    model_name: modelName,
+                    window: window
                 )
             )
         )

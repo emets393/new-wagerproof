@@ -76,8 +76,8 @@ struct AgentPickTicket: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(PickTicketFormat.gameDate(pick.gameDate))
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color.appTextPrimary.opacity(0.85))
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.appTextSecondary)
                 Spacer()
                 Text(status.text)
                     .font(.system(size: 11, weight: .heavy))
@@ -91,31 +91,30 @@ struct AgentPickTicket: View {
 
             Spacer(minLength: 8)
 
-            PickRouteLineRow(pick: pick, codeSize: 32)
+            // The pick itself, promoted to the ticket's hero line: in the fanned
+            // rolodex only the TOP of each ticket peeks out, so leading with the
+            // selection (not the matchup) is what makes the pile scannable.
+            // In teaser mode it blurs behind the lock — the matchup route below
+            // stays legible so the game is still identifiable.
+            Text(pick.pickSelection)
+                .font(.system(size: 24, weight: .heavy))
+                .foregroundStyle(Color.appTextPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .blur(radius: teaserBlur ? 6 : 0)
+                .overlay { if teaserBlur { teaserLockChip } }
 
-            HStack(alignment: .firstTextBaseline) {
-                Text(pick.awayHomeNames?.away ?? pick.matchup)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .lineLimit(1)
-                Spacer()
-                Text(pick.betType.capitalized)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .lineLimit(1)
-                    .blur(radius: teaserBlur ? 5 : 0)
-                Spacer()
-                Text(pick.awayHomeNames?.home ?? "")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .lineLimit(1)
-            }
-            .padding(.top, 4)
+            Spacer(minLength: 8)
 
-            Spacer(minLength: 10)
+            // Matchup demoted beneath the pick — the team route stays for context
+            // (which game) but no longer competes with the selection for the eye.
+            PickRouteLineRow(pick: pick, codeSize: 22)
+
+            Spacer(minLength: 8)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 18)
+        .padding(.top, 16)
         .overlay(alignment: .bottom) {
             PickDashLine()
                 .stroke(Color.white.opacity(0.16),
@@ -126,7 +125,7 @@ struct AgentPickTicket: View {
     }
 
     private var bottomSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 PickTicketStamp(label: "Market", value: PickTicketFormat.market(pick), alignment: .leading)
                 Spacer()
@@ -135,52 +134,50 @@ struct AgentPickTicket: View {
                 PickTicketStamp(label: "Units", value: PickTicketFormat.units(pick.units), alignment: .trailing)
             }
 
+            // Confidence as a 5-dot meter — conviction read at a glance now that
+            // the selection itself has moved up to the hero line.
             HStack(spacing: 8) {
-                // The pick shown proud — no quotes, no italic; the loudest line
-                // in the bottom stub.
-                Text(pick.pickSelection)
-                    .font(.system(size: 15, weight: .heavy))
-                    .foregroundStyle(Color.appTextPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                Text("CONFIDENCE")
+                    .font(.system(size: 11, weight: .heavy))
+                    .tracking(1)
+                    .foregroundStyle(Color.appTextSecondary)
                 Spacer()
                 HStack(spacing: 4) {
-                    Image(systemName: "gauge.medium")
-                        .font(.system(size: 9, weight: .bold))
-                    Text("\(pick.confidence)/5")
-                        .font(.system(size: 10, weight: .bold))
+                    ForEach(0..<5, id: \.self) { i in
+                        Circle()
+                            .fill(i < pick.confidence ? accent : Color.white.opacity(0.14))
+                            .frame(width: 7, height: 7)
+                    }
                 }
-                .foregroundStyle(accent)
             }
+
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
         .padding(.top, 14)
         .padding(.bottom, 14)
-        // Teaser: the whole stub (market/odds/units/selection/confidence)
-        // blurs unreadable; a lock chip explains why. Clip so the blur
-        // doesn't smear past the cardstock edges.
+        // Teaser: the stub (market/odds/units/confidence) blurs unreadable; the
+        // lock chip lives on the hero pick above. Clip so the blur doesn't smear
+        // past the cardstock edges.
         .blur(radius: teaserBlur ? 6 : 0)
         .clipped()
-        .overlay {
-            if teaserBlur {
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 11, weight: .bold))
-                    Text("Unlock in the app")
-                        .font(.system(size: 12, weight: .heavy))
-                        .tracking(0.3)
-                }
-                .foregroundStyle(accent)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(
-                    Capsule().fill(Color(hex: 0x0D101A).opacity(0.85))
-                )
-                .overlay(
-                    Capsule().strokeBorder(accent.opacity(0.5), lineWidth: 1)
-                )
-            }
+    }
+
+    /// The "Unlock in the app" chip overlaid on the blurred hero pick in teaser
+    /// (onboarding-reveal) mode.
+    private var teaserLockChip: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 11, weight: .bold))
+            Text("Unlock in the app")
+                .font(.system(size: 12, weight: .heavy))
+                .tracking(0.3)
         }
+        .foregroundStyle(accent)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(Color(hex: 0x0D101A).opacity(0.85)))
+        .overlay(Capsule().strokeBorder(accent.opacity(0.5), lineWidth: 1))
     }
 }
 

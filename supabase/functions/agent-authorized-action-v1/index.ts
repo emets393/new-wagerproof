@@ -35,7 +35,9 @@ type AgentAction =
   | 'picks_page'
   | 'create_agent'
   | 'update_agent'
-  | 'request_generation';
+  | 'request_generation'
+  | 'delete_pick'
+  | 'delete_parlay';
 
 interface AgentActionRequest {
   action?: AgentAction;
@@ -91,7 +93,8 @@ serve(async (req) => {
       `[agent-authorized-action-v1] action=${action} hasAuthHeader=${!!authHeader} authHeaderStart=${authHeader?.substring(0, 20) ?? 'null'} resolvedUserId=${userId ?? 'null'}`,
     );
 
-    const requiresAuth = action === 'create_agent' || action === 'update_agent' || action === 'request_generation';
+    const requiresAuth = action === 'create_agent' || action === 'update_agent' || action === 'request_generation'
+      || action === 'delete_pick' || action === 'delete_parlay';
     if (requiresAuth && !userId) {
       return errorResponse(401, 'User authentication required');
     }
@@ -340,6 +343,39 @@ serve(async (req) => {
         }
 
         return successResponse(data);
+      }
+
+      // Swipe-to-trash deletes. Ownership + pending-only guards live in the
+      // SECURITY DEFINER RPCs, which also rerun recalculate_avatar_performance
+      // synchronously so the caller can refresh stats immediately after.
+      case 'delete_pick':
+      case 'delete_parlay': {
+        const isPick = action === 'delete_pick';
+        const targetId = (body.data as Record<string, unknown> | undefined)?.[isPick ? 'pick_id' : 'parlay_id'];
+        if (!targetId || typeof targetId !== 'string') {
+          return errorResponse(400, isPick ? 'Missing pick_id' : 'Missing parlay_id');
+        }
+
+        const { data, error } = await serviceClient.rpc(
+          isPick ? 'delete_agent_pick' : 'delete_agent_parlay',
+          isPick
+            ? { p_user_id: userId, p_pick_id: targetId }
+            : { p_user_id: userId, p_parlay_id: targetId },
+        );
+        if (error) {
+          console.error(`[agent-authorized-action-v1] ${action} error:`, error);
+          return errorResponse(500, isPick ? 'Failed to delete pick' : 'Failed to delete parlay');
+        }
+
+        const result = (data ?? {}) as { deleted?: boolean; reason?: string };
+        if (result.deleted !== true) {
+          if (result.reason === 'not_found') return errorResponse(404, 'Not found');
+          if (result.reason === 'already_graded') return errorResponse(409, 'This ticket has already been graded and is on the record.');
+          if (result.reason === 'legs_in_progress') return errorResponse(409, 'This parlay has legs already settled and is on the record.');
+          return errorResponse(409, 'Could not delete');
+        }
+
+        return successResponse({ deleted: true });
       }
 
       default:

@@ -24,7 +24,41 @@ struct Step3PersonalityView: View {
         ("spread", "Spread"),
         ("moneyline", "ML"),
         ("total", "Total"),
+        ("prop", "Props"),
     ]
+
+    // Flat market allowlist options (mirrors agents-v3 ALL_MARKETS). 'prop' is
+    // NFL-only and only shown when the agent includes NFL. See plan D2.
+    private let marketOptions: [(value: String, label: String)] = [
+        ("spread", "Spread"), ("moneyline", "Moneyline"), ("total", "Total"),
+        ("team_total", "Team Total"), ("prop", "Player Props"),
+    ]
+    private let propsEmphasisOptions: [(value: String, label: String)] = [
+        ("off", "Off"), ("allow", "Allow"), ("emphasize", "Emphasize"),
+    ]
+
+    private var hasNFL: Bool { store.draft.preferredSports.contains(.nfl) }
+
+    /// Effective allowlist: nil/empty ⇒ all markets (excluding 'prop' without NFL).
+    private var effectiveMarkets: Set<String> {
+        if let m = store.draft.personalityParams.allowedMarkets, !m.isEmpty { return Set(m) }
+        return Set(marketOptions.map { $0.value }.filter { $0 != "prop" || hasNFL })
+    }
+
+    private func toggleMarket(_ key: String) {
+        var set = effectiveMarkets
+        if set.contains(key) {
+            if set.count > 1 { set.remove(key) }   // keep at least one market
+        } else {
+            set.insert(key)
+        }
+        store.draft.personalityParams.allowedMarkets = marketOptions.map { $0.value }.filter { set.contains($0) }
+    }
+
+    private var propsEmphasisBind: Binding<String> {
+        Binding(get: { store.draft.personalityParams.propsEmphasis ?? "allow" },
+                set: { store.draft.personalityParams.propsEmphasis = $0 })
+    }
 
     var body: some View {
         Form {
@@ -124,6 +158,47 @@ struct Step3PersonalityView: View {
                     label: "Skip Weak Slates",
                     description: "Pass on days with few games or poor betting opportunities"
                 )
+            }
+
+            Section {
+                ForEach(marketOptions.filter { $0.value != "prop" || hasNFL }, id: \.value) { market in
+                    Button {
+                        toggleMarket(market.value)
+                    } label: {
+                        HStack {
+                            Text(market.label).foregroundStyle(Color.appTextPrimary)
+                            Spacer()
+                            if effectiveMarkets.contains(market.value) {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color(hex: 0x00E676))
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                        }
+                    }
+                }
+                if hasNFL && effectiveMarkets.contains("prop") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Player Props Emphasis")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.appTextPrimary)
+                        Text("How hard should this agent lean into signal-backed player props?")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.appTextSecondary)
+                        Picker("Props Emphasis", selection: propsEmphasisBind) {
+                            ForEach(propsEmphasisOptions, id: \.value) { entry in
+                                Text(entry.label).tag(entry.value)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } header: {
+                Text("Markets & Props")
+            } footer: {
+                Text(hasNFL
+                     ? "Which bet markets this agent may stake — also used as parlay legs. Player props are NFL-only and signal-gated."
+                     : "Which bet markets this agent may stake. Add NFL to enable player props.")
             }
         }
     }

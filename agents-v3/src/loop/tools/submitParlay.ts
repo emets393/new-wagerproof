@@ -12,6 +12,7 @@
 
 import { clampUnits } from "../unitBands";
 import { ensureFormattedGameSnapshot } from "../../shared/agentGameHelpers";
+import { footballWeekFinalDate } from "../../shared/dateUtils";
 import { type AgentGenContext, type SubmitReport } from "./context";
 // Reuse the ONE prop-key builder so a prop leg's gate keys byte-identically to
 // the keys get_props registers in ctx.bettableProps (same as submitPicks.ts).
@@ -89,7 +90,9 @@ export async function submitParlay(
     return report;
   }
 
-  const maxLegs = Math.min(4, Math.max(2, ctx.steering.maxParlayLegs || 0));
+  // Week-long runs allow 6-leg tickets (vs the daily hard cap of 4).
+  const weekly = ctx.window === "week";
+  const maxLegs = Math.min(weekly ? 6 : 4, Math.max(2, ctx.steering.maxParlayLegs || 0));
   // Parlays reject as a unit; the "bet_type" field carries "parlay", game_id the label.
   const reject = (label: string, reason: string) =>
     report.rejected.push({ game_id: label, bet_type: "parlay", reason });
@@ -97,6 +100,12 @@ export async function submitParlay(
   const toWrite: { parlay: Record<string, unknown>; legs: LegRow[] }[] = [];
 
   for (let p = 0; p < rawParlays.length; p++) {
+    // Week runs produce exactly ONE ticket — counted across submit_parlay calls,
+    // since the tool is non-terminal and could be invoked more than once.
+    if (weekly && ctx.weeklyTicketsSubmitted + toWrite.length >= 1) {
+      reject(`parlay#${p + 1}`, "weekly_single_ticket: a week-long run submits exactly ONE parlay ticket");
+      continue;
+    }
     const par = rawParlays[p] as Record<string, unknown>;
     const label = `parlay#${p + 1}`;
     const rawLegs = Array.isArray(par?.legs) ? par.legs : [];
@@ -167,6 +176,12 @@ export async function submitParlay(
       if (!loaded) { legFailure = `leg ${gameId}: game_not_loaded`; break; }
       const gameSnapshot = loaded.fg as Record<string, unknown>;
       const sportType = loaded.sport;
+      // Sport enforcement (defense in depth): reject a leg for a sport the agent
+      // no longer has selected. See plan D1.
+      if (!ctx.steering.preferredSports.includes(sportType)) { legFailure = `leg ${gameId}: sport_not_selected ${sportType}`; break; }
+      // Market allowlist gate (see plan D2): reject a leg whose bet_type the agent
+      // doesn't permit. Skipped when steering has no allowlist (legacy).
+      if (ctx.steering.allowedMarkets && !ctx.steering.allowedMarkets.includes(betType)) { legFailure = `leg ${gameId}: market_not_allowed ${betType}`; break; }
       const matchup = String(gameSnapshot.matchup || `${gameSnapshot.away_team} @ ${gameSnapshot.home_team}`);
       const gameDate = String(gameSnapshot.game_date || gameSnapshot.game_date_et || ctx.targetDate);
 
@@ -307,7 +322,12 @@ export async function submitParlay(
     toWrite.push({
       parlay: {
         avatar_id: ctx.avatarId,
-        target_date: ctx.targetDate,
+        // Weekly tickets: target_date = the week's Monday (final game night) so
+        // date-based history bucketing graduates them only after the week ends;
+        // week_key (the ET Tuesday) is what the snapshot RPC surfaces them by.
+        target_date: weekly && ctx.weekKey ? footballWeekFinalDate(ctx.weekKey) : ctx.targetDate,
+        scope: weekly ? "weekly" : "daily",
+        week_key: weekly ? ctx.weekKey : null,
         sport,
         legs_count: legs.length,
         combined_odds: combinedOdds,
@@ -335,14 +355,16 @@ export async function submitParlay(
   report.accepted = toWrite.length;
   report.allAccepted = report.rejected.length === 0;
 
+  // Count weekly tickets across calls even on dry runs, so a second
+  // submit_parlay call in the same run still hits the single-ticket guard.
+  if (weekly) ctx.weeklyTicketsSubmitted += toWrite.length;
+
   // ── Write (skipped on dry_run) ────────────────────────────────────────
+  // Regens are ADDITIVE: no delete of prior tickets here anymore. Every
+  // (re)generation stacks a new ticket; users curate via the swipe-to-trash
+  // delete (delete_agent_parlay RPC). This also guarantees weekly and daily
+  // runs can never clobber each other's tickets.
   if (!ctx.dryRun && toWrite.length > 0) {
-    // Manual regen: clear this run-date's prior parlays for the agent first
-    // (parallel to submit_picks' delete; legs cascade on the parent delete).
-    if (ctx.generationType === "manual") {
-      await ctx.main.from("avatar_parlays").delete()
-        .eq("avatar_id", ctx.avatarId).eq("target_date", ctx.targetDate);
-    }
     for (const { parlay, legs } of toWrite) {
       const { data: ins, error: pErr } = await ctx.main
         .from("avatar_parlays").insert(parlay).select("id").single();

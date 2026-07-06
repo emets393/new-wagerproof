@@ -10,7 +10,12 @@
 
 import type { SteeringProfile } from "./deriveSteeringProfile";
 
-export function buildV3SystemPrompt(steering: SteeringProfile, today: string): string {
+export function buildV3SystemPrompt(
+  steering: SteeringProfile,
+  today: string,
+  opts?: { window?: "day" | "week"; weekKey?: string | null },
+): string {
+  const weekly = opts?.window === "week";
   const mlbOnly = steering.preferredSports.length === 1 && steering.preferredSports[0] === "mlb";
   const multiSport = steering.preferredSports.length > 1;
   const sportsList = steering.preferredSports.map((s) => s.toUpperCase()).join(", ");
@@ -32,10 +37,18 @@ export function buildV3SystemPrompt(steering: SteeringProfile, today: string): s
     ci.avoid_situations ? `## Situations To Avoid\n${ci.avoid_situations}` : "",
   ].filter(Boolean).join("\n\n");
 
-  return `You are a disciplined sports-betting analyst generating today's picks for ONE agent with a specific personality. Today is ${today} (ET).
+  // Week-long parlay mission: the run is forced into parlays-only steering, so
+  // the step-4 parlaysOnly prose below already governs the mechanics; this block
+  // sets the mission (ONE ticket, legs across the remaining football week).
+  const weeklyMission = weekly
+    ? `\n## Week-long parlay mission (this run)
+You are building ONE week-long parlay ticket from the REMAINING NFL/CFB games of the current football week (through Monday night). Combine your 2–${steering.maxParlayLegs} highest-conviction plays — legs may (and ideally do) span DIFFERENT days of the week. Submit EXACTLY ONE submit_parlay ticket, then call submit_picks with an EMPTY picks array to finalize. The ticket stays live until its last leg settles.\n`
+    : "";
 
+  return `You are a disciplined sports-betting analyst ${weekly ? "building a week-long parlay ticket" : "generating today's picks"} for ONE agent with a specific personality. Today is ${today} (ET).
+${weeklyMission}
 ## How you work (follow exactly)
-1. Your first message already contains the SLATE — every game available today, annotated with the data lenses that matter to YOU. You did not have to ask for it.
+1. Your first message already contains the SLATE — ${weekly ? "every remaining game of the current football week" : "every game available today"}, annotated with the data lenses that matter to YOU. You did not have to ask for it.
 2. NARROW: from the slate, choose the handful of games that best fit your personality and where you see an edge. Do not analyze every game.
 3. DRILL IN: call the data tools (in your priority order) on ONLY the narrowed games to pull full detail. Batch game_ids in one call where you can.
 4. SIZE & SUBMIT: size each play by your conviction.${steering.parlaysOnly ? ` This agent bets PARLAYS ONLY: put every play into submit_parlay tickets of 2–${steering.maxParlayLegs} legs from DIFFERENT games (cross-game ONLY — never correlated same-game legs; player props are the only same-game exception, EXCEPT the volume markets player_pass_attempts / player_rush_attempts / player_pass_completions, which reflect the whole game script and must be the ONLY leg from their game — never pair one with any other pick from the same game). Straight picks are rejected.` : steering.maxParlayLegs > 0 ? ` Optionally call submit_parlay first to combine 2–${steering.maxParlayLegs} plays from DIFFERENT games into one ticket (cross-game ONLY — never correlated same-game legs; player props are the only same-game exception, EXCEPT the volume markets player_pass_attempts / player_rush_attempts / player_pass_completions, which reflect the whole game script and must be the ONLY leg from their game — never pair one with any other pick from the same game).` : ""} You MUST ALWAYS finish by calling submit_picks exactly once — it is the REQUIRED final step that ends your turn. ${steering.parlaysOnly ? "Its picks list must be EMPTY — it only finalizes the run after your parlays." : "Put your straight (non-parlay) picks in it; if you put every play into a parlay, still call submit_picks with an empty picks list to finalize."} For EVERY pick (and every parlay leg), fill decision_trace.leaned_metrics with the 2-5 numbers that actually drove it, and set each metric's source_tool_call_id to the id of the tool call it came from (or "slate" if you read it off the slate row) — this is your audit trail.

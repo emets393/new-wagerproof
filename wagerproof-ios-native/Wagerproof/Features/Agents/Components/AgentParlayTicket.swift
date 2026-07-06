@@ -85,6 +85,10 @@ struct BetItemTicket: View {
 struct AgentParlayTicket: View {
     let parlay: AgentParlay
     var accent: Color = .appPrimary
+    /// Leg rows rendered before truncation. Folder/rolodex call sites keep the
+    /// default 4 (their stack physics assume it); the Week Long Parlays section
+    /// passes 6 so a full week ticket shows every leg.
+    var maxShownLegs: Int = 4
 
     // Geometry: header + N leg rows above the tear line, a 100pt stub below
     // (same stub height as AgentPickTicket so the bottoms rhyme in the pile).
@@ -92,17 +96,17 @@ struct AgentParlayTicket: View {
     static let legRowHeight: CGFloat = 44
     static let stubHeight: CGFloat = 100
 
-    static func notchY(forLegs n: Int) -> CGFloat {
-        headerHeight + legRowHeight * CGFloat(max(2, min(n, 4)))
+    static func notchY(forLegs n: Int, maxLegs: Int = 4) -> CGFloat {
+        headerHeight + legRowHeight * CGFloat(max(2, min(n, maxLegs)))
     }
 
-    static func height(forLegs n: Int) -> CGFloat {
-        notchY(forLegs: n) + stubHeight
+    static func height(forLegs n: Int, maxLegs: Int = 4) -> CGFloat {
+        notchY(forLegs: n, maxLegs: maxLegs) + stubHeight
     }
 
     private var status: PickTicketStatus { parlay.ticketStatus }
-    private var shownLegs: [AgentParlayLeg] { Array(parlay.legs.prefix(4)) }
-    private var notchY: CGFloat { Self.notchY(forLegs: shownLegs.count) }
+    private var shownLegs: [AgentParlayLeg] { Array(parlay.legs.prefix(maxShownLegs)) }
+    private var notchY: CGFloat { Self.notchY(forLegs: shownLegs.count, maxLegs: maxShownLegs) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -111,7 +115,7 @@ struct AgentParlayTicket: View {
             bottomSection
                 .frame(height: Self.stubHeight)
         }
-        .frame(height: Self.height(forLegs: shownLegs.count))
+        .frame(height: Self.height(forLegs: shownLegs.count, maxLegs: maxShownLegs))
         .background {
             PickTicketShape(notchY: notchY)
                 .fill(LinearGradient(colors: [Color(hex: 0x141927), Color(hex: 0x0D101A)],

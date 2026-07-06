@@ -22,6 +22,38 @@ export function getDateInET(date: Date): string {
 }
 
 /**
+ * Get a date+time in Eastern Time formatted as YYYY-MM-DDTHH:mm:ss —
+ * lexicographically comparable with `${game_date}T${game_time}` strings.
+ */
+export function getDateTimeInET(date: Date): string {
+  const easternTime = toZonedTime(date, 'America/New_York');
+  return format(easternTime, "yyyy-MM-dd'T'HH:mm:ss");
+}
+
+/**
+ * Tuesday-anchored football week key (Tue..Mon window) in ET, matching the
+ * NFL's Tuesday rollover. MUST stay in lockstep with SQL
+ * public.football_week_key(). Returns YYYY-MM-DD (the Tuesday).
+ */
+export function getFootballWeekKeyET(now: Date = new Date()): string {
+  const easternTime = toZonedTime(now, 'America/New_York');
+  // Sun=0..Sat=6; Tue=2 → (day+5)%7 = days since Tuesday.
+  easternTime.setDate(easternTime.getDate() - ((easternTime.getDay() + 5) % 7));
+  return format(easternTime, 'yyyy-MM-dd');
+}
+
+/**
+ * The football week's final game date (the Monday), i.e. week_key + 6 days.
+ * Weekly parlays store this as target_date so date-based history bucketing
+ * graduates them only after Monday night.
+ */
+export function footballWeekFinalDate(weekKey: string): string {
+  const d = new Date(`${weekKey}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 6);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
  * Get current date and time info for logging purposes
  */
 export function getDateDebugInfo() {

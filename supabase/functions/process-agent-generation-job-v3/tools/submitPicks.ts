@@ -103,6 +103,20 @@ export async function submitPicks(
     const loaded = ctx.games.get(gameId)!; // guaranteed present (slate gate)
     const gameSnapshot = loaded.fg as Record<string, unknown>;
     const sportType = loaded.sport;
+    // Sport enforcement (defense in depth): never stake a sport the agent no
+    // longer has selected. The slate only loads preferred sports, so this should
+    // never fire — but it makes the guarantee explicit + testable. See plan D1.
+    if (!ctx.steering.preferredSports.includes(sportType)) {
+      reject(gameId, betType, `sport_not_selected: ${sportType} not in agent's preferred_sports`);
+      continue;
+    }
+    // Market allowlist gate: reject a bet_type the agent doesn't permit (props,
+    // team_total, or a disallowed straight). Skipped when steering has no
+    // allowlist (legacy). See plan D2.
+    if (ctx.steering.allowedMarkets && !ctx.steering.allowedMarkets.includes(betType)) {
+      reject(gameId, betType, `market_not_allowed: ${betType} is not in this agent's allowed markets`);
+      continue;
+    }
     const matchup = String(gameSnapshot.matchup || `${gameSnapshot.away_team} @ ${gameSnapshot.home_team}`);
     const gameDate = String(gameSnapshot.game_date || gameSnapshot.game_date_et || ctx.targetDate);
 
@@ -376,11 +390,10 @@ export async function submitPicks(
   const propRows = picksToInsert.filter((p) => p.bet_type === "prop");
 
   if (!ctx.dryRun && picksToInsert.length > 0) {
-    if (ctx.generationType === "manual") {
-      const ids = picksToInsert.map((p) => p.game_id as string);
-      await ctx.main.from("avatar_picks").delete().eq("avatar_id", ctx.avatarId).in("game_id", ids);
-    }
-
+    // Regens are ADDITIVE: no manual-regen delete here anymore. Distinct new
+    // picks stack; a re-pick of the SAME market merges through the upsert on
+    // unique_avatar_pick(avatar_id, game_id, bet_type). Users curate via the
+    // swipe-to-trash delete (delete_agent_pick RPC).
     if (straightRows.length > 0) {
       const { error } = await ctx.main
         .from("avatar_picks")
