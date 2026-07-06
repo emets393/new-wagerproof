@@ -215,6 +215,14 @@ struct AgentsView: View {
                     store.bind(userId: newId)
                     Task { await store.refresh() }
                 }
+                // Consume a Search-originated deep link into an agent's detail.
+                // `initial: true` covers the cold-mount case (the user tapped a
+                // search result before ever visiting this tab, so the route was
+                // set before this view existed); the nil guard makes the extra
+                // fires on inner-tab switches harmless.
+                .onChange(of: tabStore.pendingAgentRoute, initial: true) {
+                    consumePendingAgentRoute()
+                }
                 .refreshable {
                     await refreshActive()
                 }
@@ -896,6 +904,20 @@ struct AgentsView: View {
             return userId.uuidString.lowercased()
         }
         return nil
+    }
+
+    /// Push the agent detail requested from the global Search tab, then clear
+    /// the flag so it fires exactly once. Public/leaderboard agents open the
+    /// read-only detail; the user's own agents open the owner detail — matching
+    /// how this view routes its own list rows. See `SearchView.openAgent`.
+    private func consumePendingAgentRoute() {
+        guard let route = tabStore.pendingAgentRoute else { return }
+        tabStore.pendingAgentRoute = nil
+        navPath.append(
+            route.isPublic
+                ? AgentsRoute.publicAgentDetail(agentId: route.agentId)
+                : AgentsRoute.agentDetail(agentId: route.agentId)
+        )
     }
 
     private func refreshActive() async {
