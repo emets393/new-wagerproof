@@ -182,6 +182,54 @@ DEFS = [
      "82%/79% across 2024/25 for +50% ROI; thinner sample (n=50) so medium conviction.",
      "Rushing yards Over", "80% / +50% ROI [82,79] (thin)", "med"),
 
+    # ---------------- props — attempts volume model (nfl-game-script-analysis) ----------------
+    ("P14_attempts_model_under", "Volume Model — Attempts Under", "player_prop",
+     "Our volume model projects fewer attempts/carries than the posted line -> Under.",
+     "A gradient-boosted model predicts a player's pass or rush attempts from team-offense "
+     "pace/pass-rate, the opponent defense, and the game script; when its projection sits "
+     "1.5+ below the posted attempts line, bet the Under. Fires on pass-attempts and "
+     "rush-attempts only.",
+     "Volume overs are shaded (the public loves overs), so the model can't beat the market's "
+     "point estimate on accuracy — but when it flags a line as inflated the Under is +EV. "
+     "Selective (beats betting every under), favorite-neutral, and held both seasons: "
+     "rush attempts 59% / +6-8% ROI, pass attempts 56% / +5%.",
+     "Rushing/passing attempts Under", "rush 59% / +7%, pass 56% / +5% [both yrs]", "med"),
+    ("P15_attempts_steam_under", "Attempts Steam Under", "player_prop",
+     "The attempts line steamed up into the close -> fade it to the Under.",
+     "A player's pass- or rush-attempts line rose 1+ from the open to the actionable "
+     "(T-60) close -> bet the Under. Pass-attempts and rush-attempts only.",
+     "The market over-reacts to a volume/game-script narrative and pushes the attempts "
+     "number too high; fading that steam to the Under has cleared both seasons "
+     "(rush 60% / +8%, pass 57% / +5%) and is independent of the volume model.",
+     "Rushing/passing attempts Under", "rush 60% / +8%, pass 57% / +5% [both yrs]", "med"),
+    ("P16_attempts_confluence", "Attempts Under — Model + Steam Confluence", "player_prop",
+     "Both the volume model AND the line movement agree on the attempts Under -> premium.",
+     "P14 and P15 fire on the same attempts prop: the model projects the line as inflated "
+     "AND the line steamed up into the close. Two independent reads on the same Under.",
+     "Fundamentals and market movement confirming the same Under is far stronger than "
+     "either alone — the confluence hit ~65% for +19% ROI both seasons. Thinner by "
+     "construction (agreement is rarer), so premium-but-track.",
+     "Rushing/passing attempts Under", "65% / +19% ROI [thin n~90-130, both yrs]", "high"),
+
+    ("P17_rush_yds_model_under", "Volume Model — Rush Yds Under", "player_prop",
+     "Our volume model projects a rusher's yards well below the posted line -> Under.",
+     "A gradient-boosted model predicts rushing yards from team-offense pace/run-rate, the "
+     "opponent run defense, and the game script; when its projection sits 10+ yards below the "
+     "posted rushing-yards line, bet the Under.",
+     "Rushing overs are shaded (public over-bias), so the model can't beat the market's point "
+     "estimate on accuracy — but when it flags a line as inflated the Under is +EV. Held both "
+     "seasons at 58.5% for +10% ROI, favorite-neutral. Same mechanism as the rush-attempts under.",
+     "Rushing yards Under", "58.5% / +10% ROI [55,63]", "med"),
+    ("P18_pass_tds_model_over", "Volume Model — Pass TDs Over", "player_prop",
+     "Our volume model projects a QB's passing TDs well above the posted line -> Over.",
+     "The model predicts passing touchdowns from team scoring/pass tendency, the opponent pass "
+     "defense, and the game script; when its projection sits 0.5+ TD above the posted line, bet "
+     "the Over. High-conviction only (fires ~2-3x/slate).",
+     "Passing-TD unders are shaded (the market/public fade multi-TD games), so when the model is "
+     "confidently high the Over clears. Monotonic with conviction — held ~63-69% for +5-9% ROI "
+     "both seasons at the 0.5+ threshold. The one OVER-side model edge (most prop edges are unders).",
+     "Passing TDs Over", "63-69% / +5-9% ROI [67,63]", "med"),
+
     # ---------------- props — line-vs-form & regression keepers (PROPS_BRIEF1) ----------------
     ("P1_pass_yds_form_over", "QB Pass Yds — Line Above Form Over", "player_prop",
      "QB's posted passing line sits above his recent form -> Over.",

@@ -59,6 +59,17 @@ Legs are drawn only from the agent's allowed markets (incl. signal-gated props).
 correlation guard still holds: **≤1 non-prop leg per game; props exempt.** So a single-game ticket
 = one side + N same-game props.
 
+**Volume-market exception (solo-per-game).** The three volume markets — `player_pass_attempts`,
+`player_rush_attempts`, `player_pass_completions` — are the game-script *latent factor*: they move
+with everything else in the game (validated in the prop-model deep-dive — a team's whole passing
+tree and its script all price off the same volume signal). So they are **NOT** covered by the
+"props exempt" rule. **A volume-market leg must be the ONLY leg from its game** — it cannot be
+combined with any other pick from that game (not a side, total, team total, 1H, or another prop,
+including another volume market). In a parlay a volume-market pick is always solo for its game;
+to add more from that game, use a different (non-volume) prop instead. Enforced server-side in
+`submit_parlay` (`volume_market_solo_only`), described in the leg schema, and stated in the V3
+prompt so the agent never proposes it.
+
 | | Cross-game parlay (incl. cross-sport) | Same-game parlay (SGP) |
 |---|---|---|
 | Legs | different games → **independent** | one game → **correlated** |

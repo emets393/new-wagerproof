@@ -40,8 +40,12 @@ ROOT = Path(__file__).resolve().parent
 WRITE = "--write" in sys.argv
 FORCE = "--force" in sys.argv
 SET_HOURS = (8, 14, 20)
-# 6 markets, no defensive/ST TD props ever (user rule). Same set as props_backfill.py.
-MARKETS = "player_pass_tds,player_pass_yds,player_receptions,player_reception_yds,player_rush_yds,player_anytime_td"
+# Offense skill props only, no defensive/ST TD props ever (user rule).
+# The original 6 markets (P1-P13 signals) + 3 volume markets (attempts/completions) that feed the
+# volume-model UNDER + steam-UNDER prop signals. Completions is captured for data continuity but
+# fires no signal (no validated edge) — see attempts_model.py / nfl-game-script-analysis.
+MARKETS = ("player_pass_tds,player_pass_yds,player_receptions,player_reception_yds,player_rush_yds,"
+           "player_anytime_td,player_pass_attempts,player_rush_attempts,player_pass_completions")
 BOOKS = "draftkings,fanduel,betmgm,williamhill_us"   # the 4 US books the 915K backfill used
 SPORT_KEY = "americanfootball_nfl"
 TABLE = "nfl_player_props"

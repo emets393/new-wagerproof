@@ -106,7 +106,9 @@ public enum OutliersTrendsGameMarket: String, CaseIterable, Identifiable, Sendab
 }
 
 public enum OutliersTrendsPropMarket: String, CaseIterable, Identifiable, Sendable, Hashable {
-    case all, anytimeTD, rushYards, recYards, receptions, passYards, passTDs
+    case all, passYards, passTDs, passAttempts, passCompletions,
+         rushYards, rushAttempts,
+         recYards, receptions, anytimeTD
 
     public var id: String { rawValue }
 
@@ -119,6 +121,9 @@ public enum OutliersTrendsPropMarket: String, CaseIterable, Identifiable, Sendab
         case .receptions: return "player_receptions"
         case .passYards: return "player_pass_yds"
         case .passTDs: return "player_pass_tds"
+        case .passAttempts: return "player_pass_attempts"
+        case .passCompletions: return "player_pass_completions"
+        case .rushAttempts: return "player_rush_attempts"
         }
     }
 
@@ -131,6 +136,9 @@ public enum OutliersTrendsPropMarket: String, CaseIterable, Identifiable, Sendab
         case .receptions: return "Receptions"
         case .passYards: return "Passing Yards"
         case .passTDs: return "Passing TDs"
+        case .passAttempts: return "Pass Attempts"
+        case .passCompletions: return "Completions"
+        case .rushAttempts: return "Rush Attempts"
         }
     }
 }
@@ -389,7 +397,8 @@ public struct OutliersTrendsMarketSection: Identifiable, Hashable, Sendable {
     private static let marketOrder: [String] = [
         "spread", "moneyline", "total", "team_total", "h1_spread", "h1_total",
         "ml", "rl", "ou", "f5_ml", "f5_rl", "f5_ou",
-        "player_pass_yds", "player_pass_tds", "player_rush_yds",
+        "player_pass_yds", "player_pass_tds", "player_pass_attempts", "player_pass_completions",
+        "player_rush_yds", "player_rush_attempts",
         "player_reception_yds", "player_receptions", "player_anytime_td",
     ]
 

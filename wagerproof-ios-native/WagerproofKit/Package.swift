@@ -68,6 +68,9 @@ let package = Package(
                 .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS"),
                 .product(name: "Mixpanel", package: "mixpanel-swift"),
                 .product(name: "FacebookCore", package: "facebook-ios-sdk"),
+            ],
+            resources: [
+                .process("Resources"),
             ]
         ),
         .target(

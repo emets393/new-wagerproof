@@ -682,7 +682,11 @@ public enum NFLTrendsEngine {
 
     private static func playerMarkets(for player: NFLPlayerPropTrendRecord) -> [String] {
         if player.markets.isEmpty {
-            return ["player_pass_yds", "player_pass_tds", "player_receptions", "player_reception_yds", "player_rush_yds", "player_anytime_td"]
+            return [
+                "player_pass_yds", "player_pass_tds", "player_pass_attempts", "player_pass_completions",
+                "player_rush_yds", "player_rush_attempts",
+                "player_reception_yds", "player_receptions", "player_anytime_td",
+            ]
         }
         return player.markets
     }
@@ -773,6 +777,9 @@ public enum NFLTrendsEngine {
         case "player_receptions": return "Receptions"
         case "player_pass_yds": return "Passing Yards"
         case "player_pass_tds": return "Passing TDs"
+        case "player_pass_attempts": return "Pass Attempts"
+        case "player_pass_completions": return "Completions"
+        case "player_rush_attempts": return "Rush Attempts"
         default: return market.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
@@ -787,7 +794,8 @@ public enum NFLTrendsEngine {
             return hitSide ? "Won" : "Lost"
         case "total", "team_total", "h1_total",
              "player_pass_yds", "player_pass_tds", "player_receptions",
-             "player_reception_yds", "player_rush_yds":
+             "player_reception_yds", "player_rush_yds",
+             "player_pass_attempts", "player_pass_completions", "player_rush_attempts":
             return hitSide ? "Over" : "Under"
         case "h1_spread":
             if isReferee { return hitSide ? "Home covered 1H" : "Away covered 1H" }

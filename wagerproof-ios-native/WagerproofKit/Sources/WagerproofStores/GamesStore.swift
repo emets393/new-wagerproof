@@ -706,12 +706,10 @@ public final class GamesStore {
     private func fetchNFL() async throws {
         let cfb = await CFBSupabase.shared.client
 
-        if dryRunPreviewEnabled {
-            let dryrun = await fetchNFLDryrun(cfb)
-            if !dryrun.isEmpty {
-                games.nfl = dryrun
-                return
-            }
+        let dryrun = await fetchNFLDryrun(cfb)
+        if !dryrun.isEmpty {
+            games.nfl = dryrun
+            return
         }
 
         // Step 1: input view (no filters — matches RN exactly).
@@ -1160,11 +1158,7 @@ public final class GamesStore {
     }
 
     private func fetchCFB() async throws {
-        if dryRunPreviewEnabled {
-            try await fetchCFBDryrun()
-        } else {
-            try await fetchCFBLegacy()
-        }
+        try await fetchCFBDryrun()
     }
 
     private func fetchCFBLegacy() async throws {

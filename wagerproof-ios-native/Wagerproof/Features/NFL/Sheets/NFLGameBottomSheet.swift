@@ -443,7 +443,12 @@ struct NFLGameBottomSheet: View {
     @ViewBuilder
     private func bestBookRow(_ pick: NFLDryrunPickRow) -> some View {
         HStack(spacing: 10) {
-            sportsbookLogo(pick)
+            SportsbookLogoView(
+                logoURL: pick.bestBookLogo,
+                bookKey: pick.bestBook,
+                bookName: pick.bestBookName,
+                style: .regular
+            )
             VStack(alignment: .leading, spacing: 2) {
                 Text("Best Book")
                     .font(.system(size: 9, weight: .heavy))
@@ -461,63 +466,6 @@ struct NFLGameBottomSheet: View {
         .padding(10)
         .background(Color.appPrimary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appPrimary.opacity(0.18), lineWidth: 1))
-    }
-
-    @ViewBuilder
-    private func sportsbookLogo(_ pick: NFLDryrunPickRow) -> some View {
-        if let logo = pick.bestBookLogo, let imageURL = URL(string: logo) {
-            AsyncImage(url: imageURL) { phase in
-                switch phase {
-                case .success(let image):
-                    bookLogoImage(image)
-                case .failure:
-                    fallbackSportsbookLogo(pick)
-                case .empty:
-                    ProgressView()
-                        .scaleEffect(0.55)
-                        .frame(width: 30, height: 30)
-                        .padding(4)
-                        .background(Color.white.opacity(colorScheme == .dark ? 0.92 : 1), in: RoundedRectangle(cornerRadius: 8))
-                @unknown default:
-                    fallbackSportsbookLogo(pick)
-                }
-            }
-        } else {
-            fallbackSportsbookLogo(pick)
-        }
-    }
-
-    @ViewBuilder
-    private func fallbackSportsbookLogo(_ pick: NFLDryrunPickRow) -> some View {
-        if let fallbackURL = sportsbookFallbackURL(for: pick) {
-            AsyncImage(url: fallbackURL) { phase in
-                switch phase {
-                case .success(let image):
-                    bookLogoImage(image)
-                default:
-                    bookFallbackLogo(pick.bestBookName)
-                }
-            }
-        } else {
-            bookFallbackLogo(pick.bestBookName)
-        }
-    }
-
-    private func bookLogoImage(_ image: Image) -> some View {
-        image
-            .resizable()
-            .scaledToFit()
-            .frame(width: 30, height: 30)
-            .padding(4)
-            .background(Color.white.opacity(colorScheme == .dark ? 0.92 : 1), in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    private func bookFallbackLogo(_ name: String?) -> some View {
-        Text(String((name ?? "B").prefix(1)).uppercased())
-            .font(.system(size: 13, weight: .black))
-            .foregroundStyle(Color.appSurface)
-            .frame(width: 38, height: 38)
-            .background(Color.appTextPrimary, in: RoundedRectangle(cornerRadius: 8))
     }
 
     @ViewBuilder
@@ -1114,46 +1062,6 @@ struct NFLGameBottomSheet: View {
 
     private func hasBestBook(_ pick: NFLDryrunPickRow) -> Bool {
         pick.bestBook != nil || pick.bestBookName != nil || pick.bestBookLogo != nil || pick.bestLine != nil || pick.bestOdds != nil
-    }
-
-    private func sportsbookFallbackURL(for pick: NFLDryrunPickRow) -> URL? {
-        guard let domain = sportsbookDomain(for: pick) else { return nil }
-        return URL(string: "https://icons.duckduckgo.com/ip3/\(domain).ico")
-            ?? URL(string: "https://www.google.com/s2/favicons?domain=\(domain)&sz=64")
-    }
-
-    private func sportsbookDomain(for pick: NFLDryrunPickRow) -> String? {
-        if let key = pick.bestBook?.lowercased() {
-            switch key {
-            case "draftkings": return "draftkings.com"
-            case "fanduel": return "fanduel.com"
-            case "betmgm": return "betmgm.com"
-            case "betrivers": return "betrivers.com"
-            case "williamhill_us": return "caesars.com"
-            case "espnbet": return "espnbet.com"
-            case "fanatics": return "fanatics.com"
-            case "bet365": return "bet365.com"
-            case "bovada": return "bovada.lv"
-            case "betonlineag": return "betonline.ag"
-            case "mybookieag": return "mybookie.ag"
-            case "betus": return "betus.com.pa"
-            case "lowvig": return "lowvig.ag"
-            default: break
-            }
-        }
-        if let name = pick.bestBookName?.lowercased() {
-            if name.contains("draftkings") { return "draftkings.com" }
-            if name.contains("fanduel") { return "fanduel.com" }
-            if name.contains("betmgm") { return "betmgm.com" }
-            if name.contains("betrivers") { return "betrivers.com" }
-            if name.contains("caesars") { return "caesars.com" }
-            if name.contains("espn") { return "espnbet.com" }
-            if name.contains("fanatics") { return "fanatics.com" }
-        }
-        if let logo = pick.bestBookLogo, let host = URL(string: logo)?.host, !host.isEmpty {
-            return host
-        }
-        return nil
     }
 
     private func rowBackground(_ pick: NFLDryrunPickRow) -> Color {
