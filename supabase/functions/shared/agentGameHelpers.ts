@@ -1899,7 +1899,7 @@ function formatNFLGameFromDryrun(
       ? props.map((p) => {
           const codes = Array.isArray(p.flags) ? (p.flags as string[]) : [];
           return codes.length > 0
-            ? { ...p, signals: codes.map((c) => formatPropSignal(c, perfMap, defMap)) }
+            ? { ...p, signal: codes.map((c) => formatPropSignalLine(c, perfMap, defMap)).join(" | ") }
             : p;
         })
       : null,
@@ -2127,11 +2127,11 @@ function formatDryrunFlag(
 // disambiguates P1 from P14 (same rule as the DB rollup's split_part). Gives the agent
 // the stance (bet_direction), the all-time validated record, and the live season-to-date
 // so it can reason about WHY a prop is flagged instead of seeing a bare "P14".
-function formatPropSignal(
+function formatPropSignalLine(
   code: string,
   perfMap?: Map<string, Record<string, unknown>>,
   defMap?: Map<string, Record<string, unknown>>
-): Record<string, unknown> {
+): string {
   const prefix = `${code}_`;
   let def: Record<string, unknown> | undefined;
   let fullKey: string | undefined;
@@ -2139,23 +2139,14 @@ function formatPropSignal(
     for (const [k, v] of defMap) { if (k.startsWith(prefix)) { def = v; fullKey = k; break; } }
   }
   const perf = fullKey && perfMap ? perfMap.get(fullKey) : undefined;
-  return {
-    code,
-    name: def?.display_name ?? null,
-    bet_direction: def?.bet_direction ?? null,
-    all_time: def ? {
-      validated_hit: def.typical_hit ?? null,
-      one_liner: def.one_liner ?? null,
-      why_it_works: def.why_it_works ?? null,
-      conviction: def.default_conviction ?? null,
-    } : null,
-    season_to_date: perf ? {
-      sample: perf.n ?? null,
-      record: `${perf.wins ?? 0}-${perf.losses ?? 0}`,
-      hit_rate: perf.hit_rate != null ? Number(perf.hit_rate) : null,
-      roi: perf.roi != null ? Number(perf.roi) : null,
-    } : null,
-  };
+  // Flat STRING (not a nested object). The deep-fetch compactor prunes at depth 5, so a nested
+  // `signals` array rendered as "[1 items]" and hid the meaning from the model — but strings are
+  // capped at 240 chars and never depth-pruned, so the signal's name + records survive to the agent.
+  const name = String(def?.display_name ?? code);
+  const dir = def?.bet_direction ? ` — bet ${def.bet_direction}` : "";
+  const validated = def?.typical_hit ? ` · all-time ${def.typical_hit}` : "";
+  const szn = perf ? ` · season ${perf.wins ?? 0}-${perf.losses ?? 0}` : "";
+  return `${code} ${name}${dir}${validated}${szn}`;
 }
 
 // Project one dryrun pick-card row (nfl_dryrun_picks / cfb_dryrun_picks). These
