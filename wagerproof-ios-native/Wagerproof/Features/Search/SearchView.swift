@@ -797,13 +797,13 @@ struct SearchView: View {
 
     private func openAgent(_ result: SearchStore.SearchResult.Agent) {
         store.commitCurrentQueryToRecents()
-        // Agents detail lives inside AgentsView's NavigationStack. We can't
-        // push directly into another tab's stack, so the pragmatic handoff
-        // is to switch to the Agents tab and rely on the user's next tap
-        // landing them on their agent. A future enhancement: extend
-        // MainTabStore with `pendingAgentRoute: AgentsRoute?` that
-        // AgentsView observes and appends to its `navPath`.
+        // Agents detail lives inside AgentsView's NavigationStack — we can't
+        // push into another tab's stack directly. So switch to the Agents tab,
+        // then hand it the exact detail route to open: AgentsView observes
+        // `pendingAgentRoute` and appends the matching `AgentsRoute` to its own
+        // path (own agent → owner detail, public/leaderboard → public detail).
         tabStore.select(.agents)
+        tabStore.pendingAgentRoute = .init(agentId: result.agentId, isPublic: result.isPublic)
     }
 
     private func openTrend(_ result: SearchStore.SearchResult.Trend) {

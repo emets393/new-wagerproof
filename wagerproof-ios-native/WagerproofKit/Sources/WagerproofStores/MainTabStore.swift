@@ -70,6 +70,27 @@ public final class MainTabStore {
     /// sheet on one tab also dismisses it if the user pivots tabs.
     public var isChatPresented: Bool = false
 
+    /// A pending deep-navigation into the Agents tab's detail stack, set by the
+    /// global Search surface when the user taps an agent result. `AgentsView`
+    /// observes this, appends the matching `AgentsRoute` to its own
+    /// `NavigationPath`, and clears it — the cross-tab equivalent of the
+    /// per-sport game-sheet handoff. Kept as a plain value (not the app-level
+    /// `AgentsRoute`, which lives above this module) so this store stays
+    /// decoupled from the Agents feature.
+    public var pendingAgentRoute: PendingAgentRoute?
+
+    /// Payload for `pendingAgentRoute`. `isPublic` selects the destination:
+    /// `true` → public read-only detail; `false` → the signed-in user's own
+    /// agent detail (matching how `AgentsView` routes its own rows).
+    public struct PendingAgentRoute: Equatable, Sendable {
+        public let agentId: String
+        public let isPublic: Bool
+        public init(agentId: String, isPublic: Bool) {
+            self.agentId = agentId
+            self.isPublic = isPublic
+        }
+    }
+
     /// Bumped when the user re-taps the active tab. Each tab's root view can
     /// observe this and scroll-to-top + reset internal state. Matches RN's
     /// "tap-current-tab" hook in the FloatingTabBar.
