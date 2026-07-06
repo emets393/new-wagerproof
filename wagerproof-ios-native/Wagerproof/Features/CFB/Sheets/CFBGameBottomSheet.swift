@@ -1119,7 +1119,12 @@ struct CFBGameBottomSheet: View {
     private func bestBookRow(pick: CFBDryRunPickRow?, row: MarketRow) -> some View {
         if let pick {
             HStack(spacing: 7) {
-                sportsbookLogo(pick)
+                SportsbookLogoView(
+                    logoURL: pick.bestBookLogo,
+                    bookKey: pick.bestBook,
+                    bookName: pick.bestBookName,
+                    style: .compact
+                )
                 Text("\(pick.bestBookName ?? "Best book") \(formatMarketLine(pick.bestLine, row: row)) \(formatOdds(pick.bestOdds))")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color.appTextSecondary)
@@ -1148,62 +1153,6 @@ struct CFBGameBottomSheet: View {
                 ForEach(signals) { signalButton($0, muted: muted) }
             }
         }
-    }
-
-    @ViewBuilder
-    private func sportsbookLogo(_ pick: CFBDryRunPickRow) -> some View {
-        if let logo = pick.bestBookLogo, let url = URL(string: logo) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    bookLogoImage(image)
-                case .failure:
-                    fallbackSportsbookLogo(pick)
-                case .empty:
-                    ProgressView()
-                        .scaleEffect(0.55)
-                        .frame(width: 22, height: 22)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                @unknown default:
-                    fallbackSportsbookLogo(pick)
-                }
-            }
-        } else {
-            fallbackSportsbookLogo(pick)
-        }
-    }
-
-    private func bookLogoImage(_ image: Image) -> some View {
-        image
-            .resizable()
-            .scaledToFit()
-            .frame(width: 18, height: 18)
-            .padding(2)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-    }
-
-    @ViewBuilder
-    private func fallbackSportsbookLogo(_ pick: CFBDryRunPickRow) -> some View {
-        if let fallbackURL = sportsbookFallbackURL(for: pick) {
-            AsyncImage(url: fallbackURL) { phase in
-                switch phase {
-                case .success(let image):
-                    bookLogoImage(image)
-                default:
-                    bookFallbackLogo(pick.bestBookName)
-                }
-            }
-        } else {
-            bookFallbackLogo(pick.bestBookName)
-        }
-    }
-
-    private func bookFallbackLogo(_ name: String?) -> some View {
-        Text(String((name ?? "B").prefix(1)).uppercased())
-            .font(.system(size: 10, weight: .black))
-            .foregroundStyle(Color.appSurface)
-            .frame(width: 18, height: 18)
-            .background(Color.appTextPrimary, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
 
     @ViewBuilder
@@ -2049,36 +1998,6 @@ struct CFBGameBottomSheet: View {
         guard let value else { return "" }
         let rounded = Int(value.rounded())
         return rounded > 0 ? "+\(rounded)" : "\(rounded)"
-    }
-
-    private func sportsbookFallbackURL(for pick: CFBDryRunPickRow) -> URL? {
-        guard let domain = sportsbookDomain(for: pick) else { return nil }
-        return URL(string: "https://icons.duckduckgo.com/ip3/\(domain).ico")
-            ?? URL(string: "https://www.google.com/s2/favicons?domain=\(domain)&sz=64")
-    }
-
-    private func sportsbookDomain(for pick: CFBDryRunPickRow) -> String? {
-        if let key = pick.bestBook?.lowercased() {
-            switch key {
-            case "draftkings": return "draftkings.com"
-            case "fanduel": return "fanduel.com"
-            case "betmgm": return "betmgm.com"
-            case "betrivers": return "betrivers.com"
-            case "williamhill_us": return "caesars.com"
-            case "espnbet": return "espnbet.com"
-            case "fanatics": return "fanatics.com"
-            case "bovada": return "bovada.lv"
-            case "betonlineag": return "betonline.ag"
-            case "mybookieag": return "mybookie.ag"
-            case "betus": return "betus.com.pa"
-            case "lowvig": return "lowvig.ag"
-            default: break
-            }
-        }
-        if let logo = pick.bestBookLogo, let host = URL(string: logo)?.lastPathComponent, !host.isEmpty {
-            return host
-        }
-        return nil
     }
 
     private func dryRunPick(for row: MarketRow) -> CFBDryRunPickRow? {

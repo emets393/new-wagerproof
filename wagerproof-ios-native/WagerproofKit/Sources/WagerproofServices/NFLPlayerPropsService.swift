@@ -7,7 +7,8 @@ import WagerproofModels
 ///
 /// - `nfl_dryrun_props` — one row per player × market: consensus close
 ///   line/prices (median across books), season game-log trends, defense
-///   matchup context, P-flags, and the official headshot URL.
+///   matchup context, P-flags, precomputed best-shop over/under fields,
+///   and the official headshot URL.
 /// - `nfl_dryrun_games` — kickoff context (gameday + schedule slot), joined
 ///   client-side on `game_id`.
 ///
@@ -37,8 +38,33 @@ public actor NFLPlayerPropsService {
         // Kickoff context is decoration — a miss degrades to undated cards,
         // never to an error.
         let games = (try? await fetchGameContexts(client: cfb)) ?? [:]
-        return NFLPlayerProps.group(rows, games: games)
+        return NFLPlayerProps.group(
+            rows,
+            games: games,
+            bestBooksFallback: Self.bestBooksFallbackIndex
+        )
     }
+
+    /// Backend-precomputed best shops (dry-run bundle) — not calculated on device.
+    private static let bestBooksFallbackIndex: [String: NFLPlayerProps.NFLPropBestBooksFallback] = {
+        Dictionary(uniqueKeysWithValues: NFLPropBestBooksBundle.index.map { key, record in
+            (
+                key,
+                NFLPlayerProps.NFLPropBestBooksFallback(
+                    bestOverBook: record.bestOverBook,
+                    bestOverBookName: record.bestOverBookName,
+                    bestOverBookLogo: record.bestOverBookLogo,
+                    bestOverLine: record.bestOverLine,
+                    bestOverPrice: record.bestOverPrice,
+                    bestUnderBook: record.bestUnderBook,
+                    bestUnderBookName: record.bestUnderBookName,
+                    bestUnderBookLogo: record.bestUnderBookLogo,
+                    bestUnderLine: record.bestUnderLine,
+                    bestUnderPrice: record.bestUnderPrice
+                )
+            )
+        })
+    }()
 
     private struct GameContextRow: Decodable {
         let gameId: String

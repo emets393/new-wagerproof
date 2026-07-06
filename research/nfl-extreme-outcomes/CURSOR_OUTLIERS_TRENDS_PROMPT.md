@@ -32,7 +32,7 @@ where **h** = "hit" count (cover / win / over), **l** = miss, **p** = push, **n*
 | `nfl_team_trends` | `team_abbr`, `season`, `through_week` | spread, moneyline, total, team_total, h1_spread, h1_total | overall, home, away, favorite, underdog | 3,5,7 | **yes** `matchups[opp_abbr]` (spread/moneyline/total) | season-scoped |
 | `nfl_coach_trends` | `coach`, `through_season`, `through_week` | spread, moneyline, total, team_total, h1_spread, h1_total | overall, home, away, favorite, underdog, division, non_division, primetime, regular | 5,10,15 | **yes** `matchups[opp_abbr]` (all markets w/ data) | `market_coverage` jsonb: spread/ml/total=career, team_total/h1_*=2023-2025 |
 | `nfl_referee_trends` | `referee`, `through_season`, `through_week` | spread, moneyline, total, h1_spread, h1_total (**no team_total**) | overall, division, non_division, primetime, regular | 5,10,15 | **no** | HOME-framed (see §4); `market_coverage` same split |
-| `nfl_player_prop_trends` | `player_id`, `through_season`, `through_week` | player_pass_yds, player_pass_tds, player_receptions, player_reception_yds, player_rush_yds, player_anytime_td | overall, home, away, division, non_division, primetime, regular | 3,5,7 | **yes** `matchups[opp_abbr]` (per prop market, **cross-season** all years) | `coverage='2024-2025'`; `markets` text[] = which markets this player has |
+| `nfl_player_prop_trends` | `player_id`, `through_season`, `through_week` | player_pass_yds, player_pass_tds, player_receptions, player_reception_yds, player_rush_yds, player_anytime_td, player_pass_attempts, player_rush_attempts, player_pass_completions | overall, home, away, division, non_division, primetime, regular | 3,5,7 | **yes** `matchups[opp_abbr]` (per prop market, **cross-season** all years) | `coverage='2024-2025'`; `markets` text[] = which markets this player has |
 
 Also present (use for the card header / labels): team `team_name`; coach `coach`, `current_team`,
 `career_games`, `market_coverage`; ref `referee`, `career_games`; player `player_name`, `position`,
@@ -135,7 +135,9 @@ note on those rows/cards (e.g. a "2023–25" chip) so users know the history is 
    - subject ∈ {Teams, Coaches, Refs} (or All non-player) → **game markets:** Spread, Moneyline,
      Total (Over/Under), Team Total (teams only), 1H Spread, 1H Total. (Refs: no Team Total.)
    - subject = Players → **prop markets:** Anytime TD, Rushing Yards, Receiving Yards, Receptions,
-     Passing Yards, Passing TDs.
+     Passing Yards, Passing TDs, Pass Attempts, Rush Attempts, Pass Completions. (The 3 volume
+     markets `player_pass_attempts`/`player_rush_attempts`/`player_pass_completions` are OVER-trends
+     like the rest; a player only shows a bet type present in its `markets` text[].)
    - subject = All → group results by subject type; each group offers its own applicable bet types.
    Allow "All bet types" within the applicable set.
 

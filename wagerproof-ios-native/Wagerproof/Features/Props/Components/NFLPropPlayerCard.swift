@@ -462,6 +462,7 @@ private struct NFLPropSignalButton: View {
 
 struct NFLPropSignalDetailSheet: View {
     let signal: NFLPropSignalDefinition
+    let seasonRecord: SignalPerformance?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -479,9 +480,10 @@ struct NFLPropSignalDetailSheet: View {
                     signalBlock("Definition", signal.definition)
                     signalBlock("Why It Works", signal.whyItWorks)
                     signalBlock("Bet Direction", signal.betDirection)
-                    if let hit = signal.typicalHit {
-                        signalBlock("Typical Hit", hit)
-                    }
+                    SignalPerformanceStatsSection(
+                        backtestHit: signal.typicalHit,
+                        seasonDisplay: SignalSeasonRecordDisplay(performance: seasonRecord)
+                    )
                     if signal.isAntiSignal {
                         Text("This is an anti-signal — the backtest says to avoid betting this market when it fires.")
                             .font(.system(size: 13, weight: .medium))

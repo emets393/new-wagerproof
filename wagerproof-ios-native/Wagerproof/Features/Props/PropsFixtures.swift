@@ -128,7 +128,11 @@ enum PropsFixtures {
                 sznAvg: 251.3, sznMax: 342, sznMin: 169,
                 overRateL5: 0.6, overRateL10: 0.5,
                 recentGames: log([232, 274, 169, 256, 213, 342, 280, 248, 262, 280]),
-                defMatchupIdx: 1.08, flags: ["P1"]
+                defMatchupIdx: 1.08, flags: ["P1"],
+                bestOverBook: "draftkings", bestOverBookName: "DraftKings",
+                bestOverLine: 262.5, bestOverPrice: -110,
+                bestUnderBook: "fanduel", bestUnderBookName: "FanDuel",
+                bestUnderLine: 262.5, bestUnderPrice: -105
             ),
             NFLDryrunPropRow(
                 gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,
@@ -139,7 +143,11 @@ enum PropsFixtures {
                 lastGame: 44, l3Avg: 41.3, l5Avg: 37.8, l10Avg: 39.1,
                 sznAvg: 40.2, sznMax: 84, sznMin: 12,
                 overRateL5: 0.6, overRateL10: 0.5,
-                recentGames: log([28, 52, 12, 44, 36, 84, 31, 47, 26, 44])
+                recentGames: log([28, 52, 12, 44, 36, 84, 31, 47, 26, 44]),
+                bestOverBook: "betmgm", bestOverBookName: "BetMGM",
+                bestOverLine: 38.5, bestOverPrice: -118,
+                bestUnderBook: "draftkings", bestUnderBookName: "DraftKings",
+                bestUnderLine: 39.5, bestUnderPrice: -105
             ),
             NFLDryrunPropRow(
                 gameId: "2025_12_KC_BUF", eventId: "nfl-fixture-1", season: 2025, week: 12,

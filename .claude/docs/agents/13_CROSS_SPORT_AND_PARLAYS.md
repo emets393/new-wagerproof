@@ -76,6 +76,7 @@ Rationale: reusing `avatar_picks` would force relaxing its `UNIQUE (avatar_id, g
 New terminal tool alongside `submit_picks` (in `process-agent-generation-job-v3/tools/`). Schema mirrors `buildSubmitPicksSchema` but each item carries `legs[]` (each leg = `game_id`, `bet_type`, `period`, `selection`, `odds`) plus parlay-level `units`, `confidence`, `reasoning`. It **reuses the per-leg machinery already in `submitPicks.ts`**:
 
 - **Grounding gate per leg** — each `(game_id, bet_type)` must have been fetched by a read tool first (`ctx.deepFetched`).
+- **Correlation guards:** (1) ≤1 non-prop leg per game (full-game/1H/team-total; props exempt); (2) **volume-market solo guard** — a `player_pass_attempts` / `player_rush_attempts` / `player_pass_completions` leg must be the ONLY leg from its game (they're the game-script latent factor, correlated with everything in the game), enforced via `gameLegCounts`/`volumeGames` → `volume_market_solo_only`. See [16_PARLAY_AGENTS.md](16_PARLAY_AGENTS.md).
 - Per-leg validators: totals→Vegas-line rewrite, MLB ML→runline swap, team-in-selection.
 - Compute `combined_odds` from the legs; clamp `units` once via `clampUnits`.
 - Write one `avatar_parlays` row + N `avatar_parlay_legs`. Only offered to the model when `parlay_appetite ≥ 2`.

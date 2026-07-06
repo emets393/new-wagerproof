@@ -16,6 +16,33 @@ public struct NFLPropRecentGame: Codable, Hashable, Sendable {
     }
 }
 
+/// Precomputed best-shop quote for one side (over, under, or yes-ATD).
+public struct NFLPropBestQuote: Hashable, Sendable {
+    public let bookKey: String?
+    public let bookName: String?
+    public let bookLogoUrl: String?
+    public let line: Double?
+    public let price: Int?
+
+    public var isEmpty: Bool {
+        bookKey == nil && bookName == nil && bookLogoUrl == nil && line == nil && price == nil
+    }
+
+    public init(
+        bookKey: String? = nil,
+        bookName: String? = nil,
+        bookLogoUrl: String? = nil,
+        line: Double? = nil,
+        price: Int? = nil
+    ) {
+        self.bookKey = bookKey
+        self.bookName = bookName
+        self.bookLogoUrl = bookLogoUrl
+        self.line = line
+        self.price = price
+    }
+}
+
 /// One row of `nfl_dryrun_props` (CFB/research Supabase): a single
 /// player × market with the consensus close line/prices (median across books),
 /// season game-log trends, defense-matchup context, and fired P-flags.
@@ -62,6 +89,16 @@ public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
     public let practiceStatus: String?
     public let flags: [String]?
     public let headshotUrl: String?
+    public let bestOverBook: String?
+    public let bestOverBookName: String?
+    public let bestOverBookLogo: String?
+    public let bestOverLine: Double?
+    public let bestOverPrice: Double?
+    public let bestUnderBook: String?
+    public let bestUnderBookName: String?
+    public let bestUnderBookLogo: String?
+    public let bestUnderLine: Double?
+    public let bestUnderPrice: Double?
 
     enum CodingKeys: String, CodingKey {
         case gameId = "game_id"
@@ -99,6 +136,16 @@ public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
         case practiceStatus = "practice_status"
         case flags
         case headshotUrl = "headshot_url"
+        case bestOverBook = "best_over_book"
+        case bestOverBookName = "best_over_book_name"
+        case bestOverBookLogo = "best_over_book_logo"
+        case bestOverLine = "best_over_line"
+        case bestOverPrice = "best_over_price"
+        case bestUnderBook = "best_under_book"
+        case bestUnderBookName = "best_under_book_name"
+        case bestUnderBookLogo = "best_under_book_logo"
+        case bestUnderLine = "best_under_line"
+        case bestUnderPrice = "best_under_price"
     }
 
     public init(
@@ -115,7 +162,13 @@ public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
         recentGames: [NFLPropRecentGame]? = nil,
         defAllowedPos: Double? = nil, lgAllowedPos: Double? = nil, defMatchupIdx: Double? = nil,
         reportStatus: String? = nil, practiceStatus: String? = nil,
-        flags: [String]? = nil, headshotUrl: String? = nil
+        flags: [String]? = nil, headshotUrl: String? = nil,
+        bestOverBook: String? = nil, bestOverBookName: String? = nil,
+        bestOverBookLogo: String? = nil, bestOverLine: Double? = nil,
+        bestOverPrice: Double? = nil,
+        bestUnderBook: String? = nil, bestUnderBookName: String? = nil,
+        bestUnderBookLogo: String? = nil, bestUnderLine: Double? = nil,
+        bestUnderPrice: Double? = nil
     ) {
         self.gameId = gameId
         self.eventId = eventId
@@ -155,6 +208,16 @@ public struct NFLDryrunPropRow: Decodable, Hashable, Sendable {
         self.practiceStatus = practiceStatus
         self.flags = flags
         self.headshotUrl = headshotUrl
+        self.bestOverBook = bestOverBook
+        self.bestOverBookName = bestOverBookName
+        self.bestOverBookLogo = bestOverBookLogo
+        self.bestOverLine = bestOverLine
+        self.bestOverPrice = bestOverPrice
+        self.bestUnderBook = bestUnderBook
+        self.bestUnderBookName = bestUnderBookName
+        self.bestUnderBookLogo = bestUnderBookLogo
+        self.bestUnderLine = bestUnderLine
+        self.bestUnderPrice = bestUnderPrice
     }
 }
 
@@ -199,12 +262,17 @@ public struct NFLPropMarket: Hashable, Sendable, Identifiable {
     public let flags: [String]
     /// Oldest → newest (as stored).
     public let recentGames: [NFLPropRecentGame]
+    /// Precomputed best-shop over (or yes-ATD) and under quotes from the loader.
+    public let bestOver: NFLPropBestQuote
+    public let bestUnder: NFLPropBestQuote
 
     public var id: String { market }
     public var label: String { NFLPlayerProps.marketLabel(market) }
 
     /// Anytime-TD-style market: no posted line, the price is a yes-price.
     public var isYesNo: Bool { closeLine == nil }
+
+    public var hasBestBooks: Bool { !bestOver.isEmpty || !bestUnder.isEmpty }
 
     /// The threshold a game "clears": the posted line, or ≥1 for yes/no
     /// markets (scored a TD).
@@ -239,7 +307,9 @@ public struct NFLPropMarket: Hashable, Sendable, Identifiable {
         lastGame: Double?, l3Avg: Double?, l5Avg: Double?, l10Avg: Double?,
         sznAvg: Double?, sznMax: Double?, sznMin: Double?,
         overRateL5: Double?, overRateL10: Double?, defMatchupIdx: Double?,
-        flags: [String], recentGames: [NFLPropRecentGame]
+        flags: [String], recentGames: [NFLPropRecentGame],
+        bestOver: NFLPropBestQuote = NFLPropBestQuote(),
+        bestUnder: NFLPropBestQuote = NFLPropBestQuote()
     ) {
         self.market = market
         self.closeLine = closeLine
@@ -263,6 +333,8 @@ public struct NFLPropMarket: Hashable, Sendable, Identifiable {
         self.defMatchupIdx = defMatchupIdx
         self.flags = flags
         self.recentGames = recentGames
+        self.bestOver = bestOver
+        self.bestUnder = bestUnder
     }
 }
 
@@ -285,6 +357,8 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
     /// Schedule slot key (thu_fri / sun_early / sun_late_sat / snf / monday).
     public let slot: String?
     public let week: Int?
+    /// Slate season from `nfl_dryrun_props` (e.g. 2025 dry-run week).
+    public let season: Int?
     public let reportStatus: String?
     public let practiceStatus: String?
     /// Markets ordered by `NFLPlayerProps.marketOrder` (then alphabetically).
@@ -320,7 +394,7 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
         playerName: String, playerId: String?, headshotUrl: String?,
         team: String?, opponent: String?, isHome: Bool?, position: String?,
         gameId: String, eventId: String?, gameDate: String, slot: String?,
-        week: Int?, reportStatus: String?, practiceStatus: String?,
+        week: Int?, season: Int? = nil, reportStatus: String?, practiceStatus: String?,
         markets: [NFLPropMarket]
     ) {
         self.playerName = playerName
@@ -335,6 +409,7 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
         self.gameDate = gameDate
         self.slot = slot
         self.week = week
+        self.season = season
         self.reportStatus = reportStatus
         self.practiceStatus = practiceStatus
         self.markets = markets
@@ -347,7 +422,8 @@ public enum NFLPlayerProps {
     /// Display order for the markets the dry-run publishes; unknown keys sort
     /// after, alphabetically, so new server-side markets degrade gracefully.
     static let marketOrder: [String] = [
-        "player_pass_yds", "player_pass_tds", "player_rush_yds",
+        "player_pass_yds", "player_pass_tds", "player_pass_attempts", "player_pass_completions",
+        "player_rush_yds", "player_rush_attempts",
         "player_reception_yds", "player_receptions", "player_anytime_td",
     ]
 
@@ -423,6 +499,40 @@ public enum NFLPlayerProps {
         return slotSequence.firstIndex(of: slot) ?? 9
     }
 
+    /// Fallback best-shop payload keyed by `player_id|market` when DB columns are absent.
+    public struct NFLPropBestBooksFallback: Hashable, Sendable {
+        public let bestOverBook: String?
+        public let bestOverBookName: String?
+        public let bestOverBookLogo: String?
+        public let bestOverLine: Double?
+        public let bestOverPrice: Double?
+        public let bestUnderBook: String?
+        public let bestUnderBookName: String?
+        public let bestUnderBookLogo: String?
+        public let bestUnderLine: Double?
+        public let bestUnderPrice: Double?
+
+        public init(
+            bestOverBook: String? = nil, bestOverBookName: String? = nil,
+            bestOverBookLogo: String? = nil, bestOverLine: Double? = nil,
+            bestOverPrice: Double? = nil,
+            bestUnderBook: String? = nil, bestUnderBookName: String? = nil,
+            bestUnderBookLogo: String? = nil, bestUnderLine: Double? = nil,
+            bestUnderPrice: Double? = nil
+        ) {
+            self.bestOverBook = bestOverBook
+            self.bestOverBookName = bestOverBookName
+            self.bestOverBookLogo = bestOverBookLogo
+            self.bestOverLine = bestOverLine
+            self.bestOverPrice = bestOverPrice
+            self.bestUnderBook = bestUnderBook
+            self.bestUnderBookName = bestUnderBookName
+            self.bestUnderBookLogo = bestUnderBookLogo
+            self.bestUnderLine = bestUnderLine
+            self.bestUnderPrice = bestUnderPrice
+        }
+    }
+
     // MARK: Grouping
 
     /// Group raw (player, market) rows into per-player entities. Markets
@@ -430,7 +540,8 @@ public enum NFLPlayerProps {
     /// slot → name (feed-ready). `games` joins kickoff context by `game_id`.
     public static func group(
         _ rows: [NFLDryrunPropRow],
-        games: [String: NFLPropGameContext] = [:]
+        games: [String: NFLPropGameContext] = [:],
+        bestBooksFallback: [String: NFLPropBestBooksFallback] = [:]
     ) -> [NFLPropPlayer] {
         struct PlayerKey: Hashable {
             let game: String
@@ -444,7 +555,9 @@ public enum NFLPlayerProps {
             guard let first = playerRows.first else { return nil }
             let markets: [NFLPropMarket] = playerRows
                 .map { r in
-                    NFLPropMarket(
+                    let fallbackKey = r.playerId.map { "\($0)|\(r.market)" }
+                    let fallback = fallbackKey.flatMap { bestBooksFallback[$0] }
+                    return NFLPropMarket(
                         market: r.market,
                         closeLine: r.closeLine,
                         openLine: r.openLine,
@@ -461,7 +574,21 @@ public enum NFLPlayerProps {
                         overRateL5: r.overRateL5, overRateL10: r.overRateL10,
                         defMatchupIdx: r.defMatchupIdx,
                         flags: r.flags ?? [],
-                        recentGames: r.recentGames ?? []
+                        recentGames: r.recentGames ?? [],
+                        bestOver: bestQuote(
+                            bookKey: r.bestOverBook ?? fallback?.bestOverBook,
+                            bookName: r.bestOverBookName ?? fallback?.bestOverBookName,
+                            bookLogoUrl: r.bestOverBookLogo ?? fallback?.bestOverBookLogo,
+                            line: r.bestOverLine ?? fallback?.bestOverLine,
+                            price: r.bestOverPrice ?? fallback?.bestOverPrice
+                        ),
+                        bestUnder: bestQuote(
+                            bookKey: r.bestUnderBook ?? fallback?.bestUnderBook,
+                            bookName: r.bestUnderBookName ?? fallback?.bestUnderBookName,
+                            bookLogoUrl: r.bestUnderBookLogo ?? fallback?.bestUnderBookLogo,
+                            line: r.bestUnderLine ?? fallback?.bestUnderLine,
+                            price: r.bestUnderPrice ?? fallback?.bestUnderPrice
+                        )
                     )
                 }
                 .sorted { a, b in
@@ -484,6 +611,7 @@ public enum NFLPlayerProps {
                 gameDate: context?.gameDate ?? "",
                 slot: context?.slot,
                 week: first.week,
+                season: first.season,
                 reportStatus: first.reportStatus,
                 practiceStatus: first.practiceStatus,
                 markets: markets
@@ -494,6 +622,22 @@ public enum NFLPlayerProps {
             if a.sortKey != b.sortKey { return a.sortKey < b.sortKey }
             return a.playerName < b.playerName
         }
+    }
+
+    private static func bestQuote(
+        bookKey: String?,
+        bookName: String?,
+        bookLogoUrl: String?,
+        line: Double?,
+        price: Double?
+    ) -> NFLPropBestQuote {
+        NFLPropBestQuote(
+            bookKey: bookKey,
+            bookName: bookName,
+            bookLogoUrl: bookLogoUrl,
+            line: line,
+            price: price.map { Int($0.rounded()) }
+        )
     }
 }
 

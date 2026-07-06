@@ -31,7 +31,6 @@ STAT_OF = {
     "player_rush_yds": "rushing_yards", "player_anytime_td": "td_any",
 }
 
-
 def load_key():
     for line in (ROOT.parent.parent / ".env.local").read_text().splitlines():
         if line.startswith("SUPABASE_SERVICE_KEY="):
@@ -149,6 +148,26 @@ def ngs_l3_entering(fname, col):
             .dropna().to_dict())
 
 
+# Model prop flags on EXISTING markets (rush_yds, pass_tds) — the volume model extended beyond
+# attempts (nfl-prop-model-deepdive). Thresholds = validated absolute edges (both seasons):
+#   P17 rush_yds model-UNDER: pred <= line - 10 yds  -> 58.5%/+10%
+#   P18 pass_tds model-OVER:  pred >= line + 0.5 TDs  -> ~63-69%/+5-9%
+RY_UNDER_EDGE = 10.0
+PT_OVER_EDGE = 0.5
+
+
+def add_model_preds(c):
+    """Merge the volume-model prediction for rush_yds + pass_tds into the frame (internal only —
+    never written to the DB; drives the P17/P18 flags). Same walk-forward model as attempts."""
+    from prop_model import predict_slate
+    pr = predict_slate(SEASON, WEEK, markets=["player_rush_yds", "player_pass_tds"])
+    if pr.empty:
+        c["model_pred"] = np.nan
+        return c
+    return c.merge(pr[["player_id", "market", "pred"]].rename(columns={"pred": "model_pred"}),
+                   on=["player_id", "market"], how="left")
+
+
 def add_flags(c, pf):
     p9_hist = weekly_panel(pf, "player_pass_tds")
     p10_hist = weekly_panel(pf, "player_receptions")
@@ -197,9 +216,213 @@ def add_flags(c, pf):
         if (r.market == "player_rush_yds" and line_lags
                 and eff_l3.get(r.player_id, -1) >= P13_EFF_Q80):
             f.append("P13")                            # featured RB, line lags form -> OVER
+        # volume-model flags on existing markets (model_pred is internal, never displayed)
+        mp = r.get("model_pred") if hasattr(r, "get") else getattr(r, "model_pred", None)
+        if (r.market == "player_rush_yds" and pd.notna(mp) and pd.notna(r.close_line)
+                and mp <= r.close_line - RY_UNDER_EDGE):
+            f.append("P17")                            # model projects rush yds well under -> UNDER
+        if (r.market == "player_pass_tds" and pd.notna(mp) and pd.notna(r.close_line)
+                and mp >= r.close_line + PT_OVER_EDGE):
+            f.append("P18")                            # model projects pass TDs well over -> OVER
         flags.append(f)
     c["p_flags"] = flags
     return c
+
+
+# ---- volume markets (attempts/completions) — model-UNDER + steam-UNDER prop signals ----
+# These 3 markets are NOT in props_frame (the original 6). They come from props_rows_extra
+# (raw snapshots), consensus'd at the T-60 actionable close, scored by the volume model
+# (attempts_predict.predict_slate). See attempts_model.py + nfl-game-script-analysis.
+EXTRA_MARKETS = ("player_pass_attempts", "player_rush_attempts", "player_pass_completions")
+EXTRA_STAT = {"player_pass_attempts": "attempts", "player_rush_attempts": "carries",
+              "player_pass_completions": "completions"}
+SIGNAL_MARKETS = ("player_pass_attempts", "player_rush_attempts")  # completions: card only, no flag
+T60_MINS = 60.0          # actionable close = last snapshot >= 60 min before kickoff
+MODEL_EDGE = 1.5         # model pred <= close_line - 1.5  -> P14 model UNDER (validated edge>=1.5)
+STEAM_MOVE = 1.0         # close_line - open_line >= 1     -> P15 steam UNDER
+
+
+def attempts_consensus():
+    """One consensus row per (player, attempts-market) for the slate: open line, T-60 close
+    line + prices (median across books), cross-book spread. Mirrors attempts_model.props_t60."""
+    ex = pd.read_parquet(DATA / "props_rows_extra.parquet")
+    ex = ex[(ex.season == SEASON) & (ex.week == WEEK) & (ex.market.isin(EXTRA_MARKETS))].copy()
+    if ex.empty:
+        return ex
+    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
+    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True, format="ISO8601")
+    ex["mins"] = (ex.comm - ex.snap).dt.total_seconds() / 60.0
+    keys = ["event_id", "player_id", "player_name", "position", "team", "market",
+            "home_team", "away_team"]
+    snaps = ex.groupby(keys + ["snap", "mins"]).agg(
+        line=("line", "median"), over=("over_odds", "median"), under=("under_odds", "median"),
+        nb=("bookmaker", "nunique"), lo=("line", "min"), hi=("line", "max")
+    ).reset_index().sort_values(keys + ["snap"])
+    op = snaps.groupby(keys).first().reset_index()[keys + ["line"]].rename(columns={"line": "open_line"})
+    act = snaps[snaps.mins >= T60_MINS]                      # actionable snapshots only
+    cl = act.groupby(keys).last().reset_index()[keys + ["line", "over", "under", "nb", "lo", "hi"]] \
+        .rename(columns={"line": "close_line", "over": "over_price", "under": "under_price", "nb": "n_books"})
+    d = op.merge(cl, on=keys)
+    d["line_delta"] = d.close_line - d.open_line
+    d["book_line_spread"] = d.hi - d.lo
+    return d
+
+
+def attempts_form(d):
+    """gp/L3/L5/L10/szn form + over-rates + sparkline history for the attempts stats,
+    weeks < WEEK only (point-in-time)."""
+    po = pd.read_parquet(DATA / "player_offense.parquet")
+    po = po[(po.season == SEASON) & (po.week < WEEK) & (po.season_type == "REG")].copy()
+    ge = pd.read_parquet(DATA / "games_enriched.parquet")
+    ge = ge[ge.season == SEASON]
+    opp_map = {}
+    for _, r in ge.iterrows():
+        opp_map[(r.week, r.home_team)] = r.away_team
+        opp_map[(r.week, r.away_team)] = r.home_team
+    po["opp"] = [opp_map.get((w, t)) for w, t in zip(po.week, po.team)]
+    hist = {pid: g.sort_values("week") for pid, g in po.groupby("player_id")}
+    cols = {k: [] for k in ("gp_prior", "last_game", "l3_avg", "l5_avg", "l10_avg",
+                            "szn_avg", "szn_max", "szn_min", "over_rate_l5", "over_rate_l10", "recent_games")}
+    for _, r in d.iterrows():
+        stat = EXTRA_STAT[r.market]
+        g = hist.get(r.player_id)
+        if g is None or stat not in g.columns:
+            for k in cols:
+                cols[k].append([] if k == "recent_games" else None)
+            continue
+        s = g.dropna(subset=[stat])
+        vals = s[stat].astype(float)
+        cols["gp_prior"].append(int(len(vals)))
+        cols["last_game"].append(round(float(vals.iloc[-1]), 2) if len(vals) else None)
+        cols["l3_avg"].append(round(float(vals.tail(3).mean()), 2) if len(vals) else None)
+        cols["l5_avg"].append(round(float(vals.tail(5).mean()), 2) if len(vals) else None)
+        cols["l10_avg"].append(round(float(vals.tail(10).mean()), 2) if len(vals) else None)
+        cols["szn_avg"].append(round(float(vals.mean()), 2) if len(vals) else None)
+        cols["szn_max"].append(round(float(vals.max()), 2) if len(vals) else None)
+        cols["szn_min"].append(round(float(vals.min()), 2) if len(vals) else None)
+        if pd.notna(r.close_line) and len(vals):
+            cols["over_rate_l10"].append(round(float((vals.tail(10) > r.close_line).mean()), 3))
+            cols["over_rate_l5"].append(round(float((vals.tail(5) > r.close_line).mean()), 3))
+        else:
+            cols["over_rate_l10"].append(None); cols["over_rate_l5"].append(None)
+        t = s.tail(10)
+        cols["recent_games"].append([dict(week=int(w), opp=o, actual=float(v))
+                                     for w, o, v in zip(t.week, t.opp, t[stat].astype(float))])
+    for k, v in cols.items():
+        d[k] = v
+    return d
+
+
+def _def_allowed_tables(po):
+    """Season-to-date position-allowed averages per defense team, weeks < WEEK."""
+    tables = {}
+    for stat, pos in (("attempts", "QB"), ("completions", "QB"),
+                      ("carries", "RB"), ("carries", "QB")):
+        sub = po[po.position == pos].dropna(subset=[stat])
+        if sub.empty:
+            tables[(stat, pos)] = ({}, None)
+            continue
+        allowed = (sub.groupby(["week", "opp"])[stat].sum().reset_index()
+                   .rename(columns={"opp": "def_team", stat: "allowed"}))
+        def_avg = allowed.groupby("def_team")["allowed"].mean()
+        lg_avg = float(def_avg.mean())
+        tables[(stat, pos)] = (def_avg.to_dict(), lg_avg)
+    return tables
+
+
+def attempts_def_matchup(d):
+    """Opponent position-allowed vs league for volume markets (same idx as props_frame)."""
+    if d.empty:
+        return d
+    po = pd.read_parquet(DATA / "player_offense.parquet")
+    po = po[(po.season == SEASON) & (po.week < WEEK) & (po.season_type == "REG")].copy()
+    ge = pd.read_parquet(DATA / "games_enriched.parquet")
+    ge = ge[ge.season == SEASON]
+    opp_map = {}
+    for _, r in ge.iterrows():
+        opp_map[(r.week, r.home_team)] = r.away_team
+        opp_map[(r.week, r.away_team)] = r.home_team
+    po["opp"] = [opp_map.get((w, t)) for w, t in zip(po.week, po.team)]
+    tables = _def_allowed_tables(po)
+
+    tm = pd.read_parquet(DATA / "team_mapping.parquet")
+    name_ab = dict(zip(tm.city_and_name, tm["Team Abbrev"].replace({"LAR": "LA"})))
+    home_ab = d.home_team.map(name_ab)
+    away_ab = d.away_team.map(name_ab)
+    is_home = d.team == home_ab
+    opp = np.where(is_home, away_ab, home_ab)
+
+    def_allowed, lg_allowed, idx = [], [], []
+    for market, position, o in zip(d.market, d.position, opp):
+        stat = EXTRA_STAT[market]
+        def_avg, lg_avg = tables.get((stat, position), ({}, None))
+        if o in def_avg and lg_avg:
+            da = float(def_avg[o])
+            def_allowed.append(round(da, 1))
+            lg_allowed.append(lg_avg)
+            idx.append(da / lg_avg)
+        else:
+            def_allowed.append(None)
+            lg_allowed.append(None)
+            idx.append(None)
+    d["def_allowed_pos"] = def_allowed
+    d["lg_allowed_pos"] = lg_allowed
+    d["def_matchup_idx"] = idx
+    return d
+
+
+def attempts_flags(d):
+    """P14 model-UNDER, P15 steam-UNDER, P16 confluence — pass/rush attempts only."""
+    from attempts_predict import predict_slate
+    pred = predict_slate(SEASON, WEEK)[["player_id", "market", "pred"]]
+    d = d.merge(pred, on=["player_id", "market"], how="left")
+    out = []
+    for _, r in d.iterrows():
+        f = []
+        if r.market in SIGNAL_MARKETS and pd.notna(r.close_line):
+            model_under = pd.notna(r.pred) and (r.pred <= r.close_line - MODEL_EDGE)
+            steam_under = pd.notna(r.open_line) and (r.close_line - r.open_line >= STEAM_MOVE)
+            if model_under:
+                f.append("P14")
+            if steam_under:
+                f.append("P15")
+            if model_under and steam_under:
+                f.append("P16")                            # premium: both agree on the under
+        out.append(f)
+    d["p_flags"] = out
+    return d
+
+
+def best_book_fields(player_id, market, props_books_idx, book_meta):
+    """Precomputed best over/under (or yes-ATD) shops — same logic as Outliers."""
+    from nfl_outliers_betting_lines import best_prop_pick
+
+    rows = props_books_idx.get((player_id, market), [])
+    out = {}
+    if market == "player_anytime_td":
+        bk, _, odds = best_prop_pick(rows, "yes")
+        if bk:
+            nm, logo = book_meta.get(bk, (None, None))
+            out.update(
+                best_over_book=bk,
+                best_over_book_name=nm,
+                best_over_book_logo=logo,
+                best_over_line=None,
+                best_over_price=int(round(float(odds))) if odds is not None else None,
+            )
+        return out
+
+    for side, prefix in (("over", "best_over"), ("under", "best_under")):
+        bk, line, odds = best_prop_pick(rows, side)
+        if not bk:
+            continue
+        nm, logo = book_meta.get(bk, (None, None))
+        out[f"{prefix}_book"] = bk
+        out[f"{prefix}_book_name"] = nm
+        out[f"{prefix}_book_logo"] = logo
+        out[f"{prefix}_line"] = float(line) if line is not None else None
+        out[f"{prefix}_price"] = int(round(float(odds))) if odds is not None else None
+    return out
 
 
 def main():
@@ -207,10 +430,22 @@ def main():
     ap.add_argument("--no-load", action="store_true")
     args = ap.parse_args()
 
+    from dryrun_wk12_games import book_meta as fetch_book_meta
+    from nfl_outliers_betting_lines import best_prop_pick, index_props_books
+
     pf = pd.read_parquet(DATA / "props_frame.parquet")
     c = consensus(pf)
     c = recent_form(c)
+    c = add_model_preds(c)                              # rush_yds/pass_tds model preds (P17/P18)
     c = add_flags(c, pf)
+
+    # attempts/completions markets (model-UNDER + steam-UNDER signals) — same output schema
+    a = attempts_consensus()
+    if not a.empty:
+        a = attempts_form(a)
+        a = attempts_def_matchup(a)
+        a = attempts_flags(a)
+        c = pd.concat([c, a], ignore_index=True)
 
     # map to dry-run game ids via home team
     tm = pd.read_parquet(DATA / "team_mapping.parquet")
@@ -219,12 +454,23 @@ def main():
     hp = hp[(hp.season == SEASON) & (hp.week == WEEK)]
     gid = dict(zip(hp.home_ab, hp.game_id))
     c["home_ab"] = c.home_team.map(name_ab)
+    c["away_ab"] = c.away_team.map(name_ab)
     c["game_id"] = c.home_ab.map(gid)
     c["is_home"] = c.team == c.home_ab
+    # attempts rows arrive without opp (the 6-market frame carries it); fill from home/away
+    opp_calc = pd.Series(np.where(c.is_home, c.away_ab, c.home_ab), index=c.index)
+    c["opp"] = c["opp"].fillna(opp_calc) if "opp" in c.columns else opp_calc
 
     key = load_key()
     heads = fetch_headshots(key)
     c["headshot_url"] = c.player_id.map(heads)
+
+    props_books_idx = index_props_books(SEASON, WEEK, DATA)
+    meta = fetch_book_meta()
+    best_fields = [
+        best_book_fields(pid, mkt, props_books_idx, meta)
+        for pid, mkt in zip(c.player_id, c.market)
+    ]
 
     n_flag = (c.p_flags.str.len() > 0).sum()
     print(f"{len(c)} prop rows | {c.player_id.nunique()} players | "
@@ -233,7 +479,7 @@ def main():
     print(c.explode("p_flags").groupby("p_flags").size())
 
     rows = []
-    for _, r in c.iterrows():
+    for (_, r), best in zip(c.iterrows(), best_fields):
         rows.append(dict(
             game_id=r.game_id, event_id=r.event_id, season=SEASON, week=WEEK,
             player_id=r.player_id, player_name=r.player_name, position=r.position,
@@ -252,11 +498,14 @@ def main():
             def_allowed_pos=r.def_allowed_pos, lg_allowed_pos=r.lg_allowed_pos,
             def_matchup_idx=r.def_matchup_idx,
             report_status=r.report_status, practice_status=r.practice_status,
-            flags=r.p_flags, headshot_url=r.headshot_url))
+            flags=r.p_flags, headshot_url=r.headshot_url,
+            **best))
     df = pd.DataFrame(rows).replace({np.nan: None})
+    export_prop_best_books_json(c, props_books_idx, meta)
 
     if args.no_load:
         return
+
     hdr = {"apikey": key, "Authorization": f"Bearer {key}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
     resp = requests.delete(f"{BASE_URL}/nfl_dryrun_props?season=eq.{SEASON}&week=eq.{WEEK}",
@@ -264,6 +513,20 @@ def main():
     if resp.status_code not in (200, 204):
         sys.exit(f"delete: {resp.status_code} {resp.text[:300]}")
     recs = json.loads(df.to_json(orient="records"))
+    probe = requests.get(
+        f"{BASE_URL}/nfl_dryrun_props?select=best_over_book&limit=1",
+        headers={"apikey": key, "Authorization": f"Bearer {key}"},
+        timeout=30,
+    )
+    best_books_ready = probe.status_code == 200
+    if not best_books_ready:
+        print("note: best_over_book column missing — loading without best-shop fields (apply migration + re-run)")
+        best_keys = {
+            k for k in recs[0].keys() if k.startswith("best_")
+        } if recs else set()
+        for rec in recs:
+            for k in best_keys:
+                rec.pop(k, None)
     for i in range(0, len(recs), BATCH):
         resp = requests.post(f"{BASE_URL}/nfl_dryrun_props", headers=hdr,
                              json=recs[i:i + BATCH], timeout=120)
@@ -271,6 +534,22 @@ def main():
             sys.exit(f"batch {i}: {resp.status_code} {resp.text[:300]}")
         print(f"  loaded {min(i + BATCH, len(recs))}/{len(recs)}", end="\r")
     print(f"\nloaded {len(recs)} rows -> nfl_dryrun_props")
+
+
+def export_prop_best_books_json(c, props_books_idx, book_meta):
+    """Ship backend-precomputed best shops to the iOS bundle until DB columns land."""
+    out = {}
+    for pid, mkt in zip(c.player_id, c.market):
+        fields = best_book_fields(pid, mkt, props_books_idx, book_meta)
+        if fields:
+            out[f"{pid}|{mkt}"] = fields
+    dest = (
+        ROOT.parent.parent / "wagerproof-ios-native" / "WagerproofKit"
+        / "Sources" / "WagerproofServices" / "Resources" / "nfl_dryrun_prop_best_books.json"
+    )
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(out))
+    print(f"exported {len(out)} best-book keys -> {dest} ({dest.stat().st_size // 1024} KB)")
 
 
 if __name__ == "__main__":
