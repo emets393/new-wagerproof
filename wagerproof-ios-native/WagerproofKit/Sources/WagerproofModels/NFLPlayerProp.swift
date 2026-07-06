@@ -357,6 +357,8 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
     /// Schedule slot key (thu_fri / sun_early / sun_late_sat / snf / monday).
     public let slot: String?
     public let week: Int?
+    /// Slate season from `nfl_dryrun_props` (e.g. 2025 dry-run week).
+    public let season: Int?
     public let reportStatus: String?
     public let practiceStatus: String?
     /// Markets ordered by `NFLPlayerProps.marketOrder` (then alphabetically).
@@ -392,7 +394,7 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
         playerName: String, playerId: String?, headshotUrl: String?,
         team: String?, opponent: String?, isHome: Bool?, position: String?,
         gameId: String, eventId: String?, gameDate: String, slot: String?,
-        week: Int?, reportStatus: String?, practiceStatus: String?,
+        week: Int?, season: Int? = nil, reportStatus: String?, practiceStatus: String?,
         markets: [NFLPropMarket]
     ) {
         self.playerName = playerName
@@ -407,6 +409,7 @@ public struct NFLPropPlayer: Hashable, Sendable, Identifiable {
         self.gameDate = gameDate
         self.slot = slot
         self.week = week
+        self.season = season
         self.reportStatus = reportStatus
         self.practiceStatus = practiceStatus
         self.markets = markets
@@ -608,6 +611,7 @@ public enum NFLPlayerProps {
                 gameDate: context?.gameDate ?? "",
                 slot: context?.slot,
                 week: first.week,
+                season: first.season,
                 reportStatus: first.reportStatus,
                 practiceStatus: first.practiceStatus,
                 markets: markets
