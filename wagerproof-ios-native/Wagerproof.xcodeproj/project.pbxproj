@@ -37,6 +37,7 @@
 		1724E3226603CA037C04659E /* WagerBotToolUseChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F84E721A643FB2DB0C1CB9 /* WagerBotToolUseChip.swift */; };
 		179E529F419FE18B0CE0971A /* OnboardingSlide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FD2E8A2BF7D049B629B7713 /* OnboardingSlide.swift */; };
 		1925E4F57181E2E0E74757EB /* SignupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F249FE21007EE8C651783A15 /* SignupView.swift */; };
+		1961BF57A7C74148C2A25775 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C1B4B982A2CFD6E8DD4ED79F /* AppIcon.icon */; };
 		1ABF21652D5E02795653A7D1 /* NFLPublicBettingBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E750F8000606F64794AE609 /* NFLPublicBettingBars.swift */; };
 		1B3BB07DB7130C01D4BCB582 /* NFLGameCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A2EFE38AE7ED1663AEDAD5 /* NFLGameCarousel.swift */; };
 		1C2B538BF651799DDF05FCF6 /* OnboardingTermsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 705F537D4D221CCE35D28201 /* OnboardingTermsPage.swift */; };
@@ -569,6 +570,7 @@
 		BF9DADE451F15D15EBB0A577 /* BettingTrendsDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BettingTrendsDetailSheet.swift; sourceTree = "<group>"; };
 		BFD18077ADB18415E8086934 /* F5SplitsDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = F5SplitsDetailSheet.swift; sourceTree = "<group>"; };
 		C18F4C86756D9826E2EA1662 /* MatchupPropsDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchupPropsDetailSheet.swift; sourceTree = "<group>"; };
+		C1B4B982A2CFD6E8DD4ED79F /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		C1EAA6C1045CFB6E3371804E /* SearchResultRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultRow.swift; sourceTree = "<group>"; };
 		C2321105874F59586C8EC484 /* Step2IdentityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Step2IdentityView.swift; sourceTree = "<group>"; };
 		C2550F7CB3FF677922D29D92 /* RoastMicButtonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoastMicButtonView.swift; sourceTree = "<group>"; };
@@ -1494,6 +1496,7 @@
 				9E1EB780F016FE4155ED5E17 /* Configuration */,
 				9148D9F91A0CB029441FEB6A /* Features */,
 				C54A1958C03EFD3B801848C8 /* Modules */,
+				C1B4B982A2CFD6E8DD4ED79F /* AppIcon.icon */,
 				74DC75D5ACCFF6F3338032D0 /* Assets.xcassets */,
 			);
 			path = Wagerproof;
@@ -1694,6 +1697,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1961BF57A7C74148C2A25775 /* AppIcon.icon in Resources */,
 				4E25EB706FE705F875BB8BB1 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

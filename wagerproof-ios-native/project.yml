@@ -14,6 +14,14 @@ options:
   createIntermediateGroups: true
   generateEmptyDirectories: true
   groupSortPosition: top
+  # Without this, XcodeGen unpacks Icon Composer .icon bundles (Xcode 26) into
+  # their loose internal files (icon.json, Assets/*) instead of one atomic
+  # resource, which makes actool unable to find "AppIcon" in the catalog.
+  # https://github.com/yonaskolb/XcodeGen/issues/1556
+  fileTypes:
+    icon:
+      file: true
+      buildPhase: resources
 
 configs:
   Debug: debug
