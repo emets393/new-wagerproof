@@ -130,11 +130,6 @@ export default function AccessDenied() {
                   icon: "🤖",
                 },
                 {
-                  title: "Teaser Tool",
-                  description: "Optimize your teaser combinations",
-                  icon: "🎯",
-                },
-                {
                   title: "Expert Picks",
                   description: "Premium analyst recommendations",
                   icon: "⭐",
