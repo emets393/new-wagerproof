@@ -79,6 +79,7 @@ type Analysis = {
   bet_type: string;
   coverage: { season_min: number; season_max: number; n_bets: number; n_games: number };
   baseline_pct: number;
+  overall: { n: number; hit_pct: number; roi: number | null };
   bars: Bar[];
   by_team: { team: string; n: number; hit_pct: number; roi: number | null }[];
   by_coach: { coach: string; n: number; hit_pct: number; roi: number | null }[];
@@ -93,6 +94,14 @@ function significance(n: number, hit: number): { label: string; tone: string } {
   if (n >= 30 && dev >= 3) return { label: 'Solid', tone: 'bg-blue-500/15 text-blue-600 dark:text-blue-400' };
   return { label: 'Neutral', tone: 'bg-muted text-muted-foreground' };
 }
+
+// verb for the headline, per market
+const VERB: Record<string, string> = {
+  fg_spread: 'covered', h1_spread: 'covered the 1H spread',
+  fg_ml: 'won', h1_ml: 'won in the 1H',
+  fg_total: 'went over', h1_total: 'went over the 1H total',
+  team_total: 'went over their team total',
+};
 
 const PRESETS: { label: string; betType: string; filters: any }[] = [
   { label: 'Cold-weather unders', betType: 'fg_total', filters: { tempMax: 32 } },
@@ -305,17 +314,20 @@ export default function NFLAnalytics() {
     if (f.spreadSize) setTimeout(() => setSpreadSize(f.spreadSize), 0);
   };
 
-  // only bars where BOTH sides actually have games (a side pinned by a filter → degenerate → hide)
+  // secondary context splits — only shown when BOTH sides have games (not pinned by a filter)
   const shownBars = useMemo(() => (data?.bars || []).filter(bar => bar.options.every(o => o && o.n > 0)), [data]);
-  // headline: strongest WELL-SAMPLED option — never an empty/tiny side (that was the 0-games bug)
-  const headline = useMemo(() => {
-    let best: { opt: Opt; dim: string } | null = null;
-    for (const bar of shownBars) for (const opt of bar.options) {
-      if (!opt.n || opt.hit_pct == null || opt.n < 8) continue;
-      if (!best || Math.abs(opt.hit_pct - 50) > Math.abs(best.opt.hit_pct - 50)) best = { opt, dim: bar.dimension };
-    }
-    return best;
-  }, [shownBars]);
+  // plain-English subject for the headline, built from the active filters (never empty/degenerate)
+  const subject = useMemo(() => {
+    if (TOTAL_CFG[betType] && betType !== 'team_total') return 'Games';
+    const parts: string[] = [];
+    if (side !== 'any') parts.push(side === 'home' ? 'Home' : 'Road');
+    const dir = SPREAD_CFG[betType] ? spreadSide : favDog;
+    if (dir && dir !== 'any') parts.push(dir === 'favorite' ? 'favorites' : 'underdogs');
+    if (betType === 'team_total' && !parts.length) return 'Teams';
+    if (!parts.length) return 'Teams';
+    const s = parts.join(' ');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }, [betType, side, spreadSide, favDog]);
 
   const cov = data?.coverage;
   const limited = LIMITED_MARKETS.has(betType);
@@ -396,32 +408,35 @@ export default function NFLAnalytics() {
             {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
           </div>
 
-          {/* headline insight */}
-          {headline && cov && (
+          {/* headline: ONE clear result for the exact filtered situation */}
+          {!data ? <Skeleton className="h-20 w-full" /> : data.overall && cov && data.overall.n > 0 ? (
             <Card className="border-l-4 border-l-primary">
               <CardContent className="py-4">
                 <div className="flex items-start gap-3">
-                  {headline.opt.hit_pct >= 50 ? <TrendingUp className="w-5 h-5 text-emerald-500 mt-0.5" /> : <TrendingDown className="w-5 h-5 text-red-500 mt-0.5" />}
+                  {data.overall.hit_pct >= 50 ? <TrendingUp className="w-5 h-5 text-emerald-500 mt-0.5" /> : <TrendingDown className="w-5 h-5 text-red-500 mt-0.5" />}
                   <div>
                     <p className="font-semibold leading-snug">
-                      {sideLabel(betType, headline.opt.side)} <span className="text-primary">{headline.opt.hit_pct}%</span>
-                      {' '}({headline.opt.n} games){headline.opt.roi != null && <> · <span className={headline.opt.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{headline.opt.roi >= 0 ? '+' : ''}{headline.opt.roi}% ROI</span></>}
+                      {subject} {VERB[betType]} <span className="text-primary">{data.overall.hit_pct}%</span>
+                      {' '}({data.overall.n} games){data.overall.roi != null && <> · <span className={data.overall.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{data.overall.roi >= 0 ? '+' : ''}{data.overall.roi}% ROI</span></>}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {(headline.opt.hit_pct - data!.baseline_pct >= 0 ? '+' : '')}{(headline.opt.hit_pct - data!.baseline_pct).toFixed(1)} pts vs the {data!.baseline_pct}% baseline · {significance(headline.opt.n, headline.opt.hit_pct).label}
+                      {(data.overall.hit_pct - data.baseline_pct >= 0 ? '+' : '')}{(data.overall.hit_pct - data.baseline_pct).toFixed(1)} pts vs the {data.baseline_pct}% baseline · {significance(data.overall.n, data.overall.hit_pct).label}
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
+          ) : (
+            <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">No games match these filters — try widening them.</CardContent></Card>
           )}
 
-          {/* result bars */}
-          <Card><CardContent className="py-4 space-y-4">
-            {!data ? <Skeleton className="h-9 w-full" /> :
-              shownBars.length ? shownBars.map((bar, i) => <ResultBar key={i} betType={betType} bar={bar} baseline={data.baseline_pct} />)
-              : <p className="text-sm text-muted-foreground text-center py-4">{cov?.n_games ? 'Not enough games to show a reliable split — try widening the filters.' : 'No games match these filters.'}</p>}
-          </CardContent></Card>
+          {/* secondary context splits (only non-degenerate — hidden when a filter pins the side) */}
+          {data && shownBars.length > 0 && (
+            <Card><CardContent className="py-4 space-y-4">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Breakdown</div>
+              {shownBars.map((bar, i) => <ResultBar key={i} betType={betType} bar={bar} baseline={data.baseline_pct} />)}
+            </CardContent></Card>
+          )}
 
           {/* breakdowns */}
           {data && (
