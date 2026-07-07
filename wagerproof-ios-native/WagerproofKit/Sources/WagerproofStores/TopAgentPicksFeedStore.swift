@@ -50,7 +50,7 @@ public final class TopAgentPicksFeedStore {
         public var emptyMessage: String {
             switch self {
             case .top10:
-                return "No agent picks available for the next few days. Check back later!"
+                return "Picks land here once the leaderboard's top agents start generating for the day — check back around 12pm CST."
             case .following:
                 return "You're not following any agents yet. Visit the Leaderboard tab to discover and follow agents."
             case .favorites:
