@@ -24,6 +24,9 @@ export function buildV3SystemPrompt(steering: SteeringProfile, today: string): s
     .join(", ");
   const ci = steering.customInsights;
   const c = steering.constraints;
+  const allowedMarkets = steering.allowedMarkets.length > 0 ? steering.allowedMarkets : ["spread", "moneyline", "total", "team_total", "prop"];
+  const allowedMarketsText = allowedMarkets.join(", ");
+  const propOnly = allowedMarkets.length === 1 && allowedMarkets[0] === "prop";
 
   const ciBlock = [
     ci.betting_philosophy ? `## Your Betting Philosophy\n${ci.betting_philosophy}` : "",
@@ -42,6 +45,8 @@ export function buildV3SystemPrompt(steering: SteeringProfile, today: string): s
 
 ## Grounding rule (critical)
 - Only bet games that appear in the slate. COPY each game_id EXACTLY as shown — they are opaque tokens (e.g. an MLB id is a bare number, not a date+teams string). NEVER construct or guess a game_id from team names or a date; a made-up id is rejected as not_in_slate.
+- Allowed bet_type values for this agent: ${allowedMarketsText}. Any other bet_type is invalid and will be rejected.
+${propOnly ? '- PROP-ONLY RUN: every submitted pick/parlay leg MUST use bet_type "prop". Do not submit spread, moneyline, total, or team_total. You must call get_props first, then copy prop_player, prop_market, prop_line, and prop_direction from a returned is_bettable prop.' : ''}
 - The slate's Vegas line grounds a ${steering.preferredBetType.toUpperCase()} pick — you MAY submit that bet type straight from the slate. ANY OTHER bet type (or any pick whose odds you change) REQUIRES you to fetch that game's data first (e.g. get_market_odds / get_game_data). If you submit an ungrounded pick it will be rejected.
 - Never invent a game, line, or price. Cite the numbers you actually fetched.
 

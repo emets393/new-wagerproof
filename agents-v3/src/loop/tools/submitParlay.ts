@@ -93,6 +93,10 @@ export async function submitParlay(
   // Week-long runs allow 6-leg tickets (vs the daily hard cap of 4).
   const weekly = ctx.window === "week";
   const maxLegs = Math.min(weekly ? 6 : 4, Math.max(2, ctx.steering.maxParlayLegs || 0));
+  // A week-long run offers a FEW distinct parlay options (they fill the weekly
+  // rail), capped so one run can't flood the section. Counted across
+  // submit_parlay calls since the tool is non-terminal.
+  const WEEKLY_MAX_TICKETS = 3;
   // Parlays reject as a unit; the "bet_type" field carries "parlay", game_id the label.
   const reject = (label: string, reason: string) =>
     report.rejected.push({ game_id: label, bet_type: "parlay", reason });
@@ -100,10 +104,9 @@ export async function submitParlay(
   const toWrite: { parlay: Record<string, unknown>; legs: LegRow[] }[] = [];
 
   for (let p = 0; p < rawParlays.length; p++) {
-    // Week runs produce exactly ONE ticket — counted across submit_parlay calls,
-    // since the tool is non-terminal and could be invoked more than once.
-    if (weekly && ctx.weeklyTicketsSubmitted + toWrite.length >= 1) {
-      reject(`parlay#${p + 1}`, "weekly_single_ticket: a week-long run submits exactly ONE parlay ticket");
+    // Cap the number of week-long tickets across the run's submit_parlay calls.
+    if (weekly && ctx.weeklyTicketsSubmitted + toWrite.length >= WEEKLY_MAX_TICKETS) {
+      reject(`parlay#${p + 1}`, `weekly_ticket_cap: a week-long run submits at most ${WEEKLY_MAX_TICKETS} parlay tickets`);
       continue;
     }
     const par = rawParlays[p] as Record<string, unknown>;
@@ -314,6 +317,27 @@ export async function submitParlay(
     }
 
     if (legFailure) { reject(label, legFailure); continue; }
+
+    // Distinct-ticket guard (weekly only): a week-long run should offer a few
+    // DIFFERENT options, not the same legs restaked. Reject a ticket whose exact
+    // leg-set already shipped in this run (tracked across submit_parlay calls).
+    if (weekly) {
+      // Precise leg identity so only a truly identical leg-set collides — keying
+      // props on player+market+line+direction and non-props on the rewritten
+      // selection avoids treating opposite sides (Bills -3 vs Dolphins +3, or
+      // Over vs Under) as the "same" leg and over-rejecting a distinct ticket.
+      const sig = legs
+        .map((l) => l.bet_type === "prop"
+          ? `${l.game_id}:prop:${(l.prop_player ?? "").toLowerCase()}:${l.prop_market ?? ""}:${l.prop_line ?? ""}:${l.prop_direction ?? ""}`
+          : `${l.game_id}:${l.bet_type}:${l.period}:${(l.pick_selection ?? "").toLowerCase()}`)
+        .sort()
+        .join("|");
+      if (ctx.submittedParlaySignatures.has(sig)) {
+        reject(label, "duplicate_ticket: these exact legs already shipped in this run — build a genuinely different ticket (vary the games/angle)");
+        continue;
+      }
+      ctx.submittedParlaySignatures.add(sig);
+    }
 
     const clamp = clampUnits(Number(par?.units ?? 1), ctx.steering.unitBand, Number(par?.confidence ?? 3));
     const combinedOdds = decimalToAmerican(decimalProduct);

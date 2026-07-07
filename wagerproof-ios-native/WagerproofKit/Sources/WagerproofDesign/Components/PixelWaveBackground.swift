@@ -134,15 +134,18 @@ public struct PixelWaveBackground: View {
     }
 
     /// Top-weighted vertical fade (white → clear) spanning the full screen height,
-    /// so the wave + glyph field lives behind the hero and gracefully dissolves
-    /// into the card stack. Fractions are of screen height: solid through the hero,
-    /// gone by roughly the top third's end.
+    /// so the wave + glyph field lives behind the HERO and is gone by the hero's
+    /// bottom edge — the scrolling content below must sit on a clean, opaque dark
+    /// base, never over the glyph field (the cards/chips are translucent, so any
+    /// glyphs behind them read as the content itself "going transparent" as it
+    /// scrolls up toward the header). Fractions are of screen height; the
+    /// collapsing hero is ~0.21 of the screen, so the field clears by ~0.24.
     private var heroFadeMask: some View {
         LinearGradient(
             stops: [
                 .init(color: .white, location: 0),
-                .init(color: .white, location: 0.26),
-                .init(color: .clear, location: 0.58)
+                .init(color: .white, location: 0.15),
+                .init(color: .clear, location: 0.24)
             ],
             startPoint: .top,
             endPoint: .bottom

@@ -16,8 +16,9 @@ const DEFAULT_MODEL = "deepseek-v4-flash";
 
 export const weeklyParlayAutoGenV3 = schedules.task({
   id: "weekly-parlay-auto-gen-v3",
-  // Every 30 min, Tue–Thu 8am–8pm ET. One weekly ticket per agent per football
-  // week — the NOT EXISTS in the eligibility RPC makes later ticks no-ops.
+  // Every 30 min, Tue–Thu 8am–8pm ET. One weekly RUN per agent per football week
+  // (that run submits up to 3 distinct tickets) — the NOT EXISTS in the
+  // eligibility RPC makes later ticks no-ops.
   cron: { pattern: "*/30 8-20 * * 2-4", timezone: "America/New_York" },
   run: async (payload) => {
     const main = ledgerClient();

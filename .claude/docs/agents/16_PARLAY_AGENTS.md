@@ -1,10 +1,11 @@
 # 16 — Agent Type Fork & Parlay Agents
 
-**Status:** Design spec — V3 prep, ships with V3 (NOT live yet). Source of truth for the
-agent-creation fork and the parlay-agent product. To be reconciled with
-[15_V3_PERSONALITY_QUESTIONS.md](15_V3_PERSONALITY_QUESTIONS.md) (question set now branches by
-type) and [13_CROSS_SPORT_AND_PARLAYS.md](13_CROSS_SPORT_AND_PARLAYS.md) (parlay plumbing —
-submit/grade/correlation — still valid; this doc adds the product shape on top). Locked 2026-06-23.
+**Status:** Design spec + partial implementation. The shipped v1 shape is **settings-driven
+weekly parlays on normal agents**, not the full mutually-exclusive agent-type fork below. See
+[13_CROSS_SPORT_AND_PARLAYS.md](13_CROSS_SPORT_AND_PARLAYS.md) and
+[18_GENERATION_V3_TRIGGERDEV.md](18_GENERATION_V3_TRIGGERDEV.md) for the as-built
+`scope/week_key` storage, Trigger window payload, weekly budget, and delete behavior. Locked
+2026-06-23; reconciled with weekly-parlay v1 on 2026-07-06.
 
 ## Why a fork
 
@@ -40,6 +41,21 @@ trigger the user chooses a **window**:
 - **NFL/CFB only** (the only multi-day sports — Thu/Sun NFL + Sat CFB combine into one ticket).
 - **Only offered when the agent's sports include NFL or CFB.** A pure-MLB/NBA parlay agent is day-only.
 - Definition: **now → the end of the current football week (Monday night).**
+
+### As-built v1: Week Long Parlays on regular agents
+- Existing agents opt in through `personality_params.weekly_parlay_enabled` in Settings.
+- `personality_params.weekly_parlay_legs` targets 2-6 legs (default 4).
+- Weekly generation has no dedicated client button; the main "Generate Today's Picks" swipe also
+  requests weekly tickets when the agent is eligible and still has 3-per-football-week budget.
+- Weekly autopilot is separate from daily autopilot and requires `auto_generate`,
+  `weekly_parlay_enabled`, football sports, and autopilot entitlement.
+- Weekly runs force `parlaysOnly` internally and submit **up to 3 DISTINCT** `avatar_parlays`
+  tickets (so one run fills the weekly rail with a few options) with `scope='weekly'`,
+  `week_key=<Tuesday football week>`, and `target_date=week_key+6`. The engine rejects an
+  exact-duplicate leg-set (`submittedParlaySignatures`) so the options are genuinely different;
+  the `WEEKLY_MAX_TICKETS=3` cap in `submitParlay` is counted across `submit_parlay` calls.
+- Daily and weekly regenerations are additive. Users prune unwanted pending tickets through the
+  delete RPCs rather than generation deleting prior rows.
 
 ### Hard rule: never pick a game that has already started
 - Exclude any game whose kickoff/first-pitch is in the past **relative to the trigger time**.

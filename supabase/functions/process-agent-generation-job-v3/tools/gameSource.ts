@@ -64,11 +64,10 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
   let startedDropped = 0;
   for (const sport of ctx.steering.preferredSports as Sport[]) {
     try {
-      // V3 reads the 2026 dryrun staging tables (nfl_dryrun_games /
-      // cfb_dryrun_games) — the production data contract — via the additive
-      // `source: 'dryrun'` param. NFL/CFB switch tables; other sports ignore it
-      // and read their legacy table. V2 omits this arg → stays on legacy.
-      const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate, 'dryrun');
+      // V3 reads the same production football sources as the rest of the app.
+      // NFL/CFB test slates should be seeded into those production-shaped tables
+      // with upcoming dates instead of routing generation through dry-run tables.
+      const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate);
       let n = 0;
       for (const fg of formattedGames as FormattedGame[]) {
         const id = String((fg as Record<string, unknown>).game_id ?? "");
