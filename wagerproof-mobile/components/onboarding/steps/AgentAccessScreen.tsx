@@ -107,7 +107,7 @@ export function AgentAccessScreen() {
         {[
           'Daily AI-generated picks',
           'Performance tracking & analytics',
-          'Up to 5 custom agents',
+          'Up to 30 custom agents',
           'Global leaderboard access',
         ].map((benefit, index) => (
           <View key={index} style={styles.benefitRow}>

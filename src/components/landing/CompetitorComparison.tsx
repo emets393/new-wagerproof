@@ -72,7 +72,7 @@ const comparisonData: ComparisonRow[] = [
     wagerproof: "yes",
     genericAI: "no",
     sportsbooks: "no",
-    wpDetail: "5 custom agents, 50+ params",
+    wpDetail: "30 custom agents, 50+ params",
     aiDetail: "Generic chat, no autonomy",
     sbDetail: "Not available",
   },

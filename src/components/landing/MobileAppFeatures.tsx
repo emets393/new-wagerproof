@@ -1102,9 +1102,9 @@ const featuresConfig = [
     title: "Build Your Autonomous Agent Army",
     subtitle: "Deploy AI research agents that work 24/7 so you don't have to.",
     description:
-      "Create up to 5 specialized AI agents — each with a unique personality, risk tolerance, and sport focus. They study matchups, crunch data, and generate picks autonomously. Like having a team of data scientists that never sleep.",
+      "Create up to 30 specialized AI agents — each with a unique personality, risk tolerance, and sport focus. They study matchups, crunch data, and generate picks autonomously. Like having a team of data scientists that never sleep.",
     bullets: [
-      { icon: Bot, text: "Up to 5 custom agents with 50+ tunable parameters each" },
+      { icon: Bot, text: "Up to 30 custom agents with 50+ tunable parameters each" },
       { icon: Cpu, text: "Agents analyze markets and generate picks autonomously" },
       { icon: Activity, text: "Transparent W-L records and performance tracking" },
       { icon: Network, text: "Public leaderboard — share and follow top agents" },

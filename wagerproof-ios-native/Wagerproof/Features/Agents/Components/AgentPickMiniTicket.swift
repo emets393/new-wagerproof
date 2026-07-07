@@ -56,10 +56,6 @@ struct AgentPickMiniTicket: View {
             HStack(spacing: 6) {
                 sportTag
                 Spacer(minLength: 4)
-                Text(PickTicketFormat.gameDate(pick.gameDate))
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .lineLimit(1)
                 statusCorner
             }
 

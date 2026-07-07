@@ -105,7 +105,7 @@ export function AppLayout() {
       }
       return true;
     }
-    // Handle both /nfl/teaser-sharpness and /nfl-analytics patterns
+    // /nfl nav item is also active on the /nfl-analytics tool page
     if (path === '/nfl') {
       return location.pathname === path ||
              location.pathname.startsWith(path + '/') ||

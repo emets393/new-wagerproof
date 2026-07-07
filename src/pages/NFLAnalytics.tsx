@@ -1,1527 +1,682 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
-import { ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ChevronDown, TrendingUp, TrendingDown, CalendarClock, Loader2, Bookmark, Trash2, X } from 'lucide-react';
+import { Input } from "@/components/ui/input";
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
-import debug from '@/utils/debug';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+// ── Bet-type spine — the FIRST choice; everything downstream speaks this one market ──
+const BET_GROUPS = [
+  { group: 'Full Game', items: [
+    { key: 'fg_spread', label: 'Spread' }, { key: 'fg_ml', label: 'Moneyline' },
+    { key: 'fg_total', label: 'Total' }, { key: 'team_total', label: 'Team Total' }] },
+  { group: 'First Half', items: [
+    { key: 'h1_spread', label: '1H Spread' }, { key: 'h1_ml', label: '1H Moneyline' },
+    { key: 'h1_total', label: '1H Total' }] },
+];
+const SPREAD_MARKETS = new Set(['fg_spread', 'h1_spread']);
+const ML_MARKETS = new Set(['fg_ml', 'h1_ml']);
+const TOTAL_MARKETS = new Set(['fg_total', 'h1_total']);
+const LIMITED_MARKETS = new Set(['h1_spread', 'h1_ml', 'h1_total', 'team_total']); // 2023+ only
 
-// Color coding helper function
-const getColorClass = (value1: any, value2: any) => {
-  const v1 = parseFloat(value1 || 0);
-  const v2 = parseFloat(value2 || 0);
-  
-  if (v1 > v2) return 'text-green-600 dark:text-green-400';
-  if (v1 < v2) return 'text-red-600 dark:text-red-400';
-  return 'text-yellow-600 dark:text-yellow-400'; // Equal values (around 50%)
+// per-market line-filter config (the SUBJECT market's line, filterable for every bet type)
+const SPREAD_CFG: Record<string, { max: number; mk: string; xk: string; amk: string; axk: string }> = {
+  fg_spread: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
+  h1_spread: { max: 14, mk: 'h1_spread_min', xk: 'h1_spread_max', amk: 'h1_abs_spread_min', axk: 'h1_abs_spread_max' },
+  // moneyline markets filter by the FULL-GAME spread (ML is just the spread priced up)
+  fg_ml: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
+  h1_ml: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
+};
+const TOTAL_CFG: Record<string, { min: number; max: number; mk: string; xk: string; label: string }> = {
+  fg_total: { min: 30, max: 60, mk: 'total_min', xk: 'total_max', label: 'Game total' },
+  h1_total: { min: 15, max: 35, mk: 'h1_total_min', xk: 'h1_total_max', label: '1H total' },
+  team_total: { min: 10, max: 40, mk: 'tt_min', xk: 'tt_max', label: 'Team total line' },
 };
 
-// NFL team logo helper (matches NFL page mapping)
-const getNFLTeamLogo = (teamName: string): string => {
-  const logoMap: { [key: string]: string } = {
-    'Arizona': 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png',
-    'Atlanta': 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png',
-    'Baltimore': 'https://a.espncdn.com/i/teamlogos/nfl/500/bal.png',
-    'Buffalo': 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
-    'Carolina': 'https://a.espncdn.com/i/teamlogos/nfl/500/car.png',
-    'Chicago': 'https://a.espncdn.com/i/teamlogos/nfl/500/chi.png',
-    'Cincinnati': 'https://a.espncdn.com/i/teamlogos/nfl/500/cin.png',
-    'Cleveland': 'https://a.espncdn.com/i/teamlogos/nfl/500/cle.png',
-    'Dallas': 'https://a.espncdn.com/i/teamlogos/nfl/500/dal.png',
-    'Denver': 'https://a.espncdn.com/i/teamlogos/nfl/500/den.png',
-    'Detroit': 'https://a.espncdn.com/i/teamlogos/nfl/500/det.png',
-    'Green Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/gb.png',
-    'Houston': 'https://a.espncdn.com/i/teamlogos/nfl/500/hou.png',
-    'Indianapolis': 'https://a.espncdn.com/i/teamlogos/nfl/500/ind.png',
-    'Jacksonville': 'https://a.espncdn.com/i/teamlogos/nfl/500/jax.png',
-    'Kansas City': 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
-    'Las Vegas': 'https://a.espncdn.com/i/teamlogos/nfl/500/lv.png',
-    'Los Angeles Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
-    'Los Angeles Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
-    'LA Chargers': 'https://a.espncdn.com/i/teamlogos/nfl/500/lac.png',
-    'LA Rams': 'https://a.espncdn.com/i/teamlogos/nfl/500/lar.png',
-    'Miami': 'https://a.espncdn.com/i/teamlogos/nfl/500/mia.png',
-    'Minnesota': 'https://a.espncdn.com/i/teamlogos/nfl/500/min.png',
-    'New England': 'https://a.espncdn.com/i/teamlogos/nfl/500/ne.png',
-    'New Orleans': 'https://a.espncdn.com/i/teamlogos/nfl/500/no.png',
-    'NY Giants': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png',
-    'NY Jets': 'https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png',
-    'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nfl/500/phi.png',
-    'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/nfl/500/pit.png',
-    'San Francisco': 'https://a.espncdn.com/i/teamlogos/nfl/500/sf.png',
-    'Seattle': 'https://a.espncdn.com/i/teamlogos/nfl/500/sea.png',
-    'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/nfl/500/tb.png',
-    'Tennessee': 'https://a.espncdn.com/i/teamlogos/nfl/500/ten.png',
-    'Washington': 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
-  };
-  return logoMap[teamName] || '/placeholder.svg';
+// team abbr → ESPN logo (handles the LA/LAR + WAS/WSH quirks across our two sources)
+const ESPN: Record<string, string> = { LA: 'lar', LAR: 'lar', LAC: 'lac', WAS: 'wsh', WSH: 'wsh', JAC: 'jax', OAK: 'lv', SD: 'lac', STL: 'lar' };
+const logoFor = (abbr?: string) => abbr ? `https://a.espncdn.com/i/teamlogos/nfl/500/${(ESPN[abbr] || abbr).toLowerCase()}.png` : '/placeholder.svg';
+
+// plain-English label for a result side, per market
+function sideLabel(betType: string, side: string): string {
+  if (side === 'over') return 'Over';
+  if (side === 'under') return 'Under';
+  const verb = ML_MARKETS.has(betType) ? 'won' : 'covered';
+  if (side === 'home') return `Home ${verb}`;
+  if (side === 'away') return `Away ${verb}`;
+  if (side === 'favorite') return `Favorites ${verb}`;
+  if (side === 'underdog') return `Underdogs ${verb}`;
+  return side;
+}
+
+// the bet-type-relevant line for an upcoming game
+function lineForBet(betType: string, g: any): string {
+  const t = g.team, sp = g.team_spread;
+  if (betType === 'fg_spread') return `${t} ${sp > 0 ? '+' : ''}${sp}`;
+  if (betType === 'fg_ml') return `${t} ML (${g.is_favorite ? 'favorite' : 'underdog'})`;
+  if (betType === 'fg_total') return `Total O/U ${g.total ?? '—'}`;
+  if (betType === 'team_total') return `${t} team total ${g.tt_line ?? '—'}`;
+  if (betType === 'h1_spread') return `${t} 1H ${g.h1_spread > 0 ? '+' : ''}${g.h1_spread ?? '—'}`;
+  if (betType === 'h1_ml') return `${t} 1H ML (${g.is_favorite ? 'favorite' : 'underdog'})`;
+  if (betType === 'h1_total') return `1H Total O/U ${g.h1_total ?? '—'}`;
+  return '';
+}
+function fmtKick(iso?: string): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET';
+  } catch { return ''; }
+}
+
+type Opt = { side: string; n: number; wins: number; hit_pct: number; roi: number | null };
+type Bar = { dimension: string; options: Opt[] };
+type Analysis = {
+  bet_type: string;
+  coverage: { season_min: number; season_max: number; n_bets: number; n_games: number };
+  baseline_pct: number;
+  overall: { n: number; wins: number; hit_pct: number; roi: number | null };
+  bars: Bar[];
+  by_team: { team: string; n: number; hit_pct: number; roi: number | null }[];
+  by_coach: { coach: string; n: number; hit_pct: number; roi: number | null }[];
+  by_referee: { referee: string; n: number; hit_pct: number; roi: number | null }[];
 };
 
-interface NFLTeam {
-  city_and_name: string;
-  team_name: string;
-  team_id: string;
+// significance: sample size + deviation from break-even
+function significance(n: number, hit: number): { label: string; tone: string } {
+  const dev = Math.abs(hit - 50);
+  if (n < 20) return { label: 'Thin sample', tone: 'bg-muted text-muted-foreground' };
+  if (n >= 60 && dev >= 5) return { label: 'Strong', tone: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' };
+  if (n >= 30 && dev >= 3) return { label: 'Solid', tone: 'bg-blue-500/15 text-blue-600 dark:text-blue-400' };
+  return { label: 'Neutral', tone: 'bg-muted text-muted-foreground' };
+}
+
+// verb + outcome word + count noun, per market
+const VERB: Record<string, string> = {
+  fg_spread: 'covered', h1_spread: 'covered the 1H spread',
+  fg_ml: 'won', h1_ml: 'won in the 1H',
+  fg_total: 'went over', h1_total: 'went over the 1H total',
+  team_total: 'went over their team total',
+};
+const OUTCOME: Record<string, string> = {
+  fg_spread: 'Cover', h1_spread: 'Cover', fg_ml: 'Win', h1_ml: 'Win',
+  fg_total: 'Over', h1_total: 'Over', team_total: 'Over',
+};
+const nounFor = (bt: string) => bt === 'team_total' ? 'team totals' : 'games';
+
+const PRESETS: { label: string; betType: string; filters: any }[] = [
+  { label: 'Cold-weather unders', betType: 'fg_total', filters: { tempMax: 32 } },
+  { label: 'Home underdogs', betType: 'fg_spread', filters: { side: 'away', favDog: 'underdog' } },
+  { label: 'Primetime favorites', betType: 'fg_spread', filters: { primetime: true, spreadSide: 'favorite' } },
+  { label: 'Divisional unders', betType: 'fg_total', filters: { division: true } },
+  { label: 'Big home favorites (TT)', betType: 'team_total', filters: { side: 'home', spreadSide: 'favorite', spreadSize: [7, 20] } },
+];
+
+const DIM_LABEL: Record<string, string> = { over_under: 'Over / Under', home_away: 'Home vs Away', fav_dog: 'Favorite vs Underdog' };
+
+// one clearly-labeled row per option: "Home covered 44% (19 of 44)" with a hit-rate bar + baseline
+function OptionRow({ betType, opt, baseline }: { betType: string; opt: Opt; baseline: number }) {
+  const good = opt.hit_pct >= 52.4; // break-even at -110
+  return (
+    <div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium">{sideLabel(betType, opt.side)}</span>
+        <span className={good ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-foreground/80'}>
+          {opt.hit_pct}% <span className="text-xs text-muted-foreground font-normal">({opt.wins} of {opt.n})</span>
+        </span>
+      </div>
+      <div className="relative h-2 rounded bg-muted mt-1 overflow-hidden">
+        <div className="absolute inset-y-0 left-0 rounded bg-emerald-500/50" style={{ width: `${Math.min(opt.hit_pct, 100)}%` }} />
+        <div className="absolute inset-y-0 w-px bg-foreground/50" style={{ left: `${baseline}%` }} />
+      </div>
+      <div className="flex justify-between text-[11px] text-muted-foreground mt-0.5">
+        <span>vs {baseline}% baseline</span>
+        {opt.roi != null && <span className={opt.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{opt.roi >= 0 ? '+' : ''}{opt.roi}% ROI</span>}
+      </div>
+    </div>
+  );
+}
+
+function ResultBar({ betType, bar, baseline }: { betType: string; bar: Bar; baseline: number }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{DIM_LABEL[bar.dimension] || bar.dimension}</div>
+      {bar.options.map((opt, i) => <OptionRow key={i} betType={betType} opt={opt} baseline={baseline} />)}
+    </div>
+  );
+}
+
+function BreakdownTable({ betType, rows, keyName }: { betType: string; rows: any[]; keyName: string }) {
+  const [sort, setSort] = useState<'roi' | 'hit' | 'n'>('n');
+  const sorted = useMemo(() => [...(rows || [])].sort((x, y) =>
+    sort === 'n' ? y.n - x.n : sort === 'hit' ? y.hit_pct - x.hit_pct : (y.roi ?? -999) - (x.roi ?? -999)), [rows, sort]);
+  const isTeam = keyName === 'team';
+  const isML = ML_MARKETS.has(betType);
+  const outcome = OUTCOME[betType] || 'Hit';
+  if (!rows?.length) return <p className="text-sm text-muted-foreground py-6 text-center">No results with enough games (min 3).</p>;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex gap-1">
+          {(['n', 'hit', 'roi'] as const).filter(s => s !== 'roi' || !isML).map(s => (
+            <Button key={s} size="sm" variant={sort === s ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setSort(s)}>
+              {s === 'n' ? 'Games' : s === 'hit' ? `${outcome} %` : 'ROI'}
+            </Button>
+          ))}
+        </div>
+        <span className="text-[11px] text-muted-foreground">{outcome} rate</span>
+      </div>
+      <div className="max-h-[420px] overflow-y-auto rounded-lg border divide-y">
+        {sorted.map((r, i) => {
+          const sig = significance(r.n, r.hit_pct);
+          return (
+            <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
+              {isTeam
+                ? <img src={logoFor(r.team)} alt={r.team} className="w-6 h-6 shrink-0" onError={e => (e.currentTarget.style.visibility = 'hidden')} />
+                : <div className="w-6 shrink-0" />}
+              <span className="flex-1 truncate font-medium">{r[keyName]}</span>
+              <Badge variant="secondary" className={`text-[10px] ${sig.tone}`}>{r.n}g</Badge>
+              <span className={`w-14 text-right font-semibold ${r.hit_pct > 52 ? 'text-emerald-600 dark:text-emerald-400' : r.hit_pct < 48 ? 'text-red-600 dark:text-red-400' : ''}`}>{r.hit_pct}%</span>
+              {!isML && <span className={`w-16 text-right text-xs ${(r.roi ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{r.roi != null ? `${r.roi >= 0 ? '+' : ''}${r.roi}%` : '—'}</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function NFLAnalytics() {
-  const [viewType, setViewType] = useState<"individual" | "game">("individual");
-  const [teamStats, setTeamStats] = useState([]);
-  const [summary, setSummary] = useState<any>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [nflTeams, setNflTeams] = useState<NFLTeam[]>([]);
-  const [teamsLoading, setTeamsLoading] = useState(true);
-  const [teamSort, setTeamSort] = useState<{ key: 'teamName' | 'games' | 'winPercentage' | 'coverPercentage' | 'overPercentage'; asc: boolean }>({ key: 'teamName', asc: true });
-  
-  // Filter states
-  const [filters, setFilters] = useState({
-    season: '',
-    week: '',
-    start: '',
-    day: '',
-    ou_vegas_line: '',
-    temperature: '',
-    wind_speed: '',
-    precipitation_type: '',
-    game_stadium_dome: '',
-    conference_game: '',
-    surface: '',
-    // Individual team filters
-    priority_team_id: [] as string[],
-    opponent_team_id: [] as string[],
-    is_home: '',
-    spread_closing: '',
-    // Game level filters
-    home_team_id: '',
-    away_team_id: '',
-    home_spread: '',
-    // Boolean filters
-    team_last_spread: '',
-    team_last_ou: '',
-    team_last_ml: '',
-    opponent_last_spread: '',
-    opponent_last_ou: '',
-    opponent_last_ml: '',
-    // Home/Away last game filters
-    team_consecutive_home_away: '',
-    opponent_consecutive_home_away: ''
-  });
+  const [betType, setBetType] = useState('fg_spread');
+  const [data, setData] = useState<Analysis | null>(null);
+  const [upcoming, setUpcoming] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Range filter states
-  const [seasonRange, setSeasonRange] = useState([2018, 2025]);
-  const [weekRange, setWeekRange] = useState([1, 18]);
-  const [ouLineRange, setOuLineRange] = useState<[number, number]>([35, 60]);
-  const [temperatureRange, setTemperatureRange] = useState<[number, number]>([-10, 110]);
-  const [windSpeedRange, setWindSpeedRange] = useState<[number, number]>([0, 40]);
-  const [spreadRange, setSpreadRange] = useState<[number, number]>([0, 20]);
+  // filter state (UI-shaped; translated to RPC keys in buildFilters)
+  const [seasons, setSeasons] = useState<[number, number]>([2018, 2025]);
+  const [weeks, setWeeks] = useState<[number, number]>([1, 18]);
+  const [side, setSide] = useState('any');
+  const [seasonType, setSeasonType] = useState('any'); // any | regular | postseason
+  const [playoffRound, setPlayoffRound] = useState('any'); // any | Wild Card | Divisional | Conference | Super Bowl
+  const [favDog, setFavDog] = useState('any');
+  const [spreadSide, setSpreadSide] = useState('any'); // favorite | underdog | any
+  const [spreadSize, setSpreadSize] = useState<[number, number]>([0, 20]);
+  const [lineRange, setLineRange] = useState<[number, number]>([30, 60]);
+  const [mlMin, setMlMin] = useState<string>(''); // team moneyline (American odds) — exact numeric bounds
+  const [mlMax, setMlMax] = useState<string>('');
+  const [primetime, setPrimetime] = useState<boolean | null>(null);
+  const [division, setDivision] = useState<boolean | null>(null);
+  const [dome, setDome] = useState<string>('any');
+  const [tempRange, setTempRange] = useState<[number, number]>([-10, 100]);
+  const [windMax, setWindMax] = useState(60);
+  const [precip, setPrecip] = useState('any');
+  const [restBye, setRestBye] = useState('any'); // any | off_bye | pre_bye | short
+  const [coach, setCoach] = useState('any');
+  const [referee, setReferee] = useState('any');
+  const [coaches, setCoaches] = useState<string[]>([]);
+  const [refs, setRefs] = useState<string[]>([]);
 
-  // Removed test utilities and buttons (streamlined UI)
+  // saved filters (per authed user, main project)
+  const { user } = useAuth();
+  const [saved, setSaved] = useState<any[]>([]);
+  const [saveName, setSaveName] = useState('');
+  const [showSave, setShowSave] = useState(false);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // Filter out empty values and add range filters
-      const activeFilters = Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== '')
-      );
-      
-      // Normalize boolean-like filters
-      if (typeof activeFilters.is_home === 'string') {
-        if (activeFilters.is_home.toLowerCase() === 'true') activeFilters.is_home = 'true';
-        else if (activeFilters.is_home.toLowerCase() === 'false') activeFilters.is_home = 'false';
-      }
+  const snapshot = () => ({ betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee });
+  const restore = (s: any) => {
+    setBetType(s.betType); setSeasons(s.seasons); setWeeks(s.weeks); setSide(s.side); setSeasonType(s.seasonType ?? 'any'); setPlayoffRound(s.playoffRound ?? 'any'); setFavDog(s.favDog);
+    setSpreadSide(s.spreadSide); setPrimetime(s.primetime ?? null); setDivision(s.division ?? null);
+    setDome(s.dome); setTempRange(s.tempRange); setWindMax(s.windMax); setPrecip(s.precip);
+    setRestBye(s.restBye); setCoach(s.coach); setReferee(s.referee);
+    setMlMin(s.mlMin ?? ''); setMlMax(s.mlMax ?? '');
+    // spreadSize/lineRange are reset by the bet-type effect — re-apply after it runs
+    setTimeout(() => { setSpreadSize(s.spreadSize); setLineRange(s.lineRange); }, 0);
+  };
+  const loadSaved = useCallback(async () => {
+    if (!user) { setSaved([]); return; }
+    const { data } = await supabase.from('nfl_analysis_saved_filters').select('*').order('created_at', { ascending: false });
+    setSaved(data || []);
+  }, [user]);
+  useEffect(() => { loadSaved(); }, [loadSaved]);
+  const saveCurrent = async () => {
+    if (!user || !saveName.trim()) return;
+    const { error } = await supabase.from('nfl_analysis_saved_filters')
+      .insert({ user_id: user.id, name: saveName.trim(), bet_type: betType, filters: snapshot() });
+    if (error) { alert(error.message); return; }
+    setSaveName(''); setShowSave(false); loadSaved();
+  };
+  const deleteSaved = async (id: string) => { await supabase.from('nfl_analysis_saved_filters').delete().eq('id', id); loadSaved(); };
 
-      debug.log('Sending filters to backend:', activeFilters);
-      
-      // Add range filters
-      if (seasonRange[0] !== 2018 || seasonRange[1] !== 2025) {
-        activeFilters.season = `${seasonRange[0]},${seasonRange[1]}`;
-      }
-      if (weekRange[0] !== 1 || weekRange[1] !== 18) {
-        activeFilters.week = `${weekRange[0]},${weekRange[1]}`;
-      }
-      if (ouLineRange[0] !== 35 || ouLineRange[1] !== 60) {
-        activeFilters.ou_vegas_line = `${ouLineRange[0]},${ouLineRange[1]}`;
-      }
-      if (temperatureRange[0] !== -10 || temperatureRange[1] !== 110) {
-        activeFilters.temperature = `${temperatureRange[0]},${temperatureRange[1]}`;
-      }
-      if (windSpeedRange[0] !== 0 || windSpeedRange[1] !== 40) {
-        activeFilters.wind_speed = `${windSpeedRange[0]},${windSpeedRange[1]}`;
-      }
-      if (spreadRange[0] !== 0 || spreadRange[1] !== 20) {
-        activeFilters.spread_closing = `${spreadRange[0]},${spreadRange[1]}`;
-      }
-      
-      debug.log('Building client-side analytics with filters:', { view_type: viewType, ...activeFilters });
+  // 1H/TT markets only have 2023+; clamp the season floor so users can't pick empty ranges
+  const seasonFloor = LIMITED_MARKETS.has(betType) ? 2023 : 2018;
+  // when the bet type changes, reset the line controls to that market's range (avoids stale bounds)
+  useEffect(() => {
+    if (seasons[0] < seasonFloor) setSeasons([seasonFloor, seasons[1]]);
+    setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 20]);
+    const t = TOTAL_CFG[betType];
+    if (t) setLineRange([t.min, t.max]);
+  }, [betType]); // eslint-disable-line
 
-      // Client-side query of v_nfl_training_exploded to ensure local changes reflect immediately
-      let q = collegeFootballSupabase
-        .from('v_nfl_training_exploded')
-        .select('*');
-
-      if (activeFilters.priority_team_id && activeFilters.priority_team_id.length > 0) {
-        if (Array.isArray(activeFilters.priority_team_id)) q = q.in('priority_team_id', activeFilters.priority_team_id);
-        else q = q.eq('priority_team_id', activeFilters.priority_team_id);
-      }
-      if (activeFilters.opponent_team_id && activeFilters.opponent_team_id.length > 0) {
-        if (Array.isArray(activeFilters.opponent_team_id)) q = q.in('opponent_team_id', activeFilters.opponent_team_id);
-        else q = q.eq('opponent_team_id', activeFilters.opponent_team_id);
-      }
-      if (activeFilters.season) {
-        if (String(activeFilters.season).includes(',')) {
-          const [minS, maxS] = String(activeFilters.season).split(',').map(Number);
-          q = q.gte('season', minS).lte('season', maxS);
-        } else q = q.eq('season', activeFilters.season);
-      }
-      if (activeFilters.week) {
-        if (String(activeFilters.week).includes(',')) {
-          const [minW, maxW] = String(activeFilters.week).split(',').map(Number);
-          q = q.gte('week', minW).lte('week', maxW);
-        } else q = q.eq('week', activeFilters.week);
-      }
-      if (activeFilters.start) q = q.eq('start', activeFilters.start);
-      if (activeFilters.ou_vegas_line) {
-        if (String(activeFilters.ou_vegas_line).includes(',')) {
-          const [minOu, maxOu] = String(activeFilters.ou_vegas_line).split(',').map(Number);
-          q = q.gte('ou_vegas_line', minOu).lte('ou_vegas_line', maxOu);
-        } else q = q.eq('ou_vegas_line', Number(activeFilters.ou_vegas_line));
-      }
-      if (activeFilters.spread_closing) {
-        if (String(activeFilters.spread_closing).includes(',')) {
-          const [minSp, maxSp] = String(activeFilters.spread_closing).split(',').map(Number);
-          q = q.gte('spread_closing', minSp).lte('spread_closing', maxSp);
-        } else q = q.eq('spread_closing', Number(activeFilters.spread_closing));
-      }
-      if (activeFilters.surface) q = q.ilike('surface', `%${String(activeFilters.surface)}%`);
-      if (activeFilters.game_stadium_dome) q = q.eq('game_stadium_dome', activeFilters.game_stadium_dome);
-      if (activeFilters.temperature) {
-        if (String(activeFilters.temperature).includes(',')) {
-          const [minT, maxT] = String(activeFilters.temperature).split(',').map(Number);
-          q = q.gte('temperature', minT).lte('temperature', maxT);
-        } else q = q.eq('temperature', Number(activeFilters.temperature));
-      }
-      if (activeFilters.precipitation_type) q = q.ilike('precipitation_type', `%${String(activeFilters.precipitation_type)}%`);
-      if (activeFilters.wind_speed) {
-        if (String(activeFilters.wind_speed).includes(',')) {
-          const [minWS, maxWS] = String(activeFilters.wind_speed).split(',').map(Number);
-          q = q.gte('wind_speed', minWS).lte('wind_speed', maxWS);
-        } else q = q.eq('wind_speed', Number(activeFilters.wind_speed));
-      }
-      if (activeFilters.conference_game) q = q.eq('conference_game', String(activeFilters.conference_game) === 'true');
-      for (const k of ['team_last_spread','team_last_ou','team_last_ml','opponent_last_spread','opponent_last_ou','opponent_last_ml'] as const) {
-        const v = (activeFilters as any)[k];
-        if (v !== undefined && v !== '') q = q.eq(k, Number(v));
-      }
-      if (activeFilters.is_home !== undefined && activeFilters.is_home !== '') {
-        const wantHome = String(activeFilters.is_home).toLowerCase() === 'true' || String(activeFilters.is_home) === '1' || String(activeFilters.is_home).toLowerCase() === 'home';
-        q = q.or(wantHome ? 'is_home.eq.true,is_home.eq.1,original_side.eq.home' : 'is_home.eq.false,is_home.eq.0,original_side.eq.away');
-      }
-
-      const { data: rows, error: rowsError } = await q;
-
-      if (rowsError) {
-        debug.error('Supabase query error:', rowsError);
-        throw rowsError;
-      }
-
-      const list = rows || [];
-
-      // Apply Day of Week filter client-side (derive from game_date)
-      const dayFilter = (filters.day || '').toString().toLowerCase();
-      const validDays = new Set(['sunday','monday','tuesday','wednesday','thursday','friday','saturday']);
-      const getDayNameUTC = (dateString: string) => {
-        try {
-          if (!dateString) return null;
-          // Treat as UTC midnight to avoid TZ skew
-          const dt = new Date(`${dateString}T00:00:00Z`);
-          if (isNaN(dt.getTime())) return null;
-          const names = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-          return names[dt.getUTCDay()];
-        } catch {
-          return null;
-        }
-      };
-      const dayFiltered = dayFilter && validDays.has(dayFilter)
-        ? list.filter((row: any) => {
-            const d = getDayNameUTC(row.game_date || row.date || (row.start && row.start.split(' ')[0]) || '');
-            return d ? d === dayFilter : true;
-          })
-        : list;
-
-      // Build team map
-      const teamMapLocal = new Map<string, any>();
-      const idToTeam = new Map<string, any>();
-      nflTeams.forEach(t => idToTeam.set(t.team_id, t));
-      dayFiltered.forEach((row: any) => {
-        const teamId = row.priority_team_id;
-        if (!teamMapLocal.has(teamId)) {
-          const tInfo = idToTeam.get(teamId);
-          teamMapLocal.set(teamId, {
-            teamId,
-            teamName: tInfo?.city_and_name || row.priority_team || teamId,
-            teamLogo: getNFLTeamLogo(tInfo?.team_name || row.priority_team || ''),
-            games: 0,
-            wins: 0,
-            covers: 0,
-            overs: 0,
-          });
-        }
-        const tm = teamMapLocal.get(teamId);
-        tm.games += 1;
-        if (row.priority_team_won === 1) tm.wins += 1;
-        if (row.priority_team_covered === 1) tm.covers += 1;
-        if (row.ou_result === 1) tm.overs += 1;
-      });
-
-      const builtTeamStats = Array.from(teamMapLocal.values()).map((tm: any) => ({
-        teamId: tm.teamId,
-        teamName: tm.teamName,
-        teamLogo: tm.teamLogo,
-        games: tm.games,
-        winPercentage: tm.games > 0 ? (tm.wins / tm.games * 100).toFixed(1) : 0,
-        coverPercentage: tm.games > 0 ? (tm.covers / tm.games * 100).toFixed(1) : 0,
-        overPercentage: tm.games > 0 ? (tm.overs / tm.games * 100).toFixed(1) : 0,
-      }));
-
-      // Donut summary (dedupe by unique_id)
-      const uniqueMap = new Map<string, any>();
-      dayFiltered.forEach((row: any) => {
-        const id = String(row.unique_id ?? `${row.game_id ?? ''}-${row.start ?? row.game_date ?? ''}`);
-        if (!uniqueMap.has(id)) uniqueMap.set(id, row);
-      });
-      const games = Array.from(uniqueMap.values());
-      const totalGames = games.length;
-      const homeWins = games.filter((r: any) => r.home_away_ml === 1).length;
-      const homeCovers = games.filter((r: any) => r.home_away_spread_cover === 1).length;
-      const favoriteCovers = games.filter((r: any) => r.favorite_covered === 1).length;
-      const overs = games.filter((r: any) => r.ou_result === 1).length;
-
-      const builtSummary = {
-        totalGames,
-        homeWinPercentage: totalGames ? (homeWins / totalGames * 100).toFixed(1) : 0,
-        awayWinPercentage: totalGames ? ((totalGames - homeWins) / totalGames * 100).toFixed(1) : 0,
-        homeCoverPercentage: totalGames ? (homeCovers / totalGames * 100).toFixed(1) : 0,
-        awayCoverPercentage: totalGames ? ((totalGames - homeCovers) / totalGames * 100).toFixed(1) : 0,
-        favoriteCoverPercentage: totalGames ? (favoriteCovers / totalGames * 100).toFixed(1) : 0,
-        underdogCoverPercentage: totalGames ? ((totalGames - favoriteCovers) / totalGames * 100).toFixed(1) : 0,
-        overPercentage: totalGames ? (overs / totalGames * 100).toFixed(1) : 0,
-        underPercentage: totalGames ? ((totalGames - overs) / totalGames * 100).toFixed(1) : 0,
-      } as any;
-
-      setTeamStats(builtTeamStats);
-      setSummary(builtSummary);
-      
-    } catch (err) {
-      debug.error('Error fetching data:', err);
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
+  const buildFilters = useCallback(() => {
+    const f: any = {};
+    if (seasons[0] > seasonFloor) f.season_min = seasons[0];
+    if (seasons[1] < 2025) f.season_max = seasons[1];
+    // week vs playoff-round is contextual on season type (weeks alone can't separate them —
+    // the reg/postseason boundary moved from wk17 to wk18 in 2021)
+    if (seasonType === 'regular') {
+      f.season_type = 'regular';
+      if (weeks[0] > 1) f.week_min = weeks[0];
+      if (weeks[1] < 18) f.week_max = weeks[1];
+    } else if (seasonType === 'postseason') {
+      f.season_type = 'postseason';
+      if (playoffRound !== 'any') f.playoff_round = playoffRound;
     }
+    if (side !== 'any') f.side = side;
+    // subject-market line control: size+side for spread markets, range for total markets
+    const scfg = SPREAD_CFG[betType];
+    if (scfg) {
+      const [lo, hi] = spreadSize;
+      // Floor the near-zero edge to 0.5 so a chosen direction is STRICTLY favored/underdog — a
+      // "Favored by 0" edge would otherwise include pick'em (spread 0) games, which then fall into
+      // the underdog bucket (is_favorite = spread < 0) and show a contradictory "underdogs" split.
+      const loD = Math.max(lo, 0.5);
+      if (spreadSide === 'favorite') { f[scfg.mk] = -hi; f[scfg.xk] = -loD; }
+      else if (spreadSide === 'underdog') { f[scfg.mk] = loD; f[scfg.xk] = hi; }
+      else if (lo > 0 || hi < scfg.max) { f[scfg.amk] = lo; f[scfg.axk] = hi; }
+    }
+    if (favDog !== 'any' && (betType === 'team_total')) f.fav_dog = favDog;
+    // team moneyline (American odds) — exact numeric bounds; same value in both = an exact line.
+    // forgive reversed entry by sorting when both are present.
+    { let a = mlMin.trim() === '' ? null : Number(mlMin); let b = mlMax.trim() === '' ? null : Number(mlMax);
+      if (a !== null && b !== null && a > b) { const s = a; a = b; b = s; }
+      if (a !== null && !Number.isNaN(a)) f.ml_min = a;
+      if (b !== null && !Number.isNaN(b)) f.ml_max = b; }
+    const tcfg = TOTAL_CFG[betType];
+    if (tcfg) {
+      if (lineRange[0] > tcfg.min) f[tcfg.mk] = lineRange[0];
+      if (lineRange[1] < tcfg.max) f[tcfg.xk] = lineRange[1];
+    }
+    if (primetime !== null) f.primetime = primetime;
+    if (division !== null) f.division = division;
+    if (dome !== 'any') f.dome = dome === 'dome';
+    if (tempRange[0] > -10) f.temp_min = tempRange[0];
+    if (tempRange[1] < 100) f.temp_max = tempRange[1];
+    if (windMax < 60) f.wind_max = windMax;
+    if (precip !== 'any') f.precip = precip;
+    if (restBye === 'off_bye') f.rest_min = 13;
+    else if (restBye === 'short') f.rest_max = 4;
+    else if (restBye === 'pre_bye') f.pre_bye = true;
+    if (coach !== 'any') f.coach = coach;
+    if (referee !== 'any') f.referee = referee;
+    return f;
+  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
+
+  const resetAll = () => {
+    setSeasons([seasonFloor, 2025]); setWeeks([1, 18]); setSide('any'); setSeasonType('any'); setPlayoffRound('any'); setFavDog('any');
+    setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 20]); setMlMin(''); setMlMax('');
+    const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 60]);
+    setPrimetime(null); setDivision(null); setDome('any'); setTempRange([-10, 100]);
+    setWindMax(60); setPrecip('any'); setRestBye('any'); setCoach('any'); setReferee('any');
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [viewType]);
+  // active (non-default) filters as removable chips — makes a stuck filter visible
+  const chips = useMemo(() => {
+    const c: { label: string; clear: () => void }[] = [];
+    if (seasons[0] !== seasonFloor || seasons[1] !== 2025) c.push({ label: `Seasons ${seasons[0]}–${seasons[1]}`, clear: () => setSeasons([seasonFloor, 2025]) });
+    if (seasonType !== 'any') c.push({ label: seasonType === 'regular' ? 'Regular season' : 'Playoffs', clear: () => { setSeasonType('any'); setPlayoffRound('any'); } });
+    if (seasonType === 'regular' && (weeks[0] !== 1 || weeks[1] !== 18)) c.push({ label: `Weeks ${weeks[0]}–${weeks[1]}`, clear: () => setWeeks([1, 18]) });
+    if (seasonType === 'postseason' && playoffRound !== 'any') c.push({ label: `Round: ${playoffRound}`, clear: () => setPlayoffRound('any') });
+    if (side !== 'any') c.push({ label: side === 'home' ? 'Home' : 'Away', clear: () => setSide('any') });
+    if ((betType === 'team_total') && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
+    const scfg = SPREAD_CFG[betType];
+    if (scfg) {
+      if (spreadSide !== 'any') c.push({ label: `${spreadSide === 'favorite' ? 'Favored by' : 'Getting'} ${spreadSize[0]}–${spreadSize[1]}`, clear: () => { setSpreadSide('any'); setSpreadSize([0, scfg.max]); } });
+      else if (spreadSize[0] !== 0 || spreadSize[1] !== scfg.max) c.push({ label: `Spread ${spreadSize[0]}–${spreadSize[1]}`, clear: () => setSpreadSize([0, scfg.max]) });
+    }
+    const t = TOTAL_CFG[betType];
+    if (t && (lineRange[0] !== t.min || lineRange[1] !== t.max)) c.push({ label: `${t.label} ${lineRange[0]}–${lineRange[1]}`, clear: () => setLineRange([t.min, t.max]) });
+    if (mlMin.trim() !== '' || mlMax.trim() !== '') {
+      const fmt = (s: string) => { const n = Number(s); return n > 0 ? `+${n}` : `${n}`; };
+      const lbl = mlMin.trim() !== '' && mlMax.trim() !== '' ? `ML ${fmt(mlMin)} to ${fmt(mlMax)}` : mlMin.trim() !== '' ? `ML ≥ ${fmt(mlMin)}` : `ML ≤ ${fmt(mlMax)}`;
+      c.push({ label: lbl, clear: () => { setMlMin(''); setMlMax(''); } });
+    }
+    if (primetime !== null) c.push({ label: `Primetime: ${primetime ? 'Yes' : 'No'}`, clear: () => setPrimetime(null) });
+    if (division !== null) c.push({ label: `Divisional: ${division ? 'Yes' : 'No'}`, clear: () => setDivision(null) });
+    if (dome !== 'any') c.push({ label: dome === 'dome' ? 'Dome' : 'Outdoor', clear: () => setDome('any') });
+    if (precip !== 'any') c.push({ label: `Precip: ${precip}`, clear: () => setPrecip('any') });
+    if (tempRange[0] !== -10 || tempRange[1] !== 100) c.push({ label: `Temp ${tempRange[0]}–${tempRange[1]}°F`, clear: () => setTempRange([-10, 100]) });
+    if (windMax !== 60) c.push({ label: `Wind ≤ ${windMax}`, clear: () => setWindMax(60) });
+    if (restBye !== 'any') c.push({ label: ({ off_bye: 'Off a bye', pre_bye: 'Before a bye', short: 'Short rest' } as Record<string, string>)[restBye] || restBye, clear: () => setRestBye('any') });
+    if (coach !== 'any') c.push({ label: `Coach: ${coach}`, clear: () => setCoach('any') });
+    if (referee !== 'any') c.push({ label: `Ref: ${referee}`, clear: () => setReferee('any') });
+    return c;
+  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, precip, tempRange, windMax, restBye, coach, referee, seasonFloor]);
 
-  // Apply filters instantly on change (including range sliders) with debounce
+  // load coach/ref option lists once
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchData();
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [filters, seasonRange, weekRange, ouLineRange, temperatureRange, windSpeedRange, spreadRange]);
-
-  // Fetch NFL teams for dropdowns
-  useEffect(() => {
-    const fetchNFLTeams = async () => {
-      try {
-        setTeamsLoading(true);
-        const { data, error } = await collegeFootballSupabase
-          .from('nfl_team_mapping')
-          .select('city_and_name, team_name, team_id')
-          .order('team_name');
-        
-        if (error) {
-          debug.error('Error fetching NFL teams:', error);
-          setError(`NFL teams error: ${error.message}`);
-          return;
-        }
-        
-        // Deduplicate teams by team_id and prefer current team names
-        const teamMap = new Map<string, NFLTeam>();
-        
-        (data || []).forEach((team: NFLTeam) => {
-          const existingTeam = teamMap.get(team.team_id);
-          
-          // If no existing team or if current team name is more recent (contains "Las Vegas" vs "Oakland")
-          if (!existingTeam || 
-              (team.city_and_name.includes('Las Vegas') && existingTeam.city_and_name.includes('Oakland'))) {
-            teamMap.set(team.team_id, team);
-          }
-        });
-        
-        const uniqueTeams = Array.from(teamMap.values());
-        setNflTeams(uniqueTeams);
-      } catch (error) {
-        debug.error('Error in fetchNFLTeams:', error);
-        setError(`NFL teams error: ${error.message}`);
-      } finally {
-        setTeamsLoading(false);
+    collegeFootballSupabase.rpc('nfl_analysis', { p_bet_type: 'fg_spread', p_filters: {} }).then(({ data }) => {
+      if (data) {
+        setCoaches((data.by_coach || []).map((c: any) => c.coach).sort());
+        setRefs((data.by_referee || []).map((r: any) => r.referee).sort());
       }
-    };
-
-    fetchNFLTeams();
+    });
   }, []);
 
-  const handleFilterChange = (key: string, value: string) => {
-    // Convert "any" back to empty string for filtering
-    const filterValue = value === "any" ? "" : value;
-    debug.log('Filter change:', key, 'value:', value, 'filterValue:', filterValue);
-    debug.log('Current filters before update:', filters);
-    setFilters(prev => {
-      const newFilters = { ...prev, [key]: filterValue };
-      debug.log('New filters after update:', newFilters);
-      return newFilters;
-    });
+  // fetch on any change (debounced)
+  useEffect(() => {
+    setLoading(true);
+    const filters = buildFilters();
+    const t = setTimeout(async () => {
+      const [a, u] = await Promise.all([
+        collegeFootballSupabase.rpc('nfl_analysis', { p_bet_type: betType, p_filters: filters }),
+        collegeFootballSupabase.rpc('nfl_analysis_upcoming', { p_bet_type: betType, p_filters: filters }),
+      ]);
+      setData(a.data as Analysis);
+      setUpcoming((u.data as any[]) || []);
+      setLoading(false);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [betType, buildFilters]);
+
+  const applyPreset = (p: typeof PRESETS[0]) => {
+    setBetType(p.betType);
+    const f = p.filters;
+    setSide(f.side || 'any'); setFavDog(f.favDog || 'any');
+    setSpreadSide(f.spreadSide || 'any');
+    setPrimetime(f.primetime ?? null); setDivision(f.division ?? null);
+    setTempRange([-10, f.tempMax ?? 100]);
+    // spread size is reset by the bet-type effect; apply the preset's after it runs
+    if (f.spreadSize) setTimeout(() => setSpreadSize(f.spreadSize), 0);
   };
 
-  const handleMultiSelectChange = (key: string, values: string[]) => {
-    debug.log('Multi-select change:', key, 'values:', values);
-    setFilters(prev => {
-      const newFilters = { ...prev, [key]: values };
-      debug.log('New filters after multi-select update:', newFilters);
-      return newFilters;
-    });
-  };
+  // secondary context splits — only shown when it's a genuine two-sided comparison. A tiny side
+  // (<10% of the split, e.g. a lone "underdog" inside a favorite-only moneyline filter) is a pinned/
+  // degenerate dimension or a stray data mismatch — hide it rather than headline a 1-of-1 100%/ROI.
+  const shownBars = useMemo(() => (data?.bars || []).filter(bar => {
+    const total = bar.options.reduce((s, o) => s + (o?.n || 0), 0);
+    return total > 0 && bar.options.every(o => o && o.n > 0 && o.n / total >= 0.1);
+  }), [data]);
+  // plain-English subject for the headline, built from the active filters (never empty/degenerate)
+  const isTotalMkt = !!TOTAL_CFG[betType] && betType !== 'team_total';
+  const subject = useMemo(() => {
+    const parts: string[] = [];
+    if (side !== 'any') parts.push(side === 'home' ? 'Home' : 'Road');
+    const dir = SPREAD_CFG[betType] ? spreadSide : favDog;
+    if (dir && dir !== 'any') parts.push(dir === 'favorite' ? 'favorites' : 'underdogs');
+    const situation = parts.join(' ');
+    if (coach !== 'any') return `${coach}'s teams${situation ? ` (${situation.toLowerCase()})` : ''}`;
+    if (situation) return situation.charAt(0).toUpperCase() + situation.slice(1);
+    return isTotalMkt ? 'Games' : 'Teams';
+  }, [betType, side, spreadSide, favDog, coach, isTotalMkt]);
 
-  const clearFilters = () => {
-    setFilters({
-      season: '',
-      week: '',
-      start: '',
-      day: '',
-      ou_vegas_line: '',
-      temperature: '',
-      wind_speed: '',
-      precipitation_type: '',
-      game_stadium_dome: '',
-      conference_game: '',
-      surface: '',
-      priority_team_id: [] as string[],
-      opponent_team_id: [] as string[],
-      is_home: '',
-      spread_closing: '',
-      home_team_id: '',
-      away_team_id: '',
-      home_spread: '',
-      team_last_spread: '',
-      team_last_ou: '',
-      team_last_ml: '',
-      opponent_last_spread: '',
-      opponent_last_ou: '',
-      opponent_last_ml: '',
-      team_consecutive_home_away: '',
-      opponent_consecutive_home_away: ''
-    });
-    setSeasonRange([2018, 2025]);
-    setWeekRange([1, 18]);
-    setOuLineRange([35, 60]);
-    setTemperatureRange([-10, 110]);
-    setWindSpeedRange([0, 40]);
-    setSpreadRange([0, 20]);
-  };
+  // dynamic "here's what you're looking at" caption for the headline
+  const scopeNote = useMemo(() => {
+    const bits: string[] = [];
+    if (coach !== 'any') bits.push(`${coach}-coached teams`);
+    if (referee !== 'any') bits.push(`games officiated by ${referee}`);
+    const who = bits.length ? bits.join(' · ') : 'all teams';
+    return `${who} in every past game that matches your filters.`;
+  }, [coach, referee]);
 
-  const renderIndividualTeamView = () => (
-    <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base sm:text-lg">Individual Team Performance</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {teamStats.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs sm:text-sm">
-                    <button
-                      className="flex items-center gap-1 hover:underline"
-                      onClick={() => setTeamSort(prev => ({ key: 'teamName', asc: prev.key === 'teamName' ? !prev.asc : true }))}
-                    >
-                      Team {teamSort.key === 'teamName' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
-                    </button>
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    <button
-                      className="flex items-center gap-1 hover:underline"
-                      onClick={() => setTeamSort(prev => ({ key: 'games', asc: prev.key === 'games' ? !prev.asc : true }))}
-                    >
-                      Games {teamSort.key === 'games' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
-                    </button>
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    <button
-                      className="flex items-center gap-1 hover:underline"
-                      onClick={() => setTeamSort(prev => ({ key: 'winPercentage', asc: prev.key === 'winPercentage' ? !prev.asc : true }))}
-                    >
-                      Win % {teamSort.key === 'winPercentage' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
-                    </button>
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    <button
-                      className="flex items-center gap-1 hover:underline"
-                      onClick={() => setTeamSort(prev => ({ key: 'coverPercentage', asc: prev.key === 'coverPercentage' ? !prev.asc : true }))}
-                    >
-                      Cover % {teamSort.key === 'coverPercentage' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
-                    </button>
-                  </TableHead>
-                  <TableHead className="text-xs sm:text-sm">
-                    <button
-                      className="flex items-center gap-1 hover:underline"
-                      onClick={() => setTeamSort(prev => ({ key: 'overPercentage', asc: prev.key === 'overPercentage' ? !prev.asc : true }))}
-                    >
-                      Over % {teamSort.key === 'overPercentage' ? (teamSort.asc ? <ChevronUp className="h-3 w-3"/> : <ChevronDown className="h-3 w-3"/>) : <ArrowUpDown className="h-3 w-3"/>}
-                    </button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {[...teamStats].sort((a: any, b: any) => {
-                  const k = teamSort.key;
-                  let av: any = a[k];
-                  let bv: any = b[k];
-                  if (k === 'teamName') {
-                    av = String(av || '').toLowerCase();
-                    bv = String(bv || '').toLowerCase();
-                  } else {
-                    av = parseFloat(av ?? 0);
-                    bv = parseFloat(bv ?? 0);
-                  }
-                  const cmp = av < bv ? -1 : av > bv ? 1 : 0;
-                  return teamSort.asc ? cmp : -cmp;
-                }).map((team: any, index: number) => (
-                  <TableRow key={index}>
-                    <TableCell className="flex items-center gap-2 text-xs sm:text-sm">
-                      {team.teamLogo && (
-                        <img 
-                          src={team.teamLogo} 
-                          alt={team.teamName}
-                          className="w-4 h-4 sm:w-6 sm:h-6"
-                        />
-                      )}
-                      {team.teamName}
-                    </TableCell>
-                    <TableCell className="text-xs sm:text-sm">{team.games}</TableCell>
-                    <TableCell className="text-xs sm:text-sm">{team.winPercentage}%</TableCell>
-                    <TableCell className="text-xs sm:text-sm">{team.coverPercentage}%</TableCell>
-                    <TableCell className="text-xs sm:text-sm">{team.overPercentage}%</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <p className="text-xs sm:text-sm">No team data available</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-
-  const renderGameLevelView = () => {
-    const chartData = [
-      { name: 'Home Win', value: parseFloat(summary.homeWinPercentage || 0), color: '#16a34a' },
-      { name: 'Away Win', value: parseFloat(summary.awayWinPercentage || 0), color: '#dc2626' }
-    ];
-
-    const coverData = [
-      { name: 'Home Cover', value: parseFloat(summary.homeCoverPercentage || 0), color: '#16a34a' },
-      { name: 'Away Cover', value: parseFloat(summary.awayCoverPercentage || 0), color: '#dc2626' }
-    ];
-
-    const favDogCover = [
-      { name: 'Favorite', value: parseFloat(summary.favoriteCoverPercentage || 0), color: '#16a34a' },
-      { name: 'Dog', value: parseFloat(summary.underdogCoverPercentage || 0), color: '#dc2626' }
-    ];
-
-    const ouData = [
-      { name: 'Over', value: parseFloat(summary.overPercentage || 0), color: '#16a34a' },
-      { name: 'Under', value: parseFloat(summary.underPercentage || 0), color: '#dc2626' }
-    ];
-
-    const blocks = [
-      { title: 'Win/Loss', data: chartData },
-      { title: 'Home/Away Cover', data: coverData },
-      { title: 'Favorite/Underdog Cover', data: favDogCover },
-      { title: 'Over/Under', data: ouData },
-    ];
-
-    const pct = (v: any) => `${Number(parseFloat(v || 0)).toFixed(0)}%`;
-
-    return (
-      <>
-        {/* Mobile: compact summary card replacing donuts */}
-        <div className="block sm:hidden sticky top-0 z-10 bg-background border-b pb-2 mb-4">
-          <Card className="shadow-sm bg-slate-50 dark:bg-muted/20 border-border">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {/* Container 1: Home/Away Win */}
-                <div className="bg-card border border-border rounded-md p-2">
-                  <div className="text-[11px] text-muted-foreground mb-1">Wins</div>
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground/70">Home</div>
-                      <div className={`font-bold ${getColorClass(summary.homeWinPercentage, summary.awayWinPercentage)}`}>
-                        {pct(summary.homeWinPercentage)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground/70">Away</div>
-                      <div className={`font-bold ${getColorClass(summary.awayWinPercentage, summary.homeWinPercentage)}`}>
-                        {pct(summary.awayWinPercentage)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Container 2: Home/Away Cover */}
-                <div className="bg-card border border-border rounded-md p-2">
-                  <div className="text-[11px] text-muted-foreground mb-1">Covers</div>
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground/70">Home</div>
-                      <div className={`font-bold ${getColorClass(summary.homeCoverPercentage, summary.awayCoverPercentage)}`}>
-                        {pct(summary.homeCoverPercentage)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground/70">Away</div>
-                      <div className={`font-bold ${getColorClass(summary.awayCoverPercentage, summary.homeCoverPercentage)}`}>
-                        {pct(summary.awayCoverPercentage)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Container 3: Favorite/Underdog Cover */}
-                <div className="bg-card border border-border rounded-md p-2">
-                  <div className="text-[11px] text-muted-foreground mb-1">Fav/Dog</div>
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground/70">Fav</div>
-                      <div className={`font-bold ${getColorClass(summary.favoriteCoverPercentage, summary.underdogCoverPercentage)}`}>
-                        {pct(summary.favoriteCoverPercentage)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground/70">Dog</div>
-                      <div className={`font-bold ${getColorClass(summary.underdogCoverPercentage, summary.favoriteCoverPercentage)}`}>
-                        {pct(summary.underdogCoverPercentage)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Container 4: Over/Under */}
-                <div className="bg-card border border-border rounded-md p-2">
-                  <div className="text-[11px] text-muted-foreground mb-1">O/U</div>
-                  <div className="flex justify-between">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground/70">Over</div>
-                      <div className={`font-bold ${getColorClass(summary.overPercentage, summary.underPercentage)}`}>
-                        {pct(summary.overPercentage)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground/70">Under</div>
-                      <div className={`font-bold ${getColorClass(summary.underPercentage, summary.overPercentage)}`}>
-                        {pct(summary.underPercentage)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-
-        <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {blocks.map((b, i) => (
-            <Card key={i} className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-              <CardHeader className="pb-2 text-center">
-                <CardTitle className="text-sm sm:text-base font-semibold text-center tracking-tight">{b.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-                    <defs>
-                      <linearGradient id={`gradGreen-${i}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#16a34a" />
-                      </linearGradient>
-                      <linearGradient id={`gradRed-${i}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f87171" />
-                        <stop offset="100%" stopColor="#dc2626" />
-                      </linearGradient>
-                      <filter id={`shadow-${i}`} x="-50%" y="-50%" width="200%" height="200%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000" floodOpacity="0.25" />
-                      </filter>
-                    </defs>
-                    <Pie
-                      data={b.data}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={70}
-                      startAngle={90}
-                      endAngle={450}
-                      paddingAngle={1}
-                      cornerRadius={6}
-                      stroke="#0b0b0b"
-                      strokeWidth={0.8}
-                      dataKey="value"
-                      label={({ value }) => `${(value as number).toFixed(0)}%`}
-                      labelLine={false}
-                    >
-                      {b.data.map((_, idx) => (
-                        <Cell
-                          key={`cell-${idx}`}
-                          fill={`url(#${idx === 0 ? `gradGreen-${i}` : `gradRed-${i}`})`}
-                          filter={`url(#shadow-${i})`}
-                        />
-                      ))}
-                    </Pie>
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </>
-    );
-  };
+  const cov = data?.coverage;
+  const limited = LIMITED_MARKETS.has(betType);
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          .slider::-webkit-slider-thumb {
-            appearance: none;
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-          }
-          .slider::-moz-range-thumb {
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-          }
-          .slider::-webkit-slider-track {
-            height: 8px;
-            border-radius: 4px;
-          }
-          .slider::-moz-range-track {
-            height: 8px;
-            border-radius: 4px;
-          }
-        `
-      }} />
-      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
-      
-      {/* Main Layout: Results Left, Filters Right */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        
-        {/* Left Column: Results (2/3 width) */}
-        <div className="xl:col-span-2 space-y-6">
-          {/* Summary Donuts */}
-          {renderGameLevelView()}
+    <div className="container mx-auto px-4 py-6 max-w-7xl">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">NFL Historical Analysis</h1>
+        <p className="text-sm text-muted-foreground">Pick a bet type, set the situation, and see how it's played out — plus this week's games that match.</p>
+      </div>
 
-          {/* Loading State */}
-          {isLoading && (
-            <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-              <CardContent className="text-center py-8">
-                <p>Loading data...</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Error State */}
-          {error && (
-            <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-              <CardContent className="text-center py-8">
-                <p className="text-destructive">Error: {error}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Team Table */}
-          {!isLoading && !error && renderIndividualTeamView()}
-        </div>
-
-        {/* Right Column: Filters (1/3 width) */}
-        <div className="space-y-4">
-          <div className="sticky top-4 space-y-4">
-            
-                {/* Action Buttons and Total Games */}
-                <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-                  <CardContent className="pt-4 pb-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button onClick={clearFilters} className="text-white text-xs sm:text-sm">
-                        Clear Filters
-                      </Button>
-                      <div className="px-3 py-2 bg-slate-100 dark:bg-muted/40 rounded-md border border-border text-center shadow-sm">
-                        <div className="text-[11px] text-muted-foreground mb-1">Total Games</div>
-                        <div className="font-bold text-foreground text-lg">{summary.totalGames}</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-            {/* Filters */}
-            <div className="space-y-4">
-        {/* Schedule Group */}
-        <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg">Schedule</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 sm:space-y-4">
-            <div>
-              <Label htmlFor="day">Day of Week</Label>
-              <Select value={filters.day || 'any'} onValueChange={(value) => handleFilterChange('day', value === 'any' ? '' : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any day" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Any</SelectItem>
-                  <SelectItem value="sunday">Sunday</SelectItem>
-                  <SelectItem value="monday">Monday</SelectItem>
-                  <SelectItem value="thursday">Thursday</SelectItem>
-                  <SelectItem value="saturday">Saturday</SelectItem>
-                  <SelectItem value="friday">Friday</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Season Range: {seasonRange[0]} - {seasonRange[1]}</Label>
-              <div className="px-2 py-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-muted-foreground w-12">Min:</span>
-                  <input
-                    type="range"
-                    min="2018"
-                    max="2025"
-                    value={seasonRange[0]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value <= seasonRange[1]) {
-                        setSeasonRange([value, seasonRange[1]]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{seasonRange[0]}</span>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-muted-foreground w-12">Max:</span>
-                  <input
-                    type="range"
-                    min="2018"
-                    max="2025"
-                    value={seasonRange[1]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value >= seasonRange[0]) {
-                        setSeasonRange([seasonRange[0], value]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{seasonRange[1]}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <Label>Week Range: {weekRange[0]} - {weekRange[1]}</Label>
-              <div className="px-2 py-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-muted-foreground w-12">Min:</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="18"
-                    value={weekRange[0]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value <= weekRange[1]) {
-                        setWeekRange([value, weekRange[1]]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{weekRange[0]}</span>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-muted-foreground w-12">Max:</span>
-                  <input
-                    type="range"
-                    min="1"
-                    max="18"
-                    value={weekRange[1]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value >= weekRange[0]) {
-                        setWeekRange([weekRange[0], value]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{weekRange[1]}</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="start">Start Time</Label>
-              <Select value={filters.start || 'any'} onValueChange={(value) => handleFilterChange('start', value === 'any' ? '' : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any start time" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Any</SelectItem>
-                  <SelectItem value="Day">Day</SelectItem>
-                  <SelectItem value="Late">Late</SelectItem>
-                  <SelectItem value="Night">Night</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Betting Lines Group */}
-        <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg">Betting Lines</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 sm:space-y-4">
-            {viewType === "individual" && (
-              <div>
-                <Label>Spread Range: {spreadRange[0]} to {spreadRange[1]}</Label>
-                <div className="px-2 py-2">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-muted-foreground w-12">Min:</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="20"
-                      value={spreadRange[0]}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value);
-                        if (value <= spreadRange[1]) {
-                          setSpreadRange([value, spreadRange[1]]);
-                        }
-                      }}
-                      className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                    />
-                    <span className="text-xs text-muted-foreground w-8">{spreadRange[0]}</span>
-                  </div>
-                  <div className="flex items-center space-x-2 mt-2">
-                    <span className="text-xs text-muted-foreground w-12">Max:</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="20"
-                      value={spreadRange[1]}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value);
-                        if (value >= spreadRange[0]) {
-                          setSpreadRange([spreadRange[0], value]);
-                        }
-                      }}
-                      className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                    />
-                    <span className="text-xs text-muted-foreground w-8">{spreadRange[1]}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <Label>O/U Line Range: {ouLineRange[0]} - {ouLineRange[1]}</Label>
-              <div className="px-2 py-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-muted-foreground w-12">Min:</span>
-                  <input
-                    type="range"
-                    min="30"
-                    max="70"
-                    value={ouLineRange[0]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value <= ouLineRange[1]) {
-                        setOuLineRange([value, ouLineRange[1]]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{ouLineRange[0]}</span>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-muted-foreground w-12">Max:</span>
-                  <input
-                    type="range"
-                    min="30"
-                    max="70"
-                    value={ouLineRange[1]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value >= ouLineRange[0]) {
-                        setOuLineRange([ouLineRange[0], value]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{ouLineRange[1]}</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Game Time Conditions Group */}
-        <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg">Game Time Conditions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 sm:space-y-4">
-            <div>
-              <Label htmlFor="precipitation_type">Precipitation</Label>
-              <Select value={filters.precipitation_type} onValueChange={(value) => handleFilterChange('precipitation_type', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select precipitation" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="rain">Rain</SelectItem>
-                  <SelectItem value="snow">Snow</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Wind Speed Range: {windSpeedRange[0]} mph - {windSpeedRange[1]} mph</Label>
-              <div className="px-2 py-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-muted-foreground w-12">Min:</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="60"
-                    value={windSpeedRange[0]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value <= windSpeedRange[1]) {
-                        setWindSpeedRange([value, windSpeedRange[1]]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{windSpeedRange[0]}</span>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-muted-foreground w-12">Max:</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="60"
-                    value={windSpeedRange[1]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value >= windSpeedRange[0]) {
-                        setWindSpeedRange([windSpeedRange[0], value]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{windSpeedRange[1]}</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label>Temperature Range: {temperatureRange[0]}°F - {temperatureRange[1]}°F</Label>
-              <div className="px-2 py-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-muted-foreground w-12">Min:</span>
-                  <input
-                    type="range"
-                    min="-20"
-                    max="120"
-                    value={temperatureRange[0]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value <= temperatureRange[1]) {
-                        setTemperatureRange([value, temperatureRange[1]]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{temperatureRange[0]}°</span>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <span className="text-xs text-muted-foreground w-12">Max:</span>
-                  <input
-                    type="range"
-                    min="-20"
-                    max="120"
-                    value={temperatureRange[1]}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      if (value >= temperatureRange[0]) {
-                        setTemperatureRange([temperatureRange[0], value]);
-                      }
-                    }}
-                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer slider"
-                  />
-                  <span className="text-xs text-muted-foreground w-8">{temperatureRange[1]}°</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="game_stadium_dome">Stadium Type</Label>
-              <Select value={filters.game_stadium_dome} onValueChange={(value) => handleFilterChange('game_stadium_dome', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select stadium type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Dome</SelectItem>
-                  <SelectItem value="false">Outdoor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="surface">Surface</Label>
-              <Select value={filters.surface} onValueChange={(value) => handleFilterChange('surface', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select surface" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="grass">Grass</SelectItem>
-                  <SelectItem value="turf">Turf</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Select Team(s) Group */}
-        <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg">Select Team(s)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 sm:space-y-4">
-            {viewType === "individual" && (
-              <>
-                <div>
-                  <Label htmlFor="priority_team_id">Primary Teams</Label>
-                  <Select 
-                    value={filters.priority_team_id.length > 0 ? "multiple" : "any"} 
-                    onValueChange={(value) => {
-                      if (value === "any") {
-                        handleMultiSelectChange('priority_team_id', []);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select primary teams...">
-                        {filters.priority_team_id.length === 0 
-                          ? "Any" 
-                          : `${filters.priority_team_id.length} team${filters.priority_team_id.length === 1 ? '' : 's'} selected`
-                        }
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <div className="px-2 py-1 border-b">
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-6 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleMultiSelectChange('priority_team_id', nflTeams.map(t => t.team_id));
-                            }}
-                          >
-                            Select All
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-6 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleMultiSelectChange('priority_team_id', []);
-                            }}
-                          >
-                            Clear All
-                          </Button>
-                        </div>
-                      </div>
-                      {teamsLoading ? (
-                        <SelectItem value="loading" disabled>Loading teams...</SelectItem>
-                      ) : (
-                        nflTeams?.map((team) => (
-                          <div key={`primary-${team.team_id}`} className="flex items-center space-x-2 px-2 py-1.5 hover:bg-accent">
-                            <Checkbox
-                              id={`primary-${team.team_id}`}
-                              checked={filters.priority_team_id.includes(team.team_id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  handleMultiSelectChange('priority_team_id', [...filters.priority_team_id, team.team_id]);
-                                } else {
-                                  handleMultiSelectChange('priority_team_id', filters.priority_team_id.filter(id => id !== team.team_id));
-                                }
-                              }}
-                            />
-                            <Label htmlFor={`primary-${team.team_id}`} className="text-sm cursor-pointer flex-1">
-                              {team.city_and_name}
-                            </Label>
-                          </div>
-                        )) || []
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {filters.priority_team_id.length > 0 && (
-                    <div className="mt-2">
-                      <div className="text-xs text-muted-foreground mb-1">Selected teams:</div>
-                      <div className="flex flex-wrap gap-1">
-                        {filters.priority_team_id.map(teamId => {
-                          const team = nflTeams.find(t => t.team_id === teamId);
-                          return (
-                            <Badge key={teamId} variant="secondary" className="text-xs">
-                              {team?.city_and_name || teamId}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="opponent_team_id">Opponent Teams</Label>
-                  <Select 
-                    value={filters.opponent_team_id.length > 0 ? "multiple" : "any"} 
-                    onValueChange={(value) => {
-                      if (value === "any") {
-                        handleMultiSelectChange('opponent_team_id', []);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select opponent teams...">
-                        {filters.opponent_team_id.length === 0 
-                          ? "Any" 
-                          : `${filters.opponent_team_id.length} team${filters.opponent_team_id.length === 1 ? '' : 's'} selected`
-                        }
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <div className="px-2 py-1 border-b">
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-6 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleMultiSelectChange('opponent_team_id', nflTeams.map(t => t.team_id));
-                            }}
-                          >
-                            Select All
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-6 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleMultiSelectChange('opponent_team_id', []);
-                            }}
-                          >
-                            Clear All
-                          </Button>
-                        </div>
-                      </div>
-                      {teamsLoading ? (
-                        <SelectItem value="loading" disabled>Loading teams...</SelectItem>
-                      ) : (
-                        nflTeams?.map((team) => (
-                          <div key={`opponent-${team.team_id}`} className="flex items-center space-x-2 px-2 py-1.5 hover:bg-accent">
-                            <Checkbox
-                              id={`opponent-${team.team_id}`}
-                              checked={filters.opponent_team_id.includes(team.team_id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  handleMultiSelectChange('opponent_team_id', [...filters.opponent_team_id, team.team_id]);
-                                } else {
-                                  handleMultiSelectChange('opponent_team_id', filters.opponent_team_id.filter(id => id !== team.team_id));
-                                }
-                              }}
-                            />
-                            <Label htmlFor={`opponent-${team.team_id}`} className="text-sm cursor-pointer flex-1">
-                              {team.city_and_name}
-                            </Label>
-                          </div>
-                        )) || []
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {filters.opponent_team_id.length > 0 && (
-                    <div className="mt-2">
-                      <div className="text-xs text-muted-foreground mb-1">Selected teams:</div>
-                      <div className="flex flex-wrap gap-1">
-                        {filters.opponent_team_id.map(teamId => {
-                          const team = nflTeams.find(t => t.team_id === teamId);
-                          return (
-                            <Badge key={teamId} variant="secondary" className="text-xs">
-                              {team?.city_and_name || teamId}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-              {/* Primary Team Side filter using is_home */}
-              <div>
-                <Label htmlFor="primary_team_side">Primary Team Side</Label>
-                <Select value={filters.is_home || 'any'} onValueChange={(value) => handleFilterChange('is_home', value === 'any' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Any" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="any">Any</SelectItem>
-                    <SelectItem value="true">Home</SelectItem>
-                    <SelectItem value="false">Away</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              </>
-            )}
-
-            <div>
-              <Label htmlFor="conference_game">Divisional Game</Label>
-              <Select value={filters.conference_game} onValueChange={(value) => handleFilterChange('conference_game', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select divisional game" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Game Level Filters for Team Selection */}
-            {viewType === "game" && (
-              <>
-                <div>
-                  <Label htmlFor="home_team_id">Home Team ID</Label>
-                  <Input
-                    id="home_team_id"
-                    value={filters.home_team_id}
-                    onChange={(e) => handleFilterChange('home_team_id', e.target.value)}
-                    placeholder="Team ID"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="away_team_id">Away Team ID</Label>
-                  <Input
-                    id="away_team_id"
-                    value={filters.away_team_id}
-                    onChange={(e) => handleFilterChange('away_team_id', e.target.value)}
-                    placeholder="Team ID"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="home_spread">Home Spread</Label>
-                  <Input
-                    id="home_spread"
-                    value={filters.home_spread}
-                    onChange={(e) => handleFilterChange('home_spread', e.target.value)}
-                    placeholder="-3.5"
-                  />
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Last Game Results/Conditions Group */}
-        {viewType === "individual" && (
-          <Card className="bg-slate-50 dark:bg-muted/20 border-border shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base sm:text-lg">Last Game Results/Conditions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                <div>
-                  <Label htmlFor="team_last_spread">Team Last Spread</Label>
-                  <Select value={filters.team_last_spread || "any"} onValueChange={(value) => handleFilterChange('team_last_spread', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="1">Covered</SelectItem>
-                      <SelectItem value="0">Didn't Cover</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="team_last_ou">Team Last Over/Under</Label>
-                  <Select value={filters.team_last_ou || "any"} onValueChange={(value) => handleFilterChange('team_last_ou', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="1">Over</SelectItem>
-                      <SelectItem value="0">Under</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="team_last_ml">Team Last Money Line</Label>
-                  <Select value={filters.team_last_ml || "any"} onValueChange={(value) => handleFilterChange('team_last_ml', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="1">Won</SelectItem>
-                      <SelectItem value="0">Loss</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="opponent_last_spread">Opponent Last Spread</Label>
-                  <Select value={filters.opponent_last_spread || "any"} onValueChange={(value) => handleFilterChange('opponent_last_spread', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="1">Covered</SelectItem>
-                      <SelectItem value="0">Didn't Cover</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="opponent_last_ou">Opponent Last Over/Under</Label>
-                  <Select value={filters.opponent_last_ou || "any"} onValueChange={(value) => handleFilterChange('opponent_last_ou', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="1">Over</SelectItem>
-                      <SelectItem value="0">Under</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="opponent_last_ml">Opponent Last Money Line</Label>
-                  <Select value={filters.opponent_last_ml || "any"} onValueChange={(value) => handleFilterChange('opponent_last_ml', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="1">Won</SelectItem>
-                      <SelectItem value="0">Loss</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="team_consecutive_home_away">Primary Team Last Game (Home/Away)</Label>
-                  <Select value={filters.team_consecutive_home_away || "any"} onValueChange={(value) => handleFilterChange('team_consecutive_home_away', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="home">Home</SelectItem>
-                      <SelectItem value="away">Away</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="opponent_consecutive_home_away">Opponent Team Last Game (Home/Away)</Label>
-                  <Select value={filters.opponent_consecutive_home_away || "any"} onValueChange={(value) => handleFilterChange('opponent_consecutive_home_away', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="home">Home</SelectItem>
-                      <SelectItem value="away">Away</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      {/* ── Bet-type spine ── */}
+      <div className="flex flex-wrap gap-4 mb-4">
+        {BET_GROUPS.map(g => (
+          <div key={g.group}>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">{g.group}</div>
+            <div className="flex gap-1">
+              {g.items.map(it => (
+                <Button key={it.key} size="sm" variant={betType === it.key ? 'default' : 'outline'}
+                  onClick={() => setBetType(it.key)}>{it.label}</Button>
+              ))}
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* presets */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {PRESETS.map(p => (
+          <Badge key={p.label} variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => applyPreset(p)}>{p.label}</Badge>
+        ))}
+      </div>
+
+      {/* saved filters */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        {!user ? (
+          <span className="text-xs text-muted-foreground">Sign in to save filters you want to track this season.</span>
+        ) : (
+          <>
+            {saved.length > 0 && (
+              <Select onValueChange={(id) => { const s = saved.find(x => x.id === id); if (s) restore(s.filters); }}>
+                <SelectTrigger className="h-8 w-56 text-xs"><Bookmark className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder={`Saved filters (${saved.length})`} /></SelectTrigger>
+                <SelectContent>
+                  {saved.map(s => (
+                    <div key={s.id} className="flex items-center">
+                      <SelectItem value={s.id} className="flex-1">{s.name}</SelectItem>
+                      <button className="px-2 text-muted-foreground hover:text-red-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteSaved(s.id); }}><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {showSave ? (
+              <div className="flex items-center gap-1">
+                <Input autoFocus value={saveName} onChange={e => setSaveName(e.target.value)} placeholder="Name this filter" className="h-8 w-48 text-xs"
+                  onKeyDown={e => e.key === 'Enter' && saveCurrent()} />
+                <Button size="sm" className="h-8" onClick={saveCurrent} disabled={!saveName.trim() || saved.length >= 25}>Save</Button>
+                <Button size="sm" variant="ghost" className="h-8" onClick={() => { setShowSave(false); setSaveName(''); }}>Cancel</Button>
+              </div>
+            ) : (
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowSave(true)} disabled={saved.length >= 25}>
+                <Bookmark className="w-3.5 h-3.5 mr-1" /> Save current {saved.length >= 25 && '(25 max)'}
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* active-filter chips + reset */}
+      {chips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-4">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground mr-1">Active:</span>
+          {chips.map((chip, i) => (
+            <Badge key={i} variant="secondary" className="gap-1 pr-1 font-normal">
+              {chip.label}
+              <button onClick={chip.clear} className="rounded p-0.5 hover:bg-foreground/15" aria-label={`Clear ${chip.label}`}><X className="w-3 h-3" /></button>
+            </Badge>
+          ))}
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-muted-foreground" onClick={resetAll}>Reset all</Button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* ── RESULTS (kept mounted across refetches so the page height never collapses) ── */}
+        <div className={`xl:col-span-2 space-y-4 transition-opacity ${loading && data ? 'opacity-50' : ''}`}>
+          {/* coverage readout */}
+          <div className="flex items-center gap-2 text-xs">
+            <Badge variant="secondary">
+              {cov ? `Based on ${cov.n_games} games, ${cov.season_min}–${cov.season_max}` : loading ? 'Loading…' : 'No games match'}
+            </Badge>
+            {limited && <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/40">Limited history (2023+)</Badge>}
+            {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+          </div>
+
+          {/* headline: ONE clear result for the exact filtered situation */}
+          {!data ? <Skeleton className="h-20 w-full" /> : data.overall && cov && data.overall.n > 0 ? (
+            <Card className="border-l-4 border-l-primary">
+              <CardContent className="py-4">
+                <div className="flex items-start gap-3">
+                  {data.overall.hit_pct >= 50 ? <TrendingUp className="w-5 h-5 text-emerald-500 mt-0.5" /> : <TrendingDown className="w-5 h-5 text-red-500 mt-0.5" />}
+                  <div>
+                    <p className="font-semibold leading-snug">
+                      {subject} {VERB[betType]} <span className="text-primary">{data.overall.hit_pct}%</span>
+                      {' '}<span className="text-sm font-normal text-muted-foreground">({data.overall.wins} of {data.overall.n} {nounFor(betType)})</span>{data.overall.roi != null && <> · <span className={data.overall.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{data.overall.roi >= 0 ? '+' : ''}{data.overall.roi}% ROI</span></>}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {(data.overall.hit_pct - data.baseline_pct >= 0 ? '+' : '')}{(data.overall.hit_pct - data.baseline_pct).toFixed(1)} pts vs the {data.baseline_pct}% baseline · {significance(data.overall.n, data.overall.hit_pct).label}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/80 mt-1.5">{scopeNote}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">No games match these filters — try widening them.</CardContent></Card>
+          )}
+
+          {/* secondary context splits (only non-degenerate — hidden when a filter pins the side) */}
+          {data && shownBars.length > 0 && (
+            <Card><CardContent className="py-4 space-y-4">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Breakdown</div>
+                <p className="text-[11px] text-muted-foreground/80 mt-0.5">The same {data.overall.n} {nounFor(betType)}, split by situation.</p>
+              </div>
+              {shownBars.map((bar, i) => <ResultBar key={i} betType={betType} bar={bar} baseline={data.baseline_pct} />)}
+            </CardContent></Card>
+          )}
+
+          {/* breakdowns */}
+          {data && (
+            <Card><CardContent className="py-4">
+              <Tabs defaultValue="team">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="team">By Team</TabsTrigger>
+                  <TabsTrigger value="coach">By Coach</TabsTrigger>
+                  <TabsTrigger value="ref">By Referee</TabsTrigger>
+                </TabsList>
+                <TabsContent value="team"><BreakdownTable betType={betType} rows={data.by_team} keyName="team" /></TabsContent>
+                <TabsContent value="coach"><BreakdownTable betType={betType} rows={data.by_coach} keyName="coach" /></TabsContent>
+                <TabsContent value="ref"><BreakdownTable betType={betType} rows={data.by_referee} keyName="referee" /></TabsContent>
+              </Tabs>
+            </CardContent></Card>
+          )}
+
+          {/* upcoming match */}
+          {data && upcoming.length > 0 && (
+            <Card className="border-primary/30">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-2 mb-3 font-semibold text-sm"><CalendarClock className="w-4 h-4 text-primary" /> This week's games that match ({upcoming.length})</div>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {upcoming.map((g, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
+                      <img src={logoFor(g.team)} alt="" className="w-6 h-6" onError={e => (e.currentTarget.style.visibility = 'hidden')} />
+                      <div className="flex-1">
+                        <div className="font-medium">{g.matchup}</div>
+                        <div className="text-xs font-medium text-foreground/80">{lineForBet(betType, g)}</div>
+                        <div className="text-[11px] text-muted-foreground">{fmtKick(g.kickoff)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* ── FILTERS (adaptive) ── */}
+        <div className="xl:sticky xl:top-4 h-fit space-y-3">
+          <Card><CardContent className="py-4 space-y-4">
+            <div className="text-sm font-semibold">Situation</div>
+            <RangeRow label={`Seasons: ${seasons[0]}–${seasons[1]}`} min={seasonFloor} max={2025} step={1} value={seasons} onChange={setSeasons} />
+            <SelectRow label="Season type" value={seasonType} onChange={setSeasonType} options={[['any', 'Regular + Playoffs'], ['regular', 'Regular season'], ['postseason', 'Playoffs only']]} />
+            {/* week vs round is contextual: regular → weeks slider, playoffs → round picker, neither until a type is chosen */}
+            {seasonType === 'regular' && (
+              <RangeRow label={`Weeks: ${weeks[0]}–${weeks[1]}`} min={1} max={18} step={1} value={weeks} onChange={setWeeks} />
+            )}
+            {seasonType === 'postseason' && (
+              <SelectRow label="Playoff round" value={playoffRound} onChange={setPlayoffRound}
+                options={[['any', 'All rounds'], ['Wild Card', 'Wild Card'], ['Divisional', 'Divisional'], ['Conference', 'Conference'], ['Super Bowl', 'Super Bowl']]} />
+            )}
+            <SelectRow label="Side" value={side} onChange={setSide} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
+
+            {SPREAD_CFG[betType] && (
+              <>
+                <SelectRow label={betType === 'h1_spread' ? '1H spread side' : 'Spread side'} value={spreadSide} onChange={setSpreadSide}
+                  options={[['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']]} />
+                <RangeRow label={`${spreadSide === 'favorite' ? 'Favored by' : spreadSide === 'underdog' ? 'Getting' : 'Spread'}: ${spreadSize[0]}–${spreadSize[1]} pts`}
+                  min={0} max={SPREAD_CFG[betType].max} step={0.5} value={spreadSize} onChange={setSpreadSize} />
+              </>
+            )}
+            {/* moneyline odds — exact American-odds bounds. Negative = favorite, positive = underdog.
+                Same value in both = an exact line (e.g. -102 & -102); leave one blank for one-sided. */}
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Moneyline odds (American)</div>
+              <div className="flex items-center gap-2">
+                <Input type="number" inputMode="numeric" value={mlMin} onChange={e => setMlMin(e.target.value)} placeholder="min e.g. -200" className="h-9" />
+                <span className="text-xs text-muted-foreground shrink-0">to</span>
+                <Input type="number" inputMode="numeric" value={mlMax} onChange={e => setMlMax(e.target.value)} placeholder="max e.g. -120" className="h-9" />
+              </div>
+            </div>
+            {(betType === 'team_total') && (
+              <SelectRow label="Favorite / Underdog" value={favDog} onChange={setFavDog} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
+            )}
+            {TOTAL_CFG[betType] && (
+              <RangeRow label={`${TOTAL_CFG[betType].label}: ${lineRange[0]}–${lineRange[1]}`}
+                min={TOTAL_CFG[betType].min} max={TOTAL_CFG[betType].max} step={0.5} value={lineRange} onChange={setLineRange} />
+            )}
+          </CardContent></Card>
+
+          <FilterSection title="Conditions">
+            <TriRow label="Primetime" value={primetime} onChange={setPrimetime} />
+            <TriRow label="Divisional" value={division} onChange={setDivision} />
+            <SelectRow label="Venue" value={dome} onChange={setDome} options={[['any', 'Any'], ['dome', 'Dome'], ['outdoor', 'Outdoor']]} />
+            <SelectRow label="Precipitation" value={precip} onChange={setPrecip} options={[['any', 'Any'], ['none', 'None'], ['rain', 'Rain'], ['snow', 'Snow']]} />
+            <RangeRow label={`Temp: ${tempRange[0]}–${tempRange[1]}°F`} min={-10} max={100} step={1} value={tempRange} onChange={setTempRange} />
+            <div><div className="text-xs text-muted-foreground mb-1">Max wind: {windMax} mph</div><Slider min={0} max={60} step={1} value={[windMax]} onValueChange={([v]) => setWindMax(v)} /></div>
+            <SelectRow label="Rest / Bye" value={restBye} onChange={setRestBye}
+              options={[['any', 'Any'], ['off_bye', 'Off a bye'], ['pre_bye', 'Week before a bye'], ['short', 'Short rest (Thu)']]} />
+          </FilterSection>
+
+          <FilterSection title="Context">
+            <SelectRow label="Coach" value={coach} onChange={setCoach} options={[['any', 'Any coach'], ...coaches.map(c => [c, c] as [string, string])]} />
+            <SelectRow label="Referee" value={referee} onChange={setReferee} options={[['any', 'Any referee'], ...refs.map(r => [r, r] as [string, string])]} />
+          </FilterSection>
         </div>
       </div>
-      </div>
-    </>
+    </div>
   );
+}
+
+// ── small filter primitives ──
+function RangeRow({ label, min, max, step, value, onChange }: any) {
+  return <div><div className="text-xs text-muted-foreground mb-1">{label}</div>
+    <Slider min={min} max={max} step={step} value={value} onValueChange={(v: number[]) => onChange([v[0], v[1]])} minStepsBetweenThumbs={0} /></div>;
+}
+function SelectRow({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
+  return <div><div className="text-xs text-muted-foreground mb-1">{label}</div>
+    <Select value={value} onValueChange={onChange}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+      <SelectContent>{options.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent></Select></div>;
+}
+function TriRow({ label, value, onChange }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void }) {
+  const opts: [string, boolean | null][] = [['Any', null], ['Yes', true], ['No', false]];
+  return <div><div className="text-xs text-muted-foreground mb-1">{label}</div>
+    <div className="flex gap-1">{opts.map(([l, v]) => <Button key={l} size="sm" variant={value === v ? 'default' : 'outline'} className="h-7 flex-1 text-xs" onClick={() => onChange(v)}>{l}</Button>)}</div></div>;
+}
+function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return <Collapsible open={open} onOpenChange={setOpen}>
+    <Card><CardContent className="py-3">
+      <CollapsibleTrigger className="flex w-full items-center justify-between text-sm font-semibold">
+        {title}<ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-4 pt-3">{children}</CollapsibleContent>
+    </CardContent></Card>
+  </Collapsible>;
 }

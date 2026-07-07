@@ -13,7 +13,7 @@
 
 ## What Is It?
 
-A feature where users build up to 5 AI-powered "Virtual Picks Experts" (Agents) through conversational onboarding. Each agent analyzes WagerProof's prediction data and autonomously generates picks based on its configured personality, risk tolerance, and betting style. Performance is tracked independently like editor picks.
+A feature where users build up to 30 AI-powered "Virtual Picks Experts" (Agents) — up to 10 active at once — through conversational onboarding. Each agent analyzes WagerProof's prediction data and autonomously generates picks based on its configured personality, risk tolerance, and betting style. Performance is tracked independently like editor picks.
 
 ## Key Decisions
 
@@ -43,7 +43,7 @@ A feature where users build up to 5 AI-powered "Virtual Picks Experts" (Agents) 
 
 ## Feature Requirements
 
-1. **Agent Limit**: 5 agents per user
+1. **Agent Limit**: Free users: 1 active agent. Pro users: 30 total agents, 10 active at once. Admins: unlimited
 2. **Sports Coverage**: NFL, NBA, CFB, NCAAB
 3. **Bet Types**: Spread, Moneyline, Total (Over/Under)
 4. **10 Archetype Presets**: Quick-start templates for common betting strategies

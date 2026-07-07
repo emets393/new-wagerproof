@@ -56,6 +56,21 @@ All 5 sports are **fully live** (not "coming soon"):
 
 ---
 
+## Historical Analysis (NFL + CFB)
+
+A bet-type-first historical-trends screen for football: pick a market (spread / ML / total / team
+total / 1H markets), slice it by dozens of situational filters, and see how it has performed across
+years — plus this week's upcoming games that match. Entered via a **banner at the top of the NFL and
+CFB game pages** (no tab/menu entry), scoped to that sport.
+
+Backend = read-only RPCs on the warehouse project (`nfl_analysis`/`nfl_analysis_upcoming`,
+`cfb_analysis`/`cfb_analysis_upcoming`); the app aggregates nothing. Full implementation spec —
+data contract, filter keys, the contextual week/round control, sport deltas, UX rules — in
+**`.claude/docs/15_mobile_historical_analysis.md`**. Web reference: `src/pages/NFLAnalytics.tsx`,
+`src/pages/CFBAnalytics.tsx`.
+
+---
+
 ## Onboarding Flow
 
 ### Steps (UPDATED from docs)

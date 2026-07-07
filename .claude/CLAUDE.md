@@ -115,7 +115,7 @@ wagerproof-mobile/
 - Feature request system
 
 ### 7. AI Agents (In Development)
-- **Premium Feature**: Users create up to 5 AI-powered "Virtual Picks Experts"
+- **Premium Feature**: Free users get 1 active agent; Pro users can create up to 30 AI-powered "Virtual Picks Experts" with up to 10 active at once; admins are unlimited
 - Personalized betting agents with 50+ tunable parameters
 - On-demand pick generation based on agent personality
 - Automated performance tracking (W-L-P, +/- units)
