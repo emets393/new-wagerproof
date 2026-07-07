@@ -24,6 +24,17 @@ const ML_MARKETS = new Set(['fg_ml', 'h1_ml']);
 const TOTAL_MARKETS = new Set(['fg_total', 'h1_total']);
 const LIMITED_MARKETS = new Set(['h1_spread', 'h1_ml', 'h1_total', 'team_total']); // 2023+ only
 
+// per-market line-filter config (the SUBJECT market's line, filterable for every bet type)
+const SPREAD_CFG: Record<string, { max: number; mk: string; xk: string; amk: string; axk: string }> = {
+  fg_spread: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
+  h1_spread: { max: 14, mk: 'h1_spread_min', xk: 'h1_spread_max', amk: 'h1_abs_spread_min', axk: 'h1_abs_spread_max' },
+};
+const TOTAL_CFG: Record<string, { min: number; max: number; mk: string; xk: string; label: string }> = {
+  fg_total: { min: 30, max: 60, mk: 'total_min', xk: 'total_max', label: 'Game total' },
+  h1_total: { min: 15, max: 35, mk: 'h1_total_min', xk: 'h1_total_max', label: '1H total' },
+  team_total: { min: 10, max: 40, mk: 'tt_min', xk: 'tt_max', label: 'Team total line' },
+};
+
 // team abbr → ESPN logo (handles the LA/LAR + WAS/WSH quirks across our two sources)
 const ESPN: Record<string, string> = { LA: 'lar', LAR: 'lar', LAC: 'lac', WAS: 'wsh', WSH: 'wsh', JAC: 'jax', OAK: 'lv', SD: 'lac', STL: 'lar' };
 const logoFor = (abbr?: string) => abbr ? `https://a.espncdn.com/i/teamlogos/nfl/500/${(ESPN[abbr] || abbr).toLowerCase()}.png` : '/placeholder.svg';
@@ -165,7 +176,7 @@ export default function NFLAnalytics() {
   const [favDog, setFavDog] = useState('any');
   const [spreadSide, setSpreadSide] = useState('any'); // favorite | underdog | any
   const [spreadSize, setSpreadSize] = useState<[number, number]>([0, 20]);
-  const [totalRange, setTotalRange] = useState<[number, number]>([30, 60]);
+  const [lineRange, setLineRange] = useState<[number, number]>([30, 60]);
   const [primetime, setPrimetime] = useState<boolean | null>(null);
   const [division, setDivision] = useState<boolean | null>(null);
   const [dome, setDome] = useState<string>('any');
@@ -180,7 +191,13 @@ export default function NFLAnalytics() {
 
   // 1H/TT markets only have 2023+; clamp the season floor so users can't pick empty ranges
   const seasonFloor = LIMITED_MARKETS.has(betType) ? 2023 : 2018;
-  useEffect(() => { if (seasons[0] < seasonFloor) setSeasons([seasonFloor, seasons[1]]); }, [betType]); // eslint-disable-line
+  // when the bet type changes, reset the line controls to that market's range (avoids stale bounds)
+  useEffect(() => {
+    if (seasons[0] < seasonFloor) setSeasons([seasonFloor, seasons[1]]);
+    setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 20]);
+    const t = TOTAL_CFG[betType];
+    if (t) setLineRange([t.min, t.max]);
+  }, [betType]); // eslint-disable-line
 
   const buildFilters = useCallback(() => {
     const f: any = {};
@@ -189,16 +206,19 @@ export default function NFLAnalytics() {
     if (weeks[0] > 1) f.week_min = weeks[0];
     if (weeks[1] < 22) f.week_max = weeks[1];
     if (side !== 'any') f.side = side;
-    // spread control (size + side) — for spread markets; else use fav/dog toggle
-    if (SPREAD_MARKETS.has(betType)) {
+    // subject-market line control: size+side for spread markets, range for total markets
+    const scfg = SPREAD_CFG[betType];
+    if (scfg) {
       const [lo, hi] = spreadSize;
-      if (spreadSide === 'favorite') { f.spread_min = -hi; f.spread_max = -lo; }
-      else if (spreadSide === 'underdog') { f.spread_min = lo; f.spread_max = hi; }
-      else if (lo > 0 || hi < 20) { f.abs_spread_min = lo; f.abs_spread_max = hi; }
-    } else if (favDog !== 'any') f.fav_dog = favDog;
-    if (TOTAL_MARKETS.has(betType) || betType === 'team_total') {
-      if (totalRange[0] > 30) f.total_min = totalRange[0];
-      if (totalRange[1] < 60) f.total_max = totalRange[1];
+      if (spreadSide === 'favorite') { f[scfg.mk] = -hi; f[scfg.xk] = -lo; }
+      else if (spreadSide === 'underdog') { f[scfg.mk] = lo; f[scfg.xk] = hi; }
+      else if (lo > 0 || hi < scfg.max) { f[scfg.amk] = lo; f[scfg.axk] = hi; }
+    }
+    if (favDog !== 'any' && (ML_MARKETS.has(betType) || betType === 'team_total')) f.fav_dog = favDog;
+    const tcfg = TOTAL_CFG[betType];
+    if (tcfg) {
+      if (lineRange[0] > tcfg.min) f[tcfg.mk] = lineRange[0];
+      if (lineRange[1] < tcfg.max) f[tcfg.xk] = lineRange[1];
     }
     if (primetime !== null) f.primetime = primetime;
     if (division !== null) f.division = division;
@@ -213,7 +233,7 @@ export default function NFLAnalytics() {
     if (coach !== 'any') f.coach = coach;
     if (referee !== 'any') f.referee = referee;
     return f;
-  }, [betType, seasons, weeks, side, favDog, spreadSide, spreadSize, totalRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
+  }, [betType, seasons, weeks, side, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
 
   // load coach/ref option lists once
   useEffect(() => {
@@ -245,19 +265,24 @@ export default function NFLAnalytics() {
     setBetType(p.betType);
     const f = p.filters;
     setSide(f.side || 'any'); setFavDog(f.favDog || 'any');
-    setSpreadSide(f.spreadSide || 'any'); setSpreadSize(f.spreadSize || [0, 20]);
+    setSpreadSide(f.spreadSide || 'any');
     setPrimetime(f.primetime ?? null); setDivision(f.division ?? null);
-    setTempRange([f.tempMax != null ? -10 : -10, f.tempMax ?? 100]);
+    setTempRange([-10, f.tempMax ?? 100]);
+    // spread size is reset by the bet-type effect; apply the preset's after it runs
+    if (f.spreadSize) setTimeout(() => setSpreadSize(f.spreadSize), 0);
   };
 
-  // headline: the single strongest option across bars
+  // only bars where BOTH sides actually have games (a side pinned by a filter → degenerate → hide)
+  const shownBars = useMemo(() => (data?.bars || []).filter(bar => bar.options.every(o => o && o.n > 0)), [data]);
+  // headline: strongest WELL-SAMPLED option — never an empty/tiny side (that was the 0-games bug)
   const headline = useMemo(() => {
-    if (!data?.bars?.length) return null;
     let best: { opt: Opt; dim: string } | null = null;
-    for (const bar of data.bars) for (const opt of bar.options)
+    for (const bar of shownBars) for (const opt of bar.options) {
+      if (!opt.n || opt.hit_pct == null || opt.n < 8) continue;
       if (!best || Math.abs(opt.hit_pct - 50) > Math.abs(best.opt.hit_pct - 50)) best = { opt, dim: bar.dimension };
+    }
     return best;
-  }, [data]);
+  }, [shownBars]);
 
   const cov = data?.coverage;
   const limited = LIMITED_MARKETS.has(betType);
@@ -325,8 +350,8 @@ export default function NFLAnalytics() {
           {/* result bars */}
           <Card><CardContent className="py-4 space-y-4">
             {loading ? <Skeleton className="h-9 w-full" /> :
-              data?.bars?.length ? data.bars.map((bar, i) => <ResultBar key={i} betType={betType} bar={bar} baseline={data.baseline_pct} />)
-              : <p className="text-sm text-muted-foreground text-center py-4">No games match these filters.</p>}
+              shownBars.length ? shownBars.map((bar, i) => <ResultBar key={i} betType={betType} bar={bar} baseline={data!.baseline_pct} />)
+              : <p className="text-sm text-muted-foreground text-center py-4">{cov?.n_games ? 'Not enough games to show a reliable split — try widening the filters.' : 'No games match these filters.'}</p>}
           </CardContent></Card>
 
           {/* breakdowns */}
@@ -375,18 +400,21 @@ export default function NFLAnalytics() {
             <RangeRow label={`Weeks: ${weeks[0]}–${weeks[1]}`} min={1} max={22} step={1} value={weeks} onChange={setWeeks} />
             <SelectRow label="Side" value={side} onChange={setSide} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
 
-            {SPREAD_MARKETS.has(betType) ? (
+            {SPREAD_CFG[betType] && (
               <>
-                <SelectRow label="Spread side" value={spreadSide} onChange={setSpreadSide}
-                  options={[['any', 'Either'], ['favorite', 'Favored by'], ['underdog', 'Getting']]} />
-                {spreadSide !== 'any' && <RangeRow label={`Points: ${spreadSize[0]}–${spreadSize[1]}`} min={0} max={20} step={0.5} value={spreadSize} onChange={setSpreadSize} />}
+                <SelectRow label={betType === 'h1_spread' ? '1H spread side' : 'Spread side'} value={spreadSide} onChange={setSpreadSide}
+                  options={[['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']]} />
+                <RangeRow label={`${spreadSide === 'favorite' ? 'Favored by' : spreadSide === 'underdog' ? 'Getting' : 'Spread'}: ${spreadSize[0]}–${spreadSize[1]} pts`}
+                  min={0} max={SPREAD_CFG[betType].max} step={0.5} value={spreadSize} onChange={setSpreadSize} />
               </>
-            ) : ML_MARKETS.has(betType) ? (
+            )}
+            {(ML_MARKETS.has(betType) || betType === 'team_total') && (
               <SelectRow label="Favorite / Underdog" value={favDog} onChange={setFavDog} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
-            ) : null}
-
-            {(TOTAL_MARKETS.has(betType) || betType === 'team_total') &&
-              <RangeRow label={`Game total: ${totalRange[0]}–${totalRange[1]}`} min={30} max={60} step={0.5} value={totalRange} onChange={setTotalRange} />}
+            )}
+            {TOTAL_CFG[betType] && (
+              <RangeRow label={`${TOTAL_CFG[betType].label}: ${lineRange[0]}–${lineRange[1]}`}
+                min={TOTAL_CFG[betType].min} max={TOTAL_CFG[betType].max} step={0.5} value={lineRange} onChange={setLineRange} />
+            )}
           </CardContent></Card>
 
           <FilterSection title="Conditions">
