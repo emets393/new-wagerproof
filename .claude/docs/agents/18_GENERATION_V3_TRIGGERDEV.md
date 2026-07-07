@@ -7,7 +7,8 @@ does not replace the legacy V2 queue or the Supabase edge-function V3 worker.
 
 1. The iOS app calls the new `trigger-v3-run` Supabase Edge Function.
 2. The gateway validates the authenticated user, entitlement, ownership, and the
-   3/day manual generation cap.
+   relevant manual generation cap: 3/day for daily picks or 3/football-week for
+   `window: "week"` weekly parlays.
 3. The gateway creates or reuses an `agent_generation_runs` ledger row with
    `engine_version = 'v3_trigger'`.
 4. The gateway triggers the Trigger.dev task `generate-v3-picks` and stores the
@@ -15,8 +16,27 @@ does not replace the legacy V2 queue or the Supabase edge-function V3 worker.
 5. The app polls run status/metadata every 1.5s through the `trigger-run-status`
    edge function (which fetches the run with the Trigger SECRET key server-side
    and returns just the rendered fields) and renders live `metadata`.
-6. The task writes picks to `avatar_picks`; existing grading and snapshots are
-   unchanged.
+6. The task writes daily picks to `avatar_picks` and daily/weekly tickets to
+   `avatar_parlays`; the snapshot returns daily tickets under `todays_parlays`
+   and week-long tickets under `weekly_parlays`.
+
+## Windows
+
+`trigger-v3-run` accepts an optional body field:
+
+```json
+{ "window": "week" }
+```
+
+Absent or `"day"` runs the daily product. `"week"` routes to
+`enqueue_weekly_parlay_run_v3_trigger`, requires an NFL/CFB agent, uses the current ET Tuesday
+football `week_key`, and returns 429 when the 3-per-football-week manual budget is exhausted.
+Weekly runs force the V3 loop into one parlay-only ticket, capped at 6 legs, with
+`scope='weekly'` and `target_date=week_key+6`.
+
+The iOS client does not expose a second weekly generation control. When the user commits the main
+"Generate Today's Picks" swipe, the detail screen runs the daily product first, then automatically
+requests the weekly window if weekly parlays are enabled and budget remains.
 
 ### Why a status proxy (not a direct client poll)
 
@@ -56,6 +76,7 @@ queue copies, which would turn the global cap into a per-user cap.
 
 - `agents-v3/trigger/generateV3Picks.ts`
 - `agents-v3/trigger/dailyAutoGenV3.ts`
+- `agents-v3/trigger/weeklyParlayAutoGenV3.ts`
 - `agents-v3/src/loop/*`
 - `supabase/functions/trigger-v3-run/index.ts`
 - `supabase/functions/trigger-run-status/index.ts` (live status/metadata proxy)
@@ -98,8 +119,8 @@ npm run --prefix agents-v3 deploy   # or `cd agents-v3 && npm run deploy`
 ```
 
 `npm run deploy` builds, syncs the runtime env vars above into Trigger.dev
-Cloud's `prod` environment, and deploys `generate-v3-picks` +
-`daily-auto-gen-v3` as a new version.
+Cloud's `prod` environment, and deploys `generate-v3-picks`,
+`daily-auto-gen-v3`, and `weekly-parlay-auto-gen-v3` as a new version.
 
 ## Verification
 

@@ -398,22 +398,21 @@ export async function submitPicks(
   report.allAccepted = report.rejected.length === 0;
 
   // ── Write (skipped on dry_run) ────────────────────────────────────────
-  // Props CANNOT ride the straights upsert: two props in one game both key to
-  // (avatar_id, game_id, 'prop'), so they'd collide on unique_avatar_pick and a
-  // dup-key upsert array errors in Postgres. So we partition: straights keep the
-  // per-row upsert (unchanged); props use a delete-then-insert per game.
+  // Regens are additive and non-destructive. The DB-generated pick_identity
+  // preserves one straight pick per avatar/game/market, while prop identity
+  // includes player+market+line+direction so multiple same-game props can
+  // coexist. ignoreDuplicates keeps user-curated existing picks untouched.
   const straightRows = picksToInsert.filter((p) => p.bet_type !== "prop");
   const propRows = picksToInsert.filter((p) => p.bet_type === "prop");
 
   if (!ctx.dryRun && picksToInsert.length > 0) {
-    // Regens are ADDITIVE: no manual-regen delete here anymore. Distinct new
-    // picks stack; a re-pick of the SAME market merges through the upsert on
-    // unique_avatar_pick(avatar_id, game_id, bet_type). Users curate via the
-    // swipe-to-trash delete (delete_agent_pick RPC).
     if (straightRows.length > 0) {
       const { error } = await ctx.main
         .from("avatar_picks")
-        .upsert(straightRows, { onConflict: "avatar_id,game_id,bet_type" });
+        .upsert(straightRows, {
+          onConflict: "avatar_id,game_id,bet_type,pick_identity",
+          ignoreDuplicates: true,
+        });
       if (error) {
         // Surface, don't just swallow: a silent DB error here makes the run
         // report success with picks_generated=N while 0 rows actually persist.
@@ -424,17 +423,12 @@ export async function submitPicks(
     }
 
     if (propRows.length > 0) {
-      // Idempotent re-run safety (manual + auto): clear this avatar's existing
-      // prop rows for the touched games, then plain-insert the new ones. (The
-      // manual delete above already cleared them; this also covers auto re-runs.)
-      const propGameIds = [...new Set(propRows.map((p) => p.game_id as string))];
-      await ctx.main
+      const { error: propError } = await ctx.main
         .from("avatar_picks")
-        .delete()
-        .eq("avatar_id", ctx.avatarId)
-        .eq("bet_type", "prop")
-        .in("game_id", propGameIds);
-      const { error: propError } = await ctx.main.from("avatar_picks").insert(propRows);
+        .upsert(propRows, {
+          onConflict: "avatar_id,game_id,bet_type,pick_identity",
+          ignoreDuplicates: true,
+        });
       if (propError) {
         console.error(`[v3 submit] prop insert failed (${propRows.length} rows): ${propError.message} | details=${(propError as { details?: string }).details ?? ""}`);
         report.ok = false;

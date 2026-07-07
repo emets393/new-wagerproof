@@ -51,6 +51,8 @@ See [10_GENERATION_V2_QUEUE.md](10_GENERATION_V2_QUEUE.md) for the queue and [ag
 avatar_parlays
   id uuid PK · avatar_id uuid FK→avatar_profiles (CASCADE)
   sport text            -- single sport, or 'multi' for cross-sport
+  scope text            -- 'daily' (default) or 'weekly'
+  week_key date         -- NULL for daily; ET Tuesday anchoring the football week
   legs_count int
   combined_odds text     -- American; product of leg decimal odds, recomputed at grade time if a leg pushes
   units numeric(3,1)     -- one stake for the whole ticket
@@ -70,6 +72,18 @@ avatar_parlay_legs
 ```
 
 Rationale: reusing `avatar_picks` would force relaxing its `UNIQUE (avatar_id, game_id, bet_type)` key and the per-row payout RPC — both load-bearing for the live straights path. RLS mirrors `avatar_picks` (owner + public-avatar read).
+
+### Week Long Parlays + additive curation
+
+Weekly football tickets reuse `avatar_parlays` with `scope='weekly'`. `week_key` is the ET
+Tuesday for the current football week (Tue-Mon), and the ticket `target_date` is `week_key + 6`
+so the client keeps it in the detail section through Monday night, then lets normal history
+rendering take over.
+
+Generation is additive for both daily and weekly products: manual regeneration no longer deletes
+the prior batch. All kept rows count in `recalculate_avatar_performance`; users remove unwanted
+pending rows through `delete_agent_pick` / `delete_agent_parlay` via `agent-authorized-action-v1`.
+Deletes are hard deletes. Picks must be pending; parlays must be pending with no graded legs.
 
 ### `submit_parlay` tool
 

@@ -60,8 +60,11 @@ export interface AgentGenContext {
   window: "day" | "week";
   /** ET Tuesday anchoring the football week (Tue→Mon); set only on week runs. */
   weekKey: string | null;
-  /** Week runs allow exactly ONE ticket; submitParlay counts across calls. */
+  /** Week runs offer up to a FEW distinct tickets; submitParlay counts across calls. */
   weeklyTicketsSubmitted: number;
+  /** Sorted leg-key signatures of parlay tickets already shipped this run, so a
+   *  week-long run's tickets stay DISTINCT across submit_parlay calls. */
+  submittedParlaySignatures: Set<string>;
 
   // data clients (service-role main, anon cfb)
   main: SupabaseClient;

@@ -29,6 +29,9 @@ export function buildV3SystemPrompt(
     .join(", ");
   const ci = steering.customInsights;
   const c = steering.constraints;
+  const allowedMarkets = steering.allowedMarkets.length > 0 ? steering.allowedMarkets : ["spread", "moneyline", "total", "team_total", "prop"];
+  const allowedMarketsText = allowedMarkets.join(", ");
+  const propOnly = allowedMarkets.length === 1 && allowedMarkets[0] === "prop";
 
   const ciBlock = [
     ci.betting_philosophy ? `## Your Betting Philosophy\n${ci.betting_philosophy}` : "",
@@ -42,10 +45,10 @@ export function buildV3SystemPrompt(
   // sets the mission (ONE ticket, legs across the remaining football week).
   const weeklyMission = weekly
     ? `\n## Week-long parlay mission (this run)
-You are building ONE week-long parlay ticket from the REMAINING NFL/CFB games of the current football week (through Monday night). Combine your 2–${steering.maxParlayLegs} highest-conviction plays — legs may (and ideally do) span DIFFERENT days of the week. Submit EXACTLY ONE submit_parlay ticket, then call submit_picks with an EMPTY picks array to finalize. The ticket stays live until its last leg settles.\n`
+You are building 2–3 DISTINCT week-long parlay tickets from the REMAINING NFL/CFB games of the current football week (through Monday night). Each ticket combines 2–${steering.maxParlayLegs} of your highest-conviction plays whose legs may (and ideally do) span DIFFERENT days of the week. The tickets must be genuinely DIFFERENT options — vary the games and angle (e.g. one favorites-heavy, one built around a dog or a total), NOT the same legs restaked; an exact-duplicate ticket is rejected. Submit all your tickets in ONE submit_parlay call (an array), then call submit_picks with an EMPTY picks array to finalize. Tickets stay live until their last leg settles.\n`
     : "";
 
-  return `You are a disciplined sports-betting analyst ${weekly ? "building a week-long parlay ticket" : "generating today's picks"} for ONE agent with a specific personality. Today is ${today} (ET).
+  return `You are a disciplined sports-betting analyst ${weekly ? "building week-long parlay tickets" : "generating today's picks"} for ONE agent with a specific personality. Today is ${today} (ET).
 ${weeklyMission}
 ## How you work (follow exactly)
 1. Your first message already contains the SLATE — ${weekly ? "every remaining game of the current football week" : "every game available today"}, annotated with the data lenses that matter to YOU. You did not have to ask for it.
@@ -55,6 +58,8 @@ ${weeklyMission}
 
 ## Grounding rule (critical)
 - Only bet games that appear in the slate. COPY each game_id EXACTLY as shown — they are opaque tokens (e.g. an MLB id is a bare number, not a date+teams string). NEVER construct or guess a game_id from team names or a date; a made-up id is rejected as not_in_slate.
+- Allowed bet_type values for this agent: ${allowedMarketsText}. Any other bet_type is invalid and will be rejected.
+${propOnly ? '- PROP-ONLY RUN: every submitted pick/parlay leg MUST use bet_type "prop". Do not submit spread, moneyline, total, or team_total. You must call get_props first, then copy prop_player, prop_market, prop_line, and prop_direction from a returned is_bettable prop.' : ''}
 - The slate's Vegas line grounds a ${steering.preferredBetType.toUpperCase()} pick — you MAY submit that bet type straight from the slate. ANY OTHER bet type (or any pick whose odds you change) REQUIRES you to fetch that game's data first (e.g. get_market_odds / get_game_data). If you submit an ungrounded pick it will be rejected.
 - Never invent a game, line, or price. Cite the numbers you actually fetched.
 

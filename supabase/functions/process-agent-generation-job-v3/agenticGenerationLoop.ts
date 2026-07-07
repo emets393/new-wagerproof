@@ -7,7 +7,7 @@ import type { ChatMessage } from "./types.ts";
 import { consumeChatStreamV3 } from "./consumeChatStreamV3.ts";
 import { buildV3SystemPrompt } from "./v3SystemPrompt.ts";
 import { buildSubmitPicksSchema, buildSubmitParlaySchema } from "./pickSchemaV3.ts";
-import type { AgentGenContext } from "./tools/context.ts";
+import type { AgentGenContext, SubmitReport } from "./tools/context.ts";
 import type { SlateResult } from "./tools/gameSource.ts";
 import { compactSlate } from "./tools/gameSource.ts";
 import { buildReadToolDefs, DEEP_TOOL_NAMES, runReadTool } from "./tools/readTools.ts";
@@ -37,12 +37,33 @@ function summarize(s: string): string {
   return s.length > 200 ? s.slice(0, 200) + "…" : s;
 }
 
+function submitRepairInstruction(report: SubmitReport, ctx: AgentGenContext, toolName: "submit_picks" | "submit_parlay"): string | null {
+  if (report.allAccepted) return null;
+  const allowed = ctx.steering.allowedMarkets.length > 0 ? ctx.steering.allowedMarkets : ["spread", "moneyline", "total", "team_total", "prop"];
+  const marketRejects = report.rejected.filter((r) => r.reason.includes("market_not_allowed"));
+  const propOnly = allowed.length === 1 && allowed[0] === "prop";
+
+  if (report.accepted > 0 && toolName === "submit_parlay") {
+    return propOnly
+      ? `A prop parlay ticket was accepted. Do not submit another ${toolName} with spread, moneyline, total, or team_total legs; this agent allows ONLY prop. Finalize now with submit_picks using an empty picks array.`
+      : `A parlay ticket was accepted. Do not re-submit rejected legs unless they can be corrected to allowed markets (${allowed.join(", ")}). Finalize with submit_picks when done.`;
+  }
+
+  if (marketRejects.length === 0) return null;
+  if (propOnly) {
+    return `Your last ${toolName} was rejected because this agent allows ONLY bet_type "prop". Stop submitting spread, moneyline, total, or team_total. Call get_props for NFL games, then submit only prop legs copied from returned is_bettable props: prop_player, prop_market, prop_line, prop_direction. If fewer than two prop legs clear the bar, finalize with submit_picks using an empty picks array and explain that no clean prop parlay cleared.`;
+  }
+  return `Your last ${toolName} used a disallowed market. Allowed bet_type values for this agent are: ${allowed.join(", ")}. Resubmit only with those markets, or finalize with submit_picks using an empty picks array.`;
+}
+
 export async function runAgenticLoop(
   ctx: AgentGenContext,
   slate: SlateResult,
   opts: LoopOptions,
 ): Promise<LoopResult> {
   const steering = ctx.steering;
+  const allowedMarkets = steering.allowedMarkets.length > 0 ? steering.allowedMarkets : ["spread", "moneyline", "total", "team_total", "prop"];
+  const allowedMarketsText = allowedMarkets.join(", ");
   const tools = [
     ...buildReadToolDefs(steering),
     {
@@ -59,7 +80,7 @@ export async function runAgenticLoop(
           type: "function" as const,
           function: {
             name: "submit_parlay",
-            description: "Submit multi-leg parlay tickets (legs drawn from games you fetched). After any parlays, still call submit_picks to finalize the run (use an empty picks array if you have no straight picks).",
+            description: `Submit multi-leg parlay tickets using only allowed leg bet_type values (${allowedMarketsText}). Legs must be drawn from games you fetched. After any accepted parlays, still call submit_picks to finalize the run (use an empty picks array if you have no straight picks).`,
             parameters: buildSubmitParlaySchema(steering.unitBand, steering.maxParlayLegs),
           },
         }]
@@ -207,6 +228,8 @@ export async function runAgenticLoop(
         const content = JSON.stringify(report);
         messages.push({ role: "tool", tool_call_id: call.id, content });
         trace(call.id, call.name, call.arguments || "{}", content, Date.now() - started, report.ok);
+        const repair = submitRepairInstruction(report, ctx, "submit_picks");
+        if (repair) messages.push({ role: "user", content: repair });
         if (report.allAccepted || ctx.gov.submitAttempts >= ctx.gov.limitsRef.maxSubmitAttempts) {
           finished = true;
           break;
@@ -227,6 +250,8 @@ export async function runAgenticLoop(
         const content = JSON.stringify(report);
         messages.push({ role: "tool", tool_call_id: call.id, content });
         trace(call.id, call.name, call.arguments || "{}", content, Date.now() - started, report.ok);
+        const repair = submitRepairInstruction(report, ctx, "submit_parlay");
+        if (repair) messages.push({ role: "user", content: repair });
         continue; // non-terminal — the agent still calls submit_picks to finalize
       }
 
