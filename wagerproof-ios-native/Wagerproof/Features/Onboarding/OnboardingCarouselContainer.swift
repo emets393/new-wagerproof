@@ -62,10 +62,12 @@ struct OnboardingCarouselContainer: View {
             // renders the progress bar + glass chevron as one toolbar strip.
             useNativeChrome: false,
             ctaTint: accent,
-            // Continue always reads as a neutral white Liquid Glass pill —
-            // only the progress bar fill (still `ctaTint` above) recolors
-            // with the bettor-type/archetype accent.
+            // Continue always reads as a bright white Liquid Glass pill with
+            // black label for contrast — only the progress bar fill (still
+            // `ctaTint` above) recolors with the bettor-type/archetype accent.
             ctaButtonColor: .white,
+            ctaButtonForeground: .black,
+            ctaButtonSurfaceOpacity: 0.92,
             background: { Color.clear },   // the root pixelwave shows through
             content: { pager },
             onContinue: { spec.onContinue(store) },
