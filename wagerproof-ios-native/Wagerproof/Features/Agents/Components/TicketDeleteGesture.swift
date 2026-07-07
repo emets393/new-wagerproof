@@ -6,16 +6,19 @@ import UIKit
 
 // =====================================================================
 // TicketDeleteGesture — long-press-arm → vertical-drag-to-trash for the
-// pick/parlay tickets (Today's Picks rail + Week Long Parlays section).
+// Week Long Parlays section's parlay cards.
 //
-// Tickets live inside scroll views (the horizontal rail nested in the
-// page's collapsing vertical scroll), where a bare vertical DragGesture
-// fights the scroll unreliably. Sequencing the drag BEHIND a long press
-// makes disambiguation deterministic: a plain tap (<0.35s) still routes
-// to tap-to-focus, a scroll pan never sees the drag, and once armed the
-// ticket lifts, a trash disc fades in beneath it, and dragging up past
-// the threshold asks the host to confirm the delete (the destructive
-// confirmationDialog + store call live on AgentDetailView).
+// NOT used by the Today's Picks rail: even sequenced behind a long press,
+// attaching this via `.gesture()` to a rail item claims the touch on
+// touch-down, which starves the rail's horizontal `ScrollView` of the pan
+// gesture it needs — the rail simply stopped scrolling. That rail's delete
+// affordance is now the trash button in `AgentPickFocusView`'s top bar
+// instead (see `onDelete` there). This gesture is safe on the parlay
+// section because those cards sit in a plain vertical stack with no
+// horizontal scroll to compete with; once armed the ticket lifts, a trash
+// disc fades in beneath it, and dragging up past the threshold asks the
+// host to confirm the delete (the destructive confirmationDialog + store
+// call live on AgentDetailView).
 // =====================================================================
 
 struct TicketDeleteGestureModifier: ViewModifier {

@@ -75,10 +75,9 @@ struct AgentDetailView: View {
     }
 
     var body: some View {
-        CollapsingWidgetScroll(heroMaxHeight: 196, heroMinHeight: 60) { progress in
+        CollapsingWidgetScroll(heroMaxHeight: 196, heroMinHeight: 60) { _ in
             AgentPixelWaveBackground(
                 avatarColor: agent?.avatarColor ?? "#6366f1",
-                progress: progress,
                 rippleEmitter: rippleEmitter
             )
         } hero: { progress in
@@ -228,6 +227,7 @@ struct AgentDetailView: View {
                     startIndex: start,
                     printIntro: focusPrintIntro,
                     onAudit: { pick in auditStore.present(pick: pick) },
+                    onDelete: isOwnAgent ? { item in pendingDeleteItem = item } : nil,
                     onClose: { focusStartIndex = nil }
                 )
                 .transition(.opacity)
@@ -376,8 +376,7 @@ struct AgentDetailView: View {
                         focusSource = .daily
                         focusStartIndex = idx
                     }
-                },
-                onDeleteItem: isOwnAgent ? { item in pendingDeleteItem = item } : nil
+                }
             )
             .padding(.horizontal, -WidgetCard.hInset)
             generateFooter

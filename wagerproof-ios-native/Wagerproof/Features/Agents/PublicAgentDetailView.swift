@@ -136,10 +136,9 @@ struct PublicAgentDetailView: View {
     }
 
     private var detailScroll: some View {
-        CollapsingWidgetScroll(heroMaxHeight: 196, heroMinHeight: 60) { progress in
+        CollapsingWidgetScroll(heroMaxHeight: 196, heroMinHeight: 60) { _ in
             AgentPixelWaveBackground(
                 avatarColor: agent?.avatarColor ?? "#6366f1",
-                progress: progress,
                 rippleEmitter: rippleEmitter
             )
         } hero: { progress in

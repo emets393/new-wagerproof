@@ -35,8 +35,11 @@ struct AgentPickFocusView: View {
     /// Surfaces the per-pick data audit (the card's "View data audit" button).
     /// Parlay cards have no audit — the audit sheet resolves by pick id.
     var onAudit: (AgentPick) -> Void = { _ in }
-    /// Owner-only delete affordance — a guaranteed, VoiceOver-accessible
-    /// alternative to the rail's swipe gesture. Nil hides the button entirely.
+    /// Owner-only delete affordance. This is the only delete entry point — the
+    /// rail's mini tickets no longer carry a swipe gesture (it fought the
+    /// rail's horizontal ScrollView, since a `.gesture()` on a rail item claims
+    /// the touch before the ScrollView's own pan can recognize it). Nil hides
+    /// the button entirely.
     var onDelete: ((AgentBetItem) -> Void)? = nil
     let onClose: () -> Void
 
@@ -219,8 +222,8 @@ struct AgentPickFocusView: View {
                 }
                 .buttonStyle(.plain)
                 .opacity(printed ? 1 : 0)
-                // Guaranteed, VoiceOver-reachable delete path — the rail's swipe
-                // gesture is a custom drag a screen reader can't perform.
+                // The delete entry point (owner-only) — a button, not a gesture,
+                // so it's VoiceOver-reachable and doesn't compete with scrolling.
                 if let onDelete, items.indices.contains(index) {
                     Button { onDelete(items[index]) } label: {
                         Image(systemName: "trash")

@@ -6,11 +6,9 @@ import UIKit
 /// Shared "pixelwave" backdrop: a near-black gradient under three breathing wavy
 /// shadow sheets (`WaveBackground`) with the animated `PixelGlyphField` on top.
 /// Introduced on the auth gate (`AuthGateBackground`) and reused as the basis for
-/// the agent detail surfaces, where it's tinted per-agent via `accentColor`.
-///
-/// `progress` (0 = expanded … 1 = collapsed) gently calms the wave + glyph layer
-/// so the field settles as a collapsing hero shrinks. The opaque gradient base
-/// never fades, so this can double as a collapsing hero's masking background.
+/// the agent detail surfaces, where it's tinted per-agent via `accentColor`. The
+/// opaque gradient base never fades, so this can double as a collapsing hero's
+/// masking background.
 ///
 /// `screenAnchored` pins the wave + glyph field to GLOBAL screen coordinates and
 /// sizes it to the full screen. A `CollapsingWidgetScroll` paints the same
@@ -31,30 +29,23 @@ public enum PixelWaveIntensity: Sendable {
 
 public struct PixelWaveBackground: View {
     private let accentColor: Color
-    private let progress: CGFloat
     private let screenAnchored: Bool
     private let intensity: PixelWaveIntensity
     private let rippleEmitter: GlyphRippleEmitter?
 
     public init(
         accentColor: Color = .appPrimary,
-        progress: CGFloat = 0,
         screenAnchored: Bool = false,
         intensity: PixelWaveIntensity = .ambient,
         rippleEmitter: GlyphRippleEmitter? = nil
     ) {
         self.accentColor = accentColor
-        self.progress = progress
         self.screenAnchored = screenAnchored
         self.intensity = intensity
         self.rippleEmitter = rippleEmitter
     }
 
     public var body: some View {
-        // Field opacity eases 1.0 → 0.5 as the hero collapses, so the animation
-        // calms into a compact bar instead of churning behind the small stats.
-        // The high-intensity transition never calms — it stays loud on purpose.
-        let calm = intensity == .high ? 1 : 1 - 0.5 * min(1, max(0, progress))
         ZStack {
             // Opaque near-black base — doubles as the collapsing hero's mask.
             LinearGradient(
@@ -72,7 +63,7 @@ public struct PixelWaveBackground: View {
                 endPoint: .bottom
             )
 
-            field.opacity(calm)
+            field
         }
         // When anchored behind a scroll (agent detail), the field must be inert:
         // `PixelGlyphField` installs a tap-ripple gesture (`contentShape` +

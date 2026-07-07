@@ -22,6 +22,7 @@
 		0C20F100A981961DA7FBF636 /* PropsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B8E49F05A64F21952381FA /* PropsView.swift */; };
 		0CF35E8F47BFDAE78E536D01 /* CollapsingAgentsHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = D662E898958E7ECAC2A25E93 /* CollapsingAgentsHeader.swift */; };
 		0E08F7E22E68BFA8E2ECC230 /* MLBTrendsMatrixAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35BA5B2B80774E94320C2B2A /* MLBTrendsMatrixAdapter.swift */; };
+		0ED59796036B10CDC430EBFB /* WeekLongParlaysSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53F3ED210511E092416A5B3D /* WeekLongParlaysSection.swift */; };
 		0EDD90413FBDA618BA10EDB7 /* NFLGameBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5022171A4B0061D23B716C9A /* NFLGameBottomSheet.swift */; };
 		0F259632E3C800938CEDA5B6 /* AgentOverlapFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3667BAD8F8D481ABFA628D /* AgentOverlapFooter.swift */; };
 		0FAE1D56058BAAB1CB17ECB6 /* WagerBotAppComponentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 453EC9C82266D0DF4AD15EF6 /* WagerBotAppComponentsView.swift */; };
@@ -107,6 +108,7 @@
 		50A46842F024127450C644CC /* NBAGameBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55851357DCB927E14A79DF2 /* NBAGameBottomSheet.swift */; };
 		50B5C0B8D203FE2BA5ACBFD0 /* SportPickerBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACF0F1815369A2F0C404A900 /* SportPickerBar.swift */; };
 		51099676817D0E656C3ADC8C /* LineMovementModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 740B6AFBE044F119699DCDD0 /* LineMovementModal.swift */; };
+		51384E0F29BAB15E4578E90A /* TicketDeleteGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDE58BDD0763BBB714BC3684 /* TicketDeleteGesture.swift */; };
 		51A253B3FF8B7A518080F32F /* WeatherDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6872050AEA0E79DAB8FF199A /* WeatherDisplay.swift */; };
 		5206E6A7E9E6109F7E343CC4 /* AgentDetailHero.swift in Sources */ = {isa = PBXBuildFile; fileRef = E680632BA8D38AB9C9BB841F /* AgentDetailHero.swift */; };
 		528E8D97A1092D042BB4D5DE /* WidgetSampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8856A03D9297C8294F8DC9D /* WidgetSampleData.swift */; };
@@ -434,6 +436,7 @@
 		526A41B5EA26D2064DD4B2A9 /* PlayerHeadshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerHeadshot.swift; sourceTree = "<group>"; };
 		526CD69D363E55312A19D431 /* WagerBotVoiceLimitSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WagerBotVoiceLimitSheet.swift; sourceTree = "<group>"; };
 		5373C13CD5C18C3A3ABE337C /* OutliersFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutliersFixtures.swift; sourceTree = "<group>"; };
+		53F3ED210511E092416A5B3D /* WeekLongParlaysSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekLongParlaysSection.swift; sourceTree = "<group>"; };
 		5432C5ADDDF3336C55FACDA5 /* SeriesSignalCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeriesSignalCard.swift; sourceTree = "<group>"; };
 		54DDF0827DC417838DB5CF63 /* ToolActivityStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolActivityStack.swift; sourceTree = "<group>"; };
 		558193EB986D61AF2F414A9D /* OnboardingTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTheme.swift; sourceTree = "<group>"; };
@@ -600,6 +603,7 @@
 		DA50C20642AC33A896DB51E7 /* SwipeableRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableRow.swift; sourceTree = "<group>"; };
 		DAF58E968FD5B4CD523FBDE6 /* PixelOfficeAgentNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelOfficeAgentNode.swift; sourceTree = "<group>"; };
 		DC7DBB5FE3F9C6A0B694C785 /* RoastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoastView.swift; sourceTree = "<group>"; };
+		DDE58BDD0763BBB714BC3684 /* TicketDeleteGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TicketDeleteGesture.swift; sourceTree = "<group>"; };
 		DE53F594CBEF13F971C1DE28 /* MLBTeamLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBTeamLogo.swift; sourceTree = "<group>"; };
 		DF0BCED960158EECBA5B5740 /* SliderInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SliderInput.swift; sourceTree = "<group>"; };
 		DF4A80E01CCD48E6B224790C /* BattingRegressionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattingRegressionCard.swift; sourceTree = "<group>"; };
@@ -954,8 +958,10 @@
 				DA1D6B5601F36F27FA2B80A8 /* PixelSpriteAvatar.swift */,
 				DA50C20642AC33A896DB51E7 /* SwipeableRow.swift */,
 				36AB77CDB0766248B2A3EC72 /* ThinkingAnimation.swift */,
+				DDE58BDD0763BBB714BC3684 /* TicketDeleteGesture.swift */,
 				54DDF0827DC417838DB5CF63 /* ToolActivityStack.swift */,
 				F70E77A9B5CF71958FB20567 /* TopAgentPicksFeed.swift */,
+				53F3ED210511E092416A5B3D /* WeekLongParlaysSection.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -2012,6 +2018,7 @@
 				0140E3DA5D66EC189B84A627 /* SwipeableEmojiPicker.swift in Sources */,
 				9523C5826CC27CB31B018E35 /* SwipeableRow.swift in Sources */,
 				4BDB831F86F2F69AD8B09210 /* ThinkingAnimation.swift in Sources */,
+				51384E0F29BAB15E4578E90A /* TicketDeleteGesture.swift in Sources */,
 				6A4065B5C062FCD1E5A705A7 /* TimePickerModal.swift in Sources */,
 				ECBC98D267FA2CDDAA862EE3 /* TimezonePickerModal.swift in Sources */,
 				C2392ECA0411B7F60EBDCF52 /* ToggleInput.swift in Sources */,
@@ -2041,6 +2048,7 @@
 				E4DD776CFF8ECD07C10B85E6 /* WagerproofApp.swift in Sources */,
 				51A253B3FF8B7A518080F32F /* WeatherDisplay.swift in Sources */,
 				4D067416A7B3DD95DFAC8519 /* WeatherParkFlagCard.swift in Sources */,
+				0ED59796036B10CDC430EBFB /* WeekLongParlaysSection.swift in Sources */,
 				FE1D589032EF6EF790765B2C /* WidgetSyncCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

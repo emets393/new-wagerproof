@@ -1456,7 +1456,7 @@ struct AgentHeaderShowcase: View {
             .padding(16)
         }
         .preferredColorScheme(.dark)
-        .background(AgentPixelWaveBackground(avatarColor: agent.avatarColor, progress: 0).ignoresSafeArea())
+        .background(AgentPixelWaveBackground(avatarColor: agent.avatarColor).ignoresSafeArea())
         .task { await driveSimulation() }
     }
 

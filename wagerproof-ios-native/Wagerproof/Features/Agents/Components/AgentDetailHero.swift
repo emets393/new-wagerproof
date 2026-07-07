@@ -19,7 +19,6 @@ import WagerproofModels
 /// the old team-style aura glow.
 struct AgentPixelWaveBackground: View {
     let avatarColor: String
-    var progress: CGFloat
     /// Lets the hero avatar ripple this field (easter egg). The page paints this
     /// background twice (full-bleed + hero mask); both share one emitter so the
     /// ripple lands identically in each, matching how the glyph colonies align.
@@ -28,7 +27,6 @@ struct AgentPixelWaveBackground: View {
     var body: some View {
         PixelWaveBackground(
             accentColor: AgentColorPalette.primary(for: avatarColor),
-            progress: progress,
             screenAnchored: true,
             rippleEmitter: rippleEmitter
         )
