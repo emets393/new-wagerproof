@@ -29,7 +29,7 @@
 │  │ Build your AI betting expert                                 │   │
 │  └─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘   │
 │                                                                      │
-│  (if 5 agents: hide create card, show "Max agents reached")         │
+│  (if 30 total or 10 active agents: hide create card, show "Max agents reached") │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -57,7 +57,7 @@ interface AgentsHubState {
 
 ### Edge Cases
 - 0 agents: Show empty state with prominent "Create your first agent" CTA
-- 5 agents: Hide create button, show subtle "Max agents reached" text
+- 30 total or 10 active agents: Hide create button, show subtle "Max agents reached" text
 - Loading: Show AgentCard shimmers (3 placeholders)
 - Error: Show error banner with retry button
 - No public agents on leaderboard: "No public agents yet. Be the first!"
