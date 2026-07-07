@@ -159,3 +159,24 @@ targets:
             done
           fi
         basedOnDependencyAnalysis: false
+
+# Declared explicitly so `xcodegen generate` always emits a SHARED
+# Wagerproof.xcscheme into xcshareddata/xcschemes/. Xcode Cloud can only
+# archive a shared scheme — without this, ci_scripts/ci_post_clone.sh's
+# regenerate leaves the project with no shared scheme, so the Archive action
+# produces nothing and nothing reaches TestFlight. Archive uses Release.
+schemes:
+  Wagerproof:
+    build:
+      targets:
+        Wagerproof: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
