@@ -161,8 +161,11 @@ struct SearchView: View {
                     props: propsEnv
                 )
                 // A harness-seeded query skips the keystroke hook below, so
-                // hydrate the insight slates here too (all TTL-idempotent).
-                if !store.debouncedQuery.isEmpty { hydrateInsightSources() }
+                // kick off the same lazy loads here too.
+                if !store.debouncedQuery.isEmpty {
+                    Task { await store.loadPublicAgentsIfNeeded() }
+                    hydrateInsightSources()
+                }
             }
             .navigationDestination(item: $insightDestination) { dest in
                 insightDestinationView(dest)
