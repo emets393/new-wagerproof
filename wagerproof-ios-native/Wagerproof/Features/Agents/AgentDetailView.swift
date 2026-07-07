@@ -559,7 +559,7 @@ struct AgentDetailView: View {
         defer { isRunningGeneration = false }
         let succeeded = await store.generatePicks()
         if succeeded {
-            await maybeAutoBuildWeeklyParlay()
+            let weeklySucceeded = await maybeAutoBuildWeeklyParlay()
             let fresh = store.activeBetItems
             if !fresh.isEmpty {
                 // Reveal the fresh picks + parlays (daily and week-long) with the printer feed.
@@ -567,6 +567,12 @@ struct AgentDetailView: View {
                 focusPrintIntro = true
                 focusSource = .daily
                 focusStartIndex = 0
+            }
+            // The daily pass can succeed while the follow-up weekly pass fails
+            // (timeout, quota edge, no football entitlement path, etc.). Don't
+            // hide that failure just because daily picks were written.
+            if !weeklySucceeded, let err = store.lastGenerationError {
+                errorMessage = err
             }
             markPicksSeen()
         } else if let err = store.lastGenerationError {
@@ -577,9 +583,9 @@ struct AgentDetailView: View {
     /// Week-long parlays have no separate user-facing control. If the agent is
     /// opted in and still has weekly budget, the main "Generate Today's Picks"
     /// flow also asks the weekly engine for tickets; they land in the same rail.
-    private func maybeAutoBuildWeeklyParlay() async {
-        guard canGenerateWeekly else { return }
-        _ = await store.generateWeeklyParlay()
+    private func maybeAutoBuildWeeklyParlay() async -> Bool {
+        guard canGenerateWeekly else { return true }
+        return await store.generateWeeklyParlay()
     }
 
     /// Items backing the focus overlay: the just-generated set during the print
