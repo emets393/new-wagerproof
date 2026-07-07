@@ -71,7 +71,10 @@ excluded. NFL ML covers 2018+; **CFB ML covers 2021+ only** (games before have n
 `pre_bye (bool)`, `coach`, `referee`. Team values are abbreviations (KC, BAL).
 
 **CFB-only:** `week_min/max`, `game_type ('regular'|'bowl'|'playoff'|'postseason')`,
-`conference`, `conference_game (bool)`, `neutral_site (bool)`. Team values are full school names.
+`conference`, `conference_game (bool)`, `neutral_site (bool)`,
+`ranked_matchup ('both'|'neither'|'home_ranked'|'away_ranked'|'either')` — AP Top 25 scenario:
+both ranked / neither / home ranked & away unranked / away ranked & home unranked / at least one
+ranked (a single dropdown; full 2016+ coverage). Team values are full school names.
 
 ## The contextual week control (important UX)
 

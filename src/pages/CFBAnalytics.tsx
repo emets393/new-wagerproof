@@ -220,6 +220,7 @@ export default function CFBAnalytics() {
   const [side, setSide] = useState('any');
   const [favDog, setFavDog] = useState('any');
   const [gameType, setGameType] = useState('any'); // any | regular | bowl | playoff | postseason
+  const [rankedMatchup, setRankedMatchup] = useState('any'); // any | both | neither | home_ranked | away_ranked | either
   const [spreadSide, setSpreadSide] = useState('any'); // favorite | underdog | any
   const [spreadSize, setSpreadSize] = useState<[number, number]>([0, 28]);
   const [lineRange, setLineRange] = useState<[number, number]>([30, 80]);
@@ -237,10 +238,10 @@ export default function CFBAnalytics() {
   const [saveName, setSaveName] = useState('');
   const [showSave, setShowSave] = useState(false);
 
-  const snapshot = () => ({ betType, seasons, weeks, side, favDog, gameType, spreadSide, spreadSize, lineRange, mlRange, primetime, conferenceGame, neutralSite, conference, tempRange, windMax });
+  const snapshot = () => ({ betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlRange, primetime, conferenceGame, neutralSite, conference, tempRange, windMax });
   const restore = (s: any) => {
     setBetType(s.betType); setSeasons(s.seasons); setWeeks(s.weeks); setSide(s.side); setFavDog(s.favDog);
-    setGameType(s.gameType ?? 'any');
+    setGameType(s.gameType ?? 'any'); setRankedMatchup(s.rankedMatchup ?? 'any');
     setSpreadSide(s.spreadSide); setPrimetime(s.primetime ?? null); setConferenceGame(s.conferenceGame ?? null);
     setNeutralSite(s.neutralSite ?? null); setConference(s.conference ?? 'any');
     setTempRange(s.tempRange ?? [-10, 110]); setWindMax(s.windMax ?? 60); setMlRange(s.mlRange ?? [-600, 600]);
@@ -277,6 +278,7 @@ export default function CFBAnalytics() {
     if (seasons[0] > seasonFloor) f.season_min = seasons[0];
     if (seasons[1] < SEASON_MAX) f.season_max = seasons[1];
     if (gameType !== 'any') f.game_type = gameType;
+    if (rankedMatchup !== 'any') f.ranked_matchup = rankedMatchup;
     // weeks only make sense for the regular season — bowls/playoffs aren't week-numbered
     if (gameType === 'regular') {
       if (weeks[0] > 1) f.week_min = weeks[0];
@@ -308,10 +310,10 @@ export default function CFBAnalytics() {
     if (tempRange[1] < 110) f.temp_max = tempRange[1];
     if (windMax < 60) f.wind_max = windMax;
     return f;
-  }, [betType, seasons, weeks, side, favDog, gameType, spreadSide, spreadSize, lineRange, mlRange, primetime, conferenceGame, neutralSite, conference, tempRange, windMax, seasonFloor]);
+  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlRange, primetime, conferenceGame, neutralSite, conference, tempRange, windMax, seasonFloor]);
 
   const resetAll = () => {
-    setSeasons([seasonFloor, SEASON_MAX]); setWeeks([1, WEEK_MAX]); setSide('any'); setFavDog('any'); setGameType('any');
+    setSeasons([seasonFloor, SEASON_MAX]); setWeeks([1, WEEK_MAX]); setSide('any'); setFavDog('any'); setGameType('any'); setRankedMatchup('any');
     setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 28]); setMlRange([-600, 600]);
     const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 80]);
     setPrimetime(null); setConferenceGame(null); setNeutralSite(null); setConference('any');
@@ -323,6 +325,7 @@ export default function CFBAnalytics() {
     const c: { label: string; clear: () => void }[] = [];
     if (seasons[0] !== seasonFloor || seasons[1] !== SEASON_MAX) c.push({ label: `Seasons ${seasons[0]}–${seasons[1]}`, clear: () => setSeasons([seasonFloor, SEASON_MAX]) });
     if (gameType !== 'any') c.push({ label: ({ regular: 'Regular season', bowl: 'Bowl games', playoff: 'Playoff', postseason: 'All postseason' } as Record<string, string>)[gameType], clear: () => setGameType('any') });
+    if (rankedMatchup !== 'any') c.push({ label: ({ both: 'Both ranked', neither: 'Neither ranked', home_ranked: 'Home ranked / away unranked', away_ranked: 'Away ranked / home unranked', either: 'Either ranked' } as Record<string, string>)[rankedMatchup], clear: () => setRankedMatchup('any') });
     if (gameType === 'regular' && (weeks[0] !== 1 || weeks[1] !== WEEK_MAX)) c.push({ label: `Weeks ${weeks[0]}–${weeks[1]}`, clear: () => setWeeks([1, WEEK_MAX]) });
     if (side !== 'any') c.push({ label: side === 'home' ? 'Home' : 'Away', clear: () => setSide('any') });
     if ((ML_MARKETS.has(betType) || betType === 'team_total') && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
@@ -341,7 +344,7 @@ export default function CFBAnalytics() {
     if (tempRange[0] !== -10 || tempRange[1] !== 110) c.push({ label: `Temp ${tempRange[0]}–${tempRange[1]}°F`, clear: () => setTempRange([-10, 110]) });
     if (windMax !== 60) c.push({ label: `Wind ≤ ${windMax}`, clear: () => setWindMax(60) });
     return c;
-  }, [betType, seasons, weeks, side, favDog, gameType, spreadSide, spreadSize, lineRange, mlRange, primetime, conferenceGame, neutralSite, conference, tempRange, windMax, seasonFloor]);
+  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlRange, primetime, conferenceGame, neutralSite, conference, tempRange, windMax, seasonFloor]);
 
   // load logo map + conference list once
   useEffect(() => {
@@ -574,6 +577,9 @@ export default function CFBAnalytics() {
               <RangeRow label={`Weeks: ${weeks[0]}–${weeks[1]}`} min={1} max={WEEK_MAX} step={1} value={weeks} onChange={setWeeks} />
             )}
             <SelectRow label="Side" value={side} onChange={setSide} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
+            {/* AP-ranked matchup scenarios (game-level; rank = entering-game AP Top 25, full 2016+) */}
+            <SelectRow label="Ranked matchup" value={rankedMatchup} onChange={setRankedMatchup}
+              options={[['any', 'Any'], ['both', 'Both ranked'], ['neither', 'Neither ranked'], ['home_ranked', 'Home ranked, away unranked'], ['away_ranked', 'Away ranked, home unranked'], ['either', 'Either ranked']]} />
 
             {SPREAD_CFG[betType] && (
               <>
