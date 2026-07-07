@@ -73,13 +73,13 @@ function fmtKick(iso?: string): string {
   } catch { return ''; }
 }
 
-type Opt = { side: string; n: number; hit_pct: number; roi: number | null };
+type Opt = { side: string; n: number; wins: number; hit_pct: number; roi: number | null };
 type Bar = { dimension: string; options: Opt[] };
 type Analysis = {
   bet_type: string;
   coverage: { season_min: number; season_max: number; n_bets: number; n_games: number };
   baseline_pct: number;
-  overall: { n: number; hit_pct: number; roi: number | null };
+  overall: { n: number; wins: number; hit_pct: number; roi: number | null };
   bars: Bar[];
   by_team: { team: string; n: number; hit_pct: number; roi: number | null }[];
   by_coach: { coach: string; n: number; hit_pct: number; roi: number | null }[];
@@ -95,13 +95,18 @@ function significance(n: number, hit: number): { label: string; tone: string } {
   return { label: 'Neutral', tone: 'bg-muted text-muted-foreground' };
 }
 
-// verb for the headline, per market
+// verb + outcome word + count noun, per market
 const VERB: Record<string, string> = {
   fg_spread: 'covered', h1_spread: 'covered the 1H spread',
   fg_ml: 'won', h1_ml: 'won in the 1H',
   fg_total: 'went over', h1_total: 'went over the 1H total',
   team_total: 'went over their team total',
 };
+const OUTCOME: Record<string, string> = {
+  fg_spread: 'Cover', h1_spread: 'Cover', fg_ml: 'Win', h1_ml: 'Win',
+  fg_total: 'Over', h1_total: 'Over', team_total: 'Over',
+};
+const nounFor = (bt: string) => bt === 'team_total' ? 'team totals' : 'games';
 
 const PRESETS: { label: string; betType: string; filters: any }[] = [
   { label: 'Cold-weather unders', betType: 'fg_total', filters: { tempMax: 32 } },
@@ -111,30 +116,36 @@ const PRESETS: { label: string; betType: string; filters: any }[] = [
   { label: 'Big home favorites (TT)', betType: 'team_total', filters: { side: 'home', spreadSide: 'favorite', spreadSize: [7, 20] } },
 ];
 
-// ── Result bar: the donut replacement — split + count + baseline marker + ROI + significance ──
-function ResultBar({ betType, bar, baseline }: { betType: string; bar: Bar; baseline: number }) {
-  const [a, b] = bar.options;
-  const total = (a?.n || 0) + (b?.n || 0);
-  const aPct = a?.hit_pct ?? 0;
+const DIM_LABEL: Record<string, string> = { over_under: 'Over / Under', home_away: 'Home vs Away', fav_dog: 'Favorite vs Underdog' };
+
+// one clearly-labeled row per option: "Home covered 44% (19 of 44)" with a hit-rate bar + baseline
+function OptionRow({ betType, opt, baseline }: { betType: string; opt: Opt; baseline: number }) {
+  const good = opt.hit_pct >= 52.4; // break-even at -110
   return (
-    <div className="space-y-1.5">
-      <div className="flex h-9 w-full overflow-hidden rounded-lg border bg-muted/40 text-xs font-semibold">
-        <div className="flex items-center justify-start px-3 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 whitespace-nowrap"
-          style={{ width: `${Math.max(aPct, 12)}%` }}>
-          {sideLabel(betType, a.side)} {aPct}%
-        </div>
-        <div className="flex flex-1 items-center justify-end px-3 text-muted-foreground whitespace-nowrap">
-          {sideLabel(betType, b.side)} {b?.hit_pct}%
-        </div>
+    <div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium">{sideLabel(betType, opt.side)}</span>
+        <span className={good ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-foreground/80'}>
+          {opt.hit_pct}% <span className="text-xs text-muted-foreground font-normal">({opt.wins} of {opt.n})</span>
+        </span>
       </div>
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-        <span>{a.n} of {total} · baseline {baseline}%</span>
-        {a.roi != null && (
-          <span className={a.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-red-600 dark:text-red-400 font-semibold'}>
-            {a.roi >= 0 ? '+' : ''}{a.roi}% ROI
-          </span>
-        )}
+      <div className="relative h-2 rounded bg-muted mt-1 overflow-hidden">
+        <div className="absolute inset-y-0 left-0 rounded bg-emerald-500/50" style={{ width: `${Math.min(opt.hit_pct, 100)}%` }} />
+        <div className="absolute inset-y-0 w-px bg-foreground/50" style={{ left: `${baseline}%` }} />
       </div>
+      <div className="flex justify-between text-[11px] text-muted-foreground mt-0.5">
+        <span>vs {baseline}% baseline</span>
+        {opt.roi != null && <span className={opt.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{opt.roi >= 0 ? '+' : ''}{opt.roi}% ROI</span>}
+      </div>
+    </div>
+  );
+}
+
+function ResultBar({ betType, bar, baseline }: { betType: string; bar: Bar; baseline: number }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{DIM_LABEL[bar.dimension] || bar.dimension}</div>
+      {bar.options.map((opt, i) => <OptionRow key={i} betType={betType} opt={opt} baseline={baseline} />)}
     </div>
   );
 }
@@ -145,15 +156,19 @@ function BreakdownTable({ betType, rows, keyName }: { betType: string; rows: any
     sort === 'n' ? y.n - x.n : sort === 'hit' ? y.hit_pct - x.hit_pct : (y.roi ?? -999) - (x.roi ?? -999)), [rows, sort]);
   const isTeam = keyName === 'team';
   const isML = ML_MARKETS.has(betType);
+  const outcome = OUTCOME[betType] || 'Hit';
   if (!rows?.length) return <p className="text-sm text-muted-foreground py-6 text-center">No results with enough games (min 3).</p>;
   return (
     <div>
-      <div className="flex gap-1 mb-2">
-        {(['n', 'hit', 'roi'] as const).filter(s => s !== 'roi' || !isML).map(s => (
-          <Button key={s} size="sm" variant={sort === s ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setSort(s)}>
-            {s === 'n' ? 'Games' : s === 'hit' ? 'Hit %' : 'ROI'}
-          </Button>
-        ))}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex gap-1">
+          {(['n', 'hit', 'roi'] as const).filter(s => s !== 'roi' || !isML).map(s => (
+            <Button key={s} size="sm" variant={sort === s ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setSort(s)}>
+              {s === 'n' ? 'Games' : s === 'hit' ? `${outcome} %` : 'ROI'}
+            </Button>
+          ))}
+        </div>
+        <span className="text-[11px] text-muted-foreground">{outcome} rate</span>
       </div>
       <div className="max-h-[420px] overflow-y-auto rounded-lg border divide-y">
         {sorted.map((r, i) => {
@@ -417,7 +432,7 @@ export default function NFLAnalytics() {
                   <div>
                     <p className="font-semibold leading-snug">
                       {subject} {VERB[betType]} <span className="text-primary">{data.overall.hit_pct}%</span>
-                      {' '}({data.overall.n} games){data.overall.roi != null && <> · <span className={data.overall.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{data.overall.roi >= 0 ? '+' : ''}{data.overall.roi}% ROI</span></>}
+                      {' '}<span className="text-sm font-normal text-muted-foreground">({data.overall.wins} of {data.overall.n} {nounFor(betType)})</span>{data.overall.roi != null && <> · <span className={data.overall.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{data.overall.roi >= 0 ? '+' : ''}{data.overall.roi}% ROI</span></>}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {(data.overall.hit_pct - data.baseline_pct >= 0 ? '+' : '')}{(data.overall.hit_pct - data.baseline_pct).toFixed(1)} pts vs the {data.baseline_pct}% baseline · {significance(data.overall.n, data.overall.hit_pct).label}
