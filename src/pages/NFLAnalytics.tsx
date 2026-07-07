@@ -332,17 +332,26 @@ export default function NFLAnalytics() {
   // secondary context splits — only shown when BOTH sides have games (not pinned by a filter)
   const shownBars = useMemo(() => (data?.bars || []).filter(bar => bar.options.every(o => o && o.n > 0)), [data]);
   // plain-English subject for the headline, built from the active filters (never empty/degenerate)
+  const isTotalMkt = !!TOTAL_CFG[betType] && betType !== 'team_total';
   const subject = useMemo(() => {
-    if (TOTAL_CFG[betType] && betType !== 'team_total') return 'Games';
     const parts: string[] = [];
     if (side !== 'any') parts.push(side === 'home' ? 'Home' : 'Road');
     const dir = SPREAD_CFG[betType] ? spreadSide : favDog;
     if (dir && dir !== 'any') parts.push(dir === 'favorite' ? 'favorites' : 'underdogs');
-    if (betType === 'team_total' && !parts.length) return 'Teams';
-    if (!parts.length) return 'Teams';
-    const s = parts.join(' ');
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  }, [betType, side, spreadSide, favDog]);
+    const situation = parts.join(' ');
+    if (coach !== 'any') return `${coach}'s teams${situation ? ` (${situation.toLowerCase()})` : ''}`;
+    if (situation) return situation.charAt(0).toUpperCase() + situation.slice(1);
+    return isTotalMkt ? 'Games' : 'Teams';
+  }, [betType, side, spreadSide, favDog, coach, isTotalMkt]);
+
+  // dynamic "here's what you're looking at" caption for the headline
+  const scopeNote = useMemo(() => {
+    const bits: string[] = [];
+    if (coach !== 'any') bits.push(`${coach}-coached teams`);
+    if (referee !== 'any') bits.push(`games officiated by ${referee}`);
+    const who = bits.length ? bits.join(' · ') : 'all teams';
+    return `${who} in every past game that matches your filters.`;
+  }, [coach, referee]);
 
   const cov = data?.coverage;
   const limited = LIMITED_MARKETS.has(betType);
@@ -437,6 +446,7 @@ export default function NFLAnalytics() {
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {(data.overall.hit_pct - data.baseline_pct >= 0 ? '+' : '')}{(data.overall.hit_pct - data.baseline_pct).toFixed(1)} pts vs the {data.baseline_pct}% baseline · {significance(data.overall.n, data.overall.hit_pct).label}
                     </p>
+                    <p className="text-[11px] text-muted-foreground/80 mt-1.5">{scopeNote}</p>
                   </div>
                 </div>
               </CardContent>
@@ -448,7 +458,10 @@ export default function NFLAnalytics() {
           {/* secondary context splits (only non-degenerate — hidden when a filter pins the side) */}
           {data && shownBars.length > 0 && (
             <Card><CardContent className="py-4 space-y-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Breakdown</div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Breakdown</div>
+                <p className="text-[11px] text-muted-foreground/80 mt-0.5">The same {data.overall.n} {nounFor(betType)}, split by situation.</p>
+              </div>
               {shownBars.map((bar, i) => <ResultBar key={i} betType={betType} bar={bar} baseline={data.baseline_pct} />)}
             </CardContent></Card>
           )}
