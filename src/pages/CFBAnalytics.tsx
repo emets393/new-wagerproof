@@ -290,8 +290,12 @@ export default function CFBAnalytics() {
     const scfg = SPREAD_CFG[betType];
     if (scfg) {
       const [lo, hi] = spreadSize;
-      if (spreadSide === 'favorite') { f[scfg.mk] = -hi; f[scfg.xk] = -lo; }
-      else if (spreadSide === 'underdog') { f[scfg.mk] = lo; f[scfg.xk] = hi; }
+      // Floor the near-zero edge to 0.5 so a chosen direction is STRICTLY favored/underdog — a
+      // "Favored by 0" edge would otherwise include pick'em (spread 0) games, which then fall into
+      // the underdog bucket (is_favorite = spread < 0) and show a contradictory "underdogs" split.
+      const loD = Math.max(lo, 0.5);
+      if (spreadSide === 'favorite') { f[scfg.mk] = -hi; f[scfg.xk] = -loD; }
+      else if (spreadSide === 'underdog') { f[scfg.mk] = loD; f[scfg.xk] = hi; }
       else if (lo > 0 || hi < scfg.max) { f[scfg.amk] = lo; f[scfg.axk] = hi; }
     }
     if (favDog !== 'any' && (ML_MARKETS.has(betType) || betType === 'team_total')) f.fav_dog = favDog;
@@ -390,8 +394,13 @@ export default function CFBAnalytics() {
     if (f.spreadSize) setTimeout(() => setSpreadSize(f.spreadSize), 0);
   };
 
-  // secondary context splits — only shown when BOTH sides have games (not pinned by a filter)
-  const shownBars = useMemo(() => (data?.bars || []).filter(bar => bar.options.every(o => o && o.n > 0)), [data]);
+  // secondary context splits — only shown when it's a genuine two-sided comparison. A tiny side
+  // (<10% of the split, e.g. a lone "underdog" inside a favorite-only moneyline filter) is a pinned/
+  // degenerate dimension or a stray data mismatch — hide it rather than headline a 1-of-1 100%/ROI.
+  const shownBars = useMemo(() => (data?.bars || []).filter(bar => {
+    const total = bar.options.reduce((s, o) => s + (o?.n || 0), 0);
+    return total > 0 && bar.options.every(o => o && o.n > 0 && o.n / total >= 0.1);
+  }), [data]);
   // plain-English subject for the headline, built from the active filters (never empty/degenerate)
   const isTotalMkt = !!TOTAL_CFG[betType] && betType !== 'team_total';
   const subject = useMemo(() => {
