@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_top_outliers_name">Top Outliers</string>
+    <string name="widget_top_outliers_description">The day\'s highest-confidence value and fade alerts.</string>
+    <string name="widget_agent_monitor_name">Agent Monitor</string>
+    <string name="widget_agent_monitor_description">Track your favorite AI agents\' record, streak, and latest picks.</string>
+</resources>

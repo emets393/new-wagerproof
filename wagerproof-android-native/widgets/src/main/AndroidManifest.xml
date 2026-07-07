@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- Top Outliers home-screen widget (Glance). Merged into :app. -->
+        <receiver
+            android:name="com.wagerproof.widgets.TopOutliersWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_top_outliers_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/top_outliers_widget_info" />
+        </receiver>
+
+        <!-- Agent Monitor home-screen widget (Glance). Merged into :app. -->
+        <receiver
+            android:name="com.wagerproof.widgets.AgentMonitorWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_agent_monitor_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/agent_monitor_widget_info" />
+        </receiver>
+
+    </application>
+</manifest>
