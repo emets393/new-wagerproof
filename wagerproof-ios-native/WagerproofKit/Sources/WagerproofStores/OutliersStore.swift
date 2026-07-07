@@ -47,6 +47,8 @@ public final class OutliersStore {
         case nbaAccuracy = "nba-accuracy"
         case ncaabAccuracy = "ncaab-accuracy"
         case mlbRegression = "mlb-regression"
+        case nflHistoricalAnalysis = "nfl-historical-analysis"
+        case cfbHistoricalAnalysis = "cfb-historical-analysis"
 
         public var displayName: String {
             switch self {
@@ -55,6 +57,8 @@ public final class OutliersStore {
             case .nbaAccuracy: return "NBA Model Accuracy"
             case .ncaabAccuracy: return "NCAAB Model Accuracy"
             case .mlbRegression: return "MLB Regression Report"
+            case .nflHistoricalAnalysis: return "NFL Historical Trends"
+            case .cfbHistoricalAnalysis: return "CFB Historical Trends"
             }
         }
     }

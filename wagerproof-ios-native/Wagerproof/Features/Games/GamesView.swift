@@ -191,7 +191,6 @@ struct GamesView: View {
     /// Per-sport analytics tool banners (HoneydewOptionCard promo cards) shown
     /// above the game list for the selected sport — a swipeable paged carousel
     /// (one banner per page) with dot indicators, instead of a tall stack.
-    /// NFL/CFB have none so this renders nothing for them.
     @ViewBuilder
     private var toolBanners: some View {
         let tools = visibleTools

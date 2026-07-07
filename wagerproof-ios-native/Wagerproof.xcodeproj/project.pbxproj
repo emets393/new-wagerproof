@@ -278,6 +278,10 @@
 		E169AF0BA1A751CD343CB609 /* Slide6_MoreFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584F555B15455612E0639567 /* Slide6_MoreFeatures.swift */; };
 		E16F80FBC6AF7350145DB89D /* PitcherRegressionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADF2C84D15402EC716FE4424 /* PitcherRegressionCard.swift */; };
 		E2DEAF5E9C107B0416118A87 /* MlbRegressionReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BF9318EFC11E9A5E800B7D2 /* MlbRegressionReportView.swift */; };
+		E1A2B3C40000000123456701 /* HistoricalAnalysisCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C40000000123456701 /* HistoricalAnalysisCopy.swift */; };
+		E1A2B3C40000000223456702 /* HistoricalAnalysisFiltersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C40000000223456702 /* HistoricalAnalysisFiltersView.swift */; };
+		E1A2B3C40000000323456703 /* HistoricalAnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C40000000323456703 /* HistoricalAnalysisView.swift */; };
+		E1A2B3C40000000423456704 /* HistoricalTrendsEntryBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C40000000423456704 /* HistoricalTrendsEntryBanner.swift */; };
 		E2F635F9A3D0C86A3D1AAF65 /* WagerBotVoiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 781C19039E00C74FF0BA40E2 /* WagerBotVoiceView.swift */; };
 		E3D2DB3A7BF2EDBC6CA053D1 /* DiscordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80F1D82ADFCB1FFEC3EC37A /* DiscordView.swift */; };
 		E42B1A1A9E5BAA971191C6B1 /* OnboardingPrimaryGoalPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0BEB218180739E776FD54F /* OnboardingPrimaryGoalPage.swift */; };
@@ -359,6 +363,10 @@
 		0B01F1166984FCBA9CF20132 /* ScaffoldPlaceholder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScaffoldPlaceholder.swift; sourceTree = "<group>"; };
 		0BC2C9456F8DAFC13A9915C4 /* OnboardingStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingStep.swift; sourceTree = "<group>"; };
 		0BF9318EFC11E9A5E800B7D2 /* MlbRegressionReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MlbRegressionReportView.swift; sourceTree = "<group>"; };
+		F1A2B3C40000000123456701 /* HistoricalAnalysisCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoricalAnalysisCopy.swift; sourceTree = "<group>"; };
+		F1A2B3C40000000223456702 /* HistoricalAnalysisFiltersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoricalAnalysisFiltersView.swift; sourceTree = "<group>"; };
+		F1A2B3C40000000323456703 /* HistoricalAnalysisView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoricalAnalysisView.swift; sourceTree = "<group>"; };
+		F1A2B3C40000000423456704 /* HistoricalTrendsEntryBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoricalTrendsEntryBanner.swift; sourceTree = "<group>"; };
 		0D9A72BA59AFC6756119C816 /* Slide2_GameDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Slide2_GameDetails.swift; sourceTree = "<group>"; };
 		0DA0AD3AC6E39778BA557FEA /* OnboardingAgentHQPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingAgentHQPage.swift; sourceTree = "<group>"; };
 		134F41664E275C25FE989D9C /* OutliersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutliersView.swift; sourceTree = "<group>"; };
@@ -905,6 +913,10 @@
 			isa = PBXGroup;
 			children = (
 				8889F1AE95EE7A8A4CBE2D82 /* Components */,
+				F1A2B3C40000000123456701 /* HistoricalAnalysisCopy.swift */,
+				F1A2B3C40000000223456702 /* HistoricalAnalysisFiltersView.swift */,
+				F1A2B3C40000000323456703 /* HistoricalAnalysisView.swift */,
+				F1A2B3C40000000423456704 /* HistoricalTrendsEntryBanner.swift */,
 				0BF9318EFC11E9A5E800B7D2 /* MlbRegressionReportView.swift */,
 			);
 			path = Analytics;
@@ -1839,6 +1851,10 @@
 				A6AAC55EDDC204EF1F2A45A2 /* MatchupGlassHero.swift in Sources */,
 				C6F3297557F435883A87D417 /* MatchupPropsDetailSheet.swift in Sources */,
 				E2DEAF5E9C107B0416118A87 /* MlbRegressionReportView.swift in Sources */,
+				E1A2B3C40000000123456701 /* HistoricalAnalysisCopy.swift in Sources */,
+				E1A2B3C40000000223456702 /* HistoricalAnalysisFiltersView.swift in Sources */,
+				E1A2B3C40000000323456703 /* HistoricalAnalysisView.swift in Sources */,
+				E1A2B3C40000000423456704 /* HistoricalTrendsEntryBanner.swift in Sources */,
 				25EFEB1485EA77E183E5B964 /* ModelAccuracyWidget.swift in Sources */,
 				50A46842F024127450C644CC /* NBAGameBottomSheet.swift in Sources */,
 				F51EE67F0834C27FFDC31794 /* NBAGameCard.swift in Sources */,

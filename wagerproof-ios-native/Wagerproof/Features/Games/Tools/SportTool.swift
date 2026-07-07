@@ -27,10 +27,31 @@ struct SportTool: Identifiable, Hashable {
     static func == (lhs: SportTool, rhs: SportTool) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
-    /// Per-sport tool inventory. NFL/CFB have no tools (RN parity), so they
-    /// return `nil` → no banners. Accent colors mirror each tool's existing
+    /// Per-sport tool inventory. Accent colors mirror each tool's existing
     /// page accent so the banner and its destination read as one feature.
     static let registry: [GamesStore.Sport: [SportTool]] = [
+        .nfl: [
+            SportTool(
+                id: "nfl-historical-trends", sport: .nfl,
+                title: "NFL Historical Trends", subtitle: "See how any bet type has performed",
+                actionWord: "Open",
+                primaryColor: Color(hex: 0x3B82F6), secondaryColor: Color(hex: 0x93C5FD),
+                symbols: ["chart.bar.fill", "chart.line.uptrend.xyaxis", "calendar", "football.fill", "percent", "arrow.up.arrow.down", "clock.fill", "chart.xyaxis.line", "bolt.fill", "star.fill"],
+                seed: 0.41, speedFactor: 0.98, yJitter: -0.02,
+                category: .nflHistoricalAnalysis
+            ),
+        ],
+        .cfb: [
+            SportTool(
+                id: "cfb-historical-trends", sport: .cfb,
+                title: "CFB Historical Trends", subtitle: "See how any bet type has performed",
+                actionWord: "Open",
+                primaryColor: Color(hex: 0xF59E0B), secondaryColor: Color(hex: 0xFCD34D),
+                symbols: ["chart.bar.fill", "chart.line.uptrend.xyaxis", "calendar", "graduationcap.fill", "percent", "arrow.up.arrow.down", "clock.fill", "chart.xyaxis.line", "bolt.fill", "star.fill"],
+                seed: 0.52, speedFactor: 1.0, yJitter: -0.02,
+                category: .cfbHistoricalAnalysis
+            ),
+        ],
         .mlb: [
             SportTool(
                 id: "mlb-regression-report", sport: .mlb,
