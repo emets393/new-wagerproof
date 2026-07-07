@@ -15,10 +15,9 @@ import WagerproofServices
 struct NFLPropDetailView: View {
     let selection: NFLPlayerPropSelection
 
-    @State private var selectedSignal: NFLPropSignalDefinition?
+    @State private var selectedSignal: SelectedSignal?
     @State private var metricHelp: NFLPropMetricHelp?
-    /// Prop flags are short codes (P14); `signal_performance` keys are full (P14_attempts_model_under).
-    @State private var propPerfByCode: [String: SignalPerformance] = [:]
+    @State private var propPerfByKey: [String: SignalPerformance] = [:]
 
     private var player: NFLPropPlayer { selection.player }
     private var markets: [NFLPropMarket] { player.markets }
@@ -78,10 +77,10 @@ struct NFLPropDetailView: View {
         .task(id: selection.id) {
             await loadPropSignalPerformance()
         }
-        .sheet(item: $selectedSignal) { signal in
+        .sheet(item: $selectedSignal) { selection in
             NFLPropSignalDetailSheet(
-                signal: signal,
-                seasonRecord: propPerfByCode[signal.id.uppercased()]
+                signal: selection.signal,
+                seasonRecord: selection.performanceKey.flatMap { propPerfByKey[$0] }
             )
         }
         .sheet(item: $metricHelp) { help in
@@ -182,11 +181,7 @@ struct NFLPropDetailView: View {
 
     private func loadPropSignalPerformance() async {
         let season = player.season ?? 2025
-        let perf = await SignalPerformanceService.shared.performances(for: .nfl, season: season)
-        propPerfByCode = Dictionary(
-            perf.map { (String($0.key.split(separator: "_").first ?? ""), $0.value) },
-            uniquingKeysWith: { a, _ in a }
-        )
+        propPerfByKey = await SignalPerformanceService.shared.performances(for: .nfl, season: season)
     }
 
     private var subtitle: String {
@@ -211,7 +206,9 @@ struct NFLPropDetailView: View {
                     propSectionBlock("Posted Line", helpKey: "posted_line", showsDivider: false) {
                         lineSummary(market)
                         if !market.flags.isEmpty {
-                            NFLPropSignalGroup(flags: market.flags) { selectedSignal = $0 }
+                            NFLPropSignalGroup(flags: market.flags) {
+                                selectedSignal = SelectedSignal(signal: $0, market: market)
+                            }
                         }
                     }
                     propSectionBlock("Game Log", helpKey: "game_log") {
@@ -491,6 +488,57 @@ struct NFLPropDetailView: View {
 
     private func lerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat {
         a + (b - a) * t
+    }
+}
+
+private struct SelectedSignal: Identifiable {
+    let signal: NFLPropSignalDefinition
+    let performanceKey: String?
+
+    init(signal: NFLPropSignalDefinition, market: NFLPropMarket) {
+        self.signal = signal
+        self.performanceKey = SelectedSignal.performanceKey(for: signal, market: market)
+    }
+
+    var id: String { "\(signal.id)|\(performanceKey)" }
+
+    private static func performanceKey(for signal: NFLPropSignalDefinition, market _: NFLPropMarket) -> String? {
+        switch signal.id.uppercased() {
+        case "P1":
+            return "P1_pass_yds_form_over"
+        case "P2":
+            return "P2_pass_yds_form_under"
+        case "P3":
+            return "P3_pass_tds_form_over"
+        case "P4":
+            return "P4_no_history_qb_under"
+        case "P5":
+            return "P5_atd_drift_yes"
+        case "P6":
+            return nil
+        case "P7":
+            return "P7_rush_yds_tough_d_under"
+        case "P9":
+            return "P9_pass_tds_regression_over"
+        case "P10":
+            return "P10_receptions_raised_under"
+        case "P12":
+            return "P12_featured_wr_over"
+        case "P13":
+            return "P13_featured_rb_over"
+        case "P14":
+            return "P14_attempts_model_under"
+        case "P15":
+            return "P15_attempts_steam_under"
+        case "P16":
+            return "P16_attempts_confluence"
+        case "P17":
+            return "P17_rush_yds_model_under"
+        case "P18":
+            return "P18_pass_tds_model_over"
+        default:
+            return nil
+        }
     }
 }
 
