@@ -1,7 +1,6 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, ScatterChart, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import NFLAnalytics from "./pages/NFLAnalytics";
-import NFLTeaserSharpness from "./pages/NFLTeaserSharpness";
 import WagerBotChat from "./pages/WagerBotChat";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import NotFound from "./pages/NotFound";
@@ -97,11 +96,6 @@ export const navItems: NavItem[] = [
         title: "Historical Analytics",
         to: "/nfl-analytics",
         icon: <BarChart className="h-4 w-4" />,
-      },
-      {
-        title: "Teaser Tool",
-        to: "/nfl/teaser-sharpness",
-        icon: <ScatterChart className="h-4 w-4" />,
       },
     ],
   },
