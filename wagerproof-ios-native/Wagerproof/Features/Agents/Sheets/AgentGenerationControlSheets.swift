@@ -23,7 +23,7 @@ struct RegenerateControlButton: View {
     var remaining: Int
     var accent: Color
     var enabled: Bool
-    /// Override for the weekly-parlay footer ("Weekly Parlay"); default = daily.
+    /// Optional title override; default = daily regenerate.
     var title: String = "Regenerate"
     var action: () -> Void
 
@@ -97,8 +97,8 @@ struct RegenerateBottomSheet: View {
     let remaining: Int
     let maxDaily: Int
     var accent: Color
-    // Copy overrides — the Week Long Parlays section reuses this surface with
-    // its own wording; the defaults reproduce the daily sheet byte-for-byte.
+    // Copy overrides let this surface support alternate generation contexts;
+    // the defaults reproduce the daily sheet byte-for-byte.
     var navTitle: String = "Regenerate"
     var headerIcon: String = "arrow.clockwise"
     var headerTitle: String = "Regenerate today's picks"

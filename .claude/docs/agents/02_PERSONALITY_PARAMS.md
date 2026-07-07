@@ -2,7 +2,7 @@
 
 This document defines all configurable parameters for AI betting agents. Parameters are organized as a conditional flow based on sport selection.
 
-**Total: 31 parameters** (27 structured + 4 text)
+**Total: 37 parameters** (33 structured + 4 text)
 
 ---
 
@@ -56,6 +56,8 @@ These define the agent's fundamental betting identity.
 | 3 | `over_under_lean` | number | 1-5 | 1=Unders, 3=Neutral, 5=Overs |
 | 4 | `confidence_threshold` | number | 1-5 | 1=Bet often (55%+), 5=Very selective (75%+) |
 | 5 | `chase_value` | boolean | - | true=Hunt big edges, false=Prefer safer picks |
+| 6 | `parlay_appetite` | number | 1-5 | 1=Straights only, 5=Loves parlays |
+| 7 | `parlays_only` | boolean | - | true=Submit only parlay tickets |
 
 ### UI Prompts
 
@@ -66,6 +68,8 @@ These define the agent's fundamental betting identity.
 | over_under_lean | "Does your agent lean toward overs or unders?" |
 | confidence_threshold | "How selective should your agent be?" |
 | chase_value | "Should your agent chase big edges or play it safe?" |
+| parlay_appetite | "Can your agent combine its best plays into multi-leg parlays?" |
+| parlays_only | "Should every play be submitted as a parlay ticket?" |
 
 ---
 
@@ -75,11 +79,15 @@ Controls what types of bets and at what odds.
 
 | # | Parameter | Type | Range | Description |
 |---|-----------|------|-------|-------------|
-| 6 | `preferred_bet_type` | enum | - | `spread` \| `moneyline` \| `total` \| `any` |
-| 7 | `max_favorite_odds` | number | null or -100 to -500 | Won't lay worse than this (e.g., -200) |
-| 8 | `min_underdog_odds` | number | null or +100 to +500 | Won't take dogs shorter than this (e.g., +150) |
-| 9 | `max_picks_per_day` | number | 1-5 | 1=Max 2 picks, 3=Max 5, 5=Unlimited |
-| 10 | `skip_weak_slates` | boolean | - | true=OK with 0 picks on weak days |
+| 8 | `preferred_bet_type` | enum | - | `spread` \| `moneyline` \| `total` \| `prop` \| `any` |
+| 9 | `max_favorite_odds` | number | null or -100 to -500 | Won't lay worse than this (e.g., -200) |
+| 10 | `min_underdog_odds` | number | null or +100 to +500 | Won't take dogs shorter than this (e.g., +150) |
+| 11 | `max_picks_per_day` | number | 1-5 | 1=Max 2 picks, 3=Max 5, 5=Unlimited |
+| 12 | `skip_weak_slates` | boolean | - | true=OK with 0 picks on weak days |
+| 13 | `allowed_markets` | string[] \| null | spread, moneyline, total, team_total, prop | Nil/empty=all allowed markets; `prop` is NFL-only |
+| 14 | `props_emphasis` | enum \| null | `off` \| `allow` \| `emphasize` | How strongly NFL player props should be used |
+| 15 | `weekly_parlay_enabled` | boolean \| null | - | NFL/CFB-only opt-in for one week-long parlay ticket |
+| 16 | `weekly_parlay_legs` | number \| null | 2-6 | Target legs for the weekly ticket; nil defaults to 4 |
 
 ### UI Prompts
 
@@ -90,6 +98,17 @@ Controls what types of bets and at what odds.
 | min_underdog_odds | "What's the minimum plus-money you'll take on a dog?" |
 | max_picks_per_day | "How many picks per day maximum?" |
 | skip_weak_slates | "Is it OK to pass on days with no good plays?" |
+| allowed_markets | "Which markets can this agent stake?" |
+| props_emphasis | "How aggressively should this agent use NFL player props?" |
+| weekly_parlay_enabled | "Should this agent build a week-long NFL/CFB parlay?" |
+| weekly_parlay_legs | "How many legs should the weekly parlay target?" |
+
+### Weekly Parlays
+
+`weekly_parlay_enabled` is shown only for agents whose sports include NFL or CFB. When enabled,
+the iOS Settings screen shows a 2-6 leg slider (`weekly_parlay_legs`). Weekly parlays use a
+separate 3-per-football-week budget consumed by the main "Generate Today's Picks" flow, stay live
+through Monday night, and are also required for weekly autopilot eligibility.
 
 ### Line Range Examples
 

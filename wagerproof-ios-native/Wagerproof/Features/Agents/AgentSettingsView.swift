@@ -164,6 +164,7 @@ struct AgentSettingsView: View {
     private var personalitySections: some View {
         corePersonalitySection
         betSelectionSection
+        weeklyParlaysSection
         marketsSection
         dataTrustSection
         oddsLimitsSection
@@ -337,6 +338,35 @@ struct AgentSettingsView: View {
                         description: "Pass on days with few games or poor betting opportunities")
         } header: {
             Text("Bet Selection")
+        }
+    }
+
+    private var weeklyParlaysSection: some View {
+        Section {
+            ToggleInput(
+                value: weeklyParlayEnabledBind,
+                label: "Weekly Parlay",
+                description: "Each football week, your agent builds one week-long NFL/CFB parlay that stays live through Monday night.",
+                disabled: !hasFootball
+            )
+
+            if hasFootball && personality.weeklyParlayEnabled == true {
+                SliderInput(
+                    value: weeklyParlayLegsBind,
+                    label: "Weekly Parlay Legs",
+                    description: "How many legs the week-long ticket should target",
+                    labels: weeklyParlayLegLabels
+                )
+            }
+        } header: {
+            Text("Weekly Parlays")
+        } footer: {
+            Text(
+                hasFootball
+                ? "Weekly parlays use a separate 3-per-football-week generation budget."
+                : "Add NFL or CFB to enable week-long parlays."
+            )
+            .font(.system(size: 11))
         }
     }
 
@@ -665,6 +695,27 @@ struct AgentSettingsView: View {
     private func oddsBind(_ kp: WritableKeyPath<AgentPersonalityParams, Int?>) -> Binding<Int?> {
         Binding(get: { personality[keyPath: kp] }, set: { personality[keyPath: kp] = $0; hasChanges = true })
     }
+    private var weeklyParlayEnabledBind: Binding<Bool> {
+        Binding(
+            get: { personality.weeklyParlayEnabled == true },
+            set: {
+                personality.weeklyParlayEnabled = $0
+                if $0 && personality.weeklyParlayLegs == nil {
+                    personality.weeklyParlayLegs = 4
+                }
+                hasChanges = true
+            }
+        )
+    }
+    private var weeklyParlayLegsBind: Binding<Int> {
+        Binding(
+            get: { max(1, min(5, (personality.weeklyParlayLegs ?? 4) - 1)) },
+            set: {
+                personality.weeklyParlayLegs = max(2, min(6, $0 + 1))
+                hasChanges = true
+            }
+        )
+    }
     private var betTypeBind: Binding<String> {
         Binding(get: { personality.preferredBetType }, set: { personality.preferredBetType = $0; hasChanges = true })
     }
@@ -735,5 +786,9 @@ struct AgentSettingsView: View {
         if tz.contains("Denver") { return "MT" }
         if tz.contains("Los_Angeles") { return "PT" }
         return tz
+    }
+
+    private var weeklyParlayLegLabels: [String] {
+        ["2 Legs", "3 Legs", "4 Legs", "5 Legs", "6 Legs"]
     }
 }

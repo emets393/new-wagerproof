@@ -511,7 +511,7 @@ struct AgentParlayMiniTicket: View {
                 }
                 .foregroundStyle(accent)
                 Spacer(minLength: 4)
-                Text(PickTicketFormat.gameDate(parlay.displayDate))
+                Text(parlay.isWeekly ? "WEEKLY" : PickTicketFormat.gameDate(parlay.displayDate))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color.appTextSecondary)
                     .lineLimit(1)

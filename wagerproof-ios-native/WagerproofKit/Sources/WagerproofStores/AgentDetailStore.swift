@@ -104,8 +104,8 @@ public final class AgentDetailStore {
 
     /// Today's parlay tickets — same snapshot-first / direct-read-fallback
     /// shape as `todaysPicks` (the snapshot only carries them when the server
-    /// grants pick visibility). Weekly-scope tickets are excluded in BOTH
-    /// paths — they render in the Week Long Parlays section, never the rail.
+    /// grants pick visibility). Weekly-scope tickets are excluded here; they are
+    /// merged into the single rail via `activeBetItems` (see `weeklyParlays`).
     public var todaysParlays: [AgentParlay] {
         let fromSnapshot = (snapshot?.todaysParlays ?? []).filter { !$0.isWeekly }
         if !fromSnapshot.isEmpty { return fromSnapshot.filter { !isDeleted(parlayId: $0.id) } }
@@ -128,8 +128,9 @@ public final class AgentDetailStore {
         }
     }
 
-    /// Weekly tickets as bet items (newest first) — feeds the Week Long
-    /// Parlays section and its focus pager.
+    /// Weekly tickets as bet items (newest first). Retained for callers that
+    /// want the weekly slice on its own; the detail screen now folds these into
+    /// `activeBetItems` (one unified rail) rather than a separate section.
     public var weeklyBetItems: [AgentBetItem] {
         weeklyParlays.map(AgentBetItem.parlay).sorted { $0.createdAt > $1.createdAt }
     }
@@ -138,6 +139,16 @@ public final class AgentDetailStore {
     /// Today's Picks rail.
     public var todaysBetItems: [AgentBetItem] {
         let items = todaysPicks.map(AgentBetItem.pick) + todaysParlays.map(AgentBetItem.parlay)
+        return items.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// EVERY active bet item — today's picks, today's parlays, AND week-long
+    /// parlays — interleaved newest-first. Week-long tickets are no longer broken
+    /// out into their own section; they live in the single unified picks rail.
+    public var activeBetItems: [AgentBetItem] {
+        let items = todaysPicks.map(AgentBetItem.pick)
+            + todaysParlays.map(AgentBetItem.parlay)
+            + weeklyParlays.map(AgentBetItem.parlay)
         return items.sorted { $0.createdAt > $1.createdAt }
     }
 

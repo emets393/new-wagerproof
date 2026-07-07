@@ -38,7 +38,6 @@ struct AgentDetailView: View {
     @State private var auditStore = AgentPickAuditStore()
     @State private var showHistorySheet: Bool = false
     @State private var showRegenSheet: Bool = false
-    @State private var showWeeklyRegenSheet: Bool = false
     @State private var showAutoPilotSheet: Bool = false
     /// Programmatic push into Settings (the weekly section's "turn it on" hint).
     @State private var pushSettings: Bool = false
@@ -49,6 +48,11 @@ struct AgentDetailView: View {
     @State private var focusStartIndex: Int? = nil
     @State private var focusPrintIntro: Bool = false
     @State private var lastGenerationResultItems: [AgentBetItem] = []
+    /// True for the WHOLE "Generate Today's Picks" flow, which runs the daily
+    /// pass then the weekly-parlay pass back-to-back. `store.isGenerating` dips
+    /// false in the gap between the two passes; this keeps the generation card up
+    /// across the gap so the rail doesn't flash the daily picks mid-run.
+    @State private var isRunningGeneration: Bool = false
     /// Which item set the focus pager shows: the daily rail or the weekly section.
     private enum FocusSource { case daily, weekly }
     @State private var focusSource: FocusSource = .daily
@@ -84,7 +88,6 @@ struct AgentDetailView: View {
             heroView(progress: progress)
         } content: {
             picksSection
-            weekLongParlaysSlot
             performanceSection
             recentActivitySection
             pickHistorySlot
@@ -172,35 +175,6 @@ struct AgentDetailView: View {
                 onRequest: {
                     showRegenSheet = false
                     Task { await runGeneration() }
-                }
-            )
-        }
-        .sheet(isPresented: $showWeeklyRegenSheet) {
-            RegenerateBottomSheet(
-                remaining: store.weeklyGenerationsRemaining(),
-                maxDaily: 3,
-                accent: agentTint,
-                navTitle: "Weekly Parlay",
-                headerIcon: "calendar.badge.plus",
-                headerTitle: "Build a week-long parlay",
-                headerSubtitle: "One ticket from the remaining NFL/CFB games of this football week.",
-                quotaLabel: "RUNS LEFT THIS WEEK",
-                swipeTitle: "Swipe to build weekly parlay",
-                lockedTitle: store.isGenerating ? "Agent is busy…" : "Weekly limit reached",
-                bullets: [
-                    RegenSheetBullet(icon: "gauge.with.dots.needle.67percent",
-                                     text: "Each agent gets 3 weekly parlay builds per football week."),
-                    RegenSheetBullet(icon: "link",
-                                     text: "The ticket combines up to 6 legs across the week's games and stays live through Monday night."),
-                    RegenSheetBullet(icon: "sparkles",
-                                     text: "New builds add another ticket — swipe up on one to trash it."),
-                    RegenSheetBullet(icon: "clock.arrow.circlepath",
-                                     text: "The quota resets each Tuesday, when the football week rolls over."),
-                ],
-                canRegenerate: canGenerateWeekly && !store.isGenerating,
-                onRequest: {
-                    showWeeklyRegenSheet = false
-                    Task { await runWeeklyGeneration() }
                 }
             )
         }
@@ -336,16 +310,18 @@ struct AgentDetailView: View {
     }
 
     /// The single boundary the picks crossfade keys on: the idle rail shows only
-    /// when picks exist and no DAILY run is in flight; otherwise the generation
-    /// card owns the slot (idle-no-picks tile → live polling run). A live WEEKLY
-    /// run renders its card in the Week Long Parlays section, not here.
+    /// when bet items exist and NO run (daily or weekly) is in flight; otherwise
+    /// the generation card owns the slot (idle-no-picks tile → live polling run).
+    /// Week-long tickets now live in this same rail — there is no separate section.
     private var showsPicksRail: Bool {
-        !store.todaysBetItems.isEmpty && !isDailyGenerating
+        !store.activeBetItems.isEmpty && !isAnyGenerating
     }
 
-    /// A run is live and it's the daily product (window nil = pre-scope legacy).
-    private var isDailyGenerating: Bool {
-        store.isGenerating && store.generatingWindow != .week
+    /// A run is in flight — either pass of the combined "Generate Today's Picks"
+    /// flow (daily then weekly), or a resumed run. `isRunningGeneration` bridges
+    /// the sub-second gap between the two passes where `store.isGenerating` dips.
+    private var isAnyGenerating: Bool {
+        store.isGenerating || isRunningGeneration
     }
 
     private var isWeeklyGenerating: Bool {
@@ -358,20 +334,20 @@ struct AgentDetailView: View {
     private var picksRail: some View {
         VStack(alignment: .leading, spacing: 12) {
             AgentTodaysPicksRail(
-                items: store.todaysBetItems,
+                items: store.activeBetItems,
                 accent: agentTint,
                 onTapPick: { pick in
                     // Tap → large card into focus (print/page presentation). Audit is
                     // reachable from the focused card's "View data audit" button.
-                    if let idx = store.todaysBetItems.firstIndex(where: { $0.id == AgentBetItem.pick(pick).id }) {
+                    if let idx = store.activeBetItems.firstIndex(where: { $0.id == AgentBetItem.pick(pick).id }) {
                         focusPrintIntro = false
                         focusSource = .daily
                         focusStartIndex = idx
                     }
                 },
                 onTapParlay: { parlay in
-                    // Parlays ride the same focus pager as picks (share included).
-                    if let idx = store.todaysBetItems.firstIndex(where: { $0.id == AgentBetItem.parlay(parlay).id }) {
+                    // Parlays (daily AND week-long) ride the same focus pager as picks.
+                    if let idx = store.activeBetItems.firstIndex(where: { $0.id == AgentBetItem.parlay(parlay).id }) {
                         focusPrintIntro = false
                         focusSource = .daily
                         focusStartIndex = idx
@@ -393,9 +369,9 @@ struct AgentDetailView: View {
         AgentGenerationCard(
             spriteIndex: agent?.spriteIndex ?? 0,
             accent: agentTint,
-            state: isDailyGenerating ? store.liveRunState : nil,
-            isGenerating: isDailyGenerating,
-            canGenerate: canRegenerate && !isWeeklyGenerating,
+            state: store.isGenerating ? store.liveRunState : nil,
+            isGenerating: isAnyGenerating,
+            canGenerate: canRegenerate,
             lockedLabel: generationLabel,
             conclusion: noPicksConclusion,
             onGenerate: { Task { await runGeneration() } }
@@ -436,43 +412,6 @@ struct AgentDetailView: View {
             todaysRun: store.todaysGenerationRun,
             todayStr: AgentRunSummaryRow.todayString()
         )
-    }
-
-    // MARK: - Week Long Parlays section
-
-    /// Week-long NFL/CFB parlay tickets (see WeekLongParlaysSection.swift).
-    /// Rendered for owners of football agents (all states) and for any viewer
-    /// when active week tickets exist; hidden entirely otherwise so non-football
-    /// agents never carry an empty section.
-    @ViewBuilder
-    private var weekLongParlaysSlot: some View {
-        if showsWeeklySection {
-            WeekLongParlaysSection(
-                parlays: store.weeklyParlays,
-                accent: agentTint,
-                weeklyEnabled: weeklyParlayEnabled,
-                canSeePicks: canSeePicks,
-                isOwnAgent: isOwnAgent,
-                isGeneratingWeekly: isWeeklyGenerating,
-                isBusyElsewhere: isDailyGenerating,
-                liveRunState: isWeeklyGenerating ? store.liveRunState : nil,
-                spriteIndex: agent?.spriteIndex ?? 0,
-                remaining: store.weeklyGenerationsRemaining(),
-                canGenerate: canGenerateWeekly,
-                onGenerate: { showWeeklyRegenSheet = true },
-                onTapParlay: { parlay in
-                    if let idx = store.weeklyBetItems.firstIndex(where: { $0.id == AgentBetItem.parlay(parlay).id }) {
-                        focusPrintIntro = false
-                        focusSource = .weekly
-                        focusStartIndex = idx
-                    }
-                },
-                onDeleteParlay: isOwnAgent ? { parlay in pendingDeleteItem = .parlay(parlay) } : nil,
-                onOpenSettings: { pushSettings = true }
-            )
-            .padding(.horizontal, WidgetCard.hInset)
-            .padding(.bottom, sectionGap)
-        }
     }
 
     // MARK: - Pick History folder
@@ -613,11 +552,17 @@ struct AgentDetailView: View {
     }
 
     private func runGeneration() async {
+        // Hold the generation card up across BOTH passes (daily then weekly), so
+        // the rail can't flash the daily picks in the gap where store.isGenerating
+        // dips between the two runs.
+        isRunningGeneration = true
+        defer { isRunningGeneration = false }
         let succeeded = await store.generatePicks()
         if succeeded {
-            let fresh = store.todaysBetItems
+            await maybeAutoBuildWeeklyParlay()
+            let fresh = store.activeBetItems
             if !fresh.isEmpty {
-                // Reveal the fresh picks + parlays with the printer feed.
+                // Reveal the fresh picks + parlays (daily and week-long) with the printer feed.
                 lastGenerationResultItems = fresh
                 focusPrintIntro = true
                 focusSource = .daily
@@ -629,36 +574,27 @@ struct AgentDetailView: View {
         }
     }
 
-    private func runWeeklyGeneration() async {
-        let succeeded = await store.generateWeeklyParlay()
-        if succeeded {
-            let fresh = store.weeklyBetItems
-            if !fresh.isEmpty {
-                // Same printer reveal as daily, over the weekly ticket set.
-                lastGenerationResultItems = fresh
-                focusPrintIntro = true
-                focusSource = .weekly
-                focusStartIndex = 0
-            }
-            markPicksSeen()
-        } else if let err = store.lastGenerationError {
-            errorMessage = err
-        }
+    /// Week-long parlays have no separate user-facing control. If the agent is
+    /// opted in and still has weekly budget, the main "Generate Today's Picks"
+    /// flow also asks the weekly engine for tickets; they land in the same rail.
+    private func maybeAutoBuildWeeklyParlay() async {
+        guard canGenerateWeekly else { return }
+        _ = await store.generateWeeklyParlay()
     }
 
     /// Items backing the focus overlay: the just-generated set during the print
-    /// reveal, otherwise the live set for whichever section was tapped.
+    /// reveal, otherwise the full active set (one unified rail).
     private var focusItems: [AgentBetItem] {
         if focusPrintIntro { return lastGenerationResultItems }
-        return focusSource == .weekly ? store.weeklyBetItems : store.todaysBetItems
+        return store.activeBetItems
     }
 
     /// If this agent produced picks the device hasn't seen yet (autopilot ran, or
     /// a manual run finished while the user was elsewhere), open straight into
     /// the printer cinematic — the same reveal a live generation gets.
     private func maybeAutoplayUnreadPicks() {
-        guard canSeePicks, focusStartIndex == nil, !store.isGenerating else { return }
-        let items = store.todaysBetItems
+        guard canSeePicks, focusStartIndex == nil, !isAnyGenerating else { return }
+        let items = store.activeBetItems
         guard let newest = items.map(\.createdAt).max(), !newest.isEmpty else {
             markPicksSeen() // no items — still clear the lastGeneratedAt-driven badge
             return
@@ -672,10 +608,10 @@ struct AgentDetailView: View {
     }
 
     /// Advance the device-local read receipt past everything currently visible
-    /// (newest daily or weekly item + the agent's lastGeneratedAt, whichever is
-    /// later) so the agents-list unread dot clears.
+    /// (newest active bet item + the agent's lastGeneratedAt, whichever is later)
+    /// so the agents-list unread dot clears.
     private func markPicksSeen() {
-        let newestItem = (store.todaysBetItems + store.weeklyBetItems).map(\.createdAt).max()
+        let newestItem = store.activeBetItems.map(\.createdAt).max()
         let candidates = [newestItem, agent?.lastGeneratedAt].compactMap { $0 }
         AgentPicksSeenStore.markSeen(agentId: agentId, upTo: candidates.max())
     }
@@ -725,13 +661,6 @@ struct AgentDetailView: View {
 
     private var weeklyParlayEnabled: Bool {
         agent?.personalityParams.weeklyParlayEnabled == true
-    }
-
-    /// Owners of football agents see the section in every state (tickets, CTA,
-    /// or the turn-it-on hint); everyone else only when live tickets exist.
-    private var showsWeeklySection: Bool {
-        if !store.weeklyParlays.isEmpty { return true }
-        return isOwnAgent && hasFootball
     }
 
     private var canGenerateWeekly: Bool {

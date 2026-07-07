@@ -7,7 +7,7 @@ import type { ChatMessage } from "./types";
 import { consumeChatStreamV3 } from "./consumeChatStreamV3";
 import { buildV3SystemPrompt } from "./v3SystemPrompt";
 import { buildSubmitPicksSchema, buildSubmitParlaySchema } from "./pickSchemaV3";
-import { passthroughTrace, type AgentGenContext } from "./tools/context";
+import { passthroughTrace, type AgentGenContext, type SubmitReport } from "./tools/context";
 import type { SlateResult } from "./tools/gameSource";
 import { compactSlate } from "./tools/gameSource";
 import { buildReadToolDefs, DEEP_TOOL_NAMES, runReadTool } from "./tools/readTools";
@@ -37,6 +37,25 @@ function summarize(s: string): string {
   return s.length > 200 ? s.slice(0, 200) + "…" : s;
 }
 
+function submitRepairInstruction(report: SubmitReport, ctx: AgentGenContext, toolName: "submit_picks" | "submit_parlay"): string | null {
+  if (report.allAccepted) return null;
+  const allowed = ctx.steering.allowedMarkets.length > 0 ? ctx.steering.allowedMarkets : ["spread", "moneyline", "total", "team_total", "prop"];
+  const marketRejects = report.rejected.filter((r) => r.reason.includes("market_not_allowed"));
+  const propOnly = allowed.length === 1 && allowed[0] === "prop";
+
+  if (report.accepted > 0 && toolName === "submit_parlay") {
+    return propOnly
+      ? `A prop parlay ticket was accepted. Do not submit another ${toolName} with spread, moneyline, total, or team_total legs; this agent allows ONLY prop. Finalize now with submit_picks using an empty picks array.`
+      : `A parlay ticket was accepted. Do not re-submit rejected legs unless they can be corrected to allowed markets (${allowed.join(", ")}). Finalize with submit_picks when done.`;
+  }
+
+  if (marketRejects.length === 0) return null;
+  if (propOnly) {
+    return `Your last ${toolName} was rejected because this agent allows ONLY bet_type "prop". Stop submitting spread, moneyline, total, or team_total. Call get_props for NFL games, then submit only prop legs copied from returned is_bettable props: prop_player, prop_market, prop_line, prop_direction. If fewer than two prop legs clear the bar, finalize with submit_picks using an empty picks array and explain that no clean prop parlay cleared.`;
+  }
+  return `Your last ${toolName} used a disallowed market. Allowed bet_type values for this agent are: ${allowed.join(", ")}. Resubmit only with those markets, or finalize with submit_picks using an empty picks array.`;
+}
+
 // Transient stream/connection failures (e.g. DeepSeek closing the TLS socket
 // mid-response → undici "TypeError: terminated", ECONNRESET, socket hang up) are
 // recoverable — retry the turn's LLM call rather than failing the whole run.
@@ -52,6 +71,8 @@ export async function runAgenticLoop(
   opts: LoopOptions,
 ): Promise<LoopResult> {
   const steering = ctx.steering;
+  const allowedMarkets = steering.allowedMarkets.length > 0 ? steering.allowedMarkets : ["spread", "moneyline", "total", "team_total", "prop"];
+  const allowedMarketsText = allowedMarkets.join(", ");
   // Span factory → dashboard run waterfall (passthrough when not on Trigger.dev).
   const span = ctx.trace ?? passthroughTrace;
   const tools = [
@@ -71,8 +92,8 @@ export async function runAgenticLoop(
           function: {
             name: "submit_parlay",
             description: ctx.window === "week"
-              ? "Submit your ONE week-long parlay ticket (legs drawn from games you fetched, spanning the remaining football week). Then call submit_picks with an empty picks array to finalize the run."
-              : "Submit multi-leg parlay tickets (legs drawn from games you fetched). After any parlays, still call submit_picks to finalize the run (use an empty picks array if you have no straight picks).",
+              ? "Submit 2-3 DISTINCT week-long parlay tickets (an array) — legs drawn from games you fetched, spanning the remaining football week. Make the tickets differ from one another; an exact-duplicate ticket is rejected. Then call submit_picks with an empty picks array to finalize the run."
+              : `Submit multi-leg parlay tickets using only allowed leg bet_type values (${allowedMarketsText}). Legs must be drawn from games you fetched. After any accepted parlays, still call submit_picks to finalize the run (use an empty picks array if you have no straight picks).`,
             parameters: buildSubmitParlaySchema(steering.unitBand, steering.maxParlayLegs, { weekly: ctx.window === "week" }),
           },
         }]
@@ -85,7 +106,7 @@ export async function runAgenticLoop(
     {
       role: "user",
       content: ctx.window === "week"
-        ? "Build this agent's ONE week-long parlay ticket. The remaining week slate is already provided below."
+        ? "Build this agent's week-long parlay tickets (2-3 distinct options). The remaining week slate is already provided below."
         : "Generate today's picks for this agent. The slate is already provided below.",
     },
     {
@@ -256,6 +277,8 @@ export async function runAgenticLoop(
         messages.push({ role: "tool", tool_call_id: call.id, content });
         trace(call.id, call.name, call.arguments || "{}", content, Date.now() - started, report.ok);
         ctx.onProgress?.({ kind: "submit", attempt: ctx.gov.submitAttempts, accepted: report.accepted, rejected: report.rejected.length });
+        const repair = submitRepairInstruction(report, ctx, "submit_picks");
+        if (repair) messages.push({ role: "user", content: repair });
         if (report.allAccepted || ctx.gov.submitAttempts >= ctx.gov.limitsRef.maxSubmitAttempts) {
           finished = true;
           break;
@@ -276,6 +299,8 @@ export async function runAgenticLoop(
         const content = JSON.stringify(report);
         messages.push({ role: "tool", tool_call_id: call.id, content });
         trace(call.id, call.name, call.arguments || "{}", content, Date.now() - started, report.ok);
+        const repair = submitRepairInstruction(report, ctx, "submit_parlay");
+        if (repair) messages.push({ role: "user", content: repair });
         continue; // non-terminal — the agent still calls submit_picks to finalize
       }
 

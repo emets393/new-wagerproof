@@ -49,7 +49,7 @@ export interface RunV3Payload {
   avatarId: string;
   targetDate?: string; // ET date; defaults to today
   generationType?: string; // 'manual' | 'auto'
-  /** 'week' = build ONE week-long NFL/CFB parlay from the remaining football week. */
+  /** 'week' = build up to 3 distinct week-long NFL/CFB parlays from the remaining football week. */
   window?: "day" | "week";
   dryRun?: boolean;
   modelName?: string;
@@ -257,7 +257,7 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
       systemPromptVersion: PROMPT_VERSION,
       targetDate, generationType: payload.generationType ?? "manual",
       dryRun: payload.dryRun === true,
-      window, weekKey, weeklyTicketsSubmitted: 0,
+      window, weekKey, weeklyTicketsSubmitted: 0, submittedParlaySignatures: new Set(),
       main, cfb,
       games: new Map(), slateGameIds: new Set(), deepFetched: new Map(), fetchedFacts: new Map(), bettableProps: new Map(),
       acceptedPicks: [], dropReports: [], toolTrace: [], reasoningTrace: "", lastSubmitReport: null,
