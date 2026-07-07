@@ -59,7 +59,11 @@ RPCs; do not build data.
 
 **Common:** `season_min/max, side ('home'|'away'), fav_dog ('favorite'|'underdog'),
 spread_min/max, abs_spread_min/max, total_min/max, tt_min/max, h1_spread_min/max,
-h1_abs_spread_min/max, h1_total_min/max, primetime (bool), temp_min/max, wind_max, team[], opponent[]`.
+h1_abs_spread_min/max, h1_total_min/max, ml_min/ml_max (team moneyline, American odds — negative =
+favorite, positive = underdog), primetime (bool), temp_min/max, wind_max, team[], opponent[]`.
+The moneyline control is a range slider (−600…+600) placed right under the spread control; treat the
+slider endpoints as open (don't send `ml_min` at −600 or `ml_max` at +600) so extreme prices aren't
+excluded. NFL ML covers 2018+; **CFB ML covers 2021+ only** (games before have null `team_ml`).
 
 **NFL-only:** `week_min/max`, `season_type ('regular'|'postseason')`,
 `playoff_round ('Wild Card'|'Divisional'|'Conference'|'Super Bowl')`, `division (bool)`,
