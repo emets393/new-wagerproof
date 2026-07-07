@@ -163,6 +163,13 @@ function BreakdownTable({ betType, rows, keyName, logos }: { betType: string; ro
   const isTeam = keyName === 'team';
   const isML = ML_MARKETS.has(betType);
   const outcome = OUTCOME[betType] || 'Hit';
+  const [q, setQ] = useState('');
+  // long lists (130+ CFB teams) get a search box; short ones (conferences) don't need it
+  const showSearch = (rows?.length || 0) > 12;
+  const shown = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return term ? sorted.filter(r => String(r[keyName] ?? '').toLowerCase().includes(term)) : sorted;
+  }, [sorted, q, keyName]);
   if (!rows?.length) return <p className="text-sm text-muted-foreground py-6 text-center">No results with enough games (min 3).</p>;
   return (
     <div>
@@ -176,8 +183,13 @@ function BreakdownTable({ betType, rows, keyName, logos }: { betType: string; ro
         </div>
         <span className="text-[11px] text-muted-foreground">{outcome} rate</span>
       </div>
+      {showSearch && (
+        <Input value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${isTeam ? 'teams' : keyName}…`} className="h-8 text-sm mb-2" />
+      )}
       <div className="max-h-[420px] overflow-y-auto rounded-lg border divide-y">
-        {sorted.map((r, i) => {
+        {shown.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">No {isTeam ? 'teams' : 'results'} match “{q}”.</p>
+        ) : shown.map((r, i) => {
           const sig = significance(r.n, r.hit_pct);
           return (
             <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
