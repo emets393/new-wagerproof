@@ -31,6 +31,9 @@ const LIMITED_MARKETS = new Set(['h1_spread', 'h1_ml', 'h1_total', 'team_total']
 const SPREAD_CFG: Record<string, { max: number; mk: string; xk: string; amk: string; axk: string }> = {
   fg_spread: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
   h1_spread: { max: 14, mk: 'h1_spread_min', xk: 'h1_spread_max', amk: 'h1_abs_spread_min', axk: 'h1_abs_spread_max' },
+  // moneyline markets filter by the FULL-GAME spread (ML is just the spread priced up)
+  fg_ml: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
+  h1_ml: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
 };
 const TOTAL_CFG: Record<string, { min: number; max: number; mk: string; xk: string; label: string }> = {
   fg_total: { min: 30, max: 60, mk: 'total_min', xk: 'total_max', label: 'Game total' },
@@ -288,7 +291,7 @@ export default function NFLAnalytics() {
       else if (spreadSide === 'underdog') { f[scfg.mk] = loD; f[scfg.xk] = hi; }
       else if (lo > 0 || hi < scfg.max) { f[scfg.amk] = lo; f[scfg.axk] = hi; }
     }
-    if (favDog !== 'any' && (ML_MARKETS.has(betType) || betType === 'team_total')) f.fav_dog = favDog;
+    if (favDog !== 'any' && (betType === 'team_total')) f.fav_dog = favDog;
     // team moneyline (American odds) — exact numeric bounds; same value in both = an exact line.
     // forgive reversed entry by sorting when both are present.
     { let a = mlMin.trim() === '' ? null : Number(mlMin); let b = mlMax.trim() === '' ? null : Number(mlMax);
@@ -331,7 +334,7 @@ export default function NFLAnalytics() {
     if (seasonType === 'regular' && (weeks[0] !== 1 || weeks[1] !== 18)) c.push({ label: `Weeks ${weeks[0]}–${weeks[1]}`, clear: () => setWeeks([1, 18]) });
     if (seasonType === 'postseason' && playoffRound !== 'any') c.push({ label: `Round: ${playoffRound}`, clear: () => setPlayoffRound('any') });
     if (side !== 'any') c.push({ label: side === 'home' ? 'Home' : 'Away', clear: () => setSide('any') });
-    if ((ML_MARKETS.has(betType) || betType === 'team_total') && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
+    if ((betType === 'team_total') && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
     const scfg = SPREAD_CFG[betType];
     if (scfg) {
       if (spreadSide !== 'any') c.push({ label: `${spreadSide === 'favorite' ? 'Favored by' : 'Getting'} ${spreadSize[0]}–${spreadSize[1]}`, clear: () => { setSpreadSide('any'); setSpreadSize([0, scfg.max]); } });
@@ -621,7 +624,7 @@ export default function NFLAnalytics() {
                 <Input type="number" inputMode="numeric" value={mlMax} onChange={e => setMlMax(e.target.value)} placeholder="max e.g. -120" className="h-9" />
               </div>
             </div>
-            {(ML_MARKETS.has(betType) || betType === 'team_total') && (
+            {(betType === 'team_total') && (
               <SelectRow label="Favorite / Underdog" value={favDog} onChange={setFavDog} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
             )}
             {TOTAL_CFG[betType] && (
