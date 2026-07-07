@@ -26,6 +26,14 @@ public struct ContinueCTAButton: View {
     /// passes the live accent theme so the CTA recolors with the pixel
     /// background when the user picks a bettor type / archetype.
     public var tint: Color = .appPrimary
+    /// Label / glyph / spinner color. Defaults to white for the tinted
+    /// pills; the onboarding white pill passes `.black` for legible contrast.
+    public var foreground: Color = .white
+    /// Opacity of the Liquid Glass tint fill. The white onboarding pill
+    /// raises this so it reads as a bright, near-solid surface behind the
+    /// dark label; colored pills keep the translucent default so the
+    /// background still refracts through.
+    public var surfaceOpacity: Double = 0.65
     public let action: () -> Void
 
     public init(
@@ -34,6 +42,8 @@ public struct ContinueCTAButton: View {
         isEnabled: Bool = true,
         isLoading: Bool = false,
         tint: Color = .appPrimary,
+        foreground: Color = .white,
+        surfaceOpacity: Double = 0.65,
         action: @escaping () -> Void
     ) {
         self.label = label
@@ -41,6 +51,8 @@ public struct ContinueCTAButton: View {
         self.isEnabled = isEnabled
         self.isLoading = isLoading
         self.tint = tint
+        self.foreground = foreground
+        self.surfaceOpacity = surfaceOpacity
         self.action = action
     }
 
@@ -53,7 +65,7 @@ public struct ContinueCTAButton: View {
         Button(action: { if isEnabled && !isLoading { action() } }) {
             label_
                 .frame(maxWidth: .infinity)
-                .frame(height: 60)
+                .frame(height: 52)
                 // Make the entire capsule tappable. Without this, SwiftUI
                 // hit-tests only the Text's glyph rect — tapping the
                 // colored area on either side of "Continue" does nothing.
@@ -67,7 +79,7 @@ public struct ContinueCTAButton: View {
                 // 17 fallbacks (ultraThinMaterial + tint).
                 .liquidGlassBackground(
                     in: Capsule(),
-                    tint: tint.opacity(0.65),
+                    tint: tint.opacity(surfaceOpacity),
                     interactive: true
                 )
                 .overlay(
@@ -116,17 +128,17 @@ public struct ContinueCTAButton: View {
     private var label_: some View {
         if isLoading {
             ProgressView()
-                .tint(.white)
+                .tint(foreground)
         } else {
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
                 Text(label)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(foreground)
                 if let g = trailingGlyph {
                     Text(g)
                         .font(.system(size: 22))
-                        .foregroundColor(.white)
+                        .foregroundColor(foreground)
                 }
                 Spacer(minLength: 0)
             }
