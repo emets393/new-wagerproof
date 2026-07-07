@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- appSurface dark hex from the iOS design tokens (see :core:design Tokens). -->
+    <color name="app_surface">#0B1011</color>
+</resources>
