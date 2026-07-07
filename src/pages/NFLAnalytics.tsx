@@ -200,6 +200,7 @@ export default function NFLAnalytics() {
   const [seasons, setSeasons] = useState<[number, number]>([2018, 2025]);
   const [weeks, setWeeks] = useState<[number, number]>([1, 22]);
   const [side, setSide] = useState('any');
+  const [seasonType, setSeasonType] = useState('any'); // any | regular | postseason
   const [favDog, setFavDog] = useState('any');
   const [spreadSide, setSpreadSide] = useState('any'); // favorite | underdog | any
   const [spreadSize, setSpreadSize] = useState<[number, number]>([0, 20]);
@@ -222,9 +223,9 @@ export default function NFLAnalytics() {
   const [saveName, setSaveName] = useState('');
   const [showSave, setShowSave] = useState(false);
 
-  const snapshot = () => ({ betType, seasons, weeks, side, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee });
+  const snapshot = () => ({ betType, seasons, weeks, side, seasonType, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee });
   const restore = (s: any) => {
-    setBetType(s.betType); setSeasons(s.seasons); setWeeks(s.weeks); setSide(s.side); setFavDog(s.favDog);
+    setBetType(s.betType); setSeasons(s.seasons); setWeeks(s.weeks); setSide(s.side); setSeasonType(s.seasonType ?? 'any'); setFavDog(s.favDog);
     setSpreadSide(s.spreadSide); setPrimetime(s.primetime ?? null); setDivision(s.division ?? null);
     setDome(s.dome); setTempRange(s.tempRange); setWindMax(s.windMax); setPrecip(s.precip);
     setRestBye(s.restBye); setCoach(s.coach); setReferee(s.referee);
@@ -262,6 +263,7 @@ export default function NFLAnalytics() {
     if (seasons[1] < 2025) f.season_max = seasons[1];
     if (weeks[0] > 1) f.week_min = weeks[0];
     if (weeks[1] < 22) f.week_max = weeks[1];
+    if (seasonType !== 'any') f.season_type = seasonType;
     if (side !== 'any') f.side = side;
     // subject-market line control: size+side for spread markets, range for total markets
     const scfg = SPREAD_CFG[betType];
@@ -290,10 +292,10 @@ export default function NFLAnalytics() {
     if (coach !== 'any') f.coach = coach;
     if (referee !== 'any') f.referee = referee;
     return f;
-  }, [betType, seasons, weeks, side, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
+  }, [betType, seasons, weeks, side, seasonType, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
 
   const resetAll = () => {
-    setSeasons([seasonFloor, 2025]); setWeeks([1, 22]); setSide('any'); setFavDog('any');
+    setSeasons([seasonFloor, 2025]); setWeeks([1, 22]); setSide('any'); setSeasonType('any'); setFavDog('any');
     setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 20]);
     const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 60]);
     setPrimetime(null); setDivision(null); setDome('any'); setTempRange([-10, 100]);
@@ -306,6 +308,7 @@ export default function NFLAnalytics() {
     if (seasons[0] !== seasonFloor || seasons[1] !== 2025) c.push({ label: `Seasons ${seasons[0]}–${seasons[1]}`, clear: () => setSeasons([seasonFloor, 2025]) });
     if (weeks[0] !== 1 || weeks[1] !== 22) c.push({ label: `Weeks ${weeks[0]}–${weeks[1]}`, clear: () => setWeeks([1, 22]) });
     if (side !== 'any') c.push({ label: side === 'home' ? 'Home' : 'Away', clear: () => setSide('any') });
+    if (seasonType !== 'any') c.push({ label: seasonType === 'regular' ? 'Regular season' : 'Playoffs', clear: () => setSeasonType('any') });
     if ((ML_MARKETS.has(betType) || betType === 'team_total') && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
     const scfg = SPREAD_CFG[betType];
     if (scfg) {
@@ -324,7 +327,7 @@ export default function NFLAnalytics() {
     if (coach !== 'any') c.push({ label: `Coach: ${coach}`, clear: () => setCoach('any') });
     if (referee !== 'any') c.push({ label: `Ref: ${referee}`, clear: () => setReferee('any') });
     return c;
-  }, [betType, seasons, weeks, side, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, precip, tempRange, windMax, restBye, coach, referee, seasonFloor]);
+  }, [betType, seasons, weeks, side, seasonType, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, precip, tempRange, windMax, restBye, coach, referee, seasonFloor]);
 
   // load coach/ref option lists once
   useEffect(() => {
@@ -558,6 +561,7 @@ export default function NFLAnalytics() {
             <div className="text-sm font-semibold">Situation</div>
             <RangeRow label={`Seasons: ${seasons[0]}–${seasons[1]}`} min={seasonFloor} max={2025} step={1} value={seasons} onChange={setSeasons} />
             <RangeRow label={`Weeks: ${weeks[0]}–${weeks[1]}`} min={1} max={22} step={1} value={weeks} onChange={setWeeks} />
+            <SelectRow label="Season type" value={seasonType} onChange={setSeasonType} options={[['any', 'Regular + Playoffs'], ['regular', 'Regular season'], ['postseason', 'Playoffs only']]} />
             <SelectRow label="Side" value={side} onChange={setSide} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
 
             {SPREAD_CFG[betType] && (
