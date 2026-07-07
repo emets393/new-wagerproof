@@ -31,12 +31,12 @@ public final class OnboardingStore {
     /// the agent, which builds investment before the generation cinematic.
     public enum Step: Int, CaseIterable, Sendable, Comparable {
         case terms             = 1
-        case sportsSelection   = 2
-        case sportsShowcase    = 3
-        case bettorType        = 4
-        case personalizedValue = 5
-        case acquisitionSource = 6
-        case primaryGoal       = 7
+        case bettorType        = 2
+        case bettingPitfalls   = 3
+        case personalizedValue = 4
+        case acquisitionSource = 5
+        case primaryGoal       = 6
+        case agentHQ           = 7
         case agentValueIntro   = 8
         case agentValueProof   = 9
         case attPriming        = 10
@@ -77,6 +77,9 @@ public final class OnboardingStore {
     /// Survey answers synced to `profiles.onboarding_data`.
     public struct SurveyAnswers: Codable, Sendable, Equatable {
         public var favoriteSports: [String] = []
+        /// Multi-select — every betting pitfall the user tapped as familiar
+        /// on the `.bettingPitfalls` page (optional; empty is a valid answer).
+        public var bettingPitfalls: [String] = []
         /// Dormant since the v2 redesign removed the age question (the 18+
         /// attestation lives on the Terms checkbox instead). Kept so older
         /// payloads that carried `age` keep their Codable shape; never set.
@@ -311,8 +314,6 @@ public final class OnboardingStore {
         switch step {
         case .terms:
             return hasCheckedTerms
-        case .sportsSelection:
-            return !survey.favoriteSports.isEmpty
         case .bettorType:
             return survey.bettorType != nil
         case .acquisitionSource:
@@ -326,7 +327,7 @@ public final class OnboardingStore {
         case .builderIdentity:
             let trimmed = agentDraft.name.trimmingCharacters(in: .whitespacesAndNewlines)
             return !trimmed.isEmpty && trimmed.count <= 50
-        case .sportsShowcase, .personalizedValue, .agentValueIntro,
+        case .bettingPitfalls, .agentHQ, .personalizedValue, .agentValueIntro,
              .agentValueProof, .attPriming,
              .builderMindset, .builderBetStyle, .builderDataTrust,
              .builderSportRules, .builderInsights,
@@ -346,6 +347,14 @@ public final class OnboardingStore {
             survey.favoriteSports.remove(at: idx)
         } else {
             survey.favoriteSports.append(sport)
+        }
+    }
+
+    public func toggleBettingPitfall(_ pitfall: String) {
+        if let idx = survey.bettingPitfalls.firstIndex(of: pitfall) {
+            survey.bettingPitfalls.remove(at: idx)
+        } else {
+            survey.bettingPitfalls.append(pitfall)
         }
     }
 
@@ -491,8 +500,10 @@ public final class OnboardingStore {
         let agent: AgentDraft
 
         // Match RN's nested shape: { favoriteSports, age, ..., agentFormState }.
+        // bettingPitfalls is iOS-only (no RN/web counterpart yet) — an extra
+        // key in the jsonb payload, ignored by clients that don't read it.
         enum CodingKeys: String, CodingKey {
-            case favoriteSports, age, bettorType, mainGoal
+            case favoriteSports, bettingPitfalls, age, bettorType, mainGoal
             case acquisitionSource, termsAcceptedAt, overEighteenAttested
             case agentFormState
         }
@@ -500,6 +511,7 @@ public final class OnboardingStore {
         func encode(to encoder: Encoder) throws {
             var c = encoder.container(keyedBy: CodingKeys.self)
             try c.encode(survey.favoriteSports, forKey: .favoriteSports)
+            try c.encode(survey.bettingPitfalls, forKey: .bettingPitfalls)
             try c.encodeIfPresent(survey.age, forKey: .age)
             try c.encodeIfPresent(survey.bettorType?.rawValue, forKey: .bettorType)
             try c.encodeIfPresent(survey.mainGoal, forKey: .mainGoal)

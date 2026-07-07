@@ -75,8 +75,18 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
     public let useNativeChrome: Bool
     /// CTA pill tint. Defaults to the brand green; the onboarding carousel
     /// passes its live accent theme so the pill recolors with the reactive
-    /// pixel background.
+    /// pixel background. Feeds the progress bar's fill color; the CTA
+    /// button itself uses `ctaButtonColor` when set (see below), so a
+    /// caller can keep the progress bar reactive while pinning the button.
     public let ctaTint: Color
+    /// Overrides just the CTA button's Liquid Glass tint, independent of
+    /// `ctaTint` (which still drives the progress bar fill). nil (default)
+    /// keeps the CTA on `ctaTint` — the Agent Builder wizard, which reuses
+    /// this shell, relies on that to recolor its button with the chosen
+    /// archetype. The onboarding carousel passes `.white` here so its CTA
+    /// stays a neutral white Liquid Glass pill regardless of bettor-type
+    /// accent.
+    public let ctaButtonColor: Color?
     /// Background — each screen passes its own gradient so the radial blob
     /// math doesn't get standardized away. Shell layers chrome over it.
     @ViewBuilder public let background: () -> Background
@@ -107,6 +117,7 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
         // WagerProof flow visually consistent.
         useNativeChrome: Bool = true,
         ctaTint: Color = .appPrimary,
+        ctaButtonColor: Color? = nil,
         @ViewBuilder background: @escaping () -> Background,
         @ViewBuilder content: @escaping () -> Content,
         onContinue: @escaping () -> Void,
@@ -122,6 +133,7 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
         self.showSkip = showSkip
         self.useNativeChrome = useNativeChrome
         self.ctaTint = ctaTint
+        self.ctaButtonColor = ctaButtonColor
         self.background = background
         self.content = content
         self.onContinue = onContinue
@@ -334,7 +346,7 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
             trailingGlyph: continueGlyph,
             isEnabled: isCTAEnabled,
             isLoading: isCTALoading,
-            tint: ctaTint
+            tint: ctaButtonColor ?? ctaTint
         ) {
             onContinue()
         }

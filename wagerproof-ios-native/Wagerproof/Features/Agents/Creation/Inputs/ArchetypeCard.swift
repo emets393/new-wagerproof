@@ -6,7 +6,16 @@ import WagerproofServices
 /// Tappable preset archetype tile shown in Screen 1's "Use a Preset" path.
 /// Ports `components/agents/inputs/ArchetypeCard.tsx`.
 struct ArchetypeCard: View {
+    /// `.standard` — the wizard tile: emoji glyph + recommended-sport badges.
+    /// `.compact` — the onboarding tile: a pixel-office character in place of
+    /// the emoji and no sport badges, so the row reads slimmer.
+    enum Style { case standard, compact }
+
     let row: PresetArchetypeRow
+    var style: Style = .standard
+    /// Pixel-office character shown in `.compact` style. Ignored by `.standard`,
+    /// which renders `row.emoji`.
+    var spriteIndex: Int = 0
     let selected: Bool
     let onSelect: () -> Void
 
@@ -14,17 +23,13 @@ struct ArchetypeCard: View {
         Color(hexString: row.color) ?? Color(hex: 0x00E676)
     }
 
+    private var isCompact: Bool { style == .compact }
+
     var body: some View {
         Button(action: onSelect) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
-                    Text(row.emoji)
-                        .font(.system(size: 24))
-                        .frame(width: 48, height: 48)
-                        .liquidGlassBackground(
-                            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-                            tint: accentColor.opacity(0.20)
-                        )
+                    leadingGlyph
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(row.name)
@@ -51,7 +56,9 @@ struct ArchetypeCard: View {
                     }
                 }
 
-                if !row.recommendedSports.isEmpty {
+                // Onboarding tiles drop the sport badges to stay slim; the
+                // wizard keeps them so the preset's leagues read at a glance.
+                if !isCompact, !row.recommendedSports.isEmpty {
                     HStack(spacing: 6) {
                         ForEach(row.recommendedSports, id: \.self) { sport in
                             sportBadge(sport)
@@ -74,6 +81,31 @@ struct ArchetypeCard: View {
         }
         .buttonStyle(.plain)
         .padding(.vertical, 4)
+    }
+
+    /// The 48×48 Liquid Glass tile leading the row. `.standard` shows the
+    /// archetype's emoji; `.compact` puts a pixel-office character inside the
+    /// same glass container (it bobs when the tile is selected).
+    @ViewBuilder
+    private var leadingGlyph: some View {
+        switch style {
+        case .standard:
+            Text(row.emoji)
+                .font(.system(size: 24))
+                .frame(width: 48, height: 48)
+                .liquidGlassBackground(
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                    tint: accentColor.opacity(0.20)
+                )
+        case .compact:
+            PixelSpriteAvatar(spriteIndex: spriteIndex, animated: selected)
+                .padding(5)
+                .frame(width: 48, height: 48)
+                .liquidGlassBackground(
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                    tint: accentColor.opacity(0.20)
+                )
+        }
     }
 
     private func sportBadge(_ sport: AgentSport) -> some View {

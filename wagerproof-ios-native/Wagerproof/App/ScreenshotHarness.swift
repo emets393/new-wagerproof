@@ -335,7 +335,10 @@ struct ScreenshotHarnessView: View {
             // v2 flow starts at Terms — the welcome interstitial is gone.
             makeOnboarding(step: .terms)
         case .onboardingSports:
-            makeOnboarding(step: .sportsSelection)
+            // .sportsSelection was removed (redundant with the agent
+            // builder's own sports page) — this slug now captures the
+            // remaining "sports" screen in the flow.
+            makeOnboarding(step: .builderSports)
         case .onboardingAgentBorn:
             // v2 reveal — renders from the seeded draft (no genesis model).
             makeOnboarding(step: .reveal, agentDraft: OnboardingFixtures.born)
@@ -1259,7 +1262,7 @@ enum ScreenshotHarness {
         case onboardingIntro
         case onboardingSports
         case onboardingAgentBorn
-        // v2 QA target: any onboarding step via `-onboardingStep <1...15>`
+        // v2 QA target: any onboarding step via `-onboardingStep <1...20>`
         // (+ optional `-onboardingBettor casual|serious|professional` to
         // exercise the personalizedValue branch). Seeds a survey + agent
         // draft so every page renders populated.
@@ -1363,7 +1366,7 @@ enum ScreenshotHarness {
         return parsed
     }
 
-    /// Reads `-onboardingStep <1...15>` for the `onboardingPage` target.
+    /// Reads `-onboardingStep <1...20>` for the `onboardingPage` target.
     /// Falls back to `.terms` on missing/invalid values.
     static var onboardingStepArg: OnboardingStore.Step {
         let args = ProcessInfo.processInfo.arguments

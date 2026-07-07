@@ -3,7 +3,7 @@ import WagerproofDesign
 import WagerproofModels
 import WagerproofStores
 
-/// Hosts carousel steps 1...13 in ONE `OnboardingPageShell` wrapping a
+/// Hosts carousel steps 1...18 in ONE `OnboardingPageShell` wrapping a
 /// custom directional-slide pager. The chrome (progress bar, Liquid Glass
 /// back chevron, Continue CTA) stays fixed while pages slide beneath it —
 /// the pre-redesign flow gave every step its own shell, which made the
@@ -62,6 +62,10 @@ struct OnboardingCarouselContainer: View {
             // renders the progress bar + glass chevron as one toolbar strip.
             useNativeChrome: false,
             ctaTint: accent,
+            // Continue always reads as a neutral white Liquid Glass pill —
+            // only the progress bar fill (still `ctaTint` above) recolors
+            // with the bettor-type/archetype accent.
+            ctaButtonColor: .white,
             background: { Color.clear },   // the root pixelwave shows through
             content: { pager },
             onContinue: { spec.onContinue(store) },
@@ -125,12 +129,12 @@ struct OnboardingCarouselContainer: View {
     private func pageContent(for slot: Int) -> some View {
         switch OnboardingStep(rawValue: slot + 1) {
         case .terms:             OnboardingTermsPage()
-        case .sportsSelection:   OnboardingSportsPage()
-        case .sportsShowcase:    OnboardingSportsShowcasePage()
         case .bettorType:        OnboardingBettorTypePage()
+        case .bettingPitfalls:   OnboardingBettingPitfallsPage()
         case .personalizedValue: OnboardingPersonalizedValuePage()
         case .acquisitionSource: OnboardingAcquisitionPage()
         case .primaryGoal:       OnboardingPrimaryGoalPage()
+        case .agentHQ:           OnboardingAgentHQPage()
         case .agentValueIntro:   OnboardingAgentPitchIntroPage()
         case .agentValueProof:   OnboardingAgentPitchProofPage()
         case .attPriming:        OnboardingATTPage()
@@ -148,9 +152,9 @@ struct OnboardingCarouselContainer: View {
 
     // MARK: - Draft seeding & projection
 
-    /// Pre-fill the wizard store from the survey's favorite sports so the
-    /// builder opens with the user's picks already selected. Runs once,
-    /// right before the builder pages pre-mount.
+    /// Pre-fill the wizard store's sprite (and a default sport) so the
+    /// builder never opens to a blank state. Runs once, right before the
+    /// builder pages pre-mount.
     private func seedBuilderIfNeeded() {
         guard !didSeedBuilder, store.currentStep >= .agentValueIntro else { return }
         didSeedBuilder = true
@@ -163,17 +167,11 @@ struct OnboardingCarouselContainer: View {
         }
 
         guard creationStore.draft.preferredSports.isEmpty else { return }
-        let map: [String: AgentSport] = [
-            "NFL": .nfl,
-            "College Football": .cfb,
-            "NBA": .nba,
-            "NCAAB": .ncaab,
-            "MLB": .mlb
-        ]
-        let mapped = store.survey.favoriteSports.compactMap { map[$0] }
-        // Fallback to NFL so the builder isn't stuck at an empty state when
-        // nothing mappable was picked (e.g. Soccer/Other only).
-        creationStore.draft.preferredSports = mapped.isEmpty ? [.nfl] : mapped
+        // No survey signal to seed from anymore (the redundant "which
+        // sports do you follow" question was removed — `.builderSports` is
+        // the one place preferred sports get chosen). Default to NFL so
+        // that page doesn't open to an empty, CTA-disabled state.
+        creationStore.draft.preferredSports = [.nfl]
         projectDraftToStore()
     }
 
