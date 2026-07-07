@@ -7,8 +7,11 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, TrendingUp, TrendingDown, CalendarClock } from 'lucide-react';
+import { ChevronDown, TrendingUp, TrendingDown, CalendarClock, Loader2, Bookmark, Trash2 } from 'lucide-react';
+import { Input } from "@/components/ui/input";
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ── Bet-type spine — the FIRST choice; everything downstream speaks this one market ──
 const BET_GROUPS = [
@@ -189,6 +192,36 @@ export default function NFLAnalytics() {
   const [coaches, setCoaches] = useState<string[]>([]);
   const [refs, setRefs] = useState<string[]>([]);
 
+  // saved filters (per authed user, main project)
+  const { user } = useAuth();
+  const [saved, setSaved] = useState<any[]>([]);
+  const [saveName, setSaveName] = useState('');
+  const [showSave, setShowSave] = useState(false);
+
+  const snapshot = () => ({ betType, seasons, weeks, side, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee });
+  const restore = (s: any) => {
+    setBetType(s.betType); setSeasons(s.seasons); setWeeks(s.weeks); setSide(s.side); setFavDog(s.favDog);
+    setSpreadSide(s.spreadSide); setPrimetime(s.primetime ?? null); setDivision(s.division ?? null);
+    setDome(s.dome); setTempRange(s.tempRange); setWindMax(s.windMax); setPrecip(s.precip);
+    setRestBye(s.restBye); setCoach(s.coach); setReferee(s.referee);
+    // spreadSize/lineRange are reset by the bet-type effect — re-apply after it runs
+    setTimeout(() => { setSpreadSize(s.spreadSize); setLineRange(s.lineRange); }, 0);
+  };
+  const loadSaved = useCallback(async () => {
+    if (!user) { setSaved([]); return; }
+    const { data } = await supabase.from('nfl_analysis_saved_filters').select('*').order('created_at', { ascending: false });
+    setSaved(data || []);
+  }, [user]);
+  useEffect(() => { loadSaved(); }, [loadSaved]);
+  const saveCurrent = async () => {
+    if (!user || !saveName.trim()) return;
+    const { error } = await supabase.from('nfl_analysis_saved_filters')
+      .insert({ user_id: user.id, name: saveName.trim(), bet_type: betType, filters: snapshot() });
+    if (error) { alert(error.message); return; }
+    setSaveName(''); setShowSave(false); loadSaved();
+  };
+  const deleteSaved = async (id: string) => { await supabase.from('nfl_analysis_saved_filters').delete().eq('id', id); loadSaved(); };
+
   // 1H/TT markets only have 2023+; clamp the season floor so users can't pick empty ranges
   const seasonFloor = LIMITED_MARKETS.has(betType) ? 2023 : 2018;
   // when the bet type changes, reset the line controls to that market's range (avoids stale bounds)
@@ -310,25 +343,61 @@ export default function NFLAnalytics() {
       </div>
 
       {/* presets */}
-      <div className="flex flex-wrap gap-2 mb-5">
+      <div className="flex flex-wrap gap-2 mb-3">
         {PRESETS.map(p => (
           <Badge key={p.label} variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => applyPreset(p)}>{p.label}</Badge>
         ))}
       </div>
 
+      {/* saved filters */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        {!user ? (
+          <span className="text-xs text-muted-foreground">Sign in to save filters you want to track this season.</span>
+        ) : (
+          <>
+            {saved.length > 0 && (
+              <Select onValueChange={(id) => { const s = saved.find(x => x.id === id); if (s) restore(s.filters); }}>
+                <SelectTrigger className="h-8 w-56 text-xs"><Bookmark className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder={`Saved filters (${saved.length})`} /></SelectTrigger>
+                <SelectContent>
+                  {saved.map(s => (
+                    <div key={s.id} className="flex items-center">
+                      <SelectItem value={s.id} className="flex-1">{s.name}</SelectItem>
+                      <button className="px-2 text-muted-foreground hover:text-red-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteSaved(s.id); }}><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {showSave ? (
+              <div className="flex items-center gap-1">
+                <Input autoFocus value={saveName} onChange={e => setSaveName(e.target.value)} placeholder="Name this filter" className="h-8 w-48 text-xs"
+                  onKeyDown={e => e.key === 'Enter' && saveCurrent()} />
+                <Button size="sm" className="h-8" onClick={saveCurrent} disabled={!saveName.trim() || saved.length >= 25}>Save</Button>
+                <Button size="sm" variant="ghost" className="h-8" onClick={() => { setShowSave(false); setSaveName(''); }}>Cancel</Button>
+              </div>
+            ) : (
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowSave(true)} disabled={saved.length >= 25}>
+                <Bookmark className="w-3.5 h-3.5 mr-1" /> Save current {saved.length >= 25 && '(25 max)'}
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* ── RESULTS ── */}
-        <div className="xl:col-span-2 space-y-4">
+        {/* ── RESULTS (kept mounted across refetches so the page height never collapses) ── */}
+        <div className={`xl:col-span-2 space-y-4 transition-opacity ${loading && data ? 'opacity-50' : ''}`}>
           {/* coverage readout */}
           <div className="flex items-center gap-2 text-xs">
             <Badge variant="secondary">
-              {loading ? 'Loading…' : cov ? `Based on ${cov.n_games} games, ${cov.season_min}–${cov.season_max}` : 'No games match'}
+              {cov ? `Based on ${cov.n_games} games, ${cov.season_min}–${cov.season_max}` : loading ? 'Loading…' : 'No games match'}
             </Badge>
             {limited && <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/40">Limited history (2023+)</Badge>}
+            {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
           </div>
 
           {/* headline insight */}
-          {!loading && headline && cov && (
+          {headline && cov && (
             <Card className="border-l-4 border-l-primary">
               <CardContent className="py-4">
                 <div className="flex items-start gap-3">
@@ -349,13 +418,13 @@ export default function NFLAnalytics() {
 
           {/* result bars */}
           <Card><CardContent className="py-4 space-y-4">
-            {loading ? <Skeleton className="h-9 w-full" /> :
-              shownBars.length ? shownBars.map((bar, i) => <ResultBar key={i} betType={betType} bar={bar} baseline={data!.baseline_pct} />)
+            {!data ? <Skeleton className="h-9 w-full" /> :
+              shownBars.length ? shownBars.map((bar, i) => <ResultBar key={i} betType={betType} bar={bar} baseline={data.baseline_pct} />)
               : <p className="text-sm text-muted-foreground text-center py-4">{cov?.n_games ? 'Not enough games to show a reliable split — try widening the filters.' : 'No games match these filters.'}</p>}
           </CardContent></Card>
 
           {/* breakdowns */}
-          {!loading && data && (
+          {data && (
             <Card><CardContent className="py-4">
               <Tabs defaultValue="team">
                 <TabsList className="grid w-full grid-cols-3">
@@ -371,7 +440,7 @@ export default function NFLAnalytics() {
           )}
 
           {/* upcoming match */}
-          {!loading && upcoming.length > 0 && (
+          {data && upcoming.length > 0 && (
             <Card className="border-primary/30">
               <CardContent className="py-4">
                 <div className="flex items-center gap-2 mb-3 font-semibold text-sm"><CalendarClock className="w-4 h-4 text-primary" /> This week's games that match ({upcoming.length})</div>
