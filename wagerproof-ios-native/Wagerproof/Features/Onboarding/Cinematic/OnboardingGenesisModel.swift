@@ -33,9 +33,19 @@ import UIKit
 final class OnboardingGenesisModel {
     // MARK: Theater state (read by OnboardingGenerationCinematic)
 
+    /// One console line + a unique, stable identity. Identity is a monotonic
+    /// sequence — NOT the text — so the view animates the stack as one
+    /// cascading group even when the script cycles and a line repeats.
+    struct StatusLine: Identifiable, Equatable {
+        let id: Int
+        let text: String
+    }
+
     /// Newest-first console lines, capped at 4 (matches the pick-generation
     /// card's cadence).
-    private(set) var statusLines: [String] = []
+    private(set) var statusLines: [StatusLine] = []
+    /// Monotonic id source for `statusLines` (see `StatusLine`).
+    private var lineSeq = 0
     /// 0…1 for `GenerationLoadingBar` — scripted, not real progress.
     private(set) var progressFraction: Double = 0
     /// Deals one skeleton ticket into `ToolActivityStack` per increment.
@@ -194,10 +204,14 @@ final class OnboardingGenesisModel {
     }
 
     private func pushLine(_ line: String) {
-        withAnimation(.easeInOut(duration: 0.28)) {
-            var next = [line] + statusLines
-            if next.count > 4 { next = Array(next.prefix(4)) }
-            statusLines = next
+        lineSeq += 1
+        let entry = StatusLine(id: lineSeq, text: line)
+        // One smooth spring (no overshoot) carries the whole update: the new
+        // line drops in at top, the survivors slide down + dim, and the oldest
+        // slides out the bottom — all on the same curve, so the list reads as
+        // a single cascading motion rather than four independent flips.
+        withAnimation(.appCarousel) {
+            statusLines = Array(([entry] + statusLines).prefix(4))
         }
     }
 

@@ -37,10 +37,14 @@ struct OnboardingGenerationCinematic: View {
             // Console lines — newest on top, older fade (same recipe as the
             // v1 generation screen and the in-app card).
             VStack(spacing: 8) {
-                // id by offset (row slot), not content — the script cycles
-                // on slow networks and repeated lines would collide as IDs.
-                ForEach(Array((model?.statusLines ?? []).enumerated()), id: \.offset) { i, line in
-                    Text(line)
+                // Keyed by the line's stable id (a sequence, not the text —
+                // the script cycles and lines repeat). Stable identity is what
+                // lets the stack cascade as one: survivors physically slide
+                // down a slot and dim (opacity is index-driven, animated by the
+                // model's spring), the newest drops in from the top, and the
+                // oldest slides out the bottom.
+                ForEach(Array((model?.statusLines ?? []).enumerated()), id: \.element.id) { i, line in
+                    Text(line.text)
                         .font(.system(size: 15, weight: .bold, design: .monospaced))
                         .foregroundStyle(.white)
                         .opacity(opacityFor(rowIndex: i))
@@ -48,7 +52,7 @@ struct OnboardingGenerationCinematic: View {
                         .minimumScaleFactor(0.8)
                         .transition(.asymmetric(
                             insertion: .move(edge: .top).combined(with: .opacity),
-                            removal: .opacity
+                            removal: .move(edge: .bottom).combined(with: .opacity)
                         ))
                 }
             }

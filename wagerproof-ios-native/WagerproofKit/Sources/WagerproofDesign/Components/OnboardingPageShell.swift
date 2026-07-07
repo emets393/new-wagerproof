@@ -87,6 +87,14 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
     /// stays a neutral white Liquid Glass pill regardless of bettor-type
     /// accent.
     public let ctaButtonColor: Color?
+    /// CTA label/glyph color. Defaults to white (the accent-tinted wizard
+    /// pill). The onboarding carousel passes `.black` so its bright white
+    /// pill reads with high contrast.
+    public let ctaButtonForeground: Color
+    /// CTA Liquid Glass tint opacity. Defaults to the translucent `0.65`
+    /// the accent wizard pill uses; the onboarding white pill raises it so
+    /// the surface reads bright and near-solid behind the dark label.
+    public let ctaButtonSurfaceOpacity: Double
     /// Background — each screen passes its own gradient so the radial blob
     /// math doesn't get standardized away. Shell layers chrome over it.
     @ViewBuilder public let background: () -> Background
@@ -118,6 +126,8 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
         useNativeChrome: Bool = true,
         ctaTint: Color = .appPrimary,
         ctaButtonColor: Color? = nil,
+        ctaButtonForeground: Color = .white,
+        ctaButtonSurfaceOpacity: Double = 0.65,
         @ViewBuilder background: @escaping () -> Background,
         @ViewBuilder content: @escaping () -> Content,
         onContinue: @escaping () -> Void,
@@ -134,6 +144,8 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
         self.useNativeChrome = useNativeChrome
         self.ctaTint = ctaTint
         self.ctaButtonColor = ctaButtonColor
+        self.ctaButtonForeground = ctaButtonForeground
+        self.ctaButtonSurfaceOpacity = ctaButtonSurfaceOpacity
         self.background = background
         self.content = content
         self.onContinue = onContinue
@@ -346,7 +358,9 @@ public struct OnboardingPageShell<Content: View, Background: View>: View {
             trailingGlyph: continueGlyph,
             isEnabled: isCTAEnabled,
             isLoading: isCTALoading,
-            tint: ctaButtonColor ?? ctaTint
+            tint: ctaButtonColor ?? ctaTint,
+            foreground: ctaButtonForeground,
+            surfaceOpacity: ctaButtonSurfaceOpacity
         ) {
             onContinue()
         }

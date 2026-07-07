@@ -6,61 +6,82 @@
 // and adjusting the dials is what makes the generation cinematic feel like
 // watching YOUR analyst boot up, not a template.
 //
-// Controls are the SAME inputs the standalone wizard uses (SliderInput /
-// ToggleInput / OddsInput bound to the shared AgentCreationStore draft), so
-// everything set here is exactly what `create_agent` receives.
+// Styled like the app's Settings page: flat rows, hairline dividers, no
+// glass card containers. Each page is a one-line explainer that replaces the
+// old subtitle, then straight into the knobs. The knobs themselves are the
+// SAME shared inputs the standalone wizard uses (SliderInput / ToggleInput /
+// OddsInput bound to the shared AgentCreationStore draft), so everything set
+// here is exactly what `create_agent` receives — only the framing is flatter.
 
 import SwiftUI
 import WagerproofDesign
 import WagerproofModels
 import WagerproofStores
 
-// MARK: - Shared framing
+// MARK: - Shared framing (settings-page aesthetic)
 
-/// "How this shapes your agent" callout at the top of each section page.
+/// One-line explainer at the top of each section page — a small accent glyph +
+/// terse sentence, NO container. Replaces the page subtitle and leads straight
+/// into the knobs.
 private struct PersonalityExplainer: View {
     let icon: String
     let text: String
     var accent: Color = .appPrimary
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(accent)
-                .frame(width: 36, height: 36)
-                .liquidGlassBackground(
-                    in: RoundedRectangle(cornerRadius: 10, style: .continuous),
-                    tint: accent.opacity(0.18)
-                )
             Text(text)
-                .font(.system(size: 13))
-                .foregroundStyle(Color.white.opacity(0.75))
-                .lineSpacing(3)
+                .font(.system(size: 14))
+                .foregroundStyle(Color.white.opacity(0.6))
+                .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .liquidGlassBackground(
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous),
-            tint: Color.white.opacity(0.04)
-        )
     }
 }
 
-/// Glass card that groups a page's controls.
-private struct PersonalityCard<Content: View>: View {
-    @ViewBuilder let content: () -> Content
+/// Flat knob list in the settings-page style: each control is a plain row with
+/// a hairline divider between — no card, no glass, no box. Rows are type-erased
+/// so a page can assemble a mixed/conditional set inline.
+private struct KnobList: View {
+    let rows: [AnyView]
+
+    init(_ rows: [AnyView]) { self.rows = rows }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            content()
+        VStack(spacing: 0) {
+            ForEach(rows.indices, id: \.self) { i in
+                rows[i]
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 14)
+                if i < rows.count - 1 { KnobDivider() }
+            }
         }
-        .padding(16)
-        .liquidGlassBackground(
-            in: RoundedRectangle(cornerRadius: 20, style: .continuous),
-            tint: Color.white.opacity(0.05)
-        )
+    }
+}
+
+/// Hairline row separator tuned for the dark pixelwave backdrop.
+private struct KnobDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.08))
+            .frame(height: 0.5)
+    }
+}
+
+/// Muted, airy section header (settings-page style).
+private struct KnobSectionHeader: View {
+    let title: String
+    var body: some View {
+        Text(title)
+            .font(.system(size: 13, weight: .semibold))
+            .tracking(0.4)
+            .foregroundStyle(Color.white.opacity(0.4))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 18)
     }
 }
 
@@ -73,11 +94,11 @@ private struct PresetNote: View {
             HStack(spacing: 6) {
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 11, weight: .bold))
-                Text("Pre-tuned by \(archetype.displayName) — adjust anything")
+                Text("Pre-tuned by \(archetype.displayName)")
                     .font(.system(size: 12, weight: .semibold))
             }
             .foregroundStyle(Color.appPrimary)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -93,46 +114,29 @@ struct OnboardingBuilderMindsetPage: View {
     private let confidenceLabels = ["Any Edge", "Low Bar", "Moderate", "High Bar", "Very Picky"]
 
     var body: some View {
-        OnboardingPageScaffold(
-            title: "Set its instincts",
-            subtitle: "Four dials that define your agent's temperament."
-        ) {
-            VStack(spacing: 12) {
+        OnboardingPageScaffold(title: "Set its instincts") {
+            VStack(alignment: .leading, spacing: 0) {
                 PersonalityExplainer(
                     icon: "brain.head.profile",
-                    text: "These write your agent's temperament into every research brief. A High-Risk, Dogs-Only agent hunts a completely different board than a chalk grinder — same games, different picks."
+                    text: "Its temperament — a high-risk dog hunter reads a whole different board than a chalk grinder."
                 )
                 .pageEntrance(index: 2)
 
                 PresetNote(archetype: creation.draft.archetype)
+                    .padding(.top, 10)
                     .pageEntrance(index: 3)
 
-                PersonalityCard {
-                    SliderInput(
-                        value: $creation.draft.personalityParams.riskTolerance,
-                        label: "Risk Tolerance",
-                        description: "How much risk is your agent willing to take?",
-                        labels: riskLabels
-                    )
-                    SliderInput(
-                        value: $creation.draft.personalityParams.underdogLean,
-                        label: "Underdog Lean",
-                        description: "Does your agent prefer favorites or underdogs?",
-                        labels: underdogLabels
-                    )
-                    SliderInput(
-                        value: $creation.draft.personalityParams.overUnderLean,
-                        label: "Over/Under Lean",
-                        description: "Does your agent lean overs or unders on totals?",
-                        labels: overUnderLabels
-                    )
-                    SliderInput(
-                        value: $creation.draft.personalityParams.confidenceThreshold,
-                        label: "Confidence Threshold",
-                        description: "How confident must it be before firing a pick?",
-                        labels: confidenceLabels
-                    )
-                }
+                KnobList([
+                    AnyView(SliderInput(value: $creation.draft.personalityParams.riskTolerance,
+                                        label: "Risk Tolerance", labels: riskLabels)),
+                    AnyView(SliderInput(value: $creation.draft.personalityParams.underdogLean,
+                                        label: "Underdog Lean", labels: underdogLabels)),
+                    AnyView(SliderInput(value: $creation.draft.personalityParams.overUnderLean,
+                                        label: "Over/Under Lean", labels: overUnderLabels)),
+                    AnyView(SliderInput(value: $creation.draft.personalityParams.confidenceThreshold,
+                                        label: "Confidence Threshold", labels: confidenceLabels)),
+                ])
+                .padding(.top, 8)
                 .pageEntrance(index: 4)
             }
             .padding(.horizontal, 24)
@@ -185,101 +189,89 @@ struct OnboardingBuilderBetStylePage: View {
     }
 
     var body: some View {
-        OnboardingPageScaffold(
-            title: "Choose its playbook",
-            subtitle: "What it bets, how often it fires, and when it sits out."
-        ) {
-            VStack(spacing: 12) {
+        OnboardingPageScaffold(title: "Choose its playbook") {
+            VStack(alignment: .leading, spacing: 0) {
                 PersonalityExplainer(
                     icon: "list.clipboard",
-                    text: "This decides what actually lands on your ticket rail: the markets it plays, how many picks per day, and whether it builds parlays or sticks to straights."
+                    text: "What lands on your rail — the markets it plays, how often it fires, straights or parlays."
                 )
                 .pageEntrance(index: 2)
 
-                PersonalityCard {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Preferred Bet Type")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Color.appTextPrimary)
-                        Text("Which market should your agent focus on?")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.appTextSecondary)
-                        Picker("Bet Type", selection: $creation.draft.personalityParams.preferredBetType) {
-                            ForEach(betTypes, id: \.value) { entry in
-                                Text(entry.label).tag(entry.value)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-
-                    SliderInput(
-                        value: $creation.draft.personalityParams.maxPicksPerDay,
-                        label: "Max Picks Per Day",
-                        description: "Its daily ceiling — quality over volume",
-                        labels: maxPicksLabels
-                    )
-                    ToggleInput(
-                        value: $creation.draft.personalityParams.skipWeakSlates,
-                        label: "Skip Weak Slates",
-                        description: "Pass entirely on days with few games or thin edges"
-                    )
-                    ToggleInput(
-                        value: $creation.draft.personalityParams.chaseValue,
-                        label: "Chase Value",
-                        description: "Hunt bets where the odds beat our model's probability (positive EV)"
-                    )
-                    SliderInput(
-                        value: $creation.draft.personalityParams.parlayAppetite,
-                        label: "Parlay Appetite",
-                        description: "Can it combine its best plays into multi-leg tickets?",
-                        labels: parlayLabels
-                    )
-                    ToggleInput(
-                        value: $creation.draft.personalityParams.parlaysOnly,
-                        label: "Parlays Only",
-                        description: "Every play becomes a parlay leg — no straight picks"
-                    )
-
-                    // Markets allowlist (+ NFL player-props emphasis). See plan D2.
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Markets")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Color.appTextPrimary)
-                        Text("Which bet markets it may stake — also used as parlay legs.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.appTextSecondary)
-                        ForEach(marketOptions.filter { $0.value != "prop" || hasNFL }, id: \.value) { market in
-                            Button {
-                                toggleMarket(market.value)
-                            } label: {
-                                HStack {
-                                    Text(market.label).foregroundStyle(Color.appTextPrimary)
-                                    Spacer()
-                                    Image(systemName: effectiveMarkets.contains(market.value) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(effectiveMarkets.contains(market.value) ? Color(hex: 0x00E676) : Color.appTextSecondary)
-                                }
-                            }
-                            .padding(.vertical, 2)
-                        }
-                        if hasNFL && effectiveMarkets.contains("prop") {
-                            Text("Player Props Emphasis")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Color.appTextPrimary)
-                                .padding(.top, 4)
-                            Picker("Props Emphasis", selection: propsEmphasisBind) {
-                                ForEach(propsEmphasisOptions, id: \.value) { entry in
-                                    Text(entry.label).tag(entry.value)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                        }
-                    }
-                }
-                .pageEntrance(index: 3)
+                KnobList(betStyleRows)
+                    .padding(.top, 8)
+                    .pageEntrance(index: 3)
             }
             .padding(.horizontal, 24)
             .padding(.top, 4)
         }
+    }
+
+    private var betStyleRows: [AnyView] {
+        [
+            AnyView(
+                VStack(alignment: .leading, spacing: 10) {
+                    rowTitle("Preferred Bet Type")
+                    Picker("Bet Type", selection: $creation.draft.personalityParams.preferredBetType) {
+                        ForEach(betTypes, id: \.value) { entry in
+                            Text(entry.label).tag(entry.value)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+            ),
+            AnyView(SliderInput(value: $creation.draft.personalityParams.maxPicksPerDay,
+                                label: "Max Picks Per Day", labels: maxPicksLabels)),
+            AnyView(ToggleInput(value: $creation.draft.personalityParams.skipWeakSlates,
+                                label: "Skip Weak Slates")),
+            AnyView(ToggleInput(value: $creation.draft.personalityParams.chaseValue,
+                                label: "Chase Value", description: "Take positive-EV prices")),
+            AnyView(SliderInput(value: $creation.draft.personalityParams.parlayAppetite,
+                                label: "Parlay Appetite", labels: parlayLabels)),
+            AnyView(ToggleInput(value: $creation.draft.personalityParams.parlaysOnly,
+                                label: "Parlays Only")),
+            AnyView(marketsRow),
+        ]
+    }
+
+    private var marketsRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            rowTitle("Markets")
+            ForEach(marketOptions.filter { $0.value != "prop" || hasNFL }, id: \.value) { market in
+                Button {
+                    toggleMarket(market.value)
+                } label: {
+                    HStack {
+                        Text(market.label)
+                            .font(.system(size: 15))
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Image(systemName: effectiveMarkets.contains(market.value) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(effectiveMarkets.contains(market.value) ? Color(hex: 0x00E676) : Color.white.opacity(0.35))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 5)
+            }
+            if hasNFL && effectiveMarkets.contains("prop") {
+                Text("Player Props Emphasis")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.top, 4)
+                Picker("Props Emphasis", selection: propsEmphasisBind) {
+                    ForEach(propsEmphasisOptions, id: \.value) { entry in
+                        Text(entry.label).tag(entry.value)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+        }
+    }
+
+    private func rowTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(.white)
     }
 }
 
@@ -291,56 +283,36 @@ struct OnboardingBuilderDataTrustPage: View {
     private let trustLabels = ["Ignore", "Low Trust", "Moderate", "High Trust", "Full Trust"]
 
     var body: some View {
-        OnboardingPageScaffold(
-            title: "Pick its data diet",
-            subtitle: "Who your agent listens to when the signals disagree."
-        ) {
-            VStack(spacing: 12) {
+        OnboardingPageScaffold(title: "Pick its data diet") {
+            VStack(alignment: .leading, spacing: 0) {
                 PersonalityExplainer(
                     icon: "cylinder.split.1x2",
-                    text: "Your agent weighs our model, Polymarket's prediction markets, and the Vegas price against each other on every game. These dials set whose voice wins the argument."
+                    text: "Whose voice wins when our model, Polymarket, and the Vegas price disagree."
                 )
                 .pageEntrance(index: 2)
 
-                PersonalityCard {
-                    SliderInput(
-                        value: $creation.draft.personalityParams.trustModel,
-                        label: "Trust WagerProof Model",
-                        description: "Weight given to our predictive model's probabilities",
-                        labels: trustLabels
-                    )
-                    SliderInput(
-                        value: $creation.draft.personalityParams.trustPolymarket,
-                        label: "Trust Polymarket",
-                        description: "Weight given to prediction-market odds",
-                        labels: trustLabels
-                    )
-                    ToggleInput(
-                        value: $creation.draft.personalityParams.polymarketDivergenceFlag,
-                        label: "Polymarket Divergence Flag",
-                        description: "Flag games where Polymarket splits hard from the Vegas line"
-                    )
-                }
+                KnobList([
+                    AnyView(SliderInput(value: $creation.draft.personalityParams.trustModel,
+                                        label: "Trust WagerProof Model", labels: trustLabels)),
+                    AnyView(SliderInput(value: $creation.draft.personalityParams.trustPolymarket,
+                                        label: "Trust Polymarket", labels: trustLabels)),
+                    AnyView(ToggleInput(value: $creation.draft.personalityParams.polymarketDivergenceFlag,
+                                        label: "Polymarket Divergence Flag",
+                                        description: "Flag hard Vegas/Polymarket splits")),
+                ])
+                .padding(.top, 8)
                 .pageEntrance(index: 3)
 
-                PersonalityCard {
-                    Text("Price limits")
-                        .font(.system(size: 13, weight: .heavy))
-                        .tracking(0.6)
-                        .textCase(.uppercase)
-                        .foregroundStyle(Color.white.opacity(0.5))
-                    OddsInput(
-                        value: $creation.draft.personalityParams.maxFavoriteOdds,
-                        label: "Max Favorite Odds",
-                        type: .favorite
-                    )
-                    OddsInput(
-                        value: $creation.draft.personalityParams.minUnderdogOdds,
-                        label: "Min Underdog Odds",
-                        type: .underdog
-                    )
-                }
-                .pageEntrance(index: 4)
+                KnobSectionHeader(title: "Price limits")
+                    .pageEntrance(index: 4)
+
+                KnobList([
+                    AnyView(OddsInput(value: $creation.draft.personalityParams.maxFavoriteOdds,
+                                      label: "Max Favorite Odds", type: .favorite)),
+                    AnyView(OddsInput(value: $creation.draft.personalityParams.minUnderdogOdds,
+                                      label: "Min Underdog Odds", type: .underdog)),
+                ])
+                .pageEntrance(index: 5)
             }
             .padding(.horizontal, 24)
             .padding(.top, 4)
@@ -366,140 +338,96 @@ struct OnboardingBuilderSportRulesPage: View {
     private var hasNCAAB: Bool { sports.contains(.ncaab) }
 
     var body: some View {
-        OnboardingPageScaffold(
-            title: "Teach it your sports",
-            subtitle: "Edges that only exist in the sports you picked."
-        ) {
-            VStack(spacing: 12) {
+        OnboardingPageScaffold(title: "Teach it your sports") {
+            VStack(alignment: .leading, spacing: 0) {
                 PersonalityExplainer(
                     icon: "figure.run",
-                    text: "These rules apply only where they're real signals — weather only moves football totals, back-to-backs only matter in hoops. Your agent cites them in its reasoning when they fire."
+                    text: "Edges that only fire where they're real — weather in football, back-to-backs in hoops."
                 )
                 .pageEntrance(index: 2)
 
                 if hasFootball {
-                    sectionLabel("FOOTBALL")
+                    KnobSectionHeader(title: "Football")
                         .pageEntrance(index: 3)
-                    PersonalityCard {
-                        ToggleInput(
-                            value: boolBinding(\.fadePublic),
-                            label: "Fade the Public",
-                            description: "Bet against heavy public action on one side"
-                        )
-                        if creation.draft.personalityParams.fadePublic == true {
-                            SliderInput(
-                                value: intBinding(\.publicThreshold, defaultValue: 3),
-                                label: "Public Threshold",
-                                description: "How lopsided the public money must be to trigger a fade",
-                                labels: publicThresholdLabels
-                            )
-                        }
-                        ToggleInput(
-                            value: boolBinding(\.weatherImpactsTotals),
-                            label: "Weather Impacts Totals",
-                            description: "Wind, rain, and snow adjust its totals math"
-                        )
-                        if creation.draft.personalityParams.weatherImpactsTotals == true {
-                            SliderInput(
-                                value: intBinding(\.weatherSensitivity, defaultValue: 3),
-                                label: "Weather Sensitivity",
-                                description: "How aggressively weather moves its numbers",
-                                labels: sensitivityLabels
-                            )
-                        }
-                    }
-                    .pageEntrance(index: 4)
+                    KnobList(footballRows)
+                        .pageEntrance(index: 4)
                 }
 
                 if hasBasketball {
-                    sectionLabel("BASKETBALL")
+                    KnobSectionHeader(title: "Basketball")
                         .pageEntrance(index: 5)
-                    PersonalityCard {
-                        SliderInput(
-                            value: intBinding(\.trustTeamRatings, defaultValue: 3),
-                            label: "Trust Team Ratings",
-                            description: "Weight for advanced ratings (NET, KenPom-style)",
-                            labels: trustLabels
-                        )
-                        ToggleInput(
-                            value: boolBinding(\.paceAffectsTotals),
-                            label: "Pace Affects Totals",
-                            description: "Team pace feeds its over/under decisions"
-                        )
-                        ToggleInput(
-                            value: boolBinding(\.fadeBackToBacks),
-                            label: "Fade Back-to-Backs",
-                            description: "Bet against teams on consecutive game days"
-                        )
-                    }
-                    .pageEntrance(index: 6)
+                    KnobList(basketballRows)
+                        .pageEntrance(index: 6)
                 }
 
                 if hasNBA {
-                    sectionLabel("NBA TRENDS")
+                    KnobSectionHeader(title: "NBA trends")
                         .pageEntrance(index: 7)
-                    PersonalityCard {
-                        SliderInput(
-                            value: intBinding(\.weightRecentForm, defaultValue: 3),
-                            label: "Weight Recent Form",
-                            description: "Last 10 games vs season averages",
-                            labels: recentFormLabels
-                        )
-                        ToggleInput(
-                            value: boolBinding(\.rideHotStreaks),
-                            label: "Ride Hot Streaks",
-                            description: "Back teams that keep winning"
-                        )
-                        ToggleInput(
-                            value: boolBinding(\.fadeColdStreaks),
-                            label: "Fade Cold Streaks",
-                            description: "Bet against teams in freefall"
-                        )
-                        ToggleInput(
-                            value: boolBinding(\.trustAtsTrends),
-                            label: "Trust ATS Trends",
-                            description: "Factor in against-the-spread form"
-                        )
-                        ToggleInput(
-                            value: boolBinding(\.regressLuck),
-                            label: "Regress Luck",
-                            description: "Expect hot/cold runs to snap back to the mean"
-                        )
-                    }
-                    .pageEntrance(index: 8)
+                    KnobList(nbaRows)
+                        .pageEntrance(index: 8)
                 }
 
-                sectionLabel("SITUATIONAL")
+                KnobSectionHeader(title: "Situational")
                     .pageEntrance(index: 9)
-                PersonalityCard {
-                    SliderInput(
-                        value: $creation.draft.personalityParams.homeCourtBoost,
-                        label: "Home Court/Field Boost",
-                        description: "Extra weight for the home team",
-                        labels: homeBoostLabels
-                    )
-                    if hasNCAAB {
-                        ToggleInput(
-                            value: boolBinding(\.upsetAlert),
-                            label: "Upset Alert",
-                            description: "Flag potential tournament upsets from historical trends"
-                        )
-                    }
-                }
-                .pageEntrance(index: 10)
+                KnobList(situationalRows)
+                    .pageEntrance(index: 10)
             }
             .padding(.horizontal, 24)
             .padding(.top, 4)
         }
     }
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 11, weight: .heavy))
-            .tracking(1.0)
-            .foregroundStyle(Color.white.opacity(0.4))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 4)
+    private var footballRows: [AnyView] {
+        var rows: [AnyView] = [
+            AnyView(ToggleInput(value: boolBinding(\.fadePublic),
+                                label: "Fade the Public", description: "Bet against the crowd")),
+        ]
+        if creation.draft.personalityParams.fadePublic == true {
+            rows.append(AnyView(SliderInput(value: intBinding(\.publicThreshold, defaultValue: 3),
+                                            label: "Public Threshold", labels: publicThresholdLabels)))
+        }
+        rows.append(AnyView(ToggleInput(value: boolBinding(\.weatherImpactsTotals),
+                                        label: "Weather Impacts Totals")))
+        if creation.draft.personalityParams.weatherImpactsTotals == true {
+            rows.append(AnyView(SliderInput(value: intBinding(\.weatherSensitivity, defaultValue: 3),
+                                            label: "Weather Sensitivity", labels: sensitivityLabels)))
+        }
+        return rows
+    }
+
+    private var basketballRows: [AnyView] {
+        [
+            AnyView(SliderInput(value: intBinding(\.trustTeamRatings, defaultValue: 3),
+                                label: "Trust Team Ratings", labels: trustLabels)),
+            AnyView(ToggleInput(value: boolBinding(\.paceAffectsTotals),
+                                label: "Pace Affects Totals")),
+            AnyView(ToggleInput(value: boolBinding(\.fadeBackToBacks),
+                                label: "Fade Back-to-Backs", description: "Bet against tired teams")),
+        ]
+    }
+
+    private var nbaRows: [AnyView] {
+        [
+            AnyView(SliderInput(value: intBinding(\.weightRecentForm, defaultValue: 3),
+                                label: "Weight Recent Form", labels: recentFormLabels)),
+            AnyView(ToggleInput(value: boolBinding(\.rideHotStreaks), label: "Ride Hot Streaks")),
+            AnyView(ToggleInput(value: boolBinding(\.fadeColdStreaks), label: "Fade Cold Streaks")),
+            AnyView(ToggleInput(value: boolBinding(\.trustAtsTrends), label: "Trust ATS Trends")),
+            AnyView(ToggleInput(value: boolBinding(\.regressLuck),
+                                label: "Regress Luck", description: "Expect runs to snap back")),
+        ]
+    }
+
+    private var situationalRows: [AnyView] {
+        var rows: [AnyView] = [
+            AnyView(SliderInput(value: $creation.draft.personalityParams.homeCourtBoost,
+                                label: "Home Court/Field Boost", labels: homeBoostLabels)),
+        ]
+        if hasNCAAB {
+            rows.append(AnyView(ToggleInput(value: boolBinding(\.upsetAlert),
+                                            label: "Upset Alert", description: "Flag tournament upsets")))
+        }
+        return rows
     }
 
     // Bridge optional params to the non-optional bindings the shared inputs
@@ -529,7 +457,6 @@ struct OnboardingBuilderInsightsPage: View {
     private struct FieldConfig {
         let title: String
         let icon: String
-        let description: String
         let placeholder: String
         let maxLength: Int
         let keyPath: WritableKeyPath<AgentCustomInsights, String?>
@@ -539,7 +466,6 @@ struct OnboardingBuilderInsightsPage: View {
         .init(
             title: "Betting Philosophy",
             icon: "book.fill",
-            description: "The principles behind your decisions.",
             placeholder: "e.g., Only take plays with a real edge over the market...",
             maxLength: 500,
             keyPath: \.bettingPhilosophy
@@ -547,7 +473,6 @@ struct OnboardingBuilderInsightsPage: View {
         .init(
             title: "Perceived Edges",
             icon: "chart.line.uptrend.xyaxis",
-            description: "Where do you think you beat the market?",
             placeholder: "e.g., Mispriced totals in divisional games, especially in bad weather...",
             maxLength: 500,
             keyPath: \.perceivedEdges
@@ -555,7 +480,6 @@ struct OnboardingBuilderInsightsPage: View {
         .init(
             title: "Situations to Avoid",
             icon: "xmark.octagon",
-            description: "Games it should never touch.",
             placeholder: "e.g., No primetime games, skip uncertain QB situations...",
             maxLength: 300,
             keyPath: \.avoidSituations
@@ -563,7 +487,6 @@ struct OnboardingBuilderInsightsPage: View {
         .init(
             title: "Target Situations",
             icon: "target",
-            description: "Spots it should hunt for.",
             placeholder: "e.g., Home dogs off a bye, early-season totals before lines adjust...",
             maxLength: 300,
             keyPath: \.targetSituations
@@ -571,21 +494,23 @@ struct OnboardingBuilderInsightsPage: View {
     ]
 
     var body: some View {
-        OnboardingPageScaffold(
-            title: "Tell it your rules",
-            subtitle: "Optional — but this is where it becomes YOURS."
-        ) {
-            VStack(spacing: 12) {
+        OnboardingPageScaffold(title: "Tell it your rules") {
+            VStack(alignment: .leading, spacing: 0) {
                 PersonalityExplainer(
                     icon: "text.quote",
-                    text: "Anything you write here goes verbatim into your agent's research brief — it follows these like standing orders and cites them in its reasoning."
+                    text: "Optional. Anything here goes straight into its research brief as standing orders."
                 )
                 .pageEntrance(index: 2)
 
-                ForEach(Array(fields.enumerated()), id: \.element.title) { index, field in
-                    insightCard(field)
-                        .pageEntrance(index: 3 + index)
+                VStack(spacing: 0) {
+                    ForEach(Array(fields.enumerated()), id: \.element.title) { index, field in
+                        insightRow(field)
+                            .padding(.vertical, 16)
+                        if index < fields.count - 1 { KnobDivider() }
+                    }
                 }
+                .padding(.top, 8)
+                .pageEntrance(index: 3)
             }
             .padding(.horizontal, 24)
             .padding(.top, 4)
@@ -593,7 +518,7 @@ struct OnboardingBuilderInsightsPage: View {
         .scrollDismissesKeyboard(.interactively)
     }
 
-    private func insightCard(_ field: FieldConfig) -> some View {
+    private func insightRow(_ field: FieldConfig) -> some View {
         let binding = Binding<String>(
             get: { creation.draft.customInsights[keyPath: field.keyPath] ?? "" },
             set: { newValue in
@@ -602,24 +527,20 @@ struct OnboardingBuilderInsightsPage: View {
             }
         )
 
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: field.icon)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.appPrimary)
                 Text(field.title)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
                 Spacer()
                 Text("\(binding.wrappedValue.count)/\(field.maxLength)")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.45))
+                    .foregroundStyle(Color.white.opacity(0.4))
                     .monospacedDigit()
             }
-
-            Text(field.description)
-                .font(.system(size: 13))
-                .foregroundStyle(Color.white.opacity(0.6))
 
             TextField(
                 "",
@@ -644,10 +565,5 @@ struct OnboardingBuilderInsightsPage: View {
                     )
             )
         }
-        .padding(14)
-        .liquidGlassBackground(
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous),
-            tint: Color.white.opacity(0.05)
-        )
     }
 }
