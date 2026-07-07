@@ -7,7 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, TrendingUp, TrendingDown, CalendarClock, Loader2, Bookmark, Trash2 } from 'lucide-react';
+import { ChevronDown, TrendingUp, TrendingDown, CalendarClock, Loader2, Bookmark, Trash2, X } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { supabase } from '@/integrations/supabase/client';
@@ -292,6 +292,40 @@ export default function NFLAnalytics() {
     return f;
   }, [betType, seasons, weeks, side, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
 
+  const resetAll = () => {
+    setSeasons([seasonFloor, 2025]); setWeeks([1, 22]); setSide('any'); setFavDog('any');
+    setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 20]);
+    const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 60]);
+    setPrimetime(null); setDivision(null); setDome('any'); setTempRange([-10, 100]);
+    setWindMax(60); setPrecip('any'); setRestBye('any'); setCoach('any'); setReferee('any');
+  };
+
+  // active (non-default) filters as removable chips — makes a stuck filter visible
+  const chips = useMemo(() => {
+    const c: { label: string; clear: () => void }[] = [];
+    if (seasons[0] !== seasonFloor || seasons[1] !== 2025) c.push({ label: `Seasons ${seasons[0]}–${seasons[1]}`, clear: () => setSeasons([seasonFloor, 2025]) });
+    if (weeks[0] !== 1 || weeks[1] !== 22) c.push({ label: `Weeks ${weeks[0]}–${weeks[1]}`, clear: () => setWeeks([1, 22]) });
+    if (side !== 'any') c.push({ label: side === 'home' ? 'Home' : 'Away', clear: () => setSide('any') });
+    if ((ML_MARKETS.has(betType) || betType === 'team_total') && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
+    const scfg = SPREAD_CFG[betType];
+    if (scfg) {
+      if (spreadSide !== 'any') c.push({ label: `${spreadSide === 'favorite' ? 'Favored by' : 'Getting'} ${spreadSize[0]}–${spreadSize[1]}`, clear: () => { setSpreadSide('any'); setSpreadSize([0, scfg.max]); } });
+      else if (spreadSize[0] !== 0 || spreadSize[1] !== scfg.max) c.push({ label: `Spread ${spreadSize[0]}–${spreadSize[1]}`, clear: () => setSpreadSize([0, scfg.max]) });
+    }
+    const t = TOTAL_CFG[betType];
+    if (t && (lineRange[0] !== t.min || lineRange[1] !== t.max)) c.push({ label: `${t.label} ${lineRange[0]}–${lineRange[1]}`, clear: () => setLineRange([t.min, t.max]) });
+    if (primetime !== null) c.push({ label: `Primetime: ${primetime ? 'Yes' : 'No'}`, clear: () => setPrimetime(null) });
+    if (division !== null) c.push({ label: `Divisional: ${division ? 'Yes' : 'No'}`, clear: () => setDivision(null) });
+    if (dome !== 'any') c.push({ label: dome === 'dome' ? 'Dome' : 'Outdoor', clear: () => setDome('any') });
+    if (precip !== 'any') c.push({ label: `Precip: ${precip}`, clear: () => setPrecip('any') });
+    if (tempRange[0] !== -10 || tempRange[1] !== 100) c.push({ label: `Temp ${tempRange[0]}–${tempRange[1]}°F`, clear: () => setTempRange([-10, 100]) });
+    if (windMax !== 60) c.push({ label: `Wind ≤ ${windMax}`, clear: () => setWindMax(60) });
+    if (restBye !== 'any') c.push({ label: ({ off_bye: 'Off a bye', pre_bye: 'Before a bye', short: 'Short rest' } as Record<string, string>)[restBye] || restBye, clear: () => setRestBye('any') });
+    if (coach !== 'any') c.push({ label: `Coach: ${coach}`, clear: () => setCoach('any') });
+    if (referee !== 'any') c.push({ label: `Ref: ${referee}`, clear: () => setReferee('any') });
+    return c;
+  }, [betType, seasons, weeks, side, favDog, spreadSide, spreadSize, lineRange, primetime, division, dome, precip, tempRange, windMax, restBye, coach, referee, seasonFloor]);
+
   // load coach/ref option lists once
   useEffect(() => {
     collegeFootballSupabase.rpc('nfl_analysis', { p_bet_type: 'fg_spread', p_filters: {} }).then(({ data }) => {
@@ -419,6 +453,20 @@ export default function NFLAnalytics() {
           </>
         )}
       </div>
+
+      {/* active-filter chips + reset */}
+      {chips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-4">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground mr-1">Active:</span>
+          {chips.map((chip, i) => (
+            <Badge key={i} variant="secondary" className="gap-1 pr-1 font-normal">
+              {chip.label}
+              <button onClick={chip.clear} className="rounded p-0.5 hover:bg-foreground/15" aria-label={`Clear ${chip.label}`}><X className="w-3 h-3" /></button>
+            </Badge>
+          ))}
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-muted-foreground" onClick={resetAll}>Reset all</Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* ── RESULTS (kept mounted across refetches so the page height never collapses) ── */}
