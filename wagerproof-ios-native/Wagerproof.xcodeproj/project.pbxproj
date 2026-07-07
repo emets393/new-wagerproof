@@ -812,6 +812,13 @@
 			path = Agents;
 			sourceTree = "<group>";
 		};
+		2FE74C253C168FD679AD7D5A /* Voice */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Voice;
+			sourceTree = "<group>";
+		};
 		32AA2A4812165E0FAB944580 /* Components */ = {
 			isa = PBXGroup;
 			children = (
@@ -1144,12 +1151,15 @@
 				45B5EFEE1B0BD5DF7A3858C9 /* CFB */,
 				204F8E2EF7B9C65D4205E4DF /* Chat */,
 				B928B9BF3C2DE56CBEFA5C6C /* Components */,
+				D391EBA932A6DE56479CFBB7 /* DevTools */,
 				58268AF9985ED847868680AF /* FeatureRequests */,
 				B4449ADF09A2398DE4175CD5 /* GameCards */,
 				DDC34CAD3E7827655390820F /* Games */,
 				453E09858D56C72586DBF31E /* GameWidgets */,
 				D3683F13D443560C54FC0584 /* LearnMore */,
+				BE448C6C25DA028A1E841AB4 /* Misc */,
 				5CBC1A6F5AE0448C01E6897C /* MLB */,
+				C0A6D41311989B7228029738 /* Modals */,
 				117AB9F0A6F9CC478F0B6CD4 /* Navigation */,
 				DB6EA7B71BEB4962EE836F67 /* NBA */,
 				A6FB7BCD80F268335A172D08 /* NCAAB */,
@@ -1162,6 +1172,7 @@
 				BA502F7E2DE58AB4BB8A81AC /* Scoreboard */,
 				855694FCE430C44C4D0F72B6 /* Search */,
 				F072A4BEE1182E8AAC048271 /* Settings */,
+				2FE74C253C168FD679AD7D5A /* Voice */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1361,6 +1372,13 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		BE448C6C25DA028A1E841AB4 /* Misc */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Misc;
+			sourceTree = "<group>";
+		};
 		C06FAC570ADFA8D955A07FAD /* Detail */ = {
 			isa = PBXGroup;
 			children = (
@@ -1371,6 +1389,20 @@
 				29B7A2E5E22A78A6687DCD8F /* RecentPropBarChart.swift */,
 			);
 			path = Detail;
+			sourceTree = "<group>";
+		};
+		C0A6D41311989B7228029738 /* Modals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Modals;
+			sourceTree = "<group>";
+		};
+		C54A1958C03EFD3B801848C8 /* Modules */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Modules;
 			sourceTree = "<group>";
 		};
 		C65A10DB0EC0847954A9D1BA /* Support */ = {
@@ -1448,12 +1480,20 @@
 			path = LearnMore;
 			sourceTree = "<group>";
 		};
+		D391EBA932A6DE56479CFBB7 /* DevTools */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = DevTools;
+			sourceTree = "<group>";
+		};
 		D511E736DAA3709FD9440715 /* Wagerproof */ = {
 			isa = PBXGroup;
 			children = (
 				B84AF2E3BA56E69848D220B5 /* App */,
 				9E1EB780F016FE4155ED5E17 /* Configuration */,
 				9148D9F91A0CB029441FEB6A /* Features */,
+				C54A1958C03EFD3B801848C8 /* Modules */,
 				74DC75D5ACCFF6F3338032D0 /* Assets.xcassets */,
 			);
 			path = Wagerproof;
