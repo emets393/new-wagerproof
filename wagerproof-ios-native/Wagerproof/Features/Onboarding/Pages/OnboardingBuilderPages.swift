@@ -31,7 +31,7 @@ struct OnboardingBuilderSportsPage: View {
     var body: some View {
         OnboardingPageScaffold(
             title: "Which sports should your agent work?",
-            subtitle: "Pre-filled from your picks — adjust anytime."
+            subtitle: "Pick every league you want it to research — adjust anytime."
         ) {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(Array(AgentSport.allCases.enumerated()), id: \.element) { index, sport in
@@ -86,9 +86,13 @@ struct OnboardingBuilderArchetypePage: View {
                 case .failed:
                     loadFailedCard
                 case .loaded:
-                    ForEach(Array(creation.archetypeRows.enumerated()), id: \.element.id) { index, row in
+                    // Onboarding surfaces just the top 3 presets (slim, pixel-guy
+                    // tiles); the full roster + deep tuning lives in the Agents wizard.
+                    ForEach(Array(creation.archetypeRows.prefix(3).enumerated()), id: \.element.id) { index, row in
                         ArchetypeCard(
                             row: row,
+                            style: .compact,
+                            spriteIndex: index,
                             selected: creation.draft.archetype?.rawValue == row.id && store.hasChosenArchetype
                         ) {
                             applyPreservingSports(row)
@@ -138,7 +142,7 @@ struct OnboardingBuilderArchetypePage: View {
 
     private var archetypeSkeletons: some View {
         VStack(spacing: 12) {
-            ForEach(0..<4, id: \.self) { _ in
+            ForEach(0..<3, id: \.self) { _ in
                 HStack(spacing: 12) {
                     SkeletonBlock(width: 48, height: 48, cornerRadius: 12)
                     VStack(alignment: .leading, spacing: 8) {

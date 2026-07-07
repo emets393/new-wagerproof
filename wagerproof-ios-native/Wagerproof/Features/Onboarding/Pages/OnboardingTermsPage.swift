@@ -22,14 +22,14 @@ struct OnboardingTermsPage: View {
     var body: some View {
         VStack(spacing: 0) {
             Text("Terms and Conditions")
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.white)
-                .padding(.top, 12)
-                .padding(.bottom, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 6)
                 .pageEntrance(index: 0)
 
             Text("Please read through our terms and conditions before continuing")
-                .font(.system(size: 16))
+                .font(.system(size: 14))
                 .foregroundStyle(Color.white.opacity(0.8))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -49,23 +49,26 @@ struct OnboardingTermsPage: View {
                 .transition(.opacity)
             }
 
+            // Capped height (was unbounded — it ate all remaining vertical
+            // space in the VStack) so the box reads as a compact excerpt
+            // rather than dominating the first onboarding screen.
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: 8) {
                     Text("**Last Updated: October 15, 2025**")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundStyle(Color.white.opacity(0.7))
-                        .padding(.bottom, 4)
+                        .padding(.bottom, 2)
 
                     ForEach(termsSections, id: \.title) { section in
                         Text(section.title)
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(Color.appPrimary)
-                            .padding(.top, 4)
+                            .padding(.top, 2)
                         ForEach(section.paragraphs, id: \.self) { para in
                             Text(.init(para))
-                                .font(.system(size: 14))
+                                .font(.system(size: 12))
                                 .foregroundStyle(Color.white.opacity(0.9))
-                                .lineSpacing(4)
+                                .lineSpacing(3)
                         }
                     }
 
@@ -76,14 +79,15 @@ struct OnboardingTermsPage: View {
                         .frame(height: 1)
                         .onAppear { store.setTermsScrolledToBottom() }
                 }
-                .padding(16)
+                .padding(12)
             }
+            .frame(maxHeight: 320)
             .liquidGlassBackground(
                 in: RoundedRectangle(cornerRadius: 12, style: .continuous),
                 tint: Color.white.opacity(0.05)
             )
             .padding(.horizontal, 24)
-            .padding(.vertical, 16)
+            .padding(.vertical, 10)
             .pageEntrance(index: 2)
 
             Button {

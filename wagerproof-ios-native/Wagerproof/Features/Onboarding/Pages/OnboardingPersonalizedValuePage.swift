@@ -6,8 +6,11 @@
 //   Casual        → animated time-saved comparison chart (~4 hrs/week of
 //                   research vs minutes with agents). Bars grow in when the
 //                   page becomes ACTIVE, not on mount.
-//   Serious / Pro → drill-downs, market-trend coverage, and
-//                   strategy-tunable agents that show their work.
+//   Serious / Pro → "With WagerProof You Can:" — reference-styled marker
+//                   benefits with outcome stats (value, hit rate, hours saved,
+//                   units tailed) on per-line highlighter blobs, one color
+//                   each, matched icons alternating sides, stamped in. (Agent
+//                   tuning is pitched later, on the agent-pitch/builder pages.)
 
 import Charts
 import SwiftUI
@@ -26,7 +29,7 @@ struct OnboardingPersonalizedValuePage: View {
         case .none, .casual:
             CasualTimeSavedView(accent: accent)
         case .serious, .professional:
-            SharpFeaturesView(accent: accent, isProfessional: store.survey.bettorType == .professional)
+            SharpFeaturesView()
         }
     }
 }
@@ -135,65 +138,47 @@ private struct CasualTimeSavedView: View {
 // MARK: - Serious / Professional: depth pitch
 
 private struct SharpFeaturesView: View {
-    let accent: Color
-    let isProfessional: Bool
-
-    private let marketChips = [
-        "1H spread", "Team totals", "SP strikeouts", "F5 ML",
-        "ATS form", "Public splits", "Line moves", "Park factors"
-    ]
-
     var body: some View {
         OnboardingPageScaffold(
-            title: isProfessional ? "Built for sharp process" : "Built for how you bet",
-            subtitle: "Depth where it matters — markets, trends, and agents that show their work."
+            title: "With WagerProof\nYou Can:"
         ) {
-            VStack(spacing: 12) {
-                OnboardingFeatureRow(
-                    icon: "square.stack.3d.up.fill",
-                    title: "Game & prop drill-downs",
-                    text: "Model probabilities vs the market for every game, with matchup data and weather baked in.",
-                    accent: accent
+            // Reference-styled marker benefits: outcome stats on per-line
+            // highlighter blobs, one color each, icons matched to the copy and
+            // alternating sides, each stamped in. Agent tuning intentionally
+            // lives later (agent-pitch + builder pages).
+            VStack(spacing: 32) {
+                OnboardingMarkerRow(
+                    icon: "dollarsign.circle.fill",
+                    lines: ["Catch **2×** more value", "bets every slate"],
+                    color: .orange
                 )
-                .pageEntrance(index: 2)
+                .stampEntrance(index: 0)
 
-                OnboardingFeatureRow(
-                    icon: "chart.xyaxis.line",
-                    title: "Trends across dozens of markets",
-                    text: "Hit rates and movement across the markets you actually play:",
-                    accent: accent
+                OnboardingMarkerRow(
+                    icon: "target",
+                    lines: ["Boost your hit rate", "by up to **30%**"],
+                    color: .green,
+                    iconTrailing: true
                 )
-                .pageEntrance(index: 3)
+                .stampEntrance(index: 1)
 
-                // Market example chips — wrap grid under the trends row.
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
-                    ForEach(marketChips, id: \.self) { chip in
-                        Text(chip)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.85))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                Capsule().fill(accent.opacity(0.14))
-                            )
-                            .overlay(
-                                Capsule().strokeBorder(accent.opacity(0.4), lineWidth: 1)
-                            )
-                    }
-                }
-                .pageEntrance(index: 4)
-
-                OnboardingFeatureRow(
-                    icon: "slider.horizontal.3",
-                    title: "Agents tuned to your strategy",
-                    text: "Dial in fade-the-public, chalk, plus-money — your agent researches with your rules and shows the reasoning behind every pick.",
-                    accent: accent
+                OnboardingMarkerRow(
+                    icon: "clock.badge.checkmark",
+                    lines: ["Save **2+** hours a week", "on research"],
+                    color: .red
                 )
-                .pageEntrance(index: 5)
+                .stampEntrance(index: 2)
+
+                OnboardingMarkerRow(
+                    icon: "trophy.fill",
+                    lines: ["Tail sharp bettors up", "**+40** units this season"],
+                    color: .blue,
+                    iconTrailing: true
+                )
+                .stampEntrance(index: 3)
             }
             .padding(.horizontal, 24)
-            .padding(.top, 4)
+            .padding(.top, 24)
         }
     }
 }
