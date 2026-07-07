@@ -206,7 +206,8 @@ export default function NFLAnalytics() {
   const [spreadSide, setSpreadSide] = useState('any'); // favorite | underdog | any
   const [spreadSize, setSpreadSize] = useState<[number, number]>([0, 20]);
   const [lineRange, setLineRange] = useState<[number, number]>([30, 60]);
-  const [mlRange, setMlRange] = useState<[number, number]>([-600, 600]); // team moneyline (American); ends open
+  const [mlMin, setMlMin] = useState<string>(''); // team moneyline (American odds) — exact numeric bounds
+  const [mlMax, setMlMax] = useState<string>('');
   const [primetime, setPrimetime] = useState<boolean | null>(null);
   const [division, setDivision] = useState<boolean | null>(null);
   const [dome, setDome] = useState<string>('any');
@@ -225,13 +226,13 @@ export default function NFLAnalytics() {
   const [saveName, setSaveName] = useState('');
   const [showSave, setShowSave] = useState(false);
 
-  const snapshot = () => ({ betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee });
+  const snapshot = () => ({ betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee });
   const restore = (s: any) => {
     setBetType(s.betType); setSeasons(s.seasons); setWeeks(s.weeks); setSide(s.side); setSeasonType(s.seasonType ?? 'any'); setPlayoffRound(s.playoffRound ?? 'any'); setFavDog(s.favDog);
     setSpreadSide(s.spreadSide); setPrimetime(s.primetime ?? null); setDivision(s.division ?? null);
     setDome(s.dome); setTempRange(s.tempRange); setWindMax(s.windMax); setPrecip(s.precip);
     setRestBye(s.restBye); setCoach(s.coach); setReferee(s.referee);
-    setMlRange(s.mlRange ?? [-600, 600]);
+    setMlMin(s.mlMin ?? ''); setMlMax(s.mlMax ?? '');
     // spreadSize/lineRange are reset by the bet-type effect — re-apply after it runs
     setTimeout(() => { setSpreadSize(s.spreadSize); setLineRange(s.lineRange); }, 0);
   };
@@ -284,9 +285,12 @@ export default function NFLAnalytics() {
       else if (lo > 0 || hi < scfg.max) { f[scfg.amk] = lo; f[scfg.axk] = hi; }
     }
     if (favDog !== 'any' && (ML_MARKETS.has(betType) || betType === 'team_total')) f.fav_dog = favDog;
-    // team moneyline range; slider ends (-600/+600) are open so extreme prices aren't excluded
-    if (mlRange[0] > -600) f.ml_min = mlRange[0];
-    if (mlRange[1] < 600) f.ml_max = mlRange[1];
+    // team moneyline (American odds) — exact numeric bounds; same value in both = an exact line.
+    // forgive reversed entry by sorting when both are present.
+    { let a = mlMin.trim() === '' ? null : Number(mlMin); let b = mlMax.trim() === '' ? null : Number(mlMax);
+      if (a !== null && b !== null && a > b) { const s = a; a = b; b = s; }
+      if (a !== null && !Number.isNaN(a)) f.ml_min = a;
+      if (b !== null && !Number.isNaN(b)) f.ml_max = b; }
     const tcfg = TOTAL_CFG[betType];
     if (tcfg) {
       if (lineRange[0] > tcfg.min) f[tcfg.mk] = lineRange[0];
@@ -305,11 +309,11 @@ export default function NFLAnalytics() {
     if (coach !== 'any') f.coach = coach;
     if (referee !== 'any') f.referee = referee;
     return f;
-  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
+  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
 
   const resetAll = () => {
     setSeasons([seasonFloor, 2025]); setWeeks([1, 18]); setSide('any'); setSeasonType('any'); setPlayoffRound('any'); setFavDog('any');
-    setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 20]); setMlRange([-600, 600]);
+    setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 20]); setMlMin(''); setMlMax('');
     const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 60]);
     setPrimetime(null); setDivision(null); setDome('any'); setTempRange([-10, 100]);
     setWindMax(60); setPrecip('any'); setRestBye('any'); setCoach('any'); setReferee('any');
@@ -331,7 +335,11 @@ export default function NFLAnalytics() {
     }
     const t = TOTAL_CFG[betType];
     if (t && (lineRange[0] !== t.min || lineRange[1] !== t.max)) c.push({ label: `${t.label} ${lineRange[0]}–${lineRange[1]}`, clear: () => setLineRange([t.min, t.max]) });
-    if (mlRange[0] !== -600 || mlRange[1] !== 600) c.push({ label: `ML ${mlRange[0] > 0 ? '+' : ''}${mlRange[0]} to ${mlRange[1] > 0 ? '+' : ''}${mlRange[1]}`, clear: () => setMlRange([-600, 600]) });
+    if (mlMin.trim() !== '' || mlMax.trim() !== '') {
+      const fmt = (s: string) => { const n = Number(s); return n > 0 ? `+${n}` : `${n}`; };
+      const lbl = mlMin.trim() !== '' && mlMax.trim() !== '' ? `ML ${fmt(mlMin)} to ${fmt(mlMax)}` : mlMin.trim() !== '' ? `ML ≥ ${fmt(mlMin)}` : `ML ≤ ${fmt(mlMax)}`;
+      c.push({ label: lbl, clear: () => { setMlMin(''); setMlMax(''); } });
+    }
     if (primetime !== null) c.push({ label: `Primetime: ${primetime ? 'Yes' : 'No'}`, clear: () => setPrimetime(null) });
     if (division !== null) c.push({ label: `Divisional: ${division ? 'Yes' : 'No'}`, clear: () => setDivision(null) });
     if (dome !== 'any') c.push({ label: dome === 'dome' ? 'Dome' : 'Outdoor', clear: () => setDome('any') });
@@ -342,7 +350,7 @@ export default function NFLAnalytics() {
     if (coach !== 'any') c.push({ label: `Coach: ${coach}`, clear: () => setCoach('any') });
     if (referee !== 'any') c.push({ label: `Ref: ${referee}`, clear: () => setReferee('any') });
     return c;
-  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlRange, primetime, division, dome, precip, tempRange, windMax, restBye, coach, referee, seasonFloor]);
+  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, precip, tempRange, windMax, restBye, coach, referee, seasonFloor]);
 
   // load coach/ref option lists once
   useEffect(() => {
@@ -594,9 +602,16 @@ export default function NFLAnalytics() {
                   min={0} max={SPREAD_CFG[betType].max} step={0.5} value={spreadSize} onChange={setSpreadSize} />
               </>
             )}
-            {/* moneyline odds range — negative = favorite, positive = underdog; ends are open */}
-            <RangeRow label={`Moneyline: ${mlRange[0] > 0 ? '+' : ''}${mlRange[0]} to ${mlRange[1] > 0 ? '+' : ''}${mlRange[1]}`}
-              min={-600} max={600} step={10} value={mlRange} onChange={setMlRange} />
+            {/* moneyline odds — exact American-odds bounds. Negative = favorite, positive = underdog.
+                Same value in both = an exact line (e.g. -102 & -102); leave one blank for one-sided. */}
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Moneyline odds (American)</div>
+              <div className="flex items-center gap-2">
+                <Input type="number" inputMode="numeric" value={mlMin} onChange={e => setMlMin(e.target.value)} placeholder="min e.g. -200" className="h-9" />
+                <span className="text-xs text-muted-foreground shrink-0">to</span>
+                <Input type="number" inputMode="numeric" value={mlMax} onChange={e => setMlMax(e.target.value)} placeholder="max e.g. -120" className="h-9" />
+              </div>
+            </div>
             {(ML_MARKETS.has(betType) || betType === 'team_total') && (
               <SelectRow label="Favorite / Underdog" value={favDog} onChange={setFavDog} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
             )}
