@@ -100,10 +100,16 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    // No dedicated CFB tool pages exist yet, so this is a plain link (no subItems).
     title: "CFB",
     to: "/games?sport=cfb",
     icon: <GraduationCap className="h-4 w-4" />,
+    subItems: [
+      {
+        title: "Historical Analytics",
+        to: "/cfb-analytics",
+        icon: <BarChart className="h-4 w-4" />,
+      },
+    ],
   },
   {
     title: "NBA",
