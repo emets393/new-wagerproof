@@ -118,7 +118,7 @@ struct OnboardingRevealView: View {
                 ContinueCTAButton(
                     label: "See everything",
                     trailingGlyph: "→",
-                    tint: accent
+                    tint: .white
                 ) {
                     finish()
                 }

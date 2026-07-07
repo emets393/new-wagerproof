@@ -35,8 +35,7 @@ struct OnboardingAgentPitchIntroPage: View {
 
     var body: some View {
         OnboardingPageScaffold(
-            title: "Not another chatbot",
-            subtitle: "Three reasons this is nothing like asking ChatGPT for picks."
+            title: "Not another chatbot"
         ) {
             TabView(selection: slideBinding) {
                 winRateSlide.tag(0)
@@ -132,8 +131,20 @@ struct OnboardingAgentPitchIntroPage: View {
 
             // The REAL Outliers trend card fed with example data — the exact
             // component from the Outliers tab's Trends rail, display-only.
+            // Wrapped in a tinted Liquid Glass tray so the example lifts off
+            // the dark pixelwave backdrop and reads as a highlighted showcase
+            // rather than a flat card (mirrors the win-rate slide's glass frame).
             OutliersTrendCard(card: Self.exampleTrendCard)
                 .allowsHitTesting(false)
+                .padding(10)
+                .liquidGlassBackground(
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous),
+                    tint: accent.opacity(0.14)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(accent.opacity(0.35), lineWidth: 1)
+                )
 
             Spacer(minLength: 0)
         }
@@ -336,7 +347,7 @@ struct OnboardingAgentPitchProofPage: View {
     var body: some View {
         OnboardingPageScaffold(
             title: "An analyst who never sleeps",
-            subtitle: "Like having an intern grind hours of research — you just get the answer."
+            subtitle: "Like having an intern grind hours of research. You just get the answer."
         ) {
             // The seated pixel character — the same rig the generation
             // cinematic uses, so the agent the user meets here is the one
@@ -352,7 +363,7 @@ struct OnboardingAgentPitchProofPage: View {
                 OnboardingFeatureRow(
                     icon: "clock.arrow.2.circlepath",
                     title: "Works around the clock",
-                    text: "Scans every game, line, and edge on schedule — no prompting needed.",
+                    text: "Scans every game, line, and edge on schedule. No prompting needed.",
                     accent: accent
                 )
                 .pageEntrance(index: 3)
@@ -360,7 +371,7 @@ struct OnboardingAgentPitchProofPage: View {
                 OnboardingFeatureRow(
                     icon: "cpu",
                     title: "Thousands of data points per slate",
-                    text: "Models, market prices, public money, matchup context — digested for you.",
+                    text: "Models, market prices, public money, matchup context, all digested for you.",
                     accent: accent
                 )
                 .pageEntrance(index: 4)
@@ -368,7 +379,7 @@ struct OnboardingAgentPitchProofPage: View {
                 OnboardingFeatureRow(
                     icon: "text.magnifyingglass",
                     title: "Shows its work",
-                    text: "Every pick ships with its reasoning — value at your fingertips.",
+                    text: "Every pick ships with its reasoning. Value at your fingertips.",
                     accent: accent
                 )
                 .pageEntrance(index: 5)
