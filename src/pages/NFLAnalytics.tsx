@@ -40,6 +40,25 @@ function sideLabel(betType: string, side: string): string {
   return side;
 }
 
+// the bet-type-relevant line for an upcoming game
+function lineForBet(betType: string, g: any): string {
+  const t = g.team, sp = g.team_spread;
+  if (betType === 'fg_spread') return `${t} ${sp > 0 ? '+' : ''}${sp}`;
+  if (betType === 'fg_ml') return `${t} ML (${g.is_favorite ? 'favorite' : 'underdog'})`;
+  if (betType === 'fg_total') return `Total O/U ${g.total ?? '—'}`;
+  if (betType === 'team_total') return `${t} team total ${g.tt_line ?? '—'}`;
+  if (betType === 'h1_spread') return `${t} 1H ${g.h1_spread > 0 ? '+' : ''}${g.h1_spread ?? '—'}`;
+  if (betType === 'h1_ml') return `${t} 1H ML (${g.is_favorite ? 'favorite' : 'underdog'})`;
+  if (betType === 'h1_total') return `1H Total O/U ${g.h1_total ?? '—'}`;
+  return '';
+}
+function fmtKick(iso?: string): string {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET';
+  } catch { return ''; }
+}
+
 type Opt = { side: string; n: number; hit_pct: number; roi: number | null };
 type Bar = { dimension: string; options: Opt[] };
 type Analysis = {
@@ -153,6 +172,7 @@ export default function NFLAnalytics() {
   const [tempRange, setTempRange] = useState<[number, number]>([-10, 100]);
   const [windMax, setWindMax] = useState(60);
   const [precip, setPrecip] = useState('any');
+  const [restBye, setRestBye] = useState('any'); // any | off_bye | pre_bye | short
   const [coach, setCoach] = useState('any');
   const [referee, setReferee] = useState('any');
   const [coaches, setCoaches] = useState<string[]>([]);
@@ -187,10 +207,13 @@ export default function NFLAnalytics() {
     if (tempRange[1] < 100) f.temp_max = tempRange[1];
     if (windMax < 60) f.wind_max = windMax;
     if (precip !== 'any') f.precip = precip;
+    if (restBye === 'off_bye') f.rest_min = 13;
+    else if (restBye === 'short') f.rest_max = 4;
+    else if (restBye === 'pre_bye') f.pre_bye = true;
     if (coach !== 'any') f.coach = coach;
     if (referee !== 'any') f.referee = referee;
     return f;
-  }, [betType, seasons, weeks, side, favDog, spreadSide, spreadSize, totalRange, primetime, division, dome, tempRange, windMax, precip, coach, referee, seasonFloor]);
+  }, [betType, seasons, weeks, side, favDog, spreadSide, spreadSize, totalRange, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
 
   // load coach/ref option lists once
   useEffect(() => {
@@ -333,9 +356,8 @@ export default function NFLAnalytics() {
                       <img src={logoFor(g.team)} alt="" className="w-6 h-6" onError={e => (e.currentTarget.style.visibility = 'hidden')} />
                       <div className="flex-1">
                         <div className="font-medium">{g.matchup}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {g.is_favorite ? `${g.team} ${g.team_spread}` : `${g.team} +${Math.abs(g.team_spread)}`} · O/U {g.total} · {g.slot?.replace('_', '/')}
-                        </div>
+                        <div className="text-xs font-medium text-foreground/80">{lineForBet(betType, g)}</div>
+                        <div className="text-[11px] text-muted-foreground">{fmtKick(g.kickoff)}</div>
                       </div>
                     </div>
                   ))}
@@ -374,6 +396,8 @@ export default function NFLAnalytics() {
             <SelectRow label="Precipitation" value={precip} onChange={setPrecip} options={[['any', 'Any'], ['none', 'None'], ['rain', 'Rain'], ['snow', 'Snow']]} />
             <RangeRow label={`Temp: ${tempRange[0]}–${tempRange[1]}°F`} min={-10} max={100} step={1} value={tempRange} onChange={setTempRange} />
             <div><div className="text-xs text-muted-foreground mb-1">Max wind: {windMax} mph</div><Slider min={0} max={60} step={1} value={[windMax]} onValueChange={([v]) => setWindMax(v)} /></div>
+            <SelectRow label="Rest / Bye" value={restBye} onChange={setRestBye}
+              options={[['any', 'Any'], ['off_bye', 'Off a bye'], ['pre_bye', 'Week before a bye'], ['short', 'Short rest (Thu)']]} />
           </FilterSection>
 
           <FilterSection title="Context">
