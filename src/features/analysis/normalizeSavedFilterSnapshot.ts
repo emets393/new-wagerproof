@@ -22,7 +22,7 @@ export interface CfbWebFilterSnapshot {
   primetime: boolean | null;
   conferenceGame: boolean | null;
   neutralSite: boolean | null;
-  conference: string;
+  selectedConferences: string[];
   tempRange: NumPair;
   windMax: number;
 }
@@ -72,16 +72,15 @@ function optionalBool(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }
 
-/** iOS may save multi-select conferences; web supports one — take the first. */
-function resolveConference(raw: Record<string, unknown>): string {
+/** Resolve multi-conference selection from web or iOS saved snapshots. */
+function resolveSelectedConferences(raw: Record<string, unknown>): string[] {
   const selected = raw.selectedConferences;
   if (Array.isArray(selected) && selected.length > 0) {
-    const first = selected[0];
-    if (typeof first === 'string' && first.length > 0) return first;
+    return selected.filter((c): c is string => typeof c === 'string' && c.length > 0);
   }
   const legacy = raw.conference;
-  if (typeof legacy === 'string' && legacy !== 'any') return legacy;
-  return 'any';
+  if (typeof legacy === 'string' && legacy !== 'any') return [legacy];
+  return [];
 }
 
 export function normalizeCfbSavedFilterSnapshot(
@@ -108,7 +107,7 @@ export function normalizeCfbSavedFilterSnapshot(
       primetime: optionalBool(r.primetime),
       conferenceGame: optionalBool(r.conferenceGame),
       neutralSite: optionalBool(r.neutralSite),
-      conference: str(r.conference, 'any'),
+      selectedConferences: resolveSelectedConferences(r),
       tempRange: asPair(r.tempRange, [-10, 110]),
       windMax: typeof r.windMax === 'number' ? r.windMax : 60,
     };
@@ -130,7 +129,7 @@ export function normalizeCfbSavedFilterSnapshot(
     primetime: optionalBool(r.primetime),
     conferenceGame: optionalBool(r.conferenceGame),
     neutralSite: optionalBool(r.neutralSite),
-    conference: resolveConference(r),
+    selectedConferences: resolveSelectedConferences(r),
     tempRange: [Number(r.tempMin ?? -10), Number(r.tempMax ?? 110)],
     windMax: typeof r.windMax === 'number' ? r.windMax : 60,
   };

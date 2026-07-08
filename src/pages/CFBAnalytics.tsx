@@ -43,6 +43,29 @@ const TOTAL_CFG: Record<string, { min: number; max: number; mk: string; xk: stri
   team_total: { min: 10, max: 55, mk: 'tt_min', xk: 'tt_max', label: 'Team total line' },
 };
 
+function conferenceHeadlineSubject(conferences: string[], situation: string): string {
+  const names = conferences.join(', ');
+  const base = `${names} schools`;
+  return situation ? `${base} (${situation.toLowerCase()})` : base;
+}
+
+function conferenceScopeNote(conferences: string[], conferenceGame: boolean | null): string {
+  if (conferences.length === 0) {
+    return 'All FBS teams in every past game that matches your filters.';
+  }
+  const names = conferences.length === 1 ? conferences[0] : conferences.join(', ');
+  if (conferenceGame === true) {
+    return `${names} conference games only — matchups between schools in that conference.`;
+  }
+  if (conferenceGame === false) {
+    return `${names} schools in non-conference games only.`;
+  }
+  if (conferences.length === 1) {
+    return `Every game a ${names} school played — non-conference, bowls, and more. Not ${names}-only matchups.`;
+  }
+  return `Every game involving a ${names} school — non-conference, bowls, and more.`;
+}
+
 // plain-English label for a result side, per market
 function sideLabel(betType: string, side: string): string {
   if (side === 'over') return 'Over';
@@ -217,6 +240,7 @@ export default function CFBAnalytics() {
   const [loading, setLoading] = useState(true);
   const [logos, setLogos] = useState<Record<string, string>>({});
   const [conferences, setConferences] = useState<string[]>([]);
+  const [conferenceTeamMap, setConferenceTeamMap] = useState<Record<string, string[]>>({});
 
   // filter state (UI-shaped; translated to RPC keys in buildFilters)
   const [seasons, setSeasons] = useState<[number, number]>([2016, SEASON_MAX]);
@@ -233,7 +257,7 @@ export default function CFBAnalytics() {
   const [primetime, setPrimetime] = useState<boolean | null>(null);
   const [conferenceGame, setConferenceGame] = useState<boolean | null>(null);
   const [neutralSite, setNeutralSite] = useState<boolean | null>(null);
-  const [conference, setConference] = useState('any');
+  const [selectedConferences, setSelectedConferences] = useState<string[]>([]);
   const [tempRange, setTempRange] = useState<[number, number]>([-10, 110]);
   const [windMax, setWindMax] = useState(60);
 
@@ -243,7 +267,10 @@ export default function CFBAnalytics() {
   const [saveName, setSaveName] = useState('');
   const [showSave, setShowSave] = useState(false);
 
-  const snapshot = () => ({ betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, conference, tempRange, windMax });
+  const snapshot = () => ({
+    betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange,
+    mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, tempRange, windMax,
+  });
   const restore = (raw: unknown, rowBetType?: string) => {
     const s = normalizeCfbSavedFilterSnapshot(
       raw as Record<string, unknown> | null | undefined,
@@ -260,7 +287,7 @@ export default function CFBAnalytics() {
     setPrimetime(s.primetime);
     setConferenceGame(s.conferenceGame);
     setNeutralSite(s.neutralSite);
-    setConference(s.conference);
+    setSelectedConferences(s.selectedConferences);
     setTempRange(s.tempRange);
     setWindMax(s.windMax);
     setMlMin(s.mlMin);
@@ -335,18 +362,24 @@ export default function CFBAnalytics() {
     if (primetime !== null) f.primetime = primetime;
     if (conferenceGame !== null) f.conference_game = conferenceGame;
     if (neutralSite !== null) f.neutral_site = neutralSite;
-    if (conference !== 'any') f.conference = conference;
+    const picked = selectedConferences.filter(Boolean);
+    if (picked.length === 1) {
+      f.conference = picked[0];
+    } else if (picked.length > 1) {
+      const teams = Array.from(new Set(picked.flatMap((c) => conferenceTeamMap[c] ?? []))).sort();
+      if (teams.length > 0) f.team = teams;
+    }
     if (tempRange[0] > -10) f.temp_min = tempRange[0];
     if (tempRange[1] < 110) f.temp_max = tempRange[1];
     if (windMax < 60) f.wind_max = windMax;
     return f;
-  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, conference, tempRange, windMax, seasonFloor]);
+  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, conferenceTeamMap, tempRange, windMax, seasonFloor]);
 
   const resetAll = () => {
     setSeasons([seasonFloor, SEASON_MAX]); setWeeks([1, WEEK_MAX]); setSide('any'); setFavDog('any'); setGameType('any'); setRankedMatchup('any');
     setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 28]); setMlMin(''); setMlMax('');
     const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 80]);
-    setPrimetime(null); setConferenceGame(null); setNeutralSite(null); setConference('any');
+    setPrimetime(null); setConferenceGame(null); setNeutralSite(null); setSelectedConferences([]);
     setTempRange([-10, 110]); setWindMax(60);
   };
 
@@ -374,16 +407,31 @@ export default function CFBAnalytics() {
     if (primetime !== null) c.push({ label: `Primetime: ${primetime ? 'Yes' : 'No'}`, clear: () => setPrimetime(null) });
     if (conferenceGame !== null) c.push({ label: `Conference game: ${conferenceGame ? 'Yes' : 'No'}`, clear: () => setConferenceGame(null) });
     if (neutralSite !== null) c.push({ label: `Neutral site: ${neutralSite ? 'Yes' : 'No'}`, clear: () => setNeutralSite(null) });
-    if (conference !== 'any') c.push({ label: conference, clear: () => setConference('any') });
+    for (const conf of selectedConferences) {
+      c.push({
+        label: conf,
+        clear: () => setSelectedConferences((prev) => prev.filter((x) => x !== conf)),
+      });
+    }
     if (tempRange[0] !== -10 || tempRange[1] !== 110) c.push({ label: `Temp ${tempRange[0]}–${tempRange[1]}°F`, clear: () => setTempRange([-10, 110]) });
     if (windMax !== 60) c.push({ label: `Wind ≤ ${windMax}`, clear: () => setWindMax(60) });
     return c;
-  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, conference, tempRange, windMax, seasonFloor]);
+  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, tempRange, windMax, seasonFloor]);
 
-  // load logo map + conference list once
+  // load logo map, conference list, and conference→team map once
   useEffect(() => {
     collegeFootballSupabase.from('cfb_team_mapping').select('api,logo_light,logo_dark').then(({ data }) => {
       if (data) setLogos(Object.fromEntries(data.filter((t: any) => t.api && t.logo_light).map((t: any) => [t.api, t.logo_light])));
+    });
+    collegeFootballSupabase.from('cfb_teams').select('team_name,conference').then(({ data }) => {
+      if (!data) return;
+      const map: Record<string, string[]> = {};
+      for (const row of data as { team_name: string; conference: string | null }[]) {
+        if (!row.conference) continue;
+        (map[row.conference] ??= []).push(row.team_name);
+      }
+      for (const key of Object.keys(map)) map[key].sort();
+      setConferenceTeamMap(map);
     });
     collegeFootballSupabase.rpc('cfb_analysis', { p_bet_type: 'fg_spread', p_filters: {} }).then(({ data }) => {
       if (data) setConferences((data.by_conference || []).map((c: any) => c.conference).filter(Boolean).sort());
@@ -431,15 +479,17 @@ export default function CFBAnalytics() {
     const dir = SPREAD_CFG[betType] ? spreadSide : favDog;
     if (dir && dir !== 'any') parts.push(dir === 'favorite' ? 'favorites' : 'underdogs');
     const situation = parts.join(' ');
-    if (conference !== 'any') return `${conference} teams${situation ? ` (${situation.toLowerCase()})` : ''}`;
+    if (selectedConferences.length > 0) {
+      return conferenceHeadlineSubject(selectedConferences, situation);
+    }
     if (situation) return situation.charAt(0).toUpperCase() + situation.slice(1);
     return isTotalMkt ? 'Games' : 'Teams';
-  }, [betType, side, spreadSide, favDog, conference, isTotalMkt]);
+  }, [betType, side, spreadSide, favDog, selectedConferences, isTotalMkt]);
 
-  const scopeNote = useMemo(() => {
-    const who = conference !== 'any' ? `${conference} teams` : 'all FBS teams';
-    return `${who} in every past game that matches your filters.`;
-  }, [conference]);
+  const scopeNote = useMemo(
+    () => conferenceScopeNote(selectedConferences, conferenceGame),
+    [selectedConferences, conferenceGame],
+  );
 
   const cov = data?.coverage;
   const limited = LIMITED_MARKETS.has(betType);
@@ -657,7 +707,17 @@ export default function CFBAnalytics() {
           </FilterSection>
 
           <FilterSection title="Conference">
-            <SelectRow label="Conference" value={conference} onChange={setConference} options={[['any', 'Any conference'], ...conferences.map(c => [c, c] as [string, string])]} />
+            <ConferenceMultiSelect
+              conferences={conferences}
+              selected={selectedConferences}
+              onToggle={(name) => {
+                setSelectedConferences((prev) => {
+                  if (prev.includes(name)) return prev.filter((c) => c !== name);
+                  return [...prev, name].sort();
+                });
+              }}
+              onClear={() => setSelectedConferences([])}
+            />
           </FilterSection>
         </div>
       </div>
@@ -679,6 +739,45 @@ function TriRow({ label, value, onChange }: { label: string; value: boolean | nu
   const opts: [string, boolean | null][] = [['Any', null], ['Yes', true], ['No', false]];
   return <div><div className="text-xs text-muted-foreground mb-1">{label}</div>
     <div className="flex gap-1">{opts.map(([l, v]) => <Button key={l} size="sm" variant={value === v ? 'default' : 'outline'} className="h-7 flex-1 text-xs" onClick={() => onChange(v)}>{l}</Button>)}</div></div>;
+}
+function ConferenceMultiSelect({
+  conferences,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  conferences: string[];
+  selected: string[];
+  onToggle: (name: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">
+          {selected.length === 0 ? 'All conferences' : `${selected.length} selected`}
+        </span>
+        {selected.length > 0 && (
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onClear}>
+            Clear all
+          </Button>
+        )}
+      </div>
+      <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-border/60 p-2">
+        {conferences.map((name) => (
+          <label key={name} className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 hover:bg-muted/50">
+            <input
+              type="checkbox"
+              checked={selected.includes(name)}
+              onChange={() => onToggle(name)}
+              className="rounded border-border"
+            />
+            <span className="text-sm">{name}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
 }
 function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
