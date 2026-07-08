@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { normalizeNflSavedFilterSnapshot } from '@/features/analysis/normalizeSavedFilterSnapshot';
 
 // ── Bet-type spine — the FIRST choice; everything downstream speaks this one market ──
 const BET_GROUPS = [
@@ -230,14 +231,34 @@ export default function NFLAnalytics() {
   const [showSave, setShowSave] = useState(false);
 
   const snapshot = () => ({ betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee });
-  const restore = (s: any) => {
-    setBetType(s.betType); setSeasons(s.seasons); setWeeks(s.weeks); setSide(s.side); setSeasonType(s.seasonType ?? 'any'); setPlayoffRound(s.playoffRound ?? 'any'); setFavDog(s.favDog);
-    setSpreadSide(s.spreadSide); setPrimetime(s.primetime ?? null); setDivision(s.division ?? null);
-    setDome(s.dome); setTempRange(s.tempRange); setWindMax(s.windMax); setPrecip(s.precip);
-    setRestBye(s.restBye); setCoach(s.coach); setReferee(s.referee);
-    setMlMin(s.mlMin ?? ''); setMlMax(s.mlMax ?? '');
-    // spreadSize/lineRange are reset by the bet-type effect — re-apply after it runs
-    setTimeout(() => { setSpreadSize(s.spreadSize); setLineRange(s.lineRange); }, 0);
+  const restore = (raw: unknown, rowBetType?: string) => {
+    const s = normalizeNflSavedFilterSnapshot(
+      raw as Record<string, unknown> | null | undefined,
+      rowBetType,
+    );
+    setBetType(s.betType);
+    setSeasons(s.seasons);
+    setWeeks(s.weeks);
+    setSide(s.side);
+    setSeasonType(s.seasonType);
+    setPlayoffRound(s.playoffRound);
+    setFavDog(s.favDog);
+    setSpreadSide(s.spreadSide);
+    setPrimetime(s.primetime);
+    setDivision(s.division);
+    setDome(s.dome);
+    setTempRange(s.tempRange);
+    setWindMax(s.windMax);
+    setPrecip(s.precip);
+    setRestBye(s.restBye);
+    setCoach(s.coach);
+    setReferee(s.referee);
+    setMlMin(s.mlMin);
+    setMlMax(s.mlMax);
+    setTimeout(() => {
+      setSpreadSize(s.spreadSize);
+      setLineRange(s.lineRange);
+    }, 0);
   };
   const loadSaved = useCallback(async () => {
     if (!user) { setSaved([]); return; }
@@ -464,7 +485,7 @@ export default function NFLAnalytics() {
         ) : (
           <>
             {saved.length > 0 && (
-              <Select onValueChange={(id) => { const s = saved.find(x => x.id === id); if (s) restore(s.filters); }}>
+              <Select onValueChange={(id) => { const s = saved.find(x => x.id === id); if (s) restore(s.filters, s.bet_type); }}>
                 <SelectTrigger className="h-8 w-56 text-xs"><Bookmark className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder={`Saved filters (${saved.length})`} /></SelectTrigger>
                 <SelectContent>
                   {saved.map(s => (

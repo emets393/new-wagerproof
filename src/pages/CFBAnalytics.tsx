@@ -13,6 +13,7 @@ import { collegeFootballSupabase } from '@/integrations/supabase/college-footbal
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCFBTeamColors, getCFBTeamInitials } from '@/utils/teamColors';
+import { normalizeCfbSavedFilterSnapshot } from '@/features/analysis/normalizeSavedFilterSnapshot';
 
 // ── Bet-type spine — the FIRST choice; everything downstream speaks this one market ──
 const BET_GROUPS = [
@@ -243,14 +244,32 @@ export default function CFBAnalytics() {
   const [showSave, setShowSave] = useState(false);
 
   const snapshot = () => ({ betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, conference, tempRange, windMax });
-  const restore = (s: any) => {
-    setBetType(s.betType); setSeasons(s.seasons); setWeeks(s.weeks); setSide(s.side); setFavDog(s.favDog);
-    setGameType(s.gameType ?? 'any'); setRankedMatchup(s.rankedMatchup ?? 'any');
-    setSpreadSide(s.spreadSide); setPrimetime(s.primetime ?? null); setConferenceGame(s.conferenceGame ?? null);
-    setNeutralSite(s.neutralSite ?? null); setConference(s.conference ?? 'any');
-    setTempRange(s.tempRange ?? [-10, 110]); setWindMax(s.windMax ?? 60); setMlMin(s.mlMin ?? ''); setMlMax(s.mlMax ?? '');
+  const restore = (raw: unknown, rowBetType?: string) => {
+    const s = normalizeCfbSavedFilterSnapshot(
+      raw as Record<string, unknown> | null | undefined,
+      rowBetType,
+    );
+    setBetType(s.betType);
+    setSeasons(s.seasons);
+    setWeeks(s.weeks);
+    setSide(s.side);
+    setFavDog(s.favDog);
+    setGameType(s.gameType);
+    setRankedMatchup(s.rankedMatchup);
+    setSpreadSide(s.spreadSide);
+    setPrimetime(s.primetime);
+    setConferenceGame(s.conferenceGame);
+    setNeutralSite(s.neutralSite);
+    setConference(s.conference);
+    setTempRange(s.tempRange);
+    setWindMax(s.windMax);
+    setMlMin(s.mlMin);
+    setMlMax(s.mlMax);
     // spreadSize/lineRange are reset by the bet-type effect — re-apply after it runs
-    setTimeout(() => { setSpreadSize(s.spreadSize); setLineRange(s.lineRange); }, 0);
+    setTimeout(() => {
+      setSpreadSize(s.spreadSize);
+      setLineRange(s.lineRange);
+    }, 0);
   };
   const loadSaved = useCallback(async () => {
     if (!user) { setSaved([]); return; }
@@ -461,7 +480,7 @@ export default function CFBAnalytics() {
         ) : (
           <>
             {saved.length > 0 && (
-              <Select onValueChange={(id) => { const s = saved.find(x => x.id === id); if (s) restore(s.filters); }}>
+              <Select onValueChange={(id) => { const s = saved.find(x => x.id === id); if (s) restore(s.filters, s.bet_type); }}>
                 <SelectTrigger className="h-8 w-56 text-xs"><Bookmark className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder={`Saved filters (${saved.length})`} /></SelectTrigger>
                 <SelectContent>
                   {saved.map(s => (
