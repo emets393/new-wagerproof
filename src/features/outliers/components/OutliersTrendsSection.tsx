@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { FilterPill, GlassCard, SkeletonBlock } from '@/components/ios';
 import { OutliersTrendCard } from './OutliersTrendCard';
 import { OutliersTrendCardSkeleton } from './OutliersTrendCardSkeleton';
+import { HorizontalCardRail } from './HorizontalCardRail';
 import { buildMarketSections, filterTrendCards } from '../filtering';
 import { useOutliersTrends } from '../hooks/useOutliersTrends';
 import {
@@ -153,7 +154,7 @@ export function OutliersTrendsSection() {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {/* Filter pills */}
       <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-transparent">
         <FilterPill
@@ -202,7 +203,7 @@ export function OutliersTrendsSection() {
       ) : sections.length === 0 ? (
         <EmptyCard />
       ) : (
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5">
           {sections.map((section) => (
             <MarketSection key={section.marketKey} section={section} sport={sport} gamesById={gamesById} />
           ))}
@@ -222,36 +223,38 @@ function MarketSection({
   gamesById: Map<string, OutliersTrendsGame>;
 }) {
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex min-w-0 flex-col gap-2.5">
       <div className="flex items-center gap-1.5 text-[13px] font-semibold uppercase text-muted-foreground">
         <MarketIcon marketKey={section.marketKey} />
         <span>{section.title}</span>
       </div>
-      <div className="flex snap-x gap-3 overflow-x-auto pb-1 scrollbar-transparent">
+      <HorizontalCardRail className="scrollbar-transparent [touch-action:pan-x]">
         {section.cards.map((card) => (
-          <div key={card.id} className="snap-start">
+          <div key={card.id} className="shrink-0 snap-start">
             <OutliersTrendCard card={card} sport={sport} game={gamesById.get(card.gameId)} />
           </div>
         ))}
-      </div>
+      </HorizontalCardRail>
     </div>
   );
 }
 
 function LoadingSections() {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5">
       {[0, 1, 2].map((s) => (
         <div key={s} className="flex flex-col gap-2.5">
           <div className="flex items-center gap-1.5">
             <SkeletonBlock width={14} height={14} radius={4} />
             <SkeletonBlock width={110} height={12} />
           </div>
-          <div className="flex gap-3 overflow-hidden">
+          <HorizontalCardRail className="scrollbar-transparent">
             {[0, 1, 2].map((c) => (
-              <OutliersTrendCardSkeleton key={c} />
+              <div key={c} className="shrink-0">
+                <OutliersTrendCardSkeleton />
+              </div>
             ))}
-          </div>
+          </HorizontalCardRail>
         </div>
       ))}
     </div>
