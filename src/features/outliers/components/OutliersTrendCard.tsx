@@ -3,7 +3,7 @@
 // Fixed 300x240 compact carousel card; click opens a dialog with the full
 // breakdown (all rows + all betting lines) — the web stand-in for the iOS
 // detail bottom sheet.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Circle,
   Globe,
@@ -258,6 +258,16 @@ function SubjectAvatar({
   sport: OutliersTrendsSport;
   size?: number;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageKey =
+    card.subjectKind === 'player'
+      ? card.headshotUrl ?? card.subjectName
+      : `${card.teamAbbr ?? card.subjectName}-${sport}`;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageKey]);
+
   if (card.subjectKind === 'referee') {
     return (
       <div
@@ -270,47 +280,57 @@ function SubjectAvatar({
   }
 
   if (card.subjectKind === 'player') {
-    // Initials underneath; headshot layers on top and self-hides on load error.
+    const showHeadshot = Boolean(card.headshotUrl) && !imageFailed;
     return (
       <div
-        className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted"
+        className="flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted"
         style={{ width: size, height: size }}
       >
-        <span className="text-[11px] font-bold text-muted-foreground">
-          {initialsFrom(card.subjectName)}
-        </span>
-        {card.headshotUrl && (
-          <LogoImage
-            src={card.headshotUrl}
+        {showHeadshot ? (
+          <img
+            src={card.headshotUrl as string}
             alt={card.subjectName}
-            className="absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+            className="h-full w-full object-cover"
+            onError={() => setImageFailed(true)}
           />
+        ) : (
+          <span className="text-[11px] font-bold text-muted-foreground">
+            {initialsFrom(card.subjectName)}
+          </span>
         )}
       </div>
     );
   }
 
-  // Team + coach: tinted team-color disc with logo (when resolvable) over initials.
+  // Team + coach: show the real logo when available; initials only as fallback.
   const teamKey = card.teamAbbr ?? card.subjectName;
   const { colors, initials, logoUrl } = teamVisuals(sport, teamKey);
+  const showLogo = Boolean(logoUrl) && !imageFailed;
+
   return (
     <div
-      className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full"
+      className="flex shrink-0 items-center justify-center overflow-hidden rounded-full"
       style={{
         width: size,
         height: size,
-        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
+        background: showLogo
+          ? 'hsl(var(--background))'
+          : `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
       }}
     >
-      <span className="text-[11px] font-bold text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.35)]">
-        {initials}
-      </span>
-      {logoUrl && (
-        <LogoImage
-          src={logoUrl}
+      {showLogo ? (
+        <img
+          src={logoUrl as string}
           alt={teamKey}
-          className="absolute inset-0 h-full w-full object-contain p-1"
+          loading="lazy"
+          className="h-full w-full object-contain p-1"
+          onError={() => setImageFailed(true)}
         />
+      ) : (
+        <span className="text-[11px] font-bold text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.35)]">
+          {initials}
+        </span>
       )}
     </div>
   );
