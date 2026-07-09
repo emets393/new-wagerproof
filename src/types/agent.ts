@@ -226,6 +226,48 @@ export interface AgentPick {
   overlap?: AgentPickOverlap;
 }
 
+// Parlay ticket + legs (avatar_parlays / avatar_parlay_legs). Written by the
+// V3 engine's submit_parlay tool; graded by grade-avatar-picks (legs first,
+// ticket rolls up once no leg is pending). Legs can carry markets straight
+// picks don't (team_total), so leg bet_type is wider than AgentPick's.
+export interface AgentParlayLeg {
+  id: string;
+  parlay_id: string;
+  game_id: string;
+  sport: Sport;
+  matchup: string;
+  game_date: string;
+  bet_type: 'spread' | 'moneyline' | 'total' | 'prop' | 'team_total';
+  period: 'full' | 'f5' | 'h1';
+  pick_selection: string;
+  odds: string | null;
+  prop_player?: string | null;
+  prop_market?: string | null;
+  prop_line?: number | null;
+  prop_direction?: 'over' | 'under' | null;
+  leg_result: PickResult;
+  graded_at: string | null;
+}
+
+export interface AgentParlay {
+  id: string;
+  avatar_id: string;
+  sport: Sport;
+  legs_count: number;
+  combined_odds: string | null;
+  units: number;
+  confidence: Scale1To5;
+  reasoning_text: string;
+  key_factors: string[] | null;
+  result: PickResult;
+  actual_result: string | null;
+  graded_at: string | null;
+  target_date: string | null;
+  is_auto_generated: boolean;
+  created_at: string;
+  legs: AgentParlayLeg[];
+}
+
 export interface SportStats {
   wins: number;
   losses: number;

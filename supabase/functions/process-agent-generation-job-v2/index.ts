@@ -725,7 +725,10 @@ serve(async (req) => {
     if (picksToInsert.length > 0) {
       const { error: insertError } = await supabaseClient
         .from('avatar_picks')
-        .upsert(picksToInsert, { onConflict: 'avatar_id,game_id,bet_type' });
+        // Must match unique_avatar_pick_identity — pick_identity is a DB-generated
+        // column (bet_type for straights, player|market|line|dir for props), so the
+        // old 3-col target stopped matching any index after the 2026-07 V3 migrations.
+        .upsert(picksToInsert, { onConflict: 'avatar_id,game_id,bet_type,pick_identity' });
 
       if (insertError) {
         await markFailed(supabaseClient, run.id, 'PICK_INSERT_ERROR', insertError.message, true);

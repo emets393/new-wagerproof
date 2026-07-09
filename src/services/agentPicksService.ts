@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { AgentPick, PickResult, Sport, GeneratePicksResponse, OverlapAgentSummary, AgentPickOverlap } from '@/types/agent';
+import { AgentParlay, AgentPick, PickResult, Sport, GeneratePicksResponse, OverlapAgentSummary, AgentPickOverlap } from '@/types/agent';
 
 export interface AgentPicksFilters {
   sport?: Sport;
@@ -20,6 +20,26 @@ export async function fetchAgentPicks(agentId: string, filters?: AgentPicksFilte
   const { data, error } = await query;
   if (error) throw error;
   return (data || []) as AgentPick[];
+}
+
+/**
+ * Parlay tickets live in avatar_parlays (+ legs), NOT avatar_picks — parlay
+ * agents' history is invisible without this. RLS allows owner + public-agent
+ * reads; legs come back embedded via the parlay_id FK.
+ */
+export async function fetchAgentParlays(agentId: string, filters?: AgentPicksFilters): Promise<AgentParlay[]> {
+  let query = (supabase as any)
+    .from('avatar_parlays')
+    .select('*, legs:avatar_parlay_legs(*)')
+    .eq('avatar_id', agentId)
+    .order('created_at', { ascending: false });
+
+  if (filters?.sport) query = query.eq('sport', filters.sport);
+  if (filters?.result) query = query.eq('result', filters.result);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as AgentParlay[];
 }
 
 export async function generatePicks(agentId: string, _isAdmin = false): Promise<GeneratePicksResponse> {

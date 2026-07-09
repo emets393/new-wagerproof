@@ -492,7 +492,8 @@ serve(async (req) => {
     if (insertedPicks.length > 0) {
       const { error: insertError } = await supabaseClient
         .from('avatar_picks')
-        .upsert(insertedPicks, { onConflict: 'avatar_id,game_id,bet_type' });
+        // Must match unique_avatar_pick_identity (see process-agent-generation-job-v2).
+        .upsert(insertedPicks, { onConflict: 'avatar_id,game_id,bet_type,pick_identity' });
 
       if (insertError) {
         console.error('[generate-avatar-picks] Upsert error:', insertError);

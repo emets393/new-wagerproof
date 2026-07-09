@@ -314,7 +314,12 @@ PostgreSQL GUCs set via `ALTER DATABASE ... SET app.settings.key = '...'` are av
 11. PARSE: Extract picks, validate against schema
 12. BUILD: Construct pick objects with full audit trail
     └─ ai_decision_trace, ai_audit_payload, archived_game_data, archived_personality
-13. UPSERT: Insert picks to avatar_picks (ON CONFLICT update)
+13. UPSERT: Insert picks to avatar_picks
+    └─ ON CONFLICT (avatar_id, game_id, bet_type, pick_identity) — must match
+       the unique_avatar_pick_identity index. pick_identity is DB-GENERATED
+       (bet_type for straights; player|market|line|dir for props). The old
+       3-col target broke every V2 insert after the 2026-07 V3 migrations
+       replaced the index (incident 2026-07-06 → 09).
     └─ Manual: delete existing picks for same game IDs first
 14. SUCCEED: RPC mark_generation_run_succeeded_v2(metrics...)
     └─ Updates avatar's last_generated_at or last_auto_generated_at

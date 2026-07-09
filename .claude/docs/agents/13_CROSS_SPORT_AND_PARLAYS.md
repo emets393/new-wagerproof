@@ -157,7 +157,7 @@ So: build the grader extension as above (reads `final_*` by `game_id`), but the 
 | Edge | `grade-avatar-picks/index.ts` | NFL/CFB results + parlay leg/roll-up grading |
 | Web | `src/types/agent.ts` | relax family refine; add `parlay_appetite` |
 | Web | `src/components/agents/creation/Screen1_SportArchetype.tsx` | additive sport toggle + copy |
-| Web | parlay rendering | multi-leg ticket UI (separate UI task, still pending) |
+| Web | `src/components/agents/AgentParlayCard.tsx` + `split/AgentPicksSection.tsx` | ✅ parlay tickets rendered in Pick History — direct-RLS reads via `fetchAgentParlays` (`avatar_parlays` + embedded legs), merged chronologically with straight picks; sport/result filters apply |
 | DB | `supabase/migrations/20260701000000_agent_parlays_read_rpcs.sql` | ✅ `get_agent_detail_snapshot_v3` returns `todays_parlays`, `get_agent_picks_page_v3` returns `parlays` (first page only, legs embedded) — same `v_can_view_picks` gate as picks |
 | iOS | `WagerproofKit/.../WagerproofModels/AgentParlay.swift`, `AgentBetItem.swift` | ✅ `AgentParlay`/`AgentParlayLeg` models (tolerant decode, legs embedded) + pick/parlay union with shared `netUnitsContribution` payout math |
 | iOS | `WagerproofKit/.../AgentPicksService.swift`, `AgentDetailStore.swift` | ✅ direct-RLS parlay reads (`fetchParlays`/`fetchTodaysParlays`/`fetchGradedParlayHistory`/`fetchUpcomingParlaysFeed`) + store state (`todaysBetItems`, `fullBetHistory`) with the same owner/public dual-path as picks |

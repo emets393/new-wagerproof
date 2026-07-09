@@ -3,9 +3,11 @@ import { History, Lock, Target, Trophy } from 'lucide-react';
 import { FilterPill, WidgetCard } from '@/components/ios';
 import { GlassCard } from '@/components/ios';
 import { AgentPickCard } from '../AgentPickCard';
+import { AgentParlayCard } from '../AgentParlayCard';
 import { AgentPickAuditPanel } from '../AgentPickAuditPanel';
-import { useAgentPicks } from '@/hooks/useAgents';
+import { useAgentParlays, useAgentPicks } from '@/hooks/useAgents';
 import {
+  AgentParlay,
   AgentPick,
   PICK_RESULTS,
   PickResult,
@@ -21,6 +23,13 @@ function LockedPlaceholderCard() {
     </GlassCard>
   );
 }
+
+// History mixes straight picks (avatar_picks) and parlay tickets
+// (avatar_parlays) — parlay agents write ONLY to the latter, so without this
+// merge their history renders empty.
+type HistoryItem =
+  | { kind: 'pick'; date: string; createdAt: string; pick: AgentPick }
+  | { kind: 'parlay'; date: string; createdAt: string; parlay: AgentParlay };
 
 interface AgentPicksSectionProps {
   agentId: string;
@@ -43,10 +52,32 @@ export function AgentPicksSection({ agentId, canSeePicks }: AgentPicksSectionPro
     setSelectedPick(null);
   }, [agentId]);
 
-  const { data: picks, isLoading } = useAgentPicks(canSeePicks ? agentId : undefined, {
+  const filters = {
     sport: sportFilter === 'all' ? undefined : sportFilter,
     result: resultFilter === 'all' ? undefined : resultFilter,
-  });
+  };
+  const { data: picks, isLoading: picksLoading } = useAgentPicks(canSeePicks ? agentId : undefined, filters);
+  const { data: parlays, isLoading: parlaysLoading } = useAgentParlays(canSeePicks ? agentId : undefined, filters);
+  const isLoading = picksLoading || parlaysLoading;
+
+  const items = React.useMemo<HistoryItem[]>(() => {
+    const merged: HistoryItem[] = [
+      ...(picks ?? []).map((pick) => ({
+        kind: 'pick' as const,
+        date: pick.game_date,
+        createdAt: pick.created_at,
+        pick,
+      })),
+      ...(parlays ?? []).map((parlay) => ({
+        kind: 'parlay' as const,
+        date: parlay.target_date ?? parlay.created_at.slice(0, 10),
+        createdAt: parlay.created_at,
+        parlay,
+      })),
+    ];
+    // Same ordering the picks query used: newest slate first, then newest pick.
+    return merged.sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  }, [picks, parlays]);
 
   if (!canSeePicks) {
     return (
@@ -87,19 +118,23 @@ export function AgentPicksSection({ agentId, canSeePicks }: AgentPicksSectionPro
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading picks…</p>}
-      {!isLoading && (picks?.length ?? 0) === 0 && (
+      {!isLoading && items.length === 0 && (
         <p className="text-sm text-muted-foreground">No picks found for current filters.</p>
       )}
 
       {!selectedPick ? (
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          {(picks ?? []).map((pick) => (
-            <AgentPickCard
-              key={pick.id}
-              pick={pick}
-              onOpenAudit={(p) => setSelectedPick((prev) => (prev?.id === p.id ? null : p))}
-            />
-          ))}
+          {items.map((item) =>
+            item.kind === 'pick' ? (
+              <AgentPickCard
+                key={item.pick.id}
+                pick={item.pick}
+                onOpenAudit={(p) => setSelectedPick((prev) => (prev?.id === p.id ? null : p))}
+              />
+            ) : (
+              <AgentParlayCard key={item.parlay.id} parlay={item.parlay} />
+            ),
+          )}
         </div>
       ) : (
         <AgentPickAuditPanel pick={selectedPick} onBack={() => setSelectedPick(null)} />
