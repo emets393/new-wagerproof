@@ -4,7 +4,8 @@ import WagerproofModels
 import WagerproofServices
 import WagerproofStores
 
-/// Historical Analysis — faithful port of web NFLAnalytics / CFBAnalytics.
+/// Historical Trends — native large title, sticky search bar + floating filter
+/// pills, container-free content. See .claude/docs/15_mobile_historical_analysis.md.
 struct HistoricalAnalysisView: View {
     let sport: HistoricalAnalysisSport
 
@@ -12,11 +13,15 @@ struct HistoricalAnalysisView: View {
     @State private var store: HistoricalAnalysisStore
     @State private var breakdownTab = "team"
     @State private var breakdownSort = "n"
-    @State private var teamSearch = ""
+    @State private var searchText = ""
+    @State private var showAllRows = false
     @State private var showSaveSheet = false
+    @State private var showShareSheet = false
     @State private var saveName = ""
 
-    private let breakdownTableHeight: CGFloat = 360
+    /// Breakdown rows shown before the "Show all" expander — keeps the CFB
+    /// 130+ team list from burying the upcoming-games section.
+    private let rowCap = 15
 
     init(sport: HistoricalAnalysisSport) {
         self.sport = sport
@@ -34,19 +39,28 @@ struct HistoricalAnalysisView: View {
                 Section {
                     scrollableContent
                         .padding(.horizontal, 16)
-                        .padding(.top, 12)
+                        .padding(.top, 16)
                         .padding(.bottom, 24)
                         .opacity(store.isRefetching ? 0.55 : 1)
                         .animation(.easeInOut(duration: 0.2), value: store.isRefetching)
                 } header: {
-                    pinnedHeader
+                    // Deliberately no slab behind the pills — the liquid-glass
+                    // capsules float and content scrolls underneath them.
+                    HistoricalAnalysisFilterBar(store: store, onChange: { store.scheduleFetch() })
+                        .padding(.top, 6)
+                        .padding(.bottom, 10)
                 }
             }
         }
         .background(Color.appSurface)
         .navigationTitle(sport.shortTitle + " Trends")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { savedFiltersMenu }
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: searchPrompt
+        )
+        .toolbar { savedSearchesMenu }
         .overlay(alignment: .top) {
             if store.isRefetching {
                 ProgressView()
@@ -58,106 +72,123 @@ struct HistoricalAnalysisView: View {
             if let userId { await store.refreshSaved(userId: userId) }
         }
         .sheet(isPresented: $showSaveSheet) {
-            saveFilterSheet
+            saveSearchSheet
+        }
+        .sheet(isPresented: $showShareSheet) {
+            HistoricalTrendsShareView(
+                sport: sport,
+                snapshot: store.snapshot,
+                analysis: store.analysis
+            )
         }
         .onChange(of: store.snapshot.selectedConferences) { _, conferences in
             if !conferences.isEmpty, breakdownTab == "conf" {
                 breakdownTab = "team"
             }
         }
-    }
-
-    // MARK: - Pinned header (hero + filter pills)
-
-    private var pinnedHeader: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            heroSection
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 10)
-
-            HistoricalAnalysisFilterBar(store: store, onChange: { store.scheduleFetch() })
-
-            Divider()
-                .padding(.top, 8)
+        .onChange(of: breakdownTab) { _, _ in
+            showAllRows = false
         }
-        .background(Color.appSurface)
     }
+
+    private var searchPrompt: Text {
+        switch breakdownTab {
+        case "coach": return Text("Search coaches")
+        case "ref": return Text("Search referees")
+        case "conf": return Text("Search conferences")
+        default: return Text("Search teams")
+        }
+    }
+
+    // MARK: - Scrollable content
 
     @ViewBuilder
-    private var heroSection: some View {
+    private var scrollableContent: some View {
+        VStack(alignment: .leading, spacing: 28) {
+            summarySection
+            if let data = store.analysis, store.hasLoadedOnce {
+                breakdownBars(data)
+                breakdownLists(data)
+            }
+            upcomingSection
+        }
+    }
+
+    private func sectionHeader(_ title: String, subtitle: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 11, weight: .bold))
+                .tracking(0.8)
+                .foregroundStyle(Color.appTextSecondary)
+            if let subtitle {
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.appTextSecondary)
+            }
+        }
+    }
+
+    // MARK: - Summary (plain text, no card)
+
+    @ViewBuilder
+    private var summarySection: some View {
         switch store.loadState {
         case .loading where !store.hasLoadedOnce:
             ProgressView("Loading analysis…")
-                .frame(maxWidth: .infinity, minHeight: 100)
+                .frame(maxWidth: .infinity, minHeight: 120)
         case .failed(let message):
             Text(message)
                 .font(.system(size: 14))
                 .foregroundStyle(Color.appTextSecondary)
-                .frame(maxWidth: .infinity, minHeight: 72)
-                .padding(14)
-                .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 14))
+                .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         default:
             if let data = store.analysis {
-                heroCard(data)
+                if data.overall.n > 0 {
+                    summaryText(data)
+                } else {
+                    Text("No games match these filters — try widening them.")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.appTextSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+                }
             }
         }
     }
 
-    private func heroCard(_ data: HistoricalAnalysisResponse) -> some View {
-        Group {
-            if data.overall.n > 0 {
-                let subject = HistoricalAnalysisCopy.headlineSubject(sport: sport, snapshot: store.snapshot)
-                let metrics = HistoricalAnalysisCopy.headlineMetrics(snapshot: store.snapshot, data: data)
-                let sig = HistoricalAnalysisCopy.significance(n: metrics.n, hit: metrics.hitPct)
-                let delta = metrics.hitPct - data.baselinePct
-                let hitPct = metrics.hitPct
+    private func summaryText(_ data: HistoricalAnalysisResponse) -> some View {
+        let subject = HistoricalAnalysisCopy.headlineSubject(sport: sport, snapshot: store.snapshot)
+        let metrics = HistoricalAnalysisCopy.headlineMetrics(snapshot: store.snapshot, data: data)
+        let sig = HistoricalAnalysisCopy.significance(n: metrics.n, hit: metrics.hitPct)
+        let delta = metrics.hitPct - data.baselinePct
 
-                VStack(alignment: .leading, spacing: 10) {
-                    headlineText(subject: subject, metrics: metrics, data: data)
-                        .font(.system(size: 18, weight: .semibold))
-                        .fixedSize(horizontal: false, vertical: true)
+        return VStack(alignment: .leading, spacing: 8) {
+            headlineText(subject: subject, metrics: metrics, data: data)
+                .font(.system(size: 22, weight: .semibold))
+                .fixedSize(horizontal: false, vertical: true)
 
-                    Text("\(delta >= 0 ? "+" : "")\(HistoricalAnalysisCopy.trimmed(delta)) pts vs \(HistoricalAnalysisCopy.trimmed(data.baselinePct))% baseline · \(sig.label)")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.appTextSecondary)
+            Text("\(delta >= 0 ? "+" : "")\(HistoricalAnalysisCopy.trimmed(delta)) pts vs \(HistoricalAnalysisCopy.trimmed(data.baselinePct))% baseline · \(sig.label)")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.appTextSecondary)
 
-                    Text(HistoricalAnalysisCopy.scopeNote(sport: sport, snapshot: store.snapshot))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.appTextSecondary.opacity(0.85))
-                        .fixedSize(horizontal: false, vertical: true)
+            Text(HistoricalAnalysisCopy.scopeNote(sport: sport, snapshot: store.snapshot))
+                .font(.system(size: 12))
+                .foregroundStyle(Color.appTextSecondary.opacity(0.85))
+                .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: 8) {
-                        Label("\(data.coverage.nGames) games", systemImage: "sportscourt")
-                        Text("·")
-                        Text(verbatim: HistoricalAnalysisCopy.yearRange(data.coverage.seasonMin, data.coverage.seasonMax))
-                        if store.isLimitedHistory {
-                            Text("·")
-                            Text("Limited history")
-                                .foregroundStyle(Color.orange)
-                        }
-                    }
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.appTextSecondary)
+            HStack(spacing: 8) {
+                Label("\(data.coverage.nGames) games", systemImage: "sportscourt")
+                Text("·")
+                Text(verbatim: HistoricalAnalysisCopy.yearRange(data.coverage.seasonMin, data.coverage.seasonMax))
+                if store.isLimitedHistory {
+                    Text("·")
+                    Text("Limited history")
+                        .foregroundStyle(Color.orange)
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 16))
-                .overlay(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.appPrimary)
-                        .frame(width: 4)
-                        .padding(.vertical, 12)
-                }
-            } else {
-                Text("No games match these filters — try widening them.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.appTextSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 16))
             }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(Color.appTextSecondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func headlineText(
@@ -179,66 +210,42 @@ struct HistoricalAnalysisView: View {
             .foregroundStyle(Color.appTextPrimary)
     }
 
-    // MARK: - Scrollable content
-
-    @ViewBuilder
-    private var scrollableContent: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            breakdownSection
-            upcomingSection
-        }
-    }
-
-    @ViewBuilder
-    private var breakdownSection: some View {
-        if let data = store.analysis, store.hasLoadedOnce {
-            breakdownBars(data)
-            breakdownLists(data)
-        }
-    }
+    // MARK: - Breakdown bars (plain sections, no containers)
 
     private func breakdownBars(_ data: HistoricalAnalysisResponse) -> some View {
         let bars = HistoricalAnalysisFilterBuilder.shownBars(data.bars, snapshot: store.snapshot)
         return Group {
             if !bars.isEmpty {
-                VStack(alignment: .leading, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("BREAKDOWN")
-                            .font(.system(size: 10, weight: .bold))
-                            .tracking(0.8)
-                            .foregroundStyle(Color.appTextSecondary)
-                        Text("The same \(data.coverage.nGames) games, split by situation.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.appTextSecondary)
-                    }
+                VStack(alignment: .leading, spacing: 18) {
+                    sectionHeader("BREAKDOWN", subtitle: "The same \(data.coverage.nGames) games, split by situation.")
 
                     ForEach(bars) { bar in
                         barSection(bar, baseline: data.baselinePct)
-                            .padding(12)
-                            .background(Color.appSurfaceMuted.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
+                        if bar.id != bars.last?.id {
+                            Divider()
+                        }
                     }
                 }
-                .padding(14)
-                .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 14))
                 .layoutPriority(1)
             }
         }
     }
 
     private func barSection(_ bar: HistoricalAnalysisBar, baseline: Double) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(HistoricalAnalysisCopy.dimLabels[bar.dimension] ?? bar.dimension)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color.appTextSecondary)
 
             ForEach(bar.options) { opt in
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(HistoricalAnalysisCopy.sideLabel(betType: store.betType, side: opt.side))
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                         Spacer()
                         Text("\(HistoricalAnalysisCopy.trimmed(opt.hitPct))% (\(opt.wins) of \(opt.n))")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
+                            .monospacedDigit()
                             .foregroundStyle(opt.hitPct >= 52.4 ? Color.green : Color.appTextPrimary)
                     }
 
@@ -246,12 +253,12 @@ struct HistoricalAnalysisView: View {
 
                     HStack {
                         Text("vs \(HistoricalAnalysisCopy.trimmed(baseline))% baseline")
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
                             .foregroundStyle(Color.appTextSecondary)
                         Spacer()
                         if let roi = opt.roi {
                             Text(HistoricalAnalysisCopy.signedPct(roi) + " ROI")
-                                .font(.system(size: 10))
+                                .font(.system(size: 11))
                                 .foregroundStyle(roi >= 0 ? Color.green : Color.red)
                         }
                     }
@@ -260,17 +267,17 @@ struct HistoricalAnalysisView: View {
         }
     }
 
+    // MARK: - Breakdown lists (plain rows + Show all expander)
+
     private func breakdownLists(_ data: HistoricalAnalysisResponse) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             RegressionSegmentedTabs(
                 options: breakdownTabOptions,
                 selection: $breakdownTab
             )
-            breakdownSortPicker
+            breakdownSortMenu
             breakdownTable(for: data)
         }
-        .padding(14)
-        .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 14))
         .layoutPriority(1)
     }
 
@@ -286,27 +293,35 @@ struct HistoricalAnalysisView: View {
         }
     }
 
-    private var breakdownSortPicker: some View {
-        let isML = HistoricalAnalysisBetType.moneylineMarkets.contains(store.betType)
+    private var isMoneylineBetType: Bool {
+        HistoricalAnalysisBetType.moneylineMarkets.contains(store.betType)
+    }
+
+    /// ROI isn't computed for moneyline markets — fall back to game count.
+    private var effectiveSort: String {
+        isMoneylineBetType && breakdownSort == "roi" ? "n" : breakdownSort
+    }
+
+    private var breakdownSortMenu: some View {
         let outcome = HistoricalAnalysisCopy.outcomeLabel(for: store.betType)
-        return HStack {
-            ForEach(["n", "hit", "roi"].filter { $0 != "roi" || !isML }, id: \.self) { key in
-                let active = breakdownSort == key
-                Button {
-                    breakdownSort = key
-                } label: {
-                    Text(key == "n" ? "Games" : key == "hit" ? "\(outcome) %" : "ROI")
-                        .font(.system(size: 11, weight: active ? .bold : .medium))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(active ? Color.appSurface : .clear, in: RoundedRectangle(cornerRadius: 8))
+        let labels: [String: String] = ["n": "Most games", "hit": "\(outcome) %", "roi": "ROI"]
+        return Menu {
+            Picker("Sort by", selection: $breakdownSort) {
+                Label("Most games", systemImage: "number").tag("n")
+                Label("\(outcome) %", systemImage: "percent").tag("hit")
+                if !isMoneylineBetType {
+                    Label("ROI", systemImage: "chart.line.uptrend.xyaxis").tag("roi")
                 }
-                .buttonStyle(.plain)
             }
-            Spacer()
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.up.arrow.down")
+                    .font(.system(size: 11, weight: .bold))
+                Text("Sort: \(labels[effectiveSort] ?? "Most games")")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(Color.appTextSecondary)
         }
-        .padding(3)
-        .background(Color.appSurfaceMuted, in: RoundedRectangle(cornerRadius: 10))
     }
 
     @ViewBuilder
@@ -320,36 +335,43 @@ struct HistoricalAnalysisView: View {
             }
         }()
         let sorted = sortedRows(rows)
-        let showSearch = breakdownTab == "team" && rows.count > 12
-        let filtered = showSearch && !teamSearch.isEmpty
-            ? sorted.filter { $0.label.localizedCaseInsensitiveContains(teamSearch) }
-            : sorted
-
-        if showSearch {
-            TextField("Search teams…", text: $teamSearch)
-                .textFieldStyle(.roundedBorder)
-        }
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        let filtered = query.isEmpty
+            ? sorted
+            : sorted.filter { $0.label.localizedCaseInsensitiveContains(query) }
+        // Searching shows every match; browsing caps the list behind "Show all".
+        let visible = (showAllRows || !query.isEmpty) ? filtered : Array(filtered.prefix(rowCap))
 
         if filtered.isEmpty {
-            Text(rows.isEmpty ? "No results with enough games (min 3)." : "No teams match \"\(teamSearch)\".")
+            Text(rows.isEmpty ? "No results with enough games (min 3)." : "Nothing matches \"\(query)\".")
                 .font(.system(size: 13))
                 .foregroundStyle(Color.appTextSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
         } else {
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(filtered) { row in
-                        breakdownRow(row)
-                        if row.id != filtered.last?.id {
-                            Divider()
-                        }
+            VStack(spacing: 0) {
+                ForEach(visible) { row in
+                    breakdownRow(row)
+                    if row.id != visible.last?.id {
+                        Divider()
                     }
                 }
             }
-            .frame(height: breakdownTableHeight)
-            .background(Color.appSurfaceMuted.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            if query.isEmpty, filtered.count > rowCap {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showAllRows.toggle()
+                    }
+                } label: {
+                    Text(showAllRows ? "Show fewer" : "Show all \(filtered.count)")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.appPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -359,26 +381,26 @@ struct HistoricalAnalysisView: View {
                 teamAvatar(row.label)
             }
             Text(row.label)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .lineLimit(1)
             Spacer()
             Text("\(row.n)g")
-                .font(.system(size: 10, weight: .bold))
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.appSurfaceMuted, in: Capsule())
+                .font(.system(size: 11, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Color.appTextSecondary)
             Text("\(HistoricalAnalysisCopy.trimmed(row.hitPct))%")
-                .font(.system(size: 14, weight: .bold))
+                .font(.system(size: 15, weight: .bold))
+                .monospacedDigit()
                 .foregroundStyle(HistoricalAnalysisCopy.hitPctColor(row.hitPct))
-                .frame(width: 48, alignment: .trailing)
-            if !HistoricalAnalysisBetType.moneylineMarkets.contains(store.betType) {
+                .frame(width: 52, alignment: .trailing)
+            if !isMoneylineBetType {
                 Text(row.roi.map { HistoricalAnalysisCopy.signedPct($0) } ?? "—")
                     .font(.system(size: 12))
+                    .monospacedDigit()
                     .foregroundStyle((row.roi ?? 0) >= 0 ? Color.green : Color.red)
                     .frame(width: 56, alignment: .trailing)
             }
         }
-        .padding(.horizontal, 10)
         .padding(.vertical, 10)
     }
 
@@ -423,70 +445,94 @@ struct HistoricalAnalysisView: View {
     }
 
     private func sortedRows(_ rows: [HistoricalAnalysisBreakdownRow]) -> [HistoricalAnalysisBreakdownRow] {
-        switch breakdownSort {
+        switch effectiveSort {
         case "hit": return rows.sorted { $0.hitPct > $1.hitPct }
         case "roi": return rows.sorted { ($0.roi ?? -999) > ($1.roi ?? -999) }
         default: return rows.sorted { $0.n > $1.n }
         }
     }
 
+    // MARK: - Upcoming (plain rows)
+
     @ViewBuilder
     private var upcomingSection: some View {
         if !store.upcoming.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("This week's games that match (\(store.upcoming.count))", systemImage: "calendar")
-                    .font(.system(size: 14, weight: .semibold))
-                ForEach(store.upcoming) { game in
-                    HStack(spacing: 10) {
-                        teamAvatar(game.team)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(game.matchup)
-                                .font(.system(size: 14, weight: .medium))
-                            Text(HistoricalAnalysisCopy.lineForBet(betType: store.betType, game: game))
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.appTextSecondary)
-                            Text(HistoricalAnalysisCopy.fmtKickoff(game.kickoff))
-                                .font(.system(size: 11))
-                                .foregroundStyle(Color.appTextSecondary)
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeader(
+                    "THIS WEEK",
+                    subtitle: "\(store.upcoming.count) upcoming \(store.upcoming.count == 1 ? "game matches" : "games match") this search."
+                )
+                VStack(spacing: 0) {
+                    ForEach(store.upcoming) { game in
+                        HStack(spacing: 10) {
+                            teamAvatar(game.team)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(game.matchup)
+                                    .font(.system(size: 15, weight: .medium))
+                                Text(HistoricalAnalysisCopy.lineForBet(betType: store.betType, game: game))
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Color.appTextSecondary)
+                                Text(HistoricalAnalysisCopy.fmtKickoff(game.kickoff))
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Color.appTextSecondary)
+                            }
+                            Spacer()
                         }
-                        Spacer()
+                        .padding(.vertical, 10)
+                        if game.id != store.upcoming.last?.id {
+                            Divider()
+                        }
                     }
-                    .padding(10)
-                    .background(Color.appSurfaceMuted.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
                 }
             }
-            .padding(14)
-            .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appPrimary.opacity(0.25)))
         }
     }
 
-    // MARK: - Saved filters
+    // MARK: - Saved searches (toolbar context menu)
 
     @ToolbarContentBuilder
-    private var savedFiltersMenu: some ToolbarContent {
-        if userId != nil {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ForEach(store.savedFilters) { filter in
-                        Button(filter.name) { store.restoreSaved(filter) }
+    private var savedSearchesMenu: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                if !store.savedFilters.isEmpty {
+                    Section("Saved Searches") {
+                        ForEach(store.savedFilters) { filter in
+                            Button {
+                                store.restoreSaved(filter)
+                            } label: {
+                                Label(filter.name, systemImage: "bookmark.fill")
+                            }
+                        }
                     }
-                    Divider()
-                    Button("Save current…") { showSaveSheet = true }
-                        .disabled(store.savedFilters.count >= HistoricalAnalysisSavedFiltersService.maxPerUser)
-                } label: {
-                    Image(systemName: "bookmark")
                 }
+                if userId != nil {
+                    Button {
+                        saveName = ""
+                        showSaveSheet = true
+                    } label: {
+                        Label("Save Current Search…", systemImage: "plus")
+                    }
+                    .disabled(store.savedFilters.count >= HistoricalAnalysisSavedFiltersService.maxPerUser)
+                }
+                Button {
+                    showShareSheet = true
+                } label: {
+                    Label("Share Current Search", systemImage: "square.and.arrow.up")
+                }
+                .disabled(store.analysis == nil)
+            } label: {
+                Image(systemName: "bookmark")
             }
         }
     }
 
-    private var saveFilterSheet: some View {
+    private var saveSearchSheet: some View {
         NavigationStack {
             Form {
-                TextField("Name this filter", text: $saveName)
+                TextField("Name this search", text: $saveName)
             }
-            .navigationTitle("Save filter")
+            .navigationTitle("Save Search")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { showSaveSheet = false; saveName = "" }

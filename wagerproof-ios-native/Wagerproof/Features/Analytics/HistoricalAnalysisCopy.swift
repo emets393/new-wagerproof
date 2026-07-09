@@ -418,6 +418,148 @@ enum HistoricalAnalysisCopy {
         return isTotal ? "Games" : "Teams"
     }
 
+    // MARK: - Narrative sentence (share infographic)
+
+    /// "When"-style clauses built from the active filters, composed into
+    /// "When {a}, {b}, and {c}, {subject} {verb} X% of the time."
+    static func narrativeClauses(
+        sport: HistoricalAnalysisSport,
+        snapshot: HistoricalAnalysisUISnapshot
+    ) -> [String] {
+        var clauses: [String] = []
+        let s = snapshot
+        let betType = s.betType
+
+        switch sport {
+        case .nfl:
+            if s.seasonType == "regular" { clauses.append("it's the regular season") }
+            if s.seasonType == "postseason" {
+                if s.playoffRound == "any" {
+                    clauses.append("it's the playoffs")
+                } else if s.playoffRound == "Super Bowl" {
+                    clauses.append("it's the Super Bowl")
+                } else {
+                    clauses.append("it's the \(s.playoffRound) round")
+                }
+            }
+            if s.seasonType == "regular", s.weekMin != 1 || s.weekMax != 18 {
+                clauses.append(weekClause(s.weekMin, s.weekMax))
+            }
+            if let division = s.division {
+                clauses.append(division ? "it's a divisional game" : "it's a non-divisional game")
+            }
+        case .cfb:
+            switch s.gameType {
+            case "regular": clauses.append("it's the regular season")
+            case "bowl": clauses.append("it's a bowl game")
+            case "playoff": clauses.append("it's a playoff game")
+            case "postseason": clauses.append("it's the postseason")
+            default: break
+            }
+            if s.gameType == "regular", s.weekMin != 1 || s.weekMax != 16 {
+                clauses.append(weekClause(s.weekMin, s.weekMax))
+            }
+            switch s.rankedMatchup {
+            case "both": clauses.append("both teams are ranked")
+            case "neither": clauses.append("neither team is ranked")
+            case "home_ranked": clauses.append("only the home team is ranked")
+            case "away_ranked": clauses.append("only the away team is ranked")
+            case "either": clauses.append("at least one team is ranked")
+            default: break
+            }
+            if let confGame = s.conferenceGame {
+                clauses.append(confGame ? "it's a conference game" : "it's a non-conference game")
+            }
+            if let neutral = s.neutralSite {
+                clauses.append(neutral ? "it's at a neutral site" : "it's not at a neutral site")
+            }
+        }
+
+        if let primetime = s.primetime {
+            clauses.append(primetime ? "it's primetime" : "it's not primetime")
+        }
+
+        if sport == .nfl {
+            if s.dome == "dome" { clauses.append("the game is in a dome") }
+            if s.dome == "outdoor" { clauses.append("the game is outdoors") }
+            switch s.precip {
+            case "rain": clauses.append("it's raining")
+            case "snow": clauses.append("it's snowing")
+            case "none": clauses.append("conditions are dry")
+            default: break
+            }
+            switch s.restBye {
+            case "off_bye": clauses.append("they're coming off a bye")
+            case "pre_bye": clauses.append("it's the week before a bye")
+            case "short": clauses.append("they're on short rest")
+            default: break
+            }
+            if s.referee != "any" { clauses.append("\(s.referee) is officiating") }
+        }
+
+        let tempDefaultMax = sport == .nfl ? 100 : 110
+        if s.tempMin != -10 || s.tempMax != tempDefaultMax {
+            clauses.append("it's \(s.tempMin)–\(s.tempMax)°F")
+        }
+        if s.windMax != 60 { clauses.append("winds are under \(s.windMax) mph") }
+
+        if let spreadCfg = HistoricalAnalysisFilterBuilder.spreadConfig(sport: sport, betType: betType) {
+            let lo = trimmed(s.spreadMin)
+            let hi = trimmed(s.spreadMax)
+            if s.spreadSide == "favorite" {
+                clauses.append("they're laying \(lo)–\(hi) points")
+            } else if s.spreadSide == "underdog" {
+                clauses.append("they're getting \(lo)–\(hi) points")
+            } else if s.spreadMin > 0.001 || s.spreadMax < spreadCfg.max - 0.001 {
+                clauses.append("the spread is \(lo)–\(hi) points")
+            }
+        }
+
+        if let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: betType),
+           s.lineMin > totalCfg.min + 0.001 || s.lineMax < totalCfg.max - 0.001 {
+            clauses.append("the \(totalCfg.label.lowercased()) is \(trimmed(s.lineMin))–\(trimmed(s.lineMax))")
+        }
+
+        if !s.mlMin.isEmpty || !s.mlMax.isEmpty {
+            let fmt: (String) -> String = { raw in
+                guard let n = Double(raw) else { return raw }
+                return n > 0 ? "+\(Int(n))" : "\(Int(n))"
+            }
+            if !s.mlMin.isEmpty && !s.mlMax.isEmpty {
+                clauses.append("the moneyline is \(fmt(s.mlMin)) to \(fmt(s.mlMax))")
+            } else if !s.mlMin.isEmpty {
+                clauses.append("the moneyline is \(fmt(s.mlMin)) or better")
+            } else {
+                clauses.append("the moneyline is \(fmt(s.mlMax)) or worse")
+            }
+        }
+
+        return clauses
+    }
+
+    private static func weekClause(_ min: Int, _ max: Int) -> String {
+        min == max ? "it's week \(min)" : "it's weeks \(min)–\(max)"
+    }
+
+    /// Oxford-comma join: ["a","b","c"] → "a, b, and c".
+    static func joinedClauses(_ clauses: [String]) -> String {
+        switch clauses.count {
+        case 0: return ""
+        case 1: return clauses[0]
+        case 2: return "\(clauses[0]) and \(clauses[1])"
+        default: return clauses.dropLast().joined(separator: ", ") + ", and " + (clauses.last ?? "")
+        }
+    }
+
+    /// Lowercase generic subjects mid-sentence; keep proper nouns intact.
+    static func midSentenceSubject(_ subject: String) -> String {
+        let generic: Set<String> = ["Home", "Road", "Favorites", "Underdogs", "Teams", "Games"]
+        guard let first = subject.split(separator: " ").first, generic.contains(String(first)) else {
+            return subject
+        }
+        return subject.prefix(1).lowercased() + subject.dropFirst()
+    }
+
     static func scopeNote(
         sport: HistoricalAnalysisSport,
         snapshot: HistoricalAnalysisUISnapshot
