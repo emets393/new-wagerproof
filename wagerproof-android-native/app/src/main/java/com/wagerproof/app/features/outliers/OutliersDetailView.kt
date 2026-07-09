@@ -22,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
+import com.wagerproof.app.features.games.tools.ToolRouter
 import com.wagerproof.app.features.shared.hexColor
 import com.wagerproof.core.design.components.SkeletonBlock
 import com.wagerproof.core.design.components.SkeletonCapsule
@@ -42,17 +42,15 @@ import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.models.SportLeague
 import com.wagerproof.core.stores.LoadState
+import com.wagerproof.core.stores.MainTabStore
 import com.wagerproof.core.stores.OutliersStore
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * Per-category Outliers detail view. Port of iOS `OutliersDetailView.swift`.
  *
  * The `.value` / `.fade` categories share [OutliersStore] and render inline
  * (explainer banner + sport filter pills + alert cards / shimmer / empty). The
- * deeper categories delegate to iOS's `ToolRouter.leafView`, which isn't ported
- * — those render a placeholder here.
+ * deeper categories delegate to the shared [ToolRouter] used by Games banners.
  */
 @Composable
 fun OutliersDetailView(
@@ -64,22 +62,7 @@ fun OutliersDetailView(
     when (category) {
         OutliersStore.Category.`value`, OutliersStore.Category.fade ->
             InlineAlertsBody(store, category, modifier)
-        else -> {
-            // FIDELITY-WAIVER #234: ToolRouter not ported; deep categories route out on iOS.
-            Box(
-                modifier
-                    .fillMaxSize()
-                    .background(AppColors.appSurface),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    category.displayName,
-                    color = AppColors.appTextSecondary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
+        else -> ToolRouter.LeafView(category, modifier)
     }
 }
 
@@ -150,7 +133,7 @@ private fun ExplainerBanner(category: OutliersStore.Category) {
 
 @Composable
 private fun ValueAlertsList(store: OutliersStore) {
-    val scope = rememberCoroutineScope()
+    val graph = appGraph()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SportFilterPills(
             current = store.valueAlertsSportFilter,
@@ -164,11 +147,7 @@ private fun ValueAlertsList(store: OutliersStore) {
             else -> alerts.forEachIndexed { index, alert ->
                 OutlierAlertCard(
                     kind = OutlierAlertKind.Value(alert),
-                    onTap = {
-                        store.loadingGameId = alert.gameId
-                        // FIDELITY-WAIVER #021: alert tap doesn't open a game sheet yet
-                        scope.launch { delay(500); store.loadingGameId = null }
-                    },
+                    onTap = { openOutlierGame(graph, alert.sport, alert.gameId, store) },
                     modifier = Modifier.staggeredAppear(index),
                 )
             }
@@ -178,7 +157,7 @@ private fun ValueAlertsList(store: OutliersStore) {
 
 @Composable
 private fun FadeAlertsList(store: OutliersStore) {
-    val scope = rememberCoroutineScope()
+    val graph = appGraph()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SportFilterPills(
             current = store.fadeAlertsSportFilter,
@@ -192,16 +171,47 @@ private fun FadeAlertsList(store: OutliersStore) {
             else -> alerts.forEachIndexed { index, alert ->
                 OutlierAlertCard(
                     kind = OutlierAlertKind.Fade(alert),
-                    onTap = {
-                        store.loadingGameId = alert.gameId
-                        // FIDELITY-WAIVER #021: alert tap doesn't open a game sheet yet
-                        scope.launch { delay(500); store.loadingGameId = null }
-                    },
+                    onTap = { openOutlierGame(graph, alert.sport, alert.gameId, store) },
                     modifier = Modifier.staggeredAppear(index),
                 )
             }
         }
     }
+}
+
+/** Resolve the lightweight alert id through the hoisted slate and open the same
+ * per-sport sheet used by Games/Search before switching tabs. */
+private fun openOutlierGame(
+    graph: com.wagerproof.app.AppGraph,
+    sport: SportLeague,
+    gameId: String,
+    outliers: OutliersStore,
+) {
+    outliers.loadingGameId = gameId
+    val opened = when (sport) {
+        SportLeague.NFL -> graph.games.games.nfl.firstOrNull { it.id == gameId || it.gameId == gameId }?.let {
+            graph.games.selectedSport = com.wagerproof.core.stores.GamesStore.Sport.nfl
+            graph.nflGameSheet.openGameSheet(it); true
+        } ?: false
+        SportLeague.CFB -> graph.games.games.cfb.firstOrNull { it.id == gameId || it.gameId == gameId }?.let {
+            graph.games.selectedSport = com.wagerproof.core.stores.GamesStore.Sport.cfb
+            graph.cfbGameSheet.openGameSheet(it); true
+        } ?: false
+        SportLeague.NBA -> graph.games.games.nba.firstOrNull { it.id == gameId || it.gameId.toString() == gameId }?.let {
+            graph.games.selectedSport = com.wagerproof.core.stores.GamesStore.Sport.nba
+            graph.nbaGameSheet.openGameSheet(it); true
+        } ?: false
+        SportLeague.NCAAB -> graph.games.games.ncaab.firstOrNull { it.id == gameId || it.gameId.toString() == gameId }?.let {
+            graph.games.selectedSport = com.wagerproof.core.stores.GamesStore.Sport.ncaab
+            graph.ncaabGameSheet.openGameSheet(it); true
+        } ?: false
+        SportLeague.MLB -> graph.games.games.mlb.firstOrNull { it.id == gameId || it.gamePk.toString() == gameId }?.let {
+            graph.games.selectedSport = com.wagerproof.core.stores.GamesStore.Sport.mlb
+            graph.mlbGameSheet.openGameSheet(it); true
+        } ?: false
+    }
+    if (opened) graph.mainTab.select(MainTabStore.Tab.Games)
+    outliers.loadingGameId = null
 }
 
 // MARK: - Sport filter pills

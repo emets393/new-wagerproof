@@ -42,7 +42,7 @@ import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
 import com.wagerproof.app.features.components.polymarket.PolymarketWidget
 import com.wagerproof.app.features.agents.components.AgentPickRationaleWidget
-import com.wagerproof.app.features.gamecards.FallbackTeamColor
+import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
 import com.wagerproof.app.features.gamecards.TeamInitials
@@ -77,8 +77,8 @@ import kotlin.math.roundToInt
  * Match Simulator (2.5s reveal) → Model Projections fallback → Agent rationale.
  *
  * Trends + accuracy stores are screen-local (mirrors NBA/iOS), hydrated in
- * LaunchedEffect keyed on the game. Team colors come from a stable name hash
- * ([FallbackTeamColor], FIDELITY-WAIVER #008).
+ * LaunchedEffect keyed on the game. Team identity uses the authoritative
+ * mapping-enriched logo/abbreviation fields and the shared college color map.
  */
 @Composable
 fun NCAABGameDetailPage(
@@ -98,8 +98,8 @@ fun NCAABGameDetailPage(
     var simulationRevealed by remember(game.id) { mutableStateOf(false) }
     var trendsDetailOpen by remember(game.id) { mutableStateOf(false) }
 
-    val awayColors = FallbackTeamColor.colorPair(game.awayTeam)
-    val homeColors = FallbackTeamColor.colorPair(game.homeTeam)
+    val awayColors = CFBTeamColors.colorPair(game.awayTeam)
+    val homeColors = CFBTeamColors.colorPair(game.homeTeam)
 
     LaunchedEffect(game.id) {
         trendsStore.refreshIfNeeded()
@@ -154,7 +154,13 @@ fun NCAABGameDetailPage(
                             rightColor = AppColors.appPrimary,
                         )
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            GameCardTeamAvatar(sport = "ncaab", team = pred.predictedTeam, diameter = 40.dp, colors = if (pred.isHome) homeColors else awayColors)
+                            GameCardTeamAvatar(
+                                sport = "ncaab",
+                                team = pred.predictedTeam,
+                                diameter = 40.dp,
+                                colors = if (pred.isHome) homeColors else awayColors,
+                                logoURL = if (pred.isHome) game.homeTeamLogo else game.awayTeamLogo,
+                            )
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 val label = (if (pred.isHome) game.homeTeamAbbrev else game.awayTeamAbbrev)
                                     ?.trim()?.takeUnless { it.isEmpty() } ?: pred.predictedTeam
@@ -338,9 +344,9 @@ private fun Hero(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(lerpDp(14.dp, 10.dp, p)),
         ) {
-            HeroTeamColumn(game.awayTeam, game.awayTeamAbbrev, game.awayRanking, awayColors, logoSize, detail, game.awayMl, mlReveal)
+            HeroTeamColumn(game.awayTeam, game.awayTeamAbbrev, game.awayTeamLogo, game.awayRanking, awayColors, logoSize, detail, game.awayMl, mlReveal)
             HeroLines(game, detail, Modifier.weight(1f))
-            HeroTeamColumn(game.homeTeam, game.homeTeamAbbrev, game.homeRanking, homeColors, logoSize, detail, game.homeMl, mlReveal)
+            HeroTeamColumn(game.homeTeam, game.homeTeamAbbrev, game.homeTeamLogo, game.homeRanking, homeColors, logoSize, detail, game.homeMl, mlReveal)
         }
     }
 }
@@ -349,6 +355,7 @@ private fun Hero(
 private fun HeroTeamColumn(
     team: String,
     abbr: String?,
+    logoURL: String?,
     ranking: Int?,
     colors: com.wagerproof.app.features.gamecards.TeamColorPair,
     size: Dp,
@@ -360,7 +367,7 @@ private fun HeroTeamColumn(
     val (city, nick) = TeamInitials.parts(team)
     Column(Modifier.width(96.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(contentAlignment = Alignment.TopEnd) {
-            GameCardTeamAvatar(sport = "ncaab", team = team, diameter = size, colors = colors)
+            GameCardTeamAvatar(sport = "ncaab", team = team, diameter = size, colors = colors, logoURL = logoURL)
             if (ranking != null && ranking <= 25) {
                 Text(
                     "#$ranking",
@@ -550,17 +557,17 @@ private fun MatchSimulator(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SimScore(game.awayTeam, game.awayScorePred, awayColors, Modifier.weight(1f))
+            SimScore(game.awayTeam, game.awayTeamLogo, game.awayScorePred, awayColors, Modifier.weight(1f))
             Text("VS", color = AppColors.appTextSecondary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            SimScore(game.homeTeam, game.homeScorePred, homeColors, Modifier.weight(1f))
+            SimScore(game.homeTeam, game.homeTeamLogo, game.homeScorePred, homeColors, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun SimScore(team: String, score: Double?, colors: com.wagerproof.app.features.gamecards.TeamColorPair, modifier: Modifier) {
+private fun SimScore(team: String, logoURL: String?, score: Double?, colors: com.wagerproof.app.features.gamecards.TeamColorPair, modifier: Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        GameCardTeamAvatar(sport = "ncaab", team = team, diameter = 64.dp, colors = colors)
+        GameCardTeamAvatar(sport = "ncaab", team = team, diameter = 64.dp, colors = colors, logoURL = logoURL)
         Text("${(score ?: 0.0).roundToInt()}", color = AppColors.appTextPrimary, fontSize = 32.sp, fontWeight = FontWeight.Bold)
     }
 }

@@ -4,8 +4,10 @@ import androidx.compose.ui.graphics.Color
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
@@ -22,13 +24,13 @@ object GameCardFormatting {
 
     private val ET: ZoneId = ZoneId.of("America/New_York")
 
-    /** "+150" / "−180" / "—". Uses the Unicode minus to match iOS. */
+    /** "+150" / "-180" / "—". */
     fun formatMoneyline(ml: Int?): String {
         if (ml == null) return "—"
-        return if (ml > 0) "+$ml" else "−${abs(ml)}"
+        return if (ml > 0) "+$ml" else ml.toString()
     }
 
-    /** Signed spread: whole when integral, else 1dp; Unicode minus. */
+    /** Signed spread: whole when integral, else 1dp. */
     fun formatSpread(spread: Double?): String {
         if (spread == null) return "—"
         val rounded = if (spread == spread.toLong().toDouble()) {
@@ -36,7 +38,7 @@ object GameCardFormatting {
         } else {
             String.format(Locale.US, "%.1f", spread)
         }
-        return if (spread > 0) "+$rounded" else if (spread < 0) "−${rounded.removePrefix("-")}" else rounded
+        return if (spread > 0) "+$rounded" else rounded
     }
 
     /** O/U display rounded to nearest half-point. */
@@ -78,8 +80,15 @@ object GameCardFormatting {
         runCatching { Instant.parse(s) }.getOrNull()?.let { return it }
         runCatching {
             LocalDateTime.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                .atZone(ET).toInstant()
+                .toInstant(ZoneOffset.UTC)
         }.getOrNull()?.let { return it }
+        for (pattern in listOf("HH:mm:ss", "HH:mm")) {
+            runCatching {
+                LocalTime.parse(s, DateTimeFormatter.ofPattern(pattern))
+                    .atDate(LocalDate.of(2001, 1, 1))
+                    .toInstant(ZoneOffset.UTC)
+            }.getOrNull()?.let { return it }
+        }
         runCatching {
             LocalDate.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                 .atStartOfDay(ET).toInstant()
@@ -96,13 +105,14 @@ data class TeamColorPair(val primary: Color, val secondary: Color)
  */
 object TeamInitials {
 
-    /** Two-letter initials from a team string (first + last word). */
+    /** First letters of the first two words, or the first three letters. */
     fun from(name: String): String {
-        val (city, nick) = parts(name)
-        val a = city.firstOrNull()?.uppercaseChar()
-        val b = nick.firstOrNull()?.uppercaseChar()
-        return listOfNotNull(a, b).joinToString("").ifEmpty {
-            name.trim().take(2).uppercase(Locale.US)
+        val cleaned = name.replace("()", "").trim()
+        val words = cleaned.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        return if (words.size >= 2) {
+            words.take(2).mapNotNull { it.firstOrNull() }.joinToString("").uppercase(Locale.US)
+        } else {
+            cleaned.take(3).uppercase(Locale.US)
         }
     }
 

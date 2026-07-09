@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,11 +28,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.gamecards.teamVisible
@@ -39,6 +42,7 @@ import com.wagerproof.app.features.outliers.OutlierTeamPalette
 import com.wagerproof.app.features.shared.RemoteImage
 import com.wagerproof.app.features.shared.hexColor
 import com.wagerproof.core.design.icons.AppIcon
+import com.wagerproof.core.design.components.liquidGlassCapsule
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.SportLeague
 import java.time.LocalDate
@@ -189,39 +193,78 @@ fun PropHoneydewBanner(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(23.dp)
     Box(
         modifier
             .fillMaxWidth()
+            .height(64.dp)
+            .shadow(8.dp, shape, ambientColor = Color.Black.copy(alpha = 0.10f), spotColor = Color.Black.copy(alpha = 0.10f))
             .clip(shape)
-            .background(Brush.linearGradient(listOf(primary.copy(alpha = 0.9f), secondary.copy(alpha = 0.85f))))
-            .clickable { onTap() }
-            .padding(16.dp),
+            .background(Brush.horizontalGradient(listOf(primary, secondary)))
+            .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
+            .clickable { onTap() },
     ) {
         // Faint scattered glyphs behind the copy (decorative, static).
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly) {
+        Row(
+            Modifier.fillMaxSize(),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             symbols.take(6).forEach { sym ->
                 Icon(
                     AppIcon.fromSystemName(sym)?.imageVector ?: AppIcon.SPARKLES.imageVector,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.10f),
-                    modifier = Modifier.size(26.dp),
+                    tint = primary.copy(alpha = 0.30f),
+                    modifier = Modifier.size(24.dp),
                 )
             }
         }
-        Column {
-            Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.size(4.dp))
-            Text(subtitle, color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.size(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(actionWord.uppercase(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+
+        // Match iOS' opaque-leading fade so title copy stays crisp while the
+        // decorative symbols emerge toward the right edge.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Brush.horizontalGradient(listOf(primary, Color.Transparent))),
+        )
+
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(1.dp)) {
+                Text(
+                    title,
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    subtitle,
+                    color = Color.White.copy(alpha = 0.95f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            Row(
+                Modifier
+                    .liquidGlassCapsule()
+                    .border(0.75.dp, Color.White.copy(alpha = 0.32f), CircleShape)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(actionWord, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.width(4.dp))
                 Icon(
                     AppIcon.CHEVRON_RIGHT.imageVector,
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(12.dp),
+                    tint = AppColors.appTextPrimary,
+                    modifier = Modifier.size(11.dp),
                 )
             }
         }

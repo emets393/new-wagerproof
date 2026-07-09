@@ -44,6 +44,7 @@ import com.wagerproof.app.features.components.CollapsingWidgetScroll
 import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
 import com.wagerproof.app.features.components.polymarket.PolymarketWidget
+import com.wagerproof.app.features.cfb.BettingLineMovementSection
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
 import com.wagerproof.app.features.gamecards.HeroStat
@@ -51,6 +52,7 @@ import com.wagerproof.app.features.gamecards.MatchupGlassHero
 import com.wagerproof.app.features.gamecards.MatchupHeroSide
 import com.wagerproof.app.features.gamecards.SportsbookLogoStyle
 import com.wagerproof.app.features.gamecards.SportsbookLogoView
+import com.wagerproof.app.features.gamecards.sheets.H2HHistoryContent
 import com.wagerproof.app.features.gamewidgets.SignalPerformanceStatsSection
 import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.shared.hexColor
@@ -73,7 +75,7 @@ import kotlin.math.roundToInt
  * NFL game-detail page — port of iOS `NFLGameBottomSheet` (dry-run contract).
  * Section order: Market Odds → one prediction section per pick group
  * (spread, total, team_total, moneyline, h1_spread, h1_total, h1_ml) →
- * Matchup History → Agent rationale. Signal + trend detail bottom sheets.
+ * Public Betting → Matchup History → Line Movement → Agent rationale.
  *
  * Data loads only when `runId` contains "dryrun" (parity with iOS) from
  * `nfl_dryrun_picks` / `nfl_signal_defs` / `nfl_team_trends` /
@@ -211,6 +213,20 @@ fun NFLGameDetailPage(
             }
         }
 
+        if (hasPublicBetting(game)) {
+            item {
+                WidgetCollapsingSection(
+                    title = "Public Betting",
+                    icon = AppIcon.fromSystemName("chart.bar.fill"),
+                    iconTint = AppColors.appAccentBlue,
+                ) {
+                    ProContentSection(title = "Public Betting", minHeight = 200.dp) {
+                        NFLPublicBettingBars(game)
+                    }
+                }
+            }
+        }
+
         item {
             WidgetCollapsingSection(
                 title = "Matchup History",
@@ -219,18 +235,26 @@ fun NFLGameDetailPage(
                 bodyPadding = 14.dp,
             ) {
                 ProContentSection(title = "Matchup History", minHeight = if (matchupHistory.isEmpty()) 80.dp else 220.dp) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (matchupHistory.isEmpty()) {
-                            Text(
-                                "No recent head-to-head games found.",
-                                color = AppColors.appTextSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp),
-                            )
-                        } else {
-                            matchupHistory.forEach { row -> MatchupHistoryRowView(row) }
-                        }
-                    }
+                    H2HHistoryContent(matchupHistory)
+                }
+            }
+        }
+
+        item {
+            WidgetCollapsingSection(
+                title = "Line Movement",
+                icon = AppIcon.fromSystemName("chart.line.uptrend.xyaxis"),
+                iconTint = AppColors.appPrimary,
+            ) {
+                ProContentSection(title = "Line Movement", minHeight = 100.dp) {
+                    BettingLineMovementSection(
+                        trainingKey = game.trainingKey,
+                        table = "nfl_betting_lines",
+                        awayTeam = game.awayTeam,
+                        homeTeam = game.homeTeam,
+                        awayColor = awayColors.primary,
+                        homeColor = homeColors.primary,
+                    )
                 }
             }
         }
@@ -257,6 +281,12 @@ fun NFLGameDetailPage(
         }
     }
 }
+
+private fun hasPublicBetting(game: NFLPrediction): Boolean = listOf(
+    game.homeMlBets, game.awayMlBets, game.homeMlHandle, game.awayMlHandle, game.mlSplitsLabel,
+    game.homeSpreadBets, game.awaySpreadBets, game.homeSpreadHandle, game.awaySpreadHandle, game.spreadSplitsLabel,
+    game.overBets, game.underBets, game.overHandle, game.underHandle, game.totalSplitsLabel,
+).any { !it.isNullOrBlank() }
 
 // MARK: - Hero
 
@@ -305,13 +335,13 @@ private fun NFLHero(
             ),
             progress = p,
             expandedStats = listOf(
-                HeroStat("ML", GameCardFormatting.formatMoneyline(game.awayMl), GameCardFormatting.formatMoneyline(game.homeMl)),
-                HeroStat("Spread", GameCardFormatting.formatSpread(game.awaySpread), GameCardFormatting.formatSpread(game.homeSpread)),
-                HeroStat("O/U", fmtHalf(game.overLine), ""),
+                HeroStat("ML", "${GameCardFormatting.formatMoneyline(game.awayMl)} / ${GameCardFormatting.formatMoneyline(game.homeMl)}"),
+                HeroStat("Spread", "${GameCardFormatting.formatSpread(game.awaySpread)} / ${GameCardFormatting.formatSpread(game.homeSpread)}"),
+                HeroStat("O/U", fmtHalf(game.overLine)),
             ),
             collapsedStats = listOf(
-                HeroStat("Spread", GameCardFormatting.formatSpread(game.awaySpread), GameCardFormatting.formatSpread(game.homeSpread)),
-                HeroStat("O/U", fmtHalf(game.overLine), ""),
+                HeroStat("Spread", "${GameCardFormatting.formatSpread(game.awaySpread)} / ${GameCardFormatting.formatSpread(game.homeSpread)}"),
+                HeroStat("O/U", fmtHalf(game.overLine)),
             ),
             fusedTitle = "$awayAbbr @ $homeAbbr",
         )
@@ -324,8 +354,6 @@ private fun NFLHero(
 
 @Composable
 private fun HeroWeatherRow(game: NFLPrediction, modifier: Modifier = Modifier) {
-    // FIDELITY-WAIVER #291: SF weather glyphs (cloud.rain.fill etc.) aren't in
-    // the Android AppIcon set — condition chips fall back to available icons.
     if (game.wxIndoors == true) {
         Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             WeatherChip("building.2.crop.circle", "INDOOR", game.wxSummary ?: "Game in Dome/Indoor", AppColors.appAccentBlue)
@@ -392,17 +420,17 @@ private fun weatherConditionDisplay(game: NFLPrediction): Triple<String, String,
     val gray = AppColors.appTextSecondary
     return when {
         key.contains("indoor") || key.contains("dome") -> Triple("building.2.crop.circle", "Indoor", blue)
-        key.contains("thunder") || key.contains("storm") -> Triple("bolt.fill", "Storms", amber)
-        key.contains("rain") || key.contains("shower") -> Triple("wind", "Rain", blue)
-        key.contains("snow") || key.contains("sleet") -> Triple("wind", "Snow", blue)
-        key.contains("fog") || key.contains("mist") -> Triple("wind", "Fog", gray)
+        key.contains("thunder") || key.contains("storm") -> Triple("cloud.bolt.rain.fill", "Storms", amber)
+        key.contains("rain") || key.contains("shower") -> Triple("cloud.rain.fill", "Rain", blue)
+        key.contains("snow") || key.contains("sleet") -> Triple("cloud.snow.fill", "Snow", blue)
+        key.contains("fog") || key.contains("mist") -> Triple("cloud.fog.fill", "Fog", gray)
         key.contains("wind") -> Triple("wind", "Windy", amber)
-        key.contains("cold") -> Triple("thermometer.medium", "Cold", blue)
-        key.contains("cloud") || key.contains("overcast") -> Triple("wind", "Cloudy", gray)
-        key.contains("partly") -> Triple("sparkles", "Partly", amber)
-        key.contains("clear") || key.contains("sun") -> Triple("sparkles", "Clear", amber)
+        key.contains("cold") -> Triple("thermometer.snowflake", "Cold", blue)
+        key.contains("cloud") || key.contains("overcast") -> Triple("cloud.fill", "Cloudy", gray)
+        key.contains("partly") -> Triple("cloud.sun.fill", "Partly", amber)
+        key.contains("clear") || key.contains("sun") -> Triple("sun.max.fill", "Clear", amber)
         icon.isEmpty() && summary.isEmpty() -> null
-        else -> Triple("wind", "Weather", blue)
+        else -> Triple("cloud.sun.fill", "Weather", blue)
     }
 }
 
@@ -851,78 +879,6 @@ private fun TrendResultChip(raw: String) {
     }
 }
 
-// MARK: - Matchup history
-
-@Composable
-private fun MatchupHistoryRowView(row: NFLMatchupHistoryRow) {
-    val shape = RoundedCornerShape(14.dp)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(AppColors.appSurfaceMuted.copy(alpha = 0.4f))
-            .border(1.dp, Color.White.copy(alpha = 0.08f), shape)
-            .padding(11.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(matchupHistoryDateLabel(row), color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.weight(1f))
-            if (row.neutralSite == true) {
-                Text("Neutral", color = AppColors.appAccentBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MatchupTeam(row.awayTeam, row.awayScore)
-            Text("@", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Black)
-            MatchupTeam(row.homeTeam, row.homeScore)
-            Spacer(Modifier.weight(1f))
-            Text(
-                "Total ${row.totalPoints ?: ((row.awayScore ?: 0) + (row.homeScore ?: 0))}",
-                color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            HistoryPill("Winner", row.winnerTeam ?: "—", AppColors.appPrimary)
-            HistoryPill(
-                "Covered",
-                row.coverTeam ?: row.atsResult ?: "Push",
-                if (row.coverTeam == null) AppColors.appTextSecondary else hexColor(0x22C55E),
-            )
-            HistoryPill("O/U", row.ouResult ?: "—", ouColor(row.ouResult))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val closing = "Spread ${GameCardFormatting.formatSpread(row.closingSpreadHome)}" +
-                "  Total ${fmtHalf(row.closingTotal)}" +
-                "  ML ${GameCardFormatting.formatMoneyline(row.closingMlAway)} / ${GameCardFormatting.formatMoneyline(row.closingMlHome)}"
-            Text(closing, color = AppColors.appTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun MatchupTeam(abbr: String, score: Int?) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        GameCardTeamAvatar(sport = "nfl", team = abbr, diameter = 24.dp, colors = NFLTeamColors.colorPair(abbr))
-        Text(abbr, color = AppColors.appTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Black)
-        Text(score?.toString() ?: "—", color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black)
-    }
-}
-
-@Composable
-private fun HistoryPill(label: String, value: String, color: Color) {
-    Row(
-        Modifier
-            .background(color.copy(alpha = 0.1f), CircleShape)
-            .padding(horizontal = 7.dp, vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label.uppercase(Locale.US), color = AppColors.appTextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Black)
-        Text(value.uppercase(Locale.US), color = color, fontSize = 10.sp, fontWeight = FontWeight.Black)
-    }
-}
-
 // MARK: - Signal definition sheet
 
 @Composable
@@ -1173,12 +1129,6 @@ private fun marginColor(value: Double?): Color = when {
     else -> AppColors.appTextSecondary
 }
 
-private fun ouColor(raw: String?): Color = when ((raw ?: "").uppercase(Locale.US)) {
-    "OVER" -> hexColor(0x22C55E)
-    "UNDER" -> AppColors.appAccentRed
-    else -> AppColors.appTextSecondary
-}
-
 private fun trendKind(cardGroup: String): NFLTrendKind? = when (cardGroup) {
     "spread" -> NFLTrendKind.SPREAD
     "total" -> NFLTrendKind.TOTAL
@@ -1260,12 +1210,6 @@ private fun trendDateText(raw: String?): String {
 private fun shortDate(raw: String?): String {
     if (raw.isNullOrEmpty()) return "—"
     return if (raw.length >= 10) raw.substring(5, 10).replace("-", "/") else raw
-}
-
-private fun matchupHistoryDateLabel(row: NFLMatchupHistoryRow): String {
-    val season = row.season?.toString() ?: row.date?.takeIf { it.length >= 4 }?.take(4)
-    season ?: return shortDate(row.date)
-    return "$season Season - ${shortDate(row.date)}"
 }
 
 private fun fmtHalf(value: Double?): String {

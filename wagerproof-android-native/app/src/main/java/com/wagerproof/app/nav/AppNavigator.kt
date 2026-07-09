@@ -17,6 +17,9 @@ class AppNavigator(
     private val tabStore: MainTabStore,
 ) {
     private val agentsTab = MainTabStore.Tab.Agents
+    private val currentTab: MainTabStore.Tab
+        get() = tabStore.selected.takeIf { it in TabBackStacks.BAR_TABS }
+            ?: MainTabStore.Tab.Games
 
     /**
      * Push a per-sport game-detail carousel onto the Games tab stack. The caller
@@ -34,9 +37,16 @@ class AppNavigator(
 
     fun openAgentEdit(agentId: String) = backStacks.push(agentsTab, AppRoute.AgentEdit(agentId))
 
-    /** Settings is a shell overlay, not a pushed route (iOS pushes; Android overlays). */
-    fun openSettings() {
-        tabStore.isSettingsPresented = true
+    fun popGames() {
+        backStacks.pop(MainTabStore.Tab.Games)
+    }
+
+    fun openSettings() = backStacks.push(currentTab, AppRoute.Settings)
+
+    fun openChat() = backStacks.push(currentTab, AppRoute.WagerBotChat)
+
+    fun popCurrent() {
+        backStacks.pop(currentTab)
     }
 
     fun popAgents() {

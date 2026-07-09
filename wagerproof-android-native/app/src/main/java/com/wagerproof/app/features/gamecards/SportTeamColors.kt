@@ -11,8 +11,10 @@ import java.util.Locale
  * `GameCards/Components/SportTeamColors.swift`.
  *
  * NBA has a full 30-team table; MLB delegates to `MLBTeams.colors`; CFB parses
- * hex from `CFBTeamAssets`; NCAAB (and any miss) uses the deterministic FNV-1a
- * hash fallback (FIDELITY-WAIVER #008 — no real NCAAB color source).
+ * hex from `CFBTeamAssets`; NCAAB shares that college identity resolver, as in
+ * the production mobile client. A deterministic fallback is retained only for
+ * schools absent from the upstream team-assets dataset (which supplies no
+ * color fields in `ncaab_team_mapping`).
  */
 
 private fun hex(value: Long): Color = Color(0xFF000000 or value)

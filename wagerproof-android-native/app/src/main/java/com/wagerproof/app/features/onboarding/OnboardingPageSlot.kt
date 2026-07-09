@@ -11,3 +11,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * when the page starts sliding in.
  */
 val LocalOnboardingPageIsActive = staticCompositionLocalOf { true }
+
+/** Android animator-duration-scale bridge for iOS accessibilityReduceMotion. */
+val LocalOnboardingReduceMotion = staticCompositionLocalOf { false }

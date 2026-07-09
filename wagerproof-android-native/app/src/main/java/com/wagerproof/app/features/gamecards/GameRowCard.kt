@@ -12,10 +12,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -39,8 +44,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,6 +65,7 @@ import com.wagerproof.core.services.PolymarketService
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -75,6 +86,7 @@ fun GameRowCard(
 ) {
     val haptics = LocalHapticFeedback.current
     val shape = RoundedCornerShape(26.dp)
+    val isBreakdown = model.oddsBreakdown != null
 
     val container = if (model.isMammoth) {
         Modifier
@@ -97,16 +109,39 @@ fun GameRowCard(
             .fillMaxWidth()
             .then(container)
             .then(if (model.isMammoth) Modifier.mammothElectricBorder(shape) else Modifier)
+            .shadow(
+                elevation = if (model.isMammoth) 10.dp else 4.dp,
+                shape = shape,
+                ambientColor = if (model.isMammoth) MammothOrange.copy(alpha = 0.32f) else Color.Black.copy(alpha = 0.06f),
+                spotColor = if (model.isMammoth) MammothOrange.copy(alpha = 0.32f) else Color.Black.copy(alpha = 0.06f),
+            )
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = "${model.away.abbr} at ${model.home.abbr}, ${model.dateLabel}, ${model.timeLabel}. Open game details"
+            }
             .clickable {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onPress()
             }
-            .padding(14.dp),
+            // These asymmetric insets are intentional. They are the exact iOS
+            // card geometry: the diagonal away logo is concentric with the
+            // 26pt corner while the market chart sits tight to the trailing
+            // edge. A blanket 14dp inset made the 344dp MLB scan row overflow
+            // on 393dp phones and was the source of the clipped columns.
+            .padding(
+                start = if (isBreakdown) BreakdownMetrics.contentInset else 12.dp,
+                top = if (isBreakdown) BreakdownMetrics.contentInset else 9.dp,
+                end = if (isBreakdown) 16.dp else 6.dp,
+                bottom = 9.dp,
+            ),
     ) {
         if (model.oddsBreakdown != null) {
             BreakdownLayout(model)
         } else {
             StandardLayout(model)
+        }
+        if (model.oddsBreakdown == null) {
+            TimePill(model.timeLabel, Modifier.align(Alignment.TopEnd))
         }
     }
 }
@@ -177,10 +212,20 @@ private fun MlChip(ml: Int?) {
 
 @Composable
 private fun LinesBlock(model: GameRowCardModel) {
-    val favAbbr = if ((model.home.spread ?: 0.0) < 0) model.home.abbr else model.away.abbr
-    val favSpread = min(model.home.spread ?: 0.0, model.away.spread ?: 0.0)
+    val hs = model.home.spread
+    val as_ = model.away.spread
+    val spread = when {
+        hs != null && as_ != null && hs < as_ -> model.home.abbr to hs
+        hs != null && as_ != null && as_ < hs -> model.away.abbr to as_
+        hs != null && as_ != null -> "SPRD" to hs
+        hs != null && hs <= 0 -> model.home.abbr to hs
+        hs != null -> model.away.abbr to -hs
+        as_ != null && as_ <= 0 -> model.away.abbr to as_
+        as_ != null -> model.home.abbr to -as_
+        else -> "SPRD" to null
+    }
     Column(horizontalAlignment = Alignment.End) {
-        LinePill(label = favAbbr, value = GameCardFormatting.formatSpread(favSpread))
+        LinePill(label = spread.first, value = GameCardFormatting.formatSpread(spread.second))
         Spacer(Modifier.height(4.dp))
         LinePill(
             label = "O/U",
@@ -219,23 +264,24 @@ private fun LinePill(label: String, value: String) {
 private fun BreakdownLayout(model: GameRowCardModel) {
     val bd = model.oddsBreakdown!!
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Diagonal logos (away upper-left, home lower-right).
-            Box(Modifier.size(56.dp)) {
-                GlassAvatar(model.away, 38.dp, Modifier.align(Alignment.TopStart))
-                GlassAvatar(model.home, 38.dp, Modifier.align(Alignment.BottomEnd))
-            }
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.width(36.dp)) {
-                Text(model.away.abbr, color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(10.dp))
-                Text(model.home.abbr, color = AppColors.appTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Spacer(Modifier.width(6.dp))
-            BdColumn(bd.awaySpread, bd.homeSpread)
-            BdColumn(bd.awayML, bd.homeML)
-            BdColumn(bd.awayTotal, bd.homeTotal)
-            Spacer(Modifier.weight(1f))
+        BreakdownScanRegion(model, bd)
+        BottomRow(model)
+    }
+}
+
+@Composable
+private fun BreakdownScanRegion(model: GameRowCardModel, bd: GameRowCardModel.OddsBreakdown) {
+    // iOS overlaps the labels into the six points of centering whitespace under
+    // the 60dp diagonal-logo block. A fixed 64dp region expresses that same
+    // geometry in Compose without adding six unwanted dp to every card.
+    Box(Modifier.fillMaxWidth().height(BreakdownMetrics.scanRegionH)) {
+        Row(
+            Modifier.fillMaxWidth().height(BreakdownMetrics.logoBlockH),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DiagonalLogos(model)
+            SixPackGroup(model, bd)
             PolymarketSparkline(
                 league = model.league,
                 awayTeam = model.awayTeamFullName ?: model.away.abbr,
@@ -244,27 +290,67 @@ private fun BreakdownLayout(model: GameRowCardModel) {
                 homeColor = model.home.colors.primary,
                 awayAbbr = model.away.abbr,
                 homeAbbr = model.home.abbr,
-                modifier = Modifier.width(98.dp).height(52.dp),
+                modifier = Modifier.width(BreakdownMetrics.sparkW).height(BreakdownMetrics.chartH),
             )
         }
-        Spacer(Modifier.height(4.dp))
-        Row {
-            Spacer(Modifier.width(106.dp))
-            listOf("Spread", "ML", "TOT").forEach {
-                Box(Modifier.width(44.dp)) {
-                    Text(it, color = AppColors.appTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                }
-            }
-        }
-        BottomRow(model)
+        BreakdownLabelsRow(Modifier.align(Alignment.BottomStart))
+    }
+}
+
+@Composable
+private fun DiagonalLogos(model: GameRowCardModel) {
+    Box(Modifier.width(BreakdownMetrics.logoColW).height(BreakdownMetrics.logoBlockH)) {
+        GlassAvatar(model.away, BreakdownMetrics.logoSize, Modifier.align(Alignment.TopStart))
+        GlassAvatar(
+            model.home,
+            BreakdownMetrics.logoSize,
+            Modifier.align(Alignment.TopStart).offset(
+                x = BreakdownMetrics.logoXOffset,
+                y = BreakdownMetrics.rowPitch,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun SixPackGroup(model: GameRowCardModel, bd: GameRowCardModel.OddsBreakdown) {
+    Row(
+        Modifier.width(BreakdownMetrics.sixPackW),
+        horizontalArrangement = Arrangement.spacedBy(BreakdownMetrics.innerGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AbbrColumn(model.away.abbr, model.home.abbr)
+        BdColumn(bd.awaySpread, bd.homeSpread)
+        BdColumn(bd.awayML, bd.homeML)
+        BdColumn(bd.awayTotal, bd.homeTotal)
+    }
+}
+
+@Composable
+private fun AbbrColumn(away: String, home: String) {
+    Column(Modifier.width(BreakdownMetrics.abbrW)) {
+        AbbrCell(away)
+        AbbrCell(home)
+    }
+}
+
+@Composable
+private fun AbbrCell(text: String) {
+    Box(Modifier.fillMaxWidth().height(BreakdownMetrics.rowPitch), contentAlignment = Alignment.CenterStart) {
+        Text(
+            text,
+            color = AppColors.appTextSecondary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+        )
     }
 }
 
 @Composable
 private fun BdColumn(away: String, home: String) {
-    Column(Modifier.width(44.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.width(BreakdownMetrics.cellW), horizontalAlignment = Alignment.CenterHorizontally) {
         BdCell(away)
-        Spacer(Modifier.height(4.dp))
         BdCell(home)
     }
 }
@@ -273,17 +359,80 @@ private fun BdColumn(away: String, home: String) {
 private fun BdCell(text: String) {
     Box(
         Modifier
+            .width(BreakdownMetrics.cellW)
+            .height(BreakdownMetrics.rowPitch)
             .clip(RoundedCornerShape(6.dp))
             .background(AppColors.appSurfaceMuted.copy(alpha = 0.6f))
-            .padding(horizontal = 6.dp, vertical = 3.dp),
+            .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.6f), RoundedCornerShape(6.dp)),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+        Text(
+            text,
+            color = AppColors.appTextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1,
+        )
     }
+}
+
+@Composable
+private fun BreakdownLabelsRow(modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().height(BreakdownMetrics.labelH),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Spacer(Modifier.width(BreakdownMetrics.logoColW))
+        Row(
+            Modifier.width(BreakdownMetrics.sixPackW),
+            horizontalArrangement = Arrangement.spacedBy(BreakdownMetrics.innerGap),
+        ) {
+            Spacer(Modifier.width(BreakdownMetrics.abbrW))
+            BreakdownHeader("Spread", BreakdownMetrics.cellW)
+            BreakdownHeader("ML", BreakdownMetrics.cellW)
+            BreakdownHeader("TOT", BreakdownMetrics.cellW)
+        }
+        BreakdownHeader("PRED MKT", BreakdownMetrics.sparkW)
+    }
+}
+
+@Composable
+private fun BreakdownHeader(text: String, width: androidx.compose.ui.unit.Dp) {
+    Text(
+        text,
+        color = AppColors.appTextMuted,
+        fontSize = 8.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.4.sp,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        modifier = Modifier.width(width),
+    )
+}
+
+private object BreakdownMetrics {
+    val logoSize = 38.dp
+    val logoXOffset = 19.dp
+    val rowPitch = 22.dp
+    val logoColW = 57.dp
+    val logoBlockH = 60.dp
+    val abbrW = 33.dp
+    val cellW = 44.dp
+    val innerGap = 4.dp
+    val sixPackW = 177.dp
+    val sparkW = 98.dp
+    val chartH = 52.dp
+    val scanRegionH = 64.dp
+    val labelH = 10.dp
+    val contentInset = 7.dp
 }
 
 // MARK: - Bottom row (edge pills OR slate picks)
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun BottomRow(model: GameRowCardModel) {
     Spacer(Modifier.height(8.dp))
     Box(Modifier.fillMaxWidth().height(0.5.dp).background(AppColors.appBorder.copy(alpha = 0.4f)))
@@ -291,62 +440,150 @@ private fun BottomRow(model: GameRowCardModel) {
 
     val slate = model.slatePicks
     if (slate != null) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            slate.totalLabel?.let { label ->
-                val color = when (slate.totalIsOver) {
-                    true -> PickOverGreen
-                    false -> PickUnderRed
-                    null -> AppColors.appTextSecondary
+        // iOS reserves the trailing time first, then gives the picks/badges a
+        // two-row leading stack. The old flattened Row let picks and badges
+        // consume every pixel; TimePill then wrapped character-by-character
+        // and inflated some NFL cards to almost 300dp tall.
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    slate.totalLabel?.let { label ->
+                        val color = when (slate.totalIsOver) {
+                            true -> PickOverGreen
+                            false -> PickUnderRed
+                            null -> AppColors.appTextSecondary
+                        }
+                        SlatePickPill {
+                            Text(label, color = color, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
+                        }
+                    }
+                    slate.spreadLabel?.let { label ->
+                        SlatePickPill {
+                            slate.spreadLogoURL?.let {
+                                RemoteImage(it, "spread pick", Modifier.size(18.dp).clip(CircleShape))
+                            }
+                            Text(label, color = AppColors.appTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
+                        }
+                    }
                 }
-                Text(label, color = color, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.width(10.dp))
-            }
-            slate.spreadLabel?.let { label ->
-                slate.spreadLogoURL?.let {
-                    RemoteImage(it, "spread pick", Modifier.size(22.dp).clip(CircleShape))
-                    Spacer(Modifier.width(4.dp))
+                if (slate.hasMammoth || slate.highCount > 0 || slate.signalCount > 0) {
+                    ConvictionBadges(slate.hasMammoth, slate.highCount, slate.signalCount)
                 }
-                Text(label, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black)
             }
-            Spacer(Modifier.weight(1f))
-            ConvictionBadges(slate.hasMammoth, slate.highCount, slate.signalCount)
+            if (model.oddsBreakdown != null) TimePill(model.timeLabel)
         }
     } else {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            model.ouEdge?.let { ou ->
-                Text(
-                    "O/U ${if (ou.isOver) "OVER" else "UNDER"} " +
-                        "${if (ou.delta >= 0) "+" else ""}${String.format("%.1f", ou.delta)} " +
-                        "${(ou.probability * 100).toInt()}%",
-                    color = ou.color, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
-                )
-                Spacer(Modifier.width(12.dp))
+            EdgePill("O/U") {
+                val ou = model.ouEdge
+                if (ou == null) {
+                    Text("—", color = AppColors.appTextMuted, fontSize = 10.sp)
+                } else {
+                    Text(if (ou.isOver) "OVER" else "UNDER", color = ou.color, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    ou.delta?.let { delta ->
+                        Text("${if (delta >= 0) "+" else ""}${String.format("%.1f", delta)}", color = ou.color, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    }
+                    ou.probability?.let { probability ->
+                        Text("${(probability * 100).roundToInt()}%", color = AppColors.appTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+                    }
+                }
             }
-            model.mlEdge?.let { ml ->
-                Text(
-                    "ML ${ml.abbr} +${String.format("%.1f", ml.edgePoints)}%",
-                    color = ml.color, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
-                )
+            Spacer(Modifier.width(6.dp))
+            EdgePill("ML") {
+                val ml = model.mlEdge
+                if (ml == null) {
+                    Text("—", color = AppColors.appTextMuted, fontSize = 10.sp)
+                } else {
+                    Text(ml.abbr, color = AppColors.appTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("+${String.format("%.1f", abs(ml.edgePoints))}%", color = ml.color, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
             }
+            Spacer(Modifier.weight(1f))
+            if (model.oddsBreakdown != null) TimePill(model.timeLabel)
         }
     }
 }
 
-/** Mammoth trumps high conviction; high trumps generic signals. */
 @Composable
+private fun SlatePickPill(content: @Composable RowScope.() -> Unit) {
+    Row(
+        Modifier
+            .clip(CircleShape)
+            .background(AppColors.appSurfaceMuted.copy(alpha = 0.6f))
+            .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.6f), CircleShape)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+@Composable
+private fun EdgePill(label: String, content: @Composable RowScope.() -> Unit) {
+    Row(
+        Modifier
+            .clip(CircleShape)
+            .background(AppColors.appSurfaceMuted.copy(alpha = 0.6f))
+            .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.6f), CircleShape)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = AppColors.appTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        content()
+    }
+}
+
+@Composable
+private fun TimePill(label: String, modifier: Modifier = Modifier) {
+    Text(
+        label,
+        color = AppColors.appTextSecondary,
+        fontSize = 9.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = FontFamily.Monospace,
+        maxLines = 1,
+        softWrap = false,
+        modifier = modifier
+            .clip(CircleShape)
+            .background(AppColors.appSurfaceMuted.copy(alpha = 0.65f))
+            .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.6f), CircleShape)
+            .padding(horizontal = 7.dp, vertical = 3.dp),
+    )
+}
+
+/** Mammoth/high-conviction and signal badges may coexist, matching iOS. */
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun ConvictionBadges(hasMammoth: Boolean, highCount: Int, signalCount: Int) {
-    when {
-        hasMammoth -> Row(
-            Modifier
-                .clip(CircleShape)
-                .background(Brush.horizontalGradient(listOf(MammothOrange, MammothGold)))
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("🔥 MAMMOTH PLAY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (hasMammoth) {
+            Row(
+                Modifier
+                    .clip(CircleShape)
+                    .background(Brush.horizontalGradient(listOf(MammothOrange, MammothGold)))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("🔥 MAMMOTH PLAY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
+            }
+        } else if (highCount > 0) {
+            BadgePill("🔥 $highCount High Conviction", MammothOrange)
         }
-        highCount > 0 -> BadgePill("🔥 $highCount High Conviction", MammothOrange)
-        signalCount > 0 -> BadgePill("⚡ $signalCount Signals", AppColors.appTextSecondary)
+        if (signalCount > 0) BadgePill("⚡ $signalCount Signals", AppColors.appTextSecondary)
     }
 }
 
@@ -358,7 +595,7 @@ private fun BadgePill(text: String, tint: Color) {
             .background(tint.copy(alpha = 0.15f))
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        Text(text, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
     }
 }
 
@@ -367,6 +604,7 @@ private fun BadgePill(text: String, tint: Color) {
 @Composable
 fun GlassAvatar(side: GameRowCardModel.TeamSide, diameter: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
     val tint = side.colors.primary.teamVisible(0.5f)
+    val contrastPlate = side.logoURL != null && side.colors.primary.luminance() < 0.45f
     Box(
         modifier
             .size(diameter)
@@ -380,7 +618,9 @@ fun GlassAvatar(side: GameRowCardModel.TeamSide, diameter: androidx.compose.ui.u
         RemoteImage(
             url = side.logoURL,
             contentDescription = side.abbr,
-            modifier = Modifier.size(diameter * 0.82f),
+            modifier = Modifier
+                .size(diameter * 0.82f)
+                .then(if (contrastPlate) Modifier.background(Color.White.copy(alpha = 0.15f), CircleShape) else Modifier),
             error = {
                 Text(side.initials, color = Color.White, fontWeight = FontWeight.Bold, fontSize = (diameter.value * 0.34f).sp)
             },
@@ -455,8 +695,8 @@ fun PolymarketSparkline(
             Box(Modifier.size(5.dp).clip(CircleShape).background(leaderColor))
             Spacer(Modifier.width(3.dp))
             Text(
-                if (points.size >= 2 && leaderPct != null) "$leaderAbbr $leaderPct%" else "POLY ML",
-                color = if (points.size >= 2) leaderColor else AppColors.appTextMuted,
+                if (leaderPct != null) "$leaderAbbr $leaderPct%" else "POLY ML",
+                color = if (leaderPct != null) leaderColor else AppColors.appTextMuted,
                 fontSize = 8.sp, fontWeight = FontWeight.Bold,
             )
         }
@@ -466,9 +706,11 @@ fun PolymarketSparkline(
                 !loaded -> Box(Modifier.fillMaxWidth().height(20.dp).clip(RoundedCornerShape(6.dp)).background(AppColors.appSkeleton))
                 points.size < 2 -> Text("—", color = AppColors.appTextMuted, fontSize = 12.sp, modifier = Modifier.align(Alignment.Center))
                 else -> androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(24.dp)) {
-                    val ps = points.map { it.p.toFloat() }
-                    val minP = ps.min()
-                    val maxP = ps.max()
+                    val awayValues = points.map { it.p.toFloat() }
+                    val homeValues = awayValues.map { 1f - it }
+                    val combined = awayValues + homeValues
+                    val minP = combined.min()
+                    val maxP = combined.max()
                     val range = max(maxP - minP, 0.01f)
                     fun path(values: List<Float>): androidx.compose.ui.graphics.Path {
                         val p = androidx.compose.ui.graphics.Path()
@@ -482,8 +724,8 @@ fun PolymarketSparkline(
                     val awayVis = awayColor.teamVisible(0.72f)
                     val homeVis = homeColor.teamVisible(0.72f)
                     val awayLead = leaderIsAway
-                    drawPath(path(ps), homeVis, alpha = if (awayLead) 0.55f else 1f, style = Stroke(width = if (awayLead) 1.0.dp.toPx() else 1.8.dp.toPx(), cap = StrokeCap.Round))
-                    drawPath(path(ps.map { 1f - it }), awayVis, alpha = if (awayLead) 1f else 0.55f, style = Stroke(width = if (awayLead) 1.8.dp.toPx() else 1.0.dp.toPx(), cap = StrokeCap.Round))
+                    drawPath(path(awayValues), awayVis, alpha = if (awayLead) 1f else 0.55f, style = Stroke(width = if (awayLead) 1.8.dp.toPx() else 1.0.dp.toPx(), cap = StrokeCap.Round))
+                    drawPath(path(homeValues), homeVis, alpha = if (awayLead) 0.55f else 1f, style = Stroke(width = if (awayLead) 1.0.dp.toPx() else 1.8.dp.toPx(), cap = StrokeCap.Round))
                 }
             }
         }

@@ -5,6 +5,7 @@ import com.wagerproof.core.models.AgentDetailSnapshot
 import com.wagerproof.core.models.AgentPicksPage
 import com.wagerproof.core.models.serialization.WagerproofJson
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -124,4 +125,31 @@ object AgentAuthorizedActionsService {
         deserializer = AgentPicksPage.serializer(),
         fallbackMessage = "Failed to load agent picks",
     )
+
+    @Serializable
+    private data class DeleteAck(val deleted: Boolean? = null)
+
+    /** Delete one pending straight pick and synchronously recalculate performance. */
+    suspend fun deletePick(agentId: String, pickId: String) {
+        invoke<DeleteAck>(
+            body = buildJsonObject {
+                put("action", "delete_pick")
+                put("agent_id", agentId)
+                put("data", buildJsonObject { put("pick_id", pickId) })
+            },
+            fallbackMessage = "Failed to delete pick",
+        )
+    }
+
+    /** Delete a pending parlay; the server refuses tickets with settled legs. */
+    suspend fun deleteParlay(agentId: String, parlayId: String) {
+        invoke<DeleteAck>(
+            body = buildJsonObject {
+                put("action", "delete_parlay")
+                put("agent_id", agentId)
+                put("data", buildJsonObject { put("parlay_id", parlayId) })
+            },
+            fallbackMessage = "Failed to delete parlay",
+        )
+    }
 }

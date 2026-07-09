@@ -23,9 +23,17 @@ data class AgentPersonalityParams(
     @SerialName("parlay_appetite") var parlayAppetite: Int = 1,
     // Forces EVERY play into parlay tickets; overrides parlayAppetite's tool gating.
     @SerialName("parlays_only") var parlaysOnly: Boolean = false,
+    /** Opt into one NFL/CFB parlay that remains active for the football week. */
+    @SerialName("weekly_parlay_enabled") var weeklyParlayEnabled: Boolean? = null,
+    /** Requested weekly ticket length, server-clamped to 2…6. */
+    @SerialName("weekly_parlay_legs") var weeklyParlayLegs: Int? = null,
 
     // Bet selection (always present)
     @SerialName("preferred_bet_type") var preferredBetType: String = "any",
+    /** Flat V3 market allowlist; null/empty means all markets for selected sports. */
+    @SerialName("allowed_markets") var allowedMarkets: List<String>? = null,
+    /** NFL player-prop steering: off / allow / emphasize. */
+    @SerialName("props_emphasis") var propsEmphasis: String? = null,
     // Wire default is null; the canonical [default] instance carries -200 (parity with Swift).
     @SerialName("max_favorite_odds") var maxFavoriteOdds: Int? = null,
     @SerialName("min_underdog_odds") var minUnderdogOdds: Int? = null,

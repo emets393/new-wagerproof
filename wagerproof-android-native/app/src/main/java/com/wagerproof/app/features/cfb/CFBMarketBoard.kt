@@ -206,15 +206,79 @@ fun signalBuckets(
     game: CFBPrediction,
     row: CFBMarketRow,
     defs: Map<String, CFBSignalDefinition>,
+    pick: CFBDryrunPickRow? = null,
 ): SignalBuckets {
-    val signals = relevantGameFlags(game, row).map { flag ->
+    val effectiveRow = if (pick == null) row else row.copy(
+        pick = pick.pickSide ?: pick.pickLabel ?: row.pick,
+        pickTeamName = pick.pickTeam ?: row.pickTeamName,
+    )
+    val gameSignals = relevantGameFlags(game, effectiveRow).map { flag ->
         if (flag.signalDefinition != null) flag
         else flag.withSignalDefinition(CFBSignalDefinitionsService.definition(flag.source, defs))
     }
+    val seen = gameSignals.mapTo(mutableSetOf()) { signalIdentity(it.source, it.signalDefinition, defs) }
+    val pickSignals = pick?.signalKeys.orEmpty().mapNotNull { key ->
+        val definition = CFBSignalDefinitionsService.definition(key, defs)
+        val identity = signalIdentity(key, definition, defs)
+        if (!seen.add(identity)) return@mapNotNull null
+        CFBDryRunFlag(
+            id = "pick-${pick?.id ?: game.gameId}-$identity",
+            gameId = game.gameId,
+            source = key,
+            market = pick?.normalizedCardGroup ?: marketKey(row.id),
+            side = pick?.pickSide ?: effectiveRow.pick,
+            line = pick?.bestLine,
+            price = pick?.bestOdds?.roundToInt(),
+            edge = pick?.edge,
+            conviction = pickConvictionForFlag(pick?.conviction),
+            tier = if (pick?.hasPlay == false) "tracking" else "active",
+            gradeLine = pick?.bestBookName ?: pick?.bestBook,
+            mammoth = pick?.isMammoth,
+            signalDefinition = definition,
+        )
+    }
+    val signals = gameSignals + pickSignals
     return SignalBuckets(
-        supporting = signals.filter { signalSupportsPick(it, row, game) },
-        contradicting = signals.filterNot { signalSupportsPick(it, row, game) },
+        supporting = signals.filter { signalSupportsPick(it, effectiveRow, game) },
+        contradicting = signals.filterNot { signalSupportsPick(it, effectiveRow, game) },
     )
+}
+
+private fun signalIdentity(
+    source: String,
+    definition: CFBSignalDefinition?,
+    defs: Map<String, CFBSignalDefinition>,
+): String {
+    val resolved = definition ?: CFBSignalDefinitionsService.definition(source, defs)
+    return CFBSignalDefinitionsService.normalize(resolved?.sourceKey ?: source)
+}
+
+private fun pickConvictionForFlag(conviction: String?): String = when (conviction?.lowercase(Locale.US)) {
+    "mammoth" -> "mammoth"
+    "high" -> "T1"
+    "med", "medium" -> "T2"
+    "low", "lean" -> "T3"
+    else -> conviction ?: "track"
+}
+
+fun cfbDryRunPickForRow(
+    game: CFBPrediction,
+    row: CFBMarketRow,
+    picks: List<CFBDryrunPickRow>,
+): CFBDryrunPickRow? = picks.firstOrNull { pick ->
+    when (row.id) {
+        "spread" -> pick.normalizedCardGroup == "spread"
+        "total" -> pick.normalizedCardGroup == "total"
+        "tt-home" -> pick.normalizedCardGroup == "team_total" &&
+            (pick.pickTeam == game.homeTeam || pick.cardGroup.orEmpty().contains("home", ignoreCase = true))
+        "tt-away" -> pick.normalizedCardGroup == "team_total" &&
+            (pick.pickTeam == game.awayTeam || pick.cardGroup.orEmpty().contains("away", ignoreCase = true))
+        "h1-spread" -> pick.normalizedCardGroup == "h1_spread"
+        "h1-total" -> pick.normalizedCardGroup == "h1_total"
+        "moneyline" -> pick.normalizedCardGroup == "moneyline"
+        "h1-ml" -> pick.normalizedCardGroup == "h1_ml"
+        else -> false
+    }
 }
 
 private fun relevantGameFlags(game: CFBPrediction, row: CFBMarketRow): List<CFBDryRunFlag> {

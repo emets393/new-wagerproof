@@ -725,9 +725,12 @@ class GamesStore {
     private suspend fun fetchNCAAB() {
         val cfb = SupabaseClients.cfb
 
-        val inputs: List<NCAABInputRow> = runCatching {
+        // This is the authoritative slate query. Let transport/decoding errors
+        // propagate so refresh() keeps the prior cached list and reports
+        // Failed; converting an outage to `emptyList()` erased good data for
+        // the full five-minute TTL.
+        val inputs: List<NCAABInputRow> =
             cfb.from("v_cbb_input_values").select().decodeList<NCAABInputRow>()
-        }.getOrDefault(emptyList())
         if (inputs.isEmpty()) {
             games = games.copy(ncaab = emptyList())
             return
@@ -817,16 +820,16 @@ class GamesStore {
         val startDate = ServiceDates.todayET()
         val endDate = ServiceDates.etDate(2L)
 
-        val gamesRows: List<MLBGamesTodayRow> = runCatching {
-            cfb.from("mlb_games_today")
-                .select {
-                    filter {
-                        gte("official_date", startDate)
-                        lte("official_date", endDate)
-                    }
+        // Preserve a previously loaded slate on a primary-query failure. An
+        // actual successful empty response still clears the list below.
+        val gamesRows: List<MLBGamesTodayRow> = cfb.from("mlb_games_today")
+            .select {
+                filter {
+                    gte("official_date", startDate)
+                    lte("official_date", endDate)
                 }
-                .decodeList<MLBGamesTodayRow>()
-        }.getOrDefault(emptyList())
+            }
+            .decodeList<MLBGamesTodayRow>()
         if (gamesRows.isEmpty()) {
             games = games.copy(mlb = emptyList())
             return

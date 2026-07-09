@@ -1,5 +1,6 @@
 package com.wagerproof.core.stores
 
+import android.content.Intent
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,6 +9,7 @@ import com.revenuecat.purchases.CustomerInfo
 import com.revenuecat.purchases.Offering
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.interfaces.UpdatedCustomerInfoListener
+import com.revenuecat.purchases.interfaces.RedeemWebPurchaseListener
 import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.shared.AppGroup
@@ -40,6 +42,12 @@ class RevenueCatStore {
         val isTrusted get() = this != Stream
     }
 
+    /** One-shot presentation state consumed by RootHost as a snackbar/dialog. */
+    data class WebPurchaseRedemptionMessage(
+        val text: String,
+        val isError: Boolean,
+    )
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     var isInitialized by mutableStateOf(false); private set
@@ -59,6 +67,9 @@ class RevenueCatStore {
     var entitlementStatus by mutableStateOf(EntitlementStatus.Unknown); private set
     var subscriptionType by mutableStateOf<String?>(null); private set
     var lastError by mutableStateOf<String?>(null); private set
+    var isRedeemingWebPurchase by mutableStateOf(false); private set
+    var webPurchaseRedemptionMessage by mutableStateOf<WebPurchaseRedemptionMessage?>(null)
+        private set
 
     // No AppGroupKey constant for this one — use the literal (byte-identical to iOS).
     private val forceFreemiumKey = "rc_force_freemium"
@@ -86,7 +97,10 @@ class RevenueCatStore {
 
     /** Bootstrap the RevenueCat SDK. Idempotent. Called at app launch before auth fires. */
     fun bootstrap() {
-        if (isInitialized) return
+        if (isInitialized) {
+            startCustomerInfoStream()
+            return
+        }
         // iOS: RevenueCatService.shared.bootstrap(userId: nil). Android SDK needs a Context.
         RevenueCatService.bootstrap(AppGroup.context, userId = null)
         isInitialized = RevenueCatService.isConfigured
@@ -96,7 +110,14 @@ class RevenueCatStore {
 
     /** Identify a Supabase user with RevenueCat. Called from the auth lifecycle handler. */
     suspend fun attachUser(userId: String) {
-        if (!isInitialized) return
+        // Defensive self-bootstrap makes auth attachment safe even if a future
+        // entry point invokes it before AppGraph.bootstrap().
+        if (!isInitialized) bootstrap()
+        if (!isInitialized) {
+            lastError = "Subscription service failed to initialize."
+            isLoading = false
+            return
+        }
         currentUserId = userId
         isLoading = true
         try {
@@ -120,7 +141,7 @@ class RevenueCatStore {
     /** Reset back to an anonymous RC user. Called on Supabase sign-out. */
     suspend fun detachUser() {
         currentUserId = null
-        RevenueCatService.logOut()
+        if (isInitialized) RevenueCatService.logOut()
         customerInfo = null
         entitlementStatus = EntitlementStatus.Denied
         subscriptionType = null
@@ -157,6 +178,83 @@ class RevenueCatStore {
         apply(info, CustomerInfoSource.Refresh)
     }
 
+    /**
+     * Handle a RevenueCat Web Billing callback intent.
+     *
+     * @return true when the intent belonged to RevenueCat (including failure
+     * states), or false when normal app deep-link routing should handle it.
+     */
+    suspend fun handleWebPurchaseRedemption(intent: Intent): Boolean {
+        val redemption = RevenueCatService.webPurchaseRedemption(intent) ?: return false
+        if (isRedeemingWebPurchase) return true
+
+        if (!isInitialized) bootstrap()
+        if (!isInitialized) {
+            webPurchaseRedemptionMessage = WebPurchaseRedemptionMessage(
+                text = "Subscription service failed to initialize. Please try again.",
+                isError = true,
+            )
+            return true
+        }
+
+        isRedeemingWebPurchase = true
+        try {
+            when (val result = RevenueCatService.redeemWebPurchase(redemption)) {
+                is RedeemWebPurchaseListener.Result.Success -> {
+                    // RevenueCat returns authoritative CustomerInfo with the
+                    // redemption response. Apply it as a trusted purchase so
+                    // the stream downgrade guard cannot hide the entitlement.
+                    apply(result.customerInfo, CustomerInfoSource.Purchase)
+                    hasResolvedActiveUserEntitlement = true
+                    lastError = null
+                    refreshOffering()
+                    webPurchaseRedemptionMessage = WebPurchaseRedemptionMessage(
+                        text = "Purchase redeemed successfully.",
+                        isError = false,
+                    )
+                }
+
+                is RedeemWebPurchaseListener.Result.Expired -> {
+                    webPurchaseRedemptionMessage = WebPurchaseRedemptionMessage(
+                        text = "This purchase redemption link has expired.",
+                        isError = true,
+                    )
+                }
+
+                RedeemWebPurchaseListener.Result.InvalidToken -> {
+                    webPurchaseRedemptionMessage = WebPurchaseRedemptionMessage(
+                        text = "This purchase redemption link is invalid.",
+                        isError = true,
+                    )
+                }
+
+                RedeemWebPurchaseListener.Result.PurchaseBelongsToOtherUser -> {
+                    webPurchaseRedemptionMessage = WebPurchaseRedemptionMessage(
+                        text = "This purchase belongs to a different account.",
+                        isError = true,
+                    )
+                }
+
+                is RedeemWebPurchaseListener.Result.Error -> {
+                    webPurchaseRedemptionMessage = WebPurchaseRedemptionMessage(
+                        text = result.error.message.ifBlank {
+                            "We couldn't redeem this purchase. Please try again."
+                        },
+                        isError = true,
+                    )
+                }
+            }
+        } catch (e: Throwable) {
+            val message = e.localizedMessage?.takeIf { it.isNotBlank() }
+                ?: "We couldn't redeem this purchase. Please try again."
+            lastError = message
+            webPurchaseRedemptionMessage = WebPurchaseRedemptionMessage(message, isError = true)
+        } finally {
+            isRedeemingWebPurchase = false
+        }
+        return true
+    }
+
     /** Fetch the current offering (used for paywall display). */
     suspend fun refreshOffering() {
         offering = try {
@@ -174,6 +272,10 @@ class RevenueCatStore {
 
     fun clearError() {
         lastError = null
+    }
+
+    fun clearWebPurchaseRedemptionMessage() {
+        webPurchaseRedemptionMessage = null
     }
 
     // MARK: - Internal

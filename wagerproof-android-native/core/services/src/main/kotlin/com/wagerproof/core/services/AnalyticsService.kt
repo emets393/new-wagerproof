@@ -1,5 +1,6 @@
 package com.wagerproof.core.services
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.mixpanel.android.mpmetrics.MixpanelAPI
 import org.json.JSONObject
@@ -15,13 +16,20 @@ import org.json.JSONObject
  */
 object AnalyticsService {
 
+    // bootstrap() always passes applicationContext; the SDK instance is
+    // intentionally process-scoped and never retains an Activity.
+    @SuppressLint("StaticFieldLeak")
     @Volatile
     private var mixpanel: MixpanelAPI? = null
 
     /** Call once at app launch. Idempotent. Automatic events stay off (parity with iOS/RN). */
     fun bootstrap(context: Context, token: String) {
         if (mixpanel != null) return
-        mixpanel = MixpanelAPI.getInstance(context, token, /* trackAutomaticEvents = */ false)
+        mixpanel = MixpanelAPI.getInstance(
+            context.applicationContext,
+            token,
+            /* trackAutomaticEvents = */ false,
+        )
     }
 
     fun track(event: String, properties: Map<String, Any?> = emptyMap()) {

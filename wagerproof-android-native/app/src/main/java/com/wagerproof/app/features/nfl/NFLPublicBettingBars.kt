@@ -47,9 +47,8 @@ import kotlin.math.sin
  * bets and % of money per side via a 5-segment speedometer gauge, with an
  * indicator badge when the pipeline published a `*_splits_label`.
  *
- * FIDELITY-WAIVER #290: like iOS, this widget is NOT wired into
- * `NFLGameDetailPage`'s section list — it's ported as an available component
- * only (the current dry-run detail page doesn't surface public splits).
+ * Mounted in `NFLGameDetailPage` whenever at least one public-split field is
+ * available, matching the production mobile detail contract.
  */
 @Composable
 fun NFLPublicBettingBars(prediction: NFLPrediction, modifier: Modifier = Modifier) {

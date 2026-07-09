@@ -27,10 +27,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
+import com.wagerproof.app.features.components.InsetGroupedDivider
+import com.wagerproof.app.features.components.InsetGroupedSection
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
 import com.wagerproof.core.design.tokens.Spacing
+import com.wagerproof.core.services.NotificationService
 import com.wagerproof.core.stores.AuthStore
 import com.wagerproof.core.stores.LearnWagerProofStore
 import com.wagerproof.core.stores.MainTabStore
@@ -83,89 +86,82 @@ fun SideMenuSheet(modifier: Modifier = Modifier) {
 
         // Account
         if (auth.phase is AuthStore.Phase.Authenticated) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            ) {
-                Icon(
-                    imageVector = AppIcon.PERSON_CROP_CIRCLE_FILL.imageVector,
-                    contentDescription = null,
-                    tint = AppColors.appPrimary,
-                    modifier = Modifier.size(32.dp),
-                )
-                Column {
-                    Text(auth.profile?.email ?: "Signed in", style = AppTypography.bodyEmphasized, color = AppColors.appTextPrimary)
-                    Text("Account", style = AppTypography.caption, color = AppColors.appTextSecondary)
+            InsetGroupedSection(modifier = Modifier.padding(horizontal = Spacing.lg)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    Icon(
+                        imageVector = AppIcon.PERSON_CROP_CIRCLE_FILL.imageVector,
+                        contentDescription = null,
+                        tint = AppColors.appPrimary,
+                        modifier = Modifier.size(32.dp),
+                    )
+                    Column {
+                        Text(auth.profile?.email ?: "Signed in", style = AppTypography.bodyEmphasized, color = AppColors.appTextPrimary)
+                        Text("Account", style = AppTypography.caption, color = AppColors.appTextSecondary)
+                    }
                 }
             }
         }
 
         // Navigate
-        SectionHeader("Navigate")
-        NavRow("Games", AppIcon.TROPHY_FILL.imageVector, active = tabStore.selected == MainTabStore.Tab.Games) {
-            tabStore.select(MainTabStore.Tab.Games); dismiss()
-        }
-        NavRow("Agents", AppIcon.BRAIN_HEAD_PROFILE.imageVector, active = tabStore.selected == MainTabStore.Tab.Agents) {
-            tabStore.select(MainTabStore.Tab.Agents); dismiss()
-        }
-        NavRow("Outliers", AppIcon.BELL_BADGE_FILL.imageVector, active = tabStore.selected == MainTabStore.Tab.Outliers) {
-            tabStore.select(MainTabStore.Tab.Outliers); dismiss()
-        }
-        NavRow("Scoreboard", AppIcon.SPORTSCOURT_FILL.imageVector, active = tabStore.selected == MainTabStore.Tab.Scoreboard) {
-            tabStore.select(MainTabStore.Tab.Scoreboard); dismiss()
+        InsetGroupedSection(title = "Navigate", modifier = Modifier.padding(horizontal = Spacing.lg)) {
+            NavRow("Games", AppIcon.TROPHY_FILL.imageVector, active = tabStore.selected == MainTabStore.Tab.Games) { tabStore.select(MainTabStore.Tab.Games); dismiss() }
+            InsetGroupedDivider()
+            NavRow("Agents", AppIcon.BRAIN_HEAD_PROFILE.imageVector, active = tabStore.selected == MainTabStore.Tab.Agents) { tabStore.select(MainTabStore.Tab.Agents); dismiss() }
+            InsetGroupedDivider()
+            NavRow("Outliers", AppIcon.BELL_BADGE_FILL.imageVector, active = tabStore.selected == MainTabStore.Tab.Outliers) { tabStore.select(MainTabStore.Tab.Outliers); dismiss() }
+            InsetGroupedDivider()
+            NavRow("Scoreboard", AppIcon.SPORTSCOURT_FILL.imageVector, active = tabStore.selected == MainTabStore.Tab.Scoreboard) { tabStore.select(MainTabStore.Tab.Scoreboard); dismiss() }
         }
 
         // More
-        SectionHeader("More")
-        MenuRow("Settings", AppIcon.GEARSHAPE_FILL.imageVector) {
-            dismiss(); tabStore.isSettingsPresented = true
-        }
-        MenuRow("Feature Requests", AppIcon.LIGHTBULB_FILL.imageVector) {
-            dismiss(); tabStore.isFeatureRequestsPresented = true
-        }
-        MenuRow("Roast Mode", AppIcon.FLAME_FILL.imageVector) {
-            dismiss(); tabStore.isRoastPresented = true
-        }
-        MenuRow("Learn WagerProof", AppIcon.GRADUATIONCAP_FILL.imageVector) {
-            dismiss(); learn.openSheet(LearnWagerProofStore.Topic.CreateAgent)
+        InsetGroupedSection(title = "More", modifier = Modifier.padding(horizontal = Spacing.lg)) {
+            MenuRow("Settings", AppIcon.GEARSHAPE_FILL.imageVector) { dismiss(); tabStore.isSettingsPresented = true }
+            InsetGroupedDivider()
+            MenuRow("Feature Requests", AppIcon.LIGHTBULB_FILL.imageVector) { dismiss(); tabStore.isFeatureRequestsPresented = true }
+            InsetGroupedDivider()
+            MenuRow("Roast Mode", AppIcon.FLAME_FILL.imageVector) { dismiss(); tabStore.isRoastPresented = true }
+            InsetGroupedDivider()
+            MenuRow("Learn WagerProof", AppIcon.GRADUATIONCAP_FILL.imageVector) { dismiss(); learn.openSheet(LearnWagerProofStore.Topic.CreateAgent) }
         }
 
         // Preferences — Appearance picker (session-only; app coerces to dark on relaunch)
-        SectionHeader("Preferences")
-        AppearancePicker(theme)
+        InsetGroupedSection(title = "Preferences", modifier = Modifier.padding(horizontal = Spacing.lg)) { AppearancePicker(theme) }
 
         // Support
-        SectionHeader("Support")
-        MenuRow("Discord Channel", AppIcon.BUBBLE_LEFT_AND_BUBBLE_RIGHT_FILL.imageVector, showChevron = false) {
-            uriHandler.openUri(DISCORD_INVITE)
-        }
-        MenuRow("Contact Us", AppIcon.ENVELOPE_FILL.imageVector, showChevron = false) {
-            uriHandler.openUri(CONTACT_MAILTO)
+        InsetGroupedSection(title = "Support", modifier = Modifier.padding(horizontal = Spacing.lg)) {
+            MenuRow("Discord Channel", AppIcon.BUBBLE_LEFT_AND_BUBBLE_RIGHT_FILL.imageVector, showChevron = false) { uriHandler.openUri(DISCORD_INVITE) }
+            InsetGroupedDivider()
+            MenuRow("Contact Us", AppIcon.ENVELOPE_FILL.imageVector, showChevron = false) { uriHandler.openUri(CONTACT_MAILTO) }
         }
 
         // Legal
-        SectionHeader("Legal")
-        MenuRow("Privacy Policy", AppIcon.LOCK_SHIELD_FILL.imageVector, showChevron = false) {
-            uriHandler.openUri(PRIVACY_URL)
+        InsetGroupedSection(
+            title = "Legal",
+            footer = "Wagerproof v3.5.6",
+            modifier = Modifier.padding(horizontal = Spacing.lg),
+        ) {
+            MenuRow("Privacy Policy", AppIcon.LOCK_SHIELD_FILL.imageVector, showChevron = false) { uriHandler.openUri(PRIVACY_URL) }
+            InsetGroupedDivider()
+            MenuRow("Terms & Conditions", AppIcon.DOC_TEXT_FILL.imageVector, showChevron = false) { uriHandler.openUri(TERMS_URL) }
         }
-        MenuRow("Terms & Conditions", AppIcon.DOC_TEXT_FILL.imageVector, showChevron = false) {
-            uriHandler.openUri(TERMS_URL)
-        }
-        Text(
-            text = "Wagerproof v3.5.5",
-            style = AppTypography.caption,
-            color = AppColors.appTextMuted,
-            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-        )
 
         // Sign Out
         if (auth.phase is AuthStore.Phase.Authenticated) {
-            SectionHeader("")
-            MenuRow("Sign Out", AppIcon.RECTANGLE_PORTRAIT_AND_ARROW_RIGHT.imageVector, destructive = true, showChevron = false) {
-                scope.launch {
-                    auth.signOut()
-                    dismiss()
+            InsetGroupedSection(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.lg)) {
+                MenuRow("Sign Out", AppIcon.RECTANGLE_PORTRAIT_AND_ARROW_RIGHT.imageVector, destructive = true, showChevron = false) {
+                    scope.launch {
+                        (auth.phase as? AuthStore.Phase.Authenticated)?.userId?.let {
+                            NotificationService.deactivatePushTokens(it)
+                        }
+                        graph.revenueCat.detachUser()
+                        graph.adminMode.reset()
+                        auth.signOut()
+                        dismiss()
+                    }
                 }
             }
         }
@@ -223,7 +219,7 @@ private fun MenuRowBase(
 ) {
     val tint = if (destructive) AppColors.appLoss else AppColors.appTextPrimary
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Spacing.lg, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 2.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
@@ -235,7 +231,7 @@ private fun MenuRowBase(
 
 @Composable
 private fun AppearancePicker(theme: ThemeStore) {
-    Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
+    Column(modifier = Modifier.padding(horizontal = 2.dp, vertical = Spacing.sm)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

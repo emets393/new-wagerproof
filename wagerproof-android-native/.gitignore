@@ -6,4 +6,8 @@ local.properties
 .kotlin/
 *.apk
 *.aab
+*.jks
+*.keystore
+app/google-services.json
+keystore.properties
 .DS_Store

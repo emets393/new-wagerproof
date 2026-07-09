@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.wagerproof.app.features.gamecards.CarouselMatchupChip
-import com.wagerproof.app.features.gamecards.FallbackTeamColor
+import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.app.features.gamecards.GameDetailCarousel
 import com.wagerproof.app.features.gamecards.TeamInitials
 import com.wagerproof.app.features.components.TeamAuraBackground
@@ -15,9 +15,9 @@ import com.wagerproof.core.models.NCAABGame
 
 /**
  * Swipeable carousel of the NCAAB slate's game-detail pages — thin wrapper over
- * the shared [GameDetailCarousel] (mirrors iOS `NCAABGameCarousel`). NCAAB has
- * no brand table, so team colors come from a stable name hash
- * ([FallbackTeamColor], FIDELITY-WAIVER #008).
+ * the shared [GameDetailCarousel] (mirrors iOS `NCAABGameCarousel`). Team logos
+ * and abbreviations are supplied by `ncaab_team_mapping`; college colors reuse
+ * the authoritative CFB identity table, matching the production RN client.
  */
 @Composable
 fun NCAABGameCarousel(
@@ -35,8 +35,8 @@ fun NCAABGameCarousel(
         modifier = modifier,
         background = { game ->
             TeamAuraBackground(
-                awayPrimary = FallbackTeamColor.colorPair(game.awayTeam).primary,
-                homePrimary = FallbackTeamColor.colorPair(game.homeTeam).primary,
+                awayPrimary = CFBTeamColors.colorPair(game.awayTeam).primary,
+                homePrimary = CFBTeamColors.colorPair(game.homeTeam).primary,
                 progress = 0f,
                 showBase = false,
                 modifier = Modifier.fillMaxSize(),
@@ -44,8 +44,8 @@ fun NCAABGameCarousel(
         },
         chip = { game, selected, onTap ->
             CarouselMatchupChip(
-                awayLogoURL = null,
-                homeLogoURL = null,
+                awayLogoURL = game.awayTeamLogo,
+                homeLogoURL = game.homeTeamLogo,
                 awayAbbr = game.awayTeamAbbrev?.trim().takeUnless { it.isNullOrEmpty() }
                     ?: TeamInitials.from(game.awayTeam),
                 homeAbbr = game.homeTeamAbbrev?.trim().takeUnless { it.isNullOrEmpty() }

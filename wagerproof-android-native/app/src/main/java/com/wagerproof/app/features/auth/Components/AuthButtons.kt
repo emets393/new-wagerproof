@@ -43,8 +43,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.core.design.components.liquidGlassBackground
+import com.wagerproof.core.design.components.WagerproofShield
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.core.design.tokens.AppTypography
 
 // Error/success accent — iOS uses a fixed 0xFF6B6B coral for auth errors and
 // appPrimary for success (matched here so banners read identically).
@@ -205,9 +207,8 @@ fun LiquidGlassPillButton(
         } else {
             Text(
                 text = title,
+                style = AppTypography.majorCta,
                 color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
             )
         }
     }
@@ -394,29 +395,12 @@ private fun AuthBanner(
 }
 
 /**
- * Compact brand mark used at the top of every auth screen.
- *
- * FIDELITY-WAIVER #242: iOS renders a bundled `WagerproofLogo` asset; no such
- * drawable exists in the Android resources yet, so we render the "WagerProof"
- * wordmark tile as a stand-in (same brand-green identity, 40dp square).
+ * Compact WagerProof shield used at the top of every auth screen. It is the
+ * same source asset rendered by iOS's `WagerproofLogo` imageset.
  */
 @Composable
 fun AuthLogo(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(AppColors.appPrimary),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "W",
-            color = Color.Black,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Black,
-            textAlign = TextAlign.Center,
-        )
-    }
+    WagerproofShield(modifier = modifier, size = 40.dp)
 }
 
 /**

@@ -2,4 +2,5 @@
 <resources>
     <!-- appSurface dark hex from the iOS design tokens (see :core:design Tokens). -->
     <color name="app_surface">#0B1011</color>
+    <color name="notification_accent">#00B85C</color>
 </resources>

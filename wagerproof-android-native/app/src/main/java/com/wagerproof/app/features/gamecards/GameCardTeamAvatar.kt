@@ -71,6 +71,7 @@ fun resolveLogo(sport: String, team: String): String? = when (sport.lowercase())
 fun defaultColors(sport: String, team: String): TeamColorPair = when (sport.lowercase()) {
     "nfl" -> FallbackTeamColor.colorPair(team)
     "cfb", "ncaaf" -> CFBTeamColors.colorPair(team)
+    "ncaab" -> CFBTeamColors.colorPair(team)
     "mlb" -> MLBTeamColors.colorPair(team)
     "nba" -> NBATeams.colorPair(team)
     else -> FallbackTeamColor.colorPair(team)

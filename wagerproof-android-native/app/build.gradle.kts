@@ -5,20 +5,90 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Local/CI builds remain usable without Firebase credentials. Production
+// builds gain the generated Firebase resources as soon as the console-issued
+// configuration file is present.
+if (file("google-services.json").isFile) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
+// Release credentials are supplied by CI/developer machines via either Gradle
+// properties (-P<NAME>=...) or same-named environment variables. Keeping the
+// configuration optional preserves unsigned local release builds without ever
+// falling back to the debug key.
+fun releaseCredential(name: String): String? =
+    providers.gradleProperty(name)
+        .orElse(providers.environmentVariable(name))
+        .orNull
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+
+val releaseStoreFile = releaseCredential("WAGERPROOF_RELEASE_STORE_FILE")
+val releaseStorePassword = releaseCredential("WAGERPROOF_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = releaseCredential("WAGERPROOF_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = releaseCredential("WAGERPROOF_RELEASE_KEY_PASSWORD")
+val releaseSigningCredentials = linkedMapOf(
+    "WAGERPROOF_RELEASE_STORE_FILE" to releaseStoreFile,
+    "WAGERPROOF_RELEASE_STORE_PASSWORD" to releaseStorePassword,
+    "WAGERPROOF_RELEASE_KEY_ALIAS" to releaseKeyAlias,
+    "WAGERPROOF_RELEASE_KEY_PASSWORD" to releaseKeyPassword,
+)
+val hasReleaseSigning = releaseSigningCredentials.values.all { it != null }
+check(releaseSigningCredentials.values.none { it != null } || hasReleaseSigning) {
+    "Partial release signing configuration. Missing: " +
+        releaseSigningCredentials.filterValues { it == null }.keys.joinToString()
+}
+
+fun quotedBuildConfig(value: String): String =
+    "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+val facebookAppId = releaseCredential("FACEBOOK_APP_ID").orEmpty()
+val facebookClientToken = releaseCredential("FACEBOOK_CLIENT_TOKEN").orEmpty()
+check(facebookAppId.isBlank() == facebookClientToken.isBlank()) {
+    "FACEBOOK_APP_ID and FACEBOOK_CLIENT_TOKEN must either both be set or both be absent."
+}
+
 android {
     namespace = "com.wagerproof.app"
     compileSdk = 36
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
-        applicationId = "bet.wagerproof.android"
+        applicationId = "com.wagerproof.mobile"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
-        versionName = "3.5.0"
+        versionCode = 49
+        versionName = "3.5.6"
+        buildConfigField("String", "FACEBOOK_APP_ID", quotedBuildConfig(facebookAppId))
+        buildConfigField("String", "FACEBOOK_CLIENT_TOKEN", quotedBuildConfig(facebookClientToken))
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseStoreFile))
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            // Install alongside the Play/release app during device testing.
+            // This also prevents a local debug keystore from forcing users to
+            // uninstall the production-signed package and lose its app data.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -66,6 +136,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.splashscreen)
     implementation(libs.androidx.browser)
+    implementation(libs.androidx.work.runtime)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
@@ -81,4 +155,6 @@ dependencies {
 
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.ui.tooling.preview)
+
+    testImplementation(kotlin("test"))
 }

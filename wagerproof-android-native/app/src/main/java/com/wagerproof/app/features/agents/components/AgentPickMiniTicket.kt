@@ -86,12 +86,6 @@ fun AgentPickMiniTicket(
                         Text(pick.sport.raw.uppercase(), color = AppColors.appTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                     }
                     Spacer(Modifier.weight(1f))
-                    Text(
-                        PickTicketFormat.gameDate(pick.gameDate),
-                        color = AppColors.appTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                    )
-                    Spacer(Modifier.width(6.dp))
                     MiniStatusCorner(
                         isPending = pick.result == AgentPick.PickResultStatus.PENDING,
                         confidence = pick.confidence,

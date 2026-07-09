@@ -38,14 +38,7 @@ import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
 import com.wagerproof.core.design.tokens.Spacing
 
-/**
- * Home Screen Widget walkthrough — port of iOS `Features/Settings/IosWidgetView`.
- *
- * // FIDELITY-WAIVER #252: copy still references the iOS widget-add gesture
- * // (long-press Home Screen → +). Android launcher widget-add flow differs per
- * // OEM; kept the two-widget structure and preview mock. Rewrite the step copy
- * // once the Android widgets ship.
- */
+/** Home Screen Widget walkthrough, adapted to Android launchers. */
 @Composable
 fun WidgetHelpScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     var selected by remember { mutableStateOf(WidgetKind.Outliers) }

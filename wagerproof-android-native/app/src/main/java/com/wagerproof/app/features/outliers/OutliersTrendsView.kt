@@ -56,6 +56,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.gamecards.TeamInitials
+import com.wagerproof.app.features.components.InsetGroupedDivider
+import com.wagerproof.app.features.components.InsetGroupedSection
+import com.wagerproof.app.features.components.SheetSearchField
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
@@ -505,47 +508,45 @@ private fun MatchupPickerSheet(
                 color = AppColors.appTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 8.dp),
             )
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = { Text("Search teams") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            SheetSearchField(query, { query = it }, "Search teams")
             Spacer(Modifier.height(12.dp))
             Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                MatchupPickerRow(
-                    selected = selection is OutliersTrendsMatchupFilter.AllGames,
-                    onClick = { onSelect(OutliersTrendsMatchupFilter.AllGames); onDismiss() },
-                ) {
-                    Icon(AppIcon.SQUARE_GRID_2X2_FILL.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(20.dp))
-                    Text("All games", color = AppColors.appTextPrimary, fontSize = 15.sp)
-                }
-                // MLB is capped to today's slate; the others list the week.
-                filtered.forEach { game ->
-                    val isSelected = (selection as? OutliersTrendsMatchupFilter.Game)?.id == game.id
+                InsetGroupedSection {
                     MatchupPickerRow(
-                        selected = isSelected,
-                        onClick = { onSelect(OutliersTrendsMatchupFilter.Game(game.id)); onDismiss() },
+                        selected = selection is OutliersTrendsMatchupFilter.AllGames,
+                        onClick = { onSelect(OutliersTrendsMatchupFilter.AllGames); onDismiss() },
                     ) {
-                        DiagonalMatchupLogos(
-                            sport = sport,
-                            awayTeam = matchupLogoIdentifier(sport, game, away = true),
-                            homeTeam = matchupLogoIdentifier(sport, game, away = false),
-                            size = 30.dp,
-                        )
-                        Column(verticalArrangement = Arrangement.spacedBy(1.dp), modifier = Modifier.weight(1f)) {
-                            Text(
-                                teamName(sport, game, away = true),
-                                color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        Icon(AppIcon.SQUARE_GRID_2X2_FILL.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(20.dp))
+                        Text("All games", color = AppColors.appTextPrimary, fontSize = 15.sp)
+                    }
+                    if (filtered.isNotEmpty()) InsetGroupedDivider()
+                    // MLB is capped to today's slate; the others list the week.
+                    filtered.forEachIndexed { index, game ->
+                        val isSelected = (selection as? OutliersTrendsMatchupFilter.Game)?.id == game.id
+                        MatchupPickerRow(
+                            selected = isSelected,
+                            onClick = { onSelect(OutliersTrendsMatchupFilter.Game(game.id)); onDismiss() },
+                        ) {
+                            DiagonalMatchupLogos(
+                                sport = sport,
+                                awayTeam = matchupLogoIdentifier(sport, game, away = true),
+                                homeTeam = matchupLogoIdentifier(sport, game, away = false),
+                                size = 30.dp,
                             )
-                            Text(
-                                "@ ${teamName(sport, game, away = false)}",
-                                color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(1.dp), modifier = Modifier.weight(1f)) {
+                                Text(
+                                    teamName(sport, game, away = true),
+                                    color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    "@ ${teamName(sport, game, away = false)}",
+                                    color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
+                        if (index != filtered.lastIndex) InsetGroupedDivider()
                     }
                 }
             }

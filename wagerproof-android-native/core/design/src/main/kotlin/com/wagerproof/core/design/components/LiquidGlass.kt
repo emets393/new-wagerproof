@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
@@ -30,7 +32,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  *  - when a screen provides a [HazeState] via [LocalHazeState] (its
  *    background layers marked with `Modifier.hazeSource`), pills/cards get a
  *    true backdrop blur through Haze;
- *  - otherwise: translucent `appSurfaceElevated` @ 92%.
+ *  - otherwise: translucent `appSurfaceElevated` @ 72%.
  * Both tiers add the optional `tint @ 0.18` wash and (for capsules) the
  * hairline `white @ 0.25, 0.5dp` stroke.
  *
@@ -45,6 +47,19 @@ val LocalHazeState = compositionLocalOf<HazeState?> { null }
  * never nest blurs.
  */
 fun Modifier.liquidGlassSource(state: HazeState): Modifier = hazeSource(state)
+
+/**
+ * Creates one Haze capture state for a complete screen. [content] receives the
+ * modifier that must be attached to the screen's full-bleed background/root
+ * drawing layer. Glass descendants automatically resolve the same state.
+ */
+@Composable
+fun LiquidGlassScene(content: @Composable (sourceModifier: Modifier) -> Unit) {
+    val state = remember { HazeState() }
+    CompositionLocalProvider(LocalHazeState provides state) {
+        content(Modifier.liquidGlassSource(state))
+    }
+}
 
 /**
  * Glass background clipped to [shape]. `tint` blends a stateful color into
@@ -62,9 +77,10 @@ fun Modifier.liquidGlassBackground(
             style = HazeMaterials.ultraThin(containerColor = AppColors.appSurfaceElevated),
         )
     } else {
-        // No backdrop capture available — solid translucent chip (iOS pre-26
-        // visual, and the doc's pre-blur fallback).
-        clip(shape).background(AppColors.appSurfaceElevated.copy(alpha = 0.92f))
+        // No backdrop capture available — preserve enough transparency for
+        // gradients/images beneath the chip to read, like ultraThinMaterial.
+        // The prior 92% fill made every pill look like an opaque dark block.
+        clip(shape).background(AppColors.appSurfaceElevated.copy(alpha = 0.72f))
     }
     val tinted = if (tint != null) surfaced.background(tint.copy(alpha = 0.18f)) else surfaced
     if (hairline) {

@@ -37,20 +37,23 @@ import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
 import com.wagerproof.core.design.tokens.Spacing
+import com.wagerproof.core.stores.AuthStore
 import kotlinx.coroutines.launch
 
 /**
  * Delete Account modal — port of iOS `Features/Settings/DeleteAccountView`.
  *
- * FIDELITY-WAIVER #054: no server-side cascade-delete RPC is wired — deletion is
- * currently a sign-out + local-data clear (identical to iOS's `performDelete`).
+ * The authenticated `delete-own-account` edge function performs the destructive
+ * server operation. Failures keep the session intact and remain retryable.
  */
 @Composable
 fun DeleteAccountScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
-    val auth = appGraph().auth
+    val graph = appGraph()
+    val auth = graph.auth
     val scope = rememberCoroutineScope()
     var confirmVisible by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
+    var deletionError by remember { mutableStateOf<String?>(null) }
 
     BackHandler(onBack = onDismiss)
 
@@ -122,6 +125,19 @@ fun DeleteAccountScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 )
             }
 
+            deletionError?.let { message ->
+                Text(
+                    text = message,
+                    style = AppTypography.caption,
+                    color = AppColors.appAccentRed,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(AppColors.appAccentRed.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                        .padding(Spacing.md),
+                )
+            }
+
             Spacer(Modifier.weight(1f))
 
             Button(
@@ -155,10 +171,20 @@ fun DeleteAccountScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 TextButton(onClick = {
                     confirmVisible = false
                     isDeleting = true
-                    // FIDELITY-WAIVER #054: sign-out only — no cascade delete RPC.
+                    deletionError = null
                     scope.launch {
-                        auth.signOut()
-                        onDismiss()
+                        when (val result = auth.deleteAccount()) {
+                            AuthStore.AccountDeletionResult.Success -> {
+                                runCatching { graph.revenueCat.detachUser() }
+                                graph.adminMode.reset()
+                                isDeleting = false
+                                onDismiss()
+                            }
+                            is AuthStore.AccountDeletionResult.Failure -> {
+                                isDeleting = false
+                                deletionError = result.message
+                            }
+                        }
                     }
                 }) {
                     Text("Delete Account", color = AppColors.appAccentRed)

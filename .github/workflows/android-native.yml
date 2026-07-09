@@ -1,0 +1,74 @@
+name: Android native
+
+on:
+  pull_request:
+    paths:
+      - "wagerproof-android-native/**"
+      - ".github/workflows/android-native.yml"
+  push:
+    branches: [main]
+    paths:
+      - "wagerproof-android-native/**"
+      - ".github/workflows/android-native.yml"
+
+concurrency:
+  group: android-native-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: wagerproof-android-native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Configure optional Firebase project
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          umask 077
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
+          fi
+      - name: Configure optional release signing
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.WAGERPROOF_RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.WAGERPROOF_RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.WAGERPROOF_RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.WAGERPROOF_RELEASE_KEY_PASSWORD }}
+        run: |
+          umask 077
+          present=0
+          for value in "$RELEASE_KEYSTORE_BASE64" "$RELEASE_STORE_PASSWORD" "$RELEASE_KEY_ALIAS" "$RELEASE_KEY_PASSWORD"; do
+            if [ -n "$value" ]; then present=$((present + 1)); fi
+          done
+          if [ "$present" -ne 0 ] && [ "$present" -ne 4 ]; then
+            echo "Release signing secrets must be configured as a complete set." >&2
+            exit 1
+          fi
+          if [ "$present" -eq 4 ]; then
+            printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/wagerproof-release.keystore"
+            {
+              echo "WAGERPROOF_RELEASE_STORE_FILE=$RUNNER_TEMP/wagerproof-release.keystore"
+              echo "WAGERPROOF_RELEASE_STORE_PASSWORD=$RELEASE_STORE_PASSWORD"
+              echo "WAGERPROOF_RELEASE_KEY_ALIAS=$RELEASE_KEY_ALIAS"
+              echo "WAGERPROOF_RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+          fi
+      - name: Unit tests, lint, and debug APK
+        run: ./gradlew testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
+      - name: Verify release lint and Play bundle
+        env:
+          FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
+          FACEBOOK_CLIENT_TOKEN: ${{ secrets.FACEBOOK_CLIENT_TOKEN }}
+        run: ./gradlew :app:lintRelease :app:bundleRelease --stacktrace

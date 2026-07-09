@@ -46,6 +46,8 @@ import com.wagerproof.app.features.components.polymarket.PolymarketWidget
 import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
+import com.wagerproof.app.features.gamecards.SportsbookLogoStyle
+import com.wagerproof.app.features.gamecards.SportsbookLogoView
 import com.wagerproof.app.features.gamewidgets.SignalPerformanceStatsSection
 import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.agents.components.AgentPickRationaleWidget
@@ -59,23 +61,21 @@ import com.wagerproof.core.services.CFBSignalDefinitionsService
 import com.wagerproof.core.services.SignalPerformanceService
 import com.wagerproof.core.services.SignalSport
 import com.wagerproof.core.models.SignalPerformance
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 private val MammothTint = Color(0xFFF97316)
 private val MammothGold = Color(0xFFFACC15)
 
 /**
  * CFB Week-7 dry-run detail page: custom collapsing hero + a seven-market bet
- * board driven straight off [CFBPrediction] fg/tt/h1 fields and its active
- * flags. Port of iOS `CFBGameBottomSheet`.
- *
- * FIDELITY-WAIVER #034: unlike iOS, the board is NOT enriched by the
- * `cfb_dryrun_picks` table (GamesStore already folds the model contract + flags
- * into [CFBPrediction]). Best-book rows, picks-table recommendation text, and
- * pick-derived synthetic signals are therefore omitted; recommendation reads
- * from the model's own pick fields.
+ * board enriched by `cfb_dryrun_picks` plus model flags. Port of iOS
+ * `CFBGameBottomSheet`: posted recommendations, best-book lines, pick-level
+ * conviction, and synthetic signal-key rows override the merged-game fallback.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,14 +90,26 @@ fun CFBGameDetailPage(
     var signalDefs by remember { mutableStateOf<Map<String, CFBSignalDefinition>>(emptyMap()) }
     var trendsByTeam by remember { mutableStateOf<Map<String, CFBTeamTrendRow>>(emptyMap()) }
     var perfByKey by remember { mutableStateOf<Map<String, SignalPerformance>>(emptyMap()) }
+    var dryRunPicks by remember(game.gameId) { mutableStateOf<List<CFBDryrunPickRow>>(emptyList()) }
 
     var selectedSignal by remember { mutableStateOf<CFBDryRunFlag?>(null) }
     var selectedTrend by remember { mutableStateOf<TrendDetailSelection?>(null) }
 
     LaunchedEffect(game.gameId) {
-        signalDefs = CFBSignalDefinitionsService.shared.definitionsBySource()
-        trendsByTeam = loadTeamTrends(game)
-        perfByKey = SignalPerformanceService.shared.performances(SignalSport.CFB, game.season ?: 2025)
+        coroutineScope {
+            val defs = async { CFBSignalDefinitionsService.shared.definitionsBySource() }
+            val trends = async { loadTeamTrends(game) }
+            val performance = async { SignalPerformanceService.shared.performances(SignalSport.CFB, game.season ?: 2025) }
+            val picks = async {
+                if ((game.runId ?: "").contains("dryrun", ignoreCase = true)) {
+                    loadCFBDryrunPicksResult(game.gameId)
+                } else null
+            }
+            signalDefs = defs.await()
+            trendsByTeam = trends.await()
+            perfByKey = performance.await()
+            picks.await()?.onSuccess { dryRunPicks = it }
+        }
     }
 
     val rows = remember(game.gameId) { buildMarketRows(game) }
@@ -133,8 +145,19 @@ fun CFBGameDetailPage(
             }
         }
 
+        item {
+            WidgetCollapsingSection(
+                title = "Line Movement",
+                icon = AppIcon.fromSystemName("chart.line.uptrend.xyaxis"),
+                iconTint = AppColors.appPrimary,
+            ) {
+                CFBLineMovementSection(game)
+            }
+        }
+
         items(rows, key = { it.id }) { row ->
-            val buckets = signalBuckets(game, row, signalDefs)
+            val pick = cfbDryRunPickForRow(game, row, dryRunPicks)
+            val buckets = signalBuckets(game, row, signalDefs, pick)
             WidgetCollapsingSection(
                 title = row.sectionTitle,
                 showsHeader = false,
@@ -147,6 +170,7 @@ fun CFBGameDetailPage(
                     MarketRowBody(
                         game = game,
                         row = row,
+                        pick = pick,
                         buckets = buckets,
                         trendsByTeam = trendsByTeam,
                         onSignalTap = { selectedSignal = it },
@@ -255,15 +279,23 @@ private fun HeroTeamColumn(
                 }
             }
         }
-        Box(Modifier.height(34.dp), contentAlignment = Alignment.Center) {
+        Text(
+            CFBTeamAssets.abbr(team),
+            color = AppColors.appTextPrimary,
+            fontSize = 14.sp,
+            lineHeight = 15.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 1,
+        )
+        Box(Modifier.height(15.dp), contentAlignment = Alignment.Center) {
             Text(
                 team,
                 modifier = Modifier.alpha(nameOpacity),
                 color = AppColors.appTextPrimary,
-                fontSize = heroNameFont(team).sp,
-                fontWeight = FontWeight.Black,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
-                maxLines = 2,
+                maxLines = 1,
             )
             Text(
                 GameCardFormatting.formatMoneyline(ml),
@@ -304,8 +336,6 @@ private fun HeroLineRow(label: String, value: String, alpha: Float = 1f) {
 
 @Composable
 private fun HeroWeatherRow(game: CFBPrediction, modifier: Modifier = Modifier) {
-    // FIDELITY-WAIVER #034b: weather condition icons fall back to available
-    // AppIcon symbols (most SF cloud/sun glyphs aren't in the Android set).
     if (game.wxIndoors == true) {
         Row(modifier, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             WeatherChip("building.2.fill", "Indoor / Dome", Color(0xFFA78BFA))
@@ -346,13 +376,14 @@ private fun WeatherChip(systemImage: String, text: String, tint: Color) {
 private fun MarketRowBody(
     game: CFBPrediction,
     row: CFBMarketRow,
+    pick: CFBDryrunPickRow?,
     buckets: SignalBuckets,
     trendsByTeam: Map<String, CFBTeamTrendRow>,
     onSignalTap: (CFBDryRunFlag) -> Unit,
     onTrendTap: (String, CFBTeamTrendRow) -> Unit,
 ) {
-    val mammoth = game.mammoth && row.id == "spread" && game.fgSpreadCapped != true
-    val direction = pickDirection(row.pick)
+    val mammoth = isMammothPick(pick)
+    val direction = pickDirection(pick?.pickSide) ?: pickDirection(pick?.pickLabel) ?: pickDirection(row.pick)
     val cardTint = if (mammoth) MammothTint else directionTint(direction, row.tint)
 
     Column(Modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -364,7 +395,7 @@ private fun MarketRowBody(
             }
             Text(row.sectionTitle, color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Black)
             if (mammoth) MammothBadge()
-            if (row.isDisplayOnly) {
+            if (row.isDisplayOnly || pick?.displayOnly == true) {
                 Text(
                     "Display only",
                     modifier = Modifier
@@ -375,9 +406,10 @@ private fun MarketRowBody(
             }
             Spacer(Modifier.weight(1f))
             Text(
-                row.pick,
+                pick?.recommendation ?: row.pick,
                 color = when {
                     mammoth -> MammothTint
+                    pick?.hasPlay == false || pick?.displayOnly == true -> AppColors.appTextSecondary
                     row.isNoPlay -> AppColors.appAccentAmber
                     else -> row.tint
                 },
@@ -386,7 +418,7 @@ private fun MarketRowBody(
         }
 
         // Recommendation card (comparison boxes + pick line).
-        RecommendationCard(game, row, mammoth, cardTint, direction)
+        RecommendationCard(game, row, pick, mammoth, cardTint, direction)
 
         // Signal buckets.
         if (!buckets.isEmpty) {
@@ -409,6 +441,7 @@ private fun MarketRowBody(
 private fun RecommendationCard(
     game: CFBPrediction,
     row: CFBMarketRow,
+    pick: CFBDryrunPickRow?,
     mammoth: Boolean,
     cardTint: Color,
     direction: String?,
@@ -429,15 +462,27 @@ private fun RecommendationCard(
     ) {
         if (row.showComparison) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ComparisonBox(row.vegasLabel, row.vegas, AppColors.appTextPrimary, false, Modifier.weight(1f))
+                ComparisonBox(
+                    row.vegasLabel,
+                    pick?.let { formatMarketLine(it.bestLine ?: it.vegasLine, row) } ?: row.vegas,
+                    AppColors.appTextPrimary,
+                    false,
+                    Modifier.weight(1f),
+                )
                 AppIcon.fromSystemName("arrow.right")?.let {
                     Icon(it.imageVector, null, tint = AppColors.appTextMuted, modifier = Modifier.size(14.dp))
                 }
-                ComparisonBox(row.modelLabel, row.model, cardTint, true, Modifier.weight(1f))
+                ComparisonBox(
+                    row.modelLabel,
+                    pick?.let { formatMarketLine(it.resolvedModelLine, row) } ?: row.model,
+                    cardTint,
+                    true,
+                    Modifier.weight(1f),
+                )
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            PickIcon(game, row, direction, cardTint)
+            PickIcon(game, row, pick?.pickTeam, direction, cardTint)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 if (mammoth) {
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -447,11 +492,63 @@ private fun RecommendationCard(
                         Text("Rare 5u mammoth spot", color = MammothTint, fontSize = 9.sp, fontWeight = FontWeight.Black)
                     }
                 }
-                Text(row.pickTitle, color = cardTint, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, maxLines = 1)
-                Text(row.pickSubtitle, color = AppColors.appTextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+                Text(pick?.pickLabel ?: row.pickTitle, color = cardTint, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, maxLines = 1)
+                BestBookRow(pick, row)
             }
         }
     }
+}
+
+@Composable
+private fun BestBookRow(pick: CFBDryrunPickRow?, row: CFBMarketRow) {
+    if (pick == null) {
+        Text(
+            row.pickSubtitle,
+            color = AppColors.appTextMuted,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = if (row.isDisplayOnly) 1 else 2,
+        )
+        return
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        SportsbookLogoView(
+            bookKey = pick.bestBook ?: pick.bestBookName ?: "",
+            logoURL = pick.bestBookLogo,
+            style = SportsbookLogoStyle.COMPACT,
+        )
+        Text(
+            buildString {
+                append(pick.bestBookName ?: pick.bestBook ?: "Best book")
+                append(" ${formatMarketLine(pick.bestLine, row)}")
+                formatOdds(pick.bestOdds).takeIf(String::isNotEmpty)?.let { append(" $it") }
+            },
+            color = AppColors.appTextSecondary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+    }
+}
+
+private fun isMammothPick(pick: CFBDryrunPickRow?): Boolean =
+    pick?.isMammoth == true ||
+        pick?.conviction.equals("mammoth", ignoreCase = true) ||
+        pick?.recommendation?.contains("MAMMOTH", ignoreCase = true) == true
+
+private fun formatMarketLine(value: Double?, row: CFBMarketRow): String {
+    value ?: return "—"
+    return when (row.id) {
+        "spread", "h1-spread" -> GameCardFormatting.formatSpread(value)
+        "moneyline", "h1-ml" -> formatOdds(value)
+        else -> fmtHalf(value)
+    }
+}
+
+private fun formatOdds(value: Double?): String {
+    value ?: return ""
+    val rounded = value.roundToInt()
+    return if (rounded > 0) "+$rounded" else rounded.toString()
 }
 
 @Composable
@@ -471,7 +568,7 @@ private fun ComparisonBox(label: String, value: String, tint: Color, highlighted
 }
 
 @Composable
-private fun PickIcon(game: CFBPrediction, row: CFBMarketRow, direction: String?, tint: Color) {
+private fun PickIcon(game: CFBPrediction, row: CFBMarketRow, teamNameOverride: String?, direction: String?, tint: Color) {
     when {
         direction != null -> {
             val icon = if (direction == "UNDER") AppIcon.fromSystemName("arrow.down.circle.fill") ?: AppIcon.fromSystemName("arrow.down")
@@ -480,8 +577,9 @@ private fun PickIcon(game: CFBPrediction, row: CFBMarketRow, direction: String?,
                 icon?.let { Icon(it.imageVector, null, tint = tint, modifier = Modifier.size(22.dp)) }
             }
         }
-        row.pickTeamName != null -> {
-            GameCardTeamAvatar("cfb", row.pickTeamName, 42.dp, colors = CFBTeamColors.colorPair(row.pickTeamName))
+        teamNameOverride != null || row.pickTeamName != null -> {
+            val team = teamNameOverride ?: row.pickTeamName ?: return
+            GameCardTeamAvatar("cfb", team, 42.dp, colors = CFBTeamColors.colorPair(team))
         }
         else -> {
             Box(Modifier.size(42.dp).background(tint.copy(alpha = 0.12f), CircleShape), contentAlignment = Alignment.Center) {

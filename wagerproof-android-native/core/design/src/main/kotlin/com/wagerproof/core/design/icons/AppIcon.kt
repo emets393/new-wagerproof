@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.SubdirectoryArrowRight
 import androidx.compose.material.icons.automirrored.rounded.TrendingFlat
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.Adjust
@@ -38,6 +39,8 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.ConfirmationNumber
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Contrast
@@ -116,6 +119,7 @@ import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material.icons.rounded.Tag
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Thermostat
+import androidx.compose.material.icons.rounded.Thunderstorm
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
@@ -125,6 +129,8 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.WatchLater
 import androidx.compose.material.icons.rounded.WavingHand
+import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -258,6 +264,15 @@ enum class AppIcon(val systemName: String, private val vector: () -> ImageVector
 
     WIND("wind", { Icons.Rounded.Air }),
     THERMOMETER_MEDIUM("thermometer.medium", { Icons.Rounded.Thermostat }),
+    THERMOMETER_SNOWFLAKE("thermometer.snowflake", { Icons.Rounded.AcUnit }),
+    THERMOMETER_SUN_FILL("thermometer.sun.fill", { Icons.Rounded.WbSunny }),
+    CLOUD_BOLT_RAIN_FILL("cloud.bolt.rain.fill", { Icons.Rounded.Thunderstorm }),
+    CLOUD_RAIN_FILL("cloud.rain.fill", { Icons.Rounded.WaterDrop }),
+    CLOUD_SNOW_FILL("cloud.snow.fill", { Icons.Rounded.AcUnit }),
+    CLOUD_FOG_FILL("cloud.fog.fill", { Icons.Rounded.CloudQueue }),
+    CLOUD_SUN_FILL("cloud.sun.fill", { Icons.Rounded.CloudQueue }),
+    CLOUD_FILL("cloud.fill", { Icons.Rounded.Cloud }),
+    SUN_MAX_FILL("sun.max.fill", { Icons.Rounded.WbSunny }),
 
     SQUARE_AND_ARROW_UP("square.and.arrow.up", { Icons.Rounded.Share }),
     NUMBER("number", { Icons.Rounded.Tag }),

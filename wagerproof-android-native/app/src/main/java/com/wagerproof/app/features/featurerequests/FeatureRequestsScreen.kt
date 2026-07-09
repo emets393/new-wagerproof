@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,8 +19,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
+import com.wagerproof.app.features.components.InsetGroupedDivider
+import com.wagerproof.app.features.components.InsetGroupedSection
 import com.wagerproof.core.design.components.SkeletonBlock
 import com.wagerproof.core.design.components.SkeletonCapsule
 import com.wagerproof.core.design.components.shimmering
@@ -56,11 +61,6 @@ import kotlinx.coroutines.launch
  * Port of iOS `FeatureRequestsView.swift`. Sheet body (shell mounts it in a
  * ModalBottomSheet): top bar (X / green + → submit), sections Community Voting /
  * Planned / In Progress / Completed, skeleton/error/empty states.
- *
- * FIDELITY-WAIVER #300 — iOS uses `.refreshable` pull-to-refresh. Inside a
- * Compose bottom sheet a pull-down gesture is claimed by the sheet's own
- * dismiss drag, so refresh runs on first open only (and after each vote/submit,
- * which the store already re-fetches internally).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,23 +79,15 @@ fun FeatureRequestsScreen(modifier: Modifier = Modifier) {
         if (store.loadState is LoadState.Idle) store.refresh(userId)
     }
 
-    Column(modifier.fillMaxWidth().background(AppColors.appSurface)) {
+    Column(modifier.fillMaxSize().background(AppColors.appSurface)) {
         // Top bar.
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = AppIcon.fromSystemName("xmark")!!.imageVector,
-                contentDescription = "Close",
-                tint = AppColors.appTextPrimary,
-                modifier = Modifier
-                    .size(28.dp)
-                    .clickable { graph.mainTab.isFeatureRequestsPresented = false }
-                    .padding(4.dp),
-            )
-            Spacer(Modifier.weight(1f))
-            Text("Feature Requests", style = AppTypography.title, color = AppColors.appTextPrimary)
+            IconButton(onClick = { graph.mainTab.isFeatureRequestsPresented = false }) {
+                Icon(AppIcon.fromSystemName("xmark")!!.imageVector, "Close", tint = AppColors.appTextPrimary, modifier = Modifier.size(18.dp))
+            }
             Spacer(Modifier.weight(1f))
             Box(
                 Modifier
@@ -113,14 +105,27 @@ fun FeatureRequestsScreen(modifier: Modifier = Modifier) {
                 )
             }
         }
+        Text(
+            "Feature Requests",
+            color = AppColors.appTextPrimary,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 4.dp),
+        )
 
-        val loadState = store.loadState
-        when {
-            store.isLoading && !store.hasRequests -> loadingPlaceholder()
-            loadState is LoadState.Failed && !store.hasRequests ->
-                errorState(loadState.message) { scope.launch { store.refresh(userId) } }
-            !store.hasRequests -> emptyState { showSubmit = true }
-            else -> listContent(store, userId, scope)
+        PullToRefreshBox(
+            isRefreshing = store.isLoading && store.hasRequests,
+            onRefresh = { scope.launch { store.refresh(userId) } },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+        ) {
+            val loadState = store.loadState
+            when {
+                store.isLoading && !store.hasRequests -> loadingPlaceholder()
+                loadState is LoadState.Failed && !store.hasRequests ->
+                    errorState(loadState.message) { scope.launch { store.refresh(userId) } }
+                !store.hasRequests -> emptyState { showSubmit = true }
+                else -> listContent(store, userId, scope)
+            }
         }
     }
 
@@ -168,8 +173,13 @@ private fun listContent(store: FeatureRequestsStore, userId: String?, scope: kot
                 )
             }
         } else {
-            items(store.approvedRequests) { request ->
-                rowCard(store, request, userId, isRoadmap = false, scope)
+            item {
+                InsetGroupedSection {
+                    store.approvedRequests.forEachIndexed { index, request ->
+                        rowCard(store, request, userId, isRoadmap = false, scope)
+                        if (index != store.approvedRequests.lastIndex) InsetGroupedDivider()
+                    }
+                }
             }
         }
 
@@ -200,8 +210,15 @@ private fun LazyListScope.roadmapSection(
     scope: kotlinx.coroutines.CoroutineScope,
 ) {
     if (items.isEmpty()) return
-    item { sectionHeader(title, icon, color, items.size) }
-    items(items) { request -> rowCard(store, request, userId, isRoadmap = true, scope) }
+    item {
+        sectionHeader(title, icon, color, items.size)
+        InsetGroupedSection {
+            items.forEachIndexed { index, request ->
+                rowCard(store, request, userId, isRoadmap = true, scope)
+                if (index != items.lastIndex) InsetGroupedDivider()
+            }
+        }
+    }
 }
 
 @Composable
@@ -213,13 +230,7 @@ private fun rowCard(
     scope: kotlinx.coroutines.CoroutineScope,
 ) {
     val userVote = store.userVotes.firstOrNull { it.featureRequestId == request.id }?.voteType
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(CornerRadius.lg))
-            .background(AppColors.appSurfaceElevated)
-            .padding(horizontal = Spacing.md),
-    ) {
+    Box(Modifier.fillMaxWidth().padding(horizontal = 2.dp)) {
         FeatureRequestRow(
             request = request,
             userVote = userVote,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -61,14 +62,14 @@ fun OnboardingTermsPage(modifier: Modifier = Modifier) {
     ) {
         Text(
             text = "Terms and Conditions",
-            fontSize = 28.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
-            modifier = Modifier.padding(top = 12.dp, bottom = 12.dp).pageEntrance(0),
+            modifier = Modifier.padding(top = 8.dp, bottom = 6.dp).pageEntrance(0),
         )
         Text(
             text = "Please read through our terms and conditions before continuing",
-            fontSize = 16.sp,
+            fontSize = 14.sp,
             color = Color.White.copy(alpha = 0.8f),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 24.dp).pageEntrance(1),
@@ -89,25 +90,25 @@ fun OnboardingTermsPage(modifier: Modifier = Modifier) {
         // Scrollable terms body, weighted to fill the space above the checkbox.
         Column(
             modifier = Modifier
-                .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .heightIn(max = 320.dp)
+                .padding(horizontal = 24.dp, vertical = 10.dp)
                 .liquidGlassBackground(shape = RoundedCornerShape(12.dp), tint = Color.White.copy(alpha = 0.05f))
                 .verticalScroll(scrollState)
-                .padding(16.dp)
+                .padding(12.dp)
                 .pageEntrance(2),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 text = "Last Updated: October 15, 2025",
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White.copy(alpha = 0.7f),
             )
             termsSections.forEach { section ->
                 Text(
                     text = section.title,
-                    fontSize = 18.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = AppColors.appPrimary,
                     modifier = Modifier.padding(top = 4.dp),
@@ -115,7 +116,7 @@ fun OnboardingTermsPage(modifier: Modifier = Modifier) {
                 section.paragraphs.forEach { para ->
                     Text(
                         text = para,
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         color = Color.White.copy(alpha = 0.9f),
                         lineHeight = 20.sp,
                     )

@@ -1,6 +1,7 @@
 package com.wagerproof.app.features.outliers
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -126,7 +127,8 @@ fun OutlierGlassTeamAvatar(
         modifier
             .size(size)
             .shadow(4.dp, CircleShape, clip = false)
-            .clip(CircleShape),
+            .clip(CircleShape)
+            .border(1.dp, Color.White.copy(alpha = 0.16f), CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         // Team-tinted glass base (primary @ ~0.5 over the elevated surface).
@@ -145,7 +147,7 @@ fun OutlierGlassTeamAvatar(
             RemoteImage(
                 url = logoUrl,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().padding(size * 0.16f),
+                modifier = Modifier.fillMaxSize().padding(size * 0.09f),
                 contentScale = ContentScale.Fit,
                 error = {
                     Text(

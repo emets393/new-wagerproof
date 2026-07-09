@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "reference_device": {
+    "profile": "Pixel 8 API 35",
+    "resolution": "1080x2400",
+    "density": 420,
+    "orientation": "portrait",
+    "locale": "en-US",
+    "font_scale": 1.0,
+    "theme": "dark"
+  },
+  "scenarios": [
+    { "slug": "auth-gate", "cluster": "auth", "state": "default", "delay_ms": 700, "stable": false },
+
+    { "slug": "games-loaded", "cluster": "root-tabs", "state": "loaded", "delay_ms": 700, "stable": true },
+    { "slug": "games-empty", "cluster": "root-tabs", "state": "empty", "delay_ms": 450, "stable": true },
+    { "slug": "games-loading", "cluster": "root-tabs", "state": "loading", "delay_ms": 180, "stable": true },
+    { "slug": "props-loaded", "cluster": "root-tabs", "state": "loaded", "delay_ms": 650, "stable": true },
+    { "slug": "props-empty", "cluster": "root-tabs", "state": "empty", "delay_ms": 450, "stable": true },
+    { "slug": "props-loading", "cluster": "root-tabs", "state": "loading", "delay_ms": 180, "stable": false },
+    { "slug": "agents-loaded", "cluster": "root-tabs", "state": "loaded", "delay_ms": 250, "stable": false },
+    { "slug": "agents-empty", "cluster": "root-tabs", "state": "empty", "delay_ms": 250, "stable": false },
+    { "slug": "agents-loading", "cluster": "root-tabs", "state": "loading", "delay_ms": 180, "stable": false },
+    { "slug": "outliers-loaded", "cluster": "root-tabs", "state": "loaded", "delay_ms": 250, "stable": false },
+    { "slug": "outliers-empty", "cluster": "root-tabs", "state": "empty", "delay_ms": 250, "stable": false },
+    { "slug": "outliers-loading", "cluster": "root-tabs", "state": "loading", "delay_ms": 180, "stable": false },
+    { "slug": "search-loaded", "cluster": "root-tabs", "state": "loaded", "delay_ms": 500, "stable": true },
+    { "slug": "search-empty", "cluster": "root-tabs", "state": "empty", "delay_ms": 400, "stable": true },
+    { "slug": "search-loading", "cluster": "root-tabs", "state": "loading", "delay_ms": 180, "stable": false },
+
+    { "slug": "game-nfl-expanded", "cluster": "game-detail", "state": "expanded", "delay_ms": 600, "stable": true },
+    { "slug": "game-nfl-collapsed", "cluster": "game-detail", "state": "collapsed", "gesture": "collapse", "delay_ms": 350, "stable": true },
+    { "slug": "game-nfl-locked", "cluster": "game-detail", "state": "locked", "delay_ms": 600, "stable": true },
+    { "slug": "game-cfb-expanded", "cluster": "game-detail", "state": "expanded", "delay_ms": 600, "stable": true },
+    { "slug": "game-cfb-collapsed", "cluster": "game-detail", "state": "collapsed", "gesture": "collapse", "delay_ms": 350, "stable": true },
+    { "slug": "game-cfb-locked", "cluster": "game-detail", "state": "locked", "delay_ms": 600, "stable": true },
+    { "slug": "game-nba-expanded", "cluster": "game-detail", "state": "expanded", "delay_ms": 600, "stable": true },
+    { "slug": "game-nba-collapsed", "cluster": "game-detail", "state": "collapsed", "gesture": "collapse", "delay_ms": 350, "stable": true },
+    { "slug": "game-nba-locked", "cluster": "game-detail", "state": "locked", "delay_ms": 600, "stable": true },
+    { "slug": "game-ncaab-expanded", "cluster": "game-detail", "state": "expanded", "delay_ms": 600, "stable": true },
+    { "slug": "game-ncaab-collapsed", "cluster": "game-detail", "state": "collapsed", "gesture": "collapse", "delay_ms": 350, "stable": true },
+    { "slug": "game-ncaab-locked", "cluster": "game-detail", "state": "locked", "delay_ms": 600, "stable": true },
+    { "slug": "game-mlb-expanded", "cluster": "game-detail", "state": "expanded", "delay_ms": 600, "stable": true },
+    { "slug": "game-mlb-collapsed", "cluster": "game-detail", "state": "collapsed", "gesture": "collapse", "delay_ms": 350, "stable": true },
+    { "slug": "game-mlb-locked", "cluster": "game-detail", "state": "locked", "delay_ms": 600, "stable": true },
+
+    { "slug": "prop-mlb-detail", "cluster": "prop-detail", "state": "loaded", "delay_ms": 500, "stable": true },
+    { "slug": "prop-nfl-detail", "cluster": "prop-detail", "state": "loaded", "delay_ms": 500, "stable": true },
+    { "slug": "agent-owner-detail", "cluster": "agents", "state": "first-load", "delay_ms": 180, "stable": false },
+    { "slug": "agent-public-detail", "cluster": "agents", "state": "first-load", "delay_ms": 180, "stable": false },
+    { "slug": "agent-create", "cluster": "agents", "state": "step-1", "delay_ms": 450, "stable": false },
+    { "slug": "agent-settings", "cluster": "agents", "state": "first-load", "delay_ms": 180, "stable": false },
+    { "slug": "chat", "cluster": "secondary", "state": "welcome", "delay_ms": 450, "stable": false },
+    { "slug": "settings", "cluster": "secondary", "state": "loaded-pro", "delay_ms": 450, "stable": false },
+    { "slug": "paywall", "cluster": "secondary", "state": "loading-or-empty", "delay_ms": 180, "stable": false }
+  ]
+}

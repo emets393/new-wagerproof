@@ -2,11 +2,17 @@ package com.wagerproof.app.features.navigation
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.StartOffsetType
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -15,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -23,9 +30,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.core.design.tokens.AppLayout
 import com.wagerproof.core.stores.MainTabStore
 
 /**
@@ -33,7 +42,6 @@ import com.wagerproof.core.stores.MainTabStore
  * (doc 08 §3.2). Three reusable pieces plus a convenient combined [WagerProofTopBar]:
  *  - [WagerProofWordmark]: passive two-tone brand mark with a looping shimmer sweep
  *    over "Proof".
- *  - [WagerBotToolbarButton]: flips `MainTabStore.isChatPresented`.
  *  - [SettingsToolbarButton]: flips `MainTabStore.isSettingsPresented` — the single
  *    entry point into Settings.
  *
@@ -50,12 +58,19 @@ import com.wagerproof.core.stores.MainTabStore
  */
 @Composable
 fun WagerProofWordmark(modifier: Modifier = Modifier) {
-    Row(modifier = modifier.semantics { contentDescription = "WagerProof" }) {
+    Row(
+        modifier = modifier
+            .offset(x = (-8).dp)
+            .padding(end = 12.dp)
+            .semantics { contentDescription = "WagerProof" },
+    ) {
         Text(
             text = "Wager",
             color = AppColors.appTextPrimary.copy(alpha = 0.55f),
             fontSize = 15.sp,
-            fontWeight = FontWeight.Black,
+            lineHeight = 18.sp,
+            letterSpacing = (-0.15).sp,
+            fontWeight = FontWeight.ExtraBold,
         )
         Text(
             text = "Proof",
@@ -64,7 +79,9 @@ fun WagerProofWordmark(modifier: Modifier = Modifier) {
             // on the base color only (matches iOS TextShimmer).
             color = Color(0xFF00E676).copy(alpha = 0.55f),
             fontSize = 15.sp,
-            fontWeight = FontWeight.Black,
+            lineHeight = 18.sp,
+            letterSpacing = (-0.15).sp,
+            fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.textShimmerSweep(),
         )
     }
@@ -85,6 +102,7 @@ private fun Modifier.textShimmerSweep(): Modifier {
         animationSpec = infiniteRepeatable(
             animation = tween(1600, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
+            initialStartOffset = StartOffset(300, StartOffsetType.Delay),
         ),
         label = "wordmarkShimmerPhase",
     )
@@ -108,7 +126,10 @@ private fun Modifier.textShimmerSweep(): Modifier {
 /** WagerBot launcher — flips the shell-level chat overlay flag. */
 @Composable
 fun WagerBotToolbarButton(tabStore: MainTabStore, modifier: Modifier = Modifier) {
-    IconButton(onClick = { tabStore.isChatPresented = true }, modifier = modifier) {
+    IconButton(
+        onClick = { tabStore.isChatPresented = true },
+        modifier = modifier.size(AppLayout.topBarContentHeight),
+    ) {
         // iOS uses the bespoke WagerBotIcon glyph; no Android equivalent yet — the
         // chat-bubble SF-symbol map is the closest stand-in.
         Icon(
@@ -122,7 +143,10 @@ fun WagerBotToolbarButton(tabStore: MainTabStore, modifier: Modifier = Modifier)
 /** Settings launcher — the single entry point into Settings (flips the flag). */
 @Composable
 fun SettingsToolbarButton(tabStore: MainTabStore, modifier: Modifier = Modifier) {
-    IconButton(onClick = { tabStore.isSettingsPresented = true }, modifier = modifier) {
+    IconButton(
+        onClick = { tabStore.isSettingsPresented = true },
+        modifier = modifier.size(AppLayout.topBarContentHeight),
+    ) {
         Icon(
             imageVector = AppIcon.GEARSHAPE.imageVector,
             contentDescription = "Settings",
@@ -132,19 +156,27 @@ fun SettingsToolbarButton(tabStore: MainTabStore, modifier: Modifier = Modifier)
 }
 
 /**
- * Combined top-bar row: leading wordmark, then optional page-specific [actions],
- * then WagerBot + Settings pinned rightmost. Drop into a page header.
+ * Combined root top bar: leading wordmark, page-specific [actions], and the
+ * Settings gear pinned rightmost. WagerBot is intentionally hidden from main
+ * tab chrome in the current iOS contract; [showWagerBot] remains available for
+ * isolated previews and future experiments.
  */
 @Composable
 fun WagerProofTopBar(
     tabStore: MainTabStore,
     modifier: Modifier = Modifier,
+    showWagerBot: Boolean = false,
     actions: @Composable () -> Unit = {},
 ) {
-    Row(modifier = modifier) {
+    Row(
+        modifier = modifier
+            .heightIn(min = AppLayout.topBarContentHeight)
+            .padding(horizontal = AppLayout.screenHorizontalPadding),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         WagerProofWordmark(modifier = Modifier.weight(1f))
         actions()
-        WagerBotToolbarButton(tabStore)
+        if (showWagerBot) WagerBotToolbarButton(tabStore)
         SettingsToolbarButton(tabStore)
     }
 }

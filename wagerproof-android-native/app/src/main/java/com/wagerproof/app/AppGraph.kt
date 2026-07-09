@@ -2,7 +2,6 @@ package com.wagerproof.app
 
 import android.app.Application
 import com.wagerproof.core.services.MetaAnalyticsService
-import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.shared.AppGroup
 import com.wagerproof.core.stores.AdminModeStore
 import com.wagerproof.core.stores.AgentPickAuditStore
@@ -95,11 +94,16 @@ class AppGraph(val application: Application) {
      * [WagerproofApplication.onCreate] ahead of `AppGraph(...)`, not here.
      */
     fun bootstrap() {
-        // Meta SDK (currently only flips an init guard until facebook-core lands).
-        MetaAnalyticsService.initialize(application)
+        // Meta SDK stays inert when its out-of-band production credentials are absent.
+        MetaAnalyticsService.initialize(
+            context = application,
+            appId = BuildConfig.FACEBOOK_APP_ID,
+            clientToken = BuildConfig.FACEBOOK_CLIENT_TOKEN,
+        )
 
-        // RevenueCat SDK needs a Context; auth-agnostic + idempotent. iOS calls
-        // revenueCat.bootstrap() from body.task; the store forwards to the service.
-        RevenueCatService.bootstrap(application, userId = null)
+        // Bootstrap through the STORE, not the raw service. The store marks
+        // itself initialized and installs the single customer-info listener;
+        // bypassing it leaves entitlement resolution stuck in Loading forever.
+        revenueCat.bootstrap()
     }
 }

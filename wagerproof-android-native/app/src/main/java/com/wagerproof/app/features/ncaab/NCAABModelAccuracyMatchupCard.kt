@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
+import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.app.features.shared.hexColor
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.NCAABAccuracyBucket
@@ -35,11 +36,9 @@ import kotlin.math.roundToInt
  * iOS `NCAABModelAccuracyMatchupCardView`. Same Spread / ML / O-U layout and
  * accuracy thresholds as the NBA variant, typed for the NCAAB payload.
  *
- * FIDELITY-WAIVER #008: neutral maroon/gold stripe colors are hardcoded (no
- * per-team NCAAB brand table exists on Android).
+ * Team identity is supplied by the NCAAB mapping join; brand colors follow the
+ * production client's shared CFB/NCAAB resolver.
  */
-private val NeutralMaroon = hexColor(0x8B1A1A)
-private val NeutralGold = hexColor(0xEAB308)
 
 @Composable
 fun NCAABModelAccuracyMatchupCardView(
@@ -47,6 +46,8 @@ fun NCAABModelAccuracyMatchupCardView(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(26.dp)
+    val awayColor = CFBTeamColors.colorPair(game.awayTeam).primary
+    val homeColor = CFBTeamColors.colorPair(game.homeTeam).primary
     Column(
         modifier
             .clip(shape)
@@ -60,10 +61,10 @@ fun NCAABModelAccuracyMatchupCardView(
                 .background(
                     Brush.horizontalGradient(
                         listOf(
-                            NeutralMaroon,
-                            NeutralGold,
-                            NeutralMaroon.copy(alpha = 0.85f),
-                            NeutralGold.copy(alpha = 0.85f),
+                            awayColor,
+                            homeColor,
+                            awayColor.copy(alpha = 0.85f),
+                            homeColor.copy(alpha = 0.85f),
                         ),
                     ),
                 ),
@@ -87,10 +88,10 @@ private fun Header(game: NCAABModelAccuracyGame) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            GameCardTeamAvatar(sport = "ncaab", team = game.awayTeam, diameter = 32.dp)
+            GameCardTeamAvatar(sport = "ncaab", team = game.awayTeam, diameter = 32.dp, colors = CFBTeamColors.colorPair(game.awayTeam), logoURL = game.awayTeamLogo)
             Text(game.awayAbbr, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             Text("@", color = AppColors.appTextSecondary.copy(alpha = 0.6f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 4.dp))
-            GameCardTeamAvatar(sport = "ncaab", team = game.homeTeam, diameter = 32.dp)
+            GameCardTeamAvatar(sport = "ncaab", team = game.homeTeam, diameter = 32.dp, colors = CFBTeamColors.colorPair(game.homeTeam), logoURL = game.homeTeamLogo)
             Text(game.homeAbbr, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.weight(1f))

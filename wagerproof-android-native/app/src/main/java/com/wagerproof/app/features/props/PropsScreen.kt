@@ -45,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +70,10 @@ import com.wagerproof.app.features.props.components.PropCardShimmer
 import com.wagerproof.app.features.props.components.PropPlayerCard
 import com.wagerproof.app.features.props.detail.NflPropDetailScreen
 import com.wagerproof.app.features.props.detail.PlayerPropDetailScreen
+import com.wagerproof.app.features.navigation.WagerProofTopBar
+import com.wagerproof.app.features.components.InsetGroupedDivider
+import com.wagerproof.app.features.components.InsetGroupedSection
+import com.wagerproof.app.features.components.SheetSearchField
 import com.wagerproof.app.features.shared.InitialsDisc
 import com.wagerproof.app.features.shared.RemoteImage
 import com.wagerproof.core.design.components.liquidGlassBackground
@@ -103,7 +108,10 @@ private enum class PropSortMode(val label: String, val icon: ImageVector) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PropsScreen(modifier: Modifier = Modifier) {
+fun PropsScreen(
+    modifier: Modifier = Modifier,
+    onFullScreenChanged: (Boolean) -> Unit = {},
+) {
     val graph = appGraph()
     val store = graph.props
     val tabStore = graph.mainTab
@@ -175,6 +183,11 @@ fun PropsScreen(modifier: Modifier = Modifier) {
         selectedNFLProp != null -> "nflDetail"
         showBestPicks -> "bestPicks"
         else -> "feed"
+    }
+
+    LaunchedEffect(dest) { onFullScreenChanged(dest != "feed") }
+    DisposableEffect(Unit) {
+        onDispose { onFullScreenChanged(false) }
     }
 
     AnimatedContent(
@@ -290,20 +303,20 @@ private fun FeedContent(
     val sport = store.selectedSport
 
     Column(Modifier.fillMaxSize().background(AppColors.appSurface)) {
-        // Top bar (title + settings gear).
-        Row(
-            Modifier
+        WagerProofTopBar(
+            tabStore = tabStore,
+            modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = Spacing.lg, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Props", color = AppColors.appTextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.weight(1f))
-            Box(Modifier.size(36.dp).clip(CircleShape).clickable { tabStore.isSettingsPresented = true }, contentAlignment = Alignment.Center) {
-                Icon(AppIcon.GEARSHAPE.imageVector, "Settings", tint = AppColors.appTextPrimary, modifier = Modifier.size(20.dp))
-            }
-        }
+                .windowInsetsPadding(WindowInsets.statusBars),
+        )
+        Text(
+            "Props",
+            color = AppColors.appTextPrimary,
+            fontSize = 34.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .padding(horizontal = Spacing.lg, vertical = 2.dp),
+        )
 
         // Pinned filter pills.
         FilterPills(
@@ -698,19 +711,22 @@ private fun PropSportPickerSheet(selection: PropsStore.Sport, onSelect: (PropsSt
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = AppColors.appSurfaceElevated, dragHandle = { BottomSheetDefaults.DragHandle() }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg).padding(bottom = 24.dp)) {
             Text("Select sport", color = AppColors.appTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
-            PropsStore.Sport.entries.forEach { sport ->
-                val offSeason = !SportSeason.isInSeason(sport.gamesSport)
-                Row(
-                    Modifier.fillMaxWidth().clickable { onSelect(sport); onDismiss() }.padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(sportIcon(sport), null, tint = if (offSeason) AppColors.appTextMuted else AppColors.appPrimary, modifier = Modifier.size(20.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(sport.label, color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        if (offSeason) Text("Out of season", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            InsetGroupedSection {
+                PropsStore.Sport.entries.forEachIndexed { index, sport ->
+                    val offSeason = !SportSeason.isInSeason(sport.gamesSport)
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onSelect(sport); onDismiss() }.padding(vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(sportIcon(sport), null, tint = if (offSeason) AppColors.appTextMuted else AppColors.appPrimary, modifier = Modifier.size(20.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(sport.label, color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            if (offSeason) Text("Out of season", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                        if (selection == sport) Icon(AppIcon.CHECKMARK.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(18.dp))
                     }
-                    if (selection == sport) Icon(AppIcon.CHECKMARK.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(18.dp))
+                    if (index != PropsStore.Sport.entries.lastIndex) InsetGroupedDivider()
                 }
             }
         }
@@ -729,21 +745,25 @@ private fun MLBMatchupPickerSheet(options: List<MLBPropGameFilterOption>, select
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = AppColors.appSurfaceElevated, dragHandle = { BottomSheetDefaults.DragHandle() }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg).padding(bottom = 24.dp)) {
             Text("Select matchup", color = AppColors.appTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
-            OutlinedTextField(query, { query = it }, placeholder = { Text("Search teams") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            SheetSearchField(query, { query = it }, "Search teams")
             Spacer(Modifier.height(12.dp))
             Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                PickerRow(selected = selection == null, onClick = { onSelect(null); onDismiss() }) {
-                    Icon(AppIcon.SQUARE_GRID_2X2_FILL.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(20.dp))
-                    Text("All games", color = AppColors.appTextPrimary, fontSize = 15.sp)
-                }
-                filtered.forEach { opt ->
-                    PickerRow(selected = selection == opt.gamePk, onClick = { onSelect(opt.gamePk); onDismiss() }) {
-                        MiniLogo(opt.awayLogoUrl, opt.awayAbbr)
-                        MiniLogo(opt.homeLogoUrl, opt.homeAbbr)
-                        Column(Modifier.weight(1f)) {
-                            Text(opt.awayName, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("@ ${opt.homeName}", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                InsetGroupedSection {
+                    PickerRow(selected = selection == null, onClick = { onSelect(null); onDismiss() }) {
+                        Icon(AppIcon.SQUARE_GRID_2X2_FILL.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(20.dp))
+                        Text("All games", color = AppColors.appTextPrimary, fontSize = 15.sp)
+                    }
+                    if (filtered.isNotEmpty()) InsetGroupedDivider()
+                    filtered.forEachIndexed { index, opt ->
+                        PickerRow(selected = selection == opt.gamePk, onClick = { onSelect(opt.gamePk); onDismiss() }) {
+                            MiniLogo(opt.awayLogoUrl, opt.awayAbbr)
+                            MiniLogo(opt.homeLogoUrl, opt.homeAbbr)
+                            Column(Modifier.weight(1f)) {
+                                Text(opt.awayName, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("@ ${opt.homeName}", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
+                        if (index != filtered.lastIndex) InsetGroupedDivider()
                     }
                 }
             }
@@ -763,21 +783,25 @@ private fun NFLMatchupPickerSheet(options: List<NFLPropGameFilterOption>, select
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = AppColors.appSurfaceElevated, dragHandle = { BottomSheetDefaults.DragHandle() }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg).padding(bottom = 24.dp)) {
             Text("Select matchup", color = AppColors.appTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
-            OutlinedTextField(query, { query = it }, placeholder = { Text("Search teams") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            SheetSearchField(query, { query = it }, "Search teams")
             Spacer(Modifier.height(12.dp))
             Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                PickerRow(selected = selection == null, onClick = { onSelect(null); onDismiss() }) {
-                    Icon(AppIcon.SQUARE_GRID_2X2_FILL.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(20.dp))
-                    Text("All games", color = AppColors.appTextPrimary, fontSize = 15.sp)
-                }
-                filtered.forEach { opt ->
-                    PickerRow(selected = selection == opt.gameId, onClick = { onSelect(opt.gameId); onDismiss() }) {
-                        MiniLogo(NFLTeamAssets.logo(opt.awayTeam), opt.awayAbbr)
-                        MiniLogo(NFLTeamAssets.logo(opt.homeTeam), opt.homeAbbr)
-                        Column(Modifier.weight(1f)) {
-                            Text(opt.awayTeam, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("@ ${opt.homeTeam}", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                InsetGroupedSection {
+                    PickerRow(selected = selection == null, onClick = { onSelect(null); onDismiss() }) {
+                        Icon(AppIcon.SQUARE_GRID_2X2_FILL.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(20.dp))
+                        Text("All games", color = AppColors.appTextPrimary, fontSize = 15.sp)
+                    }
+                    if (filtered.isNotEmpty()) InsetGroupedDivider()
+                    filtered.forEachIndexed { index, opt ->
+                        PickerRow(selected = selection == opt.gameId, onClick = { onSelect(opt.gameId); onDismiss() }) {
+                            MiniLogo(NFLTeamAssets.logo(opt.awayTeam), opt.awayAbbr)
+                            MiniLogo(NFLTeamAssets.logo(opt.homeTeam), opt.homeAbbr)
+                            Column(Modifier.weight(1f)) {
+                                Text(opt.awayTeam, color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("@ ${opt.homeTeam}", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
+                        if (index != filtered.lastIndex) InsetGroupedDivider()
                     }
                 }
             }
@@ -791,14 +815,20 @@ private fun MLBMarketFilterSheet(selected: String?, onSelect: (String?) -> Unit,
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = AppColors.appSurfaceElevated, dragHandle = { BottomSheetDefaults.DragHandle() }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg).padding(bottom = 24.dp).heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
             Text("Prop Market", color = AppColors.appTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
-            MarketRow("All Markets", selected == null) { onSelect(null); onDismiss() }
-            SheetSectionLabel("Pitching")
-            MLBPropFeedFilters.sheetPitcherMarkets.forEach { key ->
-                MarketRow(MLBPlayerProps.marketLabel(key), selected == key) { onSelect(key); onDismiss() }
+            InsetGroupedSection {
+                MarketRow("All Markets", selected == null) { onSelect(null); onDismiss() }
             }
-            SheetSectionLabel("Hitting")
-            MLBPropFeedFilters.sheetBatterMarkets.forEach { key ->
-                MarketRow(MLBPlayerProps.marketLabel(key), selected == key) { onSelect(key); onDismiss() }
+            InsetGroupedSection(title = "Pitching") {
+                MLBPropFeedFilters.sheetPitcherMarkets.forEachIndexed { index, key ->
+                    MarketRow(MLBPlayerProps.marketLabel(key), selected == key) { onSelect(key); onDismiss() }
+                    if (index != MLBPropFeedFilters.sheetPitcherMarkets.lastIndex) InsetGroupedDivider()
+                }
+            }
+            InsetGroupedSection(title = "Hitting") {
+                MLBPropFeedFilters.sheetBatterMarkets.forEachIndexed { index, key ->
+                    MarketRow(MLBPlayerProps.marketLabel(key), selected == key) { onSelect(key); onDismiss() }
+                    if (index != MLBPropFeedFilters.sheetBatterMarkets.lastIndex) InsetGroupedDivider()
+                }
             }
         }
     }
@@ -818,36 +848,53 @@ private fun NFLMarketFilterSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = AppColors.appSurfaceElevated, dragHandle = { BottomSheetDefaults.DragHandle() }) {
         Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg).padding(bottom = 24.dp).heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
             Text("Prop Market", color = AppColors.appTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
-            MarketRow("All Markets", !filters.signalsOnly && filters.market == null) { onSelectMarket(null); onDismiss() }
-            // Prop Signals row.
-            Row(
-                Modifier.fillMaxWidth().clickable { onSelectSignals(); onDismiss() }.padding(vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(AppIcon.BOLT_FILL.imageVector, null, tint = Color(0xFFF97316), modifier = Modifier.size(16.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Prop Signals", color = AppColors.appTextPrimary, fontSize = 15.sp)
-                    if (signalCount > 0) Text("$signalCount player${if (signalCount == 1) "" else "s"} with a signal", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            InsetGroupedSection {
+                MarketRow("All Markets", !filters.signalsOnly && filters.market == null) { onSelectMarket(null); onDismiss() }
+                InsetGroupedDivider()
+                Row(
+                    Modifier.fillMaxWidth().clickable { onSelectSignals(); onDismiss() }.padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(AppIcon.BOLT_FILL.imageVector, null, tint = Color(0xFFF97316), modifier = Modifier.size(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Prop Signals", color = AppColors.appTextPrimary, fontSize = 15.sp)
+                        if (signalCount > 0) Text("$signalCount player${if (signalCount == 1) "" else "s"} with a signal", color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    }
+                    if (filters.signalsOnly) Icon(AppIcon.CHECKMARK.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(18.dp))
                 }
-                if (filters.signalsOnly) Icon(AppIcon.CHECKMARK.imageVector, null, tint = AppColors.appPrimary, modifier = Modifier.size(18.dp))
             }
             if (sheetMarkets.passing.isNotEmpty()) {
-                SheetSectionLabel("Passing")
-                sheetMarkets.passing.forEach { key -> MarketRow(NFLPlayerProps.marketLabel(key), !filters.signalsOnly && filters.market == key) { onSelectMarket(key); onDismiss() } }
+                MarketGroup("Passing", sheetMarkets.passing, filters, onSelectMarket, onDismiss)
             }
             if (sheetMarkets.rushing.isNotEmpty()) {
-                SheetSectionLabel("Rushing")
-                sheetMarkets.rushing.forEach { key -> MarketRow(NFLPlayerProps.marketLabel(key), !filters.signalsOnly && filters.market == key) { onSelectMarket(key); onDismiss() } }
+                MarketGroup("Rushing", sheetMarkets.rushing, filters, onSelectMarket, onDismiss)
             }
             if (sheetMarkets.receiving.isNotEmpty()) {
-                SheetSectionLabel("Receiving")
-                sheetMarkets.receiving.forEach { key -> MarketRow(NFLPlayerProps.marketLabel(key), !filters.signalsOnly && filters.market == key) { onSelectMarket(key); onDismiss() } }
+                MarketGroup("Receiving", sheetMarkets.receiving, filters, onSelectMarket, onDismiss)
             }
             if (sheetMarkets.other.isNotEmpty()) {
-                SheetSectionLabel("Other")
-                sheetMarkets.other.forEach { key -> MarketRow(NFLPlayerProps.marketLabel(key), !filters.signalsOnly && filters.market == key) { onSelectMarket(key); onDismiss() } }
+                MarketGroup("Other", sheetMarkets.other, filters, onSelectMarket, onDismiss)
             }
+        }
+    }
+}
+
+@Composable
+private fun MarketGroup(
+    title: String,
+    keys: List<String>,
+    filters: NFLPropFeedFilters,
+    onSelectMarket: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    InsetGroupedSection(title = title) {
+        keys.forEachIndexed { index, key ->
+            MarketRow(NFLPlayerProps.marketLabel(key), !filters.signalsOnly && filters.market == key) {
+                onSelectMarket(key)
+                onDismiss()
+            }
+            if (index != keys.lastIndex) InsetGroupedDivider()
         }
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -96,9 +97,9 @@ fun NflPropDetailScreen(
     val markets = player.markets
     val listState = rememberLazyListState()
 
-    var selectedSignal by remember { mutableStateOf<NFLPropSignalDefinition?>(null) }
+    var selectedSignal by remember { mutableStateOf<SelectedSignal?>(null) }
     var metricHelp by remember { mutableStateOf<NFLPropMetricHelp?>(null) }
-    var propPerfByCode by remember { mutableStateOf<Map<String, SignalPerformance>>(emptyMap()) }
+    var propPerfByKey by remember { mutableStateOf<Map<String, SignalPerformance>>(emptyMap()) }
 
     val headlineMarket = remember(selection.id) {
         selection.preferredMarket?.let { m -> markets.firstOrNull { it.market == m } }
@@ -111,10 +112,7 @@ fun NflPropDetailScreen(
 
     LaunchedEffect(selection.id) {
         val season = player.season ?: 2025
-        val perf = SignalPerformanceService.shared.performances(SignalSport.NFL, season)
-        propPerfByCode = perf.entries.associate { (key, value) ->
-            (key.substringBefore("_")).uppercase(Locale.US) to value
-        }
+        propPerfByKey = SignalPerformanceService.shared.performances(SignalSport.NFL, season)
     }
 
     // Land on the feed card's headline market when the page opens.
@@ -126,7 +124,7 @@ fun NflPropDetailScreen(
         if (idx > 0) listState.animateScrollToItem(idx)
     }
 
-    Box(Modifier.fillMaxSize().background(AppColors.appSurface)) {
+    Box(Modifier.fillMaxSize().background(AppColors.appSurface).navigationBarsPadding()) {
         PropsCollapsingScaffold(
             heroMax = 88.dp,
             heroMin = 72.dp,
@@ -138,7 +136,7 @@ fun NflPropDetailScreen(
                 MarketTrendBoard(
                     market = markets[i],
                     opponent = player.opponent,
-                    onSignalTap = { selectedSignal = it },
+                    onSignalTap = { selectedSignal = SelectedSignal(it, markets[i]) },
                     onMetricHelp = { metricHelp = it },
                 )
             }
@@ -160,15 +158,51 @@ fun NflPropDetailScreen(
         }
     }
 
-    selectedSignal?.let { signal ->
+    selectedSignal?.let { selected ->
         NFLPropSignalDetailSheet(
-            signal = signal,
-            seasonRecord = propPerfByCode[signal.id.uppercase(Locale.US)],
+            signal = selected.signal,
+            seasonRecord = selected.performanceKey?.let(propPerfByKey::get),
             onDismiss = { selectedSignal = null },
         )
     }
     metricHelp?.let { help ->
         NFLPropMetricHelpSheet(help = help, onDismiss = { metricHelp = null })
+    }
+}
+
+/** A short P-code is not a `signal_performance` key. Keep the selected market
+ * with the definition so the detail sheet resolves the same canonical record
+ * as iOS instead of arbitrarily taking the first key in a P-code family. */
+private data class SelectedSignal(
+    val signal: NFLPropSignalDefinition,
+    val performanceKey: String?,
+) {
+    constructor(signal: NFLPropSignalDefinition, market: NFLPropMarket) : this(
+        signal = signal,
+        performanceKey = performanceKey(signal, market),
+    )
+
+    companion object {
+        private fun performanceKey(signal: NFLPropSignalDefinition, market: NFLPropMarket): String? =
+            when (signal.id.uppercase(Locale.US)) {
+                "P1" -> "P1_pass_yds_form_over"
+                "P2" -> "P2_pass_yds_form_under"
+                "P3" -> "P3_pass_tds_form_over"
+                "P4" -> "P4_no_history_qb_under"
+                "P5" -> "P5_atd_drift_yes"
+                "P6" -> null
+                "P7" -> "P7_rush_yds_tough_d_under"
+                "P9" -> "P9_pass_tds_regression_over"
+                "P10" -> "P10_receptions_raised_under"
+                "P12" -> "P12_featured_wr_over"
+                "P13" -> "P13_featured_rb_over"
+                "P14" -> "P14_attempts_model_under"
+                "P15" -> "P15_attempts_steam_under"
+                "P16" -> "P16_attempts_confluence"
+                "P17" -> "P17_rush_yds_model_under"
+                "P18" -> "P18_pass_tds_model_over"
+                else -> null
+            }
     }
 }
 

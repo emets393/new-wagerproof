@@ -1,6 +1,11 @@
 package com.wagerproof.app.features.nfl
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameEdgeMath
@@ -15,10 +20,9 @@ import kotlin.math.floor
 
 /**
  * NFL game row for the home Games feed — a thin adapter over the shared
- * [GameRowCard], mirroring iOS `NFLGameCard`. Unlike iOS (which re-queries
- * `nfl_dryrun_picks` per card), the merged [NFLPrediction] already carries the
- * fg picks / conviction summary / mammoth flag, so the slate pills derive
- * straight from the model — no per-card Supabase round-trip.
+ * [GameRowCard], mirroring iOS `NFLGameCard`. Dry-run cards hydrate the
+ * authoritative `nfl_dryrun_picks` rows; merged game fields remain the loading,
+ * legacy, and missing-row fallback.
  */
 @Composable
 fun NFLGameCard(
@@ -26,6 +30,13 @@ fun NFLGameCard(
     onPress: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var picks by remember(game.gameId) { mutableStateOf<List<NFLDryrunPickRow>>(emptyList()) }
+    LaunchedEffect(game.gameId, game.runId) {
+        if ((game.runId ?: "").contains("dryrun", ignoreCase = true)) {
+            loadNFLSlatePicksResult(game.gameId).onSuccess { picks = it }
+        }
+    }
+
     val awayAbbr = game.awayAb ?: NFLTeamAssets.abbr(game.awayTeam)
     val homeAbbr = game.homeAb ?: NFLTeamAssets.abbr(game.homeTeam)
 
@@ -61,45 +72,63 @@ fun NFLGameCard(
         ),
         awayTeamFullName = game.awayTeam,
         homeTeamFullName = game.homeTeam,
-        slatePicks = slatePicks(game),
+        slatePicks = nflSlatePicks(game, picks),
         oddsBreakdown = oddsBreakdown(game),
-        isMammoth = game.mammoth,
+        isMammoth = nflHasMammothPlay(game, picks),
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)
 }
 
-/** [TeamColorPair] over the shared brand map (see FIDELITY-WAIVER #240). */
+/** [TeamColorPair] over the authoritative 32-team brand map. */
 private fun nflColorPair(team: String): TeamColorPair {
     val (primary, secondary) = nflTeamColors(team)
     return TeamColorPair(primary, secondary)
 }
 
-private fun slatePicks(game: NFLPrediction): GameRowCardModel.SlatePicks {
-    val totalDir = pickDirection(game.fgTotalPick)
-    val totalLabel = totalDir?.let { "O/U $it ${fmtHalf(game.fgTotalClose)}" }
+internal fun nflHasMammothPlay(game: NFLPrediction, picks: List<NFLDryrunPickRow>): Boolean =
+    game.mammoth || picks.any { pick ->
+        pick.hasPlay == true && (pick.isMammoth == true || pick.conviction.equals("mammoth", ignoreCase = true))
+    }
 
-    // Spread pill: favorite side from fg_spread_pick, line sign-flipped for away.
-    val spreadTeam = teamName(game, game.fgSpreadPick)
+internal fun nflSlatePicks(game: NFLPrediction, picks: List<NFLDryrunPickRow>): GameRowCardModel.SlatePicks {
+    val totalPick = picks.firstOrNull { it.cardGroup == "total" }
+    val totalDir = pickDirection(totalPick?.pickSide ?: totalPick?.pickLabel ?: game.fgTotalPick)
+    val totalLine = totalPick?.let { it.bestLine ?: it.vegasLine } ?: game.fgTotalClose
+    val totalLabel = totalDir?.let { "O/U $it ${fmtHalf(totalLine)}" }
+
+    val spreadPick = picks.firstOrNull { it.cardGroup == "spread" }
+    val spreadTeam = spreadPick?.pickTeam
+        ?: teamName(game, spreadPick?.pickSide)
+        ?: teamName(game, game.fgSpreadPick)
     val spreadLogo = spreadTeam?.let { NFLTeamAssets.logo(it) }
     val spreadLabel = spreadTeam?.let {
-        val isHome = it == game.homeTeam
-        val line = game.fgSpreadClose?.let { v -> if (isHome) v else -v }
+        val line = if (spreadPick != null) {
+            spreadPick.bestLine ?: spreadPick.vegasLine
+        } else {
+            val isHome = it == game.homeTeam
+            game.fgSpreadClose?.let { v -> if (isHome) v else -v }
+        }
         GameCardFormatting.formatSpread(line)
     }
 
-    // iOS derives badges from the per-card picks query; here the merged row's
-    // conviction summary + flags_active stand in.
-    val plays = game.convictionSummary?.plays.orEmpty()
-    val highCount = plays.count { (it.conviction ?: "").lowercase(Locale.US) == "high" }
-    val signalCount = game.flagsActive ?: 0
+    val highCount = if (picks.isNotEmpty()) {
+        picks.count { it.hasPlay == true && it.conviction.equals("high", ignoreCase = true) }
+    } else {
+        game.convictionSummary?.plays.orEmpty().count { (it.conviction ?: "").lowercase(Locale.US) == "high" }
+    }
+    val signalCount = if (picks.isNotEmpty()) {
+        picks.flatMap { it.signalKeys }.filter(String::isNotBlank).toSet().size
+    } else {
+        game.flagsActive ?: 0
+    }
 
     return GameRowCardModel.SlatePicks(
         totalIsOver = totalDir?.let { it == "OVER" },
         totalLabel = totalLabel,
         spreadLogoURL = spreadLogo,
         spreadLabel = spreadLabel,
-        hasMammoth = game.mammoth,
+        hasMammoth = nflHasMammothPlay(game, picks),
         highCount = highCount,
         signalCount = signalCount,
     )

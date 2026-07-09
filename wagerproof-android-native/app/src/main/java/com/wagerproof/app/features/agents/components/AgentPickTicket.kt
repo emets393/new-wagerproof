@@ -49,6 +49,7 @@ import com.wagerproof.app.features.agents.agentSymbol
 import com.wagerproof.app.features.agents.iconVector
 import com.wagerproof.app.features.agents.ticketColor
 import com.wagerproof.app.features.agents.ticketLabel
+import com.wagerproof.core.design.components.WagerproofShield
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.AgentPick
 import com.wagerproof.core.models.AgentSport
@@ -447,9 +448,7 @@ fun WagerproofTicketFooter(modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        // FIDELITY-WAIVER #211: iOS renders the "WagerproofLogo" bundle asset; no
-        // equivalent drawable wired in the shared design module, so the glyph
-        // mark is dropped and only the two-tone wordmark shows.
+        WagerproofShield(size = 16.dp)
         Row {
             Text("Wager", color = AppColors.appTextPrimary.copy(alpha = 0.7f), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             Text("Proof", color = AppColors.brandGreenBright, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)

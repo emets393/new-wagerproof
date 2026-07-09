@@ -2,7 +2,7 @@ package com.wagerproof.app.features.ncaab
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.wagerproof.app.features.gamecards.FallbackTeamColor
+import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameEdgeMath
 import com.wagerproof.app.features.gamecards.GameRowCard
@@ -12,9 +12,9 @@ import com.wagerproof.core.models.NCAABGame
 
 /**
  * NCAAB game row for the home Games feed — thin adapter over the shared
- * [GameRowCard], mirroring iOS `NCAABGameCard`. NCAAB ships `predTotalPoints`
- * as the model's fair-total figure and has no logo/brand table, so avatars fall
- * back to hashed [FallbackTeamColor] colors (FIDELITY-WAIVER #008).
+ * [GameRowCard], mirroring iOS `NCAABGameCard`. The fetch pipeline has already
+ * joined `ncaab_team_mapping`, so the card uses its ESPN logos/abbreviations
+ * and the production client's shared college brand-color resolver.
  */
 @Composable
 fun NCAABGameCard(
@@ -35,16 +35,16 @@ fun NCAABGameCard(
             initials = TeamInitials.from(game.awayTeam),
             moneyline = game.awayMl,
             spread = game.awaySpread,
-            logoURL = null,
-            colors = FallbackTeamColor.colorPair(game.awayTeam),
+            logoURL = game.awayTeamLogo,
+            colors = CFBTeamColors.colorPair(game.awayTeam),
         ),
         home = GameRowCardModel.TeamSide(
             abbr = homeAbbr,
             initials = TeamInitials.from(game.homeTeam),
             moneyline = game.homeMl,
             spread = game.homeSpread,
-            logoURL = null,
-            colors = FallbackTeamColor.colorPair(game.homeTeam),
+            logoURL = game.homeTeamLogo,
+            colors = CFBTeamColors.colorPair(game.homeTeam),
         ),
         overLine = game.overLine,
         mlEdge = GameEdgeMath.mlEdge(

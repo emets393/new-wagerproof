@@ -1,6 +1,11 @@
 package com.wagerproof.app.features.cfb
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameEdgeMath
@@ -15,10 +20,9 @@ import kotlin.math.floor
 
 /**
  * CFB game row for the home Games feed — a thin adapter over the shared
- * [GameRowCard], mirroring iOS `CFBGameCard`. Unlike iOS (which re-queries
- * `cfb_dryrun_picks` per card), GamesStore already merges `cfb_dryrun_games` +
- * flags into [CFBPrediction], so the slate pills are derived straight from the
- * model's fg* / tt* / flags / mammoth fields — no per-card Supabase round-trip.
+ * [GameRowCard], mirroring iOS `CFBGameCard`. Dry-run cards hydrate the
+ * authoritative `cfb_dryrun_picks` rows; merged game fields remain the loading,
+ * legacy, and missing-row fallback.
  */
 @Composable
 fun CFBGameCard(
@@ -26,6 +30,13 @@ fun CFBGameCard(
     onPress: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var picks by remember(game.gameId) { mutableStateOf<List<CFBDryrunPickRow>>(emptyList()) }
+    LaunchedEffect(game.gameId, game.runId) {
+        if ((game.runId ?: "").contains("dryrun", ignoreCase = true)) {
+            loadCFBSlatePicksResult(game.gameId).onSuccess { picks = it }
+        }
+    }
+
     val awayAbbr = CFBTeamAssets.abbr(game.awayTeam)
     val homeAbbr = CFBTeamAssets.abbr(game.homeTeam)
     val awayColors = CFBTeamColors.colorPair(game.awayTeam)
@@ -61,45 +72,62 @@ fun CFBGameCard(
         ),
         awayTeamFullName = game.awayTeam,
         homeTeamFullName = game.homeTeam,
-        slatePicks = slatePicks(game, awayAbbr, homeAbbr),
+        slatePicks = cfbSlatePicks(game, picks),
         oddsBreakdown = oddsBreakdown(game, awayAbbr, homeAbbr),
-        isMammoth = game.mammoth,
+        isMammoth = cfbHasMammothPlay(game, picks),
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)
 }
 
-private fun slatePicks(
-    game: CFBPrediction,
-    awayAbbr: String,
-    homeAbbr: String,
-): GameRowCardModel.SlatePicks {
-    val totalDir = pickDirection(game.fgTotalPick)
-    val totalLabel = totalDir?.let { "O/U $it ${fmtHalf(game.fgTotalClose)}" }
+internal fun cfbHasMammothPlay(game: CFBPrediction, picks: List<CFBDryrunPickRow>): Boolean =
+    game.mammoth || picks.any { pick ->
+        pick.hasPlay == true && (pick.isMammoth == true || pick.conviction.equals("mammoth", ignoreCase = true))
+    }
 
-    // Spread pill: favorite side from fg_spread_pick, line sign-flipped for away.
-    val spreadTeam = teamName(game, game.fgSpreadPick)
+internal fun cfbSlatePicks(
+    game: CFBPrediction,
+    picks: List<CFBDryrunPickRow>,
+): GameRowCardModel.SlatePicks {
+    val totalPick = picks.firstOrNull { it.normalizedCardGroup == "total" }
+    val totalDir = pickDirection(totalPick?.pickSide ?: totalPick?.pickLabel ?: game.fgTotalPick)
+    val totalLine = totalPick?.let { it.bestLine ?: it.vegasLine } ?: game.fgTotalClose
+    val totalLabel = totalDir?.let { "O/U $it ${fmtHalf(totalLine)}" }
+
+    val spreadPick = picks.firstOrNull { it.normalizedCardGroup == "spread" }
+    val spreadTeam = spreadPick?.pickTeam
+        ?: teamName(game, spreadPick?.pickSide)
+        ?: teamName(game, game.fgSpreadPick)
     val spreadLogo = spreadTeam?.let { CFBTeamAssets.logo(it) }
     val spreadLabel = spreadTeam?.let {
-        val isHome = it == game.homeTeam
-        val line = game.fgSpreadClose?.let { v -> if (isHome) v else -v }
+        val line = if (spreadPick != null) {
+            spreadPick.bestLine ?: spreadPick.vegasLine
+        } else {
+            val isHome = it == game.homeTeam
+            game.fgSpreadClose?.let { v -> if (isHome) v else -v }
+        }
         GameCardFormatting.formatSpread(line)
     }
 
-    // Model-derived badges (iOS derives these from the picks table; here the
-    // active flags stand in — T1/mammoth flags = "high conviction" plays).
-    val active = game.activeFlags
-    val highCount = active.count {
-        it.convictionTier == CFBFlagConviction.T1 || it.convictionTier == CFBFlagConviction.MAMMOTH
+    val highCount = if (picks.isNotEmpty()) {
+        picks.count { it.hasPlay == true && it.conviction.equals("high", ignoreCase = true) }
+    } else {
+        game.activeFlags.count {
+            it.convictionTier == CFBFlagConviction.T1 || it.convictionTier == CFBFlagConviction.MAMMOTH
+        }
     }
-    val signalCount = game.nFlagsActive ?: active.size
+    val signalCount = if (picks.isNotEmpty()) {
+        picks.flatMap { it.signalKeys }.filter(String::isNotBlank).toSet().size
+    } else {
+        game.nFlagsActive ?: game.activeFlags.size
+    }
 
     return GameRowCardModel.SlatePicks(
         totalIsOver = totalDir?.let { it == "OVER" },
         totalLabel = totalLabel,
         spreadLogoURL = spreadLogo,
         spreadLabel = spreadLabel,
-        hasMammoth = game.mammoth,
+        hasMammoth = cfbHasMammothPlay(game, picks),
         highCount = highCount,
         signalCount = signalCount,
     )

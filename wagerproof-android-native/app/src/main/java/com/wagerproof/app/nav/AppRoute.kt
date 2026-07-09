@@ -37,6 +37,10 @@ sealed interface AppRoute {
 
     data object AgentCreate : AppRoute { override val homeTab = MainTabStore.Tab.Agents }
 
+    /** Shell destinations are pushed on whichever tab opened them, as on iOS. */
+    data object Settings : AppRoute { override val homeTab = MainTabStore.Tab.Games }
+    data object WagerBotChat : AppRoute { override val homeTab = MainTabStore.Tab.Games }
+
     /** Owner-only agent settings editor (list Edit swipe + detail gear). */
     data class AgentEdit(val agentId: String) : AppRoute {
         override val homeTab = MainTabStore.Tab.Agents

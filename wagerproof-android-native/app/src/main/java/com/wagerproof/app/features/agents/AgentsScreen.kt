@@ -29,7 +29,6 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -37,8 +36,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +65,7 @@ import com.wagerproof.app.features.agents.components.AgentsOfficeHero
 import com.wagerproof.app.features.agents.components.RowSwipeAction
 import com.wagerproof.app.features.agents.components.TopAgentPicksFeed
 import com.wagerproof.app.nav.LocalAppNavigator
+import com.wagerproof.app.features.navigation.WagerProofTopBar
 import com.wagerproof.core.design.components.LiquidGlassCapsule
 import com.wagerproof.core.design.components.SkeletonBlock
 import com.wagerproof.core.design.components.SkeletonCapsule
@@ -195,11 +197,18 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
             .fillMaxSize()
             .background(AppColors.appSurface),
     ) {
-        AgentsTopBar(
-            canCreate = canCreate,
-            onCreate = { nav.openAgentCreate() },
-            onSettings = { nav.openSettings() },
-        )
+        WagerProofTopBar(tabStore = graph.mainTab, modifier = Modifier.fillMaxWidth()) {
+            IconButton(
+                onClick = { if (canCreate) nav.openAgentCreate() },
+                enabled = canCreate,
+            ) {
+                Icon(
+                    imageVector = if (canCreate) Icons.Filled.Add else Icons.Filled.Lock,
+                    contentDescription = if (canCreate) "Create new agent" else "Agent limit reached",
+                    tint = if (canCreate) AppColors.appTextPrimary else AppColors.appTextSecondary,
+                )
+            }
+        }
         Text(
             "Agents",
             fontSize = 32.sp,
@@ -267,7 +276,7 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
         LongPressDialog(
             agent = row,
             onSettings = {
-                nav.openAgentDetail(row.agent.id, isPublic = false)
+                nav.openAgentEdit(row.agent.id)
                 pendingLongPress = null
             },
             onToggleAutopilot = {
@@ -314,42 +323,6 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
             confirmButton = { TextButton(onClick = { activeCapAlert = false }) { Text("OK") } },
             containerColor = AppColors.appSurfaceElevated,
         )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Top bar
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun AgentsTopBar(
-    canCreate: Boolean,
-    onCreate: () -> Unit,
-    onSettings: () -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Wager", fontSize = 18.sp, fontWeight = FontWeight.Black, color = AppColors.appTextPrimary)
-            Text("Proof", fontSize = 18.sp, fontWeight = FontWeight.Black, color = AppColors.appPrimary)
-        }
-        Spacer(Modifier.weight(1f))
-        if (canCreate) {
-            IconButton(onClick = onCreate) {
-                Icon(Icons.Filled.Add, contentDescription = "Create new agent", tint = AppColors.appTextPrimary)
-            }
-        } else {
-            IconButton(onClick = {}, enabled = false) {
-                Icon(Icons.Filled.Lock, contentDescription = "Agent limit reached", tint = AppColors.appTextSecondary)
-            }
-        }
-        IconButton(onClick = onSettings) {
-            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = AppColors.appTextPrimary)
-        }
     }
 }
 
@@ -476,6 +449,7 @@ private fun FilterMenuContent(
 // ---------------------------------------------------------------------------
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun MyAgentsBody(
     store: AgentsStore,
     sortedAgents: List<AgentWithPerformance>,
@@ -494,58 +468,64 @@ private fun MyAgentsBody(
     val state = store.loadState
     val empty = store.agents.isEmpty()
 
-    LazyColumn(Modifier.fillMaxSize()) {
-        stickyHeader { tabPicker() }
+    PullToRefreshBox(
+        isRefreshing = state is LoadState.Loading && !empty,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        LazyColumn(Modifier.fillMaxSize()) {
+            stickyHeader { tabPicker() }
 
-        when {
-            (state is LoadState.Idle || state is LoadState.Loading) && empty -> {
-                item {
-                    Column(
-                        Modifier.padding(horizontal = 12.dp, vertical = Spacing.sm),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        AgentHQShimmer()
-                        repeat(4) { AgentRowCardShimmer() }
+            when {
+                (state is LoadState.Idle || state is LoadState.Loading) && empty -> {
+                    item {
+                        Column(
+                            Modifier.padding(horizontal = 12.dp, vertical = Spacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            AgentHQShimmer()
+                            repeat(4) { AgentRowCardShimmer() }
+                        }
                     }
                 }
-            }
 
-            state is LoadState.Failed && empty -> {
-                item { ErrorState(message = state.message, onRetry = onRetry) }
-            }
-
-            state is LoadState.Loaded && empty -> {
-                item { EmptyState(onCreate = onCreate) }
-            }
-
-            else -> {
-                item {
-                    Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                        OfficeHero(store.agents)
-                    }
+                state is LoadState.Failed && empty -> {
+                    item { ErrorState(message = state.message, onRetry = onRetry) }
                 }
-                item { SortRow(sortLabel) }
-                itemsIndexed(sortedAgents, key = { _, a -> a.id }) { index, row ->
-                    AgentSwipeRow(
-                        leadingActions = leadingActions(row),
-                        trailingActions = trailingActions(row),
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .staggeredAppear(index),
-                    ) {
-                        AgentRowCard(
-                            agent = row,
-                            hasUnreadPicks = run {
-                                @Suppress("UNUSED_EXPRESSION") unreadToken
-                                AgentPicksSeenStore.hasUnread(row.id, row.agent.lastGeneratedAt)
-                            },
-                            onTap = { onOpenDetail(row.id) },
-                            onLongPress = { onLongPress(row) },
-                        )
-                    }
-                    Spacer(Modifier.height(10.dp))
+
+                state is LoadState.Loaded && empty -> {
+                    item { EmptyState(onCreate = onCreate) }
                 }
-                item { Spacer(Modifier.height(96.dp)) }
+
+                else -> {
+                    item {
+                        Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                            OfficeHero(store.agents)
+                        }
+                    }
+                    item { SortRow(sortLabel) }
+                    itemsIndexed(sortedAgents, key = { _, a -> a.id }) { index, row ->
+                        AgentSwipeRow(
+                            leadingActions = leadingActions(row),
+                            trailingActions = trailingActions(row),
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .staggeredAppear(index),
+                        ) {
+                            AgentRowCard(
+                                agent = row,
+                                hasUnreadPicks = run {
+                                    @Suppress("UNUSED_EXPRESSION") unreadToken
+                                    AgentPicksSeenStore.hasUnread(row.id, row.agent.lastGeneratedAt)
+                                },
+                                onTap = { onOpenDetail(row.id) },
+                                onLongPress = { onLongPress(row) },
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
+                    }
+                    item { Spacer(Modifier.height(96.dp)) }
+                }
             }
         }
     }
@@ -974,4 +954,3 @@ internal fun AgentRowCardShimmer(modifier: Modifier = Modifier) {
         }
     }
 }
-

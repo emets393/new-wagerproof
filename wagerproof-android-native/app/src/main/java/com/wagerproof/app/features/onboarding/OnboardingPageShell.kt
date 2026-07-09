@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.core.design.tokens.AppTypography
 
 /**
  * Port of iOS `WagerproofDesign/Components/OnboardingPageShell.swift` (custom-
@@ -111,7 +112,6 @@ fun OnboardingPageShell(
                 label = continueTitle,
                 isEnabled = isCTAEnabled,
                 isLoading = isCTALoading,
-                tint = ctaTint,
                 onClick = onContinue,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -228,7 +228,6 @@ private fun ContinueCTAButton(
     label: String,
     isEnabled: Boolean,
     isLoading: Boolean,
-    tint: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -262,7 +261,9 @@ private fun ContinueCTAButton(
                 alpha = entranceAlpha * enabledDim
             }
             .height(60.dp)
-            .liquidGlassBackground(shape = shape, tint = tint.copy(alpha = 0.65f))
+            // Current iOS carousel keeps the CTA bright white/black while
+            // the live accent is reserved for the progress fill.
+            .liquidGlassBackground(shape = shape, tint = Color.White.copy(alpha = 0.92f))
             // Specular highlight — white gradient fading top → mid.
             .background(
                 Brush.verticalGradient(
@@ -276,13 +277,12 @@ private fun ContinueCTAButton(
         contentAlignment = Alignment.Center,
     ) {
         if (isLoading) {
-            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+            CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
         } else {
             Text(
                 text = label,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
+                style = AppTypography.majorCta.copy(fontSize = 18.sp),
+                color = Color.Black,
                 modifier = Modifier.wrapContentWidth(),
             )
         }

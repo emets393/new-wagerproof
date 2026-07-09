@@ -40,8 +40,8 @@ data class GameRowCardModel(
     /** O/U model edge: direction + fair-vs-market delta + chosen-side prob. */
     data class OUEdgeInfo(
         val isOver: Boolean,
-        val delta: Double,
-        val probability: Double,
+        val delta: Double?,
+        val probability: Double?,
         val color: Color,
     )
 
@@ -88,15 +88,16 @@ object GameEdgeMath {
         awayAbbr: String,
     ): GameRowCardModel.MLEdgeInfo? {
         val p = modelHomeProb ?: return null
-        val homeImplied = impliedProb(homeMl)
-        val awayImplied = impliedProb(awayMl)
-        val homeEdge = homeImplied?.let { (p - it) * 100.0 }
-        val awayEdge = awayImplied?.let { ((1.0 - p) - it) * 100.0 }
-        val best = listOfNotNull(
-            homeEdge?.let { homeAbbr to it },
-            awayEdge?.let { awayAbbr to it },
-        ).maxByOrNull { it.second } ?: return null
-        if (best.second <= 0) return null
+        if (!p.isFinite()) return null
+        // iOS deliberately falls back to the opposing model probability when
+        // one side has no market line, and still surfaces the larger side when
+        // both computed edges are negative.
+        val homeImplied = impliedProb(homeMl) ?: (1.0 - p)
+        val awayImplied = impliedProb(awayMl) ?: p
+        val homeEdge = (p - homeImplied) * 100.0
+        val awayEdge = ((1.0 - p) - awayImplied) * 100.0
+        val best = if (homeEdge >= awayEdge) homeAbbr to homeEdge else awayAbbr to awayEdge
+        if (!best.second.isFinite()) return null
         return GameRowCardModel.MLEdgeInfo(best.first, best.second, edgeColor(best.second))
     }
 
@@ -109,31 +110,22 @@ object GameEdgeMath {
         marketLine: Double?,
         ouResultProb: Double?,
     ): GameRowCardModel.OUEdgeInfo? {
-        val line = marketLine ?: return null
-        val isOver: Boolean
-        val prob: Double
-        when {
-            ouResultProb != null -> {
-                isOver = ouResultProb >= 0.5
-                prob = if (isOver) ouResultProb else 1.0 - ouResultProb
-            }
-            modelFairTotal != null -> {
-                isOver = modelFairTotal >= line
-                prob = 0.5
-            }
+        val isOver = when {
+            ouResultProb != null -> ouResultProb >= 0.5
+            modelFairTotal != null && marketLine != null -> modelFairTotal >= marketLine
             else -> return null
         }
-        val fair = modelFairTotal ?: line
-        val delta = fair - line
-        val magnitude = if (modelFairTotal != null) abs(delta) else (prob - 0.5) * 20.0
+        val delta = if (modelFairTotal != null && marketLine != null) modelFairTotal - marketLine else null
+        val prob = ouResultProb?.let { if (isOver) it else 1.0 - it }
+        val magnitude = delta?.let(::abs) ?: prob?.let { (it - 0.5) * 20.0 } ?: 0.0
         return GameRowCardModel.OUEdgeInfo(isOver, delta, prob, edgeColor(magnitude))
     }
 
     /** 4-tier edge palette (matches `GameCardFormatting.confidenceColor` tiers). */
     fun edgeColor(magnitude: Double): Color = when {
-        magnitude >= 5 -> Color(0.13f, 0.77f, 0.37f)
-        magnitude >= 3 -> Color(0.52f, 0.80f, 0.09f)
-        magnitude >= 2 -> Color(0.92f, 0.70f, 0.03f)
+        abs(magnitude) >= 5 -> Color(0.13f, 0.77f, 0.37f)
+        abs(magnitude) >= 3 -> Color(0.52f, 0.80f, 0.09f)
+        abs(magnitude) >= 2 -> Color(0.92f, 0.70f, 0.03f)
         else -> Color(0.98f, 0.45f, 0.09f)
     }
 }

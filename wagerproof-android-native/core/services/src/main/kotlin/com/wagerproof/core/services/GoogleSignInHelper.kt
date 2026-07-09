@@ -19,12 +19,11 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 class GoogleSignInHelper(private val context: Context) {
 
     companion object {
-        // TODO: replace before shipping. The iOS client ID
-        // (142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq.apps.googleusercontent.com)
-        // will NOT work on Android — GetGoogleIdOption needs the WEB/server
-        // client ID of the same Google Cloud project, and an Android OAuth
-        // client (package name + SHA-1) must be registered in that project.
-        const val GOOGLE_WEB_CLIENT_ID = "TODO-REPLACE-web-client-id.apps.googleusercontent.com"
+        // Web/server OAuth client used by the shipping RN Android client. The
+        // Android OAuth client remains keyed by package + signing SHA in Google
+        // Cloud; Credential Manager sends this web id as the token audience.
+        const val GOOGLE_WEB_CLIENT_ID =
+            "142325632215-5c9nahlmruos96rsiu60ac4uk2p2s1ua.apps.googleusercontent.com"
     }
 
     /** Analog of iOS `GoogleSignInError.missingIDToken`. */

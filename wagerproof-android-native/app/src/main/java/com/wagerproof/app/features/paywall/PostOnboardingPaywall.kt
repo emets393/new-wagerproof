@@ -8,10 +8,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -211,6 +217,7 @@ private fun ErrorOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .navigationBarsPadding()
             .padding(Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -280,6 +287,7 @@ private fun CloseOverlay(onClose: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
             .padding(top = Spacing.sm, end = Spacing.lg),
         horizontalArrangement = Arrangement.End,
     ) {
@@ -302,9 +310,9 @@ private fun CloseOverlay(onClose: () -> Unit) {
  * Fire Meta SDK Subscribe / Purchase events using price + currency from the
  * matched RevenueCat package. Mirrors the RN mapping where trials map to
  * `fb_mobile_purchase` and paid subs map to `Subscribe` with a coarse
- * predicted-LTV multiplier (monthly×4 / yearly×1.3). Best-effort — the Android
- * MetaAnalyticsService is inert until facebook-core lands, but the call sites
- * match so wiring the SDK later is mechanical.
+ * predicted-LTV multiplier (monthly×4 / yearly×1.3). Best-effort: the service
+ * intentionally remains disabled when the production Meta credentials are not
+ * supplied to the build.
  */
 private fun trackMetaConversion(
     offering: Offering?,

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug-only adb entry point. Never merged into release artifacts. -->
+        <activity
+            android:name="com.wagerproof.app.visual.VisualRegressionActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Wagerproof" />
+    </application>
+</manifest>

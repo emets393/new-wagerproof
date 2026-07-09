@@ -82,6 +82,7 @@ fun GamesScreen(modifier: Modifier = Modifier) {
     val tabStore = graph.mainTab
     val nav = LocalAppNavigator.current
     val scope = rememberCoroutineScope()
+    var isPullRefreshing by remember { mutableStateOf(false) }
 
     // Model-accuracy reports back the NBA/NCAAB tool banners (hidden when empty).
     val nbaAccuracy = remember { NBAModelAccuracyStore() }
@@ -127,8 +128,20 @@ fun GamesScreen(modifier: Modifier = Modifier) {
         PickerBar(store)
 
         PullToRefreshBox(
-            isRefreshing = store.isLoading(sport) && !noCachedGames(store, sport),
-            onRefresh = { scope.launch { store.refresh(sport, force = true) } },
+            // Only a gesture-driven refresh should show Material's pull
+            // indicator. Tying this to the store's background refresh painted
+            // a large spinner over the regression banner on every cold launch.
+            isRefreshing = isPullRefreshing,
+            onRefresh = {
+                scope.launch {
+                    isPullRefreshing = true
+                    try {
+                        store.refresh(sport, force = true)
+                    } finally {
+                        isPullRefreshing = false
+                    }
+                }
+            },
             modifier = Modifier.weight(1f),
         ) {
             LazyColumn(
@@ -352,7 +365,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         NFLGameCard(game = game, onPress = {
                             graph.nflGameSheet.openGameSheet(game)
                             nav.openGameDetail("nfl", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
                     }
                 }
             }
@@ -369,7 +382,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         CFBGameCard(game = game, onPress = {
                             graph.cfbGameSheet.openGameSheet(game)
                             nav.openGameDetail("cfb", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
                     }
                 }
             }
@@ -386,7 +399,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         NCAABGameCard(game = game, onPress = {
                             graph.ncaabGameSheet.openGameSheet(game)
                             nav.openGameDetail("ncaab", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
                     }
                 }
             }
@@ -403,7 +416,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         MLBGameCard(game = game, onPress = {
                             graph.mlbGameSheet.openGameSheet(game)
                             nav.openGameDetail("mlb", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
                     }
                 }
             }
@@ -420,7 +433,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         NBAGameCard(game = game, onPress = {
                             graph.nbaGameSheet.openGameSheet(game)
                             nav.openGameDetail("nba", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
                     }
                 }
             }

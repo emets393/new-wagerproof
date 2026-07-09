@@ -190,6 +190,7 @@ object AgentPicksService {
         idempotencyKey: String? = null,
         dryRun: Boolean? = null,
         modelName: String? = null,
+        window: String? = null,
     ): GenerationRequestResult {
         val token = EdgeFunctions.accessTokenOrNull()
             ?: throw AgentAuthorizedActionsService.ActionException.NoSession()
@@ -198,6 +199,7 @@ object AgentPicksService {
             idempotencyKey?.let { put("idempotency_key", it) }
             dryRun?.let { put("dry_run", it) }
             modelName?.let { put("model_name", it) }
+            window?.let { put("window", it) }
         }
         val response = EdgeFunctions.post("trigger-v3-run", body.toString(), token)
         if (!response.isSuccess) {

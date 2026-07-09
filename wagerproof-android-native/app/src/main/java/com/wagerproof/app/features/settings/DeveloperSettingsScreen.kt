@@ -32,6 +32,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
+import com.wagerproof.app.features.agents.components.AgentGenerationCard
+import com.wagerproof.app.features.chat.WagerBotVoiceScreen
+import com.wagerproof.app.features.paywall.PaywallScreen
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
@@ -40,7 +43,10 @@ import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.NotificationService
 import com.wagerproof.core.stores.AgentV3SettingsStore
 import com.wagerproof.core.stores.AuthStore
+import com.wagerproof.core.stores.OnboardingStore
+import com.wagerproof.core.stores.PlatformStatsStore
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 private data class DiagMessage(val title: String, val body: String)
 
@@ -65,11 +71,14 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
     val onboarding = graph.onboarding
     val router = graph.rootRouter
     val v3 = remember { AgentV3SettingsStore() }
+    val platformStats = remember { PlatformStatsStore() }
     val scope = rememberCoroutineScope()
 
     var diag by remember { mutableStateOf<DiagMessage?>(null) }
     var showStats by remember { mutableStateOf(false) }
-    var showPaywallStub by remember { mutableStateOf(false) }
+    var showPaywall by remember { mutableStateOf(false) }
+    var showGenerationPreview by remember { mutableStateOf(false) }
+    var showVoice by remember { mutableStateOf(false) }
 
     BackHandler(onBack = onDismiss)
 
@@ -82,6 +91,26 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
         SettingsSubScreenBar(title = "Developer", onDismiss = onDismiss, large = true)
 
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = Spacing.xl)) {
+            if (BuildFlags.isDebugBuild) {
+                ProfileSectionHeader("UI Previews")
+                DeveloperRow(
+                    icon = AppIcon.RECTANGLE_STACK_FILL.imageVector,
+                    iconColor = Color(0xFF8B5CF6),
+                    iconBackground = Color(0xFFF3EEFF),
+                    title = "Generation Card Preview",
+                    subtitle = "Watch the pick-generation animation without a run",
+                    onClick = { showGenerationPreview = true },
+                )
+            }
+            DeveloperRow(
+                icon = AppIcon.WAVEFORM.imageVector,
+                iconColor = Color(0xFF16A34A),
+                iconBackground = Color(0xFFE9F8F2),
+                title = "WagerBot Voice",
+                subtitle = "Talk picks out loud",
+                onClick = { showVoice = true },
+            )
+
             // --- Testing Toggles ---
             ProfileSectionHeader("Testing Toggles")
             DeveloperRow(
@@ -195,7 +224,7 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
                 iconBackground = Color(0xFFEDF5FF),
                 title = "Test Paywall",
                 subtitle = "Present the dynamic paywall",
-                onClick = { showPaywallStub = true },
+                onClick = { showPaywall = true },
             )
             DeveloperRow(
                 icon = AppIcon.ARROW_CLOCKWISE.imageVector,
@@ -204,12 +233,17 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
                 title = "Reset Onboarding",
                 subtitle = "Go through the onboarding flow again",
                 onClick = {
-                    // FIDELITY-WAIVER #255: iOS also flips profiles.onboarding_completed
-                    // via Supabase; the app module has no postgrest classpath, so we only
-                    // do the local reset + force re-entry (the dev-only visible effect).
-                    onboarding.reset()
-                    router.forceOnboardingForTestingNow()
-                    onDismiss()
+                    scope.launch {
+                        when (val result = onboarding.resetRemoteAndLocal()) {
+                            OnboardingStore.RemoteResetResult.Success -> {
+                                router.forceOnboardingForTestingNow()
+                                onDismiss()
+                            }
+                            is OnboardingStore.RemoteResetResult.Failure -> {
+                                diag = DiagMessage("Error", result.message)
+                            }
+                        }
+                    }
                 },
             )
 
@@ -234,20 +268,72 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
         )
     }
 
-    if (showPaywallStub) {
-        // FIDELITY-WAIVER #250: RevenueCat paywall UI is not ported on Android.
-        AlertDialog(
-            onDismissRequest = { showPaywallStub = false },
-            title = { Text("Upgrade") },
-            text = { Text("The paywall isn't available in this build yet.") },
-            confirmButton = { TextButton(onClick = { showPaywallStub = false }) { Text("OK") } },
-            containerColor = AppColors.appSurfaceElevated,
-        )
+    if (showPaywall) {
+        Box(Modifier.fillMaxSize()) {
+            PaywallScreen(onDismiss = { showPaywall = false })
+        }
     }
 
     if (showStats) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            AgentStatsScreen(onDismiss = { showStats = false })
+        BackHandler { showStats = false }
+        Column(modifier = Modifier.fillMaxSize().background(AppColors.appSurface)) {
+            SettingsSubScreenBar(
+                title = "Agents Platform Stats",
+                onDismiss = { showStats = false },
+                large = true,
+            )
+            com.wagerproof.app.features.agents.AgentStatsScreen(
+                store = platformStats,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+    if (showGenerationPreview) {
+        GenerationPreviewScreen(onDismiss = { showGenerationPreview = false })
+    }
+    if (showVoice) {
+        WagerBotVoiceScreen(
+            isPro = graph.proAccess.isPro,
+            onBack = { showVoice = false },
+            onUpgrade = {
+                showVoice = false
+                showPaywall = true
+            },
+        )
+    }
+}
+
+@Composable
+private fun GenerationPreviewScreen(onDismiss: () -> Unit) {
+    var playing by remember { mutableStateOf(false) }
+    BackHandler(onBack = onDismiss)
+    androidx.compose.runtime.LaunchedEffect(playing) {
+        if (playing) {
+            delay(8_000)
+            playing = false
+        }
+    }
+    Column(Modifier.fillMaxSize().background(AppColors.appSurface)) {
+        SettingsSubScreenBar(title = "Generation Preview", onDismiss = onDismiss)
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        ) {
+            Text(
+                "Use the card exactly as it appears on an agent page. The preview runs locally and writes no picks.",
+                style = AppTypography.body,
+                color = AppColors.appTextSecondary,
+            )
+            AgentGenerationCard(
+                spriteIndex = 0,
+                accent = AppColors.brandGreenBright,
+                state = null,
+                isGenerating = playing,
+                canGenerate = !playing,
+                lockedLabel = if (playing) "Previewing research…" else "Preview Generation",
+                conclusion = null,
+                onGenerate = { playing = true },
+            )
         }
     }
 }

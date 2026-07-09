@@ -293,6 +293,25 @@ suspend fun loadNFLSlatePicks(gameId: String): List<NFLDryrunPickRow> = runCatch
         .decodeList<NFLDryrunPickRow>()
 }.getOrDefault(emptyList())
 
+/**
+ * Failure-aware variant used by feed cards. Callers update observable rows only
+ * on success, so a transient network/decode error never clears a cached card.
+ */
+suspend fun loadNFLSlatePicksResult(gameId: String): Result<List<NFLDryrunPickRow>> = runCatching {
+    SupabaseClients.cfb
+        .from("nfl_dryrun_picks")
+        .select(
+            Columns.raw(
+                "game_id,card_group,pick_team,pick_side,pick_label,best_line,vegas_line," +
+                    "conviction,is_mammoth,signal_keys,has_play,sort_order",
+            ),
+        ) {
+            filter { eq("game_id", gameId) }
+            order("sort_order", Order.ASCENDING)
+        }
+        .decodeList<NFLDryrunPickRow>()
+}
+
 suspend fun loadNFLSignalDefs(): Map<String, NFLSignalDefinition> = runCatching {
     SupabaseClients.cfb
         .from("nfl_signal_defs")

@@ -42,6 +42,11 @@ data class AgentDetailSnapshot(
     @SerialName("todays_parlays")
     @Serializable(with = AgentParlayLossyListSerializer::class)
     val todaysParlays: List<AgentParlay> = emptyList(),
+    @SerialName("weekly_parlays")
+    @Serializable(with = AgentParlayLossyListSerializer::class)
+    val weeklyParlays: List<AgentParlay> = emptyList(),
+    @SerialName("weekly_generations_remaining") val weeklyGenerationsRemaining: Int? = null,
+    @SerialName("week_key") val weekKey: String? = null,
     @SerialName("todays_generation_run") val todaysGenerationRun: AgentGenerationRunSummary? = null,
     /**
      * A LIVE run (queued/processing, started in the last ~12 min). Non-null
@@ -92,6 +97,8 @@ data class AgentGenerationRunSummary(
      * can resume live polling of an in-flight run.
      */
     @SerialName("trigger_run_id") val triggerRunId: String? = null,
+    /** `daily` or `weekly`; controls which generation surface resumes. */
+    @SerialName("run_scope") val runScope: String? = null,
 )
 
 /**

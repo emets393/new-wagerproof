@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.gamecards.GameCardFormatting
+import com.wagerproof.app.features.gamecards.SportsbookLogoStyle
+import com.wagerproof.app.features.gamecards.SportsbookLogoView
 import com.wagerproof.app.features.gamecards.TeamInitials
 import com.wagerproof.app.features.shared.InitialsDisc
 import com.wagerproof.app.features.shared.RemoteImage
@@ -332,12 +334,10 @@ private fun SportsbookTrailingBlock(line: OutliersTrendsBettingLine, showBookNam
         if (showBookName) {
             Text("@", color = AppColors.appTextMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
         }
-        // FIDELITY-WAIVER #231: SportsbookLogoView not ported, using RemoteImage.
-        RemoteImage(
-            url = line.bookLogoUrl,
-            contentDescription = line.bookName,
-            modifier = Modifier.size(16.dp),
-            contentScale = ContentScale.Fit,
+        SportsbookLogoView(
+            bookKey = line.bookName.orEmpty(),
+            logoURL = line.bookLogoUrl,
+            style = SportsbookLogoStyle.COMPACT,
         )
         if (showBookName && line.bookName != null) {
             Text(

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -23,7 +24,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -69,9 +74,6 @@ fun NCAABModelAccuracyView(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val graph = appGraph()
 
-    // FIDELITY-WAIVER #283: iOS toolbar refresh button + `.refreshable`
-    // pull-to-refresh not ported — nav chrome/pull-refresh is owned by the host
-    // scaffold, not this leaf composable.
     LaunchedEffect(Unit) {
         if (store.loadState is LoadState.Idle) store.refresh()
     }
@@ -87,13 +89,23 @@ fun NCAABModelAccuracyView(modifier: Modifier = Modifier) {
         graph.mainTab.select(MainTabStore.Tab.Games)
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(AppColors.appSurface),
-        contentPadding = PaddingValues(bottom = Spacing.xxl),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    Column(modifier.fillMaxSize().background(AppColors.appSurface)) {
+        Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
+            Text("NCAAB Model Accuracy", color = AppColors.appTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            IconButton(onClick = { scope.launch { store.refresh() } }) {
+                Icon(Icons.Rounded.Refresh, "Refresh", tint = AppColors.appTextSecondary)
+            }
+        }
+        PullToRefreshBox(
+            isRefreshing = store.loadState.isLoading,
+            onRefresh = { scope.launch { store.refresh() } },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = Spacing.xxl),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
         item(key = "explainer") {
             ToolExplainerBanner(
                 accentColor = hexColor(0xF97316L),
@@ -140,6 +152,8 @@ fun NCAABModelAccuracyView(modifier: Modifier = Modifier) {
 
         item(key = "howto") {
             NcaabHowToUseGuide(Modifier.padding(start = Spacing.lg, top = Spacing.md, end = Spacing.lg))
+        }
+            }
         }
     }
 }

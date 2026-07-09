@@ -4,18 +4,26 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +62,7 @@ import com.wagerproof.app.features.agents.sheets.AutoPilotControlButton
 import com.wagerproof.app.features.agents.sheets.RegenerateBottomSheet
 import com.wagerproof.app.features.agents.sheets.RegenerateControlButton
 import com.wagerproof.app.nav.LocalAppNavigator
+import com.wagerproof.core.design.components.LiquidGlassScene
 import com.wagerproof.core.design.backgrounds.GlyphRippleEmitter
 import com.wagerproof.core.design.backgrounds.PixelWaveBackground
 import com.wagerproof.core.design.tokens.AppColors
@@ -88,10 +97,14 @@ private val HInset = 16.dp
  */
 @Composable
 fun AgentDetailScreen(agentId: String, isPublic: Boolean, modifier: Modifier = Modifier) {
-    if (isPublic) {
-        PublicAgentDetailScreen(agentId, modifier)
-    } else {
-        OwnerAgentDetail(agentId, modifier)
+    LiquidGlassScene { sourceModifier ->
+        Box(modifier.fillMaxSize().then(sourceModifier)) {
+            if (isPublic) {
+                PublicAgentDetailScreen(agentId, Modifier.fillMaxSize())
+            } else {
+                OwnerAgentDetail(agentId, Modifier.fillMaxSize())
+            }
+        }
     }
 }
 
@@ -116,6 +129,9 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
     var focusStartIndex by remember { mutableStateOf<Int?>(null) }
     var focusPrintIntro by remember { mutableStateOf(false) }
     var lastGenerationResultItems by remember { mutableStateOf<List<AgentBetItem>>(emptyList()) }
+    var isRunningGeneration by remember { mutableStateOf(false) }
+    var pendingDeleteItem by remember { mutableStateOf<AgentBetItem?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     val currentUserId = (auth.phase as? AuthStore.Phase.Authenticated)?.userId?.lowercase()
     val agent: Agent? = store.snapshot?.agent
@@ -124,16 +140,24 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
     val canSeePicks = canViewPicks || isOwnAgent
     val canRegenerate = if (!canViewPicks) entitlements.isAdmin else store.regenerationsRemaining() > 0
     val agentTint = agent?.let { AgentColorPalette.primary(it.avatarColor) } ?: AppColors.brandGreenBright
+    val isAnyGenerating = store.isGenerating || isRunningGeneration
+    val hasFootball = agent?.preferredSports?.any {
+        it == com.wagerproof.core.models.AgentSport.NFL || it == com.wagerproof.core.models.AgentSport.CFB
+    } == true
+    val canGenerateWeekly = (canViewPicks || entitlements.isAdmin) &&
+        store.weeklyGenerationsRemaining() > 0 &&
+        agent?.personalityParams?.weeklyParlayEnabled == true &&
+        hasFootball
 
     fun markPicksSeen() {
-        val newest = store.todaysBetItems.mapNotNull { it.createdAt.ifEmpty { null } }.maxOrNull()
+        val newest = store.activeBetItems.mapNotNull { it.createdAt.ifEmpty { null } }.maxOrNull()
         val upTo = listOfNotNull(newest, agent?.lastGeneratedAt).maxOrNull()
         AgentPicksSeenStore.markSeen(agentId, upTo)
     }
 
     fun maybeAutoplayUnreadPicks() {
-        if (!canSeePicks || focusStartIndex != null || store.isGenerating) return
-        val items = store.todaysBetItems
+        if (!canSeePicks || focusStartIndex != null || isAnyGenerating) return
+        val items = store.activeBetItems
         val newest = items.mapNotNull { it.createdAt.ifEmpty { null } }.maxOrNull()
         if (newest == null) {
             markPicksSeen()
@@ -148,17 +172,37 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
     }
 
     suspend fun runGeneration() {
-        val succeeded = store.generatePicks()
-        if (succeeded) {
-            val fresh = store.todaysBetItems
+        isRunningGeneration = true
+        try {
+            val succeeded = store.generatePicks()
+            if (!succeeded) {
+                errorMessage = store.lastGenerationError
+                return
+            }
+            val weeklySucceeded = if (canGenerateWeekly) store.generateWeeklyParlay() else true
+            val fresh = store.activeBetItems
             if (fresh.isNotEmpty()) {
                 lastGenerationResultItems = fresh
                 focusPrintIntro = true
                 focusStartIndex = 0
             }
+            if (!weeklySucceeded) errorMessage = store.lastGenerationError
             markPicksSeen()
-        } else {
-            errorMessage = store.lastGenerationError
+        } finally {
+            isRunningGeneration = false
+        }
+    }
+
+    suspend fun refreshDetail() {
+        isRefreshing = true
+        try {
+            store.refreshSnapshot()
+            if (canSeePicks) {
+                store.loadHistory(isOwner = isOwnAgent)
+                store.loadPerformancePicks(isOwner = isOwnAgent)
+            }
+        } finally {
+            isRefreshing = false
         }
     }
 
@@ -175,17 +219,32 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
     }
 
     Box(modifier.fillMaxSize().background(AgentDetailBase)) {
-        AgentDetailScaffold(
-            avatarColorRaw = agent?.avatarColor ?: "#6366f1",
-            rippleEmitter = rippleEmitter,
-            topBar = {
-                AgentDetailTopBar(onSettings = { nav.openAgentEdit(agentId) })
-            },
-            hero = { progress ->
-                val a = agent
-                if (a != null) {
+        if (agent == null) {
+            AgentDetailStateScaffold {
+                when (val load = store.snapshotLoadState) {
+                    is LoadState.Failed -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(agentSymbol("person.crop.circle.badge.exclamationmark"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.height(36.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("Couldn't load this agent", color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(4.dp))
+                        Text(load.message, color = AppColors.appTextSecondary, fontSize = 13.sp)
+                        androidx.compose.material3.TextButton(onClick = { scope.launch { refreshDetail() } }) { Text("Try Again") }
+                    }
+                    else -> CircularProgressIndicator(color = AppColors.appPrimary)
+                }
+            }
+        } else {
+            AgentDetailScaffold(
+                avatarColorRaw = agent.avatarColor,
+                rippleEmitter = rippleEmitter,
+                topBar = {
+                    AgentDetailTopBar(title = agent.name, onSettings = { nav.openAgentEdit(agentId) })
+                },
+                isRefreshing = isRefreshing,
+                onRefresh = { scope.launch { refreshDetail() } },
+                hero = { progress ->
                     AgentGlassHero(
-                        agent = a,
+                        agent = agent,
                         performance = store.snapshot?.performance,
                         lockedNetUnits = !canSeePicks,
                         progress = progress,
@@ -196,40 +255,39 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
                         },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(top = 6.dp),
                     )
-                }
-            },
-        ) {
+                },
+            ) {
             // Today's Picks
             OwnerPicksSection(
                 store = store,
                 canSeePicks = canSeePicks,
                 accent = agentTint,
-                spriteIndex = agent?.spriteIndex ?: 0,
+                spriteIndex = agent.spriteIndex,
+                isAnyGenerating = isAnyGenerating,
                 canRegenerate = canRegenerate,
                 generationLabel = when {
                     !canViewPicks -> "Generate Picks Locked"
+                    store.generatingWindow == AgentDetailStore.GenerationWindow.Week -> "Agent is busy…"
                     store.regenerationsRemaining() == 0 -> "Daily limit reached"
                     else -> "Generate Today's Picks"
                 },
-                autoOn = agent?.autoGenerate ?: false,
+                autoOn = agent.autoGenerate,
                 onTapItem = { idx -> focusPrintIntro = false; focusStartIndex = idx },
                 onGenerate = { scope.launch { runGeneration() } },
                 onAutoPilot = { showAutoPilotSheet = true },
                 onRegenerate = { showRegenSheet = true },
             )
             // Performance
-            PerformanceSection(store = store, canSeePicks = canSeePicks, agentColor = agentTint, preferredSports = agent?.preferredSports ?: emptyList())
+            PerformanceSection(store = store, canSeePicks = canSeePicks, agentColor = agentTint, preferredSports = agent.preferredSports)
             // Recent Activity
-            if (agent != null) {
-                AgentTimeline(
-                    agent = agent,
-                    performance = store.snapshot?.performance,
-                    todaysPicks = store.todaysPicks,
-                    todaysParlays = store.todaysParlays,
-                    todaysRun = store.todaysGenerationRun,
-                    modifier = Modifier.padding(horizontal = HInset).padding(bottom = SectionGap),
-                )
-            }
+            AgentTimeline(
+                agent = agent,
+                performance = store.snapshot?.performance,
+                todaysPicks = store.todaysPicks,
+                todaysParlays = store.todaysParlays,
+                todaysRun = store.todaysGenerationRun,
+                modifier = Modifier.padding(horizontal = HInset).padding(bottom = SectionGap),
+            )
             // Pick History
             AgentPickFolderCard(
                 recentItems = if (canSeePicks) store.fullBetHistory else emptyList(),
@@ -240,17 +298,19 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
                 onTap = { showHistorySheet = true },
                 modifier = Modifier.padding(horizontal = HInset).padding(bottom = SectionGap),
             )
+            }
         }
 
         // Full-screen focus / printer overlay.
         focusStartIndex?.let { start ->
-            val items = if (focusPrintIntro) lastGenerationResultItems else store.todaysBetItems
+            val items = if (focusPrintIntro) lastGenerationResultItems else store.activeBetItems
             AgentPickFocusView(
                 items = items,
                 accent = agentTint,
                 startIndex = start,
                 printIntro = focusPrintIntro,
                 onAudit = { pick -> auditStore.present(pick) },
+                onDelete = if (isOwnAgent) ({ item -> pendingDeleteItem = item }) else null,
                 onClose = { focusStartIndex = null },
             )
         }
@@ -315,6 +375,36 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
             containerColor = AppColors.appSurfaceElevated,
         )
     }
+
+    pendingDeleteItem?.let { item ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDeleteItem = null },
+            title = { Text(if (item is AgentBetItem.Parlay) "Delete this parlay?" else "Delete this pick?") },
+            text = { Text("It will be removed from ${agent?.name ?: "this agent"}'s record.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    pendingDeleteItem = null
+                    focusStartIndex = null
+                    scope.launch {
+                        if (!store.deleteBetItem(item)) errorMessage = store.lastDeleteError
+                    }
+                }) { Text("Delete", color = AppColors.appLoss) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { pendingDeleteItem = null }) { Text("Cancel") }
+            },
+            containerColor = AppColors.appSurfaceElevated,
+        )
+    }
+}
+
+@Composable
+internal fun AgentDetailStateScaffold(content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxSize().background(AgentDetailBase)) {
+        AgentDetailTopBar()
+        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { content() }
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -327,6 +417,7 @@ private fun OwnerPicksSection(
     canSeePicks: Boolean,
     accent: Color,
     spriteIndex: Int,
+    isAnyGenerating: Boolean,
     canRegenerate: Boolean,
     generationLabel: String,
     autoOn: Boolean,
@@ -341,17 +432,17 @@ private fun OwnerPicksSection(
         AgentSectionHeader(title = "Today's Picks", systemImage = "checklist")
         Spacer(Modifier.height(12.dp))
 
-        val showsPicksRail = store.todaysBetItems.isNotEmpty() && !store.isGenerating
+        val showsPicksRail = store.activeBetItems.isNotEmpty() && !isAnyGenerating
         when {
             !canSeePicks -> AgentLockedPicksRail(accent = accent)
             store.snapshotLoadState is LoadState.Loading && store.todaysPicks.isEmpty() ->
                 AgentTodaysPicksRailSkeleton()
             showsPicksRail -> {
                 AgentTodaysPicksRail(
-                    items = store.todaysBetItems,
+                    items = store.activeBetItems,
                     accent = accent,
-                    onTapPick = { pick -> store.todaysBetItems.indexOfFirst { it.id == AgentBetItem.Pick(pick).id }.takeIf { it >= 0 }?.let(onTapItem) },
-                    onTapParlay = { parlay -> store.todaysBetItems.indexOfFirst { it.id == AgentBetItem.Parlay(parlay).id }.takeIf { it >= 0 }?.let(onTapItem) },
+                    onTapPick = { pick -> store.activeBetItems.indexOfFirst { it.id == AgentBetItem.Pick(pick).id }.takeIf { it >= 0 }?.let(onTapItem) },
+                    onTapParlay = { parlay -> store.activeBetItems.indexOfFirst { it.id == AgentBetItem.Parlay(parlay).id }.takeIf { it >= 0 }?.let(onTapItem) },
                 )
                 Spacer(Modifier.height(12.dp))
                 androidx.compose.foundation.layout.Row(
@@ -367,7 +458,7 @@ private fun OwnerPicksSection(
                 spriteIndex = spriteIndex,
                 accent = accent,
                 state = store.liveRunState,
-                isGenerating = store.isGenerating,
+                isGenerating = isAnyGenerating,
                 canGenerate = canRegenerate,
                 lockedLabel = generationLabel,
                 conclusion = noPicksConclusion(store),
@@ -412,16 +503,20 @@ private fun PerformanceSection(
 // ---------------------------------------------------------------------------
 
 /**
- * Approximated collapsing-hero scaffold. Draws the animated pixelwave field full
- * bleed, a fixed hero that shrinks 196→60 as [content] scrolls, then the inline
- * sections. FIDELITY-WAIVER #320.
+ * One coordinated collapsing surface, matching iOS `CollapsingWidgetScroll`:
+ * the content starts below the expanded hero, then travels beneath a hero that
+ * contracts to its 60dp pinned state. The old split-scroll layout made the
+ * detail body feel like a second panel and could never achieve the iOS handoff.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AgentDetailScaffold(
     avatarColorRaw: String,
     rippleEmitter: GlyphRippleEmitter,
     hero: @Composable (progress: Float) -> Unit,
     topBar: @Composable () -> Unit = {},
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scroll = rememberScrollState()
@@ -433,42 +528,68 @@ internal fun AgentDetailScaffold(
     val heroHeight = lerp(AgentTicketGeometry.HERO_MAX, AgentTicketGeometry.HERO_MIN, progress)
     val accent = AgentColorPalette.primary(avatarColorRaw)
 
-    Box(Modifier.fillMaxSize()) {
-        PixelWaveBackground(
-            modifier = Modifier.fillMaxSize(),
-            accentColor = accent,
-            progress = progress,
-            rippleEmitter = rippleEmitter,
-        )
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
         Column(Modifier.fillMaxSize()) {
             topBar()
-            Box(Modifier.fillMaxWidth().height(heroHeight)) { hero(progress) }
+            Box(Modifier.fillMaxWidth().weight(1f)) {
+            PixelWaveBackground(
+                modifier = Modifier.fillMaxSize(),
+                accentColor = accent,
+                progress = progress,
+                rippleEmitter = rippleEmitter,
+            )
             Column(
-                Modifier.fillMaxWidth().weight(1f).verticalScroll(scroll),
+                Modifier.fillMaxSize().verticalScroll(scroll),
             ) {
+                Spacer(Modifier.height(AgentTicketGeometry.HERO_MAX))
                 content()
-                Spacer(Modifier.height(96.dp))
+                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+            }
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(heroHeight)
+                        .background(AgentDetailBase.copy(alpha = progress * 0.28f)),
+                ) { hero(progress) }
             }
         }
     }
 }
 
-/** Detail top bar: a lone back chevron + optional trailing settings gear. */
+/** Safe inline navigation bar matching iOS detail title geometry. */
 @Composable
-internal fun AgentDetailTopBar(onSettings: (() -> Unit)? = null) {
+internal fun AgentDetailTopBar(title: String? = null, onSettings: (() -> Unit)? = null) {
     val nav = LocalAppNavigator.current
     androidx.compose.foundation.layout.Row(
-        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = { nav.popAgents() }) {
             Icon(agentSymbol("chevron.left"), contentDescription = "Back", tint = Color.White)
         }
-        Spacer(Modifier.weight(1f))
+        Text(
+            title.orEmpty(),
+            color = Color.White,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
         if (onSettings != null) {
             IconButton(onClick = onSettings) {
                 Icon(agentSymbol("gearshape"), contentDescription = "Settings", tint = Color.White)
             }
+        } else {
+            Spacer(Modifier.width(48.dp))
         }
     }
 }

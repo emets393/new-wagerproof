@@ -375,8 +375,6 @@ fun AgentParlayMiniTicket(
                         Text("PARLAY", color = accent, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                     }
                     Spacer(Modifier.weight(1f))
-                    Text(PickTicketFormat.gameDate(parlay.displayDate), color = AppColors.appTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                    Spacer(Modifier.width(6.dp))
                     MiniStatusCorner(
                         isPending = parlay.result == AgentPick.PickResultStatus.PENDING,
                         confidence = parlay.confidence,

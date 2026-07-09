@@ -1,6 +1,6 @@
 package com.wagerproof.app.features.games.components
 
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -59,7 +60,10 @@ fun SportPickerBar(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.clickable { onSelect(sport) },
+                    // Match SwiftUI's VStack intrinsic width: the underline is
+                    // exactly as wide as its label, rather than a fixed 20dp
+                    // dash that looked undersized under NCAAB.
+                    modifier = Modifier.width(IntrinsicSize.Min).clickable { onSelect(sport) },
                 ) {
                     Text(
                         sport.label,
@@ -67,13 +71,16 @@ fun SportPickerBar(
                         fontSize = 16.sp,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     )
-                    val underlineWidth by animateDpAsState(if (selected) 20.dp else 0.dp, label = "sportPill")
+                    val underlineColor by animateColorAsState(
+                        if (selected) AppColors.appPrimary else Color.Transparent,
+                        label = "sportPill",
+                    )
                     Box(
                         Modifier
-                            .width(underlineWidth)
+                            .fillMaxWidth()
                             .height(3.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(if (selected) AppColors.appPrimary else Color.Transparent),
+                            .background(underlineColor),
                     )
                 }
             }

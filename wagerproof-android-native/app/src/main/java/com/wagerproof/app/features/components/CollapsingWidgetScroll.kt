@@ -98,7 +98,16 @@ fun CollapsingWidgetScroll(
                 .height(heroHeight + heroTopInset)
                 .clip(RoundedCornerShape(bottomStart = 0.dp, bottomEnd = 0.dp)),
         ) {
-            if (!transparentPage) background(progress)
+            // Carousel pages must not paint their own team aura here: this
+            // overlay translates with HorizontalPager and made the background
+            // color visibly swipe with the matchup. Use a neutral opaque mask
+            // to hide scrolled widgets; GameDetailCarousel draws the one fixed
+            // additive aura above every page, matching iOS.
+            if (transparentPage) {
+                Box(Modifier.fillMaxSize().background(AppColors.appSurface))
+            } else {
+                background(progress)
+            }
             Box(Modifier.padding(top = heroTopInset)) { hero(progress) }
         }
     }

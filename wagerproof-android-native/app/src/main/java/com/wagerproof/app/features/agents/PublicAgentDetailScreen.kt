@@ -81,6 +81,7 @@ fun PublicAgentDetailScreen(agentId: String, modifier: Modifier = Modifier) {
     var showHistorySheet by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var focusStartIndex by remember { mutableStateOf<Int?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     val currentUserId = (auth.phase as? AuthStore.Phase.Authenticated)?.userId?.lowercase()
     val agent: Agent? = store.snapshot?.agent
@@ -117,12 +118,28 @@ fun PublicAgentDetailScreen(agentId: String, modifier: Modifier = Modifier) {
         }
     }
 
+    suspend fun refreshDetail() {
+        isRefreshing = true
+        try {
+            store.refreshSnapshot()
+            store.isFollowingFromSnapshot?.let { isFollowing = it }
+            if (canSeePicks) {
+                store.loadHistory(isOwner = isOwnAgent)
+                store.loadPerformancePicks(isOwner = isOwnAgent)
+            }
+        } finally {
+            isRefreshing = false
+        }
+    }
+
     Box(modifier.fillMaxSize().background(AgentDetailBase)) {
         when {
             agent != null -> AgentDetailScaffold(
                 avatarColorRaw = agent.avatarColor,
                 rippleEmitter = rippleEmitter,
-                topBar = { AgentDetailTopBar() },
+                topBar = { AgentDetailTopBar(title = agent.name) },
+                isRefreshing = isRefreshing,
+                onRefresh = { scope.launch { refreshDetail() } },
                 hero = { progress ->
                     AgentGlassHero(
                         agent = agent,
@@ -169,16 +186,20 @@ fun PublicAgentDetailScreen(agentId: String, modifier: Modifier = Modifier) {
                 Disclaimer(Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
             }
 
-            store.snapshotLoadState is LoadState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = AppColors.appPrimary)
-            }
+            store.snapshotLoadState is LoadState.Loading || store.snapshotLoadState is LoadState.Idle ->
+                AgentDetailStateScaffold { CircularProgressIndicator(color = AppColors.appPrimary) }
 
-            else -> NotFoundView()
+            else -> AgentDetailStateScaffold {
+                NotFoundView(
+                    message = (store.snapshotLoadState as? LoadState.Failed)?.message,
+                    onRetry = { scope.launch { refreshDetail() } },
+                )
+            }
         }
 
         focusStartIndex?.let { start ->
             AgentPickFocusView(
-                items = store.todaysBetItems,
+                items = store.activeBetItems,
                 accent = agentTint,
                 startIndex = start,
                 printIntro = false,
@@ -221,8 +242,8 @@ private fun PublicPicksSection(store: AgentDetailStore, canSeePicks: Boolean, ac
         Spacer(Modifier.height(12.dp))
         when {
             !canSeePicks -> AgentLockedPicksRail(accent = accent)
-            store.snapshotLoadState is LoadState.Loading && store.todaysBetItems.isEmpty() -> AgentTodaysPicksRailSkeleton()
-            store.todaysBetItems.isEmpty() -> Column(
+            store.snapshotLoadState is LoadState.Loading && store.activeBetItems.isEmpty() -> AgentTodaysPicksRailSkeleton()
+            store.activeBetItems.isEmpty() -> Column(
                 Modifier.fillMaxWidth().padding(vertical = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -231,10 +252,10 @@ private fun PublicPicksSection(store: AgentDetailStore, canSeePicks: Boolean, ac
                 Text("No picks yet today", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = AppColors.appTextSecondary)
             }
             else -> AgentTodaysPicksRail(
-                items = store.todaysBetItems,
+                items = store.activeBetItems,
                 accent = accent,
-                onTapPick = { pick -> store.todaysBetItems.indexOfFirst { it.id == AgentBetItem.Pick(pick).id }.takeIf { it >= 0 }?.let(onTapItem) },
-                onTapParlay = { parlay -> store.todaysBetItems.indexOfFirst { it.id == AgentBetItem.Parlay(parlay).id }.takeIf { it >= 0 }?.let(onTapItem) },
+                onTapPick = { pick -> store.activeBetItems.indexOfFirst { it.id == AgentBetItem.Pick(pick).id }.takeIf { it >= 0 }?.let(onTapItem) },
+                onTapParlay = { parlay -> store.activeBetItems.indexOfFirst { it.id == AgentBetItem.Parlay(parlay).id }.takeIf { it >= 0 }?.let(onTapItem) },
             )
         }
     }
@@ -324,10 +345,15 @@ private fun Disclaimer(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun NotFoundView() {
+private fun NotFoundView(message: String?, onRetry: () -> Unit) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(agentSymbol("person.crop.circle.badge.exclamationmark"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.height(36.dp))
         Spacer(Modifier.height(12.dp))
-        Text("Agent not found", color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(if (message == null) "Agent not found" else "Couldn't load this agent", color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        message?.let {
+            Spacer(Modifier.height(4.dp))
+            Text(it, color = AppColors.appTextSecondary, fontSize = 13.sp)
+            TextButton(onClick = onRetry) { Text("Try Again") }
+        }
     }
 }

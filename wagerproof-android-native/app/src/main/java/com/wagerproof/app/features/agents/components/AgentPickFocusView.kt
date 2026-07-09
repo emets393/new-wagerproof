@@ -1,11 +1,13 @@
 package com.wagerproof.app.features.agents.components
 
 import android.content.Context
+import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +24,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -64,9 +69,8 @@ import kotlinx.coroutines.delay
 //
 // FIDELITY-WAIVER #203: iOS CoreMotion (device attitude) → Android
 // SensorManager TYPE_ACCELEROMETER for the ticket parallax lean.
-// FIDELITY-WAIVER #213: Share renders the current card to a bitmap on iOS via
-// ImageRenderer + UIActivityViewController; Android stubs share as a no-op
-// (bitmap-of-composable capture + Intent is optional per the port contract).
+// iOS shares a rendered ticket image; Android exposes the equivalent native
+// share sheet with a complete text rendering of the currently visible ticket.
 // FIDELITY-WAIVER #214: the receipt-printer feed's exact per-card measurement +
 // slot masking is approximated with a fractional translate of the first card.
 // =====================================================================
@@ -81,6 +85,7 @@ fun AgentPickFocusView(
     startIndex: Int = 0,
     printIntro: Boolean = false,
     onAudit: (AgentPick) -> Unit,
+    onDelete: ((AgentBetItem) -> Unit)? = null,
     onClose: () -> Unit,
 ) {
     if (items.isEmpty()) return
@@ -152,6 +157,8 @@ fun AgentPickFocusView(
         onClose()
     }
 
+    BackHandler(onBack = ::close)
+
     Box(Modifier.fillMaxSize().graphicsLayer { alpha = appearedAlpha }) {
         // Backdrop.
         if (printIntro) {
@@ -194,16 +201,67 @@ fun AgentPickFocusView(
 
         // Top bar (back + share) — top-most.
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GlassCircleButton("chevron.left") { close() }
+            GlassCircleButton("chevron.left", contentDescription = "Close") { close() }
             Spacer(Modifier.weight(1f))
-            // FIDELITY-WAIVER #213: share is a no-op stub.
             Box(Modifier.graphicsLayer { alpha = if (printed) 1f else 0f }) {
-                GlassCircleButton("square.and.arrow.up") { /* share stub */ }
+                GlassCircleButton("square.and.arrow.up", contentDescription = "Share this play") {
+                    shareTicket(context, items[index])
+                }
+            }
+            if (onDelete != null) {
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.graphicsLayer { alpha = if (printed) 1f else 0f }) {
+                    GlassCircleButton(
+                        icon = "trash",
+                        contentDescription = "Delete this play",
+                        tint = AppColors.appLoss,
+                    ) { onDelete(items[index]) }
+                }
             }
         }
+    }
+}
+
+private fun shareTicket(context: Context, item: AgentBetItem) {
+    val body = when (item) {
+        is AgentBetItem.Pick -> buildString {
+            val pick = item.pick
+            appendLine("WagerProof Pick")
+            appendLine("${pick.sport.raw.uppercase()} · ${pick.matchup}")
+            append(pick.pickSelection)
+            pick.odds?.takeIf { it.isNotBlank() }?.let { append("  $it") }
+            appendLine()
+            appendLine("${pick.units}u · Confidence ${pick.confidence}/5")
+            if (pick.reasoningText.isNotBlank()) append(pick.reasoningText)
+        }
+        is AgentBetItem.Parlay -> buildString {
+            val parlay = item.parlay
+            appendLine("WagerProof ${parlay.displayLegsCount}-Leg Parlay")
+            parlay.legs.forEachIndexed { legIndex, leg ->
+                append("${legIndex + 1}. ${leg.pickSelection}")
+                leg.odds?.takeIf { it.isNotBlank() }?.let { append("  $it") }
+                if (leg.matchup.isNotBlank()) append(" · ${leg.matchup}")
+                appendLine()
+            }
+            parlay.combinedOdds?.takeIf { it.isNotBlank() }?.let { appendLine("Combined odds: $it") }
+            appendLine("${parlay.units}u · Confidence ${parlay.confidence}/5")
+            if (parlay.reasoningText.isNotBlank()) append(parlay.reasoningText)
+        }
+    }.trim()
+
+    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, "WagerProof play")
+        putExtra(Intent.EXTRA_TEXT, body)
+    }
+    runCatching {
+        context.startActivity(Intent.createChooser(sendIntent, "Share play"))
     }
 }
 
@@ -304,7 +362,12 @@ private fun SlotBar() {
 }
 
 @Composable
-private fun GlassCircleButton(icon: String, onClick: () -> Unit) {
+private fun GlassCircleButton(
+    icon: String,
+    contentDescription: String,
+    tint: Color = Color.White,
+    onClick: () -> Unit,
+) {
     Box(
         Modifier
             .size(42.dp)
@@ -313,7 +376,7 @@ private fun GlassCircleButton(icon: String, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(agentSymbol(icon), null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Icon(agentSymbol(icon), contentDescription, tint = tint, modifier = Modifier.size(16.dp))
     }
 }
 

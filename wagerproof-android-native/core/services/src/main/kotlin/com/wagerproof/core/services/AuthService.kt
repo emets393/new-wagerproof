@@ -1,13 +1,18 @@
 package com.wagerproof.core.services
 
 import com.wagerproof.core.models.Profile
+import com.wagerproof.core.models.serialization.WagerproofJson
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.auth.SignOutScope
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 
 /**
  * Services half of iOS `AuthStore` (WagerproofStores/AuthStore.swift): the raw
@@ -18,6 +23,17 @@ import kotlinx.coroutines.flow.StateFlow
  * store's job (iOS `lastError`).
  */
 object AuthService {
+
+    sealed class AccountDeletionException(
+        message: String,
+        open val statusCode: Int? = null,
+    ) : Exception(message) {
+        class NoSession : AccountDeletionException("No active session")
+        class Server(message: String, override val statusCode: Int) :
+            AccountDeletionException(message, statusCode)
+        class MalformedResponse(override val statusCode: Int) :
+            AccountDeletionException("Account deletion returned an unexpected response", statusCode)
+    }
 
     /**
      * Raw auth state passthrough for the future store. iOS switches on
@@ -54,6 +70,27 @@ object AuthService {
 
     suspend fun signOut() {
         SupabaseClients.main.auth.signOut()
+    }
+
+    /**
+     * Permanently delete the authenticated account through the existing
+     * `delete-own-account` edge function. The explicit bearer transport is
+     * required because this function owns destructive user data.
+     *
+     * Local sign-out happens only after the server confirms `{success:true}`.
+     * LOCAL scope avoids making a second server request against a user that no
+     * longer exists while still clearing the persisted refresh/access tokens.
+     */
+    suspend fun deleteAccount() {
+        val token = EdgeFunctions.accessTokenOrNull()
+            ?: throw AccountDeletionException.NoSession()
+        val response = EdgeFunctions.post(
+            name = "delete-own-account",
+            bodyJson = "{}",
+            bearerToken = token,
+        )
+        requireSuccessfulAccountDeletion(response)
+        SupabaseClients.main.auth.signOut(SignOutScope.LOCAL)
     }
 
     /**
@@ -95,4 +132,32 @@ object AuthService {
             .select { filter { eq("id", userId) } }
             .decodeSingleOrNull<Profile>()
     }.getOrNull()
+
+    internal fun requireSuccessfulAccountDeletion(response: EdgeFunctions.EdgeResponse) {
+        val envelope = runCatching { WagerproofJson.parseToJsonElement(response.body) }
+            .getOrNull() as? JsonObject
+
+        if (envelope == null) {
+            if (response.isSuccess) {
+                throw AccountDeletionException.MalformedResponse(response.status)
+            }
+            throw AccountDeletionException.Server(
+                message = "Failed to delete account (${response.status})",
+                statusCode = response.status,
+            )
+        }
+
+        val success = (envelope["success"] as? JsonPrimitive)?.booleanOrNull == true
+        if (response.isSuccess && success) return
+
+        val serverMessage = (envelope["error"] as? JsonPrimitive)
+            ?.takeIf { it.isString }
+            ?.content
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        throw AccountDeletionException.Server(
+            message = serverMessage ?: "Failed to delete account (${response.status})",
+            statusCode = response.status,
+        )
+    }
 }

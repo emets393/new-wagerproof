@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
@@ -67,6 +69,14 @@ fun PropsCollapsingScaffold(
     content: LazyListScope.() -> Unit,
 ) {
     val density = LocalDensity.current
+    // iOS keeps the transparent NavigationStack row even though its toolbar
+    // background/title are hidden. Android draws edge-to-edge, so reserve the
+    // equivalent status-bar + 44dp back-button band before laying out either
+    // props hero. Without this, the floating back control sits on top of the
+    // matchup/date row and player identity while expanded and collapsed.
+    val navigationTopInset = with(density) {
+        WindowInsets.statusBars.getTop(density).toDp()
+    } + 44.dp
     val maxPx = with(density) { heroMax.toPx() }
     val minPx = with(density) { heroMin.toPx() }
     var heroPx by remember { mutableFloatStateOf(maxPx) }
@@ -102,7 +112,7 @@ fun PropsCollapsingScaffold(
 
     Box(modifier.fillMaxSize()) {
         aura(progress)
-        Column(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().padding(top = navigationTopInset)) {
             Box(Modifier.fillMaxWidth().height(heroDp)) {
                 hero(progress)
             }

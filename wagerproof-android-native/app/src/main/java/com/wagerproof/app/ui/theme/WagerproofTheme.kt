@@ -1,15 +1,19 @@
 package com.wagerproof.app.ui.theme
 
 import android.app.Activity
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
+import com.wagerproof.core.design.tokens.CornerRadius
 
 /**
  * Root theme wrapper. The app ships dark-only (iOS forces dark by overriding
@@ -26,16 +30,40 @@ fun WagerproofTheme(content: @Composable () -> Unit) {
     val colorScheme = darkColorScheme(
         primary = AppColors.appPrimary,
         onPrimary = AppColors.appTextInverse,
+        primaryContainer = AppColors.appPrimaryStrong,
+        onPrimaryContainer = Color.White,
         secondary = AppColors.appPrimaryStrong,
+        onSecondary = AppColors.appTextPrimary,
+        secondaryContainer = AppColors.appSurfaceMuted,
+        onSecondaryContainer = AppColors.appTextPrimary,
+        tertiary = AppColors.appAccentBlue,
+        onTertiary = AppColors.appTextPrimary,
+        tertiaryContainer = AppColors.appAccentBlue.copy(alpha = 0.22f),
+        onTertiaryContainer = AppColors.appTextPrimary,
         background = AppColors.appSurface,
         onBackground = AppColors.appTextPrimary,
         surface = AppColors.appSurface,
         onSurface = AppColors.appTextPrimary,
+        surfaceDim = AppColors.appSurface,
+        surfaceBright = AppColors.appSurfaceMuted,
+        surfaceContainerLowest = AppColors.appSurface,
+        surfaceContainerLow = AppColors.appSurfaceElevated,
+        surfaceContainer = AppColors.appSurfaceElevated,
+        surfaceContainerHigh = AppColors.appSurfaceMuted,
+        surfaceContainerHighest = AppColors.appBorder,
         surfaceVariant = AppColors.appSurfaceElevated,
         onSurfaceVariant = AppColors.appTextSecondary,
+        surfaceTint = Color.Transparent,
+        inverseSurface = AppColors.appTextPrimary,
+        inverseOnSurface = AppColors.appTextInverse,
+        inversePrimary = AppColors.appPrimaryStrong,
         outline = AppColors.appBorder,
         outlineVariant = AppColors.appBorderStrong,
         error = AppColors.appAccentRed,
+        onError = Color.White,
+        errorContainer = AppColors.appAccentRed.copy(alpha = 0.18f),
+        onErrorContainer = AppColors.appTextPrimary,
+        scrim = Color.Black,
     )
 
     val view = LocalView.current
@@ -54,6 +82,7 @@ fun WagerproofTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = colorScheme,
         typography = wagerproofM3Typography,
+        shapes = wagerproofM3Shapes,
         content = content,
     )
 }
@@ -62,11 +91,26 @@ fun WagerproofTheme(content: @Composable () -> Unit) {
 private val wagerproofM3Typography = Typography(
     displayLarge = AppTypography.displayLarge,
     displayMedium = AppTypography.display,
+    displaySmall = AppTypography.title,
+    headlineLarge = AppTypography.display,
+    headlineMedium = AppTypography.title,
+    headlineSmall = AppTypography.headline,
     titleLarge = AppTypography.title,
     titleMedium = AppTypography.headline,
+    titleSmall = AppTypography.bodyEmphasized,
     bodyLarge = AppTypography.body,
     bodyMedium = AppTypography.body,
+    bodySmall = AppTypography.caption,
     labelLarge = AppTypography.bodyEmphasized,
-    labelMedium = AppTypography.caption,
+    labelMedium = AppTypography.captionEmphasized,
     labelSmall = AppTypography.micro,
+)
+
+/** Makes stock Material controls inherit the same radii as SwiftUI surfaces. */
+private val wagerproofM3Shapes = Shapes(
+    extraSmall = RoundedCornerShape(CornerRadius.sm),
+    small = RoundedCornerShape(CornerRadius.sm),
+    medium = RoundedCornerShape(CornerRadius.md),
+    large = RoundedCornerShape(CornerRadius.lg),
+    extraLarge = RoundedCornerShape(CornerRadius.xl),
 )

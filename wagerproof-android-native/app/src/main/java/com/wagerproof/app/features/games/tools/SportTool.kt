@@ -7,7 +7,7 @@ import com.wagerproof.core.stores.OutliersStore
 /**
  * A per-sport analytics "tool" surfaced as a promo banner on the Games page and
  * routed (via [ToolRouter]) to the same leaf page as the Outliers hub. iOS
- * `Games/Tools/SportTool`. NFL/CFB have no tools.
+ * `Games/Tools/SportTool`.
  */
 data class SportTool(
     val id: String,
@@ -27,6 +27,28 @@ data class SportTool(
     companion object {
         /** Per-sport tool inventory. Accents mirror each tool's page accent. */
         val registry: Map<GamesStore.Sport, List<SportTool>> = mapOf(
+            GamesStore.Sport.nfl to listOf(
+                SportTool(
+                    id = "nfl-historical-trends", sport = GamesStore.Sport.nfl,
+                    title = "NFL Historical Trends", subtitle = "See how any bet type has performed",
+                    actionWord = "Open",
+                    primaryColor = Color(0xFF3B82F6), secondaryColor = Color(0xFF93C5FD),
+                    symbols = listOf("chart.bar.fill", "chart.line.uptrend.xyaxis", "calendar", "football.fill", "percent", "arrow.up.arrow.down", "clock.fill", "chart.xyaxis.line", "bolt.fill", "star.fill"),
+                    seed = 0.41, speedFactor = 0.98, yJitter = -0.02f,
+                    category = OutliersStore.Category.nflHistoricalAnalysis,
+                ),
+            ),
+            GamesStore.Sport.cfb to listOf(
+                SportTool(
+                    id = "cfb-historical-trends", sport = GamesStore.Sport.cfb,
+                    title = "CFB Historical Trends", subtitle = "See how any bet type has performed",
+                    actionWord = "Open",
+                    primaryColor = Color(0xFFF59E0B), secondaryColor = Color(0xFFFCD34D),
+                    symbols = listOf("chart.bar.fill", "chart.line.uptrend.xyaxis", "calendar", "graduationcap.fill", "percent", "arrow.up.arrow.down", "clock.fill", "chart.xyaxis.line", "bolt.fill", "star.fill"),
+                    seed = 0.52, speedFactor = 1.0, yJitter = -0.02f,
+                    category = OutliersStore.Category.cfbHistoricalAnalysis,
+                ),
+            ),
             GamesStore.Sport.mlb to listOf(
                 SportTool(
                     id = "mlb-regression-report", sport = GamesStore.Sport.mlb,

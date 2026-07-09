@@ -3,6 +3,7 @@ package com.wagerproof.app.features.outliers
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,7 +46,7 @@ fun OutliersHowToBanner(modifier: Modifier = Modifier) {
     var showLearnMore by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(16.dp)
 
-    Row(
+    Box(
         modifier
             .fillMaxWidth()
             .clip(shape)
@@ -60,27 +61,37 @@ fun OutliersHowToBanner(modifier: Modifier = Modifier) {
             )
             .clickable { showLearnMore = true }
             .padding(horizontal = 16.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("How Outliers work", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-            Text(
-                "Spot the setup before the outcome",
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 13.sp,
-            )
+        Row(
+            Modifier.align(Alignment.TopEnd).padding(end = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(13.dp),
+        ) {
+            listOf("dot.radiowaves.left.and.right", "scope", "bolt.fill", "target").forEachIndexed { index, symbol ->
+                Icon(
+                    outlierSymbol(symbol),
+                    null,
+                    tint = Color.White.copy(alpha = 0.12f + index * 0.025f),
+                    modifier = Modifier.size((18 + index * 3).dp),
+                )
+            }
         }
         Row(
-            Modifier
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.2f))
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Learn more", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Icon(outlierSymbol("chevron.right"), null, tint = Color.White, modifier = Modifier.size(11.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("How Outliers work", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("Spot the setup before the outcome", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
+            }
+            Row(
+                Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.2f)).padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Learn more", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Icon(outlierSymbol("chevron.right"), null, tint = Color.White, modifier = Modifier.size(11.dp))
+            }
         }
     }
 

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -47,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
+import com.wagerproof.app.features.paywall.CustomerCenterScreen
+import com.wagerproof.app.features.paywall.PaywallScreen
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
@@ -57,13 +60,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val APP_VERSION = "3.5.5 (40)"
+private const val APP_VERSION = "3.5.6 (49)"
 private const val CONTACT_MAILTO = "mailto:admin@wagerproof.bet?subject=Contact%20Us%20-%20WagerProof%20Mobile"
 private const val PRIVACY_URL = "https://wagerproof.bet/privacy-policy"
 private const val TERMS_URL = "https://wagerproof.bet/terms-and-conditions"
 
 /** Which settings sub-screen is presented over the main list. */
-private enum class SettingsModal { Discord, Widget, DeleteAccount, Developer }
+private enum class SettingsModal { Discord, Widget, DeleteAccount, Developer, Paywall, CustomerCenter }
 
 /**
  * Settings — port of iOS `Features/Settings/SettingsView` (doc 08 §4.2).
@@ -82,14 +85,16 @@ private enum class SettingsModal { Discord, Widget, DeleteAccount, Developer }
  * // gradient banners — the drifting-symbol animation engine is not ported.
  */
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val graph = appGraph()
     val auth = graph.auth
     val settings = graph.settings
     val revenueCat = graph.revenueCat
     val adminMode = graph.adminMode
     val proAccess = graph.proAccess
-    val tabStore = graph.mainTab
 
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
@@ -101,7 +106,6 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var isSigningOut by remember { mutableStateOf(false) }
     var notificationDeniedAlert by remember { mutableStateOf(false) }
     var didCopyUserId by remember { mutableStateOf(false) }
-    var upgradeStub by remember { mutableStateOf(false) }
 
     val userId = (auth.phase as? AuthStore.Phase.Authenticated)?.userId
 
@@ -122,13 +126,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
     LaunchedEffect(Unit) { settings.refreshNotificationPermission() }
 
-    Column(modifier = modifier.fillMaxSize().background(AppColors.appSurface)) {
+    Column(modifier = modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
         // Top bar — back pops the settings overlay (clears isSettingsPresented).
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = Spacing.xs, end = Spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { tabStore.isSettingsPresented = false }) {
+            IconButton(onClick = onDismiss) {
                 Icon(AppIcon.CHEVRON_LEFT.imageVector, contentDescription = "Back", tint = AppColors.appTextPrimary)
             }
             Text("Settings", style = AppTypography.title, color = AppColors.appTextPrimary)
@@ -166,8 +170,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                     actionWord = proAction,
                     gradient = listOf(Color(0xFFFF8000), Color(0xFFFFC74D)),
                     enabled = !proAccess.isLoading,
-                    // FIDELITY-WAIVER #250: no paywall / customer center UI on Android.
-                    onTap = { if (!proAccess.isLoading) upgradeStub = true },
+                    onTap = {
+                        if (!proAccess.isLoading) {
+                            modal = if (proAccess.isPro) SettingsModal.CustomerCenter else SettingsModal.Paywall
+                        }
+                    },
                 )
                 HeroBanner(
                     title = "Join our Discord",
@@ -329,29 +336,25 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         )
     }
 
-    if (upgradeStub) {
-        AlertDialog(
-            onDismissRequest = { upgradeStub = false },
-            title = { Text("Upgrade") },
-            text = { Text("Subscription management isn't available in this build yet.") },
-            confirmButton = { TextButton(onClick = { upgradeStub = false }) { Text("OK") } },
-            containerColor = AppColors.appSurfaceElevated,
-        )
-    }
-
     // --- Sub-screen overlays ---
     when (modal) {
-        SettingsModal.Discord -> Box(Modifier.fillMaxSize()) {
-            DiscordScreen(onDismiss = { modal = null }, onUpgrade = { modal = null; upgradeStub = true })
+        SettingsModal.Discord -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
+            DiscordScreen(onDismiss = { modal = null }, onUpgrade = { modal = SettingsModal.Paywall })
         }
-        SettingsModal.Widget -> Box(Modifier.fillMaxSize()) {
+        SettingsModal.Widget -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             WidgetHelpScreen(onDismiss = { modal = null })
         }
-        SettingsModal.DeleteAccount -> Box(Modifier.fillMaxSize()) {
+        SettingsModal.DeleteAccount -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             DeleteAccountScreen(onDismiss = { modal = null })
         }
-        SettingsModal.Developer -> Box(Modifier.fillMaxSize()) {
+        SettingsModal.Developer -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             DeveloperSettingsScreen(onDismiss = { modal = null })
+        }
+        SettingsModal.Paywall -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
+            PaywallScreen(onDismiss = { modal = null })
+        }
+        SettingsModal.CustomerCenter -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
+            CustomerCenterScreen(onDismiss = { modal = null })
         }
         null -> Unit
     }

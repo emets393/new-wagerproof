@@ -4,12 +4,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -87,33 +95,36 @@ fun PaywallScreen(
         }
     }
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppColors.appSurface),
+            .background(AppColors.appSurface)
+            .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        when (val state = loadState) {
-            LoadState.Loading -> LoadingState()
-            LoadState.Empty -> ErrorState(
-                icon = AppIcon.fromSystemName("shippingbox.fill")?.imageVector,
-                message = "No subscription options available at this time.",
-                onRetry = { reloadKey++ },
-            )
-            is LoadState.Failed -> ErrorState(
-                icon = AppIcon.fromSystemName("exclamationmark.triangle.fill")?.imageVector,
-                message = state.message,
-                onRetry = { reloadKey++ },
-            )
-            LoadState.Ready -> {
-                val current = offering
-                if (current != null) {
-                    val options = remember(current) {
+        PaywallHeader(title = "Upgrade to WagerProof Pro", onDismiss = onDismiss)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when (val state = loadState) {
+                LoadState.Loading -> LoadingState()
+                LoadState.Empty -> ErrorState(
+                    icon = AppIcon.fromSystemName("shippingbox.fill")?.imageVector,
+                    message = "No subscription options available at this time.",
+                    onRetry = { reloadKey++ },
+                )
+                is LoadState.Failed -> ErrorState(
+                    icon = AppIcon.fromSystemName("exclamationmark.triangle.fill")?.imageVector,
+                    message = state.message,
+                    onRetry = { reloadKey++ },
+                )
+                LoadState.Ready -> {
+                    val current = offering
+                    if (current != null) {
+                        val options = remember(current) {
                         // RECONCILE: verify against RevenueCatUI 9.7.0 —
                         // PaywallOptions.Builder(dismissRequest), .setOffering,
                         // .setListener, .setShouldDisplayDismissButton, .build().
-                        PaywallOptions.Builder(dismissRequest = { onDismiss() })
+                        PaywallOptions.Builder(dismissRequest = onDismiss)
                             .setOffering(current)
-                            .setShouldDisplayDismissButton(true)
+                            .setShouldDisplayDismissButton(false)
                             .setListener(object : PaywallListener {
                                 override fun onPurchaseCompleted(
                                     customerInfo: CustomerInfo,
@@ -128,8 +139,30 @@ fun PaywallScreen(
                             })
                             .build()
                     }
-                    Paywall(options)
+                        Paywall(options)
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun PaywallHeader(title: String, onDismiss: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().height(56.dp).padding(start = Spacing.lg, end = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            title,
+            style = AppTypography.headline,
+            color = AppColors.appTextPrimary,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onDismiss) {
+            AppIcon.fromSystemName("xmark")?.imageVector?.let {
+                Icon(it, contentDescription = "Close", tint = AppColors.appTextPrimary, modifier = Modifier.size(18.dp))
             }
         }
     }

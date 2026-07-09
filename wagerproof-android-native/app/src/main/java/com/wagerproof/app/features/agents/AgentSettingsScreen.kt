@@ -7,14 +7,20 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,6 +53,8 @@ import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.agents.creation.WizardSectionCard
 import com.wagerproof.app.features.agents.creation.WizardSectionFooter
 import com.wagerproof.app.features.agents.creation.WizardSectionHeader
+import com.wagerproof.app.features.agents.creation.GroupedFormDivider
+import com.wagerproof.app.features.agents.creation.ChoiceRail
 import com.wagerproof.app.features.agents.creation.inputs.OddsInput
 import com.wagerproof.app.features.agents.creation.inputs.OddsInputType
 import com.wagerproof.app.features.agents.creation.inputs.SliderInput
@@ -62,6 +70,7 @@ import com.wagerproof.core.models.AgentSport
 import com.wagerproof.core.models.serialization.WagerproofJson
 import com.wagerproof.core.stores.AgentDetailStore
 import com.wagerproof.core.stores.AgentEntitlementsStore
+import com.wagerproof.core.stores.LoadState
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -83,7 +92,7 @@ private val colorOptions = listOf(
     "#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b",
     "#ef4444", "#ec4899", "#6366f1", "#14b8a6", "#f97316",
 )
-private val betTypes = listOf("any" to "Any", "spread" to "Spread", "moneyline" to "ML", "total" to "Total")
+private val betTypes = listOf("any" to "Any", "spread" to "Spread", "moneyline" to "ML", "total" to "Total", "prop" to "Props")
 
 /**
  * Owner-only full settings editor. iOS `AgentSettingsView`. Saves through the
@@ -169,14 +178,29 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
     }
 
     val hasFootball = sports.contains(AgentSport.NFL) || sports.contains(AgentSport.CFB)
+    val hasNFL = sports.contains(AgentSport.NFL)
     val hasBasketball = sports.contains(AgentSport.NBA) || sports.contains(AgentSport.NCAAB)
     val hasNBA = sports.contains(AgentSport.NBA)
     val hasNCAAB = sports.contains(AgentSport.NCAAB)
+    val marketOptions = listOf(
+        "spread" to "Spread",
+        "moneyline" to "Moneyline",
+        "total" to "Total",
+        "team_total" to "Team Total",
+    ) + if (hasNFL) listOf("prop" to "Player Props") else emptyList()
+    val effectiveMarkets = (
+        personality.allowedMarkets?.takeIf { it.isNotEmpty() } ?: marketOptions.map { it.first }
+        ).toSet()
 
-    Column(modifier.fillMaxSize().background(AppColors.appSurface)) {
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(AppColors.appSurface)
+            .imePadding(),
+    ) {
         // Top bar with Save.
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = { nav.popAgents() }) {
@@ -193,14 +217,15 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
             }
         }
 
-        Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        ) {
+        when {
+            store.snapshot?.agent != null -> Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            ) {
             // Identity
             WizardSectionHeader("Identity")
             WizardSectionCard {
                 SettingsTextField(value = name, onValueChange = { name = it; hasChanges = true }, placeholder = "Agent name", singleLine = true)
-                Spacer(Modifier.height(10.dp))
+                GroupedFormDivider()
                 Text("Character", color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -220,7 +245,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+                GroupedFormDivider()
                 Text("Color", color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -243,7 +268,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
             // Sports
             WizardSectionHeader("Sports")
             WizardSectionCard {
-                AgentSport.entries.forEach { sport ->
+                AgentSport.entries.forEachIndexed { index, sport ->
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             sports = if (sports.contains(sport)) {
@@ -259,6 +284,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                         Spacer(Modifier.weight(1f))
                         if (sports.contains(sport)) Icon(agentSymbol("checkmark"), contentDescription = null, tint = AppColors.brandGreenBright, modifier = Modifier.size(14.dp))
                     }
+                    if (index != AgentSport.entries.lastIndex) GroupedFormDivider()
                 }
             }
             WizardSectionFooter("Pick at least one sport this agent should cover.")
@@ -267,11 +293,17 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
             WizardSectionHeader("Core Personality")
             WizardSectionCard {
                 SliderInput(personality.riskTolerance, { mutatePersonality { p -> p.copy(riskTolerance = it) } }, "Risk Tolerance", riskLabels, description = "How much risk is your agent willing to take?")
+                GroupedFormDivider()
                 SliderInput(personality.underdogLean, { mutatePersonality { p -> p.copy(underdogLean = it) } }, "Underdog Lean", underdogLabels, description = "Does your agent prefer favorites or underdogs?")
+                GroupedFormDivider()
                 SliderInput(personality.overUnderLean, { mutatePersonality { p -> p.copy(overUnderLean = it) } }, "Over/Under Lean", overUnderLabels, description = "Does your agent lean towards overs or unders on totals?")
+                GroupedFormDivider()
                 SliderInput(personality.confidenceThreshold, { mutatePersonality { p -> p.copy(confidenceThreshold = it) } }, "Confidence Threshold", confidenceLabels, description = "How confident should your agent be before making a pick?")
+                GroupedFormDivider()
                 ToggleInput(personality.chaseValue, { mutatePersonality { p -> p.copy(chaseValue = it) } }, "Chase Value", description = "Seek out bets where odds exceed model probability (positive expected value)")
+                GroupedFormDivider()
                 SliderInput(personality.parlayAppetite, { mutatePersonality { p -> p.copy(parlayAppetite = it) } }, "Parlay Appetite", parlayLabels, description = "Can your agent combine its best plays into multi-leg parlays?")
+                GroupedFormDivider()
                 ToggleInput(personality.parlaysOnly, { mutatePersonality { p -> p.copy(parlaysOnly = it) } }, "Parlays Only", description = "Force every play into multi-leg parlay tickets — the agent never submits straight picks")
             }
 
@@ -281,16 +313,93 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                 Text("Preferred Bet Type", color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
                 SegmentedBetType(personality.preferredBetType) { mutatePersonality { p -> p.copy(preferredBetType = it) } }
-                Spacer(Modifier.height(8.dp))
+                GroupedFormDivider()
                 SliderInput(personality.maxPicksPerDay, { mutatePersonality { p -> p.copy(maxPicksPerDay = it) } }, "Max Picks Per Day", maxPicksLabels, description = "Maximum number of picks your agent will make on any given day")
+                GroupedFormDivider()
                 ToggleInput(personality.skipWeakSlates, { mutatePersonality { p -> p.copy(skipWeakSlates = it) } }, "Skip Weak Slates", description = "Pass on days with few games or poor betting opportunities")
             }
+
+            // Weekly football ticket (separate server-side 3/week budget).
+            WizardSectionHeader("Weekly Parlays")
+            WizardSectionCard {
+                ToggleInput(
+                    value = personality.weeklyParlayEnabled == true,
+                    onValueChange = { enabled ->
+                        mutatePersonality { p ->
+                            p.copy(
+                                weeklyParlayEnabled = enabled,
+                                weeklyParlayLegs = if (enabled) p.weeklyParlayLegs ?: 4 else p.weeklyParlayLegs,
+                            )
+                        }
+                    },
+                    label = "Weekly Parlay",
+                    description = "Each football week, build one NFL/CFB parlay that stays live through Monday night.",
+                    enabled = hasFootball,
+                )
+                if (hasFootball && personality.weeklyParlayEnabled == true) {
+                    GroupedFormDivider()
+                    SliderInput(
+                        value = ((personality.weeklyParlayLegs ?: 4) - 1).coerceIn(1, 5),
+                        onValueChange = { value ->
+                            mutatePersonality { p -> p.copy(weeklyParlayLegs = (value + 1).coerceIn(2, 6)) }
+                        },
+                        label = "Weekly Parlay Legs",
+                        labels = listOf("2 legs", "3 legs", "4 legs", "5 legs", "6 legs"),
+                        description = "How many legs the week-long ticket should target",
+                    )
+                }
+            }
+            WizardSectionFooter(
+                if (hasFootball) "Weekly parlays use a separate 3-per-football-week generation budget."
+                else "Add NFL or CFB to enable week-long parlays.",
+            )
+
+            WizardSectionHeader("Markets & Props")
+            WizardSectionCard {
+                marketOptions.forEachIndexed { index, (key, label) ->
+                    val checked = key in effectiveMarkets
+                    Row(
+                        Modifier.fillMaxWidth().clickable {
+                            val next = effectiveMarkets.toMutableSet()
+                            if (checked && next.size > 1) next.remove(key) else next.add(key)
+                            val ordered = marketOptions.map { it.first }.filter { it in next }
+                            mutatePersonality { p -> p.copy(allowedMarkets = ordered) }
+                        }.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(label, color = AppColors.appTextPrimary, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        if (checked) Icon(agentSymbol("checkmark"), contentDescription = null, tint = AppColors.brandGreenBright)
+                    }
+                    if (index != marketOptions.lastIndex) GroupedFormDivider()
+                }
+                if (hasNFL && "prop" in effectiveMarkets) {
+                    GroupedFormDivider()
+                    Text(
+                        "Player Props Emphasis",
+                        color = AppColors.appTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    ChoiceRail(
+                        entries = listOf("off" to "Off", "allow" to "Allow", "emphasize" to "Emphasize"),
+                        selected = personality.propsEmphasis ?: "allow",
+                        onSelect = { value -> mutatePersonality { p -> p.copy(propsEmphasis = value) } },
+                    )
+                }
+            }
+            WizardSectionFooter(
+                if (hasNFL) "Player props are NFL-only and signal-gated."
+                else "Add NFL to enable player props.",
+            )
 
             // Data Trust
             WizardSectionHeader("Data Trust")
             WizardSectionCard {
                 SliderInput(personality.trustModel, { mutatePersonality { p -> p.copy(trustModel = it) } }, "Trust WagerProof Model", trustLabels, description = "How much weight to give our predictive model's probabilities")
+                GroupedFormDivider()
                 SliderInput(personality.trustPolymarket, { mutatePersonality { p -> p.copy(trustPolymarket = it) } }, "Trust Polymarket", trustLabels, description = "How much weight to give Polymarket prediction market odds")
+                GroupedFormDivider()
                 ToggleInput(personality.polymarketDivergenceFlag, { mutatePersonality { p -> p.copy(polymarketDivergenceFlag = it) } }, "Polymarket Divergence Flag", description = "Flag games where Polymarket significantly differs from Vegas lines")
             }
 
@@ -298,6 +407,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
             WizardSectionHeader("Odds Limits")
             WizardSectionCard {
                 OddsInput(personality.maxFavoriteOdds, { mutatePersonality { p -> p.copy(maxFavoriteOdds = it) } }, "Max Favorite Odds", OddsInputType.FAVORITE)
+                GroupedFormDivider()
                 OddsInput(personality.minUnderdogOdds, { mutatePersonality { p -> p.copy(minUnderdogOdds = it) } }, "Min Underdog Odds", OddsInputType.UNDERDOG)
             }
 
@@ -307,10 +417,13 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                 WizardSectionCard {
                     ToggleInput((personality.fadePublic ?: false), { mutatePersonality { p -> p.copy(fadePublic = it) } }, "Fade the Public", description = "Bet against heavy public action on one side")
                     if (personality.fadePublic == true) {
+                        GroupedFormDivider()
                         SliderInput(personality.publicThreshold ?: 3, { mutatePersonality { p -> p.copy(publicThreshold = it) } }, "Public Threshold", publicThresholdLabels, description = "Percentage of public bets required to trigger a fade")
                     }
+                    GroupedFormDivider()
                     ToggleInput((personality.weatherImpactsTotals ?: false), { mutatePersonality { p -> p.copy(weatherImpactsTotals = it) } }, "Weather Impacts Totals", description = "Factor in weather conditions for total bets (wind, rain, snow)")
                     if (personality.weatherImpactsTotals == true) {
+                        GroupedFormDivider()
                         SliderInput(personality.weatherSensitivity ?: 3, { mutatePersonality { p -> p.copy(weatherSensitivity = it) } }, "Weather Sensitivity", sensitivityLabels, description = "How aggressively to adjust for weather conditions")
                     }
                 }
@@ -322,7 +435,9 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                 WizardSectionHeader("Basketball Settings")
                 WizardSectionCard {
                     SliderInput(personality.trustTeamRatings ?: 3, { mutatePersonality { p -> p.copy(trustTeamRatings = it) } }, "Trust Team Ratings", trustLabels, description = "How much to trust advanced team ratings (e.g., NET, KenPom)")
+                    GroupedFormDivider()
                     ToggleInput((personality.paceAffectsTotals ?: false), { mutatePersonality { p -> p.copy(paceAffectsTotals = it) } }, "Pace Affects Totals", description = "Factor team pace into over/under decisions")
+                    GroupedFormDivider()
                     ToggleInput((personality.fadeBackToBacks ?: false), { mutatePersonality { p -> p.copy(fadeBackToBacks = it) } }, "Fade Back-to-Backs", description = "Bet against teams playing on consecutive days")
                 }
                 WizardSectionFooter("Basketball-specific betting conditions")
@@ -333,9 +448,13 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                 WizardSectionHeader("NBA Trends")
                 WizardSectionCard {
                     SliderInput(personality.weightRecentForm ?: 3, { mutatePersonality { p -> p.copy(weightRecentForm = it) } }, "Weight Recent Form", recentFormLabels, description = "How much to weigh a team's last 10 games vs. season averages")
+                    GroupedFormDivider()
                     ToggleInput((personality.rideHotStreaks ?: false), { mutatePersonality { p -> p.copy(rideHotStreaks = it) } }, "Ride Hot Streaks", description = "Bet on teams that are winning consistently")
+                    GroupedFormDivider()
                     ToggleInput((personality.fadeColdStreaks ?: false), { mutatePersonality { p -> p.copy(fadeColdStreaks = it) } }, "Fade Cold Streaks", description = "Bet against teams that are losing consistently")
+                    GroupedFormDivider()
                     ToggleInput((personality.trustAtsTrends ?: false), { mutatePersonality { p -> p.copy(trustAtsTrends = it) } }, "Trust ATS Trends", description = "Factor in against-the-spread performance trends")
+                    GroupedFormDivider()
                     ToggleInput((personality.regressLuck ?: false), { mutatePersonality { p -> p.copy(regressLuck = it) } }, "Regress Luck", description = "Expect teams on hot/cold streaks to regress to the mean")
                 }
                 WizardSectionFooter("NBA-specific trend and streak analysis")
@@ -346,6 +465,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
             WizardSectionCard {
                 SliderInput(personality.homeCourtBoost, { mutatePersonality { p -> p.copy(homeCourtBoost = it) } }, "Home Court/Field Boost", homeBoostLabels, description = "How much extra weight to give home teams")
                 if (hasNCAAB) {
+                    GroupedFormDivider()
                     ToggleInput((personality.upsetAlert ?: false), { mutatePersonality { p -> p.copy(upsetAlert = it) } }, "Upset Alert", description = "Flag potential March Madness upsets based on tournament trends")
                 }
             }
@@ -384,6 +504,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                     )
                 }
                 if (autoGenerate) {
+                    GroupedFormDivider()
                     Row(
                         Modifier.fillMaxWidth().clickable { showTimePicker = true }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -436,7 +557,20 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
             }
             WizardSectionFooter("Deleting is permanent. Picks and performance history are lost.")
 
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+            }
+            store.snapshotLoadState is LoadState.Failed -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Couldn't load settings", color = AppColors.appTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
+                    Text((store.snapshotLoadState as LoadState.Failed).message, color = AppColors.appTextSecondary, fontSize = 13.sp)
+                    TextButton(onClick = { scope.launch { store.refreshSnapshot(); store.snapshot?.agent?.let { hydrate(it) } } }) { Text("Try Again") }
+                }
+            }
+            else -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = AppColors.appPrimary)
+            }
         }
     }
 

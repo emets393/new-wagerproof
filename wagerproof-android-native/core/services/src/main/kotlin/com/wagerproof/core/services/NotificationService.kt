@@ -1,9 +1,13 @@
 package com.wagerproof.core.services
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.ActivityManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Process
 import androidx.core.app.NotificationChannelCompat
@@ -128,6 +132,7 @@ object NotificationService {
      * page already shows the result live. [isAppForeground] is injectable so
      * callers with lifecycle awareness (ProcessLifecycleOwner) can pass truth.
      */
+    @SuppressLint("MissingPermission") // Permission is checked immediately before notify().
     fun postGenerationFinishedNotification(
         agentId: String,
         agentName: String,
@@ -141,6 +146,15 @@ object NotificationService {
         if (permissionStatus() != PermissionStatus.GRANTED) return
 
         val context = AppGroup.context
+        // Keep the permission check in the same call frame as notify() so lint
+        // and the platform both see the runtime guard. permissionStatus() also
+        // checks the app/channel toggle; this closes the revocation race.
+        if (Build.VERSION.SDK_INT >= 33 &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         val (title, body) = if (succeeded) {
             val parts = buildList {
                 if (picksGenerated > 0) add("$picksGenerated pick${if (picksGenerated == 1) "" else "s"}")
@@ -157,6 +171,15 @@ object NotificationService {
 
         val manager = NotificationManagerCompat.from(context)
         ensureChannel(manager)
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            agentId.hashCode(),
+            Intent(Intent.ACTION_VIEW, Uri.parse("wagerproof://agents")).apply {
+                setPackage(context.packageName)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             // No drawable resources in this module — borrow the app icon.
@@ -166,6 +189,7 @@ object NotificationService {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setDefaults(NotificationCompat.DEFAULT_SOUND)
             .setAutoCancel(true)
+            .setContentIntent(contentIntent)
             .addExtras(bundleOf("avatar_id" to agentId, "type" to "generation_finished"))
             .build()
 

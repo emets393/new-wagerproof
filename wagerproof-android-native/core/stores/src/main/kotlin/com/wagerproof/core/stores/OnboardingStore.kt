@@ -29,6 +29,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Port of iOS `OnboardingStore.swift`. Owns the onboarding wizard's entire
@@ -42,6 +44,11 @@ import kotlinx.serialization.json.Json
 @Stable
 class OnboardingStore {
 
+    sealed interface RemoteResetResult {
+        data object Success : RemoteResetResult
+        data class Failure(val message: String) : RemoteResetResult
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /**
@@ -54,12 +61,12 @@ class OnboardingStore {
      */
     enum class Step(val raw: Int) {
         TERMS(1),
-        SPORTS_SELECTION(2),
-        SPORTS_SHOWCASE(3),
-        BETTOR_TYPE(4),
-        PERSONALIZED_VALUE(5),
-        ACQUISITION_SOURCE(6),
-        PRIMARY_GOAL(7),
+        BETTOR_TYPE(2),
+        BETTING_PITFALLS(3),
+        PERSONALIZED_VALUE(4),
+        ACQUISITION_SOURCE(5),
+        PRIMARY_GOAL(6),
+        AGENT_HQ(7),
         AGENT_VALUE_INTRO(8),
         AGENT_VALUE_PROOF(9),
         ATT_PRIMING(10),
@@ -104,6 +111,8 @@ class OnboardingStore {
     @Serializable
     data class SurveyAnswers(
         val favoriteSports: List<String> = emptyList(),
+        /** Multi-select; an empty answer is valid. */
+        val bettingPitfalls: List<String> = emptyList(),
         /** Dormant since the v2 redesign; kept so older payloads keep their shape. Never set. */
         val age: Int? = null,
         val bettorType: BettorType? = null,
@@ -277,7 +286,6 @@ class OnboardingStore {
     /** The single validation surface the carousel container consults per step. */
     fun canAdvance(step: Step): Boolean = when (step) {
         Step.TERMS -> hasCheckedTerms
-        Step.SPORTS_SELECTION -> survey.favoriteSports.isNotEmpty()
         Step.BETTOR_TYPE -> survey.bettorType != null
         Step.ACQUISITION_SOURCE -> survey.acquisitionSource != null
         Step.PRIMARY_GOAL -> survey.mainGoal != null
@@ -287,7 +295,7 @@ class OnboardingStore {
             val trimmed = agentDraft.name.trim()
             trimmed.isNotEmpty() && trimmed.length <= 50
         }
-        Step.SPORTS_SHOWCASE, Step.PERSONALIZED_VALUE, Step.AGENT_VALUE_INTRO,
+        Step.BETTING_PITFALLS, Step.AGENT_HQ, Step.PERSONALIZED_VALUE, Step.AGENT_VALUE_INTRO,
         Step.AGENT_VALUE_PROOF, Step.ATT_PRIMING,
         Step.BUILDER_MINDSET, Step.BUILDER_BET_STYLE, Step.BUILDER_DATA_TRUST,
         Step.BUILDER_SPORT_RULES, Step.BUILDER_INSIGHTS,
@@ -304,6 +312,13 @@ class OnboardingStore {
         val current = survey.favoriteSports
         survey = survey.copy(
             favoriteSports = if (current.contains(sport)) current - sport else current + sport,
+        )
+    }
+
+    fun toggleBettingPitfall(pitfall: String) {
+        val current = survey.bettingPitfalls
+        survey = survey.copy(
+            bettingPitfalls = if (current.contains(pitfall)) current - pitfall else current + pitfall,
         )
     }
 
@@ -399,6 +414,37 @@ class OnboardingStore {
         resetToStart()
     }
 
+    /**
+     * Developer-tools reset with the same ordering as iOS Secret Settings:
+     * clear `profiles.onboarding_completed` first, then reset the per-user
+     * local cache and all in-memory wizard state. A server failure leaves the
+     * local completion flag intact so background reconciliation cannot race
+     * the user back to Ready after a seemingly-successful reset.
+     */
+    suspend fun resetRemoteAndLocal(): RemoteResetResult {
+        val userId = attachedUserId
+            ?: return RemoteResetResult.Failure("You must be logged in to reset onboarding")
+        return try {
+            SupabaseClients.main.from("profiles").update(
+                buildJsonObject { put("onboarding_completed", false) },
+            ) {
+                filter { eq("user_id", userId) }
+            }
+            // Re-check scoping after suspension: never reset a replacement
+            // account that signed in while the update was in flight.
+            if (attachedUserId != userId) {
+                RemoteResetResult.Failure("The signed-in account changed during reset")
+            } else {
+                reset()
+                RemoteResetResult.Success
+            }
+        } catch (error: Throwable) {
+            RemoteResetResult.Failure(
+                error.message?.takeIf { it.isNotBlank() } ?: "Failed to reset onboarding",
+            )
+        }
+    }
+
     // MARK: - Background sync
 
     /** Fire-and-forget profile sync; never blocks UI. Failure intentionally swallowed. */
@@ -409,6 +455,7 @@ class OnboardingStore {
             val payload = OnboardingSyncPayload(
                 onboardingData = OnboardingDataPayload(
                     favoriteSports = survey.favoriteSports,
+                    bettingPitfalls = survey.bettingPitfalls,
                     age = survey.age,
                     bettorType = survey.bettorType?.raw,
                     mainGoal = survey.mainGoal,
@@ -456,6 +503,7 @@ class OnboardingStore {
     @Serializable
     private data class OnboardingDataPayload(
         val favoriteSports: List<String>,
+        val bettingPitfalls: List<String> = emptyList(),
         val age: Int? = null,
         val bettorType: String? = null,
         val mainGoal: String? = null,

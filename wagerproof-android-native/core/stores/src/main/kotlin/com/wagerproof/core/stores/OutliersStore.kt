@@ -45,6 +45,8 @@ class OutliersStore {
         nbaAccuracy("nba-accuracy", "NBA Model Accuracy"),
         ncaabAccuracy("ncaab-accuracy", "NCAAB Model Accuracy"),
         mlbRegression("mlb-regression", "MLB Regression Report"),
+        nflHistoricalAnalysis("nfl-historical-analysis", "NFL Historical Trends"),
+        cfbHistoricalAnalysis("cfb-historical-analysis", "CFB Historical Trends"),
     }
 
     // MARK: - Observable state

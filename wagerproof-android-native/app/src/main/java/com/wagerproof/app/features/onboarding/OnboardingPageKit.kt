@@ -2,6 +2,7 @@ package com.wagerproof.app.features.onboarding
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +44,7 @@ import com.wagerproof.app.features.onboarding.components.onboardingIcon
 import com.wagerproof.core.design.backgrounds.LocalGlyphRippleEmitter
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.tokens.AppColors
+import kotlinx.coroutines.delay
 
 // Shared primitives for the onboarding carousel pages — port of iOS
 // `Pages/OnboardingPageKit.swift`. Entrance choreography gated on page
@@ -59,12 +62,18 @@ import com.wagerproof.core.design.tokens.AppColors
  */
 fun Modifier.pageEntrance(index: Int): Modifier = composed {
     val active = LocalOnboardingPageIsActive.current
+    val reduceMotion = LocalOnboardingReduceMotion.current
     var shown by remember { mutableStateOf(false) }
-    if (active && !shown) shown = true
+    LaunchedEffect(active) {
+        if (active && !shown) {
+            if (!reduceMotion) delay(minOf(index, 8) * 60L)
+            shown = true
+        }
+    }
     val progress by animateFloatAsState(
         targetValue = if (shown) 1f else 0f,
         // response 0.45 → stiffness (2π/0.45)² ≈ 195; keep the iOS damping.
-        animationSpec = spring(dampingRatio = 0.85f, stiffness = 195f),
+        animationSpec = if (reduceMotion) snap() else spring(dampingRatio = 0.85f, stiffness = 195f),
         label = "onboardingPageEntrance",
     )
     this

@@ -5,6 +5,11 @@ import androidx.compose.material.icons.filled.SportsBaseball
 import androidx.compose.material.icons.filled.SportsBasketball
 import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.ArrowCircleUp
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.AttachMoney
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.Dangerous
@@ -21,6 +26,24 @@ import androidx.compose.material.icons.rounded.SportsBar
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material.icons.rounded.Circle
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.GpsFixed
+import androidx.compose.material.icons.rounded.HeartBroken
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.MedicalServices
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.TrendingDown
+import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Update
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.wagerproof.core.design.icons.AppIcon
 
@@ -57,6 +80,29 @@ fun onboardingIcon(systemName: String): ImageVector {
         "waveform" -> Icons.Rounded.GraphicEq
         "bolt.fill" -> Icons.Rounded.Bolt
         "calendar.badge.clock" -> Icons.Rounded.EventBusy
+        "target" -> Icons.Rounded.GpsFixed
+        "brain.head.profile" -> Icons.Rounded.Psychology
+        "chart.line.uptrend.xyaxis", "chart.bar.fill" -> Icons.Rounded.TrendingUp
+        "chart.line.downtrend.xyaxis" -> Icons.Rounded.TrendingDown
+        "dollarsign.circle.fill" -> Icons.Rounded.AttachMoney
+        "trophy.fill" -> Icons.Rounded.EmojiEvents
+        "clock.arrow.2.circlepath" -> Icons.Rounded.Update
+        "cpu" -> Icons.Rounded.Memory
+        "arrow.triangle.2.circlepath" -> Icons.Rounded.Sync
+        "flame.fill" -> Icons.Rounded.LocalFireDepartment
+        "link" -> Icons.Rounded.Link
+        "banknote.fill" -> Icons.Rounded.Payments
+        "heart.fill" -> Icons.Rounded.Favorite
+        "heart.slash.fill" -> Icons.Rounded.HeartBroken
+        "arrow.up.right.circle.fill" -> Icons.Rounded.ArrowCircleUp
+        "cross.case.fill" -> Icons.Rounded.MedicalServices
+        "checkmark.circle.fill", "checkmark.seal.fill" -> Icons.Rounded.CheckCircle
+        "xmark.circle.fill" -> Icons.Rounded.Cancel
+        "wand.and.stars" -> Icons.Rounded.AutoAwesome
+        "slider.horizontal.3" -> Icons.Rounded.Tune
+        "book.fill" -> Icons.Rounded.MenuBook
+        "bell.badge.fill" -> Icons.Rounded.NotificationsActive
+        "arrow.up" -> Icons.Rounded.ArrowUpward
         else -> Icons.Rounded.Circle
     }
 }

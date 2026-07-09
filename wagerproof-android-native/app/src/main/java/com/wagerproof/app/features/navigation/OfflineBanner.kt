@@ -116,7 +116,12 @@ fun rememberIsConnected(): State<Boolean> {
         val callback = object : ConnectivityManager.NetworkCallback() {
             // Any usable network → connected. onLost fires when the last one drops.
             override fun onAvailable(network: Network) {
-                state.value = true
+                state.value = currentlyConnected(context)
+            }
+
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                state.value = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
             }
 
             override fun onLost(network: Network) {
@@ -134,5 +139,6 @@ private fun currentlyConnected(context: Context): Boolean {
     val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         ?: return true
     val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
-    return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 }

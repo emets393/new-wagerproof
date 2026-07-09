@@ -97,12 +97,15 @@ private fun mlbOuEdge(game: MLBGame): GameRowCardModel.OUEdgeInfo? {
         val isOver = direction.uppercase() == "OVER"
         val fair = game.ouFairTotal
         val line = game.totalLine
-        val delta = if (fair != null && line != null) fair - line else 0.0
+        val delta = if (fair != null && line != null) fair - line else null
         val edgeMag = abs(game.ouEdge ?: 0.0)
         return GameRowCardModel.OUEdgeInfo(
             isOver = isOver,
             delta = delta,
-            probability = 0.5,
+            // MLB does not publish a directional confidence here. Showing a
+            // fabricated 50% made every Android row longer and contradicted
+            // the iOS card, which intentionally omits this value.
+            probability = null,
             color = GameEdgeMath.edgeColor(edgeMag),
         )
     }

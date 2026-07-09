@@ -33,9 +33,21 @@ class AuthStore(
         data class Authenticated(val userId: String) : Phase
     }
 
+    enum class AccountDeletionFailureKind { NoSession, Server, MalformedResponse, Unexpected, AlreadyInProgress }
+
+    sealed interface AccountDeletionResult {
+        data object Success : AccountDeletionResult
+        data class Failure(
+            val message: String,
+            val kind: AccountDeletionFailureKind,
+            val statusCode: Int? = null,
+        ) : AccountDeletionResult
+    }
+
     var phase by mutableStateOf<Phase>(Phase.Launching); private set
     var profile by mutableStateOf<Profile?>(null); private set
     var lastError by mutableStateOf<String?>(null); private set
+    var isDeletingAccount by mutableStateOf(false); private set
 
     /** Monotonic-ish success stamp; views use it as a haptic trigger. */
     var lastSuccessAt by mutableStateOf<Long?>(null); private set
@@ -79,6 +91,50 @@ class AuthStore(
         runCatching { service.signOut() }
             .onSuccess { phase = Phase.Unauthenticated; profile = null }
             .onFailure { lastError = message(it) }
+    }
+
+    /**
+     * Delete the server account and then clear local auth state. A failed edge
+     * call leaves the session intact so the user can retry or contact support.
+     */
+    suspend fun deleteAccount(): AccountDeletionResult {
+        if (isDeletingAccount) {
+            return AccountDeletionResult.Failure(
+                message = "Account deletion is already in progress.",
+                kind = AccountDeletionFailureKind.AlreadyInProgress,
+            )
+        }
+
+        isDeletingAccount = true
+        return try {
+            service.deleteAccount()
+            phase = Phase.Unauthenticated
+            profile = null
+            lastError = null
+            AccountDeletionResult.Success
+        } catch (error: AuthService.AccountDeletionException) {
+            val kind = when (error) {
+                is AuthService.AccountDeletionException.NoSession -> AccountDeletionFailureKind.NoSession
+                is AuthService.AccountDeletionException.Server -> AccountDeletionFailureKind.Server
+                is AuthService.AccountDeletionException.MalformedResponse -> AccountDeletionFailureKind.MalformedResponse
+            }
+            val failure = AccountDeletionResult.Failure(
+                message = error.message ?: "Failed to delete account.",
+                kind = kind,
+                statusCode = error.statusCode,
+            )
+            lastError = failure.message
+            failure
+        } catch (error: Throwable) {
+            val failure = AccountDeletionResult.Failure(
+                message = message(error),
+                kind = AccountDeletionFailureKind.Unexpected,
+            )
+            lastError = failure.message
+            failure
+        } finally {
+            isDeletingAccount = false
+        }
     }
 
     suspend fun sendPasswordReset(email: String) {

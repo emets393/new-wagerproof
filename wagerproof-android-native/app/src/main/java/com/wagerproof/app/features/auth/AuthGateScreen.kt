@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.wagerproof.app.features.auth.Components.AuthGateBackground
+import com.wagerproof.core.design.components.LiquidGlassScene
 
 /**
  * Routes inside the unauthenticated stack — mirrors iOS `AuthRoute` plus the
@@ -45,35 +46,37 @@ fun AuthGateScreen(modifier: Modifier = Modifier) {
     // System back pops the internal stack while there's somewhere to go.
     BackHandler(enabled = backStack.size > 1) { pop() }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        AuthGateBackground()
+    LiquidGlassScene { sourceModifier ->
+        Box(modifier = modifier.fillMaxSize().then(sourceModifier)) {
+            AuthGateBackground()
 
-        AnimatedContent(
-            targetState = current,
-            transitionSpec = {
-                // Ordinal doubles as depth: deeper = push (slide from trailing).
-                val forward = targetState.ordinal > initialState.ordinal
-                if (forward) {
-                    (slideInHorizontally(tween(280)) { it / 3 } + fadeIn(tween(280))) togetherWith
-                        fadeOut(tween(200))
-                } else {
-                    fadeIn(tween(200)) togetherWith
-                        (slideOutHorizontally(tween(280)) { it / 3 } + fadeOut(tween(280)))
+            AnimatedContent(
+                targetState = current,
+                transitionSpec = {
+                    // Ordinal doubles as depth: deeper = push (slide from trailing).
+                    val forward = targetState.ordinal > initialState.ordinal
+                    if (forward) {
+                        (slideInHorizontally(tween(280)) { it / 3 } + fadeIn(tween(280))) togetherWith
+                            fadeOut(tween(200))
+                    } else {
+                        fadeIn(tween(200)) togetherWith
+                            (slideOutHorizontally(tween(280)) { it / 3 } + fadeOut(tween(280)))
+                    }
+                },
+                label = "auth-route",
+            ) { route ->
+                when (route) {
+                    AuthRoute.Login -> LoginView(
+                        onContinueWithEmail = { push(AuthRoute.EmailLogin) },
+                    )
+                    AuthRoute.EmailLogin -> EmailLoginView(
+                        onBack = ::pop,
+                        onNavigateSignup = { push(AuthRoute.Signup) },
+                        onNavigateForgot = { push(AuthRoute.ForgotPassword) },
+                    )
+                    AuthRoute.Signup -> SignupView(onBack = ::pop)
+                    AuthRoute.ForgotPassword -> ForgotPasswordView(onBack = ::pop)
                 }
-            },
-            label = "auth-route",
-        ) { route ->
-            when (route) {
-                AuthRoute.Login -> LoginView(
-                    onContinueWithEmail = { push(AuthRoute.EmailLogin) },
-                )
-                AuthRoute.EmailLogin -> EmailLoginView(
-                    onBack = ::pop,
-                    onNavigateSignup = { push(AuthRoute.Signup) },
-                    onNavigateForgot = { push(AuthRoute.ForgotPassword) },
-                )
-                AuthRoute.Signup -> SignupView(onBack = ::pop)
-                AuthRoute.ForgotPassword -> ForgotPasswordView(onBack = ::pop)
             }
         }
     }

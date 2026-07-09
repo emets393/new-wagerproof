@@ -1,20 +1,25 @@
 package com.wagerproof.core.services
 
 import android.content.Context
+import android.content.Intent
 import com.revenuecat.purchases.CustomerInfo
 import com.revenuecat.purchases.LogLevel
 import com.revenuecat.purchases.Offering
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
+import com.revenuecat.purchases.WebPurchaseRedemption
 import com.revenuecat.purchases.awaitCustomerInfo
 import com.revenuecat.purchases.awaitLogIn
 import com.revenuecat.purchases.awaitLogOut
 import com.revenuecat.purchases.awaitOfferings
 import com.revenuecat.purchases.awaitRestore
 import com.revenuecat.purchases.awaitSyncPurchases
+import com.revenuecat.purchases.interfaces.RedeemWebPurchaseListener
 import com.wagerproof.core.shared.AppGroup
 import com.wagerproof.core.shared.AppGroupKey
 import java.util.Date
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * RevenueCat SDK wrapper — port of iOS `RevenueCatService.swift`, which itself
@@ -26,9 +31,9 @@ import java.util.Date
  */
 object RevenueCatService {
 
-    // TODO: replace before shipping. iOS uses appl_TFQYZRtHkCBrnaILkniTjsulyHK;
-    // Android needs its own goog_ key from the same RevenueCat project dashboard.
-    const val REVENUECAT_API_KEY = "goog_TODO_REPLACE_FROM_DASHBOARD"
+    // Public client SDK key for the existing WagerProof Android RevenueCat app.
+    // This is intentionally the same value used by the shipping RN client.
+    const val REVENUECAT_API_KEY = "goog_cilRlGISDEjNmpNebMglZPXnPLb"
 
     const val ENTITLEMENT_IDENTIFIER = "WagerProof Pro"
 
@@ -50,6 +55,7 @@ object RevenueCatService {
      * Configure the SDK. Idempotent. Optional [userId] aliases the RC user
      * immediately (matches RN's `initializeRevenueCat(userId)` shape).
      */
+    @Synchronized
     fun bootstrap(context: Context, userId: String? = null) {
         if (configured) return
         if (BuildFlags.isDebugBuild) {
@@ -96,6 +102,22 @@ object RevenueCatService {
 
     suspend fun syncPurchases(): CustomerInfo =
         Purchases.sharedInstance.awaitSyncPurchases()
+
+    /**
+     * Parse a RevenueCat Web Billing deep link. A null result means the intent
+     * is unrelated to RevenueCat and should continue through normal routing.
+     */
+    fun webPurchaseRedemption(intent: Intent): WebPurchaseRedemption? =
+        Purchases.parseAsWebPurchaseRedemption(intent)
+
+    /** Redeem a Web Billing purchase and bridge RevenueCat's callback to coroutines. */
+    suspend fun redeemWebPurchase(
+        redemption: WebPurchaseRedemption,
+    ): RedeemWebPurchaseListener.Result = suspendCancellableCoroutine { continuation ->
+        Purchases.sharedInstance.redeemWebPurchase(redemption) { result ->
+            if (continuation.isActive) continuation.resume(result)
+        }
+    }
 
     // Helpers — mirror RN's entitlement checks so gating stays 1:1 across platforms.
 

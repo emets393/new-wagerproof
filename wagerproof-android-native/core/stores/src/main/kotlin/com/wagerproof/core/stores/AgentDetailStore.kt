@@ -58,6 +58,8 @@ class AgentDetailStore(agentId: String) {
         Lost("lost", "Lost"),
     }
 
+    enum class GenerationWindow { Day, Week }
+
     /** Result of watching a Trigger.dev run through to a terminal status. */
     private sealed interface TriggerPollOutcome {
         data object Succeeded : TriggerPollOutcome
@@ -85,8 +87,13 @@ class AgentDetailStore(agentId: String) {
 
     // MARK: - Generation state
     var isGenerating by mutableStateOf(false); private set
+    var generatingWindow by mutableStateOf<GenerationWindow?>(null); private set
     var lastGenerationError by mutableStateOf<String?>(null); private set
     var liveRunState by mutableStateOf<TriggerV3RunStatus?>(null); private set
+
+    // Optimistic overlay for owner-only pending ticket deletion.
+    var locallyDeletedItemIds by mutableStateOf<Set<String>>(emptySet()); private set
+    var lastDeleteError by mutableStateOf<String?>(null); private set
 
     // MARK: - View-driven filter (history)
     var pickFilter by mutableStateOf(PickFilter.All)
@@ -105,13 +112,13 @@ class AgentDetailStore(agentId: String) {
 
     val todaysPicks: List<AgentPick>
         get() {
-            val fromSnapshot = snapshot?.todaysPicks ?: emptyList()
+            val fromSnapshot = (snapshot?.todaysPicks ?: emptyList()).filterNot(::isDeleted)
             if (fromSnapshot.isNotEmpty()) return fromSnapshot
             // Snapshot only includes today's picks when the server grants Pro
             // entitlement. Owners on the free tier still load history via direct
             // reads — surface today's slice from that cache when available.
             val todayStr = localDateString()
-            return performancePicks.filter { it.gameDate == todayStr }
+            return performancePicks.filter { it.gameDate == todayStr && !isDeleted(it) }
         }
 
     /**
@@ -120,11 +127,27 @@ class AgentDetailStore(agentId: String) {
      */
     val todaysParlays: List<AgentParlay>
         get() {
-            val fromSnapshot = snapshot?.todaysParlays ?: emptyList()
+            val fromSnapshot = (snapshot?.todaysParlays ?: emptyList())
+                .filter { !it.isWeekly && !isDeleted(it) }
             if (fromSnapshot.isNotEmpty()) return fromSnapshot
             val todayStr = localDateString()
-            return performanceParlays.filter { it.displayDate == todayStr }
+            return performanceParlays.filter { !it.isWeekly && it.displayDate == todayStr && !isDeleted(it) }
         }
+
+    /** Active weekly tickets remain in the unified rail through the football week. */
+    val weeklyParlays: List<AgentParlay>
+        get() {
+            val fromSnapshot = (snapshot?.weeklyParlays ?: emptyList()).filterNot(::isDeleted)
+            if (fromSnapshot.isNotEmpty()) return fromSnapshot
+            val todayStr = localDateString()
+            return performanceParlays.filter {
+                it.isWeekly && !isDeleted(it) &&
+                    (it.result == AgentPick.PickResultStatus.PENDING || it.displayDate >= todayStr)
+            }
+        }
+
+    val weeklyBetItems: List<AgentBetItem>
+        get() = weeklyParlays.map { AgentBetItem.Parlay(it) }.sortedByDescending { it.createdAt }
 
     /**
      * Today's picks + parlays interleaved (newest first) — feeds the unified
@@ -136,6 +159,14 @@ class AgentDetailStore(agentId: String) {
                 todaysParlays.map { AgentBetItem.Parlay(it) }
             return items.sortedByDescending { it.createdAt }
         }
+
+    /** Today's picks/daily parlays plus the active week-long football ticket. */
+    val activeBetItems: List<AgentBetItem>
+        get() = (
+            todaysPicks.map { AgentBetItem.Pick(it) } +
+                todaysParlays.map { AgentBetItem.Parlay(it) } +
+                weeklyParlays.map { AgentBetItem.Parlay(it) }
+            ).sortedByDescending { it.createdAt }
 
     val todaysGenerationRun: AgentGenerationRunSummary?
         get() = snapshot?.todaysGenerationRun
@@ -177,8 +208,8 @@ class AgentDetailStore(agentId: String) {
     val fullPickHistory: List<AgentPick>
         get() {
             val todayStr = localDateString()
-            val graded = performancePicks.filter { isPickHistoryEligible(it, todayStr) }
-            val base = if (graded.isEmpty()) pickHistory else graded
+            val graded = performancePicks.filter { isPickHistoryEligible(it, todayStr) && !isDeleted(it) }
+            val base = if (graded.isEmpty()) pickHistory.filterNot(::isDeleted) else graded
             return base.sortedWith(
                 compareByDescending<AgentPick> { it.gameDate }.thenByDescending { it.createdAt },
             )
@@ -193,6 +224,7 @@ class AgentDetailStore(agentId: String) {
             val todayStr = localDateString()
             val gradedParlays = (if (performanceParlays.isEmpty()) parlayHistory else performanceParlays)
                 .filter { isParlayHistoryEligible(it, todayStr) }
+                .filterNot(::isDeleted)
             val items = fullPickHistory.map { AgentBetItem.Pick(it) } +
                 gradedParlays.map { AgentBetItem.Parlay(it) }
             return items.sortedWith(
@@ -208,6 +240,12 @@ class AgentDetailStore(agentId: String) {
         if (agent.lastGenerationDate != todayStr) return maxDaily
         return maxOf(0, maxDaily - agent.dailyGenerationCount)
     }
+
+    fun weeklyGenerationsRemaining(maxWeekly: Int = 3): Int =
+        snapshot?.weeklyGenerationsRemaining ?: maxWeekly
+
+    private fun isDeleted(pick: AgentPick): Boolean = "pick_${pick.id}" in locallyDeletedItemIds
+    private fun isDeleted(parlay: AgentParlay): Boolean = "parlay_${parlay.id}" in locallyDeletedItemIds
 
     // MARK: - Loaders
 
@@ -389,16 +427,25 @@ class AgentDetailStore(agentId: String) {
         if (isGenerating) return
         val active = activeGenerationRun ?: return
         val runId = active.triggerRunId ?: return
+        val window = if (active.runScope == "weekly") GenerationWindow.Week else GenerationWindow.Day
         isGenerating = true
+        generatingWindow = window
         lastGenerationError = null
         liveRunState = null
         try {
             // priorRunId: the last SUCCEEDED run — completion is detected by a
             // new succeeded id appearing, exactly like a fresh trigger.
             val priorRunId = todaysGenerationRun?.id
+            val priorWeeklyIds = weeklyParlays.mapTo(mutableSetOf()) { it.id }
             val outcome = pollTriggerRunUntilComplete(runId = runId, priorRunId = priorRunId)
             when (outcome) {
-                is TriggerPollOutcome.Succeeded -> pollUntilGenerationCompletes(priorRunId)
+                is TriggerPollOutcome.Succeeded -> {
+                    if (window == GenerationWindow.Week) {
+                        pollUntilWeeklyParlayAppears(priorWeeklyIds)
+                    } else {
+                        pollUntilGenerationCompletes(priorRunId)
+                    }
+                }
                 is TriggerPollOutcome.Failed -> lastGenerationError = outcome.message
                 is TriggerPollOutcome.TimedOutWaiting -> {
                     runCatching { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
@@ -414,6 +461,7 @@ class AgentDetailStore(agentId: String) {
             }
         } finally {
             isGenerating = false
+            generatingWindow = null
             liveRunState = null
         }
     }
@@ -435,7 +483,11 @@ class AgentDetailStore(agentId: String) {
         )
     }
 
-    suspend fun generatePicks(): Boolean {
+    suspend fun generatePicks(): Boolean = runGeneration(GenerationWindow.Day)
+
+    suspend fun generateWeeklyParlay(): Boolean = runGeneration(GenerationWindow.Week)
+
+    private suspend fun runGeneration(window: GenerationWindow): Boolean {
         if (isGenerating) return false
         // A run is already live (e.g. re-entered the page mid-run) — join it
         // rather than triggering a duplicate. The server coalesces too.
@@ -444,6 +496,7 @@ class AgentDetailStore(agentId: String) {
             return lastGenerationError == null
         }
         isGenerating = true
+        generatingWindow = window
         lastGenerationError = null
         liveRunState = null
         try {
@@ -454,10 +507,12 @@ class AgentDetailStore(agentId: String) {
             // worker). Capture the current run id so we can poll until a NEW
             // completed run lands — otherwise the spinner clears in ~1s.
             val priorRunId = todaysGenerationRun?.id
+            val priorWeeklyIds = weeklyParlays.mapTo(mutableSetOf()) { it.id }
             val trigger = AgentPicksService.requestTriggerV3Generation(
                 agentId = agentId,
                 dryRun = v3.dryRun,
                 modelName = v3.model,
+                window = if (window == GenerationWindow.Week) "week" else null,
             )
             if (BuildFlags.isDebugBuild) {
                 Log.d("V3Gen", "triggered runId=${trigger.runId ?: "nil"}")
@@ -472,7 +527,11 @@ class AgentDetailStore(agentId: String) {
                 is TriggerPollOutcome.Succeeded -> {
                     // The ledger only surfaces `status='succeeded'` runs, so this
                     // picks up the freshly-written picks/no-picks note.
-                    pollUntilGenerationCompletes(priorRunId)
+                    if (window == GenerationWindow.Week) {
+                        pollUntilWeeklyParlayAppears(priorWeeklyIds)
+                    } else {
+                        pollUntilGenerationCompletes(priorRunId)
+                    }
                     loadHistory(isOwner = true)
                     loadPerformancePicks(isOwner = true)
                     notifyGenerationFinished(succeeded = true)
@@ -496,13 +555,17 @@ class AgentDetailStore(agentId: String) {
                         .getOrNull()?.let { snapshot = it }
                     loadHistory(isOwner = true)
                     loadPerformancePicks(isOwner = true)
-                    if (todaysGenerationRun?.id == priorRunId) {
+                    if (window == GenerationWindow.Week) {
+                        if (weeklyParlays.none { it.id !in priorWeeklyIds }) {
+                            lastGenerationError =
+                                "This is taking longer than usual — check back in a few minutes for your weekly parlay."
+                            false
+                        } else true
+                    } else if (todaysGenerationRun?.id == priorRunId) {
                         lastGenerationError =
                             "This is taking longer than usual — check back in a few minutes for your picks."
                         false
-                    } else {
-                        true
-                    }
+                    } else true
                 }
             }
         } catch (t: Throwable) {
@@ -510,6 +573,7 @@ class AgentDetailStore(agentId: String) {
             return false
         } finally {
             isGenerating = false
+            generatingWindow = null
             liveRunState = null
         }
     }
@@ -575,6 +639,19 @@ class AgentDetailStore(agentId: String) {
         }
     }
 
+    /** Weekly completion is a new ticket, not a daily generation-ledger id. */
+    private suspend fun pollUntilWeeklyParlayAppears(priorIds: Set<String>) {
+        repeat(15) {
+            val snap = runCatching { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
+                .getOrNull()
+            if (snap != null) {
+                snapshot = snap
+                if (snap.weeklyParlays.any { it.id !in priorIds }) return
+            }
+            delay(2_000)
+        }
+    }
+
     // MARK: - Mutations
 
     /** Toggle autopilot via the granular service. Optimistic — refresh on failure restores truth. */
@@ -613,6 +690,53 @@ class AgentDetailStore(agentId: String) {
         } catch (t: Throwable) {
             lastGenerationError = message(t)
             false
+        }
+    }
+
+    /** Optimistically delete a pending pick/parlay; server enforces settlement rules. */
+    suspend fun deleteBetItem(item: AgentBetItem): Boolean {
+        if (item.id in locallyDeletedItemIds) return false
+        locallyDeletedItemIds = locallyDeletedItemIds + item.id
+        lastDeleteError = null
+        return try {
+            when (item) {
+                is AgentBetItem.Pick -> AgentAuthorizedActionsService.deletePick(agentId, item.pick.id)
+                is AgentBetItem.Parlay -> AgentAuthorizedActionsService.deleteParlay(agentId, item.parlay.id)
+            }
+            refreshSnapshot()
+            loadPerformancePicks(isOwner = true)
+            removeDeletedItemFromCaches(item)
+            locallyDeletedItemIds = locallyDeletedItemIds - item.id
+            true
+        } catch (t: Throwable) {
+            locallyDeletedItemIds = locallyDeletedItemIds - item.id
+            lastDeleteError = message(t)
+            false
+        }
+    }
+
+    /**
+     * Keep a successful server delete gone even when the follow-up refresh
+     * fails and leaves an older snapshot/cache in memory. The optimistic
+     * tombstone can then be released without briefly resurrecting the ticket.
+     */
+    private fun removeDeletedItemFromCaches(item: AgentBetItem) {
+        when (item) {
+            is AgentBetItem.Pick -> {
+                val id = item.pick.id
+                pickHistory = pickHistory.filterNot { it.id == id }
+                performancePicks = performancePicks.filterNot { it.id == id }
+                snapshot = snapshot?.copy(todaysPicks = snapshot?.todaysPicks.orEmpty().filterNot { it.id == id })
+            }
+            is AgentBetItem.Parlay -> {
+                val id = item.parlay.id
+                parlayHistory = parlayHistory.filterNot { it.id == id }
+                performanceParlays = performanceParlays.filterNot { it.id == id }
+                snapshot = snapshot?.copy(
+                    todaysParlays = snapshot?.todaysParlays.orEmpty().filterNot { it.id == id },
+                    weeklyParlays = snapshot?.weeklyParlays.orEmpty().filterNot { it.id == id },
+                )
+            }
         }
     }
 

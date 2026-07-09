@@ -8,9 +8,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
 import com.wagerproof.app.di.LocalAppGraph
 import com.wagerproof.app.nav.RootHost
 import com.wagerproof.app.ui.theme.WagerproofTheme
+import com.wagerproof.core.services.SupabaseClients
+import io.github.jan.supabase.auth.handleDeeplinks
+import kotlinx.coroutines.launch
 
 /**
  * Single activity (launchMode singleTask, portrait). Installs the system splash,
@@ -47,13 +51,19 @@ class MainActivity : ComponentActivity() {
         handleDeepLink(intent)
     }
 
-    /**
-     * Route ACTION_VIEW `wagerproof://` intents. RootRouter parses the URI into a
-     * DeepLinkRoute and buffers it (agents/outliers/feed/reset-password, doc 08
-     * §2.2); the root host replays it via MainTabStore once Phase.Ready.
-     */
+    /** Route RevenueCat, Supabase recovery, then product ACTION_VIEW intents. */
     private fun handleDeepLink(intent: Intent?) {
         val uri: Uri = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data ?: return
-        graph.rootRouter.handle(uri)
+        lifecycleScope.launch {
+            // RevenueCat Web Billing owns its rc-* callback scheme. Only pass
+            // unrelated links through the Supabase/product routing chain.
+            if (graph.revenueCat.handleWebPurchaseRedemption(intent)) return@launch
+
+            // Let supabase-kt import OAuth/OTP/recovery sessions before our product
+            // router consumes the destination. Update Password needs the recovery
+            // session carried by the link, not merely the route name.
+            SupabaseClients.main.handleDeeplinks(intent)
+            graph.rootRouter.handle(uri)
+        }
     }
 }
