@@ -35,7 +35,9 @@ struct HistoricalAnalysisFilterBar: View {
                     betTypePill
                     pillButton(icon: "calendar", title: seasonsLabel) { activeSheet = .seasons }
                     pillMenu(icon: "house.fill", title: sideLabel, options: [
-                        ("any", "Either"), ("home", "Home"), ("away", "Away"),
+                        ("any", "Either", nil),
+                        ("home", "Home", "house.fill"),
+                        ("away", "Away", "airplane"),
                     ], selection: binding(\.side))
                     if hasSpreadFilter {
                         pillButton(icon: "arrow.left.and.right", title: spreadLabel) { activeSheet = .spread }
@@ -49,7 +51,11 @@ struct HistoricalAnalysisFilterBar: View {
                     pillButton(icon: "person.2.fill", title: contextLabel) { activeSheet = .context }
                 }
                 .padding(.horizontal, 16)
+                // Breathing room so the glass highlight isn't shaved at the
+                // scroll bounds even before clipping is disabled.
+                .padding(.vertical, 4)
             }
+            .scrollClipDisabled()
 
             activeChipsRow
         }
@@ -72,24 +78,37 @@ struct HistoricalAnalysisFilterBar: View {
 
     private var betTypePill: some View {
         Menu {
-            ForEach(HistoricalAnalysisBetType.allCases) { bt in
-                Button {
-                    store.betType = bt.rawValue
-                } label: {
-                    if store.betType == bt.rawValue {
-                        Label(bt.label, systemImage: "checkmark")
-                    } else {
-                        Text(bt.label)
+            Picker("Market", selection: Binding(
+                get: { store.betType },
+                set: { store.betType = $0 }
+            )) {
+                Section("Full Game") {
+                    ForEach(HistoricalAnalysisBetType.allCases.filter { $0.group == "Full Game" }) { bt in
+                        Label(bt.label, systemImage: marketIcon(for: bt)).tag(bt.rawValue)
+                    }
+                }
+                Section("First Half") {
+                    ForEach(HistoricalAnalysisBetType.allCases.filter { $0.group == "First Half" }) { bt in
+                        Label(bt.label, systemImage: marketIcon(for: bt)).tag(bt.rawValue)
                     }
                 }
             }
         } label: {
-            pillChrome(icon: "chart.bar.fill", title: currentBetTypeLabel, emphasized: true)
+            pillChrome(icon: "chart.bar.fill", title: currentBetTypeLabel)
         }
     }
 
     private var currentBetTypeLabel: String {
         HistoricalAnalysisBetType.from(store.betType).label
+    }
+
+    private func marketIcon(for betType: HistoricalAnalysisBetType) -> String {
+        switch betType {
+        case .fgSpread, .h1Spread: return "arrow.left.and.right"
+        case .fgML, .h1ML: return "dollarsign"
+        case .fgTotal, .h1Total: return "sum"
+        case .teamTotal: return "person.crop.circle"
+        }
     }
 
     // MARK: - Pill labels
@@ -178,35 +197,31 @@ struct HistoricalAnalysisFilterBar: View {
             onChange()
         }
         if !chips.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Active filters")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.appTextSecondary)
-                    Spacer()
-                    Button("Reset all") { store.resetAllFilters() }
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .padding(.horizontal, 16)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(chips) { chip in
-                            HStack(spacing: 4) {
-                                Text(chip.label)
+            // Plain text chips — no capsule chrome, matching the pill row.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(chips) { chip in
+                        HStack(spacing: 3) {
+                            Text(chip.label)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color.appTextSecondary)
+                            Button(action: chip.clear) {
+                                Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 12))
-                                Button(action: chip.clear) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(Color.appTextSecondary)
-                                }
+                                    .foregroundStyle(Color.appTextMuted)
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Color.appSurfaceMuted, in: Capsule())
                         }
                     }
-                    .padding(.horizontal, 16)
+                    Button {
+                        store.resetAllFilters()
+                    } label: {
+                        Text("Reset all")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.appPrimary)
+                    }
+                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 16)
             }
         }
     }
@@ -220,11 +235,15 @@ struct HistoricalAnalysisFilterBar: View {
         .buttonStyle(.plain)
     }
 
-    private func pillMenu(icon: String, title: String, options: [(String, String)], selection: Binding<String>) -> some View {
+    private func pillMenu(icon: String, title: String, options: [(String, String, String?)], selection: Binding<String>) -> some View {
         Menu {
             Picker(title, selection: selection) {
-                ForEach(options, id: \.0) { value, label in
-                    Text(label).tag(value)
+                ForEach(options, id: \.0) { value, label, optionIcon in
+                    if let optionIcon {
+                        Label(label, systemImage: optionIcon).tag(value)
+                    } else {
+                        Text(label).tag(value)
+                    }
                 }
             }
         } label: {
@@ -232,13 +251,15 @@ struct HistoricalAnalysisFilterBar: View {
         }
     }
 
-    private func pillChrome(icon: String, title: String, emphasized: Bool = false) -> some View {
-        HStack(spacing: 6) {
+    // System Liquid Glass capsules only — no custom strokes, fills, or tint.
+    // The pills ScrollView disables clipping so the glass never gets shaved.
+    private func pillChrome(icon: String, title: String) -> some View {
+        HStack(spacing: 5) {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(emphasized ? Color.appPrimary : Color.appTextSecondary)
+                .foregroundStyle(Color.appTextSecondary)
             Text(title)
-                .font(.system(size: 13, weight: emphasized ? .bold : .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.appTextPrimary)
                 .lineLimit(1)
                 .monospacedDigit()
@@ -249,7 +270,6 @@ struct HistoricalAnalysisFilterBar: View {
         .padding(.horizontal, 12)
         .frame(height: 36)
         .liquidGlassBackground(in: Capsule(), interactive: true)
-        .overlay(Capsule().stroke(emphasized ? Color.appPrimary.opacity(0.35) : Color.appBorder.opacity(0.35), lineWidth: 1))
     }
 
     // MARK: - Sheets

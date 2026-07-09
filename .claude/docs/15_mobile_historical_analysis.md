@@ -115,17 +115,25 @@ wk17→18 across years; CFB bowls/playoffs aren't week-numbered at all). So the 
 
 ## Screen structure (top → bottom)
 
-1. **Bet-type selector** (segmented / pills): Spread · Moneyline · Total · Team Total · 1H Spread ·
-   1H ML · 1H Total. Changing it refetches.
-2. **Headline card** — lead with `overall`: one big, always-meaningful sentence ("Home favorites
-   covered **55.7%**, **+6.4u ROI**, over 70 games 2018–2025") + the coverage line + baseline.
-   NEVER lead with an empty filtered side.
-3. **Filters** — adaptive to the bet type; the contextual week/round control above; **active-filter
-   chips** with individual remove + "Reset all".
-4. **Breakdowns** — each `bars` dimension as labeled rows (side · record · hit% · ROI + a bar), then
-   the by-team / by-conference (CFB) / by-coach + by-referee (NFL) lists (sortable; on CFB give the
-   by-team list a search box — 130+ FBS teams).
-5. **"This week's games that match"** — cards from the upcoming RPC; hidden entirely when empty.
+Chrome is native and background-free — no slab behind the sticky elements, no content cards:
+
+1. **Native large title** ("NFL Trends" / "CFB Trends") that collapses into the nav bar on scroll.
+2. **Sticky search bar** — native `.searchable(placement: .navigationBarDrawer(displayMode: .always))`;
+   filters the active breakdown list (teams / coaches / referees / conferences; prompt follows the tab).
+3. **Sticky filter pills** — a pinned section header with the bet-type pill (Spread · Moneyline ·
+   Total · Team Total · 1H Spread · 1H ML · 1H Total; changing it refetches) plus the
+   adaptive filter pills and **active-filter chips** (individual remove + "Reset all"). Pills are
+   pure system Liquid Glass capsules (`liquidGlassBackground`, no custom strokes/fills; the pills
+   ScrollView uses `scrollClipDisabled()` + vertical padding so glass never clips); chips are plain
+   text. No slab behind any of it — content scrolls underneath.
+4. **Headline summary** — plain text, no card: lead with `overall`, one big, always-meaningful
+   sentence ("Home favorites covered **55.7%**, **+6.4u ROI**, over 70 games 2018–2025") + the
+   coverage line + baseline. NEVER lead with an empty filtered side.
+5. **Breakdowns** — plain sections separated by dividers (no containers): each `bars` dimension as
+   labeled rows (side · record · hit% · ROI + a bar), then the by-team / by-conference (CFB) /
+   by-coach + by-referee (NFL) lists (sort via a compact menu; capped at 15 rows behind a
+   "Show all N" expander unless searching — CFB has 130+ FBS teams).
+6. **"This week's games that match"** — plain rows from the upcoming RPC; hidden entirely when empty.
 
 ## Breakdown behavior (don't headline noise)
 
@@ -159,11 +167,25 @@ CFB has **no referee and no per-game coach** data — drop both dimensions there
 - **Signed spreads** (`-3.5` = laying 3.5); keep the sign.
 - Dark mode + the app's existing design system; this screen should feel native, not bolted on.
 
-## Saved filters
+## Saved searches + sharing
 
-Per-user, on the **main app** Supabase project (the app's auth project) — tables
+Per-user saved searches live on the **main app** Supabase project (the app's auth project) — tables
 `nfl_analysis_saved_filters` / `cfb_analysis_saved_filters`, own-rows RLS, ~25-per-user cap. Store
-`{ name, bet_type, filters }`; let the user name/save the current view and reload it.
+`{ name, bet_type, filters }`.
+
+UI: a **bookmark context menu in the top-right toolbar** with the user's saved searches (tap to
+restore), "Save Current Search…" (names + saves the current filter snapshot; signed-in only), and
+"Share Current Search". Share opens a **bottom sheet** (`HistoricalTrendsShareView.swift`) with a
+**focus picker** ("Showing: Overall / Home teams / Favorites / … / a specific team from the by-team
+breakdown") that drives the infographic's headline slice. The infographic leads with a narrative
+sentence built from the filters — "When it's primetime, it's snowing, and they're laying 3–10
+points, home favorites covered **58%** of the time" (`narrativeClauses`/`joinedClauses` in
+`HistoricalAnalysisCopy`) — then a hero hit-rate + record/ROI row, "By situation" split bar charts
+with baseline ticks, and top-5 lists (teams, plus coaches on NFL / conferences on CFB; min 5 games
+to qualify; a focused team outside the top 5 is appended with its true rank). Branded with the
+WagerProof logo + wordmark and `wagerproof.bet` at the bottom. Export renders JUST the card via
+`ImageRenderer` (scale 3, `isOpaque = false`) so the shared PNG is the standalone component on a
+transparent surround, same as the agent pick tickets.
 
 ## Definition of done
 
