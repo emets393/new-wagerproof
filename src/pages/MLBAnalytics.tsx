@@ -95,6 +95,34 @@ const PF_PRESETS: { label: string; min?: number; max?: number }[] = [
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
+/** One-sided numeric range — omit a bound entirely (do NOT fill with 0/defaults). */
+type OptRange = { min?: number; max?: number };
+
+/** Parse a free-text number field; empty / incomplete → unset (null). */
+function parseOptionalNumber(raw: string): number | null {
+  const t = raw.trim();
+  if (t === '' || t === '-' || t === '+' || t === '.' || t === '-.' || t === '+.') return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Assign only the bounds the user actually set — never invent the other end. */
+function assignRange(
+  f: Record<string, unknown>,
+  minKey: string,
+  maxKey: string,
+  range: OptRange | null | undefined,
+) {
+  if (!range) return;
+  if (range.min != null && Number.isFinite(range.min)) f[minKey] = range.min;
+  if (range.max != null && Number.isFinite(range.max)) f[maxKey] = range.max;
+}
+
+function assignOptionalNumber(f: Record<string, unknown>, key: string, raw: string) {
+  const n = parseOptionalNumber(raw);
+  if (n != null) f[key] = n;
+}
+
 const logoFor = (abbr?: string) => (abbr ? espnMlb500LogoUrlFromAbbrev(abbr) : '/placeholder.svg');
 
 function sideLabel(betType: string, side: string): string {
@@ -191,8 +219,8 @@ const PRESETS: { label: string; betType: string; filters: Record<string, unknown
   { label: 'Away after switch', betType: 'ml', filters: { side: 'away', switchGame: true } },
   { label: 'Series G1 unders', betType: 'total', filters: { seriesGame: [1, 1] } },
   { label: 'vs LHP', betType: 'ml', filters: { oppSpHand: 'L' } },
-  { label: 'Gassed bullpen overs', betType: 'total', filters: { bpIp: [12, 30] } },
-  { label: 'Hitter-park overs', betType: 'total', filters: { pfRuns: [103, 120] } },
+  { label: 'Gassed bullpen overs', betType: 'total', filters: { bpIp: { min: 12 } } },
+  { label: 'Hitter-park overs', betType: 'total', filters: { pfRuns: { min: 103 } } },
 ];
 
 const DIM_LABEL: Record<string, string> = {
@@ -349,19 +377,21 @@ export default function MLBAnalytics() {
   const [oppSp, setOppSp] = useState<PitcherOpt[]>([]);
   const [spHand, setSpHand] = useState('any');
   const [oppSpHand, setOppSpHand] = useState('any');
-  const [spXfip, setSpXfip] = useState<[number, number] | null>(null);
-  const [oppSpXfip, setOppSpXfip] = useState<[number, number] | null>(null);
+  const [spXfip, setSpXfip] = useState<OptRange | null>(null);
+  const [oppSpXfip, setOppSpXfip] = useState<OptRange | null>(null);
 
   // ── BULLPEN ──
-  const [bpIp, setBpIp] = useState<[number, number] | null>(null);
-  const [bpXfip, setBpXfip] = useState<[number, number] | null>(null);
+  const [bpIp, setBpIp] = useState<OptRange | null>(null);
+  const [bpXfip, setBpXfip] = useState<OptRange | null>(null);
 
   // ── ENVIRONMENT ──
   const [tempRange, setTempRange] = useState<[number, number]>([30, 110]);
   const [windRange, setWindRange] = useState<[number, number]>([0, 40]);
   const [windDir, setWindDir] = useState('any');
   const [dome, setDome] = useState<boolean | null>(null);
-  const [pfRuns, setPfRuns] = useState<[number, number] | null>(null);
+  const [pfRuns, setPfRuns] = useState<OptRange | null>(null);
+  /** Optional total/F5 total bounds from band chips — takes precedence over the slider when set. */
+  const [totalBounds, setTotalBounds] = useState<OptRange | null>(null);
 
   const { user } = useAuth();
   const [saved, setSaved] = useState<Record<string, unknown>[]>([]);
@@ -390,11 +420,12 @@ export default function MLBAnalytics() {
   useEffect(() => {
     const t = TOTAL_CFG[betType];
     if (t) setLineRange([t.min, t.max]);
+    setTotalBounds(null);
   }, [betType]);
 
   const snapshot = () => ({
     betType, seasons, months, teams, opponents, division, interleague,
-    side, favDog, mlMin, mlMax, lineRange, timeMin, timeMax, dayOfWeek, doubleheader,
+    side, favDog, mlMin, mlMax, lineRange, totalBounds, timeMin, timeMax, dayOfWeek, doubleheader,
     seriesGame, trip, switchGame, restRange, streakMin, streakMax, lastResult, lastMarginMin, lastMarginMax,
     sp, oppSp, spHand, oppSpHand, spXfip, oppSpXfip, bpIp, bpXfip,
     tempRange, windRange, windDir, dome, pfRuns,
@@ -414,6 +445,8 @@ export default function MLBAnalytics() {
     if (typeof raw.mlMin === 'string') setMlMin(raw.mlMin);
     if (typeof raw.mlMax === 'string') setMlMax(raw.mlMax);
     if (Array.isArray(raw.lineRange)) setTimeout(() => setLineRange(raw.lineRange as [number, number]), 0);
+    if (raw.totalBounds && typeof raw.totalBounds === 'object') setTotalBounds(raw.totalBounds as OptRange);
+    else setTotalBounds(null);
     if (typeof raw.timeMin === 'string') setTimeMin(raw.timeMin);
     if (typeof raw.timeMax === 'string') setTimeMax(raw.timeMax);
     if (typeof raw.dayOfWeek === 'string') setDayOfWeek(raw.dayOfWeek);
@@ -431,15 +464,24 @@ export default function MLBAnalytics() {
     if (Array.isArray(raw.oppSp)) setOppSp(raw.oppSp as PitcherOpt[]);
     if (typeof raw.spHand === 'string') setSpHand(raw.spHand);
     if (typeof raw.oppSpHand === 'string') setOppSpHand(raw.oppSpHand);
-    if ('spXfip' in raw) setSpXfip(raw.spXfip as [number, number] | null);
-    if ('oppSpXfip' in raw) setOppSpXfip(raw.oppSpXfip as [number, number] | null);
-    if ('bpIp' in raw) setBpIp(raw.bpIp as [number, number] | null);
-    if ('bpXfip' in raw) setBpXfip(raw.bpXfip as [number, number] | null);
+    // OptRange fields — accept object form; ignore legacy [min,max] tuples that forced both ends
+    const asOpt = (v: unknown): OptRange | null => {
+      if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+      const o = v as OptRange;
+      const out: OptRange = {};
+      if (typeof o.min === 'number' && Number.isFinite(o.min)) out.min = o.min;
+      if (typeof o.max === 'number' && Number.isFinite(o.max)) out.max = o.max;
+      return out.min != null || out.max != null ? out : null;
+    };
+    if ('spXfip' in raw) setSpXfip(asOpt(raw.spXfip));
+    if ('oppSpXfip' in raw) setOppSpXfip(asOpt(raw.oppSpXfip));
+    if ('bpIp' in raw) setBpIp(asOpt(raw.bpIp));
+    if ('bpXfip' in raw) setBpXfip(asOpt(raw.bpXfip));
     if (Array.isArray(raw.tempRange)) setTempRange(raw.tempRange as [number, number]);
     if (Array.isArray(raw.windRange)) setWindRange(raw.windRange as [number, number]);
     if (typeof raw.windDir === 'string') setWindDir(raw.windDir);
     if ('dome' in raw) setDome(raw.dome as boolean | null);
-    if ('pfRuns' in raw) setPfRuns(raw.pfRuns as [number, number] | null);
+    if ('pfRuns' in raw) setPfRuns(asOpt(raw.pfRuns));
   };
 
   const loadSaved = useCallback(async () => {
@@ -474,17 +516,27 @@ export default function MLBAnalytics() {
 
     if (side !== 'any') f.side = side;
     if (favDog !== 'any') f.fav_dog = favDog;
+
+    // Moneyline — only send bounds the user typed. Swap only when BOTH are set
+    // and reversed (never invent a missing bound).
     {
-      let a = mlMin.trim() === '' ? null : Number(mlMin);
-      let b = mlMax.trim() === '' ? null : Number(mlMax);
+      let a = parseOptionalNumber(mlMin);
+      let b = parseOptionalNumber(mlMax);
       if (a !== null && b !== null && a > b) { const s = a; a = b; b = s; }
-      if (a !== null && !Number.isNaN(a)) f.ml_min = a;
-      if (b !== null && !Number.isNaN(b)) f.ml_max = b;
+      if (a !== null) f.ml_min = a;
+      if (b !== null) f.ml_max = b;
     }
+
     const tcfg = TOTAL_CFG[betType];
     if (tcfg) {
-      if (lineRange[0] > tcfg.min) f[tcfg.mk] = lineRange[0];
-      if (lineRange[1] < tcfg.max) f[tcfg.xk] = lineRange[1];
+      // Band chips set totalBounds (one-sided). Slider only contributes when
+      // totalBounds is unset and the thumb isn't at the full default span.
+      if (totalBounds) {
+        assignRange(f, tcfg.mk, tcfg.xk, totalBounds);
+      } else {
+        if (lineRange[0] > tcfg.min) f[tcfg.mk] = lineRange[0];
+        if (lineRange[1] < tcfg.max) f[tcfg.xk] = lineRange[1];
+      }
     }
 
     if (timeMin) f.time_min = timeMin;
@@ -501,43 +553,26 @@ export default function MLBAnalytics() {
       f.trip_max = trip[1];
     }
     if (switchGame !== null) f.switch_game = switchGame;
+    // Rest slider: full [0,10] span = no filter. Only emit moved thumbs.
     if (restRange[0] > 0) f.rest_min = restRange[0];
     if (restRange[1] < 10) f.rest_max = restRange[1];
-    {
-      const a = streakMin.trim() === '' ? null : Number(streakMin);
-      const b = streakMax.trim() === '' ? null : Number(streakMax);
-      if (a !== null && !Number.isNaN(a)) f.streak_min = a;
-      if (b !== null && !Number.isNaN(b)) f.streak_max = b;
-    }
+
+    // Streak / last-margin are SIGNED. Only include keys the user set —
+    // a leftover max of 0 with min 10 is an impossible range and returns empty.
+    assignOptionalNumber(f, 'streak_min', streakMin);
+    assignOptionalNumber(f, 'streak_max', streakMax);
     if (lastResult !== 'any') f.last_result = lastResult;
-    {
-      const a = lastMarginMin.trim() === '' ? null : Number(lastMarginMin);
-      const b = lastMarginMax.trim() === '' ? null : Number(lastMarginMax);
-      if (a !== null && !Number.isNaN(a)) f.last_margin_min = a;
-      if (b !== null && !Number.isNaN(b)) f.last_margin_max = b;
-    }
+    assignOptionalNumber(f, 'last_margin_min', lastMarginMin);
+    assignOptionalNumber(f, 'last_margin_max', lastMarginMax);
 
     if (sp.length) f.sp = sp.map(p => p.id);
     if (oppSp.length) f.opp_sp = oppSp.map(p => p.id);
     if (spHand !== 'any') f.sp_hand = spHand;
     if (oppSpHand !== 'any') f.opp_sp_hand = oppSpHand;
-    if (spXfip) {
-      if (spXfip[0] != null) f.sp_xfip_min = spXfip[0];
-      if (spXfip[1] != null) f.sp_xfip_max = spXfip[1];
-    }
-    if (oppSpXfip) {
-      if (oppSpXfip[0] != null) f.opp_sp_xfip_min = oppSpXfip[0];
-      if (oppSpXfip[1] != null) f.opp_sp_xfip_max = oppSpXfip[1];
-    }
-
-    if (bpIp) {
-      if (bpIp[0] != null) f.bp_ip3d_min = bpIp[0];
-      if (bpIp[1] != null) f.bp_ip3d_max = bpIp[1];
-    }
-    if (bpXfip) {
-      if (bpXfip[0] != null) f.bp_xfip_min = bpXfip[0];
-      if (bpXfip[1] != null) f.bp_xfip_max = bpXfip[1];
-    }
+    assignRange(f, 'sp_xfip_min', 'sp_xfip_max', spXfip);
+    assignRange(f, 'opp_sp_xfip_min', 'opp_sp_xfip_max', oppSpXfip);
+    assignRange(f, 'bp_ip3d_min', 'bp_ip3d_max', bpIp);
+    assignRange(f, 'bp_xfip_min', 'bp_xfip_max', bpXfip);
 
     if (tempRange[0] > 30) f.temp_min = tempRange[0];
     if (tempRange[1] < 110) f.temp_max = tempRange[1];
@@ -545,14 +580,12 @@ export default function MLBAnalytics() {
     if (windRange[1] < 40) f.wind_max = windRange[1];
     if (windDir !== 'any') f.wind_dir = windDir;
     if (dome !== null) f.dome = dome;
-    if (pfRuns) {
-      if (pfRuns[0] != null) f.pf_runs_min = pfRuns[0];
-      if (pfRuns[1] != null) f.pf_runs_max = pfRuns[1];
-    }
+    assignRange(f, 'pf_runs_min', 'pf_runs_max', pfRuns);
+
     return f;
   }, [
     betType, seasons, months, teams, opponents, division, interleague,
-    side, favDog, mlMin, mlMax, lineRange, timeMin, timeMax, dayOfWeek, doubleheader,
+    side, favDog, mlMin, mlMax, lineRange, totalBounds, timeMin, timeMax, dayOfWeek, doubleheader,
     seriesGame, trip, switchGame, restRange, streakMin, streakMax, lastResult, lastMarginMin, lastMarginMax,
     sp, oppSp, spHand, oppSpHand, spXfip, oppSpXfip, bpIp, bpXfip,
     tempRange, windRange, windDir, dome, pfRuns,
@@ -570,7 +603,7 @@ export default function MLBAnalytics() {
     setSeasons([SEASON_FLOOR, SEASON_MAX]); setMonths([3, 11]); setTeams([]); setOpponents([]);
     setDivision(null); setInterleague(null); setSide('any'); setFavDog('any');
     setMlMin(''); setMlMax('');
-    const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [5, 14]);
+    const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [5, 14]); setTotalBounds(null);
     setTimeMin(''); setTimeMax(''); setDayOfWeek('any'); setDoubleheader(null);
     setSeriesGame(null); setTrip(null); setSwitchGame(null); setRestRange([0, 10]);
     setStreakMin(''); setStreakMax(''); setLastResult('any'); setLastMarginMin(''); setLastMarginMax('');
@@ -597,7 +630,11 @@ export default function MLBAnalytics() {
       c.push({ label: lbl, clear: () => { setMlMin(''); setMlMax(''); } });
     }
     const t = TOTAL_CFG[betType];
-    if (t && (lineRange[0] !== t.min || lineRange[1] !== t.max)) {
+    if (totalBounds && (totalBounds.min != null || totalBounds.max != null)) {
+      const lo = totalBounds.min != null ? String(totalBounds.min) : '…';
+      const hi = totalBounds.max != null ? String(totalBounds.max) : '…';
+      c.push({ label: `${t?.label ?? 'Total'} ${lo}–${hi}`, clear: () => setTotalBounds(null) });
+    } else if (t && (lineRange[0] !== t.min || lineRange[1] !== t.max)) {
       c.push({ label: `${t.label} ${lineRange[0]}–${lineRange[1]}`, clear: () => setLineRange([t.min, t.max]) });
     }
     if (timeMin || timeMax) c.push({ label: `Time ${timeMin || '…'}–${timeMax || '…'}`, clear: () => { setTimeMin(''); setTimeMax(''); } });
@@ -614,18 +651,18 @@ export default function MLBAnalytics() {
     if (oppSp.length) c.push({ label: `Opp SP: ${oppSp.map(p => p.name).join(', ')}`, clear: () => setOppSp([]) });
     if (spHand !== 'any') c.push({ label: `SP ${spHand}HP`, clear: () => setSpHand('any') });
     if (oppSpHand !== 'any') c.push({ label: `Opp ${oppSpHand}HP`, clear: () => setOppSpHand('any') });
-    if (spXfip) c.push({ label: `SP xFIP ${spXfip[0] ?? '…'}–${spXfip[1] ?? '…'}`, clear: () => setSpXfip(null) });
-    if (oppSpXfip) c.push({ label: `Opp xFIP ${oppSpXfip[0] ?? '…'}–${oppSpXfip[1] ?? '…'}`, clear: () => setOppSpXfip(null) });
-    if (bpIp) c.push({ label: `BP IP ${bpIp[0] ?? '…'}–${bpIp[1] ?? '…'}`, clear: () => setBpIp(null) });
-    if (bpXfip) c.push({ label: `BP xFIP ${bpXfip[0] ?? '…'}–${bpXfip[1] ?? '…'}`, clear: () => setBpXfip(null) });
+    if (spXfip) c.push({ label: `SP xFIP ${spXfip.min ?? '…'}–${spXfip.max ?? '…'}`, clear: () => setSpXfip(null) });
+    if (oppSpXfip) c.push({ label: `Opp xFIP ${oppSpXfip.min ?? '…'}–${oppSpXfip.max ?? '…'}`, clear: () => setOppSpXfip(null) });
+    if (bpIp) c.push({ label: `BP IP ${bpIp.min ?? '…'}–${bpIp.max ?? '…'}`, clear: () => setBpIp(null) });
+    if (bpXfip) c.push({ label: `BP xFIP ${bpXfip.min ?? '…'}–${bpXfip.max ?? '…'}`, clear: () => setBpXfip(null) });
     if (tempRange[0] !== 30 || tempRange[1] !== 110) c.push({ label: `Temp ${tempRange[0]}–${tempRange[1]}°F`, clear: () => setTempRange([30, 110]) });
     if (windRange[0] !== 0 || windRange[1] !== 40) c.push({ label: `Wind ${windRange[0]}–${windRange[1]}`, clear: () => setWindRange([0, 40]) });
     if (windDir !== 'any') c.push({ label: `Wind: ${windDir}`, clear: () => setWindDir('any') });
     if (dome !== null) c.push({ label: dome ? 'Dome' : 'Outdoor', clear: () => setDome(null) });
-    if (pfRuns) c.push({ label: `Park factor ${pfRuns[0] ?? '…'}–${pfRuns[1] ?? '…'}`, clear: () => setPfRuns(null) });
+    if (pfRuns) c.push({ label: `Park factor ${pfRuns.min ?? '…'}–${pfRuns.max ?? '…'}`, clear: () => setPfRuns(null) });
     return c;
   }, [
-    betType, seasons, months, teams, opponents, division, interleague, side, favDog, mlMin, mlMax, lineRange,
+    betType, seasons, months, teams, opponents, division, interleague, side, favDog, mlMin, mlMax, lineRange, totalBounds,
     timeMin, timeMax, dayOfWeek, doubleheader, seriesGame, trip, switchGame, restRange, streakMin, streakMax,
     lastResult, lastMarginMin, lastMarginMax, sp, oppSp, spHand, oppSpHand, spXfip, oppSpXfip, bpIp, bpXfip,
     tempRange, windRange, windDir, dome, pfRuns,
@@ -635,6 +672,7 @@ export default function MLBAnalytics() {
     setLoading(true);
     const filters = buildFilters();
     const upcomingFilters = weatherOnlyUpcoming ? {} : filters;
+    console.log('[mlb-analytics] mlb_analysis p_filters', JSON.stringify(filters));
     const t = setTimeout(async () => {
       const [a, u] = await Promise.all([
         collegeFootballSupabase.rpc('mlb_analysis', { p_bet_type: betType, p_filters: filters }),
@@ -656,8 +694,8 @@ export default function MLBAnalytics() {
     if (f.switchGame != null) setSwitchGame(f.switchGame as boolean);
     if (f.seriesGame) setSeriesGame(f.seriesGame as [number, number]);
     if (f.oppSpHand) setOppSpHand(String(f.oppSpHand));
-    if (f.bpIp) setBpIp(f.bpIp as [number, number]);
-    if (f.pfRuns) setPfRuns(f.pfRuns as [number, number]);
+    if (f.bpIp) setBpIp(f.bpIp as OptRange);
+    if (f.pfRuns) setPfRuns(f.pfRuns as OptRange);
   };
 
   const shownBars = useMemo(() => (data?.bars || []).filter(bar => {
@@ -931,15 +969,30 @@ export default function MLBAnalytics() {
             {TOTAL_CFG[betType] && (
               <>
                 <div className="flex flex-wrap gap-1">
-                  {TOTAL_BANDS.map(b => (
-                    <Badge key={b.label} variant="outline" className="cursor-pointer text-[10px] hover:bg-accent"
-                      onClick={() => setLineRange([b.min ?? TOTAL_CFG[betType].min, b.max ?? TOTAL_CFG[betType].max])}>
-                      {b.label}
-                    </Badge>
-                  ))}
+                  {TOTAL_BANDS.map(b => {
+                    const active = totalBounds?.min === b.min && totalBounds?.max === b.max
+                      || (totalBounds?.min === b.min && b.max == null && totalBounds?.max == null)
+                      || (totalBounds?.max === b.max && b.min == null && totalBounds?.min == null);
+                    return (
+                      <Badge key={b.label} variant={active ? 'default' : 'outline'} className="cursor-pointer text-[10px] hover:bg-accent"
+                        onClick={() => {
+                          const next: OptRange = {};
+                          if (b.min != null) next.min = b.min;
+                          if (b.max != null) next.max = b.max;
+                          setTotalBounds(next);
+                          // Keep slider visually in sync without inventing the other RPC bound
+                          const cfg = TOTAL_CFG[betType];
+                          setLineRange([b.min ?? cfg.min, b.max ?? cfg.max]);
+                        }}>
+                        {b.label}
+                      </Badge>
+                    );
+                  })}
                 </div>
                 <RangeRow label={`${TOTAL_CFG[betType].label}: ${lineRange[0]}–${lineRange[1]}`}
-                  min={TOTAL_CFG[betType].min} max={TOTAL_CFG[betType].max} step={0.5} value={lineRange} onChange={setLineRange} />
+                  min={TOTAL_CFG[betType].min} max={TOTAL_CFG[betType].max} step={0.5}
+                  value={lineRange}
+                  onChange={(v) => { setTotalBounds(null); setLineRange(v); }} />
               </>
             )}
           </FilterSection>
@@ -1012,16 +1065,27 @@ export default function MLBAnalytics() {
             <SelectRow label="Last result" value={lastResult} onChange={setLastResult}
               options={[['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']]} />
             <div>
-              <div className="text-xs text-muted-foreground mb-1">Last game margin</div>
+              <div className="text-xs text-muted-foreground mb-1">Last game margin (signed: + won by, − lost by)</div>
               <div className="flex gap-1 mb-1">
-                <Badge variant="outline" className="cursor-pointer text-[10px]" onClick={() => { setLastMarginMin(''); setLastMarginMax('-5'); }}>Blown out (≤−5)</Badge>
-                <Badge variant="outline" className="cursor-pointer text-[10px]" onClick={() => { setLastMarginMin('5'); setLastMarginMax(''); }}>Won big (≥5)</Badge>
+                <Badge variant="outline" className="cursor-pointer text-[10px]"
+                  onClick={() => { setLastMarginMin(''); setLastMarginMax('-5'); }}>
+                  Blown out last game
+                </Badge>
+                <Badge variant="outline" className="cursor-pointer text-[10px]"
+                  onClick={() => { setLastMarginMin('5'); setLastMarginMax(''); }}>
+                  Won big last game
+                </Badge>
               </div>
               <div className="flex items-center gap-2">
-                <Input type="number" value={lastMarginMin} onChange={e => setLastMarginMin(e.target.value)} placeholder="min" className="h-9" />
+                <Input type="number" inputMode="numeric" value={lastMarginMin}
+                  onChange={e => setLastMarginMin(e.target.value)} placeholder="min e.g. 10" className="h-9" />
                 <span className="text-xs text-muted-foreground">to</span>
-                <Input type="number" value={lastMarginMax} onChange={e => setLastMarginMax(e.target.value)} placeholder="max" className="h-9" />
+                <Input type="number" inputMode="numeric" value={lastMarginMax}
+                  onChange={e => setLastMarginMax(e.target.value)} placeholder="max e.g. -10" className="h-9" />
               </div>
+              <p className="text-[10px] text-muted-foreground/80 mt-1">
+                Leave a side blank for open-ended. Lost by 10+ → max −10. Won by 10+ → min 10.
+              </p>
             </div>
           </FilterSection>
 
@@ -1035,7 +1099,12 @@ export default function MLBAnalytics() {
               <div className="flex flex-wrap gap-1">
                 {XFIP_TIERS.map(t => (
                   <Badge key={t.label} variant="outline" className="cursor-pointer text-[10px]"
-                    onClick={() => setSpXfip([t.min ?? 0, t.max ?? 10])}>{t.label}</Badge>
+                    onClick={() => {
+                      const next: OptRange = {};
+                      if (t.min != null) next.min = t.min;
+                      if (t.max != null) next.max = t.max;
+                      setSpXfip(next);
+                    }}>{t.label}</Badge>
                 ))}
                 {spXfip && <Badge variant="secondary" className="cursor-pointer text-[10px]" onClick={() => setSpXfip(null)}>Clear</Badge>}
               </div>
@@ -1045,7 +1114,12 @@ export default function MLBAnalytics() {
               <div className="flex flex-wrap gap-1">
                 {XFIP_TIERS.map(t => (
                   <Badge key={t.label} variant="outline" className="cursor-pointer text-[10px]"
-                    onClick={() => setOppSpXfip([t.min ?? 0, t.max ?? 10])}>{t.label}</Badge>
+                    onClick={() => {
+                      const next: OptRange = {};
+                      if (t.min != null) next.min = t.min;
+                      if (t.max != null) next.max = t.max;
+                      setOppSpXfip(next);
+                    }}>{t.label}</Badge>
                 ))}
                 {oppSpXfip && <Badge variant="secondary" className="cursor-pointer text-[10px]" onClick={() => setOppSpXfip(null)}>Clear</Badge>}
               </div>
@@ -1058,7 +1132,12 @@ export default function MLBAnalytics() {
               <div className="flex flex-wrap gap-1">
                 {BP_IP_PRESETS.map(p => (
                   <Badge key={p.label} variant="outline" className="cursor-pointer text-[10px]"
-                    onClick={() => setBpIp([p.min ?? 0, p.max ?? 30])}>{p.label}</Badge>
+                    onClick={() => {
+                      const next: OptRange = {};
+                      if (p.min != null) next.min = p.min;
+                      if (p.max != null) next.max = p.max;
+                      setBpIp(next);
+                    }}>{p.label}</Badge>
                 ))}
                 {bpIp && <Badge variant="secondary" className="cursor-pointer text-[10px]" onClick={() => setBpIp(null)}>Clear</Badge>}
               </div>
@@ -1068,7 +1147,12 @@ export default function MLBAnalytics() {
               <div className="flex flex-wrap gap-1">
                 {XFIP_TIERS.map(t => (
                   <Badge key={t.label} variant="outline" className="cursor-pointer text-[10px]"
-                    onClick={() => setBpXfip([t.min ?? 0, t.max ?? 10])}>{t.label}</Badge>
+                    onClick={() => {
+                      const next: OptRange = {};
+                      if (t.min != null) next.min = t.min;
+                      if (t.max != null) next.max = t.max;
+                      setBpXfip(next);
+                    }}>{t.label}</Badge>
                 ))}
                 {bpXfip && <Badge variant="secondary" className="cursor-pointer text-[10px]" onClick={() => setBpXfip(null)}>Clear</Badge>}
               </div>
@@ -1086,7 +1170,12 @@ export default function MLBAnalytics() {
               <div className="flex flex-wrap gap-1">
                 {PF_PRESETS.map(p => (
                   <Badge key={p.label} variant="outline" className="cursor-pointer text-[10px]"
-                    onClick={() => setPfRuns([p.min ?? 80, p.max ?? 120])}>{p.label}</Badge>
+                    onClick={() => {
+                      const next: OptRange = {};
+                      if (p.min != null) next.min = p.min;
+                      if (p.max != null) next.max = p.max;
+                      setPfRuns(next);
+                    }}>{p.label}</Badge>
                 ))}
                 {pfRuns && <Badge variant="secondary" className="cursor-pointer text-[10px]" onClick={() => setPfRuns(null)}>Clear</Badge>}
               </div>
