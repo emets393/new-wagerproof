@@ -118,3 +118,6 @@ verify_jwt = true  # Client-facing, authenticated via JWT
 
 [functions.wagerbot-agent]
 verify_jwt = true  # Client-facing (multi-provider chat), authenticated via JWT
+
+[functions.bridge-uppercase-entitlements]
+verify_jwt = false  # Internal-only via x-internal-secret / service key; one-off 2026-07 RC case-incident bridge
