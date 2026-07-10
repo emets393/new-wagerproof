@@ -30,7 +30,7 @@ const isAndroid = Platform.OS === 'android';
  */
 export function PostOnboardingPaywall() {
   const { user } = useAuth();
-  const { isPro, isInitialized, refreshCustomerInfo } = useRevenueCat();
+  const { isPro, isInitialized, isLoading: rcLoading, refreshCustomerInfo } = useRevenueCat();
   const { isCompleted, completionOverride } = useOnboarding();
   const [dismissed, setDismissed] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -38,8 +38,11 @@ export function PostOnboardingPaywall() {
 
   const effectiveCompleted = completionOverride || isCompleted;
 
-  // Show paywall when: user exists, onboarding is done, not a pro subscriber, not dismissed
-  const shouldShow = !!user && effectiveCompleted && !isPro && !dismissed;
+  // Show paywall when: user exists, onboarding is done, not a pro subscriber, not dismissed.
+  // `!rcLoading` mirrors iOS RootView's hasResolvedActiveUserEntitlement gate — isPro starts
+  // false while entitlements load, so without it paying users get a paywall flash on every
+  // launch. The context force-clears isLoading after 10s, so this can't hide it forever.
+  const shouldShow = !!user && effectiveCompleted && !rcLoading && !isPro && !dismissed;
 
   const { offering, isLoading, error, refresh } = usePlacementOffering(
     PAYWALL_PLACEMENTS.ONBOARDING,

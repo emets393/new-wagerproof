@@ -37,8 +37,9 @@ public final class RevenueCatService: @unchecked Sendable {
     /// `initializeRevenueCat(userId)` shape).
     public func bootstrap(userId: String? = nil) {
         guard !configured else { return }
+        // Lowercased for the same case-sensitivity reason as logIn below.
         let config = Configuration.Builder(withAPIKey: Self.apiKey)
-            .with(appUserID: userId)
+            .with(appUserID: userId?.lowercased())
             .build()
         Purchases.configure(with: config)
         #if DEBUG
@@ -57,7 +58,12 @@ public final class RevenueCatService: @unchecked Sendable {
     /// RN's `{ customerInfo, created }` shape).
     @discardableResult
     public func logIn(userId: String) async throws -> (customerInfo: CustomerInfo, created: Bool) {
-        let result = try await Purchases.shared.logIn(userId)
+        // RC app-user-ids are CASE-SENSITIVE. Web/RN/Android and every backend
+        // grant use the lowercase Supabase uuid, but Swift's UUID.uuidString is
+        // UPPERCASE — logging in with it created a second, entitlement-less RC
+        // customer for every iOS user (paywall + locked pages for paying users,
+        // incident 2026-07). Normalize here so every caller inherits the fix.
+        let result = try await Purchases.shared.logIn(userId.lowercased())
         return (result.customerInfo, result.created)
     }
 

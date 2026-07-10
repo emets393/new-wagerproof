@@ -34,6 +34,8 @@ WagerProof uses RevenueCat for subscription management across both web and mobil
 
 **Entitlement ID**: `WagerProof Pro`
 
+**RC app-user-id = the LOWERCASE Supabase user uuid on every platform.** RevenueCat ids are case-sensitive: iOS native passing Swift's uppercase `UUID.uuidString` created a second, entitlement-less RC customer per user (launch paywall + locked pages for paying subscribers, incident 2026-07-09). `RevenueCatService.logIn`/`bootstrap` (iOS) now lowercase defensively; web/RN/Android/backend already pass the lowercase id. Never pass an uppercased uuid to any RC API.
+
 ---
 
 ## Web Implementation
