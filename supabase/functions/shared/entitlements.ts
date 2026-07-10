@@ -22,57 +22,55 @@ export async function getVerifiedEntitlementState(
   serviceClient: any,
   userId: string,
 ): Promise<VerifiedRevenueCatEntitlementState> {
-  // Prefer the stored real RC identity (written by mobile's
-  // applyCustomerInfoState as originalAppUserId, and by the webhook as the
-  // event's app_user_id). For most users this equals userId. For users
-  // stranded under an anonymous RC id it's the anon id — the only identity
-  // RC's API will resolve. Fall back to userId if the mirror hasn't been
-  // populated yet (brand-new account before any sync/webhook).
+  // A user's subscription can live under THREE RC identities, so probe in
+  // order and take the first ACTIVE one:
+  //   1. the stored mirror id (written by mobile sync / webhooks — covers
+  //      users stranded on an $RCAnonymousID),
+  //   2. the canonical lowercase Supabase uuid,
+  //   3. the UPPERCASE uuid twin — iOS <=3.5.6 logged into RC with Swift's
+  //      uppercase UUID.uuidString, so store purchases made there attached to
+  //      that customer (case incident 2026-07, see 03_payments_billing.md).
+  //      Once iOS 3.5.7 is fully adopted this candidate just 404s; safe to
+  //      drop it then.
+  // An inactive-but-found result is kept as fallback so genuinely-lapsed
+  // users still resolve with their real status rather than "unknown".
   const storedRcId = await getStoredRevenueCatCustomerId(serviceClient, userId);
-  const primaryRcId = storedRcId || userId;
+  const candidates = [...new Set([storedRcId || userId, userId, userId.toUpperCase()])];
 
   try {
+    let firstResolved: RevenueCatEntitlementState | null = null;
+    for (const candidateId of candidates) {
+      try {
+        const state = await fetchRevenueCatEntitlementState(candidateId, REVENUECAT_ENTITLEMENT_IDENTIFIER);
+        if (state.isActive) {
+          if (candidateId === userId.toUpperCase() && candidateId !== userId) {
+            console.warn(`[entitlements] resolved ACTIVE entitlement on UPPERCASE twin for user=${userId} — iOS case-incident customer`);
+          }
+          return { ...state, source: 'live' };
+        }
+        firstResolved = firstResolved ?? state;
+      } catch (candidateError) {
+        // 404 = this identity doesn't exist in RC; try the next one.
+        if (!(candidateError instanceof RevenueCatSubscriberNotFoundError)) {
+          throw candidateError;
+        }
+      }
+    }
+
+    if (firstResolved) {
+      return { ...firstResolved, source: 'live' };
+    }
+
+    // No identity resolves — user is genuinely unknown to RC.
     return {
-      ...(await fetchRevenueCatEntitlementState(primaryRcId, REVENUECAT_ENTITLEMENT_IDENTIFIER)),
+      entitlementIdentifier: REVENUECAT_ENTITLEMENT_IDENTIFIER,
+      isActive: false,
+      subscriptionStatus: null,
+      expiresAt: null,
+      productIdentifier: null,
       source: 'live',
     };
   } catch (error) {
-    // If the stored id 404s but it's different from userId, retry with
-    // userId — covers brief windows where mirror is stale or wrong.
-    if (error instanceof RevenueCatSubscriberNotFoundError && primaryRcId !== userId) {
-      try {
-        const fallbackState = await fetchRevenueCatEntitlementState(
-          userId,
-          REVENUECAT_ENTITLEMENT_IDENTIFIER,
-        );
-        return { ...fallbackState, source: 'live' };
-      } catch (retryError) {
-        if (retryError instanceof RevenueCatSubscriberNotFoundError) {
-          // Neither identity resolves — user is genuinely unknown to RC.
-          return {
-            entitlementIdentifier: REVENUECAT_ENTITLEMENT_IDENTIFIER,
-            isActive: false,
-            subscriptionStatus: null,
-            expiresAt: null,
-            productIdentifier: null,
-            source: 'live',
-          };
-        }
-        console.warn('[entitlements] retry with userId failed, using cache fallback:', retryError);
-        return await getCachedEntitlementState(serviceClient, userId);
-      }
-    }
-    if (error instanceof RevenueCatSubscriberNotFoundError) {
-      // Primary id was userId and RC doesn't know them — genuinely unknown.
-      return {
-        entitlementIdentifier: REVENUECAT_ENTITLEMENT_IDENTIFIER,
-        isActive: false,
-        subscriptionStatus: null,
-        expiresAt: null,
-        productIdentifier: null,
-        source: 'live',
-      };
-    }
     // Transient/network error: fall open to lenient cache to avoid denying
     // paying users during RC outages.
     console.warn('[entitlements] live RevenueCat lookup failed, using cache fallback:', error);
