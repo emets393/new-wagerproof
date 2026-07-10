@@ -22,6 +22,7 @@ import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
 import NFLAnalytics from "./pages/NFLAnalytics";
 import CFBAnalytics from "./pages/CFBAnalytics";
+import MLBAnalytics from "./pages/MLBAnalytics";
 import WagerBotChat from "./pages/WagerBotChat";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import LearnWagerProof from "./pages/LearnWagerProof";
@@ -252,6 +253,7 @@ function AppRoutes() {
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />
           <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
           <Route path="/cfb-analytics" element={<ProtectedRoute><CFBAnalytics /></ProtectedRoute>} />
+          <Route path="/mlb-analytics" element={<ProtectedRoute><MLBAnalytics /></ProtectedRoute>} />
           <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
           <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
           <Route path="/scoreboard/diagnostics" element={<ProtectedRoute><LiveScoreDiagnostics /></ProtectedRoute>} />

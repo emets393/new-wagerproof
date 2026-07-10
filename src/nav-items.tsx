@@ -161,6 +161,11 @@ export const navItems: NavItem[] = [
     icon: <Trophy className="h-4 w-4" />,
     subItems: [
       {
+        title: "Historical Analytics",
+        to: "/mlb-analytics",
+        icon: <BarChart className="h-4 w-4" />,
+      },
+      {
         title: "Today's Betting Trends",
         to: "/mlb/todays-betting-trends",
         icon: <TrendingUp className="h-4 w-4" />,

@@ -97,8 +97,13 @@ export function AppLayout() {
     // current URL's sport param matches — plain pathname matching would treat
     // every /games view as every sport's link being active.
     if (query) {
-      if (location.pathname !== path) return false;
       const toParams = new URLSearchParams(query);
+      // Keep MLB section highlighted on its Historical Analytics tool page.
+      if (toParams.get('sport') === 'mlb' &&
+          (location.pathname === '/mlb-analytics' || location.pathname.startsWith('/mlb/'))) {
+        return true;
+      }
+      if (location.pathname !== path) return false;
       const currentParams = new URLSearchParams(location.search);
       for (const [key, value] of toParams.entries()) {
         if (currentParams.get(key) !== value) return false;
