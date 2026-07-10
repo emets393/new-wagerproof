@@ -234,6 +234,12 @@ serve(async (req) => {
             : counts.totalCount < FREE_AGENT_LIMIT && counts.activeCount < FREE_AGENT_LIMIT);
 
         if (!allowed) {
+          // Log the full entitlement picture on every denial — a paying user
+          // landing here means resolvePremiumAccess classified them free, and
+          // this is the only place that mismatch is visible.
+          console.warn(
+            `[create_agent] 403 userId=${userId} hasPremiumAccess=${hasPremiumAccess} isAdmin=${isAdmin} total=${counts.totalCount} active=${counts.activeCount} requestedActive=${requestedActive} entSource=${(rcEntitlement as any)?.source ?? 'null'} entActive=${(rcEntitlement as any)?.isActive ?? 'null'} entStatus=${(rcEntitlement as any)?.subscriptionStatus ?? 'null'}`,
+          );
           return errorResponse(
             403,
             hasPremiumAccess
