@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofModels
+import WagerproofServices
 import WagerproofStores
 
 // MARK: - Filter bar (compact dropdown pills)
@@ -77,18 +78,20 @@ struct HistoricalAnalysisFilterBar: View {
     // MARK: - Bet type pill
 
     private var betTypePill: some View {
-        Menu {
+        let cases = HistoricalAnalysisBetType.cases(for: store.sport)
+        let secondaryGroup = store.sport == .mlb ? "First Five" : "First Half"
+        return Menu {
             Picker("Market", selection: Binding(
                 get: { store.betType },
                 set: { store.betType = $0 }
             )) {
                 Section("Full Game") {
-                    ForEach(HistoricalAnalysisBetType.allCases.filter { $0.group == "Full Game" }) { bt in
+                    ForEach(cases.filter { $0.group == "Full Game" }) { bt in
                         Label(bt.label, systemImage: marketIcon(for: bt)).tag(bt.rawValue)
                     }
                 }
-                Section("First Half") {
-                    ForEach(HistoricalAnalysisBetType.allCases.filter { $0.group == "First Half" }) { bt in
+                Section(secondaryGroup) {
+                    ForEach(cases.filter { $0.group == secondaryGroup }) { bt in
                         Label(bt.label, systemImage: marketIcon(for: bt)).tag(bt.rawValue)
                     }
                 }
@@ -104,9 +107,9 @@ struct HistoricalAnalysisFilterBar: View {
 
     private func marketIcon(for betType: HistoricalAnalysisBetType) -> String {
         switch betType {
-        case .fgSpread, .h1Spread: return "arrow.left.and.right"
-        case .fgML, .h1ML: return "dollarsign"
-        case .fgTotal, .h1Total: return "sum"
+        case .fgSpread, .h1Spread, .rl, .f5RL: return "arrow.left.and.right"
+        case .fgML, .h1ML, .ml, .f5ML: return "dollarsign"
+        case .fgTotal, .h1Total, .total, .f5Total: return "sum"
         case .teamTotal: return "person.crop.circle"
         }
     }
@@ -161,15 +164,33 @@ struct HistoricalAnalysisFilterBar: View {
             return HistoricalAnalysisCopy.conferencePillLabel(
                 HistoricalAnalysisCopy.activeConferences(store.snapshot)
             )
+        case .mlb:
+            let pitcherCount = store.snapshot.sp.count + store.snapshot.oppSp.count
+            let n = store.snapshot.teams.count + store.snapshot.opponents.count
+            if pitcherCount > 0 {
+                if pitcherCount == 1 {
+                    let p = store.snapshot.sp.first ?? store.snapshot.oppSp.first
+                    return p?.name ?? "Pitcher"
+                }
+                return "\(pitcherCount) pitchers"
+            }
+            if n > 0 { return "\(n) team\(n == 1 ? "" : "s")" }
+            if store.snapshot.spHand != "any" || store.snapshot.oppSpHand != "any" {
+                return "Pitching"
+            }
+            return "Teams/SP"
         }
     }
 
     private var hasSpreadFilter: Bool {
-        ["fg_spread", "h1_spread"].contains(store.betType)
+        store.sport != .mlb && ["fg_spread", "h1_spread"].contains(store.betType)
     }
 
     private var hasLineFilter: Bool {
-        ["fg_total", "h1_total", "team_total"].contains(store.betType)
+        switch store.sport {
+        case .mlb: return ["total", "f5_total"].contains(store.betType)
+        case .nfl, .cfb: return ["fg_total", "h1_total", "team_total"].contains(store.betType)
+        }
     }
 
     private var defaultSpreadMax: Double {
@@ -282,7 +303,12 @@ struct HistoricalAnalysisFilterBar: View {
         case .moneyline: return "Moneyline odds"
         case .situation: return "Situation"
         case .conditions: return "Conditions"
-        case .context: return store.sport == .nfl ? "Coach & referee" : "Conference"
+        case .context:
+            switch store.sport {
+            case .nfl: return "Coach & referee"
+            case .cfb: return "Conference"
+            case .mlb: return "Teams & pitching"
+            }
         }
     }
 
@@ -309,7 +335,7 @@ struct HistoricalAnalysisFilterBar: View {
                 }
             }
             Picker("To", selection: intBinding(\.seasonMax)) {
-                ForEach(store.snapshot.seasonMin...HistoricalAnalysisSport.seasonMax, id: \.self) { y in
+                ForEach(store.snapshot.seasonMin...store.sport.seasonMax, id: \.self) { y in
                     Text(verbatim: String(y)).tag(y)
                 }
             }
@@ -410,14 +436,99 @@ struct HistoricalAnalysisFilterBar: View {
                 Text("Away ranked / home not").tag("away_ranked")
                 Text("Either ranked").tag("either")
             }
+        case .mlb:
+            mlbSituationSheet
         }
-        if HistoricalAnalysisBetType.moneylineMarkets.contains(store.betType) || store.betType == "team_total" {
+        if showsFavDogFilter {
             Picker("Favorite / underdog", selection: binding(\.favDog)) {
                 Text("Either").tag("any")
                 Text("Favorites").tag("favorite")
                 Text("Underdogs").tag("underdog")
             }
         }
+    }
+
+    private var showsFavDogFilter: Bool {
+        switch store.sport {
+        case .mlb:
+            return ["ml", "rl", "f5_ml", "f5_rl"].contains(store.betType)
+        case .nfl, .cfb:
+            return HistoricalAnalysisBetType.moneylineMarkets.contains(store.betType) || store.betType == "team_total"
+        }
+    }
+
+    @ViewBuilder
+    private var mlbSituationSheet: some View {
+        Section("Months") {
+            Picker("From", selection: intBinding(\.monthMin)) {
+                ForEach(3...store.snapshot.monthMax, id: \.self) { m in
+                    Text(monthName(m)).tag(m)
+                }
+            }
+            Picker("To", selection: intBinding(\.monthMax)) {
+                ForEach(store.snapshot.monthMin...11, id: \.self) { m in
+                    Text(monthName(m)).tag(m)
+                }
+            }
+        }
+        Picker("Day of week", selection: binding(\.dayOfWeek)) {
+            Text("Any").tag("any")
+            Text("Mon").tag("Mon")
+            Text("Tue").tag("Tue")
+            Text("Wed").tag("Wed")
+            Text("Thu").tag("Thu")
+            Text("Fri").tag("Fri")
+            Text("Sat").tag("Sat")
+            Text("Sun").tag("Sun")
+        }
+        Section("Series game") {
+            optionalIntField("Min (1–4+)", keyPath: \.seriesGameMin)
+            optionalIntField("Max", keyPath: \.seriesGameMax)
+        }
+        Section("Trip series index") {
+            optionalIntField("Min", keyPath: \.tripMin)
+            optionalIntField("Max", keyPath: \.tripMax)
+        }
+        optionalBoolPicker("Switch game", value: boolBinding(\.switchGame))
+        Section("Days rest") {
+            optionalIntField("Min", keyPath: \.restMin)
+            optionalIntField("Max", keyPath: \.restMax)
+        }
+        Picker("Last result", selection: binding(\.lastResult)) {
+            Text("Any").tag("any")
+            Text("Won").tag("won")
+            Text("Lost").tag("lost")
+        }
+        Section("Last margin (runs)") {
+            TextField("Min (e.g. -3)", text: stringBinding(\.lastMarginMin))
+                .keyboardType(.numbersAndPunctuation)
+            TextField("Max (e.g. 5)", text: stringBinding(\.lastMarginMax))
+                .keyboardType(.numbersAndPunctuation)
+        }
+        optionalBoolPicker("Division", value: boolBinding(\.division))
+        optionalBoolPicker("Interleague", value: boolBinding(\.interleague))
+        optionalBoolPicker("Doubleheader", value: boolBinding(\.doubleheader))
+    }
+
+    private func monthName(_ m: Int) -> String {
+        let names = ["", "", "", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov"]
+        return (m >= 3 && m <= 11) ? names[m] : "\(m)"
+    }
+
+    private func optionalIntField(_ title: String, keyPath: WritableKeyPath<HistoricalAnalysisUISnapshot, Int?>) -> some View {
+        TextField(title, text: Binding(
+            get: {
+                store.snapshot[keyPath: keyPath].map(String.init) ?? ""
+            },
+            set: { raw in
+                let trimmed = raw.trimmingCharacters(in: .whitespaces)
+                store.updateSnapshot {
+                    $0[keyPath: keyPath] = trimmed.isEmpty ? nil : Int(trimmed)
+                }
+                onChange()
+            }
+        ))
+        .keyboardType(.numberPad)
     }
 
     private func weekPickers(max: Int) -> some View {
@@ -437,9 +548,9 @@ struct HistoricalAnalysisFilterBar: View {
 
     @ViewBuilder
     private var conditionsSheet: some View {
-        optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
         switch store.sport {
         case .nfl:
+            optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
             optionalBoolPicker("Divisional", value: boolBinding(\.division))
             Picker("Venue", selection: binding(\.dome)) {
                 Text("Any").tag("any")
@@ -458,11 +569,19 @@ struct HistoricalAnalysisFilterBar: View {
                 Text("Week before bye").tag("pre_bye")
                 Text("Short rest").tag("short")
             }
+            footballWeatherSliders(tempMax: 100)
         case .cfb:
+            optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
             optionalBoolPicker("Conference game", value: boolBinding(\.conferenceGame))
             optionalBoolPicker("Neutral site", value: boolBinding(\.neutralSite))
+            footballWeatherSliders(tempMax: 110)
+        case .mlb:
+            mlbConditionsSheet
         }
-        let tempMax = store.sport == .nfl ? 100 : 110
+    }
+
+    @ViewBuilder
+    private func footballWeatherSliders(tempMax: Int) -> some View {
         VStack(alignment: .leading) {
             Text("Temp \(store.snapshot.tempMin)–\(store.snapshot.tempMax)°F")
             Slider(value: Binding(
@@ -493,6 +612,80 @@ struct HistoricalAnalysisFilterBar: View {
     }
 
     @ViewBuilder
+    private var mlbConditionsSheet: some View {
+        VStack(alignment: .leading) {
+            Text("Temp \(store.snapshot.tempMin)–\(store.snapshot.tempMax)°F")
+            Slider(value: Binding(
+                get: { Double(store.snapshot.tempMin) },
+                set: { value in
+                    store.updateSnapshot { $0.tempMin = Int(value) }
+                    onChange()
+                }
+            ), in: -10...Double(store.snapshot.tempMax), step: 1)
+            Slider(value: Binding(
+                get: { Double(store.snapshot.tempMax) },
+                set: { value in
+                    store.updateSnapshot { $0.tempMax = Int(value) }
+                    onChange()
+                }
+            ), in: Double(store.snapshot.tempMin)...110, step: 1)
+        }
+        Section("Wind") {
+            TextField("Min mph", text: Binding(
+                get: { store.snapshot.windMin.map(String.init) ?? "" },
+                set: { raw in
+                    let t = raw.trimmingCharacters(in: .whitespaces)
+                    store.updateSnapshot { $0.windMin = t.isEmpty ? nil : Int(t) }
+                    onChange()
+                }
+            ))
+            .keyboardType(.numberPad)
+            VStack(alignment: .leading) {
+                Text("Max wind \(store.snapshot.windMax) mph")
+                Slider(value: Binding(
+                    get: { Double(store.snapshot.windMax) },
+                    set: { value in
+                        store.updateSnapshot { $0.windMax = Int(value) }
+                        onChange()
+                    }
+                ), in: 0...60, step: 1)
+            }
+            Picker("Wind direction", selection: binding(\.windDir)) {
+                Text("Any").tag("any")
+                Text("Out").tag("out")
+                Text("In").tag("in")
+                Text("Cross").tag("cross")
+                Text("None / calm").tag("none")
+            }
+        }
+        Picker("Dome", selection: binding(\.dome)) {
+            Text("Any").tag("any")
+            Text("Dome").tag("dome")
+            Text("Outdoor").tag("outdoor")
+        }
+        Section("Park factor (runs)") {
+            TextField("Min", text: Binding(
+                get: { store.snapshot.pfRunsMin.map { HistoricalAnalysisCopy.trimmed($0) } ?? "" },
+                set: { raw in
+                    let t = raw.trimmingCharacters(in: .whitespaces)
+                    store.updateSnapshot { $0.pfRunsMin = t.isEmpty ? nil : Double(t) }
+                    onChange()
+                }
+            ))
+            .keyboardType(.decimalPad)
+            TextField("Max", text: Binding(
+                get: { store.snapshot.pfRunsMax.map { HistoricalAnalysisCopy.trimmed($0) } ?? "" },
+                set: { raw in
+                    let t = raw.trimmingCharacters(in: .whitespaces)
+                    store.updateSnapshot { $0.pfRunsMax = t.isEmpty ? nil : Double(t) }
+                    onChange()
+                }
+            ))
+            .keyboardType(.decimalPad)
+        }
+    }
+
+    @ViewBuilder
     private var contextSheet: some View {
         switch store.sport {
         case .nfl:
@@ -506,6 +699,97 @@ struct HistoricalAnalysisFilterBar: View {
             }
         case .cfb:
             conferenceMultiSelect
+        case .mlb:
+            mlbContextSheet
+        }
+    }
+
+    @ViewBuilder
+    private var mlbContextSheet: some View {
+        Section("Teams") {
+            mlbTeamMultiSelect(title: "Selected teams", keyPath: \.teams)
+        }
+        Section("Opponents") {
+            mlbTeamMultiSelect(title: "Selected opponents", keyPath: \.opponents)
+        }
+
+        MlbPitcherTypeahead(
+            label: "Team starter (SP)",
+            selected: Binding(
+                get: { store.snapshot.sp },
+                set: { next in
+                    store.updateSnapshot { $0.sp = next }
+                }
+            ),
+            onChange: onChange
+        )
+        MlbPitcherTypeahead(
+            label: "Opposing starter",
+            selected: Binding(
+                get: { store.snapshot.oppSp },
+                set: { next in
+                    store.updateSnapshot { $0.oppSp = next }
+                }
+            ),
+            onChange: onChange
+        )
+
+        Section("Handedness") {
+            Picker("SP hand", selection: binding(\.spHand)) {
+                Text("Any").tag("any")
+                Text("Left").tag("L")
+                Text("Right").tag("R")
+            }
+            Picker("Opp SP hand", selection: binding(\.oppSpHand)) {
+                Text("Any").tag("any")
+                Text("Left").tag("L")
+                Text("Right").tag("R")
+            }
+        }
+    }
+
+    private func mlbTeamMultiSelect(title: String, keyPath: WritableKeyPath<HistoricalAnalysisUISnapshot, [String]>) -> some View {
+        Group {
+            let selected = store.snapshot[keyPath: keyPath]
+            if selected.isEmpty {
+                Text("All \(title.lowercased())")
+                    .foregroundStyle(Color.appTextSecondary)
+            } else {
+                Text("\(selected.count) selected")
+                    .foregroundStyle(Color.appTextSecondary)
+            }
+            ForEach(store.mlbTeams, id: \.abbr) { team in
+                Button {
+                    store.updateSnapshot { snap in
+                        var list = snap[keyPath: keyPath]
+                        if list.contains(team.abbr) {
+                            list.removeAll { $0 == team.abbr }
+                        } else {
+                            list.append(team.abbr)
+                            list.sort()
+                        }
+                        snap[keyPath: keyPath] = list
+                    }
+                    onChange()
+                } label: {
+                    HStack {
+                        Text("\(team.abbr) · \(team.name)")
+                            .foregroundStyle(Color.appTextPrimary)
+                        Spacer()
+                        if store.snapshot[keyPath: keyPath].contains(team.abbr) {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(Color.appPrimary)
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                    }
+                }
+            }
+            if !selected.isEmpty {
+                Button("Clear", role: .destructive) {
+                    store.updateSnapshot { $0[keyPath: keyPath] = [] }
+                    onChange()
+                }
+            }
         }
     }
 
@@ -693,5 +977,144 @@ private struct HistoricalAnalysisRangeSlider: View {
         let steps = ((raw - range.lowerBound) / step).rounded()
         let snapped = range.lowerBound + steps * step
         return min(range.upperBound, max(range.lowerBound, snapped))
+    }
+}
+
+// MARK: - MLB pitcher typeahead
+
+/// Debounced pitcher search — mirrors web `PitcherTypeahead` / `mlb_pitcher_options`.
+private struct MlbPitcherTypeahead: View {
+    let label: String
+    @Binding var selected: [MlbPitcherOption]
+    var onChange: () -> Void = {}
+
+    @State private var query = ""
+    @State private var results: [MlbPitcherOption] = []
+    @State private var isSearching = false
+    @State private var searchTask: Task<Void, Never>?
+
+    var body: some View {
+        Section(label) {
+            if !selected.isEmpty {
+                ForEach(selected) { pitcher in
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(pitcher.name)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Color.appTextPrimary)
+                            Text(subtitle(for: pitcher))
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.appTextSecondary)
+                        }
+                        Spacer()
+                        Button {
+                            selected.removeAll { $0.id == pitcher.id }
+                            onChange()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(Color.appTextMuted)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Color.appTextMuted)
+                    .font(.system(size: 14, weight: .semibold))
+                TextField("Search pitchers…", text: $query)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                    .onChange(of: query) { _, newValue in
+                        scheduleSearch(newValue)
+                    }
+                if isSearching {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if !query.isEmpty {
+                    Button {
+                        query = ""
+                        results = []
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Color.appTextMuted)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if !results.isEmpty {
+                ForEach(results.prefix(40)) { pitcher in
+                    Button {
+                        add(pitcher)
+                    } label: {
+                        HStack {
+                            Text(pitcher.name)
+                                .foregroundStyle(Color.appTextPrimary)
+                                .font(.system(size: 15, weight: .medium))
+                            Spacer()
+                            Text(subtitle(for: pitcher))
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.appTextSecondary)
+                            if selected.contains(where: { $0.id == pitcher.id }) {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.appPrimary)
+                                    .font(.system(size: 13, weight: .bold))
+                            }
+                        }
+                    }
+                    .disabled(selected.contains(where: { $0.id == pitcher.id }))
+                }
+            } else if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !isSearching {
+                Text("No pitchers found")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.appTextMuted)
+            }
+        }
+        .task {
+            if results.isEmpty, query.isEmpty {
+                await runSearch("")
+            }
+        }
+    }
+
+    private func subtitle(for pitcher: MlbPitcherOption) -> String {
+        [pitcher.team, pitcher.hand.map { "\($0)HP" }]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    private func add(_ pitcher: MlbPitcherOption) {
+        guard !selected.contains(where: { $0.id == pitcher.id }) else { return }
+        selected.append(pitcher)
+        query = ""
+        results = []
+        onChange()
+        Task { await runSearch("") }
+    }
+
+    private func scheduleSearch(_ q: String) {
+        searchTask?.cancel()
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            await runSearch(q)
+        }
+    }
+
+    @MainActor
+    private func runSearch(_ q: String) async {
+        isSearching = true
+        defer { isSearching = false }
+        do {
+            let opts = try await HistoricalAnalysisService.shared.fetchPitcherOptions(q: q)
+            guard !Task.isCancelled else { return }
+            results = opts
+        } catch {
+            guard !Task.isCancelled else { return }
+            results = []
+        }
     }
 }

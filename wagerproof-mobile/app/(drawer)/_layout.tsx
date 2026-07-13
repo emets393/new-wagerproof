@@ -35,6 +35,9 @@ export default function DrawerLayout() {
           case 'feed':
             router.push('/(drawer)/(tabs)');
             break;
+          case 'mlb-historical-analysis':
+            router.push('/(drawer)/(tabs)/mlb-historical-analysis' as any);
+            break;
           default:
             // Default to feed if unknown path
             router.push('/(drawer)/(tabs)');

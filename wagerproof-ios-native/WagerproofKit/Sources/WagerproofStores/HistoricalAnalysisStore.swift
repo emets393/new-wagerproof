@@ -29,6 +29,7 @@ public final class HistoricalAnalysisStore {
     public private(set) var conferences: [String] = []
     public private(set) var conferenceTeamMap: [String: [String]] = [:]
     public private(set) var cfbLogos: [String: String] = [:]
+    public private(set) var mlbTeams: [(abbr: String, name: String)] = []
 
     public private(set) var savedFilters: [HistoricalAnalysisSavedFilter] = []
 
@@ -55,7 +56,7 @@ public final class HistoricalAnalysisStore {
     }
 
     public var isLimitedHistory: Bool {
-        HistoricalAnalysisBetType.limitedHistory.contains(betType)
+        sport == .mlb ? false : HistoricalAnalysisBetType.limitedHistory.contains(betType)
     }
 
     public func onAppear() async {
@@ -104,8 +105,9 @@ public final class HistoricalAnalysisStore {
     }
 
     public func resetAllFilters() {
+        let keepBet = betType
         snapshot = .defaults(for: sport)
-        snapshot.betType = betType
+        snapshot.betType = keepBet
         resetLineControlsForBetType()
         scheduleFetch()
     }
@@ -140,12 +142,18 @@ public final class HistoricalAnalysisStore {
             snapshot: snapshot,
             conferenceTeamMap: conferenceTeamMap
         )
+        let upcomingFilters: [String: JSONValue]
+        if sport == .mlb, HistoricalAnalysisFilterBuilder.mlbFiltersWeatherOnly(filters) {
+            upcomingFilters = [:]
+        } else {
+            upcomingFilters = filters
+        }
         do {
             async let analysisTask = HistoricalAnalysisService.shared.fetchAnalysis(
                 sport: sport, betType: betType, filters: filters
             )
             async let upcomingTask = HistoricalAnalysisService.shared.fetchUpcoming(
-                sport: sport, betType: betType, filters: filters
+                sport: sport, betType: betType, filters: upcomingFilters
             )
             let (a, u) = try await (analysisTask, upcomingTask)
             analysis = a
@@ -162,15 +170,18 @@ public final class HistoricalAnalysisStore {
 
     private func loadBootstrap() async {
         do {
-            let boot = try await HistoricalAnalysisService.shared.fetchBootstrap(sport: sport)
             switch sport {
             case .nfl:
+                let boot = try await HistoricalAnalysisService.shared.fetchBootstrap(sport: sport)
                 coaches = (boot.byCoach ?? []).map(\.label).filter { $0 != "—" }.sorted()
                 referees = (boot.byReferee ?? []).map(\.label).filter { $0 != "—" }.sorted()
             case .cfb:
+                let boot = try await HistoricalAnalysisService.shared.fetchBootstrap(sport: sport)
                 conferences = (boot.byConference ?? []).compactMap(\.conference).filter { !$0.isEmpty }.sorted()
                 conferenceTeamMap = (try? await HistoricalAnalysisService.shared.fetchConferenceTeamMap()) ?? [:]
                 cfbLogos = (try? await HistoricalAnalysisService.shared.fetchCFBLogos()) ?? [:]
+            case .mlb:
+                mlbTeams = (try? await HistoricalAnalysisService.shared.fetchMLBTeamAbbrs()) ?? []
             }
         } catch {
             // Non-fatal — filter dropdowns stay empty.
@@ -200,6 +211,12 @@ public final class HistoricalAnalysisStore {
             case "fg_total": snapshot.lineMin = 30; snapshot.lineMax = 80
             case "h1_total": snapshot.lineMin = 15; snapshot.lineMax = 45
             case "team_total": snapshot.lineMin = 10; snapshot.lineMax = 55
+            default: break
+            }
+        case .mlb:
+            switch betType {
+            case "total": snapshot.lineMin = 5; snapshot.lineMax = 14
+            case "f5_total": snapshot.lineMin = 2; snapshot.lineMax = 8
             default: break
             }
         }

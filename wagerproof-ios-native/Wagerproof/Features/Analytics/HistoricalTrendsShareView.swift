@@ -425,6 +425,11 @@ struct HistoricalTrendsInfographic: View {
             if conferences.count >= 3 {
                 topList(title: "TOP CONFERENCES", rows: conferences, allRows: analysis.byConference ?? [])
             }
+        case .mlb:
+            let venues = topRows(analysis.byVenue ?? [])
+            if venues.count >= 3 {
+                topList(title: "TOP VENUES", rows: venues, allRows: analysis.byVenue ?? [])
+            }
         }
     }
 

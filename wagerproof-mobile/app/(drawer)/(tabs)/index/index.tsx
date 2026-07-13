@@ -17,6 +17,7 @@ import { BettingTrendsBanner } from '@/components/nba/BettingTrendsBanner';
 import { NCAABBettingTrendsBanner } from '@/components/ncaab/BettingTrendsBanner';
 import { MLBBettingTrendsBanner } from '@/components/mlb/MLBBettingTrendsBanner';
 import { MLBRegressionReportBanner } from '@/components/mlb/MLBRegressionReportBanner';
+import { MLBHistoricalAnalysisBanner } from '@/components/mlb/MLBHistoricalAnalysisBanner';
 import { MLBF5SplitsBanner } from '@/components/mlb/MLBF5SplitsBanner';
 import { MLBPitcherMatchupsBanner } from '@/components/mlb/MLBPitcherMatchupsBanner';
 import { NBAModelAccuracyBanner } from '@/components/nba/ModelAccuracyBanner';
@@ -1259,6 +1260,9 @@ export default function FeedScreen() {
 
       {/* NCAAB Model Accuracy Banner */}
       {sport === 'ncaab' && !searchTexts.ncaab && <NCAABModelAccuracyBanner />}
+
+      {/* MLB Historical Analysis Banner */}
+      {sport === 'mlb' && !searchTexts.mlb && <MLBHistoricalAnalysisBanner />}
 
       {/* MLB Betting Trends Banner */}
       {sport === 'mlb' && !searchTexts.mlb && <MLBBettingTrendsBanner />}

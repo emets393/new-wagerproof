@@ -96,6 +96,7 @@ struct HistoricalAnalysisView: View {
         case "coach": return Text("Search coaches")
         case "ref": return Text("Search referees")
         case "conf": return Text("Search conferences")
+        case "venue": return Text("Search venues")
         default: return Text("Search teams")
         }
     }
@@ -199,7 +200,7 @@ struct HistoricalAnalysisView: View {
         let pctStr = HistoricalAnalysisCopy.trimmed(metrics.hitPct) + "%"
         let pctColor = HistoricalAnalysisCopy.hitPctColor(metrics.hitPct)
         var suffix = " (\(metrics.wins) of \(metrics.n) \(HistoricalAnalysisCopy.noun(for: store.betType, snapshot: store.snapshot)))"
-        if let roi = metrics.roi {
+        if let roi = metrics.roi, HistoricalAnalysisBetType.showsROI(betType: store.betType, sport: sport) {
             suffix += " · \(HistoricalAnalysisCopy.signedPct(roi)) ROI"
         }
         return Text("\(subject) \(HistoricalAnalysisCopy.verb(for: store.betType)) ")
@@ -256,7 +257,7 @@ struct HistoricalAnalysisView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(Color.appTextSecondary)
                         Spacer()
-                        if let roi = opt.roi {
+                        if let roi = opt.roi, showsROI {
                             Text(HistoricalAnalysisCopy.signedPct(roi) + " ROI")
                                 .font(.system(size: 11))
                                 .foregroundStyle(roi >= 0 ? Color.green : Color.red)
@@ -290,16 +291,18 @@ struct HistoricalAnalysisView: View {
                 return [("team", "By Team"), ("conf", "By Conference")]
             }
             return [("team", "By Team")]
+        case .mlb:
+            return [("team", "By Team"), ("venue", "By Venue")]
         }
     }
 
-    private var isMoneylineBetType: Bool {
-        HistoricalAnalysisBetType.moneylineMarkets.contains(store.betType)
+    private var showsROI: Bool {
+        HistoricalAnalysisBetType.showsROI(betType: store.betType, sport: sport)
     }
 
-    /// ROI isn't computed for moneyline markets — fall back to game count.
+    /// ROI isn't computed for moneyline / F5 ML markets — fall back to game count.
     private var effectiveSort: String {
-        isMoneylineBetType && breakdownSort == "roi" ? "n" : breakdownSort
+        !showsROI && breakdownSort == "roi" ? "n" : breakdownSort
     }
 
     private var breakdownSortMenu: some View {
@@ -309,7 +312,7 @@ struct HistoricalAnalysisView: View {
             Picker("Sort by", selection: $breakdownSort) {
                 Label("Most games", systemImage: "number").tag("n")
                 Label("\(outcome) %", systemImage: "percent").tag("hit")
-                if !isMoneylineBetType {
+                if showsROI {
                     Label("ROI", systemImage: "chart.line.uptrend.xyaxis").tag("roi")
                 }
             }
@@ -331,6 +334,7 @@ struct HistoricalAnalysisView: View {
             case "coach": return data.byCoach ?? []
             case "ref": return data.byReferee ?? []
             case "conf": return data.byConference ?? []
+            case "venue": return data.byVenue ?? []
             default: return data.byTeam
             }
         }()
@@ -393,7 +397,7 @@ struct HistoricalAnalysisView: View {
                 .monospacedDigit()
                 .foregroundStyle(HistoricalAnalysisCopy.hitPctColor(row.hitPct))
                 .frame(width: 52, alignment: .trailing)
-            if !isMoneylineBetType {
+            if showsROI {
                 Text(row.roi.map { HistoricalAnalysisCopy.signedPct($0) } ?? "—")
                     .font(.system(size: 12))
                     .monospacedDigit()
@@ -431,6 +435,13 @@ struct HistoricalAnalysisView: View {
             } else {
                 cfbInitialsAvatar(team)
             }
+        case .mlb:
+            MLBTeamLogo(
+                logoUrl: MLBTeams.logoUrl(for: team),
+                abbrev: team,
+                name: team,
+                size: 24
+            )
         }
     }
 
@@ -472,9 +483,18 @@ struct HistoricalAnalysisView: View {
                                 Text(HistoricalAnalysisCopy.lineForBet(betType: store.betType, game: game))
                                     .font(.system(size: 12))
                                     .foregroundStyle(Color.appTextSecondary)
-                                Text(HistoricalAnalysisCopy.fmtKickoff(game.kickoff))
+                                Text(upcomingTimeLabel(game))
                                     .font(.system(size: 11))
                                     .foregroundStyle(Color.appTextSecondary)
+                                if sport == .mlb {
+                                    let chips = HistoricalAnalysisCopy.mlbUpcomingChips(game)
+                                    if !chips.isEmpty {
+                                        Text(chips.joined(separator: " · "))
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(Color.appTextSecondary.opacity(0.9))
+                                            .lineLimit(2)
+                                    }
+                                }
                             }
                             Spacer()
                         }
@@ -486,6 +506,16 @@ struct HistoricalAnalysisView: View {
                 }
             }
         }
+    }
+
+    private func upcomingTimeLabel(_ game: HistoricalAnalysisUpcomingGame) -> String {
+        if let kickoff = game.kickoff, !kickoff.isEmpty {
+            return HistoricalAnalysisCopy.fmtKickoff(kickoff)
+        }
+        var parts: [String] = []
+        if let date = game.gameDate, !date.isEmpty { parts.append(date) }
+        if let time = game.timeEt, !time.isEmpty { parts.append("\(time) ET") }
+        return parts.joined(separator: " · ")
     }
 
     // MARK: - Saved searches (toolbar context menu)

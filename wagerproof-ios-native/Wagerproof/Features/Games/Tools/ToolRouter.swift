@@ -12,6 +12,7 @@ enum ToolRouter {
         case .nbaAccuracy:        NBAModelAccuracyView()
         case .ncaabAccuracy:      NCAABModelAccuracyView()
         case .mlbRegression:      MlbRegressionReportView()
+        case .mlbHistoricalAnalysis: HistoricalAnalysisView(sport: .mlb)
         case .nflHistoricalAnalysis: HistoricalAnalysisView(sport: .nfl)
         case .cfbHistoricalAnalysis: HistoricalAnalysisView(sport: .cfb)
         case .value, .fade:       EmptyView()

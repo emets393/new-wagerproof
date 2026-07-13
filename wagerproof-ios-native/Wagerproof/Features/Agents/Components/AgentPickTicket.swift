@@ -595,10 +595,12 @@ extension AgentPick {
         return (parts[0], parts[1])
     }
 
+    @MainActor
     var ticketAwayCode: String {
         PickTicketFormat.teamCode(awayHomeNames?.away ?? matchup, sport: sport)
     }
 
+    @MainActor
     var ticketHomeCode: String {
         PickTicketFormat.teamCode(awayHomeNames?.home ?? "", sport: sport)
     }
@@ -645,14 +647,20 @@ enum PickTicketFormat {
         return []
     }
 
-    /// Best-effort airport-code-style team abbreviation. MLB uses the real
-    /// abbreviation table; other sports fall back to word initials (ticket #008
-    /// will add a centralized team-color/abbrev library).
+    /// Airport-code-style team abbreviation from the same registries game cards use.
+    @MainActor
     static func teamCode(_ name: String, sport: AgentSport) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "—" }
-        if sport == .mlb, let info = MLBTeams.info(for: trimmed) {
-            return info.team
+        switch sport {
+        case .mlb:
+            if let info = MLBTeams.info(for: trimmed) { return info.team }
+        case .nfl:
+            return NFLTeamAssets.abbr(for: trimmed)
+        case .cfb:
+            return CFBTeamAssets.abbr(for: trimmed)
+        case .nba, .ncaab:
+            break
         }
         let words = trimmed.split(separator: " ").map(String.init)
         if words.count >= 2 {
@@ -661,29 +669,56 @@ enum PickTicketFormat {
         return String(trimmed.prefix(3)).uppercased()
     }
 
-    /// Full display identity for a team on a ticket: the real abbreviation plus
-    /// (for MLB) the ESPN logo + brand colors, resolved from the same
-    /// `MLBTeams` registry the game cards use. `logoUrl(for:)` / `colors(for:)`
-    /// resolve both full names and bare abbreviations. Non-MLB picks only carry
-    /// a matchup string (no name-keyed registry yet), so they fall back to
-    /// word-initials on a neutral glass disc.
+    /// Full display identity for a team on a ticket: real abbreviation + logo +
+    /// brand colors from the same registries as NFL/CFB/MLB game cards.
+    @MainActor
     static func teamVisual(_ name: String, sport: AgentSport) -> PickTeamVisual {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return PickTeamVisual(code: "—", logoURL: nil,
-                                  primary: Color(hex: 0x1F2937), secondary: Color(hex: 0x6B7280))
-        }
-        if sport == .mlb, let logo = MLBTeams.logoUrl(for: trimmed) {
-            let (primary, secondary) = MLBTeams.colors(for: trimmed)
+        let neutral = PickTeamVisual(
+            code: "—",
+            logoURL: nil,
+            primary: Color(hex: 0x1F2937),
+            secondary: Color(hex: 0x6B7280)
+        )
+        guard !trimmed.isEmpty else { return neutral }
+
+        switch sport {
+        case .mlb:
+            if let logo = MLBTeams.logoUrl(for: trimmed) {
+                let (primary, secondary) = MLBTeams.colors(for: trimmed)
+                return PickTeamVisual(
+                    code: MLBTeams.info(for: trimmed)?.team ?? trimmed.uppercased(),
+                    logoURL: logo,
+                    primary: Color(hex: Int(primary)),
+                    secondary: Color(hex: Int(secondary))
+                )
+            }
+        case .nfl:
+            let colors = NFLTeamColors.colorPair(for: trimmed)
             return PickTeamVisual(
-                code: MLBTeams.info(for: trimmed)?.team ?? trimmed.uppercased(),
-                logoURL: logo,
-                primary: Color(hex: Int(primary)),
-                secondary: Color(hex: Int(secondary))
+                code: NFLTeamAssets.abbr(for: trimmed),
+                logoURL: NFLTeamAssets.logo(for: trimmed),
+                primary: colors.primary,
+                secondary: colors.secondary
             )
+        case .cfb:
+            let colors = CFBTeamColors.colorPair(for: trimmed)
+            return PickTeamVisual(
+                code: CFBTeamAssets.abbr(for: trimmed),
+                logoURL: CFBTeamAssets.logo(for: trimmed),
+                primary: colors.primary,
+                secondary: colors.secondary
+            )
+        case .nba, .ncaab:
+            break
         }
-        return PickTeamVisual(code: teamCode(trimmed, sport: sport), logoURL: nil,
-                              primary: Color(hex: 0x1F2937), secondary: Color(hex: 0x6B7280))
+
+        return PickTeamVisual(
+            code: teamCode(trimmed, sport: sport),
+            logoURL: nil,
+            primary: Color(hex: 0x1F2937),
+            secondary: Color(hex: 0x6B7280)
+        )
     }
 }
 

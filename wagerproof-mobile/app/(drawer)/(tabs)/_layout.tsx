@@ -149,6 +149,7 @@ function TabsContent() {
         <NativeTabs.Trigger name="feature-requests" hidden />
         <NativeTabs.Trigger name="mlb-betting-trends" hidden />
         <NativeTabs.Trigger name="mlb-regression-report" hidden />
+        <NativeTabs.Trigger name="mlb-historical-analysis" hidden />
         <NativeTabs.Trigger name="nba-betting-trends" hidden />
         <NativeTabs.Trigger name="nba-model-accuracy" hidden />
         <NativeTabs.Trigger name="ncaab-betting-trends" hidden />

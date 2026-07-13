@@ -13,6 +13,10 @@ public actor HistoricalAnalysisService {
         let p_filters: [String: JSONValue]
     }
 
+    private struct PitcherRPCParams: Encodable {
+        let p_q: String?
+    }
+
     public func fetchAnalysis(
         sport: HistoricalAnalysisSport,
         betType: String,
@@ -40,9 +44,43 @@ public actor HistoricalAnalysisService {
         return rows
     }
 
-    /// Bootstrap coach/referee (NFL) or conference (CFB) option lists.
+    /// Bootstrap coach/referee (NFL), conference (CFB), or empty analysis for MLB team list.
     public func fetchBootstrap(sport: HistoricalAnalysisSport) async throws -> HistoricalAnalysisResponse {
-        try await fetchAnalysis(sport: sport, betType: "fg_spread", filters: [:])
+        let betType = sport == .mlb ? "ml" : "fg_spread"
+        return try await fetchAnalysis(sport: sport, betType: betType, filters: [:])
+    }
+
+    /// MLB team abbr + name from `mlb_team_mapping`.
+    public func fetchMLBTeamAbbrs() async throws -> [(abbr: String, name: String)] {
+        let client = await CFBSupabase.shared.client
+        struct Row: Decodable {
+            let team: String
+            let teamName: String?
+
+            enum CodingKeys: String, CodingKey {
+                case team
+                case teamName = "team_name"
+            }
+        }
+        let rows: [Row] = try await client
+            .from("mlb_team_mapping")
+            .select("team,team_name")
+            .execute()
+            .value
+        return rows
+            .map { (abbr: $0.team, name: $0.teamName ?? $0.team) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Pitcher typeahead via `mlb_pitcher_options`. Empty query → `p_q: null` (same as web).
+    public func fetchPitcherOptions(q: String) async throws -> [MlbPitcherOption] {
+        let client = await CFBSupabase.shared.client
+        let trimmed = q.trimmingCharacters(in: .whitespacesAndNewlines)
+        let params = PitcherRPCParams(p_q: trimmed.isEmpty ? nil : trimmed)
+        return try await client
+            .rpc("mlb_pitcher_options", params: params)
+            .execute()
+            .value
     }
 
     /// CFB team names grouped by conference — used to OR multiple conferences via `team[]`.

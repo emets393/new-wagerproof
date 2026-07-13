@@ -54,6 +54,15 @@ struct SportTool: Identifiable, Hashable {
         ],
         .mlb: [
             SportTool(
+                id: "mlb-historical-trends", sport: .mlb,
+                title: "MLB Historical Trends", subtitle: "Situational hit rates, F5, matching games",
+                actionWord: "Open",
+                primaryColor: Color(hex: 0x3B82F6), secondaryColor: Color(hex: 0x4ADE80),
+                symbols: ["chart.bar.fill", "chart.line.uptrend.xyaxis", "baseball.fill", "percent", "calendar", "arrow.up.arrow.down", "clock.fill", "chart.xyaxis.line", "bolt.fill", "star.fill"],
+                seed: 0.48, speedFactor: 0.99, yJitter: -0.02,
+                category: .mlbHistoricalAnalysis
+            ),
+            SportTool(
                 id: "mlb-regression-report", sport: .mlb,
                 title: "MLB Regression Report", subtitle: "AI narrative + suggested picks",
                 actionWord: "Open",

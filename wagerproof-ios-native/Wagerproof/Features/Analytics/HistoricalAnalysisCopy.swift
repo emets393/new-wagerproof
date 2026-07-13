@@ -13,7 +13,9 @@ enum HistoricalAnalysisCopy {
     static func sideLabel(betType: String, side: String) -> String {
         if side == "over" { return "Over" }
         if side == "under" { return "Under" }
-        let verb = HistoricalAnalysisBetType.moneylineMarkets.contains(betType) ? "won" : "covered"
+        let isML = HistoricalAnalysisBetType.moneylineMarkets.contains(betType)
+            || betType == "ml" || betType == "f5_ml"
+        let verb = isML ? "won" : "covered"
         switch side {
         case "home": return "Home \(verb)"
         case "away": return "Away \(verb)"
@@ -32,15 +34,21 @@ enum HistoricalAnalysisCopy {
         case "fg_total": return "went over"
         case "h1_total": return "went over the 1H total"
         case "team_total": return "went over their team total"
+        case "ml": return "won"
+        case "rl": return "covered the run line"
+        case "total": return "went over"
+        case "f5_ml": return "won the F5"
+        case "f5_rl": return "covered the F5 run line"
+        case "f5_total": return "went over the F5 total"
         default: return "hit"
         }
     }
 
     static func outcomeLabel(for betType: String) -> String {
         switch betType {
-        case "fg_spread", "h1_spread": return "Cover"
-        case "fg_ml", "h1_ml": return "Win"
-        case "fg_total", "h1_total", "team_total": return "Over"
+        case "fg_spread", "h1_spread", "rl", "f5_rl": return "Cover"
+        case "fg_ml", "h1_ml", "ml", "f5_ml": return "Win"
+        case "fg_total", "h1_total", "team_total", "total", "f5_total": return "Over"
         default: return "Hit"
         }
     }
@@ -139,7 +147,8 @@ enum HistoricalAnalysisCopy {
             }
         }
         if HistoricalAnalysisBetType.moneylineMarkets.contains(snapshot.betType)
-            || snapshot.betType == "team_total" {
+            || snapshot.betType == "team_total"
+            || ["ml", "f5_ml", "rl", "f5_rl"].contains(snapshot.betType) {
             switch snapshot.favDog {
             case "favorite", "underdog": return snapshot.favDog
             default: break
@@ -191,7 +200,40 @@ enum HistoricalAnalysisCopy {
         if betType == "h1_total" {
             return "1H Total O/U \(game.h1Total.map(trimmed) ?? "—")"
         }
+        if betType == "ml" {
+            return "\(t) ML (\(game.isFavorite ? "fav" : "dog"))"
+        }
+        if betType == "rl" {
+            return "\(t) RL \(game.isFavorite ? "−1.5" : "+1.5")"
+        }
+        if betType == "total" {
+            return "Total O/U \(game.total.map(trimmed) ?? "—")"
+        }
+        if betType == "f5_ml" {
+            return "\(t) F5 ML"
+        }
+        if betType == "f5_rl" {
+            return "\(t) F5 RL \(game.isFavorite ? "−0.5" : "+0.5")"
+        }
+        if betType == "f5_total" {
+            return "F5 Total O/U \(game.f5Total.map(trimmed) ?? "—")"
+        }
         return ""
+    }
+
+    static func mlbUpcomingChips(_ g: HistoricalAnalysisUpcomingGame) -> [String] {
+        var chips: [String] = []
+        if let sg = g.seriesGame {
+            chips.append("Series G\(sg >= 4 ? "4+" : "\(sg)")")
+        }
+        if let t = g.tripSeriesIndex {
+            chips.append(t >= 3 ? "3rd+ series of trip" : t == 2 ? "2nd series of trip" : "1st series of trip")
+        }
+        if g.isSwitchGame == true { chips.append("Switch") }
+        if let hand = g.oppSpHand, !hand.isEmpty { chips.append("vs \(hand)HP") }
+        if let name = g.oppSpName, !name.isEmpty { chips.append(name) }
+        if g.isDoubleheader == true { chips.append("DH") }
+        return chips
     }
 
     struct ActiveChip: Identifiable {
@@ -210,7 +252,7 @@ enum HistoricalAnalysisCopy {
         var s = snapshot
         let betType = s.betType
         let weekMax = sport == .nfl ? 18 : 16
-        let seasonMax = HistoricalAnalysisSport.seasonMax
+        let seasonMax = sport.seasonMax
         let spreadCfg = HistoricalAnalysisFilterBuilder.spreadConfig(sport: sport, betType: betType)
         let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: betType)
 
@@ -263,6 +305,89 @@ enum HistoricalAnalysisCopy {
                     s.weekMin = 1; s.weekMax = weekMax; onChange(s)
                 })
             }
+        case .mlb:
+            if s.monthMin != 3 || s.monthMax != 11 {
+                chips.append(.init(label: "Months \(s.monthMin)–\(s.monthMax)") {
+                    s.monthMin = 3; s.monthMax = 11; onChange(s)
+                })
+            }
+            if s.dayOfWeek != "any" {
+                chips.append(.init(label: s.dayOfWeek) { s.dayOfWeek = "any"; onChange(s) })
+            }
+            if s.seriesGameMin != nil || s.seriesGameMax != nil {
+                chips.append(.init(label: "Series game") {
+                    s.seriesGameMin = nil; s.seriesGameMax = nil; onChange(s)
+                })
+            }
+            if s.tripMin != nil || s.tripMax != nil {
+                chips.append(.init(label: "Trip") {
+                    s.tripMin = nil; s.tripMax = nil; onChange(s)
+                })
+            }
+            if s.switchGame != nil {
+                chips.append(.init(label: "Switch: \(s.switchGame == true ? "Yes" : "No")") {
+                    s.switchGame = nil; onChange(s)
+                })
+            }
+            if s.restMin != nil || s.restMax != nil {
+                chips.append(.init(label: "Rest") {
+                    s.restMin = nil; s.restMax = nil; onChange(s)
+                })
+            }
+            if s.lastResult != "any" {
+                chips.append(.init(label: "Last: \(s.lastResult)") {
+                    s.lastResult = "any"; onChange(s)
+                })
+            }
+            if !s.lastMarginMin.isEmpty || !s.lastMarginMax.isEmpty {
+                chips.append(.init(label: "Last margin") {
+                    s.lastMarginMin = ""; s.lastMarginMax = ""; onChange(s)
+                })
+            }
+            for team in s.teams {
+                chips.append(.init(label: team) {
+                    s.teams.removeAll { $0 == team }; onChange(s)
+                })
+            }
+            for opp in s.opponents {
+                chips.append(.init(label: "vs \(opp)") {
+                    s.opponents.removeAll { $0 == opp }; onChange(s)
+                })
+            }
+            for p in s.sp {
+                chips.append(.init(label: "SP: \(p.name)") {
+                    s.sp.removeAll { $0.id == p.id }; onChange(s)
+                })
+            }
+            for p in s.oppSp {
+                chips.append(.init(label: "Opp SP: \(p.name)") {
+                    s.oppSp.removeAll { $0.id == p.id }; onChange(s)
+                })
+            }
+            if s.spHand != "any" {
+                chips.append(.init(label: "SP \(s.spHand)HP") { s.spHand = "any"; onChange(s) })
+            }
+            if s.oppSpHand != "any" {
+                chips.append(.init(label: "Opp SP \(s.oppSpHand)HP") { s.oppSpHand = "any"; onChange(s) })
+            }
+            if s.interleague != nil {
+                chips.append(.init(label: "Interleague: \(s.interleague == true ? "Yes" : "No")") {
+                    s.interleague = nil; onChange(s)
+                })
+            }
+            if s.doubleheader != nil {
+                chips.append(.init(label: "DH: \(s.doubleheader == true ? "Yes" : "No")") {
+                    s.doubleheader = nil; onChange(s)
+                })
+            }
+            if s.windDir != "any" {
+                chips.append(.init(label: "Wind \(s.windDir)") { s.windDir = "any"; onChange(s) })
+            }
+            if s.pfRunsMin != nil || s.pfRunsMax != nil {
+                chips.append(.init(label: "Park factor") {
+                    s.pfRunsMin = nil; s.pfRunsMax = nil; onChange(s)
+                })
+            }
         }
 
         if s.side != "any" {
@@ -271,7 +396,9 @@ enum HistoricalAnalysisCopy {
             })
         }
 
-        if (HistoricalAnalysisBetType.moneylineMarkets.contains(betType) || betType == "team_total"),
+        if (HistoricalAnalysisBetType.moneylineMarkets.contains(betType)
+            || betType == "team_total"
+            || ["ml", "f5_ml", "rl", "f5_rl"].contains(betType)),
            s.favDog != "any" {
             chips.append(.init(label: s.favDog == "favorite" ? "Favorites" : "Underdogs") {
                 s.favDog = "any"; onChange(s)
@@ -340,9 +467,9 @@ enum HistoricalAnalysisCopy {
             if s.precip != "any" {
                 chips.append(.init(label: "Precip: \(s.precip)") { s.precip = "any"; onChange(s) })
             }
-            if s.tempMin != -10 || s.tempMax != (sport == .nfl ? 100 : 110) {
+            if s.tempMin != -10 || s.tempMax != 100 {
                 chips.append(.init(label: "Temp \(s.tempMin)–\(s.tempMax)°F") {
-                    s.tempMin = -10; s.tempMax = sport == .nfl ? 100 : 110; onChange(s)
+                    s.tempMin = -10; s.tempMax = 100; onChange(s)
                 })
             }
             if s.windMax != 60 {
@@ -386,6 +513,27 @@ enum HistoricalAnalysisCopy {
             if s.windMax != 60 {
                 chips.append(.init(label: "Wind ≤ \(s.windMax)") { s.windMax = 60; onChange(s) })
             }
+        case .mlb:
+            if s.division != nil {
+                chips.append(.init(label: "Division: \(s.division == true ? "Yes" : "No")") {
+                    s.division = nil; onChange(s)
+                })
+            }
+            if s.dome != "any" {
+                chips.append(.init(label: s.dome == "dome" ? "Dome" : "Outdoor") {
+                    s.dome = "any"; onChange(s)
+                })
+            }
+            if s.tempMin != -10 || s.tempMax != 110 {
+                chips.append(.init(label: "Temp \(s.tempMin)–\(s.tempMax)°F") {
+                    s.tempMin = -10; s.tempMax = 110; onChange(s)
+                })
+            }
+            if s.windMin != nil || s.windMax != 60 {
+                chips.append(.init(label: "Wind") {
+                    s.windMin = nil; s.windMax = 60; onChange(s)
+                })
+            }
         }
 
         return chips
@@ -397,7 +545,12 @@ enum HistoricalAnalysisCopy {
     ) -> String {
         var parts: [String] = []
         if snapshot.side != "any" { parts.append(snapshot.side == "home" ? "Home" : "Road") }
-        let dir = ["fg_spread", "h1_spread"].contains(snapshot.betType) ? snapshot.spreadSide : snapshot.favDog
+        let dir: String
+        if ["fg_spread", "h1_spread"].contains(snapshot.betType) {
+            dir = snapshot.spreadSide
+        } else {
+            dir = snapshot.favDog
+        }
         if dir != "any" { parts.append(dir == "favorite" ? "favorites" : "underdogs") }
         let situation = parts.joined(separator: " ")
         switch sport {
@@ -410,11 +563,16 @@ enum HistoricalAnalysisCopy {
             if !confs.isEmpty {
                 return conferenceHeadlineSubject(confs, situation: situation)
             }
+        case .mlb:
+            if !snapshot.teams.isEmpty {
+                let names = snapshot.teams.joined(separator: ", ")
+                return "\(names)\(situation.isEmpty ? "" : " (\(situation.lowercased()))")"
+            }
         }
         if !situation.isEmpty {
             return situation.prefix(1).uppercased() + situation.dropFirst()
         }
-        let isTotal = ["fg_total", "h1_total"].contains(snapshot.betType)
+        let isTotal = ["fg_total", "h1_total", "total", "f5_total"].contains(snapshot.betType)
         return isTotal ? "Games" : "Teams"
     }
 
@@ -473,6 +631,30 @@ enum HistoricalAnalysisCopy {
             if let neutral = s.neutralSite {
                 clauses.append(neutral ? "it's at a neutral site" : "it's not at a neutral site")
             }
+        case .mlb:
+            if s.monthMin != 3 || s.monthMax != 11 {
+                clauses.append("it's months \(s.monthMin)–\(s.monthMax)")
+            }
+            if s.dayOfWeek != "any" {
+                clauses.append("it's a \(s.dayOfWeek)")
+            }
+            if let division = s.division {
+                clauses.append(division ? "it's a division game" : "it's a non-division game")
+            }
+            if let interleague = s.interleague {
+                clauses.append(interleague ? "it's interleague" : "it's not interleague")
+            }
+            if s.switchGame == true { clauses.append("it's a switch game") }
+            if s.lastResult == "won" { clauses.append("they won their last game") }
+            if s.lastResult == "lost" { clauses.append("they lost their last game") }
+            if s.spHand != "any" { clauses.append("their starter is \(s.spHand)HP") }
+            if s.oppSpHand != "any" { clauses.append("the opposing starter is \(s.oppSpHand)HP") }
+            if !s.sp.isEmpty {
+                clauses.append("starting \(s.sp.map(\.name).joined(separator: " / "))")
+            }
+            if !s.oppSp.isEmpty {
+                clauses.append("facing \(s.oppSp.map(\.name).joined(separator: " / "))")
+            }
         }
 
         if let primetime = s.primetime {
@@ -497,7 +679,17 @@ enum HistoricalAnalysisCopy {
             if s.referee != "any" { clauses.append("\(s.referee) is officiating") }
         }
 
-        let tempDefaultMax = sport == .nfl ? 100 : 110
+        if sport == .mlb {
+            if s.dome == "dome" { clauses.append("the game is in a dome") }
+            if s.dome == "outdoor" { clauses.append("the game is outdoors") }
+            if s.windDir != "any" { clauses.append("wind is \(s.windDir)") }
+        }
+
+        let tempDefaultMax: Int
+        switch sport {
+        case .nfl: tempDefaultMax = 100
+        case .cfb, .mlb: tempDefaultMax = 110
+        }
         if s.tempMin != -10 || s.tempMax != tempDefaultMax {
             clauses.append("it's \(s.tempMin)–\(s.tempMax)°F")
         }
@@ -588,6 +780,12 @@ enum HistoricalAnalysisCopy {
                 }
                 return "Every game involving a \(names) school — non-conference, bowls, and more."
             }
+        case .mlb:
+            if !snapshot.teams.isEmpty {
+                let names = snapshot.teams.joined(separator: ", ")
+                return "\(names) in every past game that matches your filters."
+            }
+            return "All MLB teams in every past game that matches your filters."
         }
     }
 }
