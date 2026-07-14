@@ -95,6 +95,21 @@ reversed entry by sorting when both are present. NFL ML covers 2018+; **CFB ML c
 both ranked / neither / home ranked & away unranked / away ranked & home unranked / at least one
 ranked (a single dropdown; full 2016+ coverage). Team values are full school names.
 
+## Filter grouping (how to organize the controls)
+
+Present the controls in these labeled groups (the web rail's structure — mirror it so the two
+platforms feel the same). **Weather is weather ONLY** — don't fold game-setup context (primetime,
+divisional, rest) into it; that was the old "Conditions" grab-bag and it read as a junk drawer.
+
+- **Situation** (always visible): season range, season/game-type + contextual week/round, side, the
+  spread control, moneyline entry fields, total-line range, `fav_dog` (team_total only).
+- **Matchup** (game setup, not weather): `primetime`, `division`, rest/bye (`rest_min/max`,
+  `pre_bye`). *(NFL; CFB's analog holds `conference`, `conference_game`, `neutral_site`,
+  `ranked_matchup`.)*
+- **Weather**: `dome` (venue), `precip`, `temp_min/max`, `wind_max` — **nothing else**.
+- **Context**: `coach`, `referee` *(NFL only — CFB has neither; use `conference` breakdown instead)*.
+- **Last game**: the team's previous game — result/ATS/total/role/blowout/OT.
+
 ## The contextual week control (important UX)
 
 Week numbers can't cleanly separate regular season from the postseason (the NFL boundary shifts

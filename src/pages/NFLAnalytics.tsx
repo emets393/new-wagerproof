@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { normalizeNflSavedFilterSnapshot } from '@/features/analysis/normalizeSavedFilterSnapshot';
+import { normalizeNflSavedFilterSnapshot, type NflWebFilterSnapshot } from '@/features/analysis/normalizeSavedFilterSnapshot';
 
 // ── Bet-type spine — the FIRST choice; everything downstream speaks this one market ──
 const BET_GROUPS = [
@@ -221,6 +221,13 @@ export default function NFLAnalytics() {
   const [restBye, setRestBye] = useState('any'); // any | off_bye | pre_bye | short
   const [coach, setCoach] = useState('any');
   const [referee, setReferee] = useState('any');
+  // "Last game" filters — each describes the team's PREVIOUS game (derived server-side via last_* columns)
+  const [lastResult, setLastResult] = useState('any');   // won | lost
+  const [lastAts, setLastAts] = useState('any');         // covered | not
+  const [lastTotal, setLastTotal] = useState('any');     // over | under
+  const [lastRole, setLastRole] = useState('any');       // favorite | underdog
+  const [lastOt, setLastOt] = useState<boolean | null>(null);
+  const [lastBlowout, setLastBlowout] = useState('any'); // win | loss
   const [coaches, setCoaches] = useState<string[]>([]);
   const [refs, setRefs] = useState<string[]>([]);
 
@@ -230,7 +237,7 @@ export default function NFLAnalytics() {
   const [saveName, setSaveName] = useState('');
   const [showSave, setShowSave] = useState(false);
 
-  const snapshot = () => ({ betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee });
+  const snapshot = (): NflWebFilterSnapshot => ({ betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout });
   const restore = (raw: unknown, rowBetType?: string) => {
     const s = normalizeNflSavedFilterSnapshot(
       raw as Record<string, unknown> | null | undefined,
@@ -253,6 +260,12 @@ export default function NFLAnalytics() {
     setRestBye(s.restBye);
     setCoach(s.coach);
     setReferee(s.referee);
+    setLastResult(s.lastResult);
+    setLastAts(s.lastAts);
+    setLastTotal(s.lastTotal);
+    setLastRole(s.lastRole);
+    setLastOt(s.lastOt);
+    setLastBlowout(s.lastBlowout);
     setMlMin(s.mlMin);
     setMlMax(s.mlMax);
     setTimeout(() => {
@@ -336,8 +349,15 @@ export default function NFLAnalytics() {
     else if (restBye === 'pre_bye') f.pre_bye = true;
     if (coach !== 'any') f.coach = coach;
     if (referee !== 'any') f.referee = referee;
+    // "Last game" filters — the team's previous game
+    if (lastResult !== 'any') f.last_won = lastResult === 'won' ? 1 : 0;
+    if (lastAts !== 'any') f.last_covered = lastAts === 'covered' ? 1 : 0;
+    if (lastTotal !== 'any') f.last_over = lastTotal === 'over' ? 1 : 0;
+    if (lastRole !== 'any') f.last_favorite = lastRole === 'favorite';
+    if (lastOt !== null) f.last_overtime = lastOt;
+    if (lastBlowout !== 'any') f.last_blowout = lastBlowout;
     return f;
-  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, seasonFloor]);
+  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout, seasonFloor]);
 
   const resetAll = () => {
     setSeasons([seasonFloor, 2025]); setWeeks([1, 18]); setSide('any'); setSeasonType('any'); setPlayoffRound('any'); setFavDog('any');
@@ -345,6 +365,7 @@ export default function NFLAnalytics() {
     const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 60]);
     setPrimetime(null); setDivision(null); setDome('any'); setTempRange([-10, 100]);
     setWindMax(60); setPrecip('any'); setRestBye('any'); setCoach('any'); setReferee('any');
+    setLastResult('any'); setLastAts('any'); setLastTotal('any'); setLastRole('any'); setLastOt(null); setLastBlowout('any');
   };
 
   // active (non-default) filters as removable chips — makes a stuck filter visible
@@ -377,8 +398,14 @@ export default function NFLAnalytics() {
     if (restBye !== 'any') c.push({ label: ({ off_bye: 'Off a bye', pre_bye: 'Before a bye', short: 'Short rest' } as Record<string, string>)[restBye] || restBye, clear: () => setRestBye('any') });
     if (coach !== 'any') c.push({ label: `Coach: ${coach}`, clear: () => setCoach('any') });
     if (referee !== 'any') c.push({ label: `Ref: ${referee}`, clear: () => setReferee('any') });
+    if (lastResult !== 'any') c.push({ label: `Last game: ${lastResult === 'won' ? 'Won' : 'Lost'}`, clear: () => setLastResult('any') });
+    if (lastAts !== 'any') c.push({ label: `Last game: ${lastAts === 'covered' ? 'Covered' : "Didn't cover"}`, clear: () => setLastAts('any') });
+    if (lastTotal !== 'any') c.push({ label: `Last game: ${lastTotal === 'over' ? 'Over' : 'Under'}`, clear: () => setLastTotal('any') });
+    if (lastRole !== 'any') c.push({ label: `Last game: ${lastRole === 'favorite' ? 'Favorite' : 'Underdog'}`, clear: () => setLastRole('any') });
+    if (lastOt !== null) c.push({ label: `Last game OT: ${lastOt ? 'Yes' : 'No'}`, clear: () => setLastOt(null) });
+    if (lastBlowout !== 'any') c.push({ label: `Last game: ${lastBlowout === 'win' ? 'Blowout win' : 'Blowout loss'}`, clear: () => setLastBlowout('any') });
     return c;
-  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, precip, tempRange, windMax, restBye, coach, referee, seasonFloor]);
+  }, [betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, precip, tempRange, windMax, restBye, coach, referee, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout, seasonFloor]);
 
   // load coach/ref option lists once
   useEffect(() => {
@@ -654,20 +681,33 @@ export default function NFLAnalytics() {
             )}
           </CardContent></Card>
 
-          <FilterSection title="Conditions">
+          {/* Matchup = game-setup context (not weather). Split out of the old "Conditions" grab-bag. */}
+          <FilterSection title="Matchup">
             <TriRow label="Primetime" value={primetime} onChange={setPrimetime} />
             <TriRow label="Divisional" value={division} onChange={setDivision} />
+            <SelectRow label="Rest / Bye" value={restBye} onChange={setRestBye}
+              options={[['any', 'Any'], ['off_bye', 'Off a bye'], ['pre_bye', 'Week before a bye'], ['short', 'Short rest (Thu)']]} />
+          </FilterSection>
+
+          <FilterSection title="Weather">
             <SelectRow label="Venue" value={dome} onChange={setDome} options={[['any', 'Any'], ['dome', 'Dome'], ['outdoor', 'Outdoor']]} />
             <SelectRow label="Precipitation" value={precip} onChange={setPrecip} options={[['any', 'Any'], ['none', 'None'], ['rain', 'Rain'], ['snow', 'Snow']]} />
             <RangeRow label={`Temp: ${tempRange[0]}–${tempRange[1]}°F`} min={-10} max={100} step={1} value={tempRange} onChange={setTempRange} />
             <div><div className="text-xs text-muted-foreground mb-1">Max wind: {windMax} mph</div><Slider min={0} max={60} step={1} value={[windMax]} onValueChange={([v]) => setWindMax(v)} /></div>
-            <SelectRow label="Rest / Bye" value={restBye} onChange={setRestBye}
-              options={[['any', 'Any'], ['off_bye', 'Off a bye'], ['pre_bye', 'Week before a bye'], ['short', 'Short rest (Thu)']]} />
           </FilterSection>
 
           <FilterSection title="Context">
             <SelectRow label="Coach" value={coach} onChange={setCoach} options={[['any', 'Any coach'], ...coaches.map(c => [c, c] as [string, string])]} />
             <SelectRow label="Referee" value={referee} onChange={setReferee} options={[['any', 'Any referee'], ...refs.map(r => [r, r] as [string, string])]} />
+          </FilterSection>
+
+          <FilterSection title="Last game">
+            <SelectRow label="Result" value={lastResult} onChange={setLastResult} options={[['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']]} />
+            <SelectRow label="ATS" value={lastAts} onChange={setLastAts} options={[['any', 'Any'], ['covered', 'Covered'], ['not', "Didn't cover"]]} />
+            <SelectRow label="Total" value={lastTotal} onChange={setLastTotal} options={[['any', 'Any'], ['over', 'Over'], ['under', 'Under']]} />
+            <SelectRow label="Was" value={lastRole} onChange={setLastRole} options={[['any', 'Any'], ['favorite', 'Favorite'], ['underdog', 'Underdog']]} />
+            <SelectRow label="Blowout (±21)" value={lastBlowout} onChange={setLastBlowout} options={[['any', 'Any'], ['win', 'Won by 21+'], ['loss', 'Lost by 21+']]} />
+            <TriRow label="Went to overtime" value={lastOt} onChange={setLastOt} />
           </FilterSection>
         </div>
       </div>

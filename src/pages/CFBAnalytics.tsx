@@ -13,7 +13,7 @@ import { collegeFootballSupabase } from '@/integrations/supabase/college-footbal
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCFBTeamColors, getCFBTeamInitials } from '@/utils/teamColors';
-import { normalizeCfbSavedFilterSnapshot } from '@/features/analysis/normalizeSavedFilterSnapshot';
+import { normalizeCfbSavedFilterSnapshot, type CfbWebFilterSnapshot } from '@/features/analysis/normalizeSavedFilterSnapshot';
 
 // ── Bet-type spine — the FIRST choice; everything downstream speaks this one market ──
 const BET_GROUPS = [
@@ -30,12 +30,11 @@ const SEASON_MAX = 2025;
 const WEEK_MAX = 16;
 
 // per-market line-filter config (the SUBJECT market's line, filterable for every bet type)
+// Spread controls belong only to the actual spread markets. ML markets use the ML-odds control +
+// Favorite/Underdog instead; game totals have no per-team line at all (see market groups below).
 const SPREAD_CFG: Record<string, { max: number; mk: string; xk: string; amk: string; axk: string }> = {
-  fg_spread: { max: 28, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
-  h1_spread: { max: 18, mk: 'h1_spread_min', xk: 'h1_spread_max', amk: 'h1_abs_spread_min', axk: 'h1_abs_spread_max' },
-  // moneyline markets filter by the FULL-GAME spread (ML is just the spread priced up)
-  fg_ml: { max: 28, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
-  h1_ml: { max: 28, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
+  fg_spread: { max: 50, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },  // CFB spreads reach the low 50s
+  h1_spread: { max: 28, mk: 'h1_spread_min', xk: 'h1_spread_max', amk: 'h1_abs_spread_min', axk: 'h1_abs_spread_max' },
 };
 const TOTAL_CFG: Record<string, { min: number; max: number; mk: string; xk: string; label: string }> = {
   fg_total: { min: 30, max: 80, mk: 'total_min', xk: 'total_max', label: 'Game total' },
@@ -260,6 +259,15 @@ export default function CFBAnalytics() {
   const [selectedConferences, setSelectedConferences] = useState<string[]>([]);
   const [tempRange, setTempRange] = useState<[number, number]>([-10, 110]);
   const [windMax, setWindMax] = useState(60);
+  const [weather, setWeather] = useState('any'); // any | clear | cloudy | rain | snow (CFBD weatherCondition)
+  const [dome, setDome] = useState('any');        // any | dome | outdoor (CFBD gameIndoors)
+  // "Last game" filters — each describes the team's PREVIOUS game (derived server-side via last_* columns)
+  const [lastResult, setLastResult] = useState('any');   // won | lost
+  const [lastAts, setLastAts] = useState('any');         // covered | not
+  const [lastTotal, setLastTotal] = useState('any');     // over | under
+  const [lastRole, setLastRole] = useState('any');       // favorite | underdog
+  const [lastOt, setLastOt] = useState<boolean | null>(null);
+  const [lastBlowout, setLastBlowout] = useState('any'); // win | loss
 
   // saved filters (per authed user, main project)
   const { user } = useAuth();
@@ -267,9 +275,10 @@ export default function CFBAnalytics() {
   const [saveName, setSaveName] = useState('');
   const [showSave, setShowSave] = useState(false);
 
-  const snapshot = () => ({
+  const snapshot = (): CfbWebFilterSnapshot => ({
     betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange,
     mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, tempRange, windMax,
+    weather, dome, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout,
   });
   const restore = (raw: unknown, rowBetType?: string) => {
     const s = normalizeCfbSavedFilterSnapshot(
@@ -290,8 +299,16 @@ export default function CFBAnalytics() {
     setSelectedConferences(s.selectedConferences);
     setTempRange(s.tempRange);
     setWindMax(s.windMax);
+    setWeather(s.weather);
+    setDome(s.dome);
     setMlMin(s.mlMin);
     setMlMax(s.mlMax);
+    setLastResult(s.lastResult);
+    setLastAts(s.lastAts);
+    setLastTotal(s.lastTotal);
+    setLastRole(s.lastRole);
+    setLastOt(s.lastOt);
+    setLastBlowout(s.lastBlowout);
     // spreadSize/lineRange are reset by the bet-type effect — re-apply after it runs
     setTimeout(() => {
       setSpreadSize(s.spreadSize);
@@ -315,6 +332,12 @@ export default function CFBAnalytics() {
 
   // 1H/TT markets only have 2023+; clamp the season floor so users can't pick empty ranges
   const seasonFloor = LIMITED_MARKETS.has(betType) ? 2023 : 2016;
+  // market shape drives which "bet line" + per-team controls apply. Game totals are game-level, so
+  // Side / Fav-Dog / ML-odds don't apply there (they used to return 0 games or do nothing).
+  const isSpreadMkt = betType === 'fg_spread' || betType === 'h1_spread';
+  const isMlMkt = betType === 'fg_ml' || betType === 'h1_ml';
+  const isGameTotal = betType === 'fg_total' || betType === 'h1_total';
+  const isTeamTotal = betType === 'team_total';
   // when the bet type changes, reset the line controls to that market's range (avoids stale bounds)
   useEffect(() => {
     if (seasons[0] < seasonFloor) setSeasons([seasonFloor, seasons[1]]);
@@ -329,13 +352,15 @@ export default function CFBAnalytics() {
     if (seasons[1] < SEASON_MAX) f.season_max = seasons[1];
     if (gameType !== 'any') f.game_type = gameType;
     if (rankedMatchup !== 'any') f.ranked_matchup = rankedMatchup;
-    // weeks only make sense for the regular season — bowls/playoffs aren't week-numbered
-    if (gameType === 'regular') {
+    // weeks apply to regular-season games (1-16); bowls/playoffs sit at week 17, so a narrowed week
+    // range naturally excludes them. Only hide/skip weeks when the filter is purely postseason.
+    if (gameType === 'any' || gameType === 'regular') {
       if (weeks[0] > 1) f.week_min = weeks[0];
       if (weeks[1] < WEEK_MAX) f.week_max = weeks[1];
     }
-    if (side !== 'any') f.side = side;
-    // subject-market line control: size+side for spread markets, range for total markets
+    // Side is per-team; on a game total it returns 0 (away) or does nothing (home), so skip it there.
+    if (side !== 'any' && !isGameTotal) f.side = side;
+    // subject-market line control: size+side for spread markets only
     const scfg = SPREAD_CFG[betType];
     if (scfg) {
       const [lo, hi] = spreadSize;
@@ -347,13 +372,16 @@ export default function CFBAnalytics() {
       else if (spreadSide === 'underdog') { f[scfg.mk] = loD; f[scfg.xk] = hi; }
       else if (lo > 0 || hi < scfg.max) { f[scfg.amk] = lo; f[scfg.axk] = hi; }
     }
-    if (favDog !== 'any' && (betType === 'team_total')) f.fav_dog = favDog;
-    // team moneyline (American odds) — exact numeric bounds; same value in both = an exact line.
-    // forgive reversed entry by sorting when both are present.
-    { let a = mlMin.trim() === '' ? null : Number(mlMin); let b = mlMax.trim() === '' ? null : Number(mlMax);
+    // Favorite/Underdog is the fav/dog control for ML + team-total markets (spread markets use spread side).
+    if (favDog !== 'any' && (isMlMkt || isTeamTotal)) f.fav_dog = favDog;
+    // team moneyline (American odds) — ML markets only. Exact numeric bounds; same value in both = an
+    // exact line. Forgive reversed entry by sorting when both are present.
+    if (isMlMkt) {
+      let a = mlMin.trim() === '' ? null : Number(mlMin); let b = mlMax.trim() === '' ? null : Number(mlMax);
       if (a !== null && b !== null && a > b) { const s = a; a = b; b = s; }
       if (a !== null && !Number.isNaN(a)) f.ml_min = a;
-      if (b !== null && !Number.isNaN(b)) f.ml_max = b; }
+      if (b !== null && !Number.isNaN(b)) f.ml_max = b;
+    }
     const tcfg = TOTAL_CFG[betType];
     if (tcfg) {
       if (lineRange[0] > tcfg.min) f[tcfg.mk] = lineRange[0];
@@ -372,15 +400,25 @@ export default function CFBAnalytics() {
     if (tempRange[0] > -10) f.temp_min = tempRange[0];
     if (tempRange[1] < 110) f.temp_max = tempRange[1];
     if (windMax < 60) f.wind_max = windMax;
+    if (weather !== 'any') f.weather = weather;          // CFBD weatherCondition bucket
+    if (dome !== 'any') f.dome = dome === 'dome';         // CFBD gameIndoors
+    // "Last game" filters — the team's previous game
+    if (lastResult !== 'any') f.last_won = lastResult === 'won' ? 1 : 0;
+    if (lastAts !== 'any') f.last_covered = lastAts === 'covered' ? 1 : 0;
+    if (lastTotal !== 'any') f.last_over = lastTotal === 'over' ? 1 : 0;
+    if (lastRole !== 'any') f.last_favorite = lastRole === 'favorite';
+    if (lastOt !== null) f.last_overtime = lastOt;
+    if (lastBlowout !== 'any') f.last_blowout = lastBlowout;
     return f;
-  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, conferenceTeamMap, tempRange, windMax, seasonFloor]);
+  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, conferenceTeamMap, tempRange, windMax, weather, dome, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout, seasonFloor, isGameTotal, isMlMkt, isTeamTotal]);
 
   const resetAll = () => {
     setSeasons([seasonFloor, SEASON_MAX]); setWeeks([1, WEEK_MAX]); setSide('any'); setFavDog('any'); setGameType('any'); setRankedMatchup('any');
     setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 28]); setMlMin(''); setMlMax('');
     const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 80]);
     setPrimetime(null); setConferenceGame(null); setNeutralSite(null); setSelectedConferences([]);
-    setTempRange([-10, 110]); setWindMax(60);
+    setTempRange([-10, 110]); setWindMax(60); setWeather('any'); setDome('any');
+    setLastResult('any'); setLastAts('any'); setLastTotal('any'); setLastRole('any'); setLastOt(null); setLastBlowout('any');
   };
 
   // active (non-default) filters as removable chips — makes a stuck filter visible
@@ -389,9 +427,9 @@ export default function CFBAnalytics() {
     if (seasons[0] !== seasonFloor || seasons[1] !== SEASON_MAX) c.push({ label: `Seasons ${seasons[0]}–${seasons[1]}`, clear: () => setSeasons([seasonFloor, SEASON_MAX]) });
     if (gameType !== 'any') c.push({ label: ({ regular: 'Regular season', bowl: 'Bowl games', playoff: 'Playoff', postseason: 'All postseason' } as Record<string, string>)[gameType], clear: () => setGameType('any') });
     if (rankedMatchup !== 'any') c.push({ label: ({ both: 'Both ranked', neither: 'Neither ranked', home_ranked: 'Home ranked / away unranked', away_ranked: 'Away ranked / home unranked', either: 'Either ranked' } as Record<string, string>)[rankedMatchup], clear: () => setRankedMatchup('any') });
-    if (gameType === 'regular' && (weeks[0] !== 1 || weeks[1] !== WEEK_MAX)) c.push({ label: `Weeks ${weeks[0]}–${weeks[1]}`, clear: () => setWeeks([1, WEEK_MAX]) });
-    if (side !== 'any') c.push({ label: side === 'home' ? 'Home' : 'Away', clear: () => setSide('any') });
-    if ((betType === 'team_total') && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
+    if ((gameType === 'any' || gameType === 'regular') && (weeks[0] !== 1 || weeks[1] !== WEEK_MAX)) c.push({ label: `Weeks ${weeks[0]}–${weeks[1]}`, clear: () => setWeeks([1, WEEK_MAX]) });
+    if (side !== 'any' && !isGameTotal) c.push({ label: side === 'home' ? 'Home' : 'Away', clear: () => setSide('any') });
+    if ((isMlMkt || isTeamTotal) && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
     const scfg = SPREAD_CFG[betType];
     if (scfg) {
       if (spreadSide !== 'any') c.push({ label: `${spreadSide === 'favorite' ? 'Favored by' : 'Getting'} ${spreadSize[0]}–${spreadSize[1]}`, clear: () => { setSpreadSide('any'); setSpreadSize([0, scfg.max]); } });
@@ -399,7 +437,7 @@ export default function CFBAnalytics() {
     }
     const t = TOTAL_CFG[betType];
     if (t && (lineRange[0] !== t.min || lineRange[1] !== t.max)) c.push({ label: `${t.label} ${lineRange[0]}–${lineRange[1]}`, clear: () => setLineRange([t.min, t.max]) });
-    if (mlMin.trim() !== '' || mlMax.trim() !== '') {
+    if (isMlMkt && (mlMin.trim() !== '' || mlMax.trim() !== '')) {
       const fmt = (s: string) => { const n = Number(s); return n > 0 ? `+${n}` : `${n}`; };
       const lbl = mlMin.trim() !== '' && mlMax.trim() !== '' ? `ML ${fmt(mlMin)} to ${fmt(mlMax)}` : mlMin.trim() !== '' ? `ML ≥ ${fmt(mlMin)}` : `ML ≤ ${fmt(mlMax)}`;
       c.push({ label: lbl, clear: () => { setMlMin(''); setMlMax(''); } });
@@ -413,10 +451,18 @@ export default function CFBAnalytics() {
         clear: () => setSelectedConferences((prev) => prev.filter((x) => x !== conf)),
       });
     }
+    if (weather !== 'any') c.push({ label: `Weather: ${({ clear: 'Clear', cloudy: 'Cloudy', rain: 'Rain', snow: 'Snow' } as Record<string, string>)[weather]}`, clear: () => setWeather('any') });
+    if (dome !== 'any') c.push({ label: dome === 'dome' ? 'Indoors / dome' : 'Outdoors', clear: () => setDome('any') });
     if (tempRange[0] !== -10 || tempRange[1] !== 110) c.push({ label: `Temp ${tempRange[0]}–${tempRange[1]}°F`, clear: () => setTempRange([-10, 110]) });
     if (windMax !== 60) c.push({ label: `Wind ≤ ${windMax}`, clear: () => setWindMax(60) });
+    if (lastResult !== 'any') c.push({ label: `Last game: ${lastResult === 'won' ? 'Won' : 'Lost'}`, clear: () => setLastResult('any') });
+    if (lastAts !== 'any') c.push({ label: `Last game: ${lastAts === 'covered' ? 'Covered' : "Didn't cover"}`, clear: () => setLastAts('any') });
+    if (lastTotal !== 'any') c.push({ label: `Last game: ${lastTotal === 'over' ? 'Over' : 'Under'}`, clear: () => setLastTotal('any') });
+    if (lastRole !== 'any') c.push({ label: `Last game: ${lastRole === 'favorite' ? 'Favorite' : 'Underdog'}`, clear: () => setLastRole('any') });
+    if (lastOt !== null) c.push({ label: `Last game OT: ${lastOt ? 'Yes' : 'No'}`, clear: () => setLastOt(null) });
+    if (lastBlowout !== 'any') c.push({ label: `Last game: ${lastBlowout === 'win' ? 'Blowout win' : 'Blowout loss'}`, clear: () => setLastBlowout('any') });
     return c;
-  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, tempRange, windMax, seasonFloor]);
+  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, tempRange, windMax, weather, dome, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout, seasonFloor, isGameTotal, isMlMkt, isTeamTotal]);
 
   // load logo map, conference list, and conference→team map once
   useEffect(() => {
@@ -475,8 +521,8 @@ export default function CFBAnalytics() {
   const isTotalMkt = !!TOTAL_CFG[betType] && betType !== 'team_total';
   const subject = useMemo(() => {
     const parts: string[] = [];
-    if (side !== 'any') parts.push(side === 'home' ? 'Home' : 'Road');
-    const dir = SPREAD_CFG[betType] ? spreadSide : favDog;
+    if (side !== 'any' && !isGameTotal) parts.push(side === 'home' ? 'Home' : 'Road');
+    const dir = isSpreadMkt ? spreadSide : ((isMlMkt || isTeamTotal) ? favDog : 'any');
     if (dir && dir !== 'any') parts.push(dir === 'favorite' ? 'favorites' : 'underdogs');
     const situation = parts.join(' ');
     if (selectedConferences.length > 0) {
@@ -654,23 +700,12 @@ export default function CFBAnalytics() {
           )}
         </div>
 
-        {/* ── FILTERS (adaptive) ── */}
+        {/* ── FILTERS (adaptive to the chosen market) ── */}
         <div className="xl:sticky xl:top-4 h-fit space-y-3">
+          {/* 1) Bet line — only the controls that apply to THIS market */}
           <Card><CardContent className="py-4 space-y-4">
-            <div className="text-sm font-semibold">Situation</div>
-            <RangeRow label={`Seasons: ${seasons[0]}–${seasons[1]}`} min={seasonFloor} max={SEASON_MAX} step={1} value={seasons} onChange={setSeasons} />
-            <SelectRow label="Game type" value={gameType} onChange={setGameType}
-              options={[['any', 'All games'], ['regular', 'Regular season'], ['bowl', 'Bowl games'], ['playoff', 'Playoff'], ['postseason', 'All postseason']]} />
-            {/* weeks are contextual: only the regular season is week-numbered (bowls/playoffs aren't) */}
-            {gameType === 'regular' && (
-              <RangeRow label={`Weeks: ${weeks[0]}–${weeks[1]}`} min={1} max={WEEK_MAX} step={1} value={weeks} onChange={setWeeks} />
-            )}
-            <SelectRow label="Side" value={side} onChange={setSide} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
-            {/* AP-ranked matchup scenarios (game-level; rank = entering-game AP Top 25, full 2016+) */}
-            <SelectRow label="Ranked matchup" value={rankedMatchup} onChange={setRankedMatchup}
-              options={[['any', 'Any'], ['both', 'Both ranked'], ['neither', 'Neither ranked'], ['home_ranked', 'Home ranked, away unranked'], ['away_ranked', 'Away ranked, home unranked'], ['either', 'Either ranked']]} />
-
-            {SPREAD_CFG[betType] && (
+            <div className="text-sm font-semibold">{isGameTotal ? 'Total line' : isTeamTotal ? 'Team total' : isMlMkt ? 'Moneyline' : 'Spread'}</div>
+            {isSpreadMkt && (
               <>
                 <SelectRow label={betType === 'h1_spread' ? '1H spread side' : 'Spread side'} value={spreadSide} onChange={setSpreadSide}
                   options={[['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']]} />
@@ -678,32 +713,61 @@ export default function CFBAnalytics() {
                   min={0} max={SPREAD_CFG[betType].max} step={0.5} value={spreadSize} onChange={setSpreadSize} />
               </>
             )}
-            {/* moneyline odds — exact American-odds bounds. Negative = favorite, positive = underdog.
-                Same value in both = an exact line; leave one blank for one-sided. CFB ML is 2021+. */}
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">Moneyline odds (American)</div>
-              <div className="flex items-center gap-2">
-                <Input type="number" inputMode="numeric" value={mlMin} onChange={e => setMlMin(e.target.value)} placeholder="min e.g. -200" className="h-9" />
-                <span className="text-xs text-muted-foreground shrink-0">to</span>
-                <Input type="number" inputMode="numeric" value={mlMax} onChange={e => setMlMax(e.target.value)} placeholder="max e.g. -120" className="h-9" />
-              </div>
-            </div>
-            {(betType === 'team_total') && (
-              <SelectRow label="Favorite / Underdog" value={favDog} onChange={setFavDog} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
+            {isMlMkt && (
+              <>
+                {/* moneyline odds — American-odds bounds. Negative = favorite, positive = underdog.
+                    Same value in both = an exact line; leave one blank for one-sided. */}
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Moneyline odds (American)</div>
+                  <div className="flex items-center gap-2">
+                    <Input type="number" inputMode="numeric" value={mlMin} onChange={e => setMlMin(e.target.value)} placeholder="min e.g. -200" className="h-9" />
+                    <span className="text-xs text-muted-foreground shrink-0">to</span>
+                    <Input type="number" inputMode="numeric" value={mlMax} onChange={e => setMlMax(e.target.value)} placeholder="max e.g. -120" className="h-9" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/70 mt-1">CFB moneyline odds cover 2021+.</p>
+                </div>
+                <SelectRow label="Favorite / Underdog" value={favDog} onChange={setFavDog} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
+              </>
             )}
             {TOTAL_CFG[betType] && (
               <RangeRow label={`${TOTAL_CFG[betType].label}: ${lineRange[0]}–${lineRange[1]}`}
                 min={TOTAL_CFG[betType].min} max={TOTAL_CFG[betType].max} step={0.5} value={lineRange} onChange={setLineRange} />
             )}
+            {isTeamTotal && (
+              <SelectRow label="Favorite / Underdog" value={favDog} onChange={setFavDog} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
+            )}
           </CardContent></Card>
 
-          <FilterSection title="Conditions">
+          {/* 2) Situation — the matchup & context */}
+          <Card><CardContent className="py-4 space-y-4">
+            <div className="text-sm font-semibold">Situation</div>
+            <RangeRow label={`Seasons: ${seasons[0]}–${seasons[1]}`} min={seasonFloor} max={SEASON_MAX} step={1} value={seasons} onChange={setSeasons} />
+            <SelectRow label="Game type" value={gameType} onChange={setGameType}
+              options={[['any', 'All games'], ['regular', 'Regular season'], ['bowl', 'Bowl games'], ['playoff', 'Playoff'], ['postseason', 'All postseason']]} />
+            {/* weeks are contextual: regular season is week-numbered; bowls/playoffs (week 17) aren't */}
+            {(gameType === 'any' || gameType === 'regular') && (
+              <RangeRow label={`Weeks: ${weeks[0]}–${weeks[1]}`} min={1} max={WEEK_MAX} step={1} value={weeks} onChange={setWeeks} />
+            )}
+            {/* AP-ranked matchup scenarios (game-level; rank = entering-game AP Top 25, full 2016+) */}
+            <SelectRow label="Ranked matchup" value={rankedMatchup} onChange={setRankedMatchup}
+              options={[['any', 'Any'], ['both', 'Both ranked'], ['neither', 'Neither ranked'], ['home_ranked', 'Home ranked, away unranked'], ['away_ranked', 'Away ranked, home unranked'], ['either', 'Either ranked']]} />
+            {/* Side is per-team, so it doesn't apply to a game total */}
+            {!isGameTotal && (
+              <SelectRow label="Side" value={side} onChange={setSide} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
+            )}
             <TriRow label="Primetime (7pm+ ET)" value={primetime} onChange={setPrimetime} />
             <TriRow label="Conference game" value={conferenceGame} onChange={setConferenceGame} />
             <TriRow label="Neutral site" value={neutralSite} onChange={setNeutralSite} />
+          </CardContent></Card>
+
+          {/* 3) Game conditions — actual weather (CFBD historical) */}
+          <FilterSection title="Game conditions">
+            <SelectRow label="Weather" value={weather} onChange={setWeather}
+              options={[['any', 'Any'], ['clear', 'Clear'], ['cloudy', 'Cloudy'], ['rain', 'Rain'], ['snow', 'Snow']]} />
+            <SelectRow label="Venue" value={dome} onChange={setDome} options={[['any', 'Any'], ['dome', 'Dome / indoors'], ['outdoor', 'Outdoors']]} />
             <RangeRow label={`Temp: ${tempRange[0]}–${tempRange[1]}°F`} min={-10} max={110} step={1} value={tempRange} onChange={setTempRange} />
             <div><div className="text-xs text-muted-foreground mb-1">Max wind: {windMax} mph</div><Slider min={0} max={60} step={1} value={[windMax]} onValueChange={([v]) => setWindMax(v)} /></div>
-            <p className="text-[10px] text-muted-foreground/70">Weather is available for recent seasons only; temp/wind filters narrow to games we have conditions for.</p>
+            <p className="text-[10px] text-muted-foreground/70">Weather conditions are complete for 2022+, partial for 2018–2021, and sparse in 2016–2017.</p>
           </FilterSection>
 
           <FilterSection title="Conference">
@@ -718,6 +782,15 @@ export default function CFBAnalytics() {
               }}
               onClear={() => setSelectedConferences([])}
             />
+          </FilterSection>
+
+          <FilterSection title="Last game">
+            <SelectRow label="Result" value={lastResult} onChange={setLastResult} options={[['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']]} />
+            <SelectRow label="ATS" value={lastAts} onChange={setLastAts} options={[['any', 'Any'], ['covered', 'Covered'], ['not', "Didn't cover"]]} />
+            <SelectRow label="Total" value={lastTotal} onChange={setLastTotal} options={[['any', 'Any'], ['over', 'Over'], ['under', 'Under']]} />
+            <SelectRow label="Was" value={lastRole} onChange={setLastRole} options={[['any', 'Any'], ['favorite', 'Favorite'], ['underdog', 'Underdog']]} />
+            <SelectRow label="Blowout (±21)" value={lastBlowout} onChange={setLastBlowout} options={[['any', 'Any'], ['win', 'Won by 21+'], ['loss', 'Lost by 21+']]} />
+            <TriRow label="Went to overtime" value={lastOt} onChange={setLastOt} />
           </FilterSection>
         </div>
       </div>

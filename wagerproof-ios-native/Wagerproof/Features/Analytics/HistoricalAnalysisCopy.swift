@@ -251,6 +251,9 @@ enum HistoricalAnalysisCopy {
         var chips: [ActiveChip] = []
         var s = snapshot
         let betType = s.betType
+        // Game totals are game-level: Side doesn't apply. ML odds apply to ML markets (football) / all MLB.
+        let isGameTotal = betType == "fg_total" || betType == "h1_total"
+        let mlApplies = sport == .mlb || HistoricalAnalysisBetType.moneylineMarkets.contains(betType)
         let weekMax = sport == .nfl ? 18 : 16
         let seasonMax = sport.seasonMax
         let spreadCfg = HistoricalAnalysisFilterBuilder.spreadConfig(sport: sport, betType: betType)
@@ -390,7 +393,7 @@ enum HistoricalAnalysisCopy {
             }
         }
 
-        if s.side != "any" {
+        if s.side != "any", !isGameTotal {
             chips.append(.init(label: s.side == "home" ? "Home" : "Away") {
                 s.side = "any"; onChange(s)
             })
@@ -430,7 +433,7 @@ enum HistoricalAnalysisCopy {
             })
         }
 
-        if !s.mlMin.isEmpty || !s.mlMax.isEmpty {
+        if mlApplies, !s.mlMin.isEmpty || !s.mlMax.isEmpty {
             let fmt: (String) -> String = { raw in
                 guard let n = Double(raw) else { return raw }
                 return n > 0 ? "+\(Int(n))" : "\(Int(n))"
@@ -487,6 +490,36 @@ enum HistoricalAnalysisCopy {
             if s.referee != "any" {
                 chips.append(.init(label: "Ref: \(s.referee)") { s.referee = "any"; onChange(s) })
             }
+            if s.lastResult != "any" {
+                chips.append(.init(label: "Last game: \(s.lastResult == "won" ? "Won" : "Lost")") {
+                    s.lastResult = "any"; onChange(s)
+                })
+            }
+            if s.lastAts != "any" {
+                chips.append(.init(label: "Last game: \(s.lastAts == "covered" ? "Covered" : "Didn't cover")") {
+                    s.lastAts = "any"; onChange(s)
+                })
+            }
+            if s.lastTotal != "any" {
+                chips.append(.init(label: "Last game: \(s.lastTotal == "over" ? "Over" : "Under")") {
+                    s.lastTotal = "any"; onChange(s)
+                })
+            }
+            if s.lastRole != "any" {
+                chips.append(.init(label: "Last game: \(s.lastRole == "favorite" ? "Favorite" : "Underdog")") {
+                    s.lastRole = "any"; onChange(s)
+                })
+            }
+            if let lastOt = s.lastOt {
+                chips.append(.init(label: "Last game OT: \(lastOt ? "Yes" : "No")") {
+                    s.lastOt = nil; onChange(s)
+                })
+            }
+            if s.lastBlowout != "any" {
+                chips.append(.init(label: "Last game: \(s.lastBlowout == "win" ? "Blowout win" : "Blowout loss")") {
+                    s.lastBlowout = "any"; onChange(s)
+                })
+            }
         case .cfb:
             if s.conferenceGame != nil {
                 chips.append(.init(label: "Conference game: \(s.conferenceGame == true ? "Yes" : "No")") {
@@ -512,6 +545,43 @@ enum HistoricalAnalysisCopy {
             }
             if s.windMax != 60 {
                 chips.append(.init(label: "Wind ≤ \(s.windMax)") { s.windMax = 60; onChange(s) })
+            }
+            if s.weather != "any" {
+                let labels: [String: String] = ["clear": "Clear", "cloudy": "Cloudy", "rain": "Rain", "snow": "Snow"]
+                chips.append(.init(label: "Weather: \(labels[s.weather] ?? s.weather)") { s.weather = "any"; onChange(s) })
+            }
+            if s.dome != "any" {
+                chips.append(.init(label: s.dome == "dome" ? "Indoors / dome" : "Outdoors") { s.dome = "any"; onChange(s) })
+            }
+            if s.lastResult != "any" {
+                chips.append(.init(label: "Last game: \(s.lastResult == "won" ? "Won" : "Lost")") {
+                    s.lastResult = "any"; onChange(s)
+                })
+            }
+            if s.lastAts != "any" {
+                chips.append(.init(label: "Last game: \(s.lastAts == "covered" ? "Covered" : "Didn't cover")") {
+                    s.lastAts = "any"; onChange(s)
+                })
+            }
+            if s.lastTotal != "any" {
+                chips.append(.init(label: "Last game: \(s.lastTotal == "over" ? "Over" : "Under")") {
+                    s.lastTotal = "any"; onChange(s)
+                })
+            }
+            if s.lastRole != "any" {
+                chips.append(.init(label: "Last game: \(s.lastRole == "favorite" ? "Favorite" : "Underdog")") {
+                    s.lastRole = "any"; onChange(s)
+                })
+            }
+            if let lastOt = s.lastOt {
+                chips.append(.init(label: "Last game OT: \(lastOt ? "Yes" : "No")") {
+                    s.lastOt = nil; onChange(s)
+                })
+            }
+            if s.lastBlowout != "any" {
+                chips.append(.init(label: "Last game: \(s.lastBlowout == "win" ? "Blowout win" : "Blowout loss")") {
+                    s.lastBlowout = "any"; onChange(s)
+                })
             }
         case .mlb:
             if s.division != nil {
@@ -675,6 +745,19 @@ enum HistoricalAnalysisCopy {
             case "pre_bye": clauses.append("it's the week before a bye")
             case "short": clauses.append("they're on short rest")
             default: break
+            }
+            if s.lastResult == "won" { clauses.append("they won their last game") }
+            if s.lastResult == "lost" { clauses.append("they lost their last game") }
+            if s.lastAts == "covered" { clauses.append("they covered last game") }
+            if s.lastAts == "not" { clauses.append("they didn't cover last game") }
+            if s.lastTotal == "over" { clauses.append("their last game went over") }
+            if s.lastTotal == "under" { clauses.append("their last game went under") }
+            if s.lastRole == "favorite" { clauses.append("they were favorites last game") }
+            if s.lastRole == "underdog" { clauses.append("they were underdogs last game") }
+            if s.lastBlowout == "win" { clauses.append("they blew out their last opponent") }
+            if s.lastBlowout == "loss" { clauses.append("they were blown out last game") }
+            if let lastOt = s.lastOt {
+                clauses.append(lastOt ? "their last game went to OT" : "their last game didn't go to OT")
             }
             if s.referee != "any" { clauses.append("\(s.referee) is officiating") }
         }

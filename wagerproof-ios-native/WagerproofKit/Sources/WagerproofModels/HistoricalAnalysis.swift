@@ -395,6 +395,16 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
     public var conference: String
     /// CFB multi-conference filter — empty = all conferences.
     public var selectedConferences: [String]
+    /// CFB actual weather (CFBD weatherCondition): any | clear | cloudy | rain | snow.
+    public var weather: String
+
+    // Football "last game" filters (CFB/NFL) — each describes the team's PREVIOUS game.
+    // (MLB reuses `lastResult` below for its own last-game W/L.)
+    public var lastAts: String       // any | covered | not
+    public var lastTotal: String     // any | over | under
+    public var lastRole: String      // any | favorite | underdog
+    public var lastOt: Bool?         // previous game went to overtime
+    public var lastBlowout: String   // any | win | loss  (±21 margin)
 
     // MLB-only (tolerant decode — missing keys use defaults so old football JSON still works)
     public var monthMin: Int
@@ -434,6 +444,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         case tempMin, tempMax, windMax
         case seasonType, playoffRound, division, dome, precip, restBye, coach, referee
         case gameType, rankedMatchup, conferenceGame, neutralSite, conference, selectedConferences
+        case weather, lastAts, lastTotal, lastRole, lastOt, lastBlowout
         case monthMin, monthMax, teams, opponents, interleague
         case dayOfWeek, doubleheader
         case seriesGameMin, seriesGameMax, tripMin, tripMax, switchGame
@@ -502,7 +513,13 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         windMin: Int? = nil,
         windDir: String = "any",
         pfRunsMin: Double? = nil,
-        pfRunsMax: Double? = nil
+        pfRunsMax: Double? = nil,
+        weather: String = "any",
+        lastAts: String = "any",
+        lastTotal: String = "any",
+        lastRole: String = "any",
+        lastOt: Bool? = nil,
+        lastBlowout: String = "any"
     ) {
         self.betType = betType
         self.seasonMin = seasonMin
@@ -563,6 +580,12 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         self.windDir = windDir
         self.pfRunsMin = pfRunsMin
         self.pfRunsMax = pfRunsMax
+        self.weather = weather
+        self.lastAts = lastAts
+        self.lastTotal = lastTotal
+        self.lastRole = lastRole
+        self.lastOt = lastOt
+        self.lastBlowout = lastBlowout
     }
 
     public init(from decoder: Decoder) throws {
@@ -627,6 +650,12 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         windDir = try c.decodeIfPresent(String.self, forKey: .windDir) ?? "any"
         pfRunsMin = try c.decodeIfPresent(Double.self, forKey: .pfRunsMin)
         pfRunsMax = try c.decodeIfPresent(Double.self, forKey: .pfRunsMax)
+        weather = try c.decodeIfPresent(String.self, forKey: .weather) ?? "any"
+        lastAts = try c.decodeIfPresent(String.self, forKey: .lastAts) ?? "any"
+        lastTotal = try c.decodeIfPresent(String.self, forKey: .lastTotal) ?? "any"
+        lastRole = try c.decodeIfPresent(String.self, forKey: .lastRole) ?? "any"
+        lastOt = try c.decodeIfPresent(Bool.self, forKey: .lastOt)
+        lastBlowout = try c.decodeIfPresent(String.self, forKey: .lastBlowout) ?? "any"
     }
 
     public static func defaults(for sport: HistoricalAnalysisSport) -> HistoricalAnalysisUISnapshot {

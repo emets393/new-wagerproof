@@ -15,7 +15,8 @@ struct HistoricalAnalysisFilterBar: View {
     @State private var activeSheet: FilterSheet?
 
     private enum FilterSheet: Identifiable {
-        case seasons, spread, line, moneyline, situation, conditions, context
+        /// NFL uses matchup + weather (spec). CFB/MLB still use the older Conditions sheet.
+        case seasons, spread, line, moneyline, situation, conditions, matchup, weather, context, lastGame
         var id: String {
             switch self {
             case .seasons: return "seasons"
@@ -24,7 +25,10 @@ struct HistoricalAnalysisFilterBar: View {
             case .moneyline: return "moneyline"
             case .situation: return "situation"
             case .conditions: return "conditions"
+            case .matchup: return "matchup"
+            case .weather: return "weather"
             case .context: return "context"
+            case .lastGame: return "lastGame"
             }
         }
     }
@@ -35,20 +39,36 @@ struct HistoricalAnalysisFilterBar: View {
                 HStack(spacing: 8) {
                     betTypePill
                     pillButton(icon: "calendar", title: seasonsLabel) { activeSheet = .seasons }
-                    pillMenu(icon: "house.fill", title: sideLabel, options: [
-                        ("any", "Either", nil),
-                        ("home", "Home", "house.fill"),
-                        ("away", "Away", "airplane"),
-                    ], selection: binding(\.side))
+                    // Side is per-team, so hide it on game totals (it returns 0 / does nothing there).
+                    if hasSideFilter {
+                        pillMenu(icon: "house.fill", title: sideLabel, options: [
+                            ("any", "Either", nil),
+                            ("home", "Home", "house.fill"),
+                            ("away", "Away", "airplane"),
+                        ], selection: binding(\.side))
+                    }
                     if hasSpreadFilter {
                         pillButton(icon: "arrow.left.and.right", title: spreadLabel) { activeSheet = .spread }
                     }
                     if hasLineFilter {
                         pillButton(icon: "number", title: lineLabel) { activeSheet = .line }
                     }
-                    pillButton(icon: "dollarsign", title: mlLabel) { activeSheet = .moneyline }
+                    // ML odds apply only to moneyline markets (football); MLB prices ml/rl off it too.
+                    if hasMoneylineFilter {
+                        pillButton(icon: "dollarsign", title: mlLabel) { activeSheet = .moneyline }
+                    }
                     pillButton(icon: "slider.horizontal.3", title: "Situation") { activeSheet = .situation }
-                    pillButton(icon: "cloud.sun.fill", title: "Conditions") { activeSheet = .conditions }
+                    // NFL: Matchup / Weather split (15_mobile_historical_analysis.md).
+                    // CFB/MLB keep Conditions while CFB grouping is updated separately.
+                    if store.sport == .nfl {
+                        pillButton(icon: "sportscourt.fill", title: "Matchup") { activeSheet = .matchup }
+                        pillButton(icon: "cloud.sun.fill", title: "Weather") { activeSheet = .weather }
+                    } else {
+                        pillButton(icon: "cloud.sun.fill", title: "Conditions") { activeSheet = .conditions }
+                    }
+                    if hasLastGameFilter {
+                        pillButton(icon: "clock.arrow.circlepath", title: "Last game") { activeSheet = .lastGame }
+                    }
                     pillButton(icon: "person.2.fill", title: contextLabel) { activeSheet = .context }
                 }
                 .padding(.horizontal, 16)
@@ -186,6 +206,27 @@ struct HistoricalAnalysisFilterBar: View {
         store.sport != .mlb && ["fg_spread", "h1_spread"].contains(store.betType)
     }
 
+    // Side is per-team; a game total is game-level, so Side is hidden there (football).
+    private var hasSideFilter: Bool {
+        switch store.sport {
+        case .mlb: return true
+        case .nfl, .cfb: return !["fg_total", "h1_total"].contains(store.betType)
+        }
+    }
+
+    // ML-odds control belongs to moneyline markets (football); MLB ml/rl price off the moneyline too.
+    private var hasMoneylineFilter: Bool {
+        switch store.sport {
+        case .mlb: return true
+        case .nfl, .cfb: return HistoricalAnalysisBetType.moneylineMarkets.contains(store.betType)
+        }
+    }
+
+    // Football "Last game" group (previous-game filters). MLB keeps its own last-* controls in Situation.
+    private var hasLastGameFilter: Bool {
+        store.sport == .nfl || store.sport == .cfb
+    }
+
     private var hasLineFilter: Bool {
         switch store.sport {
         case .mlb: return ["total", "f5_total"].contains(store.betType)
@@ -303,12 +344,15 @@ struct HistoricalAnalysisFilterBar: View {
         case .moneyline: return "Moneyline odds"
         case .situation: return "Situation"
         case .conditions: return "Conditions"
+        case .matchup: return "Matchup"
+        case .weather: return "Weather"
         case .context:
             switch store.sport {
             case .nfl: return "Coach & referee"
             case .cfb: return "Conference"
             case .mlb: return "Teams & pitching"
             }
+        case .lastGame: return "Last game"
         }
     }
 
@@ -322,7 +366,10 @@ struct HistoricalAnalysisFilterBar: View {
             case .moneyline: moneylineSheet
             case .situation: situationSheet
             case .conditions: conditionsSheet
+            case .matchup: nflMatchupSheet
+            case .weather: nflWeatherSheet
             case .context: contextSheet
+            case .lastGame: lastGameSheet
             }
         }
     }
@@ -436,6 +483,9 @@ struct HistoricalAnalysisFilterBar: View {
                 Text("Away ranked / home not").tag("away_ranked")
                 Text("Either ranked").tag("either")
             }
+            optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
+            optionalBoolPicker("Conference game", value: boolBinding(\.conferenceGame))
+            optionalBoolPicker("Neutral site", value: boolBinding(\.neutralSite))
         case .mlb:
             mlbSituationSheet
         }
@@ -546,38 +596,93 @@ struct HistoricalAnalysisFilterBar: View {
         }
     }
 
+    /// CFB/MLB only — NFL uses `nflMatchupSheet` + `nflWeatherSheet`.
     @ViewBuilder
     private var conditionsSheet: some View {
         switch store.sport {
         case .nfl:
-            optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
-            optionalBoolPicker("Divisional", value: boolBinding(\.division))
-            Picker("Venue", selection: binding(\.dome)) {
+            EmptyView()
+        case .cfb:
+            Picker("Weather", selection: binding(\.weather)) {
                 Text("Any").tag("any")
-                Text("Dome").tag("dome")
-                Text("Outdoor").tag("outdoor")
-            }
-            Picker("Precipitation", selection: binding(\.precip)) {
-                Text("Any").tag("any")
-                Text("None").tag("none")
+                Text("Clear").tag("clear")
+                Text("Cloudy").tag("cloudy")
                 Text("Rain").tag("rain")
                 Text("Snow").tag("snow")
             }
-            Picker("Rest / bye", selection: binding(\.restBye)) {
+            Picker("Venue", selection: binding(\.dome)) {
                 Text("Any").tag("any")
-                Text("Off a bye").tag("off_bye")
-                Text("Week before bye").tag("pre_bye")
-                Text("Short rest").tag("short")
+                Text("Dome / indoors").tag("dome")
+                Text("Outdoors").tag("outdoor")
             }
-            footballWeatherSliders(tempMax: 100)
-        case .cfb:
-            optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
-            optionalBoolPicker("Conference game", value: boolBinding(\.conferenceGame))
-            optionalBoolPicker("Neutral site", value: boolBinding(\.neutralSite))
             footballWeatherSliders(tempMax: 110)
+            Text("Weather conditions are complete for 2022+, partial for 2018–2021, and sparse in 2016–2017.")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.appTextMuted)
         case .mlb:
             mlbConditionsSheet
         }
+    }
+
+    /// NFL Matchup = game setup, not weather (primetime / divisional / rest).
+    @ViewBuilder
+    private var nflMatchupSheet: some View {
+        optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
+        optionalBoolPicker("Divisional", value: boolBinding(\.division))
+        Picker("Rest / bye", selection: binding(\.restBye)) {
+            Text("Any").tag("any")
+            Text("Off a bye").tag("off_bye")
+            Text("Week before bye").tag("pre_bye")
+            Text("Short rest (Thu)").tag("short")
+        }
+    }
+
+    /// NFL Weather = venue / precip / temp / wind only.
+    @ViewBuilder
+    private var nflWeatherSheet: some View {
+        Picker("Venue", selection: binding(\.dome)) {
+            Text("Any").tag("any")
+            Text("Dome").tag("dome")
+            Text("Outdoor").tag("outdoor")
+        }
+        Picker("Precipitation", selection: binding(\.precip)) {
+            Text("Any").tag("any")
+            Text("None").tag("none")
+            Text("Rain").tag("rain")
+            Text("Snow").tag("snow")
+        }
+        footballWeatherSliders(tempMax: 100)
+    }
+
+    // MARK: - Last game (football) — describes the team's PREVIOUS game
+    @ViewBuilder
+    private var lastGameSheet: some View {
+        Picker("Result", selection: binding(\.lastResult)) {
+            Text("Any").tag("any")
+            Text("Won").tag("won")
+            Text("Lost").tag("lost")
+        }
+        Picker("ATS", selection: binding(\.lastAts)) {
+            Text("Any").tag("any")
+            Text("Covered").tag("covered")
+            Text("Didn't cover").tag("not")
+        }
+        Picker("Total", selection: binding(\.lastTotal)) {
+            Text("Any").tag("any")
+            Text("Over").tag("over")
+            Text("Under").tag("under")
+        }
+        Picker("Was", selection: binding(\.lastRole)) {
+            Text("Any").tag("any")
+            Text("Favorite").tag("favorite")
+            Text("Underdog").tag("underdog")
+        }
+        Picker("Blowout (±21)", selection: binding(\.lastBlowout)) {
+            Text("Any").tag("any")
+            Text("Won by 21+").tag("win")
+            Text("Lost by 21+").tag("loss")
+        }
+        optionalBoolPicker("Went to overtime", value: boolBinding(\.lastOt))
     }
 
     @ViewBuilder
