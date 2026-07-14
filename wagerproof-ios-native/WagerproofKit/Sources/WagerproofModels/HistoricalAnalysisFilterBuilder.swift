@@ -25,8 +25,9 @@ public enum HistoricalAnalysisFilterBuilder {
     ]
 
     private static let cfbSpreadCfg: [String: SpreadCfg] = [
-        "fg_spread": SpreadCfg(max: 28, mk: "spread_min", xk: "spread_max", amk: "abs_spread_min", axk: "abs_spread_max"),
-        "h1_spread": SpreadCfg(max: 18, mk: "h1_spread_min", xk: "h1_spread_max", amk: "h1_abs_spread_min", axk: "h1_abs_spread_max"),
+        // CFB spreads reach the low 50s (matches web CFBAnalytics.tsx SPREAD_CFG).
+        "fg_spread": SpreadCfg(max: 50, mk: "spread_min", xk: "spread_max", amk: "abs_spread_min", axk: "abs_spread_max"),
+        "h1_spread": SpreadCfg(max: 28, mk: "h1_spread_min", xk: "h1_spread_max", amk: "h1_abs_spread_min", axk: "h1_abs_spread_max"),
     ]
 
     private static let nflTotalCfg: [String: TotalCfg] = [
@@ -98,6 +99,9 @@ public enum HistoricalAnalysisFilterBuilder {
         let seasonFloor = seasonFloor(betType: betType, sport: sport)
         let spreadCfg = sport == .nfl ? nflSpreadCfg : cfbSpreadCfg
         let totalCfg = sport == .nfl ? nflTotalCfg : cfbTotalCfg
+        // Game totals are game-level: Side / ML-odds don't apply (they returned 0 / did nothing).
+        let isGameTotal = betType == "fg_total" || betType == "h1_total"
+        let isMlMkt = HistoricalAnalysisBetType.moneylineMarkets.contains(betType)
 
         if snapshot.seasonMin > seasonFloor { f["season_min"] = .int(snapshot.seasonMin) }
         if snapshot.seasonMax < sport.seasonMax { f["season_max"] = .int(snapshot.seasonMax) }
@@ -123,7 +127,7 @@ public enum HistoricalAnalysisFilterBuilder {
             break
         }
 
-        if snapshot.side != "any" { f["side"] = .string(snapshot.side) }
+        if snapshot.side != "any", !isGameTotal { f["side"] = .string(snapshot.side) }
 
         if let scfg = spreadCfg[betType] {
             let lo = snapshot.spreadMin
@@ -148,13 +152,16 @@ public enum HistoricalAnalysisFilterBuilder {
             f["fav_dog"] = .string(snapshot.favDog)
         }
 
-        var mlA = snapshot.mlMin.trimmingCharacters(in: .whitespaces).isEmpty
-            ? nil : Double(snapshot.mlMin)
-        var mlB = snapshot.mlMax.trimmingCharacters(in: .whitespaces).isEmpty
-            ? nil : Double(snapshot.mlMax)
-        if let a = mlA, let b = mlB, a > b { swap(&mlA, &mlB) }
-        if let a = mlA { f["ml_min"] = .double(a) }
-        if let b = mlB { f["ml_max"] = .double(b) }
+        // ML odds apply only to moneyline markets (spread markets use spread side; totals none).
+        if isMlMkt {
+            var mlA = snapshot.mlMin.trimmingCharacters(in: .whitespaces).isEmpty
+                ? nil : Double(snapshot.mlMin)
+            var mlB = snapshot.mlMax.trimmingCharacters(in: .whitespaces).isEmpty
+                ? nil : Double(snapshot.mlMax)
+            if let a = mlA, let b = mlB, a > b { swap(&mlA, &mlB) }
+            if let a = mlA { f["ml_min"] = .double(a) }
+            if let b = mlB { f["ml_max"] = .double(b) }
+        }
 
         if let tcfg = totalCfg[betType] {
             if snapshot.lineMin > tcfg.min { f[tcfg.mk] = .double(snapshot.lineMin) }
@@ -196,8 +203,21 @@ public enum HistoricalAnalysisFilterBuilder {
             if snapshot.tempMin > -10 { f["temp_min"] = .int(snapshot.tempMin) }
             if snapshot.tempMax < 110 { f["temp_max"] = .int(snapshot.tempMax) }
             if snapshot.windMax < 60 { f["wind_max"] = .int(snapshot.windMax) }
+            if snapshot.weather != "any" { f["weather"] = .string(snapshot.weather) }   // CFBD weatherCondition
+            if snapshot.dome != "any" { f["dome"] = .bool(snapshot.dome == "dome") }     // CFBD gameIndoors
         case .mlb:
             break
+        }
+
+        // Football "last game" filters — team's PREVIOUS game.
+        // NFL UI ships these now; CFB keys stay in the builder for when that sport's regroup lands.
+        if sport == .nfl || sport == .cfb {
+            if snapshot.lastResult != "any" { f["last_won"] = .int(snapshot.lastResult == "won" ? 1 : 0) }
+            if snapshot.lastAts != "any" { f["last_covered"] = .int(snapshot.lastAts == "covered" ? 1 : 0) }
+            if snapshot.lastTotal != "any" { f["last_over"] = .int(snapshot.lastTotal == "over" ? 1 : 0) }
+            if snapshot.lastRole != "any" { f["last_favorite"] = .bool(snapshot.lastRole == "favorite") }
+            if let lastOt = snapshot.lastOt { f["last_overtime"] = .bool(lastOt) }
+            if snapshot.lastBlowout != "any" { f["last_blowout"] = .string(snapshot.lastBlowout) }
         }
 
         return f

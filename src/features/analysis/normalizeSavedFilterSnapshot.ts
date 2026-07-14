@@ -25,6 +25,14 @@ export interface CfbWebFilterSnapshot {
   selectedConferences: string[];
   tempRange: NumPair;
   windMax: number;
+  weather: string;
+  dome: string;
+  lastResult: string;
+  lastAts: string;
+  lastTotal: string;
+  lastRole: string;
+  lastOt: boolean | null;
+  lastBlowout: string;
 }
 
 export interface NflWebFilterSnapshot {
@@ -49,6 +57,12 @@ export interface NflWebFilterSnapshot {
   restBye: string;
   coach: string;
   referee: string;
+  lastResult: string;
+  lastAts: string;
+  lastTotal: string;
+  lastRole: string;
+  lastOt: boolean | null;
+  lastBlowout: string;
 }
 
 function isNativeSnapshot(raw: Record<string, unknown>): boolean {
@@ -70,6 +84,18 @@ function str(value: unknown, fallback: string): string {
 
 function optionalBool(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
+}
+
+/** "Last game" filters — shared shape across web + iOS, both sports. Flat string/bool keys. */
+function lastGameFields(r: Record<string, unknown>) {
+  return {
+    lastResult: str(r.lastResult, 'any'),
+    lastAts: str(r.lastAts, 'any'),
+    lastTotal: str(r.lastTotal, 'any'),
+    lastRole: str(r.lastRole, 'any'),
+    lastOt: optionalBool(r.lastOt),
+    lastBlowout: str(r.lastBlowout, 'any'),
+  };
 }
 
 /** Resolve multi-conference selection from web or iOS saved snapshots. */
@@ -110,6 +136,9 @@ export function normalizeCfbSavedFilterSnapshot(
       selectedConferences: resolveSelectedConferences(r),
       tempRange: asPair(r.tempRange, [-10, 110]),
       windMax: typeof r.windMax === 'number' ? r.windMax : 60,
+      weather: str(r.weather, 'any'),
+      dome: str(r.dome, 'any'),
+      ...lastGameFields(r),
     };
   }
 
@@ -132,6 +161,9 @@ export function normalizeCfbSavedFilterSnapshot(
     selectedConferences: resolveSelectedConferences(r),
     tempRange: [Number(r.tempMin ?? -10), Number(r.tempMax ?? 110)],
     windMax: typeof r.windMax === 'number' ? r.windMax : 60,
+    weather: str(r.weather, 'any'),
+    dome: str(r.dome, 'any'),
+    ...lastGameFields(r),
   };
 }
 
@@ -165,6 +197,7 @@ export function normalizeNflSavedFilterSnapshot(
       restBye: str(r.restBye, 'any'),
       coach: str(r.coach, 'any'),
       referee: str(r.referee, 'any'),
+      ...lastGameFields(r),
     };
   }
 
@@ -190,5 +223,6 @@ export function normalizeNflSavedFilterSnapshot(
     restBye: str(r.restBye, 'any'),
     coach: str(r.coach, 'any'),
     referee: str(r.referee, 'any'),
+    ...lastGameFields(r),
   };
 }
