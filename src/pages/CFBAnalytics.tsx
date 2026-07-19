@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCFBTeamColors, getCFBTeamInitials } from '@/utils/teamColors';
 import { normalizeCfbSavedFilterSnapshot, type CfbWebFilterSnapshot } from '@/features/analysis/normalizeSavedFilterSnapshot';
+import { TeamMultiSelect, type TeamOption } from '@/features/analysis/TeamMultiSelect';
 
 // ── Bet-type spine — the FIRST choice; everything downstream speaks this one market ──
 const BET_GROUPS = [
@@ -189,13 +190,6 @@ function BreakdownTable({ betType, rows, keyName, logos }: { betType: string; ro
   const isTeam = keyName === 'team';
   const isML = ML_MARKETS.has(betType);
   const outcome = OUTCOME[betType] || 'Hit';
-  const [q, setQ] = useState('');
-  // long lists (130+ CFB teams) get a search box; short ones (conferences) don't need it
-  const showSearch = (rows?.length || 0) > 12;
-  const shown = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    return term ? sorted.filter(r => String(r[keyName] ?? '').toLowerCase().includes(term)) : sorted;
-  }, [sorted, q, keyName]);
   if (!rows?.length) return <p className="text-sm text-muted-foreground py-6 text-center">No results with enough games (min 3).</p>;
   return (
     <div>
@@ -209,13 +203,8 @@ function BreakdownTable({ betType, rows, keyName, logos }: { betType: string; ro
         </div>
         <span className="text-[11px] text-muted-foreground">{outcome} rate</span>
       </div>
-      {showSearch && (
-        <Input value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${isTeam ? 'teams' : keyName}…`} className="h-8 text-sm mb-2" />
-      )}
       <div className="max-h-[420px] overflow-y-auto rounded-lg border divide-y">
-        {shown.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">No {isTeam ? 'teams' : 'results'} match “{q}”.</p>
-        ) : shown.map((r, i) => {
+        {sorted.map((r, i) => {
           const sig = significance(r.n, r.hit_pct);
           return (
             <div key={i} className="flex items-center gap-3 px-3 py-2 text-sm">
@@ -257,6 +246,9 @@ export default function CFBAnalytics() {
   const [conferenceGame, setConferenceGame] = useState<boolean | null>(null);
   const [neutralSite, setNeutralSite] = useState<boolean | null>(null);
   const [selectedConferences, setSelectedConferences] = useState<string[]>([]);
+  const [teams, setTeams] = useState<string[]>([]);
+  const [opponents, setOpponents] = useState<string[]>([]);
+  const [teamOptions, setTeamOptions] = useState<TeamOption[]>([]);
   const [tempRange, setTempRange] = useState<[number, number]>([-10, 110]);
   const [windMax, setWindMax] = useState(60);
   const [weather, setWeather] = useState('any'); // any | clear | cloudy | rain | snow (CFBD weatherCondition)
@@ -278,7 +270,7 @@ export default function CFBAnalytics() {
   const snapshot = (): CfbWebFilterSnapshot => ({
     betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange,
     mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, tempRange, windMax,
-    weather, dome, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout,
+    weather, dome, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout, teams, opponents,
   });
   const restore = (raw: unknown, rowBetType?: string) => {
     const s = normalizeCfbSavedFilterSnapshot(
@@ -309,6 +301,8 @@ export default function CFBAnalytics() {
     setLastRole(s.lastRole);
     setLastOt(s.lastOt);
     setLastBlowout(s.lastBlowout);
+    setTeams(s.teams);
+    setOpponents(s.opponents);
     // spreadSize/lineRange are reset by the bet-type effect — re-apply after it runs
     setTimeout(() => {
       setSpreadSize(s.spreadSize);
@@ -360,6 +354,8 @@ export default function CFBAnalytics() {
     }
     // Side is per-team; on a game total it returns 0 (away) or does nothing (home), so skip it there.
     if (side !== 'any' && !isGameTotal) f.side = side;
+    if (teams.length) f.team = teams;
+    if (opponents.length) f.opponent = opponents;
     // subject-market line control: size+side for spread markets only
     const scfg = SPREAD_CFG[betType];
     if (scfg) {
@@ -391,11 +387,16 @@ export default function CFBAnalytics() {
     if (conferenceGame !== null) f.conference_game = conferenceGame;
     if (neutralSite !== null) f.neutral_site = neutralSite;
     const picked = selectedConferences.filter(Boolean);
-    if (picked.length === 1) {
+    // Explicit Team dropdown wins over conference→team expansion.
+    if (!teams.length) {
+      if (picked.length === 1) {
+        f.conference = picked[0];
+      } else if (picked.length > 1) {
+        const confTeams = Array.from(new Set(picked.flatMap((c) => conferenceTeamMap[c] ?? []))).sort();
+        if (confTeams.length > 0) f.team = confTeams;
+      }
+    } else if (picked.length === 1) {
       f.conference = picked[0];
-    } else if (picked.length > 1) {
-      const teams = Array.from(new Set(picked.flatMap((c) => conferenceTeamMap[c] ?? []))).sort();
-      if (teams.length > 0) f.team = teams;
     }
     if (tempRange[0] > -10) f.temp_min = tempRange[0];
     if (tempRange[1] < 110) f.temp_max = tempRange[1];
@@ -410,10 +411,11 @@ export default function CFBAnalytics() {
     if (lastOt !== null) f.last_overtime = lastOt;
     if (lastBlowout !== 'any') f.last_blowout = lastBlowout;
     return f;
-  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, conferenceTeamMap, tempRange, windMax, weather, dome, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout, seasonFloor, isGameTotal, isMlMkt, isTeamTotal]);
+  }, [betType, seasons, weeks, side, teams, opponents, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, conferenceTeamMap, tempRange, windMax, weather, dome, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout, seasonFloor, isGameTotal, isMlMkt, isTeamTotal]);
 
   const resetAll = () => {
     setSeasons([seasonFloor, SEASON_MAX]); setWeeks([1, WEEK_MAX]); setSide('any'); setFavDog('any'); setGameType('any'); setRankedMatchup('any');
+    setTeams([]); setOpponents([]);
     setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 28]); setMlMin(''); setMlMax('');
     const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 80]);
     setPrimetime(null); setConferenceGame(null); setNeutralSite(null); setSelectedConferences([]);
@@ -429,6 +431,8 @@ export default function CFBAnalytics() {
     if (rankedMatchup !== 'any') c.push({ label: ({ both: 'Both ranked', neither: 'Neither ranked', home_ranked: 'Home ranked / away unranked', away_ranked: 'Away ranked / home unranked', either: 'Either ranked' } as Record<string, string>)[rankedMatchup], clear: () => setRankedMatchup('any') });
     if ((gameType === 'any' || gameType === 'regular') && (weeks[0] !== 1 || weeks[1] !== WEEK_MAX)) c.push({ label: `Weeks ${weeks[0]}–${weeks[1]}`, clear: () => setWeeks([1, WEEK_MAX]) });
     if (side !== 'any' && !isGameTotal) c.push({ label: side === 'home' ? 'Home' : 'Away', clear: () => setSide('any') });
+    if (teams.length) c.push({ label: `Team: ${teams.join(', ')}`, clear: () => setTeams([]) });
+    if (opponents.length) c.push({ label: `Opp: ${opponents.join(', ')}`, clear: () => setOpponents([]) });
     if ((isMlMkt || isTeamTotal) && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
     const scfg = SPREAD_CFG[betType];
     if (scfg) {
@@ -462,7 +466,7 @@ export default function CFBAnalytics() {
     if (lastOt !== null) c.push({ label: `Last game OT: ${lastOt ? 'Yes' : 'No'}`, clear: () => setLastOt(null) });
     if (lastBlowout !== 'any') c.push({ label: `Last game: ${lastBlowout === 'win' ? 'Blowout win' : 'Blowout loss'}`, clear: () => setLastBlowout('any') });
     return c;
-  }, [betType, seasons, weeks, side, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, tempRange, windMax, weather, dome, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout, seasonFloor, isGameTotal, isMlMkt, isTeamTotal]);
+  }, [betType, seasons, weeks, side, teams, opponents, favDog, gameType, rankedMatchup, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, conferenceGame, neutralSite, selectedConferences, tempRange, windMax, weather, dome, lastResult, lastAts, lastTotal, lastRole, lastOt, lastBlowout, seasonFloor, isGameTotal, isMlMkt, isTeamTotal]);
 
   // load logo map, conference list, and conference→team map once
   useEffect(() => {
@@ -478,6 +482,11 @@ export default function CFBAnalytics() {
       }
       for (const key of Object.keys(map)) map[key].sort();
       setConferenceTeamMap(map);
+      setTeamOptions(
+        Array.from(new Set((data as { team_name: string }[]).map((r) => r.team_name).filter(Boolean)))
+          .sort()
+          .map((name) => ({ id: name, name })),
+      );
     });
     collegeFootballSupabase.rpc('cfb_analysis', { p_bet_type: 'fg_spread', p_filters: {} }).then(({ data }) => {
       if (data) setConferences((data.by_conference || []).map((c: any) => c.conference).filter(Boolean).sort());
@@ -755,6 +764,8 @@ export default function CFBAnalytics() {
             {!isGameTotal && (
               <SelectRow label="Side" value={side} onChange={setSide} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
             )}
+            <TeamMultiSelect label="Team" options={teamOptions} value={teams} onChange={setTeams} />
+            <TeamMultiSelect label="Opponent" options={teamOptions} value={opponents} onChange={setOpponents} emptyLabel="Any opponent" />
             <TriRow label="Primetime (7pm+ ET)" value={primetime} onChange={setPrimetime} />
             <TriRow label="Conference game" value={conferenceGame} onChange={setConferenceGame} />
             <TriRow label="Neutral site" value={neutralSite} onChange={setNeutralSite} />

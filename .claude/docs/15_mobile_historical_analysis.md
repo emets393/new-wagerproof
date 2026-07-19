@@ -44,7 +44,7 @@ RPCs; do not build data.
 }
 ```
 - **Bet types**: `fg_spread, fg_ml, fg_total, team_total, h1_spread, h1_ml, h1_total`.
-- `roi` is `(hit_pct/100*1.909 - 1)*100`; **null for moneyline** (`fg_ml`, `h1_ml`) — show record only.
+- `roi`: **real price-based for every market.** `fg_ml` uses historical `team_ml` (2018+); all other markets use T-60 closing prices (decimal-space median across books) from `nfl_historical_odds`, merged onto the base as `*_px` columns (2023+; pre-2023 spread/totals fall back to flat −110). Ties/pushes excluded. No market hides ROI anymore.
 - Side markets return `home_away` + `fav_dog` bars; totals/team-total return an `over_under` bar.
 - `by_*` lists include every group with ≥1 game in the filtered set (a game-count badge conveys
   reliability — see Breakdown behavior below).
@@ -132,23 +132,23 @@ wk17→18 across years; CFB bowls/playoffs aren't week-numbered at all). So the 
 
 Chrome is native and background-free — no slab behind the sticky elements, no content cards:
 
-1. **Native large title** ("NFL Trends" / "CFB Trends") that collapses into the nav bar on scroll.
-2. **Sticky search bar** — native `.searchable(placement: .navigationBarDrawer(displayMode: .always))`;
-   filters the active breakdown list (teams / coaches / referees / conferences; prompt follows the tab).
-3. **Sticky filter pills** — a pinned section header with the bet-type pill (Spread · Moneyline ·
+1. **Native large title** ("NFL Trends" / "CFB Trends" / "MLB Trends") that collapses into the nav bar on scroll.
+2. **Sticky filter pills** — a pinned section header with the bet-type pill (Spread · Moneyline ·
    Total · Team Total · 1H Spread · 1H ML · 1H Total; changing it refetches) plus the
-   adaptive filter pills and **active-filter chips** (individual remove + "Reset all"). Pills are
+   adaptive filter pills and **active-filter chips** (individual remove + "Reset all"). **Team** and
+   **Opponent** are multi-select dropdowns inside Situation (football) / Teams & pitching (MLB) —
+   not a page-level search bar. Pills are
    pure system Liquid Glass capsules (`liquidGlassBackground`, no custom strokes/fills; the pills
    ScrollView uses `scrollClipDisabled()` + vertical padding so glass never clips); chips are plain
    text. No slab behind any of it — content scrolls underneath.
-4. **Headline summary** — plain text, no card: lead with `overall`, one big, always-meaningful
+3. **Headline summary** — plain text, no card: lead with `overall`, one big, always-meaningful
    sentence ("Home favorites covered **55.7%**, **+6.4u ROI**, over 70 games 2018–2025") + the
    coverage line + baseline. NEVER lead with an empty filtered side.
-5. **Breakdowns** — plain sections separated by dividers (no containers): each `bars` dimension as
+4. **Breakdowns** — plain sections separated by dividers (no containers): each `bars` dimension as
    labeled rows (side · record · hit% · ROI + a bar), then the by-team / by-conference (CFB) /
-   by-coach + by-referee (NFL) lists (sort via a compact menu; capped at 15 rows behind a
-   "Show all N" expander unless searching — CFB has 130+ FBS teams).
-6. **"This week's games that match"** — plain rows from the upcoming RPC; hidden entirely when empty.
+   by-coach + by-referee (NFL) / by-venue (MLB) lists (sort via a compact menu; capped at 15 rows
+   behind a "Show all N" expander — CFB has 130+ FBS teams).
+5. **"This week's games that match"** — plain rows from the upcoming RPC; hidden entirely when empty.
 
 ## Breakdown behavior (don't headline noise)
 
@@ -167,7 +167,7 @@ Chrome is native and background-free — no slab behind the sticky elements, no 
 |---|---|---|
 | Postseason split | `season_type` + `playoff_round` (WC/DIV/CON/SB) | `game_type` (regular/bowl/playoff/postseason) |
 | Extra breakdowns | `by_coach`, `by_referee` | `by_conference` |
-| Extra filters | division, day, dome, surface, precip, rest, pre-bye, coach, referee | conference, conference_game, neutral_site, ranked_matchup |
+| Extra filters | division, day, dome, surface, precip, rest, pre-bye, coach, referee, **team[] / opponent[]** | conference, conference_game, neutral_site, ranked_matchup, **team[] / opponent[]** |
 | Team key | abbreviation (KC) | full school name |
 | Logos | ESPN NFL CDN by abbr | `cfb_team_mapping.logo_light` by `api` name; initials-avatar fallback |
 

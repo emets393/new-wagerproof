@@ -678,8 +678,18 @@ export default function MLBAnalytics() {
         collegeFootballSupabase.rpc('mlb_analysis', { p_bet_type: betType, p_filters: filters }),
         collegeFootballSupabase.rpc('mlb_analysis_upcoming', { p_bet_type: betType, p_filters: upcomingFilters }),
       ]);
-      setData(a.data as Analysis);
-      setUpcoming((u.data as Record<string, unknown>[]) || []);
+      if (a.error) {
+        console.error('[mlb-analytics] mlb_analysis error', a.error);
+        setData(null);
+      } else {
+        setData(a.data as Analysis);
+      }
+      if (u.error) {
+        console.error('[mlb-analytics] mlb_analysis_upcoming error', u.error);
+        setUpcoming([]);
+      } else {
+        setUpcoming((u.data as Record<string, unknown>[]) || []);
+      }
       setLoading(false);
     }, 350);
     return () => clearTimeout(t);
