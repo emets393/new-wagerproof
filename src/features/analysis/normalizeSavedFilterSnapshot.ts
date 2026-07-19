@@ -425,3 +425,131 @@ export function normalizeNflSavedFilterSnapshot(
     ...asofFields(r),
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// MLB — canonical Systems snapshot. The live MLBAnalytics page still uses a looser inline shape
+// (single dayOfWeek, min/max strings, OptRange|null, pitcher {id,name} objects); this normalizer
+// reads BOTH that legacy shape and the canonical one, so saved filters and chat patches converge
+// on one contract. The page gets aligned to the canonical shape by the Cursor UI pass.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+export interface MlbFilterSnapshot {
+  betType: string;
+  seasons: NumPair; months: NumPair;
+  teams: string[]; opponents: string[];
+  side: string; favDog: string; mlMin: string; mlMax: string;
+  lineRange: NumPair; timeMin: string; timeMax: string;
+  daysOfWeek: string[]; doubleheader: boolean | null;
+  seriesGame: NumPair; trip: NumPair; switchGame: boolean | null; restRange: NumPair;
+  division: boolean | null; interleague: boolean | null;
+  tempRange: NumPair; windRange: NumPair; windDir: string; dome: boolean | null; pfRuns: NumPair;
+  spNames: string[]; oppSpNames: string[]; spHand: string; oppSpHand: string;
+  spXfip: NumPair; oppSpXfip: NumPair; bpIp: NumPair; bpXfip: NumPair;
+  lastResult: string; lastMargin: NumPair; winLossStreak: NumPair;
+  oppLastResult: string; oppLastMargin: NumPair;
+  winPct: NumPair; winStreak: NumPair; lossStreak: NumPair;
+  rlCoverPct: NumPair; rlStreak: NumPair;
+  overPct: NumPair; overStreak: NumPair; underStreak: NumPair;
+  rpg: NumPair; rapg: NumPair; runDiffPg: NumPair;
+  prevWins: NumPair; prevWinPct: NumPair; minGames: number;
+  h2hLastWin: string; h2hLastOver: string; h2hLastMargin: NumPair; h2hSameSeason: boolean | null;
+  oppWinPct: NumPair; oppOverPct: NumPair; oppRlCoverPct: NumPair;
+  oppWinStreak: NumPair; oppLossStreak: NumPair; oppRpg: NumPair; oppRapg: NumPair;
+  oppPrevWinPct: NumPair;
+}
+
+export const MLB_SNAPSHOT_DEFAULTS: MlbFilterSnapshot = {
+  betType: 'ml',
+  seasons: [2023, 2026], months: [3, 11], teams: [], opponents: [],
+  side: 'any', favDog: 'any', mlMin: '', mlMax: '',
+  lineRange: [5, 14], timeMin: '', timeMax: '',
+  daysOfWeek: [], doubleheader: null,
+  seriesGame: [1, 6], trip: [1, 5], switchGame: null, restRange: [0, 10],
+  division: null, interleague: null,
+  tempRange: [30, 110], windRange: [0, 40], windDir: 'any', dome: null, pfRuns: [85, 115],
+  spNames: [], oppSpNames: [], spHand: 'any', oppSpHand: 'any',
+  spXfip: [2, 7], oppSpXfip: [2, 7], bpIp: [0, 20], bpXfip: [2, 7],
+  lastResult: 'any', lastMargin: [-30, 30], winLossStreak: [-25, 25],
+  oppLastResult: 'any', oppLastMargin: [-30, 30],
+  winPct: [0, 100], winStreak: [0, 25], lossStreak: [0, 25],
+  rlCoverPct: [0, 100], rlStreak: [0, 25],
+  overPct: [0, 100], overStreak: [0, 25], underStreak: [0, 25],
+  rpg: [0, 10], rapg: [0, 10], runDiffPg: [-4, 4],
+  prevWins: [0, 120], prevWinPct: [0, 100], minGames: 0,
+  h2hLastWin: 'any', h2hLastOver: 'any', h2hLastMargin: [-30, 30], h2hSameSeason: null,
+  oppWinPct: [0, 100], oppOverPct: [0, 100], oppRlCoverPct: [0, 100],
+  oppWinStreak: [0, 25], oppLossStreak: [0, 25], oppRpg: [0, 10], oppRapg: [0, 10],
+  oppPrevWinPct: [0, 100],
+};
+
+/** legacy page helpers: min/max strings and OptRange|null → canonical pairs. */
+function pairFromStrings(minS: unknown, maxS: unknown, def: NumPair): NumPair {
+  const lo = typeof minS === 'string' && minS.trim() !== '' ? Number(minS) : NaN;
+  const hi = typeof maxS === 'string' && maxS.trim() !== '' ? Number(maxS) : NaN;
+  return [Number.isFinite(lo) ? lo : def[0], Number.isFinite(hi) ? hi : def[1]];
+}
+function pairFromOpt(opt: unknown, def: NumPair): NumPair {
+  if (!opt || typeof opt !== 'object') return def;
+  const o = opt as { min?: unknown; max?: unknown };
+  const lo = Number(o.min); const hi = Number(o.max);
+  return [Number.isFinite(lo) ? lo : def[0], Number.isFinite(hi) ? hi : def[1]];
+}
+function pitcherNames(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((p) => (typeof p === 'string' ? p : (p && typeof p === 'object' && typeof (p as { name?: unknown }).name === 'string') ? (p as { name: string }).name : ''))
+    .filter((n) => n.length > 0);
+}
+
+export function normalizeMlbSavedFilterSnapshot(
+  raw: Record<string, unknown> | null | undefined,
+  rowBetType?: string,
+): MlbFilterSnapshot {
+  const r = raw ?? {};
+  const d = MLB_SNAPSHOT_DEFAULTS;
+  const legacyDay = typeof r.dayOfWeek === 'string' && r.dayOfWeek !== 'any' ? [r.dayOfWeek] : [];
+  return {
+    betType: str(r.betType, rowBetType || 'ml'),
+    seasons: asPair(r.seasons, d.seasons), months: asPair(r.months, d.months),
+    teams: stringList(r.teams), opponents: stringList(r.opponents),
+    side: str(r.side, 'any'), favDog: str(r.favDog, 'any'),
+    mlMin: str(r.mlMin, ''), mlMax: str(r.mlMax, ''),
+    lineRange: r.totalBounds ? pairFromOpt(r.totalBounds, d.lineRange) : asPair(r.lineRange, d.lineRange),
+    timeMin: str(r.timeMin, ''), timeMax: str(r.timeMax, ''),
+    daysOfWeek: stringList(r.daysOfWeek).length ? stringList(r.daysOfWeek) : legacyDay,
+    doubleheader: optionalBool(r.doubleheader),
+    seriesGame: r.seriesGame == null ? d.seriesGame : asPair(r.seriesGame, d.seriesGame),
+    trip: r.trip == null ? d.trip : asPair(r.trip, d.trip),
+    switchGame: optionalBool(r.switchGame), restRange: asPair(r.restRange, d.restRange),
+    division: optionalBool(r.division), interleague: optionalBool(r.interleague),
+    tempRange: asPair(r.tempRange, d.tempRange), windRange: asPair(r.windRange, d.windRange),
+    windDir: str(r.windDir, 'any'), dome: optionalBool(r.dome),
+    pfRuns: r.pfRuns == null ? d.pfRuns : pairFromOpt(r.pfRuns, d.pfRuns),
+    spNames: stringList(r.spNames).length ? stringList(r.spNames) : pitcherNames(r.sp),
+    oppSpNames: stringList(r.oppSpNames).length ? stringList(r.oppSpNames) : pitcherNames(r.oppSp),
+    spHand: str(r.spHand, 'any'), oppSpHand: str(r.oppSpHand, 'any'),
+    spXfip: r.spXfip == null ? d.spXfip : pairFromOpt(r.spXfip, d.spXfip),
+    oppSpXfip: r.oppSpXfip == null ? d.oppSpXfip : pairFromOpt(r.oppSpXfip, d.oppSpXfip),
+    bpIp: r.bpIp == null ? d.bpIp : pairFromOpt(r.bpIp, d.bpIp),
+    bpXfip: r.bpXfip == null ? d.bpXfip : pairFromOpt(r.bpXfip, d.bpXfip),
+    lastResult: str(r.lastResult, 'any'),
+    lastMargin: Array.isArray(r.lastMargin) ? asPair(r.lastMargin, d.lastMargin) : pairFromStrings(r.lastMarginMin, r.lastMarginMax, d.lastMargin),
+    winLossStreak: Array.isArray(r.winLossStreak) ? asPair(r.winLossStreak, d.winLossStreak) : pairFromStrings(r.streakMin, r.streakMax, d.winLossStreak),
+    oppLastResult: str(r.oppLastResult, 'any'),
+    oppLastMargin: asPair(r.oppLastMargin, d.oppLastMargin),
+    winPct: asPair(r.winPct, d.winPct), winStreak: asPair(r.winStreak, d.winStreak),
+    lossStreak: asPair(r.lossStreak, d.lossStreak),
+    rlCoverPct: asPair(r.rlCoverPct, d.rlCoverPct), rlStreak: asPair(r.rlStreak, d.rlStreak),
+    overPct: asPair(r.overPct, d.overPct), overStreak: asPair(r.overStreak, d.overStreak),
+    underStreak: asPair(r.underStreak, d.underStreak),
+    rpg: asPair(r.rpg, d.rpg), rapg: asPair(r.rapg, d.rapg), runDiffPg: asPair(r.runDiffPg, d.runDiffPg),
+    prevWins: asPair(r.prevWins, d.prevWins), prevWinPct: asPair(r.prevWinPct, d.prevWinPct),
+    minGames: typeof r.minGames === 'number' ? r.minGames : 0,
+    h2hLastWin: str(r.h2hLastWin, 'any'), h2hLastOver: str(r.h2hLastOver, 'any'),
+    h2hLastMargin: asPair(r.h2hLastMargin, d.h2hLastMargin), h2hSameSeason: optionalBool(r.h2hSameSeason),
+    oppWinPct: asPair(r.oppWinPct, d.oppWinPct), oppOverPct: asPair(r.oppOverPct, d.oppOverPct),
+    oppRlCoverPct: asPair(r.oppRlCoverPct, d.oppRlCoverPct),
+    oppWinStreak: asPair(r.oppWinStreak, d.oppWinStreak), oppLossStreak: asPair(r.oppLossStreak, d.oppLossStreak),
+    oppRpg: asPair(r.oppRpg, d.oppRpg), oppRapg: asPair(r.oppRapg, d.oppRapg),
+    oppPrevWinPct: asPair(r.oppPrevWinPct, d.oppPrevWinPct),
+  };
+}

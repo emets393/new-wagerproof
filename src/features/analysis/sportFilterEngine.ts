@@ -39,7 +39,8 @@ export type EngineDimension =
   | (DimBase & { kind: 'enum'; options: readonly EnumOption[]; dynamic?: boolean })
   | (DimBase & { kind: 'tristate' })
   | (DimBase & { kind: 'multiselect'; optionSource: string })
-  | (DimBase & { kind: 'mlOdds'; bound: 'min' | 'max' });
+  | (DimBase & { kind: 'mlOdds'; bound: 'min' | 'max' })
+  | (DimBase & { kind: 'text'; pattern?: string });
 
 /** A named list of valid multiselect values + how loose matching may be. */
 export interface SportOptionList {
@@ -168,6 +169,15 @@ function coerceSetValue<S extends Record<string, unknown>>(
       const raw = Number(value);
       const used = clamp(roundToStep(raw, dim.step), dim.min, dim.max);
       return { ok: true, value: used, note: used === raw ? undefined : `clamped to ${used}` };
+    }
+    case 'text': {
+      if (value === '' || value === null) return { ok: true, value: '' };
+      if (typeof value !== 'string') return { ok: false, reason: 'expected a string' };
+      const t = value.trim();
+      if (dim.pattern && !new RegExp(dim.pattern).test(t)) {
+        return { ok: false, reason: `${dim.label} must match ${dim.pattern}` };
+      }
+      return { ok: true, value: t };
     }
     case 'mlOdds': {
       const n = typeof value === 'string' ? Number(value.trim()) : Number(value);
