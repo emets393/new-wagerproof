@@ -49,6 +49,9 @@ struct PropsView: View {
     // Re-injected explicitly into the Settings navigationDestination so iOS 18+
     // configurePreferredTransition can resolve them before the nav environment
     // chain is established. See MainTabToolbar.wagerProofSettingsDestination.
+    // Perfect-streak parlay tickets — the "Props Cheats" rail reads the
+    // props-only ticket set from the shell-hoisted store.
+    @Environment(ParlayGodStore.self) private var parlayGodStore
     @Environment(AuthStore.self) private var auth
     @Environment(SettingsStore.self) private var settingsStore
     @Environment(RevenueCatStore.self) private var revenueCat
@@ -91,6 +94,8 @@ struct PropsView: View {
                             if store.selectedSport == .mlb {
                                 mlbBestPicksBanner
                                     .transition(.opacity.combined(with: .move(edge: .top)))
+                                propsCheatsRail
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
                             }
                             bodyContent
                         }
@@ -104,7 +109,9 @@ struct PropsView: View {
             .navigationTitle("Props")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await store.refresh(force: true)
+                async let feed: () = store.refresh(force: true)
+                async let parlays: () = parlayGodStore.refreshIfNeeded(force: true)
+                _ = await (feed, parlays)
             }
             .task(id: store.selectedSport) {
                 if store.selectedSport != .mlb {
@@ -119,6 +126,7 @@ struct PropsView: View {
                 await store.refresh()
                 if store.selectedSport == .mlb {
                     await bestPicksStore.refreshSummaryOnly()
+                    await parlayGodStore.refreshIfNeeded()
                 }
             }
             .onChange(of: mlbFilters.market) { _, market in
@@ -450,6 +458,22 @@ struct PropsView: View {
         // Match the Games-page tool banners' 12pt inset (and the prop cards below).
         .padding(.horizontal, 12)
         .padding(.top, 6)
+        .padding(.bottom, 4)
+    }
+
+    /// "Props Cheats" — Parlay God restricted to player-prop legs, riding the
+    /// feed above the date sections (same slot behavior as the Best Picks card).
+    @ViewBuilder
+    private var propsCheatsRail: some View {
+        ParlayGodRail(
+            title: "Props Cheats",
+            icon: "scope",
+            tickets: parlayGodStore.propsTickets,
+            isLoading: parlayGodStore.isLoading,
+            bleedInset: 12,
+            emptyNote: "No perfect-streak props on the board right now — cheats reload when the day's props post each morning."
+        )
+        .padding(.horizontal, 12)
         .padding(.bottom, 4)
     }
 

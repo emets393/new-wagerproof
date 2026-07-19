@@ -75,6 +75,9 @@ struct SearchView: View {
     @Environment(PropsStore.self) private var propsEnv: PropsStore?
     @Environment(MLBBettingTrendsStore.self) private var mlbTrendsEnv: MLBBettingTrendsStore?
     @Environment(MLBF5SplitsStore.self) private var mlbF5Env: MLBF5SplitsStore?
+    // Perfect-streak parlay tickets for the "Parlay God" rail. Optional like
+    // the other shell stores — without it the section simply doesn't render.
+    @Environment(ParlayGodStore.self) private var parlayGodEnv: ParlayGodStore?
 
     @State private var store = SearchStore()
 
@@ -230,6 +233,9 @@ struct SearchView: View {
                 await props.refreshNFL()
             }
         }
+        if let parlayGod = parlayGodEnv {
+            Task { await parlayGod.refreshIfNeeded() }
+        }
     }
 
     // MARK: - Empty state (no query)
@@ -240,6 +246,8 @@ struct SearchView: View {
     @ViewBuilder
     private var emptyStateSections: some View {
         exploreCardsSection
+
+        parlayGodSection
 
         if !store.recentQueries.isEmpty {
             Section {
@@ -328,6 +336,31 @@ struct SearchView: View {
             }
         } header: {
             sectionHeader("Suggestions", icon: "lightbulb.fill")
+        }
+    }
+
+    /// Perfect-streak parlay rail — the same tickets as the Outliers tab's top
+    /// section, hosted as an edge-to-edge List row like the Outliers rail.
+    @ViewBuilder
+    private var parlayGodSection: some View {
+        if let parlayGodEnv, parlayGodEnv.hasContent || parlayGodEnv.isLoading {
+            Section {
+                ParlayGodRail(
+                    title: "Parlay God",
+                    icon: "bolt.fill",
+                    tickets: parlayGodEnv.slateTickets,
+                    isLoading: parlayGodEnv.isLoading,
+                    bleedInset: nil,
+                    showsHeader: false
+                )
+                .contentMargins(.horizontal, 16, for: .scrollContent)
+                .scrollClipDisabled()
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            } header: {
+                sectionHeader("Parlay God", icon: "bolt.fill")
+            }
         }
     }
 

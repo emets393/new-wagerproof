@@ -13,6 +13,7 @@ struct OutliersView: View {
     // Shell-hoisted (MainTabView) so the Outliers tab and SearchView's "Outliers"
     // results section share one fetch. See .claude/docs/14_ios_primitives_index.md.
     @Environment(OutliersTrendsStore.self) private var trendsStore
+    @Environment(ParlayGodStore.self) private var parlayGodStore
 
     var body: some View {
         NavigationStack {
@@ -22,7 +23,13 @@ struct OutliersView: View {
             .background(Color.appSurface.ignoresSafeArea())
             .navigationTitle("Outliers")
             .navigationBarTitleDisplayMode(.large)
-            .refreshable { await trendsStore.refresh() }
+            .refreshable {
+                // Pull-to-refresh re-pulls the Parlay God pool too — it has its
+                // own fetch path and would otherwise sit on a stale/partial TTL.
+                async let trends: () = trendsStore.refresh()
+                async let parlays: () = parlayGodStore.refreshIfNeeded(force: true)
+                _ = await (trends, parlays)
+            }
             .task {
                 if case .idle = trendsStore.loadState {
                     await trendsStore.refresh()

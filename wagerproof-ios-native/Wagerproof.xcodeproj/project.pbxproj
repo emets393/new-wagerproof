@@ -40,6 +40,7 @@
 		179E529F419FE18B0CE0971A /* OnboardingSlide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FD2E8A2BF7D049B629B7713 /* OnboardingSlide.swift */; };
 		1925E4F57181E2E0E74757EB /* SignupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F249FE21007EE8C651783A15 /* SignupView.swift */; };
 		1961BF57A7C74148C2A25775 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = C1B4B982A2CFD6E8DD4ED79F /* AppIcon.icon */; };
+		1A5517B846120E8CA4AFA7E4 /* ParlayGodCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D00631AD82A6C1B46717F18 /* ParlayGodCard.swift */; };
 		1ABF21652D5E02795653A7D1 /* NFLPublicBettingBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E750F8000606F64794AE609 /* NFLPublicBettingBars.swift */; };
 		1B3BB07DB7130C01D4BCB582 /* NFLGameCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A2EFE38AE7ED1663AEDAD5 /* NFLGameCarousel.swift */; };
 		1C2B538BF651799DDF05FCF6 /* OnboardingTermsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 705F537D4D221CCE35D28201 /* OnboardingTermsPage.swift */; };
@@ -523,6 +524,7 @@
 		8B31C2101C4EA566359DD1F6 /* Wagerproof.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Wagerproof.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8B39FB75127E2AD9B1303F12 /* FadeAlertTooltip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FadeAlertTooltip.swift; sourceTree = "<group>"; };
 		8CBCA773AC3986722934AB43 /* OnboardingBettorTypePage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingBettorTypePage.swift; sourceTree = "<group>"; };
+		8D00631AD82A6C1B46717F18 /* ParlayGodCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParlayGodCard.swift; sourceTree = "<group>"; };
 		8D3E0582B06E4C41056CDE87 /* TopOutliersWidgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopOutliersWidgetView.swift; sourceTree = "<group>"; };
 		8DF11EBA9424B6C27C5C8582 /* FeatureRequestsFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureRequestsFixtures.swift; sourceTree = "<group>"; };
 		8E154B578E9825DD03C6CCD7 /* AuthRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRouter.swift; sourceTree = "<group>"; };
@@ -1090,6 +1092,7 @@
 				3F95604A53B343CC2AB67D1C /* OutliersTrendCard.swift */,
 				F574CAD153E6522BBD842E3E /* OutliersTrendCardShimmer.swift */,
 				6F5091F7FCF3C36516F7C42A /* OutliersTrendDetailSheet.swift */,
+				8D00631AD82A6C1B46717F18 /* ParlayGodCard.swift */,
 				29073CE0B99AD10657820147 /* ToolExplainerBanner.swift */,
 				420F7B71C5EA773DA922E716 /* TrendsMatrixView.swift */,
 			);
@@ -1925,6 +1928,7 @@
 				FD3591962987E177A61B16AB /* OutliersTrendDetailSheet.swift in Sources */,
 				23660469F7C2F6D2CD227365 /* OutliersTrendsView.swift in Sources */,
 				DEF34D3CD8C603FB02E6087F /* OutliersView.swift in Sources */,
+				1A5517B846120E8CA4AFA7E4 /* ParlayGodCard.swift in Sources */,
 				637A089E7688756737532D32 /* PerfectStormPickCard.swift in Sources */,
 				666B9EDBD441C4CC07B72155 /* PickHistoryFolder.swift in Sources */,
 				53008971617C2799A1B4680C /* PinnedWidgetScroll.swift in Sources */,
