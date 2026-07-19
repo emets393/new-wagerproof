@@ -95,6 +95,16 @@ RPC implementation: uniform `bet_profit` (+ `under_profit` for the over/under ba
 every roi site = `avg(bet_profit)`. Sanity: fg_spread −4.6%, fg_ml −4.0%, h1_ml −5.6%, fg_total over
 −8.2% / under −0.9% (asymmetric = real prices). Web shows ROI for all markets now.
 
+
+## CFB parity (2026-07-19)
+
+`cfb_analysis` now also accepts: `last_margin_min/max`, `opp_last_margin_min/max`,
+`opp_last_{won,covered,over}` (1/0), `opp_last_{favorite,overtime}` (bool), `day_of_week` (array —
+CFB plays Tue–Sat; Sun/Mon rare). Real price ROI: fg_ml via `team_ml` (2021+), fg_spread/fg_total via
+T-60 median closing px (2021+, ~95%), `h1_ml` roi = null (no 1H prices), h1/tt flat −110. New base cols:
+`opp_last_*` (6), `game_date`, `day_of_week`, `fg_spread_px`, `fg_total_over/under_px`. Record:
+`research/systems_deploy/cfb_parity_2026_07_19.md`.
+
 ## Not yet done
 - `*_analysis_upcoming` does NOT yet expose these columns for scheduled games (so today's-matches can't be
   filtered by as-of stats yet). Deferred — see the "completed vs upcoming" note in `04_...SPEC.md`.
