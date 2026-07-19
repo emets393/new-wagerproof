@@ -31,6 +31,14 @@ var NFL_ASOF_DEFAULTS = {
   oppWinStreak: [0, 16],
   oppPrevWinPct: [0, 100]
 };
+var CFB_ASOF_DEFAULTS = {
+  ...NFL_ASOF_DEFAULTS,
+  ppg: [0, 60],
+  paPg: [0, 60],
+  pointDiffPg: [-40, 40],
+  avgCoverMargin: [-30, 30],
+  prevWins: [0, 15]
+};
 function isNativeSnapshot(raw) {
   return typeof raw.seasonMin === "number" || typeof raw.seasonMax === "number";
 }
@@ -78,8 +86,7 @@ function oppLastGameFields(r) {
     oppLastMargin: asPair(r.oppLastMargin, blowoutFallback(r.oppLastBlowout))
   };
 }
-function asofFields(r) {
-  const d = NFL_ASOF_DEFAULTS;
+function asofFields(r, d = NFL_ASOF_DEFAULTS) {
   return {
     winPct: asPair(r.winPct, d.winPct),
     winStreak: asPair(r.winStreak, d.winStreak),
@@ -553,60 +560,63 @@ var NFL_SIDE_SYMMETRIC_DIMS = [
 var NFL_SIDE_BREAKING_DIMS = NFL_DIMENSION_KEYS.filter(
   (k) => !NFL_SIDE_SYMMETRIC_DIMS.includes(k)
 );
-
-// src/features/analysis/applyFilterPatch.ts
-var clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-var roundToStep = (v, step) => Number((Math.round(v / step) * step).toFixed(4));
-var isNum = (v) => typeof v === "number" && Number.isFinite(v);
-var pairEq = (a, b) => a[0] === b[0] && a[1] === b[1];
-var isDimKey = (k) => Object.prototype.hasOwnProperty.call(NFL_FILTER_DIMENSIONS, k);
-function cloneSnapshot(s) {
-  return JSON.parse(JSON.stringify(s));
-}
-function applyBetTypeSideEffects(next) {
+function nflBetTypeSideEffects(next) {
   const bt = next.betType;
   next.spreadSize = [...numRangeBounds(NFL_FILTER_DIMENSIONS.spreadSize, bt)];
   next.lineRange = [...numRangeBounds(NFL_FILTER_DIMENSIONS.lineRange, bt)];
   const floor = numRangeBounds(NFL_FILTER_DIMENSIONS.seasons, bt)[0];
   if (next.seasons[0] < floor) next.seasons = [floor, next.seasons[1]];
 }
-function normalizeTeam(raw, valid) {
+var lowerKeys = (m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k.toLowerCase(), v]));
+var NFL_SPORT_CONFIG = {
+  sport: "nfl",
+  betTypes: NFL_BET_TYPES,
+  defaultSnapshot: DEFAULT_NFL_SNAPSHOT,
+  dimensions: NFL_FILTER_DIMENSIONS,
+  optionLists: {
+    nflTeams: { values: NFL_TEAM_ABBRS, aliases: lowerKeys(NFL_TEAM_ALIASES) },
+    daysOfWeek: { values: NFL_DAYS, aliases: NFL_DAY_ALIASES },
+    nflDivisions: { values: NFL_DIVISIONS }
+  },
+  dynamicEnumCtx: { coach: "coaches", referee: "referees" },
+  applyBetTypeSideEffects: nflBetTypeSideEffects,
+  numRangeBounds: (dim, bt) => numRangeBounds(dim, bt)
+};
+
+// src/features/analysis/sportFilterEngine.ts
+var clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+var roundToStep = (v, step) => Number((Math.round(v / step) * step).toFixed(4));
+var isNum = (v) => typeof v === "number" && Number.isFinite(v);
+var pairEq = (a, b) => a[0] === b[0] && a[1] === b[1];
+var cloneSnapshot = (s) => JSON.parse(JSON.stringify(s));
+function resolveOption(raw, list, override) {
   if (typeof raw !== "string") return null;
-  const up = raw.trim().toUpperCase();
-  const canonical = NFL_TEAM_ALIASES[up] ?? up;
-  return valid.has(canonical) ? canonical : null;
+  const t = raw.trim();
+  const values = override ?? list.values;
+  if (values.includes(t)) return t;
+  const alias = list.aliases?.[t.toLowerCase()];
+  if (alias && values.includes(alias)) return alias;
+  const up = t.toUpperCase();
+  if (values.includes(up)) return up;
+  const ci = values.find((v) => v.toLowerCase() === t.toLowerCase());
+  return ci ?? null;
 }
-function multiselectNormalizer(dim, ctx) {
-  if (dim.kind !== "multiselect") return () => null;
-  if (dim.optionSource === "daysOfWeek") {
-    const valid2 = new Set(NFL_DAYS);
-    return (raw) => {
-      if (typeof raw !== "string") return null;
-      const t = raw.trim();
-      const canon = NFL_DAY_ALIASES[t.toLowerCase()] ?? (valid2.has(t) ? t : null);
-      return canon && valid2.has(canon) ? canon : null;
-    };
+function isDimensionAvailableGeneric(dim, betType, snapshot) {
+  if (dim.availability?.betTypes && !dim.availability.betTypes.includes(betType)) {
+    return { ok: false, reason: `${dim.label} is not available for the ${betType} market` };
   }
-  if (dim.optionSource === "nflDivisions") {
-    return (raw) => {
-      if (typeof raw !== "string") return null;
-      const hit = NFL_DIVISIONS.find((v) => v.toLowerCase() === raw.trim().toLowerCase());
-      return hit ?? null;
-    };
-  }
-  const valid = new Set(ctx.teamAbbrs ?? NFL_TEAM_ABBRS);
-  return (raw) => normalizeTeam(raw, valid);
+  return { ok: true };
 }
-function coerceSetValue(dimKey, dim, value, next, ctx) {
-  const bt = next.betType;
+function coerceSetValue(cfg, dimKey, dim, value, next, ctx) {
+  const bt = String(next.betType);
   switch (dim.kind) {
     case "enum": {
       if (typeof value !== "string") return { ok: false, reason: "expected a string option value" };
       if (value === "any") return { ok: true, value: "any" };
-      const staticMatch = dim.options.some(([v]) => v === value && v !== "any");
-      if (staticMatch) return { ok: true, value };
+      if (dim.options.some(([v]) => v === value && v !== "any")) return { ok: true, value };
       if (dim.dynamic) {
-        const list = dimKey === "coach" ? ctx.coaches : dimKey === "referee" ? ctx.referees : void 0;
+        const listName = cfg.dynamicEnumCtx?.[dimKey];
+        const list = listName ? ctx.lists?.[listName] : void 0;
         if (!list) return { ok: false, reason: `${dim.label} options are not loaded, cannot verify "${value}"` };
         const hit = list.find((o) => o.toLowerCase() === value.toLowerCase());
         return hit ? { ok: true, value: hit } : { ok: false, reason: `"${value}" is not a known ${dim.label}` };
@@ -625,7 +635,7 @@ function coerceSetValue(dimKey, dim, value, next, ctx) {
       const a0 = Number(value[0]);
       const b0 = Number(value[1]);
       if (!isNum(a0) || !isNum(b0)) return { ok: false, reason: "range bounds must be numbers" };
-      const [min, max] = dim.kind === "pctRange" ? [0, 100] : numRangeBounds(dim, bt);
+      const [min, max] = dim.kind === "pctRange" ? [0, 100] : cfg.numRangeBounds(dim, bt);
       const step = dim.kind === "pctRange" ? 1 : dim.step;
       if (dim.kind === "pctRange" && (a0 > 0 && a0 < 1 || b0 > 0 && b0 < 1)) {
         return { ok: false, reason: "percent values use 0\u2013100 (looks like a 0\u20131 fraction)" };
@@ -657,11 +667,16 @@ function coerceSetValue(dimKey, dim, value, next, ctx) {
     }
     case "multiselect": {
       if (!Array.isArray(value)) return { ok: false, reason: "expected an array" };
-      const norm = multiselectNormalizer(dim, ctx);
+      const list = cfg.optionLists[dim.optionSource];
+      if (!list) return { ok: false, reason: `${dim.label} options are not configured` };
+      const override = ctx.optionOverrides?.[dim.optionSource];
+      if (!list.values.length && !override) {
+        return { ok: false, reason: `${dim.label} options are not loaded, cannot verify values` };
+      }
       const out = [];
       const bad = [];
       for (const item of value) {
-        const t = norm(item);
+        const t = resolveOption(item, list, override);
         if (t) {
           if (!out.includes(t)) out.push(t);
         } else bad.push(String(item));
@@ -671,10 +686,12 @@ function coerceSetValue(dimKey, dim, value, next, ctx) {
     }
   }
 }
-function applyFilterPatch(current, patch, ctx = {}) {
+function applySportFilterPatch(cfg, current, patch, ctx = {}) {
   const next = cloneSnapshot(current);
   const applied = [];
   const rejected = [];
+  const dflt = cfg.defaultSnapshot;
+  const isDimKey = (k) => Object.prototype.hasOwnProperty.call(cfg.dimensions, k);
   const ops = Array.isArray(patch?.ops) ? patch.ops : [];
   for (const op of ops) {
     if (!op || typeof op !== "object" || typeof op.dimension !== "string") {
@@ -685,21 +702,18 @@ function applyFilterPatch(current, patch, ctx = {}) {
     if (dimKey === "betType") {
       if (op.op === "clear") {
         const from = next.betType;
-        if (from === DEFAULT_NFL_SNAPSHOT.betType) {
-          continue;
-        }
-        next.betType = DEFAULT_NFL_SNAPSHOT.betType;
-        applyBetTypeSideEffects(next);
+        if (from === dflt.betType) continue;
+        next.betType = dflt.betType;
+        cfg.applyBetTypeSideEffects?.(next);
         applied.push({ dimension: "betType", from, to: next.betType });
       } else if (op.op === "set") {
         const v = op.value;
-        if (typeof v !== "string" || !NFL_BET_TYPES.includes(v)) {
+        if (typeof v !== "string" || !cfg.betTypes.includes(v)) {
           rejected.push({ op, reason: `"${String(v)}" is not a valid bet type` });
-        } else if (v === next.betType) {
-        } else {
+        } else if (v !== next.betType) {
           const from = next.betType;
           next.betType = v;
-          applyBetTypeSideEffects(next);
+          cfg.applyBetTypeSideEffects?.(next);
           applied.push({ dimension: "betType", from, to: v });
         }
       } else {
@@ -711,31 +725,31 @@ function applyFilterPatch(current, patch, ctx = {}) {
       rejected.push({ op, reason: `unknown dimension "${dimKey}"` });
       continue;
     }
-    const dim = NFL_FILTER_DIMENSIONS[dimKey];
+    const dim = cfg.dimensions[dimKey];
     if (op.op === "clear") {
       const from = next[dimKey];
-      const def = DEFAULT_NFL_SNAPSHOT[dimKey];
+      const def = dflt[dimKey];
       if (JSON.stringify(from) === JSON.stringify(def)) continue;
       next[dimKey] = Array.isArray(def) ? [...def] : def;
       applied.push({ dimension: dimKey, from, to: def });
       continue;
     }
-    const bt = next.betType;
-    if (dim.availability?.betTypes && !dim.availability.betTypes.includes(bt)) {
-      rejected.push({ op, reason: `${dim.label} is not available for the ${bt} market` });
+    const bt = String(next.betType);
+    const avail = isDimensionAvailableGeneric(dim, bt, next);
+    if (!avail.ok) {
+      rejected.push({ op, reason: avail.reason });
       continue;
     }
     if (dim.availability?.requires) {
-      const rkey = dim.availability.requires.key;
-      const rval = dim.availability.requires.equals;
+      const { key: rkey, equals: rval } = dim.availability.requires;
       if (next[rkey] !== rval) {
         const rFrom = next[rkey];
         next[rkey] = rval;
-        applied.push({ dimension: String(rkey), from: rFrom, to: rval, note: `set automatically for ${dim.label}` });
+        applied.push({ dimension: rkey, from: rFrom, to: rval, note: `set automatically for ${dim.label}` });
       }
     }
     if (op.op === "set") {
-      const res = coerceSetValue(dimKey, dim, op.value, next, ctx);
+      const res = coerceSetValue(cfg, dimKey, dim, op.value, next, ctx);
       if (!res.ok) {
         rejected.push({ op, reason: res.reason });
         continue;
@@ -755,11 +769,12 @@ function applyFilterPatch(current, patch, ctx = {}) {
         rejected.push({ op, reason: "items must be an array" });
         continue;
       }
-      const resolve = multiselectNormalizer(dim, ctx);
+      const list = cfg.optionLists[dim.optionSource];
+      const override = ctx.optionOverrides?.[dim.optionSource];
       const from = [...next[dimKey]];
       const bad = [];
       const norm = op.items.map((i) => {
-        const t = resolve(i);
+        const t = list ? resolveOption(i, list, override) : null;
         if (!t) bad.push(String(i));
         return t;
       }).filter(Boolean);
@@ -781,6 +796,15 @@ function applyFilterPatch(current, patch, ctx = {}) {
     rejected.push({ op, reason: `unsupported op "${op.op}"` });
   }
   return { snapshot: next, applied, rejected, noChange: applied.length === 0 };
+}
+
+// src/features/analysis/applyFilterPatch.ts
+function applyFilterPatch(current, patch, ctx = {}) {
+  const engineCtx = {
+    optionOverrides: ctx.teamAbbrs ? { nflTeams: ctx.teamAbbrs } : void 0,
+    lists: { coaches: ctx.coaches, referees: ctx.referees }
+  };
+  return applySportFilterPatch(NFL_SPORT_CONFIG, current, patch, engineCtx);
 }
 export {
   applyFilterPatch,

@@ -6,7 +6,7 @@
 
 type NumPair = [number, number];
 
-export interface CfbWebFilterSnapshot {
+interface CfbBaseFilterSnapshot {
   betType: string;
   seasons: NumPair;
   weeks: NumPair;
@@ -35,7 +35,16 @@ export interface CfbWebFilterSnapshot {
   lastBlowout: string;
   teams: string[];
   opponents: string[];
+  daysOfWeek: string[];
+  lastMargin: NumPair;
+  oppLastResult: string;
+  oppLastAts: string;
+  oppLastTotal: string;
+  oppLastRole: string;
+  oppLastOt: boolean | null;
+  oppLastMargin: NumPair;
 }
+export interface CfbWebFilterSnapshot extends CfbBaseFilterSnapshot, NflAsOfFilterSnapshot {}
 
 /** Season-to-date / as-of Systems filters (UI percents are 0–100; RPC gets 0–1). */
 export interface NflAsOfFilterSnapshot {
@@ -102,6 +111,12 @@ export const NFL_ASOF_DEFAULTS: NflAsOfFilterSnapshot = {
   oppOverPct: [0, 100],
   oppWinStreak: [0, 16],
   oppPrevWinPct: [0, 100],
+};
+
+/** CFB as-of defaults — CFB scoring/season lengths differ from NFL. */
+export const CFB_ASOF_DEFAULTS: NflAsOfFilterSnapshot = {
+  ...NFL_ASOF_DEFAULTS,
+  ppg: [0, 60], paPg: [0, 60], pointDiffPg: [-40, 40], avgCoverMargin: [-30, 30], prevWins: [0, 15],
 };
 
 export interface NflWebFilterSnapshot extends NflAsOfFilterSnapshot {
@@ -214,8 +229,7 @@ function oppLastGameFields(r: Record<string, unknown>) {
   };
 }
 
-function asofFields(r: Record<string, unknown>): NflAsOfFilterSnapshot {
-  const d = NFL_ASOF_DEFAULTS;
+function asofFields(r: Record<string, unknown>, d: NflAsOfFilterSnapshot = NFL_ASOF_DEFAULTS): NflAsOfFilterSnapshot {
   return {
     winPct: asPair(r.winPct, d.winPct),
     winStreak: asPair(r.winStreak, d.winStreak),
@@ -247,6 +261,21 @@ function asofFields(r: Record<string, unknown>): NflAsOfFilterSnapshot {
     oppOverPct: asPair(r.oppOverPct, d.oppOverPct),
     oppWinStreak: asPair(r.oppWinStreak, d.oppWinStreak),
     oppPrevWinPct: asPair(r.oppPrevWinPct, d.oppPrevWinPct),
+  };
+}
+
+/** CFB Systems extras (as-of + opp-last + margin + days) — shared by both CFB normalize branches. */
+function cfbSystemsFields(r: Record<string, unknown>) {
+  return {
+    daysOfWeek: stringList(r.daysOfWeek),
+    lastMargin: asPair(r.lastMargin, [-80, 80]),
+    oppLastResult: str(r.oppLastResult, 'any'),
+    oppLastAts: str(r.oppLastAts, 'any'),
+    oppLastTotal: str(r.oppLastTotal, 'any'),
+    oppLastRole: str(r.oppLastRole, 'any'),
+    oppLastOt: optionalBool(r.oppLastOt),
+    oppLastMargin: asPair(r.oppLastMargin, [-80, 80]),
+    ...asofFields(r, CFB_ASOF_DEFAULTS),
   };
 }
 
@@ -293,6 +322,7 @@ export function normalizeCfbSavedFilterSnapshot(
       teams: stringList(r.teams),
       opponents: stringList(r.opponents),
       ...lastGameFields(r),
+      ...cfbSystemsFields(r),
     };
   }
 
@@ -320,6 +350,7 @@ export function normalizeCfbSavedFilterSnapshot(
     teams: stringList(r.teams),
     opponents: stringList(r.opponents),
     ...lastGameFields(r),
+    ...cfbSystemsFields(r),
   };
 }
 

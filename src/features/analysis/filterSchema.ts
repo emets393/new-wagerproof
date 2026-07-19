@@ -390,3 +390,33 @@ export function assertNflDimensionParity(): void {
     );
   }
 }
+
+// ── Engine binding ─────────────────────────────────────────────────────────────────────────
+import type { SportFilterConfig, EngineDimension } from './sportFilterEngine';
+
+/** Reset bet-type-dependent controls + season floor after a betType change (mirrors the page). */
+function nflBetTypeSideEffects(next: NflWebFilterSnapshot): void {
+  const bt = next.betType as NflBetType;
+  next.spreadSize = [...numRangeBounds(NFL_FILTER_DIMENSIONS.spreadSize, bt)];
+  next.lineRange = [...numRangeBounds(NFL_FILTER_DIMENSIONS.lineRange, bt)];
+  const floor = numRangeBounds(NFL_FILTER_DIMENSIONS.seasons, bt)[0];
+  if (next.seasons[0] < floor) next.seasons = [floor, next.seasons[1]];
+}
+
+const lowerKeys = (m: Record<string, string>) =>
+  Object.fromEntries(Object.entries(m).map(([k, v]) => [k.toLowerCase(), v]));
+
+export const NFL_SPORT_CONFIG: SportFilterConfig<NflWebFilterSnapshot> = {
+  sport: 'nfl',
+  betTypes: NFL_BET_TYPES,
+  defaultSnapshot: DEFAULT_NFL_SNAPSHOT,
+  dimensions: NFL_FILTER_DIMENSIONS as unknown as Record<string, EngineDimension>,
+  optionLists: {
+    nflTeams: { values: NFL_TEAM_ABBRS, aliases: lowerKeys(NFL_TEAM_ALIASES) },
+    daysOfWeek: { values: NFL_DAYS, aliases: NFL_DAY_ALIASES },
+    nflDivisions: { values: NFL_DIVISIONS },
+  },
+  dynamicEnumCtx: { coach: 'coaches', referee: 'referees' },
+  applyBetTypeSideEffects: nflBetTypeSideEffects,
+  numRangeBounds: (dim, bt) => numRangeBounds(dim as FilterDimension, bt as NflBetType),
+};
