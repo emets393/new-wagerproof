@@ -32,6 +32,18 @@ struct OnboardingPageSpec {
                     store.advance()
                 }
             )
+        case .researchCost:
+            return OnboardingPageSpec(
+                ctaTitle: "Fix this",
+                isCTAEnabled: { $0.canAdvance(from: .researchCost) },
+                onContinue: { $0.advance() }
+            )
+        case .researchReclaim:
+            return OnboardingPageSpec(
+                ctaTitle: "Show me how",
+                isCTAEnabled: { $0.canAdvance(from: .researchReclaim) },
+                onContinue: { $0.advance() }
+            )
         case .agentValueIntro:
             return OnboardingPageSpec(
                 ctaTitle: "Continue",

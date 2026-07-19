@@ -186,9 +186,10 @@ struct OnboardingRevealView: View {
     }
 
     private func finish() {
-        // Cache-first completion — RootView watches `isComplete`, flips the
-        // router to `.ready`, and presents `PostOnboardingPaywall` over the
-        // main app for non-Pro users. The blurred tickets set up that ask.
-        store.markComplete()
+        // On to the time-value summary + fist bump (step 23). THAT step
+        // marks onboarding complete; RootView then flips to `.ready` and
+        // presents `PostOnboardingPaywall`. The blurred tickets here and
+        // the summary's reclaim figure both set up that ask.
+        store.advance()
     }
 }

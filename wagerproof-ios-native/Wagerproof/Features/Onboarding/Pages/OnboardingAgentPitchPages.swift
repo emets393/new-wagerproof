@@ -1,13 +1,15 @@
 // OnboardingAgentPitchPages.swift
 //
-// Pages 8 + 9: the agent value pitch, rewritten for v2.
-//   8 (agentValueIntro) — "Not another chatbot": a swipeable 3-slide
-//     carousel of reasons we're different — the data comparison, the
-//     win-rate distribution proof, and a live-style Outliers example.
-//     (Inner swipe is safe: the OUTER pager has no gesture surface.)
-//   9 (agentValueProof) — "An analyst who never sleeps": 24/7 research
-//     across thousands of data points; the pixel character seeds visual
-//     continuity with the generation cinematic two pages later.
+// Pages 10 + 11: the agent value pitch.
+//   10 (agentValueIntro) — "Not another chatbot": a swipeable 3-slide
+//      carousel. Slide 1 is the marker-style value page (highlighter blobs,
+//      stamped in) fed by the research-time arc's DYNAMIC numbers, slide 2
+//      is the win-rate distribution comparison, slide 3 is a live-style
+//      Outliers example. (Inner swipe is safe: the OUTER pager has no
+//      gesture surface.)
+//   11 (agentValueProof) — "An analyst who never sleeps": 24/7 research
+//      across thousands of data points; the pixel character seeds visual
+//      continuity with the generation cinematic two pages later.
 
 import Charts
 import SwiftUI
@@ -15,7 +17,7 @@ import WagerproofDesign
 import WagerproofModels
 import WagerproofStores
 
-// MARK: - Page 8: Not another chatbot (3-reason carousel)
+// MARK: - Page 10: Not another chatbot (3-reason carousel)
 
 struct OnboardingAgentPitchIntroPage: View {
     @Environment(OnboardingStore.self) private var store
@@ -38,8 +40,8 @@ struct OnboardingAgentPitchIntroPage: View {
             title: "Not another chatbot"
         ) {
             TabView(selection: slideBinding) {
-                winRateSlide.tag(0)
-                comparisonSlide.tag(1)
+                valueMarkerSlide.tag(0)
+                winRateSlide.tag(1)
                 outliersSlide.tag(2)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -66,39 +68,60 @@ struct OnboardingAgentPitchIntroPage: View {
         }
     }
 
-    // MARK: Slide 1 — the data they don't have
+    // MARK: Slide 1 — marker-style value rows (dynamic numbers)
 
-    private var comparisonSlide: some View {
-        VStack(spacing: 12) {
-            slideHeading("The data they don't have")
+    /// The reference-styled highlighter benefits, fed by the research-time
+    /// arc instead of canned stats: the user's own reclaim range and yearly
+    /// figure are the loud bold runs, backed by two coverage facts we can
+    /// always stand behind.
+    private var valueMarkerSlide: some View {
+        let est = ResearchTimeEstimates(rawBucket: store.survey.researchTimeBucket)
+        return VStack(spacing: 0) {
+            slideHeading("With WagerProof you can:")
 
-            comparisonCard(
-                heading: "Asking ChatGPT",
-                headingColor: Color.white.opacity(0.55),
-                rows: [
-                    (false, "No live odds or line movement"),
-                    (false, "No model probabilities"),
-                    (false, "Confident-sounding guesswork")
-                ],
-                borderColor: Color.white.opacity(0.15)
-            )
+            VStack(spacing: 24) {
+                OnboardingMarkerRow(
+                    icon: "clock.badge.checkmark",
+                    lines: ["Get back **\(est.weeklyRangeText)**", "every week you bet"],
+                    color: .orange
+                )
+                .stampEntrance(index: 0)
 
-            comparisonCard(
-                heading: "Your WagerProof agent",
-                headingColor: accent,
-                rows: [
-                    (true, "Proprietary model predictions per game"),
-                    (true, "Live odds, splits, weather, and market moves"),
-                    (true, "Reasoning you can read on every pick")
-                ],
-                borderColor: accent
-            )
-            Spacer(minLength: 0)
+                OnboardingMarkerRow(
+                    icon: "calendar.badge.clock",
+                    lines: ["Hand off **\(est.reclaimYearLowDisplay)+ hours**", "of research a year"],
+                    color: .green,
+                    iconTrailing: true
+                )
+                .stampEntrance(index: 1)
+
+                OnboardingMarkerRow(
+                    icon: "cpu",
+                    lines: ["Every slate screened", "**24/7**, five leagues"],
+                    color: .red
+                )
+                .stampEntrance(index: 2)
+
+                OnboardingMarkerRow(
+                    icon: "chart.line.uptrend.xyaxis",
+                    lines: ["Model vs Vegas", "on **every** line"],
+                    color: .blue,
+                    iconTrailing: true
+                )
+                .stampEntrance(index: 3)
+            }
+            .padding(.top, 22)
+
+            Spacer(minLength: 8)
+
+            Text("Time estimates from your answers. Results vary.")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.white.opacity(0.4))
         }
         .padding(.horizontal, 24)
     }
 
-    // MARK: Slide 2 — the win-rate proof
+    // MARK: Slide 2 — the win-rate comparison
 
     private var winRateSlide: some View {
         VStack(spacing: 12) {
@@ -111,8 +134,18 @@ struct OnboardingAgentPitchIntroPage: View {
                     in: RoundedRectangle(cornerRadius: 20, style: .continuous),
                     tint: Color.white.opacity(0.05)
                 )
+                .overlay(alignment: .topTrailing) {
+                    Text("ILLUSTRATIVE")
+                        .font(.system(size: 8, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundStyle(Color.white.opacity(0.45))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.white.opacity(0.10)))
+                        .padding(8)
+                }
 
-            Text("Most bettors' picks land around a 40% win rate. Our top agents peak far higher — see them on the leaderboard and tail their picks.")
+            Text("Most bettors' picks land around a 40% win rate. Our top agents peak far higher. See them on the leaderboard and tail their picks.")
                 .font(.system(size: 14))
                 .foregroundStyle(Color.white.opacity(0.7))
                 .multilineTextAlignment(.center)
@@ -126,15 +159,18 @@ struct OnboardingAgentPitchIntroPage: View {
     // MARK: Slide 3 — outliers example
 
     private var outliersSlide: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
             slideHeading("Edges served daily")
+
+            Spacer(minLength: 0)
 
             // The REAL Outliers trend card fed with example data — the exact
             // component from the Outliers tab's Trends rail, display-only.
-            // Wrapped in a tinted Liquid Glass tray so the example lifts off
-            // the dark pixelwave backdrop and reads as a highlighted showcase
-            // rather than a flat card (mirrors the win-rate slide's glass frame).
-            OutliersTrendCard(card: Self.exampleTrendCard)
+            // `.expanded` so all six trends render as full rows (compact mode
+            // caps at 3 and rolls the rest into footer chips). Wrapped in a
+            // tinted Liquid Glass tray so the example lifts off the dark
+            // pixelwave backdrop and reads as a highlighted showcase.
+            OutliersTrendCard(card: Self.exampleTrendCard, displayMode: .expanded)
                 .allowsHitTesting(false)
                 .padding(10)
                 .liquidGlassBackground(
@@ -177,60 +213,25 @@ struct OnboardingAgentPitchIntroPage: View {
         bettingLines: [
             .init(id: "onb-line-1", label: "Spread", lineText: "KC -2.5", oddsText: "-108", teamAbbr: "KC")
         ],
+        // Six full trends: four perfect splits + two high-80s, so the whole
+        // stack reads green (trendColor goes appWin above 75%).
         rows: [
-            .init(id: "onb-r1", text: "Won 4 of last 5 vs this opponent", coverageNote: nil, dominantPct: 0.80, sampleN: 5),
-            .init(id: "onb-r2", text: "Covered 6 of last 8 as favorite", coverageNote: nil, dominantPct: 0.75, sampleN: 8),
-            .init(id: "onb-r3", text: "Over hit in 5 of last 7 at home", coverageNote: nil, dominantPct: 0.71, sampleN: 7),
-            .init(id: "onb-r4", text: "Won 7 of last 10 after a win", coverageNote: nil, dominantPct: 0.70, sampleN: 10),
-            .init(id: "onb-r5", text: "Covered 4 of last 6 in division", coverageNote: nil, dominantPct: 0.67, sampleN: 6)
+            .init(id: "onb-r1", text: "Won 5 of last 5 vs this opponent", coverageNote: nil, dominantPct: 1.0, sampleN: 5),
+            .init(id: "onb-r2", text: "Covered 6 of last 6 as favorite", coverageNote: nil, dominantPct: 1.0, sampleN: 6),
+            .init(id: "onb-r3", text: "Won 4 of last 4 road games", coverageNote: nil, dominantPct: 1.0, sampleN: 4),
+            .init(id: "onb-r4", text: "Covered 5 of last 5 in division", coverageNote: nil, dominantPct: 1.0, sampleN: 5),
+            .init(id: "onb-r5", text: "Covered 7 of last 8 primetime games", coverageNote: nil, dominantPct: 0.88, sampleN: 8),
+            .init(id: "onb-r6", text: "Over hit in 6 of last 7 at home", coverageNote: nil, dominantPct: 0.86, sampleN: 7)
         ]
     )
-
-    private func comparisonCard(
-        heading: String,
-        headingColor: Color,
-        rows: [(Bool, String)],
-        borderColor: Color
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(heading)
-                .font(.system(size: 15, weight: .heavy))
-                .foregroundStyle(headingColor)
-                .textCase(.uppercase)
-                .tracking(0.6)
-
-            ForEach(rows, id: \.1) { good, text in
-                HStack(spacing: 10) {
-                    Image(systemName: good ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(good ? accent : Color.white.opacity(0.35))
-                    Text(text)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(good ? 0.9 : 0.6))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassBackground(
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous),
-            tint: Color.white.opacity(0.05)
-        )
-        // The stroke stays here on purpose — it's the semantic contrast
-        // between the dull ChatGPT card and the accent-ringed agent card.
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(borderColor, lineWidth: 1.2)
-        )
-    }
 }
 
 // MARK: - Win-rate distribution chart
 
 /// Two peak-normalized bell curves: the market's pick distribution centered
-/// near 40% vs our agents' centered near 65%. Marketing visualization (not
-/// live data) — the numbers match the copy beneath it.
+/// near 40% vs our agents' centered near 65%. Marketing visualization (the
+/// on-card ILLUSTRATIVE tag says so) — swap the gaussians for the platform
+/// win-rate distribution RPCs when that lands.
 private struct WinRateBellCurves: View {
     let accent: Color
 
@@ -334,7 +335,7 @@ private struct WinRateBellCurves: View {
     }
 }
 
-// MARK: - Page 9: An analyst who never sleeps
+// MARK: - Page 11: An analyst who never sleeps
 
 struct OnboardingAgentPitchProofPage: View {
     @Environment(OnboardingStore.self) private var store
@@ -347,7 +348,7 @@ struct OnboardingAgentPitchProofPage: View {
     var body: some View {
         OnboardingPageScaffold(
             title: "An analyst who never sleeps",
-            subtitle: "Like having an intern grind hours of research. You just get the answer."
+            subtitle: "It runs the research grind. You just read the answer."
         ) {
             // The seated pixel character — the same rig the generation
             // cinematic uses, so the agent the user meets here is the one
@@ -362,8 +363,8 @@ struct OnboardingAgentPitchProofPage: View {
             VStack(spacing: 10) {
                 OnboardingFeatureRow(
                     icon: "clock.arrow.2.circlepath",
-                    title: "Works around the clock",
-                    text: "Scans every game, line, and edge on schedule. No prompting needed.",
+                    title: "Works while you sleep",
+                    text: "Re-checks every game, every line move, and every injury update. You never start from a blank page.",
                     accent: accent
                 )
                 .pageEntrance(index: 3)
@@ -371,7 +372,7 @@ struct OnboardingAgentPitchProofPage: View {
                 OnboardingFeatureRow(
                     icon: "cpu",
                     title: "Thousands of data points per slate",
-                    text: "Models, market prices, public money, matchup context, all digested for you.",
+                    text: "Model probabilities, market prices, public money, and matchup stats turned into actual picks.",
                     accent: accent
                 )
                 .pageEntrance(index: 4)
@@ -379,7 +380,7 @@ struct OnboardingAgentPitchProofPage: View {
                 OnboardingFeatureRow(
                     icon: "text.magnifyingglass",
                     title: "Shows its work",
-                    text: "Every pick ships with its reasoning. Value at your fingertips.",
+                    text: "Every pick comes with the reasoning behind it. Tail it or fade it in seconds.",
                     accent: accent
                 )
                 .pageEntrance(index: 5)
