@@ -7,7 +7,7 @@ import WagerproofSharedKit
 
 /// Owns the onboarding wizard's state:
 ///   - Local-only completion flag (persisted via App Group `UserDefaults`)
-///   - Step pointer (1...15) — 13 carousel pages + 2 cinematic phases
+///   - Step pointer (1...22) — 20 carousel pages + 2 cinematic phases
 ///   - Survey form state (sports, bettor type, primary goal, etc.)
 ///   - Agent builder draft (projected from the embedded `AgentCreationStore`)
 ///
@@ -21,10 +21,15 @@ import WagerproofSharedKit
 @Observable
 @MainActor
 public final class OnboardingStore {
-    /// 20-step ordered flow. Steps 1...18 are pages inside the onboarding
-    /// carousel (`carouselIndex` 0...17); 19/20 are full-screen cinematic
+    /// 24-step ordered flow. Steps 1...21 are pages inside the onboarding
+    /// carousel (`carouselIndex` 0...20); 22/23/24 are full-screen cinematic
     /// phases rendered outside the pager. Raw values MUST stay contiguous —
     /// `advance()`/`back()` navigate by ±1 arithmetic.
+    ///
+    /// The researchTime/Cost/Reclaim trio is the personalized time-value arc
+    /// (self-reported weekly research hours → staged cost reveal → reclaim
+    /// estimate). It replaced the generic `personalizedValue` pitch page —
+    /// the user's own number beats a canned stat.
     ///
     /// The builder deliberately walks EVERY user (preset or custom) through
     /// the per-section personality pages — each explains how the dials shape
@@ -33,23 +38,32 @@ public final class OnboardingStore {
         case terms             = 1
         case bettorType        = 2
         case bettingPitfalls   = 3
-        case personalizedValue = 4
-        case acquisitionSource = 5
-        case primaryGoal       = 6
-        case agentHQ           = 7
-        case agentValueIntro   = 8
-        case agentValueProof   = 9
-        case attPriming        = 10
-        case builderSports     = 11
-        case builderArchetype  = 12
-        case builderMindset    = 13
-        case builderBetStyle   = 14
-        case builderDataTrust  = 15
-        case builderSportRules = 16
-        case builderInsights   = 17
-        case builderIdentity   = 18
-        case generation        = 19
-        case reveal            = 20
+        case acquisitionSource = 4
+        case primaryGoal       = 5
+        case researchTime      = 6
+        case researchCost      = 7
+        case researchReclaim   = 8
+        case agentHQ           = 9
+        case agentValueIntro   = 10
+        case agentValueProof   = 11
+        /// Animated mock leaderboard: top agents across the country, hot
+        /// streaks at a glance, "just tail the best" pitch.
+        case agentLeaderboard  = 12
+        case attPriming        = 13
+        case builderSports     = 14
+        case builderArchetype  = 15
+        case builderMindset    = 16
+        case builderBetStyle   = 17
+        case builderDataTrust  = 18
+        case builderSportRules = 19
+        case builderInsights   = 20
+        case builderIdentity   = 21
+        case generation        = 22
+        case reveal            = 23
+        /// Time-value payoff: "you get back N+ hours" summary + fist-bump
+        /// confirmation. Completing the fist bump marks onboarding complete,
+        /// which is what surfaces the paywall (RootView watches `isComplete`).
+        case timeSummary       = 24
 
         public var isCinematic: Bool { self >= .generation }
 
@@ -58,7 +72,7 @@ public final class OnboardingStore {
         /// carousel to a wrong page.
         public var carouselIndex: Int? { isCinematic ? nil : rawValue - 1 }
 
-        public static let carouselPageCount = 18
+        public static let carouselPageCount = 21
 
         /// Progress-bar fraction. nil for cinematic steps (no chrome there).
         public var progress: Double? {
@@ -92,6 +106,10 @@ public final class OnboardingStore {
         /// Set alongside `termsAcceptedAt` — the Terms checkbox copy includes
         /// an explicit "I confirm I am 18 or older" attestation.
         public var overEighteenAttested: Bool?
+        /// Self-reported weekly research-time bucket (`ResearchTimeBucket`
+        /// rawValue — "lt1"..."h10plus"/"unknown"). Stable IDs, never rename:
+        /// the value is persisted and drives every time-value projection.
+        public var researchTimeBucket: String?
 
         public init() {}
     }
@@ -185,6 +203,11 @@ public final class OnboardingStore {
     /// Lives here so the shared chrome's Continue can step through every
     /// slide before advancing the page — the user reads all three.
     public private(set) var agentPitchSlide: Int = 0
+    /// Research-cost reveal page: staged sequence finished (or Reduce Motion
+    /// showed everything at once) — gates the Continue CTA.
+    public private(set) var hasSeenCostReveal: Bool = false
+    /// Research-reclaim reveal page: same gate as above.
+    public private(set) var hasSeenReclaimReveal: Bool = false
 
     /// Highest pitch-carousel slide index (0-based).
     public static let agentPitchSlideCount = 3
@@ -303,6 +326,8 @@ public final class OnboardingStore {
         hasCheckedTerms = false
         hasChosenArchetype = false
         agentPitchSlide = 0
+        hasSeenCostReveal = false
+        hasSeenReclaimReveal = false
     }
 
     // MARK: - CTA gating
@@ -327,11 +352,20 @@ public final class OnboardingStore {
         case .builderIdentity:
             let trimmed = agentDraft.name.trimmingCharacters(in: .whitespacesAndNewlines)
             return !trimmed.isEmpty && trimmed.count <= 50
-        case .bettingPitfalls, .agentHQ, .personalizedValue, .agentValueIntro,
-             .agentValueProof, .attPriming,
+        case .researchTime:
+            return survey.researchTimeBucket != nil
+        // The reveal pages enable Continue only after their staged sequence
+        // lands (pages flip the flag; instantly under Reduce Motion) — the
+        // numbers are the whole page, so skipping past them would gut the arc.
+        case .researchCost:
+            return hasSeenCostReveal
+        case .researchReclaim:
+            return hasSeenReclaimReveal
+        case .bettingPitfalls, .agentHQ, .agentValueIntro,
+             .agentValueProof, .agentLeaderboard, .attPriming,
              .builderMindset, .builderBetStyle, .builderDataTrust,
              .builderSportRules, .builderInsights,
-             .generation, .reveal:
+             .generation, .reveal, .timeSummary:
             return true
         }
     }
@@ -368,6 +402,20 @@ public final class OnboardingStore {
 
     public func setAcquisitionSource(_ source: String) {
         survey.acquisitionSource = source
+    }
+
+    /// `bucket` is a `ResearchTimeBucket` rawValue — the store keeps the raw
+    /// string so WagerproofStores doesn't depend on the app-target engine.
+    public func setResearchTimeBucket(_ bucket: String) {
+        survey.researchTimeBucket = bucket
+    }
+
+    public func setCostRevealSeen() {
+        hasSeenCostReveal = true
+    }
+
+    public func setReclaimRevealSeen() {
+        hasSeenReclaimReveal = true
     }
 
     public func setTermsScrolledToBottom() {
@@ -505,6 +553,7 @@ public final class OnboardingStore {
         enum CodingKeys: String, CodingKey {
             case favoriteSports, bettingPitfalls, age, bettorType, mainGoal
             case acquisitionSource, termsAcceptedAt, overEighteenAttested
+            case researchTimeBucket
             case agentFormState
         }
 
@@ -518,6 +567,7 @@ public final class OnboardingStore {
             try c.encodeIfPresent(survey.acquisitionSource, forKey: .acquisitionSource)
             try c.encodeIfPresent(survey.termsAcceptedAt, forKey: .termsAcceptedAt)
             try c.encodeIfPresent(survey.overEighteenAttested, forKey: .overEighteenAttested)
+            try c.encodeIfPresent(survey.researchTimeBucket, forKey: .researchTimeBucket)
             try c.encode(AgentFormStatePayload(agent: agent), forKey: .agentFormState)
         }
     }

@@ -26,8 +26,10 @@ struct SecretSettingsView: View {
     #if DEBUG
     @Environment(DebugDataModeStore.self) private var debugDataMode
     #endif
+    @Environment(ProAccessStore.self) private var proAccess
     @State private var diagnosticsMessage: DiagMessage?
     @State private var isPaywallPresented = false
+    @State private var isCustomPaywallPresented = false
     @State private var isVoicePresented = false
     #if DEBUG
     @State private var isGenerationPreviewPresented = false
@@ -100,6 +102,19 @@ struct SecretSettingsView: View {
             }
             .sheet(isPresented: $isPaywallPresented) {
                 RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
+            }
+            // Dev shortcut for the custom post-onboarding paywall — no need
+            // to reset onboarding + fist-bump through the whole flow.
+            // fullScreenCover doesn't propagate @Observable environments
+            // automatically (same re-injection RootView does).
+            .fullScreenCover(isPresented: $isCustomPaywallPresented) {
+                PostOnboardingPaywall(onUserDismissed: {
+                    isCustomPaywallPresented = false
+                })
+                .environment(auth)
+                .environment(onboarding)
+                .environment(revenueCat)
+                .environment(proAccess)
             }
             .fullScreenCover(isPresented: $isVoicePresented) {
                 WagerBotVoiceView()
@@ -347,6 +362,19 @@ struct SecretSettingsView: View {
                     iconBackground: Color(hex: 0xEDF5FF),
                     title: "Test Paywall",
                     subtitle: "Present the dynamic paywall"
+                )
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                isCustomPaywallPresented = true
+            } label: {
+                row(
+                    icon: "sparkles.rectangle.stack.fill",
+                    iconColor: Color(hex: 0x22C55E),
+                    iconBackground: Color(hex: 0xE8F9EF),
+                    title: "Test Custom Paywall",
+                    subtitle: "Present the post-onboarding custom paywall"
                 )
             }
             .buttonStyle(.plain)

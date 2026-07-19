@@ -40,6 +40,16 @@ struct PixelOffice: View {
     /// burn CPU rendering when the tab is off-screen.
     var isActive: Bool = true
 
+    /// Optional presentation-only roster. This keeps product previews such as
+    /// the custom paywall on the real SpriteKit office while still letting the
+    /// preview lead with the agent the user just created. Production call sites
+    /// leave this nil and continue to derive the roster from `agents`.
+    var previewAgents: [PixelOfficeAgentSpec]? = nil
+
+    /// The full Agent HQ surface exposes floor and time controls. Embedded
+    /// product demos can hide that chrome so the office itself remains the hero.
+    var showsControls: Bool = true
+
     /// User's preferred floor variant. RN persists this in AsyncStorage under
     /// `pixel-office-floor-style`. `@AppStorage` provides the same UserDefaults
     /// persistence with SwiftUI binding semantics. Default = "future" to match
@@ -63,7 +73,11 @@ struct PixelOffice: View {
         // zero or accordion-collapsed frame and the SKScene paints a sliver
         // at the top. Wrapping the representable in `.aspectRatio()` lets
         // SwiftUI compute height from width-of-parent.
-        ZStack(alignment: .topLeading) {
+        // Center the natural 864:800 map whenever the host is wider than its
+        // aspect ratio. Embedded surfaces (notably the paywall) then show the
+        // complete office instead of pinning it left and making the trailing
+        // side look clipped.
+        ZStack(alignment: .center) {
             PixelOfficeSceneRepresentable(
                 floorKey: currentFloorKey,
                 agentSpecs: agentSpecs,
@@ -84,7 +98,9 @@ struct PixelOffice: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    controlChips
+                    if showsControls {
+                        controlChips
+                    }
                 }
                 .padding(8)
             }
@@ -124,6 +140,9 @@ struct PixelOffice: View {
     /// as populated. Recomputed when `agents` changes — drives the scene's
     /// `updateAgents()` call via `.onChange`.
     private var agentSpecs: [PixelOfficeAgentSpec] {
+        if let previewAgents, !previewAgents.isEmpty {
+            return Array(previewAgents.prefix(8))
+        }
         if let real = agents, !real.isEmpty {
             return real.prefix(8).map { PixelOfficeAgentSpec.make(from: $0) }
         }

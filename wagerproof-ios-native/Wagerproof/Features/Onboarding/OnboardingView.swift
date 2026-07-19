@@ -8,9 +8,10 @@
 //             while the phase lasts; reacts to chip taps (ripples) and to
 //             bettor-type / archetype selections (tint glide).
 //   Layer 1 — phase switch derived from `store.currentStep`:
-//             carousel (steps 1–13, native page slides inside one shell) →
-//             generation cinematic (14) → reveal (15). Only the foreground
-//             cross-fades; the background never re-identifies.
+//             carousel (steps 1–20, native page slides inside one shell) →
+//             generation cinematic (21) → reveal (22) → time-value summary
+//             + fist bump (23). Only the foreground cross-fades; the
+//             background never re-identifies.
 //
 // The cinematic views are transparent by design — the pixelwave is their
 // backdrop. Completion (`markComplete()`) fires from the reveal CTA; the
@@ -42,12 +43,13 @@ struct OnboardingView: View {
     @State private var tintTo: Color = .appPrimary
     @State private var tintBlend: Double = 1
 
-    private enum Phase: Equatable { case carousel, generation, reveal }
+    private enum Phase: Equatable { case carousel, generation, reveal, summary }
 
     private var phase: Phase {
         switch store.currentStep {
         case .generation: .generation
         case .reveal: .reveal
+        case .timeSummary: .summary
         default: .carousel
         }
     }
@@ -98,6 +100,9 @@ struct OnboardingView: View {
                         .transition(.opacity)
                 case .reveal:
                     OnboardingRevealView(model: genesis, accent: accentTarget)
+                        .transition(.opacity)
+                case .summary:
+                    OnboardingTimeSummaryView(accent: accentTarget)
                         .transition(.opacity)
                 }
             }
