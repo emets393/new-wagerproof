@@ -105,7 +105,17 @@ T-60 median closing px (2021+, ~95%), `h1_ml` roi = null (no 1H prices), h1/tt f
 `opp_last_*` (6), `game_date`, `day_of_week`, `fg_spread_px`, `fg_total_over/under_px`. Record:
 `research/systems_deploy/cfb_parity_2026_07_19.md`.
 
+
+## MLB parity (2026-07-19)
+
+`mlb_analysis` now accepts the as-of set (win_pct, win/loss_streak, rl_cover_pct, rl_streak, over_pct,
+over/under_streak, rpg, rapg, run_diff_pg, prev_wins, prev_win_pct, min_games + opp mirrors),
+h2h_last_{win,over,margin,same_season}, opp_last_result ('won'/'lost') + opp_last_margin_min/max, and
+day_of_week as an ARRAY. ROI: ml real (ml_profit, all rows); rl/total/f5 real px for the 2026 snapshot
+slice w/ flat −110 fallback; f5_ml roi = real-priced 2026 subset only. Record:
+`research/systems_deploy/mlb_parity_2026_07_19.md`.
+
 ## Not yet done
 - `*_analysis_upcoming` does NOT yet expose these columns for scheduled games (so today's-matches can't be
   filtered by as-of stats yet). Deferred — see the "completed vs upcoming" note in `04_...SPEC.md`.
-- MLB / NBA / NCAAB.
+- NBA / NCAAB (warehouse + everything).
