@@ -7,6 +7,9 @@ import WagerproofStores
 /// each bet type renders as a section header over a horizontally-scrolling card carousel.
 struct OutliersTrendsView: View {
     @Bindable var store: OutliersTrendsStore
+    // Shell-hoisted so the Search + Props rails and the matchup widgets share
+    // this fetch. The rail hides itself when no perfect streaks qualify today.
+    @Environment(ParlayGodStore.self) private var parlayGodStore
 
     @State private var showMatchupPicker = false
     /// Tapped trend card → presented full in a bottom sheet (no longer grows the
@@ -21,6 +24,17 @@ struct OutliersTrendsView: View {
         // mid-scroll without jumping back to the top.
         LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
             Section {
+                // Parlay God is the page's top category — perfect-streak parlays
+                // above the per-market trend carousels.
+                ParlayGodRail(
+                    title: "Parlay God",
+                    icon: "bolt.fill",
+                    tickets: parlayGodStore.slateTickets,
+                    isLoading: parlayGodStore.isLoading
+                )
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, 4)
+                .padding(.bottom, Spacing.lg)
                 content
                     .padding(.horizontal, Spacing.lg)
                     .padding(.top, 4)
@@ -29,6 +43,9 @@ struct OutliersTrendsView: View {
                 filterPills
             }
         }
+        // Attached to the always-rendered container (not the rail, which is
+        // EmptyView until tickets exist) so the first appearance kicks the fetch.
+        .task { await parlayGodStore.refreshIfNeeded() }
         .onChange(of: store.sport) { _, _ in
             store.onSportChanged()
             Task { await store.refresh() }

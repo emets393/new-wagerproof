@@ -234,6 +234,9 @@ only), or run live via `-uiScreenshotMode mainTabs -tab props -propsSport nfl`
 ## 3. Outliers (Outliers tab) — `Features/Outliers/OutliersView.swift`
 
 > **Current hub (`outliers-trends-ios`):** `OutliersView` mounts `OutliersTrendsView(store: OutliersTrendsStore)` —
+> a **"Parlay God" rail** on top (`ParlayGodRail` / `ParlayGodCard` in `Outliers/Components/ParlayGodCard.swift`,
+> Pro-gated perfect-streak parlays from the shell-hoisted `ParlayGodStore` — see `.claude/docs/16_parlay_god.md`;
+> the same rail renders in Search's empty state and, props-only as "Props Cheats", atop the Props tab), then
 > pinned filter pills (sport / subject / matchup) over per-market section carousels of **`OutliersTrendCard`**
 > (`Outliers/Components/OutliersTrendCard.swift`, width 300), grouped by `OutliersTrendsMarketSection`. Each card is a
 > **fixed-height compact preview** (`compactCardHeight`, `compactRowCap` = 3 single-line trend rows). Its footer previews
