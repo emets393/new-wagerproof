@@ -179,11 +179,15 @@ enum HistoricalAnalysisCopy {
 
     static func lineForBet(betType: String, game: HistoricalAnalysisUpcomingGame) -> String {
         let t = game.team
+        let favLabel: (Bool?, String, String, String) -> String = { fav, yes, no, unknown in
+            guard let fav else { return unknown }
+            return fav ? yes : no
+        }
         if betType == "fg_spread", let sp = game.teamSpread {
             return "\(t) \(sp > 0 ? "+" : "")\(trimmed(sp))"
         }
         if betType == "fg_ml" {
-            return "\(t) ML (\(game.isFavorite ? "favorite" : "underdog"))"
+            return "\(t) ML (\(favLabel(game.isFavorite, "favorite", "underdog", "even")))"
         }
         if betType == "fg_total" {
             return "Total O/U \(game.total.map(trimmed) ?? "—")"
@@ -195,16 +199,20 @@ enum HistoricalAnalysisCopy {
             return "\(t) 1H \(sp > 0 ? "+" : "")\(trimmed(sp))"
         }
         if betType == "h1_ml" {
-            return "\(t) 1H ML (\(game.isFavorite ? "favorite" : "underdog"))"
+            return "\(t) 1H ML (\(favLabel(game.isFavorite, "favorite", "underdog", "even")))"
         }
         if betType == "h1_total" {
             return "1H Total O/U \(game.h1Total.map(trimmed) ?? "—")"
         }
         if betType == "ml" {
-            return "\(t) ML (\(game.isFavorite ? "fav" : "dog"))"
+            return "\(t) ML (\(favLabel(game.isFavorite, "fav", "dog", "even")))"
         }
         if betType == "rl" {
-            return "\(t) RL \(game.isFavorite ? "−1.5" : "+1.5")"
+            switch game.isFavorite {
+            case true?: return "\(t) RL −1.5"
+            case false?: return "\(t) RL +1.5"
+            case nil: return "\(t) RL"
+            }
         }
         if betType == "total" {
             return "Total O/U \(game.total.map(trimmed) ?? "—")"
@@ -213,7 +221,11 @@ enum HistoricalAnalysisCopy {
             return "\(t) F5 ML"
         }
         if betType == "f5_rl" {
-            return "\(t) F5 RL \(game.isFavorite ? "−0.5" : "+0.5")"
+            switch game.isFavorite {
+            case true?: return "\(t) F5 RL −0.5"
+            case false?: return "\(t) F5 RL +0.5"
+            case nil: return "\(t) F5 RL"
+            }
         }
         if betType == "f5_total" {
             return "F5 Total O/U \(game.f5Total.map(trimmed) ?? "—")"
@@ -253,10 +265,10 @@ enum HistoricalAnalysisCopy {
         let betType = s.betType
         // Game totals are game-level: Side doesn't apply. ML odds apply to ML markets (football) / all MLB.
         let isGameTotal = betType == "fg_total" || betType == "h1_total"
-        let mlApplies = sport == .mlb || HistoricalAnalysisBetType.moneylineMarkets.contains(betType)
+        let mlApplies = true // FG ML odds filter is available on every market
         let weekMax = sport == .nfl ? 18 : 16
         let seasonMax = sport.seasonMax
-        let spreadCfg = HistoricalAnalysisFilterBuilder.spreadConfig(sport: sport, betType: betType)
+        let spreadCfg = HistoricalAnalysisFilterBuilder.spreadConfig(sport: sport, betType: "fg_spread")
         let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: betType)
 
         if s.seasonMin != seasonFloor || s.seasonMax != seasonMax {
@@ -347,16 +359,6 @@ enum HistoricalAnalysisCopy {
                     s.lastMarginMin = ""; s.lastMarginMax = ""; onChange(s)
                 })
             }
-            for team in s.teams {
-                chips.append(.init(label: team) {
-                    s.teams.removeAll { $0 == team }; onChange(s)
-                })
-            }
-            for opp in s.opponents {
-                chips.append(.init(label: "vs \(opp)") {
-                    s.opponents.removeAll { $0 == opp }; onChange(s)
-                })
-            }
             for p in s.sp {
                 chips.append(.init(label: "SP: \(p.name)") {
                     s.sp.removeAll { $0.id == p.id }; onChange(s)
@@ -391,6 +393,17 @@ enum HistoricalAnalysisCopy {
                     s.pfRunsMin = nil; s.pfRunsMax = nil; onChange(s)
                 })
             }
+        }
+
+        for team in s.teams {
+            chips.append(.init(label: "Team: \(team)") {
+                s.teams.removeAll { $0 == team }; onChange(s)
+            })
+        }
+        for opp in s.opponents {
+            chips.append(.init(label: "vs \(opp)") {
+                s.opponents.removeAll { $0 == opp }; onChange(s)
+            })
         }
 
         if s.side != "any", !isGameTotal {
@@ -431,6 +444,20 @@ enum HistoricalAnalysisCopy {
             chips.append(.init(label: "\(totalCfg.label) \(lo)–\(hi)") {
                 s.lineMin = totalCfg.min; s.lineMax = totalCfg.max; onChange(s)
             })
+        }
+
+        if sport == .nfl || sport == .cfb {
+            let h1SpreadMax = sport == .cfb ? 28.0 : 14.0
+            let oppSpreadMax = sport == .cfb ? 50.0 : 20.0
+            let h1TotalMax = sport == .cfb ? 45.0 : 35.0
+            let ttMax = sport == .cfb ? 55.0 : 40.0
+            appendSpreadChip(&chips, snapshot: s, label: "1H spread", side: \.h1SpreadSide, min: \.h1SpreadMin, max: \.h1SpreadMax, defaultMax: h1SpreadMax, onChange: onChange)
+            appendSpreadChip(&chips, snapshot: s, label: "Opponent spread", side: \.oppSpreadSide, min: \.oppSpreadMin, max: \.oppSpreadMax, defaultMax: oppSpreadMax, onChange: onChange)
+            appendRangeChip(&chips, snapshot: s, label: "1H total", min: \.h1TotalMin, max: \.h1TotalMax, defaults: [15, h1TotalMax], onChange: onChange)
+            appendRangeChip(&chips, snapshot: s, label: "Team total", min: \.ttLineMin, max: \.ttLineMax, defaults: [10, ttMax], onChange: onChange)
+            appendRangeChip(&chips, snapshot: s, label: "Opponent TT", min: \.oppTtLineMin, max: \.oppTtLineMax, defaults: [10, ttMax], onChange: onChange)
+            appendMoneylineChip(&chips, snapshot: s, label: "1H ML", min: \.h1MlMin, max: \.h1MlMax, onChange: onChange)
+            appendMoneylineChip(&chips, snapshot: s, label: "Opponent ML", min: \.oppMlMin, max: \.oppMlMax, onChange: onChange)
         }
 
         if mlApplies, !s.mlMin.isEmpty || !s.mlMax.isEmpty {
@@ -475,8 +502,13 @@ enum HistoricalAnalysisCopy {
                     s.tempMin = -10; s.tempMax = 100; onChange(s)
                 })
             }
-            if s.windMax != 60 {
-                chips.append(.init(label: "Wind ≤ \(s.windMax)") { s.windMax = 60; onChange(s) })
+    if (s.windMax != 60 || s.windMin != nil) {
+                let lo = s.windMin ?? 0
+                let label = lo > 0 && s.windMax < 60 ? "Wind \(lo)–\(s.windMax)"
+                    : lo > 0 ? "Wind ≥ \(lo)" : "Wind ≤ \(s.windMax)"
+                chips.append(.init(label: label) {
+                    s.windMin = nil; s.windMax = 60; onChange(s)
+                })
             }
             if s.restBye != "any" {
                 let labels: [String: String] = [
@@ -520,6 +552,245 @@ enum HistoricalAnalysisCopy {
                     s.lastBlowout = "any"; onChange(s)
                 })
             }
+            
+            // B1: New NFL filter chips
+            
+            // Days of week
+            for day in s.daysOfWeek {
+                chips.append(.init(label: dayLabel(day)) {
+                    s.daysOfWeek.removeAll { $0 == day }; onChange(s)
+                })
+            }
+            
+            // Team divisions
+            for division in s.teamDivisions {
+                chips.append(.init(label: division) {
+                    s.teamDivisions.removeAll { $0 == division }; onChange(s)
+                })
+            }
+            
+            // Last game margin (replaces blowout for NFL)
+            let defaultMargin = [-60, 60]
+            if s.lastMargin != defaultMargin {
+                let minStr = s.lastMargin[0] == defaultMargin[0] ? "" : "\(s.lastMargin[0])"
+                let maxStr = s.lastMargin[1] == defaultMargin[1] ? "" : "\(s.lastMargin[1])"
+                let label: String
+                if !minStr.isEmpty && !maxStr.isEmpty {
+                    label = "Last margin \(minStr)–\(maxStr)"
+                } else if !minStr.isEmpty {
+                    label = "Last margin ≥ \(minStr)"
+                } else {
+                    label = "Last margin ≤ \(maxStr)"
+                }
+                chips.append(.init(label: label) {
+                    s.lastMargin = defaultMargin; onChange(s)
+                })
+            }
+            
+            // Season Record filters
+            if s.winPct != [0, 100] {
+                chips.append(.init(label: "Win% \(Int(s.winPct[0]))–\(Int(s.winPct[1]))%") {
+                    s.winPct = [0, 100]; onChange(s)
+                })
+            }
+            if s.winStreak != [0, 16] {
+                chips.append(.init(label: "Win streak \(s.winStreak[0])–\(s.winStreak[1])") {
+                    s.winStreak = [0, 16]; onChange(s)
+                })
+            }
+            if s.lossStreak != [0, 16] {
+                chips.append(.init(label: "Loss streak \(s.lossStreak[0])–\(s.lossStreak[1])") {
+                    s.lossStreak = [0, 16]; onChange(s)
+                })
+            }
+            if let above500 = s.above500 {
+                chips.append(.init(label: above500 ? "Above .500" : "Below .500") {
+                    s.above500 = nil; onChange(s)
+                })
+            }
+            if let winPctGtOpp = s.winPctGtOpp {
+                chips.append(.init(label: winPctGtOpp ? "Better record than opp" : "Worse record than opp") {
+                    s.winPctGtOpp = nil; onChange(s)
+                })
+            }
+            if s.ppg != [0, 40] {
+                chips.append(.init(label: "PPG \(trimmed(s.ppg[0]))–\(trimmed(s.ppg[1]))") {
+                    s.ppg = [0, 40]; onChange(s)
+                })
+            }
+            if s.paPg != [0, 40] {
+                chips.append(.init(label: "PA/G \(trimmed(s.paPg[0]))–\(trimmed(s.paPg[1]))") {
+                    s.paPg = [0, 40]; onChange(s)
+                })
+            }
+            if s.pointDiffPg != [-20, 20] {
+                chips.append(.init(label: "Point diff \(trimmed(s.pointDiffPg[0]))–\(trimmed(s.pointDiffPg[1]))") {
+                    s.pointDiffPg = [-20, 20]; onChange(s)
+                })
+            }
+            if s.minGames > 0 {
+                chips.append(.init(label: "Min \(s.minGames) games") {
+                    s.minGames = 0; onChange(s)
+                })
+            }
+            
+            // Cover Profile filters
+            if s.atsWinPct != [0, 100] {
+                chips.append(.init(label: "ATS% \(Int(s.atsWinPct[0]))–\(Int(s.atsWinPct[1]))%") {
+                    s.atsWinPct = [0, 100]; onChange(s)
+                })
+            }
+            if s.atsWinStreak != [0, 16] {
+                chips.append(.init(label: "ATS streak \(s.atsWinStreak[0])–\(s.atsWinStreak[1])") {
+                    s.atsWinStreak = [0, 16]; onChange(s)
+                })
+            }
+            if s.avgCoverMargin != [-15, 15] {
+                chips.append(.init(label: "Cover margin \(trimmed(s.avgCoverMargin[0]))–\(trimmed(s.avgCoverMargin[1]))") {
+                    s.avgCoverMargin = [-15, 15]; onChange(s)
+                })
+            }
+            
+            // Total Profile filters
+            if s.overPct != [0, 100] {
+                chips.append(.init(label: "Over% \(Int(s.overPct[0]))–\(Int(s.overPct[1]))%") {
+                    s.overPct = [0, 100]; onChange(s)
+                })
+            }
+            if s.overStreak != [0, 16] {
+                chips.append(.init(label: "Over streak \(s.overStreak[0])–\(s.overStreak[1])") {
+                    s.overStreak = [0, 16]; onChange(s)
+                })
+            }
+            if s.underStreak != [0, 16] {
+                chips.append(.init(label: "Under streak \(s.underStreak[0])–\(s.underStreak[1])") {
+                    s.underStreak = [0, 16]; onChange(s)
+                })
+            }
+            
+            // Prior Year filters
+            if s.prevWins != [0, 16] {
+                chips.append(.init(label: "Prev wins \(s.prevWins[0])–\(s.prevWins[1])") {
+                    s.prevWins = [0, 16]; onChange(s)
+                })
+            }
+            if s.prevWinPct != [0, 100] {
+                chips.append(.init(label: "Prev win% \(Int(s.prevWinPct[0]))–\(Int(s.prevWinPct[1]))%") {
+                    s.prevWinPct = [0, 100]; onChange(s)
+                })
+            }
+            if let madePlayoffs = s.madePlayoffsPrev {
+                chips.append(.init(label: madePlayoffs ? "Made playoffs prev" : "Missed playoffs prev") {
+                    s.madePlayoffsPrev = nil; onChange(s)
+                })
+            }
+            if let moreWins = s.moreWinsThanOppPrev {
+                chips.append(.init(label: moreWins ? "More wins than opp prev" : "Fewer wins than opp prev") {
+                    s.moreWinsThanOppPrev = nil; onChange(s)
+                })
+            }
+            
+            // Head-to-Head filters
+            if s.h2hLastWin != "any" {
+                chips.append(.init(label: "H2H last: \(s.h2hLastWin == "yes" ? "Won" : "Lost")") {
+                    s.h2hLastWin = "any"; onChange(s)
+                })
+            }
+            if s.h2hLastAts != "any" {
+                chips.append(.init(label: "H2H last: \(s.h2hLastAts == "yes" ? "Covered" : "Didn't cover")") {
+                    s.h2hLastAts = "any"; onChange(s)
+                })
+            }
+            if s.h2hLastOver != "any" {
+                chips.append(.init(label: "H2H last: \(s.h2hLastOver == "yes" ? "Over" : "Under")") {
+                    s.h2hLastOver = "any"; onChange(s)
+                })
+            }
+            if let h2hHome = s.h2hLastHome {
+                chips.append(.init(label: "H2H last: \(h2hHome ? "Home" : "Away")") {
+                    s.h2hLastHome = nil; onChange(s)
+                })
+            }
+            if let h2hFav = s.h2hLastFav {
+                chips.append(.init(label: "H2H last: \(h2hFav ? "Favorite" : "Underdog")") {
+                    s.h2hLastFav = nil; onChange(s)
+                })
+            }
+            if let sameSeason = s.h2hSameSeason {
+                chips.append(.init(label: "H2H: \(sameSeason ? "Same season" : "Different season")") {
+                    s.h2hSameSeason = nil; onChange(s)
+                })
+            }
+            if s.h2hSpreadCmp != "any" {
+                chips.append(.init(label: "H2H spread: \(s.h2hSpreadCmp == "lower" ? "Lower" : "Higher")") {
+                    s.h2hSpreadCmp = "any"; onChange(s)
+                })
+            }
+            
+            // Opponent Record filters  
+            if s.oppWinPct != [0, 100] {
+                chips.append(.init(label: "Opp win% \(Int(s.oppWinPct[0]))–\(Int(s.oppWinPct[1]))%") {
+                    s.oppWinPct = [0, 100]; onChange(s)
+                })
+            }
+            if s.oppOverPct != [0, 100] {
+                chips.append(.init(label: "Opp over% \(Int(s.oppOverPct[0]))–\(Int(s.oppOverPct[1]))%") {
+                    s.oppOverPct = [0, 100]; onChange(s)
+                })
+            }
+            if s.oppWinStreak != [0, 16] {
+                chips.append(.init(label: "Opp win streak \(s.oppWinStreak[0])–\(s.oppWinStreak[1])") {
+                    s.oppWinStreak = [0, 16]; onChange(s)
+                })
+            }
+            if s.oppPrevWinPct != [0, 100] {
+                chips.append(.init(label: "Opp prev win% \(Int(s.oppPrevWinPct[0]))–\(Int(s.oppPrevWinPct[1]))%") {
+                    s.oppPrevWinPct = [0, 100]; onChange(s)
+                })
+            }
+            
+            // Opponent Last Game filters
+            if s.oppLastResult != "any" {
+                chips.append(.init(label: "Opp last: \(s.oppLastResult == "won" ? "Won" : "Lost")") {
+                    s.oppLastResult = "any"; onChange(s)
+                })
+            }
+            if s.oppLastAts != "any" {
+                chips.append(.init(label: "Opp last: \(s.oppLastAts == "covered" ? "Covered" : "Didn't cover")") {
+                    s.oppLastAts = "any"; onChange(s)
+                })
+            }
+            if s.oppLastTotal != "any" {
+                chips.append(.init(label: "Opp last: \(s.oppLastTotal == "over" ? "Over" : "Under")") {
+                    s.oppLastTotal = "any"; onChange(s)
+                })
+            }
+            if s.oppLastRole != "any" {
+                chips.append(.init(label: "Opp last: \(s.oppLastRole == "favorite" ? "Favorite" : "Underdog")") {
+                    s.oppLastRole = "any"; onChange(s)
+                })
+            }
+            if let oppLastOt = s.oppLastOt {
+                chips.append(.init(label: "Opp last OT: \(oppLastOt ? "Yes" : "No")") {
+                    s.oppLastOt = nil; onChange(s)
+                })
+            }
+            let defaultOppMargin = [-60, 60]
+            if s.oppLastMargin != defaultOppMargin {
+                let minStr = s.oppLastMargin[0] == defaultOppMargin[0] ? "" : "\(s.oppLastMargin[0])"
+                let maxStr = s.oppLastMargin[1] == defaultOppMargin[1] ? "" : "\(s.oppLastMargin[1])"
+                let label: String
+                if !minStr.isEmpty && !maxStr.isEmpty {
+                    label = "Opp last margin \(minStr)–\(maxStr)"
+                } else if !minStr.isEmpty {
+                    label = "Opp last margin ≥ \(minStr)"
+                } else {
+                    label = "Opp last margin ≤ \(maxStr)"
+                }
+                chips.append(.init(label: label) {
+                    s.oppLastMargin = defaultOppMargin; onChange(s)
+                })
+            }
         case .cfb:
             if s.conferenceGame != nil {
                 chips.append(.init(label: "Conference game: \(s.conferenceGame == true ? "Yes" : "No")") {
@@ -543,8 +814,13 @@ enum HistoricalAnalysisCopy {
                     s.tempMin = -10; s.tempMax = 110; onChange(s)
                 })
             }
-            if s.windMax != 60 {
-                chips.append(.init(label: "Wind ≤ \(s.windMax)") { s.windMax = 60; onChange(s) })
+    if (s.windMax != 60 || s.windMin != nil) {
+                let lo = s.windMin ?? 0
+                let label = lo > 0 && s.windMax < 60 ? "Wind \(lo)–\(s.windMax)"
+                    : lo > 0 ? "Wind ≥ \(lo)" : "Wind ≤ \(s.windMax)"
+                chips.append(.init(label: label) {
+                    s.windMin = nil; s.windMax = 60; onChange(s)
+                })
             }
             if s.weather != "any" {
                 let labels: [String: String] = ["clear": "Clear", "cloudy": "Cloudy", "rain": "Rain", "snow": "Snow"]
@@ -608,18 +884,108 @@ enum HistoricalAnalysisCopy {
 
         return chips
     }
+    
+    // Helper for day labels (B1)
+    private static func dayLabel(_ day: String) -> String {
+        switch day {
+        case "Sun": return "Sunday"
+        case "Mon": return "Monday" 
+        case "Tue": return "Tuesday"
+        case "Wed": return "Wednesday"
+        case "Thu": return "Thursday"
+        case "Fri": return "Friday"
+        case "Sat": return "Saturday"
+        default: return day
+        }
+    }
+
+    private static func appendSpreadChip(
+        _ chips: inout [ActiveChip],
+        snapshot: HistoricalAnalysisUISnapshot,
+        label: String,
+        side: WritableKeyPath<HistoricalAnalysisUISnapshot, String>,
+        min: WritableKeyPath<HistoricalAnalysisUISnapshot, Double>,
+        max: WritableKeyPath<HistoricalAnalysisUISnapshot, Double>,
+        defaultMax: Double,
+        onChange: @escaping (HistoricalAnalysisUISnapshot) -> Void
+    ) {
+        let currentSide = snapshot[keyPath: side]
+        let currentMin = snapshot[keyPath: min]
+        let currentMax = snapshot[keyPath: max]
+        guard currentSide != "any" || currentMin > 0 || currentMax < defaultMax else { return }
+        chips.append(.init(label: "\(label) \(currentSide == "any" ? "" : currentSide + " ")\(trimmed(currentMin))–\(trimmed(currentMax))") {
+            var next = snapshot
+            next[keyPath: side] = "any"
+            next[keyPath: min] = 0
+            next[keyPath: max] = defaultMax
+            onChange(next)
+        })
+    }
+
+    private static func appendRangeChip(
+        _ chips: inout [ActiveChip],
+        snapshot: HistoricalAnalysisUISnapshot,
+        label: String,
+        min: WritableKeyPath<HistoricalAnalysisUISnapshot, Double>,
+        max: WritableKeyPath<HistoricalAnalysisUISnapshot, Double>,
+        defaults: [Double],
+        onChange: @escaping (HistoricalAnalysisUISnapshot) -> Void
+    ) {
+        guard snapshot[keyPath: min] != defaults[0] || snapshot[keyPath: max] != defaults[1] else { return }
+        chips.append(.init(label: "\(label) \(trimmed(snapshot[keyPath: min]))–\(trimmed(snapshot[keyPath: max]))") {
+            var next = snapshot
+            next[keyPath: min] = defaults[0]
+            next[keyPath: max] = defaults[1]
+            onChange(next)
+        })
+    }
+
+    private static func appendMoneylineChip(
+        _ chips: inout [ActiveChip],
+        snapshot: HistoricalAnalysisUISnapshot,
+        label: String,
+        min: WritableKeyPath<HistoricalAnalysisUISnapshot, String>,
+        max: WritableKeyPath<HistoricalAnalysisUISnapshot, String>,
+        onChange: @escaping (HistoricalAnalysisUISnapshot) -> Void
+    ) {
+        guard !snapshot[keyPath: min].isEmpty || !snapshot[keyPath: max].isEmpty else { return }
+        chips.append(.init(label: label) {
+            var next = snapshot
+            next[keyPath: min] = ""
+            next[keyPath: max] = ""
+            onChange(next)
+        })
+    }
 
     static func headlineSubject(
         sport: HistoricalAnalysisSport,
         snapshot: HistoricalAnalysisUISnapshot
     ) -> String {
+        let isGameTotal = ["fg_total", "h1_total", "total", "f5_total"].contains(snapshot.betType)
+
+        // Game totals are game outcomes ("went over") — never "Favorites went over".
+        if isGameTotal {
+            switch sport {
+            case .mlb where !snapshot.teams.isEmpty:
+                return "\(snapshot.teams.joined(separator: ", ")) games"
+            default:
+                break
+            }
+            if snapshot.side != "any" {
+                return snapshot.side == "home" ? "Home games" : "Road games"
+            }
+            return "Games"
+        }
+
         var parts: [String] = []
         if snapshot.side != "any" { parts.append(snapshot.side == "home" ? "Home" : "Road") }
         let dir: String
         if ["fg_spread", "h1_spread"].contains(snapshot.betType) {
             dir = snapshot.spreadSide
-        } else {
+        } else if ["fg_ml", "h1_ml", "ml", "f5_ml", "team_total"].contains(snapshot.betType) {
             dir = snapshot.favDog
+        } else {
+            dir = "any"
         }
         if dir != "any" { parts.append(dir == "favorite" ? "favorites" : "underdogs") }
         let situation = parts.joined(separator: " ")
@@ -642,8 +1008,7 @@ enum HistoricalAnalysisCopy {
         if !situation.isEmpty {
             return situation.prefix(1).uppercased() + situation.dropFirst()
         }
-        let isTotal = ["fg_total", "h1_total", "total", "f5_total"].contains(snapshot.betType)
-        return isTotal ? "Games" : "Teams"
+        return "Teams"
     }
 
     // MARK: - Narrative sentence (share infographic)
@@ -776,9 +1141,18 @@ enum HistoricalAnalysisCopy {
         if s.tempMin != -10 || s.tempMax != tempDefaultMax {
             clauses.append("it's \(s.tempMin)–\(s.tempMax)°F")
         }
-        if s.windMax != 60 { clauses.append("winds are under \(s.windMax) mph") }
+        if s.windMin != nil || s.windMax != 60 {
+            let lo = s.windMin ?? 0
+            if lo > 0 && s.windMax < 60 {
+                clauses.append("winds are \(lo)–\(s.windMax) mph")
+            } else if lo > 0 {
+                clauses.append("winds are at least \(lo) mph")
+            } else {
+                clauses.append("winds are under \(s.windMax) mph")
+            }
+        }
 
-        if let spreadCfg = HistoricalAnalysisFilterBuilder.spreadConfig(sport: sport, betType: betType) {
+        if let spreadCfg = HistoricalAnalysisFilterBuilder.spreadConfig(sport: sport, betType: "fg_spread") {
             let lo = trimmed(s.spreadMin)
             let hi = trimmed(s.spreadMax)
             if s.spreadSide == "favorite" {
@@ -828,7 +1202,7 @@ enum HistoricalAnalysisCopy {
 
     /// Lowercase generic subjects mid-sentence; keep proper nouns intact.
     static func midSentenceSubject(_ subject: String) -> String {
-        let generic: Set<String> = ["Home", "Road", "Favorites", "Underdogs", "Teams", "Games"]
+        let generic: Set<String> = ["Home", "Road", "Favorites", "Underdogs", "Teams", "Games", "Home games", "Road games"]
         guard let first = subject.split(separator: " ").first, generic.contains(String(first)) else {
             return subject
         }

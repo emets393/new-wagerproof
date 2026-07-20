@@ -184,12 +184,21 @@ public enum MLBF5 {
         public static let adequate = 20
     }
 
-    /// The MV is keyed by the relocated abbreviations (`AZ`, `ATH`).
+    /// The MV / analysis base is keyed by relocated abbreviations (`AZ`, `ATH`).
     public static func toSplitTeamAbbr(_ abbr: String?) -> String {
         let a = (abbr ?? "").trimmingCharacters(in: .whitespaces).uppercased()
         if a == "ARI" { return "AZ" }
-        if a == "OAK" || a == "LVA" { return "ATH" }
+        if a == "OAK" || a == "LVA" || a == "SAC" { return "ATH" }
         return a
+    }
+
+    /// Picker label for game-log abbrs (Athletics city moves collapse to ATH).
+    public static func analysisTeamLabel(_ abbr: String, fallback: String? = nil) -> String {
+        let a = toSplitTeamAbbr(abbr)
+        if a == "ATH" { return "Athletics" }
+        if a == "AZ" { return "Arizona Diamondbacks" }
+        let trimmed = fallback?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? a : trimmed
     }
 
     public static func normalizePitchHand(_ raw: String?) -> MLBF5PitchHand? {

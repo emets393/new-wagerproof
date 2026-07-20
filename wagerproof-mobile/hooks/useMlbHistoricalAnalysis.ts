@@ -37,20 +37,26 @@ export function useMlbHistoricalAnalysis() {
     if (hasLoaded.current) setIsRefetching(true);
     else setLoading(true);
 
+    let cancelled = false;
     const t = setTimeout(async () => {
       const upcomingFilters = weatherOnly ? {} : rpcFilters;
-      const [a, u] = await Promise.all([
-        fetchMlbAnalysis(betType, rpcFilters),
-        fetchMlbAnalysisUpcoming(betType, upcomingFilters),
-      ]);
+      // Analysis first — paint hero even if upcoming is slow / times out.
+      const a = await fetchMlbAnalysis(betType, rpcFilters);
+      if (cancelled) return;
       setData(a);
-      setUpcoming(u);
       setLoading(false);
       setIsRefetching(false);
       hasLoaded.current = true;
+
+      const u = await fetchMlbAnalysisUpcoming(betType, upcomingFilters);
+      if (cancelled) return;
+      setUpcoming(u);
     }, 350);
 
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [betType, rpcFilters, weatherOnly]);
 
   const patchFilters = useCallback((patch: Partial<MlbAnalysisFilterState>) => {

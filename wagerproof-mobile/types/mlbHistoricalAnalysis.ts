@@ -166,7 +166,7 @@ export interface MlbAnalysisFilterState {
 
 export function defaultMlbFilters(): MlbAnalysisFilterState {
   return {
-    seasonMin: MLB_SEASON_FLOOR,
+    seasonMin: Math.max(MLB_SEASON_FLOOR, MLB_SEASON_MAX - 1),
     seasonMax: MLB_SEASON_MAX,
     monthMin: 3,
     monthMax: 11,
@@ -229,8 +229,22 @@ export function buildMlbRpcFilters(
   if (f.seasonMax < MLB_SEASON_MAX) out.season_max = f.seasonMax;
   if (f.monthMin > 3) out.month_min = f.monthMin;
   if (f.monthMax < 11) out.month_max = f.monthMax;
-  if (f.teams.length) out.team = f.teams;
-  if (f.opponents.length) out.opponent = f.opponents;
+  if (f.teams.length) {
+    out.team = [...new Set(f.teams.map(a => {
+      const u = a.trim().toUpperCase();
+      if (u === 'ARI') return 'AZ';
+      if (u === 'OAK' || u === 'LVA' || u === 'SAC') return 'ATH';
+      return u;
+    }))];
+  }
+  if (f.opponents.length) {
+    out.opponent = [...new Set(f.opponents.map(a => {
+      const u = a.trim().toUpperCase();
+      if (u === 'ARI') return 'AZ';
+      if (u === 'OAK' || u === 'LVA' || u === 'SAC') return 'ATH';
+      return u;
+    }))];
+  }
   if (f.division !== null) out.division = f.division;
   if (f.interleague !== null) out.interleague = f.interleague;
   if (f.side !== 'any') out.side = f.side;

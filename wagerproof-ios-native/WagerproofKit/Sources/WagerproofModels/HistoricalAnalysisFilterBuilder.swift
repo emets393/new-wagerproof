@@ -101,7 +101,6 @@ public enum HistoricalAnalysisFilterBuilder {
         let totalCfg = sport == .nfl ? nflTotalCfg : cfbTotalCfg
         // Game totals are game-level: Side / ML-odds don't apply (they returned 0 / did nothing).
         let isGameTotal = betType == "fg_total" || betType == "h1_total"
-        let isMlMkt = HistoricalAnalysisBetType.moneylineMarkets.contains(betType)
 
         if snapshot.seasonMin > seasonFloor { f["season_min"] = .int(snapshot.seasonMin) }
         if snapshot.seasonMax < sport.seasonMax { f["season_max"] = .int(snapshot.seasonMax) }
@@ -119,7 +118,7 @@ public enum HistoricalAnalysisFilterBuilder {
         case .cfb:
             if snapshot.gameType != "any" { f["game_type"] = .string(snapshot.gameType) }
             if snapshot.rankedMatchup != "any" { f["ranked_matchup"] = .string(snapshot.rankedMatchup) }
-            if snapshot.gameType == "regular" {
+            if snapshot.gameType == "any" || snapshot.gameType == "regular" {
                 if snapshot.weekMin > 1 { f["week_min"] = .int(snapshot.weekMin) }
                 if snapshot.weekMax < 16 { f["week_max"] = .int(snapshot.weekMax) }
             }
@@ -129,22 +128,23 @@ public enum HistoricalAnalysisFilterBuilder {
 
         if snapshot.side != "any", !isGameTotal { f["side"] = .string(snapshot.side) }
 
-        if let scfg = spreadCfg[betType] {
-            let lo = snapshot.spreadMin
-            let hi = snapshot.spreadMax
-            // Floor near-zero edge to 0.5 — excludes pick'em games that would
-            // pollute the underdog bucket (see spec + web comments).
-            let loD = max(lo, 0.5)
-            if snapshot.spreadSide == "favorite" {
-                f[scfg.mk] = .double(-hi)
-                f[scfg.xk] = .double(-loD)
-            } else if snapshot.spreadSide == "underdog" {
-                f[scfg.mk] = .double(loD)
-                f[scfg.xk] = .double(hi)
-            } else if lo > 0 || hi < scfg.max {
-                f[scfg.amk] = .double(lo)
-                f[scfg.axk] = .double(hi)
-            }
+        // Explicit team / opponent multi-select (all sports). For CFB, explicit
+        // teams override the conference→team expansion below.
+        if !snapshot.teams.isEmpty {
+            f["team"] = .array(snapshot.teams.map { .string($0) })
+        }
+        if !snapshot.opponents.isEmpty {
+            f["opponent"] = .array(snapshot.opponents.map { .string($0) })
+        }
+
+        // Cross-market lines are sample filters, not result-market filters.
+        if let scfg = spreadCfg["fg_spread"] {
+            emitSpread(&f, side: snapshot.spreadSide, min: snapshot.spreadMin, max: snapshot.spreadMax, cfg: scfg)
+            // An opponent spread is the opposite signed subject-team spread.
+            emitSpread(&f, side: invertedSpreadSide(snapshot.oppSpreadSide), min: snapshot.oppSpreadMin, max: snapshot.oppSpreadMax, cfg: scfg)
+        }
+        if let scfg = spreadCfg["h1_spread"] {
+            emitSpread(&f, side: snapshot.h1SpreadSide, min: snapshot.h1SpreadMin, max: snapshot.h1SpreadMax, cfg: scfg)
         }
 
         if snapshot.favDog != "any",
@@ -152,20 +152,19 @@ public enum HistoricalAnalysisFilterBuilder {
             f["fav_dog"] = .string(snapshot.favDog)
         }
 
-        // ML odds apply only to moneyline markets (spread markets use spread side; totals none).
-        if isMlMkt {
-            var mlA = snapshot.mlMin.trimmingCharacters(in: .whitespaces).isEmpty
-                ? nil : Double(snapshot.mlMin)
-            var mlB = snapshot.mlMax.trimmingCharacters(in: .whitespaces).isEmpty
-                ? nil : Double(snapshot.mlMax)
-            if let a = mlA, let b = mlB, a > b { swap(&mlA, &mlB) }
-            if let a = mlA { f["ml_min"] = .double(a) }
-            if let b = mlB { f["ml_max"] = .double(b) }
+        emitMoneyline(&f, min: snapshot.mlMin, max: snapshot.mlMax, minKey: "ml_min", maxKey: "ml_max")
+        emitMoneyline(&f, min: snapshot.h1MlMin, max: snapshot.h1MlMax, minKey: "h1_ml_min", maxKey: "h1_ml_max")
+        emitMoneyline(&f, min: snapshot.oppMlMin, max: snapshot.oppMlMax, minKey: "opp_ml_min", maxKey: "opp_ml_max")
+        if let cfg = totalCfg["fg_total"] {
+            emitTotal(&f, min: snapshot.lineMin, max: snapshot.lineMax, cfg: cfg)
         }
-
-        if let tcfg = totalCfg[betType] {
-            if snapshot.lineMin > tcfg.min { f[tcfg.mk] = .double(snapshot.lineMin) }
-            if snapshot.lineMax < tcfg.max { f[tcfg.xk] = .double(snapshot.lineMax) }
+        if let cfg = totalCfg["h1_total"] {
+            emitTotal(&f, min: snapshot.h1TotalMin, max: snapshot.h1TotalMax, cfg: cfg)
+        }
+        if let cfg = totalCfg["team_total"] {
+            emitTotal(&f, min: snapshot.ttLineMin, max: snapshot.ttLineMax, cfg: cfg)
+            emitTotal(&f, min: snapshot.oppTtLineMin, max: snapshot.oppTtLineMax,
+                      cfg: TotalCfg(min: cfg.min, max: cfg.max, mk: "opp_tt_min", xk: "opp_tt_max", label: cfg.label))
         }
 
         if let primetime = snapshot.primetime { f["primetime"] = .bool(primetime) }
@@ -177,6 +176,7 @@ public enum HistoricalAnalysisFilterBuilder {
             if snapshot.precip != "any" { f["precip"] = .string(snapshot.precip) }
             if snapshot.tempMin > -10 { f["temp_min"] = .int(snapshot.tempMin) }
             if snapshot.tempMax < 100 { f["temp_max"] = .int(snapshot.tempMax) }
+            if let windMin = snapshot.windMin, windMin > 0 { f["wind_min"] = .int(windMin) }
             if snapshot.windMax < 60 { f["wind_max"] = .int(snapshot.windMax) }
             switch snapshot.restBye {
             case "off_bye": f["rest_min"] = .int(13)
@@ -190,21 +190,40 @@ public enum HistoricalAnalysisFilterBuilder {
             if let conferenceGame = snapshot.conferenceGame { f["conference_game"] = .bool(conferenceGame) }
             if let neutralSite = snapshot.neutralSite { f["neutral_site"] = .bool(neutralSite) }
             let picked = snapshot.selectedConferences.filter { !$0.isEmpty }
-            if picked.count == 1 {
-                f["conference"] = .string(picked[0])
-            } else if picked.count > 1 {
-                let teams = Array(Set(picked.flatMap { conferenceTeamMap[$0] ?? [] })).sorted()
-                if !teams.isEmpty {
-                    f["team"] = .array(teams.map { .string($0) })
+            if snapshot.teams.isEmpty {
+                // Only expand conferences → team[] when the user hasn't already
+                // narrowed to specific schools via the Team dropdown.
+                if picked.count == 1 {
+                    f["conference"] = .string(picked[0])
+                } else if picked.count > 1 {
+                    let teams = Array(Set(picked.flatMap { conferenceTeamMap[$0] ?? [] })).sorted()
+                    if !teams.isEmpty {
+                        f["team"] = .array(teams.map { .string($0) })
+                    }
+                } else if snapshot.conference != "any" {
+                    f["conference"] = .string(snapshot.conference)
                 }
-            } else if snapshot.conference != "any" {
+            } else if picked.count == 1 {
+                f["conference"] = .string(picked[0])
+            } else if picked.isEmpty, snapshot.conference != "any" {
                 f["conference"] = .string(snapshot.conference)
             }
             if snapshot.tempMin > -10 { f["temp_min"] = .int(snapshot.tempMin) }
             if snapshot.tempMax < 110 { f["temp_max"] = .int(snapshot.tempMax) }
+            if let windMin = snapshot.windMin, windMin > 0 { f["wind_min"] = .int(windMin) }
             if snapshot.windMax < 60 { f["wind_max"] = .int(snapshot.windMax) }
             if snapshot.weather != "any" { f["weather"] = .string(snapshot.weather) }   // CFBD weatherCondition
             if snapshot.dome != "any" { f["dome"] = .bool(snapshot.dome == "dome") }     // CFBD gameIndoors
+            // Rest/Bye — CFB short week is ≤6 (weekday after Saturday), not NFL's 4.
+            switch snapshot.restBye {
+            case "off_bye": f["rest_min"] = .int(13)
+            case "short": f["rest_max"] = .int(6)
+            case "pre_bye": f["pre_bye"] = .bool(true)
+            default: break
+            }
+            if !snapshot.daysOfWeek.isEmpty {
+                f["day_of_week"] = .array(snapshot.daysOfWeek.map { .string($0) })
+            }
         case .mlb:
             break
         }
@@ -217,7 +236,98 @@ public enum HistoricalAnalysisFilterBuilder {
             if snapshot.lastTotal != "any" { f["last_over"] = .int(snapshot.lastTotal == "over" ? 1 : 0) }
             if snapshot.lastRole != "any" { f["last_favorite"] = .bool(snapshot.lastRole == "favorite") }
             if let lastOt = snapshot.lastOt { f["last_overtime"] = .bool(lastOt) }
-            if snapshot.lastBlowout != "any" { f["last_blowout"] = .string(snapshot.lastBlowout) }
+            
+            // NFL + CFB use signed lastMargin (CFB last_blowout was removed).
+            let defaultMargin = sport == .cfb ? [-80, 80] : [-60, 60]
+            if snapshot.lastMargin != defaultMargin {
+                if snapshot.lastMargin[0] > defaultMargin[0] {
+                    f["last_margin_min"] = .int(snapshot.lastMargin[0])
+                }
+                if snapshot.lastMargin[1] < defaultMargin[1] {
+                    f["last_margin_max"] = .int(snapshot.lastMargin[1])
+                }
+            }
+        }
+        
+        // As-of + opponent mirrors — NFL and CFB share the same RPC keys (CFB ppg bounds 0–60).
+        if sport == .nfl || sport == .cfb {
+            // Days of week (NFL always; CFB also handled in sport switch above — keep NFL here)
+            if sport == .nfl, !snapshot.daysOfWeek.isEmpty {
+                f["day_of_week"] = .array(snapshot.daysOfWeek.map { .string($0) })
+            }
+            
+            // Team divisions multi-select (NFL only)
+            if sport == .nfl, !snapshot.teamDivisions.isEmpty {
+                f["team_division"] = .array(snapshot.teamDivisions.map { .string($0) })
+            }
+
+            let ppgMax = sport == .cfb ? 60.0 : 40.0
+            let prevWinsMax = sport == .cfb ? 15.0 : 16.0
+            let coverMarginDefault = sport == .cfb ? [-30.0, 30.0] : [-15.0, 15.0]
+            let pointDiffDefault = sport == .cfb ? [-40.0, 40.0] : [-20.0, 20.0]
+            
+            // Season Record (as-of)
+            applyPctRange(&f, key: "win_pct", range: snapshot.winPct, defaultRange: [0, 100])
+            applyNumRange(&f, key: "win_streak", range: snapshot.winStreak.map(Double.init), defaultRange: [0, 16])
+            applyNumRange(&f, key: "loss_streak", range: snapshot.lossStreak.map(Double.init), defaultRange: [0, 16])
+            if let above500 = snapshot.above500 { f["above_500"] = .bool(above500) }
+            if let winPctGtOpp = snapshot.winPctGtOpp { f["win_pct_gt_opp"] = .bool(winPctGtOpp) }
+            applyNumRange(&f, key: "ppg", range: snapshot.ppg, defaultRange: [0, ppgMax])
+            applyNumRange(&f, key: "pa_pg", range: snapshot.paPg, defaultRange: [0, ppgMax])
+            applyNumRange(&f, key: "point_diff_pg", range: snapshot.pointDiffPg, defaultRange: pointDiffDefault)
+            if snapshot.minGames > 0 { f["min_games"] = .int(snapshot.minGames) }
+            
+            // Cover Profile
+            applyPctRange(&f, key: "ats_win_pct", range: snapshot.atsWinPct, defaultRange: [0, 100])
+            applyNumRange(&f, key: "ats_win_streak", range: snapshot.atsWinStreak.map(Double.init), defaultRange: [0, 16])
+            applyNumRange(&f, key: "avg_cover_margin", range: snapshot.avgCoverMargin, defaultRange: coverMarginDefault)
+            
+            // Total Profile
+            applyPctRange(&f, key: "over_pct", range: snapshot.overPct, defaultRange: [0, 100])
+            applyNumRange(&f, key: "over_streak", range: snapshot.overStreak.map(Double.init), defaultRange: [0, 16])
+            applyNumRange(&f, key: "under_streak", range: snapshot.underStreak.map(Double.init), defaultRange: [0, 16])
+            
+            // Prior Year
+            applyNumRange(&f, key: "prev_wins", range: snapshot.prevWins.map(Double.init), defaultRange: [0, prevWinsMax])
+            applyPctRange(&f, key: "prev_win_pct", range: snapshot.prevWinPct, defaultRange: [0, 100])
+            if let madePlayoffsPrev = snapshot.madePlayoffsPrev { f["made_playoffs_prev"] = .bool(madePlayoffsPrev) }
+            if let moreWins = snapshot.moreWinsThanOppPrev { f["more_wins_than_opp_prev"] = .bool(moreWins) }
+            
+            // Head-to-Head
+            if snapshot.h2hLastWin != "any" { f["h2h_last_win"] = .int(snapshot.h2hLastWin == "yes" ? 1 : 0) }
+            if snapshot.h2hLastAts != "any" { f["h2h_last_ats_win"] = .int(snapshot.h2hLastAts == "yes" ? 1 : 0) }
+            if snapshot.h2hLastOver != "any" { f["h2h_last_over"] = .int(snapshot.h2hLastOver == "yes" ? 1 : 0) }
+            if let h2hLastHome = snapshot.h2hLastHome { f["h2h_last_home"] = .bool(h2hLastHome) }
+            if let h2hLastFav = snapshot.h2hLastFav { f["h2h_last_fav"] = .bool(h2hLastFav) }
+            if let h2hSameSeason = snapshot.h2hSameSeason { f["h2h_same_season"] = .bool(h2hSameSeason) }
+            if snapshot.h2hSpreadCmp == "lower" { f["h2h_spread_lower"] = .bool(true) }
+            if snapshot.h2hSpreadCmp == "higher" { f["h2h_spread_higher"] = .bool(true) }
+            
+            // Opponent Record
+            applyPctRange(&f, key: "opp_win_pct", range: snapshot.oppWinPct, defaultRange: [0, 100])
+            applyPctRange(&f, key: "opp_over_pct", range: snapshot.oppOverPct, defaultRange: [0, 100])
+            applyNumRange(&f, key: "opp_win_streak", range: snapshot.oppWinStreak.map(Double.init), defaultRange: [0, 16])
+            applyNumRange(&f, key: "opp_loss_streak", range: snapshot.oppLossStreak.map(Double.init), defaultRange: [0, 16])
+            applyNumRange(&f, key: "opp_ppg", range: snapshot.oppPpg, defaultRange: [0, ppgMax])
+            applyNumRange(&f, key: "opp_pa_pg", range: snapshot.oppPaPg, defaultRange: [0, ppgMax])
+            applyPctRange(&f, key: "opp_prev_win_pct", range: snapshot.oppPrevWinPct, defaultRange: [0, 100])
+            
+            // Opponent Last Game
+            if snapshot.oppLastResult != "any" { f["opp_last_won"] = .int(snapshot.oppLastResult == "won" ? 1 : 0) }
+            if snapshot.oppLastAts != "any" { f["opp_last_covered"] = .int(snapshot.oppLastAts == "covered" ? 1 : 0) }
+            if snapshot.oppLastTotal != "any" { f["opp_last_over"] = .int(snapshot.oppLastTotal == "over" ? 1 : 0) }
+            if snapshot.oppLastRole != "any" { f["opp_last_favorite"] = .bool(snapshot.oppLastRole == "favorite") }
+            if let oppLastOt = snapshot.oppLastOt { f["opp_last_overtime"] = .bool(oppLastOt) }
+            
+            let defaultOppMargin = sport == .cfb ? [-80, 80] : [-60, 60]
+            if snapshot.oppLastMargin != defaultOppMargin {
+                if snapshot.oppLastMargin[0] > defaultOppMargin[0] {
+                    f["opp_last_margin_min"] = .int(snapshot.oppLastMargin[0])
+                }
+                if snapshot.oppLastMargin[1] < defaultOppMargin[1] {
+                    f["opp_last_margin_max"] = .int(snapshot.oppLastMargin[1])
+                }
+            }
         }
 
         return f
@@ -234,8 +344,12 @@ public enum HistoricalAnalysisFilterBuilder {
         if snapshot.seasonMax < seasonCap { out["season_max"] = .int(snapshot.seasonMax) }
         if snapshot.monthMin > 3 { out["month_min"] = .int(snapshot.monthMin) }
         if snapshot.monthMax < 11 { out["month_max"] = .int(snapshot.monthMax) }
-        if !snapshot.teams.isEmpty { out["team"] = .array(snapshot.teams.map { .string($0) }) }
-        if !snapshot.opponents.isEmpty { out["opponent"] = .array(snapshot.opponents.map { .string($0) }) }
+        if !snapshot.teams.isEmpty {
+            out["team"] = .array(Array(Set(snapshot.teams.map { MLBF5.toSplitTeamAbbr($0) })).map { .string($0) })
+        }
+        if !snapshot.opponents.isEmpty {
+            out["opponent"] = .array(Array(Set(snapshot.opponents.map { MLBF5.toSplitTeamAbbr($0) })).map { .string($0) })
+        }
         if let division = snapshot.division { out["division"] = .bool(division) }
         if let interleague = snapshot.interleague { out["interleague"] = .bool(interleague) }
         if snapshot.side != "any" { out["side"] = .string(snapshot.side) }
@@ -292,7 +406,7 @@ public enum HistoricalAnalysisFilterBuilder {
         if snapshot.tempMin > -10 { out["temp_min"] = .int(snapshot.tempMin) }
         if snapshot.tempMax < 110 { out["temp_max"] = .int(snapshot.tempMax) }
         if let windMin = snapshot.windMin { out["wind_min"] = .int(windMin) }
-        if snapshot.windMax < 60 { out["wind_max"] = .int(snapshot.windMax) }
+        if snapshot.windMax < 40 { out["wind_max"] = .int(snapshot.windMax) }
         if snapshot.windDir != "any" { out["wind_dir"] = .string(snapshot.windDir) }
         if snapshot.dome != "any" { out["dome"] = .bool(snapshot.dome == "dome") }
         if let v = snapshot.pfRunsMin { out["pf_runs_min"] = .double(v) }
@@ -348,5 +462,80 @@ public enum HistoricalAnalysisFilterBuilder {
         default:
             return false
         }
+    }
+    
+    /// Apply percent range (UI 0-100 → RPC 0-1) only when narrowed from default
+    private static func applyPctRange(_ filters: inout [String: JSONValue], key: String, range: [Double], defaultRange: [Double]) {
+        if range[0] > defaultRange[0] {
+            filters["\(key)_min"] = .double(range[0] / 100.0)
+        }
+        if range[1] < defaultRange[1] {
+            filters["\(key)_max"] = .double(range[1] / 100.0)
+        }
+    }
+    
+    /// Apply numeric range only when narrowed from default
+    private static func applyNumRange(_ filters: inout [String: JSONValue], key: String, range: [Double], defaultRange: [Double]) {
+        if range[0] > defaultRange[0] {
+            filters["\(key)_min"] = .double(range[0])
+        }
+        if range[1] < defaultRange[1] {
+            filters["\(key)_max"] = .double(range[1])
+        }
+    }
+
+    private static func invertedSpreadSide(_ side: String) -> String {
+        switch side {
+        case "favorite": return "underdog"
+        case "underdog": return "favorite"
+        default: return "any"
+        }
+    }
+
+    private static func emitSpread(
+        _ filters: inout [String: JSONValue],
+        side: String,
+        min: Double,
+        max: Double,
+        cfg: SpreadCfg
+    ) {
+        let minDog = Swift.max(min, 0.5)
+        switch side {
+        case "favorite":
+            filters[cfg.mk] = .double(-max)
+            filters[cfg.xk] = .double(-minDog)
+        case "underdog":
+            filters[cfg.mk] = .double(minDog)
+            filters[cfg.xk] = .double(max)
+        default:
+            if min > 0 || max < cfg.max {
+                filters[cfg.amk] = .double(min)
+                filters[cfg.axk] = .double(max)
+            }
+        }
+    }
+
+    private static func emitMoneyline(
+        _ filters: inout [String: JSONValue],
+        min: String,
+        max: String,
+        minKey: String,
+        maxKey: String
+    ) {
+        var low = Double(min.trimmingCharacters(in: .whitespaces))
+        var high = Double(max.trimmingCharacters(in: .whitespaces))
+        if (low ?? 0) > (high ?? 0), low != nil, high != nil { swap(&low, &high) }
+        if let low, !low.isNaN { filters[minKey] = .double(low) }
+        if let high, !high.isNaN { filters[maxKey] = .double(high) }
+    }
+
+    private static func emitTotal(
+        _ filters: inout [String: JSONValue],
+        min: Double,
+        max: Double,
+        cfg: TotalCfg
+    ) {
+        if min > cfg.min { filters[cfg.mk] = .double(min) }
+        if max < cfg.max { filters[cfg.xk] = .double(max) }
     }
 }

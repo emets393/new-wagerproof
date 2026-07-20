@@ -248,7 +248,7 @@ export default function MLBHistoricalAnalysisScreen() {
           ) : overall && overall.n > 0 ? (
             <View style={{ marginTop: 14 }}>
               <Text style={[styles.headline, { color: theme.colors.onSurface }]}>
-                Teams {MLB_VERB[betType]}{' '}
+                {(betType === 'total' || betType === 'f5_total') ? 'Games' : 'Teams'} {MLB_VERB[betType]}{' '}
                 <Text style={{ color: theme.colors.primary }}>{overall.hit_pct}%</Text>
                 <Text style={{ color: theme.colors.onSurfaceVariant, fontWeight: '400', fontSize: 14 }}>
                   {' '}({overall.wins} of {overall.n})

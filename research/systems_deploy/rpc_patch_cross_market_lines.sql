@@ -1,0 +1,12 @@
+-- Cross-market / opponent / H1-ML / wind_min predicates for nfl_analysis + cfb_analysis.
+-- APPLIED live on analysis project jpxnjuwglavsjbgbasnl (2026-07-20).
+-- Canonical dumps: rpc_extended/nfl_analysis_cross_market.sql,
+--                  rpc_extended/cfb_analysis_cross_market.sql
+--
+-- Keys:
+--   h1_ml_min / h1_ml_max  → *.h1_ml_px (decimal). Filter |v|≥100 treated as American.
+--     NFL: native column. CFB: backfilled 2023–25 from event_odds / cfb_markets_2325
+--     (~4.1k rows). Also backfilled CFB h1_spread_px, h1_total_*_px, tt_*_px for ROI.
+--   opp_ml_min / opp_ml_max → mirror row team_ml (unique_id + other team)
+--   opp_tt_min / opp_tt_max → mirror row tt_line
+--   wind_min on CFB

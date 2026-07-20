@@ -42,7 +42,10 @@ BYE_GAP=15.0; BYE_MIN_N=5    # bye-collision: bet the coach w/ better career pre
 # TRACKING-ONLY rules: still fire and grade, but NOT presented as active bet flags on the website.
 # Demoted because 2025 per-season performance regressed sharply (variance OR market adaptation).
 # 2026 live data will determine whether to promote (revert) or remove.
-TRACKING_ONLY={"bye_collision","week1_def_under","primetime_tight_favorite","primetime_tight_under","bot_vs_bot_under"}
+TRACKING_ONLY={"bye_collision","week1_def_under","primetime_tight_favorite","primetime_tight_under","bot_vs_bot_under",
+               # streak/rematch signals mined 2026-07 (Discord theories). Only streak_long_under_over is bettable;
+               # the rest are thin / regressed per-season -> paper-trade 2026 before promoting.
+               "streak_both_under_over","streak_buylow_ncover","streak_cold_vs_hot_ats","div_dog_to_roadfav"}
 nv2our={"LA":"LAR","SD":"LAC","STL":"LAR"}
 
 # 2-team 6pt teaser product (b71-b74, vaulted 2026-06-01)
@@ -173,6 +176,13 @@ def build():
     flags=["pre_bye","blowout_win_last","blowout_loss_last","third_road","div_revenge"]
     H=tg[tg.is_home==1][["unique_id"]+flags].rename(columns={f:f"h_{f}" for f in flags}); Aw=tg[tg.is_home==0][["unique_id"]+flags].rename(columns={f:f"a_{f}" for f in flags})
     m=m.merge(H,on="unique_id",how="left").merge(Aw,on="unique_id",how="left")
+    # ---- streak-fade + divisional-rematch signal inputs (rule flags for generate(); NOT model features) ----
+    # Kept OUT of BASE on purpose — these drive standalone bet rules, not the locked sides model.
+    SIGF=["under_streak","noncover_streak","cover_streak","div_dog_to_roadfav"]
+    Hs=tg[tg.is_home==1][["unique_id"]+SIGF].rename(columns={f:f"h_{f}" for f in SIGF})
+    As=tg[tg.is_home==0][["unique_id"]+SIGF].rename(columns={f:f"a_{f}" for f in SIGF})
+    m=m.merge(Hs,on="unique_id",how="left").merge(As,on="unique_id",how="left")
+    for c in [f"{s}_{f}" for s in ["h","a"] for f in SIGF]: m[c]=pd.to_numeric(m[c],errors="coerce").fillna(0)
     m["pr_diff"]=m.home_predictive_pr-m.away_predictive_pr; m["last5_diff"]=m.home_last5_pr-m.away_last5_pr
     m["abs_spread"]=m.home_spread.abs()
     m["home_dog_7_10"]=((m.home_spread>=7.5)&(m.home_spread<=10.5)).astype(int); m["away_dog_7_10"]=((m.home_spread<=-7.5)&(m.home_spread>=-10.5)).astype(int)
@@ -782,6 +792,39 @@ def generate(m, BASE, target, week=None):
         if pd.notna(g.wind_mph) and g.wind_mph>=WIND_THR and pd.notna(g.open_total):
             rows.append(dict(pick_id=gid+"-U",season=g.season,week=int(g.week),game=mtchp,rule="wind_under",
                 market="total",side=f"UNDER {g.open_total:g}",bet_home=-2,open_num=g.open_total,close_num=g.close_total,edge=round(g.wind_mph,1)))
+        # ===== STREAK-FADE + DIVISIONAL-REMATCH signals (mined 2026-07 from Discord theories) =====
+        # Streaks are entering, within-season, leak-safe (from tg.parquet). Logged at the opener like every rule.
+        hu=g.get("h_under_streak",0); au=g.get("a_under_streak",0)
+        hc=g.get("h_cover_streak",0); ac=g.get("a_cover_streak",0)
+        hn=g.get("h_noncover_streak",0); an=g.get("a_noncover_streak",0)
+        # streak_long_under_over (BETTABLE): either team on a 6+ under streak -> OVER (~60%, 67% since 2019)
+        if pd.notna(g.open_total) and max(hu,au)>=6:
+            rows.append(dict(pick_id=gid+"-SLU",season=g.season,week=int(g.week),game=mtchp,rule="streak_long_under_over",
+                market="total",side=f"OVER {g.open_total:g}",bet_home=-1,open_num=g.open_total,close_num=g.close_total,edge=round(float(max(hu,au)),0)))
+        # streak_both_under_over (tracking): BOTH teams on 4+ under streaks -> OVER (thin, n=29)
+        if pd.notna(g.open_total) and hu>=4 and au>=4:
+            rows.append(dict(pick_id=gid+"-SBU",season=g.season,week=int(g.week),game=mtchp,rule="streak_both_under_over",
+                market="total",side=f"OVER {g.open_total:g}",bet_home=-1,open_num=g.open_total,close_num=g.close_total,edge=round(float(min(hu,au)),0)))
+        # streak_buylow_ncover (tracking): a team on a 5+ non-cover streak -> back THAT team ATS (regressed recently)
+        if pd.notna(g.open_spread):
+            if hn>=5:
+                rows.append(dict(pick_id=gid+"-SBLh",season=g.season,week=int(g.week),game=mtchp,rule="streak_buylow_ncover",
+                    market="spread",side=f"{g.home_ab} {g.open_spread:+g}",bet_home=1,open_num=g.open_spread,close_num=g.close_spread,edge=round(float(hn),0)))
+            if an>=5:
+                rows.append(dict(pick_id=gid+"-SBLa",season=g.season,week=int(g.week),game=mtchp,rule="streak_buylow_ncover",
+                    market="spread",side=f"{g.away_ab} {-g.open_spread:+g}",bet_home=0,open_num=g.open_spread,close_num=g.close_spread,edge=round(float(an),0)))
+        # streak_cold_vs_hot_ats (tracking): hot cover team vs cold non-cover team -> back the COLD team ATS (thin/noisy)
+        if pd.notna(g.open_spread):
+            if hc>=3 and an>=3:                                   # home hot, away cold -> back AWAY (the cold side)
+                rows.append(dict(pick_id=gid+"-CVHa",season=g.season,week=int(g.week),game=mtchp,rule="streak_cold_vs_hot_ats",
+                    market="spread",side=f"{g.away_ab} {-g.open_spread:+g}",bet_home=0,open_num=g.open_spread,close_num=g.close_spread,edge=round(float(min(hc,an)),0)))
+            elif ac>=3 and hn>=3:                                 # away hot, home cold -> back HOME (the cold side)
+                rows.append(dict(pick_id=gid+"-CVHh",season=g.season,week=int(g.week),game=mtchp,rule="streak_cold_vs_hot_ats",
+                    market="spread",side=f"{g.home_ab} {g.open_spread:+g}",bet_home=1,open_num=g.open_spread,close_num=g.close_spread,edge=round(float(min(ac,hn)),0)))
+        # div_dog_to_roadfav (tracking): home dog in meeting 1, now road favorite -> back that (away) team ATS
+        if pd.notna(g.open_spread) and g.get("a_div_dog_to_roadfav",0)==1:
+            rows.append(dict(pick_id=gid+"-DDR",season=g.season,week=int(g.week),game=mtchp,rule="div_dog_to_roadfav",
+                market="spread",side=f"{g.away_ab} {-g.open_spread:+g}",bet_home=0,open_num=g.open_spread,close_num=g.close_spread,edge=1))
         # LEGACY spread signals (vs opener): primetime -> FOLLOW the model; non-primetime extreme -> FADE it
         lsp=g.get("leg_sp",np.nan)
         if pd.notna(lsp) and pd.notna(g.open_spread):
@@ -960,8 +1003,8 @@ def report(target):
     g=led.dropna(subset=["win"])
     L(f"\n{'='*82}\nFORWARD-TEST REPORT {target}  (graded picks: {len(g)} / logged: {len(led)})\n{'='*82}")
     L("ACTIVE BET FLAGS (recommended picks):")
-    active_rules=["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","total_low_line_over","total_high_line_under","spread_dog_cover_fade_away","spread_dog_cover_fade_home","fade_pr_in_tight_game","dk_giant_fav_over","dk_heavy_home_juice","tight_soft_ml_fade_home","top_vs_top_pt_home"]
-    tracking_rules=["bye_collision","week1_def_under","primetime_tight_favorite","primetime_tight_under","bot_vs_bot_under"]
+    active_rules=["sides_model","receiver_over","receiver_over_HC","wind_under","legacy_fade","legacy_primetime","total_low_line_over","total_high_line_under","spread_dog_cover_fade_away","spread_dog_cover_fade_home","fade_pr_in_tight_game","dk_giant_fav_over","dk_heavy_home_juice","tight_soft_ml_fade_home","top_vs_top_pt_home","streak_long_under_over"]
+    tracking_rules=["bye_collision","week1_def_under","primetime_tight_favorite","primetime_tight_under","bot_vs_bot_under","streak_both_under_over","streak_buylow_ncover","streak_cold_vs_hot_ats","div_dog_to_roadfav"]
     for rule in active_rules:
         s=g[g.rule==rule]
         if len(s)==0: L(f"  {rule:28s}: (none yet)"); continue

@@ -1,0 +1,184 @@
+/**
+ * Derives the Haiku extraction artifacts (system prompt + structured-output schema) from
+ * `filterSchema.ts`, so the model's view of the filters can never drift from the manual UI or the
+ * `applyFilterPatch` validator. Everything here is a PURE function of NFL_FILTER_DIMENSIONS.
+ *
+ * The generated artifacts are written to `supabase/functions/nl-filter-patch/schema.json` (see
+ * genNlFilterSchema.ts) and a parity test (filterSchemaPrompt.test.ts) fails the build if the
+ * committed artifact ever diverges from this source. The Edge Function reads that JSON — it never
+ * hand-maintains a copy of the schema.
+ */
+import { NFL_FILTER_DIMENSIONS, NFL_BET_TYPES, NFL_FILTER_GROUPS } from './filterSchema';
+import {
+  buildDimensionSpec, renderDimensionLines, PATCH_OUTPUT_SCHEMA, type DimensionSpec,
+} from './nlArtifactShared';
+import type { EngineDimension } from './sportFilterEngine';
+
+export type { DimensionSpec };
+
+export const NFL_MULTISELECT_DESCRIPTIONS: Record<string, string> = {
+  nflTeams: 'array of NFL team abbreviations (e.g. ["KC","BUF"])',
+  daysOfWeek: 'array of day names, any of: Sun, Mon, Tue, Wed, Thu, Fri, Sat',
+  nflDivisions: 'array of divisions, any of: "AFC East", "AFC North", "AFC South", "AFC West", "NFC East", "NFC North", "NFC South", "NFC West"',
+};
+
+/** Build the ordered dimension catalog (single source: NFL_FILTER_DIMENSIONS). Deterministic. */
+export function buildNflDimensionSpec(): DimensionSpec[] {
+  return buildDimensionSpec(
+    NFL_FILTER_DIMENSIONS as unknown as Record<string, EngineDimension>,
+    NFL_FILTER_GROUPS,
+    { multiselectDescriptions: NFL_MULTISELECT_DESCRIPTIONS },
+  );
+}
+
+/** Structured-output JSON schema for the model's response (OpenAI-strict: every property is in
+ *  `required` and every object sets `additionalProperties:false`). `value`/`items` are nullable so
+ *  `clear`/scalar ops can omit them. The reducer is the real validator; this only forces a
+ *  well-formed patch envelope. */
+export const NFL_PATCH_OUTPUT_SCHEMA = PATCH_OUTPUT_SCHEMA;
+
+/** Assemble the (static, cache-friendly) system prompt from the dimension catalog. Deterministic. */
+export function buildNflSystemPrompt(spec: DimensionSpec[] = buildNflDimensionSpec()): string {
+  const lines: string[] = [];
+  lines.push(
+    'You convert a sports bettor\'s sentence into a PATCH of filter operations for the WagerProof NFL',
+    'historical-trends filter. You do NOT query any database — you only emit filter operations that the',
+    'app validates and applies. Work in the app\'s own filter vocabulary described below.',
+    '',
+    'OUTPUT: a JSON object { "ops": [...], "couldnt_map": [...], "ambiguous": [...] }.',
+    'Each op is exactly { "op": "set" | "clear", "dimension": "<key>", "value": <typed value, or null for clear> }.',
+    'The "value" MUST be the correct JSON type: an array [min,max] for ranges, an array of strings for teams,',
+    'a plain string for an enum choice, a number for a scalar, or true/false for a toggle. Never wrap a value',
+    'in extra quotes or characters.',
+    '',
+    'HARD RULES (violating these produces wrong results):',
+    '1. Use ONLY the exact dimension keys listed below. Never invent a key or a value. If a request does',
+    '   not fit a listed dimension, put a short description of it in "couldnt_map" (name the nearest',
+    '   supported dimension). If a request is too vague to pin to a value, put it in "ambiguous".',
+    '2. This is a PATCH on the CURRENT filter (given in the user message). Only emit ops for dimensions the',
+    '   user is actually changing. Do not restate unchanged filters. Use op "clear" to remove a filter.',
+    '3. Percents are 0–100 (e.g. 60 for "60%"), never 0–1. Ranges are [min, max] arrays.',
+    '4. NEVER emit negative spread numbers. To express "favored by X–Y" set spreadSide="favorite" and',
+    '   spreadSize=[X,Y]; for "getting X–Y" set spreadSide="underdog" and spreadSize=[X,Y]. The app handles',
+    '   the sign. FG spread/ML/total lines (and 1H / team-total / opponent counterparts) are available',
+    '   on EVERY bet type — use h1Spread*, h1TotalRange, ttLineRange, h1Ml*, oppSpread*, oppMl*, oppTtLineRange',
+    '   as needed. windRange=[min,max] mph (wind ≥20 → [20,60]).',
+    '4b. LINE DISAMBIGUATION (critical — do NOT change betType just to set a price/line):',
+    '   • "spread" / "laying" / "getting" / "spread of N+" / "favored by N+" (no "1H") → spreadSide + spreadSize.',
+    '     NEVER map the word "spread" to ttLineRange.',
+    '   • Naming the RESULT market ("team totals") only sets betType — numbers are NOT automatically TT lines.',
+    '     "Team totals … with a spread of 7+" → betType=team_total + spreadSize=[7,20].',
+    '     ttLineRange ONLY when they say "team total line" / "TT line of N".',
+    '   • "1H spread" / "first-half spread" → h1SpreadSide + h1SpreadSize.',
+    '   • "moneyline" / "ML" / American odds (no "1H") → mlMin/mlMax. Do NOT switch betType to fg_ml',
+    '     unless the user asks to analyze/switch TO the moneyline market.',
+    '   • "1H moneyline" / "first-half ML" → h1MlMin/h1MlMax.',
+    '   • "total" / "over-under" / "O/U" (game) → lineRange. "1H total" → h1TotalRange.',
+    '   • "opponent moneyline" / "opp ML" → oppMlMin/oppMlMax; "opponent team total line" → oppTtLineRange;',
+    '     "opponent spread" / "opponent favored" → oppSpreadSide + oppSpreadSize.',
+    '   • "windy" / "wind over N" / "wind at least N" → windRange=[N,60]; "wind under N" → [0,N].',
+    '5. To change the market/bet type, use dimension "betType" with one of:',
+    `   ${NFL_BET_TYPES.map((b) => `"${b}"`).join(', ')}.`,
+    '6. Some dimensions require another first (see "requires"): e.g. to set "weeks" also set',
+    '   seasonType="regular"; to set "playoffRound" also set seasonType="postseason". Emit BOTH ops, the',
+    '   prerequisite first.',
+    '7. Teams/opponents are arrays of NFL abbreviations set with ONE "set" op holding the FULL desired list.',
+    '   To ADD a team, read the current list from CURRENT FILTER and include the existing teams plus the new',
+    '   one. Resolve names to abbreviations (Chiefs → KC, Bills → BUF, 49ers → SF).',
+    '8. When unsure whether you understood, prefer "ambiguous"/"couldnt_map" over guessing. A wrong filter',
+    '   erodes user trust more than an honest "I couldn\'t map that."',
+    '9. NEVER set a season-to-date % dimension (atsWinPct, winPct, overPct, prevWinPct, oppWinPct,',
+    '   oppOverPct, oppPrevWinPct) unless the user EXPLICITLY names a rate, percentage, or fraction of',
+    '   games — e.g. "ATS win % over 55", "covering 60% this season", "has covered more than half their',
+    '   games", "winning over .500", "gone under in more than half their games". Streak / recent-form',
+    '   language alone ("has not covered in two straight", "on a 3-game win streak", "cold ATS") maps',
+    '   ONLY to the matching *Streak (or last-game) dimension — NEVER also set the companion % range.',
+    '10. BETTING LINGO — keep these vocab tracks separate (do not cross-wire):',
+    '   • Win/loss record → winPct / oppWinPct / above500 / winStreak / lossStreak / lastResult.',
+    '   • Against the spread (cover) → atsWinPct / atsWinStreak / lastAts / h2hLastAts.',
+    '   • Over/under (game total) → overPct / oppOverPct / overStreak / underStreak / lastTotal / h2hLastOver.',
+    '   "Gone under / hit the under / unders" is ALWAYS the total track — NEVER winPct or oppWinPct.',
+    '   "Covered / failed to cover / ATS" is ALWAYS the cover track — NEVER overPct.',
+    '   "Winning / W-L / .500" is ALWAYS the win track — NEVER ATS% or Over%.',
+    '11. "More than half their games went under" / "under in over half their games" → set overPct to',
+    '   [0, 50] (under-heavy = over-rate at most 50%). Mirror with oppOverPct [0, 50] when they say the',
+    '   opponent / both teams share that season O/U tendency. Do the inverse for "more than half overs"',
+    '   → overPct [50, 100] (+ oppOverPct when both).',
+    '12. "Coming off an under/over" / "last game went under" → set the SUBJECT lastTotal. The opponent past',
+    '   game is ALSO filterable via the opponent-last-game mirror: oppLastResult, oppLastAts, oppLastTotal,',
+    '   oppLastRole, oppLastMargin, oppLastOt. So "both teams came off an under" → lastTotal "under" AND',
+    '   oppLastTotal "under". Never route an opponent-last-game ask to couldnt_map — a dimension exists.',
+    '13. "A team and the opponent" / "both teams" means apply the TEAM filter to the subject and the matching',
+    '   opponent filter when one exists (overPct↔oppOverPct, winPct↔oppWinPct, lastTotal↔oppLastTotal,',
+    '   lastResult↔oppLastResult, lastAts↔oppLastAts). Prefer mirroring over ignoring the opponent half.',
+    '14. MARGIN — lastMargin / oppLastMargin are the SIGNED point margin of the previous game: POSITIVE =',
+    '   won by that many, NEGATIVE = lost by that many. "won by 10 or more" -> [10, 60]; "lost by 7+" ->',
+    '   [-60, -7]; "won by exactly 3" -> [3, 3]; "within a field goal" -> [-3, 3]; "blowout win (21+)" ->',
+    '   [21, 60]; "blowout loss" -> [-60, -21]. Use it for any margin-of-victory/loss phrasing.',
+    '15. NAMED PEOPLE — a named coach (Andy Reid, Belichick, Shanahan) ALWAYS sets dimension "coach" to the',
+    '   exact spelling from AVAILABLE COACHES. A named referee ALWAYS sets "referee". Pair with seasonType',
+    '   / weeks / markets when the sentence also says playoffs, primetime, etc. Never map a coach name to',
+    '   teams[] (Reid ≠ Chiefs-only — use coach). If the name is not in AVAILABLE COACHES, couldnt_map it.',
+    '',
+    'EXAMPLES:',
+    'CURRENT FILTER: {"betType":"fg_spread"}',
+    'REQUEST: home favorites laying 3 to 7 in the back half of the season',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"seasonType","value":"regular"},{"op":"set","dimension":"weeks","value":[10,18]},{"op":"set","dimension":"side","value":"home"},{"op":"set","dimension":"spreadSide","value":"favorite"},{"op":"set","dimension":"spreadSize","value":[3,7]}],"couldnt_map":[],"ambiguous":[]}',
+    '',
+    'CURRENT FILTER: {"betType":"fg_spread","teams":["KC"]}',
+    'REQUEST: add the Bills and switch to the moneyline for road dogs',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"teams","value":["KC","BUF"]},{"op":"set","dimension":"betType","value":"fg_ml"},{"op":"set","dimension":"side","value":"away"},{"op":"set","dimension":"spreadSide","value":"underdog"}],"couldnt_map":[],"ambiguous":[]}',
+    '',
+    'CURRENT FILTER: {"betType":"team_total"}',
+    'REQUEST: team totals where the full-game moneyline is between -150 and -110 and wind is at least 20 mph',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"mlMin","value":"-150"},{"op":"set","dimension":"mlMax","value":"-110"},{"op":"set","dimension":"windRange","value":[20,60]}],"couldnt_map":[],"ambiguous":[]}',
+    '',
+    'CURRENT FILTER: {"betType":"fg_spread"}',
+    'REQUEST: Team totals for favorites in week 1 with a spread of 7 or more',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"betType","value":"team_total"},{"op":"set","dimension":"seasonType","value":"regular"},{"op":"set","dimension":"weeks","value":[1,1]},{"op":"set","dimension":"spreadSide","value":"favorite"},{"op":"set","dimension":"spreadSize","value":[7,20]}],"couldnt_map":[],"ambiguous":[]}',
+    '',
+    'CURRENT FILTER: {"betType":"team_total"}',
+    'REQUEST: filter by 1H moneyline odds -200 to -120 and a team total line of 21 to 28',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"h1MlMin","value":"-200"},{"op":"set","dimension":"h1MlMax","value":"-120"},{"op":"set","dimension":"ttLineRange","value":[21,28]}],"couldnt_map":[],"ambiguous":[]}',
+    '',
+    'CURRENT FILTER: {"betType":"fg_total"}',
+    'REQUEST: game totals with the opponent favored by 7+ and opponent moneyline +130 to +200',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"oppSpreadSide","value":"favorite"},{"op":"set","dimension":"oppSpreadSize","value":[7,20]},{"op":"set","dimension":"oppMlMin","value":"130"},{"op":"set","dimension":"oppMlMax","value":"200"}],"couldnt_map":[],"ambiguous":[]}',
+    '',
+    'CURRENT FILTER: {"betType":"fg_spread"}',
+    'REQUEST: teams on a 3+ game win streak whose QB had a great game',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"winStreak","value":[3,16]}],"couldnt_map":["QB game performance — nearest supported: Last game result/role"],"ambiguous":["a great game"]}',
+    '',
+    'CURRENT FILTER: {"betType":"fg_spread"}',
+    'REQUEST: away team has not covered in two straight games but is now favored',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"side","value":"away"},{"op":"set","dimension":"spreadSide","value":"favorite"},{"op":"set","dimension":"atsWinStreak","value":[0,0]}],"couldnt_map":["ATS cover-loss streak of exactly 2 — nearest supported: atsWinStreak (cover/win streak only; 0 = not currently on a cover streak)"],"ambiguous":[]}',
+    '',
+    'CURRENT FILTER: {"betType":"fg_spread"}',
+    'REQUEST: teams covering over 55% ATS this season',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"atsWinPct","value":[55,100]}],"couldnt_map":[],"ambiguous":[]}',
+    '',
+    'CURRENT FILTER: {"betType":"fg_total"}',
+    'REQUEST: a team and the opponent are coming off games that went under and both teams have gone under in more than half their games this season',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"lastTotal","value":"under"},{"op":"set","dimension":"oppLastTotal","value":"under"},{"op":"set","dimension":"overPct","value":[0,50]},{"op":"set","dimension":"oppOverPct","value":[0,50]}],"couldnt_map":[],"ambiguous":[]}',
+    '',
+    'CURRENT FILTER: {"betType":"fg_spread"}',
+    'REQUEST: Andy Reid in the playoffs',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"seasonType","value":"postseason"},{"op":"set","dimension":"coach","value":"Andy Reid"}],"couldnt_map":[],"ambiguous":[]}',
+    '',
+    'DIMENSIONS:',
+  );
+  lines.push(...renderDimensionLines(spec));
+  lines.push('', 'Also available: dimension "betType" (the market spine) — set/clear only.');
+  return lines.join('\n');
+}
+
+/** The full artifact written to the Edge Function (systemPrompt is static ⇒ prompt-cacheable). */
+export function buildNlFilterArtifact() {
+  const dimensions = buildNflDimensionSpec();
+  return {
+    version: 1,
+    sport: 'nfl',
+    systemPrompt: buildNflSystemPrompt(dimensions),
+    outputSchema: NFL_PATCH_OUTPUT_SCHEMA,
+  };
+}

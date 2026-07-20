@@ -10,14 +10,34 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ChevronDown, TrendingUp, TrendingDown, CalendarClock, Loader2,
-  Bookmark, Trash2, X, Search,
+  Bookmark, Trash2, X, Search, Send, MessageSquare,
 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { espnMlb500LogoUrlFromAbbrev } from '@/utils/mlbTeamLogos';
+import { mlbAnalysisTeamLabel, toF5SplitTeamAbbr } from '@/utils/mlbF5Splits';
+import { filterPitchers, foldSearchText } from '@/utils/mlbPitcherSearch';
+import { loadMlbPitcherCatalog, mlbPitcherCatalogNames } from '@/utils/mlbPitcherCatalog';
+import { isSideSymmetricMlb, MLB_SPORT_CONFIG } from '@/features/analysis/filterSchemaMlb';
+import { applySportFilterPatch } from '@/features/analysis/sportFilterEngine';
+import { rewriteMlbPitcherAgainstTeamOps } from '@/features/analysis/mlbNlPitcherTeamRewrite';
+import { normalizeMlbSavedFilterSnapshot, MLB_SNAPSHOT_DEFAULTS, type MlbFilterSnapshot } from '@/features/analysis/normalizeSavedFilterSnapshot';
+
+const NL_FILTER_EXAMPLES = [
+  'home dogs facing an ace lefty',
+  'run line for teams that won 5 straight',
+  'day games where both teams go under more than half the time',
+];
+
+type NlChatTurn = {
+  id: number;
+  sentence: string;
+  lines: string[];
+};
 
 // ── Bet-type spine ──
 const BET_GROUPS = [
@@ -45,6 +65,8 @@ const NO_ROI_MARKETS = new Set(['f5_ml']);
 const TOTAL_MARKETS = new Set(['total', 'f5_total']);
 const SEASON_FLOOR = 2023;
 const SEASON_MAX = 2026;
+/** Default query window — last 2 seasons. Full history is still on the slider (floor→max). */
+const DEFAULT_SEASONS: [number, number] = [Math.max(SEASON_FLOOR, SEASON_MAX - 1), SEASON_MAX];
 
 const TOTAL_CFG: Record<string, { min: number; max: number; mk: string; xk: string; label: string }> = {
   total: { min: 5, max: 14, mk: 'total_min', xk: 'total_max', label: 'Game total' },
@@ -121,6 +143,20 @@ function assignRange(
 function assignOptionalNumber(f: Record<string, unknown>, key: string, raw: string) {
   const n = parseOptionalNumber(raw);
   if (n != null) f[key] = n;
+}
+
+/** Apply a dual-thumb range to p_filters only when it differs from the default. */
+function applyNumRange(f: Record<string, unknown>, key: string, range: [number, number], def: [number, number]) {
+  if (range[0] > def[0]) f[`${key}_min`] = range[0];
+  if (range[1] < def[1]) f[`${key}_max`] = range[1];
+}
+/** Percent UI is 0–100; RPC expects 0–1. */
+function applyPctRange(f: Record<string, unknown>, key: string, range: [number, number], def: [number, number] = [0, 100]) {
+  if (range[0] > def[0]) f[`${key}_min`] = Math.round(range[0]) / 100;
+  if (range[1] < def[1]) f[`${key}_max`] = Math.round(range[1]) / 100;
+}
+function rangeChanged(a: [number, number], b: [number, number]) {
+  return a[0] !== b[0] || a[1] !== b[1];
 }
 
 const logoFor = (abbr?: string) => (abbr ? espnMlb500LogoUrlFromAbbrev(abbr) : '/placeholder.svg');
@@ -212,7 +248,7 @@ const VERB: Record<string, string> = {
 const OUTCOME: Record<string, string> = {
   ml: 'Win', rl: 'Cover', total: 'Over', f5_ml: 'Win', f5_rl: 'Cover', f5_total: 'Over',
 };
-const nounFor = () => 'games';
+const nounFor = (bt?: string) => (bt && TOTAL_MARKETS.has(bt) ? 'games' : 'bets');
 
 const PRESETS: { label: string; betType: string; filters: Record<string, unknown> }[] = [
   { label: 'Home underdogs', betType: 'ml', filters: { side: 'home', favDog: 'underdog' } },
@@ -272,12 +308,117 @@ function OptionRow({ betType, opt, baseline }: { betType: string; opt: Opt; base
   );
 }
 
-function ResultBar({ betType, bar, baseline }: { betType: string; bar: Bar; baseline: number }) {
+function ResultBar({ betType, bar, baseline, onFocus }: {
+  betType: string; bar: Bar; baseline: number; onFocus?: (dimension: string, side: string) => void;
+}) {
+  // Side splits: highlight the more extreme side (green fill from the right, 50% midline) — same
+  // visual language as SymmetricSplitHero / the NFL page.
+  if (bar.dimension === 'home_away' || bar.dimension === 'fav_dog') {
+    const opts = (bar.options || []).filter((o) => o.n > 0 && SIDE_CHIP_LABEL[o.side]);
+    if (opts.length >= 2) {
+      const sorted = [...opts].sort((a, b) => b.hit_pct - a.hit_pct);
+      return (
+        <div className="space-y-2">
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{DIM_LABEL[bar.dimension]}</div>
+          <VersusRow slice={{ dimension: bar.dimension, extreme: sorted[0], other: sorted[1] }} onFocus={onFocus} />
+        </div>
+      );
+    }
+  }
   return (
     <div className="space-y-2">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{DIM_LABEL[bar.dimension] || bar.dimension}</div>
       {bar.options.map((opt, i) => <OptionRow key={i} betType={betType} opt={opt} baseline={baseline} />)}
     </div>
+  );
+}
+
+// ── Symmetric side-market hero ──────────────────────────────────────────────────────────────
+// On ml/rl/f5 side markets, mirror-row bookkeeping forces "all teams" to ~50% whenever only
+// game-level filters are active (see filterSchemaMlb.isSideSymmetricMlb). Never headline that
+// tautology — lead with the most extreme REAL side split instead.
+type SideSlice = { dimension: string; extreme: Opt; other: Opt };
+const SIDE_CHIP_LABEL: Record<string, string> = { home: 'Home', away: 'Away', favorite: 'Favorites', underdog: 'Underdogs' };
+
+function pickSideSlices(bars: Bar[] | undefined): SideSlice[] {
+  const out: SideSlice[] = [];
+  for (const bar of bars || []) {
+    if (bar.dimension !== 'home_away' && bar.dimension !== 'fav_dog') continue;
+    const opts = (bar.options || []).filter((o) => o.n > 0 && SIDE_CHIP_LABEL[o.side]);
+    if (opts.length < 2) continue;
+    // Lead with / highlight the stronger side (higher hit%). Complements are equally far from
+    // 50%, so abs-from-50 ties and would arbitrarily keep RPC order (often the <50% side).
+    const sorted = [...opts].sort((a, b) => b.hit_pct - a.hit_pct);
+    out.push({ dimension: bar.dimension, extreme: sorted[0], other: sorted[1] });
+  }
+  out.sort((a, b) => b.extreme.hit_pct - a.extreme.hit_pct);
+  return out;
+}
+
+function VersusRow({ slice, onFocus }: { slice: SideSlice; onFocus?: (dimension: string, side: string) => void }) {
+  const otherLabel = `${SIDE_CHIP_LABEL[slice.other.side]} ${slice.other.hit_pct}%`;
+  const extremeLabel = `${SIDE_CHIP_LABEL[slice.extreme.side]} ${slice.extreme.hit_pct}%`;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-0.5">
+        {onFocus ? (
+          <button type="button" className="text-foreground/70 hover:underline" onClick={() => onFocus(slice.dimension, slice.other.side)}>{otherLabel}</button>
+        ) : (
+          <span className="text-foreground/70">{otherLabel}</span>
+        )}
+        {onFocus ? (
+          <button type="button" className="font-semibold hover:underline" onClick={() => onFocus(slice.dimension, slice.extreme.side)}>{extremeLabel}</button>
+        ) : (
+          <span className="font-semibold">{extremeLabel}</span>
+        )}
+      </div>
+      <div className="relative h-2 rounded bg-muted overflow-hidden">
+        <div className="absolute inset-y-0 right-0 rounded bg-emerald-500/60" style={{ width: `${Math.min(slice.extreme.hit_pct, 100)}%` }} />
+        <div className="absolute inset-y-0 w-px bg-foreground/50" style={{ left: '50%' }} />
+      </div>
+    </div>
+  );
+}
+
+function SymmetricSplitHero({ betType, slices, cov, onFocus }: {
+  betType: string; slices: SideSlice[]; cov: Analysis['coverage'] | undefined; onFocus: (dimension: string, side: string) => void;
+}) {
+  const head = slices[0];
+  return (
+    <Card className="border-l-4 border-l-primary">
+      <CardContent className="py-5">
+        <div className="flex items-start gap-4">
+          <TrendingUp className="w-6 h-6 text-emerald-500 mt-1 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-4xl sm:text-5xl font-bold tracking-tight text-primary tabular-nums leading-none">
+                {head.extreme.hit_pct}%
+              </span>
+              {head.extreme.roi != null && !NO_ROI_MARKETS.has(betType) && (
+                <span className={`text-lg font-semibold tabular-nums ${head.extreme.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {head.extreme.roi >= 0 ? '+' : ''}{head.extreme.roi}% ROI
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-sm font-medium leading-snug">
+              {sideLabel(betType, head.extreme.side)}{' '}
+              <span className="text-primary">{head.extreme.hit_pct}%</span>{' '}
+              <span className="font-normal text-muted-foreground">
+                ({head.extreme.wins} of {head.extreme.n} bets{cov ? ` · ${cov.season_min}–${cov.season_max}` : ''})
+                {' · '}{significance(head.extreme.n, head.extreme.hit_pct).label}
+              </span>
+            </p>
+            <div className="mt-3 space-y-2.5 max-w-md">
+              {slices.map((sl) => <VersusRow key={sl.dimension} slice={sl} onFocus={onFocus} />)}
+            </div>
+            <p className="text-[11px] text-muted-foreground/80 mt-2.5">
+              Every game here has one side that {ML_MARKETS.has(betType) ? 'wins and one that loses' : "covers and one that doesn't"},
+              so “all teams” is always ~50% on this market — these are the real splits. Tap a side to focus on it.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -339,7 +480,8 @@ export default function MLBAnalytics() {
   const [loading, setLoading] = useState(true);
 
   // ── SCOPE ──
-  const [seasons, setSeasons] = useState<[number, number]>([SEASON_FLOOR, SEASON_MAX]);
+  // Default to last 2 seasons for first paint — full 2023–2026 is ~4× the rows. Slider still goes to 2023.
+  const [seasons, setSeasons] = useState<[number, number]>(DEFAULT_SEASONS);
   const [months, setMonths] = useState<[number, number]>([3, 11]);
   const [teams, setTeams] = useState<string[]>([]);
   const [opponents, setOpponents] = useState<string[]>([]);
@@ -353,6 +495,7 @@ export default function MLBAnalytics() {
   const [mlMin, setMlMin] = useState('');
   const [mlMax, setMlMax] = useState('');
   const [lineRange, setLineRange] = useState<[number, number]>([5, 14]);
+  const [f5TotalRange, setF5TotalRange] = useState<[number, number]>([2, 8]);
 
   // ── GAME TIME ──
   const [timeMin, setTimeMin] = useState('');
@@ -393,95 +536,195 @@ export default function MLBAnalytics() {
   /** Optional total/F5 total bounds from band chips — takes precedence over the slider when set. */
   const [totalBounds, setTotalBounds] = useState<OptRange | null>(null);
 
+  // ── LAST GAME (subject) extras — canonical Systems shape (filterSchemaMlb rpcNotes) ──
+  const D = MLB_SNAPSHOT_DEFAULTS;
+  const [lastAts, setLastAts] = useState('any');     // covered | not
+  const [lastTotal, setLastTotal] = useState('any'); // over | under
+  const [lastRole, setLastRole] = useState('any');   // favorite | underdog
+
+  // ── OPPONENT LAST GAME — the opponent's previous game (opp_last_* columns) ──
+  const [oppLastResult, setOppLastResult] = useState('any');
+  const [oppLastAts, setOppLastAts] = useState('any');
+  const [oppLastTotal, setOppLastTotal] = useState('any');
+  const [oppLastRole, setOppLastRole] = useState('any');
+  const [oppLastMargin, setOppLastMargin] = useState<[number, number]>(D.oppLastMargin);
+
+  // ── AS-OF SYSTEMS (season-to-date at game time) ──
+  const [winPct, setWinPct] = useState<[number, number]>(D.winPct);
+  const [winStreak, setWinStreak] = useState<[number, number]>(D.winStreak);
+  const [lossStreak, setLossStreak] = useState<[number, number]>(D.lossStreak);
+  const [rpg, setRpg] = useState<[number, number]>(D.rpg);
+  const [rapg, setRapg] = useState<[number, number]>(D.rapg);
+  const [runDiffPg, setRunDiffPg] = useState<[number, number]>(D.runDiffPg);
+  const [minGames, setMinGames] = useState(D.minGames);
+  const [rlCoverPct, setRlCoverPct] = useState<[number, number]>(D.rlCoverPct);
+  const [rlStreak, setRlStreak] = useState<[number, number]>(D.rlStreak);
+  const [overPct, setOverPct] = useState<[number, number]>(D.overPct);
+  const [overStreak, setOverStreak] = useState<[number, number]>(D.overStreak);
+  const [underStreak, setUnderStreak] = useState<[number, number]>(D.underStreak);
+  const [prevWins, setPrevWins] = useState<[number, number]>(D.prevWins);
+  const [prevWinPct, setPrevWinPct] = useState<[number, number]>(D.prevWinPct);
+  const [h2hLastWin, setH2hLastWin] = useState('any');
+  const [h2hLastAts, setH2hLastAts] = useState('any');
+  const [h2hLastOver, setH2hLastOver] = useState('any');
+  const [h2hLastMargin, setH2hLastMargin] = useState<[number, number]>(D.h2hLastMargin);
+  const [h2hLastHome, setH2hLastHome] = useState<boolean | null>(null);
+  const [h2hLastFav, setH2hLastFav] = useState<boolean | null>(null);
+  const [h2hSameSeason, setH2hSameSeason] = useState<boolean | null>(null);
+  const [oppWinPct, setOppWinPct] = useState<[number, number]>(D.oppWinPct);
+  const [oppOverPct, setOppOverPct] = useState<[number, number]>(D.oppOverPct);
+  const [oppRlCoverPct, setOppRlCoverPct] = useState<[number, number]>(D.oppRlCoverPct);
+  const [oppWinStreak, setOppWinStreak] = useState<[number, number]>(D.oppWinStreak);
+  const [oppLossStreak, setOppLossStreak] = useState<[number, number]>(D.oppLossStreak);
+  const [oppRpg, setOppRpg] = useState<[number, number]>(D.oppRpg);
+  const [oppRapg, setOppRapg] = useState<[number, number]>(D.oppRapg);
+  const [oppPrevWinPct, setOppPrevWinPct] = useState<[number, number]>(D.oppPrevWinPct);
+
   const { user } = useAuth();
   const [saved, setSaved] = useState<Record<string, unknown>[]>([]);
   const [saveName, setSaveName] = useState('');
   const [showSave, setShowSave] = useState(false);
 
-  // Load MLB team list
+  const [nlInput, setNlInput] = useState('');
+  const [nlLoading, setNlLoading] = useState(false);
+  const [nlTurns, setNlTurns] = useState<NlChatTurn[]>([]);
+  const nlTurnId = React.useRef(0);
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  /** Cached pitcher names for NL validation (typeahead results + selected). */
+  const [pitcherNameCache, setPitcherNameCache] = useState<string[]>([]);
+
+  // Load MLB team list — map ARI/OAK → AZ/ATH to match mlb_analysis_base.
   useEffect(() => {
     collegeFootballSupabase
       .from('mlb_team_mapping')
       .select('team, team_name')
       .then(({ data: rows }) => {
         const opts = (rows || [])
-          .map((r: { team?: string; team_name?: string }) => ({
-            abbr: String(r.team || '').toUpperCase(),
-            name: String(r.team_name || r.team || ''),
-          }))
+          .map((r: { team?: string; team_name?: string }) => {
+            const abbr = toF5SplitTeamAbbr(String(r.team || ''));
+            return {
+              abbr,
+              name: mlbAnalysisTeamLabel(abbr, String(r.team_name || r.team || '')),
+            };
+          })
           .filter(t => t.abbr)
           .sort((a, b) => a.abbr.localeCompare(b.abbr));
-        // de-dupe by abbr
+        // de-dupe by game-log abbr (OAK + any Athletics alias → one ATH)
         const seen = new Set<string>();
         setTeamOptions(opts.filter(t => (seen.has(t.abbr) ? false : (seen.add(t.abbr), true))));
       });
   }, []);
 
   useEffect(() => {
-    const t = TOTAL_CFG[betType];
-    if (t) setLineRange([t.min, t.max]);
+    // Line filters are market-independent — don't reset when bet type changes.
     setTotalBounds(null);
   }, [betType]);
 
+  // Legacy page keys + canonical Systems keys; normalizeMlbSavedFilterSnapshot reads both shapes.
   const snapshot = () => ({
     betType, seasons, months, teams, opponents, division, interleague,
-    side, favDog, mlMin, mlMax, lineRange, totalBounds, timeMin, timeMax, dayOfWeek, doubleheader,
+    side, favDog, mlMin, mlMax, lineRange, f5TotalRange, totalBounds, timeMin, timeMax, dayOfWeek, doubleheader,
     seriesGame, trip, switchGame, restRange, streakMin, streakMax, lastResult, lastMarginMin, lastMarginMax,
     sp, oppSp, spHand, oppSpHand, spXfip, oppSpXfip, bpIp, bpXfip,
     tempRange, windRange, windDir, dome, pfRuns,
+    lastAts, lastTotal, lastRole,
+    oppLastResult, oppLastAts, oppLastTotal, oppLastRole, oppLastMargin,
+    winPct, winStreak, lossStreak, rpg, rapg, runDiffPg, minGames,
+    rlCoverPct, rlStreak, overPct, overStreak, underStreak, prevWins, prevWinPct,
+    h2hLastWin, h2hLastAts, h2hLastOver, h2hLastMargin, h2hLastHome, h2hLastFav, h2hSameSeason,
+    oppWinPct, oppOverPct, oppRlCoverPct, oppWinStreak, oppLossStreak, oppRpg, oppRapg, oppPrevWinPct,
   });
 
   const restore = (raw: Record<string, unknown>, rowBetType?: string) => {
-    if (rowBetType) setBetType(rowBetType);
-    else if (typeof raw.betType === 'string') setBetType(raw.betType);
-    if (Array.isArray(raw.seasons)) setSeasons(raw.seasons as [number, number]);
-    if (Array.isArray(raw.months)) setMonths(raw.months as [number, number]);
-    if (Array.isArray(raw.teams)) setTeams(raw.teams as string[]);
-    if (Array.isArray(raw.opponents)) setOpponents(raw.opponents as string[]);
-    if ('division' in raw) setDivision(raw.division as boolean | null);
-    if ('interleague' in raw) setInterleague(raw.interleague as boolean | null);
-    if (typeof raw.side === 'string') setSide(raw.side);
-    if (typeof raw.favDog === 'string') setFavDog(raw.favDog);
-    if (typeof raw.mlMin === 'string') setMlMin(raw.mlMin);
-    if (typeof raw.mlMax === 'string') setMlMax(raw.mlMax);
-    if (Array.isArray(raw.lineRange)) setTimeout(() => setLineRange(raw.lineRange as [number, number]), 0);
-    if (raw.totalBounds && typeof raw.totalBounds === 'object') setTotalBounds(raw.totalBounds as OptRange);
-    else setTotalBounds(null);
-    if (typeof raw.timeMin === 'string') setTimeMin(raw.timeMin);
-    if (typeof raw.timeMax === 'string') setTimeMax(raw.timeMax);
-    if (typeof raw.dayOfWeek === 'string') setDayOfWeek(raw.dayOfWeek);
-    if ('doubleheader' in raw) setDoubleheader(raw.doubleheader as boolean | null);
-    if ('seriesGame' in raw) setSeriesGame(raw.seriesGame as [number, number] | null);
-    if ('trip' in raw) setTrip(raw.trip as [number, number] | null);
-    if ('switchGame' in raw) setSwitchGame(raw.switchGame as boolean | null);
-    if (Array.isArray(raw.restRange)) setRestRange(raw.restRange as [number, number]);
-    if (typeof raw.streakMin === 'string') setStreakMin(raw.streakMin);
-    if (typeof raw.streakMax === 'string') setStreakMax(raw.streakMax);
-    if (typeof raw.lastResult === 'string') setLastResult(raw.lastResult);
-    if (typeof raw.lastMarginMin === 'string') setLastMarginMin(raw.lastMarginMin);
-    if (typeof raw.lastMarginMax === 'string') setLastMarginMax(raw.lastMarginMax);
+    const s = normalizeMlbSavedFilterSnapshot(raw, rowBetType);
+    const def = MLB_SNAPSHOT_DEFAULTS;
+    const narrowed = (pair: [number, number], d: [number, number]): [number, number] | null =>
+      (pair[0] !== d[0] || pair[1] !== d[1]) ? pair : null;
+
+    setBetType(rowBetType || s.betType);
+    setSeasons(s.seasons);
+    setMonths(s.months);
+    setTeams(s.teams);
+    setOpponents(s.opponents);
+    setDivision(s.division);
+    setInterleague(s.interleague);
+    setSide(s.side);
+    setFavDog(s.favDog);
+    setMlMin(s.mlMin);
+    setMlMax(s.mlMax);
+    setTimeout(() => {
+      setLineRange(s.lineRange);
+      setF5TotalRange(s.f5TotalRange);
+    }, 0);
+    if (raw.totalBounds && typeof raw.totalBounds === 'object' && !Array.isArray(raw.totalBounds)) {
+      setTotalBounds(raw.totalBounds as OptRange);
+    } else {
+      setTotalBounds(null);
+    }
+    setTimeMin(s.timeMin);
+    setTimeMax(s.timeMax);
+    // Page UI is single-day; prefer first selected day from canonical daysOfWeek.
+    if (s.daysOfWeek.length) setDayOfWeek(s.daysOfWeek[0]);
+    else if (typeof raw.dayOfWeek === 'string') setDayOfWeek(raw.dayOfWeek);
+    else setDayOfWeek('any');
+    setDoubleheader(s.doubleheader);
+    // Canonical snapshot always materializes full-range series/trip; page treats null = no filter.
+    setSeriesGame(narrowed(s.seriesGame, def.seriesGame));
+    setTrip(narrowed(s.trip, def.trip));
+    setSwitchGame(s.switchGame);
+    setRestRange(s.restRange);
+    setLastResult(s.lastResult);
+    setLastMarginMin(s.lastMargin[0] !== def.lastMargin[0] ? String(s.lastMargin[0]) : '');
+    setLastMarginMax(s.lastMargin[1] !== def.lastMargin[1] ? String(s.lastMargin[1]) : '');
+    setStreakMin(s.winLossStreak[0] !== def.winLossStreak[0] ? String(s.winLossStreak[0]) : '');
+    setStreakMax(s.winLossStreak[1] !== def.winLossStreak[1] ? String(s.winLossStreak[1]) : '');
     if (Array.isArray(raw.sp)) setSp(raw.sp as PitcherOpt[]);
+    else setSp([]);
     if (Array.isArray(raw.oppSp)) setOppSp(raw.oppSp as PitcherOpt[]);
-    if (typeof raw.spHand === 'string') setSpHand(raw.spHand);
-    if (typeof raw.oppSpHand === 'string') setOppSpHand(raw.oppSpHand);
-    // OptRange fields — accept object form; ignore legacy [min,max] tuples that forced both ends
-    const asOpt = (v: unknown): OptRange | null => {
-      if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-      const o = v as OptRange;
-      const out: OptRange = {};
-      if (typeof o.min === 'number' && Number.isFinite(o.min)) out.min = o.min;
-      if (typeof o.max === 'number' && Number.isFinite(o.max)) out.max = o.max;
-      return out.min != null || out.max != null ? out : null;
+    else setOppSp([]);
+    setSpHand(s.spHand);
+    setOppSpHand(s.oppSpHand);
+    // OptRange UI: only set when narrowed off the schema default pair.
+    const toOpt = (pair: [number, number], d: [number, number]): OptRange | null => {
+      if (pair[0] === d[0] && pair[1] === d[1]) return null;
+      return { min: pair[0], max: pair[1] };
     };
-    if ('spXfip' in raw) setSpXfip(asOpt(raw.spXfip));
-    if ('oppSpXfip' in raw) setOppSpXfip(asOpt(raw.oppSpXfip));
-    if ('bpIp' in raw) setBpIp(asOpt(raw.bpIp));
-    if ('bpXfip' in raw) setBpXfip(asOpt(raw.bpXfip));
-    if (Array.isArray(raw.tempRange)) setTempRange(raw.tempRange as [number, number]);
-    if (Array.isArray(raw.windRange)) setWindRange(raw.windRange as [number, number]);
-    if (typeof raw.windDir === 'string') setWindDir(raw.windDir);
-    if ('dome' in raw) setDome(raw.dome as boolean | null);
-    if ('pfRuns' in raw) setPfRuns(asOpt(raw.pfRuns));
+    setSpXfip(toOpt(s.spXfip, def.spXfip));
+    setOppSpXfip(toOpt(s.oppSpXfip, def.oppSpXfip));
+    setBpIp(toOpt(s.bpIp, def.bpIp));
+    setBpXfip(toOpt(s.bpXfip, def.bpXfip));
+    setTempRange(s.tempRange);
+    setWindRange(s.windRange);
+    setWindDir(s.windDir);
+    setDome(s.dome);
+    setPfRuns(toOpt(s.pfRuns, def.pfRuns));
+    setLastAts(s.lastAts); setLastTotal(s.lastTotal); setLastRole(s.lastRole);
+    setOppLastResult(s.oppLastResult); setOppLastAts(s.oppLastAts); setOppLastTotal(s.oppLastTotal);
+    setOppLastRole(s.oppLastRole); setOppLastMargin(s.oppLastMargin);
+    setWinPct(s.winPct); setWinStreak(s.winStreak); setLossStreak(s.lossStreak);
+    setRpg(s.rpg); setRapg(s.rapg); setRunDiffPg(s.runDiffPg); setMinGames(s.minGames);
+    setRlCoverPct(s.rlCoverPct); setRlStreak(s.rlStreak);
+    setOverPct(s.overPct); setOverStreak(s.overStreak); setUnderStreak(s.underStreak);
+    setPrevWins(s.prevWins); setPrevWinPct(s.prevWinPct);
+    setH2hLastWin(s.h2hLastWin); setH2hLastAts(s.h2hLastAts); setH2hLastOver(s.h2hLastOver);
+    setH2hLastMargin(s.h2hLastMargin); setH2hLastHome(s.h2hLastHome); setH2hLastFav(s.h2hLastFav);
+    setH2hSameSeason(s.h2hSameSeason);
+    setOppWinPct(s.oppWinPct); setOppOverPct(s.oppOverPct); setOppRlCoverPct(s.oppRlCoverPct);
+    setOppWinStreak(s.oppWinStreak); setOppLossStreak(s.oppLossStreak);
+    setOppRpg(s.oppRpg); setOppRapg(s.oppRapg); setOppPrevWinPct(s.oppPrevWinPct);
+  };
+
+  const resolvePitchersByName = async (names: string[]): Promise<PitcherOpt[]> => {
+    const catalog = await loadMlbPitcherCatalog();
+    const out: PitcherOpt[] = [];
+    for (const name of names) {
+      const q = name.trim();
+      if (!q) continue;
+      const rows = filterPitchers(catalog, q, 5);
+      const match = rows.find((p) => foldSearchText(p.name) === foldSearchText(q)) ?? rows[0];
+      if (match) out.push(match);
+    }
+    return out;
   };
 
   const loadSaved = useCallback(async () => {
@@ -503,14 +746,88 @@ export default function MLBAnalytics() {
     loadSaved();
   };
 
+  const submitNlFilter = async (raw?: string) => {
+    const sentence = (raw ?? nlInput).trim();
+    if (!sentence || nlLoading || !user) return;
+    setNlLoading(true);
+    setNlInput('');
+    const lines: string[] = [];
+    try {
+      const current = normalizeMlbSavedFilterSnapshot(snapshot());
+      const currentFilter: Record<string, unknown> = { betType: current.betType };
+      for (const k of Object.keys(MLB_SNAPSHOT_DEFAULTS) as Array<keyof MlbFilterSnapshot>) {
+        if (k === 'betType') continue;
+        if (JSON.stringify(current[k]) !== JSON.stringify(MLB_SNAPSHOT_DEFAULTS[k])) {
+          currentFilter[k] = current[k];
+        }
+      }
+      const selectedNames = [...sp, ...oppSp].map((p) => p.name);
+      // Always load the full pitcher catalog for NL — otherwise the model has no
+      // AVAILABLE PITCHERS list and pitcher ops are rejected (only teams stick).
+      let pitcherNames = Array.from(new Set([...pitcherNameCache, ...selectedNames]));
+      try {
+        const catalog = await loadMlbPitcherCatalog();
+        pitcherNames = Array.from(new Set([...mlbPitcherCatalogNames(catalog), ...pitcherNames]));
+        setPitcherNameCache(pitcherNames);
+      } catch {
+        /* keep whatever we already had */
+      }
+      const { data, error } = await supabase.functions.invoke('nl-filter-patch', {
+        body: { sentence, currentFilter, sport: 'mlb', pitchers: pitcherNames },
+      });
+      if (error || data?.error) {
+        lines.push("Couldn't process that, try again.");
+      } else {
+        const rewrittenOps = rewriteMlbPitcherAgainstTeamOps(
+          sentence,
+          data?.ops ?? [],
+          pitcherNames,
+        );
+        const result = applySportFilterPatch(
+          MLB_SPORT_CONFIG,
+          current,
+          { ops: rewrittenOps },
+          { optionOverrides: { mlbPitchers: pitcherNames } },
+        );
+        if (result.applied.length) {
+          const snap = result.snapshot;
+          const [resolvedSp, resolvedOpp] = await Promise.all([
+            resolvePitchersByName(snap.spNames ?? []),
+            resolvePitchersByName(snap.oppSpNames ?? []),
+          ]);
+          restore({
+            ...snap,
+            sp: resolvedSp,
+            oppSp: resolvedOpp,
+          } as Record<string, unknown>);
+          const dims = result.applied.map((a) => a.dimension).slice(0, 6);
+          lines.push(dims.length
+            ? `Updated your filters ✓ (${dims.join(', ')}${result.applied.length > 6 ? '…' : ''})`
+            : 'Updated your filters ✓');
+        }
+        for (const t of data?.couldnt_map ?? []) lines.push(`Couldn't map: ${t}`);
+        for (const t of data?.ambiguous ?? []) lines.push(`Too vague to apply: ${t} — try being specific.`);
+        for (const r of result.rejected) lines.push(r.reason);
+        if (!result.applied.length && !(data?.couldnt_map?.length) && !(data?.ambiguous?.length) && !result.rejected.length) {
+          lines.push("I didn't catch a filter in that — try rephrasing.");
+        }
+      }
+    } catch {
+      lines.push("Couldn't process that, try again.");
+    }
+    nlTurnId.current += 1;
+    setNlTurns((prev) => [...prev, { id: nlTurnId.current, sentence, lines }].slice(-8));
+    setNlLoading(false);
+  };
+
   const buildFilters = useCallback(() => {
     const f: Record<string, unknown> = {};
     if (seasons[0] > SEASON_FLOOR) f.season_min = seasons[0];
     if (seasons[1] < SEASON_MAX) f.season_max = seasons[1];
     if (months[0] > 3) f.month_min = months[0];
     if (months[1] < 11) f.month_max = months[1];
-    if (teams.length) f.team = teams;
-    if (opponents.length) f.opponent = opponents;
+    if (teams.length) f.team = [...new Set(teams.map(toF5SplitTeamAbbr))];
+    if (opponents.length) f.opponent = [...new Set(opponents.map(toF5SplitTeamAbbr))];
     if (division !== null) f.division = division;
     if (interleague !== null) f.interleague = interleague;
 
@@ -527,17 +844,15 @@ export default function MLBAnalytics() {
       if (b !== null) f.ml_max = b;
     }
 
-    const tcfg = TOTAL_CFG[betType];
-    if (tcfg) {
-      // Band chips set totalBounds (one-sided). Slider only contributes when
-      // totalBounds is unset and the thumb isn't at the full default span.
-      if (totalBounds) {
-        assignRange(f, tcfg.mk, tcfg.xk, totalBounds);
-      } else {
-        if (lineRange[0] > tcfg.min) f[tcfg.mk] = lineRange[0];
-        if (lineRange[1] < tcfg.max) f[tcfg.xk] = lineRange[1];
-      }
+    // Cross-market totals — always available regardless of result market
+    if (totalBounds) {
+      assignRange(f, 'total_min', 'total_max', totalBounds);
+    } else {
+      if (lineRange[0] > 5) f.total_min = lineRange[0];
+      if (lineRange[1] < 14) f.total_max = lineRange[1];
     }
+    if (f5TotalRange[0] > 2) f.f5_total_min = f5TotalRange[0];
+    if (f5TotalRange[1] < 8) f.f5_total_max = f5TotalRange[1];
 
     if (timeMin) f.time_min = timeMin;
     if (timeMax) f.time_max = timeMax;
@@ -562,8 +877,16 @@ export default function MLBAnalytics() {
     assignOptionalNumber(f, 'streak_min', streakMin);
     assignOptionalNumber(f, 'streak_max', streakMax);
     if (lastResult !== 'any') f.last_result = lastResult;
+    if (lastAts !== 'any') f.last_covered = lastAts === 'covered' ? 1 : 0;
+    if (lastTotal !== 'any') f.last_over = lastTotal === 'over' ? 1 : 0;
+    if (lastRole !== 'any') f.last_favorite = lastRole === 'favorite';
     assignOptionalNumber(f, 'last_margin_min', lastMarginMin);
     assignOptionalNumber(f, 'last_margin_max', lastMarginMax);
+    if (oppLastResult !== 'any') f.opp_last_result = oppLastResult;
+    if (oppLastAts !== 'any') f.opp_last_covered = oppLastAts === 'covered' ? 1 : 0;
+    if (oppLastTotal !== 'any') f.opp_last_over = oppLastTotal === 'over' ? 1 : 0;
+    if (oppLastRole !== 'any') f.opp_last_favorite = oppLastRole === 'favorite';
+    applyNumRange(f, 'opp_last_margin', oppLastMargin, D.oppLastMargin);
 
     if (sp.length) f.sp = sp.map(p => p.id);
     if (oppSp.length) f.opp_sp = oppSp.map(p => p.id);
@@ -582,13 +905,50 @@ export default function MLBAnalytics() {
     if (dome !== null) f.dome = dome;
     assignRange(f, 'pf_runs_min', 'pf_runs_max', pfRuns);
 
+    // As-of Systems filters (filterSchemaMlb rpcNotes) — percents sent as 0–1
+    applyPctRange(f, 'win_pct', winPct);
+    applyNumRange(f, 'win_streak', winStreak, D.winStreak);
+    applyNumRange(f, 'loss_streak', lossStreak, D.lossStreak);
+    applyNumRange(f, 'rpg', rpg, D.rpg);
+    applyNumRange(f, 'rapg', rapg, D.rapg);
+    applyNumRange(f, 'run_diff_pg', runDiffPg, D.runDiffPg);
+    if (minGames > 0) f.min_games = minGames;
+    applyPctRange(f, 'rl_cover_pct', rlCoverPct);
+    applyNumRange(f, 'rl_streak', rlStreak, D.rlStreak);
+    applyPctRange(f, 'over_pct', overPct);
+    applyNumRange(f, 'over_streak', overStreak, D.overStreak);
+    applyNumRange(f, 'under_streak', underStreak, D.underStreak);
+    applyNumRange(f, 'prev_wins', prevWins, D.prevWins);
+    applyPctRange(f, 'prev_win_pct', prevWinPct);
+    if (h2hLastWin !== 'any') f.h2h_last_win = h2hLastWin === 'yes' ? 1 : 0;
+    if (h2hLastAts !== 'any') f.h2h_last_ats_win = h2hLastAts === 'yes' ? 1 : 0;
+    if (h2hLastOver !== 'any') f.h2h_last_over = h2hLastOver === 'yes' ? 1 : 0;
+    applyNumRange(f, 'h2h_last_margin', h2hLastMargin, D.h2hLastMargin);
+    if (h2hLastHome !== null) f.h2h_last_home = h2hLastHome;
+    if (h2hLastFav !== null) f.h2h_last_fav = h2hLastFav;
+    if (h2hSameSeason !== null) f.h2h_same_season = h2hSameSeason;
+    applyPctRange(f, 'opp_win_pct', oppWinPct);
+    applyPctRange(f, 'opp_over_pct', oppOverPct);
+    applyPctRange(f, 'opp_rl_cover_pct', oppRlCoverPct);
+    applyNumRange(f, 'opp_win_streak', oppWinStreak, D.oppWinStreak);
+    applyNumRange(f, 'opp_loss_streak', oppLossStreak, D.oppLossStreak);
+    applyNumRange(f, 'opp_rpg', oppRpg, D.oppRpg);
+    applyNumRange(f, 'opp_rapg', oppRapg, D.oppRapg);
+    applyPctRange(f, 'opp_prev_win_pct', oppPrevWinPct);
+
     return f;
   }, [
     betType, seasons, months, teams, opponents, division, interleague,
-    side, favDog, mlMin, mlMax, lineRange, totalBounds, timeMin, timeMax, dayOfWeek, doubleheader,
+    side, favDog, mlMin, mlMax, lineRange, f5TotalRange, totalBounds, timeMin, timeMax, dayOfWeek, doubleheader,
     seriesGame, trip, switchGame, restRange, streakMin, streakMax, lastResult, lastMarginMin, lastMarginMax,
     sp, oppSp, spHand, oppSpHand, spXfip, oppSpXfip, bpIp, bpXfip,
     tempRange, windRange, windDir, dome, pfRuns,
+    lastAts, lastTotal, lastRole, oppLastResult, oppLastAts, oppLastTotal, oppLastRole, oppLastMargin,
+    winPct, winStreak, lossStreak, rpg, rapg, runDiffPg, minGames, rlCoverPct, rlStreak,
+    overPct, overStreak, underStreak, prevWins, prevWinPct,
+    h2hLastWin, h2hLastAts, h2hLastOver, h2hLastMargin, h2hLastHome, h2hLastFav, h2hSameSeason,
+    oppWinPct, oppOverPct, oppRlCoverPct, oppWinStreak, oppLossStreak, oppRpg, oppRapg, oppPrevWinPct,
+    D,
   ]);
 
   const weatherOnlyUpcoming = useMemo(() => {
@@ -600,22 +960,35 @@ export default function MLBAnalytics() {
   }, [buildFilters]);
 
   const resetAll = () => {
-    setSeasons([SEASON_FLOOR, SEASON_MAX]); setMonths([3, 11]); setTeams([]); setOpponents([]);
+    setSeasons(DEFAULT_SEASONS); setMonths([3, 11]); setTeams([]); setOpponents([]);
     setDivision(null); setInterleague(null); setSide('any'); setFavDog('any');
     setMlMin(''); setMlMax('');
-    const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [5, 14]); setTotalBounds(null);
+    const t = TOTAL_CFG[betType]; setLineRange([5, 14]); setF5TotalRange([2, 8]); setTotalBounds(null);
     setTimeMin(''); setTimeMax(''); setDayOfWeek('any'); setDoubleheader(null);
     setSeriesGame(null); setTrip(null); setSwitchGame(null); setRestRange([0, 10]);
     setStreakMin(''); setStreakMax(''); setLastResult('any'); setLastMarginMin(''); setLastMarginMax('');
     setSp([]); setOppSp([]); setSpHand('any'); setOppSpHand('any'); setSpXfip(null); setOppSpXfip(null);
     setBpIp(null); setBpXfip(null);
     setTempRange([30, 110]); setWindRange([0, 40]); setWindDir('any'); setDome(null); setPfRuns(null);
+    setLastAts('any'); setLastTotal('any'); setLastRole('any');
+    setOppLastResult('any'); setOppLastAts('any'); setOppLastTotal('any'); setOppLastRole('any');
+    setOppLastMargin(D.oppLastMargin);
+    setWinPct(D.winPct); setWinStreak(D.winStreak); setLossStreak(D.lossStreak);
+    setRpg(D.rpg); setRapg(D.rapg); setRunDiffPg(D.runDiffPg); setMinGames(0);
+    setRlCoverPct(D.rlCoverPct); setRlStreak(D.rlStreak);
+    setOverPct(D.overPct); setOverStreak(D.overStreak); setUnderStreak(D.underStreak);
+    setPrevWins(D.prevWins); setPrevWinPct(D.prevWinPct);
+    setH2hLastWin('any'); setH2hLastAts('any'); setH2hLastOver('any');
+    setH2hLastMargin(D.h2hLastMargin); setH2hLastHome(null); setH2hLastFav(null); setH2hSameSeason(null);
+    setOppWinPct(D.oppWinPct); setOppOverPct(D.oppOverPct); setOppRlCoverPct(D.oppRlCoverPct);
+    setOppWinStreak(D.oppWinStreak); setOppLossStreak(D.oppLossStreak);
+    setOppRpg(D.oppRpg); setOppRapg(D.oppRapg); setOppPrevWinPct(D.oppPrevWinPct);
   };
 
   const chips = useMemo(() => {
     const c: { label: string; clear: () => void }[] = [];
-    if (seasons[0] !== SEASON_FLOOR || seasons[1] !== SEASON_MAX) {
-      c.push({ label: `Seasons ${seasons[0]}–${seasons[1]}`, clear: () => setSeasons([SEASON_FLOOR, SEASON_MAX]) });
+    if (seasons[0] !== DEFAULT_SEASONS[0] || seasons[1] !== DEFAULT_SEASONS[1]) {
+      c.push({ label: `Seasons ${seasons[0]}–${seasons[1]}`, clear: () => setSeasons(DEFAULT_SEASONS) });
     }
     if (months[0] !== 3 || months[1] !== 11) c.push({ label: `Months ${months[0]}–${months[1]}`, clear: () => setMonths([3, 11]) });
     if (teams.length) c.push({ label: `Team: ${teams.join(', ')}`, clear: () => setTeams([]) });
@@ -629,13 +1002,15 @@ export default function MLBAnalytics() {
       const lbl = mlMin && mlMax ? `ML ${fmt(mlMin)} to ${fmt(mlMax)}` : mlMin ? `ML ≥ ${fmt(mlMin)}` : `ML ≤ ${fmt(mlMax)}`;
       c.push({ label: lbl, clear: () => { setMlMin(''); setMlMax(''); } });
     }
-    const t = TOTAL_CFG[betType];
     if (totalBounds && (totalBounds.min != null || totalBounds.max != null)) {
       const lo = totalBounds.min != null ? String(totalBounds.min) : '…';
       const hi = totalBounds.max != null ? String(totalBounds.max) : '…';
-      c.push({ label: `${t?.label ?? 'Total'} ${lo}–${hi}`, clear: () => setTotalBounds(null) });
-    } else if (t && (lineRange[0] !== t.min || lineRange[1] !== t.max)) {
-      c.push({ label: `${t.label} ${lineRange[0]}–${lineRange[1]}`, clear: () => setLineRange([t.min, t.max]) });
+      c.push({ label: `Game total ${lo}–${hi}`, clear: () => setTotalBounds(null) });
+    } else if (lineRange[0] !== 5 || lineRange[1] !== 14) {
+      c.push({ label: `Game total ${lineRange[0]}–${lineRange[1]}`, clear: () => setLineRange([5, 14]) });
+    }
+    if (f5TotalRange[0] !== 2 || f5TotalRange[1] !== 8) {
+      c.push({ label: `F5 total ${f5TotalRange[0]}–${f5TotalRange[1]}`, clear: () => setF5TotalRange([2, 8]) });
     }
     if (timeMin || timeMax) c.push({ label: `Time ${timeMin || '…'}–${timeMax || '…'}`, clear: () => { setTimeMin(''); setTimeMax(''); } });
     if (dayOfWeek !== 'any') c.push({ label: dayOfWeek, clear: () => setDayOfWeek('any') });
@@ -660,29 +1035,92 @@ export default function MLBAnalytics() {
     if (windDir !== 'any') c.push({ label: `Wind: ${windDir}`, clear: () => setWindDir('any') });
     if (dome !== null) c.push({ label: dome ? 'Dome' : 'Outdoor', clear: () => setDome(null) });
     if (pfRuns) c.push({ label: `Park factor ${pfRuns.min ?? '…'}–${pfRuns.max ?? '…'}`, clear: () => setPfRuns(null) });
+    if (lastAts !== 'any') c.push({ label: `Last game: ${lastAts === 'covered' ? 'Covered RL' : "Didn't cover RL"}`, clear: () => setLastAts('any') });
+    if (lastTotal !== 'any') c.push({ label: `Last game: ${lastTotal === 'over' ? 'Over' : 'Under'}`, clear: () => setLastTotal('any') });
+    if (lastRole !== 'any') c.push({ label: `Last game: ${lastRole === 'favorite' ? 'Favorite' : 'Underdog'}`, clear: () => setLastRole('any') });
+    if (oppLastResult !== 'any') c.push({ label: `Opp last game: ${oppLastResult === 'won' ? 'Won' : 'Lost'}`, clear: () => setOppLastResult('any') });
+    if (oppLastAts !== 'any') c.push({ label: `Opp last game: ${oppLastAts === 'covered' ? 'Covered RL' : "Didn't cover RL"}`, clear: () => setOppLastAts('any') });
+    if (oppLastTotal !== 'any') c.push({ label: `Opp last game: ${oppLastTotal === 'over' ? 'Over' : 'Under'}`, clear: () => setOppLastTotal('any') });
+    if (oppLastRole !== 'any') c.push({ label: `Opp last game: ${oppLastRole === 'favorite' ? 'Favorite' : 'Underdog'}`, clear: () => setOppLastRole('any') });
+    if (rangeChanged(oppLastMargin, D.oppLastMargin)) c.push({ label: `Opp last margin ${oppLastMargin[0]} to ${oppLastMargin[1]}`, clear: () => setOppLastMargin(D.oppLastMargin) });
+    if (rangeChanged(winPct, D.winPct)) c.push({ label: `Win% ${winPct[0]}–${winPct[1]}`, clear: () => setWinPct(D.winPct) });
+    if (rangeChanged(winStreak, D.winStreak)) c.push({ label: `Win streak ${winStreak[0]}–${winStreak[1]}`, clear: () => setWinStreak(D.winStreak) });
+    if (rangeChanged(lossStreak, D.lossStreak)) c.push({ label: `Loss streak ${lossStreak[0]}–${lossStreak[1]}`, clear: () => setLossStreak(D.lossStreak) });
+    if (rangeChanged(rpg, D.rpg)) c.push({ label: `R/G ${rpg[0]}–${rpg[1]}`, clear: () => setRpg(D.rpg) });
+    if (rangeChanged(rapg, D.rapg)) c.push({ label: `RA/G ${rapg[0]}–${rapg[1]}`, clear: () => setRapg(D.rapg) });
+    if (rangeChanged(runDiffPg, D.runDiffPg)) c.push({ label: `Run diff/g ${runDiffPg[0]}–${runDiffPg[1]}`, clear: () => setRunDiffPg(D.runDiffPg) });
+    if (minGames > 0) c.push({ label: `Min ${minGames} games`, clear: () => setMinGames(0) });
+    if (rangeChanged(rlCoverPct, D.rlCoverPct)) c.push({ label: `RL cover% ${rlCoverPct[0]}–${rlCoverPct[1]}`, clear: () => setRlCoverPct(D.rlCoverPct) });
+    if (rangeChanged(rlStreak, D.rlStreak)) c.push({ label: `RL streak ${rlStreak[0]}–${rlStreak[1]}`, clear: () => setRlStreak(D.rlStreak) });
+    if (rangeChanged(overPct, D.overPct)) c.push({ label: `Over% ${overPct[0]}–${overPct[1]}`, clear: () => setOverPct(D.overPct) });
+    if (rangeChanged(overStreak, D.overStreak)) c.push({ label: `Over streak ${overStreak[0]}–${overStreak[1]}`, clear: () => setOverStreak(D.overStreak) });
+    if (rangeChanged(underStreak, D.underStreak)) c.push({ label: `Under streak ${underStreak[0]}–${underStreak[1]}`, clear: () => setUnderStreak(D.underStreak) });
+    if (rangeChanged(prevWins, D.prevWins)) c.push({ label: `Prev wins ${prevWins[0]}–${prevWins[1]}`, clear: () => setPrevWins(D.prevWins) });
+    if (rangeChanged(prevWinPct, D.prevWinPct)) c.push({ label: `Prev win% ${prevWinPct[0]}–${prevWinPct[1]}`, clear: () => setPrevWinPct(D.prevWinPct) });
+    if (h2hLastWin !== 'any') c.push({ label: `H2H: ${h2hLastWin === 'yes' ? 'Won last' : 'Lost last'}`, clear: () => setH2hLastWin('any') });
+    if (h2hLastAts !== 'any') c.push({ label: `H2H: ${h2hLastAts === 'yes' ? 'Covered RL last' : "Didn't cover RL last"}`, clear: () => setH2hLastAts('any') });
+    if (h2hLastOver !== 'any') c.push({ label: `H2H: ${h2hLastOver === 'yes' ? 'Over last' : 'Under last'}`, clear: () => setH2hLastOver('any') });
+    if (rangeChanged(h2hLastMargin, D.h2hLastMargin)) c.push({ label: `H2H margin ${h2hLastMargin[0]} to ${h2hLastMargin[1]}`, clear: () => setH2hLastMargin(D.h2hLastMargin) });
+    if (h2hLastHome !== null) c.push({ label: `H2H home: ${h2hLastHome ? 'Yes' : 'No'}`, clear: () => setH2hLastHome(null) });
+    if (h2hLastFav !== null) c.push({ label: `H2H fav: ${h2hLastFav ? 'Yes' : 'No'}`, clear: () => setH2hLastFav(null) });
+    if (h2hSameSeason !== null) c.push({ label: `H2H same season: ${h2hSameSeason ? 'Yes' : 'No'}`, clear: () => setH2hSameSeason(null) });
+    if (rangeChanged(oppWinPct, D.oppWinPct)) c.push({ label: `Opp win% ${oppWinPct[0]}–${oppWinPct[1]}`, clear: () => setOppWinPct(D.oppWinPct) });
+    if (rangeChanged(oppOverPct, D.oppOverPct)) c.push({ label: `Opp over% ${oppOverPct[0]}–${oppOverPct[1]}`, clear: () => setOppOverPct(D.oppOverPct) });
+    if (rangeChanged(oppRlCoverPct, D.oppRlCoverPct)) c.push({ label: `Opp RL cover% ${oppRlCoverPct[0]}–${oppRlCoverPct[1]}`, clear: () => setOppRlCoverPct(D.oppRlCoverPct) });
+    if (rangeChanged(oppWinStreak, D.oppWinStreak)) c.push({ label: `Opp win streak ${oppWinStreak[0]}–${oppWinStreak[1]}`, clear: () => setOppWinStreak(D.oppWinStreak) });
+    if (rangeChanged(oppLossStreak, D.oppLossStreak)) c.push({ label: `Opp loss streak ${oppLossStreak[0]}–${oppLossStreak[1]}`, clear: () => setOppLossStreak(D.oppLossStreak) });
+    if (rangeChanged(oppRpg, D.oppRpg)) c.push({ label: `Opp R/G ${oppRpg[0]}–${oppRpg[1]}`, clear: () => setOppRpg(D.oppRpg) });
+    if (rangeChanged(oppRapg, D.oppRapg)) c.push({ label: `Opp RA/G ${oppRapg[0]}–${oppRapg[1]}`, clear: () => setOppRapg(D.oppRapg) });
+    if (rangeChanged(oppPrevWinPct, D.oppPrevWinPct)) c.push({ label: `Opp prev win% ${oppPrevWinPct[0]}–${oppPrevWinPct[1]}`, clear: () => setOppPrevWinPct(D.oppPrevWinPct) });
     return c;
   }, [
-    betType, seasons, months, teams, opponents, division, interleague, side, favDog, mlMin, mlMax, lineRange, totalBounds,
+    betType, seasons, months, teams, opponents, division, interleague, side, favDog, mlMin, mlMax, lineRange, f5TotalRange, totalBounds,
     timeMin, timeMax, dayOfWeek, doubleheader, seriesGame, trip, switchGame, restRange, streakMin, streakMax,
     lastResult, lastMarginMin, lastMarginMax, sp, oppSp, spHand, oppSpHand, spXfip, oppSpXfip, bpIp, bpXfip,
     tempRange, windRange, windDir, dome, pfRuns,
+    lastAts, lastTotal, lastRole, oppLastResult, oppLastAts, oppLastTotal, oppLastRole, oppLastMargin,
+    winPct, winStreak, lossStreak, rpg, rapg, runDiffPg, minGames, rlCoverPct, rlStreak,
+    overPct, overStreak, underStreak, prevWins, prevWinPct,
+    h2hLastWin, h2hLastAts, h2hLastOver, h2hLastMargin, h2hLastHome, h2hLastFav, h2hSameSeason,
+    oppWinPct, oppOverPct, oppRlCoverPct, oppWinStreak, oppLossStreak, oppRpg, oppRapg, oppPrevWinPct,
+    D,
   ]);
 
   useEffect(() => {
     setLoading(true);
+    setUpcoming([]); // drop stale slate while analysis refetches
     const filters = buildFilters();
     const upcomingFilters = weatherOnlyUpcoming ? {} : filters;
-    console.log('[mlb-analytics] mlb_analysis p_filters', JSON.stringify(filters));
+    let cancelled = false;
     const t = setTimeout(async () => {
-      const [a, u] = await Promise.all([
-        collegeFootballSupabase.rpc('mlb_analysis', { p_bet_type: betType, p_filters: filters }),
-        collegeFootballSupabase.rpc('mlb_analysis_upcoming', { p_bet_type: betType, p_filters: upcomingFilters }),
-      ]);
-      setData(a.data as Analysis);
-      setUpcoming((u.data as Record<string, unknown>[]) || []);
+      // Analysis first — paint the hero ASAP. Upcoming is heavier and was blocking the whole page
+      // (and racing the analysis query on the warehouse). Failures there must not blank results.
+      const a = await collegeFootballSupabase.rpc('mlb_analysis', { p_bet_type: betType, p_filters: filters });
+      if (cancelled) return;
+      if (a.error) {
+        console.error('[mlb-analytics] mlb_analysis error', a.error);
+        setData(null);
+      } else {
+        setData(a.data as Analysis);
+      }
       setLoading(false);
+
+      const u = await collegeFootballSupabase.rpc('mlb_analysis_upcoming', {
+        p_bet_type: betType,
+        p_filters: upcomingFilters,
+      });
+      if (cancelled) return;
+      if (u.error) {
+        console.error('[mlb-analytics] mlb_analysis_upcoming error', u.error);
+        setUpcoming([]);
+      } else {
+        setUpcoming((u.data as Record<string, unknown>[]) || []);
+      }
     }, 350);
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [betType, buildFilters, weatherOnlyUpcoming]);
 
   const applyPreset = (p: typeof PRESETS[0]) => {
@@ -698,19 +1136,40 @@ export default function MLBAnalytics() {
     if (f.pfRuns) setPfRuns(f.pfRuns as OptRange);
   };
 
-  const shownBars = useMemo(() => (data?.bars || []).filter(bar => {
-    const total = bar.options.reduce((s, o) => s + (o?.n || 0), 0);
-    return total > 0 && bar.options.every(o => o && o.n > 0 && o.n / total >= 0.1);
-  }), [data]);
+  // Two-sided-market tautology guard: both sides of every game are base rows, so game-level
+  // filters force "all teams" ≈ 50% on ml/rl/f5 side markets — lead with real side splits instead.
+  const symmetricSlices = data && isSideSymmetricMlb(normalizeMlbSavedFilterSnapshot(snapshot()))
+    ? (() => { const sl = pickSideSlices(data.bars); return sl.length ? sl : null; })()
+    : null;
+  const focusSide = (dimension: string, sideVal: string) => {
+    if (dimension === 'home_away') setSide(sideVal);
+    else if (dimension === 'fav_dog') setFavDog(sideVal);
+  };
+
+  const shownBars = useMemo(() => {
+    const hideSide = !!symmetricSlices;
+    return (data?.bars || []).filter(bar => {
+      if (hideSide && (bar.dimension === 'home_away' || bar.dimension === 'fav_dog')) return false;
+      const total = bar.options.reduce((s, o) => s + (o?.n || 0), 0);
+      return total > 0 && bar.options.every(o => o && o.n > 0 && o.n / total >= 0.1);
+    });
+  }, [data, symmetricSlices]);
 
   const isTotalMkt = TOTAL_MARKETS.has(betType);
+  // Totals are game outcomes ("went over") — never "Favorites went over".
+  // favDog remains a filter chip; it just doesn't own the headline subject.
   const subject = useMemo(() => {
+    if (isTotalMkt) {
+      if (teams.length === 1) return `${teams[0]} games`;
+      if (side !== 'any') return side === 'home' ? 'Home games' : 'Road games';
+      return 'Games';
+    }
     const parts: string[] = [];
     if (side !== 'any') parts.push(side === 'home' ? 'Home' : 'Road');
     if (favDog !== 'any') parts.push(favDog === 'favorite' ? 'favorites' : 'underdogs');
     if (teams.length === 1) return `${teams[0]}${parts.length ? ` (${parts.join(' ').toLowerCase()})` : ''}`;
     if (parts.length) return parts.join(' ').replace(/^\w/, c => c.toUpperCase());
-    return isTotalMkt ? 'Games' : 'Teams';
+    return 'Teams';
   }, [side, favDog, teams, isTotalMkt]);
 
   const scopeNote = useMemo(() => {
@@ -814,7 +1273,80 @@ export default function MLBAnalytics() {
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className={`xl:col-span-2 space-y-4 transition-opacity ${loading && data ? 'opacity-50' : ''}`}>
+        <div className="xl:col-span-2 space-y-4">
+          <Card className="border-primary/20">
+            <CardContent className="py-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-sm font-semibold">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                Describe a filter
+              </div>
+              {!user ? (
+                <p className="text-xs text-muted-foreground">Sign in to use filter chat.</p>
+              ) : (
+                <>
+                  <div className="flex items-end gap-2">
+                    <Textarea
+                      value={nlInput}
+                      onChange={(e) => {
+                        setNlInput(e.target.value);
+                        const el = e.target;
+                        el.style.height = '40px';
+                        el.style.height = `${Math.min(96, Math.max(40, el.scrollHeight))}px`;
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          submitNlFilter();
+                        }
+                      }}
+                      placeholder='e.g. "home dogs facing an ace lefty"'
+                      className="min-h-[40px] max-h-[96px] flex-1 resize-none text-sm leading-snug py-2 overflow-y-auto"
+                      rows={1}
+                      disabled={nlLoading}
+                      maxLength={500}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-10 shrink-0"
+                      disabled={nlLoading || !nlInput.trim()}
+                      onClick={() => submitNlFilter()}
+                    >
+                      {nlLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  {nlTurns.length === 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {NL_FILTER_EXAMPLES.map((ex) => (
+                        <Badge
+                          key={ex}
+                          variant="outline"
+                          className="cursor-pointer font-normal text-[11px] hover:bg-accent"
+                          onClick={() => { if (!nlLoading) submitNlFilter(ex); }}
+                        >
+                          {ex}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {nlTurns.length > 0 && (
+                    <div className="space-y-2 max-h-40 overflow-y-auto text-xs">
+                      {nlTurns.map((t) => (
+                        <div key={t.id} className="rounded-md bg-muted/50 px-2.5 py-1.5 space-y-0.5">
+                          <div className="font-medium text-foreground/90">“{t.sentence}”</div>
+                          {t.lines.map((line, i) => (
+                            <div key={i} className="text-muted-foreground">{line}</div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className={`space-y-4 transition-opacity ${loading && data ? 'opacity-50' : ''}`}>
           <div className="flex items-center gap-2 text-xs flex-wrap">
             <Badge variant="secondary">
               {cov
@@ -827,37 +1359,42 @@ export default function MLBAnalytics() {
             {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
           </div>
 
-          {!data ? <Skeleton className="h-20 w-full" /> : data.overall && cov && data.overall.n > 0 ? (
+          {!data ? <Skeleton className="h-28 w-full" /> : symmetricSlices ? (
+            <SymmetricSplitHero betType={betType} slices={symmetricSlices} cov={cov} onFocus={focusSide} />
+          ) : data.overall && cov && data.overall.n > 0 ? (
             <Card className="border-l-4 border-l-primary">
-              <CardContent className="py-4">
-                <div className="flex items-start gap-3">
+              <CardContent className="py-5">
+                <div className="flex items-start gap-4">
                   {data.overall.hit_pct >= 50
-                    ? <TrendingUp className="w-5 h-5 text-emerald-500 mt-0.5" />
-                    : <TrendingDown className="w-5 h-5 text-red-500 mt-0.5" />}
-                  <div>
-                    <p className="font-semibold leading-snug">
-                      {subject} {VERB[betType]} <span className="text-primary">{data.overall.hit_pct}%</span>
-                      {' '}<span className="text-sm font-normal text-muted-foreground">
-                        ({data.overall.wins} of {data.overall.n} {nounFor()})
+                    ? <TrendingUp className="w-6 h-6 text-emerald-500 mt-1 shrink-0" />
+                    : <TrendingDown className="w-6 h-6 text-red-500 mt-1 shrink-0" />}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="text-4xl sm:text-5xl font-bold tracking-tight text-primary tabular-nums leading-none">
+                        {data.overall.hit_pct}%
                       </span>
-                      {betType === 'ml' && data.overall.roi != null && (
-                        <> · <span className={data.overall.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+                      {!NO_ROI_MARKETS.has(betType) && data.overall.roi != null && (
+                        <span className={`text-lg font-semibold tabular-nums ${data.overall.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                           {data.overall.roi >= 0 ? '+' : ''}{data.overall.roi}% ROI
-                        </span></>
-                      )}
-                      {betType !== 'ml' && !NO_ROI_MARKETS.has(betType) && data.overall.roi != null && (
-                        <> · <span className={data.overall.roi >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
-                          {data.overall.roi >= 0 ? '+' : ''}{data.overall.roi}% ROI
-                        </span></>
+                        </span>
                       )}
                       {NO_ROI_MARKETS.has(betType) && (
-                        <> · <RoiSlot roi={null} betType={betType} /></>
+                        <span className="text-lg font-semibold"><RoiSlot roi={null} betType={betType} /></span>
                       )}
+                    </div>
+                    <p className="mt-2 text-sm font-medium leading-snug">
+                      {subject} {VERB[betType]}{' '}
+                      <span className="text-primary">{data.overall.hit_pct}%</span>
+                      {' '}
+                      <span className="font-normal text-muted-foreground">
+                        ({data.overall.wins} of {data.overall.n} {nounFor(betType)}
+                        {cov ? ` · ${cov.season_min}–${cov.season_max}` : ''})
+                      </span>
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {(data.overall.hit_pct - data.baseline_pct >= 0 ? '+' : '')}
                       {(data.overall.hit_pct - data.baseline_pct).toFixed(1)} pts vs the {data.baseline_pct}% baseline
-                      · {significance(data.overall.n, data.overall.hit_pct).label}
+                      {' · '}{significance(data.overall.n, data.overall.hit_pct).label}
                     </p>
                     <p className="text-[11px] text-muted-foreground/80 mt-1.5">{scopeNote}</p>
                   </div>
@@ -868,27 +1405,44 @@ export default function MLBAnalytics() {
             <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">No games match these filters — try widening them.</CardContent></Card>
           )}
 
-          {data && shownBars.length > 0 && (
-            <Card><CardContent className="py-4 space-y-4">
-              <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Breakdown</div>
-                <p className="text-[11px] text-muted-foreground/80 mt-0.5">The same {data.overall.n} {nounFor()}, split by situation.</p>
-              </div>
-              {shownBars.map((bar, i) => <ResultBar key={i} betType={betType} bar={bar} baseline={data.baseline_pct} />)}
-            </CardContent></Card>
-          )}
+          {data && (shownBars.length > 0 || data.by_team?.length || data.by_venue?.length) && (
+            <Collapsible open={breakdownOpen} onOpenChange={setBreakdownOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-between h-10 text-sm font-medium"
+                  aria-expanded={breakdownOpen}
+                >
+                  Explore the breakdown
+                  <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${breakdownOpen ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 mt-3">
+                {shownBars.length > 0 && (
+                  <Card><CardContent className="py-4 space-y-4">
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Breakdown</div>
+                      <p className="text-[11px] text-muted-foreground/80 mt-0.5">The same {data.overall.n} {nounFor(betType)}, split by situation.</p>
+                    </div>
+                    {shownBars.map((bar, i) => (
+                      <ResultBar key={i} betType={betType} bar={bar} baseline={data.baseline_pct} onFocus={focusSide} />
+                    ))}
+                  </CardContent></Card>
+                )}
 
-          {data && (
-            <Card><CardContent className="py-4">
-              <Tabs defaultValue="team">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="team">By Team</TabsTrigger>
-                  <TabsTrigger value="venue">By Ballpark</TabsTrigger>
-                </TabsList>
-                <TabsContent value="team"><BreakdownTable betType={betType} rows={data.by_team} keyName="team" logo /></TabsContent>
-                <TabsContent value="venue"><BreakdownTable betType={betType} rows={data.by_venue} keyName="venue" /></TabsContent>
-              </Tabs>
-            </CardContent></Card>
+                <Card><CardContent className="py-4">
+                  <Tabs defaultValue="team">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="team">By Team</TabsTrigger>
+                      <TabsTrigger value="venue">By Ballpark</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="team"><BreakdownTable betType={betType} rows={data.by_team} keyName="team" logo /></TabsContent>
+                    <TabsContent value="venue"><BreakdownTable betType={betType} rows={data.by_venue} keyName="venue" /></TabsContent>
+                  </Tabs>
+                </CardContent></Card>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {data && upcoming.length > 0 && (
@@ -933,6 +1487,7 @@ export default function MLBAnalytics() {
               </CardContent>
             </Card>
           )}
+          </div>
         </div>
 
         {/* Filters */}
@@ -966,35 +1521,34 @@ export default function MLBAnalytics() {
                 <Input type="number" inputMode="numeric" value={mlMax} onChange={e => setMlMax(e.target.value)} placeholder="max" className="h-9" />
               </div>
             </div>
-            {TOTAL_CFG[betType] && (
-              <>
-                <div className="flex flex-wrap gap-1">
-                  {TOTAL_BANDS.map(b => {
-                    const active = totalBounds?.min === b.min && totalBounds?.max === b.max
-                      || (totalBounds?.min === b.min && b.max == null && totalBounds?.max == null)
-                      || (totalBounds?.max === b.max && b.min == null && totalBounds?.min == null);
-                    return (
-                      <Badge key={b.label} variant={active ? 'default' : 'outline'} className="cursor-pointer text-[10px] hover:bg-accent"
-                        onClick={() => {
-                          const next: OptRange = {};
-                          if (b.min != null) next.min = b.min;
-                          if (b.max != null) next.max = b.max;
-                          setTotalBounds(next);
-                          // Keep slider visually in sync without inventing the other RPC bound
-                          const cfg = TOTAL_CFG[betType];
-                          setLineRange([b.min ?? cfg.min, b.max ?? cfg.max]);
-                        }}>
-                        {b.label}
-                      </Badge>
-                    );
-                  })}
-                </div>
-                <RangeRow label={`${TOTAL_CFG[betType].label}: ${lineRange[0]}–${lineRange[1]}`}
-                  min={TOTAL_CFG[betType].min} max={TOTAL_CFG[betType].max} step={0.5}
-                  value={lineRange}
-                  onChange={(v) => { setTotalBounds(null); setLineRange(v); }} />
-              </>
-            )}
+            <div className="text-[11px] text-muted-foreground -mt-1">Line filters apply on every result market.</div>
+            <div className="flex flex-wrap gap-1">
+              {TOTAL_BANDS.map(b => {
+                const active = totalBounds?.min === b.min && totalBounds?.max === b.max
+                  || (totalBounds?.min === b.min && b.max == null && totalBounds?.max == null)
+                  || (totalBounds?.max === b.max && b.min == null && totalBounds?.min == null);
+                return (
+                  <Badge key={b.label} variant={active ? 'default' : 'outline'} className="cursor-pointer text-[10px] hover:bg-accent"
+                    onClick={() => {
+                      const next: OptRange = {};
+                      if (b.min != null) next.min = b.min;
+                      if (b.max != null) next.max = b.max;
+                      setTotalBounds(next);
+                      setLineRange([b.min ?? 5, b.max ?? 14]);
+                    }}>
+                    {b.label}
+                  </Badge>
+                );
+              })}
+            </div>
+            <RangeRow label={`Game total: ${lineRange[0]}–${lineRange[1]}`}
+              min={5} max={14} step={0.5}
+              value={lineRange}
+              onChange={(v) => { setTotalBounds(null); setLineRange(v); }} />
+            <RangeRow label={`F5 total: ${f5TotalRange[0]}–${f5TotalRange[1]}`}
+              min={2} max={8} step={0.5}
+              value={f5TotalRange}
+              onChange={setF5TotalRange} />
           </FilterSection>
 
           <FilterSection title="Game Time (ET)">
@@ -1064,6 +1618,12 @@ export default function MLBAnalytics() {
             </div>
             <SelectRow label="Last result" value={lastResult} onChange={setLastResult}
               options={[['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']]} />
+            <SelectRow label="Last game run line" value={lastAts} onChange={setLastAts}
+              options={[['any', 'Any'], ['covered', 'Covered'], ['not', "Didn't cover"]]} />
+            <SelectRow label="Last game total" value={lastTotal} onChange={setLastTotal}
+              options={[['any', 'Any'], ['over', 'Over'], ['under', 'Under']]} />
+            <SelectRow label="Last game role" value={lastRole} onChange={setLastRole}
+              options={[['any', 'Any'], ['favorite', 'Favorite'], ['underdog', 'Underdog']]} />
             <div>
               <div className="text-xs text-muted-foreground mb-1">Last game margin (signed: + won by, − lost by)</div>
               <div className="flex gap-1 mb-1">
@@ -1089,9 +1649,32 @@ export default function MLBAnalytics() {
             </div>
           </FilterSection>
 
+          <FilterSection title="Opponent last game">
+            <SelectRow label="Result" value={oppLastResult} onChange={setOppLastResult}
+              options={[['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']]} />
+            <SelectRow label="Run line" value={oppLastAts} onChange={setOppLastAts}
+              options={[['any', 'Any'], ['covered', 'Covered'], ['not', "Didn't cover"]]} />
+            <SelectRow label="Total" value={oppLastTotal} onChange={setOppLastTotal}
+              options={[['any', 'Any'], ['over', 'Over'], ['under', 'Under']]} />
+            <SelectRow label="Was" value={oppLastRole} onChange={setOppLastRole}
+              options={[['any', 'Any'], ['favorite', 'Favorite'], ['underdog', 'Underdog']]} />
+            <RangeRow label={`Opponent last game margin: ${oppLastMargin[0]} to ${oppLastMargin[1]} runs (+ = won by, − = lost by)`}
+              min={-30} max={30} step={1} value={oppLastMargin} onChange={setOppLastMargin} />
+          </FilterSection>
+
           <FilterSection title="Pitching Matchup">
-            <PitcherTypeahead label="Team starter (SP)" selected={sp} onChange={setSp} />
-            <PitcherTypeahead label="Opposing starter" selected={oppSp} onChange={setOppSp} />
+            <PitcherTypeahead
+              label="Team starter (SP)"
+              selected={sp}
+              onChange={setSp}
+              onNamesSeen={(names) => setPitcherNameCache((prev) => Array.from(new Set([...prev, ...names])))}
+            />
+            <PitcherTypeahead
+              label="Opposing starter"
+              selected={oppSp}
+              onChange={setOppSp}
+              onNamesSeen={(names) => setPitcherNameCache((prev) => Array.from(new Set([...prev, ...names])))}
+            />
             <SelectRow label="SP hand" value={spHand} onChange={setSpHand} options={[['any', 'Any'], ['L', 'Left'], ['R', 'Right']]} />
             <SelectRow label="Opp SP hand" value={oppSpHand} onChange={setOppSpHand} options={[['any', 'Any'], ['L', 'Left'], ['R', 'Right']]} />
             <div>
@@ -1180,6 +1763,60 @@ export default function MLBAnalytics() {
                 {pfRuns && <Badge variant="secondary" className="cursor-pointer text-[10px]" onClick={() => setPfRuns(null)}>Clear</Badge>}
               </div>
             </div>
+          </FilterSection>
+
+          <FilterSection title="Season Record">
+            <RangeRow label={`Win%: ${winPct[0]}–${winPct[1]}%`} min={0} max={100} step={1} value={winPct} onChange={setWinPct} />
+            <RangeRow label={`Win streak: ${winStreak[0]}–${winStreak[1]}`} min={0} max={25} step={1} value={winStreak} onChange={setWinStreak} />
+            <RangeRow label={`Loss streak: ${lossStreak[0]}–${lossStreak[1]}`} min={0} max={25} step={1} value={lossStreak} onChange={setLossStreak} />
+            <RangeRow label={`Runs/game: ${rpg[0]}–${rpg[1]}`} min={0} max={10} step={0.1} value={rpg} onChange={setRpg} />
+            <RangeRow label={`Runs allowed/game: ${rapg[0]}–${rapg[1]}`} min={0} max={10} step={0.1} value={rapg} onChange={setRapg} />
+            <RangeRow label={`Run diff/game: ${runDiffPg[0]}–${runDiffPg[1]}`} min={-4} max={4} step={0.1} value={runDiffPg} onChange={setRunDiffPg} />
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Min games this season: {minGames === 0 ? 'Any' : minGames}</div>
+              <Slider min={0} max={40} step={1} value={[minGames]} onValueChange={([v]) => setMinGames(v)} />
+            </div>
+          </FilterSection>
+
+          <FilterSection title="Run Line Profile">
+            <RangeRow label={`RL cover%: ${rlCoverPct[0]}–${rlCoverPct[1]}%`} min={0} max={100} step={1} value={rlCoverPct} onChange={setRlCoverPct} />
+            <RangeRow label={`RL cover streak: ${rlStreak[0]}–${rlStreak[1]}`} min={0} max={25} step={1} value={rlStreak} onChange={setRlStreak} />
+          </FilterSection>
+
+          <FilterSection title="Total Profile">
+            <RangeRow label={`Over%: ${overPct[0]}–${overPct[1]}%`} min={0} max={100} step={1} value={overPct} onChange={setOverPct} />
+            <RangeRow label={`Over streak: ${overStreak[0]}–${overStreak[1]}`} min={0} max={25} step={1} value={overStreak} onChange={setOverStreak} />
+            <RangeRow label={`Under streak: ${underStreak[0]}–${underStreak[1]}`} min={0} max={25} step={1} value={underStreak} onChange={setUnderStreak} />
+          </FilterSection>
+
+          <FilterSection title="Prior Year">
+            <RangeRow label={`Last season wins: ${prevWins[0]}–${prevWins[1]}`} min={0} max={120} step={1} value={prevWins} onChange={setPrevWins} />
+            <RangeRow label={`Last season win%: ${prevWinPct[0]}–${prevWinPct[1]}%`} min={0} max={100} step={1} value={prevWinPct} onChange={setPrevWinPct} />
+          </FilterSection>
+
+          <FilterSection title="Head-to-Head">
+            <SelectRow label="Won last meeting" value={h2hLastWin} onChange={setH2hLastWin}
+              options={[['any', 'Any'], ['yes', 'Won'], ['no', 'Lost']]} />
+            <SelectRow label="Covered RL last meeting" value={h2hLastAts} onChange={setH2hLastAts}
+              options={[['any', 'Any'], ['yes', 'Covered'], ['no', "Didn't cover"]]} />
+            <SelectRow label="Last meeting total" value={h2hLastOver} onChange={setH2hLastOver}
+              options={[['any', 'Any'], ['yes', 'Over'], ['no', 'Under']]} />
+            <RangeRow label={`Last meeting margin: ${h2hLastMargin[0]} to ${h2hLastMargin[1]} runs`}
+              min={-30} max={30} step={1} value={h2hLastMargin} onChange={setH2hLastMargin} />
+            <TriRow label="Was home last meeting" value={h2hLastHome} onChange={setH2hLastHome} />
+            <TriRow label="Was favorite last meeting" value={h2hLastFav} onChange={setH2hLastFav} />
+            <TriRow label="Same season as last meeting" value={h2hSameSeason} onChange={setH2hSameSeason} />
+          </FilterSection>
+
+          <FilterSection title="Opponent Record">
+            <RangeRow label={`Opp win%: ${oppWinPct[0]}–${oppWinPct[1]}%`} min={0} max={100} step={1} value={oppWinPct} onChange={setOppWinPct} />
+            <RangeRow label={`Opp over%: ${oppOverPct[0]}–${oppOverPct[1]}%`} min={0} max={100} step={1} value={oppOverPct} onChange={setOppOverPct} />
+            <RangeRow label={`Opp RL cover%: ${oppRlCoverPct[0]}–${oppRlCoverPct[1]}%`} min={0} max={100} step={1} value={oppRlCoverPct} onChange={setOppRlCoverPct} />
+            <RangeRow label={`Opp win streak: ${oppWinStreak[0]}–${oppWinStreak[1]}`} min={0} max={25} step={1} value={oppWinStreak} onChange={setOppWinStreak} />
+            <RangeRow label={`Opp loss streak: ${oppLossStreak[0]}–${oppLossStreak[1]}`} min={0} max={25} step={1} value={oppLossStreak} onChange={setOppLossStreak} />
+            <RangeRow label={`Opp runs/game: ${oppRpg[0]}–${oppRpg[1]}`} min={0} max={10} step={0.1} value={oppRpg} onChange={setOppRpg} />
+            <RangeRow label={`Opp runs allowed/game: ${oppRapg[0]}–${oppRapg[1]}`} min={0} max={10} step={0.1} value={oppRapg} onChange={setOppRapg} />
+            <RangeRow label={`Opp last-season win%: ${oppPrevWinPct[0]}–${oppPrevWinPct[1]}%`} min={0} max={100} step={1} value={oppPrevWinPct} onChange={setOppPrevWinPct} />
           </FilterSection>
         </div>
       </div>
@@ -1294,35 +1931,58 @@ function TeamMultiSelect({
 }
 
 function PitcherTypeahead({
-  label, selected, onChange,
+  label, selected, onChange, onNamesSeen,
 }: {
   label: string;
   selected: PitcherOpt[];
   onChange: (v: PitcherOpt[]) => void;
+  onNamesSeen?: (names: string[]) => void;
 }) {
   const [q, setQ] = useState('');
-  const [opts, setOpts] = useState<PitcherOpt[]>([]);
+  const [catalog, setCatalog] = useState<PitcherOpt[] | null>(null);
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadOnce = useRef<Promise<PitcherOpt[]> | null>(null);
+  const onNamesSeenRef = useRef(onNamesSeen);
+  onNamesSeenRef.current = onNamesSeen;
 
-  useEffect(() => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      const { data } = await collegeFootballSupabase.rpc('mlb_pitcher_options', {
-        p_q: q.trim() || null,
-      });
-      setOpts((data as PitcherOpt[]) || []);
-    }, 250);
-    return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [q]);
+  const ensureCatalog = useCallback(async () => {
+    if (catalog) return catalog;
+    if (loadOnce.current) return loadOnce.current;
+    setLoading(true);
+    setLoadError(false);
+    loadOnce.current = loadMlbPitcherCatalog();
+    try {
+      const rows = await loadOnce.current;
+      setCatalog(rows);
+      if (rows.length && onNamesSeenRef.current) onNamesSeenRef.current(rows.map((p) => p.name));
+      return rows;
+    } catch {
+      loadOnce.current = null;
+      setLoadError(true);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [catalog]);
+
+  const opts = useMemo(
+    () => filterPitchers(catalog ?? [], q, 40),
+    [catalog, q],
+  );
 
   const add = (p: PitcherOpt) => {
     if (selected.some(s => s.id === p.id)) return;
     onChange([...selected, p]);
     setQ('');
-    setOpen(false);
+    // Keep open so users can multi-select without re-fighting the dropdown.
+    setOpen(true);
   };
   const remove = (id: number) => onChange(selected.filter(s => s.id !== id));
+
+  const showPanel = open && (loading || loadError || catalog !== null);
 
   return (
     <div>
@@ -1332,7 +1992,7 @@ function PitcherTypeahead({
           {selected.map(p => (
             <Badge key={p.id} variant="secondary" className="gap-1 pr-1 text-[10px]">
               {p.name}{p.team ? ` (${p.team})` : ''}{p.hand ? ` · ${p.hand}` : ''}
-              <button onClick={() => remove(p.id)}><X className="w-3 h-3" /></button>
+              <button type="button" onClick={() => remove(p.id)}><X className="w-3 h-3" /></button>
             </Badge>
           ))}
         </div>
@@ -1341,18 +2001,44 @@ function PitcherTypeahead({
         <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <Input
           value={q}
-          onChange={e => { setQ(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          placeholder="Search pitchers…"
+          onChange={e => {
+            setQ(e.target.value);
+            setOpen(true);
+            void ensureCatalog();
+          }}
+          onFocus={() => {
+            if (blurTimer.current) clearTimeout(blurTimer.current);
+            setOpen(true);
+            void ensureCatalog();
+          }}
+          onBlur={() => {
+            // Delay so option mousedown/click can register before close.
+            blurTimer.current = setTimeout(() => setOpen(false), 150);
+          }}
+          placeholder="Search pitchers… (accents optional)"
           className="h-9 pl-7 text-xs"
+          autoComplete="off"
+          spellCheck={false}
         />
-        {open && opts.length > 0 && (
+        {showPanel && (
           <div className="absolute z-20 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
-            {opts.slice(0, 40).map(p => (
+            {loading && !catalog && (
+              <div className="px-3 py-2 text-xs text-muted-foreground">Loading pitchers…</div>
+            )}
+            {loadError && !catalog && (
+              <div className="px-3 py-2 text-xs text-muted-foreground">Couldn’t load pitchers — try again</div>
+            )}
+            {!loading && catalog && opts.length === 0 && (
+              <div className="px-3 py-2 text-xs text-muted-foreground">
+                {q.trim() ? 'No pitchers match' : 'No pitchers available'}
+              </div>
+            )}
+            {opts.map(p => (
               <button
                 key={p.id}
                 type="button"
                 className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent flex justify-between gap-2"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => add(p)}
               >
                 <span className="font-medium truncate">{p.name}</span>

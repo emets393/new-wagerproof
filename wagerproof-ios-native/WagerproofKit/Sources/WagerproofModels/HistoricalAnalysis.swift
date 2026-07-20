@@ -140,7 +140,7 @@ public enum HistoricalAnalysisBetType: String, CaseIterable, Identifiable, Senda
     public static func showsROI(betType: String, sport: HistoricalAnalysisSport) -> Bool {
         switch sport {
         case .mlb: return !noROIMarkets.contains(betType)
-        case .nfl, .cfb: return !moneylineMarkets.contains(betType)
+        case .nfl, .cfb: return true  // B3: ROI everywhere for NFL/CFB - RPC now returns real ML ROI
         }
     }
 }
@@ -267,7 +267,8 @@ public struct HistoricalAnalysisUpcomingGame: Codable, Sendable, Equatable, Iden
     public let team: String
     public let opponent: String
     public let isHome: Bool
-    public let isFavorite: Bool
+    /// Null when odds are missing / pick'em — MLB `mlb_analysis_upcoming` returns null `is_favorite`.
+    public let isFavorite: Bool?
     public let matchup: String
     /// Football kickoff ISO; optional so MLB rows (game_date / time_et) still decode.
     public let kickoff: String?
@@ -334,6 +335,60 @@ public struct HistoricalAnalysisUpcomingGame: Codable, Sendable, Equatable, Iden
         case oppSpName = "opp_sp_name"
         case venue
     }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        team = try c.decode(String.self, forKey: .team)
+        opponent = try c.decode(String.self, forKey: .opponent)
+        isHome = try c.decodeIfPresent(Bool.self, forKey: .isHome) ?? true
+        isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite)
+        matchup = try c.decodeIfPresent(String.self, forKey: .matchup)
+            ?? "\(team) vs \(opponent)"
+        kickoff = try c.decodeIfPresent(String.self, forKey: .kickoff)
+        teamSpread = c.haFlexDouble(.teamSpread)
+        total = c.haFlexDouble(.total)
+        ttLine = c.haFlexDouble(.ttLine)
+        h1Spread = c.haFlexDouble(.h1Spread)
+        h1Total = c.haFlexDouble(.h1Total)
+        referee = try c.decodeIfPresent(String.self, forKey: .referee)
+        gamePk = c.haFlexInt(.gamePk)
+        gameDate = try c.decodeIfPresent(String.self, forKey: .gameDate)
+        timeEt = try c.decodeIfPresent(String.self, forKey: .timeEt)
+        ml = c.haFlexDouble(.ml)
+        f5Total = c.haFlexDouble(.f5Total)
+        seriesGame = c.haFlexInt(.seriesGame)
+        tripSeriesIndex = c.haFlexInt(.tripSeriesIndex)
+        isSwitchGame = try c.decodeIfPresent(Bool.self, forKey: .isSwitchGame)
+        prevResult = try c.decodeIfPresent(String.self, forKey: .prevResult)
+        daysRest = c.haFlexInt(.daysRest)
+        dayOfWeek = try c.decodeIfPresent(String.self, forKey: .dayOfWeek)
+        isDoubleheader = try c.decodeIfPresent(Bool.self, forKey: .isDoubleheader)
+        spHand = try c.decodeIfPresent(String.self, forKey: .spHand)
+        oppSpHand = try c.decodeIfPresent(String.self, forKey: .oppSpHand)
+        spId = c.haFlexInt(.spId)
+        spName = try c.decodeIfPresent(String.self, forKey: .spName)
+        oppSpId = c.haFlexInt(.oppSpId)
+        oppSpName = try c.decodeIfPresent(String.self, forKey: .oppSpName)
+        venue = try c.decodeIfPresent(String.self, forKey: .venue)
+    }
+}
+
+// MARK: - Flexible numeric decode (PostgREST may emit ints for whole-number doubles)
+
+private extension KeyedDecodingContainer {
+    func haFlexDouble(_ key: Key) -> Double? {
+        if let d = try? decodeIfPresent(Double.self, forKey: key) { return d }
+        if let i = try? decodeIfPresent(Int.self, forKey: key) { return Double(i) }
+        if let s = try? decodeIfPresent(String.self, forKey: key) { return Double(s) }
+        return nil
+    }
+
+    func haFlexInt(_ key: Key) -> Int? {
+        if let i = try? decodeIfPresent(Int.self, forKey: key) { return i }
+        if let d = try? decodeIfPresent(Double.self, forKey: key) { return Int(d) }
+        if let s = try? decodeIfPresent(String.self, forKey: key) { return Int(s) }
+        return nil
+    }
 }
 
 // MARK: - Saved filters (main Supabase project)
@@ -371,6 +426,24 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
     public var lineMax: Double
     public var mlMin: String
     public var mlMax: String
+    // Cross-market football line filters. These stay separate from the selected
+    // result market so a spread analysis can still be narrowed by 1H/TT pricing.
+    public var h1SpreadSide: String
+    public var h1SpreadMin: Double
+    public var h1SpreadMax: Double
+    public var h1MlMin: String
+    public var h1MlMax: String
+    public var h1TotalMin: Double
+    public var h1TotalMax: Double
+    public var ttLineMin: Double
+    public var ttLineMax: Double
+    public var oppSpreadSide: String
+    public var oppSpreadMin: Double
+    public var oppSpreadMax: Double
+    public var oppMlMin: String
+    public var oppMlMax: String
+    public var oppTtLineMin: Double
+    public var oppTtLineMax: Double
     public var primetime: Bool?
     public var tempMin: Int
     public var tempMax: Int
@@ -405,6 +478,66 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
     public var lastRole: String      // any | favorite | underdog
     public var lastOt: Bool?         // previous game went to overtime
     public var lastBlowout: String   // any | win | loss  (±21 margin)
+
+    // NFL "as-of" season record filters (team's situation at time of game)
+    public var winPct: [Double]             // [0, 100] UI range (sent as 0–1 to RPC)
+    public var winStreak: [Int]             // [0, 16]
+    public var lossStreak: [Int]            // [0, 16]
+    public var above500: Bool?              // true = >.500, false = <.500
+    public var winPctGtOpp: Bool?          // win % better than opponent
+    public var ppg: [Double]               // points per game [0, 40]
+    public var paPg: [Double]              // points allowed per game [0, 40]
+    public var pointDiffPg: [Double]       // point differential [-20, 20]
+    public var minGames: Int               // minimum games this season (guard for thin samples)
+    
+    // NFL ATS/Cover profile
+    public var atsWinPct: [Double]         // ATS cover % [0, 100]
+    public var atsWinStreak: [Int]         // ATS cover streak [0, 16]
+    public var avgCoverMargin: [Double]    // average cover margin [-15, 15]
+    
+    // NFL Total profile
+    public var overPct: [Double]           // over % [0, 100]
+    public var overStreak: [Int]           // over streak [0, 16]
+    public var underStreak: [Int]          // under streak [0, 16]
+    
+    // NFL Prior year
+    public var prevWins: [Int]             // previous season wins [0, 16]
+    public var prevWinPct: [Double]        // previous season win % [0, 100]
+    public var madePlayoffsPrev: Bool?     // made playoffs last year
+    public var moreWinsThanOppPrev: Bool?  // more wins than opponent last year
+    
+    // NFL Head-to-head (last meeting)
+    public var h2hLastWin: String          // "any" | "yes" | "no"
+    public var h2hLastAts: String          // "any" | "yes" | "no"
+    public var h2hLastOver: String         // "any" | "yes" | "no"
+    public var h2hLastHome: Bool?          // was home in last meeting
+    public var h2hLastFav: Bool?           // was favorite in last meeting
+    public var h2hSameSeason: Bool?        // last meeting same season
+    public var h2hSpreadCmp: String        // "any" | "lower" | "higher"
+    
+    // NFL Opponent record
+    public var oppWinPct: [Double]         // opponent win % [0, 100]
+    public var oppOverPct: [Double]        // opponent over % [0, 100]
+    public var oppWinStreak: [Int]         // opponent win streak [0, 16]
+    public var oppLossStreak: [Int]        // opponent loss streak [0, 16]
+    public var oppPpg: [Double]            // opponent points per game
+    public var oppPaPg: [Double]           // opponent points allowed per game
+    public var oppPrevWinPct: [Double]     // opponent previous season win % [0, 100]
+    
+    // NFL Opponent last game (the opponent's previous game)
+    public var oppLastResult: String       // "any" | "won" | "lost"
+    public var oppLastAts: String          // "any" | "covered" | "not"
+    public var oppLastTotal: String        // "any" | "over" | "under"
+    public var oppLastRole: String         // "any" | "favorite" | "underdog"
+    public var oppLastOt: Bool?            // opponent's last game went to overtime
+    public var oppLastMargin: [Int]        // opponent's last game margin [-60, 60]
+    
+    // NFL Last game margin (replaces blowout for NFL)
+    public var lastMargin: [Int]           // signed margin [-60, 60] (+ = won by, - = lost by)
+    
+    // NFL Multi-select additions
+    public var daysOfWeek: [String]        // ["Sun", "Mon", ...] 
+    public var teamDivisions: [String]     // ["AFC East", "NFC West", ...]
 
     // MLB-only (tolerant decode — missing keys use defaults so old football JSON still works)
     public var monthMin: Int
@@ -441,6 +574,9 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         case betType, seasonMin, seasonMax, weekMin, weekMax
         case side, favDog, spreadSide, spreadMin, spreadMax
         case lineMin, lineMax, mlMin, mlMax, primetime
+        case h1SpreadSide, h1SpreadMin, h1SpreadMax, h1MlMin, h1MlMax, h1TotalMin, h1TotalMax
+        case ttLineMin, ttLineMax, oppSpreadSide, oppSpreadMin, oppSpreadMax
+        case oppMlMin, oppMlMax, oppTtLineMin, oppTtLineMax
         case tempMin, tempMax, windMax
         case seasonType, playoffRound, division, dome, precip, restBye, coach, referee
         case gameType, rankedMatchup, conferenceGame, neutralSite, conference, selectedConferences
@@ -452,6 +588,17 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         case lastMarginMin, lastMarginMax
         case sp, oppSp, spHand, oppSpHand
         case windMin, windDir, pfRunsMin, pfRunsMax
+        // NFL "as-of" filters - encoding with WEB key names for saved filter compatibility
+        case winPct, winStreak, lossStreak, above500, winPctGtOpp
+        case ppg, paPg, pointDiffPg, minGames
+        case atsWinPct, atsWinStreak, avgCoverMargin
+        case overPct, overStreak, underStreak
+        case prevWins, prevWinPct, madePlayoffsPrev, moreWinsThanOppPrev
+        case h2hLastWin, h2hLastAts, h2hLastOver, h2hLastHome, h2hLastFav
+        case h2hSameSeason, h2hSpreadCmp
+        case oppWinPct, oppOverPct, oppWinStreak, oppLossStreak, oppPpg, oppPaPg, oppPrevWinPct
+        case oppLastResult, oppLastAts, oppLastTotal, oppLastRole, oppLastOt, oppLastMargin
+        case lastMargin, daysOfWeek, teamDivisions
     }
 
     public init(
@@ -469,6 +616,22 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         lineMax: Double,
         mlMin: String,
         mlMax: String,
+        h1SpreadSide: String = "any",
+        h1SpreadMin: Double = 0,
+        h1SpreadMax: Double = 14,
+        h1MlMin: String = "",
+        h1MlMax: String = "",
+        h1TotalMin: Double = 15,
+        h1TotalMax: Double = 35,
+        ttLineMin: Double = 10,
+        ttLineMax: Double = 40,
+        oppSpreadSide: String = "any",
+        oppSpreadMin: Double = 0,
+        oppSpreadMax: Double = 20,
+        oppMlMin: String = "",
+        oppMlMax: String = "",
+        oppTtLineMin: Double = 10,
+        oppTtLineMax: Double = 40,
         primetime: Bool?,
         tempMin: Int,
         tempMax: Int,
@@ -519,7 +682,50 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         lastTotal: String = "any",
         lastRole: String = "any",
         lastOt: Bool? = nil,
-        lastBlowout: String = "any"
+        lastBlowout: String = "any",
+        // NFL "as-of" defaults
+        winPct: [Double] = [0, 100],
+        winStreak: [Int] = [0, 16],
+        lossStreak: [Int] = [0, 16],
+        above500: Bool? = nil,
+        winPctGtOpp: Bool? = nil,
+        ppg: [Double] = [0, 40],
+        paPg: [Double] = [0, 40],
+        pointDiffPg: [Double] = [-20, 20],
+        minGames: Int = 0,
+        atsWinPct: [Double] = [0, 100],
+        atsWinStreak: [Int] = [0, 16],
+        avgCoverMargin: [Double] = [-15, 15],
+        overPct: [Double] = [0, 100],
+        overStreak: [Int] = [0, 16],
+        underStreak: [Int] = [0, 16],
+        prevWins: [Int] = [0, 16],
+        prevWinPct: [Double] = [0, 100],
+        madePlayoffsPrev: Bool? = nil,
+        moreWinsThanOppPrev: Bool? = nil,
+        h2hLastWin: String = "any",
+        h2hLastAts: String = "any",
+        h2hLastOver: String = "any",
+        h2hLastHome: Bool? = nil,
+        h2hLastFav: Bool? = nil,
+        h2hSameSeason: Bool? = nil,
+        h2hSpreadCmp: String = "any",
+        oppWinPct: [Double] = [0, 100],
+        oppOverPct: [Double] = [0, 100],
+        oppWinStreak: [Int] = [0, 16],
+        oppLossStreak: [Int] = [0, 16],
+        oppPpg: [Double] = [0, 40],
+        oppPaPg: [Double] = [0, 40],
+        oppPrevWinPct: [Double] = [0, 100],
+        oppLastResult: String = "any",
+        oppLastAts: String = "any",
+        oppLastTotal: String = "any",
+        oppLastRole: String = "any",
+        oppLastOt: Bool? = nil,
+        oppLastMargin: [Int] = [-60, 60],
+        lastMargin: [Int] = [-60, 60],
+        daysOfWeek: [String] = [],
+        teamDivisions: [String] = []
     ) {
         self.betType = betType
         self.seasonMin = seasonMin
@@ -535,6 +741,22 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         self.lineMax = lineMax
         self.mlMin = mlMin
         self.mlMax = mlMax
+        self.h1SpreadSide = h1SpreadSide
+        self.h1SpreadMin = h1SpreadMin
+        self.h1SpreadMax = h1SpreadMax
+        self.h1MlMin = h1MlMin
+        self.h1MlMax = h1MlMax
+        self.h1TotalMin = h1TotalMin
+        self.h1TotalMax = h1TotalMax
+        self.ttLineMin = ttLineMin
+        self.ttLineMax = ttLineMax
+        self.oppSpreadSide = oppSpreadSide
+        self.oppSpreadMin = oppSpreadMin
+        self.oppSpreadMax = oppSpreadMax
+        self.oppMlMin = oppMlMin
+        self.oppMlMax = oppMlMax
+        self.oppTtLineMin = oppTtLineMin
+        self.oppTtLineMax = oppTtLineMax
         self.primetime = primetime
         self.tempMin = tempMin
         self.tempMax = tempMax
@@ -586,6 +808,49 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         self.lastRole = lastRole
         self.lastOt = lastOt
         self.lastBlowout = lastBlowout
+        // NFL "as-of" fields
+        self.winPct = winPct
+        self.winStreak = winStreak
+        self.lossStreak = lossStreak
+        self.above500 = above500
+        self.winPctGtOpp = winPctGtOpp
+        self.ppg = ppg
+        self.paPg = paPg
+        self.pointDiffPg = pointDiffPg
+        self.minGames = minGames
+        self.atsWinPct = atsWinPct
+        self.atsWinStreak = atsWinStreak
+        self.avgCoverMargin = avgCoverMargin
+        self.overPct = overPct
+        self.overStreak = overStreak
+        self.underStreak = underStreak
+        self.prevWins = prevWins
+        self.prevWinPct = prevWinPct
+        self.madePlayoffsPrev = madePlayoffsPrev
+        self.moreWinsThanOppPrev = moreWinsThanOppPrev
+        self.h2hLastWin = h2hLastWin
+        self.h2hLastAts = h2hLastAts
+        self.h2hLastOver = h2hLastOver
+        self.h2hLastHome = h2hLastHome
+        self.h2hLastFav = h2hLastFav
+        self.h2hSameSeason = h2hSameSeason
+        self.h2hSpreadCmp = h2hSpreadCmp
+        self.oppWinPct = oppWinPct
+        self.oppOverPct = oppOverPct
+        self.oppWinStreak = oppWinStreak
+        self.oppLossStreak = oppLossStreak
+        self.oppPpg = oppPpg
+        self.oppPaPg = oppPaPg
+        self.oppPrevWinPct = oppPrevWinPct
+        self.oppLastResult = oppLastResult
+        self.oppLastAts = oppLastAts
+        self.oppLastTotal = oppLastTotal
+        self.oppLastRole = oppLastRole
+        self.oppLastOt = oppLastOt
+        self.oppLastMargin = oppLastMargin
+        self.lastMargin = lastMargin
+        self.daysOfWeek = daysOfWeek
+        self.teamDivisions = teamDivisions
     }
 
     public init(from decoder: Decoder) throws {
@@ -604,6 +869,22 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         lineMax = try c.decode(Double.self, forKey: .lineMax)
         mlMin = try c.decode(String.self, forKey: .mlMin)
         mlMax = try c.decode(String.self, forKey: .mlMax)
+        h1SpreadSide = try c.decodeIfPresent(String.self, forKey: .h1SpreadSide) ?? "any"
+        h1SpreadMin = try c.decodeIfPresent(Double.self, forKey: .h1SpreadMin) ?? 0
+        h1SpreadMax = try c.decodeIfPresent(Double.self, forKey: .h1SpreadMax) ?? 14
+        h1MlMin = try c.decodeIfPresent(String.self, forKey: .h1MlMin) ?? ""
+        h1MlMax = try c.decodeIfPresent(String.self, forKey: .h1MlMax) ?? ""
+        h1TotalMin = try c.decodeIfPresent(Double.self, forKey: .h1TotalMin) ?? 15
+        h1TotalMax = try c.decodeIfPresent(Double.self, forKey: .h1TotalMax) ?? 35
+        ttLineMin = try c.decodeIfPresent(Double.self, forKey: .ttLineMin) ?? 10
+        ttLineMax = try c.decodeIfPresent(Double.self, forKey: .ttLineMax) ?? 40
+        oppSpreadSide = try c.decodeIfPresent(String.self, forKey: .oppSpreadSide) ?? "any"
+        oppSpreadMin = try c.decodeIfPresent(Double.self, forKey: .oppSpreadMin) ?? 0
+        oppSpreadMax = try c.decodeIfPresent(Double.self, forKey: .oppSpreadMax) ?? 20
+        oppMlMin = try c.decodeIfPresent(String.self, forKey: .oppMlMin) ?? ""
+        oppMlMax = try c.decodeIfPresent(String.self, forKey: .oppMlMax) ?? ""
+        oppTtLineMin = try c.decodeIfPresent(Double.self, forKey: .oppTtLineMin) ?? 10
+        oppTtLineMax = try c.decodeIfPresent(Double.self, forKey: .oppTtLineMax) ?? 40
         primetime = try c.decodeIfPresent(Bool.self, forKey: .primetime)
         tempMin = try c.decode(Int.self, forKey: .tempMin)
         tempMax = try c.decode(Int.self, forKey: .tempMax)
@@ -656,6 +937,139 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         lastRole = try c.decodeIfPresent(String.self, forKey: .lastRole) ?? "any"
         lastOt = try c.decodeIfPresent(Bool.self, forKey: .lastOt)
         lastBlowout = try c.decodeIfPresent(String.self, forKey: .lastBlowout) ?? "any"
+        
+        // NFL "as-of" fields with backward compatibility defaults
+        winPct = try c.decodeIfPresent([Double].self, forKey: .winPct) ?? [0, 100]
+        winStreak = try c.decodeIfPresent([Int].self, forKey: .winStreak) ?? [0, 16]
+        lossStreak = try c.decodeIfPresent([Int].self, forKey: .lossStreak) ?? [0, 16]
+        above500 = try c.decodeIfPresent(Bool.self, forKey: .above500)
+        winPctGtOpp = try c.decodeIfPresent(Bool.self, forKey: .winPctGtOpp)
+        ppg = try c.decodeIfPresent([Double].self, forKey: .ppg) ?? [0, 40]
+        paPg = try c.decodeIfPresent([Double].self, forKey: .paPg) ?? [0, 40]
+        pointDiffPg = try c.decodeIfPresent([Double].self, forKey: .pointDiffPg) ?? [-20, 20]
+        minGames = try c.decodeIfPresent(Int.self, forKey: .minGames) ?? 0
+        atsWinPct = try c.decodeIfPresent([Double].self, forKey: .atsWinPct) ?? [0, 100]
+        atsWinStreak = try c.decodeIfPresent([Int].self, forKey: .atsWinStreak) ?? [0, 16]
+        avgCoverMargin = try c.decodeIfPresent([Double].self, forKey: .avgCoverMargin) ?? [-15, 15]
+        overPct = try c.decodeIfPresent([Double].self, forKey: .overPct) ?? [0, 100]
+        overStreak = try c.decodeIfPresent([Int].self, forKey: .overStreak) ?? [0, 16]
+        underStreak = try c.decodeIfPresent([Int].self, forKey: .underStreak) ?? [0, 16]
+        prevWins = try c.decodeIfPresent([Int].self, forKey: .prevWins) ?? [0, 16]
+        prevWinPct = try c.decodeIfPresent([Double].self, forKey: .prevWinPct) ?? [0, 100]
+        madePlayoffsPrev = try c.decodeIfPresent(Bool.self, forKey: .madePlayoffsPrev)
+        moreWinsThanOppPrev = try c.decodeIfPresent(Bool.self, forKey: .moreWinsThanOppPrev)
+        h2hLastWin = try c.decodeIfPresent(String.self, forKey: .h2hLastWin) ?? "any"
+        h2hLastAts = try c.decodeIfPresent(String.self, forKey: .h2hLastAts) ?? "any"
+        h2hLastOver = try c.decodeIfPresent(String.self, forKey: .h2hLastOver) ?? "any"
+        h2hLastHome = try c.decodeIfPresent(Bool.self, forKey: .h2hLastHome)
+        h2hLastFav = try c.decodeIfPresent(Bool.self, forKey: .h2hLastFav)
+        h2hSameSeason = try c.decodeIfPresent(Bool.self, forKey: .h2hSameSeason)
+        h2hSpreadCmp = try c.decodeIfPresent(String.self, forKey: .h2hSpreadCmp) ?? "any"
+        oppWinPct = try c.decodeIfPresent([Double].self, forKey: .oppWinPct) ?? [0, 100]
+        oppOverPct = try c.decodeIfPresent([Double].self, forKey: .oppOverPct) ?? [0, 100]
+        oppWinStreak = try c.decodeIfPresent([Int].self, forKey: .oppWinStreak) ?? [0, 16]
+        oppLossStreak = try c.decodeIfPresent([Int].self, forKey: .oppLossStreak) ?? [0, 16]
+        oppPpg = try c.decodeIfPresent([Double].self, forKey: .oppPpg) ?? [0, 40]
+        oppPaPg = try c.decodeIfPresent([Double].self, forKey: .oppPaPg) ?? [0, 40]
+        oppPrevWinPct = try c.decodeIfPresent([Double].self, forKey: .oppPrevWinPct) ?? [0, 100]
+        oppLastResult = try c.decodeIfPresent(String.self, forKey: .oppLastResult) ?? "any"
+        oppLastAts = try c.decodeIfPresent(String.self, forKey: .oppLastAts) ?? "any"
+        oppLastTotal = try c.decodeIfPresent(String.self, forKey: .oppLastTotal) ?? "any"
+        oppLastRole = try c.decodeIfPresent(String.self, forKey: .oppLastRole) ?? "any"
+        oppLastOt = try c.decodeIfPresent(Bool.self, forKey: .oppLastOt)
+        oppLastMargin = try c.decodeIfPresent([Int].self, forKey: .oppLastMargin) ?? [-60, 60]
+        lastMargin = try c.decodeIfPresent([Int].self, forKey: .lastMargin) ?? [-60, 60]
+        daysOfWeek = try c.decodeIfPresent([String].self, forKey: .daysOfWeek) ?? []
+        teamDivisions = try c.decodeIfPresent([String].self, forKey: .teamDivisions) ?? []
+    }
+
+    // MARK: - Side Market Symmetry (B2)
+    
+    /// Two-sided markets that contribute mirror rows per game
+    public static let sideMarkets: Set<String> = ["fg_spread", "fg_ml", "h1_spread", "h1_ml"]
+    
+    /// Game-level filter dimensions that keep both mirror rows (don't break side symmetry)
+    public static let sideSymmetricDims: Set<String> = [
+        "seasons", "weeks", "seasonType", "playoffRound", "lineRange", "spreadSize", 
+        "primetime", "division", "dome", "tempRange", "windMax", "precip", "referee", 
+        "daysOfWeek", "minGames"
+    ]
+    
+    /// Checks if current snapshot is in symmetric state (forced ~50% overall on two-sided market)
+    public func isSideSymmetric(sport: HistoricalAnalysisSport) -> Bool {
+        guard Self.sideMarkets.contains(betType) else { return false }
+        
+        let defaults = Self.defaults(for: sport)
+        
+        // Check if all side-breaking dimensions are at defaults
+        return (
+            side == defaults.side &&
+            teams.isEmpty && opponents.isEmpty &&
+            favDog == defaults.favDog &&
+            spreadSide == defaults.spreadSide &&
+            mlMin.isEmpty && mlMax.isEmpty &&
+            h1SpreadSide == defaults.h1SpreadSide &&
+            h1SpreadMin == defaults.h1SpreadMin &&
+            h1SpreadMax == defaults.h1SpreadMax &&
+            h1MlMin.isEmpty && h1MlMax.isEmpty &&
+            h1TotalMin == defaults.h1TotalMin &&
+            h1TotalMax == defaults.h1TotalMax &&
+            ttLineMin == defaults.ttLineMin &&
+            ttLineMax == defaults.ttLineMax &&
+            oppSpreadSide == defaults.oppSpreadSide &&
+            oppSpreadMin == defaults.oppSpreadMin &&
+            oppSpreadMax == defaults.oppSpreadMax &&
+            oppMlMin.isEmpty && oppMlMax.isEmpty &&
+            oppTtLineMin == defaults.oppTtLineMin &&
+            oppTtLineMax == defaults.oppTtLineMax &&
+            lastResult == defaults.lastResult &&
+            lastAts == defaults.lastAts &&
+            lastTotal == defaults.lastTotal &&
+            lastRole == defaults.lastRole &&
+            lastOt == defaults.lastOt &&
+            lastMargin == defaults.lastMargin &&
+            oppLastResult == defaults.oppLastResult &&
+            oppLastAts == defaults.oppLastAts &&
+            oppLastTotal == defaults.oppLastTotal &&
+            oppLastRole == defaults.oppLastRole &&
+            oppLastOt == defaults.oppLastOt &&
+            oppLastMargin == defaults.oppLastMargin &&
+            winPct == defaults.winPct &&
+            winStreak == defaults.winStreak &&
+            lossStreak == defaults.lossStreak &&
+            above500 == defaults.above500 &&
+            winPctGtOpp == defaults.winPctGtOpp &&
+            ppg == defaults.ppg &&
+            paPg == defaults.paPg &&
+            pointDiffPg == defaults.pointDiffPg &&
+            atsWinPct == defaults.atsWinPct &&
+            atsWinStreak == defaults.atsWinStreak &&
+            avgCoverMargin == defaults.avgCoverMargin &&
+            overPct == defaults.overPct &&
+            overStreak == defaults.overStreak &&
+            underStreak == defaults.underStreak &&
+            prevWins == defaults.prevWins &&
+            prevWinPct == defaults.prevWinPct &&
+            madePlayoffsPrev == defaults.madePlayoffsPrev &&
+            moreWinsThanOppPrev == defaults.moreWinsThanOppPrev &&
+            h2hLastWin == defaults.h2hLastWin &&
+            h2hLastAts == defaults.h2hLastAts &&
+            h2hLastOver == defaults.h2hLastOver &&
+            h2hLastHome == defaults.h2hLastHome &&
+            h2hLastFav == defaults.h2hLastFav &&
+            h2hSameSeason == defaults.h2hSameSeason &&
+            h2hSpreadCmp == defaults.h2hSpreadCmp &&
+            oppWinPct == defaults.oppWinPct &&
+            oppOverPct == defaults.oppOverPct &&
+            oppWinStreak == defaults.oppWinStreak &&
+            oppLossStreak == defaults.oppLossStreak &&
+            oppPpg == defaults.oppPpg &&
+            oppPaPg == defaults.oppPaPg &&
+            oppPrevWinPct == defaults.oppPrevWinPct &&
+            coach == defaults.coach &&
+            restBye == defaults.restBye &&
+            teamDivisions.isEmpty
+        )
     }
 
     public static func defaults(for sport: HistoricalAnalysisSport) -> HistoricalAnalysisUISnapshot {
@@ -663,7 +1077,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         case .mlb:
             return HistoricalAnalysisUISnapshot(
                 betType: HistoricalAnalysisBetType.ml.rawValue,
-                seasonMin: sport.defaultSeasonFloor,
+                seasonMin: max(sport.defaultSeasonFloor, sport.seasonMax - 1),
                 seasonMax: sport.seasonMax,
                 weekMin: 1,
                 weekMax: 18,
@@ -676,6 +1090,14 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
                 lineMax: 14,
                 mlMin: "",
                 mlMax: "",
+                h1SpreadMax: 14,
+                h1TotalMin: 15,
+                h1TotalMax: 35,
+                ttLineMin: 10,
+                ttLineMax: 40,
+                oppSpreadMax: 20,
+                oppTtLineMin: 10,
+                oppTtLineMax: 40,
                 primetime: nil,
                 tempMin: -10,
                 tempMax: 110,
@@ -708,11 +1130,19 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
                 favDog: "any",
                 spreadSide: "any",
                 spreadMin: 0,
-                spreadMax: sport == .nfl ? 20 : 28,
+                spreadMax: sport == .nfl ? 20 : 50,
                 lineMin: 30,
                 lineMax: sport == .nfl ? 60 : 80,
                 mlMin: "",
                 mlMax: "",
+                h1SpreadMax: sport == .nfl ? 14 : 28,
+                h1TotalMin: 15,
+                h1TotalMax: sport == .nfl ? 35 : 45,
+                ttLineMin: 10,
+                ttLineMax: sport == .nfl ? 40 : 55,
+                oppSpreadMax: sport == .nfl ? 20 : 50,
+                oppTtLineMin: 10,
+                oppTtLineMax: sport == .nfl ? 40 : 55,
                 primetime: nil,
                 tempMin: -10,
                 tempMax: sport == .nfl ? 100 : 110,

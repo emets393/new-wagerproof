@@ -24,12 +24,24 @@ export function gamesCountToneClass(games: number): string {
   return 'text-foreground';
 }
 
-/** Materialized view uses game-log abbreviations (AZ, ATH). */
+/**
+ * Canonicalize to mlb_game_log / mlb_analysis_base abbreviations.
+ * Mapping tables still use ARI/OAK; warehouse + Stats API use AZ/ATH
+ * (Athletics city moves: Oakland → Sacramento → Las Vegas all collapse to ATH).
+ */
 export function toF5SplitTeamAbbr(abbr: string): string {
   const a = abbr.trim().toUpperCase();
   if (a === 'ARI') return 'AZ';
-  if (a === 'OAK' || a === 'LVA') return 'ATH';
+  if (a === 'OAK' || a === 'LVA' || a === 'SAC') return 'ATH';
   return a;
+}
+
+/** Display label for analysis pickers keyed by game-log abbr. */
+export function mlbAnalysisTeamLabel(abbr: string, fallbackName?: string): string {
+  const a = toF5SplitTeamAbbr(abbr);
+  if (a === 'ATH') return 'Athletics';
+  if (a === 'AZ') return 'Arizona Diamondbacks';
+  return fallbackName?.trim() || a;
 }
 
 export function splitLookupKey(

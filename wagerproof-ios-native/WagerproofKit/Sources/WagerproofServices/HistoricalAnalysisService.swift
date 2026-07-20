@@ -50,7 +50,7 @@ public actor HistoricalAnalysisService {
         return try await fetchAnalysis(sport: sport, betType: betType, filters: [:])
     }
 
-    /// MLB team abbr + name from `mlb_team_mapping`.
+    /// MLB team abbr + name from `mlb_team_mapping`, remapped to game-log codes (AZ/ATH).
     public func fetchMLBTeamAbbrs() async throws -> [(abbr: String, name: String)] {
         let client = await CFBSupabase.shared.client
         struct Row: Decodable {
@@ -67,9 +67,15 @@ public actor HistoricalAnalysisService {
             .select("team,team_name")
             .execute()
             .value
-        return rows
-            .map { (abbr: $0.team, name: $0.teamName ?? $0.team) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        var seen = Set<String>()
+        var out: [(abbr: String, name: String)] = []
+        for row in rows {
+            let abbr = MLBF5.toSplitTeamAbbr(row.team)
+            guard !abbr.isEmpty, !seen.contains(abbr) else { continue }
+            seen.insert(abbr)
+            out.append((abbr: abbr, name: MLBF5.analysisTeamLabel(abbr, fallback: row.teamName ?? row.team)))
+        }
+        return out.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     /// Pitcher typeahead via `mlb_pitcher_options`. Empty query → `p_q: null` (same as web).
@@ -135,5 +141,94 @@ public actor HistoricalAnalysisService {
             }
         }
         return out
+    }
+    
+    // MARK: - B4: NL Filter Chat
+    
+    public struct NLFilterPatchResponse: Decodable {
+        public let snapshot: [String: JSONValue]?
+        public let applied: [AppliedChange]?
+        public let rejected: [String]?
+        public let noChange: Bool?
+        public let couldntMap: [String]?
+        public let ambiguous: [String]?
+        public let error: String?
+        
+        public struct AppliedChange: Decodable {
+            public let dimension: String
+            public let from: String?
+            public let to: String?
+            public let note: String?
+        }
+        
+        enum CodingKeys: String, CodingKey {
+            case snapshot, applied, rejected, error
+            case noChange = "no_change"
+            case couldntMap = "couldnt_map"
+            case ambiguous
+        }
+        
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            
+            // Decode snapshot as JSONValue dictionary
+            snapshot = try container.decodeIfPresent([String: JSONValue].self, forKey: .snapshot)
+            
+            // Check both possible applied formats
+            if let appliedChanges = try? container.decodeIfPresent([AppliedChange].self, forKey: .applied) {
+                applied = appliedChanges
+            } else if let appliedStrings = try? container.decodeIfPresent([String].self, forKey: .applied) {
+                // Convert string array to AppliedChange array for backward compatibility
+                applied = appliedStrings.map { AppliedChange(dimension: $0, from: nil, to: nil, note: nil) }
+            } else {
+                applied = nil
+            }
+            
+            rejected = try container.decodeIfPresent([String].self, forKey: .rejected)
+            noChange = try container.decodeIfPresent(Bool.self, forKey: .noChange)
+            couldntMap = try container.decodeIfPresent([String].self, forKey: .couldntMap)
+            ambiguous = try container.decodeIfPresent([String].self, forKey: .ambiguous)
+            error = try container.decodeIfPresent(String.self, forKey: .error)
+        }
+    }
+    
+    /// Submit NL filter patch via main project Edge Function
+    public func submitNLFilterPatch(
+        sentence: String,
+        currentFilter: [String: JSONValue],
+        coaches: [String],
+        referees: [String],
+        sport: HistoricalAnalysisSport
+    ) async throws -> NLFilterPatchResponse {
+        let client = MainSupabase.shared.client
+        
+        struct RequestBody: Encodable {
+            let sentence: String
+            let currentFilter: [String: JSONValue]
+            let coaches: [String]
+            let referees: [String]
+            let sport: String
+            let apply: Bool
+            
+            enum CodingKeys: String, CodingKey {
+                case sentence, currentFilter, coaches, referees, sport, apply
+            }
+        }
+        
+        let body = RequestBody(
+            sentence: sentence,
+            currentFilter: currentFilter,
+            coaches: coaches,
+            referees: referees,
+            sport: sport.rawValue,
+            apply: true
+        )
+        
+        let response: NLFilterPatchResponse = try await client.functions.invoke(
+            "nl-filter-patch",
+            options: FunctionInvokeOptions(body: body)
+        )
+        
+        return response
     }
 }

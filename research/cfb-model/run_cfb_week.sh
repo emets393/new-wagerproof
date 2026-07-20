@@ -44,6 +44,8 @@ step "refresh weather + ref cache";  rm -f data/cfb_weather_data.parquet; python
 step "build opponent-adjusted ratings (as-of, leak-safe)"; python3 build_ratings.py
 step "build box-score tendencies (as-of)";                 python3 build_tendencies.py || true
 step "build per-game model frame -> model_games.parquet";  python3 build_features.py
+# team style profiles + opp DEF archetype + off_ppa (feeds the S-CFB1 style-delta UNDER flag)
+step "build team style profiles (archetypes, leak-safe)";  python3 build_football_profiles.py || true
 
 # --- 3) WRITE THE APP DATA CONTRACT --------------------------------------------
 # Reference loads (static/idempotent — cheap, keeps the slate's FK refs present).

@@ -393,6 +393,52 @@ DEFS = [
      "about how dominant the home team is, the team totals have been the sharper read "
      "and the away side covers. Small sample (n~45), 2024/25 only.",
      "Away ATS", "60% / +14% [-,57,55] (thin)", "low"),
+
+    # ---------------- streak-fade signals (STREAK*, mined 2026-07 from Discord theories) ----------------
+    ("streak_long_under_over", "Long Under-Streak Over", "total",
+     "A team riding a long run of unders -> take the Over.",
+     "Either team enters on a 6+ game under streak this season (their last six games all "
+     "landed under the total) -> bet the game Over. Streaks are within-season and reset "
+     "each year, so this can't fire until a team has six games logged (Week 7 on).",
+     "A long under run pulls the posted total down faster than the offense actually "
+     "regresses, so by the sixth straight under the number is over-shaded low and the Over "
+     "clears. Held 59.6% overall and 67.6% since 2019 with no decay -- but it is "
+     "low-frequency (~4-5 games a season), which caps it at medium conviction.",
+     "Over", "~60% (67% since 2019, ~4-5/yr)", "med"),
+    ("streak_both_under_over", "Colliding Under-Streaks Over (tracking)", "total",
+     "Both teams on under streaks meet -> Over, tracked only.",
+     "Both teams enter the same game on 4+ game under streaks (within-season) -> bet the "
+     "Over. Tracked, not bet.",
+     "Two cold-totals teams meeting is a stronger version of the long-under-streak Over "
+     "(~59%), but only ~29 such games exist in 24 seasons, so it is paper-traded in 2026 "
+     "to build sample before it can be bet.",
+     "Over", "~59% (thin, n=29)", "low"),
+    ("streak_buylow_ncover", "Cold-Team Buy-Low ATS (tracking)", "spread",
+     "Back a team that hasn't covered in 5+ straight -> tracked only.",
+     "A team enters on a 5+ game non-cover streak this season -> back THEM to cover this "
+     "week (the regression / buy-low side). Tracked, not bet.",
+     "The market appears to over-fade teams on long non-cover runs, so backing the bounce "
+     "looked +EV historically (56% before 2019) -- but it has regressed to a coin flip "
+     "lately (51.5% since 2019, 22% in 2025). On probation until a fresh season confirms "
+     "it re-stabilizes.",
+     "The cold (non-covering) team ATS", "regressed (56% pre-2019 -> 51% since)", "low"),
+    ("streak_cold_vs_hot_ats", "Cold Dog vs Hot Team ATS (tracking)", "spread",
+     "Cover-streak team vs non-cover-streak team -> back the cold one, tracked.",
+     "One team on a 3+ (or 4+) cover streak faces a team on a matched 3+ (4+) non-cover "
+     "streak -> back the cold team ATS. Tracked, not bet.",
+     "Matched hot-vs-cold streaks showed the cold team covering 56-64%, but the sample is "
+     "small (n=36 at the 4+ threshold) and the edge inverts when the hot team is extremely "
+     "hot, so it is paper-traded before it can be bet.",
+     "The cold (non-covering) team ATS", "56-64% (thin, noisy)", "low"),
+    ("div_dog_to_roadfav", "Divisional Dog-to-Road-Favorite (tracking)", "spread",
+     "Home underdog in the first division meeting, now a road favorite in the rematch -> back them.",
+     "In a division rematch, a team that was a HOME UNDERDOG in the first meeting and is now the "
+     "AWAY FAVORITE in the second meeting -> back that team ATS (they are the away side).",
+     "A team the market disrespected at home but now installs as a road favorite has genuinely "
+     "leapt the opponent in the market's eyes. The rematch covered 61.8% overall (n=34), with the "
+     "edge concentrated in teams that WON the first meeting (72%, n=18) vs a coin flip if they lost "
+     "it. Very low frequency (~1-2 a season) and thin, so it is paper-traded before it can be bet.",
+     "The road-favorite team ATS", "61.8% (n=34; 72% if won g1) -- thin", "low"),
 ]
 
 COLS = ["signal_key", "display_name", "market", "one_liner", "definition",
