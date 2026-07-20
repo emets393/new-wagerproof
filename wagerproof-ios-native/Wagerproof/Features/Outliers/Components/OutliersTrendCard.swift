@@ -11,6 +11,12 @@ struct OutliersTrendCard: View {
     var sport: OutliersTrendsSport = .nfl
     var game: OutliersTrendsGame?
     var displayMode: DisplayMode = .compact
+    /// Paywall previews can use concrete hit records (for example 12/12),
+    /// while live Outliers cards retain their percentage presentation.
+    var showsRecordStrength = false
+    /// The paywall marquee uses the real card at a denser, fixed-height size.
+    /// Live compact cards and expanded detail cards keep their existing layout.
+    var marqueeStyle = false
     var onExpandPlayers: (() -> Void)?
 
     /// Compact carousel cards show at most this many trend rows; the rest are
@@ -31,6 +37,7 @@ struct OutliersTrendCard: View {
     }
 
     private var isCompact: Bool { displayMode == .compact }
+    private var usesSingleLineLayout: Bool { isCompact || marqueeStyle }
 
     private var visibleRows: [OutliersTrendsCardRow] {
         isCompact ? Array(card.rows.prefix(compactRowCap)) : card.rows
@@ -52,8 +59,12 @@ struct OutliersTrendCard: View {
         max(0, hiddenRows.count - footerPreviewCap)
     }
 
-    private func pctText(_ row: OutliersTrendsCardRow) -> String {
-        "\(Int((row.dominantPct * 100).rounded()))%"
+    private func strengthText(_ row: OutliersTrendsCardRow) -> String {
+        if showsRecordStrength {
+            let hits = min(row.sampleN, max(0, Int((row.dominantPct * Double(row.sampleN)).rounded())))
+            return "\(hits)/\(row.sampleN)"
+        }
+        return "\(Int((row.dominantPct * 100).rounded()))%"
     }
 
     var body: some View {
@@ -68,8 +79,8 @@ struct OutliersTrendCard: View {
     }
 
     private var cardContent: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .top, spacing: 8) {
+        VStack(alignment: .leading, spacing: marqueeStyle ? 6 : 9) {
+            HStack(alignment: .top, spacing: marqueeStyle ? 6 : 8) {
                 header
                 Spacer(minLength: 4)
                 gameScheduleLabel
@@ -81,7 +92,7 @@ struct OutliersTrendCard: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.appPrimary)
             }
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: marqueeStyle ? 4 : 6) {
                 ForEach(visibleRows) { row in
                     trendRow(row)
                 }
@@ -93,10 +104,15 @@ struct OutliersTrendCard: View {
                 compactFooter
             }
         }
-        .padding(12)
+        .padding(marqueeStyle ? 10 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: isCompact ? compactCardHeight : nil, alignment: .top)
-        .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .frame(height: marqueeStyle ? 126 : (isCompact ? compactCardHeight : nil), alignment: .top)
+        // Marquee (paywall) cards sit on the near-black paywall backdrop, so
+        // they use a darker fill than the standard elevated surface.
+        .background(
+            marqueeStyle ? Color(hex: 0x0B0F0D) : Color.appSurfaceElevated,
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Color.appBorder.opacity(0.35), lineWidth: 0.5)
@@ -118,13 +134,14 @@ struct OutliersTrendCard: View {
             // Compact rows stay single-line so the card height is predictable;
             // the full text wraps in the expanded detail sheet.
             Text(rowDisplayText(row))
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: marqueeStyle ? 11 : 12, weight: .medium))
                 .foregroundStyle(Color.appTextSecondary)
-                .lineLimit(isCompact ? 1 : nil)
-                .fixedSize(horizontal: false, vertical: !isCompact)
+                .lineLimit(usesSingleLineLayout ? 1 : nil)
+                .minimumScaleFactor(marqueeStyle ? 0.82 : 1)
+                .fixedSize(horizontal: false, vertical: !usesSingleLineLayout)
             Spacer(minLength: 4)
-            Text("\(Int((row.dominantPct * 100).rounded()))%")
-                .font(.system(size: 12, weight: .heavy, design: .rounded))
+            Text(strengthText(row))
+                .font(.system(size: marqueeStyle ? 11 : 12, weight: .heavy, design: .rounded))
                 .foregroundStyle(trendColor(row.dominantPct))
                 .monospacedDigit()
         }
@@ -172,7 +189,7 @@ struct OutliersTrendCard: View {
             Image(systemName: Self.rowIcon(for: row.text))
                 .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(trendColor(row.dominantPct))
-            Text(pctText(row))
+            Text(strengthText(row))
                 .font(.system(size: 10, weight: .heavy, design: .rounded))
                 .foregroundStyle(trendColor(row.dominantPct))
                 .monospacedDigit()
@@ -382,6 +399,13 @@ struct OutliersTrendCard: View {
             let home = NFLTeamAssets.nickname(for: game.homeTeam)
             return "\(away) @ \(home)"
         }
+        // MLB abbreviations overlap heavily with NFL aliases (SF, ATL, PHI,
+        // BAL). Without a game model the old generic fallback expanded those
+        // into 49ers/Falcons/Eagles/Ravens. The card already receives its sport,
+        // so preserve the MLB matchup label exactly as supplied.
+        if sport == .mlb {
+            return card.matchupLabel
+        }
         let parts = card.matchupLabel.split(separator: "@", maxSplits: 1).map {
             String($0).trimmingCharacters(in: .whitespaces)
         }
@@ -396,20 +420,23 @@ struct OutliersTrendCard: View {
             avatar
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(card.subjectName) — \(card.betTypeLabel)")
-                    .font(.system(size: 14, weight: .heavy))
+                    .font(.system(size: marqueeStyle ? 13 : 14, weight: .heavy))
                     .foregroundStyle(Color.appTextPrimary)
                     // Compact = one predictable line (the section header already names
                     // the market; the full title wraps in the detail sheet).
-                    .lineLimit(isCompact ? 1 : nil)
-                    .fixedSize(horizontal: false, vertical: !isCompact)
+                    .lineLimit(usesSingleLineLayout ? 1 : nil)
+                    .minimumScaleFactor(marqueeStyle ? 0.9 : 1)
+                    .fixedSize(horizontal: false, vertical: !usesSingleLineLayout)
                 if let detail = displaySubjectDetail {
                     Text(detail)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: marqueeStyle ? 10 : 11, weight: .medium))
                         .foregroundStyle(Color.appTextSecondary)
+                        .lineLimit(usesSingleLineLayout ? 1 : nil)
                 }
                 Text(displayMatchupLabel)
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: marqueeStyle ? 11 : 12, weight: .bold))
                     .foregroundStyle(Color.appTextSecondary)
+                    .lineLimit(usesSingleLineLayout ? 1 : nil)
             }
         }
     }
@@ -543,6 +570,10 @@ struct OutliersTrendCard: View {
         if dimension.contains("division") { return "person.2.fill" }
         if dimension.contains("primetime") || dimension.contains("night") { return "moon.stars.fill" }
         if dimension.contains("day game") { return "sun.max.fill" }
+        if dimension.contains("starter") { return "baseball.fill" }
+        if dimension.contains("series opener") { return "flag.checkered" }
+        if dimension.contains("after a loss") { return "arrow.counterclockwise.circle.fill" }
+        if dimension.contains("-1.5") || dimension.contains("2+ run") { return "chart.line.uptrend.xyaxis" }
         if dimension.hasPrefix("vs") { return "person.line.dotted.person.fill" }
         if dimension.contains("series g1") { return "1.circle.fill" }
         if dimension.contains("series g2") { return "2.circle.fill" }
@@ -553,11 +584,13 @@ struct OutliersTrendCard: View {
     }
 
     /// Pulls the lowercased dimension phrase out of a row's text, e.g.
-    /// "Lost 10 of last 10 road games (100%)" -> "road games". Returns "" when
-    /// the expected "of last <n>" structure isn't present.
+    /// "Lost 10 of last 10 road games (100%)" -> "road games". Paywall cards
+    /// already use concise dimension-only labels, so those pass through intact.
     private static func trendDimension(from text: String) -> String {
         let lower = text.lowercased()
-        guard let range = lower.range(of: " of last ") else { return "" }
+        guard let range = lower.range(of: " of last ") else {
+            return lower.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         var context = String(lower[range.upperBound...]).trimmingCharacters(in: .whitespaces)
         // Drop the trailing "(NN%)" the engines append.
         if let paren = context.lastIndex(of: "(") {

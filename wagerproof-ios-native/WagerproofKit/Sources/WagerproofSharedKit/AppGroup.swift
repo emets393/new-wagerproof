@@ -18,7 +18,9 @@ public enum AppGroupKey {
     public static let lastNotificationRoute = "last_notification_route"
     public static let themePreference = "theme_pref"
     public static let adminModeEnabled = "admin_mode_enabled"
-    public static let widgetPayload = "widget_payload_v1"
+    /// Kept byte-for-byte compatible with the original RN widget bridge.
+    /// Both the app and widget extension must use this exact key.
+    public static let widgetPayload = "widgetPayload"
     /// DEBUG-only: when true, stores serve bundled real-data fixtures instead
     /// of hitting Supabase (offseason UI development). See `DummyDataMode`.
     public static let dummyDataMode = "dummy_data_mode_debug"

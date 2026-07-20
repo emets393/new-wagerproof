@@ -34,6 +34,7 @@ struct AgentDetailView: View {
 
     @Environment(AuthStore.self) private var auth
     @Environment(ProAccessStore.self) private var proAccess
+    @Environment(SettingsStore.self) private var settings
     @State private var store: AgentDetailStore
     @State private var auditStore = AgentPickAuditStore()
     @State private var showHistorySheet: Bool = false
@@ -188,9 +189,19 @@ struct AgentDetailView: View {
                 initialAutoOn: agent?.autoGenerate ?? false,
                 initialTime: agent?.autoGenerateTime ?? "09:00",
                 initialTimezone: agent?.autoGenerateTimezone ?? "America/New_York",
+                notificationsEnabled: settings.notificationPermission.isEnabled,
                 recentRuns: recentRuns,
                 onSetAuto: { value in await store.setAutoGenerate(value) },
-                onSaveTime: { time, tz in await store.setAutoGenerateTime(time, timezone: tz) }
+                onSaveTime: { time, tz in await store.setAutoGenerateTime(time, timezone: tz) },
+                onEnableNotifications: {
+                    // App-level push permission (there's no per-agent flag). Enabling
+                    // it is what lets autopilot's "picks are ready" alert reach the user.
+                    let uid: UUID? = {
+                        if case .authenticated(let u) = auth.phase { return u }
+                        return nil
+                    }()
+                    _ = await settings.enableNotifications(userId: uid)
+                }
             )
         }
         .overlay {
@@ -273,7 +284,17 @@ struct AgentDetailView: View {
             // (`chart.line.uptrend.xyaxis`) and Recent Activity (`clock`) header
             // icons — the old `doc.text.image` was a heavier filled symbol that
             // read darker/busier and broke the shared section-header family.
-            AgentSectionHeader(title: "Today's Picks", systemImage: "checklist")
+            AgentSectionHeader(title: "Today's Picks", systemImage: "checklist") {
+                // AutoPilot status pill sits opposite the title. Shows on/off at a
+                // glance and opens the settings sheet (schedule + notifications).
+                // Owner only — autopilot configures the owner's own daily runs.
+                if isOwnAgent {
+                    AutoPilotControlButton(
+                        isOn: agent?.autoGenerate ?? false,
+                        accent: agentTint
+                    ) { showAutoPilotSheet = true }
+                }
+            }
 
             if !canSeePicks {
                 AgentLockedPicksRail(accent: agentTint)
@@ -378,16 +399,11 @@ struct AgentDetailView: View {
         )
     }
 
-    /// Small footer under an existing pick list: the AutoPilot chip (opens the
-    /// autopilot sheet) + a Regenerate chip showing the runs left (opens the
-    /// regenerate sheet). Both are entry points now — the actual toggle/swipe live
-    /// in their sheets. See AgentGenerationControlSheets.swift.
+    /// Small footer under an existing pick list: a Regenerate chip showing the
+    /// runs left (opens the regenerate sheet). AutoPilot moved up to the "Today's
+    /// Picks" header, opposite the title. See AgentGenerationControlSheets.swift.
     private var generateFooter: some View {
         HStack(spacing: 10) {
-            AutoPilotControlButton(
-                isOn: agent?.autoGenerate ?? false,
-                accent: agentTint
-            ) { showAutoPilotSheet = true }
             Spacer(minLength: 0)
             RegenerateControlButton(
                 remaining: store.regenerationsRemaining(),
@@ -698,9 +714,23 @@ struct AgentDetailView: View {
 /// flush at the section's outer `WidgetCard.hInset` and every header on the
 /// page shares one left edge with the content beneath it — the same uniform,
 /// low-key section labeling Search uses.
-struct AgentSectionHeader: View {
+struct AgentSectionHeader<Trailing: View>: View {
     let title: String
     let systemImage: String
+    /// Optional trailing accessory (e.g. the AutoPilot status button opposite the
+    /// "Today's Picks" title). Defaults to nothing so Performance / Recent
+    /// Activity headers stay title-only.
+    @ViewBuilder let trailing: () -> Trailing
+
+    init(
+        title: String,
+        systemImage: String,
+        @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.trailing = trailing
+    }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -711,6 +741,9 @@ struct AgentSectionHeader: View {
                 .font(.footnote.weight(.semibold))
                 .textCase(.uppercase)
             Spacer(minLength: 8)
+            // Trailing accessory renders at full color — it sits outside the
+            // `.secondary` tint so an action button keeps its own styling.
+            trailing()
         }
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)

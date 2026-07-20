@@ -14,7 +14,7 @@ WagerProof uses RevenueCat for subscription management across both web and mobil
 |---------|-----|--------|
 | **Package** | `@revenuecat/purchases-js` ^1.18.0 | `react-native-purchases` ^9.6.9 |
 | **UI Package** | Custom components | `react-native-purchases-ui` ^9.6.9 |
-| **Paywall** | Custom-built | RevenueCat Paywalls V2 |
+| **Paywall** | Custom-built | RN: RevenueCat Paywalls V2 · iOS native: custom SwiftUI (`CustomPaywallView`, RC dashboard paywall as remote fallback) |
 | **Checkout** | RevenueCat Web → Stripe | Native IAP (App Store/Play) |
 | **API Keys** | Hardcoded in code | Platform-specific |
 | **Sandbox Toggle** | Admin DB setting | Test accounts only |

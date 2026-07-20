@@ -13,8 +13,14 @@ struct NFLGameBottomSheet: View {
 
     @Environment(AgentPickAuditStore.self) private var auditStore
     @Environment(\.colorScheme) private var colorScheme
+    // Optional like SearchView's env stores — the sheet also presents from
+    // previews/harness contexts that don't hoist the props slate.
+    @Environment(PropsStore.self) private var propsStore: PropsStore?
 
     @State private var picks: [NFLDryrunPickRow] = []
+    /// Same-game perfect-streak parlays built from this matchup's props.
+    @State private var matchupParlayTickets: [ParlayTicket] = []
+    @State private var selectedParlay: ParlayTicket?
     @State private var signalsByKey: [String: NFLSignalDefinition] = [:]
     @State private var signalPerformanceByKey: [String: SignalPerformance] = [:]
     @State private var teamTrendsByAbbr: [String: NFLTeamTrendRow] = [:]
@@ -49,6 +55,7 @@ struct NFLGameBottomSheet: View {
         } content: {
             marketOddsSection
             predictionSections
+            matchupParlaysSection
             matchupHistorySection
             AgentPickRationaleWidget(gameKeys: [game.trainingKey, game.uniqueId, "\(game.awayTeam)_\(game.homeTeam)"])
                 .padding(.horizontal, 16)
@@ -61,9 +68,13 @@ struct NFLGameBottomSheet: View {
         .presentationBackgroundInteraction(.disabled)
         .task(id: game.gameId) {
             await loadDryrunData()
+            await loadMatchupParlays()
         }
         .sheet(item: $selectedSignal) { signal in
             signalDefinitionSheet(signal)
+        }
+        .sheet(item: $selectedParlay) { ticket in
+            ParlayGodDetailSheet(ticket: ticket)
         }
         .sheet(item: $selectedTrendDetail) { selection in
             trendDetailSheet(selection)
@@ -817,6 +828,54 @@ struct NFLGameBottomSheet: View {
     }
 
     // MARK: - Data
+
+    // MARK: - Matchup parlays
+
+    /// Same-game Parlay God tickets from this matchup's player props (dry-run
+    /// slate until the in-season cutover). Pro-gated; hidden when nothing on
+    /// the board is riding a perfect streak.
+    @ViewBuilder
+    private var matchupParlaysSection: some View {
+        if !matchupParlayTickets.isEmpty {
+            WidgetCollapsingSection(title: "Matchup Parlays", systemImage: "bolt.fill", iconTint: Color.appPrimary) {
+                ProContentSection(title: "Matchup Parlays", minHeight: 236) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(alignment: .top, spacing: 12) {
+                            ForEach(matchupParlayTickets) { ticket in
+                                Button {
+                                    selectedParlay = ticket
+                                } label: {
+                                    ParlayGodCard(ticket: ticket, showsMatchup: false)
+                                        .frame(width: 300)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Build the parlay tickets off the shared NFL props slate. Team-abbr
+    /// matching (not game-id) — the props and prediction rows come from
+    /// different dry-run tables whose id formats aren't guaranteed to align.
+    private func loadMatchupParlays() async {
+        guard let propsStore else { return }
+        await propsStore.refreshNFL()
+        let teams: Set<String> = [awayAbbr.uppercased(), homeAbbr.uppercased()]
+        let players = propsStore.nflPlayers.filter { player in
+            guard let team = player.team?.uppercased(), let opp = player.opponent?.uppercased() else { return false }
+            return teams.contains(team) && teams.contains(opp)
+        }
+        guard let gameKey = players.first?.gameId else {
+            matchupParlayTickets = []
+            return
+        }
+        let legs = ParlayGodEngine.nflPropLegs(players: players)
+        matchupParlayTickets = ParlayGodEngine.gameTickets(from: legs, gameKey: gameKey)
+    }
 
     private func loadDryrunData() async {
         guard (game.runId ?? "").localizedCaseInsensitiveContains("dryrun") else { return }

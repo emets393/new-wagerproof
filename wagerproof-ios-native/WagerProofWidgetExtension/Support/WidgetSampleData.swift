@@ -4,6 +4,42 @@ import WagerproofModels
 /// resolves) and Xcode previews. Never shown to real users once real data
 /// loads.
 enum WidgetSampleData {
+    static let outlierMarkets: [OutliersWidgetMarketData] = [
+        OutliersWidgetMarketData(
+            id: "parlay-god",
+            title: "Parlay God",
+            symbolName: "bolt.fill",
+            items: [
+                OutliersWidgetItem(
+                    id: "sample-trend-1", sport: "mlb", matchup: "CHC @ MIL",
+                    subject: "100% Recent Form", selection: "Cubs +1.5", oddsText: "-115",
+                    hitCount: 5, sampleSize: 5, additionalTrendCount: 4
+                ),
+                OutliersWidgetItem(
+                    id: "sample-trend-2", sport: "mlb", matchup: "LAD @ SF",
+                    subject: "100% Versus Opponent", selection: "Ohtani 2+ TB", oddsText: "+110",
+                    hitCount: 9, sampleSize: 10, additionalTrendCount: 2
+                ),
+                OutliersWidgetItem(
+                    id: "sample-trend-3", sport: "nfl", matchup: "BUF @ MIA",
+                    subject: "100% Home/Away", selection: "Bills ML", oddsText: "-135",
+                    hitCount: 7, sampleSize: 8, additionalTrendCount: 3
+                ),
+                OutliersWidgetItem(
+                    id: "sample-trend-4", sport: "ncaaf", matchup: "UGA @ ALA",
+                    subject: "100% Team Form", selection: "Georgia +3", oddsText: "-105",
+                    hitCount: 6, sampleSize: 7, additionalTrendCount: 1
+                ),
+                OutliersWidgetItem(
+                    id: "sample-trend-5", sport: "mlb", matchup: "NYY @ BOS",
+                    subject: "100% Day/Night", selection: "Over 8.5", oddsText: "+100",
+                    hitCount: 8, sampleSize: 10, additionalTrendCount: 2
+                ),
+            ],
+            totalCount: 9
+        ),
+    ]
+
     static let outlierAlerts: [OutlierAlertForWidget] = [
         OutlierAlertForWidget(
             id: "sample-1", kind: .value, sport: "nfl",

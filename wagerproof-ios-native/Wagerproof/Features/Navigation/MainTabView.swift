@@ -64,6 +64,9 @@ struct MainTabView: View {
     // "Outliers" results section read the same fetch. Lazily hydrated by whichever
     // surface is used first (the tab's `.task` or search's first query).
     @State private var outliersTrendsStore = OutliersTrendsStore()
+    // Parlay God tickets feed four surfaces (Outliers rail, Search rail,
+    // Props Cheats, matchup widgets) — one fetch + one leg pool at the shell.
+    @State private var parlayGodStore = ParlayGodStore()
 
     /// Production callers use the default initializer. The screenshot harness
     /// can pass a starting tab + an optional pre-opened side menu so reviewer
@@ -146,6 +149,7 @@ struct MainTabView: View {
         .environment(mlbTrendsStore)
         .environment(mlbF5Store)
         .environment(outliersTrendsStore)
+        .environment(parlayGodStore)
         .environment(nflSheetStore)
         .environment(cfbSheetStore)
         .environment(nbaSheetStore)

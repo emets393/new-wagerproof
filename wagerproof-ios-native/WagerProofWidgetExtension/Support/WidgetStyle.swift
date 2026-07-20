@@ -1,5 +1,4 @@
 import SwiftUI
-import WagerproofDesign
 
 /// Per-league badge colors for the widget's sport chips. Deliberately a
 /// small, sport-level (not per-team) table — widgets have tight memory/CPU
@@ -8,21 +7,20 @@ import WagerproofDesign
 enum WidgetSportBadge {
     static func color(for sport: String) -> Color {
         switch sport.lowercased() {
-        case "nfl": Color(hex: 0x013369)
-        case "nba": Color(hex: 0x1D428A)
-        case "cfb": Color(hex: 0x8B0000)
-        case "ncaab": Color(hex: 0xFF6600)
-        case "mlb": Color(hex: 0x002D72)
-        default: Color(hex: 0x6366F1)
+        case "nfl": Color(widgetRGB: 0x013369)
+        case "nba": Color(widgetRGB: 0x1D428A)
+        case "cfb": Color(widgetRGB: 0x8B0000)
+        case "ncaab": Color(widgetRGB: 0xFF6600)
+        case "mlb": Color(widgetRGB: 0x002D72)
+        default: Color(widgetRGB: 0x6366F1)
         }
     }
 }
 
 extension Color {
-    /// Parses "#RRGGBB" / "RRGGBB" agent avatar colors. `WagerproofDesign`
-    /// only ships an `Int`-based `Color(hex:)` initializer (see `Tokens.swift`);
-    /// agent colors arrive as DB strings, so this is a minimal, widget-local
-    /// parser rather than pulling in the app target's fuller
+    /// Parses "#RRGGBB" / "RRGGBB" agent avatar colors. Agent colors arrive
+    /// as DB strings, so this is a minimal, widget-local parser rather than
+    /// pulling in the app target's fuller
     /// `AgentColorPalette` (which also handles `"gradient:a,b"` strings the
     /// widget doesn't need).
     init?(widgetHexString hexString: String) {

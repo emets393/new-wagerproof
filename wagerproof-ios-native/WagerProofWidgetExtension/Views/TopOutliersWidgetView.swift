@@ -1,6 +1,5 @@
-import WidgetKit
 import SwiftUI
-import WagerproofDesign
+import WidgetKit
 import WagerproofModels
 
 struct TopOutliersWidgetEntryView: View {
@@ -8,192 +7,241 @@ struct TopOutliersWidgetEntryView: View {
     let entry: TopOutliersEntry
 
     var body: some View {
-        if entry.alerts.isEmpty {
-            EmptyOutliersView(compact: family == .systemSmall)
+        if let market = entry.market, !market.items.isEmpty {
+            OutliersMarketView(
+                market: market,
+                rowLimit: family == .systemLarge ? 5 : 2
+            )
         } else {
-            switch family {
-            case .systemSmall:
-                SmallOutliersView(alert: entry.alerts[0])
-            case .systemLarge:
-                OutliersListView(alerts: Array(entry.alerts.prefix(5)), maxRows: 5)
-            default:
-                OutliersListView(alerts: Array(entry.alerts.prefix(2)), maxRows: 2)
-            }
+            EmptyOutliersMarketView(
+                marketTitle: entry.selectedMarketTitle,
+                hasSynced: entry.lastUpdated != nil
+            )
         }
     }
 }
 
-private struct EmptyOutliersView: View {
-    let compact: Bool
+private struct EmptyOutliersMarketView: View {
+    let marketTitle: String
+    let hasSynced: Bool
 
     var body: some View {
-        VStack(spacing: Spacing.xs) {
-            Image(systemName: "bell.badge.fill")
-                .font(.system(size: compact ? 20 : 24))
+        VStack(spacing: Spacing.sm) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(WidgetPalette.accent)
-            Text(compact ? "Outliers" : "Open WagerProof to load today's outliers")
-                .font(AppFont.caption)
+            Text(marketTitle)
+                .font(.system(size: 14, weight: .heavy))
+                .foregroundStyle(WidgetPalette.textPrimary)
+            Text(hasSynced
+                 ? "No qualifying streaks right now"
+                 : "Open WagerProof to load market streaks")
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(WidgetPalette.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-private struct SmallOutliersView: View {
-    let alert: OutlierAlertForWidget
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            HStack {
-                sportBadge
-                Spacer()
-                Image(systemName: alert.kind == .fade ? "bolt.fill" : "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 11))
-                    .foregroundStyle(WidgetPalette.accent)
-            }
-            Spacer(minLength: 0)
-            Text(alert.matchup)
-                .font(.system(size: 10))
-                .foregroundStyle(WidgetPalette.textMuted)
-                .lineLimit(1)
-            Text(alert.displayLabel)
-                .font(AppFont.bodyEmphasized)
-                .foregroundStyle(WidgetPalette.textPrimary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-            Text(alert.confidenceDisplay)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(WidgetPalette.accent)
-        }
-        .padding(Spacing.md)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(WidgetPalette.background)
     }
-
-    private var sportBadge: some View {
-        Text(alert.sport.uppercased())
-            .font(.system(size: 9, weight: .heavy))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(WidgetSportBadge.color(for: alert.sport))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-    }
 }
 
-private struct OutliersListView: View {
-    let alerts: [OutlierAlertForWidget]
-    let maxRows: Int
+private struct OutliersMarketView: View {
+    let market: OutliersWidgetMarketData
+    let rowLimit: Int
+
+    private var visibleItems: [OutliersWidgetItem] {
+        Array(market.items.prefix(rowLimit))
+    }
+
+    private var remainingMarketCount: Int {
+        max(0, market.totalCount - visibleItems.count)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
-                Image(systemName: "bell.badge.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(WidgetPalette.accent)
-                Text("Top Outliers")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(WidgetPalette.textPrimary)
-                Spacer()
-                Text("WagerProof")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(WidgetPalette.textMuted)
+        VStack(alignment: .leading, spacing: 8) {
+            header
+            VStack(spacing: 6) {
+                ForEach(Array(visibleItems.enumerated()), id: \.element.id) { index, item in
+                    OutliersMarketRow(item: item, rank: index + 1, isTop: index == 0)
+                }
             }
-            ForEach(alerts) { alert in
-                OutlierRow(alert: alert)
-            }
-            if maxRows > alerts.count {
-                Spacer(minLength: 0)
+            if rowLimit > 2 {
+                footer
             }
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(WidgetPalette.background)
+        .background {
+            ZStack {
+                WidgetPalette.background
+                OutliersGridBackdrop()
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Image(systemName: market.symbolName)
+                .font(.system(size: 12, weight: .heavy))
+                .foregroundStyle(.black)
+                .frame(width: 26, height: 26)
+                .background(WidgetPalette.accent, in: RoundedRectangle(cornerRadius: 8))
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(market.title)
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(WidgetPalette.textPrimary)
+                    .lineLimit(1)
+                Text("TOP STREAKS")
+                    .font(.system(size: 8, weight: .bold))
+                    .tracking(0.8)
+                    .foregroundStyle(WidgetPalette.textMuted)
+            }
+
+            Spacer(minLength: 4)
+
+            Label("Edit", systemImage: "slider.horizontal.3")
+                .labelStyle(.iconOnly)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(WidgetPalette.textMuted)
+                .accessibilityLabel("Edit widget to change market")
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: 9, weight: .bold))
+            Text(remainingMarketCount > 0
+                 ? "+\(remainingMarketCount) more in \(market.title)"
+                 : "Showing every qualifying streak")
+                .font(.system(size: 10, weight: .semibold))
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            Text("WAGERPROOF")
+                .font(.system(size: 8, weight: .heavy))
+                .tracking(0.7)
+        }
+        .foregroundStyle(WidgetPalette.textMuted)
+        .padding(.top, 1)
     }
 }
 
-private struct OutlierRow: View {
-    let alert: OutlierAlertForWidget
+private struct OutliersMarketRow: View {
+    let item: OutliersWidgetItem
+    let rank: Int
+    let isTop: Bool
 
     var body: some View {
-        HStack(spacing: Spacing.sm) {
-            Text(alert.sport.uppercased())
-                .font(.system(size: 9, weight: .heavy))
+        HStack(spacing: 8) {
+            Text("\(rank)")
+                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                .foregroundStyle(isTop ? .black : WidgetPalette.textMuted)
+                .frame(width: 20, height: 20)
+                .background(isTop ? WidgetPalette.accent : WidgetPalette.card, in: Circle())
+
+            Text(item.sport.uppercased())
+                .font(.system(size: 8, weight: .heavy))
+                .tracking(0.4)
                 .foregroundStyle(.white)
-                .padding(.horizontal, 6)
+                .frame(width: 31)
                 .padding(.vertical, 3)
-                .background(WidgetSportBadge.color(for: alert.sport))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .background(WidgetSportBadge.color(for: item.sport), in: RoundedRectangle(cornerRadius: 5))
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(alert.matchup)
-                    .font(.system(size: 9))
-                    .foregroundStyle(WidgetPalette.textMuted)
-                    .lineLimit(1)
-                Text(alert.displayLabel)
-                    .font(.system(size: 11, weight: .semibold))
+                Text(item.subject)
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(WidgetPalette.textPrimary)
                     .lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(item.selection)
+                        .foregroundStyle(WidgetPalette.textSecondary)
+                    Text("·")
+                    Text(item.matchup)
+                        .foregroundStyle(WidgetPalette.textMuted)
+                }
+                .font(.system(size: 9, weight: .medium))
+                .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 4)
 
-            Text(alert.confidenceDisplay)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(WidgetPalette.accent)
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(item.fractionText)
+                    .font(.system(size: 18, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(isTop ? WidgetPalette.accent : WidgetPalette.textPrimary)
+                HStack(spacing: 4) {
+                    if let odds = item.oddsText, !odds.isEmpty {
+                        Text(odds)
+                            .foregroundStyle(WidgetPalette.textSecondary)
+                    }
+                    if item.additionalTrendCount > 0 {
+                        Text("+\(item.additionalTrendCount) more")
+                            .foregroundStyle(WidgetPalette.accent)
+                    }
+                }
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .monospacedDigit()
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(WidgetPalette.card)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-}
-
-// MARK: - Display helpers
-
-private extension OutlierAlertForWidget {
-    var matchup: String { "\(awayTeam) @ \(homeTeam)" }
-
-    /// Fade alerts store the model's *favored* side in `side` — the actual
-    /// recommendation is to bet the opposite. Value alerts store the side
-    /// the market money is actually on, so `side` is used as-is.
-    var displaySide: String {
-        guard kind == .fade else { return side }
-        if marketType == "Total" {
-            return side == "Over" ? "Under" : "Over"
+        .background(
+            isTop ? WidgetPalette.accent.opacity(0.09) : WidgetPalette.card.opacity(0.94),
+            in: RoundedRectangle(cornerRadius: 10)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isTop ? WidgetPalette.accent.opacity(0.28) : Color.clear, lineWidth: 0.75)
         }
-        return side == awayTeam ? homeTeam : awayTeam
-    }
-
-    var displayLabel: String {
-        kind == .fade ? "Fade to \(displaySide)" : "\(displaySide) value"
-    }
-
-    /// NFL fade alerts are probability-based (0-100%); CFB/NBA/NCAAB fade
-    /// alerts are point-deltas. Value alerts are always a market percentage.
-    /// Mirrors `FadeAlertWidgetData.confidenceDisplay` from the RN widget.
-    var confidenceDisplay: String {
-        if kind == .value { return "\(confidence)%" }
-        return sport.lowercased() == "nfl" ? "\(confidence)%" : "\(confidence)pt"
     }
 }
 
-#Preview("Small", as: .systemSmall) {
-    TopOutliersWidget()
-} timeline: {
-    TopOutliersEntry(date: .now, alerts: WidgetSampleData.outlierAlerts, lastUpdated: .now)
+/// A quiet analytical grid gives the card a market-terminal feel without
+/// competing with the actual hit-rate numbers.
+private struct OutliersGridBackdrop: View {
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            let step: CGFloat = 24
+            var x: CGFloat = 0
+            while x <= size.width {
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: size.height))
+                x += step
+            }
+            var y: CGFloat = 0
+            while y <= size.height {
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: size.width, y: y))
+                y += step
+            }
+            context.stroke(path, with: .color(WidgetPalette.accent.opacity(0.025)), lineWidth: 0.5)
+        }
+        .allowsHitTesting(false)
+    }
 }
 
 #Preview("Medium", as: .systemMedium) {
     TopOutliersWidget()
 } timeline: {
-    TopOutliersEntry(date: .now, alerts: WidgetSampleData.outlierAlerts, lastUpdated: .now)
+    TopOutliersEntry(
+        date: .now,
+        market: WidgetSampleData.outlierMarkets[0],
+        selectedMarketTitle: "Parlay God",
+        lastUpdated: .now
+    )
 }
 
 #Preview("Large", as: .systemLarge) {
     TopOutliersWidget()
 } timeline: {
-    TopOutliersEntry(date: .now, alerts: WidgetSampleData.outlierAlerts, lastUpdated: .now)
+    TopOutliersEntry(
+        date: .now,
+        market: WidgetSampleData.outlierMarkets[0],
+        selectedMarketTitle: "Parlay God",
+        lastUpdated: .now
+    )
 }

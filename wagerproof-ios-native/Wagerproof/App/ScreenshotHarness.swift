@@ -155,7 +155,7 @@ struct ScreenshotHarnessView: View {
              .deleteAccount, .deleteAccountError,
              .discord, .iosWidget:
             settingsTargetsA
-        case .secretSettings, .paywall, .paywallError, .customerCenter:
+        case .secretSettings, .paywall, .customPaywall, .paywallError, .customerCenter:
             settingsTargetsB
         default:
             EmptyView()
@@ -726,6 +726,8 @@ struct ScreenshotHarnessView: View {
             makeSettingsModal {
                 RevenueCatPaywallView(placementId: RevenueCatService.Placement.genericFeature)
             }
+        case .customPaywall:
+            PostOnboardingPaywall(onUserDismissed: {})
         case .paywallError:
             // RevenueCatPaywallView fails closed to a `ContentUnavailableView`
             // when no offering is reachable. The harness shares the same
@@ -855,12 +857,14 @@ enum OnboardingFixtures {
 
     /// Survey answers for the `onboardingPage` QA target — populated enough
     /// that every page renders its answered state (sports chips selected,
-    /// bettor type driving the theme + personalizedValue branch, builder
+    /// bettor type driving the theme, research-time arc fed, builder
     /// pre-seeding fed).
     static func survey(bettor: OnboardingStore.BettorType) -> OnboardingStore.SurveyAnswers {
         var s = OnboardingStore.SurveyAnswers()
         s.favoriteSports = ["NFL", "NBA"]
         s.bettorType = bettor
+        s.mainGoal = "Find profitable edges faster"
+        s.researchTimeBucket = "h6to10"
         return s
     }
 }
@@ -1262,9 +1266,9 @@ enum ScreenshotHarness {
         case onboardingIntro
         case onboardingSports
         case onboardingAgentBorn
-        // v2 QA target: any onboarding step via `-onboardingStep <1...20>`
+        // v2 QA target: any onboarding step via `-onboardingStep <1...24>`
         // (+ optional `-onboardingBettor casual|serious|professional` to
-        // exercise the personalizedValue branch). Seeds a survey + agent
+        // exercise the bettor-type theming). Seeds a survey + agent
         // draft so every page renders populated.
         case onboardingPage
         // B21 — LearnMore parity screenshots.
@@ -1330,6 +1334,7 @@ enum ScreenshotHarness {
         case iosWidget
         case secretSettings
         case paywall
+        case customPaywall
         case paywallError
         case customerCenter
     }
@@ -1342,7 +1347,7 @@ enum ScreenshotHarness {
         case .settings, .settingsLoaded, .settingsError,
              .deleteAccount, .deleteAccountError,
              .discord, .iosWidget,
-             .secretSettings, .paywall, .paywallError, .customerCenter:
+             .secretSettings, .paywall, .customPaywall, .paywallError, .customerCenter:
             return true
         default:
             return false
@@ -1366,7 +1371,7 @@ enum ScreenshotHarness {
         return parsed
     }
 
-    /// Reads `-onboardingStep <1...20>` for the `onboardingPage` target.
+    /// Reads `-onboardingStep <1...24>` for the `onboardingPage` target.
     /// Falls back to `.terms` on missing/invalid values.
     static var onboardingStepArg: OnboardingStore.Step {
         let args = ProcessInfo.processInfo.arguments
@@ -1378,8 +1383,8 @@ enum ScreenshotHarness {
         return step
     }
 
-    /// Reads `-onboardingBettor <casual|serious|professional>` so the
-    /// `personalizedValue` page's branch can be exercised. Default: casual.
+    /// Reads `-onboardingBettor <casual|serious|professional>` so
+    /// bettor-type theming can be exercised per page. Default: casual.
     static var onboardingBettorArg: OnboardingStore.BettorType {
         let args = ProcessInfo.processInfo.arguments
         guard let idx = args.firstIndex(of: "-onboardingBettor"),

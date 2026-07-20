@@ -76,9 +76,9 @@ targets:
         INFOPLIST_FILE: Wagerproof/Info.plist
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_ENTITLEMENTS: Wagerproof/Wagerproof.entitlements
-        # Match Honeydew's strategy: skip entitlement baking on iphonesimulator SDK
-        # to avoid iOS 26 sim "Security policy issue" rejections (NSPOSIXErrorDomain 163)
-        # when ad-hoc-signed binaries carry team-prefixed entitlements.
+        # Simulator builds keep the App Group entitlement used by the widgets,
+        # but strip device-only/team-prefixed capabilities that iOS 26's
+        # simulator rejects with NSPOSIXErrorDomain 163.
         "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "Apple Development"
         CODE_SIGN_IDENTITY: ""
     dependencies:
@@ -108,13 +108,13 @@ targets:
         embed: true
         codeSign: true
     postCompileScripts:
-      - name: Strip entitlements on sim builds
+      - name: Keep widget App Group entitlement on sim builds
         script: |
           if [ "${EFFECTIVE_PLATFORM_NAME}" = "-iphonesimulator" ]; then
-            EMPTY_PLIST='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict/></plist>'
+            SIM_PLIST='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>com.apple.security.application-groups</key><array><string>group.com.wagerproof.mobile</string></array></dict></plist>'
             for XCENT_FILE in "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app.xcent" "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.app-Simulated.xcent"; do
               if [ -f "$XCENT_FILE" ]; then
-                printf '%s' "$EMPTY_PLIST" > "$XCENT_FILE"
+                printf '%s' "$SIM_PLIST" > "$XCENT_FILE"
               fi
             done
           fi
@@ -128,6 +128,10 @@ targets:
         excludes:
           - Info.plist
           - WagerProofWidgetExtension.entitlements
+      - path: WagerproofKit/Sources/WagerproofDesign/Resources/PixelOffice
+        includes:
+          - avatar_*.png
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.wagerproof.mobile.widget
@@ -143,18 +147,14 @@ targets:
     dependencies:
       - package: WagerproofKit
         product: WagerproofModels
-      - package: WagerproofKit
-        product: WagerproofServices
-      - package: WagerproofKit
-        product: WagerproofDesign
     postCompileScripts:
-      - name: Strip entitlements on sim builds
+      - name: Keep widget App Group entitlement on sim builds
         script: |
           if [ "${EFFECTIVE_PLATFORM_NAME}" = "-iphonesimulator" ]; then
-            EMPTY_PLIST='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict/></plist>'
+            SIM_PLIST='<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>com.apple.security.application-groups</key><array><string>group.com.wagerproof.mobile</string></array></dict></plist>'
             for XCENT_FILE in "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.appex.xcent" "${TARGET_TEMP_DIR}/${PRODUCT_NAME}.appex-Simulated.xcent"; do
               if [ -f "$XCENT_FILE" ]; then
-                printf '%s' "$EMPTY_PLIST" > "$XCENT_FILE"
+                printf '%s' "$SIM_PLIST" > "$XCENT_FILE"
               fi
             done
           fi
