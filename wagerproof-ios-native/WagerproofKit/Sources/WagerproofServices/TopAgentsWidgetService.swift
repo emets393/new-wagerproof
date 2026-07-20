@@ -1,6 +1,8 @@
 import Foundation
+import OSLog
 import Supabase
 import WagerproofModels
+import WagerproofSharedKit
 
 /// Port of `wagerproof-mobile/services/topAgentsWidgetService.ts` +
 /// the JS side of `modules/widget-data-bridge`. Fetches the user's top agents
@@ -12,24 +14,26 @@ import WagerproofModels
 /// extension shipped via Expo continues to read the same `widgetPayload` key
 /// during the migration window.
 ///
-/// FIDELITY-WAIVER #079: The native iOS widget extension target itself is
-/// not yet wired in `project.yml` — see ticket #079. Until then this service
-/// still maintains the App Group payload so the existing Expo-shipped
-/// widget keeps working when users install the Swift app over the RN build.
 public enum TopAgentsWidgetService {
     /// Shared App Group identifier. Matches `app.json:25` on the RN side and
     /// the `com.apple.security.application-groups` entry in
     /// `Wagerproof.entitlements`.
-    public static let appGroupId = "group.com.wagerproof.mobile"
+    public static let appGroupId = AppGroup.identifier
 
     /// Key used inside the App Group defaults for the JSON payload. Mirrors
     /// the RN native module's `widgetPayload` key — changing it would break
     /// every widget that's already on a user's home screen.
-    public static let payloadKey = "widgetPayload"
+    public static let payloadKey = AppGroupKey.widgetPayload
+
+    private static let logger = Logger(
+        subsystem: "com.wagerproof.mobile",
+        category: "WidgetPayload"
+    )
 
     /// Per-RN constants. Keep in sync with `topAgentsWidgetService.ts:5-6`.
     private static let maxWidgetAgents = 3
     private static let picksPerAgent = 2
+    private static let formPointCap = 10
 
     // MARK: - Public entry points
 
@@ -60,7 +64,7 @@ public enum TopAgentsWidgetService {
         // 1) Slim agent rows — we only need the widget projection.
         let agentRows: [WidgetAgentRow] = try await main
             .from("avatar_profiles")
-            .select("id, name, avatar_emoji, avatar_color, is_widget_favorite, is_active")
+            .select("id, name, avatar_emoji, avatar_color, sprite_index, is_widget_favorite, is_active")
             .eq("user_id", value: userId)
             .eq("is_active", value: true)
             .execute()
@@ -127,6 +131,29 @@ public enum TopAgentsWidgetService {
             // the agent shell.
         }
 
+        // The small widget's background chart is real recent form, not a
+        // decorative random line. Fetch a compact graded history and turn W/L
+        // results into a cumulative form series (pushes hold the line).
+        var formPicksByAgent: [String: [AgentPick]] = Dictionary(
+            uniqueKeysWithValues: selectedIds.map { ($0, []) }
+        )
+        do {
+            let graded: [AgentPick] = try await main
+                .from("avatar_picks")
+                .select()
+                .in("avatar_id", values: selectedIds)
+                .in("result", values: ["won", "lost", "push"])
+                .order("created_at", ascending: false)
+                .limit(maxWidgetAgents * formPointCap * 2)
+                .execute()
+                .value
+            for pick in graded {
+                formPicksByAgent[pick.avatarId, default: []].append(pick)
+            }
+        } catch {
+            // A missing history graph must not hide otherwise-valid agent data.
+        }
+
         return selected.map { entry -> TopAgentWidgetData in
             let row = entry.row
             let perf = entry.perf
@@ -139,8 +166,11 @@ public enum TopAgentsWidgetService {
                 netUnits: perf?.netUnits ?? 0,
                 winRate: perf?.winRate,
                 currentStreak: perf?.currentStreak ?? 0,
+                bestStreak: perf?.bestStreak ?? 0,
                 record: Self.formatRecord(perf),
-                picks: Self.selectPicks(for: picksByAgent[row.id] ?? [])
+                picks: Self.selectPicks(for: picksByAgent[row.id] ?? []),
+                spriteIndex: row.spriteIndex,
+                form: Self.formValues(for: formPicksByAgent[row.id] ?? [])
             )
         }
     }
@@ -154,7 +184,12 @@ public enum TopAgentsWidgetService {
         guard let defaults = appGroupDefaults() else { return nil }
         guard let jsonString = defaults.string(forKey: payloadKey),
               let data = jsonString.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(WidgetDataPayload.self, from: data)
+        do {
+            return try JSONDecoder().decode(WidgetDataPayload.self, from: data)
+        } catch {
+            logger.error("Failed to decode widget payload: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     public static func writePayload(_ payload: WidgetDataPayload) throws {
@@ -162,10 +197,9 @@ public enum TopAgentsWidgetService {
         guard let jsonString = String(data: data, encoding: .utf8) else { return }
         let defaults = appGroupDefaults() ?? .standard
         defaults.set(jsonString, forKey: payloadKey)
-        // FIDELITY-WAIVER #079: When the iOS widget extension target lands,
-        // call `WidgetCenter.shared.reloadAllTimelines()` from a wrapper in
-        // the app target (WidgetCenter isn't importable from this
-        // extension-safe service).
+        // Publish the value before the app asks WidgetKit (a separate
+        // process) to reload its timeline.
+        defaults.synchronize()
     }
 
     /// Hash that mirrors RN's `lastHashRef`. View consumers use it to skip
@@ -190,11 +224,6 @@ public enum TopAgentsWidgetService {
 
     // MARK: - Internals
 
-    /// FIDELITY-WAIVER #080: App Group access falls back to `.standard`
-    /// UserDefaults when the widget extension target isn't wired (degraded
-    /// mode — the in-app debug surface still works, the home-screen widget
-    /// does not). The entitlement IS configured in `Wagerproof.entitlements`
-    /// but until a widget extension target exists the data has no consumer.
     private static func appGroupDefaults() -> UserDefaults? {
         UserDefaults(suiteName: appGroupId)
     }
@@ -220,6 +249,26 @@ public enum TopAgentsWidgetService {
         let losses = perf?.losses ?? 0
         let pushes = perf?.pushes ?? 0
         return pushes > 0 ? "\(wins)-\(losses)-\(pushes)" : "\(wins)-\(losses)"
+    }
+
+    private static func formValues(for picks: [AgentPick]) -> [Double] {
+        let recent = picks
+            .filter { $0.result != .pending }
+            .sorted { $0.createdAt < $1.createdAt }
+            .suffix(formPointCap)
+        guard !recent.isEmpty else { return [] }
+
+        var score = 0.0
+        var points = [score]
+        for pick in recent {
+            switch pick.result {
+            case .won: score += 1
+            case .lost: score -= 1
+            case .push, .pending: break
+            }
+            points.append(score)
+        }
+        return points
     }
 
     /// Pick selection: prefer today's picks, fall back to historical. Mirrors
@@ -280,12 +329,14 @@ public enum TopAgentsWidgetService {
         let name: String
         let avatarEmoji: String?
         let avatarColor: String?
+        let spriteIndex: Int?
         let isWidgetFavorite: Bool?
         let isActive: Bool?
         enum CodingKeys: String, CodingKey {
             case id, name
             case avatarEmoji = "avatar_emoji"
             case avatarColor = "avatar_color"
+            case spriteIndex = "sprite_index"
             case isWidgetFavorite = "is_widget_favorite"
             case isActive = "is_active"
         }

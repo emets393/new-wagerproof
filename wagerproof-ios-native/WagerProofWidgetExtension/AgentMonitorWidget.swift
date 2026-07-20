@@ -1,7 +1,6 @@
 import WidgetKit
 import SwiftUI
 import WagerproofModels
-import WagerproofServices
 
 struct AgentMonitorEntry: TimelineEntry {
     let date: Date
@@ -9,8 +8,7 @@ struct AgentMonitorEntry: TimelineEntry {
     let lastUpdated: Date?
 }
 
-/// Reads the App Group payload `TopAgentsWidgetService.sync(userId:)`
-/// (called from the main app) writes. No in-extension fallback fetch, same
+/// Reads the App Group payload the main app writes. No in-extension fallback fetch, same
 /// reasoning as `TopOutliersProvider` — keeps the extension process light
 /// and avoids needing an authenticated Supabase session inside the
 /// extension. An empty cache renders a "open the app" placeholder instead.
@@ -33,7 +31,7 @@ struct AgentMonitorProvider: TimelineProvider {
     }
 
     private func currentEntry() -> AgentMonitorEntry {
-        guard let payload = TopAgentsWidgetService.readPayload() else {
+        guard let payload = WidgetPayloadCache.read() else {
             return AgentMonitorEntry(date: Date(), agents: [], lastUpdated: nil)
         }
         return AgentMonitorEntry(

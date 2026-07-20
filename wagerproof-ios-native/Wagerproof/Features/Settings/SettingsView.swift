@@ -253,14 +253,14 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - WagerProof for Claude
+    // MARK: - WagerProof AI connector
 
-    /// A prominent discovery card for the WagerProof remote MCP connector.
-    /// WagerProof is not in Anthropic's directory yet, so the copy says
-    /// "Custom connector" plainly and the guide teaches the manual URL flow.
+    /// Reuses the multi-provider connector banner from the custom paywall's
+    /// final feature page. Tapping it keeps the existing Claude setup guide as
+    /// the currently supported in-app walkthrough.
     @ViewBuilder
     private var claudeConnectorSection: some View {
-        ProfileSectionHeader(title: "Connect with Claude")
+        ProfileSectionHeader(title: "AI Connector")
         claudeConnectorCard
             .padding(.horizontal, Spacing.lg)
     }
@@ -269,88 +269,12 @@ struct SettingsView: View {
         Button {
             isClaudeConnectorGuidePresented = true
         } label: {
-            ZStack(alignment: .topTrailing) {
-                LinearGradient(
-                    colors: [
-                        Color(hex: 0x4D2D27),
-                        Color(hex: 0x9D4C3A),
-                        Color(hex: 0xD97757),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                // Oversized watermark adds depth while the full-color mark
-                // remains the recognizable focal point on the leading edge.
-                Image("ClaudeSymbol")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 150, height: 150)
-                    .foregroundStyle(.white)
-                    .opacity(0.08)
-                    .offset(x: 34, y: -34)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(alignment: .top, spacing: 14) {
-                        Image("ClaudeSymbol")
-                            .resizable()
-                            .scaledToFit()
-                            .padding(13)
-                            .frame(width: 64, height: 64)
-                            .background(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .fill(Color.white.opacity(0.96))
-                            )
-                            .accessibilityHidden(true)
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("CUSTOM MCP CONNECTOR")
-                                .font(.system(size: 10, weight: .bold))
-                                .kerning(1.1)
-                                .foregroundStyle(Color.white.opacity(0.72))
-
-                            Text("Analyze with Claude")
-                                .font(.system(size: 25, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
-
-                            Text("Ask about your prediction agents, their records, and WagerProof model forecasts right inside Claude.")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Color.white.opacity(0.88))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-
-                    HStack(spacing: 8) {
-                        Text("Set up in about a minute")
-                            .font(.system(size: 15, weight: .semibold))
-                        Spacer(minLength: 8)
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 14, weight: .bold))
-                    }
-                    .foregroundStyle(Color(hex: 0x4D2D27))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Color.white.opacity(0.94))
-                    )
-                }
-                .padding(20)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
-            }
-            .shadow(color: Color(hex: 0x4D2D27).opacity(0.18), radius: 16, y: 8)
-            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            AIConnectorBanner(compact: false)
+                .contentShape(RoundedRectangle(cornerRadius: 23, style: .continuous))
         }
         .buttonStyle(ClaudeConnectorCardButtonStyle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Analyze with Claude. Read-only custom WagerProof connector for prediction agents, records, and model forecasts.")
-        .accessibilityHint("Opens custom connector setup instructions and example prompts.")
+        .accessibilityLabel("Connect WagerProof to your AI. Claude, ChatGPT, Gemini, Grok, and Codex.")
+        .accessibilityHint("Opens the Claude custom connector setup guide.")
     }
 
     /// Push-notification row — bespoke because it carries a `Toggle` (or a
@@ -748,6 +672,121 @@ struct SettingsView: View {
                 await MainActor.run { versionTapCount = 0 }
             }
         }
+    }
+}
+
+// MARK: - Shared AI connector banner
+
+/// The multi-provider connector banner used by the custom paywall's final
+/// feature page. Settings wraps it in a button while the paywall presents the
+/// same banner as a display-only benefit preview.
+struct AIConnectorBanner: View {
+    let compact: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private struct Provider: Identifiable {
+        let id: String
+        let assetName: String
+        let usesInsetLogo: Bool
+    }
+
+    private let providers: [Provider] = [
+        .init(id: "Claude", assetName: "AIClaudeIcon", usesInsetLogo: false),
+        .init(id: "ChatGPT", assetName: "AIChatGPTIcon", usesInsetLogo: false),
+        .init(id: "Gemini", assetName: "AIGeminiIcon", usesInsetLogo: false),
+        .init(id: "Grok", assetName: "AIGrokIcon", usesInsetLogo: false),
+        .init(id: "Codex", assetName: "AICodexIcon", usesInsetLogo: false),
+    ]
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 23, style: .continuous)
+        let primary = Color(hex: 0x30231F)
+        let secondary = Color(hex: 0xD97757)
+
+        ZStack {
+            LinearGradient(
+                colors: [primary, secondary],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+
+            OptionCardIconChrome(
+                primaryColor: primary,
+                symbols: [
+                    "link", "sparkles", "brain.head.profile",
+                    "text.bubble.fill", "magnifyingglass",
+                    "chart.bar.fill", "bolt.fill", "network",
+                    "terminal.fill", "doc.text.fill",
+                ],
+                seed: 0.72,
+                speedFactor: 0.86,
+                yJitter: 0.01,
+                motionEnabled: !reduceMotion
+            )
+
+            LinearGradient(
+                colors: [primary, primary.opacity(0.88), primary.opacity(0.18)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .allowsHitTesting(false)
+
+            VStack(alignment: .leading, spacing: compact ? 7 : 9) {
+                HStack(spacing: compact ? -9 : -11) {
+                    ForEach(Array(providers.enumerated()), id: \.element.id) { index, provider in
+                        ZStack {
+                            Circle()
+                                .fill(Color.black)
+
+                            Image(provider.assetName)
+                                .resizable()
+                                .renderingMode(.original)
+                                .aspectRatio(contentMode: provider.usesInsetLogo ? .fit : .fill)
+                                .padding(provider.usesInsetLogo ? (compact ? 8 : 10) : 0)
+                        }
+                        .frame(width: compact ? 38 : 46, height: compact ? 38 : 46)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle().strokeBorder(
+                                Color.white.opacity(0.82),
+                                lineWidth: compact ? 1.5 : 2
+                            )
+                        )
+                        .shadow(color: .black.opacity(0.34), radius: 5, y: 3)
+                        .zIndex(Double(providers.count - index))
+                    }
+                }
+                .accessibilityHidden(true)
+
+                Text("Connect WagerProof to your AI")
+                    .font(.system(size: compact ? 15 : 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Text("Bring your agents, picks, and model analytics into a read-only AI workflow.")
+                    .font(.system(size: compact ? 12.5 : 15, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.9)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Claude  ·  ChatGPT  ·  Gemini  ·  Grok  ·  Codex")
+                    .font(.system(size: compact ? 7.5 : 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .padding(compact ? 10 : 14)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: compact ? 152 : 184)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(.white.opacity(0.14), lineWidth: 1))
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 5)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "AI connector setup for Claude, ChatGPT, Gemini, Grok, and Codex. Read-only access included with Pro."
+        )
     }
 }
 

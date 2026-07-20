@@ -21,6 +21,10 @@ public struct WidgetDataPayload: Codable, Sendable {
     /// RN-shipped widget doesn't know about it and won't round-trip it, but
     /// that widget is being retired alongside the RN app.
     public var topOutliers: [OutlierAlertForWidget]
+    /// Configurable market sections for the native Top Outliers widget. Each
+    /// group mirrors one header on the Outliers screen (Parlay God,
+    /// Moneyline, Run Line, player props, and so on).
+    public var outlierMarkets: [OutliersWidgetMarketData]
     public var lastUpdated: String
 
     public init(
@@ -29,6 +33,7 @@ public struct WidgetDataPayload: Codable, Sendable {
         polymarketValues: [PolymarketValueForWidget] = [],
         topAgentPicks: [TopAgentWidgetData] = [],
         topOutliers: [OutlierAlertForWidget] = [],
+        outlierMarkets: [OutliersWidgetMarketData] = [],
         lastUpdated: String
     ) {
         self.editorPicks = editorPicks
@@ -36,6 +41,7 @@ public struct WidgetDataPayload: Codable, Sendable {
         self.polymarketValues = polymarketValues
         self.topAgentPicks = topAgentPicks
         self.topOutliers = topOutliers
+        self.outlierMarkets = outlierMarkets
         self.lastUpdated = lastUpdated
     }
 
@@ -46,7 +52,10 @@ public struct WidgetDataPayload: Codable, Sendable {
         polymarketValues = try container.decodeIfPresent([PolymarketValueForWidget].self, forKey: .polymarketValues) ?? []
         topAgentPicks = try container.decodeIfPresent([TopAgentWidgetData].self, forKey: .topAgentPicks) ?? []
         topOutliers = try container.decodeIfPresent([OutlierAlertForWidget].self, forKey: .topOutliers) ?? []
-        lastUpdated = try container.decode(String.self, forKey: .lastUpdated)
+        outlierMarkets = try container.decodeIfPresent([OutliersWidgetMarketData].self, forKey: .outlierMarkets) ?? []
+        // The original RN bridge did not always include this field. Treat it
+        // as optional so one legacy payload cannot blank every widget.
+        lastUpdated = try container.decodeIfPresent(String.self, forKey: .lastUpdated) ?? ""
     }
 
     public static func empty() -> WidgetDataPayload {
@@ -56,6 +65,7 @@ public struct WidgetDataPayload: Codable, Sendable {
             polymarketValues: [],
             topAgentPicks: [],
             topOutliers: [],
+            outlierMarkets: [],
             lastUpdated: ""
         )
     }
@@ -68,6 +78,7 @@ public struct OutlierAlertForWidget: Codable, Sendable, Hashable, Identifiable {
     public enum Kind: String, Codable, Sendable {
         case value
         case fade
+        case trend
     }
 
     public let id: String
@@ -104,6 +115,72 @@ public struct OutlierAlertForWidget: Codable, Sendable, Hashable, Identifiable {
         self.side = side
         self.confidence = confidence
         self.gameTime = gameTime
+    }
+}
+
+/// One editable market option in the Top Outliers widget. `id` is stable and
+/// intentionally data-driven so WidgetKit can offer every live Outliers page
+/// header without hard-coding a second market taxonomy in the extension.
+public struct OutliersWidgetMarketData: Codable, Sendable, Hashable, Identifiable {
+    public let id: String
+    public let title: String
+    public let symbolName: String
+    public let items: [OutliersWidgetItem]
+    /// Total qualifying cards in this market before the widget payload cap.
+    public let totalCount: Int
+
+    public init(
+        id: String,
+        title: String,
+        symbolName: String,
+        items: [OutliersWidgetItem],
+        totalCount: Int
+    ) {
+        self.id = id
+        self.title = title
+        self.symbolName = symbolName
+        self.items = items
+        self.totalCount = totalCount
+    }
+}
+
+/// Glanceable projection of either an Outliers trend card or a Parlay God
+/// ticket. The fraction is calculated from the real strongest row; no sample
+/// or streak is synthesized in the extension.
+public struct OutliersWidgetItem: Codable, Sendable, Hashable, Identifiable {
+    public let id: String
+    public let sport: String
+    public let matchup: String
+    public let subject: String
+    public let selection: String
+    public let oddsText: String?
+    public let hitCount: Int
+    public let sampleSize: Int
+    /// Additional trend rows (or parlay legs) available behind this preview.
+    public let additionalTrendCount: Int
+
+    public var fractionText: String { "\(hitCount)/\(sampleSize)" }
+
+    public init(
+        id: String,
+        sport: String,
+        matchup: String,
+        subject: String,
+        selection: String,
+        oddsText: String? = nil,
+        hitCount: Int,
+        sampleSize: Int,
+        additionalTrendCount: Int = 0
+    ) {
+        self.id = id
+        self.sport = sport
+        self.matchup = matchup
+        self.subject = subject
+        self.selection = selection
+        self.oddsText = oddsText
+        self.hitCount = hitCount
+        self.sampleSize = sampleSize
+        self.additionalTrendCount = additionalTrendCount
     }
 }
 
@@ -248,8 +325,13 @@ public struct TopAgentWidgetData: Codable, Sendable, Hashable, Identifiable {
     public let netUnits: Double
     public var winRate: Double?
     public let currentStreak: Int
+    public let bestStreak: Int
     public let record: String
     public let picks: [AgentPickForWidget]
+    /// Stable character from the agent's selected pixel-office avatar.
+    public let spriteIndex: Int
+    /// Cumulative recent graded-pick results used by the widget sparkline.
+    public let form: [Double]
 
     public var id: String { agentId }
 
@@ -262,8 +344,11 @@ public struct TopAgentWidgetData: Codable, Sendable, Hashable, Identifiable {
         netUnits: Double,
         winRate: Double? = nil,
         currentStreak: Int,
+        bestStreak: Int = 0,
         record: String,
-        picks: [AgentPickForWidget]
+        picks: [AgentPickForWidget],
+        spriteIndex: Int? = nil,
+        form: [Double] = []
     ) {
         self.agentId = agentId
         self.agentName = agentName
@@ -273,7 +358,33 @@ public struct TopAgentWidgetData: Codable, Sendable, Hashable, Identifiable {
         self.netUnits = netUnits
         self.winRate = winRate
         self.currentStreak = currentStreak
+        self.bestStreak = bestStreak
         self.record = record
         self.picks = picks
+        self.spriteIndex = spriteIndex ?? AgentSpriteIndex.forSeed(agentId)
+        self.form = form
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case agentId, agentName, agentEmoji, agentColor, isFavorite, netUnits
+        case winRate, currentStreak, bestStreak, record, picks, spriteIndex, form
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        agentId = try container.decode(String.self, forKey: .agentId)
+        agentName = try container.decode(String.self, forKey: .agentName)
+        agentEmoji = try container.decodeIfPresent(String.self, forKey: .agentEmoji) ?? "🤖"
+        agentColor = try container.decodeIfPresent(String.self, forKey: .agentColor) ?? "#22C55E"
+        isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        netUnits = try container.decodeIfPresent(Double.self, forKey: .netUnits) ?? 0
+        winRate = try container.decodeIfPresent(Double.self, forKey: .winRate)
+        currentStreak = try container.decodeIfPresent(Int.self, forKey: .currentStreak) ?? 0
+        bestStreak = try container.decodeIfPresent(Int.self, forKey: .bestStreak) ?? 0
+        record = try container.decodeIfPresent(String.self, forKey: .record) ?? "0-0"
+        picks = try container.decodeIfPresent([AgentPickForWidget].self, forKey: .picks) ?? []
+        spriteIndex = try container.decodeIfPresent(Int.self, forKey: .spriteIndex)
+            ?? AgentSpriteIndex.forSeed(agentId)
+        form = try container.decodeIfPresent([Double].self, forKey: .form) ?? []
     }
 }
