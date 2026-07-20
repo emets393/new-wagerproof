@@ -41,12 +41,14 @@ describe('numRange', () => {
     const r = applyFilterPatch(base(), P({ op: 'set', dimension: 'ppg', value: [20.3, 30.9] }));
     expect(r.snapshot.ppg).toEqual([20.5, 31]); // step 0.5
   });
-  it('honors bet-type-specific bounds (spreadSize max 14 on h1_spread)', () => {
+  it('FG spreadSize stays 0–20 across bet types; use h1SpreadSize for 1H', () => {
     const r = applyFilterPatch(base(), P(
       { op: 'set', dimension: 'betType', value: 'h1_spread' },
       { op: 'set', dimension: 'spreadSize', value: [3, 40] },
+      { op: 'set', dimension: 'h1SpreadSize', value: [3, 40] },
     ));
-    expect(r.snapshot.spreadSize).toEqual([3, 14]);
+    expect(r.snapshot.spreadSize).toEqual([3, 20]);
+    expect(r.snapshot.h1SpreadSize).toEqual([3, 14]);
   });
   it('rejects a non-array value', () => {
     const r = applyFilterPatch(base(), P({ op: 'set', dimension: 'winStreak', value: 3 }));
@@ -67,10 +69,10 @@ describe('pctRange', () => {
   });
 });
 
-describe('scalarMax / scalarMin', () => {
-  it('clamps windMax', () => {
-    expect(applyFilterPatch(base(), P({ op: 'set', dimension: 'windMax', value: 80 })).snapshot.windMax).toBe(60);
-    expect(applyFilterPatch(base(), P({ op: 'set', dimension: 'windMax', value: 15 })).snapshot.windMax).toBe(15);
+describe('windRange / scalarMin', () => {
+  it('clamps windRange', () => {
+    expect(applyFilterPatch(base(), P({ op: 'set', dimension: 'windRange', value: [10, 80] })).snapshot.windRange).toEqual([10, 60]);
+    expect(applyFilterPatch(base(), P({ op: 'set', dimension: 'windRange', value: [15, 25] })).snapshot.windRange).toEqual([15, 25]);
   });
   it('clamps minGames', () => {
     expect(applyFilterPatch(base(), P({ op: 'set', dimension: 'minGames', value: 20 })).snapshot.minGames).toBe(10);
@@ -151,11 +153,12 @@ describe('multiselect days + divisions', () => {
 });
 
 describe('betType spine + side effects', () => {
-  it('switching to a limited market resets line controls and floors seasons to 2023', () => {
+  it('switching to a limited market floors seasons to 2023 without resetting FG line filters', () => {
     const r = applyFilterPatch(base(), P({ op: 'set', dimension: 'betType', value: 'team_total' }));
     expect(r.snapshot.betType).toBe('team_total');
     expect(r.snapshot.spreadSize).toEqual([0, 20]);
-    expect(r.snapshot.lineRange).toEqual([10, 40]); // team_total total bounds
+    expect(r.snapshot.lineRange).toEqual([30, 60]);
+    expect(r.snapshot.ttLineRange).toEqual([10, 40]);
     expect(r.snapshot.seasons).toEqual([2023, 2025]); // limited-market floor
   });
   it('rejects an invalid bet type', () => {
@@ -164,13 +167,14 @@ describe('betType spine + side effects', () => {
 });
 
 describe('availability gating', () => {
-  it('rejects spreadSize on a total market', () => {
+  it('allows spreadSize on a total market (cross-market lines)', () => {
     const r = applyFilterPatch(base(), P(
       { op: 'set', dimension: 'betType', value: 'fg_total' },
       { op: 'set', dimension: 'spreadSize', value: [3, 5] },
     ));
     expect(r.snapshot.betType).toBe('fg_total');
-    expect(r.rejected.some((x) => /Spread size/.test(x.reason))).toBe(true);
+    expect(r.snapshot.spreadSize).toEqual([3, 5]);
+    expect(r.rejected).toHaveLength(0);
   });
   it('auto-satisfies playoffRound prerequisite (sets seasonType=postseason)', () => {
     const r = applyFilterPatch(base(), P({ op: 'set', dimension: 'playoffRound', value: 'Wild Card' }));

@@ -29,6 +29,9 @@ public final class HistoricalAnalysisStore {
     public private(set) var conferences: [String] = []
     public private(set) var conferenceTeamMap: [String: [String]] = [:]
     public private(set) var cfbLogos: [String: String] = [:]
+    /// NFL / CFB / MLB team picker options — `(id, displayName)` where `id` is
+    /// the warehouse key (NFL abbr, CFB school name, MLB abbr).
+    public private(set) var teamOptions: [(id: String, name: String)] = []
     public private(set) var mlbTeams: [(abbr: String, name: String)] = []
 
     public private(set) var savedFilters: [HistoricalAnalysisSavedFilter] = []
@@ -149,23 +152,26 @@ public final class HistoricalAnalysisStore {
             upcomingFilters = filters
         }
         do {
-            async let analysisTask = HistoricalAnalysisService.shared.fetchAnalysis(
+            // Analysis first so the hero paints even if upcoming is slow / times out.
+            // Starting both as async-let still contended the warehouse and blocked loadState.
+            let a = try await HistoricalAnalysisService.shared.fetchAnalysis(
                 sport: sport, betType: betType, filters: filters
             )
-            async let upcomingTask = HistoricalAnalysisService.shared.fetchUpcoming(
-                sport: sport, betType: betType, filters: upcomingFilters
-            )
-            let (a, u) = try await (analysisTask, upcomingTask)
             analysis = a
-            upcoming = u
             loadState = .loaded
             hasLoadedOnce = true
+            isRefetching = false
+
+            let u = (try? await HistoricalAnalysisService.shared.fetchUpcoming(
+                sport: sport, betType: betType, filters: upcomingFilters
+            )) ?? []
+            upcoming = u
         } catch {
             if !hasLoadedOnce {
                 loadState = .failed(error.localizedDescription)
             }
+            isRefetching = false
         }
-        isRefetching = false
     }
 
     private func loadBootstrap() async {
@@ -175,13 +181,21 @@ public final class HistoricalAnalysisStore {
                 let boot = try await HistoricalAnalysisService.shared.fetchBootstrap(sport: sport)
                 coaches = (boot.byCoach ?? []).map(\.label).filter { $0 != "—" }.sorted()
                 referees = (boot.byReferee ?? []).map(\.label).filter { $0 != "—" }.sorted()
+                await NFLTeamsService.shared.ensureLoaded()
+                teamOptions = NFLTeamAssets.byAbbr.values
+                    .map { (id: $0.abbr, name: $0.name) }
+                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             case .cfb:
                 let boot = try await HistoricalAnalysisService.shared.fetchBootstrap(sport: sport)
                 conferences = (boot.byConference ?? []).compactMap(\.conference).filter { !$0.isEmpty }.sorted()
                 conferenceTeamMap = (try? await HistoricalAnalysisService.shared.fetchConferenceTeamMap()) ?? [:]
                 cfbLogos = (try? await HistoricalAnalysisService.shared.fetchCFBLogos()) ?? [:]
+                teamOptions = Array(Set(conferenceTeamMap.values.flatMap { $0 }))
+                    .sorted()
+                    .map { (id: $0, name: $0) }
             case .mlb:
                 mlbTeams = (try? await HistoricalAnalysisService.shared.fetchMLBTeamAbbrs()) ?? []
+                teamOptions = mlbTeams.map { (id: $0.abbr, name: $0.name) }
             }
         } catch {
             // Non-fatal — filter dropdowns stay empty.
@@ -198,26 +212,490 @@ public final class HistoricalAnalysisStore {
         if snapshot.seasonMin < floor { snapshot.seasonMin = floor }
         switch sport {
         case .nfl:
-            snapshot.spreadMax = betType == "h1_spread" ? 14 : 20
-            switch betType {
-            case "fg_total": snapshot.lineMin = 30; snapshot.lineMax = 60
-            case "h1_total": snapshot.lineMin = 15; snapshot.lineMax = 35
-            case "team_total": snapshot.lineMin = 10; snapshot.lineMax = 40
-            default: break
-            }
+            break
         case .cfb:
-            snapshot.spreadMax = betType == "h1_spread" ? 18 : 28
-            switch betType {
-            case "fg_total": snapshot.lineMin = 30; snapshot.lineMax = 80
-            case "h1_total": snapshot.lineMin = 15; snapshot.lineMax = 45
-            case "team_total": snapshot.lineMin = 10; snapshot.lineMax = 55
-            default: break
-            }
+            break
         case .mlb:
             switch betType {
             case "total": snapshot.lineMin = 5; snapshot.lineMax = 14
             case "f5_total": snapshot.lineMin = 2; snapshot.lineMax = 8
             default: break
+            }
+        }
+    }
+    
+    // MARK: - B2: Symmetric Split Hero
+    
+    /// True when the current snapshot shows the forced ~50% scenario on a two-sided market
+    public var shouldShowSymmetricSplit: Bool {
+        guard sport == .nfl || sport == .cfb else { return false }
+        return snapshot.isSideSymmetric(sport: sport)
+    }
+    
+    /// Get the more extreme side from bars for symmetric split display
+    public func getSymmetricSplitData() -> (extremeSide: HistoricalAnalysisBarOption, homeAway: [HistoricalAnalysisBarOption], favDog: [HistoricalAnalysisBarOption])? {
+        guard let analysis = analysis,
+              shouldShowSymmetricSplit else { return nil }
+        
+        var homeAway: [HistoricalAnalysisBarOption] = []
+        var favDog: [HistoricalAnalysisBarOption] = []
+        var allOptions: [HistoricalAnalysisBarOption] = []
+        
+        for bar in analysis.bars {
+            if bar.dimension == "home_away" {
+                homeAway = bar.options
+                allOptions.append(contentsOf: bar.options)
+            } else if bar.dimension == "fav_dog" {
+                favDog = bar.options
+                allOptions.append(contentsOf: bar.options)
+            }
+        }
+        
+        // Stronger cover rate wins. Complements are equally far from 50%, so abs-from-50
+        // ties and would arbitrarily keep RPC order (often the <50% side).
+        let extremeSide = allOptions.max { a, b in
+            a.hitPct < b.hitPct
+        }
+        
+        guard let extreme = extremeSide else { return nil }
+        return (extreme, homeAway, favDog)
+    }
+    
+    // MARK: - B4: NL Filter Chat
+    
+    public struct NLFilterChatState {
+        public var isProcessing = false
+        public var inputText = ""
+        public var lastResponse: NLFilterResponse?
+        public var transcript: [NLFilterExchange] = []
+    }
+    
+    public struct NLFilterResponse {
+        public let applied: [String]
+        public let rejected: [String]
+        public let couldntMap: [String]
+        public let ambiguous: [String]
+        public let noChange: Bool
+        public let error: String?
+        
+        public var hasChanges: Bool {
+            !applied.isEmpty || !rejected.isEmpty || !couldntMap.isEmpty || !ambiguous.isEmpty
+        }
+    }
+    
+    public struct NLFilterExchange {
+        public let id = UUID()
+        public let input: String
+        public let response: NLFilterResponse
+        public let timestamp = Date()
+    }
+    
+    public var nlChatState = NLFilterChatState()
+    
+    public func submitNLFilterQuery(_ sentence: String, isAuthenticated: Bool) async {
+        guard isAuthenticated, !sentence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        
+        nlChatState.isProcessing = true
+        
+        do {
+            // Serialize current filter in web snapshot shape for RPC
+            let currentFilter = serializeCurrentFilterForNL()
+            
+            let response = try await HistoricalAnalysisService.shared.submitNLFilterPatch(
+                sentence: sentence,
+                currentFilter: currentFilter,
+                coaches: coaches,
+                referees: referees,
+                sport: sport
+            )
+            
+            // Apply the returned snapshot if successful
+            if let newSnapshot = response.snapshot {
+                restoreNLFilterSnapshot(newSnapshot)
+                scheduleFetch()
+            }
+            
+            // Create response object - extract dimension strings from AppliedChange
+            let appliedDimensions = response.applied?.map { $0.dimension } ?? []
+            let nlResponse = NLFilterResponse(
+                applied: appliedDimensions,
+                rejected: response.rejected ?? [],
+                couldntMap: response.couldntMap ?? [],
+                ambiguous: response.ambiguous ?? [],
+                noChange: response.noChange ?? false,
+                error: nil
+            )
+            
+            // Add to transcript
+            let exchange = NLFilterExchange(
+                input: sentence,
+                response: nlResponse
+            )
+            nlChatState.transcript.append(exchange)
+            nlChatState.lastResponse = nlResponse
+            nlChatState.inputText = ""
+            
+        } catch {
+            let errorResponse = NLFilterResponse(
+                applied: [],
+                rejected: [],
+                couldntMap: [],
+                ambiguous: [],
+                noChange: false,
+                error: error.localizedDescription
+            )
+            nlChatState.lastResponse = errorResponse
+        }
+        
+        nlChatState.isProcessing = false
+    }
+    
+    private func serializeCurrentFilterForNL() -> [String: JSONValue] {
+        // Convert current snapshot to web shape for NL service using JSONValue
+        var dict: [String: JSONValue] = [
+            "betType": .string(snapshot.betType)
+        ]
+        
+        // Only include non-default values (compact filter)
+        let defaults = HistoricalAnalysisUISnapshot.defaults(for: sport)
+        
+        if snapshot.seasonMin != defaults.seasonMin || snapshot.seasonMax != defaults.seasonMax {
+            dict["seasons"] = .array([.int(snapshot.seasonMin), .int(snapshot.seasonMax)])
+        }
+        if snapshot.weekMin != defaults.weekMin || snapshot.weekMax != defaults.weekMax {
+            dict["weeks"] = .array([.int(snapshot.weekMin), .int(snapshot.weekMax)])
+        }
+        if snapshot.side != defaults.side {
+            dict["side"] = .string(snapshot.side)
+        }
+        if snapshot.seasonType != defaults.seasonType {
+            dict["seasonType"] = .string(snapshot.seasonType)
+        }
+        if snapshot.playoffRound != defaults.playoffRound {
+            dict["playoffRound"] = .string(snapshot.playoffRound)
+        }
+        if snapshot.favDog != defaults.favDog {
+            dict["favDog"] = .string(snapshot.favDog)
+        }
+        if snapshot.spreadSide != defaults.spreadSide {
+            dict["spreadSide"] = .string(snapshot.spreadSide)
+        }
+        if snapshot.spreadMin != defaults.spreadMin || snapshot.spreadMax != defaults.spreadMax {
+            dict["spreadSize"] = .array([.double(snapshot.spreadMin), .double(snapshot.spreadMax)])
+        }
+        if snapshot.lineMin != defaults.lineMin || snapshot.lineMax != defaults.lineMax {
+            dict["lineRange"] = .array([.double(snapshot.lineMin), .double(snapshot.lineMax)])
+        }
+        if !snapshot.mlMin.isEmpty { dict["mlMin"] = .string(snapshot.mlMin) }
+        if !snapshot.mlMax.isEmpty { dict["mlMax"] = .string(snapshot.mlMax) }
+        func putLineRange(_ key: String, _ min: Double, _ max: Double, _ defaultMin: Double, _ defaultMax: Double) {
+            if min != defaultMin || max != defaultMax {
+                dict[key] = .array([.double(min), .double(max)])
+            }
+        }
+        if snapshot.h1SpreadSide != defaults.h1SpreadSide {
+            dict["h1SpreadSide"] = .string(snapshot.h1SpreadSide)
+        }
+        putLineRange("h1SpreadSize", snapshot.h1SpreadMin, snapshot.h1SpreadMax, defaults.h1SpreadMin, defaults.h1SpreadMax)
+        if !snapshot.h1MlMin.isEmpty { dict["h1MlMin"] = .string(snapshot.h1MlMin) }
+        if !snapshot.h1MlMax.isEmpty { dict["h1MlMax"] = .string(snapshot.h1MlMax) }
+        putLineRange("h1TotalRange", snapshot.h1TotalMin, snapshot.h1TotalMax, defaults.h1TotalMin, defaults.h1TotalMax)
+        putLineRange("ttLineRange", snapshot.ttLineMin, snapshot.ttLineMax, defaults.ttLineMin, defaults.ttLineMax)
+        if snapshot.oppSpreadSide != defaults.oppSpreadSide {
+            dict["oppSpreadSide"] = .string(snapshot.oppSpreadSide)
+        }
+        putLineRange("oppSpreadSize", snapshot.oppSpreadMin, snapshot.oppSpreadMax, defaults.oppSpreadMin, defaults.oppSpreadMax)
+        if !snapshot.oppMlMin.isEmpty { dict["oppMlMin"] = .string(snapshot.oppMlMin) }
+        if !snapshot.oppMlMax.isEmpty { dict["oppMlMax"] = .string(snapshot.oppMlMax) }
+        putLineRange("oppTtLineRange", snapshot.oppTtLineMin, snapshot.oppTtLineMax, defaults.oppTtLineMin, defaults.oppTtLineMax)
+        if let primetime = snapshot.primetime { dict["primetime"] = .bool(primetime) }
+        if let division = snapshot.division { dict["division"] = .bool(division) }
+        if snapshot.dome != defaults.dome { dict["dome"] = .string(snapshot.dome) }
+        if snapshot.tempMin != defaults.tempMin || snapshot.tempMax != defaults.tempMax {
+            dict["tempRange"] = .array([.int(snapshot.tempMin), .int(snapshot.tempMax)])
+        }
+        if snapshot.windMax != defaults.windMax { dict["windMax"] = .int(snapshot.windMax) }
+        if let windMin = snapshot.windMin, windMin > 0 { dict["windMin"] = .int(windMin) }
+        if (snapshot.windMin ?? 0) > 0 || snapshot.windMax != defaults.windMax {
+            dict["windRange"] = .array([.int(snapshot.windMin ?? 0), .int(snapshot.windMax)])
+        }
+        if snapshot.precip != defaults.precip { dict["precip"] = .string(snapshot.precip) }
+        if snapshot.restBye != defaults.restBye { dict["restBye"] = .string(snapshot.restBye) }
+        if snapshot.coach != defaults.coach { dict["coach"] = .string(snapshot.coach) }
+        if snapshot.referee != defaults.referee { dict["referee"] = .string(snapshot.referee) }
+        if !snapshot.teams.isEmpty {
+            dict["teams"] = .array(snapshot.teams.map { .string($0) })
+        }
+        if !snapshot.opponents.isEmpty {
+            dict["opponents"] = .array(snapshot.opponents.map { .string($0) })
+        }
+        if !snapshot.daysOfWeek.isEmpty {
+            dict["daysOfWeek"] = .array(snapshot.daysOfWeek.map { .string($0) })
+        }
+        if !snapshot.teamDivisions.isEmpty {
+            dict["teamDivisions"] = .array(snapshot.teamDivisions.map { .string($0) })
+        }
+        
+        // Add new NFL fields when they differ from defaults
+        if sport == .nfl || sport == .cfb {
+            func putRange(_ key: String, _ value: [Double], _ defaults: [Double]) {
+                if value != defaults {
+                    dict[key] = .array([.double(value[0]), .double(value[1])])
+                }
+            }
+            func putIntRange(_ key: String, _ value: [Int], _ defaults: [Int]) {
+                if value != defaults {
+                    dict[key] = .array([.int(value[0]), .int(value[1])])
+                }
+            }
+            func putTri(_ key: String, _ value: Bool?) {
+                if let value { dict[key] = .bool(value) }
+            }
+            func putEnum(_ key: String, _ value: String, _ defaultValue: String = "any") {
+                if value != defaultValue { dict[key] = .string(value) }
+            }
+
+            putRange("winPct", snapshot.winPct, defaults.winPct)
+            putIntRange("winStreak", snapshot.winStreak, defaults.winStreak)
+            putIntRange("lossStreak", snapshot.lossStreak, defaults.lossStreak)
+            putTri("above500", snapshot.above500)
+            putTri("winPctGtOpp", snapshot.winPctGtOpp)
+            putRange("ppg", snapshot.ppg, defaults.ppg)
+            putRange("paPg", snapshot.paPg, defaults.paPg)
+            putRange("pointDiffPg", snapshot.pointDiffPg, defaults.pointDiffPg)
+            if snapshot.minGames != defaults.minGames {
+                dict["minGames"] = .int(snapshot.minGames)
+            }
+
+            putRange("atsWinPct", snapshot.atsWinPct, defaults.atsWinPct)
+            putIntRange("atsWinStreak", snapshot.atsWinStreak, defaults.atsWinStreak)
+            putRange("avgCoverMargin", snapshot.avgCoverMargin, defaults.avgCoverMargin)
+
+            putRange("overPct", snapshot.overPct, defaults.overPct)
+            putIntRange("overStreak", snapshot.overStreak, defaults.overStreak)
+            putIntRange("underStreak", snapshot.underStreak, defaults.underStreak)
+
+            putIntRange("prevWins", snapshot.prevWins, defaults.prevWins)
+            putRange("prevWinPct", snapshot.prevWinPct, defaults.prevWinPct)
+            putTri("madePlayoffsPrev", snapshot.madePlayoffsPrev)
+            putTri("moreWinsThanOppPrev", snapshot.moreWinsThanOppPrev)
+
+            putEnum("h2hLastWin", snapshot.h2hLastWin)
+            putEnum("h2hLastAts", snapshot.h2hLastAts)
+            putEnum("h2hLastOver", snapshot.h2hLastOver)
+            putTri("h2hLastHome", snapshot.h2hLastHome)
+            putTri("h2hLastFav", snapshot.h2hLastFav)
+            putTri("h2hSameSeason", snapshot.h2hSameSeason)
+            putEnum("h2hSpreadCmp", snapshot.h2hSpreadCmp)
+
+            putRange("oppWinPct", snapshot.oppWinPct, defaults.oppWinPct)
+            putRange("oppOverPct", snapshot.oppOverPct, defaults.oppOverPct)
+            putIntRange("oppWinStreak", snapshot.oppWinStreak, defaults.oppWinStreak)
+            putIntRange("oppLossStreak", snapshot.oppLossStreak, defaults.oppLossStreak)
+            putRange("oppPpg", snapshot.oppPpg, defaults.oppPpg)
+            putRange("oppPaPg", snapshot.oppPaPg, defaults.oppPaPg)
+            putRange("oppPrevWinPct", snapshot.oppPrevWinPct, defaults.oppPrevWinPct)
+
+            putEnum("lastResult", snapshot.lastResult)
+            putEnum("lastAts", snapshot.lastAts)
+            putEnum("lastTotal", snapshot.lastTotal)
+            putEnum("lastRole", snapshot.lastRole)
+            putTri("lastOt", snapshot.lastOt)
+            putIntRange("lastMargin", snapshot.lastMargin, defaults.lastMargin)
+
+            putEnum("oppLastResult", snapshot.oppLastResult)
+            putEnum("oppLastAts", snapshot.oppLastAts)
+            putEnum("oppLastTotal", snapshot.oppLastTotal)
+            putEnum("oppLastRole", snapshot.oppLastRole)
+            putTri("oppLastOt", snapshot.oppLastOt)
+            putIntRange("oppLastMargin", snapshot.oppLastMargin, defaults.oppLastMargin)
+        }
+        
+        return dict
+    }
+    
+    private func restoreNLFilterSnapshot(_ webSnapshot: [String: JSONValue]) {
+        // Convert web snapshot back to UI snapshot format using JSONValue accessors
+        updateSnapshot { snapshot in
+            func pairDoubles(_ key: String) -> [Double]? {
+                guard let arr = webSnapshot[key]?.arrayValue, arr.count >= 2 else { return nil }
+                let a = arr[0].intValue.map(Double.init) ?? arr[0].doubleValue
+                let b = arr[1].intValue.map(Double.init) ?? arr[1].doubleValue
+                guard let a, let b else { return nil }
+                return [a, b]
+            }
+            func pairInts(_ key: String) -> [Int]? {
+                guard let arr = webSnapshot[key]?.arrayValue, arr.count >= 2 else { return nil }
+                let a = arr[0].intValue ?? arr[0].doubleValue.map { Int($0.rounded()) }
+                let b = arr[1].intValue ?? arr[1].doubleValue.map { Int($0.rounded()) }
+                guard let a, let b else { return nil }
+                return [a, b]
+            }
+
+            // Basic fields
+            if let betType = webSnapshot["betType"]?.stringValue {
+                snapshot.betType = betType
+            }
+            
+            // Season range - web uses "seasons" as [min, max] array
+            if let seasons = pairInts("seasons") {
+                snapshot.seasonMin = seasons[0]
+                snapshot.seasonMax = seasons[1]
+            }
+            
+            // Week range - web uses "weeks" as [min, max] array  
+            if let weeks = pairInts("weeks") {
+                snapshot.weekMin = weeks[0]
+                snapshot.weekMax = weeks[1]
+            }
+            
+            if let side = webSnapshot["side"]?.stringValue {
+                snapshot.side = side
+            }
+            
+            if let seasonType = webSnapshot["seasonType"]?.stringValue {
+                snapshot.seasonType = seasonType
+            }
+            
+            if let playoffRound = webSnapshot["playoffRound"]?.stringValue {
+                snapshot.playoffRound = playoffRound
+            }
+            
+            if let favDog = webSnapshot["favDog"]?.stringValue {
+                snapshot.favDog = favDog
+            }
+            
+            if let spreadSide = webSnapshot["spreadSide"]?.stringValue {
+                snapshot.spreadSide = spreadSide
+            }
+            
+            // Spread size - web uses "spreadSize" as [min, max] array
+            if let spread = pairDoubles("spreadSize") {
+                snapshot.spreadMin = spread[0]
+                snapshot.spreadMax = spread[1]
+            }
+
+            if let line = pairDoubles("lineRange") {
+                snapshot.lineMin = line[0]
+                snapshot.lineMax = line[1]
+            }
+            if let mlMin = webSnapshot["mlMin"]?.stringValue { snapshot.mlMin = mlMin }
+            if let mlMax = webSnapshot["mlMax"]?.stringValue { snapshot.mlMax = mlMax }
+            if let value = webSnapshot["h1SpreadSide"]?.stringValue { snapshot.h1SpreadSide = value }
+            if let range = pairDoubles("h1SpreadSize") {
+                snapshot.h1SpreadMin = range[0]; snapshot.h1SpreadMax = range[1]
+            }
+            if let value = webSnapshot["h1MlMin"]?.stringValue { snapshot.h1MlMin = value }
+            if let value = webSnapshot["h1MlMax"]?.stringValue { snapshot.h1MlMax = value }
+            if let range = pairDoubles("h1TotalRange") {
+                snapshot.h1TotalMin = range[0]; snapshot.h1TotalMax = range[1]
+            }
+            if let range = pairDoubles("ttLineRange") {
+                snapshot.ttLineMin = range[0]; snapshot.ttLineMax = range[1]
+            }
+            if let value = webSnapshot["oppSpreadSide"]?.stringValue { snapshot.oppSpreadSide = value }
+            if let range = pairDoubles("oppSpreadSize") {
+                snapshot.oppSpreadMin = range[0]; snapshot.oppSpreadMax = range[1]
+            }
+            if let value = webSnapshot["oppMlMin"]?.stringValue { snapshot.oppMlMin = value }
+            if let value = webSnapshot["oppMlMax"]?.stringValue { snapshot.oppMlMax = value }
+            if let range = pairDoubles("oppTtLineRange") {
+                snapshot.oppTtLineMin = range[0]; snapshot.oppTtLineMax = range[1]
+            }
+            if let primetime = webSnapshot["primetime"]?.boolValue { snapshot.primetime = primetime }
+            if let division = webSnapshot["division"]?.boolValue { snapshot.division = division }
+            if let dome = webSnapshot["dome"]?.stringValue { snapshot.dome = dome }
+            if let temp = pairInts("tempRange") {
+                snapshot.tempMin = temp[0]
+                snapshot.tempMax = temp[1]
+            }
+            if let windMax = webSnapshot["windMax"]?.intValue { snapshot.windMax = windMax }
+            if let windMin = webSnapshot["windMin"]?.intValue { snapshot.windMin = windMin }
+            if let wr = webSnapshot["windRange"]?.arrayValue, wr.count >= 2 {
+                if let lo = wr[0].intValue { snapshot.windMin = lo > 0 ? lo : nil }
+                if let hi = wr[1].intValue { snapshot.windMax = hi }
+            }
+            if let precip = webSnapshot["precip"]?.stringValue { snapshot.precip = precip }
+            if let restBye = webSnapshot["restBye"]?.stringValue { snapshot.restBye = restBye }
+            if let coach = webSnapshot["coach"]?.stringValue { snapshot.coach = coach }
+            if let referee = webSnapshot["referee"]?.stringValue { snapshot.referee = referee }
+            
+            // Teams array
+            if let teamsArray = webSnapshot["teams"]?.arrayValue {
+                snapshot.teams = teamsArray.compactMap { $0.stringValue }
+            }
+            
+            // Opponents array
+            if let opponentsArray = webSnapshot["opponents"]?.arrayValue {
+                snapshot.opponents = opponentsArray.compactMap { $0.stringValue }
+            }
+            
+            // Days of week
+            if let daysArray = webSnapshot["daysOfWeek"]?.arrayValue {
+                snapshot.daysOfWeek = daysArray.compactMap { $0.stringValue }
+            }
+            
+            // Team divisions
+            if let divisionsArray = webSnapshot["teamDivisions"]?.arrayValue {
+                snapshot.teamDivisions = divisionsArray.compactMap { $0.stringValue }
+            }
+            
+            // NFL-specific fields
+            if sport == .nfl || sport == .cfb {
+                if let v = pairDoubles("winPct") { snapshot.winPct = v }
+                if let v = pairInts("winStreak") { snapshot.winStreak = v }
+                if let v = pairInts("lossStreak") { snapshot.lossStreak = v }
+                if let v = webSnapshot["above500"]?.boolValue { snapshot.above500 = v }
+                if let v = webSnapshot["winPctGtOpp"]?.boolValue { snapshot.winPctGtOpp = v }
+                if let v = pairDoubles("ppg") { snapshot.ppg = v }
+                if let v = pairDoubles("paPg") { snapshot.paPg = v }
+                if let v = pairDoubles("pointDiffPg") { snapshot.pointDiffPg = v }
+                if let v = webSnapshot["minGames"]?.intValue { snapshot.minGames = v }
+
+                if let v = pairDoubles("atsWinPct") { snapshot.atsWinPct = v }
+                if let v = pairInts("atsWinStreak") { snapshot.atsWinStreak = v }
+                if let v = pairDoubles("avgCoverMargin") { snapshot.avgCoverMargin = v }
+
+                if let v = pairDoubles("overPct") { snapshot.overPct = v }
+                if let v = pairInts("overStreak") { snapshot.overStreak = v }
+                if let v = pairInts("underStreak") { snapshot.underStreak = v }
+
+                if let v = pairInts("prevWins") { snapshot.prevWins = v }
+                if let v = pairDoubles("prevWinPct") { snapshot.prevWinPct = v }
+                if let v = webSnapshot["madePlayoffsPrev"]?.boolValue { snapshot.madePlayoffsPrev = v }
+                if let v = webSnapshot["moreWinsThanOppPrev"]?.boolValue { snapshot.moreWinsThanOppPrev = v }
+
+                if let v = webSnapshot["h2hLastWin"]?.stringValue { snapshot.h2hLastWin = v }
+                if let v = webSnapshot["h2hLastAts"]?.stringValue { snapshot.h2hLastAts = v }
+                if let v = webSnapshot["h2hLastOver"]?.stringValue { snapshot.h2hLastOver = v }
+                if let v = webSnapshot["h2hLastHome"]?.boolValue { snapshot.h2hLastHome = v }
+                if let v = webSnapshot["h2hLastFav"]?.boolValue { snapshot.h2hLastFav = v }
+                if let v = webSnapshot["h2hSameSeason"]?.boolValue { snapshot.h2hSameSeason = v }
+                if let v = webSnapshot["h2hSpreadCmp"]?.stringValue { snapshot.h2hSpreadCmp = v }
+
+                if let v = pairDoubles("oppWinPct") { snapshot.oppWinPct = v }
+                if let v = pairDoubles("oppOverPct") { snapshot.oppOverPct = v }
+                if let v = pairInts("oppWinStreak") { snapshot.oppWinStreak = v }
+                if let v = pairInts("oppLossStreak") { snapshot.oppLossStreak = v }
+                if let v = pairDoubles("oppPpg") { snapshot.oppPpg = v }
+                if let v = pairDoubles("oppPaPg") { snapshot.oppPaPg = v }
+                if let v = pairDoubles("oppPrevWinPct") { snapshot.oppPrevWinPct = v }
+
+                if let v = webSnapshot["lastResult"]?.stringValue { snapshot.lastResult = v }
+                if let v = webSnapshot["lastAts"]?.stringValue { snapshot.lastAts = v }
+                if let v = webSnapshot["lastTotal"]?.stringValue { snapshot.lastTotal = v }
+                if let v = webSnapshot["lastRole"]?.stringValue { snapshot.lastRole = v }
+                if let v = webSnapshot["lastOt"]?.boolValue { snapshot.lastOt = v }
+                if let v = pairInts("lastMargin") { snapshot.lastMargin = v }
+
+                if let v = webSnapshot["oppLastResult"]?.stringValue { snapshot.oppLastResult = v }
+                if let v = webSnapshot["oppLastAts"]?.stringValue { snapshot.oppLastAts = v }
+                if let v = webSnapshot["oppLastTotal"]?.stringValue { snapshot.oppLastTotal = v }
+                if let v = webSnapshot["oppLastRole"]?.stringValue { snapshot.oppLastRole = v }
+                if let v = webSnapshot["oppLastOt"]?.boolValue { snapshot.oppLastOt = v }
+                if let v = pairInts("oppLastMargin") { snapshot.oppLastMargin = v }
             }
         }
     }

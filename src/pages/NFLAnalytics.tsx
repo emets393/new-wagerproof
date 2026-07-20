@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronDown, TrendingUp, TrendingDown, CalendarClock, Loader2, Bookmark, Trash2, X, Send, MessageSquare } from 'lucide-react';
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +17,12 @@ import { normalizeNflSavedFilterSnapshot, NFL_ASOF_DEFAULTS, type NflWebFilterSn
 import { TeamMultiSelect, type TeamOption } from '@/features/analysis/TeamMultiSelect';
 import { DEFAULT_NFL_SNAPSHOT, NFL_DAYS, NFL_DIVISIONS, isSideSymmetric } from '@/features/analysis/filterSchema';
 import { applyFilterPatch } from '@/features/analysis/applyFilterPatch';
+import { rewriteSpreadVsTtLineOps } from '@/features/analysis/rewriteSpreadVsTtLine';
+import {
+  FG_SPREAD_NFL, H1_SPREAD_NFL, FG_TOTAL_NFL, H1_TOTAL_NFL, TT_LINE_NFL,
+  emitSpreadLine, emitTotalLine, emitMlOdds, emitWindRange, windLabel,
+  type SpreadSide,
+} from '@/features/analysis/footballMarketLines';
 
 const NL_FILTER_EXAMPLES = [
   'home favorites off a loss, weeks 2-10',
@@ -57,18 +64,14 @@ const ML_MARKETS = new Set(['fg_ml', 'h1_ml']);
 const TOTAL_MARKETS = new Set(['fg_total', 'h1_total']);
 const LIMITED_MARKETS = new Set(['h1_spread', 'h1_ml', 'h1_total', 'team_total']); // 2023+ only
 
-// per-market line-filter config (the SUBJECT market's line, filterable for every bet type)
-const SPREAD_CFG: Record<string, { max: number; mk: string; xk: string; amk: string; axk: string }> = {
-  fg_spread: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
-  h1_spread: { max: 14, mk: 'h1_spread_min', xk: 'h1_spread_max', amk: 'h1_abs_spread_min', axk: 'h1_abs_spread_max' },
-  // moneyline markets filter by the FULL-GAME spread (ML is just the spread priced up)
-  fg_ml: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
-  h1_ml: { max: 20, mk: 'spread_min', xk: 'spread_max', amk: 'abs_spread_min', axk: 'abs_spread_max' },
+// Kept for upcoming-game line labels only (result market ≠ filter lines).
+const SPREAD_CFG: Record<string, { max: number }> = {
+  fg_spread: { max: 20 }, h1_spread: { max: 14 }, fg_ml: { max: 20 }, h1_ml: { max: 20 },
 };
-const TOTAL_CFG: Record<string, { min: number; max: number; mk: string; xk: string; label: string }> = {
-  fg_total: { min: 30, max: 60, mk: 'total_min', xk: 'total_max', label: 'Game total' },
-  h1_total: { min: 15, max: 35, mk: 'h1_total_min', xk: 'h1_total_max', label: '1H total' },
-  team_total: { min: 10, max: 40, mk: 'tt_min', xk: 'tt_max', label: 'Team total line' },
+const TOTAL_CFG: Record<string, { min: number; max: number; label: string }> = {
+  fg_total: { min: 30, max: 60, label: 'Game total' },
+  h1_total: { min: 15, max: 35, label: '1H total' },
+  team_total: { min: 10, max: 40, label: 'Team total line' },
 };
 
 // team abbr → ESPN logo (handles the LA/LAR + WAS/WSH quirks across our two sources)
@@ -245,10 +248,12 @@ function pickSideSlices(bars: Bar[] | undefined): SideSlice[] {
     if (bar.dimension !== 'home_away' && bar.dimension !== 'fav_dog') continue;
     const opts = (bar.options || []).filter((o) => o.n > 0 && SIDE_CHIP_LABEL[o.side]);
     if (opts.length < 2) continue;
-    const sorted = [...opts].sort((a, b) => Math.abs(b.hit_pct - 50) - Math.abs(a.hit_pct - 50));
+    // Lead with / highlight the stronger side (higher hit%). Complements are equally far from
+    // 50%, so abs-from-50 ties and would arbitrarily keep RPC order (often the <50% side).
+    const sorted = [...opts].sort((a, b) => b.hit_pct - a.hit_pct);
     out.push({ dimension: bar.dimension, extreme: sorted[0], other: sorted[1] });
   }
-  out.sort((a, b) => Math.abs(b.extreme.hit_pct - 50) - Math.abs(a.extreme.hit_pct - 50));
+  out.sort((a, b) => b.extreme.hit_pct - a.extreme.hit_pct);
   return out;
 }
 
@@ -256,7 +261,7 @@ function VersusRow({ slice, onFocus }: { slice: SideSlice; onFocus: (dimension: 
   return (
     <div>
       <div className="flex items-center justify-between text-xs mb-0.5">
-        <button type="button" className="text-muted-foreground hover:underline" onClick={() => onFocus(slice.dimension, slice.other.side)}>
+        <button type="button" className="text-foreground/70 hover:underline" onClick={() => onFocus(slice.dimension, slice.other.side)}>
           {SIDE_CHIP_LABEL[slice.other.side]} {slice.other.hit_pct}%
         </button>
         <button type="button" className="font-semibold hover:underline" onClick={() => onFocus(slice.dimension, slice.extreme.side)}>
@@ -368,16 +373,27 @@ export default function NFLAnalytics() {
   const [seasonType, setSeasonType] = useState('any'); // any | regular | postseason
   const [playoffRound, setPlayoffRound] = useState('any'); // any | Wild Card | Divisional | Conference | Super Bowl
   const [favDog, setFavDog] = useState('any');
-  const [spreadSide, setSpreadSide] = useState('any'); // favorite | underdog | any
+  const [spreadSide, setSpreadSide] = useState<SpreadSide>('any');
   const [spreadSize, setSpreadSize] = useState<[number, number]>([0, 20]);
   const [lineRange, setLineRange] = useState<[number, number]>([30, 60]);
-  const [mlMin, setMlMin] = useState<string>(''); // team moneyline (American odds) — exact numeric bounds
+  const [h1SpreadSide, setH1SpreadSide] = useState<SpreadSide>('any');
+  const [h1SpreadSize, setH1SpreadSize] = useState<[number, number]>([0, 14]);
+  const [h1TotalRange, setH1TotalRange] = useState<[number, number]>([15, 35]);
+  const [ttLineRange, setTtLineRange] = useState<[number, number]>([10, 40]);
+  const [mlMin, setMlMin] = useState<string>('');
   const [mlMax, setMlMax] = useState<string>('');
+  const [h1MlMin, setH1MlMin] = useState('');
+  const [h1MlMax, setH1MlMax] = useState('');
+  const [oppSpreadSide, setOppSpreadSide] = useState<SpreadSide>('any');
+  const [oppSpreadSize, setOppSpreadSize] = useState<[number, number]>([0, 20]);
+  const [oppMlMin, setOppMlMin] = useState('');
+  const [oppMlMax, setOppMlMax] = useState('');
+  const [oppTtLineRange, setOppTtLineRange] = useState<[number, number]>([10, 40]);
   const [primetime, setPrimetime] = useState<boolean | null>(null);
   const [division, setDivision] = useState<boolean | null>(null);
   const [dome, setDome] = useState<string>('any');
   const [tempRange, setTempRange] = useState<[number, number]>([-10, 100]);
-  const [windMax, setWindMax] = useState(60);
+  const [windRange, setWindRange] = useState<[number, number]>([0, 60]);
   const [precip, setPrecip] = useState('any');
   const [restBye, setRestBye] = useState('any'); // any | off_bye | pre_bye | short
   const [coach, setCoach] = useState('any');
@@ -436,6 +452,9 @@ export default function NFLAnalytics() {
   const [oppWinPct, setOppWinPct] = useState<[number, number]>(D.oppWinPct);
   const [oppOverPct, setOppOverPct] = useState<[number, number]>(D.oppOverPct);
   const [oppWinStreak, setOppWinStreak] = useState<[number, number]>(D.oppWinStreak);
+  const [oppLossStreak, setOppLossStreak] = useState<[number, number]>(D.oppLossStreak);
+  const [oppPpg, setOppPpg] = useState<[number, number]>(D.oppPpg);
+  const [oppPaPg, setOppPaPg] = useState<[number, number]>(D.oppPaPg);
   const [oppPrevWinPct, setOppPrevWinPct] = useState<[number, number]>(D.oppPrevWinPct);
 
   // saved filters (per authed user, main project)
@@ -451,15 +470,18 @@ export default function NFLAnalytics() {
   const nlTurnId = React.useRef(0);
 
   const snapshot = (): NflWebFilterSnapshot => ({
-    betType, seasons, weeks, side, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange,
-    mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee,
+    betType, seasons, weeks, side, seasonType, playoffRound, favDog,
+    spreadSide, spreadSize, lineRange, h1SpreadSide, h1SpreadSize, h1TotalRange, ttLineRange,
+    mlMin, mlMax, h1MlMin, h1MlMax,
+    oppSpreadSide, oppSpreadSize, oppMlMin, oppMlMax, oppTtLineRange,
+    primetime, division, dome, tempRange, windRange, precip, restBye, coach, referee,
     lastResult, lastAts, lastTotal, lastRole, lastOt, lastMargin,
     oppLastResult, oppLastAts, oppLastTotal, oppLastRole, oppLastOt, oppLastMargin, teams, opponents, daysOfWeek, teamDivisions,
     winPct, winStreak, lossStreak, above500, winPctGtOpp, ppg, paPg, pointDiffPg, minGames,
     atsWinPct, atsWinStreak, avgCoverMargin, overPct, overStreak, underStreak,
     prevWins, prevWinPct, madePlayoffsPrev, moreWinsThanOppPrev,
     h2hLastWin, h2hLastAts, h2hLastOver, h2hLastHome, h2hLastFav, h2hSameSeason, h2hSpreadCmp,
-    oppWinPct, oppOverPct, oppWinStreak, oppPrevWinPct,
+    oppWinPct, oppOverPct, oppWinStreak, oppLossStreak, oppPpg, oppPaPg, oppPrevWinPct,
   });
   const restore = (raw: unknown, rowBetType?: string) => {
     const s = normalizeNflSavedFilterSnapshot(
@@ -473,12 +495,14 @@ export default function NFLAnalytics() {
     setSeasonType(s.seasonType);
     setPlayoffRound(s.playoffRound);
     setFavDog(s.favDog);
-    setSpreadSide(s.spreadSide);
+    setSpreadSide(s.spreadSide as SpreadSide);
+    setH1SpreadSide(s.h1SpreadSide as SpreadSide);
+    setOppSpreadSide(s.oppSpreadSide as SpreadSide);
     setPrimetime(s.primetime);
     setDivision(s.division);
     setDome(s.dome);
     setTempRange(s.tempRange);
-    setWindMax(s.windMax);
+    setWindRange(s.windRange);
     setPrecip(s.precip);
     setRestBye(s.restBye);
     setCoach(s.coach);
@@ -493,6 +517,10 @@ export default function NFLAnalytics() {
     setOppLastRole(s.oppLastRole); setOppLastOt(s.oppLastOt); setOppLastMargin(s.oppLastMargin);
     setMlMin(s.mlMin);
     setMlMax(s.mlMax);
+    setH1MlMin(s.h1MlMin);
+    setH1MlMax(s.h1MlMax);
+    setOppMlMin(s.oppMlMin);
+    setOppMlMax(s.oppMlMax);
     setTeams(s.teams);
     setOpponents(s.opponents);
     setDaysOfWeek(s.daysOfWeek); setTeamDivisions(s.teamDivisions);
@@ -507,10 +535,16 @@ export default function NFLAnalytics() {
     setH2hLastHome(s.h2hLastHome); setH2hLastFav(s.h2hLastFav); setH2hSameSeason(s.h2hSameSeason);
     setH2hSpreadCmp(s.h2hSpreadCmp);
     setOppWinPct(s.oppWinPct); setOppOverPct(s.oppOverPct);
-    setOppWinStreak(s.oppWinStreak); setOppPrevWinPct(s.oppPrevWinPct);
+    setOppWinStreak(s.oppWinStreak); setOppLossStreak(s.oppLossStreak);
+    setOppPpg(s.oppPpg); setOppPaPg(s.oppPaPg); setOppPrevWinPct(s.oppPrevWinPct);
     setTimeout(() => {
       setSpreadSize(s.spreadSize);
       setLineRange(s.lineRange);
+      setH1SpreadSize(s.h1SpreadSize);
+      setH1TotalRange(s.h1TotalRange);
+      setTtLineRange(s.ttLineRange);
+      setOppSpreadSize(s.oppSpreadSize);
+      setOppTtLineRange(s.oppTtLineRange);
     }, 0);
   };
   const loadSaved = useCallback(async () => {
@@ -544,12 +578,13 @@ export default function NFLAnalytics() {
         }
       }
       const { data, error } = await supabase.functions.invoke('nl-filter-patch', {
-        body: { sentence, currentFilter, coaches, referees: refs },
+        body: { sentence, currentFilter, sport: 'nfl', coaches, referees: refs },
       });
       if (error || data?.error) {
         lines.push("Couldn't process that, try again.");
       } else {
-        const result = applyFilterPatch(current, { ops: data?.ops ?? [] }, { coaches, referees: refs });
+        const rewrittenOps = rewriteSpreadVsTtLineOps(sentence, data?.ops ?? [], { spreadMax: 20 });
+        const result = applyFilterPatch(current, { ops: rewrittenOps }, { coaches, referees: refs });
         if (result.applied.length) {
           restore(result.snapshot);
           const dims = result.applied.map((a) => a.dimension).slice(0, 6);
@@ -574,12 +609,8 @@ export default function NFLAnalytics() {
 
   // 1H/TT markets only have 2023+; clamp the season floor so users can't pick empty ranges
   const seasonFloor = LIMITED_MARKETS.has(betType) ? 2023 : 2018;
-  // when the bet type changes, reset the line controls to that market's range (avoids stale bounds)
   useEffect(() => {
     if (seasons[0] < seasonFloor) setSeasons([seasonFloor, seasons[1]]);
-    setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 20]);
-    const t = TOTAL_CFG[betType];
-    if (t) setLineRange([t.min, t.max]);
   }, [betType]); // eslint-disable-line
 
   const buildFilters = useCallback(() => {
@@ -601,36 +632,24 @@ export default function NFLAnalytics() {
     if (opponents.length) f.opponent = opponents.map(toRpcTeam);
     if (daysOfWeek.length) f.day_of_week = daysOfWeek;
     if (teamDivisions.length) f.team_division = teamDivisions;
-    // subject-market line control: size+side for spread markets, range for total markets
-    const scfg = SPREAD_CFG[betType];
-    if (scfg) {
-      const [lo, hi] = spreadSize;
-      // Floor the near-zero edge to 0.5 so a chosen direction is STRICTLY favored/underdog — a
-      // "Favored by 0" edge would otherwise include pick'em (spread 0) games, which then fall into
-      // the underdog bucket (is_favorite = spread < 0) and show a contradictory "underdogs" split.
-      const loD = Math.max(lo, 0.5);
-      if (spreadSide === 'favorite') { f[scfg.mk] = -hi; f[scfg.xk] = -loD; }
-      else if (spreadSide === 'underdog') { f[scfg.mk] = loD; f[scfg.xk] = hi; }
-      else if (lo > 0 || hi < scfg.max) { f[scfg.amk] = lo; f[scfg.axk] = hi; }
-    }
+    // Cross-market lines — always emitted, independent of result market
+    emitSpreadLine(f, spreadSide, spreadSize, FG_SPREAD_NFL);
+    emitSpreadLine(f, h1SpreadSide, h1SpreadSize, H1_SPREAD_NFL);
+    emitSpreadLine(f, oppSpreadSide, oppSpreadSize, FG_SPREAD_NFL, { invert: true });
+    emitMlOdds(f, mlMin, mlMax);
+    emitMlOdds(f, h1MlMin, h1MlMax, { min: 'h1_ml_min', max: 'h1_ml_max' });
+    emitMlOdds(f, oppMlMin, oppMlMax, { min: 'opp_ml_min', max: 'opp_ml_max' });
+    emitTotalLine(f, lineRange, FG_TOTAL_NFL);
+    emitTotalLine(f, h1TotalRange, H1_TOTAL_NFL);
+    emitTotalLine(f, ttLineRange, TT_LINE_NFL);
+    emitTotalLine(f, oppTtLineRange, { ...TT_LINE_NFL, mk: 'opp_tt_min', xk: 'opp_tt_max' });
     if (favDog !== 'any' && (betType === 'team_total')) f.fav_dog = favDog;
-    // team moneyline (American odds) — exact numeric bounds; same value in both = an exact line.
-    // forgive reversed entry by sorting when both are present.
-    { let a = mlMin.trim() === '' ? null : Number(mlMin); let b = mlMax.trim() === '' ? null : Number(mlMax);
-      if (a !== null && b !== null && a > b) { const s = a; a = b; b = s; }
-      if (a !== null && !Number.isNaN(a)) f.ml_min = a;
-      if (b !== null && !Number.isNaN(b)) f.ml_max = b; }
-    const tcfg = TOTAL_CFG[betType];
-    if (tcfg) {
-      if (lineRange[0] > tcfg.min) f[tcfg.mk] = lineRange[0];
-      if (lineRange[1] < tcfg.max) f[tcfg.xk] = lineRange[1];
-    }
     if (primetime !== null) f.primetime = primetime;
     if (division !== null) f.division = division;
     if (dome !== 'any') f.dome = dome === 'dome';
     if (tempRange[0] > -10) f.temp_min = tempRange[0];
     if (tempRange[1] < 100) f.temp_max = tempRange[1];
-    if (windMax < 60) f.wind_max = windMax;
+    emitWindRange(f, windRange);
     if (precip !== 'any') f.precip = precip;
     if (restBye === 'off_bye') f.rest_min = 13;
     else if (restBye === 'short') f.rest_max = 4;
@@ -682,18 +701,23 @@ export default function NFLAnalytics() {
     applyPctRange(f, 'opp_win_pct', oppWinPct);
     applyPctRange(f, 'opp_over_pct', oppOverPct);
     applyNumRange(f, 'opp_win_streak', oppWinStreak, D.oppWinStreak);
+    applyNumRange(f, 'opp_loss_streak', oppLossStreak, D.oppLossStreak);
+    applyNumRange(f, 'opp_ppg', oppPpg, D.oppPpg);
+    applyNumRange(f, 'opp_pa_pg', oppPaPg, D.oppPaPg);
     applyPctRange(f, 'opp_prev_win_pct', oppPrevWinPct);
 
     return f;
-  }, [betType, seasons, weeks, side, teams, opponents, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, tempRange, windMax, precip, restBye, coach, referee, lastResult, lastAts, lastTotal, lastRole, lastOt, lastMargin, seasonFloor, winPct, winStreak, lossStreak, above500, winPctGtOpp, ppg, paPg, pointDiffPg, minGames, atsWinPct, atsWinStreak, avgCoverMargin, overPct, overStreak, underStreak, prevWins, prevWinPct, madePlayoffsPrev, moreWinsThanOppPrev, h2hLastWin, h2hLastAts, h2hLastOver, h2hLastHome, h2hLastFav, h2hSameSeason, h2hSpreadCmp, oppWinPct, oppOverPct, oppWinStreak, oppPrevWinPct, oppLastResult, oppLastAts, oppLastTotal, oppLastRole, oppLastOt, oppLastMargin, daysOfWeek, teamDivisions]);
+  }, [betType, seasons, weeks, side, teams, opponents, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, h1SpreadSide, h1SpreadSize, h1TotalRange, ttLineRange, mlMin, mlMax, h1MlMin, h1MlMax, oppSpreadSide, oppSpreadSize, oppMlMin, oppMlMax, oppTtLineRange, primetime, division, dome, tempRange, windRange, precip, restBye, coach, referee, lastResult, lastAts, lastTotal, lastRole, lastOt, lastMargin, seasonFloor, winPct, winStreak, lossStreak, above500, winPctGtOpp, ppg, paPg, pointDiffPg, minGames, atsWinPct, atsWinStreak, avgCoverMargin, overPct, overStreak, underStreak, prevWins, prevWinPct, madePlayoffsPrev, moreWinsThanOppPrev, h2hLastWin, h2hLastAts, h2hLastOver, h2hLastHome, h2hLastFav, h2hSameSeason, h2hSpreadCmp, oppWinPct, oppOverPct, oppWinStreak, oppLossStreak, oppPpg, oppPaPg, oppPrevWinPct, oppLastResult, oppLastAts, oppLastTotal, oppLastRole, oppLastOt, oppLastMargin, daysOfWeek, teamDivisions]);
 
   const resetAll = () => {
     setSeasons([seasonFloor, 2025]); setWeeks([1, 18]); setSide('any'); setSeasonType('any'); setPlayoffRound('any'); setFavDog('any');
     setTeams([]); setOpponents([]); setDaysOfWeek([]); setTeamDivisions([]);
-    setSpreadSide('any'); setSpreadSize([0, SPREAD_CFG[betType]?.max ?? 20]); setMlMin(''); setMlMax('');
-    const t = TOTAL_CFG[betType]; setLineRange(t ? [t.min, t.max] : [30, 60]);
+    setSpreadSide('any'); setSpreadSize([0, 20]); setLineRange([30, 60]);
+    setH1SpreadSide('any'); setH1SpreadSize([0, 14]); setH1TotalRange([15, 35]); setTtLineRange([10, 40]);
+    setMlMin(''); setMlMax(''); setH1MlMin(''); setH1MlMax('');
+    setOppSpreadSide('any'); setOppSpreadSize([0, 20]); setOppMlMin(''); setOppMlMax(''); setOppTtLineRange([10, 40]);
     setPrimetime(null); setDivision(null); setDome('any'); setTempRange([-10, 100]);
-    setWindMax(60); setPrecip('any'); setRestBye('any'); setCoach('any'); setReferee('any');
+    setWindRange([0, 60]); setPrecip('any'); setRestBye('any'); setCoach('any'); setReferee('any');
     setLastResult('any'); setLastAts('any'); setLastTotal('any'); setLastRole('any'); setLastOt(null); setLastMargin([-60, 60]);
     setOppLastResult('any'); setOppLastAts('any'); setOppLastTotal('any'); setOppLastRole('any'); setOppLastOt(null); setOppLastMargin([-60, 60]);
     setWinPct(D.winPct); setWinStreak(D.winStreak); setLossStreak(D.lossStreak);
@@ -706,7 +730,8 @@ export default function NFLAnalytics() {
     setH2hLastWin('any'); setH2hLastAts('any'); setH2hLastOver('any');
     setH2hLastHome(null); setH2hLastFav(null); setH2hSameSeason(null); setH2hSpreadCmp('any');
     setOppWinPct(D.oppWinPct); setOppOverPct(D.oppOverPct);
-    setOppWinStreak(D.oppWinStreak); setOppPrevWinPct(D.oppPrevWinPct);
+    setOppWinStreak(D.oppWinStreak); setOppLossStreak(D.oppLossStreak);
+    setOppPpg(D.oppPpg); setOppPaPg(D.oppPaPg); setOppPrevWinPct(D.oppPrevWinPct);
   };
 
   // active (non-default) filters as removable chips — makes a stuck filter visible
@@ -722,24 +747,41 @@ export default function NFLAnalytics() {
     if (daysOfWeek.length) c.push({ label: `Days: ${daysOfWeek.join(', ')}`, clear: () => setDaysOfWeek([]) });
     if (teamDivisions.length) c.push({ label: `Division: ${teamDivisions.join(', ')}`, clear: () => setTeamDivisions([]) });
     if ((betType === 'team_total') && favDog !== 'any') c.push({ label: favDog === 'favorite' ? 'Favorites' : 'Underdogs', clear: () => setFavDog('any') });
-    const scfg = SPREAD_CFG[betType];
-    if (scfg) {
-      if (spreadSide !== 'any') c.push({ label: `${spreadSide === 'favorite' ? 'Favored by' : 'Getting'} ${spreadSize[0]}–${spreadSize[1]}`, clear: () => { setSpreadSide('any'); setSpreadSize([0, scfg.max]); } });
-      else if (spreadSize[0] !== 0 || spreadSize[1] !== scfg.max) c.push({ label: `Spread ${spreadSize[0]}–${spreadSize[1]}`, clear: () => setSpreadSize([0, scfg.max]) });
-    }
-    const t = TOTAL_CFG[betType];
-    if (t && (lineRange[0] !== t.min || lineRange[1] !== t.max)) c.push({ label: `${t.label} ${lineRange[0]}–${lineRange[1]}`, clear: () => setLineRange([t.min, t.max]) });
+    const pushSpreadChip = (
+      label: string, side: SpreadSide, size: [number, number], max: number,
+      clearSide: () => void, clearSize: () => void,
+    ) => {
+      if (side !== 'any') c.push({ label: `${label} ${side === 'favorite' ? 'fav' : 'dog'} ${size[0]}–${size[1]}`, clear: () => { clearSide(); clearSize(); } });
+      else if (size[0] !== 0 || size[1] !== max) c.push({ label: `${label} ${size[0]}–${size[1]}`, clear: clearSize });
+    };
+    pushSpreadChip('FG spread', spreadSide, spreadSize, 20, () => setSpreadSide('any'), () => setSpreadSize([0, 20]));
+    pushSpreadChip('1H spread', h1SpreadSide, h1SpreadSize, 14, () => setH1SpreadSide('any'), () => setH1SpreadSize([0, 14]));
+    pushSpreadChip('Opp FG spread', oppSpreadSide, oppSpreadSize, 20, () => setOppSpreadSide('any'), () => setOppSpreadSize([0, 20]));
+    if (rangeChanged(lineRange, [30, 60])) c.push({ label: `Game total ${lineRange[0]}–${lineRange[1]}`, clear: () => setLineRange([30, 60]) });
+    if (rangeChanged(h1TotalRange, [15, 35])) c.push({ label: `1H total ${h1TotalRange[0]}–${h1TotalRange[1]}`, clear: () => setH1TotalRange([15, 35]) });
+    if (rangeChanged(ttLineRange, [10, 40])) c.push({ label: `TT ${ttLineRange[0]}–${ttLineRange[1]}`, clear: () => setTtLineRange([10, 40]) });
+    if (rangeChanged(oppTtLineRange, [10, 40])) c.push({ label: `Opp TT ${oppTtLineRange[0]}–${oppTtLineRange[1]}`, clear: () => setOppTtLineRange([10, 40]) });
     if (mlMin.trim() !== '' || mlMax.trim() !== '') {
       const fmt = (s: string) => { const n = Number(s); return n > 0 ? `+${n}` : `${n}`; };
       const lbl = mlMin.trim() !== '' && mlMax.trim() !== '' ? `ML ${fmt(mlMin)} to ${fmt(mlMax)}` : mlMin.trim() !== '' ? `ML ≥ ${fmt(mlMin)}` : `ML ≤ ${fmt(mlMax)}`;
       c.push({ label: lbl, clear: () => { setMlMin(''); setMlMax(''); } });
+    }
+    if (h1MlMin.trim() !== '' || h1MlMax.trim() !== '') {
+      const fmt = (s: string) => { const n = Number(s); return n > 0 ? `+${n}` : `${n}`; };
+      const lbl = h1MlMin.trim() && h1MlMax.trim() ? `1H ML ${fmt(h1MlMin)}–${fmt(h1MlMax)}` : h1MlMin.trim() ? `1H ML ≥ ${fmt(h1MlMin)}` : `1H ML ≤ ${fmt(h1MlMax)}`;
+      c.push({ label: lbl, clear: () => { setH1MlMin(''); setH1MlMax(''); } });
+    }
+    if (oppMlMin.trim() !== '' || oppMlMax.trim() !== '') {
+      const fmt = (s: string) => { const n = Number(s); return n > 0 ? `+${n}` : `${n}`; };
+      const lbl = oppMlMin.trim() && oppMlMax.trim() ? `Opp ML ${fmt(oppMlMin)}–${fmt(oppMlMax)}` : oppMlMin.trim() ? `Opp ML ≥ ${fmt(oppMlMin)}` : `Opp ML ≤ ${fmt(oppMlMax)}`;
+      c.push({ label: lbl, clear: () => { setOppMlMin(''); setOppMlMax(''); } });
     }
     if (primetime !== null) c.push({ label: `Primetime: ${primetime ? 'Yes' : 'No'}`, clear: () => setPrimetime(null) });
     if (division !== null) c.push({ label: `Divisional: ${division ? 'Yes' : 'No'}`, clear: () => setDivision(null) });
     if (dome !== 'any') c.push({ label: dome === 'dome' ? 'Dome' : 'Outdoor', clear: () => setDome('any') });
     if (precip !== 'any') c.push({ label: `Precip: ${precip}`, clear: () => setPrecip('any') });
     if (tempRange[0] !== -10 || tempRange[1] !== 100) c.push({ label: `Temp ${tempRange[0]}–${tempRange[1]}°F`, clear: () => setTempRange([-10, 100]) });
-    if (windMax !== 60) c.push({ label: `Wind ≤ ${windMax}`, clear: () => setWindMax(60) });
+    if (windLabel(windRange)) c.push({ label: windLabel(windRange)!, clear: () => setWindRange([0, 60]) });
     if (restBye !== 'any') c.push({ label: ({ off_bye: 'Off a bye', pre_bye: 'Before a bye', short: 'Short rest' } as Record<string, string>)[restBye] || restBye, clear: () => setRestBye('any') });
     if (coach !== 'any') c.push({ label: `Coach: ${coach}`, clear: () => setCoach('any') });
     if (referee !== 'any') c.push({ label: `Ref: ${referee}`, clear: () => setReferee('any') });
@@ -784,9 +826,12 @@ export default function NFLAnalytics() {
     if (rangeChanged(oppWinPct, D.oppWinPct)) c.push({ label: `Opp win% ${oppWinPct[0]}–${oppWinPct[1]}`, clear: () => setOppWinPct(D.oppWinPct) });
     if (rangeChanged(oppOverPct, D.oppOverPct)) c.push({ label: `Opp over% ${oppOverPct[0]}–${oppOverPct[1]}`, clear: () => setOppOverPct(D.oppOverPct) });
     if (rangeChanged(oppWinStreak, D.oppWinStreak)) c.push({ label: `Opp win streak ${oppWinStreak[0]}–${oppWinStreak[1]}`, clear: () => setOppWinStreak(D.oppWinStreak) });
+    if (rangeChanged(oppLossStreak, D.oppLossStreak)) c.push({ label: `Opp loss streak ${oppLossStreak[0]}–${oppLossStreak[1]}`, clear: () => setOppLossStreak(D.oppLossStreak) });
+    if (rangeChanged(oppPpg, D.oppPpg)) c.push({ label: `Opp PPG ${oppPpg[0]}–${oppPpg[1]}`, clear: () => setOppPpg(D.oppPpg) });
+    if (rangeChanged(oppPaPg, D.oppPaPg)) c.push({ label: `Opp PA/G ${oppPaPg[0]}–${oppPaPg[1]}`, clear: () => setOppPaPg(D.oppPaPg) });
     if (rangeChanged(oppPrevWinPct, D.oppPrevWinPct)) c.push({ label: `Opp prev win% ${oppPrevWinPct[0]}–${oppPrevWinPct[1]}`, clear: () => setOppPrevWinPct(D.oppPrevWinPct) });
     return c;
-  }, [betType, seasons, weeks, side, teams, opponents, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, mlMin, mlMax, primetime, division, dome, precip, tempRange, windMax, restBye, coach, referee, lastResult, lastAts, lastTotal, lastRole, lastOt, lastMargin, seasonFloor, winPct, winStreak, lossStreak, above500, winPctGtOpp, ppg, paPg, pointDiffPg, minGames, atsWinPct, atsWinStreak, avgCoverMargin, overPct, overStreak, underStreak, prevWins, prevWinPct, madePlayoffsPrev, moreWinsThanOppPrev, h2hLastWin, h2hLastAts, h2hLastOver, h2hLastHome, h2hLastFav, h2hSameSeason, h2hSpreadCmp, oppWinPct, oppOverPct, oppWinStreak, oppPrevWinPct, oppLastResult, oppLastAts, oppLastTotal, oppLastRole, oppLastOt, oppLastMargin, daysOfWeek, teamDivisions]);
+  }, [betType, seasons, weeks, side, teams, opponents, seasonType, playoffRound, favDog, spreadSide, spreadSize, lineRange, h1SpreadSide, h1SpreadSize, h1TotalRange, ttLineRange, mlMin, mlMax, h1MlMin, h1MlMax, oppSpreadSide, oppSpreadSize, oppMlMin, oppMlMax, oppTtLineRange, primetime, division, dome, precip, tempRange, windRange, restBye, coach, referee, lastResult, lastAts, lastTotal, lastRole, lastOt, lastMargin, seasonFloor, winPct, winStreak, lossStreak, above500, winPctGtOpp, ppg, paPg, pointDiffPg, minGames, atsWinPct, atsWinStreak, avgCoverMargin, overPct, overStreak, underStreak, prevWins, prevWinPct, madePlayoffsPrev, moreWinsThanOppPrev, h2hLastWin, h2hLastAts, h2hLastOver, h2hLastHome, h2hLastFav, h2hSameSeason, h2hSpreadCmp, oppWinPct, oppOverPct, oppWinStreak, oppLossStreak, oppPpg, oppPaPg, oppPrevWinPct, oppLastResult, oppLastAts, oppLastTotal, oppLastRole, oppLastOt, oppLastMargin, daysOfWeek, teamDivisions]);
 
   // load coach/ref + NFL team option lists once
   useEffect(() => {
@@ -844,7 +889,7 @@ export default function NFLAnalytics() {
   // secondary context splits — only shown when it's a genuine two-sided comparison. A tiny side
   // (<10% of the split, e.g. a lone "underdog" inside a favorite-only moneyline filter) is a pinned/
   // degenerate dimension or a stray data mismatch — hide it rather than headline a 1-of-1 100%/ROI.
-  const isTotalMkt = !!TOTAL_CFG[betType] && betType !== 'team_total';
+  const isTotalMkt = (betType === 'fg_total' || betType === 'h1_total');
   // Recover game-total overall when RPC's is_home de-dupe emptied it but team-perspective filters matched.
   const overall = useMemo(() => {
     if (!data) return null;
@@ -868,9 +913,13 @@ export default function NFLAnalytics() {
   // plain-English subject for the headline, built from the active filters (never empty/degenerate)
   const subject = useMemo(() => {
     const parts: string[] = [];
-    if (side !== 'any') parts.push(side === 'home' ? 'Home' : 'Road');
-    const dir = SPREAD_CFG[betType] ? spreadSide : favDog;
-    if (dir && dir !== 'any') parts.push(dir === 'favorite' ? 'favorites' : 'underdogs');
+    // Game totals: never "Favorites/Home went over" — those are filters, not total subjects.
+    if (!isTotalMkt && side !== 'any') parts.push(side === 'home' ? 'Home' : 'Road');
+    // Spread/ML keys live in SPREAD_CFG and use spreadSide; other markets use favDog.
+    const direction = isTotalMkt
+      ? 'any'
+      : (SPREAD_CFG[betType] ? spreadSide : favDog);
+    if (direction && direction !== 'any') parts.push(direction === 'favorite' ? 'favorites' : 'underdogs');
     const situation = parts.join(' ');
     if (coach !== 'any') return `${coach}'s teams${situation ? ` (${situation.toLowerCase()})` : ''}`;
     if (situation) return situation.charAt(0).toUpperCase() + situation.slice(1);
@@ -988,10 +1037,15 @@ export default function NFLAnalytics() {
                 <p className="text-xs text-muted-foreground">Sign in to use filter chat.</p>
               ) : (
                 <>
-                  <div className="flex gap-2">
-                    <Input
+                  <div className="flex items-end gap-2">
+                    <Textarea
                       value={nlInput}
-                      onChange={(e) => setNlInput(e.target.value)}
+                      onChange={(e) => {
+                        setNlInput(e.target.value);
+                        const el = e.target;
+                        el.style.height = '40px';
+                        el.style.height = `${Math.min(96, Math.max(40, el.scrollHeight))}px`;
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -999,14 +1053,15 @@ export default function NFLAnalytics() {
                         }
                       }}
                       placeholder='e.g. "home favorites off a loss, weeks 2-10"'
-                      className="h-9 text-sm"
+                      className="min-h-[40px] max-h-[96px] flex-1 resize-none text-sm leading-snug py-2 overflow-y-auto"
+                      rows={1}
                       disabled={nlLoading}
                       maxLength={500}
                     />
                     <Button
                       type="button"
                       size="sm"
-                      className="h-9 shrink-0"
+                      className="h-10 shrink-0"
                       disabled={nlLoading || !nlInput.trim()}
                       onClick={() => submitNlFilter()}
                     >
@@ -1180,33 +1235,54 @@ export default function NFLAnalytics() {
             <TeamMultiSelect label="Team" options={teamOptions} value={teams} onChange={setTeams} />
             <TeamMultiSelect label="Opponent" options={teamOptions} value={opponents} onChange={setOpponents} emptyLabel="Any opponent" />
             <MultiToggle label="Days of week" options={NFL_DAYS} value={daysOfWeek} onChange={setDaysOfWeek} />
-
-            {SPREAD_CFG[betType] && (
-              <>
-                <SelectRow label={betType === 'h1_spread' ? '1H spread side' : 'Spread side'} value={spreadSide} onChange={setSpreadSide}
-                  options={[['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']]} />
-                <RangeRow label={`${spreadSide === 'favorite' ? 'Favored by' : spreadSide === 'underdog' ? 'Getting' : 'Spread'}: ${spreadSize[0]}–${spreadSize[1]} pts`}
-                  min={0} max={SPREAD_CFG[betType].max} step={0.5} value={spreadSize} onChange={setSpreadSize} />
-              </>
+            {(betType === 'team_total') && (
+              <SelectRow label="Favorite / Underdog" value={favDog} onChange={setFavDog} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
             )}
-            {/* moneyline odds — exact American-odds bounds. Negative = favorite, positive = underdog.
-                Same value in both = an exact line (e.g. -102 & -102); leave one blank for one-sided. */}
+          </CardContent></Card>
+
+          <FilterSection title="Lines & odds" defaultOpen>
+            <div className="text-[11px] text-muted-foreground -mt-1">Independent of the result market above — filter the sample by any posted line.</div>
+            <SelectRow label="FG spread (team)" value={spreadSide} onChange={(v: string) => setSpreadSide(v as SpreadSide)}
+              options={[['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']]} />
+            <RangeRow label={`${spreadSide === 'favorite' ? 'Favored by' : spreadSide === 'underdog' ? 'Getting' : 'FG spread'}: ${spreadSize[0]}–${spreadSize[1]} pts`}
+              min={0} max={20} step={0.5} value={spreadSize} onChange={setSpreadSize} />
             <div>
-              <div className="text-xs text-muted-foreground mb-1">Moneyline odds (American)</div>
+              <div className="text-xs text-muted-foreground mb-1">FG moneyline (team, American)</div>
               <div className="flex items-center gap-2">
                 <Input type="number" inputMode="numeric" value={mlMin} onChange={e => setMlMin(e.target.value)} placeholder="min e.g. -200" className="h-9" />
                 <span className="text-xs text-muted-foreground shrink-0">to</span>
                 <Input type="number" inputMode="numeric" value={mlMax} onChange={e => setMlMax(e.target.value)} placeholder="max e.g. -120" className="h-9" />
               </div>
             </div>
-            {(betType === 'team_total') && (
-              <SelectRow label="Favorite / Underdog" value={favDog} onChange={setFavDog} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
-            )}
-            {TOTAL_CFG[betType] && (
-              <RangeRow label={`${TOTAL_CFG[betType].label}: ${lineRange[0]}–${lineRange[1]}`}
-                min={TOTAL_CFG[betType].min} max={TOTAL_CFG[betType].max} step={0.5} value={lineRange} onChange={setLineRange} />
-            )}
-          </CardContent></Card>
+            <RangeRow label={`Game total: ${lineRange[0]}–${lineRange[1]}`} min={30} max={60} step={0.5} value={lineRange} onChange={setLineRange} />
+            <RangeRow label={`Team total line: ${ttLineRange[0]}–${ttLineRange[1]}`} min={10} max={40} step={0.5} value={ttLineRange} onChange={setTtLineRange} />
+            <SelectRow label="1H spread (team)" value={h1SpreadSide} onChange={(v: string) => setH1SpreadSide(v as SpreadSide)}
+              options={[['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']]} />
+            <RangeRow label={`${h1SpreadSide === 'favorite' ? '1H favored by' : h1SpreadSide === 'underdog' ? '1H getting' : '1H spread'}: ${h1SpreadSize[0]}–${h1SpreadSize[1]} pts`}
+              min={0} max={14} step={0.5} value={h1SpreadSize} onChange={setH1SpreadSize} />
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">1H moneyline (team, American)</div>
+              <div className="flex items-center gap-2">
+                <Input type="number" inputMode="numeric" value={h1MlMin} onChange={e => setH1MlMin(e.target.value)} placeholder="min" className="h-9" />
+                <span className="text-xs text-muted-foreground shrink-0">to</span>
+                <Input type="number" inputMode="numeric" value={h1MlMax} onChange={e => setH1MlMax(e.target.value)} placeholder="max" className="h-9" />
+              </div>
+            </div>
+            <RangeRow label={`1H total: ${h1TotalRange[0]}–${h1TotalRange[1]}`} min={15} max={35} step={0.5} value={h1TotalRange} onChange={setH1TotalRange} />
+            <SelectRow label="FG spread (opponent)" value={oppSpreadSide} onChange={(v: string) => setOppSpreadSide(v as SpreadSide)}
+              options={[['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']]} />
+            <RangeRow label={`${oppSpreadSide === 'favorite' ? 'Opp favored by' : oppSpreadSide === 'underdog' ? 'Opp getting' : 'Opp FG spread'}: ${oppSpreadSize[0]}–${oppSpreadSize[1]} pts`}
+              min={0} max={20} step={0.5} value={oppSpreadSize} onChange={setOppSpreadSize} />
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">FG moneyline (opponent, American)</div>
+              <div className="flex items-center gap-2">
+                <Input type="number" inputMode="numeric" value={oppMlMin} onChange={e => setOppMlMin(e.target.value)} placeholder="min" className="h-9" />
+                <span className="text-xs text-muted-foreground shrink-0">to</span>
+                <Input type="number" inputMode="numeric" value={oppMlMax} onChange={e => setOppMlMax(e.target.value)} placeholder="max" className="h-9" />
+              </div>
+            </div>
+            <RangeRow label={`Opp team total: ${oppTtLineRange[0]}–${oppTtLineRange[1]}`} min={10} max={40} step={0.5} value={oppTtLineRange} onChange={setOppTtLineRange} />
+          </FilterSection>
 
           {/* Matchup = game-setup context (not weather). Split out of the old "Conditions" grab-bag. */}
           <FilterSection title="Matchup">
@@ -1221,7 +1297,7 @@ export default function NFLAnalytics() {
             <SelectRow label="Venue" value={dome} onChange={setDome} options={[['any', 'Any'], ['dome', 'Dome'], ['outdoor', 'Outdoor']]} />
             <SelectRow label="Precipitation" value={precip} onChange={setPrecip} options={[['any', 'Any'], ['none', 'None'], ['rain', 'Rain'], ['snow', 'Snow']]} />
             <RangeRow label={`Temp: ${tempRange[0]}–${tempRange[1]}°F`} min={-10} max={100} step={1} value={tempRange} onChange={setTempRange} />
-            <div><div className="text-xs text-muted-foreground mb-1">Max wind: {windMax} mph</div><Slider min={0} max={60} step={1} value={[windMax]} onValueChange={([v]) => setWindMax(v)} /></div>
+            <RangeRow label={`Wind: ${windRange[0]}–${windRange[1]} mph`} min={0} max={60} step={1} value={windRange} onChange={setWindRange} />
           </FilterSection>
 
           <FilterSection title="Context">
@@ -1296,6 +1372,9 @@ export default function NFLAnalytics() {
             <RangeRow label={`Opp win%: ${oppWinPct[0]}–${oppWinPct[1]}%`} min={0} max={100} step={1} value={oppWinPct} onChange={setOppWinPct} />
             <RangeRow label={`Opp over%: ${oppOverPct[0]}–${oppOverPct[1]}%`} min={0} max={100} step={1} value={oppOverPct} onChange={setOppOverPct} />
             <RangeRow label={`Opp win streak: ${oppWinStreak[0]}–${oppWinStreak[1]}`} min={0} max={16} step={1} value={oppWinStreak} onChange={setOppWinStreak} />
+            <RangeRow label={`Opp loss streak: ${oppLossStreak[0]}–${oppLossStreak[1]}`} min={0} max={16} step={1} value={oppLossStreak} onChange={setOppLossStreak} />
+            <RangeRow label={`Opp PPG: ${oppPpg[0]}–${oppPpg[1]}`} min={0} max={40} step={0.5} value={oppPpg} onChange={setOppPpg} />
+            <RangeRow label={`Opp PA/G: ${oppPaPg[0]}–${oppPaPg[1]}`} min={0} max={40} step={0.5} value={oppPaPg} onChange={setOppPaPg} />
             <RangeRow label={`Opp prev win%: ${oppPrevWinPct[0]}–${oppPrevWinPct[1]}%`} min={0} max={100} step={1} value={oppPrevWinPct} onChange={setOppPrevWinPct} />
           </FilterSection>
         </div>
@@ -1326,8 +1405,8 @@ function TriRow({ label, value, onChange }: { label: string; value: boolean | nu
   return <div><div className="text-xs text-muted-foreground mb-1">{label}</div>
     <div className="flex gap-1">{opts.map(([l, v]) => <Button key={l} size="sm" variant={value === v ? 'default' : 'outline'} className="h-7 flex-1 text-xs" onClick={() => onChange(v)}>{l}</Button>)}</div></div>;
 }
-function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+function FilterSection({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return <Collapsible open={open} onOpenChange={setOpen}>
     <Card><CardContent className="py-3">
       <CollapsibleTrigger className="flex w-full items-center justify-between text-sm font-semibold">

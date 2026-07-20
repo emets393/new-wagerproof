@@ -45,17 +45,20 @@ export const CFB_CONFERENCES = [
 ] as const;
 
 type Dim = EngineDimension;
-const SPREAD_BT: readonly CfbBetType[] = ['fg_spread', 'h1_spread'];
 const ML_BT: readonly CfbBetType[] = ['fg_ml', 'h1_ml'];
-const TOTAL_BT: readonly CfbBetType[] = ['fg_total', 'h1_total', 'team_total'];
 
 export const DEFAULT_CFB_SNAPSHOT = {
   betType: 'fg_spread',
   seasons: [2016, 2025], weeks: [1, 16], side: 'any', favDog: 'any', gameType: 'any',
-  rankedMatchup: 'any', spreadSide: 'any', spreadSize: [0, 50], lineRange: [30, 80],
-  mlMin: '', mlMax: '', primetime: null, conferenceGame: null, neutralSite: null,
-  selectedConferences: [], tempRange: [-10, 110], windMax: 60, weather: 'any', dome: 'any',
-  lastResult: 'any', lastAts: 'any', lastTotal: 'any', lastRole: 'any', lastOt: null, lastBlowout: 'any',
+  rankedMatchup: 'any',
+  spreadSide: 'any', spreadSize: [0, 50], lineRange: [30, 80],
+  h1SpreadSide: 'any', h1SpreadSize: [0, 28], h1TotalRange: [15, 45], ttLineRange: [10, 55],
+  mlMin: '', mlMax: '', h1MlMin: '', h1MlMax: '',
+  oppSpreadSide: 'any', oppSpreadSize: [0, 50], oppMlMin: '', oppMlMax: '', oppTtLineRange: [10, 55],
+  primetime: null, conferenceGame: null, neutralSite: null,
+  selectedConferences: [], tempRange: [-10, 110], windRange: [0, 60], weather: 'any', dome: 'any',
+  restBye: 'any',
+  lastResult: 'any', lastAts: 'any', lastTotal: 'any', lastRole: 'any', lastOt: null,
   teams: [], opponents: [], daysOfWeek: [], lastMargin: [-80, 80],
   oppLastResult: 'any', oppLastAts: 'any', oppLastTotal: 'any', oppLastRole: 'any', oppLastOt: null,
   oppLastMargin: [-80, 80],
@@ -75,24 +78,41 @@ export const CFB_FILTER_DIMENSIONS: Record<Exclude<keyof CfbWebFilterSnapshot, '
   teams: { group: 'Situation', kind: 'multiselect', optionSource: 'cfbTeams', label: 'Team', aliases: ['team', 'school'], rpcNote: 'f.team = array of full school names.' },
   opponents: { group: 'Situation', kind: 'multiselect', optionSource: 'cfbTeams', label: 'Opponent', aliases: ['opponent', 'against', 'vs'], rpcNote: 'f.opponent = array of full school names.' },
   daysOfWeek: { group: 'Situation', kind: 'multiselect', optionSource: 'daysOfWeek', label: 'Days of week', aliases: ['day', 'saturday', 'friday', 'thursday', 'weeknight', 'maction'], rpcNote: 'f.day_of_week = array (CFB plays Tue–Sat; Sun/Mon rare).' },
-  spreadSide: { group: 'Situation', kind: 'enum', label: 'Spread side', options: [['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']], availability: { betTypes: SPREAD_BT }, aliases: ['favored', 'getting', 'laying', 'dog'], rpcNote: 'Drives spread sign — see spreadSize.' },
-  spreadSize: { group: 'Situation', kind: 'numRange', min: 0, max: 50, step: 0.5, unit: 'pts', boundsByBetType: { fg_spread: [0, 50], h1_spread: [0, 28] }, availability: { betTypes: SPREAD_BT }, label: 'Spread size', aliases: ['spread', 'points', 'laying'], rpcNote: 'favorite → spread_min=-hi/max=-max(lo,.5); underdog → +; either → abs_spread_*. CFB spreads reach the 50s.' },
-  favDog: { group: 'Situation', kind: 'enum', label: 'Favorite / Underdog', options: [['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']], availability: { betTypes: [...ML_BT, 'team_total'] }, aliases: ['favorite', 'underdog'], rpcNote: 'f.fav_dog — ML markets + team totals (CFB ML has no spread control).' },
-  mlMin: { group: 'Situation', kind: 'mlOdds', bound: 'min', label: 'Moneyline odds (min)', availability: { betTypes: ML_BT }, aliases: ['moneyline', 'odds'], rpcNote: 'f.ml_min (American; CFB ML data 2021+).' },
-  mlMax: { group: 'Situation', kind: 'mlOdds', bound: 'max', label: 'Moneyline odds (max)', availability: { betTypes: ML_BT }, aliases: ['moneyline', 'odds'], rpcNote: 'f.ml_max.' },
-  lineRange: { group: 'Situation', kind: 'numRange', min: 30, max: 80, step: 0.5, boundsByBetType: { fg_total: [30, 80], h1_total: [15, 45], team_total: [10, 55] }, availability: { betTypes: TOTAL_BT }, label: 'Total line', aliases: ['total', 'over under', 'o/u'], rpcNote: 'total_min/max, h1_total_min/max, tt_min/max.' },
+  spreadSide: { group: 'Situation', kind: 'enum', label: 'FG spread side (team)', options: [['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']], aliases: ['favored', 'getting', 'laying', 'dog', 'spread'], rpcNote: 'Drives FG spread sign — available on every bet type.' },
+  spreadSize: { group: 'Situation', kind: 'numRange', min: 0, max: 50, step: 0.5, unit: 'pts', label: 'FG spread size (team)', aliases: ['spread', 'points', 'laying'], rpcNote: 'favorite → spread_min=-hi; underdog → +; either → abs_spread_*. CFB spreads reach the 50s.' },
+  h1SpreadSide: { group: 'Situation', kind: 'enum', label: '1H spread side (team)', options: [['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']], aliases: ['1h spread'], rpcNote: 'h1_spread_*/h1_abs_spread_*.' },
+  h1SpreadSize: { group: 'Situation', kind: 'numRange', min: 0, max: 28, step: 0.5, unit: 'pts', label: '1H spread size (team)', aliases: ['1h spread'], rpcNote: 'Same sign rules on h1_spread.' },
+  favDog: { group: 'Situation', kind: 'enum', label: 'Favorite / Underdog', options: [['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']], availability: { betTypes: [...ML_BT, 'team_total'] }, aliases: ['favorite', 'underdog'], rpcNote: 'f.fav_dog — ML markets + team totals.' },
+  mlMin: { group: 'Situation', kind: 'mlOdds', bound: 'min', label: 'FG moneyline odds (team, min)', aliases: ['moneyline', 'odds'], rpcNote: 'f.ml_min (American; CFB ML data 2021+). Available on every bet type.' },
+  mlMax: { group: 'Situation', kind: 'mlOdds', bound: 'max', label: 'FG moneyline odds (team, max)', aliases: ['moneyline', 'odds'], rpcNote: 'f.ml_max.' },
+  h1MlMin: { group: 'Situation', kind: 'mlOdds', bound: 'min', label: '1H moneyline odds (team, min)', aliases: ['1h moneyline', '1h ml'], rpcNote: 'f.h1_ml_min — filters h1_ml_px (decimal; American |v|≥100 converted).' },
+  h1MlMax: { group: 'Situation', kind: 'mlOdds', bound: 'max', label: '1H moneyline odds (team, max)', aliases: ['1h moneyline'], rpcNote: 'f.h1_ml_max.' },
+  lineRange: { group: 'Situation', kind: 'numRange', min: 30, max: 80, step: 0.5, label: 'Game total line', aliases: ['total', 'over under', 'o/u', 'game total'], rpcNote: 'total_min/max on fg_total. Available on every bet type.' },
+  h1TotalRange: { group: 'Situation', kind: 'numRange', min: 15, max: 45, step: 0.5, label: '1H total line', aliases: ['1h total'], rpcNote: 'h1_total_min/max.' },
+  ttLineRange: { group: 'Situation', kind: 'numRange', min: 10, max: 55, step: 0.5, label: 'Team total line (team)', aliases: ['team total line', 'tt line', 'posted team total'], rpcNote: 'tt_min/max. NEVER use for "spread of N" — that is spreadSize.' },
+  oppSpreadSide: { group: 'Situation', kind: 'enum', label: 'FG spread side (opponent)', options: [['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']], aliases: ['opponent spread'], rpcNote: 'Inverts onto subject fg_spread.' },
+  oppSpreadSize: { group: 'Situation', kind: 'numRange', min: 0, max: 50, step: 0.5, unit: 'pts', label: 'FG spread size (opponent)', aliases: ['opponent spread'], rpcNote: 'Emitted as inverted subject spread.' },
+  oppMlMin: { group: 'Situation', kind: 'mlOdds', bound: 'min', label: 'FG moneyline odds (opponent, min)', aliases: ['opponent moneyline', 'opp ml'], rpcNote: 'f.opp_ml_min (requires RPC support).' },
+  oppMlMax: { group: 'Situation', kind: 'mlOdds', bound: 'max', label: 'FG moneyline odds (opponent, max)', aliases: ['opponent moneyline'], rpcNote: 'f.opp_ml_max.' },
+  oppTtLineRange: { group: 'Situation', kind: 'numRange', min: 10, max: 55, step: 0.5, label: 'Team total line (opponent)', aliases: ['opponent team total'], rpcNote: 'f.opp_tt_min/max (requires RPC support).' },
 
   // ── Matchup ──
   primetime: { group: 'Matchup', kind: 'tristate', label: 'Primetime', aliases: ['primetime', 'night game'], rpcNote: 'f.primetime = boolean.' },
   conferenceGame: { group: 'Matchup', kind: 'tristate', label: 'Conference game', aliases: ['conference game', 'non-conference'], rpcNote: 'f.conference_game = boolean.' },
   neutralSite: { group: 'Matchup', kind: 'tristate', label: 'Neutral site', aliases: ['neutral site', 'bowl site'], rpcNote: 'f.neutral_site = boolean.' },
   selectedConferences: { group: 'Matchup', kind: 'multiselect', optionSource: 'cfbConferences', label: 'Conference', aliases: ['conference', 'sec', 'big ten', 'acc', 'big 12'], rpcNote: "1 selected → f.conference; multiple → expanded client-side to that conference's team list." },
+  restBye: {
+    group: 'Matchup', kind: 'enum', label: 'Rest / Bye',
+    options: [['any', 'Any'], ['off_bye', 'Off a bye'], ['pre_bye', 'Week before a bye'], ['short', 'Short week (<7 days)']],
+    aliases: ['bye', 'rest', 'off a bye', 'short week', 'weeknight after saturday'],
+    rpcNote: "off_bye → rest_min=13; short → rest_max=6 (CFB weekday game after a Saturday); pre_bye → pre_bye=true. Regular season only (postseason rows have no rest chain).",
+  },
 
   // ── Weather ──
-  weather: { group: 'Weather', kind: 'enum', label: 'Weather', options: [['any', 'Any'], ['rain', 'Rain'], ['snow', 'Snow']], aliases: ['rain', 'snow', 'wet'], rpcNote: "f.weather (condition text complete 2022+, partial before)." },
+  weather: { group: 'Weather', kind: 'enum', label: 'Weather', options: [['any', 'Any'], ['clear', 'Clear'], ['cloudy', 'Cloudy'], ['rain', 'Rain'], ['snow', 'Snow']], aliases: ['rain', 'snow', 'wet', 'clear', 'cloudy'], rpcNote: "f.weather (condition text complete 2022+, partial before)." },
   dome: { group: 'Weather', kind: 'enum', label: 'Venue', options: [['any', 'Any'], ['dome', 'Dome'], ['outdoor', 'Outdoor']], aliases: ['dome', 'indoor', 'outdoor'], rpcNote: "f.dome = (dome === 'dome')." },
   tempRange: { group: 'Weather', kind: 'numRange', min: -10, max: 110, step: 1, unit: '°F', label: 'Temperature', aliases: ['temperature', 'cold', 'hot'], rpcNote: 'temp_min/max.' },
-  windMax: { group: 'Weather', kind: 'scalarMax', min: 0, max: 60, step: 1, unit: 'mph', label: 'Max wind', aliases: ['wind', 'windy'], rpcNote: 'f.wind_max when < 60.' },
+  windRange: { group: 'Weather', kind: 'numRange', min: 0, max: 60, step: 1, unit: 'mph', label: 'Wind speed', aliases: ['wind', 'windy'], rpcNote: 'wind_min when > 0; wind_max when < 60.' },
 
   // ── Last game ──
   lastResult: { group: 'Last game', kind: 'enum', label: 'Last game result', options: [['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']], aliases: ['off a win', 'off a loss'], rpcNote: 'f.last_won = won?1:0.' },
@@ -100,8 +120,7 @@ export const CFB_FILTER_DIMENSIONS: Record<Exclude<keyof CfbWebFilterSnapshot, '
   lastTotal: { group: 'Last game', kind: 'enum', label: 'Last game total', options: [['any', 'Any'], ['over', 'Over'], ['under', 'Under']], aliases: ['over last game', 'under last game'], rpcNote: 'f.last_over = over?1:0.' },
   lastRole: { group: 'Last game', kind: 'enum', label: 'Last game role', options: [['any', 'Any'], ['favorite', 'Favorite'], ['underdog', 'Underdog']], rpcNote: "f.last_favorite = (lastRole === 'favorite')." },
   lastOt: { group: 'Last game', kind: 'tristate', label: 'Last game overtime', aliases: ['overtime', 'ot'], rpcNote: 'f.last_overtime = boolean.' },
-  lastBlowout: { group: 'Last game', kind: 'enum', label: 'Last game blowout (±21)', options: [['any', 'Any'], ['win', 'Won by 21+'], ['loss', 'Lost by 21+']], aliases: ['blowout'], rpcNote: "LEGACY — prefer lastMargin. f.last_blowout = 'win'|'loss'." },
-  lastMargin: { group: 'Last game', kind: 'numRange', min: -80, max: 80, step: 1, unit: 'pts', label: 'Last game margin', aliases: ['margin', 'won by', 'lost by'], rpcNote: 'last_margin_min/max — signed: + won by, − lost by.' },
+  lastMargin: { group: 'Last game', kind: 'numRange', min: -80, max: 80, step: 1, unit: 'pts', label: 'Last game margin', aliases: ['margin', 'won by', 'lost by', 'blowout'], rpcNote: 'last_margin_min/max — signed: + won by, − lost by (blowout win = [21, 80]).' },
 
   // ── Opponent last game ──
   oppLastResult: { group: 'Opponent last game', kind: 'enum', label: 'Opponent last game result', options: [['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']], aliases: ['opponent off a win', 'opponent off a loss'], rpcNote: 'f.opp_last_won = won?1:0.' },
@@ -141,6 +160,9 @@ export const CFB_FILTER_DIMENSIONS: Record<Exclude<keyof CfbWebFilterSnapshot, '
   oppWinPct: { group: 'Opponent Record', kind: 'pctRange', label: 'Opponent win %', rpcNote: 'opp_win_pct_min/max (0–1).' },
   oppOverPct: { group: 'Opponent Record', kind: 'pctRange', label: 'Opponent over %', rpcNote: 'opp_over_pct_min/max (0–1).' },
   oppWinStreak: { group: 'Opponent Record', kind: 'numRange', min: 0, max: 16, step: 1, label: 'Opponent win streak', rpcNote: 'opp_win_streak_min/max.' },
+  oppLossStreak: { group: 'Opponent Record', kind: 'numRange', min: 0, max: 16, step: 1, label: 'Opponent loss streak', aliases: ['opponent losing streak'], rpcNote: 'opp_loss_streak_min/max.' },
+  oppPpg: { group: 'Opponent Record', kind: 'numRange', min: 0, max: 60, step: 0.5, label: 'Opponent points per game', aliases: ['opponent ppg', 'opponent scoring'], rpcNote: 'opp_ppg_min/max.' },
+  oppPaPg: { group: 'Opponent Record', kind: 'numRange', min: 0, max: 60, step: 0.5, label: 'Opponent points allowed per game', aliases: ['opponent points allowed', 'opponent defense'], rpcNote: 'opp_pa_pg_min/max.' },
   oppPrevWinPct: { group: 'Opponent Record', kind: 'pctRange', label: 'Opponent last-season win %', rpcNote: 'opp_prev_win_pct_min/max (0–1).' },
 };
 
@@ -150,8 +172,9 @@ export const CFB_DIMENSION_KEYS = Object.keys(CFB_FILTER_DIMENSIONS) as Array<Ex
 // evaluates identically for both rows of a game, so it keeps the mirror intact) ──
 export const CFB_SIDE_MARKETS: readonly CfbBetType[] = ['fg_spread', 'fg_ml', 'h1_spread', 'h1_ml'];
 export const CFB_SIDE_SYMMETRIC_DIMS = [
-  'seasons', 'weeks', 'gameType', 'rankedMatchup', 'lineRange', 'spreadSize', 'primetime',
-  'conferenceGame', 'neutralSite', 'tempRange', 'windMax', 'weather', 'dome', 'daysOfWeek', 'minGames',
+  'seasons', 'weeks', 'gameType', 'rankedMatchup', 'lineRange', 'h1TotalRange', 'ttLineRange',
+  'spreadSize', 'h1SpreadSize', 'oppSpreadSize', 'oppTtLineRange',
+  'primetime', 'conferenceGame', 'neutralSite', 'tempRange', 'windRange', 'weather', 'dome', 'daysOfWeek', 'minGames',
 ] as const;
 export const CFB_SIDE_BREAKING_DIMS = CFB_DIMENSION_KEYS.filter(
   (k) => !(CFB_SIDE_SYMMETRIC_DIMS as readonly string[]).includes(k),
@@ -175,8 +198,6 @@ function cfbNumRangeBounds(dim: EngineDimension & { kind: 'numRange' }, betType:
 
 function cfbBetTypeSideEffects(next: CfbWebFilterSnapshot): void {
   const bt = next.betType;
-  next.spreadSize = cfbNumRangeBounds(CFB_FILTER_DIMENSIONS.spreadSize as EngineDimension & { kind: 'numRange' }, bt);
-  next.lineRange = cfbNumRangeBounds(CFB_FILTER_DIMENSIONS.lineRange as EngineDimension & { kind: 'numRange' }, bt);
   const floor = cfbNumRangeBounds(CFB_FILTER_DIMENSIONS.seasons as EngineDimension & { kind: 'numRange' }, bt)[0];
   if (next.seasons[0] < floor) next.seasons = [floor, next.seasons[1]];
 }

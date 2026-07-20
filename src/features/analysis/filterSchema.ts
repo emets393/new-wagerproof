@@ -49,13 +49,9 @@ export const NFL_DIVISIONS = ['AFC East', 'AFC North', 'AFC South', 'AFC West', 
 
 /** Markets whose data only exists 2023+ (season floor clamps to 2023). Mirrors LIMITED_MARKETS. */
 export const NFL_LIMITED_BET_TYPES: readonly NflBetType[] = ['h1_spread', 'h1_ml', 'h1_total', 'team_total'];
-/** Bet types that expose the spread size+side control (spread markets + ML, which is the spread priced up). */
-const SPREAD_CONTROL_BET_TYPES: readonly NflBetType[] = ['fg_spread', 'h1_spread', 'fg_ml', 'h1_ml'];
-/** Bet types that expose the total-line range control. */
-const TOTAL_CONTROL_BET_TYPES: readonly NflBetType[] = ['fg_total', 'h1_total', 'team_total'];
 
 export const NFL_FILTER_GROUPS = [
-  'Situation', 'Matchup', 'Weather', 'Context', 'Last game', 'Opponent last game',
+  'Situation', 'Lines & odds', 'Matchup', 'Weather', 'Context', 'Last game', 'Opponent last game',
   'Season Record', 'Cover Profile', 'Total Profile', 'Prior Year', 'Head-to-Head', 'Opponent Record',
 ] as const;
 export type NflFilterGroup = (typeof NFL_FILTER_GROUPS)[number];
@@ -112,8 +108,12 @@ export type FilterDimension =
 export const DEFAULT_NFL_SNAPSHOT = {
   betType: 'fg_spread',
   seasons: [2018, 2025], weeks: [1, 18], side: 'any', seasonType: 'any', playoffRound: 'any',
-  favDog: 'any', spreadSide: 'any', spreadSize: [0, 20], lineRange: [30, 60], mlMin: '', mlMax: '',
-  primetime: null, division: null, dome: 'any', tempRange: [-10, 100], windMax: 60, precip: 'any',
+  favDog: 'any',
+  spreadSide: 'any', spreadSize: [0, 20], lineRange: [30, 60],
+  h1SpreadSide: 'any', h1SpreadSize: [0, 14], h1TotalRange: [15, 35], ttLineRange: [10, 40],
+  mlMin: '', mlMax: '', h1MlMin: '', h1MlMax: '',
+  oppSpreadSide: 'any', oppSpreadSize: [0, 20], oppMlMin: '', oppMlMax: '', oppTtLineRange: [10, 40],
+  primetime: null, division: null, dome: 'any', tempRange: [-10, 100], windRange: [0, 60], precip: 'any',
   restBye: 'any', coach: 'any', referee: 'any',
   lastResult: 'any', lastAts: 'any', lastTotal: 'any', lastRole: 'any', lastOt: null, lastMargin: [-60, 60],
   oppLastResult: 'any', oppLastAts: 'any', oppLastTotal: 'any', oppLastRole: 'any', oppLastOt: null, oppLastMargin: [-60, 60],
@@ -165,30 +165,88 @@ export const NFL_FILTER_DIMENSIONS: Record<Exclude<keyof NflWebFilterSnapshot, '
   },
   daysOfWeek: { group: 'Situation', kind: 'multiselect', optionSource: 'daysOfWeek', label: 'Days of week', aliases: ['day', 'day of week', 'weekday', 'monday', 'thursday', 'sunday', 'saturday', 'which days'], rpcNote: 'f.day_of_week = array of day names (Sun/Mon/Tue/Wed/Thu/Fri/Sat).' },
   spreadSide: {
-    group: 'Situation', kind: 'enum', label: 'Spread side',
+    group: 'Lines & odds', kind: 'enum', label: 'FG spread side (team)',
     options: [['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']],
-    availability: { betTypes: SPREAD_CONTROL_BET_TYPES },
-    aliases: ['favorite', 'underdog', 'favored', 'getting', 'laying', 'dog'],
-    rpcNote: 'Combines with spreadSize; drives the spread sign — see spreadSize.rpcNote.',
+    aliases: ['favorite', 'underdog', 'favored', 'getting', 'laying', 'dog', 'spread'],
+    rpcNote: 'Combines with spreadSize → spread_*/abs_spread_* on the subject team row. Available on every bet type.',
   },
   spreadSize: {
-    group: 'Situation', kind: 'numRange', min: 0, max: 20, step: 0.5, unit: 'pts',
-    boundsByBetType: { fg_spread: [0, 20], h1_spread: [0, 14], fg_ml: [0, 20], h1_ml: [0, 20] },
-    availability: { betTypes: SPREAD_CONTROL_BET_TYPES },
-    label: 'Spread size', aliases: ['spread', 'points', 'laying', 'getting', 'by'],
+    group: 'Lines & odds', kind: 'numRange', min: 0, max: 20, step: 0.5, unit: 'pts',
+    label: 'FG spread size (team)', aliases: ['spread', 'points', 'laying', 'getting', 'by'],
     rpcNote: "favorite → spread_min=-hi, spread_max=-max(lo,0.5); underdog → spread_min=max(lo,0.5), spread_max=hi; " +
-      'either side with a narrowed range → abs_spread_min/max. h1_spread uses h1_spread_*/h1_abs_spread_*; ' +
-      'fg_ml/h1_ml filter by the FULL-GAME spread (spread_*/abs_spread_*).',
+      'either side with a narrowed range → abs_spread_min/max. Independent of result market.',
   },
   mlMin: {
-    group: 'Situation', kind: 'mlOdds', bound: 'min', label: 'Moneyline odds (min)',
+    group: 'Lines & odds', kind: 'mlOdds', bound: 'min', label: 'FG moneyline odds (team, min)',
     aliases: ['moneyline', 'odds', 'american odds', 'ml'],
-    rpcNote: 'f.ml_min = numeric American odds. Negative = favorite, positive = underdog. If both set and reversed, sorted.',
+    rpcNote: 'f.ml_min on team_ml. Available on every bet type.',
   },
   mlMax: {
-    group: 'Situation', kind: 'mlOdds', bound: 'max', label: 'Moneyline odds (max)',
+    group: 'Lines & odds', kind: 'mlOdds', bound: 'max', label: 'FG moneyline odds (team, max)',
     aliases: ['moneyline', 'odds', 'american odds', 'ml'],
-    rpcNote: 'f.ml_max = numeric American odds. Same value in mlMin & mlMax = an exact line.',
+    rpcNote: 'f.ml_max on team_ml.',
+  },
+  h1SpreadSide: {
+    group: 'Lines & odds', kind: 'enum', label: '1H spread side (team)',
+    options: [['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']],
+    aliases: ['1h spread', 'first half spread'],
+    rpcNote: 'h1_spread_*/h1_abs_spread_*.',
+  },
+  h1SpreadSize: {
+    group: 'Lines & odds', kind: 'numRange', min: 0, max: 14, step: 0.5, unit: 'pts',
+    label: '1H spread size (team)', aliases: ['1h spread', 'first half spread'],
+    rpcNote: 'Same sign rules as FG spread, on h1_spread.',
+  },
+  h1MlMin: {
+    group: 'Lines & odds', kind: 'mlOdds', bound: 'min', label: '1H moneyline odds (team, min)',
+    aliases: ['1h moneyline', '1h ml', 'first half ml'],
+    rpcNote: 'f.h1_ml_min on h1_ml_px (requires RPC support).',
+  },
+  h1MlMax: {
+    group: 'Lines & odds', kind: 'mlOdds', bound: 'max', label: '1H moneyline odds (team, max)',
+    aliases: ['1h moneyline', '1h ml'],
+    rpcNote: 'f.h1_ml_max on h1_ml_px.',
+  },
+  lineRange: {
+    group: 'Lines & odds', kind: 'numRange', min: 30, max: 60, step: 0.5,
+    label: 'Game total line', aliases: ['total', 'over under', 'o/u', 'game total', 'total line'],
+    rpcNote: 'total_min/total_max on fg_total. Available on every bet type.',
+  },
+  h1TotalRange: {
+    group: 'Lines & odds', kind: 'numRange', min: 15, max: 35, step: 0.5,
+    label: '1H total line', aliases: ['1h total', 'first half total'],
+    rpcNote: 'h1_total_min/max.',
+  },
+  ttLineRange: {
+    group: 'Lines & odds', kind: 'numRange', min: 10, max: 40, step: 0.5,
+    label: 'Team total line (team)', aliases: ['team total line', 'tt line', 'posted team total'],
+    rpcNote: 'tt_min/tt_max on tt_line. NEVER use for "spread of N" — that is spreadSize.',
+  },
+  oppSpreadSide: {
+    group: 'Lines & odds', kind: 'enum', label: 'FG spread side (opponent)',
+    options: [['any', 'Either side'], ['favorite', 'Favored by'], ['underdog', 'Getting']],
+    aliases: ['opponent spread', 'opp spread'],
+    rpcNote: 'Inverts onto subject fg_spread (opp favorite ≡ team underdog).',
+  },
+  oppSpreadSize: {
+    group: 'Lines & odds', kind: 'numRange', min: 0, max: 20, step: 0.5, unit: 'pts',
+    label: 'FG spread size (opponent)', aliases: ['opponent spread'],
+    rpcNote: 'Emitted as inverted subject spread predicates.',
+  },
+  oppMlMin: {
+    group: 'Lines & odds', kind: 'mlOdds', bound: 'min', label: 'FG moneyline odds (opponent, min)',
+    aliases: ['opponent moneyline', 'opp ml'],
+    rpcNote: 'f.opp_ml_min (mirror-row team_ml; requires RPC support).',
+  },
+  oppMlMax: {
+    group: 'Lines & odds', kind: 'mlOdds', bound: 'max', label: 'FG moneyline odds (opponent, max)',
+    aliases: ['opponent moneyline', 'opp ml'],
+    rpcNote: 'f.opp_ml_max.',
+  },
+  oppTtLineRange: {
+    group: 'Lines & odds', kind: 'numRange', min: 10, max: 40, step: 0.5,
+    label: 'Team total line (opponent)', aliases: ['opponent team total', 'opp tt'],
+    rpcNote: 'f.opp_tt_min/max (mirror-row tt_line; requires RPC support).',
   },
   favDog: {
     group: 'Situation', kind: 'enum', label: 'Favorite / Underdog',
@@ -196,13 +254,6 @@ export const NFL_FILTER_DIMENSIONS: Record<Exclude<keyof NflWebFilterSnapshot, '
     availability: { betTypes: ['team_total'] },
     aliases: ['favorite', 'underdog'],
     rpcNote: "f.fav_dog — ONLY applied for the team_total market (spread markets use spreadSide instead).",
-  },
-  lineRange: {
-    group: 'Situation', kind: 'numRange', min: 30, max: 60, step: 0.5,
-    boundsByBetType: { fg_total: [30, 60], h1_total: [15, 35], team_total: [10, 40] },
-    availability: { betTypes: TOTAL_CONTROL_BET_TYPES },
-    label: 'Total line', aliases: ['total', 'over under', 'o/u', 'total line', 'team total line'],
-    rpcNote: 'total_min/total_max (fg_total), h1_total_min/max (h1_total), tt_min/tt_max (team_total).',
   },
 
   // ── Matchup ──
@@ -234,10 +285,10 @@ export const NFL_FILTER_DIMENSIONS: Record<Exclude<keyof NflWebFilterSnapshot, '
     aliases: ['temperature', 'cold', 'hot', 'freezing', 'degrees'],
     rpcNote: 'temp_min/temp_max.',
   },
-  windMax: {
-    group: 'Weather', kind: 'scalarMax', min: 0, max: 60, step: 1, unit: 'mph', label: 'Max wind',
+  windRange: {
+    group: 'Weather', kind: 'numRange', min: 0, max: 60, step: 1, unit: 'mph', label: 'Wind speed',
     aliases: ['wind', 'windy', 'gusts'],
-    rpcNote: 'f.wind_max — only sent when < 60.',
+    rpcNote: 'wind_min when > 0; wind_max when < 60.',
   },
 
   // ── Context ──
@@ -304,6 +355,9 @@ export const NFL_FILTER_DIMENSIONS: Record<Exclude<keyof NflWebFilterSnapshot, '
   oppWinPct: { group: 'Opponent Record', kind: 'pctRange', label: 'Opponent win %', aliases: ['opponent record', 'opponent win rate', 'opponent winning percentage'], rpcNote: 'opp_win_pct_min/max — 0–100 sent as 0–1. Wins/losses only — NEVER use for over/under language.' },
   oppOverPct: { group: 'Opponent Record', kind: 'pctRange', label: 'Opponent over %', aliases: ['opponent over rate', 'opponent overs', 'opponent gone under', 'opponent under rate', 'both teams overs', 'opponent hit the under'], rpcNote: 'opp_over_pct_min/max — 0–100 sent as 0–1. Season O/U tendency for the opponent.' },
   oppWinStreak: { group: 'Opponent Record', kind: 'numRange', min: 0, max: 16, step: 1, label: 'Opponent win streak', rpcNote: 'opp_win_streak_min/max.' },
+  oppLossStreak: { group: 'Opponent Record', kind: 'numRange', min: 0, max: 16, step: 1, label: 'Opponent loss streak', aliases: ['opponent losing streak', 'opponent losses in a row'], rpcNote: 'opp_loss_streak_min/max.' },
+  oppPpg: { group: 'Opponent Record', kind: 'numRange', min: 0, max: 40, step: 0.5, label: 'Opponent points per game', aliases: ['opponent ppg', 'opponent scoring', 'opponent offense'], rpcNote: 'opp_ppg_min/max.' },
+  oppPaPg: { group: 'Opponent Record', kind: 'numRange', min: 0, max: 40, step: 0.5, label: 'Opponent points allowed per game', aliases: ['opponent points allowed', 'opponent defense'], rpcNote: 'opp_pa_pg_min/max.' },
   oppPrevWinPct: { group: 'Opponent Record', kind: 'pctRange', label: 'Opponent last-season win %', rpcNote: 'opp_prev_win_pct_min/max — 0–100 sent as 0–1.' },
 };
 
@@ -355,8 +409,9 @@ export const NFL_SIDE_MARKETS: readonly NflBetType[] = ['fg_spread', 'fg_ml', 'h
  *   within noise of 50% — treating it as breaking would resurrect the junk 50% hero.
  */
 export const NFL_SIDE_SYMMETRIC_DIMS = [
-  'seasons', 'weeks', 'seasonType', 'playoffRound', 'lineRange', 'spreadSize', 'primetime',
-  'division', 'dome', 'tempRange', 'windMax', 'precip', 'referee', 'daysOfWeek', 'minGames',
+  'seasons', 'weeks', 'seasonType', 'playoffRound', 'lineRange', 'h1TotalRange', 'ttLineRange',
+  'spreadSize', 'h1SpreadSize', 'oppSpreadSize', 'oppTtLineRange',
+  'primetime', 'division', 'dome', 'tempRange', 'windRange', 'precip', 'referee', 'daysOfWeek', 'minGames',
 ] as const;
 
 /** Dimensions that pick a side / describe one team: activating any of them breaks the mirror. */
@@ -394,11 +449,9 @@ export function assertNflDimensionParity(): void {
 // ── Engine binding ─────────────────────────────────────────────────────────────────────────
 import type { SportFilterConfig, EngineDimension } from './sportFilterEngine';
 
-/** Reset bet-type-dependent controls + season floor after a betType change (mirrors the page). */
+/** Reset season floor after a betType change. Line filters are market-independent and persist. */
 function nflBetTypeSideEffects(next: NflWebFilterSnapshot): void {
   const bt = next.betType as NflBetType;
-  next.spreadSize = [...numRangeBounds(NFL_FILTER_DIMENSIONS.spreadSize, bt)];
-  next.lineRange = [...numRangeBounds(NFL_FILTER_DIMENSIONS.lineRange, bt)];
   const floor = numRangeBounds(NFL_FILTER_DIMENSIONS.seasons, bt)[0];
   if (next.seasons[0] < floor) next.seasons = [floor, next.seasons[1]];
 }

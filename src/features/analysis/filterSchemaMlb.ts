@@ -24,7 +24,6 @@ export const MLB_TEAM_ALIASES: Record<string, string> = {
 };
 
 type Dim = EngineDimension;
-const TOTAL_BT: readonly MlbBetType[] = ['total', 'f5_total'];
 const TIME_PATTERN = '^([01]?\\d|2[0-3]):[0-5]\\d$';
 
 export const DEFAULT_MLB_SNAPSHOT = MLB_SNAPSHOT_DEFAULTS;
@@ -39,7 +38,8 @@ export const MLB_FILTER_DIMENSIONS: Record<Exclude<keyof MlbFilterSnapshot, 'bet
   favDog: { group: 'Situation', kind: 'enum', label: 'Favorite / Underdog', options: [['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']], aliases: ['favorite', 'underdog', 'dog', 'chalk'], rpcNote: 'f.fav_dog.' },
   mlMin: { group: 'Situation', kind: 'mlOdds', bound: 'min', label: 'Moneyline odds (min)', aliases: ['moneyline', 'odds'], rpcNote: 'f.ml_min (American).' },
   mlMax: { group: 'Situation', kind: 'mlOdds', bound: 'max', label: 'Moneyline odds (max)', aliases: ['moneyline', 'odds'], rpcNote: 'f.ml_max.' },
-  lineRange: { group: 'Situation', kind: 'numRange', min: 5, max: 14, step: 0.5, boundsByBetType: { total: [5, 14], f5_total: [2, 8] }, availability: { betTypes: TOTAL_BT }, label: 'Total line', aliases: ['total', 'over under', 'o/u'], rpcNote: 'total_min/max (total), f5_total_min/max (f5_total).' },
+  lineRange: { group: 'Situation', kind: 'numRange', min: 5, max: 14, step: 0.5, label: 'Game total line', aliases: ['total', 'over under', 'o/u', 'game total'], rpcNote: 'total_min/max. Available on every bet type.' },
+  f5TotalRange: { group: 'Situation', kind: 'numRange', min: 2, max: 8, step: 0.5, label: 'F5 total line', aliases: ['f5 total', 'first 5 total'], rpcNote: 'f5_total_min/max. Available on every bet type.' },
   timeMin: { group: 'Situation', kind: 'text', pattern: TIME_PATTERN, label: 'Earliest start (ET, HH:MM)', aliases: ['start time', 'day games', 'night games'], rpcNote: 'f.time_min (ET 24h).' },
   timeMax: { group: 'Situation', kind: 'text', pattern: TIME_PATTERN, label: 'Latest start (ET, HH:MM)', rpcNote: 'f.time_max (ET 24h).' },
   daysOfWeek: { group: 'Situation', kind: 'multiselect', optionSource: 'daysOfWeek', label: 'Days of week', aliases: ['day', 'weekend', 'friday', 'sunday'], rpcNote: 'f.day_of_week = array of day names.' },
@@ -66,17 +66,23 @@ export const MLB_FILTER_DIMENSIONS: Record<Exclude<keyof MlbFilterSnapshot, 'bet
   spHand: { group: 'Pitching', kind: 'enum', label: 'SP handedness', options: [['any', 'Any'], ['L', 'Lefty'], ['R', 'Righty']], aliases: ['lefty starter', 'righty starter'], rpcNote: 'f.sp_hand.' },
   oppSpHand: { group: 'Pitching', kind: 'enum', label: 'Opp SP handedness', options: [['any', 'Any'], ['L', 'Lefty'], ['R', 'Righty']], aliases: ['vs lefty', 'vs righty', 'vs lhp', 'vs rhp'], rpcNote: 'f.opp_sp_hand.' },
   spXfip: { group: 'Pitching', kind: 'numRange', min: 2, max: 7, step: 0.05, label: 'SP xFIP', aliases: ['ace', 'weak starter', 'xfip'], rpcNote: 'sp_xfip_min/max (Ace ≤3.50, Weak >4.50).' },
-  oppSpXfip: { group: 'Pitching', kind: 'numRange', min: 2, max: 7, step: 0.05, label: 'Opp SP xFIP', aliases: ['facing an ace', 'facing a weak starter'], rpcNote: 'opp_sp_xfip_min/max.' },
+  oppSpXfip: { group: 'Pitching', kind: 'numRange', min: 2, max: 7, step: 0.05, label: 'Opp SP xFIP', aliases: ['facing an ace', 'facing a weak starter', 'bad opponent pitcher', 'bad opposing pitcher', 'facing a bad pitcher', 'weak opposing pitcher', 'facing a bad starter'], rpcNote: 'opp_sp_xfip_min/max. Ace ≈ low xFIP [2,3.5]; bad/weak starter ≈ high xFIP [4.5,7].' },
   bpIp: { group: 'Pitching', kind: 'numRange', min: 0, max: 20, step: 0.1, label: 'Bullpen IP last 3 days', aliases: ['bullpen rested', 'bullpen gassed'], rpcNote: 'bp_ip3d_min/max (Rested ≤6, Gassed ≥12).' },
   bpXfip: { group: 'Pitching', kind: 'numRange', min: 2, max: 7, step: 0.05, label: 'Bullpen xFIP', aliases: ['good bullpen', 'bad bullpen'], rpcNote: 'bp_xfip_min/max.' },
 
   // ── Last game ──
   lastResult: { group: 'Last game', kind: 'enum', label: 'Last game result', options: [['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']], aliases: ['off a win', 'off a loss'], rpcNote: "f.last_result ('won'/'lost' → W/L)." },
+  lastAts: { group: 'Last game', kind: 'enum', label: 'Last game run line', options: [['any', 'Any'], ['covered', 'Covered'], ['not', "Didn't cover"]], aliases: ['covered the run line last game', 'covered last game', 'failed to cover last game'], rpcNote: "f.last_covered = covered?1:0 (column last_rl_covered)." },
+  lastTotal: { group: 'Last game', kind: 'enum', label: 'Last game total', options: [['any', 'Any'], ['over', 'Over'], ['under', 'Under']], aliases: ['over last game', 'under last game', 'off an over', 'off an under'], rpcNote: "f.last_over = over?1:0 (column last_ou_over)." },
+  lastRole: { group: 'Last game', kind: 'enum', label: 'Last game role', options: [['any', 'Any'], ['favorite', 'Favorite'], ['underdog', 'Underdog']], aliases: ['favorite last game', 'underdog last game'], rpcNote: "f.last_favorite = (lastRole === 'favorite') (column last_is_favorite)." },
   lastMargin: { group: 'Last game', kind: 'numRange', min: -30, max: 30, step: 1, unit: 'runs', label: 'Last game margin', aliases: ['won by', 'lost by', 'blowout'], rpcNote: 'last_margin_min/max — signed runs.' },
   winLossStreak: { group: 'Last game', kind: 'numRange', min: -25, max: 25, step: 1, label: 'Current W/L streak (signed)', aliases: ['winning streak', 'losing streak', 'streak'], rpcNote: 'streak_min/max — signed (+wins / −losses).' },
 
   // ── Opponent last game ──
   oppLastResult: { group: 'Opponent last game', kind: 'enum', label: 'Opponent last game result', options: [['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']], aliases: ['opponent off a win', 'opponent off a loss'], rpcNote: "f.opp_last_result ('won'/'lost')." },
+  oppLastAts: { group: 'Opponent last game', kind: 'enum', label: 'Opponent last game run line', options: [['any', 'Any'], ['covered', 'Covered'], ['not', "Didn't cover"]], aliases: ['opponent covered last game'], rpcNote: "f.opp_last_covered = covered?1:0 (column opp_last_rl_covered)." },
+  oppLastTotal: { group: 'Opponent last game', kind: 'enum', label: 'Opponent last game total', options: [['any', 'Any'], ['over', 'Over'], ['under', 'Under']], aliases: ['opponent over last game', 'opponent under last game'], rpcNote: "f.opp_last_over = over?1:0 (column opp_last_ou_over)." },
+  oppLastRole: { group: 'Opponent last game', kind: 'enum', label: 'Opponent last game role', options: [['any', 'Any'], ['favorite', 'Favorite'], ['underdog', 'Underdog']], aliases: ['opponent favorite last game', 'opponent underdog last game'], rpcNote: "f.opp_last_favorite = (oppLastRole === 'favorite') (column opp_last_is_favorite)." },
   oppLastMargin: { group: 'Opponent last game', kind: 'numRange', min: -30, max: 30, step: 1, unit: 'runs', label: 'Opponent last game margin', aliases: ['opponent won by', 'opponent lost by'], rpcNote: 'opp_last_margin_min/max — signed.' },
 
   // ── Season Record (as-of) ──
@@ -103,8 +109,11 @@ export const MLB_FILTER_DIMENSIONS: Record<Exclude<keyof MlbFilterSnapshot, 'bet
 
   // ── Head-to-Head ──
   h2hLastWin: { group: 'Head-to-Head', kind: 'enum', label: 'Won last meeting', options: [['any', 'Any'], ['yes', 'Won'], ['no', 'Lost']], aliases: ['won last meeting', 'h2h'], rpcNote: 'f.h2h_last_win = yes?1:0.' },
+  h2hLastAts: { group: 'Head-to-Head', kind: 'enum', label: 'Covered RL last meeting', options: [['any', 'Any'], ['yes', 'Covered'], ['no', "Didn't cover"]], aliases: ['covered run line last meeting'], rpcNote: 'f.h2h_last_ats_win = yes?1:0 (column h2h_last_rl_cover).' },
   h2hLastOver: { group: 'Head-to-Head', kind: 'enum', label: 'Last meeting total', options: [['any', 'Any'], ['yes', 'Over'], ['no', 'Under']], rpcNote: 'f.h2h_last_over = yes?1:0.' },
   h2hLastMargin: { group: 'Head-to-Head', kind: 'numRange', min: -30, max: 30, step: 1, unit: 'runs', label: 'Last meeting margin', rpcNote: 'h2h_last_margin_min/max — signed.' },
+  h2hLastHome: { group: 'Head-to-Head', kind: 'tristate', label: 'Was home last meeting', rpcNote: 'f.h2h_last_home = boolean.' },
+  h2hLastFav: { group: 'Head-to-Head', kind: 'tristate', label: 'Was favorite last meeting', rpcNote: 'f.h2h_last_fav = boolean.' },
   h2hSameSeason: { group: 'Head-to-Head', kind: 'tristate', label: 'Same season as last meeting', rpcNote: 'f.h2h_same_season.' },
 
   // ── Opponent Record ──
@@ -123,7 +132,7 @@ export const MLB_DIMENSION_KEYS = Object.keys(MLB_FILTER_DIMENSIONS) as Array<Ex
 // ── Side-market symmetry (ml/rl/f5 sides share the NFL tautology) ──
 export const MLB_SIDE_MARKETS: readonly MlbBetType[] = ['ml', 'rl', 'f5_ml', 'f5_rl'];
 export const MLB_SIDE_SYMMETRIC_DIMS = [
-  'seasons', 'months', 'division', 'interleague', 'lineRange', 'timeMin', 'timeMax', 'daysOfWeek',
+  'seasons', 'months', 'division', 'interleague', 'lineRange', 'f5TotalRange', 'timeMin', 'timeMax', 'daysOfWeek',
   'doubleheader', 'seriesGame', 'tempRange', 'windRange', 'windDir', 'dome', 'pfRuns', 'minGames',
 ] as const;
 export const MLB_SIDE_BREAKING_DIMS = MLB_DIMENSION_KEYS.filter(
@@ -142,8 +151,8 @@ function mlbNumRangeBounds(dim: EngineDimension & { kind: 'numRange' }, betType:
     : [dim.min, dim.max];
 }
 
-function mlbBetTypeSideEffects(next: MlbFilterSnapshot): void {
-  next.lineRange = mlbNumRangeBounds(MLB_FILTER_DIMENSIONS.lineRange as EngineDimension & { kind: 'numRange' }, next.betType);
+function mlbBetTypeSideEffects(_next: MlbFilterSnapshot): void {
+  // Line filters are market-independent and persist across bet type changes.
 }
 
 export const MLB_SPORT_CONFIG: SportFilterConfig<MlbFilterSnapshot> = {
@@ -153,7 +162,7 @@ export const MLB_SPORT_CONFIG: SportFilterConfig<MlbFilterSnapshot> = {
   dimensions: MLB_FILTER_DIMENSIONS as unknown as Record<string, EngineDimension>,
   optionLists: {
     mlbTeams: { values: MLB_TEAM_ABBRS, aliases: MLB_TEAM_ALIASES },
-    mlbPitchers: { values: [] },  // dynamic — supply via ctx.optionOverrides.mlbPitchers
+    mlbPitchers: { values: [], fuzzyPersonNames: true },  // dynamic — supply via ctx.optionOverrides.mlbPitchers
     daysOfWeek: { values: NFL_DAYS, aliases: NFL_DAY_ALIASES },
   },
   applyBetTypeSideEffects: mlbBetTypeSideEffects,

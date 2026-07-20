@@ -4,7 +4,7 @@ import { SAMPLE_THRESHOLDS } from '@/types/mlbF5Splits';
 export function toF5SplitTeamAbbr(abbr: string | null | undefined): string {
   const a = (abbr ?? '').trim().toUpperCase();
   if (a === 'ARI') return 'AZ';
-  if (a === 'OAK' || a === 'LVA') return 'ATH';
+  if (a === 'OAK' || a === 'LVA' || a === 'SAC') return 'ATH';
   return a;
 }
 

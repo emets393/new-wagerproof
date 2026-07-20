@@ -4,8 +4,8 @@ import WagerproofModels
 import WagerproofServices
 import WagerproofStores
 
-/// Historical Trends — native large title, sticky search bar + floating filter
-/// pills, container-free content. See .claude/docs/15_mobile_historical_analysis.md.
+/// Historical Trends — native large title + floating filter pills, container-free
+/// content. See .claude/docs/15_mobile_historical_analysis.md.
 struct HistoricalAnalysisView: View {
     let sport: HistoricalAnalysisSport
 
@@ -13,7 +13,6 @@ struct HistoricalAnalysisView: View {
     @State private var store: HistoricalAnalysisStore
     @State private var breakdownTab = "team"
     @State private var breakdownSort = "n"
-    @State private var searchText = ""
     @State private var showAllRows = false
     @State private var showSaveSheet = false
     @State private var showShareSheet = false
@@ -55,11 +54,6 @@ struct HistoricalAnalysisView: View {
         .background(Color.appSurface)
         .navigationTitle(sport.shortTitle + " Trends")
         .navigationBarTitleDisplayMode(.large)
-        .searchable(
-            text: $searchText,
-            placement: .navigationBarDrawer(displayMode: .always),
-            prompt: searchPrompt
-        )
         .toolbar { savedSearchesMenu }
         .overlay(alignment: .top) {
             if store.isRefetching {
@@ -91,21 +85,15 @@ struct HistoricalAnalysisView: View {
         }
     }
 
-    private var searchPrompt: Text {
-        switch breakdownTab {
-        case "coach": return Text("Search coaches")
-        case "ref": return Text("Search referees")
-        case "conf": return Text("Search conferences")
-        case "venue": return Text("Search venues")
-        default: return Text("Search teams")
-        }
-    }
-
     // MARK: - Scrollable content
 
     @ViewBuilder
     private var scrollableContent: some View {
         VStack(alignment: .leading, spacing: 28) {
+            if sport == .nfl || sport == .cfb || sport == .mlb {
+                nlFilterChatSection
+            }
+            
             summarySection
             if let data = store.analysis, store.hasLoadedOnce {
                 breakdownBars(data)
@@ -145,7 +133,11 @@ struct HistoricalAnalysisView: View {
         default:
             if let data = store.analysis {
                 if data.overall.n > 0 {
-                    summaryText(data)
+                    if store.shouldShowSymmetricSplit {
+                        symmetricSplitHero(data)
+                    } else {
+                        summaryText(data)
+                    }
                 } else {
                     Text("No games match these filters — try widening them.")
                         .font(.system(size: 15))
@@ -209,6 +201,317 @@ struct HistoricalAnalysisView: View {
             .foregroundStyle(pctColor)
         + Text(suffix)
             .foregroundStyle(Color.appTextPrimary)
+    }
+    
+    // MARK: - Symmetric Split Hero (B2)
+    
+    private func symmetricSplitHero(_ data: HistoricalAnalysisResponse) -> some View {
+        guard let splitData = store.getSymmetricSplitData() else {
+            return AnyView(summaryText(data))
+        }
+        
+        let extreme = splitData.extremeSide
+        let roi = extreme.roi ?? 0.0
+        
+        return AnyView(
+            VStack(alignment: .leading, spacing: 16) {
+                // Big hero metrics from extreme side
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 12) {
+                        Text("\(HistoricalAnalysisCopy.trimmed(extreme.hitPct))%")
+                            .font(.system(size: 36, weight: .bold))
+                            .foregroundStyle(HistoricalAnalysisCopy.hitPctColor(extreme.hitPct))
+                        
+                        if showsROI {
+                            Text(HistoricalAnalysisCopy.signedPct(roi))
+                                .font(.system(size: 24, weight: .semibold))
+                                .foregroundStyle(roi >= 0 ? Color.green : Color.red)
+                        }
+                    }
+                    
+                    Text("Best split: \(HistoricalAnalysisCopy.sideLabel(betType: store.betType, side: extreme.side))")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color.appTextSecondary)
+                }
+                
+                // Versus rows for home_away and fav_dog
+                VStack(spacing: 8) {
+                    if !splitData.homeAway.isEmpty {
+                        versusRow(title: "Home vs Away", options: splitData.homeAway, dimension: "home_away")
+                    }
+                    if !splitData.favDog.isEmpty {
+                        versusRow(title: "Favorite vs Dog", options: splitData.favDog, dimension: "fav_dog")
+                    }
+                }
+                
+                // Explanation subline
+                Text("Every game here has one side that covers and one that doesn't, so 'all teams' is always ~50% on this market — these are the real splits.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.appTextSecondary.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                // Coverage info
+                HStack(spacing: 8) {
+                    Label("\(data.coverage.nGames) games", systemImage: "sportscourt")
+                    Text("·")
+                    Text(verbatim: HistoricalAnalysisCopy.yearRange(data.coverage.seasonMin, data.coverage.seasonMax))
+                    if store.isLimitedHistory {
+                        Text("·")
+                        Text("Limited history")
+                            .foregroundStyle(Color.orange)
+                    }
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.appTextSecondary)
+            }
+        )
+    }
+    
+    private func versusRow(title: String, options: [HistoricalAnalysisBarOption], dimension: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.appTextSecondary)
+            
+            HStack(spacing: 0) {
+                ForEach(options) { option in
+                    Button {
+                        // Tap sets snapshot filter and fetches
+                        if dimension == "home_away" {
+                            store.updateSnapshot { snapshot in
+                                snapshot.side = option.side
+                            }
+                        } else if dimension == "fav_dog" {
+                            store.updateSnapshot { snapshot in
+                                snapshot.spreadSide = option.side
+                            }
+                        }
+                        store.scheduleFetch()
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(HistoricalAnalysisCopy.sideLabel(betType: store.betType, side: option.side))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color.appTextPrimary)
+                            
+                            Text("\(HistoricalAnalysisCopy.trimmed(option.hitPct))%")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(option.hitPct >= 52.4 ? Color.green : Color.appTextPrimary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(option.hitPct > 50 ? Color.green.opacity(0.1) : Color.clear)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            
+            // 50% midline visual
+            Rectangle()
+                .fill(Color.appTextSecondary.opacity(0.3))
+                .frame(height: 1)
+                .overlay(
+                    Text("50%")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.appTextSecondary)
+                        .padding(.horizontal, 4)
+                        .background(Color.appSurface),
+                    alignment: .center
+                )
+        }
+    }
+    
+    // MARK: - NL Filter Chat Section (B4)
+    
+    @ViewBuilder
+    private var nlFilterChatSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("DESCRIBE A FILTER", subtitle: "Use natural language to build complex filters.")
+            
+            if userId == nil {
+                // Signed-out state
+                Text("Sign in to use filter chat")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .center)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.appSurfaceMuted)
+                    )
+            } else {
+                // Chat interface
+                VStack(spacing: 12) {
+                    // Input field with send button
+                    HStack(spacing: 8) {
+                        TextField("e.g., 'Teams on 3+ game win streak at home'", text: $store.nlChatState.inputText)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(store.nlChatState.isProcessing)
+                        
+                        Button("Send") {
+                            Task {
+                                await store.submitNLFilterQuery(
+                                    store.nlChatState.inputText,
+                                    isAuthenticated: userId != nil
+                                )
+                            }
+                        }
+                        .disabled(store.nlChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.nlChatState.isProcessing)
+                        .buttonStyle(.borderedProminent)
+                    }
+                    
+                    // Example chips
+                    if store.nlChatState.transcript.isEmpty {
+                        nlExampleChips
+                    }
+                    
+                    // Processing indicator
+                    if store.nlChatState.isProcessing {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Processing filter...")
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.appTextSecondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    
+                    // Last response
+                    if let lastResponse = store.nlChatState.lastResponse {
+                        nlResponseView(lastResponse)
+                    }
+                    
+                    // Transcript (show last few exchanges)
+                    if !store.nlChatState.transcript.isEmpty {
+                        nlTranscriptView
+                    }
+                }
+            }
+        }
+    }
+    
+    private var nlExampleChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(nlExampleQueries, id: \.self) { example in
+                    Button(example) {
+                        store.nlChatState.inputText = example
+                    }
+                    .font(.system(size: 12))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.appSurfaceMuted)
+                    )
+                    .foregroundStyle(Color.appTextSecondary)
+                }
+            }
+            .padding(.horizontal, 1)
+        }
+    }
+    
+    private var nlExampleQueries: [String] {
+        [
+            "Teams on 3+ game win streak",
+            "Home underdogs in primetime",
+            "Road favorites off a loss",
+            "Divisional games in December",
+            "Teams with winning record"
+        ]
+    }
+    
+    private func nlResponseView(_ response: HistoricalAnalysisStore.NLFilterResponse) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let error = response.error {
+                Label(error, systemImage: "exclamationmark.triangle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.red)
+            } else if response.noChange {
+                Label("No changes needed - filter already matches your request", systemImage: "checkmark.circle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.green)
+            } else if response.hasChanges {
+                VStack(alignment: .leading, spacing: 4) {
+                    if !response.applied.isEmpty {
+                        Label("Updated your filters ✓", systemImage: "checkmark.circle")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.green)
+                    }
+                    if !response.couldntMap.isEmpty {
+                        Label("Couldn't map: \(response.couldntMap.joined(separator: ", "))", systemImage: "questionmark.circle")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.orange)
+                    }
+                    if !response.ambiguous.isEmpty {
+                        Label("Too vague to apply: \(response.ambiguous.joined(separator: ", "))", systemImage: "exclamationmark.circle")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.orange)
+                    }
+                    if !response.rejected.isEmpty {
+                        Label("Rejected: \(response.rejected.joined(separator: ", "))", systemImage: "xmark.circle")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.red)
+                    }
+                }
+            } else {
+                Label("I didn't catch a filter in that — try rephrasing.", systemImage: "questionmark.circle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.appTextSecondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.appSurfaceMuted.opacity(0.5))
+        )
+    }
+    
+    @ViewBuilder
+    private var nlTranscriptView: some View {
+        let recentExchanges = Array(store.nlChatState.transcript.suffix(3))
+        if !recentExchanges.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Recent queries")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.appTextSecondary)
+                
+                ForEach(recentExchanges, id: \.id) { exchange in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\"\(exchange.input)\"")
+                            .font(.system(size: 12).italic())
+                            .foregroundStyle(Color.appTextPrimary)
+                        
+                        if exchange.response.hasChanges {
+                            HStack {
+                                if !exchange.response.applied.isEmpty {
+                                    Text("✓ \(exchange.response.applied.count)")
+                                        .foregroundStyle(Color.green)
+                                }
+                                if !exchange.response.couldntMap.isEmpty || !exchange.response.ambiguous.isEmpty {
+                                    Text("⚠ \(exchange.response.couldntMap.count + exchange.response.ambiguous.count)")
+                                        .foregroundStyle(Color.orange)
+                                }
+                                if !exchange.response.rejected.isEmpty {
+                                    Text("✗ \(exchange.response.rejected.count)")
+                                        .foregroundStyle(Color.red)
+                                }
+                            }
+                            .font(.system(size: 11, weight: .medium))
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.appSurfaceMuted.opacity(0.3))
+                    )
+                }
+            }
+        }
     }
 
     // MARK: - Breakdown bars (plain sections, no containers)
@@ -339,15 +642,10 @@ struct HistoricalAnalysisView: View {
             }
         }()
         let sorted = sortedRows(rows)
-        let query = searchText.trimmingCharacters(in: .whitespaces)
-        let filtered = query.isEmpty
-            ? sorted
-            : sorted.filter { $0.label.localizedCaseInsensitiveContains(query) }
-        // Searching shows every match; browsing caps the list behind "Show all".
-        let visible = (showAllRows || !query.isEmpty) ? filtered : Array(filtered.prefix(rowCap))
+        let visible = showAllRows ? sorted : Array(sorted.prefix(rowCap))
 
-        if filtered.isEmpty {
-            Text(rows.isEmpty ? "No results with enough games (min 3)." : "Nothing matches \"\(query)\".")
+        if sorted.isEmpty {
+            Text("No results with enough games (min 3).")
                 .font(.system(size: 13))
                 .foregroundStyle(Color.appTextSecondary)
                 .frame(maxWidth: .infinity)
@@ -362,13 +660,13 @@ struct HistoricalAnalysisView: View {
                 }
             }
 
-            if query.isEmpty, filtered.count > rowCap {
+            if sorted.count > rowCap {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showAllRows.toggle()
                     }
                 } label: {
-                    Text(showAllRows ? "Show fewer" : "Show all \(filtered.count)")
+                    Text(showAllRows ? "Show fewer" : "Show all \(sorted.count)")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.appPrimary)
                         .frame(maxWidth: .infinity)

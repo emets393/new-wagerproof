@@ -30,24 +30,26 @@ describe('CFB engine behaviors', () => {
     const r = apply(base(), P({ op: 'set', dimension: 'selectedConferences', value: ['sec', 'mac', 'cusa'] }));
     expect(r.snapshot.selectedConferences).toEqual(['SEC', 'Mid-American', 'Conference USA']);
   });
-  it('honors CFB spread bounds (fg max 50; h1 max 28 after bet-type switch)', () => {
+  it('honors CFB FG spread max 50; h1SpreadSize max 28', () => {
     const fg = apply(base(), P({ op: 'set', dimension: 'spreadSide', value: 'favorite' }, { op: 'set', dimension: 'spreadSize', value: [10, 60] }));
     expect(fg.snapshot.spreadSize).toEqual([10, 50]);
-    const h1 = apply(base(), P({ op: 'set', dimension: 'betType', value: 'h1_spread' }, { op: 'set', dimension: 'spreadSize', value: [3, 40] }));
-    expect(h1.snapshot.spreadSize).toEqual([3, 28]);
+    const h1 = apply(base(), P({ op: 'set', dimension: 'h1SpreadSize', value: [3, 40] }));
+    expect(h1.snapshot.h1SpreadSize).toEqual([3, 28]);
   });
-  it('gates the spread control off ML markets, favDog off spread markets', () => {
+  it('allows FG spread on ML markets; favDog still gated off spread markets', () => {
     const r1 = apply(base(), P({ op: 'set', dimension: 'betType', value: 'fg_ml' }, { op: 'set', dimension: 'spreadSize', value: [3, 7] }));
-    expect(r1.rejected.some((x) => /Spread size/.test(x.reason))).toBe(true);
+    expect(r1.snapshot.spreadSize).toEqual([3, 7]);
+    expect(r1.rejected).toHaveLength(0);
     const r2 = apply(base(), P({ op: 'set', dimension: 'favDog', value: 'underdog' })); // fg_spread market
     expect(r2.rejected).toHaveLength(1);
     const r3 = apply(base(), P({ op: 'set', dimension: 'betType', value: 'fg_ml' }, { op: 'set', dimension: 'favDog', value: 'underdog' }));
     expect(r3.snapshot.favDog).toBe('underdog');
   });
-  it('switching to a limited market floors seasons to 2023 and resets line bounds', () => {
+  it('switching to a limited market floors seasons to 2023 without resetting FG total lineRange', () => {
     const r = apply(base(), P({ op: 'set', dimension: 'betType', value: 'team_total' }));
     expect(r.snapshot.seasons).toEqual([2023, 2025]);
-    expect(r.snapshot.lineRange).toEqual([10, 55]);
+    expect(r.snapshot.lineRange).toEqual([30, 80]);
+    expect(r.snapshot.ttLineRange).toEqual([10, 55]);
   });
   it('clamps CFB margins to ±80', () => {
     const r = apply(base(), P({ op: 'set', dimension: 'lastMargin', value: [30, 120] }));

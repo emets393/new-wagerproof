@@ -32,15 +32,35 @@ describe('MLB engine behaviors', () => {
       { optionOverrides: { mlbPitchers: ['Gerrit Cole', 'Zack Wheeler'] } });
     expect(ok.snapshot.spNames).toEqual(['Gerrit Cole']);
   });
-  it('total-line bounds switch for F5 (2–8) and reset on bet-type change', () => {
+  it('pitchers fuzzy-match accents and common typos when the list is loaded', () => {
+    const list = ['Cristopher Sánchez', 'Sixto Sánchez', 'Zack Wheeler'];
+    const ok = apply(base(), P({ op: 'set', dimension: 'spNames', value: ['Christopher Sanchez'] }),
+      { optionOverrides: { mlbPitchers: list } });
+    expect(ok.rejected).toHaveLength(0);
+    expect(ok.snapshot.spNames).toEqual(['Cristopher Sánchez']);
+    const accent = apply(base(), P({ op: 'set', dimension: 'oppSpNames', value: ['cristopher sanchez'] }),
+      { optionOverrides: { mlbPitchers: list } });
+    expect(accent.snapshot.oppSpNames).toEqual(['Cristopher Sánchez']);
+  });
+  it('ambiguous last-name-only pitcher queries are rejected', () => {
+    const list = ['Cristopher Sánchez', 'Sixto Sánchez'];
+    const r = apply(base(), P({ op: 'set', dimension: 'spNames', value: ['Sanchez'] }),
+      { optionOverrides: { mlbPitchers: list } });
+    expect(r.rejected.length + (r.snapshot.spNames?.length ? 0 : 1)).toBeGreaterThan(0);
+    expect(r.snapshot.spNames ?? []).toEqual([]);
+  });
+  it('game total and F5 total are independent; F5 uses f5TotalRange', () => {
     const r = apply(base(), P(
       { op: 'set', dimension: 'betType', value: 'f5_total' },
-      { op: 'set', dimension: 'lineRange', value: [3, 12] },
+      { op: 'set', dimension: 'lineRange', value: [7, 12] },
+      { op: 'set', dimension: 'f5TotalRange', value: [3, 12] },
     ));
-    expect(r.snapshot.lineRange).toEqual([3, 8]);
+    expect(r.snapshot.lineRange).toEqual([7, 12]);
+    expect(r.snapshot.f5TotalRange).toEqual([3, 8]);
   });
-  it('gates the total line off ML markets', () => {
-    expect(apply(base(), P({ op: 'set', dimension: 'lineRange', value: [7, 9] })).rejected).toHaveLength(1); // betType ml
+  it('allows game total line on ML markets', () => {
+    expect(apply(base(), P({ op: 'set', dimension: 'lineRange', value: [7, 9] })).rejected).toHaveLength(0);
+    expect(apply(base(), P({ op: 'set', dimension: 'lineRange', value: [7, 9] })).snapshot.lineRange).toEqual([7, 9]);
   });
   it('validates start-time text (HH:MM) and clears on empty', () => {
     expect(apply(base(), P({ op: 'set', dimension: 'timeMin', value: '19:05' })).snapshot.timeMin).toBe('19:05');
@@ -72,6 +92,21 @@ describe('MLB legacy snapshot normalization', () => {
   it('fills defaults for an empty snapshot', () => {
     const s = normalizeMlbSavedFilterSnapshot({});
     expect(s).toEqual(DEFAULT_MLB_SNAPSHOT);
+  });
+  it('preserves canonical [min,max] arrays for OptRange dims (NL restore)', () => {
+    const s = normalizeMlbSavedFilterSnapshot({
+      betType: 'ml',
+      side: 'home',
+      favDog: 'underdog',
+      oppSpXfip: [4.5, 7],
+      spXfip: [2, 3.2],
+      bpIp: [12, 20],
+      pfRuns: [103, 115],
+    });
+    expect(s.oppSpXfip).toEqual([4.5, 7]);
+    expect(s.spXfip).toEqual([2, 3.2]);
+    expect(s.bpIp).toEqual([12, 20]);
+    expect(s.pfRuns).toEqual([103, 115]);
   });
 });
 

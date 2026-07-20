@@ -115,6 +115,45 @@ day_of_week as an ARRAY. ROI: ml real (ml_profit, all rows); rl/total/f5 real px
 slice w/ flat −110 fallback; f5_ml roi = real-priced 2026 subset only. Record:
 `research/systems_deploy/mlb_parity_2026_07_19.md`.
 
+## Cross-sport filter parity (2026-07-19)
+
+Owner-directed parity pass. All DDL/DML went through Supabase migrations on `jpxnjuwglavsjbgbasnl`
+(`mlb_last_game_h2h_parity_cols`, `cfb_rest_bye_cols`, `systems_filter_parity_rpc_extend`) — the live
+function bodies are the canonical record now, not the `rpc_extended/` dumps.
+
+**NFL + CFB — opponent-record trio** (columns already existed from the as-of build; RPC + UI new):
+`opp_loss_streak_min/max`, `opp_ppg_min/max`, `opp_pa_pg_min/max`. Snapshot dims
+`oppLossStreak`/`oppPpg`/`oppPaPg` (CFB bounds 0–60).
+
+**CFB — Rest/Bye** (NFL parity): new base cols `rest_days` (days since the team's previous game,
+date-diff within (team, season)) + `pre_bye` (next game ≥ 13 days out, `bye_deep.py` definition).
+Regular season only — `game_date` is NULL on bowl/playoff rows, so postseason never enters the chains.
+RPC keys `rest_min`/`rest_max`/`pre_bye`. Snapshot dim `restBye`: off_bye → rest_min=13; short →
+rest_max=6 (CFB weekday game after a Saturday — NOT NFL's 4); pre_bye → true.
+
+**CFB — `last_blowout` REMOVED** from the RPC + schema + page (was ±21 enum). `lastMargin`/
+`oppLastMargin` sliders are the replacement; saved filters with the old key normalize to margin ranges
+(`cfbBlowoutFallback`: win → [21, 80], loss → [-80, -21]).
+
+**MLB — last-game + H2H parity.** New base cols (leak-safe window LAG over
+`(game_date, time_et, game_pk)` — same DH-safe ordering as the as-of cols; the 6 mixed-case 'Ath' dup
+rows are excluded from chains but receive values via upper() join): `last_rl_covered`, `last_ou_over`,
+`last_is_favorite` + `opp_last_*` mirrors (joined from the opponent's canonical row) + `h2h_last_rl_cover`,
+`h2h_last_home`, `h2h_last_fav` (previous meeting vs that opponent, any season). Validated: LAG chain
+matches `prev_result` 99.3% (the 0.7% = the ORIGINAL builder's DH-ordering edge cases; ours is consistent
+with the as-of cols), H2H pairing 100% consistent with the python-built `h2h_last_win` (44 nullability
+diffs are prior meetings with no RL result — value-nulls, not pairing misses). RPC keys (NFL-aligned):
+`last_covered`/`last_over` (1/0), `last_favorite` (bool), `opp_last_covered`/`opp_last_over`/
+`opp_last_favorite`, `h2h_last_ats_win` (1/0 — RL cover), `h2h_last_home`/`h2h_last_fav` (bool).
+Snapshot dims `lastAts`/`lastTotal`/`lastRole` + opp mirrors + `h2hLastAts`/`h2hLastHome`/`h2hLastFav`.
+NOTE: `last_is_favorite` inherits the base's `is_favorite` semantics (ML < 0, so ~58% of rows — both
+sides of a −105/−115 game count as favorites). Owner declined avg-cover-margin for MLB.
+
+**Summary-rule parity:** `isSideSymmetricCfb`/`isSideSymmetricMlb` + the `SymmetricSplitHero` are now
+wired into CFBAnalytics.tsx and MLBAnalytics.tsx (previously NFL-only) — two-sided markets with only
+game-level filters never headline the forced ~50%; they lead with the real home/away + fav/dog splits.
+Both pages also gained the FULL as-of Systems filter UI (previously schema/RPC-only).
+
 ## Not yet done
 - `*_analysis_upcoming` does NOT yet expose these columns for scheduled games (so today's-matches can't be
   filtered by as-of stats yet). Deferred — see the "completed vs upcoming" note in `04_...SPEC.md`.

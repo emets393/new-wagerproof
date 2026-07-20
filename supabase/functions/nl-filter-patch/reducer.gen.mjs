@@ -29,6 +29,9 @@ var NFL_ASOF_DEFAULTS = {
   oppWinPct: [0, 100],
   oppOverPct: [0, 100],
   oppWinStreak: [0, 16],
+  oppLossStreak: [0, 16],
+  oppPpg: [0, 40],
+  oppPaPg: [0, 40],
   oppPrevWinPct: [0, 100]
 };
 var CFB_ASOF_DEFAULTS = {
@@ -37,8 +40,18 @@ var CFB_ASOF_DEFAULTS = {
   paPg: [0, 60],
   pointDiffPg: [-40, 40],
   avgCoverMargin: [-30, 30],
-  prevWins: [0, 15]
+  prevWins: [0, 15],
+  oppPpg: [0, 60],
+  oppPaPg: [0, 60]
 };
+function normalizeWindRange(r, maxDefault = 60) {
+  if (Array.isArray(r.windRange) && r.windRange.length >= 2) {
+    return [Number(r.windRange[0]) || 0, Number(r.windRange[1]) || maxDefault];
+  }
+  const max = typeof r.windMax === "number" ? r.windMax : maxDefault;
+  const min = typeof r.windMin === "number" ? r.windMin : 0;
+  return [min, max];
+}
 function isNativeSnapshot(raw) {
   return typeof raw.seasonMin === "number" || typeof raw.seasonMax === "number";
 }
@@ -72,9 +85,14 @@ function lastGameFields(r) {
     lastAts: str(r.lastAts, "any"),
     lastTotal: str(r.lastTotal, "any"),
     lastRole: str(r.lastRole, "any"),
-    lastOt: optionalBool(r.lastOt),
-    lastBlowout: str(r.lastBlowout, "any")
+    lastOt: optionalBool(r.lastOt)
   };
+}
+var CFB_MARGIN_BOUNDS = [-80, 80];
+function cfbBlowoutFallback(v) {
+  if (v === "win") return [21, 80];
+  if (v === "loss") return [-80, -21];
+  return CFB_MARGIN_BOUNDS;
 }
 function nflLastGameFields(r) {
   return {
@@ -127,19 +145,23 @@ function asofFields(r, d = NFL_ASOF_DEFAULTS) {
     oppWinPct: asPair(r.oppWinPct, d.oppWinPct),
     oppOverPct: asPair(r.oppOverPct, d.oppOverPct),
     oppWinStreak: asPair(r.oppWinStreak, d.oppWinStreak),
+    oppLossStreak: asPair(r.oppLossStreak, d.oppLossStreak),
+    oppPpg: asPair(r.oppPpg, d.oppPpg),
+    oppPaPg: asPair(r.oppPaPg, d.oppPaPg),
     oppPrevWinPct: asPair(r.oppPrevWinPct, d.oppPrevWinPct)
   };
 }
 function cfbSystemsFields(r) {
   return {
     daysOfWeek: stringList(r.daysOfWeek),
-    lastMargin: asPair(r.lastMargin, [-80, 80]),
+    restBye: str(r.restBye, "any"),
+    lastMargin: asPair(r.lastMargin, cfbBlowoutFallback(r.lastBlowout)),
     oppLastResult: str(r.oppLastResult, "any"),
     oppLastAts: str(r.oppLastAts, "any"),
     oppLastTotal: str(r.oppLastTotal, "any"),
     oppLastRole: str(r.oppLastRole, "any"),
     oppLastOt: optionalBool(r.oppLastOt),
-    oppLastMargin: asPair(r.oppLastMargin, [-80, 80]),
+    oppLastMargin: asPair(r.oppLastMargin, cfbBlowoutFallback(r.oppLastBlowout)),
     ...asofFields(r, CFB_ASOF_DEFAULTS)
   };
 }
@@ -152,10 +174,63 @@ function resolveSelectedConferences(raw) {
   if (typeof legacy === "string" && legacy !== "any") return [legacy];
   return [];
 }
+function footballCrossMarketLines(r, betType, native, bounds) {
+  const spreadSide = str(r.spreadSide, "any");
+  const spreadSize = native ? [Number(r.spreadMin ?? 0), Number(r.spreadMax ?? bounds.fgSpreadMax)] : asPair(r.spreadSize, [0, bounds.fgSpreadMax]);
+  let lineRange = native ? [Number(r.lineMin ?? bounds.fgTotal[0]), Number(r.lineMax ?? bounds.fgTotal[1])] : asPair(r.lineRange, bounds.fgTotal);
+  let h1SpreadSide = str(r.h1SpreadSide, "any");
+  let h1SpreadSize = native ? [Number(r.h1SpreadMin ?? 0), Number(r.h1SpreadMax ?? bounds.h1SpreadMax)] : asPair(r.h1SpreadSize, [0, bounds.h1SpreadMax]);
+  let h1TotalRange = native ? [Number(r.h1TotalMin ?? bounds.h1Total[0]), Number(r.h1TotalMax ?? bounds.h1Total[1])] : asPair(r.h1TotalRange, bounds.h1Total);
+  let ttLineRange = native ? [Number(r.ttLineMin ?? bounds.tt[0]), Number(r.ttLineMax ?? bounds.tt[1])] : asPair(r.ttLineRange, bounds.tt);
+  const hasSplitTotals = native ? r.h1TotalMin != null || r.ttLineMin != null : r.h1TotalRange != null || r.ttLineRange != null;
+  const hasSplitSpreads = native ? r.h1SpreadMin != null || r.h1SpreadSide != null : r.h1SpreadSize != null || r.h1SpreadSide != null;
+  if (!hasSplitTotals) {
+    if (betType === "team_total") {
+      ttLineRange = lineRange;
+      lineRange = [...bounds.fgTotal];
+    } else if (betType === "h1_total") {
+      h1TotalRange = lineRange;
+      lineRange = [...bounds.fgTotal];
+    }
+  }
+  if (!hasSplitSpreads && betType === "h1_spread") {
+    h1SpreadSide = spreadSide;
+    h1SpreadSize = [
+      Math.min(spreadSize[0], bounds.h1SpreadMax),
+      Math.min(spreadSize[1], bounds.h1SpreadMax)
+    ];
+  }
+  return {
+    spreadSide,
+    spreadSize,
+    lineRange,
+    h1SpreadSide,
+    h1SpreadSize,
+    h1TotalRange,
+    ttLineRange,
+    mlMin: str(r.mlMin, ""),
+    mlMax: str(r.mlMax, ""),
+    h1MlMin: str(r.h1MlMin, ""),
+    h1MlMax: str(r.h1MlMax, ""),
+    oppSpreadSide: str(r.oppSpreadSide, "any"),
+    oppSpreadSize: native ? [Number(r.oppSpreadMin ?? 0), Number(r.oppSpreadMax ?? bounds.fgSpreadMax)] : asPair(r.oppSpreadSize, [0, bounds.fgSpreadMax]),
+    oppMlMin: str(r.oppMlMin, ""),
+    oppMlMax: str(r.oppMlMax, ""),
+    oppTtLineRange: native ? [Number(r.oppTtLineMin ?? bounds.tt[0]), Number(r.oppTtLineMax ?? bounds.tt[1])] : asPair(r.oppTtLineRange, bounds.tt)
+  };
+}
 function normalizeCfbSavedFilterSnapshot(raw, rowBetType) {
   const r = raw ?? {};
   const betType = str(r.betType, rowBetType || "fg_spread");
-  if (!isNativeSnapshot(r)) {
+  const native = isNativeSnapshot(r);
+  const lines = footballCrossMarketLines(r, betType, native, {
+    fgSpreadMax: 50,
+    h1SpreadMax: 28,
+    fgTotal: [30, 80],
+    h1Total: [15, 45],
+    tt: [10, 55]
+  });
+  if (!native) {
     return {
       betType,
       seasons: asPair(r.seasons, [2016, 2025]),
@@ -164,17 +239,13 @@ function normalizeCfbSavedFilterSnapshot(raw, rowBetType) {
       favDog: str(r.favDog, "any"),
       gameType: str(r.gameType, "any"),
       rankedMatchup: str(r.rankedMatchup, "any"),
-      spreadSide: str(r.spreadSide, "any"),
-      spreadSize: asPair(r.spreadSize, [0, 28]),
-      lineRange: asPair(r.lineRange, [30, 80]),
-      mlMin: str(r.mlMin, ""),
-      mlMax: str(r.mlMax, ""),
+      ...lines,
       primetime: optionalBool(r.primetime),
       conferenceGame: optionalBool(r.conferenceGame),
       neutralSite: optionalBool(r.neutralSite),
       selectedConferences: resolveSelectedConferences(r),
       tempRange: asPair(r.tempRange, [-10, 110]),
-      windMax: typeof r.windMax === "number" ? r.windMax : 60,
+      windRange: normalizeWindRange(r, 60),
       weather: str(r.weather, "any"),
       dome: str(r.dome, "any"),
       teams: stringList(r.teams),
@@ -191,17 +262,13 @@ function normalizeCfbSavedFilterSnapshot(raw, rowBetType) {
     favDog: str(r.favDog, "any"),
     gameType: str(r.gameType, "any"),
     rankedMatchup: str(r.rankedMatchup, "any"),
-    spreadSide: str(r.spreadSide, "any"),
-    spreadSize: [Number(r.spreadMin ?? 0), Number(r.spreadMax ?? 28)],
-    lineRange: [Number(r.lineMin ?? 30), Number(r.lineMax ?? 80)],
-    mlMin: str(r.mlMin, ""),
-    mlMax: str(r.mlMax, ""),
+    ...lines,
     primetime: optionalBool(r.primetime),
     conferenceGame: optionalBool(r.conferenceGame),
     neutralSite: optionalBool(r.neutralSite),
     selectedConferences: resolveSelectedConferences(r),
     tempRange: [Number(r.tempMin ?? -10), Number(r.tempMax ?? 110)],
-    windMax: typeof r.windMax === "number" ? r.windMax : 60,
+    windRange: normalizeWindRange(r, 60),
     weather: str(r.weather, "any"),
     dome: str(r.dome, "any"),
     teams: stringList(r.teams),
@@ -213,7 +280,15 @@ function normalizeCfbSavedFilterSnapshot(raw, rowBetType) {
 function normalizeNflSavedFilterSnapshot(raw, rowBetType) {
   const r = raw ?? {};
   const betType = str(r.betType, rowBetType || "fg_spread");
-  if (!isNativeSnapshot(r)) {
+  const native = isNativeSnapshot(r);
+  const lines = footballCrossMarketLines(r, betType, native, {
+    fgSpreadMax: 20,
+    h1SpreadMax: 14,
+    fgTotal: [30, 60],
+    h1Total: [15, 35],
+    tt: [10, 40]
+  });
+  if (!native) {
     return {
       betType,
       seasons: asPair(r.seasons, [2018, 2025]),
@@ -222,16 +297,12 @@ function normalizeNflSavedFilterSnapshot(raw, rowBetType) {
       seasonType: str(r.seasonType, "any"),
       playoffRound: str(r.playoffRound, "any"),
       favDog: str(r.favDog, "any"),
-      spreadSide: str(r.spreadSide, "any"),
-      spreadSize: asPair(r.spreadSize, [0, 20]),
-      lineRange: asPair(r.lineRange, [30, 60]),
-      mlMin: str(r.mlMin, ""),
-      mlMax: str(r.mlMax, ""),
+      ...lines,
       primetime: optionalBool(r.primetime),
       division: optionalBool(r.division),
       dome: str(r.dome, "any"),
       tempRange: asPair(r.tempRange, [-10, 100]),
-      windMax: typeof r.windMax === "number" ? r.windMax : 60,
+      windRange: normalizeWindRange(r, 60),
       precip: str(r.precip, "any"),
       restBye: str(r.restBye, "any"),
       coach: str(r.coach, "any"),
@@ -253,16 +324,12 @@ function normalizeNflSavedFilterSnapshot(raw, rowBetType) {
     seasonType: str(r.seasonType, "any"),
     playoffRound: str(r.playoffRound, "any"),
     favDog: str(r.favDog, "any"),
-    spreadSide: str(r.spreadSide, "any"),
-    spreadSize: [Number(r.spreadMin ?? 0), Number(r.spreadMax ?? 20)],
-    lineRange: [Number(r.lineMin ?? 30), Number(r.lineMax ?? 60)],
-    mlMin: str(r.mlMin, ""),
-    mlMax: str(r.mlMax, ""),
+    ...lines,
     primetime: optionalBool(r.primetime),
     division: optionalBool(r.division),
     dome: str(r.dome, "any"),
     tempRange: [Number(r.tempMin ?? -10), Number(r.tempMax ?? 100)],
-    windMax: typeof r.windMax === "number" ? r.windMax : 60,
+    windRange: normalizeWindRange(r, 60),
     precip: str(r.precip, "any"),
     restBye: str(r.restBye, "any"),
     coach: str(r.coach, "any"),
@@ -278,7 +345,7 @@ function normalizeNflSavedFilterSnapshot(raw, rowBetType) {
 }
 var MLB_SNAPSHOT_DEFAULTS = {
   betType: "ml",
-  seasons: [2023, 2026],
+  seasons: [2025, 2026],
   months: [3, 11],
   teams: [],
   opponents: [],
@@ -287,6 +354,7 @@ var MLB_SNAPSHOT_DEFAULTS = {
   mlMin: "",
   mlMax: "",
   lineRange: [5, 14],
+  f5TotalRange: [2, 8],
   timeMin: "",
   timeMax: "",
   daysOfWeek: [],
@@ -311,9 +379,15 @@ var MLB_SNAPSHOT_DEFAULTS = {
   bpIp: [0, 20],
   bpXfip: [2, 7],
   lastResult: "any",
+  lastAts: "any",
+  lastTotal: "any",
+  lastRole: "any",
   lastMargin: [-30, 30],
   winLossStreak: [-25, 25],
   oppLastResult: "any",
+  oppLastAts: "any",
+  oppLastTotal: "any",
+  oppLastRole: "any",
   oppLastMargin: [-30, 30],
   winPct: [0, 100],
   winStreak: [0, 25],
@@ -330,8 +404,11 @@ var MLB_SNAPSHOT_DEFAULTS = {
   prevWinPct: [0, 100],
   minGames: 0,
   h2hLastWin: "any",
+  h2hLastAts: "any",
   h2hLastOver: "any",
   h2hLastMargin: [-30, 30],
+  h2hLastHome: null,
+  h2hLastFav: null,
   h2hSameSeason: null,
   oppWinPct: [0, 100],
   oppOverPct: [0, 100],
@@ -348,6 +425,7 @@ function pairFromStrings(minS, maxS, def) {
   return [Number.isFinite(lo) ? lo : def[0], Number.isFinite(hi) ? hi : def[1]];
 }
 function pairFromOpt(opt, def) {
+  if (Array.isArray(opt)) return asPair(opt, def);
   if (!opt || typeof opt !== "object") return def;
   const o = opt;
   const lo = Number(o.min);
@@ -358,6 +436,18 @@ function pitcherNames(v) {
   if (!Array.isArray(v)) return [];
   return v.map((p) => typeof p === "string" ? p : p && typeof p === "object" && typeof p.name === "string" ? p.name : "").filter((n) => n.length > 0);
 }
+function mlbGameLogTeamList(v) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const raw of stringList(v)) {
+    const u = raw.trim().toUpperCase();
+    const abbr = u === "ARI" ? "AZ" : u === "OAK" || u === "LVA" || u === "SAC" ? "ATH" : u;
+    if (!abbr || seen.has(abbr)) continue;
+    seen.add(abbr);
+    out.push(abbr);
+  }
+  return out;
+}
 function normalizeMlbSavedFilterSnapshot(raw, rowBetType) {
   const r = raw ?? {};
   const d = MLB_SNAPSHOT_DEFAULTS;
@@ -366,13 +456,14 @@ function normalizeMlbSavedFilterSnapshot(raw, rowBetType) {
     betType: str(r.betType, rowBetType || "ml"),
     seasons: asPair(r.seasons, d.seasons),
     months: asPair(r.months, d.months),
-    teams: stringList(r.teams),
-    opponents: stringList(r.opponents),
+    teams: mlbGameLogTeamList(r.teams),
+    opponents: mlbGameLogTeamList(r.opponents),
     side: str(r.side, "any"),
     favDog: str(r.favDog, "any"),
     mlMin: str(r.mlMin, ""),
     mlMax: str(r.mlMax, ""),
     lineRange: r.totalBounds ? pairFromOpt(r.totalBounds, d.lineRange) : asPair(r.lineRange, d.lineRange),
+    f5TotalRange: asPair(r.f5TotalRange, d.f5TotalRange),
     timeMin: str(r.timeMin, ""),
     timeMax: str(r.timeMax, ""),
     daysOfWeek: stringList(r.daysOfWeek).length ? stringList(r.daysOfWeek) : legacyDay,
@@ -397,9 +488,15 @@ function normalizeMlbSavedFilterSnapshot(raw, rowBetType) {
     bpIp: r.bpIp == null ? d.bpIp : pairFromOpt(r.bpIp, d.bpIp),
     bpXfip: r.bpXfip == null ? d.bpXfip : pairFromOpt(r.bpXfip, d.bpXfip),
     lastResult: str(r.lastResult, "any"),
+    lastAts: str(r.lastAts, "any"),
+    lastTotal: str(r.lastTotal, "any"),
+    lastRole: str(r.lastRole, "any"),
     lastMargin: Array.isArray(r.lastMargin) ? asPair(r.lastMargin, d.lastMargin) : pairFromStrings(r.lastMarginMin, r.lastMarginMax, d.lastMargin),
     winLossStreak: Array.isArray(r.winLossStreak) ? asPair(r.winLossStreak, d.winLossStreak) : pairFromStrings(r.streakMin, r.streakMax, d.winLossStreak),
     oppLastResult: str(r.oppLastResult, "any"),
+    oppLastAts: str(r.oppLastAts, "any"),
+    oppLastTotal: str(r.oppLastTotal, "any"),
+    oppLastRole: str(r.oppLastRole, "any"),
     oppLastMargin: asPair(r.oppLastMargin, d.oppLastMargin),
     winPct: asPair(r.winPct, d.winPct),
     winStreak: asPair(r.winStreak, d.winStreak),
@@ -416,8 +513,11 @@ function normalizeMlbSavedFilterSnapshot(raw, rowBetType) {
     prevWinPct: asPair(r.prevWinPct, d.prevWinPct),
     minGames: typeof r.minGames === "number" ? r.minGames : 0,
     h2hLastWin: str(r.h2hLastWin, "any"),
+    h2hLastAts: str(r.h2hLastAts, "any"),
     h2hLastOver: str(r.h2hLastOver, "any"),
     h2hLastMargin: asPair(r.h2hLastMargin, d.h2hLastMargin),
+    h2hLastHome: optionalBool(r.h2hLastHome),
+    h2hLastFav: optionalBool(r.h2hLastFav),
     h2hSameSeason: optionalBool(r.h2hSameSeason),
     oppWinPct: asPair(r.oppWinPct, d.oppWinPct),
     oppOverPct: asPair(r.oppOverPct, d.oppOverPct),
@@ -497,8 +597,6 @@ var NFL_DAY_ALIASES = {
 };
 var NFL_DIVISIONS = ["AFC East", "AFC North", "AFC South", "AFC West", "NFC East", "NFC North", "NFC South", "NFC West"];
 var NFL_LIMITED_BET_TYPES = ["h1_spread", "h1_ml", "h1_total", "team_total"];
-var SPREAD_CONTROL_BET_TYPES = ["fg_spread", "h1_spread", "fg_ml", "h1_ml"];
-var TOTAL_CONTROL_BET_TYPES = ["fg_total", "h1_total", "team_total"];
 var DEFAULT_NFL_SNAPSHOT = {
   betType: "fg_spread",
   seasons: [2018, 2025],
@@ -510,13 +608,24 @@ var DEFAULT_NFL_SNAPSHOT = {
   spreadSide: "any",
   spreadSize: [0, 20],
   lineRange: [30, 60],
+  h1SpreadSide: "any",
+  h1SpreadSize: [0, 14],
+  h1TotalRange: [15, 35],
+  ttLineRange: [10, 40],
   mlMin: "",
   mlMax: "",
+  h1MlMin: "",
+  h1MlMax: "",
+  oppSpreadSide: "any",
+  oppSpreadSize: [0, 20],
+  oppMlMin: "",
+  oppMlMax: "",
+  oppTtLineRange: [10, 40],
   primetime: null,
   division: null,
   dome: "any",
   tempRange: [-10, 100],
-  windMax: 60,
+  windRange: [0, 60],
   precip: "any",
   restBye: "any",
   coach: "any",
@@ -605,42 +714,149 @@ var NFL_FILTER_DIMENSIONS = {
   },
   daysOfWeek: { group: "Situation", kind: "multiselect", optionSource: "daysOfWeek", label: "Days of week", aliases: ["day", "day of week", "weekday", "monday", "thursday", "sunday", "saturday", "which days"], rpcNote: "f.day_of_week = array of day names (Sun/Mon/Tue/Wed/Thu/Fri/Sat)." },
   spreadSide: {
-    group: "Situation",
+    group: "Lines & odds",
     kind: "enum",
-    label: "Spread side",
+    label: "FG spread side (team)",
     options: [["any", "Either side"], ["favorite", "Favored by"], ["underdog", "Getting"]],
-    availability: { betTypes: SPREAD_CONTROL_BET_TYPES },
-    aliases: ["favorite", "underdog", "favored", "getting", "laying", "dog"],
-    rpcNote: "Combines with spreadSize; drives the spread sign \u2014 see spreadSize.rpcNote."
+    aliases: ["favorite", "underdog", "favored", "getting", "laying", "dog", "spread"],
+    rpcNote: "Combines with spreadSize \u2192 spread_*/abs_spread_* on the subject team row. Available on every bet type."
   },
   spreadSize: {
-    group: "Situation",
+    group: "Lines & odds",
     kind: "numRange",
     min: 0,
     max: 20,
     step: 0.5,
     unit: "pts",
-    boundsByBetType: { fg_spread: [0, 20], h1_spread: [0, 14], fg_ml: [0, 20], h1_ml: [0, 20] },
-    availability: { betTypes: SPREAD_CONTROL_BET_TYPES },
-    label: "Spread size",
+    label: "FG spread size (team)",
     aliases: ["spread", "points", "laying", "getting", "by"],
-    rpcNote: "favorite \u2192 spread_min=-hi, spread_max=-max(lo,0.5); underdog \u2192 spread_min=max(lo,0.5), spread_max=hi; either side with a narrowed range \u2192 abs_spread_min/max. h1_spread uses h1_spread_*/h1_abs_spread_*; fg_ml/h1_ml filter by the FULL-GAME spread (spread_*/abs_spread_*)."
+    rpcNote: "favorite \u2192 spread_min=-hi, spread_max=-max(lo,0.5); underdog \u2192 spread_min=max(lo,0.5), spread_max=hi; either side with a narrowed range \u2192 abs_spread_min/max. Independent of result market."
   },
   mlMin: {
-    group: "Situation",
+    group: "Lines & odds",
     kind: "mlOdds",
     bound: "min",
-    label: "Moneyline odds (min)",
+    label: "FG moneyline odds (team, min)",
     aliases: ["moneyline", "odds", "american odds", "ml"],
-    rpcNote: "f.ml_min = numeric American odds. Negative = favorite, positive = underdog. If both set and reversed, sorted."
+    rpcNote: "f.ml_min on team_ml. Available on every bet type."
   },
   mlMax: {
-    group: "Situation",
+    group: "Lines & odds",
     kind: "mlOdds",
     bound: "max",
-    label: "Moneyline odds (max)",
+    label: "FG moneyline odds (team, max)",
     aliases: ["moneyline", "odds", "american odds", "ml"],
-    rpcNote: "f.ml_max = numeric American odds. Same value in mlMin & mlMax = an exact line."
+    rpcNote: "f.ml_max on team_ml."
+  },
+  h1SpreadSide: {
+    group: "Lines & odds",
+    kind: "enum",
+    label: "1H spread side (team)",
+    options: [["any", "Either side"], ["favorite", "Favored by"], ["underdog", "Getting"]],
+    aliases: ["1h spread", "first half spread"],
+    rpcNote: "h1_spread_*/h1_abs_spread_*."
+  },
+  h1SpreadSize: {
+    group: "Lines & odds",
+    kind: "numRange",
+    min: 0,
+    max: 14,
+    step: 0.5,
+    unit: "pts",
+    label: "1H spread size (team)",
+    aliases: ["1h spread", "first half spread"],
+    rpcNote: "Same sign rules as FG spread, on h1_spread."
+  },
+  h1MlMin: {
+    group: "Lines & odds",
+    kind: "mlOdds",
+    bound: "min",
+    label: "1H moneyline odds (team, min)",
+    aliases: ["1h moneyline", "1h ml", "first half ml"],
+    rpcNote: "f.h1_ml_min on h1_ml_px (requires RPC support)."
+  },
+  h1MlMax: {
+    group: "Lines & odds",
+    kind: "mlOdds",
+    bound: "max",
+    label: "1H moneyline odds (team, max)",
+    aliases: ["1h moneyline", "1h ml"],
+    rpcNote: "f.h1_ml_max on h1_ml_px."
+  },
+  lineRange: {
+    group: "Lines & odds",
+    kind: "numRange",
+    min: 30,
+    max: 60,
+    step: 0.5,
+    label: "Game total line",
+    aliases: ["total", "over under", "o/u", "game total", "total line"],
+    rpcNote: "total_min/total_max on fg_total. Available on every bet type."
+  },
+  h1TotalRange: {
+    group: "Lines & odds",
+    kind: "numRange",
+    min: 15,
+    max: 35,
+    step: 0.5,
+    label: "1H total line",
+    aliases: ["1h total", "first half total"],
+    rpcNote: "h1_total_min/max."
+  },
+  ttLineRange: {
+    group: "Lines & odds",
+    kind: "numRange",
+    min: 10,
+    max: 40,
+    step: 0.5,
+    label: "Team total line (team)",
+    aliases: ["team total line", "tt line", "posted team total"],
+    rpcNote: 'tt_min/tt_max on tt_line. NEVER use for "spread of N" \u2014 that is spreadSize.'
+  },
+  oppSpreadSide: {
+    group: "Lines & odds",
+    kind: "enum",
+    label: "FG spread side (opponent)",
+    options: [["any", "Either side"], ["favorite", "Favored by"], ["underdog", "Getting"]],
+    aliases: ["opponent spread", "opp spread"],
+    rpcNote: "Inverts onto subject fg_spread (opp favorite \u2261 team underdog)."
+  },
+  oppSpreadSize: {
+    group: "Lines & odds",
+    kind: "numRange",
+    min: 0,
+    max: 20,
+    step: 0.5,
+    unit: "pts",
+    label: "FG spread size (opponent)",
+    aliases: ["opponent spread"],
+    rpcNote: "Emitted as inverted subject spread predicates."
+  },
+  oppMlMin: {
+    group: "Lines & odds",
+    kind: "mlOdds",
+    bound: "min",
+    label: "FG moneyline odds (opponent, min)",
+    aliases: ["opponent moneyline", "opp ml"],
+    rpcNote: "f.opp_ml_min (mirror-row team_ml; requires RPC support)."
+  },
+  oppMlMax: {
+    group: "Lines & odds",
+    kind: "mlOdds",
+    bound: "max",
+    label: "FG moneyline odds (opponent, max)",
+    aliases: ["opponent moneyline", "opp ml"],
+    rpcNote: "f.opp_ml_max."
+  },
+  oppTtLineRange: {
+    group: "Lines & odds",
+    kind: "numRange",
+    min: 10,
+    max: 40,
+    step: 0.5,
+    label: "Team total line (opponent)",
+    aliases: ["opponent team total", "opp tt"],
+    rpcNote: "f.opp_tt_min/max (mirror-row tt_line; requires RPC support)."
   },
   favDog: {
     group: "Situation",
@@ -650,18 +866,6 @@ var NFL_FILTER_DIMENSIONS = {
     availability: { betTypes: ["team_total"] },
     aliases: ["favorite", "underdog"],
     rpcNote: "f.fav_dog \u2014 ONLY applied for the team_total market (spread markets use spreadSide instead)."
-  },
-  lineRange: {
-    group: "Situation",
-    kind: "numRange",
-    min: 30,
-    max: 60,
-    step: 0.5,
-    boundsByBetType: { fg_total: [30, 60], h1_total: [15, 35], team_total: [10, 40] },
-    availability: { betTypes: TOTAL_CONTROL_BET_TYPES },
-    label: "Total line",
-    aliases: ["total", "over under", "o/u", "total line", "team total line"],
-    rpcNote: "total_min/total_max (fg_total), h1_total_min/max (h1_total), tt_min/tt_max (team_total)."
   },
   // ── Matchup ──
   primetime: { group: "Matchup", kind: "tristate", label: "Primetime", aliases: ["primetime", "night game", "sunday night", "monday night"], rpcNote: "f.primetime = boolean." },
@@ -703,16 +907,16 @@ var NFL_FILTER_DIMENSIONS = {
     aliases: ["temperature", "cold", "hot", "freezing", "degrees"],
     rpcNote: "temp_min/temp_max."
   },
-  windMax: {
+  windRange: {
     group: "Weather",
-    kind: "scalarMax",
+    kind: "numRange",
     min: 0,
     max: 60,
     step: 1,
     unit: "mph",
-    label: "Max wind",
+    label: "Wind speed",
     aliases: ["wind", "windy", "gusts"],
-    rpcNote: "f.wind_max \u2014 only sent when < 60."
+    rpcNote: "wind_min when > 0; wind_max when < 60."
   },
   // ── Context ──
   coach: { group: "Context", kind: "enum", dynamic: true, options: [["any", "Any coach"]], label: "Coach", aliases: ["coach", "head coach"], rpcNote: "f.coach = exact coach name. Options loaded from the RPC by_coach list." },
@@ -772,6 +976,9 @@ var NFL_FILTER_DIMENSIONS = {
   oppWinPct: { group: "Opponent Record", kind: "pctRange", label: "Opponent win %", aliases: ["opponent record", "opponent win rate", "opponent winning percentage"], rpcNote: "opp_win_pct_min/max \u2014 0\u2013100 sent as 0\u20131. Wins/losses only \u2014 NEVER use for over/under language." },
   oppOverPct: { group: "Opponent Record", kind: "pctRange", label: "Opponent over %", aliases: ["opponent over rate", "opponent overs", "opponent gone under", "opponent under rate", "both teams overs", "opponent hit the under"], rpcNote: "opp_over_pct_min/max \u2014 0\u2013100 sent as 0\u20131. Season O/U tendency for the opponent." },
   oppWinStreak: { group: "Opponent Record", kind: "numRange", min: 0, max: 16, step: 1, label: "Opponent win streak", rpcNote: "opp_win_streak_min/max." },
+  oppLossStreak: { group: "Opponent Record", kind: "numRange", min: 0, max: 16, step: 1, label: "Opponent loss streak", aliases: ["opponent losing streak", "opponent losses in a row"], rpcNote: "opp_loss_streak_min/max." },
+  oppPpg: { group: "Opponent Record", kind: "numRange", min: 0, max: 40, step: 0.5, label: "Opponent points per game", aliases: ["opponent ppg", "opponent scoring", "opponent offense"], rpcNote: "opp_ppg_min/max." },
+  oppPaPg: { group: "Opponent Record", kind: "numRange", min: 0, max: 40, step: 0.5, label: "Opponent points allowed per game", aliases: ["opponent points allowed", "opponent defense"], rpcNote: "opp_pa_pg_min/max." },
   oppPrevWinPct: { group: "Opponent Record", kind: "pctRange", label: "Opponent last-season win %", rpcNote: "opp_prev_win_pct_min/max \u2014 0\u2013100 sent as 0\u20131." }
 };
 var NFL_DIMENSION_KEYS = Object.keys(NFL_FILTER_DIMENSIONS);
@@ -789,12 +996,17 @@ var NFL_SIDE_SYMMETRIC_DIMS = [
   "seasonType",
   "playoffRound",
   "lineRange",
+  "h1TotalRange",
+  "ttLineRange",
   "spreadSize",
+  "h1SpreadSize",
+  "oppSpreadSize",
+  "oppTtLineRange",
   "primetime",
   "division",
   "dome",
   "tempRange",
-  "windMax",
+  "windRange",
   "precip",
   "referee",
   "daysOfWeek",
@@ -805,8 +1017,6 @@ var NFL_SIDE_BREAKING_DIMS = NFL_DIMENSION_KEYS.filter(
 );
 function nflBetTypeSideEffects(next) {
   const bt = next.betType;
-  next.spreadSize = [...numRangeBounds(NFL_FILTER_DIMENSIONS.spreadSize, bt)];
-  next.lineRange = [...numRangeBounds(NFL_FILTER_DIMENSIONS.lineRange, bt)];
   const floor = numRangeBounds(NFL_FILTER_DIMENSIONS.seasons, bt)[0];
   if (next.seasons[0] < floor) next.seasons = [floor, next.seasons[1]];
 }
@@ -835,6 +1045,7 @@ var cloneSnapshot = (s) => JSON.parse(JSON.stringify(s));
 function resolveOption(raw, list, override) {
   if (typeof raw !== "string") return null;
   const t = raw.trim();
+  if (!t) return null;
   const values = override ?? list.values;
   if (values.includes(t)) return t;
   const alias = list.aliases?.[t.toLowerCase()];
@@ -842,7 +1053,76 @@ function resolveOption(raw, list, override) {
   const up = t.toUpperCase();
   if (values.includes(up)) return up;
   const ci = values.find((v) => v.toLowerCase() === t.toLowerCase());
-  return ci ?? null;
+  if (ci) return ci;
+  const folded = foldPerson(t);
+  const foldHit = values.find((v) => foldPerson(v) === folded);
+  if (foldHit) return foldHit;
+  if (!list.fuzzyPersonNames || t.length < 4) return null;
+  return resolveFuzzyPersonName(t, values);
+}
+function foldPerson(s) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+function editDistance(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = new Array(b.length + 1);
+  const cur = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = cur[j];
+  }
+  return prev[b.length];
+}
+function personNameScore(query, candidate) {
+  const q = foldPerson(query);
+  const c = foldPerson(candidate);
+  if (q === c) return 0;
+  const qTokens = q.split(/[^a-z0-9]+/).filter(Boolean);
+  const cTokens = c.split(/[^a-z0-9]+/).filter(Boolean);
+  if (!qTokens.length || !cTokens.length) return editDistance(q, c);
+  let total = 0;
+  const used = /* @__PURE__ */ new Set();
+  for (const qt of qTokens) {
+    let best = Infinity;
+    let bestI = -1;
+    for (let i = 0; i < cTokens.length; i++) {
+      if (used.has(i)) continue;
+      const ct = cTokens[i];
+      const d = ct.startsWith(qt) || qt.startsWith(ct) ? 0 : editDistance(qt, ct);
+      if (d < best) {
+        best = d;
+        bestI = i;
+      }
+    }
+    const maxTok = qt.length >= 8 ? 2 : qt.length >= 5 ? 1 : 0;
+    if (bestI < 0 || best > maxTok) return Infinity;
+    used.add(bestI);
+    total += best;
+  }
+  return total;
+}
+function resolveFuzzyPersonName(raw, values) {
+  let best = null;
+  let bestScore = Infinity;
+  let ties = 0;
+  for (const v of values) {
+    const score = personNameScore(raw, v);
+    if (score === Infinity) continue;
+    if (score < bestScore) {
+      bestScore = score;
+      best = v;
+      ties = 1;
+    } else if (score === bestScore) ties += 1;
+  }
+  if (best && ties === 1 && bestScore <= 2) return best;
+  return null;
 }
 function isDimensionAvailableGeneric(dim, betType, snapshot) {
   if (dim.availability?.betTypes && !dim.availability.betTypes.includes(betType)) {
@@ -1222,9 +1502,7 @@ var CFB_CONFERENCES = [
   "SEC",
   "Sun Belt"
 ];
-var SPREAD_BT = ["fg_spread", "h1_spread"];
 var ML_BT = ["fg_ml", "h1_ml"];
-var TOTAL_BT = ["fg_total", "h1_total", "team_total"];
 var DEFAULT_CFB_SNAPSHOT = {
   betType: "fg_spread",
   seasons: [2016, 2025],
@@ -1236,22 +1514,33 @@ var DEFAULT_CFB_SNAPSHOT = {
   spreadSide: "any",
   spreadSize: [0, 50],
   lineRange: [30, 80],
+  h1SpreadSide: "any",
+  h1SpreadSize: [0, 28],
+  h1TotalRange: [15, 45],
+  ttLineRange: [10, 55],
   mlMin: "",
   mlMax: "",
+  h1MlMin: "",
+  h1MlMax: "",
+  oppSpreadSide: "any",
+  oppSpreadSize: [0, 50],
+  oppMlMin: "",
+  oppMlMax: "",
+  oppTtLineRange: [10, 55],
   primetime: null,
   conferenceGame: null,
   neutralSite: null,
   selectedConferences: [],
   tempRange: [-10, 110],
-  windMax: 60,
+  windRange: [0, 60],
   weather: "any",
   dome: "any",
+  restBye: "any",
   lastResult: "any",
   lastAts: "any",
   lastTotal: "any",
   lastRole: "any",
   lastOt: null,
-  lastBlowout: "any",
   teams: [],
   opponents: [],
   daysOfWeek: [],
@@ -1274,30 +1563,48 @@ var CFB_FILTER_DIMENSIONS = {
   teams: { group: "Situation", kind: "multiselect", optionSource: "cfbTeams", label: "Team", aliases: ["team", "school"], rpcNote: "f.team = array of full school names." },
   opponents: { group: "Situation", kind: "multiselect", optionSource: "cfbTeams", label: "Opponent", aliases: ["opponent", "against", "vs"], rpcNote: "f.opponent = array of full school names." },
   daysOfWeek: { group: "Situation", kind: "multiselect", optionSource: "daysOfWeek", label: "Days of week", aliases: ["day", "saturday", "friday", "thursday", "weeknight", "maction"], rpcNote: "f.day_of_week = array (CFB plays Tue\u2013Sat; Sun/Mon rare)." },
-  spreadSide: { group: "Situation", kind: "enum", label: "Spread side", options: [["any", "Either side"], ["favorite", "Favored by"], ["underdog", "Getting"]], availability: { betTypes: SPREAD_BT }, aliases: ["favored", "getting", "laying", "dog"], rpcNote: "Drives spread sign \u2014 see spreadSize." },
-  spreadSize: { group: "Situation", kind: "numRange", min: 0, max: 50, step: 0.5, unit: "pts", boundsByBetType: { fg_spread: [0, 50], h1_spread: [0, 28] }, availability: { betTypes: SPREAD_BT }, label: "Spread size", aliases: ["spread", "points", "laying"], rpcNote: "favorite \u2192 spread_min=-hi/max=-max(lo,.5); underdog \u2192 +; either \u2192 abs_spread_*. CFB spreads reach the 50s." },
-  favDog: { group: "Situation", kind: "enum", label: "Favorite / Underdog", options: [["any", "Either"], ["favorite", "Favorites"], ["underdog", "Underdogs"]], availability: { betTypes: [...ML_BT, "team_total"] }, aliases: ["favorite", "underdog"], rpcNote: "f.fav_dog \u2014 ML markets + team totals (CFB ML has no spread control)." },
-  mlMin: { group: "Situation", kind: "mlOdds", bound: "min", label: "Moneyline odds (min)", availability: { betTypes: ML_BT }, aliases: ["moneyline", "odds"], rpcNote: "f.ml_min (American; CFB ML data 2021+)." },
-  mlMax: { group: "Situation", kind: "mlOdds", bound: "max", label: "Moneyline odds (max)", availability: { betTypes: ML_BT }, aliases: ["moneyline", "odds"], rpcNote: "f.ml_max." },
-  lineRange: { group: "Situation", kind: "numRange", min: 30, max: 80, step: 0.5, boundsByBetType: { fg_total: [30, 80], h1_total: [15, 45], team_total: [10, 55] }, availability: { betTypes: TOTAL_BT }, label: "Total line", aliases: ["total", "over under", "o/u"], rpcNote: "total_min/max, h1_total_min/max, tt_min/max." },
+  spreadSide: { group: "Situation", kind: "enum", label: "FG spread side (team)", options: [["any", "Either side"], ["favorite", "Favored by"], ["underdog", "Getting"]], aliases: ["favored", "getting", "laying", "dog", "spread"], rpcNote: "Drives FG spread sign \u2014 available on every bet type." },
+  spreadSize: { group: "Situation", kind: "numRange", min: 0, max: 50, step: 0.5, unit: "pts", label: "FG spread size (team)", aliases: ["spread", "points", "laying"], rpcNote: "favorite \u2192 spread_min=-hi; underdog \u2192 +; either \u2192 abs_spread_*. CFB spreads reach the 50s." },
+  h1SpreadSide: { group: "Situation", kind: "enum", label: "1H spread side (team)", options: [["any", "Either side"], ["favorite", "Favored by"], ["underdog", "Getting"]], aliases: ["1h spread"], rpcNote: "h1_spread_*/h1_abs_spread_*." },
+  h1SpreadSize: { group: "Situation", kind: "numRange", min: 0, max: 28, step: 0.5, unit: "pts", label: "1H spread size (team)", aliases: ["1h spread"], rpcNote: "Same sign rules on h1_spread." },
+  favDog: { group: "Situation", kind: "enum", label: "Favorite / Underdog", options: [["any", "Either"], ["favorite", "Favorites"], ["underdog", "Underdogs"]], availability: { betTypes: [...ML_BT, "team_total"] }, aliases: ["favorite", "underdog"], rpcNote: "f.fav_dog \u2014 ML markets + team totals." },
+  mlMin: { group: "Situation", kind: "mlOdds", bound: "min", label: "FG moneyline odds (team, min)", aliases: ["moneyline", "odds"], rpcNote: "f.ml_min (American; CFB ML data 2021+). Available on every bet type." },
+  mlMax: { group: "Situation", kind: "mlOdds", bound: "max", label: "FG moneyline odds (team, max)", aliases: ["moneyline", "odds"], rpcNote: "f.ml_max." },
+  h1MlMin: { group: "Situation", kind: "mlOdds", bound: "min", label: "1H moneyline odds (team, min)", aliases: ["1h moneyline", "1h ml"], rpcNote: "f.h1_ml_min \u2014 filters h1_ml_px (decimal; American |v|\u2265100 converted)." },
+  h1MlMax: { group: "Situation", kind: "mlOdds", bound: "max", label: "1H moneyline odds (team, max)", aliases: ["1h moneyline"], rpcNote: "f.h1_ml_max." },
+  lineRange: { group: "Situation", kind: "numRange", min: 30, max: 80, step: 0.5, label: "Game total line", aliases: ["total", "over under", "o/u", "game total"], rpcNote: "total_min/max on fg_total. Available on every bet type." },
+  h1TotalRange: { group: "Situation", kind: "numRange", min: 15, max: 45, step: 0.5, label: "1H total line", aliases: ["1h total"], rpcNote: "h1_total_min/max." },
+  ttLineRange: { group: "Situation", kind: "numRange", min: 10, max: 55, step: 0.5, label: "Team total line (team)", aliases: ["team total line", "tt line", "posted team total"], rpcNote: 'tt_min/max. NEVER use for "spread of N" \u2014 that is spreadSize.' },
+  oppSpreadSide: { group: "Situation", kind: "enum", label: "FG spread side (opponent)", options: [["any", "Either side"], ["favorite", "Favored by"], ["underdog", "Getting"]], aliases: ["opponent spread"], rpcNote: "Inverts onto subject fg_spread." },
+  oppSpreadSize: { group: "Situation", kind: "numRange", min: 0, max: 50, step: 0.5, unit: "pts", label: "FG spread size (opponent)", aliases: ["opponent spread"], rpcNote: "Emitted as inverted subject spread." },
+  oppMlMin: { group: "Situation", kind: "mlOdds", bound: "min", label: "FG moneyline odds (opponent, min)", aliases: ["opponent moneyline", "opp ml"], rpcNote: "f.opp_ml_min (requires RPC support)." },
+  oppMlMax: { group: "Situation", kind: "mlOdds", bound: "max", label: "FG moneyline odds (opponent, max)", aliases: ["opponent moneyline"], rpcNote: "f.opp_ml_max." },
+  oppTtLineRange: { group: "Situation", kind: "numRange", min: 10, max: 55, step: 0.5, label: "Team total line (opponent)", aliases: ["opponent team total"], rpcNote: "f.opp_tt_min/max (requires RPC support)." },
   // ── Matchup ──
   primetime: { group: "Matchup", kind: "tristate", label: "Primetime", aliases: ["primetime", "night game"], rpcNote: "f.primetime = boolean." },
   conferenceGame: { group: "Matchup", kind: "tristate", label: "Conference game", aliases: ["conference game", "non-conference"], rpcNote: "f.conference_game = boolean." },
   neutralSite: { group: "Matchup", kind: "tristate", label: "Neutral site", aliases: ["neutral site", "bowl site"], rpcNote: "f.neutral_site = boolean." },
   selectedConferences: { group: "Matchup", kind: "multiselect", optionSource: "cfbConferences", label: "Conference", aliases: ["conference", "sec", "big ten", "acc", "big 12"], rpcNote: "1 selected \u2192 f.conference; multiple \u2192 expanded client-side to that conference's team list." },
+  restBye: {
+    group: "Matchup",
+    kind: "enum",
+    label: "Rest / Bye",
+    options: [["any", "Any"], ["off_bye", "Off a bye"], ["pre_bye", "Week before a bye"], ["short", "Short week (<7 days)"]],
+    aliases: ["bye", "rest", "off a bye", "short week", "weeknight after saturday"],
+    rpcNote: "off_bye \u2192 rest_min=13; short \u2192 rest_max=6 (CFB weekday game after a Saturday); pre_bye \u2192 pre_bye=true. Regular season only (postseason rows have no rest chain)."
+  },
   // ── Weather ──
-  weather: { group: "Weather", kind: "enum", label: "Weather", options: [["any", "Any"], ["rain", "Rain"], ["snow", "Snow"]], aliases: ["rain", "snow", "wet"], rpcNote: "f.weather (condition text complete 2022+, partial before)." },
+  weather: { group: "Weather", kind: "enum", label: "Weather", options: [["any", "Any"], ["clear", "Clear"], ["cloudy", "Cloudy"], ["rain", "Rain"], ["snow", "Snow"]], aliases: ["rain", "snow", "wet", "clear", "cloudy"], rpcNote: "f.weather (condition text complete 2022+, partial before)." },
   dome: { group: "Weather", kind: "enum", label: "Venue", options: [["any", "Any"], ["dome", "Dome"], ["outdoor", "Outdoor"]], aliases: ["dome", "indoor", "outdoor"], rpcNote: "f.dome = (dome === 'dome')." },
   tempRange: { group: "Weather", kind: "numRange", min: -10, max: 110, step: 1, unit: "\xB0F", label: "Temperature", aliases: ["temperature", "cold", "hot"], rpcNote: "temp_min/max." },
-  windMax: { group: "Weather", kind: "scalarMax", min: 0, max: 60, step: 1, unit: "mph", label: "Max wind", aliases: ["wind", "windy"], rpcNote: "f.wind_max when < 60." },
+  windRange: { group: "Weather", kind: "numRange", min: 0, max: 60, step: 1, unit: "mph", label: "Wind speed", aliases: ["wind", "windy"], rpcNote: "wind_min when > 0; wind_max when < 60." },
   // ── Last game ──
   lastResult: { group: "Last game", kind: "enum", label: "Last game result", options: [["any", "Any"], ["won", "Won"], ["lost", "Lost"]], aliases: ["off a win", "off a loss"], rpcNote: "f.last_won = won?1:0." },
   lastAts: { group: "Last game", kind: "enum", label: "Last game ATS", options: [["any", "Any"], ["covered", "Covered"], ["not", "Didn't cover"]], aliases: ["covered last"], rpcNote: "f.last_covered = covered?1:0." },
   lastTotal: { group: "Last game", kind: "enum", label: "Last game total", options: [["any", "Any"], ["over", "Over"], ["under", "Under"]], aliases: ["over last game", "under last game"], rpcNote: "f.last_over = over?1:0." },
   lastRole: { group: "Last game", kind: "enum", label: "Last game role", options: [["any", "Any"], ["favorite", "Favorite"], ["underdog", "Underdog"]], rpcNote: "f.last_favorite = (lastRole === 'favorite')." },
   lastOt: { group: "Last game", kind: "tristate", label: "Last game overtime", aliases: ["overtime", "ot"], rpcNote: "f.last_overtime = boolean." },
-  lastBlowout: { group: "Last game", kind: "enum", label: "Last game blowout (\xB121)", options: [["any", "Any"], ["win", "Won by 21+"], ["loss", "Lost by 21+"]], aliases: ["blowout"], rpcNote: "LEGACY \u2014 prefer lastMargin. f.last_blowout = 'win'|'loss'." },
-  lastMargin: { group: "Last game", kind: "numRange", min: -80, max: 80, step: 1, unit: "pts", label: "Last game margin", aliases: ["margin", "won by", "lost by"], rpcNote: "last_margin_min/max \u2014 signed: + won by, \u2212 lost by." },
+  lastMargin: { group: "Last game", kind: "numRange", min: -80, max: 80, step: 1, unit: "pts", label: "Last game margin", aliases: ["margin", "won by", "lost by", "blowout"], rpcNote: "last_margin_min/max \u2014 signed: + won by, \u2212 lost by (blowout win = [21, 80])." },
   // ── Opponent last game ──
   oppLastResult: { group: "Opponent last game", kind: "enum", label: "Opponent last game result", options: [["any", "Any"], ["won", "Won"], ["lost", "Lost"]], aliases: ["opponent off a win", "opponent off a loss"], rpcNote: "f.opp_last_won = won?1:0." },
   oppLastAts: { group: "Opponent last game", kind: "enum", label: "Opponent last game ATS", options: [["any", "Any"], ["covered", "Covered"], ["not", "Didn't cover"]], rpcNote: "f.opp_last_covered = covered?1:0." },
@@ -1335,6 +1642,9 @@ var CFB_FILTER_DIMENSIONS = {
   oppWinPct: { group: "Opponent Record", kind: "pctRange", label: "Opponent win %", rpcNote: "opp_win_pct_min/max (0\u20131)." },
   oppOverPct: { group: "Opponent Record", kind: "pctRange", label: "Opponent over %", rpcNote: "opp_over_pct_min/max (0\u20131)." },
   oppWinStreak: { group: "Opponent Record", kind: "numRange", min: 0, max: 16, step: 1, label: "Opponent win streak", rpcNote: "opp_win_streak_min/max." },
+  oppLossStreak: { group: "Opponent Record", kind: "numRange", min: 0, max: 16, step: 1, label: "Opponent loss streak", aliases: ["opponent losing streak"], rpcNote: "opp_loss_streak_min/max." },
+  oppPpg: { group: "Opponent Record", kind: "numRange", min: 0, max: 60, step: 0.5, label: "Opponent points per game", aliases: ["opponent ppg", "opponent scoring"], rpcNote: "opp_ppg_min/max." },
+  oppPaPg: { group: "Opponent Record", kind: "numRange", min: 0, max: 60, step: 0.5, label: "Opponent points allowed per game", aliases: ["opponent points allowed", "opponent defense"], rpcNote: "opp_pa_pg_min/max." },
   oppPrevWinPct: { group: "Opponent Record", kind: "pctRange", label: "Opponent last-season win %", rpcNote: "opp_prev_win_pct_min/max (0\u20131)." }
 };
 var CFB_DIMENSION_KEYS = Object.keys(CFB_FILTER_DIMENSIONS);
@@ -1344,12 +1654,17 @@ var CFB_SIDE_SYMMETRIC_DIMS = [
   "gameType",
   "rankedMatchup",
   "lineRange",
+  "h1TotalRange",
+  "ttLineRange",
   "spreadSize",
+  "h1SpreadSize",
+  "oppSpreadSize",
+  "oppTtLineRange",
   "primetime",
   "conferenceGame",
   "neutralSite",
   "tempRange",
-  "windMax",
+  "windRange",
   "weather",
   "dome",
   "daysOfWeek",
@@ -1367,8 +1682,6 @@ function cfbNumRangeBounds(dim, betType) {
 }
 function cfbBetTypeSideEffects(next) {
   const bt = next.betType;
-  next.spreadSize = cfbNumRangeBounds(CFB_FILTER_DIMENSIONS.spreadSize, bt);
-  next.lineRange = cfbNumRangeBounds(CFB_FILTER_DIMENSIONS.lineRange, bt);
   const floor = cfbNumRangeBounds(CFB_FILTER_DIMENSIONS.seasons, bt)[0];
   if (next.seasons[0] < floor) next.seasons = [floor, next.seasons[1]];
 }
@@ -1433,7 +1746,6 @@ var MLB_TEAM_ALIASES = {
   sdp: "SD",
   sfg: "SF"
 };
-var TOTAL_BT2 = ["total", "f5_total"];
 var TIME_PATTERN = "^([01]?\\d|2[0-3]):[0-5]\\d$";
 var DEFAULT_MLB_SNAPSHOT = MLB_SNAPSHOT_DEFAULTS;
 var MLB_FILTER_DIMENSIONS = {
@@ -1446,7 +1758,8 @@ var MLB_FILTER_DIMENSIONS = {
   favDog: { group: "Situation", kind: "enum", label: "Favorite / Underdog", options: [["any", "Either"], ["favorite", "Favorites"], ["underdog", "Underdogs"]], aliases: ["favorite", "underdog", "dog", "chalk"], rpcNote: "f.fav_dog." },
   mlMin: { group: "Situation", kind: "mlOdds", bound: "min", label: "Moneyline odds (min)", aliases: ["moneyline", "odds"], rpcNote: "f.ml_min (American)." },
   mlMax: { group: "Situation", kind: "mlOdds", bound: "max", label: "Moneyline odds (max)", aliases: ["moneyline", "odds"], rpcNote: "f.ml_max." },
-  lineRange: { group: "Situation", kind: "numRange", min: 5, max: 14, step: 0.5, boundsByBetType: { total: [5, 14], f5_total: [2, 8] }, availability: { betTypes: TOTAL_BT2 }, label: "Total line", aliases: ["total", "over under", "o/u"], rpcNote: "total_min/max (total), f5_total_min/max (f5_total)." },
+  lineRange: { group: "Situation", kind: "numRange", min: 5, max: 14, step: 0.5, label: "Game total line", aliases: ["total", "over under", "o/u", "game total"], rpcNote: "total_min/max. Available on every bet type." },
+  f5TotalRange: { group: "Situation", kind: "numRange", min: 2, max: 8, step: 0.5, label: "F5 total line", aliases: ["f5 total", "first 5 total"], rpcNote: "f5_total_min/max. Available on every bet type." },
   timeMin: { group: "Situation", kind: "text", pattern: TIME_PATTERN, label: "Earliest start (ET, HH:MM)", aliases: ["start time", "day games", "night games"], rpcNote: "f.time_min (ET 24h)." },
   timeMax: { group: "Situation", kind: "text", pattern: TIME_PATTERN, label: "Latest start (ET, HH:MM)", rpcNote: "f.time_max (ET 24h)." },
   daysOfWeek: { group: "Situation", kind: "multiselect", optionSource: "daysOfWeek", label: "Days of week", aliases: ["day", "weekend", "friday", "sunday"], rpcNote: "f.day_of_week = array of day names." },
@@ -1470,15 +1783,21 @@ var MLB_FILTER_DIMENSIONS = {
   spHand: { group: "Pitching", kind: "enum", label: "SP handedness", options: [["any", "Any"], ["L", "Lefty"], ["R", "Righty"]], aliases: ["lefty starter", "righty starter"], rpcNote: "f.sp_hand." },
   oppSpHand: { group: "Pitching", kind: "enum", label: "Opp SP handedness", options: [["any", "Any"], ["L", "Lefty"], ["R", "Righty"]], aliases: ["vs lefty", "vs righty", "vs lhp", "vs rhp"], rpcNote: "f.opp_sp_hand." },
   spXfip: { group: "Pitching", kind: "numRange", min: 2, max: 7, step: 0.05, label: "SP xFIP", aliases: ["ace", "weak starter", "xfip"], rpcNote: "sp_xfip_min/max (Ace \u22643.50, Weak >4.50)." },
-  oppSpXfip: { group: "Pitching", kind: "numRange", min: 2, max: 7, step: 0.05, label: "Opp SP xFIP", aliases: ["facing an ace", "facing a weak starter"], rpcNote: "opp_sp_xfip_min/max." },
+  oppSpXfip: { group: "Pitching", kind: "numRange", min: 2, max: 7, step: 0.05, label: "Opp SP xFIP", aliases: ["facing an ace", "facing a weak starter", "bad opponent pitcher", "bad opposing pitcher", "facing a bad pitcher", "weak opposing pitcher", "facing a bad starter"], rpcNote: "opp_sp_xfip_min/max. Ace \u2248 low xFIP [2,3.5]; bad/weak starter \u2248 high xFIP [4.5,7]." },
   bpIp: { group: "Pitching", kind: "numRange", min: 0, max: 20, step: 0.1, label: "Bullpen IP last 3 days", aliases: ["bullpen rested", "bullpen gassed"], rpcNote: "bp_ip3d_min/max (Rested \u22646, Gassed \u226512)." },
   bpXfip: { group: "Pitching", kind: "numRange", min: 2, max: 7, step: 0.05, label: "Bullpen xFIP", aliases: ["good bullpen", "bad bullpen"], rpcNote: "bp_xfip_min/max." },
   // ── Last game ──
   lastResult: { group: "Last game", kind: "enum", label: "Last game result", options: [["any", "Any"], ["won", "Won"], ["lost", "Lost"]], aliases: ["off a win", "off a loss"], rpcNote: "f.last_result ('won'/'lost' \u2192 W/L)." },
+  lastAts: { group: "Last game", kind: "enum", label: "Last game run line", options: [["any", "Any"], ["covered", "Covered"], ["not", "Didn't cover"]], aliases: ["covered the run line last game", "covered last game", "failed to cover last game"], rpcNote: "f.last_covered = covered?1:0 (column last_rl_covered)." },
+  lastTotal: { group: "Last game", kind: "enum", label: "Last game total", options: [["any", "Any"], ["over", "Over"], ["under", "Under"]], aliases: ["over last game", "under last game", "off an over", "off an under"], rpcNote: "f.last_over = over?1:0 (column last_ou_over)." },
+  lastRole: { group: "Last game", kind: "enum", label: "Last game role", options: [["any", "Any"], ["favorite", "Favorite"], ["underdog", "Underdog"]], aliases: ["favorite last game", "underdog last game"], rpcNote: "f.last_favorite = (lastRole === 'favorite') (column last_is_favorite)." },
   lastMargin: { group: "Last game", kind: "numRange", min: -30, max: 30, step: 1, unit: "runs", label: "Last game margin", aliases: ["won by", "lost by", "blowout"], rpcNote: "last_margin_min/max \u2014 signed runs." },
   winLossStreak: { group: "Last game", kind: "numRange", min: -25, max: 25, step: 1, label: "Current W/L streak (signed)", aliases: ["winning streak", "losing streak", "streak"], rpcNote: "streak_min/max \u2014 signed (+wins / \u2212losses)." },
   // ── Opponent last game ──
   oppLastResult: { group: "Opponent last game", kind: "enum", label: "Opponent last game result", options: [["any", "Any"], ["won", "Won"], ["lost", "Lost"]], aliases: ["opponent off a win", "opponent off a loss"], rpcNote: "f.opp_last_result ('won'/'lost')." },
+  oppLastAts: { group: "Opponent last game", kind: "enum", label: "Opponent last game run line", options: [["any", "Any"], ["covered", "Covered"], ["not", "Didn't cover"]], aliases: ["opponent covered last game"], rpcNote: "f.opp_last_covered = covered?1:0 (column opp_last_rl_covered)." },
+  oppLastTotal: { group: "Opponent last game", kind: "enum", label: "Opponent last game total", options: [["any", "Any"], ["over", "Over"], ["under", "Under"]], aliases: ["opponent over last game", "opponent under last game"], rpcNote: "f.opp_last_over = over?1:0 (column opp_last_ou_over)." },
+  oppLastRole: { group: "Opponent last game", kind: "enum", label: "Opponent last game role", options: [["any", "Any"], ["favorite", "Favorite"], ["underdog", "Underdog"]], aliases: ["opponent favorite last game", "opponent underdog last game"], rpcNote: "f.opp_last_favorite = (oppLastRole === 'favorite') (column opp_last_is_favorite)." },
   oppLastMargin: { group: "Opponent last game", kind: "numRange", min: -30, max: 30, step: 1, unit: "runs", label: "Opponent last game margin", aliases: ["opponent won by", "opponent lost by"], rpcNote: "opp_last_margin_min/max \u2014 signed." },
   // ── Season Record (as-of) ──
   winPct: { group: "Season Record", kind: "pctRange", label: "Win %", aliases: ["win rate", "record"], rpcNote: "win_pct_min/max (0\u20131)." },
@@ -1500,8 +1819,11 @@ var MLB_FILTER_DIMENSIONS = {
   prevWinPct: { group: "Prior Year", kind: "pctRange", label: "Last season win %", rpcNote: "prev_win_pct_min/max (0\u20131)." },
   // ── Head-to-Head ──
   h2hLastWin: { group: "Head-to-Head", kind: "enum", label: "Won last meeting", options: [["any", "Any"], ["yes", "Won"], ["no", "Lost"]], aliases: ["won last meeting", "h2h"], rpcNote: "f.h2h_last_win = yes?1:0." },
+  h2hLastAts: { group: "Head-to-Head", kind: "enum", label: "Covered RL last meeting", options: [["any", "Any"], ["yes", "Covered"], ["no", "Didn't cover"]], aliases: ["covered run line last meeting"], rpcNote: "f.h2h_last_ats_win = yes?1:0 (column h2h_last_rl_cover)." },
   h2hLastOver: { group: "Head-to-Head", kind: "enum", label: "Last meeting total", options: [["any", "Any"], ["yes", "Over"], ["no", "Under"]], rpcNote: "f.h2h_last_over = yes?1:0." },
   h2hLastMargin: { group: "Head-to-Head", kind: "numRange", min: -30, max: 30, step: 1, unit: "runs", label: "Last meeting margin", rpcNote: "h2h_last_margin_min/max \u2014 signed." },
+  h2hLastHome: { group: "Head-to-Head", kind: "tristate", label: "Was home last meeting", rpcNote: "f.h2h_last_home = boolean." },
+  h2hLastFav: { group: "Head-to-Head", kind: "tristate", label: "Was favorite last meeting", rpcNote: "f.h2h_last_fav = boolean." },
   h2hSameSeason: { group: "Head-to-Head", kind: "tristate", label: "Same season as last meeting", rpcNote: "f.h2h_same_season." },
   // ── Opponent Record ──
   oppWinPct: { group: "Opponent Record", kind: "pctRange", label: "Opponent win %", rpcNote: "opp_win_pct_min/max (0\u20131)." },
@@ -1520,6 +1842,7 @@ var MLB_SIDE_SYMMETRIC_DIMS = [
   "division",
   "interleague",
   "lineRange",
+  "f5TotalRange",
   "timeMin",
   "timeMax",
   "daysOfWeek",
@@ -1538,8 +1861,7 @@ var MLB_SIDE_BREAKING_DIMS = MLB_DIMENSION_KEYS.filter(
 function mlbNumRangeBounds(dim, betType) {
   return dim.boundsByBetType?.[betType] ? [dim.boundsByBetType[betType][0], dim.boundsByBetType[betType][1]] : [dim.min, dim.max];
 }
-function mlbBetTypeSideEffects(next) {
-  next.lineRange = mlbNumRangeBounds(MLB_FILTER_DIMENSIONS.lineRange, next.betType);
+function mlbBetTypeSideEffects(_next) {
 }
 var MLB_SPORT_CONFIG = {
   sport: "mlb",
@@ -1548,7 +1870,7 @@ var MLB_SPORT_CONFIG = {
   dimensions: MLB_FILTER_DIMENSIONS,
   optionLists: {
     mlbTeams: { values: MLB_TEAM_ABBRS, aliases: MLB_TEAM_ALIASES },
-    mlbPitchers: { values: [] },
+    mlbPitchers: { values: [], fuzzyPersonNames: true },
     // dynamic — supply via ctx.optionOverrides.mlbPitchers
     daysOfWeek: { values: NFL_DAYS, aliases: NFL_DAY_ALIASES }
   },

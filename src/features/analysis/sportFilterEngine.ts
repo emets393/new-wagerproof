@@ -47,6 +47,11 @@ export interface SportOptionList {
   values: readonly string[];
   /** alias (lowercased) → canonical value. */
   aliases?: Record<string, string>;
+  /**
+   * When true (pitcher / person names), also accept accent-insensitive and
+   * small-typo matches ("Christopher Sanchez" → "Cristopher Sánchez") if unique.
+   */
+  fuzzyPersonNames?: boolean;
 }
 
 export interface SportFilterConfig<S extends Record<string, unknown> = Record<string, unknown>> {
@@ -96,10 +101,11 @@ const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFin
 const pairEq = (a: [number, number], b: [number, number]) => a[0] === b[0] && a[1] === b[1];
 const cloneSnapshot = <S,>(s: S): S => JSON.parse(JSON.stringify(s));
 
-/** Resolve one raw multiselect item: exact → alias(lower) → uppercase-exact → case-insensitive. */
+/** Resolve one raw multiselect item: exact → alias → case → accent-fold → fuzzy person name. */
 function resolveOption(raw: unknown, list: SportOptionList, override?: readonly string[]): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
+  if (!t) return null;
   const values = override ?? list.values;
   if (values.includes(t)) return t;
   const alias = list.aliases?.[t.toLowerCase()];
@@ -107,7 +113,80 @@ function resolveOption(raw: unknown, list: SportOptionList, override?: readonly 
   const up = t.toUpperCase();
   if (values.includes(up)) return up;
   const ci = values.find((v) => v.toLowerCase() === t.toLowerCase());
-  return ci ?? null;
+  if (ci) return ci;
+
+  const folded = foldPerson(t);
+  const foldHit = values.find((v) => foldPerson(v) === folded);
+  if (foldHit) return foldHit;
+
+  if (!list.fuzzyPersonNames || t.length < 4) return null;
+  return resolveFuzzyPersonName(t, values);
+}
+
+function foldPerson(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = new Array<number>(b.length + 1);
+  const cur = new Array<number>(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = cur[j];
+  }
+  return prev[b.length];
+}
+
+/** Token-wise fuzzy score; Infinity = no acceptable match. */
+function personNameScore(query: string, candidate: string): number {
+  const q = foldPerson(query);
+  const c = foldPerson(candidate);
+  if (q === c) return 0;
+  const qTokens = q.split(/[^a-z0-9]+/).filter(Boolean);
+  const cTokens = c.split(/[^a-z0-9]+/).filter(Boolean);
+  if (!qTokens.length || !cTokens.length) return editDistance(q, c);
+
+  let total = 0;
+  const used = new Set<number>();
+  for (const qt of qTokens) {
+    let best = Infinity;
+    let bestI = -1;
+    for (let i = 0; i < cTokens.length; i++) {
+      if (used.has(i)) continue;
+      const ct = cTokens[i];
+      const d = (ct.startsWith(qt) || qt.startsWith(ct)) ? 0 : editDistance(qt, ct);
+      if (d < best) { best = d; bestI = i; }
+    }
+    // Allow 1–2 char typos on longer tokens (Christopher↔Cristopher).
+    const maxTok = qt.length >= 8 ? 2 : qt.length >= 5 ? 1 : 0;
+    if (bestI < 0 || best > maxTok) return Infinity;
+    used.add(bestI);
+    total += best;
+  }
+  return total;
+}
+
+function resolveFuzzyPersonName(raw: string, values: readonly string[]): string | null {
+  let best: string | null = null;
+  let bestScore = Infinity;
+  let ties = 0;
+  for (const v of values) {
+    const score = personNameScore(raw, v);
+    if (score === Infinity) continue;
+    if (score < bestScore) { bestScore = score; best = v; ties = 1; }
+    else if (score === bestScore) ties += 1;
+  }
+  // Unique winner with a small typo budget (full-name total distance).
+  if (best && ties === 1 && bestScore <= 2) return best;
+  return null;
 }
 
 function isDimensionAvailableGeneric(
