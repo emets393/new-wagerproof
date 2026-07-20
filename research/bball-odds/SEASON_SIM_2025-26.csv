@@ -1,0 +1,56 @@
+segment,market,rec,pct
+1_MTE,1H spread all,114-103,52.5
+1_MTE,1H total all,106-109,49.3
+1_MTE,FG spread all,109-108,50.2
+1_MTE,FG spread e>=3,65-63,50.8
+1_MTE,FG total all,96-117,45.1
+1_MTE,FG total e>=3,57-62,47.9
+1_MTE,SIG CutLaw TT under,0-3,0.0
+1_MTE,SIG O3vD2 TT over,0-4,0.0
+1_MTE,SIG S1 bigout,4-2,66.7
+1_MTE,SIG S5 pressvuln,1-0,100.0
+1_MTE,TT all,218-212,50.7
+2_Regular,1H spread all,2605-2490,51.1
+2_Regular,1H total all,2569-2510,50.6
+2_Regular,FG spread all,2541-2550,49.9
+2_Regular,FG spread e>=3,504-486,50.9
+2_Regular,FG total all,2530-2588,49.4
+2_Regular,FG total e>=3,1155-1172,49.6
+2_Regular,SIG CutLaw TT under,43-36,54.4
+2_Regular,SIG O3vD2 TT over,196-181,52.0
+2_Regular,SIG S1 bigout,100-71,58.5
+2_Regular,SIG S5 pressvuln,95-81,54.0
+2_Regular,SIG superslow over,20-14,58.8
+2_Regular,TT all,5076-5098,49.9
+3_ConfTourney,1H spread all,154-152,50.3
+3_ConfTourney,1H total all,173-132,56.7
+3_ConfTourney,FG spread all,161-142,53.1
+3_ConfTourney,FG spread e>=3,50-28,64.1
+3_ConfTourney,FG total all,149-156,48.9
+3_ConfTourney,FG total e>=3,64-70,47.8
+3_ConfTourney,SIG CutLaw TT under,2-5,28.6
+3_ConfTourney,SIG O3vD2 TT over,21-9,70.0
+3_ConfTourney,SIG S1 bigout,0-2,0.0
+3_ConfTourney,SIG S5 pressvuln,8-2,80.0
+3_ConfTourney,SIG superslow over,3-3,50.0
+3_ConfTourney,TT all,286-325,46.8
+4_NCAA,1H spread all,31-35,47.0
+4_NCAA,1H total all,36-31,53.7
+4_NCAA,FG spread all,40-27,59.7
+4_NCAA,FG spread e>=3,8-8,50.0
+4_NCAA,FG total all,36-31,53.7
+4_NCAA,FG total e>=3,10-11,47.6
+4_NCAA,SIG O3vD2 TT over,3-7,30.0
+4_NCAA,SIG S1 bigout,0-1,0.0
+4_NCAA,SIG S5 pressvuln,2-1,66.7
+4_NCAA,SIG superslow over,0-4,0.0
+4_NCAA,TT all,68-65,51.1
+5_NIT/other,1H spread all,15-15,50.0
+5_NIT/other,1H total all,16-15,51.6
+5_NIT/other,FG spread all,11-19,36.7
+5_NIT/other,FG spread e>=3,2-1,66.7
+5_NIT/other,FG total all,17-14,54.8
+5_NIT/other,FG total e>=3,6-9,40.0
+5_NIT/other,SIG S1 bigout,3-0,100.0
+5_NIT/other,SIG superslow over,1-0,100.0
+5_NIT/other,TT all,32-29,52.5

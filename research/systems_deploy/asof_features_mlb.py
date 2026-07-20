@@ -42,7 +42,28 @@ def fetch_all(k):
         rows += page
         if len(page) < step:
             break
-    return pd.DataFrame(rows)
+    return canonicalize_abbrs(pd.DataFrame(rows))
+
+
+# Stats API / mapping drift: ARI↔AZ, OAK/SAC/LVA/Ath → ATH.
+_ABBR_ALIASES = {"ARI": "AZ", "OAK": "ATH", "LVA": "ATH", "SAC": "ATH"}
+
+
+def _canon_abbr(v):
+    if not isinstance(v, str) or not v:
+        return v
+    u = v.strip().upper()
+    return _ABBR_ALIASES.get(u, u)
+
+
+def canonicalize_abbrs(df: pd.DataFrame) -> pd.DataFrame:
+    for col in ("team_abbr", "opponent_abbr"):
+        if col in df.columns:
+            df[col] = df[col].map(_canon_abbr)
+    # Drop exact duplicate identity rows from mixed-case Athletics ingest.
+    if {"game_pk", "team_abbr"}.issubset(df.columns):
+        df = df.drop_duplicates(subset=["game_pk", "team_abbr"], keep="first")
+    return df.reset_index(drop=True)
 
 
 def compute_asof(df):

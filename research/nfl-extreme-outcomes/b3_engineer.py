@@ -140,6 +140,15 @@ tg["div_revenge"] = ((tg["div_game"] == 1) & (tg["div_meet_n"] >= 1) & (tg["lost
 tg["home_run"] = g["is_home"].transform(lambda s: s.shift(1).rolling(2, min_periods=2).sum())
 tg["third_road"] = ((tg["is_home"] == 0) & (tg["home_run"] == 0)).fillna(False).astype(int)
 tg["third_home"] = ((tg["is_home"] == 1) & (tg["home_run"] == 2)).fillna(False).astype(int)
+# ---- streak-fade signal inputs (entering, leak-safe; reset per season like cover/over_streak) ----
+# under_streak = consecutive prior UNDERS; noncover_streak = consecutive prior non-covers (a push breaks both)
+tg["under_streak"] = g["over"].transform(lambda s: pd.Series(entering_streak((s == 0).astype(float)), index=s.index))
+tg["noncover_streak"] = g["team_cover"].transform(lambda s: pd.Series(entering_streak((s == 0).astype(float)), index=s.index))
+# ---- divisional rematch: HOME UNDERDOG in the first meeting, now a ROAD FAVORITE in the rematch ----
+# (fires only on the away side; the market flipped this team from home dog to road fav vs the same div rival)
+tg["prev_meet_home_dog"] = tg.groupby(["season", "team", "opp"])["home_dog"].shift(1)
+tg["div_dog_to_roadfav"] = ((tg["div_game"] == 1) & (tg["div_meet_n"] >= 1)
+                            & (tg["road_fav"] == 1) & (tg["prev_meet_home_dog"] == 1)).fillna(False).astype(int)
 # RLM (2025): sharp gap on this team's side
 tg["home_sharp_gap"] = tg["home_spread_handle"] - tg["home_spread_bets"]
 

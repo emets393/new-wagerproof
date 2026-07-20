@@ -4,6 +4,7 @@ sides_bet mislabeled games like Ohio State@Illinois). Team-total + 1H flags from
 Each flag: market, side, line (its grade_line), edge, conviction, active/tracking, stake. Back-fills game counts."""
 import numpy as np, pandas as pd, warnings, requests, json
 import dry_common as C
+import cfb_style_delta as SD
 warnings.filterwarnings("ignore")
 SEASON, WEEK = C.season_week()
 
@@ -70,6 +71,78 @@ for _, r in h1.iterrows():
         rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK, "game": g, "source": "1H ML (dog-conversion, track-live)",
                      "signal_key": "h1_ml", "market": "h1_ml", "side": f"{side} ML", "line": round(float(ml)) if pd.notna(ml) else None, "price": round(float(ml)) if pd.notna(ml) else None,
                      "edge": None, "conviction": "track", "tier": "tracking", "stake_units": 0.5, "grade_line": "best", "mammoth": False})
+
+# Week-1 situational spot: G5 underdog getting 21-27.5 from a P5 favorite in the opener.
+# Pure situational (no model edge) — the dog has covered ~76% here (8/9 openers, ~41 games).
+# line = signed home spread (same convention as the spot_library spread flags); side = the G5 dog.
+if WEEK == 1:
+    G5CONF = {"American Athletic", "Conference USA", "Mid-American", "Mountain West", "Sun Belt"}
+    for _, r in te.iterrows():
+        sp = r.spread_close  # home spread; <0 = home favored
+        if pd.isna(sp) or not (21 <= abs(float(sp)) < 28):
+            continue
+        hc, ac = r.homeConference, r.awayConference
+        home_p5, away_p5 = hc in C.P5CONF, ac in C.P5CONF
+        home_g5, away_g5 = hc in G5CONF, ac in G5CONF
+        if not ((home_p5 and away_g5) or (away_p5 and home_g5)):
+            continue
+        fav_is_home = sp < 0
+        # only the standard shape: P5 is the favorite, the G5 is the dog getting points
+        if not ((fav_is_home and home_p5) or ((not fav_is_home) and away_p5)):
+            continue
+        dog_side = "AWAY" if fav_is_home else "HOME"
+        rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                     "game": f"{r.awayTeam} @ {r.homeTeam}", "source": "G5 dog vs P5 (Wk1, laying 21-27.5)",
+                     "signal_key": "g5_dog_wk1_bigfav", "market": "spread", "side": dog_side,
+                     "line": round(float(sp), 1), "price": -110, "edge": None,
+                     "conviction": "T3", "tier": "active", "stake_units": C.STAKE["T3"],
+                     "grade_line": "close", "mammoth": False})
+
+    # Week-1 situational team total: the G5 offense gets held under in a competitive opener (spread < 21)
+    # vs a P5 defense — its team total goes UNDER (~73%, under-leaning all 3 seasons; TT data 2023+).
+    for _, r in te.iterrows():
+        sp = r.spread_close
+        if pd.isna(sp) or abs(float(sp)) >= 21:
+            continue
+        for team, my_conf, opp_conf in [(r.homeTeam, r.homeConference, r.awayConference),
+                                        (r.awayTeam, r.awayConference, r.homeConference)]:
+            if my_conf in G5CONF and opp_conf in C.P5CONF and (r.game_id, team) in tt_bu.index:
+                line = float(tt_bu[(r.game_id, team)])  # highest posted number = best price for the UNDER
+                rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                             "game": f"{r.awayTeam} @ {r.homeTeam}", "source": f"G5 team-total UNDER {team} (Wk1, spread<21)",
+                             "signal_key": "g5_tt_under_wk1", "market": "team_total", "side": f"{team} UNDER",
+                             "line": round(line, 1), "price": -110, "edge": None,
+                             "conviction": "T3", "tier": "active", "stake_units": C.STAKE["T3"],
+                             "grade_line": "best", "mammoth": False})
+
+# ── S-CFB1 style-delta UNDER: offense has underperformed its baseline vs the opp's DEF archetype (≥2 priors)
+#    → bet the UNDER (game total + that team's team total). Leak-safe deltas from prior completed games. ──
+try:
+    matchups = []
+    for _, r in te.iterrows():
+        matchups += [(r.homeTeam, r.awayTeam), (r.awayTeam, r.homeTeam)]
+    fired = SD.deltas_for_week(SEASON, WEEK, matchups)
+    for _, r in te.iterrows():
+        hf, af = fired.get(r.homeTeam), fired.get(r.awayTeam)
+        if hf or af:
+            best = min([f for f in (hf, af) if f], key=lambda x: x["delta"])
+            if pd.notna(r.total_close):
+                rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                             "game": f"{r.awayTeam} @ {r.homeTeam}", "source": "Style under (offense underperforms opp D-archetype)",
+                             "signal_key": "style_offense_under", "market": "total", "side": "UNDER",
+                             "line": round(float(r.total_close), 1), "price": -110, "edge": best["delta"],
+                             "conviction": best["tier"], "tier": "active", "stake_units": C.STAKE[best["tier"]],
+                             "grade_line": "close", "mammoth": False})
+        for team, info in [(r.homeTeam, hf), (r.awayTeam, af)]:
+            if info and (r.game_id, team) in tt_bu.index:
+                rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                             "game": f"{r.awayTeam} @ {r.homeTeam}", "source": f"Style TT under {team} (offense underperforms opp D-archetype)",
+                             "signal_key": "style_offense_under", "market": "team_total", "side": f"{team} UNDER",
+                             "line": round(float(tt_bu[(r.game_id, team)]), 1), "price": -110, "edge": info["delta"],
+                             "conviction": info["tier"], "tier": "active", "stake_units": C.STAKE[info["tier"]],
+                             "grade_line": "best", "mammoth": False})
+except Exception as e:
+    print(f"  [style_offense_under] skipped: {e}")
 
 df = pd.DataFrame(rows)
 print(f"cfb_dryrun_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")

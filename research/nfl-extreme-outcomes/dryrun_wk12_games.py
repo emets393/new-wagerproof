@@ -34,7 +34,10 @@ _tm["ab"] = _tm["Team Abbrev"].replace(NORM)
 NAME_AB = dict(zip(_tm.city_and_name, _tm.ab))      # "Los Angeles Rams" -> "LA"
 AB_NAME = dict(zip(_tm.ab, _tm.city_and_name))
 TRACKING_HARNESS = {"primetime_tight_favorite", "primetime_tight_under",
-                    "bot_vs_bot_under", "bye_collision", "week1_def_under"}
+                    "bot_vs_bot_under", "bye_collision", "week1_def_under",
+                    # streak/rematch signals (2026-07): only streak_long_under_over is bettable (med)
+                    "streak_both_under_over", "streak_buylow_ncover",
+                    "streak_cold_vs_hot_ats", "div_dog_to_roadfav"}
 
 # NFL tier vocabulary -> shared CFB conviction enum (so one Swift component renders both)
 REC = {"mammoth": "MAMMOTH Play", "high": "High Conviction", "med": "Solid Play",
