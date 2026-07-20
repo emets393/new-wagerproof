@@ -136,6 +136,7 @@ struct OnboardingCarouselContainer: View {
         case .acquisitionSource: OnboardingAcquisitionPage()
         case .primaryGoal:       OnboardingPrimaryGoalPage()
         case .researchTime:      OnboardingResearchTimePage()
+        case .weeklyStakes:      OnboardingStakesPage()
         case .researchCost:      OnboardingResearchCostPage()
         case .researchReclaim:   OnboardingResearchReclaimPage()
         case .agentHQ:           OnboardingAgentHQPage()

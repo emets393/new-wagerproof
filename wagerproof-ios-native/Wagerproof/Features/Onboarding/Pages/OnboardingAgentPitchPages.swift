@@ -70,8 +70,8 @@ struct OnboardingAgentPitchIntroPage: View {
 
     // MARK: Slide 1 — marker-style value rows (dynamic numbers)
 
-    /// The reference-styled highlighter benefits, fed by the research-time
-    /// arc instead of canned stats: the user's own reclaim range and yearly
+    /// The reference-styled highlighter benefits, fed by the time-value arc
+    /// instead of canned stats: the user's own reclaim years and weekly-hours
     /// figure are the loud bold runs, backed by two coverage facts we can
     /// always stand behind.
     private var valueMarkerSlide: some View {
@@ -82,14 +82,14 @@ struct OnboardingAgentPitchIntroPage: View {
             VStack(spacing: 24) {
                 OnboardingMarkerRow(
                     icon: "clock.badge.checkmark",
-                    lines: ["Get back **\(est.weeklyRangeText)**", "every week you bet"],
+                    lines: ["Get back **\(est.reclaimYears)+ \(ResearchTimeEstimates.yearsWord(est.reclaimYears))**", "of your life"],
                     color: .orange
                 )
                 .stampEntrance(index: 0)
 
                 OnboardingMarkerRow(
                     icon: "calendar.badge.clock",
-                    lines: ["Hand off **\(est.reclaimYearLowDisplay)+ hours**", "of research a year"],
+                    lines: ["Hand off **~\(est.reclaimHoursPerWeek) hrs a week**", "of scores and line checks"],
                     color: .green,
                     iconTrailing: true
                 )
