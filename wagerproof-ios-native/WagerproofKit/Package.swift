@@ -102,7 +102,8 @@ let package = Package(
         ),
         .testTarget(
             name: "WagerproofStoresTests",
-            dependencies: ["WagerproofStores"]
+            // Services listed explicitly: ParlayGodEngineTests @testable-imports it.
+            dependencies: ["WagerproofStores", "WagerproofServices", "WagerproofModels"]
         ),
     ]
 )

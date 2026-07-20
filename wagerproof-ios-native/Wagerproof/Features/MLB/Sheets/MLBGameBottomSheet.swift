@@ -70,6 +70,10 @@ struct MLBGameBottomSheet: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(PropsStore.self) private var propsStore
+    // Same-game Parlay God tickets for the "Matchup Parlays" widget.
+    @Environment(ParlayGodStore.self) private var parlayGodStore
+    /// Tapped matchup-parlay card → expanded ticket in a bottom sheet.
+    @State private var selectedParlay: ParlayTicket?
 
     // Slate-wide companion stores, injected by the carousel (the live call
     // site). Kept optional so previews + parity screenshots can render
@@ -124,6 +128,7 @@ struct MLBGameBottomSheet: View {
                     f5SplitsCard
                     regressionPicksCard
                     playerPropsSection
+                    matchupParlaysSection
                     bettingTrendsCard
                     signalsCard
                     // Agent rationale scrolls away at the very bottom (no pin).
@@ -157,7 +162,8 @@ struct MLBGameBottomSheet: View {
             async let t: () = resolvedTrendsStore.refreshIfNeeded()
             async let f: () = resolvedF5Store.refreshIfStale()
             async let p: () = propsStore.refreshMLB()
-            _ = await (t, f, p)
+            async let g: () = parlayGodStore.refreshIfNeeded()
+            _ = await (t, f, p, g)
         }
         // Expanded insight surfaces — full trends matrix / props list / F5
         // breakdown — share one sheet slot.
@@ -180,6 +186,9 @@ struct MLBGameBottomSheet: View {
             case .f5(let matchup):
                 F5SplitsDetailSheet(matchup: matchup)
             }
+        }
+        .sheet(item: $selectedParlay) { ticket in
+            ParlayGodDetailSheet(ticket: ticket)
         }
     }
 
@@ -470,6 +479,40 @@ struct MLBGameBottomSheet: View {
             )
         } else if propsStore.isLoadingMLB, !propsStore.hasLoadedMLB {
             WidgetCollapsingSection(title: "Player Props", systemImage: "figure.baseball") {
+                InsightWidgetSkeleton()
+            }
+        }
+    }
+
+    // MARK: - Matchup parlays
+
+    /// Same-game Parlay God tickets — 3-4 perfect-streak legs mixing this
+    /// matchup's player props and team situational trends. First horizontal
+    /// scroller inside the collapsing-widget stack; Pro-gated like Signals.
+    @ViewBuilder
+    private var matchupParlaysSection: some View {
+        let tickets = parlayGodStore.tickets(forGameKey: String(game.gamePk))
+        if !tickets.isEmpty {
+            WidgetCollapsingSection(title: "Matchup Parlays", systemImage: "bolt.fill", iconTint: Color.appPrimary) {
+                ProContentSection(title: "Matchup Parlays", minHeight: 236) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(alignment: .top, spacing: 12) {
+                            ForEach(tickets) { ticket in
+                                Button {
+                                    selectedParlay = ticket
+                                } label: {
+                                    ParlayGodCard(ticket: ticket, showsMatchup: false)
+                                        .frame(width: 300)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        } else if parlayGodStore.isLoading, !parlayGodStore.hasContent {
+            WidgetCollapsingSection(title: "Matchup Parlays", systemImage: "bolt.fill") {
                 InsightWidgetSkeleton()
             }
         }

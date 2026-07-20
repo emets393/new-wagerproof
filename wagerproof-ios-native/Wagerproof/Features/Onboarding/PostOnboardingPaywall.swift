@@ -1,22 +1,25 @@
 // PostOnboardingPaywall.swift
 //
-// SwiftUI port of `wagerproof-mobile/components/PostOnboardingPaywall.tsx`.
+// Host for the post-onboarding paywall. Mounts above the main app shell
+// once onboarding finishes and the user is not yet a Pro subscriber.
 //
-// Mounts above the main app shell once onboarding finishes and the user is
-// not yet a Pro subscriber. Renders the native `RevenueCatUI.PaywallView`
-// driven by the `onboarding` placement so the dashboard owns the offer
-// layout, package selection, headline/copy, A/B variants, and the close
-// button. We only own:
-//   - Gating predicate (auth + onboarding complete + !isPro + !dismissed).
+// Renderer is remote-configured via the placement offering's metadata
+// (dashboard-editable, no app release):
+//   - `custom_paywall_enabled` (default true): the fully custom SwiftUI
+//     `CustomPaywallView` — RevenueCat as data layer only. `false` is the
+//     kill switch back to the legacy `RevenueCatUI.PaywallView` template.
+//   - `paywall_close_enabled` (default true = soft): hard/soft variant —
+//     false hides the X on whichever renderer is live. The error/timeout
+//     "Continue without subscription" escape survives BOTH modes.
+//
+// The host owns:
+//   - Gating predicate (auth + onboarding complete + !isPro + !dismissed —
+//     evaluated by RootView's `shouldPresentPaywall`).
 //   - Placement offering fetch + retry / skip fallbacks if RC is unreachable.
 //   - Post-purchase finalization: refresh `RevenueCatStore` so the rest of
 //     the app re-renders with the granted entitlement, then dismiss.
-//   - Meta + (deferred) Mixpanel analytics fan-out on conversion.
-//
-// FIDELITY-WAIVER #053: Mixpanel `Subscription Purchased` event not fired
-// here — AnalyticsStore wiring lands in a later wave. Meta SDK events fire
-// in `finalize(transaction:customerInfo:)` since they're the attribution-
-// critical path (ad-network LTV reporting).
+//   - Meta analytics fan-out on conversion (attribution-critical path).
+//     Mixpanel paywall funnel events fire inside `CustomPaywallView`.
 
 import SwiftUI
 import RevenueCat
@@ -64,35 +67,70 @@ struct PostOnboardingPaywall: View {
             .interactiveDismissDisabled(true)
     }
 
+    /// Remote hard/soft switch (offering metadata `paywall_close_enabled`).
+    /// Metadata booleans arrive as NSNumber from the dashboard JSON — the
+    /// `as? Bool` bridge handles true/false and 0/1. Absent key = soft.
+    private var closeEnabled: Bool {
+        (offering?.metadata["paywall_close_enabled"] as? Bool) ?? true
+    }
+
+    /// Remote renderer switch (offering metadata `custom_paywall_enabled`).
+    /// Absent key = custom paywall; explicit `false` = legacy RC template.
+    private var customPaywallEnabled: Bool {
+        (offering?.metadata["custom_paywall_enabled"] as? Bool) ?? true
+    }
+
+    private var isShowingCustomPaywall: Bool {
+        customPaywallEnabled && offering != nil && !isLoadingOffering && loadError == nil
+    }
+
     @ViewBuilder
     private var paywallSurface: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
             if let offering, !isLoadingOffering, loadError == nil {
-                // `displayCloseButton: true` surfaces RevenueCatUI's native
-                // top-left X. Tapping it fires `onRequestedDismissal` below,
-                // which calls `onUserDismissed()` → host flips the cover.
-                PaywallView(offering: offering, displayCloseButton: true)
-                    .onPurchaseCompleted { transaction, customerInfo in
-                        Task { await finalize(transaction: transaction, customerInfo: customerInfo) }
-                    }
-                    .onRestoreCompleted { customerInfo in
-                        // Restore can complete WITHOUT a granted entitlement
-                        // (e.g. user restored on a device with no purchase
-                        // history). Only collapse the paywall when the WagerProof
-                        // Pro entitlement is actually active. Matches the RN
-                        // guard `customerInfo?.entitlements?.active?.['WagerProof Pro']`.
-                        guard customerInfo.entitlements.active[RevenueCatService.entitlementIdentifier] != nil else {
-                            return
+                if customPaywallEnabled {
+                    CustomPaywallView(
+                        offering: offering,
+                        allowClose: closeEnabled,
+                        source: "post_onboarding",
+                        // Monetization stays on the core WagerProof green so
+                        // plan selection and purchase always read as the same
+                        // product, regardless of the temporary onboarding tint.
+                        accent: .appPrimary,
+                        agentName: onboarding.agentDraft.name,
+                        spriteIndex: onboarding.agentDraft.spriteIndex ?? 0,
+                        researchBucketRaw: onboarding.survey.researchTimeBucket,
+                        onPurchaseFinalized: { transaction, customerInfo in
+                            Task { await finalize(transaction: transaction, customerInfo: customerInfo) }
+                        },
+                        onRequestClose: onUserDismissed
+                    )
+                } else {
+                    // Legacy dashboard-owned template (kill-switch path).
+                    // `displayCloseButton` only renders on V1 templates.
+                    PaywallView(offering: offering, displayCloseButton: closeEnabled)
+                        .onPurchaseCompleted { transaction, customerInfo in
+                            Task { await finalize(transaction: transaction, customerInfo: customerInfo) }
                         }
-                        Task { await finalize(transaction: nil, customerInfo: customerInfo) }
-                    }
-                    .onRequestedDismissal {
-                        // Dashboard-configured close button — explicit user
-                        // intent to bail. Let them through.
-                        onUserDismissed()
-                    }
+                        .onRestoreCompleted { customerInfo in
+                            // Restore can complete WITHOUT a granted entitlement
+                            // (e.g. user restored on a device with no purchase
+                            // history). Only collapse the paywall when the WagerProof
+                            // Pro entitlement is actually active. Matches the RN
+                            // guard `customerInfo?.entitlements?.active?.['WagerProof Pro']`.
+                            guard customerInfo.entitlements.active[RevenueCatService.entitlementIdentifier] != nil else {
+                                return
+                            }
+                            Task { await finalize(transaction: nil, customerInfo: customerInfo) }
+                        }
+                        .onRequestedDismissal {
+                            // Dashboard-configured close button — explicit user
+                            // intent to bail. Let them through.
+                            onUserDismissed()
+                        }
+                }
             }
 
             if isLoadingOffering || isFinalizing {
@@ -101,12 +139,15 @@ struct PostOnboardingPaywall: View {
                 errorOverlay
             }
 
-            // Our own X overlay. `displayCloseButton: true` only renders on
-            // V1 RevenueCatUI templates; V2 templates ignore the flag and use
-            // whatever the dashboard configured. This overlay guarantees an
-            // escape hatch regardless of template version. Pinned top-trailing
-            // inside the safe area so it sits below the Dynamic Island.
-            closeOverlay
+            // Guaranteed X overlay for the LEGACY branch (V2 RC templates
+            // ignore `displayCloseButton` and use whatever the dashboard
+            // configured) and for the loading state. The custom paywall
+            // draws its own metadata-gated X, so the overlay would double
+            // up there. Hidden entirely in hard mode — the error surface's
+            // "Continue without subscription" remains the escape hatch.
+            if closeEnabled && !isShowingCustomPaywall {
+                closeOverlay
+            }
         }
     }
 
