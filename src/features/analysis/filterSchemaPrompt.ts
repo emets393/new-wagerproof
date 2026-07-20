@@ -8,116 +8,34 @@
  * committed artifact ever diverges from this source. The Edge Function reads that JSON — it never
  * hand-maintains a copy of the schema.
  */
+import { NFL_FILTER_DIMENSIONS, NFL_BET_TYPES, NFL_FILTER_GROUPS } from './filterSchema';
 import {
-  NFL_FILTER_DIMENSIONS, NFL_BET_TYPES, NFL_FILTER_GROUPS, numRangeBounds,
-  type FilterDimension, type NflBetType,
-} from './filterSchema';
+  buildDimensionSpec, renderDimensionLines, PATCH_OUTPUT_SCHEMA, type DimensionSpec,
+} from './nlArtifactShared';
+import type { EngineDimension } from './sportFilterEngine';
 
-// A compact, model-facing description of one dimension.
-export interface DimensionSpec {
-  key: string;
-  group: string;
-  label: string;
-  kind: FilterDimension['kind'];
-  /** value shape hint the model must produce for a `set` op. */
-  valueForm: string;
-  aliases?: readonly string[];
-  availableForBetTypes?: readonly string[];
-  requires?: { key: string; value: string };
-}
+export type { DimensionSpec };
 
-function valueForm(key: string, dim: FilterDimension): string {
-  switch (dim.kind) {
-    case 'numRange': {
-      // show the widest bounds across bet types so the model sees the full envelope
-      const bounds = dim.boundsByBetType
-        ? Object.values(dim.boundsByBetType)
-        : [numRangeBounds(dim, 'fg_spread' as NflBetType)];
-      const lo = Math.min(...bounds.map((b) => b![0]));
-      const hi = Math.max(...bounds.map((b) => b![1]));
-      return `[min, max] numbers within [${lo}, ${hi}], step ${dim.step}`;
-    }
-    case 'pctRange': return '[min, max] percent numbers 0–100 (NOT a 0–1 fraction)';
-    case 'scalarMax': return `a single number 0–${dim.max} (upper bound; ${dim.max} = no limit)`;
-    case 'scalarMin': return `a single number 0–${dim.max} (lower bound; 0 = no limit)`;
-    case 'enum': {
-      const vals = dim.options.map(([v]) => v).filter((v) => v !== 'any');
-      return dim.dynamic
-        ? `an exact ${dim.label} name (validated against the loaded list); or "any" to clear`
-        : `one of: ${vals.map((v) => `"${v}"`).join(', ')}; or "any" to clear`;
-    }
-    case 'tristate': return 'true, false, or null (null = clear)';
-    case 'multiselect':
-      return dim.optionSource === 'daysOfWeek' ? 'array of day names, any of: Sun, Mon, Tue, Wed, Thu, Fri, Sat'
-        : dim.optionSource === 'nflDivisions' ? 'array of divisions, any of: "AFC East", "AFC North", "AFC South", "AFC West", "NFC East", "NFC North", "NFC South", "NFC West"'
-        : 'array of NFL team abbreviations (e.g. ["KC","BUF"])';
-    case 'mlOdds': return `American odds number (≥ +100 or ≤ −100), or "" to clear (${key})`;
-  }
-}
+export const NFL_MULTISELECT_DESCRIPTIONS: Record<string, string> = {
+  nflTeams: 'array of NFL team abbreviations (e.g. ["KC","BUF"])',
+  daysOfWeek: 'array of day names, any of: Sun, Mon, Tue, Wed, Thu, Fri, Sat',
+  nflDivisions: 'array of divisions, any of: "AFC East", "AFC North", "AFC South", "AFC West", "NFC East", "NFC North", "NFC South", "NFC West"',
+};
 
 /** Build the ordered dimension catalog (single source: NFL_FILTER_DIMENSIONS). Deterministic. */
 export function buildNflDimensionSpec(): DimensionSpec[] {
-  const out: DimensionSpec[] = [];
-  for (const group of NFL_FILTER_GROUPS) {
-    for (const key of Object.keys(NFL_FILTER_DIMENSIONS) as Array<keyof typeof NFL_FILTER_DIMENSIONS>) {
-      const dim = NFL_FILTER_DIMENSIONS[key];
-      if (dim.group !== group) continue;
-      out.push({
-        key: key as string,
-        group: dim.group,
-        label: dim.label,
-        kind: dim.kind,
-        valueForm: valueForm(key as string, dim),
-        aliases: dim.aliases,
-        availableForBetTypes: dim.availability?.betTypes ? [...dim.availability.betTypes] : undefined,
-        requires: dim.availability?.requires
-          ? { key: String(dim.availability.requires.key), value: dim.availability.requires.equals }
-          : undefined,
-      });
-    }
-  }
-  return out;
+  return buildDimensionSpec(
+    NFL_FILTER_DIMENSIONS as unknown as Record<string, EngineDimension>,
+    NFL_FILTER_GROUPS,
+    { multiselectDescriptions: NFL_MULTISELECT_DESCRIPTIONS },
+  );
 }
 
 /** Structured-output JSON schema for the model's response (OpenAI-strict: every property is in
  *  `required` and every object sets `additionalProperties:false`). `value`/`items` are nullable so
  *  `clear`/scalar ops can omit them. The reducer is the real validator; this only forces a
  *  well-formed patch envelope. */
-export const NFL_PATCH_OUTPUT_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['ops', 'couldnt_map', 'ambiguous'],
-  properties: {
-    ops: {
-      type: 'array',
-      description: 'Filter operations to apply. Only include dimensions the user is changing.',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['op', 'dimension', 'value'],
-        properties: {
-          op: { type: 'string', enum: ['set', 'clear'] },
-          dimension: { type: 'string' },
-          value: {
-            description: 'The value for a "set" op (typed: array for ranges/teams, string for enums, number for scalars, boolean for toggles); null for "clear".',
-            anyOf: [
-              { type: 'string' }, { type: 'number' }, { type: 'boolean' }, { type: 'null' },
-              { type: 'array', items: { anyOf: [{ type: 'number' }, { type: 'string' }] } },
-            ],
-          },
-        },
-      },
-    },
-    couldnt_map: {
-      type: 'array', description: 'Requests that no supported dimension can express (name the nearest supported alternative).',
-      items: { type: 'string' },
-    },
-    ambiguous: {
-      type: 'array', description: 'Requests too vague to turn into a concrete filter (ask the user to clarify).',
-      items: { type: 'string' },
-    },
-  },
-} as const;
+export const NFL_PATCH_OUTPUT_SCHEMA = PATCH_OUTPUT_SCHEMA;
 
 /** Assemble the (static, cache-friendly) system prompt from the dimension catalog. Deterministic. */
 export function buildNflSystemPrompt(spec: DimensionSpec[] = buildNflDimensionSpec()): string {
@@ -181,6 +99,10 @@ export function buildNflSystemPrompt(spec: DimensionSpec[] = buildNflDimensionSp
     '   won by that many, NEGATIVE = lost by that many. "won by 10 or more" -> [10, 60]; "lost by 7+" ->',
     '   [-60, -7]; "won by exactly 3" -> [3, 3]; "within a field goal" -> [-3, 3]; "blowout win (21+)" ->',
     '   [21, 60]; "blowout loss" -> [-60, -21]. Use it for any margin-of-victory/loss phrasing.',
+    '15. NAMED PEOPLE — a named coach (Andy Reid, Belichick, Shanahan) ALWAYS sets dimension "coach" to the',
+    '   exact spelling from AVAILABLE COACHES. A named referee ALWAYS sets "referee". Pair with seasonType',
+    '   / weeks / markets when the sentence also says playoffs, primetime, etc. Never map a coach name to',
+    '   teams[] (Reid ≠ Chiefs-only — use coach). If the name is not in AVAILABLE COACHES, couldnt_map it.',
     '',
     'EXAMPLES:',
     'CURRENT FILTER: {"betType":"fg_spread"}',
@@ -207,17 +129,13 @@ export function buildNflSystemPrompt(spec: DimensionSpec[] = buildNflDimensionSp
     'REQUEST: a team and the opponent are coming off games that went under and both teams have gone under in more than half their games this season',
     'OUTPUT: {"ops":[{"op":"set","dimension":"lastTotal","value":"under"},{"op":"set","dimension":"oppLastTotal","value":"under"},{"op":"set","dimension":"overPct","value":[0,50]},{"op":"set","dimension":"oppOverPct","value":[0,50]}],"couldnt_map":[],"ambiguous":[]}',
     '',
+    'CURRENT FILTER: {"betType":"fg_spread"}',
+    'REQUEST: Andy Reid in the playoffs',
+    'OUTPUT: {"ops":[{"op":"set","dimension":"seasonType","value":"postseason"},{"op":"set","dimension":"coach","value":"Andy Reid"}],"couldnt_map":[],"ambiguous":[]}',
+    '',
     'DIMENSIONS:',
   );
-  let currentGroup = '';
-  for (const d of spec) {
-    if (d.group !== currentGroup) { currentGroup = d.group; lines.push('', `[${d.group}]`); }
-    const parts = [`• ${d.key} — ${d.label}: ${d.valueForm}`];
-    if (d.availableForBetTypes) parts.push(`(only for markets: ${d.availableForBetTypes.join(', ')})`);
-    if (d.requires) parts.push(`(requires ${d.requires.key}="${d.requires.value}")`);
-    if (d.aliases?.length) parts.push(`— phrasing: ${d.aliases.join(', ')}`);
-    lines.push(parts.join(' '));
-  }
+  lines.push(...renderDimensionLines(spec));
   lines.push('', 'Also available: dimension "betType" (the market spine) — set/clear only.');
   return lines.join('\n');
 }
