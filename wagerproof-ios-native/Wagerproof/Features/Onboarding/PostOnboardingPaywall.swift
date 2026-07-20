@@ -8,9 +8,14 @@
 //   - `custom_paywall_enabled` (default true): the fully custom SwiftUI
 //     `CustomPaywallView` — RevenueCat as data layer only. `false` is the
 //     kill switch back to the legacy `RevenueCatUI.PaywallView` template.
-//   - `paywall_close_enabled` (default true = soft): hard/soft variant —
-//     false hides the X on whichever renderer is live. The error/timeout
-//     "Continue without subscription" escape survives BOTH modes.
+//   - `paywall_close_enabled` (default FALSE = hard): the real onboarding gate
+//     ships HARD — no X on either renderer. Set it `true` to soften the gate
+//     (e.g. App Review builds). The error/timeout "Continue without
+//     subscription" escape survives BOTH modes.
+//
+// The Secret-Settings debug preview (`isDebugPreview: true`) overrides the above
+// and always shows a bright red DEBUG close button, so a tester can escape the
+// otherwise-non-dismissible gate and knows the run is a debug invocation.
 //
 // The host owns:
 //   - Gating predicate (auth + onboarding complete + !isPro + !dismissed —
@@ -44,6 +49,11 @@ struct PostOnboardingPaywall: View {
     /// behind a cover the host doesn't know to close.
     let onUserDismissed: () -> Void
 
+    /// True only when presented from Secret Settings for testing. Forces the
+    /// paywall closeable via a red DEBUG button so the real (hard) onboarding
+    /// gate stays non-dismissible while a tester can still escape the preview.
+    var isDebugPreview: Bool = false
+
     @State private var offering: Offering?
     @State private var isLoadingOffering: Bool = true
     @State private var loadError: String?
@@ -69,9 +79,12 @@ struct PostOnboardingPaywall: View {
 
     /// Remote hard/soft switch (offering metadata `paywall_close_enabled`).
     /// Metadata booleans arrive as NSNumber from the dashboard JSON — the
-    /// `as? Bool` bridge handles true/false and 0/1. Absent key = soft.
+    /// `as? Bool` bridge handles true/false and 0/1. Absent key = HARD (no X);
+    /// the real onboarding gate ships hard, a remote `true` softens it. The
+    /// debug preview always allows closing (via the red DEBUG button).
     private var closeEnabled: Bool {
-        (offering?.metadata["paywall_close_enabled"] as? Bool) ?? true
+        if isDebugPreview { return true }
+        return (offering?.metadata["paywall_close_enabled"] as? Bool) ?? false
     }
 
     /// Remote renderer switch (offering metadata `custom_paywall_enabled`).
@@ -105,7 +118,8 @@ struct PostOnboardingPaywall: View {
                         onPurchaseFinalized: { transaction, customerInfo in
                             Task { await finalize(transaction: transaction, customerInfo: customerInfo) }
                         },
-                        onRequestClose: onUserDismissed
+                        onRequestClose: onUserDismissed,
+                        debugClose: isDebugPreview
                     )
                 } else {
                     // Legacy dashboard-owned template (kill-switch path).
@@ -156,20 +170,38 @@ struct PostOnboardingPaywall: View {
             HStack {
                 Spacer()
                 Button(action: { onUserDismissed() }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
+                    if isDebugPreview {
+                        // Matches CustomPaywallView.debugCloseLabel so the escape
+                        // hatch reads the same whether the custom paywall or the
+                        // loading/legacy surface is on screen.
+                        HStack(spacing: 5) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 12, weight: .heavy))
+                            Text("DEBUG")
+                                .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                                .tracking(0.5)
+                        }
                         .foregroundStyle(.white)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle().fill(Color.black.opacity(0.55))
-                        )
-                        .overlay(
-                            Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-                        )
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .background(Capsule().fill(Color.red))
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.55), lineWidth: 1))
+                    } else {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(
+                                Circle().fill(Color.black.opacity(0.55))
+                            )
+                            .overlay(
+                                Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+                            )
+                    }
                 }
                 .padding(.trailing, 16)
                 .padding(.top, 8)
-                .accessibilityLabel("Close paywall")
+                .accessibilityLabel(isDebugPreview ? "Close debug paywall" : "Close paywall")
             }
             Spacer()
         }

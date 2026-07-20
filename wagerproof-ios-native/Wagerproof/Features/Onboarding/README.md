@@ -58,7 +58,8 @@ no release needed:
 | Metadata key | Default | Meaning |
 |---|---|---|
 | `custom_paywall_enabled` | `true` | `false` = kill switch back to the legacy `RevenueCatUI.PaywallView` dashboard template |
-| `paywall_close_enabled` | `true` (soft) | `false` = hard paywall: no X on either renderer. The error/timeout "Continue without subscription" escape survives both modes |
+| `paywall_close_enabled` | `false` (hard) | Onboarding ships HARD — no X on either renderer. Set `true` to soften (e.g. App Review builds). The error/timeout "Continue without subscription" escape survives both modes. The Secret-Settings debug preview (`isDebugPreview`) overrides this with a red DEBUG close button |
+| `entry_offer` | `"monthly"` | `"intro_annual"` swaps the second (entry) plan card from the standard monthly plan to the pay-up-front intro annual (`yearly_intro` package = `rc_ios_pro_yearly_intro`, $19.99 first month then $99.99/yr). Requires the `yearly_intro` package in the served offering; returning customers RevenueCat flags ineligible fall back to Monthly |
 
 **`CustomPaywallView`** (`Features/Paywall/`) is the default renderer —
 fully custom SwiftUI; RevenueCat is data + transactions only (`import
@@ -90,5 +91,6 @@ RevenueCat`, never `RevenueCatUI`):
 
 Compliance notes: one accent CTA, plans above the fold, icon-led "No
 commitment - Cancel anytime" reassurance, Restore/Terms/Privacy links, no
-trial toggle, no delayed X. Ship App Review builds with
-`paywall_close_enabled` soft.
+trial toggle, no delayed X. Production onboarding runs HARD (no X) by default;
+ship App Review builds with `paywall_close_enabled: true` (soft) if review
+requires a visible dismiss control.

@@ -3,16 +3,18 @@ import WagerproofDesign
 import WagerproofModels
 
 // =====================================================================
-// Generation control surfaces for the agent detail page's picks footer.
+// Generation control surfaces for the agent detail page.
 //
-// Two glass footer chips + the bottom sheets they open:
+// Two glass status chips + the bottom sheets they open:
 //   • RegenerateControlButton → RegenerateBottomSheet — explains the daily
-//     regeneration quota and hosts the swipe-to-request-picks slider.
+//     regeneration quota and hosts the swipe-to-request-picks slider. Lives in
+//     the picks footer (below the rail).
 //   • AutoPilotControlButton  → AutoPilotBottomSheet  — the autopilot on/off
-//     toggle + preferred-time setting + a list of the agent's recent runs.
+//     toggle + preferred-time setting + notifications control + a list of the
+//     agent's recent runs. Lives opposite the "Today's Picks" section header.
 //
 // The buttons are dumb (state + tap-out); AgentDetailView owns the store calls
-// and presents the sheets. See AgentDetailView.generateFooter.
+// and presents the sheets. See AgentDetailView.picksSection / generateFooter.
 // =====================================================================
 
 // MARK: - Footer control buttons
@@ -267,16 +269,22 @@ struct AutoPilotBottomSheet: View {
     let remaining: Int
     let maxDaily: Int
     let recentRuns: [AgentRunSummaryRow]
+    /// App-level push permission (there's no per-agent flag) — drives the
+    /// notifications row so the user can make sure autopilot alerts reach them.
+    let notificationsEnabled: Bool
     /// Persist the on/off flag → returns success so we can revert on failure.
     let onSetAuto: (Bool) async -> Bool
     /// Persist the schedule (time, IANA timezone) → returns success.
     let onSaveTime: (String, String) async -> Bool
+    /// Request/enable push notifications (host owns the permission flow).
+    let onEnableNotifications: () async -> Void
 
     @State private var autoOn: Bool
     @State private var time: String
     @State private var timezone: String
     @State private var showTimePicker = false
     @State private var busy = false
+    @State private var notifBusy = false
     @State private var errorText: String?
 
     init(
@@ -288,18 +296,22 @@ struct AutoPilotBottomSheet: View {
         initialAutoOn: Bool,
         initialTime: String,
         initialTimezone: String,
+        notificationsEnabled: Bool,
         recentRuns: [AgentRunSummaryRow],
         onSetAuto: @escaping (Bool) async -> Bool,
-        onSaveTime: @escaping (String, String) async -> Bool
+        onSaveTime: @escaping (String, String) async -> Bool,
+        onEnableNotifications: @escaping () async -> Void
     ) {
         self.agentName = agentName
         self.accent = accent
         self.canUseAutopilot = canUseAutopilot
         self.remaining = remaining
         self.maxDaily = maxDaily
+        self.notificationsEnabled = notificationsEnabled
         self.recentRuns = recentRuns
         self.onSetAuto = onSetAuto
         self.onSaveTime = onSaveTime
+        self.onEnableNotifications = onEnableNotifications
         _autoOn = State(initialValue: initialAutoOn)
         _time = State(initialValue: initialTime)
         _timezone = State(initialValue: initialTimezone)
@@ -312,6 +324,7 @@ struct AutoPilotBottomSheet: View {
                     header
                     toggleCard
                     if autoOn { scheduleCard }
+                    notificationsCard
                     runsSection
                 }
                 .padding(20)
@@ -434,6 +447,62 @@ struct AutoPilotBottomSheet: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    /// App-level push permission surfaced inside autopilot — when off, one tap
+    /// requests it so the daily "picks are ready" alert can actually arrive. This
+    /// is the same device permission as Settings (there's no per-agent flag).
+    private var notificationsCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: notificationsEnabled ? "bell.badge.fill" : "bell.slash")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(notificationsEnabled ? accent : Color.appTextSecondary)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Notifications")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.appTextPrimary)
+                Text(notificationsEnabled
+                     ? "You'll get an alert when new picks are ready."
+                     : "Get notified when autopilot posts new picks.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            if notificationsEnabled {
+                Text("On")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(accent)
+            } else {
+                Button {
+                    notifBusy = true
+                    Task {
+                        await onEnableNotifications()
+                        notifBusy = false
+                    }
+                } label: {
+                    if notifBusy {
+                        ProgressView().tint(accent)
+                    } else {
+                        Text("Turn on")
+                            .font(.system(size: 14, weight: .heavy))
+                            .foregroundStyle(accent)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(notifBusy)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        )
     }
 
     private var runsSection: some View {

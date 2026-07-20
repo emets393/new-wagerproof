@@ -110,7 +110,7 @@ struct SecretSettingsView: View {
             .fullScreenCover(isPresented: $isCustomPaywallPresented) {
                 PostOnboardingPaywall(onUserDismissed: {
                     isCustomPaywallPresented = false
-                })
+                }, isDebugPreview: true)
                 .environment(auth)
                 .environment(onboarding)
                 .environment(revenueCat)

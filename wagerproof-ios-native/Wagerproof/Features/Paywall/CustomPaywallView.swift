@@ -20,6 +20,11 @@ struct CustomPaywallView: View {
     let researchBucketRaw: String?
     let onPurchaseFinalized: (StoreTransaction?, CustomerInfo) -> Void
     let onRequestClose: () -> Void
+    /// Secret-Settings debug preview flag. When true, the close control renders
+    /// as a bright red DEBUG button so a tester can escape the otherwise-hard
+    /// onboarding paywall and see at a glance that it's a debug invocation, not
+    /// the real gate. Requires `allowClose` (the host forces it on in debug).
+    var debugClose: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -42,6 +47,21 @@ struct CustomPaywallView: View {
 
     // MARK: - Package resolution
 
+    /// RevenueCat package `lookup_key` for the pay-up-front intro annual
+    /// (`rc_ios_pro_yearly_intro`: $19.99 first month, then $99.99/yr).
+    private var introPackageIdentifier: String { "yearly_intro" }
+
+    /// Remote-config switch (offering metadata `entry_offer`) that swaps the
+    /// second ("entry") plan card between the recurring monthly plan and the
+    /// pay-up-front intro annual. Absent/unknown value = `monthly` (no change),
+    /// so the paywall is unaffected until the offering metadata opts in.
+    private enum EntryOffer: String { case monthly, introAnnual = "intro_annual" }
+    private var entryOffer: EntryOffer {
+        guard let raw = offering.metadata["entry_offer"] as? String,
+              let value = EntryOffer(rawValue: raw) else { return .monthly }
+        return value
+    }
+
     private func package(_ identifier: String) -> Package? {
         offering.availablePackages.first { $0.identifier == identifier }
     }
@@ -52,26 +72,48 @@ struct CustomPaywallView: View {
             ?? offering.availablePackages.first { $0.packageType == .monthly }
     }
 
+    private var introPackage: Package? { package(introPackageIdentifier) }
+
     /// RevenueCat exposes two yearly packages in the onboarding offering. The
     /// discounted yearly package has no free trial and is the intended default
     /// for this checkout. Fail closed to another non-trial annual package rather
-    /// than silently presenting the trial-backed annual product.
+    /// than silently presenting the trial-backed annual product. The intro
+    /// annual is excluded here — it only ever fills the entry slot below, never
+    /// the headline Yearly card.
     private var annualPackage: Package? {
         let annualCandidates = offering.availablePackages.filter {
-            $0.packageType == .annual
-                || $0.identifier == "$rc_yearly_discount"
-                || $0.identifier == "$rc_annual"
+            $0.identifier != introPackageIdentifier
+                && ($0.packageType == .annual
+                    || $0.identifier == "$rc_yearly_discount"
+                    || $0.identifier == "$rc_annual")
         }
         return annualCandidates.first {
             $0.identifier == "$rc_yearly_discount" && !hasFreeTrialOffer($0)
         } ?? annualCandidates.first(where: { !hasFreeTrialOffer($0) })
     }
 
+    /// Second ("entry") plan slot. Remotely toggled between the standard monthly
+    /// plan and the intro annual. Falls back to monthly when the intro package
+    /// is missing or the shopper is a returning customer RevenueCat has flagged
+    /// ineligible for the intro price — never strand them on an intro they can't get.
+    private var entryPackage: Package? {
+        if entryOffer == .introAnnual,
+           let introPackage,
+           introDisplayEligible(introPackage) {
+            return introPackage
+        }
+        return monthlyPackage
+    }
+
+    private var entryPlanName: String {
+        entryPackage?.identifier == introPackageIdentifier ? "1st Month" : "Monthly"
+    }
+
     /// Yearly leads because it is the recommended and preselected plan.
     private var plans: [DisplayPlan] {
         var result: [DisplayPlan] = []
         if let annualPackage { result.append(.init(package: annualPackage, name: "Yearly")) }
-        if let monthlyPackage { result.append(.init(package: monthlyPackage, name: "Monthly")) }
+        if let entryPackage { result.append(.init(package: entryPackage, name: entryPlanName)) }
         return result
     }
 
@@ -88,6 +130,33 @@ struct CustomPaywallView: View {
             && trialEligibility[package.storeProduct.productIdentifier] == .eligible
     }
 
+    /// Non-nil when the package carries a pay-up-front introductory offer
+    /// (e.g. $19.99 for the first month, then the standard renewal price).
+    private func payUpFrontIntro(_ package: Package) -> StoreProductDiscount? {
+        guard let intro = package.storeProduct.introductoryDiscount,
+              intro.paymentMode == .payUpFront else { return nil }
+        return intro
+    }
+
+    /// Show the intro price unless RevenueCat has explicitly reported the shopper
+    /// as ineligible (returning customers). Unknown / not-yet-loaded counts as
+    /// eligible — the post-onboarding audience is overwhelmingly new users and we
+    /// don't want a one-frame monthly→intro swap while eligibility resolves.
+    private func introDisplayEligible(_ package: Package) -> Bool {
+        switch trialEligibility[package.storeProduct.productIdentifier] {
+        case .ineligible, .noIntroOfferExists: return false
+        default: return true
+        }
+    }
+
+    /// "first month" / "first 3 months" for a pay-up-front intro's prepaid span.
+    private func introDurationPhrase(_ intro: StoreProductDiscount) -> String {
+        let unit = unitName(intro.subscriptionPeriod.unit, value: intro.subscriptionPeriod.value)
+        return intro.subscriptionPeriod.value == 1
+            ? "first \(unit)"
+            : "first \(intro.subscriptionPeriod.value) \(unit)"
+    }
+
     private var selectedTrial: (value: Int, unit: String)? {
         guard let selected,
               hasEligibleFreeTrial(selected),
@@ -99,9 +168,12 @@ struct CustomPaywallView: View {
     }
 
     private func loadTrialEligibility() async {
+        // Check both free-trial and pay-up-front intro packages — returning
+        // customers are ineligible for either, and the entry card must fall back
+        // to the standard monthly plan for them.
         let products = plans
             .map(\.package)
-            .filter(hasFreeTrialOffer)
+            .filter { hasFreeTrialOffer($0) || payUpFrontIntro($0) != nil }
             .map { $0.storeProduct.productIdentifier }
         guard !products.isEmpty else { return }
 
@@ -132,6 +204,10 @@ struct CustomPaywallView: View {
         guard let selected else { return "Choose a plan to continue" }
         let price = selected.storeProduct.localizedPriceString
         let period = billingPeriod(for: selected.storeProduct)
+        // Pay-up-front intro ($19.99 for the first month, then $99.99 per year).
+        if let intro = payUpFrontIntro(selected), introDisplayEligible(selected) {
+            return "\(intro.localizedPriceString) for your \(introDurationPhrase(intro)), then \(price) per \(period)"
+        }
         if let trial = selectedTrial {
             return "\(trial.value) \(trial.unit) free, then \(price) per \(period)"
         }
@@ -396,24 +472,46 @@ struct CustomPaywallView: View {
                     AnalyticsService.shared.track("paywall_dismissed", properties: [
                         "source": source,
                         "variant": "custom_v2_product_hero",
-                        "result": "closed",
+                        "result": debugClose ? "debug_closed" : "closed",
                     ])
                     onRequestClose()
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.appTextSecondary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Circle())
-                        .liquidGlassBackground(in: Circle(), tint: Color.white.opacity(0.06), interactive: true)
+                    if debugClose {
+                        debugCloseLabel
+                    } else {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.appTextSecondary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                            .liquidGlassBackground(in: Circle(), tint: Color.white.opacity(0.06), interactive: true)
+                    }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Close paywall")
+                .accessibilityLabel(debugClose ? "Close debug paywall" : "Close paywall")
             } else {
                 Color.clear.frame(width: 44, height: 44)
             }
         }
         .frame(height: 44)
+    }
+
+    /// Bright red DEBUG close pill — only rendered when the paywall is presented
+    /// from Secret Settings. Deliberately loud so a tester can never mistake a
+    /// debug run for the real hard onboarding gate (which has no close button).
+    private var debugCloseLabel: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "xmark")
+                .font(.system(size: 12, weight: .heavy))
+            Text("DEBUG")
+                .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                .tracking(0.5)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .frame(height: 34)
+        .background(Capsule().fill(Color.red))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.55), lineWidth: 1))
     }
 
     // MARK: - Plans and CTA
@@ -499,6 +597,8 @@ struct CustomPaywallView: View {
         let isSelected = selected?.identifier == plan.id
         let product = plan.package.storeProduct
         let hasTrial = hasEligibleFreeTrial(plan.package)
+        let intro = payUpFrontIntro(plan.package)
+        let showIntro = intro != nil && introDisplayEligible(plan.package)
         let isAnnual = plan.package.identifier == annualPackage?.identifier
         let shape = RoundedRectangle(cornerRadius: 17, style: .continuous)
 
@@ -524,13 +624,19 @@ struct CustomPaywallView: View {
                     }
                 }
 
-                Text(product.localizedPriceString)
+                Text((showIntro ? intro?.localizedPriceString : nil) ?? product.localizedPriceString)
                     .font(.system(size: compact ? 17 : 20, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
 
-                if isAnnual, let monthly = perMonthString(product) {
+                if showIntro {
+                    // e.g. "then $99.99/year" under the $19.99 first-month price.
+                    Text("then \(product.localizedPriceString)/\(billingPeriod(for: product))")
+                        .foregroundStyle(accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                } else if isAnnual, let monthly = perMonthString(product) {
                     HStack(spacing: 4) {
                         Text("\(monthly)/mo")
                         if let savings = annualSavingsPercent {
@@ -557,9 +663,12 @@ struct CustomPaywallView: View {
                 if isAnnual, let savings = annualSavingsPercent {
                     planRibbon("SAVE \(savings)%")
                         .offset(y: -9)
-                } else if hasTrial, let intro = product.introductoryDiscount {
+                } else if showIntro {
+                    planRibbon("INTRO OFFER")
+                        .offset(y: -9)
+                } else if hasTrial, let trialIntro = product.introductoryDiscount {
                     planRibbon(
-                        "\(intro.subscriptionPeriod.value) \(unitName(intro.subscriptionPeriod.unit, value: intro.subscriptionPeriod.value).uppercased()) FREE"
+                        "\(trialIntro.subscriptionPeriod.value) \(unitName(trialIntro.subscriptionPeriod.unit, value: trialIntro.subscriptionPeriod.value).uppercased()) FREE"
                     )
                     .offset(y: -9)
                 }
@@ -583,7 +692,13 @@ struct CustomPaywallView: View {
     }
 
     private func planAccessibilityLabel(_ plan: DisplayPlan, selected: Bool, trial: Bool) -> String {
-        var label = "\(plan.name), \(plan.package.storeProduct.localizedPriceString) per \(billingPeriod(for: plan.package.storeProduct))"
+        let product = plan.package.storeProduct
+        var label: String
+        if let intro = payUpFrontIntro(plan.package), introDisplayEligible(plan.package) {
+            label = "\(plan.name), \(intro.localizedPriceString) for the \(introDurationPhrase(intro)), then \(product.localizedPriceString) per \(billingPeriod(for: product))"
+        } else {
+            label = "\(plan.name), \(product.localizedPriceString) per \(billingPeriod(for: product))"
+        }
         if trial { label += ", includes an eligible free trial" }
         if selected { label += ", selected" }
         return label
