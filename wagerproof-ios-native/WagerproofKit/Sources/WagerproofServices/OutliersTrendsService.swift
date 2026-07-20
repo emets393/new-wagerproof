@@ -15,7 +15,9 @@ public actor OutliersTrendsService {
 
     private static let gameColumns = """
         game_id,season,week,home_ab,away_ab,home_team,away_team,\
-        fg_spread_close,fg_total_close,kickoff,slot,assigned_referee
+        fg_spread_close,fg_total_close,kickoff,slot,assigned_referee,\
+        fg_ml_home_close,fg_ml_away_close,h1_spread_close,h1_spread_home_price,\
+        h1_spread_away_price,h1_total_close,h1_total_over_price,h1_total_under_price
         """
 
     private static let teamColumns = "team_abbr,team_name,season,through_week,splits,matchups"
@@ -818,6 +820,14 @@ public actor OutliersTrendsService {
         let kickoff: String?
         let slot: String?
         let assignedReferee: String?
+        let fgMlHomeClose: Double?
+        let fgMlAwayClose: Double?
+        let h1SpreadClose: Double?
+        let h1SpreadHomePrice: Double?
+        let h1SpreadAwayPrice: Double?
+        let h1TotalClose: Double?
+        let h1TotalOverPrice: Double?
+        let h1TotalUnderPrice: Double?
 
         enum CodingKeys: String, CodingKey {
             case gameId = "game_id"
@@ -829,6 +839,14 @@ public actor OutliersTrendsService {
             case fgSpreadClose = "fg_spread_close"
             case fgTotalClose = "fg_total_close"
             case assignedReferee = "assigned_referee"
+            case fgMlHomeClose = "fg_ml_home_close"
+            case fgMlAwayClose = "fg_ml_away_close"
+            case h1SpreadClose = "h1_spread_close"
+            case h1SpreadHomePrice = "h1_spread_home_price"
+            case h1SpreadAwayPrice = "h1_spread_away_price"
+            case h1TotalClose = "h1_total_close"
+            case h1TotalOverPrice = "h1_total_over_price"
+            case h1TotalUnderPrice = "h1_total_under_price"
         }
 
         var model: OutliersTrendsGame {
@@ -844,7 +862,17 @@ public actor OutliersTrendsService {
                 fgTotalClose: fgTotalClose,
                 kickoff: kickoff,
                 slot: slot,
-                assignedReferee: assignedReferee
+                assignedReferee: assignedReferee,
+                nflContext: OutliersTrendsNFLContext(
+                    homeMl: fgMlHomeClose,
+                    awayMl: fgMlAwayClose,
+                    h1SpreadClose: h1SpreadClose,
+                    h1SpreadHomePrice: h1SpreadHomePrice,
+                    h1SpreadAwayPrice: h1SpreadAwayPrice,
+                    h1TotalClose: h1TotalClose,
+                    h1TotalOverPrice: h1TotalOverPrice,
+                    h1TotalUnderPrice: h1TotalUnderPrice
+                )
             )
         }
     }

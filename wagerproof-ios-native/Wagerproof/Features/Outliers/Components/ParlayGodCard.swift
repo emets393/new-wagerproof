@@ -58,6 +58,18 @@ struct ParlayGodCard: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Spacer(minLength: 4)
+            // Sport chips — one glyph per contributing sport (merged live
+            // slates put several on one card).
+            HStack(spacing: -4) {
+                ForEach(ticket.sports) { sport in
+                    Image(systemName: sport.sfSymbol)
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(Color.appTextSecondary)
+                        .frame(width: 17, height: 17)
+                        .background(Color.appSurfaceMuted, in: Circle())
+                        .overlay(Circle().stroke(Color.appBorder.opacity(0.5), lineWidth: 0.5))
+                }
+            }
             Text(ticket.combinedOddsText)
                 .font(.system(size: 13, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color.appPrimary)
@@ -131,6 +143,14 @@ struct ParlayGodCard: View {
             .clipShape(Circle())
         } else if leg.kind == .prop, let playerId = leg.playerId {
             PlayerHeadshot(playerId: playerId, size: size)
+        } else if leg.sport == .nfl {
+            let team = leg.teamAbbr ?? leg.subject
+            GameCardTeamAvatar(
+                teamName: team,
+                sport: "nfl",
+                size: size,
+                colors: NFLTeamColors.colorPair(for: team)
+            )
         } else {
             let team = leg.teamAbbr ?? leg.subject
             GameCardTeamAvatar(
@@ -223,6 +243,9 @@ struct ParlayGodRail: View {
     let icon: String
     let tickets: [ParlayTicket]
     let isLoading: Bool
+    /// Sports feeding this rail — rendered as a right-aligned "Supports"
+    /// overlapping-icon cluster in the section header. Empty = no cluster.
+    var sports: [ParlaySport] = []
     /// Rails hosted in a padded column bleed edge-to-edge past that inset
     /// (Outliers: Spacing.lg, Props: 12). nil = no bleed (Search's List rows
     /// manage their own margins).
@@ -288,8 +311,32 @@ struct ParlayGodRail: View {
                 .font(.footnote.weight(.semibold))
                 .textCase(.uppercase)
             Spacer(minLength: 0)
+            if !sports.isEmpty {
+                supportsCluster
+            }
         }
         .foregroundStyle(.secondary)
+    }
+
+    /// "Supports ⚾🏈" — overlapping circular sport icons, ordered per
+    /// `ParlaySport.displayOrder`. Tells users the rail pulls from every
+    /// sport with Outliers markets, not just the one the page filter shows.
+    private var supportsCluster: some View {
+        HStack(spacing: 5) {
+            Text("Supports")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color.appTextMuted)
+            HStack(spacing: -5) {
+                ForEach(sports) { sport in
+                    Image(systemName: sport.sfSymbol)
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Color.appTextSecondary)
+                        .frame(width: 19, height: 19)
+                        .background(Color.appSurfaceElevated, in: Circle())
+                        .overlay(Circle().stroke(Color.appBorder.opacity(0.6), lineWidth: 0.5))
+                }
+            }
+        }
     }
 
     @ViewBuilder

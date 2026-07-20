@@ -30,7 +30,8 @@ struct OutliersTrendsView: View {
                     title: "Parlay God",
                     icon: "bolt.fill",
                     tickets: parlayGodStore.slateTickets,
-                    isLoading: parlayGodStore.isLoading
+                    isLoading: parlayGodStore.isLoading,
+                    sports: parlayGodStore.slateSports
                 )
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, 4)
