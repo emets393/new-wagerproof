@@ -115,6 +115,7 @@ struct PostOnboardingPaywall: View {
                         agentName: onboarding.agentDraft.name,
                         spriteIndex: onboarding.agentDraft.spriteIndex ?? 0,
                         researchBucketRaw: onboarding.survey.researchTimeBucket,
+                        stakesBucketRaw: onboarding.survey.weeklyStakesBucket,
                         onPurchaseFinalized: { transaction, customerInfo in
                             Task { await finalize(transaction: transaction, customerInfo: customerInfo) }
                         },

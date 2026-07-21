@@ -18,6 +18,7 @@ struct CustomPaywallView: View {
     let agentName: String
     let spriteIndex: Int
     let researchBucketRaw: String?
+    let stakesBucketRaw: String?
     let onPurchaseFinalized: (StoreTransaction?, CustomerInfo) -> Void
     let onRequestClose: () -> Void
     /// Secret-Settings debug preview flag. When true, the close control renders
@@ -370,6 +371,7 @@ struct CustomPaywallView: View {
                         agentName: agentName,
                         spriteIndex: spriteIndex,
                         researchBucketRaw: researchBucketRaw,
+                        stakesBucketRaw: stakesBucketRaw,
                         compactHeight: true
                     )
 
@@ -388,6 +390,7 @@ struct CustomPaywallView: View {
                     agentName: agentName,
                     spriteIndex: spriteIndex,
                     researchBucketRaw: researchBucketRaw,
+                    stakesBucketRaw: stakesBucketRaw,
                     compactHeight: true
                 )
                 .frame(maxHeight: .infinity)
@@ -404,6 +407,7 @@ struct CustomPaywallView: View {
                     agentName: agentName,
                     spriteIndex: spriteIndex,
                     researchBucketRaw: researchBucketRaw,
+                    stakesBucketRaw: stakesBucketRaw,
                     compactHeight: compactHeight
                 )
                 .frame(maxHeight: .infinity)
@@ -430,6 +434,7 @@ struct CustomPaywallView: View {
                     agentName: agentName,
                     spriteIndex: spriteIndex,
                     researchBucketRaw: researchBucketRaw,
+                    stakesBucketRaw: stakesBucketRaw,
                     compactHeight: false
                 )
                 .frame(height: 590)
@@ -615,7 +620,7 @@ struct CustomPaywallView: View {
             VStack(spacing: compact ? 2 : 4) {
                 HStack(spacing: 5) {
                     Text(plan.name)
-                        .font(.system(size: compact ? 12 : 13.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: compact ? 13 : 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color.appTextPrimary)
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
@@ -625,7 +630,7 @@ struct CustomPaywallView: View {
                 }
 
                 Text((showIntro ? intro?.localizedPriceString : nil) ?? product.localizedPriceString)
-                    .font(.system(size: compact ? 17 : 20, weight: .bold, design: .rounded))
+                    .font(.system(size: compact ? 19 : 22, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -648,7 +653,7 @@ struct CustomPaywallView: View {
                     Text("per \(billingPeriod(for: product))")
                 }
             }
-            .font(.system(size: compact ? 9 : 10.5, weight: .medium))
+            .font(.system(size: compact ? 10.5 : 12, weight: .medium))
             .foregroundStyle(Color.appTextSecondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, compact ? 10 : 13)

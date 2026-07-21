@@ -864,7 +864,8 @@ enum OnboardingFixtures {
         s.favoriteSports = ["NFL", "NBA"]
         s.bettorType = bettor
         s.mainGoal = "Find profitable edges faster"
-        s.researchTimeBucket = "h6to10"
+        s.researchTimeBucket = "h2to3"
+        s.weeklyStakesBucket = "h150to400"
         return s
     }
 }

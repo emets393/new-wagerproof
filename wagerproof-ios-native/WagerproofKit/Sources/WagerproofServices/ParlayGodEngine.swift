@@ -218,6 +218,167 @@ public enum ParlayGodEngine {
         value == value.rounded() ? "\(Int(value))" : String(format: "%.1f", value)
     }
 
+    // MARK: - NFL team legs (nfl_team_trends splits + matchups via the Outliers NFL bundle)
+
+    /// FG spread/total juice isn't stored on `nfl_dryrun_games` — legs on those
+    /// markets price at the book-standard -110. ML and all H1 markets use real closes.
+    public static let nflDefaultJuice = -110.0
+
+    /// Mirrors `teamLegs(bundle:)` for the NFL slate. Market keys differ from
+    /// MLB's (moneyline/spread/total vs ml/rl/ou) and H1 replaces F5 as the
+    /// partial-game category (anchored to overall form, like F5).
+    public static func nflTeamLegs(bundle: NFLTrendsSlateBundle) -> [ParlayLeg] {
+        let teamByAbbr = Dictionary(uniqueKeysWithValues: bundle.teams.map { ($0.teamAbbr.uppercased(), $0) })
+        var legs: [ParlayLeg] = []
+
+        for game in bundle.games {
+            guard game.nflContext != nil else { continue }
+            let homeRole = nflHomeRole(game)
+
+            for (sideKey, abbr, oppAbbr) in [
+                ("home", game.homeAb, game.awayAb),
+                ("away", game.awayAb, game.homeAb),
+            ] {
+                guard let record = teamByAbbr[abbr.uppercased()] else { continue }
+                let role = homeRole.map { home in
+                    sideKey == "home" ? home : (home == "favorite" ? "underdog" : "favorite")
+                }
+
+                var dims: [(dim: String, category: ParlayGodCategory, ctx: String)] = [
+                    ("overall", .teamForm, "games"),
+                    (sideKey, .homeAway, sideKey == "home" ? "at home" : "on the road"),
+                ]
+                if let role {
+                    dims.append((role, .favDog, role == "favorite" ? "as favorite" : "as underdog"))
+                }
+
+                for market in ["moneyline", "spread", "total", "h1_spread", "h1_total"] {
+                    guard let marketBlock = record.splits[market] else { continue }
+                    for (dim, category, ctxText) in dims {
+                        let isH1 = market.hasPrefix("h1_")
+                        // H1 is its own category, anchored to overall form only.
+                        if isH1 && dim != "overall" { continue }
+                        let cat: ParlayGodCategory = isH1 ? .firstHalf : category
+                        guard let block = marketBlock[dim],
+                              let (cell, hitSide) = bestPerfectCell(block) else { continue }
+                        if let leg = makeNFLTeamLeg(
+                            game: game, sideKey: sideKey, abbr: abbr, oppAbbr: oppAbbr,
+                            market: market, n: cell.n, hits: hitSide ? cell.h : cell.l,
+                            hitSide: hitSide, contextText: ctxText, category: cat
+                        ) {
+                            legs.append(leg)
+                        }
+                    }
+                }
+
+                // H2H record vs today's opponent → Versus Opponent.
+                if let h2h = record.matchups[oppAbbr.uppercased()] {
+                    for market in ["moneyline", "spread", "total"] {
+                        guard let cell = h2h.markets[market], cell.n >= minSample else { continue }
+                        let pct = cell.pct ?? (cell.n > 0 ? Double(cell.h) / Double(cell.n) : 0)
+                        let hitSide: Bool
+                        if pct == 1.0 { hitSide = true } else if pct == 0.0 { hitSide = false } else { continue }
+                        if let leg = makeNFLTeamLeg(
+                            game: game, sideKey: sideKey, abbr: abbr, oppAbbr: oppAbbr,
+                            market: market, n: cell.n, hits: hitSide ? cell.h : cell.l,
+                            hitSide: hitSide, contextText: "vs \(oppAbbr.uppercased())",
+                            category: .versusOpponent
+                        ) {
+                            legs.append(leg)
+                        }
+                    }
+                }
+            }
+        }
+        return legs
+    }
+
+    /// Favorite/underdog from ML closes, falling back to the spread sign
+    /// (fg_spread_close is home-relative: negative = home favored).
+    private static func nflHomeRole(_ game: OutliersTrendsGame) -> String? {
+        if let home = game.nflContext?.homeMl, let away = game.nflContext?.awayMl, home != away {
+            return home < away ? "favorite" : "underdog"
+        }
+        if let spread = game.fgSpreadClose, spread != 0 {
+            return spread < 0 ? "favorite" : "underdog"
+        }
+        return nil
+    }
+
+    private static func makeNFLTeamLeg(
+        game: OutliersTrendsGame,
+        sideKey: String,
+        abbr: String,
+        oppAbbr: String,
+        market: String,
+        n: Int,
+        hits: Int,
+        hitSide: Bool,
+        contextText: String,
+        category: ParlayGodCategory
+    ) -> ParlayLeg? {
+        guard let ctx = game.nflContext else { return nil }
+        let isHome = sideKey == "home"
+        let isH1 = market.hasPrefix("h1_")
+        let pfx = isH1 ? "1H " : ""
+        // NFLTeams (not NFLTeamAssets) — the engine runs off-main in a detached
+        // task and NFLTeamAssets is @MainActor.
+        let teamNick = NFLTeams.nickname(for: isHome ? game.homeTeam : game.awayTeam)
+        let oppNick = NFLTeams.nickname(for: isHome ? game.awayTeam : game.homeTeam)
+
+        func build(subject: String, subjectAbbr: String, bet: String, odds: Double?,
+                   evidence: String, backed: String?, totalsFam: String? = nil, totalsSide: String? = nil) -> ParlayLeg? {
+            guard let odds, oddsOk(Int(odds.rounded())) else { return nil }
+            return ParlayLeg(
+                kind: .team, sport: .nfl, category: category, gameKey: game.id, matchupLabel: game.label,
+                gameTimeEt: game.kickoff, subject: subject, teamAbbr: subjectAbbr, playerId: nil,
+                betText: bet, odds: Int(odds.rounded()), evidence: evidence, streakN: n,
+                marketKey: market, backedTeamAbbr: backed, totalsFamily: totalsFam, totalsSide: totalsSide
+            )
+        }
+
+        switch market {
+        case "moneyline":
+            let teamOdds = isHome ? ctx.homeMl : ctx.awayMl
+            let oppOdds = isHome ? ctx.awayMl : ctx.homeMl
+            if hitSide {
+                return build(subject: teamNick, subjectAbbr: abbr, bet: "\(abbr) ML", odds: teamOdds,
+                             evidence: "Won \(hits) straight \(contextText)", backed: abbr)
+            }
+            // Perfect losing streak → back the opponent.
+            return build(subject: oppNick, subjectAbbr: oppAbbr, bet: "\(oppAbbr) ML", odds: oppOdds,
+                         evidence: "\(abbr) lost \(hits) straight \(contextText)", backed: oppAbbr)
+        case "spread", "h1_spread":
+            // Close is home-relative; flip for the away side.
+            guard let close = isH1 ? ctx.h1SpreadClose : game.fgSpreadClose else { return nil }
+            if hitSide {
+                let spread = isHome ? close : -close
+                let juice = isH1 ? (isHome ? ctx.h1SpreadHomePrice : ctx.h1SpreadAwayPrice) : nflDefaultJuice
+                return build(subject: teamNick, subjectAbbr: abbr, bet: "\(pfx)\(abbr) \(spreadText(spread))", odds: juice,
+                             evidence: "Covered \(hits) straight \(contextText)", backed: abbr)
+            }
+            let spread = isHome ? -close : close
+            let juice = isH1 ? (isHome ? ctx.h1SpreadAwayPrice : ctx.h1SpreadHomePrice) : nflDefaultJuice
+            return build(subject: oppNick, subjectAbbr: oppAbbr, bet: "\(pfx)\(oppAbbr) \(spreadText(spread))", odds: juice,
+                         evidence: "\(abbr) failed to cover \(hits) straight \(contextText)", backed: oppAbbr)
+        case "total", "h1_total":
+            guard let total = isH1 ? ctx.h1TotalClose : game.fgTotalClose else { return nil }
+            let family = isH1 ? "h1_total" : "total"
+            if hitSide {
+                return build(subject: teamNick, subjectAbbr: abbr, bet: "\(pfx)Over \(lineText(total))",
+                             odds: isH1 ? ctx.h1TotalOverPrice : nflDefaultJuice,
+                             evidence: "Over hit \(hits) straight \(abbr) \(contextText)", backed: nil,
+                             totalsFam: family, totalsSide: "over")
+            }
+            return build(subject: teamNick, subjectAbbr: abbr, bet: "\(pfx)Under \(lineText(total))",
+                         odds: isH1 ? ctx.h1TotalUnderPrice : nflDefaultJuice,
+                         evidence: "Under hit \(hits) straight \(abbr) \(contextText)", backed: nil,
+                         totalsFam: family, totalsSide: "under")
+        default:
+            return nil
+        }
+    }
+
     // MARK: - Prop legs (props slate via get_mlb_player_props_l10)
 
     public static func propLegs(matchups: [MLBPropMatchup]) -> [ParlayLeg] {
@@ -328,7 +489,7 @@ public enum ParlayGodEngine {
                 func nflLeg(category: ParlayGodCategory, over: Bool, odds: Int?, evidence: String, n: Int) -> ParlayLeg? {
                     guard let odds, oddsOk(odds) else { return nil }
                     return ParlayLeg(
-                        kind: .prop, category: category, gameKey: player.gameId, matchupLabel: label,
+                        kind: .prop, sport: .nfl, category: category, gameKey: player.gameId, matchupLabel: label,
                         gameTimeEt: player.gameDate.isEmpty ? nil : player.gameDate,
                         subject: name, teamAbbr: team, playerId: nil, headshotUrl: player.headshotUrl,
                         betText: "\(over ? "Over" : "Under") \(lineText(line)) \(marketLabel)",
@@ -442,36 +603,99 @@ public enum ParlayGodEngine {
 
     // MARK: - Ticket building
 
-    /// One themed 5-leg ticket per category (cross-game), game markets ONLY —
-    /// Parlay God mirrors the Outliers page's markets (ML / RL / totals / F5);
-    /// player props are Props Cheats territory on the Props tab. Categories
+    /// One themed 5-leg ticket per category — cross-game, game markets ONLY:
+    /// Parlay God mirrors the Outliers page's markets (MLB ML/RL/totals/F5,
+    /// NFL ML/spread/totals/H1); player props are Props Cheats territory on
+    /// the Props tab. Sports whose slates are concurrently LIVE merge into one
+    /// cross-sport card per category (cross-sport parlays are placeable);
+    /// stale slates — e.g. the NFL dry-run's past dates — keep their own
+    /// per-sport card so a merged ticket is never a fictional bet. Categories
     /// that can't field `minLegs` today are dropped — thin days shrink the rail.
-    public static func slateTickets(from pool: [ParlayLeg]) -> [ParlayTicket] {
-        buildCategoryTickets(from: pool.filter { $0.kind == .team }, idPrefix: "slate", onePerGame: true)
+    public static func slateTickets(from pool: [ParlayLeg], now: Date = Date()) -> [ParlayTicket] {
+        buildCategoryTickets(from: pool.filter { $0.kind == .team }, idPrefix: "slate", onePerGame: true, now: now)
     }
 
     /// Player-prop legs only — the "Props Cheats" rail.
-    public static func propsTickets(from pool: [ParlayLeg]) -> [ParlayTicket] {
-        buildCategoryTickets(from: pool.filter { $0.kind == .prop }, idPrefix: "props", onePerGame: false)
+    public static func propsTickets(from pool: [ParlayLeg], now: Date = Date()) -> [ParlayTicket] {
+        buildCategoryTickets(from: pool.filter { $0.kind == .prop }, idPrefix: "props", onePerGame: false, now: now)
+    }
+
+    /// Sports that currently field at least one ticket — drives the rail
+    /// header's "Supports" icon cluster.
+    public static func sports(in tickets: [ParlayTicket]) -> [ParlaySport] {
+        let present = Set(tickets.flatMap(\.sports))
+        return ParlaySport.displayOrder.filter { present.contains($0) }
+    }
+
+    // MARK: - Slate liveness
+
+    /// A sport's slate is live when any of its legs' games hasn't long started
+    /// (6h grace keeps the day's slate merged through the last first pitch).
+    /// Dry-run slates — entirely past dates — fail, as do legs with no
+    /// parseable kickoff.
+    static func liveSports(in pool: [ParlayLeg], now: Date) -> Set<ParlaySport> {
+        let cutoff = now.addingTimeInterval(-6 * 3600)
+        var live: Set<ParlaySport> = []
+        for leg in pool where !live.contains(leg.sport) {
+            if let start = kickoffDate(leg.gameTimeEt), start >= cutoff {
+                live.insert(leg.sport)
+            }
+        }
+        return live
+    }
+
+    static func kickoffDate(_ raw: String?) -> Date? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso.date(from: raw) { return date }
+        iso.formatOptions = [.withInternetDateTime]
+        if let date = iso.date(from: raw) { return date }
+        // Date-only fallback ("2026-07-20") → noon ET that day.
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = TimeZone(identifier: "America/New_York")
+        fmt.dateFormat = "yyyy-MM-dd"
+        return fmt.date(from: raw)?.addingTimeInterval(12 * 3600)
     }
 
     private static func buildCategoryTickets(
         from pool: [ParlayLeg],
         idPrefix: String,
-        onePerGame: Bool
+        onePerGame: Bool,
+        now: Date = Date()
     ) -> [ParlayTicket] {
+        // Liveness is per sport over the WHOLE pool (not per category) so a
+        // sport can't be merged in one card and separate in the next.
+        let live = liveSports(in: pool, now: now)
         let byCategory = Dictionary(grouping: pool, by: \.category)
-        return ParlayGodCategory.displayOrder.compactMap { category in
-            guard let legs = byCategory[category] else { return nil }
-            let chosen = assemble(legs, maxLegs: maxLegs, onePerGame: onePerGame)
-            guard chosen.count >= minLegs else { return nil }
-            return ParlayTicket(
-                id: "\(idPrefix)-\(category.rawValue)",
-                category: category,
-                legs: chosen,
-                combinedOddsText: combinedOddsText(chosen)
-            )
+        var tickets: [ParlayTicket] = []
+        for category in ParlayGodCategory.displayOrder {
+            guard let categoryLegs = byCategory[category] else { continue }
+            // Merged live pool first, then one pool per stale sport.
+            var pools: [[ParlayLeg]] = []
+            let liveLegs = categoryLegs.filter { live.contains($0.sport) }
+            if !liveLegs.isEmpty { pools.append(liveLegs) }
+            for sport in ParlaySport.displayOrder where !live.contains(sport) {
+                let sportLegs = categoryLegs.filter { $0.sport == sport }
+                if !sportLegs.isEmpty { pools.append(sportLegs) }
+            }
+            for legPool in pools {
+                let chosen = assemble(legPool, maxLegs: maxLegs, onePerGame: onePerGame)
+                guard chosen.count >= minLegs else { continue }
+                let sports = ParlaySport.displayOrder.filter { sport in
+                    chosen.contains { $0.sport == sport }
+                }
+                tickets.append(ParlayTicket(
+                    id: "\(idPrefix)-\(sports.map(\.rawValue).joined(separator: "+"))-\(category.rawValue)",
+                    sports: sports,
+                    category: category,
+                    legs: chosen,
+                    combinedOddsText: combinedOddsText(chosen)
+                ))
+            }
         }
+        return tickets
     }
 
     /// Up to `maxCards` same-game tickets for one matchup, mixing team +
@@ -489,6 +713,7 @@ public enum ParlayGodEngine {
             guard chosen.count >= minLegs else { break }
             tickets.append(ParlayTicket(
                 id: "game-\(gameKey)-\(index)",
+                sports: [chosen[0].sport],
                 category: chosen[0].category,
                 legs: chosen,
                 combinedOddsText: combinedOddsText(chosen)

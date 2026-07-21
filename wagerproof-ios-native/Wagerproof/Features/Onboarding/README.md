@@ -1,8 +1,8 @@
-# Onboarding v2 — flow, research-time arc, and the post-onboarding paywall
+# Onboarding v2 — flow, value arc, and the post-onboarding paywall
 
-24-step flow: 21 carousel pages (`OnboardingStore.Step` 1–21, one shared
+25-step flow: 22 carousel pages (`OnboardingStore.Step` 1–22, one shared
 shell in `OnboardingCarouselContainer`) + 3 full-screen cinematic phases
-(generation 22, reveal 23, time-value summary + fist bump 24). Page 12
+(generation 23, reveal 24, value summary + fist bump 25). Page 13
 (`agentLeaderboard`, `Pages/OnboardingLeaderboardPage.swift`) is the
 animated leaderboard pitch: rows deal in, the #1 agent's streak chip counts
 up to W7, and a "7 in a row" callout pops with a success haptic (SAMPLE
@@ -12,33 +12,45 @@ map in `OnboardingCarouselContainer.pageContent(for:)`; per-page CTA copy +
 gating in `OnboardingPageSpec`. Completion → `RootView` presents
 `PostOnboardingPaywall` as a `fullScreenCover` for non-Pro users.
 
-## The research-time arc (steps 6–8)
+## The value arc (steps 6–9)
 
-Personalized time-value persuasion, replacing the old `personalizedValue`
-pitch page (deleted — its "2× value / +30% hit rate / +40 units" copy was
-unsupported). The user self-reports weekly research hours; everything else
-is derived from that answer.
+Personalized persuasion, replacing the old `personalizedValue` pitch page
+(deleted — its "2× value / +30% hit rate / +40 units" copy was unsupported).
+Modelled on Orbital Focus's screen-time arc. Two self-reported inputs — daily
+sports-app-checking **time** and weekly bet **amount** — drive two parallel
+threads on the same reveals: time framed as **"years of your life"** and money
+framed as **"in play / at risk"** (turnover, never returns).
 
 | Step | Page | What it does |
 |---|---|---|
-| 6 `researchTime` | `Pages/OnboardingResearchTimePage.swift` | Six weekly buckets + branched conversational reply. Writes `survey.researchTimeBucket` (raw `ResearchTimeBucket` id — stable strings, never rename; synced to `profiles.onboarding_data.researchTimeBucket`). |
-| 7 `researchCost` | `Pages/OnboardingResearchRevealPages.swift` | Staged "bad news": hours/month count-up → hours/year roll → full-days reframe. CTA "Fix this" unlocks when the sequence lands (`hasSeenCostReveal`). |
-| 8 `researchReclaim` | same file | Staged "good news": conservative reclaimed-hours figure (floor+"+"), weekly range, goal-branched close, always-visible disclosure. CTA "Show me how" (`hasSeenReclaimReveal`). |
+| 6 `researchTime` | `Pages/OnboardingResearchTimePage.swift` | Seven daily time buckets + branched reply. Writes `survey.researchTimeBucket` (raw `ResearchTimeBucket` id — stable strings, never rename; synced to `profiles.onboarding_data.researchTimeBucket`; old weekly values resolve to `.unknown`). |
+| 7 `weeklyStakes` | same file (`OnboardingStakesPage`) | Six weekly bet-amount buckets ("Under $50"…"$1,000+"/"Prefer not to say") + branched reply. Writes `survey.weeklyStakesBucket` (raw `StakesBucket` id). Sizes risk only; "Prefer not to say" resolves to a median. |
+| 8 `researchCost` | `Pages/OnboardingResearchRevealPages.swift` | Staged "bad news", two beats: this year → **N days** + **risk $X**; across your life → **N years** + **risk $Y**. CTA "Fix this" (`hasSeenCostReveal`). |
+| 9 `researchReclaim` | same file | Staged "good news": "WagerProof researches for you" → reclaimed-years floor+"+" + weekly-hours anchor → "**Protect your $X** and spend more time enjoying the games" + disclosure. CTA "Show me how" (`hasSeenReclaimReveal`). |
 
-**All math and copy live in one place: `ResearchTime.swift`** (buckets,
-`ResearchTimeEstimates`, disclosures). Assumptions (owner-approved):
-40 active betting weeks/year; 40–60% of research time is automatable
-scanning. Estimates render only as ranges or floor+"+" figures with the
-disclosure on screen — never point claims, never profit/win language.
+**All math and copy live in one place: `ResearchTime.swift`** —
+`ResearchTimeBucket`/`ResearchTimeEstimates` (time) and
+`StakesBucket`/`StakesEstimates` (money). Assumptions (owner-approved): a
+betting lifetime of ~46 years at ~16 waking hours/day (the "years of your
+life" basis); 75% of the repetitive checking is what an agent automates;
+yearly action = weekly × 52, lifetime action = yearly × 46. The cost reveal
+is just the user's own reported time/money projected; the reclaim's time is
+scoped to the automatable checking. **Money is quantified as turnover only
+(total wagered), never winnings, losses, or returns** — disclosure always on
+screen. No profit/win language anywhere in the arc.
 
 The arc's numbers reprise three more times: the `agentValueIntro`
 carousel's first slide (`OnboardingAgentPitchPages.swift`,
-`valueMarkerSlide` — highlighter-marker rows with the user's reclaim range;
-slide 2 is the win-rate bell-curve comparison, tagged ILLUSTRATIVE; slide 3
-the Outliers example), the step-23 summary, and the paywall's agent card.
+`valueMarkerSlide` — highlighter-marker rows with the user's reclaim years +
+weekly-hours anchor; slide 2 is the win-rate bell-curve comparison, tagged
+ILLUSTRATIVE; slide 3 the Outliers example), the step-25 summary, and the
+paywall's before/after page (bullet 1 becomes **"Protect your $X in
+projected bets this year"** — `stakesBucketRaw` threads from
+`PostOnboardingPaywall` → `CustomPaywallView` → `CustomPaywallFeaturePages`).
 
-**Step 23 (`timeSummary`)** — `Cinematic/OnboardingTimeSummaryView.swift`:
-"WagerProof will get you back N+ hours every year" + three value cards,
+**Step 25 (`timeSummary`)** — `Cinematic/OnboardingTimeSummaryView.swift`:
+"WagerProof will get you back N+ years of your life" + three value cards (the
+third now the money card, **"Protect your $X this year"**),
 then the fist-bump confirmation (`WagerFistBumpExplosion`, ported from
 Orbital Focus: fly-in, wind-up wiggle, punch, 52-emoji radial burst with
 haptic choreography). The fist bump calls `markComplete()`, which is what

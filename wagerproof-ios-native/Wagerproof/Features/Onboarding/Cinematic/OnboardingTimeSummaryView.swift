@@ -35,6 +35,10 @@ struct OnboardingTimeSummaryView: View {
         ResearchTimeEstimates(rawBucket: store.survey.researchTimeBucket)
     }
 
+    private var stakes: StakesEstimates {
+        StakesEstimates(rawBucket: store.survey.weeklyStakesBucket)
+    }
+
     var body: some View {
         Group {
             switch beat {
@@ -59,13 +63,13 @@ struct OnboardingTimeSummaryView: View {
     private var summaryScreen: some View {
         VStack(spacing: 0) {
             (Text("WagerProof will get you back ")
-                + Text("\(estimates.reclaimYearLowDisplay)+ hours")
+                + Text("\(estimates.reclaimYears)+ \(ResearchTimeEstimates.yearsWord(estimates.reclaimYears))")
                     .foregroundStyle(
                         LinearGradient(colors: [accent, accent.opacity(0.65)],
                                        startPoint: .leading, endPoint: .trailing)
                     )
                     .bold()
-                + Text(" every year"))
+                + Text(" of your life"))
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
@@ -76,8 +80,8 @@ struct OnboardingTimeSummaryView: View {
             VStack(spacing: 26) {
                 valueCard(
                     icon: "clock.badge.checkmark",
-                    title: "\(uppercasedFirst(estimates.weeklyRangeText)) back every week",
-                    detail: "Your agents run the line checks, model reads, and trend scans for you."
+                    title: "About \(estimates.reclaimHoursPerWeek) hours back every week",
+                    detail: "Your agents run the score checks, line refreshes, and model reads for you."
                 )
                 .pageEntrance(index: 1)
                 valueCard(
@@ -87,9 +91,9 @@ struct OnboardingTimeSummaryView: View {
                 )
                 .pageEntrance(index: 2)
                 valueCard(
-                    icon: "calendar.badge.clock",
-                    title: "\(estimates.reclaimYearLowDisplay)+ hours a year",
-                    detail: "Time that goes back to watching games, not grinding spreadsheets."
+                    icon: "checkmark.shield.fill",
+                    title: "Protect your \(stakes.yearlyActionDisplay) this year",
+                    detail: "Do more with the money you already put in play."
                 )
                 .pageEntrance(index: 3)
             }
@@ -135,11 +139,6 @@ struct OnboardingTimeSummaryView: View {
             }
             Spacer(minLength: 0)
         }
-    }
-
-    private func uppercasedFirst(_ text: String) -> String {
-        guard let first = text.first else { return text }
-        return first.uppercased() + text.dropFirst()
     }
 }
 

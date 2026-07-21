@@ -1,22 +1,23 @@
 // OnboardingResearchRevealPages.swift
 //
 // Pages 7 + 8: the staged time-value reveals driven by the bucket chosen on
-// the research-time page.
+// the daily-checking page. Framed as "years of your life" (see
+// ResearchTime.swift) — the Orbital Focus screen-time beat.
 //
-//   7 (researchCost)    — the bad news: hours/month count-up, then the
-//                         hours/year figure, reframed as full days. Warning
-//                         haptic landings. CTA "Fix this".
-//   8 (researchReclaim) — the good news: a conservative reclaimed-hours
-//                         figure (floor+"+", weekly range beneath), a close
-//                         branched on the user's primary goal, and the
+//   7 (researchCost)    — the bad news: days-this-year count-up, then the
+//                         years-of-your-life figure. Warning haptic landings.
+//                         CTA "Fix this".
+//   8 (researchReclaim) — the good news: a conservative reclaimed-years
+//                         figure (floor+"+", weekly-hours anchor beneath), a
+//                         close branched on the user's primary goal, and the
 //                         always-visible disclosure. Success landing. CTA
 //                         "Show me how".
 //
 // Both pages gate the shared chrome's Continue on their sequence landing
 // (store.setCostRevealSeen / setReclaimRevealSeen) — the numbers ARE the
 // page. Under Reduce Motion everything renders at once and the CTA enables
-// immediately. Estimates are ranges/floors with on-screen disclosures —
-// never outcomes, never profit language (see ResearchTime.swift).
+// immediately. Estimates are floors with on-screen disclosures — never
+// outcomes, never profit language (see ResearchTime.swift).
 
 import SwiftUI
 import WagerproofDesign
@@ -29,9 +30,9 @@ struct OnboardingResearchCostPage: View {
     @Environment(\.onboardingPageIsActive) private var isActive
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var showMonthly = false
-    @State private var showYearLead = false
-    @State private var showYearNumber = false
+    @State private var showDays = false
+    @State private var showMeaning = false
+    @State private var showYears = false
     @State private var showClose = false
     @State private var sequenceStarted = false
 
@@ -43,67 +44,104 @@ struct OnboardingResearchCostPage: View {
         ResearchTimeEstimates(rawBucket: store.survey.researchTimeBucket)
     }
 
+    private var stakes: StakesEstimates {
+        StakesEstimates(rawBucket: store.survey.weeklyStakesBucket)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
 
             VStack(spacing: 22) {
-                if showMonthly {
-                    VStack(spacing: 6) {
-                        Text("In season, that's about")
+                if showDays {
+                    VStack(spacing: 8) {
+                        Text("This year, you'll spend")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.75))
+                            .multilineTextAlignment(.center)
                         ResearchRollingNumber(
-                            target: estimates.hoursPerMonth,
-                            suffix: " hours a month",
-                            numberFont: .system(size: 34, weight: .heavy),
-                            suffixFont: .system(size: 22, weight: .bold),
+                            target: estimates.daysThisYear,
+                            suffix: " days",
+                            numberFont: .system(size: 44, weight: .heavy),
+                            suffixFont: .system(size: 26, weight: .bold),
                             style: AnyShapeStyle(Color.white),
                             isActive: true,
                             landing: .warning
                         )
-                        Text("spent researching bets")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.75))
+                        ResearchRollingNumber(
+                            prefix: "and risk $",
+                            target: stakes.yearlyAction,
+                            suffix: "",
+                            groupsDigits: true,
+                            numberFont: .system(size: 27, weight: .heavy),
+                            suffixFont: .system(size: 27, weight: .heavy),
+                            style: AnyShapeStyle(Color.white),
+                            isActive: true,
+                            landing: .warning,
+                            firesHaptics: false   // the days figure carries the beat's haptic
+                        )
+                        Text("checking scores, odds, and apps")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.7))
                     }
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
-                if showYearLead {
-                    Text("Over a year, you're on track to spend")
+                if showMeaning {
+                    Text("Across your life, you'll spend")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                        .padding(.top, 4)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
-                if showYearNumber {
-                    ResearchRollingNumber(
-                        target: estimates.hoursPerYear,
-                        suffix: " hours",
-                        numberFont: .system(size: 58, weight: .black),
-                        suffixFont: .system(size: 30, weight: .heavy),
-                        style: AnyShapeStyle(
-                            LinearGradient(
-                                colors: [accent, accent.opacity(0.55)],
-                                startPoint: .leading, endPoint: .trailing
-                            )
-                        ),
-                        isActive: true,
-                        landing: .warning
-                    )
+                if showYears {
+                    VStack(spacing: 6) {
+                        ResearchRollingNumber(
+                            target: estimates.yearsOfLife,
+                            suffix: " \(ResearchTimeEstimates.yearsWord(estimates.yearsOfLife))",
+                            numberFont: .system(size: 58, weight: .black),
+                            suffixFont: .system(size: 30, weight: .heavy),
+                            style: AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [accent, accent.opacity(0.55)],
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                            ),
+                            isActive: true,
+                            landing: .warning
+                        )
+                        ResearchRollingNumber(
+                            prefix: "and risk $",
+                            target: stakes.lifetimeAction,
+                            suffix: "",
+                            groupsDigits: true,
+                            numberFont: .system(size: 30, weight: .heavy),
+                            suffixFont: .system(size: 30, weight: .heavy),
+                            style: AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [accent, accent.opacity(0.55)],
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                            ),
+                            isActive: true,
+                            landing: .warning,
+                            firesHaptics: false   // the years figure carries the beat's haptic
+                        )
+                    }
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
 
                 if showClose {
                     VStack(spacing: 14) {
-                        Text("That's **\(estimates.daysPerYearEquivalent) full days** of grinding through lines, trends, and stats.")
+                        Text("on the board. **Yep — you read that right.**")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.85))
                             .multilineTextAlignment(.center)
                             .lineSpacing(4)
 
-                        Text(ResearchTimeEstimates.costFootnote)
+                        Text("Total wagered — money in play, not winnings or losses. Time at about 16 waking hours a day.")
                             .font(.system(size: 12))
                             .foregroundStyle(Color.white.opacity(0.45))
                             .multilineTextAlignment(.center)
@@ -127,23 +165,23 @@ struct OnboardingResearchCostPage: View {
         if reduceMotion {
             var t = Transaction(); t.disablesAnimations = true
             withTransaction(t) {
-                showMonthly = true; showYearLead = true
-                showYearNumber = true; showClose = true
+                showDays = true; showMeaning = true
+                showYears = true; showClose = true
             }
             store.setCostRevealSeen()
             AccessibilityNotification.Announcement(
-                "About \(estimates.hoursPerYear) hours a year spent researching — \(estimates.daysPerYearEquivalent) full days."
+                "This year, about \(estimates.daysThisYear) days and \(stakes.yearlyActionDisplay) on sports betting. Across your life, \(estimates.yearsOfLife) \(ResearchTimeEstimates.yearsWord(estimates.yearsOfLife)) and \(stakes.lifetimeActionDisplay)."
             ).post()
             return
         }
 
-        withAnimation(.easeOut(duration: 0.5)) { showMonthly = true }
-        // Monthly roll (~1.2s) + a beat to let it land.
+        withAnimation(.easeOut(duration: 0.5)) { showDays = true }
+        // Days roll (~1.2s) + a beat to let it land.
         try? await Task.sleep(nanoseconds: 2_600_000_000)
-        withAnimation(.easeOut(duration: 0.45)) { showYearLead = true }
+        withAnimation(.easeOut(duration: 0.45)) { showMeaning = true }
         try? await Task.sleep(nanoseconds: 900_000_000)
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { showYearNumber = true }
-        // Year roll (~1.2s) + hold so the number sinks in.
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { showYears = true }
+        // Years roll (~1.2s) + hold so the number sinks in.
         try? await Task.sleep(nanoseconds: 2_400_000_000)
         withAnimation(.easeOut(duration: 0.5)) { showClose = true }
         try? await Task.sleep(nanoseconds: 500_000_000)
@@ -171,13 +209,17 @@ struct OnboardingResearchReclaimPage: View {
         ResearchTimeEstimates(rawBucket: store.survey.researchTimeBucket)
     }
 
+    private var stakes: StakesEstimates {
+        StakesEstimates(rawBucket: store.survey.weeklyStakesBucket)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
 
             VStack(spacing: 22) {
                 if showLead {
-                    Text("The good news: your agent takes over the repetitive part.")
+                    Text("The good news: WagerProof researches for you.")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
@@ -188,8 +230,8 @@ struct OnboardingResearchReclaimPage: View {
                 if showNumber {
                     VStack(spacing: 10) {
                         ResearchRollingNumber(
-                            target: estimates.reclaimYearLowDisplay,
-                            suffix: "+ hours",
+                            target: estimates.reclaimYears,
+                            suffix: "+ \(ResearchTimeEstimates.yearsWord(estimates.reclaimYears))",
                             numberFont: .system(size: 58, weight: .black),
                             suffixFont: .system(size: 30, weight: .heavy),
                             style: AnyShapeStyle(
@@ -202,7 +244,7 @@ struct OnboardingResearchReclaimPage: View {
                             landing: .success
                         )
 
-                        Text("back every year. Roughly \(estimates.weeklyRangeText) each week of the season.")
+                        Text("of your life back — about \(estimates.reclaimHoursPerWeek) hours a week you'll never scan again.")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.85))
                             .multilineTextAlignment(.center)
@@ -212,9 +254,9 @@ struct OnboardingResearchReclaimPage: View {
                 }
 
                 if showClose {
-                    Text(ResearchTimeEstimates.reclaimClose(forGoal: store.survey.mainGoal))
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.75))
+                    Text("Protect your **\(stakes.yearlyActionDisplay)** and spend more time enjoying the games.")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.85))
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
                         .padding(.horizontal, 8)
@@ -223,8 +265,9 @@ struct OnboardingResearchReclaimPage: View {
 
                 if showNumber {
                     // Disclosure travels WITH the figure (never behind a tap):
-                    // the estimate and its qualification are one unit.
-                    Text(ResearchTimeEstimates.reclaimDisclosure)
+                    // the estimate and its qualification are one unit. Covers
+                    // both the time projection and the money (turnover only).
+                    Text("Estimates from your answers. Time projected across a betting lifetime at about 16 waking hours a day; dollars are money wagered, not winnings or losses. WagerProof does not promise profits or outcomes.")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Color.white.opacity(0.45))
                         .multilineTextAlignment(.center)
@@ -250,7 +293,7 @@ struct OnboardingResearchReclaimPage: View {
             withTransaction(t) { showLead = true; showNumber = true; showClose = true }
             store.setReclaimRevealSeen()
             AccessibilityNotification.Announcement(
-                "A WagerProof agent can hand back an estimated \(estimates.reclaimYearLowDisplay) plus hours a year — roughly \(estimates.weeklyRangeText) each week."
+                "WagerProof can hand back an estimated \(estimates.reclaimYears) plus \(ResearchTimeEstimates.yearsWord(estimates.reclaimYears)) of your life — about \(estimates.reclaimHoursPerWeek) hours a week — so you can protect the \(stakes.yearlyActionDisplay) you bet and enjoy the games."
             ).post()
             return
         }
@@ -277,23 +320,37 @@ struct OnboardingResearchReclaimPage: View {
 private struct ResearchRollingNumber: View {
     enum Landing { case warning, success }
 
+    /// Optional static leading text at `numberFont` (e.g. "and risk $"). The
+    /// number rolls; the prefix stays put.
+    var prefix: String = ""
     let target: Int
     let suffix: String
+    /// Group the rolling value with the locale's thousands separators
+    /// ("13,000") — for currency figures.
+    var groupsDigits: Bool = false
     let numberFont: Font
     let suffixFont: Font
     let style: AnyShapeStyle
     /// Start trigger — the parent shows this view when its stage begins.
     let isActive: Bool
     let landing: Landing
+    /// A companion roller (e.g. the money beside the time figure) can roll
+    /// SILENTLY so the beat still lands on one haptic, not two overlapping.
+    var firesHaptics: Bool = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var value = 0
     @State private var landed = false
     @State private var started = false
 
+    private var valueText: String { groupsDigits ? value.formatted() : "\(value)" }
+    private var targetText: String { groupsDigits ? target.formatted() : "\(target)" }
+
     var body: some View {
         (
-            Text("\(value)")
+            Text(prefix)
+                .font(numberFont)
+            + Text(valueText)
                 .font(numberFont)
             + Text(suffix)
                 .font(suffixFont)
@@ -302,9 +359,9 @@ private struct ResearchRollingNumber: View {
         .monospacedDigit()
         .contentTransition(.numericText(value: Double(value)))
         .multilineTextAlignment(.center)
-        .sensoryFeedback(.selection, trigger: value)
-        .sensoryFeedback(landing == .warning ? .impact(weight: .heavy) : .success, trigger: landed)
-        .accessibilityLabel("\(target)\(suffix)")
+        .sensoryFeedback(.selection, trigger: firesHaptics ? value : -1)
+        .sensoryFeedback(landing == .warning ? .impact(weight: .heavy) : .success, trigger: firesHaptics ? landed : false)
+        .accessibilityLabel("\(prefix)\(targetText)\(suffix)")
         .onChange(of: isActive, initial: true) { _, active in
             guard active, !started else { return }
             started = true
