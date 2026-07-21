@@ -5,7 +5,7 @@ import { AIPayloadViewer } from '@/components/AIPayloadViewer';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { MarketOddsSection } from '../MarketOddsSection';
 import { MatchSimulatorSection } from '../MatchSimulatorSection';
-import { NbaPredictionsSection } from './NbaPredictionsSection';
+import { NbaSpreadSection, NbaTotalSection } from './NbaPredictionsSection';
 import { NbaBettingTrendsSection } from './NbaBettingTrendsSection';
 import { NbaTeamStatsSection } from './NbaTeamStatsSection';
 import { NbaInjuriesSection } from './NbaInjuriesSection';
@@ -14,9 +14,9 @@ import type { NBAPrediction } from '../../../api/nbaGames';
 import type { SportSectionsProps } from '../index';
 
 /**
- * NBA detail-pane stack: Model Predictions + Market Odds + Match Simulator
- * (from GameDetailsModal) and Betting Trends / Team Stats / Injuries (from
- * MatchupOverviewModal), plus the admin-only AI Payload viewer.
+ * NBA detail-pane stack: Spread + Total (one card per market, split out of the
+ * old combined Model Predictions card) + Market Odds + Match Simulator, then
+ * Betting Trends / Team Stats / Injuries, plus the admin-only AI Payload viewer.
  */
 export function NbaSections({ game, completions, onCompletionGenerated }: SportSectionsProps) {
   const { adminModeEnabled } = useAdminMode();
@@ -27,7 +27,8 @@ export function NbaSections({ game, completions, onCompletionGenerated }: SportS
 
   return (
     <>
-      <NbaPredictionsSection game={game} completions={completions} />
+      <NbaSpreadSection game={game} completions={completions} />
+      <NbaTotalSection game={game} completions={completions} />
       <MarketOddsSection game={game} />
       <MatchSimulatorSection game={game} />
       <NbaBettingTrendsSection game={game} trends={overview.trends} loading={overview.trendsLoading} />

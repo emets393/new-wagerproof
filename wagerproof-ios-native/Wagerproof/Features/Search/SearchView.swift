@@ -91,6 +91,12 @@ struct SearchView: View {
     /// Tapped Outliers trend card → presented full in a bottom sheet (the same
     /// one the Outliers tab uses), keeping the user in their search results.
     @State private var selectedTrend: SearchStore.SearchResult.Trend?
+    /// Historical Trends leaf pushed from the Explore rail's Trends drawer.
+    @State private var trendsDestination: HistoricalAnalysisSport?
+    @State private var showTrendsDrawer = false
+    /// Sport chosen inside the drawer. Held until the sheet has actually gone —
+    /// pushing while it's still up lands the destination behind the sheet.
+    @State private var pendingTrendsSport: HistoricalAnalysisSport?
 
     /// `initialQuery` pre-seeds the search field — screenshot harness only.
     init(initialQuery: String = "") {
@@ -172,6 +178,19 @@ struct SearchView: View {
             }
             .navigationDestination(item: $insightDestination) { dest in
                 insightDestinationView(dest)
+            }
+            .navigationDestination(item: $trendsDestination) { sport in
+                HistoricalAnalysisView(sport: sport)
+            }
+            .sheet(isPresented: $showTrendsDrawer) {
+                // Push only once the sheet is fully gone, otherwise the pushed
+                // view appears underneath it.
+                if let sport = pendingTrendsSport {
+                    pendingTrendsSport = nil
+                    trendsDestination = sport
+                }
+            } content: {
+                trendsDrawer
             }
             .navigationDestination(item: $selectedProp) { selection in
                 PlayerPropDetailView(selection: selection)
@@ -411,6 +430,15 @@ struct SearchView: View {
                     action: { startBrowse(.outliers) }
                 ) { RadarSweepGraphic() }
                 .frame(width: Self.exploreCardWidth)
+
+                // Opens the sport-picker drawer rather than switching browse scope,
+                // so it never takes the selected state the three above share.
+                SearchToolCard(
+                    title: "Trends",
+                    subtitle: "Historical bet type hit rates",
+                    action: { showTrendsDrawer = true }
+                ) { TrendBarsGraphic() }
+                .frame(width: Self.exploreCardWidth)
                 }
                 .scrollTargetLayout()
             }
@@ -426,6 +454,46 @@ struct SearchView: View {
         } header: {
             sectionHeader("Explore", icon: "sparkles")
         }
+    }
+
+    /// Sport picker for the Trends card — the real `ToolBannerCard` banners from
+    /// the Games page, so the drawer carries the gradient + drifting-icon
+    /// treatment the neutral explore tile deliberately doesn't.
+    private var trendsDrawer: some View {
+        VStack(spacing: 10) {
+            Text("Historical Trends")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(Color.appTextPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+            ForEach(Self.trendsDrawerTools, id: \.tool.id) { entry in
+                ToolBannerCard(tool: entry.tool) {
+                    pendingTrendsSport = entry.sport
+                    showTrendsDrawer = false
+                }
+                .padding(.horizontal, 16)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 16)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .background(Color.appSurface)
+        .presentationDetents([.height(260)])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Color.appSurface)
+    }
+
+    /// The trends tools offered in the drawer, paired with the sport their leaf
+    /// page needs. Reads from `SportTool.registry` so banner styling stays in one
+    /// place; add CFB here to surface it.
+    private static var trendsDrawerTools: [(tool: SportTool, sport: HistoricalAnalysisSport)] {
+        [("nfl-historical-trends", HistoricalAnalysisSport.nfl), ("mlb-historical-trends", .mlb)]
+            .compactMap { id, sport in
+                SportTool.tool(id: id).map { ($0, sport) }
+            }
     }
 
     /// Width of one explore card — sized so two cards show on a 393pt screen

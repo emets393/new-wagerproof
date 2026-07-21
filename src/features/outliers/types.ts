@@ -3,14 +3,25 @@
 
 export type OutliersTrendsSport = 'nfl' | 'ncaaf' | 'mlb' | 'nba' | 'ncaab';
 
+/** Sport pill value — 'all' fans the page out across every sport with live trends. */
+export type OutliersSportFilter = 'all' | OutliersTrendsSport;
+
 export type OutliersTrendsSubject = 'all' | 'teams' | 'coaches' | 'refs' | 'players';
 
 export type OutliersTrendsSubjectKind = 'team' | 'coach' | 'referee' | 'player';
 
-/** 'all' or a slate game id. */
+/**
+ * 'all', or a sport-qualified slate game id (`"nfl:2025_10_KC_BUF"`). The sport
+ * prefix keeps ids unique once the page merges several slates under "All Sports".
+ */
 export type OutliersTrendsMatchupFilter = string;
 
 export const OUTLIERS_SPORTS: OutliersTrendsSport[] = ['nfl', 'ncaaf', 'mlb', 'nba', 'ncaab'];
+
+/** The sports with a live trends source, in page order. */
+export const OUTLIERS_TRENDS_SPORTS: OutliersTrendsSport[] = ['nfl', 'ncaaf', 'mlb'];
+
+export const OUTLIERS_SPORT_FILTERS: OutliersSportFilter[] = ['all', ...OUTLIERS_SPORTS];
 
 export const OUTLIERS_SPORT_LABELS: Record<OutliersTrendsSport, string> = {
   nfl: 'NFL',
@@ -18,6 +29,11 @@ export const OUTLIERS_SPORT_LABELS: Record<OutliersTrendsSport, string> = {
   mlb: 'MLB',
   nba: 'NBA',
   ncaab: 'NCAAB',
+};
+
+export const OUTLIERS_SPORT_FILTER_LABELS: Record<OutliersSportFilter, string> = {
+  all: 'All Sports',
+  ...OUTLIERS_SPORT_LABELS,
 };
 
 export const OUTLIERS_SUBJECT_LABELS: Record<OutliersTrendsSubject, string> = {
@@ -43,6 +59,33 @@ export function allowedSubjects(sport: OutliersTrendsSport): OutliersTrendsSubje
     default:
       return [];
   }
+}
+
+/**
+ * Sports the page should fetch for a multi-select pill. An EMPTY selection means
+ * "everything", so there's no separate 'all' sentinel to keep in sync. Sports
+ * without a trends source drop out — select only those and you get nothing,
+ * which the dashboard renders as the "coming soon" card.
+ */
+export function activeSportsFor(selection: OutliersTrendsSport[]): OutliersTrendsSport[] {
+  if (selection.length === 0) return OUTLIERS_TRENDS_SPORTS;
+  return selection.filter(sportHasTrendsData);
+}
+
+const SUBJECT_ORDER: OutliersTrendsSubject[] = ['all', 'teams', 'coaches', 'refs', 'players'];
+
+/**
+ * Subject pill options across the active sports — the union, so a subject one
+ * sport lacks simply contributes no cards rather than disappearing from the pill.
+ */
+export function allowedSubjectsForSports(
+  sports: OutliersTrendsSport[],
+): OutliersTrendsSubject[] {
+  if (sports.length === 1) return allowedSubjects(sports[0]);
+  const union = new Set(sports.flatMap(allowedSubjects));
+  // MLB alone never offers "All"; merged with football it should.
+  if (union.size > 0) union.add('all');
+  return SUBJECT_ORDER.filter((s) => union.has(s));
 }
 
 // MARK: - Slate
@@ -131,10 +174,15 @@ export interface OutliersTrendsCard {
   isPlayerOverflow: boolean;
 }
 
-export interface OutliersTrendsMarketSection {
+/** A trend card tagged with the slate it came from — set once cards are merged across sports. */
+export interface OutliersSportedCard extends OutliersTrendsCard {
+  sport: OutliersTrendsSport;
+}
+
+export interface OutliersTrendsMarketSection<TCard extends OutliersTrendsCard = OutliersTrendsCard> {
   marketKey: string;
   title: string;
-  cards: OutliersTrendsCard[];
+  cards: TCard[];
 }
 
 // MARK: - Split primitives (shared with the MLB client-side engine)

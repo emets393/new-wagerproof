@@ -262,6 +262,9 @@ enum HistoricalAnalysisCopy {
     ) -> [ActiveChip] {
         var chips: [ActiveChip] = []
         var s = snapshot
+        // Sport-aware defaults — CFB as-of ranges are wider than NFL's, so
+        // hardcoded [0,40]-style comparisons would show phantom chips there.
+        let d = HistoricalAnalysisUISnapshot.defaults(for: sport)
         let betType = s.betType
         // Game totals are game-level: Side doesn't apply. ML odds apply to ML markets (football) / all MLB.
         let isGameTotal = betType == "fg_total" || betType == "h1_total"
@@ -570,7 +573,7 @@ enum HistoricalAnalysisCopy {
             }
             
             // Last game margin (replaces blowout for NFL)
-            let defaultMargin = [-60, 60]
+            let defaultMargin = d.lastMargin
             if s.lastMargin != defaultMargin {
                 let minStr = s.lastMargin[0] == defaultMargin[0] ? "" : "\(s.lastMargin[0])"
                 let maxStr = s.lastMargin[1] == defaultMargin[1] ? "" : "\(s.lastMargin[1])"
@@ -613,19 +616,19 @@ enum HistoricalAnalysisCopy {
                     s.winPctGtOpp = nil; onChange(s)
                 })
             }
-            if s.ppg != [0, 40] {
+            if s.ppg != d.ppg {
                 chips.append(.init(label: "PPG \(trimmed(s.ppg[0]))–\(trimmed(s.ppg[1]))") {
-                    s.ppg = [0, 40]; onChange(s)
+                    s.ppg = d.ppg; onChange(s)
                 })
             }
-            if s.paPg != [0, 40] {
+            if s.paPg != d.paPg {
                 chips.append(.init(label: "PA/G \(trimmed(s.paPg[0]))–\(trimmed(s.paPg[1]))") {
-                    s.paPg = [0, 40]; onChange(s)
+                    s.paPg = d.paPg; onChange(s)
                 })
             }
-            if s.pointDiffPg != [-20, 20] {
+            if s.pointDiffPg != d.pointDiffPg {
                 chips.append(.init(label: "Point diff \(trimmed(s.pointDiffPg[0]))–\(trimmed(s.pointDiffPg[1]))") {
-                    s.pointDiffPg = [-20, 20]; onChange(s)
+                    s.pointDiffPg = d.pointDiffPg; onChange(s)
                 })
             }
             if s.minGames > 0 {
@@ -645,9 +648,9 @@ enum HistoricalAnalysisCopy {
                     s.atsWinStreak = [0, 16]; onChange(s)
                 })
             }
-            if s.avgCoverMargin != [-15, 15] {
+            if s.avgCoverMargin != d.avgCoverMargin {
                 chips.append(.init(label: "Cover margin \(trimmed(s.avgCoverMargin[0]))–\(trimmed(s.avgCoverMargin[1]))") {
-                    s.avgCoverMargin = [-15, 15]; onChange(s)
+                    s.avgCoverMargin = d.avgCoverMargin; onChange(s)
                 })
             }
             
@@ -669,9 +672,9 @@ enum HistoricalAnalysisCopy {
             }
             
             // Prior Year filters
-            if s.prevWins != [0, 16] {
+            if s.prevWins != d.prevWins {
                 chips.append(.init(label: "Prev wins \(s.prevWins[0])–\(s.prevWins[1])") {
-                    s.prevWins = [0, 16]; onChange(s)
+                    s.prevWins = d.prevWins; onChange(s)
                 })
             }
             if s.prevWinPct != [0, 100] {
@@ -775,7 +778,7 @@ enum HistoricalAnalysisCopy {
                     s.oppLastOt = nil; onChange(s)
                 })
             }
-            let defaultOppMargin = [-60, 60]
+            let defaultOppMargin = d.oppLastMargin
             if s.oppLastMargin != defaultOppMargin {
                 let minStr = s.oppLastMargin[0] == defaultOppMargin[0] ? "" : "\(s.oppLastMargin[0])"
                 let maxStr = s.oppLastMargin[1] == defaultOppMargin[1] ? "" : "\(s.oppLastMargin[1])"

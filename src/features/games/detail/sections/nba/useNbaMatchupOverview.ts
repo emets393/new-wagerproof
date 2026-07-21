@@ -140,35 +140,3 @@ export function useNbaMatchupOverview(
   };
 }
 
-/**
- * Comparison coloring for trend rows — verbatim from MatchupOverviewModal:
- * O/U% uncolored, defensive rating lower-is-better, everything else
- * higher-is-better.
- */
-export function getTrendColor(
-  awayValue: number | null,
-  homeValue: number | null,
-  metricName: string
-): { awayColor: string; homeColor: string } {
-  if (metricName === 'Over/Under %') {
-    return { awayColor: 'inherit', homeColor: 'inherit' };
-  }
-
-  if (metricName === 'Defensive Rating Trend (Last 3)') {
-    if (awayValue === null || homeValue === null) {
-      return { awayColor: 'inherit', homeColor: 'inherit' };
-    }
-    return {
-      awayColor: awayValue < homeValue ? 'green' : awayValue > homeValue ? 'red' : 'inherit',
-      homeColor: homeValue < awayValue ? 'green' : homeValue > awayValue ? 'red' : 'inherit',
-    };
-  }
-
-  if (awayValue === null || homeValue === null) {
-    return { awayColor: 'inherit', homeColor: 'inherit' };
-  }
-  return {
-    awayColor: awayValue > homeValue ? 'green' : awayValue < homeValue ? 'red' : 'inherit',
-    homeColor: homeValue > awayValue ? 'green' : homeValue < awayValue ? 'red' : 'inherit',
-  };
-}

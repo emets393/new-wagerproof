@@ -362,17 +362,24 @@ public enum HistoricalAnalysisFilterBuilder {
         if let a = mlA, !a.isNaN { out["ml_min"] = .double(a) }
         if let b = mlB, !b.isNaN { out["ml_max"] = .double(b) }
 
-        if betType == "total" || betType == "f5_total" {
-            let mk = betType == "total" ? "total_min" : "f5_total_min"
-            let xk = betType == "total" ? "total_max" : "f5_total_max"
-            // Only emit bounds that differ from the full default range (explicit user narrowing).
-            if let tcfg = mlbTotalCfg[betType] {
-                if snapshot.lineMin > tcfg.min { out[mk] = .double(snapshot.lineMin) }
-                if snapshot.lineMax < tcfg.max { out[xk] = .double(snapshot.lineMax) }
+        // Totals are cross-market sample filters on web ("available on every bet
+        // type"). iOS repurposes ONE line slider per market: F5 bounds on the F5
+        // total market, FG total bounds everywhere else — previously the slider
+        // was dead on ML/RL markets.
+        if betType == "f5_total" {
+            if let tcfg = mlbTotalCfg["f5_total"] {
+                if snapshot.lineMin > tcfg.min { out["f5_total_min"] = .double(snapshot.lineMin) }
+                if snapshot.lineMax < tcfg.max { out["f5_total_max"] = .double(snapshot.lineMax) }
             }
+        } else if let tcfg = mlbTotalCfg["total"] {
+            if snapshot.lineMin > tcfg.min { out["total_min"] = .double(snapshot.lineMin) }
+            if snapshot.lineMax < tcfg.max { out["total_max"] = .double(snapshot.lineMax) }
         }
 
-        if snapshot.dayOfWeek != "any" { out["day_of_week"] = .string(snapshot.dayOfWeek) }
+        // RPC does jsonb_array_elements on day_of_week — a scalar string makes the
+        // whole query error ("cannot extract elements from a scalar"), which froze
+        // the page on stale results. Must be an array even for a single day.
+        if snapshot.dayOfWeek != "any" { out["day_of_week"] = .array([.string(snapshot.dayOfWeek)]) }
         if let doubleheader = snapshot.doubleheader { out["doubleheader"] = .bool(doubleheader) }
         if let v = snapshot.seriesGameMin { out["series_game_min"] = .int(v) }
         if let v = snapshot.seriesGameMax { out["series_game_max"] = .int(v) }

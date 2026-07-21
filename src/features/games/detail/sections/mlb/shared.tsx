@@ -1,5 +1,21 @@
 import * as React from 'react';
-import { Activity, Calendar, CloudSun, Flame, MapPin, Target, User } from 'lucide-react';
+import { Chip } from '@heroui/react';
+import {
+  Activity,
+  ArrowDown,
+  ArrowUp,
+  Calendar,
+  ArrowRight,
+  Check,
+  ChevronRight,
+  CloudSun,
+  Flame,
+  MapPin,
+  Target,
+  TrendingUp,
+  User,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { espnMlb500LogoUrlFromAbbrev } from '@/utils/mlbTeamLogos';
 import type { MLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import type { ModelBreakdownRow } from '@/hooks/useMLBModelBreakdownAccuracy';
@@ -74,8 +90,13 @@ export function toBreakdownTeamAbbr(abbr: string | null | undefined): string | n
 }
 
 export interface TrendDetailsResult {
+  /** Pre-joined fallback, used when there's no history row to lay out. */
   text: string;
   roi: number | null;
+  /** Present only when a history row exists (see TrendStatRow). */
+  label?: string;
+  record?: string;
+  winPct?: number;
 }
 
 export function trendDetails(
@@ -85,18 +106,519 @@ export function trendDetails(
   if (!row) return { text: missingText, roi: null };
   const record = `${row.wins}-${row.losses}${row.pushes ? `-${row.pushes}` : ''}`;
   const roi = `${row.roi_pct > 0 ? '+' : ''}${row.roi_pct}%`;
-  return { text: `${row.breakdown_value} • ${record} • ${row.win_pct}% W • ${roi} ROI`, roi: row.roi_pct };
+  return {
+    text: `${row.breakdown_value} • ${record} • ${row.win_pct}% W • ${roi} ROI`,
+    roi: row.roi_pct,
+    // Structured fields so the row can be laid out as aligned columns; `text`
+    // stays as the fallback for the no-history case.
+    label: row.breakdown_value,
+    record,
+    winPct: row.win_pct,
+  };
 }
 
-/** ROI-colored trend value span used inside the Historical Model Context box. */
-export function TrendValue({ details }: { details: TrendDetailsResult }) {
-  const cls =
-    details.roi == null
-      ? 'text-muted-foreground'
-      : details.roi >= 0
-        ? 'text-emerald-600 dark:text-emerald-300'
-        : 'text-red-600 dark:text-red-300';
-  return <span className={cls}>{details.text}</span>;
+function roiClass(roi: number | null): string {
+  if (roi == null) return 'text-muted-foreground';
+  return roi >= 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300';
+}
+
+/** ROI magnitude that pins a bar to full width. Beyond ±25% the exact value stops mattering. */
+const ROI_BAR_CAP = 25;
+
+/**
+ * One historical-context row: label, record, and a diverging ROI bar growing
+ * left (losing) or right (winning) from a center zero line. The bar is the
+ * point — you can see at a glance whether the model's history on this angle is
+ * red or green without reading a single number.
+ */
+export function TrendStatRow({ details }: { details: TrendDetailsResult }) {
+  if (details.label === undefined) {
+    return <div className="py-1 text-[11px] text-muted-foreground">{details.text}</div>;
+  }
+  const roi = details.roi ?? 0;
+  const magnitude = Math.min(Math.abs(roi) / ROI_BAR_CAP, 1) * 50;
+  const positive = roi >= 0;
+
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <span className="w-10 shrink-0 truncate text-[11px] font-semibold text-foreground">
+        {details.label}
+      </span>
+      <span className="w-16 shrink-0 text-[10px] tabular-nums text-muted-foreground">
+        {details.record}
+      </span>
+      <span className="w-9 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground">
+        {details.winPct}%
+      </span>
+      {/* Center line = 0% ROI; bars diverge from it. */}
+      <span className="relative h-2.5 min-w-0 flex-1 overflow-hidden rounded-sm bg-muted/60">
+        <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-muted-foreground/30" />
+        <span
+          className={cn(
+            'absolute inset-y-0 rounded-sm',
+            positive ? 'bg-emerald-500/80' : 'bg-red-500/80',
+          )}
+          style={
+            positive
+              ? { left: '50%', width: `${magnitude}%` }
+              : { right: '50%', width: `${magnitude}%` }
+          }
+        />
+      </span>
+      <span
+        className={cn('w-14 shrink-0 text-right text-[11px] font-bold tabular-nums', roiClass(details.roi))}
+      >
+        {details.roi != null ? `${details.roi > 0 ? '+' : ''}${details.roi}%` : '—'}
+      </span>
+    </div>
+  );
+}
+
+/** Column captions for a group of TrendStatRows. */
+export function TrendStatHeader() {
+  return (
+    <div className="flex items-center gap-2 pb-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+      <span className="w-10 shrink-0" />
+      <span className="w-16 shrink-0">Record</span>
+      <span className="w-9 shrink-0 text-right">Win</span>
+      <span className="min-w-0 flex-1 text-center">ROI</span>
+      <span className="w-14 shrink-0" />
+    </div>
+  );
+}
+
+/**
+ * Model probability beside the de-vigged Vegas number for the picked side, with
+ * the resulting lean spelled out. The edge percentage alone never said what it
+ * was an edge *over* — this shows both inputs and the direction they imply.
+ */
+export function ModelVsVegas({
+  pickAbbrev,
+  pickVisuals,
+  modelProb,
+  edgePts,
+}: {
+  pickAbbrev: string;
+  pickVisuals: TeamVisuals;
+  /** 0-1. */
+  modelProb: number | null;
+  /** The model's edge in percentage points; Vegas is derived as model - edge. */
+  edgePts: number | null;
+}) {
+  if (modelProb === null || edgePts === null) return null;
+  const modelPct = modelProb * 100;
+  // Derived, not de-vigged from raw odds: this keeps model - vegas exactly equal
+  // to the edge shown in the recommendation above. F5 has no book moneyline on
+  // the row at all, so deriving is also the only option that covers both panels.
+  const vegasPct = modelPct - edgePts;
+  const diff = edgePts;
+  const modelHigher = diff >= 0;
+
+  return (
+    <div className="rounded-xl bg-muted/40 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col items-start gap-0.5">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            Our model
+          </span>
+          <span className="flex items-center gap-1.5">
+            <TeamMark visuals={pickVisuals} abbrev={pickAbbrev} size={24} />
+            <span className="text-xl font-bold tabular-nums text-foreground">
+              {modelPct.toFixed(1)}%
+            </span>
+          </span>
+        </div>
+
+        <div className="flex shrink-0 flex-col items-center">
+          <span
+            className={cn(
+              'font-mono text-[13px] font-bold tabular-nums',
+              modelHigher ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300',
+            )}
+          >
+            {modelHigher ? '+' : ''}
+            {diff.toFixed(1)}%
+          </span>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            {modelHigher ? 'value' : 'no value'}
+          </span>
+        </div>
+
+        <div className="flex min-w-0 flex-col items-end gap-0.5">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            Vegas
+          </span>
+          <span className="text-xl font-bold tabular-nums text-muted-foreground">
+            {vegasPct.toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-2 flex items-center gap-1.5 border-t border-black/5 pt-2 text-[11px] dark:border-white/10">
+        <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+        <span className="text-muted-foreground">
+          Model rates{' '}
+          <span className="font-bold text-foreground">{pickAbbrev}</span>{' '}
+          {Math.abs(diff).toFixed(1)} pts {modelHigher ? 'higher' : 'lower'} than Vegas
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Model history, collapsed by default.
+ *
+ * These rows are supporting evidence, not the answer — leaving them open meant
+ * every market card opened with a table under the recommendation. Behind a
+ * disclosure, the card leads with one thing and the detail is one tap away.
+ */
+export function ModelHistory({
+  rows,
+  label,
+}: {
+  rows: TrendDetailsResult[];
+  /** What angle the rows describe, e.g. "full-game moneyline". */
+  label: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const withRoi = rows.filter((r) => r.roi != null);
+  const positive = withRoi.filter((r) => (r.roi ?? 0) >= 0).length;
+
+  return (
+    <div className="border-t border-black/5 pt-2 dark:border-white/10">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        <ChevronRight
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200',
+            open && 'rotate-90',
+          )}
+        />
+        <span className="text-[11px] font-semibold text-foreground">How this angle has done</span>
+        {/* Summarize while collapsed so the disclosure isn't a blind door. */}
+        {withRoi.length > 0 && (
+          <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
+            {positive}/{withRoi.length} profitable
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="mt-2">
+          <p className="mb-1.5 text-[10px] leading-snug text-muted-foreground/80">
+            How the model has historically performed on {label} picks in these situations.
+            ROI is return per unit staked.
+          </p>
+          <TrendStatHeader />
+          {rows.map((r, i) => (
+            <TrendStatRow key={`${r.label ?? 'row'}-${i}`} details={r} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Break-even win rate at -110 juice. Below this, a "winning" record still loses money. */
+const BREAK_EVEN_PCT = 52.4;
+
+/**
+ * The model's historical hit rate on picks like this one, as a meter against the
+ * break-even line. This is the single most important qualifier on a
+ * recommendation — a +7.1% edge the model hits 38% of the time is a warning, not
+ * a bet — and as a small chip it read as decoration. The break-even tick makes
+ * "is this actually profitable" answerable without knowing that 52.4% is the bar.
+ */
+export function HitRateMeter({ info }: { info: BucketAccuracyInfo | null }) {
+  if (!info) return null;
+  const beatsBreakEven = info.win_pct >= BREAK_EVEN_PCT;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[10px] font-medium text-muted-foreground">
+          Model hits{' '}
+          <span className={cn('font-bold', beatsBreakEven ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-600 dark:text-red-300')}>
+            {info.win_pct}%
+          </span>{' '}
+          on picks like this
+        </span>
+        <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
+          {info.record}
+        </span>
+      </div>
+      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn('absolute inset-y-0 left-0 rounded-full', beatsBreakEven ? 'bg-emerald-500' : 'bg-red-500')}
+          style={{ width: `${Math.min(info.win_pct, 100)}%` }}
+        />
+        {/* Break-even tick — the line a pick has to clear to make money. */}
+        <div
+          className="absolute inset-y-0 w-0.5 bg-foreground/70"
+          style={{ left: `${BREAK_EVEN_PCT}%` }}
+          title={`Break-even at -110 is ${BREAK_EVEN_PCT}%`}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The recommendation itself, stated first and largest: what to bet, on which
+ * side, by how much. Everything below it in a panel is supporting evidence.
+ */
+export function Recommendation({
+  market,
+  pick,
+  edge,
+  pickVisuals,
+  edgeIcon,
+  edgeTone = 'primary',
+}: {
+  market: string;
+  pick: string;
+  edge: string;
+  pickVisuals?: TeamVisuals;
+  edgeIcon?: React.ReactNode;
+  edgeTone?: 'primary' | 'over' | 'under';
+}) {
+  const toneClass =
+    edgeTone === 'over'
+      ? 'text-emerald-600 dark:text-emerald-300'
+      : edgeTone === 'under'
+        ? 'text-blue-600 dark:text-blue-300'
+        : 'text-primary';
+
+  return (
+    <div className="flex items-center gap-2.5">
+      {pickVisuals && <TeamMark visuals={pickVisuals} abbrev={pick} size={38} />}
+      <div className="flex min-w-0 flex-col">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+          {market}
+        </span>
+        <span
+          className={cn(
+            'truncate text-xl font-bold leading-tight tracking-tight',
+            // Over/under picks carry their direction color on the word itself,
+            // not just on the edge value beside it.
+            edgeTone === 'primary' ? 'text-foreground' : toneClass,
+          )}
+        >
+          {pick}
+        </span>
+      </div>
+      <span
+        className={cn(
+          'ml-auto flex shrink-0 items-center gap-0.5 font-mono text-sm font-bold',
+          toneClass,
+        )}
+      >
+        {edgeIcon}
+        {edge}
+      </span>
+    </div>
+  );
+}
+
+/** Small circular team logo, falling back to the abbreviation on a color chip. */
+export function TeamMark({
+  visuals,
+  abbrev,
+  size = 22,
+  dimmed = false,
+}: {
+  visuals: TeamVisuals;
+  abbrev: string;
+  size?: number;
+  dimmed?: boolean;
+}) {
+  const [failed, setFailed] = React.useState(false);
+  const showLogo = Boolean(visuals.logoUrl) && !failed;
+  return (
+    <span
+      className={cn(
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-full transition-opacity',
+        dimmed && 'opacity-40',
+      )}
+      style={{
+        width: size,
+        height: size,
+        background: showLogo ? 'hsl(var(--background))' : visuals.colors.primary,
+      }}
+    >
+      {showLogo ? (
+        <img
+          src={visuals.logoUrl as string}
+          alt={abbrev}
+          loading="lazy"
+          className="h-full w-full object-contain p-px"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className="text-[8px] font-bold text-white">{abbrev.slice(0, 3)}</span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * Opposed win-probability bar in the two teams' own colors, with logos on each
+ * end. The side the model likes is called out explicitly — a check mark, full
+ * opacity, and the edge value — because the bar alone only shows who's favored,
+ * not where the model disagrees with the market. Those are different questions
+ * and the pick is the one that matters here.
+ */
+export function WinProbBar({
+  awayAbbrev,
+  homeAbbrev,
+  awayProb,
+  homeProb,
+  away,
+  home,
+  pickIsHome,
+}: {
+  awayAbbrev: string;
+  homeAbbrev: string;
+  /** 0-1 probabilities. */
+  awayProb: number | null;
+  homeProb: number | null;
+  away: TeamVisuals;
+  home: TeamVisuals;
+  /** Which side the model's edge is on. */
+  pickIsHome: boolean;
+}) {
+  if (awayProb === null || homeProb === null) return null;
+  const awayPct = awayProb * 100;
+  const homePct = homeProb * 100;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <TeamMark visuals={away} abbrev={awayAbbrev} size={28} dimmed={pickIsHome} />
+          <span
+            className={cn(
+              'text-[13px] font-bold tabular-nums',
+              pickIsHome ? 'text-muted-foreground' : 'text-foreground',
+            )}
+          >
+            {awayAbbrev} {awayPct.toFixed(1)}%
+          </span>
+          {!pickIsHome && <Check className="h-3 w-3 shrink-0 text-primary" />}
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {pickIsHome && <Check className="h-3 w-3 shrink-0 text-primary" />}
+          <span
+            className={cn(
+              'text-[13px] font-bold tabular-nums',
+              pickIsHome ? 'text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {homePct.toFixed(1)}% {homeAbbrev}
+          </span>
+          <TeamMark visuals={home} abbrev={homeAbbrev} size={28} dimmed={!pickIsHome} />
+        </span>
+      </div>
+      <div
+        className="flex h-2.5 overflow-hidden rounded-full bg-muted"
+        role="img"
+        aria-label={`${awayAbbrev} ${awayPct.toFixed(1)}%, ${homeAbbrev} ${homePct.toFixed(1)}%. Model picks ${pickIsHome ? homeAbbrev : awayAbbrev}.`}
+      >
+        {/* The unpicked side is muted so the eye lands on the edge. */}
+        <div
+          style={{ width: `${awayPct}%`, backgroundColor: away.colors.primary }}
+          className={cn('transition-opacity', pickIsHome && 'opacity-35')}
+        />
+        <div
+          style={{ width: `${homePct}%`, backgroundColor: home.colors.primary }}
+          className={cn('transition-opacity', !pickIsHome && 'opacity-35')}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Fair vs market total as two facing figures with the gap called out between
+ * them. The whole point of a total pick is the disagreement, so the difference
+ * gets its own slot rather than being left for the reader to subtract out of
+ * "Fair Total: 8.17 | Market Total: 8.5".
+ */
+export function TotalCompare({
+  fair,
+  market,
+  direction,
+}: {
+  fair: number | null;
+  market: number | null;
+  direction: string;
+}) {
+  if (fair === null || market === null) return null;
+  const gap = fair - market;
+  const leansOver = direction.toUpperCase().includes('OVER');
+
+  return (
+    <div className="rounded-xl bg-muted/40 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col items-start gap-0.5">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            Our model
+          </span>
+          <span className="text-xl font-bold tabular-nums text-foreground">{fair.toFixed(2)}</span>
+        </div>
+
+        <div className="flex shrink-0 flex-col items-center">
+          <span
+            className={cn(
+              'flex items-center gap-0.5 font-mono text-[13px] font-bold tabular-nums',
+              leansOver ? 'text-emerald-600 dark:text-emerald-300' : 'text-blue-600 dark:text-blue-300',
+            )}
+          >
+            {leansOver ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+            {gap > 0 ? '+' : ''}
+            {gap.toFixed(2)}
+          </span>
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            runs
+          </span>
+        </div>
+
+        <div className="flex flex-col items-end gap-0.5">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            Vegas
+          </span>
+          <span className="text-xl font-bold tabular-nums text-muted-foreground">
+            {market.toFixed(1)}
+          </span>
+        </div>
+      </div>
+
+      {/* Spell the lean out: a signed gap alone doesn't say which way to bet. */}
+      <div className="mt-2 flex items-center gap-1.5 border-t border-black/5 pt-2 text-[11px] dark:border-white/10">
+        <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+        <span className="text-muted-foreground">
+          Model projects{' '}
+          <span className="font-bold text-foreground">
+            {Math.abs(gap).toFixed(2)} runs {leansOver ? 'more' : 'fewer'}
+          </span>{' '}
+          than Vegas &rarr; leans{' '}
+          <span
+            className={cn(
+              'font-bold',
+              leansOver ? 'text-emerald-600 dark:text-emerald-300' : 'text-blue-600 dark:text-blue-300',
+            )}
+          >
+            {leansOver ? 'OVER' : 'UNDER'}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -159,48 +681,19 @@ export function lookupBucketAccuracy(
   return null;
 }
 
-export function AccuracyBadge({ info }: { info: BucketAccuracyInfo | null }) {
-  if (!info) return null;
-  const color = info.win_pct >= 54.1
-    ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-500/20 dark:text-emerald-300'
-    : info.win_pct >= 52.1
-      ? 'border-orange-500/40 bg-orange-500/15 text-orange-700 dark:border-orange-400/40 dark:bg-orange-500/20 dark:text-orange-300'
-      : 'border-red-500/40 bg-red-500/15 text-red-700 dark:border-red-400/40 dark:bg-red-500/20 dark:text-red-300';
+/** Model confidence when there's no bucket-accuracy sample to show instead. */
+export function ConfidenceChip({ label }: { label: 'Strong' | 'Moderate' | 'Weak' }) {
+  const tone = label === 'Strong' ? 'success' : label === 'Moderate' ? 'warning' : 'default';
   return (
-    <span className={`font-semibold px-1.5 py-0.5 rounded border text-[10px] sm:text-xs ${color}`}>
-      {info.win_pct}% W ({info.record})
-    </span>
+    <Chip size="sm" variant="flat" color={tone} classNames={{ content: 'font-semibold' }}>
+      {label}
+    </Chip>
   );
-}
-
-export function signalStyleClass(signal: 'Strong' | 'Moderate' | 'Weak'): string {
-  if (signal === 'Strong') {
-    return 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-500/20 dark:text-emerald-300';
-  }
-  if (signal === 'Moderate') {
-    return 'border-orange-500/40 bg-orange-500/15 text-orange-700 dark:border-orange-400/40 dark:bg-orange-500/20 dark:text-orange-300';
-  }
-  return 'border-red-500/40 bg-red-500/15 text-red-700 dark:border-red-400/40 dark:bg-red-500/20 dark:text-red-300';
 }
 
 // ---------------------------------------------------------------------------
 // Signal pills (copied from MLB.tsx; colors adapted for light mode)
 // ---------------------------------------------------------------------------
-
-export function signalSeverityPillClass(severity: string): string {
-  switch (severity) {
-    case 'negative':
-      return 'border-orange-500/40 bg-orange-500/10 text-orange-800 dark:bg-orange-950/45 dark:text-orange-100';
-    case 'positive':
-      return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-100';
-    case 'over':
-      return 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:bg-amber-950/40 dark:text-amber-100';
-    case 'under':
-      return 'border-blue-500/40 bg-blue-500/10 text-blue-800 dark:bg-blue-950/40 dark:text-blue-100';
-    default:
-      return 'border-black/10 bg-black/[0.04] text-foreground/80 dark:border-slate-600 dark:bg-slate-900/50 dark:text-slate-200';
-  }
-}
 
 export function SignalCategoryIcon({ category }: { category: string }) {
   const cn = 'h-3.5 w-3.5 flex-shrink-0 opacity-90';
@@ -227,12 +720,13 @@ export function SignalCategoryIcon({ category }: { category: string }) {
 // ---------------------------------------------------------------------------
 
 /** Inner panel for nested projection blocks (ML / Total) — glass equivalent of MLB_CARD_INNER. */
-export const INNER_PANEL =
-  'rounded-xl border border-black/5 bg-black/[0.03] p-3 space-y-2 dark:border-white/10 dark:bg-white/[0.04]';
+// One container per market, not three. The widget card already supplies a
+// surface, so the panel only needs separation — a hairline rule between markets
+// instead of a nested box, and no box at all around the history rows.
+export const INNER_PANEL = 'space-y-3 py-1';
 
 /** Historical Model Context box inside a panel. */
-export const CONTEXT_BOX =
-  'mt-2 rounded-lg border border-black/5 bg-black/[0.03] px-2.5 py-2 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/[0.04]';
+export const CONTEXT_BOX = 'pt-1';
 
 /** Round team-logo disc used in the projected score row (ESPN fallback → abbrev text). */
 export function ScoreLogoDisc({
@@ -284,15 +778,23 @@ export function ScoreLogoDisc({
 // always-on First-Five Splits section.
 // ---------------------------------------------------------------------------
 
+export interface TeamVisuals {
+  logoUrl: string | null;
+  colors: { primary: string; secondary: string };
+}
+
 export interface SplitPanelProps {
   raw: MLBPredictionRow;
   awayAbbrev: string;
   homeAbbrev: string;
   modelAccuracy: MLBBucketAccuracy | null | undefined;
   breakdownRows: ModelBreakdownRow[];
+  /** Logo + colors so the panels can show WHICH side the edge is on, not just its size. */
+  away: TeamVisuals;
+  home: TeamVisuals;
 }
 
-export function FullMlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows }: SplitPanelProps) {
+export function FullMlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, away, home }: SplitPanelProps) {
   const homeMlEdge = toNum(raw.home_ml_edge_pct);
   const awayMlEdge = toNum(raw.away_ml_edge_pct);
   // Pick the team with the higher edge (where the model sees value)
@@ -317,32 +819,39 @@ export function FullMlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakd
 
   return (
     <div className={INNER_PANEL}>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Moneyline Projection</div>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-foreground">
-        <span>Pick: <span className="font-semibold">{mlPickTeam}</span></span>
-        <span>Edge: <span className="font-semibold">{mlPickEdge !== null ? `${mlPickEdge > 0 ? '+' : ''}${mlPickEdge.toFixed(1)}%` : '-'}</span></span>
-        {mlAcc ? <AccuracyBadge info={mlAcc} /> : (
-          <span className={`font-semibold px-1.5 py-0.5 rounded border text-[10px] sm:text-xs ${signalStyleClass(mlConfidenceLabel as 'Strong' | 'Weak')}`}>
-            {mlConfidenceLabel}
-          </span>
-        )}
-      </div>
-      <div className="text-xs text-muted-foreground">
-        {awayAbbrev}: Win Prob {toNum(raw.ml_away_win_prob) !== null ? `${((toNum(raw.ml_away_win_prob) as number) * 100).toFixed(1)}%` : '-'} | ML Edge {awayMlEdge !== null ? `${awayMlEdge > 0 ? '+' : ''}${awayMlEdge.toFixed(1)}%` : '-'}
-      </div>
-      <div className="text-xs text-muted-foreground">
-        {homeAbbrev}: Win Prob {toNum(raw.ml_home_win_prob) !== null ? `${((toNum(raw.ml_home_win_prob) as number) * 100).toFixed(1)}%` : '-'} | ML Edge {homeMlEdge !== null ? `${homeMlEdge > 0 ? '+' : ''}${homeMlEdge.toFixed(1)}%` : '-'}
-      </div>
-      <div className={CONTEXT_BOX}>
-        <div className="font-semibold text-foreground">Historical Model Context (Full Game ML)</div>
-        <div className="mt-1">Day trend: <TrendValue details={fullMlDowDetails} /></div>
-        <div className="mt-1">Team trend (predicted side): <TrendValue details={fullMlTeamDetails} /></div>
-      </div>
+      <Recommendation
+        market="Moneyline"
+        pick={mlPickTeam}
+        pickVisuals={mlPickIsHome ? home : away}
+        edgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
+        edge={mlPickEdge !== null ? `${mlPickEdge > 0 ? '+' : ''}${mlPickEdge.toFixed(1)}%` : '—'}
+      />
+      {mlAcc ? (
+        <HitRateMeter info={mlAcc} />
+      ) : (
+        <ConfidenceChip label={mlConfidenceLabel as 'Strong' | 'Weak'} />
+      )}
+      <ModelVsVegas
+        pickAbbrev={mlPickTeam}
+        pickVisuals={mlPickIsHome ? home : away}
+        modelProb={mlPickIsHome ? toNum(raw.ml_home_win_prob) : toNum(raw.ml_away_win_prob)}
+        edgePts={mlPickEdge}
+      />
+      <WinProbBar
+        awayAbbrev={awayAbbrev}
+        homeAbbrev={homeAbbrev}
+        awayProb={toNum(raw.ml_away_win_prob)}
+        homeProb={toNum(raw.ml_home_win_prob)}
+        away={away}
+        home={home}
+        pickIsHome={mlPickIsHome}
+      />
+      <ModelHistory label="full-game moneyline" rows={[fullMlDowDetails, fullMlTeamDetails]} />
     </div>
   );
 }
 
-export function F5MlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows }: SplitPanelProps) {
+export function F5MlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, away, home }: SplitPanelProps) {
   const f5HomeMlEdge = toNum(raw.f5_home_ml_edge_pct);
   const f5AwayMlEdge = toNum(raw.f5_away_ml_edge_pct);
   // Pick F5 based on highest edge (where model sees value)
@@ -369,33 +878,30 @@ export function F5MlPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdow
 
   return (
     <div className={INNER_PANEL}>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">1st 5 Moneyline Projection</div>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-foreground">
-        <span>Pick: <span className="font-semibold">{f5PickTeam}</span></span>
-        <span>Edge: <span className="font-semibold">{f5PickEdge !== null ? `${f5PickEdge > 0 ? '+' : ''}${f5PickEdge.toFixed(1)}%` : '-'}</span></span>
-        {f5Acc ? <AccuracyBadge info={f5Acc} /> : f5PickMlStrong ? (
-          <span className={`font-semibold px-1.5 py-0.5 rounded border text-[10px] sm:text-xs ${signalStyleClass('Strong')}`}>
-            Strong
-          </span>
-        ) : null}
-      </div>
-      <div className="text-xs text-muted-foreground">
-        {awayAbbrev}: F5 Win Prob{' '}
-        {f5AwayProb !== null ? `${(f5AwayProb * 100).toFixed(1)}%` : '-'}
-        {' '}| F5 ML Edge{' '}
-        {f5AwayMlEdge !== null ? `${f5AwayMlEdge > 0 ? '+' : ''}${f5AwayMlEdge.toFixed(1)}%` : '-'}
-      </div>
-      <div className="text-xs text-muted-foreground">
-        {homeAbbrev}: F5 Win Prob{' '}
-        {f5HomeProb !== null ? `${(f5HomeProb * 100).toFixed(1)}%` : '-'}
-        {' '}| F5 ML Edge{' '}
-        {f5HomeMlEdge !== null ? `${f5HomeMlEdge > 0 ? '+' : ''}${f5HomeMlEdge.toFixed(1)}%` : '-'}
-      </div>
-      <div className={CONTEXT_BOX}>
-        <div className="font-semibold text-foreground">Historical Model Context (1st 5 ML)</div>
-        <div className="mt-1">Day trend: <TrendValue details={f5MlDowDetails} /></div>
-        <div className="mt-1">Team trend (predicted side): <TrendValue details={f5MlTeamDetails} /></div>
-      </div>
+      <Recommendation
+        market="1st 5 Moneyline"
+        pick={f5PickTeam}
+        pickVisuals={f5PickIsHome ? home : away}
+        edgeIcon={<TrendingUp className="h-3.5 w-3.5" />}
+        edge={f5PickEdge !== null ? `${f5PickEdge > 0 ? '+' : ''}${f5PickEdge.toFixed(1)}%` : '—'}
+      />
+      {f5Acc ? <HitRateMeter info={f5Acc} /> : f5PickMlStrong ? <ConfidenceChip label="Strong" /> : null}
+      <ModelVsVegas
+        pickAbbrev={f5PickTeam}
+        pickVisuals={f5PickIsHome ? home : away}
+        modelProb={f5PickIsHome ? f5HomeProb : f5AwayProb}
+        edgePts={f5PickEdge}
+      />
+      <WinProbBar
+        awayAbbrev={awayAbbrev}
+        homeAbbrev={homeAbbrev}
+        awayProb={f5AwayProb}
+        homeProb={f5HomeProb}
+        away={away}
+        home={home}
+        pickIsHome={f5PickIsHome}
+      />
+      <ModelHistory label="1st-5 moneyline" rows={[f5MlDowDetails, f5MlTeamDetails]} />
     </div>
   );
 }
@@ -427,26 +933,31 @@ export function FullTotalPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, bre
 
   return (
     <div className={INNER_PANEL}>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Projection</div>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-foreground">
-        <span>Pick: <span className="font-semibold">{ouDirection}</span></span>
-        <span>Edge: <span className="font-semibold">+{ouEdge.toFixed(2)}</span></span>
-        {ouAcc ? <AccuracyBadge info={ouAcc} /> : (
-          <span className={`font-semibold px-1.5 py-0.5 rounded border text-[10px] sm:text-xs ${signalStyleClass(totalConfidenceLabel as 'Strong' | 'Moderate' | 'Weak')}`}>
-            {totalConfidenceLabel}
-          </span>
-        )}
-      </div>
-      <div className="text-xs text-muted-foreground">
-        Fair Total: {toNum(raw.ou_fair_total)?.toFixed(2) ?? '-'} | Market Total: {toNum(raw.total_line)?.toFixed(1) ?? '-'}
-      </div>
-      <div className={CONTEXT_BOX}>
-        <div className="font-semibold text-foreground">Historical Model Context (Full Game O/U)</div>
-        <div className="mt-1">Day trend: <TrendValue details={fullOuDowDetails} /></div>
-        <div className="mt-1 font-medium text-foreground">Team Trends</div>
-        <div className="mt-1"><TrendValue details={fullOuAwayDetails} /></div>
-        <div className="mt-1"><TrendValue details={fullOuHomeDetails} /></div>
-      </div>
+      <Recommendation
+        market="Total"
+        pick={ouDirection}
+        edgeTone={ouDirection.toUpperCase().includes('OVER') ? 'over' : 'under'}
+        edgeIcon={
+          ouDirection.toUpperCase().includes('OVER')
+            ? <ArrowUp className="h-3.5 w-3.5" />
+            : <ArrowDown className="h-3.5 w-3.5" />
+        }
+        edge={`+${ouEdge.toFixed(2)}`}
+      />
+      {ouAcc ? (
+        <HitRateMeter info={ouAcc} />
+      ) : (
+        <ConfidenceChip label={totalConfidenceLabel as 'Strong' | 'Moderate' | 'Weak'} />
+      )}
+      <TotalCompare
+        fair={toNum(raw.ou_fair_total)}
+        market={toNum(raw.total_line)}
+        direction={ouDirection}
+      />
+      <ModelHistory
+        label="full-game total"
+        rows={[fullOuDowDetails, fullOuAwayDetails, fullOuHomeDetails]}
+      />
     </div>
   );
 }
@@ -473,22 +984,27 @@ export function F5TotalPanel({ raw, awayAbbrev, homeAbbrev, modelAccuracy, break
 
   return (
     <div className={INNER_PANEL}>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">1st 5 Total Projection</div>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-foreground">
-        <span>Pick: <span className="font-semibold">{f5Direction}</span></span>
-        <span>Edge: <span className="font-semibold">+{f5TotalEdge.toFixed(2)}</span></span>
-        {f5OuAcc ? <AccuracyBadge info={f5OuAcc} /> : null}
-      </div>
-      <div className="text-xs text-muted-foreground">
-        F5 Fair Total: {toNum(raw.f5_fair_total)?.toFixed(2) ?? '-'} | F5 Market Total: {toNum(raw.f5_total_line)?.toFixed(1) ?? '-'}
-      </div>
-      <div className={CONTEXT_BOX}>
-        <div className="font-semibold text-foreground">Historical Model Context (1st 5 O/U)</div>
-        <div className="mt-1">Day trend: <TrendValue details={f5OuDowDetails} /></div>
-        <div className="mt-1 font-medium text-foreground">Team Trends</div>
-        <div className="mt-1"><TrendValue details={f5OuAwayDetails} /></div>
-        <div className="mt-1"><TrendValue details={f5OuHomeDetails} /></div>
-      </div>
+      <Recommendation
+        market="1st 5 Total"
+        pick={f5Direction}
+        edgeTone={f5Direction === 'OVER' ? 'over' : 'under'}
+        edgeIcon={
+          f5Direction === 'OVER'
+            ? <ArrowUp className="h-3.5 w-3.5" />
+            : <ArrowDown className="h-3.5 w-3.5" />
+        }
+        edge={`+${f5TotalEdge.toFixed(2)}`}
+      />
+      {f5OuAcc ? <HitRateMeter info={f5OuAcc} /> : null}
+      <TotalCompare
+        fair={toNum(raw.f5_fair_total)}
+        market={toNum(raw.f5_total_line)}
+        direction={f5Direction}
+      />
+      <ModelHistory
+        label="1st-5 total"
+        rows={[f5OuDowDetails, f5OuAwayDetails, f5OuHomeDetails]}
+      />
     </div>
   );
 }

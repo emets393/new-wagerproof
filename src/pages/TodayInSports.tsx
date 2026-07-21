@@ -2,7 +2,7 @@ import { Lock } from 'lucide-react';
 import { GlassCard } from '@/components/ios';
 import { FreemiumUpgradeBanner } from '@/components/FreemiumUpgradeBanner';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
-import { OutliersTrendsSection } from '@/features/outliers/components/OutliersTrendsSection';
+import { OutliersDashboard } from '@/features/outliers/components/OutliersDashboard';
 
 /**
  * Today's Outliers — the iOS Outliers Trends experience (see
@@ -32,7 +32,7 @@ export default function TodayInSports() {
           <FreemiumUpgradeBanner totalGames={0} visibleGames={0} />
         </GlassCard>
       ) : (
-        <OutliersTrendsSection />
+        <OutliersDashboard />
       )}
     </div>
   );

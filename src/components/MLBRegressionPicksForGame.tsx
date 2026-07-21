@@ -1,3 +1,5 @@
+import { Chip } from '@heroui/react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import React from 'react';
 import { CheckCircle2, XCircle, HelpCircle, Zap } from 'lucide-react';
 import { useMLBRegressionReport, type SuggestedPick } from '@/hooks/useMLBRegressionReport';
@@ -29,9 +31,37 @@ export interface MLBRegressionPicksForGameProps {
 const BET_TYPE_LABEL: Record<SuggestedPick['bet_type'], string> = {
   full_ml: 'Full Game · Moneyline',
   full_ou: 'Full Game · Total',
+  full_rl: 'Full Game · Run Line',
   f5_ml: '1st 5 · Moneyline',
   f5_ou: '1st 5 · Total',
+  f5_rl: '1st 5 · Run Line',
 };
+
+/**
+ * Picks arrive as plain strings ("UNDER 8.5"). Split the direction word out so
+ * it can carry the same color + arrow language totals use everywhere else —
+ * over/under is the one thing you must not misread on a total.
+ */
+function PickText({ pick }: { pick: string }) {
+  const match = /^(OVER|UNDER)\b\s*(.*)$/i.exec(pick.trim());
+  if (!match) return <>{pick}</>;
+  const isOver = match[1].toUpperCase() === 'OVER';
+  return (
+    <span className="flex items-center gap-1">
+      <span
+        className={
+          isOver
+            ? 'flex items-center gap-0.5 text-emerald-600 dark:text-emerald-300'
+            : 'flex items-center gap-0.5 text-blue-600 dark:text-blue-300'
+        }
+      >
+        {isOver ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+        {match[1].toUpperCase()}
+      </span>
+      {match[2] && <span>{match[2]}</span>}
+    </span>
+  );
+}
 
 function findPickedSide(
   pickText: string,
@@ -96,83 +126,89 @@ export function MLBRegressionPicksForGame(props: MLBRegressionPicksForGameProps)
   if (picks.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-purple-500/30 bg-purple-950/20 p-3 sm:p-4 ring-1 ring-inset ring-purple-400/10 shadow-sm space-y-3">
-      <div className="flex items-center gap-2">
-        <Zap className="h-4 w-4 text-purple-400" />
-        <div className="text-sm font-semibold text-white">
-          Regression Report {picks.length > 1 ? 'Picks' : 'Pick'}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        {picks.map((p, i) => {
-          const alignment = computeAlignment(p, props);
-          const isPerfectStorm = (p.edge_bucket || '').toLowerCase() === 'perfect_storm';
-          const alignmentTheme = alignment === 'aligns'
-            ? { bg: 'bg-emerald-500/15', border: 'border-emerald-400/40', fg: 'text-emerald-300', Icon: CheckCircle2, label: 'Aligns with model' }
+    // No outer container and no title: the parent WidgetCard already supplies
+    // both. Picks are separated by a rule rather than each sitting in its own
+    // bordered box — this used to be three nested surfaces deep.
+    <div className="divide-y divide-black/5 dark:divide-white/10">
+      {picks.map((p, i) => {
+        const alignment = computeAlignment(p, props);
+        const isPerfectStorm = (p.edge_bucket || '').toLowerCase() === 'perfect_storm';
+        const alignmentTheme =
+          alignment === 'aligns'
+            ? { tone: 'success' as const, Icon: CheckCircle2, label: 'Agrees with model' }
             : alignment === 'contradicts'
-              ? { bg: 'bg-red-500/15', border: 'border-red-400/40', fg: 'text-red-300', Icon: XCircle, label: 'Contradicts model' }
-              : { bg: 'bg-slate-500/15', border: 'border-slate-400/30', fg: 'text-slate-300', Icon: HelpCircle, label: 'Comparison unavailable' };
-          // HIGH/MODERATE confidence label removed — Perfect Storm tier
-          // (Hammer/PS/Lean/Watch) is the canonical conviction signal now.
-          // Showing both made "Hammer + MODERATE" read as a contradiction.
+              ? { tone: 'danger' as const, Icon: XCircle, label: 'Disagrees with model' }
+              : { tone: 'default' as const, Icon: HelpCircle, label: 'No comparison' };
+        // HIGH/MODERATE confidence label removed — Perfect Storm tier
+        // (Hammer/PS/Lean/Watch) is the canonical conviction signal now.
 
-          return (
-            <div
-              key={`${p.bet_type}-${i}`}
-              className="rounded-lg border border-slate-600/50 bg-slate-950/50 p-3 space-y-2"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        return (
+          <div key={`${p.bet_type}-${i}`} className="space-y-2 py-3 first:pt-1 last:pb-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-col">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
                   {BET_TYPE_LABEL[p.bet_type]}
-                </div>
+                </span>
+                <span className="truncate text-lg font-bold leading-tight text-foreground">
+                  <PickText pick={p.pick} />
+                </span>
               </div>
-
-              <div className="text-sm sm:text-base font-bold text-white">{p.pick}</div>
-
-              <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] font-semibold ${alignmentTheme.bg} ${alignmentTheme.border} ${alignmentTheme.fg}`}>
-                <alignmentTheme.Icon className="h-3 w-3" />
+              <Chip
+                size="sm"
+                variant="flat"
+                color={alignmentTheme.tone}
+                startContent={<alignmentTheme.Icon className="h-3 w-3" />}
+                classNames={{ base: 'shrink-0', content: 'font-semibold' }}
+              >
                 {alignmentTheme.label}
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div>
-                  <div className="text-muted-foreground">Edge</div>
-                  <div className="font-medium text-white">
-                    {p.edge_at_suggestion > 0 ? '+' : ''}{p.edge_at_suggestion}{p.bet_type.includes('ml') ? '%' : ''}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Bucket</div>
-                  <div className="font-medium text-white whitespace-pre-line text-center leading-tight">
-                    {p.edge_bucket === 'perfect_storm' ? 'Perfect\nStorm' : p.edge_bucket}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Bucket W%</div>
-                  {isPerfectStorm ? (
-                    perfectStormOverall && perfectStormOverall.games > 0 ? (
-                      <div className={`font-medium ${winColor(perfectStormOverall.win_pct)}`}>
-                        {perfectStormOverall.win_pct}%
-                      </div>
-                    ) : (
-                      <div className="font-medium text-muted-foreground">N/A</div>
-                    )
-                  ) : (
-                    <div className={`font-medium ${winColor(p.bucket_win_pct)}`}>
-                      {p.bucket_win_pct}%
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {p.reasoning ? (
-                <div className="text-xs italic text-slate-400 leading-snug">{p.reasoning}</div>
-              ) : null}
+              </Chip>
             </div>
-          );
-        })}
-      </div>
+
+            <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 px-2 py-1.5 text-center">
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  Edge
+                </div>
+                <div className="text-[13px] font-bold tabular-nums text-foreground">
+                  {p.edge_at_suggestion > 0 ? '+' : ''}
+                  {p.edge_at_suggestion}
+                  {p.bet_type.includes('ml') ? '%' : ''}
+                </div>
+              </div>
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  Tier
+                </div>
+                <div className="text-[13px] font-bold leading-tight text-foreground">
+                  {p.edge_bucket === 'perfect_storm' ? 'Perfect Storm' : p.edge_bucket}
+                </div>
+              </div>
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  Tier win%
+                </div>
+                {isPerfectStorm ? (
+                  perfectStormOverall && perfectStormOverall.games > 0 ? (
+                    <div className={`text-[13px] font-bold tabular-nums ${winColor(perfectStormOverall.win_pct)}`}>
+                      {perfectStormOverall.win_pct}%
+                    </div>
+                  ) : (
+                    <div className="text-[13px] font-bold text-muted-foreground">N/A</div>
+                  )
+                ) : (
+                  <div className={`text-[13px] font-bold tabular-nums ${winColor(p.bucket_win_pct)}`}>
+                    {p.bucket_win_pct}%
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {p.reasoning ? (
+              <p className="text-[11px] leading-snug text-muted-foreground">{p.reasoning}</p>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

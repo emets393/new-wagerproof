@@ -1,25 +1,20 @@
 import * as React from 'react';
 import { Target } from 'lucide-react';
 import { SegmentedControl, WidgetCard } from '@/components/ios';
-import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
-import { useMLBModelBreakdownAccuracy } from '@/hooks/useMLBModelBreakdownAccuracy';
 import { getF5Runs, getFullGameRuns, type MLBPredictionRow } from '../../../api/mlbGames';
-import {
-  F5MlPanel,
-  F5TotalPanel,
-  FullMlPanel,
-  FullTotalPanel,
-  ScoreLogoDisc,
-} from './shared';
+import { ScoreLogoDisc } from './shared';
+import { hasF5Data } from './MlbMarketSection';
 
 type ProjectionView = 'full' | 'f5';
 
 /**
- * Legacy MLB.tsx projections block: Full Game / 1st 5 toggle switching the
- * Pythagorean projected-score row plus the Moneyline and Total projection
- * panels (accuracy badges + historical model context). Mount with
- * key={game.id} so the view resets to 'full' per game, matching the legacy
- * per-game projectionViewByGame default.
+ * The model's projected final score, and nothing else.
+ *
+ * This card used to also carry both market panels (and First-Five Splits
+ * repeated the F5 ones), which made it the densest thing on the page. The
+ * moneyline and total recommendations now live in their own widgets — see
+ * MlbMarketSection — so this answers one question: what does the model think
+ * the score will be.
  */
 export function MlbProjectedScoreSection({
   raw,
@@ -39,67 +34,54 @@ export function MlbProjectedScoreSection({
   homeTeamName: string;
 }) {
   const [view, setView] = React.useState<ProjectionView>('full');
-  // Model accuracy comes from the dedicated mlb_model_bucket_accuracy table;
-  // breakdown rows feed the per-pick historical trend explanations.
-  const { data: modelAccuracy } = useMLBBucketAccuracy();
-  const { data: breakdownRows = [] } = useMLBModelBreakdownAccuracy();
 
   const fullRuns = getFullGameRuns(raw);
   const f5Runs = getF5Runs(raw);
-  const activeRuns = view === 'full' ? fullRuns : f5Runs;
-
-  const panelProps = { raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows };
+  const showToggle = hasF5Data(raw) && f5Runs !== null;
+  const active = showToggle ? view : 'full';
+  const activeRuns = active === 'full' ? fullRuns : f5Runs;
 
   return (
     <WidgetCard
       icon={<Target />}
       title="Projected Score"
+      subtitle="The model's expected final score. Everything below builds on these run estimates."
       accessory={
-        <SegmentedControl
-          size="sm"
-          options={[
-            { value: 'full', label: 'Full Game' },
-            { value: 'f5', label: '1st 5' },
-          ]}
-          value={view}
-          onChange={setView}
-        />
+        showToggle ? (
+          <SegmentedControl
+            size="sm"
+            options={[
+              { value: 'full', label: 'Full Game' },
+              { value: 'f5', label: '1st 5' },
+            ]}
+            value={active}
+            // Wrapped, not `onChange={setView}`: a Dispatch<SetStateAction<T>>
+            // accepts `T | ((prev) => T)`, so SegmentedControl's `T extends string`
+            // infers a function type and collapses T to `string`.
+            onChange={(value) => setView(value as ProjectionView)}
+          />
+        ) : undefined
       }
     >
-      <div className="space-y-4">
-        <div className="text-center">
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
-            Projected Score ({view === 'full' ? 'Full Game' : '1st 5'})
+      {activeRuns ? (
+        <div className="flex items-center justify-center gap-4 py-1 sm:gap-6">
+          <div className="flex flex-col items-center gap-1.5">
+            <ScoreLogoDisc url={awayLogoUrl} abbrev={awayAbbrev} title={awayTeamName} />
+            <span className="text-[11px] font-bold text-muted-foreground">{awayAbbrev}</span>
           </div>
-          {activeRuns ? (
-            <div className="mx-auto flex max-w-md items-center justify-center gap-3 sm:gap-5">
-              <ScoreLogoDisc url={awayLogoUrl} abbrev={awayAbbrev} title={awayTeamName} />
-              <div className="flex min-w-[6.5rem] items-center justify-center px-1 sm:min-w-[7.5rem]">
-                <div className="text-2xl font-bold tabular-nums text-foreground sm:text-3xl">
-                  <span>{activeRuns.away.toFixed(1)}</span>
-                  <span className="mx-2 font-normal text-muted-foreground">—</span>
-                  <span>{activeRuns.home.toFixed(1)}</span>
-                </div>
-              </div>
-              <ScoreLogoDisc url={homeLogoUrl} abbrev={homeAbbrev} title={homeTeamName} />
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">Projection unavailable</div>
-          )}
+          <div className="flex items-baseline gap-2 text-3xl font-bold tabular-nums text-foreground sm:text-4xl">
+            <span>{activeRuns.away.toFixed(1)}</span>
+            <span className="text-xl font-normal text-muted-foreground sm:text-2xl">—</span>
+            <span>{activeRuns.home.toFixed(1)}</span>
+          </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <ScoreLogoDisc url={homeLogoUrl} abbrev={homeAbbrev} title={homeTeamName} />
+            <span className="text-[11px] font-bold text-muted-foreground">{homeAbbrev}</span>
+          </div>
         </div>
-
-        {view === 'full' ? (
-          <>
-            <FullMlPanel {...panelProps} />
-            <FullTotalPanel {...panelProps} />
-          </>
-        ) : (
-          <>
-            <F5MlPanel {...panelProps} />
-            <F5TotalPanel {...panelProps} />
-          </>
-        )}
-      </div>
+      ) : (
+        <p className="py-2 text-center text-sm text-muted-foreground">Projection unavailable</p>
+      )}
     </WidgetCard>
   );
 }

@@ -24,13 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import {
-  getCFBTeamColors,
-  getCFBTeamInitials,
-  getMLBTeamColors,
-  getNFLTeamColors,
-} from '@/utils/teamColors';
-import { espnMlb500LogoUrlFromAbbrev } from '@/utils/mlbTeamLogos';
+import { NFL_SHIELD_URL, initialsFrom, teamVisuals } from '../teamVisuals';
 import type {
   OutliersTrendsBettingLine,
   OutliersTrendsCard as TrendCardModel,
@@ -39,51 +33,9 @@ import type {
   OutliersTrendsSport,
 } from '../types';
 
-const NFL_SHIELD_URL = 'https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png';
-
 /** Compact cards show at most this many rows; the rest preview as footer % chips. */
 const COMPACT_ROW_CAP = 3;
 const FOOTER_PREVIEW_CAP = 3;
-
-// Trend-card team keys are NFL abbreviations, but teamColors.ts keys off city
-// names — bridge here (ESPN slug rides along for the logo URL).
-const NFL_ABBR_META: Record<string, { name: string; slug: string }> = {
-  ARI: { name: 'Arizona', slug: 'ari' },
-  ATL: { name: 'Atlanta', slug: 'atl' },
-  BAL: { name: 'Baltimore', slug: 'bal' },
-  BUF: { name: 'Buffalo', slug: 'buf' },
-  CAR: { name: 'Carolina', slug: 'car' },
-  CHI: { name: 'Chicago', slug: 'chi' },
-  CIN: { name: 'Cincinnati', slug: 'cin' },
-  CLE: { name: 'Cleveland', slug: 'cle' },
-  DAL: { name: 'Dallas', slug: 'dal' },
-  DEN: { name: 'Denver', slug: 'den' },
-  DET: { name: 'Detroit', slug: 'det' },
-  GB: { name: 'Green Bay', slug: 'gb' },
-  HOU: { name: 'Houston', slug: 'hou' },
-  IND: { name: 'Indianapolis', slug: 'ind' },
-  JAX: { name: 'Jacksonville', slug: 'jax' },
-  JAC: { name: 'Jacksonville', slug: 'jax' },
-  KC: { name: 'Kansas City', slug: 'kc' },
-  LV: { name: 'Las Vegas', slug: 'lv' },
-  LAC: { name: 'LA Chargers', slug: 'lac' },
-  LA: { name: 'LA Rams', slug: 'lar' },
-  LAR: { name: 'LA Rams', slug: 'lar' },
-  MIA: { name: 'Miami', slug: 'mia' },
-  MIN: { name: 'Minnesota', slug: 'min' },
-  NE: { name: 'New England', slug: 'ne' },
-  NO: { name: 'New Orleans', slug: 'no' },
-  NYG: { name: 'NY Giants', slug: 'nyg' },
-  NYJ: { name: 'NY Jets', slug: 'nyj' },
-  PHI: { name: 'Philadelphia', slug: 'phi' },
-  PIT: { name: 'Pittsburgh', slug: 'pit' },
-  SF: { name: 'San Francisco', slug: 'sf' },
-  SEA: { name: 'Seattle', slug: 'sea' },
-  TB: { name: 'Tampa Bay', slug: 'tb' },
-  TEN: { name: 'Tennessee', slug: 'ten' },
-  WAS: { name: 'Washington', slug: 'wsh' },
-  WSH: { name: 'Washington', slug: 'wsh' },
-};
 
 // MARK: - Heat colors (iOS trendColor)
 
@@ -197,44 +149,6 @@ function kickoffParts(kickoff: string | null | undefined): { date: string; time:
 
 // MARK: - Avatar
 
-function initialsFrom(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
-  return parts
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 3);
-}
-
-function teamVisuals(
-  sport: OutliersTrendsSport,
-  teamKey: string,
-): { colors: { primary: string; secondary: string }; initials: string; logoUrl: string | null } {
-  if (sport === 'ncaaf') {
-    // CFB team keys are full team names (no abbreviations in the slate table).
-    return {
-      colors: getCFBTeamColors(teamKey),
-      initials: getCFBTeamInitials(teamKey),
-      logoUrl: null,
-    };
-  }
-  if (sport === 'mlb') {
-    return {
-      colors: getMLBTeamColors(teamKey),
-      initials: teamKey.toUpperCase().slice(0, 3),
-      logoUrl: espnMlb500LogoUrlFromAbbrev(teamKey),
-    };
-  }
-  const meta = NFL_ABBR_META[teamKey.toUpperCase()];
-  return {
-    colors: meta ? getNFLTeamColors(meta.name) : { primary: '#6B7280', secondary: '#9CA3AF' },
-    initials: teamKey.toUpperCase().slice(0, 3),
-    logoUrl: meta ? `https://a.espncdn.com/i/teamlogos/nfl/500/${meta.slug}.png` : null,
-  };
-}
-
 function LogoImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return null;
@@ -336,14 +250,52 @@ function SubjectAvatar({
   );
 }
 
+// MARK: - Book mark + top-right odds chip (Linemate "-186 [DK]")
+
+function BookMark({ line, size = 12 }: { line: OutliersTrendsBettingLine; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  if (line.bookLogoUrl && !failed) {
+    return (
+      <img
+        src={line.bookLogoUrl}
+        alt={line.bookName ?? 'Sportsbook'}
+        loading="lazy"
+        className="shrink-0 rounded-[3px] object-contain"
+        style={{ width: size, height: size }}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  if (line.bookName) {
+    return (
+      <span className="shrink-0 text-[9px] font-bold uppercase leading-none text-muted-foreground">
+        {line.bookName.slice(0, 3)}
+      </span>
+    );
+  }
+  return null;
+}
+
+/** The primary line's odds + book mark, hoisted into the card header. */
+function OddsChip({ line }: { line: OutliersTrendsBettingLine }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5">
+      <BookMark line={line} />
+      <span className="font-mono text-xs font-black tabular-nums text-primary">{line.oddsText}</span>
+    </span>
+  );
+}
+
 // MARK: - Betting line chips
 
 function BettingLineChip({
   line,
   showBookName,
+  hideOdds,
 }: {
   line: OutliersTrendsBettingLine;
   showBookName: boolean;
+  hideOdds: boolean;
 }) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[10px] bg-muted/35 p-2">
@@ -355,7 +307,7 @@ function BettingLineChip({
         )}
         <div className="flex items-baseline gap-1">
           <span className="truncate text-xs font-bold text-foreground">{line.lineText}</span>
-          {line.oddsText && (
+          {!hideOdds && line.oddsText && (
             <span className="text-xs font-semibold text-primary">{line.oddsText}</span>
           )}
         </div>
@@ -369,14 +321,24 @@ function BettingLineChip({
   );
 }
 
-function BettingLinesBlock({ lines, compact }: { lines: OutliersTrendsBettingLine[]; compact: boolean }) {
+function BettingLinesBlock({
+  lines,
+  compact,
+  hideOdds = false,
+}: {
+  lines: OutliersTrendsBettingLine[];
+  compact: boolean;
+  // When the header shows the primary odds chip, inline chips drop odds to avoid
+  // showing the same "-110" twice (spec §8) — line text carries the info.
+  hideOdds?: boolean;
+}) {
   if (lines.length === 0) return null;
   const visible = compact ? lines.slice(0, 2) : lines;
   if (visible.length >= 2) {
     return (
       <div className={cn('flex gap-1.5', !compact && 'flex-wrap')}>
         {visible.map((line) => (
-          <BettingLineChip key={line.id} line={line} showBookName={false} />
+          <BettingLineChip key={line.id} line={line} showBookName={false} hideOdds={hideOdds} />
         ))}
       </div>
     );
@@ -384,7 +346,7 @@ function BettingLinesBlock({ lines, compact }: { lines: OutliersTrendsBettingLin
   return (
     <div className="flex flex-col gap-1.5">
       {visible.map((line) => (
-        <BettingLineChip key={line.id} line={line} showBookName />
+        <BettingLineChip key={line.id} line={line} showBookName hideOdds={hideOdds} />
       ))}
     </div>
   );
@@ -400,15 +362,19 @@ function TrendRow({ row, compact }: { row: OutliersTrendsCardRow; compact: boole
         <RowIcon text={row.text} pct={row.dominantPct} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className={cn('text-xs font-medium text-muted-foreground', compact && 'truncate')}>
+        <p className={cn('text-xs font-medium leading-tight text-muted-foreground', compact && 'truncate')}>
           {rowDisplayText(row.text)}
         </p>
         {!compact && row.coverageNote && (
-          <p className="text-[10px] text-muted-foreground/70">{row.coverageNote}</p>
+          <p className="text-[10px] leading-tight text-muted-foreground/70">{row.coverageNote}</p>
         )}
       </div>
+      {/* Fixed-min right column so percentages align vertically across rows. */}
       <span
-        className={cn('font-mono text-xs font-black tabular-nums', !color && 'text-muted-foreground')}
+        className={cn(
+          'ml-auto min-w-[2.5rem] shrink-0 text-right font-mono text-xs font-black tabular-nums',
+          !color && 'text-muted-foreground',
+        )}
         style={color ? { color } : undefined}
       >
         {Math.round(row.dominantPct * 100)}%
@@ -449,6 +415,9 @@ export function OutliersTrendCard({ card, sport, game }: OutliersTrendCardProps)
   const overflowCount = Math.max(0, hiddenRows.length - FOOTER_PREVIEW_CAP);
   const detail = displaySubjectDetail(card);
   const kickoff = kickoffParts(game?.kickoff);
+  // Primary line's odds ride top-right as a book-marked chip (Linemate "-186 [DK]");
+  // when present, the inline line chips drop odds to avoid duplication.
+  const primaryLine = card.bettingLines.find((l) => Boolean(l.oddsText)) ?? null;
 
   return (
     <>
@@ -471,15 +440,19 @@ export function OutliersTrendCard({ card, sport, game }: OutliersTrendCardProps)
             {detail && <p className="truncate text-[11px] font-medium text-muted-foreground">{detail}</p>}
             <p className="truncate text-xs font-bold text-muted-foreground">{card.matchupLabel}</p>
           </div>
-          {kickoff && (
-            <div className="shrink-0 text-right text-[10px] font-semibold leading-tight text-muted-foreground">
-              <div>{kickoff.date}</div>
-              <div>{kickoff.time}</div>
+          {(primaryLine || kickoff) && (
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              {primaryLine && <OddsChip line={primaryLine} />}
+              {kickoff && (
+                <div className="text-[10px] font-semibold leading-tight text-muted-foreground">
+                  {kickoff.date} · {kickoff.time}
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        <BettingLinesBlock lines={card.bettingLines} compact />
+        <BettingLinesBlock lines={card.bettingLines} compact hideOdds={Boolean(primaryLine)} />
 
         <div className="flex flex-col gap-1.5">
           {visibleRows.map((row) => (

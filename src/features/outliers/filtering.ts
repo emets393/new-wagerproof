@@ -14,6 +14,31 @@ import type {
 /** Max cards per market carousel — cards arrive best-first, so this keeps the strongest trends. */
 export const SECTION_CARD_CAP = 24;
 
+/** Sport-qualified matchup key (`"nfl:2025_10_KC_BUF"`), unique across merged slates. */
+export function matchupKey(sport: OutliersTrendsSport, gameId: string): string {
+  return `${sport}:${gameId}`;
+}
+
+/**
+ * Narrows a multi-select matchup filter to the raw game ids belonging to one
+ * sport. Returns null when nothing is selected (= no matchup filter at all).
+ *
+ * An EMPTY set is meaningful and distinct from null: it means games were picked
+ * but none of them are this sport's, so this slate contributes nothing.
+ */
+export function matchupIdsForSport(
+  selection: OutliersTrendsMatchupFilter[],
+  sport: OutliersTrendsSport,
+): Set<string> | null {
+  if (selection.length === 0) return null;
+  const ids = new Set<string>();
+  const prefix = `${sport}:`;
+  for (const key of selection) {
+    if (key.startsWith(prefix)) ids.add(key.slice(prefix.length));
+  }
+  return ids;
+}
+
 /** Subject pill value → the card kind it keeps ('all' keeps everything). */
 const SUBJECT_TO_KIND: Partial<Record<OutliersTrendsSubject, OutliersTrendsSubjectKind>> = {
   teams: 'team',
@@ -65,7 +90,8 @@ export function filterTrendCards(
   games: OutliersTrendsGame[],
   sport: OutliersTrendsSport,
   subject: OutliersTrendsSubject,
-  matchup: OutliersTrendsMatchupFilter,
+  /** Allowed game ids for this sport; null means no matchup filter. */
+  matchupIds: Set<string> | null,
 ): OutliersTrendsCard[] {
   const gamesById = new Map(games.map((g) => [g.id, g]));
   const wantedKind = SUBJECT_TO_KIND[subject];
@@ -74,7 +100,7 @@ export function filterTrendCards(
       if (!matchesSlateScope(card, gamesById)) return false;
       if (wantedKind && card.subjectKind !== wantedKind) return false;
       if (!hasDisplayableBettingLine(card, sport)) return false;
-      return matchup === 'all' || card.gameId === matchup;
+      return matchupIds === null || matchupIds.has(card.gameId);
     })
     .sort((a, b) => b.trendValue - a.trendValue || b.trendSampleN - a.trendSampleN);
 }
@@ -97,12 +123,12 @@ function marketRank(key: string): number {
  * sections, capping each carousel. Player-overflow placeholders are dropped —
  * carousels scroll instead.
  */
-export function buildMarketSections(
-  cards: OutliersTrendsCard[],
+export function buildMarketSections<TCard extends OutliersTrendsCard>(
+  cards: TCard[],
   cap: number = SECTION_CARD_CAP,
-): OutliersTrendsMarketSection[] {
+): OutliersTrendsMarketSection<TCard>[] {
   const keyOrder: string[] = [];
-  const groups = new Map<string, OutliersTrendsCard[]>();
+  const groups = new Map<string, TCard[]>();
   for (const card of cards) {
     if (card.isPlayerOverflow) continue;
     let bucket = groups.get(card.marketKey);

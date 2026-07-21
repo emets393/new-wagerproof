@@ -8,7 +8,7 @@ import { SHOW_WEBSITE_TAILING_FEATURES } from '@/lib/featureFlags';
 import type { NFLPrediction } from '../../../api/nflGames';
 import type { SportSectionsProps } from '../index';
 import { MarketOddsSection } from '../MarketOddsSection';
-import { NflPredictionsSection } from './NflPredictionsSection';
+import { NflSpreadSection, NflTotalSection } from './NflPredictionsSection';
 import { NflBettingSplitsSection } from './NflBettingSplitsSection';
 import { NflH2HSection } from './NflH2HSection';
 import { NflLineMovementSection } from './NflLineMovementSection';
@@ -26,8 +26,11 @@ export function NflSections({ game, extras, completions, onCompletionGenerated }
   return (
     <>
       <MarketOddsSection game={game} />
-      <NflPredictionsSection game={game} completions={completions} />
-      <NflBettingSplitsSection raw={raw} />
+      {/* One market per card: the spread pick and the total pick are separate
+          questions and used to share a single "Model Predictions" widget. */}
+      <NflSpreadSection game={game} completions={completions} />
+      <NflTotalSection game={game} completions={completions} />
+      <NflBettingSplitsSection game={game} />
       <NflH2HSection game={game} />
       <NflLineMovementSection game={game} extras={extras} />
 

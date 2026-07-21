@@ -31,10 +31,10 @@ export function MinimalHeader({ rightContent }: MinimalHeaderProps) {
 
     // If we have a current nav item, use it as the main breadcrumb
     if (currentNavItem) {
-      return [{ label: currentNavItem.title, path: currentNavItem.to }];
+      return [{ label: currentNavItem.title, path: currentNavItem.to, icon: currentNavItem.icon }];
     }
     if (currentSubNavItem) {
-      return [{ label: currentSubNavItem.title, path: currentSubNavItem.to }];
+      return [{ label: currentSubNavItem.title, path: currentSubNavItem.to, icon: currentSubNavItem.icon }];
     }
 
     // Otherwise, build from path segments
@@ -42,14 +42,15 @@ export function MinimalHeader({ rightContent }: MinimalHeaderProps) {
       label: segment.split('-').map(word => 
         word.charAt(0).toUpperCase() + word.slice(1)
       ).join(' '),
-      path: '/' + pathSegments.slice(0, index + 1).join('/')
+      path: '/' + pathSegments.slice(0, index + 1).join('/'),
+      icon: undefined,
     }));
   };
 
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <header className="flex h-12 items-center justify-between border-b border-border bg-background px-4">
+    <header className="flex h-12 items-center justify-between border-b border-border bg-inherit px-4">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
         <SidebarTrigger className="hidden md:flex h-8 w-8" title="Toggle Sidebar (Ctrl+B)" />
@@ -58,6 +59,11 @@ export function MinimalHeader({ rightContent }: MinimalHeaderProps) {
             <div key={crumb.path} className="flex items-center gap-1.5">
               {index > 0 && (
                 <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+              {crumb.icon && (
+                <span aria-hidden className="text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
+                  {crumb.icon}
+                </span>
               )}
               <span 
                 className={
@@ -81,4 +87,3 @@ export function MinimalHeader({ rightContent }: MinimalHeaderProps) {
     </header>
   );
 }
-

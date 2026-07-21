@@ -10,8 +10,9 @@ import type { SportSectionsProps } from '../index';
 
 /**
  * NCAAB detail-pane stack, ported from GameDetailsModal's CFB/NCAAB path:
- * Model Predictions + Match Simulator + Polymarket, plus the admin-only AI
- * Payload viewer.
+ * Spread + Total + Match Simulator + Polymarket, plus the admin-only AI Payload
+ * viewer. The two market cards are shared with CFB (same model shape) — see
+ * `sections/cfb/CollegeModelCards.tsx`.
  */
 export function NcaabSections({ game, completions, onCompletionGenerated }: SportSectionsProps) {
   const { adminModeEnabled } = useAdminMode();

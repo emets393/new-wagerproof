@@ -23,6 +23,10 @@ public final class HistoricalAnalysisStore {
     public private(set) var loadState: LoadState = .idle
     public private(set) var isRefetching = false
     public private(set) var hasLoadedOnce = false
+    /// Non-nil when the LAST refetch failed while stale results stayed on
+    /// screen. Silently keeping old data made broken filters look like
+    /// "filter did nothing" — surface it instead.
+    public private(set) var fetchErrorMessage: String?
 
     public private(set) var coaches: [String] = []
     public private(set) var referees: [String] = []
@@ -161,6 +165,7 @@ public final class HistoricalAnalysisStore {
             loadState = .loaded
             hasLoadedOnce = true
             isRefetching = false
+            fetchErrorMessage = nil
 
             let u = (try? await HistoricalAnalysisService.shared.fetchUpcoming(
                 sport: sport, betType: betType, filters: upcomingFilters
@@ -169,6 +174,8 @@ public final class HistoricalAnalysisStore {
         } catch {
             if !hasLoadedOnce {
                 loadState = .failed(error.localizedDescription)
+            } else {
+                fetchErrorMessage = "Couldn't refresh with these filters — results may be stale."
             }
             isRefetching = false
         }
@@ -219,7 +226,9 @@ public final class HistoricalAnalysisStore {
             switch betType {
             case "total": snapshot.lineMin = 5; snapshot.lineMax = 14
             case "f5_total": snapshot.lineMin = 2; snapshot.lineMax = 8
-            default: break
+            // Other markets use the FG-total range as a cross-market filter.
+            // Reset so stale F5 bounds (2–8) don't leak in as total_max.
+            default: snapshot.lineMin = 5; snapshot.lineMax = 14
             }
         }
     }
@@ -291,7 +300,24 @@ public final class HistoricalAnalysisStore {
     }
     
     public var nlChatState = NLFilterChatState()
-    
+
+    /// Persisted per-sport recent chat queries — feeds the suggestion row
+    /// above the bottom chat input across app launches.
+    public private(set) var recentQueries: [String] = []
+    private var recentQueriesKey: String { "ha_recent_queries_\(sport.rawValue)" }
+
+    public func loadRecentQueries() {
+        recentQueries = UserDefaults.standard.stringArray(forKey: recentQueriesKey) ?? []
+    }
+
+    private func rememberQuery(_ sentence: String) {
+        var list = recentQueries.filter { $0.caseInsensitiveCompare(sentence) != .orderedSame }
+        list.insert(sentence, at: 0)
+        if list.count > 8 { list = Array(list.prefix(8)) }
+        recentQueries = list
+        UserDefaults.standard.set(list, forKey: recentQueriesKey)
+    }
+
     public func submitNLFilterQuery(_ sentence: String, isAuthenticated: Bool) async {
         guard isAuthenticated, !sentence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
@@ -336,6 +362,7 @@ public final class HistoricalAnalysisStore {
             nlChatState.transcript.append(exchange)
             nlChatState.lastResponse = nlResponse
             nlChatState.inputText = ""
+            rememberQuery(sentence)
             
         } catch {
             let errorResponse = NLFilterResponse(
@@ -385,7 +412,17 @@ public final class HistoricalAnalysisStore {
         if snapshot.spreadMin != defaults.spreadMin || snapshot.spreadMax != defaults.spreadMax {
             dict["spreadSize"] = .array([.double(snapshot.spreadMin), .double(snapshot.spreadMax)])
         }
-        if snapshot.lineMin != defaults.lineMin || snapshot.lineMax != defaults.lineMax {
+        if sport == .mlb {
+            // One iOS slider backs two canonical dims: F5 bounds (2–8) on the F5
+            // total market, FG total bounds (5–14) on every other market.
+            if snapshot.betType == "f5_total" {
+                if snapshot.lineMin != 2 || snapshot.lineMax != 8 {
+                    dict["f5TotalRange"] = .array([.double(snapshot.lineMin), .double(snapshot.lineMax)])
+                }
+            } else if snapshot.lineMin != 5 || snapshot.lineMax != 14 {
+                dict["lineRange"] = .array([.double(snapshot.lineMin), .double(snapshot.lineMax)])
+            }
+        } else if snapshot.lineMin != defaults.lineMin || snapshot.lineMax != defaults.lineMax {
             dict["lineRange"] = .array([.double(snapshot.lineMin), .double(snapshot.lineMax)])
         }
         if !snapshot.mlMin.isEmpty { dict["mlMin"] = .string(snapshot.mlMin) }
@@ -412,7 +449,14 @@ public final class HistoricalAnalysisStore {
         putLineRange("oppTtLineRange", snapshot.oppTtLineMin, snapshot.oppTtLineMax, defaults.oppTtLineMin, defaults.oppTtLineMax)
         if let primetime = snapshot.primetime { dict["primetime"] = .bool(primetime) }
         if let division = snapshot.division { dict["division"] = .bool(division) }
-        if snapshot.dome != defaults.dome { dict["dome"] = .string(snapshot.dome) }
+        if snapshot.dome != defaults.dome {
+            // MLB canonical dome is a TRISTATE bool; football is an enum string.
+            if sport == .mlb {
+                dict["dome"] = .bool(snapshot.dome == "dome")
+            } else {
+                dict["dome"] = .string(snapshot.dome)
+            }
+        }
         if snapshot.tempMin != defaults.tempMin || snapshot.tempMax != defaults.tempMax {
             dict["tempRange"] = .array([.int(snapshot.tempMin), .int(snapshot.tempMax)])
         }
@@ -512,7 +556,51 @@ public final class HistoricalAnalysisStore {
             putTri("oppLastOt", snapshot.oppLastOt)
             putIntRange("oppLastMargin", snapshot.oppLastMargin, defaults.oppLastMargin)
         }
-        
+
+        // MLB-only dims (filterSchemaMlb canonical keys). Without these the
+        // chat model never saw months/days/series filters the user already had
+        // set, and its edits to them were dropped on restore.
+        if sport == .mlb {
+            if snapshot.monthMin != defaults.monthMin || snapshot.monthMax != defaults.monthMax {
+                dict["months"] = .array([.int(snapshot.monthMin), .int(snapshot.monthMax)])
+            }
+            // iOS UI is single-day; canonical is a days array.
+            if snapshot.dayOfWeek != "any" {
+                dict["daysOfWeek"] = .array([.string(snapshot.dayOfWeek)])
+            }
+            if let v = snapshot.doubleheader { dict["doubleheader"] = .bool(v) }
+            if let v = snapshot.interleague { dict["interleague"] = .bool(v) }
+            if let v = snapshot.switchGame { dict["switchGame"] = .bool(v) }
+            if snapshot.seriesGameMin != nil || snapshot.seriesGameMax != nil {
+                dict["seriesGame"] = .array([.int(snapshot.seriesGameMin ?? 1), .int(snapshot.seriesGameMax ?? 6)])
+            }
+            if snapshot.tripMin != nil || snapshot.tripMax != nil {
+                dict["trip"] = .array([.int(snapshot.tripMin ?? 1), .int(snapshot.tripMax ?? 5)])
+            }
+            if snapshot.restMin != nil || snapshot.restMax != nil {
+                dict["restRange"] = .array([.int(snapshot.restMin ?? 0), .int(snapshot.restMax ?? 10)])
+            }
+            let streakLo = Double(snapshot.streakMin.trimmingCharacters(in: .whitespaces))
+            let streakHi = Double(snapshot.streakMax.trimmingCharacters(in: .whitespaces))
+            if streakLo != nil || streakHi != nil {
+                dict["winLossStreak"] = .array([.double(streakLo ?? -25), .double(streakHi ?? 25)])
+            }
+            if snapshot.lastResult != "any" { dict["lastResult"] = .string(snapshot.lastResult) }
+            let marginLo = Double(snapshot.lastMarginMin.trimmingCharacters(in: .whitespaces))
+            let marginHi = Double(snapshot.lastMarginMax.trimmingCharacters(in: .whitespaces))
+            if marginLo != nil || marginHi != nil {
+                dict["lastMargin"] = .array([.double(marginLo ?? -30), .double(marginHi ?? 30)])
+            }
+            if snapshot.spHand != "any" { dict["spHand"] = .string(snapshot.spHand) }
+            if snapshot.oppSpHand != "any" { dict["oppSpHand"] = .string(snapshot.oppSpHand) }
+            if !snapshot.sp.isEmpty { dict["spNames"] = .array(snapshot.sp.map { .string($0.name) }) }
+            if !snapshot.oppSp.isEmpty { dict["oppSpNames"] = .array(snapshot.oppSp.map { .string($0.name) }) }
+            if snapshot.windDir != "any" { dict["windDir"] = .string(snapshot.windDir) }
+            if snapshot.pfRunsMin != nil || snapshot.pfRunsMax != nil {
+                dict["pfRuns"] = .array([.double(snapshot.pfRunsMin ?? 85), .double(snapshot.pfRunsMax ?? 115)])
+            }
+        }
+
         return dict
     }
     
@@ -696,6 +784,73 @@ public final class HistoricalAnalysisStore {
                 if let v = webSnapshot["oppLastRole"]?.stringValue { snapshot.oppLastRole = v }
                 if let v = webSnapshot["oppLastOt"]?.boolValue { snapshot.oppLastOt = v }
                 if let v = pairInts("oppLastMargin") { snapshot.oppLastMargin = v }
+            }
+
+            // MLB-only dims — the server returns the FULL canonical snapshot, so
+            // canonical DEFAULTS must map back to the iOS "unset" sentinels
+            // (nil / "any"), not become active filters.
+            if sport == .mlb {
+                // Tristate bool on MLB (football restores it as a string above).
+                if let dome = webSnapshot["dome"]?.boolValue {
+                    snapshot.dome = dome ? "dome" : "outdoor"
+                }
+                if let months = pairInts("months") {
+                    snapshot.monthMin = months[0]
+                    snapshot.monthMax = months[1]
+                }
+                // Canonical daysOfWeek is an array; iOS MLB UI is single-day.
+                if let days = webSnapshot["daysOfWeek"]?.arrayValue {
+                    snapshot.dayOfWeek = days.compactMap { $0.stringValue }.first ?? "any"
+                }
+                if let v = webSnapshot["doubleheader"]?.boolValue { snapshot.doubleheader = v }
+                if let v = webSnapshot["interleague"]?.boolValue { snapshot.interleague = v }
+                if let v = webSnapshot["switchGame"]?.boolValue { snapshot.switchGame = v }
+                if let v = pairInts("seriesGame") {
+                    snapshot.seriesGameMin = v == [1, 6] ? nil : v[0]
+                    snapshot.seriesGameMax = v == [1, 6] ? nil : v[1]
+                }
+                if let v = pairInts("trip") {
+                    snapshot.tripMin = v == [1, 5] ? nil : v[0]
+                    snapshot.tripMax = v == [1, 5] ? nil : v[1]
+                }
+                if let v = pairInts("restRange") {
+                    snapshot.restMin = v == [0, 10] ? nil : v[0]
+                    snapshot.restMax = v == [0, 10] ? nil : v[1]
+                }
+                if let v = pairInts("winLossStreak") {
+                    snapshot.streakMin = v == [-25, 25] ? "" : String(v[0])
+                    snapshot.streakMax = v == [-25, 25] ? "" : String(v[1])
+                }
+                if let v = webSnapshot["lastResult"]?.stringValue { snapshot.lastResult = v }
+                if let v = pairInts("lastMargin") {
+                    snapshot.lastMarginMin = v == [-30, 30] ? "" : String(v[0])
+                    snapshot.lastMarginMax = v == [-30, 30] ? "" : String(v[1])
+                }
+                if let v = webSnapshot["spHand"]?.stringValue { snapshot.spHand = v }
+                if let v = webSnapshot["oppSpHand"]?.stringValue { snapshot.oppSpHand = v }
+                if let v = webSnapshot["windDir"]?.stringValue { snapshot.windDir = v }
+                if let v = pairDoubles("pfRuns") {
+                    snapshot.pfRunsMin = v == [85, 115] ? nil : v[0]
+                    snapshot.pfRunsMax = v == [85, 115] ? nil : v[1]
+                }
+                // F5 market keeps its own canonical dim in the shared line slider.
+                if snapshot.betType == "f5_total", let v = pairDoubles("f5TotalRange") {
+                    snapshot.lineMin = v[0]
+                    snapshot.lineMax = v[1]
+                }
+                // Canonical tempRange floor is 30 (web slider), iOS "any" is -10.
+                // A full-span [30,110] must NOT become temp_min=30 — that would
+                // silently exclude dome games (NULL temps) after every chat turn.
+                if snapshot.tempMin == 30 && snapshot.tempMax == 110 {
+                    snapshot.tempMin = -10
+                }
+                // Same for windRange full span [0,40] vs iOS windMax sentinel 60.
+                if (snapshot.windMin ?? 0) == 0 && snapshot.windMax == 40 {
+                    snapshot.windMin = nil
+                    snapshot.windMax = 60
+                }
+                // spNames/oppSpNames need a name→id lookup to restore; chat-set
+                // pitcher filters are intentionally not applied yet.
             }
         }
     }

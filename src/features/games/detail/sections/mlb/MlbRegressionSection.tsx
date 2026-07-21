@@ -1,4 +1,5 @@
-import { Zap } from 'lucide-react';
+import { ArrowUpRight, Zap } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { WidgetCard } from '@/components/ios';
 import { MLBRegressionPicksForGame } from '@/components/MLBRegressionPicksForGame';
 import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
@@ -38,7 +39,20 @@ export function MlbRegressionSection({
   const f5PickIsHome = (toNum(raw.f5_home_ml_edge_pct) ?? -999) >= (toNum(raw.f5_away_ml_edge_pct) ?? -999);
 
   return (
-    <WidgetCard icon={<Zap />} title="Regression Picks">
+    <WidgetCard
+      icon={<Zap />}
+      title="Regression Picks"
+      subtitle="Teams whose recent results have run hot or cold versus their underlying stats, and so are due to swing back."
+      accessory={
+        <Link
+          to="/mlb/daily-regression-report"
+          className="flex shrink-0 items-center gap-0.5 text-[11px] font-semibold text-primary transition-opacity hover:opacity-80"
+        >
+          Full report
+          <ArrowUpRight className="h-3 w-3" />
+        </Link>
+      }
+    >
       <MLBRegressionPicksForGame
         gamePk={raw.game_pk}
         homeAbbrev={homeAbbrev}

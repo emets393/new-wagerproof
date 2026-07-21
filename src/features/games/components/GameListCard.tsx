@@ -31,6 +31,27 @@ function useInView<T extends HTMLElement>() {
   return { ref, inView };
 }
 
+/**
+ * Selection indicator: a team-colored wash bleeding in from each edge, the same
+ * language as the Today's Matchups tiles. Replaces a `ring-2` outline — a ring
+ * competed with the card's own hairline border and read as a focus state.
+ */
+function SelectionGlow({ color, side }: { color: string; side: 'left' | 'right' }) {
+  const anchor = side === 'left' ? '0%' : '100%';
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'pointer-events-none absolute inset-y-0 w-3/5 opacity-30 dark:opacity-40',
+        side === 'left' ? 'left-0' : 'right-0',
+      )}
+      style={{
+        background: `radial-gradient(125% 100% at ${anchor} 50%, ${color} 0%, transparent 72%)`,
+      }}
+    />
+  );
+}
+
 interface GameListCardProps {
   item: GameFeedItem;
   isSelected: boolean;
@@ -65,7 +86,7 @@ export function GameListCard({
   const spreadText =
     lines.homeSpread !== null
       ? `${favoredHome ? homeTeam.abbrev : awayTeam.abbrev} ${formatSpread(favoredHome ? lines.homeSpread : lines.awaySpread)}`
-      : '-';
+      : 'TBD';
 
   const mlbFinal = item.sport === 'mlb' ? (item.raw as any)?.is_final_prediction : undefined;
   const showPolymarket = !isLocked;
@@ -84,8 +105,8 @@ export function GameListCard({
         interactive={!isLocked}
         onClick={handleClick}
         className={cn(
-          'relative px-4 py-3.5',
-          isSelected && 'ring-2 ring-primary/50',
+          // overflow-hidden clips the selection glow to the card's 26px radius.
+          'relative overflow-hidden px-3 py-2.5',
           isLocked && 'pointer-events-none select-none opacity-50 blur-[3px]'
         )}
         role="button"
@@ -97,42 +118,26 @@ export function GameListCard({
           }
         }}
       >
-        {/* Time pill (+ admin star / MLB status), floating top-right like iOS */}
-        <div className="absolute right-3 top-3 flex items-center gap-1.5">
-          {isAdmin && item.sport !== 'mlb' && (
-            <span onClick={(e) => e.stopPropagation()}>
-              <StarButton gameId={item.id} gameType={item.sport} />
-            </span>
-          )}
-          {mlbFinal !== undefined && (
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide',
-                mlbFinal
-                  ? 'bg-primary/15 text-primary'
-                  : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-              )}
-            >
-              {mlbFinal ? 'Final' : 'Prelim'}
-            </span>
-          )}
-          <span className="rounded-full border border-black/5 bg-white/50 px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground backdrop-blur-md dark:border-white/10 dark:bg-white/[0.08]">
-            {item.status === 'postponed' ? 'PPD' : item.gameTimeLabel}
-          </span>
-        </div>
+        {isSelected && (
+          <>
+            <SelectionGlow color={awayTeam.colors.primary} side="left" />
+            <SelectionGlow color={homeTeam.colors.primary} side="right" />
+          </>
+        )}
 
         {/* Main row (iOS GameRowCard): teams block | line pills | sparkline */}
-        <div className="mt-4 flex items-center gap-3">
-          <div className="w-[96px] shrink-0">
+        <div className="relative flex items-center gap-2">
+          <div className="w-[82px] shrink-0">
             <TeamLogoDiscs
               away={{ logoUrl: awayTeam.logoUrl, abbrev: awayTeam.abbrev, color: awayTeam.colors.primary }}
               home={{ logoUrl: homeTeam.logoUrl, abbrev: homeTeam.abbrev, color: homeTeam.colors.primary }}
-              size={40}
+              size={32}
+              overlap={8}
             />
-            <div className="mt-1.5 truncate text-[13px] font-bold text-foreground">
+            <div className="mt-1 truncate text-[12px] font-bold leading-tight text-foreground">
               {awayTeam.abbrev} <span className="text-muted-foreground">@</span> {homeTeam.abbrev}
             </div>
-            <div className="font-mono text-[11px] font-semibold">
+            <div className="font-mono text-[10px] font-semibold leading-tight">
               <span className={cn((lines.awayML ?? 0) < 0 ? 'text-blue-500' : 'text-primary')}>
                 {formatMoneyline(lines.awayML)}
               </span>
@@ -143,9 +148,9 @@ export function GameListCard({
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-            <StatCapsule label="Spread" value={spreadText} />
-            <StatCapsule label="Total" value={lines.total !== null ? String(lines.total) : '-'} />
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+            <StatCapsule className="px-2 py-0.5" label="Spread" value={spreadText} />
+            <StatCapsule className="px-2 py-0.5" label="Total" value={lines.total !== null ? String(lines.total) : 'TBD'} />
           </div>
 
           {showPolymarket && inView && (
@@ -157,35 +162,58 @@ export function GameListCard({
               awayColor={awayTeam.colors.primary}
               homeColor={homeTeam.colors.primary}
               league={item.sport}
+              width={116}
+              height={38}
             />
           )}
         </div>
 
-        {/* Edge pills */}
-        {(displayedProb !== null ||
-          edges.spreadEdge !== null ||
-          edges.totalEdge !== null) && (
-          <>
-            <div className="mt-2.5 border-t border-black/5 dark:border-white/10" />
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              {displayedProb !== null && (
-                <EdgePill text={`ML ${(displayedProb * 100).toFixed(0)}%`} magnitude={mlMagnitude} />
-              )}
-              {edges.spreadEdge !== null && (
-                <EdgePill
-                  text={`SPR ${formatSpread(Math.round(Math.abs(edges.spreadEdge) * 2) / 2)}`}
-                  magnitude={Math.abs(edges.spreadEdge)}
-                />
-              )}
-              {edges.totalEdge !== null && (
-                <EdgePill
-                  text={`O/U ${formatSpread(Math.round(Math.abs(edges.totalEdge) * 2) / 2)}`}
-                  magnitude={Math.abs(edges.totalEdge)}
-                />
-              )}
-            </div>
-          </>
-        )}
+        {/* Model edges + compact game metadata */}
+        <div className="relative mt-2 border-t border-black/5 dark:border-white/10" />
+        <div className="relative mt-2 flex items-center gap-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+            {displayedProb !== null && (
+              <EdgePill className="px-2 py-0.5 text-[10px]" text={`ML ${(displayedProb * 100).toFixed(0)}%`} magnitude={mlMagnitude} />
+            )}
+            {edges.spreadEdge !== null && (
+              <EdgePill
+                text={`SPR ${formatSpread(Math.round(Math.abs(edges.spreadEdge) * 2) / 2)}`}
+                magnitude={Math.abs(edges.spreadEdge)}
+                className="px-2 py-0.5 text-[10px]"
+              />
+            )}
+            {edges.totalEdge !== null && (
+              <EdgePill
+                text={`O/U ${formatSpread(Math.round(Math.abs(edges.totalEdge) * 2) / 2)}`}
+                magnitude={Math.abs(edges.totalEdge)}
+                className="px-2 py-0.5 text-[10px]"
+              />
+            )}
+          </div>
+
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {isAdmin && item.sport !== 'mlb' && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <StarButton gameId={item.id} gameType={item.sport} />
+              </span>
+            )}
+            {mlbFinal !== undefined && (
+              <span
+                className={cn(
+                  'rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide',
+                  mlbFinal
+                    ? 'bg-primary/15 text-primary'
+                    : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                )}
+              >
+                {mlbFinal ? 'Final' : 'Prelim'}
+              </span>
+            )}
+            <span className="rounded-md border border-black/5 bg-white/50 px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground backdrop-blur-md dark:border-white/10 dark:bg-white/[0.08]">
+              {item.status === 'postponed' ? 'PPD' : item.gameTimeLabel}
+            </span>
+          </div>
+        </div>
 
       </GlassCard>
 
