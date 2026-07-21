@@ -100,4 +100,11 @@ struct SportTool: Identifiable, Hashable {
     static func tools(for sport: GamesStore.Sport) -> [SportTool] {
         registry[sport] ?? []
     }
+
+    /// Lookup by id. Lets other surfaces (the Search Explore rail) reuse a tool's
+    /// exact banner styling — colors, symbols, drift seed — so a shortcut tile and
+    /// the banner it shortcuts to animate identically instead of drifting apart.
+    static func tool(id: String) -> SportTool? {
+        registry.values.flatMap(\.self).first { $0.id == id }
+    }
 }

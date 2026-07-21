@@ -156,16 +156,30 @@ public actor HistoricalAnalysisService {
         
         public struct AppliedChange: Decodable {
             public let dimension: String
-            public let from: String?
-            public let to: String?
             public let note: String?
+
+            // The reducer's from/to are `unknown` (numbers, arrays, bools…) —
+            // decoding them as String? used to fail the whole applied array and
+            // the UI reported "didn't catch a filter" for successful patches.
+            enum CodingKeys: String, CodingKey { case dimension, note }
+
+            public init(dimension: String, note: String? = nil) {
+                self.dimension = dimension
+                self.note = note
+            }
+
+            public init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: CodingKeys.self)
+                dimension = try c.decode(String.self, forKey: .dimension)
+                note = try? c.decodeIfPresent(String.self, forKey: .note)
+            }
         }
-        
+
         enum CodingKeys: String, CodingKey {
-            case snapshot, applied, rejected, error
-            case noChange = "no_change"
+            // Edge fn returns camelCase `noChange` — the old "no_change" mapping
+            // made it decode as nil forever.
+            case snapshot, applied, rejected, error, noChange, ambiguous
             case couldntMap = "couldnt_map"
-            case ambiguous
         }
         
         public init(from decoder: Decoder) throws {
@@ -179,7 +193,7 @@ public actor HistoricalAnalysisService {
                 applied = appliedChanges
             } else if let appliedStrings = try? container.decodeIfPresent([String].self, forKey: .applied) {
                 // Convert string array to AppliedChange array for backward compatibility
-                applied = appliedStrings.map { AppliedChange(dimension: $0, from: nil, to: nil, note: nil) }
+                applied = appliedStrings.map { AppliedChange(dimension: $0) }
             } else {
                 applied = nil
             }

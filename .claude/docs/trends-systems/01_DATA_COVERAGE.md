@@ -40,7 +40,8 @@ reading min/max `commence_time` from the parsed parquet in `research/bball-odds/
 ### NFL — `nfl_analysis_base` (live)
 - Full-game **spread, moneyline, total** = **2018–2025** (8 seasons), deep enough for real backtests.
 - **1H spread/ML/total and team total = 2023+ only** (odds capture started 2023). UI floors the season
-  picker to 2023 for these and shows a "Limited history (2023+)" badge (`LIMITED_MARKETS` in NFLAnalytics.tsx).
+  picker to 2023 for these and shows a "Limited history (2023+)" badge (`LIMITED_MARKETS`, now in the
+  unified `HistoricalTrends.tsx` that replaced the per-sport `NFLAnalytics`/`CFBAnalytics`/`MLBAnalytics` pages).
 - **Moneyline ROI is hidden** — ML shows W-L record only (no historical ML price stored; ROI not computable).
 
 ### CFB — `cfb_analysis_base` (live)

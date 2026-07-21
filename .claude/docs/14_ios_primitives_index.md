@@ -330,10 +330,21 @@ The consumer of this index. Current primitives:
 | Primitive | Tier | File | Renders from |
 |---|---|---|---|
 | SearchToolCard (explore grid card) | 3 | `Search/Components/SearchToolCards.swift:11` | title + subtitle + graphic + action |
-| AngledStatSheetGraphic / StackedStatCardsGraphic / RadarSweepGraphic | 3 | `SearchToolCards.swift:66,213,310` | row/item pools, timing |
+| AngledStatSheetGraphic / StackedStatCardsGraphic / RadarSweepGraphic | 3 | `SearchToolCards.swift` | row/item pools, timing |
+| TrendBarsGraphic (Trends card graphic) | 3 | `Search/Components/SearchToolCards.swift` | looping height frames |
 | SearchResultRow (generic result line item) | 1 | `Search/Components/SearchResultRow.swift:19` | icon + tint + two lines + trailing |
 | SearchMatchupCard + InsightChip (MLB game result w/ teaser chips) | 1 | `Search/Components/SearchMatchupCard.swift:11,124` | `SearchResult.Game` + `[InsightTeaser]` |
 | OutliersTrendCardShimmer | 3 | `SearchView.swift` | — (mirrors `OutliersTrendCard` for the loading rail) |
+
+The **Explore** rail runs four `SearchToolCard`s. Props / Agents / Outliers switch the browse
+scope; **Trends** instead opens a bottom-sheet sport picker (`trendsDrawer`, 260pt detent) holding
+the real Games-page `ToolBannerCard` banners for NFL and MLB — gradient + `OptionCardIconChrome`
+drifting symbols, read from `SportTool.tool(id:)` so the drawer and the Games page never drift
+apart. Add CFB by extending `SearchView.trendsDrawerTools`. Because the sport gradients live in the
+drawer, the Trends card itself stays in the rail's neutral token language (`TrendBarsGraphic`).
+Picking a banner sets `pendingTrendsSport` and closes the sheet; the sheet's `onDismiss` then sets
+`trendsDestination`, which pushes `HistoricalAnalysisView` — pushing while the sheet is still up
+would land the destination behind it.
 
 Section headers (both empty-state `Explore`/`Recent`/`Suggestions` and active-search
 `Matchup`/`Props`/`Agents`/`Outliers`) use the shared `sectionHeader(title, icon:, count:)` —

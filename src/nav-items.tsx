@@ -1,6 +1,5 @@
 import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
-import NFLAnalytics from "./pages/NFLAnalytics";
 import WagerBotChat from "./pages/WagerBotChat";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import NotFound from "./pages/NotFound";
@@ -64,6 +63,14 @@ export const navItems: NavItem[] = [
     to: "/today-in-sports",
     icon: <Newspaper className="h-4 w-4" />,
   },
+  {
+    // Unified chat-forward Historical Trends page (NFL/CFB/MLB) — replaces the per-sport analytics pages.
+    title: "Historical Trends",
+    // No sport param — the page defaults to NFL, and a query-less link keeps
+    // the sidebar highlight active across in-page sport switches.
+    to: "/historical-trends",
+    icon: <BarChart className="h-4 w-4" />,
+  },
   // {
   //   title: "Editors Picks",
   //   to: "/editors-picks",
@@ -91,25 +98,11 @@ export const navItems: NavItem[] = [
     title: "NFL",
     to: "/games?sport=nfl",
     icon: <ShieldIcon className="h-4 w-4" />,
-    subItems: [
-      {
-        title: "Historical Analytics",
-        to: "/nfl-analytics",
-        icon: <BarChart className="h-4 w-4" />,
-      },
-    ],
   },
   {
     title: "CFB",
     to: "/games?sport=cfb",
     icon: <GraduationCap className="h-4 w-4" />,
-    subItems: [
-      {
-        title: "Historical Analytics",
-        to: "/cfb-analytics",
-        icon: <BarChart className="h-4 w-4" />,
-      },
-    ],
   },
   {
     title: "NBA",
@@ -160,11 +153,6 @@ export const navItems: NavItem[] = [
     to: "/games?sport=mlb",
     icon: <Trophy className="h-4 w-4" />,
     subItems: [
-      {
-        title: "Historical Analytics",
-        to: "/mlb-analytics",
-        icon: <BarChart className="h-4 w-4" />,
-      },
       {
         title: "Today's Betting Trends",
         to: "/mlb/todays-betting-trends",

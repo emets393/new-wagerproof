@@ -175,6 +175,16 @@ public struct HistoricalAnalysisCoverage: Codable, Sendable, Equatable {
         case nBets = "n_bets"
         case nGames = "n_games"
     }
+
+    // Zero-match result sets return SQL nulls; the view hides coverage when
+    // overall.n == 0 so zero defaults never render.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        seasonMin = (try? c.decodeIfPresent(Int.self, forKey: .seasonMin)) ?? 0
+        seasonMax = (try? c.decodeIfPresent(Int.self, forKey: .seasonMax)) ?? 0
+        nBets = (try? c.decodeIfPresent(Int.self, forKey: .nBets)) ?? 0
+        nGames = (try? c.decodeIfPresent(Int.self, forKey: .nGames)) ?? 0
+    }
 }
 
 public struct HistoricalAnalysisOverall: Codable, Sendable, Equatable {
@@ -187,6 +197,18 @@ public struct HistoricalAnalysisOverall: Codable, Sendable, Equatable {
         case n, wins
         case hitPct = "hit_pct"
         case roi
+    }
+
+    // Zero-row slices come back as SQL nulls (n/wins/hit_pct). A strict Double
+    // decode threw for the WHOLE response, freezing the page on stale data for
+    // any side-pinning filter (side/fav_dog/team+away…). Default to zeros —
+    // nonDegenerateBars/n>0 checks hide them downstream.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        n = (try? c.decodeIfPresent(Int.self, forKey: .n)) ?? 0
+        wins = (try? c.decodeIfPresent(Int.self, forKey: .wins)) ?? 0
+        hitPct = (try? c.decodeIfPresent(Double.self, forKey: .hitPct)) ?? 0
+        roi = try? c.decodeIfPresent(Double.self, forKey: .roi)
     }
 }
 
@@ -203,6 +225,17 @@ public struct HistoricalAnalysisBarOption: Codable, Sendable, Equatable, Identif
         case side, n, wins
         case hitPct = "hit_pct"
         case roi
+    }
+
+    // Same null-tolerance as Overall — the empty side of a pinned split has
+    // null n/wins/hit_pct.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        side = (try? c.decodeIfPresent(String.self, forKey: .side)) ?? "—"
+        n = (try? c.decodeIfPresent(Int.self, forKey: .n)) ?? 0
+        wins = (try? c.decodeIfPresent(Int.self, forKey: .wins)) ?? 0
+        hitPct = (try? c.decodeIfPresent(Double.self, forKey: .hitPct)) ?? 0
+        roi = try? c.decodeIfPresent(Double.self, forKey: .roi)
     }
 }
 
@@ -236,6 +269,19 @@ public struct HistoricalAnalysisBreakdownRow: Codable, Sendable, Equatable, Iden
         case hitPct = "hit_pct"
         case roi
     }
+
+    // Null-tolerant for the same reason as the bar options.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        team = try? c.decodeIfPresent(String.self, forKey: .team)
+        coach = try? c.decodeIfPresent(String.self, forKey: .coach)
+        referee = try? c.decodeIfPresent(String.self, forKey: .referee)
+        conference = try? c.decodeIfPresent(String.self, forKey: .conference)
+        venue = try? c.decodeIfPresent(String.self, forKey: .venue)
+        n = (try? c.decodeIfPresent(Int.self, forKey: .n)) ?? 0
+        hitPct = (try? c.decodeIfPresent(Double.self, forKey: .hitPct)) ?? 0
+        roi = try? c.decodeIfPresent(Double.self, forKey: .roi)
+    }
 }
 
 public struct HistoricalAnalysisResponse: Codable, Sendable, Equatable {
@@ -260,6 +306,22 @@ public struct HistoricalAnalysisResponse: Codable, Sendable, Equatable {
         case byReferee = "by_referee"
         case byConference = "by_conference"
         case byVenue = "by_venue"
+    }
+
+    // Tolerate null container fields on empty result sets (baseline_pct /
+    // by_team / bars can all be SQL nulls when 0 games match).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        betType = (try? c.decodeIfPresent(String.self, forKey: .betType)) ?? ""
+        coverage = try c.decode(HistoricalAnalysisCoverage.self, forKey: .coverage)
+        baselinePct = (try? c.decodeIfPresent(Double.self, forKey: .baselinePct)) ?? 50
+        overall = try c.decode(HistoricalAnalysisOverall.self, forKey: .overall)
+        bars = (try? c.decodeIfPresent([HistoricalAnalysisBar].self, forKey: .bars)) ?? []
+        byTeam = (try? c.decodeIfPresent([HistoricalAnalysisBreakdownRow].self, forKey: .byTeam)) ?? []
+        byCoach = try? c.decodeIfPresent([HistoricalAnalysisBreakdownRow].self, forKey: .byCoach)
+        byReferee = try? c.decodeIfPresent([HistoricalAnalysisBreakdownRow].self, forKey: .byReferee)
+        byConference = try? c.decodeIfPresent([HistoricalAnalysisBreakdownRow].self, forKey: .byConference)
+        byVenue = try? c.decodeIfPresent([HistoricalAnalysisBreakdownRow].self, forKey: .byVenue)
     }
 }
 
@@ -1160,7 +1222,20 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
                 conferenceGame: nil,
                 neutralSite: nil,
                 conference: "any",
-                selectedConferences: []
+                selectedConferences: [],
+                // As-of range defaults MUST match the builder's per-sport
+                // defaultRange comparisons (buildRPCFilters) — CFB scoring runs
+                // higher than NFL. A mismatch makes every CFB query emit
+                // spurious ppg/margin bounds that silently narrow results.
+                ppg: sport == .cfb ? [0, 60] : [0, 40],
+                paPg: sport == .cfb ? [0, 60] : [0, 40],
+                pointDiffPg: sport == .cfb ? [-40, 40] : [-20, 20],
+                avgCoverMargin: sport == .cfb ? [-30, 30] : [-15, 15],
+                prevWins: sport == .cfb ? [0, 15] : [0, 16],
+                oppPpg: sport == .cfb ? [0, 60] : [0, 40],
+                oppPaPg: sport == .cfb ? [0, 60] : [0, 40],
+                oppLastMargin: sport == .cfb ? [-80, 80] : [-60, 60],
+                lastMargin: sport == .cfb ? [-80, 80] : [-60, 60]
             )
         }
     }

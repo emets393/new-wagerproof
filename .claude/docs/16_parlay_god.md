@@ -1,9 +1,17 @@
-# Parlay God (iOS)
+# Parlay God
 
 Pro-gated feature that harvests every bettable selection currently backed by a
 **perfect streak** (100% hit rate, sample ≥ 3) and assembles them into themed
-3–5 leg parlay cards with per-leg odds and a combined price. One engine, four
-surfaces. All client-side — no server or schema changes.
+3–5 leg parlay cards with per-leg odds and a combined price. All client-side —
+no server or schema changes.
+
+Now shipped on **two platforms**: iOS (the reference implementation, four
+surfaces) and **web** (a pure-TS port of the engine, MLB-only, wired into the
+Outliers dashboard). Everything below documents iOS; the web port and its
+surfaces are covered in `src/features/parlayGod/README.md` (engine) and
+`src/features/outliers/README.md` (the Parlay God + Props Cheats bands on the
+`/today-in-sports` page). The web build intentionally ports **MLB only** this
+phase — the NFL prop-leg path stays iOS-only until the in-season props cutover.
 
 ## What qualifies as a leg
 

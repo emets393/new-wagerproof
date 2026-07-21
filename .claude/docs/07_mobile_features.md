@@ -66,8 +66,9 @@ CFB game pages** (no tab/menu entry), scoped to that sport.
 Backend = read-only RPCs on the warehouse project (`nfl_analysis`/`nfl_analysis_upcoming`,
 `cfb_analysis`/`cfb_analysis_upcoming`); the app aggregates nothing. Full implementation spec —
 data contract, filter keys, the contextual week/round control, sport deltas, UX rules — in
-**`.claude/docs/15_mobile_historical_analysis.md`**. Web reference: `src/pages/NFLAnalytics.tsx`,
-`src/pages/CFBAnalytics.tsx`.
+**`.claude/docs/15_mobile_historical_analysis.md`**. Web reference: `src/pages/HistoricalTrends.tsx`
+(the unified page that replaced the per-sport `NFLAnalytics`/`CFBAnalytics`/`MLBAnalytics` pages;
+their `/nfl-analytics`, `/cfb-analytics`, `/mlb-analytics` routes now redirect there).
 
 ---
 

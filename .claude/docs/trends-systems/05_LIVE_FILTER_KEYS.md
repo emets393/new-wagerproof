@@ -150,9 +150,10 @@ NOTE: `last_is_favorite` inherits the base's `is_favorite` semantics (ML < 0, so
 sides of a −105/−115 game count as favorites). Owner declined avg-cover-margin for MLB.
 
 **Summary-rule parity:** `isSideSymmetricCfb`/`isSideSymmetricMlb` + the `SymmetricSplitHero` are now
-wired into CFBAnalytics.tsx and MLBAnalytics.tsx (previously NFL-only) — two-sided markets with only
-game-level filters never headline the forced ~50%; they lead with the real home/away + fav/dog splits.
-Both pages also gained the FULL as-of Systems filter UI (previously schema/RPC-only).
+wired into the CFB and MLB paths (previously NFL-only) — two-sided markets with only game-level filters
+never headline the forced ~50%; they lead with the real home/away + fav/dog splits. All sports also
+gained the FULL as-of Systems filter UI (previously schema/RPC-only). (The per-sport `NFLAnalytics`/
+`CFBAnalytics`/`MLBAnalytics` pages have since been merged into the unified `HistoricalTrends.tsx`.)
 
 ## Not yet done
 - `*_analysis_upcoming` does NOT yet expose these columns for scheduled games (so today's-matches can't be

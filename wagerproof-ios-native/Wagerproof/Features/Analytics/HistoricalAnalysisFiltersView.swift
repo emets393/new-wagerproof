@@ -258,12 +258,25 @@ struct HistoricalAnalysisFilterBar: View {
         store.sport == .cfb ? 50 : 20
     }
 
+    // As-of slider bounds — MUST stay in sync with the builder's defaultRange
+    // comparisons and `defaults(for:)`, or untouched sliders emit RPC keys.
+    private var asOfPpgMax: Double { store.sport == .cfb ? 60 : 40 }
+    private var pointDiffBound: Double { store.sport == .cfb ? 40 : 20 }
+    private var coverMarginBound: Double { store.sport == .cfb ? 30 : 15 }
+    private var prevWinsMax: Double { store.sport == .cfb ? 15 : 16 }
+    private var lastMarginBound: Double { store.sport == .cfb ? 80 : 60 }
+
     private var defaultLineMin: Int {
-        Int(HistoricalAnalysisFilterBuilder.totalConfig(sport: store.sport, betType: store.betType)?.min ?? 30)
+        // On markets without their own total config (MLB ML/RL) the slider is a
+        // cross-market game-total filter — fall back to MLB's FG total bounds,
+        // not the football 30–60.
+        Int(HistoricalAnalysisFilterBuilder.totalConfig(sport: store.sport, betType: store.betType)?.min
+            ?? (store.sport == .mlb ? 5 : 30))
     }
 
     private var defaultLineMax: Int {
-        Int(HistoricalAnalysisFilterBuilder.totalConfig(sport: store.sport, betType: store.betType)?.max ?? 60)
+        Int(HistoricalAnalysisFilterBuilder.totalConfig(sport: store.sport, betType: store.betType)?.max
+            ?? (store.sport == .mlb ? 14 : 60))
     }
 
     // MARK: - Active chips
@@ -279,20 +292,26 @@ struct HistoricalAnalysisFilterBar: View {
             onChange()
         }
         if !chips.isEmpty {
-            // Plain text chips — no capsule chrome, matching the pill row.
+            // Compact glass capsules — tap the X (or the chip) to clear.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
+                HStack(spacing: 8) {
                     ForEach(chips) { chip in
-                        HStack(spacing: 3) {
-                            Text(chip.label)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Color.appTextSecondary)
-                            Button(action: chip.clear) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 12))
+                        Button(action: chip.clear) {
+                            HStack(spacing: 5) {
+                                Text(chip.label)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.appTextPrimary)
+                                    .lineLimit(1)
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 9, weight: .bold))
                                     .foregroundStyle(Color.appTextMuted)
                             }
+                            .padding(.leading, 11)
+                            .padding(.trailing, 9)
+                            .frame(height: 28)
+                            .liquidGlassBackground(in: Capsule(), tint: Color.appPrimary.opacity(0.12))
                         }
+                        .buttonStyle(.plain)
                     }
                     Button {
                         store.resetAllFilters()
@@ -300,11 +319,17 @@ struct HistoricalAnalysisFilterBar: View {
                         Text("Reset all")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Color.appPrimary)
+                            .padding(.horizontal, 11)
+                            .frame(height: 28)
+                            .liquidGlassBackground(in: Capsule(), interactive: true)
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 16)
+                // Same breathing room as the pill row so glass isn't shaved.
+                .padding(.vertical, 2)
             }
+            .scrollClipDisabled()
         }
     }
 
@@ -804,28 +829,21 @@ struct HistoricalAnalysisFilterBar: View {
             Text("Favorite").tag("favorite")
             Text("Underdog").tag("underdog")
         }
-        // B1: NFL uses signed margin slider instead of blowout
-        if store.sport == .nfl {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Last game margin: \(store.snapshot.lastMargin[0])–\(store.snapshot.lastMargin[1]) pts")
-                    .font(.subheadline)
-                Text("+ = won by, − = lost by")
-                    .font(.caption)
-                    .foregroundStyle(Color.appTextSecondary)
-                HistoricalAnalysisRangeSlider(
-                    lower: intAsDoubleBinding(\.lastMargin, 0),
-                    upper: intAsDoubleBinding(\.lastMargin, 1),
-                    range: -60...60,
-                    step: 1
-                )
-            }
-        } else {
-            // CFB still uses blowout
-            Picker("Blowout (±21)", selection: binding(\.lastBlowout)) {
-                Text("Any").tag("any")
-                Text("Won by 21+").tag("win")
-                Text("Lost by 21+").tag("loss")
-            }
+        // Signed margin slider for BOTH sports — CFB last_blowout was removed
+        // from the RPC (the old Blowout picker wrote a key the builder never
+        // emitted, i.e. a dead control). See 06_PARITY_HANDOFF_2026-07-19.md.
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Last game margin: \(store.snapshot.lastMargin[0])–\(store.snapshot.lastMargin[1]) pts")
+                .font(.subheadline)
+            Text("+ = won by, − = lost by")
+                .font(.caption)
+                .foregroundStyle(Color.appTextSecondary)
+            HistoricalAnalysisRangeSlider(
+                lower: intAsDoubleBinding(\.lastMargin, 0),
+                upper: intAsDoubleBinding(\.lastMargin, 1),
+                range: -lastMarginBound...lastMarginBound,
+                step: 1
+            )
         }
         optionalBoolPicker("Went to overtime", value: boolBinding(\.lastOt))
     }
@@ -929,7 +947,9 @@ struct HistoricalAnalysisFilterBar: View {
             Text("Outdoor").tag("outdoor")
         }
         Section("Park factor (runs)") {
-            TextField("Min", text: Binding(
+            // Warehouse pf is 100-scale (100 = neutral) — "1.05"-style input
+            // matches nothing. Hint the scale in the placeholders.
+            TextField("Min (100 = neutral, e.g. 103)", text: Binding(
                 get: { store.snapshot.pfRunsMin.map { HistoricalAnalysisCopy.trimmed($0) } ?? "" },
                 set: { raw in
                     let t = raw.trimmingCharacters(in: .whitespaces)
@@ -938,7 +958,7 @@ struct HistoricalAnalysisFilterBar: View {
                 }
             ))
             .keyboardType(.decimalPad)
-            TextField("Max", text: Binding(
+            TextField("Max (e.g. 97 for pitcher parks)", text: Binding(
                 get: { store.snapshot.pfRunsMax.map { HistoricalAnalysisCopy.trimmed($0) } ?? "" },
                 set: { raw in
                     let t = raw.trimmingCharacters(in: .whitespaces)
@@ -1225,7 +1245,7 @@ struct HistoricalAnalysisFilterBar: View {
                 HistoricalAnalysisRangeSlider(
                     lower: doubleBinding(\.ppg, 0),
                     upper: doubleBinding(\.ppg, 1),
-                    range: 0...40,
+                    range: 0...asOfPpgMax,
                     step: 0.5
                 )
             }
@@ -1236,7 +1256,7 @@ struct HistoricalAnalysisFilterBar: View {
                 HistoricalAnalysisRangeSlider(
                     lower: doubleBinding(\.paPg, 0),
                     upper: doubleBinding(\.paPg, 1),
-                    range: 0...40,
+                    range: 0...asOfPpgMax,
                     step: 0.5
                 )
             }
@@ -1247,7 +1267,7 @@ struct HistoricalAnalysisFilterBar: View {
                 HistoricalAnalysisRangeSlider(
                     lower: doubleBinding(\.pointDiffPg, 0),
                     upper: doubleBinding(\.pointDiffPg, 1),
-                    range: -20...20,
+                    range: -pointDiffBound...pointDiffBound,
                     step: 0.5
                 )
             }
@@ -1298,7 +1318,7 @@ struct HistoricalAnalysisFilterBar: View {
                 HistoricalAnalysisRangeSlider(
                     lower: doubleBinding(\.avgCoverMargin, 0),
                     upper: doubleBinding(\.avgCoverMargin, 1),
-                    range: -15...15,
+                    range: -coverMarginBound...coverMarginBound,
                     step: 0.5
                 )
             }
@@ -1346,7 +1366,7 @@ struct HistoricalAnalysisFilterBar: View {
                 HistoricalAnalysisRangeSlider(
                     lower: intAsDoubleBinding(\.prevWins, 0),
                     upper: intAsDoubleBinding(\.prevWins, 1),
-                    range: 0...16,
+                    range: 0...prevWinsMax,
                     step: 1
                 )
             }
@@ -1508,7 +1528,7 @@ struct HistoricalAnalysisFilterBar: View {
                 HistoricalAnalysisRangeSlider(
                     lower: intAsDoubleBinding(\.oppLastMargin, 0),
                     upper: intAsDoubleBinding(\.oppLastMargin, 1),
-                    range: -60...60,
+                    range: -lastMarginBound...lastMarginBound,
                     step: 1
                 )
             }

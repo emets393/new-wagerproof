@@ -1,9 +1,10 @@
 # Mobile: Historical Analysis (NFL + CFB)
 
 > How to implement the Historical Analysis feature in the app for both NFL and College Football.
-> The web pages are live at `/nfl-analytics` (`src/pages/NFLAnalytics.tsx`) and `/cfb-analytics`
-> (`src/pages/CFBAnalytics.tsx`) — the app screen is a faithful port of those. Backend is already
-> built; the app only calls RPCs, it does not aggregate anything.
+> Web reference: the per-sport analytics pages were collapsed into a single unified
+> `/historical-trends` page (`src/pages/HistoricalTrends.tsx`); the legacy routes `/nfl-analytics`,
+> `/cfb-analytics`, and `/mlb-analytics` now redirect there. The app screen is a faithful port of
+> that page. Backend is already built; the app only calls RPCs, it does not aggregate anything.
 
 ## What it is
 
@@ -88,6 +89,11 @@ reversed entry by sorting when both are present. NFL ML covers 2018+; **CFB ML c
 `playoff_round ('Wild Card'|'Divisional'|'Conference'|'Super Bowl')`, `division (bool)`,
 `day_of_week`, `dome (bool)`, `surface`, `precip ('rain'|'snow'|'none')`, `rest_min/max`,
 `pre_bye (bool)`, `coach`, `referee`. Team values are abbreviations (KC, BAL).
+
+> ⚠️ `day_of_week` must be a JSON **array** of day names (`["Fri"]`) on ALL THREE sports' RPCs —
+> the SQL does `jsonb_array_elements` on it, and a scalar string errors the entire query
+> ("cannot extract elements from a scalar"). This silently froze iOS MLB on stale results until
+> 2026-07-20; the builders now always wrap single-day selections in an array.
 
 **CFB-only:** `week_min/max`, `game_type ('regular'|'bowl'|'playoff'|'postseason')`,
 `conference`, `conference_game (bool)`, `neutral_site (bool)`,
@@ -202,6 +208,24 @@ WagerProof logo + wordmark and `wagerproof.bet` at the bottom. Export renders JU
 `ImageRenderer` (scale 3, `isOpaque = false`) so the shared PNG is the standalone component on a
 transparent surround, same as the agent pick tickets.
 
+**Card styles (2026-07-20):** the sheet is a swipeable `TabView` pager (`TrendsShareStyle`) over
+FIVE card designs sharing the focus picker + export path — the visible card is what exports:
+1. **Full Report** — the original narrative infographic above.
+2. **Poster** — one giant hit rate over a radial aura, situation as an eyebrow, record/ROI/games
+   chips (chips reflow to two rows via `ViewThatFits` when the record is wide).
+3. **Gauge** — donut arc of the hit rate with a white ring tick at the league baseline.
+4. **Chart** — graph-first: situation splits + top-5 performers as chunky gradient bars with
+   in-bar % labels and baseline ticks.
+5. **Receipt** — cream-paper monospaced betting slip: active filter chips printed as ✓'d line
+   items, hit% as a stamped total, decorative barcode seeded from the search.
+
+Gauge + Chart carry **corner identity art** (`TrendsTeamArt`): when the share focus is a team OR
+the filter is narrowed to exactly one team, a big faded team logo (NFL `NFLTeamAssets` / MLB
+`MLBTeams` / CFB via the store's `cfbLogos` map passed into the sheet) rotates into the top-right
+corner and the aura tints to the team's primary color; CFB teams without a logo get colored
+initials, non-team searches get the sport ball icon. Logos are pre-fetched as `UIImage`s so
+`ImageRenderer` exports include them (AsyncImage would render blank in exports).
+
 ## Definition of done
 
 - NFL and CFB game pages each show the banner → opens the correctly-scoped Analysis screen.
@@ -212,3 +236,61 @@ transparent surround, same as the agent pick tickets.
 - Offseason shows full history + a friendly empty "upcoming games" state.
 - Sanity: no filters → `fg_spread` overall ≈ 50%, favorites cover ≈ 49% (not ~20/80 — that's a
   spread-sign bug).
+
+## 2026-07-20 refresh — chat-first UI + engine parity fixes
+
+The iOS screen was reworked into an AI-chat-first layout (all three sports):
+
+- **Tab bar hidden** on the screen (`.toolbar(.hidden, for: .tabBar)`); a floating **liquid-glass
+  chat dock** sits pinned to the bottom via `.safeAreaInset(edge: .bottom)`: a **horizontal
+  suggestions row** (canned per-sport examples; flips to the user's **recent queries** while a
+  query runs / when the input is focused) and a thin glass input bar with the hint "Type what
+  filters you want…". Chat results surface as a **system-banner-style toast** (glass capsule
+  dropping from the top, success/warning haptic, auto-dismiss ~2.4s, tap or swipe-up to dismiss —
+  `TrendsChatToast` in `HistoricalAnalysisView.swift`), not a persistent status line. The old
+  inline "DESCRIBE A FILTER" section (input + examples + transcript) is gone. A **black gradient
+  scrim** sits behind the dock (top→bottom fade, extended through the home-indicator inset via
+  `.ignoresSafeArea(edges: .bottom)`) so the glass separates from content scrolling underneath;
+  the ramp tops out at 0.92 in dark mode and 0.26 in light (`chatScrimOpacity`). Because bare
+  glass vanishes into that scrim, the input bar and chips pass a light white `tint` to
+  `liquidGlassBackground` (`dockTint`, dark-mode only — no borders or hand-rolled containers)
+  and use brighter text. While a query is in flight the send
+  button is replaced by a shrunk `GlyphMatrix3x3` (dot 3 / gap 3) — the same 3×3 loader the agent
+  generation card runs beside its action verbs — not a `ProgressView`.
+- Recent queries persist per sport in `UserDefaults` (`ha_recent_queries_<sport>`, max 8) —
+  `HistoricalAnalysisStore.loadRecentQueries()` / `recentQueries`.
+- **Active filter chips** are now closeable liquid-glass capsules (tap anywhere to clear) with a
+  glass "Reset all"; still rendered from `HistoricalAnalysisCopy.activeChips`, which now compares
+  against `HistoricalAnalysisUISnapshot.defaults(for: sport)` instead of hardcoded NFL ranges.
+- **Refetch errors surface** (`store.fetchErrorMessage` → orange banner atop the content).
+  Previously a failed RPC silently kept stale results, which made broken filters read as
+  "filter did nothing" (this was the reported "years filter shows all games" symptom: a scalar
+  `day_of_week` errored every MLB query once a day filter was set).
+
+Engine parity fixes shipped with it:
+
+- MLB `day_of_week` emitted as an array (see warning above); web `HistoricalTrends.tsx` (the unified
+  page that replaced `MLBAnalytics.tsx`) fixed too.
+- MLB totals are cross-market: FG total bounds (5–14) emit `total_min/max` on every non-F5 market;
+  the F5 total market maps the same slider to `f5_total_min/max` (2–8). Market switches reset the
+  slider so F5 bounds can't leak into other markets.
+- MLB NL chat round-trip now serializes/restores the MLB-only canonical dims (`months`,
+  `daysOfWeek`⇄single `dayOfWeek`, `doubleheader`, `interleague`, `seriesGame`, `trip`,
+  `switchGame`, `restRange`, `winLossStreak`, `lastResult`, `lastMargin`, `spHand`/`oppSpHand`,
+  `windDir`, `pfRuns`) with canonical-default → iOS-sentinel guards (e.g. tempRange [30,110] must
+  NOT become `temp_min=30` — that excludes dome games). `spNames`/`oppSpNames` are serialized but
+  not restored (needs a name→id lookup) — chat-set pitcher filters are a known gap, as are the MLB
+  as-of/systems dims (win %, RL cover %, H2H…) whose iOS UI is still the pending parity port.
+- CFB `defaults(for:)` now seeds CFB-sized as-of ranges (ppg/paPg 0–60, point diff ±40, cover
+  margin ±30, last margins ±80, prev wins 0–15) matching the builder's comparisons — before this,
+  every CFB query shipped spurious `ppg_max`/`avg_cover_margin_*`/`last_margin_*` keys. Sheet
+  sliders are sport-aware; the dead CFB "Blowout" picker was replaced by the signed margin slider.
+- `nl-filter-patch` response decoding fixed: `noChange` is camelCase, and `applied[].from/to` are
+  ignored (they're arbitrary JSON — decoding them as strings nulled the whole applied list and the
+  UI claimed "didn't catch a filter" on successful patches).
+- **Null-tolerant response decode** (same refresh): zero-row slices come back as SQL nulls
+  (`bars[].options[].hit_pct`, `overall.*`, `coverage.*`, `by_team` …). The strict Swift decode
+  threw for the WHOLE response on ANY side-pinning filter (side / fav_dog / team+away…), freezing
+  the screen on stale results — the second half of the "filters do nothing" symptom. All response
+  models now default nulls to zeros; verified against the live warehouse across 29 filter
+  combinations (all 3 sports, incl. 0-result sets).

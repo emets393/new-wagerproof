@@ -55,6 +55,81 @@ struct SearchToolCard<Graphic: View>: View {
     }
 }
 
+// MARK: - Trend bars graphic
+
+/// Graphic for the Historical Trends explore card: a bar chart of bet-type hit
+/// rates that re-samples on a loop, with the leading bar called out. Built from
+/// the same neutral tokens as the other explore graphics (`appSurfaceMuted`
+/// bars, `appBorderStrong` baseline, `appPrimary` only on the highlight) — the
+/// sport gradients live on the banners inside the drawer, not out here.
+struct TrendBarsGraphic: View {
+    /// Height fractions per frame; the loop eases between successive rows.
+    private let frames: [[CGFloat]] = [
+        [0.34, 0.58, 0.42, 0.86, 0.50, 0.66, 0.30],
+        [0.52, 0.36, 0.74, 0.44, 0.90, 0.38, 0.62],
+        [0.28, 0.80, 0.48, 0.60, 0.36, 0.94, 0.44],
+    ]
+    /// Seconds each frame holds before easing to the next.
+    private let dwell: Double = 1.9
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var frame = 0
+
+    var body: some View {
+        let heights = frames[frame]
+        // The tallest bar in the current frame reads as the standout trend.
+        let peak = heights.firstIndex(of: heights.max() ?? 0) ?? 0
+
+        Color.clear
+            .overlay(alignment: .bottom) {
+                HStack(alignment: .bottom, spacing: 7) {
+                    ForEach(heights.indices, id: \.self) { i in
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(i == peak ? Color.appPrimary.opacity(0.85) : Color.appSurfaceMuted)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .stroke(
+                                        i == peak
+                                            ? Color.appPrimary.opacity(0.5)
+                                            : Color.appBorderStrong.opacity(0.6),
+                                        lineWidth: 1
+                                    )
+                            )
+                            .frame(width: 13, height: max(6, heights[i] * 74))
+                    }
+                }
+                .padding(.bottom, 14)
+                .animation(.easeInOut(duration: 0.85), value: frame)
+            }
+            .overlay(alignment: .bottom) {
+                // Baseline the bars sit on, matching the ruled look of the other
+                // graphics' chrome.
+                Rectangle()
+                    .fill(Color.appBorderStrong.opacity(0.45))
+                    .frame(height: 1)
+                    .padding(.bottom, 13)
+            }
+            .overlay(alignment: .top) {
+                LinearGradient(
+                    colors: [Color.appSurfaceElevated.opacity(0.9), Color.appSurfaceElevated.opacity(0)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 26)
+                .allowsHitTesting(false)
+            }
+            .clipped()
+            .task {
+                guard !reduceMotion else { return }
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: UInt64(dwell * 1_000_000_000))
+                    if Task.isCancelled { return }
+                    frame = (frame + 1) % frames.count
+                }
+            }
+    }
+}
+
 // MARK: - Angled stat sheet graphic
 
 /// The reference card's hero: an oversized rounded "sheet" of real example
