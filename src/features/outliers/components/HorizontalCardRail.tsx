@@ -1,124 +1,64 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-
-/** One trend card (300px) + the 12px gap between cards. */
-const SCROLL_STEP_PX = 312;
+import { useHorizontalRail, type HorizontalRail } from '../hooks/useHorizontalRail';
 
 /**
- * Horizontally scrolling card row. Touch/trackpad swipe on mobile; on md+
- * desktop, left/right chevrons scroll the rail because mouse wheels scroll
- * the page vertically and hidden scrollbars give no affordance.
+ * Horizontally scrolling card row. Cards run flush to both edges of the
+ * container — no inset — because the ‹ › controls live in the band's
+ * SectionHeader rather than floating over the cards.
+ *
+ * Scroll model: touch swipes natively; on desktop the header buttons step it.
+ * The wheel is never intercepted, so vertical page scrolling always takes
+ * precedence over the rail.
  */
 export function HorizontalCardRail({
   children,
   className,
+  rail,
 }: {
   children: ReactNode;
   className?: string;
+  /** Controller from `useHorizontalRail`. Omit for a rail with no header controls. */
+  rail?: HorizontalRail;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [hasOverflow, setHasOverflow] = useState(false);
-
-  const updateScrollState = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    const overflow = scrollWidth > clientWidth + 4;
-    setHasOverflow(overflow);
-    setCanScrollLeft(overflow && scrollLeft > 4);
-    setCanScrollRight(overflow && scrollLeft < scrollWidth - clientWidth - 4);
-  }, []);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    updateScrollState();
-
-    const onWheel = (e: WheelEvent) => {
-      if (el.scrollWidth <= el.clientWidth) return;
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-    };
-
-    const ro = new ResizeObserver(updateScrollState);
-    ro.observe(el);
-    el.addEventListener('scroll', updateScrollState, { passive: true });
-    el.addEventListener('wheel', onWheel, { passive: false });
-
-    return () => {
-      ro.disconnect();
-      el.removeEventListener('scroll', updateScrollState);
-      el.removeEventListener('wheel', onWheel);
-    };
-  }, [updateScrollState, children]);
-
-  const scrollByStep = (direction: -1 | 1) => {
-    ref.current?.scrollBy({ left: direction * SCROLL_STEP_PX, behavior: 'smooth' });
-  };
+  const fallback = useHorizontalRail();
+  const active = rail ?? fallback;
 
   return (
-    <div className="relative w-full min-w-0 overflow-hidden">
-      {hasOverflow && (
-        <>
-          <RailArrow
-            direction="left"
-            disabled={!canScrollLeft}
-            onClick={() => scrollByStep(-1)}
-          />
-          <RailArrow
-            direction="right"
-            disabled={!canScrollRight}
-            onClick={() => scrollByStep(1)}
-          />
-        </>
+    <div className="relative w-full min-w-0">
+      {/* Edge fades — only on the side that can still scroll. Painted with the
+          real page background (light: --background, dark: the layout's black
+          SidebarInset) so the cards dissolve into the page instead of into a
+          mismatched slate tint. Fade to a fully transparent *same-hue* stop —
+          bare `transparent` fades through rgba(0,0,0,0) and reads gray. */}
+      {active.canScrollLeft && (
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-y-0 left-0 z-[5] w-12',
+            'bg-[linear-gradient(to_right,hsl(var(--background))_0%,hsl(var(--background)/0)_100%)]',
+            'dark:bg-[linear-gradient(to_right,#000_0%,rgba(0,0,0,0)_100%)]',
+          )}
+        />
+      )}
+      {active.canScrollRight && (
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-y-0 right-0 z-[5] w-12',
+            'bg-[linear-gradient(to_left,hsl(var(--background))_0%,hsl(var(--background)/0)_100%)]',
+            'dark:bg-[linear-gradient(to_left,#000_0%,rgba(0,0,0,0)_100%)]',
+          )}
+        />
       )}
 
       <div
-        ref={ref}
+        ref={active.ref}
         className={cn(
           'flex w-full max-w-full snap-x flex-nowrap gap-3 overflow-x-auto overscroll-x-contain pb-1',
-          hasOverflow && 'md:scroll-px-10 md:px-10',
           className,
         )}
       >
         {children}
       </div>
     </div>
-  );
-}
-
-function RailArrow({
-  direction,
-  disabled,
-  onClick,
-}: {
-  direction: 'left' | 'right';
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  const Icon = direction === 'left' ? ChevronLeft : ChevronRight;
-  const side = direction === 'left' ? 'left-0' : 'right-0';
-
-  return (
-    <button
-      type="button"
-      aria-label={direction === 'left' ? 'Scroll cards left' : 'Scroll cards right'}
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        'absolute top-1/2 z-10 hidden -translate-y-1/2 md:flex',
-        side,
-        'h-9 w-9 items-center justify-center rounded-full',
-        'border border-border/70 bg-background/95 text-foreground shadow-md backdrop-blur-sm',
-        'transition-opacity hover:bg-accent disabled:pointer-events-none disabled:opacity-0',
-      )}
-    >
-      <Icon className="h-5 w-5" />
-    </button>
   );
 }

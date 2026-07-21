@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { heroui } from "@heroui/theme";
 
 export default {
 	darkMode: ["class"],
@@ -7,6 +8,9 @@ export default {
 		"./components/**/*.{ts,tsx}",
 		"./app/**/*.{ts,tsx}",
 		"./src/**/*.{ts,tsx}",
+		// HeroUI ships precompiled component styles; Tailwind has to scan them
+		// or their classes get purged from the build.
+		"./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}",
 	],
 	prefix: "",
 	theme: {
@@ -112,12 +116,22 @@ export default {
 						opacity: '1',
 						transform: 'scale(1.02)'
 					}
+				},
+				'collapsible-down': {
+					from: { height: '0', opacity: '0' },
+					to: { height: 'var(--radix-collapsible-content-height)', opacity: '1' }
+				},
+				'collapsible-up': {
+					from: { height: 'var(--radix-collapsible-content-height)', opacity: '1' },
+					to: { height: '0', opacity: '0' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'pulse-glow': 'pulse-glow 2s ease-in-out infinite'
+				'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
+				'collapsible-down': 'collapsible-down 0.22s cubic-bezier(0.32,0.72,0,1)',
+				'collapsible-up': 'collapsible-up 0.18s cubic-bezier(0.32,0.72,0,1)'
 			},
 			backgroundImage: {
 				'gradient-emerald': 'linear-gradient(135deg, #10b981, #059669)',
@@ -132,5 +146,11 @@ export default {
 		require("tailwindcss-animate"),
 		require("@tailwindcss/typography"),
 		require("@tailwindcss/container-queries"),
+		// HeroUI last so its layer lands after the others. Its semantic colors
+		// (primary/secondary/foreground/background/…) share names with this repo's
+		// CSS-variable tokens, but Tailwind resolves plugin theme extensions BELOW
+		// the user config, so the existing `hsl(var(--primary))` definitions win.
+		// Verified against a pre-install CSS build — see the note in README/docs.
+		heroui(),
 	],
 } satisfies Config;

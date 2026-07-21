@@ -1,6 +1,11 @@
 export { GlassCard } from './GlassCard';
 export { SegmentedControl, type SegmentedOption } from './SegmentedControl';
-export { FilterPill, TogglePill, type FilterPillOption } from './FilterPill';
+export {
+  FilterPill,
+  MultiFilterPill,
+  TogglePill,
+  type FilterPillOption,
+} from './FilterPill';
 export { SkeletonBlock, SkeletonCircle, SkeletonCapsule } from './ShimmerSkeleton';
 export { StaggeredItem } from './StaggeredList';
 export { TeamAura } from './TeamAura';

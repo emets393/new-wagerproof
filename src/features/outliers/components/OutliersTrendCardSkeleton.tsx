@@ -1,6 +1,6 @@
 // Web port of OutliersTrendCardShimmer.swift — mirrors the compact card's
-// fixed 300x240 chrome (avatar + title block, betting-line chip, three trend
-// rows, footer divider) so the crossfade to real cards never shifts layout.
+// fixed 300x240 chrome (avatar + title block, top-right odds chip, betting-line
+// chip, three trend rows, footer divider) so the crossfade never shifts layout.
 import { SkeletonBlock, SkeletonCapsule, SkeletonCircle } from '@/components/ios';
 
 export function OutliersTrendCardSkeleton() {
@@ -13,9 +13,9 @@ export function OutliersTrendCardSkeleton() {
           <SkeletonBlock width={150} height={13} />
           <SkeletonBlock width={100} height={11} />
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <SkeletonBlock width={36} height={9} />
-          <SkeletonBlock width={30} height={9} />
+        <div className="flex flex-col items-end gap-1.5">
+          <SkeletonCapsule width={46} height={18} />
+          <SkeletonBlock width={54} height={9} />
         </div>
       </div>
 

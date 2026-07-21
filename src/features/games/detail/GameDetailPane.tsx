@@ -5,6 +5,7 @@ import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAiCompletions } from '../hooks/useAiCompletions';
 import { DetailHero } from './DetailHero';
 import { SportSections } from './sections';
+import { useMasonryGrid } from './useMasonryGrid';
 import type { GameFeedItem, GamesSport } from '../types';
 
 interface GameDetailPaneProps {
@@ -22,6 +23,10 @@ interface GameDetailPaneProps {
 export function GameDetailPane({ sport, game, extras, isFeedLoading }: GameDetailPaneProps) {
   const { adminModeEnabled } = useAdminMode();
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const gridRef = React.useRef<HTMLDivElement>(null);
+
+  // Packs the two columns so a short widget doesn't hold open a full-height row.
+  useMasonryGrid(gridRef, game?.id);
 
   const gameIds = React.useMemo(() => (game ? [game.id] : []), [game?.id]);
   const { completions, refreshGame } = useAiCompletions(sport, gameIds);
@@ -55,7 +60,13 @@ export function GameDetailPane({ sport, game, extras, isFeedLoading }: GameDetai
             the pane is a resizable ~56-76% slice of the screen (SplitViewLayout),
             so a viewport breakpoint like `lg:` would fire well before there's
             actually room for two columns. */}
-        <div className="grid grid-cols-1 items-start gap-3 px-4 pb-10 @xl:grid-cols-2">
+        {/* items-start keeps each widget at its natural height — useMasonryGrid
+            measures that height to size the row span, so stretching would feed
+            it back its own row allocation. */}
+        <div
+          ref={gridRef}
+          className="grid grid-cols-1 items-start gap-3 px-4 pb-10 @xl:grid-cols-2"
+        >
           <SportSections
             game={game}
             extras={extras}

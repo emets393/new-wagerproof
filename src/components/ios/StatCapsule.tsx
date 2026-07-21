@@ -16,7 +16,7 @@ export function StatCapsule({ label, value, valueClassName, className }: StatCap
   return (
     <div
       className={cn(
-        'flex flex-col items-center rounded-full border border-black/5 bg-muted/60 px-3 py-1 dark:border-white/10',
+        'flex flex-col items-center rounded-lg border border-black/5 bg-muted/60 px-3 py-1 dark:border-white/10',
         className
       )}
     >

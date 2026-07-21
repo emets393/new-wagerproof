@@ -31,6 +31,27 @@ function useInView<T extends HTMLElement>() {
   return { ref, inView };
 }
 
+/**
+ * Selection indicator: a team-colored wash bleeding in from each edge, the same
+ * language as the Today's Matchups tiles. Replaces a `ring-2` outline — a ring
+ * competed with the card's own hairline border and read as a focus state.
+ */
+function SelectionGlow({ color, side }: { color: string; side: 'left' | 'right' }) {
+  const anchor = side === 'left' ? '0%' : '100%';
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'pointer-events-none absolute inset-y-0 w-3/5 opacity-30 dark:opacity-40',
+        side === 'left' ? 'left-0' : 'right-0',
+      )}
+      style={{
+        background: `radial-gradient(125% 100% at ${anchor} 50%, ${color} 0%, transparent 72%)`,
+      }}
+    />
+  );
+}
+
 interface GameListCardProps {
   item: GameFeedItem;
   isSelected: boolean;
@@ -84,8 +105,8 @@ export function GameListCard({
         interactive={!isLocked}
         onClick={handleClick}
         className={cn(
-          'relative px-4 py-3.5',
-          isSelected && 'ring-2 ring-primary/50',
+          // overflow-hidden clips the selection glow to the card's 26px radius.
+          'relative overflow-hidden px-4 py-3.5',
           isLocked && 'pointer-events-none select-none opacity-50 blur-[3px]'
         )}
         role="button"
@@ -97,6 +118,13 @@ export function GameListCard({
           }
         }}
       >
+        {isSelected && (
+          <>
+            <SelectionGlow color={awayTeam.colors.primary} side="left" />
+            <SelectionGlow color={homeTeam.colors.primary} side="right" />
+          </>
+        )}
+
         {/* Time pill (+ admin star / MLB status), floating top-right like iOS */}
         <div className="absolute right-3 top-3 flex items-center gap-1.5">
           {isAdmin && item.sport !== 'mlb' && (
@@ -107,7 +135,7 @@ export function GameListCard({
           {mlbFinal !== undefined && (
             <span
               className={cn(
-                'rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide',
+                'rounded-md px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide',
                 mlbFinal
                   ? 'bg-primary/15 text-primary'
                   : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
@@ -116,13 +144,13 @@ export function GameListCard({
               {mlbFinal ? 'Final' : 'Prelim'}
             </span>
           )}
-          <span className="rounded-full border border-black/5 bg-white/50 px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground backdrop-blur-md dark:border-white/10 dark:bg-white/[0.08]">
+          <span className="rounded-md border border-black/5 bg-white/50 px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground backdrop-blur-md dark:border-white/10 dark:bg-white/[0.08]">
             {item.status === 'postponed' ? 'PPD' : item.gameTimeLabel}
           </span>
         </div>
 
         {/* Main row (iOS GameRowCard): teams block | line pills | sparkline */}
-        <div className="mt-4 flex items-center gap-3">
+        <div className="relative mt-4 flex items-center gap-3">
           <div className="w-[96px] shrink-0">
             <TeamLogoDiscs
               away={{ logoUrl: awayTeam.logoUrl, abbrev: awayTeam.abbrev, color: awayTeam.colors.primary }}
@@ -166,8 +194,8 @@ export function GameListCard({
           edges.spreadEdge !== null ||
           edges.totalEdge !== null) && (
           <>
-            <div className="mt-2.5 border-t border-black/5 dark:border-white/10" />
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <div className="relative mt-2.5 border-t border-black/5 dark:border-white/10" />
+            <div className="relative mt-2.5 flex flex-wrap items-center gap-1.5">
               {displayedProb !== null && (
                 <EdgePill text={`ML ${(displayedProb * 100).toFixed(0)}%`} magnitude={mlMagnitude} />
               )}

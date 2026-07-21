@@ -1,3 +1,4 @@
+import { HeroUIProvider } from "@heroui/react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,9 +21,7 @@ import PlayerPropsPerformance from "./pages/mlb/PlayerPropsPerformance";
 import NCAABTodayBettingTrends from "./pages/NCAABTodayBettingTrends";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
-import NFLAnalytics from "./pages/NFLAnalytics";
-import CFBAnalytics from "./pages/CFBAnalytics";
-import MLBAnalytics from "./pages/MLBAnalytics";
+import HistoricalTrends from "./pages/HistoricalTrends";
 import WagerBotChat from "./pages/WagerBotChat";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import LearnWagerProof from "./pages/LearnWagerProof";
@@ -128,9 +127,10 @@ function MixpanelStatusCheck() {
   return null;
 }
 
-// Routes that manage their own full-height split-view layout (no page padding,
-// panels scroll internally instead of the main scroller).
-const SPLIT_VIEW_ROUTES = ['/games', '/agents'];
+// Routes that manage their own full-height layout (no page padding, content
+// scrolls internally instead of the main scroller). /historical-trends is here
+// so its bottom chat dock can pin to the viewport instead of scrolling with content.
+const SPLIT_VIEW_ROUTES = ['/games', '/agents', '/historical-trends'];
 
 // Legacy /agents/:id and /agents/public/:id deep links land in the split view.
 function LegacyAgentRedirect() {
@@ -141,6 +141,11 @@ function LegacyAgentRedirect() {
 // Legacy per-sport list pages collapsed into the unified /games split view.
 function LegacySportRedirect({ sport }: { sport: string }) {
   return <Navigate to={`/games?sport=${sport}`} replace />;
+}
+
+// Legacy per-sport analytics pages collapsed into the unified /historical-trends page.
+function LegacyTrendsRedirect({ sport }: { sport: string }) {
+  return <Navigate to={`/historical-trends?sport=${sport}`} replace />;
 }
 
 // Layout wrapper for authenticated pages
@@ -251,9 +256,10 @@ function AppRoutes() {
           <Route path="/ncaab/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayBettingTrends /></ProtectedRoute>} />
           <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />
-          <Route path="/nfl-analytics" element={<ProtectedRoute><NFLAnalytics /></ProtectedRoute>} />
-          <Route path="/cfb-analytics" element={<ProtectedRoute><CFBAnalytics /></ProtectedRoute>} />
-          <Route path="/mlb-analytics" element={<ProtectedRoute><MLBAnalytics /></ProtectedRoute>} />
+          <Route path="/historical-trends" element={<ProtectedRoute><HistoricalTrends /></ProtectedRoute>} />
+          <Route path="/nfl-analytics" element={<LegacyTrendsRedirect sport="nfl" />} />
+          <Route path="/cfb-analytics" element={<LegacyTrendsRedirect sport="cfb" />} />
+          <Route path="/mlb-analytics" element={<LegacyTrendsRedirect sport="mlb" />} />
           <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
           <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
           <Route path="/scoreboard/diagnostics" element={<ProtectedRoute><LiveScoreDiagnostics /></ProtectedRoute>} />
@@ -306,6 +312,11 @@ const App = () => (
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
+          {/* HeroUI components read their theme through this context. Placed
+              inside ThemeProvider so it inherits the same `dark` class on <html>
+              that the rest of the app themes off — HeroUI uses the same
+              class-based dark mode, so no separate theme wiring is needed. */}
+          <HeroUIProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
@@ -321,6 +332,7 @@ const App = () => (
               </AuthProvider>
             </BrowserRouter>
           </TooltipProvider>
+          </HeroUIProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </HelmetProvider>

@@ -1,6 +1,6 @@
 import debug from '@/utils/debug';
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdminMode } from "@/contexts/AdminModeContext";
 import { useRevenueCatWeb } from "@/hooks/useRevenueCatWeb";
@@ -16,16 +16,17 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarSeparator,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { LogOut, Settings, User, ChevronRight, PanelLeft, ChevronLeft, AlertTriangle } from "lucide-react";
+import { LogOut, Settings, ChevronRight, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  SidebarCollapsibleNavItem,
+  SidebarNavButton,
+} from "@/components/layout/SidebarNavItem";
+import { UserAvatar } from "@/components/layout/UserAvatar";
 import { SettingsModal } from "./SettingsModal";
 import {
   AlertDialog,
@@ -36,6 +37,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+/** Section titles live as "ANALYSIS"/"SPORTS" in nav-items; render them as "Analysis". */
+function sentenceCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
@@ -119,6 +125,27 @@ export function AppLayout() {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
+  // Exactly one row may own the active state — the sliding pill is a single
+  // shared element, and two mounted copies would animate against each other.
+  // Ties go to the most specific path so a tool sub-page (/mlb/f5-splits) wins
+  // over the section that also prefix-matches it (/mlb).
+  const activeKey = useMemo(() => {
+    const candidates: { key: string; to: string }[] = [];
+    for (const item of visibleNavItems) {
+      if (item.isHeader || item.comingSoon) continue;
+      if (item.to && isActivePath(item.to)) {
+        candidates.push({ key: `item:${item.to}`, to: item.to });
+      }
+      for (const sub of item.subItems ?? []) {
+        if (isActivePath(sub.to)) candidates.push({ key: `sub:${sub.to}`, to: sub.to });
+      }
+    }
+    candidates.sort((a, b) => b.to.length - a.to.length);
+    return candidates[0]?.key ?? null;
+    // isActivePath closes over `location`, so the path/search pair is the real dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleNavItems, location.pathname, location.search]);
+
   const handleSettingsClick = () => {
     if (!user) {
       setSignInPromptOpen(true);
@@ -143,9 +170,16 @@ export function AppLayout() {
   return (
     <Sidebar collapsible="icon" variant="inset" className="bg-sidebar overflow-hidden">
       {/* Header Section */}
-      <SidebarHeader className="border-b border-sidebar-border bg-sidebar px-4 py-4">
-        <div className="flex items-center justify-between gap-2">
-          <Link to="/home" className="flex items-center gap-2 group flex-1 min-w-0">
+      {/* Collapsed, horizontal padding is zeroed everywhere: the rail's content
+          box is only ~50px, so px-2 would leave a 32px icon just 1px of slack on
+          each side. Centering is handled per-row instead (justify-center/mx-auto),
+          which keeps the logo, nav icons, and footer icons on one vertical axis. */}
+      <SidebarHeader className="border-b border-sidebar-border bg-sidebar px-2 py-3 group-data-[collapsible=icon]:px-0">
+        <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
+          <Link
+            to="/home"
+            className="group flex min-w-0 flex-1 items-center gap-2 group-data-[collapsible=icon]:flex-none"
+          >
             <div className="flex items-center justify-center w-8 h-8 flex-shrink-0">
               <img 
                 src="/wagerproofGreenLight.png" 
@@ -200,7 +234,9 @@ export function AppLayout() {
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="h-8 w-8 flex-shrink-0 hidden md:flex"
+            // No room for it beside the logo on the icon rail — MinimalHeader's
+            // SidebarTrigger (and Ctrl+B) still expand from the collapsed state.
+            className="hidden h-8 w-8 flex-shrink-0 md:flex group-data-[collapsible=icon]:!hidden"
             title={state === "expanded" ? "Minimize Sidebar (Ctrl+B)" : "Expand Sidebar (Ctrl+B)"}
           >
             {state === "expanded" ? (
@@ -213,17 +249,20 @@ export function AppLayout() {
       </SidebarHeader>
 
       {/* Navigation Content */}
-      <SidebarContent className="px-2 py-2 bg-sidebar">
-        <SidebarMenu>
+      <SidebarContent className="bg-sidebar px-1 py-1 group-data-[collapsible=icon]:px-0">
+        {/* gap-0.5 over the shadcn gap-1 — rows read as one list, not stacked chips. */}
+        <SidebarMenu className="gap-0.5">
           {visibleNavItems.map((item, index) => {
             const { to, title, icon, comingSoon, wip, subItems, isHeader } = item;
             
             // Section Headers
             if (isHeader) {
               return (
-                <div key={`header-${title}-${index}`} className="px-3 py-2 mt-4 mb-1">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider group-data-[collapsible=icon]:hidden">
-                    {title}
+                // Sentence case, not uppercase+tracking — a quiet label above the
+                // group rather than a second thing competing with the row titles.
+                <div key={`header-${title}-${index}`} className="mb-0.5 mt-3 px-2 first:mt-0">
+                  <span className="text-[10px] font-medium text-muted-foreground/80 group-data-[collapsible=icon]:hidden">
+                    {sentenceCase(title)}
                   </span>
                 </div>
               );
@@ -235,7 +274,7 @@ export function AppLayout() {
                 <SidebarMenuItem key={to}>
                   <SidebarMenuButton
                     disabled
-                    className="text-sm font-medium opacity-60 cursor-not-allowed"
+                    className="cursor-not-allowed text-sm font-medium text-muted-foreground opacity-60"
                   >
                     {icon}
                     <span>{title}</span>
@@ -249,114 +288,33 @@ export function AppLayout() {
 
             // Items with sub-navigation
             if (subItems && subItems.length > 0) {
+              const activeSub = subItems.find((s) => activeKey === `sub:${s.to}`);
               return (
-                <Collapsible key={to ?? title} defaultOpen={to ? isActivePath(to) : true} className="group/collapsible">
-                  <SidebarMenuItem>
-                    {/* Label navigates to the item's own page; the chevron is a separate
-                        trigger so expanding the tools list doesn't require leaving that page. */}
-                    <div className="flex items-center">
-                      <SidebarMenuButton
-                        onClick={() => {
-                          if (!user) {
-                            setSignInPromptOpen(true);
-                          } else if (to) {
-                            navigate(to);
-                          }
-                        }}
-                        isActive={to ? isActivePath(to) : false}
-                        className={`flex-1 text-sm font-medium transition-all duration-200 rounded-md cursor-pointer ${
-                          to && isActivePath(to)
-                            ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10'
-                            : subItems?.some(subItem => isActivePath(subItem.to))
-                              ? 'bg-gradient-to-r from-honeydew-100 to-honeydew-50 dark:from-honeydew-900/20 dark:to-honeydew-800/10 text-honeydew-700 dark:text-honeydew-400 border-r-2 border-honeydew-500 shadow-md shadow-honeydew-400/15 dark:shadow-honeydew-400/8'
-                              : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
-                        }`}
-                      >
-                        <span className={`transition-colors duration-200 ${
-                          (to && isActivePath(to)) || subItems?.some(subItem => isActivePath(subItem.to)) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
-                        }`}>
-                          {icon}
-                        </span>
-                        <span>{title}</span>
-                        {wip && (
-                          <div className="flex items-center gap-1 ml-2">
-                            <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
-                            <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">WIP</span>
-                          </div>
-                        )}
-                        {((to && isActivePath(to)) || subItems?.some(subItem => isActivePath(subItem.to))) && (
-                          <div className="w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50"></div>
-                        )}
-                      </SidebarMenuButton>
-                      <CollapsibleTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={`Toggle ${title} tools`}
-                          className={`mr-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md transition-colors duration-200 hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 group-data-[collapsible=icon]:hidden ${
-                            to && isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
-                          }`}
-                        >
-                          <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                        </button>
-                      </CollapsibleTrigger>
-                    </div>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {subItems.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.to}>
-                            <SidebarMenuSubButton
-                              onClick={() => handleNavItemClick(subItem.to)}
-                              isActive={isActivePath(subItem.to)}
-                              className={`transition-all duration-200 rounded-md mr-2 cursor-pointer ${
-                                isActivePath(subItem.to) 
-                                  ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
-                                  : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
-                              }`}
-                            >
-                              <span className={`transition-colors duration-200 ${
-                                isActivePath(subItem.to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
-                              }`}>
-                                {subItem.icon}
-                              </span>
-                              <span>{subItem.title}</span>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
+                <SidebarCollapsibleNavItem
+                  key={to ?? title}
+                  to={to}
+                  title={title}
+                  icon={icon}
+                  wip={wip}
+                  active={Boolean(to) && activeKey === `item:${to}`}
+                  activeSubTo={activeSub?.to ?? null}
+                  subItems={subItems}
+                  onNavigate={handleNavItemClick}
+                />
               );
             }
 
             // Regular items
             return (
               <SidebarMenuItem key={to}>
-                <SidebarMenuButton
+                <SidebarNavButton
+                  title={title}
+                  icon={icon}
+                  wip={wip}
+                  active={Boolean(to) && activeKey === `item:${to}`}
                   onClick={() => to && handleNavItemClick(to)}
-                  isActive={to ? isActivePath(to) : false}
-                  className={`text-sm font-medium transition-all duration-200 rounded-md mr-2 cursor-pointer ${
-                    to && isActivePath(to) 
-                      ? 'bg-gradient-to-r from-honeydew-200 to-honeydew-100 dark:from-honeydew-900/30 dark:to-honeydew-800/20 text-honeydew-800 dark:text-honeydew-300 border-r-2 border-honeydew-600 shadow-lg shadow-honeydew-500/20 dark:shadow-honeydew-500/10' 
-                      : 'hover:bg-honeydew-100 dark:hover:bg-honeydew-900/10 hover:text-honeydew-700 dark:hover:text-honeydew-400'
-                  }`}
-                >
-                  <span className={`transition-colors duration-200 ${
-                    to && isActivePath(to) ? 'text-honeydew-700 dark:text-honeydew-400' : ''
-                  }`}>
-                    {icon}
-                  </span>
-                  <span>{title}</span>
-                  {wip && (
-                    <div className="flex items-center gap-1 ml-2">
-                      <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
-                      <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">WIP</span>
-                    </div>
-                  )}
-                  {to && isActivePath(to) && (
-                    <div className="ml-auto w-2 h-2 bg-honeydew-500 rounded-full animate-pulse shadow-sm shadow-honeydew-500/50"></div>
-                  )}
-                </SidebarMenuButton>
+                  className="mr-2"
+                />
               </SidebarMenuItem>
             );
           })}
@@ -364,10 +322,10 @@ export function AppLayout() {
       </SidebarContent>
 
       {/* Footer Section */}
-      <SidebarFooter className="border-t border-sidebar-border bg-sidebar px-2 py-3">
+      <SidebarFooter className="border-t border-sidebar-border bg-sidebar px-1 py-2 group-data-[collapsible=icon]:px-0">
         <SidebarMenu>
           <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
-            <div className="flex items-center justify-between px-2 py-1.5">
+            <div className="flex items-center justify-between px-1 py-1">
               <SidebarMenuButton 
                 onClick={handleSettingsClick} 
                 className="text-sm flex-1 cursor-pointer"
@@ -388,13 +346,11 @@ export function AppLayout() {
             <>
               <SidebarSeparator className="my-2 bg-sidebar-border group-data-[collapsible=icon]:hidden" />
               <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
-                <div className="flex items-center justify-between px-2 py-1.5">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-sidebar-accent text-sidebar-accent-foreground flex-shrink-0">
-                      <User className="h-3 w-3" />
-                    </div>
+                <div className="flex items-center justify-between px-1 py-1">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <UserAvatar email={user.email ?? ''} size={24} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-sidebar-foreground truncate">
+                      <p className="truncate text-xs text-sidebar-foreground">
                         {user.email}
                       </p>
                     </div>

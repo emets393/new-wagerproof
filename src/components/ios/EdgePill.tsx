@@ -25,7 +25,7 @@ export function EdgePill({ text, magnitude, icon, className }: EdgePillProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[11px] font-bold',
+        'inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-mono text-[11px] font-bold',
         className
       )}
       style={{ color, backgroundColor: bg }}

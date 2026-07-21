@@ -45,7 +45,9 @@ export function PolymarketSparkline({
   const awayLeads = ml.currentAwayOdds >= ml.currentHomeOdds;
   const leaderAbbrev = awayLeads ? awayAbbrev : homeAbbrev;
   const leaderColor = awayLeads ? awayColor : homeColor;
-  const leaderPct = Math.round((awayLeads ? ml.currentAwayOdds : ml.currentHomeOdds) * 100);
+  // Already a 0-100 percentage from polymarketService (see PolymarketWidget,
+  // which renders these values with a bare `%`) — scaling by 100 printed "5600%".
+  const leaderPct = Math.round(awayLeads ? ml.currentAwayOdds : ml.currentHomeOdds);
 
   // Normalize both series into the sparkline box with a little padding.
   const values = points.flatMap((p) => [p.awayTeamOdds, p.homeTeamOdds]);
