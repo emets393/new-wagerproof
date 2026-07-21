@@ -249,7 +249,7 @@ export function AppLayout() {
       </SidebarHeader>
 
       {/* Navigation Content */}
-      <SidebarContent className="bg-sidebar px-1 py-1 group-data-[collapsible=icon]:px-0">
+      <SidebarContent className="bg-sidebar py-1 pl-1 pr-0 group-data-[collapsible=icon]:px-0">
         {/* gap-0.5 over the shadcn gap-1 — rows read as one list, not stacked chips. */}
         <SidebarMenu className="gap-0.5">
           {visibleNavItems.map((item, index) => {
@@ -313,7 +313,7 @@ export function AppLayout() {
                   wip={wip}
                   active={Boolean(to) && activeKey === `item:${to}`}
                   onClick={() => to && handleNavItemClick(to)}
-                  className="mr-2"
+                  className="mr-0.5"
                 />
               </SidebarMenuItem>
             );
@@ -427,4 +427,3 @@ export function AppLayout() {
     </Sidebar>
   );
 }
-

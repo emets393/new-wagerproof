@@ -237,7 +237,7 @@ export function SidebarCollapsibleNavItem({
                 type="button"
                 aria-label={`Toggle ${title} tools`}
                 className={cn(
-                  'mr-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md',
+                  'mr-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md',
                   'text-muted-foreground transition-colors duration-200',
                   'hover:bg-sidebar-accent/50 hover:text-foreground',
                 )}
@@ -282,7 +282,7 @@ export function SidebarNavSubButton({ title, icon, active, onClick }: SidebarNav
       isActive={false}
       aria-current={active ? 'page' : undefined}
       // A step smaller than its parent row so the nesting reads without indent alone.
-      className={cn('mr-2', rowClasses(active), 'h-6 text-[12px]')}
+      className={cn('mr-0.5', rowClasses(active), 'h-6 text-[12px]')}
     >
       {active && <ActivePill />}
       {icon && <NavIcon active={active}>{icon}</NavIcon>}
