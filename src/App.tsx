@@ -9,16 +9,15 @@ import { useEffect } from "react";
 import { logMixpanelStatus } from "@/lib/mixpanel";
 import Landing from "./pages/NewLanding";
 import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./pages";
-import NBATodayBettingTrends from "./pages/NBATodayBettingTrends";
 import NBATodayHalftimeTrends from "./pages/NBATodayHalftimeTrends";
 import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
-import MLBTodayBettingTrends from "./pages/MLBTodayBettingTrends";
-import MLBDailyRegressionReport from "./pages/MLBDailyRegressionReport";
-import F5Splits from "./pages/mlb/F5Splits";
-import PitcherMatchups from "./pages/mlb/PitcherMatchups";
+// The MLB tools are split views now; the old page files stay on disk
+// but are no longer routed (see src/features/mlbTools/README.md).
+import F5SplitsPage from "./features/mlbTools/f5Splits/F5SplitsPage";
+import PitcherMatchupsPage from "./features/mlbTools/pitcherMatchups/PitcherMatchupsPage";
+import RegressionReportPage from "./features/mlbTools/regression/RegressionReportPage";
 import PlayerPropsReport from "./pages/mlb/PlayerPropsReport";
 import PlayerPropsPerformance from "./pages/mlb/PlayerPropsPerformance";
-import NCAABTodayBettingTrends from "./pages/NCAABTodayBettingTrends";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
 import HistoricalTrends from "./pages/HistoricalTrends";
@@ -56,6 +55,7 @@ import SupportCollection from "./pages/support/SupportCollection";
 import SupportArticle from "./pages/support/SupportArticle";
 import Agents from "./pages/Agents";
 import GamesPage from "./features/games/GamesPage";
+import TrendsTodayPage from "./features/trendsToday/TrendsTodayPage";
 import AgentCreate from "./pages/AgentCreate";
 import AgentSettings from "./pages/AgentSettings";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -130,7 +130,15 @@ function MixpanelStatusCheck() {
 // Routes that manage their own full-height layout (no page padding, content
 // scrolls internally instead of the main scroller). /historical-trends is here
 // so its bottom chat dock can pin to the viewport instead of scrolling with content.
-const SPLIT_VIEW_ROUTES = ['/games', '/agents', '/historical-trends'];
+const SPLIT_VIEW_ROUTES = [
+  '/games',
+  '/agents',
+  '/historical-trends',
+  '/todays-trends',
+  '/mlb/f5-splits',
+  '/mlb/pitcher-matchups',
+  '/mlb/daily-regression-report',
+];
 
 // Legacy /agents/:id and /agents/public/:id deep links land in the split view.
 function LegacyAgentRedirect() {
@@ -146,6 +154,12 @@ function LegacySportRedirect({ sport }: { sport: string }) {
 // Legacy per-sport analytics pages collapsed into the unified /historical-trends page.
 function LegacyTrendsRedirect({ sport }: { sport: string }) {
   return <Navigate to={`/historical-trends?sport=${sport}`} replace />;
+}
+
+// Legacy per-sport "Today's Betting Trends" pages collapsed into /todays-trends.
+// The old page files stay on disk; only the routes point at the unified tool.
+function LegacyTodaysTrendsRedirect({ sport }: { sport: string }) {
+  return <Navigate to={`/todays-trends?sport=${sport}`} replace />;
 }
 
 // Layout wrapper for authenticated pages
@@ -239,21 +253,22 @@ function AppRoutes() {
           <Route path="/access-denied" element={<AccessDenied />} />
           <Route path="/game-analysis/:gameId" element={<ProtectedRoute><GameAnalysis /></ProtectedRoute>} />
           <Route path="/games" element={<ProtectedRoute allowFreemium={true}><GamesPage /></ProtectedRoute>} />
+          <Route path="/todays-trends" element={<ProtectedRoute allowFreemium={true}><TrendsTodayPage /></ProtectedRoute>} />
           <Route path="/college-football" element={<LegacySportRedirect sport="cfb" />} />
           <Route path="/nfl" element={<LegacySportRedirect sport="nfl" />} />
           <Route path="/nba" element={<LegacySportRedirect sport="nba" />} />
-          <Route path="/nba/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><NBATodayBettingTrends /></ProtectedRoute>} />
+          <Route path="/nba/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="nba" />} />
           <Route path="/nba/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NBATodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/nba/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NBATodayEdgeAccuracy /></ProtectedRoute>} />
           <Route path="/ncaab" element={<LegacySportRedirect sport="ncaab" />} />
           <Route path="/mlb" element={<LegacySportRedirect sport="mlb" />} />
-          <Route path="/mlb/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><MLBTodayBettingTrends /></ProtectedRoute>} />
-          <Route path="/mlb/daily-regression-report" element={<ProtectedRoute><MLBDailyRegressionReport /></ProtectedRoute>} />
-          <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true}><F5Splits /></ProtectedRoute>} />
-          <Route path="/mlb/pitcher-matchups" element={<ProtectedRoute allowFreemium={true}><PitcherMatchups /></ProtectedRoute>} />
+          <Route path="/mlb/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="mlb" />} />
+          <Route path="/mlb/daily-regression-report" element={<ProtectedRoute><RegressionReportPage /></ProtectedRoute>} />
+          <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true}><F5SplitsPage /></ProtectedRoute>} />
+          <Route path="/mlb/pitcher-matchups" element={<ProtectedRoute allowFreemium={true}><PitcherMatchupsPage /></ProtectedRoute>} />
           <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true}><PlayerPropsReport /></ProtectedRoute>} />
           <Route path="/mlb/picks-performance" element={<ProtectedRoute allowFreemium={true}><PlayerPropsPerformance /></ProtectedRoute>} />
-          <Route path="/ncaab/todays-betting-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayBettingTrends /></ProtectedRoute>} />
+          <Route path="/ncaab/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="ncaab" />} />
           <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />
           <Route path="/historical-trends" element={<ProtectedRoute><HistoricalTrends /></ProtectedRoute>} />

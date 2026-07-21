@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { AlertCircle, TrendingUp } from 'lucide-react';
+import * as React from 'react';
+import { AlertCircle, ArrowRight, TrendingUp } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -10,12 +10,13 @@ import {
   YAxis,
 } from 'recharts';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { WidgetCard } from '@/components/ios';
+import { SegmentedControl, WidgetCard } from '@/components/ios';
+import { cn } from '@/lib/utils';
 import debug from '@/utils/debug';
-import { getNFLTeamLogo, type NFLPrediction, type NFLTeamMapping } from '../../../api/nflGames';
+import { type NFLPrediction } from '../../../api/nflGames';
 import type { GameFeedItem } from '../../../types';
+import { TeamMark } from './shared';
 import { useNflLineMovement } from './useNflLineMovement';
 
 const formatTimestamp = (timestamp: string): string => {
@@ -36,17 +37,67 @@ const formatTimestamp = (timestamp: string): string => {
   }
 };
 
-// Team logo from the feed's nfl_team_mapping extras, falling back to the
-// adapter's static ESPN logo map (which is what the mapping rows carry anyway).
-const logoFor = (teamMappings: NFLTeamMapping[], team: string): string => {
-  const mapping = teamMappings.find(
-    (m) =>
-      m.city_and_name === team ||
-      m.team_name === team ||
-      (m.city_and_name ? m.city_and_name.startsWith(team) : false)
+/** Emerald matches the OVER color used on every total in the stack. */
+const TOTAL_COLOR = '#10b981';
+
+type Series = 'away' | 'home' | 'total';
+
+interface ChartPoint {
+  displayTime: string;
+  homeSpread: number | null;
+  awaySpread: number | null;
+  overLine: number | null;
+}
+
+const fmt = (value: number | null | undefined): string =>
+  value === null || value === undefined ? 'N/A' : value.toFixed(1);
+
+/**
+ * Open, now, and the move between them as three columns. This was a
+ * bullet-joined sentence under the chart ("Opening: -3.5 | Current: -6.0"),
+ * which made the one number that matters — the move — something to work out.
+ */
+function MoveSummary({ open, current }: { open: number | null; current: number | null }) {
+  const delta = open !== null && current !== null ? current - open : null;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex flex-col">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+          Open
+        </span>
+        <span className="text-base font-bold tabular-nums text-muted-foreground">{fmt(open)}</span>
+      </div>
+      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+      <div className="flex flex-col">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+          Now
+        </span>
+        <span className="text-base font-bold tabular-nums text-foreground">{fmt(current)}</span>
+      </div>
+      {delta !== null && (
+        <div className="ml-auto flex flex-col items-end">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            Moved
+          </span>
+          <span
+            className={cn(
+              'font-mono text-[13px] font-bold tabular-nums',
+              delta === 0
+                ? 'text-muted-foreground'
+                : delta > 0
+                  ? 'text-emerald-600 dark:text-emerald-300'
+                  : 'text-red-600 dark:text-red-300',
+            )}
+          >
+            {delta > 0 ? '+' : ''}
+            {delta.toFixed(1)}
+          </span>
+        </div>
+      )}
+    </div>
   );
-  return mapping?.logo_url || getNFLTeamLogo(team);
-};
+}
 
 interface NflLineMovementSectionProps {
   game: GameFeedItem;
@@ -54,51 +105,73 @@ interface NflLineMovementSectionProps {
 }
 
 /**
- * Line Movement, ported from GameDetailsModal's NFL block: home/away toggle,
- * spread history chart, and O/U history chart from nfl_betting_lines.
+ * Line Movement, ported from GameDetailsModal's NFL block. The two stacked
+ * charts (spread, then total) plus a separate team toggle became one chart with
+ * a single picker: which line am I looking at.
  */
-export function NflLineMovementSection({ game, extras }: NflLineMovementSectionProps) {
+export function NflLineMovementSection({ game }: NflLineMovementSectionProps) {
   const raw = game.raw as NFLPrediction;
-  const teamMappings = (extras.teamMappings as NFLTeamMapping[] | undefined) ?? [];
-  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('away');
+  const [series, setSeries] = React.useState<Series>('away');
   const { lineData, loading, error } = useNflLineMovement(raw.training_key);
 
-  const awayTeamColors = game.awayTeam.colors;
-  const homeTeamColors = game.homeTeam.colors;
+  const away = game.awayTeam;
+  const home = game.homeTeam;
 
-  const chartData = lineData.map((item) => ({
-    timestamp: item.as_of_ts,
+  const chartData: ChartPoint[] = lineData.map((item) => ({
     displayTime: formatTimestamp(item.as_of_ts),
     homeSpread: item.home_spread,
     awaySpread: item.away_spread,
     overLine: item.over_line,
   }));
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-card p-3 border border-border rounded-lg shadow-lg">
-          <p className="font-semibold text-card-foreground">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.dataKey === 'homeSpread'
-                ? `${raw.home_team} Spread: `
-                : entry.dataKey === 'awaySpread'
-                  ? `${raw.away_team} Spread: `
-                  : entry.dataKey === 'overLine'
-                    ? 'Over/Under: '
-                    : ''}
-              {entry.value !== null ? entry.value.toFixed(1) : 'N/A'}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
+  const config: Record<Series, { key: keyof ChartPoint; color: string; label: string }> = {
+    away: { key: 'awaySpread', color: away.colors.primary, label: `${away.abbrev} spread` },
+    home: { key: 'homeSpread', color: home.colors.primary, label: `${home.abbrev} spread` },
+    total: { key: 'overLine', color: TOTAL_COLOR, label: 'Game total' },
+  };
+  const active = config[series];
+
+  const values = chartData.map((d) => d[active.key] as number | null);
+  const firstValue = values.find((v) => v !== null) ?? null;
+  const lastValue = [...values].reverse().find((v) => v !== null) ?? null;
+
+  const CustomTooltip = ({ active: isActive, payload, label }: any) => {
+    if (!isActive || !payload || !payload.length) return null;
+    return (
+      <div className="rounded-lg border border-border bg-card p-2.5 shadow-lg">
+        <p className="text-[11px] font-semibold text-card-foreground">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} className="text-[11px] tabular-nums" style={{ color: entry.color }}>
+            {active.label}: {entry.value !== null ? entry.value.toFixed(1) : 'N/A'}
+          </p>
+        ))}
+      </div>
+    );
   };
 
   return (
-    <WidgetCard icon={<TrendingUp />} title="Line Movement" className="@xl:col-span-2" contentClassName="space-y-4 text-center">
+    <WidgetCard
+      icon={<TrendingUp />}
+      title="Line Movement"
+      subtitle="How the spread and the total have moved since the books opened this game."
+      className="@xl:col-span-2"
+      accessory={
+        !loading && !error && chartData.length > 0 ? (
+          <SegmentedControl
+            size="sm"
+            options={[
+              { value: 'away', label: away.abbrev, icon: <TeamMark team={away} size={14} /> },
+              { value: 'home', label: home.abbrev, icon: <TeamMark team={home} size={14} /> },
+              { value: 'total', label: 'Total' },
+            ]}
+            value={series}
+            // Wrapped: passing the setter directly collapses the generic to string.
+            onChange={(value) => setSeries(value as Series)}
+          />
+        ) : undefined
+      }
+      contentClassName="space-y-3"
+    >
       {loading ? (
         <div className="space-y-4">
           <Skeleton className="h-8 w-full" />
@@ -110,194 +183,59 @@ export function NflLineMovementSection({ game, extras }: NflLineMovementSectionP
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : chartData.length === 0 ? (
-        <div className="text-sm text-gray-600 dark:text-white/70">
-          No line movement data available for this game
-        </div>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          No line movement data available for this game.
+        </p>
       ) : (
         <>
-          {/* Team Selection Buttons */}
-          <div className="flex justify-center space-x-2 mb-4">
-            <Button
-              variant={selectedTeam === 'away' ? 'default' : 'outline'}
-              onClick={() => setSelectedTeam('away')}
-              className={`flex items-center space-x-2 px-4 py-2 transition-all duration-200 text-sm ${
-                selectedTeam === 'away'
-                  ? 'text-white shadow-lg border-0'
-                  : 'bg-card hover:bg-muted text-foreground border-border'
-              }`}
-              style={
-                selectedTeam === 'away'
-                  ? {
-                      backgroundColor: awayTeamColors.primary,
-                      backgroundImage: `linear-gradient(135deg, ${awayTeamColors.primary} 0%, ${awayTeamColors.secondary} 100%)`,
-                    }
-                  : {}
-              }
-            >
-              <img
-                src={logoFor(teamMappings, raw.away_team)}
-                alt={`${raw.away_team} logo`}
-                className="h-5 w-5"
-              />
-              <span className="font-semibold">{raw.away_team}</span>
-            </Button>
+          <MoveSummary open={firstValue} current={lastValue} />
 
-            <Button
-              variant={selectedTeam === 'home' ? 'default' : 'outline'}
-              onClick={() => setSelectedTeam('home')}
-              className={`flex items-center space-x-2 px-4 py-2 transition-all duration-200 text-sm ${
-                selectedTeam === 'home'
-                  ? 'text-white shadow-lg border-0'
-                  : 'bg-card hover:bg-muted text-foreground border-border'
-              }`}
-              style={
-                selectedTeam === 'home'
-                  ? {
-                      backgroundColor: homeTeamColors.primary,
-                      backgroundImage: `linear-gradient(135deg, ${homeTeamColors.primary} 0%, ${homeTeamColors.secondary} 100%)`,
-                    }
-                  : {}
-              }
-            >
-              <img
-                src={logoFor(teamMappings, raw.home_team)}
-                alt={`${raw.home_team} logo`}
-                className="h-5 w-5"
-              />
-              <span className="font-semibold">{raw.home_team}</span>
-            </Button>
-          </div>
-
-          {/* Spread Chart */}
-          <div className="relative h-64 w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-white/5 dark:to-white/10 rounded-xl p-4 border border-gray-200 dark:border-white/20">
+          {/* Chart sits directly on the card surface — the gradient panel it used
+              to live in was a second surface inside the widget. */}
+          <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 40 }}>
+              <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 32 }}>
                 <CartesianGrid
                   strokeDasharray="2 4"
                   stroke="currentColor"
-                  strokeOpacity={0.1}
+                  strokeOpacity={0.15}
                   vertical={false}
-                  className="text-gray-400 dark:text-white/30"
+                  className="text-muted-foreground"
                 />
                 <XAxis
                   dataKey="displayTime"
                   tick={{ fontSize: 10, fontWeight: 500, fill: 'currentColor' }}
-                  axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
-                  tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
+                  axisLine={{ stroke: 'currentColor', strokeOpacity: 0.2 }}
+                  tickLine={{ stroke: 'currentColor', strokeOpacity: 0.2 }}
                   angle={-45}
                   textAnchor="end"
                   height={60}
-                  className="text-gray-600 dark:text-white/70"
+                  className="text-muted-foreground"
                 />
                 <YAxis
                   tick={{ fontSize: 10, fontWeight: 600, fill: 'currentColor' }}
-                  axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
-                  tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
-                  tickFormatter={(value) => value.toFixed(1)}
-                  className="text-gray-600 dark:text-white/70"
+                  axisLine={{ stroke: 'currentColor', strokeOpacity: 0.2 }}
+                  tickLine={{ stroke: 'currentColor', strokeOpacity: 0.2 }}
+                  tickFormatter={(value) => Number(value).toFixed(1)}
+                  width={44}
+                  className="text-muted-foreground"
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Line
                   type="linear"
-                  dataKey={selectedTeam === 'away' ? 'awaySpread' : 'homeSpread'}
-                  stroke={selectedTeam === 'away' ? awayTeamColors.primary : homeTeamColors.primary}
-                  strokeWidth={3}
-                  dot={{
-                    fill: selectedTeam === 'away' ? awayTeamColors.primary : homeTeamColors.primary,
-                    strokeWidth: 2,
-                    r: 5,
-                    stroke: '#ffffff',
-                  }}
-                  activeDot={{
-                    r: 8,
-                    stroke:
-                      selectedTeam === 'away' ? awayTeamColors.primary : homeTeamColors.primary,
-                    strokeWidth: 3,
-                    fill: '#ffffff',
-                  }}
+                  dataKey={active.key as string}
+                  stroke={active.color}
+                  strokeWidth={2.5}
+                  // Dots inherit the line color instead of a hardcoded white ring,
+                  // which disappeared on a light surface.
+                  dot={{ fill: active.color, r: 3, strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: active.color, strokeWidth: 0 }}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   connectNulls={false}
                 />
               </LineChart>
             </ResponsiveContainer>
-            <div className="absolute bottom-1 left-0 right-0 text-center">
-              <div className="text-xs font-medium text-gray-600 dark:text-white/70">
-                Opening:{' '}
-                {selectedTeam === 'away'
-                  ? chartData[0]?.awaySpread?.toFixed(1) || 'N/A'
-                  : chartData[0]?.homeSpread?.toFixed(1) || 'N/A'}{' '}
-                | Current:{' '}
-                {selectedTeam === 'away'
-                  ? chartData[chartData.length - 1]?.awaySpread?.toFixed(1) || 'N/A'
-                  : chartData[chartData.length - 1]?.homeSpread?.toFixed(1) || 'N/A'}
-              </div>
-            </div>
-          </div>
-
-          {/* Over/Under Chart */}
-          <div className="mt-4">
-            <h5 className="text-sm font-semibold text-center text-gray-800 dark:text-white mb-3">
-              Over/Under Line Movement
-            </h5>
-            <div className="relative h-64 w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-white/5 dark:to-white/10 rounded-xl p-4 border border-gray-200 dark:border-white/20">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 40 }}>
-                  <CartesianGrid
-                    strokeDasharray="2 4"
-                    stroke="currentColor"
-                    strokeOpacity={0.1}
-                    vertical={false}
-                    className="text-gray-400 dark:text-white/30"
-                  />
-                  <XAxis
-                    dataKey="displayTime"
-                    tick={{ fontSize: 10, fontWeight: 500, fill: 'currentColor' }}
-                    axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
-                    tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={60}
-                    className="text-gray-600 dark:text-white/70"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10, fontWeight: 600, fill: 'currentColor' }}
-                    axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
-                    tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
-                    tickFormatter={(value) => value.toFixed(1)}
-                    className="text-gray-600 dark:text-white/70"
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line
-                    type="linear"
-                    dataKey="overLine"
-                    stroke="#10b981"
-                    strokeWidth={3}
-                    dot={{
-                      fill: '#10b981',
-                      strokeWidth: 2,
-                      r: 5,
-                      stroke: '#ffffff',
-                    }}
-                    activeDot={{
-                      r: 8,
-                      stroke: '#10b981',
-                      strokeWidth: 3,
-                      fill: '#ffffff',
-                    }}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    connectNulls={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-              <div className="absolute bottom-1 left-0 right-0 text-center">
-                <div className="text-xs font-medium text-gray-600 dark:text-white/70">
-                  Opening O/U: {chartData[0]?.overLine?.toFixed(1) || 'N/A'} | Current O/U:{' '}
-                  {chartData[chartData.length - 1]?.overLine?.toFixed(1) || 'N/A'}
-                </div>
-              </div>
-            </div>
           </div>
         </>
       )}

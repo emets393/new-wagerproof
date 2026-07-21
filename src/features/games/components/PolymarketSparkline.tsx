@@ -14,6 +14,32 @@ interface PolymarketSparklineProps {
   height?: number;
 }
 
+function parseHexColor(color: string): [number, number, number] | null {
+  const hex = color.trim().replace('#', '');
+  const expanded = hex.length === 3 ? hex.split('').map((value) => value + value).join('') : hex;
+  if (!/^[0-9a-f]{6}$/i.test(expanded)) return null;
+  return [0, 2, 4].map((offset) => Number.parseInt(expanded.slice(offset, offset + 2), 16)) as [number, number, number];
+}
+
+function readableTeamColor(color: string, mode: 'light' | 'dark'): string {
+  const rgb = parseHexColor(color);
+  if (!rgb) return mode === 'light' ? '#334155' : '#CBD5E1';
+
+  // Blend extreme team colors toward a neutral foreground. This keeps the hue
+  // recognizable while ensuring pale colors work on white and dark colors work
+  // on the near-black dark surface.
+  const luminance = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+  const needsAdjustment = mode === 'light' ? luminance > 0.58 : luminance < 0.42;
+  if (!needsAdjustment) return color;
+
+  const target = mode === 'light' ? [15, 23, 42] : [241, 245, 249];
+  const strength = mode === 'light'
+    ? Math.min(0.62, 0.28 + (luminance - 0.58) * 0.8)
+    : Math.min(0.58, 0.3 + (0.42 - luminance) * 0.8);
+  const mixed = rgb.map((channel, index) => Math.round(channel * (1 - strength) + target[index] * strength));
+  return `rgb(${mixed.join(', ')})`;
+}
+
 /**
  * Web port of the iOS PolymarketMoneylineSparkline: dual win-probability
  * lines (leader thicker + full opacity, trailer thin at 55%) with a small
@@ -68,28 +94,46 @@ export function PolymarketSparkline({
   const awayPath = toPath((p) => p.awayTeamOdds);
   const homePath = toPath((p) => p.homeTeamOdds);
 
-  return (
-    <div className="flex shrink-0 flex-col items-end gap-0.5" style={{ width }}>
-      <span className="flex items-center gap-1 font-mono text-[10px] font-bold text-foreground">
-        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: leaderColor }} />
-        {leaderAbbrev} {leaderPct}%
-      </span>
-      <svg width={width} height={height} className="overflow-visible">
+  const lightAwayColor = readableTeamColor(awayColor, 'light');
+  const lightHomeColor = readableTeamColor(homeColor, 'light');
+  const darkAwayColor = readableTeamColor(awayColor, 'dark');
+  const darkHomeColor = readableTeamColor(homeColor, 'dark');
+
+  const paths = (mode: 'light' | 'dark') => {
+    const visibleAwayColor = mode === 'light' ? lightAwayColor : darkAwayColor;
+    const visibleHomeColor = mode === 'light' ? lightHomeColor : darkHomeColor;
+    const visibleLeaderColor = awayLeads ? visibleAwayColor : visibleHomeColor;
+    return (
+      <>
         <path
           d={awayLeads ? homePath : awayPath}
           fill="none"
-          stroke={awayLeads ? homeColor : awayColor}
-          strokeWidth={1}
-          strokeOpacity={0.55}
+          stroke={awayLeads ? visibleHomeColor : visibleAwayColor}
+          strokeWidth={1.4}
+          strokeOpacity={0.78}
           strokeLinecap="round"
         />
         <path
           d={awayLeads ? awayPath : homePath}
           fill="none"
-          stroke={leaderColor}
-          strokeWidth={1.8}
+          stroke={visibleLeaderColor}
+          strokeWidth={2.2}
           strokeLinecap="round"
         />
+      </>
+    );
+  };
+
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-0.5" style={{ width }}>
+      <span className="flex items-center gap-1 font-mono text-[10px] font-bold text-foreground">
+        <span className="h-1.5 w-1.5 rounded-full dark:hidden" style={{ backgroundColor: readableTeamColor(leaderColor, 'light') }} />
+        <span className="hidden h-1.5 w-1.5 rounded-full dark:block" style={{ backgroundColor: readableTeamColor(leaderColor, 'dark') }} />
+        {leaderAbbrev} {leaderPct}%
+      </span>
+      <svg width={width} height={height} className="overflow-visible">
+        <g className="dark:hidden">{paths('light')}</g>
+        <g className="hidden dark:block">{paths('dark')}</g>
       </svg>
     </div>
   );

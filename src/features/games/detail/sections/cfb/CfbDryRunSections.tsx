@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, CircleDollarSign, Clock3, Flame, Info, Target, Trophy } from 'lucide-react';
+import { Chip, Tooltip } from '@heroui/react';
+import { BarChart3, Check, CircleDollarSign, Clock3, Flame, Target, Trophy } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
 import {
@@ -12,13 +12,26 @@ import {
   signalSeasonRecordClassName,
   type SignalPerformanceRow,
 } from '@/utils/signalPerformance';
+import {
+  CollegeTeamMark,
+  Disclosure,
+  EmptyNote,
+  MarketGapHeader,
+  MarketGapRow,
+  STACK,
+  toNum,
+} from './shared';
 import type { CFBPrediction } from '../../../api/cfbGames';
-import type { GameFeedItem } from '../../../types';
+import type { GameFeedItem, TeamRef } from '../../../types';
 
 /**
- * Admin dry-run CFB detail sections — port of CFBDryRunGameDetailsModal's body
- * (summary metrics + the 7 grouped prediction cards with pick pills, notes and
- * expandable signal breakdowns) plus the slate card's Mammoth/conviction pills.
+ * Admin dry-run CFB detail sections — the slate summary plus the grouped
+ * prediction cards from `cfb_dryrun_picks`.
+ *
+ * Rebuilt against `detail/WIDGET_DESIGN.md`: the widget card is the only
+ * surface (the old layout nested picks → metric boxes → signal panels three
+ * deep), number pairs became diverging model-vs-market bars, and the signal
+ * breakdowns collapse behind a disclosure that says how many there are.
  */
 
 type SignalDefinition = {
@@ -68,6 +81,17 @@ const CARD_LABELS: Record<string, string> = {
   h1_ml: '1H Moneyline',
 };
 
+/** One plain-language line per market group, so no card is unlabelled. */
+const CARD_SUBTITLES: Record<string, string> = {
+  spread: 'Where the model’s full-game spread sits against the book’s.',
+  total: 'Where the model’s full-game total sits against the book’s.',
+  team_total: 'Points the model expects from each team on its own, versus the posted team totals.',
+  moneyline: 'Straight-up winner, priced against the book’s moneyline.',
+  h1_spread: 'First-half spread only — the model prices halves separately from the full game.',
+  h1_total: 'First-half total only — the model prices halves separately from the full game.',
+  h1_ml: 'First-half winner only — the model prices halves separately from the full game.',
+};
+
 const CARD_ORDER = ['spread', 'total', 'team_total', 'moneyline', 'h1_spread', 'h1_total', 'h1_ml'];
 
 const normalizeCardGroup = (group?: string | null): string => {
@@ -96,55 +120,60 @@ const formatNumber = (value: number | string | null | undefined): string => {
   return Number.isInteger(num) ? String(num) : num.toFixed(1);
 };
 
-const formatSignedEdge = (value: number | string | null | undefined): string => {
-  if (value === null || value === undefined || value === '') return '-';
-  const num = Number(value);
-  if (Number.isNaN(num)) return String(value);
-  const sign = num > 0 ? '+' : '';
-  return `${sign}${formatNumber(num)}`;
+type ChipTone = 'default' | 'primary' | 'success' | 'warning';
+
+/** Conviction tiers, warmest at the top. Mammoth is the model's highest tier. */
+const CONVICTION_TONE: Record<string, ChipTone> = {
+  mammoth: 'warning',
+  high: 'success',
+  med: 'primary',
+  low: 'default',
+  lean: 'default',
 };
 
-// Mammoth conviction is the orange (#F97316 = tailwind orange-500) high-conviction tier.
-const pickConvictionClass = (conviction?: string | null, isMammoth?: boolean | null): string => {
-  if (isMammoth || conviction === 'mammoth') return 'bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30';
-  if (conviction === 'high') return 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border-yellow-500/30';
-  if (conviction === 'med') return 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30';
-  if (conviction === 'low') return 'bg-amber-700/15 text-amber-700 dark:text-amber-300 border-amber-700/30';
-  if (conviction === 'lean') return 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30';
-  return 'bg-muted text-muted-foreground border-border';
+const CONVICTION_LABEL: Record<string, string> = {
+  mammoth: 'Mammoth',
+  high: 'Strong',
+  med: 'Medium',
+  low: 'Low',
+  lean: 'Lean',
 };
 
-// Slate-card conviction pill copy: "Mammoth: spread", "Strong: total", ...
-const convictionLabel = (entry: ConvictionSummary): string => {
-  const market = (entry.card || '').replace(/_/g, ' ');
-  const label = entry.mammoth || entry.conviction === 'mammoth'
-    ? 'Mammoth'
-    : entry.conviction === 'high'
-      ? 'Strong'
-      : entry.conviction || 'Lean';
-  return `${label}: ${market || 'Pick'}`;
-};
+function convictionKey(conviction?: string | null, isMammoth?: boolean | null): string | null {
+  if (isMammoth) return 'mammoth';
+  const key = (conviction || '').toLowerCase();
+  return key in CONVICTION_TONE ? key : conviction ? 'lean' : null;
+}
 
-const summaryConvictionClass = (entry: ConvictionSummary): string => {
-  if (entry.mammoth || entry.conviction === 'mammoth') return 'bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30';
-  if (entry.conviction === 'high') return 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border-yellow-500/30';
-  if (entry.conviction === 'med') return 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30';
-  if (entry.conviction === 'low') return 'bg-amber-700/15 text-amber-700 dark:text-amber-300 border-amber-700/30';
-  return 'bg-muted text-muted-foreground border-border';
-};
-
-function SummaryMetric({ label, value }: { label: string; value: string }) {
+function ConvictionChip({
+  conviction,
+  isMammoth,
+  suffix,
+}: {
+  conviction?: string | null;
+  isMammoth?: boolean | null;
+  /** Market name appended on the slate summary ("Mammoth: spread"). */
+  suffix?: string;
+}) {
+  const key = convictionKey(conviction, isMammoth);
+  if (!key) return null;
   return (
-    <div className="rounded-lg border border-border/70 bg-muted/40 p-3 text-center">
-      <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm font-black text-foreground">{value}</div>
-    </div>
+    <Chip
+      size="sm"
+      variant="flat"
+      color={CONVICTION_TONE[key]}
+      startContent={key === 'mammoth' ? <Flame className="ml-1.5 h-3 w-3" aria-hidden /> : undefined}
+      classNames={{ content: 'text-[11px] font-semibold capitalize' }}
+    >
+      {CONVICTION_LABEL[key]}
+      {suffix ? `: ${suffix}` : ''}
+    </Chip>
   );
 }
 
 /**
- * Slate summary: Vegas lines vs predicted score plus the Mammoth Play banner
- * and per-market conviction pills from conviction_summary.
+ * Slate summary: how hard the model likes this game, its projected final score,
+ * and where its spread/total land against the book.
  */
 export function CfbDryRunSummarySection({ game }: { game: GameFeedItem<CFBPrediction> }) {
   const prediction = game.raw;
@@ -161,43 +190,78 @@ export function CfbDryRunSummarySection({ game }: { game: GameFeedItem<CFBPredic
     .filter((entry) => entry.mammoth || entry.conviction === 'mammoth')
     .map((entry) => (entry.card || 'pick').replace(/_/g, ' '));
 
+  const predAway = toNum(prediction.pred_away_score);
+  const predHome = toNum(prediction.pred_home_score);
+  const hasScore = predAway !== null && predHome !== null;
+  // Home spread is negative when home is favoured, so it's away minus home.
+  const modelHomeSpread = hasScore ? predAway - predHome : null;
+  const modelTotal = hasScore ? predAway + predHome : null;
+  const vegasHomeSpread = toNum(prediction.home_spread) ?? game.lines.homeSpread ?? null;
+  const vegasTotal = toNum(prediction.over_line) ?? game.lines.total ?? null;
+  const homeWins = hasScore && predHome >= predAway;
+
   return (
-    <WidgetCard icon={<Trophy />} title="Slate Summary" className="@xl:col-span-2">
-      <div className="space-y-3">
-        {isMammothCard && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-orange-500/30 bg-orange-500/15 p-3">
-            <Flame className="h-5 w-5 shrink-0 text-orange-600 dark:text-orange-300" />
-            <div className="min-w-0 text-left">
-              <div className="text-sm font-black text-orange-600 dark:text-orange-300">Mammoth Play</div>
-              <div className="text-xs font-medium capitalize text-orange-600/80 dark:text-orange-300/80">
-                {mammothMarkets.length > 0
-                  ? mammothMarkets.join(' · ')
-                  : 'Highest-conviction tier on this slate'}
+    <WidgetCard
+      icon={<Trophy />}
+      title="Slate Summary"
+      subtitle="How hard the model likes this game, the score it projects, and where that lands against the book."
+      className="@xl:col-span-2"
+    >
+      <div className={STACK}>
+        {(isMammothCard || convictionSummary.length > 0) && (
+          <div className="flex flex-col gap-2">
+            {isMammothCard && (
+              <div className="flex items-center gap-2">
+                <Flame className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" />
+                <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                  Mammoth Play
+                </span>
+                <span className="min-w-0 truncate text-[11px] capitalize text-muted-foreground">
+                  {mammothMarkets.length > 0
+                    ? mammothMarkets.join(' · ')
+                    : 'Highest-conviction tier on this slate'}
+                </span>
               </div>
-            </div>
+            )}
+            {convictionSummary.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {convictionSummary.map((entry, index) => (
+                  <ConvictionChip
+                    key={`${entry.card}-${index}`}
+                    conviction={entry.conviction}
+                    isMammoth={entry.mammoth}
+                    suffix={(entry.card || 'pick').replace(/_/g, ' ')}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryMetric
-            label="Vegas Spread"
-            value={`${prediction.away_abbr || 'Away'} ${formatNumber(prediction.away_spread)} / ${prediction.home_abbr || 'Home'} ${formatNumber(prediction.home_spread)}`}
+        {hasScore && (
+          <ProjectedScore
+            away={game.awayTeam}
+            home={game.homeTeam}
+            awayScore={predAway}
+            homeScore={predHome}
+            homeWins={homeWins}
           />
-          <SummaryMetric label="Total" value={formatNumber(prediction.over_line)} />
-          <SummaryMetric
-            label="Predicted Score"
-            value={`${prediction.away_abbr || 'Away'} ${formatNumber(prediction.pred_away_score)} · ${prediction.home_abbr || 'Home'} ${formatNumber(prediction.pred_home_score)}`}
-          />
-        </div>
+        )}
 
-        {convictionSummary.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-2">
-            {convictionSummary.map((entry, index) => (
-              <Badge key={`${entry.card}-${index}`} variant="outline" className={summaryConvictionClass(entry)}>
-                {convictionLabel(entry)}
-              </Badge>
-            ))}
+        {(modelHomeSpread !== null || modelTotal !== null) && (
+          <div className="border-t border-black/5 pt-2 dark:border-white/10">
+            <MarketGapHeader />
+            <MarketGapRow
+              label={`Spread (${game.homeTeam.abbrev})`}
+              model={modelHomeSpread}
+              vegas={vegasHomeSpread}
+            />
+            <MarketGapRow label="Total" model={modelTotal} vegas={vegasTotal} />
           </div>
+        )}
+
+        {!hasScore && modelHomeSpread === null && (
+          <EmptyNote>No projected score on this dry-run row yet.</EmptyNote>
         )}
       </div>
     </WidgetCard>
@@ -205,16 +269,72 @@ export function CfbDryRunSummarySection({ game }: { game: GameFeedItem<CFBPredic
 }
 
 /**
- * The 7 dry-run prediction cards (cfb_dryrun_picks grouped by market) with
- * conviction badges, best-book chips, Vegas/Ours/Edge metrics, display-only
- * notes and expandable supporting-signal breakdowns.
+ * Projected final score with each team's share of the projected points as a
+ * divided bar in the clubs' own colours. The projected winner keeps full
+ * opacity and a check; the other side dims to keep the read instant.
+ */
+function ProjectedScore({
+  away,
+  home,
+  awayScore,
+  homeScore,
+  homeWins,
+}: {
+  away: TeamRef;
+  home: TeamRef;
+  awayScore: number;
+  homeScore: number;
+  homeWins: boolean;
+}) {
+  const total = awayScore + homeScore;
+  const awayShare = total > 0 ? (awayScore / total) * 100 : 50;
+  const homeShare = 100 - awayShare;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <CollegeTeamMark team={away} size={28} dimmed={homeWins} />
+          <span className={cn('text-lg font-bold tabular-nums', homeWins ? 'text-muted-foreground' : 'text-foreground')}>
+            {away.abbrev} {awayScore.toFixed(1)}
+          </span>
+          {!homeWins && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {homeWins && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+          <span className={cn('text-lg font-bold tabular-nums', homeWins ? 'text-foreground' : 'text-muted-foreground')}>
+            {homeScore.toFixed(1)} {home.abbrev}
+          </span>
+          <CollegeTeamMark team={home} size={28} dimmed={!homeWins} />
+        </span>
+      </div>
+      <div
+        className="flex h-2.5 overflow-hidden rounded-full bg-muted"
+        role="img"
+        aria-label={`Projected ${away.abbrev} ${awayScore.toFixed(1)}, ${home.abbrev} ${homeScore.toFixed(1)}`}
+      >
+        <div
+          style={{ width: `${awayShare}%`, backgroundColor: away.colors.primary }}
+          className={cn('transition-opacity', homeWins && 'opacity-35')}
+        />
+        <div
+          style={{ width: `${homeShare}%`, backgroundColor: home.colors.primary }}
+          className={cn('transition-opacity', !homeWins && 'opacity-35')}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The dry-run prediction cards (`cfb_dryrun_picks` grouped by market): the pick,
+ * its conviction, the model-vs-market gap, and the supporting signals.
  */
 export function CfbDryRunPicksSection({ game }: { game: GameFeedItem<CFBPrediction> }) {
   const prediction = game.raw;
   const [picks, setPicks] = useState<CFBDryRunPick[]>([]);
   const [signalDefs, setSignalDefs] = useState<Record<string, SignalDefinition>>({});
   const [signalPerformance, setSignalPerformance] = useState<Record<string, SignalPerformanceRow>>({});
-  const [expandedSignals, setExpandedSignals] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -224,8 +344,6 @@ export function CfbDryRunPicksSection({ game }: { game: GameFeedItem<CFBPredicti
     const fetchPicks = async () => {
       setLoading(true);
       setError(null);
-      // The pane persists across selections (unlike the modal) — clear stale expansion state.
-      setExpandedSignals({});
       try {
         const season = Number(prediction?.season) || 2025;
         const [{ data: pickRows, error: picksError }, { data: defsRows, error: defsError }, { data: perfRows, error: perfError }] = await Promise.all([
@@ -283,11 +401,14 @@ export function CfbDryRunPicksSection({ game }: { game: GameFeedItem<CFBPredicti
 
   if (loading) {
     return (
-      <WidgetCard icon={<Target />} title="Prediction Cards">
+      <WidgetCard
+        icon={<Target />}
+        title="Prediction Cards"
+        subtitle="Every market the dry-run model priced for this game."
+      >
         <div className="space-y-3">
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
         </div>
       </WidgetCard>
     );
@@ -295,7 +416,11 @@ export function CfbDryRunPicksSection({ game }: { game: GameFeedItem<CFBPredicti
 
   if (error) {
     return (
-      <WidgetCard icon={<Target />} title="Prediction Cards">
+      <WidgetCard
+        icon={<Target />}
+        title="Prediction Cards"
+        subtitle="Every market the dry-run model priced for this game."
+      >
         <Alert>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -305,10 +430,12 @@ export function CfbDryRunPicksSection({ game }: { game: GameFeedItem<CFBPredicti
 
   if (groupedPicks.length === 0) {
     return (
-      <WidgetCard icon={<Target />} title="Prediction Cards">
-        <div className="py-4 text-center text-sm text-muted-foreground">
-          No dry-run prediction cards found for this game.
-        </div>
+      <WidgetCard
+        icon={<Target />}
+        title="Prediction Cards"
+        subtitle="Every market the dry-run model priced for this game."
+      >
+        <EmptyNote>No dry-run prediction cards found for this game.</EmptyNote>
       </WidgetCard>
     );
   }
@@ -316,14 +443,15 @@ export function CfbDryRunPicksSection({ game }: { game: GameFeedItem<CFBPredicti
   return (
     <>
       {groupedPicks.map(({ group, rows }) => (
+        // Key on the game too: the detail pane persists across selections, and
+        // without this the per-pick signal disclosures would stay open from the
+        // previously selected game.
         <PredictionGroupCard
-          key={group}
+          key={`${prediction.game_id}-${group}`}
           group={group}
           rows={rows}
           signalDefs={signalDefs}
           signalPerformance={signalPerformance}
-          expandedSignals={expandedSignals}
-          setExpandedSignals={setExpandedSignals}
         />
       ))}
     </>
@@ -335,15 +463,11 @@ function PredictionGroupCard({
   rows,
   signalDefs,
   signalPerformance,
-  expandedSignals,
-  setExpandedSignals,
 }: {
   group: string;
   rows: CFBDryRunPick[];
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
-  expandedSignals: Record<string, boolean>;
-  setExpandedSignals: (next: Record<string, boolean>) => void;
 }) {
   const Icon = group.includes('spread') ? Target
     : group.includes('total') ? BarChart3
@@ -351,142 +475,183 @@ function PredictionGroupCard({
     : group.includes('h1') ? Clock3
     : Trophy;
 
+  const playCount = rows.filter((row) => row.has_play).length;
+
   return (
-    <WidgetCard icon={<Icon />} title={CARD_LABELS[group] || group}>
-      <div className="space-y-3">
+    <WidgetCard
+      icon={<Icon />}
+      title={CARD_LABELS[group] || group}
+      subtitle={CARD_SUBTITLES[group] ?? 'How the model priced this market against the book.'}
+      accessory={
+        playCount > 0 ? (
+          <Chip size="sm" variant="flat" color="primary" classNames={{ content: 'text-[11px] font-semibold' }}>
+            {playCount} pick{playCount === 1 ? '' : 's'}
+          </Chip>
+        ) : undefined
+      }
+    >
+      {/* Hairlines between picks — the card is already the surface. */}
+      <div className="divide-y divide-black/5 dark:divide-white/10">
         {rows.map((row, index) => (
-          <div
+          <PickRow
             key={`${row.id || row.pick_label || group}-${index}`}
-            className={`rounded-xl border p-3 ${row.has_play ? 'border-primary/30 bg-primary/5' : 'border-border/70 bg-muted/30'} ${row.display_only ? 'opacity-85' : ''}`}
-          >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h4 className="text-base font-black text-foreground">{row.pick_label || 'Projection only'}</h4>
-                  {row.display_only && <Badge variant="outline">Display only</Badge>}
-                  {row.has_play && <Badge className="bg-primary text-primary-foreground">Pick</Badge>}
-                  {!row.display_only && row.conviction && (
-                    <Badge variant="outline" className={pickConvictionClass(row.conviction, row.is_mammoth)}>
-                      {row.is_mammoth ? 'Mammoth' : row.conviction}
-                    </Badge>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {row.display_only ? 'Context only, not a surfaced bet.' : row.has_play ? 'Actual surfaced pick.' : 'Informational projection.'}
-                </p>
-              </div>
-
-              {(row.best_book_logo || row.best_book_name) && (
-                <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-background/70 px-2 py-1">
-                  {row.best_book_logo && <img src={row.best_book_logo} alt={row.best_book_name || 'book'} className="h-5 w-5 rounded object-contain" />}
-                  <div className="text-right">
-                    <div className="text-[10px] font-bold uppercase text-muted-foreground">{row.best_book_name || 'Best book'}</div>
-                    <div className="text-xs font-black">{formatNumber(row.best_line)} {row.best_odds ? `(${row.best_odds})` : ''}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <SummaryMetric label="Vegas" value={formatNumber(row.vegas_line)} />
-              <SummaryMetric label="Ours" value={formatNumber(row.model_line)} />
-              <SummaryMetric label="Edge" value={row.display_only ? '-' : formatSignedEdge(row.edge)} />
-            </div>
-
-            <SignalPills
-              signalKeys={normalizeSignalKeys(row.signal_keys)}
-              signalDefs={signalDefs}
-              signalPerformance={signalPerformance}
-              expandedSignals={expandedSignals}
-              setExpandedSignals={setExpandedSignals}
-            />
-          </div>
+            row={row}
+            signalDefs={signalDefs}
+            signalPerformance={signalPerformance}
+          />
         ))}
       </div>
     </WidgetCard>
   );
 }
 
-// Legacy modal referenced signalPerformance from an outer scope it didn't have;
-// here it's threaded through as a real prop.
-function SignalPills({
-  signalKeys,
+function PickRow({
+  row,
   signalDefs,
   signalPerformance,
-  expandedSignals,
-  setExpandedSignals,
 }: {
-  signalKeys: string[];
+  row: CFBDryRunPick;
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
-  expandedSignals: Record<string, boolean>;
-  setExpandedSignals: (next: Record<string, boolean>) => void;
 }) {
-  if (signalKeys.length === 0) return null;
+  const signalKeys = normalizeSignalKeys(row.signal_keys);
+  const model = toNum(row.model_line);
+  const vegas = toNum(row.vegas_line);
+  // Prefer deriving the gap so the row's three numbers can't visibly disagree;
+  // the stored `edge` is only used when one of the two lines is missing.
+  const gap = row.display_only
+    ? null
+    : model !== null && vegas !== null
+      ? undefined
+      : toNum(row.edge);
 
   return (
-    <div className="mt-3 space-y-2">
-      <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Supporting signals</div>
-      <div className="flex flex-wrap gap-2">
-        {signalKeys.map((key) => {
-          const signal = signalDefs[key];
-          const expanded = expandedSignals[key];
-          return (
-            <div key={key} className="w-full">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-auto rounded-full px-3 py-1 text-xs"
-                onClick={() => setExpandedSignals({ ...expandedSignals, [key]: !expanded })}
-              >
-                <Info className="mr-1 h-3 w-3" />
-                {signal?.display_name || key}
-              </Button>
-              {expanded && signal && (
-                <div className="mt-2 rounded-lg border border-border/70 bg-background/70 p-3 text-left text-xs leading-relaxed">
-                  {signal.definition && <p className="font-medium text-foreground">{signal.definition}</p>}
-                  {signal.why_it_works && <p className="mt-2 text-muted-foreground"><span className="font-bold text-foreground">Why it works:</span> {signal.why_it_works}</p>}
-                  {signal.bet_direction && <p className="mt-2 text-muted-foreground"><span className="font-bold text-foreground">Direction:</span> {signal.bet_direction}</p>}
-                  <div className="mt-3 space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                    {signal.typical_hit && (
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                          Historical backtest
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Hit rate from multi-season backtesting — not this year&apos;s live results.
-                        </p>
-                        <p className="mt-1 text-base font-bold text-foreground">{signal.typical_hit}</p>
-                      </div>
-                    )}
-                    {signal.typical_hit && (
-                      <div className="border-t border-border/50" />
-                    )}
-                    {(() => {
-                      const seasonRecord = formatSignalSeasonRecord(
-                        signalPerformance[signal.signal_key || key],
-                      );
-                      return (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-primary">
-                            This season
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Live graded record for the current season.
-                          </p>
-                          <p className={`mt-1 text-base font-bold ${signalSeasonRecordClassName(seasonRecord.tone)} ${seasonRecord.isSmallSample ? 'opacity-90' : ''}`}>
-                            {seasonRecord.detail}
-                          </p>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+    <div className={cn('flex flex-col gap-2 py-3 first:pt-0 last:pb-0', row.display_only && 'opacity-70')}>
+      {/* The pick first and largest; everything under it is the case for it. */}
+      <div className="flex items-start gap-2.5">
+        <div className="flex min-w-0 flex-col">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            {row.display_only ? 'Projection only' : row.has_play ? 'Surfaced pick' : 'Informational'}
+          </span>
+          <span className="truncate text-lg font-bold leading-tight tracking-tight text-foreground">
+            {row.pick_label || 'Projection only'}
+          </span>
+        </div>
+
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {!row.display_only && (
+            <ConvictionChip conviction={row.conviction} isMammoth={row.is_mammoth} />
+          )}
+          {(row.best_book_logo || row.best_book_name) && (
+            <Tooltip
+              content={`Best available price: ${row.best_book_name || 'book'}`}
+              size="sm"
+              delay={200}
+            >
+              <span className="flex items-center gap-1.5">
+                {row.best_book_logo && (
+                  <img
+                    src={row.best_book_logo}
+                    alt={row.best_book_name || 'book'}
+                    className="h-4 w-4 rounded object-contain"
+                  />
+                )}
+                <span className="text-[12px] font-bold tabular-nums text-foreground">
+                  {formatNumber(row.best_line)}
+                  {row.best_odds ? ` (${row.best_odds})` : ''}
+                </span>
+              </span>
+            </Tooltip>
+          )}
+        </div>
+      </div>
+
+      <div>
+        {/* Captions repeat per pick rather than once per card so a row is never
+            three unlabelled numbers when you scroll into the middle of a card. */}
+        <MarketGapHeader />
+        <MarketGapRow label="Line" model={model} vegas={vegas} gap={gap} format={formatNumber} />
+      </div>
+
+      {signalKeys.length > 0 && (
+        <Disclosure
+          label="Supporting signals"
+          summary={`${signalKeys.length} signal${signalKeys.length === 1 ? '' : 's'}`}
+        >
+          <p className="mb-1.5 text-[10px] leading-snug text-muted-foreground/80">
+            Patterns the model found in this matchup, with how each has performed historically and
+            so far this season.
+          </p>
+          <div className="divide-y divide-black/5 dark:divide-white/10">
+            {signalKeys.map((key) => (
+              <SignalDetail
+                key={key}
+                signalKey={key}
+                signal={signalDefs[key]}
+                performance={signalPerformance[signalDefs[key]?.signal_key || key]}
+              />
+            ))}
+          </div>
+        </Disclosure>
+      )}
+    </div>
+  );
+}
+
+/** One signal, flat: what it is, why it works, and its two records side by side. */
+function SignalDetail({
+  signalKey,
+  signal,
+  performance,
+}: {
+  signalKey: string;
+  signal: SignalDefinition | undefined;
+  performance: SignalPerformanceRow | undefined;
+}) {
+  const seasonRecord = formatSignalSeasonRecord(performance);
+
+  return (
+    <div className="py-2 first:pt-0 last:pb-0">
+      <div className="text-[11px] font-bold text-foreground">{signal?.display_name || signalKey}</div>
+      {signal?.definition && (
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{signal.definition}</p>
+      )}
+      {signal?.why_it_works && (
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-foreground">Why it works:</span> {signal.why_it_works}
+        </p>
+      )}
+      {signal?.bet_direction && (
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-foreground">Direction:</span> {signal.bet_direction}
+        </p>
+      )}
+
+      {/* Two records, two columns — the backtest and the live season are
+          different claims and reading them stacked invited conflating them. */}
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+            Backtest
+          </div>
+          <div className="text-sm font-bold tabular-nums text-foreground">
+            {signal?.typical_hit || '—'}
+          </div>
+          <div className="text-[10px] leading-snug text-muted-foreground/80">Multi-season</div>
+        </div>
+        <div>
+          <div className="text-[9px] font-bold uppercase tracking-wider text-primary">This season</div>
+          <div
+            className={cn(
+              'text-sm font-bold tabular-nums',
+              signalSeasonRecordClassName(seasonRecord.tone),
+              seasonRecord.isSmallSample && 'opacity-90',
+            )}
+          >
+            {seasonRecord.detail}
+          </div>
+          <div className="text-[10px] leading-snug text-muted-foreground/80">Live graded</div>
+        </div>
       </div>
     </div>
   );

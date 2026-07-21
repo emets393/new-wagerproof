@@ -72,11 +72,12 @@ export function GamesFeedPanel({
   let cardIndex = -1;
 
   return (
-    <div
-      ref={scrollRef}
-      className="h-full overflow-y-auto"
-      onScroll={(e) => scrollPositions.set(sport, e.currentTarget.scrollTop)}
-    >
+    <div className="relative h-full">
+      <div
+        ref={scrollRef}
+        className="h-full overflow-y-auto"
+        onScroll={(e) => scrollPositions.set(sport, e.currentTarget.scrollTop)}
+      >
       {/* Floating glass header — content refracts under it as you scroll */}
       <div className="sticky top-0 z-20 space-y-2 px-3 pb-2 pt-3 backdrop-blur-xl [mask-image:linear-gradient(to_bottom,black_calc(100%_-_8px),transparent)]">
         <SportPicker
@@ -120,7 +121,7 @@ export function GamesFeedPanel({
         </div>
       </div>
 
-      <div className="space-y-2.5 px-3 pb-6 pt-1">
+      <div className="space-y-2 px-3 pb-10 pt-1">
         {isLoading ? (
           <GameListSkeleton />
         ) : error ? (
@@ -134,7 +135,7 @@ export function GamesFeedPanel({
         ) : (
           groups.map((group) => (
             <React.Fragment key={group.date || 'unknown'}>
-              <div className="px-2 pt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+              <div className="px-2 pt-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                 {group.label}
               </div>
               {group.games.map((item) => {
@@ -161,7 +162,13 @@ export function GamesFeedPanel({
         {isFreemiumUser && sorted.length > 2 && (
           <FreemiumUpgradeBanner totalGames={sorted.length} visibleGames={2} />
         )}
+        </div>
       </div>
+
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-10 bg-gradient-to-b from-transparent via-background/75 to-background dark:via-black/75 dark:to-black"
+      />
     </div>
   );
 }

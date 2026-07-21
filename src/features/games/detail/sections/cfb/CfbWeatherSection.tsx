@@ -1,6 +1,8 @@
-import { CloudRain } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { CloudSun, Droplets } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
 import { IconWind, WeatherIcon as WeatherIconComponent } from '@/utils/weatherIcons';
+import { EmptyNote } from './shared';
 import type { CFBPrediction } from '../../../api/cfbGames';
 import type { GameFeedItem } from '../../../types';
 
@@ -65,10 +67,35 @@ const mapCFBWeatherIconToCode = (
   return isNight ? 'clear-night' : 'clear-day';
 };
 
+/** Secondary weather figure — icon, value, caption. No surface of its own. */
+function WeatherStat({
+  icon,
+  value,
+  label,
+}: {
+  icon: ReactNode;
+  value: string;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span className="flex items-center gap-1 text-sm font-bold tabular-nums text-foreground">
+        {icon}
+        {value}
+      </span>
+      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
+        {label}
+      </span>
+    </div>
+  );
+}
+
 /**
- * CFB weather details — port of GameDetailsModal's CFB-only weather block
- * (~2030-2106). Prefers the weather_* columns, falls back to the legacy
- * temperature/wind_speed columns.
+ * CFB conditions at kickoff, as one line: what it looks like, how warm, and the
+ * two numbers that actually move a total (wind and precipitation).
+ *
+ * Deliberately not a dashboard — see WIDGET_DESIGN.md rule 1. Everything else
+ * the row carries (dew point, cloud cover…) is noise next to those.
  */
 export function CfbWeatherSection({ game }: { game: GameFeedItem<CFBPrediction> }) {
   const prediction = game.raw;
@@ -79,60 +106,63 @@ export function CfbWeatherSection({ game }: { game: GameFeedItem<CFBPrediction> 
   const windSpeed = (prediction.weather_windspeed_mph ?? prediction.wind_speed) ?? null;
   const precipitation = prediction.precipitation ?? null;
 
-  const hasWeather = iconCode || temperature !== null || windSpeed !== null;
+  const hasWeather = iconCode !== null || temperature !== null || windSpeed !== null;
+  // Legacy quirk kept: values >1 are already a percentage, fractions get scaled.
+  const precipPct =
+    precipitation !== null && precipitation > 0
+      ? Math.round(precipitation > 1 ? precipitation : precipitation * 100)
+      : null;
 
   return (
-    <WidgetCard icon={<CloudRain />} title="Full Weather Details">
+    <WidgetCard
+      icon={<CloudSun />}
+      title="Weather"
+      subtitle="Conditions at kickoff. Wind and rain pull totals down far more than temperature does."
+    >
       {hasWeather ? (
-        <div className="flex justify-center">
-          <div className="text-center">
-            <div className="flex items-center justify-center space-x-4 mb-2">
-              {iconCode && (
-                <div className="w-16 h-16 flex items-center justify-center">
-                  <WeatherIconComponent
-                    code={iconCode}
-                    size={64}
-                    className="stroke-current text-gray-800 dark:text-white"
-                  />
-                </div>
-              )}
+        <div className="flex items-center gap-3">
+          {iconCode && (
+            <WeatherIconComponent
+              code={iconCode}
+              size={44}
+              className="shrink-0 stroke-current text-foreground"
+            />
+          )}
 
-              {temperature !== null && (
-                <div className="text-lg font-bold text-gray-900 dark:text-white min-w-[60px] text-center">
-                  {Math.round(temperature)}°F
-                </div>
-              )}
-
-              {windSpeed !== null && windSpeed > 0 && (
-                <div className="flex items-center space-x-2 min-w-[70px]">
-                  <IconWind size={24} className="stroke-current text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-white/80">
-                    {Math.round(windSpeed)} mph
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {iconCode && (
-              <div className="text-xs font-medium text-gray-600 dark:text-white/70 capitalize">
-                {iconCode.replace(/-/g, ' ')}
-              </div>
+          <div className="flex min-w-0 flex-col">
+            {temperature !== null && (
+              <span className="text-2xl font-bold leading-none tabular-nums text-foreground">
+                {Math.round(temperature)}&deg;F
+              </span>
             )}
+            {iconCode && (
+              <span className="mt-1 truncate text-[11px] capitalize text-muted-foreground">
+                {iconCode.replace(/-/g, ' ')}
+              </span>
+            )}
+          </div>
 
-            {precipitation !== null && precipitation > 0 && (
-              <div className="text-xs font-medium text-gray-600 dark:text-white/70 mt-1">
-                {/* Legacy quirk kept: values >1 are already %, fractions get scaled. */}
-                Precipitation: {precipitation > 1 ? Math.round(precipitation) : Math.round(precipitation * 100)}%
-              </div>
+          <div className="ml-auto flex shrink-0 items-center gap-4">
+            {windSpeed !== null && windSpeed > 0 && (
+              <WeatherStat
+                icon={<IconWind size={14} className="stroke-current text-muted-foreground" />}
+                value={`${Math.round(windSpeed)} mph`}
+                label="Wind"
+              />
+            )}
+            {precipPct !== null && (
+              <WeatherStat
+                icon={<Droplets className="h-3.5 w-3.5 text-muted-foreground" />}
+                value={`${precipPct}%`}
+                label="Precip"
+              />
             )}
           </div>
         </div>
       ) : (
-        <div className="text-center py-4">
-          <CloudRain className="h-12 w-12 mx-auto mb-2 text-gray-400 dark:text-gray-600" />
-          <p className="text-sm text-gray-600 dark:text-white/70">Weather data not yet available</p>
-          <p className="text-xs text-gray-500 dark:text-white/50 mt-1">Check back closer to game time</p>
-        </div>
+        <EmptyNote>
+          No forecast for this game yet — conditions usually land a few days out from kickoff.
+        </EmptyNote>
       )}
     </WidgetCard>
   );

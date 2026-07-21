@@ -65,7 +65,7 @@ export function GameDetailPane({ sport, game, extras, isFeedLoading }: GameDetai
             it back its own row allocation. */}
         <div
           ref={gridRef}
-          className="grid grid-cols-1 items-start gap-3 px-4 pb-10 @xl:grid-cols-2"
+          className="grid grid-cols-1 items-start gap-x-4 gap-y-4 px-4 pb-10 [--widget-card-bg:rgba(241,245,249,0.92)] [--widget-card-border:rgba(15,23,42,0.1)] @xl:grid-cols-2"
         >
           <SportSections
             game={game}
