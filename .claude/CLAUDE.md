@@ -84,7 +84,7 @@ wagerproof-mobile/
 - Compare model odds vs Vegas lines to find value
 - Weather data integration for outdoor games
 - ONE unified iOS-style split-view page for all 5 sports (`/games?sport=nfl|cfb|nba|ncaab|mlb&game=<id>`): left = feed list (sport picker, search, sort), right = detail pane (per-sport widget sections in `src/features/games/detail/sections/`)
-- Legacy routes `/nfl`, `/college-football`, `/nba`, `/ncaab`, `/mlb` redirect into `/games`; per-sport tool sub-pages (`/nfl-analytics`, `/mlb/f5-splits`, ...) remain separate pages
+- Legacy routes `/nfl`, `/college-football`, `/nba`, `/ncaab`, `/mlb` redirect into `/games`; per-sport tool sub-pages (`/nfl-analytics`, `/mlb/f5-splits`, ...) remain separate routes. The per-game MLB tools (`/mlb/f5-splits`, `/mlb/pitcher-matchups`) are themselves split views under `src/features/mlbTools/` — see that folder's README
 
 ### 2. Live Scores (`/scoreboard`)
 - Real-time game updates via ESPN/Sports API

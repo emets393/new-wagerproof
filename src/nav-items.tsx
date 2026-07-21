@@ -59,17 +59,24 @@ export const navItems: NavItem[] = [
     icon: <Trophy className="h-4 w-4" />,
   },
   {
-    title: "Todays Outliers",
-    to: "/today-in-sports",
-    icon: <Newspaper className="h-4 w-4" />,
-  },
-  {
     // Unified chat-forward Historical Trends page (NFL/CFB/MLB) — replaces the per-sport analytics pages.
     title: "Historical Trends",
     // No sport param — the page defaults to NFL, and a query-less link keeps
     // the sidebar highlight active across in-page sport switches.
     to: "/historical-trends",
     icon: <BarChart className="h-4 w-4" />,
+  },
+  {
+    title: "Todays Outliers",
+    to: "/today-in-sports",
+    icon: <Newspaper className="h-4 w-4" />,
+  },
+  {
+    // Unified split-view tool replacing the three per-sport
+    // "Today's Betting Trends" pages (which now redirect here).
+    title: "Today's Betting Trends",
+    to: "/todays-trends",
+    icon: <TrendingUp className="h-4 w-4" />,
   },
   // {
   //   title: "Editors Picks",
@@ -110,11 +117,6 @@ export const navItems: NavItem[] = [
     icon: <Basketball className="h-4 w-4" />,
     subItems: [
       {
-        title: "Today's Betting Trends",
-        to: "/nba/todays-betting-trends",
-        icon: <TrendingUp className="h-4 w-4" />,
-      },
-      {
         title: "Halftime Trends",
         to: "/nba/halftime-trends",
         icon: <Clock className="h-4 w-4" />,
@@ -132,11 +134,6 @@ export const navItems: NavItem[] = [
     icon: <School className="h-4 w-4" />,
     subItems: [
       {
-        title: "Today's Betting Trends",
-        to: "/ncaab/todays-betting-trends",
-        icon: <TrendingUp className="h-4 w-4" />,
-      },
-      {
         title: "Halftime Trends",
         to: "/ncaab/halftime-trends",
         icon: <Clock className="h-4 w-4" />,
@@ -153,11 +150,6 @@ export const navItems: NavItem[] = [
     to: "/games?sport=mlb",
     icon: <Trophy className="h-4 w-4" />,
     subItems: [
-      {
-        title: "Today's Betting Trends",
-        to: "/mlb/todays-betting-trends",
-        icon: <TrendingUp className="h-4 w-4" />,
-      },
       {
         title: "Regression Report",
         to: "/mlb/daily-regression-report",
