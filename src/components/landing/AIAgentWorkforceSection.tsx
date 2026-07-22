@@ -1,8 +1,9 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BarChart3, BrainCircuit, Check, Radar, SlidersHorizontal, Sparkles, Trophy } from 'lucide-react';
+import { Bot, Gauge, Trophy, Zap } from 'lucide-react';
 import { AgentHQ } from '@/components/agents/split/AgentHQ';
+import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import type { AgentWithPerformance, ArchetypeId, Sport } from '@/types/agent';
 
 const NOW = new Date().toISOString();
@@ -71,43 +72,37 @@ const DEMO_AGENTS = [
   demoAgent('demo-trend-spotter', 'Trend Spotter', '📈', '#4ade80', 5, ['cfb', 'ncaab'], 22, 15, 5.64),
 ];
 
-const capabilities = [
-  { icon: Radar, title: 'Scans every slate', copy: 'Odds, trends, injuries, weather, splits, and market movement.' },
-  { icon: SlidersHorizontal, title: 'Thinks your way', copy: 'Give every agent its own sport, risk profile, and betting philosophy.' },
-  { icon: BarChart3, title: 'Proves its edge', copy: 'Every result is graded with transparent W-L and unit performance.' },
-];
-
 const workflow = [
-  { number: '01', label: 'Build', copy: 'Choose a sport and strategy' },
-  { number: '02', label: 'Deploy', copy: 'Agents research the slate' },
-  { number: '03', label: 'Review', copy: 'See picks and reasoning' },
-  { number: '04', label: 'Track', copy: 'Measure the real results' },
+  { icon: Bot, label: 'Create', copy: 'Pick a sport' },
+  { icon: Gauge, label: 'Configure', copy: 'Set its strategy' },
+  { icon: Zap, label: 'Deploy', copy: 'Research the slate' },
+  { icon: Trophy, label: 'Track', copy: 'Grade every result' },
 ];
 
 export default function AIAgentWorkforceSection() {
   return (
-    <section className="relative isolate overflow-hidden px-4 py-24 sm:px-6 md:py-36">
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_50%_38%,rgba(20,184,166,0.12),transparent_32%),radial-gradient(circle_at_18%_22%,rgba(59,130,246,0.09),transparent_24%),radial-gradient(circle_at_82%_20%,rgba(34,197,94,0.08),transparent_22%)]" />
+    <section className="relative isolate overflow-hidden px-4 py-20 sm:px-6 md:py-28">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_50%_40%,rgba(139,92,246,0.10),transparent_34%),radial-gradient(circle_at_72%_28%,rgba(34,211,238,0.06),transparent_24%)]" />
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-[0.025] [background-image:url('data:image/svg+xml,%3Csvg_viewBox=%220_0_180_180%22_xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter_id=%22n%22%3E%3CfeTurbulence_type=%22fractalNoise%22_baseFrequency=%220.8%22_numOctaves=%223%22/%3E%3C/filter%3E%3Crect_width=%22100%25%22_height=%22100%25%22_filter=%22url(%23n)%22/%3E%3C/svg%3E')]" />
 
-      <div className="mx-auto w-full max-w-[1380px]">
+      <div className="mx-auto w-full max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 22 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.6 }}
-          className="mx-auto max-w-5xl text-center"
+          className="mx-auto max-w-4xl text-center"
         >
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-bold tracking-[0.04em] text-emerald-700 dark:text-emerald-300">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
             <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>
-            AGENT HQ · LIVE DEMO
+            AI Agents — Now Live
           </div>
-          <h2 className="text-balance text-4xl font-black leading-[0.98] tracking-[-0.04em] text-gray-950 dark:text-white sm:text-5xl md:text-7xl">
-            Meet the betting desk that{' '}
-            <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">never clocks out.</span>
+          <h2 className="text-balance text-4xl font-black leading-[1.02] tracking-[-0.035em] text-gray-950 dark:text-white sm:text-5xl md:text-6xl">
+            Your personal workforce of{' '}
+            <span className="text-emerald-500 dark:text-emerald-400">sports data scientists.</span>
           </h2>
-          <p className="mx-auto mt-7 max-w-3xl text-balance text-lg leading-relaxed text-gray-600 dark:text-gray-300 md:text-xl">
-            Build a team of autonomous sports research agents. Each one studies the slate through a different lens, makes accountable picks, and builds a public track record inside your Agent HQ.
+          <p className="mx-auto mt-6 max-w-3xl text-balance text-base leading-relaxed text-gray-600 dark:text-gray-300 md:text-lg">
+            Create autonomous research agents with different strategies, then watch them work inside Agent HQ. Every pick, result, and unit is tracked transparently.
           </p>
         </motion.div>
 
@@ -116,58 +111,37 @@ export default function AIAgentWorkforceSection() {
           whileInView={{ opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, amount: 0.15 }}
           transition={{ duration: 0.75, delay: 0.08 }}
-          className="relative mt-14 md:mt-20"
+          className="relative mx-auto mt-12 max-w-[880px] md:mt-14"
         >
-          <div aria-hidden className="absolute -inset-8 -z-10 rounded-[56px] bg-gradient-to-b from-emerald-400/15 via-cyan-400/5 to-transparent blur-3xl" />
-          <div className="overflow-hidden rounded-[30px] border border-black/10 bg-white/70 p-2.5 shadow-[0_42px_110px_-42px_rgba(2,20,31,0.5)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b11]/80 sm:p-4 md:rounded-[38px] md:p-6">
-            <div className="mb-4 flex flex-col gap-3 px-2 pt-1 sm:flex-row sm:items-center sm:justify-between md:mb-6 md:px-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/10 text-emerald-500"><BrainCircuit className="h-5 w-5" /></div>
-                <div><p className="text-sm font-black tracking-tight text-gray-950 dark:text-white">WagerProof Agent HQ</p><p className="text-xs text-gray-500 dark:text-gray-400">Six strategies researching today&apos;s board</p></div>
-              </div>
-              <div className="flex flex-wrap gap-2 text-[11px] font-bold text-gray-600 dark:text-gray-300">
-                <span className="rounded-full border border-black/10 bg-white/70 px-3 py-1.5 dark:border-white/10 dark:bg-white/5">6 agents online</span>
-                <span className="rounded-full border border-black/10 bg-white/70 px-3 py-1.5 dark:border-white/10 dark:bg-white/5">5 sports covered</span>
-                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-emerald-600 dark:text-emerald-300">+54.26u tracked</span>
-              </div>
-            </div>
-
-            <div className="mx-auto w-full max-w-[1180px]">
-              <AgentHQ agents={DEMO_AGENTS} onSelectAgent={() => undefined} />
-            </div>
-
-            <div className="grid gap-2.5 p-2 pt-4 md:grid-cols-3 md:p-3 md:pt-6">
-              {capabilities.map(({ icon: Icon, title, copy }) => (
-                <div key={title} className="flex gap-3 rounded-2xl border border-black/[0.07] bg-white/55 p-4 dark:border-white/[0.08] dark:bg-white/[0.035]">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500"><Icon className="h-4 w-4" /></div>
-                  <div><p className="text-sm font-extrabold text-gray-950 dark:text-white">{title}</p><p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{copy}</p></div>
-                </div>
-              ))}
-            </div>
+          <div className="mx-auto w-full max-w-[760px]">
+            <AgentHQ agents={DEMO_AGENTS} onSelectAgent={() => undefined} />
           </div>
         </motion.div>
 
-        <div className="mx-auto mt-16 max-w-6xl md:mt-24">
-          <div className="mb-6 flex items-center justify-center gap-3 text-[11px] font-bold uppercase tracking-[0.22em] text-gray-400"><span className="h-px w-12 bg-current opacity-40" />From idea to verified record<span className="h-px w-12 bg-current opacity-40" /></div>
-          <div className="grid gap-px overflow-hidden rounded-3xl border border-black/[0.08] bg-black/[0.08] dark:border-white/[0.09] dark:bg-white/[0.09] sm:grid-cols-2 lg:grid-cols-4">
-            {workflow.map((step) => (
-              <div key={step.number} className="relative bg-white/80 p-6 dark:bg-[#090d13]/90 md:p-7">
-                <span className="absolute right-5 top-3 text-5xl font-black tracking-tighter text-gray-950/[0.045] dark:text-white/[0.045]">{step.number}</span>
-                <div className="mb-5 flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-500"><Check className="h-4 w-4" /></div>
-                <p className="text-base font-black text-gray-950 dark:text-white">{step.label}</p><p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">{step.copy}</p>
+        <div className="mx-auto mt-10 max-w-4xl md:mt-12">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {workflow.map(({ icon: Icon, label, copy }, index) => (
+              <div key={label} className="relative rounded-2xl border border-gray-200 bg-white/45 px-3 py-4 text-center backdrop-blur dark:border-white/10 dark:bg-white/[0.025]">
+                <span className="absolute right-3 top-1 text-3xl font-black text-gray-950/[0.045] dark:text-white/[0.05]">{index + 1}</span>
+                <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-500"><Icon className="h-4 w-4" /></div>
+                <p className="text-xs font-bold text-gray-950 dark:text-white">{label}</p><p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">{copy}</p>
               </div>
             ))}
           </div>
 
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link to="/agents" className="inline-flex h-13 items-center justify-center gap-2 rounded-full bg-gray-950 px-7 py-3.5 text-sm font-extrabold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-100">
-              Enter Agent HQ <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link to="/agents/create" className="inline-flex h-13 items-center justify-center gap-2 rounded-full border border-black/10 bg-white/60 px-7 py-3.5 text-sm font-extrabold text-gray-900 backdrop-blur transition hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10">
-              <Sparkles className="h-4 w-4 text-emerald-500" /> Build your first agent
+          <div className="mt-8 flex items-center justify-center">
+            <Link to="/agents/create">
+              <MovingBorderButton
+                borderRadius="0.5rem"
+                containerClassName="h-[50px] w-[170px]"
+                className="border-gray-300 bg-white text-sm font-semibold text-honeydew-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-honeydew-400 dark:hover:bg-gray-800"
+                borderClassName="bg-[radial-gradient(#73b69e_40%,transparent_60%)]"
+                duration={2500}
+              >
+                Create an Agent Today
+              </MovingBorderButton>
             </Link>
           </div>
-          <p className="mt-4 flex items-center justify-center gap-2 text-center text-xs text-gray-500 dark:text-gray-400"><Trophy className="h-3.5 w-3.5 text-amber-500" /> Every pick is graded. Every result stays visible.</p>
         </div>
       </div>
     </section>
