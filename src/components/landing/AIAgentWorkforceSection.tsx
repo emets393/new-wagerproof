@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BarChart3, BrainCircuit, Check, Radar, SlidersHorizontal, Sparkles, Trophy } from 'lucide-react';
+import { ArrowRight, BarChart3, BrainCircuit, Radar, SlidersHorizontal, Sparkles, Trophy } from 'lucide-react';
 import { AgentHQ } from '@/components/agents/split/AgentHQ';
 import type { AgentWithPerformance, ArchetypeId, Sport } from '@/types/agent';
 
@@ -77,13 +77,6 @@ const capabilities = [
   { icon: BarChart3, title: 'Proves its edge', copy: 'Every result is graded with transparent W-L and unit performance.' },
 ];
 
-const workflow = [
-  { number: '01', label: 'Build', copy: 'Choose a sport and strategy' },
-  { number: '02', label: 'Deploy', copy: 'Agents research the slate' },
-  { number: '03', label: 'Review', copy: 'See picks and reasoning' },
-  { number: '04', label: 'Track', copy: 'Measure the real results' },
-];
-
 export default function AIAgentWorkforceSection() {
   return (
     <section className="relative isolate overflow-hidden px-4 py-24 sm:px-6 md:py-36">
@@ -148,18 +141,7 @@ export default function AIAgentWorkforceSection() {
         </motion.div>
 
         <div className="mx-auto mt-16 max-w-6xl md:mt-24">
-          <div className="mb-6 flex items-center justify-center gap-3 text-[11px] font-bold uppercase tracking-[0.22em] text-gray-400"><span className="h-px w-12 bg-current opacity-40" />From idea to verified record<span className="h-px w-12 bg-current opacity-40" /></div>
-          <div className="grid gap-px overflow-hidden rounded-3xl border border-black/[0.08] bg-black/[0.08] dark:border-white/[0.09] dark:bg-white/[0.09] sm:grid-cols-2 lg:grid-cols-4">
-            {workflow.map((step) => (
-              <div key={step.number} className="relative bg-white/80 p-6 dark:bg-[#090d13]/90 md:p-7">
-                <span className="absolute right-5 top-3 text-5xl font-black tracking-tighter text-gray-950/[0.045] dark:text-white/[0.045]">{step.number}</span>
-                <div className="mb-5 flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-500"><Check className="h-4 w-4" /></div>
-                <p className="text-base font-black text-gray-950 dark:text-white">{step.label}</p><p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">{step.copy}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link to="/agents" className="inline-flex h-13 items-center justify-center gap-2 rounded-full bg-gray-950 px-7 py-3.5 text-sm font-extrabold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-100">
               Enter Agent HQ <ArrowRight className="h-4 w-4" />
             </Link>

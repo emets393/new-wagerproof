@@ -59,6 +59,8 @@ interface GameListCardProps {
   isAdmin: boolean;
   onSelect: (id: string) => void;
   onLockedClick?: () => void;
+  /** Landing-page demo cards pass false to skip the live Polymarket fetch. */
+  showSparkline?: boolean;
 }
 
 /**
@@ -73,6 +75,7 @@ export function GameListCard({
   isAdmin,
   onSelect,
   onLockedClick,
+  showSparkline = true,
 }: GameListCardProps) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const { lines, edges, awayTeam, homeTeam } = item;
@@ -89,7 +92,7 @@ export function GameListCard({
       : 'TBD';
 
   const mlbFinal = item.sport === 'mlb' ? (item.raw as any)?.is_final_prediction : undefined;
-  const showPolymarket = !isLocked;
+  const showPolymarket = !isLocked && showSparkline;
 
   const handleClick = () => {
     if (isLocked) {
