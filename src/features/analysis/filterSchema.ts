@@ -107,7 +107,7 @@ export type FilterDimension =
 /** Canonical "no filters" snapshot — mirrors resetAll() for the default (fg_spread) market. */
 export const DEFAULT_NFL_SNAPSHOT = {
   betType: 'fg_spread',
-  seasons: [2018, 2025], weeks: [1, 18], side: 'any', seasonType: 'any', playoffRound: 'any',
+  seasons: [2023, 2025], weeks: [1, 18], side: 'any', seasonType: 'any', playoffRound: 'any',
   favDog: 'any',
   spreadSide: 'any', spreadSize: [0, 20], lineRange: [30, 60],
   h1SpreadSide: 'any', h1SpreadSize: [0, 14], h1TotalRange: [15, 35], ttLineRange: [10, 40],
@@ -127,7 +127,7 @@ export const NFL_FILTER_DIMENSIONS: Record<Exclude<keyof NflWebFilterSnapshot, '
   seasons: {
     group: 'Situation', kind: 'numRange', min: 2018, max: 2025, step: 1, limitedFloor: 2023,
     label: 'Seasons', aliases: ['year', 'years', 'season range', 'since'],
-    rpcNote: 'season_min only if > floor; season_max only if < 2025. Floor = 2023 for limited markets, else 2018.',
+    rpcNote: 'season_min always sent from the snapshot lower bound; season_max only if < 2025. Default window is last 3 seasons (2023–2025) so the warehouse RPC stays under statement_timeout — full-history `{}` scans time out.',
   },
   seasonType: {
     group: 'Situation', kind: 'enum', label: 'Season type',

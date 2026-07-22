@@ -379,16 +379,18 @@ const VALIDATION = {
 
 ---
 
-## Screen 5: Public Agent View (`/agents/public/[id].tsx`)
+## Screen 5: Public Agent View (`/agents/public/[id].tsx` / web detail pane)
 
-**Purpose:** View someone else's public agent (read-only).
+**Purpose:** View someone else's public agent (read-only / spectator).
 
 ### Differences from owned Agent Detail
-- No settings/edit icon
-- Shows owner username with link to profile
-- Follow button instead of edit
-- No "Regenerate" option
-- Can view picks but not modify agent
+- No settings/edit icon and **no Generate/Run** (followers never trigger generation)
+- Follow / Following toggle — "Watch this agent — see its picks when its owner runs it."
+- **Copy build** — confirmation then `clone_public_agent`; creates a new OWNED agent (same settings, fresh 0-0). User runs that copy.
+- Can view picks (Pro-gated like other public agents) but not modify the source agent
+
+### My Agents list — Following section
+Followed agents appear under a **Following** header below owned agents. Favorited first; star (`is_favorite`) + bell (`notify_on_pick`) toggles. Tap opens public detail (spectator), not owner settings.
 
 ---
 

@@ -115,6 +115,26 @@ export async function fetchAgentPerformance(agentId: string): Promise<AgentPerfo
   return (data as AgentPerformance) || null;
 }
 
+/** Batch performance lookup for followed-agent cards (favorited-first sort). */
+export async function fetchPerformanceForAgents(
+  agentIds: string[]
+): Promise<Map<string, AgentPerformance>> {
+  if (agentIds.length === 0) return new Map();
+
+  const { data, error } = await (supabase as any)
+    .from('avatar_performance_cache')
+    .select('*')
+    .in('avatar_id', agentIds);
+
+  if (error) throw error;
+
+  const perfMap = new Map<string, AgentPerformance>();
+  for (const row of data ?? []) {
+    perfMap.set(row.avatar_id, row as AgentPerformance);
+  }
+  return perfMap;
+}
+
 export async function fetchLeaderboard(
   limit = 100,
   sport?: Sport,

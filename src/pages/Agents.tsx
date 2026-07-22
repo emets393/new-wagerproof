@@ -32,6 +32,7 @@ import {
   useUpdateAgent,
   useUserAgents,
 } from '@/hooks/useAgents';
+import { useFollowedAgentsDetailed } from '@/hooks/useFollowedAgents';
 import type {
   LeaderboardSortMode,
   LeaderboardTimeframe,
@@ -67,6 +68,7 @@ export default function Agents() {
   } | null>(null);
 
   const { data: agents, isLoading: agentsLoading, error: agentsError } = useUserAgents();
+  const { data: followedAgents = [] } = useFollowedAgentsDetailed();
   const {
     data: leaderboard,
     isLoading: leaderboardLoading,
@@ -98,13 +100,19 @@ export default function Agents() {
   const totalCount = agents?.length || 0;
   const activeCount = agents?.filter((a) => a.is_active).length || 0;
   const canCreateMore = canCreateAnotherAgent(activeCount, totalCount);
+  const followedIdSet = React.useMemo(
+    () => new Set(followedAgents.map((f) => f.avatar_id)),
+    [followedAgents]
+  );
 
-  // Segment: explicit ?tab wins; else infer from whether the selection is mine.
+  // Segment: explicit ?tab wins; else infer from whether the selection is mine
+  // or a followed agent (stay on My Agents) vs a leaderboard public agent.
   const isSelectedMine = !!selectedId && !!agents?.some((a) => a.id === selectedId);
+  const isSelectedFollowed = !!selectedId && followedIdSet.has(selectedId);
   const segment: AgentsSegment =
     tabParam === 'leaderboard' || tabParam === 'mine' || tabParam === 'topPicks'
       ? tabParam
-      : selectedId && agents && !isSelectedMine
+      : selectedId && agents && !isSelectedMine && !isSelectedFollowed
         ? 'leaderboard'
         : 'mine';
 
@@ -120,13 +128,14 @@ export default function Agents() {
   };
 
   const selectAgent = React.useCallback(
-    (id: string | null, options?: { replace?: boolean }) => {
+    (id: string | null, options?: { replace?: boolean; tab?: AgentsSegment }) => {
       setSelectedTicket(null);
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
           if (id) params.set('selected', id);
           else params.delete('selected');
+          if (options?.tab) params.set('tab', options.tab);
           return params;
         },
         { replace: options?.replace ?? false }
@@ -232,6 +241,7 @@ export default function Agents() {
       generation={selectedId ? generationByAgent[selectedId] : undefined}
       onGenerate={handleGenerate}
       onClearSelection={() => selectAgent(null)}
+      onSelectAgent={(id) => selectAgent(id, { replace: true, tab: 'mine' })}
       selectedTicketId={selectedTicketId}
       onSelectTicket={(item, accent) => setSelectedTicket({ item, accent })}
     />

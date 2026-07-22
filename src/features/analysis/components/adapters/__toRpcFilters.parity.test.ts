@@ -2,6 +2,11 @@
  * Guardrail for the snapshot → p_filters transcription. Feeds representative snapshots through each
  * adapter's `toRpcFilters` and asserts golden p_filters — so the extraction from the retired pages'
  * `buildFilters` can't silently drift. Independent of the 8 protected engine tests.
+ *
+ * Season note (2026-07): warehouse analysis RPCs hit statement_timeout (~3s) on unrestricted /
+ * deep-history scans. Defaults MUST emit a season_min that keeps the query under that budget
+ * (NFL ≥2023, CFB =2025, MLB already last-2-seasons). Omitting season_min at the floor used to
+ * mean "all history" and is what made Situations/breakdowns look permanently empty.
  */
 import { describe, it, expect } from 'vitest';
 import { nflAdapter } from './nfl';
@@ -9,8 +14,8 @@ import { cfbAdapter } from './cfb';
 import { mlbAdapter } from './mlb';
 
 describe('NFL toRpcFilters', () => {
-  it('emits nothing for a fresh default snapshot', () => {
-    expect(nflAdapter.toRpcFilters(nflAdapter.reset('fg_spread'))).toEqual({});
+  it('emits season_min for a fresh default snapshot (warehouse timeout guard)', () => {
+    expect(nflAdapter.toRpcFilters(nflAdapter.reset('fg_spread'))).toEqual({ season_min: 2023 });
   });
 
   it('signs the favorite spread and keeps side', () => {
@@ -27,8 +32,8 @@ describe('NFL toRpcFilters', () => {
     expect(f.day_of_week).toEqual(['Thu']);
   });
 
-  it('clamps the season floor on 2023+-only markets (no season_min emitted at floor)', () => {
-    expect(nflAdapter.toRpcFilters(nflAdapter.reset('h1_spread'))).toEqual({});
+  it('still emits season_min on 2023+-only markets at their floor', () => {
+    expect(nflAdapter.toRpcFilters(nflAdapter.reset('h1_spread'))).toEqual({ season_min: 2023 });
   });
 
   it('gates fav_dog to team_total only', () => {
@@ -38,8 +43,11 @@ describe('NFL toRpcFilters', () => {
 });
 
 describe('CFB toRpcFilters', () => {
-  it('emits nothing for a fresh default snapshot', () => {
-    expect(cfbAdapter.toRpcFilters(cfbAdapter.reset('fg_spread'))).toEqual({});
+  it('emits season_min + regular game_type for a fresh default snapshot (warehouse timeout guard)', () => {
+    expect(cfbAdapter.toRpcFilters(cfbAdapter.reset('fg_spread'))).toEqual({
+      season_min: 2025,
+      game_type: 'regular',
+    });
   });
 
   it('maps a single conference to f.conference', () => {
@@ -62,8 +70,8 @@ describe('CFB toRpcFilters', () => {
 });
 
 describe('MLB toRpcFilters', () => {
-  it('defaults to the last-2-seasons window (narrower than the 2023 floor)', () => {
-    // DEFAULT_SEASONS = [2025, 2026] > SEASON_FLOOR (2023) → season_min IS emitted (matches old page).
+  it('defaults to the last-2-seasons window and always emits season_min', () => {
+    // DEFAULT_SEASONS = [2025, 2026] → season_min always emitted (even if equal to floor).
     expect(mlbAdapter.toRpcFilters(mlbAdapter.reset('ml'))).toEqual({ season_min: 2025 });
   });
 

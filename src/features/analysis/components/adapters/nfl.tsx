@@ -154,20 +154,33 @@ function sideLabel(betType: string, side: string): string {
   return side;
 }
 
+const SEASON_MAX = 2025;
+/**
+ * Warehouse `nfl_analysis` hits statement_timeout (~3s) on unrestricted / deep-history scans.
+ * Default to a window that completes (season_min=2023 ≈ 1.6s; floor-2018 and `{}` both time out).
+ * Absolute floor stays available on the slider for users who narrow other dims.
+ */
+const DEFAULT_SEASON_LOOKBACK = 2; // inclusive → [2023, 2025] when max is 2025
+
 function seasonFloorFor(betType: string) {
   return LIMITED.has(betType) ? 2023 : 2018;
 }
 
-function reset(betType: string): S {
+function defaultSeasons(betType: string): [number, number] {
   const floor = seasonFloorFor(betType);
-  return { ...DEFAULT_NFL_SNAPSHOT, betType, seasons: [floor, 2025] };
+  return [Math.max(floor, SEASON_MAX - DEFAULT_SEASON_LOOKBACK), SEASON_MAX];
+}
+
+function reset(betType: string): S {
+  return { ...DEFAULT_NFL_SNAPSHOT, betType, seasons: defaultSeasons(betType) };
 }
 
 function toRpcFilters(s: S): Record<string, unknown> {
   const f: Record<string, unknown> = {};
-  const floor = seasonFloorFor(s.betType);
-  if (s.seasons[0] > floor) f.season_min = s.seasons[0];
-  if (s.seasons[1] < 2025) f.season_max = s.seasons[1];
+  // Always emit season_min — omitting it at the floor used to mean "all history", which now
+  // times out on the warehouse. The snapshot's lower bound must reach the RPC.
+  f.season_min = s.seasons[0];
+  if (s.seasons[1] < SEASON_MAX) f.season_max = s.seasons[1];
   if (s.seasonType === 'regular') {
     f.season_type = 'regular';
     if (s.weeks[0] > 1) f.week_min = s.weeks[0];
@@ -230,7 +243,7 @@ function RailSections({
   return (
     <>
       <FilterGroup title="Situation" defaultOpen>
-        <RangeRow label={`Seasons: ${s.seasons[0]}–${s.seasons[1]}`} min={floor} max={2025} step={1} value={s.seasons} onChange={(v) => update({ seasons: v })} />
+        <RangeRow label={`Seasons: ${s.seasons[0]}–${s.seasons[1]}`} min={floor} max={SEASON_MAX} step={1} value={s.seasons} onChange={(v) => update({ seasons: v })} />
         <SelectRow
           label="Season type"
           value={s.seasonType}
@@ -327,7 +340,7 @@ export const nflAdapter: TrendsSportAdapter<S> = {
   defaultBetType: 'fg_spread',
   limitedBetTypes: LIMITED,
   seasonFloorFor,
-  seasonMax: 2025,
+  seasonMax: SEASON_MAX,
 
   reset,
   normalize: (raw, betType) => normalizeNflSavedFilterSnapshot(raw as Record<string, unknown>, betType),
@@ -422,9 +435,10 @@ export const nflAdapter: TrendsSportAdapter<S> = {
     } as S;
   },
   activeChips: (s) => {
-    const floor = seasonFloorFor(s.betType);
+    const defSeasons = defaultSeasons(s.betType);
     const c: { label: string; patch: Record<string, unknown> }[] = [];
-    if (s.seasons[0] !== floor || s.seasons[1] !== 2025) c.push({ label: `Seasons ${s.seasons[0]}–${s.seasons[1]}`, patch: { seasons: [floor, 2025] } });
+    if (s.seasons[0] !== defSeasons[0] || s.seasons[1] !== defSeasons[1])
+      c.push({ label: `Seasons ${s.seasons[0]}–${s.seasons[1]}`, patch: { seasons: defSeasons } });
     if (s.seasonType !== 'any') c.push({ label: s.seasonType === 'regular' ? 'Regular season' : 'Playoffs', patch: { seasonType: 'any', playoffRound: 'any' } });
     if (s.seasonType === 'regular' && (s.weeks[0] !== 1 || s.weeks[1] !== 18)) c.push({ label: `Weeks ${s.weeks[0]}–${s.weeks[1]}`, patch: { weeks: [1, 18] } });
     if (s.seasonType === 'postseason' && s.playoffRound !== 'any') c.push({ label: `Round: ${s.playoffRound}`, patch: { playoffRound: 'any' } });

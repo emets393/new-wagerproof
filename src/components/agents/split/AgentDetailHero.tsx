@@ -1,4 +1,4 @@
-import { Globe, Settings, Sparkles, UserMinus, UserPlus } from 'lucide-react';
+import { Copy, Globe, Settings, Sparkles, UserMinus, UserPlus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { GlassCard } from '@/components/ios';
@@ -23,12 +23,14 @@ interface AgentDetailHeroProps {
   onGenerate: () => void;
   generateDisabled: boolean;
   onOpenSettings: () => void;
+  onCopyBuild?: () => void;
+  copyPending?: boolean;
 }
 
 /**
  * iOS-style agent hero: agent-color gradient field behind a glass card, big
  * avatar + name + pills on the left, 2×2 stat quadrant on the right, action
- * row (Generate/Settings for owners, Follow for visitors) below.
+ * row (Generate/Settings for owners, Follow + Copy build for visitors) below.
  */
 export function AgentDetailHero({
   agent,
@@ -40,6 +42,8 @@ export function AgentDetailHero({
   onGenerate,
   generateDisabled,
   onOpenSettings,
+  onCopyBuild,
+  copyPending = false,
 }: AgentDetailHeroProps) {
   const perf = agent.performance;
   const [primary, secondary] = getAgentColorPair(agent.avatar_color || DEFAULT_AGENT_COLOR);
@@ -113,36 +117,64 @@ export function AgentDetailHero({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {isOwner ? (
-            <>
-              <Button size="sm" className="rounded-full" onClick={onGenerate} disabled={generateDisabled}>
-                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                {generateDisabled ? 'Generating…' : 'Generate Picks'}
-              </Button>
-              <Button size="sm" variant="outline" className="rounded-full" onClick={onOpenSettings}>
-                <Settings className="mr-1.5 h-3.5 w-3.5" />
-                Settings
-              </Button>
-            </>
-          ) : (
-            <Button
-              size="sm"
-              variant={isFollowing ? 'outline' : 'default'}
-              className="rounded-full"
-              onClick={onToggleFollow}
-              disabled={followPending}
-            >
-              {isFollowing ? (
-                <>
-                  <UserMinus className="mr-1.5 h-3.5 w-3.5" /> Unfollow
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Follow
-                </>
-              )}
-            </Button>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isOwner ? (
+              <>
+                <Button size="sm" className="rounded-full" onClick={onGenerate} disabled={generateDisabled}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                  {generateDisabled ? 'Generating…' : 'Generate Picks'}
+                </Button>
+                <Button size="sm" variant="outline" className="rounded-full" onClick={onOpenSettings}>
+                  <Settings className="mr-1.5 h-3.5 w-3.5" />
+                  Settings
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant={isFollowing ? 'outline' : 'default'}
+                  className="rounded-full"
+                  onClick={onToggleFollow}
+                  disabled={followPending}
+                >
+                  {isFollowing ? (
+                    <>
+                      <UserMinus className="mr-1.5 h-3.5 w-3.5" /> Following
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Follow
+                    </>
+                  )}
+                </Button>
+                {onCopyBuild && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={onCopyBuild}
+                    disabled={copyPending}
+                  >
+                    <Copy className="mr-1.5 h-3.5 w-3.5" />
+                    {copyPending ? 'Copying…' : 'Copy build'}
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+          {!isOwner && (
+            <div className="space-y-0.5 text-[11px] leading-snug text-muted-foreground">
+              <p>
+                <span className="font-semibold text-foreground/80">Follow: </span>
+                Watch this agent — see its picks when its owner runs it.
+              </p>
+              <p>
+                <span className="font-semibold text-foreground/80">Copy build: </span>
+                Make your own version — same settings, fresh 0-0 record, you run it.
+              </p>
+            </div>
           )}
         </div>
       </div>

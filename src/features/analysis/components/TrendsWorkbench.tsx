@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { AlertTriangle, SlidersHorizontal } from 'lucide-react';
+import { AlertTriangle, Bookmark, Save, SlidersHorizontal, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { GlassCard } from '@/components/ios';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
@@ -17,11 +17,22 @@ import { BreakdownTable } from './BreakdownTable';
 import { SituationsGrid } from './SituationsGrid';
 import { UpcomingMatches } from './UpcomingMatches';
 import { FilterDrawer, InlineFilterPanel, useIsXl } from './FilterDrawer';
-import { SavedFiltersMenu } from './SavedFiltersMenu';
 import { TrendsChatBar } from './TrendsChatBar';
 import { TrendsSkeleton } from './TrendsSkeleton';
 import { RecentSearchesDock } from './RecentSearchesDock';
 import { useTrendsRecents } from './useTrendsRecents';
+import { SaveSystemDialog } from '../systems/SaveSystemDialog';
+import { MySystemsSheet } from '../systems/MySystemsSheet';
+import { SystemsLeaderboardBanner } from '../systems/SystemsLeaderboardBanner';
+import { SystemsLeaderboardDialog } from '../systems/SystemsLeaderboardDialog';
+import { useSaveSystem } from '../systems/useAnalysisSystems';
+import {
+  isSport,
+  verdictSideWord,
+  type LeaderboardSystem,
+  type SavedSystemRow,
+  type SystemVerdict,
+} from '../systems/analysisSystemsService';
 
 const TOAST = { duration: 2400 } as const;
 
@@ -58,7 +69,9 @@ function SportWorkbench({
   onSportChange,
   onBetTypeChange,
   onApplyPreset,
-  onRestoreSaved,
+  onApplySystem,
+  viewingSystem,
+  setViewingSystem,
   filtersOpen,
   setFiltersOpen,
 }: {
@@ -72,7 +85,17 @@ function SportWorkbench({
   onSportChange: (s: Sport) => void;
   onBetTypeChange: (bt: string) => void;
   onApplyPreset: (preset: (typeof adapter.presets)[number]) => void;
-  onRestoreSaved: (filters: Record<string, unknown>, betType: string) => void;
+  /** Apply a saved/leaderboard system — may switch sport. */
+  onApplySystem: (args: {
+    targetSport: Sport;
+    filters: Record<string, unknown>;
+    betType: string;
+    viewing?: { name: string; username: string; verdict: SystemVerdict };
+  }) => void;
+  viewingSystem: { name: string; username: string; verdict: SystemVerdict } | null;
+  setViewingSystem: (
+    next: { name: string; username: string; verdict: SystemVerdict } | null,
+  ) => void;
   filtersOpen: boolean;
   setFiltersOpen: (open: boolean) => void;
 }) {
@@ -82,6 +105,11 @@ function SportWorkbench({
   const [processing, setProcessing] = React.useState(false);
   const isXl = useIsXl();
   const betType = String(snapshot.betType);
+
+  const [saveOpen, setSaveOpen] = React.useState(false);
+  const [mySystemsOpen, setMySystemsOpen] = React.useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = React.useState(false);
+  const saveMutation = useSaveSystem();
 
   const rpcFilters = React.useMemo(() => adapter.toRpcFilters(snapshot, data), [adapter, snapshot, data]);
   const debounced = useDebouncedValue(rpcFilters, 350);
@@ -192,6 +220,50 @@ function SportWorkbench({
     }
   };
 
+  const handleSaveSystem = (args: { name: string; verdict: SystemVerdict; isPublic: boolean }) => {
+    saveMutation.mutate(
+      {
+        sport,
+        name: args.name,
+        betType,
+        filters: snapshot,
+        verdict: args.verdict,
+        rpcFilters,
+        isPublic: args.isPublic,
+      },
+      {
+        onSuccess: () => {
+          setSaveOpen(false);
+          toast.success(args.isPublic ? 'System saved & shared' : 'System saved', TOAST);
+        },
+        onError: () => toast.error("Couldn't save system, try again.", TOAST),
+      },
+    );
+  };
+
+  const handleApplyMySystem = (row: SavedSystemRow) => {
+    onApplySystem({
+      targetSport: row.sport,
+      filters: (row.filters || {}) as Record<string, unknown>,
+      betType: row.bet_type,
+    });
+    setMySystemsOpen(false);
+    setViewingSystem(null);
+  };
+
+  const handleApplyLeaderboardSystem = (sys: LeaderboardSystem) => {
+    const target: Sport = isSport(sys.sport) ? sys.sport : sport;
+    const viewing = { name: sys.name, username: sys.username, verdict: sys.verdict };
+    setViewingSystem(viewing);
+    onApplySystem({
+      targetSport: target,
+      filters: (sys.filters || {}) as Record<string, unknown>,
+      betType: sys.bet_type,
+      viewing,
+    });
+    setLeaderboardOpen(false);
+  };
+
   const upcomingNode =
     analysis && upcoming.length > 0 ? (
       <UpcomingMatches
@@ -248,15 +320,65 @@ function SportWorkbench({
           <div className="flex items-start gap-6">
             {/* results — kept mounted across refetches (dim, don't unmount) */}
             <div className="min-w-0 flex-1 space-y-4">
-              {/* saved filters + filter summon sit above the first card — the page title lives
-                  in the breadcrumb, so there's no header row up top */}
-              <div className="flex items-center justify-end gap-2">
-                <SavedFiltersMenu
-                  table={adapter.savedTable}
-                  betType={betType}
-                  buildSnapshot={() => snapshot}
-                  onRestore={onRestoreSaved}
-                />
+              <SystemsLeaderboardBanner onClick={() => setLeaderboardOpen(true)} />
+
+              {viewingSystem && (
+                <div
+                  className={cn(
+                    'flex items-start gap-2 rounded-2xl border border-primary/30 bg-primary/10 px-3.5 py-3',
+                  )}
+                >
+                  <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-foreground">
+                    Viewing {viewingSystem.name} by {viewingSystem.username} — bets{' '}
+                    {verdictSideWord(viewingSystem.verdict)}. Save your own copy to track it.
+                  </p>
+                  {user && (
+                    <button
+                      type="button"
+                      onClick={() => setSaveOpen(true)}
+                      className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground"
+                    >
+                      Save
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Dismiss"
+                    onClick={() => setViewingSystem(null)}
+                    className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {user && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSaveOpen(true)}
+                      className={cn(
+                        'flex h-9 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground',
+                        'transition-all duration-200 active:scale-95 hover:bg-primary/90',
+                      )}
+                    >
+                      <Save className="h-4 w-4" />
+                      Save System
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMySystemsOpen(true)}
+                      className={cn(
+                        'flex h-9 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3.5 text-[13px] font-semibold text-primary',
+                        'transition-all duration-200 active:scale-95 hover:bg-primary/15',
+                      )}
+                    >
+                      <Bookmark className="h-4 w-4" />
+                      My Systems
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => setFiltersOpen(true)}
@@ -382,14 +504,37 @@ function SportWorkbench({
           />
         }
       />
+
+      <SaveSystemDialog
+        open={saveOpen}
+        onOpenChange={setSaveOpen}
+        sport={sport}
+        betType={betType}
+        snapshot={snapshot}
+        patchFilters={update}
+        saving={saveMutation.isPending}
+        onSave={handleSaveSystem}
+      />
+      <MySystemsSheet
+        open={mySystemsOpen}
+        onOpenChange={setMySystemsOpen}
+        currentSport={sport}
+        onApply={handleApplyMySystem}
+      />
+      <SystemsLeaderboardDialog
+        open={leaderboardOpen}
+        onOpenChange={setLeaderboardOpen}
+        initialSport={sport}
+        onApplySystem={handleApplyLeaderboardSystem}
+      />
     </div>
   );
 }
 
 /**
  * Outer workbench — owns the per-sport snapshot record (session memory), the URL sync, and the
- * drawer open state. There's no page-level header (the title lives in the breadcrumb); saved
- * filters + the filter summon render inside the results column. Sport + bet-market switching lives
+ * drawer open state. There's no page-level header (the title lives in the breadcrumb); systems
+ * controls + the filter summon render inside the results column. Sport + bet-market switching lives
  * in the bottom dock (TrendsChatBar). Renders the keyed inner workbench.
  */
 export function TrendsWorkbench({
@@ -408,6 +553,11 @@ export function TrendsWorkbench({
     mlb: TREND_ADAPTERS.mlb.reset(validBetType(TREND_ADAPTERS.mlb, sport === 'mlb' ? betType : undefined)),
   }));
   const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [viewingSystem, setViewingSystem] = React.useState<{
+    name: string;
+    username: string;
+    verdict: SystemVerdict;
+  } | null>(null);
 
   const adapter = TREND_ADAPTERS[sport];
   const snapshot = snapshots[sport];
@@ -429,13 +579,25 @@ export function TrendsWorkbench({
   const resetAll = () => setSnapshots((prev) => ({ ...prev, [sport]: adapter.reset(activeBet) }));
   const applyPreset = (preset: (typeof adapter.presets)[number]) =>
     setSnapshots((prev) => ({ ...prev, [sport]: adapter.applyPreset(preset) }));
-  const restoreSaved = (filters: Record<string, unknown>, savedBet: string) =>
-    setSnapshots((prev) => ({ ...prev, [sport]: adapter.normalize(filters, savedBet) }));
 
-  const handleSportChange = (next: Sport) => setUrl(next, String(snapshots[next].betType));
+  /** Restore a system onto the right sport's snapshot, switching sport in the URL when needed. */
+  const applySystem = (args: {
+    targetSport: Sport;
+    filters: Record<string, unknown>;
+    betType: string;
+    viewing?: { name: string; username: string; verdict: SystemVerdict };
+  }) => {
+    const targetAdapter = TREND_ADAPTERS[args.targetSport];
+    const next = targetAdapter.normalize(args.filters, args.betType);
+    setSnapshots((prev) => ({ ...prev, [args.targetSport]: next }));
+    setUrl(args.targetSport, String(next.betType));
+  };
 
-  // No page-level header: the title lives in the breadcrumb, and the saved-filters + filter
-  // controls render inside the results column (above the first card) via SportWorkbench.
+  const handleSportChange = (next: Sport) => {
+    setViewingSystem(null);
+    setUrl(next, String(snapshots[next].betType));
+  };
+
   return (
     <SportWorkbench
       key={sport}
@@ -448,7 +610,9 @@ export function TrendsWorkbench({
       onSportChange={handleSportChange}
       onBetTypeChange={setBetType}
       onApplyPreset={applyPreset}
-      onRestoreSaved={restoreSaved}
+      onApplySystem={applySystem}
+      viewingSystem={viewingSystem}
+      setViewingSystem={setViewingSystem}
       filtersOpen={filtersOpen}
       setFiltersOpen={setFiltersOpen}
     />

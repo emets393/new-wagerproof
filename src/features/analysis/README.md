@@ -12,8 +12,9 @@ so it manages its own layout instead of the main page scroller): a single intern
 holds the results, and the chat dock is pinned below it and never scrolls. There's no page-level
 header — the title lives in the breadcrumb (`MinimalHeader`).
 
-- **Results** (`SportWorkbench`, keyed by sport, scrolls internally): a right-aligned control row
-  (`SavedFiltersMenu` bookmark popover + a **Filters** pill with active-count badge) sits above the
+- **Results** (`SportWorkbench`, keyed by sport, scrolls internally): Systems Leaderboard banner →
+  optional “Viewing {system} by {user}…” banner → right-aligned control row (**Save System** /
+  **My Systems** for signed-in users + a **Filters** pill with active-count badge) sits above the
   first card → `CoverageBadge` → hero (`TrendsHero`, or `SymmetricSplitHero` on the two-sided-market
   tautology) → `SituationsGrid` (animated split bars from `SplitBars`) — a **multi-market** card: its
   own market multi-select (top-right, lifted from the chat bar) shows the same filtered games'
@@ -26,6 +27,25 @@ header — the title lives in the breadcrumb (`MinimalHeader`).
   (Games / {outcome} % / ROI) sits top-right above the metric columns it orders. All rows render at
   once — no cap, no inner scroll — so the long list scrolls with the page under the chat dock.
   `HeroGauge` is a pure-SVG gradient ring with a baseline tick and count-up.
+
+## Systems (Save / My Systems / Leaderboard)
+
+Shareable filter+side “systems” live in `{sport}_analysis_saved_filters` on the **main** Supabase
+project (warehouse stays analysis-only). UI under `systems/`:
+
+- **Save System** — multi-step dialog (totals Over/Under; symmetric side markets force
+  Home/Away/Fav/Dog then ON/AGAINST). Inserts `verdict`, `rpc_bet_type`, `rpc_filters`, `is_public`.
+  User-facing copy never says verdict/RPC; share helper says “10+ games of history”.
+- **My Systems** — sheet for the current sport (toggle All sports). Rename / share / delete /
+  tap-to-load (switches sport when needed).
+- **Systems Leaderboard** — banner → dialog with **Sport filter (All / MLB / NFL / CFB)** required
+  on web (native is sport-scoped per screen). Sort: Best ROI / record / units / hottest streak.
+  Cards show filter-timeframe record, this season, last-10, streak, filter chips; 🔥/❄️ thresholds
+  match native. `All` fetches `analysis_systems_leaderboard` once per sport and merges by ROI.
+  Tap card → apply filters + bet type (sport switch first) + viewing banner.
+
+See `.claude/docs/trends-systems/07_SYSTEMS_LEADERBOARD.md`. Legacy `SavedFiltersMenu` remains on
+disk but is no longer mounted on the page.
 - **Bottom dock** (`TrendsChatBar`): Claude-composer-style chat bar pinned with `absolute bottom-0`
   inside the workbench's full-height column (so it stays put while the results scroll behind it),
   over a seamless background-colored scrim + progressive blur. The control row holds the filter

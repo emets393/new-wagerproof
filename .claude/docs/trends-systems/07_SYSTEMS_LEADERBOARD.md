@@ -11,8 +11,10 @@ use, ranked by all-time ROI on a public leaderboard.
   market's filters are symmetric (no team-defining filter), the save dialog forces a
   Home/Away/Favorite/Underdog choice — which literally sets that filter. No symmetry
   rejection ever surfaces to users.
-- **Min 10 graded games** for leaderboard eligibility (some markets have only ~3 years of
-  price history). Display sample-size badges: Early 10–29 / Established 30–99 / Proven 100+.
+- **Min 10 games** (`all_time.n >= 10`) for leaderboard eligibility — sample size of
+  games matching the system's filters (not a “since you shared” count). Display
+  sample-size badges: Early 10–29 / Established 30–99 / Proven 100+. User-facing copy
+  should say “10+ games”, not “10+ graded games” / overnight grading as the share gate.
 - **Since-saved tracked from day one** — the record produced only AFTER the save; the
   honest number. Filters are immutable post-save (no UPDATE grant on them): editing =
   new save = since-saved resets by construction.
@@ -41,6 +43,9 @@ use, ranked by all-time ROI on a public leaderboard.
 - `analysis_systems_leaderboard(p_sport?, p_limit=50)` — top public systems by all-time
   ROI, n≥10, joined with profiles for username; each row carries the UI `filters` snapshot
   so click-through restores the exact page state. Anon-callable.
+  **Web** (`/historical-trends`) is multi-sport: the leaderboard UI requires a Sport filter
+  (All / MLB / NFL / CFB). `All` calls this RPC once per sport and merges by ROI; a single
+  sport passes only that `p_sport`. Native/Expo screens stay sport-scoped.
 - Edge Function `grade-analysis-systems` (verify_jwt off, guarded by `x-cron-secret` =
   GRADE_CRON_SECRET; secrets: WAREHOUSE_URL/WAREHOUSE_SERVICE_KEY). Groups saves by hash,
   fetches rows once per unique system, computes cache + per-save since_saved.

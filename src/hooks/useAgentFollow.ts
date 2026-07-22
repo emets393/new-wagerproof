@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
- * Follow state + toggle for a public agent. Wraps the inline
- * user_avatar_follows calls previously embedded in PublicAgentDetail.
+ * Follow state + toggle for a public agent.
+ * user_avatar_follows has a composite PK (user_id, avatar_id) — no `id` column.
  */
 export function useAgentFollow(agentId: string | undefined, options?: { enabled?: boolean }) {
   const { user } = useAuth();
@@ -18,7 +18,7 @@ export function useAgentFollow(agentId: string | undefined, options?: { enabled?
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from('user_avatar_follows')
-        .select('id')
+        .select('avatar_id')
         .eq('user_id', user!.id)
         .eq('avatar_id', agentId!)
         .maybeSingle();
@@ -44,8 +44,8 @@ export function useAgentFollow(agentId: string | undefined, options?: { enabled?
     },
     onSuccess: (next) => {
       queryClient.setQueryData(queryKey, next);
+      queryClient.invalidateQueries({ queryKey: ['followed-agents'] });
     },
-    // Follow is non-critical — legacy behavior swallowed errors silently.
     onError: () => {},
   });
 
