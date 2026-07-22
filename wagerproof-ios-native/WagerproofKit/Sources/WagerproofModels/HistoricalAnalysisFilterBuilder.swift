@@ -336,7 +336,6 @@ public enum HistoricalAnalysisFilterBuilder {
     /// Port of RN `buildMlbRpcFilters` — omit unset keys; do not invent the other end of ranges.
     public static func buildMLBRPCFilters(snapshot: HistoricalAnalysisUISnapshot) -> [String: JSONValue] {
         var out: [String: JSONValue] = [:]
-        let betType = snapshot.betType
         let floor = 2023
         let seasonCap = HistoricalAnalysisSport.mlb.seasonMax
 
@@ -363,15 +362,10 @@ public enum HistoricalAnalysisFilterBuilder {
         if let b = mlB, !b.isNaN { out["ml_max"] = .double(b) }
 
         // Totals are cross-market sample filters on web ("available on every bet
-        // type"). iOS repurposes ONE line slider per market: F5 bounds on the F5
-        // total market, FG total bounds everywhere else — previously the slider
-        // was dead on ML/RL markets.
-        if betType == "f5_total" {
-            if let tcfg = mlbTotalCfg["f5_total"] {
-                if snapshot.lineMin > tcfg.min { out["f5_total_min"] = .double(snapshot.lineMin) }
-                if snapshot.lineMax < tcfg.max { out["f5_total_max"] = .double(snapshot.lineMax) }
-            }
-        } else if let tcfg = mlbTotalCfg["total"] {
+        // type") — `total_min/max` (game total, `lineMin/Max`) and
+        // `f5_total_min/max` (`f5TotalMin/Max`) are independent dims, both always
+        // emitted regardless of the selected bet type (web parity; see A2).
+        if let tcfg = mlbTotalCfg["total"] {
             if snapshot.lineMin > tcfg.min { out["total_min"] = .double(snapshot.lineMin) }
             if snapshot.lineMax < tcfg.max { out["total_max"] = .double(snapshot.lineMax) }
         }
@@ -379,7 +373,23 @@ public enum HistoricalAnalysisFilterBuilder {
         // RPC does jsonb_array_elements on day_of_week — a scalar string makes the
         // whole query error ("cannot extract elements from a scalar"), which froze
         // the page on stale results. Must be an array even for a single day.
-        if snapshot.dayOfWeek != "any" { out["day_of_week"] = .array([.string(snapshot.dayOfWeek)]) }
+        // `daysOfWeek` (multi) is the canonical MLB control; fall back to the
+        // legacy single-day `dayOfWeek` for old saved filters that only set it.
+        if !snapshot.daysOfWeek.isEmpty {
+            out["day_of_week"] = .array(snapshot.daysOfWeek.map { .string($0) })
+        } else if snapshot.dayOfWeek != "any" {
+            out["day_of_week"] = .array([.string(snapshot.dayOfWeek)])
+        }
+        if snapshot.timeMin.trimmingCharacters(in: .whitespaces).isEmpty == false {
+            out["time_min"] = .string(snapshot.timeMin)
+        }
+        if snapshot.timeMax.trimmingCharacters(in: .whitespaces).isEmpty == false {
+            out["time_max"] = .string(snapshot.timeMax)
+        }
+        // F5 total line — independent canonical dim from the game total above,
+        // always emitted regardless of the selected bet type (web parity).
+        if snapshot.f5TotalMin > 2 { out["f5_total_min"] = .double(snapshot.f5TotalMin) }
+        if snapshot.f5TotalMax < 8 { out["f5_total_max"] = .double(snapshot.f5TotalMax) }
         if let doubleheader = snapshot.doubleheader { out["doubleheader"] = .bool(doubleheader) }
         if let v = snapshot.seriesGameMin { out["series_game_min"] = .int(v) }
         if let v = snapshot.seriesGameMax { out["series_game_max"] = .int(v) }
@@ -389,6 +399,9 @@ public enum HistoricalAnalysisFilterBuilder {
         if let v = snapshot.restMin { out["rest_min"] = .int(v) }
         if let v = snapshot.restMax { out["rest_max"] = .int(v) }
 
+        // Legacy string streak/margin fields still work for old saved filters;
+        // the current MLB UI writes to the shared `streakMin/Max` numeric range
+        // below instead (see `applyNumRange`/`applyIntRange` calls).
         let streakA = snapshot.streakMin.trimmingCharacters(in: .whitespaces).isEmpty
             ? nil : Double(snapshot.streakMin)
         let streakB = snapshot.streakMax.trimmingCharacters(in: .whitespaces).isEmpty
@@ -397,18 +410,37 @@ public enum HistoricalAnalysisFilterBuilder {
         if let b = streakB, !b.isNaN { out["streak_max"] = .double(b) }
 
         if snapshot.lastResult != "any" { out["last_result"] = .string(snapshot.lastResult) }
+        if snapshot.lastAts != "any" { out["last_covered"] = .int(snapshot.lastAts == "covered" ? 1 : 0) }
+        if snapshot.lastTotal != "any" { out["last_over"] = .int(snapshot.lastTotal == "over" ? 1 : 0) }
+        if snapshot.lastRole != "any" { out["last_favorite"] = .bool(snapshot.lastRole == "favorite") }
 
+        // Legacy string last-margin fields (back-compat) OR the shared numeric
+        // `lastMargin` range (current MLB slider UI) — string fields win if set.
         let marginA = snapshot.lastMarginMin.trimmingCharacters(in: .whitespaces).isEmpty
             ? nil : Double(snapshot.lastMarginMin)
         let marginB = snapshot.lastMarginMax.trimmingCharacters(in: .whitespaces).isEmpty
             ? nil : Double(snapshot.lastMarginMax)
-        if let a = marginA, !a.isNaN { out["last_margin_min"] = .double(a) }
-        if let b = marginB, !b.isNaN { out["last_margin_max"] = .double(b) }
+        if let a = marginA, !a.isNaN {
+            out["last_margin_min"] = .double(a)
+        } else if snapshot.lastMargin[0] > -30 {
+            out["last_margin_min"] = .int(snapshot.lastMargin[0])
+        }
+        if let b = marginB, !b.isNaN {
+            out["last_margin_max"] = .double(b)
+        } else if snapshot.lastMargin[1] < 30 {
+            out["last_margin_max"] = .int(snapshot.lastMargin[1])
+        }
 
         if !snapshot.sp.isEmpty { out["sp"] = .array(snapshot.sp.map { .int($0.id) }) }
         if !snapshot.oppSp.isEmpty { out["opp_sp"] = .array(snapshot.oppSp.map { .int($0.id) }) }
         if snapshot.spHand != "any" { out["sp_hand"] = .string(snapshot.spHand) }
         if snapshot.oppSpHand != "any" { out["opp_sp_hand"] = .string(snapshot.oppSpHand) }
+
+        // Pitching quality — starters + bullpen xFIP, bullpen IP last 3 days.
+        applyDoubleRange(&out, minKey: "sp_xfip_min", maxKey: "sp_xfip_max", lo: snapshot.spXfipMin, hi: snapshot.spXfipMax, defaultLo: 2, defaultHi: 7)
+        applyDoubleRange(&out, minKey: "opp_sp_xfip_min", maxKey: "opp_sp_xfip_max", lo: snapshot.oppSpXfipMin, hi: snapshot.oppSpXfipMax, defaultLo: 2, defaultHi: 7)
+        applyDoubleRange(&out, minKey: "bp_ip3d_min", maxKey: "bp_ip3d_max", lo: snapshot.bpIpMin, hi: snapshot.bpIpMax, defaultLo: 0, defaultHi: 20)
+        applyDoubleRange(&out, minKey: "bp_xfip_min", maxKey: "bp_xfip_max", lo: snapshot.bpXfipMin, hi: snapshot.bpXfipMax, defaultLo: 2, defaultHi: 7)
 
         if snapshot.tempMin > -10 { out["temp_min"] = .int(snapshot.tempMin) }
         if snapshot.tempMax < 110 { out["temp_max"] = .int(snapshot.tempMax) }
@@ -419,7 +451,74 @@ public enum HistoricalAnalysisFilterBuilder {
         if let v = snapshot.pfRunsMin { out["pf_runs_min"] = .double(v) }
         if let v = snapshot.pfRunsMax { out["pf_runs_max"] = .double(v) }
 
+        // Season Record (as-of) — winPct/winStreak/lossStreak/minGames are
+        // shared with football; MLB's defaults (0–25 streaks) come from
+        // `HistoricalAnalysisUISnapshot.defaults(for: .mlb)`.
+        applyPctRange(&out, key: "win_pct", range: snapshot.winPct, defaultRange: [0, 100])
+        applyIntRange(&out, key: "win_streak", range: snapshot.winStreak, defaultRange: [0, 25])
+        applyIntRange(&out, key: "loss_streak", range: snapshot.lossStreak, defaultRange: [0, 25])
+        applyNumRange(&out, key: "rpg", range: snapshot.rpg, defaultRange: [0, 10])
+        applyNumRange(&out, key: "rapg", range: snapshot.rapg, defaultRange: [0, 10])
+        applyNumRange(&out, key: "run_diff_pg", range: snapshot.runDiffPg, defaultRange: [-4, 4])
+        if snapshot.minGames > 0 { out["min_games"] = .int(snapshot.minGames) }
+
+        // Run Line Profile
+        applyPctRange(&out, key: "rl_cover_pct", range: snapshot.rlCoverPct, defaultRange: [0, 100])
+        applyIntRange(&out, key: "rl_streak", range: snapshot.rlStreak, defaultRange: [0, 25])
+
+        // Total Profile
+        applyPctRange(&out, key: "over_pct", range: snapshot.overPct, defaultRange: [0, 100])
+        applyIntRange(&out, key: "over_streak", range: snapshot.overStreak, defaultRange: [0, 25])
+        applyIntRange(&out, key: "under_streak", range: snapshot.underStreak, defaultRange: [0, 25])
+
+        // Prior Year
+        applyIntRange(&out, key: "prev_wins", range: snapshot.prevWins, defaultRange: [0, 120])
+        applyPctRange(&out, key: "prev_win_pct", range: snapshot.prevWinPct, defaultRange: [0, 100])
+
+        // Head-to-Head
+        if snapshot.h2hLastWin != "any" { out["h2h_last_win"] = .int(snapshot.h2hLastWin == "yes" ? 1 : 0) }
+        if snapshot.h2hLastAts != "any" { out["h2h_last_ats_win"] = .int(snapshot.h2hLastAts == "yes" ? 1 : 0) }
+        if snapshot.h2hLastOver != "any" { out["h2h_last_over"] = .int(snapshot.h2hLastOver == "yes" ? 1 : 0) }
+        applyIntRange(&out, key: "h2h_last_margin", range: snapshot.h2hLastMargin, defaultRange: [-30, 30])
+        if let v = snapshot.h2hLastHome { out["h2h_last_home"] = .bool(v) }
+        if let v = snapshot.h2hLastFav { out["h2h_last_fav"] = .bool(v) }
+        if let v = snapshot.h2hSameSeason { out["h2h_same_season"] = .bool(v) }
+
+        // Opponent Record
+        applyPctRange(&out, key: "opp_win_pct", range: snapshot.oppWinPct, defaultRange: [0, 100])
+        applyPctRange(&out, key: "opp_over_pct", range: snapshot.oppOverPct, defaultRange: [0, 100])
+        applyPctRange(&out, key: "opp_rl_cover_pct", range: snapshot.oppRlCoverPct, defaultRange: [0, 100])
+        applyIntRange(&out, key: "opp_win_streak", range: snapshot.oppWinStreak, defaultRange: [0, 25])
+        applyIntRange(&out, key: "opp_loss_streak", range: snapshot.oppLossStreak, defaultRange: [0, 25])
+        applyNumRange(&out, key: "opp_rpg", range: snapshot.oppRpg, defaultRange: [0, 10])
+        applyNumRange(&out, key: "opp_rapg", range: snapshot.oppRapg, defaultRange: [0, 10])
+        applyPctRange(&out, key: "opp_prev_win_pct", range: snapshot.oppPrevWinPct, defaultRange: [0, 100])
+
+        // Opponent last game
+        if snapshot.oppLastResult != "any" { out["opp_last_won"] = .int(snapshot.oppLastResult == "won" ? 1 : 0) }
+        if snapshot.oppLastAts != "any" { out["opp_last_covered"] = .int(snapshot.oppLastAts == "covered" ? 1 : 0) }
+        if snapshot.oppLastTotal != "any" { out["opp_last_over"] = .int(snapshot.oppLastTotal == "over" ? 1 : 0) }
+        if snapshot.oppLastRole != "any" { out["opp_last_favorite"] = .bool(snapshot.oppLastRole == "favorite") }
+        applyIntRange(&out, key: "opp_last_margin", range: snapshot.oppLastMargin, defaultRange: [-30, 30])
+
         return out
+    }
+
+    /// Emit an [Int] range (e.g. streaks, signed margins) only when narrowed.
+    private static func applyIntRange(_ filters: inout [String: JSONValue], key: String, range: [Int], defaultRange: [Int]) {
+        if range[0] > defaultRange[0] { filters["\(key)_min"] = .int(range[0]) }
+        if range[1] < defaultRange[1] { filters["\(key)_max"] = .int(range[1]) }
+    }
+
+    /// Emit a scalar-bound Double range (min/max stored as separate fields) only when narrowed.
+    private static func applyDoubleRange(
+        _ filters: inout [String: JSONValue],
+        minKey: String, maxKey: String,
+        lo: Double, hi: Double,
+        defaultLo: Double, defaultHi: Double
+    ) {
+        if lo > defaultLo { filters[minKey] = .double(lo) }
+        if hi < defaultHi { filters[maxKey] = .double(hi) }
     }
 
     /// Port of RN `mlbFiltersWeatherOnly` — upcoming RPC should get `{}` when only weather keys are set.

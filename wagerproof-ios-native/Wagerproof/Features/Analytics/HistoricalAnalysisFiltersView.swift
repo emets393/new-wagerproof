@@ -67,11 +67,11 @@ struct HistoricalAnalysisFilterBar: View {
                         }
                     }
                     pillButton(icon: "slider.horizontal.3", title: situationPillTitle) { activeSheet = .situation }
-                    // NFL as-of: team form + opponent context (not game-setup — that stays "Setup").
-                    if store.sport == .nfl || store.sport == .cfb {
-                        pillButton(icon: "chart.line.uptrend.xyaxis", title: "Team form") { activeSheet = .teamForm }
-                        pillButton(icon: "person.2.wave.2", title: "Opponent") { activeSheet = .opponent }
-                    }
+                    // Team form (as-of season/RL/total/prior-year record) + opponent
+                    // context (H2H, opp record, opp last game) — shared pattern
+                    // across all three sports (A3: MLB reuses the NFL/CFB layout).
+                    pillButton(icon: "chart.line.uptrend.xyaxis", title: "Team form") { activeSheet = .teamForm }
+                    pillButton(icon: "person.2.wave.2", title: "Opponent") { activeSheet = .opponent }
 
                     // NFL: Setup (primetime/division/rest) + Weather.
                     // CFB/MLB keep Conditions while CFB grouping is updated separately.
@@ -178,10 +178,13 @@ struct HistoricalAnalysisFilterBar: View {
         let u = store.snapshot.lineMax
         let lo = Double(defaultLineMin)
         let hi = Double(defaultLineMax)
-        if t > lo + 0.001 || u < hi - 0.001 {
-            return "Line \(HistoricalAnalysisCopy.trimmed(t))–\(HistoricalAnalysisCopy.trimmed(u))"
+        let f5t = store.snapshot.f5TotalMin
+        let f5u = store.snapshot.f5TotalMax
+        let title = store.sport == .mlb ? "Totals" : "Line"
+        if t > lo + 0.001 || u < hi - 0.001 || f5t > 2.001 || f5u < 7.999 {
+            return "\(title) \(HistoricalAnalysisCopy.trimmed(t))–\(HistoricalAnalysisCopy.trimmed(u))"
         }
-        return "Line"
+        return title
     }
 
     private var mlLabel: String {
@@ -243,9 +246,10 @@ struct HistoricalAnalysisFilterBar: View {
         true
     }
 
-    // Football "Last game" group (previous-game filters). MLB keeps its own last-* controls in Situation.
+    // "Last game" group (previous-game filters) — MLB reuses the same shared
+    // `lastResult/lastAts/lastTotal/lastRole/lastMargin` fields as football.
     private var hasLastGameFilter: Bool {
-        store.sport == .nfl || store.sport == .cfb
+        true
     }
 
     private var hasLineFilter: Bool {
@@ -264,18 +268,24 @@ struct HistoricalAnalysisFilterBar: View {
     private var pointDiffBound: Double { store.sport == .cfb ? 40 : 20 }
     private var coverMarginBound: Double { store.sport == .cfb ? 30 : 15 }
     private var prevWinsMax: Double { store.sport == .cfb ? 15 : 16 }
-    private var lastMarginBound: Double { store.sport == .cfb ? 80 : 60 }
+    private var lastMarginBound: Double {
+        switch store.sport {
+        case .cfb: return 80
+        case .nfl: return 60
+        case .mlb: return 30
+        }
+    }
 
+    // MLB's game-total slider (`lineMin/Max`) is now a fixed, cross-market dim
+    // — independent of `betType` (web parity; see A2). F5 total lives in its
+    // own `f5TotalMin/Max` fields/slider, not here.
     private var defaultLineMin: Int {
-        // On markets without their own total config (MLB ML/RL) the slider is a
-        // cross-market game-total filter — fall back to MLB's FG total bounds,
-        // not the football 30–60.
-        Int(HistoricalAnalysisFilterBuilder.totalConfig(sport: store.sport, betType: store.betType)?.min
+        Int(HistoricalAnalysisFilterBuilder.totalConfig(sport: store.sport, betType: "total")?.min
             ?? (store.sport == .mlb ? 5 : 30))
     }
 
     private var defaultLineMax: Int {
-        Int(HistoricalAnalysisFilterBuilder.totalConfig(sport: store.sport, betType: store.betType)?.max
+        Int(HistoricalAnalysisFilterBuilder.totalConfig(sport: store.sport, betType: "total")?.max
             ?? (store.sport == .mlb ? 14 : 60))
     }
 
@@ -386,7 +396,7 @@ struct HistoricalAnalysisFilterBar: View {
         case .seasons: return "Seasons"
         case .lines: return "Lines & odds"
         case .spread: return "Spread"
-        case .line: return "Line"
+        case .line: return store.sport == .mlb ? "Totals" : "Line"
         case .moneyline: return "Moneyline odds"
         case .situation: return "Situation"
         case .conditions: return "Conditions"
@@ -486,13 +496,14 @@ struct HistoricalAnalysisFilterBar: View {
                 Text("Favored by").tag("favorite")
                 Text("Getting").tag("underdog")
             }
-            HistoricalAnalysisRangeSlider(
+            // A6: live numeric label — was a bare slider with no readout while dragging.
+            labeledRangeSlider(
+                title: "Range",
                 lower: doubleBinding(min),
                 upper: doubleBinding(max),
                 range: 0...maxValue,
                 step: 0.5
             )
-            .padding(.vertical, 4)
         }
     }
 
@@ -516,9 +527,32 @@ struct HistoricalAnalysisFilterBar: View {
         range: ClosedRange<Double>
     ) -> some View {
         Section(title) {
-            HistoricalAnalysisRangeSlider(lower: doubleBinding(min), upper: doubleBinding(max), range: range, step: 0.5)
-                .padding(.vertical, 4)
+            // A6: live numeric label — was a bare slider with no readout while dragging.
+            labeledRangeSlider(title: title, lower: doubleBinding(min), upper: doubleBinding(max), range: range, step: 0.5)
         }
+    }
+
+    /// A6: shared helper — every `HistoricalAnalysisRangeSlider` call site should
+    /// show a live "lo–hi" readout above the slider (labels must update while
+    /// dragging, not just on release, since `doubleBinding`/`intAsDoubleBinding`
+    /// write through `@Observable` on every drag tick).
+    @ViewBuilder
+    private func labeledRangeSlider(
+        title: String,
+        lower: Binding<Double>,
+        upper: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double = 1,
+        suffix: String = "",
+        format: ((Double) -> String)? = nil
+    ) -> some View {
+        let fmt = format ?? { HistoricalAnalysisCopy.trimmed($0) }
+        VStack(alignment: .leading, spacing: 12) {
+            Text("\(title): \(fmt(lower.wrappedValue))–\(fmt(upper.wrappedValue))\(suffix)")
+                .font(.subheadline)
+            HistoricalAnalysisRangeSlider(lower: lower, upper: upper, range: range, step: step)
+        }
+        .padding(.vertical, 4)
     }
 
     @ViewBuilder
@@ -551,18 +585,27 @@ struct HistoricalAnalysisFilterBar: View {
     private var lineSheet: some View {
         let lo = Double(defaultLineMin)
         let hi = Double(defaultLineMax)
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Line: \(HistoricalAnalysisCopy.trimmed(store.snapshot.lineMin))–\(HistoricalAnalysisCopy.trimmed(store.snapshot.lineMax))")
-                    .font(.subheadline)
-                HistoricalAnalysisRangeSlider(
-                    lower: doubleBinding(\.lineMin),
-                    upper: doubleBinding(\.lineMax),
-                    range: lo...hi,
+        Section(store.sport == .mlb ? "Game total" : "Line") {
+            labeledRangeSlider(
+                title: "Line",
+                lower: doubleBinding(\.lineMin),
+                upper: doubleBinding(\.lineMax),
+                range: lo...hi,
+                step: 0.5
+            )
+        }
+        // A2/A3: F5 total is an independent dim from the game total above —
+        // always shown, regardless of the selected bet type (web parity).
+        if store.sport == .mlb {
+            Section("F5 total") {
+                labeledRangeSlider(
+                    title: "F5 total",
+                    lower: doubleBinding(\.f5TotalMin),
+                    upper: doubleBinding(\.f5TotalMax),
+                    range: 2...8,
                     step: 0.5
                 )
             }
-            .padding(.vertical, 4)
         }
     }
 
@@ -669,40 +712,49 @@ struct HistoricalAnalysisFilterBar: View {
                 }
             }
         }
-        Picker("Day of week", selection: binding(\.dayOfWeek)) {
-            Text("Any").tag("any")
-            Text("Mon").tag("Mon")
-            Text("Tue").tag("Tue")
-            Text("Wed").tag("Wed")
-            Text("Thu").tag("Thu")
-            Text("Fri").tag("Fri")
-            Text("Sat").tag("Sat")
-            Text("Sun").tag("Sun")
+        // A1/A3: multi-select days (web `daysOfWeek`) replaces the legacy
+        // single-day `dayOfWeek` picker — the builder prefers the array when set.
+        Section("Days of week") {
+            daysOfWeekMultiSelect
+        }
+        Section("Start time (ET)") {
+            TextField("From (HH:MM, e.g. 13:00)", text: stringBinding(\.timeMin))
+                .keyboardType(.numbersAndPunctuation)
+            TextField("To (HH:MM, e.g. 19:00)", text: stringBinding(\.timeMax))
+                .keyboardType(.numbersAndPunctuation)
         }
         Section("Series game") {
-            optionalIntField("Min (1–4+)", keyPath: \.seriesGameMin)
-            optionalIntField("Max", keyPath: \.seriesGameMax)
+            labeledRangeSlider(
+                title: "Game #",
+                lower: optionalIntRangeBinding(\.seriesGameMin, bound: 1, isLower: true),
+                upper: optionalIntRangeBinding(\.seriesGameMax, bound: 6, isLower: false),
+                range: 1...6,
+                step: 1,
+                format: { String(Int($0)) }
+            )
         }
         Section("Trip series index") {
-            optionalIntField("Min", keyPath: \.tripMin)
-            optionalIntField("Max", keyPath: \.tripMax)
+            labeledRangeSlider(
+                title: "Trip #",
+                lower: optionalIntRangeBinding(\.tripMin, bound: 1, isLower: true),
+                upper: optionalIntRangeBinding(\.tripMax, bound: 5, isLower: false),
+                range: 1...5,
+                step: 1,
+                format: { String(Int($0)) }
+            )
         }
-        optionalBoolPicker("Switch game", value: boolBinding(\.switchGame))
         Section("Days rest") {
-            optionalIntField("Min", keyPath: \.restMin)
-            optionalIntField("Max", keyPath: \.restMax)
+            labeledRangeSlider(
+                title: "Rest",
+                lower: optionalIntRangeBinding(\.restMin, bound: 0, isLower: true),
+                upper: optionalIntRangeBinding(\.restMax, bound: 10, isLower: false),
+                range: 0...10,
+                step: 1,
+                suffix: " days",
+                format: { String(Int($0)) }
+            )
         }
-        Picker("Last result", selection: binding(\.lastResult)) {
-            Text("Any").tag("any")
-            Text("Won").tag("won")
-            Text("Lost").tag("lost")
-        }
-        Section("Last margin (runs)") {
-            TextField("Min (e.g. -3)", text: stringBinding(\.lastMarginMin))
-                .keyboardType(.numbersAndPunctuation)
-            TextField("Max (e.g. 5)", text: stringBinding(\.lastMarginMax))
-                .keyboardType(.numbersAndPunctuation)
-        }
+        optionalBoolPicker("Switch game (city/league change)", value: boolBinding(\.switchGame))
         optionalBoolPicker("Division", value: boolBinding(\.division))
         optionalBoolPicker("Interleague", value: boolBinding(\.interleague))
         optionalBoolPicker("Doubleheader", value: boolBinding(\.doubleheader))
@@ -806,7 +858,8 @@ struct HistoricalAnalysisFilterBar: View {
         footballWeatherSliders(tempMax: 100)
     }
 
-    // MARK: - Last game (football) — describes the team's PREVIOUS game
+    // MARK: - Last game — describes the team's PREVIOUS game. Football and MLB
+    // share the same `lastResult/lastAts/lastTotal/lastRole/lastMargin` fields.
     @ViewBuilder
     private var lastGameSheet: some View {
         Picker("Result", selection: binding(\.lastResult)) {
@@ -829,11 +882,11 @@ struct HistoricalAnalysisFilterBar: View {
             Text("Favorite").tag("favorite")
             Text("Underdog").tag("underdog")
         }
-        // Signed margin slider for BOTH sports — CFB last_blowout was removed
-        // from the RPC (the old Blowout picker wrote a key the builder never
-        // emitted, i.e. a dead control). See 06_PARITY_HANDOFF_2026-07-19.md.
+        // Signed margin slider for all three sports — CFB last_blowout was
+        // removed from the RPC (the old Blowout picker wrote a key the builder
+        // never emitted, i.e. a dead control). See 06_PARITY_HANDOFF_2026-07-19.md.
         VStack(alignment: .leading, spacing: 12) {
-            Text("Last game margin: \(store.snapshot.lastMargin[0])–\(store.snapshot.lastMargin[1]) pts")
+            Text("Last game margin: \(store.snapshot.lastMargin[0])–\(store.snapshot.lastMargin[1]) \(store.sport == .mlb ? "runs" : "pts")")
                 .font(.subheadline)
             Text("+ = won by, − = lost by")
                 .font(.caption)
@@ -845,7 +898,26 @@ struct HistoricalAnalysisFilterBar: View {
                 step: 1
             )
         }
-        optionalBoolPicker("Went to overtime", value: boolBinding(\.lastOt))
+        if store.sport == .mlb {
+            // MLB win/loss streak (signed, W positive / L negative) — legacy
+            // string fields, exposed here as a slider per A1.
+            Section("Current streak") {
+                labeledRangeSlider(
+                    title: "Streak",
+                    lower: stringAsDoubleBinding(\.streakMin),
+                    upper: stringAsDoubleBinding(\.streakMax),
+                    range: -25...25,
+                    step: 1,
+                    suffix: " games",
+                    format: { String(Int($0)) }
+                )
+                Text("+ = winning streak, − = losing streak")
+                    .font(.caption)
+                    .foregroundStyle(Color.appTextSecondary)
+            }
+        } else {
+            optionalBoolPicker("Went to overtime", value: boolBinding(\.lastOt))
+        }
     }
 
     @ViewBuilder
@@ -1031,6 +1103,38 @@ struct HistoricalAnalysisFilterBar: View {
                 Text("Right").tag("R")
             }
         }
+
+        // A1/A2: pitching quality — starter + bullpen xFIP, bullpen IP (last 3 days).
+        Section("Pitching quality") {
+            labeledRangeSlider(
+                title: "SP xFIP",
+                lower: doubleBinding(\.spXfipMin),
+                upper: doubleBinding(\.spXfipMax),
+                range: 2...7,
+                step: 0.05
+            )
+            labeledRangeSlider(
+                title: "Opp SP xFIP",
+                lower: doubleBinding(\.oppSpXfipMin),
+                upper: doubleBinding(\.oppSpXfipMax),
+                range: 2...7,
+                step: 0.05
+            )
+            labeledRangeSlider(
+                title: "Bullpen IP (last 3 days)",
+                lower: doubleBinding(\.bpIpMin),
+                upper: doubleBinding(\.bpIpMax),
+                range: 0...20,
+                step: 0.5
+            )
+            labeledRangeSlider(
+                title: "Bullpen xFIP",
+                lower: doubleBinding(\.bpXfipMin),
+                upper: doubleBinding(\.bpXfipMax),
+                range: 2...7,
+                step: 0.05
+            )
+        }
     }
 
     private func teamMultiSelect(title: String, keyPath: WritableKeyPath<HistoricalAnalysisUISnapshot, [String]>) -> some View {
@@ -1189,10 +1293,20 @@ struct HistoricalAnalysisFilterBar: View {
         )
     }
 
-    // MARK: - B1: New NFL filter sheets
-    
+    // MARK: - B1: New NFL filter sheets (+ A3: MLB team form / opponent)
+
     @ViewBuilder
     private var teamFormSheet: some View {
+        switch store.sport {
+        case .nfl, .cfb:
+            footballTeamFormSheet
+        case .mlb:
+            mlbTeamFormSheet
+        }
+    }
+
+    @ViewBuilder
+    private var footballTeamFormSheet: some View {
         Section("Season Record") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Win %: \(Int(store.snapshot.winPct[0]))–\(Int(store.snapshot.winPct[1]))%")
@@ -1396,8 +1510,155 @@ struct HistoricalAnalysisFilterBar: View {
         }
     }
     
+    // A3: MLB Team form — Season Record (run-based) / RL Profile / Total
+    // Profile / Prior Year. `winPct/winStreak/lossStreak/minGames/overPct/
+    // overStreak/underStreak/prevWins/prevWinPct` are shared fields with
+    // football (same RPC keys); MLB adds rpg/rapg/runDiffPg + RL profile.
+    @ViewBuilder
+    private var mlbTeamFormSheet: some View {
+        Section("Season Record") {
+            labeledRangeSlider(title: "Win %", lower: doubleBinding(\.winPct, 0), upper: doubleBinding(\.winPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Win streak", lower: intAsDoubleBinding(\.winStreak, 0), upper: intAsDoubleBinding(\.winStreak, 1), range: 0...25, step: 1, suffix: " games", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Loss streak", lower: intAsDoubleBinding(\.lossStreak, 0), upper: intAsDoubleBinding(\.lossStreak, 1), range: 0...25, step: 1, suffix: " games", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Runs per game", lower: doubleBinding(\.rpg, 0), upper: doubleBinding(\.rpg, 1), range: 0...10, step: 0.1)
+            labeledRangeSlider(title: "Runs allowed per game", lower: doubleBinding(\.rapg, 0), upper: doubleBinding(\.rapg, 1), range: 0...10, step: 0.1)
+            labeledRangeSlider(title: "Run diff/game", lower: doubleBinding(\.runDiffPg, 0), upper: doubleBinding(\.runDiffPg, 1), range: -4...4, step: 0.1)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Min games this season: \(store.snapshot.minGames)")
+                    .font(.subheadline)
+                Slider(
+                    value: Binding(
+                        get: { Double(store.snapshot.minGames) },
+                        set: { value in
+                            store.updateSnapshot { $0.minGames = Int(value.rounded()) }
+                            onChange()
+                        }
+                    ),
+                    in: 0...40,
+                    step: 1
+                )
+            }
+        }
+
+        Section("Run Line Profile") {
+            labeledRangeSlider(title: "RL cover %", lower: doubleBinding(\.rlCoverPct, 0), upper: doubleBinding(\.rlCoverPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
+            labeledRangeSlider(title: "RL cover streak", lower: intAsDoubleBinding(\.rlStreak, 0), upper: intAsDoubleBinding(\.rlStreak, 1), range: 0...25, step: 1, suffix: " games", format: { String(Int($0)) })
+        }
+
+        Section("Total Profile") {
+            labeledRangeSlider(title: "Over %", lower: doubleBinding(\.overPct, 0), upper: doubleBinding(\.overPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Over streak", lower: intAsDoubleBinding(\.overStreak, 0), upper: intAsDoubleBinding(\.overStreak, 1), range: 0...25, step: 1, suffix: " games", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Under streak", lower: intAsDoubleBinding(\.underStreak, 0), upper: intAsDoubleBinding(\.underStreak, 1), range: 0...25, step: 1, suffix: " games", format: { String(Int($0)) })
+        }
+
+        Section("Prior Year") {
+            labeledRangeSlider(title: "Last season wins", lower: intAsDoubleBinding(\.prevWins, 0), upper: intAsDoubleBinding(\.prevWins, 1), range: 0...120, step: 1, format: { String(Int($0)) })
+            labeledRangeSlider(title: "Last season win %", lower: doubleBinding(\.prevWinPct, 0), upper: doubleBinding(\.prevWinPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
+        }
+    }
+
     @ViewBuilder
     private var opponentSheet: some View {
+        switch store.sport {
+        case .nfl, .cfb:
+            footballOpponentSheet
+        case .mlb:
+            mlbOpponentSheet
+        }
+    }
+
+    // A3: MLB Opponent — H2H (+ MLB's h2hLastMargin), Opp Record (+ RL/rpg/rapg),
+    // Opp last game (shared fields with football; overtime hidden — no MLB concept).
+    @ViewBuilder
+    private var mlbOpponentSheet: some View {
+        Section("Head-to-Head") {
+            Picker("Won last meeting", selection: binding(\.h2hLastWin)) {
+                Text("Any").tag("any")
+                Text("Won").tag("yes")
+                Text("Lost").tag("no")
+            }
+            Picker("Covered RL last meeting", selection: binding(\.h2hLastAts)) {
+                Text("Any").tag("any")
+                Text("Covered").tag("yes")
+                Text("Didn't cover").tag("no")
+            }
+            Picker("Last meeting total", selection: binding(\.h2hLastOver)) {
+                Text("Any").tag("any")
+                Text("Over").tag("yes")
+                Text("Under").tag("no")
+            }
+            labeledRangeSlider(
+                title: "Last meeting margin",
+                lower: intAsDoubleBinding(\.h2hLastMargin, 0),
+                upper: intAsDoubleBinding(\.h2hLastMargin, 1),
+                range: -30...30,
+                step: 1,
+                suffix: " runs",
+                format: { String(Int($0)) }
+            )
+            Picker("Was home last meeting", selection: boolBinding(\.h2hLastHome)) {
+                Text("Any").tag(nil as Bool?)
+                Text("Home").tag(true as Bool?)
+                Text("Away").tag(false as Bool?)
+            }
+            Picker("Was favorite last meeting", selection: boolBinding(\.h2hLastFav)) {
+                Text("Any").tag(nil as Bool?)
+                Text("Favorite").tag(true as Bool?)
+                Text("Underdog").tag(false as Bool?)
+            }
+            Picker("Same season as last meeting", selection: boolBinding(\.h2hSameSeason)) {
+                Text("Any").tag(nil as Bool?)
+                Text("Same season").tag(true as Bool?)
+                Text("Different season").tag(false as Bool?)
+            }
+        }
+
+        Section("Opponent Record") {
+            labeledRangeSlider(title: "Opponent win %", lower: doubleBinding(\.oppWinPct, 0), upper: doubleBinding(\.oppWinPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Opponent over %", lower: doubleBinding(\.oppOverPct, 0), upper: doubleBinding(\.oppOverPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Opponent RL cover %", lower: doubleBinding(\.oppRlCoverPct, 0), upper: doubleBinding(\.oppRlCoverPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Opponent win streak", lower: intAsDoubleBinding(\.oppWinStreak, 0), upper: intAsDoubleBinding(\.oppWinStreak, 1), range: 0...25, step: 1, suffix: " games", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Opponent loss streak", lower: intAsDoubleBinding(\.oppLossStreak, 0), upper: intAsDoubleBinding(\.oppLossStreak, 1), range: 0...25, step: 1, suffix: " games", format: { String(Int($0)) })
+            labeledRangeSlider(title: "Opponent runs/game", lower: doubleBinding(\.oppRpg, 0), upper: doubleBinding(\.oppRpg, 1), range: 0...10, step: 0.1)
+            labeledRangeSlider(title: "Opponent runs allowed/game", lower: doubleBinding(\.oppRapg, 0), upper: doubleBinding(\.oppRapg, 1), range: 0...10, step: 0.1)
+            labeledRangeSlider(title: "Opponent last-season win %", lower: doubleBinding(\.oppPrevWinPct, 0), upper: doubleBinding(\.oppPrevWinPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
+        }
+
+        Section("Opponent last game") {
+            Picker("Opponent last game result", selection: binding(\.oppLastResult)) {
+                Text("Any").tag("any")
+                Text("Won").tag("won")
+                Text("Lost").tag("lost")
+            }
+            Picker("Opponent last game run line", selection: binding(\.oppLastAts)) {
+                Text("Any").tag("any")
+                Text("Covered").tag("covered")
+                Text("Didn't cover").tag("not")
+            }
+            Picker("Opponent last game total", selection: binding(\.oppLastTotal)) {
+                Text("Any").tag("any")
+                Text("Over").tag("over")
+                Text("Under").tag("under")
+            }
+            Picker("Opponent last game role", selection: binding(\.oppLastRole)) {
+                Text("Any").tag("any")
+                Text("Favorite").tag("favorite")
+                Text("Underdog").tag("underdog")
+            }
+            labeledRangeSlider(
+                title: "Opponent last game margin",
+                lower: intAsDoubleBinding(\.oppLastMargin, 0),
+                upper: intAsDoubleBinding(\.oppLastMargin, 1),
+                range: -30...30,
+                step: 1,
+                suffix: " runs",
+                format: { String(Int($0)) }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var footballOpponentSheet: some View {
         Section("Head-to-Head") {
             Picker("Won last meeting", selection: binding(\.h2hLastWin)) {
                 Text("Any").tag("any")
@@ -1622,6 +1883,45 @@ struct HistoricalAnalysisFilterBar: View {
                     arr[index] = newValue
                     snap[keyPath: keyPath] = arr
                 }
+                onChange()
+            }
+        )
+    }
+
+    /// Bridges legacy String-typed numeric fields (e.g. MLB `streakMin/Max`,
+    /// which predate this filter pass and are kept as strings for saved-filter
+    /// back-compat) onto `HistoricalAnalysisRangeSlider`'s `Binding<Double>`.
+    /// Empty string reads as the given range edge; writes always emit a
+    /// concrete integer string.
+    private func stringAsDoubleBinding(
+        _ keyPath: WritableKeyPath<HistoricalAnalysisUISnapshot, String>,
+        emptyValue: Double = 0
+    ) -> Binding<Double> {
+        Binding(
+            get: {
+                let raw = store.snapshot[keyPath: keyPath].trimmingCharacters(in: .whitespaces)
+                return raw.isEmpty ? emptyValue : (Double(raw) ?? emptyValue)
+            },
+            set: { newValue in
+                store.updateSnapshot { $0[keyPath: keyPath] = String(Int(newValue.rounded())) }
+                onChange()
+            }
+        )
+    }
+
+    /// Bridges `Int?`-typed fields (nil = unset) onto a range slider — dragging
+    /// away from the natural bound sets a concrete value; landing back on the
+    /// bound clears it to `nil` so the builder omits the RPC key again.
+    private func optionalIntRangeBinding(
+        _ keyPath: WritableKeyPath<HistoricalAnalysisUISnapshot, Int?>,
+        bound: Int,
+        isLower: Bool
+    ) -> Binding<Double> {
+        Binding(
+            get: { Double(store.snapshot[keyPath: keyPath] ?? bound) },
+            set: { newValue in
+                let v = Int(newValue.rounded())
+                store.updateSnapshot { $0[keyPath: keyPath] = v == bound ? nil : v }
                 onChange()
             }
         )

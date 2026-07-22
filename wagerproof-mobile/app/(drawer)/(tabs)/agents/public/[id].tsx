@@ -14,6 +14,7 @@ import { Portal, useTheme, Button, Chip, Snackbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AndroidBlurView } from '@/components/AndroidBlurView';
@@ -98,9 +99,12 @@ export default function PublicAgentViewScreen() {
   const { isDark } = useThemeContext();
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const queryClient = useQueryClient();
   const {
     canViewAgentPicks: clientCanViewAgentPicks,
     isLoading: isEntitlementsLoading,
+    isPro,
+    isAdmin,
   } = useAgentEntitlements();
 
   // Local state
@@ -109,6 +113,7 @@ export default function PublicAgentViewScreen() {
   const [loadingPickId, setLoadingPickId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const [errorToastMessage, setErrorToastMessage] = useState<string | null>(null);
 
   // Fetch agent data — only needed when snapshot is disabled (non-premium users)
@@ -230,6 +235,9 @@ export default function PublicAgentViewScreen() {
         setIsFollowing(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
+      // Refresh the My Agents "Following" section + favorite IDs.
+      queryClient.invalidateQueries({ queryKey: ['followed-agents'] });
+      queryClient.invalidateQueries({ queryKey: ['favorite-agent-ids'] });
     } catch (error) {
       console.error('Error toggling follow:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -237,7 +245,65 @@ export default function PublicAgentViewScreen() {
     } finally {
       setIsFollowLoading(false);
     }
-  }, [user?.id, id, isFollowing]);
+  }, [user?.id, id, isFollowing, queryClient]);
+
+  // Copy build → creates a NEW OWNED agent (same brain/settings, fresh 0-0 record)
+  // via the clone_public_agent RPC. Never inserts into avatar_profiles directly.
+  const runCopyBuild = useCallback(async () => {
+    if (!user?.id || !id) {
+      Alert.alert('Sign In Required', 'Please sign in to copy this agent');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsCopying(true);
+    try {
+      const { data: newAgentId, error } = await supabase.rpc('clone_public_agent', {
+        p_source_avatar_id: id,
+      });
+
+      if (error) {
+        const msg = error.message || '';
+        if (msg.includes('agent_limit_reached')) {
+          Alert.alert(
+            'Agent Limit Reached',
+            isAdmin || isPro
+              ? 'Pro users can have up to 30 total agents. If all 10 live auto-agent slots are full, new agents start in manual mode.'
+              : 'Free users can have 1 active agent. Upgrade to Pro for more.'
+          );
+        } else if (msg.includes('source_not_found_or_not_public')) {
+          setErrorToastMessage('This agent is no longer available');
+        } else {
+          setErrorToastMessage("Couldn't copy this agent, try again.");
+        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // New agent is OWNED — go to the owner detail route (can generate there).
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: ['agents', 'list', user.id] });
+      }
+      router.replace(`/agents/${newAgentId}` as any);
+    } catch (err) {
+      console.error('Error copying agent:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setErrorToastMessage("Couldn't copy this agent, try again.");
+    } finally {
+      setIsCopying(false);
+    }
+  }, [user?.id, id, isAdmin, isPro, queryClient, router]);
+
+  const handleCopyBuild = useCallback(() => {
+    Alert.alert(
+      'Copy build',
+      "This creates YOUR OWN copy of this agent — same brain and settings, but a fresh 0-0 record. It won't share the original's picks or history.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Copy build', onPress: runCopyBuild },
+      ]
+    );
+  }, [runCopyBuild]);
 
   // Handle refresh - parallel refetch for faster pull-to-refresh
   const handleRefresh = useCallback(() => {
@@ -672,42 +738,80 @@ export default function PublicAgentViewScreen() {
           </View>
         </View>
 
-        {/* Follow Button (only show if not own agent) */}
+        {/* Follow + Copy build (only show if not own agent) */}
         {!isOwnAgent && (
-          <TouchableOpacity
-            style={[
-              styles.followButton,
-              {
-                backgroundColor: isFollowing
-                  ? isDark
-                    ? 'rgba(255, 255, 255, 0.1)'
-                    : 'rgba(0, 0, 0, 0.05)'
-                  : theme.colors.primary,
-                borderColor: isFollowing
-                  ? theme.colors.primary
-                  : 'transparent',
-              },
-            ]}
-            onPress={handleFollowToggle}
-            disabled={isFollowLoading}
-            activeOpacity={0.8}
-          >
-            <MaterialCommunityIcons
-              name={isFollowing ? 'check' : 'plus'}
-              size={20}
-              color={isFollowing ? theme.colors.primary : '#ffffff'}
-            />
-            <Text
-              style={[
-                styles.followButtonText,
-                {
-                  color: isFollowing ? theme.colors.primary : '#ffffff',
-                },
-              ]}
-            >
-              {isFollowing ? 'Following' : 'Follow'}
+          <View style={styles.followCopyContainer}>
+            <View style={styles.followCopyRow}>
+              {/* Follow — spectator only (watch this agent's picks when its owner runs it) */}
+              <TouchableOpacity
+                style={[
+                  styles.followCopyButton,
+                  {
+                    backgroundColor: isFollowing
+                      ? isDark
+                        ? 'rgba(255, 255, 255, 0.1)'
+                        : 'rgba(0, 0, 0, 0.05)'
+                      : theme.colors.primary,
+                    borderColor: isFollowing ? theme.colors.primary : 'transparent',
+                  },
+                ]}
+                onPress={handleFollowToggle}
+                disabled={isFollowLoading}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons
+                  name={isFollowing ? 'check' : 'plus'}
+                  size={20}
+                  color={isFollowing ? theme.colors.primary : '#ffffff'}
+                />
+                <Text
+                  style={[
+                    styles.followButtonText,
+                    { color: isFollowing ? theme.colors.primary : '#ffffff' },
+                  ]}
+                >
+                  {isFollowing ? 'Following' : 'Follow'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Copy build — makes a new OWNED agent you run */}
+              <TouchableOpacity
+                style={[
+                  styles.followCopyButton,
+                  styles.copyBuildButton,
+                  { borderColor: theme.colors.primary },
+                ]}
+                onPress={handleCopyBuild}
+                disabled={isCopying}
+                activeOpacity={0.8}
+              >
+                {isCopying ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons
+                      name="content-copy"
+                      size={18}
+                      color={theme.colors.primary}
+                    />
+                    <Text style={[styles.followButtonText, { color: theme.colors.primary }]}>
+                      Copy build
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Helper text explaining the difference */}
+            <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+              <Text style={styles.helperLabel}>Follow: </Text>
+              Watch this agent — see its picks when its owner runs it.
             </Text>
-          </TouchableOpacity>
+            <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+              <Text style={styles.helperLabel}>Copy build: </Text>
+              Make your own version — same settings, fresh 0-0 record, you run it.
+            </Text>
+          </View>
         )}
 
         {/* Own Agent Indicator */}
@@ -1142,6 +1246,36 @@ const styles = StyleSheet.create({
   },
   followButtonText: {
     fontSize: 16,
+    fontWeight: '700',
+  },
+  // Follow + Copy build layout
+  followCopyContainer: {
+    marginBottom: 24,
+  },
+  followCopyRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  followCopyButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 2,
+    gap: 8,
+  },
+  copyBuildButton: {
+    backgroundColor: 'transparent',
+  },
+  helperText: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  helperLabel: {
     fontWeight: '700',
   },
   // Own Agent Indicator

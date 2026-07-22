@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E9E5AF8B37C441E795C939B1 /* SystemsLeaderboardViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D65A31CDFFF947CFB85C2D80 /* SystemsLeaderboardViews.swift */; };
+
+		CD8DDE3257A54EAB8FC7F8E2 /* MySystemsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4D6AE3802C2498BA8791585 /* MySystemsSheet.swift */; };
+
+		3FCD204BAFCC4A9088B8A9B2 /* SaveSystemSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40856B1C0DE647E993B805E0 /* SaveSystemSheet.swift */; };
+
+		ED024BC9D24440CEA29BA851 /* TrendsHeroGauge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93CCD9C334454B359B3C0F0F /* TrendsHeroGauge.swift */; };
+
 		002579E96EB0D4B4F51E0D53 /* PlayerHeadshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 526A41B5EA26D2064DD4B2A9 /* PlayerHeadshot.swift */; };
 		0140E3DA5D66EC189B84A627 /* SwipeableEmojiPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B39D450DF403431997D87A /* SwipeableEmojiPicker.swift */; };
 		01BFE5BBC3408E25555C0358 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 0CC9B7C3B697FF24ECAA9382 /* RevenueCat */; };
@@ -370,6 +378,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D65A31CDFFF947CFB85C2D80 /* SystemsLeaderboardViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemsLeaderboardViews.swift; sourceTree = "<group>"; };
+
+		D4D6AE3802C2498BA8791585 /* MySystemsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MySystemsSheet.swift; sourceTree = "<group>"; };
+
+		40856B1C0DE647E993B805E0 /* SaveSystemSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveSystemSheet.swift; sourceTree = "<group>"; };
+
+		93CCD9C334454B359B3C0F0F /* TrendsHeroGauge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsHeroGauge.swift; sourceTree = "<group>"; };
+
 		01A2FA5E83EE34AA09998738 /* OnboardingPageSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPageSlot.swift; sourceTree = "<group>"; };
 		01F7C790574C3C3296547B10 /* HistoricalTrendsShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoricalTrendsShareView.swift; sourceTree = "<group>"; };
 		0400A5187B2F9225D6FD1BB3 /* AgentPickMiniTicket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPickMiniTicket.swift; sourceTree = "<group>"; };
@@ -971,6 +987,10 @@
 				20277CE02877AF69AC01F45A /* HistoricalAnalysisView.swift */,
 				E880E7A99187B6F053821C38 /* HistoricalTrendsEntryBanner.swift */,
 				01F7C790574C3C3296547B10 /* HistoricalTrendsShareView.swift */,
+				93CCD9C334454B359B3C0F0F /* TrendsHeroGauge.swift */,
+				40856B1C0DE647E993B805E0 /* SaveSystemSheet.swift */,
+				D4D6AE3802C2498BA8791585 /* MySystemsSheet.swift */,
+				D65A31CDFFF947CFB85C2D80 /* SystemsLeaderboardViews.swift */,
 				0BF9318EFC11E9A5E800B7D2 /* MlbRegressionReportView.swift */,
 			);
 			path = Analytics;
@@ -1942,6 +1962,10 @@
 				0F353C20DF49F263D1893FED /* HistoricalAnalysisView.swift in Sources */,
 				0AEFFC25682ED750143EFD3D /* HistoricalTrendsEntryBanner.swift in Sources */,
 				EAF3778A134CA3EC4A9D4118 /* HistoricalTrendsShareView.swift in Sources */,
+				ED024BC9D24440CEA29BA851 /* TrendsHeroGauge.swift in Sources */,
+				3FCD204BAFCC4A9088B8A9B2 /* SaveSystemSheet.swift in Sources */,
+				CD8DDE3257A54EAB8FC7F8E2 /* MySystemsSheet.swift in Sources */,
+				E9E5AF8B37C441E795C939B1 /* SystemsLeaderboardViews.swift in Sources */,
 				A4830F90E4B796B1AF9640A2 /* InsightWidgetPrimitives.swift in Sources */,
 				82021AAFA42CED27EDCF3D19 /* IosWidgetView.swift in Sources */,
 				0417C76F6B9CA10F33721155 /* LRSplitsSection.swift in Sources */,
