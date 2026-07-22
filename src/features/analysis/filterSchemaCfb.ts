@@ -49,7 +49,7 @@ const ML_BT: readonly CfbBetType[] = ['fg_ml', 'h1_ml'];
 
 export const DEFAULT_CFB_SNAPSHOT = {
   betType: 'fg_spread',
-  seasons: [2016, 2025], weeks: [1, 16], side: 'any', favDog: 'any', gameType: 'any',
+  seasons: [2025, 2025], weeks: [1, 16], side: 'any', favDog: 'any', gameType: 'regular',
   rankedMatchup: 'any',
   spreadSide: 'any', spreadSize: [0, 50], lineRange: [30, 80],
   h1SpreadSide: 'any', h1SpreadSize: [0, 28], h1TotalRange: [15, 45], ttLineRange: [10, 55],
@@ -70,7 +70,7 @@ const YES_NO_ENUM = (label: string, yes: string, no: string, group: string, rpc:
 
 export const CFB_FILTER_DIMENSIONS: Record<Exclude<keyof CfbWebFilterSnapshot, 'betType'>, Dim> = {
   // ── Situation ──
-  seasons: { group: 'Situation', kind: 'numRange', min: 2016, max: 2025, step: 1, limitedFloor: 2023, label: 'Seasons', aliases: ['year', 'years', 'since'], rpcNote: 'season_min/max; floor 2023 for 1H/TT markets.' },
+  seasons: { group: 'Situation', kind: 'numRange', min: 2016, max: 2025, step: 1, limitedFloor: 2023, label: 'Seasons', aliases: ['year', 'years', 'since'], rpcNote: 'season_min always sent; season_max only if < 2025. Default is current season only (2025) — wider windows time out on the warehouse under ~3s statement_timeout.' },
   gameType: { group: 'Situation', kind: 'enum', label: 'Game type', options: [['any', 'All games'], ['regular', 'Regular season'], ['bowl', 'Bowl games'], ['playoff', 'Playoff'], ['postseason', 'All postseason']], aliases: ['bowl', 'playoff', 'postseason', 'regular season'], rpcNote: "f.game_type; 'postseason' = bowl+playoff." },
   weeks: { group: 'Situation', kind: 'numRange', min: 1, max: 16, step: 1, label: 'Weeks', aliases: ['week', 'early season', 'late season'], rpcNote: 'week_min/max — only applied for regular-season/any game types.' },
   rankedMatchup: { group: 'Situation', kind: 'enum', label: 'Ranked matchup', options: [['any', 'Any'], ['both', 'Both ranked'], ['neither', 'Neither ranked'], ['home_ranked', 'Home ranked only'], ['away_ranked', 'Away ranked only'], ['either', 'Either ranked']], aliases: ['ranked', 'top 25', 'unranked'], rpcNote: 'f.ranked_matchup (AP Top 25; full 2016+).' },

@@ -410,7 +410,8 @@ function normalizeMlbPage(raw: Record<string, unknown>, rowBetType?: string): S 
 
 function toRpcFilters(s: S): Record<string, unknown> {
   const f: Record<string, unknown> = {};
-  if (s.seasons[0] > SEASON_FLOOR) f.season_min = s.seasons[0];
+  // Always emit season_min so the snapshot window reaches the RPC (parity with NFL/CFB).
+  f.season_min = s.seasons[0];
   if (s.seasons[1] < SEASON_MAX) f.season_max = s.seasons[1];
   if (s.months[0] > 3) f.month_min = s.months[0];
   if (s.months[1] < 11) f.month_max = s.months[1];
