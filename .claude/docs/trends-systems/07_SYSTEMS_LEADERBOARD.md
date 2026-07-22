@@ -53,6 +53,16 @@ Per-row outcome from the saved verdict's perspective; pushes (null hit) excluded
 records; rows without a price excluded from ROI only. `fade` = mirror row's result at the
 mirror row's price. Current season: MLB = calendar year; NFL/CFB = Aug+ rolls forward.
 
+## Upcoming-games filters (today's matches)
+
+`mlb_analysis_upcoming` v2 (2026-07-22) supports the FULL as-of filter family with the
+same keys as `mlb_analysis` — current-season form (records/streaks/rates/prev-year),
+last-game flags, opponent mirrors, and H2H are computed live from `mlb_analysis_base`
+at query time (source: `research/systems_deploy/rpc_extended/mlb_analysis_upcoming_v2.sql`).
+`day_of_week` is array-typed (parity with base). **NFL/CFB `*_analysis_upcoming` still
+lack the as-of keys** — they silently ignore them; extend them the same way at 2026
+football go-live (they're off-season/dry-run today).
+
 ## Known data quirks
 
 - MLB base: one 2024-05-08 ATH/TEX doubleheader has crossed results (both rows of each
