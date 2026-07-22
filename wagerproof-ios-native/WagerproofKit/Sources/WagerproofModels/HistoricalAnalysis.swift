@@ -1082,6 +1082,9 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
     /// Expo / web aliases present in older saves — decode-only (not encoded).
     private enum AltKeys: String, CodingKey {
         case totalMin, totalMax, seasons, weeks
+        case spreadSize, lineRange, tempRange, windRange
+        case h1SpreadSize, h1TotalRange, ttLineRange
+        case oppSpreadSize, oppTtLineRange
     }
 
     public init(
@@ -1402,37 +1405,83 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         side = (try? c.decodeIfPresent(String.self, forKey: .side)) ?? "any"
         favDog = (try? c.decodeIfPresent(String.self, forKey: .favDog)) ?? "any"
         spreadSide = (try? c.decodeIfPresent(String.self, forKey: .spreadSide)) ?? "any"
-        spreadMin = Self.decodeDouble(c, .spreadMin) ?? 0
-        spreadMax = Self.decodeDouble(c, .spreadMax) ?? 20
-        // Expo MLB uses totalMin/totalMax for game totals; iOS uses lineMin/lineMax.
-        lineMin = Self.decodeDouble(c, .lineMin)
-            ?? Self.decodeAltDouble(alt, .totalMin)
-            ?? 5
-        lineMax = Self.decodeDouble(c, .lineMax)
-            ?? Self.decodeAltDouble(alt, .totalMax)
-            ?? 14
+        if let size = try? alt.decodeIfPresent([Double].self, forKey: .spreadSize), size.count >= 2 {
+            spreadMin = size[0]
+            spreadMax = size[1]
+        } else {
+            spreadMin = Self.decodeDouble(c, .spreadMin) ?? 0
+            spreadMax = Self.decodeDouble(c, .spreadMax) ?? 20
+        }
+        // Expo MLB uses totalMin/totalMax for game totals; web football uses lineRange.
+        if let lr = try? alt.decodeIfPresent([Double].self, forKey: .lineRange), lr.count >= 2 {
+            lineMin = lr[0]
+            lineMax = lr[1]
+        } else {
+            lineMin = Self.decodeDouble(c, .lineMin)
+                ?? Self.decodeAltDouble(alt, .totalMin)
+                ?? 5
+            lineMax = Self.decodeDouble(c, .lineMax)
+                ?? Self.decodeAltDouble(alt, .totalMax)
+                ?? 14
+        }
         mlMin = (try? c.decodeIfPresent(String.self, forKey: .mlMin)) ?? ""
         mlMax = (try? c.decodeIfPresent(String.self, forKey: .mlMax)) ?? ""
-        h1SpreadSide = try c.decodeIfPresent(String.self, forKey: .h1SpreadSide) ?? "any"
-        h1SpreadMin = try c.decodeIfPresent(Double.self, forKey: .h1SpreadMin) ?? 0
-        h1SpreadMax = try c.decodeIfPresent(Double.self, forKey: .h1SpreadMax) ?? 14
-        h1MlMin = try c.decodeIfPresent(String.self, forKey: .h1MlMin) ?? ""
-        h1MlMax = try c.decodeIfPresent(String.self, forKey: .h1MlMax) ?? ""
-        h1TotalMin = try c.decodeIfPresent(Double.self, forKey: .h1TotalMin) ?? 15
-        h1TotalMax = try c.decodeIfPresent(Double.self, forKey: .h1TotalMax) ?? 35
-        ttLineMin = try c.decodeIfPresent(Double.self, forKey: .ttLineMin) ?? 10
-        ttLineMax = try c.decodeIfPresent(Double.self, forKey: .ttLineMax) ?? 40
-        oppSpreadSide = try c.decodeIfPresent(String.self, forKey: .oppSpreadSide) ?? "any"
-        oppSpreadMin = try c.decodeIfPresent(Double.self, forKey: .oppSpreadMin) ?? 0
-        oppSpreadMax = try c.decodeIfPresent(Double.self, forKey: .oppSpreadMax) ?? 20
-        oppMlMin = try c.decodeIfPresent(String.self, forKey: .oppMlMin) ?? ""
-        oppMlMax = try c.decodeIfPresent(String.self, forKey: .oppMlMax) ?? ""
-        oppTtLineMin = try c.decodeIfPresent(Double.self, forKey: .oppTtLineMin) ?? 10
-        oppTtLineMax = try c.decodeIfPresent(Double.self, forKey: .oppTtLineMax) ?? 40
-        primetime = try c.decodeIfPresent(Bool.self, forKey: .primetime)
-        tempMin = Self.decodeInt(c, .tempMin) ?? -10
-        tempMax = Self.decodeInt(c, .tempMax) ?? 110
-        windMax = Self.decodeInt(c, .windMax) ?? 60
+        h1SpreadSide = (try? c.decodeIfPresent(String.self, forKey: .h1SpreadSide)) ?? "any"
+        if let size = try? alt.decodeIfPresent([Double].self, forKey: .h1SpreadSize), size.count >= 2 {
+            h1SpreadMin = size[0]
+            h1SpreadMax = size[1]
+        } else {
+            h1SpreadMin = (try? c.decodeIfPresent(Double.self, forKey: .h1SpreadMin)) ?? 0
+            h1SpreadMax = (try? c.decodeIfPresent(Double.self, forKey: .h1SpreadMax)) ?? 14
+        }
+        h1MlMin = (try? c.decodeIfPresent(String.self, forKey: .h1MlMin)) ?? ""
+        h1MlMax = (try? c.decodeIfPresent(String.self, forKey: .h1MlMax)) ?? ""
+        if let tr = try? alt.decodeIfPresent([Double].self, forKey: .h1TotalRange), tr.count >= 2 {
+            h1TotalMin = tr[0]
+            h1TotalMax = tr[1]
+        } else {
+            h1TotalMin = (try? c.decodeIfPresent(Double.self, forKey: .h1TotalMin)) ?? 15
+            h1TotalMax = (try? c.decodeIfPresent(Double.self, forKey: .h1TotalMax)) ?? 35
+        }
+        if let tt = try? alt.decodeIfPresent([Double].self, forKey: .ttLineRange), tt.count >= 2 {
+            ttLineMin = tt[0]
+            ttLineMax = tt[1]
+        } else {
+            ttLineMin = (try? c.decodeIfPresent(Double.self, forKey: .ttLineMin)) ?? 10
+            ttLineMax = (try? c.decodeIfPresent(Double.self, forKey: .ttLineMax)) ?? 40
+        }
+        oppSpreadSide = (try? c.decodeIfPresent(String.self, forKey: .oppSpreadSide)) ?? "any"
+        if let size = try? alt.decodeIfPresent([Double].self, forKey: .oppSpreadSize), size.count >= 2 {
+            oppSpreadMin = size[0]
+            oppSpreadMax = size[1]
+        } else {
+            oppSpreadMin = (try? c.decodeIfPresent(Double.self, forKey: .oppSpreadMin)) ?? 0
+            oppSpreadMax = (try? c.decodeIfPresent(Double.self, forKey: .oppSpreadMax)) ?? 20
+        }
+        oppMlMin = (try? c.decodeIfPresent(String.self, forKey: .oppMlMin)) ?? ""
+        oppMlMax = (try? c.decodeIfPresent(String.self, forKey: .oppMlMax)) ?? ""
+        if let ott = try? alt.decodeIfPresent([Double].self, forKey: .oppTtLineRange), ott.count >= 2 {
+            oppTtLineMin = ott[0]
+            oppTtLineMax = ott[1]
+        } else {
+            oppTtLineMin = (try? c.decodeIfPresent(Double.self, forKey: .oppTtLineMin)) ?? 10
+            oppTtLineMax = (try? c.decodeIfPresent(Double.self, forKey: .oppTtLineMax)) ?? 40
+        }
+        primetime = try? c.decodeIfPresent(Bool.self, forKey: .primetime)
+        if let tr = try? alt.decodeIfPresent([Double].self, forKey: .tempRange), tr.count >= 2 {
+            tempMin = Int(tr[0].rounded())
+            tempMax = Int(tr[1].rounded())
+        } else {
+            tempMin = Self.decodeInt(c, .tempMin) ?? -10
+            tempMax = Self.decodeInt(c, .tempMax) ?? 110
+        }
+        if let wr = try? alt.decodeIfPresent([Double].self, forKey: .windRange), wr.count >= 2 {
+            windMax = Int(wr[1].rounded())
+            windMin = Int(wr[0].rounded())
+        } else {
+            windMax = Self.decodeInt(c, .windMax) ?? 60
+            windMin = try? c.decodeIfPresent(Int.self, forKey: .windMin)
+        }
         seasonType = (try? c.decodeIfPresent(String.self, forKey: .seasonType)) ?? "any"
         playoffRound = (try? c.decodeIfPresent(String.self, forKey: .playoffRound)) ?? "any"
         division = try c.decodeIfPresent(Bool.self, forKey: .division)
@@ -1510,49 +1559,71 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         lastOt = try c.decodeIfPresent(Bool.self, forKey: .lastOt)
         lastBlowout = try c.decodeIfPresent(String.self, forKey: .lastBlowout) ?? "any"
         
-        // NFL "as-of" fields with backward compatibility defaults
-        winPct = try c.decodeIfPresent([Double].self, forKey: .winPct) ?? [0, 100]
-        winStreak = try c.decodeIfPresent([Int].self, forKey: .winStreak) ?? [0, 16]
-        lossStreak = try c.decodeIfPresent([Int].self, forKey: .lossStreak) ?? [0, 16]
-        above500 = try c.decodeIfPresent(Bool.self, forKey: .above500)
-        winPctGtOpp = try c.decodeIfPresent(Bool.self, forKey: .winPctGtOpp)
-        ppg = try c.decodeIfPresent([Double].self, forKey: .ppg) ?? [0, 40]
-        paPg = try c.decodeIfPresent([Double].self, forKey: .paPg) ?? [0, 40]
-        pointDiffPg = try c.decodeIfPresent([Double].self, forKey: .pointDiffPg) ?? [-20, 20]
-        minGames = try c.decodeIfPresent(Int.self, forKey: .minGames) ?? 0
-        atsWinPct = try c.decodeIfPresent([Double].self, forKey: .atsWinPct) ?? [0, 100]
-        atsWinStreak = try c.decodeIfPresent([Int].self, forKey: .atsWinStreak) ?? [0, 16]
-        avgCoverMargin = try c.decodeIfPresent([Double].self, forKey: .avgCoverMargin) ?? [-15, 15]
-        overPct = try c.decodeIfPresent([Double].self, forKey: .overPct) ?? [0, 100]
-        overStreak = try c.decodeIfPresent([Int].self, forKey: .overStreak) ?? [0, 16]
-        underStreak = try c.decodeIfPresent([Int].self, forKey: .underStreak) ?? [0, 16]
-        prevWins = try c.decodeIfPresent([Int].self, forKey: .prevWins) ?? [0, 16]
-        prevWinPct = try c.decodeIfPresent([Double].self, forKey: .prevWinPct) ?? [0, 100]
-        madePlayoffsPrev = try c.decodeIfPresent(Bool.self, forKey: .madePlayoffsPrev)
-        moreWinsThanOppPrev = try c.decodeIfPresent(Bool.self, forKey: .moreWinsThanOppPrev)
-        h2hLastWin = try c.decodeIfPresent(String.self, forKey: .h2hLastWin) ?? "any"
-        h2hLastAts = try c.decodeIfPresent(String.self, forKey: .h2hLastAts) ?? "any"
-        h2hLastOver = try c.decodeIfPresent(String.self, forKey: .h2hLastOver) ?? "any"
-        h2hLastHome = try c.decodeIfPresent(Bool.self, forKey: .h2hLastHome)
-        h2hLastFav = try c.decodeIfPresent(Bool.self, forKey: .h2hLastFav)
-        h2hSameSeason = try c.decodeIfPresent(Bool.self, forKey: .h2hSameSeason)
-        h2hSpreadCmp = try c.decodeIfPresent(String.self, forKey: .h2hSpreadCmp) ?? "any"
-        oppWinPct = try c.decodeIfPresent([Double].self, forKey: .oppWinPct) ?? [0, 100]
-        oppOverPct = try c.decodeIfPresent([Double].self, forKey: .oppOverPct) ?? [0, 100]
-        oppWinStreak = try c.decodeIfPresent([Int].self, forKey: .oppWinStreak) ?? [0, 16]
-        oppLossStreak = try c.decodeIfPresent([Int].self, forKey: .oppLossStreak) ?? [0, 16]
-        oppPpg = try c.decodeIfPresent([Double].self, forKey: .oppPpg) ?? [0, 40]
-        oppPaPg = try c.decodeIfPresent([Double].self, forKey: .oppPaPg) ?? [0, 40]
-        oppPrevWinPct = try c.decodeIfPresent([Double].self, forKey: .oppPrevWinPct) ?? [0, 100]
-        oppLastResult = try c.decodeIfPresent(String.self, forKey: .oppLastResult) ?? "any"
-        oppLastAts = try c.decodeIfPresent(String.self, forKey: .oppLastAts) ?? "any"
-        oppLastTotal = try c.decodeIfPresent(String.self, forKey: .oppLastTotal) ?? "any"
-        oppLastRole = try c.decodeIfPresent(String.self, forKey: .oppLastRole) ?? "any"
-        oppLastOt = try c.decodeIfPresent(Bool.self, forKey: .oppLastOt)
-        oppLastMargin = try c.decodeIfPresent([Int].self, forKey: .oppLastMargin) ?? [-60, 60]
-        lastMargin = try c.decodeIfPresent([Int].self, forKey: .lastMargin) ?? [-60, 60]
-        daysOfWeek = try c.decodeIfPresent([String].self, forKey: .daysOfWeek) ?? []
-        teamDivisions = try c.decodeIfPresent([String].self, forKey: .teamDivisions) ?? []
+        // NFL "as-of" fields with backward compatibility defaults.
+        // Prefer try? — web jsonb can type-mismatch Int vs Double arrays and used
+        // to throw, soft-falling the whole snapshot to defaults (empty restore).
+        winPct = (try? c.decodeIfPresent([Double].self, forKey: .winPct)) ?? [0, 100]
+        winStreak = (try? c.decodeIfPresent([Int].self, forKey: .winStreak))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .winStreak))?.map { Int($0.rounded()) }
+            ?? [0, 16]
+        lossStreak = (try? c.decodeIfPresent([Int].self, forKey: .lossStreak))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .lossStreak))?.map { Int($0.rounded()) }
+            ?? [0, 16]
+        above500 = try? c.decodeIfPresent(Bool.self, forKey: .above500)
+        winPctGtOpp = try? c.decodeIfPresent(Bool.self, forKey: .winPctGtOpp)
+        ppg = (try? c.decodeIfPresent([Double].self, forKey: .ppg)) ?? [0, 40]
+        paPg = (try? c.decodeIfPresent([Double].self, forKey: .paPg)) ?? [0, 40]
+        pointDiffPg = (try? c.decodeIfPresent([Double].self, forKey: .pointDiffPg)) ?? [-20, 20]
+        minGames = (try? c.decodeIfPresent(Int.self, forKey: .minGames)) ?? 0
+        atsWinPct = (try? c.decodeIfPresent([Double].self, forKey: .atsWinPct)) ?? [0, 100]
+        atsWinStreak = (try? c.decodeIfPresent([Int].self, forKey: .atsWinStreak))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .atsWinStreak))?.map { Int($0.rounded()) }
+            ?? [0, 16]
+        avgCoverMargin = (try? c.decodeIfPresent([Double].self, forKey: .avgCoverMargin)) ?? [-15, 15]
+        overPct = (try? c.decodeIfPresent([Double].self, forKey: .overPct)) ?? [0, 100]
+        overStreak = (try? c.decodeIfPresent([Int].self, forKey: .overStreak))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .overStreak))?.map { Int($0.rounded()) }
+            ?? [0, 16]
+        underStreak = (try? c.decodeIfPresent([Int].self, forKey: .underStreak))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .underStreak))?.map { Int($0.rounded()) }
+            ?? [0, 16]
+        prevWins = (try? c.decodeIfPresent([Int].self, forKey: .prevWins))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .prevWins))?.map { Int($0.rounded()) }
+            ?? [0, 16]
+        prevWinPct = (try? c.decodeIfPresent([Double].self, forKey: .prevWinPct)) ?? [0, 100]
+        madePlayoffsPrev = try? c.decodeIfPresent(Bool.self, forKey: .madePlayoffsPrev)
+        moreWinsThanOppPrev = try? c.decodeIfPresent(Bool.self, forKey: .moreWinsThanOppPrev)
+        h2hLastWin = (try? c.decodeIfPresent(String.self, forKey: .h2hLastWin)) ?? "any"
+        h2hLastAts = (try? c.decodeIfPresent(String.self, forKey: .h2hLastAts)) ?? "any"
+        h2hLastOver = (try? c.decodeIfPresent(String.self, forKey: .h2hLastOver)) ?? "any"
+        h2hLastHome = try? c.decodeIfPresent(Bool.self, forKey: .h2hLastHome)
+        h2hLastFav = try? c.decodeIfPresent(Bool.self, forKey: .h2hLastFav)
+        h2hSameSeason = try? c.decodeIfPresent(Bool.self, forKey: .h2hSameSeason)
+        h2hSpreadCmp = (try? c.decodeIfPresent(String.self, forKey: .h2hSpreadCmp)) ?? "any"
+        oppWinPct = (try? c.decodeIfPresent([Double].self, forKey: .oppWinPct)) ?? [0, 100]
+        oppOverPct = (try? c.decodeIfPresent([Double].self, forKey: .oppOverPct)) ?? [0, 100]
+        oppWinStreak = (try? c.decodeIfPresent([Int].self, forKey: .oppWinStreak))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .oppWinStreak))?.map { Int($0.rounded()) }
+            ?? [0, 16]
+        oppLossStreak = (try? c.decodeIfPresent([Int].self, forKey: .oppLossStreak))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .oppLossStreak))?.map { Int($0.rounded()) }
+            ?? [0, 16]
+        oppPpg = (try? c.decodeIfPresent([Double].self, forKey: .oppPpg)) ?? [0, 40]
+        oppPaPg = (try? c.decodeIfPresent([Double].self, forKey: .oppPaPg)) ?? [0, 40]
+        oppPrevWinPct = (try? c.decodeIfPresent([Double].self, forKey: .oppPrevWinPct)) ?? [0, 100]
+        oppLastResult = (try? c.decodeIfPresent(String.self, forKey: .oppLastResult)) ?? "any"
+        oppLastAts = (try? c.decodeIfPresent(String.self, forKey: .oppLastAts)) ?? "any"
+        oppLastTotal = (try? c.decodeIfPresent(String.self, forKey: .oppLastTotal)) ?? "any"
+        oppLastRole = (try? c.decodeIfPresent(String.self, forKey: .oppLastRole)) ?? "any"
+        oppLastOt = try? c.decodeIfPresent(Bool.self, forKey: .oppLastOt)
+        oppLastMargin = (try? c.decodeIfPresent([Int].self, forKey: .oppLastMargin))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .oppLastMargin))?.map { Int($0.rounded()) }
+            ?? [-60, 60]
+        lastMargin = (try? c.decodeIfPresent([Int].self, forKey: .lastMargin))
+            ?? (try? c.decodeIfPresent([Double].self, forKey: .lastMargin))?.map { Int($0.rounded()) }
+            ?? [-60, 60]
+        daysOfWeek = (try? c.decodeIfPresent([String].self, forKey: .daysOfWeek)) ?? []
+        teamDivisions = (try? c.decodeIfPresent([String].self, forKey: .teamDivisions)) ?? []
     }
 
     /// JSON numbers often arrive as Double from jsonb — accept either.

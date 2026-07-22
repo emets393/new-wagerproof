@@ -171,7 +171,24 @@ export async function saveSystem(input: SaveSystemInput): Promise<string> {
     console.error('[saveSystem]', error.message);
     throw error;
   }
-  return (data as { id: string }).id;
+  const id = (data as { id: string }).id;
+  // Shared systems need a grade pass for filters_hash + all_time before the
+  // leaderboard RPC will return them — don't wait for the nightly cron alone.
+  if (input.isPublic) void requestGradeAnalysisSystems();
+  return id;
+}
+
+/**
+ * Ask the grader to score the current user's systems now (auth JWT).
+ * Fire-and-forget from save / Share-on — failures are logged, never thrown.
+ */
+export async function requestGradeAnalysisSystems(): Promise<void> {
+  try {
+    const { error } = await supabase.functions.invoke('grade-analysis-systems', { body: {} });
+    if (error) console.error('[requestGradeAnalysisSystems]', error.message);
+  } catch (e) {
+    console.error('[requestGradeAnalysisSystems]', e);
+  }
 }
 
 export async function renameSystem(sport: Sport, id: string, name: string): Promise<void> {
@@ -194,6 +211,7 @@ export async function setSystemPublic(sport: Sport, id: string, isPublic: boolea
     console.error('[setSystemPublic]', error.message);
     throw error;
   }
+  if (isPublic) void requestGradeAnalysisSystems();
 }
 
 export async function deleteSystem(sport: Sport, id: string): Promise<void> {

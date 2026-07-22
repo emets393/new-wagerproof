@@ -46,9 +46,11 @@ use, ranked by all-time ROI on a public leaderboard.
   **Web** (`/historical-trends`) is multi-sport: the leaderboard UI requires a Sport filter
   (All / MLB / NFL / CFB). `All` calls this RPC once per sport and merges by ROI; a single
   sport passes only that `p_sport`. Native/Expo screens stay sport-scoped.
-- Edge Function `grade-analysis-systems` (verify_jwt off, guarded by `x-cron-secret` =
-  GRADE_CRON_SECRET; secrets: WAREHOUSE_URL/WAREHOUSE_SERVICE_KEY). Groups saves by hash,
-  fetches rows once per unique system, computes cache + per-save since_saved.
+- Edge Function `grade-analysis-systems` (verify_jwt off). Auth: `x-cron-secret` =
+  GRADE_CRON_SECRET (nightly) **or** a signed-in user's JWT (grades that user's saves
+  only — used right after Share-on). Secrets: WAREHOUSE_URL/WAREHOUSE_SERVICE_KEY.
+  Groups saves by hash, fetches rows once per unique system, computes cache + per-save
+  since_saved.
   Dedupe mirrors each page exactly: NFL/CFB game totals = home rows; MLB = home-preferred.
 - pg_cron `grade-analysis-systems-daily` at 09:20 UTC via net.http_post.
 
@@ -78,6 +80,14 @@ football go-live (they're off-season/dry-run today).
   this (page consistency wins); fix both together if ever revisited.
 - 2026-07-22: `mlb_analysis_saved_filters` was missing from prod (migration never applied)
   — created during this build. MLB saves before this date silently failed.
+- 2026-07-22 (hotfix): public systems were invisible until nightly grade set `filters_hash`
+  + `all_time`. `grade-analysis-systems` now also accepts a signed-in user's JWT and
+  grades **that user's** saves only; web/native/Expo invoke it on save-with-share and
+  Share-on. Cron (`x-cron-secret`) still grades everyone at 09:20 UTC.
+- 2026-07-22 (hotfix): My Systems tap-to-load cleared the viewing banner and could lose
+  the restored snapshot for one frame when switching sport (`key={sport}` remount vs URL).
+  Web now `flushSync`s the snapshot + shows an own-system banner; iOS soft-decode maps
+  web tuple keys (`spreadSize`/`lineRange`/…) so restore no longer falls back to defaults.
 
 ## E2E verification (2026-07-22)
 

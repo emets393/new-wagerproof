@@ -177,8 +177,9 @@ export function SaveSystemDialog({
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold">Share to the Systems Leaderboard</span>
                 <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
-                  Other users will see your username, this system&apos;s name, and its record.
-                  Systems need 10+ games of history to appear.
+                  {isPublic
+                    ? 'On — we score this system after save. Needs 10+ matching games to appear.'
+                    : 'Off — private to you only. Turn on to compete on the public board (10+ games).'}
                 </span>
               </span>
             </button>
