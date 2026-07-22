@@ -11,20 +11,29 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { Portal, Snackbar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useMlbHistoricalAnalysis } from '@/hooks/useMlbHistoricalAnalysis';
+import { useSaveSystem } from '@/hooks/useAnalysisSystems';
 import { mlbLogoUrlFromAbbr } from '@/utils/mlbAbbrLogo';
+import { SaveSystemDialog } from '@/components/mlb/SaveSystemDialog';
+import { MySystemsSheet } from '@/components/mlb/MySystemsSheet';
+import { SystemsLeaderboardBanner } from '@/components/mlb/SystemsLeaderboardBanner';
+import { SystemsLeaderboardModal } from '@/components/mlb/SystemsLeaderboardModal';
+import { verdictSideWord } from '@/services/analysisSystemsService';
+import type { LeaderboardSystem, SavedSystemRow, SystemVerdict } from '@/services/analysisSystemsService';
 import {
   MLB_BET_GROUPS,
   MLB_NO_ROI,
   MLB_SEASON_FLOOR,
   MLB_SEASON_MAX,
   MLB_VERB,
+  defaultMlbFilters,
   mlbLineForBet,
   mlbSideLabel,
   mlbSignificance,
@@ -119,12 +128,15 @@ export default function MLBHistoricalAnalysisScreen() {
   const { isDark } = useThemeContext();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const {
     betType,
     setBetType,
     filters,
+    setFilters,
     patchFilters,
     resetFilters,
+    rpcFilters,
     data,
     upcoming,
     loading,
@@ -141,6 +153,58 @@ export default function MLBHistoricalAnalysisScreen() {
   const [pitcherQ, setPitcherQ] = useState('');
   const [pitcherOpts, setPitcherOpts] = useState<MlbPitcherOption[]>([]);
   const [pitcherTarget, setPitcherTarget] = useState<'sp' | 'oppSp'>('oppSp');
+
+  // Systems (save / my systems / leaderboard)
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [mySystemsOpen, setMySystemsOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState<string | null>(null);
+  const [viewingSystem, setViewingSystem] = useState<{ name: string; username: string; verdict: SystemVerdict } | null>(null);
+  const saveMutation = useSaveSystem();
+
+  // Restore a saved system's filters + bet type onto the screen. Merge over
+  // defaults so any keys missing from an older/cross-client snapshot fall back
+  // safely instead of throwing.
+  const applySystemFilters = (raw: Record<string, unknown>, savedBetType: string) => {
+    setFilters({ ...defaultMlbFilters(), ...(raw as Partial<MlbAnalysisFilterState>) });
+    if (savedBetType) setBetType(savedBetType as MlbAnalysisBetType);
+  };
+
+  const handleApplyMySystem = (row: SavedSystemRow) => {
+    applySystemFilters(row.filters || {}, row.bet_type);
+    setMySystemsOpen(false);
+    setViewingSystem(null);
+  };
+
+  const handleApplyLeaderboardSystem = (sys: LeaderboardSystem) => {
+    applySystemFilters(sys.filters || {}, sys.bet_type);
+    setLeaderboardOpen(false);
+    setViewingSystem({ name: sys.name, username: sys.username, verdict: sys.verdict });
+  };
+
+  const handleSaveSystem = (args: { name: string; verdict: SystemVerdict; isPublic: boolean }) => {
+    saveMutation.mutate(
+      {
+        name: args.name,
+        betType,
+        filters,
+        verdict: args.verdict,
+        rpcFilters,
+        isPublic: args.isPublic,
+      },
+      {
+        onSuccess: () => {
+          setSaveOpen(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setSnackbar(args.isPublic ? 'System saved & shared' : 'System saved');
+        },
+        onError: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          setSnackbar("Couldn't save system, try again.");
+        },
+      },
+    );
+  };
 
   const activeChipCount = useMemo(() => {
     const d = filters;
@@ -206,6 +270,55 @@ export default function MLBHistoricalAnalysisScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Systems Leaderboard entry point */}
+        <SystemsLeaderboardBanner onPress={() => setLeaderboardOpen(true)} />
+
+        {/* Viewing-a-shared-system banner (after applying from the leaderboard) */}
+        {viewingSystem && (
+          <View style={[styles.viewingBanner, { backgroundColor: theme.colors.primaryContainer, borderColor: theme.colors.primary }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.viewingText, { color: theme.colors.onSurface }]}>
+                Viewing {viewingSystem.name} by {viewingSystem.username} — bets {verdictSideWord(viewingSystem.verdict)}.
+                Save your own copy to track it.
+              </Text>
+            </View>
+            {user && (
+              <TouchableOpacity
+                style={[styles.viewingSaveBtn, { backgroundColor: theme.colors.primary }]}
+                onPress={() => setSaveOpen(true)}
+              >
+                <Text style={{ color: theme.colors.onPrimary, fontWeight: '700', fontSize: 12 }}>Save</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => setViewingSystem(null)} hitSlop={8} style={{ marginLeft: 6 }}>
+              <MaterialCommunityIcons name="close" size={18} color={theme.colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Save System / My Systems (signed-in only) */}
+        {user && (
+          <View style={styles.systemsActionRow}>
+            <TouchableOpacity
+              style={[styles.systemsBtn, { backgroundColor: theme.colors.primary }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSaveOpen(true);
+              }}
+            >
+              <MaterialCommunityIcons name="content-save-outline" size={16} color={theme.colors.onPrimary} />
+              <Text style={[styles.systemsBtnText, { color: theme.colors.onPrimary }]}>Save System</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.systemsBtnOutline, { borderColor: theme.colors.primary }]}
+              onPress={() => setMySystemsOpen(true)}
+            >
+              <MaterialCommunityIcons name="bookmark-multiple-outline" size={16} color={theme.colors.primary} />
+              <Text style={[styles.systemsBtnText, { color: theme.colors.primary }]}>My Systems</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Bet types */}
         <View style={styles.section}>
           {MLB_BET_GROUPS.map(g => (
@@ -608,12 +721,86 @@ export default function MLBHistoricalAnalysisScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Save this System (signed-in only) */}
+      <SaveSystemDialog
+        visible={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        betType={betType}
+        filters={filters}
+        rpcFilters={rpcFilters}
+        patchFilters={patchFilters}
+        saving={saveMutation.isPending}
+        onSave={handleSaveSystem}
+      />
+
+      {/* My Systems */}
+      <MySystemsSheet
+        visible={mySystemsOpen}
+        onClose={() => setMySystemsOpen(false)}
+        onApply={handleApplyMySystem}
+      />
+
+      {/* MLB Systems Leaderboard */}
+      <SystemsLeaderboardModal
+        visible={leaderboardOpen}
+        onClose={() => setLeaderboardOpen(false)}
+        onApplySystem={handleApplyLeaderboardSystem}
+      />
+
+      <Portal>
+        <Snackbar visible={!!snackbar} onDismiss={() => setSnackbar(null)} duration={3500}>
+          {snackbar || ''}
+        </Snackbar>
+      </Portal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  viewingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  viewingText: { fontSize: 12, lineHeight: 17, fontWeight: '500' },
+  viewingSaveBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  systemsActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  systemsBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 12,
+  },
+  systemsBtnOutline: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  systemsBtnText: { fontSize: 13, fontWeight: '700' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

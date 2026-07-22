@@ -32,6 +32,12 @@ import { AgentTimelineSection } from '@/components/agents/AgentTimeline';
 import { AgentIdCard } from '@/components/agents/AgentIdCard';
 import { PixelOffice } from '@/components/agents/PixelOffice';
 import { CompanyDashboardBanner } from '@/components/agents/CompanyDashboardBanner';
+import { FollowingAgentCard } from '@/components/agents/FollowingAgentCard';
+import {
+  useFollowedAgentsDetailed,
+  useToggleFollowFavorite,
+  useToggleFollowNotify,
+} from '@/hooks/useFollowedAgents';
 import { AgentWithPerformance } from '@/types/agent';
 
 // Skeleton component for loading state (matches compact header + CompactPickCard)
@@ -197,6 +203,18 @@ export default function AgentsHubScreen() {
     refetch,
     error,
   } = useUserAgents();
+
+  // Followed agents (spectator-only) — powers the "Following" section
+  const { data: followedAgents } = useFollowedAgentsDetailed();
+  const toggleFollowFavorite = useToggleFollowFavorite();
+  const toggleFollowNotify = useToggleFollowNotify();
+
+  const handleFollowedPress = useCallback(
+    (avatarId: string) => {
+      router.push(`/agents/public/${avatarId}` as any);
+    },
+    [router]
+  );
 
   // Header layout constants
   const HEADER_TOP_HEIGHT = 56;
@@ -442,9 +460,29 @@ export default function AgentsHubScreen() {
           </Text>
         </View>
       )}
+      {/* Following section — followed agents are spectator-only (list + picks when
+          their owner runs them); we never generate/run non-owned agents here. */}
+      {followedAgents && followedAgents.length > 0 && (
+        <View style={styles.followingSection}>
+          <Text style={[styles.followingHeader, { color: theme.colors.onSurface }]}>Following</Text>
+          {followedAgents.map((fa) => (
+            <FollowingAgentCard
+              key={fa.avatar_id}
+              agent={fa}
+              onPress={() => handleFollowedPress(fa.avatar_id)}
+              onToggleFavorite={() =>
+                toggleFollowFavorite.mutate({ avatarId: fa.avatar_id, isFavorite: !fa.is_favorite })
+              }
+              onToggleNotify={() =>
+                toggleFollowNotify.mutate({ avatarId: fa.avatar_id, notify: !fa.notify_on_pick })
+              }
+            />
+          ))}
+        </View>
+      )}
       <View style={{ height: 12 }} />
     </>
-  ), [agents, officeReady, topAgentsForOffice, isDark, officeSceneActive]);
+  ), [agents, officeReady, topAgentsForOffice, isDark, officeSceneActive, followedAgents, theme.colors.onSurface, handleFollowedPress, toggleFollowFavorite, toggleFollowNotify]);
 
   const hasAgents = agents && agents.length > 0;
   const totalCount = agents?.length || 0;
@@ -547,6 +585,25 @@ export default function AgentsHubScreen() {
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
             <PixelOffice agentCount={4} isActive={officeSceneActive} />
           </View>
+          {/* Show followed agents even when the user owns none — spectator list only. */}
+          {followedAgents && followedAgents.length > 0 && (
+            <View style={styles.followingSection}>
+              <Text style={[styles.followingHeader, { color: theme.colors.onSurface }]}>Following</Text>
+              {followedAgents.map((fa) => (
+                <FollowingAgentCard
+                  key={fa.avatar_id}
+                  agent={fa}
+                  onPress={() => handleFollowedPress(fa.avatar_id)}
+                  onToggleFavorite={() =>
+                    toggleFollowFavorite.mutate({ avatarId: fa.avatar_id, isFavorite: !fa.is_favorite })
+                  }
+                  onToggleNotify={() =>
+                    toggleFollowNotify.mutate({ avatarId: fa.avatar_id, notify: !fa.notify_on_pick })
+                  }
+                />
+              ))}
+            </View>
+          )}
           <EmptyState onCreatePress={handleCreateAgent} isDark={isDark} />
         </ScrollView>
       ) : (
@@ -689,6 +746,16 @@ const styles = StyleSheet.create({
   columnWrapper: {
     paddingHorizontal: 8,
     gap: 8,
+  },
+  followingSection: {
+    paddingHorizontal: 8,
+    marginTop: 4,
+  },
+  followingHeader: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 10,
+    marginLeft: 4,
   },
   stateScrollContent: {
     flexGrow: 1,

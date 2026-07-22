@@ -12,10 +12,16 @@ import {
   TogglePill,
 } from '@/components/ios';
 import { AgentListCard } from './AgentListCard';
+import { FollowingAgentCard } from './FollowingAgentCard';
 import { AgentHQ } from './AgentHQ';
 import { LeaderboardRowCard } from './LeaderboardRowCard';
 import { TopAgentPicksPanel } from './TopAgentPicksPanel';
 import type { TopAgentPicksFilter } from '@/services/agentPicksService';
+import {
+  useFollowedAgentsDetailed,
+  useToggleFollowFavorite,
+  useToggleFollowNotify,
+} from '@/hooks/useFollowedAgents';
 import { SPORTS, Sport, AgentWithPerformance } from '@/types/agent';
 import type {
   LeaderboardEntry,
@@ -151,6 +157,22 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
   const [searchText, setSearchText] = React.useState('');
   const [myAgentsSort, setMyAgentsSort] = React.useState<MyAgentsSort>('winRate');
   const [topPicksFilter, setTopPicksFilter] = React.useState<TopAgentPicksFilter>('top10');
+
+  const { data: followedAgents = [] } = useFollowedAgentsDetailed({ enabled: segment === 'mine' });
+  const toggleFollowFavorite = useToggleFollowFavorite();
+  const toggleFollowNotify = useToggleFollowNotify();
+
+  const filteredFollowed = React.useMemo(() => {
+    let list = [...followedAgents];
+    if (sportFilter !== 'all') {
+      list = list.filter((a) => a.preferred_sports.includes(sportFilter));
+    }
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase();
+      list = list.filter((a) => a.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [followedAgents, sportFilter, searchText]);
 
   const filteredAgents = React.useMemo(() => {
     let list = [...agents];
@@ -361,18 +383,20 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
             <GlassCard className="px-6 py-10 text-center text-sm text-destructive">
               Failed to load agents.
             </GlassCard>
-          ) : filteredAgents.length === 0 ? (
+          ) : filteredAgents.length === 0 && filteredFollowed.length === 0 ? (
             <GlassCard className="flex flex-col items-center gap-3 px-6 py-10 text-center">
               <Users className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-semibold text-foreground">
-                {agents.length === 0 ? 'No agents yet' : 'No matching agents'}
+                {agents.length === 0 && followedAgents.length === 0
+                  ? 'No agents yet'
+                  : 'No matching agents'}
               </p>
               <p className="max-w-[240px] text-sm text-muted-foreground">
-                {agents.length === 0
+                {agents.length === 0 && followedAgents.length === 0
                   ? 'Create your first agent to start generating and tracking picks.'
                   : 'Try a different search or sport filter.'}
               </p>
-              {agents.length === 0 && (
+              {agents.length === 0 && followedAgents.length === 0 && (
                 <Button
                   size="sm"
                   className="rounded-full bg-[#00E676] text-black hover:bg-[#00E676]/90"
@@ -384,20 +408,50 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
               )}
             </GlassCard>
           ) : (
-            filteredAgents.map((agent, index) => (
-              <StaggeredItem key={agent.id} index={index}>
-                <AgentListCard
-                  agent={agent}
-                  isSelected={agent.id === selectedId}
-                  onSelect={onSelect}
-                  onToggleActive={onToggleActive}
-                  onTogglePinned={onTogglePinned}
-                  onEdit={onEditAgent}
-                  onDelete={onDeleteAgent}
-                  isTogglePending={togglePendingId === agent.id}
-                />
-              </StaggeredItem>
-            ))
+            <>
+              {filteredAgents.map((agent, index) => (
+                <StaggeredItem key={agent.id} index={index}>
+                  <AgentListCard
+                    agent={agent}
+                    isSelected={agent.id === selectedId}
+                    onSelect={onSelect}
+                    onToggleActive={onToggleActive}
+                    onTogglePinned={onTogglePinned}
+                    onEdit={onEditAgent}
+                    onDelete={onDeleteAgent}
+                    isTogglePending={togglePendingId === agent.id}
+                  />
+                </StaggeredItem>
+              ))}
+
+              {/* Followed agents are spectator-only — no generate/run on these cards. */}
+              {filteredFollowed.length > 0 && (
+                <div className="space-y-2.5 pt-2">
+                  <p className="px-1 text-[13px] font-bold text-foreground">Following</p>
+                  {filteredFollowed.map((fa, index) => (
+                    <StaggeredItem key={fa.avatar_id} index={filteredAgents.length + index}>
+                      <FollowingAgentCard
+                        agent={fa}
+                        isSelected={fa.avatar_id === selectedId}
+                        onSelect={onSelect}
+                        onToggleFavorite={() =>
+                          toggleFollowFavorite.mutate({
+                            avatarId: fa.avatar_id,
+                            isFavorite: !fa.is_favorite,
+                          })
+                        }
+                        onToggleNotify={() =>
+                          toggleFollowNotify.mutate({
+                            avatarId: fa.avatar_id,
+                            notify: !fa.notify_on_pick,
+                          })
+                        }
+                      />
+                    </StaggeredItem>
+                  ))}
+                </div>
+              )}
+            </>
           )
         ) : segment === 'topPicks' ? (
           <TopAgentPicksPanel filter={topPicksFilter} searchText={searchText} selectedId={selectedId} onSelectAgent={onSelect} />

@@ -31,6 +31,11 @@ import WagerproofStores
 // =====================================================================
 
 struct AgentBuilderView: View {
+    /// Optional seed draft — set by the "Copy build" CTA on
+    /// `PublicAgentDetailView` (`AgentCreationStore.Draft.copying(fromPublicAgent:)`)
+    /// so the wizard opens pre-filled with another agent's readable build
+    /// instead of a blank draft. `nil` is the normal from-scratch path.
+    var initialDraft: AgentCreationStore.Draft? = nil
     /// Fired with the freshly created agent so the host can navigate to its
     /// detail page (AgentsView swaps this screen for `.agentDetail`).
     var onCreated: (Agent) -> Void = { _ in }
@@ -255,10 +260,22 @@ struct AgentBuilderView: View {
 
     /// Pick the pixel character once so the identity preview doesn't reshuffle
     /// per keystroke (the user can change it on the identity page). Sports stay
-    /// empty — the first builder page collects them from scratch.
+    /// empty — the first builder page collects them from scratch — UNLESS an
+    /// `initialDraft` was supplied (Copy build), in which case we seed the
+    /// whole draft from it so every page opens pre-filled.
     private func seedIfNeeded() {
         guard !didSeed else { return }
         didSeed = true
+        if let initialDraft {
+            creation.draft = initialDraft
+            // Copy build already chose an archetype (if any) — flip the local
+            // OnboardingStore flag so the archetype page's CTA gate + accent
+            // logic treat it as already-chosen instead of asking the viewer
+            // to pick one again.
+            if initialDraft.archetype != nil {
+                builderState.setArchetypeChosen()
+            }
+        }
         if creation.draft.spriteIndex == nil {
             creation.draft.spriteIndex = Int.random(in: 0...7)
         }

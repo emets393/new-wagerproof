@@ -1,9 +1,21 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Bot, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { GlassCard, SkeletonBlock, SkeletonCircle, TeamAura, WidgetCard } from '@/components/ios';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AgentGenerationTerminal, AgentPerformanceCharts, AgentRecentActivity } from '@/components/agents';
 import { AgentDetailHero } from './AgentDetailHero';
 import { AgentPicksSection, AgentTodaysPicksSection, type AgentHistoryItem } from './AgentPicksSection';
@@ -11,6 +23,7 @@ import { useAgent } from '@/hooks/useAgents';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgentFollow } from '@/hooks/useAgentFollow';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { getAgentColorPair, DEFAULT_AGENT_COLOR } from '@/utils/agentColors';
 import { BarChart3 } from 'lucide-react';
 import type { AgentGenerationState } from './generationState';
@@ -20,6 +33,7 @@ interface AgentDetailPaneProps {
   generation?: AgentGenerationState;
   onGenerate: (agentId: string) => void;
   onClearSelection: () => void;
+  onSelectAgent?: (agentId: string) => void;
   selectedTicketId: string | null;
   onSelectTicket: (item: AgentHistoryItem, accent?: string) => void;
 }
@@ -54,17 +68,61 @@ export function AgentDetailPane({
   generation,
   onGenerate,
   onClearSelection,
+  onSelectAgent,
   selectedTicketId,
   onSelectTicket,
 }: AgentDetailPaneProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data: agent, isLoading } = useAgent(agentId ?? undefined);
-  const { canViewAgentPicks } = useAgentEntitlements();
+  const { canViewAgentPicks, isPro, isAdmin } = useAgentEntitlements();
 
   const isOwner = !!agent && agent.user_id === user?.id;
   const canSeePicks = canViewAgentPicks || isOwner;
   const follow = useAgentFollow(agentId ?? undefined, { enabled: !!agent && !isOwner });
+
+  const [copyConfirmOpen, setCopyConfirmOpen] = React.useState(false);
+  const [limitDialogOpen, setLimitDialogOpen] = React.useState(false);
+  const [copyPending, setCopyPending] = React.useState(false);
+
+  const runCopyBuild = React.useCallback(async () => {
+    if (!user?.id || !agentId) {
+      toast.error('Sign in to copy this agent');
+      return;
+    }
+    setCopyPending(true);
+    try {
+      const { data: newAgentId, error } = await (supabase as any).rpc('clone_public_agent', {
+        p_source_avatar_id: agentId,
+      });
+
+      if (error) {
+        const msg = error.message || '';
+        if (msg.includes('agent_limit_reached')) {
+          setLimitDialogOpen(true);
+        } else if (msg.includes('source_not_found_or_not_public')) {
+          toast.error('This agent is no longer available');
+        } else {
+          toast.error("Couldn't copy this agent, try again.");
+        }
+        return;
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['agents', 'user', user.id] });
+      const nextId = String(newAgentId);
+      if (onSelectAgent) {
+        onSelectAgent(nextId);
+      } else {
+        navigate(`/agents?selected=${nextId}&tab=mine`, { replace: true });
+      }
+    } catch {
+      toast.error("Couldn't copy this agent, try again.");
+    } finally {
+      setCopyPending(false);
+      setCopyConfirmOpen(false);
+    }
+  }, [user?.id, agentId, queryClient, onSelectAgent, navigate]);
 
   if (!agentId) {
     return (
@@ -127,6 +185,8 @@ export function AgentDetailPane({
           onGenerate={() => onGenerate(agent.id)}
           generateDisabled={generation?.status === 'generating'}
           onOpenSettings={() => navigate(`/agents/${agent.id}/settings`)}
+          onCopyBuild={() => setCopyConfirmOpen(true)}
+          copyPending={copyPending}
         />
 
         {showTerminal && (
@@ -180,6 +240,51 @@ export function AgentDetailPane({
           />
         </div>
       </motion.div>
+
+      <AlertDialog open={copyConfirmOpen} onOpenChange={setCopyConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Copy build</AlertDialogTitle>
+            <AlertDialogDescription>
+              This creates YOUR OWN copy of this agent — same brain and settings, but a fresh 0-0
+              record. It won&apos;t share the original&apos;s picks or history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={copyPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={copyPending}
+              onClick={(event) => {
+                event.preventDefault();
+                void runCopyBuild();
+              }}
+            >
+              {copyPending ? 'Copying…' : 'Copy build'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={limitDialogOpen} onOpenChange={setLimitDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Agent limit reached</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isAdmin || isPro
+                ? 'Pro users can have up to 30 total agents. If all 10 live auto-agent slots are full, new agents start in manual mode.'
+                : 'Free users can have 1 active agent. Upgrade to Pro for more.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Not now</AlertDialogCancel>
+            {!isPro && !isAdmin && (
+              <AlertDialogAction onClick={() => navigate('/access-denied')}>
+                Upgrade
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

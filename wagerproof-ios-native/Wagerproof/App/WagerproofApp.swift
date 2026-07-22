@@ -40,6 +40,13 @@ struct WagerproofApp: App {
     // the currently-selected agent pick and render the inline rationale card.
     // See `Features/Agents/Components/AgentPickRationaleWidget.swift`.
     @State private var agentPickAuditStore = AgentPickAuditStore()
+    // B-follow-ux: app-wide follow list (the public agents the signed-in user
+    // follows). Injected globally — rather than owned per-screen — so
+    // `PublicAgentDetailView`'s Follow toggle and the Agents hub's "Following"
+    // section always read/write the SAME instance and stay in sync without an
+    // extra round trip. Bound to the authenticated user id below, mirroring
+    // the `onboardingStore.attachUser` pattern.
+    @State private var followedAgentsStore = FollowedAgentsStore()
     #if DEBUG
     // DEBUG-only: backs the "Dummy Data Mode" toggle in Secret Settings.
     // Injected so SecretSettingsView can bind it and MainTabView can force a
@@ -104,6 +111,7 @@ struct WagerproofApp: App {
             .environment(settingsStore)
             .environment(proAccessStore)
             .environment(agentPickAuditStore)
+            .environment(followedAgentsStore)
             #if DEBUG
             .environment(debugDataModeStore)
             #endif
@@ -133,8 +141,10 @@ struct WagerproofApp: App {
                 // before the second .onChange below flips it to .ready.
                 if case .authenticated(let userId) = newPhase {
                     onboardingStore.attachUser(userId: userId.uuidString)
+                    followedAgentsStore.bind(userId: userId.uuidString.lowercased())
                 } else if case .unauthenticated = newPhase {
                     onboardingStore.detachUser()
+                    followedAgentsStore.bind(userId: nil)
                 }
                 rootRouter.resolve(
                     authPhase: newPhase,

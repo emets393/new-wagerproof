@@ -91,6 +91,11 @@ struct AgentsView: View {
     @Environment(SettingsStore.self) private var settingsStore
     @Environment(RevenueCatStore.self) private var revenueCat
     @Environment(AdminModeStore.self) private var adminMode
+    // B2 — app-wide follow list (see `WagerproofApp`). Powers the "Following"
+    // rail in the My Agents list; the SAME instance is written to by
+    // `PublicAgentDetailView`'s Follow toggle, so a follow/unfollow there is
+    // reflected here the next time this list reloads/reappears.
+    @Environment(FollowedAgentsStore.self) private var followedAgentsStore
     @State private var store: AgentsStore
     /// Owns the public leaderboard fetch. It needs no user binding (the
     /// leaderboard is public), so we just hand it to `AgentLeaderboardView`,
@@ -210,10 +215,16 @@ struct AgentsView: View {
                     if case .idle = store.loadState {
                         await store.refresh()
                     }
+                    followedAgentsStore.bind(userId: currentUserId)
+                    if case .idle = followedAgentsStore.loadState {
+                        await followedAgentsStore.refresh()
+                    }
                 }
                 .onChange(of: currentUserId) { _, newId in
                     store.bind(userId: newId)
                     Task { await store.refresh() }
+                    followedAgentsStore.bind(userId: newId)
+                    Task { await followedAgentsStore.refresh() }
                 }
                 // Consume a Search-originated deep link into an agent's detail.
                 // `initial: true` covers the cold-mount case (the user tapped a
@@ -482,6 +493,13 @@ struct AgentsView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
 
+                if !followedAgentsStore.follows.isEmpty {
+                    followingRail
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+
                 sortRow
                     .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
                     .listRowBackground(Color.clear)
@@ -542,7 +560,59 @@ struct AgentsView: View {
         .animation(.spring(response: 0.45, dampingFraction: 0.82), value: pinnedIdsRaw)
         // Re-read the device-local seen ledger when the list re-appears (incl.
         // pop-back from a detail visit) so unread dots clear after viewing.
-        .onAppear { unreadRefreshToken &+= 1 }
+        .onAppear {
+            unreadRefreshToken &+= 1
+            // B4 — pop back from a public agent detail (follow/unfollow) and
+            // pick up the change immediately rather than waiting on a manual
+            // pull-to-refresh.
+            Task { await followedAgentsStore.refresh() }
+        }
+    }
+
+    /// Horizontal rail of followed public agents — tapping opens the
+    /// read-only `PublicAgentDetailView` (never treated as owned; no
+    /// Generate/autopilot controls render there for non-owners).
+    private var followingRail: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Following")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Color.appTextSecondary)
+                .padding(.horizontal, 12)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(followedAgentsStore.follows) { followed in
+                        Button {
+                            navPath.append(AgentsRoute.publicAgentDetail(agentId: followed.avatarId))
+                        } label: {
+                            VStack(spacing: 6) {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: AgentColorPalette.avatarGradient(for: followed.avatarColor),
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 52, height: 52)
+                                    Text(followed.avatarEmoji)
+                                        .font(.system(size: 24))
+                                }
+                                Text(followed.name)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(Color.appTextPrimary)
+                                    .lineLimit(1)
+                                    .frame(width: 64)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 12)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     /// Unread-picks dot state for a row. References `unreadRefreshToken` so

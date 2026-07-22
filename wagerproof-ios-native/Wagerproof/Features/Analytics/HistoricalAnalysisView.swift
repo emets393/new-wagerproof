@@ -15,9 +15,10 @@ struct HistoricalAnalysisView: View {
     @State private var breakdownTab = "team"
     @State private var breakdownSort = "n"
     @State private var showAllRows = false
-    @State private var showSaveSheet = false
+    @State private var showSaveSystemSheet = false
+    @State private var showMySystemsSheet = false
+    @State private var showLeaderboardSheet = false
     @State private var showShareSheet = false
-    @State private var saveName = ""
     @FocusState private var chatFocused: Bool
     @State private var toast: TrendsChatToast?
 
@@ -60,7 +61,7 @@ struct HistoricalAnalysisView: View {
         // Chat dock replaces the tab bar on this screen — same pattern as
         // WagerBotChatView / detail pages.
         .toolbar(.hidden, for: .tabBar)
-        .toolbar { savedSearchesMenu }
+        .toolbar { systemsToolbar }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             chatDock
@@ -86,11 +87,28 @@ struct HistoricalAnalysisView: View {
         }
         .task {
             store.loadRecentQueries()
-            await store.onAppear()
-            if let userId { await store.refreshSaved(userId: userId) }
+            await store.onAppear(userId: userId)
         }
-        .sheet(isPresented: $showSaveSheet) {
-            saveSearchSheet
+        .sheet(isPresented: $showSaveSystemSheet) {
+            if let userId {
+                SaveSystemSheet(store: store, userId: userId) { shared in
+                    presentSystemSavedToast(shared: shared)
+                    // Proof of save: open the list immediately so the user sees the row.
+                    showMySystemsSheet = true
+                }
+            }
+        }
+        .sheet(isPresented: $showMySystemsSheet) {
+            if let userId {
+                MySystemsSheet(store: store, userId: userId) { row in
+                    store.restoreSaved(row)
+                }
+            }
+        }
+        .sheet(isPresented: $showLeaderboardSheet) {
+            SystemsLeaderboardSheet(store: store) { row in
+                store.applyLeaderboardSystem(row)
+            }
         }
         .sheet(isPresented: $showShareSheet) {
             HistoricalTrendsShareView(
@@ -108,6 +126,13 @@ struct HistoricalAnalysisView: View {
         .onChange(of: breakdownTab) { _, _ in
             showAllRows = false
         }
+        // Auth can still be `.launching` when `.task` first runs — re-fetch My
+        // Systems once the session is ready so the list isn't stuck empty.
+        .onChange(of: authStore.phase) { _, phase in
+            if case .authenticated(let id) = phase {
+                Task { await store.refreshSaved(userId: id) }
+            }
+        }
     }
 
     // MARK: - Scrollable content
@@ -115,6 +140,12 @@ struct HistoricalAnalysisView: View {
     @ViewBuilder
     private var scrollableContent: some View {
         VStack(alignment: .leading, spacing: 28) {
+            systemsEntryRow
+
+            if let banner = store.viewingSystemBanner {
+                viewingSystemBanner(banner)
+            }
+
             if let error = store.fetchErrorMessage {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 13, weight: .medium))
@@ -127,6 +158,86 @@ struct HistoricalAnalysisView: View {
             }
             upcomingSection
         }
+    }
+
+    /// Leaderboard is a public board (often empty); My Systems is the private list.
+    /// Keep both on-screen so users don't mistake an empty leaderboard for "no saves".
+    @ViewBuilder
+    private var systemsEntryRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SystemsLeaderboardBanner {
+                showLeaderboardSheet = true
+            }
+            if userId != nil {
+                HStack(spacing: 10) {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showMySystemsSheet = true
+                    } label: {
+                        Label(
+                            store.savedFilters.isEmpty
+                                ? "My Systems"
+                                : "My Systems (\(store.savedFilters.count))",
+                            systemImage: "bookmark.fill"
+                        )
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.appBorder.opacity(0.45), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showSaveSystemSheet = true
+                    } label: {
+                        Label("Save", systemImage: "plus.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.appPrimary.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.appPrimary.opacity(0.35), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(store.savedFilters.count >= HistoricalAnalysisSavedFiltersService.maxPerUser)
+                }
+                .foregroundStyle(Color.appTextPrimary)
+            }
+        }
+    }
+
+    private func viewingSystemBanner(_ banner: HistoricalAnalysisStore.ViewingSystemBanner) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "eye.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.appPrimary)
+                .padding(.top, 2)
+            Text(
+                "Viewing \(banner.name) by \(banner.username) — bets \(AnalysisSystemCopy.sideWord(banner.verdict)). Save your own copy to track it."
+            )
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(Color.appTextPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button {
+                store.viewingSystemBanner = nil
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color.appTextSecondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(Color.appPrimary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.appPrimary.opacity(0.2), lineWidth: 1))
     }
 
     private func sectionHeader(_ title: String, subtitle: String? = nil) -> some View {
@@ -179,15 +290,27 @@ struct HistoricalAnalysisView: View {
         let metrics = HistoricalAnalysisCopy.headlineMetrics(snapshot: store.snapshot, data: data)
         let sig = HistoricalAnalysisCopy.significance(n: metrics.n, hit: metrics.hitPct)
         let delta = metrics.hitPct - data.baselinePct
+        let outcome = HistoricalAnalysisCopy.outcomeLabel(for: store.betType)
 
-        return VStack(alignment: .leading, spacing: 8) {
-            headlineText(subject: subject, metrics: metrics, data: data)
-                .font(.system(size: 22, weight: .semibold))
-                .fixedSize(horizontal: false, vertical: true)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 16) {
+                TrendsHeroGauge(
+                    hitPct: metrics.hitPct,
+                    baseline: data.baselinePct,
+                    outcomeWord: outcome
+                )
 
-            Text("\(delta >= 0 ? "+" : "")\(HistoricalAnalysisCopy.trimmed(delta)) pts vs \(HistoricalAnalysisCopy.trimmed(data.baselinePct))% baseline · \(sig.label)")
-                .font(.system(size: 14))
-                .foregroundStyle(Color.appTextSecondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    headlineText(subject: subject, metrics: metrics, data: data)
+                        .font(.system(size: 18, weight: .semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text("\(delta >= 0 ? "+" : "")\(HistoricalAnalysisCopy.trimmed(delta)) pts vs \(HistoricalAnalysisCopy.trimmed(data.baselinePct))% baseline · \(sig.label)")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.appTextSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
 
             Text(HistoricalAnalysisCopy.scopeNote(sport: sport, snapshot: store.snapshot))
                 .font(.system(size: 12))
@@ -294,59 +417,104 @@ struct HistoricalAnalysisView: View {
     }
     
     private func versusRow(title: String, options: [HistoricalAnalysisBarOption], dimension: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let sorted = options.sorted { $0.hitPct > $1.hitPct }
+        let extreme = sorted.first
+        let other = sorted.count > 1 ? sorted[1] : nil
+
+        return VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Color.appTextSecondary)
-            
-            HStack(spacing: 0) {
-                ForEach(options) { option in
+
+            if let extreme, let other {
+                // Web VersusRow: weaker left / stronger right, higher side emphasized.
+                HStack {
                     Button {
-                        // Tap sets snapshot filter and fetches
-                        if dimension == "home_away" {
-                            store.updateSnapshot { snapshot in
-                                snapshot.side = option.side
-                            }
-                        } else if dimension == "fav_dog" {
-                            store.updateSnapshot { snapshot in
-                                snapshot.spreadSide = option.side
-                            }
-                        }
-                        store.scheduleFetch()
+                        focusSide(dimension: dimension, side: other.side)
                     } label: {
-                        VStack(spacing: 2) {
-                            Text(HistoricalAnalysisCopy.sideLabel(betType: store.betType, side: option.side))
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(Color.appTextPrimary)
-                            
-                            Text("\(HistoricalAnalysisCopy.trimmed(option.hitPct))%")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(option.hitPct >= 52.4 ? Color.green : Color.appTextPrimary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(option.hitPct > 50 ? Color.green.opacity(0.1) : Color.clear)
-                        )
+                        Text("\(HistoricalAnalysisCopy.sideLabel(betType: store.betType, side: other.side)) \(HistoricalAnalysisCopy.trimmed(other.hitPct))%")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.appTextSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                    Button {
+                        focusSide(dimension: dimension, side: extreme.side)
+                    } label: {
+                        Text("\(HistoricalAnalysisCopy.sideLabel(betType: store.betType, side: extreme.side)) \(HistoricalAnalysisCopy.trimmed(extreme.hitPct))%")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.appTextPrimary)
                     }
                     .buttonStyle(.plain)
                 }
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.appSurfaceMuted)
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.35))
+                            .frame(width: geo.size.width * min(other.hitPct, 100) / 100)
+                        HStack {
+                            Spacer(minLength: 0)
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.green.opacity(0.75), Color.green],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: geo.size.width * min(extreme.hitPct, 100) / 100)
+                        }
+                        Rectangle()
+                            .fill(Color.appTextPrimary.opacity(0.45))
+                            .frame(width: 2)
+                            .position(x: geo.size.width / 2, y: 5)
+                    }
+                }
+                .frame(height: 10)
+            } else {
+                HStack(spacing: 0) {
+                    ForEach(options) { option in
+                        let isBest = option.id == extreme?.id
+                        Button {
+                            focusSide(dimension: dimension, side: option.side)
+                        } label: {
+                            VStack(spacing: 2) {
+                                Text(HistoricalAnalysisCopy.sideLabel(betType: store.betType, side: option.side))
+                                    .font(.system(size: 13, weight: isBest ? .bold : .medium))
+                                    .foregroundStyle(Color.appTextPrimary)
+                                Text("\(HistoricalAnalysisCopy.trimmed(option.hitPct))%")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundStyle(isBest ? Color.green : Color.appTextPrimary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(isBest ? Color.green.opacity(0.12) : Color.clear)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
-            
-            // 50% midline visual
-            Rectangle()
-                .fill(Color.appTextSecondary.opacity(0.3))
-                .frame(height: 1)
-                .overlay(
-                    Text("50%")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.appTextSecondary)
-                        .padding(.horizontal, 4)
-                        .background(Color.appSurface),
-                    alignment: .center
-                )
         }
+    }
+
+    private func focusSide(dimension: String, side: String) {
+        store.updateSnapshot { snapshot in
+            if dimension == "home_away" {
+                snapshot.side = side
+            } else if dimension == "fav_dog" {
+                if ["fg_spread", "h1_spread"].contains(store.betType) {
+                    snapshot.spreadSide = side
+                } else {
+                    snapshot.favDog = side
+                }
+            }
+        }
+        store.scheduleFetch()
     }
     
     // MARK: - Bottom chat dock (AI filter input)
@@ -391,6 +559,30 @@ struct HistoricalAnalysisView: View {
     }
 
     // MARK: - Chat result toast (system-banner style)
+
+    private func presentSystemSavedToast(shared: Bool) {
+        let count = store.savedFilters.count
+        let text = shared
+            ? "Saved (\(count)). Leaderboard needs grading + 10+ games — open My Systems to see it now."
+            : "Saved — \(count) system\(count == 1 ? "" : "s") in My Systems."
+        let next = TrendsChatToast(
+            icon: "checkmark.circle.fill",
+            text: text,
+            color: .green,
+            haptic: .success
+        )
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            toast = next
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 3_200_000_000)
+            if toast?.id == next.id {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    toast = nil
+                }
+            }
+        }
+    }
 
     /// Map a chat exchange result to toast content + the matching haptic.
     private func presentToast(for response: HistoricalAnalysisStore.NLFilterResponse) {
@@ -608,39 +800,61 @@ struct HistoricalAnalysisView: View {
     }
 
     private func barSection(_ bar: HistoricalAnalysisBar, baseline: Double) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(HistoricalAnalysisCopy.dimLabels[bar.dimension] ?? bar.dimension)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.appTextSecondary)
+        // Home/Away + Fav/Dog: highlight the higher-% side like web VersusRow.
+        if bar.dimension == "home_away" || bar.dimension == "fav_dog",
+           bar.options.filter({ $0.n > 0 }).count >= 2 {
+            return AnyView(
+                versusRow(
+                    title: HistoricalAnalysisCopy.dimLabels[bar.dimension] ?? bar.dimension,
+                    options: bar.options.filter { $0.n > 0 },
+                    dimension: bar.dimension
+                )
+            )
+        }
 
-            ForEach(bar.options) { opt in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(HistoricalAnalysisCopy.sideLabel(betType: store.betType, side: opt.side))
-                            .font(.system(size: 15, weight: .medium))
-                        Spacer()
-                        Text("\(HistoricalAnalysisCopy.trimmed(opt.hitPct))% (\(opt.wins) of \(opt.n))")
-                            .font(.system(size: 14, weight: .semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(opt.hitPct >= 52.4 ? Color.green : Color.appTextPrimary)
-                    }
+        return AnyView(
+            VStack(alignment: .leading, spacing: 12) {
+                Text(HistoricalAnalysisCopy.dimLabels[bar.dimension] ?? bar.dimension)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.appTextSecondary)
 
-                    HitRateBar(hitPct: opt.hitPct, baseline: baseline)
+                ForEach(bar.options) { opt in
+                    let isBest = bar.options.map(\.hitPct).max() == opt.hitPct
+                        && (bar.dimension == "home_away" || bar.dimension == "fav_dog")
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(HistoricalAnalysisCopy.sideLabel(betType: store.betType, side: opt.side))
+                                .font(.system(size: 15, weight: isBest ? .bold : .medium))
+                            Spacer()
+                            Text("\(HistoricalAnalysisCopy.trimmed(opt.hitPct))% (\(opt.wins) of \(opt.n))")
+                                .font(.system(size: 14, weight: .semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(opt.hitPct >= 52.4 || isBest ? Color.green : Color.appTextPrimary)
+                        }
 
-                    HStack {
-                        Text("vs \(HistoricalAnalysisCopy.trimmed(baseline))% baseline")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.appTextSecondary)
-                        Spacer()
-                        if let roi = opt.roi, showsROI {
-                            Text(HistoricalAnalysisCopy.signedPct(roi) + " ROI")
+                        HitRateBar(hitPct: opt.hitPct, baseline: baseline)
+
+                        HStack {
+                            Text("vs \(HistoricalAnalysisCopy.trimmed(baseline))% baseline")
                                 .font(.system(size: 11))
-                                .foregroundStyle(roi >= 0 ? Color.green : Color.red)
+                                .foregroundStyle(Color.appTextSecondary)
+                            Spacer()
+                            if let roi = opt.roi, showsROI {
+                                Text(HistoricalAnalysisCopy.signedPct(roi) + " ROI")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(roi >= 0 ? Color.green : Color.red)
+                            }
                         }
                     }
+                    .padding(.vertical, 2)
+                    .padding(.horizontal, isBest ? 8 : 0)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(isBest ? Color.green.opacity(0.08) : Color.clear)
+                    )
                 }
             }
-        }
+        )
     }
 
     // MARK: - Breakdown lists (plain rows + Show all expander)
@@ -888,32 +1102,56 @@ struct HistoricalAnalysisView: View {
         return parts.joined(separator: " · ")
     }
 
-    // MARK: - Saved searches (toolbar context menu)
+    // MARK: - Systems toolbar
 
     @ToolbarContentBuilder
-    private var savedSearchesMenu: some ToolbarContent {
+    private var systemsToolbar: some ToolbarContent {
+        if userId != nil {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showMySystemsSheet = true
+                } label: {
+                    Image(systemName: "bookmark.fill")
+                }
+                .accessibilityLabel(
+                    store.savedFilters.isEmpty
+                        ? "My Systems"
+                        : "My Systems, \(store.savedFilters.count)"
+                )
+            }
+        }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                if !store.savedFilters.isEmpty {
-                    Section("Saved Searches") {
-                        ForEach(store.savedFilters) { filter in
-                            Button {
-                                store.restoreSaved(filter)
-                            } label: {
-                                Label(filter.name, systemImage: "bookmark.fill")
-                            }
-                        }
-                    }
-                }
                 if userId != nil {
                     Button {
-                        saveName = ""
-                        showSaveSheet = true
+                        showSaveSystemSheet = true
                     } label: {
-                        Label("Save Current Search…", systemImage: "plus")
+                        Label("Save System…", systemImage: "plus.circle")
                     }
                     .disabled(store.savedFilters.count >= HistoricalAnalysisSavedFiltersService.maxPerUser)
+
+                    Button {
+                        showMySystemsSheet = true
+                    } label: {
+                        Label(
+                            store.savedFilters.isEmpty
+                                ? "My Systems"
+                                : "My Systems (\(store.savedFilters.count))",
+                            systemImage: "bookmark.fill"
+                        )
+                    }
+                } else {
+                    Text("Sign in to save systems")
                 }
+
+                Button {
+                    showLeaderboardSheet = true
+                } label: {
+                    Label("Systems Leaderboard", systemImage: "trophy")
+                }
+
+                Divider()
+
                 Button {
                     showShareSheet = true
                 } label: {
@@ -921,36 +1159,9 @@ struct HistoricalAnalysisView: View {
                 }
                 .disabled(store.analysis == nil)
             } label: {
-                Image(systemName: "bookmark")
+                Image(systemName: "ellipsis.circle")
             }
         }
-    }
-
-    private var saveSearchSheet: some View {
-        NavigationStack {
-            Form {
-                TextField("Name this search", text: $saveName)
-            }
-            .navigationTitle("Save Search")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showSaveSheet = false; saveName = "" }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        guard let userId else { return }
-                        Task {
-                            try? await store.saveCurrentFilter(name: saveName, userId: userId)
-                            showSaveSheet = false
-                            saveName = ""
-                        }
-                    }
-                    .disabled(saveName.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-        }
-        .presentationDetents([.medium])
     }
 }
 

@@ -22,12 +22,20 @@ struct PublicAgentDetailView: View {
 
     @Environment(AuthStore.self) private var auth
     @Environment(ProAccessStore.self) private var proAccess
+    // B-follow-ux: shared app-wide follow list, so the "My Agents" hub's
+    // Following section updates immediately after a follow/unfollow here —
+    // no separate fetch/poll needed on the list side.
+    @Environment(FollowedAgentsStore.self) private var followedAgentsStore
     @State private var store: AgentDetailStore
     @State private var auditStore = AgentPickAuditStore()
     @State private var isFollowing: Bool = false
     @State private var followBusy: Bool = false
     @State private var showHistorySheet: Bool = false
     @State private var errorMessage: String? = nil
+    /// "Copy build" CTA — opens the agent-creation wizard prefilled from this
+    /// public agent's readable profile fields. Only ever shown for agents the
+    /// viewer doesn't own; the resulting agent is a brand-new one they own.
+    @State private var showCopyBuild: Bool = false
     /// Full-screen pick focus presentation (tap a mini ticket → the large card).
     /// No print intro here — public viewers never trigger a generation run.
     @State private var focusStartIndex: Int? = nil
@@ -117,6 +125,16 @@ struct PublicAgentDetailView: View {
                 agentColor: agentTint
             )
         }
+        // "Copy build" — full-screen (not a sheet) to match how `.createAgent`
+        // presents the same `AgentBuilderView` pixelwave carousel elsewhere.
+        .fullScreenCover(isPresented: $showCopyBuild) {
+            if let agent {
+                AgentBuilderView(
+                    initialDraft: .copying(fromPublicAgent: agent),
+                    onCreated: { _ in showCopyBuild = false }
+                )
+            }
+        }
         .overlay {
             if let start = focusStartIndex {
                 AgentPickFocusView(
@@ -178,15 +196,44 @@ struct PublicAgentDetailView: View {
 
     @ViewBuilder
     private var followBlock: some View {
-        Group {
+        VStack(spacing: 10) {
             if isOwnAgent {
                 ownAgentBanner
             } else {
                 followButton
+                copyBuildButton
             }
         }
         .padding(.horizontal, 16)
         .padding(.bottom, WidgetCard.gap)
+    }
+
+    /// "Copy build" — never enables Generate on someone else's agent; it just
+    /// opens the normal creation wizard prefilled from the public agent's
+    /// personality/insights/sports/identity so the viewer can tweak + create
+    /// their OWN agent from the same starting point.
+    private var copyBuildButton: some View {
+        Button {
+            showCopyBuild = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.on.doc")
+                Text("Copy build")
+                    .font(.system(size: 15, weight: .heavy))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.appSurfaceMuted)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.appBorder, lineWidth: 1)
+            )
+            .foregroundStyle(Color.appTextPrimary)
+        }
+        .buttonStyle(.plain)
     }
 
     private var followButton: some View {
@@ -436,6 +483,11 @@ struct PublicAgentDetailView: View {
         isFollowing = nextValue
         do {
             try await AgentChatService.setFollow(userId: userId, agentId: agentId, follow: nextValue)
+            // B1 — keep the shared FollowedAgentsStore in sync so the "My
+            // Agents" hub's Following section reflects this change the next
+            // time it appears, without waiting on its own poll/refresh.
+            followedAgentsStore.bind(userId: userId)
+            await followedAgentsStore.refresh()
         } catch {
             isFollowing = !nextValue
             errorMessage = (error as NSError).localizedDescription

@@ -39,6 +39,24 @@ public final class HistoricalAnalysisStore {
     public private(set) var mlbTeams: [(abbr: String, name: String)] = []
 
     public private(set) var savedFilters: [HistoricalAnalysisSavedFilter] = []
+    /// Set when My Systems fetch fails (list may still hold optimistic rows).
+    public private(set) var savedFiltersError: String?
+    public private(set) var leaderboard: [AnalysisSystemsLeaderboardRow] = []
+    public private(set) var isLoadingLeaderboard = false
+    public private(set) var isSavingSystem = false
+    /// Set when the user taps a leaderboard row — cleared on reset / new save apply.
+    public var viewingSystemBanner: ViewingSystemBanner?
+
+    public struct ViewingSystemBanner: Equatable, Sendable {
+        public let name: String
+        public let username: String
+        public let verdict: AnalysisSystemVerdict
+        public init(name: String, username: String, verdict: AnalysisSystemVerdict) {
+            self.name = name
+            self.username = username
+            self.verdict = verdict
+        }
+    }
 
     private var debounceTask: Task<Void, Never>?
     private let debounceNanos: UInt64 = 350_000_000
@@ -46,6 +64,15 @@ public final class HistoricalAnalysisStore {
     public init(sport: HistoricalAnalysisSport) {
         self.sport = sport
         self.snapshot = .defaults(for: sport)
+    }
+
+    /// Exact `p_filters` payload currently sent to the analysis RPC.
+    public func currentRPCFilters() -> [String: JSONValue] {
+        HistoricalAnalysisFilterBuilder.buildRPCFilters(
+            sport: sport,
+            snapshot: snapshot,
+            conferenceTeamMap: conferenceTeamMap
+        )
     }
 
     public var betType: String {
@@ -66,21 +93,27 @@ public final class HistoricalAnalysisStore {
         sport == .mlb ? false : HistoricalAnalysisBetType.limitedHistory.contains(betType)
     }
 
-    public func onAppear() async {
+    public func onAppear(userId: UUID? = nil) async {
         await loadBootstrap()
-        await refreshSaved(userId: nil)
+        await refreshSaved(userId: userId)
         await fetchNow()
     }
 
     public func refreshSaved(userId: UUID?) async {
         guard let userId else {
             savedFilters = []
+            savedFiltersError = nil
             return
         }
         do {
             savedFilters = try await HistoricalAnalysisSavedFiltersService.fetch(sport: sport, userId: userId)
+            savedFiltersError = nil
+            print("[HistoricalAnalysis] refreshSaved ok: \(savedFilters.count) \(sport.rawValue) systems")
         } catch {
-            savedFilters = []
+            // Never wipe an optimistic / previously-loaded list on a transient failure —
+            // that made successful saves look like they vanished from My Systems.
+            savedFiltersError = "Couldn't load your systems — pull to retry."
+            print("[HistoricalAnalysis] refreshSaved failed: \(error)")
         }
     }
 
@@ -95,13 +128,88 @@ public final class HistoricalAnalysisStore {
         await refreshSaved(userId: userId)
     }
 
+    /// Save a tracked system (filter + bet-side + exact RPC payload).
+    /// Returns the new row id. Optimistically inserts into `savedFilters` so My
+    /// Systems updates immediately even if the follow-up fetch hiccups.
+    @discardableResult
+    public func saveSystem(
+        name: String,
+        verdict: AnalysisSystemVerdict,
+        isPublic: Bool,
+        userId: UUID
+    ) async throws -> UUID {
+        isSavingSystem = true
+        defer { isSavingSystem = false }
+        let rpcFilters = currentRPCFilters()
+        let id = try await HistoricalAnalysisSavedFiltersService.saveSystem(
+            sport: sport,
+            userId: userId,
+            name: name,
+            betType: betType,
+            snapshot: snapshot,
+            verdict: verdict,
+            rpcBetType: betType,
+            rpcFilters: rpcFilters,
+            isPublic: isPublic
+        )
+        viewingSystemBanner = nil
+        let optimistic = HistoricalAnalysisSavedFilter(
+            id: id,
+            userId: userId,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            betType: betType,
+            filters: snapshot,
+            verdict: verdict,
+            rpcBetType: betType,
+            rpcFilters: rpcFilters,
+            isPublic: isPublic,
+            sinceSaved: nil,
+            createdAt: ISO8601DateFormatter().string(from: Date())
+        )
+        savedFilters = [optimistic] + savedFilters.filter { $0.id != id }
+        await refreshSaved(userId: userId)
+        return id
+    }
+
+    public func renameSystem(id: UUID, name: String, userId: UUID) async {
+        try? await HistoricalAnalysisSavedFiltersService.rename(sport: sport, id: id, name: name)
+        await refreshSaved(userId: userId)
+    }
+
+    public func setSystemPublic(id: UUID, isPublic: Bool, userId: UUID) async {
+        try? await HistoricalAnalysisSavedFiltersService.setPublic(sport: sport, id: id, isPublic: isPublic)
+        // Optimistic local flip so the toggle feels instant.
+        if let idx = savedFilters.firstIndex(where: { $0.id == id }) {
+            var next = savedFilters
+            next[idx].isPublic = isPublic
+            savedFilters = next
+        }
+        await refreshSaved(userId: userId)
+    }
+
     public func deleteSavedFilter(id: UUID, userId: UUID) async {
         try? await HistoricalAnalysisSavedFiltersService.delete(sport: sport, id: id)
         await refreshSaved(userId: userId)
     }
 
     public func restoreSaved(_ filter: HistoricalAnalysisSavedFilter) {
-        var restored = filter.filters
+        applyFilterSnapshot(filter.filters, betType: filter.betType)
+        viewingSystemBanner = nil
+    }
+
+    public func applyLeaderboardSystem(_ row: AnalysisSystemsLeaderboardRow) {
+        guard let filters = row.filters else { return }
+        applyFilterSnapshot(filters, betType: row.betType)
+        viewingSystemBanner = ViewingSystemBanner(
+            name: row.name,
+            username: row.username,
+            verdict: row.verdict
+        )
+    }
+
+    private func applyFilterSnapshot(_ filters: HistoricalAnalysisUISnapshot, betType rawBet: String) {
+        var restored = filters
+        if !rawBet.isEmpty { restored.betType = rawBet }
         if restored.selectedConferences.isEmpty, restored.conference != "any" {
             restored.selectedConferences = [restored.conference]
             restored.conference = "any"
@@ -109,6 +217,16 @@ public final class HistoricalAnalysisStore {
         snapshot = restored
         clampSeasonForBetType()
         scheduleFetch()
+    }
+
+    public func loadLeaderboard() async {
+        isLoadingLeaderboard = true
+        defer { isLoadingLeaderboard = false }
+        do {
+            leaderboard = try await HistoricalAnalysisSavedFiltersService.fetchLeaderboard(sport: sport)
+        } catch {
+            leaderboard = []
+        }
     }
 
     public func resetAllFilters() {
@@ -217,27 +335,16 @@ public final class HistoricalAnalysisStore {
     private func resetLineControlsForBetType() {
         let floor = seasonFloor
         if snapshot.seasonMin < floor { snapshot.seasonMin = floor }
-        switch sport {
-        case .nfl:
-            break
-        case .cfb:
-            break
-        case .mlb:
-            switch betType {
-            case "total": snapshot.lineMin = 5; snapshot.lineMax = 14
-            case "f5_total": snapshot.lineMin = 2; snapshot.lineMax = 8
-            // Other markets use the FG-total range as a cross-market filter.
-            // Reset so stale F5 bounds (2–8) don't leak in as total_max.
-            default: snapshot.lineMin = 5; snapshot.lineMax = 14
-            }
-        }
+        // A2/A4: MLB `lineMin/Max` (game total) and `f5TotalMin/Max` are now
+        // independent, always-on dims — no longer repurposed per bet type, so
+        // there is nothing to reset here on a bet-type switch (web parity).
     }
     
     // MARK: - B2: Symmetric Split Hero
     
     /// True when the current snapshot shows the forced ~50% scenario on a two-sided market
     public var shouldShowSymmetricSplit: Bool {
-        guard sport == .nfl || sport == .cfb else { return false }
+        if sport == .mlb { return snapshot.isSideSymmetricMlb() }
         return snapshot.isSideSymmetric(sport: sport)
     }
     
@@ -412,18 +519,13 @@ public final class HistoricalAnalysisStore {
         if snapshot.spreadMin != defaults.spreadMin || snapshot.spreadMax != defaults.spreadMax {
             dict["spreadSize"] = .array([.double(snapshot.spreadMin), .double(snapshot.spreadMax)])
         }
-        if sport == .mlb {
-            // One iOS slider backs two canonical dims: F5 bounds (2–8) on the F5
-            // total market, FG total bounds (5–14) on every other market.
-            if snapshot.betType == "f5_total" {
-                if snapshot.lineMin != 2 || snapshot.lineMax != 8 {
-                    dict["f5TotalRange"] = .array([.double(snapshot.lineMin), .double(snapshot.lineMax)])
-                }
-            } else if snapshot.lineMin != 5 || snapshot.lineMax != 14 {
-                dict["lineRange"] = .array([.double(snapshot.lineMin), .double(snapshot.lineMax)])
-            }
-        } else if snapshot.lineMin != defaults.lineMin || snapshot.lineMax != defaults.lineMax {
+        if snapshot.lineMin != defaults.lineMin || snapshot.lineMax != defaults.lineMax {
             dict["lineRange"] = .array([.double(snapshot.lineMin), .double(snapshot.lineMax)])
+        }
+        // A2/A4: MLB F5 total is an independent dim from the game total above —
+        // always on, regardless of `betType` (web parity).
+        if sport == .mlb, snapshot.f5TotalMin != 2 || snapshot.f5TotalMax != 8 {
+            dict["f5TotalRange"] = .array([.double(snapshot.f5TotalMin), .double(snapshot.f5TotalMax)])
         }
         if !snapshot.mlMin.isEmpty { dict["mlMin"] = .string(snapshot.mlMin) }
         if !snapshot.mlMax.isEmpty { dict["mlMax"] = .string(snapshot.mlMax) }
@@ -482,25 +584,28 @@ public final class HistoricalAnalysisStore {
             dict["teamDivisions"] = .array(snapshot.teamDivisions.map { .string($0) })
         }
         
+        // Shared helpers — used by both the football-only block below and the
+        // MLB block further down (MLB reuses several of the same field names
+        // where RPC keys match; see A4).
+        func putRange(_ key: String, _ value: [Double], _ defaults: [Double]) {
+            if value != defaults {
+                dict[key] = .array([.double(value[0]), .double(value[1])])
+            }
+        }
+        func putIntRange(_ key: String, _ value: [Int], _ defaults: [Int]) {
+            if value != defaults {
+                dict[key] = .array([.int(value[0]), .int(value[1])])
+            }
+        }
+        func putTri(_ key: String, _ value: Bool?) {
+            if let value { dict[key] = .bool(value) }
+        }
+        func putEnum(_ key: String, _ value: String, _ defaultValue: String = "any") {
+            if value != defaultValue { dict[key] = .string(value) }
+        }
+
         // Add new NFL fields when they differ from defaults
         if sport == .nfl || sport == .cfb {
-            func putRange(_ key: String, _ value: [Double], _ defaults: [Double]) {
-                if value != defaults {
-                    dict[key] = .array([.double(value[0]), .double(value[1])])
-                }
-            }
-            func putIntRange(_ key: String, _ value: [Int], _ defaults: [Int]) {
-                if value != defaults {
-                    dict[key] = .array([.int(value[0]), .int(value[1])])
-                }
-            }
-            func putTri(_ key: String, _ value: Bool?) {
-                if let value { dict[key] = .bool(value) }
-            }
-            func putEnum(_ key: String, _ value: String, _ defaultValue: String = "any") {
-                if value != defaultValue { dict[key] = .string(value) }
-            }
-
             putRange("winPct", snapshot.winPct, defaults.winPct)
             putIntRange("winStreak", snapshot.winStreak, defaults.winStreak)
             putIntRange("lossStreak", snapshot.lossStreak, defaults.lossStreak)
@@ -557,17 +662,22 @@ public final class HistoricalAnalysisStore {
             putIntRange("oppLastMargin", snapshot.oppLastMargin, defaults.oppLastMargin)
         }
 
-        // MLB-only dims (filterSchemaMlb canonical keys). Without these the
-        // chat model never saw months/days/series filters the user already had
-        // set, and its edits to them were dropped on restore.
+        // MLB-only + MLB-shared dims (filterSchemaMlb canonical keys). Without
+        // these the chat model never saw months/days/series filters the user
+        // already had set, and its edits to them were dropped on restore.
         if sport == .mlb {
             if snapshot.monthMin != defaults.monthMin || snapshot.monthMax != defaults.monthMax {
                 dict["months"] = .array([.int(snapshot.monthMin), .int(snapshot.monthMax)])
             }
-            // iOS UI is single-day; canonical is a days array.
-            if snapshot.dayOfWeek != "any" {
+            // `daysOfWeek` (multi) is the canonical MLB control — already
+            // serialized generically above (shared with NFL/CFB team-divisions
+            // block); fall back to the legacy single-day `dayOfWeek` here only
+            // if the array is empty but the old field was set.
+            if snapshot.daysOfWeek.isEmpty, snapshot.dayOfWeek != "any" {
                 dict["daysOfWeek"] = .array([.string(snapshot.dayOfWeek)])
             }
+            if !snapshot.timeMin.trimmingCharacters(in: .whitespaces).isEmpty { dict["timeMin"] = .string(snapshot.timeMin) }
+            if !snapshot.timeMax.trimmingCharacters(in: .whitespaces).isEmpty { dict["timeMax"] = .string(snapshot.timeMax) }
             if let v = snapshot.doubleheader { dict["doubleheader"] = .bool(v) }
             if let v = snapshot.interleague { dict["interleague"] = .bool(v) }
             if let v = snapshot.switchGame { dict["switchGame"] = .bool(v) }
@@ -585,12 +695,6 @@ public final class HistoricalAnalysisStore {
             if streakLo != nil || streakHi != nil {
                 dict["winLossStreak"] = .array([.double(streakLo ?? -25), .double(streakHi ?? 25)])
             }
-            if snapshot.lastResult != "any" { dict["lastResult"] = .string(snapshot.lastResult) }
-            let marginLo = Double(snapshot.lastMarginMin.trimmingCharacters(in: .whitespaces))
-            let marginHi = Double(snapshot.lastMarginMax.trimmingCharacters(in: .whitespaces))
-            if marginLo != nil || marginHi != nil {
-                dict["lastMargin"] = .array([.double(marginLo ?? -30), .double(marginHi ?? 30)])
-            }
             if snapshot.spHand != "any" { dict["spHand"] = .string(snapshot.spHand) }
             if snapshot.oppSpHand != "any" { dict["oppSpHand"] = .string(snapshot.oppSpHand) }
             if !snapshot.sp.isEmpty { dict["spNames"] = .array(snapshot.sp.map { .string($0.name) }) }
@@ -599,6 +703,65 @@ public final class HistoricalAnalysisStore {
             if snapshot.pfRunsMin != nil || snapshot.pfRunsMax != nil {
                 dict["pfRuns"] = .array([.double(snapshot.pfRunsMin ?? 85), .double(snapshot.pfRunsMax ?? 115)])
             }
+            putRange("spXfip", [snapshot.spXfipMin, snapshot.spXfipMax], [2, 7])
+            putRange("oppSpXfip", [snapshot.oppSpXfipMin, snapshot.oppSpXfipMax], [2, 7])
+            putRange("bpIp", [snapshot.bpIpMin, snapshot.bpIpMax], [0, 20])
+            putRange("bpXfip", [snapshot.bpXfipMin, snapshot.bpXfipMax], [2, 7])
+
+            // Last game (shared field names with football — same RPC keys).
+            putEnum("lastResult", snapshot.lastResult)
+            putEnum("lastAts", snapshot.lastAts)
+            putEnum("lastTotal", snapshot.lastTotal)
+            putEnum("lastRole", snapshot.lastRole)
+            putIntRange("lastMargin", snapshot.lastMargin, defaults.lastMargin)
+
+            putEnum("oppLastResult", snapshot.oppLastResult)
+            putEnum("oppLastAts", snapshot.oppLastAts)
+            putEnum("oppLastTotal", snapshot.oppLastTotal)
+            putEnum("oppLastRole", snapshot.oppLastRole)
+            putIntRange("oppLastMargin", snapshot.oppLastMargin, defaults.oppLastMargin)
+
+            // Season Record (run-based) — winPct/winStreak/lossStreak/minGames
+            // are shared fields; rpg/rapg/runDiffPg are MLB-only.
+            putRange("winPct", snapshot.winPct, defaults.winPct)
+            putIntRange("winStreak", snapshot.winStreak, defaults.winStreak)
+            putIntRange("lossStreak", snapshot.lossStreak, defaults.lossStreak)
+            putRange("rpg", snapshot.rpg, defaults.rpg)
+            putRange("rapg", snapshot.rapg, defaults.rapg)
+            putRange("runDiffPg", snapshot.runDiffPg, defaults.runDiffPg)
+            if snapshot.minGames != defaults.minGames { dict["minGames"] = .int(snapshot.minGames) }
+
+            // Run Line Profile
+            putRange("rlCoverPct", snapshot.rlCoverPct, defaults.rlCoverPct)
+            putIntRange("rlStreak", snapshot.rlStreak, defaults.rlStreak)
+
+            // Total Profile
+            putRange("overPct", snapshot.overPct, defaults.overPct)
+            putIntRange("overStreak", snapshot.overStreak, defaults.overStreak)
+            putIntRange("underStreak", snapshot.underStreak, defaults.underStreak)
+
+            // Prior Year
+            putIntRange("prevWins", snapshot.prevWins, defaults.prevWins)
+            putRange("prevWinPct", snapshot.prevWinPct, defaults.prevWinPct)
+
+            // Head-to-Head
+            putEnum("h2hLastWin", snapshot.h2hLastWin)
+            putEnum("h2hLastAts", snapshot.h2hLastAts)
+            putEnum("h2hLastOver", snapshot.h2hLastOver)
+            putIntRange("h2hLastMargin", snapshot.h2hLastMargin, defaults.h2hLastMargin)
+            putTri("h2hLastHome", snapshot.h2hLastHome)
+            putTri("h2hLastFav", snapshot.h2hLastFav)
+            putTri("h2hSameSeason", snapshot.h2hSameSeason)
+
+            // Opponent Record
+            putRange("oppWinPct", snapshot.oppWinPct, defaults.oppWinPct)
+            putRange("oppOverPct", snapshot.oppOverPct, defaults.oppOverPct)
+            putRange("oppRlCoverPct", snapshot.oppRlCoverPct, defaults.oppRlCoverPct)
+            putIntRange("oppWinStreak", snapshot.oppWinStreak, defaults.oppWinStreak)
+            putIntRange("oppLossStreak", snapshot.oppLossStreak, defaults.oppLossStreak)
+            putRange("oppRpg", snapshot.oppRpg, defaults.oppRpg)
+            putRange("oppRapg", snapshot.oppRapg, defaults.oppRapg)
+            putRange("oppPrevWinPct", snapshot.oppPrevWinPct, defaults.oppPrevWinPct)
         }
 
         return dict
@@ -798,7 +961,9 @@ public final class HistoricalAnalysisStore {
                     snapshot.monthMin = months[0]
                     snapshot.monthMax = months[1]
                 }
-                // Canonical daysOfWeek is an array; iOS MLB UI is single-day.
+                // A3: MLB UI now uses the multi-select `daysOfWeek` (restored
+                // generically above); keep the legacy single-day field in sync
+                // for old call sites that still read it.
                 if let days = webSnapshot["daysOfWeek"]?.arrayValue {
                     snapshot.dayOfWeek = days.compactMap { $0.stringValue }.first ?? "any"
                 }
@@ -817,14 +982,11 @@ public final class HistoricalAnalysisStore {
                     snapshot.restMin = v == [0, 10] ? nil : v[0]
                     snapshot.restMax = v == [0, 10] ? nil : v[1]
                 }
+                if let v = webSnapshot["timeMin"]?.stringValue { snapshot.timeMin = v }
+                if let v = webSnapshot["timeMax"]?.stringValue { snapshot.timeMax = v }
                 if let v = pairInts("winLossStreak") {
                     snapshot.streakMin = v == [-25, 25] ? "" : String(v[0])
                     snapshot.streakMax = v == [-25, 25] ? "" : String(v[1])
-                }
-                if let v = webSnapshot["lastResult"]?.stringValue { snapshot.lastResult = v }
-                if let v = pairInts("lastMargin") {
-                    snapshot.lastMarginMin = v == [-30, 30] ? "" : String(v[0])
-                    snapshot.lastMarginMax = v == [-30, 30] ? "" : String(v[1])
                 }
                 if let v = webSnapshot["spHand"]?.stringValue { snapshot.spHand = v }
                 if let v = webSnapshot["oppSpHand"]?.stringValue { snapshot.oppSpHand = v }
@@ -833,11 +995,70 @@ public final class HistoricalAnalysisStore {
                     snapshot.pfRunsMin = v == [85, 115] ? nil : v[0]
                     snapshot.pfRunsMax = v == [85, 115] ? nil : v[1]
                 }
-                // F5 market keeps its own canonical dim in the shared line slider.
-                if snapshot.betType == "f5_total", let v = pairDoubles("f5TotalRange") {
-                    snapshot.lineMin = v[0]
-                    snapshot.lineMax = v[1]
+                // A2/A4: F5 total is now an independent dim from the game total.
+                if let v = pairDoubles("f5TotalRange") {
+                    snapshot.f5TotalMin = v[0]
+                    snapshot.f5TotalMax = v[1]
                 }
+                if let v = pairDoubles("spXfip") { snapshot.spXfipMin = v[0]; snapshot.spXfipMax = v[1] }
+                if let v = pairDoubles("oppSpXfip") { snapshot.oppSpXfipMin = v[0]; snapshot.oppSpXfipMax = v[1] }
+                if let v = pairDoubles("bpIp") { snapshot.bpIpMin = v[0]; snapshot.bpIpMax = v[1] }
+                if let v = pairDoubles("bpXfip") { snapshot.bpXfipMin = v[0]; snapshot.bpXfipMax = v[1] }
+
+                // Last game (shared field names/RPC keys with football).
+                if let v = webSnapshot["lastResult"]?.stringValue { snapshot.lastResult = v }
+                if let v = webSnapshot["lastAts"]?.stringValue { snapshot.lastAts = v }
+                if let v = webSnapshot["lastTotal"]?.stringValue { snapshot.lastTotal = v }
+                if let v = webSnapshot["lastRole"]?.stringValue { snapshot.lastRole = v }
+                if let v = pairInts("lastMargin") { snapshot.lastMargin = v }
+
+                if let v = webSnapshot["oppLastResult"]?.stringValue { snapshot.oppLastResult = v }
+                if let v = webSnapshot["oppLastAts"]?.stringValue { snapshot.oppLastAts = v }
+                if let v = webSnapshot["oppLastTotal"]?.stringValue { snapshot.oppLastTotal = v }
+                if let v = webSnapshot["oppLastRole"]?.stringValue { snapshot.oppLastRole = v }
+                if let v = pairInts("oppLastMargin") { snapshot.oppLastMargin = v }
+
+                // Season Record (run-based)
+                if let v = pairDoubles("winPct") { snapshot.winPct = v }
+                if let v = pairInts("winStreak") { snapshot.winStreak = v }
+                if let v = pairInts("lossStreak") { snapshot.lossStreak = v }
+                if let v = pairDoubles("rpg") { snapshot.rpg = v }
+                if let v = pairDoubles("rapg") { snapshot.rapg = v }
+                if let v = pairDoubles("runDiffPg") { snapshot.runDiffPg = v }
+                if let v = webSnapshot["minGames"]?.intValue { snapshot.minGames = v }
+
+                // Run Line Profile
+                if let v = pairDoubles("rlCoverPct") { snapshot.rlCoverPct = v }
+                if let v = pairInts("rlStreak") { snapshot.rlStreak = v }
+
+                // Total Profile
+                if let v = pairDoubles("overPct") { snapshot.overPct = v }
+                if let v = pairInts("overStreak") { snapshot.overStreak = v }
+                if let v = pairInts("underStreak") { snapshot.underStreak = v }
+
+                // Prior Year
+                if let v = pairInts("prevWins") { snapshot.prevWins = v }
+                if let v = pairDoubles("prevWinPct") { snapshot.prevWinPct = v }
+
+                // Head-to-Head
+                if let v = webSnapshot["h2hLastWin"]?.stringValue { snapshot.h2hLastWin = v }
+                if let v = webSnapshot["h2hLastAts"]?.stringValue { snapshot.h2hLastAts = v }
+                if let v = webSnapshot["h2hLastOver"]?.stringValue { snapshot.h2hLastOver = v }
+                if let v = pairInts("h2hLastMargin") { snapshot.h2hLastMargin = v }
+                if let v = webSnapshot["h2hLastHome"]?.boolValue { snapshot.h2hLastHome = v }
+                if let v = webSnapshot["h2hLastFav"]?.boolValue { snapshot.h2hLastFav = v }
+                if let v = webSnapshot["h2hSameSeason"]?.boolValue { snapshot.h2hSameSeason = v }
+
+                // Opponent Record
+                if let v = pairDoubles("oppWinPct") { snapshot.oppWinPct = v }
+                if let v = pairDoubles("oppOverPct") { snapshot.oppOverPct = v }
+                if let v = pairDoubles("oppRlCoverPct") { snapshot.oppRlCoverPct = v }
+                if let v = pairInts("oppWinStreak") { snapshot.oppWinStreak = v }
+                if let v = pairInts("oppLossStreak") { snapshot.oppLossStreak = v }
+                if let v = pairDoubles("oppRpg") { snapshot.oppRpg = v }
+                if let v = pairDoubles("oppRapg") { snapshot.oppRapg = v }
+                if let v = pairDoubles("oppPrevWinPct") { snapshot.oppPrevWinPct = v }
+
                 // Canonical tempRange floor is 30 (web slider), iOS "any" is -10.
                 // A full-span [30,110] must NOT become temp_min=30 — that would
                 // silently exclude dome games (NULL temps) after every chat turn.

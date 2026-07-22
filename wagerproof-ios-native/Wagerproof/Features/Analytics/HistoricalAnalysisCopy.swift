@@ -254,6 +254,22 @@ enum HistoricalAnalysisCopy {
         let clear: () -> Void
     }
 
+    /// Read-only plain-English labels for a saved system's filter snapshot
+    /// (leaderboard cards, share posters). Same strings as the Trends chip row.
+    static func filterChipLabels(
+        sport: HistoricalAnalysisSport,
+        snapshot: HistoricalAnalysisUISnapshot
+    ) -> [String] {
+        activeChips(
+            sport: sport,
+            snapshot: snapshot,
+            seasonFloor: HistoricalAnalysisFilterBuilder.seasonFloor(
+                betType: snapshot.betType,
+                sport: sport
+            )
+        ) { _ in }.map(\.label)
+    }
+
     static func activeChips(
         sport: HistoricalAnalysisSport,
         snapshot: HistoricalAnalysisUISnapshot,
@@ -272,7 +288,10 @@ enum HistoricalAnalysisCopy {
         let weekMax = sport == .nfl ? 18 : 16
         let seasonMax = sport.seasonMax
         let spreadCfg = HistoricalAnalysisFilterBuilder.spreadConfig(sport: sport, betType: "fg_spread")
-        let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: betType)
+        // A2/A4: MLB's game-total dim (`lineMin/Max`) is fixed/cross-market now
+        // — always look up "total" bounds, not the currently selected betType
+        // (which previously hid the chip on ml/rl markets).
+        let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: sport == .mlb ? "total" : betType)
 
         if s.seasonMin != seasonFloor || s.seasonMax != seasonMax {
             chips.append(.init(label: "Seasons \(yearRange(s.seasonMin, s.seasonMax))") {
@@ -329,8 +348,24 @@ enum HistoricalAnalysisCopy {
                     s.monthMin = 3; s.monthMax = 11; onChange(s)
                 })
             }
-            if s.dayOfWeek != "any" {
+            // A5: multi-select `daysOfWeek` replaces the legacy single-day chip.
+            for day in s.daysOfWeek {
+                chips.append(.init(label: dayLabel(day)) {
+                    s.daysOfWeek.removeAll { $0 == day }; onChange(s)
+                })
+            }
+            if s.daysOfWeek.isEmpty, s.dayOfWeek != "any" {
                 chips.append(.init(label: s.dayOfWeek) { s.dayOfWeek = "any"; onChange(s) })
+            }
+            if !s.timeMin.isEmpty || !s.timeMax.isEmpty {
+                chips.append(.init(label: "Start \(s.timeMin.isEmpty ? "…" : s.timeMin)–\(s.timeMax.isEmpty ? "…" : s.timeMax)") {
+                    s.timeMin = ""; s.timeMax = ""; onChange(s)
+                })
+            }
+            if s.f5TotalMin > 2.001 || s.f5TotalMax < 7.999 {
+                chips.append(.init(label: "F5 total \(trimmed(s.f5TotalMin))–\(trimmed(s.f5TotalMax))") {
+                    s.f5TotalMin = 2; s.f5TotalMax = 8; onChange(s)
+                })
             }
             if s.seriesGameMin != nil || s.seriesGameMax != nil {
                 chips.append(.init(label: "Series game") {
@@ -352,14 +387,34 @@ enum HistoricalAnalysisCopy {
                     s.restMin = nil; s.restMax = nil; onChange(s)
                 })
             }
+            // Last game (shared fields/RPC keys with football).
             if s.lastResult != "any" {
-                chips.append(.init(label: "Last: \(s.lastResult)") {
-                    s.lastResult = "any"; onChange(s)
+                chips.append(.init(label: "Last: \(s.lastResult == "won" ? "Won" : "Lost")") { s.lastResult = "any"; onChange(s) })
+            }
+            if s.lastAts != "any" {
+                chips.append(.init(label: "Last: \(s.lastAts == "covered" ? "Covered RL" : "Didn't cover RL")") { s.lastAts = "any"; onChange(s) })
+            }
+            if s.lastTotal != "any" {
+                chips.append(.init(label: "Last: \(s.lastTotal == "over" ? "Over" : "Under")") { s.lastTotal = "any"; onChange(s) })
+            }
+            if s.lastRole != "any" {
+                chips.append(.init(label: "Last: \(s.lastRole == "favorite" ? "Favorite" : "Underdog")") { s.lastRole = "any"; onChange(s) })
+            }
+            if s.lastMargin != d.lastMargin {
+                chips.append(.init(label: "Last margin \(s.lastMargin[0])–\(s.lastMargin[1])") {
+                    s.lastMargin = d.lastMargin; onChange(s)
                 })
             }
             if !s.lastMarginMin.isEmpty || !s.lastMarginMax.isEmpty {
                 chips.append(.init(label: "Last margin") {
                     s.lastMarginMin = ""; s.lastMarginMax = ""; onChange(s)
+                })
+            }
+            let streakLo = Double(s.streakMin.trimmingCharacters(in: .whitespaces))
+            let streakHi = Double(s.streakMax.trimmingCharacters(in: .whitespaces))
+            if streakLo != nil || streakHi != nil {
+                chips.append(.init(label: "Streak \(streakLo.map { trimmed($0) } ?? "…")–\(streakHi.map { trimmed($0) } ?? "…")") {
+                    s.streakMin = ""; s.streakMax = ""; onChange(s)
                 })
             }
             for p in s.sp {
@@ -378,6 +433,26 @@ enum HistoricalAnalysisCopy {
             if s.oppSpHand != "any" {
                 chips.append(.init(label: "Opp SP \(s.oppSpHand)HP") { s.oppSpHand = "any"; onChange(s) })
             }
+            if s.spXfipMin > 2.001 || s.spXfipMax < 6.999 {
+                chips.append(.init(label: "SP xFIP \(trimmed(s.spXfipMin))–\(trimmed(s.spXfipMax))") {
+                    s.spXfipMin = 2; s.spXfipMax = 7; onChange(s)
+                })
+            }
+            if s.oppSpXfipMin > 2.001 || s.oppSpXfipMax < 6.999 {
+                chips.append(.init(label: "Opp SP xFIP \(trimmed(s.oppSpXfipMin))–\(trimmed(s.oppSpXfipMax))") {
+                    s.oppSpXfipMin = 2; s.oppSpXfipMax = 7; onChange(s)
+                })
+            }
+            if s.bpIpMin > 0.001 || s.bpIpMax < 19.999 {
+                chips.append(.init(label: "Bullpen IP \(trimmed(s.bpIpMin))–\(trimmed(s.bpIpMax))") {
+                    s.bpIpMin = 0; s.bpIpMax = 20; onChange(s)
+                })
+            }
+            if s.bpXfipMin > 2.001 || s.bpXfipMax < 6.999 {
+                chips.append(.init(label: "Bullpen xFIP \(trimmed(s.bpXfipMin))–\(trimmed(s.bpXfipMax))") {
+                    s.bpXfipMin = 2; s.bpXfipMax = 7; onChange(s)
+                })
+            }
             if s.interleague != nil {
                 chips.append(.init(label: "Interleague: \(s.interleague == true ? "Yes" : "No")") {
                     s.interleague = nil; onChange(s)
@@ -395,6 +470,123 @@ enum HistoricalAnalysisCopy {
                 chips.append(.init(label: "Park factor") {
                     s.pfRunsMin = nil; s.pfRunsMax = nil; onChange(s)
                 })
+            }
+
+            // Season Record (run-based) — winPct/winStreak/lossStreak/minGames
+            // share RPC keys with football; rpg/rapg/runDiffPg are MLB-only.
+            if s.winPct != d.winPct {
+                chips.append(.init(label: "Win% \(Int(s.winPct[0]))–\(Int(s.winPct[1]))%") { s.winPct = d.winPct; onChange(s) })
+            }
+            if s.winStreak != d.winStreak {
+                chips.append(.init(label: "Win streak \(s.winStreak[0])–\(s.winStreak[1])") { s.winStreak = d.winStreak; onChange(s) })
+            }
+            if s.lossStreak != d.lossStreak {
+                chips.append(.init(label: "Loss streak \(s.lossStreak[0])–\(s.lossStreak[1])") { s.lossStreak = d.lossStreak; onChange(s) })
+            }
+            if s.rpg != d.rpg {
+                chips.append(.init(label: "RPG \(trimmed(s.rpg[0]))–\(trimmed(s.rpg[1]))") { s.rpg = d.rpg; onChange(s) })
+            }
+            if s.rapg != d.rapg {
+                chips.append(.init(label: "RAPG \(trimmed(s.rapg[0]))–\(trimmed(s.rapg[1]))") { s.rapg = d.rapg; onChange(s) })
+            }
+            if s.runDiffPg != d.runDiffPg {
+                chips.append(.init(label: "Run diff \(trimmed(s.runDiffPg[0]))–\(trimmed(s.runDiffPg[1]))") { s.runDiffPg = d.runDiffPg; onChange(s) })
+            }
+            if s.minGames > 0 {
+                chips.append(.init(label: "Min \(s.minGames) games") { s.minGames = 0; onChange(s) })
+            }
+
+            // Run Line Profile
+            if s.rlCoverPct != d.rlCoverPct {
+                chips.append(.init(label: "RL cover% \(Int(s.rlCoverPct[0]))–\(Int(s.rlCoverPct[1]))%") { s.rlCoverPct = d.rlCoverPct; onChange(s) })
+            }
+            if s.rlStreak != d.rlStreak {
+                chips.append(.init(label: "RL streak \(s.rlStreak[0])–\(s.rlStreak[1])") { s.rlStreak = d.rlStreak; onChange(s) })
+            }
+
+            // Total Profile
+            if s.overPct != d.overPct {
+                chips.append(.init(label: "Over% \(Int(s.overPct[0]))–\(Int(s.overPct[1]))%") { s.overPct = d.overPct; onChange(s) })
+            }
+            if s.overStreak != d.overStreak {
+                chips.append(.init(label: "Over streak \(s.overStreak[0])–\(s.overStreak[1])") { s.overStreak = d.overStreak; onChange(s) })
+            }
+            if s.underStreak != d.underStreak {
+                chips.append(.init(label: "Under streak \(s.underStreak[0])–\(s.underStreak[1])") { s.underStreak = d.underStreak; onChange(s) })
+            }
+
+            // Prior Year
+            if s.prevWins != d.prevWins {
+                chips.append(.init(label: "Prev wins \(s.prevWins[0])–\(s.prevWins[1])") { s.prevWins = d.prevWins; onChange(s) })
+            }
+            if s.prevWinPct != d.prevWinPct {
+                chips.append(.init(label: "Prev win% \(Int(s.prevWinPct[0]))–\(Int(s.prevWinPct[1]))%") { s.prevWinPct = d.prevWinPct; onChange(s) })
+            }
+
+            // Head-to-Head
+            if s.h2hLastWin != "any" {
+                chips.append(.init(label: "H2H last: \(s.h2hLastWin == "yes" ? "Won" : "Lost")") { s.h2hLastWin = "any"; onChange(s) })
+            }
+            if s.h2hLastAts != "any" {
+                chips.append(.init(label: "H2H last: \(s.h2hLastAts == "yes" ? "Covered RL" : "Didn't cover RL")") { s.h2hLastAts = "any"; onChange(s) })
+            }
+            if s.h2hLastOver != "any" {
+                chips.append(.init(label: "H2H last: \(s.h2hLastOver == "yes" ? "Over" : "Under")") { s.h2hLastOver = "any"; onChange(s) })
+            }
+            if s.h2hLastMargin != d.h2hLastMargin {
+                chips.append(.init(label: "H2H margin \(s.h2hLastMargin[0])–\(s.h2hLastMargin[1])") { s.h2hLastMargin = d.h2hLastMargin; onChange(s) })
+            }
+            if let v = s.h2hLastHome {
+                chips.append(.init(label: "H2H last: \(v ? "Home" : "Away")") { s.h2hLastHome = nil; onChange(s) })
+            }
+            if let v = s.h2hLastFav {
+                chips.append(.init(label: "H2H last: \(v ? "Favorite" : "Underdog")") { s.h2hLastFav = nil; onChange(s) })
+            }
+            if let v = s.h2hSameSeason {
+                chips.append(.init(label: "H2H: \(v ? "Same season" : "Different season")") { s.h2hSameSeason = nil; onChange(s) })
+            }
+
+            // Opponent Record
+            if s.oppWinPct != d.oppWinPct {
+                chips.append(.init(label: "Opp win% \(Int(s.oppWinPct[0]))–\(Int(s.oppWinPct[1]))%") { s.oppWinPct = d.oppWinPct; onChange(s) })
+            }
+            if s.oppOverPct != d.oppOverPct {
+                chips.append(.init(label: "Opp over% \(Int(s.oppOverPct[0]))–\(Int(s.oppOverPct[1]))%") { s.oppOverPct = d.oppOverPct; onChange(s) })
+            }
+            if s.oppRlCoverPct != d.oppRlCoverPct {
+                chips.append(.init(label: "Opp RL cover% \(Int(s.oppRlCoverPct[0]))–\(Int(s.oppRlCoverPct[1]))%") { s.oppRlCoverPct = d.oppRlCoverPct; onChange(s) })
+            }
+            if s.oppWinStreak != d.oppWinStreak {
+                chips.append(.init(label: "Opp win streak \(s.oppWinStreak[0])–\(s.oppWinStreak[1])") { s.oppWinStreak = d.oppWinStreak; onChange(s) })
+            }
+            if s.oppLossStreak != d.oppLossStreak {
+                chips.append(.init(label: "Opp loss streak \(s.oppLossStreak[0])–\(s.oppLossStreak[1])") { s.oppLossStreak = d.oppLossStreak; onChange(s) })
+            }
+            if s.oppRpg != d.oppRpg {
+                chips.append(.init(label: "Opp RPG \(trimmed(s.oppRpg[0]))–\(trimmed(s.oppRpg[1]))") { s.oppRpg = d.oppRpg; onChange(s) })
+            }
+            if s.oppRapg != d.oppRapg {
+                chips.append(.init(label: "Opp RAPG \(trimmed(s.oppRapg[0]))–\(trimmed(s.oppRapg[1]))") { s.oppRapg = d.oppRapg; onChange(s) })
+            }
+            if s.oppPrevWinPct != d.oppPrevWinPct {
+                chips.append(.init(label: "Opp prev win% \(Int(s.oppPrevWinPct[0]))–\(Int(s.oppPrevWinPct[1]))%") { s.oppPrevWinPct = d.oppPrevWinPct; onChange(s) })
+            }
+
+            // Opponent last game
+            if s.oppLastResult != "any" {
+                chips.append(.init(label: "Opp last: \(s.oppLastResult == "won" ? "Won" : "Lost")") { s.oppLastResult = "any"; onChange(s) })
+            }
+            if s.oppLastAts != "any" {
+                chips.append(.init(label: "Opp last: \(s.oppLastAts == "covered" ? "Covered RL" : "Didn't cover RL")") { s.oppLastAts = "any"; onChange(s) })
+            }
+            if s.oppLastTotal != "any" {
+                chips.append(.init(label: "Opp last: \(s.oppLastTotal == "over" ? "Over" : "Under")") { s.oppLastTotal = "any"; onChange(s) })
+            }
+            if s.oppLastRole != "any" {
+                chips.append(.init(label: "Opp last: \(s.oppLastRole == "favorite" ? "Favorite" : "Underdog")") { s.oppLastRole = "any"; onChange(s) })
+            }
+            if s.oppLastMargin != d.oppLastMargin {
+                chips.append(.init(label: "Opp last margin \(s.oppLastMargin[0])–\(s.oppLastMargin[1])") { s.oppLastMargin = d.oppLastMargin; onChange(s) })
             }
         }
 

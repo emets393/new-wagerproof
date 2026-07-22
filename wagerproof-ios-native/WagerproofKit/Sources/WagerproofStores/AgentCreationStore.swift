@@ -60,6 +60,28 @@ public final class AgentCreationStore {
         /// onboarding agent-builder host) can construct a fresh draft
         /// when seeding from another source of truth.
         public init() {}
+
+        /// Build a "Copy build" draft from a public agent's readable profile
+        /// fields (personality, insights, sports, archetype, identity). Used
+        /// by `PublicAgentDetailView`'s "Copy build" CTA to prefill
+        /// `AgentBuilderView` for a viewer who isn't the agent's owner — they
+        /// end up creating a brand-new agent they own, seeded from the public
+        /// agent's build. No server-side clone RPC is involved.
+        public static func copying(fromPublicAgent agent: Agent) -> Draft {
+            var draft = Draft()
+            draft.preferredSports = agent.preferredSports
+            draft.archetype = agent.archetype
+            draft.name = "Copy of \(agent.name)"
+            draft.avatarEmoji = agent.avatarEmoji
+            draft.avatarColor = agent.avatarColor
+            draft.spriteIndex = agent.spriteIndexOverride
+            draft.personalityParams = agent.personalityParams
+            draft.customInsights = agent.customInsights
+            // Copies always start manual — the viewer hasn't opted into
+            // autopilot billing/scheduling for a build they didn't create.
+            draft.autoGenerate = false
+            return draft
+        }
     }
 
     // MARK: - State
