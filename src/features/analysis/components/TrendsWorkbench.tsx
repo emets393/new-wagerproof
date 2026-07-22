@@ -45,15 +45,29 @@ type ViewingSystem = {
 
 const TOAST = { duration: 2400 } as const;
 
-function useDebouncedValue<T>(value: T, delay: number): T {
+/**
+ * Debounce a value. When `flushKey` increments, commit immediately during render
+ * (My Systems / leaderboard restore) so betType + filters never query as a mismatched
+ * pair and stale empty keepPreviousData isn't painted under the new chips.
+ */
+function useDebouncedValue<T>(value: T, delay: number, flushKey = 0): T {
   const [v, setV] = React.useState(value);
   const key = JSON.stringify(value);
+  const prevFlush = React.useRef(flushKey);
+  const flushing = flushKey !== prevFlush.current;
+  if (flushing) {
+    prevFlush.current = flushKey;
+    setV(value);
+  }
+
   React.useEffect(() => {
+    if (flushing) return;
     const t = setTimeout(() => setV(value), delay);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, delay]);
-  return v;
+  }, [key, delay, flushKey]);
+
+  return flushing ? value : v;
 }
 
 function validBetType(adapter: TrendsSportAdapter, bt?: string): string {
@@ -84,6 +98,7 @@ function SportWorkbench({
   filtersOpen,
   setFiltersOpen,
   resultsTopRef,
+  restoreNonce,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adapter: TrendsSportAdapter<any>;
@@ -107,6 +122,8 @@ function SportWorkbench({
   filtersOpen: boolean;
   setFiltersOpen: (open: boolean) => void;
   resultsTopRef: React.RefObject<HTMLDivElement | null>;
+  /** Incremented on My Systems / leaderboard restore — flushes the query debounce. */
+  restoreNonce: number;
 }) {
   const { user } = useAuth();
   const data = adapter.useAdapterData();
@@ -121,14 +138,22 @@ function SportWorkbench({
   const saveMutation = useSaveSystem();
 
   const rpcFilters = React.useMemo(() => adapter.toRpcFilters(snapshot, data), [adapter, snapshot, data]);
-  const debounced = useDebouncedValue(rpcFilters, 350);
+  // Debounce betType + filters as one payload. Updating betType immediately while filters
+  // lagged 350ms used to fire a mismatched RPC that could paint "No games match".
+  const queryPayload = React.useMemo(
+    () => ({ betType, filters: rpcFilters }),
+    [betType, rpcFilters],
+  );
+  const debounced = useDebouncedValue(queryPayload, 350, restoreNonce);
+  const queryBetType = debounced.betType;
+  const queryFilters = debounced.filters;
 
   const analysisQuery = useQuery({
-    queryKey: ['trends', sport, betType, debounced],
+    queryKey: ['trends', sport, queryBetType, queryFilters],
     queryFn: async () => {
       const { data: res, error } = await collegeFootballSupabase.rpc(adapter.analysisRpc, {
-        p_bet_type: betType,
-        p_filters: debounced,
+        p_bet_type: queryBetType,
+        p_filters: queryFilters,
       });
       if (error) throw error;
       return res as AnalysisResponse;
@@ -138,13 +163,13 @@ function SportWorkbench({
   });
 
   const upcomingFilters = adapter.upcomingRpcFilters
-    ? adapter.upcomingRpcFilters(snapshot, debounced)
-    : debounced;
+    ? adapter.upcomingRpcFilters(snapshot, queryFilters)
+    : queryFilters;
   const upcomingQuery = useQuery({
-    queryKey: ['trends-upcoming', sport, betType, upcomingFilters],
+    queryKey: ['trends-upcoming', sport, queryBetType, upcomingFilters],
     queryFn: async () => {
       const { data: res, error } = await collegeFootballSupabase.rpc(adapter.upcomingRpc, {
-        p_bet_type: betType,
+        p_bet_type: queryBetType,
         p_filters: upcomingFilters,
       });
       if (error) throw error;
@@ -481,6 +506,10 @@ function SportWorkbench({
                     showsROI={showsROI}
                     limited={limited}
                   />
+                ) : isFetching ? (
+                  // Stale keepPreviousData can be empty while the restored-system query is in flight —
+                  // never flash "No games" over chips that already show the new filters.
+                  <TrendsSkeleton showsROI={showsROI} />
                 ) : (
                   <GlassCard radius={24} className="p-8 text-center text-sm text-muted-foreground">
                     No games match these filters — try widening them.
@@ -492,8 +521,8 @@ function SportWorkbench({
                   <SituationsGrid
                     adapter={adapter}
                     sport={sport}
-                    filters={debounced}
-                    activeBetType={betType}
+                    filters={queryFilters}
+                    activeBetType={queryBetType}
                     onFocus={focusSide}
                   />
                 )}
@@ -603,6 +632,7 @@ export function TrendsWorkbench({
   }));
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   const [viewingSystem, setViewingSystem] = React.useState<ViewingSystem | null>(null);
+  const [restoreNonce, setRestoreNonce] = React.useState(0);
   const resultsTopRef = React.useRef<HTMLDivElement | null>(null);
 
   const adapter = TREND_ADAPTERS[sport];
@@ -630,6 +660,8 @@ export function TrendsWorkbench({
    * Restore a system onto the right sport's snapshot, switching sport in the URL when needed.
    * flushSync so keyed SportWorkbench remounts (sport change) already sees the restored
    * snapshot — otherwise the URL can flip a frame early and paint defaults.
+   * restoreNonce flushes the query debounce so the RPC fires with the restored bet+filters
+   * immediately (no 350ms mismatched pair).
    */
   const applySystem = (args: {
     targetSport: Sport;
@@ -644,6 +676,7 @@ export function TrendsWorkbench({
     flushSync(() => {
       setSnapshots((prev) => ({ ...prev, [args.targetSport]: next }));
       setViewingSystem(args.viewing ?? null);
+      setRestoreNonce((n) => n + 1);
     });
     setUrl(args.targetSport, String(next.betType));
     // Next paint: scroll hero into view so "system page" is obvious after the sheet closes.
@@ -675,6 +708,7 @@ export function TrendsWorkbench({
       filtersOpen={filtersOpen}
       setFiltersOpen={setFiltersOpen}
       resultsTopRef={resultsTopRef}
+      restoreNonce={restoreNonce}
     />
   );
 }
