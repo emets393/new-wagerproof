@@ -166,14 +166,30 @@ export default function MLBHistoricalAnalysisScreen() {
   // defaults so any keys missing from an older/cross-client snapshot fall back
   // safely instead of throwing.
   const applySystemFilters = (raw: Record<string, unknown>, savedBetType: string) => {
-    setFilters({ ...defaultMlbFilters(), ...(raw as Partial<MlbAnalysisFilterState>) });
+    const coerced =
+      typeof raw === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(raw) as Record<string, unknown>;
+            } catch {
+              return {};
+            }
+          })()
+        : raw && typeof raw === 'object'
+          ? raw
+          : {};
+    setFilters({ ...defaultMlbFilters(), ...(coerced as Partial<MlbAnalysisFilterState>) });
     if (savedBetType) setBetType(savedBetType as MlbAnalysisBetType);
   };
 
   const handleApplyMySystem = (row: SavedSystemRow) => {
     applySystemFilters(row.filters || {}, row.bet_type);
     setMySystemsOpen(false);
-    setViewingSystem(null);
+    setViewingSystem(
+      row.verdict
+        ? { name: row.name, username: 'you', verdict: row.verdict }
+        : null,
+    );
   };
 
   const handleApplyLeaderboardSystem = (sys: LeaderboardSystem) => {
@@ -196,7 +212,11 @@ export default function MLBHistoricalAnalysisScreen() {
         onSuccess: () => {
           setSaveOpen(false);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setSnackbar(args.isPublic ? 'System saved & shared' : 'System saved');
+          setSnackbar(
+            args.isPublic
+              ? 'System saved & shared — scoring for the leaderboard…'
+              : 'System saved (private — turn Share on to list it)',
+          );
         },
         onError: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -278,11 +298,12 @@ export default function MLBHistoricalAnalysisScreen() {
           <View style={[styles.viewingBanner, { backgroundColor: theme.colors.primaryContainer, borderColor: theme.colors.primary }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.viewingText, { color: theme.colors.onSurface }]}>
-                Viewing {viewingSystem.name} by {viewingSystem.username} — bets {verdictSideWord(viewingSystem.verdict)}.
-                Save your own copy to track it.
+                {viewingSystem.username === 'you'
+                  ? `Viewing your system ${viewingSystem.name} — bets ${verdictSideWord(viewingSystem.verdict)}.`
+                  : `Viewing ${viewingSystem.name} by ${viewingSystem.username} — bets ${verdictSideWord(viewingSystem.verdict)}. Save your own copy to track it.`}
               </Text>
             </View>
-            {user && (
+            {user && viewingSystem.username !== 'you' && (
               <TouchableOpacity
                 style={[styles.viewingSaveBtn, { backgroundColor: theme.colors.primary }]}
                 onPress={() => setSaveOpen(true)}

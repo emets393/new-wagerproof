@@ -98,7 +98,10 @@ struct MySystemsSheet: View {
                     Text("\(AnalysisSystemCopy.verdictLabel(row.verdict))\(row.verdict != nil ? " · " : "")\(row.betType.uppercased())")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.appTextSecondary)
-                    Text(AnalysisSystemCopy.sinceSavedLabel(row.sinceSaved))
+                    Text(
+                        AnalysisSystemCopy.sinceSavedLabel(row.sinceSaved)
+                            + (!row.isPublic ? " · Private" : (row.sinceSaved == nil ? " · Scoring…" : ""))
+                    )
                         .font(.system(size: 12))
                         .foregroundStyle(Color.appTextSecondary)
                 }
@@ -116,7 +119,7 @@ struct MySystemsSheet: View {
                 ))
                 .labelsHidden()
                 .tint(Color.appPrimary)
-                Text("Share")
+                Text(row.isPublic ? "Shared" : "Private")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(Color.appTextSecondary)
             }

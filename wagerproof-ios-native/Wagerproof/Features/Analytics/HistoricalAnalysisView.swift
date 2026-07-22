@@ -220,7 +220,9 @@ struct HistoricalAnalysisView: View {
                 .foregroundStyle(Color.appPrimary)
                 .padding(.top, 2)
             Text(
-                "Viewing \(banner.name) by \(banner.username) — bets \(AnalysisSystemCopy.sideWord(banner.verdict)). Save your own copy to track it."
+                banner.username == "you"
+                    ? "Viewing your system \(banner.name) — bets \(AnalysisSystemCopy.sideWord(banner.verdict))."
+                    : "Viewing \(banner.name) by \(banner.username) — bets \(AnalysisSystemCopy.sideWord(banner.verdict)). Save your own copy to track it."
             )
             .font(.system(size: 13, weight: .medium))
             .foregroundStyle(Color.appTextPrimary)

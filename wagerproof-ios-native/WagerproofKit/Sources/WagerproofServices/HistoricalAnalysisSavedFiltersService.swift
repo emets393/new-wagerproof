@@ -178,4 +178,17 @@ public enum HistoricalAnalysisSavedFiltersService {
             .execute()
             .value
     }
+
+    /// Fire-and-forget: score the caller's systems so Share-on doesn't wait for nightly cron.
+    public static func requestGrade() async {
+        let client = await MainSupabase.shared.client
+        do {
+            try await client.functions.invoke(
+                "grade-analysis-systems",
+                options: FunctionInvokeOptions(body: [String: String]())
+            )
+        } catch {
+            print("[HistoricalAnalysisSavedFiltersService.requestGrade] \(error)")
+        }
+    }
 }

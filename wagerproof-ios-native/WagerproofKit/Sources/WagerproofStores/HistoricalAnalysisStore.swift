@@ -168,6 +168,9 @@ public final class HistoricalAnalysisStore {
         )
         savedFilters = [optimistic] + savedFilters.filter { $0.id != id }
         await refreshSaved(userId: userId)
+        if isPublic {
+            Task { await HistoricalAnalysisSavedFiltersService.requestGrade() }
+        }
         return id
     }
 
@@ -184,6 +187,9 @@ public final class HistoricalAnalysisStore {
             next[idx].isPublic = isPublic
             savedFilters = next
         }
+        if isPublic {
+            Task { await HistoricalAnalysisSavedFiltersService.requestGrade() }
+        }
         await refreshSaved(userId: userId)
     }
 
@@ -194,7 +200,15 @@ public final class HistoricalAnalysisStore {
 
     public func restoreSaved(_ filter: HistoricalAnalysisSavedFilter) {
         applyFilterSnapshot(filter.filters, betType: filter.betType)
-        viewingSystemBanner = nil
+        if let verdict = filter.verdict {
+            viewingSystemBanner = ViewingSystemBanner(
+                name: filter.name,
+                username: "you",
+                verdict: verdict
+            )
+        } else {
+            viewingSystemBanner = nil
+        }
     }
 
     public func applyLeaderboardSystem(_ row: AnalysisSystemsLeaderboardRow) {

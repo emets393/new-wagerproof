@@ -87,7 +87,19 @@ export async function saveSystem(input: SaveSystemInput): Promise<string> {
     console.error('[saveSystem]', error.message);
     throw error;
   }
-  return (data as { id: string }).id;
+  const id = (data as { id: string }).id;
+  if (input.isPublic) void requestGradeAnalysisSystems();
+  return id;
+}
+
+/** Ask grader to score the caller's systems now (auth JWT). Fire-and-forget. */
+export async function requestGradeAnalysisSystems(): Promise<void> {
+  try {
+    const { error } = await supabase.functions.invoke('grade-analysis-systems', { body: {} });
+    if (error) console.error('[requestGradeAnalysisSystems]', error.message);
+  } catch (e) {
+    console.error('[requestGradeAnalysisSystems]', e);
+  }
 }
 
 /** Rename a system (only `name` is updatable — filters+verdict are immutable). */
@@ -112,6 +124,7 @@ export async function setSystemPublic(id: string, isPublic: boolean): Promise<vo
     console.error('[setSystemPublic]', error.message);
     throw error;
   }
+  if (isPublic) void requestGradeAnalysisSystems();
 }
 
 /** Delete a saved system. */

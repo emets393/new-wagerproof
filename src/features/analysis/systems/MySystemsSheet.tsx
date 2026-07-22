@@ -144,6 +144,7 @@ export function MySystemsSheet({
                     </div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
                       {sinceSavedLabel(row.since_saved)}
+                      {!row.is_public ? ' · Private' : row.since_saved == null ? ' · Scoring…' : ''}
                     </div>
                   </button>
 
@@ -151,10 +152,23 @@ export function MySystemsSheet({
                     <Switch
                       checked={row.is_public}
                       onCheckedChange={(v) =>
-                        setPublicMutation.mutate({ sport: row.sport, id: row.id, isPublic: v })
+                        setPublicMutation.mutate(
+                          { sport: row.sport, id: row.id, isPublic: v },
+                          {
+                            onSuccess: () => {
+                              if (v) {
+                                toast.success('Shared — scoring for the leaderboard…', {
+                                  duration: 2800,
+                                });
+                              }
+                            },
+                          },
+                        )
                       }
                     />
-                    <span className="text-[9px] font-semibold text-muted-foreground">Share</span>
+                    <span className="text-[9px] font-semibold text-muted-foreground">
+                      {row.is_public ? 'Shared' : 'Private'}
+                    </span>
                   </div>
 
                   <div className="flex items-center">

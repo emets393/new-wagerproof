@@ -92,16 +92,32 @@ function agg(rows: Row[], verdict: string) {
 }
 
 Deno.serve(async (req) => {
-  if (CRON_SECRET && req.headers.get('x-cron-secret') !== CRON_SECRET) {
-    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
-  }
+  // Nightly cron sends x-cron-secret. Signed-in clients may also invoke after
+  // Share-on so a fresh 10+ game system lands on the leaderboard without waiting
+  // for 09:20 UTC — scoped to that user's saves only.
+  const cronOk = !CRON_SECRET || req.headers.get('x-cron-secret') === CRON_SECRET;
   const main = createClient(MAIN_URL, MAIN_KEY);
+  let filterUserId: string | null = null;
+  if (!cronOk) {
+    const auth = req.headers.get('Authorization') ?? '';
+    const jwt = auth.replace(/^Bearer\s+/i, '').trim();
+    if (!jwt) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
+    }
+    const { data: userData, error: userErr } = await main.auth.getUser(jwt);
+    if (userErr || !userData.user) {
+      return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
+    }
+    filterUserId = userData.user.id;
+  }
   const summary: Record<string, unknown> = {};
 
   for (const [sport, cfg] of Object.entries(SPORTS)) {
-    const { data: saves, error } = await main.from(cfg.table)
+    let q = main.from(cfg.table)
       .select('id, name, verdict, bet_type, rpc_bet_type, rpc_filters, created_at')
       .not('verdict', 'is', null).not('rpc_bet_type', 'is', null).not('rpc_filters', 'is', null);
+    if (filterUserId) q = q.eq('user_id', filterUserId);
+    const { data: saves, error } = await q;
     if (error) { summary[sport] = { error: error.message }; continue; }
 
     let graded = 0, skipped = 0;
