@@ -88,6 +88,12 @@ football go-live (they're off-season/dry-run today).
   the restored snapshot for one frame when switching sport (`key={sport}` remount vs URL).
   Web now `flushSync`s the snapshot + shows an own-system banner; iOS soft-decode maps
   web tuple keys (`spreadSize`/`lineRange`/…) so restore no longer falls back to defaults.
+- 2026-07-22 (hotfix 2): Tap-to-load still painted "No games match these filters" because
+  (1) `betType` updated immediately while RPC filters lagged the 350ms debounce → mismatched
+  query / stale empty `keepPreviousData`, and (2) empty state ignored `isFetching`.
+  Web now debounces `{betType, filters}` as one payload, flushes debounce on restore via
+  `restoreNonce`, and shows a skeleton while refetching. iOS/Expo fetch immediately on
+  restore and suppress the empty copy during refetch.
 
 ## E2E verification (2026-07-22)
 

@@ -277,12 +277,19 @@ struct HistoricalAnalysisView: View {
                     } else {
                         summaryText(data)
                     }
+                } else if store.isRefetching {
+                    // Stale empty analysis under new restored chips — don't flash "No games".
+                    ProgressView()
+                        .frame(maxWidth: .infinity, minHeight: 72)
                 } else {
                     Text("No games match these filters — try widening them.")
                         .font(.system(size: 15))
                         .foregroundStyle(Color.appTextSecondary)
                         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
                 }
+            } else if store.isRefetching {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 72)
             }
         }
     }

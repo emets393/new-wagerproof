@@ -136,6 +136,7 @@ export default function MLBHistoricalAnalysisScreen() {
     setFilters,
     patchFilters,
     resetFilters,
+    applyRestoredSystem,
     rpcFilters,
     data,
     upcoming,
@@ -178,8 +179,12 @@ export default function MLBHistoricalAnalysisScreen() {
         : raw && typeof raw === 'object'
           ? raw
           : {};
-    setFilters({ ...defaultMlbFilters(), ...(coerced as Partial<MlbAnalysisFilterState>) });
-    if (savedBetType) setBetType(savedBetType as MlbAnalysisBetType);
+    const nextFilters = {
+      ...defaultMlbFilters(),
+      ...(coerced as Partial<MlbAnalysisFilterState>),
+    };
+    const nextBet = (savedBetType || betType) as MlbAnalysisBetType;
+    applyRestoredSystem(nextFilters, nextBet);
   };
 
   const handleApplyMySystem = (row: SavedSystemRow) => {
@@ -397,6 +402,8 @@ export default function MLBHistoricalAnalysisScreen() {
                 </Text>
               </View>
             </View>
+          ) : loading || isRefetching ? (
+            <ActivityIndicator style={{ marginTop: 24 }} color={theme.colors.primary} />
           ) : (
             <Text style={[styles.empty, { color: theme.colors.onSurfaceVariant }]}>
               No games match these filters — try widening them.

@@ -230,7 +230,10 @@ public final class HistoricalAnalysisStore {
         }
         snapshot = restored
         clampSeasonForBetType()
-        scheduleFetch()
+        // Restore must refetch immediately — a 350ms debounce leaves the previous (often empty)
+        // analysis painted under the new filter chips and reads as "No games match".
+        debounceTask?.cancel()
+        Task { await fetchNow() }
     }
 
     public func loadLeaderboard() async {

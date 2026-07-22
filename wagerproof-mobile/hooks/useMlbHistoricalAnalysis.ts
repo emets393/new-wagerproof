@@ -25,6 +25,8 @@ export function useMlbHistoricalAnalysis() {
   const [isRefetching, setIsRefetching] = useState(false);
   const [teamOptions, setTeamOptions] = useState<{ abbr: string; name: string }[]>([]);
   const hasLoaded = useRef(false);
+  /** 0 = immediate fetch (My Systems restore); 350 = normal filter typing debounce. */
+  const debounceMs = useRef(350);
 
   useEffect(() => {
     fetchMlbTeamAbbrs().then(setTeamOptions);
@@ -38,6 +40,8 @@ export function useMlbHistoricalAnalysis() {
     else setLoading(true);
 
     let cancelled = false;
+    const delay = debounceMs.current;
+    debounceMs.current = 350;
     const t = setTimeout(async () => {
       const upcomingFilters = weatherOnly ? {} : rpcFilters;
       // Analysis first — paint hero even if upcoming is slow / times out.
@@ -51,7 +55,7 @@ export function useMlbHistoricalAnalysis() {
       const u = await fetchMlbAnalysisUpcoming(betType, upcomingFilters);
       if (cancelled) return;
       setUpcoming(u);
-    }, 350);
+    }, delay);
 
     return () => {
       cancelled = true;
@@ -66,6 +70,19 @@ export function useMlbHistoricalAnalysis() {
   const resetFilters = useCallback(() => {
     setFilters(defaultMlbFilters());
   }, []);
+
+  /** Restore a saved/leaderboard system — clear stale results and fetch immediately. */
+  const applyRestoredSystem = useCallback(
+    (nextFilters: MlbAnalysisFilterState, nextBetType: MlbAnalysisBetType) => {
+      debounceMs.current = 0;
+      setData(null);
+      setUpcoming([]);
+      setLoading(true);
+      setFilters(nextFilters);
+      setBetType(nextBetType);
+    },
+    [],
+  );
 
   const applyTeamVsPitcher = useCallback((team: string, pitcher: MlbPitcherOption) => {
     setFilters(prev => ({
@@ -89,6 +106,7 @@ export function useMlbHistoricalAnalysis() {
     setFilters,
     patchFilters,
     resetFilters,
+    applyRestoredSystem,
     rpcFilters,
     data,
     upcoming,
