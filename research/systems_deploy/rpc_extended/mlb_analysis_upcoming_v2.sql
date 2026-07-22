@@ -18,6 +18,11 @@ upc0 AS (
          mh.team AS home_abbr, ma.team AS away_abbr,
          s.home_team_name, s.away_team_name,
          s.home_sp_hand, s.away_sp_hand, s.home_sp_name, s.away_sp_name,
+         s.temperature_f AS wx_temp, s.wind_speed_mph AS wx_wind,
+         CASE WHEN s.wind_direction ILIKE 'out%' THEN 'out'
+              WHEN s.wind_direction ILIKE 'in%' THEN 'in'
+              WHEN s.wind_direction ILIKE '%to%' THEN 'cross'
+              WHEN s.wind_direction IS NULL THEN NULL ELSE 'none' END AS wx_wind_dir,
          p.home_ml, p.away_ml, p.total_line, p.f5_total_line
   FROM mlb_schedule s
   JOIN mlb_team_mapping mh ON mh.mlb_api_id = s.home_team_id
@@ -35,6 +40,7 @@ upc AS (
          home_team_name AS team_name, away_team_name AS opp_name,
          home_sp_hand AS sp_hand, away_sp_hand AS opp_sp_hand,
          home_sp_name AS sp_name, away_sp_name AS opp_sp_name,
+         wx_temp, wx_wind, wx_wind_dir,
          home_ml AS ml, total_line, f5_total_line
   FROM upc0
   UNION ALL
@@ -42,7 +48,7 @@ upc AS (
          false, away_abbr, home_abbr,
          home_team_id, away_sp_id, home_sp_id,
          away_team_name, home_team_name,
-         away_sp_hand, home_sp_hand, away_sp_name, home_sp_name, away_ml, total_line, f5_total_line
+         away_sp_hand, home_sp_hand, away_sp_name, home_sp_name, wx_temp, wx_wind, wx_wind_dir, away_ml, total_line, f5_total_line
   FROM upc0
 ),
 allseq AS (
@@ -291,6 +297,11 @@ WHERE
   AND (p_filters->>'bp_xfip_min' IS NULL OR opp_bp_season_xfip >= (p_filters->>'bp_xfip_min')::numeric)
   AND (p_filters->>'bp_xfip_max' IS NULL OR opp_bp_season_xfip <= (p_filters->>'bp_xfip_max')::numeric)
   AND (p_filters->>'dome' IS NULL OR is_dome = (p_filters->>'dome')::boolean)
+  AND (p_filters->>'temp_min' IS NULL OR wx_temp >= (p_filters->>'temp_min')::numeric)
+  AND (p_filters->>'temp_max' IS NULL OR wx_temp <= (p_filters->>'temp_max')::numeric)
+  AND (p_filters->>'wind_min' IS NULL OR wx_wind >= (p_filters->>'wind_min')::numeric)
+  AND (p_filters->>'wind_max' IS NULL OR wx_wind <= (p_filters->>'wind_max')::numeric)
+  AND (p_filters->>'wind_dir' IS NULL OR wx_wind_dir = (p_filters->>'wind_dir'))
   AND (p_filters->>'pf_runs_min' IS NULL OR pf_runs >= (p_filters->>'pf_runs_min')::numeric)
   AND (p_filters->>'pf_runs_max' IS NULL OR pf_runs <= (p_filters->>'pf_runs_max')::numeric)
   AND (p_filters->'sp' IS NULL OR sp_id::text IN (SELECT jsonb_array_elements_text(p_filters->'sp')))
@@ -355,5 +366,7 @@ WHERE
   AND (p_filters->>'h2h_last_fav' IS NULL OR h2h_last_fav = (p_filters->>'h2h_last_fav')::boolean)
   AND (p_filters->>'h2h_last_margin_min' IS NULL OR h2h_last_margin >= (p_filters->>'h2h_last_margin_min')::numeric)
   AND (p_filters->>'h2h_last_margin_max' IS NULL OR h2h_last_margin <= (p_filters->>'h2h_last_margin_max')::numeric)
-  AND (p_filters->>'h2h_same_season' IS NULL OR h2h_same_season = (p_filters->>'h2h_same_season')::boolean);
+  AND (p_filters->>'h2h_same_season' IS NULL OR h2h_same_season = (p_filters->>'h2h_same_season')::boolean)
+  AND (p_filters->>'season_min' IS NULL OR (SELECT season FROM cs) >= (p_filters->>'season_min')::int)
+  AND (p_filters->>'season_max' IS NULL OR (SELECT season FROM cs) <= (p_filters->>'season_max')::int);
 $function$

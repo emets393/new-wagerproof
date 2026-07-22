@@ -55,13 +55,17 @@ mirror row's price. Current season: MLB = calendar year; NFL/CFB = Aug+ rolls fo
 
 ## Upcoming-games filters (today's matches)
 
-`mlb_analysis_upcoming` v2 (2026-07-22) supports the FULL as-of filter family with the
-same keys as `mlb_analysis` — current-season form (records/streaks/rates/prev-year),
-last-game flags, opponent mirrors, and H2H are computed live from `mlb_analysis_base`
-at query time (source: `research/systems_deploy/rpc_extended/mlb_analysis_upcoming_v2.sql`).
-`day_of_week` is array-typed (parity with base). **NFL/CFB `*_analysis_upcoming` still
-lack the as-of keys** — they silently ignore them; extend them the same way at 2026
-football go-live (they're off-season/dry-run today).
+ALL THREE `*_analysis_upcoming` RPCs (v2, 2026-07-22) support the FULL filter-key set of
+their historical engine — verified by `research/systems_deploy/audit_filter_keys.py`
+(NFL 123/123, CFB 118/118, MLB 112/112 keys). Current-season form, last-game flags,
+opponent mirrors, prev-year and H2H are computed live from the base tables; slate context
+(lines/ML/weather/ranks/referee) comes from the slate tables (`nfl/cfb_dryrun_games`,
+`mlb_schedule`). Sources: `rpc_extended/{nfl,cfb,mlb}_analysis_upcoming_v2.sql`.
+Design rules: (1) a key that CANNOT be honored on a slate gets an honest zero-row clause
+(`pre_bye`, `playoff_round`, non-regular `season_type`/`game_type`) — never silently
+ignored; (2) null context (e.g. weather forecast not yet populated, week-1 season-to-date)
+excludes the game, matching base null semantics; (3) **run the audit after ANY filter-key
+addition** — it exits 1 listing keys the upcoming RPC would silently ignore.
 
 ## Known data quirks
 
