@@ -34,6 +34,7 @@ interface ParlayRailSectionProps {
   onRetry?: () => void;
   /** When set, an empty (loaded) slate shows this muted line instead of hiding. */
   emptyNote?: string;
+  sectionId?: string;
 }
 
 function TicketRail({ tickets, rail }: { tickets: ParlayTicket[]; rail: HorizontalRail }) {
@@ -69,6 +70,7 @@ export function ParlayRailSection({
   isError,
   onRetry,
   emptyNote,
+  sectionId,
 }: ParlayRailSectionProps) {
   const [category, setCategory] = useState<string>(ALL);
 
@@ -108,7 +110,7 @@ export function ParlayRailSection({
   const showRailControls = !isLoading && !isError && tickets.length > 0 && rail.hasOverflow;
 
   return (
-    <section className="group flex min-w-0 flex-col gap-2.5">
+    <section id={sectionId} className="group scroll-mt-24 flex min-w-0 flex-col gap-2.5">
       <SectionHeader
         title={title}
         subtitle={subtitle}
@@ -159,6 +161,7 @@ interface RailPresetProps {
   isLoading: boolean;
   isError?: boolean;
   onRetry?: () => void;
+  sectionId?: string;
 }
 
 export function ParlayGodSection(props: RailPresetProps) {

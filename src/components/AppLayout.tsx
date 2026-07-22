@@ -6,6 +6,8 @@ import { useAdminMode } from "@/contexts/AdminModeContext";
 import { useRevenueCatWeb } from "@/hooks/useRevenueCatWeb";
 import { supabase } from "@/integrations/supabase/client";
 import { navItems } from "@/nav-items";
+import { isSportInSeason, sportSeasonStartsLabel } from "@/features/games/sportSeasons";
+import type { GamesSport } from "@/features/games/types";
 import { GradientText } from "@/components/ui/gradient-text";
 import {
   Sidebar,
@@ -42,6 +44,14 @@ import {
 function sentenceCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
+
+const SIDEBAR_SPORT_ROUTES: Record<string, GamesSport> = {
+  '/games?sport=nfl': 'nfl',
+  '/games?sport=cfb': 'cfb',
+  '/games?sport=nba': 'nba',
+  '/games?sport=ncaab': 'ncaab',
+  '/games?sport=mlb': 'mlb',
+};
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
@@ -81,21 +91,44 @@ export function AppLayout() {
   // Onboarding check is now handled by OnboardingGuard component
 
   // Filter nav items based on admin mode and exclude Home/Account from sidebar
-  const visibleNavItems = navItems.filter(item => {
-    // Exclude Home and Account from sidebar navigation
-    if (item.to === '/home' || item.to === '/account') {
-      return false;
-    }
-    // Keep features in code but hide from sidebar access.
-    if (item.hidden) {
-      return false;
-    }
-    // Filter admin-only items - only show when admin mode is enabled
-    if (item.requiresAdmin) {
-      return adminModeEnabled;
-    }
-    return true;
-  });
+  const visibleNavItems = useMemo(() => {
+    const filtered = navItems.filter(item => {
+      // Exclude Home and Account from sidebar navigation
+      if (item.to === '/home' || item.to === '/account') return false;
+      // Keep features in code but hide from sidebar access.
+      if (item.hidden) return false;
+      // Filter admin-only items - only show when admin mode is enabled
+      if (item.requiresAdmin) return adminModeEnabled;
+      return true;
+    });
+
+    const sportsHeaderIndex = filtered.findIndex((item) => item.isHeader && item.title === 'SPORTS');
+    if (sportsHeaderIndex < 0) return filtered;
+    const nextHeaderOffset = filtered.slice(sportsHeaderIndex + 1).findIndex((item) => item.isHeader);
+    const sportsEndIndex = nextHeaderOffset < 0 ? filtered.length : sportsHeaderIndex + 1 + nextHeaderOffset;
+    const sportsItems = filtered.slice(sportsHeaderIndex + 1, sportsEndIndex);
+
+    const seasonAwareSports = sportsItems
+      .map((item, originalIndex) => {
+        const sport = item.to ? SIDEBAR_SPORT_ROUTES[item.to] : undefined;
+        const inSeason = sport ? isSportInSeason(sport) : false;
+        return {
+          item: sport && !inSeason
+            ? { ...item, status: sportSeasonStartsLabel(sport) }
+            : item,
+          inSeason,
+          originalIndex,
+        };
+      })
+      .sort((a, b) => Number(b.inSeason) - Number(a.inSeason) || a.originalIndex - b.originalIndex)
+      .map(({ item }) => item);
+
+    return [
+      ...filtered.slice(0, sportsHeaderIndex + 1),
+      ...seasonAwareSports,
+      ...filtered.slice(sportsEndIndex),
+    ];
+  }, [adminModeEnabled]);
 
   const isActivePath = (to: string) => {
     const [path, query] = to.split('?');
@@ -253,7 +286,7 @@ export function AppLayout() {
         {/* gap-0.5 over the shadcn gap-1 — rows read as one list, not stacked chips. */}
         <SidebarMenu className="gap-0.5">
           {visibleNavItems.map((item, index) => {
-            const { to, title, icon, comingSoon, wip, subItems, isHeader } = item;
+            const { to, title, icon, comingSoon, wip, status, subItems, isHeader } = item;
             
             // Section Headers
             if (isHeader) {
@@ -294,6 +327,7 @@ export function AppLayout() {
                   key={to ?? title}
                   to={to}
                   title={title}
+                  status={status}
                   icon={icon}
                   wip={wip}
                   active={Boolean(to) && activeKey === `item:${to}`}
@@ -309,6 +343,7 @@ export function AppLayout() {
               <SidebarMenuItem key={to}>
                 <SidebarNavButton
                   title={title}
+                  status={status}
                   icon={icon}
                   wip={wip}
                   active={Boolean(to) && activeKey === `item:${to}`}

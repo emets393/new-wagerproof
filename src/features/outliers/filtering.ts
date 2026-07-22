@@ -113,6 +113,23 @@ const MARKET_ORDER: string[] = [
   'player_reception_yds', 'player_receptions', 'player_anytime_td',
 ];
 
+/** MLB names the same full-game markets ML/RL/OU. Collapse those aliases so
+ * the All Sports view produces one cross-sport rail per betting concept. */
+function canonicalMarketKey(key: string): string {
+  switch (key) {
+    case 'ml': return 'moneyline';
+    case 'rl': return 'spread';
+    case 'ou': return 'total';
+    default: return key;
+  }
+}
+
+const CANONICAL_MARKET_TITLES: Record<string, string> = {
+  spread: 'Spread / Run Line',
+  moneyline: 'Moneyline',
+  total: 'Game Total',
+};
+
 function marketRank(key: string): number {
   const idx = MARKET_ORDER.indexOf(key);
   return idx === -1 ? MARKET_ORDER.length : idx;
@@ -126,16 +143,18 @@ function marketRank(key: string): number {
 export function buildMarketSections<TCard extends OutliersTrendsCard>(
   cards: TCard[],
   cap: number = SECTION_CARD_CAP,
+  combineSportAliases = false,
 ): OutliersTrendsMarketSection<TCard>[] {
   const keyOrder: string[] = [];
   const groups = new Map<string, TCard[]>();
   for (const card of cards) {
     if (card.isPlayerOverflow) continue;
-    let bucket = groups.get(card.marketKey);
+    const key = combineSportAliases ? canonicalMarketKey(card.marketKey) : card.marketKey;
+    let bucket = groups.get(key);
     if (!bucket) {
       bucket = [];
-      groups.set(card.marketKey, bucket);
-      keyOrder.push(card.marketKey);
+      groups.set(key, bucket);
+      keyOrder.push(key);
     }
     bucket.push(card);
   }
@@ -144,7 +163,9 @@ export function buildMarketSections<TCard extends OutliersTrendsCard>(
       const bucket = groups.get(key) ?? [];
       return {
         marketKey: key,
-        title: bucket[0]?.betTypeLabel ?? key,
+        title: combineSportAliases
+          ? (CANONICAL_MARKET_TITLES[key] ?? bucket[0]?.betTypeLabel ?? key)
+          : (bucket[0]?.betTypeLabel ?? key),
         cards: bucket.slice(0, cap),
       };
     })

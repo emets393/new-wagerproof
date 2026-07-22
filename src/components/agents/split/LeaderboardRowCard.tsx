@@ -3,9 +3,10 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { GlassCard } from '@/components/ios';
 import { AgentAvatarTile } from './AgentAvatarTile';
+import { AgentSelectionGlow } from './AgentSelectionGlow';
 import { RankBadge } from './RankBadge';
 import { formatNetUnits } from '@/types/agent';
-import { getPrimaryColor, DEFAULT_AGENT_COLOR } from '@/utils/agentColors';
+import { getAgentColorPair, DEFAULT_AGENT_COLOR } from '@/utils/agentColors';
 import type { LeaderboardEntry } from '@/services/agentPerformanceService';
 
 interface LeaderboardRowCardProps {
@@ -29,7 +30,7 @@ export function LeaderboardRowCard({
 }: LeaderboardRowCardProps) {
   const record = `${entry.wins}-${entry.losses}${entry.pushes > 0 ? `-${entry.pushes}` : ''}`;
   const winRate = entry.win_rate != null ? `${(entry.win_rate * 100).toFixed(1)}%` : '--';
-  const primary = getPrimaryColor(entry.avatar_color || DEFAULT_AGENT_COLOR);
+  const [primary, secondary] = getAgentColorPair(entry.avatar_color || DEFAULT_AGENT_COLOR);
   const sports = entry.preferred_sports ?? [];
 
   return (
@@ -45,10 +46,11 @@ export function LeaderboardRowCard({
           onSelect(entry.avatar_id);
         }
       }}
-      className={cn('px-3 py-2.5', isSelected && 'ring-2')}
-      style={isSelected ? ({ ['--tw-ring-color' as string]: `${primary}80` } as React.CSSProperties) : undefined}
+      className={cn('relative overflow-hidden px-3 py-2.5')}
     >
-      <div className="flex items-center gap-2.5">
+      {isSelected && <AgentSelectionGlow primary={primary} secondary={secondary} />}
+
+      <div className="relative flex items-center gap-2.5">
         <RankBadge rank={rank} />
         <AgentAvatarTile
           agentId={entry.avatar_id}

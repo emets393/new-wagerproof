@@ -105,6 +105,8 @@ export interface PersonalityParams {
   min_underdog_odds: number | null;
   max_picks_per_day: Scale1To5;
   skip_weak_slates: boolean;
+  weekly_parlay_enabled?: boolean;
+  weekly_parlay_legs?: 2 | 3 | 4 | 5 | 6;
 
   trust_model: Scale1To5;
   trust_polymarket: Scale1To5;
@@ -154,6 +156,7 @@ export interface AgentProfile {
   name: string;
   avatar_emoji: string;
   avatar_color: string;
+  sprite_index: number | null;
   preferred_sports: Sport[];
   archetype: ArchetypeId | null;
   personality_params: PersonalityParams;
@@ -339,6 +342,8 @@ export const PersonalityParamsSchema = z.object({
   min_underdog_odds: z.number().min(100).nullable(),
   max_picks_per_day: Scale1To5Schema,
   skip_weak_slates: z.boolean(),
+  weekly_parlay_enabled: z.boolean().optional(),
+  weekly_parlay_legs: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
 
   trust_model: Scale1To5Schema,
   trust_polymarket: Scale1To5Schema,
@@ -393,6 +398,7 @@ export const CreateAgentSchema = z.object({
     (val) => /^#[0-9a-fA-F]{6}$/.test(val) || /^gradient:#[0-9a-fA-F]{6},#[0-9a-fA-F]{6}$/.test(val),
     { message: 'Must be hex (#xxxxxx) or gradient (gradient:#xxxxxx,#xxxxxx)' }
   ),
+  sprite_index: z.number().int().min(0).max(7).nullable().optional(),
   // Cross-family selections are allowed — they run on the V3 engine (the
   // single-family refine was removed). isSingleSportFamily is kept as a soft UI
   // signal. See .claude/docs/agents/13_CROSS_SPORT_AND_PARLAYS.md.

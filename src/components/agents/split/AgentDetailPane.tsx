@@ -3,15 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Bot, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { GlassCard, SkeletonBlock, SkeletonCircle, WidgetCard } from '@/components/ios';
-import { AgentGenerationTerminal, AgentPerformanceCharts } from '@/components/agents';
+import { GlassCard, SkeletonBlock, SkeletonCircle, TeamAura, WidgetCard } from '@/components/ios';
+import { AgentGenerationTerminal, AgentPerformanceCharts, AgentRecentActivity } from '@/components/agents';
 import { AgentDetailHero } from './AgentDetailHero';
-import { AgentPicksSection } from './AgentPicksSection';
+import { AgentPicksSection, AgentTodaysPicksSection, type AgentHistoryItem } from './AgentPicksSection';
 import { useAgent } from '@/hooks/useAgents';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useAgentFollow } from '@/hooks/useAgentFollow';
 import { useAuth } from '@/contexts/AuthContext';
-import { getPrimaryColor, DEFAULT_AGENT_COLOR } from '@/utils/agentColors';
+import { getAgentColorPair, DEFAULT_AGENT_COLOR } from '@/utils/agentColors';
 import { BarChart3 } from 'lucide-react';
 import type { AgentGenerationState } from './generationState';
 
@@ -20,6 +20,8 @@ interface AgentDetailPaneProps {
   generation?: AgentGenerationState;
   onGenerate: (agentId: string) => void;
   onClearSelection: () => void;
+  selectedTicketId: string | null;
+  onSelectTicket: (item: AgentHistoryItem, accent?: string) => void;
 }
 
 function HeroSkeleton() {
@@ -52,6 +54,8 @@ export function AgentDetailPane({
   generation,
   onGenerate,
   onClearSelection,
+  selectedTicketId,
+  onSelectTicket,
 }: AgentDetailPaneProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -97,19 +101,14 @@ export function AgentDetailPane({
     );
   }
 
-  const primary = getPrimaryColor(agent.avatar_color || DEFAULT_AGENT_COLOR);
+  const [primary, secondary] = getAgentColorPair(agent.avatar_color || DEFAULT_AGENT_COLOR);
   const showTerminal = isOwner && generation && generation.status !== 'idle';
 
   return (
     <div className="relative h-full overflow-y-auto">
-      {/* Agent-color aura behind the pane content */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[320px]"
-        style={{
-          background: `radial-gradient(70% 60% at 50% 0%, ${primary}26 0%, transparent 70%)`,
-        }}
-      />
+      {/* Same team-color aura the /games detail pane uses, seeded from the
+          agent's two-tone color pair instead of two team colors. */}
+      <TeamAura awayColor={primary} homeColor={secondary} />
 
       <motion.div
         key={agent.id}
@@ -135,23 +134,51 @@ export function AgentDetailPane({
             status={generation.status}
             errorMessage={generation.error}
             result={generation.result}
+            progress={generation.progress}
+            accent={primary}
           />
         )}
 
-        {canSeePicks ? (
-          <AgentPerformanceCharts agent={agent} />
-        ) : (
-          <WidgetCard icon={<BarChart3 />} title="Performance">
-            <div className="flex flex-col items-center gap-2 py-6">
-              <Lock className="h-6 w-6 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Upgrade to Pro to view performance charts
-              </p>
-            </div>
-          </WidgetCard>
-        )}
+        {/* Widgets render on the /games detail-pane slate surface (light mode)
+            via the shared tint vars, so both pages read as one product.
+            See src/features/games/detail/WIDGET_DESIGN.md. */}
+        <div className="space-y-3 [--widget-card-bg:rgba(241,245,249,0.92)] [--widget-card-border:rgba(15,23,42,0.1)]">
+          {canSeePicks && (
+            <AgentTodaysPicksSection
+              agentId={agent.id}
+              accent={primary}
+              selectedTicketId={selectedTicketId}
+              onSelectTicket={(item) => onSelectTicket(item, primary)}
+            />
+          )}
 
-        <AgentPicksSection agentId={agent.id} canSeePicks={canSeePicks} />
+          {canSeePicks ? (
+            <AgentPerformanceCharts agent={agent} />
+          ) : (
+            <WidgetCard
+              icon={<BarChart3 />}
+              title="Performance"
+              subtitle="How this agent's graded picks have paid out to date."
+            >
+              <div className="flex flex-col items-center gap-2 py-6">
+                <Lock className="h-6 w-6 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Upgrade to Pro to view performance charts
+                </p>
+              </div>
+            </WidgetCard>
+          )}
+
+          <AgentRecentActivity agent={agent} />
+
+          <AgentPicksSection
+            agentId={agent.id}
+            canSeePicks={canSeePicks}
+            accent={primary}
+            selectedTicketId={selectedTicketId}
+            onSelectTicket={(item) => onSelectTicket(item, primary)}
+          />
+        </div>
       </motion.div>
     </div>
   );

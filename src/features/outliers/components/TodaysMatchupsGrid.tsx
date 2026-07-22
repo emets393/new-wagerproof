@@ -2,7 +2,8 @@
 // Spans every active sport — MLB pulls its own today's-games list (React Query
 // dedupes with the Parlay God hook); NFL/NCAAF reuse the slates already fetched
 // by useOutliersTrendsMulti. See specs/outliers_spec.md §4d.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { SkeletonBlock } from '@/components/ios';
 import { useTodaysMatchupGames } from '@/hooks/useTodaysMatchupGames';
 import { SectionHeader } from './SectionHeader';
@@ -11,8 +12,8 @@ import { teamVisuals } from '../teamVisuals';
 import { OUTLIERS_SPORT_LABELS } from '../types';
 import type { OutliersTrendsGame, OutliersTrendsSport } from '../types';
 
-/** Collapsed height ≈ 2 rows of 3 tiles; "Show more" reveals the rest. */
-const COLLAPSED_COUNT = 6;
+/** Keep the matchup band at a fixed three rows of three tiles. */
+const MATCHUPS_PER_PAGE = 9;
 
 /** `/games` uses `cfb` for college football; Outliers calls it `ncaaf`. */
 function gamesSportParam(sport: OutliersTrendsSport): string {
@@ -124,8 +125,8 @@ function slateTile(
     href: `/games?sport=${gamesSportParam(sport)}&game=${game.id}`,
     awayAbbr: game.awayAb || away.initials,
     homeAbbr: game.homeAb || home.initials,
-    awayLogoUrl: away.logoUrl,
-    homeLogoUrl: home.logoUrl,
+    awayLogoUrl: sport === 'ncaaf' ? (game.awayLogoUrl ?? away.logoUrl) : away.logoUrl,
+    homeLogoUrl: sport === 'ncaaf' ? (game.homeLogoUrl ?? home.logoUrl) : home.logoUrl,
     awayColors: away.colors,
     homeColors: home.colors,
     awayInitials: away.initials,
@@ -144,10 +145,15 @@ interface TodaysMatchupsGridProps {
   gamesBySport: Partial<Record<OutliersTrendsSport, OutliersTrendsGame[]>>;
   /** NFL/NCAAF slates still fetching — MLB manages its own loading state. */
   slateLoading?: boolean;
+  /** Enables the public landing-page lock funnel without changing the core product. */
+  landingPreview?: boolean;
+  sectionId?: string;
 }
 
-export function TodaysMatchupsGrid({ sports, gamesBySport, slateLoading }: TodaysMatchupsGridProps) {
-  const [expanded, setExpanded] = useState(false);
+export function TodaysMatchupsGrid({ sports, gamesBySport, slateLoading, landingPreview = false, sectionId }: TodaysMatchupsGridProps) {
+  const [page, setPage] = useState(0);
+  const [pageDirection, setPageDirection] = useState(1);
+  const reduceMotion = useReducedMotion();
   const includesMlb = sports.includes('mlb');
   // Always subscribed (hooks can't be conditional); the cache entry is shared
   // with Parlay God, so this is free when MLB is already on screen.
@@ -157,46 +163,69 @@ export function TodaysMatchupsGrid({ sports, gamesBySport, slateLoading }: Today
 
   const todayKey = etDateKey(new Date());
   const tiles = useMemo<MatchupTileData[]>(() => {
-    const out: MatchupTileData[] = [];
+    const out: Array<MatchupTileData & { sport: OutliersTrendsSport }> = [];
     for (const s of sports) {
       const label = multiSport ? OUTLIERS_SPORT_LABELS[s] : undefined;
       if (s === 'mlb') {
-        out.push(...(mlbQuery.data ?? []).map((g) => mlbTile(g, todayKey, label)));
+        out.push(...(mlbQuery.data ?? []).map((g) => ({ ...mlbTile(g, todayKey, label), sport: s })));
       } else {
-        out.push(...(gamesBySport[s] ?? []).map((g) => slateTile(g, s, todayKey, label)));
+        out.push(...(gamesBySport[s] ?? []).map((g) => ({ ...slateTile(g, s, todayKey, label), sport: s })));
       }
     }
-    // Soonest first across the merged slate; unscheduled games sink to the end.
+    if (landingPreview) {
+      const priority: Record<OutliersTrendsSport, number> = { mlb: 0, nfl: 1, ncaaf: 2, nba: 3, ncaab: 4 };
+      return out.sort((a, b) => priority[a.sport] - priority[b.sport] || (a.startMs ?? Infinity) - (b.startMs ?? Infinity));
+    }
     return out.sort((a, b) => (a.startMs ?? Infinity) - (b.startMs ?? Infinity));
     // todayKey is derived fresh each render but only its string identity matters.
-  }, [sports, multiSport, mlbQuery.data, gamesBySport, todayKey]);
+  }, [sports, multiSport, mlbQuery.data, gamesBySport, todayKey, landingPreview]);
 
   const isLoading = (includesMlb && mlbQuery.isLoading) || Boolean(slateLoading);
   // MLB failing alone shouldn't blank a grid that still has football tiles.
   const isError = includesMlb && mlbQuery.isError && tiles.length === 0;
 
-  const visible = expanded ? tiles : tiles.slice(0, COLLAPSED_COUNT);
-  const canExpand = tiles.length > COLLAPSED_COUNT;
+  const pageCount = Math.max(1, Math.ceil(tiles.length / MATCHUPS_PER_PAGE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visible = tiles.slice(
+    landingPreview ? 0 : currentPage * MATCHUPS_PER_PAGE,
+    landingPreview ? MATCHUPS_PER_PAGE : (currentPage + 1) * MATCHUPS_PER_PAGE,
+  );
+  const showPagination = !landingPreview && tiles.length > 0;
+
+  const goToPage = (nextPage: number) => {
+    if (nextPage === currentPage) return;
+    setPageDirection(nextPage > currentPage ? 1 : -1);
+    setPage(nextPage);
+  };
+
+  // A sport-filter change represents a new slate, so begin at its first page.
+  const sportsKey = sports.join(',');
+  useEffect(() => setPage(0), [sportsKey]);
+
+  // Keep the page valid when live slate updates remove the final page.
+  useEffect(() => {
+    setPage((value) => Math.min(value, pageCount - 1));
+  }, [pageCount]);
 
   return (
-    <section className="flex min-w-0 flex-col gap-2.5">
+    <section id={sectionId} className="scroll-mt-24 flex min-w-0 flex-col gap-2.5">
       <SectionHeader
         title="Today's Matchups"
         suffix={todayEtSuffix()}
-        action={
-          canExpand
-            ? {
-                kind: 'link',
-                label: expanded ? 'Show less' : `Show all ${tiles.length}`,
-                onClick: () => setExpanded((v) => !v),
-              }
-            : undefined
-        }
+        action={showPagination ? {
+          kind: 'chevrons',
+          onPrev: () => goToPage(Math.max(0, currentPage - 1)),
+          onNext: () => goToPage(Math.min(pageCount - 1, currentPage + 1)),
+          canPrev: currentPage > 0,
+          canNext: currentPage < pageCount - 1,
+          pageLabel: `Page ${currentPage + 1} of ${pageCount}`,
+          showOnMobile: true,
+        } : undefined}
       />
 
       {isLoading ? (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {Array.from({ length: MATCHUPS_PER_PAGE }, (_, i) => (
             <SkeletonBlock key={i} height={92} radius={16} className="w-full" />
           ))}
         </div>
@@ -205,10 +234,22 @@ export function TodaysMatchupsGrid({ sports, gamesBySport, slateLoading }: Today
       ) : tiles.length === 0 ? (
         <p className="text-[13px] text-muted-foreground">No games on the board today.</p>
       ) : (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          {visible.map((tile) => (
-            <MatchupTile key={tile.key} data={tile} />
-          ))}
+        <div className="min-w-0 overflow-hidden">
+          <AnimatePresence initial={false} mode="wait" custom={pageDirection}>
+            <motion.div
+              key={landingPreview ? 'preview' : currentPage}
+              custom={pageDirection}
+              initial={reduceMotion ? false : { opacity: 0, x: pageDirection * 28 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: pageDirection * -28 }}
+              transition={{ duration: reduceMotion ? 0.12 : 0.24, ease: [0.22, 1, 0.36, 1] }}
+              className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
+            >
+              {visible.map((tile) => (
+                <MatchupTile key={tile.key} data={tile} />
+              ))}
+            </motion.div>
+          </AnimatePresence>
         </div>
       )}
     </section>

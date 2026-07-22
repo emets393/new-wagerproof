@@ -126,18 +126,35 @@ async function fetchCFBSlateGames(): Promise<OutliersTrendsGame[]> {
     .eq('week', anchor.week)
     .order('kickoff', { ascending: true });
   if (error) throw error;
+  // cfb_dryrun_games intentionally contains only slate/model data. Team art
+  // lives in cfb_teams, the same reference table used by the CFB games page
+  // and iOS CFBTeamAssets cache.
+  const { data: teamRows } = await collegeFootballSupabase
+    .from('cfb_teams')
+    .select('team_name,abbr,logo,logo_dark');
+  const normalizeTeam = (value: unknown) => String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[.']/g, '')
+    .replace(/\s+/g, ' ');
+  const teamsByName = new Map(
+    (teamRows ?? []).map((team: Record<string, unknown>) => [normalizeTeam(team.team_name), team]),
+  );
   return (data ?? []).map((row: Record<string, unknown>): OutliersTrendsGame => {
     const home = toStr(row.home_team) ?? 'Home';
     const away = toStr(row.away_team) ?? 'Away';
+    const homeRef = teamsByName.get(normalizeTeam(home));
+    const awayRef = teamsByName.get(normalizeTeam(away));
     return {
       id: toStr(row.game_id) ?? '',
       season: toInt(row.season) ?? anchor.season,
       week: toInt(row.week) ?? anchor.week,
-      // CFB has no abbreviations — full names double as the anchor keys.
-      awayAb: away,
-      homeAb: home,
+      awayAb: toStr(awayRef?.abbr) ?? away,
+      homeAb: toStr(homeRef?.abbr) ?? home,
       awayTeam: away,
       homeTeam: home,
+      awayLogoUrl: toStr(awayRef?.logo) ?? toStr(awayRef?.logo_dark),
+      homeLogoUrl: toStr(homeRef?.logo) ?? toStr(homeRef?.logo_dark),
       fgSpreadClose: toNum(row.fg_spread_close),
       fgTotalClose: toNum(row.fg_total_close),
       kickoff: toStr(row.kickoff),

@@ -18,6 +18,7 @@ import {
   History,
   LayoutGrid,
   LineChart,
+  Lock,
   PersonStanding,
   Send,
   Shield,
@@ -28,19 +29,20 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  FilterPill,
   GlassCard,
-  MultiFilterPill,
   SkeletonBlock,
-  type FilterPillOption,
 } from '@/components/ios';
+import { HeroFilterPill, HeroMultiFilterPill, type HeroFilterPillOption } from './HeroFilterPills';
 import { OutliersTrendCard } from './OutliersTrendCard';
 import { OutliersTrendCardSkeleton } from './OutliersTrendCardSkeleton';
 import { HorizontalCardRail } from './HorizontalCardRail';
 import { SectionHeader } from './SectionHeader';
 import { TodaysMatchupsGrid } from './TodaysMatchupsGrid';
 import { ParlayGodSection, PropsCheatsSection } from './ParlayRailSection';
+import { TopAgentPicksRail } from './TopAgentPicksRail';
+import { OutliersQuickNav, type OutliersQuickNavItem } from './OutliersQuickNav';
 import { buildMarketSections, filterTrendCards, matchupIdsForSport, matchupKey } from '../filtering';
 import { useOutliersTrendsMulti } from '../hooks/useOutliersTrends';
 import { useHorizontalRail } from '../hooks/useHorizontalRail';
@@ -134,7 +136,7 @@ function MarketIcon({ marketKey }: { marketKey: string }) {
   }
 }
 
-export function OutliersDashboard() {
+export function OutliersDashboard({ limited = false }: { limited?: boolean }) {
   // Sport and matchup are multi-select; an empty array means "everything", so
   // the default (the whole board, unfiltered) needs no sentinel value.
   const [sportSelection, setSportSelection] = useState<OutliersTrendsSport[]>([]);
@@ -178,8 +180,8 @@ export function OutliersDashboard() {
       ).map((card) => ({ ...card, sport: d.sport })),
     );
     merged.sort((a, b) => b.trendValue - a.trendValue || b.trendSampleN - a.trendSampleN);
-    return buildMarketSections(merged);
-  }, [bySport, subject, matchupSelection]);
+    return buildMarketSections(merged, undefined, limited);
+  }, [bySport, subject, matchupSelection, limited]);
 
   // Keyed by sport-qualified id — raw game ids aren't unique across merged slates.
   const gamesById = useMemo(() => {
@@ -198,8 +200,13 @@ export function OutliersDashboard() {
 
   const hasData = sports.length > 0;
   const multiSport = sports.length > 1;
+  const previewSections = useMemo(() => {
+    if (!limited) return sections;
+    const gameTotalIndex = sections.findIndex((section) => section.marketKey === 'total');
+    return gameTotalIndex >= 0 ? sections.slice(0, gameTotalIndex + 1) : sections.slice(0, 3);
+  }, [limited, sections]);
   const subjects = allowedSubjectsForSports(sports);
-  const subjectOptions: FilterPillOption<OutliersTrendsSubject>[] = subjects.map((s) => ({
+  const subjectOptions: HeroFilterPillOption<OutliersTrendsSubject>[] = subjects.map((s) => ({
     value: s,
     label: OUTLIERS_SUBJECT_LABELS[s],
     icon: subjectIcon(s),
@@ -218,11 +225,24 @@ export function OutliersDashboard() {
     [bySport, multiSport],
   );
 
+  const quickNavItems = useMemo<OutliersQuickNavItem[]>(() => {
+    const items: OutliersQuickNavItem[] = [
+      { id: 'outliers-matchups', label: "Today's Matchups" },
+      { id: 'outliers-top-agent-picks', label: 'Top Agent Picks' },
+    ];
+    if (includesMlb && (parlay.slateLoading || parlay.isError || parlay.slateTickets.length > 0)) items.push({ id: 'outliers-parlay-god', label: 'Parlay God' });
+    if (includesMlb) items.push({ id: 'outliers-props-cheats', label: 'Props Cheats' });
+    items.push(...sections.map((section) => ({ id: `outliers-market-${section.marketKey}`, label: section.title })));
+    return items;
+  }, [includesMlb, parlay.slateLoading, parlay.isError, parlay.slateTickets.length, sections]);
+
   return (
-    <div className="flex min-w-0 flex-col gap-6">
+    <div className={limited ? 'min-w-0' : 'grid min-w-0 items-start gap-5 lg:grid-cols-[176px_minmax(0,1fr)] xl:gap-6 xl:grid-cols-[188px_minmax(0,1fr)]'}>
+      {!limited && <OutliersQuickNav items={quickNavItems} />}
+      <div className="flex min-w-0 flex-col gap-6">
       {/* Filter pills */}
       <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-transparent">
-        <MultiFilterPill
+        <HeroMultiFilterPill
           icon={sportFilterIcon(sportSelection)}
           allLabel="All Sports"
           noun="sports"
@@ -234,8 +254,8 @@ export function OutliersDashboard() {
           values={sportSelection}
           onChange={handleSportChange}
         />
-        {hasData && subjects.length > 1 && (
-          <FilterPill
+        {!limited && hasData && subjects.length > 1 && (
+          <HeroFilterPill
             icon={subjectIcon(subject)}
             label={OUTLIERS_SUBJECT_LABELS[subject]}
             options={subjectOptions}
@@ -246,8 +266,8 @@ export function OutliersDashboard() {
             onChange={(value) => setSubject(value)}
           />
         )}
-        {hasData && (
-          <MultiFilterPill
+        {!limited && hasData && (
+          <HeroMultiFilterPill
             icon={<LayoutGrid />}
             allLabel="All games"
             noun="games"
@@ -275,21 +295,27 @@ export function OutliersDashboard() {
             sports={sports}
             gamesBySport={gamesBySport}
             slateLoading={isLoading}
+            landingPreview={limited}
+            sectionId={limited ? undefined : 'outliers-matchups'}
           />
+
+          <TopAgentPicksRail maxItems={limited ? 3 : undefined} sectionId={limited ? undefined : 'outliers-top-agent-picks'} />
 
           {/* MLB-only premium bands — hidden entirely when MLB is out of scope (no data). */}
           {includesMlb && (
             <ParlayGodSection
-              tickets={parlay.slateTickets}
+              tickets={limited ? parlay.slateTickets.slice(0, 3) : parlay.slateTickets}
               isLoading={parlay.slateLoading}
               isError={parlay.isError}
               onRetry={retryParlay}
+              sectionId={limited ? undefined : 'outliers-parlay-god'}
             />
           )}
           {includesMlb && (
             <PropsCheatsSection
-              tickets={parlay.propsTickets}
+              tickets={limited ? parlay.propsTickets.slice(0, 3) : parlay.propsTickets}
               isLoading={parlay.propsLoading}
+              sectionId={limited ? undefined : 'outliers-props-cheats'}
             />
           )}
 
@@ -301,12 +327,29 @@ export function OutliersDashboard() {
           ) : sections.length === 0 ? (
             <EmptyCard />
           ) : (
-            sections.map((section) => (
-              <MarketSection key={section.marketKey} section={section} gamesById={gamesById} />
+            previewSections.map((section) => (
+              <MarketSection key={section.marketKey} section={section} gamesById={gamesById} maxCards={limited ? 6 : undefined} landingPreview={limited} sectionId={limited ? undefined : `outliers-market-${section.marketKey}`} />
             ))
+          )}
+
+          {limited && (
+            <div className="relative overflow-hidden rounded-[24px] border border-border/60 bg-background/55 px-5 py-5 shadow-sm backdrop-blur-xl">
+              <div aria-hidden className="absolute inset-x-0 -top-12 h-20 bg-gradient-to-b from-primary/20 to-transparent blur-xl" />
+              <div className="relative flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-black uppercase tracking-[0.08em] text-primary">More categories inside</p>
+                  <h3 className="mt-1 text-base font-black text-foreground">Keep exploring every market and trend.</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Open the app for team totals, first-half markets, props, and the complete outlier board.</p>
+                </div>
+                <Button asChild className="shrink-0 rounded-full bg-[#00C968] font-bold text-black hover:bg-[#00B95F]">
+                  <Link to="/account">See all categories in the app</Link>
+                </Button>
+              </div>
+            </div>
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
@@ -314,20 +357,29 @@ export function OutliersDashboard() {
 function MarketSection({
   section,
   gamesById,
+  maxCards,
+  landingPreview = false,
+  sectionId,
 }: {
   section: OutliersTrendsMarketSection<OutliersSportedCard>;
   gamesById: Map<string, OutliersTrendsGame>;
+  maxCards?: number;
+  landingPreview?: boolean;
+  sectionId?: string;
 }) {
+  const navigate = useNavigate();
   // Controls live in the header, so the rail owns no chrome of its own.
-  const rail = useHorizontalRail(section.cards.length);
+  const cards = maxCards ? section.cards.slice(0, maxCards) : section.cards;
+  const rail = useHorizontalRail(cards.length);
 
   return (
-    <section className="group flex min-w-0 flex-col gap-2.5">
+    <section id={sectionId} className="group scroll-mt-24 flex min-w-0 flex-col gap-2.5">
       <SectionHeader
         title={section.title}
         icon={<MarketIcon marketKey={section.marketKey} />}
-        action={
-          rail.hasOverflow
+        action={landingPreview && section.cards.length > 3
+          ? { kind: 'link', label: 'Show more', onClick: () => navigate('/account') }
+          : rail.hasOverflow
             ? {
                 kind: 'chevrons',
                 onPrev: rail.scrollPrev,
@@ -340,13 +392,20 @@ function MarketSection({
         }
       />
       <HorizontalCardRail rail={rail} className="scrollbar-transparent">
-        {section.cards.map((card) => (
-          <div key={`${card.sport}:${card.id}`} className="shrink-0 snap-start">
-            <OutliersTrendCard
-              card={card}
-              sport={card.sport}
-              game={gamesById.get(matchupKey(card.sport, card.gameId))}
-            />
+        {cards.map((card, index) => (
+          <div key={`${card.sport}:${card.id}`} className="relative shrink-0 snap-start overflow-hidden rounded-[22px]">
+            <div className={landingPreview && index >= 3 ? 'pointer-events-none select-none blur-[4px] brightness-75' : undefined} aria-hidden={landingPreview && index >= 3 ? true : undefined}>
+              <OutliersTrendCard
+                card={card}
+                sport={card.sport}
+                game={gamesById.get(matchupKey(card.sport, card.gameId))}
+              />
+            </div>
+            {landingPreview && index >= 3 && (
+              <Link to="/account" aria-label={`Sign in to unlock more ${section.title} outliers`} className="absolute inset-0 z-10 grid place-items-center bg-background/15 backdrop-blur-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
+                <span className="grid size-10 place-items-center rounded-full border border-white/20 bg-black/70 text-white shadow-lg"><Lock className="size-4" /></span>
+              </Link>
+            )}
           </div>
         ))}
       </HorizontalCardRail>

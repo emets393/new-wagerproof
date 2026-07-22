@@ -46,12 +46,12 @@ export function TodayInSportsCompletionHeader() {
           <CalendarDays className="h-6 w-6 text-green-600 dark:text-green-400" />
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Todays Outliers
+              Today's Outliers
             </h2>
           </div>
         </div>
         <p className="text-gray-600 dark:text-gray-400">
-          Todays Outliers highlights the most notable sports angles, and trends.
+          Today's Outliers highlights the most notable sports angles, and trends.
         </p>
       </div>
     );
@@ -86,7 +86,7 @@ export function TodayInSportsCompletionHeader() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white break-words">
-                Todays Outliers
+                Today's Outliers
               </h2>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1 mt-1">

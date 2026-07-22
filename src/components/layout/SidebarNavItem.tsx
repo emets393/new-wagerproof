@@ -114,6 +114,7 @@ function WipTag() {
 
 interface SidebarNavButtonProps {
   title: string;
+  status?: string;
   icon?: React.ReactNode;
   active: boolean;
   /** A child row owns the active state — emphasize without taking the pill. */
@@ -128,6 +129,7 @@ interface SidebarNavButtonProps {
 /** Top-level sidebar row. */
 export function SidebarNavButton({
   title,
+  status,
   icon,
   active,
   partial = false,
@@ -153,6 +155,11 @@ export function SidebarNavButton({
       {showPill && <ActivePill />}
       {icon && <NavIcon active={emphasized}>{icon}</NavIcon>}
       <span className="relative z-10">{title}</span>
+      {status && (
+        <div className="pointer-events-none absolute inset-x-7 z-10 text-center text-[10px] font-normal tabular-nums text-muted-foreground/55 group-data-[collapsible=icon]:hidden">
+          {status}
+        </div>
+      )}
       {wip && <WipTag />}
     </SidebarMenuButton>
   );
@@ -166,6 +173,7 @@ export interface SidebarSubNavEntry {
 
 interface SidebarCollapsibleNavItemProps {
   title: string;
+  status?: string;
   icon?: React.ReactNode;
   wip?: boolean;
   /** This parent row itself owns the active state. */
@@ -189,6 +197,7 @@ interface SidebarCollapsibleNavItemProps {
  */
 export function SidebarCollapsibleNavItem({
   title,
+  status,
   icon,
   wip,
   active,
@@ -212,21 +221,20 @@ export function SidebarCollapsibleNavItem({
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="group/collapsible">
       <SidebarMenuItem>
-        <div className="flex items-center">
+        <div className="relative flex items-center">
           <SidebarNavButton
             title={title}
+            status={status}
             icon={icon}
             active={active}
             partial={hasActiveChild}
             showPill={showPillOnParent}
             wip={wip}
             onClick={() => to && onNavigate(to)}
-            // Expanded, the row shares the line with the chevron and takes the
-            // slack. Collapsed, it must NOT: `flex-1` resolves to `flex-basis: 0%`,
-            // which outranks the `!size-8` that pins the row to the icon rail's
-            // 32px — the row stretched wide enough to leak the label's first
-            // letter past `overflow-hidden`. The chevron is unmounted here anyway.
-            className={collapsed ? undefined : 'flex-1'}
+            // Expanded, the button owns the full row while the chevron overlays
+            // its right edge. This lets centered labels use the same midpoint as
+            // rows without a chevron. The icon rail keeps its pinned 32px size.
+            className={collapsed ? undefined : 'w-full pr-8'}
           />
           {/* Unmounted rather than CSS-hidden on the icon rail: a `hidden` button
               still occupied its flex slot, pushing the icon off-center and
@@ -237,7 +245,7 @@ export function SidebarCollapsibleNavItem({
                 type="button"
                 aria-label={`Toggle ${title} tools`}
                 className={cn(
-                  'mr-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md',
+                  'absolute right-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md',
                   'text-muted-foreground transition-colors duration-200',
                   'hover:bg-sidebar-accent/50 hover:text-foreground',
                 )}

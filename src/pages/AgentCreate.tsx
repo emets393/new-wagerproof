@@ -140,7 +140,7 @@ export default function AgentCreate() {
           existingNames={agents?.map((a) => a.name)}
         />
       )}
-      {step === 2 && <Screen3_Personality params={form.personality_params} onParamChange={updatePersonality} />}
+      {step === 2 && <Screen3_Personality params={form.personality_params} selectedSports={form.preferred_sports} onParamChange={updatePersonality} />}
       {step === 3 && <Screen4_DataAndConditions params={form.personality_params} selectedSports={form.preferred_sports} onParamChange={updatePersonality} />}
       {step === 4 && <Screen5_CustomInsights insights={form.custom_insights} onInsightChange={updateInsight} />}
       {step === 5 && <Screen6_Review state={form} onAutoGenerateChange={(value) => updateForm('auto_generate', value)} onAutoGenerateTimeChange={(value) => updateForm('auto_generate_time', value)} onAutoGenerateTimezoneChange={(value) => updateForm('auto_generate_timezone', value)} />}

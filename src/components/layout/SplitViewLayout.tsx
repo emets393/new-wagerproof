@@ -36,6 +36,10 @@ interface SplitViewLayoutProps {
   detailBackLabel?: string;
   /** Persists the user's panel-size drag per surface (localStorage key). */
   storageId?: string;
+  /** Desktop sizing can be tuned when the master pane is itself a detail view. */
+  listDefaultSize?: number;
+  listMinSize?: number;
+  listMaxSize?: number;
   className?: string;
 }
 
@@ -51,6 +55,9 @@ export function SplitViewLayout({
   onBackFromDetail,
   detailBackLabel = 'Back',
   storageId = 'wagerproof-split-view',
+  listDefaultSize = 32,
+  listMinSize = 24,
+  listMaxSize = 44,
   className,
 }: SplitViewLayoutProps) {
   const isDesktop = useIsDesktopSplit();
@@ -85,11 +92,11 @@ export function SplitViewLayout({
       autoSaveId={storageId}
       className={cn('h-full min-h-0', className)}
     >
-      <ResizablePanel defaultSize={32} minSize={24} maxSize={44}>
+      <ResizablePanel defaultSize={listDefaultSize} minSize={listMinSize} maxSize={listMaxSize}>
         <div className="h-full min-h-0 overflow-y-auto">{list}</div>
       </ResizablePanel>
       <ResizableHandle className="bg-border/40 hover:bg-primary/40" />
-      <ResizablePanel defaultSize={68}>
+      <ResizablePanel defaultSize={100 - listDefaultSize}>
         <div className="h-full min-h-0 overflow-y-auto">{detail}</div>
       </ResizablePanel>
     </ResizablePanelGroup>

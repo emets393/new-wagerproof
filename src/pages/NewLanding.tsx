@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import LandingNavBar from "@/components/landing/LandingNavBar";
-import Hero from "@/components/landing/Hero";
+import Hero from "@/components/landing/LandingOutliersHero";
 import AIAgentWorkforceSection from "@/components/landing/AIAgentWorkforceSection";
 import RecipeImport from "@/components/landing/RecipeImport";
 // import UserJourney from "@/components/landing/UserJourney";
@@ -153,4 +153,3 @@ const NewLanding = () => {
 };
 
 export default NewLanding;
-

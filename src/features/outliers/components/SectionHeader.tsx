@@ -4,13 +4,8 @@
 // chevrons). See specs/outliers_spec.md §4a.
 import * as React from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from '@heroui/react';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 export interface SectionSelectorOption {
   value: string;
@@ -33,6 +28,10 @@ export type SectionAction =
       onNext: () => void;
       canPrev?: boolean;
       canNext?: boolean;
+      /** Optional status displayed between the controls, e.g. "Page 2 of 4". */
+      pageLabel?: string;
+      /** Show the paging controls below the md breakpoint. */
+      showOnMobile?: boolean;
       /**
        * Fade the pair in only while the band is hovered/keyboard-focused.
        * Requires a `group` class on the section wrapper. Touch has no hover, but
@@ -57,8 +56,8 @@ function InlineSelect({ selector }: { selector: SectionSelector }) {
   const current = selector.options.find((o) => o.value === selector.value);
   const label = current?.label ?? selector.value;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Dropdown placement="bottom-start" classNames={{ content: 'min-w-[180px] rounded-2xl border border-border/60 bg-background/95 p-1.5 shadow-xl backdrop-blur-xl' }}>
+      <DropdownTrigger>
         <button
           type="button"
           className="inline-flex items-center gap-1 text-sm font-bold text-primary transition-opacity hover:opacity-80"
@@ -66,20 +65,18 @@ function InlineSelect({ selector }: { selector: SectionSelector }) {
           {label}
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="rounded-2xl">
+      </DropdownTrigger>
+      <DropdownMenu aria-label="Section filter" itemClasses={{ base: 'rounded-xl px-2.5 py-2 text-[13px] data-[hover=true]:bg-muted/70 data-[focus=true]:bg-muted/70' }} onAction={(key) => selector.onChange(String(key))}>
         {selector.options.map((opt) => (
-          <DropdownMenuItem
+          <DropdownItem
             key={opt.value}
-            onClick={() => selector.onChange(opt.value)}
-            className="gap-2 rounded-lg"
+            endContent={opt.value === selector.value ? <Check className="h-3.5 w-3.5 text-primary" /> : null}
           >
-            <span className="flex-1">{opt.label}</span>
-            {opt.value === selector.value && <Check className="h-3.5 w-3.5 text-primary" />}
-          </DropdownMenuItem>
+            {opt.label}
+          </DropdownItem>
         ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+    </Dropdown>
   );
 }
 
@@ -87,10 +84,12 @@ function ChevronButton({
   direction,
   disabled,
   onClick,
+  showOnMobile = false,
 }: {
   direction: 'left' | 'right';
   disabled: boolean;
   onClick: () => void;
+  showOnMobile?: boolean;
 }) {
   const Icon = direction === 'left' ? ChevronLeft : ChevronRight;
   return (
@@ -100,7 +99,8 @@ function ChevronButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'hidden h-8 w-8 items-center justify-center rounded-full border border-border/70 text-foreground md:flex',
+        'h-8 w-8 items-center justify-center rounded-full border border-border/70 text-foreground',
+        showOnMobile ? 'flex' : 'hidden md:flex',
         'transition-colors hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent',
       )}
     >
@@ -153,11 +153,21 @@ export function SectionHeader({ title, subtitle, icon, suffix, selector, action 
                   direction="left"
                   disabled={action.canPrev === false}
                   onClick={action.onPrev}
+                  showOnMobile={action.showOnMobile}
                 />
+                {action.pageLabel && (
+                  <span
+                    aria-live="polite"
+                    className="min-w-[72px] text-center text-xs font-semibold tabular-nums text-muted-foreground"
+                  >
+                    {action.pageLabel}
+                  </span>
+                )}
                 <ChevronButton
                   direction="right"
                   disabled={action.canNext === false}
                   onClick={action.onNext}
+                  showOnMobile={action.showOnMobile}
                 />
               </>
             )}

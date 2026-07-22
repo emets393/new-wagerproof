@@ -749,7 +749,7 @@ export default function CFBPreview() {
   }> = useMemo(() => [
     { icon: Home, label: 'Home', active: false, isHeader: false },
     { icon: null, label: 'ANALYSIS', active: false, isHeader: true },
-    { icon: Newspaper, label: 'Todays Outliers', active: false, isHeader: false },
+    { icon: Newspaper, label: "Today's Outliers", active: false, isHeader: false },
     { icon: Star, label: "Editors Picks", active: false, isHeader: false },
     { icon: Bot, label: 'Agents', active: activeView === 'agents', isHeader: false },
     { icon: Activity, label: 'Score Board', active: false, isHeader: false },

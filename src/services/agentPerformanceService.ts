@@ -123,9 +123,48 @@ export async function fetchLeaderboard(
   timeframe: LeaderboardTimeframe = 'all_time'
 ): Promise<LeaderboardEntry[]> {
   const effectiveLimit = Math.min(Math.max(limit, 1), 100);
+
+  // Keep web on the same server-side contract as iOS. The previous web path
+  // joined profile/performance tables client-side and silently returned [] on
+  // any schema or RLS error, which made failures look like an empty leaderboard.
+  const { data: rpcRows, error: rpcError } = await (supabase as any).rpc('get_leaderboard_v2', {
+    p_limit: effectiveLimit,
+    p_sport: sport ?? null,
+    p_sort_mode: sortMode,
+    p_timeframe: timeframe,
+    p_exclude_under_10_picks: excludeUnder10Picks,
+    p_viewer_user_id: null,
+  });
+
+  if (!rpcError && Array.isArray(rpcRows)) {
+    const numberValue = (value: unknown): number => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    return rpcRows.map((row: any) => ({
+      avatar_id: String(row.avatar_id),
+      name: String(row.name ?? 'Agent'),
+      avatar_emoji: String(row.avatar_emoji ?? '🤖'),
+      avatar_color: String(row.avatar_color ?? '#6366f1'),
+      sprite_index: null,
+      user_id: String(row.user_id),
+      preferred_sports: Array.isArray(row.preferred_sports) ? row.preferred_sports as Sport[] : [],
+      total_picks: numberValue(row.total_picks),
+      wins: numberValue(row.wins),
+      losses: numberValue(row.losses),
+      pushes: numberValue(row.pushes),
+      win_rate: row.win_rate === null || row.win_rate === undefined ? null : numberValue(row.win_rate),
+      net_units: numberValue(row.net_units),
+      current_streak: numberValue(row.current_streak),
+      best_streak: numberValue(row.best_streak),
+    }));
+  }
+
+  console.warn('[leaderboard] get_leaderboard_v2 failed; using table fallback', rpcError);
+
   let agentsQuery = (supabase as any)
     .from('avatar_profiles')
-    .select('id, name, avatar_emoji, avatar_color, sprite_index, user_id, preferred_sports')
+    .select('id, name, avatar_emoji, avatar_color, user_id, preferred_sports')
     .eq('is_public', true);
 
   if (sport) {
@@ -133,7 +172,8 @@ export async function fetchLeaderboard(
   }
 
   const { data: agents, error: agentsError } = await agentsQuery;
-  if (agentsError || !agents?.length) return [];
+  if (agentsError) throw agentsError;
+  if (!agents?.length) return [];
 
   const agentIds = agents.map((a: any) => a.id);
 
@@ -143,7 +183,7 @@ export async function fetchLeaderboard(
       .select('*')
       .in('avatar_id', agentIds);
 
-    if (perfError) return [];
+    if (perfError) throw perfError;
 
     const perfMap = new Map<string, AgentPerformance>();
     (performances || []).forEach((p: any) => perfMap.set(p.avatar_id, p as AgentPerformance));
@@ -157,7 +197,7 @@ export async function fetchLeaderboard(
             name: agent.name,
             avatar_emoji: agent.avatar_emoji,
             avatar_color: agent.avatar_color,
-            sprite_index: agent.sprite_index ?? null,
+            sprite_index: null,
             user_id: agent.user_id,
             preferred_sports: agent.preferred_sports,
             total_picks: perf?.total_picks || 0,
@@ -184,7 +224,7 @@ export async function fetchLeaderboard(
     .in('result', ['won', 'lost', 'push'])
     .gte('game_date', cutoffDate);
 
-  if (picksError) return [];
+  if (picksError) throw picksError;
 
   const picksByAvatar = new Map<string, LeaderboardPickRow[]>();
   (picks || []).forEach((pick: LeaderboardPickRow) => {
@@ -209,7 +249,7 @@ export async function fetchLeaderboard(
           name: agent.name,
           avatar_emoji: agent.avatar_emoji,
           avatar_color: agent.avatar_color,
-          sprite_index: agent.sprite_index ?? null,
+          sprite_index: null,
           user_id: agent.user_id,
           preferred_sports: agent.preferred_sports,
           total_picks: totalPicks,

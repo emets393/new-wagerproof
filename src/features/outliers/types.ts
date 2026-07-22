@@ -127,6 +127,9 @@ export interface OutliersTrendsGame {
   kickoff: string | null;
   slot: string | null;
   assignedReferee: string | null;
+  /** Optional reference-table assets, currently populated for NCAAF. */
+  awayLogoUrl?: string | null;
+  homeLogoUrl?: string | null;
   mlbContext?: OutliersTrendsMLBContext | null;
 }
 

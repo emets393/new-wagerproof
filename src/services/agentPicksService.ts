@@ -1,9 +1,45 @@
 import { supabase } from '@/integrations/supabase/client';
 import { AgentParlay, AgentPick, PickResult, Sport, GeneratePicksResponse, OverlapAgentSummary, AgentPickOverlap } from '@/types/agent';
+import type { AgentGenerationProgress } from '@/components/agents/split/generationState';
 
 export interface AgentPicksFilters {
   sport?: Sport;
   result?: PickResult;
+}
+
+export type TopAgentPicksFilter = 'top10' | 'following' | 'favorites';
+
+export interface TopAgentPickFeedRow extends AgentPick {
+  api_version: string;
+  agent_name: string;
+  agent_avatar_emoji: string;
+  agent_avatar_color: string;
+  agent_wins: number;
+  agent_losses: number;
+  agent_pushes: number;
+  agent_net_units: number;
+  agent_rank: number | null;
+  agent_current_streak?: number;
+}
+
+export async function fetchTopAgentPicksFeed(
+  filterMode: TopAgentPicksFilter,
+  viewerUserId?: string,
+  searchText?: string,
+): Promise<TopAgentPickFeedRow[]> {
+  const { data, error } = await (supabase as any).rpc('get_top_agent_picks_feed_v2', {
+    p_filter_mode: filterMode,
+    p_viewer_user_id: viewerUserId ?? null,
+    p_search_text: searchText?.trim() || null,
+    p_limit: 50,
+    p_cursor: null,
+  });
+  if (error) throw error;
+  return ((data ?? []) as TopAgentPickFeedRow[]).map((row) => ({
+    ...row,
+    units: Number(row.units ?? 0),
+    agent_net_units: Number(row.agent_net_units ?? 0),
+  }));
 }
 
 export async function fetchAgentPicks(agentId: string, filters?: AgentPicksFilters): Promise<AgentPick[]> {
@@ -42,15 +78,31 @@ export async function fetchAgentParlays(agentId: string, filters?: AgentPicksFil
   return (data || []) as AgentParlay[];
 }
 
-export async function generatePicks(agentId: string, _isAdmin = false): Promise<GeneratePicksResponse> {
+interface TriggerRunStatus {
+  status: string;
+  metadata?: AgentGenerationProgress;
+}
+
+interface TriggerV3Response {
+  ledger_run_id?: string;
+  run_id?: string;
+  status?: string;
+  error?: string;
+}
+
+export async function generatePicks(
+  agentId: string,
+  _isAdmin = false,
+  onProgress?: (progress: AgentGenerationProgress) => void,
+): Promise<GeneratePicksResponse> {
   // Get current session (no refresh – avoids triggering onAuthStateChange)
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('User not authenticated');
 
-  // V2: Enqueue via request endpoint (JWT verified by Edge Function gateway)
+  // Match iOS: enter through the Trigger.dev-backed V3 gateway.
   const { data, error } = await (supabase as any).functions.invoke(
-    'request-avatar-picks-generation-v2',
-    { body: { avatar_id: agentId } }
+    'trigger-v3-run',
+    { body: { avatar_id: agentId } },
   );
 
   if (error) {
@@ -65,13 +117,12 @@ export async function generatePicks(agentId: string, _isAdmin = false): Promise<
     } catch (_e) { /* ignore parse failure */ }
     throw new Error(detail || error.message || 'Failed to request pick generation');
   }
-  if (!data?.success) throw new Error(data?.error || 'Failed to enqueue generation');
+  const request = data as TriggerV3Response | null;
+  if (!request?.run_id || !request.ledger_run_id) {
+    throw new Error(request?.error || 'V3 generation did not return a run');
+  }
 
-  const runId = data.run_id;
-  if (!runId) throw new Error('No run_id returned from generation request');
-
-  // Poll for completion (worker processes asynchronously)
-  const result = await pollGenerationRun(runId);
+  const result = await pollTriggerV3Run(request.run_id, request.ledger_run_id, onProgress);
   return {
     picks: [],
     picks_generated: result.picksGenerated,
@@ -80,38 +131,49 @@ export async function generatePicks(agentId: string, _isAdmin = false): Promise<
 }
 
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 300_000; // 5 minutes
+const POLL_TIMEOUT_MS = 660_000; // Trigger task ceiling is 10 minutes; match iOS headroom.
 const MAX_CONSECUTIVE_ERRORS = 5;
 
-async function pollGenerationRun(runId: string): Promise<{ status: string; picksGenerated: number }> {
+const TRIGGER_TERMINAL = new Set([
+  'COMPLETED', 'CANCELED', 'FAILED', 'CRASHED', 'INTERRUPTED', 'EXPIRED', 'TIMED_OUT', 'SYSTEM_FAILURE',
+]);
+
+async function pollTriggerV3Run(
+  triggerRunId: string,
+  ledgerRunId: string,
+  onProgress?: (progress: AgentGenerationProgress) => void,
+): Promise<{ status: string; picksGenerated: number }> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let consecutiveErrors = 0;
 
   while (Date.now() < deadline) {
-    const { data: run, error } = await (supabase as any)
-      .from('agent_generation_runs')
-      .select('status, picks_generated, error_message')
-      .eq('id', runId)
-      .single();
+    const { data: trigger, error: triggerError } = await (supabase as any).functions.invoke(
+      'trigger-run-status',
+      { body: { run_id: triggerRunId } },
+    );
 
-    if (error) {
+    if (triggerError) {
       consecutiveErrors++;
-      console.warn(`[generatePicks] Poll error (${consecutiveErrors}):`, error.message);
+      console.warn(`[generatePicks:v3] Poll error (${consecutiveErrors}):`, triggerError.message);
       if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         throw new Error('Unable to check generation status — please try again');
       }
-    } else if (run) {
+    } else if (trigger) {
       consecutiveErrors = 0;
-      if (run.status === 'succeeded') {
-        return { status: 'succeeded', picksGenerated: run.picks_generated || 0 };
+      const run = trigger as TriggerRunStatus;
+      onProgress?.(run.metadata ?? {});
+      const triggerStatus = run.status.toUpperCase();
+      if (TRIGGER_TERMINAL.has(triggerStatus)) {
+        const { data: ledger } = await (supabase as any)
+          .from('agent_generation_runs')
+          .select('status, picks_generated, error_message, slate_note')
+          .eq('id', ledgerRunId)
+          .single();
+        if (triggerStatus === 'COMPLETED') {
+          return { status: 'succeeded', picksGenerated: ledger?.picks_generated || run.metadata?.picksAccepted || 0 };
+        }
+        throw new Error(ledger?.error_message || `Pick generation ${triggerStatus.toLowerCase().replace('_', ' ')}`);
       }
-      if (run.status === 'failed_terminal') {
-        throw new Error(run.error_message || 'Pick generation failed permanently');
-      }
-      if (run.status === 'canceled') {
-        throw new Error('Pick generation was canceled');
-      }
-      // Still processing: queued, leased, processing, failed_retryable
     }
 
     await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));

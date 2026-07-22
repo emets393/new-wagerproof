@@ -128,6 +128,13 @@ export function Screen4_DataAndConditions({ params, selectedSports, onParamChang
         badges={sportBadges}
       >
         <ScaleField
+          label="Trust WagerProof model"
+          description="How much weight to give the core predictive model probabilities."
+          value={params.trust_model}
+          onChange={(v) => onParamChange('trust_model', v as any)}
+          labels={TRUST_LABELS}
+        />
+        <ScaleField
           label="Trust Polymarket"
           description="How much the agent should respect prediction market pricing."
           value={params.trust_polymarket}
@@ -160,13 +167,12 @@ export function Screen4_DataAndConditions({ params, selectedSports, onParamChang
             checked={!!params.fade_public}
             onCheckedChange={(v) => onParamChange('fade_public', v as any)}
           />
+          {params.fade_public && <ScaleField label="Public threshold" description="Public bet percentage required before the contrarian filter activates." value={params.public_threshold ?? 3} onChange={(v) => onParamChange('public_threshold', v as any)} labels={['55%', '60%', '65%', '70%', '75%']} />}
           {conditional.showWeather ? (
-            <ToggleField
-              label="Weather impacts totals"
-              description="Bring wind, rain, and other outdoor conditions into total bets."
-              checked={!!params.weather_impacts_totals}
-              onCheckedChange={(v) => onParamChange('weather_impacts_totals', v as any)}
-            />
+            <>
+              <ToggleField label="Weather impacts totals" description="Bring wind, rain, and other outdoor conditions into total bets." checked={!!params.weather_impacts_totals} onCheckedChange={(v) => onParamChange('weather_impacts_totals', v as any)} />
+              {params.weather_impacts_totals && <ScaleField label="Weather sensitivity" description="How aggressively weather should move the agent away from its baseline." value={params.weather_sensitivity ?? 3} onChange={(v) => onParamChange('weather_sensitivity', v as any)} labels={['Minimal', 'Low', 'Moderate', 'High', 'Maximum']} />}
+            </>
           ) : null}
         </Section>
       ) : null}
@@ -177,6 +183,8 @@ export function Screen4_DataAndConditions({ params, selectedSports, onParamChang
           description="Basketball-specific signals are separated so they do not crowd the universal settings."
           badges={selectedSports.filter((sport) => sport === 'nba' || sport === 'ncaab').map((sport) => sport.toUpperCase())}
         >
+          {conditional.showTeamRatings ? <ScaleField label="Trust team ratings" description="How much to trust advanced ratings such as NET and KenPom." value={params.trust_team_ratings ?? 3} onChange={(v) => onParamChange('trust_team_ratings', v as any)} labels={TRUST_LABELS} /> : null}
+          {conditional.showTeamRatings ? <ToggleField label="Pace affects totals" description="Factor team pace into basketball over/under decisions." checked={!!params.pace_affects_totals} onCheckedChange={(v) => onParamChange('pace_affects_totals', v as any)} /> : null}
           {conditional.showBackToBacks ? (
             <ToggleField
               label="Fade back-to-backs"
@@ -187,6 +195,21 @@ export function Screen4_DataAndConditions({ params, selectedSports, onParamChang
           ) : null}
         </Section>
       ) : null}
+
+      {conditional.showTrends ? (
+        <Section title="NBA Trends" description="Control how the agent treats recent form, streaks, and against-the-spread history." badges={['NBA']}>
+          <ScaleField label="Weight recent form" description="Weight the last ten games against full-season averages." value={params.weight_recent_form ?? 3} onChange={(v) => onParamChange('weight_recent_form', v as any)} labels={['Ignore', 'Light', 'Moderate', 'Heavy', 'Primary']} />
+          <ToggleField label="Ride hot streaks" description="Favor teams sustaining strong recent results." checked={!!params.ride_hot_streaks} onCheckedChange={(v) => onParamChange('ride_hot_streaks', v as any)} />
+          <ToggleField label="Fade cold streaks" description="Look against teams losing consistently." checked={!!params.fade_cold_streaks} onCheckedChange={(v) => onParamChange('fade_cold_streaks', v as any)} />
+          <ToggleField label="Trust ATS trends" description="Factor against-the-spread performance into decisions." checked={!!params.trust_ats_trends} onCheckedChange={(v) => onParamChange('trust_ats_trends', v as any)} />
+          <ToggleField label="Regress luck" description="Expect extreme hot or cold outcomes to move toward the mean." checked={!!params.regress_luck} onCheckedChange={(v) => onParamChange('regress_luck', v as any)} />
+        </Section>
+      ) : null}
+
+      <Section title="Situational Factors" description="Apply context for home advantage and tournament upset profiles." badges={sportBadges}>
+        <ScaleField label="Home court / field boost" description="How much extra weight to give the home team." value={params.home_court_boost} onChange={(v) => onParamChange('home_court_boost', v as any)} labels={['Ignore', 'Slight', 'Moderate', 'Strong', 'Maximum']} />
+        {conditional.showUpsetAlert ? <ToggleField label="Upset alert" description="Flag potential college basketball upsets using tournament-style signals." checked={!!params.upset_alert} onCheckedChange={(v) => onParamChange('upset_alert', v as any)} /> : null}
+      </Section>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import {
   fetchUserAgents,
   updateAgent,
 } from '@/services/agentService';
-import { fetchAgentParlays, fetchAgentPicks, generatePicks, enrichPicksWithOverlap } from '@/services/agentPicksService';
+import { fetchAgentParlays, fetchAgentPicks, fetchTopAgentPicksFeed, generatePicks, enrichPicksWithOverlap, type TopAgentPicksFilter } from '@/services/agentPicksService';
 import { fetchLeaderboard, LeaderboardSortMode, LeaderboardTimeframe } from '@/services/agentPerformanceService';
 import type { CreateAgentInput, UpdateAgentInput, PickResult, Sport } from '@/types/agent';
 
@@ -96,13 +96,22 @@ export function useAgentParlays(agentId?: string, filters?: { sport?: Sport; res
   });
 }
 
+export function useTopAgentPicks(filter: TopAgentPicksFilter, searchText: string) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['agents', 'top-picks', filter, user?.id, searchText.trim()],
+    queryFn: () => fetchTopAgentPicksFeed(filter, user?.id, searchText),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
 export function useGenerateAgentPicks() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ agentId, isAdmin = false }: { agentId: string; isAdmin?: boolean }) =>
-      generatePicks(agentId, isAdmin),
+    mutationFn: ({ agentId, isAdmin = false, onProgress }: { agentId: string; isAdmin?: boolean; onProgress?: Parameters<typeof generatePicks>[2] }) =>
+      generatePicks(agentId, isAdmin, onProgress),
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['agents', 'picks', vars.agentId] });
       queryClient.invalidateQueries({ queryKey: ['agents', 'parlays', vars.agentId] });

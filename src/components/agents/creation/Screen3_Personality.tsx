@@ -1,10 +1,12 @@
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { PersonalityParams } from '@/types/agent';
+import { BET_TYPES, MARKET_KEYS, PersonalityParams, PROPS_EMPHASIS, Sport } from '@/types/agent';
+import { Input } from '@/components/ui/input';
 
 interface Props {
   params: PersonalityParams;
+  selectedSports?: Sport[];
   onParamChange: <K extends keyof PersonalityParams>(key: K, value: PersonalityParams[K]) => void;
 }
 
@@ -92,7 +94,28 @@ function ToggleField({
   );
 }
 
-export function Screen3_Personality({ params, onParamChange }: Props) {
+function ChoiceField({ label, description, value, options, onChange }: {
+  label: string;
+  description: string;
+  value: string;
+  options: readonly { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-3xl border border-border/50 bg-background/70 p-4 backdrop-blur-md">
+      <Label className="text-sm font-semibold text-foreground">{label}</Label>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {options.map((option) => <button key={option.value} type="button" onClick={() => onChange(option.value)} className={`min-h-9 rounded-full border px-3 text-xs font-semibold transition ${value === option.value ? 'border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'border-border bg-background hover:bg-muted'}`}>{option.label}</button>)}
+      </div>
+    </div>
+  );
+}
+
+export function Screen3_Personality({ params, selectedSports = [], onParamChange }: Props) {
+  const hasFootball = selectedSports.includes('nfl') || selectedSports.includes('cfb');
+  const hasNFL = selectedSports.includes('nfl');
+  const availableMarkets = MARKET_KEYS.filter((market) => market !== 'prop' || hasNFL);
   return (
     <div className="space-y-4">
       <section className="rounded-[32px] border border-white/10 bg-gradient-to-br from-background/90 via-background/75 to-primary/10 p-6 shadow-[0_24px_80px_-28px_rgba(15,23,42,0.5)] backdrop-blur-xl">
@@ -107,6 +130,13 @@ export function Screen3_Personality({ params, onParamChange }: Props) {
         title="Core Personality"
         description="Define how aggressive, selective, and value-oriented your agent should feel."
       >
+        <ScaleField
+          label="Over/under lean"
+          description="Shifts totals preference between lower-scoring and higher-scoring outcomes."
+          value={params.over_under_lean}
+          onChange={(v) => onParamChange('over_under_lean', v as any)}
+          labels={['Unders', 'Lean under', 'Balanced', 'Lean over', 'Overs']}
+        />
         <ScaleField
           label="Risk tolerance"
           description="Controls how comfortable the agent is taking on higher-variance spots."
@@ -141,12 +171,21 @@ export function Screen3_Personality({ params, onParamChange }: Props) {
           checked={params.chase_value}
           onCheckedChange={(v) => onParamChange('chase_value', v as any)}
         />
+        <ScaleField
+          label="Parlay appetite"
+          description="Controls how readily the agent combines its strongest plays into parlays."
+          value={params.parlay_appetite ?? 1}
+          onChange={(v) => onParamChange('parlay_appetite', v as any)}
+          labels={['Straights', 'Rarely', 'Sometimes', 'Often', 'Loves parlays']}
+        />
+        <ToggleField label="Parlays only" description="Force every play into a parlay ticket and never submit straight picks." checked={!!params.parlays_only} onCheckedChange={(v) => onParamChange('parlays_only', v as any)} />
       </Section>
 
       <Section
         title="Bet Selection"
         description="Reduce clutter by telling the agent how often it should fire and whether to skip weak slates."
       >
+        <ChoiceField label="Preferred bet type" description="The market this agent should look at first." value={params.preferred_bet_type} options={BET_TYPES.map((value) => ({ value, label: value === 'moneyline' ? 'Moneyline' : value[0].toUpperCase() + value.slice(1) }))} onChange={(v) => onParamChange('preferred_bet_type', v as any)} />
         <ScaleField
           label="Max picks per day"
           description="Keeps the agent focused instead of flooding the card with marginal plays."
@@ -160,6 +199,29 @@ export function Screen3_Personality({ params, onParamChange }: Props) {
           checked={params.skip_weak_slates}
           onCheckedChange={(v) => onParamChange('skip_weak_slates', v as any)}
         />
+      </Section>
+
+      <Section title="Weekly Parlays" description="Build one football ticket across the full week, with a separate weekly generation budget.">
+        {hasFootball ? <ToggleField label="Weekly parlay" description="Create a week-long NFL/CFB parlay that can stay live through Monday night." checked={!!params.weekly_parlay_enabled} onCheckedChange={(v) => { onParamChange('weekly_parlay_enabled', v as any); if (v && !params.weekly_parlay_legs) onParamChange('weekly_parlay_legs', 4 as any); }} /> : <p className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">Add NFL or CFB coverage to enable weekly parlays.</p>}
+        {hasFootball && params.weekly_parlay_enabled && <ScaleField label="Weekly parlay legs" description="Target between two and six legs on the weekly ticket." value={Math.max(1, Math.min(5, (params.weekly_parlay_legs ?? 4) - 1))} onChange={(v) => onParamChange('weekly_parlay_legs', (v + 1) as any)} labels={['2 legs', '3 legs', '4 legs', '5 legs', '6 legs']} />}
+      </Section>
+
+      <Section title="Markets & Props" description="Choose exactly which markets this agent may stake or use as parlay legs.">
+        <div className="flex flex-wrap gap-2 rounded-3xl border border-border/50 bg-background/70 p-4">
+          {availableMarkets.map((market) => {
+            const effective = params.allowed_markets?.length ? params.allowed_markets.filter((item) => availableMarkets.includes(item)) : [...availableMarkets];
+            const selected = effective.includes(market);
+            return <button key={market} type="button" onClick={() => { const next = selected ? effective.filter((item) => item !== market) : [...effective, market]; if (next.length) onParamChange('allowed_markets', next as any); }} className={`min-h-10 rounded-full border px-4 text-xs font-semibold capitalize transition ${selected ? 'border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'border-border bg-background text-muted-foreground'}`}>{market.replace('_', ' ')}</button>;
+          })}
+        </div>
+        {hasNFL && (params.allowed_markets?.includes('prop') || !params.allowed_markets?.length) && <ChoiceField label="Player props emphasis" description="Allow props normally, turn them off, or actively prioritize them." value={params.props_emphasis ?? 'allow'} options={PROPS_EMPHASIS.map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }))} onChange={(v) => onParamChange('props_emphasis', v as any)} />}
+      </Section>
+
+      <Section title="Odds Limits" description="Keep recommendations inside the price range you are comfortable betting.">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-3xl border border-border/50 bg-background/70 p-4"><Label htmlFor="max-favorite">Max favorite odds</Label><p className="mb-3 mt-1 text-xs text-muted-foreground">Most expensive favorite the agent may take.</p><Input id="max-favorite" type="number" max={-100} value={params.max_favorite_odds ?? ''} placeholder="No limit" onChange={(e) => onParamChange('max_favorite_odds', e.target.value ? Number(e.target.value) as any : null)} /></div>
+          <div className="rounded-3xl border border-border/50 bg-background/70 p-4"><Label htmlFor="min-underdog">Min underdog odds</Label><p className="mb-3 mt-1 text-xs text-muted-foreground">Minimum plus-money price for underdogs.</p><Input id="min-underdog" type="number" min={100} value={params.min_underdog_odds ?? ''} placeholder="No limit" onChange={(e) => onParamChange('min_underdog_odds', e.target.value ? Number(e.target.value) as any : null)} /></div>
+        </div>
       </Section>
     </div>
   );

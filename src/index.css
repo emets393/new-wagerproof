@@ -339,3 +339,41 @@
     }
   }
 }
+@keyframes agent-glyph-pulse {
+  0%, 100% { opacity: .16; transform: scale(.72); }
+  35% { opacity: 1; transform: scale(1.22); }
+}
+
+@keyframes agent-pixel-wave {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: -72px 0, -36px 0; }
+}
+
+.agent-generation-glyph {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(3, 4px);
+  gap: 4px;
+}
+
+.agent-generation-glyph i {
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: currentColor;
+  animation: agent-glyph-pulse 1s ease-in-out infinite;
+}
+
+.agent-generation-pixels {
+  opacity: .42;
+  background-image:
+    radial-gradient(circle, color-mix(in srgb, var(--agent-accent) 70%, transparent) 0 2px, transparent 2.2px),
+    linear-gradient(90deg, transparent 20%, color-mix(in srgb, var(--agent-accent) 18%, transparent) 50%, transparent 80%);
+  background-size: 9px 9px, 72px 100%;
+  animation: agent-pixel-wave 2.4s linear infinite;
+  mask-image: linear-gradient(to left, black, rgba(0,0,0,.28));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-generation-glyph i, .agent-generation-pixels { animation: none; }
+}

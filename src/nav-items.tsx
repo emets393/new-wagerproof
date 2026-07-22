@@ -23,6 +23,8 @@ export interface NavItem {
   requiresAdmin?: boolean;
   comingSoon?: boolean;
   wip?: boolean;
+  /** Quiet supporting copy shown beside a main-sidebar row label. */
+  status?: string;
   hidden?: boolean;
   isHeader?: boolean;
   subItems?: Array<{
@@ -53,10 +55,16 @@ export const navItems: NavItem[] = [
     page: <Agents />,
   },
   {
-    // Unified split-view page replacing the per-sport list routes.
-    title: "Games",
-    to: "/games",
-    icon: <Trophy className="h-4 w-4" />,
+    title: "Today's Outliers",
+    to: "/today-in-sports",
+    icon: <Newspaper className="h-4 w-4" />,
+  },
+  {
+    // Unified split-view tool replacing the three per-sport
+    // "Today's Betting Trends" pages (which now redirect here).
+    title: "Today's Betting Trends",
+    to: "/todays-trends",
+    icon: <TrendingUp className="h-4 w-4" />,
   },
   {
     // Unified chat-forward Historical Trends page (NFL/CFB/MLB) — replaces the per-sport analytics pages.
@@ -67,16 +75,10 @@ export const navItems: NavItem[] = [
     icon: <BarChart className="h-4 w-4" />,
   },
   {
-    title: "Todays Outliers",
-    to: "/today-in-sports",
-    icon: <Newspaper className="h-4 w-4" />,
-  },
-  {
-    // Unified split-view tool replacing the three per-sport
-    // "Today's Betting Trends" pages (which now redirect here).
-    title: "Today's Betting Trends",
-    to: "/todays-trends",
-    icon: <TrendingUp className="h-4 w-4" />,
+    // Unified split-view page replacing the per-sport list routes.
+    title: "Games",
+    to: "/games",
+    icon: <Trophy className="h-4 w-4" />,
   },
   // {
   //   title: "Editors Picks",
