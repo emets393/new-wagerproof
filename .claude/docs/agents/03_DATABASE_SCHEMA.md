@@ -323,6 +323,7 @@ CREATE TABLE public.user_avatar_follows (
   avatar_id uuid NOT NULL REFERENCES avatar_profiles(id) ON DELETE CASCADE,
   followed_at timestamptz NOT NULL DEFAULT now(),
   notify_on_pick boolean NOT NULL DEFAULT true,
+  is_favorite boolean NOT NULL DEFAULT false,
   PRIMARY KEY (user_id, avatar_id)
 );
 
@@ -330,6 +331,41 @@ CREATE TABLE public.user_avatar_follows (
 CREATE INDEX idx_avatar_follows_user ON user_avatar_follows(user_id);
 CREATE INDEX idx_avatar_follows_avatar ON user_avatar_follows(avatar_id);
 ```
+
+**Follow ≠ ownership.** Following surfaces an agent in the follower's UX (client merges
+follows into the My Agents list; picks visibility is the normal public-picks + Pro-gated
+snapshot path, NOT gated on follow). Generation stays owner-only: `enqueue_*_v3_trigger` /
+`is_agent_owner` never accept a follower. "Run this agent yourself" = `clone_public_agent`
+(below) then generate on the NEW owned copy.
+
+Live policies (updated 2026-07-21): SELECT / INSERT / DELETE own rows, plus an UPDATE
+policy on own rows combined with a **column-level grant** so authenticated can update ONLY
+`is_favorite` and `notify_on_pick` (identity columns + `followed_at` stay immutable).
+
+---
+
+## `clone_public_agent` - Copy Build RPC
+
+`clone_public_agent(p_source_avatar_id uuid, p_name text DEFAULT NULL) RETURNS uuid`
+(SECURITY DEFINER, EXECUTE granted to `authenticated` + `service_role` only).
+
+- Refuses unauthenticated callers and sources that aren't public (cloning your OWN
+  private agent is allowed — same operation, fewer trust concerns).
+- Enforces the same creation limits as normal create via `can_create_agent(uid, true)`
+  (free: 1 agent; Pro: 30 total / 10 active; admin unlimited).
+- Copies build fields only: `personality_params`, `custom_insights`, `preferred_sports`,
+  `archetype`, `avatar_emoji`, `avatar_color`, `sprite_index`. Never copies stats,
+  `is_public` (new agent is private), or `auto_generate` (off; autopilot is entitlement-gated).
+- Sets `avatar_profiles.sourced_from_avatar_id` to the source id (FK, ON DELETE SET NULL)
+  for provenance/attribution.
+- Name collisions against `unique_avatar_name_per_user` retry as `"<name> (Copy)"`,
+  `"<name> (Copy 2)"`, ...
+
+> ⚠️ Overload gotcha: `can_create_agent` has 1-arg and 2-arg (defaulted) overloads, so the
+> call form `can_create_agent(uid)` is ambiguous (42725) in any NEW SQL. Existing policies
+> still work because policies bind function OIDs at CREATE POLICY time. Always call the
+> 2-arg form explicitly; longer-term, recreate the INSERT policy against the 2-arg overload
+> and drop the 1-arg.
 
 ---
 
@@ -516,3 +552,4 @@ CREATE POLICY "Allow read access to active system prompts"
 6. `20260205000006_create_avatar_leaderboard_view.sql` - Leaderboard view
 7. `20260205000007_create_agent_system_prompts.sql` - Create remote system prompts table
 8. `20260205000008_seed_agent_system_prompt_v1.sql` - Seed v1 system prompt
+9. `20260721120000_agent_follow_copy_build.sql` - Follow-prefs UPDATE policy + `sourced_from_avatar_id` + `clone_public_agent` RPC
