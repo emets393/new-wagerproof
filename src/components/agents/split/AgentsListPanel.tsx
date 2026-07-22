@@ -12,6 +12,7 @@ import {
   TogglePill,
 } from '@/components/ios';
 import { AgentListCard } from './AgentListCard';
+import { AgentHQ } from './AgentHQ';
 import { LeaderboardRowCard } from './LeaderboardRowCard';
 import { TopAgentPicksPanel } from './TopAgentPicksPanel';
 import type { TopAgentPicksFilter } from '@/services/agentPicksService';
@@ -328,6 +329,10 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
       </div>
 
       <div className="space-y-2.5 px-3 pb-6 pt-1">
+        {segment === 'mine' && (
+          <AgentHQ agents={agents} loading={agentsLoading} onSelectAgent={onSelect} />
+        )}
+
         {/* Entitlement strip (admins have no limits) */}
         {segment === 'mine' && !isAdmin && (
           <div className="flex flex-wrap items-center gap-1.5 px-1 text-[11px] font-semibold text-muted-foreground">

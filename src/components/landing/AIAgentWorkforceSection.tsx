@@ -1,516 +1,175 @@
-import React, { useMemo } from "react";
-import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
-import { useTheme } from "@/contexts/ThemeContext";
-import {
-  Bot,
-  Brain,
-  Zap,
-  ArrowRight,
-  Gauge,
-  Trophy,
-  ChevronRight,
-  Database,
-  Globe,
-  Activity,
-  History,
-  Newspaper,
-  CloudRain,
-  Cpu,
-} from "lucide-react";
+import * as React from 'react';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { ArrowRight, BarChart3, BrainCircuit, Check, Radar, SlidersHorizontal, Sparkles, Trophy } from 'lucide-react';
+import { AgentHQ } from '@/components/agents/split/AgentHQ';
+import type { AgentWithPerformance, ArchetypeId, Sport } from '@/types/agent';
 
-// Vertical pipeline layout (mobile) — viewBox coords map to % via same W/H
-const MOBILE_PIPELINE_W = 360;
-/** Tight to content (last agent row ~594 + chip extent); avoids empty band at bottom of the panel */
-const MOBILE_PIPELINE_H = 658;
+const NOW = new Date().toISOString();
 
-function mobilePipelinePct(x: number, y: number) {
+function demoAgent(
+  id: string,
+  name: string,
+  emoji: string,
+  color: string,
+  spriteIndex: number,
+  sports: Sport[],
+  wins: number,
+  losses: number,
+  netUnits: number,
+  ready = false
+): AgentWithPerformance {
   return {
-    left: `${(x / MOBILE_PIPELINE_W) * 100}%`,
-    top: `${(y / MOBILE_PIPELINE_H) * 100}%`,
-    transform: "translate(-50%, -50%)" as const,
-  };
+    id,
+    user_id: 'agent-hq-demo',
+    name,
+    avatar_emoji: emoji,
+    avatar_color: color,
+    sprite_index: spriteIndex,
+    preferred_sports: sports,
+    archetype: 'the_analyst' as ArchetypeId,
+    personality_params: {},
+    custom_insights: { betting_philosophy: null, perceived_edges: null, avoid_situations: null, target_situations: null },
+    is_public: true,
+    is_active: true,
+    created_at: NOW,
+    updated_at: NOW,
+    auto_generate: true,
+    auto_generate_time: '09:00',
+    auto_generate_timezone: 'America/Chicago',
+    is_widget_favorite: false,
+    last_generated_at: ready ? NOW : null,
+    last_auto_generated_at: ready ? NOW : null,
+    owner_last_active_at: NOW,
+    daily_generation_count: ready ? 1 : 0,
+    last_generation_date: ready ? NOW.slice(0, 10) : null,
+    performance: {
+      avatar_id: id,
+      total_picks: wins + losses,
+      wins,
+      losses,
+      pushes: 0,
+      pending: 0,
+      win_rate: wins / (wins + losses),
+      net_units: netUnits,
+      current_streak: 3,
+      best_streak: 7,
+      worst_streak: -3,
+      stats_by_sport: {},
+      stats_by_bet_type: {},
+      last_calculated_at: NOW,
+    },
+  } as AgentWithPerformance;
 }
 
-function mobileInputAnchor(i: number) {
-  const col = i % 2;
-  const row = Math.floor(i / 2);
-  return { x: 82 + col * 196, y: 36 + row * 74 };
-}
+const DEMO_AGENTS = [
+  demoAgent('demo-line-hawk', 'Line Hawk', '🦅', '#38bdf8', 0, ['nfl', 'cfb'], 31, 19, 11.42),
+  demoAgent('demo-value-hunter', 'Value Hunter', '🎯', '#f59e0b', 1, ['nba', 'ncaab'], 27, 18, 8.76, true),
+  demoAgent('demo-model-maven', 'Model Maven', '🧠', '#2dd4bf', 2, ['mlb'], 36, 22, 14.18),
+  demoAgent('demo-contrarian', 'Contrarian', '⚡', '#fb7185', 3, ['nfl'], 24, 17, 6.35, true),
+  demoAgent('demo-odds-oracle', 'Odds Oracle', '🔮', '#a78bfa', 4, ['nba'], 29, 21, 7.91),
+  demoAgent('demo-trend-spotter', 'Trend Spotter', '📈', '#4ade80', 5, ['cfb', 'ncaab'], 22, 15, 5.64),
+];
 
-function mobileCoreAnchor() {
-  return { x: MOBILE_PIPELINE_W / 2, y: 248 };
-}
+const capabilities = [
+  { icon: Radar, title: 'Scans every slate', copy: 'Odds, trends, injuries, weather, splits, and market movement.' },
+  { icon: SlidersHorizontal, title: 'Thinks your way', copy: 'Give every agent its own sport, risk profile, and betting philosophy.' },
+  { icon: BarChart3, title: 'Proves its edge', copy: 'Every result is graded with transparent W-L and unit performance.' },
+];
 
-/** Same columns as intake grid; pushed down + looser rows to fill space below core. */
-const MOBILE_AGENT_GRID_BASE_Y = 402;
-const MOBILE_AGENT_ROW_STEP = 96;
+const workflow = [
+  { number: '01', label: 'Build', copy: 'Choose a sport and strategy' },
+  { number: '02', label: 'Deploy', copy: 'Agents research the slate' },
+  { number: '03', label: 'Review', copy: 'See picks and reasoning' },
+  { number: '04', label: 'Track', copy: 'Measure the real results' },
+];
 
-function mobileAgentAnchor(i: number) {
-  const col = i % 2;
-  const row = Math.floor(i / 2);
-  return {
-    x: 82 + col * 196,
-    y: MOBILE_AGENT_GRID_BASE_Y + row * MOBILE_AGENT_ROW_STEP,
-  };
-}
-
-// ─────────────────────────────────────────────
-// PIPELINE ANIMATION WIDGET
-// Massive center showcase of parallel processing
-// Adapted for light/dark mode in the main landing
-// ─────────────────────────────────────────────
-const HeroPipelineWidget = () => {
-  const agents = [
-    { name: "Contrarian", strategy: "Testing Fade Strategy", color: "#ef4444" },
-    { name: "Chalk Grinder", strategy: "Testing Favorites", color: "#3b82f6" },
-    { name: "Plus Money", strategy: "Seeking Value > +150", color: "#f59e0b" },
-    { name: "Model Truther", strategy: "Aligning with Intrinsic Edge", color: "#10b981" },
-    { name: "Momentum", strategy: "Analyzing Streak Form", color: "#8b5cf6" },
-  ];
-
-  const inputs = [
-    { name: "Historical Data", icon: History, iconColor: "text-blue-500 dark:text-blue-400", bgColor: "bg-blue-500/10", particleColor: "#3b82f6" },
-    { name: "Live Odds API", icon: Database, iconColor: "text-indigo-500 dark:text-indigo-400", bgColor: "bg-indigo-500/10", particleColor: "#6366f1" },
-    { name: "Public Splits", icon: Globe, iconColor: "text-emerald-500 dark:text-emerald-400", bgColor: "bg-emerald-500/10", particleColor: "#10b981" },
-    { name: "Recent News", icon: Newspaper, iconColor: "text-yellow-500 dark:text-yellow-400", bgColor: "bg-yellow-500/10", particleColor: "#eab308" },
-    { name: "Situational Data", icon: CloudRain, iconColor: "text-cyan-500 dark:text-cyan-400", bgColor: "bg-cyan-500/10", particleColor: "#06b6d4" },
-    { name: "ML Models", icon: Cpu, iconColor: "text-pink-500 dark:text-pink-400", bgColor: "bg-pink-500/10", particleColor: "#ec4899" },
-  ];
-
-  const mCore = mobileCoreAnchor();
-
+export default function AIAgentWorkforceSection() {
   return (
-    <div className="py-6 md:py-8 relative w-full flex flex-col items-center justify-center">
-      <div className="relative w-full max-w-5xl mx-auto hidden lg:block h-[450px]">
-        {/* Background panel */}
-        <div className="absolute inset-4 bg-white/60 dark:bg-[#0A0D14]/80 border border-gray-200 dark:border-white/10 rounded-3xl shadow-xl dark:shadow-[0_0_100px_rgba(0,0,0,0.8)] backdrop-blur-xl" />
-        
-        {/* Nodes layer */}
-        <div className="absolute inset-0 z-10">
-          
-          {/* Intake */}
-          <div className="absolute left-[64px] w-[180px] h-full">
-            {inputs.map((input, i) => (
-              <div key={input.name} className="absolute left-0 w-full -translate-y-1/2 p-3 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl flex items-center justify-center gap-3 backdrop-blur-md overflow-hidden group shadow-sm" style={{ top: `${62.5 + i * 65}px` }}>
-                <motion.div className={`absolute inset-0 ${input.bgColor} opacity-0 group-hover:opacity-100 transition-opacity`} />
-                <input.icon className={`w-5 h-5 ${input.iconColor}`} />
-                <span className="text-xs font-mono text-gray-600 dark:text-gray-300">{input.name}</span>
-              </div>
-            ))}
-          </div>
+    <section className="relative isolate overflow-hidden px-4 py-24 sm:px-6 md:py-36">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_50%_38%,rgba(20,184,166,0.12),transparent_32%),radial-gradient(circle_at_18%_22%,rgba(59,130,246,0.09),transparent_24%),radial-gradient(circle_at_82%_20%,rgba(34,197,94,0.08),transparent_22%)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-[0.025] [background-image:url('data:image/svg+xml,%3Csvg_viewBox=%220_0_180_180%22_xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter_id=%22n%22%3E%3CfeTurbulence_type=%22fractalNoise%22_baseFrequency=%220.8%22_numOctaves=%223%22/%3E%3C/filter%3E%3Crect_width=%22100%25%22_height=%22100%25%22_filter=%22url(%23n)%22/%3E%3C/svg%3E')]" />
 
-          {/* Core */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-[128px]">
-             <motion.div 
-              className="w-32 h-32 rounded-full bg-white dark:bg-violet-600/20 border-2 border-violet-500/50 flex items-center justify-center relative z-10 shadow-lg dark:shadow-[0_0_60px_rgba(139,92,246,0.3)] backdrop-blur-xl"
-              animate={{ scale: [1, 1.05, 1], borderColor: ["rgba(139,92,246,0.3)", "rgba(139,92,246,0.8)", "rgba(139,92,246,0.3)"] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-             >
-               <Brain className="w-12 h-12 text-violet-500 dark:text-violet-400" />
-             </motion.div>
-             <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-mono font-bold text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/20 px-2 py-1 rounded border border-violet-200 dark:border-violet-500/30">WAGERPROOF CORE</div>
-          </div>
-
-          {/* Agents */}
-          <div className="absolute right-[64px] w-[260px] h-full">
-            {agents.map((agent, i) => (
-              <div key={agent.name} className="absolute left-0 w-full -translate-y-1/2 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl p-2.5 flex items-center gap-3 overflow-hidden backdrop-blur-md group hover:border-gray-300 dark:hover:border-white/20 transition-colors shadow-sm" style={{ top: `${75 + i * 75}px` }}>
-                <div className="flex flex-col items-center gap-1 shrink-0">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-[#0A0D14] border border-gray-200 dark:border-white/10 relative z-10">
-                    <Bot className="w-3.5 h-3.5" style={{ color: agent.color }} />
-                  </div>
-                  <div className="flex items-center gap-[2px]">
-                    {[0, 1, 2, 3, 4].map((bar) => (
-                      <motion.div
-                        key={bar}
-                        className="w-[2px] rounded-full"
-                        style={{ backgroundColor: agent.color }}
-                        animate={{ height: [2, 8, 2] }}
-                        transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: bar * 0.1 }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0 relative z-10">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-[11px] font-bold text-gray-900 dark:text-white truncate">Agent: {agent.name}</span>
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 shrink-0">#{i + 1}</span>
-                  </div>
-                  <div className="h-1 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                    <motion.div 
-                      className="h-full rounded-full relative shadow-[0_0_10px_currentColor]"
-                      style={{ backgroundColor: agent.color, color: agent.color }}
-                      initial={{ width: "0%" }}
-                      animate={{ width: ["0%", "100%", "0%"] }}
-                      transition={{ duration: 2 + Math.random() * 2, repeat: Infinity, ease: "linear", delay: Math.random() }}
-                    >
-                       <div className="absolute top-0 right-0 bottom-0 w-8 bg-white/50 dark:bg-white/30 blur-[2px]" />
-                    </motion.div>
-                  </div>
-                  <div className="text-[7px] font-mono text-gray-500 mt-1 uppercase tracking-wider">{agent.strategy}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* SVG Connections Layer */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 1024 450" preserveAspectRatio="none">
-           {/* Left to Center (6 inputs) */}
-           {inputs.map((input, i) => (
-             <path key={`path-${i}`} d={`M 230 ${62.5 + i * 65} C 310 ${62.5 + i * 65}, 400 225, 450 225`} fill="none" stroke="currentColor" className="text-gray-300 dark:text-white/10" strokeWidth="2" strokeDasharray="4 4" />
-           ))}
-
-           {/* Center to Right (5 outputs) */}
-           <path d="M 570 225 C 640 225, 680 75, 750 75" fill="none" stroke="rgba(139,92,246,0.3)" strokeWidth="2" />
-           <path d="M 570 225 C 640 225, 680 150, 750 150" fill="none" stroke="rgba(139,92,246,0.3)" strokeWidth="2" />
-           <path d="M 570 225 C 640 225, 680 225, 750 225" fill="none" stroke="rgba(139,92,246,0.3)" strokeWidth="2" />
-           <path d="M 570 225 C 640 225, 680 300, 750 300" fill="none" stroke="rgba(139,92,246,0.3)" strokeWidth="2" />
-           <path d="M 570 225 C 640 225, 680 375, 750 375" fill="none" stroke="rgba(139,92,246,0.3)" strokeWidth="2" />
-           
-           {/* Animated Data Particles */}
-           {inputs.map((input, i) => (
-             <motion.circle key={`particle-${i}`} r="4" fill={input.particleColor} filter={`drop-shadow(0 0 6px ${input.particleColor})`}>
-               <animateMotion dur={`${2 + Math.random()}s`} repeatCount="indefinite" path={`M 230 ${62.5 + i * 65} C 310 ${62.5 + i * 65}, 400 225, 450 225`} />
-             </motion.circle>
-           ))}
-
-           {agents.map((agent, i) => (
-             <motion.circle key={i} r="3" fill={agent.color} filter={`drop-shadow(0 0 6px ${agent.color})`}>
-               <animateMotion dur={`${1.5 + Math.random()}s`} repeatCount="indefinite" path={`M 570 225 C 640 225, 680 ${75 + i * 75}, 750 ${75 + i * 75}`} />
-             </motion.circle>
-           ))}
-        </svg>
-      </div>
-
-      {/* Mobile: vertical pipeline — same nodes, paths, and particles as desktop */}
-      <div className="lg:hidden relative w-full max-w-[400px] mx-auto px-2 min-h-[560px] h-[min(86svh,635px)] sm:h-[min(86svh,655px)]">
-        <div className="absolute inset-1 sm:inset-2 bg-white/60 dark:bg-[#0A0D14]/80 border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl dark:shadow-[0_0_80px_rgba(0,0,0,0.75)] backdrop-blur-xl" />
-
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none z-0"
-          viewBox={`0 0 ${MOBILE_PIPELINE_W} ${MOBILE_PIPELINE_H}`}
-          preserveAspectRatio="none"
-        >
-          {inputs.map((_, i) => {
-            const { x: ix, y: iy } = mobileInputAnchor(i);
-            const d = `M ${ix} ${iy + 22} C ${ix} ${iy + 95}, ${mCore.x} ${mCore.y - 48}, ${mCore.x} ${mCore.y}`;
-            return (
-              <path
-                key={`m-in-${i}`}
-                d={d}
-                fill="none"
-                stroke="currentColor"
-                className="text-gray-300 dark:text-white/10"
-                strokeWidth="2"
-                strokeDasharray="4 4"
-              />
-            );
-          })}
-          {agents.map((_, i) => {
-            const { x: ax, y: ay } = mobileAgentAnchor(i);
-            const d = `M ${mCore.x} ${mCore.y + 50} C ${mCore.x} ${mCore.y + 115}, ${ax} ${ay - 58}, ${ax} ${ay - 28}`;
-            return (
-              <path
-                key={`m-out-${i}`}
-                d={d}
-                fill="none"
-                stroke="rgba(139,92,246,0.35)"
-                strokeWidth="2"
-              />
-            );
-          })}
-          {inputs.map((input, i) => {
-            const { x: ix, y: iy } = mobileInputAnchor(i);
-            const path = `M ${ix} ${iy + 22} C ${ix} ${iy + 95}, ${mCore.x} ${mCore.y - 48}, ${mCore.x} ${mCore.y}`;
-            return (
-              <motion.circle
-                key={`m-particle-in-${i}`}
-                r="3.5"
-                fill={input.particleColor}
-                filter={`drop-shadow(0 0 5px ${input.particleColor})`}
-              >
-                <animateMotion
-                  dur={`${2 + (i % 5) * 0.2}s`}
-                  repeatCount="indefinite"
-                  path={path}
-                />
-              </motion.circle>
-            );
-          })}
-          {agents.map((agent, i) => {
-            const { x: ax, y: ay } = mobileAgentAnchor(i);
-            const path = `M ${mCore.x} ${mCore.y + 50} C ${mCore.x} ${mCore.y + 115}, ${ax} ${ay - 58}, ${ax} ${ay - 28}`;
-            return (
-              <motion.circle
-                key={`m-particle-out-${i}`}
-                r="3"
-                fill={agent.color}
-                filter={`drop-shadow(0 0 5px ${agent.color})`}
-              >
-                <animateMotion
-                  dur={`${1.6 + (i % 4) * 0.2}s`}
-                  repeatCount="indefinite"
-                  path={path}
-                />
-              </motion.circle>
-            );
-          })}
-        </svg>
-
-        <div className="absolute inset-0 z-10">
-          {inputs.map((input, i) => {
-            const { x, y } = mobileInputAnchor(i);
-            return (
-              <div
-                key={input.name}
-                className="absolute w-[min(148px,42vw)] p-2 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg flex items-center justify-center gap-2 backdrop-blur-md overflow-hidden group shadow-sm"
-                style={mobilePipelinePct(x, y)}
-              >
-                <motion.div
-                  className={`absolute inset-0 ${input.bgColor} opacity-0 group-hover:opacity-100 transition-opacity`}
-                />
-                <input.icon className={`w-4 h-4 shrink-0 ${input.iconColor}`} />
-                <span className="text-[9px] font-mono text-gray-600 dark:text-gray-300 leading-tight text-center">
-                  {input.name}
-                </span>
-              </div>
-            );
-          })}
-
-          <div className="absolute" style={mobilePipelinePct(mCore.x, mCore.y)}>
-            <div className="relative">
-              <motion.div
-                className="w-[4.5rem] h-[4.5rem] rounded-full bg-white dark:bg-violet-600/20 border-2 border-violet-500/50 flex items-center justify-center relative z-10 shadow-lg dark:shadow-[0_0_40px_rgba(139,92,246,0.28)] backdrop-blur-xl"
-                animate={{
-                  scale: [1, 1.05, 1],
-                  borderColor: [
-                    "rgba(139,92,246,0.3)",
-                    "rgba(139,92,246,0.8)",
-                    "rgba(139,92,246,0.3)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <Brain className="w-8 h-8 text-violet-500 dark:text-violet-400" />
-              </motion.div>
-              <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-mono font-bold text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/20 px-2 py-0.5 rounded border border-violet-200 dark:border-violet-500/30">
-                WAGERPROOF CORE
-              </div>
-            </div>
-          </div>
-
-          {agents.map((agent, i) => {
-            const { x, y } = mobileAgentAnchor(i);
-            return (
-              <div
-                key={agent.name}
-                className="absolute w-[min(158px,44vw)] p-2 bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg flex items-center gap-2 backdrop-blur-md overflow-hidden group shadow-sm"
-                style={mobilePipelinePct(x, y)}
-              >
-                <motion.div
-                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ backgroundColor: `${agent.color}18` }}
-                />
-                <div className="flex flex-col items-center gap-0.5 shrink-0 relative z-10">
-                  <div className="w-6 h-6 rounded-md flex items-center justify-center bg-gray-50 dark:bg-[#0A0D14] border border-gray-200 dark:border-white/10">
-                    <Bot className="w-3 h-3" style={{ color: agent.color }} />
-                  </div>
-                  <div className="flex items-end justify-center gap-[1px] h-[9px]">
-                    {[0, 1, 2, 3, 4].map((bar) => (
-                      <motion.div
-                        key={bar}
-                        className="w-[2px] rounded-full origin-bottom"
-                        style={{ backgroundColor: agent.color }}
-                        animate={{ height: [2, 7, 2] }}
-                        transition={{
-                          duration: 0.55,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                          delay: bar * 0.1 + i * 0.04,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col gap-1 relative z-10 pt-0.5">
-                  <div className="flex items-start justify-between gap-1">
-                    <span className="text-[8px] font-bold text-gray-900 dark:text-white leading-tight line-clamp-2">
-                      {agent.name}
-                    </span>
-                    <span className="text-[7px] font-mono font-bold px-1 py-px rounded bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 shrink-0">
-                      #{i + 1}
-                    </span>
-                  </div>
-                  <div className="h-0.5 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full relative shadow-[0_0_6px_currentColor]"
-                      style={{ backgroundColor: agent.color, color: agent.color }}
-                      initial={{ width: "0%" }}
-                      animate={{ width: ["0%", "100%", "0%"] }}
-                      transition={{
-                        duration: 2.1 + (i % 3) * 0.35,
-                        repeat: Infinity,
-                        ease: "linear",
-                        delay: i * 0.12,
-                      }}
-                    >
-                      <div className="absolute top-0 right-0 bottom-0 w-4 bg-white/50 dark:bg-white/30 blur-[1px]" />
-                    </motion.div>
-                  </div>
-                  <span className="text-[6px] font-mono text-gray-500 dark:text-gray-400 uppercase tracking-wide truncate">
-                    {agent.strategy}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────
-// MAIN SECTION COMPONENT
-// ─────────────────────────────────────────────
-const AIAgentWorkforceSection = () => {
-  useTheme();
-
-  const steps = useMemo(
-    () => [
-      { icon: Bot, label: "Create", desc: "Name your agent and pick a sport" },
-      { icon: Gauge, label: "Configure", desc: "50+ personality parameters" },
-      { icon: Zap, label: "Deploy", desc: "Agent begins 24/7 analysis" },
-      { icon: Trophy, label: "Track", desc: "W-L record and unit tracking" },
-    ],
-    []
-  );
-
-  return (
-    <section className="relative w-full py-20 md:py-32 overflow-hidden">
-      {/* Background ambient */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/3 left-1/5 w-[500px] h-[500px] bg-violet-500/[0.04] dark:bg-violet-500/[0.03] rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-emerald-500/[0.03] dark:bg-emerald-500/[0.02] rounded-full blur-[140px]" />
-      </div>
-
-      {/* Noise */}
-      <div
-        className="absolute inset-0 opacity-[0.02] pointer-events-none"
-        style={{
-          backgroundImage:
-            'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")',
-        }}
-      />
-
-      <div className="relative z-10 mx-auto">
-        {/* ───── HEADER + PIPELINE (combined) ───── */}
-        <div className="text-center max-w-5xl mx-auto px-4 md:px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 text-xs font-semibold mb-6 border border-violet-200 dark:border-violet-800/40">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500" />
-              </span>
-              AI Agents — Now Live
-            </div>
-
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900 dark:text-white mb-6 tracking-tight leading-[1.05] text-balance">
-              Your Personal Workforce of <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 via-emerald-400 to-blue-500">
-                Sports Data Scientists
-              </span>
-            </h2>
-
-            <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 leading-relaxed mb-8 max-w-2xl mx-auto font-medium">
-              Create an army of autonomous AI research agents that study sports 24/7 and report back to you.
-              Test different strategies or copy the top leaderboard agents, their results are public so the accuracy is transparent.
-            </p>
-          </motion.div>
-        </div>
-
-        <div className="mb-8 w-full max-w-[1400px] mx-auto px-2 sm:px-4">
-          <HeroPipelineWidget />
-        </div>
-
-        {/* ───── HOW IT WORKS FLOW ───── */}
+      <div className="mx-auto w-full max-w-[1380px]">
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 22 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
+          viewport={{ once: true, amount: 0.4 }}
           transition={{ duration: 0.6 }}
-          className="max-w-4xl mx-auto px-4 md:px-6"
+          className="mx-auto max-w-5xl text-center"
         >
-          <h3 className="text-center text-sm font-mono text-gray-400 dark:text-gray-500 tracking-[0.2em] uppercase mb-8">
-            How It Works
-          </h3>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            {steps.map((step, i) => (
-              <motion.div
-                key={step.label}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="relative text-center p-4 sm:p-5 rounded-2xl bg-white/50 dark:bg-[#0A0D14]/60 border border-gray-200/60 dark:border-gray-800/60 group hover:border-emerald-500/20 transition-colors"
-              >
-                {/* Step number */}
-                <div className="text-[80px] font-black text-gray-100 dark:text-white/[0.03] absolute top-1 right-3 leading-none select-none pointer-events-none">
-                  {i + 1}
-                </div>
-
-                <div className="relative z-10">
-                  <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
-                    <step.icon className="w-4.5 h-4.5 text-emerald-500" />
-                  </div>
-                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">{step.label}</h4>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">{step.desc}</p>
-                </div>
-
-                {/* Connector arrow (not on last) */}
-                {i < steps.length - 1 && (
-                  <div className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 z-20">
-                    <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-700" />
-                  </div>
-                )}
-              </motion.div>
-            ))}
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-bold tracking-[0.04em] text-emerald-700 dark:text-emerald-300">
+            <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>
+            AGENT HQ · LIVE DEMO
           </div>
+          <h2 className="text-balance text-4xl font-black leading-[0.98] tracking-[-0.04em] text-gray-950 dark:text-white sm:text-5xl md:text-7xl">
+            Meet the betting desk that{' '}
+            <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">never clocks out.</span>
+          </h2>
+          <p className="mx-auto mt-7 max-w-3xl text-balance text-lg leading-relaxed text-gray-600 dark:text-gray-300 md:text-xl">
+            Build a team of autonomous sports research agents. Each one studies the slate through a different lens, makes accountable picks, and builds a public track record inside your Agent HQ.
+          </p>
+        </motion.div>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-12">
-            <Link to="/ai-agents">
-              <motion.button
-                whileHover={{ scale: 1.03, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white rounded-full font-bold text-sm shadow-lg hover:shadow-xl hover:bg-gray-50 dark:hover:bg-white/10 flex items-center justify-center gap-2"
-              >
-                <span>Learn More</span>
-              </motion.button>
-            </Link>
-            <Link to="/account">
-              <motion.button
-                whileHover={{ scale: 1.03, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                className="group/btn w-full sm:w-auto px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full font-bold text-sm shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <span>Create Your First Agent</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
-              </motion.button>
-            </Link>
+        <motion.div
+          initial={{ opacity: 0, y: 34, scale: 0.985 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: 0.75, delay: 0.08 }}
+          className="relative mt-14 md:mt-20"
+        >
+          <div aria-hidden className="absolute -inset-8 -z-10 rounded-[56px] bg-gradient-to-b from-emerald-400/15 via-cyan-400/5 to-transparent blur-3xl" />
+          <div className="overflow-hidden rounded-[30px] border border-black/10 bg-white/70 p-2.5 shadow-[0_42px_110px_-42px_rgba(2,20,31,0.5)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#070b11]/80 sm:p-4 md:rounded-[38px] md:p-6">
+            <div className="mb-4 flex flex-col gap-3 px-2 pt-1 sm:flex-row sm:items-center sm:justify-between md:mb-6 md:px-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/10 text-emerald-500"><BrainCircuit className="h-5 w-5" /></div>
+                <div><p className="text-sm font-black tracking-tight text-gray-950 dark:text-white">WagerProof Agent HQ</p><p className="text-xs text-gray-500 dark:text-gray-400">Six strategies researching today&apos;s board</p></div>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[11px] font-bold text-gray-600 dark:text-gray-300">
+                <span className="rounded-full border border-black/10 bg-white/70 px-3 py-1.5 dark:border-white/10 dark:bg-white/5">6 agents online</span>
+                <span className="rounded-full border border-black/10 bg-white/70 px-3 py-1.5 dark:border-white/10 dark:bg-white/5">5 sports covered</span>
+                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-emerald-600 dark:text-emerald-300">+54.26u tracked</span>
+              </div>
+            </div>
+
+            <div className="mx-auto w-full max-w-[1180px]">
+              <AgentHQ agents={DEMO_AGENTS} onSelectAgent={() => undefined} />
+            </div>
+
+            <div className="grid gap-2.5 p-2 pt-4 md:grid-cols-3 md:p-3 md:pt-6">
+              {capabilities.map(({ icon: Icon, title, copy }) => (
+                <div key={title} className="flex gap-3 rounded-2xl border border-black/[0.07] bg-white/55 p-4 dark:border-white/[0.08] dark:bg-white/[0.035]">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500"><Icon className="h-4 w-4" /></div>
+                  <div><p className="text-sm font-extrabold text-gray-950 dark:text-white">{title}</p><p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{copy}</p></div>
+                </div>
+              ))}
+            </div>
           </div>
         </motion.div>
+
+        <div className="mx-auto mt-16 max-w-6xl md:mt-24">
+          <div className="mb-6 flex items-center justify-center gap-3 text-[11px] font-bold uppercase tracking-[0.22em] text-gray-400"><span className="h-px w-12 bg-current opacity-40" />From idea to verified record<span className="h-px w-12 bg-current opacity-40" /></div>
+          <div className="grid gap-px overflow-hidden rounded-3xl border border-black/[0.08] bg-black/[0.08] dark:border-white/[0.09] dark:bg-white/[0.09] sm:grid-cols-2 lg:grid-cols-4">
+            {workflow.map((step) => (
+              <div key={step.number} className="relative bg-white/80 p-6 dark:bg-[#090d13]/90 md:p-7">
+                <span className="absolute right-5 top-3 text-5xl font-black tracking-tighter text-gray-950/[0.045] dark:text-white/[0.045]">{step.number}</span>
+                <div className="mb-5 flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-500"><Check className="h-4 w-4" /></div>
+                <p className="text-base font-black text-gray-950 dark:text-white">{step.label}</p><p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">{step.copy}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link to="/agents" className="inline-flex h-13 items-center justify-center gap-2 rounded-full bg-gray-950 px-7 py-3.5 text-sm font-extrabold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-100">
+              Enter Agent HQ <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link to="/agents/create" className="inline-flex h-13 items-center justify-center gap-2 rounded-full border border-black/10 bg-white/60 px-7 py-3.5 text-sm font-extrabold text-gray-900 backdrop-blur transition hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10">
+              <Sparkles className="h-4 w-4 text-emerald-500" /> Build your first agent
+            </Link>
+          </div>
+          <p className="mt-4 flex items-center justify-center gap-2 text-center text-xs text-gray-500 dark:text-gray-400"><Trophy className="h-3.5 w-3.5 text-amber-500" /> Every pick is graded. Every result stays visible.</p>
+        </div>
       </div>
     </section>
   );
-};
-
-export default AIAgentWorkforceSection;
+}
