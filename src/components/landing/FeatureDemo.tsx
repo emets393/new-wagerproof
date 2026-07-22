@@ -2,26 +2,28 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { Brain, LayoutList, Sparkles, ArrowRight } from "lucide-react";
+import { Brain, LayoutList, Percent, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { GameListCard } from "@/features/games/components/GameListCard";
-import { NflPredictionsSection } from "@/features/games/detail/sections/nfl/NflPredictionsSection";
-import { NflBettingSplitsSection } from "@/features/games/detail/sections/nfl/NflBettingSplitsSection";
-import { MatchSimulatorSection } from "@/features/games/detail/sections/MatchSimulatorSection";
+import { NflSpreadSection } from "@/features/games/detail/sections/nfl/NflPredictionsSection";
+import { MlbSideAnglesSection } from "@/features/trendsToday/detail/sections/MlbAngleSections";
 import {
   getNFLTeamColors,
   getNFLTeamInitials,
   getNFLTeamLogo,
   type NFLPrediction,
 } from "@/features/games/api/nflGames";
-import { getNBATeamLogo } from "@/features/games/api/nbaGames";
-import { getNBATeamColors, getNBATeamInitials } from "@/utils/teamColors";
-import type { GameFeedItem, TeamRef } from "@/features/games/types";
+import { getMLBTeamColors } from "@/utils/teamColors";
+import type { GameFeedItem, GamesSport, TeamRef } from "@/features/games/types";
+import type { TrendAngle, TrendsFeedItem, TrendsTeam, TrendsVerdict } from "@/features/trendsToday/types";
 
 gsap.registerPlugin(ScrollTrigger);
 
 // ─────────────────────────────────────────────
-// SAMPLE DATA — real app components, demo numbers
+// SAMPLE DATA — real app components + live Polymarket sparklines
+// Matchups chosen because they have active Polymarket moneyline markets:
+//   "Rams vs. Chiefs", "Eagles vs. Ravens", "Pittsburgh Pirates vs. New York Yankees"
+// Team names match what getAllMarketsData / findMatchingEvent expects.
 // ─────────────────────────────────────────────
 const nflTeam = (city: string): TeamRef => ({
   name: city,
@@ -30,54 +32,68 @@ const nflTeam = (city: string): TeamRef => ({
   colors: getNFLTeamColors(city),
 });
 
-const nbaTeam = (name: string): TeamRef => ({
+const mlbTeam = (name: string, abbrev: string): TeamRef => ({
   name,
-  abbrev: getNBATeamInitials(name),
-  logoUrl: getNBATeamLogo(name, []),
-  colors: getNBATeamColors(name),
+  abbrev,
+  logoUrl: `https://a.espncdn.com/i/teamlogos/mlb/500/${abbrev.toLowerCase()}.png`,
+  colors: getMLBTeamColors(abbrev),
 });
 
-interface DemoNflGame {
+const mlbTrendsTeam = (name: string, abbrev: string): TrendsTeam => ({
+  name,
+  abbrev,
+  logoUrl: `https://a.espncdn.com/i/teamlogos/mlb/500/${abbrev.toLowerCase()}.png`,
+  colors: getMLBTeamColors(abbrev),
+});
+
+interface DemoGame {
   id: string;
-  away: string;
-  home: string;
+  sport: GamesSport;
+  awayTeam: TeamRef;
+  homeTeam: TeamRef;
   time: string;
   lines: GameFeedItem["lines"];
   edges: GameFeedItem["edges"];
 }
 
-const DEMO_NFL_GAMES: DemoNflGame[] = [
+const DEMO_GAMES: DemoGame[] = [
   {
-    id: "demo-kc-buf",
-    away: "Kansas City",
-    home: "Buffalo",
-    time: "8:15 PM ET",
-    lines: { awayML: -125, homeML: 105, homeSpread: 2.5, awaySpread: -2.5, total: 51.5 },
-    edges: { mlProb: 0.38, spreadEdge: 1.5, totalEdge: 2.5 },
+    id: "demo-lar-kc",
+    sport: "nfl",
+    // Polymarket: "Rams vs. Chiefs"
+    awayTeam: nflTeam("Los Angeles Rams"),
+    homeTeam: nflTeam("Kansas City"),
+    time: "8:20 PM ET",
+    lines: { awayML: -110, homeML: -110, homeSpread: -1.5, awaySpread: 1.5, total: 47.5 },
+    edges: { mlProb: 0.485, spreadEdge: 1.5, totalEdge: 2.0 },
   },
   {
-    id: "demo-dal-phi",
-    away: "Dallas",
-    home: "Philadelphia",
+    id: "demo-phi-bal",
+    sport: "nfl",
+    // Polymarket: "Eagles vs. Ravens"
+    awayTeam: nflTeam("Philadelphia"),
+    homeTeam: nflTeam("Baltimore"),
     time: "4:25 PM ET",
-    lines: { awayML: 195, homeML: -240, homeSpread: -6, awaySpread: 6, total: 44.5 },
-    edges: { mlProb: 0.71, spreadEdge: -2, totalEdge: -1.5 },
+    lines: { awayML: -115, homeML: -105, homeSpread: 1.5, awaySpread: -1.5, total: 46.5 },
+    edges: { mlProb: 0.485, spreadEdge: -2.0, totalEdge: -1.5 },
   },
   {
-    id: "demo-cin-ne",
-    away: "Cincinnati",
-    home: "New England",
-    time: "1:00 PM ET",
-    lines: { awayML: -155, homeML: 130, homeSpread: 3.5, awaySpread: -3.5, total: 43.5 },
-    edges: { mlProb: 0.34, spreadEdge: 3.5, totalEdge: -3 },
+    id: "demo-pit-nyy",
+    sport: "mlb",
+    // Polymarket: "Pittsburgh Pirates vs. New York Yankees"
+    awayTeam: mlbTeam("Pittsburgh Pirates", "PIT"),
+    homeTeam: mlbTeam("New York Yankees", "NYY"),
+    time: "7:05 PM ET",
+    lines: { awayML: 165, homeML: -185, homeSpread: -1.5, awaySpread: 1.5, total: 9.5 },
+    edges: { mlProb: 0.615, spreadEdge: null, totalEdge: 0.7 },
   },
 ];
 
-const toFeedItem = (g: DemoNflGame): GameFeedItem => ({
-  sport: "nfl",
+const toFeedItem = (g: DemoGame): GameFeedItem => ({
+  sport: g.sport,
   id: g.id,
-  awayTeam: nflTeam(g.away),
-  homeTeam: nflTeam(g.home),
+  awayTeam: g.awayTeam,
+  homeTeam: g.homeTeam,
   gameDate: "",
   gameTimeLabel: g.time,
   timeSortKey: g.time,
@@ -87,53 +103,102 @@ const toFeedItem = (g: DemoNflGame): GameFeedItem => ({
   raw: {},
 });
 
-// Featured game for the Model Predictions + Public Betting widgets.
+// Featured NFL game for the Spread widget (matches first feed card).
 const DEMO_NFL_RAW: NFLPrediction = {
-  id: "demo-kc-buf",
-  away_team: "Kansas City",
-  home_team: "Buffalo",
-  home_ml: 105,
-  away_ml: -125,
-  home_spread: 2.5,
-  away_spread: -2.5,
-  over_line: 51.5,
+  id: "demo-lar-kc",
+  away_team: "Los Angeles Rams",
+  home_team: "Kansas City",
+  home_ml: -110,
+  away_ml: -110,
+  home_spread: -1.5,
+  away_spread: 1.5,
+  over_line: 47.5,
   game_date: "",
   game_time: "",
-  training_key: "demo-kc-buf",
-  unique_id: "demo-kc-buf",
-  home_away_ml_prob: 0.38,
-  home_away_spread_cover_prob: 0.31,
-  ou_result_prob: 0.74,
+  training_key: "demo-lar-kc",
+  unique_id: "demo-lar-kc",
+  home_away_ml_prob: 0.485,
+  home_away_spread_cover_prob: 0.42,
+  ou_result_prob: 0.58,
   run_id: null,
   temperature: null,
   precipitation: null,
   wind_speed: null,
   icon: null,
-  spread_splits_label: "Sharp money on Kansas City (68%)",
-  total_splits_label: "Public on Over (71%)",
-  ml_splits_label: "Sharp money on Kansas City (64%)",
+  spread_splits_label: "Sharp money on Los Angeles Rams (61%)",
+  total_splits_label: "Public on Over (66%)",
+  ml_splits_label: "Sharp money on Los Angeles Rams (54%)",
   home_spread_diff: -1.5,
-  over_line_diff: 2.7,
+  over_line_diff: 2.0,
 };
 
-const DEMO_DETAIL_GAME: GameFeedItem = {
-  ...toFeedItem(DEMO_NFL_GAMES[0]),
+const DEMO_SPREAD_GAME: GameFeedItem = {
+  ...toFeedItem(DEMO_GAMES[0]),
   raw: DEMO_NFL_RAW,
 };
 
-// NBA game so the interactive Match Simulator widget has projected scores.
-const DEMO_NBA_GAME: GameFeedItem = {
-  sport: "nba",
-  id: "demo-bos-lal",
-  awayTeam: nbaTeam("Boston Celtics"),
-  homeTeam: nbaTeam("Los Angeles Lakers"),
+function angle(
+  key: string,
+  label: string,
+  awaySit: string,
+  homeSit: string,
+  awayPct: number,
+  homePct: number,
+): TrendAngle {
+  const empty = {
+    sideRecord: null as string | null,
+    sideGames: null as number | null,
+    overPct: null as number | null,
+    underPct: null as number | null,
+    ouRecord: null as string | null,
+    ouGames: null as number | null,
+  };
+  return {
+    key,
+    label,
+    away: { situation: awaySit, sidePct: awayPct, ...empty },
+    home: { situation: homeSit, sidePct: homePct, ...empty },
+    sideLean: awayPct === homePct ? null : awayPct > homePct ? "away" : "home",
+    ouLean: null,
+  };
+}
+
+const DEMO_MLB_ANGLES: TrendAngle[] = [
+  angle("last_game", "Last game", "After loss", "After win", 59.6, 60.0),
+  angle("home_away", "Home / away", "Away", "Home", 50.0, 53.2),
+  angle("fav_dog", "Favorite / underdog", "Underdog", "Favorite", 51.2, 57.5),
+  angle("rest", "Days off", "1 day off", "1 day off", 48.4, 55.1),
+  angle("rest_edge", "Rest edge", "Equal rest", "Equal rest", 49.0, 52.8),
+  angle("league", "League", "Interleague", "Interleague", 46.7, 54.3),
+  angle("division", "Division", "Non-division", "Non-division", 47.9, 56.1),
+];
+
+const DEMO_MLB_VERDICT: TrendsVerdict = {
+  side: "home",
+  sideAgree: 7,
+  sideTotal: 7,
+  awayAvgSidePct: 50.4,
+  homeAvgSidePct: 55.6,
+  sideMarginPts: 5.2,
+  total: null,
+  totalAgree: 0,
+  totalTotal: 0,
+  awayAvgOverPct: null,
+  homeAvgOverPct: null,
+  totalMarginPts: null,
+};
+
+const DEMO_MLB_TRENDS_GAME: TrendsFeedItem = {
+  sport: "mlb",
+  id: "demo-pit-nyy-trends",
+  away: mlbTrendsTeam("Pittsburgh Pirates", "PIT"),
+  home: mlbTrendsTeam("New York Yankees", "NYY"),
   gameDate: "",
-  gameTimeLabel: "10:00 PM ET",
-  timeSortKey: "10:00 PM ET",
-  status: "scheduled",
-  lines: { awayML: -140, homeML: 118, homeSpread: 2.5, awaySpread: -2.5, total: 224.5 },
-  edges: { mlProb: 0.41, spreadEdge: 1.5, totalEdge: 2 },
-  raw: { away_score_pred: 116, home_score_pred: 111 },
+  gameTimeLabel: "7:05 PM ET",
+  timeSortKey: "7:05 PM ET",
+  angles: DEMO_MLB_ANGLES,
+  verdict: DEMO_MLB_VERDICT,
+  scores: { ouConsensus: 0, sideDominance: 5.2 },
 };
 
 // ─────────────────────────────────────────────
@@ -141,7 +206,7 @@ const DEMO_NBA_GAME: GameFeedItem = {
 // ─────────────────────────────────────────────
 export function FeatureDemo() {
   const sectionRef = useRef<HTMLElement>(null);
-  const [selectedId, setSelectedId] = useState<string>(DEMO_NFL_GAMES[0].id);
+  const [selectedId, setSelectedId] = useState<string>(DEMO_GAMES[0].id);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -163,9 +228,9 @@ export function FeatureDemo() {
   }, []);
 
   const columns = [
-    { label: "Games Feed", desc: "Lines, edges & prediction markets for every slate", icon: LayoutList },
-    { label: "Model Predictions", desc: "Spread & total picks with confidence scores", icon: Brain },
-    { label: "Game Widgets", desc: "Simulators, public betting facts & more", icon: Sparkles },
+    { label: "Games Feed", desc: "Lines, edges & live Polymarket win probs", icon: LayoutList },
+    { label: "Model Predictions", desc: "Spread picks with confidence scores", icon: Brain },
+    { label: "Situational Trends", desc: "Moneyline by situation for MLB matchups", icon: Percent },
   ];
 
   return (
@@ -187,8 +252,8 @@ export function FeatureDemo() {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-emerald-400"> Your Fingertips</span>
           </h2>
           <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
-            These are the actual components from inside the app — game feeds, model predictions,
-            and widgets — shown here with sample data.
+            These are the actual components from inside the app — game feeds with live prediction-market
+            sparklines, model predictions, and situational widgets.
           </p>
         </motion.div>
 
@@ -209,11 +274,11 @@ export function FeatureDemo() {
           ))}
         </div>
 
-        {/* Real app components with sample data */}
+        {/* Real app components with sample data + live Polymarket sparklines */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 items-start mb-10">
-          {/* Column 1: the real games-feed cards */}
+          {/* Column 1: games feed — 2 NFL + 1 MLB (sparklines fetch live) */}
           <div className="tool-card space-y-3">
-            {DEMO_NFL_GAMES.map((g) => (
+            {DEMO_GAMES.map((g) => (
               <GameListCard
                 key={g.id}
                 item={toFeedItem(g)}
@@ -221,20 +286,18 @@ export function FeatureDemo() {
                 isLocked={false}
                 isAdmin={false}
                 onSelect={setSelectedId}
-                showSparkline={false}
               />
             ))}
           </div>
 
-          {/* Column 2: the real Model Predictions detail widget */}
+          {/* Column 2: NFL Spread model prediction */}
           <div className="tool-card">
-            <NflPredictionsSection game={DEMO_DETAIL_GAME} completions={{}} />
+            <NflSpreadSection game={DEMO_SPREAD_GAME} completions={{}} />
           </div>
 
-          {/* Column 3: Match Simulator (interactive) + Public Betting Facts */}
-          <div className="tool-card space-y-4">
-            <MatchSimulatorSection game={DEMO_NBA_GAME} />
-            <NflBettingSplitsSection raw={DEMO_NFL_RAW} />
+          {/* Column 3: MLB Moneyline by situation */}
+          <div className="tool-card">
+            <MlbSideAnglesSection game={DEMO_MLB_TRENDS_GAME} />
           </div>
         </div>
 

@@ -118,6 +118,7 @@ const NewLanding = () => {
       <div className="space-y-6">
         <RecipeImport />
         <FeatureDemo />
+        <Testimonials />
         {/* <UserJourney /> */}
         <MobileAppFeatures />
         {/* Debug: showUserWins = {String(showUserWins)}, isLoadingSettings = {String(isLoadingSettings)} */}
@@ -141,7 +142,6 @@ const NewLanding = () => {
           </a>
         </div>
 
-        <Testimonials />
         {/* <BetSlipGraderCTA /> */}
         <FAQ questions={faqQuestions} />
         {/* <Pricing /> */}

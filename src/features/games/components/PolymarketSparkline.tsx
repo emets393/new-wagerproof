@@ -2,6 +2,18 @@ import { useQuery } from '@tanstack/react-query';
 import { getAllMarketsData } from '@/services/polymarketService';
 import type { GamesSport } from '../types';
 
+/** Static moneyline series for landing-page demos (avoids live Polymarket fetches). */
+export interface DemoSparklinePoint {
+  awayTeamOdds: number;
+  homeTeamOdds: number;
+}
+
+export interface DemoSparklineSeries {
+  data: DemoSparklinePoint[];
+  currentAwayOdds: number;
+  currentHomeOdds: number;
+}
+
 interface PolymarketSparklineProps {
   awayTeam: string;
   homeTeam: string;
@@ -12,6 +24,8 @@ interface PolymarketSparklineProps {
   league: GamesSport;
   width?: number;
   height?: number;
+  /** When set, skip the live Polymarket fetch and render this series instead. */
+  demoSeries?: DemoSparklineSeries;
 }
 
 function parseHexColor(color: string): [number, number, number] | null {
@@ -56,18 +70,31 @@ export function PolymarketSparkline({
   league,
   width = 98,
   height = 34,
+  demoSeries,
 }: PolymarketSparklineProps) {
   const { data } = useQuery({
     queryKey: ['polymarket-all', league, awayTeam, homeTeam],
     queryFn: () => getAllMarketsData(awayTeam, homeTeam, league),
     staleTime: 5 * 60 * 1000,
     retry: 1,
+    enabled: !demoSeries,
   });
 
-  const ml = data?.moneyline;
+  const ml = demoSeries ?? data?.moneyline;
   if (!ml || ml.data.length < 2) return null;
 
-  const points = ml.data;
+  // Downsample dense Polymarket histories so ~300 points don't turn into a
+  // noisy audio-waveform when compressed into a ~100px sparkline.
+  const rawPoints = ml.data;
+  const maxPoints = Math.max(12, Math.floor(width / 3));
+  const points =
+    rawPoints.length <= maxPoints
+      ? rawPoints
+      : Array.from({ length: maxPoints }, (_, i) => {
+          const idx = Math.round((i / (maxPoints - 1)) * (rawPoints.length - 1));
+          return rawPoints[idx];
+        });
+
   const awayLeads = ml.currentAwayOdds >= ml.currentHomeOdds;
   const leaderAbbrev = awayLeads ? awayAbbrev : homeAbbrev;
   const leaderColor = awayLeads ? awayColor : homeColor;
@@ -75,11 +102,13 @@ export function PolymarketSparkline({
   // which renders these values with a bare `%`) — scaling by 100 printed "5600%".
   const leaderPct = Math.round(awayLeads ? ml.currentAwayOdds : ml.currentHomeOdds);
 
-  // Normalize both series into the sparkline box with a little padding.
-  const values = points.flatMap((p) => [p.awayTeamOdds, p.homeTeamOdds]);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
+  // Win probs are already 0–100. Keep that absolute scale so quiet markets
+  // (~48–52%) read as gentle drift instead of filling the chart with noise.
+  // Dual away/home lines are mirrors (home = 100 − away), so auto-scaling
+  // them to the data range turns coin-flip markets into diamond waveforms.
+  const min = 0;
+  const max = 100;
+  const range = 100;
   const pad = 3;
 
   const toPath = (pick: (p: (typeof points)[number]) => number) =>

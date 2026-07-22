@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlassCard, TeamLogoDiscs, StatCapsule, EdgePill } from '@/components/ios';
-import { PolymarketSparkline } from './PolymarketSparkline';
+import { PolymarketSparkline, type DemoSparklineSeries } from './PolymarketSparkline';
 import { StarButton } from '@/components/StarButton';
 import { formatMoneyline, formatSpread, getDisplayedProb } from '../api/shared';
 import type { GameFeedItem } from '../types';
@@ -61,6 +61,8 @@ interface GameListCardProps {
   onLockedClick?: () => void;
   /** Landing-page demo cards pass false to skip the live Polymarket fetch. */
   showSparkline?: boolean;
+  /** Static prediction-market series for landing demos (implies showSparkline). */
+  demoSparkline?: DemoSparklineSeries;
 }
 
 /**
@@ -76,6 +78,7 @@ export function GameListCard({
   onSelect,
   onLockedClick,
   showSparkline = true,
+  demoSparkline,
 }: GameListCardProps) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const { lines, edges, awayTeam, homeTeam } = item;
@@ -92,7 +95,7 @@ export function GameListCard({
       : 'TBD';
 
   const mlbFinal = item.sport === 'mlb' ? (item.raw as any)?.is_final_prediction : undefined;
-  const showPolymarket = !isLocked && showSparkline;
+  const showPolymarket = !isLocked && (showSparkline || Boolean(demoSparkline));
 
   const handleClick = () => {
     if (isLocked) {
@@ -167,6 +170,7 @@ export function GameListCard({
               league={item.sport}
               width={116}
               height={38}
+              demoSeries={demoSparkline}
             />
           )}
         </div>
