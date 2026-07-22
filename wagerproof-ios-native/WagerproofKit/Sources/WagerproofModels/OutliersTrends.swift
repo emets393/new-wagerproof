@@ -215,6 +215,41 @@ public struct OutliersTrendsMLBContext: Sendable, Hashable {
     }
 }
 
+/// NFL betting context for Parlay God legs — ML closes plus fully-priced H1
+/// markets from `nfl_dryrun_games`. FG spread/total juice isn't stored there,
+/// so those legs price at the standard -110.
+public struct OutliersTrendsNFLContext: Sendable, Hashable {
+    public let homeMl: Double?
+    public let awayMl: Double?
+    /// Home-relative H1 spread (negative = home favored), matching `h1_spread_close`.
+    public let h1SpreadClose: Double?
+    public let h1SpreadHomePrice: Double?
+    public let h1SpreadAwayPrice: Double?
+    public let h1TotalClose: Double?
+    public let h1TotalOverPrice: Double?
+    public let h1TotalUnderPrice: Double?
+
+    public init(
+        homeMl: Double?,
+        awayMl: Double?,
+        h1SpreadClose: Double?,
+        h1SpreadHomePrice: Double?,
+        h1SpreadAwayPrice: Double?,
+        h1TotalClose: Double?,
+        h1TotalOverPrice: Double?,
+        h1TotalUnderPrice: Double?
+    ) {
+        self.homeMl = homeMl
+        self.awayMl = awayMl
+        self.h1SpreadClose = h1SpreadClose
+        self.h1SpreadHomePrice = h1SpreadHomePrice
+        self.h1SpreadAwayPrice = h1SpreadAwayPrice
+        self.h1TotalClose = h1TotalClose
+        self.h1TotalOverPrice = h1TotalOverPrice
+        self.h1TotalUnderPrice = h1TotalUnderPrice
+    }
+}
+
 public struct OutliersTrendsGame: Identifiable, Hashable, Sendable {
     public let id: String
     public let season: Int
@@ -229,6 +264,7 @@ public struct OutliersTrendsGame: Identifiable, Hashable, Sendable {
     public let slot: String?
     public let assignedReferee: String?
     public let mlbContext: OutliersTrendsMLBContext?
+    public let nflContext: OutliersTrendsNFLContext?
 
     public init(
         id: String,
@@ -243,7 +279,8 @@ public struct OutliersTrendsGame: Identifiable, Hashable, Sendable {
         kickoff: String?,
         slot: String?,
         assignedReferee: String?,
-        mlbContext: OutliersTrendsMLBContext? = nil
+        mlbContext: OutliersTrendsMLBContext? = nil,
+        nflContext: OutliersTrendsNFLContext? = nil
     ) {
         self.id = id
         self.season = season
@@ -258,6 +295,7 @@ public struct OutliersTrendsGame: Identifiable, Hashable, Sendable {
         self.slot = slot
         self.assignedReferee = assignedReferee
         self.mlbContext = mlbContext
+        self.nflContext = nflContext
     }
 
     public var label: String { "\(awayAb) @ \(homeAb)" }

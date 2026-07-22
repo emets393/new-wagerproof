@@ -470,6 +470,7 @@ struct PropsView: View {
             icon: "scope",
             tickets: parlayGodStore.propsTickets,
             isLoading: parlayGodStore.isLoading,
+            sports: parlayGodStore.propsSports,
             bleedInset: 12,
             emptyNote: "No perfect-streak props on the board right now — cheats reload when the day's props post each morning."
         )

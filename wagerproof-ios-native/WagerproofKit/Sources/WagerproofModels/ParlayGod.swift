@@ -1,5 +1,33 @@
 import Foundation
 
+// MARK: - Sports
+
+/// Which league a leg/ticket is built from. The rail mixes sports side by side
+/// (per-sport tickets, never cross-sport legs — slates rarely share dates).
+public enum ParlaySport: String, CaseIterable, Identifiable, Sendable, Hashable {
+    case mlb
+    case nfl
+
+    public var id: String { rawValue }
+
+    /// Header display order for the "Supports" icon cluster.
+    public static let displayOrder: [ParlaySport] = [.mlb, .nfl]
+
+    public var shortLabel: String {
+        switch self {
+        case .mlb: return "MLB"
+        case .nfl: return "NFL"
+        }
+    }
+
+    public var sfSymbol: String {
+        switch self {
+        case .mlb: return "baseball.fill"
+        case .nfl: return "football.fill"
+        }
+    }
+}
+
 // MARK: - Categories
 
 /// The "why it's perfect" axis for Parlay God legs. Each rail card is one
@@ -14,6 +42,7 @@ public enum ParlayGodCategory: String, CaseIterable, Identifiable, Sendable, Has
     case favDog
     case dayNight
     case firstFive
+    case firstHalf
     case armType
 
     public var id: String { rawValue }
@@ -21,7 +50,7 @@ public enum ParlayGodCategory: String, CaseIterable, Identifiable, Sendable, Has
     /// Rail display order — the user-confirmed five first, extras after.
     public static let displayOrder: [ParlayGodCategory] = [
         .versusOpponent, .recentForm, .alternateLines, .homeAway, .teamForm,
-        .favDog, .dayNight, .firstFive, .armType,
+        .favDog, .dayNight, .firstFive, .firstHalf, .armType,
     ]
 
     public var title: String {
@@ -34,6 +63,7 @@ public enum ParlayGodCategory: String, CaseIterable, Identifiable, Sendable, Has
         case .favDog: return "100% Fav vs Dog"
         case .dayNight: return "100% Day/Night"
         case .firstFive: return "100% First 5"
+        case .firstHalf: return "100% First Half"
         case .armType: return "100% vs Arm Type"
         }
     }
@@ -48,6 +78,7 @@ public enum ParlayGodCategory: String, CaseIterable, Identifiable, Sendable, Has
         case .favDog: return "pawprint.fill"
         case .dayNight: return "moon.stars.fill"
         case .firstFive: return "5.circle.fill"
+        case .firstHalf: return "circle.lefthalf.filled"
         case .armType: return "figure.baseball"
         }
     }
@@ -65,9 +96,11 @@ public struct ParlayLeg: Identifiable, Hashable, Sendable {
 
     public let id: String
     public let kind: Kind
+    public let sport: ParlaySport
     public let category: ParlayGodCategory
     /// `String(game_pk)` — matches both `OutliersTrendsGame.id` (MLB) and
     /// `String(MLBPropMatchup.gamePk)`, so same-game rules join cleanly.
+    /// NFL team legs use `nfl_dryrun_games.game_id` ("2025_12_CLE_LV").
     public let gameKey: String
     public let matchupLabel: String
     public let gameTimeEt: String?
@@ -96,6 +129,7 @@ public struct ParlayLeg: Identifiable, Hashable, Sendable {
 
     public init(
         kind: Kind,
+        sport: ParlaySport = .mlb,
         category: ParlayGodCategory,
         gameKey: String,
         matchupLabel: String,
@@ -115,6 +149,7 @@ public struct ParlayLeg: Identifiable, Hashable, Sendable {
     ) {
         self.id = "\(category.rawValue)|\(gameKey)|\(subject)|\(betText)"
         self.kind = kind
+        self.sport = sport
         self.category = category
         self.gameKey = gameKey
         self.matchupLabel = matchupLabel
@@ -146,12 +181,17 @@ public struct ParlayLeg: Identifiable, Hashable, Sendable {
 /// An assembled parlay: 3-5 conflict-free legs plus the combined price.
 public struct ParlayTicket: Identifiable, Hashable, Sendable {
     public let id: String
+    /// Sports contributing legs, in `ParlaySport.displayOrder`. One entry for a
+    /// per-sport ticket; several when concurrent live slates merged into one
+    /// cross-sport card.
+    public let sports: [ParlaySport]
     public let category: ParlayGodCategory
     public let legs: [ParlayLeg]
     public let combinedOddsText: String
 
-    public init(id: String, category: ParlayGodCategory, legs: [ParlayLeg], combinedOddsText: String) {
+    public init(id: String, sports: [ParlaySport] = [.mlb], category: ParlayGodCategory, legs: [ParlayLeg], combinedOddsText: String) {
         self.id = id
+        self.sports = sports
         self.category = category
         self.legs = legs
         self.combinedOddsText = combinedOddsText

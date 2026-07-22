@@ -167,6 +167,51 @@ final class ParlayGodEngineTests: XCTestCase {
         XCTAssertTrue(tickets.allSatisfy { $0.legs.allSatisfy { $0.kind == .team } })
     }
 
+    func testSlateTicketsKeepStaleSlatesSeparate() {
+        // A slate with no parseable kickoffs — or entirely past dates, like
+        // the NFL dry-run — never merges: each sport fields its own card
+        // (MLB first) so a merged ticket is always a placeable parlay.
+        let now = isoDate("2026-07-20T12:00:00+00:00")
+        let pool = [
+            makeLeg(subject: "A", game: "1", odds: -110, n: 5, category: .teamForm),
+            makeLeg(subject: "B", game: "2", odds: -110, n: 5, category: .teamForm),
+            makeLeg(subject: "C", game: "3", odds: -110, n: 5, category: .teamForm),
+            makeLeg(subject: "D", game: "2025_12_A_B", odds: -110, n: 8, category: .teamForm, sport: .nfl, kickoff: "2025-11-23T18:00:00+00:00"),
+            makeLeg(subject: "E", game: "2025_12_C_D", odds: -110, n: 8, category: .teamForm, sport: .nfl, kickoff: "2025-11-23T18:00:00+00:00"),
+            makeLeg(subject: "F", game: "2025_12_E_F", odds: -110, n: 8, category: .teamForm, sport: .nfl, kickoff: "2025-11-23T18:00:00+00:00"),
+        ]
+        let tickets = ParlayGodEngine.slateTickets(from: pool, now: now)
+        XCTAssertEqual(tickets.map(\.sports), [[.mlb], [.nfl]])
+        XCTAssertTrue(tickets.allSatisfy { ticket in
+            ticket.legs.allSatisfy { $0.sport == ticket.sports[0] }
+        })
+        XCTAssertEqual(ParlayGodEngine.sports(in: tickets), [.mlb, .nfl])
+    }
+
+    func testSlateTicketsMergeConcurrentLiveSlates() {
+        // Both slates live (upcoming games) → ONE cross-sport card per
+        // category, deepest streaks first regardless of league.
+        let now = isoDate("2026-09-20T12:00:00+00:00")
+        let mlbKick = "2026-09-20T23:00:00+00:00"
+        let nflKick = "2026-09-21T17:00:00+00:00"
+        let pool = [
+            makeLeg(subject: "A", game: "1", odds: -110, n: 5, category: .teamForm, kickoff: mlbKick),
+            makeLeg(subject: "B", game: "2", odds: -110, n: 4, category: .teamForm, kickoff: mlbKick),
+            makeLeg(subject: "C", game: "2026_03_A_B", odds: -110, n: 8, category: .teamForm, sport: .nfl, kickoff: nflKick),
+            makeLeg(subject: "D", game: "2026_03_C_D", odds: -110, n: 3, category: .teamForm, sport: .nfl, kickoff: nflKick),
+        ]
+        let tickets = ParlayGodEngine.slateTickets(from: pool, now: now)
+        XCTAssertEqual(tickets.count, 1)
+        XCTAssertEqual(tickets[0].sports, [.mlb, .nfl])
+        XCTAssertEqual(tickets[0].legs.map(\.subject), ["C", "A", "B", "D"])
+    }
+
+    private func isoDate(_ raw: String) -> Date {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        return iso.date(from: raw)!
+    }
+
     func testPropsTicketsExcludeTeamLegs() {
         let pool = [
             makeLeg(subject: "A", game: "1", odds: -110, n: 10, category: .recentForm, kind: .prop),
@@ -231,16 +276,19 @@ final class ParlayGodEngineTests: XCTestCase {
         market: String? = nil,
         category: ParlayGodCategory = .teamForm,
         kind: ParlayLeg.Kind = .team,
+        sport: ParlaySport = .mlb,
+        kickoff: String? = nil,
         backedTeam: String? = nil,
         totalsFamily: String? = nil,
         totalsSide: String? = nil
     ) -> ParlayLeg {
         ParlayLeg(
             kind: kind,
+            sport: sport,
             category: category,
             gameKey: game,
             matchupLabel: "AWY @ HOM",
-            gameTimeEt: nil,
+            gameTimeEt: kickoff,
             subject: subject,
             teamAbbr: backedTeam,
             playerId: nil,

@@ -16,6 +16,7 @@ struct PaywallValueCarousel: View {
     let agentName: String
     let spriteIndex: Int
     let researchBucketRaw: String?
+    let stakesBucketRaw: String?
     let compactHeight: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -46,7 +47,8 @@ struct PaywallValueCarousel: View {
                     accent: accent,
                     compact: compactHeight,
                     isActive: page == 0,
-                    researchBucketRaw: researchBucketRaw
+                    researchBucketRaw: researchBucketRaw,
+                    stakesBucketRaw: stakesBucketRaw
                 )
                 .tag(0)
 
@@ -262,8 +264,8 @@ struct PaywallValueCarousel: View {
         return VStack(alignment: .leading, spacing: compactHeight ? 8 : 12) {
             valueRow(
                 icon: "clock.badge.checkmark",
-                title: "Research handled around the clock",
-                detail: estimates.map { "About \($0.weeklyRangeShortText) back each week" }
+                title: "Checking handled around the clock",
+                detail: estimates.map { "About \($0.reclaimHoursPerWeek) hours back each week" }
                     ?? "Every slate is scanned before you open the app"
             )
             valueRow(
@@ -744,6 +746,7 @@ private struct PaywallBeforeAfterPage: View {
     let compact: Bool
     let isActive: Bool
     let researchBucketRaw: String?
+    let stakesBucketRaw: String?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var beforeProgress: CGFloat = 0
@@ -753,10 +756,11 @@ private struct PaywallBeforeAfterPage: View {
         ResearchTimeEstimates(rawBucket: researchBucketRaw).bucket.hoursPerWeek
     }
 
-    /// Weekly research hours the survey estimated for this user — the high
-    /// "before" number. Agents cut this to roughly a third for the "after".
+    /// Weekly sports-app checking hours the survey estimated for this user —
+    /// the high "before" number. Agents take over ~75% of the repetitive
+    /// checking, so the "after" keeps the ~25% that's left.
     private var beforeHours: Double { researchHours }
-    private var afterHours: Double { max(0.5, researchHours * 0.34) }
+    private var afterHours: Double { max(0.5, researchHours * 0.25) }
 
     var body: some View {
         GeometryReader { proxy in
@@ -764,10 +768,25 @@ private struct PaywallBeforeAfterPage: View {
                 comparisonUnit
                     .frame(height: compact ? 230 : 272)
 
-                Text("Research less. Enjoy more.")
-                    .font(.system(size: compact ? 23 : 27, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.appTextPrimary)
-                    .multilineTextAlignment(.center)
+                // Typographic play on the copy: "less" is thin + italic (visually
+                // LESS), "more" is the heaviest weight (visually MORE); "Check"
+                // and "Enjoy" sit lighter so those two hero words carry the
+                // contrast rather than competing with it.
+                (
+                    Text("Check ")
+                        .font(.system(size: compact ? 23 : 27, weight: .medium, design: .default))
+                    + Text("less")
+                        .font(.system(size: compact ? 23 : 27, weight: .thin, design: .default))
+                        .italic()
+                    + Text(". Enjoy ")
+                        .font(.system(size: compact ? 23 : 27, weight: .medium, design: .default))
+                    + Text("more")
+                        .font(.system(size: compact ? 23 : 27, weight: .black, design: .default))
+                    + Text(".")
+                        .font(.system(size: compact ? 23 : 27, weight: .medium, design: .default))
+                )
+                .foregroundStyle(Color.appTextPrimary)
+                .multilineTextAlignment(.center)
 
                 benefits
             }
@@ -884,7 +903,7 @@ private struct PaywallBeforeAfterPage: View {
             // worse "before", green for the better "after"), counting up together.
             statBlock(caption: "WIN RATE", value: Double(progress) * winRate, style: .percent, tint: tint)
             statBlock(
-                caption: "RESEARCH TIME",
+                caption: "APP TIME",
                 value: Double(progress) * hours,
                 style: hours >= 10 ? .hoursInteger : .hoursDecimal,
                 tint: tint
@@ -970,17 +989,25 @@ private struct PaywallBeforeAfterPage: View {
     /// bold-lead-in + supporting sentence. The block is width-constrained and
     /// centered so it reads as a tidy column rather than stretching edge to edge.
     private var benefits: some View {
-        VStack(alignment: .leading, spacing: compact ? 16 : 22) {
-            benefitRow(icon: "clock.badge.checkmark", lead: "Hours back", rest: " every week")
-            benefitRow(icon: "chart.line.uptrend.xyaxis", lead: "Sharper signals", rest: " on every pick")
-            benefitRow(icon: "checkmark.seal.fill", lead: "Public results", rest: " you can trust")
+        // Bullet 1 becomes the money line when we have the user's bet amount —
+        // ties the onboarding "money in play" thread into the paywall. Falls
+        // back to the generic time bullet only if no stakes answer exists.
+        let stakes = stakesBucketRaw.map { StakesEstimates(rawBucket: $0) }
+        return VStack(alignment: .leading, spacing: compact ? 16 : 22) {
+            if let stakes {
+                benefitRow(icon: "checkmark.shield.fill", lead: "Protect your \(stakes.yearlyActionDisplay)", rest: " in projected bets this year")
+            } else {
+                benefitRow(icon: "clock.badge.checkmark", lead: "Hours back", rest: " every week")
+            }
+            benefitRow(icon: "chart.line.uptrend.xyaxis", lead: "Find high multiple parlays", rest: " in seconds")
+            benefitRow(icon: "checkmark.seal.fill", lead: "Public leaderboards", rest: " with real graded wins you can copy")
         }
         .frame(maxWidth: 340, alignment: .leading)
         .frame(maxWidth: .infinity)
     }
 
-    /// One large white line per bullet — the value words bold, the rest in the
-    /// same white so it stays highly readable. No gray subtext.
+    /// One or two large white lines per bullet — the value words bold, the rest
+    /// in the same white so it stays highly readable. No gray subtext.
     private func benefitRow(icon: String, lead: String, rest: String) -> some View {
         HStack(alignment: .center, spacing: compact ? 13 : 15) {
             Image(systemName: icon)
@@ -996,8 +1023,9 @@ private struct PaywallBeforeAfterPage: View {
                     .font(.system(size: compact ? 17 : 20, weight: .regular, design: .rounded))
             )
             .foregroundColor(.white)
-            .lineLimit(1)
+            .lineLimit(2)
             .minimumScaleFactor(0.7)
+            .fixedSize(horizontal: false, vertical: true)
 
             Spacer(minLength: 0)
         }

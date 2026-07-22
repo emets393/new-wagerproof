@@ -23,6 +23,13 @@ A leg is a concrete bet (side + line + odds) whose supporting trend went N-of-N:
   team is home today, etc.). Odds come from `mlb_games_today` +
   `mlb_odds_snapshots` via `OutliersTrendsMLBContext`. A perfect *losing*
   streak becomes a fade leg (back the opponent's ML/RL).
+- **Team legs** (NFL): from the Outliers NFL bundle — `nfl_team_trends` splits
+  (overall / home-away / fav-dog; markets moneyline / spread / total, plus
+  h1_spread / h1_total → the First Half category) and H2H `matchups`, same
+  join-to-today rules. Odds come from `nfl_dryrun_games` via
+  `OutliersTrendsNFLContext`: real ML closes and fully-priced H1 markets; FG
+  spread/total juice isn't stored there so those legs price at the standard
+  −110 (`nflDefaultJuice`).
 - **Prop legs** (MLB): from the props slate (`get_mlb_player_props_l10` RPC) —
   L10 recent form (over or under), day/night split, vs-arm-type split, and
   alternate-line current streaks (deeper gate: ≥ 7 straight).
@@ -38,8 +45,21 @@ lines need a ≥ 7 streak (`altLineMinStreak`). All tunables sit at the top of
 
 `ParlayGodCategory` — each rail card is one category; every leg on it is
 perfect in that dimension: Versus Opponent, Recent Form, Alternate Lines,
-Home/Away, Team Form, Fav vs Dog, Day/Night, First 5, vs Arm Type. Categories
-that can't field 3 legs today don't render (thin days shrink the rail).
+Home/Away, Team Form, Fav vs Dog, Day/Night, First 5, First Half (NFL's F5
+analog), vs Arm Type. Categories that can't field 3 legs today don't render
+(thin days shrink the rail).
+
+Every leg is sport-tagged (`ParlaySport`); tickets carry a `sports` array.
+Sports whose slates are concurrently **live** (any game not long started —
+6h grace, `ParlayGodEngine.liveSports`) merge into ONE cross-sport card per
+category — cross-sport parlays are placeable, and one deep pool beats two thin
+cards. A **stale** slate (entirely past dates, e.g. the NFL dry-run) keeps its
+own per-sport card after the merged one, so a merged ticket is never a
+fictional bet pairing tonight's games with a months-old slate. The rail header
+shows a right-aligned "Supports ⚾🏈" overlapping-icon cluster
+(`ParlayGodRail.sports`, fed by `ParlayGodStore.slateSports`/`propsSports` —
+sports fielding ≥ 1 ticket), and each card header carries one small sport chip
+per contributing sport.
 
 ## Assembly rules (`ParlayGodEngine.assemble`)
 
@@ -68,8 +88,10 @@ responsible-gambling note).
 - Models: `WagerproofKit/Sources/WagerproofModels/ParlayGod.swift`
 - Engine: `WagerproofKit/Sources/WagerproofServices/ParlayGodEngine.swift`
 - Store: `WagerproofKit/Sources/WagerproofStores/ParlayGodStore.swift` —
-  shell-hoisted in `MainTabView`, fetches the MLB trends bundle + props slate
-  itself (5-min TTL), builds the leg pool off-main, memoizes per-game tickets.
+  shell-hoisted in `MainTabView`, fetches the MLB + NFL trends bundles + props
+  slate itself (5-min TTL), builds the leg pool off-main, memoizes per-game
+  tickets. Each source tolerates the others failing (stale legs of that kind
+  are kept for the TTL).
 - UI: `Wagerproof/Features/Outliers/Components/ParlayGodCard.swift`
   (`ParlayGodCard`, `ParlayGodRail`, `ParlayGodCardShimmer`,
   `ParlayGodDetailSheet`)
@@ -83,5 +105,10 @@ responsible-gambling note).
   is team-markets + NFL-props territory.
 - `mlb_team_trends.through_date` lags the season (data-ops job) — team-form
   evidence reflects that snapshot date, same as the Outliers tab.
-- NFL legs stay out of the cross-game rails until the in-season props cutover
-  replaces the dry-run tables.
+- NFL *prop* legs stay out of the cross-game rails until the in-season props
+  cutover replaces the dry-run tables; NFL *team* legs are on the rails now —
+  as separate tickets while the dry-run slate is stale, merging into the
+  cross-sport cards automatically once the NFL slate has live dates.
+- NFL FG spread/total legs price at −110 (real juice isn't in
+  `nfl_dryrun_games`); ML and H1 legs use real closes.
+- NFL team trends also ship `team_total` splits — not yet turned into legs.
