@@ -50,6 +50,12 @@ type S = CfbWebFilterSnapshot;
 
 const SEASON_MAX = 2025;
 const WEEK_MAX = 16;
+/**
+ * Warehouse `cfb_analysis` is slower than NFL — under the ~3s statement_timeout only
+ * season_min=2025 completes reliably. Wider defaults time out and the UI shows empty
+ * splits. Absolute floor stays on the slider for users who narrow other dims.
+ */
+const DEFAULT_SEASON_LOOKBACK = 0; // inclusive → [2025, 2025]
 const BET_GROUPS = [
   {
     group: 'Full Game',
@@ -147,18 +153,29 @@ function conferenceScopeNote(conferences: string[], conferenceGame: boolean | nu
 
 const seasonFloorFor = (betType: string) => (LIMITED.has(betType) ? 2023 : 2016);
 
-function reset(betType: string): S {
+function defaultSeasons(betType: string): [number, number] {
   const floor = seasonFloorFor(betType);
-  return { ...DEFAULT_CFB_SNAPSHOT, betType, seasons: [floor, SEASON_MAX] };
+  return [Math.max(floor, SEASON_MAX - DEFAULT_SEASON_LOOKBACK), SEASON_MAX];
+}
+
+function reset(betType: string): S {
+  return {
+    ...DEFAULT_CFB_SNAPSHOT,
+    betType,
+    seasons: defaultSeasons(betType),
+    // Regular-season default keeps cfb_analysis under the warehouse statement_timeout;
+    // gameType='any' (all bowls/playoffs too) is still available on the slider.
+    gameType: 'regular',
+  };
 }
 
 function toRpcFilters(s: S, data?: AdapterData): Record<string, unknown> {
   const f: Record<string, unknown> = {};
-  const floor = seasonFloorFor(s.betType);
   const isGameTotal = GAME_TOTAL.has(s.betType);
   const isMlMkt = ML_MARKETS.has(s.betType);
   const isTeamTotal = s.betType === 'team_total';
-  if (s.seasons[0] > floor) f.season_min = s.seasons[0];
+  // Always emit season_min — omitting at the floor scans all history and times out.
+  f.season_min = s.seasons[0];
   if (s.seasons[1] < SEASON_MAX) f.season_max = s.seasons[1];
   if (s.gameType !== 'any') f.game_type = s.gameType;
   if (s.rankedMatchup !== 'any') f.ranked_matchup = s.rankedMatchup;
@@ -491,13 +508,22 @@ export const cfbAdapter: TrendsSportAdapter<S> = {
     } as S;
   },
   activeChips: (s) => {
-    const floor = seasonFloorFor(s.betType);
+    const defSeasons = defaultSeasons(s.betType);
     const isGameTotal = GAME_TOTAL.has(s.betType);
     const isMlMkt = ML_MARKETS.has(s.betType);
     const isTeamTotal = s.betType === 'team_total';
     const c: { label: string; patch: Record<string, unknown> }[] = [];
-    if (s.seasons[0] !== floor || s.seasons[1] !== SEASON_MAX) c.push({ label: `Seasons ${s.seasons[0]}–${s.seasons[1]}`, patch: { seasons: [floor, SEASON_MAX] } });
-    if (s.gameType !== 'any') c.push({ label: ({ regular: 'Regular season', bowl: 'Bowl games', playoff: 'Playoff', postseason: 'All postseason' } as Record<string, string>)[s.gameType] || s.gameType, patch: { gameType: 'any' } });
+    if (s.seasons[0] !== defSeasons[0] || s.seasons[1] !== defSeasons[1])
+      c.push({ label: `Seasons ${s.seasons[0]}–${s.seasons[1]}`, patch: { seasons: defSeasons } });
+    if (s.gameType !== 'regular')
+      c.push({
+        label:
+          ({ any: 'All game types', bowl: 'Bowl games', playoff: 'Playoff', postseason: 'All postseason' } as Record<
+            string,
+            string
+          >)[s.gameType] || s.gameType,
+        patch: { gameType: 'regular' },
+      });
     if (s.rankedMatchup !== 'any') c.push({ label: ({ both: 'Both ranked', neither: 'Neither ranked', home_ranked: 'Home ranked / away unranked', away_ranked: 'Away ranked / home unranked', either: 'Either ranked' } as Record<string, string>)[s.rankedMatchup] || s.rankedMatchup, patch: { rankedMatchup: 'any' } });
     if ((s.gameType === 'any' || s.gameType === 'regular') && (s.weeks[0] !== 1 || s.weeks[1] !== WEEK_MAX)) c.push({ label: `Weeks ${s.weeks[0]}–${s.weeks[1]}`, patch: { weeks: [1, WEEK_MAX] } });
     if (s.side !== 'any' && !isGameTotal) c.push({ label: s.side === 'home' ? 'Home' : 'Away', patch: { side: 'any' } });

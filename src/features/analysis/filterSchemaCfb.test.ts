@@ -45,9 +45,10 @@ describe('CFB engine behaviors', () => {
     const r3 = apply(base(), P({ op: 'set', dimension: 'betType', value: 'fg_ml' }, { op: 'set', dimension: 'favDog', value: 'underdog' }));
     expect(r3.snapshot.favDog).toBe('underdog');
   });
-  it('switching to a limited market floors seasons to 2023 without resetting FG total lineRange', () => {
+  it('switching to a limited market keeps the safe default season window without resetting FG total lineRange', () => {
     const r = apply(base(), P({ op: 'set', dimension: 'betType', value: 'team_total' }));
-    expect(r.snapshot.seasons).toEqual([2023, 2025]);
+    // Default seasons are already [2025, 2025] (≥ limited floor 2023), so betType switch is a no-op on seasons.
+    expect(r.snapshot.seasons).toEqual([2025, 2025]);
     expect(r.snapshot.lineRange).toEqual([30, 80]);
     expect(r.snapshot.ttLineRange).toEqual([10, 55]);
   });
