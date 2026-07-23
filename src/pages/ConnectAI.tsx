@@ -221,29 +221,30 @@ export default function ConnectAI() {
         </div>
       </section>
 
-      <section className="rounded-[24px] border border-[#d97757]/35 bg-[#d97757]/10 p-5 shadow-sm sm:p-6">
-        <div className="flex items-start gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#d97757] text-white">
-            <Lightbulb className="h-5 w-5" />
+      <section className="rounded-2xl border border-[#d97757]/35 bg-[#d97757]/10 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#d97757] text-white">
+              <Lightbulb className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Tip</p>
+              <h2 className="mt-0.5 text-base font-black tracking-[-0.01em]">Let your AI handle setup</h2>
+              <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
+                Copy these instructions, paste them into your preferred AI, and let it guide you.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Tip</p>
-            <h2 className="mt-1 text-xl font-black tracking-[-0.015em]">Let your preferred AI help set it up</h2>
-            <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Just click here to copy instructions for your preferred AI, paste them there, and let it guide you
-              through the rest.
-            </p>
-          </div>
-        </div>
 
-        <button
-          type="button"
-          onClick={() => copyText(instructions, 'Setup instructions')}
-          className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#d97757] px-5 text-sm font-black text-white transition hover:bg-[#c9684a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60 sm:w-auto"
-        >
-          {copied === instructions ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          {copied === instructions ? 'Instructions copied' : 'Copy instructions'}
-        </button>
+          <button
+            type="button"
+            onClick={() => copyText(instructions, 'Setup instructions')}
+            className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#d97757] px-4 text-sm font-black text-white transition hover:bg-[#c9684a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60 sm:w-auto"
+          >
+            {copied === instructions ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied === instructions ? 'Instructions copied' : 'Copy instructions'}
+          </button>
+        </div>
       </section>
 
       <section aria-labelledby="manual-setup-title" className="flex flex-col" style={{ gap: '3rem' }}>
