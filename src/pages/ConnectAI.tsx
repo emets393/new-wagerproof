@@ -208,7 +208,7 @@ export default function ConnectAI() {
         />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_15%,rgba(255,255,255,0.14),transparent_34%)]" />
 
-        <div className="relative px-6 py-7 sm:px-8 sm:py-8">
+        <div className="relative px-8 py-9 sm:px-10 sm:py-10">
           <ProviderStack />
           <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">WagerProof AI connector</p>
           <h1 className="mt-1.5 text-3xl font-black tracking-[-0.025em] text-white sm:text-4xl">
