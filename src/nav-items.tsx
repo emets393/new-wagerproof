@@ -91,11 +91,6 @@ export const navItems: NavItem[] = [
     page: <ScoreBoard />,
   },
   {
-    title: "Connect to AI",
-    to: "/connect-ai",
-    icon: <Cable className="h-4 w-4" />,
-  },
-  {
     title: "SPORTS",
     isHeader: true,
   },
@@ -175,6 +170,11 @@ export const navItems: NavItem[] = [
   {
     title: "COMMUNITY",
     isHeader: true,
+  },
+  {
+    title: "Connect to AI",
+    to: "/connect-ai",
+    icon: <Cable className="h-4 w-4" />,
   },
   {
     title: "Discord Channel",
