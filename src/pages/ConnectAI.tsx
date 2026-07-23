@@ -78,8 +78,8 @@ function ManualStep({
   children?: React.ReactNode;
 }) {
   return (
-    <li className="overflow-hidden rounded-2xl border border-border/70 bg-card">
-      <div className="flex items-start gap-3.5 p-4 sm:p-5">
+    <li className="py-3">
+      <div className="flex items-start gap-3.5">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#d97757] text-xs font-black text-white">
           {number}
         </span>
@@ -181,7 +181,7 @@ export default function ConnectAI() {
             description="Open your preferred AI app, then go to its settings."
             icon={<Settings2 className="h-4 w-4" />}
           >
-            <div className="border-t border-border/60 bg-muted/20 px-4 py-3">
+            <div className="pl-11 pt-3">
               <img
                 src={claudeSettings}
                 alt="Claude account menu with Settings selected"
@@ -196,7 +196,7 @@ export default function ConnectAI() {
             description="Open the Connectors, Integrations, or MCP section and add a new one."
             icon={<Plus className="h-4 w-4" />}
           >
-            <div className="border-t border-border/60 bg-muted/20 px-4 py-3">
+            <div className="pl-11 pt-3">
               <img
                 src={claudeConnectors}
                 alt="Claude Settings with Connectors selected"
@@ -211,11 +211,11 @@ export default function ConnectAI() {
             description="Name it WagerProof, paste the URL, and leave Advanced settings empty."
             icon={<Copy className="h-4 w-4" />}
           >
-            <div className="border-t border-border/60 bg-muted/20 p-3">
+            <div className="pl-11 pt-3">
               <button
                 type="button"
                 onClick={() => copyText(ENDPOINT, 'Connector URL')}
-                className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-left transition hover:border-[#d97757]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
+                className="flex w-full items-center gap-3 border-b border-border/70 py-2.5 text-left transition hover:border-[#d97757]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
                 aria-label={copied === ENDPOINT ? 'WagerProof connector URL copied' : 'Copy WagerProof connector URL'}
               >
                 <code className="min-w-0 flex-1 break-all text-[11px] font-semibold sm:text-xs">{ENDPOINT}</code>
@@ -234,7 +234,7 @@ export default function ConnectAI() {
             description="Click Connect, sign in to WagerProof, and approve read-only access."
             icon={<ShieldCheck className="h-4 w-4" />}
           >
-            <div className="border-t border-border/60 bg-emerald-500/8 px-4 py-3 text-xs leading-5 text-muted-foreground">
+            <div className="pl-11 pt-3 text-xs leading-5 text-muted-foreground">
               Confirm the URL ends in <strong className="text-foreground">wagerproof-mcp.habib225.workers.dev/mcp</strong>{' '}
               before continuing.
             </div>
@@ -257,7 +257,7 @@ export default function ConnectAI() {
               key={prompt}
               type="button"
               onClick={() => copyText(prompt, 'Example prompt')}
-              className="group flex min-h-16 items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3.5 text-left transition hover:border-[#d97757]/45 hover:bg-[#d97757]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
+              className="group flex min-h-14 items-center gap-3 border-b border-border/60 py-3 text-left transition hover:border-[#d97757]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
             >
               <span className="min-w-0 flex-1 text-sm font-semibold leading-5">{prompt}</span>
               {copied === prompt ? (
