@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import NotFound from "./pages/NotFound";
@@ -9,7 +9,6 @@ import AISettings from "./pages/admin/AISettings";
 // import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import ScoreBoard from "./pages/ScoreBoard";
-import MobileApp from "./pages/MobileApp";
 import CommunityVoting from "./pages/CommunityVoting";
 import TipJar from "./pages/TipJar";
 import Agents from "./pages/Agents";
@@ -201,12 +200,6 @@ export const navItems: NavItem[] = [
     to: "/feature-requests",
     icon: <MessageSquare className="h-4 w-4" />,
     hidden: true,
-  },
-  {
-    title: "iOS/Android App",
-    to: "/mobile-app",
-    icon: <Smartphone className="h-4 w-4" />,
-    page: <MobileApp />,
   },
   {
     title: "Bet Slip Grader",
