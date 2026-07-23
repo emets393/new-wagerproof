@@ -1,6 +1,5 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
-import WagerBotChat from "./pages/WagerBotChat";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import NotFound from "./pages/NotFound";
 import { Account } from "./pages";
@@ -86,13 +85,6 @@ export const navItems: NavItem[] = [
   //   icon: <Star className="h-4 w-4" />,
   //   page: <EditorsPicks />,
   // },
-  {
-    title: "WagerBot Chat",
-    to: "/wagerbot-chat",
-    icon: <Bot className="h-4 w-4" />,
-    page: <WagerBotChat />,
-    hidden: true,
-  },
   {
     title: "Score Board",
     to: "/scoreboard",

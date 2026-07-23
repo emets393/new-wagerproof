@@ -130,7 +130,7 @@ function renderNavbarHtml() {
             </a>
             <a href="/blog" class="ssg-nav-link">Blog</a>
             <a href="/press-kit" class="ssg-nav-link">Press Kit</a>
-            <a href="/wagerbot-chat" class="ssg-cta-button">Get Started</a>
+            <a href="/account" class="ssg-cta-button">Get Started</a>
           </div>
         </div>
       </div>
@@ -149,7 +149,7 @@ function renderCtaHtml() {
           WagerProof uses real data and advanced analytics to help you make informed betting decisions. 
           Get access to professional-grade predictions for NFL, College Football, and more.
         </p>
-        <a href="/wagerbot-chat" class="ssg-blog-cta-button">
+        <a href="/account" class="ssg-blog-cta-button">
           Get Started Free
           <svg class="ssg-cta-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />

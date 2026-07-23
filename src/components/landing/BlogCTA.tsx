@@ -19,7 +19,7 @@ export const BlogCTA = () => {
           Get access to professional-grade predictions for NFL, College Football, and more.
         </p>
         <Link 
-          to="/wagerbot-chat"
+          to="/account"
           className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold text-lg rounded-full transition-all duration-200 shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 hover:-translate-y-0.5"
         >
           Get Started Free
@@ -31,4 +31,3 @@ export const BlogCTA = () => {
 };
 
 export default BlogCTA;
-
