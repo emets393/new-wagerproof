@@ -33,45 +33,90 @@ const EXAMPLE_PROMPT_CATEGORIES = [
     title: 'Find your best bets',
     description: 'Cut through the slate and surface the opportunities worth researching.',
     prompts: [
-      'Find the best player props today and explain why each one stands out.',
-      'Show me today’s strongest betting opportunities across every game.',
-      'Which current lines have the strongest supporting historical trends?',
+      {
+        question: 'Find the best player props today and explain why each one stands out.',
+        value: 'Surfaces promising props and explains the WagerProof data behind each opportunity.',
+      },
+      {
+        question: 'Show me today’s strongest betting opportunities across every game.',
+        value: 'Scans the full slate so you can focus your research on the most compelling spots.',
+      },
+      {
+        question: 'Which current lines have the strongest supporting historical trends?',
+        value: 'Connects today’s available lines with the historical angles that support them.',
+      },
     ],
   },
   {
     title: 'Break down any game',
     description: 'Turn WagerProof data into a clear matchup read before you make a decision.',
     prompts: [
-      'Analyze today’s biggest matchup and tell me where each team has an edge.',
-      'Compare the spread, moneyline, and total trends for this game.',
-      'What are the most important trends I should know before betting this matchup?',
+      {
+        question: 'Analyze today’s biggest matchup and tell me where each team has an edge.',
+        value: 'Organizes the matchup data into a concise view of each team’s strongest advantages.',
+      },
+      {
+        question: 'Compare the spread, moneyline, and total trends for this game.',
+        value: 'Puts every major market side by side so you can compare the available angles quickly.',
+      },
+      {
+        question: 'What are the most important trends I should know before betting this matchup?',
+        value: 'Pulls the most relevant historical signals forward and explains why they matter.',
+      },
     ],
   },
   {
     title: 'Find agents worth following',
     description: 'Discover proven specialists instead of sorting through every agent yourself.',
     prompts: [
-      'Find public agents currently on a winning streak of five picks or more.',
-      'Who are the best-performing agents for NFL props over the last 30 days?',
-      'Compare the top agents for this market by win rate, units, and recent form.',
+      {
+        question: 'Find public agents currently on a winning streak of five picks or more.',
+        value: 'Filters the agent pool to reveal who has meaningful momentum right now.',
+      },
+      {
+        question: 'Who are the best-performing agents for NFL props over the last 30 days?',
+        value: 'Finds recent specialists for the exact sport and market you care about.',
+      },
+      {
+        question: 'Compare the top agents for this market by win rate, units, and recent form.',
+        value: 'Creates a side-by-side performance view so you can decide who is worth following.',
+      },
     ],
   },
   {
     title: 'Get more from agents you follow',
     description: 'See the signal across your feed without checking every agent one by one.',
     prompts: [
-      'Summarize today’s picks from the agents I follow and rank the strongest ones first.',
-      'Which agents I follow agree on the same picks today?',
-      'Which agents I follow are gaining momentum or starting a losing streak?',
+      {
+        question: 'Summarize today’s picks from the agents I follow and rank the strongest ones first.',
+        value: 'Turns your followed feed into a prioritized daily briefing.',
+      },
+      {
+        question: 'Which agents I follow agree on the same picks today?',
+        value: 'Finds consensus across independent agents without making you compare every pick manually.',
+      },
+      {
+        question: 'Which agents I follow are gaining momentum or starting a losing streak?',
+        value: 'Highlights performance shifts early so you know whose picks deserve a closer look.',
+      },
     ],
   },
   {
     title: 'Improve your own agents',
     description: 'Understand what is working, where performance slips, and what to refine next.',
     prompts: [
-      'Which of my agents is performing best right now, and what is driving the results?',
-      'Compare my agents by win rate, units, and current streak.',
-      'Show me where my agents are underperforming and which sports or markets are strongest.',
+      {
+        question: 'Which of my agents is performing best right now, and what is driving the results?',
+        value: 'Identifies your strongest agent and explains the patterns behind its performance.',
+      },
+      {
+        question: 'Compare my agents by win rate, units, and current streak.',
+        value: 'Builds one clear performance comparison across the metrics that matter.',
+      },
+      {
+        question: 'Show me where my agents are underperforming and which sports or markets are strongest.',
+        value: 'Reveals strengths and weak spots so you can make more informed refinements.',
+      },
     ],
   },
 ];
@@ -297,22 +342,35 @@ export default function ConnectAI() {
               <h3 className="text-base font-black tracking-[-0.01em]">{category.title}</h3>
               <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">{category.description}</p>
 
-              <div className="mt-5 grid gap-x-12 sm:grid-cols-2">
-                {category.prompts.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => copyText(prompt, 'Example prompt')}
-                    className="group flex min-h-16 items-center gap-3 border-b border-border/60 py-4 text-left transition hover:border-[#d97757]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
-                  >
-                    <span className="min-w-0 flex-1 text-sm font-semibold leading-5">{prompt}</span>
-                    {copied === prompt ? (
-                      <Check className="h-4 w-4 shrink-0 text-emerald-500" />
-                    ) : (
-                      <Copy className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-[#d97757]" />
-                    )}
-                  </button>
-                ))}
+              <div className="mt-5 overflow-x-auto rounded-xl border border-border/70">
+                <div className="min-w-[640px]">
+                  <div className="grid grid-cols-2 bg-muted/35 text-xs font-bold">
+                    <div className="px-4 py-3">What you ask</div>
+                    <div className="px-4 py-3">What WagerProof helps you do</div>
+                  </div>
+
+                  {category.prompts.map((prompt) => (
+                    <div key={prompt.question} className="grid grid-cols-2 border-t border-border/70">
+                      <div className="p-4">
+                        <button
+                          type="button"
+                          onClick={() => copyText(prompt.question, 'Example prompt')}
+                          className="group flex w-full items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
+                        >
+                          <span className="min-w-0 flex-1 text-sm font-semibold leading-5">“{prompt.question}”</span>
+                          {copied === prompt.question ? (
+                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                          ) : (
+                            <Copy className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-[#d97757]" />
+                          )}
+                        </button>
+                      </div>
+                      <div className="border-l border-border/50 p-4">
+                        <p className="text-sm leading-5 text-muted-foreground">{prompt.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
