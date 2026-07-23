@@ -198,7 +198,7 @@ export default function ConnectAI() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-12 pb-20 sm:gap-16">
+    <div className="mx-auto flex w-full max-w-5xl flex-col pb-24" style={{ gap: '6rem' }}>
       <section className="relative isolate overflow-hidden rounded-[26px] border border-white/10 bg-[#30231f] shadow-lg">
         <div className="absolute inset-0 bg-[linear-gradient(112deg,#30231f_0%,#4d2d27_46%,#a6533f_78%,#d97757_100%)]" />
         <img
@@ -246,7 +246,7 @@ export default function ConnectAI() {
         </button>
       </section>
 
-      <section aria-labelledby="manual-setup-title" className="space-y-8">
+      <section aria-labelledby="manual-setup-title" className="flex flex-col" style={{ gap: '3rem' }}>
         <div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Manual setup</p>
@@ -259,7 +259,7 @@ export default function ConnectAI() {
           </div>
         </div>
 
-        <ol className="grid gap-x-12 gap-y-8 md:grid-cols-2">
+        <ol className="grid gap-x-16 gap-y-12 md:grid-cols-2">
           <ManualStep
             number={1}
             title="Open your AI settings"
@@ -327,7 +327,7 @@ export default function ConnectAI() {
         </ol>
       </section>
 
-      <section aria-labelledby="example-prompts-title" className="space-y-8">
+      <section aria-labelledby="example-prompts-title" className="flex flex-col" style={{ gap: '3rem' }}>
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Try asking</p>
           <h2 id="example-prompts-title" className="mt-1 text-2xl font-black tracking-[-0.02em]">
@@ -336,13 +336,13 @@ export default function ConnectAI() {
           <p className="mt-1 text-sm text-muted-foreground">Ask naturally, or click any prompt to copy it.</p>
         </div>
 
-        <div className="space-y-12">
+        <div className="flex flex-col" style={{ gap: '5rem' }}>
           {EXAMPLE_PROMPT_CATEGORIES.map((category) => (
             <div key={category.title}>
               <h3 className="text-base font-black tracking-[-0.01em]">{category.title}</h3>
               <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">{category.description}</p>
 
-              <div className="mt-5 overflow-x-auto rounded-xl border border-border/70">
+              <div className="mt-8 overflow-x-auto rounded-xl border border-border/70">
                 <div className="min-w-[640px]">
                   <div className="grid grid-cols-2 bg-muted/35 text-xs font-bold">
                     <div className="px-4 py-3">What you ask</div>
