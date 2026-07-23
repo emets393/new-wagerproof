@@ -28,13 +28,52 @@ const PROVIDERS = [
   { name: 'Codex', icon: codexIcon },
 ];
 
-const EXAMPLE_PROMPTS = [
-  'Show me my agents and summarize how each one is performing.',
-  'Which of my agents has the strongest recent record?',
-  'What are today’s picks from the agents I follow?',
-  'Compare my agents by win rate, units, and current streak.',
-  'Show me the top public agents for NFL spreads.',
-  'Summarize the most interesting WagerProof trends today.',
+const EXAMPLE_PROMPT_CATEGORIES = [
+  {
+    title: 'Find your best bets',
+    description: 'Cut through the slate and surface the opportunities worth researching.',
+    prompts: [
+      'Find the best player props today and explain why each one stands out.',
+      'Show me today’s strongest betting opportunities across every game.',
+      'Which current lines have the strongest supporting historical trends?',
+    ],
+  },
+  {
+    title: 'Break down any game',
+    description: 'Turn WagerProof data into a clear matchup read before you make a decision.',
+    prompts: [
+      'Analyze today’s biggest matchup and tell me where each team has an edge.',
+      'Compare the spread, moneyline, and total trends for this game.',
+      'What are the most important trends I should know before betting this matchup?',
+    ],
+  },
+  {
+    title: 'Find agents worth following',
+    description: 'Discover proven specialists instead of sorting through every agent yourself.',
+    prompts: [
+      'Find public agents currently on a winning streak of five picks or more.',
+      'Who are the best-performing agents for NFL props over the last 30 days?',
+      'Compare the top agents for this market by win rate, units, and recent form.',
+    ],
+  },
+  {
+    title: 'Get more from agents you follow',
+    description: 'See the signal across your feed without checking every agent one by one.',
+    prompts: [
+      'Summarize today’s picks from the agents I follow and rank the strongest ones first.',
+      'Which agents I follow agree on the same picks today?',
+      'Which agents I follow are gaining momentum or starting a losing streak?',
+    ],
+  },
+  {
+    title: 'Improve your own agents',
+    description: 'Understand what is working, where performance slips, and what to refine next.',
+    prompts: [
+      'Which of my agents is performing best right now, and what is driving the results?',
+      'Compare my agents by win rate, units, and current streak.',
+      'Show me where my agents are underperforming and which sports or markets are strongest.',
+    ],
+  },
 ];
 
 function setupInstructions(): string {
@@ -251,21 +290,30 @@ export default function ConnectAI() {
           <p className="mt-1 text-sm text-muted-foreground">Ask naturally, or click any prompt to copy it.</p>
         </div>
 
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          {EXAMPLE_PROMPTS.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => copyText(prompt, 'Example prompt')}
-              className="group flex min-h-14 items-center gap-3 border-b border-border/60 py-3 text-left transition hover:border-[#d97757]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
-            >
-              <span className="min-w-0 flex-1 text-sm font-semibold leading-5">{prompt}</span>
-              {copied === prompt ? (
-                <Check className="h-4 w-4 shrink-0 text-emerald-500" />
-              ) : (
-                <Copy className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-[#d97757]" />
-              )}
-            </button>
+        <div className="space-y-8">
+          {EXAMPLE_PROMPT_CATEGORIES.map((category) => (
+            <div key={category.title}>
+              <h3 className="text-base font-black tracking-[-0.01em]">{category.title}</h3>
+              <p className="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">{category.description}</p>
+
+              <div className="mt-2 grid gap-x-6 sm:grid-cols-2">
+                {category.prompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => copyText(prompt, 'Example prompt')}
+                    className="group flex min-h-14 items-center gap-3 border-b border-border/60 py-3 text-left transition hover:border-[#d97757]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
+                  >
+                    <span className="min-w-0 flex-1 text-sm font-semibold leading-5">{prompt}</span>
+                    {copied === prompt ? (
+                      <Check className="h-4 w-4 shrink-0 text-emerald-500" />
+                    ) : (
+                      <Copy className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-[#d97757]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </section>
