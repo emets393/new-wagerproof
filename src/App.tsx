@@ -6,7 +6,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useParams, Navigate } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { logMixpanelStatus } from "@/lib/mixpanel";
+import { DEFAULT_AUTHENTICATED_ROUTE } from "@/lib/routes";
 import Landing from "./pages/NewLanding";
 import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./pages";
 import NBATodayHalftimeTrends from "./pages/NBATodayHalftimeTrends";
@@ -58,7 +61,7 @@ import GamesPage from "./features/games/GamesPage";
 import TrendsTodayPage from "./features/trendsToday/TrendsTodayPage";
 import AgentCreate from "./pages/AgentCreate";
 import AgentSettings from "./pages/AgentSettings";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -127,6 +130,24 @@ function MixpanelStatusCheck() {
   return null;
 }
 
+function LandingEntry() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="grid min-h-svh place-items-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to={DEFAULT_AUTHENTICATED_ROUTE} replace />;
+  }
+
+  return <Landing />;
+}
+
 // Routes that manage their own full-height layout (no page padding, content
 // scrolls internally instead of the main scroller). /historical-trends is here
 // so its bottom chat dock can pin to the viewport instead of scrolling with content.
@@ -165,7 +186,26 @@ function LegacyTodaysTrendsRedirect({ sport }: { sport: string }) {
 // Layout wrapper for authenticated pages
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const { user } = useAuth();
   const isSplitView = SPLIT_VIEW_ROUTES.includes(location.pathname);
+
+  useEffect(() => {
+    if (!user || localStorage.getItem('wagerproof_show_welcome') !== 'true') return;
+
+    // Consume before showing so React Strict Mode and route transitions cannot
+    // display the same welcome more than once.
+    localStorage.removeItem('wagerproof_show_welcome');
+
+    const fullName =
+      user.user_metadata?.full_name ??
+      user.user_metadata?.display_name ??
+      user.user_metadata?.name;
+    const firstName = typeof fullName === 'string' ? fullName.trim().split(/\s+/)[0] : '';
+
+    toast.success(firstName ? `Welcome back, ${firstName}` : 'Welcome back', {
+      description: "Today's Outliers are ready.",
+    });
+  }, [user]);
 
   return (
     <SidebarProvider defaultOpen={true} className="h-svh overflow-hidden">
@@ -224,8 +264,8 @@ function AppRoutes() {
     return (
       <PublicLayout>
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/home" element={<Landing />} />
+          <Route path="/" element={<LandingEntry />} />
+          <Route path="/home" element={<LandingEntry />} />
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />

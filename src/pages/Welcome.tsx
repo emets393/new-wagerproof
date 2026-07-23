@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
+import { DEFAULT_AUTHENTICATED_ROUTE } from '@/lib/routes';
 import debug from '@/utils/debug';
 
 export default function Welcome() {
@@ -50,8 +51,7 @@ export default function Welcome() {
   useEffect(() => {
     if (user && !loading) {
       localStorage.setItem('wagerproof_show_welcome', 'true');
-      // Redirect to home instead of protected route
-      navigate('/agents', { replace: true });
+      navigate(DEFAULT_AUTHENTICATED_ROUTE, { replace: true });
     }
   }, [user, loading, navigate]);
 
