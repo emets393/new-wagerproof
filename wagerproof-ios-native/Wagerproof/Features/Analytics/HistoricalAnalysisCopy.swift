@@ -288,10 +288,12 @@ enum HistoricalAnalysisCopy {
         let weekMax = sport == .nfl ? 18 : 16
         let seasonMax = sport.seasonMax
         let spreadCfg = HistoricalAnalysisFilterBuilder.spreadConfig(sport: sport, betType: "fg_spread")
-        // A2/A4: MLB's game-total dim (`lineMin/Max`) is fixed/cross-market now
-        // — always look up "total" bounds, not the currently selected betType
-        // (which previously hid the chip on ml/rl markets).
-        let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: sport == .mlb ? "total" : betType)
+        // `lineMin/Max` is ALWAYS the full-game total dim, every sport (matches the
+        // builder, which emits it via the fg_total/total cfg regardless of bet type).
+        // Resolving by the selected betType produced a phantom "Team total 30–60" /
+        // "1H total 30–60" chip the moment those bet types were picked — the fg-total
+        // defaults were being compared against the narrower tt/1H bounds.
+        let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: sport == .mlb ? "total" : "fg_total")
 
         if s.seasonMin != seasonFloor || s.seasonMax != seasonMax {
             chips.append(.init(label: "Seasons \(yearRange(s.seasonMin, s.seasonMax))") {

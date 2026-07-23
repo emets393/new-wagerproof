@@ -14,29 +14,13 @@ struct HistoricalAnalysisFilterBar: View {
 
     @State private var activeSheet: FilterSheet?
 
-    private enum FilterSheet: Identifiable {
-        /// NFL uses matchup + weather (spec). CFB/MLB still use the older Conditions sheet.
-        case seasons, lines, spread, line, moneyline, situation, conditions, matchup, weather, context, lastGame
-        /// Team as-of form + opponent (H2H / opp record / opp last game).
-        /// Kept separate from `.matchup` (game-setup: primetime / division / rest).
-        case teamForm, opponent
-        var id: String {
-            switch self {
-            case .seasons: return "seasons"
-            case .lines: return "lines"
-            case .spread: return "spread"
-            case .line: return "line"
-            case .moneyline: return "moneyline"
-            case .situation: return "situation"
-            case .conditions: return "conditions"
-            case .matchup: return "matchup"
-            case .weather: return "weather"
-            case .context: return "context"
-            case .lastGame: return "lastGame"
-            case .teamForm: return "teamForm"
-            case .opponent: return "opponent"
-            }
-        }
+    /// One pill = one question a bettor would ask: who / which side / what price /
+    /// when / what kind of game / what conditions / how are they playing / what
+    /// happened last game / history vs this opponent / who's pitching (MLB) /
+    /// who's officiating-coaching (NFL). See the 2026-07 regroup.
+    private enum FilterSheet: String, Identifiable {
+        case teams, lines, schedule, game, weather, teamForm, lastGame, h2h, opponent, pitching, coachRef
+        var id: String { rawValue }
     }
 
     var body: some View {
@@ -44,47 +28,28 @@ struct HistoricalAnalysisFilterBar: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     betTypePill
-                    pillButton(icon: "calendar", title: seasonsLabel) { activeSheet = .seasons }
-                    // Side is per-team, so hide it on game totals (it returns 0 / does nothing there).
-                    if hasSideFilter {
-                        pillMenu(icon: "house.fill", title: sideLabel, options: [
-                            ("any", "Either", nil),
-                            ("home", "Home", "house.fill"),
-                            ("away", "Away", "airplane"),
-                        ], selection: binding(\.side))
+                    pillButton(icon: "person.3.fill", title: teamsPillLabel) { activeSheet = .teams }
+                    // Side + favorite/underdog are the same question (which role);
+                    // hidden entirely on game totals where neither applies.
+                    if hasSideFilter || showsFavDogFilter {
+                        sideRolePill
                     }
-                    if store.sport == .nfl || store.sport == .cfb {
-                        pillButton(icon: "slider.horizontal.3", title: "Lines") { activeSheet = .lines }
-                    } else {
-                        if hasSpreadFilter {
-                            pillButton(icon: "arrow.left.and.right", title: spreadLabel) { activeSheet = .spread }
-                        }
-                        if hasLineFilter {
-                            pillButton(icon: "number", title: lineLabel) { activeSheet = .line }
-                        }
-                        if hasMoneylineFilter {
-                            pillButton(icon: "dollarsign", title: mlLabel) { activeSheet = .moneyline }
-                        }
-                    }
-                    pillButton(icon: "slider.horizontal.3", title: situationPillTitle) { activeSheet = .situation }
-                    // Team form (as-of season/RL/total/prior-year record) + opponent
-                    // context (H2H, opp record, opp last game) — shared pattern
-                    // across all three sports (A3: MLB reuses the NFL/CFB layout).
+                    pillButton(icon: "slider.horizontal.3", title: "Lines") { activeSheet = .lines }
+                    pillButton(icon: "calendar", title: schedulePillLabel) { activeSheet = .schedule }
+                    pillButton(icon: "sportscourt.fill", title: "Game") { activeSheet = .game }
+                    pillButton(icon: "cloud.sun.fill", title: "Weather") { activeSheet = .weather }
                     pillButton(icon: "chart.line.uptrend.xyaxis", title: "Team form") { activeSheet = .teamForm }
-                    pillButton(icon: "person.2.wave.2", title: "Opponent") { activeSheet = .opponent }
-
-                    // NFL: Setup (primetime/division/rest) + Weather.
-                    // CFB/MLB keep Conditions while CFB grouping is updated separately.
-                    if store.sport == .nfl {
-                        pillButton(icon: "sportscourt.fill", title: "Setup") { activeSheet = .matchup }
-                        pillButton(icon: "cloud.sun.fill", title: "Weather") { activeSheet = .weather }
-                    } else {
-                        pillButton(icon: "cloud.sun.fill", title: "Conditions") { activeSheet = .conditions }
-                    }
                     if hasLastGameFilter {
                         pillButton(icon: "clock.arrow.circlepath", title: "Last game") { activeSheet = .lastGame }
                     }
-                    pillButton(icon: "person.2.fill", title: contextLabel) { activeSheet = .context }
+                    pillButton(icon: "arrow.triangle.2.circlepath", title: "Head-to-head") { activeSheet = .h2h }
+                    pillButton(icon: "person.2.wave.2", title: "Opponent") { activeSheet = .opponent }
+                    if store.sport == .mlb {
+                        pillButton(icon: "figure.baseball", title: pitchingPillLabel) { activeSheet = .pitching }
+                    }
+                    if store.sport == .nfl {
+                        pillButton(icon: "person.2.fill", title: coachRefPillLabel) { activeSheet = .coachRef }
+                    }
                 }
                 .padding(.horizontal, 16)
                 // Breathing room so the glass highlight isn't shaved at the
@@ -151,86 +116,72 @@ struct HistoricalAnalysisFilterBar: View {
 
     // MARK: - Pill labels
 
-    private var seasonsLabel: String {
+    private var teamsPillLabel: String {
+        var n = store.snapshot.teams.count + store.snapshot.opponents.count
+        if store.sport == .cfb { n += HistoricalAnalysisCopy.activeConferences(store.snapshot).count }
+        if store.sport == .nfl { n += store.snapshot.teamDivisions.count }
+        return n > 0 ? "\(n) selected" : "Teams"
+    }
+
+    private var schedulePillLabel: String {
         HistoricalAnalysisCopy.yearRange(store.snapshot.seasonMin, store.snapshot.seasonMax)
     }
 
-    private var sideLabel: String {
-        switch store.snapshot.side {
-        case "home": return "Home"
-        case "away": return "Away"
-        default: return "Side"
+    private var pitchingPillLabel: String {
+        let pitcherCount = store.snapshot.sp.count + store.snapshot.oppSp.count
+        if pitcherCount == 1 {
+            let p = store.snapshot.sp.first ?? store.snapshot.oppSp.first
+            return p?.name ?? "Pitching"
+        }
+        if pitcherCount > 1 { return "\(pitcherCount) pitchers" }
+        return "Pitching"
+    }
+
+    private var coachRefPillLabel: String {
+        if store.snapshot.coach != "any" { return store.snapshot.coach }
+        if store.snapshot.referee != "any" { return "Ref: \(store.snapshot.referee)" }
+        return "Coach/Ref"
+    }
+
+    private var sideRolePillLabel: String {
+        let side: String? = switch store.snapshot.side {
+        case "home": "Home"
+        case "away": "Away"
+        default: nil
+        }
+        let role: String? = switch store.snapshot.favDog {
+        case "favorite": "Favorites"
+        case "underdog": "Underdogs"
+        default: nil
+        }
+        switch (side, role) {
+        case let (s?, r?): return "\(s) \(r.lowercased())"
+        case let (s?, nil): return s
+        case let (nil, r?): return r
+        default: return "Side & role"
         }
     }
 
-    private var spreadLabel: String {
-        if store.snapshot.spreadSide != "any" {
-            return "\(store.snapshot.spreadSide == "favorite" ? "Fav" : "Dog") \(HistoricalAnalysisCopy.trimmed(store.snapshot.spreadMin))–\(HistoricalAnalysisCopy.trimmed(store.snapshot.spreadMax))"
-        }
-        if store.snapshot.spreadMin > 0.001 || store.snapshot.spreadMax < defaultSpreadMax - 0.001 {
-            return "Spread \(HistoricalAnalysisCopy.trimmed(store.snapshot.spreadMin))–\(HistoricalAnalysisCopy.trimmed(store.snapshot.spreadMax))"
-        }
-        return "Spread"
-    }
-
-    private var lineLabel: String {
-        let t = store.snapshot.lineMin
-        let u = store.snapshot.lineMax
-        let lo = Double(defaultLineMin)
-        let hi = Double(defaultLineMax)
-        let f5t = store.snapshot.f5TotalMin
-        let f5u = store.snapshot.f5TotalMax
-        let title = store.sport == .mlb ? "Totals" : "Line"
-        if t > lo + 0.001 || u < hi - 0.001 || f5t > 2.001 || f5u < 7.999 {
-            return "\(title) \(HistoricalAnalysisCopy.trimmed(t))–\(HistoricalAnalysisCopy.trimmed(u))"
-        }
-        return title
-    }
-
-    private var mlLabel: String {
-        if !store.snapshot.mlMin.isEmpty || !store.snapshot.mlMax.isEmpty { return "ML odds" }
-        return "ML"
-    }
-
-    private var contextLabel: String {
-        switch store.sport {
-        case .nfl:
-            if store.snapshot.coach != "any" { return store.snapshot.coach }
-            if store.snapshot.referee != "any" { return "Ref: \(store.snapshot.referee)" }
-            return "Coach/Ref"
-        case .cfb:
-            return HistoricalAnalysisCopy.conferencePillLabel(
-                HistoricalAnalysisCopy.activeConferences(store.snapshot)
-            )
-        case .mlb:
-            let pitcherCount = store.snapshot.sp.count + store.snapshot.oppSp.count
-            let n = store.snapshot.teams.count + store.snapshot.opponents.count
-            if pitcherCount > 0 {
-                if pitcherCount == 1 {
-                    let p = store.snapshot.sp.first ?? store.snapshot.oppSp.first
-                    return p?.name ?? "Pitcher"
+    /// Home/Away + Favorite/Underdog in one menu — the same "which role" question.
+    private var sideRolePill: some View {
+        Menu {
+            if hasSideFilter {
+                Picker("Side", selection: binding(\.side)) {
+                    Label("Either", systemImage: "circle.dashed").tag("any")
+                    Label("Home", systemImage: "house.fill").tag("home")
+                    Label("Away", systemImage: "airplane").tag("away")
                 }
-                return "\(pitcherCount) pitchers"
             }
-            if n > 0 { return "\(n) team\(n == 1 ? "" : "s")" }
-            if store.snapshot.spHand != "any" || store.snapshot.oppSpHand != "any" {
-                return "Pitching"
+            if showsFavDogFilter {
+                Picker("Favorite / underdog", selection: binding(\.favDog)) {
+                    Label("Either", systemImage: "circle.dashed").tag("any")
+                    Label("Favorites", systemImage: "star.fill").tag("favorite")
+                    Label("Underdogs", systemImage: "pawprint.fill").tag("underdog")
+                }
             }
-            return "Teams/SP"
+        } label: {
+            pillChrome(icon: "house.fill", title: sideRolePillLabel)
         }
-    }
-
-    private var situationPillTitle: String {
-        let n = store.snapshot.teams.count + store.snapshot.opponents.count
-        if store.sport != .mlb, n > 0 {
-            return "\(n) team\(n == 1 ? "" : "s")"
-        }
-        return "Situation"
-    }
-
-    private var hasSpreadFilter: Bool {
-        // FG spread filter is available on every football result market.
-        store.sport != .mlb
     }
 
     // Side is per-team; a game total is game-level, so Side is hidden there (football).
@@ -241,19 +192,9 @@ struct HistoricalAnalysisFilterBar: View {
         }
     }
 
-    // FG moneyline odds — available on every result market (and always on MLB).
-    private var hasMoneylineFilter: Bool {
-        true
-    }
-
     // "Last game" group (previous-game filters) — MLB reuses the same shared
     // `lastResult/lastAts/lastTotal/lastRole/lastMargin` fields as football.
     private var hasLastGameFilter: Bool {
-        true
-    }
-
-    private var hasLineFilter: Bool {
-        // Game total (and subject-market totals) — always available.
         true
     }
 
@@ -393,24 +334,17 @@ struct HistoricalAnalysisFilterBar: View {
 
     private func sheetTitle(_ sheet: FilterSheet) -> String {
         switch sheet {
-        case .seasons: return "Seasons"
+        case .teams: return "Teams"
         case .lines: return "Lines & odds"
-        case .spread: return "Spread"
-        case .line: return store.sport == .mlb ? "Totals" : "Line"
-        case .moneyline: return "Moneyline odds"
-        case .situation: return "Situation"
-        case .conditions: return "Conditions"
-        case .matchup: return "Setup"
-        case .weather: return "Weather"
-        case .context:
-            switch store.sport {
-            case .nfl: return "Coach & referee"
-            case .cfb: return "Conference"
-            case .mlb: return "Teams & pitching"
-            }
+        case .schedule: return "Schedule"
+        case .game: return "Game"
+        case .weather: return "Weather & venue"
         case .lastGame: return "Last game"
+        case .h2h: return "Head-to-head"
         case .teamForm: return "Team form"
         case .opponent: return "Opponent"
+        case .pitching: return "Pitching"
+        case .coachRef: return "Coach & referee"
         }
     }
 
@@ -418,20 +352,200 @@ struct HistoricalAnalysisFilterBar: View {
     private func sheetBody(_ sheet: FilterSheet) -> some View {
         Form {
             switch sheet {
-            case .seasons: seasonsSheet
-            case .lines: linesSheet
-            case .spread: spreadSheet
-            case .line: lineSheet
-            case .moneyline: moneylineSheet
-            case .situation: situationSheet
-            case .conditions: conditionsSheet
-            case .matchup: nflMatchupSheet
-            case .weather: nflWeatherSheet
-            case .context: contextSheet
+            case .teams: teamsSheet
+            case .lines:
+                if store.sport == .mlb { mlbLinesSheet } else { linesSheet }
+            case .schedule: scheduleSheet
+            case .game: gameSheet
+            case .weather:
+                if store.sport == .nfl { nflWeatherSheet } else { conditionsSheet }
             case .lastGame: lastGameSheet
+            case .h2h: h2hSheet
             case .teamForm: teamFormSheet
             case .opponent: opponentSheet
+            case .pitching: pitchingSheet
+            case .coachRef: coachRefSheet
             }
+        }
+    }
+
+    // MARK: - Teams (who's playing) — searchable pickers for every large list
+
+    @ViewBuilder
+    private var teamsSheet: some View {
+        Section("Teams") {
+            searchableTeamLink(title: "Teams", keyPath: \.teams)
+        }
+        Section("Opponents") {
+            searchableTeamLink(title: "Opponents", keyPath: \.opponents)
+        }
+        if store.sport == .cfb {
+            Section("Conferences") {
+                conferenceMultiSelect
+            }
+        }
+        if store.sport == .nfl {
+            Section("Team divisions") {
+                teamDivisionsMultiSelect
+            }
+        }
+    }
+
+    private func searchableTeamLink(title: String, keyPath: WritableKeyPath<HistoricalAnalysisUISnapshot, [String]>) -> some View {
+        NavigationLink {
+            SearchableMultiSelectList(
+                title: title,
+                options: store.teamOptions.map { .init(id: $0.id, label: $0.id == $0.name ? $0.name : "\($0.id) · \($0.name)") },
+                selected: Binding(
+                    get: { store.snapshot[keyPath: keyPath] },
+                    set: { next in store.updateSnapshot { $0[keyPath: keyPath] = next.sorted() } }
+                ),
+                onChange: onChange
+            )
+        } label: {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(store.snapshot[keyPath: keyPath].isEmpty
+                     ? "All"
+                     : "\(store.snapshot[keyPath: keyPath].count) selected")
+                    .foregroundStyle(Color.appTextSecondary)
+            }
+        }
+    }
+
+    // MARK: - Schedule (when is it played)
+
+    @ViewBuilder
+    private var scheduleSheet: some View {
+        Section("Seasons") {
+            seasonsSheet
+        }
+        switch store.sport {
+        case .nfl:
+            Picker("Season type", selection: binding(\.seasonType)) {
+                Text("Regular + Playoffs").tag("any")
+                Text("Regular season").tag("regular")
+                Text("Playoffs only").tag("postseason")
+            }
+            if store.snapshot.seasonType == "regular" {
+                weekPickers(max: 18)
+            }
+            if store.snapshot.seasonType == "postseason" {
+                Picker("Playoff round", selection: binding(\.playoffRound)) {
+                    Text("All rounds").tag("any")
+                    Text("Wild Card").tag("Wild Card")
+                    Text("Divisional").tag("Divisional")
+                    Text("Conference").tag("Conference")
+                    Text("Super Bowl").tag("Super Bowl")
+                }
+            }
+            Section("Days of week") {
+                daysOfWeekMultiSelect
+            }
+            Picker("Rest / bye", selection: binding(\.restBye)) {
+                Text("Any").tag("any")
+                Text("Off a bye").tag("off_bye")
+                Text("Week before bye").tag("pre_bye")
+                Text("Short rest (Thu)").tag("short")
+            }
+        case .cfb:
+            Picker("Game type", selection: binding(\.gameType)) {
+                Text("All games").tag("any")
+                Text("Regular season").tag("regular")
+                Text("Bowl games").tag("bowl")
+                Text("Playoff").tag("playoff")
+                Text("All postseason").tag("postseason")
+            }
+            if store.snapshot.gameType == "regular" {
+                weekPickers(max: 16)
+            }
+        case .mlb:
+            mlbScheduleSections
+        }
+    }
+
+    @ViewBuilder
+    private var mlbScheduleSections: some View {
+        Section("Months") {
+            Picker("From", selection: intBinding(\.monthMin)) {
+                ForEach(3...store.snapshot.monthMax, id: \.self) { m in
+                    Text(monthName(m)).tag(m)
+                }
+            }
+            Picker("To", selection: intBinding(\.monthMax)) {
+                ForEach(store.snapshot.monthMin...11, id: \.self) { m in
+                    Text(monthName(m)).tag(m)
+                }
+            }
+        }
+        Section("Days of week") {
+            daysOfWeekMultiSelect
+        }
+        Section("Start time (ET)") {
+            TextField("From (HH:MM, e.g. 13:00)", text: stringBinding(\.timeMin))
+                .keyboardType(.numbersAndPunctuation)
+            TextField("To (HH:MM, e.g. 19:00)", text: stringBinding(\.timeMax))
+                .keyboardType(.numbersAndPunctuation)
+        }
+        Section("Series game") {
+            labeledRangeSlider(
+                title: "Game #",
+                lower: optionalIntRangeBinding(\.seriesGameMin, bound: 1, isLower: true),
+                upper: optionalIntRangeBinding(\.seriesGameMax, bound: 6, isLower: false),
+                range: 1...6,
+                step: 1,
+                format: { String(Int($0)) }
+            )
+        }
+        Section("Trip series index") {
+            labeledRangeSlider(
+                title: "Trip #",
+                lower: optionalIntRangeBinding(\.tripMin, bound: 1, isLower: true),
+                upper: optionalIntRangeBinding(\.tripMax, bound: 5, isLower: false),
+                range: 1...5,
+                step: 1,
+                format: { String(Int($0)) }
+            )
+        }
+        Section("Days rest") {
+            labeledRangeSlider(
+                title: "Rest",
+                lower: optionalIntRangeBinding(\.restMin, bound: 0, isLower: true),
+                upper: optionalIntRangeBinding(\.restMax, bound: 10, isLower: false),
+                range: 0...10,
+                step: 1,
+                suffix: " days",
+                format: { String(Int($0)) }
+            )
+        }
+        optionalBoolPicker("Doubleheader", value: boolBinding(\.doubleheader))
+    }
+
+    // MARK: - Game (what kind of matchup)
+
+    @ViewBuilder
+    private var gameSheet: some View {
+        switch store.sport {
+        case .nfl:
+            optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
+            optionalBoolPicker("Divisional", value: boolBinding(\.division))
+        case .cfb:
+            Picker("Ranked matchup", selection: binding(\.rankedMatchup)) {
+                Text("Any").tag("any")
+                Text("Both ranked").tag("both")
+                Text("Neither ranked").tag("neither")
+                Text("Home ranked / away not").tag("home_ranked")
+                Text("Away ranked / home not").tag("away_ranked")
+                Text("Either ranked").tag("either")
+            }
+            optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
+            optionalBoolPicker("Conference game", value: boolBinding(\.conferenceGame))
+            optionalBoolPicker("Neutral site", value: boolBinding(\.neutralSite))
+        case .mlb:
+            optionalBoolPicker("Division", value: boolBinding(\.division))
+            optionalBoolPicker("Interleague", value: boolBinding(\.interleague))
+            optionalBoolPicker("Switch game (city/league change)", value: boolBinding(\.switchGame))
         }
     }
 
@@ -555,137 +669,49 @@ struct HistoricalAnalysisFilterBar: View {
         .padding(.vertical, 4)
     }
 
+    /// MLB "Lines & odds" — the former Spread / Totals / Moneyline pills merged
+    /// into one sheet, matching the football Lines sheet's shape.
     @ViewBuilder
-    private var spreadSheet: some View {
-        let maxSpread = defaultSpreadMax
-        Picker("Spread side", selection: binding(\.spreadSide)) {
-            Text("Either side").tag("any")
-            Text("Favored by").tag("favorite")
-            Text("Getting").tag("underdog")
-        }
-        Section {
-            let sideLabel = store.snapshot.spreadSide == "favorite"
-                ? "Favored by"
-                : store.snapshot.spreadSide == "underdog" ? "Getting" : "Spread"
-            VStack(alignment: .leading, spacing: 12) {
-                Text("\(sideLabel): \(HistoricalAnalysisCopy.trimmed(store.snapshot.spreadMin))–\(HistoricalAnalysisCopy.trimmed(store.snapshot.spreadMax)) pts")
-                    .font(.subheadline)
-                HistoricalAnalysisRangeSlider(
-                    lower: doubleBinding(\.spreadMin),
-                    upper: doubleBinding(\.spreadMax),
-                    range: 0...maxSpread,
-                    step: 0.5
-                )
+    private var mlbLinesSheet: some View {
+        Section("Run line") {
+            Picker("Side", selection: binding(\.spreadSide)) {
+                Text("Either side").tag("any")
+                Text("Favored by").tag("favorite")
+                Text("Getting").tag("underdog")
             }
-            .padding(.vertical, 4)
-        }
-    }
-
-    @ViewBuilder
-    private var lineSheet: some View {
-        let lo = Double(defaultLineMin)
-        let hi = Double(defaultLineMax)
-        Section(store.sport == .mlb ? "Game total" : "Line") {
             labeledRangeSlider(
-                title: "Line",
-                lower: doubleBinding(\.lineMin),
-                upper: doubleBinding(\.lineMax),
-                range: lo...hi,
+                title: "Spread",
+                lower: doubleBinding(\.spreadMin),
+                upper: doubleBinding(\.spreadMax),
+                range: 0...defaultSpreadMax,
                 step: 0.5
             )
         }
-        // A2/A3: F5 total is an independent dim from the game total above —
-        // always shown, regardless of the selected bet type (web parity).
-        if store.sport == .mlb {
-            Section("F5 total") {
-                labeledRangeSlider(
-                    title: "F5 total",
-                    lower: doubleBinding(\.f5TotalMin),
-                    upper: doubleBinding(\.f5TotalMax),
-                    range: 2...8,
-                    step: 0.5
-                )
-            }
-        }
-    }
-
-    private var moneylineSheet: some View {
-        Group {
+        Section("Moneyline odds") {
             TextField("Min American odds (e.g. -200)", text: stringBinding(\.mlMin))
                 .keyboardType(.numbersAndPunctuation)
             TextField("Max American odds (e.g. -120)", text: stringBinding(\.mlMax))
                 .keyboardType(.numbersAndPunctuation)
         }
-    }
-
-    @ViewBuilder
-    private var situationSheet: some View {
-        switch store.sport {
-        case .nfl:
-            Section("Teams") {
-                teamMultiSelect(title: "Selected teams", keyPath: \.teams)
-            }
-            Section("Opponents") {
-                teamMultiSelect(title: "Selected opponents", keyPath: \.opponents)
-            }
-            Picker("Season type", selection: binding(\.seasonType)) {
-                Text("Regular + Playoffs").tag("any")
-                Text("Regular season").tag("regular")
-                Text("Playoffs only").tag("postseason")
-            }
-            if store.snapshot.seasonType == "regular" {
-                weekPickers(max: 18)
-            }
-            if store.snapshot.seasonType == "postseason" {
-                Picker("Playoff round", selection: binding(\.playoffRound)) {
-                    Text("All rounds").tag("any")
-                    Text("Wild Card").tag("Wild Card")
-                    Text("Divisional").tag("Divisional")
-                    Text("Conference").tag("Conference")
-                    Text("Super Bowl").tag("Super Bowl")
-                }
-            }
-            // B1: Days of week multi-select for NFL
-            Section("Days of week") {
-                daysOfWeekMultiSelect
-            }
-        case .cfb:
-            Section("Teams") {
-                teamMultiSelect(title: "Selected teams", keyPath: \.teams)
-            }
-            Section("Opponents") {
-                teamMultiSelect(title: "Selected opponents", keyPath: \.opponents)
-            }
-            Picker("Game type", selection: binding(\.gameType)) {
-                Text("All games").tag("any")
-                Text("Regular season").tag("regular")
-                Text("Bowl games").tag("bowl")
-                Text("Playoff").tag("playoff")
-                Text("All postseason").tag("postseason")
-            }
-            if store.snapshot.gameType == "regular" {
-                weekPickers(max: 16)
-            }
-            Picker("Ranked matchup", selection: binding(\.rankedMatchup)) {
-                Text("Any").tag("any")
-                Text("Both ranked").tag("both")
-                Text("Neither ranked").tag("neither")
-                Text("Home ranked / away not").tag("home_ranked")
-                Text("Away ranked / home not").tag("away_ranked")
-                Text("Either ranked").tag("either")
-            }
-            optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
-            optionalBoolPicker("Conference game", value: boolBinding(\.conferenceGame))
-            optionalBoolPicker("Neutral site", value: boolBinding(\.neutralSite))
-        case .mlb:
-            mlbSituationSheet
+        Section("Game total") {
+            labeledRangeSlider(
+                title: "Total",
+                lower: doubleBinding(\.lineMin),
+                upper: doubleBinding(\.lineMax),
+                range: Double(defaultLineMin)...Double(defaultLineMax),
+                step: 0.5
+            )
         }
-        if showsFavDogFilter {
-            Picker("Favorite / underdog", selection: binding(\.favDog)) {
-                Text("Either").tag("any")
-                Text("Favorites").tag("favorite")
-                Text("Underdogs").tag("underdog")
-            }
+        // A2/A3: F5 total is an independent dim from the game total above —
+        // always shown, regardless of the selected bet type (web parity).
+        Section("F5 total") {
+            labeledRangeSlider(
+                title: "F5 total",
+                lower: doubleBinding(\.f5TotalMin),
+                upper: doubleBinding(\.f5TotalMax),
+                range: 2...8,
+                step: 0.5
+            )
         }
     }
 
@@ -696,68 +722,6 @@ struct HistoricalAnalysisFilterBar: View {
         case .nfl, .cfb:
             return HistoricalAnalysisBetType.moneylineMarkets.contains(store.betType) || store.betType == "team_total"
         }
-    }
-
-    @ViewBuilder
-    private var mlbSituationSheet: some View {
-        Section("Months") {
-            Picker("From", selection: intBinding(\.monthMin)) {
-                ForEach(3...store.snapshot.monthMax, id: \.self) { m in
-                    Text(monthName(m)).tag(m)
-                }
-            }
-            Picker("To", selection: intBinding(\.monthMax)) {
-                ForEach(store.snapshot.monthMin...11, id: \.self) { m in
-                    Text(monthName(m)).tag(m)
-                }
-            }
-        }
-        // A1/A3: multi-select days (web `daysOfWeek`) replaces the legacy
-        // single-day `dayOfWeek` picker — the builder prefers the array when set.
-        Section("Days of week") {
-            daysOfWeekMultiSelect
-        }
-        Section("Start time (ET)") {
-            TextField("From (HH:MM, e.g. 13:00)", text: stringBinding(\.timeMin))
-                .keyboardType(.numbersAndPunctuation)
-            TextField("To (HH:MM, e.g. 19:00)", text: stringBinding(\.timeMax))
-                .keyboardType(.numbersAndPunctuation)
-        }
-        Section("Series game") {
-            labeledRangeSlider(
-                title: "Game #",
-                lower: optionalIntRangeBinding(\.seriesGameMin, bound: 1, isLower: true),
-                upper: optionalIntRangeBinding(\.seriesGameMax, bound: 6, isLower: false),
-                range: 1...6,
-                step: 1,
-                format: { String(Int($0)) }
-            )
-        }
-        Section("Trip series index") {
-            labeledRangeSlider(
-                title: "Trip #",
-                lower: optionalIntRangeBinding(\.tripMin, bound: 1, isLower: true),
-                upper: optionalIntRangeBinding(\.tripMax, bound: 5, isLower: false),
-                range: 1...5,
-                step: 1,
-                format: { String(Int($0)) }
-            )
-        }
-        Section("Days rest") {
-            labeledRangeSlider(
-                title: "Rest",
-                lower: optionalIntRangeBinding(\.restMin, bound: 0, isLower: true),
-                upper: optionalIntRangeBinding(\.restMax, bound: 10, isLower: false),
-                range: 0...10,
-                step: 1,
-                suffix: " days",
-                format: { String(Int($0)) }
-            )
-        }
-        optionalBoolPicker("Switch game (city/league change)", value: boolBinding(\.switchGame))
-        optionalBoolPicker("Division", value: boolBinding(\.division))
-        optionalBoolPicker("Interleague", value: boolBinding(\.interleague))
-        optionalBoolPicker("Doubleheader", value: boolBinding(\.doubleheader))
     }
 
     private func monthName(_ m: Int) -> String {
@@ -796,7 +760,7 @@ struct HistoricalAnalysisFilterBar: View {
         }
     }
 
-    /// CFB/MLB only — NFL uses `nflMatchupSheet` + `nflWeatherSheet`.
+    /// CFB/MLB "Weather & venue" body — NFL routes to `nflWeatherSheet`.
     @ViewBuilder
     private var conditionsSheet: some View {
         switch store.sport {
@@ -821,23 +785,6 @@ struct HistoricalAnalysisFilterBar: View {
                 .foregroundStyle(Color.appTextMuted)
         case .mlb:
             mlbConditionsSheet
-        }
-    }
-
-    /// NFL Matchup = game setup, not weather (primetime / divisional / rest).
-    @ViewBuilder
-    private var nflMatchupSheet: some View {
-        optionalBoolPicker("Primetime", value: boolBinding(\.primetime))
-        optionalBoolPicker("Divisional", value: boolBinding(\.division))
-        Picker("Rest / bye", selection: binding(\.restBye)) {
-            Text("Any").tag("any")
-            Text("Off a bye").tag("off_bye")
-            Text("Week before bye").tag("pre_bye")
-            Text("Short rest (Thu)").tag("short")
-        }
-        // B1: Team divisions multi-select for NFL
-        Section("Team divisions") {
-            teamDivisionsMultiSelect
         }
     }
 
@@ -898,24 +845,7 @@ struct HistoricalAnalysisFilterBar: View {
                 step: 1
             )
         }
-        if store.sport == .mlb {
-            // MLB win/loss streak (signed, W positive / L negative) — legacy
-            // string fields, exposed here as a slider per A1.
-            Section("Current streak") {
-                labeledRangeSlider(
-                    title: "Streak",
-                    lower: stringAsDoubleBinding(\.streakMin),
-                    upper: stringAsDoubleBinding(\.streakMax),
-                    range: -25...25,
-                    step: 1,
-                    suffix: " games",
-                    format: { String(Int($0)) }
-                )
-                Text("+ = winning streak, − = losing streak")
-                    .font(.caption)
-                    .foregroundStyle(Color.appTextSecondary)
-            }
-        } else {
+        if store.sport != .mlb {
             optionalBoolPicker("Went to overtime", value: boolBinding(\.lastOt))
         }
     }
@@ -1042,34 +972,44 @@ struct HistoricalAnalysisFilterBar: View {
         }
     }
 
+    /// NFL only — searchable single-select for the long coach/referee lists.
     @ViewBuilder
-    private var contextSheet: some View {
-        switch store.sport {
-        case .nfl:
-            Picker("Coach", selection: binding(\.coach)) {
-                Text("Any coach").tag("any")
-                ForEach(store.coaches, id: \.self) { c in Text(c).tag(c) }
+    private var coachRefSheet: some View {
+        searchableSingleSelectLink(title: "Coach", anyLabel: "Any coach", options: store.coaches, keyPath: \.coach)
+        searchableSingleSelectLink(title: "Referee", anyLabel: "Any referee", options: store.referees, keyPath: \.referee)
+    }
+
+    private func searchableSingleSelectLink(
+        title: String,
+        anyLabel: String,
+        options: [String],
+        keyPath: WritableKeyPath<HistoricalAnalysisUISnapshot, String>
+    ) -> some View {
+        NavigationLink {
+            SearchableSingleSelectList(
+                title: title,
+                anyLabel: anyLabel,
+                options: options,
+                selection: Binding(
+                    get: { store.snapshot[keyPath: keyPath] },
+                    set: { next in store.updateSnapshot { $0[keyPath: keyPath] = next } }
+                ),
+                onChange: onChange
+            )
+        } label: {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(store.snapshot[keyPath: keyPath] == "any" ? "Any" : store.snapshot[keyPath: keyPath])
+                    .foregroundStyle(Color.appTextSecondary)
+                    .lineLimit(1)
             }
-            Picker("Referee", selection: binding(\.referee)) {
-                Text("Any referee").tag("any")
-                ForEach(store.referees, id: \.self) { r in Text(r).tag(r) }
-            }
-        case .cfb:
-            conferenceMultiSelect
-        case .mlb:
-            mlbContextSheet
         }
     }
 
+    /// MLB only — starters, handedness, and pitching quality (teams moved to the Teams pill).
     @ViewBuilder
-    private var mlbContextSheet: some View {
-        Section("Teams") {
-            teamMultiSelect(title: "Selected teams", keyPath: \.teams)
-        }
-        Section("Opponents") {
-            teamMultiSelect(title: "Selected opponents", keyPath: \.opponents)
-        }
-
+    private var pitchingSheet: some View {
         MlbPitcherTypeahead(
             label: "Team starter (SP)",
             selected: Binding(
@@ -1137,91 +1077,39 @@ struct HistoricalAnalysisFilterBar: View {
         }
     }
 
-    private func teamMultiSelect(title: String, keyPath: WritableKeyPath<HistoricalAnalysisUISnapshot, [String]>) -> some View {
-        Group {
-            let selected = store.snapshot[keyPath: keyPath]
-            if selected.isEmpty {
-                Text("All \(title.lowercased())")
-                    .foregroundStyle(Color.appTextSecondary)
-            } else {
-                Text("\(selected.count) selected")
-                    .foregroundStyle(Color.appTextSecondary)
-            }
-            ForEach(store.teamOptions, id: \.id) { team in
-                Button {
-                    store.updateSnapshot { snap in
-                        var list = snap[keyPath: keyPath]
-                        if list.contains(team.id) {
-                            list.removeAll { $0 == team.id }
-                        } else {
-                            list.append(team.id)
-                            list.sort()
-                        }
-                        snap[keyPath: keyPath] = list
+    /// Rows only (no List wrapper) so it embeds inside the Teams sheet's Form.
+    @ViewBuilder
+    private var conferenceMultiSelect: some View {
+        if store.snapshot.selectedConferences.isEmpty {
+            Text("All conferences")
+                .foregroundStyle(Color.appTextSecondary)
+        } else {
+            Text("\(store.snapshot.selectedConferences.count) selected")
+                .foregroundStyle(Color.appTextSecondary)
+        }
+        ForEach(store.conferences, id: \.self) { name in
+            Button {
+                toggleConference(name)
+            } label: {
+                HStack {
+                    Text(name)
+                        .foregroundStyle(Color.appTextPrimary)
+                    Spacer()
+                    if store.snapshot.selectedConferences.contains(name) {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(Color.appPrimary)
+                            .font(.system(size: 14, weight: .bold))
                     }
-                    onChange()
-                } label: {
-                    HStack {
-                        Text(team.id == team.name ? team.name : "\(team.id) · \(team.name)")
-                            .foregroundStyle(Color.appTextPrimary)
-                            .lineLimit(1)
-                        Spacer()
-                        if store.snapshot[keyPath: keyPath].contains(team.id) {
-                            Image(systemName: "checkmark")
-                                .foregroundStyle(Color.appPrimary)
-                                .font(.system(size: 14, weight: .bold))
-                        }
-                    }
-                }
-            }
-            if !selected.isEmpty {
-                Button("Clear", role: .destructive) {
-                    store.updateSnapshot { $0[keyPath: keyPath] = [] }
-                    onChange()
                 }
             }
         }
-    }
-
-    private var conferenceMultiSelect: some View {
-        List {
-            Section {
-                if store.snapshot.selectedConferences.isEmpty {
-                    Text("All conferences")
-                        .foregroundStyle(Color.appTextSecondary)
-                } else {
-                    Text("\(store.snapshot.selectedConferences.count) selected")
-                        .foregroundStyle(Color.appTextSecondary)
+        if !store.snapshot.selectedConferences.isEmpty {
+            Button("Clear all conferences", role: .destructive) {
+                store.updateSnapshot {
+                    $0.selectedConferences = []
+                    $0.conference = "any"
                 }
-            }
-            Section {
-                ForEach(store.conferences, id: \.self) { name in
-                    Button {
-                        toggleConference(name)
-                    } label: {
-                        HStack {
-                            Text(name)
-                                .foregroundStyle(Color.appTextPrimary)
-                            Spacer()
-                            if store.snapshot.selectedConferences.contains(name) {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.appPrimary)
-                                    .font(.system(size: 14, weight: .bold))
-                            }
-                        }
-                    }
-                }
-            }
-            if !store.snapshot.selectedConferences.isEmpty {
-                Section {
-                    Button("Clear all conferences", role: .destructive) {
-                        store.updateSnapshot {
-                            $0.selectedConferences = []
-                            $0.conference = "any"
-                        }
-                        onChange()
-                    }
-                }
+                onChange()
             }
         }
     }
@@ -1520,6 +1408,17 @@ struct HistoricalAnalysisFilterBar: View {
             labeledRangeSlider(title: "Win %", lower: doubleBinding(\.winPct, 0), upper: doubleBinding(\.winPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
             labeledRangeSlider(title: "Win streak", lower: intAsDoubleBinding(\.winStreak, 0), upper: intAsDoubleBinding(\.winStreak, 1), range: 0...25, step: 1, suffix: " games", format: { String(Int($0)) })
             labeledRangeSlider(title: "Loss streak", lower: intAsDoubleBinding(\.lossStreak, 0), upper: intAsDoubleBinding(\.lossStreak, 1), range: 0...25, step: 1, suffix: " games", format: { String(Int($0)) })
+            // Signed current streak (+ = winning, − = losing) — moved here from
+            // "Last game": a streak is form, not a last-game fact. Legacy string fields.
+            labeledRangeSlider(
+                title: "Current streak (+W / −L)",
+                lower: stringAsDoubleBinding(\.streakMin),
+                upper: stringAsDoubleBinding(\.streakMax),
+                range: -25...25,
+                step: 1,
+                suffix: " games",
+                format: { String(Int($0)) }
+            )
             labeledRangeSlider(title: "Runs per game", lower: doubleBinding(\.rpg, 0), upper: doubleBinding(\.rpg, 1), range: 0...10, step: 0.1)
             labeledRangeSlider(title: "Runs allowed per game", lower: doubleBinding(\.rapg, 0), upper: doubleBinding(\.rapg, 1), range: 0...10, step: 0.1)
             labeledRangeSlider(title: "Run diff/game", lower: doubleBinding(\.runDiffPg, 0), upper: doubleBinding(\.runDiffPg, 1), range: -4...4, step: 0.1)
@@ -1567,26 +1466,27 @@ struct HistoricalAnalysisFilterBar: View {
         }
     }
 
-    // A3: MLB Opponent — H2H (+ MLB's h2hLastMargin), Opp Record (+ RL/rpg/rapg),
-    // Opp last game (shared fields with football; overtime hidden — no MLB concept).
+    // MARK: - Head-to-head (last meeting vs THIS opponent) — its own pill; it's
+    // about the matchup, not the opponent's own form.
+
     @ViewBuilder
-    private var mlbOpponentSheet: some View {
-        Section("Head-to-Head") {
-            Picker("Won last meeting", selection: binding(\.h2hLastWin)) {
-                Text("Any").tag("any")
-                Text("Won").tag("yes")
-                Text("Lost").tag("no")
-            }
-            Picker("Covered RL last meeting", selection: binding(\.h2hLastAts)) {
-                Text("Any").tag("any")
-                Text("Covered").tag("yes")
-                Text("Didn't cover").tag("no")
-            }
-            Picker("Last meeting total", selection: binding(\.h2hLastOver)) {
-                Text("Any").tag("any")
-                Text("Over").tag("yes")
-                Text("Under").tag("no")
-            }
+    private var h2hSheet: some View {
+        Picker("Won last meeting", selection: binding(\.h2hLastWin)) {
+            Text("Any").tag("any")
+            Text("Won").tag("yes")
+            Text("Lost").tag("no")
+        }
+        Picker(store.sport == .mlb ? "Covered RL last meeting" : "Covered last meeting", selection: binding(\.h2hLastAts)) {
+            Text("Any").tag("any")
+            Text("Covered").tag("yes")
+            Text("Didn't cover").tag("no")
+        }
+        Picker("Last meeting total", selection: binding(\.h2hLastOver)) {
+            Text("Any").tag("any")
+            Text("Over").tag("yes")
+            Text("Under").tag("no")
+        }
+        if store.sport == .mlb {
             labeledRangeSlider(
                 title: "Last meeting margin",
                 lower: intAsDoubleBinding(\.h2hLastMargin, 0),
@@ -1596,23 +1496,35 @@ struct HistoricalAnalysisFilterBar: View {
                 suffix: " runs",
                 format: { String(Int($0)) }
             )
-            Picker("Was home last meeting", selection: boolBinding(\.h2hLastHome)) {
-                Text("Any").tag(nil as Bool?)
-                Text("Home").tag(true as Bool?)
-                Text("Away").tag(false as Bool?)
-            }
-            Picker("Was favorite last meeting", selection: boolBinding(\.h2hLastFav)) {
-                Text("Any").tag(nil as Bool?)
-                Text("Favorite").tag(true as Bool?)
-                Text("Underdog").tag(false as Bool?)
-            }
-            Picker("Same season as last meeting", selection: boolBinding(\.h2hSameSeason)) {
-                Text("Any").tag(nil as Bool?)
-                Text("Same season").tag(true as Bool?)
-                Text("Different season").tag(false as Bool?)
+        }
+        Picker("Was home last meeting", selection: boolBinding(\.h2hLastHome)) {
+            Text("Any").tag(nil as Bool?)
+            Text("Home").tag(true as Bool?)
+            Text("Away").tag(false as Bool?)
+        }
+        Picker("Was favorite last meeting", selection: boolBinding(\.h2hLastFav)) {
+            Text("Any").tag(nil as Bool?)
+            Text("Favorite").tag(true as Bool?)
+            Text("Underdog").tag(false as Bool?)
+        }
+        Picker("Same season as last meeting", selection: boolBinding(\.h2hSameSeason)) {
+            Text("Any").tag(nil as Bool?)
+            Text("Same season").tag(true as Bool?)
+            Text("Different season").tag(false as Bool?)
+        }
+        if store.sport != .mlb {
+            Picker("Spread vs last meeting", selection: binding(\.h2hSpreadCmp)) {
+                Text("Any").tag("any")
+                Text("Lower (more favored)").tag("lower")
+                Text("Higher (less favored)").tag("higher")
             }
         }
+    }
 
+    // A3: MLB Opponent — Opp Record (+ RL/rpg/rapg) and Opp last game (shared
+    // fields with football; overtime hidden — no MLB concept). H2H moved to its own pill.
+    @ViewBuilder
+    private var mlbOpponentSheet: some View {
         Section("Opponent Record") {
             labeledRangeSlider(title: "Opponent win %", lower: doubleBinding(\.oppWinPct, 0), upper: doubleBinding(\.oppWinPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
             labeledRangeSlider(title: "Opponent over %", lower: doubleBinding(\.oppOverPct, 0), upper: doubleBinding(\.oppOverPct, 1), range: 0...100, step: 1, suffix: "%", format: { String(Int($0)) })
@@ -1659,50 +1571,6 @@ struct HistoricalAnalysisFilterBar: View {
 
     @ViewBuilder
     private var footballOpponentSheet: some View {
-        Section("Head-to-Head") {
-            Picker("Won last meeting", selection: binding(\.h2hLastWin)) {
-                Text("Any").tag("any")
-                Text("Won").tag("yes")
-                Text("Lost").tag("no")
-            }
-            
-            Picker("Covered last meeting", selection: binding(\.h2hLastAts)) {
-                Text("Any").tag("any")
-                Text("Covered").tag("yes")
-                Text("Didn't cover").tag("no")
-            }
-            
-            Picker("Last meeting total", selection: binding(\.h2hLastOver)) {
-                Text("Any").tag("any")
-                Text("Over").tag("yes")
-                Text("Under").tag("no")
-            }
-            
-            Picker("Was home last meeting", selection: boolBinding(\.h2hLastHome)) {
-                Text("Any").tag(nil as Bool?)
-                Text("Home").tag(true as Bool?)
-                Text("Away").tag(false as Bool?)
-            }
-            
-            Picker("Was favorite last meeting", selection: boolBinding(\.h2hLastFav)) {
-                Text("Any").tag(nil as Bool?)
-                Text("Favorite").tag(true as Bool?)
-                Text("Underdog").tag(false as Bool?)
-            }
-            
-            Picker("Same season as last meeting", selection: boolBinding(\.h2hSameSeason)) {
-                Text("Any").tag(nil as Bool?)
-                Text("Same season").tag(true as Bool?)
-                Text("Different season").tag(false as Bool?)
-            }
-            
-            Picker("Spread vs last meeting", selection: binding(\.h2hSpreadCmp)) {
-                Text("Any").tag("any")
-                Text("Lower (more favored)").tag("lower")
-                Text("Higher (less favored)").tag("higher")
-            }
-        }
-        
         Section("Opponent Record") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Opponent Win %: \(Int(store.snapshot.oppWinPct[0]))–\(Int(store.snapshot.oppWinPct[1]))%")
@@ -2208,5 +2076,150 @@ private struct MlbPitcherTypeahead: View {
             return $0.p.name.localizedCaseInsensitiveCompare($1.p.name) == .orderedAscending
         }
         return scored.prefix(limit).map(\.p)
+    }
+}
+
+// MARK: - Searchable pickers (large lists: CFB schools, teams, coaches, referees)
+
+/// Full-screen searchable multi-select pushed from a filter sheet. Selected items
+/// are pinned on top; accent-/case-insensitive substring search below.
+struct SearchableMultiSelectList: View {
+    struct Option: Identifiable {
+        let id: String
+        let label: String
+    }
+
+    let title: String
+    let options: [Option]
+    @Binding var selected: [String]
+    var onChange: () -> Void
+
+    @State private var query = ""
+
+    private var filtered: [Option] {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return options }
+        let q = Self.fold(trimmed)
+        return options.filter { Self.fold($0.label).contains(q) || Self.fold($0.id).contains(q) }
+    }
+
+    var body: some View {
+        List {
+            if !selected.isEmpty {
+                Section("Selected") {
+                    ForEach(selected, id: \.self) { id in
+                        row(id: id, label: options.first(where: { $0.id == id })?.label ?? id, isOn: true)
+                    }
+                    Button("Clear all", role: .destructive) {
+                        selected = []
+                        onChange()
+                    }
+                }
+            }
+            Section {
+                ForEach(filtered) { opt in
+                    row(id: opt.id, label: opt.label, isOn: selected.contains(opt.id))
+                }
+                if filtered.isEmpty {
+                    Text("No matches")
+                        .foregroundStyle(Color.appTextSecondary)
+                }
+            }
+        }
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search \(title.lowercased())")
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func row(id: String, label: String, isOn: Bool) -> some View {
+        Button {
+            if let i = selected.firstIndex(of: id) {
+                selected.remove(at: i)
+            } else {
+                selected.append(id)
+            }
+            onChange()
+        } label: {
+            HStack {
+                Text(label)
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(1)
+                Spacer()
+                if isOn {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Color.appPrimary)
+                        .font(.system(size: 14, weight: .bold))
+                }
+            }
+        }
+    }
+
+    static func fold(_ s: String) -> String {
+        s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+    }
+}
+
+/// Searchable single-select ("any" + one choice) for coach / referee lists.
+struct SearchableSingleSelectList: View {
+    let title: String
+    let anyLabel: String
+    let options: [String]
+    @Binding var selection: String
+    var onChange: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    private var filtered: [String] {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return options }
+        let q = SearchableMultiSelectList.fold(trimmed)
+        return options.filter { SearchableMultiSelectList.fold($0).contains(q) }
+    }
+
+    var body: some View {
+        List {
+            Button {
+                selection = "any"
+                onChange()
+                dismiss()
+            } label: {
+                HStack {
+                    Text(anyLabel).foregroundStyle(Color.appTextPrimary)
+                    Spacer()
+                    if selection == "any" {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(Color.appPrimary)
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                }
+            }
+            ForEach(filtered, id: \.self) { name in
+                Button {
+                    selection = name
+                    onChange()
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text(name)
+                            .foregroundStyle(Color.appTextPrimary)
+                            .lineLimit(1)
+                        Spacer()
+                        if selection == name {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(Color.appPrimary)
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                    }
+                }
+            }
+            if filtered.isEmpty {
+                Text("No matches")
+                    .foregroundStyle(Color.appTextSecondary)
+            }
+        }
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search \(title.lowercased())")
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
