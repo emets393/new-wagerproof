@@ -248,6 +248,7 @@ function AppRoutes() {
   // Determine if current route should use authenticated layout
   const isPublicRoute = [
     '/',
+    '/landing-page',
     '/welcome',
     '/home',
     '/privacy-policy',
@@ -266,6 +267,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<LandingEntry />} />
           <Route path="/home" element={<LandingEntry />} />
+          <Route path="/landing-page" element={<Landing />} />
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
