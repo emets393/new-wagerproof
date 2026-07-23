@@ -170,7 +170,8 @@ export default function ConnectAI() {
             Connect WagerProof to your AI
           </h1>
           <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-white/85 sm:text-base">
-            Give your AI read-only access to your agents, picks, follows, and WagerProof analytics.
+            Give your AI access to WagerProof data so you can build your own automations and analyze everything by
+            talking to your agent.
           </p>
         </div>
       </section>
