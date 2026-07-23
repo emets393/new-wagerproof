@@ -42,6 +42,7 @@ public final class HistoricalAnalysisStore {
     /// Set when My Systems fetch fails (list may still hold optimistic rows).
     public private(set) var savedFiltersError: String?
     public private(set) var leaderboard: [AnalysisSystemsLeaderboardRow] = []
+    public private(set) var leaderboardError: String?
     public private(set) var isLoadingLeaderboard = false
     public private(set) var isSavingSystem = false
     /// Set when the user taps a leaderboard row — cleared on reset / new save apply.
@@ -68,6 +69,12 @@ public final class HistoricalAnalysisStore {
 
     /// Exact `p_filters` payload currently sent to the analysis RPC.
     public func currentRPCFilters() -> [String: JSONValue] {
+        rpcFilters(for: snapshot)
+    }
+
+    /// Exact `p_filters` payload for a save draft. Save System holds its own
+    /// snapshot so canceling the sheet never changes the live Trends filters.
+    public func rpcFilters(for snapshot: HistoricalAnalysisUISnapshot) -> [String: JSONValue] {
         HistoricalAnalysisFilterBuilder.buildRPCFilters(
             sport: sport,
             snapshot: snapshot,
@@ -136,19 +143,22 @@ public final class HistoricalAnalysisStore {
         name: String,
         verdict: AnalysisSystemVerdict,
         isPublic: Bool,
-        userId: UUID
+        userId: UUID,
+        snapshot draftSnapshot: HistoricalAnalysisUISnapshot? = nil
     ) async throws -> UUID {
         isSavingSystem = true
         defer { isSavingSystem = false }
-        let rpcFilters = currentRPCFilters()
+        let savedSnapshot = draftSnapshot ?? snapshot
+        let savedBetType = savedSnapshot.betType.isEmpty ? betType : savedSnapshot.betType
+        let rpcFilters = rpcFilters(for: savedSnapshot)
         let id = try await HistoricalAnalysisSavedFiltersService.saveSystem(
             sport: sport,
             userId: userId,
             name: name,
-            betType: betType,
-            snapshot: snapshot,
+            betType: savedBetType,
+            snapshot: savedSnapshot,
             verdict: verdict,
-            rpcBetType: betType,
+            rpcBetType: savedBetType,
             rpcFilters: rpcFilters,
             isPublic: isPublic
         )
@@ -157,10 +167,10 @@ public final class HistoricalAnalysisStore {
             id: id,
             userId: userId,
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            betType: betType,
-            filters: snapshot,
+            betType: savedBetType,
+            filters: savedSnapshot,
             verdict: verdict,
-            rpcBetType: betType,
+            rpcBetType: savedBetType,
             rpcFilters: rpcFilters,
             isPublic: isPublic,
             sinceSaved: nil,
@@ -268,8 +278,10 @@ public final class HistoricalAnalysisStore {
         defer { isLoadingLeaderboard = false }
         do {
             leaderboard = try await HistoricalAnalysisSavedFiltersService.fetchLeaderboard(sport: sport)
+            leaderboardError = nil
         } catch {
-            leaderboard = []
+            leaderboardError = "Couldn't load the Systems Leaderboard. Pull to retry."
+            print("[HistoricalAnalysis] loadLeaderboard failed: \(error)")
         }
     }
 

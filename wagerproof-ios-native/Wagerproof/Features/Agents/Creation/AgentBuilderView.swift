@@ -35,10 +35,13 @@ struct AgentBuilderView: View {
     /// `PublicAgentDetailView` (`AgentCreationStore.Draft.copying(fromPublicAgent:)`)
     /// so the wizard opens pre-filled with another agent's readable build
     /// instead of a blank draft. `nil` is the normal from-scratch path.
-    var initialDraft: AgentCreationStore.Draft? = nil
+    var initialDraft: AgentCreationStore.Draft?
+    /// Public source shown as the first option on "Pick a starting point."
+    /// Supplying this makes the prefill explicit rather than invisible.
+    var copySourceAgent: Agent?
     /// Fired with the freshly created agent so the host can navigate to its
     /// detail page (AgentsView swaps this screen for `.agentDetail`).
-    var onCreated: (Agent) -> Void = { _ in }
+    var onCreated: (Agent) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -54,7 +57,7 @@ struct AgentBuilderView: View {
     @State private var rippleEmitter = GlyphRippleEmitter()
 
     /// Current builder page (0…7).
-    @State private var slot = 0
+    @State private var slot: Int
     /// Edge the incoming page slides from — set alongside `slot` so the
     /// outgoing page's removal matches travel direction (OnboardingCarousel
     /// pattern).
@@ -62,6 +65,9 @@ struct AgentBuilderView: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @State private var didSeed = false
+    /// Explicit starting-point selection. Draft equality is not reliable here:
+    /// seeding may assign a fallback sprite without changing the user's choice.
+    @State private var isCopyStartingPointSelected: Bool
 
     // Pixelwave tint interpolation (mirrors OnboardingView — Canvas can't tween
     // colors, so from/to/blend snapshot the painted color on every retarget so
@@ -76,6 +82,21 @@ struct AgentBuilderView: View {
     }
     private var step: BuilderStep { BuilderStep(rawValue: slot) ?? .sports }
     private var isLast: Bool { slot == BuilderStep.allCases.count - 1 }
+
+    init(
+        initialDraft: AgentCreationStore.Draft? = nil,
+        copySourceAgent: Agent? = nil,
+        startAtStartingPoint: Bool = false,
+        onCreated: @escaping (Agent) -> Void = { _ in }
+    ) {
+        self.initialDraft = initialDraft
+        self.copySourceAgent = copySourceAgent
+        self.onCreated = onCreated
+        _slot = State(initialValue: startAtStartingPoint ? BuilderStep.archetype.rawValue : BuilderStep.sports.rawValue)
+        _isCopyStartingPointSelected = State(
+            initialValue: copySourceAgent != nil && initialDraft != nil
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -162,7 +183,13 @@ struct AgentBuilderView: View {
     private func pageContent(for slot: Int) -> some View {
         switch BuilderStep(rawValue: slot) ?? .sports {
         case .sports:     OnboardingBuilderSportsPage(creation: creation)
-        case .archetype:  OnboardingBuilderArchetypePage(creation: creation)
+        case .archetype:
+            OnboardingBuilderArchetypePage(
+                creation: creation,
+                copySourceAgent: copySourceAgent,
+                copiedDraft: initialDraft,
+                copySelection: $isCopyStartingPointSelected
+            )
         case .mindset:    OnboardingBuilderMindsetPage(creation: creation)
         case .betStyle:   OnboardingBuilderBetStylePage(creation: creation)
         case .dataTrust:  OnboardingBuilderDataTrustPage(creation: creation)
@@ -268,13 +295,9 @@ struct AgentBuilderView: View {
         didSeed = true
         if let initialDraft {
             creation.draft = initialDraft
-            // Copy build already chose an archetype (if any) — flip the local
-            // OnboardingStore flag so the archetype page's CTA gate + accent
-            // logic treat it as already-chosen instead of asking the viewer
-            // to pick one again.
-            if initialDraft.archetype != nil {
-                builderState.setArchetypeChosen()
-            }
+            // The copied build itself is a valid starting-point selection,
+            // including fully custom source agents with no preset archetype.
+            builderState.setArchetypeChosen()
         }
         if creation.draft.spriteIndex == nil {
             creation.draft.spriteIndex = Int.random(in: 0...7)

@@ -28,15 +28,52 @@ public final class FollowedAgentsStore {
         public let avatarEmoji: String
         public let avatarColor: String
         public let isFavorite: Bool
+        public let lastGeneratedAt: String?
+        public let userId: String
+        public let preferredSports: [AgentSport]
+        public let performance: AgentPerformance?
 
         public var id: String { avatarId }
 
-        public init(avatarId: String, name: String, avatarEmoji: String, avatarColor: String, isFavorite: Bool) {
+        public init(
+            avatarId: String,
+            name: String,
+            avatarEmoji: String,
+            avatarColor: String,
+            isFavorite: Bool,
+            lastGeneratedAt: String? = nil,
+            userId: String = "",
+            preferredSports: [AgentSport] = [],
+            performance: AgentPerformance? = nil
+        ) {
             self.avatarId = avatarId
             self.name = name
             self.avatarEmoji = avatarEmoji
             self.avatarColor = avatarColor
             self.isFavorite = isFavorite
+            self.lastGeneratedAt = lastGeneratedAt
+            self.userId = userId
+            self.preferredSports = preferredSports
+            self.performance = performance
+        }
+
+        public var agentWithPerformance: AgentWithPerformance {
+            AgentWithPerformance(
+                agent: Agent(
+                    id: avatarId,
+                    userId: userId,
+                    name: name,
+                    avatarEmoji: avatarEmoji,
+                    avatarColor: avatarColor,
+                    preferredSports: preferredSports,
+                    archetype: nil,
+                    isPublic: true,
+                    createdAt: "",
+                    updatedAt: "",
+                    lastGeneratedAt: lastGeneratedAt
+                ),
+                performance: performance
+            )
         }
     }
 
@@ -63,17 +100,36 @@ public final class FollowedAgentsStore {
             let main = await MainSupabase.shared.client
             let rows: [FollowRow] = try await main
                 .from("user_avatar_follows")
-                .select("avatar_id, is_favorite, avatar_profiles(name, avatar_emoji, avatar_color)")
+                .select("avatar_id, is_favorite, avatar_profiles(user_id, name, avatar_emoji, avatar_color, preferred_sports, last_generated_at)")
                 .eq("user_id", value: userId)
                 .execute()
                 .value
+            let ids = rows.map(\.avatarId)
+            let performances: [AgentPerformance]
+            if ids.isEmpty {
+                performances = []
+            } else {
+                performances = try await main
+                    .from("avatar_performance_cache")
+                    .select()
+                    .in("avatar_id", values: ids)
+                    .execute()
+                    .value
+            }
+            let performanceById = Dictionary(
+                uniqueKeysWithValues: performances.map { ($0.avatarId, $0) }
+            )
             self.follows = rows.map { row in
                 FollowedAgent(
                     avatarId: row.avatarId,
                     name: row.avatarProfiles?.name ?? "Unknown",
                     avatarEmoji: row.avatarProfiles?.avatarEmoji ?? "\u{1F916}",
                     avatarColor: row.avatarProfiles?.avatarColor ?? "#6366f1",
-                    isFavorite: row.isFavorite ?? false
+                    isFavorite: row.isFavorite ?? false,
+                    lastGeneratedAt: row.avatarProfiles?.lastGeneratedAt,
+                    userId: row.avatarProfiles?.userId ?? "",
+                    preferredSports: row.avatarProfiles?.preferredSports ?? [],
+                    performance: performanceById[row.avatarId]
                 )
             }
             self.loadState = .loaded
@@ -96,12 +152,18 @@ public final class FollowedAgentsStore {
 
         struct NestedProfile: Decodable {
             let name: String?
+            let userId: String?
             let avatarEmoji: String?
             let avatarColor: String?
+            let preferredSports: [AgentSport]?
+            let lastGeneratedAt: String?
             enum CodingKeys: String, CodingKey {
                 case name
+                case userId = "user_id"
                 case avatarEmoji = "avatar_emoji"
                 case avatarColor = "avatar_color"
+                case preferredSports = "preferred_sports"
+                case lastGeneratedAt = "last_generated_at"
             }
         }
     }

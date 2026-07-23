@@ -93,32 +93,10 @@ struct AgentRowCard: View {
     /// inside the card's 26pt corner: radius ≈ cardCorner − inset (the avatar
     /// sits ~12pt in from the card's top-left), so the two curves stay parallel.
     private var avatar: some View {
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-        return ZStack {
-            shape
-                .fill(Color.appSurfaceElevated)
-                .overlay(
-                    shape
-                        .fill(
-                            LinearGradient(
-                                colors: AgentColorPalette.avatarGradient(for: agent.agent.avatarColor),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .opacity(0.85)
-                )
-                .overlay(
-                    shape.strokeBorder(Color.appSurfaceElevated, lineWidth: 1.5)
-                )
-            // The agent's pixel-office character (front-idle pose) in place of
-            // the emoji — same character that walks the office (stable per id).
-            PixelSpriteAvatar(spriteIndex: agent.agent.spriteIndex)
-                .padding(3)
-        }
-        .frame(width: 52, height: 52)
-        .shadow(color: primary.opacity(0.32), radius: 6, x: 0, y: 0)
-        .shadow(color: primary.opacity(0.18), radius: 10, x: 0, y: 2)
+        AgentPixelAvatarTile(
+            spriteIndex: agent.agent.spriteIndex,
+            avatarColor: agent.agent.avatarColor
+        )
         // Unread-picks dot, notification-badge style on the avatar corner.
         .overlay(alignment: .topTrailing) {
             if hasUnreadPicks {

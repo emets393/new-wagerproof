@@ -112,6 +112,10 @@ struct PublicAgentDetailView: View {
                 async let performance: Void = store.loadPerformancePicks(isOwner: isOwnAgent)
                 _ = await (history, performance)
             }
+            AgentPicksSeenStore.markSeen(
+                agentId: agentId,
+                upTo: store.snapshot?.agent?.lastGeneratedAt
+            )
         }
         .sheet(isPresented: $auditStore.isPresented) {
             if let pick = auditStore.selectedPick {
@@ -131,6 +135,8 @@ struct PublicAgentDetailView: View {
             if let agent {
                 AgentBuilderView(
                     initialDraft: .copying(fromPublicAgent: agent),
+                    copySourceAgent: agent,
+                    startAtStartingPoint: true,
                     onCreated: { _ in showCopyBuild = false }
                 )
             }
@@ -200,8 +206,10 @@ struct PublicAgentDetailView: View {
             if isOwnAgent {
                 ownAgentBanner
             } else {
-                followButton
-                copyBuildButton
+                HStack(spacing: 10) {
+                    followButton
+                    copyBuildButton
+                }
             }
         }
         .padding(.horizontal, 16)
