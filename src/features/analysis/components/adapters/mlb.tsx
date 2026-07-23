@@ -15,7 +15,7 @@ import {
   MLB_SNAPSHOT_DEFAULTS,
 } from '@/features/analysis/normalizeSavedFilterSnapshot';
 import { TeamMultiSelect, type TeamOption } from '@/features/analysis/TeamMultiSelect';
-import { RangeRow, ScalarRow, SelectRow, TriRow, NumPairRow, BandChips, FilterGroup } from '../FilterControls';
+import { RangeRow, ScalarRow, SelectRow, TriRow, NumPairRow, BandChips, FilterGroup, MultiToggle } from '../FilterControls';
 import { SubHeading } from '../FootballRailShared';
 import type {
   AdapterData,
@@ -49,7 +49,7 @@ export interface MlbPageSnapshot {
   totalBounds: OptRange | null;
   timeMin: string;
   timeMax: string;
-  dayOfWeek: string;
+  daysOfWeek: string[];
   doubleheader: boolean | null;
   seriesGame: [number, number] | null;
   trip: [number, number] | null;
@@ -253,7 +253,7 @@ function reset(betType: string): S {
     totalBounds: null,
     timeMin: '',
     timeMax: '',
-    dayOfWeek: 'any',
+    daysOfWeek: [],
     doubleheader: null,
     seriesGame: null,
     trip: null,
@@ -345,7 +345,8 @@ function normalizeMlbPage(raw: Record<string, unknown>, rowBetType?: string): S 
         : null,
     timeMin: s.timeMin,
     timeMax: s.timeMax,
-    dayOfWeek: s.daysOfWeek.length ? s.daysOfWeek[0] : typeof raw.dayOfWeek === 'string' ? raw.dayOfWeek : 'any',
+    // Full multi-day restore — the canonical normalizer already folds legacy single `dayOfWeek` in.
+    daysOfWeek: s.daysOfWeek,
     doubleheader: s.doubleheader,
     seriesGame: narrowed(s.seriesGame, def.seriesGame),
     trip: narrowed(s.trip, def.trip),
@@ -444,7 +445,7 @@ function toRpcFilters(s: S): Record<string, unknown> {
   if (s.timeMin) f.time_min = s.timeMin;
   if (s.timeMax) f.time_max = s.timeMax;
   // RPC does jsonb_array_elements on day_of_week — a scalar string errors the whole query.
-  if (s.dayOfWeek !== 'any') f.day_of_week = [s.dayOfWeek];
+  if (s.daysOfWeek.length) f.day_of_week = s.daysOfWeek;
   if (s.doubleheader !== null) f.doubleheader = s.doubleheader;
   if (s.seriesGame) {
     f.series_game_min = s.seriesGame[0];
@@ -726,7 +727,7 @@ function RailSections({
             <Input type="time" value={s.timeMax} onChange={(e) => update({ timeMax: e.target.value })} className="h-9 rounded-xl" />
           </div>
         )}
-        <SelectRow label="Day of week" value={s.dayOfWeek} onChange={(v) => update({ dayOfWeek: v })} options={[['any', 'Any day'], ...DAYS.map((d) => [d, d] as [string, string])]} />
+        <MultiToggle label="Days of week" options={DAYS} value={s.daysOfWeek} onChange={(v) => update({ daysOfWeek: v })} />
         <TriRow label="Doubleheader" value={s.doubleheader} onChange={(v) => update({ doubleheader: v })} />
         <RangeRow label={`Days rest: ${s.restRange[0]}–${s.restRange[1]}`} min={0} max={10} step={1} value={s.restRange} onChange={(v) => update({ restRange: v })} />
         <div>
@@ -1108,7 +1109,7 @@ export const mlbAdapter: TrendsSportAdapter<S> = {
     }
     if (s.f5TotalRange[0] !== 2 || s.f5TotalRange[1] !== 8) c.push({ label: `F5 total ${s.f5TotalRange[0]}–${s.f5TotalRange[1]}`, patch: { f5TotalRange: [2, 8] } });
     if (s.timeMin || s.timeMax) c.push({ label: `Time ${s.timeMin || '…'}–${s.timeMax || '…'}`, patch: { timeMin: '', timeMax: '' } });
-    if (s.dayOfWeek !== 'any') c.push({ label: s.dayOfWeek, patch: { dayOfWeek: 'any' } });
+    if (s.daysOfWeek.length) c.push({ label: `Days: ${s.daysOfWeek.join(', ')}`, patch: { daysOfWeek: [] } });
     if (s.doubleheader !== null) c.push({ label: `DH: ${s.doubleheader ? 'Yes' : 'No'}`, patch: { doubleheader: null } });
     if (s.seriesGame) c.push({ label: `Series G${s.seriesGame[0]}${s.seriesGame[0] !== s.seriesGame[1] ? `–${s.seriesGame[1]}` : ''}`, patch: { seriesGame: null } });
     if (s.trip) c.push({ label: `Trip series ${s.trip[0]}${s.trip[0] !== s.trip[1] ? `–${s.trip[1]}` : ''}`, patch: { trip: null } });
@@ -1175,7 +1176,7 @@ export const mlbAdapter: TrendsSportAdapter<S> = {
     Teams: ['teams', 'opponents'],
     'Side & Role': ['side', 'favDog'],
     'Lines & Odds': ['mlMin', 'mlMax', 'totalBounds', 'lineRange', 'f5TotalRange'],
-    Schedule: ['seasons', 'months', 'timeMin', 'timeMax', 'dayOfWeek', 'doubleheader', 'restRange', 'seriesGame', 'trip'],
+    Schedule: ['seasons', 'months', 'timeMin', 'timeMax', 'daysOfWeek', 'doubleheader', 'restRange', 'seriesGame', 'trip'],
     Game: ['division', 'interleague', 'switchGame'],
     'Weather & Venue': ['tempRange', 'windRange', 'windDir', 'dome', 'pfRuns'],
     'Team Form': [

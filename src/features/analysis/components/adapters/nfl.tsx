@@ -189,7 +189,8 @@ function toRpcFilters(s: S): Record<string, unknown> {
     f.season_type = 'postseason';
     if (s.playoffRound !== 'any') f.playoff_round = s.playoffRound;
   }
-  if (s.side !== 'any') f.side = s.side;
+  // side is meaningless on game-level totals and fights the home-rows dedupe — suppress (parity with iOS + CFB)
+  if (s.side !== 'any' && !TOTAL_MARKETS.has(s.betType)) f.side = s.side;
   if (s.teams.length) f.team = s.teams.map(toRpcTeam);
   if (s.opponents.length) f.opponent = s.opponents.map(toRpcTeam);
   if (s.daysOfWeek.length) f.day_of_week = s.daysOfWeek;
@@ -201,7 +202,8 @@ function toRpcFilters(s: S): Record<string, unknown> {
     h1Total: H1_TOTAL_NFL,
     ttLine: TT_LINE_NFL,
   });
-  if (s.favDog !== 'any' && s.betType === 'team_total') f.fav_dog = s.favDog;
+  // fav_dog applies on ML markets AND team totals (parity with iOS + CFB)
+  if (s.favDog !== 'any' && (ML_MARKETS.has(s.betType) || s.betType === 'team_total')) f.fav_dog = s.favDog;
   if (s.primetime !== null) f.primetime = s.primetime;
   if (s.division !== null) f.division = s.division;
   if (s.dome !== 'any') f.dome = s.dome === 'dome';
@@ -248,12 +250,15 @@ function RailSections({
         <MultiToggle label="Team division" options={NFL_DIVISIONS} value={s.teamDivisions} onChange={(v) => update({ teamDivisions: v })} />
       </FilterGroup>
 
-      <FilterGroup title="Side & Role">
-        <SelectRow label="Side" value={s.side} onChange={(v) => update({ side: v })} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
-        {s.betType === 'team_total' && (
-          <SelectRow label="Favorite / Underdog" value={s.favDog} onChange={(v) => update({ favDog: v })} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
-        )}
-      </FilterGroup>
+      {/* game totals have no side/role controls — hide the whole group there (parity with iOS + CFB) */}
+      {!TOTAL_MARKETS.has(s.betType) && (
+        <FilterGroup title="Side & Role">
+          <SelectRow label="Side" value={s.side} onChange={(v) => update({ side: v })} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
+          {(ML_MARKETS.has(s.betType) || s.betType === 'team_total') && (
+            <SelectRow label="Favorite / Underdog" value={s.favDog} onChange={(v) => update({ favDog: v })} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
+          )}
+        </FilterGroup>
+      )}
 
       <FootballLinesGroup s={s as unknown as FootballShared} update={update as (p: Partial<FootballShared>) => void} b={BOUNDS} />
 
