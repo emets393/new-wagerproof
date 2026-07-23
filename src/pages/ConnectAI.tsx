@@ -117,7 +117,7 @@ function ManualStep({
   children?: React.ReactNode;
 }) {
   return (
-    <li className="py-3">
+    <li className="py-4">
       <div className="flex items-start gap-3.5">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#d97757] text-xs font-black text-white">
           {number}
@@ -153,7 +153,7 @@ export default function ConnectAI() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-12 pb-20 sm:gap-16">
       <section className="relative isolate overflow-hidden rounded-[26px] border border-white/10 bg-[#30231f] shadow-lg">
         <div className="absolute inset-0 bg-[linear-gradient(112deg,#30231f_0%,#4d2d27_46%,#a6533f_78%,#d97757_100%)]" />
         <img
@@ -193,14 +193,14 @@ export default function ConnectAI() {
         <button
           type="button"
           onClick={() => copyText(instructions, 'Setup instructions')}
-          className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#d97757] px-5 text-sm font-black text-white transition hover:bg-[#c9684a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60 sm:w-auto"
+          className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#d97757] px-5 text-sm font-black text-white transition hover:bg-[#c9684a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60 sm:w-auto"
         >
           {copied === instructions ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
           {copied === instructions ? 'Instructions copied' : 'Copy instructions'}
         </button>
       </section>
 
-      <section aria-labelledby="manual-setup-title" className="space-y-4">
+      <section aria-labelledby="manual-setup-title" className="space-y-8">
         <div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Manual setup</p>
@@ -213,14 +213,14 @@ export default function ConnectAI() {
           </div>
         </div>
 
-        <ol className="grid gap-3 md:grid-cols-2">
+        <ol className="grid gap-x-12 gap-y-8 md:grid-cols-2">
           <ManualStep
             number={1}
             title="Open your AI settings"
             description="Open your preferred AI app, then go to its settings."
             icon={<Settings2 className="h-4 w-4" />}
           >
-            <div className="pl-11 pt-3">
+            <div className="pl-11 pt-5">
               <img
                 src={claudeSettings}
                 alt="Claude account menu with Settings selected"
@@ -235,7 +235,7 @@ export default function ConnectAI() {
             description="Open the Connectors, Integrations, or MCP section and add a new one."
             icon={<Plus className="h-4 w-4" />}
           >
-            <div className="pl-11 pt-3">
+            <div className="pl-11 pt-5">
               <img
                 src={claudeConnectors}
                 alt="Claude Settings with Connectors selected"
@@ -250,7 +250,7 @@ export default function ConnectAI() {
             description="Name it WagerProof, paste the URL, and leave Advanced settings empty."
             icon={<Copy className="h-4 w-4" />}
           >
-            <div className="pl-11 pt-3">
+            <div className="pl-11 pt-5">
               <button
                 type="button"
                 onClick={() => copyText(ENDPOINT, 'Connector URL')}
@@ -273,7 +273,7 @@ export default function ConnectAI() {
             description="Click Connect, sign in to WagerProof, and approve read-only access."
             icon={<ShieldCheck className="h-4 w-4" />}
           >
-            <div className="pl-11 pt-3 text-xs leading-5 text-muted-foreground">
+            <div className="pl-11 pt-5 text-xs leading-5 text-muted-foreground">
               Confirm the URL ends in <strong className="text-foreground">wagerproof-mcp.habib225.workers.dev/mcp</strong>{' '}
               before continuing.
             </div>
@@ -281,7 +281,7 @@ export default function ConnectAI() {
         </ol>
       </section>
 
-      <section aria-labelledby="example-prompts-title" className="space-y-4">
+      <section aria-labelledby="example-prompts-title" className="space-y-8">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Try asking</p>
           <h2 id="example-prompts-title" className="mt-1 text-2xl font-black tracking-[-0.02em]">
@@ -290,19 +290,19 @@ export default function ConnectAI() {
           <p className="mt-1 text-sm text-muted-foreground">Ask naturally, or click any prompt to copy it.</p>
         </div>
 
-        <div className="space-y-8">
+        <div className="space-y-12">
           {EXAMPLE_PROMPT_CATEGORIES.map((category) => (
             <div key={category.title}>
               <h3 className="text-base font-black tracking-[-0.01em]">{category.title}</h3>
-              <p className="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">{category.description}</p>
+              <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">{category.description}</p>
 
-              <div className="mt-2 grid gap-x-6 sm:grid-cols-2">
+              <div className="mt-5 grid gap-x-12 sm:grid-cols-2">
                 {category.prompts.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
                     onClick={() => copyText(prompt, 'Example prompt')}
-                    className="group flex min-h-14 items-center gap-3 border-b border-border/60 py-3 text-left transition hover:border-[#d97757]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
+                    className="group flex min-h-16 items-center gap-3 border-b border-border/60 py-4 text-left transition hover:border-[#d97757]/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
                   >
                     <span className="min-w-0 flex-1 text-sm font-semibold leading-5">{prompt}</span>
                     {copied === prompt ? (
