@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION public.nfl_system_rows(p_bet_type text, p_filters jsonb DEFAULT '{}'::jsonb)
+CREATE OR REPLACE FUNCTION public.nfl_system_rows(p_bet_type text, p_filters jsonb DEFAULT '{}'::jsonb, p_include_opp boolean DEFAULT true)
  RETURNS TABLE(
   "unique_id" text,
   "exploded_id" text,
@@ -179,6 +179,129 @@ AS $function$
     opp.o_hit::integer AS opp_hit,
     opp.o_profit::numeric AS opp_profit
   FROM nfl_analysis_base b
+  CROSS JOIN LATERAL (SELECT p_filters->>'above_500' AS "above_500_t",
+    p_filters->>'abs_spread_max' AS "abs_spread_max_t",
+    p_filters->>'abs_spread_min' AS "abs_spread_min_t",
+    p_filters->>'ats_win_pct_max' AS "ats_win_pct_max_t",
+    p_filters->>'ats_win_pct_min' AS "ats_win_pct_min_t",
+    p_filters->>'ats_win_streak_max' AS "ats_win_streak_max_t",
+    p_filters->>'ats_win_streak_min' AS "ats_win_streak_min_t",
+    p_filters->>'avg_cover_margin_max' AS "avg_cover_margin_max_t",
+    p_filters->>'avg_cover_margin_min' AS "avg_cover_margin_min_t",
+    p_filters->>'coach' AS "coach_t",
+    p_filters->>'division' AS "division_t",
+    p_filters->>'dome' AS "dome_t",
+    p_filters->>'fav_dog' AS "fav_dog_t",
+    p_filters->>'h1_abs_spread_max' AS "h1_abs_spread_max_t",
+    p_filters->>'h1_abs_spread_min' AS "h1_abs_spread_min_t",
+    p_filters->>'h1_ml_max' AS "h1_ml_max_t",
+    p_filters->>'h1_ml_min' AS "h1_ml_min_t",
+    p_filters->>'h1_spread_max' AS "h1_spread_max_t",
+    p_filters->>'h1_spread_min' AS "h1_spread_min_t",
+    p_filters->>'h1_total_max' AS "h1_total_max_t",
+    p_filters->>'h1_total_min' AS "h1_total_min_t",
+    p_filters->>'h2h_last_ats_win' AS "h2h_last_ats_win_t",
+    p_filters->>'h2h_last_fav' AS "h2h_last_fav_t",
+    p_filters->>'h2h_last_home' AS "h2h_last_home_t",
+    p_filters->>'h2h_last_over' AS "h2h_last_over_t",
+    p_filters->>'h2h_last_win' AS "h2h_last_win_t",
+    p_filters->>'h2h_same_season' AS "h2h_same_season_t",
+    p_filters->>'h2h_spread_higher' AS "h2h_spread_higher_t",
+    p_filters->>'h2h_spread_lower' AS "h2h_spread_lower_t",
+    p_filters->>'last_covered' AS "last_covered_t",
+    p_filters->>'last_favorite' AS "last_favorite_t",
+    p_filters->>'last_margin_max' AS "last_margin_max_t",
+    p_filters->>'last_margin_min' AS "last_margin_min_t",
+    p_filters->>'last_ml' AS "last_ml_t",
+    p_filters->>'last_ou' AS "last_ou_t",
+    p_filters->>'last_over' AS "last_over_t",
+    p_filters->>'last_overtime' AS "last_overtime_t",
+    p_filters->>'last_spread' AS "last_spread_t",
+    p_filters->>'last_won' AS "last_won_t",
+    p_filters->>'loss_streak_max' AS "loss_streak_max_t",
+    p_filters->>'loss_streak_min' AS "loss_streak_min_t",
+    p_filters->>'made_playoffs_prev' AS "made_playoffs_prev_t",
+    p_filters->>'min_games' AS "min_games_t",
+    p_filters->>'ml_max' AS "ml_max_t",
+    p_filters->>'ml_min' AS "ml_min_t",
+    p_filters->>'more_wins_than_opp_prev' AS "more_wins_than_opp_prev_t",
+    p_filters->>'opp_ats_win_pct_max' AS "opp_ats_win_pct_max_t",
+    p_filters->>'opp_ats_win_pct_min' AS "opp_ats_win_pct_min_t",
+    p_filters->>'opp_last_covered' AS "opp_last_covered_t",
+    p_filters->>'opp_last_favorite' AS "opp_last_favorite_t",
+    p_filters->>'opp_last_margin_max' AS "opp_last_margin_max_t",
+    p_filters->>'opp_last_margin_min' AS "opp_last_margin_min_t",
+    p_filters->>'opp_last_over' AS "opp_last_over_t",
+    p_filters->>'opp_last_overtime' AS "opp_last_overtime_t",
+    p_filters->>'opp_last_won' AS "opp_last_won_t",
+    p_filters->>'opp_loss_streak_max' AS "opp_loss_streak_max_t",
+    p_filters->>'opp_loss_streak_min' AS "opp_loss_streak_min_t",
+    p_filters->>'opp_made_playoffs_prev' AS "opp_made_playoffs_prev_t",
+    p_filters->>'opp_ml_max' AS "opp_ml_max_t",
+    p_filters->>'opp_ml_min' AS "opp_ml_min_t",
+    p_filters->>'opp_over_pct_max' AS "opp_over_pct_max_t",
+    p_filters->>'opp_over_pct_min' AS "opp_over_pct_min_t",
+    p_filters->>'opp_pa_pg_max' AS "opp_pa_pg_max_t",
+    p_filters->>'opp_pa_pg_min' AS "opp_pa_pg_min_t",
+    p_filters->>'opp_ppg_max' AS "opp_ppg_max_t",
+    p_filters->>'opp_ppg_min' AS "opp_ppg_min_t",
+    p_filters->>'opp_prev_win_pct_max' AS "opp_prev_win_pct_max_t",
+    p_filters->>'opp_prev_win_pct_min' AS "opp_prev_win_pct_min_t",
+    p_filters->>'opp_tt_max' AS "opp_tt_max_t",
+    p_filters->>'opp_tt_min' AS "opp_tt_min_t",
+    p_filters->>'opp_win_pct_max' AS "opp_win_pct_max_t",
+    p_filters->>'opp_win_pct_min' AS "opp_win_pct_min_t",
+    p_filters->>'opp_win_streak_max' AS "opp_win_streak_max_t",
+    p_filters->>'opp_win_streak_min' AS "opp_win_streak_min_t",
+    p_filters->>'over_pct_max' AS "over_pct_max_t",
+    p_filters->>'over_pct_min' AS "over_pct_min_t",
+    p_filters->>'over_streak_max' AS "over_streak_max_t",
+    p_filters->>'over_streak_min' AS "over_streak_min_t",
+    p_filters->>'pa_pg_max' AS "pa_pg_max_t",
+    p_filters->>'pa_pg_min' AS "pa_pg_min_t",
+    p_filters->>'playoff_round' AS "playoff_round_t",
+    p_filters->>'point_diff_pg_max' AS "point_diff_pg_max_t",
+    p_filters->>'point_diff_pg_min' AS "point_diff_pg_min_t",
+    p_filters->>'ppg_max' AS "ppg_max_t",
+    p_filters->>'ppg_min' AS "ppg_min_t",
+    p_filters->>'pre_bye' AS "pre_bye_t",
+    p_filters->>'precip' AS "precip_t",
+    p_filters->>'prev_win_pct_max' AS "prev_win_pct_max_t",
+    p_filters->>'prev_win_pct_min' AS "prev_win_pct_min_t",
+    p_filters->>'prev_wins_max' AS "prev_wins_max_t",
+    p_filters->>'prev_wins_min' AS "prev_wins_min_t",
+    p_filters->>'primetime' AS "primetime_t",
+    p_filters->>'referee' AS "referee_t",
+    p_filters->>'rest_max' AS "rest_max_t",
+    p_filters->>'rest_min' AS "rest_min_t",
+    p_filters->>'season_max' AS "season_max_t",
+    p_filters->>'season_min' AS "season_min_t",
+    p_filters->>'season_type' AS "season_type_t",
+    p_filters->>'side' AS "side_t",
+    p_filters->>'spread_max' AS "spread_max_t",
+    p_filters->>'spread_min' AS "spread_min_t",
+    p_filters->>'surface' AS "surface_t",
+    p_filters->>'temp_max' AS "temp_max_t",
+    p_filters->>'temp_min' AS "temp_min_t",
+    p_filters->>'total_max' AS "total_max_t",
+    p_filters->>'total_min' AS "total_min_t",
+    p_filters->>'tt_max' AS "tt_max_t",
+    p_filters->>'tt_min' AS "tt_min_t",
+    p_filters->>'under_streak_max' AS "under_streak_max_t",
+    p_filters->>'under_streak_min' AS "under_streak_min_t",
+    p_filters->>'week_max' AS "week_max_t",
+    p_filters->>'week_min' AS "week_min_t",
+    p_filters->>'win_pct_gt_opp' AS "win_pct_gt_opp_t",
+    p_filters->>'win_pct_max' AS "win_pct_max_t",
+    p_filters->>'win_pct_min' AS "win_pct_min_t",
+    p_filters->>'win_streak_max' AS "win_streak_max_t",
+    p_filters->>'win_streak_min' AS "win_streak_min_t",
+    p_filters->>'wind_max' AS "wind_max_t",
+    p_filters->>'wind_min' AS "wind_min_t",
+    p_filters->'day_of_week' AS "day_of_week_j",
+    p_filters->'opponent' AS "opponent_j",
+    p_filters->'team' AS "team_j",
+    p_filters->'team_division' AS "team_division_j" OFFSET 0) f
   LEFT JOIN LATERAL (
     SELECT
       
@@ -202,157 +325,159 @@ AS $function$
       WHEN 'team_total' THEN CASE WHEN o.tt_over=1 THEN COALESCE(o.tt_over_px - 1, 0.909) ELSE -1 END
     END AS o_profit
     FROM nfl_analysis_base o
-    -- upper(): MLB base still carries mixed-case 'Ath' duplicate rows; a case-blind
-    -- inequality stops the mirror join from matching the same team's duplicate.
-    WHERE o.unique_id = b.unique_id AND upper(o.team_abbr) <> upper(b.team_abbr)
+    -- upper(): case-blind so a mixed-case duplicate row can never self-match.
+    -- ORDER BY: deterministic mirror if a >2-row game ever appears.
+    WHERE p_include_opp AND p_bet_type IN ('fg_spread','fg_ml','h1_spread','h1_ml')
+      AND o.unique_id = b.unique_id AND upper(o.team_abbr) <> upper(b.team_abbr)
+    ORDER BY o.team_abbr
     LIMIT 1
-  ) opp ON p_bet_type IN ('fg_spread','fg_ml','h1_spread','h1_ml')
+  ) opp ON true
   WHERE 
-    (p_filters->>'min_games' IS NULL OR b.team_gp_s2d >= (p_filters->>'min_games')::int)
-    AND (p_filters->>'win_pct_min' IS NULL OR b.team_win_pct >= (p_filters->>'win_pct_min')::numeric)
-    AND (p_filters->>'win_pct_max' IS NULL OR b.team_win_pct <= (p_filters->>'win_pct_max')::numeric)
-    AND (p_filters->>'ats_win_pct_min' IS NULL OR b.team_ats_win_pct >= (p_filters->>'ats_win_pct_min')::numeric)
-    AND (p_filters->>'ats_win_pct_max' IS NULL OR b.team_ats_win_pct <= (p_filters->>'ats_win_pct_max')::numeric)
-    AND (p_filters->>'over_pct_min' IS NULL OR b.team_over_pct >= (p_filters->>'over_pct_min')::numeric)
-    AND (p_filters->>'over_pct_max' IS NULL OR b.team_over_pct <= (p_filters->>'over_pct_max')::numeric)
-    AND (p_filters->>'win_streak_min' IS NULL OR b.team_win_streak >= (p_filters->>'win_streak_min')::numeric)
-    AND (p_filters->>'win_streak_max' IS NULL OR b.team_win_streak <= (p_filters->>'win_streak_max')::numeric)
-    AND (p_filters->>'loss_streak_min' IS NULL OR b.team_loss_streak >= (p_filters->>'loss_streak_min')::numeric)
-    AND (p_filters->>'loss_streak_max' IS NULL OR b.team_loss_streak <= (p_filters->>'loss_streak_max')::numeric)
-    AND (p_filters->>'ats_win_streak_min' IS NULL OR b.team_ats_win_streak >= (p_filters->>'ats_win_streak_min')::numeric)
-    AND (p_filters->>'ats_win_streak_max' IS NULL OR b.team_ats_win_streak <= (p_filters->>'ats_win_streak_max')::numeric)
-    AND (p_filters->>'over_streak_min' IS NULL OR b.team_over_streak >= (p_filters->>'over_streak_min')::numeric)
-    AND (p_filters->>'over_streak_max' IS NULL OR b.team_over_streak <= (p_filters->>'over_streak_max')::numeric)
-    AND (p_filters->>'under_streak_min' IS NULL OR b.team_under_streak >= (p_filters->>'under_streak_min')::numeric)
-    AND (p_filters->>'under_streak_max' IS NULL OR b.team_under_streak <= (p_filters->>'under_streak_max')::numeric)
-    AND (p_filters->>'avg_cover_margin_min' IS NULL OR b.team_avg_cover_margin >= (p_filters->>'avg_cover_margin_min')::numeric)
-    AND (p_filters->>'avg_cover_margin_max' IS NULL OR b.team_avg_cover_margin <= (p_filters->>'avg_cover_margin_max')::numeric)
-    AND (p_filters->>'ppg_min' IS NULL OR b.team_ppg >= (p_filters->>'ppg_min')::numeric)
-    AND (p_filters->>'ppg_max' IS NULL OR b.team_ppg <= (p_filters->>'ppg_max')::numeric)
-    AND (p_filters->>'pa_pg_min' IS NULL OR b.team_pa_pg >= (p_filters->>'pa_pg_min')::numeric)
-    AND (p_filters->>'pa_pg_max' IS NULL OR b.team_pa_pg <= (p_filters->>'pa_pg_max')::numeric)
-    AND (p_filters->>'point_diff_pg_min' IS NULL OR b.team_point_diff_pg >= (p_filters->>'point_diff_pg_min')::numeric)
-    AND (p_filters->>'point_diff_pg_max' IS NULL OR b.team_point_diff_pg <= (p_filters->>'point_diff_pg_max')::numeric)
-    AND (p_filters->>'prev_wins_min' IS NULL OR b.team_prev_wins >= (p_filters->>'prev_wins_min')::numeric)
-    AND (p_filters->>'prev_wins_max' IS NULL OR b.team_prev_wins <= (p_filters->>'prev_wins_max')::numeric)
-    AND (p_filters->>'prev_win_pct_min' IS NULL OR b.team_prev_win_pct >= (p_filters->>'prev_win_pct_min')::numeric)
-    AND (p_filters->>'prev_win_pct_max' IS NULL OR b.team_prev_win_pct <= (p_filters->>'prev_win_pct_max')::numeric)
-    AND (p_filters->>'opp_win_pct_min' IS NULL OR b.opp_win_pct >= (p_filters->>'opp_win_pct_min')::numeric)
-    AND (p_filters->>'opp_win_pct_max' IS NULL OR b.opp_win_pct <= (p_filters->>'opp_win_pct_max')::numeric)
-    AND (p_filters->>'opp_ats_win_pct_min' IS NULL OR b.opp_ats_win_pct >= (p_filters->>'opp_ats_win_pct_min')::numeric)
-    AND (p_filters->>'opp_ats_win_pct_max' IS NULL OR b.opp_ats_win_pct <= (p_filters->>'opp_ats_win_pct_max')::numeric)
-    AND (p_filters->>'opp_over_pct_min' IS NULL OR b.opp_over_pct >= (p_filters->>'opp_over_pct_min')::numeric)
-    AND (p_filters->>'opp_over_pct_max' IS NULL OR b.opp_over_pct <= (p_filters->>'opp_over_pct_max')::numeric)
-    AND (p_filters->>'opp_win_streak_min' IS NULL OR b.opp_win_streak >= (p_filters->>'opp_win_streak_min')::numeric)
-    AND (p_filters->>'opp_win_streak_max' IS NULL OR b.opp_win_streak <= (p_filters->>'opp_win_streak_max')::numeric)
-    AND (p_filters->>'opp_prev_win_pct_min' IS NULL OR b.opp_prev_win_pct >= (p_filters->>'opp_prev_win_pct_min')::numeric)
-    AND (p_filters->>'opp_prev_win_pct_max' IS NULL OR b.opp_prev_win_pct <= (p_filters->>'opp_prev_win_pct_max')::numeric)
-    AND (p_filters->>'made_playoffs_prev' IS NULL OR b.team_made_playoffs_prev = (p_filters->>'made_playoffs_prev')::boolean)
-    AND (p_filters->>'opp_made_playoffs_prev' IS NULL OR b.opp_made_playoffs_prev = (p_filters->>'opp_made_playoffs_prev')::boolean)
-    AND (p_filters->>'h2h_last_home' IS NULL OR b.h2h_last_home = (p_filters->>'h2h_last_home')::boolean)
-    AND (p_filters->>'h2h_last_fav' IS NULL OR b.h2h_last_fav = (p_filters->>'h2h_last_fav')::boolean)
-    AND (p_filters->>'h2h_same_season' IS NULL OR b.h2h_same_season = (p_filters->>'h2h_same_season')::boolean)
-    AND (p_filters->>'h2h_last_win' IS NULL OR b.h2h_last_win = (p_filters->>'h2h_last_win')::int)
-    AND (p_filters->>'h2h_last_ats_win' IS NULL OR b.h2h_last_ats_win = (p_filters->>'h2h_last_ats_win')::int)
-    AND (p_filters->>'h2h_last_over' IS NULL OR b.h2h_last_over = (p_filters->>'h2h_last_over')::int)
-    AND (p_filters->>'above_500' IS NULL OR (b.team_win_pct > 0.5) = (p_filters->>'above_500')::boolean)
-    AND (p_filters->>'win_pct_gt_opp' IS NULL OR (b.team_win_pct > b.opp_win_pct) = (p_filters->>'win_pct_gt_opp')::boolean)
-    AND (p_filters->>'more_wins_than_opp_prev' IS NULL OR (b.team_prev_wins > b.opp_prev_wins) = (p_filters->>'more_wins_than_opp_prev')::boolean)
-    AND (p_filters->>'h2h_spread_lower' IS NULL OR (b.h2h_last_spread < b.fg_spread) = (p_filters->>'h2h_spread_lower')::boolean)
-    AND (p_filters->>'h2h_spread_higher' IS NULL OR (b.h2h_last_spread > b.fg_spread) = (p_filters->>'h2h_spread_higher')::boolean)
-    AND (p_filters->>'opp_last_won' IS NULL OR b.opp_last_fg_won = (p_filters->>'opp_last_won')::int)
-    AND (p_filters->>'opp_last_covered' IS NULL OR b.opp_last_fg_covered = (p_filters->>'opp_last_covered')::int)
-    AND (p_filters->>'opp_last_over' IS NULL OR b.opp_last_ou_result = (p_filters->>'opp_last_over')::int)
-    AND (p_filters->>'opp_last_favorite' IS NULL OR b.opp_last_is_favorite = (p_filters->>'opp_last_favorite')::boolean)
-    AND (p_filters->>'opp_last_overtime' IS NULL OR b.opp_last_overtime = (p_filters->>'opp_last_overtime')::boolean)
-    AND (p_filters->>'opp_last_margin_min' IS NULL OR b.opp_last_margin >= (p_filters->>'opp_last_margin_min')::int)
-    AND (p_filters->>'opp_last_margin_max' IS NULL OR b.opp_last_margin <= (p_filters->>'opp_last_margin_max')::int)
-    AND (p_filters->>'opp_loss_streak_min' IS NULL OR b.opp_loss_streak >= (p_filters->>'opp_loss_streak_min')::numeric)
-    AND (p_filters->>'opp_loss_streak_max' IS NULL OR b.opp_loss_streak <= (p_filters->>'opp_loss_streak_max')::numeric)
-    AND (p_filters->>'opp_ppg_min' IS NULL OR b.opp_ppg >= (p_filters->>'opp_ppg_min')::numeric)
-    AND (p_filters->>'opp_ppg_max' IS NULL OR b.opp_ppg <= (p_filters->>'opp_ppg_max')::numeric)
-    AND (p_filters->>'opp_pa_pg_min' IS NULL OR b.opp_pa_pg >= (p_filters->>'opp_pa_pg_min')::numeric)
-    AND (p_filters->>'opp_pa_pg_max' IS NULL OR b.opp_pa_pg <= (p_filters->>'opp_pa_pg_max')::numeric)
-    AND (p_filters->>'season_min' IS NULL OR b.season >= (p_filters->>'season_min')::int)
-    AND (p_filters->>'season_max' IS NULL OR b.season <= (p_filters->>'season_max')::int)
-    AND (p_filters->>'week_min' IS NULL OR b.week >= (p_filters->>'week_min')::int)
-    AND (p_filters->>'week_max' IS NULL OR b.week <= (p_filters->>'week_max')::int)
-    AND (p_filters->>'season_type' IS NULL OR b.season_type = (p_filters->>'season_type'))
-    AND (p_filters->>'playoff_round' IS NULL OR b.playoff_round = (p_filters->>'playoff_round'))
-    AND (p_filters->>'ml_min' IS NULL OR b.team_ml >= (p_filters->>'ml_min')::numeric)
-    AND (p_filters->>'ml_max' IS NULL OR b.team_ml <= (p_filters->>'ml_max')::numeric)
-    AND (p_filters->>'h1_ml_min' IS NULL OR b.h1_ml_px >= (CASE WHEN abs((p_filters->>'h1_ml_min')::numeric) >= 100
-      THEN CASE WHEN (p_filters->>'h1_ml_min')::numeric < 0
-        THEN 1 + 100 / abs((p_filters->>'h1_ml_min')::numeric)
-        ELSE 1 + (p_filters->>'h1_ml_min')::numeric / 100 END
-      ELSE (p_filters->>'h1_ml_min')::numeric END))
-    AND (p_filters->>'h1_ml_max' IS NULL OR b.h1_ml_px <= (CASE WHEN abs((p_filters->>'h1_ml_max')::numeric) >= 100
-      THEN CASE WHEN (p_filters->>'h1_ml_max')::numeric < 0
-        THEN 1 + 100 / abs((p_filters->>'h1_ml_max')::numeric)
-        ELSE 1 + (p_filters->>'h1_ml_max')::numeric / 100 END
-      ELSE (p_filters->>'h1_ml_max')::numeric END))
-    AND (p_filters->>'opp_ml_min' IS NULL OR EXISTS (
+    (f."min_games_t" IS NULL OR b.team_gp_s2d >= (f."min_games_t")::int)
+    AND (f."win_pct_min_t" IS NULL OR b.team_win_pct >= (f."win_pct_min_t")::numeric)
+    AND (f."win_pct_max_t" IS NULL OR b.team_win_pct <= (f."win_pct_max_t")::numeric)
+    AND (f."ats_win_pct_min_t" IS NULL OR b.team_ats_win_pct >= (f."ats_win_pct_min_t")::numeric)
+    AND (f."ats_win_pct_max_t" IS NULL OR b.team_ats_win_pct <= (f."ats_win_pct_max_t")::numeric)
+    AND (f."over_pct_min_t" IS NULL OR b.team_over_pct >= (f."over_pct_min_t")::numeric)
+    AND (f."over_pct_max_t" IS NULL OR b.team_over_pct <= (f."over_pct_max_t")::numeric)
+    AND (f."win_streak_min_t" IS NULL OR b.team_win_streak >= (f."win_streak_min_t")::numeric)
+    AND (f."win_streak_max_t" IS NULL OR b.team_win_streak <= (f."win_streak_max_t")::numeric)
+    AND (f."loss_streak_min_t" IS NULL OR b.team_loss_streak >= (f."loss_streak_min_t")::numeric)
+    AND (f."loss_streak_max_t" IS NULL OR b.team_loss_streak <= (f."loss_streak_max_t")::numeric)
+    AND (f."ats_win_streak_min_t" IS NULL OR b.team_ats_win_streak >= (f."ats_win_streak_min_t")::numeric)
+    AND (f."ats_win_streak_max_t" IS NULL OR b.team_ats_win_streak <= (f."ats_win_streak_max_t")::numeric)
+    AND (f."over_streak_min_t" IS NULL OR b.team_over_streak >= (f."over_streak_min_t")::numeric)
+    AND (f."over_streak_max_t" IS NULL OR b.team_over_streak <= (f."over_streak_max_t")::numeric)
+    AND (f."under_streak_min_t" IS NULL OR b.team_under_streak >= (f."under_streak_min_t")::numeric)
+    AND (f."under_streak_max_t" IS NULL OR b.team_under_streak <= (f."under_streak_max_t")::numeric)
+    AND (f."avg_cover_margin_min_t" IS NULL OR b.team_avg_cover_margin >= (f."avg_cover_margin_min_t")::numeric)
+    AND (f."avg_cover_margin_max_t" IS NULL OR b.team_avg_cover_margin <= (f."avg_cover_margin_max_t")::numeric)
+    AND (f."ppg_min_t" IS NULL OR b.team_ppg >= (f."ppg_min_t")::numeric)
+    AND (f."ppg_max_t" IS NULL OR b.team_ppg <= (f."ppg_max_t")::numeric)
+    AND (f."pa_pg_min_t" IS NULL OR b.team_pa_pg >= (f."pa_pg_min_t")::numeric)
+    AND (f."pa_pg_max_t" IS NULL OR b.team_pa_pg <= (f."pa_pg_max_t")::numeric)
+    AND (f."point_diff_pg_min_t" IS NULL OR b.team_point_diff_pg >= (f."point_diff_pg_min_t")::numeric)
+    AND (f."point_diff_pg_max_t" IS NULL OR b.team_point_diff_pg <= (f."point_diff_pg_max_t")::numeric)
+    AND (f."prev_wins_min_t" IS NULL OR b.team_prev_wins >= (f."prev_wins_min_t")::numeric)
+    AND (f."prev_wins_max_t" IS NULL OR b.team_prev_wins <= (f."prev_wins_max_t")::numeric)
+    AND (f."prev_win_pct_min_t" IS NULL OR b.team_prev_win_pct >= (f."prev_win_pct_min_t")::numeric)
+    AND (f."prev_win_pct_max_t" IS NULL OR b.team_prev_win_pct <= (f."prev_win_pct_max_t")::numeric)
+    AND (f."opp_win_pct_min_t" IS NULL OR b.opp_win_pct >= (f."opp_win_pct_min_t")::numeric)
+    AND (f."opp_win_pct_max_t" IS NULL OR b.opp_win_pct <= (f."opp_win_pct_max_t")::numeric)
+    AND (f."opp_ats_win_pct_min_t" IS NULL OR b.opp_ats_win_pct >= (f."opp_ats_win_pct_min_t")::numeric)
+    AND (f."opp_ats_win_pct_max_t" IS NULL OR b.opp_ats_win_pct <= (f."opp_ats_win_pct_max_t")::numeric)
+    AND (f."opp_over_pct_min_t" IS NULL OR b.opp_over_pct >= (f."opp_over_pct_min_t")::numeric)
+    AND (f."opp_over_pct_max_t" IS NULL OR b.opp_over_pct <= (f."opp_over_pct_max_t")::numeric)
+    AND (f."opp_win_streak_min_t" IS NULL OR b.opp_win_streak >= (f."opp_win_streak_min_t")::numeric)
+    AND (f."opp_win_streak_max_t" IS NULL OR b.opp_win_streak <= (f."opp_win_streak_max_t")::numeric)
+    AND (f."opp_prev_win_pct_min_t" IS NULL OR b.opp_prev_win_pct >= (f."opp_prev_win_pct_min_t")::numeric)
+    AND (f."opp_prev_win_pct_max_t" IS NULL OR b.opp_prev_win_pct <= (f."opp_prev_win_pct_max_t")::numeric)
+    AND (f."made_playoffs_prev_t" IS NULL OR b.team_made_playoffs_prev = (f."made_playoffs_prev_t")::boolean)
+    AND (f."opp_made_playoffs_prev_t" IS NULL OR b.opp_made_playoffs_prev = (f."opp_made_playoffs_prev_t")::boolean)
+    AND (f."h2h_last_home_t" IS NULL OR b.h2h_last_home = (f."h2h_last_home_t")::boolean)
+    AND (f."h2h_last_fav_t" IS NULL OR b.h2h_last_fav = (f."h2h_last_fav_t")::boolean)
+    AND (f."h2h_same_season_t" IS NULL OR b.h2h_same_season = (f."h2h_same_season_t")::boolean)
+    AND (f."h2h_last_win_t" IS NULL OR b.h2h_last_win = (f."h2h_last_win_t")::int)
+    AND (f."h2h_last_ats_win_t" IS NULL OR b.h2h_last_ats_win = (f."h2h_last_ats_win_t")::int)
+    AND (f."h2h_last_over_t" IS NULL OR b.h2h_last_over = (f."h2h_last_over_t")::int)
+    AND (f."above_500_t" IS NULL OR (b.team_win_pct > 0.5) = (f."above_500_t")::boolean)
+    AND (f."win_pct_gt_opp_t" IS NULL OR (b.team_win_pct > b.opp_win_pct) = (f."win_pct_gt_opp_t")::boolean)
+    AND (f."more_wins_than_opp_prev_t" IS NULL OR (b.team_prev_wins > b.opp_prev_wins) = (f."more_wins_than_opp_prev_t")::boolean)
+    AND (f."h2h_spread_lower_t" IS NULL OR (b.h2h_last_spread < b.fg_spread) = (f."h2h_spread_lower_t")::boolean)
+    AND (f."h2h_spread_higher_t" IS NULL OR (b.h2h_last_spread > b.fg_spread) = (f."h2h_spread_higher_t")::boolean)
+    AND (f."opp_last_won_t" IS NULL OR b.opp_last_fg_won = (f."opp_last_won_t")::int)
+    AND (f."opp_last_covered_t" IS NULL OR b.opp_last_fg_covered = (f."opp_last_covered_t")::int)
+    AND (f."opp_last_over_t" IS NULL OR b.opp_last_ou_result = (f."opp_last_over_t")::int)
+    AND (f."opp_last_favorite_t" IS NULL OR b.opp_last_is_favorite = (f."opp_last_favorite_t")::boolean)
+    AND (f."opp_last_overtime_t" IS NULL OR b.opp_last_overtime = (f."opp_last_overtime_t")::boolean)
+    AND (f."opp_last_margin_min_t" IS NULL OR b.opp_last_margin >= (f."opp_last_margin_min_t")::int)
+    AND (f."opp_last_margin_max_t" IS NULL OR b.opp_last_margin <= (f."opp_last_margin_max_t")::int)
+    AND (f."opp_loss_streak_min_t" IS NULL OR b.opp_loss_streak >= (f."opp_loss_streak_min_t")::numeric)
+    AND (f."opp_loss_streak_max_t" IS NULL OR b.opp_loss_streak <= (f."opp_loss_streak_max_t")::numeric)
+    AND (f."opp_ppg_min_t" IS NULL OR b.opp_ppg >= (f."opp_ppg_min_t")::numeric)
+    AND (f."opp_ppg_max_t" IS NULL OR b.opp_ppg <= (f."opp_ppg_max_t")::numeric)
+    AND (f."opp_pa_pg_min_t" IS NULL OR b.opp_pa_pg >= (f."opp_pa_pg_min_t")::numeric)
+    AND (f."opp_pa_pg_max_t" IS NULL OR b.opp_pa_pg <= (f."opp_pa_pg_max_t")::numeric)
+    AND (f."season_min_t" IS NULL OR b.season >= (f."season_min_t")::int)
+    AND (f."season_max_t" IS NULL OR b.season <= (f."season_max_t")::int)
+    AND (f."week_min_t" IS NULL OR b.week >= (f."week_min_t")::int)
+    AND (f."week_max_t" IS NULL OR b.week <= (f."week_max_t")::int)
+    AND (f."season_type_t" IS NULL OR b.season_type = (f."season_type_t"))
+    AND (f."playoff_round_t" IS NULL OR b.playoff_round = (f."playoff_round_t"))
+    AND (f."ml_min_t" IS NULL OR b.team_ml >= (f."ml_min_t")::numeric)
+    AND (f."ml_max_t" IS NULL OR b.team_ml <= (f."ml_max_t")::numeric)
+    AND (f."h1_ml_min_t" IS NULL OR b.h1_ml_px >= (CASE WHEN abs((f."h1_ml_min_t")::numeric) >= 100
+      THEN CASE WHEN (f."h1_ml_min_t")::numeric < 0
+        THEN 1 + 100 / abs((f."h1_ml_min_t")::numeric)
+        ELSE 1 + (f."h1_ml_min_t")::numeric / 100 END
+      ELSE (f."h1_ml_min_t")::numeric END))
+    AND (f."h1_ml_max_t" IS NULL OR b.h1_ml_px <= (CASE WHEN abs((f."h1_ml_max_t")::numeric) >= 100
+      THEN CASE WHEN (f."h1_ml_max_t")::numeric < 0
+        THEN 1 + 100 / abs((f."h1_ml_max_t")::numeric)
+        ELSE 1 + (f."h1_ml_max_t")::numeric / 100 END
+      ELSE (f."h1_ml_max_t")::numeric END))
+    AND (f."opp_ml_min_t" IS NULL OR EXISTS (
          SELECT 1 FROM nfl_analysis_base o
          WHERE o.unique_id = b.unique_id AND o.team_abbr <> b.team_abbr
-           AND o.team_ml >= (p_filters->>'opp_ml_min')::numeric))
-    AND (p_filters->>'opp_ml_max' IS NULL OR EXISTS (
+           AND o.team_ml >= (f."opp_ml_min_t")::numeric))
+    AND (f."opp_ml_max_t" IS NULL OR EXISTS (
          SELECT 1 FROM nfl_analysis_base o
          WHERE o.unique_id = b.unique_id AND o.team_abbr <> b.team_abbr
-           AND o.team_ml <= (p_filters->>'opp_ml_max')::numeric))
-    AND (p_filters->>'opp_tt_min' IS NULL OR EXISTS (
+           AND o.team_ml <= (f."opp_ml_max_t")::numeric))
+    AND (f."opp_tt_min_t" IS NULL OR EXISTS (
          SELECT 1 FROM nfl_analysis_base o
          WHERE o.unique_id = b.unique_id AND o.team_abbr <> b.team_abbr
-           AND o.tt_line >= (p_filters->>'opp_tt_min')::numeric))
-    AND (p_filters->>'opp_tt_max' IS NULL OR EXISTS (
+           AND o.tt_line >= (f."opp_tt_min_t")::numeric))
+    AND (f."opp_tt_max_t" IS NULL OR EXISTS (
          SELECT 1 FROM nfl_analysis_base o
          WHERE o.unique_id = b.unique_id AND o.team_abbr <> b.team_abbr
-           AND o.tt_line <= (p_filters->>'opp_tt_max')::numeric))
-    AND (p_filters->>'side' IS NULL OR b.is_home = ((p_filters->>'side')='home'))
-    AND (p_filters->>'fav_dog' IS NULL OR b.is_favorite = ((p_filters->>'fav_dog')='favorite'))
-    AND (p_filters->>'spread_min' IS NULL OR b.fg_spread >= (p_filters->>'spread_min')::numeric)
-    AND (p_filters->>'spread_max' IS NULL OR b.fg_spread <= (p_filters->>'spread_max')::numeric)
-    AND (p_filters->>'abs_spread_min' IS NULL OR abs(b.fg_spread) >= (p_filters->>'abs_spread_min')::numeric)
-    AND (p_filters->>'abs_spread_max' IS NULL OR abs(b.fg_spread) <= (p_filters->>'abs_spread_max')::numeric)
-    AND (p_filters->>'total_min' IS NULL OR b.fg_total >= (p_filters->>'total_min')::numeric)
-    AND (p_filters->>'total_max' IS NULL OR b.fg_total <= (p_filters->>'total_max')::numeric)
-    AND (p_filters->>'tt_min' IS NULL OR b.tt_line >= (p_filters->>'tt_min')::numeric)
-    AND (p_filters->>'tt_max' IS NULL OR b.tt_line <= (p_filters->>'tt_max')::numeric)
-    AND (p_filters->>'h1_spread_min' IS NULL OR b.h1_spread >= (p_filters->>'h1_spread_min')::numeric)
-    AND (p_filters->>'h1_spread_max' IS NULL OR b.h1_spread <= (p_filters->>'h1_spread_max')::numeric)
-    AND (p_filters->>'h1_abs_spread_min' IS NULL OR abs(b.h1_spread) >= (p_filters->>'h1_abs_spread_min')::numeric)
-    AND (p_filters->>'h1_abs_spread_max' IS NULL OR abs(b.h1_spread) <= (p_filters->>'h1_abs_spread_max')::numeric)
-    AND (p_filters->>'h1_total_min' IS NULL OR b.h1_total >= (p_filters->>'h1_total_min')::numeric)
-    AND (p_filters->>'h1_total_max' IS NULL OR b.h1_total <= (p_filters->>'h1_total_max')::numeric)
-    AND (p_filters->>'division' IS NULL OR b.is_division = (p_filters->>'division')::boolean)
-    AND (p_filters->>'primetime' IS NULL OR b.is_primetime = (p_filters->>'primetime')::boolean)
-    AND (p_filters->'day_of_week' IS NULL OR b.day_of_week IN (SELECT jsonb_array_elements_text(p_filters->'day_of_week')))
-    AND (p_filters->'team_division' IS NULL OR b.team_division IN (SELECT jsonb_array_elements_text(p_filters->'team_division')))
-    AND (p_filters->>'dome' IS NULL OR b.dome = (p_filters->>'dome')::boolean)
-    AND (p_filters->>'surface' IS NULL OR b.surface ILIKE '%'||(p_filters->>'surface')||'%')
-    AND (p_filters->>'temp_min' IS NULL OR b.temperature >= (p_filters->>'temp_min')::numeric)
-    AND (p_filters->>'temp_max' IS NULL OR b.temperature <= (p_filters->>'temp_max')::numeric)
-    AND (p_filters->>'wind_min' IS NULL OR b.wind_speed >= (p_filters->>'wind_min')::numeric)
-    AND (p_filters->>'wind_max' IS NULL OR b.wind_speed <= (p_filters->>'wind_max')::numeric)
-    AND (p_filters->>'rest_min' IS NULL OR b.rest_days >= (p_filters->>'rest_min')::numeric)
-    AND (p_filters->>'rest_max' IS NULL OR b.rest_days <= (p_filters->>'rest_max')::numeric)
-    AND (p_filters->>'pre_bye' IS NULL OR b.pre_bye = (p_filters->>'pre_bye')::boolean)
-    AND (p_filters->>'coach' IS NULL OR b.coach = (p_filters->>'coach'))
-    AND (p_filters->>'referee' IS NULL OR b.referee = (p_filters->>'referee'))
-    AND (p_filters->'team' IS NULL OR b.team_abbr IN (SELECT jsonb_array_elements_text(p_filters->'team')))
-    AND (p_filters->'opponent' IS NULL OR b.opponent_abbr IN (SELECT jsonb_array_elements_text(p_filters->'opponent')))
-    AND (p_filters->>'last_spread' IS NULL OR b.last_spread = (p_filters->>'last_spread')::int)
-    AND (p_filters->>'last_ou' IS NULL OR b.last_ou = (p_filters->>'last_ou')::int)
-    AND (p_filters->>'last_ml' IS NULL OR b.last_ml = (p_filters->>'last_ml')::int)
-    AND (p_filters->>'precip' IS NULL
-         OR ((p_filters->>'precip')='rain' AND b.precipitation_type ILIKE '%rain%')
-         OR ((p_filters->>'precip')='snow' AND b.precipitation_type ILIKE '%snow%')
-         OR ((p_filters->>'precip')='none' AND (b.precipitation_type IS NULL
+           AND o.tt_line <= (f."opp_tt_max_t")::numeric))
+    AND (f."side_t" IS NULL OR b.is_home = ((f."side_t")='home'))
+    AND (f."fav_dog_t" IS NULL OR b.is_favorite = ((f."fav_dog_t")='favorite'))
+    AND (f."spread_min_t" IS NULL OR b.fg_spread >= (f."spread_min_t")::numeric)
+    AND (f."spread_max_t" IS NULL OR b.fg_spread <= (f."spread_max_t")::numeric)
+    AND (f."abs_spread_min_t" IS NULL OR abs(b.fg_spread) >= (f."abs_spread_min_t")::numeric)
+    AND (f."abs_spread_max_t" IS NULL OR abs(b.fg_spread) <= (f."abs_spread_max_t")::numeric)
+    AND (f."total_min_t" IS NULL OR b.fg_total >= (f."total_min_t")::numeric)
+    AND (f."total_max_t" IS NULL OR b.fg_total <= (f."total_max_t")::numeric)
+    AND (f."tt_min_t" IS NULL OR b.tt_line >= (f."tt_min_t")::numeric)
+    AND (f."tt_max_t" IS NULL OR b.tt_line <= (f."tt_max_t")::numeric)
+    AND (f."h1_spread_min_t" IS NULL OR b.h1_spread >= (f."h1_spread_min_t")::numeric)
+    AND (f."h1_spread_max_t" IS NULL OR b.h1_spread <= (f."h1_spread_max_t")::numeric)
+    AND (f."h1_abs_spread_min_t" IS NULL OR abs(b.h1_spread) >= (f."h1_abs_spread_min_t")::numeric)
+    AND (f."h1_abs_spread_max_t" IS NULL OR abs(b.h1_spread) <= (f."h1_abs_spread_max_t")::numeric)
+    AND (f."h1_total_min_t" IS NULL OR b.h1_total >= (f."h1_total_min_t")::numeric)
+    AND (f."h1_total_max_t" IS NULL OR b.h1_total <= (f."h1_total_max_t")::numeric)
+    AND (f."division_t" IS NULL OR b.is_division = (f."division_t")::boolean)
+    AND (f."primetime_t" IS NULL OR b.is_primetime = (f."primetime_t")::boolean)
+    AND (f."day_of_week_j" IS NULL OR b.day_of_week IN (SELECT jsonb_array_elements_text(f."day_of_week_j")))
+    AND (f."team_division_j" IS NULL OR b.team_division IN (SELECT jsonb_array_elements_text(f."team_division_j")))
+    AND (f."dome_t" IS NULL OR b.dome = (f."dome_t")::boolean)
+    AND (f."surface_t" IS NULL OR b.surface ILIKE '%'||(f."surface_t")||'%')
+    AND (f."temp_min_t" IS NULL OR b.temperature >= (f."temp_min_t")::numeric)
+    AND (f."temp_max_t" IS NULL OR b.temperature <= (f."temp_max_t")::numeric)
+    AND (f."wind_min_t" IS NULL OR b.wind_speed >= (f."wind_min_t")::numeric)
+    AND (f."wind_max_t" IS NULL OR b.wind_speed <= (f."wind_max_t")::numeric)
+    AND (f."rest_min_t" IS NULL OR b.rest_days >= (f."rest_min_t")::numeric)
+    AND (f."rest_max_t" IS NULL OR b.rest_days <= (f."rest_max_t")::numeric)
+    AND (f."pre_bye_t" IS NULL OR b.pre_bye = (f."pre_bye_t")::boolean)
+    AND (f."coach_t" IS NULL OR b.coach = (f."coach_t"))
+    AND (f."referee_t" IS NULL OR b.referee = (f."referee_t"))
+    AND (f."team_j" IS NULL OR b.team_abbr IN (SELECT jsonb_array_elements_text(f."team_j")))
+    AND (f."opponent_j" IS NULL OR b.opponent_abbr IN (SELECT jsonb_array_elements_text(f."opponent_j")))
+    AND (f."last_spread_t" IS NULL OR b.last_spread = (f."last_spread_t")::int)
+    AND (f."last_ou_t" IS NULL OR b.last_ou = (f."last_ou_t")::int)
+    AND (f."last_ml_t" IS NULL OR b.last_ml = (f."last_ml_t")::int)
+    AND (f."precip_t" IS NULL
+         OR ((f."precip_t")='rain' AND b.precipitation_type ILIKE '%rain%')
+         OR ((f."precip_t")='snow' AND b.precipitation_type ILIKE '%snow%')
+         OR ((f."precip_t")='none' AND (b.precipitation_type IS NULL
               OR (b.precipitation_type NOT ILIKE '%rain%' AND b.precipitation_type NOT ILIKE '%snow%'))))
-    AND (p_filters->>'last_won' IS NULL OR b.last_fg_won = (p_filters->>'last_won')::int)
-    AND (p_filters->>'last_covered' IS NULL OR b.last_fg_covered = (p_filters->>'last_covered')::int)
-    AND (p_filters->>'last_over' IS NULL OR b.last_ou_result = (p_filters->>'last_over')::int)
-    AND (p_filters->>'last_favorite' IS NULL OR b.last_is_favorite = (p_filters->>'last_favorite')::boolean)
-    AND (p_filters->>'last_overtime' IS NULL OR b.last_overtime = (p_filters->>'last_overtime')::boolean)
-    AND (p_filters->>'last_margin_min' IS NULL OR b.last_margin >= (p_filters->>'last_margin_min')::int)
-    AND (p_filters->>'last_margin_max' IS NULL OR b.last_margin <= (p_filters->>'last_margin_max')::int);
+    AND (f."last_won_t" IS NULL OR b.last_fg_won = (f."last_won_t")::int)
+    AND (f."last_covered_t" IS NULL OR b.last_fg_covered = (f."last_covered_t")::int)
+    AND (f."last_over_t" IS NULL OR b.last_ou_result = (f."last_over_t")::int)
+    AND (f."last_favorite_t" IS NULL OR b.last_is_favorite = (f."last_favorite_t")::boolean)
+    AND (f."last_overtime_t" IS NULL OR b.last_overtime = (f."last_overtime_t")::boolean)
+    AND (f."last_margin_min_t" IS NULL OR b.last_margin >= (f."last_margin_min_t")::int)
+    AND (f."last_margin_max_t" IS NULL OR b.last_margin <= (f."last_margin_max_t")::int);
 $function$

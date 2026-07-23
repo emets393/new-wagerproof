@@ -59,9 +59,17 @@ struct OnboardingBuilderSportsPage: View {
 struct OnboardingBuilderArchetypePage: View {
     @Environment(OnboardingStore.self) private var store
     @Bindable var creation: AgentCreationStore
+    var copySourceAgent: Agent? = nil
+    var copiedDraft: AgentCreationStore.Draft? = nil
+    var copySelection: Binding<Bool>? = nil
 
     private var isCustomSelected: Bool {
         store.hasChosenArchetype && creation.draft.archetype == nil
+            && !isCopySelected
+    }
+
+    private var isCopySelected: Bool {
+        copySelection?.wrappedValue == true
     }
 
     var body: some View {
@@ -70,8 +78,20 @@ struct OnboardingBuilderArchetypePage: View {
             subtitle: "Preset or custom — either way, you'll walk its full personality on the next pages."
         ) {
             VStack(spacing: 4) {
+                if let copySourceAgent, copiedDraft != nil {
+                    copyBuildCard(copySourceAgent)
+                        .pageEntrance(index: 2)
+
+                    Text("OR START ANOTHER WAY")
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(1.0)
+                        .foregroundStyle(Color.white.opacity(0.4))
+                        .padding(.vertical, 8)
+                        .pageEntrance(index: 3)
+                }
+
                 customizeCard
-                    .pageEntrance(index: 2)
+                    .pageEntrance(index: copySourceAgent == nil ? 2 : 4)
 
                 Text("OR PICK A PRESET")
                     .font(.system(size: 11, weight: .heavy))
@@ -108,11 +128,55 @@ struct OnboardingBuilderArchetypePage: View {
         }
     }
 
+    private func copyBuildCard(_ source: Agent) -> some View {
+        let accent = AgentColorPalette.primary(for: source.avatarColor)
+        return Button {
+            guard let copiedDraft else { return }
+            creation.draft = copiedDraft
+            copySelection?.wrappedValue = true
+            store.setArchetypeChosen()
+        } label: {
+            HStack(spacing: 14) {
+                AgentPixelAvatarTile(
+                    spriteIndex: source.spriteIndex,
+                    avatarColor: source.avatarColor,
+                    size: 48,
+                    cornerRadius: 12
+                )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Copy this build")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("\(source.name)'s sports, strategy, insights, and personality")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.white.opacity(0.6))
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .liquidGlassBackground(
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous),
+                tint: isCopySelected ? accent.opacity(0.20) : Color.white.opacity(0.05)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(isCopySelected ? accent : Color.clear, lineWidth: 1.5)
+            }
+        }
+        .buttonStyle(OnboardingPressStyle())
+        .glyphRipple(on: isCopySelected)
+        .animation(.appQuick, value: isCopySelected)
+    }
+
     /// `applyArchetype` overwrites the draft's sports with the preset's
     /// recommendations — correct in the standalone wizard (same screen),
     /// surprising here where the user just picked sports one page back.
     /// Apply, then restore their selection.
     private func applyPreservingSports(_ row: PresetArchetypeRow) {
+        copySelection?.wrappedValue = false
         let chosenSports = creation.draft.preferredSports
         creation.applyArchetype(row)
         if !chosenSports.isEmpty {
@@ -133,6 +197,7 @@ struct OnboardingBuilderArchetypePage: View {
             // the personality pages open on balanced defaults (unless
             // they've already customized — then keep their tweaks).
             guard !isCustomSelected else { return }
+            copySelection?.wrappedValue = false
             let chosenSports = creation.draft.preferredSports
             creation.clearArchetype()
             creation.draft.preferredSports = chosenSports

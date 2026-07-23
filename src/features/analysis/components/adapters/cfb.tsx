@@ -285,7 +285,32 @@ function RailSections({
   const isTeamTotal = s.betType === 'team_total';
   return (
     <>
-      <FilterGroup title="Situation" defaultOpen>
+      <FilterGroup title="Teams" defaultOpen>
+        <TeamMultiSelect label="Team" options={data.teamOptions} value={s.teams} onChange={(v) => update({ teams: v })} />
+        <TeamMultiSelect label="Opponent" options={data.teamOptions} value={s.opponents} onChange={(v) => update({ opponents: v })} emptyLabel="Any opponent" />
+        <div>
+          <div className="mb-1 text-xs text-muted-foreground">Conferences</div>
+          <ConferenceMultiSelect
+            conferences={data.conferences ?? []}
+            selected={s.selectedConferences}
+            onChange={(v) => update({ selectedConferences: v })}
+          />
+        </div>
+      </FilterGroup>
+
+      {/* game totals have no side/role controls — hide the whole group there */}
+      {!isGameTotal && (
+        <FilterGroup title="Side & Role">
+          <SelectRow label="Side" value={s.side} onChange={(v) => update({ side: v })} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
+          {(isMlMkt || isTeamTotal) && (
+            <SelectRow label="Favorite / Underdog" value={s.favDog} onChange={(v) => update({ favDog: v })} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
+          )}
+        </FilterGroup>
+      )}
+
+      <FootballLinesGroup s={s as unknown as FootballShared} update={update as (p: Partial<FootballShared>) => void} b={BOUNDS} />
+
+      <FilterGroup title="Schedule">
         <RangeRow label={`Seasons: ${s.seasons[0]}–${s.seasons[1]}`} min={floor} max={SEASON_MAX} step={1} value={s.seasons} onChange={(v) => update({ seasons: v })} />
         <SelectRow
           label="Game type"
@@ -296,24 +321,7 @@ function RailSections({
         {(s.gameType === 'any' || s.gameType === 'regular') && (
           <RangeRow label={`Weeks: ${s.weeks[0]}–${s.weeks[1]}`} min={1} max={WEEK_MAX} step={1} value={s.weeks} onChange={(v) => update({ weeks: v })} />
         )}
-        <SelectRow
-          label="Ranked matchup"
-          value={s.rankedMatchup}
-          onChange={(v) => update({ rankedMatchup: v })}
-          options={[['any', 'Any'], ['both', 'Both ranked'], ['neither', 'Neither ranked'], ['home_ranked', 'Home ranked, away unranked'], ['away_ranked', 'Away ranked, home unranked'], ['either', 'Either ranked']]}
-        />
-        {!isGameTotal && (
-          <SelectRow label="Side" value={s.side} onChange={(v) => update({ side: v })} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
-        )}
-        <TeamMultiSelect label="Team" options={data.teamOptions} value={s.teams} onChange={(v) => update({ teams: v })} />
-        <TeamMultiSelect label="Opponent" options={data.teamOptions} value={s.opponents} onChange={(v) => update({ opponents: v })} emptyLabel="Any opponent" />
         <MultiToggle label="Days of week" options={NFL_DAYS} value={s.daysOfWeek} onChange={(v) => update({ daysOfWeek: v })} />
-        {(isMlMkt || isTeamTotal) && (
-          <SelectRow label="Favorite / Underdog" value={s.favDog} onChange={(v) => update({ favDog: v })} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
-        )}
-        <TriRow label="Primetime (7pm+ ET)" value={s.primetime} onChange={(v) => update({ primetime: v })} />
-        <TriRow label="Conference game" value={s.conferenceGame} onChange={(v) => update({ conferenceGame: v })} />
-        <TriRow label="Neutral site" value={s.neutralSite} onChange={(v) => update({ neutralSite: v })} />
         <SelectRow
           label="Rest / Bye"
           value={s.restBye}
@@ -322,9 +330,19 @@ function RailSections({
         />
       </FilterGroup>
 
-      <FootballLinesGroup s={s as unknown as FootballShared} update={update as (p: Partial<FootballShared>) => void} b={BOUNDS} />
+      <FilterGroup title="Game">
+        <SelectRow
+          label="Ranked matchup"
+          value={s.rankedMatchup}
+          onChange={(v) => update({ rankedMatchup: v })}
+          options={[['any', 'Any'], ['both', 'Both ranked'], ['neither', 'Neither ranked'], ['home_ranked', 'Home ranked, away unranked'], ['away_ranked', 'Away ranked, home unranked'], ['either', 'Either ranked']]}
+        />
+        <TriRow label="Primetime (7pm+ ET)" value={s.primetime} onChange={(v) => update({ primetime: v })} />
+        <TriRow label="Conference game" value={s.conferenceGame} onChange={(v) => update({ conferenceGame: v })} />
+        <TriRow label="Neutral site" value={s.neutralSite} onChange={(v) => update({ neutralSite: v })} />
+      </FilterGroup>
 
-      <FilterGroup title="Game conditions">
+      <FilterGroup title="Weather & Venue">
         <SelectRow label="Weather" value={s.weather} onChange={(v) => update({ weather: v })} options={[['any', 'Any'], ['clear', 'Clear'], ['cloudy', 'Cloudy'], ['rain', 'Rain'], ['snow', 'Snow']]} />
         <SelectRow label="Venue" value={s.dome} onChange={(v) => update({ dome: v })} options={[['any', 'Any'], ['dome', 'Dome / indoors'], ['outdoor', 'Outdoors']]} />
         <RangeRow label={`Temp: ${s.tempRange[0]}–${s.tempRange[1]}°F`} min={-10} max={110} step={1} value={s.tempRange} onChange={(v) => update({ tempRange: v })} />
@@ -332,14 +350,6 @@ function RailSections({
         <p className="text-[10px] text-muted-foreground/70">
           Weather conditions are complete for 2022+, partial for 2018–2021, and sparse in 2016–2017.
         </p>
-      </FilterGroup>
-
-      <FilterGroup title="Conference">
-        <ConferenceMultiSelect
-          conferences={data.conferences ?? []}
-          selected={s.selectedConferences}
-          onChange={(v) => update({ selectedConferences: v })}
-        />
       </FilterGroup>
 
       <FootballTailGroups s={s as unknown as FootballShared} update={update as (p: Partial<FootballShared>) => void} b={BOUNDS} />
@@ -551,12 +561,11 @@ export const cfbAdapter: TrendsSportAdapter<S> = {
   savedTable: 'cfb_analysis_saved_filters',
 
   groupFields: {
-    Situation: [
-      'seasons', 'gameType', 'weeks', 'rankedMatchup', 'side', 'teams', 'opponents', 'daysOfWeek',
-      'favDog', 'primetime', 'conferenceGame', 'neutralSite', 'restBye',
-    ],
-    'Game conditions': ['weather', 'dome', 'tempRange', 'windRange'],
-    Conference: ['selectedConferences'],
+    Teams: ['teams', 'opponents', 'selectedConferences'],
+    'Side & Role': ['side', 'favDog'],
+    Schedule: ['seasons', 'gameType', 'weeks', 'daysOfWeek', 'restBye'],
+    Game: ['rankedMatchup', 'primetime', 'conferenceGame', 'neutralSite'],
+    'Weather & Venue': ['weather', 'dome', 'tempRange', 'windRange'],
     ...FOOTBALL_SHARED_GROUP_FIELDS,
   },
 

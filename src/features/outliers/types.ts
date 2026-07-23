@@ -130,6 +130,8 @@ export interface OutliersTrendsGame {
   /** Optional reference-table assets, currently populated for NCAAF. */
   awayLogoUrl?: string | null;
   homeLogoUrl?: string | null;
+  awayColors?: { primary: string; secondary: string } | null;
+  homeColors?: { primary: string; secondary: string } | null;
   mlbContext?: OutliersTrendsMLBContext | null;
 }
 

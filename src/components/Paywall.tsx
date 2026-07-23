@@ -9,6 +9,7 @@ import { useRevenueCatWeb } from '@/hooks/useRevenueCatWeb';
 import { useSaleMode } from '@/hooks/useSaleMode';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { DEFAULT_AUTHENTICATED_ROUTE } from '@/lib/routes';
 import type { Package } from '@revenuecat/purchases-js';
 import { Marquee } from "@/components/magicui/marquee";
 
@@ -386,7 +387,7 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
     // Set localStorage flag to indicate user bypassed paywall
     localStorage.setItem('wagerproof_paywall_bypassed', 'true');
 
-    navigate('/agents');
+    navigate(DEFAULT_AUTHENTICATED_ROUTE);
   };
 
   const handleJoinWagerProof = async () => {
@@ -440,14 +441,14 @@ const Paywall = forwardRef<PaywallHandle, PaywallProps>(({ onPurchaseRequest, sh
       
       toast({
         title: 'Purchase successful!',
-        description: 'Welcome to WagerProof Pro! Redirecting to homepage...',
+        description: "Welcome to WagerProof Pro! Opening Today's Outliers...",
       });
       
       debug.log('Purchase completed successfully');
       
       // Redirect to homepage after successful purchase
       setTimeout(() => {
-        navigate('/agents');
+        navigate(DEFAULT_AUTHENTICATED_ROUTE);
       }, 1500);
     } catch (error: any) {
       debug.error('Purchase error:', error);

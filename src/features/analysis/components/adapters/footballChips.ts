@@ -1,6 +1,6 @@
 /**
- * Shared active-chip builders for the NFL/CFB Lines & odds group + the Systems tail
- * (Last game → Opponent Record). Each returns { label, patch } where `patch` is the snapshot
+ * Shared active-chip builders for the NFL/CFB Lines & Odds group + the Systems tail
+ * (Team Form → Opponent). Each returns { label, patch } where `patch` is the snapshot
  * merge that clears that dimension. Transcribed 1:1 from the retired pages' `chips` memo.
  */
 import type { FootballShared, FootballBounds } from '../FootballRailShared';
@@ -25,7 +25,7 @@ function mlChip(
   return { label: lbl, patch };
 }
 
-/** Lines & odds chips (spreads, totals, moneylines). */
+/** Lines & Odds chips (spreads, totals, moneylines). */
 export function footballLineChips(s: FootballShared, b: FootballBounds): ActiveChip[] {
   const c: ActiveChip[] = [];
   const spreadChip = (

@@ -131,7 +131,7 @@ async function fetchCFBSlateGames(): Promise<OutliersTrendsGame[]> {
   // and iOS CFBTeamAssets cache.
   const { data: teamRows } = await collegeFootballSupabase
     .from('cfb_teams')
-    .select('team_name,abbr,logo,logo_dark');
+    .select('team_name,abbr,logo,logo_dark,color,alt_color');
   const normalizeTeam = (value: unknown) => String(value ?? '')
     .trim()
     .toLowerCase()
@@ -155,6 +155,14 @@ async function fetchCFBSlateGames(): Promise<OutliersTrendsGame[]> {
       homeTeam: home,
       awayLogoUrl: toStr(awayRef?.logo) ?? toStr(awayRef?.logo_dark),
       homeLogoUrl: toStr(homeRef?.logo) ?? toStr(homeRef?.logo_dark),
+      awayColors: {
+        primary: toStr(awayRef?.color) ?? '#6B7280',
+        secondary: toStr(awayRef?.alt_color) ?? '#9CA3AF',
+      },
+      homeColors: {
+        primary: toStr(homeRef?.color) ?? '#6B7280',
+        secondary: toStr(homeRef?.alt_color) ?? '#9CA3AF',
+      },
       fgSpreadClose: toNum(row.fg_spread_close),
       fgTotalClose: toNum(row.fg_total_close),
       kickoff: toStr(row.kickoff),

@@ -1,5 +1,5 @@
 /**
- * Shared p_filters emission for the NFL/CFB Lines & odds, Last game, and Systems (as-of) blocks.
+ * Shared p_filters emission for the NFL/CFB Lines & Odds, Last game, and Systems (as-of) blocks.
  * Transcribed verbatim from both pages' `buildFilters` — the blocks were byte-identical apart from
  * the market-line config + margin bounds, which are passed in.
  */

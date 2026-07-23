@@ -36,9 +36,18 @@ describe('NFL toRpcFilters', () => {
     expect(nflAdapter.toRpcFilters(nflAdapter.reset('h1_spread'))).toEqual({ season_min: 2023 });
   });
 
-  it('gates fav_dog to team_total only', () => {
+  it('gates fav_dog to ML markets + team_total (parity with iOS + CFB)', () => {
     expect(nflAdapter.toRpcFilters({ ...nflAdapter.reset('fg_spread'), favDog: 'favorite' }).fav_dog).toBeUndefined();
+    expect(nflAdapter.toRpcFilters({ ...nflAdapter.reset('fg_ml'), favDog: 'favorite' }).fav_dog).toBe('favorite');
+    expect(nflAdapter.toRpcFilters({ ...nflAdapter.reset('h1_ml'), favDog: 'favorite' }).fav_dog).toBe('favorite');
     expect(nflAdapter.toRpcFilters({ ...nflAdapter.reset('team_total'), favDog: 'favorite' }).fav_dog).toBe('favorite');
+  });
+
+  it('skips side on game totals (parity with iOS + CFB)', () => {
+    expect(nflAdapter.toRpcFilters({ ...nflAdapter.reset('fg_total'), side: 'home' }).side).toBeUndefined();
+    expect(nflAdapter.toRpcFilters({ ...nflAdapter.reset('h1_total'), side: 'home' }).side).toBeUndefined();
+    // team totals are per-team — side still applies there
+    expect(nflAdapter.toRpcFilters({ ...nflAdapter.reset('team_total'), side: 'home' }).side).toBe('home');
   });
 });
 
@@ -76,9 +85,14 @@ describe('MLB toRpcFilters', () => {
   });
 
   it('sends day_of_week as an ARRAY (the scalar-vs-array regression guard)', () => {
-    const f = mlbAdapter.toRpcFilters({ ...mlbAdapter.reset('ml'), dayOfWeek: 'Fri' });
+    const f = mlbAdapter.toRpcFilters({ ...mlbAdapter.reset('ml'), daysOfWeek: ['Fri'] });
     expect(Array.isArray(f.day_of_week)).toBe(true);
     expect(f.day_of_week).toEqual(['Fri']);
+  });
+
+  it('sends the FULL multi-day selection, not just the first entry', () => {
+    const f = mlbAdapter.toRpcFilters({ ...mlbAdapter.reset('ml'), daysOfWeek: ['Fri', 'Sat', 'Sun'] });
+    expect(f.day_of_week).toEqual(['Fri', 'Sat', 'Sun']);
   });
 
   it('uses totalBounds over the slider when set', () => {

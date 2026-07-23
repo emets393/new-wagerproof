@@ -71,6 +71,12 @@ under the panel header for one-tap clearing. The panel header's **Minimize all**
 on mount), so one click closes every open section. The panel's own scrollbar is hidden (matching
 the app-wide treatment) while still scrolling.
 
+Group taxonomy matches the native iOS filter sheet, identical across sports (a sport only renders
+the groups whose filters exist for it): Teams → Side & Role → Lines & Odds → Schedule → Game →
+Weather & Venue → Team Form → Last Game → Head-to-Head → Opponent → Pitching (MLB only) →
+Coach & Referee (NFL only). Team Form merges season record + cover/RL profile + total profile +
+prior year; Opponent merges opponent record + opponent last game (muted `SubHeading`s inside).
+
 **Keep `adapter.groupFields` in sync when adding/removing controls in a rail group** — titles are
 the lookup keys; the shared football groups live in `FOOTBALL_SHARED_GROUP_FIELDS`
 (`FootballRailShared.tsx`).

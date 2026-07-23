@@ -89,12 +89,58 @@ struct PixelSpriteAvatar: View {
     }
 }
 
+/// Shared rounded-square identity tile for agent surfaces. This is the visual
+/// treatment established by My Agents: elevated base, brand gradient, crisp
+/// pixel-office sprite, inset border, and a soft color-matched halo.
+struct AgentPixelAvatarTile: View {
+    let spriteIndex: Int
+    let avatarColor: String
+    var size: CGFloat = 52
+    var cornerRadius: CGFloat = 14
+    var animated: Bool = true
+
+    private var primary: Color {
+        AgentColorPalette.primary(for: avatarColor)
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        ZStack {
+            shape
+                .fill(Color.appSurfaceElevated)
+                .overlay {
+                    shape
+                        .fill(
+                            LinearGradient(
+                                colors: AgentColorPalette.avatarGradient(for: avatarColor),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .opacity(0.85)
+                }
+                .overlay {
+                    shape.strokeBorder(Color.appSurfaceElevated, lineWidth: 1.5)
+                }
+
+            PixelSpriteAvatar(spriteIndex: spriteIndex, animated: animated)
+                .padding(3)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: primary.opacity(0.32), radius: 6)
+        .shadow(color: primary.opacity(0.18), radius: 10, y: 2)
+    }
+}
+
 #Preview {
     HStack(spacing: 12) {
         ForEach(0..<8, id: \.self) { i in
-            PixelSpriteAvatar(spriteIndex: i)
-                .frame(width: 48, height: 48)
-                .background(Color.appSurfaceMuted, in: RoundedRectangle(cornerRadius: 12))
+            AgentPixelAvatarTile(
+                spriteIndex: i,
+                avatarColor: "#6366f1",
+                size: 48,
+                cornerRadius: 12
+            )
         }
     }
     .padding()

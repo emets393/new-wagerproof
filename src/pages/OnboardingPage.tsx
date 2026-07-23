@@ -25,6 +25,7 @@ import { useRef, useState, useEffect } from "react";
 import type { PaywallHandle } from "@/components/Paywall";
 import debug from "@/utils/debug";
 import { useNavigate } from "react-router-dom";
+import { DEFAULT_AUTHENTICATED_ROUTE } from "@/lib/routes";
 
 const stepComponents = {
   1: PersonalizationIntro,
@@ -67,7 +68,7 @@ function OnboardingContent() {
     // Set localStorage flag to indicate user bypassed paywall
     localStorage.setItem('wagerproof_paywall_bypassed', 'true');
 
-    navigate('/agents');
+    navigate(DEFAULT_AUTHENTICATED_ROUTE);
   };
 
   // Mark onboarding as complete when user reaches the paywall step

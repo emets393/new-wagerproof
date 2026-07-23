@@ -1,6 +1,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofModels
+import WagerproofServices
 import WagerproofStores
 
 /// Sort orders for the My Agents list, surfaced by the liquid-glass sort pill
@@ -111,6 +112,9 @@ struct AgentsView: View {
     @State private var pendingDeleteId: String?
     @State private var pendingLongPressAgent: AgentWithPerformance?
     @State private var navPath = NavigationPath()
+    @State private var showFollowingSheet = false
+    @State private var copySourceAgent: Agent?
+    @State private var followingActionError: String?
     /// Sort order for the agent list (driven by the bar's filter menu).
     @State private var sortOption: AgentSortOption = .winRate
     /// Bumped on appear (incl. pop-back from a detail page) so the unread-picks
@@ -254,6 +258,32 @@ struct AgentsView: View {
                     Button("Cancel", role: .cancel) { pendingDeleteId = nil }
                 } message: { name in
                     Text("“\(name)” and its picks will be permanently removed. This can't be undone.")
+                }
+                .sheet(isPresented: $showFollowingSheet) {
+                    followingListSheet
+                }
+                .fullScreenCover(item: $copySourceAgent) { source in
+                    AgentBuilderView(
+                        initialDraft: .copying(fromPublicAgent: source),
+                        copySourceAgent: source,
+                        startAtStartingPoint: true,
+                        onCreated: { created in
+                            copySourceAgent = nil
+                            Task { await store.refresh() }
+                            navPath.append(AgentsRoute.agentDetail(agentId: created.id))
+                        }
+                    )
+                }
+                .alert(
+                    "Couldn't complete action",
+                    isPresented: Binding(
+                        get: { followingActionError != nil },
+                        set: { if !$0 { followingActionError = nil } }
+                    )
+                ) {
+                    Button("OK", role: .cancel) { followingActionError = nil }
+                } message: {
+                    Text(followingActionError ?? "")
                 }
                 // 8-active cap reached when trying to activate another agent.
                 .alert("Active limit reached", isPresented: $activeCapAlert) {
@@ -501,7 +531,7 @@ struct AgentsView: View {
                 }
 
                 sortRow
-                    .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 0, trailing: 12))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
 
@@ -573,10 +603,17 @@ struct AgentsView: View {
     /// read-only `PublicAgentDetailView` (never treated as owned; no
     /// Generate/autopilot controls render there for non-owners).
     private var followingRail: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Following")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Color.appTextSecondary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                agentsSectionHeader(title: "Following", systemImage: "person.2.fill")
+                Button("See All") {
+                    showFollowingSheet = true
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.appPrimary)
+                .buttonStyle(.plain)
+                .accessibilityLabel("See all followed agents")
+            }
                 .padding(.horizontal, 12)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -586,18 +623,21 @@ struct AgentsView: View {
                             navPath.append(AgentsRoute.publicAgentDetail(agentId: followed.avatarId))
                         } label: {
                             VStack(spacing: 6) {
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: AgentColorPalette.avatarGradient(for: followed.avatarColor),
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .frame(width: 52, height: 52)
-                                    Text(followed.avatarEmoji)
-                                        .font(.system(size: 24))
+                                AgentPixelAvatarTile(
+                                    spriteIndex: AgentSpriteIndex.forSeed(followed.avatarId),
+                                    avatarColor: followed.avatarColor
+                                )
+                                .overlay(alignment: .topTrailing) {
+                                    if hasUnreadPicks(followed) {
+                                        unreadPicksDot
+                                    }
+                                }
+                                .overlay(alignment: .leading) {
+                                    if let streak = followed.performance?.currentStreak,
+                                       abs(streak) >= 5 {
+                                        streakBadge(streak)
+                                            .offset(x: -10)
+                                    }
                                 }
                                 Text(followed.name)
                                     .font(.system(size: 11, weight: .semibold))
@@ -610,9 +650,125 @@ struct AgentsView: View {
                     }
                 }
                 .padding(.horizontal, 12)
+                // The unread badge overlaps the avatar's top edge by 4pt.
+                // Keep that overlap inside the horizontal scroll view's bounds
+                // so SwiftUI does not clip the green dot.
+                .padding(.top, 5)
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private var followingListSheet: some View {
+        NavigationStack {
+            List {
+                ForEach(followedAgentsStore.follows) { followed in
+                    AgentRowCard(
+                        agent: followed.agentWithPerformance,
+                        hasUnreadPicks: hasUnreadPicks(followed),
+                        onTap: { openFollowedAgent(followed.avatarId) }
+                    )
+                    .listRowInsets(EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        Button {
+                            copyFollowedAgent(followed.avatarId)
+                        } label: {
+                            Label("Copy", systemImage: "doc.on.doc")
+                        }
+                        .tint(Color(hex: 0x6366F1))
+
+                        Button {
+                            openFollowedAgent(followed.avatarId)
+                        } label: {
+                            Label("Details", systemImage: "info.circle")
+                        }
+                        .tint(Color(hex: 0x0EA5E9))
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            unfollowAgent(followed.avatarId)
+                        } label: {
+                            Label("Unfollow", systemImage: "person.badge.minus")
+                        }
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .listRowSpacing(2)
+            .scrollContentBackground(.hidden)
+            .background(Color.appSurface)
+            .navigationTitle("Following")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showFollowingSheet = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .preferredColorScheme(.dark)
+    }
+
+    private func openFollowedAgent(_ agentId: String) {
+        showFollowingSheet = false
+        Task {
+            try? await Task.sleep(for: .milliseconds(250))
+            navPath.append(AgentsRoute.publicAgentDetail(agentId: agentId))
+        }
+    }
+
+    private func unfollowAgent(_ agentId: String) {
+        guard let userId = currentUserId else {
+            followingActionError = "Sign in to unfollow agents."
+            return
+        }
+        Task {
+            do {
+                try await AgentChatService.setFollow(
+                    userId: userId,
+                    agentId: agentId,
+                    follow: false
+                )
+                await followedAgentsStore.refresh()
+                if followedAgentsStore.follows.isEmpty {
+                    showFollowingSheet = false
+                }
+            } catch {
+                followingActionError = (error as NSError).localizedDescription
+            }
+        }
+    }
+
+    private func copyFollowedAgent(_ agentId: String) {
+        Task {
+            let detail = AgentDetailStore(agentId: agentId)
+            await detail.refreshSnapshot()
+            guard let source = detail.snapshot?.agent else {
+                followingActionError = "That agent's build couldn't be loaded."
+                return
+            }
+            showFollowingSheet = false
+            try? await Task.sleep(for: .milliseconds(250))
+            copySourceAgent = source
+        }
+    }
+
+    /// Matches the Outliers market-section treatment: compact leading symbol,
+    /// uppercased footnote title, and secondary tint.
+    private func agentsSectionHeader(title: String, systemImage: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .bold))
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .textCase(.uppercase)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Unread-picks dot state for a row. References `unreadRefreshToken` so
@@ -626,30 +782,100 @@ struct AgentsView: View {
         )
     }
 
+    private func hasUnreadPicks(_ followed: FollowedAgentsStore.FollowedAgent) -> Bool {
+        _ = unreadRefreshToken
+        return AgentPicksSeenStore.hasUnread(
+            agentId: followed.avatarId,
+            latestActivity: followed.lastGeneratedAt
+        )
+    }
+
+    private var unreadPicksDot: some View {
+        Circle()
+            .fill(Color(hex: 0x00E676))
+            .frame(width: 11, height: 11)
+            .overlay(Circle().strokeBorder(Color.appSurfaceElevated, lineWidth: 1.5))
+            .offset(x: 4, y: -4)
+            .accessibilityLabel("New picks")
+    }
+
+    private func streakBadge(_ streak: Int) -> some View {
+        HStack(spacing: 2) {
+            Text(streak > 0 ? "🔥" : "🧊")
+                .font(.system(size: 10))
+            Text("\(abs(streak))")
+                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 3)
+        .background(
+            Capsule()
+                .fill(Color.black.opacity(0.82))
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(
+                    streak > 0
+                        ? Color(hex: 0xF97316).opacity(0.8)
+                        : Color(hex: 0x38BDF8).opacity(0.8),
+                    lineWidth: 1
+                )
+        )
+        .shadow(
+            color: streak > 0
+                ? Color(hex: 0xF97316).opacity(0.3)
+                : Color(hex: 0x38BDF8).opacity(0.3),
+            radius: 4
+        )
+        .allowsHitTesting(false)
+        .accessibilityLabel(
+            streak > 0
+                ? "\(streak) pick winning streak"
+                : "\(abs(streak)) pick losing streak"
+        )
+    }
+
     // MARK: - Sort row (active-sort indicator)
 
-    /// Slim row between the office hero and the cards: a read-only indicator of
-    /// the active sort, right-aligned. The sort *control* lives in the bar's
-    /// filter menu; the "Agent HQ — Live" pill moved back into the office hero.
+    /// My Agents section label and its active sort control share one row.
     private var sortRow: some View {
         HStack(spacing: 8) {
+            agentsSectionHeader(
+                title: "My Agents",
+                systemImage: "person.crop.square.filled.and.at.rectangle"
+            )
             Spacer(minLength: 8)
             sortIndicator
         }
         .padding(.bottom, 2)
     }
 
-    /// Non-interactive label showing how the list is currently sorted (the
-    /// control moved to the bar's filter menu). Muted styling, no capsule, so it
-    /// doesn't read as a tappable button.
+    /// Compact tappable sort menu. The current mode remains visible in the row,
+    /// while the menu exposes every My Agents sort option.
     private var sortIndicator: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "arrow.up.arrow.down")
-                .font(.system(size: 10, weight: .bold))
-            Text(sortOption.label)
-                .font(.system(size: 11, weight: .semibold))
+        Menu {
+            Picker("Sort by", selection: $sortOption) {
+                ForEach(AgentSortOption.allCases, id: \.self) { option in
+                    Label(option.label, systemImage: option.icon).tag(option)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.up.arrow.down")
+                    .font(.system(size: 10, weight: .bold))
+                Text(sortOption.label)
+                    .font(.system(size: 11, weight: .semibold))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+            }
+            .foregroundStyle(Color.appTextMuted)
+            .contentShape(Rectangle())
         }
-        .foregroundStyle(Color.appTextMuted)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Sort My Agents")
+        .accessibilityValue(sortOption.label)
     }
 
     /// Day/night resolution mirroring `PixelOffice` so the pill matches the

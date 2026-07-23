@@ -580,9 +580,10 @@ export function normalizeNflSavedFilterSnapshot(
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // MLB — canonical Systems snapshot. The live MLBAnalytics page still uses a looser inline shape
-// (single dayOfWeek, min/max strings, OptRange|null, pitcher {id,name} objects); this normalizer
-// reads BOTH that legacy shape and the canonical one, so saved filters and chat patches converge
-// on one contract. The page gets aligned to the canonical shape by the Cursor UI pass.
+// (min/max strings, OptRange|null, pitcher {id,name} objects; legacy saves may hold a single
+// `dayOfWeek` string); this normalizer reads that legacy shape, the canonical one, AND the
+// iOS-native flat shape (`seasonMin`/`seasonMax`… pairs + string `dome`), so saved filters and
+// chat patches converge on one contract regardless of which platform wrote them.
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
 export interface MlbFilterSnapshot {
@@ -661,6 +662,13 @@ function pitcherNames(v: unknown): string[] {
     .filter((n) => n.length > 0);
 }
 
+/** iOS-native flat pair (`xMin`/`xMax` numbers) → canonical [min, max]; missing sides fall back per-bound. */
+function nativePair(lo: unknown, hi: unknown, def: NumPair): NumPair {
+  const a = typeof lo === 'number' && Number.isFinite(lo) ? lo : def[0];
+  const b = typeof hi === 'number' && Number.isFinite(hi) ? hi : def[1];
+  return [a, b];
+}
+
 /** mlb_analysis_base uses AZ/ATH; saved filters may still store ARI/OAK. */
 function mlbGameLogTeamList(v: unknown): string[] {
   const seen = new Set<string>();
@@ -682,31 +690,44 @@ export function normalizeMlbSavedFilterSnapshot(
   const r = raw ?? {};
   const d = MLB_SNAPSHOT_DEFAULTS;
   const legacyDay = typeof r.dayOfWeek === 'string' && r.dayOfWeek !== 'any' ? [r.dayOfWeek] : [];
+  // iOS-native MLB saves flat xMin/xMax fields (same detection as football's native branch).
+  const native = isNativeSnapshot(r);
   return {
     betType: str(r.betType, rowBetType || 'ml'),
-    seasons: asPair(r.seasons, d.seasons), months: asPair(r.months, d.months),
+    seasons: native ? nativePair(r.seasonMin, r.seasonMax, d.seasons) : asPair(r.seasons, d.seasons),
+    months: native ? nativePair(r.monthMin, r.monthMax, d.months) : asPair(r.months, d.months),
     teams: mlbGameLogTeamList(r.teams), opponents: mlbGameLogTeamList(r.opponents),
     side: str(r.side, 'any'), favDog: str(r.favDog, 'any'),
     mlMin: str(r.mlMin, ''), mlMax: str(r.mlMax, ''),
-    lineRange: r.totalBounds ? pairFromOpt(r.totalBounds, d.lineRange) : asPair(r.lineRange, d.lineRange),
-    f5TotalRange: asPair(r.f5TotalRange, d.f5TotalRange),
+    lineRange: native
+      ? nativePair(r.lineMin, r.lineMax, d.lineRange)
+      : r.totalBounds ? pairFromOpt(r.totalBounds, d.lineRange) : asPair(r.lineRange, d.lineRange),
+    f5TotalRange: native ? nativePair(r.f5TotalMin, r.f5TotalMax, d.f5TotalRange) : asPair(r.f5TotalRange, d.f5TotalRange),
     timeMin: str(r.timeMin, ''), timeMax: str(r.timeMax, ''),
     daysOfWeek: stringList(r.daysOfWeek).length ? stringList(r.daysOfWeek) : legacyDay,
     doubleheader: optionalBool(r.doubleheader),
-    seriesGame: r.seriesGame == null ? d.seriesGame : asPair(r.seriesGame, d.seriesGame),
-    trip: r.trip == null ? d.trip : asPair(r.trip, d.trip),
-    switchGame: optionalBool(r.switchGame), restRange: asPair(r.restRange, d.restRange),
+    seriesGame: native
+      ? nativePair(r.seriesGameMin, r.seriesGameMax, d.seriesGame)
+      : r.seriesGame == null ? d.seriesGame : asPair(r.seriesGame, d.seriesGame),
+    trip: native ? nativePair(r.tripMin, r.tripMax, d.trip) : r.trip == null ? d.trip : asPair(r.trip, d.trip),
+    switchGame: optionalBool(r.switchGame),
+    restRange: native ? nativePair(r.restMin, r.restMax, d.restRange) : asPair(r.restRange, d.restRange),
     division: optionalBool(r.division), interleague: optionalBool(r.interleague),
-    tempRange: asPair(r.tempRange, d.tempRange), windRange: asPair(r.windRange, d.windRange),
-    windDir: str(r.windDir, 'any'), dome: optionalBool(r.dome),
-    pfRuns: r.pfRuns == null ? d.pfRuns : pairFromOpt(r.pfRuns, d.pfRuns),
+    tempRange: native ? nativePair(r.tempMin, r.tempMax, d.tempRange) : asPair(r.tempRange, d.tempRange),
+    windRange: native ? nativePair(r.windMin, r.windMax, d.windRange) : asPair(r.windRange, d.windRange),
+    windDir: str(r.windDir, 'any'),
+    // iOS stores dome as a string enum ("any"|"dome"|"outdoor"); web stores boolean|null.
+    dome: typeof r.dome === 'string' ? (r.dome === 'dome' ? true : r.dome === 'outdoor' ? false : null) : optionalBool(r.dome),
+    pfRuns: native
+      ? nativePair(r.pfRunsMin, r.pfRunsMax, d.pfRuns)
+      : r.pfRuns == null ? d.pfRuns : pairFromOpt(r.pfRuns, d.pfRuns),
     spNames: stringList(r.spNames).length ? stringList(r.spNames) : pitcherNames(r.sp),
     oppSpNames: stringList(r.oppSpNames).length ? stringList(r.oppSpNames) : pitcherNames(r.oppSp),
     spHand: str(r.spHand, 'any'), oppSpHand: str(r.oppSpHand, 'any'),
-    spXfip: r.spXfip == null ? d.spXfip : pairFromOpt(r.spXfip, d.spXfip),
-    oppSpXfip: r.oppSpXfip == null ? d.oppSpXfip : pairFromOpt(r.oppSpXfip, d.oppSpXfip),
-    bpIp: r.bpIp == null ? d.bpIp : pairFromOpt(r.bpIp, d.bpIp),
-    bpXfip: r.bpXfip == null ? d.bpXfip : pairFromOpt(r.bpXfip, d.bpXfip),
+    spXfip: native ? nativePair(r.spXfipMin, r.spXfipMax, d.spXfip) : r.spXfip == null ? d.spXfip : pairFromOpt(r.spXfip, d.spXfip),
+    oppSpXfip: native ? nativePair(r.oppSpXfipMin, r.oppSpXfipMax, d.oppSpXfip) : r.oppSpXfip == null ? d.oppSpXfip : pairFromOpt(r.oppSpXfip, d.oppSpXfip),
+    bpIp: native ? nativePair(r.bpIpMin, r.bpIpMax, d.bpIp) : r.bpIp == null ? d.bpIp : pairFromOpt(r.bpIp, d.bpIp),
+    bpXfip: native ? nativePair(r.bpXfipMin, r.bpXfipMax, d.bpXfip) : r.bpXfip == null ? d.bpXfip : pairFromOpt(r.bpXfip, d.bpXfip),
     lastResult: str(r.lastResult, 'any'),
     lastAts: str(r.lastAts, 'any'), lastTotal: str(r.lastTotal, 'any'), lastRole: str(r.lastRole, 'any'),
     lastMargin: Array.isArray(r.lastMargin) ? asPair(r.lastMargin, d.lastMargin) : pairFromStrings(r.lastMarginMin, r.lastMarginMax, d.lastMargin),

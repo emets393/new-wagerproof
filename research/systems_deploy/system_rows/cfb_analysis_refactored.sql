@@ -10,7 +10,7 @@ DECLARE
   v jsonb; bars jsonb := '[]'::jsonb; cov jsonb; baseline numeric; overall jsonb;
 BEGIN
   CREATE TEMP TABLE _f ON COMMIT DROP AS
-  SELECT * FROM public.cfb_system_rows(p_bet_type, p_filters);
+  SELECT * FROM public.cfb_system_rows(p_bet_type, p_filters, false);
   DELETE FROM _f WHERE hit IS NULL;
 
   SELECT jsonb_build_object('season_min',min(season),'season_max',max(season),

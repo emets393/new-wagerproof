@@ -12,16 +12,13 @@ import {
   TogglePill,
 } from '@/components/ios';
 import { AgentListCard } from './AgentListCard';
-import { FollowingAgentCard } from './FollowingAgentCard';
+import { FollowingRail } from './FollowingRail';
 import { AgentHQ } from './AgentHQ';
 import { LeaderboardRowCard } from './LeaderboardRowCard';
 import { TopAgentPicksPanel } from './TopAgentPicksPanel';
 import type { TopAgentPicksFilter } from '@/services/agentPicksService';
-import {
-  useFollowedAgentsDetailed,
-  useToggleFollowFavorite,
-  useToggleFollowNotify,
-} from '@/hooks/useFollowedAgents';
+import { useFollowedAgentsDetailed } from '@/hooks/useFollowedAgents';
+import { SectionHeader } from '@/features/outliers/components/SectionHeader';
 import { SPORTS, Sport, AgentWithPerformance } from '@/types/agent';
 import type {
   LeaderboardEntry,
@@ -111,6 +108,7 @@ interface AgentsListPanelProps {
   maxTotalAgents: number | null;
   isAdmin: boolean;
   onCreate: () => void;
+  onCopyFollowed: (agentId: string) => void;
 }
 
 /**
@@ -152,6 +150,7 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
     maxTotalAgents,
     isAdmin,
     onCreate,
+    onCopyFollowed,
   } = props;
 
   const [searchText, setSearchText] = React.useState('');
@@ -159,8 +158,6 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
   const [topPicksFilter, setTopPicksFilter] = React.useState<TopAgentPicksFilter>('top10');
 
   const { data: followedAgents = [] } = useFollowedAgentsDetailed({ enabled: segment === 'mine' });
-  const toggleFollowFavorite = useToggleFollowFavorite();
-  const toggleFollowNotify = useToggleFollowNotify();
 
   const filteredFollowed = React.useMemo(() => {
     let list = [...followedAgents];
@@ -282,23 +279,6 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
               ]}
             />
           )}
-          {segment === 'mine' && (
-            <FilterPill
-              className="ml-auto"
-              icon={<ArrowUpDown />}
-              label="Win %"
-              defaultValue="winRate"
-              value={myAgentsSort}
-              onChange={setMyAgentsSort}
-              options={[
-                { value: 'winRate', label: 'Win %' },
-                { value: 'units', label: 'Units' },
-                { value: 'streak', label: 'Streak' },
-                { value: 'name', label: 'Name' },
-                { value: 'newest', label: 'Newest' },
-              ]}
-            />
-          )}
           {segment === 'leaderboard' && (
             <>
               <FilterPill
@@ -355,6 +335,15 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
           <AgentHQ agents={agents} loading={agentsLoading} onSelectAgent={onSelect} />
         )}
 
+        {segment === 'mine' && filteredFollowed.length > 0 && (
+          <FollowingRail
+            agents={filteredFollowed}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            onCopy={onCopyFollowed}
+          />
+        )}
+
         {/* Entitlement strip (admins have no limits) */}
         {segment === 'mine' && !isAdmin && (
           <div className="flex flex-wrap items-center gap-1.5 px-1 text-[11px] font-semibold text-muted-foreground">
@@ -409,6 +398,21 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
             </GlassCard>
           ) : (
             <>
+              <SectionHeader
+                title="My Agents"
+                icon={<Users />}
+                selector={{
+                  value: myAgentsSort,
+                  options: [
+                    { value: 'winRate', label: 'Win %' },
+                    { value: 'units', label: 'Units' },
+                    { value: 'streak', label: 'Streak' },
+                    { value: 'name', label: 'Name' },
+                    { value: 'newest', label: 'Newest' },
+                  ],
+                  onChange: (value) => setMyAgentsSort(value as MyAgentsSort),
+                }}
+              />
               {filteredAgents.map((agent, index) => (
                 <StaggeredItem key={agent.id} index={index}>
                   <AgentListCard
@@ -424,33 +428,6 @@ export function AgentsListPanel(props: AgentsListPanelProps) {
                 </StaggeredItem>
               ))}
 
-              {/* Followed agents are spectator-only — no generate/run on these cards. */}
-              {filteredFollowed.length > 0 && (
-                <div className="space-y-2.5 pt-2">
-                  <p className="px-1 text-[13px] font-bold text-foreground">Following</p>
-                  {filteredFollowed.map((fa, index) => (
-                    <StaggeredItem key={fa.avatar_id} index={filteredAgents.length + index}>
-                      <FollowingAgentCard
-                        agent={fa}
-                        isSelected={fa.avatar_id === selectedId}
-                        onSelect={onSelect}
-                        onToggleFavorite={() =>
-                          toggleFollowFavorite.mutate({
-                            avatarId: fa.avatar_id,
-                            isFavorite: !fa.is_favorite,
-                          })
-                        }
-                        onToggleNotify={() =>
-                          toggleFollowNotify.mutate({
-                            avatarId: fa.avatar_id,
-                            notify: !fa.notify_on_pick,
-                          })
-                        }
-                      />
-                    </StaggeredItem>
-                  ))}
-                </div>
-              )}
             </>
           )
         ) : segment === 'topPicks' ? (

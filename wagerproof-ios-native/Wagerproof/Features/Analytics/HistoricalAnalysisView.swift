@@ -16,8 +16,8 @@ struct HistoricalAnalysisView: View {
     @State private var breakdownSort = "n"
     @State private var showAllRows = false
     @State private var showSaveSystemSheet = false
-    @State private var showMySystemsSheet = false
-    @State private var showLeaderboardSheet = false
+    @State private var activeSystemsTab: SystemsHubTab?
+    @State private var openMySystemsAfterSave = false
     @State private var showShareSheet = false
     @FocusState private var chatFocused: Bool
     @State private var toast: TrendsChatToast?
@@ -89,25 +89,36 @@ struct HistoricalAnalysisView: View {
             store.loadRecentQueries()
             await store.onAppear(userId: userId)
         }
-        .sheet(isPresented: $showSaveSystemSheet) {
+        .sheet(
+            isPresented: $showSaveSystemSheet,
+            onDismiss: {
+                if openMySystemsAfterSave {
+                    openMySystemsAfterSave = false
+                    activeSystemsTab = .mySystems
+                }
+            }
+        ) {
             if let userId {
                 SaveSystemSheet(store: store, userId: userId) { shared in
                     presentSystemSavedToast(shared: shared)
-                    // Proof of save: open the list immediately so the user sees the row.
-                    showMySystemsSheet = true
+                    // Continue in the shared hub so the new system is visible.
+                    openMySystemsAfterSave = true
                 }
             }
         }
-        .sheet(isPresented: $showMySystemsSheet) {
+        .sheet(item: $activeSystemsTab) { tab in
             if let userId {
-                MySystemsSheet(store: store, userId: userId) { row in
-                    store.restoreSaved(row)
+                SystemsHubSheet(
+                    store: store,
+                    userId: userId,
+                    initialTab: tab,
+                    onApplySaved: { store.restoreSaved($0) },
+                    onApplyLeaderboard: { store.applyLeaderboardSystem($0) }
+                )
+            } else {
+                GuestSystemsLeaderboardSheet(store: store) { row in
+                    store.applyLeaderboardSystem(row)
                 }
-            }
-        }
-        .sheet(isPresented: $showLeaderboardSheet) {
-            SystemsLeaderboardSheet(store: store) { row in
-                store.applyLeaderboardSystem(row)
             }
         }
         .sheet(isPresented: $showShareSheet) {
@@ -140,8 +151,6 @@ struct HistoricalAnalysisView: View {
     @ViewBuilder
     private var scrollableContent: some View {
         VStack(alignment: .leading, spacing: 28) {
-            systemsEntryRow
-
             if let banner = store.viewingSystemBanner {
                 viewingSystemBanner(banner)
             }
@@ -157,59 +166,6 @@ struct HistoricalAnalysisView: View {
                 breakdownLists(data)
             }
             upcomingSection
-        }
-    }
-
-    /// Leaderboard is a public board (often empty); My Systems is the private list.
-    /// Keep both on-screen so users don't mistake an empty leaderboard for "no saves".
-    @ViewBuilder
-    private var systemsEntryRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SystemsLeaderboardBanner {
-                showLeaderboardSheet = true
-            }
-            if userId != nil {
-                HStack(spacing: 10) {
-                    Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        showMySystemsSheet = true
-                    } label: {
-                        Label(
-                            store.savedFilters.isEmpty
-                                ? "My Systems"
-                                : "My Systems (\(store.savedFilters.count))",
-                            systemImage: "bookmark.fill"
-                        )
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.appSurfaceElevated, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.appBorder.opacity(0.45), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        showSaveSystemSheet = true
-                    } label: {
-                        Label("Save", systemImage: "plus.circle.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color.appPrimary.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.appPrimary.opacity(0.35), lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(store.savedFilters.count >= HistoricalAnalysisSavedFiltersService.maxPerUser)
-                }
-                .foregroundStyle(Color.appTextPrimary)
-            }
         }
     }
 
@@ -1115,21 +1071,25 @@ struct HistoricalAnalysisView: View {
 
     @ToolbarContentBuilder
     private var systemsToolbar: some ToolbarContent {
-        if userId != nil {
-            ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            if userId != nil {
                 Button {
-                    showMySystemsSheet = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showSaveSystemSheet = true
                 } label: {
-                    Image(systemName: "bookmark.fill")
+                    Image(systemName: "plus.circle.fill")
                 }
-                .accessibilityLabel(
-                    store.savedFilters.isEmpty
-                        ? "My Systems"
-                        : "My Systems, \(store.savedFilters.count)"
-                )
+                .disabled(store.savedFilters.count >= HistoricalAnalysisSavedFiltersService.maxPerUser)
+                .accessibilityLabel("Save System")
             }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
+
+            Button {
+                activeSystemsTab = .leaderboard
+            } label: {
+                Image(systemName: "trophy.fill")
+            }
+            .accessibilityLabel("Systems Leaderboard")
+
             Menu {
                 if userId != nil {
                     Button {
@@ -1140,7 +1100,7 @@ struct HistoricalAnalysisView: View {
                     .disabled(store.savedFilters.count >= HistoricalAnalysisSavedFiltersService.maxPerUser)
 
                     Button {
-                        showMySystemsSheet = true
+                        activeSystemsTab = .mySystems
                     } label: {
                         Label(
                             store.savedFilters.isEmpty
@@ -1154,7 +1114,7 @@ struct HistoricalAnalysisView: View {
                 }
 
                 Button {
-                    showLeaderboardSheet = true
+                    activeSystemsTab = .leaderboard
                 } label: {
                     Label("Systems Leaderboard", systemImage: "trophy")
                 }
@@ -1170,6 +1130,7 @@ struct HistoricalAnalysisView: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
+            .accessibilityLabel("More System Actions")
         }
     }
 }

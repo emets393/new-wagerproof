@@ -19,14 +19,6 @@ export default function WagerBotChat() {
   const hasInitializedRef = useRef(false);
   const userIdRef = useRef<string | null>(null);
 
-  // Clear welcome flag if present
-  useEffect(() => {
-    const showWelcome = localStorage.getItem('wagerproof_show_welcome');
-    if (showWelcome === 'true') {
-      localStorage.removeItem('wagerproof_show_welcome');
-    }
-  }, []);
-
   // Track WagerBot opened on mount
   useEffect(() => {
     trackWagerBotOpened();

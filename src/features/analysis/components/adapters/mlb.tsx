@@ -15,7 +15,8 @@ import {
   MLB_SNAPSHOT_DEFAULTS,
 } from '@/features/analysis/normalizeSavedFilterSnapshot';
 import { TeamMultiSelect, type TeamOption } from '@/features/analysis/TeamMultiSelect';
-import { RangeRow, ScalarRow, SelectRow, TriRow, NumPairRow, BandChips, FilterGroup } from '../FilterControls';
+import { RangeRow, ScalarRow, SelectRow, TriRow, NumPairRow, BandChips, FilterGroup, MultiToggle } from '../FilterControls';
+import { SubHeading } from '../FootballRailShared';
 import type {
   AdapterData,
   AnalysisResponse,
@@ -48,7 +49,7 @@ export interface MlbPageSnapshot {
   totalBounds: OptRange | null;
   timeMin: string;
   timeMax: string;
-  dayOfWeek: string;
+  daysOfWeek: string[];
   doubleheader: boolean | null;
   seriesGame: [number, number] | null;
   trip: [number, number] | null;
@@ -252,7 +253,7 @@ function reset(betType: string): S {
     totalBounds: null,
     timeMin: '',
     timeMax: '',
-    dayOfWeek: 'any',
+    daysOfWeek: [],
     doubleheader: null,
     seriesGame: null,
     trip: null,
@@ -344,7 +345,8 @@ function normalizeMlbPage(raw: Record<string, unknown>, rowBetType?: string): S 
         : null,
     timeMin: s.timeMin,
     timeMax: s.timeMax,
-    dayOfWeek: s.daysOfWeek.length ? s.daysOfWeek[0] : typeof raw.dayOfWeek === 'string' ? raw.dayOfWeek : 'any',
+    // Full multi-day restore — the canonical normalizer already folds legacy single `dayOfWeek` in.
+    daysOfWeek: s.daysOfWeek,
     doubleheader: s.doubleheader,
     seriesGame: narrowed(s.seriesGame, def.seriesGame),
     trip: narrowed(s.trip, def.trip),
@@ -443,7 +445,7 @@ function toRpcFilters(s: S): Record<string, unknown> {
   if (s.timeMin) f.time_min = s.timeMin;
   if (s.timeMax) f.time_max = s.timeMax;
   // RPC does jsonb_array_elements on day_of_week — a scalar string errors the whole query.
-  if (s.dayOfWeek !== 'any') f.day_of_week = [s.dayOfWeek];
+  if (s.daysOfWeek.length) f.day_of_week = s.daysOfWeek;
   if (s.doubleheader !== null) f.doubleheader = s.doubleheader;
   if (s.seriesGame) {
     f.series_game_min = s.seriesGame[0];
@@ -659,18 +661,17 @@ function RailSections({
   const teamOptions: TeamOption[] = React.useContext(MlbTeamOptionsCtx);
   return (
     <>
-      <FilterGroup title="Scope" defaultOpen>
-        <RangeRow label={`Seasons: ${s.seasons[0]}–${s.seasons[1]}`} min={SEASON_FLOOR} max={SEASON_MAX} step={1} value={s.seasons} onChange={(v) => update({ seasons: v })} />
-        <RangeRow label={`Months: ${s.months[0]}–${s.months[1]}`} min={3} max={11} step={1} value={s.months} onChange={(v) => update({ months: v })} />
+      <FilterGroup title="Teams" defaultOpen>
         <TeamMultiSelect label="Team" options={teamOptions} value={s.teams} onChange={(v) => update({ teams: v })} />
         <TeamMultiSelect label="Opponent" options={teamOptions} value={s.opponents} onChange={(v) => update({ opponents: v })} emptyLabel="Any opponent" />
-        <TriRow label="Divisional" value={s.division} onChange={(v) => update({ division: v })} />
-        <TriRow label="Interleague" value={s.interleague} onChange={(v) => update({ interleague: v })} />
       </FilterGroup>
 
-      <FilterGroup title="Price & Line" defaultOpen>
+      <FilterGroup title="Side & Role">
         <SelectRow label="Side" value={s.side} onChange={(v) => update({ side: v })} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
         <SelectRow label="Favorite / Underdog" value={s.favDog} onChange={(v) => update({ favDog: v })} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
+      </FilterGroup>
+
+      <FilterGroup title="Lines & Odds" defaultOpen>
         <div>
           <div className="mb-1 text-xs text-muted-foreground">Moneyline odds (American)</div>
           <div className="mb-2">
@@ -700,7 +701,10 @@ function RailSections({
         <RangeRow label={`F5 total: ${s.f5TotalRange[0]}–${s.f5TotalRange[1]}`} min={2} max={8} step={0.5} value={s.f5TotalRange} onChange={(v) => update({ f5TotalRange: v })} />
       </FilterGroup>
 
-      <FilterGroup title="Game Time (ET)">
+      <FilterGroup title="Schedule">
+        <RangeRow label={`Seasons: ${s.seasons[0]}–${s.seasons[1]}`} min={SEASON_FLOOR} max={SEASON_MAX} step={1} value={s.seasons} onChange={(v) => update({ seasons: v })} />
+        <RangeRow label={`Months: ${s.months[0]}–${s.months[1]}`} min={3} max={11} step={1} value={s.months} onChange={(v) => update({ months: v })} />
+        <div className="mb-1 text-xs text-muted-foreground">Start time (ET)</div>
         <div className="flex flex-wrap gap-1">
           {TIME_CHIPS.map((chip) => (
             <Badge
@@ -723,11 +727,9 @@ function RailSections({
             <Input type="time" value={s.timeMax} onChange={(e) => update({ timeMax: e.target.value })} className="h-9 rounded-xl" />
           </div>
         )}
-        <SelectRow label="Day of week" value={s.dayOfWeek} onChange={(v) => update({ dayOfWeek: v })} options={[['any', 'Any day'], ...DAYS.map((d) => [d, d] as [string, string])]} />
+        <MultiToggle label="Days of week" options={DAYS} value={s.daysOfWeek} onChange={(v) => update({ daysOfWeek: v })} />
         <TriRow label="Doubleheader" value={s.doubleheader} onChange={(v) => update({ doubleheader: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Schedule Situation">
+        <RangeRow label={`Days rest: ${s.restRange[0]}–${s.restRange[1]}`} min={0} max={10} step={1} value={s.restRange} onChange={(v) => update({ restRange: v })} />
         <div>
           <div className="mb-1 text-xs text-muted-foreground">Series game</div>
           <div className="flex flex-wrap gap-1">
@@ -759,8 +761,35 @@ function RailSections({
             ))}
           </div>
         </div>
+      </FilterGroup>
+
+      <FilterGroup title="Game">
+        <TriRow label="Divisional" value={s.division} onChange={(v) => update({ division: v })} />
+        <TriRow label="Interleague" value={s.interleague} onChange={(v) => update({ interleague: v })} />
         <TriRow label="Switch game (home↔away flip)" value={s.switchGame} onChange={(v) => update({ switchGame: v })} />
-        <RangeRow label={`Days rest: ${s.restRange[0]}–${s.restRange[1]}`} min={0} max={10} step={1} value={s.restRange} onChange={(v) => update({ restRange: v })} />
+      </FilterGroup>
+
+      <FilterGroup title="Weather & Venue">
+        <RangeRow label={`Temp: ${s.tempRange[0]}–${s.tempRange[1]}°F`} min={30} max={110} step={1} value={s.tempRange} onChange={(v) => update({ tempRange: v })} />
+        <RangeRow label={`Wind: ${s.windRange[0]}–${s.windRange[1]} mph`} min={0} max={40} step={1} value={s.windRange} onChange={(v) => update({ windRange: v })} />
+        <SelectRow label="Wind direction" value={s.windDir} onChange={(v) => update({ windDir: v })} options={[['any', 'Any'], ['out', 'Out'], ['in', 'In'], ['cross', 'Cross'], ['none', 'None']]} />
+        <TriRow label="Dome" value={s.dome} onChange={(v) => update({ dome: v })} />
+        <div>
+          <div className="mb-1 text-xs text-muted-foreground">Park run factor (100 = neutral)</div>
+          <BandChips
+            bands={PF_PRESETS}
+            active={(b) => s.pfRuns?.min === b.min && s.pfRuns?.max === b.max}
+            onPick={(b) => update({ pfRuns: { ...(b.min != null ? { min: b.min } : {}), ...(b.max != null ? { max: b.max } : {}) } })}
+            onClear={s.pfRuns ? () => update({ pfRuns: null }) : undefined}
+          />
+        </div>
+      </FilterGroup>
+
+      <FilterGroup title="Team Form">
+        <SubHeading>Season record</SubHeading>
+        <RangeRow label={`Win%: ${s.winPct[0]}–${s.winPct[1]}%`} min={0} max={100} step={1} value={s.winPct} onChange={(v) => update({ winPct: v })} />
+        <RangeRow label={`Win streak: ${s.winStreak[0]}–${s.winStreak[1]}`} min={0} max={25} step={1} value={s.winStreak} onChange={(v) => update({ winStreak: v })} />
+        <RangeRow label={`Loss streak: ${s.lossStreak[0]}–${s.lossStreak[1]}`} min={0} max={25} step={1} value={s.lossStreak} onChange={(v) => update({ lossStreak: v })} />
         <NumPairRow
           label="W/L streak entering (pos = wins, neg = losses)"
           min={s.streakMin}
@@ -772,6 +801,23 @@ function RailSections({
             { label: '3+ win streak', min: '3', max: '' },
           ]}
         />
+        <RangeRow label={`Runs/game: ${s.rpg[0]}–${s.rpg[1]}`} min={0} max={10} step={0.1} value={s.rpg} onChange={(v) => update({ rpg: v })} />
+        <RangeRow label={`Runs allowed/game: ${s.rapg[0]}–${s.rapg[1]}`} min={0} max={10} step={0.1} value={s.rapg} onChange={(v) => update({ rapg: v })} />
+        <RangeRow label={`Run diff/game: ${s.runDiffPg[0]}–${s.runDiffPg[1]}`} min={-4} max={4} step={0.1} value={s.runDiffPg} onChange={(v) => update({ runDiffPg: v })} />
+        <ScalarRow label={`Min games this season: ${s.minGames === 0 ? 'Any' : s.minGames}`} min={0} max={40} step={1} value={s.minGames} onChange={(v) => update({ minGames: v })} />
+        <SubHeading>Run line profile</SubHeading>
+        <RangeRow label={`RL cover%: ${s.rlCoverPct[0]}–${s.rlCoverPct[1]}%`} min={0} max={100} step={1} value={s.rlCoverPct} onChange={(v) => update({ rlCoverPct: v })} />
+        <RangeRow label={`RL cover streak: ${s.rlStreak[0]}–${s.rlStreak[1]}`} min={0} max={25} step={1} value={s.rlStreak} onChange={(v) => update({ rlStreak: v })} />
+        <SubHeading>Total profile</SubHeading>
+        <RangeRow label={`Over%: ${s.overPct[0]}–${s.overPct[1]}%`} min={0} max={100} step={1} value={s.overPct} onChange={(v) => update({ overPct: v })} />
+        <RangeRow label={`Over streak: ${s.overStreak[0]}–${s.overStreak[1]}`} min={0} max={25} step={1} value={s.overStreak} onChange={(v) => update({ overStreak: v })} />
+        <RangeRow label={`Under streak: ${s.underStreak[0]}–${s.underStreak[1]}`} min={0} max={25} step={1} value={s.underStreak} onChange={(v) => update({ underStreak: v })} />
+        <SubHeading>Prior year</SubHeading>
+        <RangeRow label={`Last season wins: ${s.prevWins[0]}–${s.prevWins[1]}`} min={0} max={120} step={1} value={s.prevWins} onChange={(v) => update({ prevWins: v })} />
+        <RangeRow label={`Last season win%: ${s.prevWinPct[0]}–${s.prevWinPct[1]}%`} min={0} max={100} step={1} value={s.prevWinPct} onChange={(v) => update({ prevWinPct: v })} />
+      </FilterGroup>
+
+      <FilterGroup title="Last Game">
         <SelectRow label="Last result" value={s.lastResult} onChange={(v) => update({ lastResult: v })} options={[['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']]} />
         <SelectRow label="Last game run line" value={s.lastAts} onChange={(v) => update({ lastAts: v })} options={[['any', 'Any'], ['covered', 'Covered'], ['not', "Didn't cover"]]} />
         <SelectRow label="Last game total" value={s.lastTotal} onChange={(v) => update({ lastTotal: v })} options={[['any', 'Any'], ['over', 'Over'], ['under', 'Under']]} />
@@ -792,7 +838,27 @@ function RailSections({
         />
       </FilterGroup>
 
-      <FilterGroup title="Opponent last game">
+      <FilterGroup title="Head-to-Head">
+        <SelectRow label="Won last meeting" value={s.h2hLastWin} onChange={(v) => update({ h2hLastWin: v })} options={[['any', 'Any'], ['yes', 'Won'], ['no', 'Lost']]} />
+        <SelectRow label="Covered RL last meeting" value={s.h2hLastAts} onChange={(v) => update({ h2hLastAts: v })} options={[['any', 'Any'], ['yes', 'Covered'], ['no', "Didn't cover"]]} />
+        <SelectRow label="Last meeting total" value={s.h2hLastOver} onChange={(v) => update({ h2hLastOver: v })} options={[['any', 'Any'], ['yes', 'Over'], ['no', 'Under']]} />
+        <RangeRow label={`Last meeting margin: ${s.h2hLastMargin[0]} to ${s.h2hLastMargin[1]} runs`} min={-30} max={30} step={1} value={s.h2hLastMargin} onChange={(v) => update({ h2hLastMargin: v })} />
+        <TriRow label="Was home last meeting" value={s.h2hLastHome} onChange={(v) => update({ h2hLastHome: v })} />
+        <TriRow label="Was favorite last meeting" value={s.h2hLastFav} onChange={(v) => update({ h2hLastFav: v })} />
+        <TriRow label="Same season as last meeting" value={s.h2hSameSeason} onChange={(v) => update({ h2hSameSeason: v })} />
+      </FilterGroup>
+
+      <FilterGroup title="Opponent">
+        <SubHeading>Opponent record</SubHeading>
+        <RangeRow label={`Opp win%: ${s.oppWinPct[0]}–${s.oppWinPct[1]}%`} min={0} max={100} step={1} value={s.oppWinPct} onChange={(v) => update({ oppWinPct: v })} />
+        <RangeRow label={`Opp over%: ${s.oppOverPct[0]}–${s.oppOverPct[1]}%`} min={0} max={100} step={1} value={s.oppOverPct} onChange={(v) => update({ oppOverPct: v })} />
+        <RangeRow label={`Opp RL cover%: ${s.oppRlCoverPct[0]}–${s.oppRlCoverPct[1]}%`} min={0} max={100} step={1} value={s.oppRlCoverPct} onChange={(v) => update({ oppRlCoverPct: v })} />
+        <RangeRow label={`Opp win streak: ${s.oppWinStreak[0]}–${s.oppWinStreak[1]}`} min={0} max={25} step={1} value={s.oppWinStreak} onChange={(v) => update({ oppWinStreak: v })} />
+        <RangeRow label={`Opp loss streak: ${s.oppLossStreak[0]}–${s.oppLossStreak[1]}`} min={0} max={25} step={1} value={s.oppLossStreak} onChange={(v) => update({ oppLossStreak: v })} />
+        <RangeRow label={`Opp runs/game: ${s.oppRpg[0]}–${s.oppRpg[1]}`} min={0} max={10} step={0.1} value={s.oppRpg} onChange={(v) => update({ oppRpg: v })} />
+        <RangeRow label={`Opp runs allowed/game: ${s.oppRapg[0]}–${s.oppRapg[1]}`} min={0} max={10} step={0.1} value={s.oppRapg} onChange={(v) => update({ oppRapg: v })} />
+        <RangeRow label={`Opp last-season win%: ${s.oppPrevWinPct[0]}–${s.oppPrevWinPct[1]}%`} min={0} max={100} step={1} value={s.oppPrevWinPct} onChange={(v) => update({ oppPrevWinPct: v })} />
+        <SubHeading>Opponent last game</SubHeading>
         <SelectRow label="Result" value={s.oppLastResult} onChange={(v) => update({ oppLastResult: v })} options={[['any', 'Any'], ['won', 'Won'], ['lost', 'Lost']]} />
         <SelectRow label="Run line" value={s.oppLastAts} onChange={(v) => update({ oppLastAts: v })} options={[['any', 'Any'], ['covered', 'Covered'], ['not', "Didn't cover"]]} />
         <SelectRow label="Total" value={s.oppLastTotal} onChange={(v) => update({ oppLastTotal: v })} options={[['any', 'Any'], ['over', 'Over'], ['under', 'Under']]} />
@@ -800,7 +866,7 @@ function RailSections({
         <RangeRow label={`Opponent last game margin: ${s.oppLastMargin[0]} to ${s.oppLastMargin[1]} runs (+ = won by, − = lost by)`} min={-30} max={30} step={1} value={s.oppLastMargin} onChange={(v) => update({ oppLastMargin: v })} />
       </FilterGroup>
 
-      <FilterGroup title="Pitching Matchup">
+      <FilterGroup title="Pitching">
         <PitcherTypeahead label="Team starter (SP)" selected={s.sp} onChange={(v) => update({ sp: v })} />
         <PitcherTypeahead label="Opposing starter" selected={s.oppSp} onChange={(v) => update({ oppSp: v })} />
         <SelectRow label="SP hand" value={s.spHand} onChange={(v) => update({ spHand: v })} options={[['any', 'Any'], ['L', 'Left'], ['R', 'Right']]} />
@@ -823,9 +889,7 @@ function RailSections({
             onClear={s.oppSpXfip ? () => update({ oppSpXfip: null }) : undefined}
           />
         </div>
-      </FilterGroup>
-
-      <FilterGroup title="Bullpen (opponent)">
+        <SubHeading>Bullpen (opponent)</SubHeading>
         <div>
           <div className="mb-1 text-xs text-muted-foreground">Opp BP IP last 3 days</div>
           <BandChips
@@ -844,69 +908,6 @@ function RailSections({
             onClear={s.bpXfip ? () => update({ bpXfip: null }) : undefined}
           />
         </div>
-      </FilterGroup>
-
-      <FilterGroup title="Environment">
-        <RangeRow label={`Temp: ${s.tempRange[0]}–${s.tempRange[1]}°F`} min={30} max={110} step={1} value={s.tempRange} onChange={(v) => update({ tempRange: v })} />
-        <RangeRow label={`Wind: ${s.windRange[0]}–${s.windRange[1]} mph`} min={0} max={40} step={1} value={s.windRange} onChange={(v) => update({ windRange: v })} />
-        <SelectRow label="Wind direction" value={s.windDir} onChange={(v) => update({ windDir: v })} options={[['any', 'Any'], ['out', 'Out'], ['in', 'In'], ['cross', 'Cross'], ['none', 'None']]} />
-        <TriRow label="Dome" value={s.dome} onChange={(v) => update({ dome: v })} />
-        <div>
-          <div className="mb-1 text-xs text-muted-foreground">Park run factor (100 = neutral)</div>
-          <BandChips
-            bands={PF_PRESETS}
-            active={(b) => s.pfRuns?.min === b.min && s.pfRuns?.max === b.max}
-            onPick={(b) => update({ pfRuns: { ...(b.min != null ? { min: b.min } : {}), ...(b.max != null ? { max: b.max } : {}) } })}
-            onClear={s.pfRuns ? () => update({ pfRuns: null }) : undefined}
-          />
-        </div>
-      </FilterGroup>
-
-      <FilterGroup title="Season Record">
-        <RangeRow label={`Win%: ${s.winPct[0]}–${s.winPct[1]}%`} min={0} max={100} step={1} value={s.winPct} onChange={(v) => update({ winPct: v })} />
-        <RangeRow label={`Win streak: ${s.winStreak[0]}–${s.winStreak[1]}`} min={0} max={25} step={1} value={s.winStreak} onChange={(v) => update({ winStreak: v })} />
-        <RangeRow label={`Loss streak: ${s.lossStreak[0]}–${s.lossStreak[1]}`} min={0} max={25} step={1} value={s.lossStreak} onChange={(v) => update({ lossStreak: v })} />
-        <RangeRow label={`Runs/game: ${s.rpg[0]}–${s.rpg[1]}`} min={0} max={10} step={0.1} value={s.rpg} onChange={(v) => update({ rpg: v })} />
-        <RangeRow label={`Runs allowed/game: ${s.rapg[0]}–${s.rapg[1]}`} min={0} max={10} step={0.1} value={s.rapg} onChange={(v) => update({ rapg: v })} />
-        <RangeRow label={`Run diff/game: ${s.runDiffPg[0]}–${s.runDiffPg[1]}`} min={-4} max={4} step={0.1} value={s.runDiffPg} onChange={(v) => update({ runDiffPg: v })} />
-        <ScalarRow label={`Min games this season: ${s.minGames === 0 ? 'Any' : s.minGames}`} min={0} max={40} step={1} value={s.minGames} onChange={(v) => update({ minGames: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Run Line Profile">
-        <RangeRow label={`RL cover%: ${s.rlCoverPct[0]}–${s.rlCoverPct[1]}%`} min={0} max={100} step={1} value={s.rlCoverPct} onChange={(v) => update({ rlCoverPct: v })} />
-        <RangeRow label={`RL cover streak: ${s.rlStreak[0]}–${s.rlStreak[1]}`} min={0} max={25} step={1} value={s.rlStreak} onChange={(v) => update({ rlStreak: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Total Profile">
-        <RangeRow label={`Over%: ${s.overPct[0]}–${s.overPct[1]}%`} min={0} max={100} step={1} value={s.overPct} onChange={(v) => update({ overPct: v })} />
-        <RangeRow label={`Over streak: ${s.overStreak[0]}–${s.overStreak[1]}`} min={0} max={25} step={1} value={s.overStreak} onChange={(v) => update({ overStreak: v })} />
-        <RangeRow label={`Under streak: ${s.underStreak[0]}–${s.underStreak[1]}`} min={0} max={25} step={1} value={s.underStreak} onChange={(v) => update({ underStreak: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Prior Year">
-        <RangeRow label={`Last season wins: ${s.prevWins[0]}–${s.prevWins[1]}`} min={0} max={120} step={1} value={s.prevWins} onChange={(v) => update({ prevWins: v })} />
-        <RangeRow label={`Last season win%: ${s.prevWinPct[0]}–${s.prevWinPct[1]}%`} min={0} max={100} step={1} value={s.prevWinPct} onChange={(v) => update({ prevWinPct: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Head-to-Head">
-        <SelectRow label="Won last meeting" value={s.h2hLastWin} onChange={(v) => update({ h2hLastWin: v })} options={[['any', 'Any'], ['yes', 'Won'], ['no', 'Lost']]} />
-        <SelectRow label="Covered RL last meeting" value={s.h2hLastAts} onChange={(v) => update({ h2hLastAts: v })} options={[['any', 'Any'], ['yes', 'Covered'], ['no', "Didn't cover"]]} />
-        <SelectRow label="Last meeting total" value={s.h2hLastOver} onChange={(v) => update({ h2hLastOver: v })} options={[['any', 'Any'], ['yes', 'Over'], ['no', 'Under']]} />
-        <RangeRow label={`Last meeting margin: ${s.h2hLastMargin[0]} to ${s.h2hLastMargin[1]} runs`} min={-30} max={30} step={1} value={s.h2hLastMargin} onChange={(v) => update({ h2hLastMargin: v })} />
-        <TriRow label="Was home last meeting" value={s.h2hLastHome} onChange={(v) => update({ h2hLastHome: v })} />
-        <TriRow label="Was favorite last meeting" value={s.h2hLastFav} onChange={(v) => update({ h2hLastFav: v })} />
-        <TriRow label="Same season as last meeting" value={s.h2hSameSeason} onChange={(v) => update({ h2hSameSeason: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Opponent Record">
-        <RangeRow label={`Opp win%: ${s.oppWinPct[0]}–${s.oppWinPct[1]}%`} min={0} max={100} step={1} value={s.oppWinPct} onChange={(v) => update({ oppWinPct: v })} />
-        <RangeRow label={`Opp over%: ${s.oppOverPct[0]}–${s.oppOverPct[1]}%`} min={0} max={100} step={1} value={s.oppOverPct} onChange={(v) => update({ oppOverPct: v })} />
-        <RangeRow label={`Opp RL cover%: ${s.oppRlCoverPct[0]}–${s.oppRlCoverPct[1]}%`} min={0} max={100} step={1} value={s.oppRlCoverPct} onChange={(v) => update({ oppRlCoverPct: v })} />
-        <RangeRow label={`Opp win streak: ${s.oppWinStreak[0]}–${s.oppWinStreak[1]}`} min={0} max={25} step={1} value={s.oppWinStreak} onChange={(v) => update({ oppWinStreak: v })} />
-        <RangeRow label={`Opp loss streak: ${s.oppLossStreak[0]}–${s.oppLossStreak[1]}`} min={0} max={25} step={1} value={s.oppLossStreak} onChange={(v) => update({ oppLossStreak: v })} />
-        <RangeRow label={`Opp runs/game: ${s.oppRpg[0]}–${s.oppRpg[1]}`} min={0} max={10} step={0.1} value={s.oppRpg} onChange={(v) => update({ oppRpg: v })} />
-        <RangeRow label={`Opp runs allowed/game: ${s.oppRapg[0]}–${s.oppRapg[1]}`} min={0} max={10} step={0.1} value={s.oppRapg} onChange={(v) => update({ oppRapg: v })} />
-        <RangeRow label={`Opp last-season win%: ${s.oppPrevWinPct[0]}–${s.oppPrevWinPct[1]}%`} min={0} max={100} step={1} value={s.oppPrevWinPct} onChange={(v) => update({ oppPrevWinPct: v })} />
       </FilterGroup>
     </>
   );
@@ -1108,7 +1109,7 @@ export const mlbAdapter: TrendsSportAdapter<S> = {
     }
     if (s.f5TotalRange[0] !== 2 || s.f5TotalRange[1] !== 8) c.push({ label: `F5 total ${s.f5TotalRange[0]}–${s.f5TotalRange[1]}`, patch: { f5TotalRange: [2, 8] } });
     if (s.timeMin || s.timeMax) c.push({ label: `Time ${s.timeMin || '…'}–${s.timeMax || '…'}`, patch: { timeMin: '', timeMax: '' } });
-    if (s.dayOfWeek !== 'any') c.push({ label: s.dayOfWeek, patch: { dayOfWeek: 'any' } });
+    if (s.daysOfWeek.length) c.push({ label: `Days: ${s.daysOfWeek.join(', ')}`, patch: { daysOfWeek: [] } });
     if (s.doubleheader !== null) c.push({ label: `DH: ${s.doubleheader ? 'Yes' : 'No'}`, patch: { doubleheader: null } });
     if (s.seriesGame) c.push({ label: `Series G${s.seriesGame[0]}${s.seriesGame[0] !== s.seriesGame[1] ? `–${s.seriesGame[1]}` : ''}`, patch: { seriesGame: null } });
     if (s.trip) c.push({ label: `Trip series ${s.trip[0]}${s.trip[0] !== s.trip[1] ? `–${s.trip[1]}` : ''}`, patch: { trip: null } });
@@ -1172,23 +1173,23 @@ export const mlbAdapter: TrendsSportAdapter<S> = {
   savedTable: 'mlb_analysis_saved_filters',
 
   groupFields: {
-    Scope: ['seasons', 'months', 'teams', 'opponents', 'division', 'interleague'],
-    'Price & Line': ['side', 'favDog', 'mlMin', 'mlMax', 'totalBounds', 'lineRange', 'f5TotalRange'],
-    'Game Time (ET)': ['timeMin', 'timeMax', 'dayOfWeek', 'doubleheader'],
-    'Schedule Situation': [
-      'seriesGame', 'trip', 'switchGame', 'restRange', 'streakMin', 'streakMax',
-      'lastResult', 'lastAts', 'lastTotal', 'lastRole', 'lastMarginMin', 'lastMarginMax',
+    Teams: ['teams', 'opponents'],
+    'Side & Role': ['side', 'favDog'],
+    'Lines & Odds': ['mlMin', 'mlMax', 'totalBounds', 'lineRange', 'f5TotalRange'],
+    Schedule: ['seasons', 'months', 'timeMin', 'timeMax', 'daysOfWeek', 'doubleheader', 'restRange', 'seriesGame', 'trip'],
+    Game: ['division', 'interleague', 'switchGame'],
+    'Weather & Venue': ['tempRange', 'windRange', 'windDir', 'dome', 'pfRuns'],
+    'Team Form': [
+      'winPct', 'winStreak', 'lossStreak', 'streakMin', 'streakMax', 'rpg', 'rapg', 'runDiffPg', 'minGames',
+      'rlCoverPct', 'rlStreak', 'overPct', 'overStreak', 'underStreak', 'prevWins', 'prevWinPct',
     ],
-    'Opponent last game': ['oppLastResult', 'oppLastAts', 'oppLastTotal', 'oppLastRole', 'oppLastMargin'],
-    'Pitching Matchup': ['sp', 'oppSp', 'spHand', 'oppSpHand', 'spXfip', 'oppSpXfip'],
-    'Bullpen (opponent)': ['bpIp', 'bpXfip'],
-    Environment: ['tempRange', 'windRange', 'windDir', 'dome', 'pfRuns'],
-    'Season Record': ['winPct', 'winStreak', 'lossStreak', 'rpg', 'rapg', 'runDiffPg', 'minGames'],
-    'Run Line Profile': ['rlCoverPct', 'rlStreak'],
-    'Total Profile': ['overPct', 'overStreak', 'underStreak'],
-    'Prior Year': ['prevWins', 'prevWinPct'],
+    'Last Game': ['lastResult', 'lastAts', 'lastTotal', 'lastRole', 'lastMarginMin', 'lastMarginMax'],
     'Head-to-Head': ['h2hLastWin', 'h2hLastAts', 'h2hLastOver', 'h2hLastMargin', 'h2hLastHome', 'h2hLastFav', 'h2hSameSeason'],
-    'Opponent Record': ['oppWinPct', 'oppOverPct', 'oppRlCoverPct', 'oppWinStreak', 'oppLossStreak', 'oppRpg', 'oppRapg', 'oppPrevWinPct'],
+    Opponent: [
+      'oppWinPct', 'oppOverPct', 'oppRlCoverPct', 'oppWinStreak', 'oppLossStreak', 'oppRpg', 'oppRapg', 'oppPrevWinPct',
+      'oppLastResult', 'oppLastAts', 'oppLastTotal', 'oppLastRole', 'oppLastMargin',
+    ],
+    Pitching: ['sp', 'oppSp', 'spHand', 'oppSpHand', 'spXfip', 'oppSpXfip', 'bpIp', 'bpXfip'],
   },
 
   useAdapterData,

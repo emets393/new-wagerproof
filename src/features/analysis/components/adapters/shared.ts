@@ -45,6 +45,8 @@ export function significance(n: number, hit: number): { label: string; tone: str
  * Game totals de-dupe via `is_home` in the RPC so each game counts once. Team-perspective filters
  * can leave only the away row matching — overall.n becomes 0 while coverage + by_team still have
  * games. Rebuild overall from by_team (hit is the game O/U, identical on both sides).
+ * Note: `side` is no longer emitted on game totals (iOS/CFB parity), but this recovery still
+ * matters for other team-perspective filters (team, last-game, as-of form), so it stays.
  */
 export function recoverGameLevelOverall(data: AnalysisResponse): Overall | null {
   if (data.overall && data.overall.n > 0) return data.overall;

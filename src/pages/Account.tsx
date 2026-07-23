@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, LogOut, User, Lock } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Loader2, Lock } from 'lucide-react';
 import { ModernAuthForm } from '@/components/ModernAuthForm';
 import { Button as MovingBorderButton } from '@/components/ui/moving-border';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,7 @@ import debug from '@/utils/debug';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
+import { DEFAULT_AUTHENTICATED_ROUTE } from '@/lib/routes';
 
 export default function Account() {
   const { user, loading, signIn, signUp, signOut, signInWithProvider } = useAuth();
@@ -145,23 +145,11 @@ export default function Account() {
     );
   }
 
-  // Show user profile if authenticated
+  // Authentication entry points should land on useful content, not an
+  // intermediate confirmation card. The authenticated shell shows the
+  // one-time welcome toast after this redirect.
   if (user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
-        <div className="container mx-auto px-4 py-8">
-          <Card className="max-w-md mx-auto">
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <User className="h-8 w-8 text-primary" />
-              </div>
-              <CardTitle>Welcome Back!</CardTitle>
-              <CardDescription>You're signed in as {user.email}</CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-    );
+    return <Navigate to={DEFAULT_AUTHENTICATED_ROUTE} replace />;
   }
 
   return (

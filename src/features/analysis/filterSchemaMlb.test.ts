@@ -93,6 +93,57 @@ describe('MLB legacy snapshot normalization', () => {
     const s = normalizeMlbSavedFilterSnapshot({});
     expect(s).toEqual(DEFAULT_MLB_SNAPSHOT);
   });
+  it('restores an iOS-native flat snapshot (xMin/xMax pairs + string dome)', () => {
+    // Representative of what iOS saves for MLB — flat min/max fields, dome as a string enum.
+    const native = {
+      betType: 'total',
+      seasonMin: 2024, seasonMax: 2025,
+      monthMin: 5, monthMax: 9,
+      lineMin: 7.5, lineMax: 9.5,
+      f5TotalMin: 3, f5TotalMax: 6,
+      tempMin: 50, tempMax: 90,
+      windMin: 5, windMax: 15,
+      restMin: 1, restMax: 3,
+      seriesGameMin: 1, seriesGameMax: 2,
+      tripMin: 1, tripMax: 1,
+      spXfipMin: 2, spXfipMax: 3.5,
+      oppSpXfipMin: 4.5, oppSpXfipMax: 7,
+      bpIpMin: 12, bpIpMax: 20,
+      bpXfipMin: 2, bpXfipMax: 4,
+      pfRunsMin: 103, pfRunsMax: 115,
+      dome: 'outdoor',
+      daysOfWeek: ['Fri', 'Sat'],
+      side: 'home',
+    };
+    const s = normalizeMlbSavedFilterSnapshot(native);
+    expect(s.betType).toBe('total');
+    expect(s.seasons).toEqual([2024, 2025]);
+    expect(s.months).toEqual([5, 9]);
+    expect(s.lineRange).toEqual([7.5, 9.5]);
+    expect(s.f5TotalRange).toEqual([3, 6]);
+    expect(s.tempRange).toEqual([50, 90]);
+    expect(s.windRange).toEqual([5, 15]);
+    expect(s.restRange).toEqual([1, 3]);
+    expect(s.seriesGame).toEqual([1, 2]);
+    expect(s.trip).toEqual([1, 1]);
+    expect(s.spXfip).toEqual([2, 3.5]);
+    expect(s.oppSpXfip).toEqual([4.5, 7]);
+    expect(s.bpIp).toEqual([12, 20]);
+    expect(s.bpXfip).toEqual([2, 4]);
+    expect(s.pfRuns).toEqual([103, 115]);
+    expect(s.dome).toBe(false);
+    expect(s.daysOfWeek).toEqual(['Fri', 'Sat']);
+    expect(s.side).toBe('home');
+  });
+  it('native snapshot with only a season window falls back to defaults elsewhere; dome enum maps fully', () => {
+    const s = normalizeMlbSavedFilterSnapshot({ betType: 'ml', seasonMin: 2023, seasonMax: 2026, dome: 'any' });
+    expect(s.seasons).toEqual([2023, 2026]);
+    expect(s.dome).toBeNull();
+    expect(s.lineRange).toEqual(DEFAULT_MLB_SNAPSHOT.lineRange);
+    expect(s.spXfip).toEqual(DEFAULT_MLB_SNAPSHOT.spXfip);
+    expect(s.pfRuns).toEqual(DEFAULT_MLB_SNAPSHOT.pfRuns);
+    expect(normalizeMlbSavedFilterSnapshot({ seasonMin: 2025, dome: 'dome' }).dome).toBe(true);
+  });
   it('preserves canonical [min,max] arrays for OptRange dims (NL restore)', () => {
     const s = normalizeMlbSavedFilterSnapshot({
       betType: 'ml',

@@ -118,7 +118,7 @@ export function AgentDetailHero({
         </div>
 
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className={isOwner ? 'flex flex-wrap items-center gap-2' : 'grid grid-cols-2 gap-2'}>
             {isOwner ? (
               <>
                 <Button size="sm" className="rounded-full" onClick={onGenerate} disabled={generateDisabled}>
@@ -135,7 +135,7 @@ export function AgentDetailHero({
                 <Button
                   size="sm"
                   variant={isFollowing ? 'outline' : 'default'}
-                  className="rounded-full"
+                  className="w-full rounded-full"
                   onClick={onToggleFollow}
                   disabled={followPending}
                 >
@@ -153,7 +153,7 @@ export function AgentDetailHero({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="rounded-full"
+                    className="w-full rounded-full"
                     onClick={onCopyBuild}
                     disabled={copyPending}
                   >

@@ -1,6 +1,5 @@
 import * as React from 'react';
-import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Check, ChevronLeft, Layers3, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -54,12 +53,15 @@ export function SaveSystemDialog({
   const [verdict, setVerdict] = React.useState<SystemVerdict | null>(null);
   const [name, setName] = React.useState('');
   const [isPublic, setIsPublic] = React.useState(false);
+  const [history, setHistory] = React.useState<Step[]>([]);
+  const touchStartX = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
     setName('');
     setIsPublic(false);
     setVerdict(null);
+    setHistory([]);
     if (isTotals) {
       setStep('totals_side');
     } else if (isSide) {
@@ -73,6 +75,7 @@ export function SaveSystemDialog({
 
   const chooseSymmetricSide = (patch: Record<string, unknown>) => {
     patchFilters(patch);
+    setHistory((previous) => [...previous, step]);
     setStep('verdict');
   };
 
@@ -87,7 +90,18 @@ export function SaveSystemDialog({
 
   const chooseVerdict = (v: SystemVerdict) => {
     setVerdict(v);
+    setHistory((previous) => [...previous, step]);
     setStep('name');
+  };
+
+  const goBack = () => {
+    setHistory((previous) => {
+      const prior = previous.at(-1);
+      if (!prior) return previous;
+      setStep(prior);
+      if (prior !== 'name') setVerdict(null);
+      return previous.slice(0, -1);
+    });
   };
 
   const confirmationLine = verdict
@@ -99,10 +113,51 @@ export function SaveSystemDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-extrabold">Save this System</DialogTitle>
+        <DialogHeader className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+              <Layers3 className="h-4 w-4" />
+            </span>
+            <DialogTitle className="min-w-0 flex-1 text-lg font-extrabold">Save System</DialogTitle>
+            {step === 'name' && (
+              <button
+                type="button"
+                disabled={!canSave}
+                onClick={() => {
+                  if (!verdict) return;
+                  onSave({ name: name.trim(), verdict, isPublic });
+                }}
+                className="inline-flex h-9 min-w-[72px] items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-sm font-extrabold text-primary-foreground transition-opacity disabled:opacity-40"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Check className="h-4 w-4" /> Save</>}
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5" aria-label={`Step ${history.length + 1}`}>
+            {Array.from({ length: isTotals ? 2 : isSide ? 3 : 2 }, (_, index) => (
+              <span
+                key={index}
+                className={cn(
+                  'h-1.5 rounded-full transition-all',
+                  index === history.length ? 'w-6 bg-primary' : index < history.length ? 'w-3 bg-primary/45' : 'w-3 bg-muted',
+                )}
+              />
+            ))}
+          </div>
         </DialogHeader>
 
+        <div
+          onTouchStart={(event) => {
+            touchStartX.current = event.touches[0]?.clientX ?? null;
+          }}
+          onTouchEnd={(event) => {
+            if (touchStartX.current == null) return;
+            const endX = event.changedTouches[0]?.clientX ?? touchStartX.current;
+            if (endX - touchStartX.current > 70) goBack();
+            touchStartX.current = null;
+          }}
+          className="space-y-4"
+        >
         {step === 'totals_side' && (
           <div className="space-y-3">
             <p className="text-[15px] font-semibold">Which side?</p>
@@ -184,18 +239,19 @@ export function SaveSystemDialog({
               </span>
             </button>
 
-            <Button
-              className="h-11 w-full rounded-xl text-[15px] font-bold"
-              disabled={!canSave}
-              onClick={() => {
-                if (!verdict) return;
-                onSave({ name: name.trim(), verdict, isPublic });
-              }}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save System'}
-            </Button>
           </div>
         )}
+        {history.length > 0 && (
+          <button
+            type="button"
+            onClick={goBack}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous choice
+          </button>
+        )}
+        </div>
       </DialogContent>
     </Dialog>
   );

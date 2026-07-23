@@ -11,7 +11,7 @@ DECLARE
   v jsonb; bars jsonb; cov jsonb; baseline numeric; overall jsonb;
 BEGIN
   CREATE TEMP TABLE _f ON COMMIT DROP AS
-  SELECT * FROM public.mlb_system_rows(p_bet_type, p_filters);
+  SELECT * FROM public.mlb_system_rows(p_bet_type, p_filters, false);
   DELETE FROM _f WHERE hit IS NULL;
   -- Game-level bet types: keep_game marks ONE row per game (home preferred,
   -- away row kept when it's the only survivor of the filters). overall / bars

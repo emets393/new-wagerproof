@@ -436,6 +436,11 @@ function pitcherNames(v) {
   if (!Array.isArray(v)) return [];
   return v.map((p) => typeof p === "string" ? p : p && typeof p === "object" && typeof p.name === "string" ? p.name : "").filter((n) => n.length > 0);
 }
+function nativePair(lo, hi, def) {
+  const a = typeof lo === "number" && Number.isFinite(lo) ? lo : def[0];
+  const b = typeof hi === "number" && Number.isFinite(hi) ? hi : def[1];
+  return [a, b];
+}
 function mlbGameLogTeamList(v) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
@@ -452,41 +457,43 @@ function normalizeMlbSavedFilterSnapshot(raw, rowBetType) {
   const r = raw ?? {};
   const d = MLB_SNAPSHOT_DEFAULTS;
   const legacyDay = typeof r.dayOfWeek === "string" && r.dayOfWeek !== "any" ? [r.dayOfWeek] : [];
+  const native = isNativeSnapshot(r);
   return {
     betType: str(r.betType, rowBetType || "ml"),
-    seasons: asPair(r.seasons, d.seasons),
-    months: asPair(r.months, d.months),
+    seasons: native ? nativePair(r.seasonMin, r.seasonMax, d.seasons) : asPair(r.seasons, d.seasons),
+    months: native ? nativePair(r.monthMin, r.monthMax, d.months) : asPair(r.months, d.months),
     teams: mlbGameLogTeamList(r.teams),
     opponents: mlbGameLogTeamList(r.opponents),
     side: str(r.side, "any"),
     favDog: str(r.favDog, "any"),
     mlMin: str(r.mlMin, ""),
     mlMax: str(r.mlMax, ""),
-    lineRange: r.totalBounds ? pairFromOpt(r.totalBounds, d.lineRange) : asPair(r.lineRange, d.lineRange),
-    f5TotalRange: asPair(r.f5TotalRange, d.f5TotalRange),
+    lineRange: native ? nativePair(r.lineMin, r.lineMax, d.lineRange) : r.totalBounds ? pairFromOpt(r.totalBounds, d.lineRange) : asPair(r.lineRange, d.lineRange),
+    f5TotalRange: native ? nativePair(r.f5TotalMin, r.f5TotalMax, d.f5TotalRange) : asPair(r.f5TotalRange, d.f5TotalRange),
     timeMin: str(r.timeMin, ""),
     timeMax: str(r.timeMax, ""),
     daysOfWeek: stringList(r.daysOfWeek).length ? stringList(r.daysOfWeek) : legacyDay,
     doubleheader: optionalBool(r.doubleheader),
-    seriesGame: r.seriesGame == null ? d.seriesGame : asPair(r.seriesGame, d.seriesGame),
-    trip: r.trip == null ? d.trip : asPair(r.trip, d.trip),
+    seriesGame: native ? nativePair(r.seriesGameMin, r.seriesGameMax, d.seriesGame) : r.seriesGame == null ? d.seriesGame : asPair(r.seriesGame, d.seriesGame),
+    trip: native ? nativePair(r.tripMin, r.tripMax, d.trip) : r.trip == null ? d.trip : asPair(r.trip, d.trip),
     switchGame: optionalBool(r.switchGame),
-    restRange: asPair(r.restRange, d.restRange),
+    restRange: native ? nativePair(r.restMin, r.restMax, d.restRange) : asPair(r.restRange, d.restRange),
     division: optionalBool(r.division),
     interleague: optionalBool(r.interleague),
-    tempRange: asPair(r.tempRange, d.tempRange),
-    windRange: asPair(r.windRange, d.windRange),
+    tempRange: native ? nativePair(r.tempMin, r.tempMax, d.tempRange) : asPair(r.tempRange, d.tempRange),
+    windRange: native ? nativePair(r.windMin, r.windMax, d.windRange) : asPair(r.windRange, d.windRange),
     windDir: str(r.windDir, "any"),
-    dome: optionalBool(r.dome),
-    pfRuns: r.pfRuns == null ? d.pfRuns : pairFromOpt(r.pfRuns, d.pfRuns),
+    // iOS stores dome as a string enum ("any"|"dome"|"outdoor"); web stores boolean|null.
+    dome: typeof r.dome === "string" ? r.dome === "dome" ? true : r.dome === "outdoor" ? false : null : optionalBool(r.dome),
+    pfRuns: native ? nativePair(r.pfRunsMin, r.pfRunsMax, d.pfRuns) : r.pfRuns == null ? d.pfRuns : pairFromOpt(r.pfRuns, d.pfRuns),
     spNames: stringList(r.spNames).length ? stringList(r.spNames) : pitcherNames(r.sp),
     oppSpNames: stringList(r.oppSpNames).length ? stringList(r.oppSpNames) : pitcherNames(r.oppSp),
     spHand: str(r.spHand, "any"),
     oppSpHand: str(r.oppSpHand, "any"),
-    spXfip: r.spXfip == null ? d.spXfip : pairFromOpt(r.spXfip, d.spXfip),
-    oppSpXfip: r.oppSpXfip == null ? d.oppSpXfip : pairFromOpt(r.oppSpXfip, d.oppSpXfip),
-    bpIp: r.bpIp == null ? d.bpIp : pairFromOpt(r.bpIp, d.bpIp),
-    bpXfip: r.bpXfip == null ? d.bpXfip : pairFromOpt(r.bpXfip, d.bpXfip),
+    spXfip: native ? nativePair(r.spXfipMin, r.spXfipMax, d.spXfip) : r.spXfip == null ? d.spXfip : pairFromOpt(r.spXfip, d.spXfip),
+    oppSpXfip: native ? nativePair(r.oppSpXfipMin, r.oppSpXfipMax, d.oppSpXfip) : r.oppSpXfip == null ? d.oppSpXfip : pairFromOpt(r.oppSpXfip, d.oppSpXfip),
+    bpIp: native ? nativePair(r.bpIpMin, r.bpIpMax, d.bpIp) : r.bpIp == null ? d.bpIp : pairFromOpt(r.bpIp, d.bpIp),
+    bpXfip: native ? nativePair(r.bpXfipMin, r.bpXfipMax, d.bpXfip) : r.bpXfip == null ? d.bpXfip : pairFromOpt(r.bpXfip, d.bpXfip),
     lastResult: str(r.lastResult, "any"),
     lastAts: str(r.lastAts, "any"),
     lastTotal: str(r.lastTotal, "any"),
@@ -599,7 +606,7 @@ var NFL_DIVISIONS = ["AFC East", "AFC North", "AFC South", "AFC West", "NFC East
 var NFL_LIMITED_BET_TYPES = ["h1_spread", "h1_ml", "h1_total", "team_total"];
 var DEFAULT_NFL_SNAPSHOT = {
   betType: "fg_spread",
-  seasons: [2018, 2025],
+  seasons: [2023, 2025],
   weeks: [1, 18],
   side: "any",
   seasonType: "any",
@@ -659,7 +666,7 @@ var NFL_FILTER_DIMENSIONS = {
     limitedFloor: 2023,
     label: "Seasons",
     aliases: ["year", "years", "season range", "since"],
-    rpcNote: "season_min only if > floor; season_max only if < 2025. Floor = 2023 for limited markets, else 2018."
+    rpcNote: "season_min always sent from the snapshot lower bound; season_max only if < 2025. Default window is last 3 seasons (2023\u20132025) so the warehouse RPC stays under statement_timeout \u2014 full-history `{}` scans time out."
   },
   seasonType: {
     group: "Situation",
@@ -1505,11 +1512,11 @@ var CFB_CONFERENCES = [
 var ML_BT = ["fg_ml", "h1_ml"];
 var DEFAULT_CFB_SNAPSHOT = {
   betType: "fg_spread",
-  seasons: [2016, 2025],
+  seasons: [2025, 2025],
   weeks: [1, 16],
   side: "any",
   favDog: "any",
-  gameType: "any",
+  gameType: "regular",
   rankedMatchup: "any",
   spreadSide: "any",
   spreadSize: [0, 50],
@@ -1555,7 +1562,7 @@ var DEFAULT_CFB_SNAPSHOT = {
 };
 var CFB_FILTER_DIMENSIONS = {
   // ── Situation ──
-  seasons: { group: "Situation", kind: "numRange", min: 2016, max: 2025, step: 1, limitedFloor: 2023, label: "Seasons", aliases: ["year", "years", "since"], rpcNote: "season_min/max; floor 2023 for 1H/TT markets." },
+  seasons: { group: "Situation", kind: "numRange", min: 2016, max: 2025, step: 1, limitedFloor: 2023, label: "Seasons", aliases: ["year", "years", "since"], rpcNote: "season_min always sent; season_max only if < 2025. Default is current season only (2025) \u2014 wider windows time out on the warehouse under ~3s statement_timeout." },
   gameType: { group: "Situation", kind: "enum", label: "Game type", options: [["any", "All games"], ["regular", "Regular season"], ["bowl", "Bowl games"], ["playoff", "Playoff"], ["postseason", "All postseason"]], aliases: ["bowl", "playoff", "postseason", "regular season"], rpcNote: "f.game_type; 'postseason' = bowl+playoff." },
   weeks: { group: "Situation", kind: "numRange", min: 1, max: 16, step: 1, label: "Weeks", aliases: ["week", "early season", "late season"], rpcNote: "week_min/max \u2014 only applied for regular-season/any game types." },
   rankedMatchup: { group: "Situation", kind: "enum", label: "Ranked matchup", options: [["any", "Any"], ["both", "Both ranked"], ["neither", "Neither ranked"], ["home_ranked", "Home ranked only"], ["away_ranked", "Away ranked only"], ["either", "Either ranked"]], aliases: ["ranked", "top 25", "unranked"], rpcNote: "f.ranked_matchup (AP Top 25; full 2016+)." },
