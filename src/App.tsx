@@ -60,6 +60,7 @@ import GamesPage from "./features/games/GamesPage";
 import TrendsTodayPage from "./features/trendsToday/TrendsTodayPage";
 import AgentCreate from "./pages/AgentCreate";
 import AgentSettings from "./pages/AgentSettings";
+import ConnectAI from "./pages/ConnectAI";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
@@ -318,6 +319,7 @@ function AppRoutes() {
           <Route path="/mlb-analytics" element={<LegacyTrendsRedirect sport="mlb" />} />
           <Route path="/wagerbot-chat" element={<Navigate to="/account" replace />} />
           <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
+          <Route path="/connect-ai" element={<ProtectedRoute allowFreemium={true}><ConnectAI /></ProtectedRoute>} />
           <Route path="/scoreboard/diagnostics" element={<ProtectedRoute><LiveScoreDiagnostics /></ProtectedRoute>} />
           <Route path="/today-in-sports" element={<ProtectedRoute allowFreemium={true}><TodayInSports /></ProtectedRoute>} />
           <Route
