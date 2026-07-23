@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ChevronDown, Search, X } from 'lucide-react';
+import { foldSearchText } from '@/utils/mlbPitcherSearch';
 
 export type TeamOption = { id: string; name: string; logo?: string };
 
@@ -25,10 +26,11 @@ export function TeamMultiSelect({
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
-    const qq = q.trim().toLowerCase();
+    // Accent/case-insensitive ("Jose" matches "José") — matters for the CFB school list.
+    const qq = foldSearchText(q.trim());
     if (!qq) return options;
     return options.filter(
-      (o) => o.id.toLowerCase().includes(qq) || o.name.toLowerCase().includes(qq),
+      (o) => foldSearchText(o.id).includes(qq) || foldSearchText(o.name).includes(qq),
     );
   }, [options, q]);
 

@@ -3,9 +3,10 @@ import { RangeRow, ScalarRow, SelectRow, TriRow, MlOddsRow, FilterGroup } from '
 import type { SpreadSide } from '@/features/analysis/footballMarketLines';
 
 /**
- * NFL and CFB rails share the "Lines & odds" group and the entire Systems tail (Last game →
- * Opponent Record). Only the bounds + a CFB moneyline note differ, so both live here once —
+ * NFL and CFB rails share the "Lines & Odds" group and the entire Systems tail (Team Form →
+ * Opponent). Only the bounds + a CFB moneyline note differ, so both live here once —
  * the two football adapters pass their bounds. Keeps the two rails from drifting apart.
+ * Group taxonomy mirrors the native iOS Historical Trends filter sheet.
  */
 export interface FootballBounds {
   spreadMax: number;
@@ -99,20 +100,29 @@ type Update = (patch: Partial<FootballShared>) => void;
  * active-count badges. Must stay in sync with the groups rendered below.
  */
 export const FOOTBALL_SHARED_GROUP_FIELDS: Record<string, readonly string[]> = {
-  'Lines & odds': [
+  'Lines & Odds': [
     'spreadSide', 'spreadSize', 'lineRange', 'mlMin', 'mlMax', 'ttLineRange',
     'h1SpreadSide', 'h1SpreadSize', 'h1MlMin', 'h1MlMax', 'h1TotalRange',
     'oppSpreadSide', 'oppSpreadSize', 'oppMlMin', 'oppMlMax', 'oppTtLineRange',
   ],
-  'Last game': ['lastResult', 'lastAts', 'lastTotal', 'lastRole', 'lastOt', 'lastMargin'],
-  'Opponent last game': ['oppLastResult', 'oppLastAts', 'oppLastTotal', 'oppLastRole', 'oppLastOt', 'oppLastMargin'],
-  'Season Record': ['winPct', 'winStreak', 'lossStreak', 'above500', 'winPctGtOpp', 'ppg', 'paPg', 'pointDiffPg', 'minGames'],
-  'Cover Profile': ['atsWinPct', 'atsWinStreak', 'avgCoverMargin'],
-  'Total Profile': ['overPct', 'overStreak', 'underStreak'],
-  'Prior Year': ['prevWins', 'prevWinPct', 'madePlayoffsPrev', 'moreWinsThanOppPrev'],
+  'Team Form': [
+    'winPct', 'winStreak', 'lossStreak', 'above500', 'winPctGtOpp', 'ppg', 'paPg', 'pointDiffPg', 'minGames',
+    'atsWinPct', 'atsWinStreak', 'avgCoverMargin',
+    'overPct', 'overStreak', 'underStreak',
+    'prevWins', 'prevWinPct', 'madePlayoffsPrev', 'moreWinsThanOppPrev',
+  ],
+  'Last Game': ['lastResult', 'lastAts', 'lastTotal', 'lastRole', 'lastOt', 'lastMargin'],
   'Head-to-Head': ['h2hLastWin', 'h2hLastAts', 'h2hLastOver', 'h2hLastHome', 'h2hLastFav', 'h2hSameSeason', 'h2hSpreadCmp'],
-  'Opponent Record': ['oppWinPct', 'oppOverPct', 'oppWinStreak', 'oppLossStreak', 'oppPpg', 'oppPaPg', 'oppPrevWinPct'],
+  Opponent: [
+    'oppWinPct', 'oppOverPct', 'oppWinStreak', 'oppLossStreak', 'oppPpg', 'oppPaPg', 'oppPrevWinPct',
+    'oppLastResult', 'oppLastAts', 'oppLastTotal', 'oppLastRole', 'oppLastOt', 'oppLastMargin',
+  ],
 };
+
+/** Muted sub-heading inside a merged FilterGroup (Team Form / Opponent) — shared with the MLB rail. */
+export function SubHeading({ children }: { children: React.ReactNode }) {
+  return <div className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{children}</div>;
+}
 
 const SPREAD_OPTS: [string, string][] = [
   ['any', 'Either side'],
@@ -130,7 +140,7 @@ export function FootballLinesGroup({
   b: FootballBounds;
 }) {
   return (
-    <FilterGroup title="Lines & odds" defaultOpen>
+    <FilterGroup title="Lines & Odds" defaultOpen>
       <div className="-mt-1 text-[11px] text-muted-foreground">
         Independent of the result market above — filter the sample by any posted line.
       </div>
@@ -255,7 +265,7 @@ const ROLE_OPTS: [string, string][] = [
   ['underdog', 'Underdog'],
 ];
 
-/** Last game → Opponent Record (identical structure in NFL & CFB). */
+/** Team Form → Last Game → Head-to-Head → Opponent (identical structure in NFL & CFB). */
 export function FootballTailGroups({
   s,
   update,
@@ -267,7 +277,33 @@ export function FootballTailGroups({
 }) {
   return (
     <>
-      <FilterGroup title="Last game">
+      <FilterGroup title="Team Form">
+        <SubHeading>Season record</SubHeading>
+        <RangeRow label={`Win%: ${s.winPct[0]}–${s.winPct[1]}%`} min={0} max={100} step={1} value={s.winPct} onChange={(v) => update({ winPct: v })} />
+        <RangeRow label={`Win streak: ${s.winStreak[0]}–${s.winStreak[1]}`} min={0} max={16} step={1} value={s.winStreak} onChange={(v) => update({ winStreak: v })} />
+        <RangeRow label={`Loss streak: ${s.lossStreak[0]}–${s.lossStreak[1]}`} min={0} max={16} step={1} value={s.lossStreak} onChange={(v) => update({ lossStreak: v })} />
+        <TriRow label="Winning record (>.500)" value={s.above500} onChange={(v) => update({ above500: v })} />
+        <TriRow label="Win% better than opponent" value={s.winPctGtOpp} onChange={(v) => update({ winPctGtOpp: v })} />
+        <RangeRow label={`PPG: ${s.ppg[0]}–${s.ppg[1]}`} min={0} max={b.ppgMax} step={0.5} value={s.ppg} onChange={(v) => update({ ppg: v })} />
+        <RangeRow label={`PA/g: ${s.paPg[0]}–${s.paPg[1]}`} min={0} max={b.paPgMax} step={0.5} value={s.paPg} onChange={(v) => update({ paPg: v })} />
+        <RangeRow label={`Point diff/g: ${s.pointDiffPg[0]}–${s.pointDiffPg[1]}`} min={-b.pointDiffAbs} max={b.pointDiffAbs} step={0.5} value={s.pointDiffPg} onChange={(v) => update({ pointDiffPg: v })} />
+        <ScalarRow label={`Min games this season: ${s.minGames === 0 ? 'Any' : s.minGames}`} min={0} max={10} step={1} value={s.minGames} onChange={(v) => update({ minGames: v })} />
+        <SubHeading>Cover profile</SubHeading>
+        <RangeRow label={`ATS win%: ${s.atsWinPct[0]}–${s.atsWinPct[1]}%`} min={0} max={100} step={1} value={s.atsWinPct} onChange={(v) => update({ atsWinPct: v })} />
+        <RangeRow label={`ATS win streak: ${s.atsWinStreak[0]}–${s.atsWinStreak[1]}`} min={0} max={16} step={1} value={s.atsWinStreak} onChange={(v) => update({ atsWinStreak: v })} />
+        <RangeRow label={`Avg cover margin: ${s.avgCoverMargin[0]}–${s.avgCoverMargin[1]}`} min={-b.avgCoverAbs} max={b.avgCoverAbs} step={0.5} value={s.avgCoverMargin} onChange={(v) => update({ avgCoverMargin: v })} />
+        <SubHeading>Total profile</SubHeading>
+        <RangeRow label={`Over%: ${s.overPct[0]}–${s.overPct[1]}%`} min={0} max={100} step={1} value={s.overPct} onChange={(v) => update({ overPct: v })} />
+        <RangeRow label={`Over streak: ${s.overStreak[0]}–${s.overStreak[1]}`} min={0} max={16} step={1} value={s.overStreak} onChange={(v) => update({ overStreak: v })} />
+        <RangeRow label={`Under streak: ${s.underStreak[0]}–${s.underStreak[1]}`} min={0} max={16} step={1} value={s.underStreak} onChange={(v) => update({ underStreak: v })} />
+        <SubHeading>Prior year</SubHeading>
+        <RangeRow label={`Last season wins: ${s.prevWins[0]}–${s.prevWins[1]}`} min={0} max={b.prevWinsMax} step={1} value={s.prevWins} onChange={(v) => update({ prevWins: v })} />
+        <RangeRow label={`Last season win%: ${s.prevWinPct[0]}–${s.prevWinPct[1]}%`} min={0} max={100} step={1} value={s.prevWinPct} onChange={(v) => update({ prevWinPct: v })} />
+        <TriRow label="Made playoffs last year" value={s.madePlayoffsPrev} onChange={(v) => update({ madePlayoffsPrev: v })} />
+        <TriRow label="More wins than opponent last year" value={s.moreWinsThanOppPrev} onChange={(v) => update({ moreWinsThanOppPrev: v })} />
+      </FilterGroup>
+
+      <FilterGroup title="Last Game">
         <SelectRow label="Result" value={s.lastResult} onChange={(v) => update({ lastResult: v })} options={RESULT_OPTS} />
         <SelectRow label="ATS" value={s.lastAts} onChange={(v) => update({ lastAts: v })} options={ATS_OPTS} />
         <SelectRow label="Total" value={s.lastTotal} onChange={(v) => update({ lastTotal: v })} options={TOTAL_OPTS} />
@@ -281,53 +317,6 @@ export function FootballTailGroups({
           onChange={(v) => update({ lastMargin: v })}
         />
         <TriRow label="Went to overtime" value={s.lastOt} onChange={(v) => update({ lastOt: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Opponent last game">
-        <SelectRow label="Result" value={s.oppLastResult} onChange={(v) => update({ oppLastResult: v })} options={RESULT_OPTS} />
-        <SelectRow label="ATS" value={s.oppLastAts} onChange={(v) => update({ oppLastAts: v })} options={ATS_OPTS} />
-        <SelectRow label="Total" value={s.oppLastTotal} onChange={(v) => update({ oppLastTotal: v })} options={TOTAL_OPTS} />
-        <SelectRow label="Was" value={s.oppLastRole} onChange={(v) => update({ oppLastRole: v })} options={ROLE_OPTS} />
-        <RangeRow
-          label={`Opponent last game margin: ${s.oppLastMargin[0]} to ${s.oppLastMargin[1]} pts (+ = won by, − = lost by)`}
-          min={b.marginBounds[0]}
-          max={b.marginBounds[1]}
-          step={1}
-          value={s.oppLastMargin}
-          onChange={(v) => update({ oppLastMargin: v })}
-        />
-        <TriRow label="Went to overtime" value={s.oppLastOt} onChange={(v) => update({ oppLastOt: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Season Record">
-        <RangeRow label={`Win%: ${s.winPct[0]}–${s.winPct[1]}%`} min={0} max={100} step={1} value={s.winPct} onChange={(v) => update({ winPct: v })} />
-        <RangeRow label={`Win streak: ${s.winStreak[0]}–${s.winStreak[1]}`} min={0} max={16} step={1} value={s.winStreak} onChange={(v) => update({ winStreak: v })} />
-        <RangeRow label={`Loss streak: ${s.lossStreak[0]}–${s.lossStreak[1]}`} min={0} max={16} step={1} value={s.lossStreak} onChange={(v) => update({ lossStreak: v })} />
-        <TriRow label="Winning record (>.500)" value={s.above500} onChange={(v) => update({ above500: v })} />
-        <TriRow label="Win% better than opponent" value={s.winPctGtOpp} onChange={(v) => update({ winPctGtOpp: v })} />
-        <RangeRow label={`PPG: ${s.ppg[0]}–${s.ppg[1]}`} min={0} max={b.ppgMax} step={0.5} value={s.ppg} onChange={(v) => update({ ppg: v })} />
-        <RangeRow label={`PA/g: ${s.paPg[0]}–${s.paPg[1]}`} min={0} max={b.paPgMax} step={0.5} value={s.paPg} onChange={(v) => update({ paPg: v })} />
-        <RangeRow label={`Point diff/g: ${s.pointDiffPg[0]}–${s.pointDiffPg[1]}`} min={-b.pointDiffAbs} max={b.pointDiffAbs} step={0.5} value={s.pointDiffPg} onChange={(v) => update({ pointDiffPg: v })} />
-        <ScalarRow label={`Min games this season: ${s.minGames === 0 ? 'Any' : s.minGames}`} min={0} max={10} step={1} value={s.minGames} onChange={(v) => update({ minGames: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Cover Profile">
-        <RangeRow label={`ATS win%: ${s.atsWinPct[0]}–${s.atsWinPct[1]}%`} min={0} max={100} step={1} value={s.atsWinPct} onChange={(v) => update({ atsWinPct: v })} />
-        <RangeRow label={`ATS win streak: ${s.atsWinStreak[0]}–${s.atsWinStreak[1]}`} min={0} max={16} step={1} value={s.atsWinStreak} onChange={(v) => update({ atsWinStreak: v })} />
-        <RangeRow label={`Avg cover margin: ${s.avgCoverMargin[0]}–${s.avgCoverMargin[1]}`} min={-b.avgCoverAbs} max={b.avgCoverAbs} step={0.5} value={s.avgCoverMargin} onChange={(v) => update({ avgCoverMargin: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Total Profile">
-        <RangeRow label={`Over%: ${s.overPct[0]}–${s.overPct[1]}%`} min={0} max={100} step={1} value={s.overPct} onChange={(v) => update({ overPct: v })} />
-        <RangeRow label={`Over streak: ${s.overStreak[0]}–${s.overStreak[1]}`} min={0} max={16} step={1} value={s.overStreak} onChange={(v) => update({ overStreak: v })} />
-        <RangeRow label={`Under streak: ${s.underStreak[0]}–${s.underStreak[1]}`} min={0} max={16} step={1} value={s.underStreak} onChange={(v) => update({ underStreak: v })} />
-      </FilterGroup>
-
-      <FilterGroup title="Prior Year">
-        <RangeRow label={`Last season wins: ${s.prevWins[0]}–${s.prevWins[1]}`} min={0} max={b.prevWinsMax} step={1} value={s.prevWins} onChange={(v) => update({ prevWins: v })} />
-        <RangeRow label={`Last season win%: ${s.prevWinPct[0]}–${s.prevWinPct[1]}%`} min={0} max={100} step={1} value={s.prevWinPct} onChange={(v) => update({ prevWinPct: v })} />
-        <TriRow label="Made playoffs last year" value={s.madePlayoffsPrev} onChange={(v) => update({ madePlayoffsPrev: v })} />
-        <TriRow label="More wins than opponent last year" value={s.moreWinsThanOppPrev} onChange={(v) => update({ moreWinsThanOppPrev: v })} />
       </FilterGroup>
 
       <FilterGroup title="Head-to-Head">
@@ -345,7 +334,8 @@ export function FootballTailGroups({
         />
       </FilterGroup>
 
-      <FilterGroup title="Opponent Record">
+      <FilterGroup title="Opponent">
+        <SubHeading>Opponent record</SubHeading>
         <RangeRow label={`Opp win%: ${s.oppWinPct[0]}–${s.oppWinPct[1]}%`} min={0} max={100} step={1} value={s.oppWinPct} onChange={(v) => update({ oppWinPct: v })} />
         <RangeRow label={`Opp over%: ${s.oppOverPct[0]}–${s.oppOverPct[1]}%`} min={0} max={100} step={1} value={s.oppOverPct} onChange={(v) => update({ oppOverPct: v })} />
         <RangeRow label={`Opp win streak: ${s.oppWinStreak[0]}–${s.oppWinStreak[1]}`} min={0} max={16} step={1} value={s.oppWinStreak} onChange={(v) => update({ oppWinStreak: v })} />
@@ -353,6 +343,20 @@ export function FootballTailGroups({
         <RangeRow label={`Opp PPG: ${s.oppPpg[0]}–${s.oppPpg[1]}`} min={0} max={b.oppPpgMax} step={0.5} value={s.oppPpg} onChange={(v) => update({ oppPpg: v })} />
         <RangeRow label={`Opp PA/G: ${s.oppPaPg[0]}–${s.oppPaPg[1]}`} min={0} max={b.oppPaPgMax} step={0.5} value={s.oppPaPg} onChange={(v) => update({ oppPaPg: v })} />
         <RangeRow label={`Opp prev win%: ${s.oppPrevWinPct[0]}–${s.oppPrevWinPct[1]}%`} min={0} max={100} step={1} value={s.oppPrevWinPct} onChange={(v) => update({ oppPrevWinPct: v })} />
+        <SubHeading>Opponent last game</SubHeading>
+        <SelectRow label="Result" value={s.oppLastResult} onChange={(v) => update({ oppLastResult: v })} options={RESULT_OPTS} />
+        <SelectRow label="ATS" value={s.oppLastAts} onChange={(v) => update({ oppLastAts: v })} options={ATS_OPTS} />
+        <SelectRow label="Total" value={s.oppLastTotal} onChange={(v) => update({ oppLastTotal: v })} options={TOTAL_OPTS} />
+        <SelectRow label="Was" value={s.oppLastRole} onChange={(v) => update({ oppLastRole: v })} options={ROLE_OPTS} />
+        <RangeRow
+          label={`Opponent last game margin: ${s.oppLastMargin[0]} to ${s.oppLastMargin[1]} pts (+ = won by, − = lost by)`}
+          min={b.marginBounds[0]}
+          max={b.marginBounds[1]}
+          step={1}
+          value={s.oppLastMargin}
+          onChange={(v) => update({ oppLastMargin: v })}
+        />
+        <TriRow label="Went to overtime" value={s.oppLastOt} onChange={(v) => update({ oppLastOt: v })} />
       </FilterGroup>
     </>
   );

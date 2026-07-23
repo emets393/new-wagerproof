@@ -242,7 +242,22 @@ function RailSections({
   const floor = seasonFloorFor(s.betType);
   return (
     <>
-      <FilterGroup title="Situation" defaultOpen>
+      <FilterGroup title="Teams" defaultOpen>
+        <TeamMultiSelect label="Team" options={data.teamOptions} value={s.teams} onChange={(v) => update({ teams: v })} />
+        <TeamMultiSelect label="Opponent" options={data.teamOptions} value={s.opponents} onChange={(v) => update({ opponents: v })} emptyLabel="Any opponent" />
+        <MultiToggle label="Team division" options={NFL_DIVISIONS} value={s.teamDivisions} onChange={(v) => update({ teamDivisions: v })} />
+      </FilterGroup>
+
+      <FilterGroup title="Side & Role">
+        <SelectRow label="Side" value={s.side} onChange={(v) => update({ side: v })} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
+        {s.betType === 'team_total' && (
+          <SelectRow label="Favorite / Underdog" value={s.favDog} onChange={(v) => update({ favDog: v })} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
+        )}
+      </FilterGroup>
+
+      <FootballLinesGroup s={s as unknown as FootballShared} update={update as (p: Partial<FootballShared>) => void} b={BOUNDS} />
+
+      <FilterGroup title="Schedule">
         <RangeRow label={`Seasons: ${s.seasons[0]}–${s.seasons[1]}`} min={floor} max={SEASON_MAX} step={1} value={s.seasons} onChange={(v) => update({ seasons: v })} />
         <SelectRow
           label="Season type"
@@ -261,21 +276,7 @@ function RailSections({
             options={[['any', 'All rounds'], ['Wild Card', 'Wild Card'], ['Divisional', 'Divisional'], ['Conference', 'Conference'], ['Super Bowl', 'Super Bowl']]}
           />
         )}
-        <SelectRow label="Side" value={s.side} onChange={(v) => update({ side: v })} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
-        <TeamMultiSelect label="Team" options={data.teamOptions} value={s.teams} onChange={(v) => update({ teams: v })} />
-        <TeamMultiSelect label="Opponent" options={data.teamOptions} value={s.opponents} onChange={(v) => update({ opponents: v })} emptyLabel="Any opponent" />
         <MultiToggle label="Days of week" options={NFL_DAYS} value={s.daysOfWeek} onChange={(v) => update({ daysOfWeek: v })} />
-        {s.betType === 'team_total' && (
-          <SelectRow label="Favorite / Underdog" value={s.favDog} onChange={(v) => update({ favDog: v })} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
-        )}
-      </FilterGroup>
-
-      <FootballLinesGroup s={s as unknown as FootballShared} update={update as (p: Partial<FootballShared>) => void} b={BOUNDS} />
-
-      <FilterGroup title="Matchup">
-        <TriRow label="Primetime" value={s.primetime} onChange={(v) => update({ primetime: v })} />
-        <TriRow label="Divisional" value={s.division} onChange={(v) => update({ division: v })} />
-        <MultiToggle label="Team division" options={NFL_DIVISIONS} value={s.teamDivisions} onChange={(v) => update({ teamDivisions: v })} />
         <SelectRow
           label="Rest / Bye"
           value={s.restBye}
@@ -284,19 +285,24 @@ function RailSections({
         />
       </FilterGroup>
 
-      <FilterGroup title="Weather">
+      <FilterGroup title="Game">
+        <TriRow label="Primetime" value={s.primetime} onChange={(v) => update({ primetime: v })} />
+        <TriRow label="Divisional" value={s.division} onChange={(v) => update({ division: v })} />
+      </FilterGroup>
+
+      <FilterGroup title="Weather & Venue">
         <SelectRow label="Venue" value={s.dome} onChange={(v) => update({ dome: v })} options={[['any', 'Any'], ['dome', 'Dome'], ['outdoor', 'Outdoor']]} />
         <SelectRow label="Precipitation" value={s.precip} onChange={(v) => update({ precip: v })} options={[['any', 'Any'], ['none', 'None'], ['rain', 'Rain'], ['snow', 'Snow']]} />
         <RangeRow label={`Temp: ${s.tempRange[0]}–${s.tempRange[1]}°F`} min={-10} max={100} step={1} value={s.tempRange} onChange={(v) => update({ tempRange: v })} />
         <RangeRow label={`Wind: ${s.windRange[0]}–${s.windRange[1]} mph`} min={0} max={60} step={1} value={s.windRange} onChange={(v) => update({ windRange: v })} />
       </FilterGroup>
 
-      <FilterGroup title="Context">
+      <FootballTailGroups s={s as unknown as FootballShared} update={update as (p: Partial<FootballShared>) => void} b={BOUNDS} />
+
+      <FilterGroup title="Coach & Referee">
         <SelectRow label="Coach" value={s.coach} onChange={(v) => update({ coach: v })} options={[['any', 'Any coach'], ...(data.coaches ?? []).map((c) => [c, c] as [string, string])]} />
         <SelectRow label="Referee" value={s.referee} onChange={(v) => update({ referee: v })} options={[['any', 'Any referee'], ...(data.referees ?? []).map((r) => [r, r] as [string, string])]} />
       </FilterGroup>
-
-      <FootballTailGroups s={s as unknown as FootballShared} update={update as (p: Partial<FootballShared>) => void} b={BOUNDS} />
     </>
   );
 }
@@ -466,10 +472,12 @@ export const nflAdapter: TrendsSportAdapter<S> = {
   savedTable: 'nfl_analysis_saved_filters',
 
   groupFields: {
-    Situation: ['seasons', 'seasonType', 'weeks', 'playoffRound', 'side', 'teams', 'opponents', 'daysOfWeek', 'favDog'],
-    Matchup: ['primetime', 'division', 'teamDivisions', 'restBye'],
-    Weather: ['dome', 'precip', 'tempRange', 'windRange'],
-    Context: ['coach', 'referee'],
+    Teams: ['teams', 'opponents', 'teamDivisions'],
+    'Side & Role': ['side', 'favDog'],
+    Schedule: ['seasons', 'seasonType', 'weeks', 'playoffRound', 'daysOfWeek', 'restBye'],
+    Game: ['primetime', 'division'],
+    'Weather & Venue': ['dome', 'precip', 'tempRange', 'windRange'],
+    'Coach & Referee': ['coach', 'referee'],
     ...FOOTBALL_SHARED_GROUP_FIELDS,
   },
 
