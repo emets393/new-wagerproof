@@ -5,6 +5,7 @@ import {
   Layers3,
   Loader2,
   Percent,
+  Trophy,
   Zap,
 } from 'lucide-react';
 import {
