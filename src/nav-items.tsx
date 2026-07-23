@@ -1,6 +1,5 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, Bot, MessageCircle, FileImage, Activity, Brain, Smartphone, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock, Cable } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
-import WagerBotChat from "./pages/WagerBotChat";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import NotFound from "./pages/NotFound";
 import { Account } from "./pages";
@@ -10,7 +9,6 @@ import AISettings from "./pages/admin/AISettings";
 // import EditorsPicks from "./pages/EditorsPicks";
 import Discord from "./pages/Discord";
 import ScoreBoard from "./pages/ScoreBoard";
-import MobileApp from "./pages/MobileApp";
 import CommunityVoting from "./pages/CommunityVoting";
 import TipJar from "./pages/TipJar";
 import Agents from "./pages/Agents";
@@ -86,13 +84,6 @@ export const navItems: NavItem[] = [
   //   icon: <Star className="h-4 w-4" />,
   //   page: <EditorsPicks />,
   // },
-  {
-    title: "WagerBot Chat",
-    to: "/wagerbot-chat",
-    icon: <Bot className="h-4 w-4" />,
-    page: <WagerBotChat />,
-    hidden: true,
-  },
   {
     title: "Score Board",
     to: "/scoreboard",
@@ -181,6 +172,11 @@ export const navItems: NavItem[] = [
     isHeader: true,
   },
   {
+    title: "Connect to AI",
+    to: "/connect-ai",
+    icon: <Cable className="h-4 w-4" />,
+  },
+  {
     title: "Discord Channel",
     to: "/discord",
     icon: <DiscordLogo className="h-4 w-4" weight="fill" />,
@@ -209,12 +205,6 @@ export const navItems: NavItem[] = [
     to: "/feature-requests",
     icon: <MessageSquare className="h-4 w-4" />,
     hidden: true,
-  },
-  {
-    title: "iOS/Android App",
-    to: "/mobile-app",
-    icon: <Smartphone className="h-4 w-4" />,
-    page: <MobileApp />,
   },
   {
     title: "Bet Slip Grader",

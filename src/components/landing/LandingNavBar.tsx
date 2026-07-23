@@ -108,7 +108,7 @@ const NavBar = () => {
                   Press Kit
               </Button>
             </Link>
-            <Link to="/wagerbot-chat">
+            <Link to="/account">
               <MovingBorderButton
                 borderRadius={BTN_RADIUS}
                 containerClassName="h-[2.3rem] w-auto"

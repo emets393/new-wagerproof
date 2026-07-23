@@ -6,7 +6,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useParams, Navigate } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { logMixpanelStatus } from "@/lib/mixpanel";
+import { DEFAULT_AUTHENTICATED_ROUTE } from "@/lib/routes";
 import Landing from "./pages/NewLanding";
 import { GameAnalysis, Account, Welcome, Blog, BlogPost, PressKit } from "./pages";
 import NBATodayHalftimeTrends from "./pages/NBATodayHalftimeTrends";
@@ -21,7 +24,6 @@ import PlayerPropsPerformance from "./pages/mlb/PlayerPropsPerformance";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
 import HistoricalTrends from "./pages/HistoricalTrends";
-import WagerBotChat from "./pages/WagerBotChat";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import LearnWagerProof from "./pages/LearnWagerProof";
 import Admin from "./pages/Admin";
@@ -58,7 +60,8 @@ import GamesPage from "./features/games/GamesPage";
 import TrendsTodayPage from "./features/trendsToday/TrendsTodayPage";
 import AgentCreate from "./pages/AgentCreate";
 import AgentSettings from "./pages/AgentSettings";
-import { AuthProvider } from "@/contexts/AuthContext";
+import ConnectAI from "./pages/ConnectAI";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -127,6 +130,24 @@ function MixpanelStatusCheck() {
   return null;
 }
 
+function LandingEntry() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="grid min-h-svh place-items-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to={DEFAULT_AUTHENTICATED_ROUTE} replace />;
+  }
+
+  return <Landing />;
+}
+
 // Routes that manage their own full-height layout (no page padding, content
 // scrolls internally instead of the main scroller). /historical-trends is here
 // so its bottom chat dock can pin to the viewport instead of scrolling with content.
@@ -165,7 +186,26 @@ function LegacyTodaysTrendsRedirect({ sport }: { sport: string }) {
 // Layout wrapper for authenticated pages
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const { user } = useAuth();
   const isSplitView = SPLIT_VIEW_ROUTES.includes(location.pathname);
+
+  useEffect(() => {
+    if (!user || localStorage.getItem('wagerproof_show_welcome') !== 'true') return;
+
+    // Consume before showing so React Strict Mode and route transitions cannot
+    // display the same welcome more than once.
+    localStorage.removeItem('wagerproof_show_welcome');
+
+    const fullName =
+      user.user_metadata?.full_name ??
+      user.user_metadata?.display_name ??
+      user.user_metadata?.name;
+    const firstName = typeof fullName === 'string' ? fullName.trim().split(/\s+/)[0] : '';
+
+    toast.success(firstName ? `Welcome back, ${firstName}` : 'Welcome back', {
+      description: "Today's Outliers are ready.",
+    });
+  }, [user]);
 
   return (
     <SidebarProvider defaultOpen={true} className="h-svh overflow-hidden">
@@ -208,6 +248,7 @@ function AppRoutes() {
   // Determine if current route should use authenticated layout
   const isPublicRoute = [
     '/',
+    '/landing-page',
     '/welcome',
     '/home',
     '/privacy-policy',
@@ -224,8 +265,9 @@ function AppRoutes() {
     return (
       <PublicLayout>
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/home" element={<Landing />} />
+          <Route path="/" element={<LandingEntry />} />
+          <Route path="/home" element={<LandingEntry />} />
+          <Route path="/landing-page" element={<Landing />} />
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
@@ -275,8 +317,9 @@ function AppRoutes() {
           <Route path="/nfl-analytics" element={<LegacyTrendsRedirect sport="nfl" />} />
           <Route path="/cfb-analytics" element={<LegacyTrendsRedirect sport="cfb" />} />
           <Route path="/mlb-analytics" element={<LegacyTrendsRedirect sport="mlb" />} />
-          <Route path="/wagerbot-chat" element={<ProtectedRoute><WagerBotChat /></ProtectedRoute>} />
+          <Route path="/wagerbot-chat" element={<Navigate to="/account" replace />} />
           <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
+          <Route path="/connect-ai" element={<ProtectedRoute allowFreemium={true}><ConnectAI /></ProtectedRoute>} />
           <Route path="/scoreboard/diagnostics" element={<ProtectedRoute><LiveScoreDiagnostics /></ProtectedRoute>} />
           <Route path="/today-in-sports" element={<ProtectedRoute allowFreemium={true}><TodayInSports /></ProtectedRoute>} />
           <Route

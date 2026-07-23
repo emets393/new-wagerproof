@@ -21,6 +21,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { LogOut, Settings, ChevronRight, ChevronLeft } from "lucide-react";
+import { AppleLogo, GooglePlayLogo } from "phosphor-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
@@ -52,6 +53,9 @@ const SIDEBAR_SPORT_ROUTES: Record<string, GamesSport> = {
   '/games?sport=ncaab': 'ncaab',
   '/games?sport=mlb': 'mlb',
 };
+
+const APP_STORE_URL = 'https://apps.apple.com/us/app/wagerproof-sports-picks-ai/id6757089957';
+const GOOGLE_PLAY_URL = 'https://play.google.com/store/apps/details?id=com.wagerproof.mobile';
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
@@ -359,6 +363,60 @@ export function AppLayout() {
       {/* Footer Section */}
       <SidebarFooter className="border-t border-sidebar-border bg-sidebar px-1 py-2 group-data-[collapsible=icon]:px-0">
         <SidebarMenu>
+          <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
+            <div className="grid grid-cols-2 gap-1.5 px-1 pb-2">
+              <a
+                href={APP_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Download WagerProof on the App Store"
+                className="flex min-w-0 items-center gap-1.5 rounded-lg border border-sidebar-border bg-sidebar-accent/45 px-2 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              >
+                <AppleLogo size={18} weight="fill" className="shrink-0" />
+                <span className="min-w-0 text-left leading-none">
+                  <span className="block whitespace-nowrap text-[8px] font-medium text-sidebar-foreground/65">Download on</span>
+                  <span className="mt-1 block whitespace-nowrap text-[11px] font-semibold">App Store</span>
+                </span>
+              </a>
+              <a
+                href={GOOGLE_PLAY_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Get WagerProof on Google Play"
+                className="flex min-w-0 items-center gap-1.5 rounded-lg border border-sidebar-border bg-sidebar-accent/45 px-2 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              >
+                <GooglePlayLogo size={18} weight="fill" className="shrink-0" />
+                <span className="min-w-0 text-left leading-none">
+                  <span className="block whitespace-nowrap text-[8px] font-medium text-sidebar-foreground/65">Get it on</span>
+                  <span className="mt-1 block whitespace-nowrap text-[11px] font-semibold">Google Play</span>
+                </span>
+              </a>
+            </div>
+          </SidebarMenuItem>
+
+          <SidebarMenuItem className="hidden flex-col items-center gap-1 group-data-[collapsible=icon]:flex">
+            <a
+              href={APP_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Download WagerProof on the App Store"
+              title="Download on the App Store"
+              className="grid h-8 w-8 place-items-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            >
+              <AppleLogo size={17} weight="fill" />
+            </a>
+            <a
+              href={GOOGLE_PLAY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Get WagerProof on Google Play"
+              title="Get it on Google Play"
+              className="grid h-8 w-8 place-items-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            >
+              <GooglePlayLogo size={17} weight="fill" />
+            </a>
+          </SidebarMenuItem>
+
           <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
             <div className="flex items-center justify-between px-1 py-1">
               <SidebarMenuButton 

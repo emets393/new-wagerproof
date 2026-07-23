@@ -10,7 +10,9 @@ export interface FollowedAgentDetailed {
   name: string;
   avatar_emoji: string;
   avatar_color: string;
+  sprite_index: number | null;
   preferred_sports: Sport[];
+  last_generated_at: string | null;
   is_favorite: boolean;
   notify_on_pick: boolean;
   performance: AgentPerformance | null;
@@ -35,7 +37,7 @@ export function useFollowedAgentsDetailed(options?: FollowedAgentOptions) {
       const { data, error } = await (supabase as any)
         .from('user_avatar_follows')
         .select(
-          'avatar_id, is_favorite, notify_on_pick, avatar_profiles(name, avatar_emoji, avatar_color, preferred_sports)',
+          'avatar_id, is_favorite, notify_on_pick, avatar_profiles(name, avatar_emoji, avatar_color, sprite_index, preferred_sports, last_generated_at)',
         )
         .eq('user_id', user.id);
 
@@ -52,7 +54,9 @@ export function useFollowedAgentsDetailed(options?: FollowedAgentOptions) {
         name: row.avatar_profiles?.name || 'Unknown',
         avatar_emoji: row.avatar_profiles?.avatar_emoji || '',
         avatar_color: row.avatar_profiles?.avatar_color || '#666666',
+        sprite_index: row.avatar_profiles?.sprite_index ?? null,
         preferred_sports: (row.avatar_profiles?.preferred_sports as Sport[]) || [],
+        last_generated_at: row.avatar_profiles?.last_generated_at ?? null,
         is_favorite: row.is_favorite ?? false,
         notify_on_pick: row.notify_on_pick ?? false,
         performance: perfMap.get(row.avatar_id) || null,
@@ -70,6 +74,27 @@ export function useFollowedAgentsDetailed(options?: FollowedAgentOptions) {
     },
     enabled: !!user?.id && (options?.enabled ?? true),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Remove an agent from the caller's follow list. */
+export function useUnfollowAgent() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (avatarId: string) => {
+      if (!user?.id) throw new Error('Not authenticated');
+      const { error } = await (supabase as any)
+        .from('user_avatar_follows')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('avatar_id', avatarId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['followed-agents'] });
+    },
   });
 }
 

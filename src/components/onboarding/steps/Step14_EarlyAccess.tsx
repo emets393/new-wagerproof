@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useNavigate } from "react-router-dom";
+import { DEFAULT_AUTHENTICATED_ROUTE } from "@/lib/routes";
 
 export function EarlyAccess() {
   const { submitOnboardingData } = useOnboarding();
@@ -15,12 +16,12 @@ export function EarlyAccess() {
       debug.log('Onboarding data submitted, navigating to app...');
       // Small delay to ensure database update completes
       setTimeout(() => {
-        navigate("/agents");
+        navigate(DEFAULT_AUTHENTICATED_ROUTE);
       }, 500);
     } catch (error) {
       debug.error('Error completing onboarding:', error);
       // Still navigate even if there's an error
-      navigate("/agents");
+      navigate(DEFAULT_AUTHENTICATED_ROUTE);
     }
   };
 
