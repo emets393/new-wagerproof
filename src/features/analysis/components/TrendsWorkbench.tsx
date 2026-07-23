@@ -1,9 +1,16 @@
 import * as React from 'react';
 import { flushSync } from 'react-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { AlertTriangle, Bookmark, Save, SlidersHorizontal, X } from 'lucide-react';
+import { AlertTriangle, Bookmark, Ellipsis, Plus, Save, SlidersHorizontal, Trophy, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { GlassCard } from '@/components/ios';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,7 +31,6 @@ import { RecentSearchesDock } from './RecentSearchesDock';
 import { useTrendsRecents } from './useTrendsRecents';
 import { SaveSystemDialog } from '../systems/SaveSystemDialog';
 import { MySystemsSheet } from '../systems/MySystemsSheet';
-import { SystemsLeaderboardBanner } from '../systems/SystemsLeaderboardBanner';
 import { SystemsLeaderboardDialog } from '../systems/SystemsLeaderboardDialog';
 import { useSaveSystem } from '../systems/useAnalysisSystems';
 import {
@@ -382,8 +388,6 @@ function SportWorkbench({
           <div className="flex items-start gap-6">
             {/* results — kept mounted across refetches (dim, don't unmount) */}
             <div ref={resultsTopRef} className="min-w-0 flex-1 space-y-4">
-              <SystemsLeaderboardBanner onClick={() => setLeaderboardOpen(true)} />
-
               {viewingSystem && (
                 <div
                   className={cn(
@@ -427,32 +431,56 @@ function SportWorkbench({
               )}
 
               <div className="flex flex-wrap items-center justify-end gap-2">
-                {user && (
-                  <>
+                <div className="flex items-center gap-1 rounded-full border border-black/5 bg-white/60 p-1 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06]">
+                  {user && (
                     <button
                       type="button"
+                      aria-label="Save current system"
+                      title="Save current system"
                       onClick={() => setSaveOpen(true)}
-                      className={cn(
-                        'flex h-9 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground',
-                        'transition-all duration-200 active:scale-95 hover:bg-primary/90',
-                      )}
+                      className="grid h-8 w-8 place-items-center rounded-full text-foreground transition-colors hover:bg-primary/12 hover:text-primary active:scale-95"
                     >
-                      <Save className="h-4 w-4" />
-                      Save System
+                      <Plus className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setMySystemsOpen(true)}
-                      className={cn(
-                        'flex h-9 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3.5 text-[13px] font-semibold text-primary',
-                        'transition-all duration-200 active:scale-95 hover:bg-primary/15',
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Systems leaderboard"
+                    title="Systems leaderboard"
+                    onClick={() => setLeaderboardOpen(true)}
+                    className="grid h-8 w-8 place-items-center rounded-full text-foreground transition-colors hover:bg-amber-500/12 hover:text-amber-500 active:scale-95"
+                  >
+                    <Trophy className="h-4 w-4" />
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="More system options"
+                        title="More system options"
+                        className="grid h-8 w-8 place-items-center rounded-full text-foreground transition-colors hover:bg-muted active:scale-95"
+                      >
+                        <Ellipsis className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52 rounded-xl">
+                      {user && (
+                        <>
+                          <DropdownMenuItem className="gap-2 rounded-lg" onSelect={() => setSaveOpen(true)}>
+                            <Save className="h-4 w-4" /> Save current system
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2 rounded-lg" onSelect={() => setMySystemsOpen(true)}>
+                            <Bookmark className="h-4 w-4" /> My Systems
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
                       )}
-                    >
-                      <Bookmark className="h-4 w-4" />
-                      My Systems
-                    </button>
-                  </>
-                )}
+                      <DropdownMenuItem className="gap-2 rounded-lg" onSelect={() => setLeaderboardOpen(true)}>
+                        <Trophy className="h-4 w-4" /> Systems Leaderboard
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <button
                   type="button"
                   onClick={() => setFiltersOpen(true)}
@@ -598,12 +626,28 @@ function SportWorkbench({
         onOpenChange={setMySystemsOpen}
         currentSport={sport}
         onApply={handleApplyMySystem}
+        onSaveCurrent={() => {
+          setMySystemsOpen(false);
+          requestAnimationFrame(() => setSaveOpen(true));
+        }}
+        onOpenLeaderboard={() => {
+          setMySystemsOpen(false);
+          requestAnimationFrame(() => setLeaderboardOpen(true));
+        }}
       />
       <SystemsLeaderboardDialog
         open={leaderboardOpen}
         onOpenChange={setLeaderboardOpen}
         initialSport={sport}
         onApplySystem={handleApplyLeaderboardSystem}
+        onOpenMySystems={
+          user
+            ? () => {
+                setLeaderboardOpen(false);
+                requestAnimationFrame(() => setMySystemsOpen(true));
+              }
+            : undefined
+        }
       />
     </div>
   );

@@ -2,6 +2,7 @@ import * as React from 'react';
 import {
   ChartLine,
   Flame,
+  Layers3,
   Loader2,
   Percent,
   Zap,
@@ -76,6 +77,7 @@ interface SystemsLeaderboardDialogProps {
   /** Seed the sport filter from the trends page's active sport. */
   initialSport?: LeaderboardSportFilter;
   onApplySystem: (system: LeaderboardSystem) => void;
+  onOpenMySystems?: () => void;
 }
 
 /** Multi-sport Systems Leaderboard — Sport filter is required on web. */
@@ -84,6 +86,7 @@ export function SystemsLeaderboardDialog({
   onOpenChange,
   initialSport = 'all',
   onApplySystem,
+  onOpenMySystems,
 }: SystemsLeaderboardDialogProps) {
   const [sport, setSport] = React.useState<LeaderboardSportFilter>(initialSport);
   const [sort, setSort] = React.useState<SortMode>('bestROI');
@@ -102,7 +105,22 @@ export function SystemsLeaderboardDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-xl">
         <DialogHeader className="border-b border-black/5 px-5 py-4 dark:border-white/10">
-          <DialogTitle className="text-lg font-extrabold">Systems Leaderboard</DialogTitle>
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/12 text-amber-500">
+              <Trophy className="h-4 w-4" />
+            </span>
+            <DialogTitle className="min-w-0 flex-1 text-lg font-extrabold">Systems Leaderboard</DialogTitle>
+            {onOpenMySystems && (
+              <button
+                type="button"
+                onClick={onOpenMySystems}
+                className="mr-7 inline-flex h-8 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-bold text-primary hover:bg-primary/15"
+              >
+                <Layers3 className="h-3.5 w-3.5" />
+                My Systems
+              </button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -142,6 +160,14 @@ export function SystemsLeaderboardDialog({
             </p>
           ) : (
             <>
+              <div className="mb-4 grid grid-cols-3 gap-2">
+                <SummaryMetric label="Ranked systems" value={String(sorted.length)} />
+                <SummaryMetric
+                  label="Top ROI"
+                  value={sorted[0]?.all_time?.roi == null ? '—' : `${sorted[0].all_time!.roi! >= 0 ? '+' : ''}${sorted[0].all_time!.roi}%`}
+                />
+                <SummaryMetric label="Minimum sample" value="10 games" />
+              </div>
               <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 Sort by
               </p>
@@ -183,6 +209,15 @@ export function SystemsLeaderboardDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SummaryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/35 px-3 py-2.5">
+      <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-sm font-extrabold tabular-nums text-foreground">{value}</p>
+    </div>
   );
 }
 

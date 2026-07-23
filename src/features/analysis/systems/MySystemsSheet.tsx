@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Loader2, Pencil, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Layers3, Loader2, Pencil, Plus, Trash2, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Sheet,
@@ -30,6 +30,8 @@ interface MySystemsSheetProps {
   /** Prefer listing this sport; user can expand to all. */
   currentSport: Sport;
   onApply: (row: SavedSystemRow) => void;
+  onSaveCurrent?: () => void;
+  onOpenLeaderboard?: () => void;
 }
 
 /** Sheet listing the user's saved systems — current sport first, with an All sports toggle. */
@@ -38,6 +40,8 @@ export function MySystemsSheet({
   onOpenChange,
   currentSport,
   onApply,
+  onSaveCurrent,
+  onOpenLeaderboard,
 }: MySystemsSheetProps) {
   const [scope, setScope] = React.useState<'current' | 'all'>('current');
   const sportFilter = scope === 'all' ? 'all' : currentSport;
@@ -82,7 +86,23 @@ export function MySystemsSheet({
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
         <SheetHeader className="border-b border-black/5 px-5 py-4 dark:border-white/10">
           <div className="flex items-center justify-between pr-6">
-            <SheetTitle className="text-lg font-extrabold">My Systems</SheetTitle>
+            <div className="flex items-center gap-2">
+              <Layers3 className="h-4 w-4 text-muted-foreground" />
+              <SheetTitle className="text-lg font-extrabold">My Systems</SheetTitle>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold tabular-nums text-muted-foreground">
+                {systems?.length ?? 0}
+              </span>
+            </div>
+            {onSaveCurrent && (
+              <button
+                type="button"
+                onClick={onSaveCurrent}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-bold text-primary transition-colors hover:bg-primary/15"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Save current
+              </button>
+            )}
           </div>
           <div className="mt-3 flex gap-2">
             <ScopeChip
@@ -91,6 +111,16 @@ export function MySystemsSheet({
               label={sportLabel(currentSport)}
             />
             <ScopeChip active={scope === 'all'} onClick={() => setScope('all')} label="All sports" />
+            {onOpenLeaderboard && (
+              <button
+                type="button"
+                onClick={onOpenLeaderboard}
+                className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-full bg-amber-500/10 px-3 text-xs font-bold text-amber-600 hover:bg-amber-500/15 dark:text-amber-400"
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                Leaderboard
+              </button>
+            )}
           </div>
         </SheetHeader>
 
@@ -101,15 +131,18 @@ export function MySystemsSheet({
             </div>
           ) : !systems || systems.length === 0 ? (
             <p className="px-2 py-10 text-center text-sm leading-relaxed text-muted-foreground">
-              You haven&apos;t saved any systems yet. Build a filter and tap Save System.
+              You haven&apos;t saved any systems yet. Save the setup you&apos;re viewing to use it again.
             </p>
           ) : (
             <div className="space-y-2.5">
               {systems.map((row) => (
                 <div
                   key={`${row.sport}-${row.id}`}
-                  className="flex items-center gap-2 rounded-2xl border border-black/6 bg-black/[0.025] p-3 dark:border-white/10 dark:bg-white/[0.04]"
+                  className="flex items-center gap-3 rounded-2xl border border-black/6 bg-black/[0.025] p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
                 >
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                    <Layers3 className="h-5 w-5" />
+                  </div>
                   <button
                     type="button"
                     className="min-w-0 flex-1 text-left"
@@ -146,6 +179,15 @@ export function MySystemsSheet({
                       {sinceSavedLabel(row.since_saved)}
                       {!row.is_public ? ' · Private' : row.since_saved == null ? ' · Scoring…' : ''}
                     </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-label={`Apply ${row.name}`}
+                    onClick={() => onApply(row)}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary hover:bg-primary/15"
+                  >
+                    <ArrowUpRight className="h-4 w-4" />
                   </button>
 
                   <div className="flex flex-col items-center gap-0.5">

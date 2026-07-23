@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Check, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useCreateAgent } from '@/hooks/useAgents';
+import { useAgent, useCreateAgent } from '@/hooks/useAgents';
 import { useAgentEntitlements } from '@/hooks/useAgentEntitlements';
 import { useUserAgents } from '@/hooks/useAgents';
 import {
@@ -23,16 +23,25 @@ import {
   Screen5_CustomInsights,
   Screen6_Review,
 } from '@/components/agents/creation';
+import { AgentAvatarTile } from '@/components/agents/split/AgentAvatarTile';
+import { cn } from '@/lib/utils';
 
 const TOTAL_STEPS = 6;
 
 export default function AgentCreate() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const copySourceId = searchParams.get('copy') || undefined;
+  const { data: copySource, isLoading: copySourceLoading } = useAgent(copySourceId);
   const createMutation = useCreateAgent();
   const { data: agents } = useUserAgents();
   const { canCreateAnotherAgent, isPro } = useAgentEntitlements();
 
   const [step, setStep] = useState(0);
+  const [choosingStartingPoint, setChoosingStartingPoint] = useState(!!copySourceId);
+  const [startingPoint, setStartingPoint] = useState<'copy' | 'customize'>(
+    copySourceId ? 'copy' : 'customize',
+  );
   const [form, setForm] = useState<CreateAgentFormState>(INITIAL_FORM_STATE);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -101,7 +110,129 @@ export default function AgentCreate() {
     }
   };
 
+  const continueFromStartingPoint = () => {
+    if (startingPoint === 'copy' && copySource) {
+      setForm({
+        preferred_sports: [...copySource.preferred_sports],
+        archetype: copySource.archetype,
+        name: `${copySource.name} Copy`,
+        avatar_emoji: copySource.avatar_emoji,
+        avatar_color: copySource.avatar_color,
+        personality_params: { ...copySource.personality_params },
+        custom_insights: { ...copySource.custom_insights },
+        auto_generate: false,
+        auto_generate_time: copySource.auto_generate_time,
+        auto_generate_timezone: copySource.auto_generate_timezone,
+      });
+    } else {
+      setForm(INITIAL_FORM_STATE);
+    }
+    setChoosingStartingPoint(false);
+  };
+
   const stepTitle = ['Sport & Style', 'Identity', 'Personality', 'Data & Conditions', 'Custom Insights', 'Review'][step];
+
+  if (choosingStartingPoint) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-primary">Create Agent</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">Pick a starting point</h1>
+            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+              Start with this agent&apos;s strategy already filled in, or customize a new build from scratch.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => navigate('/agents')}>Cancel</Button>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            type="button"
+            disabled={copySourceLoading || !copySource}
+            onClick={() => setStartingPoint('copy')}
+            className={cn(
+              'flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all',
+              startingPoint === 'copy'
+                ? 'border-primary bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]'
+                : 'border-border/70 bg-card/70 hover:border-primary/40 hover:bg-card',
+            )}
+          >
+            {copySource ? (
+              <AgentAvatarTile
+                agentId={copySource.id}
+                spriteIndexOverride={copySource.sprite_index}
+                emoji={copySource.avatar_emoji}
+                color={copySource.avatar_color}
+                size={58}
+              />
+            ) : (
+              <span className="h-[58px] w-[58px] animate-pulse rounded-2xl bg-muted" />
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2 text-[15px] font-extrabold">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Copy this build
+              </span>
+              <span className="mt-1 block truncate text-sm font-semibold text-foreground">
+                {copySourceLoading ? 'Loading agent…' : copySource?.name || 'Agent unavailable'}
+              </span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                Prefill the sports, strategy, personality, and insights. Your copy starts with a fresh 0-0 record.
+              </span>
+            </span>
+            <span
+              className={cn(
+                'grid h-5 w-5 shrink-0 place-items-center rounded-full border-2',
+                startingPoint === 'copy' ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40',
+              )}
+            >
+              {startingPoint === 'copy' && <Check className="h-3 w-3" />}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStartingPoint('customize')}
+            className={cn(
+              'flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all',
+              startingPoint === 'customize'
+                ? 'border-primary bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]'
+                : 'border-border/70 bg-card/70 hover:border-primary/40 hover:bg-card',
+            )}
+          >
+            <span className="grid h-[58px] w-[58px] shrink-0 place-items-center rounded-2xl bg-muted">
+              <SlidersHorizontal className="h-6 w-6 text-muted-foreground" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-extrabold">Customize</span>
+              <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                Start empty and choose every part of the build yourself.
+              </span>
+            </span>
+            <span
+              className={cn(
+                'grid h-5 w-5 shrink-0 place-items-center rounded-full border-2',
+                startingPoint === 'customize' ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40',
+              )}
+            >
+              {startingPoint === 'customize' && <Check className="h-3 w-3" />}
+            </span>
+          </button>
+        </div>
+
+        <div className="flex justify-end">
+          <Button
+            onClick={continueFromStartingPoint}
+            disabled={startingPoint === 'copy' && (copySourceLoading || !copySource)}
+            className="rounded-full px-5"
+          >
+            Continue <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto">

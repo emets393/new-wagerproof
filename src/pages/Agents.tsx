@@ -38,6 +38,7 @@ import type {
   LeaderboardTimeframe,
 } from '@/services/agentPerformanceService';
 import { Sport } from '@/types/agent';
+import { markAgentPicksSeen } from '@/utils/agentPicksSeen';
 
 /**
  * /agents — iOS-style split view. Left: My Agents / Leaderboard feed with
@@ -130,6 +131,10 @@ export default function Agents() {
   const selectAgent = React.useCallback(
     (id: string | null, options?: { replace?: boolean; tab?: AgentsSegment }) => {
       setSelectedTicket(null);
+      if (id) {
+        const followed = followedAgents.find((agent) => agent.avatar_id === id);
+        if (followed) markAgentPicksSeen(id, followed.last_generated_at);
+      }
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
@@ -141,7 +146,7 @@ export default function Agents() {
         { replace: options?.replace ?? false }
       );
     },
-    [setSearchParams]
+    [followedAgents, setSearchParams]
   );
 
   // Desktop auto-select: first of my agents, else leaderboard #1. Never on
@@ -241,7 +246,6 @@ export default function Agents() {
       generation={selectedId ? generationByAgent[selectedId] : undefined}
       onGenerate={handleGenerate}
       onClearSelection={() => selectAgent(null)}
-      onSelectAgent={(id) => selectAgent(id, { replace: true, tab: 'mine' })}
       selectedTicketId={selectedTicketId}
       onSelectTicket={(item, accent) => setSelectedTicket({ item, accent })}
     />
@@ -320,6 +324,7 @@ export default function Agents() {
                 maxTotalAgents={maxTotalAgents}
                 isAdmin={isAdmin}
                 onCreate={() => navigate('/agents/create')}
+                onCopyFollowed={(agentId) => navigate(`/agents/create?copy=${agentId}`)}
               />
             }
             detail={agentDetail}
