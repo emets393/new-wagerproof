@@ -11,6 +11,11 @@ CREATE OR REPLACE FUNCTION public.mlb_analysis_upcoming(p_bet_type text, p_filte
  SET search_path TO 'public', 'pg_temp'
 AS $function$
 WITH cs AS (SELECT EXTRACT(YEAR FROM (now() AT TIME ZONE 'America/New_York'))::int AS season),
+-- one evaluation of the predictions view (it was re-scanned per schedule row: ~250ms)
+pcur AS MATERIALIZED (
+  SELECT game_pk, home_ml, away_ml, total_line, f5_total_line
+  FROM mlb_predictions_current WHERE is_active
+),
 upc0 AS (
   SELECT s.game_pk, s.official_date, s.game_time_et, s.venue_id, s.venue_name,
          s.is_divisional, s.is_interleague,
@@ -22,7 +27,7 @@ upc0 AS (
   FROM mlb_schedule s
   JOIN mlb_team_mapping mh ON mh.mlb_api_id = s.home_team_id
   JOIN mlb_team_mapping ma ON ma.mlb_api_id = s.away_team_id
-  LEFT JOIN mlb_predictions_current p ON p.game_pk = s.game_pk AND p.is_active
+  LEFT JOIN pcur p ON p.game_pk = s.game_pk
   WHERE s.game_time_et > now()
     AND NOT s.is_completed AND NOT COALESCE(s.is_cancelled,false) AND NOT COALESCE(s.is_postponed,false)
     AND s.game_type = 'R'
@@ -46,10 +51,12 @@ upc AS (
   FROM upc0
 ),
 allseq AS (
-  SELECT team_abbr, opponent_abbr, game_date AS d, game_pk,
-         CASE WHEN is_home THEN 'home' ELSE 'away' END AS ha,
-         ml_won = 1 AS won, margin, false AS is_upcoming
-  FROM mlb_analysis_base
+  -- season-1 floor keeps opening-week prev_result/series semantics identical while
+  -- halving the windowed history scan
+  SELECT b.team_abbr, b.opponent_abbr, b.game_date AS d, b.game_pk,
+         CASE WHEN b.is_home THEN 'home' ELSE 'away' END AS ha,
+         b.ml_won = 1 AS won, b.margin, false AS is_upcoming
+  FROM mlb_analysis_base b, cs WHERE b.season >= cs.season - 1
   UNION ALL
   SELECT team_abbr, opponent_abbr, official_date, game_pk,
          CASE WHEN is_home THEN 'home' ELSE 'away' END,
@@ -93,9 +100,11 @@ serl3 AS (
   FROM serl2
 ),
 spx AS (
-  SELECT pitcher_id, season,
-    sum(xfip*ip_official)/NULLIF(sum(ip_official),0) AS season_xfip
-  FROM mlb_pitcher_logs
+  -- only the current season is ever joined (sp join key = year of official_date)
+  SELECT l.pitcher_id, l.season,
+    sum(l.xfip*l.ip_official)/NULLIF(sum(l.ip_official),0) AS season_xfip
+  FROM mlb_pitcher_logs l, cs
+  WHERE l.season = cs.season
   GROUP BY 1,2
 ),
 tail AS (

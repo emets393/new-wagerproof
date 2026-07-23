@@ -1085,6 +1085,17 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         case spreadSize, lineRange, tempRange, windRange
         case h1SpreadSize, h1TotalRange, ttLineRange
         case oppSpreadSize, oppTtLineRange
+        // web MLB pair fields (arrays or {min,max} objects)
+        case months, restRange, f5TotalRange, seriesGame, trip
+        case spXfip, oppSpXfip, bpIp, bpXfip, pfRuns
+    }
+
+    /// Web pair fields arrive as [lo, hi] arrays or {min, max} objects.
+    private struct OptRange: Decodable { let min: Double?; let max: Double? }
+    private static func altPair(_ alt: KeyedDecodingContainer<AltKeys>, _ key: AltKeys) -> (Double?, Double?)? {
+        if let a = try? alt.decodeIfPresent([Double?].self, forKey: key), a.count >= 2 { return (a[0], a[1]) }
+        if let o = try? alt.decodeIfPresent(OptRange.self, forKey: key) { return (o.min, o.max) }
+        return nil
     }
 
     public init(
@@ -1504,20 +1515,40 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         conference = (try? c.decodeIfPresent(String.self, forKey: .conference)) ?? "any"
         selectedConferences = try c.decodeIfPresent([String].self, forKey: .selectedConferences) ?? []
 
-        monthMin = try c.decodeIfPresent(Int.self, forKey: .monthMin) ?? 3
-        monthMax = try c.decodeIfPresent(Int.self, forKey: .monthMax) ?? 11
+        if let p = Self.altPair(alt, .months) {
+            monthMin = p.0.map { Int($0.rounded()) } ?? 3
+            monthMax = p.1.map { Int($0.rounded()) } ?? 11
+        } else {
+            monthMin = try c.decodeIfPresent(Int.self, forKey: .monthMin) ?? 3
+            monthMax = try c.decodeIfPresent(Int.self, forKey: .monthMax) ?? 11
+        }
         teams = try c.decodeIfPresent([String].self, forKey: .teams) ?? []
         opponents = try c.decodeIfPresent([String].self, forKey: .opponents) ?? []
         interleague = try c.decodeIfPresent(Bool.self, forKey: .interleague)
         dayOfWeek = try c.decodeIfPresent(String.self, forKey: .dayOfWeek) ?? "any"
         doubleheader = try c.decodeIfPresent(Bool.self, forKey: .doubleheader)
-        seriesGameMin = try c.decodeIfPresent(Int.self, forKey: .seriesGameMin)
-        seriesGameMax = try c.decodeIfPresent(Int.self, forKey: .seriesGameMax)
-        tripMin = try c.decodeIfPresent(Int.self, forKey: .tripMin)
-        tripMax = try c.decodeIfPresent(Int.self, forKey: .tripMax)
+        if let p = Self.altPair(alt, .seriesGame) {
+            seriesGameMin = p.0.map { Int($0.rounded()) }
+            seriesGameMax = p.1.map { Int($0.rounded()) }
+        } else {
+            seriesGameMin = try c.decodeIfPresent(Int.self, forKey: .seriesGameMin)
+            seriesGameMax = try c.decodeIfPresent(Int.self, forKey: .seriesGameMax)
+        }
+        if let p = Self.altPair(alt, .trip) {
+            tripMin = p.0.map { Int($0.rounded()) }
+            tripMax = p.1.map { Int($0.rounded()) }
+        } else {
+            tripMin = try c.decodeIfPresent(Int.self, forKey: .tripMin)
+            tripMax = try c.decodeIfPresent(Int.self, forKey: .tripMax)
+        }
         switchGame = try c.decodeIfPresent(Bool.self, forKey: .switchGame)
-        restMin = try c.decodeIfPresent(Int.self, forKey: .restMin)
-        restMax = try c.decodeIfPresent(Int.self, forKey: .restMax)
+        if let p = Self.altPair(alt, .restRange) {
+            restMin = p.0.map { Int($0.rounded()) }
+            restMax = p.1.map { Int($0.rounded()) }
+        } else {
+            restMin = try c.decodeIfPresent(Int.self, forKey: .restMin)
+            restMax = try c.decodeIfPresent(Int.self, forKey: .restMax)
+        }
         streakMin = try c.decodeIfPresent(String.self, forKey: .streakMin) ?? ""
         streakMax = try c.decodeIfPresent(String.self, forKey: .streakMax) ?? ""
         lastResult = try c.decodeIfPresent(String.self, forKey: .lastResult) ?? "any"
@@ -1529,20 +1560,44 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         oppSpHand = try c.decodeIfPresent(String.self, forKey: .oppSpHand) ?? "any"
         windMin = try c.decodeIfPresent(Int.self, forKey: .windMin)
         windDir = try c.decodeIfPresent(String.self, forKey: .windDir) ?? "any"
-        pfRunsMin = try c.decodeIfPresent(Double.self, forKey: .pfRunsMin)
-        pfRunsMax = try c.decodeIfPresent(Double.self, forKey: .pfRunsMax)
-        f5TotalMin = try c.decodeIfPresent(Double.self, forKey: .f5TotalMin) ?? 2
-        f5TotalMax = try c.decodeIfPresent(Double.self, forKey: .f5TotalMax) ?? 8
+        if let p = Self.altPair(alt, .pfRuns) {
+            pfRunsMin = p.0; pfRunsMax = p.1
+        } else {
+            pfRunsMin = try c.decodeIfPresent(Double.self, forKey: .pfRunsMin)
+            pfRunsMax = try c.decodeIfPresent(Double.self, forKey: .pfRunsMax)
+        }
+        if let p = Self.altPair(alt, .f5TotalRange) {
+            f5TotalMin = p.0 ?? 2; f5TotalMax = p.1 ?? 8
+        } else {
+            f5TotalMin = try c.decodeIfPresent(Double.self, forKey: .f5TotalMin) ?? 2
+            f5TotalMax = try c.decodeIfPresent(Double.self, forKey: .f5TotalMax) ?? 8
+        }
         timeMin = try c.decodeIfPresent(String.self, forKey: .timeMin) ?? ""
         timeMax = try c.decodeIfPresent(String.self, forKey: .timeMax) ?? ""
-        spXfipMin = try c.decodeIfPresent(Double.self, forKey: .spXfipMin) ?? 2
-        spXfipMax = try c.decodeIfPresent(Double.self, forKey: .spXfipMax) ?? 7
-        oppSpXfipMin = try c.decodeIfPresent(Double.self, forKey: .oppSpXfipMin) ?? 2
-        oppSpXfipMax = try c.decodeIfPresent(Double.self, forKey: .oppSpXfipMax) ?? 7
-        bpIpMin = try c.decodeIfPresent(Double.self, forKey: .bpIpMin) ?? 0
-        bpIpMax = try c.decodeIfPresent(Double.self, forKey: .bpIpMax) ?? 20
-        bpXfipMin = try c.decodeIfPresent(Double.self, forKey: .bpXfipMin) ?? 2
-        bpXfipMax = try c.decodeIfPresent(Double.self, forKey: .bpXfipMax) ?? 7
+        if let p = Self.altPair(alt, .spXfip) {
+            spXfipMin = p.0 ?? 2; spXfipMax = p.1 ?? 7
+        } else {
+            spXfipMin = try c.decodeIfPresent(Double.self, forKey: .spXfipMin) ?? 2
+            spXfipMax = try c.decodeIfPresent(Double.self, forKey: .spXfipMax) ?? 7
+        }
+        if let p = Self.altPair(alt, .oppSpXfip) {
+            oppSpXfipMin = p.0 ?? 2; oppSpXfipMax = p.1 ?? 7
+        } else {
+            oppSpXfipMin = try c.decodeIfPresent(Double.self, forKey: .oppSpXfipMin) ?? 2
+            oppSpXfipMax = try c.decodeIfPresent(Double.self, forKey: .oppSpXfipMax) ?? 7
+        }
+        if let p = Self.altPair(alt, .bpIp) {
+            bpIpMin = p.0 ?? 0; bpIpMax = p.1 ?? 20
+        } else {
+            bpIpMin = try c.decodeIfPresent(Double.self, forKey: .bpIpMin) ?? 0
+            bpIpMax = try c.decodeIfPresent(Double.self, forKey: .bpIpMax) ?? 20
+        }
+        if let p = Self.altPair(alt, .bpXfip) {
+            bpXfipMin = p.0 ?? 2; bpXfipMax = p.1 ?? 7
+        } else {
+            bpXfipMin = try c.decodeIfPresent(Double.self, forKey: .bpXfipMin) ?? 2
+            bpXfipMax = try c.decodeIfPresent(Double.self, forKey: .bpXfipMax) ?? 7
+        }
         rpg = try c.decodeIfPresent([Double].self, forKey: .rpg) ?? [0, 10]
         rapg = try c.decodeIfPresent([Double].self, forKey: .rapg) ?? [0, 10]
         runDiffPg = try c.decodeIfPresent([Double].self, forKey: .runDiffPg) ?? [-4, 4]
@@ -1855,7 +1910,9 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         case .nfl, .cfb:
             return HistoricalAnalysisUISnapshot(
                 betType: HistoricalAnalysisBetType.fgSpread.rawValue,
-                seasonMin: sport.defaultSeasonFloor,
+                // Web-parity default windows (NFL last 3 seasons, CFB current) —
+                // deep-history default scans are the statement-timeout risk.
+                seasonMin: sport == .nfl ? max(sport.defaultSeasonFloor, sport.seasonMax - 2) : sport.seasonMax,
                 seasonMax: sport.seasonMax,
                 weekMin: 1,
                 weekMax: sport == .nfl ? 18 : 16,

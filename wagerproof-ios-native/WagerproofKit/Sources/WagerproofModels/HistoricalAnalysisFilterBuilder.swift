@@ -102,7 +102,9 @@ public enum HistoricalAnalysisFilterBuilder {
         // Game totals are game-level: Side / ML-odds don't apply (they returned 0 / did nothing).
         let isGameTotal = betType == "fg_total" || betType == "h1_total"
 
-        if snapshot.seasonMin > seasonFloor { f["season_min"] = .int(snapshot.seasonMin) }
+        // Always emit season_min (web parity) — an unbounded scan is the documented
+        // statement-timeout risk, and rpc_filters must match across platforms.
+        f["season_min"] = .int(snapshot.seasonMin)
         if snapshot.seasonMax < sport.seasonMax { f["season_max"] = .int(snapshot.seasonMax) }
 
         switch sport {
@@ -339,7 +341,7 @@ public enum HistoricalAnalysisFilterBuilder {
         let floor = 2023
         let seasonCap = HistoricalAnalysisSport.mlb.seasonMax
 
-        if snapshot.seasonMin > floor { out["season_min"] = .int(snapshot.seasonMin) }
+        out["season_min"] = .int(snapshot.seasonMin)
         if snapshot.seasonMax < seasonCap { out["season_max"] = .int(snapshot.seasonMax) }
         if snapshot.monthMin > 3 { out["month_min"] = .int(snapshot.monthMin) }
         if snapshot.monthMax < 11 { out["month_max"] = .int(snapshot.monthMax) }
@@ -442,9 +444,11 @@ public enum HistoricalAnalysisFilterBuilder {
         applyDoubleRange(&out, minKey: "bp_ip3d_min", maxKey: "bp_ip3d_max", lo: snapshot.bpIpMin, hi: snapshot.bpIpMax, defaultLo: 0, defaultHi: 20)
         applyDoubleRange(&out, minKey: "bp_xfip_min", maxKey: "bp_xfip_max", lo: snapshot.bpXfipMin, hi: snapshot.bpXfipMax, defaultLo: 2, defaultHi: 7)
 
-        if snapshot.tempMin > -10 { out["temp_min"] = .int(snapshot.tempMin) }
+        // Web parity: the MLB temp control floors at 30; a restored web snapshot
+        // carries [30,110] untouched and must NOT become an always-on temp_min.
+        if snapshot.tempMin > 30 { out["temp_min"] = .int(snapshot.tempMin) }
         if snapshot.tempMax < 110 { out["temp_max"] = .int(snapshot.tempMax) }
-        if let windMin = snapshot.windMin { out["wind_min"] = .int(windMin) }
+        if let windMin = snapshot.windMin, windMin > 0 { out["wind_min"] = .int(windMin) }
         if snapshot.windMax < 40 { out["wind_max"] = .int(snapshot.windMax) }
         if snapshot.windDir != "any" { out["wind_dir"] = .string(snapshot.windDir) }
         if snapshot.dome != "any" { out["dome"] = .bool(snapshot.dome == "dome") }

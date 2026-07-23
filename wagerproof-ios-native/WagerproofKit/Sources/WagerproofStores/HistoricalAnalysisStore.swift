@@ -224,6 +224,7 @@ public final class HistoricalAnalysisStore {
     private func applyFilterSnapshot(_ filters: HistoricalAnalysisUISnapshot, betType rawBet: String) {
         var restored = filters
         if !rawBet.isEmpty { restored.betType = rawBet }
+        correctLegacyFallbacks(&restored)
         if restored.selectedConferences.isEmpty, restored.conference != "any" {
             restored.selectedConferences = [restored.conference]
             restored.conference = "any"
@@ -234,6 +235,32 @@ public final class HistoricalAnalysisStore {
         // analysis painted under the new filter chips and reads as "No games match".
         debounceTask?.cancel()
         Task { await fetchNow() }
+    }
+
+
+    /// Sparse/legacy saved snapshots decode missing range fields to NFL-shaped
+    /// constants (e.g. [0,16] streaks). On other sports those become silent
+    /// always-on filters — MLB prev_wins_max=16 returns ~zero rows. Snap the
+    /// exact fallback signatures back to this sport's no-op defaults.
+    private func correctLegacyFallbacks(_ s: inout HistoricalAnalysisUISnapshot) {
+        let d = HistoricalAnalysisUISnapshot.defaults(for: sport)
+        func fix(_ kp: WritableKeyPath<HistoricalAnalysisUISnapshot, [Int]>, nflFallback: [Int]) {
+            if s[keyPath: kp] == nflFallback && d[keyPath: kp] != nflFallback { s[keyPath: kp] = d[keyPath: kp] }
+        }
+        func fixD(_ kp: WritableKeyPath<HistoricalAnalysisUISnapshot, [Double]>, nflFallback: [Double]) {
+            if s[keyPath: kp] == nflFallback && d[keyPath: kp] != nflFallback { s[keyPath: kp] = d[keyPath: kp] }
+        }
+        fix(\.winStreak, nflFallback: [0, 16])
+        fix(\.lossStreak, nflFallback: [0, 16])
+        fix(\.overStreak, nflFallback: [0, 16])
+        fix(\.underStreak, nflFallback: [0, 16])
+        fix(\.prevWins, nflFallback: [0, 16])
+        fixD(\.ppg, nflFallback: [0, 40])
+        fixD(\.paPg, nflFallback: [0, 40])
+        fixD(\.oppPpg, nflFallback: [0, 40])
+        fixD(\.oppPaPg, nflFallback: [0, 40])
+        fixD(\.pointDiffPg, nflFallback: [-20, 20])
+        fixD(\.avgCoverMargin, nflFallback: [-15, 15])
     }
 
     public func loadLeaderboard() async {

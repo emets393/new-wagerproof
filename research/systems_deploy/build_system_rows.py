@@ -48,6 +48,19 @@ SPORTS = {
 }
 
 
+def hoist_filters(where):
+    """Replace per-row p_filters extractions with one-shot columns from a 1-row
+    cross-joined subquery (SQL fns never constant-fold params: ~25-90ms/call saved)."""
+    keys_t = sorted(set(re.findall(r"p_filters->>'([a-z0-9_]+)'", where)))
+    keys_j = sorted(set(re.findall(r"p_filters->'([a-z0-9_]+)'", where)) - set(keys_t))
+    w = re.sub(r"p_filters->>'([a-z0-9_]+)'", r'f."\1_t"', where)
+    w = re.sub(r"p_filters->'([a-z0-9_]+)'", r'f."\1_j"', w)
+    cols = [f"p_filters->>'{k}' AS \"{k}_t\"" for k in keys_t] + \
+           [f"p_filters->'{k}' AS \"{k}_j\"" for k in keys_j]
+    sub = "CROSS JOIN LATERAL (SELECT " + ",\n    ".join(cols) + " OFFSET 0) f"
+    return w, sub
+
+
 def must_count(hay, needle, n, label):
     c = hay.count(needle)
     if c != n:
@@ -82,7 +95,8 @@ for sport, cfg in SPORTS.items():
     o_hit = hit_expr.replace("b.", "o.")
     o_profit = profit_expr.replace("b.", "o.")
 
-    fn = f"""CREATE OR REPLACE FUNCTION public.{sport}_system_rows(p_bet_type text, p_filters jsonb DEFAULT '{{}}'::jsonb)
+    where_hoisted, f_sub = hoist_filters(where)
+    fn = f"""CREATE OR REPLACE FUNCTION public.{sport}_system_rows(p_bet_type text, p_filters jsonb DEFAULT '{{}}'::jsonb, p_include_opp boolean DEFAULT true)
  RETURNS TABLE(
   {col_defs},
   hit integer,
@@ -101,17 +115,20 @@ AS $function$
     opp.o_hit::integer AS opp_hit,
     opp.o_profit::numeric AS opp_profit
   FROM {base} b
+  {f_sub}
   LEFT JOIN LATERAL (
     SELECT
       {o_hit} AS o_hit,
       {o_profit} AS o_profit
     FROM {base} o
-    -- upper(): MLB base still carries mixed-case 'Ath' duplicate rows; a case-blind
-    -- inequality stops the mirror join from matching the same team's duplicate.
-    WHERE o.{cfg['game_key']} = b.{cfg['game_key']} AND upper(o.{cfg['team_col']}) <> upper(b.{cfg['team_col']})
+    -- upper(): case-blind so a mixed-case duplicate row can never self-match.
+    -- ORDER BY: deterministic mirror if a >2-row game ever appears.
+    WHERE p_include_opp AND p_bet_type IN {cfg['side_types']}
+      AND o.{cfg['game_key']} = b.{cfg['game_key']} AND upper(o.{cfg['team_col']}) <> upper(b.{cfg['team_col']})
+    ORDER BY o.{cfg['team_col']}
     LIMIT 1
-  ) opp ON p_bet_type IN {cfg['side_types']}
-  WHERE {where};
+  ) opp ON true
+  WHERE {where_hoisted};
 $function$"""
     (OUT / f"{sport}_system_rows.sql").write_text(fn)
 
@@ -119,7 +136,7 @@ $function$"""
     head, _rest = src.split("SELECT b.*,", 1)
     tail = after[m.end():]
     agg = (head
-           + f"SELECT * FROM public.{sport}_system_rows(p_bet_type, p_filters);\n"
+           + f"SELECT * FROM public.{sport}_system_rows(p_bet_type, p_filters, false);\n"
            + tail)
     # sanity: the rewritten aggregate must keep its DELETE + aggregation logic
     must_count(agg, "DELETE FROM _f WHERE hit IS NULL", 1, f"{sport} agg delete")
