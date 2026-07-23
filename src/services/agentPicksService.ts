@@ -35,10 +35,40 @@ export async function fetchTopAgentPicksFeed(
     p_cursor: null,
   });
   if (error) throw error;
-  return ((data ?? []) as TopAgentPickFeedRow[]).map((row) => ({
+
+  const rows = (data ?? []) as TopAgentPickFeedRow[];
+  const missingStreakAgentIds = [...new Set(
+    rows
+      .filter((row) => row.agent_current_streak == null)
+      .map((row) => row.avatar_id),
+  )];
+  const streaksByAgentId = new Map<string, number>();
+
+  // Production may still expose the pre-streak version of the feed RPC. Read
+  // the public performance cache as a compatibility fallback so the cards do
+  // not silently turn every missing streak into "—".
+  if (missingStreakAgentIds.length > 0) {
+    const { data: performanceRows, error: performanceError } = await (supabase as any)
+      .from('avatar_performance_cache')
+      .select('avatar_id, current_streak')
+      .in('avatar_id', missingStreakAgentIds);
+
+    if (performanceError) {
+      console.warn('fetchTopAgentPicksFeed: unable to load streak fallback', performanceError.message);
+    } else {
+      for (const performance of performanceRows ?? []) {
+        streaksByAgentId.set(performance.avatar_id, Number(performance.current_streak ?? 0));
+      }
+    }
+  }
+
+  return rows.map((row) => ({
     ...row,
     units: Number(row.units ?? 0),
     agent_net_units: Number(row.agent_net_units ?? 0),
+    agent_current_streak: row.agent_current_streak == null
+      ? (streaksByAgentId.get(row.avatar_id) ?? 0)
+      : Number(row.agent_current_streak),
   }));
 }
 
