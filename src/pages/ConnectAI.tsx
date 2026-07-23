@@ -2,16 +2,12 @@ import { useState } from 'react';
 import {
   Check,
   Copy,
-  ExternalLink,
-  Info,
-  LockKeyhole,
-  MessageSquareQuote,
+  Lightbulb,
   Plus,
   Settings2,
   ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 import claudeIcon from '../../wagerproof-ios-native/Wagerproof/Assets.xcassets/AIClaudeIcon.imageset/claude.jpg';
 import chatGPTIcon from '../../wagerproof-ios-native/Wagerproof/Assets.xcassets/AIChatGPTIcon.imageset/chatgpt.jpg';
@@ -22,10 +18,7 @@ import claudeSymbol from '../../wagerproof-ios-native/Wagerproof/Assets.xcassets
 import claudeSettings from '../../wagerproof-ios-native/Wagerproof/Assets.xcassets/ClaudeSetupSettings.imageset/claude-setup-settings.png';
 import claudeConnectors from '../../wagerproof-ios-native/Wagerproof/Assets.xcassets/ClaudeSetupConnectors.imageset/claude-setup-connectors.png';
 
-const ACCENT = '#d97757';
 const ENDPOINT = 'https://wagerproof-mcp.habib225.workers.dev/mcp';
-const CLAUDE_CONNECTORS_URL = 'https://claude.ai/settings/connectors';
-const CONNECTOR_GUIDE_URL = 'https://wagerproof-mcp.habib225.workers.dev/docs';
 
 const PROVIDERS = [
   { name: 'Claude', icon: claudeIcon },
@@ -36,22 +29,31 @@ const PROVIDERS = [
 ];
 
 const EXAMPLE_PROMPTS = [
-  'How have my prediction agents performed over the last 30 days?',
-  "Show my contrarian agent's last 10 picks and how they graded.",
-  "Compare WagerProof's model for tonight's NBA games with prediction-market odds.",
-  'Which agents do I follow, and what is their recent record?',
+  'Show me my agents and summarize how each one is performing.',
+  'Which of my agents has the strongest recent record?',
+  'What are today’s picks from the agents I follow?',
+  'Compare my agents by win rate, units, and current streak.',
+  'Show me the top public agents for NFL spreads.',
+  'Summarize the most interesting WagerProof trends today.',
 ];
 
-function ProviderStack({ compact = false }: { compact?: boolean }) {
+function setupInstructions(): string {
+  return `Help me connect WagerProof to this AI using its remote MCP connector.
+
+Connector name: WagerProof
+Connector URL: ${ENDPOINT}
+Access: read-only
+
+Please do as much of the setup as you can. If you cannot add the connector directly, give me the shortest exact steps for your current interface. Tell me where to paste the URL, leave advanced settings empty unless required, and have me authenticate with my WagerProof account when prompted. Before connecting, confirm the URL ends in wagerproof-mcp.habib225.workers.dev/mcp.`;
+}
+
+function ProviderStack() {
   return (
     <div className="flex items-center" aria-label="Claude, ChatGPT, Gemini, Grok, and Codex">
       {PROVIDERS.map((provider, index) => (
         <div
           key={provider.name}
-          className={cn(
-            'relative overflow-hidden rounded-full border-2 border-white/80 bg-black shadow-[0_5px_14px_rgba(0,0,0,0.38)]',
-            compact ? 'h-10 w-10 -ml-2 first:ml-0' : 'h-12 w-12 -ml-3 first:ml-0 sm:h-14 sm:w-14',
-          )}
+          className="relative -ml-3 h-11 w-11 overflow-hidden rounded-full border-2 border-white/80 bg-black shadow-[0_5px_14px_rgba(0,0,0,0.38)] first:ml-0 sm:h-12 sm:w-12"
           style={{ zIndex: PROVIDERS.length - index }}
           title={provider.name}
         >
@@ -62,7 +64,7 @@ function ProviderStack({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function StepCard({
+function ManualStep({
   number,
   title,
   description,
@@ -76,35 +78,35 @@ function StepCard({
   children?: React.ReactNode;
 }) {
   return (
-    <article className="relative overflow-hidden rounded-[22px] border border-border/70 bg-card shadow-sm">
-      <div className="flex items-start gap-4 p-5 sm:p-6">
-        <div
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-black text-white shadow-sm"
-          style={{ backgroundColor: ACCENT }}
-        >
+    <li className="overflow-hidden rounded-2xl border border-border/70 bg-card">
+      <div className="flex items-start gap-3.5 p-4 sm:p-5">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#d97757] text-xs font-black text-white">
           {number}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="mb-1.5 flex items-center gap-2">
-            <span style={{ color: ACCENT }}>{icon}</span>
-            <h3 className="text-base font-bold tracking-[-0.01em] text-foreground sm:text-lg">{title}</h3>
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[#d97757]">{icon}</span>
+            <h3 className="text-sm font-bold sm:text-base">{title}</h3>
           </div>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
+          <p className="mt-1.5 text-sm leading-5 text-muted-foreground">{description}</p>
         </div>
       </div>
-      {children && <div className="border-t border-border/60 bg-muted/25 p-4 sm:px-6 sm:py-5">{children}</div>}
-    </article>
+      {children}
+    </li>
   );
 }
 
 export default function ConnectAI() {
   const [copied, setCopied] = useState<string | null>(null);
+  const instructions = setupInstructions();
 
   const copyText = async (value: string, label: string) => {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(value);
-      toast.success(`${label} copied`);
+      toast.success(`${label} copied`, {
+        description: 'Paste it into your AI to continue.',
+      });
       window.setTimeout(() => setCopied((current) => (current === value ? null : current)), 1800);
     } catch {
       toast.error(`Couldn't copy ${label.toLowerCase()}`);
@@ -112,233 +114,160 @@ export default function ConnectAI() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 pb-12">
-      <section className="relative isolate overflow-hidden rounded-[28px] border border-white/10 bg-[#30231f] shadow-xl">
-        <div
-          className="absolute inset-0"
-          style={{ background: 'linear-gradient(112deg, #30231f 0%, #4d2d27 43%, #a6533f 76%, #d97757 100%)' }}
-        />
+    <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
+      <section className="relative isolate overflow-hidden rounded-[26px] border border-white/10 bg-[#30231f] shadow-lg">
+        <div className="absolute inset-0 bg-[linear-gradient(112deg,#30231f_0%,#4d2d27_46%,#a6533f_78%,#d97757_100%)]" />
         <img
           src={claudeSymbol}
           alt=""
-          className="pointer-events-none absolute -bottom-20 right-[-3rem] h-80 w-80 object-contain opacity-[0.07] sm:right-2"
+          className="pointer-events-none absolute -bottom-20 right-[-3rem] h-72 w-72 object-contain opacity-[0.07] sm:right-0"
         />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.14),transparent_32%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_15%,rgba(255,255,255,0.14),transparent_34%)]" />
 
-        <div className="relative grid gap-8 px-6 py-8 sm:px-9 sm:py-10 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div className="max-w-3xl">
-            <ProviderStack />
-            <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">
-              WagerProof AI connector
-            </p>
-            <h1 className="mt-2 text-3xl font-black tracking-[-0.025em] text-white sm:text-4xl">
-              Connect WagerProof to your AI
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-white/88 sm:text-base">
-              Bring your agents, picks, follows, and model analytics into a secure, read-only AI workflow.
-            </p>
-            <p className="mt-5 text-[10px] font-bold tracking-[0.06em] text-white/58">
-              CLAUDE&nbsp;&nbsp;·&nbsp;&nbsp;CHATGPT&nbsp;&nbsp;·&nbsp;&nbsp;GEMINI&nbsp;&nbsp;·&nbsp;&nbsp;GROK&nbsp;&nbsp;·&nbsp;&nbsp;CODEX
-            </p>
-          </div>
-
-          <a
-            href={CLAUDE_CONNECTORS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-[#4d2d27] shadow-lg transition hover:-translate-y-0.5 hover:bg-white/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            Open Claude Connectors
-            <ExternalLink className="h-4 w-4" />
-          </a>
+        <div className="relative px-6 py-7 sm:px-8 sm:py-8">
+          <ProviderStack />
+          <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/65">WagerProof AI connector</p>
+          <h1 className="mt-1.5 text-3xl font-black tracking-[-0.025em] text-white sm:text-4xl">
+            Connect WagerProof to your AI
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-white/85 sm:text-base">
+            Give your AI read-only access to your agents, picks, follows, and WagerProof analytics.
+          </p>
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
-        <div className="rounded-[22px] border border-[#d97757]/25 bg-[#d97757]/10 p-5 sm:p-6">
-          <div className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#d97757]/15 text-[#d97757]">
-              <Plus className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold tracking-tight">Add it once, then use it everywhere</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Add WagerProof manually from Claude on web or desktop. Once connected, it follows your Claude account
-                onto mobile too.
-              </p>
-            </div>
+      <section className="rounded-[24px] border border-[#d97757]/35 bg-[#d97757]/10 p-5 shadow-sm sm:p-6">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#d97757] text-white">
+            <Lightbulb className="h-5 w-5" />
           </div>
-        </div>
-
-        <div className="rounded-[22px] border border-border/70 bg-card p-5 sm:p-6">
-          <div className="flex items-start gap-3">
-            <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#d97757]" />
-            <p className="text-sm leading-6 text-muted-foreground">
-              Claude will label it <strong className="text-foreground">Custom</strong> because Anthropic has not reviewed
-              the listing yet. The endpoint is operated by WagerProof and exposes read-only tools.
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Tip</p>
+            <h2 className="mt-1 text-xl font-black tracking-[-0.015em]">Let your preferred AI help set it up</h2>
+            <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Just click here to copy instructions for your preferred AI, paste them there, and let it guide you
+              through the rest.
             </p>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => copyText(instructions, 'Setup instructions')}
+          className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#d97757] px-5 text-sm font-black text-white transition hover:bg-[#c9684a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60 sm:w-auto"
+        >
+          {copied === instructions ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          {copied === instructions ? 'Instructions copied' : 'Copy instructions'}
+        </button>
       </section>
 
-      <section aria-labelledby="setup-title" className="space-y-5">
+      <section aria-labelledby="manual-setup-title" className="space-y-4">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Get connected</p>
-          <h2 id="setup-title" className="mt-1 text-2xl font-black tracking-[-0.02em] sm:text-3xl">
-            Four steps on Claude web or desktop
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">No API keys or advanced OAuth settings required.</p>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Manual setup</p>
+            <h2 id="manual-setup-title" className="mt-1 text-2xl font-black tracking-[-0.02em]">
+              How to connect an MCP
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Four short steps. Labels may vary slightly between AI apps.
+            </p>
+          </div>
         </div>
 
-        <div className="grid gap-4">
-          <StepCard
+        <ol className="grid gap-3 md:grid-cols-2">
+          <ManualStep
             number={1}
-            title="Open Claude Settings"
-            description="In Claude, click your name at the bottom-left and choose Settings."
-            icon={<Settings2 className="h-5 w-5" />}
+            title="Open your AI settings"
+            description="Open your preferred AI app, then go to its settings."
+            icon={<Settings2 className="h-4 w-4" />}
           >
-            <div className="overflow-hidden rounded-xl bg-[#222]">
+            <div className="border-t border-border/60 bg-muted/20 px-4 py-3">
               <img
                 src={claudeSettings}
                 alt="Claude account menu with Settings selected"
-                className="mx-auto max-h-[250px] w-auto object-contain"
+                className="mx-auto h-28 w-auto rounded-lg object-contain"
               />
             </div>
-          </StepCard>
+          </ManualStep>
 
-          <StepCard
+          <ManualStep
             number={2}
-            title="Choose Connectors"
-            description="Under Customize, open Connectors, then click the plus button beside the Connectors heading."
-            icon={<Plus className="h-5 w-5" />}
+            title="Find Connectors or MCP"
+            description="Open the Connectors, Integrations, or MCP section and add a new one."
+            icon={<Plus className="h-4 w-4" />}
           >
-            <div className="overflow-hidden rounded-xl bg-[#1a1a19]">
+            <div className="border-t border-border/60 bg-muted/20 px-4 py-3">
               <img
                 src={claudeConnectors}
-                alt="Claude Settings with Connectors selected under Customize"
-                className="mx-auto max-h-[190px] w-auto object-contain"
+                alt="Claude Settings with Connectors selected"
+                className="mx-auto h-28 w-auto rounded-lg object-contain"
               />
             </div>
-          </StepCard>
+          </ManualStep>
 
-          <StepCard
+          <ManualStep
             number={3}
-            title="Add WagerProof as a custom connector"
-            description="Choose Add custom connector. Name it WagerProof, paste the URL below, leave Advanced settings empty, and click Add."
-            icon={<Copy className="h-5 w-5" />}
+            title="Add the custom connector"
+            description="Name it WagerProof, paste the URL, and leave Advanced settings empty."
+            icon={<Copy className="h-4 w-4" />}
           >
-            <button
-              type="button"
-              onClick={() => copyText(ENDPOINT, 'Connector URL')}
-              className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left transition hover:border-[#d97757]/50 hover:bg-[#d97757]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
-              aria-label={copied === ENDPOINT ? 'WagerProof connector URL copied' : 'Copy WagerProof connector URL'}
-            >
-              <code className="min-w-0 flex-1 break-all text-xs font-semibold text-foreground sm:text-sm">{ENDPOINT}</code>
-              {copied === ENDPOINT ? (
-                <Check className="h-5 w-5 shrink-0 text-emerald-500" />
-              ) : (
-                <Copy className="h-5 w-5 shrink-0 text-[#d97757]" />
-              )}
-            </button>
-          </StepCard>
-
-          <StepCard
-            number={4}
-            title="Connect your WagerProof account"
-            description="Click Connect, sign in with the same WagerProof email and password you use in the app, and approve read-only access."
-            icon={<ShieldCheck className="h-5 w-5" />}
-          >
-            <div className="flex items-start gap-3 rounded-xl bg-emerald-500/10 p-4 text-sm leading-6 text-muted-foreground">
-              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
-              <p>
-                Claude may show an unverified connector warning. Confirm the URL ends in{' '}
-                <strong className="text-foreground">wagerproof-mcp.habib225.workers.dev/mcp</strong> before continuing.
-              </p>
-            </div>
-          </StepCard>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <a
-            href={CLAUDE_CONNECTORS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#d97757] px-5 text-sm font-bold text-white transition hover:bg-[#c9684a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
-          >
-            <img src={claudeIcon} alt="" className="h-6 w-6 rounded-md" />
-            Open Claude Connectors
-            <ExternalLink className="h-4 w-4" />
-          </a>
-          <a
-            href={CONNECTOR_GUIDE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-bold transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Read the full connector guide
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        </div>
-
-        <p className="px-1 text-xs leading-5 text-muted-foreground">
-          On Claude Team or Enterprise, an Owner must add the custom web connector for the organization before members
-          can connect their own accounts.
-        </p>
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
-        <div className="space-y-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Try asking</p>
-            <h2 className="mt-1 text-2xl font-black tracking-[-0.02em]">Start with one of these</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Copy a prompt, then paste it into a Claude chat.</p>
-          </div>
-
-          <div className="grid gap-2.5">
-            {EXAMPLE_PROMPTS.map((prompt) => (
+            <div className="border-t border-border/60 bg-muted/20 p-3">
               <button
-                key={prompt}
                 type="button"
-                onClick={() => copyText(prompt, 'Prompt')}
-                className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card p-4 text-left transition hover:border-[#d97757]/40 hover:bg-[#d97757]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
+                onClick={() => copyText(ENDPOINT, 'Connector URL')}
+                className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-left transition hover:border-[#d97757]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
+                aria-label={copied === ENDPOINT ? 'WagerProof connector URL copied' : 'Copy WagerProof connector URL'}
               >
-                <MessageSquareQuote className="mt-0.5 h-4 w-4 shrink-0 text-[#d97757]" />
-                <span className="min-w-0 flex-1 text-sm font-medium leading-5">{prompt}</span>
-                {copied === prompt ? (
+                <code className="min-w-0 flex-1 break-all text-[11px] font-semibold sm:text-xs">{ENDPOINT}</code>
+                {copied === ENDPOINT ? (
                   <Check className="h-4 w-4 shrink-0 text-emerald-500" />
                 ) : (
-                  <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Copy className="h-4 w-4 shrink-0 text-[#d97757]" />
                 )}
               </button>
-            ))}
-          </div>
+            </div>
+          </ManualStep>
+
+          <ManualStep
+            number={4}
+            title="Sign in and approve"
+            description="Click Connect, sign in to WagerProof, and approve read-only access."
+            icon={<ShieldCheck className="h-4 w-4" />}
+          >
+            <div className="border-t border-border/60 bg-emerald-500/8 px-4 py-3 text-xs leading-5 text-muted-foreground">
+              Confirm the URL ends in <strong className="text-foreground">wagerproof-mcp.habib225.workers.dev/mcp</strong>{' '}
+              before continuing.
+            </div>
+          </ManualStep>
+        </ol>
+      </section>
+
+      <section aria-labelledby="example-prompts-title" className="space-y-4">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#d97757]">Try asking</p>
+          <h2 id="example-prompts-title" className="mt-1 text-2xl font-black tracking-[-0.02em]">
+            What can you do with it?
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">Ask naturally, or click any prompt to copy it.</p>
         </div>
 
-        <aside className="self-start rounded-[24px] border border-[#d97757]/25 bg-[#d97757]/10 p-6">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#d97757]/15 text-[#d97757]">
-              <LockKeyhole className="h-5 w-5" />
-            </div>
-            <h2 className="text-lg font-bold">Read-only analytics</h2>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            Claude can retrieve your agents, picks, follows, and community record when you ask. It can also read
-            WagerProof&apos;s public model estimates, market prices, and editor analyses.
-          </p>
-          <ul className="mt-5 space-y-3 text-sm font-medium">
-            {[
-              'It cannot create, change, or delete your data.',
-              'It cannot place a bet.',
-              'Model estimates are informational, not guaranteed outcomes.',
-              "Disconnect at any time in Claude's connector settings.",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2.5">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#d97757]" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {EXAMPLE_PROMPTS.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => copyText(prompt, 'Example prompt')}
+              className="group flex min-h-16 items-center gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3.5 text-left transition hover:border-[#d97757]/45 hover:bg-[#d97757]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d97757]/60"
+            >
+              <span className="min-w-0 flex-1 text-sm font-semibold leading-5">{prompt}</span>
+              {copied === prompt ? (
+                <Check className="h-4 w-4 shrink-0 text-emerald-500" />
+              ) : (
+                <Copy className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-[#d97757]" />
+              )}
+            </button>
+          ))}
+        </div>
       </section>
     </div>
   );
