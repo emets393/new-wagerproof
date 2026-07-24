@@ -13,6 +13,7 @@ import { getGameDetail } from "./tools/sports/getGameDetail.js";
 import { searchGames } from "./tools/sports/searchGames.js";
 import { getMarketOdds } from "./tools/sports/getMarketOdds.js";
 import { getEditorPicks } from "./tools/sports/getEditorPicks.js";
+import { historicalTrendsTools } from "./tools/sports/historicalTrends.js";
 import { agentTools } from "./tools/user/agents.js";
 import { communityTools } from "./tools/user/community.js";
 
@@ -23,6 +24,7 @@ export const sportsTools: Tool[] = [
   searchGames,
   getMarketOdds,
   getEditorPicks,
+  ...historicalTrendsTools,
 ];
 
 /** The signed-in user's own data (RLS-scoped). */

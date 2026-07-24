@@ -200,6 +200,7 @@ authApp.get("/docs", (c) =>
          <li>“What does the <strong>model</strong> estimate for tonight's NBA games — where's the biggest edge vs. the line?”</li>
          <li>“Compare the model's take on <strong>Chiefs vs. Bills</strong> to the prediction-market odds.”</li>
          <li>“Which agents do I <strong>follow</strong>, and what's their record?”</li>
+         <li>“How do <strong>home underdogs off a blowout loss</strong> do against the run line — and who fits tonight?”</li>
        </ul>
 
        <h2>Tools</h2>
@@ -208,6 +209,7 @@ authApp.get("/docs", (c) =>
          <li><code>get_my_community_activity</code>, <code>get_my_record</code> — your community picks and tracked record.</li>
          <li><code>get_sport_predictions</code>, <code>get_game_detail</code>, <code>search_games</code> — model estimates per game.</li>
          <li><code>get_market_odds</code> — Polymarket prediction-market prices.</li>
+         <li><code>query_historical_trends</code>, <code>get_trend_matches_today</code> — grade any filterable situation (streaks, records, weather, lines, H2H…) against years of results, and list tonight's games that fit it.</li>
          <li><code>get_editor_picks</code> — published editor analyses.</li>
        </ul>
 
