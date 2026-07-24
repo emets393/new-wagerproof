@@ -1,4 +1,4 @@
-import Paywall from "@/components/Paywall";
+import { CustomPaywall } from "@/components/paywall/CustomPaywall";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Lock, Zap, LogIn, Sparkles } from "lucide-react";
@@ -103,7 +103,7 @@ export default function AccessDenied() {
                   </Button>
                 </div>
               ) : (
-                <Paywall showButton={true} />
+                <CustomPaywall />
               )}
             </CardContent>
           </Card>
