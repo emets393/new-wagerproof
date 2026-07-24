@@ -108,9 +108,22 @@ interface AgentHQProps {
   agents: AgentWithPerformance[];
   loading?: boolean;
   onSelectAgent: (id: string) => void;
+  /** Hide day/night + floor toggles (onboarding / paywall demos). */
+  hideControls?: boolean;
+  /** Hide the agency net-units / win-rate pill. */
+  hideStats?: boolean;
+  /** When false, clicks on agents do nothing. */
+  interactive?: boolean;
 }
 
-export function AgentHQ({ agents, loading, onSelectAgent }: AgentHQProps) {
+export function AgentHQ({
+  agents,
+  loading,
+  onSelectAgent,
+  hideControls = false,
+  hideStats = false,
+  interactive = true,
+}: AgentHQProps) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const simRef = React.useRef<SimAgent[]>([]);
   const imagesRef = React.useRef<Record<string, HTMLImageElement>>({});
@@ -260,32 +273,46 @@ export function AgentHQ({ agents, loading, onSelectAgent }: AgentHQProps) {
 
   return (
     <section className="relative aspect-[864/800] w-full overflow-hidden rounded-[20px] bg-[#0f1118] shadow-sm" aria-label="Agent HQ live simulation">
-      <canvas ref={canvasRef} width={W} height={H} className="h-full w-full cursor-pointer [image-rendering:pixelated]" onClick={(event) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        const x = (event.clientX - rect.left) * W / rect.width;
-        const y = (event.clientY - rect.top) * H / rect.height;
-        const hit = [...simRef.current].reverse().find((agent) => Math.abs(agent.x - x) < 42 && y > agent.y - 120 && y < agent.y + 10);
-        if (hit) onSelectAgent(hit.id);
-      }} />
+      <canvas
+        ref={canvasRef}
+        width={W}
+        height={H}
+        className={cn(
+          'h-full w-full [image-rendering:pixelated]',
+          interactive ? 'cursor-pointer' : 'pointer-events-none'
+        )}
+        onClick={(event) => {
+          if (!interactive) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const x = (event.clientX - rect.left) * W / rect.width;
+          const y = (event.clientY - rect.top) * H / rect.height;
+          const hit = [...simRef.current].reverse().find((agent) => Math.abs(agent.x - x) < 42 && y > agent.y - 120 && y < agent.y + 10);
+          if (hit) onSelectAgent(hit.id);
+        }}
+      />
       {(!ready || loading) && <div className="absolute inset-0 animate-pulse bg-slate-800/70" />}
 
       <div className={`pointer-events-none absolute left-2.5 top-2.5 flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold tracking-[0.03em] ${glassPillClass()}`}>
         <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
         Agent HQ — {isNight ? 'Night Shift' : 'Live'}
       </div>
-      <div className={`pointer-events-none absolute right-2.5 top-2.5 flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-extrabold ${glassPillClass()}`}>
-        <span className={netUnits >= 0 ? 'text-green-400' : 'text-red-400'}>{netUnits >= 0 ? '+' : ''}{netUnits.toFixed(2)}u</span>
-        <span className="text-white/50">·</span><span>{Math.round(avgRate * 100)}%</span>
-        <span className="text-white/50">·</span><span>{active}/{agents.length}</span>
-      </div>
-      <div className="absolute bottom-2 right-2 flex gap-1.5">
-        <button type="button" onClick={cycleTime} aria-label="Toggle time of day" className={`px-2.5 py-1.5 text-xs font-semibold tracking-[0.03em] transition hover:bg-black/50 ${glassPillClass()}`}>
-          {isNight ? '🌙' : '☀️'} {timeMode === 'auto' ? 'Auto' : timeMode === 'day' ? 'Day' : 'Night'}
-        </button>
-        <button type="button" onClick={toggleFloor} aria-label="Toggle floor style" className={`px-2.5 py-1.5 text-xs font-semibold tracking-[0.03em] transition hover:bg-black/50 ${glassPillClass()}`}>
-          {floorStyle === 'standard' ? '🏢 Standard' : '🚀 Future'}
-        </button>
-      </div>
+      {!hideStats && (
+        <div className={`pointer-events-none absolute right-2.5 top-2.5 flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-extrabold ${glassPillClass()}`}>
+          <span className={netUnits >= 0 ? 'text-green-400' : 'text-red-400'}>{netUnits >= 0 ? '+' : ''}{netUnits.toFixed(2)}u</span>
+          <span className="text-white/50">·</span><span>{Math.round(avgRate * 100)}%</span>
+          <span className="text-white/50">·</span><span>{active}/{agents.length}</span>
+        </div>
+      )}
+      {!hideControls && (
+        <div className="absolute bottom-2 right-2 flex gap-1.5">
+          <button type="button" onClick={cycleTime} aria-label="Toggle time of day" className={`px-2.5 py-1.5 text-xs font-semibold tracking-[0.03em] transition hover:bg-black/50 ${glassPillClass()}`}>
+            {isNight ? '🌙' : '☀️'} {timeMode === 'auto' ? 'Auto' : timeMode === 'day' ? 'Day' : 'Night'}
+          </button>
+          <button type="button" onClick={toggleFloor} aria-label="Toggle floor style" className={`px-2.5 py-1.5 text-xs font-semibold tracking-[0.03em] transition hover:bg-black/50 ${glassPillClass()}`}>
+            {floorStyle === 'standard' ? '🏢 Standard' : '🚀 Future'}
+          </button>
+        </div>
+      )}
     </section>
   );
 }

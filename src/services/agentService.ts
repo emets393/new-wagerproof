@@ -93,6 +93,7 @@ export async function createAgent(userId: string, data: CreateAgentInput): Promi
     name: validated.name,
     avatar_emoji: validated.avatar_emoji,
     avatar_color: validated.avatar_color,
+    sprite_index: validated.sprite_index ?? null,
     preferred_sports: validated.preferred_sports,
     archetype: validated.archetype,
     personality_params: validated.personality_params,
