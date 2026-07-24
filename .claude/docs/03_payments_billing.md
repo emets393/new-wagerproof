@@ -51,9 +51,25 @@ src/
 ├── hooks/useAccessControl.ts        # 3-tier access checking
 ├── hooks/useSaleMode.ts             # Sale mode toggle
 ├── hooks/useSandboxMode.ts          # Sandbox toggle
-├── components/Paywall.tsx           # Custom paywall UI
+├── components/paywall/
+│   ├── CustomPaywall.tsx             # RevenueCat plans, checkout, and swipeable shell
+│   ├── CustomPaywallFeaturePages.tsx # Seven-page feature sequence
+│   └── CustomPaywallHeroes.tsx       # iOS-parity product heroes and motion
 └── utils/syncRevenueCatToSupabase.ts # Subscription sync
 ```
+
+The web custom paywall mirrors the native iOS feature sequence: personalized
+before/after value, reviews, live Agent HQ, leaderboard, reasoned picks,
+Outliers, and community/AI connectors. It supports touch/trackpad swiping,
+mouse dragging, keyboard arrows, page controls, and initial auto-advance
+(disabled after interaction and when reduced motion is requested).
+
+Every carousel slide is laid out at a fixed design height (`FEATURE_PAGE_HEIGHT`
+in `CustomPaywallHeroes.tsx`) inside the `FitToHeight` wrapper, which uniformly
+scales it down when the carousel slot is shorter — short laptop windows — and
+centers it when the slot is taller. Size slides against that design height, not
+the viewport: the paywall runs both full-screen (onboarding) and inside the
+height-capped `/paywall-test` admin modal.
 
 ### API Keys (Currently Hardcoded)
 ```typescript

@@ -7,6 +7,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { PixelSpriteAvatar } from '@/components/agents/split/PixelSpriteAvatar';
+import type { OutliersTrendsCard } from '@/features/outliers/types';
 import { getAvatarBackground, getPrimaryColor } from '@/utils/agentColors';
 
 // ── Mock leaderboard (OnboardingLeaderboardPage data) ────────────────────────
@@ -98,55 +99,44 @@ export function MockLeaderboardCard({ animated = true }: { animated?: boolean })
   );
 }
 
-// ── Mock trend / outliers card (pitch slide 2 data) ──────────────────────────
+// ── Onboarding outliers example (iOS OnboardingAgentPitchPages.exampleTrendCard)
 
-const TREND_ROWS = [
-  { text: 'Won 5 of last 5 vs this opponent', pct: 100 },
-  { text: 'Covered 6 of last 6 as favorite', pct: 100 },
-  { text: 'Won 4 of last 4 road games', pct: 100 },
-  { text: 'Covered 5 of last 5 in division', pct: 100 },
-  { text: 'Covered 7 of last 8 primetime games', pct: 88 },
-  { text: 'Over hit in 6 of last 7 at home', pct: 86 },
-];
-
-export function MockTrendCard() {
-  return (
-    <div className="w-full rounded-2xl border border-white/12 bg-white/[0.06] p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-white/45">BUF @ KC</p>
-          <p className="text-sm font-bold text-white">Kansas City Chiefs</p>
-          <p className="text-[11px] text-white/50">Team trends</p>
-        </div>
-        <div className="rounded-xl bg-black/30 px-3 py-2 text-center">
-          <p className="text-sm font-extrabold text-white">KC -2.5</p>
-          <p className="text-[11px] text-white/50">-108</p>
-        </div>
-      </div>
-      <div className="flex flex-col gap-2">
-        {TREND_ROWS.map((row, index) => (
-          <motion.div
-            key={row.text}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.08 * index }}
-            className="flex items-center gap-3"
-          >
-            <span
-              className={cn(
-                'w-11 shrink-0 rounded-md px-1.5 py-0.5 text-center text-[11px] font-extrabold',
-                row.pct >= 100 ? 'bg-green-500/20 text-green-400' : 'bg-emerald-500/15 text-emerald-300'
-              )}
-            >
-              {row.pct}%
-            </span>
-            <p className="text-xs text-white/80">{row.text}</p>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
-}
+/** Real OutliersTrendsCard shape used by pitch slide 2 + paywall outliers page. */
+export const ONBOARDING_EXAMPLE_TREND_CARD: OutliersTrendsCard = {
+  id: 'onboarding-trend-example',
+  gameId: 'onboarding-trend-example',
+  matchupLabel: 'BUF @ KC',
+  subjectKind: 'team',
+  subjectName: 'Kansas City Chiefs',
+  subjectDetail: 'Team trends',
+  teamAbbr: 'KC',
+  playerId: null,
+  marketKey: 'spread',
+  betTypeLabel: 'Spread',
+  trendValue: 0.8,
+  trendSampleN: 5,
+  headshotUrl: null,
+  isPlayerOverflow: false,
+  bettingLines: [
+    {
+      id: 'onb-line-1',
+      label: 'Spread',
+      lineText: 'KC -2.5',
+      oddsText: '-108',
+      bookName: null,
+      bookLogoUrl: null,
+      teamAbbr: 'KC',
+    },
+  ],
+  rows: [
+    { id: 'onb-r1', text: 'Won 5 of last 5 vs this opponent', coverageNote: null, dominantPct: 1.0, sampleN: 5 },
+    { id: 'onb-r2', text: 'Covered 6 of last 6 as favorite', coverageNote: null, dominantPct: 1.0, sampleN: 6 },
+    { id: 'onb-r3', text: 'Won 4 of last 4 road games', coverageNote: null, dominantPct: 1.0, sampleN: 4 },
+    { id: 'onb-r4', text: 'Covered 5 of last 5 in division', coverageNote: null, dominantPct: 1.0, sampleN: 5 },
+    { id: 'onb-r5', text: 'Covered 7 of last 8 primetime games', coverageNote: null, dominantPct: 0.88, sampleN: 8 },
+    { id: 'onb-r6', text: 'Over hit in 6 of last 7 at home', coverageNote: null, dominantPct: 0.86, sampleN: 7 },
+  ],
+};
 
 // ── Mock pick tickets ────────────────────────────────────────────────────────
 
@@ -215,37 +205,81 @@ export function MockParlayTicket() {
 
 // ── Illustrative win-rate curves (pitch slide 1) ─────────────────────────────
 
-function gaussianPath(mean: number, sigma: number, width: number, height: number): string {
-  const points: string[] = [];
+const CURVE_TOP = 36; // leave room above peaks for the agents label
+const CURVE_BOTTOM = 22;
+
+function gaussianPoints(mean: number, sigma: number, width: number, height: number) {
   const domainMin = 15;
   const domainMax = 90;
   const steps = 60;
+  const pts: { x: number; y: number }[] = [];
+  const plotHeight = height - CURVE_TOP - CURVE_BOTTOM;
   for (let i = 0; i <= steps; i++) {
     const x = domainMin + ((domainMax - domainMin) * i) / steps;
     const y = Math.exp(-((x - mean) ** 2) / (2 * sigma ** 2));
     const px = ((x - domainMin) / (domainMax - domainMin)) * width;
-    const py = height - y * (height - 12) - 4;
-    points.push(`${i === 0 ? 'M' : 'L'}${px.toFixed(1)},${py.toFixed(1)}`);
+    const py = height - y * plotHeight - CURVE_BOTTOM;
+    pts.push({ x: px, y: py });
   }
-  return points.join(' ');
+  return pts;
 }
 
-export function WinRateCurves() {
+function linePath(pts: { x: number; y: number }[]) {
+  return pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+}
+
+function areaPath(pts: { x: number; y: number }[], height: number) {
+  if (!pts.length) return '';
+  const top = linePath(pts);
+  const last = pts[pts.length - 1];
+  const first = pts[0];
+  const base = height - CURVE_BOTTOM;
+  return `${top} L${last.x.toFixed(1)},${base.toFixed(1)} L${first.x.toFixed(1)},${base.toFixed(1)} Z`;
+}
+
+export function WinRateCurves({ accent = '#22c55e' }: { accent?: string }) {
   const width = 320;
-  const height = 140;
+  const height = 200;
   const xFor = (v: number) => ((v - 15) / (90 - 15)) * width;
+  const bettors = gaussianPoints(40, 9, width, height);
+  const agents = gaussianPoints(65, 6.5, width, height);
   return (
-    <div className="w-full rounded-2xl border border-white/12 bg-white/[0.06] p-4">
-      <span className="mb-2 inline-block rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-extrabold tracking-widest text-white/55">
+    <div className="relative w-full rounded-2xl border border-white/12 bg-white/[0.06] p-4 pt-8">
+      <span className="absolute right-3 top-3 rounded-full bg-white/10 px-2 py-0.5 text-[8px] font-extrabold tracking-[0.06em] text-white/45">
         ILLUSTRATIVE
       </span>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full">
-        <path d={gaussianPath(40, 9, width, height)} fill="none" stroke="#94a3b8" strokeWidth={2.5} strokeLinecap="round" opacity={0.8} />
-        <path d={gaussianPath(65, 6.5, width, height)} fill="none" stroke="#22c55e" strokeWidth={3} strokeLinecap="round" />
-        <text x={xFor(40)} y={height - 2} textAnchor="middle" fontSize={11} fontWeight={700} fill="#94a3b8">
+        {/* Peak guides at 40% / 65% — start below the agents label */}
+        <line
+          x1={xFor(40)}
+          x2={xFor(40)}
+          y1={CURVE_TOP}
+          y2={height - CURVE_BOTTOM}
+          stroke="rgba(255,255,255,0.18)"
+          strokeWidth={1}
+          strokeDasharray="4 4"
+        />
+        <line
+          x1={xFor(65)}
+          x2={xFor(65)}
+          y1={CURVE_TOP}
+          y2={height - CURVE_BOTTOM}
+          stroke={`${accent}66`}
+          strokeWidth={1}
+          strokeDasharray="4 4"
+        />
+
+        <path d={areaPath(bettors, height)} fill="rgba(255,255,255,0.16)" />
+        <path d={linePath(bettors)} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth={2} strokeLinecap="round" />
+
+        <path d={areaPath(agents, height)} fill={accent} fillOpacity={0.28} />
+        <path d={linePath(agents)} fill="none" stroke={accent} strokeWidth={2.5} strokeLinecap="round" />
+
+        <text x={xFor(40)} y={height - 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="rgba(255,255,255,0.55)">
           Most bettors ~40%
         </text>
-        <text x={xFor(65)} y={16} textAnchor="middle" fontSize={11} fontWeight={800} fill="#22c55e">
+        {/* Baseline sits well above the curve peak (CURVE_TOP) so glyphs don't kiss the stroke */}
+        <text x={xFor(65)} y={18} textAnchor="middle" fontSize={11} fontWeight={800} fill={accent}>
           Our agents ~65%
         </text>
       </svg>

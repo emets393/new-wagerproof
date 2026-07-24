@@ -90,12 +90,14 @@ export function BuilderArchetypeStep() {
     });
   };
 
-  const choosePreset = (preset: PresetArchetype) => {
+  const choosePreset = (preset: PresetArchetype, spriteIndex: number) => {
     setSelection(preset.id);
     setHasChosenArchetype(true);
     // Merge preset over defaults; keep the sports the user just picked.
+    // Sprite index matches the compact pixel-guy tile (iOS ArchetypeCard).
     updateDraft({
       archetype: preset.id,
+      sprite_index: spriteIndex % 8,
       personality_params: { ...DEFAULT_PERSONALITY_PARAMS, ...preset.personality_params },
       custom_insights: { ...preset.custom_insights },
     });
@@ -135,13 +137,13 @@ export function BuilderArchetypeStep() {
             Or pick a preset
           </p>
           <div className="flex flex-col gap-3">
-            {presets.map((preset) => {
+            {presets.map((preset, index) => {
               const selected = selection === preset.id;
               return (
                 <button
                   key={preset.id}
                   type="button"
-                  onClick={() => choosePreset(preset)}
+                  onClick={() => choosePreset(preset, index)}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-2xl border px-5 py-4 text-left transition-all',
                     selected
@@ -151,10 +153,10 @@ export function BuilderArchetypeStep() {
                   style={selected ? ({ '--tw-ring-color': preset.color } as React.CSSProperties) : undefined}
                 >
                   <span
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl"
+                    className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl"
                     style={{ background: `${preset.color}26` }}
                   >
-                    {preset.emoji}
+                    <PixelSpriteAvatar spriteIndex={index % 8} height={40} />
                   </span>
                   <span>
                     <span className="block text-base font-bold text-white">{preset.name}</span>

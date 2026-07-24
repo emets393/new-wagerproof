@@ -1,5 +1,6 @@
 import * as React from 'react';
 import type { AgentWithPerformance } from '@/types/agent';
+import { cn } from '@/lib/utils';
 import { agentSpriteIndex } from '@/utils/agentSprites';
 
 const W = 864;

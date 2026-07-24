@@ -347,7 +347,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          window.open('/access-denied', '_blank');
+                          window.open('/paywall-test', '_blank');
                         }}
                       >
                         View Paywall

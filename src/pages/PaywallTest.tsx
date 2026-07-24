@@ -45,9 +45,17 @@ export default function PaywallTest() {
           </Button>
         </div>
 
-        {/* Content Area */}
-        <div className="onboarding-scroll relative max-h-[calc(95vh-80px)] overflow-y-auto p-4 sm:p-6">
-          <CustomPaywall />
+        {/* Content Area — fixed height so the iOS-style carousel can flex */}
+        <div className="relative flex h-[min(780px,calc(95vh-80px))] min-h-[560px] flex-col">
+          <CustomPaywall
+            personalization={{
+              agentName: 'Sharp Signal',
+              spriteIndex: 2,
+              avatarColor: 'gradient:#22C55E,#0EA5E9',
+              researchTimeBucket: 'h1to2',
+              weeklyStakesBucket: 'h150to400',
+            }}
+          />
         </div>
       </motion.div>
     </div>

@@ -146,7 +146,12 @@ function OnboardingContent() {
       </div>
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/70" />
 
-      <div className="relative z-10 mx-auto flex h-full w-full max-w-xl flex-col">
+      <div
+        className={cn(
+          'relative z-10 mx-auto flex h-full w-full flex-col',
+          step === 'paywall' ? 'max-w-2xl' : 'max-w-xl'
+        )}
+      >
         {onCarousel ? (
           <>
             {/* Top bar: back + progress */}
@@ -173,8 +178,12 @@ function OnboardingContent() {
               <div className="w-9 shrink-0" />
             </div>
 
-            {/* Step content */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6" style={{ scrollbarWidth: 'thin' }}>
+            {/*
+              Content + CTA share one scroll column so Continue sits just under
+              the selection UI on tall web viewports (no huge empty gap). On
+              long steps the CTA sticks to the bottom of the scrollport.
+            */}
+            <div className="flex flex-1 flex-col overflow-y-auto px-4 sm:px-6" style={{ scrollbarWidth: 'thin' }}>
               <AnimatePresence initial={false} custom={direction} mode="wait">
                 <motion.div
                   key={contentKey}
@@ -184,25 +193,24 @@ function OnboardingContent() {
                   animate="center"
                   exit="exit"
                   transition={{ duration: 0.24, ease: 'easeOut' }}
-                  className="flex min-h-full w-full items-start justify-center"
+                  className="w-full pt-4 pb-1"
                 >
                   {CarouselComponent ? <CarouselComponent /> : null}
                 </motion.div>
               </AnimatePresence>
-            </div>
 
-            {/* Bottom CTA */}
-            <div className="px-4 pb-6 pt-3 sm:px-6">
-              <motion.button
-                type="button"
-                onClick={nextStep}
-                disabled={!canAdvance}
-                whileTap={canAdvance ? { scale: 0.98 } : undefined}
-                className="w-full rounded-2xl py-4 text-base font-extrabold text-black transition-all disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/40"
-                style={canAdvance ? { background: accent } : undefined}
-              >
-                {STEP_CTA_TITLES[step as keyof typeof STEP_CTA_TITLES]}
-              </motion.button>
+              <div className="sticky bottom-0 mt-3 pb-6 pt-2">
+                <motion.button
+                  type="button"
+                  onClick={nextStep}
+                  disabled={!canAdvance}
+                  whileTap={canAdvance ? { scale: 0.98 } : undefined}
+                  className="w-full rounded-2xl py-4 text-base font-extrabold text-black transition-all disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/40"
+                  style={canAdvance ? { background: accent } : undefined}
+                >
+                  {STEP_CTA_TITLES[step as keyof typeof STEP_CTA_TITLES]}
+                </motion.button>
+              </div>
             </div>
           </>
         ) : step === 'generation' ? (
@@ -216,8 +224,8 @@ function OnboardingContent() {
             <TimeSummaryStep onFinish={handleTimeSummaryFinish} />
           </div>
         ) : (
-          /* Paywall */
-          <div className="flex-1 overflow-y-auto py-4" style={{ scrollbarWidth: 'thin' }}>
+          /* Paywall — fill viewport so the feature carousel can take remaining height */
+          <div className="flex min-h-0 flex-1 flex-col">
             <CustomPaywall
               personalization={{
                 agentName: draft.name.trim() || undefined,

@@ -200,7 +200,7 @@ export default function AdminSettings() {
   };
 
   const handleViewPaywall = () => {
-    window.open('/onboarding?step=16', '_blank');
+    window.open('/onboarding?step=paywall', '_blank');
   };
 
   if (checkingAdmin) {

@@ -128,6 +128,121 @@ export function SectionCard({ title, children, className }: { title?: string; ch
   );
 }
 
+/** Flat settings list — hairline dividers, no card chrome (iOS KnobList). */
+export function KnobList({ children, className }: { children: React.ReactNode; className?: string }) {
+  const items = React.Children.toArray(children).filter(Boolean);
+  return (
+    <div className={cn('w-full', className)}>
+      {items.map((child, index) => (
+        <React.Fragment key={index}>
+          <div className="py-3.5">{child}</div>
+          {index < items.length - 1 && <div className="h-px bg-white/[0.08]" />}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+export function KnobSectionHeader({ title }: { title: string }) {
+  return (
+    <p className="mb-1 mt-5 text-[13px] font-semibold tracking-[0.04em] text-white/40 first:mt-0">{title}</p>
+  );
+}
+
+/** Icon + one-line explainer under the page title (iOS PersonalityExplainer). */
+export function PersonalityExplainer({
+  icon: Icon,
+  text,
+}: {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  text: string;
+}) {
+  const { accent } = useOnboarding();
+  return (
+    <div className="mb-4 flex items-start gap-2.5 text-left">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0" style={{ color: accent }} />
+      <p className="text-sm leading-relaxed text-white/60">{text}</p>
+    </div>
+  );
+}
+
+/**
+ * Highlighter-style value row (iOS OnboardingMarkerRow): charcoal blobs,
+ * colored bold runs, optional zig-zag iconTrailing alignment.
+ */
+export function OnboardingMarkerRow({
+  icon: Icon,
+  lines,
+  color,
+  iconTrailing = false,
+  index = 0,
+}: {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  /** Each entry may include <strong> for the loud colored run. */
+  lines: React.ReactNode[];
+  color: string;
+  iconTrailing?: boolean;
+  index?: number;
+}) {
+  const iconTile = (
+    <span
+      className="grid h-16 w-16 shrink-0 place-items-center rounded-[18px]"
+      style={{ background: 'rgba(33,33,33,0.9)', color }}
+    >
+      <Icon className="h-7 w-7" style={{ color }} />
+    </span>
+  );
+
+  const markerText = (
+    <div className={cn('flex flex-col', iconTrailing ? 'items-end' : 'items-start')}>
+      {lines.map((line, lineIndex) => (
+        <span
+          key={lineIndex}
+          className={cn(
+            'px-3 py-1.5 text-[17px] font-semibold leading-tight sm:text-[19px]',
+            '[&_strong]:font-black'
+          )}
+          style={{
+            background: 'rgba(33,33,33,0.9)',
+            borderRadius: 11,
+            color: `${color}b8`,
+            // Soft highlighter edges via a slight blur underlay feel
+            boxShadow: '0 0 1.2px rgba(0,0,0,0.35)',
+            transform: `translateX(${lineIndex * (iconTrailing ? -24 : 24)}px)`,
+          }}
+        >
+          <span className="[&_strong]:text-[color:var(--marker)]" style={{ ['--marker' as string]: color }}>
+            {line}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.92, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.08 * index, type: 'spring', stiffness: 320, damping: 22 }}
+      className={cn('flex w-full items-center gap-3', iconTrailing && 'justify-end')}
+    >
+      {iconTrailing ? (
+        <>
+          <div className="min-w-0 flex-1" />
+          {markerText}
+          {iconTile}
+        </>
+      ) : (
+        <>
+          {iconTile}
+          {markerText}
+          <div className="min-w-0 flex-1" />
+        </>
+      )}
+    </motion.div>
+  );
+}
+
 export function LabeledSlider({
   label,
   description,
