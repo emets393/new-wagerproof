@@ -80,6 +80,13 @@ football go-live (they're off-season/dry-run today).
   this (page consistency wins); fix both together if ever revisited.
 - 2026-07-22: `mlb_analysis_saved_filters` was missing from prod (migration never applied)
   — created during this build. MLB saves before this date silently failed.
+- 2026-07-24: the daily `mlb_analysis_base_refresh` cron (job 30, 10:15 UTC) rebuilds the
+  base and wipes all 45 as-of columns — it did so overnight and broke every as-of filter
+  again. FIXED PERMANENTLY: `refresh_mlb_asof()` (pure-SQL port of asof_features_mlb.py,
+  validated cell-identical across all rows/columns) is now chained into job 30, so the
+  as-of columns are recomputed right after every rebuild. Source:
+  `research/systems_deploy/refresh_mlb_asof.sql`. The python scripts remain the
+  reference implementation + one-off backfill path.
 - 2026-07-22 (hotfix): public systems were invisible until nightly grade set `filters_hash`
   + `all_time`. `grade-analysis-systems` now also accepts a signed-in user's JWT and
   grades **that user's** saves only; web/native/Expo invoke it on save-with-share and
