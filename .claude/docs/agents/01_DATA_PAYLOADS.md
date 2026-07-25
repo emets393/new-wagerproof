@@ -1,5 +1,16 @@
 # Data Payload Architecture
 
+> **STATUS: OBSOLETE — describes the V1 engine.** Verified 2026-07-25.
+>
+> This document specs a single blind structured-output call to OpenAI with four
+> pre-assembled payloads. That is not how generation works anymore. The canonical engine is
+> a bounded DeepSeek tool-calling loop on Trigger.dev (`agents-v3/src/loop/runV3Generation.ts`)
+> where the model *pulls* the data it wants through read tools rather than receiving fixed
+> payloads. See `18_GENERATION_V3_TRIGGERDEV.md`.
+>
+> Kept for historical context and because the payload *shapes* documented here still
+> resemble what the V3 read tools return. Do not implement against it.
+
 The pick generation system uses 4 distinct payloads:
 
 ```

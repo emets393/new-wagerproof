@@ -3,7 +3,10 @@
 A living log of the major initiatives in flight. Add sections as work lands — this is the
 single place to see what's built, what's staged, and what's left.
 
-**Last updated:** 2026-06-22
+**Last updated:** 2026-07-25 (§2 V3 status corrected; the rest is unverified as of 2026-06-22)
+
+> ⚠️ A stale status doc is worse than none. Sections other than §2 have not been re-verified
+> since 2026-06-22 — check code before trusting a status marker here.
 
 ---
 
@@ -32,7 +35,17 @@ historical data; now they run themselves on a schedule.
 
 ---
 
-## 2. V3 Agent Upgrade — 🟡 IN PREP (NOT live; ships when we turn V3 on)
+## 2. V3 Agent Upgrade — ✅ LIVE (this section below is a stale 2026-06-22 snapshot)
+
+> **Corrected 2026-07-25.** V3 shipped. It is now the canonical engine: both the web app
+> (`src/services/agentPicksService.ts` → `trigger-v3-run`) and the iOS native app
+> (`WagerproofKit/.../AgentPicksService.swift`) route generation to the Trigger.dev task
+> `generate-v3-picks` in `agents-v3/`. Ledger rows carry `engine_version='v3_trigger'`.
+> V2 survives only for the deprecated React Native app. Prop betting and weekly parlays
+> both shipped (`avatar_parlays`, `weekly-parlay-auto-gen-v3`).
+>
+> The "IN PREP / NOT live" narrative below is preserved as a record of the pre-launch plan.
+> Do not read it as current status. Current architecture: `.claude/docs/agents/18_GENERATION_V3_TRIGGERDEV.md`.
 
 **What it is:** a major upgrade to the AI betting agents on our new "V3" agentic engine. Four
 parts: agents can cover **multiple sports**, build **parlays**, bet **player props** (only where

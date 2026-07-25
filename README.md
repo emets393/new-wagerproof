@@ -12,7 +12,7 @@ Sports betting analytics platform delivering data-driven predictions, AI-powered
 | **State** | React Query, Context | React Query, Context |
 | **Charts** | Recharts | Victory Native |
 
-**Backend**: Supabase (PostgreSQL) with 35 Edge Functions (Deno)
+**Backend**: Supabase (PostgreSQL) with 47 Edge Functions (Deno)
 **Auth**: Supabase Auth + Google Sign-In + Apple Sign-In
 **Payments**: RevenueCat (mobile), Stripe (web)
 **Analytics**: Mixpanel
@@ -21,23 +21,33 @@ Sports betting analytics platform delivering data-driven predictions, AI-powered
 ## Project Structure
 
 ```
-├── src/                          # Web app (React + Vite)
-│   ├── pages/                    # Route pages (NFL, NBA, MLB, etc.)
-│   ├── components/               # React components + shadcn/ui
+├── src/                          # Web app (React + Vite) — SHIPPING
+│   ├── pages/                    # Route pages (Agents, Scoreboard, admin, support)
+│   ├── features/                 # Split-view modules (games, analysis, mlbTools, ...)
+│   ├── components/               # React components + shadcn/ui + ios/ primitives
 │   ├── services/                 # API clients
 │   ├── contexts/                 # Auth, Theme, RevenueCat
 │   ├── hooks/                    # Custom hooks
-│   └── integrations/supabase/    # Supabase clients
-├── wagerproof-mobile/            # Mobile app (Expo + React Native)
+│   └── integrations/supabase/    # Supabase clients (main + college-football)
+├── wagerproof-ios-native/        # iOS app (SwiftUI) — SHIPPING via Xcode Cloud
+│   ├── Wagerproof/Features/      # Feature screens
+│   ├── WagerproofKit/            # SPM package: Models, Services, Stores, Design
+│   └── project.yml               # XcodeGen source of truth (pbxproj is generated)
+├── wagerproof-android-native/    # Android app (Kotlin/Compose) — SHIPPING via GH Actions
+├── wagerproof-mobile/            # React Native + Expo — DEPRECATED, phasing out
 │   ├── app/                      # Expo Router screens
 │   ├── components/               # RN components
 │   ├── services/                 # Mobile API clients
 │   └── targets/WagerProofWidget/ # iOS Home Screen widget
+├── agents-v3/                    # Trigger.dev worker — canonical agent pick generation
+├── wagerproof-mcp/               # Public read-only MCP connector (Cloudflare Worker)
+├── wagerproof-tool-core/         # Shared tool logic consumed by wagerproof-mcp
+├── research/                     # Model research + grading pipelines (Render crons)
 ├── supabase/
-│   ├── functions/                # 35 Edge Functions (Deno)
-│   └── migrations/               # 92+ SQL migrations
+│   ├── functions/                # 47 Edge Functions (Deno)
+│   └── migrations/               # 182 SQL migrations
 ├── docs/                         # Feature docs (agent prompts, MLB, blog)
-├── polymarket-implementation-docs/ # Polymarket integration guides
+├── docs/polymarket-implementation-docs/ # Polymarket integration guides
 └── .claude/docs/                 # Architecture & feature documentation
 ```
 
@@ -92,7 +102,7 @@ Edge functions that query game data need `CFB_SUPABASE_URL` and `CFB_SUPABASE_AN
 
 ## Database Migrations
 
-Migrations live in `supabase/migrations/` (92+ files). Naming convention: `YYYYMMDDHHMMSS_description.sql`.
+Migrations live in `supabase/migrations/` (182 files). Naming convention: `YYYYMMDDHHMMSS_description.sql`.
 
 ```bash
 # Create a new migration
@@ -145,17 +155,5 @@ npm run test:avatar-pick-audit-flow     # Test agent pick audit
 
 See [DOCS.md](DOCS.md) for a complete index of all documentation.
 
-## TEAM-TOTAL MODEL vs POSTED LINES (grade_tt_posted.py) — EDGE CONFIRMED ON BETTABLE NUMBERS, line-shop is the win
-4,418 team-games w/ model + posted close TT (2023-25, avg 4.3 books). Posted~contrived on consensus (corr .996).
-UNDER (anchored<=line-3): contrived-ref 56.3% | POSTED consensus 55.6% (edge survives on real lines) |
-  **POSTED BEST-LINE SHOP 58.4% n=681 +11.6% roi [59/58/58 per-season — dead consistent]**
-OVER (unanchored>=line+6): contrived 54.1% | posted 53.1% | **BEST-LINE SHOP 55.7% n=467 +6.3% [56/53/59]**
-Line-shopping the 4-5 posting books adds ~+2.7pp AND more triggers (best line creates more qualifying edges).
-Posted-vs-contrived gap alone: thin (n29-43), under-side suggestive (58.6%) — not standalone.
-=> TT product: bet UNDER at the HIGHEST posted book / OVER at the LOWEST when model edge gates hit. ~225 unders
-+ ~155 overs per season at 56-58%. The 270k-credit archive paid for itself with this one grading.
-
-## 1H MONEYLINE (gap closed): model h1-margin vs no-vig h2h_h1 close. SU win 50.6-52.9% with NO dose-response
-(52.6->52.9->50.6 as edge rises); inflated "roi" = big-dog variance artifact (same trap as full-game ML). VERDICT:
-1H ML DEAD — derived/calibrated market like full-game ML. Bet-type ledger final: WIRED = spread, game O/U, team
-totals, 1H O/U (4). DEAD = ML, 1H spread, 1H ML (3). MAMMOTH = conviction tier, not a bet type.
+Model backtest findings and the bet-type ledger (which markets we have a confirmed edge on)
+live in [docs/MODEL_RESEARCH_FINDINGS.md](docs/MODEL_RESEARCH_FINDINGS.md).

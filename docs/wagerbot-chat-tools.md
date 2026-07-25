@@ -17,7 +17,8 @@
 | 8 | `search_games` | `search_games.ts` | Find which league a team plays in |
 | 9 | `get_editor_picks` | `get_editor_picks.ts` | Only when user asks about editor/expert picks |
 | 10 | `suggest_follow_ups` | `suggest_follow_ups.ts` | Mandatory last step of every response |
-| 11 | `web_search` | *(built-in OpenAI)* | News, injuries, context not in DB |
+| 11 | `present_analysis` | `present_analysis.ts` | Render a structured analysis block |
+| 12 | `web_search` | *(built-in OpenAI)* | News, injuries, context not in DB |
 
 ---
 

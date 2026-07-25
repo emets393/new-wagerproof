@@ -94,6 +94,9 @@ Located in `scripts/sql/`:
 |--------|-------------|
 | `create_todays_games_predictions_with_accuracy_view.sql` | Creates a Supabase view joining today's games with predictions and accuracy metrics. |
 | `get_views_schema_and_columns.sql` | Queries metadata to list all views and their column definitions. |
+| `backfill_total_pick_selection.sql` | Backfills the total-pick selection column on existing picks. |
+| `refresh_perfect_storm_accuracy.sql` | Refreshes the Perfect Storm accuracy materialized data. |
+| `setup_perfect_storm_autorefresh.sql` | Schedules the Perfect Storm accuracy refresh. |
 
 ## Discord
 
@@ -102,6 +105,22 @@ Located in `scripts/sql/`:
 | `test-discord-basketball-picks.html` | HTML page that tests Discord webhook formatting for basketball editor picks. Open in browser. |
 
 **Related docs**: `.claude/docs/11_edge_functions.md` (see `send-discord-notification`)
+
+## Worktree & Build Tooling
+
+| Script | What it does |
+|--------|-------------|
+| `conductor-setup.sh` | Per-worktree bootstrap — writes a gitignored `.env`. Chained from `.conductor/settings.toml`. |
+| `conductor-deps.sh` | `npm install`s the node sub-projects (e.g. `agents-v3`) in a fresh worktree. |
+| `gen-nl-filter-schema.ts` | Generates the natural-language filter schema consumed by the trends chat. |
+| `nl-reducer-entry.ts` | Entry point for the NL filter reducer. |
+
+## Migration Tooling (archive)
+
+`scripts/wagerproof-migration/` holds tooling for the finished RN→SwiftUI port
+(`build-inventory.py`, `grep-waivers.sh`, `phase4-audit.py`, `capture-dummy-data.py`).
+Only `capture-dummy-data.py` is still useful — it regenerates the Dummy Data Mode fixtures.
+The rest operate on `docs/wagerproof-migration/inventory.csv`, which is stale.
 
 ## Notes
 

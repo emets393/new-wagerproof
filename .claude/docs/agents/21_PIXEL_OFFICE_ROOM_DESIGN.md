@@ -1,5 +1,9 @@
 # Pixel Office — Room-by-Room Design Spec
 
+> **STATUS: PROPOSAL — NOT BUILT.** Verified 2026-07-25. The shipped Pixel Office is a single
+> rendered scene with walking/sitting agents; the multi-room layout below is unimplemented.
+> See `20_PIXEL_OFFICE_FULL_SPEC.md` for the same caveat.
+
 > High-fidelity pixel-art office layout for WagerProof Agent HQ.
 > Map size: 640×960 px (32px tile grid = 20×30 tiles). Rendered at 2× on device.
 > Viewed top-down isometric-ish (¾ view like classic RPGs).

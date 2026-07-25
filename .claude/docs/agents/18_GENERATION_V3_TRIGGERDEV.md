@@ -1,7 +1,22 @@
 # Generation V3 Trigger.dev Path
 
-This is the parallel native-client execution path for V3 pick generation. It
-does not replace the legacy V2 queue or the Supabase edge-function V3 worker.
+**This is the canonical pick-generation path.** Verified 2026-07-25. It was originally
+built as a parallel native-client path, but both shipping clients now route through it:
+iOS native and the web app (`src/services/agentPicksService.ts` → `trigger-v3-run`).
+
+What it superseded, and what remains:
+- **Legacy V2 queue** — still reachable, but only from the deprecated React Native app.
+- **Supabase edge-function V3 worker** (`process-agent-generation-job-v3/`) — a fork of the
+  same loop that has since diverged. It shares 9 module names with `agents-v3/src/loop/`
+  but the code differs (`agenticGenerationLoop.ts` alone is 111 diff lines), and each has
+  its own entry point (`index.ts` vs `runV3Generation.ts`). Nothing triggers it from this
+  path. Fixes applied to one copy do not reach the other.
+- **Auto-generation** — `agents-v3/trigger/dailyAutoGenV3.ts` states it replaces the legacy
+  pg_cron enqueue. Three migrations (`20260303000003`, `20260416114500`, `20260416193000`)
+  call `cron.unschedule('v2-enqueue-auto-generation')`, but each is a drop-then-recreate —
+  the last one re-schedules it, and nothing since removes it. So the legacy cron is likely
+  still active alongside the Trigger.dev scan. **Verify prod `cron.job` before changing
+  auto-generation; it may currently double-fire.**
 
 ## Architecture
 
@@ -92,7 +107,8 @@ extension pushes these from `agents-v3/.env` into Trigger.dev Cloud on every
 in):
 
 - `DEEPSEEK_API_KEY`
-- `OPENAI_API_KEY` (fallback provider; loop defaults to `deepseek-reasoner`)
+- `OPENAI_API_KEY` (alternate provider; the loop defaults to DeepSeek `deepseek-v4-flash`
+  — `deepseek-reasoner` / `deepseek-chat` are retired aliases, see `src/loop/runV3Generation.ts`)
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CFB_SUPABASE_URL`

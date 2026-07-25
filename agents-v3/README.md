@@ -1,8 +1,15 @@
 # Wagerproof Agents V3 on Trigger.dev
 
-Parallel V3 pick-generation worker for the native iOS client. Legacy Supabase
-edge-function queue paths remain untouched; rows with
-`agent_generation_runs.engine_version = 'v3_trigger'` are ledger rows only.
+**The canonical pick-generation engine.** Both shipping clients route generation here — the
+web app via `src/services/agentPicksService.ts` → `trigger-v3-run`, and iOS native via
+`WagerproofKit/Sources/WagerproofServices/AgentPicksService.swift`. Rows with
+`agent_generation_runs.engine_version = 'v3_trigger'` are the ledger for these runs.
+
+The legacy V2 edge-function queue still exists but is reachable only from the deprecated
+React Native app (`wagerproof-mobile/`), which is being phased out.
+
+> **Runtime constraint:** `trigger.config.ts` must set `runtime: "node-22"`. supabase-js
+> ≥2.108 throws at `createClient` on Node 21 — shipping without this took prod down once.
 
 ## Tasks
 
@@ -13,7 +20,12 @@ edge-function queue paths remain untouched; rows with
   - Emits live progress to Trigger.dev run `metadata` (`phase`, `turn`,
     `currentTool`, `toolCalls`, `picksAccepted`, etc.).
 - `daily-auto-gen-v3`: scheduled eligibility scan every 10 minutes. It inserts
-  `v3_trigger` ledger rows and batch-triggers `generate-v3-picks`.
+  `v3_trigger` ledger rows and batch-triggers `generate-v3-picks`. Note this task
+  states it *replaces* the legacy pg_cron auto-generation enqueue — but the migrations
+  touching `v2-enqueue-auto-generation` all unschedule-then-reschedule it, so it is likely
+  still active. Verify prod `cron.job` before assuming auto-generation fires exactly once.
+- `weekly-parlay-auto-gen-v3` (`trigger/weeklyParlayAutoGenV3.ts`): weekly parlay
+  generation pass.
 
 ## Local
 
@@ -53,7 +65,9 @@ The task itself reads these at runtime (`src/runtimeHelpers.ts`,
 `src/loop/runV3Generation.ts`, `src/shared/revenuecat.ts`):
 
 - `DEEPSEEK_API_KEY`
-- `OPENAI_API_KEY` (fallback provider; the loop defaults to `deepseek-reasoner`)
+- `OPENAI_API_KEY` (alternate provider; the loop defaults to DeepSeek `deepseek-v4-flash`
+  — the `deepseek-reasoner` / `deepseek-chat` aliases are retired, see
+  `src/loop/runV3Generation.ts`)
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CFB_SUPABASE_URL`
@@ -100,13 +114,12 @@ The Supabase runtime already supplies `SUPABASE_URL` and
 
 ## Client Flow
 
-The native app calls `trigger-v3-run`, receives
-`{ ledger_run_id, run_id, public_access_token }`, then polls:
+The native app calls `trigger-v3-run`, receives `{ ledger_run_id, run_id }`, then polls run
+status **through the `trigger-run-status` edge proxy**, which authenticates with the
+`TRIGGER_SECRET_KEY_PROD` secret server-side (`WagerproofKit/.../TriggerRunStatusService.swift`).
 
-```text
-GET https://api.trigger.dev/api/v3/runs/{run_id}
-Authorization: Bearer {public_access_token}
-```
+Do **not** call `api.trigger.dev` directly from a client. Hand-rolled public-access-token
+JWTs are rejected with 401 — that bug is what the proxy exists to work around.
 
 The returned `metadata` drives `LiveAgentRunView`. Picks still write to
 `avatar_picks`, so existing grading and snapshot reads continue to work.

@@ -1,5 +1,14 @@
 # WagerProof Pixel Office — Full Feature Specification
 
+> **STATUS: PROPOSAL — NOT BUILT.** Verified 2026-07-25.
+>
+> The *rendering* layer exists (`wagerproof-mobile/components/agents/PixelOffice.tsx` and the
+> iOS port `Features/Agents/Components/PixelOffice{,Scene,AgentNode,Assets}.swift`) — agents
+> walk to desks and sit. **None of the simulation systems below exist.** `agent_moods`,
+> `agent_thoughts`, `pick_veto`, `agent_relationships`, and `bond_level` have zero references
+> anywhere in the codebase outside this document. Treat everything here as a design proposal,
+> not a description of shipped behavior.
+
 > Living agents that think, feel, argue, celebrate, and make your betting life better.
 
 ---

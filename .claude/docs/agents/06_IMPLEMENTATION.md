@@ -1,5 +1,15 @@
 # Agent Implementation Plan
 
+> **STATUS: OBSOLETE — March 2026 snapshot.** Verified 2026-07-25.
+>
+> This is a V2-era rollout plan. Two engine generations have shipped since. Its rate-limit
+> spec is also wrong: it documents "1 generation per agent per hour, bypass: none", while the
+> live limits are 3/day manual with an admin bypass
+> (`supabase/migrations/20260629180000_agent_generation_v3_triggerdev.sql:46-60`) plus a
+> 3-per-football-week budget (`supabase/functions/trigger-v3-run/index.ts:60-63`).
+>
+> For current architecture see `18_GENERATION_V3_TRIGGERDEV.md`.
+
 ## March 2026 Shipped Changes (Performance + Debug)
 
 - Added V2 RPC read-path migration set for agents performance:

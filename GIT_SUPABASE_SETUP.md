@@ -1,5 +1,10 @@
 # GitHub and Supabase Setup Summary
 
+> **OBSOLETE — safe to delete.** This is a 2025-12 troubleshooting note about a GitHub
+> account (`esoler4451-cyber`) lacking push rights. The current git user is `zukohabib` and
+> pushes work. Nothing here describes current setup. Retained only until someone confirms
+> no one is still following it. For real setup, see `README.md` and `.env.example`.
+
 ## Current Status
 
 ### ✅ GitHub Connection
