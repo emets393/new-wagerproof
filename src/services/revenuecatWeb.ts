@@ -48,26 +48,37 @@ function getApiKey(): string {
 
 /**
  * Initialize RevenueCat SDK
- * Should be called once when the user is authenticated
+ * Should be called once when the user is authenticated. Also safe to call
+ * anonymously (preview / paywall-test) — a stable local app user id is used.
  */
 export async function initializeRevenueCat(userId?: string): Promise<Purchases | null> {
   try {
-    // Don't re-configure if already configured
+    // Don't re-configure if already configured for the same identity
     if (isConfigured && configuredInstance) {
       debug.log('RevenueCat already configured, returning existing instance');
       return configuredInstance;
     }
 
     const apiKey = getApiKey();
-    
-    debug.log('Configuring RevenueCat Web SDK with user:', userId || 'anonymous');
-    
-    // Configure the SDK
-    const purchases = Purchases.configure(apiKey, userId);
-    
+    const appUserId =
+      userId ||
+      (() => {
+        const key = 'wp_rc_anonymous_id';
+        let existing = localStorage.getItem(key);
+        if (!existing) {
+          existing = `anon_${crypto.randomUUID()}`;
+          localStorage.setItem(key, existing);
+        }
+        return existing;
+      })();
+
+    debug.log('Configuring RevenueCat Web SDK with user:', appUserId);
+
+    const purchases = Purchases.configure(apiKey, appUserId);
+
     isConfigured = true;
     configuredInstance = purchases;
-    
+
     debug.log('RevenueCat Web SDK configured successfully');
     return purchases;
   } catch (error) {

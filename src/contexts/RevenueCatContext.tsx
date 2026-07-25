@@ -41,25 +41,16 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   const [offeringsLoading, setOfferingsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize RevenueCat when user logs in
+  // Initialize RevenueCat when the session changes. Authenticated users get a
+  // named customer; signed-out sessions still configure anonymously so offerings
+  // (and /paywall-test) can load plan prices for preview.
   useEffect(() => {
     const initialize = async () => {
-      if (!user) {
-        debug.log('No user, skipping RevenueCat initialization');
-        setLoading(false);
-        setCustomerInfo(null);
-        setHasProAccess(false);
-        resetRevenueCat();
-        return;
-      }
-
       try {
         setLoading(true);
         setError(null);
 
-        debug.log('Initializing RevenueCat for user:', user.id);
-        
-        // Check sandbox mode setting from database
+        // Check sandbox mode setting from database (best-effort when logged out)
         try {
           const { data: sandboxData } = await supabase.rpc('get_sandbox_mode');
           const isSandbox = sandboxData?.enabled ?? false;
@@ -69,34 +60,37 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           debug.log('Could not fetch sandbox mode, using production');
           setSandboxMode(false);
         }
-        
-        // Initialize with Supabase user ID
+
+        if (!user) {
+          debug.log('No user — configuring RevenueCat anonymously for offerings preview');
+          resetRevenueCat();
+          await initializeRevenueCat();
+          setCustomerInfo(null);
+          setHasProAccess(false);
+          return;
+        }
+
+        debug.log('Initializing RevenueCat for user:', user.id);
         await initializeRevenueCat(user.id);
-        
-        // Sync purchases (refreshes customer info)
+
         try {
           await syncPurchases();
         } catch (syncError) {
           debug.log('Could not sync purchases (non-critical):', syncError);
-          // Non-critical error, continue
         }
-        
-        // Fetch customer info
+
         const info = await getCustomerInfo();
         setCustomerInfo(info);
-        
-        // Check entitlement
+
         const hasAccess = ENTITLEMENT_IDENTIFIER in info.entitlements.active;
         setHasProAccess(hasAccess);
-        
-        // Sync to Supabase
+
         try {
           await syncRevenueCatToSupabase(user.id, info);
         } catch (supabaseError) {
           debug.log('Could not sync to Supabase (non-critical):', supabaseError);
-          // Non-critical error, continue
         }
-        
+
         debug.log('RevenueCat initialized successfully. Has Pro:', hasAccess);
       } catch (err: any) {
         debug.error('Error initializing RevenueCat:', err);
@@ -109,16 +103,15 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     initialize();
   }, [user]);
 
-  // Fetch offerings on mount (after initialization)
+  // Fetch offerings after initialization (works for anonymous + authenticated)
   useEffect(() => {
     const fetchOfferings = async (retryCount = 0) => {
-      if (!user) {
-        debug.log('No user, skipping offerings fetch');
-        setOfferingsLoading(false);
-        return;
-      }
-      
       if (!isRevenueCatConfigured()) {
+        // Wait for initialize() — retry briefly rather than giving up.
+        if (retryCount < 6) {
+          setTimeout(() => fetchOfferings(retryCount + 1), 400);
+          return;
+        }
         debug.log('RevenueCat not configured, skipping offerings fetch');
         setOfferingsLoading(false);
         return;
@@ -137,7 +130,6 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         setOfferingsLoading(false);
       } catch (err: any) {
         debug.error('❌ Error fetching offerings:', err);
-        // Retry up to 3 times with exponential backoff
         if (retryCount < 3) {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
           debug.log(`Retrying offerings fetch in ${delay}ms...`);
@@ -147,18 +139,16 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         } else {
           debug.error('Failed to fetch offerings after 3 retries');
           setOfferingsLoading(false);
-          // Don't set error state for offerings - they're not critical
         }
       }
     };
 
-    // Add a small delay to ensure RevenueCat is fully initialized
     const timer = setTimeout(() => {
       fetchOfferings();
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [user]);
+  }, [user, loading]);
 
   // Refresh customer info
   const refreshCustomerInfo = useCallback(async () => {
@@ -182,7 +172,15 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
   // Refresh offerings
   const refreshOfferings = useCallback(async () => {
-    if (!user || !isRevenueCatConfigured()) return;
+    if (!isRevenueCatConfigured()) {
+      try {
+        await initializeRevenueCat(user?.id);
+      } catch (err: any) {
+        debug.error('Could not configure RevenueCat for offerings refresh:', err);
+        setError(err.message || 'Failed to configure RevenueCat');
+        return;
+      }
+    }
 
     try {
       setOfferingsLoading(true);
@@ -194,7 +192,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       setError(err.message || 'Failed to refresh offerings');
       setOfferingsLoading(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
   // Purchase a package
   const purchase = useCallback(async (pkg: Package): Promise<CustomerInfo> => {

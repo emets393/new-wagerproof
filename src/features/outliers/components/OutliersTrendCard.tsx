@@ -404,10 +404,60 @@ interface OutliersTrendCardProps {
   card: TrendCardModel;
   sport: OutliersTrendsSport;
   game?: OutliersTrendsGame;
+  /**
+   * `compact` — fixed 300×240 carousel tile + dialog (default, Outliers tab).
+   * `expanded` — all rows inline, no dialog (onboarding / paywall showcase).
+   */
+  displayMode?: 'compact' | 'expanded';
+  /** When false, the compact card is not clickable (showcase embeds). */
+  interactive?: boolean;
 }
 
-export function OutliersTrendCard({ card, sport, game }: OutliersTrendCardProps) {
-  const [expanded, setExpanded] = useState(false);
+function TrendCardHeader({
+  card,
+  sport,
+  detail,
+  kickoff,
+  primaryLine,
+}: {
+  card: TrendCardModel;
+  sport: OutliersTrendsSport;
+  detail: string | null;
+  kickoff: { date: string; time: string } | null;
+  primaryLine: OutliersTrendsBettingLine | null;
+}) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <SubjectAvatar card={card} sport={sport} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-extrabold text-foreground">
+          {card.subjectName} — {card.betTypeLabel}
+        </p>
+        {detail && <p className="truncate text-[11px] font-medium text-muted-foreground">{detail}</p>}
+        <p className="truncate text-xs font-bold text-muted-foreground">{card.matchupLabel}</p>
+      </div>
+      {(primaryLine || kickoff) && (
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {primaryLine && <OddsChip line={primaryLine} />}
+          {kickoff && (
+            <div className="text-[10px] font-semibold leading-tight text-muted-foreground">
+              {kickoff.date} · {kickoff.time}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function OutliersTrendCard({
+  card,
+  sport,
+  game,
+  displayMode = 'compact',
+  interactive = true,
+}: OutliersTrendCardProps) {
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const visibleRows = card.rows.slice(0, COMPACT_ROW_CAP);
   const hiddenRows = card.rows.slice(COMPACT_ROW_CAP);
@@ -419,87 +469,109 @@ export function OutliersTrendCard({ card, sport, game }: OutliersTrendCardProps)
   // when present, the inline line chips drop odds to avoid duplication.
   const primaryLine = card.bettingLines.find((l) => Boolean(l.oddsText)) ?? null;
 
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setExpanded(true)}
+  if (displayMode === 'expanded') {
+    return (
+      <div
         className={cn(
-          'flex h-[240px] w-[300px] shrink-0 flex-col gap-[9px] rounded-2xl p-3 text-left',
-          'border border-black/5 bg-[#F8FAFC] transition-colors hover:border-black/10',
-          'dark:border-white/10 dark:bg-[#141414] dark:hover:border-white/20'
+          'flex w-full flex-col gap-[9px] rounded-2xl p-3 text-left',
+          'border border-black/5 bg-[#F8FAFC]',
+          'dark:border-white/10 dark:bg-[#141414]'
         )}
+        aria-hidden={!interactive}
       >
-        {/* Header */}
-        <div className="flex items-start gap-2.5">
-          <SubjectAvatar card={card} sport={sport} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-extrabold text-foreground">
-              {card.subjectName} — {card.betTypeLabel}
-            </p>
-            {detail && <p className="truncate text-[11px] font-medium text-muted-foreground">{detail}</p>}
-            <p className="truncate text-xs font-bold text-muted-foreground">{card.matchupLabel}</p>
-          </div>
-          {(primaryLine || kickoff) && (
-            <div className="flex shrink-0 flex-col items-end gap-1">
-              {primaryLine && <OddsChip line={primaryLine} />}
-              {kickoff && (
-                <div className="text-[10px] font-semibold leading-tight text-muted-foreground">
-                  {kickoff.date} · {kickoff.time}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <BettingLinesBlock lines={card.bettingLines} compact hideOdds={Boolean(primaryLine)} />
-
-        <div className="flex flex-col gap-1.5">
-          {visibleRows.map((row) => (
-            <TrendRow key={row.id} row={row} compact />
+        <TrendCardHeader
+          card={card}
+          sport={sport}
+          detail={detail}
+          kickoff={kickoff}
+          primaryLine={primaryLine}
+        />
+        <BettingLinesBlock lines={card.bettingLines} compact={false} hideOdds={Boolean(primaryLine)} />
+        <div className="flex flex-col gap-2">
+          {card.rows.map((row) => (
+            <TrendRow key={row.id} row={row} compact={false} />
           ))}
         </div>
+      </div>
+    );
+  }
 
-        {/* Footer pinned to the bottom of the fixed-height card */}
-        <div className="mt-auto flex flex-col gap-1.5">
-          <div className="h-px bg-black/5 dark:bg-white/10" />
-          <div className="flex items-center gap-1.5">
-            {previewRows.length > 0 ? (
-              <>
-                <PlusCircle className="h-3.5 w-3.5 shrink-0 text-primary" />
-                {previewRows.map((row) => {
-                  const color = heatColor(row.dominantPct) ?? undefined;
-                  return (
-                    <span
-                      key={row.id}
-                      className={cn(
-                        'flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-black tabular-nums',
-                        !color && 'text-muted-foreground'
-                      )}
-                      style={{ backgroundColor: heatBg(row.dominantPct), color }}
-                    >
-                      {Math.round(row.dominantPct * 100)}%
-                    </span>
-                  );
-                })}
-                {overflowCount > 0 && (
-                  <span className="text-[10px] font-extrabold text-muted-foreground">+{overflowCount}</span>
-                )}
-                <span className="flex-1" />
-                <span className="shrink-0 text-[11px] font-bold text-primary">More ›</span>
-              </>
-            ) : (
-              <>
-                <span className="flex-1" />
-                <span className="shrink-0 text-[11px] font-bold text-primary">View breakdown ›</span>
-              </>
-            )}
-          </div>
+  const shellClass = cn(
+    'flex h-[240px] w-[300px] shrink-0 flex-col gap-[9px] rounded-2xl p-3 text-left',
+    'border border-black/5 bg-[#F8FAFC] transition-colors',
+    'dark:border-white/10 dark:bg-[#141414]',
+    interactive && 'hover:border-black/10 dark:hover:border-white/20'
+  );
+
+  const body = (
+    <>
+      <TrendCardHeader
+        card={card}
+        sport={sport}
+        detail={detail}
+        kickoff={kickoff}
+        primaryLine={primaryLine}
+      />
+
+      <BettingLinesBlock lines={card.bettingLines} compact hideOdds={Boolean(primaryLine)} />
+
+      <div className="flex flex-col gap-1.5">
+        {visibleRows.map((row) => (
+          <TrendRow key={row.id} row={row} compact />
+        ))}
+      </div>
+
+      {/* Footer pinned to the bottom of the fixed-height card */}
+      <div className="mt-auto flex flex-col gap-1.5">
+        <div className="h-px bg-black/5 dark:bg-white/10" />
+        <div className="flex items-center gap-1.5">
+          {previewRows.length > 0 ? (
+            <>
+              <PlusCircle className="h-3.5 w-3.5 shrink-0 text-primary" />
+              {previewRows.map((row) => {
+                const color = heatColor(row.dominantPct) ?? undefined;
+                return (
+                  <span
+                    key={row.id}
+                    className={cn(
+                      'flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-black tabular-nums',
+                      !color && 'text-muted-foreground'
+                    )}
+                    style={{ backgroundColor: heatBg(row.dominantPct), color }}
+                  >
+                    {Math.round(row.dominantPct * 100)}%
+                  </span>
+                );
+              })}
+              {overflowCount > 0 && (
+                <span className="text-[10px] font-extrabold text-muted-foreground">+{overflowCount}</span>
+              )}
+              <span className="flex-1" />
+              <span className="shrink-0 text-[11px] font-bold text-primary">More ›</span>
+            </>
+          ) : (
+            <>
+              <span className="flex-1" />
+              <span className="shrink-0 text-[11px] font-bold text-primary">View breakdown ›</span>
+            </>
+          )}
         </div>
-      </button>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {interactive ? (
+        <button type="button" onClick={() => setDialogOpen(true)} className={shellClass}>
+          {body}
+        </button>
+      ) : (
+        <div className={shellClass}>{body}</div>
+      )}
 
       {/* Full breakdown dialog — every trend row and betting line, no caps */}
-      <Dialog open={expanded} onOpenChange={setExpanded}>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3">
