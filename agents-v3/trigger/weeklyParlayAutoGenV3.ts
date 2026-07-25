@@ -12,7 +12,8 @@ import type { RunV3Payload } from "../src/loop/runV3Generation";
 import { ledgerClient, isOverDailySpendCap } from "../src/runtimeHelpers";
 import { getTodayInET, getFootballWeekKeyET } from "../src/shared/dateUtils";
 
-const DEFAULT_MODEL = "deepseek-v4-flash";
+// HOTFIX 2026-07-25: DeepSeek balance exhausted — use OpenAI until topped up.
+const DEFAULT_MODEL = "gpt-4.1-mini";
 
 export const weeklyParlayAutoGenV3 = schedules.task({
   id: "weekly-parlay-auto-gen-v3",

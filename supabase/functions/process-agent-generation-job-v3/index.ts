@@ -17,7 +17,8 @@ const PROMPT_VERSION = "v3-incode-1";
 // deepseek-reasoner/-chat are retired aliases (dead after 2026-07-24); the V4
 // names are the only supported DeepSeek options. Flash is the default until
 // tuning says otherwise.
-const DEFAULT_MODEL = "deepseek-v4-flash";
+// HOTFIX 2026-07-25: DeepSeek balance exhausted — use OpenAI until topped up.
+const DEFAULT_MODEL = "gpt-4.1-mini";
 
 // $/token (cache-miss input / output), per api-docs.deepseek.com/quick_start/pricing
 // (2026-06). Unknown models fall back to pro rates (conservative).

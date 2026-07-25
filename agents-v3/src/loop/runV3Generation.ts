@@ -21,9 +21,11 @@ import { passthroughTrace, type AgentGenContext, type ProgressEvent, type TraceF
 
 const PROMPT_VERSION = "v3-incode-1";
 
-// deepseek-reasoner/-chat are retired aliases (dead after 2026-07-24); the V4
-// names are the only supported DeepSeek options. Flash is the default.
-const DEFAULT_MODEL = "deepseek-v4-flash";
+// HOTFIX 2026-07-25: DeepSeek returned 402 Insufficient Balance in prod.
+// Temporarily default to OpenAI gpt-4.1-mini (max_tokens-compatible with the
+// deployed V3 loop). Flip back to deepseek-v4-flash after DeepSeek is topped up
+// and the remap trigger is dropped.
+const DEFAULT_MODEL = "gpt-4.1-mini";
 
 // $/token (cache-miss input / output), per api-docs.deepseek.com/quick_start/pricing
 // (2026-06). Unknown models fall back to pro rates (conservative).
@@ -31,6 +33,9 @@ const MODEL_COSTS: Record<string, { inTok: number; outTok: number }> = {
   "deepseek-v4-flash": { inTok: 0.14e-6, outTok: 0.28e-6 },
   "deepseek-v4-pro": { inTok: 0.435e-6, outTok: 0.87e-6 },
   "deepseek-reasoner": { inTok: 0.14e-6, outTok: 0.28e-6 }, // alias → v4-flash thinking
+  // OpenAI hotfix defaults (approx; used only for spend-cap accounting)
+  "gpt-4.1-mini": { inTok: 0.4e-6, outTok: 1.6e-6 },
+  "gpt-5-mini": { inTok: 0.25e-6, outTok: 2.0e-6 },
 };
 
 function resolveProvider(model: string): { url: string; keyEnv: string; supportsForcedToolChoice: boolean } {
@@ -137,7 +142,19 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
   const cfb: SupabaseClient = createClient(cfbUrl, cfbAnon, { auth: { persistSession: false } });
 
   const runId = payload.ledgerRunId;
-  const runModel = payload.modelName || DEFAULT_MODEL;
+  // Prefer explicit payload, then ledger row (DB hotfix may remap DeepSeek →
+  // OpenAI on insert), then code default. Without the ledger read, auto-gen
+  // payloads that omit modelName would ignore the DB remap.
+  let ledgerModel: string | null = null;
+  {
+    const { data: ledgerRow } = await main
+      .from("agent_generation_runs")
+      .select("model_name")
+      .eq("id", runId)
+      .maybeSingle();
+    ledgerModel = (ledgerRow?.model_name as string | null) ?? null;
+  }
+  const runModel = payload.modelName || ledgerModel || DEFAULT_MODEL;
 
   let marked = false;
   const markProcessing = async () => {

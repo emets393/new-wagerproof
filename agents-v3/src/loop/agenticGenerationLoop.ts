@@ -171,8 +171,13 @@ export async function runAgenticLoop(
       tool_choice: toolChoice,
       stream: true,
       stream_options: { include_usage: true },
-      max_tokens: ctx.gov.limitsRef.maxTokensOut,
     };
+    // gpt-5* / o* reject max_tokens; older chat models reject max_completion_tokens.
+    if (/^(gpt-5|o\d)/.test(opts.model)) {
+      body.max_completion_tokens = ctx.gov.limitsRef.maxTokensOut;
+    } else {
+      body.max_tokens = ctx.gov.limitsRef.maxTokensOut;
+    }
 
     // Abort the turn at min(remaining wall-clock, per-turn cap) so a single slow
     // deepseek-reasoner turn can't run unbounded. On timeout we finalize with
