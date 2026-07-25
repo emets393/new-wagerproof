@@ -1,0 +1,48 @@
+{
+  "_comment": "Source of truth for WagerProof Meta ads. SAFETY: the client ONLY operates on adAccountId below — the signed-in Meta user also has access to Honeydew, Orbital Focus + other accounts; never repoint it. Run `node client/meta.mjs check` before shipping.",
+  "adAccountId": "act_2206204643248135",
+  "adAccountName": "WagerProof Ad Account v3",
+  "businessId": "762004099805747",
+  "pageId": "922824830922715",
+  "pageName": "WagerProof",
+  "instagramActorId": null,
+
+  "app": {
+    "ios": {
+      "metaAppId": "935005752525075",
+      "storeUrl": "https://apps.apple.com/us/app/wagerproof-sports-research-ai/id6757089957",
+      "adamId": "6757089957",
+      "userOs": ["iOS_ver_14.0_and_above"],
+      "skadnetwork": true
+    },
+    "android": {
+      "metaAppId": "935005752525075",
+      "storeUrl": "https://play.google.com/store/apps/details?id=com.wagerproof.mobile",
+      "package": "com.wagerproof.mobile",
+      "userOs": ["Android"],
+      "skadnetwork": false
+    }
+  },
+
+  "defaults": {
+    "platform": "ios",
+    "objective": "OUTCOME_APP_PROMOTION",
+    "optimizationGoal": "APP_INSTALLS",
+    "billingEvent": "IMPRESSIONS",
+    "bidStrategy": "LOWEST_COST_WITHOUT_CAP",
+    "dailyBudgetCents": 2000,
+    "status": "PAUSED",
+    "cta": "INSTALL_MOBILE_APP",
+    "countries": ["US"],
+    "ageMin": 21,
+    "ageMax": 65,
+    "devicePlatforms": ["mobile"],
+    "publisherPlatforms": ["facebook", "audience_network"],
+    "message": "Stop guessing. WagerProof's AI breaks down every game — win probabilities, live money flow, and the highest-value plays across the NFL, NBA, and college. Every pick tracked publicly, no cherry-picking. Bet smarter.",
+    "headline": "Your AI sports betting edge."
+  },
+
+  "naming": {
+    "campaign": "{PLAT} | Scale | AppPromo | Main"
+  }
+}
