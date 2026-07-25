@@ -1,6 +1,20 @@
 # Supabase Edge Functions
 
-> Last verified: March 2026
+> Inventory below last verified: March 2026. Gap audit: 2026-07-25.
+>
+> **47 function directories exist; this doc covers ~34.** Undocumented, and notably
+> including the entire V3 agent-generation path:
+> `trigger-v3-run`, `process-agent-generation-job-v3`, `enqueue-auto-generation-runs-v3`,
+> `trigger-run-status`, `agent-authorized-action-v1`, `wagerbot-agent` (has its own README),
+> `grade-analysis-systems`, `score-player-props`, `nl-filter-patch`, `revenuecat-webhook`,
+> `debug-user-entitlement`, `backfill-anonymous-rc-ids`, `bridge-uppercase-entitlements`.
+>
+> Likely dead (no in-repo caller found): `debug-user-entitlement`, `create-portal-session`,
+> `filter-nfl-training-data`, and the saved-patterns cluster (`calculate-pattern-roi`,
+> `check-saved-patterns`, `run_custom_model`). `revenuecat-webhook` is invoked externally
+> by RevenueCat, so its lack of in-repo callers is expected.
+>
+> Cron jobs are NOT enumerated here — there are ~30 across `supabase/migrations/`.
 
 ## Overview
 
@@ -78,7 +92,7 @@ See [02_chat_wagerbot.md](02_chat_wagerbot.md) for full architecture.
 ### Misc
 | Function | Purpose |
 |----------|---------|
-| `generate-no-games-terminal` | Generate terminal message when no games available |
+| ~~`generate-no-games-terminal`~~ | **DELETED** — no such function directory exists |
 | `shared` | Shared utility module (not a standalone function) |
 
 ### Analytics/Patterns

@@ -1,5 +1,21 @@
 # Wagerproof Swift Migration — Rebuild Plan
 
+> **ARCHIVE — the migration is finished.** Frozen 2026-06-12; annotated 2026-07-25.
+>
+> The SwiftUI app shipped and is the live iOS product (`wagerproof-ios-native/`, 3.5.8 via
+> Xcode Cloud). This whole `docs/wagerproof-migration/` tree is a historical record of the
+> port, not a live tracker. Known rot, so you don't act on it:
+> - Every path here uses `wagerproof_ios_native/` (underscores) and names a
+>   `Wagerproof.xcworkspace`. The real tree is `wagerproof-ios-native/` with an XcodeGen-
+>   generated `.xcodeproj` and no workspace — **the build commands in this file fail as written.**
+> - `inventory.csv` lists 223 files as `missing` that have since shipped.
+> - `batches.md` has no status column and was never updated; it is a pre-work plan.
+> - ~42 tickets still say `Status: open`; most are done. `fidelity/` covers only b01-b09,
+>   b12-b16, b19, b21 and none of the features built since (Props, Search, Parlay God, Systems).
+>
+> **Do not delete `tickets/`**: 34 Swift files still carry live `// FIDELITY-WAIVER #NNN`
+> comments whose only explanation is the ticket bodies here.
+
 The working contract for porting the Wagerproof React Native app to a native Swift / SwiftUI iOS app (iOS 17+). Adapted from the Honeydew swift-migration `REBUILD_PLAN.md`. The Honeydew port is the reference for both **process** (this document) and **visual / interaction language** (the [07/08/09 native specs](https://github.com/anthropics/honeydew_ios_native/docs/swift-migration/)).
 
 A page is "done" only when **every** item in the contract below holds. Reviewer agents reject work that fails any item.

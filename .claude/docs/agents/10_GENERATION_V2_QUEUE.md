@@ -1,5 +1,15 @@
 # Agent Generation V2 — Queue-Based Architecture
 
+> **STATUS: LEGACY — accurate, but not the current engine.** Verified 2026-07-25.
+>
+> V2 is superseded by V3 on Trigger.dev (`18_GENERATION_V3_TRIGGERDEV.md`), which both
+> shipping clients call. V2 remains reachable only because the deprecated React Native app
+> (`wagerproof-mobile/services/agentPicksService.ts:181`) still invokes
+> `request-avatar-picks-generation-v2`. It can be deleted once that app is retired.
+>
+> This document is still correct about V2's own mechanics — read it when debugging a V2 run,
+> not when building new generation features.
+
 > Replaces the V1 single-cron approach with a durable, distributed queue system featuring retries, entitlement enforcement, and scalable workers.
 
 ---

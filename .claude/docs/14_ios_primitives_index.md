@@ -270,17 +270,16 @@ surfaces the real matchup/widget/prop primitives. A card opens that primitive's 
 
 ---
 
-## 4. Picks (Editor's Picks tab) — `Features/Picks/PicksView.swift`
+## 4. Picks (Editor's Picks tab) — REMOVED
 
-| Primitive | Tier | File | Renders from |
-|---|---|---|---|
-| **EditorPickCard** (full pick card) | 1 | `Picks/Components/EditorPickCard.swift:10` | `EditorPick` + `EditorPickGameData` — i.e. **pick id** |
-| **CompactPickCard** (pick line item) | 1 | `Picks/Components/CompactPickCard.swift:14` | `EditorPick` + `EditorPickGameData` |
-| LockedPickCard (pro gate) | 3 | `Picks/Components/LockedPickCard.swift:11` | sport string |
-| PickCardErrorBoundary | 3 | `Picks/Components/PickCardErrorBoundary.swift:20` | wraps a pick card |
-| EditorPicksStatsBanner | 3 | `EditorPicks/Components/EditorPicksStatsBanner.swift:11` | callbacks |
+The Editor's Picks tab was retired and its Swift files were deleted from iOS native.
+`Features/Picks/PicksView.swift`, `Picks/Components/{EditorPickCard,CompactPickCard,
+LockedPickCard,PickCardErrorBoundary}.swift`, and
+`EditorPicks/Components/EditorPicksStatsBanner.swift` no longer exist — verified 2026-07-25.
+`WagerproofModels/EditorPick.swift` survives for historical data reads only.
 
-Sheets: `PickDetailBottomSheet` (detail), `EditorPickCreatorBottomSheet` (admin form).
+Functionally replaced by AI Agents (see the Agents section). Any reference to a
+`CompactPickCard` elsewhere in this index is a leftover and does not resolve.
 
 ---
 
