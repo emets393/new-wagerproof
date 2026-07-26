@@ -28,7 +28,15 @@ def season_pbp(year):
 
 
 def main():
-    pbp = pd.concat([season_pbp(y) for y in (2023, 2024, 2025)], ignore_index=True)
+    # go-live: include 2026; nflverse publishes a season's PBP file only once games play,
+    # so skip any season whose file 404s (upcoming 2026 -> 1H cards stay blank until data lands).
+    frames = []
+    for y in (2023, 2024, 2025, 2026):
+        try:
+            frames.append(season_pbp(y))
+        except Exception as e:
+            print(f"[skip] pbp {y} unavailable ({type(e).__name__}) — season not yet published")
+    pbp = pd.concat(frames, ignore_index=True)
     pbp = pbp[pbp.qtr.notna()]
     pbp["qtr"] = pbp.qtr.clip(upper=5).astype(int)  # 5 = all OT periods
 
