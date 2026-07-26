@@ -93,14 +93,16 @@ interface RevenueCatContextValue {
 }
 ```
 
-### Access Control (3-Tier Checking)
+### Access Control (cascade — negative Web SDK is not authoritative)
 ```typescript
 // useAccessControl.ts
 // Priority order:
-1. RevenueCat entitlements
-2. Supabase subscription_active flag
-3. Legacy RPC check
-// Admin role bypasses all checks
+1. Admin role → grant
+2. RevenueCat Web Billing entitlement (grant only if true)
+3. Supabase profiles.subscription_active mirror
+4. Edge `resolve-my-entitlement` (same multi-id probe as server: stored id → lowercase → UPPERCASE twin; heals mirror)
+5. Legacy RPC `user_has_access`
+// Web sync must NEVER write subscription_active=false from a negative Web Billing lookup
 ```
 
 ### Sandbox Mode Toggle

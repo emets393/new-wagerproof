@@ -5,7 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   initializeRevenueCat,
   getCustomerInfo,
-  hasActiveEntitlement,
   getOfferings,
   purchasePackage,
   syncPurchases,
@@ -14,8 +13,29 @@ import {
   setSandboxMode,
   ENTITLEMENT_IDENTIFIER,
 } from '@/services/revenuecatWeb';
-import { syncRevenueCatToSupabase } from '@/utils/syncRevenueCatToSupabase';
+import {
+  checkSupabaseSubscription,
+  resolveServerEntitlement,
+  syncRevenueCatToSupabase,
+} from '@/utils/syncRevenueCatToSupabase';
 import debug from '@/utils/debug';
+
+/**
+ * Web Billing alone misses store purchases on other RC identities.
+ * Promote when RC Web says Pro; otherwise OR in mirror + server resolve.
+ */
+async function resolveHasProAccess(
+  userId: string,
+  customerInfo: CustomerInfo | null,
+): Promise<boolean> {
+  if (customerInfo && ENTITLEMENT_IDENTIFIER in customerInfo.entitlements.active) {
+    return true;
+  }
+  if (await checkSupabaseSubscription(userId)) {
+    return true;
+  }
+  return resolveServerEntitlement();
+}
 
 interface RevenueCatContextType {
   customerInfo: CustomerInfo | null;
@@ -82,14 +102,15 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         const info = await getCustomerInfo();
         setCustomerInfo(info);
 
-        const hasAccess = ENTITLEMENT_IDENTIFIER in info.entitlements.active;
-        setHasProAccess(hasAccess);
-
+        // Sync only promotes — never writes false from a negative Web lookup
         try {
           await syncRevenueCatToSupabase(user.id, info);
         } catch (supabaseError) {
           debug.log('Could not sync to Supabase (non-critical):', supabaseError);
         }
+
+        const hasAccess = await resolveHasProAccess(user.id, info);
+        setHasProAccess(hasAccess);
 
         debug.log('RevenueCat initialized successfully. Has Pro:', hasAccess);
       } catch (err: any) {
@@ -158,12 +179,11 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       setError(null);
       const info = await getCustomerInfo();
       setCustomerInfo(info);
-      
-      const hasAccess = ENTITLEMENT_IDENTIFIER in info.entitlements.active;
-      setHasProAccess(hasAccess);
-      
-      // Sync to Supabase
+
       await syncRevenueCatToSupabase(user.id, info);
+
+      const hasAccess = await resolveHasProAccess(user.id, info);
+      setHasProAccess(hasAccess);
     } catch (err: any) {
       debug.error('Error refreshing customer info:', err);
       setError(err.message || 'Failed to refresh customer info');
@@ -206,13 +226,12 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       
       const info = await purchasePackage(pkg);
       setCustomerInfo(info);
-      
-      const hasAccess = ENTITLEMENT_IDENTIFIER in info.entitlements.active;
-      setHasProAccess(hasAccess);
-      
-      // Sync to Supabase
+
       await syncRevenueCatToSupabase(user.id, info);
-      
+
+      const hasAccess = await resolveHasProAccess(user.id, info);
+      setHasProAccess(hasAccess);
+
       debug.log('Purchase successful, Pro access:', hasAccess);
       return info;
     } catch (err: any) {
