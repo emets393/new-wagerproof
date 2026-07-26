@@ -2,7 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasActiveEntitlement, isRevenueCatConfigured } from "@/services/revenuecatWeb";
-import { checkSupabaseSubscription } from "@/utils/syncRevenueCatToSupabase";
+import {
+  checkSupabaseSubscription,
+  resolveServerEntitlement,
+} from "@/utils/syncRevenueCatToSupabase";
 import debug from "@/utils/debug";
 
 export function useAccessControl() {
@@ -27,19 +30,23 @@ export function useAccessControl() {
         // Continue to other checks
       }
       
-      // Primary check: RevenueCat (authoritative source)
+      // Primary: RevenueCat Web Billing (authoritative when it finds Pro).
+      // A negative result is NOT authoritative — store purchases often live on
+      // another RC identity the Web SDK never sees. Fall through instead of
+      // returning false (docs claim a 3-tier cascade; keep that promise).
       if (isRevenueCatConfigured()) {
         try {
           const hasEntitlement = await hasActiveEntitlement();
           debug.log('RevenueCat access check:', hasEntitlement);
-          return hasEntitlement;
+          if (hasEntitlement) {
+            return true;
+          }
         } catch (error) {
-          debug.error('RevenueCat access check error, falling back to Supabase:', error);
-          // Fall through to Supabase check
+          debug.error('RevenueCat access check error, falling back:', error);
         }
       }
       
-      // Fallback 1: Check Supabase subscription_active (synced from RevenueCat)
+      // Fallback 1: Supabase mirror (webhook / mobile sync)
       try {
         const hasSupabaseAccess = await checkSupabaseSubscription(user.id);
         if (hasSupabaseAccess) {
@@ -48,10 +55,20 @@ export function useAccessControl() {
         }
       } catch (error) {
         debug.error('Supabase subscription check error:', error);
-        // Fall through to RPC check
+      }
+
+      // Fallback 2: Server multi-id resolve (heals poisoned mirrors + uppercase twin)
+      try {
+        const hasServerAccess = await resolveServerEntitlement();
+        if (hasServerAccess) {
+          debug.log('Server entitlement resolve: has access');
+          return true;
+        }
+      } catch (error) {
+        debug.error('Server entitlement resolve error:', error);
       }
       
-      // Fallback 2: Check legacy RPC function (for backward compatibility)
+      // Fallback 3: Legacy RPC (launch_mode / require_subscription)
       try {
         const { data, error } = await supabase
           .rpc('user_has_access', { _user_id: user.id });
