@@ -737,6 +737,9 @@ def train_predict(m, BASE, target):
         reg=HistGradientBoostingRegressor(max_depth=3,learning_rate=0.05,max_iter=300,l2_regularization=2.0,min_samples_leaf=40,random_state=0).fit(tr_r[BASE],tr_r.actual_margin)
         joblib.dump((clf, reg, list(BASE)), pkl)
     te=m[m.season==target].copy()
+    if len(te)==0:                       # pre-season / empty slate: fit+dump above still froze the pkl
+        te["ph"]=np.nan; te["pred_margin"]=np.nan
+        return te
     te["ph"]=clf.predict_proba(te[BASE])[:,1]
     te["pred_margin"]=reg.predict(te[BASE])
     return te

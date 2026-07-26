@@ -20,7 +20,7 @@ def get(url, cols=None):
     df=pd.read_parquet(io.BytesIO(r.content))
     return df[[c for c in cols if c in df.columns]] if cols else df
 parts=[]
-for yr in range(2018,2026):
+for yr in range(2018,2027):  # go-live: 2026 incl; missing files skipped by the try below
     try:
         pa=get(f"{REL}/pbp_participation/pbp_participation_{yr}.parquet",PART).rename(columns={"nflverse_game_id":"game_id"})
         pb=get(f"{REL}/pbp/play_by_play_{yr}.parquet",PBP)

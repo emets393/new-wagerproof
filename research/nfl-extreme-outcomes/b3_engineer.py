@@ -15,7 +15,7 @@ od = load("odds_consensus"); sp = load("splits_2025")
 
 # ---- ML prices from nflverse (all years), vig-sane filter ----
 nv_ab = {"LA": "LAR", "SD": "LAC", "STL": "LAR"}
-ng = ng[ng.season.between(2018, 2025)].copy()
+ng = ng[ng.season.between(2018, 2026)].copy()  # go-live: bump upper bound each season
 ng["home_ab"] = ng["home_team"].replace(nv_ab); ng["away_ab"] = ng["away_team"].replace(nv_ab)
 mlcols = ng[["season", "week", "home_ab", "away_ab", "home_moneyline", "away_moneyline"]].rename(
     columns={"home_moneyline": "ml_home", "away_moneyline": "ml_away"})

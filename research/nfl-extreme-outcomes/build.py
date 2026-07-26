@@ -73,7 +73,7 @@ def main():
 
     # ---- 5. Merge nflverse ----
     nv_ab = {"LA": "LAR", "SD": "LAC", "STL": "LAR", "OAK": "OAK", "LV": "LV"}  # only LA matters in window
-    ng = ng[ng["season"].between(2018, 2025)].copy()
+    ng = ng[ng["season"].between(2018, 2026)].copy()  # go-live: bump upper bound each season
     ng["home_ab"] = ng["home_team"].replace(nv_ab)
     ng["away_ab"] = ng["away_team"].replace(nv_ab)
     nvcols = ["season", "week", "home_ab", "away_ab", "home_qb_name", "away_qb_name",

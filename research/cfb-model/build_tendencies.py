@@ -15,7 +15,7 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data", "cfbd")
-YEARS = [2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024, 2025]
+YEARS = [2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024, 2025, 2026]  # go-live: append each season
 
 
 def main():
