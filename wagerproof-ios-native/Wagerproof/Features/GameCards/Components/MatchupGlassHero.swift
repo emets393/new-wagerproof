@@ -32,7 +32,12 @@ struct MatchupGlassHero: View {
     }
 
     struct Stat: Identifiable {
-        let id = UUID()
+        /// Keyed on `label`, NOT a fresh UUID. Callers build these arrays inline
+        /// inside the hero closure, which re-runs on every scroll frame — a UUID
+        /// handed `ForEach` brand-new identities every frame, so SwiftUI tore
+        /// down and rebuilt every stat column continuously instead of updating
+        /// it. Labels are unique within a given stats array.
+        var id: String { label }
         var label: String
         var value: String
     }

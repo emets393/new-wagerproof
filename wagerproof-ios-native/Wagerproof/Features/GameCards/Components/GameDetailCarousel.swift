@@ -28,8 +28,20 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
     @ViewBuilder var page: (_ game: G, _ topInset: CGFloat, _ bottomInset: CGFloat) -> Page
 
     @State private var selection: Int
+    /// Center of the "built pages" window. Follows `selection`, but debounced so
+    /// the newly-admitted page is constructed on idle rather than mid-swipe.
+    @State private var windowCenter: Int
+    @State private var windowTask: Task<Void, Never>?
 
     private let stripHeight: CGFloat = 44
+    /// How many pages either side of `windowCenter` stay built. Radius 2 (not 1)
+    /// so that even when `windowCenter` is one behind `selection` — the window
+    /// covers `center±2`, and a paging TabView only moves one page per gesture —
+    /// the page you're swiping toward is always already built. No blank pages.
+    private let pageWindowRadius = 2
+    /// Long enough that page construction lands after the paging animation
+    /// settles, short enough that a fast second swipe still finds its page built.
+    private let windowSettleDelay: Duration = .milliseconds(200)
 
     init(
         games: [G],
@@ -46,6 +58,14 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
         self.page = page
         let idx = games.firstIndex(where: { $0.id == initialGame.id }) ?? 0
         self._selection = State(initialValue: idx)
+        self._windowCenter = State(initialValue: idx)
+    }
+
+    /// True when this page should be materialized. Everything outside the window
+    /// renders as an empty placeholder that still carries its `.tag`, so the
+    /// TabView's paging/index math is unchanged.
+    private func isPageBuilt(_ idx: Int) -> Bool {
+        abs(idx - windowCenter) <= pageWindowRadius
     }
 
     private var currentColors: (away: Color, home: Color) {
@@ -70,24 +90,29 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
                 // nav bar) or bottom (home indicator). Each page insets its own
                 // hero/content via the passed safe-area values instead.
                 TabView(selection: $selection) {
-                    ForEach(Array(games.enumerated()), id: \.offset) { idx, game in
-                        // Build every page up front. A paging TabView keeps all
-                        // pages resident, so pre-building them means a swipe never
-                        // has to construct a heavy detail sheet mid-gesture — that
-                        // on-demand build is what made swiping jumpy. (Lazily
-                        // materializing pages fixes the open speed but reintroduces
-                        // the per-swipe hitch / pop-in flashing, so it's not worth
-                        // it here; gate the per-page data load instead if the open
-                        // needs to be faster.)
-                        page(
-                            game,
-                            // Pull the hero up to sit just clear of the back
-                            // chevron rather than below the whole nav bar.
-                            max(12, topInset - 36),
-                            // Clear the floating strip + the home indicator.
-                            stripHeight + 24 + bottomInset
-                        )
-                        .tag(idx)
+                    ForEach(Array(games.enumerated()), id: \.element.id) { idx, game in
+                        // Only a small window around the current page is built.
+                        // A paging TabView keeps every page it's given resident,
+                        // so building the whole slate meant N heavy detail sheets
+                        // — and N `.task` data loads — constructed before the push
+                        // animation even ran. Building purely on demand fixes that
+                        // but reintroduces per-swipe hitching, because the page is
+                        // constructed mid-gesture. The window gets both: neighbors
+                        // are always ready before you can reach them, and the rest
+                        // of the slate costs nothing.
+                        if isPageBuilt(idx) {
+                            page(
+                                game,
+                                // Pull the hero up to sit just clear of the back
+                                // chevron rather than below the whole nav bar.
+                                max(12, topInset - 36),
+                                // Clear the floating strip + the home indicator.
+                                stripHeight + 24 + bottomInset
+                            )
+                            .tag(idx)
+                        } else {
+                            Color.clear.tag(idx)
+                        }
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
@@ -116,6 +141,22 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
                 }
             }
         }
+        // Landing on a new matchup is the big beat on this screen, so it gets the
+        // heavy impact — the per-section ticks while scrolling a page are light by
+        // comparison (see `WidgetCollapsingSection`). Fires when the page settles,
+        // and equally when a strip chip is tapped, since both change the matchup.
+        .sensoryFeedback(.impact(weight: .heavy), trigger: selection)
+        // Recenter the built-pages window after the swipe settles, so admitting a
+        // new page never constructs a detail sheet during the paging animation.
+        .onChange(of: selection) { _, new in
+            windowTask?.cancel()
+            windowTask = Task {
+                try? await Task.sleep(for: windowSettleDelay)
+                guard !Task.isCancelled else { return }
+                windowCenter = new
+            }
+        }
+        .onDisappear { windowTask?.cancel() }
         // Replace the app tab bar with the matchup strip on detail pages.
         .toolbar(.hidden, for: .tabBar)
         // Transparent, inline nav bar: just the back chevron floats over the
@@ -131,7 +172,7 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    ForEach(Array(games.enumerated()), id: \.offset) { idx, game in
+                    ForEach(Array(games.enumerated()), id: \.element.id) { idx, game in
                         chip(game, idx == selection)
                             .id(idx)
                             .contentShape(Capsule())
