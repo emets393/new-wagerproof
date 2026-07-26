@@ -8,6 +8,7 @@ import {
 } from './TrendsTable';
 import type { NbaGameTrends } from './useNbaMatchupOverview';
 import type { GameFeedItem } from '../../../types';
+import { nbaBettingTrendsHeadline } from '../../headlines/nba';
 
 /**
  * How each side has been betting lately: streaks, ATS rate, O/U rate.
@@ -81,6 +82,18 @@ export function NbaBettingTrendsSection({
     <WidgetCard
       icon={<TrendingUp />}
       title="Betting Trends"
+      headline={nbaBettingTrendsHeadline({
+        loading,
+        trendsAvailable: !!trends,
+        awayAbbrev: game.awayTeam.abbrev,
+        homeAbbrev: game.homeTeam.abbrev,
+        awayWinStreak: trends?.away_win_streak ?? null,
+        homeWinStreak: trends?.home_win_streak ?? null,
+        awayAtsPct: trends?.away_ats_pct ?? null,
+        homeAtsPct: trends?.home_ats_pct ?? null,
+        awayOverPct: trends?.away_over_pct ?? null,
+        homeOverPct: trends?.home_over_pct ?? null,
+      }) ?? undefined}
       subtitle="How each team has been running lately — win and cover streaks, and how often their games clear the number."
     >
       <TrendsSectionBody loading={loading} trendsAvailable={!!trends}>

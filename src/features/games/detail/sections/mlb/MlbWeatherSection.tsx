@@ -1,6 +1,7 @@
 import { CloudSun } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
 import { type MLBPredictionRow } from '../../../api/mlbGames';
+import { mlbWeatherHeadline } from '../../headlines/mlb';
 import { toNum } from './shared';
 
 /**
@@ -28,7 +29,18 @@ export function MlbWeatherSection({ raw }: { raw: MLBPredictionRow }) {
   );
 
   return (
-    <WidgetCard icon={<CloudSun />} title="Weather" accessory={statusChip}>
+    <WidgetCard
+      icon={<CloudSun />}
+      title="Weather"
+      headline={mlbWeatherHeadline({
+        temp,
+        wind,
+        windDirection: typeof rec.wind_direction === 'string' ? rec.wind_direction : null,
+        sky: typeof rec.sky === 'string' ? rec.sky : null,
+        weatherConfirmed: raw.weather_confirmed,
+      }) ?? undefined}
+      accessory={statusChip}
+    >
       <div className="space-y-1 text-center text-xs text-muted-foreground">
         {hasWeather ? (
           <>

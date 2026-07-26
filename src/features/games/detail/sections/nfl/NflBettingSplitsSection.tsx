@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import type { NFLPrediction } from '../../../api/nflGames';
 import type { GameFeedItem, TeamRef } from '../../../types';
 import { TeamMark } from './shared';
+import { nflBettingSplitsHeadline } from '../../headlines/nfl';
 
 interface ParsedBettingSplit {
   team: string;
@@ -194,11 +195,30 @@ export function NflBettingSplitsSection({ game }: { game: GameFeedItem }) {
   }
 
   if (rows.length === 0) return null;
+  const headlineRows = [
+    ml && ml.team ? { market: 'Moneyline' as const, parsed: ml, team: mlTeam } : null,
+    spread && spread.team ? { market: 'Spread' as const, parsed: spread, team: spreadTeam } : null,
+    total && total.direction ? { market: 'Total' as const, parsed: total, team: null } : null,
+  ].filter((entry): entry is NonNullable<typeof entry> => entry !== null).map(({ market, parsed, team }) => ({
+    market,
+    side: parsed.direction ? parsed.direction.toUpperCase() : team?.abbrev ?? parsed.team,
+    isDirection: Boolean(parsed.direction),
+    resolvedTeam: Boolean(team),
+    isSharp: parsed.isSharp,
+    isPublic: parsed.isPublic,
+    label:
+      market === 'Moneyline'
+        ? raw.ml_splits_label ?? ''
+        : market === 'Spread'
+          ? raw.spread_splits_label ?? ''
+          : raw.total_splits_label ?? '',
+  }));
 
   return (
     <WidgetCard
       icon={<Users />}
       title="Public Betting Facts"
+      headline={nflBettingSplitsHeadline({ rows: headlineRows }) ?? undefined}
       subtitle="Where the money actually placed at sportsbooks is landing — a different source from the live prediction-market prices above."
     >
       <div className="divide-y divide-black/5 dark:divide-white/10">{rows}</div>

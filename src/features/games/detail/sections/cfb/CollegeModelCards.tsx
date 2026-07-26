@@ -5,13 +5,13 @@ import {
   CollegeTeamMark,
   EdgeStrengthMeter,
   EmptyNote,
-  ExplanationNote,
   ModelVsVegas,
   PickSideRow,
   Recommendation,
   STACK,
   formatSignedHalf,
 } from './shared';
+import { collegeSpreadHeadline, collegeTotalHeadline } from '../../headlines/shared';
 import type { TeamRef } from '../../../types';
 
 /**
@@ -38,7 +38,8 @@ export interface CollegeModelInput {
   overLineDiff: number | null;
   vegasTotal: number | null;
   /** AI completion texts for this game, keyed by widget type. */
-  completions: Record<string, string>;
+  /** QC-passed headline verdicts keyed by widget type (replaces the old foot-of-card note). */
+  headlines: Record<string, string>;
 }
 
 export function hasSpreadData(input: CollegeModelInput): boolean {
@@ -67,8 +68,7 @@ export function hasCollegeModelOutput(input: CollegeModelInput): boolean {
  * side by side.
  */
 export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
-  const { away, home, predSpread, homeSpreadDiff, vegasHomeSpread, completions } = input;
-  const ai = completions['spread_prediction'];
+  const { away, home, predSpread, homeSpreadDiff, vegasHomeSpread, headlines } = input;
 
   if (!hasSpreadData(input)) return null;
 
@@ -121,6 +121,12 @@ export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
     <WidgetCard
       icon={<Target />}
       title="Spread"
+      headline={collegeSpreadHeadline({
+        awayName: away.name,
+        homeName: home.name,
+        pickIsHome,
+        absEdge,
+      }) ?? undefined}
       subtitle="Which side the model would take against the Vegas number, and how far apart the two lines are."
     >
       <div className={STACK}>
@@ -163,11 +169,6 @@ export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
             pickIsHome={pickIsHome}
           />
         )}
-
-        <ExplanationNote
-          aiExplanation={ai}
-          staticExplanation={getEdgeExplanation(absEdge, pickTeam.name, 'spread')}
-        />
       </div>
     </WidgetCard>
   );
@@ -175,8 +176,7 @@ export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
 
 /** Total: which way the model leans and by how many points. */
 export function CollegeTotalSection({ input }: { input: CollegeModelInput }) {
-  const { predOverLine, overLineDiff, vegasTotal, completions } = input;
-  const ai = completions['ou_prediction'];
+  const { predOverLine, overLineDiff, vegasTotal, headlines } = input;
 
   if (!hasTotalData(input)) return null;
 
@@ -217,6 +217,7 @@ export function CollegeTotalSection({ input }: { input: CollegeModelInput }) {
     <WidgetCard
       icon={<Sigma />}
       title="Total"
+      headline={collegeTotalHeadline({ isOver, absEdge }) ?? undefined}
       subtitle="How many points the model expects compared with the Vegas total, and which way that leans."
     >
       <div className={STACK}>
@@ -257,11 +258,6 @@ export function CollegeTotalSection({ input }: { input: CollegeModelInput }) {
             }
           />
         )}
-
-        <ExplanationNote
-          aiExplanation={ai}
-          staticExplanation={getEdgeExplanation(absEdge, '', 'ou', isOver ? 'over' : 'under')}
-        />
       </div>
     </WidgetCard>
   );

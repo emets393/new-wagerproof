@@ -22,6 +22,7 @@ import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAllMarketsData } from '@/services/polymarketService';
 import type { PolymarketTimeSeriesData } from '@/types/polymarket';
+import { marketOddsHeadline } from '../headlines/shared';
 import type { GameFeedItem } from '../../types';
 
 type MarketKey = 'moneyline' | 'spread' | 'total';
@@ -135,7 +136,14 @@ function OddsHeadline({
   );
 }
 
-export function MarketOddsChart({ game }: { game: GameFeedItem }) {
+export function MarketOddsChart({
+  game,
+  onHeadlineChange,
+}: {
+  game: GameFeedItem;
+  /** Lifts the deterministic verdict up to the WidgetCard header. */
+  onHeadlineChange?: (headline: string | null) => void;
+}) {
   const [market, setMarket] = React.useState<MarketKey>('moneyline');
 
   // Same query key as PolymarketSparkline, so the feed card's fetch is reused.
@@ -170,6 +178,23 @@ export function MarketOddsChart({ game }: { game: GameFeedItem }) {
       })),
     [active],
   );
+
+  React.useEffect(() => {
+    if (!active || !activeKey || points.length < 2) {
+      onHeadlineChange?.(null);
+      return;
+    }
+    const aLeads = active.currentAwayOdds >= active.currentHomeOdds;
+    const leaderKey = aLeads ? 'a' : 'b';
+    onHeadlineChange?.(
+      marketOddsHeadline({
+        marketKey: activeKey,
+        leaderPct: aLeads ? active.currentAwayOdds : active.currentHomeOdds,
+        trailPct: aLeads ? active.currentHomeOdds : active.currentAwayOdds,
+        leaderOpenPct: points[0]?.[leaderKey] ?? null,
+      }),
+    );
+  }, [active, activeKey, onHeadlineChange, points]);
 
   if (isLoading) {
     return <div className="h-[232px] animate-pulse rounded-xl bg-muted/50" />;

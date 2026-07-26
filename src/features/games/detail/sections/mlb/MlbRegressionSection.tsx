@@ -4,6 +4,7 @@ import { WidgetCard } from '@/components/ios';
 import { MLBRegressionPicksForGame } from '@/components/MLBRegressionPicksForGame';
 import { useMLBRegressionReport } from '@/hooks/useMLBRegressionReport';
 import { type MLBPredictionRow } from '../../../api/mlbGames';
+import { mlbRegressionHeadline } from '../../headlines/mlb';
 import { toNum } from './shared';
 
 /**
@@ -32,6 +33,16 @@ export function MlbRegressionSection({
   const hasPicks =
     gamePk !== null && (report?.suggested_picks || []).some((p) => p.game_pk === gamePk);
   if (!hasPicks) return null;
+  const picks = (report?.suggested_picks || []).filter((p) => p.game_pk === gamePk);
+  const primary = picks[0];
+  const betLabels: Record<string, string> = {
+    full_ml: 'full-game moneyline',
+    full_ou: 'full-game total',
+    full_rl: 'full-game run line',
+    f5_ml: 'first-five moneyline',
+    f5_ou: 'first-five total',
+    f5_rl: 'first-five run line',
+  };
 
   // Model-side props copied verbatim from the legacy MLB.tsx embed
   // (pick side = team with the higher edge; direction from edge sign).
@@ -42,6 +53,14 @@ export function MlbRegressionSection({
     <WidgetCard
       icon={<Zap />}
       title="Regression Picks"
+      headline={primary ? mlbRegressionHeadline({
+        pickCount: picks.length,
+        primaryPickText: primary.pick,
+        primaryBetLabel: betLabels[primary.bet_type] ?? primary.bet_type,
+        primaryAlignment: 'unknown',
+        primaryTierLabel: primary.edge_bucket,
+        primaryTierWinPct: null,
+      }) ?? undefined : undefined}
       subtitle="Teams whose recent results have run hot or cold versus their underlying stats, and so are due to swing back."
       accessory={
         <Link

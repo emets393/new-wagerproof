@@ -112,11 +112,17 @@ export function CfbWeatherSection({ game }: { game: GameFeedItem<CFBPrediction> 
     precipitation !== null && precipitation > 0
       ? Math.round(precipitation > 1 ? precipitation : precipitation * 100)
       : null;
+  // Lifted out of the JSX so the headline and the body print the same phrase.
+  const conditionText = iconCode ? iconCode.replace(/-/g, ' ') : null;
 
   return (
     <WidgetCard
       icon={<CloudSun />}
       title="Weather"
+      headline={
+        cfbWeatherHeadline({ hasWeather, temperature, windSpeed, precipPct, conditionText }) ??
+        undefined
+      }
       subtitle="Conditions at kickoff. Wind and rain pull totals down far more than temperature does."
     >
       {hasWeather ? (

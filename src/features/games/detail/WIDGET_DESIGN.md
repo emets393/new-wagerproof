@@ -20,6 +20,12 @@ inside Projected Score *and* in a separate First-Five Splits card.
 
 Order inside a card is always:
 
+0. **The headline** — one sentence answering the card's question, `17px`
+   semibold, directly under the title. Pass `headline` to `WidgetCard`. These are
+   AI-generated and quality-checked daily; when none exists the card falls back to
+   a locally-built sentence. This replaced the old small-print "What this means"
+   note at the *foot* of the card — same job, read first instead of last.
+   See `.claude/docs/17_widget_headlines.md`.
 1. **The pick** — largest thing in the card. Team logo (38px), pick at `text-xl`
    bold, edge right-aligned. Market name is a `9px` uppercase caption above it,
    not a heading.

@@ -9,8 +9,8 @@ import type { GameFeedItem } from '../../../types';
 
 interface CfbPredictionsSectionProps {
   game: GameFeedItem<CFBPrediction>;
-  /** AI completion texts for this game, keyed by widget type. */
-  completions: Record<string, string>;
+  /** QC-passed headline verdicts for this game, keyed by widget type. */
+  headlines: Record<string, string>;
 }
 
 /**
@@ -21,7 +21,7 @@ interface CfbPredictionsSectionProps {
  * cfb_teams row in dry-run), so these cards read team visuals from there rather
  * than taking a second pass at the mapping table.
  */
-export function CfbPredictionsSection({ game, completions }: CfbPredictionsSectionProps) {
+export function CfbPredictionsSection({ game, headlines }: CfbPredictionsSectionProps) {
   const prediction = game.raw;
 
   // Normalize undefined → null so the `!== null` gates below stay correct off-season.
@@ -34,7 +34,7 @@ export function CfbPredictionsSection({ game, completions }: CfbPredictionsSecti
     predOverLine: prediction.pred_over_line ?? null,
     overLineDiff: prediction.over_line_diff ?? null,
     vegasTotal: prediction.api_over_line ?? prediction.over_line ?? game.lines.total ?? null,
-    completions,
+    headlines,
   };
 
   if (!hasCollegeModelOutput(input)) return null;

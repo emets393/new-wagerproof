@@ -292,7 +292,7 @@ export function FeatureDemo() {
 
           {/* Column 2: NFL Spread model prediction */}
           <div className="tool-card">
-            <NflSpreadSection game={DEMO_SPREAD_GAME} completions={{}} />
+            <NflSpreadSection game={DEMO_SPREAD_GAME} headlines={{}} />
           </div>
 
           {/* Column 3: MLB Moneyline by situation */}

@@ -22,7 +22,7 @@ import { CfbWeatherSection } from './CfbWeatherSection';
  * questions — see `detail/WIDGET_DESIGN.md`.
  */
 export function CfbSections(props: SportSectionsProps) {
-  const { game, extras, completions, onCompletionGenerated } = props;
+  const { game, extras, headlines, onCompletionGenerated } = props;
   const { adminModeEnabled } = useAdminMode();
   const [payloadOpen, setPayloadOpen] = useState(false);
 
@@ -66,7 +66,7 @@ export function CfbSections(props: SportSectionsProps) {
 
   return (
     <>
-      <CfbPredictionsSection game={cfbGame} completions={completions} />
+      <CfbPredictionsSection game={cfbGame} headlines={headlines} />
       <CfbWeatherSection game={cfbGame} />
       <MarketOddsSection game={game} />
       {payloadAffordance}

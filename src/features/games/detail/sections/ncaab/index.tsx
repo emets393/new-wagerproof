@@ -14,13 +14,13 @@ import type { SportSectionsProps } from '../index';
  * viewer. The two market cards are shared with CFB (same model shape) — see
  * `sections/cfb/CollegeModelCards.tsx`.
  */
-export function NcaabSections({ game, completions, onCompletionGenerated }: SportSectionsProps) {
+export function NcaabSections({ game, headlines, onCompletionGenerated }: SportSectionsProps) {
   const { adminModeEnabled } = useAdminMode();
   const [payloadViewerOpen, setPayloadViewerOpen] = React.useState(false);
 
   return (
     <>
-      <NcaabPredictionsSection game={game} completions={completions} />
+      <NcaabPredictionsSection game={game} headlines={headlines} />
       <MatchSimulatorSection game={game} />
       <MarketOddsSection game={game} />
 

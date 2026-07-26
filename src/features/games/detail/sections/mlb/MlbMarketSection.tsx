@@ -4,11 +4,13 @@ import { SegmentedControl, WidgetCard } from '@/components/ios';
 import { useMLBBucketAccuracy } from '@/hooks/useMLBBucketAccuracy';
 import { useMLBModelBreakdownAccuracy } from '@/hooks/useMLBModelBreakdownAccuracy';
 import { type MLBPredictionRow } from '../../../api/mlbGames';
+import { mlbMoneylineHeadline, mlbTotalHeadline } from '../../headlines/mlb';
 import {
   F5MlPanel,
   F5TotalPanel,
   FullMlPanel,
   FullTotalPanel,
+  lookupBucketAccuracy,
   toNum,
   type TeamVisuals,
 } from './shared';
@@ -58,11 +60,66 @@ function MarketSection({
   const panelProps = { raw, awayAbbrev, homeAbbrev, modelAccuracy, breakdownRows, away, home };
   // A row with no F5 model data shouldn't offer a dead toggle.
   const active = hasF5 ? segment : 'full';
+  const homeEdge = toNum(raw.home_ml_edge_pct);
+  const awayEdge = toNum(raw.away_ml_edge_pct);
+  const pickIsHome = (homeEdge ?? -999) >= (awayEdge ?? -999);
+  const pickEdge = pickIsHome ? homeEdge : awayEdge;
+  const otherEdge = pickIsHome ? awayEdge : homeEdge;
+  const pickTeam = pickIsHome ? homeAbbrev : awayAbbrev;
+  const pickProb = pickIsHome ? toNum(raw.ml_home_win_prob) : toNum(raw.ml_away_win_prob);
+  const pickLine = pickIsHome ? toNum(raw.home_ml) : toNum(raw.away_ml);
+  const pickSide = pickIsHome ? 'home' : 'away';
+  const mlAcc = pickEdge === null
+    ? null
+    : lookupBucketAccuracy(
+        modelAccuracy,
+        'full_ml',
+        pickEdge,
+        pickSide,
+        pickLine === null ? undefined : pickLine < 0 ? 'favorite' : 'underdog',
+      );
+  const totalEdge = toNum(raw.ou_edge);
+  const totalDirection =
+    raw.ou_direction === 'OVER' || raw.ou_direction === 'UNDER' ? raw.ou_direction : null;
+  const totalAcc = totalEdge === null || totalDirection === null
+    ? null
+    : lookupBucketAccuracy(
+        modelAccuracy,
+        'full_ou',
+        totalEdge,
+        undefined,
+        undefined,
+        totalDirection.toLowerCase(),
+      );
+  const deterministicHeadline = title === 'Moneyline'
+    ? mlbMoneylineHeadline({
+        pickTeam,
+        pickEdge,
+        otherEdge,
+        pickProbPct: pickProb === null ? null : pickProb * 100,
+        vegasPct: pickProb === null || pickEdge === null ? null : pickProb * 100 - pickEdge,
+        line: pickLine,
+        favDog: pickLine === null ? undefined : pickLine < 0 ? 'favorite' : 'underdog',
+        acc: mlAcc,
+      })
+    : mlbTotalHeadline({
+        direction: totalDirection,
+        edge: totalEdge,
+        fairTotal: toNum(raw.ou_fair_total),
+        marketTotal: toNum(raw.total_line),
+        acc: totalAcc,
+        strength: raw.ou_strong_signal
+          ? 'Strong'
+          : raw.ou_moderate_signal
+            ? 'Moderate'
+            : 'Weak',
+      });
 
   return (
     <WidgetCard
       icon={icon}
       title={title}
+      headline={deterministicHeadline ?? undefined}
       subtitle={subtitle}
       accessory={
         hasF5 ? (

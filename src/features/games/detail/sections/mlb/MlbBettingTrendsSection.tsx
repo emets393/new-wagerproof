@@ -15,6 +15,8 @@ import { Link } from 'react-router-dom';
 import { WidgetCard } from '@/components/ios';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import { cn } from '@/lib/utils';
+import { mlbBettingTrendsHeadline } from '../../headlines/mlb';
+import { mlbOuLean, sideLeanFor } from '@/features/trendsToday/api/shared';
 
 interface TrendRow {
   game_pk: number;
@@ -201,6 +203,12 @@ export function MlbBettingTrendsSection({
   const away = data.find((row) => row.team_side === 'away');
   const home = data.find((row) => row.team_side === 'home');
   const fullToolPath = `/mlb/todays-betting-trends?focusGamePk=${gamePk}`;
+  const angles = away && home
+    ? TREND_DEFINITIONS.map((definition) => ({
+        sideLean: sideLeanFor(toPct(away[definition.winPct]), toPct(home[definition.winPct])),
+        ouLean: mlbOuLean(toPct(away[definition.overPct]), toPct(home[definition.overPct])),
+      }))
+    : [];
 
   const accessory = (
     <Link
@@ -215,6 +223,7 @@ export function MlbBettingTrendsSection({
     <WidgetCard
       icon={<TrendingUp />}
       title="Today's Betting Trends"
+      headline={mlbBettingTrendsHeadline({ angles, awayAbbrev, homeAbbrev }) ?? undefined}
       subtitle="Historical win and Over rates for each team in today's situation—not model projections."
       accessory={accessory}
       className="@xl:col-span-2"

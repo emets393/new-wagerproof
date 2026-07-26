@@ -51,19 +51,39 @@ export function rowWinner(row: TrendRowDef): 'away' | 'home' | null {
   return awayBetter ? 'away' : 'home';
 }
 
+/**
+ * How many rows each side wins, and who leads. Kept as one helper so the
+ * disclosure summary and the card's deterministic headline count identically —
+ * `counted` matters to the headline because a "split" claim is only meaningful
+ * once at least two rows were comparable (neutral/null rows never count).
+ */
+export function advantageTally(rows: TrendRowDef[]): {
+  awayWins: number;
+  homeWins: number;
+  counted: number;
+  leader: 'away' | 'home' | null;
+} {
+  const winners = rows.map(rowWinner).filter(Boolean) as ('away' | 'home')[];
+  const awayWins = winners.filter((w) => w === 'away').length;
+  const homeWins = winners.length - awayWins;
+  return {
+    awayWins,
+    homeWins,
+    counted: winners.length,
+    leader: awayWins === homeWins ? null : awayWins > homeWins ? 'away' : 'home',
+  };
+}
+
 /** "3 of 5 favor LAL" — lets a disclosure summarize itself while closed (rule 8). */
 export function advantageSummary(
   rows: TrendRowDef[],
   awayAbbrev: string,
   homeAbbrev: string,
 ): string | null {
-  const winners = rows.map(rowWinner).filter(Boolean) as ('away' | 'home')[];
-  if (winners.length === 0) return null;
-  const awayWins = winners.filter((w) => w === 'away').length;
-  const homeWins = winners.length - awayWins;
-  if (awayWins === homeWins) return `${awayWins}-${homeWins} split`;
-  const leader = awayWins > homeWins ? awayAbbrev : homeAbbrev;
-  return `${Math.max(awayWins, homeWins)} of ${winners.length} favor ${leader}`;
+  const { awayWins, homeWins, counted, leader } = advantageTally(rows);
+  if (counted === 0) return null;
+  if (leader === null) return `${awayWins}-${homeWins} split`;
+  return `${Math.max(awayWins, homeWins)} of ${counted} favor ${leader === 'away' ? awayAbbrev : homeAbbrev}`;
 }
 
 /** Diverging bar: grows from a center line toward whichever side is ahead. */

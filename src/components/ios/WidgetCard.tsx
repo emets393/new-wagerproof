@@ -9,6 +9,15 @@ interface WidgetCardProps {
   accessory?: React.ReactNode;
   /** One plain-language line saying what this card is showing and why. */
   subtitle?: string;
+  /**
+   * The card's answer, in one sentence — rendered large and bold above the body.
+   * AI-generated and quality-checked daily; see the `ai_completions` table.
+   *
+   * This is the literal enforcement of WIDGET_DESIGN.md's "one card = one
+   * question, recommendation first": a user who reads only this line should get
+   * the point of the widget. When absent the card just renders as it always did.
+   */
+  headline?: string;
   children: React.ReactNode;
   className?: string;
   contentClassName?: string;
@@ -23,6 +32,7 @@ export function WidgetCard({
   title,
   accessory,
   subtitle,
+  headline,
   children,
   className,
   contentClassName,
@@ -42,8 +52,21 @@ export function WidgetCard({
         </div>
         {accessory}
       </div>
+      {headline && (
+        <p className="px-4 pt-2 text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-foreground">
+          {headline}
+        </p>
+      )}
       {subtitle && (
-        <p className="px-4 pt-1 text-[11px] leading-snug text-muted-foreground/80">{subtitle}</p>
+        <p
+          className={cn(
+            'px-4 text-[11px] leading-snug text-muted-foreground/80',
+            // Sits under the headline as its caption when both are present.
+            headline ? 'pt-1.5' : 'pt-1',
+          )}
+        >
+          {subtitle}
+        </p>
       )}
       <div className={cn('px-4 pb-4 pt-2.5', contentClassName)}>{children}</div>
     </GlassCard>
