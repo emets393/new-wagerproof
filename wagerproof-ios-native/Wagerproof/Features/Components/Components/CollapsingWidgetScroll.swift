@@ -54,7 +54,12 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
+            // Lazy: a detail page stacks 7-11 widget cards, each with its own
+            // glass surface and (for gated ones) a material overlay. Eagerly
+            // building the whole stack on open was a large slice of the sheet's
+            // first-frame cost. A card is fully faded out by the time its natural
+            // layout box leaves the viewport, so lazy disposal is never visible.
+            LazyVStack(spacing: 0) {
                 content
                 Color.clear.frame(height: 48 + contentBottomInset)
             }
@@ -143,17 +148,23 @@ struct TeamAuraBackground: View {
                 let g = geo.frame(in: .global)
                 let yLocal = anchorY - g.minY
                 ZStack {
+                    // `.drawingGroup()` goes on the BLOB, inside the progress-driven
+                    // scale/opacity — not around them. A drawingGroup re-rasterizes
+                    // whenever its subtree changes, so wrapping the scaled+faded
+                    // stack meant re-running two 300x580 `blur(radius: 48)` passes
+                    // every scroll frame. The blob itself only depends on its color,
+                    // so cached here it rasterizes once and the collapse animates as
+                    // cheap GPU transforms on the resulting texture.
                     blob(awayColor)
+                        .drawingGroup()
                         .scaleEffect(shrink)
                         .position(x: 0, y: yLocal)
                     blob(homeColor)
+                        .drawingGroup()
                         .scaleEffect(shrink)
                         .position(x: geo.size.width, y: yLocal)
                 }
                 .opacity(intensity)
-                // Rasterize the blurred glows once — static layer, cheap to
-                // composite under the scrolling content.
-                .drawingGroup()
             }
         }
     }
@@ -211,6 +222,9 @@ struct WidgetCollapsingSection<Content: View>: View {
     /// full size so the collapse math has a stable reference.
     @State private var naturalHeight: CGFloat = 0
     @State private var lastContentKey: String = ""
+    /// True once this card's top has reached the pin line, i.e. it has become the
+    /// section at the top of the page. Drives the light per-section haptic tick.
+    @State private var isPinned = false
 
     /// Fixed header band height (icon/title row + vertical padding).
     private var headerHeight: CGFloat { showsHeader ? 48 : 0 }
@@ -282,15 +296,14 @@ struct WidgetCollapsingSection<Content: View>: View {
             .offset(y: collapsing ? over : 0)
             .opacity(opacity)
             .frame(maxWidth: .infinity)
-            .background(
-                GeometryReader { geo in
-                    Color.clear
-                        .onAppear { measure(geo) }
-                        .onChange(of: geo.frame(in: .named(kCollapsingScrollSpace))) { _, _ in
-                            measure(geo)
-                        }
-                }
-            )
+            // `onGeometryChange` rather than a GeometryReader in a `.background`:
+            // it reads the frame without inserting a reader (and a Color.clear,
+            // and two lifecycle modifiers) into every card's layout.
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .named(kCollapsingScrollSpace))
+            } action: { frame in
+                measure(frame)
+            }
             .padding(.horizontal, WidgetCard.hInset)
             .padding(.bottom, WidgetCard.gap)
             // The pinned/collapsing card draws above the next one during handoff.
@@ -307,11 +320,27 @@ struct WidgetCollapsingSection<Content: View>: View {
                     lastContentKey = contentKey
                 }
             }
+            // Light tick as this section reaches (or releases) the top of the
+            // page. `.sensoryFeedback` ignores the initial value, and content
+            // starts well below the pin line, so opening a page is silent.
+            .sensoryFeedback(.impact(weight: .light), trigger: isPinned)
     }
 
-    private func measure(_ geo: GeometryProxy) {
-        let f = geo.frame(in: .named(kCollapsingScrollSpace))
-        if abs(minY - f.minY) > 0.5 { minY = f.minY }
+    private func measure(_ f: CGRect) {
+        // Below the pin line the card never collapses — `over` clamps to 0, so
+        // every minY > pinLine renders identically. Clamping to a single sentinel
+        // there means a card only writes @State (and re-runs its body) once it
+        // actually reaches the pin line, instead of on every scroll frame. With
+        // 7-11 cards a page that was the bulk of the per-frame invalidation.
+        let tracked = f.minY > pinLine ? pinLine + 1 : f.minY
+        if abs(minY - tracked) > 0.5 { minY = tracked }
+        // Section-boundary tick. Asymmetric thresholds (reach the line to pin,
+        // clear it by 6pt to unpin) so a card resting exactly on the pin line
+        // can't flutter the state — and the haptic — every frame. Only one card
+        // transitions per boundary: the outgoing section stays pinned as it
+        // fades, so a scroll produces exactly one tick per section crossed.
+        let pinnedNow = isPinned ? f.minY <= pinLine + 6 : f.minY <= pinLine
+        if pinnedNow != isPinned { isPinned = pinnedNow }
         // Cache the natural height only while the card is at full size (not
         // pinned), so the collapse reference stays correct even if the content
         // height changes (e.g. an expandable projection).
