@@ -185,6 +185,17 @@ wagerproof-ios-native/
 - Users connect it from `/connect-ai` on web or Settings in iOS native
 - Deployed at a `*.workers.dev` subdomain (the `mcp.wagerproof.bet` custom domain is not yet live)
 
+### 10. Meta Attribution
+- Acquisition funnel reported to Meta Ads: install, CompleteRegistration, ViewContent
+  (paywall), InitiateCheckout, StartTrial/Subscribe — on iOS native and web
+- iOS fires through `MetaAnalyticsService` + `PaywallConversionTracker` (never inline in a
+  paywall view — the tracker dedupes by order id and covers all 8 paywall surfaces)
+- Web uses the browser pixel (`src/lib/metaPixel.ts`) for top-of-funnel only
+- **`Subscribe`/`StartTrial` are sent server-side by RevenueCat's Facebook integration.
+  This repo sends NO purchase conversion to Meta from the webhook or the browser — a second
+  sender has no shared `event_id` and would double-count every subscription**
+- **Documentation**: `.claude/docs/18_meta_attribution.md`
+
 ### Disabled / flagged-off surfaces
 These exist in code but are switched off. Do not describe them as features:
 - **Bet Slip Grader** (`/bet-slip-grader`) — `ENABLE_BET_SLIP_GRADER = false` (`src/App.tsx:78`), renders `<AccessDenied />`

@@ -307,10 +307,10 @@ private fun CloseOverlay(onClose: () -> Unit) {
 }
 
 /**
- * Fire Meta SDK Subscribe / Purchase events using price + currency from the
- * matched RevenueCat package. Mirrors the RN mapping where trials map to
- * `fb_mobile_purchase` and paid subs map to `Subscribe` with a coarse
- * predicted-LTV multiplier (monthly×4 / yearly×1.3). Best-effort: the service
+ * Fire Meta SDK StartTrial / Subscribe events using price + currency from the
+ * matched RevenueCat package. Trials map to `StartTrial` and paid subs to
+ * `Subscribe`, with a coarse predicted-LTV multiplier (monthly×4 / yearly×1.3).
+ * Best-effort: the service
  * intentionally remains disabled when the production Meta credentials are not
  * supplied to the build.
  */
@@ -361,8 +361,9 @@ private fun trackMetaConversion(
     )
 
     if (isTrial) {
-        // Trial start → `fb_mobile_purchase` (matches RC server-side mapping).
-        MetaAnalyticsService.trackPurchase(amount, currency, metaParameters)
+        // Trial start → `StartTrial`. Shared mapping across iOS, Android, web,
+        // and the server-side Conversions API — see .claude/docs/18_meta_attribution.md.
+        MetaAnalyticsService.trackStartTrial(amount, currency, metaParameters)
     } else {
         // Paid first sub → `Subscribe` w/ valueToSum for LTV attribution.
         MetaAnalyticsService.trackSubscribe(amount, currency, metaParameters)

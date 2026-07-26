@@ -39,6 +39,22 @@ public final class AuthStore {
 
     private var listenerTask: Task<Void, Never>?
 
+    /// Which user we last pushed to the analytics/attribution SDKs. Guards
+    /// against re-identifying on every hourly `.tokenRefreshed` event.
+    private var lastIdentifiedUserId: String?
+
+    /// Last auth provider Supabase reported ("email", "google", "apple").
+    /// Persisted because onboarding can complete in a later app session than the
+    /// sign-in that created the account, and Meta's CompleteRegistration wants
+    /// the real registration method.
+    static let lastAuthProviderKey = "auth.lastProvider"
+
+    /// The provider the current user authenticated with, defaulting to "email"
+    /// (the only method that existed before social sign-in shipped).
+    public static var lastAuthProvider: String {
+        UserDefaults.standard.string(forKey: lastAuthProviderKey) ?? "email"
+    }
+
     public init() {}
 
     /// Begin listening for auth changes. Idempotent.
@@ -179,17 +195,63 @@ public final class AuthStore {
             if let userId = session?.user.id {
                 phase = .authenticated(userId: userId)
                 await loadProfile(userId: userId)
+                // Remember how they authenticated so onboarding's Meta
+                // CompleteRegistration can report the real method instead of
+                // always claiming "email".
+                if let provider = session?.user.appMetadata["provider"]?.stringValue {
+                    UserDefaults.standard.set(provider, forKey: Self.lastAuthProviderKey)
+                }
+                identifyForAnalytics(userId: userId, email: session?.user.email)
             } else if phase == .launching {
                 phase = .unauthenticated
             }
         case .signedOut:
             phase = .unauthenticated
             profile = nil
+            // Drop the departing user's hashed PII and external ID so the next
+            // (anonymous or different) user's events aren't matched to them.
+            MetaAnalyticsService.shared.clearUser()
+            AnalyticsService.shared.reset()
+            // Clear the identify guard too, or signing back in on the same
+            // device would skip re-identification entirely.
+            lastIdentifiedUserId = nil
         case .passwordRecovery, .userDeleted, .mfaChallengeVerified:
             break
         @unknown default:
             break
         }
+    }
+
+    /// Bind the signed-in user to every analytics/attribution SDK.
+    ///
+    /// Meta Advanced Matching is the single biggest match-rate lever on iOS:
+    /// when a user declines ATT there is no IDFA, so device-graph matching
+    /// fails and hashed email/name is the only way Meta can still attribute the
+    /// conversion. Called after `loadProfile` so the profile's display name is
+    /// available — `setAdvancedMatching` REPLACES the whole hashed set rather
+    /// than merging, so this must be the one and only call site.
+    private func identifyForAnalytics(userId: UUID, email: String?) {
+        // Lowercased to match RevenueCat / web / Android, which all key on the
+        // lowercase Supabase uuid.
+        let id = userId.uuidString.lowercased()
+        // `.tokenRefreshed` fires roughly hourly for the life of the app. Without
+        // this guard every refresh would re-hash the user's PII for Meta and
+        // re-run RevenueCat's device-identifier collection for no new information.
+        guard id != lastIdentifiedUserId else { return }
+        lastIdentifiedUserId = id
+        let resolvedEmail = profile?.email ?? email
+        let displayName = profile?.displayName ?? profile?.username
+
+        AnalyticsService.shared.identify(userId: id)
+        MetaAnalyticsService.shared.setUserID(id)
+        MetaAnalyticsService.shared.setAdvancedMatching(
+            email: resolvedEmail,
+            displayName: displayName
+        )
+        RevenueCatService.shared.setSubscriberIdentity(
+            email: resolvedEmail,
+            displayName: displayName
+        )
     }
 
     private func loadProfile(userId: UUID) async {

@@ -227,6 +227,7 @@ function OnboardingContent() {
           /* Paywall — fill viewport so the feature carousel can take remaining height */
           <div className="flex min-h-0 flex-1 flex-col">
             <CustomPaywall
+              source="onboarding"
               personalization={{
                 agentName: draft.name.trim() || undefined,
                 spriteIndex: draft.sprite_index,

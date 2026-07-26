@@ -327,86 +327,17 @@ struct PostOnboardingPaywall: View {
 
         // Fan out Meta analytics so ad-network LTV / Subscribe events fire
         // before the user is dropped into the main app. Best-effort — never
-        // blocks the dismissal.
-        if let transaction {
-            trackMetaConversion(transaction: transaction, customerInfo: customerInfo)
-        }
+        // blocks the dismissal. Deduped by order id inside the tracker, so a
+        // StoreKit-observer catch-up for the same purchase is a no-op.
+        PaywallConversionTracker.shared.trackConversion(
+            source: "post_onboarding",
+            transaction: transaction,
+            customerInfo: customerInfo,
+            package: nil,
+            offering: offering
+        )
 
         isFinalizing = false
         onUserDismissed()
-    }
-
-    /// Fire Meta SDK Subscribe / Purchase events using the price + currency
-    /// extracted from the matched RevenueCat package. Mirrors the RN mapping
-    /// in `services/analytics.ts` `trackFacebookSubscriptionEvent` where
-    /// trials map to `fb_mobile_purchase` and paid subs map to `Subscribe`.
-    private func trackMetaConversion(transaction: StoreTransaction, customerInfo: CustomerInfo) {
-        // Resolve the purchased package off the offering so we can pull
-        // price + currency off the StoreProduct. StoreTransaction itself
-        // doesn't expose the price (RC keeps it on the catalog side).
-        guard let offering,
-              let package = offering.availablePackages.first(where: { $0.storeProduct.productIdentifier == transaction.productIdentifier }) else {
-            return
-        }
-
-        let product = package.storeProduct
-        let amount = product.price
-        let currency = product.currencyCode ?? "USD"
-
-        // Subscription type derived from the active entitlement so the
-        // dashboards roll up correctly under monthly / yearly / lifetime.
-        let entitlement = customerInfo.entitlements.active[RevenueCatService.entitlementIdentifier]
-        let productId = (entitlement?.productIdentifier ?? transaction.productIdentifier).lowercased()
-        let subscriptionType: String = {
-            if productId.contains("lifetime") { return "lifetime" }
-            if productId.contains("annual") || productId.contains("yearly") { return "yearly" }
-            if productId.contains("monthly") { return "monthly" }
-            return "unknown"
-        }()
-
-        let contentId = "\(subscriptionType)_subscription"
-        // RN computes a coarse LTV multiplier so Meta's optimization model
-        // gets a forward-looking value rather than just the first month.
-        let predictedLtv: Decimal = {
-            switch subscriptionType {
-            case "monthly": return amount * 4
-            case "yearly": return amount * (Decimal(string: "1.3") ?? 1)
-            default: return amount
-            }
-        }()
-
-        let isTrial = entitlement?.periodType == .trial
-
-        let metaParameters: [String: Any] = [
-            "fb_currency": currency,
-            "fb_content_type": "product",
-            "fb_content_id": contentId,
-            "fb_order_id": transaction.transactionIdentifier,
-            "fb_predicted_ltv": NSDecimalNumber(decimal: predictedLtv).stringValue,
-            "fb_success": "1",
-            "fb_payment_info_available": "1",
-        ]
-
-        if isTrial {
-            // Trial start → `fb_mobile_purchase` so Meta sees attribution at
-            // the same point as the RevenueCat server-side mapping.
-            MetaAnalyticsService.shared.trackPurchase(
-                amount: amount,
-                currency: currency,
-                parameters: metaParameters
-            )
-        } else {
-            // Paid first sub → `Subscribe` w/ valueToSum so revenue dashboards
-            // attribute the LTV to the install cohort.
-            MetaAnalyticsService.shared.trackSubscribe(
-                amount: amount,
-                currency: currency,
-                parameters: metaParameters
-            )
-        }
-
-        // Force-flush so the event hits Meta's pipeline before the user
-        // backgrounds the app post-purchase.
-        MetaAnalyticsService.shared.flush()
     }
 }

@@ -507,8 +507,15 @@ public final class OnboardingStore {
         }
 
         // Fire Meta SDK `fb_mobile_complete_registration` so the install →
-        // register funnel attributes correctly.
-        MetaAnalyticsService.shared.trackCompleteRegistration(method: "email")
+        // register funnel attributes correctly. The service guards this to once
+        // per install, so re-running onboarding (Secret Settings → Reset
+        // Onboarding) can't inflate Meta's registration count.
+        MetaAnalyticsService.shared.trackCompleteRegistration(
+            method: AuthStore.lastAuthProvider
+        )
+        AnalyticsService.shared.track("Onboarding Completed", properties: [
+            "auth_method": AuthStore.lastAuthProvider,
+        ])
 
         // Snapshot data for the background sync. Pass copies so the
         // mutators below can't race with the network task.
