@@ -10,6 +10,7 @@ import {
   type MLBPredictionRow,
   type MLBSignalItem,
 } from '../../../api/mlbGames';
+import { mlbSignalsHeadline } from '../../headlines/mlb';
 import { isOfficialDateToday, SignalCategoryIcon } from './shared';
 
 /** Signals shown at once. Also the reserved row count, so paging can't jump the layout. */
@@ -98,6 +99,7 @@ export function MlbSignalsSection({
     <WidgetCard
       icon={<Activity />}
       title="Game Signals"
+      headline={mlbSignalsHeadline({ allSignals }) ?? undefined}
       subtitle="Situational notes the model flagged for this matchup — context the projections don't capture."
       accessory={
         allSignals.length > 0 ? (

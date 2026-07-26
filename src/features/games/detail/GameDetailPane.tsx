@@ -29,7 +29,7 @@ export function GameDetailPane({ sport, game, extras, isFeedLoading }: GameDetai
   useMasonryGrid(gridRef, game?.id);
 
   const gameIds = React.useMemo(() => (game ? [game.id] : []), [game?.id]);
-  const { completions, refreshGame } = useAiCompletions(sport, gameIds);
+  const { completions, headlines, refreshGame } = useAiCompletions(sport, gameIds);
 
   React.useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
@@ -71,6 +71,7 @@ export function GameDetailPane({ sport, game, extras, isFeedLoading }: GameDetai
             game={game}
             extras={extras}
             completions={completions[game.id] ?? {}}
+            headlines={headlines[game.id] ?? {}}
             onCompletionGenerated={refreshGame}
           />
         </div>

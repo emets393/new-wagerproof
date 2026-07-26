@@ -167,7 +167,20 @@ wagerproof-ios-native/
 - Surfaces: Outliers rail, Search, Props Cheats, MLB/NFL matchup widgets
 - **Documentation**: `.claude/docs/16_parlay_god.md`. iOS only — no Android or RN port yet.
 
-### 8. MCP Connector (`/connect-ai`)
+### 8. Widget Headline Summaries
+- One bold plain-language sentence at the top of each game-detail widget, answering
+  that card's question ("82% of the prediction market is on the under")
+- Generated daily by the Trigger.dev task `daily-widget-summaries` (`agents-v3/`):
+  writer LLM → deterministic gate → **LLM judge**. Only `qc_status IN ('pass','corrected')`
+  is shown to users; a failed headline is withheld, not displayed
+- Stored on `ai_completions` (`headline_text` + QC columns), keyed
+  `(game_id, sport_type, widget_type)` — widget types are keyed to the betting
+  QUESTION, not to a UI component, so one row serves web and both native apps
+- **Shipped for MLB on web only.** The other four sports were out of season when
+  this was built; iOS/Android are not wired up yet
+- **Documentation**: `.claude/docs/17_widget_headlines.md`
+
+### 9. MCP Connector (`/connect-ai`)
 - Public read-only MCP server (`wagerproof-mcp/`, Cloudflare Worker) sharing tool logic with `wagerproof-tool-core/`
 - Users connect it from `/connect-ai` on web or Settings in iOS native
 - Deployed at a `*.workers.dev` subdomain (the `mcp.wagerproof.bet` custom domain is not yet live)

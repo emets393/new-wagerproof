@@ -18,7 +18,7 @@ import type { SportSectionsProps } from '../index';
  * old combined Model Predictions card) + Market Odds + Match Simulator, then
  * Betting Trends / Team Stats / Injuries, plus the admin-only AI Payload viewer.
  */
-export function NbaSections({ game, completions, onCompletionGenerated }: SportSectionsProps) {
+export function NbaSections({ game, headlines, onCompletionGenerated }: SportSectionsProps) {
   const { adminModeEnabled } = useAdminMode();
   const [payloadViewerOpen, setPayloadViewerOpen] = React.useState(false);
 
@@ -27,8 +27,8 @@ export function NbaSections({ game, completions, onCompletionGenerated }: SportS
 
   return (
     <>
-      <NbaSpreadSection game={game} completions={completions} />
-      <NbaTotalSection game={game} completions={completions} />
+      <NbaSpreadSection game={game} headlines={headlines} />
+      <NbaTotalSection game={game} headlines={headlines} />
       <MarketOddsSection game={game} />
       <MatchSimulatorSection game={game} />
       <NbaBettingTrendsSection game={game} trends={overview.trends} loading={overview.trendsLoading} />

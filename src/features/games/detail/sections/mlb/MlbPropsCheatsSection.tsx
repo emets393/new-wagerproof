@@ -20,6 +20,7 @@ import {
 } from '@/features/parlayGod';
 import { useMLBPlayerPropsL10 } from '@/hooks/useMLBPlayerPropsL10';
 import { mlbHeadshotUrl } from '@/utils/mlbPitcherMatchups';
+import { mlbPropsCheatsHeadline } from '../../headlines/mlb';
 
 const CATEGORY_ICONS: Partial<Record<ParlayGodCategory, LucideIcon>> = {
   recentForm: Flame,
@@ -159,6 +160,14 @@ export function MlbPropsCheatsSection({
     <WidgetCard
       icon={<Flame />}
       title="Props Cheats"
+      headline={mlbPropsCheatsHeadline({
+        legs: relevantLegs.map((leg) => ({
+          subject: leg.subject,
+          betText: leg.betText,
+          streakN: leg.streakN,
+          categoryTitle: PARLAY_CATEGORY_TITLE[leg.category],
+        })),
+      }) ?? undefined}
       subtitle="Player props with a perfect hit streak in at least one tracked situation."
       accessory={accessory}
     >

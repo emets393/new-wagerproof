@@ -5,6 +5,7 @@ import { SegmentedControl, SkeletonBlock, WidgetCard } from '@/components/ios';
 import { TeamMark } from './shared';
 import type { NbaInjuryReport } from './useNbaMatchupOverview';
 import type { GameFeedItem, TeamRef } from '../../../types';
+import { nbaInjuriesHeadline } from '../../headlines/nba';
 
 /**
  * NBA injury report, led by the answer the card exists to give: which side is
@@ -243,6 +244,17 @@ export function NbaInjuriesSection({
     <WidgetCard
       icon={<Stethoscope />}
       title="Injuries"
+      headline={nbaInjuriesHeadline({
+        loading,
+        error,
+        awayAbbrev: game.awayTeam.abbrev,
+        homeAbbrev: game.homeTeam.abbrev,
+        awayCount: awayInjuries.length,
+        homeCount: homeInjuries.length,
+        awayImpact,
+        homeImpact,
+        pieKnown: [...awayInjuries, ...homeInjuries].some((injury) => toPie(injury.avg_pie_season) !== null),
+      }) ?? undefined}
       subtitle="Who's unavailable for each side, and how much of their team's production is sitting out."
       className="@xl:col-span-2"
       accessory={

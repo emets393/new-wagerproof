@@ -1,11 +1,9 @@
 import { ArrowDown, ArrowUp, CircleDollarSign, Sigma, TrendingUp } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
 import { cn } from '@/lib/utils';
-import { renderTextWithLinks } from '@/utils/markdownLinks';
 import { getEdgeExplanation, getEdgeInfo } from '../../edgeExplanations';
 import {
   CARD_STACK,
-  Explanation,
   fmt1,
   fmtSigned1,
   ModelVsMarket,
@@ -17,6 +15,7 @@ import {
 } from './shared';
 import type { NBAPrediction } from '../../../api/nbaGames';
 import type { GameFeedItem } from '../../../types';
+import { nbaSpreadHeadline, nbaTotalHeadline } from '../../headlines/nba';
 
 /**
  * NBA model output, split into one card per market (rule 1). This used to be a
@@ -29,10 +28,14 @@ import type { GameFeedItem } from '../../../types';
 
 interface NbaPredictionsSectionProps {
   game: GameFeedItem;
-  completions: Record<string, string>;
+  /**
+   * QC-passed headline verdicts keyed by widget type. These replaced the inline
+   * <Explanation> block at the foot of each card — same sentence, read first.
+   */
+  headlines: Record<string, string>;
 }
 
-export function NbaSpreadSection({ game, completions }: NbaPredictionsSectionProps) {
+export function NbaSpreadSection({ game, headlines }: NbaPredictionsSectionProps) {
   const raw = game.raw as unknown as NBAPrediction;
 
   const homeSpreadDiff = toNum(raw.home_spread_diff);
@@ -59,13 +62,16 @@ export function NbaSpreadSection({ game, completions }: NbaPredictionsSectionPro
     vegasHomeSpread === null ? '—' : fmtSigned1(round1(-vegasHomeSpread));
   const homeLine = vegasHomeSpread === null ? '—' : fmtSigned1(round1(vegasHomeSpread));
 
-  const aiExplanation = completions['spread_prediction'];
-  const staticExplanation = getEdgeExplanation(edgeInfo.edgeValue, edgeInfo.teamName, 'spread');
-
   return (
     <WidgetCard
       icon={<CircleDollarSign />}
       title="Spread"
+      headline={nbaSpreadHeadline({
+        pickAbbrev: pickTeam.abbrev,
+        modelLine,
+        marketLine,
+        edgePts,
+      }) ?? undefined}
       subtitle="Which side the model would lay or take points with, and how far its line sits from the book's."
     >
       <div className={CARD_STACK}>
@@ -102,17 +108,12 @@ export function NbaSpreadSection({ game, completions }: NbaPredictionsSectionPro
             }
           />
         )}
-
-        <Explanation
-          text={renderTextWithLinks(aiExplanation || staticExplanation)}
-          isAi={Boolean(aiExplanation)}
-        />
       </div>
     </WidgetCard>
   );
 }
 
-export function NbaTotalSection({ game, completions }: NbaPredictionsSectionProps) {
+export function NbaTotalSection({ game, headlines }: NbaPredictionsSectionProps) {
   const raw = game.raw as unknown as NBAPrediction;
 
   const overLineDiff = toNum(raw.over_line_diff);
@@ -132,18 +133,11 @@ export function NbaTotalSection({ game, completions }: NbaPredictionsSectionProp
   const gap = derivedGap ?? round1(overLineDiff);
   const magnitude = Math.abs(gap);
 
-  const aiExplanation = completions['ou_prediction'];
-  const staticExplanation = getEdgeExplanation(
-    Math.abs(overLineDiff),
-    '',
-    'ou',
-    isOver ? 'over' : 'under',
-  );
-
   return (
     <WidgetCard
       icon={<Sigma />}
       title="Total"
+      headline={nbaTotalHeadline({ modelTotal, marketTotal, isOver, magnitude }) ?? undefined}
       subtitle="How many points the model expects versus the posted total, and which way that leans."
     >
       <div className={CARD_STACK}>
@@ -187,11 +181,6 @@ export function NbaTotalSection({ game, completions }: NbaPredictionsSectionProp
             }
           />
         )}
-
-        <Explanation
-          text={renderTextWithLinks(aiExplanation || staticExplanation)}
-          isAi={Boolean(aiExplanation)}
-        />
       </div>
     </WidgetCard>
   );

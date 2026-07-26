@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Target } from 'lucide-react';
 import { SegmentedControl, WidgetCard } from '@/components/ios';
 import { getF5Runs, getFullGameRuns, type MLBPredictionRow } from '../../../api/mlbGames';
+import { mlbProjectedScoreHeadline } from '../../headlines/mlb';
 import { ScoreLogoDisc } from './shared';
 import { hasF5Data } from './MlbMarketSection';
 
@@ -45,6 +46,12 @@ export function MlbProjectedScoreSection({
     <WidgetCard
       icon={<Target />}
       title="Projected Score"
+      headline={mlbProjectedScoreHeadline({
+        active,
+        activeRuns,
+        awayTeamName,
+        homeTeamName,
+      }) ?? undefined}
       subtitle="The model's expected final score. Everything below builds on these run estimates."
       accessory={
         showToggle ? (

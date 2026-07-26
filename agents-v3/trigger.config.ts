@@ -21,6 +21,9 @@ const SYNCED_ENV_VAR_NAMES = [
   "REVENUECAT_SECRET_API_KEY",
   "REVENUECAT_ENTITLEMENT_IDENTIFIER",
   "V3_DAILY_SPEND_CAP_USD",
+  // Optional override for the widget-headline writer/judge model
+  // (defaults to gpt-4.1-mini). See src/summaries/runDailySummaries.ts.
+  "SUMMARY_MODEL",
 ];
 
 export default defineConfig({

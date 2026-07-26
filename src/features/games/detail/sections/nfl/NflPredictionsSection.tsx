@@ -1,8 +1,13 @@
-import { ArrowDown, ArrowUp, Info, Sigma, Sparkles, Target, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Sigma, Target, TrendingUp } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
-import { renderTextWithLinks } from '@/utils/markdownLinks';
-import { getNFLFullTeamName, type NFLPrediction } from '../../../api/nflGames';
+import { type NFLPrediction } from '../../../api/nflGames';
 import type { GameFeedItem, TeamRef } from '../../../types';
+import {
+  FADE_ALERT_PCT,
+  formatLine,
+  nflSpreadHeadline,
+  nflTotalHeadline,
+} from '../../headlines/nfl';
 import {
   CompareRow,
   ConfidenceMeter,
@@ -12,40 +17,8 @@ import {
   TeamMark,
 } from './shared';
 
-/** Signed line with at most one decimal ("-3.5", "+2", "-6.3"). */
-const formatLine = (value: number | null): string => {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
-  const n = Number(value);
-  const body = Number.isInteger(n) ? String(Math.abs(n)) : Math.abs(n).toFixed(1);
-  return `${n < 0 ? '-' : '+'}${body}`;
-};
-
-/** Confidence at which the model is likely overreacting to one factor. */
-const FADE_ALERT_PCT = 80;
-
 interface NflPredictionSectionProps {
   game: GameFeedItem;
-  /** AI-completion texts for this game keyed by widget type. */
-  completions: Record<string, string>;
-}
-
-/**
- * The plain-language "what has to happen for this to win" note. AI completion
- * when we have one, static fallback otherwise.
- */
-function WhatThisMeans({ text, fromAi }: { text: string; fromAi: boolean }) {
-  return (
-    <div className="border-t border-black/5 pt-2.5 dark:border-white/10">
-      <div className="mb-1 flex items-center gap-1.5">
-        <Info className="h-3 w-3 shrink-0 text-muted-foreground" />
-        <h6 className="text-[11px] font-semibold text-foreground">What this means</h6>
-        {fromAi && <Sparkles className="ml-auto h-3 w-3 text-primary" />}
-      </div>
-      <p className="text-left text-[11px] leading-relaxed text-muted-foreground">
-        {renderTextWithLinks(text)}
-      </p>
-    </div>
-  );
 }
 
 /**
@@ -55,7 +28,7 @@ function WhatThisMeans({ text, fromAi }: { text: string; fromAi: boolean }) {
  * Split out of the old combined "Model Predictions" card, which answered the
  * spread question and the total question in one widget.
  */
-export function NflSpreadSection({ game, completions }: NflPredictionSectionProps) {
+export function NflSpreadSection({ game, headlines }: NflPredictionSectionProps) {
   const raw = game.raw as NFLPrediction;
   const coverProb = raw.home_away_spread_cover_prob;
   // Off-season / pre-model weeks: no probability yet, nothing to recommend.
@@ -90,14 +63,15 @@ export function NflSpreadSection({ game, completions }: NflPredictionSectionProp
         ? `The model gives this a ${confidencePct}% chance.`
         : `With ${confidencePct}% confidence, the model sees a strong likelihood.`;
 
-  const aiExplanation = completions['spread_prediction'];
-  const explanation =
-    aiExplanation || `For this bet to win, ${cityName} needs to ${requirement}. ${closer}`;
+  const headline =
+    headlines['spread_prediction'] ||
+    `For this bet to win, ${cityName} needs to ${requirement}. ${closer}`;
 
   return (
     <WidgetCard
       icon={<Target />}
       title="Spread"
+      headline={headline}
       subtitle="Which side the model expects to cover, and whether its own line is better than the one Vegas is offering."
       contentClassName="space-y-3"
     >
@@ -145,8 +119,6 @@ export function NflSpreadSection({ game, completions }: NflPredictionSectionProp
           }
         />
       )}
-
-      <WhatThisMeans text={explanation} fromAi={Boolean(aiExplanation)} />
     </WidgetCard>
   );
 }
@@ -155,7 +127,7 @@ export function NflSpreadSection({ game, completions }: NflPredictionSectionProp
  * Total pick. Same shape as the spread card — one question, recommendation
  * first — with OVER/UNDER carrying green+up / blue+down on the word itself.
  */
-export function NflTotalSection({ game, completions }: NflPredictionSectionProps) {
+export function NflTotalSection({ game, headlines }: NflPredictionSectionProps) {
   const raw = game.raw as NFLPrediction;
   const ouProb = raw.ou_result_prob;
   if (ouProb === null || ouProb === undefined) return null;
@@ -175,21 +147,21 @@ export function NflTotalSection({ game, completions }: NflPredictionSectionProps
       ? Number(vegasTotal) + totalDiff
       : null;
 
-  const aiExplanation = completions['ou_prediction'];
   const closer =
     confidencePct <= 58
       ? `With ${confidencePct}% confidence, this is a coin flip.`
       : confidencePct <= 65
         ? `The model gives this a ${confidencePct}% chance.`
         : `With ${confidencePct}% confidence, the model expects a ${isOver ? 'high-scoring' : 'low-scoring'} game.`;
-  const explanation =
-    aiExplanation ||
+  const headline =
+    headlines['ou_prediction'] ||
     `For this bet to win, the combined score needs to be ${isOver ? 'MORE' : 'LESS'} than ${vegasTotal ?? '—'} points. ${closer}`;
 
   return (
     <WidgetCard
       icon={<Sigma />}
       title="Total"
+      headline={headline}
       subtitle="How many points the model expects both teams to score versus the Vegas line, and which way that leans."
       contentClassName="space-y-3"
     >
@@ -238,8 +210,6 @@ export function NflTotalSection({ game, completions }: NflPredictionSectionProps
           }
         />
       )}
-
-      <WhatThisMeans text={explanation} fromAi={Boolean(aiExplanation)} />
     </WidgetCard>
   );
 }

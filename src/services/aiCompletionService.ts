@@ -2,6 +2,18 @@ import { supabase } from '@/integrations/supabase/client';
 import debug from '@/utils/debug';
 import { SportType } from '@/types/sports';
 
+/**
+ * Minimal query-builder surface for tables missing from the generated Supabase
+ * types (`ai_completions` is one). Casting to this keeps the chained filters
+ * usable without disabling type-checking on the result, which is still asserted
+ * at the call site.
+ */
+type SupabaseUntyped = {
+  from: (table: string) => {
+    select: (cols: string) => any;
+  };
+};
+
 export interface AICompletionConfig {
   id: string;
   widget_type: string;
@@ -107,6 +119,51 @@ export async function getGameCompletions(
     }, {} as Record<string, string>);
   } catch (error) {
     debug.error('Error in getGameCompletions:', error);
+    return {};
+  }
+}
+
+/**
+ * Published headline verdicts for a game, keyed by widget type.
+ *
+ * Only rows the quality-check agent passed are returned — a headline that failed
+ * QC is withheld rather than shown, because a confidently-worded wrong sentence
+ * at the top of a card is worse than no sentence at all. The widget falls back to
+ * its normal body when a headline is missing.
+ * See supabase/migrations/20260726120000_widget_headline_summaries.sql
+ */
+export async function getGameHeadlines(
+  gameId: string,
+  sportType: SportType
+): Promise<Record<string, string>> {
+  try {
+    // `ai_completions` is absent from the generated Supabase types, so the typed
+    // client resolves it against every other table and errors on each column.
+    // Scoped cast + an explicit row type keeps this query checked at the shape we
+    // actually consume. Drop it once the table is added to types.ts.
+    type HeadlineRow = { widget_type: string; headline_text: string | null };
+    const { data, error } = (await (supabase as unknown as SupabaseUntyped)
+      .from('ai_completions')
+      .select('widget_type, headline_text, qc_status')
+      .eq('game_id', gameId)
+      .eq('sport_type', sportType)
+      .not('headline_text', 'is', null)
+      .in('qc_status', ['pass', 'corrected'])) as {
+      data: HeadlineRow[] | null;
+      error: { message: string } | null;
+    };
+
+    if (error) {
+      debug.error('Error fetching game headlines:', error);
+      return {};
+    }
+
+    return (data || []).reduce((acc, item) => {
+      if (item.headline_text) acc[item.widget_type] = item.headline_text;
+      return acc;
+    }, {} as Record<string, string>);
+  } catch (error) {
+    debug.error('Error in getGameHeadlines:', error);
     return {};
   }
 }

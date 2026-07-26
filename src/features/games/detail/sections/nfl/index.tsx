@@ -18,7 +18,7 @@ import { NflLineMovementSection } from './NflLineMovementSection';
  * Weather is intentionally absent: the modal's NFL weather block only had
  * temp/wind/icon, all of which the DetailHero chip already shows.
  */
-export function NflSections({ game, extras, completions, onCompletionGenerated }: SportSectionsProps) {
+export function NflSections({ game, extras, headlines, onCompletionGenerated }: SportSectionsProps) {
   const raw = game.raw as NFLPrediction;
   const { adminModeEnabled } = useAdminMode();
   const [payloadViewerOpen, setPayloadViewerOpen] = useState(false);
@@ -28,8 +28,8 @@ export function NflSections({ game, extras, completions, onCompletionGenerated }
       <MarketOddsSection game={game} />
       {/* One market per card: the spread pick and the total pick are separate
           questions and used to share a single "Model Predictions" widget. */}
-      <NflSpreadSection game={game} completions={completions} />
-      <NflTotalSection game={game} completions={completions} />
+      <NflSpreadSection game={game} headlines={headlines} />
+      <NflTotalSection game={game} headlines={headlines} />
       <NflBettingSplitsSection game={game} />
       <NflH2HSection game={game} />
       <NflLineMovementSection game={game} extras={extras} />

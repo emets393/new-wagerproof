@@ -3,6 +3,8 @@ import { WidgetCard } from '@/components/ios';
 import { Disclosure } from './shared';
 import {
   advantageSummary,
+  advantageTally,
+  rowWinner,
   TrendRows,
   TrendsSectionBody,
   TrendsTeamHeader,
@@ -10,6 +12,7 @@ import {
 } from './TrendsTable';
 import type { NbaGameTrends } from './useNbaMatchupOverview';
 import type { GameFeedItem } from '../../../types';
+import { nbaTeamStatsHeadline } from '../../headlines/nba';
 
 /**
  * Team quality (season-long ratings) with the last-3-game trends tucked behind
@@ -76,11 +79,25 @@ export function NbaTeamStatsSection({
     : [];
 
   const trendSummary = advantageSummary(trendRows, game.awayTeam.abbrev, game.homeTeam.abbrev);
+  const netRatingRow = seasonRows[0];
+  const trendTally = advantageTally(trendRows);
 
   return (
     <WidgetCard
       icon={<BarChart3 />}
       title="Team Stats"
+      headline={nbaTeamStatsHeadline({
+        loading,
+        trendsAvailable: !!trends,
+        awayAbbrev: game.awayTeam.abbrev,
+        homeAbbrev: game.homeTeam.abbrev,
+        netRatingWinner: netRatingRow ? rowWinner(netRatingRow) : null,
+        netRatingAwayText: trends ? seasonRows[0].format(trends.away_ovr_rtg) : null,
+        netRatingHomeText: trends ? seasonRows[0].format(trends.home_ovr_rtg) : null,
+        netRatingGap: trends ? Math.abs(trends.away_ovr_rtg - trends.home_ovr_rtg) : null,
+        trendLeader: trendTally.away > trendTally.home ? 'away' : trendTally.home > trendTally.away ? 'home' : null,
+        trendCounted: trendTally.away + trendTally.home,
+      }) ?? undefined}
       subtitle="Which side is the better team on the season, and which one has been playing better over its last three games."
       className="@xl:col-span-2"
     >

@@ -1,6 +1,7 @@
 import { Lock, Users } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
 import { getConfidenceTier, type MLBPredictionRow } from '../../../api/mlbGames';
+import { mlbPitchersHeadline } from '../../headlines/mlb';
 import { formatMoneyline, formatSpread, toNum } from './shared';
 
 const CONFIDENCE_LABEL: Record<ReturnType<typeof getConfidenceTier>, string> = {
@@ -87,7 +88,21 @@ export function MlbPitchersSection({
   );
 
   return (
-    <WidgetCard icon={<Users />} title="Starting Pitchers" accessory={finalBadge}>
+    <WidgetCard
+      icon={<Users />}
+      title="Starting Pitchers"
+      headline={mlbPitchersHeadline({
+        awayAbbrev,
+        homeAbbrev,
+        awaySpName: raw.away_sp_name,
+        homeSpName: raw.home_sp_name,
+        awaySpConfirmed: raw.away_sp_confirmed,
+        homeSpConfirmed: raw.home_sp_confirmed,
+        awayMl: raw.away_ml,
+        homeMl: raw.home_ml,
+      }) ?? undefined}
+      accessory={finalBadge}
+    >
       <div className="grid grid-cols-2 gap-3">
         <PitcherColumn
           abbrev={awayAbbrev}
