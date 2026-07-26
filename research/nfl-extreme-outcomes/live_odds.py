@@ -153,12 +153,18 @@ def main():
         return
 
     # 4) append the snapshot (new snap_ts rows; the models derive open/close/movement from the series)
+    # PostgREST bulk insert requires a uniform key set across all objects (PGRST102). The market mix
+    # varies per game (not every game has 1H/TT lines posted), so pad every row to the union of keys.
+    if rows:
+        allkeys = set().union(*(r.keys() for r in rows))
+        rows = [{k: r.get(k) for k in allkeys} for r in rows]
     sk = _env("SUPABASE_SERVICE_KEY")
     hdr = {"apikey": sk, "Authorization": f"Bearer {sk}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
     for i in range(0, len(rows), 500):
         resp = requests.post(f"{SUPA}/{TABLE}", headers=hdr, json=rows[i:i + 500], timeout=60)
-        resp.raise_for_status()
+        if not resp.ok:
+            sys.exit(f"[write] {resp.status_code} inserting {TABLE}: {resp.text[:500]}")
     print(f"[write] inserted {len(rows)} rows at snap_ts={snap_iso}")
 
 
