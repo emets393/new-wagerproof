@@ -166,10 +166,16 @@ struct HistoricalAnalysisFilterBar: View {
         case "away": "Away"
         default: nil
         }
-        let role: String? = switch store.snapshot.favDog {
-        case "favorite": "Favorites"
-        case "underdog": "Underdogs"
-        default: nil
+        let role: String?
+        if isRunLineMarket {
+            // Run-line markets: the pill echoes only side; laying/getting shows in Lines.
+            role = nil
+        } else {
+            switch store.snapshot.favDog {
+            case "favorite": role = "Favorites"
+            case "underdog": role = "Underdogs"
+            default: role = nil
+            }
         }
         switch (side, role) {
         case let (s?, r?): return "\(s) \(r.lowercased())"
@@ -189,7 +195,9 @@ struct HistoricalAnalysisFilterBar: View {
                     Label("Away", systemImage: "airplane").tag("away")
                 }
             }
-            if showsFavDogFilter {
+            // On run-line markets the fav/dog question lives in the Lines pill as the
+            // "Run line" dropdown (laying/getting IS fav/dog) — never show it twice.
+            if showsFavDogFilter && !isRunLineMarket {
                 Picker("Favorite / underdog", selection: binding(\.favDog)) {
                     Label("Either", systemImage: "circle.dashed").tag("any")
                     Label("Favorites", systemImage: "star.fill").tag("favorite")
@@ -731,6 +739,10 @@ struct HistoricalAnalysisFilterBar: View {
                 suffix: " runs"
             )
         }
+    }
+
+    private var isRunLineMarket: Bool {
+        store.sport == .mlb && ["rl", "f5_rl"].contains(store.betType)
     }
 
     private var showsFavDogFilter: Bool {

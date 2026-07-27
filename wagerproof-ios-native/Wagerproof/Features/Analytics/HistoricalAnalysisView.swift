@@ -162,7 +162,11 @@ struct HistoricalAnalysisView: View {
             }
             summarySection
             if let data = store.analysis, store.hasLoadedOnce {
-                breakdownBars(data)
+                // The symmetric split hero already shows the home/away + fav/dog bars —
+                // repeating them under BREAKDOWN was the same numbers twice on one screen.
+                if !store.shouldShowSymmetricSplit {
+                    breakdownBars(data)
+                }
                 breakdownLists(data)
             }
             upcomingSection
