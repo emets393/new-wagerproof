@@ -10,11 +10,6 @@ export interface SportSectionsProps {
   extras: Record<string, unknown>;
   /** AI completion texts for this game, keyed by widget type. */
   completions: Record<string, string>;
-  /**
-   * QC-passed one-sentence verdicts, keyed by widget type. Rendered as the big
-   * bold line at the top of each card; absent keys just render the card as-is.
-   */
-  headlines: Record<string, string>;
   onCompletionGenerated: (gameId: string) => void;
 }
 

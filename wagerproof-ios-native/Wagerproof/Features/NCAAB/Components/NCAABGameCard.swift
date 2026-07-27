@@ -6,6 +6,9 @@ import WagerproofModels
 /// `predTotalPoints` as the model's fair-total figure.
 struct NCAABGameCard: View {
     let game: NCAABGame
+    /// Public-agent consensus, looked up by the feed host. Surfaces that don't
+    /// fetch it (Search) leave it nil and the strip simply doesn't render.
+    var consensus: GameAgentConsensus? = nil
     var onPress: () -> Void = {}
 
     var body: some View {
@@ -54,7 +57,8 @@ struct NCAABGameCard: View {
             ),
             awayTeamFullName: game.awayTeam,
             homeTeamFullName: game.homeTeam,
-            oddsBreakdown: oddsBreakdown(awayAbbr: awayAbbr, homeAbbr: homeAbbr)
+            oddsBreakdown: oddsBreakdown(awayAbbr: awayAbbr, homeAbbr: homeAbbr),
+            consensus: consensus
         )
     }
 

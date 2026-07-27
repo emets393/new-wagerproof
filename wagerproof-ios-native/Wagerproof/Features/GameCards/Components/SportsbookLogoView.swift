@@ -19,7 +19,7 @@ struct SportsbookLogoView: View {
 
     var body: some View {
         if let logoURL, let imageURL = URL(string: logoURL) {
-            AsyncImage(url: imageURL) { phase in
+            CachedAsyncImage(url: imageURL) { phase in
                 switch phase {
                 case .success(let image):
                     bookLogoImage(image)
@@ -43,7 +43,7 @@ struct SportsbookLogoView: View {
             bookName: bookName,
             logoURL: logoURL
         ) {
-            AsyncImage(url: fallbackURL) { phase in
+            CachedAsyncImage(url: fallbackURL) { phase in
                 switch phase {
                 case .success(let image):
                     bookLogoImage(image)

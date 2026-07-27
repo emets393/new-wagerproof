@@ -1,5 +1,6 @@
 import SwiftUI
 import WagerproofDesign
+import WagerproofModels
 
 /// Native port of `components/agents/AgentOverlapFooter.tsx`. Renders the
 /// "N other agents made this pick" footer on `AgentPickItem` — a stacked
@@ -17,8 +18,20 @@ struct AgentOverlapFooter: View {
     struct OverlapSummary: Hashable, Sendable {
         let avatarId: String
         let name: String
+        /// Kept because the DB column still exists and other clients read it —
+        /// it is never drawn here (agent faces are always the pixel sprite).
         let avatarEmoji: String
         let avatarColor: String
+        /// `sprite_index` when the owner picked a character. Nil (the common
+        /// case) falls back to the id hash — see `spriteIndex`.
+        var spriteIndexOverride: Int? = nil
+
+        /// Canonical sprite resolution, identical to `Agent.spriteIndex`, so an
+        /// agent's face is the same person here, on its card, and in the office.
+        var spriteIndex: Int {
+            if let idx = spriteIndexOverride, (0...7).contains(idx) { return idx }
+            return AgentSpriteIndex.forSeed(avatarId)
+        }
     }
 
     private let maxVisible = 5
@@ -77,10 +90,16 @@ struct AgentOverlapFooter: View {
             } else {
                 Circle().fill(primary)
             }
-            Text(agent.avatarEmoji)
-                .font(.system(size: 10))
+            // These circles are only 22pt and appear in overlapping stacks.
+            // A live PixelSpriteAvatar would give every visible face its own
+            // TimelineView timer; freeze the sprite at frame 0 instead.
+            PixelSpriteAvatar(spriteIndex: agent.spriteIndex, animated: false)
+                .frame(width: 19, height: 19)
+                .offset(y: 2)
         }
         .frame(width: 22, height: 22)
+        .clipShape(Circle())
         .overlay(Circle().stroke(Color.appSurfaceElevated, lineWidth: 2))
+        .accessibilityLabel(agent.name)
     }
 }

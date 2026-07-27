@@ -413,6 +413,9 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
       bettingLine?.game_date || game.game_date
     );
 
+    // These two diffs are always null in practice, and that is correct, not a
+    // too-narrow select: nfl_predictions_epa is a CLASSIFIER (cover / OU
+    // probabilities) and has no fair-line columns to widen the select to.
     const vegasHomeSpread = bettingLine?.home_spread || game.home_spread || null;
     const modelFairHomeSpread =
       (prediction as any)?.model_fair_home_spread ||

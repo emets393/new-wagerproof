@@ -5,6 +5,7 @@ import { WidgetCard } from '@/components/ios';
 import { cn } from '@/lib/utils';
 import { getNFLTeamLogo, type NFLPrediction } from '../../../api/nflGames';
 import type { GameFeedItem } from '../../../types';
+import { nflH2HHeadline } from '../../headlines/nfl';
 import { ComparisonBar, Disclosure, TeamMark } from './shared';
 import { useNflH2H, type NflH2HGame } from './useNflH2H';
 
@@ -106,10 +107,37 @@ export function NflH2HSection({ game }: { game: GameFeedItem }) {
   const away = game.awayTeam;
   const home = game.homeTeam;
 
+  // useNflH2H never clears `games` between matchups, so a stale slate can still be
+  // in state while home/away are the new teams — and calculateH2HSummary would
+  // silently credit all of it to the away side. Prove every row is these two clubs.
+  const matchupVerified =
+    h2hGames.length > 0 &&
+    h2hGames.every(
+      (matchup) =>
+        (matchup.home_team === raw.home_team && matchup.away_team === raw.away_team) ||
+        (matchup.home_team === raw.away_team && matchup.away_team === raw.home_team),
+    );
+
   return (
     <WidgetCard
       icon={<History />}
       title="Head to Head"
+      headline={
+        nflH2HHeadline({
+          loading,
+          error,
+          meetings: h2hGames.length,
+          matchupVerified,
+          homeName: home.name,
+          awayName: away.name,
+          homeWins: stats.homeTeamWins,
+          awayWins: stats.awayTeamWins,
+          homeCovers: stats.homeTeamCovers,
+          awayCovers: stats.awayTeamCovers,
+          overs: stats.overs,
+          unders: stats.unders,
+        }) ?? undefined
+      }
       subtitle="How these two teams have actually finished the last few times they played."
       accessory={
         !loading && !error && h2hGames.length > 0 ? (

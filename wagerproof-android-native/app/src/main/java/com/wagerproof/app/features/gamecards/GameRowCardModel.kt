@@ -2,6 +2,7 @@ package com.wagerproof.app.features.gamecards
 
 import androidx.compose.ui.graphics.Color
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.core.models.GameAgentConsensus
 import kotlin.math.abs
 
 /**
@@ -24,6 +25,12 @@ data class GameRowCardModel(
     val slatePicks: SlatePicks? = null,
     val oddsBreakdown: OddsBreakdown? = null,
     val isMammoth: Boolean = false,
+    /**
+     * Public-agent consensus for this game, merged in by the feed host. Null is
+     * the normal case (no agents bet it, or the fetch failed) — see
+     * .claude/docs/18_agent_consensus.md.
+     */
+    val consensus: GameAgentConsensus? = null,
 ) {
     data class TeamSide(
         val abbr: String,

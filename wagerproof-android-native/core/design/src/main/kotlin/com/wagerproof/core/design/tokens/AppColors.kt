@@ -98,4 +98,17 @@ object AppColors {
     /** Neutral team-disc gradient fallback (no team colors known). */
     val teamDiscNeutralTop = Color(0xFF1F2937)
     val teamDiscNeutralBottom = Color(0xFF6B7280)
+
+    // Agent-consensus BET strip on game cards (.claude/docs/18_agent_consensus.md).
+    // Deliberately emerald and NOT the brand green appPrimary: BET is a *crowd*
+    // signal and must not read as another model output.
+
+    /** Strip fill/border + BET badge background (emerald-500). */
+    val appConsensusEmerald = Color(0xFF10B981)
+
+    /** Strip label on the dark card surface (emerald-300). */
+    val appConsensusEmeraldText = Color(0xFF6EE7B7)
+
+    /** Avatar ring inside the strip — reads as a cutout in the tinted fill (emerald-950). */
+    val appConsensusEmeraldDeep = Color(0xFF022C22)
 }

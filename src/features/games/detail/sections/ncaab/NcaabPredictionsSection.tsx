@@ -10,8 +10,6 @@ import type { GameFeedItem } from '../../../types';
 
 interface NcaabPredictionsSectionProps {
   game: GameFeedItem;
-  /** QC-passed headline verdicts for this game, keyed by widget type. */
-  headlines: Record<string, string>;
 }
 
 /**
@@ -23,7 +21,7 @@ interface NcaabPredictionsSectionProps {
  * `pred_spread` / `pred_over_line` sit behind the row's index signature here,
  * hence the `toNum` coercion.
  */
-export function NcaabPredictionsSection({ game, headlines }: NcaabPredictionsSectionProps) {
+export function NcaabPredictionsSection({ game }: NcaabPredictionsSectionProps) {
   const raw = game.raw as unknown as NCAABPrediction;
 
   const input: CollegeModelInput = {
@@ -35,7 +33,6 @@ export function NcaabPredictionsSection({ game, headlines }: NcaabPredictionsSec
     predOverLine: toNum(raw.pred_over_line),
     overLineDiff: raw.over_line_diff ?? null,
     vegasTotal: toNum(raw.api_over_line) ?? raw.over_line ?? game.lines.total ?? null,
-    headlines,
   };
 
   if (!hasCollegeModelOutput(input)) return null;

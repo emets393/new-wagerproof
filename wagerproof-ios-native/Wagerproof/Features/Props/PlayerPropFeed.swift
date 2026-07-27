@@ -108,6 +108,41 @@ struct PlayerPropFeedItem: Identifiable {
     }
 }
 
+/// Per-game memo of the MLB game sheet's default-filter feed items.
+///
+/// `PlayerPropFeed.items` re-derives every player's headline prop (five passes
+/// over that player's ~120-entry season log, plus a 20+-field selection built
+/// with string interpolation), so re-running it on every body pass of the props
+/// widget dominated the sheet's frame cost.
+///
+/// It can't live on `PropsStore` like the insight summary does —
+/// `PlayerPropFeedItem` is an app-target type and the store ships in
+/// WagerproofKit, which can't name it. So this keys off the store's
+/// `matchupsVersion` instead.
+///
+/// INVALIDATION KEY: `(gamePk, PropsStore.matchupsVersion)`. The store bumps
+/// that counter on every MLB slate reassignment, so a refresh can't leave a
+/// stale entry behind. Only the DEFAULT filter set is cached — the Props tab's
+/// filtered feeds still call `items(from:filters:)` directly.
+@MainActor
+enum PlayerPropFeedCache {
+    private struct Entry {
+        let version: Int
+        let itemsById: [Int: PlayerPropFeedItem]
+    }
+
+    private static var entries: [Int: Entry] = [:]
+
+    static func itemsById(for matchup: MLBPropMatchup, version: Int) -> [Int: PlayerPropFeedItem] {
+        if let entry = entries[matchup.gamePk], entry.version == version { return entry.itemsById }
+        let items = PlayerPropFeed.items(from: [matchup])
+        let byId = Dictionary(items.map { ($0.selection.playerId, $0) },
+                              uniquingKeysWith: { first, _ in first })
+        entries[matchup.gamePk] = Entry(version: version, itemsById: byId)
+        return byId
+    }
+}
+
 enum PlayerPropFeed {
     /// Flatten a slate of matchups into per-player feed items. Pitchers come
     /// first (K-anchored), then each lineup batter, then posted-but-unlisted

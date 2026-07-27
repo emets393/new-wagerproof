@@ -50,6 +50,16 @@ struct GamesView: View {
     // and only while their sport is selected. See `visibleTools`.
     @State private var nbaAccuracy = NBAModelAccuracyStore()
     @State private var ncaabAccuracy = NCAABModelAccuracyStore()
+    // Public-agent consensus for the visible slate ("N agents on <side>" + the
+    // green BET flag). Hoisted to MainTabView so this feed and the game-detail
+    // Agent Consensus widget share one slate fetch. Search reuses the same cards
+    // but passes no consensus, so their strips stay hidden.
+    // See .claude/docs/18_agent_consensus.md.
+    @Environment(AgentConsensusStore.self) private var injectedConsensusStore: AgentConsensusStore?
+    /// Fallback for the screenshot harness, which renders GamesView without the
+    /// tab shell.
+    @State private var localConsensusStore = AgentConsensusStore()
+    private var consensusStore: AgentConsensusStore { injectedConsensusStore ?? localConsensusStore }
 
     // Shared namespace for the card→detail zoom transition. The source card
     // (`matchedTransitionSource`) and the pushed detail view
@@ -106,9 +116,21 @@ struct GamesView: View {
                 // the 5-minute cache TTL.
                 .refreshable {
                     await store.refresh(sport: store.selectedSport, force: true)
+                    // Consensus has its own (shorter) TTL, so pull-to-refresh
+                    // has to force it too or the strip would stay stale for up
+                    // to 90s after the user explicitly asked for fresh data.
+                    let request = consensusRequest
+                    await consensusStore.load(sport: request.sport, dates: request.dates, force: true)
                 }
                 .task {
                     await store.refreshAll()
+                }
+                // Consensus is fetched ONCE PER SLATE, never per card: the flag
+                // threshold scales with the whole day's pick volume, so it can
+                // only be computed from the full set of dates on the board.
+                .task(id: consensusRequest) {
+                    let request = consensusRequest
+                    await consensusStore.load(sport: request.sport, dates: request.dates)
                 }
                 // Load the model-accuracy report for whichever of NBA/NCAAB is
                 // showing so `visibleTools` can drop the banner when it's empty.
@@ -389,6 +411,33 @@ struct GamesView: View {
         }
     }
 
+    // MARK: - Agent consensus
+
+    /// The selected sport plus EVERY distinct game date currently on the board.
+    /// Used as the `.task(id:)` key so the fetch re-runs when the user switches
+    /// sports or the slate gains a day — MLB's feed spans today AND tomorrow,
+    /// and a single-date call would leave tomorrow's cards permanently
+    /// unflagged. Dates come from the unfiltered slate (not `sorted*()`) because
+    /// the server-side threshold is computed over the whole day regardless of
+    /// what the user has searched for.
+    private struct ConsensusRequest: Equatable {
+        let sport: GamesStore.Sport
+        let dates: [String]
+    }
+
+    private var consensusRequest: ConsensusRequest {
+        let sport = store.selectedSport
+        let raw: [String]
+        switch sport {
+        case .nfl:   raw = store.games.nfl.map(\.gameDate)
+        case .cfb:   raw = store.games.cfb.map(\.gameDate)
+        case .nba:   raw = store.games.nba.map(\.gameDate)
+        case .ncaab: raw = store.games.ncaab.map(\.gameDate)
+        case .mlb:   raw = store.games.mlb.map(\.officialDate)
+        }
+        return ConsensusRequest(sport: sport, dates: GameConsensusKey.dates(raw))
+    }
+
     // MARK: - Per-sport date Sections
 
     @ViewBuilder
@@ -416,7 +465,10 @@ struct GamesView: View {
             ForEach(sections, id: \.key) { section in
                 Section {
                     ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
-                        NFLGameCard(game: game) {
+                        NFLGameCard(
+                            game: game,
+                            consensus: consensusStore.consensus(for: .nfl, gameId: GameConsensusKey.nfl(game))
+                        ) {
                             nflSheetStore.openGameSheet(game)
                         }
                         .matchedTransitionSource(id: "nfl-\(game.id)", in: cardTransition)
@@ -444,7 +496,10 @@ struct GamesView: View {
             ForEach(sections, id: \.key) { section in
                 Section {
                     ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
-                        CFBGameCard(game: game) {
+                        CFBGameCard(
+                            game: game,
+                            consensus: consensusStore.consensus(for: .cfb, gameId: GameConsensusKey.cfb(game))
+                        ) {
                             cfbSheetStore.openGameSheet(game)
                         }
                         .matchedTransitionSource(id: "cfb-\(game.id)", in: cardTransition)
@@ -472,7 +527,10 @@ struct GamesView: View {
             ForEach(sections, id: \.key) { section in
                 Section {
                     ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
-                        NCAABGameCard(game: game) {
+                        NCAABGameCard(
+                            game: game,
+                            consensus: consensusStore.consensus(for: .ncaab, gameId: GameConsensusKey.ncaab(game))
+                        ) {
                             ncaabSheetStore.openGameSheet(game)
                         }
                         .matchedTransitionSource(id: "ncaab-\(game.id)", in: cardTransition)
@@ -500,7 +558,10 @@ struct GamesView: View {
             ForEach(sections, id: \.key) { section in
                 Section {
                     ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
-                        MLBGameCard(game: game) {
+                        MLBGameCard(
+                            game: game,
+                            consensus: consensusStore.consensus(for: .mlb, gameId: GameConsensusKey.mlb(game))
+                        ) {
                             mlbSheetStore.openGameSheet(game)
                         }
                         .matchedTransitionSource(id: "mlb-\(game.id)", in: cardTransition)
@@ -528,7 +589,10 @@ struct GamesView: View {
             ForEach(sections, id: \.key) { section in
                 Section {
                     ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
-                        NBAGameCard(game: game) {
+                        NBAGameCard(
+                            game: game,
+                            consensus: consensusStore.consensus(for: .nba, gameId: GameConsensusKey.nba(game))
+                        ) {
                             nbaSheetStore.openGameSheet(game)
                         }
                         .matchedTransitionSource(id: "nba-\(game.id)", in: cardTransition)

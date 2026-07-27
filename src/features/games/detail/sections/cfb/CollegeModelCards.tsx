@@ -37,9 +37,6 @@ export interface CollegeModelInput {
   /** Model total minus the book's; > 0 leans Over. */
   overLineDiff: number | null;
   vegasTotal: number | null;
-  /** AI completion texts for this game, keyed by widget type. */
-  /** QC-passed headline verdicts keyed by widget type (replaces the old foot-of-card note). */
-  headlines: Record<string, string>;
 }
 
 export function hasSpreadData(input: CollegeModelInput): boolean {
@@ -68,7 +65,7 @@ export function hasCollegeModelOutput(input: CollegeModelInput): boolean {
  * side by side.
  */
 export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
-  const { away, home, predSpread, homeSpreadDiff, vegasHomeSpread, headlines } = input;
+  const { away, home, predSpread, homeSpreadDiff, vegasHomeSpread } = input;
 
   if (!hasSpreadData(input)) return null;
 
@@ -176,7 +173,7 @@ export function CollegeSpreadSection({ input }: { input: CollegeModelInput }) {
 
 /** Total: which way the model leans and by how many points. */
 export function CollegeTotalSection({ input }: { input: CollegeModelInput }) {
-  const { predOverLine, overLineDiff, vegasTotal, headlines } = input;
+  const { predOverLine, overLineDiff, vegasTotal } = input;
 
   if (!hasTotalData(input)) return null;
 

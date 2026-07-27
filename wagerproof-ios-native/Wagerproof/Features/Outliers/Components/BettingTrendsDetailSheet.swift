@@ -210,7 +210,7 @@ struct TrendsTeamAvatar: View {
 
     var body: some View {
         if let logoUrl, let url = URL(string: logoUrl) {
-            AsyncImage(url: url) { phase in
+            CachedAsyncImage(url: url) { phase in
                 if let image = phase.image {
                     image.resizable().scaledToFit()
                 } else {

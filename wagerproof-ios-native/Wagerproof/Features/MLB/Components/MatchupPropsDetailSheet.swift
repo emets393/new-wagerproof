@@ -46,7 +46,7 @@ struct MatchupPropsListBody: View {
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     if let logo, let url = URL(string: logo) {
-                        AsyncImage(url: url) { phase in
+                        CachedAsyncImage(url: url) { phase in
                             if case .success(let img) = phase { img.resizable().scaledToFit() } else { Color.clear }
                         }
                         .frame(width: 16, height: 16)

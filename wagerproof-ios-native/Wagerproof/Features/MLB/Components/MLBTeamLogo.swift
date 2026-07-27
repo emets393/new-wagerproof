@@ -35,7 +35,7 @@ struct MLBTeamLogo: View {
             .overlay(Circle().strokeBorder(primary, lineWidth: 2))
 
             if let urlString = logoUrl, let url = URL(string: urlString) {
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
                         ZStack {
@@ -105,35 +105,61 @@ enum MLBFormatting {
         return String(format: "%.1f", value)
     }
 
+    // Formatters are hoisted to statics because these helpers are called from
+    // the detail hero's `topRow`, which SwiftUI re-evaluates on every scroll
+    // frame. Constructing a DateFormatter is expensive (locale + timezone +
+    // format parsing), and this was 4-5 of them per frame at 120Hz.
+    private static let etTimeZone = TimeZone(identifier: "America/New_York")
+
+    private static let dateParser: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = etTimeZone
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private static let dateLabelFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.timeZone = etTimeZone
+        f.dateFormat = "EEE, MMM d"
+        return f
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.timeZone = etTimeZone
+        f.dateFormat = "h:mm a"
+        return f
+    }()
+
+    /// Two ISO parsers rather than one whose `formatOptions` get mutated —
+    /// a shared static that rewrites its own options is not thread-safe.
+    private static let isoFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let isoPlain: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
     /// Mirrors RN `formatMLBDateLabel`: short weekday + month + day from
     /// `YYYY-MM-DD`.
     static func dateLabel(_ raw: String) -> String {
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.timeZone = TimeZone(identifier: "America/New_York")
-        parser.dateFormat = "yyyy-MM-dd"
-        guard let date = parser.date(from: raw) else { return raw }
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US")
-        fmt.timeZone = TimeZone(identifier: "America/New_York")
-        fmt.dateFormat = "EEE, MMM d"
-        return fmt.string(from: date)
+        guard let date = dateParser.date(from: raw) else { return raw }
+        return dateLabelFormatter.string(from: date)
     }
 
     /// Mirrors RN `formatMLBGameTime` — parses ISO UTC, formats `h:mm a ET`.
     static func gameTime(_ raw: String?) -> String {
         guard let raw, !raw.isEmpty else { return "TBD" }
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = iso.date(from: raw) ?? {
-            iso.formatOptions = [.withInternetDateTime]
-            return iso.date(from: raw)
-        }()
-        guard let date else { return "TBD" }
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US")
-        fmt.timeZone = TimeZone(identifier: "America/New_York")
-        fmt.dateFormat = "h:mm a"
-        return fmt.string(from: date) + " ET"
+        guard let date = isoFractional.date(from: raw) ?? isoPlain.date(from: raw) else { return "TBD" }
+        return timeFormatter.string(from: date) + " ET"
     }
 }

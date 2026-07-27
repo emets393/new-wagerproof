@@ -4,7 +4,9 @@ import { cn } from '@/lib/utils';
 import { GlassCard, TeamLogoDiscs, StatCapsule, EdgePill } from '@/components/ios';
 import { PolymarketSparkline, type DemoSparklineSeries } from './PolymarketSparkline';
 import { StarButton } from '@/components/StarButton';
+import { AgentConsensusStrip } from './AgentConsensusStrip';
 import { formatMoneyline, formatSpread, getDisplayedProb } from '../api/shared';
+import type { GameAgentConsensus } from '@/services/agentConsensusService';
 import type { GameFeedItem } from '../types';
 
 /** Mounts children only once scrolled near the viewport (Polymarket fetches per mount). */
@@ -63,6 +65,12 @@ interface GameListCardProps {
   showSparkline?: boolean;
   /** Static prediction-market series for landing demos (implies showSparkline). */
   demoSparkline?: DemoSparklineSeries;
+  /**
+   * Public-agent consensus for this game. Fetched once per slate by the feed
+   * panel (the flag threshold needs the whole slate), passed down rather than
+   * carried on GameFeedItem so the five sport adapters stay untouched.
+   */
+  consensus?: GameAgentConsensus;
 }
 
 /**
@@ -79,6 +87,7 @@ export function GameListCard({
   onLockedClick,
   showSparkline = true,
   demoSparkline,
+  consensus,
 }: GameListCardProps) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const { lines, edges, awayTeam, homeTeam } = item;
@@ -221,6 +230,8 @@ export function GameListCard({
             </span>
           </div>
         </div>
+
+        {consensus && <AgentConsensusStrip consensus={consensus} />}
 
       </GlassCard>
 

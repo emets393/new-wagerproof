@@ -1,0 +1,75 @@
+import { describe, it, expect } from 'vitest';
+import { mapConsensusRow, type ConsensusRow } from '@/services/agentConsensusService';
+import { avatarBackground } from './components/AgentConsensusStrip';
+
+const baseRow: ConsensusRow = {
+  game_id: '823354',
+  game_date: '2026-07-26',
+  agents: 28,
+  side: 'Over 8.5',
+  side_agents: 16,
+  agreement: '0.5714',
+  threshold: 16,
+  flagged: true,
+  avatars: [{ avatarId: 'a1', name: 'Eagle eye', spriteIndex: 3, color: 'gradient:#6366f1,#3b82f6' }],
+};
+
+describe('mapConsensusRow', () => {
+  it('coerces the numeric agreement string PostgREST returns into a number', () => {
+    const m = mapConsensusRow(baseRow);
+    // Postgres `numeric` arrives as a string; a raw pass-through would make
+    // `agreement * 100` produce "0.57140.5714..." via string coercion.
+    expect(typeof m.agreement).toBe('number');
+    expect(m.agreement).toBeCloseTo(0.5714, 4);
+    expect(Math.round(m.agreement * 100)).toBe(57);
+  });
+
+  it('defaults a null agreement to 0 rather than NaN', () => {
+    expect(mapConsensusRow({ ...baseRow, agreement: null }).agreement).toBe(0);
+  });
+
+  it('accepts an already-numeric agreement', () => {
+    expect(mapConsensusRow({ ...baseRow, agreement: 0.88 }).agreement).toBeCloseTo(0.88);
+  });
+
+  it('normalises a null avatars array to empty so the stack never crashes', () => {
+    expect(mapConsensusRow({ ...baseRow, avatars: null }).avatars).toEqual([]);
+  });
+
+  it('stringifies game_id so the map key matches the feed id', () => {
+    const m = mapConsensusRow({ ...baseRow, game_id: 823354 as unknown as string });
+    expect(m.gameId).toBe('823354');
+  });
+
+  it('carries the flag and side through verbatim', () => {
+    const m = mapConsensusRow(baseRow);
+    expect(m.flagged).toBe(true);
+    expect(m.side).toBe('Over 8.5');
+    expect(m.sideAgents).toBe(16);
+    expect(m.threshold).toBe(16);
+  });
+});
+
+describe('avatarBackground', () => {
+  it('builds a linear-gradient from the "gradient:" form', () => {
+    expect(avatarBackground('gradient:#ef4444,#ec4899')).toBe(
+      'linear-gradient(135deg, #ef4444, #ec4899)'
+    );
+  });
+
+  it('passes a plain hex through untouched', () => {
+    expect(avatarBackground('#22c55e')).toBe('#22c55e');
+  });
+
+  it('falls back to a slate fill when color is missing', () => {
+    expect(avatarBackground(null)).toBe('#64748b');
+  });
+
+  it('repeats the single stop when a gradient only declares one colour', () => {
+    // Malformed rows exist in avatar_profiles; a bare "gradient:#abc" must not
+    // emit `linear-gradient(135deg, #abc, undefined)`.
+    expect(avatarBackground('gradient:#abcdef')).toBe(
+      'linear-gradient(135deg, #abcdef, #abcdef)'
+    );
+  });
+});

@@ -8,6 +8,7 @@ import { GameListCard } from './GameListCard';
 import { GameListSkeleton } from './GameListSkeleton';
 import { GamesEmptyState, GamesErrorState } from './GamesEmptyState';
 import { sortGames, groupGamesByDate } from '../api/shared';
+import type { GameAgentConsensus } from '@/services/agentConsensusService';
 import type { GameFeedItem, GamesSortKey, GamesSport } from '../types';
 
 // Per-sport feed scroll positions survive sport switches and remounts.
@@ -26,6 +27,8 @@ interface GamesFeedPanelProps {
   isFreemiumUser: boolean;
   isAdmin: boolean;
   onLockedClick: () => void;
+  /** Owned by GamesPage so the detail pane shares the same slate-wide fetch. */
+  consensusByGameId: Map<string, GameAgentConsensus>;
 }
 
 /**
@@ -45,6 +48,7 @@ export function GamesFeedPanel({
   isFreemiumUser,
   isAdmin,
   onLockedClick,
+  consensusByGameId,
 }: GamesFeedPanelProps) {
   const [searchText, setSearchText] = React.useState('');
   const [sortKey, setSortKey] = React.useState<GamesSortKey>('time');
@@ -151,6 +155,7 @@ export function GamesFeedPanel({
                       isAdmin={isAdmin}
                       onSelect={onSelectGame}
                       onLockedClick={onLockedClick}
+                      consensus={consensusByGameId.get(item.id)}
                     />
                   </StaggeredItem>
                 );

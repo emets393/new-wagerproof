@@ -44,6 +44,32 @@ Legend: ⬜ not started · 🔨 in progress · ✅ done · 🎫 waiver(s) attach
 | Visual regression matrix | 40 scenarios | [VISUAL_REGRESSION.md](VISUAL_REGRESSION.md) | ✅ deterministic root/detail/loading/empty/locked/compact captures on device |
 | Play-Store build readiness (release bundle, R8 rules, icon, signing docs) | — | — | ✅ locally verifiable; production credentials and store configuration remain launch gates |
 
+## Cross-platform features (not from the iOS inventory)
+
+Features built for all clients at once rather than ported from an existing iOS screen. They are
+not counted in `docs/inventory/`, which is a snapshot of the iOS tree at port time.
+
+| Feature | Android files | Doc | Status |
+|---|---|---|---|
+| Agent Consensus on game cards | `core/models/GameAgentConsensus.kt`, `core/services/AgentConsensusService.kt`, `core/stores/AgentConsensusStore.kt`, `app/features/gamecards/AgentConsensusStrip.kt`, `app/features/games/GameConsensusKey.kt` | [18_agent_consensus.md](../../.claude/docs/18_agent_consensus.md) | ✅ three tiers, both card layouts, all 5 sports |
+
+Notes on the consensus port:
+
+- One RPC per **slate**, driven from `GamesScreen`, never per card — the flag threshold scales
+  with the whole day's pick volume. Every distinct feed date goes in one call (MLB spans today
+  and tomorrow).
+- `AgentConsensusStore` sits beside `GamesStore` in `AppGraph` rather than inside it:
+  `GamesStore` reads the CFB project, consensus reads MAIN, and the merge is a client-side left
+  join on `game_id`.
+- The strip is its own row after `BottomRow` in both `StandardLayout` and `BreakdownLayout`. It is
+  deliberately **not** in the `ConvictionBadges` FlowRow — MAMMOTH is a model signal and BET is a
+  crowd signal, and that bottom row is the one that previously blew cards up to ~300dp tall.
+- `AgentOverlapFooter.kt`'s avatar stack was promoted to a public `AgentAvatarStack` +
+  `AgentAvatarChip` so the footer and the strip share one renderer at different sizes/rings.
+- Search reuses the same `*GameCard` composables but passes no consensus (the parameter defaults
+  to null), so strips stay hidden there — matching iOS.
+- MLB is the only sport exercising this today; the others are offseason.
+
 ## Detail-page audit notes
 
 - The game-detail carousel and all five sport detail hosts share the same safe-area, collapse, and

@@ -9,6 +9,9 @@ import WagerproofServices
 /// fair-total figure, so the O/U row surfaces direction + confidence only.
 struct NFLGameCard: View {
     let game: NFLPrediction
+    /// Public-agent consensus, looked up by the feed host. Surfaces that don't
+    /// fetch it (Search) leave it nil and the strip simply doesn't render.
+    var consensus: GameAgentConsensus? = nil
     var onPress: () -> Void = {}
     @State private var slatePicks: [NFLSlatePickRow] = []
 
@@ -60,7 +63,8 @@ struct NFLGameCard: View {
             homeTeamFullName: game.homeTeam,
             slatePicks: predictionPills,
             oddsBreakdown: oddsBreakdown,
-            isMammoth: hasMammothPlay
+            isMammoth: hasMammothPlay,
+            consensus: consensus
         )
     }
 

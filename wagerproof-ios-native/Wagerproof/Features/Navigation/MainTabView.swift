@@ -67,6 +67,11 @@ struct MainTabView: View {
     // Parlay God tickets feed four surfaces (Outliers rail, Search rail,
     // Props Cheats, matchup widgets) — one fetch + one leg pool at the shell.
     @State private var parlayGodStore = ParlayGodStore()
+    // Agent consensus is shell-hoisted so the games feed strip and the
+    // game-detail "Agent Consensus" widget share ONE slate fetch. The flag
+    // threshold is computed over the whole day's pick volume, so a per-sheet
+    // store would re-run the same RPC for every game the user opens.
+    @State private var agentConsensusStore = AgentConsensusStore()
 
     /// Production callers use the default initializer. The screenshot harness
     /// can pass a starting tab + an optional pre-opened side menu so reviewer
@@ -150,6 +155,7 @@ struct MainTabView: View {
         .environment(mlbF5Store)
         .environment(outliersTrendsStore)
         .environment(parlayGodStore)
+        .environment(agentConsensusStore)
         .environment(nflSheetStore)
         .environment(cfbSheetStore)
         .environment(nbaSheetStore)

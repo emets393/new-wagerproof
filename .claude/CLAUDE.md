@@ -169,18 +169,43 @@ wagerproof-ios-native/
 
 ### 8. Widget Headline Summaries
 - One bold plain-language sentence at the top of each game-detail widget, answering
-  that card's question ("82% of the prediction market is on the under")
-- Generated daily by the Trigger.dev task `daily-widget-summaries` (`agents-v3/`):
-  writer LLM → deterministic gate → **LLM judge**. Only `qc_status IN ('pass','corrected')`
-  is shown to users; a failed headline is withheld, not displayed
-- Stored on `ai_completions` (`headline_text` + QC columns), keyed
-  `(game_id, sport_type, widget_type)` — widget types are keyed to the betting
-  QUESTION, not to a UI component, so one row serves web and both native apps
-- **Shipped for MLB on web only.** The other four sports were out of season when
-  this was built; iOS/Android are not wired up yet
-- **Documentation**: `.claude/docs/17_widget_headlines.md`
+  that card's question ("Model lays points with DEN -4.5 — its own line is -8.2")
+- **Deterministic**, computed client-side by pure formatters in
+  `src/features/games/detail/headlines/`. Each takes values the component has
+  ALREADY derived and rendered, so a headline cannot contradict the numbers under
+  it. Returns `string | null`; `null` = no headline, which is a normal outcome
+- **The LLM pipeline is DEPRECATED** — a writer LLM → gate → LLM judge job
+  (`daily-widget-summaries` in `agents-v3/`) writing `ai_completions.headline_text`.
+  It kept getting side attribution backwards (calling a −3.3 home edge "+3.3 for
+  the home team"), which QC did not reliably catch. Code and schedule are still on
+  disk; do not build on them
+- **No LLM read remains.** `getGameHeadlines()` and the `headlines` prop are
+  deleted; `useAiCompletions` now fetches completion bodies only
+- **NFL has no model fair line.** `nfl_predictions_epa` is a CLASSIFIER (cover /
+  OU probabilities only) with no `model_fair_*` or `pred_*_score` columns, so
+  `home_spread_diff` / `over_line_diff` are permanently null for NFL and its
+  headlines quote confidence rather than a model-vs-Vegas gap. Do NOT try to fix
+  this by widening the `.select()` in `api/nflGames.ts` — the columns don't exist
+- **Web only.** Neither native app renders headlines
+- **Documentation**: `.claude/docs/17_widget_headlines.md`, and
+  `src/features/games/detail/headlines/README.md` for how to add one
 
-### 9. MCP Connector (`/connect-ai`)
+### 9. Agent Consensus on game cards
+- A row on each `/games` feed card showing what the public AI agents bet, plus a
+  green **BET** flag on the rare games where they strongly agree
+- The flag keys off AGREEMENT, not participation: "any agent bet this" fires on
+  96% of a slate because agents bet nearly everything. The calibrated rule
+  (`≥max(8, 8% of the day) on one side AND ≥55% agreement`) fires on ~21%
+- Served by the `get_game_agent_consensus` RPC — **SECURITY DEFINER**, because
+  `avatar_picks` is RLS-gated and the anon key sees ZERO rows. Picks live in MAIN
+  and the feed in CFB, so there is no SQL join: clients merge by `game_id` lookup,
+  and it must be a LEFT join (picks exist before predictions populate)
+- **Shipped on web, iOS, and Android.** MLB is the only sport exercising it today (others offseason).
+  The feed-card strip is on all three; the game-detail widget is web + iOS only;
+  the Outliers matchup-tile row is web only
+- **Documentation**: `.claude/docs/18_agent_consensus.md`
+
+### 10. MCP Connector (`/connect-ai`)
 - Public read-only MCP server (`wagerproof-mcp/`, Cloudflare Worker) sharing tool logic with `wagerproof-tool-core/`
 - Users connect it from `/connect-ai` on web or Settings in iOS native
 - Deployed at a `*.workers.dev` subdomain (the `mcp.wagerproof.bet` custom domain is not yet live)

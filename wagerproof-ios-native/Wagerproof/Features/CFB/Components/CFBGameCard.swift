@@ -9,6 +9,9 @@ import WagerproofServices
 /// adapter below.
 struct CFBGameCard: View {
     let game: CFBPrediction
+    /// Public-agent consensus, looked up by the feed host. Surfaces that don't
+    /// fetch it (Search) leave it nil and the strip simply doesn't render.
+    var consensus: GameAgentConsensus? = nil
     var onPress: () -> Void = {}
     @State private var slatePicks: [CFBSlatePickRow] = []
 
@@ -55,7 +58,8 @@ struct CFBGameCard: View {
             homeTeamFullName: game.homeTeam,
             slatePicks: predictionPills,
             oddsBreakdown: oddsBreakdown(awayAbbr: awayAbbr, homeAbbr: homeAbbr),
-            isMammoth: hasMammothPlay
+            isMammoth: hasMammothPlay,
+            consensus: consensus
         )
     }
 

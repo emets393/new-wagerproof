@@ -37,6 +37,10 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
     /// Bottom padding added past the scroll content so the last widget clears a
     /// floating bottom bar (the carousel's matchup strip) + the home indicator.
     var contentBottomInset: CGFloat = 0
+    /// Game-detail pages disable Liquid Glass because MLB can keep ~11 cards
+    /// resident at once, with two pages visible mid-swipe. Other surfaces that
+    /// reuse this shell retain their existing glass treatment by default.
+    var usesLiquidGlass: Bool = true
     /// Full-bleed background behind both the page and the hero (e.g. team-color
     /// auras). Receives `progress` so it can dim/shrink with scroll. Used as the
     /// hero's background too, so the hero stays opaque (masks scrolling content)
@@ -77,12 +81,20 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
         .onScrollGeometryChange(for: CGFloat.self) { geo in
             geo.contentOffset.y + geo.contentInsets.top
         } action: { _, newValue in
-            scrollY = newValue
+            // Clamp + quantize BEFORE writing @State. `progress` is the only
+            // consumer and it saturates at both ends, so every offset outside
+            // [0, collapseDistance] renders identically — yet a raw write re-ran
+            // the whole page body (hero morph + every card) on all 120 frames a
+            // second. Clamping means scrolling deep in the list, or rubber-
+            // banding at the top, costs nothing at all.
+            let clamped = min(max(0, newValue), collapseDistance)
+            if abs(scrollY - clamped) > 0.5 { scrollY = clamped }
         }
         // Named space lets each card read its live viewport position.
         .coordinateSpace(name: kCollapsingScrollSpace)
         // Cards pin just under the compact hero (which sits `heroTopInset` lower).
         .environment(\.widgetPinLine, heroMinHeight + heroTopInset)
+        .environment(\.widgetUsesLiquidGlass, usesLiquidGlass)
         .background(alignment: .top) {
             // In carousel mode the page is transparent — the shared base + glow
             // sit behind the swiping pages, so the safe-area bands stay filled.
@@ -108,13 +120,23 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
                 .background {
                     background(progress)
                         .ignoresSafeArea(.container, edges: .top)
+                        // CLIP to the hero band. The aura's glows are positioned
+                        // in GLOBAL coordinates, so they spilled far below the
+                        // hero and added a SECOND copy on top of the page's own
+                        // aura — while inside the hero band the aura's opaque
+                        // base hid the page copy, leaving exactly 1x. The result
+                        // was a hard brightness step at the hero's bottom edge.
+                        // Clipped, both copies are 1x and the seam is invisible
+                        // (identical content either side), and two blurred blob
+                        // rasterizations per frame disappear with it.
+                        .clipped()
                 }
         }
     }
 }
 
 /// Team-color "aurora" glows that bleed in from the left and right screen edges
-/// (away color left, home color right), tall and soft, and STATIC — no idle
+/// (away color left, home color right), wide and soft, and STATIC — no idle
 /// wobble (user call: the background shouldn't oscillate). Dims and shrinks as
 /// `progress` (0 = expanded … 1 = collapsed) increases. The `appSurface` base
 /// is opaque so this can double as the hero's masking bg.
@@ -132,8 +154,11 @@ struct TeamAuraBackground: View {
 
     /// Absolute Y (from the top of the screen) the glows center on.
     private let anchorY: CGFloat = 210
-    private let blobWidth: CGFloat = 300
-    private let blobHeight: CGFloat = 580
+    /// Glow radius as a fraction of the screen width. Was a hard-coded 300pt
+    /// box, which showed the same absolute sliver of glow on a 6.9" phone as on
+    /// an iPad; 0.48 reproduces the phone look and scales with the device.
+    private let radiusFraction: CGFloat = 0.48
+    private let blurRadius: CGFloat = 48
 
     var body: some View {
         let p = min(1, max(0, progress))
@@ -147,19 +172,20 @@ struct TeamAuraBackground: View {
             GeometryReader { geo in
                 let g = geo.frame(in: .global)
                 let yLocal = anchorY - g.minY
+                let radius = geo.size.width * radiusFraction
                 ZStack {
                     // `.drawingGroup()` goes on the BLOB, inside the progress-driven
                     // scale/opacity — not around them. A drawingGroup re-rasterizes
                     // whenever its subtree changes, so wrapping the scaled+faded
-                    // stack meant re-running two 300x580 `blur(radius: 48)` passes
-                    // every scroll frame. The blob itself only depends on its color,
-                    // so cached here it rasterizes once and the collapse animates as
-                    // cheap GPU transforms on the resulting texture.
-                    blob(awayColor)
+                    // stack meant re-running both `blur(radius: 48)` passes on every
+                    // scroll frame. The blob itself only depends on its color and the
+                    // screen width, so cached here it rasterizes once and the collapse
+                    // animates as cheap GPU transforms on the resulting texture.
+                    blob(awayColor, radius: radius)
                         .drawingGroup()
                         .scaleEffect(shrink)
                         .position(x: 0, y: yLocal)
-                    blob(homeColor)
+                    blob(homeColor, radius: radius)
                         .drawingGroup()
                         .scaleEffect(shrink)
                         .position(x: geo.size.width, y: yLocal)
@@ -169,18 +195,27 @@ struct TeamAuraBackground: View {
         }
     }
 
-    private func blob(_ color: Color) -> some View {
-        Ellipse()
+    private func blob(_ color: Color, radius: CGFloat) -> some View {
+        // The gradient must reach zero alpha exactly AT the shape's rim. This was
+        // a 300x580 Ellipse filled with a radial gradient whose endRadius (186)
+        // overshot the ellipse's half-width (150), so the fill was still ~16%
+        // opaque where the shape cut it — a hard edge down each side of the glow.
+        // A circle sized to the gradient's own reach has nothing left to clip.
+        Circle()
             .fill(
                 RadialGradient(
                     colors: [color.opacity(0.85), color.opacity(0.0)],
                     center: .center,
                     startRadius: 0,
-                    endRadius: blobWidth * 0.62
+                    endRadius: radius
                 )
             )
-            .frame(width: blobWidth, height: blobHeight)
-            .blur(radius: 48)
+            .frame(width: radius * 2, height: radius * 2)
+            .blur(radius: blurRadius)
+            // Padding sits INSIDE the caller's `.drawingGroup()` so the raster
+            // bounds include the blur halo. A drawingGroup crops to its view's
+            // bounds, which turned the soft falloff into a hard rectangle.
+            .padding(blurRadius)
     }
 }
 
@@ -193,6 +228,34 @@ extension EnvironmentValues {
     var widgetPinLine: CGFloat {
         get { self[WidgetPinLineKey.self] }
         set { self[WidgetPinLineKey.self] = newValue }
+    }
+}
+
+/// False while this page is a resident-but-not-selected page of a carousel.
+///
+/// A paging `TabView` keeps neighbouring pages built, so a detail page's ~15-19
+/// live backdrop blurs are being composited even when the page is off screen —
+/// two visible pages mid-swipe put ~30-38 concurrent blurs on the GPU, well past
+/// what an A16 sustains at 120Hz. Non-current pages fall back to a flat fill and
+/// are promoted back to real glass once `selection` settles. Defaults to `true`
+/// so standalone (non-carousel) pages are unaffected.
+private struct WidgetPageIsCurrentKey: EnvironmentKey {
+    static let defaultValue: Bool = true
+}
+extension EnvironmentValues {
+    var widgetPageIsCurrent: Bool {
+        get { self[WidgetPageIsCurrentKey.self] }
+        set { self[WidgetPageIsCurrentKey.self] = newValue }
+    }
+}
+
+private struct WidgetUsesLiquidGlassKey: EnvironmentKey {
+    static let defaultValue: Bool = true
+}
+extension EnvironmentValues {
+    var widgetUsesLiquidGlass: Bool {
+        get { self[WidgetUsesLiquidGlassKey.self] }
+        set { self[WidgetUsesLiquidGlassKey.self] = newValue }
     }
 }
 
@@ -215,6 +278,8 @@ struct WidgetCollapsingSection<Content: View>: View {
     @ViewBuilder var content: Content
 
     @Environment(\.widgetPinLine) private var pinLine
+    @Environment(\.widgetPageIsCurrent) private var pageIsCurrent
+    @Environment(\.widgetUsesLiquidGlass) private var usesLiquidGlass
     /// Live top position of the card's NATURAL layout box (unaffected by the
     /// visual collapse, which uses offset/clip only).
     @State private var minY: CGFloat = 0
@@ -382,6 +447,15 @@ struct WidgetCollapsingSection<Content: View>: View {
         }
         .frame(height: visualHeight, alignment: .top)
 
+        // Two cases swap the live backdrop blur for a static fill:
+        //  - the card is a fully collapsed 48pt pill mid-fade — at that size and
+        //    opacity the glass refraction is not resolvable, so the fill reads
+        //    identically for a fraction of the cost;
+        //  - the page isn't the carousel's current page, so nobody is looking at
+        //    it closely enough to notice during the ~300ms paging animation.
+        let fullyCollapsed = collapsing && (visualHeight ?? headerHeight) <= headerHeight + 0.5
+        let useFlatFill = !usesLiquidGlass || fullyCollapsed || !pageIsCurrent
+
         ZStack(alignment: .top) {
             stack
             if showsHeader {
@@ -392,7 +466,17 @@ struct WidgetCollapsingSection<Content: View>: View {
             }
         }
         .clipShape(cardShape)
-        .liquidGlassBackground(in: cardShape)
+        // The swap lives INSIDE `.background`, not as an if/else around the
+        // card: a conditional wrapping the card itself would give it a new
+        // structural identity and tear down every widget's state at the exact
+        // moment it collapses.
+        .background {
+            if useFlatFill {
+                cardShape.fill(Color.appSurfaceElevated.opacity(0.55))
+            } else {
+                Color.clear.liquidGlassBackground(in: cardShape)
+            }
+        }
     }
 
     /// Tappable header row — no background of its own; the glass comes from the

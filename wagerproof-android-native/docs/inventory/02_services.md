@@ -756,3 +756,11 @@ on Android). Notification taps stash a route in `last_notification_route`.
 | 36 | MLBPlayerPropsService.swift | `MLBPlayerPropsService.kt` | class | RPC fan-out |
 | 37 | MLBPlayerPropPicksService.swift | `MLBPlayerPropPicksService.kt` | class | lenient decode |
 | 38 | DummyData/ (3 files) | `debug/DummyData*.kt` | debug source set | optional, DEBUG only |
+
+---
+
+## Post-snapshot additions (not in the 2026-07-06 iOS inventory)
+
+| Android file | Shape | Notes |
+|---|---|---|
+| `AgentConsensusService.kt` | object | `get_game_agent_consensus` RPC on **MAIN**. Must go through the RPC — `avatar_picks` is RLS-gated and anon sees zero rows. One call per slate, returns a `game_id → GameAgentConsensus` map for the caller to left-join. See [18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md). |
