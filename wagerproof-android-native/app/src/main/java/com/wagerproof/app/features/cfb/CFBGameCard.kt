@@ -15,6 +15,7 @@ import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.core.models.CFBFlagConviction
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBTeamAssets
+import com.wagerproof.core.models.GameAgentConsensus
 import java.util.Locale
 import kotlin.math.floor
 
@@ -29,6 +30,7 @@ fun CFBGameCard(
     game: CFBPrediction,
     onPress: () -> Unit,
     modifier: Modifier = Modifier,
+    consensus: GameAgentConsensus? = null,
 ) {
     var picks by remember(game.gameId) { mutableStateOf<List<CFBDryrunPickRow>>(emptyList()) }
     LaunchedEffect(game.gameId, game.runId) {
@@ -75,6 +77,7 @@ fun CFBGameCard(
         slatePicks = cfbSlatePicks(game, picks),
         oddsBreakdown = oddsBreakdown(game, awayAbbr, homeAbbr),
         isMammoth = cfbHasMammothPlay(game, picks),
+        consensus = consensus,
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)

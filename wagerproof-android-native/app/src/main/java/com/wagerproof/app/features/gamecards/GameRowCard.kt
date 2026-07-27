@@ -168,6 +168,8 @@ private fun StandardLayout(model: GameRowCardModel) {
             )
         }
         BottomRow(model)
+        // Own row, never inside ConvictionBadges — see AgentConsensusStrip.
+        model.consensus?.let { AgentConsensusStrip(it) }
     }
 }
 
@@ -266,6 +268,8 @@ private fun BreakdownLayout(model: GameRowCardModel) {
     Column {
         BreakdownScanRegion(model, bd)
         BottomRow(model)
+        // Own row, never inside ConvictionBadges — see AgentConsensusStrip.
+        model.consensus?.let { AgentConsensusStrip(it) }
     }
 }
 

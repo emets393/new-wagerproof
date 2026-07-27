@@ -149,27 +149,48 @@ public enum MLBTeams {
         return tokens.last.map { $0.capitalized } ?? normalized.capitalized
     }
 
+    /// Abbreviation → team. Built once so `colors`/`logoUrl` don't linear-scan
+    /// all 30 values on every lookup.
+    public static let byAbbreviation: [String: TeamInfo] = {
+        var map: [String: TeamInfo] = [:]
+        for info in byNormalizedName.values { map[info.team] = info }
+        return map
+    }()
+
+    /// Memoised `resolve` results, keyed on the caller's raw string.
+    ///
+    /// The game-detail hero resolves the same two teams on EVERY scroll frame
+    /// (twice for the hero, once per `MLBTeamLogo`), and a cold resolve costs an
+    /// uppercase, a normalize (several string allocations) and — for full team
+    /// names that miss the exact key — a 30-entry fuzzy substring scan.
+    private nonisolated(unsafe) static var resolutionCache: [String: TeamInfo?] = [:]
+    private static let resolutionLock = NSLock()
+
+    /// Team by abbreviation or (fuzzy) full name, memoised.
+    public static func resolve(_ nameOrAbbrev: String) -> TeamInfo? {
+        resolutionLock.lock()
+        let hit = resolutionCache[nameOrAbbrev]
+        resolutionLock.unlock()
+        if let hit { return hit }
+
+        let resolved = byAbbreviation[nameOrAbbrev.uppercased()] ?? info(for: nameOrAbbrev)
+        resolutionLock.lock()
+        resolutionCache[nameOrAbbrev] = resolved
+        resolutionLock.unlock()
+        return resolved
+    }
+
     /// Team primary/secondary hex colors by name or abbreviation. Falls
     /// back to a neutral pair if nothing matches. Matches RN
     /// `getMLBTeamColors`.
     public static func colors(for nameOrAbbrev: String) -> (primary: UInt32, secondary: UInt32) {
-        let upper = nameOrAbbrev.uppercased()
-        for info in byNormalizedName.values where info.team == upper {
-            return (info.primaryHex, info.secondaryHex)
-        }
-        if let info = info(for: nameOrAbbrev) {
-            return (info.primaryHex, info.secondaryHex)
-        }
-        return (0x1F2937, 0x6B7280)
+        guard let info = resolve(nameOrAbbrev) else { return (0x1F2937, 0x6B7280) }
+        return (info.primaryHex, info.secondaryHex)
     }
 
     /// ESPN logo URL by abbreviation or full team name.
     public static func logoUrl(for nameOrAbbrev: String) -> String? {
-        let upper = nameOrAbbrev.uppercased()
-        for info in byNormalizedName.values where info.team == upper {
-            return info.logoUrl
-        }
-        return info(for: nameOrAbbrev)?.logoUrl
+        resolve(nameOrAbbrev)?.logoUrl
     }
 }
 

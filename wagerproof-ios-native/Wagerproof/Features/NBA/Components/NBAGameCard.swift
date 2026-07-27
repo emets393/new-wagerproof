@@ -7,6 +7,9 @@ import WagerproofModels
 /// model-vs-market delta, probability).
 struct NBAGameCard: View {
     let game: NBAGame
+    /// Public-agent consensus, looked up by the feed host. Surfaces that don't
+    /// fetch it (Search) leave it nil and the strip simply doesn't render.
+    var consensus: GameAgentConsensus? = nil
     var onPress: () -> Void = {}
 
     var body: some View {
@@ -50,7 +53,8 @@ struct NBAGameCard: View {
             ),
             awayTeamFullName: game.awayTeam,
             homeTeamFullName: game.homeTeam,
-            oddsBreakdown: oddsBreakdown
+            oddsBreakdown: oddsBreakdown,
+            consensus: consensus
         )
     }
 

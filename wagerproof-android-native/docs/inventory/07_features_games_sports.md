@@ -142,6 +142,9 @@ Conventions used below:
   spread, logoURL, colors}`, overLine, `mlEdge: MLEdgeInfo?{abbr, edgePoints, color}`,
   `ouEdge: OUEdgeInfo?{isOver, delta, probability, color}`, away/homeTeamFullName,
   `slatePicks: SlatePicks?`, `oddsBreakdown: OddsBreakdown?`, isMammoth.
+  Added after this 2026-07-06 snapshot: `consensus: GameAgentConsensus?`, rendered as its OWN row
+  after the bottom row in **both** layouts — never inside the conviction-badges wrap group. See
+  [18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md).
 - **`GameEdgeMath`** (port exactly): `impliedProb(ml)`; `mlEdge(modelHomeProb:homeMl:awayMl:...)` picks
   larger side edge in pct points; `ouEdge(modelFairTotal:marketLine:ouResultProb:)` — direction from
   prob (≥0.5=over) else fair-vs-market; delta = fair−line; prob normalized to chosen side; color

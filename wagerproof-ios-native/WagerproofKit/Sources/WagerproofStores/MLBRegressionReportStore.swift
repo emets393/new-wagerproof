@@ -21,7 +21,23 @@ public final class MLBRegressionReportStore {
     /// Coalesces overlapping `.task` / pull-to-refresh / toolbar refresh calls.
     private var inFlightRefresh: Task<Void, Never>?
 
+    // Not observed: the MLB game sheet reads `suggestedPicks(for:)` from a view
+    // body, and mutating observed state during view update is illegal. Views
+    // still invalidate off `report`, which IS observed. (Precedent:
+    // `ParlayGodStore.gameTicketCache`.)
+    //
+    // INVALIDATION KEY: the report row — rebuilt in `setReport`, the single
+    // funnel through which `report` is ever assigned.
+    @ObservationIgnored private var picksByGame: [Int: [MLBSuggestedPick]] = [:]
+
     public init() {}
+
+    /// The only place `report` is assigned. Groups the whole day's suggested
+    /// picks by `game_pk` once instead of filtering the slate per body pass.
+    private func setReport(_ new: MLBRegressionReport?) {
+        report = new
+        picksByGame = Dictionary(grouping: new?.suggestedPicks ?? [], by: { $0.gamePk })
+    }
 
     public static func todayInET() -> String {
         let fmt = DateFormatter()
@@ -72,7 +88,7 @@ public final class MLBRegressionReportStore {
                 .execute()
                 .value
             try Task.checkCancellation()
-            self.report = rows.first
+            setReport(rows.first)
             self.lastFetchedKey = today
             self.lastFetched = Date()
             self.errorMessage = nil
@@ -92,12 +108,12 @@ public final class MLBRegressionReportStore {
     /// Picks generated for the given `game_pk`. Mirrors the
     /// `MLBRegressionPicksSection` filter in RN.
     public func suggestedPicks(for gamePk: Int) -> [MLBSuggestedPick] {
-        (report?.suggestedPicks ?? []).filter { $0.gamePk == gamePk }
+        picksByGame[gamePk] ?? []
     }
 
     #if DEBUG
     public func debugSet(report: MLBRegressionReport) {
-        self.report = report
+        setReport(report)
         self.lastFetchedKey = MLBRegressionReportStore.todayInET()
         self.lastFetched = Date()
     }

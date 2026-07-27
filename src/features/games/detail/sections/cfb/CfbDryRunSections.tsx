@@ -21,6 +21,7 @@ import {
   STACK,
   toNum,
 } from './shared';
+import { cfbDryRunPickHeadline, cfbDryRunSummaryHeadline } from '../../headlines/cfb';
 import type { CFBPrediction } from '../../../api/cfbGames';
 import type { GameFeedItem, TeamRef } from '../../../types';
 
@@ -139,6 +140,19 @@ const CONVICTION_LABEL: Record<string, string> = {
   lean: 'Lean',
 };
 
+/**
+ * The Edge column's own value for a row. Prefer deriving it so the row's three
+ * numbers can't visibly disagree; the stored `edge` only fills in when one of the
+ * two lines is missing. Shared with the card headline so both quote one number.
+ */
+function resolveRowGap(row: CFBDryRunPick | undefined): number | null {
+  if (!row || row.display_only) return null;
+  const model = toNum(row.model_line);
+  const vegas = toNum(row.vegas_line);
+  if (model !== null && vegas !== null) return model - vegas;
+  return toNum(row.edge);
+}
+
 function convictionKey(conviction?: string | null, isMammoth?: boolean | null): string | null {
   if (isMammoth) return 'mammoth';
   const key = (conviction || '').toLowerCase();
@@ -200,10 +214,33 @@ export function CfbDryRunSummarySection({ game }: { game: GameFeedItem<CFBPredic
   const vegasTotal = toNum(prediction.over_line) ?? game.lines.total ?? null;
   const homeWins = hasScore && predHome >= predAway;
 
+  // The model's own "too far off-market to play" flag — it must suppress any
+  // directional spread claim in the headline even though the bars still render.
+  const spreadCapped = prediction.fg_spread_capped === true;
+  const spreadGap =
+    modelHomeSpread !== null && vegasHomeSpread !== null ? modelHomeSpread - vegasHomeSpread : null;
+  const totalGap = modelTotal !== null && vegasTotal !== null ? modelTotal - vegasTotal : null;
+
   return (
     <WidgetCard
       icon={<Trophy />}
       title="Slate Summary"
+      headline={
+        cfbDryRunSummaryHeadline({
+          hasScore,
+          predAway,
+          predHome,
+          awayAbbrev: game.awayTeam.abbrev,
+          homeAbbrev: game.homeTeam.abbrev,
+          homeWins,
+          spreadGap,
+          totalGap,
+          spreadCapped,
+          isMammothCard,
+          mammothMarkets,
+          playMarketCount: convictionSummary.length,
+        }) ?? undefined
+      }
       subtitle="How hard the model likes this game, the score it projects, and where that lands against the book."
       className="@xl:col-span-2"
     >
@@ -477,10 +514,27 @@ function PredictionGroupCard({
 
   const playCount = rows.filter((row) => row.has_play).length;
 
+  // Speak for the surfaced play when there is one; rows are already sort_order'd,
+  // so falling back to the first row matches what the reader sees at the top.
+  const lead = rows.find((row) => row.has_play) ?? rows[0];
+  const leadConvictionKey = lead ? convictionKey(lead.conviction, lead.is_mammoth) : null;
+  const leadGap = resolveRowGap(lead);
+
   return (
     <WidgetCard
       icon={<Icon />}
       title={CARD_LABELS[group] || group}
+      headline={
+        cfbDryRunPickHeadline({
+          marketLabel: CARD_LABELS[group] || group,
+          rowCount: rows.length,
+          playCount,
+          allDisplayOnly: rows.length > 0 && rows.every((row) => row.display_only),
+          leadPickLabel: lead?.pick_label ?? null,
+          leadConvictionLabel: leadConvictionKey ? CONVICTION_LABEL[leadConvictionKey] : null,
+          leadGap,
+        }) ?? undefined
+      }
       subtitle={CARD_SUBTITLES[group] ?? 'How the model priced this market against the book.'}
       accessory={
         playCount > 0 ? (
@@ -517,13 +571,7 @@ function PickRow({
   const signalKeys = normalizeSignalKeys(row.signal_keys);
   const model = toNum(row.model_line);
   const vegas = toNum(row.vegas_line);
-  // Prefer deriving the gap so the row's three numbers can't visibly disagree;
-  // the stored `edge` is only used when one of the two lines is missing.
-  const gap = row.display_only
-    ? null
-    : model !== null && vegas !== null
-      ? undefined
-      : toNum(row.edge);
+  const gap = resolveRowGap(row);
 
   return (
     <div className={cn('flex flex-col gap-2 py-3 first:pt-0 last:pb-0', row.display_only && 'opacity-70')}>

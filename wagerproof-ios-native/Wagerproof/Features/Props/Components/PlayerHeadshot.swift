@@ -12,7 +12,7 @@ struct PlayerHeadshot: View {
         let url = URL(string: MLBPlayerProps.headshotURL(playerId))
         ZStack {
             Circle().fill(Color.appSurfaceMuted)
-            AsyncImage(url: url) { phase in
+            CachedAsyncImage(url: url) { phase in
                 switch phase {
                 case .success(let image):
                     image.resizable().scaledToFill()

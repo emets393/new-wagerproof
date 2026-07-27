@@ -14,6 +14,7 @@ import WagerproofServices
 /// Cache-first via `PolymarketService.markets(...)`, which fetches all three
 /// markets in one call — the toggle only changes which cached series is drawn.
 struct PolymarketWidget: View {
+    @Environment(\.widgetUsesLiquidGlass) private var usesLiquidGlass
     let league: String
     let awayTeam: String
     let homeTeam: String
@@ -261,7 +262,15 @@ struct PolymarketWidget: View {
     /// "real" Swift Charts tile in the app reads the same way.
     private var chartCardBackground: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial)
+            // A live material inside a card that already has its own backdrop
+            // blur is blur-over-blur. The 0.5-opacity fill layered on top hides
+            // most of the refraction anyway, so when widget glass is off this
+            // becomes a static fill of roughly the same value.
+            if usesLiquidGlass {
+                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.ultraThinMaterial)
+            } else {
+                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.appSurfaceElevated)
+            }
             RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(hex: 0x0F131C).opacity(0.5))
         }
         .overlay(

@@ -13,6 +13,7 @@ import com.wagerproof.app.features.gamecards.GameRowCard
 import com.wagerproof.app.features.gamecards.GameRowCardModel
 import com.wagerproof.app.features.gamecards.TeamColorPair
 import com.wagerproof.app.features.props.nflTeamColors
+import com.wagerproof.core.models.GameAgentConsensus
 import com.wagerproof.core.models.NFLPrediction
 import com.wagerproof.core.models.NFLTeamAssets
 import java.util.Locale
@@ -29,6 +30,7 @@ fun NFLGameCard(
     game: NFLPrediction,
     onPress: () -> Unit,
     modifier: Modifier = Modifier,
+    consensus: GameAgentConsensus? = null,
 ) {
     var picks by remember(game.gameId) { mutableStateOf<List<NFLDryrunPickRow>>(emptyList()) }
     LaunchedEffect(game.gameId, game.runId) {
@@ -75,6 +77,7 @@ fun NFLGameCard(
         slatePicks = nflSlatePicks(game, picks),
         oddsBreakdown = oddsBreakdown(game),
         isMammoth = nflHasMammothPlay(game, picks),
+        consensus = consensus,
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)

@@ -114,6 +114,19 @@ public struct MLBPropStarter: Hashable, Sendable {
     }
 }
 
+/// One posted-but-unlisted batter (pinch hitter / bench) with their prop rows.
+/// A named struct rather than the old `(playerId:props:)` tuple so
+/// `MLBPropMatchup` can STORE the group list and still synthesize `Hashable`.
+public struct MLBExtraBatterGroup: Hashable, Sendable {
+    public let playerId: Int
+    public let props: [MLBPlayerPropRow]
+
+    public init(playerId: Int, props: [MLBPlayerPropRow]) {
+        self.playerId = playerId
+        self.props = props
+    }
+}
+
 /// Fully-assembled props matchup for one game.
 public struct MLBPropMatchup: Identifiable, Hashable, Sendable {
     public let gamePk: Int
@@ -134,6 +147,19 @@ public struct MLBPropMatchup: Identifiable, Hashable, Sendable {
     public let homeLineup: [MLBLineupRow]
 
     public let props: [MLBPlayerPropRow]
+
+    // Derived once in `init`, never as computed properties. The props-insight
+    // pipeline asks for one player's rows ~20 times per game, and each ask used
+    // to be a linear `props.filter` — O(players × props) on every view body
+    // pass. `props` is `let`, so these can never drift out of sync with it.
+    private let batterPropsByPlayer: [Int: [MLBPlayerPropRow]]
+    private let pitcherPropsByPlayer: [Int: [MLBPlayerPropRow]]
+
+    /// Batter props for players who aren't in either posted lineup
+    /// (pinch hitters, bench). Mirrors RN `extraBatterGroups`. Stored, not
+    /// computed: it does a full group-by + per-player sort over `props`, and
+    /// both `MLBPropsInsight.buildPool` and `PlayerPropFeed.items` read it.
+    public let extraBatterGroups: [MLBExtraBatterGroup]
 
     public var id: Int { gamePk }
 
@@ -174,23 +200,35 @@ public struct MLBPropMatchup: Identifiable, Hashable, Sendable {
         self.awayLineup = awayLineup
         self.homeLineup = homeLineup
         self.props = props
-    }
 
-    /// Batter props for players who aren't in either posted lineup
-    /// (pinch hitters, bench). Mirrors RN `extraBatterGroups`.
-    public var extraBatterGroups: [(playerId: Int, props: [MLBPlayerPropRow])] {
+        // Single pass over `props` replaces the per-player linear filters.
+        // Bucketing preserves each player's relative row order, so the indexed
+        // lookups return exactly what the old `filter` returned.
+        var batters: [Int: [MLBPlayerPropRow]] = [:]
+        var pitchers: [Int: [MLBPlayerPropRow]] = [:]
+        for row in props {
+            if row.isPitcher {
+                pitchers[row.playerId, default: []].append(row)
+            } else {
+                batters[row.playerId, default: []].append(row)
+            }
+        }
+        self.batterPropsByPlayer = batters
+        self.pitcherPropsByPlayer = pitchers
+
         let lineupIds = Set(awayLineup.map(\.playerId) + homeLineup.map(\.playerId))
-        return MLBPlayerProps.groupPropsByPlayer(props, isPitcher: false)
+        self.extraBatterGroups = MLBPlayerProps.groupPropsByPlayer(props, isPitcher: false)
             .filter { !lineupIds.contains($0.playerId) }
+            .map { MLBExtraBatterGroup(playerId: $0.playerId, props: $0.props) }
     }
 
     /// Props for one batter (non-pitcher rows for that player id).
     public func batterProps(for playerId: Int) -> [MLBPlayerPropRow] {
-        props.filter { $0.playerId == playerId && !$0.isPitcher }
+        batterPropsByPlayer[playerId] ?? []
     }
 
     /// Props for one pitcher (pitcher rows for that player id).
     public func pitcherProps(for playerId: Int) -> [MLBPlayerPropRow] {
-        props.filter { $0.playerId == playerId && $0.isPitcher }
+        pitcherPropsByPlayer[playerId] ?? []
     }
 }

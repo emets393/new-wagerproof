@@ -11,6 +11,7 @@ import WagerproofStores
 struct ProContentSection<Content: View>: View {
     @Environment(ProAccessStore.self) private var proAccess
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.widgetUsesLiquidGlass) private var usesLiquidGlass
 
     let title: String?
     let placementId: String
@@ -41,8 +42,15 @@ struct ProContentSection<Content: View>: View {
                     content
                         .opacity(0.3)
                         .allowsHitTesting(false)
-                    Color.clear
-                        .background(.ultraThinMaterial)
+                    // The gated content beneath is already unreadable at 0.3
+                    // opacity, so the material buys nothing but a per-frame
+                    // backdrop resample — over an animated aura, on a card that
+                    // already has its own glass. Static scrim when glass is off.
+                    if usesLiquidGlass {
+                        Color.clear.background(.ultraThinMaterial)
+                    } else {
+                        Color.appSurface.opacity(0.82)
+                    }
                     HStack(spacing: Spacing.md) {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 22))

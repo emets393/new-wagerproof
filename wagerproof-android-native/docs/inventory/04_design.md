@@ -51,6 +51,11 @@ Light/dark adaptive:
 Additional hard-coded hexes used repeatedly outside Tokens (keep as literals or add tokens):
 `#111111` (pixelwave base), `#0F100F` (pixelwave gradient tail), `#0F1117` (onboarding backdrop top), `#00E676` (bright brand green — wordmark "Proof", terminal green), `#0F1118`/`0x0f1118` (SKView bg), `#141927`/`#0D101A` (ticket cardstock gradient), `#151A28`, `#151A25`/`#0C0F17` (folder back), `#0B1011` (pick-history sheet bg), `#2C313C`/`#0E1016` (printer slot bar), `#070A0A` + `#9FB3AD` + `#8CA89B` (thinking terminal), `#FFE7A6` (swipe-pill gold), `#4ADE80`/`#F87171` (stats pill P/L), `#1F2937`/`#6B7280` (neutral team disc fallback).
 
+Added to `AppColors` after this snapshot: `appConsensusEmerald` `#10B981`, `appConsensusEmeraldText`
+`#6EE7B7`, `appConsensusEmeraldDeep` `#022C22` — the agent-consensus BET strip on game cards.
+Deliberately emerald and not `appPrimary`, which already means MODEL signal on that card. See
+[18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md).
+
 ### 1.2 `Spacing.swift`
 
 ```

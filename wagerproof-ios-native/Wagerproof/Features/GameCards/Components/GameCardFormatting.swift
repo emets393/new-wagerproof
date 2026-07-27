@@ -37,58 +37,86 @@ enum GameCardFormatting {
         return String(format: "%.1f", rounded)
     }
 
+    // Every formatter below is a static: the NFL/CFB detail heroes call
+    // `formatCompactDate` + `convertTimeToEST` from `topRow`, which SwiftUI
+    // re-evaluates on every scroll frame. Built inline this was up to 7-8
+    // DateFormatter/ISO8601DateFormatter constructions per frame at 120Hz.
+    // One formatter per format string (rather than one whose `dateFormat` is
+    // reassigned in a loop) — a mutated shared formatter is not thread-safe.
+    private static let etTimeZone = TimeZone(identifier: "America/New_York")
+
+    private static let isoFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let isoPlain: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    private static func fixedFormatter(_ format: String, timeZone: TimeZone?) -> DateFormatter {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = timeZone
+        f.dateFormat = format
+        return f
+    }
+
+    /// Date-only parsers, tried in order (ET — these strings carry no zone).
+    private static let dateParsers: [DateFormatter] = [
+        fixedFormatter("yyyy-MM-dd", timeZone: etTimeZone),
+        fixedFormatter("yyyy-MM-dd HH:mm:ss", timeZone: etTimeZone)
+    ]
+
+    /// Time-only parsers, tried in order (UTC — these are wall-clock UTC).
+    private static let timeParsers: [DateFormatter] = [
+        fixedFormatter("yyyy-MM-dd HH:mm:ss", timeZone: TimeZone(identifier: "UTC")),
+        fixedFormatter("HH:mm:ss", timeZone: TimeZone(identifier: "UTC")),
+        fixedFormatter("HH:mm", timeZone: TimeZone(identifier: "UTC"))
+    ]
+
+    private static let compactDateOut: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.timeZone = etTimeZone
+        f.dateFormat = "EEE, MMM d"
+        return f
+    }()
+
+    private static let etTimeOut: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.timeZone = etTimeZone
+        f.dateFormat = "h:mm a"
+        return f
+    }()
+
     /// Format a date string (`YYYY-MM-DD` or ISO 8601) into a compact
     /// `Mon, Sep 14` display, matching RN's `formatCompactDate`.
     static func formatCompactDate(_ raw: String) -> String {
-        let parsed: Date? = {
-            let iso = ISO8601DateFormatter()
-            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let d = iso.date(from: raw) { return d }
-            iso.formatOptions = [.withInternetDateTime]
-            if let d = iso.date(from: raw) { return d }
-            let fmt = DateFormatter()
-            fmt.locale = Locale(identifier: "en_US_POSIX")
-            fmt.timeZone = TimeZone(identifier: "America/New_York")
-            for f in ["yyyy-MM-dd", "yyyy-MM-dd HH:mm:ss"] {
-                fmt.dateFormat = f
-                if let d = fmt.date(from: raw) { return d }
-            }
-            return nil
-        }()
+        let parsed: Date? = isoFractional.date(from: raw)
+            ?? isoPlain.date(from: raw)
+            ?? dateParsers.lazy.compactMap { $0.date(from: raw) }.first
         guard let date = parsed else { return raw }
-        let out = DateFormatter()
-        out.locale = Locale(identifier: "en_US")
-        out.timeZone = TimeZone(identifier: "America/New_York")
-        out.dateFormat = "EEE, MMM d"
-        return out.string(from: date)
+        return compactDateOut.string(from: date)
     }
 
     /// Convert a game-time string (UTC ISO or `HH:mm`) to an EST display
     /// string. Mirrors RN's `convertTimeToEST`.
     static func convertTimeToEST(_ raw: String) -> String {
         if raw.isEmpty { return "" }
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = iso.date(from: raw) { return formatET(d) }
-        iso.formatOptions = [.withInternetDateTime]
-        if let d = iso.date(from: raw) { return formatET(d) }
-        // Try `yyyy-MM-dd HH:mm:ss`
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        for f in ["yyyy-MM-dd HH:mm:ss", "HH:mm:ss", "HH:mm"] {
-            fmt.dateFormat = f
-            if let d = fmt.date(from: raw) { return formatET(d) }
-        }
-        return raw
+        let parsed: Date? = isoFractional.date(from: raw)
+            ?? isoPlain.date(from: raw)
+            ?? timeParsers.lazy.compactMap { $0.date(from: raw) }.first
+        guard let date = parsed else { return raw }
+        return formatET(date)
     }
 
     private static func formatET(_ date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US")
-        fmt.timeZone = TimeZone(identifier: "America/New_York")
-        fmt.dateFormat = "h:mm a"
-        return fmt.string(from: date) + " ET"
+        etTimeOut.string(from: date) + " ET"
     }
 
     /// Pick a confidence color for a 50–100% probability slice.

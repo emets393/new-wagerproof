@@ -43,7 +43,29 @@ public final class MLBF5SplitsStore {
         return nil
     }
 
+    // Derived caches. NOT observed: the game sheet reads `matchup(for:)` and
+    // `insightSummary(forGamePk:)` from a view body, and mutating observed
+    // state during view update is illegal. Views still invalidate off `games`,
+    // which IS observed. (Precedent: `ParlayGodStore.gameTicketCache`.)
+    //
+    // INVALIDATION KEY: the slate + split lookup together — both feed the
+    // matchup, and both are replaced atomically in `setSlate`, the single
+    // funnel through which either is assigned.
+    @ObservationIgnored private var gameIndex: [Int: MLBF5Game] = [:]
+    @ObservationIgnored private var matchupCache: [Int: MLBF5Matchup?] = [:]
+    @ObservationIgnored private var summaryCache: [Int: F5InsightSummary?] = [:]
+
     public init() {}
+
+    /// The only place `games` / `splitLookup` are assigned. Rebuilds the index
+    /// and drops both memos so a refresh can't serve last slate's splits.
+    private func setSlate(games newGames: [MLBF5Game], splitLookup newSplits: [String: MLBF5SplitRow]) {
+        games = newGames
+        splitLookup = newSplits
+        gameIndex = Dictionary(newGames.map { ($0.gamePk, $0) }, uniquingKeysWith: { first, _ in first })
+        matchupCache.removeAll()
+        summaryCache.removeAll()
+    }
 
     public func refreshIfStale(force: Bool = false) async {
         if !force,
@@ -120,8 +142,7 @@ public final class MLBF5SplitsStore {
         // 3. Splits for the slate's teams.
         let abbrs = Array(Set(builtGames.flatMap { [$0.awayAbbr, $0.homeAbbr] })).sorted()
         if abbrs.isEmpty {
-            games = builtGames
-            splitLookup = [:]
+            setSlate(games: builtGames, splitLookup: [:])
             lastFetched = Date()
             loadState = .loaded
             return
@@ -134,8 +155,7 @@ public final class MLBF5SplitsStore {
             .execute()
             .value) ?? []
 
-        games = builtGames
-        splitLookup = MLBF5.buildSplitLookup(splitRows)
+        setSlate(games: builtGames, splitLookup: MLBF5.buildSplitLookup(splitRows))
         lastRefreshedAt = splitRows.compactMap { $0.lastRefreshedAt }.first
         lastFetched = Date()
         loadState = .loaded
@@ -145,8 +165,7 @@ public final class MLBF5SplitsStore {
     /// Fixture seeding for the screenshot harness / DummyDataMode, matching
     /// the `debugSet` hooks on the sibling trends stores.
     public func debugSet(games: [MLBF5Game], splits: [MLBF5SplitRow]) {
-        self.games = games
-        self.splitLookup = MLBF5.buildSplitLookup(splits)
+        setSlate(games: games, splitLookup: MLBF5.buildSplitLookup(splits))
         self.lastFetched = Date()
         self.loadState = .loaded
     }
@@ -156,12 +175,26 @@ public final class MLBF5SplitsStore {
     /// game isn't on the slate — `MLBF5Insight.summary` owns the
     /// not-enough-sample gating, not the store.
     public func matchup(for gamePk: Int) -> MLBF5Matchup? {
-        guard let game = games.first(where: { $0.gamePk == gamePk }) else { return nil }
-        return MLBF5Matchup(
+        if let cached = matchupCache[gamePk] { return cached }
+        guard let game = gameIndex[gamePk] else { return nil }
+        let built = MLBF5Matchup(
             game: game,
             awaySplit: split(for: game, side: "away"),
             homeSplit: split(for: game, side: "home")
         )
+        matchupCache[gamePk] = built
+        return built
+    }
+
+    /// Memoized `MLBF5Insight.summary` for one game. The uncached path rebuilt
+    /// the matchup (two `findSplitRow` lookups + an allocation) and re-derived
+    /// the whole digest on every body pass of the F5 card.
+    public func insightSummary(forGamePk gamePk: Int) -> F5InsightSummary? {
+        if let cached = summaryCache[gamePk] { return cached }
+        guard let matchup = matchup(for: gamePk) else { return nil }
+        let built = MLBF5Insight.summary(for: matchup)
+        summaryCache[gamePk] = built
+        return built
     }
 
     public func split(for game: MLBF5Game, side: String) -> MLBF5SplitRow? {

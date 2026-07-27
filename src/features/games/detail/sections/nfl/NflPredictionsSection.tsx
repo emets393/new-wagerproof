@@ -28,7 +28,7 @@ interface NflPredictionSectionProps {
  * Split out of the old combined "Model Predictions" card, which answered the
  * spread question and the total question in one widget.
  */
-export function NflSpreadSection({ game, headlines }: NflPredictionSectionProps) {
+export function NflSpreadSection({ game }: NflPredictionSectionProps) {
   const raw = game.raw as NFLPrediction;
   const coverProb = raw.home_away_spread_cover_prob;
   // Off-season / pre-model weeks: no probability yet, nothing to recommend.
@@ -42,6 +42,8 @@ export function NflSpreadSection({ game, headlines }: NflPredictionSectionProps)
   // home_spread_diff = vegas home spread − model fair home spread, so a positive
   // value is value on the HOME side. Flip it when the pick is the road team so
   // the number always reads from the picked side's perspective.
+  // Always null for NFL: the model is a cover/OU CLASSIFIER and publishes no fair
+  // line to subtract. The edge branches below are dead on this sport by design.
   const homeDiff = raw.home_spread_diff ?? null;
   const pickEdge = homeDiff === null || Number.isNaN(homeDiff) ? null : isHome ? homeDiff : -homeDiff;
   // Derived from the edge (not re-modelled) so model − vegas equals the gap shown.
@@ -50,28 +52,18 @@ export function NflSpreadSection({ game, headlines }: NflPredictionSectionProps)
       ? Number(vegasLine) - pickEdge
       : null;
 
-  const spreadValue = Math.abs(Number(vegasLine ?? 0));
-  const isNegativeSpread = Number(vegasLine ?? 0) < 0;
-  const cityName = getNFLFullTeamName(team.name).city;
-  const requirement = isNegativeSpread
-    ? `win by more than ${spreadValue} points`
-    : `either win the game or lose by fewer than ${spreadValue} points`;
-  const closer =
-    confidencePct <= 58
-      ? `With ${confidencePct}% confidence, this is a toss-up.`
-      : confidencePct <= 65
-        ? `The model gives this a ${confidencePct}% chance.`
-        : `With ${confidencePct}% confidence, the model sees a strong likelihood.`;
-
-  const headline =
-    headlines['spread_prediction'] ||
-    `For this bet to win, ${cityName} needs to ${requirement}. ${closer}`;
-
   return (
     <WidgetCard
       icon={<Target />}
       title="Spread"
-      headline={headline}
+      headline={
+        nflSpreadHeadline({
+          teamAbbrev: team.abbrev,
+          vegasLine: vegasLine ?? null,
+          confidencePct,
+          pickEdge,
+        }) ?? undefined
+      }
       subtitle="Which side the model expects to cover, and whether its own line is better than the one Vegas is offering."
       contentClassName="space-y-3"
     >
@@ -127,7 +119,7 @@ export function NflSpreadSection({ game, headlines }: NflPredictionSectionProps)
  * Total pick. Same shape as the spread card — one question, recommendation
  * first — with OVER/UNDER carrying green+up / blue+down on the word itself.
  */
-export function NflTotalSection({ game, headlines }: NflPredictionSectionProps) {
+export function NflTotalSection({ game }: NflPredictionSectionProps) {
   const raw = game.raw as NFLPrediction;
   const ouProb = raw.ou_result_prob;
   if (ouProb === null || ouProb === undefined) return null;
@@ -147,21 +139,19 @@ export function NflTotalSection({ game, headlines }: NflPredictionSectionProps) 
       ? Number(vegasTotal) + totalDiff
       : null;
 
-  const closer =
-    confidencePct <= 58
-      ? `With ${confidencePct}% confidence, this is a coin flip.`
-      : confidencePct <= 65
-        ? `The model gives this a ${confidencePct}% chance.`
-        : `With ${confidencePct}% confidence, the model expects a ${isOver ? 'high-scoring' : 'low-scoring'} game.`;
-  const headline =
-    headlines['ou_prediction'] ||
-    `For this bet to win, the combined score needs to be ${isOver ? 'MORE' : 'LESS'} than ${vegasTotal ?? '—'} points. ${closer}`;
-
   return (
     <WidgetCard
       icon={<Sigma />}
       title="Total"
-      headline={headline}
+      headline={
+        nflTotalHeadline({
+          isOver,
+          confidencePct,
+          vegasTotal: vegasTotal ?? null,
+          pickEdge,
+          modelTotal,
+        }) ?? undefined
+      }
       subtitle="How many points the model expects both teams to score versus the Vegas line, and which way that leans."
       contentClassName="space-y-3"
     >

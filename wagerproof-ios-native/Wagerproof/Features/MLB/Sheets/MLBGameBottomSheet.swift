@@ -68,6 +68,44 @@ struct MLBGameBottomSheet: View {
     /// full props list / full F5 breakdown). One `.sheet(item:)` for all three.
     @State private var insightDetail: MLBInsightDetail?
 
+    /// Hero text that depends only on the game, not on scroll progress.
+    ///
+    /// `CollapsingWidgetScroll` re-invokes the hero builder on every scroll
+    /// frame, so building these strings inline meant re-formatting the date +
+    /// time and re-interpolating five stat values 120 times a second. Cached in
+    /// `@State` and refreshed only when the matchup changes.
+    private struct HeroText {
+        let dateLabel: String
+        let gameTime: String
+        let expandedStats: [MatchupGlassHero.Stat]
+        let collapsedStats: [MatchupGlassHero.Stat]
+
+        init(_ game: MLBGame) {
+            dateLabel = MLBFormatting.dateLabel(game.officialDate)
+            gameTime = MLBFormatting.gameTime(game.gameTimeEt)
+            let ml = "\(MLBFormatting.moneyline(game.awayMl)) / \(MLBFormatting.moneyline(game.homeMl))"
+            let runLine = "\(MLBFormatting.spread(game.awaySpread)) / \(MLBFormatting.spread(game.homeSpread))"
+            let ou = MLBFormatting.line(game.totalLine)
+            // Expanded (below the fused discs): full ML / Run Line / O/U.
+            expandedStats = [
+                .init(label: "ML", value: ml),
+                .init(label: "Run Line", value: runLine),
+                .init(label: "O/U", value: ou)
+            ]
+            // Collapsed (between the split discs): ML moves under each team,
+            // so only Run Line + O/U stay centered.
+            collapsedStats = [
+                .init(label: "Run Line", value: runLine),
+                .init(label: "O/U", value: ou)
+            ]
+        }
+    }
+
+    @State private var heroTextCache: HeroText?
+    /// Falls back to computing inline on the very first frame (before `.task`
+    /// seeds the cache) so the hero never renders blank.
+    private var heroText: HeroText { heroTextCache ?? HeroText(game) }
+
     @Environment(\.colorScheme) private var colorScheme
     @Environment(PropsStore.self) private var propsStore
     // Same-game Parlay God tickets for the "Matchup Parlays" widget.
@@ -103,24 +141,33 @@ struct MLBGameBottomSheet: View {
             } else {
                 // Weather-style: collapsing matchup hero on top, widget cards
                 // that pin → collapse under their header → fade out → hand off.
-                CollapsingWidgetScroll(heroMaxHeight: hasWeather ? 272 : 236, heroMinHeight: 122, transparentPage: !showAura, heroTopInset: heroTopInset, contentBottomInset: contentBottomInset) { progress in
-                    // showAura (standalone): the page paints its own team aura.
-                    // Carousel mode: the page base is transparent (see
-                    // `transparentPage`) so the carousel's single shared glow
-                    // shows through; the hero still composites this opaque
-                    // `appSurface` so it masks content scrolling under it.
-                    if showAura {
-                        TeamAuraBackground(
-                            awayColor: Color(hex: Int(MLBTeams.colors(for: game.awayTeamName ?? game.awayAbbr).primary)),
-                            homeColor: Color(hex: Int(MLBTeams.colors(for: game.homeTeamName ?? game.homeAbbr).primary)),
-                            progress: progress
-                        )
-                    } else {
-                        Color.appSurface
-                    }
+                CollapsingWidgetScroll(
+                    heroMaxHeight: hasWeather ? 272 : 236,
+                    heroMinHeight: 122,
+                    transparentPage: !showAura,
+                    heroTopInset: heroTopInset,
+                    contentBottomInset: contentBottomInset,
+                    usesLiquidGlass: false
+                ) { progress in
+                    // Always the real aura, in both modes. In carousel mode this
+                    // is used for the HERO BAND only (`transparentPage` drops
+                    // the page base), and the carousel now draws its shared glow
+                    // BEHIND the pages rather than blending over them — so the
+                    // hero needs its own copy to match. `TeamAuraBackground`
+                    // anchors its blobs in global coordinates, so the two copies
+                    // line up and the existing `.clipped()` seam fix holds.
+                    TeamAuraBackground(
+                        awayColor: Color(hex: Int(MLBTeams.colors(for: game.awayTeamName ?? game.awayAbbr).primary)),
+                        homeColor: Color(hex: Int(MLBTeams.colors(for: game.homeTeamName ?? game.homeAbbr).primary)),
+                        progress: progress
+                    )
                 } hero: { progress in
                     heroView(progress: progress)
                 } content: {
+                    // FIRST, above every per-sport section — the crowd's read on
+                    // the game frames everything below it, and the widget is
+                    // sport-agnostic (same placement as web's detail grid).
+                    AgentConsensusSection(sport: .mlb, gameId: GameConsensusKey.mlb(game), gameDate: game.officialDate)
                     marketOddsSection
                     projectedScoreCard
                     moneylineCard
@@ -156,6 +203,9 @@ struct MLBGameBottomSheet: View {
             ouExpanded = false
         }
         .task(id: game.gamePk) {
+            // Seed the hero text cache so subsequent scroll frames reuse it
+            // instead of re-formatting the date and re-building the stat rows.
+            heroTextCache = HeroText(game)
             // No-ops when the carousel-injected stores are already fresh; only
             // the standalone/preview fallback stores actually fetch here. The
             // three hydrates run concurrently — independent tables.
@@ -205,26 +255,17 @@ struct MLBGameBottomSheet: View {
         // then is removed so its height collapses too. (The disc/line morph is
         // owned by `MatchupGlassHero`, driven by the same `progress`.)
         let detail = Double(max(0, 1 - p * 1.9))
+        let text = heroText
 
         VStack(spacing: heroLerp(12, 6, p)) {
-            topRow
+            topRow(text)
             MatchupGlassHero(
                 away: heroSide(name: game.awayTeamName ?? game.awayTeam ?? "Away",
                                abbr: game.awayAbbr, logoUrl: game.awayLogoUrl, ml: game.awayMl),
                 home: heroSide(name: game.homeTeamName ?? game.homeTeam ?? "Home",
                                abbr: game.homeAbbr, logoUrl: game.homeLogoUrl, ml: game.homeMl),
-                // Expanded (below the fused discs): full ML / Run Line / O/U.
-                expandedStats: [
-                    .init(label: "ML", value: "\(MLBFormatting.moneyline(game.awayMl)) / \(MLBFormatting.moneyline(game.homeMl))"),
-                    .init(label: "Run Line", value: "\(MLBFormatting.spread(game.awaySpread)) / \(MLBFormatting.spread(game.homeSpread))"),
-                    .init(label: "O/U", value: MLBFormatting.line(game.totalLine))
-                ],
-                // Collapsed (between the split discs): ML moves under each team,
-                // so only Run Line + O/U stay centered.
-                collapsedStats: [
-                    .init(label: "Run Line", value: "\(MLBFormatting.spread(game.awaySpread)) / \(MLBFormatting.spread(game.homeSpread))"),
-                    .init(label: "O/U", value: MLBFormatting.line(game.totalLine))
-                ],
+                expandedStats: text.expandedStats,
+                collapsedStats: text.collapsedStats,
                 progress: p
             )
             if (game.awaySpName != nil || game.homeSpName != nil), detail > 0.04 {
@@ -301,12 +342,12 @@ struct MLBGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private var topRow: some View {
+    private func topRow(_ text: HeroText) -> some View {
         HStack(spacing: 8) {
-            Text(MLBFormatting.dateLabel(game.officialDate))
+            Text(text.dateLabel)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color.appTextPrimary)
-            Text(MLBFormatting.gameTime(game.gameTimeEt))
+            Text(text.gameTime)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.appTextSecondary)
                 .padding(.horizontal, 10)
@@ -472,7 +513,7 @@ struct MLBGameBottomSheet: View {
     private var playerPropsSection: some View {
         if let matchup = propsStore.matchup(for: game.gamePk) {
             MLBMatchupPropsWidget(
-                game: game,
+                matchup: matchup,
                 namespace: propNamespace ?? fallbackPropNS,
                 onSelect: onSelectProp,
                 onExpand: { insightDetail = .props(matchup) }
@@ -525,8 +566,11 @@ struct MLBGameBottomSheet: View {
     /// the F5 slate or neither side clears the 2-game showable floor.
     @ViewBuilder
     private var f5SplitsCard: some View {
+        // Both the matchup and its digest are memoized on the store — building
+        // them inline re-ran two split lookups plus the whole digest derivation
+        // on every body pass.
         if let matchup = resolvedF5Store.matchup(for: game.gamePk),
-           let summary = MLBF5Insight.summary(for: matchup) {
+           let summary = resolvedF5Store.insightSummary(forGamePk: game.gamePk) {
             F5SplitsInsightWidget(summary: summary) {
                 insightDetail = .f5(matchup)
             }
@@ -632,11 +676,16 @@ struct MLBGameBottomSheet: View {
 
     // MARK: - Trend signals (shared by moneyline + total cards)
 
-    /// Same trends slate `bettingTrendsCard` reads, computed once and sliced
-    /// by kind so the projection cards can surface a couple of relevant
-    /// situational signals inline instead of only the isolated model number.
+    /// Same trends slate `bettingTrendsCard` reads, sliced by kind so the
+    /// projection cards can surface a couple of relevant situational signals
+    /// inline instead of only the isolated model number.
+    ///
+    /// This is read five times per body pass (twice each by the moneyline and
+    /// total cards, once by the trends card), so the derivation is memoized on
+    /// the store — this stays a computed property, but it is now a dictionary
+    /// hit rather than a full verdict build.
     private var matchupTrendsSummary: TrendsInsightSummary? {
-        resolvedTrendsStore.trends(for: game.gamePk).map(MLBTrendsInsight.summary(for:))
+        resolvedTrendsStore.summary(forGamePk: game.gamePk)
     }
 
     /// Win%-angle signals (moneyline-relevant).
@@ -882,9 +931,12 @@ struct MLBGameBottomSheet: View {
     /// in today's trends view. Expanding presents the full 7-section matrix.
     @ViewBuilder
     private var bettingTrendsCard: some View {
-        if let trends = resolvedTrendsStore.trends(for: game.gamePk) {
+        // Shares the memoized digest with the projection cards' inline signal
+        // rows rather than rebuilding it a fifth time.
+        if let trends = resolvedTrendsStore.trends(for: game.gamePk),
+           let summary = matchupTrendsSummary {
             BettingTrendsInsightWidget(
-                summary: MLBTrendsInsight.summary(for: trends),
+                summary: summary,
                 awayAbbr: game.awayAbbr,
                 homeAbbr: game.homeAbbr,
                 accent: MLBTrendsMatrixAdapter.accent,
@@ -1110,4 +1162,3 @@ enum MLBSignalColors {
         }
     }
 }
-

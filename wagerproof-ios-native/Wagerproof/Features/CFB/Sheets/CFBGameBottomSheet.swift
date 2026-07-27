@@ -30,16 +30,22 @@ struct CFBGameBottomSheet: View {
             heroMinHeight: 124,
             transparentPage: !showAura,
             heroTopInset: heroTopInset,
-            contentBottomInset: contentBottomInset
+            contentBottomInset: contentBottomInset,
+            usesLiquidGlass: false
         ) { progress in
-            if showAura {
-                TeamAuraBackground(awayColor: awayColors.primary, homeColor: homeColors.primary, progress: progress)
-            } else {
-                Color.appSurface
-            }
+            // Always the real aura. In carousel mode `transparentPage` means this
+            // paints the HERO BAND only, and the carousel now draws its shared
+            // glow behind the pages (no blend mode) — so the hero needs a
+            // matching copy. Both anchor their blobs in global coordinates, so
+            // they align and the hero's `.clipped()` seam fix still holds.
+            TeamAuraBackground(awayColor: awayColors.primary, homeColor: homeColors.primary, progress: progress)
         } hero: { progress in
             heroView(progress: progress)
         } content: {
+            // FIRST, above every per-sport section — the crowd's read on the
+            // game frames everything below it, and the widget is sport-agnostic
+            // (same placement as web's detail grid).
+            AgentConsensusSection(sport: .cfb, gameId: GameConsensusKey.cfb(game), gameDate: game.gameDate)
             marketOddsSection
             ForEach(marketRows) { row in
                 marketSection(row)

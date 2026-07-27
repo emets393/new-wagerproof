@@ -20,12 +20,44 @@ public final class MLBBettingTrendsStore {
     public private(set) var errorMessage: String?
     public private(set) var lastFetched: Date?
 
+    // Derived caches. NOT observed: the game sheet reads them from a view body
+    // and mutating observed state during view update is illegal. Views still
+    // invalidate off `games`, which IS observed. (Precedent:
+    // `ParlayGodStore.gameTicketCache`.)
+    //
+    // INVALIDATION KEY: the slate itself — both are rebuilt/dropped in
+    // `setGames`, the single funnel through which `games` is ever assigned.
+    @ObservationIgnored private var gameIndex: [Int: MLBGameTrends] = [:]
+    @ObservationIgnored private var summaryCache: [Int: TrendsInsightSummary] = [:]
+
     public init() {}
+
+    /// The only place `games` is assigned. Rebuilds the index and drops the
+    /// summary memo so a refresh can't serve trends from the previous slate.
+    private func setGames(_ new: [MLBGameTrends]) {
+        games = new
+        gameIndex = Dictionary(new.map { ($0.gamePk, $0) }, uniquingKeysWith: { first, _ in first })
+        summaryCache.removeAll()
+    }
 
     /// Per-game lookup for the MLB game-sheet widget. Mirrors the cached
     /// `trends(for:)` helpers on the NBA/NCAAB sibling stores.
     public func trends(for gamePk: Int) -> MLBGameTrends? {
-        games.first(where: { $0.gamePk == gamePk })
+        gameIndex[gamePk]
+    }
+
+    /// Memoized `MLBTrendsInsight.summary` for one game.
+    ///
+    /// The MLB sheet reads this FIVE times per body pass (the moneyline and
+    /// total cards each read their signal slice twice, plus the trends card),
+    /// and each uncached run builds 28 closures, 7 formatted `Pair` structs and
+    /// a full verdict pass. Memoizing here means one computation per slate.
+    public func summary(forGamePk gamePk: Int) -> TrendsInsightSummary? {
+        if let cached = summaryCache[gamePk] { return cached }
+        guard let game = gameIndex[gamePk] else { return nil }
+        let built = MLBTrendsInsight.summary(for: game)
+        summaryCache[gamePk] = built
+        return built
     }
 
     /// Idempotent hydrate for sheet-local stores — skips the network while a
@@ -63,7 +95,7 @@ public final class MLBBettingTrendsStore {
             }
 
             if rows.isEmpty {
-                games = []
+                setGames([])
                 lastFetched = Date()
                 return
             }
@@ -131,7 +163,7 @@ public final class MLBBettingTrendsStore {
                 return c
             }
 
-            games = Self.sortGames(combined, mode: .time)
+            setGames(Self.sortGames(combined, mode: .time))
             lastFetched = Date()
         }
     }
@@ -222,7 +254,7 @@ public final class MLBBettingTrendsStore {
 
     #if DEBUG
     public func debugSet(games: [MLBGameTrends]) {
-        self.games = games
+        setGames(games)
         self.lastFetched = Date()
     }
     #endif

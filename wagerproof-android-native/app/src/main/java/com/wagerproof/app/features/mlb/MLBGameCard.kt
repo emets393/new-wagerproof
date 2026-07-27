@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import com.wagerproof.app.features.gamecards.GameEdgeMath
 import com.wagerproof.app.features.gamecards.GameRowCard
 import com.wagerproof.app.features.gamecards.GameRowCardModel
+import com.wagerproof.core.models.GameAgentConsensus
 import com.wagerproof.core.models.MLBGame
 import kotlin.math.abs
 
@@ -20,6 +21,7 @@ fun MLBGameCard(
     game: MLBGame,
     onPress: () -> Unit,
     modifier: Modifier = Modifier,
+    consensus: GameAgentConsensus? = null,
 ) {
     val awayDisplayName = game.awayTeamName ?: game.awayTeam ?: "Away"
     val homeDisplayName = game.homeTeamName ?: game.homeTeam ?: "Home"
@@ -51,6 +53,7 @@ fun MLBGameCard(
         awayTeamFullName = awayDisplayName,
         homeTeamFullName = homeDisplayName,
         oddsBreakdown = oddsBreakdown(game),
+        consensus = consensus,
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)

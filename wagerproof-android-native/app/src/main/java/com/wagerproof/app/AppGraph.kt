@@ -4,6 +4,7 @@ import android.app.Application
 import com.wagerproof.core.services.MetaAnalyticsService
 import com.wagerproof.core.shared.AppGroup
 import com.wagerproof.core.stores.AdminModeStore
+import com.wagerproof.core.stores.AgentConsensusStore
 import com.wagerproof.core.stores.AgentPickAuditStore
 import com.wagerproof.core.stores.AuthStore
 import com.wagerproof.core.stores.CFBGameSheetStore
@@ -66,6 +67,12 @@ class AppGraph(val application: Application) {
 
     val mainTab = MainTabStore()
     val games = GamesStore()
+
+    // Sits beside GamesStore rather than inside it: consensus is one RPC per
+    // SLATE (the flag threshold scales with the whole day's pick volume) and it
+    // lives on the MAIN project, not CFB. See .claude/docs/18_agent_consensus.md.
+    val agentConsensus = AgentConsensusStore()
+
     val props = PropsStore()
     val liveScores = LiveScoresStore()
     val outliers = OutliersStore()

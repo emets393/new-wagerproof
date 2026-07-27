@@ -28,14 +28,9 @@ import { nbaSpreadHeadline, nbaTotalHeadline } from '../../headlines/nba';
 
 interface NbaPredictionsSectionProps {
   game: GameFeedItem;
-  /**
-   * QC-passed headline verdicts keyed by widget type. These replaced the inline
-   * <Explanation> block at the foot of each card — same sentence, read first.
-   */
-  headlines: Record<string, string>;
 }
 
-export function NbaSpreadSection({ game, headlines }: NbaPredictionsSectionProps) {
+export function NbaSpreadSection({ game }: NbaPredictionsSectionProps) {
   const raw = game.raw as unknown as NBAPrediction;
 
   const homeSpreadDiff = toNum(raw.home_spread_diff);
@@ -113,7 +108,7 @@ export function NbaSpreadSection({ game, headlines }: NbaPredictionsSectionProps
   );
 }
 
-export function NbaTotalSection({ game, headlines }: NbaPredictionsSectionProps) {
+export function NbaTotalSection({ game }: NbaPredictionsSectionProps) {
   const raw = game.raw as unknown as NBAPrediction;
 
   const overLineDiff = toNum(raw.over_line_diff);

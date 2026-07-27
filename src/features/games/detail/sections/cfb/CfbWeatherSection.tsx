@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { CloudSun, Droplets } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
 import { IconWind, WeatherIcon as WeatherIconComponent } from '@/utils/weatherIcons';
+import { cfbWeatherHeadline } from '../../headlines/cfb';
 import { EmptyNote } from './shared';
 import type { CFBPrediction } from '../../../api/cfbGames';
 import type { GameFeedItem } from '../../../types';

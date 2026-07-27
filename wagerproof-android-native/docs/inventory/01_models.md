@@ -1102,3 +1102,11 @@ All types here use **camelCase** field names on the wire (synthesized keys, "bre
 | 46 | MLBTrendsRecords / (numbering) | — | see rows 24 & 25; table covers all 46 files in rows 1–45 + JSONValue folded into common |
 
 Supabase table/RPC quick map: `avatar_profiles`(Agent) · `avatar_performance_cache`(AgentPerformance) · `avatar_picks`(AgentPick) · `avatar_parlays`/`avatar_parlay_legs`(AgentParlay) · `agent_generation_runs` · `agent_chat_messages` · RPCs `get_leaderboard_v2`, `get_top_agent_picks_feed_v2`, `get_agent_performance_distribution`, `get_distribution_bin_agents`, `get_mlb_player_props_l10` · edge fn `agent-authorized-action-v1` · `editors_picks` · `feature_requests`/`feature_request_votes` · `live_scores` · `mv_mlb_f5_team_splits` · `mlb_games_today`/`mlb_predictions_current`/`mlb_team_mapping`/`mlb_game_signals`/`mlb_game_lineups`/`v_mlb_pitcher_archetypes`/`mlb_situational_trends_today`/`mlb_model_breakdown_accuracy`/`mlb_model_bucket_accuracy`/`mlb_graded_picks` · `nba_input_values_view`/`nba_predictions`/`nba_injury_report`/`nba_game_situational_trends_today`/`nba_todays_games_predictions_with_accuracy` · `v_cbb_input_values`/`ncaab_predictions`/`ncaab_team_mapping`/`ncaab_game_situational_trends_today`/`ncaab_todays_games_predictions_with_accuracy` · `nfl_dryrun_games`/`nfl_dryrun_props`/`nfl_teams` + legacy `v_input_values_with_epa`/`nfl_predictions_epa`/`nfl_betting_lines`/`production_weather` · `cfb_dryrun_games`/flags/`cfb_teams`/`cfb_signal_defs` · `signal_performance` · `polymarket_markets` · `chat_messages` (WagerBot).
+
+## Post-snapshot additions (not in the 2026-07-06 iOS inventory)
+
+| Android file | Notes |
+|---|---|
+| `GameAgentConsensus.kt` | `GameAgentConsensus` + `ConsensusAvatar` — one row of the `get_game_agent_consensus` RPC. Mixed casing is intentional: columns are snake_case, but `avatars` is a `jsonb_build_object` blob with camelCase keys. `agreement` is NUMERIC → `FlexibleDoubleOrZeroSerializer`. See [18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md). |
+
+Add to the RPC quick map above: `get_game_agent_consensus` (MAIN, SECURITY DEFINER).

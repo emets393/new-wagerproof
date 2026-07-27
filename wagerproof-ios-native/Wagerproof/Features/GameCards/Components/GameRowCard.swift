@@ -48,6 +48,13 @@ struct GameRowCard: View {
                 Divider()
                     .background(Color.appBorder.opacity(0.5))
                 extraInfoRow
+                // Crowd signal gets its OWN row and is never folded into the
+                // `convictionBadges` group above: MAMMOTH PLAY is a MODEL
+                // signal, BET is a CROWD signal, and one wrap group would imply
+                // the two agree. See .claude/docs/18_agent_consensus.md.
+                if let consensus = model.consensus {
+                    AgentConsensusStrip(consensus: consensus)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .clipped()
@@ -202,7 +209,7 @@ struct GameRowCard: View {
         // neutral-base + team-tint gradient disc.
         ZStack {
             if let logoURL = side.logoURL, let url = URL(string: logoURL) {
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let img):
                         ZStack {
@@ -766,6 +773,11 @@ extension GameRowCard {
         let oddsBreakdown: OddsBreakdown?
         /// Rare mammoth play — lights the card orange on the games slate.
         let isMammoth: Bool
+        /// Public-agent consensus for this game, merged in by the feed host
+        /// (`GamesView`) via a left-join lookup. `nil` is the normal case — a
+        /// game no public agent bet, or any surface that doesn't fetch it
+        /// (Search, Outliers) — and simply renders no strip.
+        let consensus: GameAgentConsensus?
 
         init(
             id: String,
@@ -781,7 +793,8 @@ extension GameRowCard {
             homeTeamFullName: String,
             slatePicks: SlatePicks? = nil,
             oddsBreakdown: OddsBreakdown? = nil,
-            isMammoth: Bool = false
+            isMammoth: Bool = false,
+            consensus: GameAgentConsensus? = nil
         ) {
             self.id = id
             self.league = league
@@ -797,6 +810,7 @@ extension GameRowCard {
             self.slatePicks = slatePicks
             self.oddsBreakdown = oddsBreakdown
             self.isMammoth = isMammoth
+            self.consensus = consensus
         }
     }
 

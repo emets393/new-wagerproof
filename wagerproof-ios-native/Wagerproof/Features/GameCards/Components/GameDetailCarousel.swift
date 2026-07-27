@@ -85,6 +85,36 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
                 // Full-bleed base behind the pages.
                 Color.appSurface.ignoresSafeArea()
 
+                // Single shared team glow, BEHIND the pages.
+                //
+                // It used to composite ABOVE the TabView with `.plusLighter`.
+                // A non-normal blend mode makes the enclosing group
+                // non-flattenable, so Core Animation had to render the entire
+                // backdrop — two live pages and ~22 glass layers — into an
+                // offscreen buffer and re-blend it every frame. That was the
+                // single most expensive thing on this screen.
+                //
+                // Drawn over the opaque surface instead, with NO blend mode. On
+                // the dark surface (0x0A0A0A) additive-over-black and
+                // normal-over-that are near identical. The pages are
+                // transparent (`transparentPage: true`) apart from their hero
+                // band, so the glow still reads everywhere it used to.
+                //
+                // Cross-FADES between two static aura layers (identity keyed on
+                // `selection`) instead of animating awayColor/homeColor. The
+                // blobs cache themselves in a `drawingGroup`; animating their
+                // colors invalidated that cache, so a matchup change re-ran two
+                // large blurred blobs on every frame of the 0.45s transition.
+                // Opacity is a free GPU op on the already-rasterized textures.
+                ZStack {
+                    TeamAuraBackground(awayColor: c.away, homeColor: c.home, progress: 0, showBase: false)
+                        .id(selection)
+                        .transition(.opacity)
+                }
+                .animation(.smooth(duration: 0.45), value: selection)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+
                 // Pages carousel — transparent and bled to ALL edges, so the
                 // paging TabView reserves no opaque band at the top (under the
                 // nav bar) or bottom (home indicator). Each page insets its own
@@ -109,6 +139,9 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
                                 // Clear the floating strip + the home indicator.
                                 stripHeight + 24 + bottomInset
                             )
+                            // Resident-but-not-selected pages drop their live
+                            // glass for a flat fill (see `widgetPageIsCurrent`).
+                            .environment(\.widgetPageIsCurrent, idx == selection)
                             .tag(idx)
                         } else {
                             Color.clear.tag(idx)
@@ -117,16 +150,6 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .ignoresSafeArea()
-
-                // Single FIXED shared glow — additive over the pages so it shows
-                // at the edges/top without occluding content, never swipes, and
-                // the colors cross-fade when `selection` settles on a new matchup.
-                TeamAuraBackground(awayColor: c.away, homeColor: c.home, progress: 0, showBase: false)
-                    .ignoresSafeArea()
-                    .blendMode(.plusLighter)
-                    .opacity(0.9)
-                    .allowsHitTesting(false)
-                    .animation(.smooth(duration: 0.45), value: selection)
 
                 // Floating matchup strip — fixed, never swipes; sits just above
                 // the home indicator over the bled background.
@@ -171,7 +194,9 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
     private var matchupStrip: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                // Lazy: an eager HStack built every chip — two logo views each —
+                // for the whole slate the moment the detail page opened.
+                LazyHStack(spacing: 6) {
                     ForEach(Array(games.enumerated()), id: \.element.id) { idx, game in
                         chip(game, idx == selection)
                             .id(idx)

@@ -56,6 +56,31 @@ public final class PropsStore {
     private var loadState: [Sport: LoadState] = [:]
     private var lastFetched: [Sport: Date] = [:]
 
+    // Derived MLB caches. NOT observed: the game sheet reads them from a view
+    // body, and mutating observed state during view update is illegal (render
+    // loop). Views still invalidate correctly because they also read
+    // `matchups`, which IS observed. Same shape as `ParlayGodStore.gameTicketCache`.
+    //
+    // INVALIDATION KEY: the MLB slate itself. Everything below is rebuilt or
+    // dropped in `setMatchups`, the single funnel through which `matchups` is
+    // ever reassigned — so a refresh can never leave a stale summary behind.
+    @ObservationIgnored private var matchupIndex: [Int: MLBPropMatchup] = [:]
+    @ObservationIgnored private var insightSummaryCache: [Int: PropsInsightSummary?] = [:]
+    /// Bumped on every MLB slate reassignment. Exposed so derived caches that
+    /// CANNOT live in this module — `PlayerPropFeed` items are an app-target
+    /// type, WagerproofKit can't name them — can key off the same invalidation
+    /// point instead of inventing their own staleness rule.
+    @ObservationIgnored public private(set) var matchupsVersion: Int = 0
+
+    /// The only place `matchups` is assigned. Rebuilds the per-game index and
+    /// drops every derived cache so nothing can outlive the data it came from.
+    private func setMatchups(_ new: [MLBPropMatchup]) {
+        matchups = new
+        matchupIndex = Dictionary(new.map { ($0.gamePk, $0) }, uniquingKeysWith: { first, _ in first })
+        insightSummaryCache.removeAll()
+        matchupsVersion &+= 1
+    }
+
     /// 5-minute cache TTL — matches the games feed.
     private let ttl: TimeInterval = 300
 
@@ -86,7 +111,22 @@ public final class PropsStore {
 
     /// Per-game lookup for the MLB game-sheet "Player Props" widget.
     public func matchup(for gamePk: Int) -> MLBPropMatchup? {
-        matchups.first { $0.gamePk == gamePk }
+        matchupIndex[gamePk]
+    }
+
+    /// Memoized `MLBPropsInsight.summary` for one game.
+    ///
+    /// The uncached call walks every player in the matchup, picks a headline
+    /// prop, and makes five passes over that player's ~120-entry season log —
+    /// far too expensive to re-run on every body pass of the props widget.
+    /// Nil is memoized too (a matchup with no headline props hides the card),
+    /// so the miss path can't re-run the pipeline every frame.
+    public func propsInsightSummary(forGamePk gamePk: Int) -> PropsInsightSummary? {
+        if let cached = insightSummaryCache[gamePk] { return cached }
+        guard let matchup = matchupIndex[gamePk] else { return nil }
+        let built = MLBPropsInsight.summary(for: matchup)
+        insightSummaryCache[gamePk] = built
+        return built
     }
 
     /// MLB-specific load state, independent of the Props tab's selected sport
@@ -104,7 +144,7 @@ public final class PropsStore {
         }
         if matchups.isEmpty { loadState[.mlb] = .loading }
         do {
-            matchups = try await service.fetchMatchups()
+            setMatchups(try await service.fetchMatchups())
             lastFetched[.mlb] = Date()
             loadState[.mlb] = .loaded
         } catch {
@@ -164,7 +204,7 @@ public final class PropsStore {
         do {
             switch sport {
             case .mlb:
-                matchups = try await service.fetchMatchups()
+                setMatchups(try await service.fetchMatchups())
             case .nfl:
                 nflPlayers = try await nflService.fetchPlayers()
             default:
@@ -188,7 +228,7 @@ public final class PropsStore {
     #if DEBUG
     /// Test-only seeding hook for parity-screenshot builds.
     public func debugSet(matchups: [MLBPropMatchup]) {
-        self.matchups = matchups
+        setMatchups(matchups)
         self.loadState[.mlb] = .loaded
         self.lastFetched[.mlb] = Date()
     }

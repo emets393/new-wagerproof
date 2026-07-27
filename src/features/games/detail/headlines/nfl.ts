@@ -43,12 +43,12 @@ export interface NflSpreadHeadlineInput {
   confidencePct: number;
   /**
    * Points of line value on the PICKED side. Already flipped for a road pick (see
-   * NflPredictionsSection.tsx:58) — positive means value on the picked team whichever
+   * NflPredictionsSection.tsx) — positive means value on the picked team whichever
    * side that is, so NEVER negate it again here.
    *
-   * Currently null on every NFL row: the feed adapter does not select a fair-spread
-   * column from nfl_predictions_epa (nflGames.ts:346), so the edge branches below are
-   * dormant until that select is widened. They must not claim the model has no line.
+   * Permanently null for NFL: `nfl_predictions_epa` is a CLASSIFIER emitting cover /
+   * OU probabilities only, with no model fair spread to compare against Vegas. The
+   * edge branches below stay dormant here, and live for any other sport reusing this type.
    */
   pickEdge: number | null;
 }
@@ -106,9 +106,10 @@ export interface NflTotalHeadlineInput {
   /** Vegas posted total. */
   vegasTotal: number | null;
   /**
-   * over_line_diff re-signed to the recommended side (NflPredictionsSection.tsx:155).
+   * over_line_diff re-signed to the recommended side (NflPredictionsSection.tsx).
    * Positive = the line gap backs the pick; negative = it argues against it.
-   * Null on every NFL row today — see NflSpreadHeadlineInput.pickEdge.
+   * Permanently null for NFL — the model emits an OU probability, not a fair total,
+   * so there is nothing to difference. See NflSpreadHeadlineInput.pickEdge.
    */
   pickEdge: number | null;
   /** Model's absolute fair total (vegasTotal + UNFLIPPED diff) — valid for both sides. */
