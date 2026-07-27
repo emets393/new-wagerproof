@@ -707,7 +707,7 @@ struct HistoricalAnalysisFilterBar: View {
         // no other value), so "laying vs getting" IS the favorite/underdog split —
         // this dropdown drives favDog. The old side+0-20 slider was a dead control
         // (the MLB RPC has no spread keys; it silently did nothing).
-        if ["rl", "f5_rl"].contains(store.betType) {
+        if isRunLineMarket {
             Section("Run line") {
                 Picker("Run line", selection: binding(\.favDog)) {
                     Text("Any").tag("any")
@@ -746,8 +746,10 @@ struct HistoricalAnalysisFilterBar: View {
         }
     }
 
+    /// MLB: the fav/dog question lives in the Lines pill as "Run line" on every
+    /// market where it applies (all but game totals, which are game-level).
     private var isRunLineMarket: Bool {
-        store.sport == .mlb && ["rl", "f5_rl"].contains(store.betType)
+        store.sport == .mlb && !["total", "f5_total"].contains(store.betType)
     }
 
     private var showsFavDogFilter: Bool {
