@@ -26,10 +26,7 @@ struct HistoricalAnalysisFilterBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ScrollView(.horizontal, showsIndicators: false) {
-                // Two rows: a single row hid 9 of 12 pills past the right edge with no
-                // scroll affordance — users read the bar as "only 3 filters exist".
-                LazyHGrid(rows: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())],
-                          alignment: .top, spacing: 8) {
+                HStack(spacing: 8) {
                     betTypePill
                     pillButton(icon: "person.3.fill", title: teamsPillLabel) { activeSheet = .teams }
                     // Side + favorite/underdog are the same question (which role);
@@ -54,13 +51,21 @@ struct HistoricalAnalysisFilterBar: View {
                         pillButton(icon: "person.2.fill", title: coachRefPillLabel) { activeSheet = .coachRef }
                     }
                 }
-                .frame(height: 84)
                 .padding(.horizontal, 16)
                 // Breathing room so the glass highlight isn't shaved at the
                 // scroll bounds even before clipping is disabled.
                 .padding(.vertical, 4)
             }
             .scrollClipDisabled()
+            // A cleanly-ending row hid 9 pills from users ("only 3 filters exist").
+            // The chevron signals the row scrolls; it never intercepts touches.
+            .overlay(alignment: .trailing) {
+                Image(systemName: "chevron.compact.right")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(Color.appTextSecondary.opacity(0.85))
+                    .padding(.trailing, 2)
+                    .allowsHitTesting(false)
+            }
 
             activeChipsRow
         }
