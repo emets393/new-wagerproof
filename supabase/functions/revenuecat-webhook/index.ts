@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// NOTE: this webhook deliberately does NOT send conversions to Meta.
+// RevenueCat's own Facebook integration (configured in the RC dashboard) is the
+// single source of truth for Subscribe/StartTrial. Adding a second server-side
+// sender here would double-count every subscription — the two have no shared
+// `event_id`, so Meta cannot deduplicate them.
+// See .claude/docs/18_meta_attribution.md.
+
 // RevenueCat webhook event types we care about
 const SUBSCRIPTION_EVENTS = new Set([
   'INITIAL_PURCHASE',

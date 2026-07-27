@@ -20,6 +20,8 @@ import {
   getPaywallFeaturePages,
   type PaywallPersonalization,
 } from '@/components/paywall/CustomPaywallFeaturePages';
+import { trackEvent } from '@/lib/mixpanel';
+import { trackInitiateCheckout, trackPaywallView } from '@/lib/metaPixel';
 
 export interface CustomPaywallProps {
   personalization?: PaywallPersonalization;
@@ -27,6 +29,8 @@ export interface CustomPaywallProps {
   onDismiss?: () => void;
   /** Called after a successful purchase (defaults to navigating to /agents). */
   onPurchased?: () => void;
+  /** Where this paywall was shown from — reported to Mixpanel and Meta. */
+  source?: string;
   className?: string;
 }
 
@@ -84,6 +88,23 @@ function priceFormatted(pkg: Package | undefined): string | undefined {
   return productOf(pkg)?.currentPrice?.formattedPrice ?? productOf(pkg)?.price?.formattedPrice;
 }
 
+function priceCurrency(pkg: Package | undefined): string {
+  return productOf(pkg)?.currentPrice?.currency ?? productOf(pkg)?.price?.currency ?? 'USD';
+}
+
+/**
+ * Meta expects a decimal price (14.99), but RevenueCat Web exposes minor units
+ * — `amountMicros` (14990000) and `amount` in cents (1499). Sending the raw
+ * value would inflate reported revenue 100x–1,000,000x and wreck value-based
+ * bidding, so convert explicitly and prefer micros when the SDK provides it.
+ */
+function priceForAds(pkg: Package | undefined): number {
+  const price = productOf(pkg)?.currentPrice ?? productOf(pkg)?.price;
+  if (typeof price?.amountMicros === 'number') return price.amountMicros / 1_000_000;
+  if (typeof price?.amount === 'number') return price.amount / 100;
+  return 0;
+}
+
 const INTRO_PACKAGE_ID = 'yearly_intro';
 
 type EntryOffer = 'monthly' | 'intro_annual';
@@ -93,7 +114,13 @@ function resolveEntryOffer(offering: { metadata?: Record<string, unknown> } | nu
   return raw === 'intro_annual' ? 'intro_annual' : 'monthly';
 }
 
-export function CustomPaywall({ personalization = {}, onDismiss, onPurchased, className }: CustomPaywallProps) {
+export function CustomPaywall({
+  personalization = {},
+  onDismiss,
+  onPurchased,
+  source = 'unknown',
+  className,
+}: CustomPaywallProps) {
   const reduceMotion = useReducedMotion();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -325,6 +352,24 @@ export function CustomPaywall({ personalization = {}, onDismiss, onPurchased, cl
   const ctaTitle = selected?.trialLabel ? 'Continue for $0.00' : 'Continue';
   const ctaSubtitle = selected?.billingLine ?? '';
 
+  // ── Impression tracking ────────────────────────────────────────────────────
+  // Wait for plans to resolve before reporting the view: Meta's ViewContent
+  // carries the headline price, and firing during the offerings fetch would
+  // send a $0 value signal that drags down value-optimized bidding.
+  const trackedViewRef = useRef(false);
+  useEffect(() => {
+    if (trackedViewRef.current || plans.length === 0) return;
+    trackedViewRef.current = true;
+
+    const headline = plans.find((p) => p.id === 'yearly') ?? plans[0];
+    trackEvent('Paywall Viewed', {
+      source,
+      plans: plans.map((p) => p.id).join(','),
+      sale_active: isSaleActive,
+    });
+    trackPaywallView(source, priceForAds(headline.rcPackage), priceCurrency(headline.rcPackage));
+  }, [plans, source, isSaleActive]);
+
   // ── Actions ────────────────────────────────────────────────────────────────
   const handlePurchased = useCallback(() => {
     if (onPurchased) onPurchased();
@@ -333,18 +378,48 @@ export function CustomPaywall({ personalization = {}, onDismiss, onPurchased, cl
 
   const handlePurchase = async () => {
     if (!selected) return;
+    const productId = productOf(selected.rcPackage)?.identifier ?? selected.rcPackage.identifier;
+    const value = priceForAds(selected.rcPackage);
+    const currency = priceCurrency(selected.rcPackage);
+    const isTrial = Boolean(selected.trialLabel);
+
     try {
       setPurchasing(true);
       debug.log('💳 CustomPaywall purchasing:', selected.rcPackage.identifier);
+      trackEvent('Paywall Checkout Started', { source, plan: selected.id, product_id: productId });
+      // Fires before the payment sheet resolves so an abandoned checkout still
+      // registers as intent — that is the whole reason this event exists.
+      trackInitiateCheckout(productId, value, currency);
+
       await purchase(selected.rcPackage);
+
+      trackEvent('Subscription Purchased', {
+        source,
+        plan: selected.id,
+        product_id: productId,
+        value,
+        currency,
+        is_trial: isTrial,
+      });
+      // No Meta Subscribe/StartTrial here on purpose — RevenueCat's Facebook
+      // integration reports the conversion server-side. Firing it from the
+      // browser too would double-count it, since the two events share no
+      // `event_id` for Meta to deduplicate on.
+
       toast({ title: 'Welcome to WagerProof Pro!', description: 'Your subscription is active.' });
       handlePurchased();
     } catch (error: any) {
       if (error?.message === 'USER_CANCELLED' || error?.errorCode === 1) {
         debug.log('Purchase cancelled by user');
+        trackEvent('Paywall Purchase Cancelled', { source, plan: selected.id });
         return;
       }
       debug.error('Purchase error:', error);
+      trackEvent('Paywall Purchase Failed', {
+        source,
+        plan: selected.id,
+        error: error?.message ?? 'unknown',
+      });
       toast({
         title: 'Purchase failed',
         description: error?.message || 'Unable to complete purchase. Please try again.',

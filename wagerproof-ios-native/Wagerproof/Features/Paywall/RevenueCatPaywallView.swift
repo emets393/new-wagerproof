@@ -19,9 +19,6 @@ import WagerproofStores
 ///   4. Native paywall reports purchase / restore completion → we refresh the
 ///      RevenueCat store so the rest of the app updates immediately.
 struct RevenueCatPaywallView: View {
-    // FIDELITY-WAIVER #052: Mixpanel paywall events (`paywall_presented`,
-    // `paywall_dismissed`, `paywall_converted`) not yet fired — analytics
-    // fan-out lands when AnalyticsStore wires the global event bus.
     @Environment(\.dismiss) private var dismiss
     @Environment(RevenueCatStore.self) private var revenueCat
 
@@ -29,6 +26,7 @@ struct RevenueCatPaywallView: View {
 
     @State private var offering: Offering?
     @State private var loadState: LoadState = .loading
+    @State private var didTrackPresented = false
 
     private enum LoadState {
         case loading
@@ -103,19 +101,66 @@ struct RevenueCatPaywallView: View {
                 // presenting sheet closes. Without this the user could only
                 // exit via successful purchase / restore.
                 PaywallView(offering: offering, displayCloseButton: true)
-                    .onPurchaseCompleted { customerInfo in
+                    .onPurchaseStarted { package in
+                        AnalyticsService.shared.track("paywall_checkout_started", properties: [
+                            "source": placementId,
+                            "variant": "revenuecat_template",
+                            "product_id": package.storeProduct.productIdentifier,
+                        ])
+                        PaywallConversionTracker.shared.trackCheckoutStarted(
+                            source: placementId,
+                            package: package
+                        )
+                    }
+                    .onPurchaseCompleted { transaction, customerInfo in
+                        AnalyticsService.shared.track("paywall_converted", properties: [
+                            "source": placementId,
+                            "variant": "revenuecat_template",
+                        ])
+                        // Every in-app gate (Settings, Discord, WagerBot Voice,
+                        // ProFeatureGate, LockedGameCard, LockedOverlay,
+                        // ProContentSection) funnels through this view — these
+                        // conversions were previously invisible to Meta entirely.
+                        PaywallConversionTracker.shared.trackConversion(
+                            source: placementId,
+                            transaction: transaction,
+                            customerInfo: customerInfo,
+                            package: nil,
+                            offering: offering
+                        )
                         Task {
                             await revenueCat.refreshCustomerInfo()
                             dismiss()
                         }
                     }
                     .onRestoreCompleted { _ in
+                        AnalyticsService.shared.track("paywall_restore_completed", properties: [
+                            "source": placementId,
+                        ])
                         Task {
                             await revenueCat.refreshCustomerInfo()
                             dismiss()
                         }
                     }
-                    .onRequestedDismissal { dismiss() }
+                    .onRequestedDismissal {
+                        AnalyticsService.shared.track("paywall_dismissed", properties: [
+                            "source": placementId,
+                            "result": "closed",
+                        ])
+                        dismiss()
+                    }
+                    .onAppear {
+                        guard !didTrackPresented else { return }
+                        didTrackPresented = true
+                        AnalyticsService.shared.track("paywall_presented", properties: [
+                            "source": placementId,
+                            "variant": "revenuecat_template",
+                        ])
+                        PaywallConversionTracker.shared.trackPaywallView(
+                            source: placementId,
+                            offering: offering
+                        )
+                    }
             } else {
                 EmptyView()
             }

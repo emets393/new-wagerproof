@@ -72,11 +72,23 @@ object MetaAnalyticsService {
         }
     }
 
-    /** `fb_mobile_purchase` (logPurchase) — trial starts map to Purchase. */
-    fun trackPurchase(amount: BigDecimal, currency: String, parameters: Map<String, Any?> = emptyMap()) {
+    /**
+     * `StartTrial` when a free trial begins.
+     *
+     * Previously sent `fb_mobile_purchase` (logPurchase), which split trial
+     * starts across two different Meta standard events depending on platform —
+     * web and the server-side Conversions API already sent `StartTrial`.
+     * Normalized so iOS, Android, web, and CAPI all report the same event.
+     */
+    fun trackStartTrial(amount: BigDecimal, currency: String, parameters: Map<String, Any?> = emptyMap()) {
         if (!initialized) return
         runCatching {
-            logger?.logPurchase(amount, currencyInstance(currency), parameters.toBundle())
+            val normalizedCurrency = currencyInstance(currency).currencyCode
+            logger?.logEvent(
+                AppEventsConstants.EVENT_NAME_START_TRIAL,
+                amount.toDouble(),
+                (parameters + (AppEventsConstants.EVENT_PARAM_CURRENCY to normalizedCurrency)).toBundle(),
+            )
         }
     }
 

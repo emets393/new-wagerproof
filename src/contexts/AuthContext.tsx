@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import debug from '@/utils/debug';
 import { identifyUser, trackSignIn, trackSignUp, trackSignOut, resetTracking } from '@/lib/mixpanel';
+import { trackCompleteRegistration } from '@/lib/metaPixel';
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +19,42 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Meta's CompleteRegistration must fire at most once per user. Two things make
+// that non-trivial on web: OAuth signups arrive as a plain SIGNED_IN event (no
+// distinct "signed up" event exists), and any sign-in re-runs that handler. So
+// we persist which users we've already reported.
+const META_REGISTERED_USERS_KEY = 'wagerproof_meta_registered_users';
+// A user who signed up before this shipped would otherwise be reported as a new
+// registration the first time they log in. Only count accounts created recently.
+const NEW_ACCOUNT_WINDOW_MS = 10 * 60 * 1000;
+
+function fireCompleteRegistrationOnce(userId: string, method: string) {
+  try {
+    const raw = localStorage.getItem(META_REGISTERED_USERS_KEY);
+    const reported: string[] = raw ? JSON.parse(raw) : [];
+    if (reported.includes(userId)) return;
+    reported.push(userId);
+    // Bound the list — a shared browser could otherwise accumulate entries
+    // forever. 50 distinct accounts on one device is far beyond realistic.
+    localStorage.setItem(
+      META_REGISTERED_USERS_KEY,
+      JSON.stringify(reported.slice(-50))
+    );
+  } catch {
+    // localStorage unavailable (private mode / quota). Fall through and fire —
+    // an occasional duplicate is better than losing the signal entirely.
+  }
+  trackCompleteRegistration(method);
+}
+
+/** True when the Supabase account was created just now, i.e. this is a signup. */
+function isNewAccount(createdAt: string | undefined): boolean {
+  if (!createdAt) return false;
+  const created = new Date(createdAt).getTime();
+  if (Number.isNaN(created)) return false;
+  return Date.now() - created < NEW_ACCOUNT_WINDOW_MS;
+}
 
 // Throttled activity heartbeat — writes at most once per 12 hours (server-enforced)
 // Client-side guard prevents redundant RPC calls within the same browser session
@@ -104,7 +141,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Track sign in event
           trackSignIn(authMethod);
-          
+
+          // OAuth signups surface only as SIGNED_IN — there is no separate
+          // "signed up" event — so this is the only place a Google/Apple
+          // registration can be detected. Guarded twice: the account must be
+          // newly created AND not already reported.
+          if (isNewAccount(session.user.created_at)) {
+            trackSignUp(authMethod);
+            fireCompleteRegistrationOnce(userId, authMethod);
+          }
+
           debug.log(`[Mixpanel] User signed in: ${userEmail}${userName ? ` (${userName})` : ''} via ${authMethod}`);
         }
         
@@ -175,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Track sign up event
       trackSignUp('email');
+      fireCompleteRegistrationOnce(userId, 'email');
       debug.log(`[Mixpanel] User signed up via email: ${userEmail}${userName ? ` (${userName})` : ''}`);
     }
     

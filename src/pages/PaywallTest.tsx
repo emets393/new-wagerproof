@@ -48,6 +48,7 @@ export default function PaywallTest() {
         {/* Content Area — fixed height so the iOS-style carousel can flex */}
         <div className="relative flex h-[min(780px,calc(95vh-80px))] min-h-[560px] flex-col">
           <CustomPaywall
+            source="paywall_test"
             personalization={{
               agentName: 'Sharp Signal',
               spriteIndex: 2,

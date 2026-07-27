@@ -1,6 +1,18 @@
 # Ticket #055 — Meta SDK attribution events not bridged
 
-**Status:** open
+**Status:** closed (2026-07-26) — see `.claude/docs/18_meta_attribution.md`
+
+Resolved as part of the Meta funnel instrumentation pass. `FBSDKCoreKit` is linked,
+`ApplicationDelegate` is wired from `WagerproofApp.init()`, and
+`RevenueCatService.bootstrap` now calls
+`Purchases.shared.attribution.setFBAnonymousID(MetaAnalyticsService.shared.anonymousID())`.
+The only acceptance criterion NOT implemented is the Secret Settings "Meta SDK Events"
+debug sheet — Meta's own Events Manager → Test Events covers that need, so the in-app
+mirror was dropped rather than built.
+
+---
+
+**Original status:** open
 **Filed by:** b08-implementer-2026-05-21
 **Filed:** 2026-05-21
 **Affects screen / file:** `wagerproof-mobile/app/(modals)/secret-settings.tsx` (Meta SDK Events row) + `react-native-fbsdk-next` integration → `wagerproof_ios_native/Wagerproof/Features/Settings/SecretSettingsView.swift`
