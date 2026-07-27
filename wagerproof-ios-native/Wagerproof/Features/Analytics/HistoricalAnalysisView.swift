@@ -936,6 +936,8 @@ struct HistoricalAnalysisView: View {
         HStack(spacing: 10) {
             if breakdownTab == "team" {
                 teamAvatar(row.label)
+            } else if breakdownTab == "venue", let host = row.homeTeam {
+                teamAvatar(host)
             }
             Text(row.label)
                 .font(.system(size: 15, weight: .medium))

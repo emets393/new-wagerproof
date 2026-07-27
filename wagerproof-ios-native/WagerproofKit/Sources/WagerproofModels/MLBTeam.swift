@@ -84,6 +84,14 @@ public enum MLBTeams {
         146: ("MIA", "mia"), 147: ("NYY", "nyy"), 158: ("MIL", "mil"),
     ]
 
+    /// MLB Stats API / warehouse abbreviations that differ from our static map:
+    /// the data layer says AZ + ATH, the ESPN asset map says ARI + OAK.
+    private static let abbrevAliases: [String: String] = ["AZ": "ARI", "ATH": "OAK"]
+
+    private static func canonicalAbbrev(_ upper: String) -> String {
+        abbrevAliases[upper] ?? upper
+    }
+
     /// Normalize a team name for lookup (trim, lowercase, strip apostrophes,
     /// collapse whitespace). Matches RN `normalizeTeamNameKey`.
     public static func normalize(_ name: String) -> String {
@@ -124,7 +132,7 @@ public enum MLBTeams {
 
     /// Short display name — e.g. "Marlins", "White Sox", "Red Sox".
     public static func nickname(for nameOrAbbrev: String) -> String {
-        let upper = nameOrAbbrev.uppercased()
+        let upper = canonicalAbbrev(nameOrAbbrev.uppercased())
         if let key = byNormalizedName.first(where: { $0.value.team == upper })?.key {
             return mascot(fromNormalizedFullName: key)
         }
@@ -153,7 +161,7 @@ public enum MLBTeams {
     /// back to a neutral pair if nothing matches. Matches RN
     /// `getMLBTeamColors`.
     public static func colors(for nameOrAbbrev: String) -> (primary: UInt32, secondary: UInt32) {
-        let upper = nameOrAbbrev.uppercased()
+        let upper = canonicalAbbrev(nameOrAbbrev.uppercased())
         for info in byNormalizedName.values where info.team == upper {
             return (info.primaryHex, info.secondaryHex)
         }
@@ -165,7 +173,7 @@ public enum MLBTeams {
 
     /// ESPN logo URL by abbreviation or full team name.
     public static func logoUrl(for nameOrAbbrev: String) -> String? {
-        let upper = nameOrAbbrev.uppercased()
+        let upper = canonicalAbbrev(nameOrAbbrev.uppercased())
         for info in byNormalizedName.values where info.team == upper {
             return info.logoUrl
         }

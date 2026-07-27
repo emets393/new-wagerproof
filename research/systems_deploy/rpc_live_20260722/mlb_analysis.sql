@@ -203,10 +203,14 @@ BEGIN
        FROM (SELECT team_abbr, count(*) n, round(avg(hit)::numeric*100,1) hp,
                round(avg(bet_profit)::numeric*100,1) r
              FROM _f GROUP BY team_abbr HAVING count(*)>=1) t), '[]'::jsonb),
-    'by_venue', COALESCE((SELECT jsonb_agg(jsonb_build_object('venue',venue_name,'n',n,'hit_pct',hp,'roi',r) ORDER BY n DESC)
+    'by_venue', COALESCE((SELECT jsonb_agg(jsonb_build_object('venue',t.venue_name,'home_team',vh.ht,'n',t.n,'hit_pct',t.hp,'roi',t.r) ORDER BY t.n DESC)
        FROM (SELECT venue_name, count(*) n, round(avg(hit)::numeric*100,1) hp,
                round(avg(bet_profit)::numeric*100,1) r
-             FROM _f WHERE keep_game AND venue_name IS NOT NULL GROUP BY venue_name HAVING count(*)>=1) t), '[]'::jsonb));
+             FROM _f WHERE keep_game AND venue_name IS NOT NULL GROUP BY venue_name HAVING count(*)>=1) t
+       -- modal home team from the FULL warehouse (not _f): a team-filtered query
+       -- must still label Fenway as BOS, not the visiting team that survived the filter
+       LEFT JOIN (SELECT venue_name, mode() WITHIN GROUP (ORDER BY team_abbr) AS ht
+                  FROM mlb_analysis_base WHERE is_home GROUP BY venue_name) vh USING (venue_name)), '[]'::jsonb));
   DROP TABLE _f;
   RETURN v;
 END;

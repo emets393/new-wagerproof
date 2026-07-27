@@ -259,6 +259,8 @@ public struct HistoricalAnalysisBreakdownRow: Codable, Sendable, Equatable, Iden
     public let referee: String?
     public let conference: String?
     public let venue: String?
+    /// Venue rows only (MLB): the venue's resident team, for the row logo.
+    public let homeTeam: String?
     public let n: Int
     public let hitPct: Double
     public let roi: Double?
@@ -273,6 +275,7 @@ public struct HistoricalAnalysisBreakdownRow: Codable, Sendable, Equatable, Iden
 
     enum CodingKeys: String, CodingKey {
         case team, coach, referee, conference, venue, n
+        case homeTeam = "home_team"
         case hitPct = "hit_pct"
         case roi
     }
@@ -285,6 +288,7 @@ public struct HistoricalAnalysisBreakdownRow: Codable, Sendable, Equatable, Iden
         referee = try? c.decodeIfPresent(String.self, forKey: .referee)
         conference = try? c.decodeIfPresent(String.self, forKey: .conference)
         venue = try? c.decodeIfPresent(String.self, forKey: .venue)
+        homeTeam = try? c.decodeIfPresent(String.self, forKey: .homeTeam)
         n = (try? c.decodeIfPresent(Int.self, forKey: .n)) ?? 0
         hitPct = (try? c.decodeIfPresent(Double.self, forKey: .hitPct)) ?? 0
         roi = try? c.decodeIfPresent(Double.self, forKey: .roi)
