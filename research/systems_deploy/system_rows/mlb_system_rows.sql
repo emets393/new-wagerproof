@@ -115,6 +115,8 @@ CREATE OR REPLACE FUNCTION public.mlb_system_rows(p_bet_type text, p_filters jso
   "h2h_last_rl_cover" integer,
   "h2h_last_home" boolean,
   "h2h_last_fav" boolean,
+  "sp_season_era" numeric,
+  "opp_sp_season_era" numeric,
   hit integer,
   bet_profit numeric,
   under_profit numeric,
@@ -199,6 +201,8 @@ AS $function$
     p_filters->>'opp_rl_cover_pct_min' AS "opp_rl_cover_pct_min_t",
     p_filters->>'opp_rpg_max' AS "opp_rpg_max_t",
     p_filters->>'opp_rpg_min' AS "opp_rpg_min_t",
+    p_filters->>'opp_sp_era_max' AS "opp_sp_era_max_t",
+    p_filters->>'opp_sp_era_min' AS "opp_sp_era_min_t",
     p_filters->>'opp_sp_hand' AS "opp_sp_hand_t",
     p_filters->>'opp_sp_xfip_max' AS "opp_sp_xfip_max_t",
     p_filters->>'opp_sp_xfip_min' AS "opp_sp_xfip_min_t",
@@ -233,6 +237,8 @@ AS $function$
     p_filters->>'series_game_max' AS "series_game_max_t",
     p_filters->>'series_game_min' AS "series_game_min_t",
     p_filters->>'side' AS "side_t",
+    p_filters->>'sp_era_max' AS "sp_era_max_t",
+    p_filters->>'sp_era_min' AS "sp_era_min_t",
     p_filters->>'sp_hand' AS "sp_hand_t",
     p_filters->>'sp_xfip_max' AS "sp_xfip_max_t",
     p_filters->>'sp_xfip_min' AS "sp_xfip_min_t",
@@ -385,6 +391,10 @@ AS $function$
     AND (f."sp_xfip_max_t" IS NULL OR b.sp_season_xfip <= (f."sp_xfip_max_t")::numeric)
     AND (f."opp_sp_xfip_min_t" IS NULL OR b.opp_sp_season_xfip >= (f."opp_sp_xfip_min_t")::numeric)
     AND (f."opp_sp_xfip_max_t" IS NULL OR b.opp_sp_season_xfip <= (f."opp_sp_xfip_max_t")::numeric)
+    AND (f."sp_era_min_t" IS NULL OR b.sp_season_era >= (f."sp_era_min_t")::numeric)
+    AND (f."sp_era_max_t" IS NULL OR b.sp_season_era <= (f."sp_era_max_t")::numeric)
+    AND (f."opp_sp_era_min_t" IS NULL OR b.opp_sp_season_era >= (f."opp_sp_era_min_t")::numeric)
+    AND (f."opp_sp_era_max_t" IS NULL OR b.opp_sp_season_era <= (f."opp_sp_era_max_t")::numeric)
     AND (f."bp_ip3d_min_t" IS NULL OR b.opp_bp_ip_last3d >= (f."bp_ip3d_min_t")::numeric)
     AND (f."bp_ip3d_max_t" IS NULL OR b.opp_bp_ip_last3d <= (f."bp_ip3d_max_t")::numeric)
     AND (f."bp_xfip_min_t" IS NULL OR b.opp_bp_season_xfip >= (f."bp_xfip_min_t")::numeric)

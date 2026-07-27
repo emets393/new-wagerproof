@@ -441,6 +441,8 @@ public enum HistoricalAnalysisFilterBuilder {
         // Pitching quality — starters + bullpen xFIP, bullpen IP last 3 days.
         applyDoubleRange(&out, minKey: "sp_xfip_min", maxKey: "sp_xfip_max", lo: snapshot.spXfipMin, hi: snapshot.spXfipMax, defaultLo: 2, defaultHi: 7)
         applyDoubleRange(&out, minKey: "opp_sp_xfip_min", maxKey: "opp_sp_xfip_max", lo: snapshot.oppSpXfipMin, hi: snapshot.oppSpXfipMax, defaultLo: 2, defaultHi: 7)
+        applyDoubleRange(&out, minKey: "sp_era_min", maxKey: "sp_era_max", lo: snapshot.spEraMin, hi: snapshot.spEraMax, defaultLo: 0, defaultHi: 10)
+        applyDoubleRange(&out, minKey: "opp_sp_era_min", maxKey: "opp_sp_era_max", lo: snapshot.oppSpEraMin, hi: snapshot.oppSpEraMax, defaultLo: 0, defaultHi: 10)
         applyDoubleRange(&out, minKey: "bp_ip3d_min", maxKey: "bp_ip3d_max", lo: snapshot.bpIpMin, hi: snapshot.bpIpMax, defaultLo: 0, defaultHi: 20)
         applyDoubleRange(&out, minKey: "bp_xfip_min", maxKey: "bp_xfip_max", lo: snapshot.bpXfipMin, hi: snapshot.bpXfipMax, defaultLo: 2, defaultHi: 7)
 

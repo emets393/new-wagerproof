@@ -1103,14 +1103,28 @@ struct HistoricalAnalysisFilterBar: View {
                 step: 0.05
             )
             labeledRangeSlider(
-                title: "Bullpen IP (last 3 days)",
+                title: "SP ERA",
+                lower: doubleBinding(\.spEraMin),
+                upper: doubleBinding(\.spEraMax),
+                range: 0...10,
+                step: 0.05
+            )
+            labeledRangeSlider(
+                title: "Opp SP ERA",
+                lower: doubleBinding(\.oppSpEraMin),
+                upper: doubleBinding(\.oppSpEraMax),
+                range: 0...10,
+                step: 0.05
+            )
+            labeledRangeSlider(
+                title: "Opponent bullpen IP (last 3 days)",
                 lower: doubleBinding(\.bpIpMin),
                 upper: doubleBinding(\.bpIpMax),
                 range: 0...20,
                 step: 0.5
             )
             labeledRangeSlider(
-                title: "Bullpen xFIP",
+                title: "Opponent bullpen xFIP",
                 lower: doubleBinding(\.bpXfipMin),
                 upper: doubleBinding(\.bpXfipMax),
                 range: 2...7,
@@ -2104,7 +2118,8 @@ private struct MlbPitcherTypeahead: View {
 
     private static func filterPitchers(_ pitchers: [MlbPitcherOption], query: String, limit: Int) -> [MlbPitcherOption] {
         let q = fold(query.trimmingCharacters(in: .whitespacesAndNewlines))
-        if q.isEmpty { return Array(pitchers.prefix(limit)) }
+        // No results until the user types — an unprompted 40-name dump reads as noise.
+        if q.isEmpty { return [] }
 
         struct Scored { let p: MlbPitcherOption; let score: Int }
         var scored: [Scored] = []

@@ -74,6 +74,15 @@ BEGIN
     SELECT team_abbr, series_id,
       row_number() OVER (PARTITION BY team_abbr, trip_id ORDER BY series_id) AS trip_series_index_v
     FROM serl2
+  ),
+  -- season ERA ENTERING each start (leak-safe: prior starts only, like the as-of stats)
+  spe AS (
+    SELECT game_pk, pitcher_id,
+      9 * sum(earned_runs) OVER wprev / NULLIF(sum(ip_official) OVER wprev, 0) AS era_before
+    FROM mlb_pitcher_logs
+    WHERE games_started = 1
+    WINDOW wprev AS (PARTITION BY pitcher_id, season ORDER BY official_date, game_pk
+                     ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)
   )
   SELECT
     s.game_pk,
@@ -161,9 +170,13 @@ BEGIN
     s.sp_id_v                                                   AS sp_id,
     s.sp_name_v                                                 AS sp_name,
     s.opp_sp_id_v                                               AS opp_sp_id,
-    s.opp_sp_name_v                                             AS opp_sp_name
+    s.opp_sp_name_v                                             AS opp_sp_name,
+    e1.era_before                                               AS sp_season_era,
+    e2.era_before                                               AS opp_sp_season_era
   FROM ser2 s
   JOIN serl3 t USING (team_abbr, series_id)
+  LEFT JOIN spe e1 ON e1.game_pk = s.game_pk AND e1.pitcher_id = s.sp_id_v
+  LEFT JOIN spe e2 ON e2.game_pk = s.game_pk AND e2.pitcher_id = s.opp_sp_id_v
   LEFT JOIN mlb_park_factors pf ON pf.venue_id = s.venue_id;
 
   TRUNCATE public.mlb_analysis_base;
@@ -178,7 +191,7 @@ BEGIN
     sp_hand, opp_sp_hand, sp_season_xfip, opp_sp_season_xfip, sp_prior_starts,
     opp_bp_ip_last3d, opp_bp_season_xfip,
     temperature_f, wind_speed_mph, wind_dir, is_dome, pf_runs,
-    sp_id, sp_name, opp_sp_id, opp_sp_name)
+    sp_id, sp_name, opp_sp_id, opp_sp_name, sp_season_era, opp_sp_season_era)
   SELECT * FROM _mab;
 
   GET DIAGNOSTICS v_n = ROW_COUNT;

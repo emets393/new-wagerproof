@@ -112,7 +112,10 @@ serl3 AS (
 spx AS (
   -- only the current season is ever joined (sp join key = year of official_date)
   SELECT l.pitcher_id, l.season,
-    sum(l.xfip*l.ip_official)/NULLIF(sum(l.ip_official),0) AS season_xfip
+    sum(l.xfip*l.ip_official)/NULLIF(sum(l.ip_official),0) AS season_xfip,
+    -- ERA entering today, starts only — mirrors the base warehouse's spe CTE semantics
+    9 * sum(l.earned_runs) FILTER (WHERE l.games_started = 1)
+      / NULLIF(sum(l.ip_official) FILTER (WHERE l.games_started = 1), 0) AS season_era
   FROM mlb_pitcher_logs l, cs
   WHERE l.season = cs.season
   GROUP BY 1,2
@@ -198,6 +201,8 @@ m AS (
     st.streak                                                     AS win_loss_streak,
     sp1.season_xfip                                               AS sp_season_xfip,
     sp2.season_xfip                                               AS opp_sp_season_xfip,
+    sp1.season_era                                                AS sp_season_era,
+    sp2.season_era                                                AS opp_sp_season_era,
     bp.bp_ip_last3d                                               AS opp_bp_ip_last3d,
     bp.season_pre_bp_xfip                                         AS opp_bp_season_xfip,
     EXTRACT(MONTH FROM u.official_date)::int                      AS month,
@@ -261,6 +266,8 @@ SELECT COALESCE(jsonb_agg(jsonb_build_object(
     'sp_id', sp_id, 'sp_name', sp_name, 'opp_sp_id', opp_sp_id, 'opp_sp_name', opp_sp_name,
     'sp_season_xfip', round(sp_season_xfip::numeric,2),
     'opp_sp_season_xfip', round(opp_sp_season_xfip::numeric,2),
+    'sp_season_era', round(sp_season_era::numeric,2),
+    'opp_sp_season_era', round(opp_sp_season_era::numeric,2),
     'opp_bp_ip_last3d', opp_bp_ip_last3d, 'opp_bp_season_xfip', opp_bp_season_xfip,
     'venue', venue_name, 'is_dome', is_dome, 'pf_runs', pf_runs,
     'team_win_pct', round(team_win_pct::numeric,3), 'team_win_streak', team_win_streak,
@@ -306,6 +313,10 @@ WHERE
   AND (p_filters->>'sp_xfip_max' IS NULL OR sp_season_xfip <= (p_filters->>'sp_xfip_max')::numeric)
   AND (p_filters->>'opp_sp_xfip_min' IS NULL OR opp_sp_season_xfip >= (p_filters->>'opp_sp_xfip_min')::numeric)
   AND (p_filters->>'opp_sp_xfip_max' IS NULL OR opp_sp_season_xfip <= (p_filters->>'opp_sp_xfip_max')::numeric)
+  AND (p_filters->>'sp_era_min' IS NULL OR sp_season_era >= (p_filters->>'sp_era_min')::numeric)
+  AND (p_filters->>'sp_era_max' IS NULL OR sp_season_era <= (p_filters->>'sp_era_max')::numeric)
+  AND (p_filters->>'opp_sp_era_min' IS NULL OR opp_sp_season_era >= (p_filters->>'opp_sp_era_min')::numeric)
+  AND (p_filters->>'opp_sp_era_max' IS NULL OR opp_sp_season_era <= (p_filters->>'opp_sp_era_max')::numeric)
   AND (p_filters->>'bp_ip3d_min' IS NULL OR opp_bp_ip_last3d >= (p_filters->>'bp_ip3d_min')::numeric)
   AND (p_filters->>'bp_ip3d_max' IS NULL OR opp_bp_ip_last3d <= (p_filters->>'bp_ip3d_max')::numeric)
   AND (p_filters->>'bp_xfip_min' IS NULL OR opp_bp_season_xfip >= (p_filters->>'bp_xfip_min')::numeric)

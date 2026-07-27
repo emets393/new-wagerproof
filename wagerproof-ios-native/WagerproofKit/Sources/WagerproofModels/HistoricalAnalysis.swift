@@ -806,7 +806,7 @@ public enum AnalysisSystemCopy {
 public enum AnalysisSideBreakingDims {
     public static let mlb: [String] = [
         "teams", "opponents", "side", "favDog", "mlMin", "mlMax", "trip", "switchGame", "restRange",
-        "spNames", "oppSpNames", "spHand", "oppSpHand", "spXfip", "oppSpXfip", "bpIp", "bpXfip",
+        "spNames", "oppSpNames", "spHand", "oppSpHand", "spXfip", "oppSpXfip", "spEra", "oppSpEra", "bpIp", "bpXfip",
         "lastResult", "lastAts", "lastTotal", "lastRole", "lastMargin", "winLossStreak",
         "oppLastResult", "oppLastAts", "oppLastTotal", "oppLastRole", "oppLastMargin",
         "winPct", "winStreak", "lossStreak", "rpg", "rapg", "runDiffPg", "rlCoverPct", "rlStreak",
@@ -1020,6 +1020,10 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
     public var bpIpMax: Double
     public var bpXfipMin: Double
     public var bpXfipMax: Double
+    public var spEraMin: Double
+    public var spEraMax: Double
+    public var oppSpEraMin: Double
+    public var oppSpEraMax: Double
 
     // MLB — run-based season record additions (winPct/winStreak/lossStreak/minGames
     // are shared with football above; MLB reuses them with its own default ranges).
@@ -1062,6 +1066,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         case windMin, windDir, pfRunsMin, pfRunsMax
         case f5TotalMin, f5TotalMax, timeMin, timeMax
         case spXfipMin, spXfipMax, oppSpXfipMin, oppSpXfipMax, bpIpMin, bpIpMax, bpXfipMin, bpXfipMax
+        case spEraMin, spEraMax, oppSpEraMin, oppSpEraMax
         case rpg, rapg, runDiffPg
         case rlCoverPct, rlStreak
         case h2hLastMargin
@@ -1186,6 +1191,10 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         bpIpMax: Double = 20,
         bpXfipMin: Double = 2,
         bpXfipMax: Double = 7,
+        spEraMin: Double = 0,
+        spEraMax: Double = 10,
+        oppSpEraMin: Double = 0,
+        oppSpEraMax: Double = 10,
         rpg: [Double] = [0, 10],
         rapg: [Double] = [0, 10],
         runDiffPg: [Double] = [-4, 4],
@@ -1332,6 +1341,10 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         self.bpIpMax = bpIpMax
         self.bpXfipMin = bpXfipMin
         self.bpXfipMax = bpXfipMax
+        self.spEraMin = spEraMin
+        self.spEraMax = spEraMax
+        self.oppSpEraMin = oppSpEraMin
+        self.oppSpEraMax = oppSpEraMax
         self.rpg = rpg
         self.rapg = rapg
         self.runDiffPg = runDiffPg
@@ -1598,6 +1611,10 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
             bpXfipMin = try c.decodeIfPresent(Double.self, forKey: .bpXfipMin) ?? 2
             bpXfipMax = try c.decodeIfPresent(Double.self, forKey: .bpXfipMax) ?? 7
         }
+        spEraMin = try c.decodeIfPresent(Double.self, forKey: .spEraMin) ?? 0
+        spEraMax = try c.decodeIfPresent(Double.self, forKey: .spEraMax) ?? 10
+        oppSpEraMin = try c.decodeIfPresent(Double.self, forKey: .oppSpEraMin) ?? 0
+        oppSpEraMax = try c.decodeIfPresent(Double.self, forKey: .oppSpEraMax) ?? 10
         rpg = try c.decodeIfPresent([Double].self, forKey: .rpg) ?? [0, 10]
         rapg = try c.decodeIfPresent([Double].self, forKey: .rapg) ?? [0, 10]
         runDiffPg = try c.decodeIfPresent([Double].self, forKey: .runDiffPg) ?? [-4, 4]
@@ -1821,6 +1838,8 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
             oppSpXfipMin == d.oppSpXfipMin && oppSpXfipMax == d.oppSpXfipMax &&
             bpIpMin == d.bpIpMin && bpIpMax == d.bpIpMax &&
             bpXfipMin == d.bpXfipMin && bpXfipMax == d.bpXfipMax &&
+            spEraMin == d.spEraMin && spEraMax == d.spEraMax &&
+            oppSpEraMin == d.oppSpEraMin && oppSpEraMax == d.oppSpEraMax &&
             lastResult == d.lastResult && lastAts == d.lastAts &&
             lastTotal == d.lastTotal && lastRole == d.lastRole &&
             lastMargin == d.lastMargin &&

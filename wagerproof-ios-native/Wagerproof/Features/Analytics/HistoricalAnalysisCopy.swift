@@ -445,13 +445,23 @@ enum HistoricalAnalysisCopy {
                     s.oppSpXfipMin = 2; s.oppSpXfipMax = 7; onChange(s)
                 })
             }
+            if s.spEraMin > 0.001 || s.spEraMax < 9.999 {
+                chips.append(.init(label: "SP ERA \(trimmed(s.spEraMin))–\(trimmed(s.spEraMax))") {
+                    s.spEraMin = 0; s.spEraMax = 10; onChange(s)
+                })
+            }
+            if s.oppSpEraMin > 0.001 || s.oppSpEraMax < 9.999 {
+                chips.append(.init(label: "Opp SP ERA \(trimmed(s.oppSpEraMin))–\(trimmed(s.oppSpEraMax))") {
+                    s.oppSpEraMin = 0; s.oppSpEraMax = 10; onChange(s)
+                })
+            }
             if s.bpIpMin > 0.001 || s.bpIpMax < 19.999 {
-                chips.append(.init(label: "Bullpen IP \(trimmed(s.bpIpMin))–\(trimmed(s.bpIpMax))") {
+                chips.append(.init(label: "Opp bullpen IP \(trimmed(s.bpIpMin))–\(trimmed(s.bpIpMax))") {
                     s.bpIpMin = 0; s.bpIpMax = 20; onChange(s)
                 })
             }
             if s.bpXfipMin > 2.001 || s.bpXfipMax < 6.999 {
-                chips.append(.init(label: "Bullpen xFIP \(trimmed(s.bpXfipMin))–\(trimmed(s.bpXfipMax))") {
+                chips.append(.init(label: "Opp bullpen xFIP \(trimmed(s.bpXfipMin))–\(trimmed(s.bpXfipMax))") {
                     s.bpXfipMin = 2; s.bpXfipMax = 7; onChange(s)
                 })
             }

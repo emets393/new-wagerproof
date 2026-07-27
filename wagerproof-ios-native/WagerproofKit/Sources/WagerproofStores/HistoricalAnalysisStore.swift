@@ -761,6 +761,8 @@ public final class HistoricalAnalysisStore {
             }
             putRange("spXfip", [snapshot.spXfipMin, snapshot.spXfipMax], [2, 7])
             putRange("oppSpXfip", [snapshot.oppSpXfipMin, snapshot.oppSpXfipMax], [2, 7])
+            putRange("spEra", [snapshot.spEraMin, snapshot.spEraMax], [0, 10])
+            putRange("oppSpEra", [snapshot.oppSpEraMin, snapshot.oppSpEraMax], [0, 10])
             putRange("bpIp", [snapshot.bpIpMin, snapshot.bpIpMax], [0, 20])
             putRange("bpXfip", [snapshot.bpXfipMin, snapshot.bpXfipMax], [2, 7])
 
@@ -1058,6 +1060,8 @@ public final class HistoricalAnalysisStore {
                 }
                 if let v = pairDoubles("spXfip") { snapshot.spXfipMin = v[0]; snapshot.spXfipMax = v[1] }
                 if let v = pairDoubles("oppSpXfip") { snapshot.oppSpXfipMin = v[0]; snapshot.oppSpXfipMax = v[1] }
+                if let v = pairDoubles("spEra") { snapshot.spEraMin = v[0]; snapshot.spEraMax = v[1] }
+                if let v = pairDoubles("oppSpEra") { snapshot.oppSpEraMin = v[0]; snapshot.oppSpEraMax = v[1] }
                 if let v = pairDoubles("bpIp") { snapshot.bpIpMin = v[0]; snapshot.bpIpMax = v[1] }
                 if let v = pairDoubles("bpXfip") { snapshot.bpXfipMin = v[0]; snapshot.bpXfipMax = v[1] }
 
