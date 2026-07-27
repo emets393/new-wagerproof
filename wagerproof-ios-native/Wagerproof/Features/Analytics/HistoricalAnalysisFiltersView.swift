@@ -26,7 +26,10 @@ struct HistoricalAnalysisFilterBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                // Two rows: a single row hid 9 of 12 pills past the right edge with no
+                // scroll affordance — users read the bar as "only 3 filters exist".
+                LazyHGrid(rows: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())],
+                          alignment: .top, spacing: 8) {
                     betTypePill
                     pillButton(icon: "person.3.fill", title: teamsPillLabel) { activeSheet = .teams }
                     // Side + favorite/underdog are the same question (which role);
@@ -51,6 +54,7 @@ struct HistoricalAnalysisFilterBar: View {
                         pillButton(icon: "person.2.fill", title: coachRefPillLabel) { activeSheet = .coachRef }
                     }
                 }
+                .frame(height: 84)
                 .padding(.horizontal, 16)
                 // Breathing room so the glass highlight isn't shaved at the
                 // scroll bounds even before clipping is disabled.
@@ -73,6 +77,16 @@ struct HistoricalAnalysisFilterBar: View {
             }
             .presentationDetents([.medium, .large])
         }
+        #if DEBUG
+        // QA hook: `-openFilterSheet <id>` auto-opens a sheet for screenshot passes.
+        .onAppear {
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "-openFilterSheet"), i + 1 < args.count,
+               let sheet = FilterSheet(rawValue: args[i + 1]) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { activeSheet = sheet }
+            }
+        }
+        #endif
     }
 
     // MARK: - Bet type pill
@@ -933,7 +947,7 @@ struct HistoricalAnalysisFilterBar: View {
                         store.updateSnapshot { $0.windMax = Int(value) }
                         onChange()
                     }
-                ), in: 0...60, step: 1)
+                ), in: 0...40, step: 1)
             }
             Picker("Wind direction", selection: binding(\.windDir)) {
                 Text("Any").tag("any")
@@ -949,26 +963,31 @@ struct HistoricalAnalysisFilterBar: View {
             Text("Outdoor").tag("outdoor")
         }
         Section("Park factor (runs)") {
-            // Warehouse pf is 100-scale (100 = neutral) — "1.05"-style input
-            // matches nothing. Hint the scale in the placeholders.
-            TextField("Min (100 = neutral, e.g. 103)", text: Binding(
-                get: { store.snapshot.pfRunsMin.map { HistoricalAnalysisCopy.trimmed($0) } ?? "" },
-                set: { raw in
-                    let t = raw.trimmingCharacters(in: .whitespaces)
-                    store.updateSnapshot { $0.pfRunsMin = t.isEmpty ? nil : Double(t) }
-                    onChange()
-                }
-            ))
-            .keyboardType(.decimalPad)
-            TextField("Max (e.g. 97 for pitcher parks)", text: Binding(
-                get: { store.snapshot.pfRunsMax.map { HistoricalAnalysisCopy.trimmed($0) } ?? "" },
-                set: { raw in
-                    let t = raw.trimmingCharacters(in: .whitespaces)
-                    store.updateSnapshot { $0.pfRunsMax = t.isEmpty ? nil : Double(t) }
-                    onChange()
-                }
-            ))
-            .keyboardType(.decimalPad)
+            // 100-scale (100 = neutral). Bounded slider (85-115, web parity) —
+            // free-text here invited out-of-scale values like "1.05".
+            labeledRangeSlider(
+                title: "Park factor",
+                lower: Binding(
+                    get: { store.snapshot.pfRunsMin ?? 85 },
+                    set: { v in
+                        store.updateSnapshot { $0.pfRunsMin = v <= 85 ? nil : v }
+                        onChange()
+                    }
+                ),
+                upper: Binding(
+                    get: { store.snapshot.pfRunsMax ?? 115 },
+                    set: { v in
+                        store.updateSnapshot { $0.pfRunsMax = v >= 115 ? nil : v }
+                        onChange()
+                    }
+                ),
+                range: 85...115,
+                step: 1,
+                format: { String(Int($0)) }
+            )
+            Text("100 = neutral · below = pitcher's park · above = hitter's park")
+                .font(.caption)
+                .foregroundStyle(Color.appTextSecondary)
         }
     }
 
@@ -1412,8 +1431,8 @@ struct HistoricalAnalysisFilterBar: View {
             // "Last game": a streak is form, not a last-game fact. Legacy string fields.
             labeledRangeSlider(
                 title: "Current streak (+W / −L)",
-                lower: stringAsDoubleBinding(\.streakMin),
-                upper: stringAsDoubleBinding(\.streakMax),
+                lower: stringAsDoubleBinding(\.streakMin, emptyValue: -25),
+                upper: stringAsDoubleBinding(\.streakMax, emptyValue: 25),
                 range: -25...25,
                 step: 1,
                 suffix: " games",
@@ -1771,7 +1790,12 @@ struct HistoricalAnalysisFilterBar: View {
                 return raw.isEmpty ? emptyValue : (Double(raw) ?? emptyValue)
             },
             set: { newValue in
-                store.updateSnapshot { $0[keyPath: keyPath] = String(Int(newValue.rounded())) }
+                // Returning a thumb to its own bound = "no filter" (writes the legacy
+                // empty string), so an untouched slider never reads as an active 0-0.
+                let v = Int(newValue.rounded())
+                store.updateSnapshot {
+                    $0[keyPath: keyPath] = Double(v) == emptyValue ? "" : String(v)
+                }
                 onChange()
             }
         )

@@ -151,6 +151,10 @@ struct ScreenshotHarnessView: View {
             agentsTargets
         case .mlbInsightWidgets, .searchInsights:
             toolTargets
+        case .historicalAnalysisMLB:
+            NavigationStack { HistoricalAnalysisView(sport: .mlb) }
+                .environment(authStore)
+                .environment(themeStore)
         case .settings, .settingsLoaded, .settingsError,
              .deleteAccount, .deleteAccountError,
              .discord, .iosWidget:
@@ -1338,6 +1342,8 @@ enum ScreenshotHarness {
         case customPaywall
         case paywallError
         case customerCenter
+        // Temporary QA target: mount the MLB Historical Analysis screen directly
+        case historicalAnalysisMLB
     }
 
     /// True when the requested target belongs to the B08 settings/paywall
