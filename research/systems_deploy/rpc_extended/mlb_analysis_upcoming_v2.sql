@@ -62,12 +62,13 @@ upc AS (
 allseq AS (
   -- season-1 floor keeps opening-week prev_result/series semantics identical while
   -- halving the windowed history scan
-  SELECT b.team_abbr, b.opponent_abbr, b.game_date AS d, b.game_pk,
+  SELECT b.team_abbr, b.opponent_abbr, b.game_date AS d, b.time_et AS t, b.game_pk,
          CASE WHEN b.is_home THEN 'home' ELSE 'away' END AS ha,
          b.ml_won = 1 AS won, b.margin, false AS is_upcoming
   FROM mlb_analysis_base b, cs WHERE b.season >= cs.season - 1
   UNION ALL
-  SELECT team_abbr, opponent_abbr, official_date, game_pk,
+  SELECT team_abbr, opponent_abbr, official_date, (game_time_et AT TIME ZONE 'America/New_York')::time,
+         game_pk,
          CASE WHEN is_home THEN 'home' ELSE 'away' END,
          NULL, NULL, true
   FROM upc
@@ -80,18 +81,18 @@ seq AS (
     LAG(won)           OVER w AS prev_won,
     LAG(margin)        OVER w AS prev_margin
   FROM allseq
-  WINDOW w AS (PARTITION BY team_abbr ORDER BY d, game_pk)
+  WINDOW w AS (PARTITION BY team_abbr ORDER BY d, t, game_pk)
 ),
 ser AS (
   SELECT *,
     SUM(CASE WHEN prev_opp IS DISTINCT FROM opponent_abbr
                OR prev_ha  IS DISTINCT FROM ha
                OR d - prev_date > 3 THEN 1 ELSE 0 END)
-      OVER (PARTITION BY team_abbr ORDER BY d, game_pk) AS series_id
+      OVER (PARTITION BY team_abbr ORDER BY d, t, game_pk) AS series_id
   FROM seq
 ),
 ser2 AS (
-  SELECT *, row_number() OVER (PARTITION BY team_abbr, series_id ORDER BY d, game_pk) AS series_game
+  SELECT *, row_number() OVER (PARTITION BY team_abbr, series_id ORDER BY d, t, game_pk) AS series_game
   FROM ser
 ),
 serl AS (SELECT team_abbr, series_id, min(ha) AS ha FROM ser2 GROUP BY 1,2),
@@ -188,7 +189,8 @@ h2h AS (
 m AS (
   SELECT u.*,
     s2.series_game, t.trip_series_index,
-    (s2.prev_ha IS NOT NULL AND s2.prev_ha <> s2.ha)             AS is_switch_game,
+    (s2.prev_ha IS NOT NULL AND s2.prev_ha <> s2.ha
+     AND u.official_date - s2.prev_date <= 10)                    AS is_switch_game,
     CASE WHEN s2.prev_won IS NULL THEN NULL
          WHEN s2.prev_won THEN 'W' ELSE 'L' END                  AS prev_result,
     s2.prev_margin,

@@ -40,19 +40,19 @@ BEGIN
       LAG(won)           OVER w AS prev_won,
       LAG(margin)        OVER w AS prev_margin_v
     FROM g0
-    WINDOW w AS (PARTITION BY team_abbr ORDER BY official_date, game_pk)
+    WINDOW w AS (PARTITION BY team_abbr ORDER BY official_date, game_time_et, game_pk)
   ),
   ser AS (
     SELECT *,
       SUM(CASE WHEN prev_opp IS DISTINCT FROM opp_team_abbr
                  OR prev_ha  IS DISTINCT FROM home_away
                  OR official_date - prev_date > 3 THEN 1 ELSE 0 END)
-        OVER (PARTITION BY team_abbr ORDER BY official_date, game_pk) AS series_id
+        OVER (PARTITION BY team_abbr ORDER BY official_date, game_time_et, game_pk) AS series_id
     FROM seq
   ),
   ser2 AS (
     SELECT *,
-      row_number() OVER (PARTITION BY team_abbr, series_id ORDER BY official_date, game_pk) AS series_game_v
+      row_number() OVER (PARTITION BY team_abbr, series_id ORDER BY official_date, game_time_et, game_pk) AS series_game_v
     FROM ser
   ),
   serl AS (
@@ -137,7 +137,8 @@ BEGIN
          ELSE NULL END                                          AS f5_over,
     s.series_game_v                                             AS series_game,
     t.trip_series_index_v                                       AS trip_series_index,
-    (s.prev_ha IS NOT NULL AND s.prev_ha <> s.home_away)        AS is_switch_game,
+    (s.prev_ha IS NOT NULL AND s.prev_ha <> s.home_away
+     AND s.official_date - s.prev_date <= 10)                   AS is_switch_game,
     CASE WHEN s.prev_won IS NULL THEN NULL
          WHEN s.prev_won THEN 'W' ELSE 'L' END                  AS prev_result,
     s.prev_margin_v                                             AS prev_margin,

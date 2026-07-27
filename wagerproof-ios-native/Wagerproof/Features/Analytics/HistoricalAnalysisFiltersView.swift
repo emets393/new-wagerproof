@@ -575,7 +575,7 @@ struct HistoricalAnalysisFilterBar: View {
         case .mlb:
             optionalBoolPicker("Division", value: boolBinding(\.division))
             optionalBoolPicker("Interleague", value: boolBinding(\.interleague))
-            optionalBoolPicker("Switch game (city/league change)", value: boolBinding(\.switchGame))
+            optionalBoolPicker("First game after home/road switch", value: boolBinding(\.switchGame))
         }
     }
 
