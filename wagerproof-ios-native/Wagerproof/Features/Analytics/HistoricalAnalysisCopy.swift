@@ -642,6 +642,12 @@ enum HistoricalAnalysisCopy {
             })
         }
 
+        if s.rlSide != "any" {
+            chips.append(.init(label: s.rlSide == "plus" ? "Getting +1.5" : "Laying −1.5") {
+                s.rlSide = "any"; onChange(s)
+            })
+        }
+
         if let spreadCfg {
             let spreadMax = spreadCfg.max
             let lo = HistoricalAnalysisCopy.trimmed(s.spreadMin)

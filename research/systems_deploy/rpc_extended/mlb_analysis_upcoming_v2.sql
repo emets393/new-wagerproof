@@ -11,6 +11,14 @@ pcur AS MATERIALIZED (
   SELECT game_pk, home_ml, away_ml, total_line, f5_total_line
   FROM mlb_predictions_current WHERE is_active
 ),
+-- Latest POSTED runline per game — the book's actual +/-1.5 side, which is NOT
+-- always the ML favorite (~7% of games post the ML favorite at +1.5).
+rlq AS MATERIALIZED (
+  SELECT DISTINCT ON (game_pk) game_pk, home_spread, away_spread
+  FROM mlb_odds_snapshots
+  WHERE home_spread IS NOT NULL AND fetched_at > now() - interval '3 days'
+  ORDER BY game_pk, fetched_at DESC
+),
 upc0 AS (
   SELECT s.game_pk, s.official_date, s.game_time_et, s.venue_id, s.venue_name,
          s.is_divisional, s.is_interleague,
@@ -28,11 +36,13 @@ upc0 AS (
               WHEN p.home_ml < p.away_ml THEN true
               WHEN p.home_ml > p.away_ml THEN false
               ELSE true END AS home_is_fav,
-         p.home_ml, p.away_ml, p.total_line, p.f5_total_line
+         p.home_ml, p.away_ml, p.total_line, p.f5_total_line,
+         r.home_spread, r.away_spread
   FROM mlb_schedule s
   JOIN mlb_team_mapping mh ON mh.mlb_api_id = s.home_team_id
   JOIN mlb_team_mapping ma ON ma.mlb_api_id = s.away_team_id
   LEFT JOIN pcur p ON p.game_pk = s.game_pk
+  LEFT JOIN rlq r ON r.game_pk = s.game_pk
   WHERE s.game_time_et > now()
     AND NOT s.is_completed AND NOT COALESCE(s.is_cancelled,false) AND NOT COALESCE(s.is_postponed,false)
     AND s.game_type = 'R'
@@ -46,7 +56,7 @@ upc AS (
          home_sp_hand AS sp_hand, away_sp_hand AS opp_sp_hand,
          home_sp_name AS sp_name, away_sp_name AS opp_sp_name,
          wx_temp, wx_wind, wx_wind_dir, home_is_fav AS row_is_fav,
-         home_ml AS ml, total_line, f5_total_line
+         home_ml AS ml, total_line, f5_total_line, home_spread AS runline
   FROM upc0
   UNION ALL
   SELECT game_pk, official_date, game_time_et, venue_id, venue_name, is_divisional, is_interleague,
@@ -56,7 +66,7 @@ upc AS (
          away_sp_hand, home_sp_hand, away_sp_name, home_sp_name,
          wx_temp, wx_wind, wx_wind_dir,
          CASE WHEN home_is_fav IS NULL THEN (away_ml < 0) ELSE NOT home_is_fav END,
-         away_ml, total_line, f5_total_line
+         away_ml, total_line, f5_total_line, away_spread
   FROM upc0
 ),
 allseq AS (
@@ -257,6 +267,7 @@ SELECT COALESCE(jsonb_agg(jsonb_build_object(
                     ELSE team_name||' @ '||opp_name END,
     'team', team_abbr, 'opponent', opponent_abbr,
     'is_home', is_home, 'is_favorite', is_favorite, 'ml', ml,
+    'runline', runline,
     'total', total_line, 'f5_total', f5_total_line,
     'series_game', series_game, 'trip_series_index', trip_series_index,
     'is_switch_game', is_switch_game, 'prev_result', prev_result, 'prev_margin', prev_margin,
@@ -291,6 +302,7 @@ WHERE
   AND (p_filters->>'total_max' IS NULL OR total_line <= (p_filters->>'total_max')::numeric)
   AND (p_filters->>'f5_total_min' IS NULL OR f5_total_line >= (p_filters->>'f5_total_min')::numeric)
   AND (p_filters->>'f5_total_max' IS NULL OR f5_total_line <= (p_filters->>'f5_total_max')::numeric)
+  AND (p_filters->>'rl_side' IS NULL OR CASE WHEN (p_filters->>'rl_side')='plus' THEN runline > 0 ELSE runline < 0 END)
   AND (p_filters->>'series_game_min' IS NULL OR series_game >= (p_filters->>'series_game_min')::int)
   AND (p_filters->>'series_game_max' IS NULL OR series_game <= (p_filters->>'series_game_max')::int)
   AND (p_filters->'series_game_in' IS NULL OR series_game::text IN (SELECT jsonb_array_elements_text(p_filters->'series_game_in')))

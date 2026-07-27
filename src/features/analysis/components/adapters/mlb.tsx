@@ -42,6 +42,7 @@ export interface MlbPageSnapshot {
   interleague: boolean | null;
   side: string;
   favDog: string;
+  rlSide: string;
   mlMin: string;
   mlMax: string;
   lineRange: [number, number];
@@ -246,6 +247,7 @@ function reset(betType: string): S {
     interleague: null,
     side: 'any',
     favDog: 'any',
+    rlSide: 'any',
     mlMin: '',
     mlMax: '',
     lineRange: [5, 14],
@@ -335,6 +337,7 @@ function normalizeMlbPage(raw: Record<string, unknown>, rowBetType?: string): S 
     interleague: s.interleague,
     side: s.side,
     favDog: s.favDog,
+    rlSide: s.rlSide,
     mlMin: s.mlMin,
     mlMax: s.mlMax,
     lineRange: s.lineRange,
@@ -423,6 +426,8 @@ function toRpcFilters(s: S): Record<string, unknown> {
   if (s.interleague !== null) f.interleague = s.interleague;
   if (s.side !== 'any') f.side = s.side;
   if (s.favDog !== 'any') f.fav_dog = s.favDog;
+  // Posted runline sign — independent of fav_dog (ML fav gets +1.5 in ~7% of games).
+  if (s.rlSide !== 'any') f.rl_side = s.rlSide;
   {
     let a = parseOptionalNumber(s.mlMin);
     let b = parseOptionalNumber(s.mlMax);
@@ -669,6 +674,7 @@ function RailSections({
       <FilterGroup title="Side & Role">
         <SelectRow label="Side" value={s.side} onChange={(v) => update({ side: v })} options={[['any', 'Either'], ['home', 'Home'], ['away', 'Away']]} />
         <SelectRow label="Favorite / Underdog" value={s.favDog} onChange={(v) => update({ favDog: v })} options={[['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']]} />
+        <SelectRow label="Run line side" value={s.rlSide} onChange={(v) => update({ rlSide: v })} options={[['any', 'Either'], ['minus', 'Laying −1.5'], ['plus', 'Getting +1.5']]} />
       </FilterGroup>
 
       <FilterGroup title="Lines & Odds" defaultOpen>

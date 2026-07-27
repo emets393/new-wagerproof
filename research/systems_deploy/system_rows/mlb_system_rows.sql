@@ -226,6 +226,7 @@ AS $function$
     p_filters->>'rest_min' AS "rest_min_t",
     p_filters->>'rl_cover_pct_max' AS "rl_cover_pct_max_t",
     p_filters->>'rl_cover_pct_min' AS "rl_cover_pct_min_t",
+    p_filters->>'rl_side' AS "rl_side_t",
     p_filters->>'rl_streak_max' AS "rl_streak_max_t",
     p_filters->>'rl_streak_min' AS "rl_streak_min_t",
     p_filters->>'rpg_max' AS "rpg_max_t",
@@ -364,6 +365,9 @@ AS $function$
     AND (f."interleague_t" IS NULL OR b.is_interleague = (f."interleague_t")::boolean)
     AND (f."side_t" IS NULL OR b.is_home = ((f."side_t")='home'))
     AND (f."fav_dog_t" IS NULL OR b.is_favorite = ((f."fav_dog_t")='favorite'))
+    -- rl_side: the ACTUAL posted runline sign — NOT the ML favorite. Books post the
+    -- ML favorite at +1.5 in ~7% of games, so the fav_dog proxy misfilters those.
+    AND (f."rl_side_t" IS NULL OR CASE WHEN (f."rl_side_t")='plus' THEN b.closing_runline > 0 ELSE b.closing_runline < 0 END)
     AND (f."ml_min_t" IS NULL OR b.closing_ml >= (f."ml_min_t")::numeric)
     AND (f."ml_max_t" IS NULL OR b.closing_ml <= (f."ml_max_t")::numeric)
     AND (f."total_min_t" IS NULL OR b.closing_total >= (f."total_min_t")::numeric)

@@ -355,6 +355,8 @@ public enum HistoricalAnalysisFilterBuilder {
         if let interleague = snapshot.interleague { out["interleague"] = .bool(interleague) }
         if snapshot.side != "any" { out["side"] = .string(snapshot.side) }
         if snapshot.favDog != "any" { out["fav_dog"] = .string(snapshot.favDog) }
+        // Posted runline side — independent of fav_dog (ML fav gets +1.5 in ~7% of games).
+        if snapshot.rlSide != "any" { out["rl_side"] = .string(snapshot.rlSide) }
 
         let mlA = snapshot.mlMin.trimmingCharacters(in: .whitespaces).isEmpty
             ? nil : Double(snapshot.mlMin)

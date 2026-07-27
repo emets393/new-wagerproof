@@ -569,6 +569,9 @@ public final class HistoricalAnalysisStore {
         if snapshot.favDog != defaults.favDog {
             dict["favDog"] = .string(snapshot.favDog)
         }
+        if snapshot.rlSide != defaults.rlSide {
+            dict["rlSide"] = .string(snapshot.rlSide)
+        }
         if snapshot.spreadSide != defaults.spreadSide {
             dict["spreadSide"] = .string(snapshot.spreadSide)
         }
@@ -876,6 +879,10 @@ public final class HistoricalAnalysisStore {
             
             if let favDog = webSnapshot["favDog"]?.stringValue {
                 snapshot.favDog = favDog
+            }
+
+            if let rlSide = webSnapshot["rlSide"]?.stringValue {
+                snapshot.rlSide = rlSide
             }
             
             if let spreadSide = webSnapshot["spreadSide"]?.stringValue {

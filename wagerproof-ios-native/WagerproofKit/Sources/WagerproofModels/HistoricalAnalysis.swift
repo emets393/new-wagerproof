@@ -809,7 +809,7 @@ public enum AnalysisSystemCopy {
 // the web contract for parity reviews; do not re-derive classification from them alone.
 public enum AnalysisSideBreakingDims {
     public static let mlb: [String] = [
-        "teams", "opponents", "side", "favDog", "mlMin", "mlMax", "trip", "switchGame", "restRange",
+        "teams", "opponents", "side", "favDog", "rlSide", "mlMin", "mlMax", "trip", "switchGame", "restRange",
         "spNames", "oppSpNames", "spHand", "oppSpHand", "spXfip", "oppSpXfip", "spEra", "oppSpEra", "bpIp", "bpXfip",
         "lastResult", "lastAts", "lastTotal", "lastRole", "lastMargin", "winLossStreak",
         "oppLastResult", "oppLastAts", "oppLastTotal", "oppLastRole", "oppLastMargin",
@@ -858,6 +858,9 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
     public var weekMax: Int
     public var side: String
     public var favDog: String
+    /// MLB: the ACTUAL posted runline side ("minus" = laying -1.5, "plus" =
+    /// getting +1.5). Distinct from favDog — the ML favorite gets +1.5 in ~7% of games.
+    public var rlSide: String
     public var spreadSide: String
     public var spreadMin: Double
     public var spreadMax: Double
@@ -1055,7 +1058,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case betType, seasonMin, seasonMax, weekMin, weekMax
-        case side, favDog, spreadSide, spreadMin, spreadMax
+        case side, favDog, rlSide, spreadSide, spreadMin, spreadMax
         case lineMin, lineMax, mlMin, mlMax, primetime
         case h1SpreadSide, h1SpreadMin, h1SpreadMax, h1MlMin, h1MlMax, h1TotalMin, h1TotalMax
         case ttLineMin, ttLineMax, oppSpreadSide, oppSpreadMin, oppSpreadMax
@@ -1118,6 +1121,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         weekMax: Int,
         side: String,
         favDog: String,
+        rlSide: String = "any",
         spreadSide: String,
         spreadMin: Double,
         spreadMax: Double,
@@ -1269,6 +1273,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         self.weekMax = weekMax
         self.side = side
         self.favDog = favDog
+        self.rlSide = rlSide
         self.spreadSide = spreadSide
         self.spreadMin = spreadMin
         self.spreadMax = spreadMax
@@ -1437,6 +1442,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         }
         side = (try? c.decodeIfPresent(String.self, forKey: .side)) ?? "any"
         favDog = (try? c.decodeIfPresent(String.self, forKey: .favDog)) ?? "any"
+        rlSide = (try? c.decodeIfPresent(String.self, forKey: .rlSide)) ?? "any"
         spreadSide = (try? c.decodeIfPresent(String.self, forKey: .spreadSide)) ?? "any"
         if let size = try? alt.decodeIfPresent([Double].self, forKey: .spreadSize), size.count >= 2 {
             spreadMin = size[0]
@@ -1843,7 +1849,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         let d = Self.defaults(for: .mlb)
         return (
             teams.isEmpty && opponents.isEmpty &&
-            side == d.side && favDog == d.favDog &&
+            side == d.side && favDog == d.favDog && rlSide == d.rlSide &&
             mlMin.isEmpty && mlMax.isEmpty &&
             tripMin == nil && tripMax == nil &&
             switchGame == nil &&

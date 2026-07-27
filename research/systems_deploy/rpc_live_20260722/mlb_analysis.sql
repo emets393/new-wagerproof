@@ -102,6 +102,9 @@ BEGIN
     AND (p_filters->>'interleague' IS NULL OR b.is_interleague = (p_filters->>'interleague')::boolean)
     AND (p_filters->>'side' IS NULL OR b.is_home = ((p_filters->>'side')='home'))
     AND (p_filters->>'fav_dog' IS NULL OR b.is_favorite = ((p_filters->>'fav_dog')='favorite'))
+    -- rl_side: the ACTUAL posted runline sign — NOT the ML favorite. Books post the
+    -- ML favorite at +1.5 in ~7% of games, so the fav_dog proxy misfilters those.
+    AND (p_filters->>'rl_side' IS NULL OR CASE WHEN (p_filters->>'rl_side')='plus' THEN b.closing_runline > 0 ELSE b.closing_runline < 0 END)
     AND (p_filters->>'ml_min' IS NULL OR b.closing_ml >= (p_filters->>'ml_min')::numeric)
     AND (p_filters->>'ml_max' IS NULL OR b.closing_ml <= (p_filters->>'ml_max')::numeric)
     AND (p_filters->>'total_min' IS NULL OR b.closing_total >= (p_filters->>'total_min')::numeric)

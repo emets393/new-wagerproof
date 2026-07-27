@@ -36,6 +36,9 @@ export const MLB_FILTER_DIMENSIONS: Record<Exclude<keyof MlbFilterSnapshot, 'bet
   opponents: { group: 'Situation', kind: 'multiselect', optionSource: 'mlbTeams', label: 'Opponent', aliases: ['opponent', 'against', 'vs'], rpcNote: 'f.opponent = array of MLB abbreviations.' },
   side: { group: 'Situation', kind: 'enum', label: 'Side', options: [['any', 'Either'], ['home', 'Home'], ['away', 'Away']], aliases: ['home', 'away', 'road'], rpcNote: 'f.side.' },
   favDog: { group: 'Situation', kind: 'enum', label: 'Favorite / Underdog', options: [['any', 'Either'], ['favorite', 'Favorites'], ['underdog', 'Underdogs']], aliases: ['favorite', 'underdog', 'dog', 'chalk'], rpcNote: 'f.fav_dog.' },
+  // The ACTUAL posted runline side — NOT the ML favorite (books post the ML favorite
+  // at +1.5 in ~7% of games, so "getting +1.5" and "underdog" are different filters).
+  rlSide: { group: 'Situation', kind: 'enum', label: 'Run line side', options: [['any', 'Either'], ['minus', 'Laying −1.5'], ['plus', 'Getting +1.5']], aliases: ['getting +1.5', 'laying -1.5', 'runline +1.5', 'runline -1.5', 'plus 1.5', 'minus 1.5', 'getting a run and a half', 'laying a run and a half'], rpcNote: 'f.rl_side — sign of the POSTED runline, use this (not favDog) when the user names a runline number.' },
   mlMin: { group: 'Situation', kind: 'mlOdds', bound: 'min', label: 'Moneyline odds (min)', aliases: ['moneyline', 'odds'], rpcNote: 'f.ml_min (American).' },
   mlMax: { group: 'Situation', kind: 'mlOdds', bound: 'max', label: 'Moneyline odds (max)', aliases: ['moneyline', 'odds'], rpcNote: 'f.ml_max.' },
   lineRange: { group: 'Situation', kind: 'numRange', min: 5, max: 14, step: 0.5, label: 'Game total line', aliases: ['total', 'over under', 'o/u', 'game total'], rpcNote: 'total_min/max. Available on every bet type.' },

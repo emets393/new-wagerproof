@@ -590,7 +590,7 @@ export interface MlbFilterSnapshot {
   betType: string;
   seasons: NumPair; months: NumPair;
   teams: string[]; opponents: string[];
-  side: string; favDog: string; mlMin: string; mlMax: string;
+  side: string; favDog: string; rlSide: string; mlMin: string; mlMax: string;
   lineRange: NumPair; f5TotalRange: NumPair; timeMin: string; timeMax: string;
   daysOfWeek: string[]; doubleheader: boolean | null;
   seriesGame: NumPair; trip: NumPair; switchGame: boolean | null; restRange: NumPair;
@@ -617,7 +617,7 @@ export interface MlbFilterSnapshot {
 export const MLB_SNAPSHOT_DEFAULTS: MlbFilterSnapshot = {
   betType: 'ml',
   seasons: [2025, 2026], months: [3, 11], teams: [], opponents: [],
-  side: 'any', favDog: 'any', mlMin: '', mlMax: '',
+  side: 'any', favDog: 'any', rlSide: 'any', mlMin: '', mlMax: '',
   lineRange: [5, 14], f5TotalRange: [2, 8], timeMin: '', timeMax: '',
   daysOfWeek: [], doubleheader: null,
   seriesGame: [1, 6], trip: [1, 5], switchGame: null, restRange: [0, 10],
@@ -697,7 +697,7 @@ export function normalizeMlbSavedFilterSnapshot(
     seasons: native ? nativePair(r.seasonMin, r.seasonMax, d.seasons) : asPair(r.seasons, d.seasons),
     months: native ? nativePair(r.monthMin, r.monthMax, d.months) : asPair(r.months, d.months),
     teams: mlbGameLogTeamList(r.teams), opponents: mlbGameLogTeamList(r.opponents),
-    side: str(r.side, 'any'), favDog: str(r.favDog, 'any'),
+    side: str(r.side, 'any'), favDog: str(r.favDog, 'any'), rlSide: str(r.rlSide, 'any'),
     mlMin: str(r.mlMin, ''), mlMax: str(r.mlMax, ''),
     lineRange: native
       ? nativePair(r.lineMin, r.lineMax, d.lineRange)

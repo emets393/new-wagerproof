@@ -171,16 +171,10 @@ struct HistoricalAnalysisFilterBar: View {
         case "away": "Away"
         default: nil
         }
-        let role: String?
-        if isRunLineMarket {
-            // Run-line markets: the pill echoes only side; laying/getting shows in Lines.
-            role = nil
-        } else {
-            switch store.snapshot.favDog {
-            case "favorite": role = "Favorites"
-            case "underdog": role = "Underdogs"
-            default: role = nil
-            }
+        let role: String? = switch store.snapshot.favDog {
+        case "favorite": "Favorites"
+        case "underdog": "Underdogs"
+        default: nil
         }
         switch (side, role) {
         case let (s?, r?): return "\(s) \(r.lowercased())"
@@ -200,9 +194,9 @@ struct HistoricalAnalysisFilterBar: View {
                     Label("Away", systemImage: "airplane").tag("away")
                 }
             }
-            // On run-line markets the fav/dog question lives in the Lines pill as the
-            // "Run line" dropdown (laying/getting IS fav/dog) — never show it twice.
-            if showsFavDogFilter && !isRunLineMarket {
+            // Fav/dog and run-line side are independent questions (the ML favorite
+            // gets +1.5 in ~7% of games), so both filters are always available.
+            if showsFavDogFilter {
                 Picker("Favorite / underdog", selection: binding(\.favDog)) {
                     Label("Either", systemImage: "circle.dashed").tag("any")
                     Label("Favorites", systemImage: "star.fill").tag("favorite")
@@ -696,16 +690,15 @@ struct HistoricalAnalysisFilterBar: View {
     /// into one sheet, matching the football Lines sheet's shape.
     @ViewBuilder
     private var mlbLinesSheet: some View {
-        // MLB run lines are ±1.5 in effectively every game (our full odds history has
-        // no other value), so "laying vs getting" IS the favorite/underdog split —
-        // this dropdown drives favDog. The old side+0-20 slider was a dead control
-        // (the MLB RPC has no spread keys; it silently did nothing).
+        // Filters on the ACTUAL posted runline sign (rl_side), not the ML favorite —
+        // books post the ML favorite at +1.5 in ~7% of games, so "getting +1.5"
+        // and "underdog" are different questions.
         if isRunLineMarket {
             Section("Run line") {
-                Picker("Run line", selection: binding(\.favDog)) {
+                Picker("Run line", selection: binding(\.rlSide)) {
                     Text("Any").tag("any")
-                    Text("Laying \u{2212}1.5 (favorite)").tag("favorite")
-                    Text("Getting +1.5 (underdog)").tag("underdog")
+                    Text("Laying \u{2212}1.5").tag("minus")
+                    Text("Getting +1.5").tag("plus")
                 }
             }
         }
