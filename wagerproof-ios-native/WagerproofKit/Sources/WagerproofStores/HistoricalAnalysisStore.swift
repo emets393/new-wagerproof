@@ -737,7 +737,9 @@ public final class HistoricalAnalysisStore {
             if let v = snapshot.doubleheader { dict["doubleheader"] = .bool(v) }
             if let v = snapshot.interleague { dict["interleague"] = .bool(v) }
             if let v = snapshot.switchGame { dict["switchGame"] = .bool(v) }
-            if snapshot.seriesGameMin != nil || snapshot.seriesGameMax != nil {
+            if !snapshot.seriesGames.isEmpty {
+                dict["seriesGames"] = .array(snapshot.seriesGames.sorted().map { .int($0) })
+            } else if snapshot.seriesGameMin != nil || snapshot.seriesGameMax != nil {
                 dict["seriesGame"] = .array([.int(snapshot.seriesGameMin ?? 1), .int(snapshot.seriesGameMax ?? 6)])
             }
             if snapshot.tripMin != nil || snapshot.tripMax != nil {
@@ -1028,9 +1030,11 @@ public final class HistoricalAnalysisStore {
                 if let v = webSnapshot["doubleheader"]?.boolValue { snapshot.doubleheader = v }
                 if let v = webSnapshot["interleague"]?.boolValue { snapshot.interleague = v }
                 if let v = webSnapshot["switchGame"]?.boolValue { snapshot.switchGame = v }
-                if let v = pairInts("seriesGame") {
-                    snapshot.seriesGameMin = v == [1, 6] ? nil : v[0]
-                    snapshot.seriesGameMax = v == [1, 6] ? nil : v[1]
+                if let arr = webSnapshot["seriesGames"]?.arrayValue {
+                    snapshot.seriesGames = arr.compactMap { $0.intValue ?? $0.doubleValue.map { Int($0.rounded()) } }
+                } else if let v = pairInts("seriesGame"), v != [1, 6] {
+                    // Legacy range save — expand into the multi-select set.
+                    snapshot.seriesGames = Array(v[0]...max(v[0], v[1]))
                 }
                 if let v = pairInts("trip") {
                     snapshot.tripMin = v == [1, 5] ? nil : v[0]

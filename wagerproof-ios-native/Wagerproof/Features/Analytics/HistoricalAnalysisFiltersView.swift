@@ -519,14 +519,7 @@ struct HistoricalAnalysisFilterBar: View {
                 .keyboardType(.numbersAndPunctuation)
         }
         Section("Series game") {
-            labeledRangeSlider(
-                title: "Game #",
-                lower: optionalIntRangeBinding(\.seriesGameMin, bound: 1, isLower: true),
-                upper: optionalIntRangeBinding(\.seriesGameMax, bound: 6, isLower: false),
-                range: 1...6,
-                step: 1,
-                format: { String(Int($0)) }
-            )
+            seriesGameMultiSelect
         }
         Section("Trip series index") {
             labeledRangeSlider(
@@ -1717,6 +1710,43 @@ struct HistoricalAnalysisFilterBar: View {
                     step: 1
                 )
             }
+        }
+    }
+
+    @ViewBuilder
+    private var seriesGameMultiSelect: some View {
+        let selected = store.snapshot.seriesGames
+        if selected.isEmpty {
+            Text("Any game")
+                .foregroundStyle(Color.appTextSecondary)
+        } else {
+            Text("Game \(selected.sorted().map(String.init).joined(separator: ", "))")
+                .foregroundStyle(Color.appTextSecondary)
+        }
+
+        // Games 5-6 exist only via doubleheader-stretched series (a handful of rows).
+        ForEach(1...4, id: \.self) { game in
+            Button {
+                store.updateSnapshot { snap in
+                    if snap.seriesGames.contains(game) {
+                        snap.seriesGames.removeAll { $0 == game }
+                    } else {
+                        snap.seriesGames.append(game)
+                    }
+                }
+                onChange()
+            } label: {
+                HStack {
+                    Text("Game \(game)")
+                    Spacer()
+                    if selected.contains(game) {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(Color.appPrimary)
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                }
+            }
+            .foregroundStyle(Color.appTextPrimary)
         }
     }
 

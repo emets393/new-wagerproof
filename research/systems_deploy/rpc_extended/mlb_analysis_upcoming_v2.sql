@@ -293,6 +293,7 @@ WHERE
   AND (p_filters->>'f5_total_max' IS NULL OR f5_total_line <= (p_filters->>'f5_total_max')::numeric)
   AND (p_filters->>'series_game_min' IS NULL OR series_game >= (p_filters->>'series_game_min')::int)
   AND (p_filters->>'series_game_max' IS NULL OR series_game <= (p_filters->>'series_game_max')::int)
+  AND (p_filters->'series_game_in' IS NULL OR series_game::text IN (SELECT jsonb_array_elements_text(p_filters->'series_game_in')))
   AND (p_filters->>'trip_min' IS NULL OR trip_series_index >= (p_filters->>'trip_min')::int)
   AND (p_filters->>'trip_max' IS NULL OR trip_series_index <= (p_filters->>'trip_max')::int)
   AND (p_filters->>'switch_game' IS NULL OR is_switch_game = (p_filters->>'switch_game')::boolean)

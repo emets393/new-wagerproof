@@ -265,6 +265,7 @@ AS $function$
     p_filters->'day_of_week' AS "day_of_week_j",
     p_filters->'opp_sp' AS "opp_sp_j",
     p_filters->'opponent' AS "opponent_j",
+    p_filters->'series_game_in' AS "series_game_in_j",
     p_filters->'sp' AS "sp_j",
     p_filters->'team' AS "team_j" OFFSET 0) f
   LEFT JOIN LATERAL (
@@ -371,6 +372,7 @@ AS $function$
     AND (f."f5_total_max_t" IS NULL OR b.f5_total_line <= (f."f5_total_max_t")::numeric)
     AND (f."series_game_min_t" IS NULL OR b.series_game >= (f."series_game_min_t")::int)
     AND (f."series_game_max_t" IS NULL OR b.series_game <= (f."series_game_max_t")::int)
+    AND (f."series_game_in_j" IS NULL OR b.series_game::text IN (SELECT jsonb_array_elements_text(f."series_game_in_j")))
     AND (f."trip_min_t" IS NULL OR b.trip_series_index >= (f."trip_min_t")::int)
     AND (f."trip_max_t" IS NULL OR b.trip_series_index <= (f."trip_max_t")::int)
     AND (f."switch_game_t" IS NULL OR b.is_switch_game = (f."switch_game_t")::boolean)

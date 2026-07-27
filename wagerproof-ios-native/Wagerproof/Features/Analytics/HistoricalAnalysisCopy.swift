@@ -369,9 +369,10 @@ enum HistoricalAnalysisCopy {
                     s.f5TotalMin = 2; s.f5TotalMax = 8; onChange(s)
                 })
             }
-            if s.seriesGameMin != nil || s.seriesGameMax != nil {
-                chips.append(.init(label: "Series game") {
-                    s.seriesGameMin = nil; s.seriesGameMax = nil; onChange(s)
+            if !s.seriesGames.isEmpty || s.seriesGameMin != nil || s.seriesGameMax != nil {
+                let games = s.seriesGames.sorted().map(String.init).joined(separator: ", ")
+                chips.append(.init(label: games.isEmpty ? "Series game" : "Series game \(games)") {
+                    s.seriesGames = []; s.seriesGameMin = nil; s.seriesGameMax = nil; onChange(s)
                 })
             }
             if s.tripMin != nil || s.tripMax != nil {

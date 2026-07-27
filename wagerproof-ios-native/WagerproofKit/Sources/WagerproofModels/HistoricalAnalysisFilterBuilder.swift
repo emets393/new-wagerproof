@@ -393,6 +393,7 @@ public enum HistoricalAnalysisFilterBuilder {
         if snapshot.f5TotalMin > 2 { out["f5_total_min"] = .double(snapshot.f5TotalMin) }
         if snapshot.f5TotalMax < 8 { out["f5_total_max"] = .double(snapshot.f5TotalMax) }
         if let doubleheader = snapshot.doubleheader { out["doubleheader"] = .bool(doubleheader) }
+        if !snapshot.seriesGames.isEmpty { out["series_game_in"] = .array(snapshot.seriesGames.sorted().map { .int($0) }) }
         if let v = snapshot.seriesGameMin { out["series_game_min"] = .int(v) }
         if let v = snapshot.seriesGameMax { out["series_game_max"] = .int(v) }
         if let v = snapshot.tripMin { out["trip_min"] = .int(v) }

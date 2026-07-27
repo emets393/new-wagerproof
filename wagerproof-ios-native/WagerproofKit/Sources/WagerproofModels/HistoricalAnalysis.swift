@@ -982,6 +982,9 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
     public var interleague: Bool?
     public var dayOfWeek: String
     public var doubleheader: Bool?
+    // Multi-select of specific game numbers (1-6). Legacy min/max range saves are
+    // migrated into this set at decode; the range fields survive only for old saves.
+    public var seriesGames: [Int]
     public var seriesGameMin: Int?
     public var seriesGameMax: Int?
     public var tripMin: Int?
@@ -1059,7 +1062,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         case weather, lastAts, lastTotal, lastRole, lastOt, lastBlowout
         case monthMin, monthMax, teams, opponents, interleague
         case dayOfWeek, doubleheader
-        case seriesGameMin, seriesGameMax, tripMin, tripMax, switchGame
+        case seriesGames, seriesGameMin, seriesGameMax, tripMin, tripMax, switchGame
         case restMin, restMax, streakMin, streakMax, lastResult
         case lastMarginMin, lastMarginMax
         case sp, oppSp, spHand, oppSpHand
@@ -1159,6 +1162,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         interleague: Bool? = nil,
         dayOfWeek: String = "any",
         doubleheader: Bool? = nil,
+        seriesGames: [Int] = [],
         seriesGameMin: Int? = nil,
         seriesGameMax: Int? = nil,
         tripMin: Int? = nil,
@@ -1309,6 +1313,7 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         self.interleague = interleague
         self.dayOfWeek = dayOfWeek
         self.doubleheader = doubleheader
+        self.seriesGames = seriesGames
         self.seriesGameMin = seriesGameMin
         self.seriesGameMax = seriesGameMax
         self.tripMin = tripMin
@@ -1546,6 +1551,13 @@ public struct HistoricalAnalysisUISnapshot: Codable, Sendable, Equatable {
         } else {
             seriesGameMin = try c.decodeIfPresent(Int.self, forKey: .seriesGameMin)
             seriesGameMax = try c.decodeIfPresent(Int.self, forKey: .seriesGameMax)
+        }
+        seriesGames = try c.decodeIfPresent([Int].self, forKey: .seriesGames) ?? []
+        // Migrate legacy range saves into the multi-select set.
+        if seriesGames.isEmpty, seriesGameMin != nil || seriesGameMax != nil {
+            let lo = seriesGameMin ?? 1
+            seriesGames = Array(lo...max(lo, seriesGameMax ?? 6))
+            seriesGameMin = nil; seriesGameMax = nil
         }
         if let p = Self.altPair(alt, .trip) {
             tripMin = p.0.map { Int($0.rounded()) }
