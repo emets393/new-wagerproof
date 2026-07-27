@@ -81,9 +81,12 @@ struct HistoricalAnalysisFilterBar: View {
         // QA hook: `-openFilterSheet <id>` auto-opens a sheet for screenshot passes.
         .onAppear {
             let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "-betType"), i + 1 < args.count {
+                store.betType = args[i + 1]
+            }
             if let i = args.firstIndex(of: "-openFilterSheet"), i + 1 < args.count,
                let sheet = FilterSheet(rawValue: args[i + 1]) {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { activeSheet = sheet }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { activeSheet = sheet }
             }
         }
         #endif
@@ -687,19 +690,18 @@ struct HistoricalAnalysisFilterBar: View {
     /// into one sheet, matching the football Lines sheet's shape.
     @ViewBuilder
     private var mlbLinesSheet: some View {
-        Section("Run line") {
-            Picker("Side", selection: binding(\.spreadSide)) {
-                Text("Either side").tag("any")
-                Text("Favored by").tag("favorite")
-                Text("Getting").tag("underdog")
+        // MLB run lines are ±1.5 in effectively every game (our full odds history has
+        // no other value), so "laying vs getting" IS the favorite/underdog split —
+        // this dropdown drives favDog. The old side+0-20 slider was a dead control
+        // (the MLB RPC has no spread keys; it silently did nothing).
+        if ["rl", "f5_rl"].contains(store.betType) {
+            Section("Run line") {
+                Picker("Run line", selection: binding(\.favDog)) {
+                    Text("Any").tag("any")
+                    Text("Laying \u{2212}1.5 (favorite)").tag("favorite")
+                    Text("Getting +1.5 (underdog)").tag("underdog")
+                }
             }
-            labeledRangeSlider(
-                title: "Spread",
-                lower: doubleBinding(\.spreadMin),
-                upper: doubleBinding(\.spreadMax),
-                range: 0...defaultSpreadMax,
-                step: 0.5
-            )
         }
         Section("Moneyline odds") {
             TextField("Min American odds (e.g. -200)", text: stringBinding(\.mlMin))
@@ -707,24 +709,26 @@ struct HistoricalAnalysisFilterBar: View {
             TextField("Max American odds (e.g. -120)", text: stringBinding(\.mlMax))
                 .keyboardType(.numbersAndPunctuation)
         }
-        Section("Game total") {
+        Section("Game total (runs)") {
             labeledRangeSlider(
-                title: "Total",
+                title: "Game total",
                 lower: doubleBinding(\.lineMin),
                 upper: doubleBinding(\.lineMax),
                 range: Double(defaultLineMin)...Double(defaultLineMax),
-                step: 0.5
+                step: 0.5,
+                suffix: " runs"
             )
         }
         // A2/A3: F5 total is an independent dim from the game total above —
         // always shown, regardless of the selected bet type (web parity).
-        Section("F5 total") {
+        Section("First-5-innings total (runs)") {
             labeledRangeSlider(
                 title: "F5 total",
                 lower: doubleBinding(\.f5TotalMin),
                 upper: doubleBinding(\.f5TotalMax),
                 range: 2...8,
-                step: 0.5
+                step: 0.5,
+                suffix: " runs"
             )
         }
     }
