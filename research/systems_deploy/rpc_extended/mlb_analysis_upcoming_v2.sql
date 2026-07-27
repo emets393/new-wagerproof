@@ -1,14 +1,9 @@
--- mlb_analysis_upcoming v2 (2026-07-22): adds the FULL as-of filter family so the same
--- p_filters payload works on history (mlb_analysis) and today's slate. Current-season
--- form (records/streaks/rates) is computed live from mlb_analysis_base at query time —
--- the base as-of columns are entering-a-game values, so "now" = aggregate through each
--- team's latest completed game. Also fixes day_of_week to array semantics (parity with
--- the base RPC's multi-select).
 CREATE OR REPLACE FUNCTION public.mlb_analysis_upcoming(p_bet_type text, p_filters jsonb DEFAULT '{}'::jsonb)
  RETURNS jsonb
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public', 'pg_temp'
+ SET statement_timeout TO '15s'
 AS $function$
 WITH cs AS (SELECT EXTRACT(YEAR FROM (now() AT TIME ZONE 'America/New_York'))::int AS season),
 -- one evaluation of the predictions view (it was re-scanned per schedule row: ~250ms)
@@ -23,6 +18,16 @@ upc0 AS (
          mh.team AS home_abbr, ma.team AS away_abbr,
          s.home_team_name, s.away_team_name,
          s.home_sp_hand, s.away_sp_hand, s.home_sp_name, s.away_sp_name,
+         s.temperature_f AS wx_temp, s.wind_speed_mph AS wx_wind,
+         CASE WHEN s.wind_direction ILIKE 'out%' THEN 'out'
+              WHEN s.wind_direction ILIKE 'in%' THEN 'in'
+              WHEN s.wind_direction ILIKE '%to%' THEN 'cross'
+              WHEN s.wind_direction IS NULL THEN NULL ELSE 'none' END AS wx_wind_dir,
+         -- relative favorite (lower ML; tie -> home) — matches the base's definition
+         CASE WHEN p.home_ml IS NULL OR p.away_ml IS NULL THEN (p.home_ml < 0)
+              WHEN p.home_ml < p.away_ml THEN true
+              WHEN p.home_ml > p.away_ml THEN false
+              ELSE true END AS home_is_fav,
          p.home_ml, p.away_ml, p.total_line, p.f5_total_line
   FROM mlb_schedule s
   JOIN mlb_team_mapping mh ON mh.mlb_api_id = s.home_team_id
@@ -40,6 +45,7 @@ upc AS (
          home_team_name AS team_name, away_team_name AS opp_name,
          home_sp_hand AS sp_hand, away_sp_hand AS opp_sp_hand,
          home_sp_name AS sp_name, away_sp_name AS opp_sp_name,
+         wx_temp, wx_wind, wx_wind_dir, home_is_fav AS row_is_fav,
          home_ml AS ml, total_line, f5_total_line
   FROM upc0
   UNION ALL
@@ -47,7 +53,10 @@ upc AS (
          false, away_abbr, home_abbr,
          home_team_id, away_sp_id, home_sp_id,
          away_team_name, home_team_name,
-         away_sp_hand, home_sp_hand, away_sp_name, home_sp_name, away_ml, total_line, f5_total_line
+         away_sp_hand, home_sp_hand, away_sp_name, home_sp_name,
+         wx_temp, wx_wind, wx_wind_dir,
+         CASE WHEN home_is_fav IS NULL THEN (away_ml < 0) ELSE NOT home_is_fav END,
+         away_ml, total_line, f5_total_line
   FROM upc0
 ),
 allseq AS (
@@ -193,7 +202,7 @@ m AS (
     (u.game_time_et AT TIME ZONE 'America/New_York')::time        AS time_et,
     trim(to_char(u.official_date,'Dy'))                           AS day_of_week,
     (count(*) OVER (PARTITION BY u.team_abbr, u.official_date) > 1) AS is_doubleheader,
-    (u.ml < 0)                                                    AS is_favorite,
+    u.row_is_fav                                                  AS is_favorite,
     COALESCE(pf.is_dome,false)                                    AS is_dome,
     pf.pf_runs,
     a.gp AS team_gp, a.win_pct AS team_win_pct, a.rl_cover_pct AS team_rl_cover_pct,
@@ -300,6 +309,11 @@ WHERE
   AND (p_filters->>'bp_xfip_min' IS NULL OR opp_bp_season_xfip >= (p_filters->>'bp_xfip_min')::numeric)
   AND (p_filters->>'bp_xfip_max' IS NULL OR opp_bp_season_xfip <= (p_filters->>'bp_xfip_max')::numeric)
   AND (p_filters->>'dome' IS NULL OR is_dome = (p_filters->>'dome')::boolean)
+  AND (p_filters->>'temp_min' IS NULL OR wx_temp >= (p_filters->>'temp_min')::numeric)
+  AND (p_filters->>'temp_max' IS NULL OR wx_temp <= (p_filters->>'temp_max')::numeric)
+  AND (p_filters->>'wind_min' IS NULL OR wx_wind >= (p_filters->>'wind_min')::numeric)
+  AND (p_filters->>'wind_max' IS NULL OR wx_wind <= (p_filters->>'wind_max')::numeric)
+  AND (p_filters->>'wind_dir' IS NULL OR wx_wind_dir = (p_filters->>'wind_dir'))
   AND (p_filters->>'pf_runs_min' IS NULL OR pf_runs >= (p_filters->>'pf_runs_min')::numeric)
   AND (p_filters->>'pf_runs_max' IS NULL OR pf_runs <= (p_filters->>'pf_runs_max')::numeric)
   AND (p_filters->'sp' IS NULL OR sp_id::text IN (SELECT jsonb_array_elements_text(p_filters->'sp')))
@@ -364,5 +378,7 @@ WHERE
   AND (p_filters->>'h2h_last_fav' IS NULL OR h2h_last_fav = (p_filters->>'h2h_last_fav')::boolean)
   AND (p_filters->>'h2h_last_margin_min' IS NULL OR h2h_last_margin >= (p_filters->>'h2h_last_margin_min')::numeric)
   AND (p_filters->>'h2h_last_margin_max' IS NULL OR h2h_last_margin <= (p_filters->>'h2h_last_margin_max')::numeric)
-  AND (p_filters->>'h2h_same_season' IS NULL OR h2h_same_season = (p_filters->>'h2h_same_season')::boolean);
+  AND (p_filters->>'h2h_same_season' IS NULL OR h2h_same_season = (p_filters->>'h2h_same_season')::boolean)
+  AND (p_filters->>'season_min' IS NULL OR (SELECT season FROM cs) >= (p_filters->>'season_min')::int)
+  AND (p_filters->>'season_max' IS NULL OR (SELECT season FROM cs) <= (p_filters->>'season_max')::int);
 $function$
