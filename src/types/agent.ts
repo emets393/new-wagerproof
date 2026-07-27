@@ -196,6 +196,8 @@ export interface OverlapAgentSummary {
   name: string;
   avatar_emoji: string;
   avatar_color: string;
+  /** Explicit sprite override, or null -> hash the id. Avatars are sprites. */
+  sprite_index: number | null;
 }
 
 export interface AgentPickOverlap {

@@ -28,6 +28,40 @@ struct NFLGameBottomSheet: View {
     @State private var selectedSignal: NFLSignalDefinition?
     @State private var selectedTrendDetail: NFLTrendDetailSelection?
 
+    /// Hero text that depends only on the game, not on scroll progress.
+    ///
+    /// `CollapsingWidgetScroll` re-invokes the hero builder on every scroll
+    /// frame, so building these inline re-parsed the kickoff date/time and
+    /// re-interpolated five stat values 120 times a second.
+    private struct HeroText {
+        let dateLabel: String
+        let timeLabel: String
+        let expandedStats: [MatchupGlassHero.Stat]
+        let collapsedStats: [MatchupGlassHero.Stat]
+
+        init(_ game: NFLPrediction) {
+            dateLabel = GameCardFormatting.formatCompactDate(game.kickoff ?? game.gameDate)
+            timeLabel = GameCardFormatting.convertTimeToEST(game.kickoff ?? game.gameTime)
+            let ml = "\(GameCardFormatting.formatMoneyline(game.awayMl)) / \(GameCardFormatting.formatMoneyline(game.homeMl))"
+            let spread = "\(GameCardFormatting.formatSpread(game.awaySpread)) / \(GameCardFormatting.formatSpread(game.homeSpread))"
+            let ou = GameCardFormatting.roundToNearestHalf(game.overLine)
+            expandedStats = [
+                .init(label: "ML", value: ml),
+                .init(label: "Spread", value: spread),
+                .init(label: "O/U", value: ou)
+            ]
+            collapsedStats = [
+                .init(label: "Spread", value: spread),
+                .init(label: "O/U", value: ou)
+            ]
+        }
+    }
+
+    @State private var heroTextCache: HeroText?
+    /// Falls back to computing inline on the very first frame (before `.task`
+    /// seeds the cache) so the hero never renders blank.
+    private var heroText: HeroText { heroTextCache ?? HeroText(game) }
+
     private var awayColors: TeamColorPair { NFLTeamColors.colorPair(for: game.awayTeam) }
     private var homeColors: TeamColorPair { NFLTeamColors.colorPair(for: game.homeTeam) }
     private var awayAbbr: String { game.awayAb ?? NFLTeamAssets.abbr(for: game.awayTeam) }
@@ -39,20 +73,26 @@ struct NFLGameBottomSheet: View {
             heroMinHeight: 122,
             transparentPage: !showAura,
             heroTopInset: heroTopInset,
-            contentBottomInset: contentBottomInset
+            contentBottomInset: contentBottomInset,
+            usesLiquidGlass: false
         ) { progress in
-            if showAura {
-                TeamAuraBackground(
-                    awayColor: awayColors.primary,
-                    homeColor: homeColors.primary,
-                    progress: progress
-                )
-            } else {
-                Color.appSurface
-            }
+            // Always the real aura. In carousel mode `transparentPage` means this
+            // paints the HERO BAND only, and the carousel now draws its shared
+            // glow behind the pages (no blend mode) — so the hero needs a
+            // matching copy. Both anchor their blobs in global coordinates, so
+            // they align and the hero's `.clipped()` seam fix still holds.
+            TeamAuraBackground(
+                awayColor: awayColors.primary,
+                homeColor: homeColors.primary,
+                progress: progress
+            )
         } hero: { progress in
             heroView(progress: progress)
         } content: {
+            // FIRST, above every per-sport section — the crowd's read on the
+            // game frames everything below it, and the widget is sport-agnostic
+            // (same placement as web's detail grid).
+            AgentConsensusSection(sport: .nfl, gameId: GameConsensusKey.nfl(game), gameDate: game.gameDate)
             marketOddsSection
             predictionSections
             matchupParlaysSection
@@ -67,6 +107,9 @@ struct NFLGameBottomSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.disabled)
         .task(id: game.gameId) {
+            // Seed the hero text cache so subsequent scroll frames reuse it
+            // instead of re-parsing the kickoff and re-building the stat rows.
+            heroTextCache = HeroText(game)
             await loadDryrunData()
             await loadMatchupParlays()
         }
@@ -95,20 +138,14 @@ struct NFLGameBottomSheet: View {
     @ViewBuilder
     private func heroView(progress p: CGFloat) -> some View {
         let detail = Double(max(0, 1 - p * 1.9))
+        let text = heroText
         VStack(spacing: heroLerp(12, 6, p)) {
-            topRow
+            topRow(text)
             MatchupGlassHero(
                 away: heroSide(team: game.awayTeam, ml: game.awayMl),
                 home: heroSide(team: game.homeTeam, ml: game.homeMl),
-                expandedStats: [
-                    .init(label: "ML", value: "\(GameCardFormatting.formatMoneyline(game.awayMl)) / \(GameCardFormatting.formatMoneyline(game.homeMl))"),
-                    .init(label: "Spread", value: "\(GameCardFormatting.formatSpread(game.awaySpread)) / \(GameCardFormatting.formatSpread(game.homeSpread))"),
-                    .init(label: "O/U", value: GameCardFormatting.roundToNearestHalf(game.overLine))
-                ],
-                collapsedStats: [
-                    .init(label: "Spread", value: "\(GameCardFormatting.formatSpread(game.awaySpread)) / \(GameCardFormatting.formatSpread(game.homeSpread))"),
-                    .init(label: "O/U", value: GameCardFormatting.roundToNearestHalf(game.overLine))
-                ],
+                expandedStats: text.expandedStats,
+                collapsedStats: text.collapsedStats,
                 progress: p
             )
             if detail > 0.08, hasWeather {
@@ -140,13 +177,13 @@ struct NFLGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private var topRow: some View {
+    private func topRow(_ text: HeroText) -> some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
-            Text(GameCardFormatting.formatCompactDate(game.kickoff ?? game.gameDate))
+            Text(text.dateLabel)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color.appTextPrimary)
-            Text(GameCardFormatting.convertTimeToEST(game.kickoff ?? game.gameTime))
+            Text(text.timeLabel)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.appTextSecondary)
                 .padding(.horizontal, 10)

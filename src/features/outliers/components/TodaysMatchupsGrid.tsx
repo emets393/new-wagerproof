@@ -8,6 +8,8 @@ import { SkeletonBlock } from '@/components/ios';
 import { useTodaysMatchupGames } from '@/hooks/useTodaysMatchupGames';
 import { SectionHeader } from './SectionHeader';
 import { MatchupTile, type MatchupTileData } from './MatchupTile';
+import { useOutliersConsensus } from '../useOutliersConsensus';
+import type { GamesSport } from '@/features/games/types';
 import { teamVisuals } from '../teamVisuals';
 import { OUTLIERS_SPORT_LABELS } from '../types';
 import type { OutliersTrendsGame, OutliersTrendsSport } from '../types';
@@ -106,6 +108,7 @@ function mlbTile(
     sportLabel,
     // Fall back to the date at noon so a time-less game still sorts on its day.
     startMs: epochMs(game.game_time) ?? epochMs(`${game.official_date}T12:00:00`),
+    gameDate: game.official_date,
   };
 }
 
@@ -135,6 +138,9 @@ function slateTile(
     timeLabel: etTime(game.kickoff),
     sportLabel,
     startMs: epochMs(game.kickoff),
+    // Consensus is keyed on the ET day, and kickoff is a UTC instant — a late
+    // game would otherwise land on the wrong date.
+    gameDate: game.kickoff ? etDateKey(new Date(game.kickoff)) : '',
   };
 }
 
@@ -162,7 +168,7 @@ export function TodaysMatchupsGrid({ sports, gamesBySport, slateLoading, landing
   const multiSport = sports.length > 1;
 
   const todayKey = etDateKey(new Date());
-  const tiles = useMemo<MatchupTileData[]>(() => {
+  const tiles = useMemo<Array<MatchupTileData & { sport: OutliersTrendsSport }>>(() => {
     const out: Array<MatchupTileData & { sport: OutliersTrendsSport }> = [];
     for (const s of sports) {
       const label = multiSport ? OUTLIERS_SPORT_LABELS[s] : undefined;
@@ -181,6 +187,22 @@ export function TodaysMatchupsGrid({ sports, gamesBySport, slateLoading, landing
   }, [sports, multiSport, mlbQuery.data, gamesBySport, todayKey, landingPreview]);
 
   const isLoading = (includesMlb && mlbQuery.isLoading) || Boolean(slateLoading);
+  // Built from every tile, not just the visible page, so paging doesn't change
+  // the query key and refire the RPC.
+  const consensusItems = useMemo(
+    () =>
+      tiles
+        .filter((t) => t.gameDate)
+        .map((t) => ({
+          key: t.key,
+          sport: gamesSportParam(t.sport) as GamesSport,
+          gameId: t.key.slice(t.key.indexOf(':') + 1),
+          gameDate: t.gameDate,
+        })),
+    [tiles],
+  );
+  const consensusByKey = useOutliersConsensus(consensusItems);
+
   // MLB failing alone shouldn't blank a grid that still has football tiles.
   const isError = includesMlb && mlbQuery.isError && tiles.length === 0;
 
@@ -246,7 +268,11 @@ export function TodaysMatchupsGrid({ sports, gamesBySport, slateLoading, landing
               className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
             >
               {visible.map((tile) => (
-                <MatchupTile key={tile.key} data={tile} />
+                <MatchupTile
+                  key={tile.key}
+                  data={tile}
+                  consensus={consensusByKey.get(tile.key)}
+                />
               ))}
             </motion.div>
           </AnimatePresence>

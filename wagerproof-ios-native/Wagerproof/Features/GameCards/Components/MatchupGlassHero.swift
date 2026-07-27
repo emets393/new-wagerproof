@@ -57,14 +57,20 @@ struct MatchupGlassHero: View {
 
     var body: some View {
         let p = clamp(progress)
-        let size = lerp(bigSize, smallSize, p)
+        // Quantize every LAYOUT dimension to whole points. Disc size and gap are
+        // the laid-out frames a `GlassEffectContainer` solves its metaball merge
+        // from, so a sub-pixel change re-solved the glass — and re-rendered each
+        // disc's shadow and re-scaled its logo — on all 120 scroll frames a
+        // second for a difference no one can see. Opacities (`split`, `detail`)
+        // stay continuous: they're cheap and quantizing them would band.
+        let size = lerp(bigSize, smallSize, p).rounded()
         // Discs start fused and pull apart over the back half of the collapse,
         // so the big fused blob reads clearly before it splits.
         let split = clamp((p - 0.18) / 0.6)
         // Expanded extras (stacked lines below) fade over the first ~half.
         let detail = clamp(1 - p * 1.9)
 
-        VStack(spacing: lerp(10, 5, p)) {
+        VStack(spacing: lerp(10, 5, p).rounded()) {
             discRow(size: size, split: split, p: p)
             if detail > 0.02 {
                 expandedStatsRow
@@ -89,7 +95,9 @@ struct MatchupGlassHero: View {
             // that pushes them to opposite edges (where the bridge breaks).
             let fusedGap = -size * 0.16
             let splitGap = max(fusedGap, w - 2 * size - 2 * edgeMargin)
-            let gap = lerp(fusedGap, splitGap, p)
+            // Whole points, same reason as `size` — this is the frame separation
+            // the glass container measures to decide fused vs. split.
+            let gap = lerp(fusedGap, splitGap, p).rounded()
             // Disc centers in the centered HStack (pitch = size + gap apart).
             let awayCX = w / 2 - (size + gap) / 2
             let homeCX = w / 2 + (size + gap) / 2
@@ -151,24 +159,31 @@ struct MatchupGlassHero: View {
         let primary = side.primary.teamVisible(in: colorScheme)
         let secondary = side.secondary.teamVisible(in: colorScheme)
         let plate = logoPlate(for: primary)
+        // Lay the logo out ONCE at its full-size dimensions and shrink it with a
+        // transform. A frame that changes with the collapse made the image
+        // re-layout (and resample the decoded bitmap) on every scroll frame. A
+        // scaleEffect is a GPU op on a subtree that never invalidates — the logo
+        // decodes once for the life of the hero.
+        let logoBase = (bigSize * 0.82).rounded()
         ZStack {
             if let logoURL = side.logoURL, let url = URL(string: logoURL) {
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let img):
                         ZStack {
                             if let plate { Circle().fill(plate) }
                             img.resizable().scaledToFit()
-                                .padding(plate != nil ? size * 0.07 : 0)
+                                .padding(plate != nil ? (bigSize * 0.07).rounded() : 0)
                         }
                     default:
                         Text(side.abbr)
-                            .font(.system(size: size * 0.3, weight: .bold))
+                            .font(.system(size: bigSize * 0.3, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
-                .frame(width: size * 0.82, height: size * 0.82)
+                .frame(width: logoBase, height: logoBase)
                 .clipShape(Circle())
+                .scaleEffect(bigSize > 0 ? size / bigSize : 1)
             } else {
                 Text(side.abbr)
                     .font(.system(size: size * 0.32, weight: .bold))

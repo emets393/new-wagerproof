@@ -10,7 +10,10 @@ import WagerproofStores
 /// `MatchupPropsDetailSheet` behind the expand affordance. Rows stay direct
 /// entity links: tapping a player zoom-pushes their `PlayerPropDetailView`.
 struct MLBMatchupPropsWidget: View {
-    let game: MLBGame
+    /// Passed in rather than looked up here — the parent already resolves it
+    /// for the expand action, and doing the lookup twice per body pass was
+    /// pure waste.
+    let matchup: MLBPropMatchup
     /// Shared zoom namespace owned by the carousel; rows are the
     /// `matchedTransitionSource` and the pushed detail is the `.zoom` target.
     let namespace: Namespace.ID
@@ -19,15 +22,13 @@ struct MLBMatchupPropsWidget: View {
 
     @Environment(PropsStore.self) private var propsStore
 
-    private var matchup: MLBPropMatchup? {
-        propsStore.matchup(for: game.gamePk)
-    }
-
     var body: some View {
-        if let matchup, let summary = MLBPropsInsight.summary(for: matchup) {
-            let items = PlayerPropFeed.items(from: [matchup])
-            let itemsById = Dictionary(items.map { ($0.selection.playerId, $0) },
-                                       uniquingKeysWith: { first, _ in first })
+        // Both halves of the props pipeline are memoized against the store's
+        // slate version; recomputing them inline ran the full analytics walk
+        // (every player × every prop × their season log) on every body pass.
+        if let summary = propsStore.propsInsightSummary(forGamePk: matchup.gamePk) {
+            let itemsById = PlayerPropFeedCache.itemsById(for: matchup,
+                                                          version: propsStore.matchupsVersion)
             InsightWidgetSection(
                 title: "Player Props",
                 systemImage: "figure.baseball",

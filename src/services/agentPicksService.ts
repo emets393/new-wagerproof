@@ -234,6 +234,7 @@ export async function enrichPicksWithOverlap(picks: AgentPick[]): Promise<AgentP
         name: row.avatar_name,
         avatar_emoji: row.avatar_emoji || '\u{1F916}',
         avatar_color: row.avatar_color || '#6366f1',
+        sprite_index: row.avatar_sprite_index ?? null,
       });
       overlapMap.set(row.source_pick_id, list);
     }

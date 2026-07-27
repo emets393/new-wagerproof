@@ -8,6 +8,7 @@ import com.wagerproof.app.features.gamecards.GameEdgeMath
 import com.wagerproof.app.features.gamecards.GameRowCard
 import com.wagerproof.app.features.gamecards.GameRowCardModel
 import com.wagerproof.app.features.gamecards.TeamInitials
+import com.wagerproof.core.models.GameAgentConsensus
 import com.wagerproof.core.models.NCAABGame
 
 /**
@@ -21,6 +22,7 @@ fun NCAABGameCard(
     game: NCAABGame,
     onPress: () -> Unit,
     modifier: Modifier = Modifier,
+    consensus: GameAgentConsensus? = null,
 ) {
     val awayAbbr = game.awayTeamAbbrev?.trim().takeUnless { it.isNullOrEmpty() } ?: game.awayTeam
     val homeAbbr = game.homeTeamAbbrev?.trim().takeUnless { it.isNullOrEmpty() } ?: game.homeTeam
@@ -62,6 +64,7 @@ fun NCAABGameCard(
         awayTeamFullName = game.awayTeam,
         homeTeamFullName = game.homeTeam,
         oddsBreakdown = oddsBreakdown(game, awayAbbr, homeAbbr),
+        consensus = consensus,
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)

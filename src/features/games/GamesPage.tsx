@@ -5,6 +5,7 @@ import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { trackEvent } from '@/lib/mixpanel';
 import { useGamesFeed, useRefreshGamesFeed } from './hooks/useGamesFeed';
+import { useAgentConsensus } from './hooks/useAgentConsensus';
 import { useGamesUrlState } from './hooks/useGamesUrlState';
 import { GamesFeedPanel } from './components/GamesFeedPanel';
 import { GameDetailPane } from './detail/GameDetailPane';
@@ -26,6 +27,11 @@ export default function GamesPage() {
   const refreshFeed = useRefreshGamesFeed(sport);
 
   const games = feed.data?.games ?? [];
+
+  // Owned here, not in the feed panel, so the list cards and the detail pane
+  // share ONE RPC — the flag threshold is computed over the whole slate, so a
+  // per-pane fetch would both duplicate the call and risk disagreeing.
+  const consensusByGameId = useAgentConsensus(sport, games);
 
   React.useEffect(() => {
     ensureSportInUrl();
@@ -76,6 +82,7 @@ export default function GamesPage() {
             isFreemiumUser={isFreemiumUser}
             isAdmin={adminModeEnabled}
             onLockedClick={handleLockedClick}
+            consensusByGameId={consensusByGameId}
           />
         }
         detail={
@@ -84,6 +91,7 @@ export default function GamesPage() {
             game={selectedGame}
             extras={feed.data?.extras ?? {}}
             isFeedLoading={feed.isLoading}
+            consensus={selectedGame ? consensusByGameId.get(selectedGame.id) : undefined}
           />
         }
       />

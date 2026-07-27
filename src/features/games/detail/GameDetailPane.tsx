@@ -5,7 +5,9 @@ import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useAiCompletions } from '../hooks/useAiCompletions';
 import { DetailHero } from './DetailHero';
 import { SportSections } from './sections';
+import { AgentConsensusSection } from './sections/AgentConsensusSection';
 import { useMasonryGrid } from './useMasonryGrid';
+import type { GameAgentConsensus } from '@/services/agentConsensusService';
 import type { GameFeedItem, GamesSport } from '../types';
 
 interface GameDetailPaneProps {
@@ -13,6 +15,8 @@ interface GameDetailPaneProps {
   game: GameFeedItem | null;
   extras: Record<string, unknown>;
   isFeedLoading: boolean;
+  /** Sport-agnostic, so it renders above the per-sport stack for all five. */
+  consensus?: GameAgentConsensus;
 }
 
 /**
@@ -20,7 +24,13 @@ interface GameDetailPaneProps {
  * glass widget sections (ported from the legacy GameDetailsModal / MLB inline
  * detail). Scrolls independently; resets to top on selection change.
  */
-export function GameDetailPane({ sport, game, extras, isFeedLoading }: GameDetailPaneProps) {
+export function GameDetailPane({
+  sport,
+  game,
+  extras,
+  isFeedLoading,
+  consensus,
+}: GameDetailPaneProps) {
   const { adminModeEnabled } = useAdminMode();
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const gridRef = React.useRef<HTMLDivElement>(null);
@@ -29,7 +39,7 @@ export function GameDetailPane({ sport, game, extras, isFeedLoading }: GameDetai
   useMasonryGrid(gridRef, game?.id);
 
   const gameIds = React.useMemo(() => (game ? [game.id] : []), [game?.id]);
-  const { completions, headlines, refreshGame } = useAiCompletions(sport, gameIds);
+  const { completions, refreshGame } = useAiCompletions(sport, gameIds);
 
   React.useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
@@ -67,11 +77,13 @@ export function GameDetailPane({ sport, game, extras, isFeedLoading }: GameDetai
           ref={gridRef}
           className="grid grid-cols-1 items-start gap-x-4 gap-y-4 px-4 pb-10 [--widget-card-bg:rgba(241,245,249,0.92)] [--widget-card-border:rgba(15,23,42,0.1)] @xl:grid-cols-2"
         >
+          {/* Sport-agnostic, so it leads the stack for all five sports rather
+              than being duplicated into each per-sport section list. */}
+          <AgentConsensusSection consensus={consensus} />
           <SportSections
             game={game}
             extras={extras}
             completions={completions[game.id] ?? {}}
-            headlines={headlines[game.id] ?? {}}
             onCompletionGenerated={refreshGame}
           />
         </div>

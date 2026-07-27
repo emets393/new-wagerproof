@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getGameCompletions, getGameHeadlines } from '@/services/aiCompletionService';
+import { getGameCompletions } from '@/services/aiCompletionService';
 import { areCompletionsEnabled } from '@/utils/aiCompletionSettings';
 import debug from '@/utils/debug';
 import type { SportType } from '@/types/sports';
@@ -7,37 +7,27 @@ import type { GamesSport } from '../types';
 
 export type AiCompletionsMap = Record<string, Record<string, string>>;
 
-interface AiCompletionsPayload {
-  completions: AiCompletionsMap;
-  /** Published headline verdicts, same [gameId][widgetType] shape. */
-  headlines: AiCompletionsMap;
-}
-
-async function fetchForGames(sport: GamesSport, gameIds: string[]): Promise<AiCompletionsPayload> {
+async function fetchForGames(sport: GamesSport, gameIds: string[]): Promise<AiCompletionsMap> {
   const completions: AiCompletionsMap = {};
-  const headlines: AiCompletionsMap = {};
   await Promise.all(
     gameIds.map(async (gameId) => {
       try {
-        // Bodies and headlines live on the same row but are fetched separately —
-        // headlines are QC-gated and bodies are not, so they can't share a filter.
-        const [text, head] = await Promise.all([
-          getGameCompletions(gameId, sport as SportType),
-          getGameHeadlines(gameId, sport as SportType),
-        ]);
+        const text = await getGameCompletions(gameId, sport as SportType);
         if (Object.keys(text).length > 0) completions[gameId] = text;
-        if (Object.keys(head).length > 0) headlines[gameId] = head;
       } catch (error) {
         debug.error(`Error fetching completions for ${gameId}:`, error);
       }
     })
   );
-  return { completions, headlines };
+  return completions;
 }
 
 /**
- * Per-game AI completion texts and headline verdicts for the detail sections.
- * Batched with Promise.all (the legacy pages fetched serially per game).
+ * Per-game AI completion bodies for the detail sections. Batched with
+ * Promise.all (the legacy pages fetched serially per game).
+ *
+ * Headlines are NOT fetched here: the one-line verdicts are deterministic and
+ * computed client-side in `../detail/headlines/`. See `.claude/docs/17_widget_headlines.md`.
  *
  * MLB used to be excluded here because it had no completion rows at all; it is
  * now generated like every other sport, so the only gate left is the sport's
@@ -46,7 +36,7 @@ async function fetchForGames(sport: GamesSport, gameIds: string[]): Promise<AiCo
 export function useAiCompletions(sport: GamesSport, gameIds: string[]) {
   const enabled = areCompletionsEnabled(sport as SportType) && gameIds.length > 0;
 
-  const query = useQuery<AiCompletionsPayload>({
+  const query = useQuery<AiCompletionsMap>({
     queryKey: ['ai-completions', sport, gameIds.join(',')],
     enabled,
     queryFn: () => fetchForGames(sport, gameIds),
@@ -57,12 +47,9 @@ export function useAiCompletions(sport: GamesSport, gameIds: string[]) {
   const refreshGame = async (gameId: string) => {
     try {
       const fresh = await fetchForGames(sport, [gameId]);
-      queryClient.setQueryData<AiCompletionsPayload>(
+      queryClient.setQueryData<AiCompletionsMap>(
         ['ai-completions', sport, gameIds.join(',')],
-        (prev) => ({
-          completions: { ...(prev?.completions ?? {}), ...fresh.completions },
-          headlines: { ...(prev?.headlines ?? {}), ...fresh.headlines },
-        })
+        (prev) => ({ ...(prev ?? {}), ...fresh })
       );
     } catch (error) {
       debug.error(`Error refreshing completions for ${gameId}:`, error);
@@ -71,8 +58,7 @@ export function useAiCompletions(sport: GamesSport, gameIds: string[]) {
 
   return {
     ...query,
-    completions: query.data?.completions ?? {},
-    headlines: query.data?.headlines ?? {},
+    completions: query.data ?? {},
     refreshGame,
   };
 }

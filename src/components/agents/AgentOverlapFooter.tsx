@@ -1,4 +1,6 @@
 import { AgentPickOverlap } from '@/types/agent';
+import { PixelSpriteAvatar } from '@/components/agents/split/PixelSpriteAvatar';
+import { agentSpriteIndex } from '@/utils/agentSprites';
 
 interface AgentOverlapFooterProps {
   overlap: AgentPickOverlap;
@@ -17,6 +19,9 @@ function parseAvatarColor(color: string): { isGradient: boolean; colors: string[
  * "N other agents made this pick" — overlapping avatar bubbles. Styled for the
  * dark boarding-pass ticket: each bubble is ringed in the cardstock color so the
  * stack reads as punched into the ticket.
+ *
+ * Bubbles render the agent's PIXEL-PERSON sprite, never the emoji — the sprite
+ * is the agent's identity everywhere in the product. The colour is the halo.
  */
 export function AgentOverlapFooter({ overlap }: AgentOverlapFooterProps) {
   if (overlap.totalCount === 0) return null;
@@ -32,7 +37,7 @@ export function AgentOverlapFooter({ overlap }: AgentOverlapFooterProps) {
           return (
             <div
               key={agent.avatar_id}
-              className="relative flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#f8f5ed] text-[10px] dark:border-[#141927]"
+              className="relative flex h-6 w-6 items-end justify-center overflow-hidden rounded-full border-2 border-[#f8f5ed] dark:border-[#141927]"
               style={{
                 background: isGradient
                   ? `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`
@@ -41,7 +46,12 @@ export function AgentOverlapFooter({ overlap }: AgentOverlapFooterProps) {
               }}
               title={agent.name}
             >
-              {agent.avatar_emoji}
+              {/* Taller than the bubble and bottom-anchored so the sprite's head
+                  fills the circle rather than floating in the middle. */}
+              <PixelSpriteAvatar
+                spriteIndex={agentSpriteIndex(agent.avatar_id, agent.sprite_index)}
+                height={26}
+              />
             </div>
           );
         })}

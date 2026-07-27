@@ -949,3 +949,11 @@ App Group defaults exist on iOS for widget sharing — on Android a single `Shar
 | 52 | ThemeStore.swift | ThemeStore.kt | forced dark |
 | 53 | TopAgentPicksFeedStore.swift | TopAgentPicksFeedStore.kt | cursor pagination + dedupe |
 | 54 | WagerBotChatStore.swift | WagerBotChatStore.kt | SSE reducer; ContentBlock model |
+
+---
+
+## Post-snapshot additions (not in the 2026-07-06 iOS inventory)
+
+| Android file | Notes |
+|---|---|
+| `AgentConsensusStore.kt` | Games-feed agent consensus keyed by sport → `game_id`; 90s TTL keyed on the slate's sorted date list. Sits beside `GamesStore` in `AppGraph` (that store reads CFB, this reads MAIN). No `LoadState` — a failed fetch is non-fatal and just leaves the strip off. See [18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md). |

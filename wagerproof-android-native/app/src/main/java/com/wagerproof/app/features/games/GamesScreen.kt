@@ -99,6 +99,14 @@ fun GamesScreen(modifier: Modifier = Modifier) {
     }
 
     val sport = store.selectedSport
+
+    // Agent consensus is fetched ONCE per slate, never per card: the flag
+    // threshold scales with the whole day's pick volume, so it can't be derived
+    // inside a per-sport adapter. MLB's feed spans today AND tomorrow, so every
+    // distinct date goes into the same call or the next day's cards stay bare.
+    // See .claude/docs/18_agent_consensus.md.
+    val consensusDates = remember(sport, store.games) { slateDates(store, sport) }
+    LaunchedEffect(sport, consensusDates) { graph.agentConsensus.refresh(sport, consensusDates) }
     val visibleTools = SportTool.tools(sport).filter { tool ->
         when (tool.category) {
             com.wagerproof.core.stores.OutliersStore.Category.nbaAccuracy -> nbaAccuracy.games.isNotEmpty()
@@ -137,6 +145,9 @@ fun GamesScreen(modifier: Modifier = Modifier) {
                     isPullRefreshing = true
                     try {
                         store.refresh(sport, force = true)
+                        // Force past the consensus TTL too, and recompute dates
+                        // after the slate refresh so a new day's games are covered.
+                        graph.agentConsensus.refresh(sport, slateDates(store, sport), force = true)
                     } finally {
                         isPullRefreshing = false
                     }
@@ -178,6 +189,19 @@ fun GamesScreen(modifier: Modifier = Modifier) {
         }
     }
 }
+
+/**
+ * Distinct ET dates present in the current sport's slate. Uses the same
+ * [GameDateGrouping.dateKey] normalization as the feed's date sections so the
+ * dates handed to the consensus RPC line up with what the user actually sees.
+ */
+private fun slateDates(store: GamesStore, sport: GamesStore.Sport): List<String> = when (sport) {
+    GamesStore.Sport.nfl -> store.games.nfl.map { GameDateGrouping.dateKey(it.gameDate) }
+    GamesStore.Sport.cfb -> store.games.cfb.map { GameDateGrouping.dateKey(it.gameDate) }
+    GamesStore.Sport.nba -> store.games.nba.map { GameDateGrouping.dateKey(it.gameDate) }
+    GamesStore.Sport.ncaab -> store.games.ncaab.map { GameDateGrouping.dateKey(it.gameDate) }
+    GamesStore.Sport.mlb -> store.games.mlb.map { GameDateGrouping.dateKey(it.officialDate) }
+}.filter { it.isNotBlank() }.distinct().sorted()
 
 private fun noCachedGames(store: GamesStore, sport: GamesStore.Sport): Boolean = when (sport) {
     GamesStore.Sport.nfl -> store.games.nfl.isEmpty()
@@ -345,6 +369,11 @@ private fun EmptyTile(sport: GamesStore.Sport, systemImage: String) {
  * Per-sport date sections. Kept as a LazyListScope extension so each card is its
  * own lazy item (staggered appearance + recycling). Card tap opens the sheet
  * store + pushes the detail carousel.
+ *
+ * Consensus is a LEFT JOIN onto the slate — most games have no row, and that is
+ * normal rather than an error (picks exist before predictions populate). The
+ * lookup happens inside each item's composable body so a late-arriving RPC
+ * recomposes only the affected cards.
  */
 private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
     store: GamesStore,
@@ -365,7 +394,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         NFLGameCard(game = game, onPress = {
                             graph.nflGameSheet.openGameSheet(game)
                             nav.openGameDetail("nfl", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index),
+                            consensus = graph.agentConsensus.consensus(sport, GameConsensusKey.of(game)))
                     }
                 }
             }
@@ -382,7 +412,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         CFBGameCard(game = game, onPress = {
                             graph.cfbGameSheet.openGameSheet(game)
                             nav.openGameDetail("cfb", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index),
+                            consensus = graph.agentConsensus.consensus(sport, GameConsensusKey.of(game)))
                     }
                 }
             }
@@ -399,7 +430,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         NCAABGameCard(game = game, onPress = {
                             graph.ncaabGameSheet.openGameSheet(game)
                             nav.openGameDetail("ncaab", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index),
+                            consensus = graph.agentConsensus.consensus(sport, GameConsensusKey.of(game)))
                     }
                 }
             }
@@ -416,7 +448,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         MLBGameCard(game = game, onPress = {
                             graph.mlbGameSheet.openGameSheet(game)
                             nav.openGameDetail("mlb", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index),
+                            consensus = graph.agentConsensus.consensus(sport, GameConsensusKey.of(game)))
                     }
                 }
             }
@@ -433,7 +466,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sportDateSections(
                         NBAGameCard(game = game, onPress = {
                             graph.nbaGameSheet.openGameSheet(game)
                             nav.openGameDetail("nba", game.id)
-                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index))
+                        }, modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp).staggeredAppear(index),
+                            consensus = graph.agentConsensus.consensus(sport, GameConsensusKey.of(game)))
                     }
                 }
             }

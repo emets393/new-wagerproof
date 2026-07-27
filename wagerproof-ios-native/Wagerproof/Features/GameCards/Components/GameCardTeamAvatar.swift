@@ -34,7 +34,7 @@ struct GameCardTeamAvatar: View {
                 )
                 .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
             if let logo = logoUrl, let url = URL(string: logo) {
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     if case .success(let img) = phase {
                         img.resizable()
                             .scaledToFit()

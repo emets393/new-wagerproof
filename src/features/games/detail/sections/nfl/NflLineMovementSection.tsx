@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import debug from '@/utils/debug';
 import { type NFLPrediction } from '../../../api/nflGames';
 import type { GameFeedItem } from '../../../types';
+import { nflLineMovementHeadline } from '../../headlines/nfl';
 import { TeamMark } from './shared';
 import { useNflLineMovement } from './useNflLineMovement';
 
@@ -153,6 +154,18 @@ export function NflLineMovementSection({ game }: NflLineMovementSectionProps) {
     <WidgetCard
       icon={<TrendingUp />}
       title="Line Movement"
+      headline={
+        nflLineMovementHeadline({
+          loading,
+          error,
+          hasTrainingKey: Boolean(raw.training_key),
+          pointCount: chartData.length,
+          seriesLabel: active.label,
+          isTotal: series === 'total',
+          openValue: firstValue,
+          currentValue: lastValue,
+        }) ?? undefined
+      }
       subtitle="How the spread and the total have moved since the books opened this game."
       className="@xl:col-span-2"
       accessory={

@@ -8,6 +8,7 @@ import com.wagerproof.app.features.gamecards.GameRowCard
 import com.wagerproof.app.features.gamecards.GameRowCardModel
 import com.wagerproof.app.features.gamecards.NBATeams
 import com.wagerproof.app.features.gamecards.TeamInitials
+import com.wagerproof.core.models.GameAgentConsensus
 import com.wagerproof.core.models.NBAGame
 import java.util.Locale
 import kotlin.math.floor
@@ -23,6 +24,7 @@ fun NBAGameCard(
     game: NBAGame,
     onPress: () -> Unit,
     modifier: Modifier = Modifier,
+    consensus: GameAgentConsensus? = null,
 ) {
     val model = GameRowCardModel(
         id = game.id,
@@ -61,6 +63,7 @@ fun NBAGameCard(
         awayTeamFullName = game.awayTeam,
         homeTeamFullName = game.homeTeam,
         oddsBreakdown = oddsBreakdown(game),
+        consensus = consensus,
     )
 
     GameRowCard(model = model, onPress = onPress, modifier = modifier)

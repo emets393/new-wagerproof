@@ -1,3 +1,15 @@
+// DEPRECATED — do not build on this.
+//
+// Headlines are now deterministic, computed client-side in
+// src/features/games/detail/headlines/. This LLM path was retired because it kept
+// getting side attribution backwards (calling a -3.3 home edge "+3.3 for the home
+// team"), which the judge pass below did not reliably catch. The only surface that
+// still reads its output is NflPredictionsSection.tsx:67,157.
+//
+// Kept on disk pending removal; check the Trigger.dev dashboard before assuming
+// the schedule is off, since it still costs money while enabled.
+// See .claude/docs/17_widget_headlines.md.
+//
 // dailyWidgetSummaries — writes the big plain-language one-liner that sits at the
 // top of every game-detail widget, once a day for the whole slate.
 //

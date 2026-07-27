@@ -16,8 +16,6 @@ import { MlbPropsCheatsSection } from './MlbPropsCheatsSection';
  * MLB detail stack for the /games split view — the legacy inline card body
  * from src/pages/MLB.tsx (~lines 920-1330) ported into glass widget sections,
  * plus Polymarket market odds (new — polymarketService already speaks mlb).
- * MLB now receives generated headlines like every other sport (it was excluded
- * from ai_completions until the widget-headline rollout).
  */
 export function MlbSections(props: SportSectionsProps) {
   const { game, extras } = props;

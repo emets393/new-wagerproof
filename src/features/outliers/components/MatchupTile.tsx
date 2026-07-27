@@ -5,6 +5,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { PixelSpriteAvatar } from '@/components/agents/split/PixelSpriteAvatar';
+import { agentSpriteIndex } from '@/utils/agentSprites';
+import { avatarBackground } from '@/features/games/components/AgentConsensusStrip';
+import type { GameAgentConsensus } from '@/services/agentConsensusService';
 
 export interface MatchupTileData {
   key: string;
@@ -25,6 +29,58 @@ export interface MatchupTileData {
   sportLabel?: string;
   /** Kickoff/first-pitch epoch ms, for ordering a merged multi-sport slate. */
   startMs: number | null;
+  /** ET date key (YYYY-MM-DD), used to scope the agent-consensus lookup. */
+  gameDate: string;
+}
+
+/** Pixel-person stack + agreement, shown only when agents actually bet the game. */
+function ConsensusRow({ consensus }: { consensus: GameAgentConsensus }) {
+  const { sideAgents, agents, agreement, flagged, avatars } = consensus;
+  const shown = avatars.slice(0, 3);
+  const overflow = (flagged ? sideAgents : agents) - shown.length;
+
+  return (
+    <div className="relative flex w-full items-center justify-center gap-1.5">
+      <div className="flex shrink-0 -space-x-1.5">
+        {shown.map((a, i) => (
+          <span
+            key={a.avatarId}
+            title={a.name}
+            className="flex h-[18px] w-[18px] items-end justify-center overflow-hidden rounded-full border border-black/10 dark:border-white/15"
+            style={{
+              background: avatarBackground(a.color),
+              zIndex: shown.length - i,
+            }}
+          >
+            <PixelSpriteAvatar spriteIndex={agentSpriteIndex(a.avatarId, a.spriteIndex)} height={20} />
+          </span>
+        ))}
+        {overflow > 0 && (
+          <span
+            className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-black/10 bg-black/[0.06] px-1 text-[8px] font-bold text-muted-foreground dark:border-white/15 dark:bg-white/10"
+            style={{ zIndex: 0 }}
+          >
+            +{overflow}
+          </span>
+        )}
+      </div>
+
+      {flagged ? (
+        <span className="flex shrink-0 items-center gap-0.5 rounded bg-emerald-500 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-white">
+          Bet
+        </span>
+      ) : null}
+
+      <span
+        className={cn(
+          'truncate text-[9px] font-semibold',
+          flagged ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'
+        )}
+      >
+        {Math.round(agreement * 100)}% agree
+      </span>
+    </div>
+  );
 }
 
 function TeamMark({
@@ -91,40 +147,56 @@ function EdgeGlow({ color, side }: { color: string; side: 'left' | 'right' }) {
   );
 }
 
-export function MatchupTile({ data }: { data: MatchupTileData }) {
+export function MatchupTile({
+  data,
+  consensus,
+}: {
+  data: MatchupTileData;
+  consensus?: GameAgentConsensus;
+}) {
+  const showConsensus = Boolean(consensus && consensus.agents > 0);
+
   return (
     <Link
       to={data.href}
       className={cn(
-        'group relative flex h-[92px] items-center justify-between overflow-hidden rounded-2xl px-4',
-        'border border-black/5 bg-[#F8FAFC] transition-colors hover:border-black/10',
-        'dark:border-white/10 dark:bg-[#141414] dark:hover:border-white/20',
+        // Fixed height regardless of the consensus row so the 3x3 grid stays
+        // even; the teams row absorbs the slack when there's no row to show.
+        'group relative flex h-[104px] flex-col justify-center gap-1 overflow-hidden rounded-2xl px-4 py-2',
+        'border bg-[#F8FAFC] transition-colors dark:bg-[#141414]',
+        consensus?.flagged
+          ? 'border-emerald-500/40 hover:border-emerald-500/60 dark:border-emerald-500/35 dark:hover:border-emerald-500/55'
+          : 'border-black/5 hover:border-black/10 dark:border-white/10 dark:hover:border-white/20',
       )}
     >
       <EdgeGlow color={data.awayColors.primary} side="left" />
       <EdgeGlow color={data.homeColors.primary} side="right" />
 
-      <TeamMark
-        logoUrl={data.awayLogoUrl}
-        initials={data.awayInitials}
-        colors={data.awayColors}
-        label={data.awayAbbr}
-      />
-      <div className="relative flex flex-col items-center px-1 text-center">
-        {data.sportLabel && (
-          <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground/70">
-            {data.sportLabel}
-          </span>
-        )}
-        <span className="text-[11px] text-muted-foreground">{data.dayLabel}</span>
-        <span className="text-xs font-semibold text-foreground">{data.timeLabel}</span>
+      <div className="relative flex w-full items-center justify-between">
+        <TeamMark
+          logoUrl={data.awayLogoUrl}
+          initials={data.awayInitials}
+          colors={data.awayColors}
+          label={data.awayAbbr}
+        />
+        <div className="relative flex flex-col items-center px-1 text-center">
+          {data.sportLabel && (
+            <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground/70">
+              {data.sportLabel}
+            </span>
+          )}
+          <span className="text-[11px] text-muted-foreground">{data.dayLabel}</span>
+          <span className="text-xs font-semibold text-foreground">{data.timeLabel}</span>
+        </div>
+        <TeamMark
+          logoUrl={data.homeLogoUrl}
+          initials={data.homeInitials}
+          colors={data.homeColors}
+          label={data.homeAbbr}
+        />
       </div>
-      <TeamMark
-        logoUrl={data.homeLogoUrl}
-        initials={data.homeInitials}
-        colors={data.homeColors}
-        label={data.homeAbbr}
-      />
+
+      {showConsensus && <ConsensusRow consensus={consensus!} />}
     </Link>
   );
 }

@@ -30,12 +30,17 @@ All paths are relative to `wagerproof-ios-native/Wagerproof/` unless noted.
 | Primitive | Tier | File | Renders from |
 |---|---|---|---|
 | **GameRowCard** (Matchup Line Item) | 1 | `GameCards/Components/GameRowCard.swift:20` | sport + prediction model (`NFLPrediction` / `CFBPrediction` / `NBAGame` / `NCAABGame` / `MLBGame`) — i.e. **sport + game id** |
+| AgentConsensusStrip | 2 | `GameCards/Components/AgentConsensusStrip.swift:17` | `GameAgentConsensus` (public-agent consensus for that game) |
 | ToolBannerCard | 1 | `Games/Tools/ToolBannerCard.swift:7` | `SportTool` (tool category enum) |
 | SportPickerBar | 3 | `Games/Components/SportPickerBar.swift` | sport + sort bindings |
 | GameCardShimmer | 3 | `GameCards/Components/GameCardShimmer.swift` | — |
 
 `GameRowCard` is shared across all 5 sports (MLB variant swaps the sparkline for an odds
 breakdown table). This is the canonical "Matchup Line Item".
+
+`AgentConsensusStrip` is the last row inside `GameRowCard` (both layouts) and renders only
+when `GamesView` supplied a consensus row — Search passes none, so it stays hidden there.
+See `.claude/docs/18_agent_consensus.md`.
 
 ### 1b. Game detail carousel (all sports) — shared engine
 
@@ -468,6 +473,11 @@ build any new primitive:
   for any list.
 - **Motion vocabulary** (`Animations.swift`): appQuick / appStandard / appBouncy / appCarousel /
   appSlow / appLinear / appShimmer + standard transitions.
+- **CachedAsyncImage** (`Components/CachedAsyncImage.swift`): drop-in for
+  `AsyncImage(url:content:)` backed by `RemoteImageCache` (permanent in-memory `[URL: Image]` +
+  a private `URLCache`). Same `AsyncImagePhase` closure, so existing fallback branches are
+  unchanged. Use it for ANY remote image — team logos, sportsbook marks, headshots — raw
+  `AsyncImage` re-fetches and re-decodes on every view identity.
 - Misc: ContinueCTAButton, OnboardingPageShell, OnboardingProgressBar, ScopeBanner,
   WagerBotIcon, LottieView, OfflineToolbarIcon.
 
