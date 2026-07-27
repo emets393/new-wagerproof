@@ -301,6 +301,16 @@ struct CustomPaywallView: View {
                 "plans": plans.map(\.name).joined(separator: ","),
                 "research_time_bucket": researchBucketRaw ?? "none",
             ])
+            // Meta ViewContent — gives value optimization a dollar signal at the
+            // impression, well before any purchase resolves. Pass the plan we
+            // actually highlighted (assigned just above), not the offering's
+            // default: this paywall skips `$rc_annual` in some offerings, so the
+            // offering-derived fallback would report a price the user never saw.
+            PaywallConversionTracker.shared.trackPaywallView(
+                source: source,
+                offering: offering,
+                package: selected
+            )
         }
         .alert("Something went wrong", isPresented: .init(
             get: { errorMessage != nil },
@@ -745,6 +755,9 @@ struct CustomPaywallView: View {
             "product_id": product.productIdentifier,
         ]
         AnalyticsService.shared.track("paywall_checkout_started", properties: baseProperties)
+        // Meta InitiateCheckout — fires before StoreKit resolves so an abandoned
+        // Apple payment sheet still registers as checkout intent.
+        PaywallConversionTracker.shared.trackCheckoutStarted(source: source, package: selected)
         isPurchasing = true
 
         do {
@@ -768,6 +781,17 @@ struct CustomPaywallView: View {
             properties["currency"] = product.currencyCode ?? "USD"
             properties["is_trial"] = selectedTrial != nil ? "true" : "false"
             AnalyticsService.shared.track("paywall_converted", properties: properties)
+            // Report to Meta here rather than relying on the host to do it — this
+            // view is embedded in several containers and only one of them used to
+            // fire a conversion. The tracker dedupes by order id, so the host
+            // firing it again from `onPurchaseFinalized` is harmless.
+            PaywallConversionTracker.shared.trackConversion(
+                source: source,
+                transaction: result.transaction,
+                customerInfo: result.customerInfo,
+                package: selected,
+                offering: offering
+            )
             onPurchaseFinalized(result.transaction, result.customerInfo)
         } catch {
             isPurchasing = false

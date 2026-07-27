@@ -85,6 +85,29 @@
     });
     </script>
 
+    <!-- Meta Pixel — dataset 1731090704521232 ("WagerProof").
+         Pixel IDs are public by design (they ship in the page source of every
+         site that uses one), so this is inlined rather than injected at build.
+         PageView is the only automatic event; the funnel events (ViewContent,
+         InitiateCheckout, Subscribe, CompleteRegistration) are fired explicitly
+         from src/lib/metaPixel.ts so they can carry an event_id that dedupes
+         against the server-side Conversions API events sent by
+         supabase/functions/revenuecat-webhook. -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window,document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1731090704521232');
+    fbq('track', 'PageView');
+    </script>
+    <!-- The <noscript> fallback img lives in <body>, not here: an <img> inside
+         <noscript> in <head> is a parse error and fails the Vite build. -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -97,6 +120,12 @@
 </head>
 
   <body>
+    <!-- Meta Pixel no-JS fallback — records a PageView for users with scripting
+         disabled. Must be in <body>; browsers reject <img> inside <head>. -->
+    <noscript><img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1731090704521232&amp;ev=PageView&amp;noscript=1"
+      alt=""
+    /></noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

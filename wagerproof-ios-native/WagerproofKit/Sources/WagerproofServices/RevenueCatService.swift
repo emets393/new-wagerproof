@@ -49,6 +49,35 @@ public final class RevenueCatService: @unchecked Sendable {
         // Best-effort device identifier collection — matches RN's
         // `collectDeviceIdentifiers()` fire-and-forget call.
         Purchases.shared.collectDeviceIdentifiers()
+
+        // Apple Search Ads attribution token — unrelated to Meta, but this is
+        // the only place RC attribution is configured, and it costs nothing.
+        Purchases.shared.attribution.enableAdServicesAttributionTokenCollection()
+
+        // Hand Meta's anonymous install ID to RevenueCat as the `$fbAnonId`
+        // subscriber attribute. RevenueCat's server-side Meta integration sends
+        // purchase/trial conversions to the Conversions API, and WITHOUT this ID
+        // those server events cannot be joined back to the install — which is
+        // the only attribution path that survives an ATT denial. Closes the open
+        // acceptance criterion in docs/wagerproof-migration/tickets/055-meta-sdk-events.md.
+        if let fbAnonymousID = MetaAnalyticsService.shared.anonymousID(), !fbAnonymousID.isEmpty {
+            Purchases.shared.attribution.setFBAnonymousID(fbAnonymousID)
+        }
+    }
+
+    /// Push the signed-in user's identity to RevenueCat as subscriber
+    /// attributes. RC forwards these to its downstream integrations (Meta CAPI
+    /// included) where they act as hashed matching keys — the same role
+    /// Advanced Matching plays on the client SDK.
+    public func setSubscriberIdentity(email: String?, displayName: String?) {
+        guard configured else { return }
+        if let email, !email.isEmpty {
+            Purchases.shared.attribution.setEmail(email)
+        }
+        if let displayName, !displayName.isEmpty {
+            Purchases.shared.attribution.setDisplayName(displayName)
+        }
+        Purchases.shared.collectDeviceIdentifiers()
     }
 
     public var isConfigured: Bool { configured }

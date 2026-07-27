@@ -103,7 +103,7 @@ export default function AccessDenied() {
                   </Button>
                 </div>
               ) : (
-                <CustomPaywall />
+                <CustomPaywall source="access_denied" />
               )}
             </CardContent>
           </Card>
