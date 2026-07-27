@@ -1,6 +1,8 @@
 package com.wagerproof.core.services
 
 import com.wagerproof.core.models.HistoricalAnalysisResponse
+import com.wagerproof.core.models.MLBF5
+import com.wagerproof.core.models.MlbPitcherOption
 import com.wagerproof.core.models.HistoricalAnalysisSavedFilter
 import com.wagerproof.core.models.HistoricalAnalysisSport
 import com.wagerproof.core.models.HistoricalAnalysisUISnapshot
@@ -19,7 +21,11 @@ interface HistoricalAnalysisDataSource {
     suspend fun fetchUpcoming(sport: HistoricalAnalysisSport, betType: String, filters: JsonObject): List<HistoricalAnalysisUpcomingGame>
     suspend fun fetchConferenceTeamMap(): Map<String, List<String>>
     suspend fun fetchCFBLogos(): Map<String, String>
+    suspend fun fetchMLBTeamAbbrs(): List<MlbTeamOption>
+    suspend fun fetchPitcherOptions(query: String): List<MlbPitcherOption>
 }
+
+data class MlbTeamOption(val abbr: String, val name: String)
 
 /** Read-only warehouse RPCs on the sports-data Supabase project. */
 object HistoricalAnalysisService : HistoricalAnalysisDataSource {
@@ -60,8 +66,31 @@ object HistoricalAnalysisService : HistoricalAnalysisDataSource {
         .mapNotNull { row -> row.api?.let { api -> row.logoLight?.takeIf(String::isNotBlank)?.let { api to it } } }
         .toMap()
 
+    /** MLB team abbr + name from `mlb_team_mapping`, remapped to game-log codes (AZ/ATH). */
+    override suspend fun fetchMLBTeamAbbrs(): List<MlbTeamOption> {
+        val rows = SupabaseClients.cfb.from("mlb_team_mapping")
+            .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("team,team_name"))
+            .decodeList<MlbTeamRow>()
+        val seen = mutableSetOf<String>()
+        return rows.mapNotNull { row ->
+            val abbr = MLBF5.toSplitTeamAbbr(row.team)
+            if (abbr.isEmpty() || !seen.add(abbr)) return@mapNotNull null
+            MlbTeamOption(abbr, MLBF5.analysisTeamLabel(abbr, row.teamName ?: row.team))
+        }.sortedBy { it.name.lowercase() }
+    }
+
+    /** Pitcher typeahead via `mlb_pitcher_options`. Empty query → `p_q: null` (same as web/iOS). */
+    override suspend fun fetchPitcherOptions(query: String): List<MlbPitcherOption> {
+        val trimmed = query.trim()
+        val params = buildJsonObject {
+            if (trimmed.isEmpty()) put("p_q", null as String?) else put("p_q", trimmed)
+        }
+        return SupabaseClients.cfb.postgrest.rpc("mlb_pitcher_options", params).decodeList()
+    }
+
     @Serializable private data class ConferenceTeamRow(@SerialName("team_name") val teamName: String, val conference: String? = null)
     @Serializable private data class CFBLogoRow(val api: String? = null, @SerialName("logo_light") val logoLight: String? = null)
+    @Serializable private data class MlbTeamRow(val team: String, @SerialName("team_name") val teamName: String? = null)
 }
 
 object HistoricalAnalysisSavedFiltersService {

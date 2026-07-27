@@ -11,9 +11,12 @@ import com.wagerproof.core.models.HistoricalAnalysisSavedFilter
 import com.wagerproof.core.models.HistoricalAnalysisSport
 import com.wagerproof.core.models.HistoricalAnalysisUISnapshot
 import com.wagerproof.core.models.HistoricalAnalysisUpcomingGame
+import com.wagerproof.core.models.MlbPitcherOption
+import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.services.HistoricalAnalysisDataSource
 import com.wagerproof.core.services.HistoricalAnalysisSavedFiltersService
 import com.wagerproof.core.services.HistoricalAnalysisService
+import com.wagerproof.core.services.MlbTeamOption
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,8 +26,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 
-/** Debounced, cache-preserving state for one NFL/CFB Historical Analysis page. */
+/** Debounced, cache-preserving state for one NFL/CFB/MLB Historical Analysis page. */
 @Stable
 class HistoricalAnalysisStore(
     val sport: HistoricalAnalysisSport,
@@ -47,9 +51,16 @@ class HistoricalAnalysisStore(
     var cfbLogos by mutableStateOf<Map<String, String>>(emptyMap()); private set
     var savedFilters by mutableStateOf<List<HistoricalAnalysisSavedFilter>>(emptyList()); private set
 
+    /** Team picker options — NFL: abbr+name, CFB: school names, MLB: split abbr+name. */
+    var teamOptions by mutableStateOf<List<TeamOption>>(emptyList()); private set
+    var mlbTeams by mutableStateOf<List<MlbTeamOption>>(emptyList()); private set
+
+    data class TeamOption(val id: String, val name: String)
+
     val betType: String get() = snapshot.betType
     val seasonFloor: Int get() = HistoricalAnalysisFilterBuilder.seasonFloor(betType, sport)
-    val isLimitedHistory: Boolean get() = betType in HistoricalAnalysisBetType.limitedHistory
+    val isLimitedHistory: Boolean
+        get() = sport != HistoricalAnalysisSport.MLB && betType in HistoricalAnalysisBetType.limitedHistory
 
     suspend fun onAppear(userId: String? = null) {
         loadBootstrap()
@@ -60,7 +71,6 @@ class HistoricalAnalysisStore(
     fun setBetType(value: String) {
         updateSnapshot { it.betType = value }
         clampSeasonForBetType()
-        resetLineControlsForBetType()
         scheduleFetch()
     }
 
@@ -79,7 +89,7 @@ class HistoricalAnalysisStore(
     fun resetAllFilters() {
         val currentBetType = betType
         snapshot = HistoricalAnalysisUISnapshot.defaults(sport).also { it.betType = currentBetType }
-        resetLineControlsForBetType()
+        clampSeasonForBetType()
         scheduleFetch()
     }
 
@@ -94,10 +104,16 @@ class HistoricalAnalysisStore(
     suspend fun fetchNow() {
         if (hasLoadedOnce) isRefetching = true else loadState = LoadState.Loading
         val filters = HistoricalAnalysisFilterBuilder.buildRPCFilters(sport, snapshot, conferenceTeamMap)
+        // Weather-only MLB filters would zero out the upcoming slate (forecast data
+        // is missing pre-game) — send `{}` there instead, same as iOS/web.
+        val upcomingFilters: JsonObject =
+            if (sport == HistoricalAnalysisSport.MLB && HistoricalAnalysisFilterBuilder.mlbFiltersWeatherOnly(filters)) {
+                JsonObject(emptyMap())
+            } else filters
         try {
             val result = coroutineScope {
                 val analysisTask = async { source.fetchAnalysis(sport, betType, filters) }
-                val upcomingTask = async { source.fetchUpcoming(sport, betType, filters) }
+                val upcomingTask = async { runCatching { source.fetchUpcoming(sport, betType, upcomingFilters) }.getOrDefault(emptyList()) }
                 analysisTask.await() to upcomingTask.await()
             }
             analysis = result.first
@@ -132,6 +148,7 @@ class HistoricalAnalysisStore(
 
     fun restoreSaved(filter: HistoricalAnalysisSavedFilter) {
         val restored = filter.filters.copy(selectedConferences = filter.filters.selectedConferences.toList())
+        if (filter.betType.isNotEmpty()) restored.betType = filter.betType
         if (restored.selectedConferences.isEmpty() && restored.conference != "any") {
             restored.selectedConferences = listOf(restored.conference)
             restored.conference = "any"
@@ -141,50 +158,49 @@ class HistoricalAnalysisStore(
         scheduleFetch()
     }
 
+    suspend fun searchPitchers(query: String): List<MlbPitcherOption> =
+        runCatching { source.fetchPitcherOptions(query) }.getOrDefault(emptyList())
+
     fun close() = scope.cancel()
 
     private suspend fun loadBootstrap() {
-        runCatching { source.fetchAnalysis(sport, HistoricalAnalysisBetType.FG_SPREAD.raw, kotlinx.serialization.json.JsonObject(emptyMap())) }
-            .onSuccess { boot ->
-                if (sport == HistoricalAnalysisSport.NFL) {
+        when (sport) {
+            HistoricalAnalysisSport.NFL -> {
+                runCatching {
+                    source.fetchAnalysis(sport, HistoricalAnalysisBetType.FG_SPREAD.raw, JsonObject(emptyMap()))
+                }.onSuccess { boot ->
                     coaches = boot.byCoach.orEmpty().map { it.label }.filter { it != "—" }.distinct().sorted()
                     referees = boot.byReferee.orEmpty().map { it.label }.filter { it != "—" }.distinct().sorted()
-                } else {
-                    conferences = boot.byConference.orEmpty().mapNotNull { it.conference }.filter(String::isNotBlank).distinct().sorted()
+                }
+                teamOptions = NFLTeamAssets.byAbbr.values
+                    .map { TeamOption(it.abbr, it.name) }
+                    .sortedBy { it.name.lowercase() }
+            }
+            HistoricalAnalysisSport.CFB -> {
+                runCatching {
+                    source.fetchAnalysis(sport, HistoricalAnalysisBetType.FG_SPREAD.raw, JsonObject(emptyMap()))
+                }.onSuccess { boot ->
+                    conferences = boot.byConference.orEmpty()
+                        .mapNotNull { it.conference }.filter(String::isNotBlank).distinct().sorted()
+                }
+                coroutineScope {
+                    val teams = async { runCatching { source.fetchConferenceTeamMap() }.getOrNull() }
+                    val logos = async { runCatching { source.fetchCFBLogos() }.getOrNull() }
+                    teams.await()?.let {
+                        conferenceTeamMap = it
+                        teamOptions = it.values.flatten().distinct().sorted().map { name -> TeamOption(name, name) }
+                    }
+                    logos.await()?.let { cfbLogos = it }
                 }
             }
-        if (sport == HistoricalAnalysisSport.CFB) {
-            coroutineScope {
-                val teams = async { runCatching { source.fetchConferenceTeamMap() }.getOrNull() }
-                val logos = async { runCatching { source.fetchCFBLogos() }.getOrNull() }
-                teams.await()?.let { conferenceTeamMap = it }
-                logos.await()?.let { cfbLogos = it }
+            HistoricalAnalysisSport.MLB -> {
+                mlbTeams = runCatching { source.fetchMLBTeamAbbrs() }.getOrDefault(emptyList())
+                teamOptions = mlbTeams.map { TeamOption(it.abbr, it.name) }
             }
         }
     }
 
     private fun clampSeasonForBetType() {
         if (snapshot.seasonMin < seasonFloor) updateSnapshot { it.seasonMin = seasonFloor }
-    }
-
-    private fun resetLineControlsForBetType() {
-        updateSnapshot { s ->
-            if (s.seasonMin < seasonFloor) s.seasonMin = seasonFloor
-            if (sport == HistoricalAnalysisSport.NFL) {
-                s.spreadMax = if (betType == "h1_spread") 14.0 else 20.0
-                when (betType) {
-                    "fg_total" -> { s.lineMin = 30.0; s.lineMax = 60.0 }
-                    "h1_total" -> { s.lineMin = 15.0; s.lineMax = 35.0 }
-                    "team_total" -> { s.lineMin = 10.0; s.lineMax = 40.0 }
-                }
-            } else {
-                s.spreadMax = if (betType == "h1_spread") 18.0 else 28.0
-                when (betType) {
-                    "fg_total" -> { s.lineMin = 30.0; s.lineMax = 80.0 }
-                    "h1_total" -> { s.lineMin = 15.0; s.lineMax = 45.0 }
-                    "team_total" -> { s.lineMin = 10.0; s.lineMax = 55.0 }
-                }
-            }
-        }
     }
 }

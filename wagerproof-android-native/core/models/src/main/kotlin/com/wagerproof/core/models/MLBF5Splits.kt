@@ -187,8 +187,17 @@ object MLBF5 {
     fun toSplitTeamAbbr(abbr: String?): String {
         val a = (abbr ?: "").trim().uppercase()
         if (a == "ARI") return "AZ"
-        if (a == "OAK" || a == "LVA") return "ATH"
+        if (a == "OAK" || a == "LVA" || a == "SAC") return "ATH"
         return a
+    }
+
+    /** Picker label for game-log abbrs (Athletics city moves collapse to ATH). */
+    fun analysisTeamLabel(abbr: String, fallback: String? = null): String {
+        val a = toSplitTeamAbbr(abbr)
+        if (a == "ATH") return "Athletics"
+        if (a == "AZ") return "Arizona Diamondbacks"
+        val trimmed = fallback?.trim().orEmpty()
+        return trimmed.ifEmpty { a }
     }
 
     fun normalizePitchHand(raw: String?): MLBF5PitchHand? {
