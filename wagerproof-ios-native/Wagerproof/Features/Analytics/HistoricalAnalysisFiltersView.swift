@@ -1653,7 +1653,40 @@ struct HistoricalAnalysisFilterBar: View {
                     step: 1
                 )
             }
-            
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Opponent Loss streak: \(store.snapshot.oppLossStreak[0])–\(store.snapshot.oppLossStreak[1]) games")
+                    .font(.subheadline)
+                HistoricalAnalysisRangeSlider(
+                    lower: intAsDoubleBinding(\.oppLossStreak, 0),
+                    upper: intAsDoubleBinding(\.oppLossStreak, 1),
+                    range: 0...16,
+                    step: 1
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Opponent PPG: \(HistoricalAnalysisCopy.trimmed(store.snapshot.oppPpg[0]))–\(HistoricalAnalysisCopy.trimmed(store.snapshot.oppPpg[1]))")
+                    .font(.subheadline)
+                HistoricalAnalysisRangeSlider(
+                    lower: doubleBinding(\.oppPpg, 0),
+                    upper: doubleBinding(\.oppPpg, 1),
+                    range: 0...asOfPpgMax,
+                    step: 0.5
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Opponent PA/G: \(HistoricalAnalysisCopy.trimmed(store.snapshot.oppPaPg[0]))–\(HistoricalAnalysisCopy.trimmed(store.snapshot.oppPaPg[1]))")
+                    .font(.subheadline)
+                HistoricalAnalysisRangeSlider(
+                    lower: doubleBinding(\.oppPaPg, 0),
+                    upper: doubleBinding(\.oppPaPg, 1),
+                    range: 0...asOfPpgMax,
+                    step: 0.5
+                )
+            }
+
             VStack(alignment: .leading, spacing: 12) {
                 Text("Opponent last season win %: \(Int(store.snapshot.oppPrevWinPct[0]))–\(Int(store.snapshot.oppPrevWinPct[1]))%")
                     .font(.subheadline)

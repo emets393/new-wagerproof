@@ -81,6 +81,15 @@ struct ScreenshotHarnessView: View {
             // B08 — Settings / paywall / delete-account harness targets all
             // expect an authenticated session so `.authenticated`-gated rows
             // render. Stage AuthStore once on appear (no real Supabase call).
+            // MLB Trends QA target: restore the REAL persisted session (not a
+            // fixture) — filter chat sends the user's JWT to the NL edge fn,
+            // so a staged phase would unlock the UI but fail server-side.
+            switch ScreenshotHarness.target {
+            case .historicalAnalysisMLB, .historicalAnalysisNFL, .historicalAnalysisCFB:
+                authStore.start()
+            default:
+                break
+            }
             if ScreenshotHarness.isSettingsClusterTarget {
                 authStore.debugSet(
                     phase: .authenticated(userId: SettingsFixtures.sampleUserId),
@@ -153,6 +162,14 @@ struct ScreenshotHarnessView: View {
             toolTargets
         case .historicalAnalysisMLB:
             NavigationStack { HistoricalAnalysisView(sport: .mlb) }
+                .environment(authStore)
+                .environment(themeStore)
+        case .historicalAnalysisNFL:
+            NavigationStack { HistoricalAnalysisView(sport: .nfl) }
+                .environment(authStore)
+                .environment(themeStore)
+        case .historicalAnalysisCFB:
+            NavigationStack { HistoricalAnalysisView(sport: .cfb) }
                 .environment(authStore)
                 .environment(themeStore)
         case .settings, .settingsLoaded, .settingsError,
@@ -1344,6 +1361,8 @@ enum ScreenshotHarness {
         case customerCenter
         // Temporary QA target: mount the MLB Historical Analysis screen directly
         case historicalAnalysisMLB
+        case historicalAnalysisNFL
+        case historicalAnalysisCFB
     }
 
     /// True when the requested target belongs to the B08 settings/paywall
