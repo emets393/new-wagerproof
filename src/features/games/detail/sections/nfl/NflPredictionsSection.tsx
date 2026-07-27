@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Sigma, Target, TrendingUp } from 'lucide-react';
 import { WidgetCard } from '@/components/ios';
-import { type NFLPrediction } from '../../../api/nflGames';
+import { getNFLFullTeamName, type NFLPrediction } from '../../../api/nflGames';
 import type { GameFeedItem, TeamRef } from '../../../types';
 import {
   FADE_ALERT_PCT,
