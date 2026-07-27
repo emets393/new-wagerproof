@@ -882,89 +882,106 @@ struct HistoricalAnalysisFilterBar: View {
 
     @ViewBuilder
     private func footballWeatherSliders(tempMax: Int) -> some View {
-        VStack(alignment: .leading) {
-            Text("Temp \(store.snapshot.tempMin)–\(store.snapshot.tempMax)°F")
-            Slider(value: Binding(
+        labeledRangeSlider(
+            title: "Temperature",
+            lower: Binding(
                 get: { Double(store.snapshot.tempMin) },
-                set: { value in
-                    store.updateSnapshot { $0.tempMin = Int(value) }
+                set: { v in
+                    store.updateSnapshot { $0.tempMin = Int(v) }
                     onChange()
                 }
-            ), in: -10...Double(store.snapshot.tempMax), step: 1)
-            Slider(value: Binding(
+            ),
+            upper: Binding(
                 get: { Double(store.snapshot.tempMax) },
-                set: { value in
-                    store.updateSnapshot { $0.tempMax = Int(value) }
+                set: { v in
+                    store.updateSnapshot { $0.tempMax = Int(v) }
                     onChange()
                 }
-            ), in: Double(store.snapshot.tempMin)...Double(tempMax), step: 1)
-        }
-        VStack(alignment: .leading) {
-            Text("Wind \(store.snapshot.windMin ?? 0)–\(store.snapshot.windMax) mph")
-            Slider(value: Binding(
+            ),
+            range: -10...Double(tempMax),
+            step: 1,
+            suffix: "°F",
+            format: { String(Int($0)) }
+        )
+        labeledRangeSlider(
+            title: "Wind",
+            lower: Binding(
                 get: { Double(store.snapshot.windMin ?? 0) },
-                set: { value in
-                    let v = Int(value)
-                    store.updateSnapshot {
-                        $0.windMin = v > 0 ? v : nil
-                        if $0.windMax < v { $0.windMax = v }
-                    }
+                set: { v in
+                    let i = Int(v)
+                    // 0 = unset sentinel so an untouched slider emits no wind_min.
+                    store.updateSnapshot { $0.windMin = i > 0 ? i : nil }
                     onChange()
                 }
-            ), in: 0...Double(store.snapshot.windMax), step: 1)
-            Slider(value: Binding(
+            ),
+            upper: Binding(
                 get: { Double(store.snapshot.windMax) },
-                set: { value in
-                    let v = Int(value)
-                    store.updateSnapshot {
-                        $0.windMax = v
-                        if let min = $0.windMin, min > v { $0.windMin = v > 0 ? v : nil }
-                    }
+                set: { v in
+                    store.updateSnapshot { $0.windMax = Int(v) }
                     onChange()
                 }
-            ), in: Double(store.snapshot.windMin ?? 0)...60, step: 1)
-        }
+            ),
+            range: 0...60,
+            step: 1,
+            suffix: " mph",
+            format: { String(Int($0)) }
+        )
     }
 
     @ViewBuilder
     private var mlbConditionsSheet: some View {
-        VStack(alignment: .leading) {
-            Text("Temp \(store.snapshot.tempMin)–\(store.snapshot.tempMax)°F")
-            Slider(value: Binding(
-                get: { Double(store.snapshot.tempMin) },
-                set: { value in
-                    store.updateSnapshot { $0.tempMin = Int(value) }
+        // Floors at 30°F to match the builder's web-parity emit threshold — the
+        // old -10 floor let users set a temp_min the builder silently dropped.
+        labeledRangeSlider(
+            title: "Temperature",
+            lower: Binding(
+                get: { Double(max(30, store.snapshot.tempMin)) },
+                set: { v in
+                    // Thumb parked at the 30° floor = unset (-10 sentinel): the MLB
+                    // builder only emits temp_min above 30, so a stored 30 would
+                    // show a chip that filters nothing.
+                    store.updateSnapshot { $0.tempMin = v <= 30 ? -10 : Int(v) }
                     onChange()
                 }
-            ), in: -10...Double(store.snapshot.tempMax), step: 1)
-            Slider(value: Binding(
+            ),
+            upper: Binding(
                 get: { Double(store.snapshot.tempMax) },
-                set: { value in
-                    store.updateSnapshot { $0.tempMax = Int(value) }
+                set: { v in
+                    store.updateSnapshot { $0.tempMax = Int(v) }
                     onChange()
                 }
-            ), in: Double(store.snapshot.tempMin)...110, step: 1)
-        }
+            ),
+            range: 30...110,
+            step: 1,
+            suffix: "°F",
+            format: { String(Int($0)) }
+        )
         Section("Wind") {
-            TextField("Min mph", text: Binding(
-                get: { store.snapshot.windMin.map(String.init) ?? "" },
-                set: { raw in
-                    let t = raw.trimmingCharacters(in: .whitespaces)
-                    store.updateSnapshot { $0.windMin = t.isEmpty ? nil : Int(t) }
-                    onChange()
-                }
-            ))
-            .keyboardType(.numberPad)
-            VStack(alignment: .leading) {
-                Text("Max wind \(store.snapshot.windMax) mph")
-                Slider(value: Binding(
-                    get: { Double(store.snapshot.windMax) },
-                    set: { value in
-                        store.updateSnapshot { $0.windMax = Int(value) }
+            labeledRangeSlider(
+                title: "Wind",
+                lower: Binding(
+                    get: { Double(store.snapshot.windMin ?? 0) },
+                    set: { v in
+                        let i = Int(v)
+                        // 0 = unset sentinel so an untouched slider emits no wind_min.
+                        store.updateSnapshot { $0.windMin = i > 0 ? i : nil }
                         onChange()
                     }
-                ), in: 0...40, step: 1)
-            }
+                ),
+                upper: Binding(
+                    get: { Double(min(40, store.snapshot.windMax)) },
+                    set: { v in
+                        // Thumb at the 40 mph cap = unset (60 sentinel): builder
+                        // emits wind_max only below 40.
+                        store.updateSnapshot { $0.windMax = v >= 40 ? 60 : Int(v) }
+                        onChange()
+                    }
+                ),
+                range: 0...40,
+                step: 1,
+                suffix: " mph",
+                format: { String(Int($0)) }
+            )
             Picker("Wind direction", selection: binding(\.windDir)) {
                 Text("Any").tag("any")
                 Text("Out").tag("out")
