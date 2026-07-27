@@ -330,7 +330,7 @@ private fun UpcomingRow(store: HistoricalAnalysisStore, game: HistoricalAnalysis
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(game.matchup, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Text(HistoricalAnalysisCopy.lineForBet(store.betType, game), color = AppColors.appTextSecondary, fontSize = 12.sp)
-            Text(HistoricalAnalysisCopy.fmtKickoff(game.kickoff), color = AppColors.appTextSecondary, fontSize = 11.sp)
+            Text(HistoricalAnalysisCopy.fmtKickoff(game.kickoff.orEmpty()), color = AppColors.appTextSecondary, fontSize = 11.sp)
         }
     }
 }

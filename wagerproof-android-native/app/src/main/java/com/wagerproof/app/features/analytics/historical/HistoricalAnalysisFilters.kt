@@ -246,7 +246,7 @@ private fun FilterSheetContent(store: HistoricalAnalysisStore, sheet: FilterShee
 @Composable
 private fun SeasonsSheet(store: HistoricalAnalysisStore) {
     IntRangeControl("From", store.snapshot.seasonMin, store.seasonFloor, store.snapshot.seasonMax) { changed(store) { s -> s.seasonMin = it } }
-    IntRangeControl("To", store.snapshot.seasonMax, store.snapshot.seasonMin, HistoricalAnalysisSport.SEASON_MAX) { changed(store) { s -> s.seasonMax = it } }
+    IntRangeControl("To", store.snapshot.seasonMax, store.snapshot.seasonMin, store.sport.seasonMax) { changed(store) { s -> s.seasonMax = it } }
 }
 
 @Composable

@@ -148,11 +148,11 @@ internal object HistoricalAnalysisCopy {
 
     fun lineForBet(betType: String, game: HistoricalAnalysisUpcomingGame): String = when (betType) {
         "fg_spread" -> game.teamSpread?.let { "${game.team} ${if (it > 0) "+" else ""}${trimmed(it)}" }.orEmpty()
-        "fg_ml" -> "${game.team} ML (${if (game.isFavorite) "favorite" else "underdog"})"
+        "fg_ml" -> "${game.team} ML (${if (game.isFavorite == true) "favorite" else "underdog"})"
         "fg_total" -> "Total O/U ${game.total?.let(::trimmed) ?: "—"}"
         "team_total" -> "${game.team} team total ${game.ttLine?.let(::trimmed) ?: "—"}"
         "h1_spread" -> game.h1Spread?.let { "${game.team} 1H ${if (it > 0) "+" else ""}${trimmed(it)}" }.orEmpty()
-        "h1_ml" -> "${game.team} 1H ML (${if (game.isFavorite) "favorite" else "underdog"})"
+        "h1_ml" -> "${game.team} 1H ML (${if (game.isFavorite == true) "favorite" else "underdog"})"
         "h1_total" -> "1H Total O/U ${game.h1Total?.let(::trimmed) ?: "—"}"
         else -> ""
     }
