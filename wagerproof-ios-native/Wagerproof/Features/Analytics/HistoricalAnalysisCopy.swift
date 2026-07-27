@@ -44,6 +44,19 @@ enum HistoricalAnalysisCopy {
         }
     }
 
+    /// Markets that ask an over/under question — the hero must headline the
+    /// WINNING side ("went under 58.7%"), never bury it behind a losing over%.
+    static let overUnderMarkets: Set<String> = ["fg_total", "h1_total", "team_total", "total", "f5_total"]
+
+    static func underVerb(for betType: String) -> String {
+        switch betType {
+        case "h1_total": return "went under the 1H total"
+        case "team_total": return "stayed under their team total"
+        case "f5_total": return "went under the F5 total"
+        default: return "went under"
+        }
+    }
+
     static func outcomeLabel(for betType: String) -> String {
         switch betType {
         case "fg_spread", "h1_spread", "rl", "f5_rl": return "Cover"

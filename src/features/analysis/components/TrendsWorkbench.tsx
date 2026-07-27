@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { TREND_ADAPTERS } from '../sportAdapters';
 import type { Sport } from './adapters/types';
 import type { AnalysisResponse, Overall, TrendsSportAdapter } from './adapters/types';
-import { pickSideSlices, recoverGameLevelOverall } from './adapters/shared';
+import { pickSideSlices, recoverGameLevelOverall, pickOverUnderHero } from './adapters/shared';
 import { CoverageBadge } from './CoverageBadge';
 import { TrendsHero, SymmetricSplitHero } from './TrendsHero';
 import { BreakdownTable } from './BreakdownTable';
@@ -204,6 +204,9 @@ function SportWorkbench({
     const sl = pickSideSlices(analysis.bars);
     return sl.length ? sl : null;
   }, [analysis, adapter, snapshot]);
+
+  // Over/under markets headline the winning side (under flip when it outhit the over).
+  const ouHero = React.useMemo(() => pickOverUnderHero(betType, analysis), [betType, analysis]);
 
   const breakdownTabs = React.useMemo(
     () => (analysis ? adapter.breakdownTabs(snapshot, analysis) : []),
@@ -524,13 +527,13 @@ function SportWorkbench({
                 ) : overall && analysis && overall.n > 0 ? (
                   <TrendsHero
                     betType={betType}
-                    overall={overall}
-                    data={analysis}
+                    overall={ouHero?.overall ?? overall}
+                    data={ouHero?.data ?? analysis}
                     subject={adapter.headlineSubject(snapshot, analysis)}
                     scopeNote={adapter.scopeNote(snapshot, data)}
-                    verb={adapter.verb(betType)}
+                    verb={ouHero?.verb ?? adapter.verb(betType)}
                     nounFor={adapter.nounFor(betType)}
-                    outcomeWord={adapter.outcomeWord(betType)}
+                    outcomeWord={ouHero?.outcomeWord ?? adapter.outcomeWord(betType)}
                     showsROI={showsROI}
                     limited={limited}
                   />

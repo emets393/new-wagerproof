@@ -84,6 +84,44 @@ export function recoverTotalBars(overall: Overall): Bar[] {
   ];
 }
 
+// ── over/under hero flip ──────────────────────────────────────────────────────────────────────
+/**
+ * Over/under markets must headline the WINNING side — "went over 41.3%" buries
+ * the story when the under hit 58.7%. Returns flipped hero props when the under
+ * outhit the over, null otherwise. (iOS parity: HistoricalAnalysisView.heroSlice.)
+ */
+export const OVER_UNDER_MARKETS = new Set(['fg_total', 'h1_total', 'team_total', 'total', 'f5_total']);
+
+export function underVerb(betType: string): string {
+  switch (betType) {
+    case 'h1_total':
+      return 'went under the 1H total';
+    case 'team_total':
+      return 'stayed under their team total';
+    case 'f5_total':
+      return 'went under the F5 total';
+    default:
+      return 'went under';
+  }
+}
+
+export function pickOverUnderHero(
+  betType: string,
+  analysis: AnalysisResponse | null | undefined,
+): { overall: Overall; data: AnalysisResponse; verb: string; outcomeWord: string } | null {
+  if (!analysis || !OVER_UNDER_MARKETS.has(betType)) return null;
+  const bar = (analysis.bars || []).find((b) => b.dimension === 'over_under');
+  const over = bar?.options?.find((o) => o.side === 'over');
+  const under = bar?.options?.find((o) => o.side === 'under');
+  if (!over || !under || !(under.hit_pct > over.hit_pct)) return null;
+  return {
+    overall: { n: under.n, wins: under.wins, hit_pct: under.hit_pct, roi: under.roi },
+    data: { ...analysis, baseline_pct: Math.round((100 - analysis.baseline_pct) * 10) / 10 },
+    verb: underVerb(betType),
+    outcomeWord: 'Under',
+  };
+}
+
 // ── side-market symmetry slices (identical copy) ──────────────────────────────────────────────
 export type SideSlice = { dimension: string; extreme: Opt; other: Opt };
 export const SIDE_CHIP_LABEL: Record<string, string> = {

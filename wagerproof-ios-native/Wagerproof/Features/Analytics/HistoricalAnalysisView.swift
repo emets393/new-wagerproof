@@ -254,27 +254,50 @@ struct HistoricalAnalysisView: View {
         }
     }
 
+    /// Over/under markets: headline whichever side actually hit more. "Games
+    /// went over 41.3%" buries the story when the under hit 58.7% — flip the
+    /// metrics, verb, gauge label, and baseline to the winning side.
+    private func heroSlice(
+        _ data: HistoricalAnalysisResponse
+    ) -> (metrics: (n: Int, wins: Int, hitPct: Double, roi: Double?), verb: String, outcome: String, baseline: Double) {
+        let metrics = HistoricalAnalysisCopy.headlineMetrics(snapshot: store.snapshot, data: data)
+        let verb = HistoricalAnalysisCopy.verb(for: store.betType)
+        let outcome = HistoricalAnalysisCopy.outcomeLabel(for: store.betType)
+        guard HistoricalAnalysisCopy.overUnderMarkets.contains(store.betType),
+              let bar = data.bars.first(where: { $0.dimension == "over_under" }),
+              let over = bar.options.first(where: { $0.side == "over" }),
+              let under = bar.options.first(where: { $0.side == "under" }),
+              under.hitPct > over.hitPct
+        else { return (metrics, verb, outcome, data.baselinePct) }
+        return (
+            (under.n, under.wins, under.hitPct, under.roi),
+            HistoricalAnalysisCopy.underVerb(for: store.betType),
+            "Under",
+            100 - data.baselinePct
+        )
+    }
+
     private func summaryText(_ data: HistoricalAnalysisResponse) -> some View {
         let subject = HistoricalAnalysisCopy.headlineSubject(sport: sport, snapshot: store.snapshot)
-        let metrics = HistoricalAnalysisCopy.headlineMetrics(snapshot: store.snapshot, data: data)
+        let hero = heroSlice(data)
+        let metrics = hero.metrics
         let sig = HistoricalAnalysisCopy.significance(n: metrics.n, hit: metrics.hitPct)
-        let delta = metrics.hitPct - data.baselinePct
-        let outcome = HistoricalAnalysisCopy.outcomeLabel(for: store.betType)
+        let delta = metrics.hitPct - hero.baseline
 
         return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 16) {
                 TrendsHeroGauge(
                     hitPct: metrics.hitPct,
-                    baseline: data.baselinePct,
-                    outcomeWord: outcome
+                    baseline: hero.baseline,
+                    outcomeWord: hero.outcome
                 )
 
                 VStack(alignment: .leading, spacing: 8) {
-                    headlineText(subject: subject, metrics: metrics, data: data)
+                    headlineText(subject: subject, metrics: metrics, verb: hero.verb, data: data)
                         .font(.system(size: 18, weight: .semibold))
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text("\(delta >= 0 ? "+" : "")\(HistoricalAnalysisCopy.trimmed(delta)) pts vs \(HistoricalAnalysisCopy.trimmed(data.baselinePct))% baseline · \(sig.label)")
+                    Text("\(delta >= 0 ? "+" : "")\(HistoricalAnalysisCopy.trimmed(delta)) pts vs \(HistoricalAnalysisCopy.trimmed(hero.baseline))% baseline · \(sig.label)")
                         .font(.system(size: 13))
                         .foregroundStyle(Color.appTextSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -305,6 +328,7 @@ struct HistoricalAnalysisView: View {
     private func headlineText(
         subject: String,
         metrics: (n: Int, wins: Int, hitPct: Double, roi: Double?),
+        verb: String,
         data: HistoricalAnalysisResponse
     ) -> Text {
         let pctStr = HistoricalAnalysisCopy.trimmed(metrics.hitPct) + "%"
@@ -313,7 +337,7 @@ struct HistoricalAnalysisView: View {
         if let roi = metrics.roi, HistoricalAnalysisBetType.showsROI(betType: store.betType, sport: sport) {
             suffix += " · \(HistoricalAnalysisCopy.signedPct(roi)) ROI"
         }
-        return Text("\(subject) \(HistoricalAnalysisCopy.verb(for: store.betType)) ")
+        return Text("\(subject) \(verb) ")
             .foregroundStyle(Color.appTextPrimary)
         + Text(pctStr)
             .foregroundStyle(pctColor)
