@@ -9,6 +9,7 @@ import {
   normalizeCfbTeamKey,
   type CfbTeamRow,
 } from '@/utils/cfbTeamAssets';
+import { resolveLatestSlate } from '@/features/games/api/footballSlate';
 import { MLB_FALLBACK_BY_NAME, normalizeTeamNameKey } from '@/utils/mlbTeamLogos';
 import {
   isDivisionGame,
@@ -74,30 +75,8 @@ function toStr(value: unknown): string | null {
 
 // MARK: - NFL / NCAAF slates
 
-interface SlateAnchor {
-  season: number;
-  week: number;
-}
-
-async function fetchSlateAnchor(table: string): Promise<SlateAnchor | null> {
-  const { data, error } = await collegeFootballSupabase
-    .from(table)
-    .select('season,week')
-    .order('season', { ascending: false })
-    .order('week', { ascending: false })
-    .limit(1);
-  if (error) throw error;
-  const row = data?.[0];
-  if (!row) return null;
-  const season = toInt(row.season);
-  const week = toInt(row.week);
-  if (season === null || week === null) return null;
-  return { season, week };
-}
-
 async function fetchNFLSlateGames(): Promise<OutliersTrendsGame[]> {
-  const anchor = await fetchSlateAnchor('nfl_dryrun_games');
-  if (!anchor) return [];
+  const anchor = await resolveLatestSlate('nfl_dryrun_games');
   const { data, error } = await collegeFootballSupabase
     .from('nfl_dryrun_games')
     .select(NFL_GAME_COLUMNS)
@@ -122,8 +101,7 @@ async function fetchNFLSlateGames(): Promise<OutliersTrendsGame[]> {
 }
 
 async function fetchCFBSlateGames(): Promise<OutliersTrendsGame[]> {
-  const anchor = await fetchSlateAnchor('cfb_dryrun_games');
-  if (!anchor) return [];
+  const anchor = await resolveLatestSlate('cfb_dryrun_games');
   const { data, error } = await collegeFootballSupabase
     .from('cfb_dryrun_games')
     .select(CFB_GAME_COLUMNS)

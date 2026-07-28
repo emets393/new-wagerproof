@@ -294,8 +294,8 @@ public actor OutliersTrendsService {
         guard let first = games.first else {
             return NFLTrendsSlateBundle(
                 games: [],
-                season: 2025,
-                throughWeek: 11,
+                season: 2026,
+                throughWeek: 1,
                 teams: [],
                 coaches: [],
                 referees: [],

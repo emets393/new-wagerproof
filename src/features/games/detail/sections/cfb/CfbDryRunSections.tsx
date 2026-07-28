@@ -382,7 +382,7 @@ export function CfbDryRunPicksSection({ game }: { game: GameFeedItem<CFBPredicti
       setLoading(true);
       setError(null);
       try {
-        const season = Number(prediction?.season) || 2025;
+        const season = Number(prediction?.season) || new Date().getFullYear();
         const [{ data: pickRows, error: picksError }, { data: defsRows, error: defsError }, { data: perfRows, error: perfError }] = await Promise.all([
           collegeFootballSupabase
             .from('cfb_dryrun_picks')

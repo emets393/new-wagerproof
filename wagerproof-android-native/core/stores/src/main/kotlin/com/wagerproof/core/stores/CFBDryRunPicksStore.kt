@@ -17,13 +17,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.intOrNull
 
 /**
- * Port of iOS `CFBDryRunPicksStore.swift`. Admin CFB dry-run picks screen. Runs
- * the SAME week-7 trio as GamesStore's CFB dry-run path (`cfb_dryrun_games` +
- * `cfb_dryrun_flags` both `week=7`, plus the signal glossary) in parallel, then
- * attaches signal definitions, groups flags by game, and maps rows into
- * [CFBPrediction] using slightly smaller private row decoders than GamesStore's.
+ * Port of iOS `CFBDryRunPicksStore.swift`. Admin CFB dry-run picks screen. Resolves
+ * the current (season, week) dynamically (soonest upcoming kickoff with 6h grace),
+ * then loads `cfb_dryrun_games` + `cfb_dryrun_flags` + the signal glossary in parallel.
  */
 @Stable
 class CFBDryRunPicksStore {
@@ -51,16 +50,59 @@ class CFBDryRunPicksStore {
         try {
             CFBTeamsService.ensureLoaded()
             coroutineScope {
+                val cfb = SupabaseClients.cfb
+                val graceIso = java.time.Instant.now().minusSeconds(6 * 60 * 60).toString()
+                val upcoming = runCatching {
+                    cfb.from("cfb_dryrun_games")
+                        .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("season,week,kickoff")) {
+                            filter { gte("kickoff", graceIso) }
+                            order("kickoff", io.github.jan.supabase.postgrest.query.Order.ASCENDING)
+                            limit(1)
+                        }
+                        .decodeList<kotlinx.serialization.json.JsonObject>()
+                }.getOrDefault(emptyList())
+                val slateRow = upcoming.firstOrNull() ?: runCatching {
+                    cfb.from("cfb_dryrun_games")
+                        .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("season,week")) {
+                            order("season", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                            order("week", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                            limit(1)
+                        }
+                        .decodeList<kotlinx.serialization.json.JsonObject>()
+                }.getOrDefault(emptyList()).firstOrNull()
+
+                fun jsonInt(o: kotlinx.serialization.json.JsonObject, key: String): Int? {
+                    val p = o[key] as? kotlinx.serialization.json.JsonPrimitive ?: return null
+                    return if (p.isString) p.content.toIntOrNull() else p.intOrNull
+                }
+
+                val season = slateRow?.let { jsonInt(it, "season") }
+                val week = slateRow?.let { jsonInt(it, "week") }
+                if (season == null || week == null) {
+                    games = emptyList()
+                    flags = emptyList()
+                    loadState = LoadState.Loaded
+                    return@coroutineScope
+                }
+
                 val gamesRowsDeferred = async {
-                    SupabaseClients.cfb
-                        .from("cfb_dryrun_games")
-                        .select { filter { eq("week", 7) } }
+                    cfb.from("cfb_dryrun_games")
+                        .select {
+                            filter {
+                                eq("season", season)
+                                eq("week", week)
+                            }
+                        }
                         .decodeList<GameRow>()
                 }
                 val flagRowsDeferred = async {
-                    SupabaseClients.cfb
-                        .from("cfb_dryrun_flags")
-                        .select { filter { eq("week", 7) } }
+                    cfb.from("cfb_dryrun_flags")
+                        .select {
+                            filter {
+                                eq("season", season)
+                                eq("week", week)
+                            }
+                        }
                         .decodeList<FlagRow>()
                 }
                 val signalDefsDeferred = async {
@@ -79,9 +121,9 @@ class CFBDryRunPicksStore {
                 val flagsByGame = flagModels.groupBy { it.gameId }
                 flags = flagModels
                 games = gRows.map { prediction(it, flagsByGame) }
+                loadState = LoadState.Loaded
             }
-            loadState = LoadState.Loaded
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             loadState = LoadState.Failed(e.message ?: "Failed to load CFB dry-run picks")
         }
     }
