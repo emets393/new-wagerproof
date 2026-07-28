@@ -20,13 +20,13 @@ WINDOWS = [3, 5, 7]
 
 gm = pd.read_parquet("data/model_games.parquet")
 pre = gm[(gm.season == SEASON) & (gm.week <= THRU) & gm.actual_margin.notna()].copy()
-g25 = pd.read_parquet("data/cfbd/games_2025.parquet")
+g25 = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")
 h1h = {r.id: (sum(r.homeLineScores[:2]) if r.homeLineScores is not None and len(r.homeLineScores) >= 2 else None) for _, r in g25.iterrows()}
 h1a = {r.id: (sum(r.awayLineScores[:2]) if r.awayLineScores is not None and len(r.awayLineScores) >= 2 else None) for _, r in g25.iterrows()}
 dt = dict(zip(g25.id, g25.startDate))
 
 # posted consensus lines (event odds, wk1-6)
-ev = pd.read_parquet("data/event_odds/events_2025.parquet"); ev = ev[ev.game_id.isin(set(pre.game_id))].copy()
+ev = pd.read_parquet(f"data/event_odds/events_{SEASON}.parquet"); ev = ev[ev.game_id.isin(set(pre.game_id))].copy()
 names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
 AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i", "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State", "Southern Miss Golden Eagles": "Southern Miss"}
 def tdb(o):

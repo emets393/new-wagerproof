@@ -12,14 +12,14 @@ gm = pd.read_parquet("data/model_games.parquet")
 m = gm[(gm.season == SEASON) & (gm.week == WEEK)].copy()
 g7 = set(m.game_id)
 # kickoff
-g25 = pd.read_parquet("data/cfbd/games_2025.parquet")[["id", "startDate"]].rename(columns={"id": "game_id"})
+g25 = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")[["id", "startDate"]].rename(columns={"id": "game_id"})
 m = m.merge(g25, on="game_id", how="left")
 # ML close
 of = pd.read_parquet("data/odds_game_frame.parquet")[["season", "home", "away", "close_home_ml", "close_away_ml"]]
 m = m.merge(of, left_on=["season", "homeTeam", "awayTeam"], right_on=["season", "home", "away"], how="left")
 # harness preds + spots
-pred = pd.read_csv("out/cfb_predictions_2025.csv")
-bets = pd.read_csv("out/cfb_bets_2025.csv")
+pred = pd.read_csv(f"out/cfb_predictions_{SEASON}.csv")
+bets = pd.read_csv(f"out/cfb_bets_{SEASON}.csv")
 m = m.merge(pred[["homeTeam", "awayTeam", "pred_total", "pred_spread", "totals_bet", "sides_bet", "mammoth", "spots"]],
             on=["homeTeam", "awayTeam"], how="left")
 m = m.merge(bets[["game_id", "pred_margin", "side_edge", "total_edge", "p_home_conf"]], on="game_id", how="left")
@@ -46,7 +46,7 @@ def wx_summary(temp, wind, precip, indoors):
     return s
 
 # event-odds: team totals + 1H posted CLOSE consensus (tag-agnostic: last pre-kick snap)
-ev = pd.read_parquet("data/event_odds/events_2025.parquet")
+ev = pd.read_parquet(f"data/event_odds/events_{SEASON}.parquet")
 ev = ev[ev.game_id.isin(g7)].copy()
 names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
 AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i",
@@ -83,8 +83,8 @@ h1mlh = mlh[mlh.nm == mlh.home].groupby("game_id").price.median().to_dict()
 h1mla = mlh[mlh.nm == mlh.away].groupby("game_id").price.median().to_dict()
 
 # TT + 1H model preds/picks
-tt_csv = pd.read_csv("out/cfb_team_totals_2025.csv"); tt_csv = tt_csv[tt_csv.game_id.isin(g7)]
-h1_csv = pd.read_csv("out/cfb_h1_model_2025.csv"); h1_csv = h1_csv[h1_csv.game_id.isin(g7)]
+tt_csv = pd.read_csv(f"out/cfb_team_totals_{SEASON}.csv"); tt_csv = tt_csv[tt_csv.game_id.isin(g7)]
+h1_csv = pd.read_csv(f"out/cfb_h1_model_{SEASON}.csv"); h1_csv = h1_csv[h1_csv.game_id.isin(g7)]
 def tt_pred(gid, team):  # UNIFIED: full-game-derived team points (coherent with predicted score), pick by edge vs posted
     row = m[m.game_id == gid]
     if not len(row): return None, None
@@ -169,7 +169,7 @@ for _, r in m.iterrows():
     })
 df = pd.DataFrame(rows)
 # 1H actuals from line scores
-g25b = pd.read_parquet("data/cfbd/games_2025.parquet")
+g25b = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")
 g25b["h1_home"] = g25b.homeLineScores.apply(lambda a: int(sum(a[:2])) if a is not None and len(a) >= 2 else None)
 g25b["h1_away"] = g25b.awayLineScores.apply(lambda a: int(sum(a[:2])) if a is not None and len(a) >= 2 else None)
 df = df.merge(g25b[["id", "h1_home", "h1_away"]].rename(columns={"id": "game_id"}), on="game_id", how="left")

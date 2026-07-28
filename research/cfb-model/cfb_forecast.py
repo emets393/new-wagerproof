@@ -231,9 +231,13 @@ def build_season(season, week=None):
     # Frozen-.pkl serving (task #13): fit once with --train (or when no model saved), else load + predict.
     import joblib
     _pkl = os.path.join(OUT, f"cfb_models_{a.season}.pkl")
+    tm = sm = None
     if os.path.exists(_pkl) and "--train" not in sys.argv:
-        tm, sm = joblib.load(_pkl)
-    else:
+        try:
+            tm, sm = joblib.load(_pkl)
+        except Exception as e:  # e.g. numpy version drift breaks the pickle — never let it kill the run
+            print(f"[warn] frozen {_pkl} failed to load ({e}); retraining from season<{a.season} (deterministic, output may differ slightly — re-freeze the .pkl in this env to lock it)")
+    if tm is None:
         tm = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_depth=4, l2_regularization=1.0, random_state=0).fit(tr[feats], tr.actual_total)
         sm = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_depth=4, l2_regularization=1.0, random_state=0).fit(tr[sfeats], tr.actual_margin)
         joblib.dump((tm, sm), _pkl)
@@ -291,9 +295,13 @@ def build_season(season, week=None):
     trc = gm[(gm.season < a.season) & gm.spread_close.notna() & gm.actual_margin.notna()]
     trc = trc[(trc.actual_margin + trc.spread_close) != 0]
     _pklc = os.path.join(OUT, f"cfb_confirm_{a.season}.pkl")  # frozen .pkl serving (task #13)
+    cc = None
     if os.path.exists(_pklc) and "--train" not in sys.argv:
-        cc = joblib.load(_pklc)
-    else:
+        try:
+            cc = joblib.load(_pklc)
+        except Exception as e:
+            print(f"[warn] frozen {_pklc} failed to load ({e}); retraining the confirm classifier")
+    if cc is None:
         cc = HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, max_depth=4,
                                             l2_regularization=1.0, random_state=0).fit(trc[feats], (trc.actual_margin + trc.spread_close) > 0)
         joblib.dump(cc, _pklc)
