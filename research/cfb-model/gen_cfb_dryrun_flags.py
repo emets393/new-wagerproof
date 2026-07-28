@@ -16,6 +16,7 @@ rows = []
 
 # spread/total spots from spot_library (true per-spot side)
 for name, (mask, side, market, gl) in S.items():
+    if C.is_blanket(name): continue   # skip slate-wide leans (week==N openers, base model_lean) — not per-game signals
     sub = te[mask.reindex(te.index, fill_value=False).values] if hasattr(mask, "reindex") else te[mask]
     meta = C.classify(name); conv = meta[2] if meta else "T3"; active = meta[3] if meta else True
     mkt_norm = "total" if market == "total" else "spread"   # spot_library uses 'side' for spreads

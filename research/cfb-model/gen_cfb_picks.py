@@ -3,6 +3,7 @@ model number, fair line, vegas consensus line, edge, BEST book line+odds+logo, c
 Best line rule: spread/h1_spread -> max line for the pick side (fewer to lay / more to take); total/team_total/
 h1_total -> OVER=lowest line, UNDER=highest line; ties + moneyline -> highest American odds (best price).
 Also writes conviction_summary onto cfb_dryrun_games for the slate pills."""
+import os
 import numpy as np, pandas as pd, warnings, requests, json
 import dry_common as C
 
@@ -39,9 +40,15 @@ for _, r in fg.iterrows():
     FG[(int(r.gid), r.book)] = r
 
 # ---- per-book TT + 1H close lines (event odds) ----
-ev = pd.read_parquet(f"data/event_odds/events_{SEASON}.parquet"); ev = ev[ev.game_id.isin(g7)].copy()
-ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True); ev["description"] = ev.description.fillna("_")
-ev = ev.sort_values("snap_dt").groupby(["game_id", "market", "book", "name", "description"], as_index=False).last()
+# Preseason (e.g. Week 1 before books post event props), events_{SEASON}.parquet may not exist yet.
+# Fall back to an empty frame so full-game picks still generate — TT/1H just won't have per-book lines.
+_ev_path = f"data/event_odds/events_{SEASON}.parquet"
+if os.path.exists(_ev_path):
+    ev = pd.read_parquet(_ev_path); ev = ev[ev.game_id.isin(g7)].copy()
+    ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True); ev["description"] = ev.description.fillna("_")
+    ev = ev.sort_values("snap_dt").groupby(["game_id", "market", "book", "name", "description"], as_index=False).last()
+else:
+    ev = pd.DataFrame(columns=["game_id", "market", "book", "name", "description", "snap", "snap_dt", "price", "point"])
 
 def best_spread(gid, side):
     v = []
