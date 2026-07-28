@@ -1,6 +1,6 @@
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
-import { getCfbTeamLogo, installCfbTeamAssets } from '@/utils/cfbTeamAssets';
+import { getCfbTeamLogo, getCfbTeamAbbrFromAssets, installCfbTeamAssets, normalizeCfbTeamKey } from '@/utils/cfbTeamAssets';
 import type { GameFeedItem, SportFeed, TeamRef } from '../types';
 import { resolveCfbCurrentWeek, signalCountFromDryrunGame } from './footballSlate';
 
@@ -555,6 +555,7 @@ export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBP
 
     mappings = dryRunMappings || [];
     // Shared Outliers / games logo cache (web port of native CFBTeamAssets).
+    // Also seeds FCS opponents (NDSU, Sacramento State, …) missing from FBS cfb_teams.
     installCfbTeamAssets(mappings);
 
     if (predsError) {
@@ -562,11 +563,11 @@ export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBP
     }
 
     const teamByName = new Map(
-      mappings.map((team) => [String(team.team_name || '').toLowerCase(), team])
+      mappings.map((team) => [normalizeCfbTeamKey(String(team.team_name || '')), team])
     );
     merged = (preds || []).map((prediction: any) => {
-      const awayTeam = teamByName.get(String(prediction.away_team || '').toLowerCase());
-      const homeTeam = teamByName.get(String(prediction.home_team || '').toLowerCase());
+      const awayTeam = teamByName.get(normalizeCfbTeamKey(String(prediction.away_team || '')));
+      const homeTeam = teamByName.get(normalizeCfbTeamKey(String(prediction.home_team || '')));
       const predTotal = Number(prediction.fg_pred_total);
       const predMargin = Number(prediction.fg_pred_margin);
       const hasScore = Number.isFinite(predTotal) && Number.isFinite(predMargin);
@@ -582,10 +583,10 @@ export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBP
         start_time: prediction.kickoff,
         game_date: prediction.kickoff,
         game_time: prediction.kickoff,
-        away_abbr: awayTeam?.abbr || prediction.away_team,
-        home_abbr: homeTeam?.abbr || prediction.home_team,
-        away_logo: awayTeam?.logo || awayTeam?.logo_dark || '',
-        home_logo: homeTeam?.logo || homeTeam?.logo_dark || '',
+        away_abbr: awayTeam?.abbr || getCfbTeamAbbrFromAssets(String(prediction.away_team || '')) || prediction.away_team,
+        home_abbr: homeTeam?.abbr || getCfbTeamAbbrFromAssets(String(prediction.home_team || '')) || prediction.home_team,
+        away_logo: awayTeam?.logo || awayTeam?.logo_dark || getCfbTeamLogo(String(prediction.away_team || '')) || '',
+        home_logo: homeTeam?.logo || homeTeam?.logo_dark || getCfbTeamLogo(String(prediction.home_team || '')) || '',
         away_color: awayTeam?.color || null,
         home_color: homeTeam?.color || null,
         away_alt_color: awayTeam?.alt_color || null,
