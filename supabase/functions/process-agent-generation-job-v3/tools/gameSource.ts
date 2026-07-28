@@ -64,10 +64,10 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
   let startedDropped = 0;
   for (const sport of ctx.steering.preferredSports as Sport[]) {
     try {
-      // CFB reads the NEW model's weekly table (cfb_dryrun_games) via source='dryrun' — same table the
-      // /games web feed now reads; the legacy cfb_live_weekly_inputs is retired. NFL/NBA/NCAAB/MLB stay
-      // on their production ('legacy') tables (NFL's dryrun table still holds the 2025 test slate).
-      const source = sport === 'cfb' ? 'dryrun' : 'legacy';
+      // NFL + CFB read the NEW model's weekly table (nfl/cfb_dryrun_games) via source='dryrun' — same
+      // tables the /games web feed now reads (both populated for the live season). NBA/NCAAB/MLB stay
+      // on their production ('legacy') tables.
+      const source = sport === 'cfb' || sport === 'nfl' ? 'dryrun' : 'legacy';
       const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate, source);
       let n = 0;
       for (const fg of formattedGames as FormattedGame[]) {
