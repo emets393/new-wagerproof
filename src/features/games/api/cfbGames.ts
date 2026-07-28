@@ -3,12 +3,13 @@ import debug from '@/utils/debug';
 import type { GameFeedItem, SportFeed, TeamRef } from '../types';
 
 /**
- * CFB adapter — port of the legacy src/pages/CollegeFootball.tsx fetchData().
- * Two modes, selected by the page's admin toggle:
- * - dry-run (admin): cfb_teams + cfb_dryrun_games (week 7), rows synthesized
- *   into the card shape with mammoth/conviction fields kept on raw
- * - regular: cfb_team_mapping + cfb_live_weekly_inputs + cfb_api_predictions
- *   merged on row id
+ * CFB adapter for the /games feed.
+ * Reads the NEW model's weekly output: cfb_teams (team meta) + cfb_dryrun_games (predictions +
+ * Odds-API lines). The current week is resolved dynamically from kickoffs (resolveCfbCurrentWeek),
+ * so the slate rolls Week 1 -> Week 2 automatically. Weeks 1-3 carry priors-blend display
+ * predictions (tier 'lean', no bet flags); week 4+ carries the full opponent-adjusted model.
+ * The legacy path (cfb_team_mapping + cfb_live_weekly_inputs + cfb_api_predictions) is retired.
+ * (cfb_dryrun_games keeps its test-era name but now holds the live current-week slate.)
  */
 
 export interface CFBPrediction {
@@ -517,13 +518,46 @@ const toTeamRef = (
   };
 };
 
+/**
+ * Resolve the CFB slate to show: the (season, week) of the soonest upcoming game in the new-model
+ * table. A 6h grace keeps a just-kicked game's week current; once every game in a week has kicked
+ * off, the next week's games become "soonest" and the board rolls forward on its own. Falls back to
+ * the latest slate present (offseason / all games played).
+ */
+async function resolveCfbCurrentWeek(): Promise<{ season: number; week: number }> {
+  const grace = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  const { data: upcoming } = await collegeFootballSupabase
+    .from('cfb_dryrun_games')
+    .select('season, week, kickoff')
+    .gte('kickoff', grace)
+    .order('kickoff', { ascending: true })
+    .limit(1);
+  if (upcoming && upcoming.length) {
+    return { season: Number(upcoming[0].season), week: Number(upcoming[0].week) };
+  }
+  const { data: latest } = await collegeFootballSupabase
+    .from('cfb_dryrun_games')
+    .select('season, week')
+    .order('season', { ascending: false })
+    .order('week', { ascending: false })
+    .limit(1);
+  if (latest && latest.length) {
+    return { season: Number(latest[0].season), week: Number(latest[0].week) };
+  }
+  return { season: 2026, week: 1 };
+}
+
 export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPrediction>> {
   let merged: CFBPrediction[] = [];
   let mappings: CFBTeamMapping[] = [];
   let generatedAt: string | null = null;
 
-  if (adminMode) {
-    // Dry-run CFB uses the normalized team table, not the legacy mapping.
+  // The NEW CFB model's weekly output lives in cfb_dryrun_games (legacy test-era name; it now holds
+  // the real current-week slate). Live feed + admin both read it; the current week resolves from
+  // kickoffs so the board rolls Week 1 -> Week 2 on its own. The old legacy path
+  // (cfb_live_weekly_inputs + cfb_api_predictions) is retired — that model is no longer used.
+  {
+    const { season, week } = await resolveCfbCurrentWeek();
     const { data: dryRunMappings, error: mappingsError } = await collegeFootballSupabase
       .from('cfb_teams')
       .select('team_name, abbr, logo, logo_dark, color, alt_color, conference');
@@ -534,11 +568,11 @@ export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPr
 
     mappings = dryRunMappings || [];
 
-    // Week hardcoded to 7 in the legacy page — kept verbatim.
     const { data: preds, error: predsError } = await collegeFootballSupabase
       .from('cfb_dryrun_games')
       .select('*')
-      .eq('week', 7)
+      .eq('season', season)
+      .eq('week', week)
       .order('kickoff', { ascending: true });
 
     if (predsError) {
@@ -592,57 +626,6 @@ export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPr
         over_line_diff: prediction.fg_total_edge ?? null,
         pred_spread: prediction.fg_pred_spread ?? null,
         home_spread_diff: prediction.fg_spread_edge ?? null,
-        is_dry_run: true,
-      };
-    });
-    generatedAt = (preds as any[])?.[0]?.generated_at ?? null;
-  } else {
-    const { data: legacyMappings, error: mappingsError } = await collegeFootballSupabase
-      .from('cfb_team_mapping')
-      .select('api, logo_light');
-
-    if (mappingsError) {
-      throw new Error(`Team mappings error: ${mappingsError.message}`);
-    }
-
-    mappings = legacyMappings || [];
-
-    const { data: preds, error: predsError } = await collegeFootballSupabase
-      .from('cfb_live_weekly_inputs')
-      .select('*');
-
-    if (predsError) {
-      throw new Error(`Predictions error: ${predsError.message}`);
-    }
-
-    const { data: apiPreds, error: apiPredsError } = await collegeFootballSupabase
-      .from('cfb_api_predictions')
-      .select('*');
-
-    if (apiPredsError) {
-      throw new Error(`API predictions error: ${apiPredsError.message}`);
-    }
-
-    merged = (preds || []).map((prediction: any) => {
-      const apiPred: any = apiPreds?.find((ap: any) => ap.id === prediction.id);
-      return {
-        ...prediction,
-        opening_spread: prediction?.spread ?? null,
-        pred_spread:
-          apiPred?.pred_spread || apiPred?.run_line_prediction || apiPred?.spread_prediction || null,
-        home_spread_diff:
-          apiPred?.home_spread_diff || apiPred?.spread_diff || apiPred?.edge || null,
-        pred_total:
-          apiPred?.pred_total || apiPred?.total_prediction || apiPred?.ou_prediction || null,
-        total_diff: apiPred?.total_diff || apiPred?.total_edge || null,
-        pred_over_line: apiPred?.pred_over_line ?? null,
-        over_line_diff: apiPred?.over_line_diff ?? null,
-        pred_away_score:
-          apiPred?.pred_away_score ?? apiPred?.away_points ?? prediction?.pred_away_score ?? null,
-        pred_home_score:
-          apiPred?.pred_home_score ?? apiPred?.home_points ?? prediction?.pred_home_score ?? null,
-        pred_away_points: apiPred?.pred_away_points ?? apiPred?.away_points ?? null,
-        pred_home_points: apiPred?.pred_home_points ?? apiPred?.home_points ?? null,
         is_dry_run: false,
       };
     });
