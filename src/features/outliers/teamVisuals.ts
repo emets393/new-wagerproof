@@ -7,6 +7,11 @@ import {
   getMLBTeamColors,
   getNFLTeamColors,
 } from '@/utils/teamColors';
+import {
+  getCfbTeamAbbrFromAssets,
+  getCfbTeamColorsFromAssets,
+  getCfbTeamLogo,
+} from '@/utils/cfbTeamAssets';
 import { espnMlb500LogoUrlFromAbbrev } from '@/utils/mlbTeamLogos';
 import type { OutliersTrendsSport } from './types';
 
@@ -71,11 +76,15 @@ export interface TeamVisual {
 
 export function teamVisuals(sport: OutliersTrendsSport, teamKey: string): TeamVisual {
   if (sport === 'ncaaf') {
-    // CFB team keys are full team names (no abbreviations in the slate table).
+    // CFB keys are full school names (teams + coaches via current_team). Logos /
+    // brand colors come from the cfb_teams cache (installCfbTeamAssets) — same
+    // source as native CFBTeamAssets. Initials prefer the table abbr.
+    const assetColors = getCfbTeamColorsFromAssets(teamKey);
+    const abbr = getCfbTeamAbbrFromAssets(teamKey);
     return {
-      colors: getCFBTeamColors(teamKey),
-      initials: getCFBTeamInitials(teamKey),
-      logoUrl: null,
+      colors: assetColors ?? getCFBTeamColors(teamKey),
+      initials: abbr?.toUpperCase() ?? getCFBTeamInitials(teamKey),
+      logoUrl: getCfbTeamLogo(teamKey),
     };
   }
   if (sport === 'mlb') {

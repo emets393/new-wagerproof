@@ -4,6 +4,11 @@
 // builds cards client-side via mlbTrendsEngine. All tables live on the CFB
 // (sports-data) Supabase project.
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import {
+  installCfbTeamAssets,
+  normalizeCfbTeamKey,
+  type CfbTeamRow,
+} from '@/utils/cfbTeamAssets';
 import { MLB_FALLBACK_BY_NAME, normalizeTeamNameKey } from '@/utils/mlbTeamLogos';
 import {
   isDivisionGame,
@@ -132,19 +137,20 @@ async function fetchCFBSlateGames(): Promise<OutliersTrendsGame[]> {
   const { data: teamRows } = await collegeFootballSupabase
     .from('cfb_teams')
     .select('team_name,abbr,logo,logo_dark,color,alt_color');
-  const normalizeTeam = (value: unknown) => String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[.']/g, '')
-    .replace(/\s+/g, ' ');
+  // Hydrate the process-wide CFB assets cache so teamVisuals (trend + coach
+  // cards) can resolve logos sync — mirrors iOS/Android CFBTeamAssets.install.
+  installCfbTeamAssets((teamRows ?? []) as CfbTeamRow[]);
   const teamsByName = new Map(
-    (teamRows ?? []).map((team: Record<string, unknown>) => [normalizeTeam(team.team_name), team]),
+    (teamRows ?? []).map((team: Record<string, unknown>) => [
+      normalizeCfbTeamKey(String(team.team_name ?? '')),
+      team,
+    ]),
   );
   return (data ?? []).map((row: Record<string, unknown>): OutliersTrendsGame => {
     const home = toStr(row.home_team) ?? 'Home';
     const away = toStr(row.away_team) ?? 'Away';
-    const homeRef = teamsByName.get(normalizeTeam(home));
-    const awayRef = teamsByName.get(normalizeTeam(away));
+    const homeRef = teamsByName.get(normalizeCfbTeamKey(home));
+    const awayRef = teamsByName.get(normalizeCfbTeamKey(away));
     return {
       id: toStr(row.game_id) ?? '',
       season: toInt(row.season) ?? anchor.season,

@@ -1,5 +1,6 @@
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
+import { installCfbTeamAssets } from '@/utils/cfbTeamAssets';
 import type { GameFeedItem, SportFeed, TeamRef } from '../types';
 
 /**
@@ -533,6 +534,8 @@ export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPr
     }
 
     mappings = dryRunMappings || [];
+    // Shared Outliers / games logo cache (web port of native CFBTeamAssets).
+    installCfbTeamAssets(mappings);
 
     // Week hardcoded to 7 in the legacy page — kept verbatim.
     const { data: preds, error: predsError } = await collegeFootballSupabase
