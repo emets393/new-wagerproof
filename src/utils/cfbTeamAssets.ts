@@ -42,7 +42,7 @@ const EXTRA_ALIASES: Record<string, string> = {
   fiu: 'florida international',
   'james madison': 'james madison',
   jmu: 'james madison',
-  'connecticut': 'uconn',
+  connecticut: 'uconn',
   'uli monroe': 'ul monroe',
   'louisiana monroe': 'ul monroe',
   'southern mississippi': 'southern miss',
@@ -50,7 +50,38 @@ const EXTRA_ALIASES: Record<string, string> = {
   'miami ohio': 'miami (oh)',
   'san jose state': 'san jose state',
   hawaii: 'hawaii',
+  // FCS opponents on the FBS dry-run slate — not in the 137-team cfb_teams table.
+  ndsu: 'north dakota state',
+  'n dakota state': 'north dakota state',
+  'n dakota st': 'north dakota state',
+  sac: 'sacramento state',
+  sacst: 'sacramento state',
+  'sac state': 'sacramento state',
 };
+
+/**
+ * FCS / non-FBS schools that appear on the dry-run slate as opponents but are
+ * absent from `cfb_teams` (FBS-only). Seeded from `cfb_team_mapping` ESPN ids
+ * so logos resolve everywhere the assets cache is installed.
+ */
+const SUPPLEMENTAL_TEAMS: readonly CfbTeamRow[] = [
+  {
+    team_name: 'North Dakota State',
+    abbr: 'NDSU',
+    logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2449.png',
+    logo_dark: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/2449.png',
+    color: '#01402A',
+    alt_color: '#FFFFFF',
+  },
+  {
+    team_name: 'Sacramento State',
+    abbr: 'SAC',
+    logo: 'https://a.espncdn.com/i/teamlogos/ncaa/500/16.png',
+    logo_dark: 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/16.png',
+    color: '#00573C',
+    alt_color: '#CDB97D',
+  },
+];
 
 let byName = new Map<string, CfbTeamReference>();
 let nameByAlias = new Map<string, string>();
@@ -59,7 +90,11 @@ export function isCfbTeamAssetsLoaded(): boolean {
   return byName.size > 0;
 }
 
-/** Strip accents / punctuation so "San José State" ≡ "San Jose State", "Hawai'i" ≡ "Hawaii". */
+/**
+ * Strip accents / punctuation so "San José State" ≡ "San Jose State",
+ * "Hawai'i" ≡ "Hawaii". Also expands a trailing "St" → "State" so lines feeds
+ * ("North Dakota St", "Sacramento St") match canonical school names.
+ */
 export function normalizeCfbTeamKey(value: string): string {
   return value
     .trim()
@@ -67,7 +102,8 @@ export function normalizeCfbTeamKey(value: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[.']/g, '')
-    .replace(/\s+/g, ' ');
+    .replace(/\s+/g, ' ')
+    .replace(/\bst$/g, 'state');
 }
 
 function toRef(row: CfbTeamRow): CfbTeamReference | null {
@@ -97,20 +133,28 @@ export function installCfbTeamAssets(rows: readonly CfbTeamRow[]): void {
   const nextByName = new Map<string, CfbTeamReference>();
   const nextAliases = new Map<string, string>();
 
-  for (const row of rows) {
+  const ingest = (row: CfbTeamRow, overwrite = true) => {
     const ref = toRef(row);
-    if (!ref) continue;
+    if (!ref) return;
     const key = normalizeCfbTeamKey(ref.teamName);
+    if (!overwrite && nextByName.has(key)) return;
     nextByName.set(key, ref);
     nextAliases.set(key, key);
     if (ref.abbr) {
+      // Abbrs are left as-is by St→State expand (no "st" token); register raw + normalized.
       nextAliases.set(normalizeCfbTeamKey(ref.abbr), key);
+      nextAliases.set(ref.abbr.trim().toLowerCase(), key);
     }
-  }
+  };
+
+  for (const row of rows) ingest(row, true);
+  // Fill FCS opponents missing from the FBS-only cfb_teams table.
+  for (const row of SUPPLEMENTAL_TEAMS) ingest(row, false);
 
   for (const [alias, canonical] of Object.entries(EXTRA_ALIASES)) {
-    if (nextByName.has(canonical) && !nextAliases.has(alias)) {
-      nextAliases.set(alias, canonical);
+    const aliasKey = normalizeCfbTeamKey(alias);
+    if (nextByName.has(canonical) && !nextAliases.has(aliasKey)) {
+      nextAliases.set(aliasKey, canonical);
     }
   }
 

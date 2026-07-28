@@ -6,6 +6,7 @@
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import {
   installCfbTeamAssets,
+  lookupCfbTeam,
   normalizeCfbTeamKey,
   type CfbTeamRow,
 } from '@/utils/cfbTeamAssets';
@@ -117,6 +118,7 @@ async function fetchCFBSlateGames(): Promise<OutliersTrendsGame[]> {
     .select('team_name,abbr,logo,logo_dark,color,alt_color');
   // Hydrate the process-wide CFB assets cache so teamVisuals (trend + coach
   // cards) can resolve logos sync — mirrors iOS/Android CFBTeamAssets.install.
+  // Seeds FCS opponents (NDSU, Sacramento State) absent from FBS-only cfb_teams.
   installCfbTeamAssets((teamRows ?? []) as CfbTeamRow[]);
   const teamsByName = new Map(
     (teamRows ?? []).map((team: Record<string, unknown>) => [
@@ -129,23 +131,27 @@ async function fetchCFBSlateGames(): Promise<OutliersTrendsGame[]> {
     const away = toStr(row.away_team) ?? 'Away';
     const homeRef = teamsByName.get(normalizeCfbTeamKey(home));
     const awayRef = teamsByName.get(normalizeCfbTeamKey(away));
+    const awayAsset = lookupCfbTeam(away);
+    const homeAsset = lookupCfbTeam(home);
     return {
       id: toStr(row.game_id) ?? '',
       season: toInt(row.season) ?? anchor.season,
       week: toInt(row.week) ?? anchor.week,
-      awayAb: toStr(awayRef?.abbr) ?? away,
-      homeAb: toStr(homeRef?.abbr) ?? home,
+      awayAb: toStr(awayRef?.abbr) ?? awayAsset?.abbr ?? away,
+      homeAb: toStr(homeRef?.abbr) ?? homeAsset?.abbr ?? home,
       awayTeam: away,
       homeTeam: home,
-      awayLogoUrl: toStr(awayRef?.logo) ?? toStr(awayRef?.logo_dark),
-      homeLogoUrl: toStr(homeRef?.logo) ?? toStr(homeRef?.logo_dark),
+      awayLogoUrl:
+        toStr(awayRef?.logo) ?? toStr(awayRef?.logo_dark) ?? awayAsset?.logo ?? undefined,
+      homeLogoUrl:
+        toStr(homeRef?.logo) ?? toStr(homeRef?.logo_dark) ?? homeAsset?.logo ?? undefined,
       awayColors: {
-        primary: toStr(awayRef?.color) ?? '#6B7280',
-        secondary: toStr(awayRef?.alt_color) ?? '#9CA3AF',
+        primary: toStr(awayRef?.color) ?? awayAsset?.color ?? '#6B7280',
+        secondary: toStr(awayRef?.alt_color) ?? awayAsset?.altColor ?? '#9CA3AF',
       },
       homeColors: {
-        primary: toStr(homeRef?.color) ?? '#6B7280',
-        secondary: toStr(homeRef?.alt_color) ?? '#9CA3AF',
+        primary: toStr(homeRef?.color) ?? homeAsset?.color ?? '#6B7280',
+        secondary: toStr(homeRef?.alt_color) ?? homeAsset?.altColor ?? '#9CA3AF',
       },
       fgSpreadClose: toNum(row.fg_spread_close),
       fgTotalClose: toNum(row.fg_total_close),

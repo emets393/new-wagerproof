@@ -72,6 +72,11 @@ describe('cfbTeamAssets', () => {
     expect(lookupCfbTeam('San Jose State')?.teamName).toBe('San José State');
   });
 
+  it('expands trailing St to State', () => {
+    expect(normalizeCfbTeamKey('North Dakota St')).toBe('north dakota state');
+    expect(normalizeCfbTeamKey('Sacramento St')).toBe('sacramento state');
+  });
+
   it('resolves logos by school name and abbr', () => {
     expect(getCfbTeamLogo('Ohio State')).toContain('/194.png');
     expect(getCfbTeamLogo('OSU')).toContain('/194.png');
@@ -83,6 +88,19 @@ describe('cfbTeamAssets', () => {
     expect(getCfbTeamLogo('Appalachian State')).toContain('/2026.png');
   });
 
+  it('seeds FCS opponents missing from cfb_teams (NDSU, Sacramento State)', () => {
+    // Supplemental rows merge even when the FBS sample set omits them.
+    expect(getCfbTeamLogo('North Dakota State')).toContain('/2449.png');
+    expect(getCfbTeamLogo('North Dakota St')).toContain('/2449.png');
+    expect(getCfbTeamLogo('NDSU')).toContain('/2449.png');
+    expect(lookupCfbTeam('NDSU')?.abbr).toBe('NDSU');
+
+    expect(getCfbTeamLogo('Sacramento State')).toContain('/16.png');
+    expect(getCfbTeamLogo('Sacramento St')).toContain('/16.png');
+    expect(getCfbTeamLogo('SAC')).toContain('/16.png');
+    expect(lookupCfbTeam('SAC')?.teamName).toBe('Sacramento State');
+  });
+
   it('teamVisuals returns CFB logos for teams and coach-style keys', () => {
     // Coach cards store team_abbr as the full school name.
     const team = teamVisuals('ncaaf', 'Ohio State');
@@ -92,6 +110,10 @@ describe('cfbTeamAssets', () => {
 
     const coachTeam = teamVisuals('ncaaf', 'App State');
     expect(coachTeam.logoUrl).toContain('/2026.png');
+
+    const ndsu = teamVisuals('ncaaf', 'North Dakota St');
+    expect(ndsu.logoUrl).toContain('/2449.png');
+    expect(ndsu.initials).toBe('NDSU');
   });
 
   it('falls back to initials when the school is unknown', () => {
