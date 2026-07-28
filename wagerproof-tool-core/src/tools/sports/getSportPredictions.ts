@@ -110,17 +110,24 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
   let rows: Record<string, unknown>[] = [];
 
   if (sport === "nfl") {
-    const { data: latestRun } = await cfb
-      .from("nfl_predictions_epa")
-      .select("run_id")
-      .order("run_id", { ascending: false })
+    // NFL now reads the new model's weekly table nfl_dryrun_games (lines from The
+    // Odds API; predictions + lines live in one row — no join to nfl_betting_lines
+    // and no nfl_predictions_epa run_id logic). The pipeline delete-then-inserts per
+    // (season, week), so the latest (season, week) is the current slate — resolve
+    // that anchor, then filter to it.
+    const { data: anchor } = await cfb
+      .from("nfl_dryrun_games")
+      .select("season, week")
+      .order("season", { ascending: false })
+      .order("week", { ascending: false })
       .limit(1)
-      .single();
-    if (!latestRun) return { games: [], message: "No NFL predictions available" };
+      .maybeSingle();
+    if (!anchor) return { games: [], message: "No NFL predictions available" };
     const { data, error } = await cfb
-      .from("nfl_predictions_epa")
+      .from("nfl_dryrun_games")
       .select("*")
-      .eq("run_id", (latestRun as Record<string, unknown>).run_id);
+      .eq("season", (anchor as Record<string, unknown>).season)
+      .eq("week", (anchor as Record<string, unknown>).week);
     if (error) throw new Error(`NFL predictions query failed: ${error.message}`);
     rows = data ?? [];
   } else {
@@ -192,39 +199,43 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
     return { sport, games, count: games.length };
   }
 
+  // Remap onto the nfl_dryrun_games columns (fg_* = full-game markets from The Odds
+  // API). Fields with no equivalent in the new table are set to null.
   const games = filtered.map((g) => ({
-    game_id: g.training_key || `${g.away_team}_${g.home_team}`,
+    game_id: g.game_id ?? `${g.away_team}_${g.home_team}`,
     matchup: `${g.away_team} @ ${g.home_team}`,
     away_team: g.away_team,
     home_team: g.home_team,
-    game_date: g.game_date,
-    game_time: g.game_time,
+    game_date: g.gameday,
+    game_time: g.kickoff,
     vegas_lines: {
-      spread: `${g.home_team} ${fmtSpread(g.home_spread)}`,
-      moneyline: `${g.away_team} ${g.away_ml ?? "N/A"} / ${g.home_team} ${g.home_ml ?? "N/A"}`,
-      total: g.over_line,
+      spread: `${g.home_team} ${fmtSpread(g.fg_spread_close)}`,
+      moneyline: `${g.away_team} ${g.fg_ml_away_close ?? "N/A"} / ${g.home_team} ${g.fg_ml_home_close ?? "N/A"}`,
+      total: g.fg_total_close,
     },
     model_predictions: {
-      ml_pick: g.ml_pick,
-      ml_confidence: g.ml_confidence,
-      spread_pick: g.spread_pick,
-      spread_confidence: g.spread_confidence,
-      ou_pick: g.ou_pick,
-      ou_confidence: g.ou_confidence,
-      model_fair_spread: g.model_fair_spread,
-      model_fair_total: g.model_fair_total,
-      predicted_home_score: g.predicted_home_score,
-      predicted_away_score: g.predicted_away_score,
+      ml_pick: null, // no ml_pick column; use fg_home_win_prob for ML lean
+      ml_confidence: g.fg_home_win_prob,
+      spread_pick: g.fg_spread_pick,
+      spread_confidence: g.fg_home_cover_prob,
+      ou_pick: g.fg_total_pick,
+      ou_confidence: null, // no OU confidence column in nfl_dryrun_games
+      model_fair_spread: g.fg_pred_spread,
+      model_fair_total: g.fg_pred_total,
+      predicted_home_score: g.fg_pred_home_pts,
+      predicted_away_score: g.fg_pred_away_pts,
+      spread_edge: g.fg_spread_edge,
+      total_edge: g.fg_total_edge,
     },
     weather: {
-      temperature: g.temperature,
-      wind_speed: g.wind_speed,
-      precipitation: g.precipitation,
+      temperature: g.wx_temp_f,
+      wind_speed: g.wx_wind_mph,
+      precipitation: null, // no precipitation column; wx_icon carries conditions
     },
     public_betting: {
-      spread_split: g.spread_splits_label,
-      ml_split: g.ml_splits_label,
-      total_split: g.total_splits_label,
+      spread_split: null, // no public-betting splits in nfl_dryrun_games
+      ml_split: null,
+      total_split: null,
     },
   }));
 

@@ -44,17 +44,22 @@ export const getGameDetail: Tool = {
         break;
       }
       case "nfl": {
-        const { data: latestRun } = await cfb
-          .from("nfl_predictions_epa")
-          .select("run_id")
-          .order("run_id", { ascending: false })
+        // NFL reads the new model's weekly table nfl_dryrun_games (lines from The
+        // Odds API; predictions + lines in one row). Latest (season, week) =
+        // current slate — anchor then filter.
+        const { data: anchor } = await cfb
+          .from("nfl_dryrun_games")
+          .select("season, week")
+          .order("season", { ascending: false })
+          .order("week", { ascending: false })
           .limit(1)
-          .single();
-        if (latestRun) {
+          .maybeSingle();
+        if (anchor) {
           const { data } = await cfb
-            .from("nfl_predictions_epa")
+            .from("nfl_dryrun_games")
             .select("*")
-            .eq("run_id", (latestRun as Record<string, unknown>).run_id);
+            .eq("season", (anchor as Record<string, unknown>).season)
+            .eq("week", (anchor as Record<string, unknown>).week);
           games = data ?? [];
         }
         break;

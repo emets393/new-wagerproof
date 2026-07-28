@@ -260,66 +260,53 @@ function calculatePredictionStatus(
 }
 
 /**
- * Fetch NFL predictions from nfl_predictions_epa table and betting lines
+ * Fetch NFL predictions from the NEW model's weekly table (nfl_dryrun_games; Odds-API lines + model
+ * probabilities), resolving the latest slate = current week. Legacy nfl_predictions_epa + nfl_betting_lines retired.
  */
 async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
   try {
-    // Get today's date for filtering
-    const today = new Date().toISOString().split('T')[0];
-
-    // First get the latest run_id
-    const { data: latestRun, error: runError } = await collegeFootballSupabase
-      .from('nfl_predictions_epa')
-      .select('run_id')
-      .gte('game_date', today)
-      .order('run_id', { ascending: false })
+    // NEW model's weekly output (nfl_dryrun_games; Odds-API lines + model probabilities). Latest slate
+    // = current week in-season (the pipeline delete-then-inserts per season/week). Legacy retired.
+    const { data: anchor } = await collegeFootballSupabase
+      .from('nfl_dryrun_games')
+      .select('season, week')
+      .order('season', { ascending: false })
+      .order('week', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (runError || !latestRun?.run_id) {
-      debug.log('No NFL predictions found for today');
+    if (!anchor) {
+      debug.log('No NFL slate found in nfl_dryrun_games');
       return [];
     }
 
-    // Fetch predictions with the latest run_id
-    const { data: predictions, error: predsError } = await collegeFootballSupabase
-      .from('nfl_predictions_epa')
-      .select('training_key, home_team, away_team, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob')
-      .gte('game_date', today)
-      .eq('run_id', latestRun.run_id);
+    const { data, error } = await collegeFootballSupabase
+      .from('nfl_dryrun_games')
+      .select('*')
+      .eq('season', (anchor as any).season)
+      .eq('week', (anchor as any).week);
 
-    if (predsError) {
-      debug.error('Error fetching NFL predictions:', predsError);
+    if (error) {
+      debug.error('Error fetching NFL predictions:', error);
       return [];
     }
 
-    // Fetch betting lines
-    const { data: bettingLines, error: linesError } = await collegeFootballSupabase
-      .from('nfl_betting_lines')
-      .select('training_key, home_team, away_team, home_spread, away_spread, over_line');
-
-    if (linesError) {
-      debug.error('Error fetching NFL betting lines:', linesError);
-    }
-
-    // Merge predictions with betting lines
-    const merged = (predictions || []).map(pred => {
-      const line = bettingLines?.find(l => l.training_key === pred.training_key);
+    const merged = (data || []).map((r: any) => {
+      const homeSpread = r.fg_spread_close ?? null;
       return {
-        ...pred,
-        home_spread: line?.home_spread || null,
-        away_spread: line?.away_spread || null,
-        over_line: line?.over_line || null
+        training_key: r.game_id,
+        home_team: r.home_team,
+        away_team: r.away_team,
+        home_away_ml_prob: r.fg_home_win_prob ?? null,
+        home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
+        ou_result_prob: null,
+        home_spread: homeSpread,
+        away_spread: homeSpread !== null ? -Number(homeSpread) : null,
+        over_line: r.fg_total_close ?? null,
       } as NFLPredictionWithLines;
     });
 
-    debug.log(`📊 Fetched ${merged.length} NFL predictions with lines`);
-    if (merged.length > 0) {
-      debug.log(`📊 Sample NFL prediction teams:`, {
-        home: merged[0].home_team,
-        away: merged[0].away_team
-      });
-    }
+    debug.log(`📊 Fetched ${merged.length} NFL predictions from nfl_dryrun_games (S${(anchor as any).season} W${(anchor as any).week})`);
     return merged;
   } catch (error) {
     debug.error('Error in fetchNFLPredictions:', error);
