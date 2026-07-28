@@ -44,8 +44,8 @@ def t60_lines():
                     for f in ("props_rows.parquet", "props_rows_extra.parquet")], ignore_index=True)
     ex = ex[ex.market.isin(MKT_STAT)].copy()
     ex["team"] = ex.team.replace(NORM)
-    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
-    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True, format="ISO8601")
+    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True)
+    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True)
     ex["mins"] = (ex.comm - ex.snap).dt.total_seconds() / 60.0
     keys = ["season", "week", "player_id", "market"]
     c = ex.groupby(keys + ["snap", "mins"]).agg(

@@ -170,8 +170,27 @@ def win_prob(margin):
 
 
 def build_games():
-    f = pd.read_parquet(DATA / "h1tt_frame.parquet")
-    f = f[(f.season == SEASON) & (f.week == WEEK)].copy()
+    fall = pd.read_parquet(DATA / "h1tt_frame.parquet")
+    f = fall[(fall.season == SEASON) & (fall.week == WEEK)].copy()
+    if f.empty:
+        # Upcoming week: unplayed games have no quarter scores, so h1tt_frame carries no rows for them.
+        # Seed the game universe from the master slate so every game still gets an FG card; the 1H
+        # columns stay NaN (blank 1H cards, accepted interim) and the FG merges below fill the rest.
+        mm = pd.read_parquet(DATA / "master.parquet")
+        slate = mm[(mm.season == SEASON) & (mm.week == WEEK)][["season", "week", "home_ab", "away_ab"]].copy()
+        slate["home_ab"] = norm_ab(slate.home_ab); slate["away_ab"] = norm_ab(slate.away_ab)
+        # real nflverse game_id + gameday + gametime from the schedule (join on normalized abbrs)
+        sched = pd.read_parquet(DATA / "nflverse_games.parquet")
+        sched = sched[(sched.season == SEASON) & (sched.week == WEEK)][
+            ["season", "week", "home_team", "away_team", "game_id", "gameday", "gametime"]]
+        slate = slate.merge(sched, left_on=["season", "week", "home_ab", "away_ab"],
+                            right_on=["season", "week", "home_team", "away_team"], how="left")
+        kick = pd.to_datetime(slate.gameday.astype(str) + " " + slate.gametime.fillna("13:00"),
+                              errors="coerce").dt.tz_localize("America/New_York").dt.tz_convert("UTC")
+        f = slate.reindex(columns=fall.columns)
+        for c in ("season", "week", "home_ab", "away_ab", "game_id", "gameday"):
+            f[c] = slate[c].values
+        f["_seed_kickoff"] = kick.dt.strftime("%Y-%m-%dT%H:%M:%S+00:00").values
     hp = pd.read_parquet(DATA / "h1m_preds.parquet")
     hp = hp[(hp.season == SEASON) & (hp.week == WEEK)]
     g = f.merge(hp[["slot", "season", "week", "home_ab", "away_ab", "fg_sp", "fg_tot",
@@ -184,11 +203,18 @@ def build_games():
     od["home_ab"] = norm_ab(od.home_ab); od["away_ab"] = norm_ab(od.away_ab)
     g = g.merge(od[od.season == SEASON][
         ["season", "home_ab", "away_ab", "open_spread", "open_total",
-         "close_ml_home", "close_ml_away"]],
+         "close_spread", "close_total", "close_ml_home", "close_ml_away"]],
         on=["season", "home_ab", "away_ab"], how="left")
+    # The displayed FG close spread/total normally come from h1tt_frame, which is empty for an upcoming
+    # (unplayed) slate. Fall back to the Odds-API consensus close (owner rule: lines come from The Odds API).
+    for col, src in (("spread_close_spread_home", "close_spread"), ("total_close_total_point", "close_total")):
+        if col in g.columns:
+            g[col] = g[col].fillna(g[src])
+        else:
+            g[col] = g[src]
 
     # FG totals model (locked consensus ensemble, strict-open artifact)
-    ct = pd.read_csv(ROOT / "out" / "predictions_totals_2025.csv")
+    ct = pd.read_csv(ROOT / "out" / f"predictions_totals_{SEASON}.csv")
     ct = ct[ct.week == WEEK].copy()
     ct["home_ab"] = norm_ab(ct.home_ab); ct["away_ab"] = norm_ab(ct.away_ab)
     g = g.merge(ct[["season", "week", "home_ab", "away_ab", "display_total",
@@ -288,7 +314,7 @@ def build_flags(g):
             grade_line=GRADE_LINE.get(source, "close")))
 
     # ---- FG harness ledger (already generated walk-forward at the opener)
-    led = pd.read_csv(ROOT / "out" / "forecast_ledger_2025.csv")
+    led = pd.read_csv(ROOT / "out" / f"forecast_ledger_{SEASON}.csv")
     led = led[led.week == WEEK]
     gmap = {f"{r.away_ab}@{r.home_ab}": r for _, r in g.iterrows()}
     for _, p in led.iterrows():
@@ -296,7 +322,9 @@ def build_flags(g):
         for k, v in NORM.items():
             game = game.replace(k, v); side = side.replace(k, v)
         p = p.copy(); p.side = side
-        r = gmap[game]
+        r = gmap.get(game)
+        if r is None:            # ledger pick for a game not on the assembled board -> can't display a flag
+            continue
         tier = "tracking" if p.rule in TRACKING_HARNESS else "active"
         add(r, "fg_harness", p.rule, tier, p.market, p.side, p.open_num, None,
             p.edge, mammoth=bool(p.get("mammoth", 0)))
@@ -762,7 +790,7 @@ def main():
         wx = weather(r)
         rows.append(dict(
             game_id=r.game_id, season=SEASON, week=WEEK, gameday=r.gameday,
-            kickoff=kickoff.get((r.home_ab, r.away_ab)),
+            kickoff=kickoff.get((r.home_ab, r.away_ab)) or r.get("_seed_kickoff"),
             slot=r.slot, home_ab=r.home_ab, away_ab=r.away_ab,
             home_team=AB_NAME.get(r.home_ab), away_team=AB_NAME.get(r.away_ab),
             fg_spread_open=r.open_spread, fg_spread_close=r.spread_close_spread_home,
@@ -821,8 +849,11 @@ def main():
             flags_active=int(r.flags_active), flags_tracking=int(r.flags_tracking),
             mammoth=bool(r.mammoth),
             **wx,
-            final_home=int(r.final_home), final_away=int(r.final_away),
-            h1_home=int(r.h1_home), h1_away=int(r.h1_away)))
+            # actual scores are validation-only and NaN for an upcoming (unplayed) slate
+            final_home=int(r.final_home) if pd.notna(r.final_home) else None,
+            final_away=int(r.final_away) if pd.notna(r.final_away) else None,
+            h1_home=int(r.h1_home) if pd.notna(r.h1_home) else None,
+            h1_away=int(r.h1_away) if pd.notna(r.h1_away) else None))
     games = pd.DataFrame(rows)
     fl = fl.replace({np.nan: None})
 

@@ -23,7 +23,7 @@ def amer_profit(o):
 def frame():
     ex = pd.read_parquet(DATA / "props_rows_extra.parquet")
     ex = ex[ex.market.isin(MKT)].copy()
-    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
+    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True)
     keys = ["season", "week", "player_id", "position", "team", "market"]
     c = ex.groupby(keys + ["snap"]).agg(line=("line", "median"),
         over=("over_odds", "median"), under=("under_odds", "median")).reset_index().sort_values(keys + ["snap"])

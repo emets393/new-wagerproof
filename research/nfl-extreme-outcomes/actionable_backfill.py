@@ -63,7 +63,7 @@ def iso(dt):
 def build_games():
     """One row per (season, ET gameday, home, away) + modal commence_time."""
     d = pd.read_parquet(DATA / "odds_hist.parquet")
-    d["comm"] = pd.to_datetime(d.commence_time, utc=True, format="ISO8601")
+    d["comm"] = pd.to_datetime(d.commence_time, utc=True)
     d["gameday"] = d.comm.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
     g = (d.groupby(["season", "gameday", "home_team", "away_team"])
          .comm.agg(lambda s: s.mode().iloc[0]).reset_index())

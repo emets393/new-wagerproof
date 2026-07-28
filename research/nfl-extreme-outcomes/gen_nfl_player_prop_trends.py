@@ -97,8 +97,8 @@ def attempts_games():
     ex = ex[ex.market.isin(EXTRA_STAT)].copy()
     if ex.empty:
         return ex
-    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
-    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True, format="ISO8601")
+    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True)
+    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True)
     ex["mins"] = (ex.comm - ex.snap).dt.total_seconds() / 60.0
     keys = ["season", "week", "player_id", "player_name", "position", "team", "market",
             "home_team", "away_team"]

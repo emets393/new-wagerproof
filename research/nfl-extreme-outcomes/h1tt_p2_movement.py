@@ -62,8 +62,8 @@ def report(df, label, win, push, pay):
 
 def build_snapshots():
     d = pd.read_parquet(ROOT / "data" / "odds_hist.parquet")
-    d["snap_dt"] = pd.to_datetime(d.snap_ts, utc=True, format="ISO8601")
-    comm = pd.to_datetime(d.commence_time, utc=True, format="ISO8601")
+    d["snap_dt"] = pd.to_datetime(d.snap_ts, utc=True)
+    comm = pd.to_datetime(d.commence_time, utc=True)
     d["gameday"] = comm.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
     d["home_ab"] = d.home_team.map(CITY_NAMES)
     d["away_ab"] = d.away_team.map(CITY_NAMES)

@@ -93,7 +93,9 @@ def _is_b55_injury(c):
 # =========================================================================
 def _carry(df,kid,col,out):
     df=df.sort_values([kid,"season","week"]).copy()
-    df["_c"]=df.groupby([kid,"season"])[col].apply(lambda s:s.shift(1).expanding().mean()).reset_index(level=[0,1],drop=True)
+    # transform (not apply+reset_index): reset_index(level=[0,1]) breaks when a group has a single row
+    # (single-level index) — happens in score mode where the current week can have one game per key.
+    df["_c"]=df.groupby([kid,"season"])[col].transform(lambda s:s.shift(1).expanding().mean())
     pl=df[["season",kid]].drop_duplicates()
     grid=pl.merge(pd.DataFrame({"week":range(1,23)}),how="cross").merge(df[["season",kid,"week","_c"]],on=["season",kid,"week"],how="left").sort_values(["season",kid,"week"])
     grid[out]=grid.groupby(["season",kid])["_c"].ffill(); return grid[["season","week",kid,out]]
@@ -373,8 +375,17 @@ def generate(target, week=None, strict_open=True):
             pt_b15=g.pt_b15,pt_b55=g.pt_b55,edge_b15=g.edge_b15,edge_b55=g.edge_b55))
     led=pd.DataFrame(rows)
     path=os.path.join(OUT,f"consensus_totals_ledger_{target}.csv")
-    if os.path.exists(path):
-        old=pd.read_csv(path); led=pd.concat([old[~old.pick_id.isin(led.pick_id)],led],ignore_index=True)
+    # merge into an existing ledger, but tolerate an empty/headerless file (0 prior bet-quality picks,
+    # e.g. a fresh pre-season week where no edge fell in the 3-7 band).
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        try:
+            old=pd.read_csv(path)
+            if "pick_id" in old.columns and not led.empty:
+                led=pd.concat([old[~old.pick_id.isin(led.pick_id)],led],ignore_index=True)
+            elif not old.empty:
+                led=pd.concat([old,led],ignore_index=True)
+        except pd.errors.EmptyDataError:
+            pass
     led.to_csv(path,index=False)
     L(f"[bet ledger] {len(led)} bet-quality picks (HC+STD) -> {path}")
     return led,path

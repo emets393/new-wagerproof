@@ -70,8 +70,8 @@ def get(key, url, params):
 def main():
     key = load_key()
     d = pd.read_parquet(ROOT / "data" / "odds_hist.parquet")
-    d["snap_dt"] = pd.to_datetime(d.snap_ts, utc=True, format="ISO8601")
-    d["comm"] = pd.to_datetime(d.commence_time, utc=True, format="ISO8601")
+    d["snap_dt"] = pd.to_datetime(d.snap_ts, utc=True)
+    d["comm"] = pd.to_datetime(d.commence_time, utc=True)
     d["gameday"] = d.comm.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
     d["home_ab"] = d.home_team.map(CITY_NAMES); d["away_ab"] = d.away_team.map(CITY_NAMES)
     d23 = d[(d.season == 2023) & d.h1_total_point.notna()].copy()
