@@ -9,6 +9,7 @@ import RevenueCat
 import SwiftUI
 import WagerproofDesign
 import WagerproofServices
+import WagerproofStores
 
 struct CustomPaywallView: View {
     let offering: Offering
@@ -27,6 +28,7 @@ struct CustomPaywallView: View {
     /// the real gate. Requires `allowClose` (the host forces it on in debug).
     var debugClose: Bool = false
 
+    @Environment(AuthStore.self) private var auth
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -36,6 +38,8 @@ struct CustomPaywallView: View {
     @State private var trialEligibility: [String: IntroEligibilityStatus] = [:]
     @State private var isPurchasing = false
     @State private var isRestoring = false
+    @State private var isSigningOut = false
+    @State private var confirmSignOut = false
     @State private var errorMessage: String?
     @State private var infoMessage: String?
     @State private var didTrackPresented = false
@@ -482,6 +486,8 @@ struct CustomPaywallView: View {
 
             Spacer()
 
+            signOutButton
+
             if allowClose {
                 Button {
                     AnalyticsService.shared.track("paywall_dismissed", properties: [
@@ -504,11 +510,57 @@ struct CustomPaywallView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(debugClose ? "Close debug paywall" : "Close paywall")
-            } else {
-                Color.clear.frame(width: 44, height: 44)
             }
         }
         .frame(height: 44)
+    }
+
+    /// Account escape hatch, opposite the wordmark. The real onboarding gate
+    /// ships HARD (no X), so someone signed into the wrong account — or a
+    /// tester who wants a fresh one — would otherwise be trapped here with no
+    /// way back to the login screen.
+    ///
+    /// Deliberately does NOT call `onRequestClose()`: the host's dismiss
+    /// closure sets `paywallDismissed = true`, which would suppress the paywall
+    /// for whoever signs in next this session. Sign-out alone is enough —
+    /// `RootRouter` flips to `.unauthenticated`, which fails
+    /// `shouldPresentPaywall`'s `phase == .ready` guard and drops the cover.
+    @ViewBuilder
+    private var signOutButton: some View {
+        if case .authenticated = auth.phase {
+            Button {
+                confirmSignOut = true
+            } label: {
+                Text("Log Out")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.appTextSecondary)
+                    .padding(.horizontal, 13)
+                    .frame(height: 30)
+                    .contentShape(Capsule())
+                    .liquidGlassBackground(in: Capsule(), tint: Color.white.opacity(0.06), interactive: true)
+                    .opacity(isSigningOut ? 0.5 : 1)
+            }
+            .buttonStyle(.plain)
+            .disabled(isSigningOut)
+            .accessibilityLabel("Log out")
+            .confirmationDialog("Log out of WagerProof?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+                Button("Log Out", role: .destructive) {
+                    guard !isSigningOut else { return }
+                    isSigningOut = true
+                    AnalyticsService.shared.track("paywall_signed_out", properties: [
+                        "source": source,
+                        "variant": "custom_v2_product_hero",
+                    ])
+                    Task {
+                        await auth.signOut()
+                        isSigningOut = false
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("You'll be returned to the sign-in screen. Your subscription stays with your account.")
+            }
+        }
     }
 
     /// Bright red DEBUG close pill — only rendered when the paywall is presented

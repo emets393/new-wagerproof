@@ -89,6 +89,14 @@ RevenueCat`, never `RevenueCatUI`):
 - Purchases via `Purchases.shared.purchase(package:)`; restore only
   collapses the paywall when the `WagerProof Pro` entitlement is active.
   Both hand off to the host's `finalize` (customer-info refresh + Meta).
+- Header carries a translucent **Log Out** button opposite the WagerProof PRO
+  wordmark (shown whenever auth is `.authenticated`, independent of
+  `paywall_close_enabled`). It is the only account escape from the hard gate:
+  someone signed into the wrong account would otherwise be stuck. It confirms
+  first, then calls `AuthStore.signOut()` and nothing else — `RootRouter` flips
+  to `.unauthenticated` and the cover drops on its own. It deliberately does
+  NOT call the host's `onRequestClose`, which would set `paywallDismissed` and
+  suppress the paywall for the next sign-in this session.
 - Layout: compact WagerProof PRO header → unboxed product carousel:
   1 value summary, 2 verified App Store proof, 3 live Agent HQ,
   4 leaderboard with streak chips, 5 reasoned picks with a high-upside parlay,
@@ -99,10 +107,12 @@ RevenueCat`, never `RevenueCatUI`):
   `paywall_feature_page_viewed`, `paywall_plan_selected`,
   `paywall_checkout_started`, `paywall_converted`,
   `paywall_purchase_cancelled/failed`, `paywall_restore_*`,
-  `paywall_dismissed` (`variant: custom_v2_product_hero`).
+  `paywall_dismissed`, `paywall_signed_out`
+  (`variant: custom_v2_product_hero`).
 
 Compliance notes: one accent CTA, plans above the fold, icon-led "No
 commitment - Cancel anytime" reassurance, Restore/Terms/Privacy links, no
-trial toggle, no delayed X. Production onboarding runs HARD (no X) by default;
+trial toggle, no delayed X. Production onboarding runs HARD (no X) by default
+— Log Out in the header is still available, so the gate never traps an account;
 ship App Review builds with `paywall_close_enabled: true` (soft) if review
 requires a visible dismiss control.
