@@ -53,6 +53,29 @@ live 2026 data (mirrors the NFL shadow-then-flip in doc 14).
 6. **App cutover:** point `cfbGames.ts`/`liveScoresService.ts` "regular" mode at `cfb_dryrun_games`/`_flags`; build
    the production signal-flag UI; then **retire `cfb_model.py` → `cfb_api_predictions`**.
 
+## 🟡 Weeks 1–3 display predictor (`cfb_early_week.py`) — separate from the betting model
+The opponent-adjusted GBM (`cfb_forecast.py`) is COLD in weeks 1–3 (no games → null adjusted
+ratings), yet the product promise is "every game gets a number." `research/cfb-model/cfb_early_week.py`
+fills that window: it blends **preseason priors** (prior-year SP+ overall/off/def + FPI + 3yr recruiting)
+into a per-game predicted margin+total via Ridge. **DISPLAY ONLY** — priors are deliberately EXCLUDED
+from the betting model (they improve raw prediction but kill the LEAN edge, per [[cfb-model-rebuild]] /
+`FOOTBALL_PROFILES.md`), so `cfb_forecast.py` still owns all betting edges from ~week 4 on. Implements the
+README TODO "Early-week prior (weeks 1-3)". Walk-forward MAE ~13.5 margin / ~12.9 total.
+
+**Reproducibility (do at season, ~August — NOT now):** the script reads two gitignored artifacts that the
+CURRENTLY-COMMITTED generators do NOT rebuild for an unplayed 2026 slate. Both edits were intentionally left
+out of the committed generators because running them now yields provisional numbers off partial inputs
+(CFBD publishes 2026 SP+/talent/ELO/rankings only in August) that August overwrites anyway. When real 2026
+data lands, apply these two surgical changes, regenerate, and the script runs:
+1. **`build_priors.py`** — add `2026` to `YEARS` (line ~11) and extend the recruiting/SP+/FPI pull ranges
+   through 2026 so a 2026 prior row is emitted. Needs 2026 recruiting + prior-year (2025) SP+/FPI.
+2. **`build_features.py`** — the completed-games filter (`homePoints/awayPoints .notna()`, line ~60) drops
+   unplayed games; add an upcoming-week branch that keeps `homePoints.isna()` rows for the target week so the
+   2026 Week-1 slate reaches `model_games.parquet` (the in-season model correctly wants completed games only —
+   this branch is display-path-specific).
+The provisional 2026 artifacts built this session (priors `season==2026` n≈221, `model_games` 2026 wk1 ≈51
+games) exist on the research box's local disk only (gitignored) — treat them as throwaway; August regenerates.
+
 ## ⚙️ Cross-cutting
 - **Env/numpy:** the frozen `.pkl` locks model output; a numpy mismatch triggers the (now-safe) retrain, which can
   differ slightly. To keep output byte-locked, run the cron on the **numpy the `.pkl` was frozen with**, or

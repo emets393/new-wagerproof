@@ -41,7 +41,10 @@ walk-forward, per-season breakdowns).
 
 ## TODO
 - [ ] Production adjust module → leak-safe season-to-date feature table, all seasons.
-- [ ] Early-week prior (weeks 1-3): blend talent/ELO/prior-year (purchased clearly used a prior).
+- [x] Early-week prior (weeks 1-3): blend talent/ELO/prior-year (purchased clearly used a prior).
+      → `cfb_early_week.py` (DISPLAY-only Ridge blend of prior-SP+/FPI/recruiting). Priors stay OUT of the
+      betting model (LEAN = the edge). August reproducibility (build_priors +2026, build_features upcoming
+      branch) documented in `.claude/docs/agents/22_CFB_2026_GOLIVE_RUNBOOK.md`.
 - [ ] Pull havoc/PPO (season/advanced endWeek loop) + ELO/talent + extra signal features
       (returning production, recruiting, transfer portal, pace, weather).
 - [ ] Totals baseline model (walk-forward, grade vs over_line honestly, per-season).
