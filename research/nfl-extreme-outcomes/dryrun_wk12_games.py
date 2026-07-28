@@ -325,6 +325,11 @@ def build_flags(g):
         r = gmap.get(game)
         if r is None:            # ledger pick for a game not on the assembled board -> can't display a flag
             continue
+        # sides_model is the BASE model's side pick (fires on every game) — it's the headline number,
+        # not a differentiated signal. Keep it out of the flag/signal layer so the board shows only the
+        # real spots. (The margin model still drives the pick + conviction via r.reg_edge / r.ph.)
+        if p.rule == "sides_model":
+            continue
         tier = "tracking" if p.rule in TRACKING_HARNESS else "active"
         add(r, "fg_harness", p.rule, tier, p.market, p.side, p.open_num, None,
             p.edge, mammoth=bool(p.get("mammoth", 0)))
