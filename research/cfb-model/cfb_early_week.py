@@ -32,6 +32,16 @@ TOTAL_FEATS = ["off_sum", "def_sum", "sp_diff", "neutralSite"]
 
 def load():
     gm = pd.read_parquet(os.path.join(HERE, "data", "model_games.parquet"))
+    # DISPLAY/GRADE market line = THE ODDS API only (owner rule: every bet line, every sport, comes from
+    # The Odds API — never CFBD). odds_game_frame is the Odds-API consensus (fetch_odds_history /
+    # materialize_odds_history -> build_odds_frame). Override model_games' CFBD consensus_lines entirely;
+    # a game with no Odds-API line shows no line (NaN) rather than falling back to CFBD.
+    of = pd.read_parquet(os.path.join(HERE, "data", "odds_game_frame.parquet"))[
+        ["season", "home", "away", "close_spread", "close_total"]].rename(
+        columns={"home": "homeTeam", "away": "awayTeam"})
+    gm = gm.merge(of, on=["season", "homeTeam", "awayTeam"], how="left")
+    gm["spread_close"] = gm["close_spread"]
+    gm["total_close"] = gm["close_total"]
     pri = pd.read_parquet(os.path.join(HERE, "data", "priors.parquet"))
     h = pri.add_prefix("h_").rename(columns={"h_season": "season", "h_team": "homeTeam"})
     a = pri.add_prefix("a_").rename(columns={"a_season": "season", "a_team": "awayTeam"})

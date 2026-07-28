@@ -73,11 +73,22 @@ byte-identical when unset:**
    → `model_games.parquet` gains **51** 2026 Week-1 rows (all w/ spread, 49 w/ total). Unset env → completed-only
    (historical training) unchanged.
 
-Then `CFB_SEASON=2026 CFB_WEEK=1 python3 cfb_early_week.py` → `out/cfb_early_preds_2026.csv` (43 games after the
-Week-0 split). **Re-run in August** once CFBD publishes 2026 SP+/talent/ELO and books post the full board — the
-current run rides on 2025 SP+/FPI + 2026 recruiting (the only leak-safe inputs available now) and the CFBD line
-feed is sparse/single-book this far out (a handful of games have mis-oriented or 0.0 spreads — the model itself
-scores them correctly; it's the market-line orientation that's thin until moneylines populate).
+**DISPLAY LINE = THE ODDS API ONLY** ([[odds-api-single-source-for-lines]]). `cfb_early_week.py` sources the shown
+spread/total from `odds_game_frame.parquet` (Odds-API consensus), NOT CFBD `consensus_lines()`. Wire-up:
+`python3 materialize_odds_history.py 2026` (Supabase `ncaaf_odds_history` → `odds_history/odds_2026.parquet`) →
+`python3 build_odds_frame.py` (→ `odds_game_frame.parquet`, 2026 = 51 games, 11 books, ML-anchored) →
+`CFB_SEASON=2026 CFB_WEEK=1 python3 cfb_early_week.py` → `out/cfb_early_preds_2026.csv` (43 games after the Week-0
+split; all 43 carry an Odds-API line, every previously-mis-oriented CFBD spread now correct). **Re-run in August**
+once CFBD publishes 2026 SP+/talent/ELO and books post the full board (model rides on 2025 SP+/FPI + 2026 recruiting
+now — the only leak-safe inputs available).
+
+**⚠ PRE-EXISTING OWNER-RULE VIOLATION in the production path (flagged 2026-07-28, NOT yet fixed):**
+`gen_cfb_dryrun_games.py:142-143` sets the DISPLAYED `fg_spread_close`/`fg_total_close` from `model_games`
+(CFBD `consensus_lines()`) — it only pulls the moneyline from `odds_game_frame` (Odds API). Per the owner rule the
+displayed/graded FG spread+total must come from the Odds API too. Fix = repoint those two fields at
+`odds_game_frame.close_spread`/`close_total` (same join it already does for ML). Deferred because it changes the
+model's edge/grading line across all in-season weeks and Odds-API history only reaches 2021 (CFBD covers 2016-2020
+training) — an owner call on train/grade-line consistency. NFL was already corrected (`nfl_lines_from_odds.py`).
 
 **Still NOT wired: the early-week predictions do not reach `cfb_dryrun_games`.** That table is written by
 `gen_cfb_dryrun_games.py`, which reads the opponent-adjusted `cfb_forecast.py` CSVs (cold in weeks 1-3), not
