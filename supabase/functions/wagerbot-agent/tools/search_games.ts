@@ -37,7 +37,23 @@ export const tool: ToolDefinition = {
         if (!run) return { data: null };
         return ctx.cfbSupabase.from("nfl_predictions_epa").select("away_team, home_team, game_date").eq("run_id", run.run_id);
       })(),
-      ctx.cfbSupabase.from("cfb_live_weekly_inputs").select("away_team, home_team, game_date"),
+      (async () => {
+        // CFB reads the new model's weekly table cfb_dryrun_games; latest
+        // (season, week) = current slate. game_date → kickoff.
+        const { data: anchor } = await ctx.cfbSupabase
+          .from("cfb_dryrun_games")
+          .select("season, week")
+          .order("season", { ascending: false })
+          .order("week", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!anchor) return { data: null };
+        return ctx.cfbSupabase
+          .from("cfb_dryrun_games")
+          .select("away_team, home_team, kickoff")
+          .eq("season", anchor.season)
+          .eq("week", anchor.week);
+      })(),
       ctx.cfbSupabase.from("v_cbb_input_values").select("away_team, home_team, game_date_et").eq("game_date_et", targetDate),
       ctx.cfbSupabase.from("mlb_games_today").select("away_team_name, home_team_name, official_date").eq("official_date", targetDate),
     ]);
@@ -65,7 +81,7 @@ export const tool: ToolDefinition = {
 
     searchLeague("NBA", nba, "away_team", "home_team", "game_date");
     searchLeague("NFL", nfl, "away_team", "home_team", "game_date");
-    searchLeague("CFB", cfb, "away_team", "home_team", "game_date");
+    searchLeague("CFB", cfb, "away_team", "home_team", "kickoff");
     searchLeague("NCAAB", ncaab, "away_team", "home_team", "game_date_et");
     searchLeague("MLB", mlb, "away_team_name", "home_team_name", "official_date");
 

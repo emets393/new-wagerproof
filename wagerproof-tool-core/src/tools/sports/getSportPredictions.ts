@@ -124,7 +124,22 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
     if (error) throw new Error(`NFL predictions query failed: ${error.message}`);
     rows = data ?? [];
   } else {
-    const { data, error } = await cfb.from("cfb_live_weekly_inputs").select("*");
+    // CFB now reads the new model's weekly table cfb_dryrun_games (lines from The
+    // Odds API). The pipeline delete-then-inserts per (season, week), so the latest
+    // (season, week) is the current slate — resolve that anchor, then filter to it.
+    const { data: anchor } = await cfb
+      .from("cfb_dryrun_games")
+      .select("season, week")
+      .order("season", { ascending: false })
+      .order("week", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!anchor) return { games: [], message: "No CFB games found" };
+    const { data, error } = await cfb
+      .from("cfb_dryrun_games")
+      .select("*")
+      .eq("season", (anchor as Record<string, unknown>).season)
+      .eq("week", (anchor as Record<string, unknown>).week);
     if (error) throw new Error(`CFB predictions query failed: ${error.message}`);
     rows = data ?? [];
   }
@@ -136,12 +151,52 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
     return { games: [], message: `No ${sport.toUpperCase()} games found matching "${team}"` };
   }
 
+  if (sport === "cfb") {
+    // Remap onto the cfb_dryrun_games columns (fg_* = full-game markets from The
+    // Odds API). Fields with no equivalent in the new table are set to null.
+    const games = filtered.map((g) => ({
+      game_id: g.game_id ?? `${g.away_team}_${g.home_team}`,
+      matchup: `${g.away_team} @ ${g.home_team}`,
+      away_team: g.away_team,
+      home_team: g.home_team,
+      conference: g.home_conf, // legacy single "conference" has no equal; home_conf is closest
+      home_conference: g.home_conf,
+      away_conference: g.away_conf,
+      game_date: g.kickoff,
+      game_time: null, // no separate time column; kickoff is a full timestamp
+      vegas_lines: {
+        spread: `${g.home_team} ${fmtSpread(g.fg_spread_close)}`,
+        moneyline: `${g.away_team} ${g.fg_ml_away_close ?? "N/A"} / ${g.home_team} ${g.fg_ml_home_close ?? "N/A"}`,
+        total: g.fg_total_close,
+      },
+      model_predictions: {
+        ml_pick: null, // no ml_pick column; use fg_home_win_prob for ML lean
+        ml_confidence: g.fg_home_win_prob,
+        spread_pick: g.fg_spread_pick,
+        spread_confidence: g.fg_home_cover_prob,
+        ou_pick: g.fg_total_pick,
+        ou_confidence: null, // no OU confidence column in cfb_dryrun_games
+        model_fair_spread: g.fg_pred_spread,
+        model_fair_total: g.fg_pred_total,
+        predicted_home_score: g.fg_pred_home_pts,
+        predicted_away_score: g.fg_pred_away_pts,
+        spread_edge: g.fg_spread_edge,
+        total_edge: g.fg_total_edge,
+      },
+      weather: {
+        temperature: g.wx_temp_f,
+        wind_speed: g.wx_wind_mph,
+        precipitation: null, // no precipitation column; wx_summary/wx_icon carry conditions
+      },
+    }));
+    return { sport, games, count: games.length };
+  }
+
   const games = filtered.map((g) => ({
     game_id: g.training_key || `${g.away_team}_${g.home_team}`,
     matchup: `${g.away_team} @ ${g.home_team}`,
     away_team: g.away_team,
     home_team: g.home_team,
-    ...(sport === "cfb" ? { conference: g.conference } : {}),
     game_date: g.game_date,
     game_time: g.game_time,
     vegas_lines: {
@@ -158,27 +213,19 @@ async function getNflCfb(ctx: ToolContext, sport: "nfl" | "cfb", team?: string) 
       ou_confidence: g.ou_confidence,
       model_fair_spread: g.model_fair_spread,
       model_fair_total: g.model_fair_total,
-      ...(sport === "nfl"
-        ? {
-            predicted_home_score: g.predicted_home_score,
-            predicted_away_score: g.predicted_away_score,
-          }
-        : {}),
+      predicted_home_score: g.predicted_home_score,
+      predicted_away_score: g.predicted_away_score,
     },
     weather: {
       temperature: g.temperature,
       wind_speed: g.wind_speed,
       precipitation: g.precipitation,
     },
-    ...(sport === "nfl"
-      ? {
-          public_betting: {
-            spread_split: g.spread_splits_label,
-            ml_split: g.ml_splits_label,
-            total_split: g.total_splits_label,
-          },
-        }
-      : {}),
+    public_betting: {
+      spread_split: g.spread_splits_label,
+      ml_split: g.ml_splits_label,
+      total_split: g.total_splits_label,
+    },
   }));
 
   return { sport, games, count: games.length };

@@ -60,8 +60,23 @@ export const getGameDetail: Tool = {
         break;
       }
       case "cfb": {
-        const { data } = await cfb.from("cfb_live_weekly_inputs").select("*");
-        games = data ?? [];
+        // CFB reads the new model's weekly table cfb_dryrun_games (lines from The
+        // Odds API). Latest (season, week) = current slate — anchor then filter.
+        const { data: anchor } = await cfb
+          .from("cfb_dryrun_games")
+          .select("season, week")
+          .order("season", { ascending: false })
+          .order("week", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (anchor) {
+          const { data } = await cfb
+            .from("cfb_dryrun_games")
+            .select("*")
+            .eq("season", (anchor as Record<string, unknown>).season)
+            .eq("week", (anchor as Record<string, unknown>).week);
+          games = data ?? [];
+        }
         break;
       }
       case "ncaab": {

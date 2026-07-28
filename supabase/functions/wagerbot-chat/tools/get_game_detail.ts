@@ -69,10 +69,23 @@ export const tool: ToolDefinition = {
         break;
       }
       case "cfb": {
-        const { data } = await ctx.cfbSupabase
-          .from("cfb_live_weekly_inputs")
-          .select("*");
-        games = data || [];
+        // CFB reads the new model's weekly table cfb_dryrun_games (lines from The
+        // Odds API). Latest (season, week) = current slate — anchor then filter.
+        const { data: anchor } = await ctx.cfbSupabase
+          .from("cfb_dryrun_games")
+          .select("season, week")
+          .order("season", { ascending: false })
+          .order("week", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (anchor) {
+          const { data } = await ctx.cfbSupabase
+            .from("cfb_dryrun_games")
+            .select("*")
+            .eq("season", anchor.season)
+            .eq("week", anchor.week);
+          games = data || [];
+        }
         break;
       }
       case "ncaab": {
