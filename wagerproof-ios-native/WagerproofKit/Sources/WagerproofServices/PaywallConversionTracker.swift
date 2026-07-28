@@ -42,6 +42,7 @@ public final class PaywallConversionTracker: @unchecked Sendable {
         let product = package?.storeProduct ?? Self.headlineProduct(in: offering)
         MetaAnalyticsService.shared.trackPaywallView(
             placement: source,
+            productId: product?.productIdentifier,
             amount: product?.price,
             currency: product?.currencyCode ?? "USD"
         )
@@ -52,6 +53,7 @@ public final class PaywallConversionTracker: @unchecked Sendable {
     public func trackCheckoutStarted(source: String, package: Package) {
         let product = package.storeProduct
         MetaAnalyticsService.shared.trackInitiateCheckout(
+            source: source,
             productId: product.productIdentifier,
             amount: product.price,
             currency: product.currencyCode ?? "USD"
@@ -111,15 +113,24 @@ public final class PaywallConversionTracker: @unchecked Sendable {
         let amount = resolvedProduct?.price ?? 0
         let currency = resolvedProduct?.currencyCode ?? "USD"
         let subscriptionType = Self.subscriptionType(for: productId)
+        let isTrial = entitlement?.periodType == .trial
+        let packageId = package?.identifier
+            ?? offering?.availablePackages.first(where: {
+                $0.storeProduct.productIdentifier.lowercased() == productId
+            })?.identifier
+            ?? "unknown"
+        let purchaseDate = transaction?.purchaseDate ?? entitlement?.latestPurchaseDate
 
         MetaAnalyticsService.shared.trackConversionEvent(
-            isTrial: entitlement?.periodType == .trial,
+            isTrial: isTrial,
             amount: amount,
             currency: currency,
             parameters: [
                 "fb_currency": currency,
                 "fb_content_type": "product",
                 "fb_content_id": "\(subscriptionType)_subscription",
+                "fb_content_name": "WagerProof Pro",
+                "fb_num_items": transaction?.quantity ?? 1,
                 "fb_order_id": orderId,
                 // Coarse LTV multiplier so Meta's optimization model bids against
                 // the lifetime value rather than the first billing period. Same
@@ -130,6 +141,15 @@ public final class PaywallConversionTracker: @unchecked Sendable {
                 "fb_success": "1",
                 "fb_payment_info_available": "1",
                 "fb_source": source,
+                "wp_source": source,
+                "wp_product_id": productId,
+                "wp_package_id": packageId,
+                "wp_offering_id": offering?.identifier ?? "unknown",
+                "wp_subscription_type": subscriptionType,
+                "wp_is_trial": isTrial ? "1" : "0",
+                "wp_purchase_timestamp": purchaseDate.map {
+                    String(Int($0.timeIntervalSince1970))
+                } ?? "unknown",
             ]
         )
         MetaAnalyticsService.shared.flush()

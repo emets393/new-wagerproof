@@ -9,6 +9,7 @@
 import AppTrackingTransparency
 import SwiftUI
 import WagerproofDesign
+import WagerproofServices
 import WagerproofStores
 
 struct OnboardingATTPage: View {
@@ -99,15 +100,23 @@ struct OnboardingATTPage: View {
         )
     }
 
-    /// Fires once, only while this page is front. Result is ignored —
-    /// onboarding always advances; ATT only controls IDFA.
+    /// Fires once, only while this page is front. Onboarding always advances,
+    /// but the final status is immediately pushed into RevenueCat so an
+    /// authorized user's first post-onboarding purchase carries IDFA rather
+    /// than waiting for a later app launch.
     @MainActor
     private func requestATTIfNeeded() async {
         guard !didRequestATT else { return }
         didRequestATT = true
-        let status = ATTrackingManager.trackingAuthorizationStatus
-        if status == .notDetermined {
-            _ = await ATTrackingManager.requestTrackingAuthorization()
+        let initialStatus = ATTrackingManager.trackingAuthorizationStatus
+        let finalStatus: ATTrackingManager.AuthorizationStatus
+        if initialStatus == .notDetermined {
+            finalStatus = await ATTrackingManager.requestTrackingAuthorization()
+        } else {
+            finalStatus = initialStatus
         }
+        await RevenueCatService.shared.refreshAttributionAfterTrackingAuthorization(
+            isAuthorized: finalStatus == .authorized
+        )
     }
 }
