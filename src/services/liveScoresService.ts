@@ -328,63 +328,58 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
 }
 
 /**
- * Fetch CFB predictions from cfb_live_weekly_inputs table
+ * Fetch CFB predictions from the NEW model's weekly table (cfb_dryrun_games; Odds-API lines + model
+ * preds). Resolves the latest slate written (= current week in-season, since the pipeline
+ * delete-then-inserts per season/week). Legacy cfb_live_weekly_inputs + cfb_api_predictions retired.
  */
 async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
   try {
-    // Use select('*') like the CollegeFootball page does
+    const { data: anchor } = await collegeFootballSupabase
+      .from('cfb_dryrun_games')
+      .select('season, week')
+      .order('season', { ascending: false })
+      .order('week', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!anchor) {
+      debug.log('📊 No CFB slate found in cfb_dryrun_games');
+      return [];
+    }
+
     const { data, error } = await collegeFootballSupabase
-      .from('cfb_live_weekly_inputs')
-      .select('*');
+      .from('cfb_dryrun_games')
+      .select('*')
+      .eq('season', (anchor as any).season)
+      .eq('week', (anchor as any).week);
 
     if (error) {
       debug.error('❌ Error fetching CFB predictions:', error);
       return [];
     }
 
-    debug.log(`📊 Fetched ${(data || []).length} CFB predictions from cfb_live_weekly_inputs`);
-    if (data && data.length > 0) {
-      debug.log(`📊 Sample CFB prediction row (all columns):`, data[0]);
-      debug.log(`📊 CFB column names:`, Object.keys(data[0]));
-    }
+    debug.log(`📊 Fetched ${(data || []).length} CFB predictions from cfb_dryrun_games (S${(anchor as any).season} W${(anchor as any).week})`);
 
-    // Fetch API predictions to get edge data
-    const { data: apiPreds, error: apiPredsError } = await collegeFootballSupabase
-      .from('cfb_api_predictions')
-      .select('*');
-
-    if (apiPredsError) {
-      debug.error('❌ Error fetching CFB API predictions:', apiPredsError);
-    }
-
-    debug.log(`📊 Fetched ${apiPreds?.length || 0} CFB API predictions with edge data`);
-
-    // Map to our CFBPrediction interface - include edge data from cfb_api_predictions
     const predictions = (data || []).map((row: any) => {
-      const apiPred: any = apiPreds?.find((ap: any) => ap.id === row.id);
-      
+      const predTotal = Number(row.fg_pred_total);
+      const predMargin = Number(row.fg_pred_margin);
+      const hasScore = Number.isFinite(predTotal) && Number.isFinite(predMargin);
       return {
         home_team: row.home_team,
         away_team: row.away_team,
-        pred_ml_proba: row.pred_ml_proba ?? null,
-        pred_spread_proba: row.pred_spread_proba ?? null,
-        pred_total_proba: row.pred_total_proba ?? null,
-        api_spread: row.api_spread ?? null,
-        api_over_line: row.api_over_line ?? null,
-        // Edge data from cfb_api_predictions
-        home_spread_diff: apiPred?.home_spread_diff ?? null,
-        over_line_diff: apiPred?.over_line_diff ?? null,
-        // Score predictions
-        pred_away_score: apiPred?.pred_away_score ?? row.pred_away_score ?? (apiPred as any)?.pred_away_points ?? null,
-        pred_home_score: apiPred?.pred_home_score ?? row.pred_home_score ?? (apiPred as any)?.pred_home_points ?? null
+        pred_ml_proba: row.fg_home_win_prob ?? null,
+        pred_spread_proba: row.fg_home_cover_prob ?? null,
+        pred_total_proba: null,
+        api_spread: row.fg_spread_close ?? null,
+        api_over_line: row.fg_total_close ?? null,
+        home_spread_diff: row.fg_spread_edge ?? null,
+        over_line_diff: row.fg_total_edge ?? null,
+        pred_away_score: row.fg_pred_away_pts ?? (hasScore ? (predTotal - predMargin) / 2 : null),
+        pred_home_score: row.fg_pred_home_pts ?? (hasScore ? (predTotal + predMargin) / 2 : null),
       };
     }) as CFBPrediction[];
 
-    debug.log(`📊 Mapped ${predictions.length} CFB predictions with edge data`);
-    if (predictions.length > 0) {
-      debug.log(`📊 Sample CFB prediction:`, predictions[0]);
-    }
-    
+    debug.log(`📊 Mapped ${predictions.length} CFB predictions`);
     return predictions;
   } catch (error) {
     debug.error('❌ Error in fetchCFBPredictions:', error);

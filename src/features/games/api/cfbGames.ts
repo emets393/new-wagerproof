@@ -626,6 +626,15 @@ export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPr
         over_line_diff: prediction.fg_total_edge ?? null,
         pred_spread: prediction.fg_pred_spread ?? null,
         home_spread_diff: prediction.fg_spread_edge ?? null,
+        // Weather: map the new model's wx_* columns onto the field names the CFB detail widgets read.
+        // (Null preseason — forecasts only exist ~10-14 days out — but populated in-season.)
+        weather_temp_f: prediction.wx_temp_f ?? null,
+        temperature: prediction.wx_temp_f ?? null,
+        weather_windspeed_mph: prediction.wx_wind_mph ?? null,
+        wind_speed: prediction.wx_wind_mph ?? null,
+        precipitation: prediction.wx_precip_mm ?? null,
+        icon_code: prediction.wx_icon ?? null,
+        weather_icon_text: prediction.wx_summary ?? null,
         is_dry_run: false,
       };
     });
