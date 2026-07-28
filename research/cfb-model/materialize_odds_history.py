@@ -28,7 +28,7 @@ HDRS = {"apikey": KEY, "Authorization": f"Bearer {KEY}"}
 # columns build_odds_frame.py consumes (raw per-book snapshots; it does its own median consensus)
 COLS = ["season", "game_id", "snapshot", "commence_time", "home_team", "away_team", "book",
         "home_ml", "away_ml", "spread_home", "spread_home_price", "spread_away_price",
-        "total", "hrs_to_kick"]
+        "total", "over_price", "under_price", "hrs_to_kick"]
 
 
 def main():

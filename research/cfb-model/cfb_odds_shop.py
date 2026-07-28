@@ -51,7 +51,9 @@ class CFBOddsShop:
         self._names = names
         self._pair2gid = {(g["home_team"], g["away_team"]): int(g["game_id"]) for g in games}
         self._fg: dict[tuple[int, str], object] = {}
-        self._ev = pd.DataFrame()
+        # typed empty frame so _ev_rows works even when the event-odds file is absent (preseason weeks)
+        self._ev = pd.DataFrame(columns=["game_id", "market", "book", "name", "description",
+                                         "snap", "point", "price", "home", "away"])
         self._load_fg()
         self._load_ev()
 
