@@ -190,14 +190,6 @@ function normalizeFlagMarket(market?: string | null): string {
   return key;
 }
 
-/** Sport-aware empty copy — NFL must never mention CFB. */
-function emptySignalsCopy(sport: FootballSport): string {
-  if (sport === 'cfb') {
-    return 'No signals on this game yet. Supports / Contradicts chips appear under each market card once CFB betting spots fire (often sparse through Week 3).';
-  }
-  return 'No signals on this game yet. Supports / Contradicts chips appear under each market card when a signal fires for this matchup.';
-}
-
 /**
  * Heuristic stance when attaching a game-level flag to a market pick that has
  * no explicit signal_keys / embedded stance (projection-only NFL cards).
@@ -299,6 +291,68 @@ const formatSigned = (value: number | null): string => {
   if (value === null) return '-';
   return value > 0 ? `+${formatNumber(value)}` : formatNumber(value);
 };
+
+/** Match a dry-run pick to home/away (native sheet team header parity). */
+function resolvePickTeam(
+  row: FootballDryRunPick,
+  away: TeamRef,
+  home: TeamRef,
+): TeamRef | null {
+  const pickTeam = String(row.pick_team || '').trim();
+  const matches = (team: TeamRef, raw: string) => {
+    const u = raw.toUpperCase();
+    const name = team.name.toUpperCase();
+    const abbrev = team.abbrev.toUpperCase();
+    return (
+      u === name ||
+      u === abbrev ||
+      name.includes(u) ||
+      u.includes(name) ||
+      u.includes(abbrev)
+    );
+  };
+
+  if (pickTeam) {
+    const homeHit = matches(home, pickTeam);
+    const awayHit = matches(away, pickTeam);
+    if (homeHit && !awayHit) return home;
+    if (awayHit && !homeHit) return away;
+    if (homeHit) return home;
+    if (awayHit) return away;
+  }
+
+  const cardGroup = String(row.card_group || '').toLowerCase();
+  if (cardGroup.includes('home')) return home;
+  if (cardGroup.includes('away')) return away;
+
+  const side = String(row.pick_side || '').toUpperCase();
+  if (side === 'HOME') return home;
+  if (side === 'AWAY') return away;
+
+  return null;
+}
+
+/** Native-style TT header: "KC Over 24.5" instead of a bare Over/Under or full name. */
+function teamTotalDisplayLabel(row: FootballDryRunPick, team: TeamRef): string {
+  const sideHay = `${row.pick_side || ''} ${row.pick_label || ''}`.toUpperCase();
+  const direction = sideHay.includes('UNDER')
+    ? 'Under'
+    : sideHay.includes('OVER')
+      ? 'Over'
+      : null;
+  const line = toNum(row.best_line) ?? toNum(row.vegas_line);
+  if (direction && line !== null) {
+    return `${team.abbrev} ${direction} ${formatNumber(line)}`;
+  }
+  if (direction) {
+    return `${team.abbrev} ${direction}`;
+  }
+  const model = toNum(row.model_line) ?? toNum(row.model_number);
+  if (model !== null) {
+    return `${team.abbrev} proj ${formatNumber(model)}`;
+  }
+  return row.pick_label || team.abbrev;
+}
 
 /**
  * When `*_dryrun_picks` is empty (CFB Weeks 1–3 by design; occasional NFL gaps),
@@ -862,10 +916,7 @@ export function FootballDryRunPicksSection({
     return keys;
   }, [picks, sport]);
 
-  const gameHasPickSignals = pickSignalKeySet.size > 0;
   const gameHasFlagSignals = gameFlags.length > 0;
-  // Match feed badge: empty only when both pick keys and game flags are absent.
-  const gameHasAnySignals = gameHasPickSignals || gameHasFlagSignals;
 
   /** Flags not already rendered via pick.signal_keys (avoid duplicate chips). */
   const orphanFlags = useMemo(() => {
@@ -965,46 +1016,31 @@ export function FootballDryRunPicksSection({
 
   return (
     <>
-      {/* Always surface the same flags the feed ⚡ badge counted — don't wait
-          for pick.signal_keys (often empty on projection-only NFL cards). */}
-      {gameHasFlagSignals && (
-        <WidgetCard
-          icon={<Info />}
-          title="Signal convictions"
-          subtitle={`${gameFlags.length} signal${gameFlags.length === 1 ? '' : 's'} on this game (same set as the feed badge).`}
-          className="@xl:col-span-2"
-        >
-          <GameLevelSignalList
-            flags={gameFlags}
+      {/* No standalone "Signal convictions" card — chips only under each market. */}
+      {groupedPicks.map(({ group, rows }) => {
+        // Leftover flags with no market key ride on the first card so they
+        // still appear under a market instead of a duplicate top section.
+        const marketFlags = flagsByMarket.get(group) || [];
+        const extras =
+          group === groupedPicks[0]?.group && unattachedFlags.length > 0
+            ? unattachedFlags
+            : [];
+        const fallbackFlags = extras.length > 0 ? [...marketFlags, ...extras] : marketFlags;
+        return (
+          <PredictionGroupCard
+            key={`${gameId}-${group}`}
+            group={group}
+            rows={rows}
             signalDefs={signalDefs}
             signalPerformance={signalPerformance}
+            fallbackFlags={fallbackFlags}
+            away={game.awayTeam}
+            home={game.homeTeam}
+            trendsByKey={teamTrends}
+            sport={sport}
           />
-        </WidgetCard>
-      )}
-      {!gameHasAnySignals && (
-        <WidgetCard
-          icon={<Info />}
-          title="Signal convictions"
-          subtitle="Patterns that support or contradict each market pick."
-          className="@xl:col-span-2"
-        >
-          <EmptyNote>{emptySignalsCopy(sport)}</EmptyNote>
-        </WidgetCard>
-      )}
-      {groupedPicks.map(({ group, rows }) => (
-        <PredictionGroupCard
-          key={`${gameId}-${group}`}
-          group={group}
-          rows={rows}
-          signalDefs={signalDefs}
-          signalPerformance={signalPerformance}
-          fallbackFlags={flagsByMarket.get(group) || []}
-          away={game.awayTeam}
-          home={game.homeTeam}
-          trendsByKey={teamTrends}
-          sport={sport}
-        />
-      ))}
+        );
+      })}
     </>
   );
 }
@@ -1136,17 +1172,29 @@ function PickRow({
   const group = normalizeCardGroup(row.card_group);
   // Native sheets hide model-vs-Vegas for moneylines (odds ≠ a line).
   const showGapRow = group !== 'moneyline' && group !== 'h1_ml';
+  // Team totals are two O/U rows — logo + abbrev make home vs away obvious
+  // (native NFL/CFB sheet parity via CollegeTeamMark / game feed TeamRef logos).
+  const pickTeam = group === 'team_total' ? resolvePickTeam(row, away, home) : null;
+  const pickLabel =
+    pickTeam != null
+      ? teamTotalDisplayLabel(row, pickTeam)
+      : row.pick_label || 'Projection only';
+  const gapLabel = pickTeam?.abbrev || 'Line';
 
   return (
     <div className={cn('flex flex-col gap-2 py-3 first:pt-0 last:pb-0', row.display_only && 'opacity-70')}>
       {/* The pick first and largest; everything under it is the case for it. */}
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-center gap-2.5">
+        {pickTeam ? <CollegeTeamMark team={pickTeam} size={28} /> : null}
         <div className="flex min-w-0 flex-col">
           <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">
             {row.display_only ? 'Projection only' : row.has_play ? 'Surfaced pick' : 'Informational'}
           </span>
-          <span className="truncate text-lg font-bold leading-tight tracking-tight text-foreground">
-            {row.pick_label || 'Projection only'}
+          <span
+            className="truncate text-lg font-bold leading-tight tracking-tight text-foreground"
+            title={pickTeam ? `${pickTeam.name} team total` : undefined}
+          >
+            {pickLabel}
           </span>
         </div>
 
@@ -1181,7 +1229,7 @@ function PickRow({
           {/* Captions repeat per pick rather than once per card so a row is never
               three unlabelled numbers when you scroll into the middle of a card. */}
           <MarketGapHeader />
-          <MarketGapRow label="Line" model={model} vegas={vegas} gap={gap} format={formatNumber} />
+          <MarketGapRow label={gapLabel} model={model} vegas={vegas} gap={gap} format={formatNumber} />
         </div>
       )}
 
