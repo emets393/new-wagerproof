@@ -14,6 +14,9 @@ import { teamVisuals } from '../teamVisuals';
 import { OUTLIERS_SPORT_LABELS } from '../types';
 import type { OutliersTrendsGame, OutliersTrendsSport } from '../types';
 
+/** Keep the matchup band at a fixed three rows of three tiles. */
+const MATCHUPS_PER_PAGE = 9;
+
 /** Keep "Today's Matchups" near-term only for football — /games keeps the full week slate. */
 const FOOTBALL_MATCHUP_HORIZON_MS = 21 * 24 * 60 * 60 * 1000;
 
