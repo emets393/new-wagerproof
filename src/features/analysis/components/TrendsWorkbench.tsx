@@ -335,41 +335,6 @@ function SportWorkbench({
     setLeaderboardOpen(false);
   };
 
-  const upcomingNode =
-    analysis && upcoming.length > 0 ? (
-      <UpcomingMatches
-        games={upcoming}
-        betType={betType}
-        title={adapter.upcomingLabel(upcoming.length)}
-        note={adapter.upcomingNote ? adapter.upcomingNote(snapshot, upcomingFilters) : null}
-        lineForBet={adapter.lineForBet}
-        timeLabel={adapter.upcomingTime}
-        logoForGame={(g) => adapter.logoFor({ ...g, n: 0, hit_pct: 0, roi: null }, breakdownTabs[0], data)}
-        chipsFor={adapter.upcomingChips}
-        onChipClick={
-          adapter.upcomingChips
-            ? (g, chip) => {
-                // MLB: tapping an opposing-starter chip focuses that pitcher matchup.
-                if (g.opp_sp_id != null && chip === String(g.opp_sp_name ?? '')) {
-                  const patch: Record<string, unknown> = {
-                    oppSp: [
-                      {
-                        id: Number(g.opp_sp_id),
-                        name: String(g.opp_sp_name),
-                        hand: g.opp_sp_hand ? String(g.opp_sp_hand) : null,
-                        team: g.opponent ? String(g.opponent) : null,
-                      },
-                    ],
-                  };
-                  if (g.team) patch.teams = [String(g.team)];
-                  update(patch);
-                }
-              }
-            : undefined
-        }
-      />
-    ) : null;
-
   const filterPanelProps = {
     meta: drawerMeta,
     chips,
@@ -378,9 +343,11 @@ function SportWorkbench({
   };
 
   return (
-    // full-height column: everything above scrolls internally, the chat dock pins to the bottom
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-44 pt-6 md:px-8 md:pt-8">
+    // full-height column: everything above scrolls internally, the chat dock pins to the bottom.
+    // h-full + min-h-0 locks to the app shell (see AuthenticatedLayout) so overflow-y-auto is
+    // the real scrollport — without that, content grows past h-svh and gets clipped.
+    <div className="relative flex h-full min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-72 pt-6 md:px-8 md:pt-8">
         {/* container widens when the inline panel takes its column — content shifts, never overlaps */}
         <div
           className={cn(
@@ -565,8 +532,43 @@ function SportWorkbench({
                     outcomeWord={adapter.outcomeWord(betType)}
                     showsROI={showsROI}
                     logoFor={(row, tab) => adapter.logoFor(row, tab, data)}
-                    upcoming={upcomingNode}
-                    upcomingCount={upcoming.length}
+                  />
+                )}
+
+                {/* Dedicated matching-games section (matches iOS) — not buried in a breakdown tab */}
+                {upcoming.length > 0 && (
+                  <UpcomingMatches
+                    games={upcoming}
+                    betType={betType}
+                    title={adapter.upcomingLabel(upcoming.length)}
+                    note={adapter.upcomingNote ? adapter.upcomingNote(snapshot, upcomingFilters) : null}
+                    lineForBet={adapter.lineForBet}
+                    timeLabel={adapter.upcomingTime}
+                    logoForGame={(g) =>
+                      adapter.logoFor({ ...g, n: 0, hit_pct: 0, roi: null }, breakdownTabs[0], data)
+                    }
+                    chipsFor={adapter.upcomingChips}
+                    onChipClick={
+                      adapter.upcomingChips
+                        ? (g, chip) => {
+                            // MLB: tapping an opposing-starter chip focuses that pitcher matchup.
+                            if (g.opp_sp_id != null && chip === String(g.opp_sp_name ?? '')) {
+                              const patch: Record<string, unknown> = {
+                                oppSp: [
+                                  {
+                                    id: Number(g.opp_sp_id),
+                                    name: String(g.opp_sp_name),
+                                    hand: g.opp_sp_hand ? String(g.opp_sp_hand) : null,
+                                    team: g.opponent ? String(g.opponent) : null,
+                                  },
+                                ],
+                              };
+                              if (g.team) patch.teams = [String(g.team)];
+                              update(patch);
+                            }
+                          }
+                        : undefined
+                    }
                   />
                 )}
               </div>

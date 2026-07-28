@@ -6,33 +6,40 @@ import { AIPayloadViewer } from '@/components/AIPayloadViewer';
 import { GameTailSection } from '@/components/GameTailSection';
 import { SHOW_WEBSITE_TAILING_FEATURES } from '@/lib/featureFlags';
 import type { NFLPrediction } from '../../../api/nflGames';
+import type { GameFeedItem } from '../../../types';
 import type { SportSectionsProps } from '../index';
 import { MarketOddsSection } from '../MarketOddsSection';
-import { NflSpreadSection, NflTotalSection } from './NflPredictionsSection';
+import {
+  NflDryRunPicksSection,
+  NflDryRunSummarySection,
+} from '../cfb/CfbDryRunSections';
 import { NflBettingSplitsSection } from './NflBettingSplitsSection';
 import { NflH2HSection } from './NflH2HSection';
 import { NflLineMovementSection } from './NflLineMovementSection';
 
 /**
- * NFL detail-pane widget stack, ported from GameDetailsModal's NFL branch.
- * Weather is intentionally absent: the modal's NFL weather block only had
- * temp/wind/icon, all of which the DetailHero chip already shows.
+ * NFL detail-pane widget stack — mirrors the native sheet after the 2026
+ * dryrun cutover:
+ *   slate summary → multi-market picks (with team season trends per market) →
+ *   market odds → betting splits → line movement → matchup history.
+ *
+ * Legacy EPA spread/total cards are intentionally omitted: FG lines + picks
+ * come only from `nfl_dryrun_*` so spread/total never render twice.
  */
 export function NflSections({ game, extras, onCompletionGenerated }: SportSectionsProps) {
   const raw = game.raw as NFLPrediction;
+  const nflGame = game as GameFeedItem<NFLPrediction>;
   const { adminModeEnabled } = useAdminMode();
   const [payloadViewerOpen, setPayloadViewerOpen] = useState(false);
 
   return (
     <>
+      <NflDryRunSummarySection game={nflGame} />
+      <NflDryRunPicksSection game={nflGame} />
       <MarketOddsSection game={game} />
-      {/* One market per card: the spread pick and the total pick are separate
-          questions and used to share a single "Model Predictions" widget. */}
-      <NflSpreadSection game={game} />
-      <NflTotalSection game={game} />
       <NflBettingSplitsSection game={game} />
-      <NflH2HSection game={game} />
       <NflLineMovementSection game={game} extras={extras} />
+      <NflH2HSection game={game} />
 
       {SHOW_WEBSITE_TAILING_FEATURES && (
         <GameTailSection

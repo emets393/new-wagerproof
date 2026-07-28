@@ -209,13 +209,17 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={true} className="h-svh overflow-hidden">
       <AppLayout />
-      <SidebarInset className="overflow-x-hidden dark:bg-black">
+      {/* min-h-0 + overflow-hidden: SidebarInset defaults to min-h-svh and flex
+          min-height:auto, which lets content grow past the h-svh provider and get
+          clipped (no nested scroll). Split-view pages like /historical-trends need
+          the inset locked to the viewport so their own overflow-y-auto can reach the end. */}
+      <SidebarInset className="min-h-0 overflow-hidden dark:bg-black">
         {/* h-full only resolves against a genuinely fixed-height ancestor — that's
             why SidebarProvider above is pinned to h-svh + overflow-hidden instead of
             its default min-h-svh (which lets the whole page grow with content). With
             a real fixed height, this card scrolls internally in <main> below instead
             of the whole page growing, so the recessed margin/rounding stays in view. */}
-        <div className="flex h-full flex-col overflow-x-hidden">
+        <div className="flex h-full min-h-0 flex-col overflow-x-hidden">
           <LiveScoreTicker />
           <MinimalHeader />
           <main

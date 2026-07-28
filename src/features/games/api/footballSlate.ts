@@ -1,4 +1,5 @@
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
+import debug from '@/utils/debug';
 
 /**
  * Shared (season, week) resolvers for the NFL/CFB `*_dryrun_*` tables.
@@ -11,6 +12,125 @@ import { collegeFootballSupabase } from '@/integrations/supabase/college-footbal
 export interface FootballSlateAnchor {
   season: number;
   week: number;
+}
+
+export type FootballDryrunSport = 'nfl' | 'cfb';
+
+/**
+ * Pipeline "blanket" keys — fire on nearly every game as model lean / week
+ * scaffolding. Never render as per-game signal chips or include in feed BET/signal counts.
+ */
+export const NFL_BLANKET_SIGNAL_KEYS = new Set(['sides_model']);
+export const CFB_BLANKET_SIGNAL_KEYS = new Set([
+  'model_lean',
+  'opener_under',
+  'rivalry_week_over',
+]);
+
+export function isBlanketSignalKey(sport: FootballDryrunSport, key: string): boolean {
+  const normalized = key.trim();
+  if (!normalized) return true;
+  return sport === 'nfl'
+    ? NFL_BLANKET_SIGNAL_KEYS.has(normalized)
+    : CFB_BLANKET_SIGNAL_KEYS.has(normalized);
+}
+
+/** Normalize `signal_keys` from dryrun picks (array, JSON string, or CSV). */
+export function normalizeSignalKeys(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((v) => String(v).trim()).filter(Boolean);
+      }
+    } catch {
+      /* CSV fallback */
+    }
+    return value
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/** Displayable chip keys from a pick's `signal_keys` (blankets stripped). */
+export function displaySignalKeysFromPick(
+  sport: FootballDryrunSport,
+  value: unknown,
+): string[] {
+  return Array.from(
+    new Set(normalizeSignalKeys(value).filter((key) => !isBlanketSignalKey(sport, key))),
+  );
+}
+
+/**
+ * Feed-card signal count from the slate row.
+ * NFL: `flags_active` + `flags_tracking`; CFB: `n_flags_active` + `n_flags_tracking`.
+ * These columns already exclude blanket scaffolding (matches `*_dryrun_flags`).
+ */
+export function signalCountFromDryrunGame(
+  sport: FootballDryrunSport,
+  row: {
+    flags_active?: number | null;
+    flags_tracking?: number | null;
+    n_flags_active?: number | null;
+    n_flags_tracking?: number | null;
+  },
+): number {
+  if (sport === 'nfl') {
+    return (Number(row.flags_active) || 0) + (Number(row.flags_tracking) || 0);
+  }
+  return (Number(row.n_flags_active) || 0) + (Number(row.n_flags_tracking) || 0);
+}
+
+/**
+ * Fallback unique non-blanket key count from picks.`signal_keys` only.
+ * Do NOT union NFL `signals[].key` — that column includes blanket `sides_model`
+ * on nearly every spread card.
+ */
+export async function fetchDryrunSignalCounts(
+  table: 'nfl_dryrun_picks' | 'cfb_dryrun_picks',
+  season: number,
+  week: number,
+): Promise<Map<string, number>> {
+  const sport: FootballDryrunSport = table.startsWith('nfl') ? 'nfl' : 'cfb';
+  const { data, error } = await collegeFootballSupabase
+    .from(table)
+    .select('game_id,signal_keys')
+    .eq('season', season)
+    .eq('week', week);
+
+  const counts = new Map<string, number>();
+  if (error) {
+    debug.warn(`[games] ${table} signal counts:`, error.message);
+    return counts;
+  }
+
+  const keysByGame = new Map<string, Set<string>>();
+  for (const row of data || []) {
+    const gameId = String((row as { game_id?: unknown }).game_id ?? '');
+    if (!gameId) continue;
+    let set = keysByGame.get(gameId);
+    if (!set) {
+      set = new Set();
+      keysByGame.set(gameId, set);
+    }
+    for (const key of displaySignalKeysFromPick(
+      sport,
+      (row as { signal_keys?: unknown }).signal_keys,
+    )) {
+      set.add(key);
+    }
+  }
+  for (const [gameId, set] of keysByGame) {
+    counts.set(gameId, set.size);
+  }
+  return counts;
 }
 
 const FALLBACK: FootballSlateAnchor = { season: 2026, week: 1 };

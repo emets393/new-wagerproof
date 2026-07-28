@@ -282,13 +282,18 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
 
     const merged = (data || []).map((r: any) => {
       const homeSpread = r.fg_spread_close ?? null;
+      const pick = String(r.fg_total_pick || '').trim().toUpperCase();
+      const edge = Number(r.fg_total_edge);
+      let ouProb: number | null = null;
+      if (pick === 'OVER') ouProb = 0.55 + Math.min(0.2, (Number.isFinite(edge) ? Math.abs(edge) : 0) / 50);
+      if (pick === 'UNDER') ouProb = 0.45 - Math.min(0.2, (Number.isFinite(edge) ? Math.abs(edge) : 0) / 50);
       return {
         training_key: r.game_id,
         home_team: r.home_team,
         away_team: r.away_team,
         home_away_ml_prob: r.fg_home_win_prob ?? null,
         home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
-        ou_result_prob: null,
+        ou_result_prob: ouProb,
         home_spread: homeSpread,
         away_spread: homeSpread !== null ? -Number(homeSpread) : null,
         over_line: r.fg_total_close ?? null,

@@ -5,7 +5,7 @@ import type { UpcomingGame } from './adapters/types';
 
 /**
  * "This week's games that match" — logo + matchup + bet line + kickoff (+ MLB chips).
- * Rendered inside the insight section's Upcoming tab, so no card shell of its own. Empty-safe.
+ * Own section below the by-team breakdown (matches iOS Historical Trends). Empty-safe.
  */
 export function UpcomingMatches({
   games,
