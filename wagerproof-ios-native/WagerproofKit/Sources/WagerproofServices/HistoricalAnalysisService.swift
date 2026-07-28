@@ -117,27 +117,28 @@ public actor HistoricalAnalysisService {
         return map
     }
 
-    /// CFB team logos keyed by `cfb_team_mapping.api` name.
+    /// CFB team logos keyed by `cfb_teams.team_name` — the same team key the
+    /// conference/team map uses. Legacy `cfb_team_mapping` retired.
     public func fetchCFBLogos() async throws -> [String: String] {
         let client = await CFBSupabase.shared.client
         struct Row: Decodable {
-            let api: String?
-            let logoLight: String?
+            let teamName: String?
+            let logo: String?
 
             enum CodingKeys: String, CodingKey {
-                case api
-                case logoLight = "logo_light"
+                case teamName = "team_name"
+                case logo
             }
         }
         let rows: [Row] = try await client
-            .from("cfb_team_mapping")
-            .select("api,logo_light")
+            .from("cfb_teams")
+            .select("team_name,logo")
             .execute()
             .value
         var out: [String: String] = [:]
         for row in rows {
-            if let api = row.api, let logo = row.logoLight, !logo.isEmpty {
-                out[api] = logo
+            if let name = row.teamName, let logo = row.logo, !logo.isEmpty {
+                out[name] = logo
             }
         }
         return out

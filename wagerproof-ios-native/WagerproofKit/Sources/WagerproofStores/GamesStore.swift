@@ -595,15 +595,36 @@ public final class GamesStore {
         "sun_late_sat": "Sun Late", "snf": "SNF", "monday": "MNF",
     ]
 
+    /// One-row anchor of the latest (season, week) present in a dry-run table.
+    /// The pipeline delete-then-inserts per (season, week), so the newest slate
+    /// is the current week. Mirrors the web `fetchSlateAnchor` helper.
+    private struct DryrunAnchorRow: Decodable, Sendable {
+        let season: Int?
+        let week: Int?
+    }
+
     /// Dry-run slate mapped onto the card model. Spreads in the contract are
     /// home-relative (negative = home favored) — same convention as the card.
+    /// Reads only the current week: the latest (season, week) present.
     private func fetchNFLDryrun(_ cfb: SupabaseClient) async -> [NFLPrediction] {
         // Team logos/abbrs come from the `nfl_teams` reference table — warm
         // the cache so the cards can read it synchronously.
         await NFLTeamsService.shared.ensureLoaded()
+        // Anchor to the current week = latest (season, week) present.
+        let anchor: [DryrunAnchorRow] = (try? await cfb
+            .from("nfl_dryrun_games")
+            .select("season, week")
+            .order("season", ascending: false)
+            .order("week", ascending: false)
+            .limit(1)
+            .execute()
+            .value) ?? []
+        guard let slate = anchor.first, let season = slate.season, let week = slate.week else { return [] }
         let rows: [NFLDryrunGameRow] = (try? await cfb
             .from("nfl_dryrun_games")
             .select()
+            .eq("season", value: season)
+            .eq("week", value: week)
             .order("kickoff", ascending: true)
             .execute()
             .value) ?? []
@@ -1229,16 +1250,35 @@ public final class GamesStore {
         let cfb = await CFBSupabase.shared.client
         await CFBTeamsService.shared.ensureLoaded()
 
+        // Anchor to the current week = latest (season, week) present. The
+        // pipeline delete-then-inserts per (season, week), so the newest slate
+        // is the current week. Mirrors the web `fetchSlateAnchor` helper.
+        let anchor: [DryrunAnchorRow] = try await cfb
+            .from("cfb_dryrun_games")
+            .select("season, week")
+            .order("season", ascending: false)
+            .order("week", ascending: false)
+            .limit(1)
+            .execute()
+            .value
+        guard let slate = anchor.first, let season = slate.season, let week = slate.week else {
+            games.cfb = []
+            return
+        }
+
         async let gameRows: [CFBDryrunGameRow] = cfb
             .from("cfb_dryrun_games")
             .select()
-            .eq("week", value: 7)
+            .eq("season", value: season)
+            .eq("week", value: week)
+            .order("kickoff", ascending: true)
             .execute()
             .value
         async let flagRows: [CFBDryrunFlagRow] = cfb
             .from("cfb_dryrun_flags")
             .select()
-            .eq("week", value: 7)
+            .eq("season", value: season)
+            .eq("week", value: week)
             .execute()
             .value
 
@@ -1279,7 +1319,7 @@ public final class GamesStore {
                 homeAwayMlProb: row.fgHomeWinProb,
                 homeAwaySpreadCoverProb: row.fgHomeCoverProb,
                 ouResultProb: nil,
-                runId: "cfb-dryrun-wk7-2025",
+                runId: "cfb-dryrun-\(row.season ?? season)-wk\(row.week ?? week)",
                 temperature: row.wxTempF,
                 precipitation: row.wxPrecipMm,
                 windSpeed: row.wxWindMph,

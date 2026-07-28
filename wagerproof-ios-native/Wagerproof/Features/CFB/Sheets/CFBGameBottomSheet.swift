@@ -2077,15 +2077,21 @@ struct CFBGameBottomSheet: View {
         guard let rows: [CFBTeamTrendRow] = try? await cfb
             .from("cfb_team_trends")
             .select("team_name,season,through_week,games,su_w,su_l,su_record,ats_w,ats_l,ats_p,ats_pct,ou_o,ou_u,ou_p,over_pct,tt_o,tt_u,tt_games,tt_over_pct,h1_ats_w,h1_ats_l,h1_ats_p,h1_ats_games,h1_ats_pct,h1_ou_o,h1_ou_u,h1_ou_games,h1_over_pct,last5_su,last5_ats,last5_ou,game_log")
-            .eq("season", value: 2025)
             .in("team_name", values: [game.awayTeam, game.homeTeam])
+            .order("season", ascending: false)
             .execute()
             .value
         else {
             teamTrendsByTeam = [:]
             return
         }
-        teamTrendsByTeam = Dictionary(uniqueKeysWithValues: rows.map { ($0.teamName, $0) })
+        // The builder loads all seasons (delete-then-insert per season); keep the most-recent per team
+        // so the sheet follows the live season instead of a hardcoded year.
+        var byTeam: [String: CFBTeamTrendRow] = [:]
+        for row in rows where byTeam[row.teamName] == nil {
+            byTeam[row.teamName] = row
+        }
+        teamTrendsByTeam = byTeam
     }
 
     private struct CFBTeamTrendRow: Decodable, Sendable {

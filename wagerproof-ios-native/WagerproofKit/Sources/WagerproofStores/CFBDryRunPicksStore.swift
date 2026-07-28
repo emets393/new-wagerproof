@@ -41,16 +41,38 @@ public final class CFBDryRunPicksStore {
         do {
             await CFBTeamsService.shared.ensureLoaded()
             let cfb = await CFBSupabase.shared.client
+
+            // Anchor to the current week = latest (season, week) present. The
+            // pipeline delete-then-inserts per (season, week), so the newest
+            // slate is the current week. Mirrors the web `fetchSlateAnchor`.
+            let anchor: [AnchorRow] = try await cfb
+                .from("cfb_dryrun_games")
+                .select("season, week")
+                .order("season", ascending: false)
+                .order("week", ascending: false)
+                .limit(1)
+                .execute()
+                .value
+            guard let slate = anchor.first, let season = slate.season, let week = slate.week else {
+                self.flags = []
+                self.games = []
+                loadState = .loaded
+                return
+            }
+
             async let gamesRows: [GameRow] = cfb
                 .from("cfb_dryrun_games")
                 .select()
-                .eq("week", value: 7)
+                .eq("season", value: season)
+                .eq("week", value: week)
+                .order("kickoff", ascending: true)
                 .execute()
                 .value
             async let flagRows: [FlagRow] = cfb
                 .from("cfb_dryrun_flags")
                 .select()
-                .eq("week", value: 7)
+                .eq("season", value: season)
+                .eq("week", value: week)
                 .execute()
                 .value
             async let signalDefs = CFBSignalDefinitionsService.shared.definitionsBySource()
@@ -171,6 +193,12 @@ public final class CFBDryRunPicksStore {
         if let home, let away { return (home, away) }
         guard let total, let margin else { return nil }
         return ((total + margin) / 2, (total - margin) / 2)
+    }
+
+    /// One-row anchor of the latest (season, week) present in `cfb_dryrun_games`.
+    private struct AnchorRow: Decodable, Sendable {
+        let season: Int?
+        let week: Int?
     }
 
     private struct FlexibleString: Decodable, Hashable, Sendable {

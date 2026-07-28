@@ -40,76 +40,71 @@ class OutliersService {
         // Each sport is best-effort: one sport's outage must not blank the feed.
 
         // 1. NFL ----------------------------------------------------------
+        // NEW model's current-week slate: nfl_dryrun_games carries Odds-API lines +
+        // fg_* model preds in one row (lines + edges hydrated here; no separate merge).
+        // Anchor on latest (season, week) = current week. Mirrors the web repoint.
         runCatching {
-            val nflRows = cfb.from("v_input_values_with_epa")
+            val slate = fetchDryrunAnchor(cfb, "nfl_dryrun_games") ?: return@runCatching
+            val rows = cfb.from("nfl_dryrun_games")
                 .select {
-                    order("game_date", Order.ASCENDING)
-                    order("game_time", Order.ASCENDING)
-                }
-                .decodeList<OutlierNFLInputRow>()
-
-            // Wide 21-col projection kept verbatim from RN/iOS even though we
-            // only decode a subset — the request shape is part of the contract.
-            val bettingLines = runCatching {
-                cfb.from("nfl_betting_lines")
-                    .select(
-                        columns = Columns.raw(
-                            "training_key, home_ml, away_ml, home_spread, over_line, game_time_et, " +
-                                "home_ml_handle, away_ml_handle, home_ml_bets, away_ml_bets, ml_splits_label, " +
-                                "home_spread_handle, away_spread_handle, home_spread_bets, away_spread_bets, " +
-                                "spread_splits_label, over_handle, under_handle, over_bets, under_bets, total_splits_label"
-                        )
-                    ) {
-                        order("as_of_ts", Order.DESCENDING)
+                    filter {
+                        eq("season", slate.season)
+                        eq("week", slate.week)
                     }
-                    .decodeList<OutlierNFLBettingLine>()
-            }.getOrDefault(emptyList())
-
-            // First row per training_key after the as_of_ts desc sort = freshest line.
-            val lineMap = HashMap<String, OutlierNFLBettingLine>()
-            for (line in bettingLines) if (line.trainingKey !in lineMap) lineMap[line.trainingKey] = line
-
-            for (game in nflRows) {
-                val date = game.gameDate ?: continue
-                if (date < window.today || date > window.weekFromNow) continue
-                val line = lineMap[game.homeAwayUnique]
-                val gameTime = line?.gameTimeEt
-                    ?: if (game.gameDate != null && game.gameTime != null) "${game.gameDate}T${game.gameTime}" else null
-                val homeSpread = line?.homeSpread ?: game.homeSpread
+                    order("kickoff", Order.ASCENDING)
+                }
+                .decodeList<OutlierDryrunGameRow>()
+            for (game in rows) {
+                val homeSpread = game.fgSpreadClose
                 games += OutlierGame(
-                    gameId = game.homeAwayUnique,
+                    gameId = game.gameId ?: continue,
                     sport = SportLeague.NFL,
                     awayTeam = game.awayTeam.orEmpty(),
                     homeTeam = game.homeTeam.orEmpty(),
-                    gameTime = gameTime,
+                    gameTime = game.kickoff,
                     awaySpread = homeSpread?.let { -it },
                     homeSpread = homeSpread,
-                    totalLine = line?.overLine ?: game.ouVegasLine,
-                    awayMl = line?.awayMl,
-                    homeMl = line?.homeMl,
+                    totalLine = game.fgTotalClose,
+                    awayMl = game.fgMlAwayClose?.roundToInt(),
+                    homeMl = game.fgMlHomeClose?.roundToInt(),
+                    homeAwaySpreadCoverProb = game.fgHomeCoverProb,
+                    homeAwayMlProb = game.fgHomeWinProb,
+                    homeSpreadDiff = game.fgSpreadEdge,
+                    overLineDiff = game.fgTotalEdge,
                 )
             }
         }
 
         // 2. CFB ----------------------------------------------------------
+        // NEW model's current-week slate: cfb_dryrun_games (same row shape as NFL).
         runCatching {
-            val rows = cfb.from("cfb_live_weekly_inputs").select().decodeList<OutlierCFBInputRow>()
+            val slate = fetchDryrunAnchor(cfb, "cfb_dryrun_games") ?: return@runCatching
+            val rows = cfb.from("cfb_dryrun_games")
+                .select {
+                    filter {
+                        eq("season", slate.season)
+                        eq("week", slate.week)
+                    }
+                    order("kickoff", Order.ASCENDING)
+                }
+                .decodeList<OutlierDryrunGameRow>()
             for (game in rows) {
-                val raw = game.startDate ?: game.startTime ?: game.gameDatetime ?: game.datetime ?: game.date
-                    ?: continue
-                val etDate = formatETDate(raw) ?: continue
-                if (etDate < window.today || etDate > window.weekFromNow) continue
+                val homeSpread = game.fgSpreadClose
                 games += OutlierGame(
-                    gameId = game.trainingKey ?: "${game.id ?: 0}",
+                    gameId = game.gameId ?: continue,
                     sport = SportLeague.CFB,
                     awayTeam = game.awayTeam.orEmpty(),
                     homeTeam = game.homeTeam.orEmpty(),
-                    gameTime = raw,
-                    awaySpread = game.awaySpread ?: game.apiSpread?.let { -it },
-                    homeSpread = game.homeSpread ?: game.apiSpread,
-                    totalLine = game.totalLine ?: game.apiOverLine,
-                    awayMl = game.awayMoneyline ?: game.awayMl,
-                    homeMl = game.homeMoneyline ?: game.homeMl,
+                    gameTime = game.kickoff,
+                    awaySpread = homeSpread?.let { -it },
+                    homeSpread = homeSpread,
+                    totalLine = game.fgTotalClose,
+                    awayMl = game.fgMlAwayClose?.roundToInt(),
+                    homeMl = game.fgMlHomeClose?.roundToInt(),
+                    homeAwaySpreadCoverProb = game.fgHomeCoverProb,
+                    homeAwayMlProb = game.fgHomeWinProb,
+                    homeSpreadDiff = game.fgSpreadEdge,
+                    overLineDiff = game.fgTotalEdge,
                 )
             }
         }
@@ -324,6 +319,24 @@ class OutliersService {
         return alerts
     }
 
+    /**
+     * Resolve the current-week slate anchor for a dry-run table. The pipeline
+     * delete-then-inserts per (season, week), so the latest (season, week) row = the
+     * current week. Mirrors the OutliersTrendsService / web anchor.
+     */
+    private suspend fun fetchDryrunAnchor(
+        cfb: io.github.jan.supabase.SupabaseClient,
+        table: String,
+    ): OutlierSlateWeekRow? =
+        cfb.from(table)
+            .select(columns = Columns.raw("season, week")) {
+                order("season", Order.DESCENDING)
+                order("week", Order.DESCENDING)
+                limit(1)
+            }
+            .decodeList<OutlierSlateWeekRow>()
+            .firstOrNull()
+
     // -- Predictions hydration ------------------------------------------------
     //
     // Mirrors RN's hydratePredictions: per sport, pull the latest run and merge
@@ -334,60 +347,8 @@ class OutliersService {
         val indexed = games.withIndex().associate { (i, g) -> g.gameId to i }
         val out = games.toMutableList()
 
-        // NFL -------------------------------------------------------------
-        val nflIds = games.filter { it.sport == SportLeague.NFL }.map { it.gameId }
-        if (nflIds.isNotEmpty()) {
-            val runId = runCatching {
-                cfb.from("nfl_predictions_epa")
-                    .select(columns = Columns.raw("run_id")) {
-                        order("run_id", Order.DESCENDING)
-                        limit(1)
-                    }
-                    .decodeList<OutlierRunRow>()
-                    .firstOrNull()?.runId
-            }.getOrNull()
-            if (runId != null) {
-                val preds = runCatching {
-                    cfb.from("nfl_predictions_epa")
-                        .select {
-                            filter {
-                                eq("run_id", runId)
-                                isIn("training_key", nflIds)
-                            }
-                        }
-                        .decodeList<OutlierNFLPredictionRow>()
-                }.getOrDefault(emptyList())
-                for (p in preds) {
-                    val idx = indexed[p.trainingKey] ?: continue
-                    out[idx] = out[idx].copy(
-                        homeAwaySpreadCoverProb = p.homeAwaySpreadCoverProb,
-                        ouResultProb = p.ouResultProb,
-                        homeAwayMlProb = p.homeAwayMlProb,
-                    )
-                }
-            }
-        }
-
-        // CFB -------------------------------------------------------------
-        val cfbGames = games.filter { it.sport == SportLeague.CFB }
-        if (cfbGames.isNotEmpty()) {
-            val preds = runCatching {
-                cfb.from("cfb_api_predictions").select().decodeList<OutlierCFBPredictionRow>()
-            }.getOrDefault(emptyList())
-            val predMap = preds.mapNotNull { p -> p.id?.let { it to p } }.toMap()
-            for (game in cfbGames) {
-                // CFB game ids are the numeric cfb_api_predictions ids.
-                val p = game.gameId.toIntOrNull()?.let { predMap[it] } ?: continue
-                val idx = indexed[game.gameId] ?: continue
-                out[idx] = out[idx].copy(
-                    homeAwaySpreadCoverProb = p.homeAwaySpreadCoverProb,
-                    ouResultProb = p.ouResultProb,
-                    homeAwayMlProb = p.homeAwayMlProb,
-                    homeSpreadDiff = p.homeSpreadDiff,
-                    overLineDiff = p.overLineDiff,
-                )
-            }
-        }
+        // NFL + CFB predictions are already hydrated in fetchWeekGames (the dryrun
+        // rows carry lines + fg_* model preds together), so no separate merge here.
 
         // NBA -------------------------------------------------------------
         val nbaGames = games.filter { it.sport == SportLeague.NBA }
@@ -533,49 +494,31 @@ class OutliersService {
 
 // -- Wire-row DTOs (private in the iOS service too — not shared model types) ---
 
+/** Anchor row for the NFL/CFB dry-run current-week resolution. */
 @Serializable
-private data class OutlierNFLInputRow(
-    @SerialName("home_away_unique") val homeAwayUnique: String,
-    @SerialName("away_team") val awayTeam: String? = null,
-    @SerialName("home_team") val homeTeam: String? = null,
-    @SerialName("game_date") val gameDate: String? = null,
-    @SerialName("game_time") val gameTime: String? = null,
-    @SerialName("home_spread") val homeSpread: Double? = null,
-    @SerialName("ou_vegas_line") val ouVegasLine: Double? = null,
-    val id: String? = null,
-    @SerialName("unique_id") val uniqueId: String? = null,
+private data class OutlierSlateWeekRow(
+    val season: Int = 0,
+    val week: Int = 0,
 )
 
+/**
+ * Slim projection of nfl_dryrun_games / cfb_dryrun_games (identical shape for both):
+ * Odds-API lines (fg_*_close) + the fg_* model preds/edges the fade/value engine reads.
+ */
 @Serializable
-private data class OutlierNFLBettingLine(
-    @SerialName("training_key") val trainingKey: String,
-    @SerialName("home_ml") val homeMl: Int? = null,
-    @SerialName("away_ml") val awayMl: Int? = null,
-    @SerialName("home_spread") val homeSpread: Double? = null,
-    @SerialName("over_line") val overLine: Double? = null,
-    @SerialName("game_time_et") val gameTimeEt: String? = null,
-)
-
-@Serializable
-private data class OutlierCFBInputRow(
-    val id: Int? = null,
-    @SerialName("training_key") val trainingKey: String? = null,
+private data class OutlierDryrunGameRow(
+    @SerialName("game_id") val gameId: String? = null,
     @SerialName("away_team") val awayTeam: String? = null,
     @SerialName("home_team") val homeTeam: String? = null,
-    @SerialName("start_date") val startDate: String? = null,
-    @SerialName("start_time") val startTime: String? = null,
-    @SerialName("game_datetime") val gameDatetime: String? = null,
-    val datetime: String? = null,
-    val date: String? = null,
-    @SerialName("home_spread") val homeSpread: Double? = null,
-    @SerialName("away_spread") val awaySpread: Double? = null,
-    @SerialName("api_spread") val apiSpread: Double? = null,
-    @SerialName("total_line") val totalLine: Double? = null,
-    @SerialName("api_over_line") val apiOverLine: Double? = null,
-    @SerialName("away_moneyline") val awayMoneyline: Int? = null,
-    @SerialName("home_moneyline") val homeMoneyline: Int? = null,
-    @SerialName("away_ml") val awayMl: Int? = null,
-    @SerialName("home_ml") val homeMl: Int? = null,
+    val kickoff: String? = null,
+    @SerialName("fg_spread_close") val fgSpreadClose: Double? = null,
+    @SerialName("fg_total_close") val fgTotalClose: Double? = null,
+    @SerialName("fg_ml_home_close") val fgMlHomeClose: Double? = null,
+    @SerialName("fg_ml_away_close") val fgMlAwayClose: Double? = null,
+    @SerialName("fg_home_win_prob") val fgHomeWinProb: Double? = null,
+    @SerialName("fg_home_cover_prob") val fgHomeCoverProb: Double? = null,
+    @SerialName("fg_spread_edge") val fgSpreadEdge: Double? = null,
+    @SerialName("fg_total_edge") val fgTotalEdge: Double? = null,
 )
 
 @Serializable
@@ -632,24 +575,6 @@ private data class PolymarketOutlierRow(
 
 @Serializable
 private data class OutlierRunRow(@SerialName("run_id") val runId: Int? = null)
-
-@Serializable
-private data class OutlierNFLPredictionRow(
-    @SerialName("training_key") val trainingKey: String,
-    @SerialName("home_away_spread_cover_prob") val homeAwaySpreadCoverProb: Double? = null,
-    @SerialName("ou_result_prob") val ouResultProb: Double? = null,
-    @SerialName("home_away_ml_prob") val homeAwayMlProb: Double? = null,
-)
-
-@Serializable
-private data class OutlierCFBPredictionRow(
-    val id: Int? = null,
-    @SerialName("home_away_spread_cover_prob") val homeAwaySpreadCoverProb: Double? = null,
-    @SerialName("ou_result_prob") val ouResultProb: Double? = null,
-    @SerialName("home_away_ml_prob") val homeAwayMlProb: Double? = null,
-    @SerialName("home_spread_diff") val homeSpreadDiff: Double? = null,
-    @SerialName("over_line_diff") val overLineDiff: Double? = null,
-)
 
 @Serializable
 private data class OutlierNBAPredictionRow(
