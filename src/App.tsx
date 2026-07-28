@@ -19,8 +19,7 @@ import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
 import F5SplitsPage from "./features/mlbTools/f5Splits/F5SplitsPage";
 import PitcherMatchupsPage from "./features/mlbTools/pitcherMatchups/PitcherMatchupsPage";
 import RegressionReportPage from "./features/mlbTools/regression/RegressionReportPage";
-import PlayerPropsReport from "./pages/mlb/PlayerPropsReport";
-import PlayerPropsPerformance from "./pages/mlb/PlayerPropsPerformance";
+import { PlayerPropsReportPage } from "./features/mlbTools/playerPropsReport";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
 import HistoricalTrends from "./pages/HistoricalTrends";
@@ -308,8 +307,8 @@ function AppRoutes() {
           <Route path="/mlb/daily-regression-report" element={<ProtectedRoute><RegressionReportPage /></ProtectedRoute>} />
           <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true}><F5SplitsPage /></ProtectedRoute>} />
           <Route path="/mlb/pitcher-matchups" element={<ProtectedRoute allowFreemium={true}><PitcherMatchupsPage /></ProtectedRoute>} />
-          <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true}><PlayerPropsReport /></ProtectedRoute>} />
-          <Route path="/mlb/picks-performance" element={<ProtectedRoute allowFreemium={true}><PlayerPropsPerformance /></ProtectedRoute>} />
+          <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true}><PlayerPropsReportPage /></ProtectedRoute>} />
+          <Route path="/mlb/picks-performance" element={<Navigate to="/mlb/picks-report?tab=performance" replace />} />
           <Route path="/ncaab/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="ncaab" />} />
           <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />
