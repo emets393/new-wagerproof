@@ -9,19 +9,38 @@ function edgeColors(magnitude: number): { text: string; bg: string } {
   return { text: '#F97316', bg: 'rgba(249,115,22,0.14)' };
 }
 
+const TONE_COLORS = {
+  over: { text: '#22C55E', bg: 'rgba(34,197,94,0.14)' },
+  under: { text: '#EF4444', bg: 'rgba(239,68,68,0.14)' },
+} as const;
+
 interface EdgePillProps {
   text: string;
-  /** Absolute edge magnitude driving the color tier. */
+  /** Absolute edge magnitude driving the color tier (ignored when tone is over/under). */
   magnitude: number;
+  /** Total lean: green up / red down. Defaults to magnitude-tiered edge colors. */
+  tone?: 'edge' | 'over' | 'under';
   icon?: React.ReactNode;
   className?: string;
+  title?: string;
+  'aria-label'?: string;
 }
 
 /**
- * Model edge pill (e.g. "ML +6.2%", "O/U +3.5") with magnitude-tiered color.
+ * Model edge pill (e.g. "ML" + team logo, "O/U" + arrow) with magnitude-tiered
+ * or Over/Under tone colors.
  */
-export function EdgePill({ text, magnitude, icon, className }: EdgePillProps) {
-  const { text: color, bg } = edgeColors(Math.abs(magnitude));
+export function EdgePill({
+  text,
+  magnitude,
+  tone = 'edge',
+  icon,
+  className,
+  title,
+  'aria-label': ariaLabel,
+}: EdgePillProps) {
+  const { text: color, bg } =
+    tone === 'over' || tone === 'under' ? TONE_COLORS[tone] : edgeColors(Math.abs(magnitude));
   return (
     <span
       className={cn(
@@ -29,6 +48,8 @@ export function EdgePill({ text, magnitude, icon, className }: EdgePillProps) {
         className
       )}
       style={{ color, backgroundColor: bg }}
+      title={title}
+      aria-label={ariaLabel}
     >
       {icon}
       {text}

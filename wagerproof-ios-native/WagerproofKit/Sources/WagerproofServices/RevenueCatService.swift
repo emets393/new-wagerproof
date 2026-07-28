@@ -29,6 +29,16 @@ public final class RevenueCatService: @unchecked Sendable {
     }
 
     private var configured = false
+    private var subscriberIdentity: SubscriberIdentity?
+
+    private struct SubscriberIdentity {
+        let email: String?
+        let displayName: String?
+        let phoneNumber: String?
+        let authProvider: String?
+        let username: String?
+        let accountCreatedAt: Date?
+    }
 
     private init() {}
 
@@ -48,7 +58,7 @@ public final class RevenueCatService: @unchecked Sendable {
         configured = true
         // Best-effort device identifier collection — matches RN's
         // `collectDeviceIdentifiers()` fire-and-forget call.
-        Purchases.shared.collectDeviceIdentifiers()
+        Purchases.shared.attribution.collectDeviceIdentifiers()
 
         // Apple Search Ads attribution token — unrelated to Meta, but this is
         // the only place RC attribution is configured, and it costs nothing.
@@ -65,22 +75,91 @@ public final class RevenueCatService: @unchecked Sendable {
         }
     }
 
-    /// Push the signed-in user's identity to RevenueCat as subscriber
-    /// attributes. RC forwards these to its downstream integrations (Meta CAPI
-    /// included) where they act as hashed matching keys — the same role
-    /// Advanced Matching plays on the client SDK.
-    public func setSubscriberIdentity(email: String?, displayName: String?) {
+    /// Push every trustworthy signed-in identity field available to RevenueCat.
+    /// Standard fields are forwarded to supported attribution integrations
+    /// (including Meta), while the WagerProof fields remain useful for RC
+    /// customer inspection and targeting.
+    public func setSubscriberIdentity(
+        email: String?,
+        displayName: String?,
+        phoneNumber: String?,
+        authProvider: String?,
+        username: String?,
+        accountCreatedAt: Date?
+    ) {
         guard configured else { return }
-        if let email, !email.isEmpty {
-            Purchases.shared.attribution.setEmail(email)
+        let identity = SubscriberIdentity(
+            email: email,
+            displayName: displayName,
+            phoneNumber: phoneNumber,
+            authProvider: authProvider,
+            username: username,
+            accountCreatedAt: accountCreatedAt
+        )
+        subscriberIdentity = identity
+        applySubscriberIdentity(identity)
+    }
+
+    private func applySubscriberIdentity(_ identity: SubscriberIdentity) {
+        Purchases.shared.attribution.setEmail(Self.nonEmpty(identity.email))
+        Purchases.shared.attribution.setDisplayName(Self.nonEmpty(identity.displayName))
+        Purchases.shared.attribution.setPhoneNumber(Self.nonEmpty(identity.phoneNumber))
+
+        var attributes: [String: String] = [:]
+        if let authProvider = Self.nonEmpty(identity.authProvider) {
+            attributes["wagerproof_auth_provider"] = authProvider
         }
-        if let displayName, !displayName.isEmpty {
-            Purchases.shared.attribution.setDisplayName(displayName)
+        if let username = Self.nonEmpty(identity.username) {
+            attributes["wagerproof_username"] = username
         }
-        Purchases.shared.collectDeviceIdentifiers()
+        if let accountCreatedAt = identity.accountCreatedAt {
+            attributes["wagerproof_account_created_at"] = ISO8601DateFormatter().string(from: accountCreatedAt)
+        }
+        if !attributes.isEmpty {
+            Purchases.shared.attribution.setAttributes(attributes)
+        }
+
+        // Re-apply the Meta install identifier after RevenueCat has attached the
+        // authenticated App User ID. This makes the linkage robust even when
+        // Supabase auth and RevenueCat logIn finish in different orders.
+        if let fbAnonymousID = MetaAnalyticsService.shared.anonymousID(), !fbAnonymousID.isEmpty {
+            Purchases.shared.attribution.setFBAnonymousID(fbAnonymousID)
+        }
+        Purchases.shared.attribution.collectDeviceIdentifiers()
+    }
+
+    /// Refresh RevenueCat's attribution state immediately after the ATT prompt.
+    ///
+    /// `collectDeviceIdentifiers` captures the newly available IDFA only for an
+    /// authorized user. The explicit attribute sync runs for every final status
+    /// so `$attConsentStatus`, `$fbAnonId`, IDFV and IP are on RevenueCat before
+    /// the post-onboarding paywall can complete a purchase.
+    public func refreshAttributionAfterTrackingAuthorization(isAuthorized: Bool) async {
+        guard configured else { return }
+        if isAuthorized {
+            Purchases.shared.attribution.collectDeviceIdentifiers()
+        }
+        if let fbAnonymousID = MetaAnalyticsService.shared.anonymousID(), !fbAnonymousID.isEmpty {
+            Purchases.shared.attribution.setFBAnonymousID(fbAnonymousID)
+        }
+        do {
+            _ = try await Purchases.shared.syncAttributesAndOfferingsIfNeeded()
+        } catch {
+            #if DEBUG
+            print("[RevenueCat] Failed to sync attribution after ATT: \(error.localizedDescription)")
+            #endif
+        }
     }
 
     public var isConfigured: Bool { configured }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
+            return nil
+        }
+        return value
+    }
 
     /// Identify a known user by their Supabase user id. Returns the resulting
     /// `CustomerInfo` and whether RC created a brand-new customer (matches
@@ -93,11 +172,18 @@ public final class RevenueCatService: @unchecked Sendable {
         // customer for every iOS user (paywall + locked pages for paying users,
         // incident 2026-07). Normalize here so every caller inherits the fix.
         let result = try await Purchases.shared.logIn(userId.lowercased())
+        // AuthStore and RevenueCatStore observe the same Supabase event
+        // independently. Re-applying here makes the destination deterministic
+        // whether profile loading or RevenueCat logIn completes first.
+        if let subscriberIdentity {
+            applySubscriberIdentity(subscriberIdentity)
+        }
         return (result.customerInfo, result.created)
     }
 
     /// Reset to an anonymous RC user. Called when Supabase auth signs out.
     public func logOut() async {
+        subscriberIdentity = nil
         do {
             _ = try await Purchases.shared.logOut()
         } catch {

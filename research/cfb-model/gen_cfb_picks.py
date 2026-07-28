@@ -3,6 +3,7 @@ model number, fair line, vegas consensus line, edge, BEST book line+odds+logo, c
 Best line rule: spread/h1_spread -> max line for the pick side (fewer to lay / more to take); total/team_total/
 h1_total -> OVER=lowest line, UNDER=highest line; ties + moneyline -> highest American odds (best price).
 Also writes conviction_summary onto cfb_dryrun_games for the slate pills."""
+import os
 import numpy as np, pandas as pd, warnings, requests, json
 import dry_common as C
 
@@ -39,9 +40,17 @@ for _, r in fg.iterrows():
     FG[(int(r.gid), r.book)] = r
 
 # ---- per-book TT + 1H close lines (event odds) ----
-ev = pd.read_parquet(f"data/event_odds/events_{SEASON}.parquet"); ev = ev[ev.game_id.isin(g7)].copy()
-ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True); ev["description"] = ev.description.fillna("_")
-ev = ev.sort_values("snap_dt").groupby(["game_id", "market", "book", "name", "description"], as_index=False).last()
+# Preseason (e.g. Week 1 before books post event props), events_{SEASON}.parquet may not exist yet.
+# Fall back to an empty frame so full-game picks still generate — TT/1H just won't have per-book lines.
+_ev_path = f"data/event_odds/events_{SEASON}.parquet"
+if os.path.exists(_ev_path):
+    ev = pd.read_parquet(_ev_path); ev = ev[ev.game_id.isin(g7)].copy()
+    ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True); ev["description"] = ev.description.fillna("_")
+    ev = ev.sort_values("snap_dt").groupby(["game_id", "market", "book", "name", "description"], as_index=False).last()
+else:
+    # Full events schema so downstream ev slices (which reference .home/.away/.description) stay column-complete.
+    ev = pd.DataFrame(columns=["season", "game_id", "home", "away", "snap_tag", "snap", "book",
+                               "market", "name", "description", "price", "point", "snap_dt"])
 
 def best_spread(gid, side):
     v = []
@@ -102,7 +111,9 @@ import cfb_forecast as F, h1_signals
 _gmf, _feats, _nets = F.load()
 _h1pred = h1_signals.build(_gmf, _feats, _nets, SEASON)
 h1proj = {int(r.game_id): (float(r.h1_pm), float(r.h1_pt)) for _, r in _h1pred.iterrows() if int(r.game_id) in g7}
-h1csv = pd.read_csv(f"out/cfb_h1_model_{SEASON}.csv").set_index("game_id")   # only games with a 1H PLAY
+# Preseason: the 1H model CSV won't exist until we have live 1H odds. Fall back to empty so full-game picks still run.
+_h1csv_path = f"out/cfb_h1_model_{SEASON}.csv"
+h1csv = pd.read_csv(_h1csv_path).set_index("game_id") if os.path.exists(_h1csv_path) else pd.DataFrame().set_index(pd.Index([], name="game_id"))   # only games with a 1H PLAY
 def h1s_cons(gid):
     s = ev_rows(gid, "spreads_h1"); s = s.assign(nm=s.name.map(tdb)); s = s[s.nm == s.home]
     return float(s.point.median()) if len(s) else None
@@ -124,7 +135,16 @@ def conv_for(gid, card_group, side=None, team=None, ou=None):
     return TIER_DISP.get(best, "low"), bool(f.mammoth.any()), sorted(set(f.signal_key))
 
 rows = []
+EARLY = WEEK <= 3   # opponent-adjusted model is COLD in Weeks 1-3 -> contextual signals drive the pick, not the model
 def fmt_line(v): return ("+" if v > 0 else "") + f"{v:g}" if v is not None else None
+def driving_spread_side(gid):
+    """Cold-week spread pick side = the highest-conviction CONTEXTUAL spread signal that fired
+    (e.g. g5_dog_wk1_bigfav on the dog). Returns 'HOME'/'AWAY' or None. Blanket/model keys are
+    already excluded upstream, so any spread flag here is a real per-game signal."""
+    if not len(flags): return None
+    f = flags[(flags.game_id == gid) & (flags.market == "spread")]
+    if not len(f): return None
+    return f.sort_values("conviction", key=lambda s: s.map(lambda c: CONV_RANK.get(c, 0)), ascending=False).iloc[0].side
 for _, r in te.iterrows():
     gid = int(r.game_id); H, A = r.homeTeam, r.awayTeam
     side_edge = float(r.side_edge) if pd.notna(r.side_edge) else None
@@ -132,7 +152,11 @@ for _, r in te.iterrows():
     # ---- SPREAD ----
     if side_edge is not None:
         ph = side_edge > 0; pteam = H if ph else A; pside = "HOME" if ph else "AWAY"
-        capped = abs(side_edge) > 14
+        drv = driving_spread_side(gid) if EARLY else None
+        if drv:   # a contextual signal fired -> that's the bet; the cold model side is meaningless
+            pside = drv; ph = (pside == "HOME"); pteam = H if ph else A
+        # the >14 cap suppresses degenerate cold-model edges; it must NOT wipe a real contextual signal
+        capped = (abs(side_edge) > 14) and not drv
         bs = best_spread(gid, pside); model_line = round(-r.pred_margin if ph else r.pred_margin, 1)
         cv, mam, sig = conv_for(gid, "spread", side=pside)
         if capped: cv, mam, sig = "none", False, []

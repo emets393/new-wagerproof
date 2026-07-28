@@ -22,11 +22,11 @@ private let kCollapsingScrollSpace = "collapsingWidgetScroll"
 struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View {
     var heroMaxHeight: CGFloat = 230
     var heroMinHeight: CGFloat = 60
-    /// When true, the page draws no full-bleed base of its own — only the hero
-    /// keeps its (opaque) masking background. Used in carousel mode, where a
-    /// single shared base + glow lives behind the swiping pages, so each page
-    /// must be transparent (otherwise the page's own surface, inset by the
-    /// paging `TabView`'s safe area, leaves visible bands at the screen edges).
+    /// When true, the page and hero draw no full-bleed base of their own. Used
+    /// in carousel mode, where one shared base + glow lives behind every swiping
+    /// page. The scroll content is alpha-masked below the hero instead of using
+    /// a second, page-colored hero background, so adjacent matchups cannot form
+    /// a hard aura boundary during a swipe.
     var transparentPage: Bool = false
     /// Top inset for the HERO CONTENT (not its background). Used in carousel mode,
     /// where the page bleeds under a transparent nav bar: the aura/glow fills the
@@ -75,6 +75,25 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
             // closes naturally right as the card reaches the pin line.
             .padding(.top, heroMaxHeight + heroTopInset + WidgetCard.gap)
         }
+        // The hero used to hide scrolling content with its own opaque copy of
+        // the matchup aura. In a paging carousel those copies travel with their
+        // pages and meet at a sharp vertical edge mid-swipe. Keep the content
+        // masking behavior, but perform it as an alpha mask so the single fixed
+        // carousel aura remains visible through both pages and their heroes.
+        .mask(alignment: .top) {
+            VStack(spacing: 0) {
+                if transparentPage {
+                    Color.clear
+                        .frame(height: heroHeight + heroTopInset)
+                }
+                Rectangle()
+                    .fill(Color.white)
+            }
+        }
+        // iOS 26 adds an automatic shade where scrolling content meets the top
+        // edge. The hero already provides its own opaque content mask, so that
+        // extra system treatment becomes a visible dark band during collapse.
+        .modifier(HideTopScrollEdgeEffect())
         // Reliable scroll-offset read (iOS 18+). `contentOffset.y` is negative
         // by the top content inset at rest, so adding the inset normalizes the
         // top to 0 and it grows as you scroll down.
@@ -113,24 +132,31 @@ struct CollapsingWidgetScroll<Background: View, Hero: View, Content: View>: View
                 // background below still bleeds all the way up.
                 .padding(.top, heroTopInset)
                 .frame(height: heroHeight + heroTopInset, alignment: .top)
-                // Same aura as the page, but bled UP under the nav/status bar so
-                // its opaque base masks content scrolling up there (the nav bar
-                // is transparent). The glow shows through and stays aligned to
-                // the page aura beneath. Hero content stays below the notch.
+                // Standalone pages still use their aura as the hero's opaque
+                // content mask. Carousel pages intentionally omit this copy:
+                // the ScrollView alpha mask above handles clipping, while the
+                // one fixed carousel aura shows continuously through the hero.
                 .background {
-                    background(progress)
-                        .ignoresSafeArea(.container, edges: .top)
-                        // CLIP to the hero band. The aura's glows are positioned
-                        // in GLOBAL coordinates, so they spilled far below the
-                        // hero and added a SECOND copy on top of the page's own
-                        // aura — while inside the hero band the aura's opaque
-                        // base hid the page copy, leaving exactly 1x. The result
-                        // was a hard brightness step at the hero's bottom edge.
-                        // Clipped, both copies are 1x and the seam is invisible
-                        // (identical content either side), and two blurred blob
-                        // rasterizations per frame disappear with it.
-                        .clipped()
+                    if !transparentPage {
+                        background(progress)
+                            .ignoresSafeArea(.container, edges: .top)
+                            // CLIP to the hero band. The aura's glows are
+                            // positioned in GLOBAL coordinates and otherwise
+                            // spill below the masking surface.
+                            .clipped()
+                    }
                 }
+        }
+    }
+}
+
+private struct HideTopScrollEdgeEffect: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectHidden(for: .top)
+        } else {
+            content
         }
     }
 }
@@ -270,6 +296,9 @@ struct WidgetCollapsingSection<Content: View>: View {
     var showsHeader: Bool = true
     var accessory: WidgetHeaderAccessory = .none
     var onHeaderTap: (() -> Void)? = nil
+    /// Plain-language answer to the widget's question. It lives in the body so
+    /// it can wrap without changing the fixed pinned-header geometry.
+    var headline: String? = nil
     var bodyPadding: CGFloat = 16
     /// When this value changes the card remeasures its natural height. Use when
     /// section content shrinks (e.g. loading skeleton → empty state) so the
@@ -304,6 +333,7 @@ struct WidgetCollapsingSection<Content: View>: View {
         showsHeader: Bool = true,
         accessory: WidgetHeaderAccessory = .none,
         onHeaderTap: (() -> Void)? = nil,
+        headline: String? = nil,
         bodyPadding: CGFloat = 16,
         contentKey: String = "",
         @ViewBuilder content: () -> Content
@@ -315,6 +345,7 @@ struct WidgetCollapsingSection<Content: View>: View {
         self.showsHeader = showsHeader
         self.accessory = accessory
         self.onHeaderTap = onHeaderTap
+        self.headline = headline
         self.bodyPadding = bodyPadding
         self.contentKey = contentKey
         self.content = content()
@@ -438,9 +469,23 @@ struct WidgetCollapsingSection<Content: View>: View {
             }
             // Body window — clips the body so it disappears at the header's
             // bottom edge as it slides up, and never renders behind the header.
-            content
+            VStack(alignment: .leading, spacing: headline == nil ? 0 : 14) {
+                if let headline, !headline.isEmpty {
+                    Text(headline)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(Color.appTextPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel("Summary: \(headline)")
+                }
+                content
+            }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(bodyPadding)
+                // Preserve every chart's natural drawing size throughout the
+                // container handoff. The card still collapses and the body
+                // still slides under its pinned header, but the plot is clipped
+                // rather than receiving a progressively shorter layout proposal.
+                .fixedSize(horizontal: false, vertical: true)
                 .offset(y: -collapse)
                 .frame(height: bodyWindow, alignment: .top)
                 .clipped()

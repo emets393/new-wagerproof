@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { BarChart3 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { SplitViewLayout, useIsDesktopSplit } from '@/components/layout/SplitViewLayout';
 import { trackEvent } from '@/lib/mixpanel';
 import { useTodaysMatchupGames } from '@/hooks/useTodaysMatchupGames';
@@ -91,9 +92,16 @@ export default function PitcherMatchupsPage() {
               />
             )}
             footnote={
-              matchupLoading || propsLoading
-                ? 'Loading lineups and posted props…'
-                : 'DraftKings lines with last-10 clear rates'
+              matchupLoading || propsLoading ? (
+                'Loading lineups and posted props…'
+              ) : (
+                <>
+                  DraftKings lines with last-10 clear rates ·{' '}
+                  <Link to="/mlb/picks-report" className="font-semibold text-primary hover:underline">
+                    Player Prop Report
+                  </Link>
+                </>
+              )
             }
             emptyIcon={<BarChart3 className="h-8 w-8 text-muted-foreground/50" />}
             emptyTitle="No MLB games scheduled"

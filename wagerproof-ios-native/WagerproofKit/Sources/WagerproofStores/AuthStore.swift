@@ -201,7 +201,9 @@ public final class AuthStore {
                 if let provider = session?.user.appMetadata["provider"]?.stringValue {
                     UserDefaults.standard.set(provider, forKey: Self.lastAuthProviderKey)
                 }
-                identifyForAnalytics(userId: userId, email: session?.user.email)
+                if let user = session?.user {
+                    identifyForAnalytics(user: user)
+                }
             } else if phase == .launching {
                 phase = .unauthenticated
             }
@@ -230,28 +232,50 @@ public final class AuthStore {
     /// conversion. Called after `loadProfile` so the profile's display name is
     /// available — `setAdvancedMatching` REPLACES the whole hashed set rather
     /// than merging, so this must be the one and only call site.
-    private func identifyForAnalytics(userId: UUID, email: String?) {
+    private func identifyForAnalytics(user: User) {
         // Lowercased to match RevenueCat / web / Android, which all key on the
         // lowercase Supabase uuid.
-        let id = userId.uuidString.lowercased()
+        let id = user.id.uuidString.lowercased()
         // `.tokenRefreshed` fires roughly hourly for the life of the app. Without
         // this guard every refresh would re-hash the user's PII for Meta and
         // re-run RevenueCat's device-identifier collection for no new information.
         guard id != lastIdentifiedUserId else { return }
         lastIdentifiedUserId = id
-        let resolvedEmail = profile?.email ?? email
-        let displayName = profile?.displayName ?? profile?.username
+        let resolvedEmail = profile?.email ?? user.email
+        let displayName = profile?.displayName
+            ?? Self.metadataString(user.userMetadata, keys: ["full_name", "display_name", "name"])
+            ?? profile?.username
+        let firstName = Self.metadataString(user.userMetadata, keys: ["first_name", "given_name"])
+        let lastName = Self.metadataString(user.userMetadata, keys: ["last_name", "family_name"])
+        let authProvider = user.appMetadata["provider"]?.stringValue
 
         AnalyticsService.shared.identify(userId: id)
         MetaAnalyticsService.shared.setUserID(id)
         MetaAnalyticsService.shared.setAdvancedMatching(
             email: resolvedEmail,
-            displayName: displayName
+            displayName: displayName,
+            firstName: firstName,
+            lastName: lastName,
+            phoneNumber: user.phone
         )
         RevenueCatService.shared.setSubscriberIdentity(
             email: resolvedEmail,
-            displayName: displayName
+            displayName: displayName,
+            phoneNumber: user.phone,
+            authProvider: authProvider,
+            username: profile?.username,
+            accountCreatedAt: user.createdAt
         )
+    }
+
+    private static func metadataString(_ metadata: [String: AnyJSON], keys: [String]) -> String? {
+        for key in keys {
+            guard let rawValue = metadata[key]?.stringValue else { continue }
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty else { continue }
+            return value
+        }
+        return nil
     }
 
     private func loadProfile(userId: UUID) async {

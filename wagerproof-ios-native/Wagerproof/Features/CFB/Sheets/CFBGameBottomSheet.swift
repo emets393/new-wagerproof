@@ -20,6 +20,7 @@ struct CFBGameBottomSheet: View {
     @State private var signalPerformanceByKey: [String: SignalPerformance] = [:]
     @State private var teamTrendsByTeam: [String: CFBTeamTrendRow] = [:]
     @State private var selectedTrendDetail: TrendDetailSelection?
+    @State private var marketOddsHeadline: String?
 
     private var awayColors: TeamColorPair { CFBTeamColors.colorPair(for: game.awayTeam) }
     private var homeColors: TeamColorPair { CFBTeamColors.colorPair(for: game.homeTeam) }
@@ -33,11 +34,9 @@ struct CFBGameBottomSheet: View {
             contentBottomInset: contentBottomInset,
             usesLiquidGlass: false
         ) { progress in
-            // Always the real aura. In carousel mode `transparentPage` means this
-            // paints the HERO BAND only, and the carousel now draws its shared
-            // glow behind the pages (no blend mode) — so the hero needs a
-            // matching copy. Both anchor their blobs in global coordinates, so
-            // they align and the hero's `.clipped()` seam fix still holds.
+            // Standalone pages paint this aura themselves. In carousel mode the
+            // shared fixed aura is the only rendered copy; the collapsing shell
+            // masks scrolling content without adding a page-colored hero band.
             TeamAuraBackground(awayColor: awayColors.primary, homeColor: homeColors.primary, progress: progress)
         } hero: { progress in
             heroView(progress: progress)
@@ -352,7 +351,14 @@ struct CFBGameBottomSheet: View {
     }
 
     private func marketSection(_ row: MarketRow) -> some View {
-        WidgetCollapsingSection(title: row.sectionTitle, systemImage: row.systemImage, iconTint: row.tint, icon: sectionHeaderIcon(for: row), showsHeader: false) {
+        WidgetCollapsingSection(
+            title: row.sectionTitle,
+            systemImage: row.systemImage,
+            iconTint: row.tint,
+            icon: sectionHeaderIcon(for: row),
+            showsHeader: false,
+            headline: row.pickSubtitle
+        ) {
             ProContentSection(title: row.sectionTitle, minHeight: signalBuckets(for: row).isEmpty ? 132 : 210) {
                 marketRow(row)
             }
@@ -1309,8 +1315,10 @@ struct CFBGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
-            PolymarketWidget(league: "cfb", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayColor: awayColors.primary, homeColor: homeColors.primary)
+        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
+            PolymarketWidget(league: "cfb", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: CFBTeamAssets.abbr(for: game.awayTeam), homeLabel: CFBTeamAssets.abbr(for: game.homeTeam), awayColor: awayColors.primary, homeColor: homeColors.primary) {
+                marketOddsHeadline = $0
+            }
         }
     }
 
@@ -2074,24 +2082,19 @@ struct CFBGameBottomSheet: View {
 
     private func loadTeamTrends() async {
         let cfb = await CFBSupabase.shared.client
+        let season = game.season ?? Calendar.current.component(.year, from: Date())
         guard let rows: [CFBTeamTrendRow] = try? await cfb
             .from("cfb_team_trends")
             .select("team_name,season,through_week,games,su_w,su_l,su_record,ats_w,ats_l,ats_p,ats_pct,ou_o,ou_u,ou_p,over_pct,tt_o,tt_u,tt_games,tt_over_pct,h1_ats_w,h1_ats_l,h1_ats_p,h1_ats_games,h1_ats_pct,h1_ou_o,h1_ou_u,h1_ou_games,h1_over_pct,last5_su,last5_ats,last5_ou,game_log")
+            .eq("season", value: season)
             .in("team_name", values: [game.awayTeam, game.homeTeam])
-            .order("season", ascending: false)
             .execute()
             .value
         else {
             teamTrendsByTeam = [:]
             return
         }
-        // The builder loads all seasons (delete-then-insert per season); keep the most-recent per team
-        // so the sheet follows the live season instead of a hardcoded year.
-        var byTeam: [String: CFBTeamTrendRow] = [:]
-        for row in rows where byTeam[row.teamName] == nil {
-            byTeam[row.teamName] = row
-        }
-        teamTrendsByTeam = byTeam
+        teamTrendsByTeam = Dictionary(uniqueKeysWithValues: rows.map { ($0.teamName, $0) })
     }
 
     private struct CFBTeamTrendRow: Decodable, Sendable {

@@ -129,50 +129,19 @@ public actor LiveScoresService {
             case awaySpread = "away_spread"
             case overLine = "over_line"
         }
-
-        // Built directly from `nfl_dryrun_games` fg_* columns; trainingKey is
-        // unused downstream (games match by team name), so it defaults empty.
-        init(
-            homeTeam: String,
-            awayTeam: String,
-            homeAwayMlProb: Double?,
-            homeAwaySpreadCoverProb: Double?,
-            ouResultProb: Double?,
-            homeSpread: Double?,
-            awaySpread: Double?,
-            overLine: Double?
-        ) {
-            self.trainingKey = ""
-            self.homeTeam = homeTeam
-            self.awayTeam = awayTeam
-            self.homeAwayMlProb = homeAwayMlProb
-            self.homeAwaySpreadCoverProb = homeAwaySpreadCoverProb
-            self.ouResultProb = ouResultProb
-            self.homeSpread = homeSpread
-            self.awaySpread = awaySpread
-            self.overLine = overLine
-        }
     }
 
-    /// One-row anchor of the latest (season, week) present in a dry-run table.
-    /// The pipeline delete-then-inserts per (season, week), so the newest slate
-    /// is the current week. Mirrors the web `fetchSlateAnchor` helper.
-    private struct DryrunAnchorRow: Decodable, Sendable {
-        let season: Int?
-        let week: Int?
-    }
-
-    /// One `nfl_dryrun_games` row projected onto the fields live-scoring needs.
-    /// Model probabilities/lines come from the fg_* columns of the new model.
-    private struct NFLDryrunLiveRow: Decodable, Sendable {
-        let homeTeam: String?
-        let awayTeam: String?
+    private struct NFLDryrunRow: Decodable, Sendable {
+        let gameId: String
+        let homeTeam: String
+        let awayTeam: String
         let fgHomeWinProb: Double?
         let fgHomeCoverProb: Double?
         let fgSpreadClose: Double?
         let fgTotalClose: Double?
 
         enum CodingKeys: String, CodingKey {
+            case gameId = "game_id"
             case homeTeam = "home_team"
             case awayTeam = "away_team"
             case fgHomeWinProb = "fg_home_win_prob"
@@ -182,13 +151,17 @@ public actor LiveScoresService {
         }
     }
 
+    private struct SlateWeekRow: Decodable, Sendable {
+        let season: Int?
+        let week: Int?
+    }
+
     private func fetchNFLPredictions() async -> [NFLPrediction] {
         do {
             let client = await CFBSupabase.shared.client
-            // Anchor to the current week = latest (season, week) present.
-            let anchor: [DryrunAnchorRow] = try await client
+            let anchor: [SlateWeekRow] = try await client
                 .from("nfl_dryrun_games")
-                .select("season, week")
+                .select("season,week")
                 .order("season", ascending: false)
                 .order("week", ascending: false)
                 .limit(1)
@@ -196,26 +169,25 @@ public actor LiveScoresService {
                 .value
             guard let slate = anchor.first, let season = slate.season, let week = slate.week else { return [] }
 
-            let rows: [NFLDryrunLiveRow] = try await client
+            let rows: [NFLDryrunRow] = try await client
                 .from("nfl_dryrun_games")
-                .select("home_team, away_team, fg_home_win_prob, fg_home_cover_prob, fg_spread_close, fg_total_close")
+                .select("game_id,home_team,away_team,fg_home_win_prob,fg_home_cover_prob,fg_spread_close,fg_total_close")
                 .eq("season", value: season)
                 .eq("week", value: week)
                 .execute()
                 .value
 
-            // Map fg_* model columns onto the live-scoring prediction shape.
-            // The new NFL model has no O/U probability column — ouResultProb is
-            // nil, so the O/U status simply isn't rendered (no legacy equivalent).
             return rows.map { row in
-                NFLPrediction(
-                    homeTeam: row.homeTeam ?? "",
-                    awayTeam: row.awayTeam ?? "",
+                let homeSpread = row.fgSpreadClose
+                return NFLPrediction(
+                    trainingKey: row.gameId,
+                    homeTeam: row.homeTeam,
+                    awayTeam: row.awayTeam,
                     homeAwayMlProb: row.fgHomeWinProb,
                     homeAwaySpreadCoverProb: row.fgHomeCoverProb,
                     ouResultProb: nil,
-                    homeSpread: row.fgSpreadClose,
-                    awaySpread: row.fgSpreadClose.map { -$0 },
+                    homeSpread: homeSpread,
+                    awaySpread: homeSpread.map { -$0 },
                     overLine: row.fgTotalClose
                 )
             }
@@ -226,11 +198,9 @@ public actor LiveScoresService {
 
     // MARK: - CFB
 
-    /// One `cfb_dryrun_games` row projected onto the fields live-scoring needs.
-    /// Model probabilities/lines come from the fg_* columns of the new model.
-    private struct CFBDryrunLiveRow: Decodable, Sendable {
-        let homeTeam: String?
-        let awayTeam: String?
+    private struct CFBDryrunRow: Decodable, Sendable {
+        let homeTeam: String
+        let awayTeam: String
         let fgHomeWinProb: Double?
         let fgHomeCoverProb: Double?
         let fgSpreadClose: Double?
@@ -239,6 +209,8 @@ public actor LiveScoresService {
         let fgTotalEdge: Double?
         let fgPredHomePts: Double?
         let fgPredAwayPts: Double?
+        let fgPredTotal: Double?
+        let fgPredMargin: Double?
 
         enum CodingKeys: String, CodingKey {
             case homeTeam = "home_team"
@@ -251,6 +223,8 @@ public actor LiveScoresService {
             case fgTotalEdge = "fg_total_edge"
             case fgPredHomePts = "fg_pred_home_pts"
             case fgPredAwayPts = "fg_pred_away_pts"
+            case fgPredTotal = "fg_pred_total"
+            case fgPredMargin = "fg_pred_margin"
         }
     }
 
@@ -271,10 +245,9 @@ public actor LiveScoresService {
     private func fetchCFBPredictions() async -> [CFBPrediction] {
         do {
             let client = await CFBSupabase.shared.client
-            // Anchor to the current week = latest (season, week) present.
-            let anchor: [DryrunAnchorRow] = try await client
+            let anchor: [SlateWeekRow] = try await client
                 .from("cfb_dryrun_games")
-                .select("season, week")
+                .select("season,week")
                 .order("season", ascending: false)
                 .order("week", ascending: false)
                 .limit(1)
@@ -282,31 +255,32 @@ public actor LiveScoresService {
                 .value
             guard let slate = anchor.first, let season = slate.season, let week = slate.week else { return [] }
 
-            let rows: [CFBDryrunLiveRow] = try await client
+            let rows: [CFBDryrunRow] = try await client
                 .from("cfb_dryrun_games")
-                .select("home_team, away_team, fg_home_win_prob, fg_home_cover_prob, fg_spread_close, fg_total_close, fg_spread_edge, fg_total_edge, fg_pred_home_pts, fg_pred_away_pts")
+                .select("home_team,away_team,fg_home_win_prob,fg_home_cover_prob,fg_spread_close,fg_total_close,fg_spread_edge,fg_total_edge,fg_pred_home_pts,fg_pred_away_pts,fg_pred_total,fg_pred_margin")
                 .eq("season", value: season)
                 .eq("week", value: week)
                 .execute()
                 .value
 
-            // Map fg_* model columns onto the live-scoring prediction shape. The
-            // new CFB model has no ML/OU probability columns — those stay nil, so
-            // the status math falls back to the edge (fg_spread_edge / fg_total_edge)
-            // and the predicted-score comparison, same as before.
             return rows.map { row in
-                CFBPrediction(
-                    homeTeam: row.homeTeam ?? "",
-                    awayTeam: row.awayTeam ?? "",
-                    predMlProba: nil,
+                let predTotal = row.fgPredTotal
+                let predMargin = row.fgPredMargin
+                let hasScore = predTotal != nil && predMargin != nil
+                let predHome = row.fgPredHomePts ?? (hasScore ? (predTotal! + predMargin!) / 2 : nil)
+                let predAway = row.fgPredAwayPts ?? (hasScore ? (predTotal! - predMargin!) / 2 : nil)
+                return CFBPrediction(
+                    homeTeam: row.homeTeam,
+                    awayTeam: row.awayTeam,
+                    predMlProba: row.fgHomeWinProb,
                     predSpreadProba: row.fgHomeCoverProb,
                     predTotalProba: nil,
                     apiSpread: row.fgSpreadClose,
                     apiOverLine: row.fgTotalClose,
                     homeSpreadDiff: row.fgSpreadEdge,
                     overLineDiff: row.fgTotalEdge,
-                    predHomeScore: row.fgPredHomePts,
-                    predAwayScore: row.fgPredAwayPts
+                    predHomeScore: predHome,
+                    predAwayScore: predAway
                 )
             }
         } catch {

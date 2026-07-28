@@ -20,7 +20,7 @@ import kotlinx.serialization.json.booleanOrNull
 /**
  * NFL game prediction row. Mirrors the iOS `NFLPrediction` — the shape comes
  * from the NEW model's current-week table `nfl_dryrun_games` (Odds-API lines +
- * the fg_*/tt_*/h1_* model numbers + wx_* weather). The legacy 4-way join
+ * the `fg`, `tt`, and `h1` model numbers plus `wx` weather). The legacy 4-way join
  * (`v_input_values_with_epa` + `nfl_predictions_epa` + `nfl_betting_lines` +
  * `production_weather`) was retired in the 2026 go-live repoint.
  *

@@ -1,6 +1,6 @@
 // Compact performance summary — KPI tiles + per-tier rollup line. Used at the
 // top of the Best Picks Report so users see how the algo has performed without
-// leaving the page. The full graded history lives on /mlb/picks-performance.
+// leaving the page. The full graded history lives on /mlb/picks-report?tab=performance.
 import React from 'react';
 import {
   usePlayerPropGradeSummary,
@@ -13,9 +13,9 @@ import { cn } from '@/lib/utils';
 
 const TIER_ORDER: Tier[] = ['elite', 'strong', 'lean'];
 const TIER_LABEL: Record<Tier, string> = {
-  elite: '🔥 Elite',
-  strong: '⭐ Strong',
-  lean: '👍 Lean',
+  elite: 'Elite',
+  strong: 'Strong',
+  lean: 'Lean',
 };
 
 function fmtUnits(v: number | null | undefined): string {
@@ -85,7 +85,7 @@ export function PerformanceSummary() {
     return (
       <Card>
         <CardContent className="py-4 text-center text-xs text-muted-foreground">
-          📊 Performance tracking is live. Once a few picks settle, win-rate and ROI numbers will show up here.
+          Performance tracking is live. Once a few picks settle, win-rate and ROI numbers will show up here.
         </CardContent>
       </Card>
     );
@@ -96,10 +96,10 @@ export function PerformanceSummary() {
       <CardContent className="pt-3 pb-3 space-y-2">
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            📊 Algorithm performance to date
+            Algorithm performance to date
           </p>
           <a
-            href="/mlb/picks-performance"
+            href="/mlb/picks-report?tab=performance"
             className="text-[11px] text-primary hover:underline tabular-nums"
           >
             full history →

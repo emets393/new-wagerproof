@@ -8,30 +8,26 @@ import type { SportSectionsProps } from '../index';
 import type { CFBPrediction } from '../../../api/cfbGames';
 import type { GameFeedItem } from '../../../types';
 import { CfbDryRunPicksSection, CfbDryRunSummarySection } from './CfbDryRunSections';
-import { CfbPredictionsSection } from './CfbPredictionsSection';
+import { CfbH2HSection } from './CfbH2HSection';
+import { CfbLineMovementSection } from './CfbLineMovementSection';
 import { CfbWeatherSection } from './CfbWeatherSection';
 
 /**
- * CFB detail stack for the /games split view. Two experiences, mirroring the
- * legacy page's admin toggle:
- * - regular: Spread + Total + Weather + Market Odds (+ admin AI Payload)
- * - dry-run (admin): Slate Summary (Mammoth/conviction) + the 7 grouped
- *   prediction cards + Market Odds
+ * CFB detail stack for the /games split view — mirrors the native sheet:
+ *   slate summary → multi-market picks (from dryrun_picks, or fg_* synthesis
+ *   when picks are cold Weeks 1–3) with team season trends → market odds →
+ *   weather → open→close line move → head-to-head (cfb_games prior seasons).
  *
- * One card per market rather than one "Model Predictions" card answering three
- * questions — see `detail/WIDGET_DESIGN.md`.
+ * Legacy CollegeSpread/Total cards are omitted so FG lines never double-render.
  */
 export function CfbSections(props: SportSectionsProps) {
-  const { game, extras, onCompletionGenerated } = props;
+  const { game, onCompletionGenerated } = props;
   const { adminModeEnabled } = useAdminMode();
   const [payloadOpen, setPayloadOpen] = useState(false);
 
   const cfbGame = game as GameFeedItem<CFBPrediction>;
   const raw = cfbGame.raw;
-  const isDryRun = raw.is_dry_run === true || extras.mode === 'dryrun';
 
-  // Admin-only: opens the existing payload viewer against the merged raw row,
-  // then refreshes this game's cached completions after a generation.
   const payloadAffordance = adminModeEnabled ? (
     <>
       <Button
@@ -53,22 +49,14 @@ export function CfbSections(props: SportSectionsProps) {
     </>
   ) : null;
 
-  if (isDryRun) {
-    return (
-      <>
-        <CfbDryRunSummarySection game={cfbGame} />
-        <CfbDryRunPicksSection game={cfbGame} />
-        <MarketOddsSection game={game} />
-        {payloadAffordance}
-      </>
-    );
-  }
-
   return (
     <>
-      <CfbPredictionsSection game={cfbGame} />
-      <CfbWeatherSection game={cfbGame} />
+      <CfbDryRunSummarySection game={cfbGame} />
+      <CfbDryRunPicksSection game={cfbGame} />
       <MarketOddsSection game={game} />
+      <CfbWeatherSection game={cfbGame} />
+      <CfbLineMovementSection game={cfbGame} />
+      <CfbH2HSection game={cfbGame} />
       {payloadAffordance}
     </>
   );

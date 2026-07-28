@@ -3,6 +3,25 @@ import WagerproofDesign
 import WagerproofModels
 import WagerproofStores
 
+private enum OutliersSortMode: String, CaseIterable {
+    case strongest
+    case sampleSize
+
+    var label: String {
+        switch self {
+        case .strongest: return "Strongest Trend"
+        case .sampleSize: return "Largest Sample"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .strongest: return "flame"
+        case .sampleSize: return "person.3"
+        }
+    }
+}
+
 /// Matchup-specific trends hub. Filters live in a horizontal pill row (sport / subject / matchup);
 /// each bet type renders as a section header over a horizontally-scrolling card carousel.
 struct OutliersTrendsView: View {
@@ -12,6 +31,9 @@ struct OutliersTrendsView: View {
     @Environment(ParlayGodStore.self) private var parlayGodStore
 
     @State private var showMatchupPicker = false
+    @State private var sortMode: OutliersSortMode = .strongest
+    @State private var quickFilterText = ""
+    @FocusState private var quickFilterFocused: Bool
     /// Tapped trend card → presented full in a bottom sheet (no longer grows the
     /// card vertically in the rail).
     @State private var selectedTrend: OutliersTrendSelection?
@@ -26,22 +48,24 @@ struct OutliersTrendsView: View {
             Section {
                 // Parlay God is the page's top category — perfect-streak parlays
                 // above the per-market trend carousels.
-                ParlayGodRail(
-                    title: "Parlay God",
-                    icon: "bolt.fill",
-                    tickets: parlayGodStore.slateTickets,
-                    isLoading: parlayGodStore.isLoading,
-                    sports: parlayGodStore.slateSports
-                )
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, 4)
-                .padding(.bottom, Spacing.lg)
+                if activeQuickFilter.isEmpty {
+                    ParlayGodRail(
+                        title: "Parlay God",
+                        icon: "bolt.fill",
+                        tickets: parlayGodStore.slateTickets,
+                        isLoading: parlayGodStore.isLoading,
+                        sports: parlayGodStore.slateSports
+                    )
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, 4)
+                    .padding(.bottom, Spacing.lg)
+                }
                 content
                     .padding(.horizontal, Spacing.lg)
                     .padding(.top, 4)
                     .padding(.bottom, Spacing.md)
             } header: {
-                filterPills
+                outliersHeader
             }
         }
         // Attached to the always-rendered container (not the rail, which is
@@ -69,28 +93,41 @@ struct OutliersTrendsView: View {
 
     // MARK: - Filter pills
 
-    /// Sticky filter row, pinned below the nav bar. Pills are floating Liquid
-    /// Glass capsules (no opaque bar) so scrolling cards refract through them as
-    /// they pass underneath — the iOS 26 floating-controls look.
+    /// Quick Filter + compact icon controls match Games and Props. The
+    /// Outliers-specific subject and matchup filters remain labeled below.
+    private var outliersHeader: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                quickFilterBar
+                    .layoutPriority(1)
+                sportControl
+                sortControl
+            }
+            .padding(.horizontal, 14)
+
+            if store.sport.hasTrendsData {
+                filterPills
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+    }
+
+    /// Sticky second row, pinned below the nav bar with the Quick Filter row.
     private var filterPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                sportPill
-                if store.sport.hasTrendsData {
-                    if store.sport.allowedSubjects.count > 1 {
-                        subjectPill
-                    }
-                    matchupPill
+                if store.sport.allowedSubjects.count > 1 {
+                    subjectPill
                 }
+                matchupPill
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.vertical, 2)
         }
-        .padding(.top, Spacing.md)
-        .padding(.bottom, 10)
     }
 
-    private var sportPill: some View {
+    private var sportControl: some View {
         Menu {
             Picker("Sport", selection: $store.sport) {
                 ForEach(OutliersTrendsSport.allCases) { sport in
@@ -98,8 +135,69 @@ struct OutliersTrendsView: View {
                 }
             }
         } label: {
-            pillLabel(icon: sportIcon(store.sport), text: store.sport.label)
+            menuIconLabel(sportIcon(store.sport))
         }
+        .sensoryFeedback(.selection, trigger: store.sport)
+        .accessibilityLabel("Choose sport shown")
+    }
+
+    private var sortControl: some View {
+        Menu {
+            Picker("Sort Trends", selection: $sortMode) {
+                ForEach(OutliersSortMode.allCases, id: \.self) { mode in
+                    Label(mode.label, systemImage: mode.icon).tag(mode)
+                }
+            }
+        } label: {
+            menuIconLabel("arrow.up.arrow.down", isActive: sortMode != .strongest)
+        }
+        .sensoryFeedback(.selection, trigger: sortMode)
+        .accessibilityLabel("Sort outliers")
+    }
+
+    private var quickFilterBar: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(quickFilterFocused ? Color.appPrimary : Color.appTextMuted)
+
+            TextField("Quick Filter", text: $quickFilterText)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color.appTextPrimary)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .focused($quickFilterFocused)
+                .onSubmit { quickFilterFocused = false }
+                .accessibilityLabel("Quick filter outliers")
+
+            if !activeQuickFilter.isEmpty {
+                Button {
+                    quickFilterText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.appTextMuted)
+                        .frame(width: 26, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear quick filter")
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 44)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassBackground(in: Capsule(), interactive: true)
+    }
+
+    private func menuIconLabel(_ systemName: String, isActive: Bool = false) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(isActive ? Color.appPrimary : Color.appTextPrimary)
+            .frame(width: 44, height: 44)
+            .liquidGlassBackground(in: Circle(), interactive: true)
+            .contentShape(Rectangle())
     }
 
     private var subjectPill: some View {
@@ -225,8 +323,64 @@ struct OutliersTrendsView: View {
         } else if case .failed(let message) = store.loadState, store.slateGames.isEmpty {
             errorState(message)
         } else {
-            loadedContent(store.marketSections)
+            loadedContent(displaySections)
         }
+    }
+
+    private var activeQuickFilter: String {
+        quickFilterText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var displaySections: [OutliersTrendsMarketSection] {
+        let query = activeQuickFilter.lowercased()
+
+        return store.marketSections.compactMap { section in
+            let matchingCards = query.isEmpty
+                ? section.cards
+                : section.cards.filter { cardMatches($0, query: query) }
+
+            let sortedCards = matchingCards.sorted { lhs, rhs in
+                switch sortMode {
+                case .strongest:
+                    if lhs.trendValue != rhs.trendValue {
+                        return lhs.trendValue > rhs.trendValue
+                    }
+                    return lhs.trendSampleN > rhs.trendSampleN
+                case .sampleSize:
+                    if lhs.trendSampleN != rhs.trendSampleN {
+                        return lhs.trendSampleN > rhs.trendSampleN
+                    }
+                    return lhs.trendValue > rhs.trendValue
+                }
+            }
+
+            guard !sortedCards.isEmpty else { return nil }
+            return OutliersTrendsMarketSection(
+                marketKey: section.marketKey,
+                title: section.title,
+                cards: sortedCards
+            )
+        }
+    }
+
+    private func cardMatches(_ card: OutliersTrendsCard, query: String) -> Bool {
+        let searchableText = [
+            card.subjectName,
+            card.subjectDetail ?? "",
+            card.teamAbbr ?? "",
+            card.matchupLabel,
+            card.betTypeLabel,
+            card.lineContext ?? "",
+            card.rows.map(\.text).joined(separator: " "),
+            card.rows.compactMap(\.coverageNote).joined(separator: " "),
+            card.bettingLines.flatMap {
+                [$0.label, $0.lineText, $0.oddsText ?? "", $0.bookName ?? "", $0.teamAbbr ?? ""]
+            }.joined(separator: " "),
+        ]
+        .joined(separator: " ")
+        .lowercased()
+
+        return searchableText.contains(query)
     }
 
     @ViewBuilder
@@ -404,7 +558,11 @@ struct OutliersTrendsView: View {
             Text("No trends match")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Color.appTextPrimary)
-            Text("Try a different matchup or subject — or check back when the slate fills in.")
+            Text(
+                activeQuickFilter.isEmpty
+                    ? "Try a different matchup or subject — or check back when the slate fills in."
+                    : "Try another team, player, matchup, or market."
+            )
                 .font(.system(size: 13))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.appTextSecondary)

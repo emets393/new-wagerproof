@@ -2,9 +2,7 @@ import * as React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   BarChart3,
-  CalendarClock,
   Landmark,
-  MapPin,
   Scale,
   Search,
   Shield,
@@ -22,7 +20,6 @@ const TAB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   ref: Scale,
   conf: Trophy,
   venue: Landmark,
-  upcoming: CalendarClock,
 };
 
 /** Animated inline hit-rate bar with a baseline tick — turns table rows into small infographics. */
@@ -47,9 +44,9 @@ function RowBar({ hit, baseline }: { hit: number; baseline: number }) {
 
 /**
  * One breakdown tab's table: a square segmented sort picker pinned top-right (right above the
- * metric columns it orders) + every row (no cap, no inner scroll — the long list flows with the
- * page and scrolls under the chat dock). Search text is owned by BreakdownTable (lives in the
- * folder-tab row) and passed in as `query`.
+ * metric columns it orders) + rows with an iOS-style "Show all" cap so long lists (CFB 130+
+ * teams) don't bury the upcoming-games section below. Search text is owned by BreakdownTable
+ * (lives in the folder-tab row) and passed in as `query`.
  */
 function TabTable({
   tab,
@@ -66,10 +63,13 @@ function TabTable({
   showsROI: boolean;
   logoFor: (row: BreakdownRow, tab: BreakdownTabDef) => string | null;
 }) {
+  const ROW_CAP = 15;
   const [sort, setSort] = React.useState<'n' | 'hit' | 'roi'>('n');
-  // reset the sort metric when switching dimension tabs
+  const [showAll, setShowAll] = React.useState(false);
+  // reset the sort metric + expander when switching dimension tabs
   React.useEffect(() => {
     setSort('n');
+    setShowAll(false);
   }, [tab.key]);
   const rows = tab.rows || [];
   const filtered = React.useMemo(() => {
@@ -89,6 +89,8 @@ function TabTable({
       ),
     [filtered, effectiveSort],
   );
+  // Searching: show every match. Otherwise cap until "Show all" (matches iOS rowCap).
+  const visible = query.trim() || showAll ? sorted : sorted.slice(0, ROW_CAP);
 
   if (!rows.length) {
     return (
@@ -135,9 +137,8 @@ function TabTable({
         </div>
       </div>
 
-      {/* every row, no cap and no inner scroll — the page scroll region carries it under the dock */}
       <div className="divide-y divide-black/5 dark:divide-white/[0.07]">
-        {sorted.map((r, i) => {
+        {visible.map((r, i) => {
           const n = Number(r.n);
           const hit = Number(r.hit_pct);
           const roi = r.roi as number | null;
@@ -200,14 +201,24 @@ function TabTable({
           <p className="py-6 text-center text-sm text-muted-foreground">No matches for “{query}”.</p>
         )}
       </div>
+
+      {!query.trim() && sorted.length > ROW_CAP && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-3 w-full rounded-xl border border-black/5 bg-white/40 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/70 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+        >
+          {showAll ? 'Show fewer' : `Show all ${sorted.length}`}
+        </button>
+      )}
     </div>
   );
 }
 
 /**
  * Tabbed data section: container-less, modern folder tabs (search shares the tab row) over the
- * adapter's dimension tables (Team / Coach / Referee / Conference / Ballpark…) and the upcoming
- * games that match. The hero and SituationsGrid stay above; this is the deep-dive data below them.
+ * adapter's dimension tables (Team / Coach / Referee / Conference / Ballpark…). Matching upcoming
+ * games render as their own section below (TrendsWorkbench), matching the app — not as a tab here.
  */
 export function BreakdownTable({
   baseline,
@@ -215,19 +226,12 @@ export function BreakdownTable({
   outcomeWord,
   showsROI,
   logoFor,
-  upcoming,
-  upcomingCount = 0,
-  upcomingLabel,
 }: {
   baseline: number;
   tabs: BreakdownTabDef[];
   outcomeWord: string;
   showsROI: boolean;
   logoFor: (row: BreakdownRow, tab: BreakdownTabDef) => string | null;
-  /** Rendered "This week's games that match" panel — shown as the final tab. */
-  upcoming?: React.ReactNode;
-  upcomingCount?: number;
-  upcomingLabel?: string;
 }) {
   type TabEntry = { key: string; label: string; count?: number; def?: BreakdownTabDef };
   const entries = React.useMemo<TabEntry[]>(() => {
@@ -235,10 +239,8 @@ export function BreakdownTable({
     for (const t of tabs) {
       if (t.rows.length > 0) out.push({ key: t.key, label: t.label.replace(/^By /i, ''), def: t });
     }
-    if (upcoming && upcomingCount > 0)
-      out.push({ key: 'upcoming', label: upcomingLabel ?? 'Upcoming', count: upcomingCount });
     return out;
-  }, [tabs, upcoming, upcomingCount, upcomingLabel]);
+  }, [tabs]);
 
   const [tabKey, setTabKey] = React.useState(entries[0]?.key ?? 'team');
   const [query, setQuery] = React.useState('');
@@ -318,9 +320,7 @@ export function BreakdownTable({
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
           >
-            {active?.key === 'upcoming' ? (
-              upcoming
-            ) : active?.def ? (
+            {active?.def ? (
               <TabTable
                 tab={active.def}
                 query={query}

@@ -46,8 +46,8 @@ interface GamePrediction {
 }
 
 interface TeamMapping {
-  api: string;
-  logo_light: string;
+  team_name: string;
+  logo: string | null;
 }
 
 const DUMMY_GAMES: GamePrediction[] = [
@@ -615,8 +615,8 @@ export default function CFBPreview() {
 
   const getTeamLogo = (teamName: string): string => {
     if (sportType === 'cfb') {
-      const mapping = teamMappings.find(m => m.api === teamName);
-      return mapping?.logo_light || '';
+      const mapping = teamMappings.find(m => m.team_name === teamName);
+      return mapping?.logo || '';
     }
     if (sportType === 'nba' || sportType === 'dummy') {
       const espnLogoMap: { [key: string]: string } = {
@@ -708,19 +708,49 @@ export default function CFBPreview() {
       }
 
       debug.log('No NBA games found, trying CFB...');
+      const { resolveCfbCurrentWeek } = await import('@/features/games/api/footballSlate');
+      const { season, week } = await resolveCfbCurrentWeek();
+
       const { data: cfbMappings } = await collegeFootballSupabase
-        .from('cfb_team_mapping')
-        .select('api, logo_light');
+        .from('cfb_teams')
+        .select('team_name, logo');
       setTeamMappings(cfbMappings || []);
 
       const { data: cfbPreds } = await collegeFootballSupabase
-        .from('cfb_live_weekly_inputs')
+        .from('cfb_dryrun_games')
         .select('*')
+        .eq('season', season)
+        .eq('week', week)
+        .order('kickoff', { ascending: true })
         .limit(4);
 
       if (cfbPreds && cfbPreds.length > 0) {
         debug.log('Using CFB games for landing page hero');
-        setPredictions(cfbPreds);
+        const transformed: GamePrediction[] = cfbPreds.map((row: any) => {
+          const homeSpread = row.fg_spread_close ?? null;
+          return {
+            id: String(row.game_id),
+            away_team: row.away_team,
+            home_team: row.home_team,
+            home_ml: row.fg_ml_home_close ?? null,
+            away_ml: row.fg_ml_away_close ?? null,
+            home_spread: homeSpread,
+            away_spread: homeSpread !== null ? -Number(homeSpread) : null,
+            total_line: row.fg_total_close ?? null,
+            api_spread: homeSpread,
+            api_over_line: row.fg_total_close ?? null,
+            home_moneyline: row.fg_ml_home_close ?? null,
+            away_moneyline: row.fg_ml_away_close ?? null,
+            start_time: row.kickoff,
+            game_time: row.kickoff,
+            home_spread_diff: row.fg_spread_edge ?? null,
+            over_line_diff: row.fg_total_edge ?? null,
+            pred_ml_proba: row.fg_home_win_prob ?? null,
+            pred_spread_proba: row.fg_home_cover_prob ?? null,
+            home_away_spread_cover_prob: row.fg_home_cover_prob ?? null,
+          };
+        });
+        setPredictions(transformed);
         setSportType('cfb');
         return;
       }

@@ -114,6 +114,11 @@ struct AgentsView: View {
     @State private var navPath = NavigationPath()
     @State private var showFollowingSheet = false
     @State private var copySourceAgent: Agent?
+    /// From-scratch creation is an immersive flow presented above the entire
+    /// tab shell. The created agent is held until dismissal so its detail push
+    /// never competes with the full-screen cover transition.
+    @State private var showCreateAgent = false
+    @State private var createdAgentForNavigation: Agent?
     @State private var followingActionError: String?
     /// Sort order for the agent list (driven by the bar's filter menu).
     @State private var sortOption: AgentSortOption = .winRate
@@ -261,6 +266,16 @@ struct AgentsView: View {
                 }
                 .sheet(isPresented: $showFollowingSheet) {
                     followingListSheet
+                }
+                .fullScreenCover(
+                    isPresented: $showCreateAgent,
+                    onDismiss: finishCreateAgentFlow
+                ) {
+                    AgentBuilderView(onCreated: { created in
+                        createdAgentForNavigation = created
+                        showCreateAgent = false
+                    })
+                    .toolbar(.hidden, for: .tabBar)
                 }
                 .fullScreenCover(item: $copySourceAgent) { source in
                     AgentBuilderView(
@@ -1053,7 +1068,7 @@ struct AgentsView: View {
             journeyStep(icon: "bolt.fill", title: "Get Daily Picks", desc: "Picks generate automatically each morning with reasoning and confidence levels.")
 
             Button {
-                navPath.append(AgentsRoute.createAgent)
+                showCreateAgent = true
             } label: {
                 Label("Create Your First Agent", systemImage: "plus")
                     .font(.system(size: 16, weight: .bold))
@@ -1113,14 +1128,14 @@ struct AgentsView: View {
         let canCreate = entitlements.canCreateAnotherAgent(activeCount: store.activeCount, totalCount: store.totalCount)
         if canCreate {
             Button {
-                navPath.append(AgentsRoute.createAgent)
+                showCreateAgent = true
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
             }
             .tint(Color.appTextPrimary)
             .accessibilityLabel("Create new agent")
-            .sensoryFeedback(.impact(weight: .medium), trigger: navPath.count)
+            .sensoryFeedback(.impact(weight: .medium), trigger: showCreateAgent)
         } else {
             Button {} label: {
                 Image(systemName: "lock.fill")
@@ -1174,15 +1189,14 @@ struct AgentsView: View {
                 prefetched: store.agents.first { $0.id == id }
             )
         case .createAgent:
-            // Onboarding-style pixelwave carousel builder (replaces the old
-            // Step 1–6 AgentCreationView wizard). On create it swaps this screen
-            // for the new agent's detail page, where the ticket-printer reveal
-            // plays once the agent generates picks.
+            // Compatibility route for any stale/deep-linked navigation path.
+            // Current creation entry points use the immersive full-screen cover.
             AgentBuilderView(onCreated: { agent in
                 Task { await store.refresh() }
                 navPath.removeLast()
                 navPath.append(AgentsRoute.agentDetail(agentId: agent.id))
             })
+            .toolbar(.hidden, for: .tabBar)
         case .publicAgentDetail(let id):
             // B15 — real public read-only detail w/ follow CTA.
             AgentsRouterB15.publicDetail(agentId: id)
@@ -1222,6 +1236,15 @@ struct AgentsView: View {
 
     private func refreshActive() async {
         await store.refresh()
+    }
+
+    private func finishCreateAgentFlow() {
+        guard let created = createdAgentForNavigation else { return }
+        createdAgentForNavigation = nil
+        Task {
+            await store.refresh()
+            navPath.append(AgentsRoute.agentDetail(agentId: created.id))
+        }
     }
 }
 

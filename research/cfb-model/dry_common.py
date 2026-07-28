@@ -111,6 +111,14 @@ def key_for(source):
         if sub in str(source): return k
     return "model_lean"
 
+# Keys that must NEVER render as a per-game signal. Two reasons:
+#  - model_lean: the base-model headline number (fires on ~every game, not a spot)
+#  - opener_under / rivalry_week_over: masks are pure week==N, so they tag the ENTIRE
+#    slate that week. A "signal" on all 51 games is a slate-wide historical lean, not a
+#    per-game edge. Owner flagged "opener_under on all 51" — exclude at the flag layer.
+BLANKET_KEYS = {"model_lean", "opener_under", "rivalry_week_over"}
+def is_blanket(source): return key_for(source) in BLANKET_KEYS
+
 # ===== UNIFIED team-total model: derived from the full-game model so it's coherent with the headline score =====
 P5CONF = {"SEC", "Big Ten", "Big 12", "ACC", "Pac-12"}
 def fg_team_pts(pred_total, pred_margin, is_home):

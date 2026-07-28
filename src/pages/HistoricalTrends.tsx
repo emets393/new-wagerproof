@@ -24,5 +24,9 @@ export default function HistoricalTrends() {
     );
   };
 
-  return <TrendsWorkbench sport={sport} betType={betType} setUrl={setUrl} />;
+  return (
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <TrendsWorkbench sport={sport} betType={betType} setUrl={setUrl} />
+    </div>
+  );
 }

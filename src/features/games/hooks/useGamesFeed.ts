@@ -20,7 +20,8 @@ export function useGamesFeed(sport: GamesSport) {
   const cfbAdminMode = sport === 'cfb' ? adminModeEnabled : false;
 
   return useQuery<SportFeed>({
-    queryKey: ['games-feed', sport, cfbAdminMode],
+    // v3: feed signalCount from dryrun_games flags_* / n_flags_* (excludes blanket keys)
+    queryKey: ['games-feed', sport, cfbAdminMode, 'signals-v3'],
     staleTime: STALE_TIME,
     queryFn: () => {
       switch (sport) {

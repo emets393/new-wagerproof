@@ -33,33 +33,40 @@ public actor OutliersService {
         let cfb = await CFBSupabase.shared.client
 
         // 1. NFL ----------------------------------------------------------
-        // NEW model's weekly output: nfl_dryrun_games at the current week
-        // (latest season/week present). Legacy v_input_values_with_epa +
-        // nfl_betting_lines retired. The dry-run slate is already a single
-        // week, so no 7-day date window is applied.
         do {
-            if let slate = try await Self.fetchDryrunAnchor(cfb, table: "nfl_dryrun_games") {
-                let rows: [NFLDryrunOutlierRow] = try await cfb
+            let anchor: [SlateWeekRow] = (try? await cfb
+                .from("nfl_dryrun_games")
+                .select("season,week")
+                .order("season", ascending: false)
+                .order("week", ascending: false)
+                .limit(1)
+                .execute()
+                .value) ?? []
+            if let slate = anchor.first, let season = slate.season, let week = slate.week {
+                let nflRows: [NFLDryrunOutlierRow] = try await cfb
                     .from("nfl_dryrun_games")
-                    .select("game_id, home_team, away_team, kickoff, fg_spread_close, fg_total_close, fg_ml_home_close, fg_ml_away_close")
-                    .eq("season", value: slate.season)
-                    .eq("week", value: slate.week)
+                    .select("game_id,home_team,away_team,gameday,kickoff,fg_spread_close,fg_total_close,fg_ml_home_close,fg_ml_away_close")
+                    .eq("season", value: season)
+                    .eq("week", value: week)
                     .order("kickoff", ascending: true)
                     .execute()
                     .value
-                for row in rows {
-                    let homeSpread = row.fgSpreadClose
+
+                for game in nflRows {
+                    let date = game.gameday ?? game.kickoff.map { String($0.prefix(10)) }
+                    guard let date, date >= dates.today, date <= dates.weekFromNow else { continue }
+                    let homeSpread = game.fgSpreadClose
                     games.append(OutlierGame(
-                        gameId: row.gameId ?? "",
+                        gameId: game.gameId,
                         sport: .nfl,
-                        awayTeam: row.awayTeam ?? "",
-                        homeTeam: row.homeTeam ?? "",
-                        gameTime: row.kickoff,
+                        awayTeam: game.awayTeam ?? "",
+                        homeTeam: game.homeTeam ?? "",
+                        gameTime: game.kickoff ?? game.gameday,
                         awaySpread: homeSpread.map { -$0 },
                         homeSpread: homeSpread,
-                        totalLine: row.fgTotalClose,
-                        awayMl: row.fgMlAwayClose.map { Int($0.rounded()) },
-                        homeMl: row.fgMlHomeClose.map { Int($0.rounded()) }
+                        totalLine: game.fgTotalClose,
+                        awayMl: game.fgMlAwayClose.map { Int($0.rounded()) },
+                        homeMl: game.fgMlHomeClose.map { Int($0.rounded()) }
                     ))
                 }
             }
@@ -68,31 +75,41 @@ public actor OutliersService {
         }
 
         // 2. CFB ----------------------------------------------------------
-        // NEW model's weekly output: cfb_dryrun_games at the current week.
-        // Legacy cfb_live_weekly_inputs + cfb_api_predictions retired.
         do {
-            if let slate = try await Self.fetchDryrunAnchor(cfb, table: "cfb_dryrun_games") {
+            let anchor: [SlateWeekRow] = (try? await cfb
+                .from("cfb_dryrun_games")
+                .select("season,week")
+                .order("season", ascending: false)
+                .order("week", ascending: false)
+                .limit(1)
+                .execute()
+                .value) ?? []
+            if let slate = anchor.first, let season = slate.season, let week = slate.week {
                 let rows: [CFBDryrunOutlierRow] = try await cfb
                     .from("cfb_dryrun_games")
-                    .select("game_id, home_team, away_team, kickoff, fg_spread_close, fg_total_close, fg_ml_home_close, fg_ml_away_close")
-                    .eq("season", value: slate.season)
-                    .eq("week", value: slate.week)
+                    .select("game_id,home_team,away_team,kickoff,fg_spread_close,fg_total_close,fg_ml_home_close,fg_ml_away_close")
+                    .eq("season", value: season)
+                    .eq("week", value: week)
                     .order("kickoff", ascending: true)
                     .execute()
                     .value
-                for row in rows {
-                    let homeSpread = row.fgSpreadClose
+
+                for game in rows {
+                    guard let raw = game.kickoff,
+                          let etDate = OutliersService.formatETDate(raw),
+                          etDate >= dates.today, etDate <= dates.weekFromNow else { continue }
+                    let homeSpread = game.fgSpreadClose
                     games.append(OutlierGame(
-                        gameId: row.gameId.value,
+                        gameId: game.gameId,
                         sport: .cfb,
-                        awayTeam: row.awayTeam ?? "",
-                        homeTeam: row.homeTeam ?? "",
-                        gameTime: row.kickoff,
+                        awayTeam: game.awayTeam ?? "",
+                        homeTeam: game.homeTeam ?? "",
+                        gameTime: raw,
                         awaySpread: homeSpread.map { -$0 },
                         homeSpread: homeSpread,
-                        totalLine: row.fgTotalClose,
-                        awayMl: row.fgMlAwayClose.map { Int($0.rounded()) },
-                        homeMl: row.fgMlHomeClose.map { Int($0.rounded()) }
+                        totalLine: game.fgTotalClose,
+                        awayMl: game.fgMlAwayClose.map { Int($0.rounded()) },
+                        homeMl: game.fgMlHomeClose.map { Int($0.rounded()) }
                     ))
                 }
             }
@@ -410,79 +427,60 @@ public actor OutliersService {
         var out = games
 
         // ── NFL ────────────────────────────────────────────────
-        // NEW model probabilities/edges from nfl_dryrun_games (current week).
-        // The new NFL model has no O/U probability column, so ouResultProb is
-        // nil; the spread fade keys off fg_home_cover_prob.
-        let nflGames = games.filter { $0.sport == .nfl }
-        if !nflGames.isEmpty {
-            do {
-                if let slate = try await Self.fetchDryrunAnchor(cfb, table: "nfl_dryrun_games") {
-                    let preds: [NFLDryrunPredRow] = (try? await cfb
-                        .from("nfl_dryrun_games")
-                        .select("game_id, fg_home_win_prob, fg_home_cover_prob, fg_spread_edge, fg_total_edge")
-                        .eq("season", value: slate.season)
-                        .eq("week", value: slate.week)
-                        .execute()
-                        .value) ?? []
-                    let predMap = Dictionary(uniqueKeysWithValues: preds.compactMap { p -> (String, NFLDryrunPredRow)? in
-                        guard let id = p.gameId else { return nil }
-                        return (id, p)
-                    })
-                    for game in nflGames {
-                        guard let p = predMap[game.gameId], let idx = indexed[game.gameId] else { continue }
-                        let g = out[idx]
-                        out[idx] = OutlierGame(
-                            gameId: g.gameId, sport: g.sport,
-                            awayTeam: g.awayTeam, homeTeam: g.homeTeam,
-                            gameTime: g.gameTime,
-                            awaySpread: g.awaySpread, homeSpread: g.homeSpread,
-                            totalLine: g.totalLine, awayMl: g.awayMl, homeMl: g.homeMl,
-                            awayTeamLogo: g.awayTeamLogo, homeTeamLogo: g.homeTeamLogo,
-                            awayTeamAbbrev: g.awayTeamAbbrev, homeTeamAbbrev: g.homeTeamAbbrev,
-                            homeAwaySpreadCoverProb: p.fgHomeCoverProb,
-                            ouResultProb: nil,
-                            homeAwayMlProb: p.fgHomeWinProb,
-                            homeSpreadDiff: p.fgSpreadEdge,
-                            overLineDiff: p.fgTotalEdge
-                        )
-                    }
-                }
+        let nflIds = games.filter { $0.sport == .nfl }.map { $0.gameId }
+        if !nflIds.isEmpty {
+            let preds: [NFLDryrunHydrateRow] = (try? await cfb
+                .from("nfl_dryrun_games")
+                .select("game_id,fg_home_win_prob,fg_home_cover_prob,fg_spread_edge,fg_total_edge")
+                .in("game_id", values: nflIds)
+                .execute()
+                .value) ?? []
+            for p in preds {
+                guard let idx = indexed[p.gameId] else { continue }
+                let g = out[idx]
+                out[idx] = OutlierGame(
+                    gameId: g.gameId, sport: g.sport,
+                    awayTeam: g.awayTeam, homeTeam: g.homeTeam,
+                    gameTime: g.gameTime,
+                    awaySpread: g.awaySpread, homeSpread: g.homeSpread,
+                    totalLine: g.totalLine, awayMl: g.awayMl, homeMl: g.homeMl,
+                    awayTeamLogo: g.awayTeamLogo, homeTeamLogo: g.homeTeamLogo,
+                    awayTeamAbbrev: g.awayTeamAbbrev, homeTeamAbbrev: g.homeTeamAbbrev,
+                    homeAwaySpreadCoverProb: p.fgHomeCoverProb,
+                    ouResultProb: nil,
+                    homeAwayMlProb: p.fgHomeWinProb,
+                    homeSpreadDiff: p.fgSpreadEdge,
+                    overLineDiff: p.fgTotalEdge
+                )
             }
         }
 
         // ── CFB ────────────────────────────────────────────────
-        // NEW model probabilities/edges from cfb_dryrun_games (current week).
-        // Legacy cfb_api_predictions retired. CFB fade keys off fg_spread_edge /
-        // fg_total_edge; fg_home_cover_prob feeds the cover prob.
-        let cfbGames = games.filter { $0.sport == .cfb }
-        if !cfbGames.isEmpty {
-            if let slate = try? await Self.fetchDryrunAnchor(cfb, table: "cfb_dryrun_games") {
-                let preds: [CFBDryrunPredRow] = (try? await cfb
-                    .from("cfb_dryrun_games")
-                    .select("game_id, fg_home_win_prob, fg_home_cover_prob, fg_spread_edge, fg_total_edge")
-                    .eq("season", value: slate.season)
-                    .eq("week", value: slate.week)
-                    .execute()
-                    .value) ?? []
-                let predMap = Dictionary(uniqueKeysWithValues: preds.map { ($0.gameId.value, $0) })
-                for game in cfbGames {
-                    guard let p = predMap[game.gameId], let idx = indexed[game.gameId] else { continue }
-                    let g = out[idx]
-                    out[idx] = OutlierGame(
-                        gameId: g.gameId, sport: g.sport,
-                        awayTeam: g.awayTeam, homeTeam: g.homeTeam,
-                        gameTime: g.gameTime,
-                        awaySpread: g.awaySpread, homeSpread: g.homeSpread,
-                        totalLine: g.totalLine, awayMl: g.awayMl, homeMl: g.homeMl,
-                        awayTeamLogo: g.awayTeamLogo, homeTeamLogo: g.homeTeamLogo,
-                        awayTeamAbbrev: g.awayTeamAbbrev, homeTeamAbbrev: g.homeTeamAbbrev,
-                        homeAwaySpreadCoverProb: p.fgHomeCoverProb,
-                        ouResultProb: nil,
-                        homeAwayMlProb: p.fgHomeWinProb,
-                        homeSpreadDiff: p.fgSpreadEdge,
-                        overLineDiff: p.fgTotalEdge
-                    )
-                }
+        let cfbIds = games.filter { $0.sport == .cfb }.map { $0.gameId }
+        if !cfbIds.isEmpty {
+            let preds: [CFBDryrunHydrateRow] = (try? await cfb
+                .from("cfb_dryrun_games")
+                .select("game_id,fg_home_win_prob,fg_home_cover_prob,fg_spread_edge,fg_total_edge")
+                .in("game_id", values: cfbIds)
+                .execute()
+                .value) ?? []
+            for p in preds {
+                guard let idx = indexed[p.gameId] else { continue }
+                let g = out[idx]
+                out[idx] = OutlierGame(
+                    gameId: g.gameId, sport: g.sport,
+                    awayTeam: g.awayTeam, homeTeam: g.homeTeam,
+                    gameTime: g.gameTime,
+                    awaySpread: g.awaySpread, homeSpread: g.homeSpread,
+                    totalLine: g.totalLine, awayMl: g.awayMl, homeMl: g.homeMl,
+                    awayTeamLogo: g.awayTeamLogo, homeTeamLogo: g.homeTeamLogo,
+                    awayTeamAbbrev: g.awayTeamAbbrev, homeTeamAbbrev: g.homeTeamAbbrev,
+                    homeAwaySpreadCoverProb: p.fgHomeCoverProb,
+                    ouResultProb: nil,
+                    homeAwayMlProb: p.fgHomeWinProb,
+                    homeSpreadDiff: p.fgSpreadEdge,
+                    overLineDiff: p.fgTotalEdge
+                )
             }
         }
 
@@ -610,25 +608,6 @@ public actor OutliersService {
         return out
     }
 
-    // MARK: - Dry-run slate anchor
-
-    /// Resolve the current-week anchor for a dry-run table: the latest
-    /// (season, week) present. The pipeline delete-then-inserts per (season,
-    /// week), so the newest slate is the current week. Mirrors the web
-    /// `fetchSlateAnchor` helper.
-    private static func fetchDryrunAnchor(_ cfb: SupabaseClient, table: String) async throws -> (season: Int, week: Int)? {
-        let anchor: [OutliersDryrunAnchorRow] = try await cfb
-            .from(table)
-            .select("season, week")
-            .order("season", ascending: false)
-            .order("week", ascending: false)
-            .limit(1)
-            .execute()
-            .value
-        guard let row = anchor.first, let season = row.season, let week = row.week else { return nil }
-        return (season, week)
-    }
-
     // MARK: - Date helpers (America/New_York window — 7 days forward)
 
     public struct DateWindow: Sendable {
@@ -675,41 +654,26 @@ public actor OutliersService {
 
 // MARK: - Row models
 
-/// Decodes an int/double/string game_id uniformly to a String — CFB dry-run
-/// ids may arrive as strings or numbers depending on the row source.
-private struct OutliersFlexibleString: Decodable, Sendable {
-    let value: String
-    init(from decoder: Decoder) throws {
-        let c = try decoder.singleValueContainer()
-        if let s = try? c.decode(String.self) { value = s }
-        else if let i = try? c.decode(Int.self) { value = String(i) }
-        else if let d = try? c.decode(Double.self) { value = d.rounded(.towardZero) == d ? String(Int(d)) : String(d) }
-        else { value = "" }
-    }
-}
-
-/// Latest (season, week) anchor row from a dry-run table.
-private struct OutliersDryrunAnchorRow: Decodable, Sendable {
+private struct SlateWeekRow: Decodable, Sendable {
     let season: Int?
     let week: Int?
 }
 
-/// One `nfl_dryrun_games` row projected onto the Outliers feed shape.
 private struct NFLDryrunOutlierRow: Decodable, Sendable {
-    let gameId: String?
+    let gameId: String
     let homeTeam: String?
     let awayTeam: String?
+    let gameday: String?
     let kickoff: String?
     let fgSpreadClose: Double?
     let fgTotalClose: Double?
     let fgMlHomeClose: Double?
     let fgMlAwayClose: Double?
-
     enum CodingKeys: String, CodingKey {
         case gameId = "game_id"
         case homeTeam = "home_team"
         case awayTeam = "away_team"
-        case kickoff
+        case gameday, kickoff
         case fgSpreadClose = "fg_spread_close"
         case fgTotalClose = "fg_total_close"
         case fgMlHomeClose = "fg_ml_home_close"
@@ -717,9 +681,8 @@ private struct NFLDryrunOutlierRow: Decodable, Sendable {
     }
 }
 
-/// One `cfb_dryrun_games` row projected onto the Outliers feed shape.
 private struct CFBDryrunOutlierRow: Decodable, Sendable {
-    let gameId: OutliersFlexibleString
+    let gameId: String
     let homeTeam: String?
     let awayTeam: String?
     let kickoff: String?
@@ -727,7 +690,6 @@ private struct CFBDryrunOutlierRow: Decodable, Sendable {
     let fgTotalClose: Double?
     let fgMlHomeClose: Double?
     let fgMlAwayClose: Double?
-
     enum CodingKeys: String, CodingKey {
         case gameId = "game_id"
         case homeTeam = "home_team"
@@ -740,14 +702,12 @@ private struct CFBDryrunOutlierRow: Decodable, Sendable {
     }
 }
 
-/// Model probabilities/edges pulled from nfl_dryrun_games for hydration.
-private struct NFLDryrunPredRow: Decodable, Sendable {
-    let gameId: String?
+private struct NFLDryrunHydrateRow: Decodable, Sendable {
+    let gameId: String
     let fgHomeWinProb: Double?
     let fgHomeCoverProb: Double?
     let fgSpreadEdge: Double?
     let fgTotalEdge: Double?
-
     enum CodingKeys: String, CodingKey {
         case gameId = "game_id"
         case fgHomeWinProb = "fg_home_win_prob"
@@ -757,20 +717,102 @@ private struct NFLDryrunPredRow: Decodable, Sendable {
     }
 }
 
-/// Model probabilities/edges pulled from cfb_dryrun_games for hydration.
-private struct CFBDryrunPredRow: Decodable, Sendable {
-    let gameId: OutliersFlexibleString
+private struct CFBDryrunHydrateRow: Decodable, Sendable {
+    let gameId: String
     let fgHomeWinProb: Double?
     let fgHomeCoverProb: Double?
     let fgSpreadEdge: Double?
     let fgTotalEdge: Double?
-
     enum CodingKeys: String, CodingKey {
         case gameId = "game_id"
         case fgHomeWinProb = "fg_home_win_prob"
         case fgHomeCoverProb = "fg_home_cover_prob"
         case fgSpreadEdge = "fg_spread_edge"
         case fgTotalEdge = "fg_total_edge"
+    }
+}
+
+private struct NFLInputRow: Decodable, Sendable {
+    let homeAwayUnique: String
+    let awayTeam: String?
+    let homeTeam: String?
+    let gameDate: String?
+    let gameTime: String?
+    let homeSpread: Double?
+    let ouVegasLine: Double?
+    let id: String?
+    let uniqueId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case homeAwayUnique = "home_away_unique"
+        case awayTeam = "away_team"
+        case homeTeam = "home_team"
+        case gameDate = "game_date"
+        case gameTime = "game_time"
+        case homeSpread = "home_spread"
+        case ouVegasLine = "ou_vegas_line"
+        case id
+        case uniqueId = "unique_id"
+    }
+}
+
+private struct NFLBettingLine: Decodable, Sendable {
+    let trainingKey: String
+    let homeMl: Int?
+    let awayMl: Int?
+    let homeSpread: Double?
+    let overLine: Double?
+    let gameTimeEt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case trainingKey = "training_key"
+        case homeMl = "home_ml"
+        case awayMl = "away_ml"
+        case homeSpread = "home_spread"
+        case overLine = "over_line"
+        case gameTimeEt = "game_time_et"
+    }
+}
+
+private struct CFBInputRow: Decodable, Sendable {
+    let id: Int?
+    let trainingKey: String?
+    let awayTeam: String?
+    let homeTeam: String?
+    let startDate: String?
+    let startTime: String?
+    let gameDatetime: String?
+    let datetime: String?
+    let date: String?
+    let homeSpread: Double?
+    let awaySpread: Double?
+    let apiSpread: Double?
+    let totalLine: Double?
+    let apiOverLine: Double?
+    let awayMoneyline: Int?
+    let homeMoneyline: Int?
+    let awayMl: Int?
+    let homeMl: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case trainingKey = "training_key"
+        case awayTeam = "away_team"
+        case homeTeam = "home_team"
+        case startDate = "start_date"
+        case startTime = "start_time"
+        case gameDatetime = "game_datetime"
+        case datetime
+        case date
+        case homeSpread = "home_spread"
+        case awaySpread = "away_spread"
+        case apiSpread = "api_spread"
+        case totalLine = "total_line"
+        case apiOverLine = "api_over_line"
+        case awayMoneyline = "away_moneyline"
+        case homeMoneyline = "home_moneyline"
+        case awayMl = "away_ml"
+        case homeMl = "home_ml"
     }
 }
 
@@ -863,6 +905,38 @@ private struct PolymarketMarket: Decodable, Sendable {
         case marketType = "market_type"
         case currentAwayOdds = "current_away_odds"
         case currentHomeOdds = "current_home_odds"
+    }
+}
+
+private struct NFLPredictionRow: Decodable, Sendable {
+    let trainingKey: String
+    let homeAwaySpreadCoverProb: Double?
+    let ouResultProb: Double?
+    let homeAwayMlProb: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case trainingKey = "training_key"
+        case homeAwaySpreadCoverProb = "home_away_spread_cover_prob"
+        case ouResultProb = "ou_result_prob"
+        case homeAwayMlProb = "home_away_ml_prob"
+    }
+}
+
+private struct CFBPredictionRow: Decodable, Sendable {
+    let id: Int?
+    let homeAwaySpreadCoverProb: Double?
+    let ouResultProb: Double?
+    let homeAwayMlProb: Double?
+    let homeSpreadDiff: Double?
+    let overLineDiff: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case homeAwaySpreadCoverProb = "home_away_spread_cover_prob"
+        case ouResultProb = "ou_result_prob"
+        case homeAwayMlProb = "home_away_ml_prob"
+        case homeSpreadDiff = "home_spread_diff"
+        case overLineDiff = "over_line_diff"
     }
 }
 

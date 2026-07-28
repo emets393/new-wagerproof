@@ -19,8 +19,7 @@ import NBATodayEdgeAccuracy from "./pages/NBATodayEdgeAccuracy";
 import F5SplitsPage from "./features/mlbTools/f5Splits/F5SplitsPage";
 import PitcherMatchupsPage from "./features/mlbTools/pitcherMatchups/PitcherMatchupsPage";
 import RegressionReportPage from "./features/mlbTools/regression/RegressionReportPage";
-import PlayerPropsReport from "./pages/mlb/PlayerPropsReport";
-import PlayerPropsPerformance from "./pages/mlb/PlayerPropsPerformance";
+import { PlayerPropsReportPage } from "./features/mlbTools/playerPropsReport";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
 import HistoricalTrends from "./pages/HistoricalTrends";
@@ -210,13 +209,17 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={true} className="h-svh overflow-hidden">
       <AppLayout />
-      <SidebarInset className="overflow-x-hidden dark:bg-black">
+      {/* min-h-0 + overflow-hidden: SidebarInset defaults to min-h-svh and flex
+          min-height:auto, which lets content grow past the h-svh provider and get
+          clipped (no nested scroll). Split-view pages like /historical-trends need
+          the inset locked to the viewport so their own overflow-y-auto can reach the end. */}
+      <SidebarInset className="min-h-0 overflow-hidden dark:bg-black">
         {/* h-full only resolves against a genuinely fixed-height ancestor — that's
             why SidebarProvider above is pinned to h-svh + overflow-hidden instead of
             its default min-h-svh (which lets the whole page grow with content). With
             a real fixed height, this card scrolls internally in <main> below instead
             of the whole page growing, so the recessed margin/rounding stays in view. */}
-        <div className="flex h-full flex-col overflow-x-hidden">
+        <div className="flex h-full min-h-0 flex-col overflow-x-hidden">
           <LiveScoreTicker />
           <MinimalHeader />
           <main
@@ -308,8 +311,8 @@ function AppRoutes() {
           <Route path="/mlb/daily-regression-report" element={<ProtectedRoute><RegressionReportPage /></ProtectedRoute>} />
           <Route path="/mlb/f5-splits" element={<ProtectedRoute allowFreemium={true}><F5SplitsPage /></ProtectedRoute>} />
           <Route path="/mlb/pitcher-matchups" element={<ProtectedRoute allowFreemium={true}><PitcherMatchupsPage /></ProtectedRoute>} />
-          <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true}><PlayerPropsReport /></ProtectedRoute>} />
-          <Route path="/mlb/picks-performance" element={<ProtectedRoute allowFreemium={true}><PlayerPropsPerformance /></ProtectedRoute>} />
+          <Route path="/mlb/picks-report" element={<ProtectedRoute allowFreemium={true}><PlayerPropsReportPage /></ProtectedRoute>} />
+          <Route path="/mlb/picks-performance" element={<Navigate to="/mlb/picks-report?tab=performance" replace />} />
           <Route path="/ncaab/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="ncaab" />} />
           <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />

@@ -3,6 +3,7 @@ import { collegeFootballSupabase } from "@/integrations/supabase/college-footbal
 import { LiveGame, GamePredictions, PredictionStatus } from "@/types/liveScores";
 import { gamesMatch } from "@/utils/teamMatching";
 import debug from "@/utils/debug";
+import { resolveLatestSlate } from "@/features/games/api/footballSlate";
 
 interface NFLPrediction {
   training_key: string;
@@ -265,26 +266,14 @@ function calculatePredictionStatus(
  */
 async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
   try {
-    // NEW model's weekly output (nfl_dryrun_games; Odds-API lines + model probabilities). Latest slate
-    // = current week in-season (the pipeline delete-then-inserts per season/week). Legacy retired.
-    const { data: anchor } = await collegeFootballSupabase
-      .from('nfl_dryrun_games')
-      .select('season, week')
-      .order('season', { ascending: false })
-      .order('week', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!anchor) {
-      debug.log('No NFL slate found in nfl_dryrun_games');
-      return [];
-    }
+    // NEW model's weekly output (nfl_dryrun_games). Latest slate = current week in-season.
+    const anchor = await resolveLatestSlate('nfl_dryrun_games');
 
     const { data, error } = await collegeFootballSupabase
       .from('nfl_dryrun_games')
       .select('*')
-      .eq('season', (anchor as any).season)
-      .eq('week', (anchor as any).week);
+      .eq('season', anchor.season)
+      .eq('week', anchor.week);
 
     if (error) {
       debug.error('Error fetching NFL predictions:', error);
@@ -293,20 +282,25 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
 
     const merged = (data || []).map((r: any) => {
       const homeSpread = r.fg_spread_close ?? null;
+      const pick = String(r.fg_total_pick || '').trim().toUpperCase();
+      const edge = Number(r.fg_total_edge);
+      let ouProb: number | null = null;
+      if (pick === 'OVER') ouProb = 0.55 + Math.min(0.2, (Number.isFinite(edge) ? Math.abs(edge) : 0) / 50);
+      if (pick === 'UNDER') ouProb = 0.45 - Math.min(0.2, (Number.isFinite(edge) ? Math.abs(edge) : 0) / 50);
       return {
         training_key: r.game_id,
         home_team: r.home_team,
         away_team: r.away_team,
         home_away_ml_prob: r.fg_home_win_prob ?? null,
         home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
-        ou_result_prob: null,
+        ou_result_prob: ouProb,
         home_spread: homeSpread,
         away_spread: homeSpread !== null ? -Number(homeSpread) : null,
         over_line: r.fg_total_close ?? null,
       } as NFLPredictionWithLines;
     });
 
-    debug.log(`📊 Fetched ${merged.length} NFL predictions from nfl_dryrun_games (S${(anchor as any).season} W${(anchor as any).week})`);
+    debug.log(`📊 Fetched ${merged.length} NFL predictions from nfl_dryrun_games (S${anchor.season} W${anchor.week})`);
     return merged;
   } catch (error) {
     debug.error('Error in fetchNFLPredictions:', error);
@@ -321,31 +315,20 @@ async function fetchNFLPredictions(): Promise<NFLPredictionWithLines[]> {
  */
 async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
   try {
-    const { data: anchor } = await collegeFootballSupabase
-      .from('cfb_dryrun_games')
-      .select('season, week')
-      .order('season', { ascending: false })
-      .order('week', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!anchor) {
-      debug.log('📊 No CFB slate found in cfb_dryrun_games');
-      return [];
-    }
+    const anchor = await resolveLatestSlate('cfb_dryrun_games');
 
     const { data, error } = await collegeFootballSupabase
       .from('cfb_dryrun_games')
       .select('*')
-      .eq('season', (anchor as any).season)
-      .eq('week', (anchor as any).week);
+      .eq('season', anchor.season)
+      .eq('week', anchor.week);
 
     if (error) {
       debug.error('❌ Error fetching CFB predictions:', error);
       return [];
     }
 
-    debug.log(`📊 Fetched ${(data || []).length} CFB predictions from cfb_dryrun_games (S${(anchor as any).season} W${(anchor as any).week})`);
+    debug.log(`📊 Fetched ${(data || []).length} CFB predictions from cfb_dryrun_games (S${anchor.season} W${anchor.week})`);
 
     const predictions = (data || []).map((row: any) => {
       const predTotal = Number(row.fg_pred_total);

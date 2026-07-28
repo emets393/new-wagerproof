@@ -17,6 +17,18 @@ import type { OutliersTrendsGame, OutliersTrendsSport } from '../types';
 /** Keep the matchup band at a fixed three rows of three tiles. */
 const MATCHUPS_PER_PAGE = 9;
 
+/** Keep "Today's Matchups" near-term only for football — /games keeps the full week slate. */
+const FOOTBALL_MATCHUP_HORIZON_MS = 21 * 24 * 60 * 60 * 1000;
+
+function isWithinFootballMatchupHorizon(kickoffIso: string | null, nowMs: number): boolean {
+  if (!kickoffIso) return false;
+  const start = new Date(kickoffIso).getTime();
+  if (Number.isNaN(start)) return false;
+  // Include games that started recently (6h grace) through 21 days ahead.
+  return start >= nowMs - 6 * 60 * 60 * 1000 && start <= nowMs + FOOTBALL_MATCHUP_HORIZON_MS;
+}
+
+
 /** `/games` uses `cfb` for college football; Outliers calls it `ncaaf`. */
 function gamesSportParam(sport: OutliersTrendsSport): string {
   return sport === 'ncaaf' ? 'cfb' : sport;
@@ -170,12 +182,16 @@ export function TodaysMatchupsGrid({ sports, gamesBySport, slateLoading, landing
   const todayKey = etDateKey(new Date());
   const tiles = useMemo<Array<MatchupTileData & { sport: OutliersTrendsSport }>>(() => {
     const out: Array<MatchupTileData & { sport: OutliersTrendsSport }> = [];
+    const nowMs = Date.now();
     for (const s of sports) {
       const label = multiSport ? OUTLIERS_SPORT_LABELS[s] : undefined;
       if (s === 'mlb') {
         out.push(...(mlbQuery.data ?? []).map((g) => ({ ...mlbTile(g, todayKey, label), sport: s })));
       } else {
-        out.push(...(gamesBySport[s] ?? []).map((g) => ({ ...slateTile(g, s, todayKey, label), sport: s })));
+        const slate = (gamesBySport[s] ?? []).filter((g) =>
+          isWithinFootballMatchupHorizon(g.kickoff, nowMs),
+        );
+        out.push(...slate.map((g) => ({ ...slateTile(g, s, todayKey, label), sport: s })));
       }
     }
     if (landingPreview) {

@@ -40,8 +40,10 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.put
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -268,11 +270,105 @@ class GamesStore {
         SortMode.OU -> list.sortedByDescending { abs(it.ouEdge ?: 0.0) }
     }
 
-    // MARK: - NFL fetch (dryrun-only — new model's current-week slate)
+    // MARK: - NFL fetch (dryrun-first, then legacy 4-way merge)
 
     private suspend fun fetchNFL() {
         val cfb = SupabaseClients.cfb
-        games = games.copy(nfl = fetchNFLDryrun(cfb))
+
+        val dryrun = fetchNFLDryrun(cfb)
+        if (dryrun.isNotEmpty()) {
+            games = games.copy(nfl = dryrun)
+            return
+        }
+
+        // Step 1: input view (no filters — matches RN exactly).
+        val viewRows: List<NFLViewRow> = cfb.from("v_input_values_with_epa").select().decodeList()
+        if (viewRows.isEmpty()) return
+
+        // Step 2: predictions, latest run_id only (lexicographically largest).
+        val predictionRows: List<NFLPredictionRow> = runCatching {
+            cfb.from("nfl_predictions_epa")
+                .select(columns = Columns.raw("training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id"))
+                .decodeList<NFLPredictionRow>()
+        }.getOrDefault(emptyList())
+        val predictionsMap = HashMap<String, NFLPredictionRow>()
+        if (predictionRows.isNotEmpty()) {
+            val latestRunId = predictionRows.mapNotNull { it.runId }.maxOrNull()
+            for (row in predictionRows) if (row.runId == latestRunId) predictionsMap[row.trainingKey] = row
+        }
+
+        // Step 3: betting lines, most-recent as_of_ts per training_key.
+        val bettingRows: List<NFLBettingRow> = runCatching {
+            cfb.from("nfl_betting_lines")
+                .select(columns = Columns.raw("training_key, home_ml, away_ml, over_line, home_spread, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time, home_ml_handle, away_ml_handle, home_ml_bets, away_ml_bets, home_spread_handle, away_spread_handle, home_spread_bets, away_spread_bets, over_handle, under_handle, over_bets, under_bets"))
+                .decodeList<NFLBettingRow>()
+        }.getOrDefault(emptyList())
+        val bettingMap = HashMap<String, NFLBettingRow>()
+        for (row in bettingRows) {
+            val existing = bettingMap[row.trainingKey]
+            when {
+                existing == null -> bettingMap[row.trainingKey] = row
+                row.asOfTs != null && existing.asOfTs != null && row.asOfTs > existing.asOfTs ->
+                    bettingMap[row.trainingKey] = row
+                existing.asOfTs == null -> bettingMap[row.trainingKey] = row
+            }
+        }
+
+        // Step 4: weather.
+        val weatherRows: List<WeatherRow> = runCatching {
+            cfb.from("production_weather").select().decodeList<WeatherRow>()
+        }.getOrDefault(emptyList())
+        val weatherMap = HashMap<String, WeatherRow>()
+        for (row in weatherRows) row.trainingKey?.let { weatherMap[it] = row }
+
+        // Step 5: merge — match on view.home_away_unique == prediction.training_key.
+        val merged = viewRows.map { row ->
+            val matchKey = row.homeAwayUnique ?: ""
+            val prediction = predictionsMap[matchKey]
+            val bet = bettingMap[matchKey]
+            val weather = weatherMap[matchKey]
+            val homeSpread = row.homeSpread ?: bet?.homeSpread
+            val awaySpread = row.homeSpread?.let { -it } ?: bet?.homeSpread?.let { -it }
+            val obj = buildJsonObject {
+                put("id", row.id ?: matchKey)
+                put("away_team", row.awayTeam ?: "")
+                put("home_team", row.homeTeam ?: "")
+                put("home_ml", bet?.homeMl)
+                put("away_ml", bet?.awayMl)
+                put("home_spread", homeSpread)
+                put("away_spread", awaySpread)
+                put("over_line", row.overUnder ?: bet?.overLine)
+                put("game_date", row.gameDate ?: "")
+                put("game_time", bet?.gameTime ?: row.gameTime ?: "")
+                put("training_key", matchKey)
+                put("unique_id", row.uniqueId ?: matchKey)
+                put("home_away_ml_prob", prediction?.homeAwayMlProb)
+                put("home_away_spread_cover_prob", prediction?.homeAwaySpreadCoverProb)
+                put("ou_result_prob", prediction?.ouResultProb)
+                put("run_id", prediction?.runId)
+                put("temperature", weather?.temperature)
+                put("precipitation", weather?.precipitationPct)
+                put("wind_speed", weather?.windSpeed)
+                put("icon", weather?.icon)
+                put("spread_splits_label", bet?.spreadSplitsLabel)
+                put("total_splits_label", bet?.totalSplitsLabel)
+                put("ml_splits_label", bet?.mlSplitsLabel)
+                put("home_ml_handle", bet?.homeMlHandle)
+                put("away_ml_handle", bet?.awayMlHandle)
+                put("home_ml_bets", bet?.homeMlBets)
+                put("away_ml_bets", bet?.awayMlBets)
+                put("home_spread_handle", bet?.homeSpreadHandle)
+                put("away_spread_handle", bet?.awaySpreadHandle)
+                put("home_spread_bets", bet?.homeSpreadBets)
+                put("away_spread_bets", bet?.awaySpreadBets)
+                put("over_handle", bet?.overHandle)
+                put("under_handle", bet?.underHandle)
+                put("over_bets", bet?.overBets)
+                put("under_bets", bet?.underBets)
+            }
+            WagerproofJson.decodeFromJsonElement(NFLPrediction.serializer(), obj)
+        }
+        games = games.copy(nfl = merged)
     }
 
     private val nflSlotLabels = mapOf(
@@ -280,33 +376,17 @@ class GamesStore {
         "sun_late_sat" to "Sun Late", "snf" to "SNF", "monday" to "MNF",
     )
 
-    /**
-     * The NEW NFL model's current-week slate. `nfl_dryrun_games` keeps its test-era
-     * name but now holds the live weekly output (Odds-API lines + the locked
-     * totals/sides/1H model numbers). The pipeline delete-then-inserts per
-     * (season, week), so the latest (season, week) row is the current slate: anchor
-     * on it (season desc, week desc, limit 1), then filter to that week. Mirrors the
-     * web repoint (src/features/games/api/nflGames.ts) and the OutliersTrendsService
-     * anchor. The retired legacy path (v_input_values_with_epa + nfl_predictions_epa
-     * classifier + nfl_betting_lines) is gone. Spreads are home-relative.
-     */
+    /** Dry-run slate mapped onto the card model. Spreads are home-relative. */
     private suspend fun fetchNFLDryrun(cfb: io.github.jan.supabase.SupabaseClient): List<NFLPrediction> {
         // Team logos/abbrs come from `nfl_teams` — warm the cache first.
         NFLTeamsService.ensureLoaded()
-        val anchor: List<SlateWeekRow> = cfb.from("nfl_dryrun_games")
-            .select(columns = Columns.raw("season, week")) {
-                order("season", Order.DESCENDING)
-                order("week", Order.DESCENDING)
-                limit(1)
-            }
-            .decodeList<SlateWeekRow>()
-        val slate = anchor.firstOrNull() ?: return emptyList()
+        val slate = resolveFootballCurrentWeek(cfb, "nfl_dryrun_games") ?: return emptyList()
         val rows: List<JsonObject> = runCatching {
             cfb.from("nfl_dryrun_games")
                 .select {
                     filter {
-                        eq("season", slate.season)
-                        eq("week", slate.week)
+                        eq("season", slate.first)
+                        eq("week", slate.second)
                     }
                     order("kickoff", Order.ASCENDING)
                 }
@@ -314,6 +394,41 @@ class GamesStore {
         }.getOrDefault(emptyList())
         return rows.map { nflPredictionFromDryrun(it) }
             .sortedWith(compareBy({ it.topConvictionRank }, { it.kickoff ?: it.gameDate }))
+    }
+
+    /** Games-feed anchor: soonest upcoming kickoff (6h grace), else latest slate. */
+    private suspend fun resolveFootballCurrentWeek(
+        cfb: io.github.jan.supabase.SupabaseClient,
+        table: String,
+    ): Pair<Int, Int>? {
+        val graceIso = Instant.now().minusSeconds(6 * 60 * 60).toString()
+        val upcoming = runCatching {
+            cfb.from(table)
+                .select(columns = Columns.raw("season,week,kickoff")) {
+                    filter { gte("kickoff", graceIso) }
+                    order("kickoff", Order.ASCENDING)
+                    limit(1)
+                }
+                .decodeList<JsonObject>()
+        }.getOrDefault(emptyList())
+        upcoming.firstOrNull()?.let { row ->
+            val season = jsonInt(row, "season")
+            val week = jsonInt(row, "week")
+            if (season != null && week != null) return season to week
+        }
+        val latest = runCatching {
+            cfb.from(table)
+                .select(columns = Columns.raw("season,week")) {
+                    order("season", Order.DESCENDING)
+                    order("week", Order.DESCENDING)
+                    limit(1)
+                }
+                .decodeList<JsonObject>()
+        }.getOrDefault(emptyList())
+        val row = latest.firstOrNull() ?: return null
+        val season = jsonInt(row, "season") ?: return null
+        val week = jsonInt(row, "week") ?: return null
+        return season to week
     }
 
     private fun nflPredictionFromDryrun(row: JsonObject): NFLPrediction {
@@ -349,7 +464,7 @@ class GamesStore {
         jsonDouble(row, "fg_home_cover_prob")?.let { m["home_away_spread_cover_prob"] = JsonPrimitive(it) }
         m.remove("ou_result_prob") // iOS sets nil for the dryrun path.
         jsonDouble(row, "fg_pred_total")?.let { m["pred_total"] = JsonPrimitive(it) }
-        m["run_id"] = JsonPrimitive("nfl-dryrun-${season ?: 2025}-${week ?: 12}")
+        m["run_id"] = JsonPrimitive("nfl-dryrun-${season ?: 2026}-${week ?: 1}")
         jsonDouble(row, "wx_temp_f")?.let { m["temperature"] = JsonPrimitive(it) }
         jsonDouble(row, "wx_precip_mm")?.let { m["precipitation"] = JsonPrimitive(it) }
         jsonDouble(row, "wx_wind_mph")?.let { m["wind_speed"] = JsonPrimitive(it) }
@@ -364,46 +479,28 @@ class GamesStore {
     private suspend fun fetchCFBDryrun() {
         val cfb = SupabaseClients.cfb
         CFBTeamsService.ensureLoaded()
-
-        // The NEW CFB model's current-week slate lives in `cfb_dryrun_games` (test-era
-        // name; now the live weekly output). The pipeline delete-then-inserts per
-        // (season, week), so the latest (season, week) row is the current slate: anchor
-        // on it (season desc, week desc, limit 1), then filter games + flags to that
-        // (season, week). Mirrors the web repoint (src/features/games/api/cfbGames.ts).
-        val anchor: List<SlateWeekRow> = cfb.from("cfb_dryrun_games")
-            .select(columns = Columns.raw("season, week")) {
-                order("season", Order.DESCENDING)
-                order("week", Order.DESCENDING)
-                limit(1)
-            }
-            .decodeList<SlateWeekRow>()
-        val slate = anchor.firstOrNull() ?: run {
-            games = games.copy(cfb = emptyList())
-            return
-        }
-
         coroutineScope {
-            // Failures propagate → refresh() marks .failed.
+            val slate = resolveFootballCurrentWeek(cfb, "cfb_dryrun_games")
+                ?: run {
+                    games = games.copy(cfb = emptyList())
+                    return@coroutineScope
+                }
+            val (season, week) = slate
             val gameRowsD = async {
-                cfb.from("cfb_dryrun_games")
-                    .select {
-                        filter {
-                            eq("season", slate.season)
-                            eq("week", slate.week)
-                        }
-                        order("kickoff", Order.ASCENDING)
+                cfb.from("cfb_dryrun_games").select {
+                    filter {
+                        eq("season", season)
+                        eq("week", week)
                     }
-                    .decodeList<CFBDryrunGameRow>()
+                }.decodeList<CFBDryrunGameRow>()
             }
             val flagRowsD = async {
-                cfb.from("cfb_dryrun_flags")
-                    .select {
-                        filter {
-                            eq("season", slate.season)
-                            eq("week", slate.week)
-                        }
+                cfb.from("cfb_dryrun_flags").select {
+                    filter {
+                        eq("season", season)
+                        eq("week", week)
                     }
-                    .decodeList<CFBDryrunFlagRow>()
+                }.decodeList<CFBDryrunFlagRow>()
             }
             val defsD = async { CFBSignalDefinitionsService.shared.definitionsBySource() }
 
@@ -416,11 +513,16 @@ class GamesStore {
                 flag.withSignalDefinition(CFBSignalDefinitionsService.definition(flag.source, definitionsBySource))
             }
             val flagsByGame = flagModels.groupBy { it.gameId }
-            games = games.copy(cfb = rows.map { mapCFBDryrun(it, flagsByGame) })
+            games = games.copy(cfb = rows.map { mapCFBDryrun(it, flagsByGame, season, week) })
         }
     }
 
-    private fun mapCFBDryrun(row: CFBDryrunGameRow, flagsByGame: Map<String, List<CFBDryRunFlag>>): CFBPrediction {
+    private fun mapCFBDryrun(
+        row: CFBDryrunGameRow,
+        flagsByGame: Map<String, List<CFBDryRunFlag>>,
+        season: Int,
+        week: Int,
+    ): CFBPrediction {
         val gameId = row.gameId ?: ""
         val away = row.awayTeam ?: "Away"
         val home = row.homeTeam ?: "Home"
@@ -446,7 +548,7 @@ class GamesStore {
             homeAwayMlProb = row.fgHomeWinProb,
             homeAwaySpreadCoverProb = row.fgHomeCoverProb,
             ouResultProb = null,
-            runId = "cfb-dryrun-${row.season ?: 2025}-wk${row.week ?: 0}",
+            runId = "cfb-dryrun-$season-$week",
             temperature = row.wxTempF,
             precipitation = row.wxPrecipMm,
             windSpeed = row.wxWindMph,
@@ -527,9 +629,64 @@ class GamesStore {
         )
     }
 
-    // Legacy 2-way CFB merge (`cfb_live_weekly_inputs` + `cfb_api_predictions`) was
-    // removed with the 2026 go-live repoint — that model is retired. CFB now reads
-    // `cfb_dryrun_games` only (see fetchCFBDryrun above), matching web.
+    /** Legacy 2-way merge (`cfb_live_weekly_inputs` + `cfb_api_predictions`). Currently unreferenced. */
+    @Suppress("unused")
+    private suspend fun fetchCFBLegacy() {
+        val cfb = SupabaseClients.cfb
+        val inputs: List<CFBInputRow> = cfb.from("cfb_live_weekly_inputs").select().decodeList()
+        val preds: List<CFBAPIRow> = runCatching {
+            cfb.from("cfb_api_predictions").select().decodeList<CFBAPIRow>()
+        }.getOrDefault(emptyList())
+        val predsById = preds.associateBy { it.id }
+
+        val merged = inputs.map { input ->
+            val api = predsById[input.id]
+            val homeSpread = input.apiSpread ?: input.homeSpread
+            val awaySpread = input.apiSpread?.let { -it } ?: input.awaySpread
+            CFBPrediction(
+                id = input.id.toString(),
+                awayTeam = input.awayTeam ?: "",
+                homeTeam = input.homeTeam ?: "",
+                homeMl = input.homeMoneyline ?: input.homeMl,
+                awayMl = input.awayMoneyline ?: input.awayMl,
+                homeSpread = homeSpread,
+                awaySpread = awaySpread,
+                overLine = input.apiOverLine ?: input.totalLine,
+                gameDate = input.startTime ?: input.startDate ?: input.gameDate ?: "",
+                gameTime = input.startTime ?: input.startDate ?: input.gameTime ?: "",
+                trainingKey = input.trainingKey ?: "",
+                uniqueId = input.uniqueId ?: "${input.awayTeam ?: ""}_${input.homeTeam ?: ""}_${input.startTime ?: ""}",
+                homeAwayMlProb = input.predMlProba ?: input.homeAwayMlProb,
+                homeAwaySpreadCoverProb = input.predSpreadProba ?: input.homeAwaySpreadCoverProb,
+                ouResultProb = input.predTotalProba ?: input.ouResultProb,
+                runId = input.runId,
+                temperature = input.weatherTempF ?: input.temperature,
+                precipitation = input.precipitation,
+                windSpeed = input.weatherWindspeedMph ?: input.windSpeed,
+                icon = input.weatherIconText ?: input.icon,
+                spreadSplitsLabel = input.spreadSplitsLabel,
+                totalSplitsLabel = input.totalSplitsLabel,
+                mlSplitsLabel = input.mlSplitsLabel,
+                conference = input.conference,
+                predAwayScore = api?.predAwayScore ?: input.predAwayScore,
+                predHomeScore = api?.predHomeScore ?: input.predHomeScore,
+                predAwayPoints = api?.predAwayPoints ?: api?.awayPoints,
+                predHomePoints = api?.predHomePoints ?: api?.homePoints,
+                predSpread = api?.predSpread ?: api?.runLinePrediction ?: api?.spreadPrediction,
+                homeSpreadDiff = api?.homeSpreadDiff ?: api?.spreadDiff ?: api?.edge,
+                predTotal = api?.predTotal ?: api?.totalPrediction ?: api?.ouPrediction,
+                totalDiff = api?.totalDiff ?: api?.totalEdge,
+                predOverLine = api?.predOverLine,
+                overLineDiff = api?.overLineDiff,
+                openingSpread = input.spread,
+                openingTotal = input.totalLine,
+                convictionTierRaw = "none",
+                mammoth = false,
+                flags = emptyList(),
+            )
+        }
+        games = games.copy(cfb = merged)
+    }
 
     // MARK: - NBA fetch
 
@@ -1002,11 +1159,129 @@ class GamesStore {
 
     // MARK: - Private row decoders
 
-    /** Anchor row for the NFL/CFB dry-run current-week resolution. */
     @Serializable
-    private data class SlateWeekRow(
-        val season: Int = 0,
-        val week: Int = 0,
+    private data class NFLViewRow(
+        @Serializable(with = FlexibleStringSerializer::class) val id: String? = null,
+        @SerialName("away_team") val awayTeam: String? = null,
+        @SerialName("home_team") val homeTeam: String? = null,
+        @SerialName("home_away_unique") val homeAwayUnique: String? = null,
+        @SerialName("unique_id") val uniqueId: String? = null,
+        @SerialName("home_spread") val homeSpread: Double? = null,
+        @SerialName("over_under") val overUnder: Double? = null,
+        @SerialName("game_date") val gameDate: String? = null,
+        @SerialName("game_time") val gameTime: String? = null,
+    )
+
+    @Serializable
+    private data class NFLPredictionRow(
+        @SerialName("training_key") val trainingKey: String,
+        @SerialName("home_away_ml_prob") val homeAwayMlProb: Double? = null,
+        @SerialName("home_away_spread_cover_prob") val homeAwaySpreadCoverProb: Double? = null,
+        @SerialName("ou_result_prob") val ouResultProb: Double? = null,
+        @SerialName("run_id") val runId: String? = null,
+    )
+
+    @Serializable
+    private data class NFLBettingRow(
+        @SerialName("training_key") val trainingKey: String,
+        @SerialName("home_ml") val homeMl: Int? = null,
+        @SerialName("away_ml") val awayMl: Int? = null,
+        @SerialName("over_line") val overLine: Double? = null,
+        @SerialName("home_spread") val homeSpread: Double? = null,
+        @SerialName("spread_splits_label") val spreadSplitsLabel: String? = null,
+        @SerialName("ml_splits_label") val mlSplitsLabel: String? = null,
+        @SerialName("total_splits_label") val totalSplitsLabel: String? = null,
+        @SerialName("as_of_ts") val asOfTs: String? = null,
+        @SerialName("game_date") val gameDate: String? = null,
+        @SerialName("game_time") val gameTime: String? = null,
+        @SerialName("home_ml_handle") val homeMlHandle: String? = null,
+        @SerialName("away_ml_handle") val awayMlHandle: String? = null,
+        @SerialName("home_ml_bets") val homeMlBets: String? = null,
+        @SerialName("away_ml_bets") val awayMlBets: String? = null,
+        @SerialName("home_spread_handle") val homeSpreadHandle: String? = null,
+        @SerialName("away_spread_handle") val awaySpreadHandle: String? = null,
+        @SerialName("home_spread_bets") val homeSpreadBets: String? = null,
+        @SerialName("away_spread_bets") val awaySpreadBets: String? = null,
+        @SerialName("over_handle") val overHandle: String? = null,
+        @SerialName("under_handle") val underHandle: String? = null,
+        @SerialName("over_bets") val overBets: String? = null,
+        @SerialName("under_bets") val underBets: String? = null,
+    )
+
+    @Serializable
+    private data class WeatherRow(
+        @SerialName("training_key") val trainingKey: String? = null,
+        val temperature: Double? = null,
+        @SerialName("precipitation_pct") val precipitationPct: Double? = null,
+        @SerialName("wind_speed") val windSpeed: Double? = null,
+        val icon: String? = null,
+    )
+
+    @Serializable
+    private data class CFBInputRow(
+        val id: Int,
+        @SerialName("away_team") val awayTeam: String? = null,
+        @SerialName("home_team") val homeTeam: String? = null,
+        @SerialName("home_moneyline") val homeMoneyline: Int? = null,
+        @SerialName("away_moneyline") val awayMoneyline: Int? = null,
+        @SerialName("home_ml") val homeMl: Int? = null,
+        @SerialName("away_ml") val awayMl: Int? = null,
+        @SerialName("api_spread") val apiSpread: Double? = null,
+        @SerialName("home_spread") val homeSpread: Double? = null,
+        @SerialName("away_spread") val awaySpread: Double? = null,
+        @SerialName("api_over_line") val apiOverLine: Double? = null,
+        @SerialName("total_line") val totalLine: Double? = null,
+        val spread: Double? = null,
+        @SerialName("start_time") val startTime: String? = null,
+        @SerialName("start_date") val startDate: String? = null,
+        @SerialName("game_date") val gameDate: String? = null,
+        @SerialName("game_time") val gameTime: String? = null,
+        @SerialName("training_key") val trainingKey: String? = null,
+        @SerialName("unique_id") val uniqueId: String? = null,
+        @SerialName("run_id") val runId: String? = null,
+        @SerialName("pred_ml_proba") val predMlProba: Double? = null,
+        @SerialName("pred_spread_proba") val predSpreadProba: Double? = null,
+        @SerialName("pred_total_proba") val predTotalProba: Double? = null,
+        @SerialName("home_away_ml_prob") val homeAwayMlProb: Double? = null,
+        @SerialName("home_away_spread_cover_prob") val homeAwaySpreadCoverProb: Double? = null,
+        @SerialName("ou_result_prob") val ouResultProb: Double? = null,
+        @SerialName("weather_temp_f") val weatherTempF: Double? = null,
+        val temperature: Double? = null,
+        val precipitation: Double? = null,
+        @SerialName("weather_windspeed_mph") val weatherWindspeedMph: Double? = null,
+        @SerialName("wind_speed") val windSpeed: Double? = null,
+        @SerialName("weather_icon_text") val weatherIconText: String? = null,
+        val icon: String? = null,
+        @SerialName("spread_splits_label") val spreadSplitsLabel: String? = null,
+        @SerialName("total_splits_label") val totalSplitsLabel: String? = null,
+        @SerialName("ml_splits_label") val mlSplitsLabel: String? = null,
+        val conference: String? = null,
+        @SerialName("pred_away_score") val predAwayScore: Double? = null,
+        @SerialName("pred_home_score") val predHomeScore: Double? = null,
+    )
+
+    @Serializable
+    private data class CFBAPIRow(
+        val id: Int,
+        @SerialName("pred_away_score") val predAwayScore: Double? = null,
+        @SerialName("pred_home_score") val predHomeScore: Double? = null,
+        @SerialName("pred_away_points") val predAwayPoints: Double? = null,
+        @SerialName("pred_home_points") val predHomePoints: Double? = null,
+        @SerialName("away_points") val awayPoints: Double? = null,
+        @SerialName("home_points") val homePoints: Double? = null,
+        @SerialName("pred_spread") val predSpread: Double? = null,
+        @SerialName("run_line_prediction") val runLinePrediction: Double? = null,
+        @SerialName("spread_prediction") val spreadPrediction: Double? = null,
+        @SerialName("home_spread_diff") val homeSpreadDiff: Double? = null,
+        @SerialName("spread_diff") val spreadDiff: Double? = null,
+        val edge: Double? = null,
+        @SerialName("pred_total") val predTotal: Double? = null,
+        @SerialName("total_prediction") val totalPrediction: Double? = null,
+        @SerialName("ou_prediction") val ouPrediction: Double? = null,
+        @SerialName("total_diff") val totalDiff: Double? = null,
+        @SerialName("total_edge") val totalEdge: Double? = null,
+        @SerialName("pred_over_line") val predOverLine: Double? = null,
+        @SerialName("over_line_diff") val overLineDiff: Double? = null,
     )
 
     @Serializable

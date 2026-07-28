@@ -33,12 +33,26 @@ public struct PropsInsightSummary: Sendable {
     public let badge: InsightVerdictBadge?      // nil = no header accessory
     public let signals: [PropSignal]            // ≤ 5, slot-ordered (starters → extremes → fill)
     public let totalProps: Int                  // players with a headline (footer count)
+    public let featuredPlayerId: Int?           // strongest qualified recent-form pattern
+    public let headline: String                 // plain-language finding for the widget
+    public let explainer: String                // defines the chart + over-rate
 
-    public init(verdict: InsightVerdict, badge: InsightVerdictBadge?, signals: [PropSignal], totalProps: Int) {
+    public init(
+        verdict: InsightVerdict,
+        badge: InsightVerdictBadge?,
+        signals: [PropSignal],
+        totalProps: Int,
+        featuredPlayerId: Int?,
+        headline: String,
+        explainer: String
+    ) {
         self.verdict = verdict
         self.badge = badge
         self.signals = signals
         self.totalProps = totalProps
+        self.featuredPlayerId = featuredPlayerId
+        self.headline = headline
+        self.explainer = explainer
     }
 }
 
@@ -109,7 +123,19 @@ public enum MLBPropsInsight {
             ? InsightVerdictBadge(text: "\(streaks) STREAK\(streaks == 1 ? "" : "S")", tintHex: 0x22C55E)
             : nil
 
-        return PropsInsightSummary(verdict: verdict, badge: badge, signals: signals, totalProps: pool.count)
+        let featured = extremes.first
+        let headline = summaryHeadline(featured: featured)
+        let explainer = "Each percentage is the share of recent games that finished above today's posted line. Green bars finished above it; blue bars finished at or below it."
+
+        return PropsInsightSummary(
+            verdict: verdict,
+            badge: badge,
+            signals: signals,
+            totalProps: pool.count,
+            featuredPlayerId: featured?.playerId,
+            headline: headline,
+            explainer: explainer
+        )
     }
 
     public static func teaser(for matchup: MLBPropMatchup) -> InsightTeaser? {
@@ -211,5 +237,22 @@ public enum MLBPropsInsight {
             return tokens[tokens.count - 2]
         }
         return last
+    }
+
+    private static func summaryHeadline(featured: PropSignal?) -> String {
+        guard let featured else {
+            return "No posted player prop has a strong recent pattern. Starter strikeout lines and top-of-the-order markets are shown for context."
+        }
+
+        let computed = featured.headline.computed
+        let market = MLBPlayerProps.marketLabel(featured.headline.row.market).lowercased()
+        let line = MLBPlayerProps.formatLine(computed.line)
+        let sample = computed.l10
+
+        if featured.slot == .coldBat {
+            return "\(featured.playerName) finished over the \(line) \(market) line in only \(sample.over) of \(sample.games) recent games, so the recent pattern points to the Under."
+        }
+
+        return "\(featured.playerName) finished over the \(line) \(market) line in \(sample.over) of \(sample.games) recent games, the clearest prop pattern in this matchup."
     }
 }

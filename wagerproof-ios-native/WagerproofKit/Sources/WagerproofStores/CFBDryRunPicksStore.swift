@@ -42,20 +42,30 @@ public final class CFBDryRunPicksStore {
             await CFBTeamsService.shared.ensureLoaded()
             let cfb = await CFBSupabase.shared.client
 
-            // Anchor to the current week = latest (season, week) present. The
-            // pipeline delete-then-inserts per (season, week), so the newest
-            // slate is the current week. Mirrors the web `fetchSlateAnchor`.
-            let anchor: [AnchorRow] = try await cfb
+            // Current week = soonest upcoming kickoff with 6h grace (same as GamesStore).
+            let grace = Date().addingTimeInterval(-6 * 60 * 60)
+            let graceIso = ISO8601DateFormatter().string(from: grace)
+            let upcoming: [SlateWeekRow] = (try? await cfb
                 .from("cfb_dryrun_games")
-                .select("season, week")
-                .order("season", ascending: false)
-                .order("week", ascending: false)
+                .select("season,week,kickoff")
+                .gte("kickoff", value: graceIso)
+                .order("kickoff", ascending: true)
                 .limit(1)
                 .execute()
-                .value
-            guard let slate = anchor.first, let season = slate.season, let week = slate.week else {
-                self.flags = []
-                self.games = []
+                .value) ?? []
+            let latest: [SlateWeekRow] = upcoming.isEmpty
+                ? ((try? await cfb
+                    .from("cfb_dryrun_games")
+                    .select("season,week")
+                    .order("season", ascending: false)
+                    .order("week", ascending: false)
+                    .limit(1)
+                    .execute()
+                    .value) ?? [])
+                : upcoming
+            guard let slate = latest.first, let season = slate.season, let week = slate.week else {
+                games = []
+                flags = []
                 loadState = .loaded
                 return
             }
@@ -65,7 +75,6 @@ public final class CFBDryRunPicksStore {
                 .select()
                 .eq("season", value: season)
                 .eq("week", value: week)
-                .order("kickoff", ascending: true)
                 .execute()
                 .value
             async let flagRows: [FlagRow] = cfb
@@ -97,6 +106,12 @@ public final class CFBDryRunPicksStore {
             return a.convictionTier.sortRank < b.convictionTier.sortRank
         }
         return (a.stakeUnits ?? 0) > (b.stakeUnits ?? 0)
+    }
+
+    private struct SlateWeekRow: Decodable, Sendable {
+        let season: Int?
+        let week: Int?
+        let kickoff: String?
     }
 
     private func prediction(from row: GameRow, flagsByGame: [String: [CFBDryRunFlag]]) -> CFBPrediction {
@@ -193,12 +208,6 @@ public final class CFBDryRunPicksStore {
         if let home, let away { return (home, away) }
         guard let total, let margin else { return nil }
         return ((total + margin) / 2, (total - margin) / 2)
-    }
-
-    /// One-row anchor of the latest (season, week) present in `cfb_dryrun_games`.
-    private struct AnchorRow: Decodable, Sendable {
-        let season: Int?
-        let week: Int?
     }
 
     private struct FlexibleString: Decodable, Hashable, Sendable {

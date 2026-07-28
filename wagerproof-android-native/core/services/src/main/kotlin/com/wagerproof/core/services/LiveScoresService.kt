@@ -122,16 +122,10 @@ class LiveScoresService {
 
     // region NFL
 
-    // NFL live-score enrichment reads the NEW model's weekly table `nfl_dryrun_games`
-    // (Odds-API lines + fg_* model probabilities). The pipeline delete-then-inserts per
-    // (season, week), so the latest (season, week) row = current week: anchor on it, then
-    // filter to that week. Mirrors the web repoint (src/services/liveScoresService.ts).
-    // Legacy nfl_predictions_epa + nfl_betting_lines retired.
     private suspend fun fetchNFLPredictions(): List<NFLLivePrediction> = runCatching {
         val client = SupabaseClients.cfb
-
         val anchor = client.from("nfl_dryrun_games")
-            .select(columns = Columns.raw("season, week")) {
+            .select(columns = Columns.raw("season,week")) {
                 order("season", Order.DESCENDING)
                 order("week", Order.DESCENDING)
                 limit(1)
@@ -139,11 +133,10 @@ class LiveScoresService {
             .decodeList<SlateWeekRow>()
         val slate = anchor.firstOrNull() ?: return@runCatching emptyList()
 
-        val rows = client.from("nfl_dryrun_games")
+        client.from("nfl_dryrun_games")
             .select(
                 columns = Columns.raw(
-                    "game_id, home_team, away_team, fg_home_win_prob, fg_home_cover_prob, " +
-                        "fg_spread_close, fg_total_close"
+                    "game_id, home_team, away_team, fg_home_win_prob, fg_home_cover_prob, fg_spread_close, fg_total_close"
                 )
             ) {
                 filter {
@@ -151,38 +144,31 @@ class LiveScoresService {
                     eq("week", slate.week)
                 }
             }
-            .decodeList<NFLDryrunPredRow>()
-
-        rows.map { r ->
-            val homeSpread = r.fgSpreadClose
-            NFLLivePrediction(
-                trainingKey = r.gameId ?: "",
-                homeTeam = r.homeTeam ?: "",
-                awayTeam = r.awayTeam ?: "",
-                homeAwayMlProb = r.fgHomeWinProb,
-                homeAwaySpreadCoverProb = r.fgHomeCoverProb,
-                ouResultProb = null,
-                homeSpread = homeSpread,
-                awaySpread = homeSpread?.let { -it },
-                overLine = r.fgTotalClose,
-            )
-        }
+            .decodeList<NFLDryrunRow>()
+            .map { row ->
+                val homeSpread = row.fgSpreadClose
+                NFLLivePrediction(
+                    trainingKey = row.gameId,
+                    homeTeam = row.homeTeam,
+                    awayTeam = row.awayTeam,
+                    homeAwayMlProb = row.fgHomeWinProb,
+                    homeAwaySpreadCoverProb = row.fgHomeCoverProb,
+                    ouResultProb = null,
+                    homeSpread = homeSpread,
+                    awaySpread = homeSpread?.let { -it },
+                    overLine = row.fgTotalClose,
+                )
+            }
     }.getOrDefault(emptyList())
 
     // endregion
 
     // region CFB
 
-    // CFB live-score enrichment reads the NEW model's weekly table `cfb_dryrun_games`
-    // (Odds-API lines + fg_* model preds). Latest (season, week) = current week (the
-    // pipeline delete-then-inserts per week). Mirrors the web repoint
-    // (src/services/liveScoresService.ts). Legacy cfb_live_weekly_inputs +
-    // cfb_api_predictions retired.
     private suspend fun fetchCFBPredictions(): List<CFBLivePrediction> = runCatching {
         val client = SupabaseClients.cfb
-
         val anchor = client.from("cfb_dryrun_games")
-            .select(columns = Columns.raw("season, week")) {
+            .select(columns = Columns.raw("season,week")) {
                 order("season", Order.DESCENDING)
                 order("week", Order.DESCENDING)
                 limit(1)
@@ -190,12 +176,12 @@ class LiveScoresService {
             .decodeList<SlateWeekRow>()
         val slate = anchor.firstOrNull() ?: return@runCatching emptyList()
 
-        val rows = client.from("cfb_dryrun_games")
+        client.from("cfb_dryrun_games")
             .select(
                 columns = Columns.raw(
-                    "home_team, away_team, fg_home_win_prob, fg_home_cover_prob, " +
-                        "fg_spread_close, fg_total_close, fg_spread_edge, fg_total_edge, " +
-                        "fg_pred_home_pts, fg_pred_away_pts, fg_pred_total, fg_pred_margin"
+                    "home_team, away_team, fg_home_win_prob, fg_home_cover_prob, fg_spread_close, " +
+                        "fg_total_close, fg_spread_edge, fg_total_edge, fg_pred_home_pts, fg_pred_away_pts, " +
+                        "fg_pred_total, fg_pred_margin"
                 )
             ) {
                 filter {
@@ -203,28 +189,27 @@ class LiveScoresService {
                     eq("week", slate.week)
                 }
             }
-            .decodeList<CFBDryrunPredRow>()
-
-        rows.map { row ->
-            val hasScore = row.fgPredTotal != null && row.fgPredMargin != null
-            val homeScore = row.fgPredHomePts
-                ?: if (hasScore) (row.fgPredTotal!! + row.fgPredMargin!!) / 2 else null
-            val awayScore = row.fgPredAwayPts
-                ?: if (hasScore) (row.fgPredTotal!! - row.fgPredMargin!!) / 2 else null
-            CFBLivePrediction(
-                homeTeam = row.homeTeam ?: "",
-                awayTeam = row.awayTeam ?: "",
-                predMlProba = row.fgHomeWinProb,
-                predSpreadProba = row.fgHomeCoverProb,
-                predTotalProba = null,
-                apiSpread = row.fgSpreadClose,
-                apiOverLine = row.fgTotalClose,
-                homeSpreadDiff = row.fgSpreadEdge,
-                overLineDiff = row.fgTotalEdge,
-                predHomeScore = homeScore,
-                predAwayScore = awayScore,
-            )
-        }
+            .decodeList<CFBDryrunRow>()
+            .map { row ->
+                val predTotal = row.fgPredTotal
+                val predMargin = row.fgPredMargin
+                val hasScore = predTotal != null && predMargin != null
+                CFBLivePrediction(
+                    homeTeam = row.homeTeam,
+                    awayTeam = row.awayTeam,
+                    predMlProba = row.fgHomeWinProb,
+                    predSpreadProba = row.fgHomeCoverProb,
+                    predTotalProba = null,
+                    apiSpread = row.fgSpreadClose,
+                    apiOverLine = row.fgTotalClose,
+                    homeSpreadDiff = row.fgSpreadEdge,
+                    overLineDiff = row.fgTotalEdge,
+                    predHomeScore = row.fgPredHomePts
+                        ?: if (hasScore) (predTotal!! + predMargin!!) / 2 else null,
+                    predAwayScore = row.fgPredAwayPts
+                        ?: if (hasScore) (predTotal!! - predMargin!!) / 2 else null,
+                )
+            }
     }.getOrDefault(emptyList())
 
     // endregion
@@ -572,49 +557,46 @@ private sealed interface PredictionSource {
     data class NCAAB(val p: NCAABLivePrediction) : PredictionSource
 }
 
-/** Anchor row for NFL/CFB dry-run current-week resolution (season desc, week desc, limit 1). */
-@Serializable
-private data class SlateWeekRow(
-    val season: Int = 0,
-    val week: Int = 0,
-)
-
 /** Shared by NBA + NCAAB latest-run lookups (both key runs by as_of_ts_utc). */
 @Serializable
 private data class RunIdRow(
     @SerialName("run_id") val runId: Int? = null,
 )
 
-/** Slim projection of `nfl_dryrun_games` for live-score ML/spread/total badges. */
 @Serializable
-private data class NFLDryrunPredRow(
-    @SerialName("game_id") val gameId: String? = null,
-    @SerialName("home_team") val homeTeam: String? = null,
-    @SerialName("away_team") val awayTeam: String? = null,
+private data class SlateWeekRow(
+    val season: Int,
+    val week: Int,
+)
+
+@Serializable
+private data class NFLDryrunRow(
+    @SerialName("game_id") val gameId: String,
+    @SerialName("home_team") val homeTeam: String,
+    @SerialName("away_team") val awayTeam: String,
     @SerialName("fg_home_win_prob") val fgHomeWinProb: Double? = null,
     @SerialName("fg_home_cover_prob") val fgHomeCoverProb: Double? = null,
     @SerialName("fg_spread_close") val fgSpreadClose: Double? = null,
     @SerialName("fg_total_close") val fgTotalClose: Double? = null,
 )
 
-/** Assembled live prediction the badge computation reads (built, not decoded). */
+@Serializable
 private data class NFLLivePrediction(
-    val trainingKey: String,
-    val homeTeam: String,
-    val awayTeam: String,
-    val homeAwayMlProb: Double? = null,
-    val homeAwaySpreadCoverProb: Double? = null,
-    val ouResultProb: Double? = null,
-    val homeSpread: Double? = null,
-    val awaySpread: Double? = null,
-    val overLine: Double? = null,
+    @SerialName("training_key") val trainingKey: String,
+    @SerialName("home_team") val homeTeam: String,
+    @SerialName("away_team") val awayTeam: String,
+    @SerialName("home_away_ml_prob") val homeAwayMlProb: Double? = null,
+    @SerialName("home_away_spread_cover_prob") val homeAwaySpreadCoverProb: Double? = null,
+    @SerialName("ou_result_prob") val ouResultProb: Double? = null,
+    @SerialName("home_spread") val homeSpread: Double? = null,
+    @SerialName("away_spread") val awaySpread: Double? = null,
+    @SerialName("over_line") val overLine: Double? = null,
 )
 
-/** Slim projection of `cfb_dryrun_games` for live-score badges. */
 @Serializable
-private data class CFBDryrunPredRow(
-    @SerialName("home_team") val homeTeam: String? = null,
-    @SerialName("away_team") val awayTeam: String? = null,
+private data class CFBDryrunRow(
+    @SerialName("home_team") val homeTeam: String,
+    @SerialName("away_team") val awayTeam: String,
     @SerialName("fg_home_win_prob") val fgHomeWinProb: Double? = null,
     @SerialName("fg_home_cover_prob") val fgHomeCoverProb: Double? = null,
     @SerialName("fg_spread_close") val fgSpreadClose: Double? = null,
@@ -627,7 +609,6 @@ private data class CFBDryrunPredRow(
     @SerialName("fg_pred_margin") val fgPredMargin: Double? = null,
 )
 
-/** Assembled CFB live prediction from cfb_dryrun_games (api scores win). */
 private data class CFBLivePrediction(
     val homeTeam: String,
     val awayTeam: String,

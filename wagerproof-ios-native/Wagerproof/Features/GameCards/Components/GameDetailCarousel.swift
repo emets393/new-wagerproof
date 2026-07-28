@@ -97,8 +97,8 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
                 // Drawn over the opaque surface instead, with NO blend mode. On
                 // the dark surface (0x0A0A0A) additive-over-black and
                 // normal-over-that are near identical. The pages are
-                // transparent (`transparentPage: true`) apart from their hero
-                // band, so the glow still reads everywhere it used to.
+                // transparent (`transparentPage: true`), including their hero
+                // band, so the glow remains continuous during a page swipe.
                 //
                 // Cross-FADES between two static aura layers (identity keyed on
                 // `selection`) instead of animating awayColor/homeColor. The
@@ -139,9 +139,6 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
                                 // Clear the floating strip + the home indicator.
                                 stripHeight + 24 + bottomInset
                             )
-                            // Resident-but-not-selected pages drop their live
-                            // glass for a flat fill (see `widgetPageIsCurrent`).
-                            .environment(\.widgetPageIsCurrent, idx == selection)
                             .tag(idx)
                         } else {
                             Color.clear.tag(idx)
@@ -216,6 +213,10 @@ struct GameDetailCarousel<G: Identifiable, Page: View, Chip: View>: View where G
                 .padding(.vertical, 6)
             }
             .frame(height: stripHeight)
+            // The scroll view's default clip is rectangular, but the visible
+            // strip is a capsule. Clip the moving chips to that same silhouette
+            // so partial matchups never paint through the rounded end caps.
+            .clipShape(Capsule())
             .liquidGlassBackground(in: Capsule())
             .onChange(of: selection) { _, new in
                 withAnimation(.smooth(duration: 0.35)) { proxy.scrollTo(new, anchor: .center) }
