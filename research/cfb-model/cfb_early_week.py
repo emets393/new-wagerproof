@@ -54,23 +54,6 @@ def load():
     return gm
 
 
-def split_week0(te):
-    """CFBD folds the opening weekend into week==1. Join kickoff dates and, if there's a >=3-day
-    gap, drop the earlier (Week-0) cluster so each team appears once in the main week."""
-    g = pd.read_parquet(os.path.join(CFBD, f"games_{SEASON}.parquet"))[["id", "startDate"]]
-    te = te.merge(g.rename(columns={"id": "game_id"}), on="game_id", how="left")
-    d = pd.to_datetime(te["startDate"], utc=True, errors="coerce").dt.normalize()
-    uniq = sorted(d.dropna().unique())
-    if len(uniq) > 1:
-        gaps = [(uniq[i + 1] - uniq[i], uniq[i + 1]) for i in range(len(uniq) - 1)]
-        biggest, split_date = max(gaps, key=lambda x: x[0])
-        if biggest >= pd.Timedelta(days=3):
-            n0 = int((d < split_date).sum())
-            te = te[d >= split_date].copy()
-            L(f"[split] dropped {n0} Week-0 games ({biggest.days}d gap before {pd.Timestamp(split_date).date()})")
-    return te
-
-
 def main():
     gm = load()
     tr = gm[(gm.week <= 3) & (gm.season < SEASON)
@@ -100,10 +83,12 @@ def main():
 
     mreg = Ridge(alpha=5.0).fit(imp(tr, MARGIN_FEATS), tr.actual_margin)
     treg = Ridge(alpha=5.0).fit(imp(tr, TOTAL_FEATS), tr.actual_total)
+    # Predict EVERY game in the week — including the Week-0 opening-weekend games CFBD folds into week==1.
+    # A team that plays both Week 0 (late Aug) and Week 1 (early Sep) shows two rows; both are real games and
+    # the app orders by kickoff, so both display correctly. We do NOT drop the openers.
     te = gm[(gm.season == SEASON) & (gm.week == WEEK)].copy()
     if te.empty:
         L(f"[predict] no {SEASON} wk{WEEK} games in model_games"); return
-    te = split_week0(te)
     te["pred_margin"] = mreg.predict(imp(te, MARGIN_FEATS)).round(1)
     te["pred_total"] = treg.predict(imp(te, TOTAL_FEATS)).round(1)
     te["pred_spread"] = (-te.pred_margin).round(1)
