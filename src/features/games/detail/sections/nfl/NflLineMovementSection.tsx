@@ -21,6 +21,8 @@ import { TeamMark } from './shared';
 import { useNflLineMovement } from './useNflLineMovement';
 
 const formatTimestamp = (timestamp: string): string => {
+  if (timestamp === 'open') return 'Open';
+  if (timestamp === 'close') return 'Now';
   try {
     const date = new Date(timestamp);
     const month = date.getMonth() + 1;
@@ -113,7 +115,17 @@ interface NflLineMovementSectionProps {
 export function NflLineMovementSection({ game }: NflLineMovementSectionProps) {
   const raw = game.raw as NFLPrediction;
   const [series, setSeries] = React.useState<Series>('away');
-  const { lineData, loading, error } = useNflLineMovement(raw.training_key);
+  const { lineData, loading, error } = useNflLineMovement({
+    gameId: raw.game_id || raw.training_key || raw.id,
+    homeAb: (raw.home_ab as string | undefined) || game.homeTeam.abbrev,
+    awayAb: (raw.away_ab as string | undefined) || game.awayTeam.abbrev,
+    season: raw.season as number | undefined,
+    week: raw.week as number | undefined,
+    homeSpreadOpen: raw.fg_spread_open as number | null | undefined,
+    homeSpreadClose: (raw.fg_spread_close as number | null | undefined) ?? raw.home_spread,
+    totalOpen: raw.fg_total_open as number | null | undefined,
+    totalClose: (raw.fg_total_close as number | null | undefined) ?? raw.over_line,
+  });
 
   const away = game.awayTeam;
   const home = game.homeTeam;

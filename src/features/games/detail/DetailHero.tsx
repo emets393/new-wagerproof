@@ -30,7 +30,7 @@ export function DetailHero({ game, isAdmin }: { game: GameFeedItem; isAdmin: boo
 
   const showWeather =
     (game.sport === 'nfl' || game.sport === 'cfb') &&
-    (raw?.temperature != null || raw?.wind_speed != null || raw?.icon);
+    (raw?.temperature != null || raw?.wind_speed != null || raw?.icon || raw?.icon_code);
 
   return (
     <div className="relative flex flex-col items-center gap-3 px-6 pb-5 pt-8 text-center">
@@ -73,8 +73,12 @@ export function DetailHero({ game, isAdmin }: { game: GameFeedItem; isAdmin: boo
 
       {showWeather && (
         <div className="flex items-center gap-3 rounded-full border border-black/5 bg-white/50 px-4 py-1.5 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.07]">
-          {raw?.icon && (
-            <WeatherIconComponent code={raw.icon} size={22} className="stroke-current text-foreground" />
+          {(raw?.icon || raw?.icon_code) && (
+            <WeatherIconComponent
+              code={raw.icon || raw.icon_code}
+              size={22}
+              className="stroke-current text-foreground"
+            />
           )}
           {raw?.temperature != null && (
             <span className="text-sm font-bold text-foreground">{Math.round(raw.temperature)}°F</span>

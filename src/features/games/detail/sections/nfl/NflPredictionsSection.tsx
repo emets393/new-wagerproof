@@ -39,11 +39,9 @@ export function NflSpreadSection({ game }: NflPredictionSectionProps) {
   const vegasLine = isHome ? raw.home_spread : raw.away_spread;
   const confidencePct = Math.round((isHome ? coverProb : 1 - coverProb) * 100);
 
-  // home_spread_diff = vegas home spread − model fair home spread, so a positive
-  // value is value on the HOME side. Flip it when the pick is the road team so
-  // the number always reads from the picked side's perspective.
-  // Always null for NFL: the model is a cover/OU CLASSIFIER and publishes no fair
-  // line to subtract. The edge branches below are dead on this sport by design.
+  // home_spread_diff = vegas home spread − model fair home spread on the new
+  // dryrun model (fg_spread_edge). Positive = value on the HOME side. Flip when
+  // the pick is the road team so the number always reads from the picked side.
   const homeDiff = raw.home_spread_diff ?? null;
   const pickEdge = homeDiff === null || Number.isNaN(homeDiff) ? null : isHome ? homeDiff : -homeDiff;
   // Derived from the edge (not re-modelled) so model − vegas equals the gap shown.
@@ -118,26 +116,58 @@ export function NflSpreadSection({ game }: NflPredictionSectionProps) {
 /**
  * Total pick. Same shape as the spread card — one question, recommendation
  * first — with OVER/UNDER carrying green+up / blue+down on the word itself.
+ *
+ * After the 2026 dryrun cutover the model publishes `fg_total_pick` +
+ * `fg_total_edge` / `fg_pred_total` rather than a classifier `ou_result_prob`.
+ * Prefer the pick when present; fall back to model-vs-Vegas edge.
  */
 export function NflTotalSection({ game }: NflPredictionSectionProps) {
   const raw = game.raw as NFLPrediction;
   const ouProb = raw.ou_result_prob;
-  if (ouProb === null || ouProb === undefined) return null;
-
-  const isOver = ouProb > 0.5;
-  const confidencePct = Math.round((isOver ? ouProb : 1 - ouProb) * 100);
+  const pickRaw = String(raw.fg_total_pick ?? '')
+    .trim()
+    .toUpperCase();
+  const totalDiff = raw.over_line_diff ?? null;
+  const predTotal = raw.pred_total != null ? Number(raw.pred_total) : null;
   const vegasTotal = raw.over_line;
+
+  let isOver: boolean | null = null;
+  if (ouProb !== null && ouProb !== undefined) {
+    isOver = ouProb > 0.5;
+  } else if (pickRaw === 'OVER') {
+    isOver = true;
+  } else if (pickRaw === 'UNDER') {
+    isOver = false;
+  } else if (totalDiff !== null && !Number.isNaN(totalDiff) && totalDiff !== 0) {
+    isOver = totalDiff > 0;
+  } else if (
+    predTotal !== null &&
+    Number.isFinite(predTotal) &&
+    vegasTotal !== null &&
+    vegasTotal !== undefined
+  ) {
+    const gap = predTotal - Number(vegasTotal);
+    if (gap !== 0) isOver = gap > 0;
+  }
+
+  if (isOver === null) return null;
+
+  const confidencePct =
+    ouProb !== null && ouProb !== undefined
+      ? Math.round((isOver ? ouProb : 1 - ouProb) * 100)
+      : null;
 
   // over_line_diff = model fair total − vegas total, i.e. positive means the
   // model projects more points. Flipped for an UNDER pick so the gap always
   // reads as value on the recommended side.
-  const totalDiff = raw.over_line_diff ?? null;
   const pickEdge =
     totalDiff === null || Number.isNaN(totalDiff) ? null : isOver ? totalDiff : -totalDiff;
   const modelTotal =
-    vegasTotal !== null && vegasTotal !== undefined && totalDiff !== null
-      ? Number(vegasTotal) + totalDiff
-      : null;
+    predTotal !== null && Number.isFinite(predTotal)
+      ? predTotal
+      : vegasTotal !== null && vegasTotal !== undefined && totalDiff !== null
+        ? Number(vegasTotal) + totalDiff
+        : null;
 
   return (
     <WidgetCard
@@ -146,7 +176,7 @@ export function NflTotalSection({ game }: NflPredictionSectionProps) {
       headline={
         nflTotalHeadline({
           isOver,
-          confidencePct,
+          confidencePct: confidencePct ?? 55,
           vegasTotal: vegasTotal ?? null,
           pickEdge,
           modelTotal,
@@ -167,11 +197,13 @@ export function NflTotalSection({ game }: NflPredictionSectionProps) {
         }
       />
 
-      <ConfidenceMeter
-        pct={confidencePct}
-        outcome={`chance the ${isOver ? 'over' : 'under'} hits`}
-        accessory={confidencePct >= FADE_ALERT_PCT ? <FadeAlertChip /> : undefined}
-      />
+      {confidencePct !== null && (
+        <ConfidenceMeter
+          pct={confidencePct}
+          outcome={`chance the ${isOver ? 'over' : 'under'} hits`}
+          accessory={confidencePct >= FADE_ALERT_PCT ? <FadeAlertChip /> : undefined}
+        />
+      )}
 
       {modelTotal !== null && pickEdge !== null && (
         <CompareRow

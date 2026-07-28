@@ -59,6 +59,12 @@ export interface GameFeedItem<TRaw = Record<string, unknown>> {
   status: 'scheduled' | 'postponed';
   lines: GameLines;
   edges: GameEdges;
+  /**
+   * Non-blanket dryrun signal count for feed chips (NFL/CFB).
+   * Sourced from slate `flags_active+flags_tracking` / `n_flags_active+n_flags_tracking`.
+   * Omit or 0 when none — list cards hide the badge at 0 to match iOS/Android.
+   */
+  signalCount?: number;
   /** Full merged row from the sport's legacy fetch — detail sections cast this. */
   raw: TRaw;
 }

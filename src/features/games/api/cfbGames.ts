@@ -1,9 +1,8 @@
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
-import { installCfbTeamAssets } from '@/utils/cfbTeamAssets';
+import { getCfbTeamLogo, installCfbTeamAssets } from '@/utils/cfbTeamAssets';
 import type { GameFeedItem, SportFeed, TeamRef } from '../types';
-import { resolveCfbCurrentWeek } from './footballSlate';
-import { resolveCfbCurrentWeek } from './footballSlate';
+import { resolveCfbCurrentWeek, signalCountFromDryrunGame } from './footballSlate';
 
 /**
  * CFB adapter for the /games feed.
@@ -504,11 +503,15 @@ const toTeamRef = (
   const rowColor = side === 'away' ? row.away_color : row.home_color;
   const rowAltColor = side === 'away' ? row.away_alt_color : row.home_alt_color;
   const rowAbbr = side === 'away' ? row.away_abbr : row.home_abbr;
-  // Dry-run rows carry cfb_teams logos baked in; regular mode resolves via
-  // cfb_team_mapping lookup (exact/ci/partial), matching the page.
-  const logo = row.is_dry_run
-    ? (side === 'away' ? row.away_logo : row.home_logo) || ''
-    : getCFBTeamLogo(name, teamMappings);
+  // Prefer logos baked onto the dryrun row from cfb_teams; fall back to the
+  // process-wide assets cache (accent-safe), then the legacy mapping lookup.
+  const rowLogo = side === 'away' ? row.away_logo : row.home_logo;
+  const logo =
+    rowLogo ||
+    getCfbTeamLogo(name) ||
+    (rowAbbr ? getCfbTeamLogo(rowAbbr) : null) ||
+    getCFBTeamLogo(name, teamMappings) ||
+    '';
 
   return {
     name,
@@ -521,20 +524,30 @@ const toTeamRef = (
   };
 };
 
-export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPrediction>> {
+export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBPrediction>> {
   let merged: CFBPrediction[] = [];
   let mappings: CFBTeamMapping[] = [];
   let generatedAt: string | null = null;
-
   // The NEW CFB model's weekly output lives in cfb_dryrun_games (legacy test-era name; it now holds
   // the real current-week slate). Live feed + admin both read it; the current week resolves from
   // kickoffs so the board rolls Week 1 -> Week 2 on its own. The old legacy path
   // (cfb_live_weekly_inputs + cfb_api_predictions) is retired — that model is no longer used.
   {
     const { season, week } = await resolveCfbCurrentWeek();
-    const { data: dryRunMappings, error: mappingsError } = await collegeFootballSupabase
-      .from('cfb_teams')
-      .select('team_name, abbr, logo, logo_dark, color, alt_color, conference');
+    const [
+      { data: dryRunMappings, error: mappingsError },
+      { data: preds, error: predsError },
+    ] = await Promise.all([
+      collegeFootballSupabase
+        .from('cfb_teams')
+        .select('team_name, abbr, logo, logo_dark, color, alt_color, conference'),
+      collegeFootballSupabase
+        .from('cfb_dryrun_games')
+        .select('*')
+        .eq('season', season)
+        .eq('week', week)
+        .order('kickoff', { ascending: true }),
+    ]);
 
     if (mappingsError) {
       throw new Error(`Team mappings error: ${mappingsError.message}`);
@@ -543,13 +556,6 @@ export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPr
     mappings = dryRunMappings || [];
     // Shared Outliers / games logo cache (web port of native CFBTeamAssets).
     installCfbTeamAssets(mappings);
-
-    const { data: preds, error: predsError } = await collegeFootballSupabase
-      .from('cfb_dryrun_games')
-      .select('*')
-      .eq('season', season)
-      .eq('week', week)
-      .order('kickoff', { ascending: true });
 
     if (predsError) {
       throw new Error(`Predictions error: ${predsError.message}`);
@@ -610,8 +616,12 @@ export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPr
         wind_speed: prediction.wx_wind_mph ?? null,
         precipitation: prediction.wx_precip_mm ?? null,
         icon_code: prediction.wx_icon ?? null,
+        icon: prediction.wx_icon ?? null,
         weather_icon_text: prediction.wx_summary ?? null,
-        is_dry_run: false,
+        // New model win-prob → feed ML edge pill (was left blank after dryrun cutover).
+        pred_ml_proba: prediction.fg_home_win_prob ?? null,
+        // Every row is from cfb_dryrun_games — unlock the conviction / multi-market UI for all users.
+        is_dry_run: true,
       };
     });
     generatedAt = (preds as any[])?.[0]?.generated_at ?? null;
@@ -644,10 +654,10 @@ export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPr
       edges: {
         spreadEdge: row.home_spread_diff ?? null,
         totalEdge: row.over_line_diff ?? null,
-        // Regular rows may carry pred_ml_proba from cfb_live_weekly_inputs;
-        // dry-run conviction data doesn't map to a probability — lives in raw.
         mlProb: row.pred_ml_proba ?? null,
       },
+      // Prefer slate n_flags_* (excludes blanket model_lean / opener_under / rivalry_week_over).
+      signalCount: signalCountFromDryrunGame('cfb', row),
       raw: row,
     };
   });
@@ -656,7 +666,8 @@ export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPr
     games,
     extras: {
       teamMappings: mappings,
-      mode: adminMode ? 'dryrun' : 'regular',
+      // Always the dryrun slate now — admin mode only gates AI Payload, not the model UI.
+      mode: 'dryrun',
       generatedAt,
     },
     fetchedAt: Date.now(),

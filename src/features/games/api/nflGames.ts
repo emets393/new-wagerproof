@@ -1,16 +1,23 @@
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
+import {
+  getNflTeamAbbr,
+  getNflTeamLogo,
+  installNflTeamAssets,
+  lookupNflTeam,
+} from '@/utils/nflTeamAssets';
 import type { GameFeedItem, SportFeed, TeamRef } from '../types';
-import { resolveNflCurrentWeek } from './footballSlate';
+import { resolveNflCurrentWeek, signalCountFromDryrunGame } from './footballSlate';
 
 /**
  * NFL adapter for the /games feed.
  * Reads the NEW model's weekly output: nfl_dryrun_games (the locked totals/sides/1H model numbers +
- * Odds-API lines) + nfl_team_mapping (logos). The current week is resolved dynamically from kickoffs
- * (resolveNflCurrentWeek), so the slate rolls Week 1 -> Week 2 automatically. The legacy path
- * (v_input_values_with_epa + nfl_predictions_epa classifier + nfl_betting_lines + production_weather)
- * is retired — nfl_predictions_epa now feeds only the legacy_fade signals, not the displayed card.
- * (nfl_dryrun_games keeps its test-era name but now holds the live current-week slate.)
+ * Odds-API lines) + nfl_teams (logos/abbrs via home_ab/away_ab). The current week is resolved
+ * dynamically from kickoffs (resolveNflCurrentWeek), so the slate rolls Week 1 -> Week 2
+ * automatically. The legacy path (v_input_values_with_epa + nfl_predictions_epa classifier +
+ * nfl_betting_lines as card lines + production_weather) is retired — nfl_betting_lines remains
+ * only for the Line-Movement history widget. (nfl_dryrun_games keeps its test-era name but now
+ * holds the live current-week slate.)
  */
 
 export interface NFLPrediction {
@@ -196,161 +203,160 @@ const LOGO_MAP: Record<string, string> = {
   Washington: 'https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png',
 };
 
-export const getNFLTeamInitials = (teamCity: string): string =>
-  INITIALS_MAP[teamCity] || teamCity.substring(0, 3).toUpperCase();
+export const getNFLTeamInitials = (teamCity: string): string => {
+  const fromAssets = getNflTeamAbbr(teamCity);
+  if (fromAssets) return fromAssets;
+  return INITIALS_MAP[teamCity] || teamCity.substring(0, 3).toUpperCase();
+};
 
-export const getNFLFullTeamName = (teamCity: string): { city: string; name: string } => ({
-  city: teamCity,
-  name: TEAM_NAME_MAP[teamCity] || '',
-});
+export const getNFLFullTeamName = (teamCity: string): { city: string; name: string } => {
+  const team = lookupNflTeam(teamCity);
+  if (team) {
+    return { city: team.linesCity, name: team.nick || '' };
+  }
+  return {
+    city: teamCity,
+    name: TEAM_NAME_MAP[teamCity] || '',
+  };
+};
 
-export const getNFLTeamColors = (teamName: string): { primary: string; secondary: string } =>
-  COLOR_MAP[teamName] || { primary: '#6B7280', secondary: '#9CA3AF' };
+export const getNFLTeamColors = (teamName: string): { primary: string; secondary: string } => {
+  const abbr = getNflTeamAbbr(teamName);
+  const city =
+    (abbr &&
+      ({
+        ARI: 'Arizona',
+        ATL: 'Atlanta',
+        BAL: 'Baltimore',
+        BUF: 'Buffalo',
+        CAR: 'Carolina',
+        CHI: 'Chicago',
+        CIN: 'Cincinnati',
+        CLE: 'Cleveland',
+        DAL: 'Dallas',
+        DEN: 'Denver',
+        DET: 'Detroit',
+        GB: 'Green Bay',
+        HOU: 'Houston',
+        IND: 'Indianapolis',
+        JAX: 'Jacksonville',
+        KC: 'Kansas City',
+        LV: 'Las Vegas',
+        LAC: 'LA Chargers',
+        LA: 'LA Rams',
+        LAR: 'LA Rams',
+        MIA: 'Miami',
+        MIN: 'Minnesota',
+        NE: 'New England',
+        NO: 'New Orleans',
+        NYG: 'NY Giants',
+        NYJ: 'NY Jets',
+        PHI: 'Philadelphia',
+        PIT: 'Pittsburgh',
+        SF: 'San Francisco',
+        SEA: 'Seattle',
+        TB: 'Tampa Bay',
+        TEN: 'Tennessee',
+        WAS: 'Washington',
+        WSH: 'Washington',
+      } as Record<string, string>)[abbr]) ||
+    teamName;
+  return COLOR_MAP[city] || COLOR_MAP[teamName] || { primary: '#6B7280', secondary: '#9CA3AF' };
+};
 
 export const getNFLTeamLogo = (teamName: string): string =>
-  LOGO_MAP[teamName] || '/placeholder.svg';
+  getNflTeamLogo(teamName) || LOGO_MAP[teamName] || '/placeholder.svg';
 
-const teamRef = (teamCity: string): TeamRef => ({
-  name: teamCity,
-  abbrev: getNFLTeamInitials(teamCity),
-  logoUrl: getNFLTeamLogo(teamCity),
-  colors: getNFLTeamColors(teamCity),
-});
+const teamRef = (teamName: string, abbrHint?: string | null): TeamRef => {
+  const abbr = (abbrHint && String(abbrHint).trim().toUpperCase()) || getNFLTeamInitials(teamName);
+  const logo = getNflTeamLogo(abbr) || getNflTeamLogo(teamName) || getNFLTeamLogo(teamName);
+  return {
+    name: teamName,
+    abbrev: abbr,
+    logoUrl: logo,
+    colors: getNFLTeamColors(abbr || teamName),
+  };
+};
 
-// Legacy time quirk (port of NFL.tsx): game_time_et is stored in EST but
-// treated as UTC upstream, so the page adds 5 hours before formatting.
-// Ported verbatim — do not "fix" or displayed kickoff times shift.
-function convertGameTime(
-  gameTimeEt: string | null | undefined,
-  fallbackTime: string | null | undefined,
-  fallbackDate: string | null | undefined
-): string {
-  let gameTime = '';
-  if (gameTimeEt) {
-    try {
-      if (gameTimeEt.includes(' ')) {
-        const [datePart, timePart] = gameTimeEt.split(' ');
-        const timeStr = timePart.split('+')[0].split('-')[0];
-        const [hoursStr, minutesStr] = timeStr.split(':');
-        const hours = parseInt(hoursStr, 10);
-        const minutes = parseInt(minutesStr || '0', 10);
-
-        if (!isNaN(hours) && !isNaN(minutes) && datePart) {
-          const estHours = hours + 5;
-          let finalDate = datePart;
-          let finalHours = estHours;
-          const finalMinutes = minutes;
-
-          if (finalHours >= 24) {
-            finalHours = finalHours % 24;
-            const [year, month, day] = datePart.split('-').map(Number);
-            const nextDay = new Date(year, month - 1, day + 1);
-            finalDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
-          }
-
-          const [year, month, day] = finalDate.split('-').map(Number);
-          const date = new Date(
-            `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(finalHours).padStart(2, '0')}:${String(finalMinutes).padStart(2, '0')}:00-05:00`
-          );
-
-          if (!isNaN(date.getTime())) {
-            gameTime = date.toLocaleTimeString('en-US', {
-              timeZone: 'America/New_York',
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true,
-            });
-            const formatter = new Intl.DateTimeFormat('en-US', {
-              timeZone: 'America/New_York',
-              timeZoneName: 'short',
-            });
-            const parts = formatter.formatToParts(date);
-            const tzName = parts.find((part) => part.type === 'timeZoneName')?.value || 'EST';
-            gameTime = `${gameTime} ${tzName}`;
-          }
-        }
-      }
-    } catch (error) {
-      debug.error('Error converting game_time_et:', error, gameTimeEt);
-    }
+/** Format an ISO kickoff into an ET display label (e.g. "1:00 PM EDT"). */
+function formatKickoffLabel(kickoff: string | null | undefined): string {
+  if (!kickoff) return '';
+  try {
+    const date = new Date(kickoff);
+    if (Number.isNaN(date.getTime())) return kickoff;
+    const time = date.toLocaleTimeString('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      timeZoneName: 'short',
+    });
+    const tzName =
+      formatter.formatToParts(date).find((part) => part.type === 'timeZoneName')?.value || 'ET';
+    return `${time} ${tzName}`;
+  } catch {
+    return kickoff;
   }
+}
 
-  if (!gameTime && fallbackTime) {
-    try {
-      const parts = fallbackTime.split(':');
-      if (parts.length >= 2) {
-        const hours = parseInt(parts[0], 10);
-        const minutes = parseInt(parts[1], 10);
-        if (!isNaN(hours) && !isNaN(minutes) && fallbackDate) {
-          const estHours = hours + 5;
-          const [year, month, day] = fallbackDate.split('-').map(Number);
-          let finalDate = fallbackDate;
-          const finalHours = estHours >= 24 ? estHours % 24 : estHours;
-          if (estHours >= 24) {
-            const nextDay = new Date(year, month - 1, day + 1);
-            finalDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
-          }
-          const [fYear, fMonth, fDay] = finalDate.split('-').map(Number);
-          const date = new Date(
-            `${fYear}-${String(fMonth).padStart(2, '0')}-${String(fDay).padStart(2, '0')}T${String(finalHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00-05:00`
-          );
-          if (!isNaN(date.getTime())) {
-            gameTime = date.toLocaleTimeString('en-US', {
-              timeZone: 'America/New_York',
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true,
-            });
-            const formatter = new Intl.DateTimeFormat('en-US', {
-              timeZone: 'America/New_York',
-              timeZoneName: 'short',
-            });
-            const tzParts = formatter.formatToParts(date);
-            const tzName = tzParts.find((part) => part.type === 'timeZoneName')?.value || 'EST';
-            gameTime = `${gameTime} ${tzName}`;
-          }
-        }
-      }
-      if (!gameTime) {
-        gameTime = fallbackTime;
-      }
-    } catch (error) {
-      debug.error('Error processing fallback time:', error);
-      gameTime = fallbackTime;
-    }
-  }
-
-  return gameTime;
+/**
+ * Derive a display-side over/under probability from the new model's total pick.
+ * The dryrun table publishes `fg_total_pick` (OVER/UNDER/NEUTRAL) + edge, not a
+ * classifier `ou_result_prob`. Soften NEUTRAL to null so the Total widget can
+ * still render from model/vegas when a directional pick exists.
+ */
+function ouProbFromDryrunPick(
+  pick: string | null | undefined,
+  edge: number | null | undefined,
+): number | null {
+  const key = String(pick || '')
+    .trim()
+    .toUpperCase();
+  if (key === 'OVER') return 0.55 + Math.min(0.2, Math.abs(Number(edge) || 0) / 50);
+  if (key === 'UNDER') return 0.45 - Math.min(0.2, Math.abs(Number(edge) || 0) / 50);
+  return null;
 }
 
 export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
   // The NEW NFL model's weekly output lives in nfl_dryrun_games (legacy test-era name; it now holds the
   // real current-week slate — Odds-API lines + the locked totals/sides/1H model numbers). The current
   // week resolves dynamically from kickoffs so the board rolls Week 1 -> Week 2 on its own. The old
-  // legacy path (v_input_values_with_epa + nfl_predictions_epa classifier + nfl_betting_lines) is
-  // retired; nfl_predictions_epa now feeds only the legacy_fade signals, not the displayed card.
+  // legacy path (v_input_values_with_epa + nfl_predictions_epa classifier + nfl_betting_lines as card
+  // lines) is retired; nfl_betting_lines remains only for Line-Movement history.
   const { season, week } = await resolveNflCurrentWeek();
 
-  const { data: nflGames, error: gamesError } = await collegeFootballSupabase
-    .from('nfl_dryrun_games')
-    .select('*')
-    .eq('season', season)
-    .eq('week', week)
-    .order('kickoff', { ascending: true });
+  const [
+    { data: nflGames, error: gamesError },
+    { data: nflTeams, error: teamsError },
+  ] = await Promise.all([
+    collegeFootballSupabase
+      .from('nfl_dryrun_games')
+      .select('*')
+      .eq('season', season)
+      .eq('week', week)
+      .order('kickoff', { ascending: true }),
+    collegeFootballSupabase
+      .from('nfl_teams')
+      .select('team_abbr, team_name, team_nick, logo_espn'),
+  ]);
+
   if (gamesError) {
     throw new Error(`Games error: ${gamesError.message}`);
   }
-
-  // team mappings (logos for detail sections) — static reference, season-independent
-  const { data: teamMappingsData, error: teamMappingsError } = await collegeFootballSupabase
-    .from('nfl_team_mapping')
-    .select('city_and_name, team_name');
-  if (teamMappingsError) {
-    debug.error('Error fetching NFL team mappings:', teamMappingsError);
+  if (teamsError) {
+    debug.error('Error fetching NFL teams:', teamsError);
   }
-  const teamMappings: NFLTeamMapping[] = (teamMappingsData || []).map((team) => ({
-    ...team,
-    logo_url: getNFLTeamLogo(team.team_name),
+  installNflTeamAssets(nflTeams || []);
+
+  // Keep a teamMappings-shaped extras payload for detail sections that still
+  // expect it (H2H / legacy consumers), now sourced from nfl_teams.
+  const teamMappings: NFLTeamMapping[] = (nflTeams || []).map((team) => ({
+    city_and_name: team.team_name,
+    team_name: team.team_nick || team.team_name,
+    logo_url: getNFLTeamLogo(team.team_abbr || team.team_name),
   }));
 
   // Map nfl_dryrun_games rows onto the NFLPrediction shape the cards + detail widgets read.
@@ -360,17 +366,21 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
     const predTotal = Number(r.fg_pred_total);
     const predMargin = Number(r.fg_pred_margin);
     const hasScore = Number.isFinite(predTotal) && Number.isFinite(predMargin);
+    const totalEdge = r.fg_total_edge ?? null;
+    const kickoffLabel = formatKickoffLabel(r.kickoff);
     return {
       ...r,
       id: r.game_id,
+      game_id: r.game_id,
       training_key: r.game_id,
       unique_id: r.game_id,
       game_date: r.gameday || (r.kickoff ? String(r.kickoff).slice(0, 10) : ''),
-      game_time: r.kickoff || '',
+      game_time: kickoffLabel || r.kickoff || '',
       // model numbers — the new model has a fair line + edges the legacy classifier never had
       home_away_ml_prob: r.fg_home_win_prob ?? null,
       home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
-      ou_result_prob: null,
+      ou_result_prob: ouProbFromDryrunPick(r.fg_total_pick, totalEdge),
+      fg_total_pick: r.fg_total_pick ?? null,
       pred_spread: r.fg_pred_spread ?? null,
       pred_total: r.fg_pred_total ?? null,
       pred_home_score: hasScore ? (predTotal + predMargin) / 2 : (r.tt_home_pred ?? null),
@@ -382,7 +392,7 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
       away_spread: homeSpread !== null ? -Number(homeSpread) : null,
       over_line: total,
       home_spread_diff: r.fg_spread_edge ?? null,
-      over_line_diff: r.fg_total_edge ?? null,
+      over_line_diff: totalEdge,
       // weather (blank pre-season; populated in-season)
       temperature: r.wx_temp_f ?? null,
       precipitation: r.wx_precip_mm ?? null,
@@ -394,11 +404,11 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
   const games: GameFeedItem<NFLPrediction>[] = merged.map((row) => ({
     sport: 'nfl',
     id: row.id,
-    awayTeam: teamRef(row.away_team),
-    homeTeam: teamRef(row.home_team),
+    awayTeam: teamRef(row.away_team, row.away_ab as string | null | undefined),
+    homeTeam: teamRef(row.home_team, row.home_ab as string | null | undefined),
     gameDate: row.game_date || '',
     gameTimeLabel: row.game_time || 'TBD',
-    timeSortKey: row.game_time || '',
+    timeSortKey: (row.kickoff as string) || row.game_time || '',
     status: 'scheduled',
     lines: {
       homeML: row.home_ml,
@@ -412,6 +422,8 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
       totalEdge: row.over_line_diff ?? null,
       mlProb: row.home_away_ml_prob,
     },
+    // Prefer slate flag counts (excludes blanket sides_model); never count signals[].key.
+    signalCount: signalCountFromDryrunGame('nfl', row),
     raw: row,
   }));
 

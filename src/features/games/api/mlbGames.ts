@@ -365,7 +365,15 @@ export async function fetchMlbGames(): Promise<SportFeed<MLBPredictionRow>> {
       },
       edges: {
         spreadEdge: null,
-        totalEdge: row.ou_edge ?? null,
+        // Prefer ou_direction (authority) so the list O/U pill matches the detail card
+        // even when total_line drifted after the model snapshot.
+        totalEdge: (() => {
+          const edge = row.ou_edge;
+          if (edge == null) return null;
+          if (row.ou_direction === 'UNDER') return -Math.abs(edge);
+          if (row.ou_direction === 'OVER') return Math.abs(edge);
+          return edge;
+        })(),
         mlProb: row.ml_home_win_prob ?? null,
       },
       raw: row,

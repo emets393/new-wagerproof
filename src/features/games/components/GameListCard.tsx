@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { GlassCard, TeamLogoDiscs, StatCapsule, EdgePill } from '@/components/ios';
+import { GlassCard, TeamLogoDiscs, StatCapsule } from '@/components/ios';
 import { PolymarketSparkline, type DemoSparklineSeries } from './PolymarketSparkline';
 import { StarButton } from '@/components/StarButton';
 import { AgentConsensusStrip } from './AgentConsensusStrip';
-import { formatMoneyline, formatSpread, getDisplayedProb } from '../api/shared';
+import { ProjectionPills } from './ProjectionPills';
+import { formatMoneyline, formatSpread } from '../api/shared';
 import type { GameAgentConsensus } from '@/services/agentConsensusService';
 import type { GameFeedItem } from '../types';
 
@@ -91,11 +92,6 @@ export function GameListCard({
 }: GameListCardProps) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const { lines, edges, awayTeam, homeTeam } = item;
-
-  const displayedProb = getDisplayedProb(edges.mlProb);
-  // Map win-prob to the iOS 4-tier edge scale: 80%+ reads as a top-tier edge
-  // (matches the legacy FADE ALERT threshold), 62%+ mid-tier.
-  const mlMagnitude = displayedProb !== null ? (displayedProb * 100 - 50) / 6 : 0;
 
   const favoredHome = lines.homeSpread !== null && lines.homeSpread < 0;
   const spreadText =
@@ -187,25 +183,12 @@ export function GameListCard({
         {/* Model edges + compact game metadata */}
         <div className="relative mt-2 border-t border-black/5 dark:border-white/10" />
         <div className="relative mt-2 flex items-center gap-1">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-            {displayedProb !== null && (
-              <EdgePill className="px-2 py-0.5 text-[10px]" text={`ML ${(displayedProb * 100).toFixed(0)}%`} magnitude={mlMagnitude} />
-            )}
-            {edges.spreadEdge !== null && (
-              <EdgePill
-                text={`SPR ${formatSpread(Math.round(Math.abs(edges.spreadEdge) * 2) / 2)}`}
-                magnitude={Math.abs(edges.spreadEdge)}
-                className="px-2 py-0.5 text-[10px]"
-              />
-            )}
-            {edges.totalEdge !== null && (
-              <EdgePill
-                text={`O/U ${formatSpread(Math.round(Math.abs(edges.totalEdge) * 2) / 2)}`}
-                magnitude={Math.abs(edges.totalEdge)}
-                className="px-2 py-0.5 text-[10px]"
-              />
-            )}
-          </div>
+          <ProjectionPills
+            edges={edges}
+            awayTeam={awayTeam}
+            homeTeam={homeTeam}
+            signalCount={item.signalCount}
+          />
 
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {isAdmin && item.sport !== 'mlb' && (
