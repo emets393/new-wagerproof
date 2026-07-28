@@ -296,8 +296,8 @@ class OutliersTrendsService {
         val first = games.firstOrNull()
             ?: return NFLTrendsSlateBundle(
                 games = emptyList(),
-                season = 2025,
-                throughWeek = 11,
+                season = 2026,
+                throughWeek = 1,
                 teams = emptyList(),
                 coaches = emptyList(),
                 referees = emptyList(),
@@ -502,7 +502,7 @@ class OutliersTrendsService {
     ) {
         fun model(): OutliersTrendsGame = OutliersTrendsGame(
             id = gameId,
-            season = season ?: 2025,
+            season = season ?: 2026,
             week = week ?: 1,
             awayAb = awayAb ?: "???",
             homeAb = homeAb ?: "???",
@@ -535,7 +535,7 @@ class OutliersTrendsService {
             val away = awayTeam ?: "Away"
             return OutliersTrendsGame(
                 id = gameId ?: "",
-                season = season ?: 2025,
+                season = season ?: 2026,
                 week = week ?: 1,
                 awayAb = away,
                 homeAb = home,

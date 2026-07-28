@@ -2,6 +2,8 @@ import { collegeFootballSupabase } from '@/integrations/supabase/college-footbal
 import debug from '@/utils/debug';
 import { installCfbTeamAssets } from '@/utils/cfbTeamAssets';
 import type { GameFeedItem, SportFeed, TeamRef } from '../types';
+import { resolveCfbCurrentWeek } from './footballSlate';
+import { resolveCfbCurrentWeek } from './footballSlate';
 
 /**
  * CFB adapter for the /games feed.
@@ -518,35 +520,6 @@ const toTeamRef = (
     },
   };
 };
-
-/**
- * Resolve the CFB slate to show: the (season, week) of the soonest upcoming game in the new-model
- * table. A 6h grace keeps a just-kicked game's week current; once every game in a week has kicked
- * off, the next week's games become "soonest" and the board rolls forward on its own. Falls back to
- * the latest slate present (offseason / all games played).
- */
-async function resolveCfbCurrentWeek(): Promise<{ season: number; week: number }> {
-  const grace = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-  const { data: upcoming } = await collegeFootballSupabase
-    .from('cfb_dryrun_games')
-    .select('season, week, kickoff')
-    .gte('kickoff', grace)
-    .order('kickoff', { ascending: true })
-    .limit(1);
-  if (upcoming && upcoming.length) {
-    return { season: Number(upcoming[0].season), week: Number(upcoming[0].week) };
-  }
-  const { data: latest } = await collegeFootballSupabase
-    .from('cfb_dryrun_games')
-    .select('season, week')
-    .order('season', { ascending: false })
-    .order('week', { ascending: false })
-    .limit(1);
-  if (latest && latest.length) {
-    return { season: Number(latest[0].season), week: Number(latest[0].week) };
-  }
-  return { season: 2026, week: 1 };
-}
 
 export async function fetchCfbGames(adminMode: boolean): Promise<SportFeed<CFBPrediction>> {
   let merged: CFBPrediction[] = [];

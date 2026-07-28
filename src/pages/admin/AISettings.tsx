@@ -524,30 +524,41 @@ export default function AISettings() {
       let games: any[] = [];
       
       if (sportType === 'nfl') {
-        // Get latest run_id
-        const { data: latestRun } = await collegeFootballSupabase
-          .from('nfl_predictions_epa')
-          .select('run_id')
-          .order('run_id', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (latestRun) {
-          const { data: nflGames } = await collegeFootballSupabase
-            .from('nfl_predictions_epa')
-            .select('*')
-            .eq('run_id', latestRun.run_id)
-            .limit(10); // Limit to 10 for preview
-
-          games = nflGames || [];
-        }
-      } else {
-        const { data: cfbGames } = await collegeFootballSupabase
-          .from('cfb_live_weekly_inputs')
+        const { resolveNflCurrentWeek } = await import('@/features/games/api/footballSlate');
+        const { season, week } = await resolveNflCurrentWeek();
+        const { data: nflGames } = await collegeFootballSupabase
+          .from('nfl_dryrun_games')
           .select('*')
-          .limit(10); // Limit to 10 for preview
+          .eq('season', season)
+          .eq('week', week)
+          .limit(10);
 
-        games = cfbGames || [];
+        games = (nflGames || []).map((r: any) => ({
+          ...r,
+          training_key: r.game_id,
+          unique_id: r.game_id,
+          home_spread: r.fg_spread_close ?? null,
+          over_line: r.fg_total_close ?? null,
+          home_away_ml_prob: r.fg_home_win_prob ?? null,
+          home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
+        }));
+      } else {
+        const { resolveCfbCurrentWeek } = await import('@/features/games/api/footballSlate');
+        const { season, week } = await resolveCfbCurrentWeek();
+        const { data: cfbGames } = await collegeFootballSupabase
+          .from('cfb_dryrun_games')
+          .select('*')
+          .eq('season', season)
+          .eq('week', week)
+          .limit(10);
+
+        games = (cfbGames || []).map((r: any) => ({
+          ...r,
+          training_key: r.game_id,
+          unique_id: r.game_id,
+          api_spread: r.fg_spread_close ?? null,
+          api_over_line: r.fg_total_close ?? null,
+        }));
       }
 
       setTesterGamesData(games);

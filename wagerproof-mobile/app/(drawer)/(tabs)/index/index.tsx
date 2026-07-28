@@ -172,154 +172,75 @@ export default function FeedScreen() {
     { id: 'cfb', label: 'CFB', available: true, icon: 'school' },
   ];
 
-  // Fetch NFL data - matches web app approach using v_input_values_with_epa view
+  // Fetch NFL data from nfl_dryrun_games (current week resolved dynamically)
   const fetchNFLData = async () => {
     try {
-      console.log('🏈 Fetching NFL games from v_input_values_with_epa...');
-      
-      // Step 1: Fetch ALL games from v_input_values_with_epa (simple query like CFB)
-      const { data: nflGames, error: gamesError } = await collegeFootballSupabase
-        .from('v_input_values_with_epa')
-        .select('*');
-
-      console.log('🏈 NFL query result:', nflGames?.length || 0, 'error:', gamesError?.message || 'none');
-
-      if (gamesError) {
-        console.error('Error fetching NFL games from v_input_values_with_epa:', gamesError);
-        throw gamesError;
+      console.log('🏈 Fetching NFL games from nfl_dryrun_games...');
+      const grace = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+      let { data: upcoming } = await collegeFootballSupabase
+        .from('nfl_dryrun_games')
+        .select('season, week')
+        .gte('kickoff', grace)
+        .order('kickoff', { ascending: true })
+        .limit(1);
+      if (!upcoming?.length) {
+        const { data: latest } = await collegeFootballSupabase
+          .from('nfl_dryrun_games')
+          .select('season, week')
+          .order('season', { ascending: false })
+          .order('week', { ascending: false })
+          .limit(1);
+        upcoming = latest || [];
       }
-      
-      console.log(`🏈 Found ${nflGames?.length || 0} NFL games from view`);
-      
+      if (!upcoming?.length) {
+        setCachedData(prev => ({ ...prev, nfl: { games: [], lastFetch: Date.now() } }));
+        return;
+      }
+      const { season, week } = upcoming[0];
+
+      const { data: nflGames, error: gamesError } = await collegeFootballSupabase
+        .from('nfl_dryrun_games')
+        .select('*')
+        .eq('season', season)
+        .eq('week', week)
+        .order('kickoff', { ascending: true });
+
+      if (gamesError) throw gamesError;
       if (!nflGames || nflGames.length === 0) {
         setCachedData(prev => ({ ...prev, nfl: { games: [], lastFetch: Date.now() } }));
         return;
       }
 
-      // Step 2: Fetch all predictions (no order clause to avoid issues)
-      const { data: allPredictions, error: predsError } = await collegeFootballSupabase
-        .from('nfl_predictions_epa')
-        .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id');
-
-      console.log('🏈 NFL predictions query:', allPredictions?.length || 0, 'error:', predsError?.message || 'none');
-
-      let predictionsMap = new Map();
-      
-      if (allPredictions && allPredictions.length > 0) {
-        // Find the latest run_id and use those predictions
-        const runIds = [...new Set(allPredictions.map((p: any) => p.run_id))].sort().reverse();
-        const latestRunId = runIds[0];
-        console.log('Latest NFL run_id:', latestRunId);
-        
-        allPredictions.forEach((pred: any) => {
-          if (pred.run_id === latestRunId) {
-            predictionsMap.set(pred.training_key, pred);
-          }
-        });
-        console.log(`✅ NFL predictions matched: ${predictionsMap.size}`);
-      }
-      
-      // Step 3: Fetch betting lines for moneylines, public splits (no order clause)
-      const { data: bettingLines, error: bettingError } = await collegeFootballSupabase
-        .from('nfl_betting_lines')
-        .select('training_key, home_ml, away_ml, over_line, home_spread, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time, home_ml_handle, away_ml_handle, home_ml_bets, away_ml_bets, home_spread_handle, away_spread_handle, home_spread_bets, away_spread_bets, over_handle, under_handle, over_bets, under_bets');
-
-      console.log('🏈 NFL betting lines query:', bettingLines?.length || 0, 'error:', bettingError?.message || 'none');
-
-      let bettingLinesMap = new Map();
-      
-      if (!bettingError && bettingLines) {
-        // Get most recent line per training_key (compare as_of_ts client-side)
-        bettingLines.forEach((line: any) => {
-          const existing = bettingLinesMap.get(line.training_key);
-          if (!existing || (line.as_of_ts && (!existing.as_of_ts || line.as_of_ts > existing.as_of_ts))) {
-            bettingLinesMap.set(line.training_key, line);
-          }
-        });
-        console.log(`✅ NFL betting lines matched: ${bettingLinesMap.size}`);
-      }
-
-      // Step 4: Fetch weather data from production_weather table
-      const { data: weatherData, error: weatherError } = await collegeFootballSupabase
-        .from('production_weather')
-        .select('*');
-      
-      let weatherMap = new Map();
-      
-      if (!weatherError && weatherData) {
-        weatherData.forEach((weather: any) => {
-          if (weather.training_key) {
-            weatherMap.set(weather.training_key, weather);
-          }
-        });
-      }
-
-      // Step 5: Merge games with predictions, betting lines, and weather
-      // home_away_unique in v_input_values_with_epa = training_key in nfl_predictions_epa and nfl_betting_lines
-      const predictionsWithData: NFLPrediction[] = (nflGames || []).map((game: any) => {
-        const matchKey = game.home_away_unique;
-        const prediction = predictionsMap.get(matchKey);
-        const bettingLine = bettingLinesMap.get(matchKey);
-        const weather = weatherMap.get(matchKey);
-
-        // Debug: Log betting line data for first few games
-        if (bettingLine && game.home_team) {
-          console.log(`🎰 Betting data for ${game.away_team} @ ${game.home_team}:`, {
-            home_ml_bets: bettingLine.home_ml_bets,
-            away_ml_bets: bettingLine.away_ml_bets,
-            home_spread_bets: bettingLine.home_spread_bets,
-            over_bets: bettingLine.over_bets,
-            ml_splits_label: bettingLine.ml_splits_label,
-          });
-        }
-
+      const predictionsWithData: NFLPrediction[] = nflGames.map((r: any) => {
+        const homeSpread = r.fg_spread_close ?? null;
         return {
-          id: game.id || matchKey,
-          away_team: game.away_team,
-          home_team: game.home_team,
-          home_ml: bettingLine?.home_ml || null,
-          away_ml: bettingLine?.away_ml || null,
-          home_spread: game.home_spread || bettingLine?.home_spread || null,
-          away_spread: game.home_spread ? -game.home_spread : (bettingLine?.home_spread ? -bettingLine.home_spread : null),
-          over_line: game.over_under || bettingLine?.over_line || null,
-          game_date: game.game_date,
-          game_time: bettingLine?.game_time || game.game_time || '',
-          training_key: matchKey,
-          unique_id: game.unique_id || matchKey,
-          home_away_ml_prob: prediction?.home_away_ml_prob || null,
-          home_away_spread_cover_prob: prediction?.home_away_spread_cover_prob || null,
-          ou_result_prob: prediction?.ou_result_prob || null,
-          run_id: prediction?.run_id || null,
-          // Weather data
-          temperature: weather?.temperature || null,
-          precipitation: weather?.precipitation_pct || null,
-          wind_speed: weather?.wind_speed || null,
-          icon: weather?.icon || null,
-          // Public betting splits (labels)
-          spread_splits_label: bettingLine?.spread_splits_label || null,
-          total_splits_label: bettingLine?.total_splits_label || null,
-          ml_splits_label: bettingLine?.ml_splits_label || null,
-          // Public betting data - Moneyline
-          home_ml_handle: bettingLine?.home_ml_handle || null,
-          away_ml_handle: bettingLine?.away_ml_handle || null,
-          home_ml_bets: bettingLine?.home_ml_bets || null,
-          away_ml_bets: bettingLine?.away_ml_bets || null,
-          // Public betting data - Spread
-          home_spread_handle: bettingLine?.home_spread_handle || null,
-          away_spread_handle: bettingLine?.away_spread_handle || null,
-          home_spread_bets: bettingLine?.home_spread_bets || null,
-          away_spread_bets: bettingLine?.away_spread_bets || null,
-          // Public betting data - Total
-          over_handle: bettingLine?.over_handle || null,
-          under_handle: bettingLine?.under_handle || null,
-          over_bets: bettingLine?.over_bets || null,
-          under_bets: bettingLine?.under_bets || null,
+          id: r.game_id,
+          away_team: r.away_team,
+          home_team: r.home_team,
+          home_ml: r.fg_ml_home_close ?? null,
+          away_ml: r.fg_ml_away_close ?? null,
+          home_spread: homeSpread,
+          away_spread: homeSpread !== null ? -Number(homeSpread) : null,
+          over_line: r.fg_total_close ?? null,
+          game_date: r.gameday || (r.kickoff ? String(r.kickoff).slice(0, 10) : ''),
+          game_time: r.kickoff || '',
+          training_key: r.game_id,
+          unique_id: r.game_id,
+          home_away_ml_prob: r.fg_home_win_prob ?? null,
+          home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
+          ou_result_prob: null,
+          run_id: `nfl-dryrun-${season}-${week}`,
+          temperature: r.wx_temp_f ?? null,
+          precipitation: r.wx_precip_mm ?? null,
+          wind_speed: r.wx_wind_mph ?? null,
+          icon: r.wx_icon ?? null,
+          spread_splits_label: null,
+          total_splits_label: null,
+          ml_splits_label: null,
         };
       });
 
-      console.log(`📊 NFL: ${predictionsWithData.length} games, ${predictionsMap.size} have predictions`);
-      
-      // Update cached data
+      console.log(`📊 NFL: ${predictionsWithData.length} games (S${season} W${week})`);
       setCachedData(prev => ({
         ...prev,
         nfl: { games: predictionsWithData, lastFetch: Date.now() }
@@ -330,66 +251,78 @@ export default function FeedScreen() {
     }
   };
 
-  // Fetch CFB data
+  // Fetch CFB data from cfb_dryrun_games (current week resolved dynamically)
   const fetchCFBData = async () => {
     try {
+      const grace = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+      let { data: upcoming } = await collegeFootballSupabase
+        .from('cfb_dryrun_games')
+        .select('season, week')
+        .gte('kickoff', grace)
+        .order('kickoff', { ascending: true })
+        .limit(1);
+      if (!upcoming?.length) {
+        const { data: latest } = await collegeFootballSupabase
+          .from('cfb_dryrun_games')
+          .select('season, week')
+          .order('season', { ascending: false })
+          .order('week', { ascending: false })
+          .limit(1);
+        upcoming = latest || [];
+      }
+      if (!upcoming?.length) {
+        setCachedData(prev => ({ ...prev, cfb: { games: [], lastFetch: Date.now() } }));
+        return;
+      }
+      const { season, week } = upcoming[0];
+
       const { data: preds, error: predsError } = await collegeFootballSupabase
-        .from('cfb_live_weekly_inputs')
-        .select('*');
+        .from('cfb_dryrun_games')
+        .select('*')
+        .eq('season', season)
+        .eq('week', week)
+        .order('kickoff', { ascending: true });
 
       if (predsError) throw predsError;
 
-      const { data: apiPreds, error: apiPredsError } = await collegeFootballSupabase
-        .from('cfb_api_predictions')
-        .select('*');
-
-      if (apiPredsError) {
-        console.error('Error fetching CFB API predictions:', apiPredsError);
-      }
-
-      const predictionsWithData: CFBPrediction[] = (preds || []).map((prediction: any) => {
-        const apiPred = apiPreds?.find(ap => ap.id === prediction.id);
-
+      const predictionsWithData: CFBPrediction[] = (preds || []).map((r: any) => {
+        const homeSpread = r.fg_spread_close ?? null;
+        const predTotal = Number(r.fg_pred_total);
+        const predMargin = Number(r.fg_pred_margin);
+        const hasScore = Number.isFinite(predTotal) && Number.isFinite(predMargin);
         return {
-          id: prediction.id,
-          away_team: prediction.away_team,
-          home_team: prediction.home_team,
-          home_ml: prediction.home_moneyline || prediction.home_ml,
-          away_ml: prediction.away_moneyline || prediction.away_ml,
-          home_spread: prediction.api_spread || prediction.home_spread,
-          away_spread: prediction.api_spread ? -prediction.api_spread : (prediction.away_spread || null),
-          over_line: prediction.api_over_line || prediction.total_line,
-          opening_spread: prediction.spread || null,
-          opening_total: prediction.total_line || null,
-          game_date: prediction.start_time || prediction.start_date || prediction.game_date,
-          game_time: prediction.start_time || prediction.start_date || prediction.game_time,
-          training_key: prediction.training_key,
-          unique_id: prediction.unique_id || `${prediction.away_team}_${prediction.home_team}_${prediction.start_time}`,
-          run_id: prediction.run_id || null,
-          home_away_ml_prob: prediction.pred_ml_proba || prediction.home_away_ml_prob,
-          home_away_spread_cover_prob: prediction.pred_spread_proba || prediction.home_away_spread_cover_prob,
-          ou_result_prob: prediction.pred_total_proba || prediction.ou_result_prob,
-          temperature: prediction.weather_temp_f || prediction.temperature || null,
-          precipitation: prediction.precipitation || null,
-          wind_speed: prediction.weather_windspeed_mph || prediction.wind_speed || null,
-          icon: prediction.weather_icon_text || prediction.icon || null,
-          spread_splits_label: prediction.spread_splits_label || null,
-          total_splits_label: prediction.total_splits_label || null,
-          ml_splits_label: prediction.ml_splits_label || null,
-          conference: prediction.conference || null,
-          pred_away_score: apiPred?.pred_away_score ?? prediction.pred_away_score ?? null,
-          pred_home_score: apiPred?.pred_home_score ?? prediction.pred_home_score ?? null,
-          pred_away_points: apiPred?.pred_away_points ?? apiPred?.away_points ?? null,
-          pred_home_points: apiPred?.pred_home_points ?? apiPred?.home_points ?? null,
-          pred_spread: apiPred?.pred_spread || apiPred?.run_line_prediction || apiPred?.spread_prediction || null,
-          home_spread_diff: apiPred?.home_spread_diff || apiPred?.spread_diff || apiPred?.edge || null,
-          pred_total: apiPred?.pred_total || apiPred?.total_prediction || apiPred?.ou_prediction || null,
-          total_diff: apiPred?.total_diff || apiPred?.total_edge || null,
-          pred_over_line: apiPred?.pred_over_line ?? null,
-          over_line_diff: apiPred?.over_line_diff ?? null,
+          id: r.game_id,
+          away_team: r.away_team,
+          home_team: r.home_team,
+          home_ml: r.fg_ml_home_close ?? null,
+          away_ml: r.fg_ml_away_close ?? null,
+          home_spread: homeSpread,
+          away_spread: homeSpread !== null ? -Number(homeSpread) : null,
+          over_line: r.fg_total_close ?? null,
+          opening_spread: r.fg_spread_open ?? null,
+          opening_total: r.fg_total_open ?? null,
+          game_date: r.kickoff,
+          game_time: r.kickoff,
+          training_key: r.game_id,
+          unique_id: r.game_id,
+          run_id: `cfb-dryrun-${season}-${week}`,
+          home_away_ml_prob: r.fg_home_win_prob ?? null,
+          home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
+          ou_result_prob: null,
+          temperature: r.wx_temp_f ?? null,
+          precipitation: r.wx_precip_mm ?? null,
+          wind_speed: r.wx_wind_mph ?? null,
+          icon: r.wx_icon ?? null,
+          pred_away_score: r.fg_pred_away_pts ?? (hasScore ? (predTotal - predMargin) / 2 : null),
+          pred_home_score: r.fg_pred_home_pts ?? (hasScore ? (predTotal + predMargin) / 2 : null),
+          pred_spread: r.fg_pred_spread ?? null,
+          home_spread_diff: r.fg_spread_edge ?? null,
+          pred_total: r.fg_pred_total ?? null,
+          over_line_diff: r.fg_total_edge ?? null,
         };
       });
 
+      console.log(`📊 CFB: ${predictionsWithData.length} games (S${season} W${week})`);
       setCachedData(prev => ({
         ...prev,
         cfb: { games: predictionsWithData, lastFetch: Date.now() }
@@ -398,12 +331,6 @@ export default function FeedScreen() {
       console.error('Error fetching CFB data:', err);
       setError(prev => ({ ...prev, cfb: 'Failed to fetch CFB games' }));
     }
-  };
-
-  // Helper to calculate away ML from home ML
-  const calculateAwayML = (homeML: number | null): number | null => {
-    if (homeML === null) return null;
-    return homeML > 0 ? -(homeML + 100) : 100 - homeML;
   };
 
   // Fetch NBA data - matches web app approach (no date filter)

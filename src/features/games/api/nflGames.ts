@@ -1,6 +1,7 @@
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
 import type { GameFeedItem, SportFeed, TeamRef } from '../types';
+import { resolveNflCurrentWeek } from './footballSlate';
 
 /**
  * NFL adapter for the /games feed.
@@ -320,34 +321,6 @@ function convertGameTime(
   }
 
   return gameTime;
-}
-
-/**
- * Resolve the NFL slate to show: the (season, week) of the soonest upcoming game in the new-model
- * table. 6h grace keeps a just-kicked game's week current; once every game in a week has kicked off,
- * the next week becomes "soonest" and the board rolls forward. Falls back to the latest slate present.
- */
-async function resolveNflCurrentWeek(): Promise<{ season: number; week: number }> {
-  const grace = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-  const { data: upcoming } = await collegeFootballSupabase
-    .from('nfl_dryrun_games')
-    .select('season, week, kickoff')
-    .gte('kickoff', grace)
-    .order('kickoff', { ascending: true })
-    .limit(1);
-  if (upcoming && upcoming.length) {
-    return { season: Number(upcoming[0].season), week: Number(upcoming[0].week) };
-  }
-  const { data: latest } = await collegeFootballSupabase
-    .from('nfl_dryrun_games')
-    .select('season, week')
-    .order('season', { ascending: false })
-    .order('week', { ascending: false })
-    .limit(1);
-  if (latest && latest.length) {
-    return { season: Number(latest[0].season), week: Number(latest[0].week) };
-  }
-  return { season: 2026, week: 1 };
 }
 
 export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {

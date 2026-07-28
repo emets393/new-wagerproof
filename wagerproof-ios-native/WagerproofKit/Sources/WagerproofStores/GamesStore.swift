@@ -597,13 +597,19 @@ public final class GamesStore {
 
     /// Dry-run slate mapped onto the card model. Spreads in the contract are
     /// home-relative (negative = home favored) — same convention as the card.
+    /// Current (season, week) = soonest upcoming kickoff with a 6h grace.
     private func fetchNFLDryrun(_ cfb: SupabaseClient) async -> [NFLPrediction] {
         // Team logos/abbrs come from the `nfl_teams` reference table — warm
         // the cache so the cards can read it synchronously.
         await NFLTeamsService.shared.ensureLoaded()
+        guard let slate = await Self.resolveFootballCurrentWeek(cfb, table: "nfl_dryrun_games") else {
+            return []
+        }
         let rows: [NFLDryrunGameRow] = (try? await cfb
             .from("nfl_dryrun_games")
             .select()
+            .eq("season", value: slate.season)
+            .eq("week", value: slate.week)
             .order("kickoff", ascending: true)
             .execute()
             .value) ?? []
@@ -612,6 +618,44 @@ public final class GamesStore {
             if $0.topConvictionRank != $1.topConvictionRank { return $0.topConvictionRank < $1.topConvictionRank }
             return ($0.kickoff ?? $0.gameDate) < ($1.kickoff ?? $1.gameDate)
         }
+    }
+
+    /// Games-feed anchor: soonest upcoming kickoff (6h grace), else latest slate.
+    private static func resolveFootballCurrentWeek(
+        _ cfb: SupabaseClient,
+        table: String
+    ) async -> (season: Int, week: Int)? {
+        let grace = Date().addingTimeInterval(-6 * 60 * 60)
+        let graceIso = ISO8601DateFormatter().string(from: grace)
+        let upcoming: [SlateWeekRow] = (try? await cfb
+            .from(table)
+            .select("season,week,kickoff")
+            .gte("kickoff", value: graceIso)
+            .order("kickoff", ascending: true)
+            .limit(1)
+            .execute()
+            .value) ?? []
+        if let row = upcoming.first, let season = row.season, let week = row.week {
+            return (season, week)
+        }
+        let latest: [SlateWeekRow] = (try? await cfb
+            .from(table)
+            .select("season,week")
+            .order("season", ascending: false)
+            .order("week", ascending: false)
+            .limit(1)
+            .execute()
+            .value) ?? []
+        if let row = latest.first, let season = row.season, let week = row.week {
+            return (season, week)
+        }
+        return nil
+    }
+
+    private struct SlateWeekRow: Decodable, Sendable {
+        let season: Int?
+        let week: Int?
+        let kickoff: String?
     }
 
     private func nflPrediction(from row: NFLDryrunGameRow) -> NFLPrediction {
@@ -637,7 +681,7 @@ public final class GamesStore {
                 homeAwaySpreadCoverProb: row.fgHomeCoverProb,
                 ouResultProb: nil,
                 predTotal: row.fgPredTotal,
-                runId: "nfl-dryrun-\(row.season ?? 2025)-\(row.week ?? 12)",
+                runId: "nfl-dryrun-\(row.season ?? 2026)-\(row.week ?? 1)",
                 temperature: row.wxTempF,
                 precipitation: row.wxPrecipMm,
                 windSpeed: row.wxWindMph,
@@ -1229,16 +1273,23 @@ public final class GamesStore {
         let cfb = await CFBSupabase.shared.client
         await CFBTeamsService.shared.ensureLoaded()
 
+        guard let slate = await Self.resolveFootballCurrentWeek(cfb, table: "cfb_dryrun_games") else {
+            games.cfb = []
+            return
+        }
+
         async let gameRows: [CFBDryrunGameRow] = cfb
             .from("cfb_dryrun_games")
             .select()
-            .eq("week", value: 7)
+            .eq("season", value: slate.season)
+            .eq("week", value: slate.week)
             .execute()
             .value
         async let flagRows: [CFBDryrunFlagRow] = cfb
             .from("cfb_dryrun_flags")
             .select()
-            .eq("week", value: 7)
+            .eq("season", value: slate.season)
+            .eq("week", value: slate.week)
             .execute()
             .value
 
@@ -1279,7 +1330,7 @@ public final class GamesStore {
                 homeAwayMlProb: row.fgHomeWinProb,
                 homeAwaySpreadCoverProb: row.fgHomeCoverProb,
                 ouResultProb: nil,
-                runId: "cfb-dryrun-wk7-2025",
+                runId: "cfb-dryrun-\(slate.season)-\(slate.week)",
                 temperature: row.wxTempF,
                 precipitation: row.wxPrecipMm,
                 windSpeed: row.wxWindMph,

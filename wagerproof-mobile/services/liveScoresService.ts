@@ -221,50 +221,42 @@ function calculatePredictionStatus(
  */
 async function fetchNFLPredictions(): Promise<NFLPrediction[]> {
   try {
-    const today = new Date().toISOString().split('T')[0];
-
-    const { data: latestRun, error: runError } = await collegeFootballSupabase
-      .from('nfl_predictions_epa')
-      .select('run_id')
-      .gte('game_date', today)
-      .order('run_id', { ascending: false })
+    const { data: anchor } = await collegeFootballSupabase
+      .from('nfl_dryrun_games')
+      .select('season, week')
+      .order('season', { ascending: false })
+      .order('week', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
+    if (!anchor) return [];
 
-    if (runError || !latestRun?.run_id) {
+    const { data, error } = await collegeFootballSupabase
+      .from('nfl_dryrun_games')
+      .select('game_id, home_team, away_team, fg_home_win_prob, fg_home_cover_prob, fg_spread_close, fg_total_close')
+      .eq('season', (anchor as any).season)
+      .eq('week', (anchor as any).week);
+
+    if (error) {
+      console.error('Error fetching NFL predictions:', error);
       return [];
     }
 
-    const { data: predictions, error: predsError } = await collegeFootballSupabase
-      .from('nfl_predictions_epa')
-      .select('training_key, home_team, away_team, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob')
-      .gte('game_date', today)
-      .eq('run_id', latestRun.run_id);
-
-    if (predsError) {
-      console.error('Error fetching NFL predictions:', predsError);
-      return [];
-    }
-
-    const { data: bettingLines, error: linesError } = await collegeFootballSupabase
-      .from('nfl_betting_lines')
-      .select('training_key, home_team, away_team, home_spread, away_spread, over_line');
-
-    if (linesError) {
-      console.error('Error fetching NFL betting lines:', linesError);
-    }
-
-    const merged = (predictions || []).map(pred => {
-      const line = bettingLines?.find(l => l.training_key === pred.training_key);
+    const merged = (data || []).map((r: any) => {
+      const homeSpread = r.fg_spread_close ?? null;
       return {
-        ...pred,
-        home_spread: line?.home_spread || null,
-        away_spread: line?.away_spread || null,
-        over_line: line?.over_line || null
+        training_key: r.game_id,
+        home_team: r.home_team,
+        away_team: r.away_team,
+        home_away_ml_prob: r.fg_home_win_prob ?? null,
+        home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
+        ou_result_prob: null,
+        home_spread: homeSpread,
+        away_spread: homeSpread !== null ? -Number(homeSpread) : null,
+        over_line: r.fg_total_close ?? null,
       } as NFLPrediction;
     });
 
-    console.log(`📊 Fetched ${merged.length} NFL predictions with lines`);
+    console.log(`📊 Fetched ${merged.length} NFL predictions from nfl_dryrun_games`);
     return merged;
   } catch (error) {
     console.error('Error in fetchNFLPredictions:', error);
@@ -272,51 +264,48 @@ async function fetchNFLPredictions(): Promise<NFLPrediction[]> {
   }
 }
 
-/**
- * Fetch CFB predictions
- */
 async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
   try {
+    const { data: anchor } = await collegeFootballSupabase
+      .from('cfb_dryrun_games')
+      .select('season, week')
+      .order('season', { ascending: false })
+      .order('week', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!anchor) return [];
+
     const { data, error } = await collegeFootballSupabase
-      .from('cfb_live_weekly_inputs')
-      .select('*');
+      .from('cfb_dryrun_games')
+      .select('*')
+      .eq('season', (anchor as any).season)
+      .eq('week', (anchor as any).week);
 
     if (error) {
       console.error('Error fetching CFB predictions:', error);
       return [];
     }
 
-    const { data: apiPreds, error: apiPredsError } = await collegeFootballSupabase
-      .from('cfb_api_predictions')
-      .select('*');
-
-    if (apiPredsError) {
-      console.error('Error fetching CFB API predictions:', apiPredsError);
-    }
-
     const predictions = (data || []).map((row: any) => {
-      const apiPred: any = apiPreds?.find((ap: any) => ap.id === row.id);
-      
+      const predTotal = Number(row.fg_pred_total);
+      const predMargin = Number(row.fg_pred_margin);
+      const hasScore = Number.isFinite(predTotal) && Number.isFinite(predMargin);
       return {
         home_team: row.home_team,
         away_team: row.away_team,
-        pred_ml_proba: row.pred_ml_proba ?? null,
-        pred_spread_proba: row.pred_spread_proba ?? null,
-        pred_total_proba: row.pred_total_proba ?? null,
-        api_spread: row.api_spread ?? null,
-        api_over_line: row.api_over_line ?? null,
-        home_spread_diff: apiPred?.home_spread_diff ?? null,
-        over_line_diff: apiPred?.over_line_diff ?? null,
-        pred_away_score: apiPred?.pred_away_score ?? row.pred_away_score ?? null,
-        pred_home_score: apiPred?.pred_home_score ?? row.pred_home_score ?? null
+        pred_ml_proba: row.fg_home_win_prob ?? null,
+        pred_spread_proba: row.fg_home_cover_prob ?? null,
+        pred_total_proba: null,
+        api_spread: row.fg_spread_close ?? null,
+        api_over_line: row.fg_total_close ?? null,
+        home_spread_diff: row.fg_spread_edge ?? null,
+        over_line_diff: row.fg_total_edge ?? null,
+        pred_away_score: row.fg_pred_away_pts ?? (hasScore ? (predTotal - predMargin) / 2 : null),
+        pred_home_score: row.fg_pred_home_pts ?? (hasScore ? (predTotal + predMargin) / 2 : null),
       };
     }) as CFBPrediction[];
 
-    console.log(`📊 Fetched ${predictions.length} CFB predictions`);
-    // Log sample predictions to help diagnose matching issues
-    if (predictions.length > 0) {
-      console.log(`   Sample CFB predictions (first 5):`, predictions.slice(0, 5).map(p => `${p.away_team} @ ${p.home_team}`));
-    }
+    console.log(`📊 Fetched ${predictions.length} CFB predictions from cfb_dryrun_games`);
     return predictions;
   } catch (error) {
     console.error('Error in fetchCFBPredictions:', error);
@@ -324,9 +313,6 @@ async function fetchCFBPredictions(): Promise<CFBPrediction[]> {
   }
 }
 
-/**
- * Fetch NBA predictions
- */
 async function fetchNBAPredictions(): Promise<NBAPrediction[]> {
   try {
     const { data: latestRun, error: runError } = await collegeFootballSupabase

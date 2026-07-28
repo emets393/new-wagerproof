@@ -1,5 +1,6 @@
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
+import { resolveNflCurrentWeek, resolveCfbCurrentWeek } from '@/features/games/api/footballSlate';
 
 export interface GameOption {
   id: string;
@@ -16,143 +17,117 @@ export interface GameOption {
 }
 
 /**
- * Fetch active NFL games from nfl_betting_lines
- * Uses training_key as the game ID (same as EditorsPicks.tsx)
- * Deduplicates by training_key, keeping the most recent line per game
+ * Fetch active NFL games from nfl_dryrun_games (current week resolved dynamically).
  */
 async function fetchNFLGames(): Promise<GameOption[]> {
   try {
-    debug.log('📊 Fetching NFL games from nfl_betting_lines...');
+    debug.log('📊 Fetching NFL games from nfl_dryrun_games...');
+    const { season, week } = await resolveNflCurrentWeek();
     const { data, error } = await collegeFootballSupabase
-      .from('nfl_betting_lines')
-      .select('training_key, away_team, home_team, game_date, away_spread, home_spread, away_ml, home_ml, over_line, as_of_ts')
-      .order('as_of_ts', { ascending: false }); // Most recent first
+      .from('nfl_dryrun_games')
+      .select('game_id, away_team, home_team, gameday, kickoff, fg_spread_close, fg_ml_home_close, fg_ml_away_close, fg_total_close')
+      .eq('season', season)
+      .eq('week', week)
+      .order('kickoff', { ascending: true });
 
     if (error) {
       debug.error('❌ Error fetching NFL games:', error);
-      console.error('NFL fetch error:', error);
       return [];
     }
 
     if (!data || data.length === 0) {
-      debug.log('⚠️ No NFL games found in nfl_betting_lines');
-      console.log('No NFL games found');
+      debug.log('⚠️ No NFL games found in nfl_dryrun_games');
       return [];
     }
 
-    // Deduplicate: keep only the first (most recent) entry per training_key
-    const seenKeys = new Set<string>();
-    const uniqueGames = data.filter((game: any) => {
-      if (seenKeys.has(game.training_key)) {
-        return false;
-      }
-      seenKeys.add(game.training_key);
-      return true;
-    });
+    debug.log(`✅ Found ${data.length} NFL games (S${season} W${week})`);
 
-    debug.log(`✅ Found ${uniqueGames.length} unique NFL games (from ${data.length} total lines)`);
-    console.log(`NFL unique games: ${uniqueGames.length}`);
-    if (uniqueGames.length > 0) {
-      console.log('Sample NFL game:', uniqueGames[0]);
-    }
-    
-    return uniqueGames.map((game: any) => ({
-      id: game.training_key,
-      sport: 'nfl',
-      awayTeam: game.away_team,
-      homeTeam: game.home_team,
-      gameDate: game.game_date,
-      awaySpread: game.away_spread,
-      homeSpread: game.home_spread,
-      awayML: game.away_ml,
-      homeML: game.home_ml,
-      total: game.over_line,
-      displayText: `${game.away_team} @ ${game.home_team} - ${game.game_date}`,
-    }));
+    return data.map((game: any) => {
+      const homeSpread = game.fg_spread_close ?? null;
+      const gameDate = game.gameday || (game.kickoff ? String(game.kickoff).slice(0, 10) : '');
+      return {
+        id: game.game_id,
+        sport: 'nfl',
+        awayTeam: game.away_team,
+        homeTeam: game.home_team,
+        gameDate,
+        awaySpread: homeSpread !== null ? -Number(homeSpread) : null,
+        homeSpread,
+        awayML: game.fg_ml_away_close ?? null,
+        homeML: game.fg_ml_home_close ?? null,
+        total: game.fg_total_close ?? null,
+        displayText: `${game.away_team} @ ${game.home_team} - ${gameDate}`,
+      };
+    });
   } catch (error) {
     debug.error('❌ Exception fetching NFL games:', error);
-    console.error('NFL exception:', error);
     return [];
   }
 }
 
 /**
- * Fetch active CFB games from cfb_live_weekly_inputs
- * Uses game.id as the game ID (same as EditorsPicks.tsx)
+ * Fetch active CFB games from cfb_dryrun_games (current week resolved dynamically).
  */
 async function fetchCFBGames(): Promise<GameOption[]> {
   try {
-    debug.log('📊 Fetching CFB games from cfb_live_weekly_inputs...');
-    // Use select('*') like EditorsPicks.tsx does to get all available columns
+    debug.log('📊 Fetching CFB games from cfb_dryrun_games...');
+    const { season, week } = await resolveCfbCurrentWeek();
     const { data, error } = await collegeFootballSupabase
-      .from('cfb_live_weekly_inputs')
-      .select('*');
+      .from('cfb_dryrun_games')
+      .select('game_id, away_team, home_team, kickoff, fg_spread_close, fg_ml_home_close, fg_ml_away_close, fg_total_close')
+      .eq('season', season)
+      .eq('week', week)
+      .order('kickoff', { ascending: true });
 
     if (error) {
       debug.error('❌ Error fetching CFB games:', error);
-      console.error('CFB fetch error:', error);
       return [];
     }
 
     if (!data || data.length === 0) {
-      debug.log('⚠️ No CFB games found in cfb_live_weekly_inputs');
-      console.log('No CFB games found');
+      debug.log('⚠️ No CFB games found in cfb_dryrun_games');
       return [];
     }
 
-    debug.log(`✅ Found ${data.length} CFB games from cfb_live_weekly_inputs`);
-    console.log(`CFB games found: ${data.length}`);
-    if (data.length > 0) {
-      console.log('Sample CFB game:', data[0]);
-      console.log('CFB column names:', Object.keys(data[0]));
-    }
+    debug.log(`✅ Found ${data.length} CFB games (S${season} W${week})`);
 
     return data.map((game: any) => {
-      // CFB uses start_time or start_date - try both
-      const startTimeString = game.start_time || game.start_date;
-      let gameDate = new Date().toISOString().split('T')[0]; // Default to today
-      
-      if (startTimeString) {
+      let gameDate = new Date().toISOString().split('T')[0];
+      if (game.kickoff) {
         try {
-          // Parse the datetime and get the date in ET timezone
-          const utcDate = new Date(startTimeString);
+          const utcDate = new Date(game.kickoff);
           const formatter = new Intl.DateTimeFormat('en-US', {
             timeZone: 'America/New_York',
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
           });
-          
           const parts = formatter.formatToParts(utcDate);
           const year = parts.find(p => p.type === 'year')?.value;
           const month = parts.find(p => p.type === 'month')?.value;
           const day = parts.find(p => p.type === 'day')?.value;
-          
-          if (year && month && day) {
-            gameDate = `${year}-${month}-${day}`;
-          }
-        } catch (e) {
-          console.error('Error parsing CFB date:', startTimeString, e);
+          if (year && month && day) gameDate = `${year}-${month}-${day}`;
+        } catch {
+          gameDate = String(game.kickoff).slice(0, 10);
         }
       }
-      
+      const homeSpread = game.fg_spread_close ?? null;
       return {
-        id: String(game.id), // Use game.id as the primary ID
+        id: String(game.game_id),
         sport: 'cfb',
         awayTeam: game.away_team,
         homeTeam: game.home_team,
         gameDate,
-        awaySpread: game.api_spread ? -game.api_spread : null,
-        homeSpread: game.api_spread,
-        awayML: game.away_moneyline,
-        homeML: game.home_moneyline,
-        total: game.api_over_line,
+        awaySpread: homeSpread !== null ? -Number(homeSpread) : null,
+        homeSpread,
+        awayML: game.fg_ml_away_close ?? null,
+        homeML: game.fg_ml_home_close ?? null,
+        total: game.fg_total_close ?? null,
         displayText: `${game.away_team} @ ${game.home_team} - ${gameDate}`,
       };
     });
   } catch (error) {
     debug.error('❌ Exception fetching CFB games:', error);
-    console.error('CFB exception:', error);
     return [];
   }
 }

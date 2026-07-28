@@ -41,16 +41,47 @@ public final class CFBDryRunPicksStore {
         do {
             await CFBTeamsService.shared.ensureLoaded()
             let cfb = await CFBSupabase.shared.client
+
+            // Current week = soonest upcoming kickoff with 6h grace (same as GamesStore).
+            let grace = Date().addingTimeInterval(-6 * 60 * 60)
+            let graceIso = ISO8601DateFormatter().string(from: grace)
+            let upcoming: [SlateWeekRow] = (try? await cfb
+                .from("cfb_dryrun_games")
+                .select("season,week,kickoff")
+                .gte("kickoff", value: graceIso)
+                .order("kickoff", ascending: true)
+                .limit(1)
+                .execute()
+                .value) ?? []
+            let latest: [SlateWeekRow] = upcoming.isEmpty
+                ? ((try? await cfb
+                    .from("cfb_dryrun_games")
+                    .select("season,week")
+                    .order("season", ascending: false)
+                    .order("week", ascending: false)
+                    .limit(1)
+                    .execute()
+                    .value) ?? [])
+                : upcoming
+            guard let slate = latest.first, let season = slate.season, let week = slate.week else {
+                games = []
+                flags = []
+                loadState = .loaded
+                return
+            }
+
             async let gamesRows: [GameRow] = cfb
                 .from("cfb_dryrun_games")
                 .select()
-                .eq("week", value: 7)
+                .eq("season", value: season)
+                .eq("week", value: week)
                 .execute()
                 .value
             async let flagRows: [FlagRow] = cfb
                 .from("cfb_dryrun_flags")
                 .select()
-                .eq("week", value: 7)
+                .eq("season", value: season)
+                .eq("week", value: week)
                 .execute()
                 .value
             async let signalDefs = CFBSignalDefinitionsService.shared.definitionsBySource()
@@ -75,6 +106,12 @@ public final class CFBDryRunPicksStore {
             return a.convictionTier.sortRank < b.convictionTier.sortRank
         }
         return (a.stakeUnits ?? 0) > (b.stakeUnits ?? 0)
+    }
+
+    private struct SlateWeekRow: Decodable, Sendable {
+        let season: Int?
+        let week: Int?
+        let kickoff: String?
     }
 
     private func prediction(from row: GameRow, flagsByGame: [String: [CFBDryRunFlag]]) -> CFBPrediction {

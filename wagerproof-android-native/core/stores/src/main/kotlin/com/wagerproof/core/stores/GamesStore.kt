@@ -380,13 +380,55 @@ class GamesStore {
     private suspend fun fetchNFLDryrun(cfb: io.github.jan.supabase.SupabaseClient): List<NFLPrediction> {
         // Team logos/abbrs come from `nfl_teams` — warm the cache first.
         NFLTeamsService.ensureLoaded()
+        val slate = resolveFootballCurrentWeek(cfb, "nfl_dryrun_games") ?: return emptyList()
         val rows: List<JsonObject> = runCatching {
             cfb.from("nfl_dryrun_games")
-                .select { order("kickoff", Order.ASCENDING) }
+                .select {
+                    filter {
+                        eq("season", slate.first)
+                        eq("week", slate.second)
+                    }
+                    order("kickoff", Order.ASCENDING)
+                }
                 .decodeList<JsonObject>()
         }.getOrDefault(emptyList())
         return rows.map { nflPredictionFromDryrun(it) }
             .sortedWith(compareBy({ it.topConvictionRank }, { it.kickoff ?: it.gameDate }))
+    }
+
+    /** Games-feed anchor: soonest upcoming kickoff (6h grace), else latest slate. */
+    private suspend fun resolveFootballCurrentWeek(
+        cfb: io.github.jan.supabase.SupabaseClient,
+        table: String,
+    ): Pair<Int, Int>? {
+        val graceIso = Instant.now().minusSeconds(6 * 60 * 60).toString()
+        val upcoming = runCatching {
+            cfb.from(table)
+                .select(columns = Columns.raw("season,week,kickoff")) {
+                    filter { gte("kickoff", graceIso) }
+                    order("kickoff", Order.ASCENDING)
+                    limit(1)
+                }
+                .decodeList<JsonObject>()
+        }.getOrDefault(emptyList())
+        upcoming.firstOrNull()?.let { row ->
+            val season = jsonInt(row, "season")
+            val week = jsonInt(row, "week")
+            if (season != null && week != null) return season to week
+        }
+        val latest = runCatching {
+            cfb.from(table)
+                .select(columns = Columns.raw("season,week")) {
+                    order("season", Order.DESCENDING)
+                    order("week", Order.DESCENDING)
+                    limit(1)
+                }
+                .decodeList<JsonObject>()
+        }.getOrDefault(emptyList())
+        val row = latest.firstOrNull() ?: return null
+        val season = jsonInt(row, "season") ?: return null
+        val week = jsonInt(row, "week") ?: return null
+        return season to week
     }
 
     private fun nflPredictionFromDryrun(row: JsonObject): NFLPrediction {
@@ -422,7 +464,7 @@ class GamesStore {
         jsonDouble(row, "fg_home_cover_prob")?.let { m["home_away_spread_cover_prob"] = JsonPrimitive(it) }
         m.remove("ou_result_prob") // iOS sets nil for the dryrun path.
         jsonDouble(row, "fg_pred_total")?.let { m["pred_total"] = JsonPrimitive(it) }
-        m["run_id"] = JsonPrimitive("nfl-dryrun-${season ?: 2025}-${week ?: 12}")
+        m["run_id"] = JsonPrimitive("nfl-dryrun-${season ?: 2026}-${week ?: 1}")
         jsonDouble(row, "wx_temp_f")?.let { m["temperature"] = JsonPrimitive(it) }
         jsonDouble(row, "wx_precip_mm")?.let { m["precipitation"] = JsonPrimitive(it) }
         jsonDouble(row, "wx_wind_mph")?.let { m["wind_speed"] = JsonPrimitive(it) }
@@ -438,12 +480,27 @@ class GamesStore {
         val cfb = SupabaseClients.cfb
         CFBTeamsService.ensureLoaded()
         coroutineScope {
-            // week 7 is hardcoded (dry-run slate). Failures propagate → refresh() marks .failed.
+            val slate = resolveFootballCurrentWeek(cfb, "cfb_dryrun_games")
+                ?: run {
+                    games = games.copy(cfb = emptyList())
+                    return@coroutineScope
+                }
+            val (season, week) = slate
             val gameRowsD = async {
-                cfb.from("cfb_dryrun_games").select { filter { eq("week", 7) } }.decodeList<CFBDryrunGameRow>()
+                cfb.from("cfb_dryrun_games").select {
+                    filter {
+                        eq("season", season)
+                        eq("week", week)
+                    }
+                }.decodeList<CFBDryrunGameRow>()
             }
             val flagRowsD = async {
-                cfb.from("cfb_dryrun_flags").select { filter { eq("week", 7) } }.decodeList<CFBDryrunFlagRow>()
+                cfb.from("cfb_dryrun_flags").select {
+                    filter {
+                        eq("season", season)
+                        eq("week", week)
+                    }
+                }.decodeList<CFBDryrunFlagRow>()
             }
             val defsD = async { CFBSignalDefinitionsService.shared.definitionsBySource() }
 
@@ -456,11 +513,16 @@ class GamesStore {
                 flag.withSignalDefinition(CFBSignalDefinitionsService.definition(flag.source, definitionsBySource))
             }
             val flagsByGame = flagModels.groupBy { it.gameId }
-            games = games.copy(cfb = rows.map { mapCFBDryrun(it, flagsByGame) })
+            games = games.copy(cfb = rows.map { mapCFBDryrun(it, flagsByGame, season, week) })
         }
     }
 
-    private fun mapCFBDryrun(row: CFBDryrunGameRow, flagsByGame: Map<String, List<CFBDryRunFlag>>): CFBPrediction {
+    private fun mapCFBDryrun(
+        row: CFBDryrunGameRow,
+        flagsByGame: Map<String, List<CFBDryRunFlag>>,
+        season: Int,
+        week: Int,
+    ): CFBPrediction {
         val gameId = row.gameId ?: ""
         val away = row.awayTeam ?: "Away"
         val home = row.homeTeam ?: "Home"
@@ -486,7 +548,7 @@ class GamesStore {
             homeAwayMlProb = row.fgHomeWinProb,
             homeAwaySpreadCoverProb = row.fgHomeCoverProb,
             ouResultProb = null,
-            runId = "cfb-dryrun-wk7-2025",
+            runId = "cfb-dryrun-$season-$week",
             temperature = row.wxTempF,
             precipitation = row.wxPrecipMm,
             windSpeed = row.wxWindMph,
