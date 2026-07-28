@@ -105,13 +105,19 @@ public final class MetaAnalyticsService: @unchecked Sendable {
     /// user-data set from exactly the fields passed here — anything left `nil` is
     /// dropped, not preserved. Call it with the complete profile from a single
     /// source of truth, never with a partial set from a second call site.
-    public func setAdvancedMatching(email: String?, displayName: String?, phoneNumber: String? = nil) {
+    public func setAdvancedMatching(
+        email: String?,
+        displayName: String?,
+        firstName: String? = nil,
+        lastName: String? = nil,
+        phoneNumber: String? = nil
+    ) {
         guard initialized else { return }
-        let (firstName, lastName) = Self.splitDisplayName(displayName)
+        let splitName = Self.splitDisplayName(displayName)
         AppEvents.shared.setUser(
             email: email,
-            firstName: firstName,
-            lastName: lastName,
+            firstName: Self.nonEmpty(firstName) ?? splitName.0,
+            lastName: Self.nonEmpty(lastName) ?? splitName.1,
             phone: phoneNumber,
             dateOfBirth: nil,
             gender: nil,
@@ -166,7 +172,12 @@ public final class MetaAnalyticsService: @unchecked Sendable {
     /// Deliberately does NOT flush: paywall views vastly outnumber conversions,
     /// and the flush on the checkout/subscribe events that follow carries these
     /// along anyway. Flushing per-impression burns radio for no attribution gain.
-    public func trackPaywallView(placement: String, amount: Decimal?, currency: String) {
+    public func trackPaywallView(
+        placement: String,
+        productId: String?,
+        amount: Decimal?,
+        currency: String
+    ) {
         guard initialized else { return }
         let value = amount.map { NSDecimalNumber(decimal: $0).doubleValue } ?? 0
         AppEvents.shared.logEvent(
@@ -175,7 +186,10 @@ public final class MetaAnalyticsService: @unchecked Sendable {
             parameters: [
                 AppEvents.ParameterName(rawValue: "fb_content_type"): "paywall",
                 AppEvents.ParameterName(rawValue: "fb_content_id"): placement,
+                AppEvents.ParameterName(rawValue: "fb_content_name"): "WagerProof Pro",
                 AppEvents.ParameterName(rawValue: "fb_currency"): currency,
+                AppEvents.ParameterName(rawValue: "wp_source"): placement,
+                AppEvents.ParameterName(rawValue: "wp_product_id"): productId ?? "unknown",
             ]
         )
     }
@@ -184,7 +198,12 @@ public final class MetaAnalyticsService: @unchecked Sendable {
     /// Runs before StoreKit resolves, so Meta sees checkout intent even when the
     /// Apple payment sheet is abandoned — which is the entire point of the event,
     /// hence the immediate flush (an abandoning user may force-quit).
-    public func trackInitiateCheckout(productId: String, amount: Decimal, currency: String) {
+    public func trackInitiateCheckout(
+        source: String,
+        productId: String,
+        amount: Decimal,
+        currency: String
+    ) {
         guard initialized else { return }
         AppEvents.shared.logEvent(
             .initiatedCheckout,
@@ -192,8 +211,11 @@ public final class MetaAnalyticsService: @unchecked Sendable {
             parameters: [
                 AppEvents.ParameterName(rawValue: "fb_content_type"): "subscription",
                 AppEvents.ParameterName(rawValue: "fb_content_id"): productId,
+                AppEvents.ParameterName(rawValue: "fb_content_name"): "WagerProof Pro",
                 AppEvents.ParameterName(rawValue: "fb_currency"): currency,
                 AppEvents.ParameterName(rawValue: "fb_num_items"): 1,
+                AppEvents.ParameterName(rawValue: "wp_source"): source,
+                AppEvents.ParameterName(rawValue: "wp_product_id"): productId,
             ]
         )
         AppEvents.shared.flush()
@@ -290,5 +312,13 @@ public final class MetaAnalyticsService: @unchecked Sendable {
         guard let first = parts.first else { return (nil, nil) }
         let last = parts.count > 1 ? parts.dropFirst().joined(separator: " ") : nil
         return (first, last)
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
+            return nil
+        }
+        return value
     }
 }

@@ -51,7 +51,7 @@ let package = Package(
         // funnel (CompleteRegistration, fb_mobile_purchase, Subscribe). RN
         // uses `react-native-fbsdk-next`; the Swift port wraps
         // `facebook-ios-sdk` in `WagerproofServices/MetaAnalyticsService.swift`.
-        .package(url: "https://github.com/facebook/facebook-ios-sdk", from: "17.0.0"),
+        .package(url: "https://github.com/facebook/facebook-ios-sdk", from: "18.0.3"),
     ],
     targets: [
         .target(
