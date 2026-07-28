@@ -28,7 +28,7 @@ def tdb(o):
     return c[0] if c else None
 
 # ---- per-book FULL-GAME close lines (odds_history -> cfbd game) ----
-oh = pd.read_parquet("data/odds_history/odds_2025.parquet")
+oh = pd.read_parquet(f"data/odds_history/odds_{SEASON}.parquet")
 oh["h"] = oh.home_team.map(tdb); oh["a"] = oh.away_team.map(tdb); oh = oh.dropna(subset=["h", "a"])
 pair2gid = {(r.homeTeam, r.awayTeam): r.game_id for _, r in te.iterrows()}
 oh["gid"] = [pair2gid.get((h, a)) for h, a in zip(oh.h, oh.a)]
@@ -39,7 +39,7 @@ for _, r in fg.iterrows():
     FG[(int(r.gid), r.book)] = r
 
 # ---- per-book TT + 1H close lines (event odds) ----
-ev = pd.read_parquet("data/event_odds/events_2025.parquet"); ev = ev[ev.game_id.isin(g7)].copy()
+ev = pd.read_parquet(f"data/event_odds/events_{SEASON}.parquet"); ev = ev[ev.game_id.isin(g7)].copy()
 ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True); ev["description"] = ev.description.fillna("_")
 ev = ev.sort_values("snap_dt").groupby(["game_id", "market", "book", "name", "description"], as_index=False).last()
 
@@ -102,7 +102,7 @@ import cfb_forecast as F, h1_signals
 _gmf, _feats, _nets = F.load()
 _h1pred = h1_signals.build(_gmf, _feats, _nets, SEASON)
 h1proj = {int(r.game_id): (float(r.h1_pm), float(r.h1_pt)) for _, r in _h1pred.iterrows() if int(r.game_id) in g7}
-h1csv = pd.read_csv("out/cfb_h1_model_2025.csv").set_index("game_id")   # only games with a 1H PLAY
+h1csv = pd.read_csv(f"out/cfb_h1_model_{SEASON}.csv").set_index("game_id")   # only games with a 1H PLAY
 def h1s_cons(gid):
     s = ev_rows(gid, "spreads_h1"); s = s.assign(nm=s.name.map(tdb)); s = s[s.nm == s.home]
     return float(s.point.median()) if len(s) else None

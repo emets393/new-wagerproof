@@ -150,7 +150,9 @@ def load_bye_collisions(target, gap_thr=BYE_GAP, min_n=BYE_MIN_N):
     return pd.DataFrame(out)
 
 def carry(df,kid,col,out):
-    df=df.sort_values([kid,"season","week"]).copy(); df["_c"]=df.groupby([kid,"season"])[col].apply(lambda s:s.shift(1).expanding().mean()).reset_index(level=[0,1],drop=True)
+    # transform (not apply+reset_index): reset_index(level=[0,1]) breaks when a group has a single row
+    # (single-level index) — happens in score mode where the current week can have one game per key.
+    df=df.sort_values([kid,"season","week"]).copy(); df["_c"]=df.groupby([kid,"season"])[col].transform(lambda s:s.shift(1).expanding().mean())
     pl=df[["season",kid]].drop_duplicates(); grid=pl.merge(pd.DataFrame({"week":range(1,23)}),how="cross").merge(df[["season",kid,"week","_c"]],on=["season",kid,"week"],how="left").sort_values(["season",kid,"week"]); grid[out]=grid.groupby(["season",kid])["_c"].ffill(); return grid[["season","week",kid,out]]
 
 def build():
@@ -168,7 +170,7 @@ def build():
     miss["air_w"]=np.where(miss.position.astype(str).str.strip().isin(["WR","TE","RB","FB"]),miss.airshare.clip(lower=0).fillna(0),0)
     ai=miss.groupby(["season","week","team"]).air_w.sum().reset_index(); ai["ab"]=ai.team.replace(nv2our)
     dteam=dfd.groupby(["season","week","team"]).dprod.sum().reset_index().sort_values(["team","season","week"])
-    dteam["dpt"]=dteam.groupby(["team","season"]).dprod.apply(lambda s:s.shift(1).expanding().mean()).reset_index(level=[0,1],drop=True); dteam["ab"]=dteam.team.replace(nv2our)
+    dteam["dpt"]=dteam.groupby(["team","season"]).dprod.transform(lambda s:s.shift(1).expanding().mean()); dteam["ab"]=dteam.team.replace(nv2our)
     for side,p in [("home","h_"),("away","a_")]:
         m=m.merge(ai.rename(columns={"ab":f"{side}_ab","air_w":f"{p}air"})[["season","week",f"{side}_ab",f"{p}air"]],on=["season","week",f"{side}_ab"],how="left")
         m=m.merge(dteam.rename(columns={"ab":f"{side}_ab","dpt":f"{p}dpt"})[["season","week",f"{side}_ab",f"{p}dpt"]],on=["season","week",f"{side}_ab"],how="left")

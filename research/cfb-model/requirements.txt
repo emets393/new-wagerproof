@@ -1,0 +1,10 @@
+# CFB model pipeline deps (run_cfb_week.sh). numpy/pandas intentionally UNPINNED — pinning has caused
+# OU-prediction divergence historically (see memory render-cron-migration). The frozen out/*.pkl models
+# load-or-retrain resiliently in cfb_forecast.py, so a numpy drift degrades gracefully rather than crashing.
+pandas
+numpy
+scikit-learn
+scipy
+requests
+pyarrow
+joblib

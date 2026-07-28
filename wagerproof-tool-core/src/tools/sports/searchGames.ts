@@ -31,19 +31,39 @@ export const searchGames: Tool = {
     const [nba, nfl, cfbRes, ncaab, mlb] = await Promise.allSettled([
       cfb.from("nba_input_values_view").select("away_team, home_team, game_date").eq("game_date", date),
       (async () => {
-        const { data: run } = await cfb
-          .from("nfl_predictions_epa")
-          .select("run_id")
-          .order("run_id", { ascending: false })
+        // NFL reads the new model's weekly table nfl_dryrun_games; latest
+        // (season, week) = current slate. game_date → gameday.
+        const { data: anchor } = await cfb
+          .from("nfl_dryrun_games")
+          .select("season, week")
+          .order("season", { ascending: false })
+          .order("week", { ascending: false })
           .limit(1)
-          .single();
-        if (!run) return { data: null, error: null };
+          .maybeSingle();
+        if (!anchor) return { data: null, error: null };
         return cfb
-          .from("nfl_predictions_epa")
-          .select("away_team, home_team, game_date")
-          .eq("run_id", (run as Record<string, unknown>).run_id);
+          .from("nfl_dryrun_games")
+          .select("home_team, away_team, gameday, kickoff, game_id")
+          .eq("season", (anchor as Record<string, unknown>).season)
+          .eq("week", (anchor as Record<string, unknown>).week);
       })(),
-      cfb.from("cfb_live_weekly_inputs").select("away_team, home_team, game_date"),
+      (async () => {
+        // CFB reads the new model's weekly table cfb_dryrun_games; latest
+        // (season, week) = current slate. game_date → kickoff.
+        const { data: anchor } = await cfb
+          .from("cfb_dryrun_games")
+          .select("season, week")
+          .order("season", { ascending: false })
+          .order("week", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!anchor) return { data: null, error: null };
+        return cfb
+          .from("cfb_dryrun_games")
+          .select("away_team, home_team, kickoff")
+          .eq("season", (anchor as Record<string, unknown>).season)
+          .eq("week", (anchor as Record<string, unknown>).week);
+      })(),
       cfb.from("v_cbb_input_values").select("away_team, home_team, game_date_et").eq("game_date_et", date),
       cfb
         .from("mlb_games_today")
@@ -73,8 +93,8 @@ export const searchGames: Tool = {
     };
 
     collect("NBA", nba as never, "away_team", "home_team", "game_date");
-    collect("NFL", nfl as never, "away_team", "home_team", "game_date");
-    collect("CFB", cfbRes as never, "away_team", "home_team", "game_date");
+    collect("NFL", nfl as never, "away_team", "home_team", "gameday");
+    collect("CFB", cfbRes as never, "away_team", "home_team", "kickoff");
     collect("NCAAB", ncaab as never, "away_team", "home_team", "game_date_et");
     collect("MLB", mlb as never, "away_team_name", "home_team_name", "official_date");
 

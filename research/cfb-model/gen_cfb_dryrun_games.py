@@ -1,34 +1,60 @@
-"""Generate cfb_dryrun_games — one row per Week-7 2025 FBS game (every game gets a number).
-Assembles model_games (identity/lines/actuals) + games_2025 (kickoff) + odds_game_frame (ML) +
-event-odds archive (team totals + 1H posted close) + harness CSVs (preds, spots, TT, 1H). Walk-forward
-(harness trained <2025; as-of features through wk6). Actuals stored for VALIDATION ONLY."""
+"""Generate cfb_dryrun_games — one row per current-week FBS game (every game gets a number).
+This is the NEW model's live weekly output table (the "dryrun" name is legacy from the 2025 display
+test; it now holds the real current-week slate). Assembles model_games (identity) + games (kickoff) +
+odds_game_frame (Odds-API lines: FG spread/total + ML — the SINGLE source for displayed lines) +
+event-odds archive (team totals + 1H) + predictions.
+
+Two prediction sources by week:
+  - weeks 1-3 (EARLY): the opponent-adjusted betting model is COLD (no games -> null adj ratings), so FG
+    predictions come from cfb_early_week.py (preseason-priors blend, DISPLAY only — no betting spots).
+  - week 4+: the locked opponent-adjusted harness CSVs (preds, spots, TT, 1H)."""
+import os
 import numpy as np, pandas as pd, warnings
 import dry_common as C
 warnings.filterwarnings("ignore")
 SEASON, WEEK = C.season_week()
+EARLY = WEEK <= 3   # weeks 1-3: FG display from the priors blend; the betting model isn't reliable yet
 P5 = {"SEC", "Big Ten", "Big 12", "ACC", "Pac-12"}
 
 gm = pd.read_parquet("data/model_games.parquet")
 m = gm[(gm.season == SEASON) & (gm.week == WEEK)].copy()
 g7 = set(m.game_id)
 # kickoff
-g25 = pd.read_parquet("data/cfbd/games_2025.parquet")[["id", "startDate"]].rename(columns={"id": "game_id"})
+g25 = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")[["id", "startDate"]].rename(columns={"id": "game_id"})
 m = m.merge(g25, on="game_id", how="left")
-# ML close
-of = pd.read_parquet("data/odds_game_frame.parquet")[["season", "home", "away", "close_home_ml", "close_away_ml"]]
+# ODDS-API lines (owner rule: every displayed/graded line comes from The Odds API, never CFBD). odds_game_frame
+# is the Odds-API consensus. Override model_games' CFBD consensus_lines for the shown FG spread/total + ML.
+of = pd.read_parquet("data/odds_game_frame.parquet")[
+    ["season", "home", "away", "open_spread", "close_spread", "open_total", "close_total", "close_home_ml", "close_away_ml"]]
 m = m.merge(of, left_on=["season", "homeTeam", "awayTeam"], right_on=["season", "home", "away"], how="left")
-# harness preds + spots
-pred = pd.read_csv("out/cfb_predictions_2025.csv")
-bets = pd.read_csv("out/cfb_bets_2025.csv")
-m = m.merge(pred[["homeTeam", "awayTeam", "pred_total", "pred_spread", "totals_bet", "sides_bet", "mammoth", "spots"]],
-            on=["homeTeam", "awayTeam"], how="left")
-m = m.merge(bets[["game_id", "pred_margin", "side_edge", "total_edge", "p_home_conf"]], on="game_id", how="left")
-# cfb_bets only has games where a spot fired -> pred_margin is null for no-spot games. Backfill from
-# pred_spread (cfb_predictions, ALL games) so every game gets predicted team points (= -pred_spread).
-m["pred_margin"] = m.pred_margin.fillna(-m.pred_spread)
+m["spread_open"] = m["open_spread"]; m["spread_close"] = m["close_spread"]
+m["total_open"] = m["open_total"]; m["total_close"] = m["close_total"]
+# predictions: early-week priors blend (wks 1-3) vs the locked harness (wk 4+)
+if EARLY:
+    ep = pd.read_csv(f"out/cfb_early_preds_{SEASON}.csv")
+    m = m.merge(ep[["homeTeam", "awayTeam", "pred_spread", "pred_total"]], on=["homeTeam", "awayTeam"], how="left")
+    m["pred_margin"] = -m["pred_spread"]
+    for c in ["totals_bet", "sides_bet", "mammoth", "side_edge", "total_edge", "p_home_conf"]:
+        m[c] = np.nan
+    m["spots"] = ""            # no betting spots in the display-only early window
+else:
+    pred = pd.read_csv(f"out/cfb_predictions_{SEASON}.csv")
+    bets = pd.read_csv(f"out/cfb_bets_{SEASON}.csv")
+    m = m.merge(pred[["homeTeam", "awayTeam", "pred_total", "pred_spread", "totals_bet", "sides_bet", "mammoth", "spots"]],
+                on=["homeTeam", "awayTeam"], how="left")
+    m = m.merge(bets[["game_id", "pred_margin", "side_edge", "total_edge", "p_home_conf"]], on="game_id", how="left")
+    # cfb_bets only has games where a spot fired -> pred_margin is null for no-spot games. Backfill from
+    # pred_spread (cfb_predictions, ALL games) so every game gets predicted team points (= -pred_spread).
+    m["pred_margin"] = m.pred_margin.fillna(-m.pred_spread)
 # WEATHER (Visual Crossing forecast, keyed game_api_id == game_id). Condition icon derived (icon_text sparse).
-wx = pd.read_parquet("data/cfb_weather_data.parquet")[["game_api_id", "temp_at_kick_f", "windspeed_avg_mph", "precip_sum_mm"]]
-m = m.merge(wx.rename(columns={"game_api_id": "game_id"}), on="game_id", how="left")
+# Forecasts only exist ~10-14 days out, so a preseason Week-1 run has none yet -> guard (columns stay null).
+wxp = "data/cfb_weather_data.parquet"
+if os.path.exists(wxp):
+    wx = pd.read_parquet(wxp)[["game_api_id", "temp_at_kick_f", "windspeed_avg_mph", "precip_sum_mm"]]
+    m = m.merge(wx.rename(columns={"game_api_id": "game_id"}), on="game_id", how="left")
+else:
+    for c in ["temp_at_kick_f", "windspeed_avg_mph", "precip_sum_mm"]:
+        m[c] = np.nan
 def wx_icon(temp, wind, precip, indoors):
     if indoors: return "indoors"
     if pd.notna(precip) and precip >= 1 and pd.notna(temp) and temp <= 32: return "snow"
@@ -45,8 +71,11 @@ def wx_summary(temp, wind, precip, indoors):
     if pd.notna(precip) and precip >= 0.5: s += " · precip"
     return s
 
-# event-odds: team totals + 1H posted CLOSE consensus (tag-agnostic: last pre-kick snap)
-ev = pd.read_parquet("data/event_odds/events_2025.parquet")
+# event-odds: team totals + 1H posted CLOSE consensus (tag-agnostic: last pre-kick snap).
+# Preseason/early weeks may have no event-odds capture yet -> empty frame so TT/1H dicts stay empty (null cards).
+evp = f"data/event_odds/events_{SEASON}.parquet"
+ev = pd.read_parquet(evp) if os.path.exists(evp) else pd.DataFrame(
+    columns=["game_id", "market", "book", "name", "description", "snap", "point", "price", "home", "away"])
 ev = ev[ev.game_id.isin(g7)].copy()
 names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
 AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i",
@@ -82,9 +111,13 @@ mlh = ev[(ev.market == "h2h_h1")]; mlh["nm"] = mlh.name.map(tdb)
 h1mlh = mlh[mlh.nm == mlh.home].groupby("game_id").price.median().to_dict()
 h1mla = mlh[mlh.nm == mlh.away].groupby("game_id").price.median().to_dict()
 
-# TT + 1H model preds/picks
-tt_csv = pd.read_csv("out/cfb_team_totals_2025.csv"); tt_csv = tt_csv[tt_csv.game_id.isin(g7)]
-h1_csv = pd.read_csv("out/cfb_h1_model_2025.csv"); h1_csv = h1_csv[h1_csv.game_id.isin(g7)]
+# TT + 1H model preds/picks (harness output, wk 4+ only; empty in the early display window)
+if EARLY:
+    tt_csv = pd.DataFrame(columns=["game_id"])
+    h1_csv = pd.DataFrame(columns=["game_id", "h1_pm", "h1_pt", "h1_spread_bet", "h1_tot_bet", "h1_ml_bet"])
+else:
+    tt_csv = pd.read_csv(f"out/cfb_team_totals_{SEASON}.csv"); tt_csv = tt_csv[tt_csv.game_id.isin(g7)]
+    h1_csv = pd.read_csv(f"out/cfb_h1_model_{SEASON}.csv"); h1_csv = h1_csv[h1_csv.game_id.isin(g7)]
 def tt_pred(gid, team):  # UNIFIED: full-game-derived team points (coherent with predicted score), pick by edge vs posted
     row = m[m.game_id == gid]
     if not len(row): return None, None
@@ -169,7 +202,7 @@ for _, r in m.iterrows():
     })
 df = pd.DataFrame(rows)
 # 1H actuals from line scores
-g25b = pd.read_parquet("data/cfbd/games_2025.parquet")
+g25b = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")
 g25b["h1_home"] = g25b.homeLineScores.apply(lambda a: int(sum(a[:2])) if a is not None and len(a) >= 2 else None)
 g25b["h1_away"] = g25b.awayLineScores.apply(lambda a: int(sum(a[:2])) if a is not None and len(a) >= 2 else None)
 df = df.merge(g25b[["id", "h1_home", "h1_away"]].rename(columns={"id": "game_id"}), on="game_id", how="left")

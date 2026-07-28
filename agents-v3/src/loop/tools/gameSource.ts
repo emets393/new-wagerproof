@@ -64,10 +64,11 @@ export async function loadGames(ctx: AgentGenContext): Promise<{ total: number; 
   let startedDropped = 0;
   for (const sport of ctx.steering.preferredSports as Sport[]) {
     try {
-      // V3 reads the same production football sources as the rest of the app.
-      // NFL/CFB test slates should be seeded into those production-shaped tables
-      // with upcoming dates instead of routing generation through dry-run tables.
-      const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate);
+      // NFL + CFB read the NEW model's weekly table (nfl/cfb_dryrun_games) via source='dryrun' — same
+      // tables the /games web feed now reads (both populated for the live season). NBA/NCAAB/MLB stay
+      // on their production ('legacy') tables.
+      const source = sport === 'cfb' || sport === 'nfl' ? 'dryrun' : 'legacy';
+      const { formattedGames } = await fetchGamesForSport(ctx.cfb, ctx.main, sport, ctx.targetDate, source);
       let n = 0;
       let pastDropped = 0;
       for (const fg of formattedGames as FormattedGame[]) {

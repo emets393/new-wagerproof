@@ -168,6 +168,52 @@ export async function submitPicks(
     let effectiveOdds = pick.odds;
     let mlSwapInfo: string | null = null;
 
+    // ── Authoritative odds stamp ──────────────────────────────────────────
+    // NEVER trust the model's self-reported odds: it has attached the
+    // opponent's price to its own pick ("New York Mets -162" when the Mets
+    // were +136, 2026-07-28) despite being served correct lines. Resolve the
+    // picked side against the snapshot's vegas_lines (period-aware) and
+    // overwrite. Runs BEFORE the ML→RL swap so the chalkiness check also uses
+    // real odds. Missing slate data (or ambiguous side) keeps the model's
+    // odds — better than dropping the pick. Original odds stay in `overrides`.
+    if (effectiveBetType === "moneyline" || effectiveBetType === "spread" || effectiveBetType === "total") {
+      const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
+      const homeName = String(gameSnapshot.home_team || "");
+      const awayName = String(gameSnapshot.away_team || "");
+      const stampSelLower = String(effectiveSelection).toLowerCase();
+      const homeLastWord = homeName.toLowerCase().split(/\s+/).pop() || "";
+      const awayLastWord = awayName.toLowerCase().split(/\s+/).pop() || "";
+      const hitsHome = !!homeName && (stampSelLower.includes(homeName.toLowerCase()) || (!!homeLastWord && stampSelLower.includes(homeLastWord)));
+      const hitsAway = !!awayName && (stampSelLower.includes(awayName.toLowerCase()) || (!!awayLastWord && stampSelLower.includes(awayLastWord)));
+      const pickedSide: "home" | "away" | null = hitsHome && !hitsAway ? "home" : hitsAway && !hitsHome ? "away" : null;
+      const readOdds = (block: unknown, key: string): string | null => {
+        const v = (block as Record<string, unknown> | undefined)?.[key];
+        if (typeof v === "string" && v.trim() !== "") return v;
+        if (typeof v === "number" && Number.isFinite(v)) return v > 0 ? `+${v}` : String(v);
+        return null;
+      };
+      let slateOdds: string | null = null;
+      if (effectiveBetType === "moneyline" && pickedSide) {
+        const mlKey = effectivePeriod === "f5" ? "f5_ml" : effectivePeriod === "h1" ? "h1_ml" : "full_ml";
+        slateOdds = readOdds(vegasLines?.[mlKey], pickedSide);
+        if (slateOdds) {
+          // The model embeds its (possibly wrong) price in the text — rewrite
+          // to canonical "{Team} ML"; formatPickSelectionForPeriod re-adds F5.
+          effectiveSelection = `${pickedSide === "home" ? homeName : awayName} ML`;
+        }
+      } else if (effectiveBetType === "spread" && pickedSide) {
+        const rlKey = effectivePeriod === "f5" ? "f5_rl" : effectivePeriod === "h1" ? "h1_rl" : "full_rl";
+        slateOdds = readOdds(vegasLines?.[rlKey], `${pickedSide}_odds`);
+      } else if (effectiveBetType === "total") {
+        const dirMatch = stampSelLower.match(/\b(over|under)\b/);
+        if (dirMatch) {
+          const ouKey = effectivePeriod === "f5" ? "f5_ou" : effectivePeriod === "h1" ? "h1_ou" : "full_ou";
+          slateOdds = readOdds(vegasLines?.[ouKey], `${dirMatch[1]}_odds`);
+        }
+      }
+      if (slateOdds) effectiveOdds = slateOdds;
+    }
+
     // ML→RL auto-swap (MLB, max_favorite_odds). Inherently prop-safe: props are
     // NFL-only and bet_type 'prop' (never 'moneyline'), so this never fires.
     if (sportType === "mlb" && effectiveBetType === "moneyline") {

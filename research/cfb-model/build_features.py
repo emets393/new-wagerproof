@@ -24,6 +24,13 @@ import pandas as pd
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data", "cfbd")
 
+# Upcoming-week (DISPLAY) support: the opponent-adjusted betting model needs COMPLETED games, but the
+# weeks-1-3 display predictor (cfb_early_week.py) needs the UNPLAYED target-week slate to exist in
+# model_games.parquet. When CFB_SEASON/CFB_WEEK are set, load_games ALSO keeps the unplayed games for
+# exactly that (season, week). Unset -> all-completed behavior is byte-identical (historical training).
+TARGET_SEASON = int(os.getenv("CFB_SEASON")) if os.getenv("CFB_SEASON") else None
+TARGET_WEEK = int(os.getenv("CFB_WEEK")) if os.getenv("CFB_WEEK") else None
+
 
 def _seasons_in_cache(pattern):
     """Seasons present in the cfbd cache, so 2026+ are picked up automatically once
@@ -54,10 +61,13 @@ def load_games():
     frames = []
     for y in YEARS:
         g = pd.read_parquet(os.path.join(DATA, f"games_{y}.parquet"))
+        played = g["homePoints"].notna() & g["awayPoints"].notna()
+        # keep completed games always; for the display target (season, week) also keep the UNPLAYED slate
+        keep_rows = played | ((y == TARGET_SEASON) & (g["week"] == TARGET_WEEK))
         g = g[(g["seasonType"] == "regular")
               & (g["homeClassification"] == "fbs")
               & (g["awayClassification"] == "fbs")
-              & g["homePoints"].notna() & g["awayPoints"].notna()].copy()
+              & keep_rows].copy()
         g["season"] = y
         frames.append(g)
     g = pd.concat(frames, ignore_index=True)

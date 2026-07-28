@@ -8,22 +8,29 @@ import pandas as pd
 import cfbd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-YEARS = [2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024, 2025]
+# 2026 = current season: its priors ride on 2025 SP+/FPI (prior-year, mapped via +1 below) +
+# 2026 recruiting. Returning-production for 2026 may be empty until CFBD loads rosters (~Aug) — guarded.
+YEARS = [2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024, 2025, 2026]
 
 
 def main():
     # returning production (preseason, current year)
     ret = []
     for y in YEARS:
-        for r in cfbd.get("/player/returning", year=y):
+        try:
+            rows = cfbd.get("/player/returning", year=y)
+        except Exception:
+            rows = []  # 2026: rosters not loaded until August -> ret_* stay NaN (fine, priors ride on SP+/rec)
+        for r in rows:
             ret.append({"season": y, "team": r["team"], "ret_ppa": r.get("percentPPA"),
                         "ret_pass": r.get("percentPassingPPA"), "ret_rush": r.get("percentRushingPPA"),
                         "ret_usage": r.get("usage")})
     ret = pd.DataFrame(ret)
 
-    # recruiting points (preseason). also 3yr rolling avg = roster talent
+    # recruiting points (preseason). also 3yr rolling avg = roster talent. +1 on the range end so the
+    # CURRENT season's recruiting class is included (2026 signing day has passed).
     rec = []
-    for y in range(2013, 2026):
+    for y in range(2013, max(YEARS) + 1):
         for r in cfbd.get("/recruiting/teams", year=y):
             rec.append({"season": y, "team": r["team"], "recruit_pts": r.get("points"), "recruit_rank": r.get("rank")})
     rec = pd.DataFrame(rec)

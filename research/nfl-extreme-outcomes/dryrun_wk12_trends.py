@@ -70,7 +70,7 @@ def ou(margin):
 def team_games(f, ab):
     """One row per game for `ab`, team's perspective, newest week first."""
     rows = []
-    sub = f[(f.home_ab == ab) | (f.away_ab == ab)].sort_values("week")
+    sub = f[(f.home_ab == ab) | (f.away_ab == ab)].sort_values(["season", "week"])
     for _, r in sub.iterrows():
         home = r.home_ab == ab
         opp = r.away_ab if home else r.home_ab
@@ -101,6 +101,7 @@ def team_games(f, ab):
                         if h1_total_points is not None and pd.notna(h1_total) else None)
 
         rows.append(dict(
+            season=int(r.season),
             week=int(r.week),
             opp=opp,
             date=str(r.gameday),
@@ -206,15 +207,20 @@ def compute_matchups(history, ab):
 
 
 def build(history=None):
-    f = pd.read_parquet(DATA / "h1tt_frame.parquet")
-    f = f[(f.season == SEASON) & (f.week <= THROUGH_WEEK)].copy()
+    fa = pd.read_parquet(DATA / "h1tt_frame.parquet")
+    # cross-season frame (every completed game up to the point-in-time cutoff) powers the recent-form
+    # STREAKS; the current-season subset powers the season-to-date RECORD. Football has too few games/
+    # season to start streaks cold at week 1 — so week 1 shows last year's tail, and prior-year games
+    # age out of the 3/5/7 windows as the current season fills.
+    fx = fa[(fa.season < SEASON) | ((fa.season == SEASON) & (fa.week <= THROUGH_WEEK))].copy()
     history = history or []
-    teams = sorted(set(f.home_ab) | set(f.away_ab))
+    teams = sorted(set(fx.home_ab) | set(fx.away_ab))
     out = []
     for ab in teams:
-        gl = team_games(f, ab)
-        if not gl:
+        xgl = team_games(fx, ab)              # cross-season, newest-first -> streaks (splits + last5)
+        if not xgl:
             continue
+        gl = [g for g in xgl if g["season"] == SEASON]   # this-season -> season-to-date record + game_log
         su_w = sum(g["su"] == "W" for g in gl)
         su_l = sum(g["su"] == "L" for g in gl)
         ats_w = sum(g["ats"] == "W" for g in gl)
@@ -241,11 +247,12 @@ def build(history=None):
             h1_ats_pct=pct(h1_aw, h1_aw + h1_al),
             h1_ou_o=h1_oo, h1_ou_u=h1_ou_u, h1_ou_games=h1_oo + h1_ou_u,
             h1_over_pct=pct(h1_oo, h1_oo + h1_ou_u),
-            last5_su=[g["su"] for g in gl[:5]],
-            last5_ats=[g["ats"] for g in gl[:5]],
-            last5_ou=[g["ou"] for g in gl[:5]],
-            game_log=gl,
-            splits=compute_splits(gl),                      # home/away + fav/dog x 3/5/7 x 6 markets
+            # streaks (chips + splits) = CROSS-SEASON trailing so week 1 carries last year's tail
+            last5_su=[g["su"] for g in xgl if g["su"] is not None][:5],
+            last5_ats=[g["ats"] for g in xgl if g["ats"] is not None][:5],
+            last5_ou=[g["ou"] for g in xgl if g["ou"] is not None][:5],
+            game_log=gl,                                    # detailed per-game view stays this-season
+            splits=compute_splits(xgl),                     # home/away + fav/dog x 3/5/7 x 6 markets, cross-season
             matchups=compute_matchups(history, ab),         # H2H vs each opponent (cross-season)
         ))
     return pd.DataFrame(out)

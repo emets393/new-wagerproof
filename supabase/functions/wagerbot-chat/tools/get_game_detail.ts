@@ -53,26 +53,44 @@ export const tool: ToolDefinition = {
         break;
       }
       case "nfl": {
-        const { data: latestRun } = await ctx.cfbSupabase
-          .from("nfl_predictions_epa")
-          .select("run_id")
-          .order("run_id", { ascending: false })
+        // NFL reads the new model's weekly table nfl_dryrun_games (lines from The
+        // Odds API; predictions + lines in one row). Latest (season, week) =
+        // current slate — anchor then filter.
+        const { data: anchor } = await ctx.cfbSupabase
+          .from("nfl_dryrun_games")
+          .select("season, week")
+          .order("season", { ascending: false })
+          .order("week", { ascending: false })
           .limit(1)
-          .single();
-        if (latestRun) {
+          .maybeSingle();
+        if (anchor) {
           const { data } = await ctx.cfbSupabase
-            .from("nfl_predictions_epa")
+            .from("nfl_dryrun_games")
             .select("*")
-            .eq("run_id", latestRun.run_id);
+            .eq("season", anchor.season)
+            .eq("week", anchor.week);
           games = data || [];
         }
         break;
       }
       case "cfb": {
-        const { data } = await ctx.cfbSupabase
-          .from("cfb_live_weekly_inputs")
-          .select("*");
-        games = data || [];
+        // CFB reads the new model's weekly table cfb_dryrun_games (lines from The
+        // Odds API). Latest (season, week) = current slate — anchor then filter.
+        const { data: anchor } = await ctx.cfbSupabase
+          .from("cfb_dryrun_games")
+          .select("season, week")
+          .order("season", { ascending: false })
+          .order("week", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (anchor) {
+          const { data } = await ctx.cfbSupabase
+            .from("cfb_dryrun_games")
+            .select("*")
+            .eq("season", anchor.season)
+            .eq("week", anchor.week);
+          games = data || [];
+        }
         break;
       }
       case "ncaab": {

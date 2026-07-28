@@ -3,10 +3,13 @@ import debug from '@/utils/debug';
 import type { GameFeedItem, SportFeed, TeamRef } from '../types';
 
 /**
- * NFL adapter — port of the legacy src/pages/NFL.tsx fetchData() merge:
- * v_input_values_with_epa (current week) + nfl_predictions_epa (latest run)
- * + nfl_betting_lines (latest per training_key) + nfl_team_mapping
- * + production_weather, merged on home_away_unique = training_key.
+ * NFL adapter for the /games feed.
+ * Reads the NEW model's weekly output: nfl_dryrun_games (the locked totals/sides/1H model numbers +
+ * Odds-API lines) + nfl_team_mapping (logos). The current week is resolved dynamically from kickoffs
+ * (resolveNflCurrentWeek), so the slate rolls Week 1 -> Week 2 automatically. The legacy path
+ * (v_input_values_with_epa + nfl_predictions_epa classifier + nfl_betting_lines + production_weather)
+ * is retired — nfl_predictions_epa now feeds only the legacy_fade signals, not the displayed card.
+ * (nfl_dryrun_games keeps its test-era name but now holds the live current-week slate.)
  */
 
 export interface NFLPrediction {
@@ -319,61 +322,53 @@ function convertGameTime(
   return gameTime;
 }
 
-export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
-  // Step 1: all current-week games
-  const { data: nflGames, error: gamesError } = await collegeFootballSupabase
-    .from('v_input_values_with_epa')
-    .select('*')
-    .order('game_date', { ascending: true })
-    .order('game_time', { ascending: true });
+/**
+ * Resolve the NFL slate to show: the (season, week) of the soonest upcoming game in the new-model
+ * table. 6h grace keeps a just-kicked game's week current; once every game in a week has kicked off,
+ * the next week becomes "soonest" and the board rolls forward. Falls back to the latest slate present.
+ */
+async function resolveNflCurrentWeek(): Promise<{ season: number; week: number }> {
+  const grace = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  const { data: upcoming } = await collegeFootballSupabase
+    .from('nfl_dryrun_games')
+    .select('season, week, kickoff')
+    .gte('kickoff', grace)
+    .order('kickoff', { ascending: true })
+    .limit(1);
+  if (upcoming && upcoming.length) {
+    return { season: Number(upcoming[0].season), week: Number(upcoming[0].week) };
+  }
+  const { data: latest } = await collegeFootballSupabase
+    .from('nfl_dryrun_games')
+    .select('season, week')
+    .order('season', { ascending: false })
+    .order('week', { ascending: false })
+    .limit(1);
+  if (latest && latest.length) {
+    return { season: Number(latest[0].season), week: Number(latest[0].week) };
+  }
+  return { season: 2026, week: 1 };
+}
 
+export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
+  // The NEW NFL model's weekly output lives in nfl_dryrun_games (legacy test-era name; it now holds the
+  // real current-week slate — Odds-API lines + the locked totals/sides/1H model numbers). The current
+  // week resolves dynamically from kickoffs so the board rolls Week 1 -> Week 2 on its own. The old
+  // legacy path (v_input_values_with_epa + nfl_predictions_epa classifier + nfl_betting_lines) is
+  // retired; nfl_predictions_epa now feeds only the legacy_fade signals, not the displayed card.
+  const { season, week } = await resolveNflCurrentWeek();
+
+  const { data: nflGames, error: gamesError } = await collegeFootballSupabase
+    .from('nfl_dryrun_games')
+    .select('*')
+    .eq('season', season)
+    .eq('week', week)
+    .order('kickoff', { ascending: true });
   if (gamesError) {
     throw new Error(`Games error: ${gamesError.message}`);
   }
 
-  // Step 2: latest model run predictions
-  const { data: latestRun, error: runError } = await collegeFootballSupabase
-    .from('nfl_predictions_epa')
-    .select('run_id')
-    .order('run_id', { ascending: false })
-    .limit(1)
-    .single();
-
-  const predictionsMap = new Map<string, any>();
-  if (!runError && latestRun) {
-    const { data: predictions, error: predsError } = await collegeFootballSupabase
-      .from('nfl_predictions_epa')
-      .select('training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id')
-      .eq('run_id', latestRun.run_id);
-    if (!predsError && predictions) {
-      predictions.forEach((pred) => predictionsMap.set(pred.training_key, pred));
-    } else {
-      debug.warn('No NFL predictions found or error:', predsError);
-    }
-  } else {
-    debug.warn('No NFL prediction run_id found');
-  }
-
-  // Step 2.5: latest betting line per training_key
-  const { data: bettingLines, error: bettingError } = await collegeFootballSupabase
-    .from('nfl_betting_lines')
-    .select(
-      'training_key, home_ml, away_ml, over_line, home_spread, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time, game_time_et'
-    )
-    .order('as_of_ts', { ascending: false });
-
-  const bettingLinesMap = new Map<string, any>();
-  if (!bettingError && bettingLines) {
-    bettingLines.forEach((line) => {
-      if (!bettingLinesMap.has(line.training_key)) {
-        bettingLinesMap.set(line.training_key, line);
-      }
-    });
-  } else {
-    debug.warn('No NFL betting lines found or error:', bettingError);
-  }
-
-  // Step 3: team mappings (logos for detail sections)
+  // team mappings (logos for detail sections) — static reference, season-independent
   const { data: teamMappingsData, error: teamMappingsError } = await collegeFootballSupabase
     .from('nfl_team_mapping')
     .select('city_and_name, team_name');
@@ -385,78 +380,41 @@ export async function fetchNflGames(): Promise<SportFeed<NFLPrediction>> {
     logo_url: getNFLTeamLogo(team.team_name),
   }));
 
-  // Step 3.5: weather
-  const { data: weatherData, error: weatherError } = await collegeFootballSupabase
-    .from('production_weather')
-    .select('*');
-  const weatherMap = new Map<string, any>();
-  if (!weatherError && weatherData) {
-    weatherData.forEach((weather) => {
-      if (weather.training_key) {
-        weatherMap.set(weather.training_key, weather);
-      }
-    });
-  } else {
-    debug.warn('No NFL weather data found or error:', weatherError);
-  }
-
-  // Step 4: merge (home_away_unique = training_key everywhere)
-  const merged: NFLPrediction[] = (nflGames || []).map((game: any) => {
-    const matchKey = game.home_away_unique;
-    const prediction = predictionsMap.get(matchKey);
-    const bettingLine = bettingLinesMap.get(matchKey);
-    const weather = weatherMap.get(matchKey);
-
-    const gameTime = convertGameTime(
-      bettingLine?.game_time_et,
-      bettingLine?.game_time || game.game_time || '',
-      bettingLine?.game_date || game.game_date
-    );
-
-    // These two diffs are always null in practice, and that is correct, not a
-    // too-narrow select: nfl_predictions_epa is a CLASSIFIER (cover / OU
-    // probabilities) and has no fair-line columns to widen the select to.
-    const vegasHomeSpread = bettingLine?.home_spread || game.home_spread || null;
-    const modelFairHomeSpread =
-      (prediction as any)?.model_fair_home_spread ||
-      ((prediction as any)?.pred_home_margin ? -(prediction as any).pred_home_margin : null) ||
-      null;
-    const homeSpreadDiff =
-      vegasHomeSpread !== null && modelFairHomeSpread !== null
-        ? vegasHomeSpread - modelFairHomeSpread
-        : null;
-
-    const vegasTotal = bettingLine?.over_line || game.ou_vegas_line || null;
-    const modelFairTotal =
-      (prediction as any)?.model_fair_total || (prediction as any)?.pred_total_points || null;
-    const overLineDiff =
-      vegasTotal !== null && modelFairTotal !== null ? modelFairTotal - vegasTotal : null;
-
+  // Map nfl_dryrun_games rows onto the NFLPrediction shape the cards + detail widgets read.
+  const merged: NFLPrediction[] = (nflGames || []).map((r: any) => {
+    const homeSpread = r.fg_spread_close ?? null;
+    const total = r.fg_total_close ?? null;
+    const predTotal = Number(r.fg_pred_total);
+    const predMargin = Number(r.fg_pred_margin);
+    const hasScore = Number.isFinite(predTotal) && Number.isFinite(predMargin);
     return {
-      ...game,
-      id: game.home_away_unique || `${game.home_team}_${game.away_team}_${game.game_date}`,
-      training_key: game.home_away_unique,
-      unique_id: game.home_away_unique,
-      game_time: gameTime,
-      game_date: bettingLine?.game_date || game.game_date || '',
-      home_away_ml_prob: prediction?.home_away_ml_prob || null,
-      home_away_spread_cover_prob: prediction?.home_away_spread_cover_prob || null,
-      ou_result_prob: prediction?.ou_result_prob || null,
-      run_id: prediction?.run_id || null,
-      home_ml: bettingLine?.home_ml || null,
-      away_ml: bettingLine?.away_ml || null,
-      home_spread: vegasHomeSpread,
-      away_spread: vegasHomeSpread !== null ? -vegasHomeSpread : null,
-      over_line: vegasTotal,
-      home_spread_diff: homeSpreadDiff,
-      over_line_diff: overLineDiff,
-      spread_splits_label: bettingLine?.spread_splits_label || null,
-      ml_splits_label: bettingLine?.ml_splits_label || null,
-      total_splits_label: bettingLine?.total_splits_label || null,
-      temperature: game.temperature || game.weather_temp || weather?.temperature || null,
-      precipitation: game.precipitation_pct || weather?.precipitation_pct || null,
-      wind_speed: game.wind_speed || game.weather_wind || weather?.wind_speed || null,
-      icon: game.icon || game.weather_icon || weather?.icon || null,
+      ...r,
+      id: r.game_id,
+      training_key: r.game_id,
+      unique_id: r.game_id,
+      game_date: r.gameday || (r.kickoff ? String(r.kickoff).slice(0, 10) : ''),
+      game_time: r.kickoff || '',
+      // model numbers — the new model has a fair line + edges the legacy classifier never had
+      home_away_ml_prob: r.fg_home_win_prob ?? null,
+      home_away_spread_cover_prob: r.fg_home_cover_prob ?? null,
+      ou_result_prob: null,
+      pred_spread: r.fg_pred_spread ?? null,
+      pred_total: r.fg_pred_total ?? null,
+      pred_home_score: hasScore ? (predTotal + predMargin) / 2 : (r.tt_home_pred ?? null),
+      pred_away_score: hasScore ? (predTotal - predMargin) / 2 : (r.tt_away_pred ?? null),
+      // Odds-API lines (the single source for displayed lines)
+      home_ml: r.fg_ml_home_close ?? null,
+      away_ml: r.fg_ml_away_close ?? null,
+      home_spread: homeSpread,
+      away_spread: homeSpread !== null ? -Number(homeSpread) : null,
+      over_line: total,
+      home_spread_diff: r.fg_spread_edge ?? null,
+      over_line_diff: r.fg_total_edge ?? null,
+      // weather (blank pre-season; populated in-season)
+      temperature: r.wx_temp_f ?? null,
+      precipitation: r.wx_precip_mm ?? null,
+      wind_speed: r.wx_wind_mph ?? null,
+      icon: r.wx_icon ?? null,
     };
   });
 

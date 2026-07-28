@@ -105,8 +105,8 @@ def index_props_books(season: int, week: int, data_dir: Path | None = None) -> d
         ex = pd.read_parquet(extra_path)
         ex = ex[(ex.season == season) & (ex.week == week) & ex.market.isin(EXTRA_PROP_MARKETS)].copy()
         if not ex.empty:
-            ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
-            ex["comm"] = pd.to_datetime(ex.commence_time, utc=True, format="ISO8601")
+            ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True)
+            ex["comm"] = pd.to_datetime(ex.commence_time, utc=True)
             ex["mins"] = (ex.comm - ex.snap).dt.total_seconds() / 60.0
             act = ex[ex.mins >= T60_MINS].sort_values(["player_id", "market", "bookmaker", "snap"])
             cl = act.groupby(["player_id", "market", "bookmaker"], as_index=False).last()

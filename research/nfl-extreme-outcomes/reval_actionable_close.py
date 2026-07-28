@@ -48,8 +48,8 @@ def build_frame(min_lead):
     """Rebuild the open/close consensus frame. 'close' = last snapshot with
     (commence-snap) >= min_lead minutes; 'open' = first pre-kickoff snapshot."""
     d = pd.read_parquet(DATA / "odds_hist.parquet")
-    d["snap_dt"] = pd.to_datetime(d.snap_ts, utc=True, format="ISO8601")
-    comm = pd.to_datetime(d.commence_time, utc=True, format="ISO8601")
+    d["snap_dt"] = pd.to_datetime(d.snap_ts, utc=True)
+    comm = pd.to_datetime(d.commence_time, utc=True)
     d["mins_before"] = (comm - d.snap_dt).dt.total_seconds() / 60.0
     d["gameday"] = comm.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
     d["home_ab"] = d.home_team.map(CITY_NAMES)

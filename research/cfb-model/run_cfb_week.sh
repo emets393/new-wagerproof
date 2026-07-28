@@ -19,8 +19,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-SEASON="${1:-${CFB_SEASON:-2026}}"
-WEEK="${2:-${CFB_WEEK:-6}}"
+# Season/week: explicit args win, then CFB_SEASON/CFB_WEEK env, else auto-resolve the CURRENT week from the
+# CFBD /calendar (so the weekly cron runs unattended — no static-week edits each week).
+if [ -n "${1:-}" ]; then
+  SEASON="$1"; WEEK="${2:?usage: run_cfb_week.sh <season> <week>}"
+elif [ -n "${CFB_SEASON:-}" ]; then
+  SEASON="$CFB_SEASON"; WEEK="${CFB_WEEK:?set CFB_WEEK alongside CFB_SEASON}"
+else
+  read -r SEASON WEEK < <(python3 resolve_cfb_week.py)
+fi
 export CFB_SEASON="$SEASON" CFB_WEEK="$WEEK"
 echo "=== CFB weekly run :: season=$SEASON week=$WEEK ==="
 step() { echo; echo ">>> $*"; }
@@ -46,6 +53,10 @@ step "build box-score tendencies (as-of)";                 python3 build_tendenc
 step "build per-game model frame -> model_games.parquet";  python3 build_features.py
 # team style profiles + opp DEF archetype + off_ppa (feeds the S-CFB1 style-delta UNDER flag)
 step "build team style profiles (archetypes, leak-safe)";  python3 build_football_profiles.py || true
+# run the LOCKED model AS A SCRIPT so it WRITES out/cfb_{predictions,bets,team_totals,h1_model}_$SEASON.csv —
+# the slate generators (gen_cfb_dryrun_games/picks/flags) read these; harness_week() alone does NOT write them.
+step "run locked CFB model -> prediction/spot/TT/1H CSVs (frozen ${SEASON} .pkl)"
+python3 cfb_forecast.py --season "$SEASON" --week "$WEEK"
 
 # --- 3) WRITE THE APP DATA CONTRACT --------------------------------------------
 # Reference loads (static/idempotent — cheap, keeps the slate's FK refs present).

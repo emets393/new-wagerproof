@@ -32,7 +32,7 @@ for name, (mask, side, market, gl) in S.items():
                      "stake_units": C.STAKE["mammoth" if is_mam else conv], "grade_line": gl, "mammoth": is_mam})
 
 # team-total flags — UNIFIED: full-game-derived team points vs posted team total (coherent with the score)
-ev = pd.read_parquet("data/event_odds/events_2025.parquet"); ev = ev[(ev.game_id.isin(g7)) & (ev.market == "team_totals") & (ev.name == "Over")].copy()
+ev = pd.read_parquet(f"data/event_odds/events_{SEASON}.parquet"); ev = ev[(ev.game_id.isin(g7)) & (ev.market == "team_totals") & (ev.name == "Over")].copy()
 def _tdb(o):
     AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i", "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State", "Southern Miss Golden Eagles": "Southern Miss"}
     nm = sorted(set(gm.homeTeam) | set(gm.awayTeam))
@@ -54,7 +54,7 @@ for _, r in te.iterrows():
                      "conviction": ck, "tier": "active", "stake_units": C.STAKE[ck], "grade_line": "best", "mammoth": False})
 
 # 1H flags
-h1 = pd.read_csv("out/cfb_h1_model_2025.csv"); h1 = h1[h1.game_id.isin(g7)]
+h1 = pd.read_csv(f"out/cfb_h1_model_{SEASON}.csv"); h1 = h1[h1.game_id.isin(g7)]
 for _, r in h1.iterrows():
     g = f"{r.awayTeam} @ {r.homeTeam}"
     if isinstance(r.h1_spread_bet, str) and r.h1_spread_bet:

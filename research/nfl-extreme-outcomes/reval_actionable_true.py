@@ -23,8 +23,8 @@ def consensus(df, suffix):
     """Collapse per-book snapshot rows -> one consensus row per game, columns
     named '{mkt}_{suffix}_{linecol}' / '{mkt}_{suffix}_pay_{pricecol}'."""
     df = df.copy()
-    df["snap_dt"] = pd.to_datetime(df.snap_ts, utc=True, format="ISO8601")
-    comm = pd.to_datetime(df.commence_time, utc=True, format="ISO8601")
+    df["snap_dt"] = pd.to_datetime(df.snap_ts, utc=True)
+    comm = pd.to_datetime(df.commence_time, utc=True)
     df["gameday"] = comm.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
     df["home_ab"] = df.home_team.map(CITY_NAMES)
     df["away_ab"] = df.away_team.map(CITY_NAMES)
@@ -56,8 +56,8 @@ def consensus(df, suffix):
 def build_true_frame(close_parquet):
     """open from odds_hist first pre-kick snapshot; close from the backfilled snapshot."""
     oh = pd.read_parquet(DATA / "odds_hist.parquet")
-    oh["snap_dt"] = pd.to_datetime(oh.snap_ts, utc=True, format="ISO8601")
-    comm = pd.to_datetime(oh.commence_time, utc=True, format="ISO8601")
+    oh["snap_dt"] = pd.to_datetime(oh.snap_ts, utc=True)
+    comm = pd.to_datetime(oh.commence_time, utc=True)
     oh = oh[oh.snap_dt < comm]
     # OPEN = earliest snapshot per game: keep only each game's first snap_dt rows
     oh["gameday"] = comm.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")

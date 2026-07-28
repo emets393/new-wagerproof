@@ -7,6 +7,7 @@ Also writes the Outliers `splits` + `matchups` jsonb (mirror of nfl_team_trends)
 H2H meetings per opponent, FG markets). Shapes match NFL so one app code path renders both sports.
 
 Usage:  python3 gen_cfb_team_trends.py [season week] [--no-load]"""
+import os
 import sys
 import numpy as np, pandas as pd, warnings, json
 import dry_common as C
@@ -20,13 +21,17 @@ WINDOWS = [3, 5, 7]
 
 gm = pd.read_parquet("data/model_games.parquet")
 pre = gm[(gm.season == SEASON) & (gm.week <= THRU) & gm.actual_margin.notna()].copy()
-g25 = pd.read_parquet("data/cfbd/games_2025.parquet")
+g25 = pd.read_parquet(f"data/cfbd/games_{SEASON}.parquet")
 h1h = {r.id: (sum(r.homeLineScores[:2]) if r.homeLineScores is not None and len(r.homeLineScores) >= 2 else None) for _, r in g25.iterrows()}
 h1a = {r.id: (sum(r.awayLineScores[:2]) if r.awayLineScores is not None and len(r.awayLineScores) >= 2 else None) for _, r in g25.iterrows()}
 dt = dict(zip(g25.id, g25.startDate))
 
-# posted consensus lines (event odds, wk1-6)
-ev = pd.read_parquet("data/event_odds/events_2025.parquet"); ev = ev[ev.game_id.isin(set(pre.game_id))].copy()
+# posted consensus lines (event odds, wk1-6). Absent preseason -> empty frame (current-season TT/1H
+# stay null; the cross-season streaks below carry their own 2023-2025 TT/1H from the odds archive).
+_evp = f"data/event_odds/events_{SEASON}.parquet"
+ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(
+    columns=["game_id", "market", "book", "name", "description", "snap", "point", "home"])
+ev = ev[ev.game_id.isin(set(pre.game_id))].copy()
 names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
 AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i", "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State", "Southern Miss Golden Eagles": "Southern Miss"}
 def tdb(o):
@@ -83,8 +88,14 @@ def pct(w, n): return round(100 * w / n, 1) if n else None
 def last5(lst, key): return [g[key] for g in lst[::-1] if g[key] is not None][:5]
 # cross-season per-team logs power the H2H matchups (last 6 meetings, FG markets)
 cross = T.build_cross_season_logs(SEASON, THRU)
+# Iterate EVERY team with a cross-season history (not just teams with current-season games), so early
+# weeks still emit a row with carried-over streaks. Football has too few games/season to start streaks
+# cold at week 1 — so the recent-form windows below draw on the cross-season log (last year's tail),
+# while the season-to-date RECORD stays this-season only.
 rows = []
-for team, log in logs.items():
+for team in sorted(cross.keys()):
+    log = logs.get(team, [])                 # this-season rich log: season-to-date record + detailed game_log
+    clog = cross[team]                       # cross-season lean log, NEWEST-FIRST: powers the streak windows
     n = len(log)
     suw = sum(g["su"] == "W" for g in log); sul = n - suw
     aw = sum(g["ats"] == "W" for g in log); al = sum(g["ats"] == "L" for g in log); ap = sum(g["ats"] == "P" for g in log)
@@ -99,11 +110,15 @@ for team, log in logs.items():
         "tt_o": tto, "tt_u": ttu, "tt_games": ttn, "tt_over_pct": pct(tto, ttn),
         "h1_ats_w": haw, "h1_ats_l": hal, "h1_ats_p": hap, "h1_ats_games": han, "h1_ats_pct": pct(haw, haw + hal),
         "h1_ou_o": hoo, "h1_ou_u": hou, "h1_ou_games": hon, "h1_over_pct": pct(hoo, hon),
-        "last5_su": last5(log, "su"), "last5_ats": last5(log, "ats"), "last5_ou": last5(log, "ou"),
+        # Recent-form chips + splits: CROSS-SEASON trailing (last year's tail early, ages out as the
+        # season fills). last5 from the newest-first cross log; splits keyed on the team_spread field.
+        "last5_su": [g["su"] for g in clog if g["su"] is not None][:5],
+        "last5_ats": [g["ats"] for g in clog if g["ats"] is not None][:5],
+        "last5_ou": [g["ou"] for g in clog if g["ou"] is not None][:5],
         "game_log": log[::-1],   # newest first; real list -> stored as jsonb array (loader handles JSON)
-        # Outliers: season-scoped splits (6 markets x 5 dims x 3/5/7) + cross-season H2H matchups
-        "splits": T.compute_splits(log[::-1], DIMS, WINDOWS, sk="spread"),
-        "matchups": T.compute_matchups(cross.get(team, []), markets=T.FG_MKT, cap=6)})
+        # Outliers: cross-season trailing splits (6 markets x 5 dims x 3/5/7) + cross-season H2H matchups
+        "splits": T.compute_splits(clog, DIMS, WINDOWS, sk="team_spread"),
+        "matchups": T.compute_matchups(clog, markets=T.FG_MKT, cap=6)})
 df = pd.DataFrame(rows)
 print(f"cfb_team_trends: {len(df)} teams | avg games {df.games.mean():.1f} | with TT {(df.tt_games>0).sum()} | with 1H {(df.h1_ats_games>0).sum()}")
 if NO_LOAD:

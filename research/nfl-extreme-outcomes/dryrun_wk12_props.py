@@ -249,8 +249,8 @@ def attempts_consensus():
     ex = ex[(ex.season == SEASON) & (ex.week == WEEK) & (ex.market.isin(EXTRA_MARKETS))].copy()
     if ex.empty:
         return ex
-    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
-    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True, format="ISO8601")
+    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True)
+    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True)
     ex["mins"] = (ex.comm - ex.snap).dt.total_seconds() / 60.0
     keys = ["event_id", "player_id", "player_name", "position", "team", "market",
             "home_team", "away_team"]
@@ -472,7 +472,7 @@ def main():
         for pid, mkt in zip(c.player_id, c.market)
     ]
 
-    n_flag = (c.p_flags.str.len() > 0).sum()
+    n_flag = int(c.p_flags.apply(lambda x: len(x) if isinstance(x, (list, str)) else 0).gt(0).sum())
     print(f"{len(c)} prop rows | {c.player_id.nunique()} players | "
           f"{c.game_id.nunique()} games | rows with flags: {n_flag} | "
           f"headshots: {c.headshot_url.notna().mean():.1%}")

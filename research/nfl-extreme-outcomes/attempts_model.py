@@ -72,8 +72,8 @@ def props_t60():
     ex = pd.read_parquet(DATA / "props_rows_extra.parquet")
     ex = ex[ex.market.isin(MKT)].copy()
     ex["team"] = ex.team.replace(NORM)
-    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True, format="ISO8601")
-    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True, format="ISO8601")
+    ex["snap"] = pd.to_datetime(ex.snapshot_time, utc=True)
+    ex["comm"] = pd.to_datetime(ex.commence_time, utc=True)
     ex["mins"] = (ex.comm - ex.snap).dt.total_seconds() / 60.0
     keys = ["season", "week", "player_id", "market"]
     c = ex.groupby(keys + ["snap", "mins"]).agg(line=("line", "median"),

@@ -72,8 +72,8 @@ def build_games():
     dedupe by ET calendar date of commence so each game gets one snapshot set.
     """
     d = pd.read_parquet(ROOT / "data" / "odds_hist.parquet")
-    d["snap_dt"] = pd.to_datetime(d.snap_ts, utc=True, format="ISO8601")
-    comm = pd.to_datetime(d.commence_time, utc=True, format="ISO8601")
+    d["snap_dt"] = pd.to_datetime(d.snap_ts, utc=True)
+    comm = pd.to_datetime(d.commence_time, utc=True)
     d["gameday"] = comm.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
     g = (d.groupby(["season", "gameday", "home_team", "away_team"])
          .snap_dt.agg(lambda s: sorted(s.unique())).reset_index()
