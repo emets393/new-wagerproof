@@ -131,10 +131,21 @@ def main():
     all_coaches = fetch_all(
         "cfb_coach_trends",
         f"through_season=eq.{SEASON}&through_week=eq.{THROUGH_WEEK}"
-        f"&last_season=eq.{SEASON}"
         f"&select=coach,current_team,career_games,last_season,splits,matchups,market_coverage",
     )
-    coaches = [c for c in all_coaches if c.get("current_team") in team_names]
+    # The current head coach per team = the one whose most-recent game is latest — early season that's
+    # LAST year (no current-season games yet), so we can't filter on last_season == SEASON. Dedup per
+    # team, keeping the most recent coach (then most career games) as the active one.
+    by_team = {}
+    for c in all_coaches:
+        t = c.get("current_team")
+        if t not in team_names:
+            continue
+        cur = by_team.get(t)
+        rank = (c.get("last_season") or 0, c.get("career_games") or 0)
+        if cur is None or rank > (cur.get("last_season") or 0, cur.get("career_games") or 0):
+            by_team[t] = c
+    coaches = list(by_team.values())
 
     print(f"slate: {len(games)} games | teams {len(teams)} coaches {len(coaches)}")
 
