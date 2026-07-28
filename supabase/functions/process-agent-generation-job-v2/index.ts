@@ -554,6 +554,52 @@ serve(async (req) => {
       let effectiveOdds = pick.odds;
       let mlSwapInfo: string | null = null;
 
+      // ── Authoritative odds stamp (ported from V3 submitPicks, 2026-07-28) ──
+      // NEVER trust the model's self-reported odds: V3's engine attached the
+      // opponent's price to its own pick ("Mets -162" when the Mets were +136)
+      // and V2 has the same trust hole. Resolve the picked side against the
+      // snapshot's vegas_lines (period-aware) and overwrite. Runs BEFORE the
+      // ML→RL swap so the chalkiness check also uses real odds. Missing slate
+      // data (or ambiguous side) keeps the model's odds — better than dropping
+      // the pick. The model's original odds stay in ai_audit_payload.
+      {
+        const vegasLines = gameSnapshot.vegas_lines as Record<string, unknown> | undefined;
+        const homeName = String(gameSnapshot.home_team || '');
+        const awayName = String(gameSnapshot.away_team || '');
+        const stampSelLower = String(effectiveSelection).toLowerCase();
+        const homeLastWord = homeName.toLowerCase().split(/\s+/).pop() || '';
+        const awayLastWord = awayName.toLowerCase().split(/\s+/).pop() || '';
+        const hitsHome = !!homeName && (stampSelLower.includes(homeName.toLowerCase()) || (!!homeLastWord && stampSelLower.includes(homeLastWord)));
+        const hitsAway = !!awayName && (stampSelLower.includes(awayName.toLowerCase()) || (!!awayLastWord && stampSelLower.includes(awayLastWord)));
+        const pickedSide: 'home' | 'away' | null = hitsHome && !hitsAway ? 'home' : hitsAway && !hitsHome ? 'away' : null;
+        const readOdds = (block: unknown, key: string): string | null => {
+          const v = (block as Record<string, unknown> | undefined)?.[key];
+          if (typeof v === 'string' && v.trim() !== '') return v;
+          if (typeof v === 'number' && Number.isFinite(v)) return v > 0 ? `+${v}` : String(v);
+          return null;
+        };
+        let slateOdds: string | null = null;
+        if (effectiveBetType === 'moneyline' && pickedSide) {
+          const mlKey = effectivePeriod === 'f5' ? 'f5_ml' : 'full_ml';
+          slateOdds = readOdds(vegasLines?.[mlKey], pickedSide);
+          if (slateOdds) {
+            // The model embeds its (possibly wrong) price in the text — rewrite
+            // to canonical "{Team} ML"; the F5 marker is re-added downstream.
+            effectiveSelection = `${pickedSide === 'home' ? homeName : awayName} ML`;
+          }
+        } else if (effectiveBetType === 'spread' && pickedSide) {
+          const rlKey = effectivePeriod === 'f5' ? 'f5_rl' : 'full_rl';
+          slateOdds = readOdds(vegasLines?.[rlKey], `${pickedSide}_odds`);
+        } else if (effectiveBetType === 'total') {
+          const dirMatch = stampSelLower.match(/\b(over|under)\b/);
+          if (dirMatch) {
+            const ouKey = effectivePeriod === 'f5' ? 'f5_ou' : 'full_ou';
+            slateOdds = readOdds(vegasLines?.[ouKey], `${dirMatch[1]}_odds`);
+          }
+        }
+        if (slateOdds) effectiveOdds = slateOdds;
+      }
+
       // ── ML → RL Auto-Swap (max_favorite_odds enforcement, MLB only) ──
       // The LLM has been observed ignoring max_favorite_odds — it'll return
       // a chalky ML at -178 even when the cap is -145, with reasoning like

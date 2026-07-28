@@ -190,11 +190,22 @@ export async function submitParlay(
 
       let effectiveBetType: "spread" | "moneyline" | "total" | "prop" | "team_total" = betType as "spread" | "moneyline" | "total" | "prop" | "team_total";
       // team_total is full-game only; h1 = NFL/CFB first half (mirrors f5/MLB).
+      // Sport-clamp the period: models label MLB first-half legs 'h1' ("F5 ...
+      // 1H"), but h1 routes to football_game_results in the grader, so an MLB
+      // h1 leg can NEVER grade and pins its parlay pending forever. MLB partial
+      // period is always f5; football's is always h1.
       const rawPeriod = String(leg?.period ?? "full");
-      const effectivePeriod: "full" | "f5" | "h1" = effectiveBetType === "team_total"
+      let effectivePeriod: "full" | "f5" | "h1" = effectiveBetType === "team_total"
         ? "full"
         : rawPeriod === "f5" ? "f5" : rawPeriod === "h1" ? "h1" : "full";
+      if (effectivePeriod === "h1" && sportType === "mlb") effectivePeriod = "f5";
+      if (effectivePeriod === "f5" && (sportType === "nfl" || sportType === "cfb")) effectivePeriod = "h1";
       let effectiveSelection = String(leg?.selection ?? "");
+      // Strip the wrong sport's period marker from the text too — a stray "1H"
+      // in an MLB selection breaks the grader's spread/total parsers (regexes
+      // anchor on the line/odds at the end of the string).
+      if (sportType === "mlb") effectiveSelection = effectiveSelection.replace(/\s*\b1H\b/gi, "").replace(/\s{2,}/g, " ").trim();
+      if (sportType === "nfl" || sportType === "cfb") effectiveSelection = effectiveSelection.replace(/\s*\bF5\b/gi, "").replace(/\s{2,}/g, " ").trim();
       let effectiveOdds = String(leg?.odds ?? "");
 
       // team-in-selection (spread/ML)
