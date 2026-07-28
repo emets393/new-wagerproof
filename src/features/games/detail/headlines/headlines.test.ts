@@ -102,15 +102,36 @@ describe('deterministic game-detail headlines', () => {
     })).toContain('BOS -3.5');
   });
 
-  it('does not invent a team identity from ambiguous Polymarket series', () => {
+  it('names the chart-resolved team and explains its movement', () => {
     expect(marketOddsHeadline({
       marketKey: 'moneyline',
+      leaderLabel: 'CIN',
+      trailLabel: 'CLE',
       leaderPct: 62,
       trailPct: 38,
       leaderOpenPct: 55,
     })).toBe(
-      'Polymarket prices this moneyline 62% / 38% — the favored side is highlighted below, up 7 pts over the tracked history.',
+      'Public markets give CIN a 62% chance to win outright, compared with CLE at 38%. CIN is up 7 percentage points from the first tracked price.',
     );
+  });
+
+  it('explains what the selected spread and total probabilities mean', () => {
+    expect(marketOddsHeadline({
+      marketKey: 'spread',
+      leaderLabel: 'CIN',
+      trailLabel: 'CLE',
+      leaderPct: 58,
+      trailPct: 42,
+      leaderOpenPct: 57,
+    })).toContain('chance to cover the selected spread');
+    expect(marketOddsHeadline({
+      marketKey: 'total',
+      leaderLabel: 'Over',
+      trailLabel: 'Under',
+      leaderPct: 54,
+      trailPct: 46,
+      leaderOpenPct: 51,
+    })).toContain('for the selected game total');
   });
 
   it('states contradictory total rows without manufacturing an edge', () => {

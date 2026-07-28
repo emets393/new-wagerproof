@@ -15,6 +15,7 @@ struct InsightWidgetSection<Content: View>: View {
     let systemImage: String
     var iconTint: Color = .appPrimary
     var badge: InsightVerdictBadge? = nil
+    var headline: String? = nil
     var expandLabel: String? = nil
     var onExpand: (() -> Void)? = nil
     @ViewBuilder var content: Content
@@ -25,7 +26,8 @@ struct InsightWidgetSection<Content: View>: View {
             systemImage: systemImage,
             iconTint: iconTint,
             accessory: badge.map { .verdict(text: $0.text, tintHex: $0.tintHex) } ?? .none,
-            onHeaderTap: onExpand
+            onHeaderTap: onExpand,
+            headline: headline
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 content

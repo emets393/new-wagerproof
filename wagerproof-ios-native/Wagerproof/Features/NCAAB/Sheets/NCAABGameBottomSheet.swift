@@ -51,6 +51,7 @@ struct NCAABGameBottomSheet: View {
     @State private var ouExpanded: Bool = false
     @State private var simulating: Bool = false
     @State private var simulationRevealed: Bool = false
+    @State private var marketOddsHeadline: String?
 
     // No authoritative NCAAB brand-color table exists for the hundreds of D1
     // teams, so derive a stable, pleasant glow color from the team name.
@@ -66,11 +67,9 @@ struct NCAABGameBottomSheet: View {
             contentBottomInset: contentBottomInset,
             usesLiquidGlass: false
         ) { progress in
-            // Always the real aura. In carousel mode `transparentPage` means this
-            // paints the HERO BAND only, and the carousel now draws its shared
-            // glow behind the pages (no blend mode) — so the hero needs a
-            // matching copy. Both anchor their blobs in global coordinates, so
-            // they align and the hero's `.clipped()` seam fix still holds.
+            // Standalone pages paint this aura themselves. In carousel mode the
+            // shared fixed aura is the only rendered copy; the collapsing shell
+            // masks scrolling content without adding a page-colored hero band.
             TeamAuraBackground(
                 awayColor: awayColors.primary,
                 homeColor: homeColors.primary,
@@ -348,8 +347,10 @@ struct NCAABGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
-            PolymarketWidget(league: "ncaab", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayColor: awayColors.primary, homeColor: homeColors.primary)
+        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
+            PolymarketWidget(league: "ncaab", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: game.awayTeamAbbrev, homeLabel: game.homeTeamAbbrev, awayColor: awayColors.primary, homeColor: homeColors.primary) {
+                marketOddsHeadline = $0
+            }
         }
     }
 
@@ -361,7 +362,16 @@ struct NCAABGameBottomSheet: View {
                 systemImage: "target",
                 iconTint: Color.appPrimary,
                 accessory: .tapHint(expanded: spreadExpanded),
-                onHeaderTap: { spreadExpanded.toggle() }
+                onHeaderTap: { spreadExpanded.toggle() },
+                headline: GameWidgetHeadlines.spread(
+                    team: prediction.isHome
+                        ? (game.homeTeamAbbrev?.nonEmpty ?? prediction.predictedTeam)
+                        : (game.awayTeamAbbrev?.nonEmpty ?? prediction.predictedTeam),
+                    modelSpread: prediction.predictedSpread,
+                    marketSpread: prediction.vegasSpread,
+                    edge: prediction.edge,
+                    probability: prediction.probability
+                )
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -422,7 +432,12 @@ struct NCAABGameBottomSheet: View {
                 systemImage: prediction.isOver ? "arrow.up.circle.fill" : "arrow.down.circle.fill",
                 iconTint: color,
                 accessory: .tapHint(expanded: ouExpanded),
-                onHeaderTap: { ouExpanded.toggle() }
+                onHeaderTap: { ouExpanded.toggle() },
+                headline: GameWidgetHeadlines.total(
+                    direction: prediction.isOver ? "Over" : "Under",
+                    modelTotal: prediction.modelTotal,
+                    marketTotal: prediction.line
+                )
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -499,7 +514,7 @@ struct NCAABGameBottomSheet: View {
     @ViewBuilder
     private var modelAccuracySection: some View {
         if let accuracy = accuracyStore.accuracy(forGameId: game.gameId) {
-            WidgetCollapsingSection(title: "Model Accuracy", systemImage: "scope", iconTint: Color(hex: 0x14B8A6)) {
+            WidgetCollapsingSection(title: "Model Accuracy", systemImage: "scope", iconTint: Color(hex: 0x14B8A6), headline: GameWidgetHeadlines.modelAccuracy()) {
                 ModelAccuracyWidget(
                     awayAbbr: game.awayTeamAbbrev?.trimmingCharacters(in: .whitespaces).nonEmpty
                         ?? TeamInitials.from(game.awayTeam),
@@ -516,7 +531,17 @@ struct NCAABGameBottomSheet: View {
     @ViewBuilder
     private var teamStatsSection: some View {
         if game.homeAdjOffense != nil || game.awayAdjOffense != nil {
-            WidgetCollapsingSection(title: "Team Stats", systemImage: "chart.bar", iconTint: Color.appAccentBlue) {
+            WidgetCollapsingSection(
+                title: "Team Stats",
+                systemImage: "chart.bar",
+                iconTint: Color.appAccentBlue,
+                headline: GameWidgetHeadlines.teamStats(
+                    awayAbbr: game.awayTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.awayTeam),
+                    homeAbbr: game.homeTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.homeTeam),
+                    awayOffense: game.awayAdjOffense,
+                    homeOffense: game.homeAdjOffense
+                )
+            ) {
                 VStack(spacing: 8) {
                     statsHeader
                     statsRow(
@@ -581,7 +606,17 @@ struct NCAABGameBottomSheet: View {
     @ViewBuilder
     private var matchSimulatorSection: some View {
         if let homeScore = game.homeScorePred, let awayScore = game.awayScorePred {
-            WidgetCollapsingSection(title: "Match Simulator", systemImage: "sparkles", iconTint: Color.appAccentAmber) {
+            WidgetCollapsingSection(
+                title: "Match Simulator",
+                systemImage: "sparkles",
+                iconTint: Color.appAccentAmber,
+                headline: GameWidgetHeadlines.projectedScore(
+                    awayName: game.awayTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.awayTeam),
+                    homeName: game.homeTeamAbbrev?.nonEmpty ?? TeamInitials.from(game.homeTeam),
+                    awayScore: awayScore,
+                    homeScore: homeScore
+                )
+            ) {
                 VStack(alignment: .leading, spacing: 12) {
                 if !simulationRevealed {
                     Button {
@@ -652,7 +687,12 @@ struct NCAABGameBottomSheet: View {
     @ViewBuilder
     private var modelProjectionsSection: some View {
         if game.homeScorePred == nil, let margin = game.predHomeMargin, let total = game.predTotalPoints {
-            WidgetCollapsingSection(title: "Model Projections", systemImage: "rectangle.grid.2x2.fill", iconTint: Color.appAccentPurple) {
+            WidgetCollapsingSection(
+                title: "Model Projections",
+                systemImage: "rectangle.grid.2x2.fill",
+                iconTint: Color.appAccentPurple,
+                headline: "Model projects \(margin > 0 ? game.homeTeam : game.awayTeam) by \(GameWidgetHeadlines.one(abs(margin))) with \(GameWidgetHeadlines.one(total)) total points."
+            ) {
                 VStack(spacing: 8) {
                     HStack {
                         Text("Predicted Margin")

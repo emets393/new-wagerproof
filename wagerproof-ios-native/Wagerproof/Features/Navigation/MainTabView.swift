@@ -51,6 +51,10 @@ struct MainTabView: View {
     // can look up the actual typed game model from an alert's gameId
     // before asking the corresponding sport sheet store to open it.
     @State private var gamesStore = GamesStore()
+    // Search state belongs to the tab shell so iOS 26+ can morph the detached
+    // search tab itself into the active field. Keeping this inside SearchView
+    // forced SwiftUI to render a second field in that page's navigation bar.
+    @State private var searchStore = SearchStore()
     // PropsStore is hoisted to the shell so BOTH the Props tab and the MLB
     // game-detail "Player Props" widget read the same player-prop slate (one
     // fetch, shared 5-min cache) and link to the same detail pages.
@@ -113,7 +117,7 @@ struct MainTabView: View {
                 agentsTab
             }
 
-            Tab("Outliers", systemImage: "bell.badge.fill", value: MainTabStore.Tab.outliers) {
+            Tab("Outliers", systemImage: "chart.line.uptrend.xyaxis", value: MainTabStore.Tab.outliers) {
                 outliersTab
             }
 
@@ -132,9 +136,13 @@ struct MainTabView: View {
             // env-injected `MainTabStore` to switch tabs / open detail
             // sheets on result tap.
             Tab(value: MainTabStore.Tab.search, role: .search) {
-                SearchView()
+                SearchView(store: searchStore)
             }
         }
+        // SearchView owns the searchable modifier so it cannot leak an extra
+        // navigation-bar field into every content tab. This shell modifier
+        // still links the detached search-tab selection to that descendant.
+        .activateSearchOnTabSelection()
         // Brand green tint replaces the system blue accent. Matches RN's
         // hardcoded `#00E676` active tab color in the FloatingTabBar.
         .tint(Color(hex: 0x00E676))
@@ -142,12 +150,6 @@ struct MainTabView: View {
         // a tab's content, expanding again on scroll up (iOS 26 Liquid Glass
         // behavior). No-op on earlier OSes.
         .tabBarMinimizeOnScroll()
-        // NOTE: we deliberately do NOT auto-activate search on tab selection.
-        // SearchView is a browsable launchpad (Explore cards, recents, sport
-        // chips) meant to be used without the keyboard — auto-focusing the
-        // field on every tab tap fought that. `role: .search` still gives the
-        // detached prominent search button on iOS 26; the user taps the field
-        // to start typing.
         .environment(tabStore)
         .environment(gamesStore)
         .environment(propsStore)
@@ -307,6 +309,17 @@ struct MainTabView: View {
 }
 
 private extension View {
+    /// Link selection of the detached search tab to activation of its search
+    /// field. On dismissal, SwiftUI automatically restores the prior tab.
+    @ViewBuilder
+    func activateSearchOnTabSelection() -> some View {
+        if #available(iOS 26.0, *) {
+            self.tabViewSearchActivation(.searchTabSelection)
+        } else {
+            self
+        }
+    }
+
     /// Apply iOS 26's `tabBarMinimizeBehavior(.onScrollDown)` when the SDK
     /// supports it; otherwise leave the view untouched so we stay buildable
     /// against the iOS 18 deployment floor.

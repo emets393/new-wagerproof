@@ -27,6 +27,7 @@ struct NFLGameBottomSheet: View {
     @State private var matchupHistory: [NFLMatchupHistoryRow] = []
     @State private var selectedSignal: NFLSignalDefinition?
     @State private var selectedTrendDetail: NFLTrendDetailSelection?
+    @State private var marketOddsHeadline: String?
 
     /// Hero text that depends only on the game, not on scroll progress.
     ///
@@ -76,11 +77,9 @@ struct NFLGameBottomSheet: View {
             contentBottomInset: contentBottomInset,
             usesLiquidGlass: false
         ) { progress in
-            // Always the real aura. In carousel mode `transparentPage` means this
-            // paints the HERO BAND only, and the carousel now draws its shared
-            // glow behind the pages (no blend mode) — so the hero needs a
-            // matching copy. Both anchor their blobs in global coordinates, so
-            // they align and the hero's `.clipped()` seam fix still holds.
+            // Standalone pages paint this aura themselves. In carousel mode the
+            // shared fixed aura is the only rendered copy; the collapsing shell
+            // masks scrolling content without adding a page-colored hero band.
             TeamAuraBackground(
                 awayColor: awayColors.primary,
                 homeColor: homeColors.primary,
@@ -94,7 +93,9 @@ struct NFLGameBottomSheet: View {
             // (same placement as web's detail grid).
             AgentConsensusSection(sport: .nfl, gameId: GameConsensusKey.nfl(game), gameDate: game.gameDate)
             marketOddsSection
+            projectedScoreSection
             predictionSections
+            publicBettingSection
             matchupParlaysSection
             matchupHistorySection
             AgentPickRationaleWidget(gameKeys: [game.trainingKey, game.uniqueId, "\(game.awayTeam)_\(game.homeTeam)"])
@@ -284,21 +285,83 @@ struct NFLGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
-            PolymarketWidget(league: "nfl", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayColor: awayColors.primary, homeColor: homeColors.primary)
+        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
+            PolymarketWidget(league: "nfl", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: NFLTeamColors.initials(for: game.awayTeam), homeLabel: NFLTeamColors.initials(for: game.homeTeam), awayColor: awayColors.primary, homeColor: homeColors.primary) {
+                marketOddsHeadline = $0
+            }
         }
     }
 
     // MARK: - Prediction Cards
 
     @ViewBuilder
+    private var projectedScoreSection: some View {
+        if let score = game.predictedScore {
+            WidgetCollapsingSection(
+                title: "Projected Score",
+                systemImage: "sportscourt",
+                iconTint: Color.appPrimary,
+                headline: GameWidgetHeadlines.projectedScore(
+                    awayName: teamNickname(for: game.awayTeam),
+                    homeName: teamNickname(for: game.homeTeam),
+                    awayScore: score.away,
+                    homeScore: score.home
+                )
+            ) {
+                HStack(spacing: 16) {
+                    projectedTeam(
+                        team: game.awayTeam,
+                        abbreviation: awayAbbr,
+                        score: score.away
+                    )
+                    Text("–")
+                        .font(.system(size: 20, weight: .heavy))
+                        .foregroundStyle(Color.appTextMuted)
+                    projectedTeam(
+                        team: game.homeTeam,
+                        abbreviation: homeAbbr,
+                        score: score.home
+                    )
+                }
+            }
+        }
+    }
+
+    private func projectedTeam(team: String, abbreviation: String, score: Double) -> some View {
+        HStack(spacing: 10) {
+            GameCardTeamAvatar(
+                teamName: team,
+                sport: "nfl",
+                size: 38,
+                colors: NFLTeamColors.colorPair(for: team)
+            )
+            VStack(alignment: .leading, spacing: 1) {
+                Text(abbreviation)
+                    .font(.system(size: 10, weight: .heavy))
+                    .tracking(0.6)
+                    .foregroundStyle(Color.appTextSecondary)
+                Text(score.formatted(.number.precision(.fractionLength(1))))
+                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.appTextPrimary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    @ViewBuilder
     private var predictionSections: some View {
         let groups = groupedPicks
         if groups.isEmpty {
-            WidgetCollapsingSection(title: "NFL Predictions", systemImage: "football.fill", iconTint: Color.appPrimary) {
-                ProContentSection(title: "NFL Predictions", minHeight: 88) {
-                    ContentUnavailableView("No dry-run picks", systemImage: "football", description: Text("Picks load from nfl_dryrun_picks for this game."))
-                }
+            WidgetCollapsingSection(
+                title: "NFL Predictions",
+                systemImage: "football.fill",
+                iconTint: Color.appPrimary,
+                headline: "No model picks are posted for this matchup yet."
+            ) {
+                Label("Model picks will appear here when this matchup is published.", systemImage: "clock")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.appTextSecondary)
             }
         } else {
             ForEach(groups) { group in
@@ -313,13 +376,17 @@ struct NFLGameBottomSheet: View {
             title: group.title,
             systemImage: group.systemImage,
             iconTint: group.tint,
-            showsHeader: false,
+            headline: predictionHeadline(for: group),
             bodyPadding: 14
         ) {
             ProContentSection(title: group.title, minHeight: 154) {
                 VStack(alignment: .leading, spacing: 12) {
-                    ForEach(group.picks) { pick in
-                        pickRow(pick, group: group)
+                    ForEach(Array(group.picks.enumerated()), id: \.element.id) { index, pick in
+                        pickRow(pick)
+                        if index < group.picks.count - 1 {
+                            Divider()
+                                .overlay(Color.appBorder.opacity(0.45))
+                        }
                     }
                     if let trendKind = trendKind(for: group.cardGroup) {
                         teamTrendStrip(kind: trendKind, group: group)
@@ -330,29 +397,18 @@ struct NFLGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func pickRow(_ pick: NFLDryrunPickRow, group: NFLPickGroup) -> some View {
+    private func pickRow(_ pick: NFLDryrunPickRow) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
-                sectionHeaderIcon(for: pick, group: group)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(group.title)
-                            .font(.system(size: 11, weight: .heavy))
-                            .tracking(0.6)
-                            .foregroundStyle(Color.appTextSecondary)
-                        Spacer(minLength: 8)
-                        recommendationBadge(pick)
-                    }
-                    pickHeaderLabel(pick)
-                    if pick.displayOnly == true {
-                        displayOnlyBadge
-                    }
+                pickHeaderLabel(pick)
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 5) {
+                    recommendationBadge(pick)
+                    if pick.displayOnly == true { displayOnlyBadge }
                 }
             }
 
-            if !isMoneylineCard(pick) {
-                metricGrid(pick)
-            }
+            metricGrid(pick)
 
             if hasBestBook(pick) {
                 bestBookRow(pick)
@@ -360,12 +416,118 @@ struct NFLGameBottomSheet: View {
 
             signalGroups(keys: pick.signalKeys, pick: pick)
         }
-        .padding(12)
-        .background(rowBackground(pick), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(rowStroke(pick), lineWidth: pick.hasPlay == true ? 1.2 : 0.8)
-        )
+        .padding(.vertical, 2)
+    }
+
+    private func predictionHeadline(for group: NFLPickGroup) -> String? {
+        guard let pick = group.picks.first(where: { $0.hasPlay == true }) ?? group.picks.first else {
+            return nil
+        }
+
+        let selection = displayPickLabel(pick)
+        let marketLine = pick.bestLine ?? pick.vegasLine
+        let modelLine = pick.modelLine ?? pick.modelNumber
+        let direction = overUnderDirection(for: pick)
+
+        switch group.cardGroup {
+        case "spread", "h1_spread":
+            if let team = pick.pickTeam,
+               let modelLine,
+               let marketLine,
+               modelLine.isFinite,
+               marketLine.isFinite {
+                let scope = group.cardGroup == "h1_spread" ? "First half" : "Full game"
+                return "\(scope): model makes \(teamNickname(for: team)) \(formatPickLine(modelLine, pick: pick)) versus \(formatPickLine(marketLine, pick: pick)) at the market, backing \(selection)."
+            }
+            return "The model backs \(selection)."
+
+        case "total", "h1_total":
+            guard let direction else { return "The model backs \(selection)." }
+            let scope = group.cardGroup == "h1_total" ? "First half" : "Full game"
+            if let modelLine, let marketLine, modelLine.isFinite, marketLine.isFinite {
+                return "\(scope): model projects \(rounded(modelLine)) versus \(rounded(marketLine)) at the market — leans \(direction)."
+            }
+            return "\(scope): model leans \(direction)."
+
+        case "team_total":
+            if let team = pick.pickTeam, let direction {
+                let model = modelLine.map { rounded($0) } ?? "—"
+                let market = marketLine.map { rounded($0) } ?? "—"
+                return "The model projects \(teamNickname(for: team)) for \(model) points versus \(market) at the market, leaning \(direction)."
+            }
+            return "The model backs \(selection)."
+
+        case "moneyline", "h1_ml":
+            if let team = pick.pickTeam,
+               let probability = pick.modelNumber,
+               probability.isFinite {
+                let scope = group.cardGroup == "h1_ml" ? "First half" : "Full game"
+                return "\(scope): model backs \(teamNickname(for: team)) to win at \(Int((probability * 100).rounded()))%."
+            }
+            return "The model backs \(selection)."
+
+        default:
+            return "The model backs \(selection)."
+        }
+    }
+
+    // MARK: - Public betting
+
+    @ViewBuilder
+    private var publicBettingSection: some View {
+        if hasPublicBettingData {
+            WidgetCollapsingSection(
+                title: "Public Betting",
+                systemImage: "person.3.fill",
+                iconTint: Color.appAccentBlue,
+                headline: publicBettingHeadline
+            ) {
+                NFLPublicBettingBars(prediction: game)
+            }
+        }
+    }
+
+    private var hasPublicBettingData: Bool {
+        [
+            game.homeMlBets, game.awayMlBets, game.homeMlHandle, game.awayMlHandle,
+            game.homeSpreadBets, game.awaySpreadBets, game.homeSpreadHandle, game.awaySpreadHandle,
+            game.overBets, game.underBets, game.overHandle, game.underHandle,
+            game.mlSplitsLabel, game.spreadSplitsLabel, game.totalSplitsLabel
+        ].contains { value in
+            guard let value else { return false }
+            return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    private var publicBettingHeadline: String {
+        let rows: [(market: String, side: String, bets: Double?, money: Double?)] = [
+            ("moneyline", awayAbbr, splitPercent(game.awayMlBets), splitPercent(game.awayMlHandle)),
+            ("moneyline", homeAbbr, splitPercent(game.homeMlBets), splitPercent(game.homeMlHandle)),
+            ("spread", awayAbbr, splitPercent(game.awaySpreadBets), splitPercent(game.awaySpreadHandle)),
+            ("spread", homeAbbr, splitPercent(game.homeSpreadBets), splitPercent(game.homeSpreadHandle)),
+            ("total", "OVER", splitPercent(game.overBets), splitPercent(game.overHandle)),
+            ("total", "UNDER", splitPercent(game.underBets), splitPercent(game.underHandle))
+        ]
+        let complete = rows.compactMap { row -> (market: String, side: String, bets: Double, money: Double, gap: Double)? in
+            guard let bets = row.bets, let money = row.money else { return nil }
+            return (row.market, row.side, bets, money, money - bets)
+        }
+        guard let strongest = complete.max(by: { abs($0.gap) < abs($1.gap) }) else {
+            return "Ticket and money percentages show where public volume and wager size agree or diverge."
+        }
+        guard abs(strongest.gap) >= 5 else {
+            return "Tickets and money are broadly aligned across the available NFL markets."
+        }
+
+        return "\(Int(strongest.money.rounded()))% of \(strongest.market) money is on \(strongest.side), versus \(Int(strongest.bets.rounded()))% of tickets — the clearest public split."
+    }
+
+    private func splitPercent(_ raw: String?) -> Double? {
+        guard var value = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else { return nil }
+        value = value.replacingOccurrences(of: "%", with: "")
+        guard let number = Double(value), number.isFinite, number >= 0 else { return nil }
+        return number <= 1 ? number * 100 : number
     }
 
     @ViewBuilder
@@ -400,40 +562,6 @@ struct NFLGameBottomSheet: View {
     }
 
     @ViewBuilder
-    private func moneylinePickSummary(_ pick: NFLDryrunPickRow) -> some View {
-        HStack(spacing: 10) {
-            if let team = pick.pickTeam {
-                GameCardTeamAvatar(teamName: team, sport: "nfl", size: 38, colors: NFLTeamColors.colorPair(for: team))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(team)
-                        .font(.system(size: 14, weight: .heavy))
-                        .foregroundStyle(Color.appTextPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                    Text(pick.cardGroup == "h1_ml" ? "1H ML" : "ML")
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundStyle(Color.appTextSecondary)
-                }
-                Spacer()
-                Text(GameCardFormatting.formatMoneyline(pick.bestOdds.map { Int($0.rounded()) } ?? pick.vegasPrice.map { Int($0.rounded()) }))
-                    .font(.system(size: 17, weight: .black, design: .monospaced))
-                    .foregroundStyle(Color.appPrimary)
-            }
-        }
-        .padding(10)
-        .background(Color.appSurfaceMuted.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
-    }
-
-    @ViewBuilder
-    private func sectionHeaderIcon(for pick: NFLDryrunPickRow, group: NFLPickGroup) -> some View {
-        Image(systemName: group.systemImage)
-            .font(.system(size: 16, weight: .bold))
-            .foregroundStyle(group.tint)
-            .frame(width: 34, height: 34)
-            .background(group.tint.opacity(0.12), in: Circle())
-    }
-
-    @ViewBuilder
     private func recommendationBadge(_ pick: NFLDryrunPickRow) -> some View {
         Text(pick.recommendation ?? "No Bet")
             .font(.system(size: 10, weight: .heavy))
@@ -456,7 +584,25 @@ struct NFLGameBottomSheet: View {
     @ViewBuilder
     private func metricGrid(_ pick: NFLDryrunPickRow) -> some View {
         if pick.cardGroup == "moneyline" || pick.cardGroup == "h1_ml" {
-            metricBox(label: "Best Odds", value: GameCardFormatting.formatMoneyline(pick.bestOdds.map { Int($0.rounded()) }), tint: Color.appAccentBlue, highlighted: true)
+            HStack(spacing: 10) {
+                metricBox(
+                    label: "Market Price",
+                    value: GameCardFormatting.formatMoneyline(
+                        pick.vegasPrice.map { Int($0.rounded()) }
+                            ?? pick.bestOdds.map { Int($0.rounded()) }
+                    ),
+                    tint: Color.appTextPrimary
+                )
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.appTextMuted)
+                metricBox(
+                    label: "Model Win",
+                    value: formatMetric(pick.modelNumber, suffix: "%"),
+                    tint: Color.appPrimary,
+                    highlighted: true
+                )
+            }
         } else {
             HStack(spacing: 10) {
                 metricBox(label: lineLabel(for: pick), value: formatPickLine(pick.bestLine ?? pick.vegasLine, pick: pick), tint: Color.appTextPrimary)
@@ -466,10 +612,6 @@ struct NFLGameBottomSheet: View {
                 metricBox(label: modelLabel(for: pick), value: modelMetricValue(for: pick), tint: Color.appPrimary, highlighted: true)
             }
         }
-    }
-
-    private func isMoneylineCard(_ pick: NFLDryrunPickRow) -> Bool {
-        pick.cardGroup == "moneyline" || pick.cardGroup == "h1_ml"
     }
 
     private func metricBox(label: String, value: String, tint: Color, highlighted: Bool = false) -> some View {
@@ -538,7 +680,7 @@ struct NFLGameBottomSheet: View {
             Text(title)
                 .font(.system(size: 9, weight: .black))
                 .foregroundStyle(muted ? Color.appAccentAmber : Color.appTextMuted)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 7)], alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 10) {
                 ForEach(signals) { signalButton($0, muted: muted) }
             }
         }
@@ -549,37 +691,28 @@ struct NFLGameBottomSheet: View {
         return Button {
             selectedSignal = signalContextDefinition(signal)
         } label: {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "info.circle.fill")
-                    .font(.system(size: 12, weight: .black))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(color)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(signal.displayName)
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundStyle(color)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.appTextPrimary)
+                        .multilineTextAlignment(.leading)
                     Text(signal.action ?? signal.team ?? "Tap for details")
-                        .font(.system(size: 8, weight: .heavy))
-                        .foregroundStyle(color.opacity(0.72))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.appTextSecondary)
+                        .multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.up.forward")
-                    .font(.system(size: 9, weight: .black))
-                    .foregroundStyle(Color.appSurface)
-                    .frame(width: 18, height: 18)
-                    .background(color, in: Circle())
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(color)
             }
-            .padding(.leading, 10)
-            .padding(.trailing, 7)
-            .padding(.vertical, 8)
-            .background(color.opacity(muted ? 0.12 : 0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(color.opacity(muted ? 0.55 : 0.46), lineWidth: 1.1))
-            .shadow(color: color.opacity(0.16), radius: 6, x: 0, y: 3)
+            .padding(.vertical, 3)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -773,7 +906,14 @@ struct NFLGameBottomSheet: View {
 
     @ViewBuilder
     private var matchupHistorySection: some View {
-        WidgetCollapsingSection(title: "Matchup History", systemImage: "person.2.fill", iconTint: Color.appAccentBlue, bodyPadding: 14) {
+        WidgetCollapsingSection(
+            title: "Matchup History",
+            systemImage: "person.2.fill",
+            iconTint: Color.appAccentBlue,
+            headline: matchupHistoryHeadline,
+            bodyPadding: 14,
+            contentKey: "history-\(matchupHistory.count)"
+        ) {
             ProContentSection(title: "Matchup History", minHeight: matchupHistory.isEmpty ? 80 : 220) {
                 VStack(alignment: .leading, spacing: 10) {
                     if matchupHistory.isEmpty {
@@ -874,23 +1014,8 @@ struct NFLGameBottomSheet: View {
     @ViewBuilder
     private var matchupParlaysSection: some View {
         if !matchupParlayTickets.isEmpty {
-            WidgetCollapsingSection(title: "Matchup Parlays", systemImage: "bolt.fill", iconTint: Color.appPrimary) {
-                ProContentSection(title: "Matchup Parlays", minHeight: 236) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(alignment: .top, spacing: 12) {
-                            ForEach(matchupParlayTickets) { ticket in
-                                Button {
-                                    selectedParlay = ticket
-                                } label: {
-                                    ParlayGodCard(ticket: ticket, showsMatchup: false)
-                                        .frame(width: 300)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
+            MatchupParlaysWidget(tickets: matchupParlayTickets) { ticket in
+                selectedParlay = ticket
             }
         }
     }
@@ -959,10 +1084,23 @@ struct NFLGameBottomSheet: View {
         let loadedTrends = await trendsTask
         let loadedHistory = await historyTask
 
+        guard !Task.isCancelled else { return }
+
         picks = loadedPicks
-        signalsByKey = Dictionary(uniqueKeysWithValues: loadedSignals.map { ($0.signalKey, $0) })
+        signalsByKey = Dictionary(
+            loadedSignals
+                .filter { !$0.signalKey.isEmpty }
+                .map { ($0.signalKey, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         signalPerformanceByKey = await performanceTask
-        teamTrendsByAbbr = Dictionary(uniqueKeysWithValues: loadedTrends.map { ($0.teamAbbr, $0) })
+        guard !Task.isCancelled else { return }
+        teamTrendsByAbbr = Dictionary(
+            loadedTrends
+                .filter { !$0.teamAbbr.isEmpty }
+                .map { ($0.teamAbbr.uppercased(), $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         matchupHistory = loadedHistory
     }
 
@@ -1158,18 +1296,6 @@ struct NFLGameBottomSheet: View {
 
     private func hasBestBook(_ pick: NFLDryrunPickRow) -> Bool {
         pick.bestBook != nil || pick.bestBookName != nil || pick.bestBookLogo != nil || pick.bestLine != nil || pick.bestOdds != nil
-    }
-
-    private func rowBackground(_ pick: NFLDryrunPickRow) -> Color {
-        if pick.hasPlay == true, pick.isMammoth == true { return Color(hex: 0xF97316).opacity(0.12) }
-        if pick.hasPlay == true { return convictionColor(pick.conviction).opacity(0.1) }
-        return Color.appSurfaceMuted.opacity(0.32)
-    }
-
-    private func rowStroke(_ pick: NFLDryrunPickRow) -> Color {
-        if pick.hasPlay == true, pick.isMammoth == true { return Color(hex: 0xF97316).opacity(0.45) }
-        if pick.hasPlay == true { return convictionColor(pick.conviction).opacity(0.3) }
-        return Color.white.opacity(0.08)
     }
 
     private func convictionColor(_ raw: String?) -> Color {
@@ -1396,6 +1522,31 @@ struct NFLGameBottomSheet: View {
         let season = row.season.map(String.init) ?? seasonFromDate(row.date)
         guard let season else { return shortDate(row.date) }
         return "\(season) Season - \(shortDate(row.date))"
+    }
+
+    private var matchupHistoryHeadline: String? {
+        guard !matchupHistory.isEmpty else { return nil }
+        let winners = matchupHistory.compactMap(\.winnerTeam)
+        let winnerCounts = Dictionary(grouping: winners, by: { $0 }).mapValues(\.count)
+        let leader = winnerCounts.max { lhs, rhs in
+            if lhs.value != rhs.value { return lhs.value < rhs.value }
+            return lhs.key > rhs.key
+        }
+        let overs = matchupHistory.filter { $0.ouResult?.uppercased() == "OVER" }.count
+        let unders = matchupHistory.filter { $0.ouResult?.uppercased() == "UNDER" }.count
+
+        var parts: [String] = []
+        if let leader, leader.value > winners.count - leader.value {
+            parts.append("\(leader.key) won \(leader.value) of \(matchupHistory.count) recent meetings")
+        } else {
+            parts.append("The last \(matchupHistory.count) meetings are split")
+        }
+        if overs > unders {
+            parts.append("\(overs) finished OVER")
+        } else if unders > overs {
+            parts.append("\(unders) finished UNDER")
+        }
+        return parts.joined(separator: "; ") + "."
     }
 
     private func seasonFromDate(_ raw: String?) -> String? {

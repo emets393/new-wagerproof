@@ -70,12 +70,15 @@ struct AgentRowCard: View {
                 shape.fill(.ultraThinMaterial)
                     .opacity(colorScheme == .dark ? 0.55 : 1)
                 // Pixelwave sneak-peek: brand-hue glyphs pulsing across the card,
-                // a scaled echo of the agent detail hero so the list ties into it.
-                // Seeded per agent id so no two cards bloom in lockstep.
-                AgentCardGlyphTexture(
-                    avatarColor: agent.agent.avatarColor,
-                    seedString: "\(agent.id)"
-                )
+                // a scaled echo of an active agent's detail hero. Paused agents
+                // and agents with Autopilot off stay still, so motion communicates
+                // automation that is both enabled and currently running.
+                if agent.agent.autoGenerate && agent.agent.isActive {
+                    AgentCardGlyphTexture(
+                        avatarColor: agent.agent.avatarColor,
+                        seedString: "\(agent.id)"
+                    )
+                }
                 shape.strokeBorder(Color.appBorder.opacity(0.4), lineWidth: 0.5)
             }
         }

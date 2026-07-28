@@ -186,15 +186,18 @@ export function MarketOddsChart({
     }
     const aLeads = active.currentAwayOdds >= active.currentHomeOdds;
     const leaderKey = aLeads ? 'a' : 'b';
+    const currentLabels = seriesLabels(activeKey, game.awayTeam.abbrev, game.homeTeam.abbrev);
     onHeadlineChange?.(
       marketOddsHeadline({
         marketKey: activeKey,
+        leaderLabel: aLeads ? currentLabels.a : currentLabels.b,
+        trailLabel: aLeads ? currentLabels.b : currentLabels.a,
         leaderPct: aLeads ? active.currentAwayOdds : active.currentHomeOdds,
         trailPct: aLeads ? active.currentHomeOdds : active.currentAwayOdds,
         leaderOpenPct: points[0]?.[leaderKey] ?? null,
       }),
     );
-  }, [active, activeKey, onHeadlineChange, points]);
+  }, [active, activeKey, game.awayTeam.abbrev, game.homeTeam.abbrev, onHeadlineChange, points]);
 
   if (isLoading) {
     return <div className="h-[232px] animate-pulse rounded-xl bg-muted/50" />;
@@ -226,7 +229,7 @@ export function MarketOddsChart({
           </Tabs>
         )}
         <HeroTooltip
-          content="Live implied probability from Polymarket traders, not a sportsbook line."
+          content="Live trader-implied probability from public markets, not a sportsbook line."
           placement="top"
           size="sm"
         >
@@ -236,7 +239,7 @@ export function MarketOddsChart({
             startContent={<Info className="h-3 w-3" />}
             classNames={{ content: 'font-semibold' }}
           >
-            Polymarket
+            Public markets
           </Chip>
         </HeroTooltip>
       </div>

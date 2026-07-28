@@ -20,6 +20,7 @@ struct CFBGameBottomSheet: View {
     @State private var signalPerformanceByKey: [String: SignalPerformance] = [:]
     @State private var teamTrendsByTeam: [String: CFBTeamTrendRow] = [:]
     @State private var selectedTrendDetail: TrendDetailSelection?
+    @State private var marketOddsHeadline: String?
 
     private var awayColors: TeamColorPair { CFBTeamColors.colorPair(for: game.awayTeam) }
     private var homeColors: TeamColorPair { CFBTeamColors.colorPair(for: game.homeTeam) }
@@ -33,11 +34,9 @@ struct CFBGameBottomSheet: View {
             contentBottomInset: contentBottomInset,
             usesLiquidGlass: false
         ) { progress in
-            // Always the real aura. In carousel mode `transparentPage` means this
-            // paints the HERO BAND only, and the carousel now draws its shared
-            // glow behind the pages (no blend mode) — so the hero needs a
-            // matching copy. Both anchor their blobs in global coordinates, so
-            // they align and the hero's `.clipped()` seam fix still holds.
+            // Standalone pages paint this aura themselves. In carousel mode the
+            // shared fixed aura is the only rendered copy; the collapsing shell
+            // masks scrolling content without adding a page-colored hero band.
             TeamAuraBackground(awayColor: awayColors.primary, homeColor: homeColors.primary, progress: progress)
         } hero: { progress in
             heroView(progress: progress)
@@ -352,7 +351,14 @@ struct CFBGameBottomSheet: View {
     }
 
     private func marketSection(_ row: MarketRow) -> some View {
-        WidgetCollapsingSection(title: row.sectionTitle, systemImage: row.systemImage, iconTint: row.tint, icon: sectionHeaderIcon(for: row), showsHeader: false) {
+        WidgetCollapsingSection(
+            title: row.sectionTitle,
+            systemImage: row.systemImage,
+            iconTint: row.tint,
+            icon: sectionHeaderIcon(for: row),
+            showsHeader: false,
+            headline: row.pickSubtitle
+        ) {
             ProContentSection(title: row.sectionTitle, minHeight: signalBuckets(for: row).isEmpty ? 132 : 210) {
                 marketRow(row)
             }
@@ -1309,8 +1315,10 @@ struct CFBGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
-            PolymarketWidget(league: "cfb", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayColor: awayColors.primary, homeColor: homeColors.primary)
+        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
+            PolymarketWidget(league: "cfb", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: CFBTeamAssets.abbr(for: game.awayTeam), homeLabel: CFBTeamAssets.abbr(for: game.homeTeam), awayColor: awayColors.primary, homeColor: homeColors.primary) {
+                marketOddsHeadline = $0
+            }
         }
     }
 

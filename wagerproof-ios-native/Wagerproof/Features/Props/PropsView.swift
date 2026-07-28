@@ -73,6 +73,8 @@ struct PropsView: View {
     @State private var showNFLMatchupSheet = false
     @State private var showBestPicks = false
     @State private var bestPicksStore = MLBPlayerPropPicksStore()
+    @State private var quickFilterText = ""
+    @FocusState private var quickFilterFocused: Bool
     /// Sport chooser sheet — replaces the native Menu so out-of-season sports
     /// can render dimmed (a Menu can't style its rows). Matches the Matchup /
     /// Market filter-sheet pattern.
@@ -91,7 +93,7 @@ struct PropsView: View {
                         LazyVStack(spacing: 8) {
                             // Best Picks card rides with the feed (scrolls away);
                             // only the pill row stays pinned as the section header.
-                            if store.selectedSport == .mlb {
+                            if store.selectedSport == .mlb && activeQuickFilter.isEmpty {
                                 mlbBestPicksBanner
                                     .transition(.opacity.combined(with: .move(edge: .top)))
                                 propsCheatsRail
@@ -114,6 +116,7 @@ struct PropsView: View {
                 _ = await (feed, parlays)
             }
             .task(id: store.selectedSport) {
+                quickFilterText = ""
                 if store.selectedSport != .mlb {
                     mlbFilters = MLBPropFeedFilters()
                 }
@@ -220,10 +223,24 @@ struct PropsView: View {
     // market stays a *filter* pill here — the Props feed is date-grouped, not
     // market-grouped — so the axes are Sport / Matchup / Market / Sort.
 
-    // Only the pill row is pinned; the MLB Best Picks card lives in the scrolling
-    // feed (see body) so it scrolls away under the sticky pills.
+    // The Quick Filter and pill row pin together. The MLB Best Picks card lives
+    // in the scrolling feed (see body) so it scrolls away under both controls.
     private var propsHeader: some View {
-        filterPills
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                quickFilterBar
+                    .layoutPriority(1)
+                sportControl
+                sortControl
+            }
+            .padding(.horizontal, 14)
+
+            if store.selectedSport.hasProps {
+                filterPills
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 10)
     }
 
     private var mlbGameFilterOptions: [MLBPropGameFilterOption] {
@@ -243,42 +260,90 @@ struct PropsView: View {
     private var filterPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                sportPill
-                if store.selectedSport.hasProps {
-                    matchupPill
-                    marketPill
-                    // Only sports with more than one sort mode (MLB/NFL) earn the pill.
-                    if PropSortMode.modes(for: store.selectedSport).count > 1 {
-                        sortPill
-                    }
-                }
+                matchupPill
+                marketPill
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.vertical, 2)
         }
-        .padding(.top, Spacing.md)
-        .padding(.bottom, 10)
     }
 
-    // Sport + Sort are small fixed sets → native Menu pickers. Matchup + Market
-    // open sheets: game lists run the full slate and the market sheet groups
-    // markets (plus the NFL "Prop Signals" row) — neither renders in a Menu.
-    @ViewBuilder
-    private var sportPill: some View {
+    private var quickFilterBar: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(quickFilterFocused ? Color.appPrimary : Color.appTextMuted)
+
+            TextField("Quick Filter", text: $quickFilterText)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color.appTextPrimary)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .focused($quickFilterFocused)
+                .onSubmit { quickFilterFocused = false }
+                .accessibilityLabel("Quick filter player props")
+
+            if !activeQuickFilter.isEmpty {
+                Button {
+                    quickFilterText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.appTextMuted)
+                        .frame(width: 26, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear quick filter")
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 44)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassBackground(in: Capsule(), interactive: true)
+    }
+
+    /// Icon-only sport control in the same top-row position as Games. Props
+    /// retains its sheet so out-of-season rows can still show explanatory copy.
+    private var sportControl: some View {
         Button { showSportSheet = true } label: {
-            // Dim the pill when you're viewing an off-season sport — the same
-            // cue the chooser rows use, so the state reads even while closed.
-            pillLabel(
-                icon: sportIcon(store.selectedSport),
-                text: store.selectedSport.label,
-                dimmed: sportIsOffSeason(store.selectedSport)
-            )
+            menuIconLabel(sportIcon(store.selectedSport))
+                .opacity(sportIsOffSeason(store.selectedSport) ? 0.55 : 1)
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: store.selectedSport)
-        .accessibilityLabel("Sport filter")
+        .accessibilityLabel("Choose sport shown")
     }
 
+    /// Icon-only sort menu beside the sport control, matching Games. The icon
+    /// turns green when L10 Hit Rate replaces the default game-time order.
+    private var sortControl: some View {
+        Menu {
+            Picker("Sort by", selection: $sortMode) {
+                ForEach(PropSortMode.modes(for: store.selectedSport), id: \.self) { mode in
+                    Label(mode.label, systemImage: mode.icon).tag(mode)
+                }
+            }
+        } label: {
+            menuIconLabel("arrow.up.arrow.down", isActive: sortMode != .time)
+        }
+        .sensoryFeedback(.selection, trigger: sortMode)
+        .accessibilityLabel("Sort props")
+    }
+
+    private func menuIconLabel(_ systemName: String, isActive: Bool = false) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(isActive ? Color.appPrimary : Color.appTextPrimary)
+            .frame(width: 44, height: 44)
+            .liquidGlassBackground(in: Circle(), interactive: true)
+            .contentShape(Rectangle())
+    }
+
+    // Matchup + Market open sheets: game lists run the full slate and the market
+    // sheet groups markets (plus NFL "Prop Signals"), so these richer controls
+    // stay as labeled pills on the second row.
     @ViewBuilder
     private var matchupPill: some View {
         switch store.selectedSport {
@@ -360,20 +425,6 @@ struct PropsView: View {
         }
     }
 
-    private var sortPill: some View {
-        Menu {
-            Picker("Sort by", selection: $sortMode) {
-                ForEach(PropSortMode.modes(for: store.selectedSport), id: \.self) { mode in
-                    Label(mode.label, systemImage: mode.icon).tag(mode)
-                }
-            }
-        } label: {
-            pillLabel(icon: sortMode.icon, text: sortMode.label)
-        }
-        .sensoryFeedback(.selection, trigger: sortMode)
-        .accessibilityLabel("Sort props")
-    }
-
     // MARK: - Pill chrome (shared visual treatment with Outliers Trends)
 
     private func pillLabel(icon: String, text: String, dimmed: Bool = false) -> some View {
@@ -410,8 +461,9 @@ struct PropsView: View {
 
     private func sportIcon(_ sport: PropsStore.Sport) -> String {
         switch sport {
-        case .mlb: return "figure.baseball"
-        case .nfl, .cfb: return "football.fill"
+        case .mlb: return "baseball.fill"
+        case .nfl: return "football.fill"
+        case .cfb: return "graduationcap.fill"
         case .nba, .ncaab: return "basketball.fill"
         }
     }
@@ -484,7 +536,11 @@ struct PropsView: View {
     private var nflSections: some View {
         // Same shape as the MLB feed: one card per player, date-grouped with
         // sticky headers; the sort mode reorders players within a date.
-        let items = sortedNFLItems(NFLPropFeed.items(from: store.nflPlayers, filters: nflFilters))
+        let items = sortedNFLItems(
+            quickFilteredNFLItems(
+                NFLPropFeed.items(from: store.nflPlayers, filters: nflFilters)
+            )
+        )
         if items.isEmpty {
             if store.nflPlayers.isEmpty {
                 // Whole slate empty → season-aware copy (off-season vs. mid-refresh).
@@ -535,7 +591,11 @@ struct PropsView: View {
 
     @ViewBuilder
     private var matchupSections: some View {
-        let items = sortedFeedItems(PlayerPropFeed.items(from: store.sortedMatchups(), filters: mlbFilters))
+        let items = sortedFeedItems(
+            quickFilteredMLBItems(
+                PlayerPropFeed.items(from: store.sortedMatchups(), filters: mlbFilters)
+            )
+        )
         if items.isEmpty {
             if store.sortedMatchups().isEmpty {
                 // Whole slate empty → season-aware copy (off-season vs. mid-refresh).
@@ -574,6 +634,9 @@ struct PropsView: View {
         if store.nflPlayers.isEmpty {
             return "No NFL player props posted today"
         }
+        if !activeQuickFilter.isEmpty {
+            return "No NFL player props match “\(activeQuickFilter)”"
+        }
         let marketLabel = nflFilters.market.map { NFLPlayerProps.marketLabel($0) }
         if nflFilters.signalsOnly {
             if let gameId = nflFilters.gameId,
@@ -607,6 +670,9 @@ struct PropsView: View {
         if store.sortedMatchups().isEmpty {
             return "No MLB player props posted today"
         }
+        if !activeQuickFilter.isEmpty {
+            return "No MLB player props match “\(activeQuickFilter)”"
+        }
         let marketLabel = mlbFilters.market.map { MLBPlayerProps.marketLabel($0) }
         if let pk = mlbFilters.gamePk,
            let game = store.sortedMatchups().first(where: { $0.gamePk == pk }) {
@@ -620,6 +686,45 @@ struct PropsView: View {
             return "No \(marketLabel) props posted today"
         }
         return "No MLB player props match these filters"
+    }
+
+    private var activeQuickFilter: String {
+        quickFilterText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func quickFilteredMLBItems(_ items: [PlayerPropFeedItem]) -> [PlayerPropFeedItem] {
+        let query = activeQuickFilter.lowercased()
+        guard !query.isEmpty else { return items }
+        return items.filter { item in
+            let selection = item.selection
+            return [
+                selection.playerName,
+                selection.teamName,
+                selection.teamAbbr,
+                selection.opponentName,
+                selection.opponentAbbr,
+                selection.position ?? "",
+                MLBPlayerProps.marketLabel(item.headline.row.market),
+                item.metricLabel,
+            ]
+            .contains { $0.lowercased().contains(query) }
+        }
+    }
+
+    private func quickFilteredNFLItems(_ items: [NFLPropFeedItem]) -> [NFLPropFeedItem] {
+        let query = activeQuickFilter.lowercased()
+        guard !query.isEmpty else { return items }
+        return items.filter { item in
+            [
+                item.player.playerName,
+                item.player.team ?? "",
+                item.player.opponent ?? "",
+                item.player.position ?? "",
+                NFLPlayerProps.marketLabel(item.displayMarket.market),
+                item.metricLabel,
+            ]
+            .contains { $0.lowercased().contains(query) }
+        }
     }
 
     /// Order the flat feed by the active `sortMode`. Each mode falls back to

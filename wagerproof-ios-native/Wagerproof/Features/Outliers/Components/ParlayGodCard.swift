@@ -52,11 +52,18 @@ struct ParlayGodCard: View {
                 .foregroundStyle(.white)
                 .frame(width: 22, height: 22)
                 .background(Color.appPrimary.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            Text(ticket.category.title)
-                .font(.system(size: 14, weight: .heavy))
-                .foregroundStyle(Color.appTextPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(ticket.category.title)
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(Color.appTextPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                if !showsMatchup {
+                    Text("\(ticket.legs.count) legs · same game")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Color.appTextMuted)
+                }
+            }
             Spacer(minLength: 4)
             // Sport chips — one glyph per contributing sport (merged live
             // slates put several on one card).
@@ -173,7 +180,11 @@ struct ParlayGodCard: View {
                 Image(systemName: "bolt.fill")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Color.appWin)
-                Text("Every leg has hit 100% of its sample")
+                Text(
+                    showsMatchup
+                        ? "Every leg has hit 100% of its sample"
+                        : "Every leg must win · tap for full evidence"
+                )
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.appTextSecondary)
                     .lineLimit(1)
@@ -192,6 +203,232 @@ struct ParlayGodCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+}
+
+// MARK: - Matchup widget
+
+/// Same-game parlay digest used inside a matchup's collapsing widget stack.
+///
+/// The horizontal ticket rail is intentionally the same finite-height surface
+/// used elsewhere in the app. It remains cheap for the collapsing parent to
+/// measure while the large summary explains what the options mean.
+struct MatchupParlaysWidget: View {
+    let tickets: [ParlayTicket]
+    let onOpen: (ParlayTicket) -> Void
+
+    var body: some View {
+        WidgetCollapsingSection(
+            title: "Matchup Parlays",
+            systemImage: "bolt.fill",
+            iconTint: Color.appPrimary,
+            accessory: .verdict(
+                text: "\(tickets.count) OPTION\(tickets.count == 1 ? "" : "S")",
+                tintHex: 0x22C55E
+            )
+        ) {
+            ProContentSection(title: "Matchup Parlays", minHeight: 236) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .top, spacing: 12) {
+                        ForEach(tickets) { ticket in
+                            Button {
+                                onOpen(ticket)
+                            } label: {
+                                ParlayGodCard(ticket: ticket, showsMatchup: false)
+                                    .frame(width: 300)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+}
+
+private struct MatchupParlayTicketBoard: View {
+    let ticket: ParlayTicket
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: ticket.category.sfSymbol)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 26, height: 26)
+                        .background(
+                            Color.appPrimary.gradient,
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        )
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(ticket.category.title.uppercased())
+                            .font(.system(size: 10, weight: .heavy))
+                            .tracking(0.55)
+                            .foregroundStyle(Color.appTextSecondary)
+                        Text("\(ticket.legs.count) legs · same game")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.appTextMuted)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text(ticket.combinedOddsText)
+                            .font(.system(size: 23, weight: .heavy, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.appPrimary)
+                        Text("COMBINED")
+                            .font(.system(size: 7, weight: .bold))
+                            .tracking(0.55)
+                            .foregroundStyle(Color.appTextMuted)
+                    }
+                }
+
+                VStack(spacing: 8) {
+                    ForEach(Array(ticket.legs.enumerated()), id: \.element.id) { index, leg in
+                        MatchupParlayLegRow(number: index + 1, leg: leg)
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.appWin)
+                    Text("All \(ticket.legs.count) legs must win")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.appTextSecondary)
+                    Spacer(minLength: 4)
+                    Text("Full evidence")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.appPrimary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Color.appPrimary)
+                }
+                .padding(.top, 2)
+            }
+            .padding(12)
+            .background(
+                Color.appSurfaceMuted.opacity(0.30),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.appBorder.opacity(0.50), lineWidth: 0.75)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .contain)
+        .accessibilityHint("Opens the full evidence for this parlay")
+    }
+}
+
+private struct MatchupParlayLegRow: View {
+    let number: Int
+    let leg: ParlayLeg
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 9) {
+            Text("\(number)")
+                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.appTextPrimary)
+                .frame(width: 19, height: 19)
+                .background(Color.appBorder.opacity(0.34), in: Circle())
+
+            MatchupParlayLegAvatar(leg: leg)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(leg.subject)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.appTextPrimary)
+                        .lineLimit(1)
+                    Text(leg.betText)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.appTextSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
+                Text(leg.evidence)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(Color.appTextMuted)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            Spacer(minLength: 4)
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(leg.oddsText)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.appTextSecondary)
+                Text(leg.fractionText)
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.appWin)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.appWin.opacity(0.12), in: Capsule())
+            }
+        }
+        .padding(9)
+        .background(
+            Color.appSurface.opacity(0.26),
+            in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "Leg \(number), \(leg.subject), \(leg.betText), \(leg.oddsText), cleared \(leg.fractionText), \(leg.evidence)"
+        )
+    }
+}
+
+private struct MatchupParlayLegAvatar: View {
+    let leg: ParlayLeg
+
+    var body: some View {
+        if leg.kind == .prop, let urlString = leg.headshotUrl, let url = URL(string: urlString) {
+            AsyncImage(url: url) { phase in
+                if case .success(let image) = phase {
+                    image.resizable().scaledToFill()
+                } else {
+                    placeholder
+                }
+            }
+            .frame(width: 26, height: 26)
+            .background(Color.appSurfaceMuted)
+            .clipShape(Circle())
+        } else if leg.kind == .prop, let playerId = leg.playerId {
+            PlayerHeadshot(playerId: playerId, size: 26)
+        } else if leg.sport == .nfl {
+            let team = leg.teamAbbr ?? leg.subject
+            GameCardTeamAvatar(
+                teamName: team,
+                sport: "nfl",
+                size: 26,
+                colors: NFLTeamColors.colorPair(for: team)
+            )
+        } else {
+            let team = leg.teamAbbr ?? leg.subject
+            GameCardTeamAvatar(
+                teamName: team,
+                sport: "mlb",
+                size: 26,
+                colors: MLBTeamColors.colorPair(for: team)
+            )
+        }
+    }
+
+    private var placeholder: some View {
+        Image(systemName: "person.fill")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(Color.appTextMuted)
     }
 }
 

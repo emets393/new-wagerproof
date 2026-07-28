@@ -46,6 +46,7 @@ struct NBAGameBottomSheet: View {
     @State private var trendsExpanded: Bool = false
     @State private var simulating: Bool = false
     @State private var simulationRevealed: Bool = false
+    @State private var marketOddsHeadline: String?
 
     private var awayColors: TeamColorPair { NBATeams.colorPair(for: game.awayTeam) }
     private var homeColors: TeamColorPair { NBATeams.colorPair(for: game.homeTeam) }
@@ -61,11 +62,9 @@ struct NBAGameBottomSheet: View {
             contentBottomInset: contentBottomInset,
             usesLiquidGlass: false
         ) { progress in
-            // Always the real aura. In carousel mode `transparentPage` means this
-            // paints the HERO BAND only, and the carousel now draws its shared
-            // glow behind the pages (no blend mode) — so the hero needs a
-            // matching copy. Both anchor their blobs in global coordinates, so
-            // they align and the hero's `.clipped()` seam fix still holds.
+            // Standalone pages paint this aura themselves. In carousel mode the
+            // shared fixed aura is the only rendered copy; the collapsing shell
+            // masks scrolling content without adding a page-colored hero band.
             TeamAuraBackground(
                 awayColor: awayColors.primary,
                 homeColor: homeColors.primary,
@@ -145,8 +144,10 @@ struct NBAGameBottomSheet: View {
 
     @ViewBuilder
     private var marketOddsSection: some View {
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
-            PolymarketWidget(league: "nba", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayColor: awayColors.primary, homeColor: homeColors.primary)
+        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary, headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()) {
+            PolymarketWidget(league: "nba", awayTeam: game.awayTeam, homeTeam: game.homeTeam, awayLabel: game.awayAbbr, homeLabel: game.homeAbbr, awayColor: awayColors.primary, homeColor: homeColors.primary) {
+                marketOddsHeadline = $0
+            }
         }
     }
 
@@ -158,7 +159,14 @@ struct NBAGameBottomSheet: View {
             systemImage: "bandage",
             iconTint: Color.appAccentRed,
             accessory: .chevron(expanded: injuryExpanded),
-            onHeaderTap: { injuryExpanded.toggle() }
+            onHeaderTap: { injuryExpanded.toggle() },
+            headline: GameWidgetHeadlines.injuries(
+                awayAbbr: game.awayAbbr,
+                homeAbbr: game.homeAbbr,
+                awayImpact: matchupStore.awayInjuryImpact,
+                homeImpact: matchupStore.homeInjuryImpact,
+                count: matchupStore.awayInjuries.count + matchupStore.homeInjuries.count
+            )
         ) {
             ProContentSection(title: "Injury Report", minHeight: 60) {
                 NBAInjuryReportWidget(
@@ -187,7 +195,12 @@ struct NBAGameBottomSheet: View {
             systemImage: "chart.line.uptrend.xyaxis",
             iconTint: Color.appAccentBlue,
             accessory: .chevron(expanded: trendsExpanded),
-            onHeaderTap: { trendsExpanded.toggle() }
+            onHeaderTap: { trendsExpanded.toggle() },
+            headline: GameWidgetHeadlines.recentTrends(
+                awayAbbr: game.awayAbbr,
+                homeAbbr: game.homeAbbr,
+                trends: matchupStore.trends
+            )
         ) {
             ProContentSection(title: "Recent Trends", minHeight: 60) {
                 NBARecentTrendsWidget(
@@ -225,7 +238,7 @@ struct NBAGameBottomSheet: View {
     @ViewBuilder
     private var modelAccuracySection: some View {
         if let accuracy = accuracyStore.accuracy(for: game.gameId) {
-            WidgetCollapsingSection(title: "Model Accuracy", systemImage: "scope", iconTint: Color(hex: 0x14B8A6)) {
+            WidgetCollapsingSection(title: "Model Accuracy", systemImage: "scope", iconTint: Color(hex: 0x14B8A6), headline: GameWidgetHeadlines.modelAccuracy()) {
                 ModelAccuracyWidget(
                     awayAbbr: game.awayAbbr,
                     homeAbbr: game.homeAbbr,
@@ -404,7 +417,14 @@ struct NBAGameBottomSheet: View {
                 systemImage: "target",
                 iconTint: Color.appPrimary,
                 accessory: .tapHint(expanded: spreadExpanded),
-                onHeaderTap: { spreadExpanded.toggle() }
+                onHeaderTap: { spreadExpanded.toggle() },
+                headline: GameWidgetHeadlines.spread(
+                    team: prediction.isHome ? game.homeAbbr : game.awayAbbr,
+                    modelSpread: prediction.predictedSpread,
+                    marketSpread: prediction.vegasSpread,
+                    edge: prediction.edge,
+                    probability: prediction.probability
+                )
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -464,7 +484,12 @@ struct NBAGameBottomSheet: View {
                 systemImage: prediction.isOver ? "arrow.up.circle.fill" : "arrow.down.circle.fill",
                 iconTint: color,
                 accessory: .tapHint(expanded: ouExpanded),
-                onHeaderTap: { ouExpanded.toggle() }
+                onHeaderTap: { ouExpanded.toggle() },
+                headline: GameWidgetHeadlines.total(
+                    direction: prediction.isOver ? "Over" : "Under",
+                    modelTotal: prediction.modelTotal,
+                    marketTotal: prediction.line
+                )
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
@@ -504,7 +529,17 @@ struct NBAGameBottomSheet: View {
     @ViewBuilder
     private var teamStatsSection: some View {
         if game.homeAdjOffense != nil || game.awayAdjOffense != nil {
-            WidgetCollapsingSection(title: "Team Stats", systemImage: "chart.bar", iconTint: Color.appAccentBlue) {
+            WidgetCollapsingSection(
+                title: "Team Stats",
+                systemImage: "chart.bar",
+                iconTint: Color.appAccentBlue,
+                headline: GameWidgetHeadlines.teamStats(
+                    awayAbbr: game.awayAbbr,
+                    homeAbbr: game.homeAbbr,
+                    awayOffense: game.awayAdjOffense,
+                    homeOffense: game.homeAdjOffense
+                )
+            ) {
                 VStack(spacing: 8) {
                     statsHeader
                     statsRow(label: "Adj. Offense",
@@ -573,7 +608,17 @@ struct NBAGameBottomSheet: View {
     @ViewBuilder
     private var matchSimulatorSection: some View {
         if let homeScore = game.homeScorePred, let awayScore = game.awayScorePred {
-            WidgetCollapsingSection(title: "Match Simulator", systemImage: "sparkles", iconTint: Color.appAccentAmber) {
+            WidgetCollapsingSection(
+                title: "Match Simulator",
+                systemImage: "sparkles",
+                iconTint: Color.appAccentAmber,
+                headline: GameWidgetHeadlines.projectedScore(
+                    awayName: game.awayAbbr,
+                    homeName: game.homeAbbr,
+                    awayScore: awayScore,
+                    homeScore: homeScore
+                )
+            ) {
                 VStack(alignment: .leading, spacing: 12) {
                 if !simulationRevealed {
                     Button {

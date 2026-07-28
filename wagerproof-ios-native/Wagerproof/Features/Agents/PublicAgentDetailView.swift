@@ -94,6 +94,7 @@ struct PublicAgentDetailView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         // Hide the app tab bar on the detail page (pushed from the Agents tab).
         .toolbar(.hidden, for: .tabBar)
+        .ignoresSafeArea(.container, edges: .bottom)
         // While the pick focus overlay is up, hide the nav bar so the only control
         // is the overlay's own chevron (mirrors AgentDetailView).
         .toolbar(focusStartIndex == nil ? .visible : .hidden, for: .navigationBar)
@@ -117,11 +118,6 @@ struct PublicAgentDetailView: View {
                 upTo: store.snapshot?.agent?.lastGeneratedAt
             )
         }
-        .sheet(isPresented: $auditStore.isPresented) {
-            if let pick = auditStore.selectedPick {
-                AgentPickPayloadAuditSheet(pick: pick, payload: auditStore.payload)
-            }
-        }
         .sheet(isPresented: $showHistorySheet) {
             PickHistorySheet(
                 items: store.fullBetHistory,
@@ -141,7 +137,7 @@ struct PublicAgentDetailView: View {
                 )
             }
         }
-        .overlay {
+        .fullScreenCover(isPresented: focusPresentationBinding) {
             if let start = focusStartIndex {
                 AgentPickFocusView(
                     items: store.todaysBetItems,
@@ -151,7 +147,14 @@ struct PublicAgentDetailView: View {
                     onAudit: { pick in auditStore.present(pick: pick) },
                     onClose: { focusStartIndex = nil }
                 )
-                .transition(.opacity)
+                .interactiveDismissDisabled()
+                .sheet(isPresented: $auditStore.isPresented) {
+                    if let pick = auditStore.selectedPick {
+                        AgentPickPayloadAuditSheet(pick: pick, payload: auditStore.payload)
+                    }
+                }
+            } else {
+                Color.black.ignoresSafeArea()
             }
         }
         .alert("Error", isPresented: errorAlertBinding, presenting: errorMessage) { _ in
@@ -177,6 +180,13 @@ struct PublicAgentDetailView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
         }
+    }
+
+    private var focusPresentationBinding: Binding<Bool> {
+        Binding(
+            get: { focusStartIndex != nil },
+            set: { if !$0 { focusStartIndex = nil } }
+        )
     }
 
     // MARK: - Hero
