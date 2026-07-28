@@ -62,19 +62,27 @@ from the betting model (they improve raw prediction but kill the LEAN edge, per 
 `FOOTBALL_PROFILES.md`), so `cfb_forecast.py` still owns all betting edges from ~week 4 on. Implements the
 README TODO "Early-week prior (weeks 1-3)". Walk-forward MAE ~13.5 margin / ~12.9 total.
 
-**Reproducibility (do at season, ~August — NOT now):** the script reads two gitignored artifacts that the
-CURRENTLY-COMMITTED generators do NOT rebuild for an unplayed 2026 slate. Both edits were intentionally left
-out of the committed generators because running them now yields provisional numbers off partial inputs
-(CFBD publishes 2026 SP+/talent/ELO/rankings only in August) that August overwrites anyway. When real 2026
-data lands, apply these two surgical changes, regenerate, and the script runs:
-1. **`build_priors.py`** — add `2026` to `YEARS` (line ~11) and extend the recruiting/SP+/FPI pull ranges
-   through 2026 so a 2026 prior row is emitted. Needs 2026 recruiting + prior-year (2025) SP+/FPI.
-2. **`build_features.py`** — the completed-games filter (`homePoints/awayPoints .notna()`, line ~60) drops
-   unplayed games; add an upcoming-week branch that keeps `homePoints.isna()` rows for the target week so the
-   2026 Week-1 slate reaches `model_games.parquet` (the in-season model correctly wants completed games only —
-   this branch is display-path-specific).
-The provisional 2026 artifacts built this session (priors `season==2026` n≈221, `model_games` 2026 wk1 ≈51
-games) exist on the research box's local disk only (gitignored) — treat them as throwaway; August regenerates.
+**Reproducibility — the two generator edits are now APPLIED (2026-07-28), env-gated so historical behavior is
+byte-identical when unset:**
+1. **`build_priors.py`** — `2026` added to `YEARS`; recruiting range extended to `max(YEARS)+1`; `/player/returning`
+   wrapped in try/except (2026 rosters not loaded until ~Aug → `ret_*` stay NaN). SP+/FPI already map prior-year→
+   current via `+1`, so 2026 priors ride on 2025 SP+/FPI + 2026 recruiting. Produces **221** 2026 prior rows
+   (136 w/ SP+/FPI, 221 w/ recruiting).
+2. **`build_features.py`** — reads `CFB_SEASON`/`CFB_WEEK`; `load_games()` keeps completed games always PLUS the
+   UNPLAYED slate for exactly that (season, week). Run as `CFB_SEASON=2026 CFB_WEEK=1 python3 build_features.py`
+   → `model_games.parquet` gains **51** 2026 Week-1 rows (all w/ spread, 49 w/ total). Unset env → completed-only
+   (historical training) unchanged.
+
+Then `CFB_SEASON=2026 CFB_WEEK=1 python3 cfb_early_week.py` → `out/cfb_early_preds_2026.csv` (43 games after the
+Week-0 split). **Re-run in August** once CFBD publishes 2026 SP+/talent/ELO and books post the full board — the
+current run rides on 2025 SP+/FPI + 2026 recruiting (the only leak-safe inputs available now) and the CFBD line
+feed is sparse/single-book this far out (a handful of games have mis-oriented or 0.0 spreads — the model itself
+scores them correctly; it's the market-line orientation that's thin until moneylines populate).
+
+**Still NOT wired: the early-week predictions do not reach `cfb_dryrun_games`.** That table is written by
+`gen_cfb_dryrun_games.py`, which reads the opponent-adjusted `cfb_forecast.py` CSVs (cold in weeks 1-3), not
+`cfb_early_week.py`. To surface the weeks-1-3 DISPLAY slate in-app, the generator needs a weeks-1-3 fallback that
+sources `cfb_early_preds_$SEASON.csv` — a follow-up.
 
 ## ⚙️ Cross-cutting
 - **Env/numpy:** the frozen `.pkl` locks model output; a numpy mismatch triggers the (now-safe) retrain, which can
