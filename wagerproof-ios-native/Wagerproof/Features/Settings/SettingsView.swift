@@ -77,6 +77,8 @@ struct SettingsView: View {
         // pops it.
         ScrollView {
             VStack(spacing: 0) {
+                claudeConnectorSection
+
                 // Hero banners (kept) double as the "Plan" affordance.
                 VStack(spacing: 10) {
                     heroCard
@@ -86,7 +88,6 @@ struct SettingsView: View {
                 .padding(.top, Spacing.md)
 
                 preferencesSection
-                claudeConnectorSection
                 supportSection
                 legalSection
                 accountSection
