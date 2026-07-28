@@ -2,6 +2,7 @@
 AUTHORITATIVE spot_library (each flag carries ITS OWN side — fixes the conflicting-spots bug where the net
 sides_bet mislabeled games like Ohio State@Illinois). Team-total + 1H flags from the harness CSVs.
 Each flag: market, side, line (its grade_line), edge, conviction, active/tracking, stake. Back-fills game counts."""
+import os
 import numpy as np, pandas as pd, warnings, requests, json
 import dry_common as C
 import cfb_style_delta as SD
@@ -31,8 +32,12 @@ for name, (mask, side, market, gl) in S.items():
                      "conviction": "mammoth" if is_mam else conv, "tier": "active" if active else "tracking",
                      "stake_units": C.STAKE["mammoth" if is_mam else conv], "grade_line": gl, "mammoth": is_mam})
 
-# team-total flags — UNIFIED: full-game-derived team points vs posted team total (coherent with the score)
-ev = pd.read_parquet(f"data/event_odds/events_{SEASON}.parquet"); ev = ev[(ev.game_id.isin(g7)) & (ev.market == "team_totals") & (ev.name == "Over")].copy()
+# team-total flags — UNIFIED: full-game-derived team points vs posted team total (coherent with the score).
+# event-odds (per-team totals) aren't captured preseason -> empty frame so TT flags just don't fire; the
+# other spots (model, G5 openers, style) still generate.
+_evp = f"data/event_odds/events_{SEASON}.parquet"
+ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(columns=["game_id", "market", "name", "description", "point"])
+ev = ev[(ev.game_id.isin(g7)) & (ev.market == "team_totals") & (ev.name == "Over")].copy()
 def _tdb(o):
     AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i", "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State", "Southern Miss Golden Eagles": "Southern Miss"}
     nm = sorted(set(gm.homeTeam) | set(gm.awayTeam))
@@ -53,8 +58,10 @@ for _, r in te.iterrows():
                      "side": f"{team} {pside}", "line": round(line, 1), "price": -110, "edge": round(proj - vg, 1),
                      "conviction": ck, "tier": "active", "stake_units": C.STAKE[ck], "grade_line": "best", "mammoth": False})
 
-# 1H flags
-h1 = pd.read_csv(f"out/cfb_h1_model_{SEASON}.csv"); h1 = h1[h1.game_id.isin(g7)]
+# 1H flags (harness CSV absent preseason -> empty so 1H flags just don't fire)
+_h1p = f"out/cfb_h1_model_{SEASON}.csv"
+h1 = pd.read_csv(_h1p) if os.path.exists(_h1p) else pd.DataFrame(columns=["game_id"])
+h1 = h1[h1.game_id.isin(g7)]
 for _, r in h1.iterrows():
     g = f"{r.awayTeam} @ {r.homeTeam}"
     if isinstance(r.h1_spread_bet, str) and r.h1_spread_bet:
