@@ -8,12 +8,17 @@ breakdown. Same shell and interaction model as `/games` and `/todays-trends`.
 |---|---|---|
 | `/mlb/f5-splits` | `f5Splits/` | How do these two clubs do through five innings in tonight's exact split? |
 | `/mlb/pitcher-matchups` | `pitcherMatchups/` | Which posted player prop in this game is worth a look? |
+| `/mlb/picks-report` | `playerPropsReport/` | What are today's best MLB props across the slate, and how has the algo performed? |
 
-Both routes are registered in `SPLIT_VIEW_ROUTES` in `App.tsx`, without which
+F5 and Prop Matchups are registered in `SPLIT_VIEW_ROUTES` in `App.tsx`, without which
 the page would sit inside the normal padded scroller and lose its internal
 scrolling. URL state is `?game=<game_pk>` — desktop auto-selects the first game
 (with `replace`, so Back doesn't bounce through it) and mobile pushes so the
 back button pops the detail.
+
+The Player Prop Report is cross-slate (not per-game), so it stays a scroll page
+with `?tab=picks|performance` — matching iOS Best MLB Props. The legacy
+`/mlb/picks-performance` path redirects to `?tab=performance`.
 
 The old page files (`src/pages/mlb/F5Splits.tsx`,
 `src/pages/mlb/PitcherMatchups.tsx`) and their card components
@@ -29,6 +34,7 @@ Unchanged — every hook is reused verbatim, only the presentation is new.
 |---|---|
 | F5 Splits | `useTodaysMlbGames`, `useF5Splits` |
 | Prop Matchups | `useTodaysMatchupGames`, `useAllMatchupData`, `useAllPlayerProps`, `useParksMap` |
+| Player Prop Report | `useMLBPitcherMatchupsReport` (client rank via `dailyPropsReport.ts`), `useSnapshotPlayerPropPicks`, `usePlayerPropGradeSummary`, `usePlayerPropGradeHistory` |
 
 `shared/` holds everything both tools use: the normalized feed item
 (`types.ts`), team branding (`teams.ts`), URL state, search/date grouping
@@ -104,6 +110,6 @@ rather than stacking as two identical tables.
 - Per-batter drilldowns (pitch-type splits, batted-ball profiles, the
   season/pitcher stat accordions) are not ported. The pitch mix that fed them
   survives as the Starter arsenal card.
-- Both pages' cross-links to `/mlb/picks-report` and `/mlb/picks-performance`
-  moved out of the page header; those routes are unchanged and still reachable
-  from the sidebar.
+- Both pages' cross-links to `/mlb/picks-report` live in the MLB sidebar
+  (Player Prop Report) and game-detail Props Cheats accessory. The report hub
+  itself links back to Prop Matchups.

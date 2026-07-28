@@ -149,10 +149,10 @@ export function MlbPropsCheatsSection({
 
   const accessory = (
     <Link
-      to="/today-in-sports"
+      to="/mlb/picks-report"
       className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
     >
-      Today&apos;s Outliers <ArrowUpRight className="h-3 w-3" />
+      Prop Report <ArrowUpRight className="h-3 w-3" />
     </Link>
   );
 

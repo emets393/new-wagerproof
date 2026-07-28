@@ -93,7 +93,7 @@ const NewLanding = () => {
     },
     {
       question: "Do you have data on Player Props?",
-      answer: "No. Player Props are currently not covered by WagerProof. We focus on the highest probability bets that have the best value, not the lowest probability bets that have the best payouts."
+      answer: "Yes for MLB. The Player Prop Report ranks today's best batter and pitcher props, and Prop Matchups lets you explore every posted line for a game. Other sports are expanding."
     },
     {
       question: "Is WagerProof a gambling site?",
