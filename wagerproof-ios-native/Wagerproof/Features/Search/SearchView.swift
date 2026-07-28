@@ -79,7 +79,7 @@ struct SearchView: View {
     // the other shell stores — without it the section simply doesn't render.
     @Environment(ParlayGodStore.self) private var parlayGodEnv: ParlayGodStore?
 
-    @State private var store = SearchStore()
+    @State private var store: SearchStore
 
     /// MLB player-prop detail pushed locally (Players row tap, props chip tap).
     @State private var selectedProp: PlayerPropSelection?
@@ -99,8 +99,8 @@ struct SearchView: View {
     @State private var pendingTrendsSport: HistoricalAnalysisSport?
 
     /// `initialQuery` pre-seeds the search field — screenshot harness only.
-    init(initialQuery: String = "") {
-        let seeded = SearchStore()
+    init(initialQuery: String = "", store: SearchStore? = nil) {
+        let seeded = store ?? SearchStore()
         if !initialQuery.isEmpty {
             seeded.query = initialQuery
             seeded.flushDebounce()
@@ -134,31 +134,6 @@ struct SearchView: View {
             .background(Color.appSurface)
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.large)
-            .searchable(
-                text: $binding.query,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search games, players, agents\u{2026}"
-            )
-            // Scope chips render in the system-provided slot just under the
-            // search field. `.onTextEntry` shows them only while the field
-            // has text — an empty query has nothing to scope. Must be
-            // attached unconditionally: wrapping this in an if/else keyed on
-            // the query flips the view's structural identity on the first
-            // keystroke, which rebuilds the search field and drops focus.
-            .searchScopes($binding.scope, activation: .onTextEntry) {
-                ForEach(SearchStore.SearchScope.allCases, id: \.self) { s in
-                    Text(s.label).tag(s)
-                }
-            }
-            // Pressing return/search records the query into Recents — without
-            // this, a search was only ever captured when the user tapped a
-            // result, so submitted-but-not-tapped searches were lost. Flush the
-            // 200ms debounce first so the live text (not the lagging debounced
-            // value) is what gets committed.
-            .onSubmit(of: .search) {
-                store.flushDebounce()
-                store.commitCurrentQueryToRecents()
-            }
             .task {
                 // Wire the SearchStore to whatever upstream stores the tab
                 // shell injected. Safe to re-call if any env value changes
@@ -213,6 +188,22 @@ struct SearchView: View {
                     hydrateInsightSources()
                 }
             }
+        }
+        // Keep search scoped to the role:.search tab. Applying this to the
+        // enclosing TabView propagates a second search bar into every tab's
+        // NavigationStack on iOS 27.
+        .searchable(
+            text: $binding.query,
+            prompt: "Search games, players, agents\u{2026}"
+        )
+        .searchScopes($binding.scope, activation: .onTextEntry) {
+            ForEach(SearchStore.SearchScope.allCases, id: \.self) { scope in
+                Text(scope.label).tag(scope)
+            }
+        }
+        .onSubmit(of: .search) {
+            store.flushDebounce()
+            store.commitCurrentQueryToRecents()
         }
     }
 

@@ -21,20 +21,30 @@ struct BettingTrendsInsightWidget: View {
             systemImage: "chart.line.uptrend.xyaxis",
             iconTint: Color(hex: 0x8B5CF6),
             badge: summary.badge,
-            expandLabel: "See all \(summary.totalSituations) situations",
+            headline: summary.headline,
+            expandLabel: "View all \(summary.totalSituations) situations",
             onExpand: onExpand
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 InsightVerdictLine(verdicts: summary.verdicts, accent: accent)
 
                 if summary.signals.isEmpty {
-                    // Present-but-quiet: zero qualifying signals is information
-                    // too; the expand footer keeps the full matrix reachable.
-                    Text("No situational edge in today's data")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.appTextSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 6)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("No single comparison clears the strong-edge threshold. Closest comparisons:")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.appTextSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        if summary.closestComparisons.isEmpty {
+                            Text("Open the full matrix to compare every available historical rate.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.appTextMuted)
+                        } else {
+                            ForEach(Array(summary.closestComparisons.prefix(3))) { comparison in
+                                TrendSignalRow(signal: comparison)
+                            }
+                        }
+                    }
                 } else {
                     ForEach(Array(summary.signals.prefix(3))) { signal in
                         TrendSignalRow(signal: signal)

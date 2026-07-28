@@ -46,10 +46,11 @@ struct MLBGameBottomSheet: View {
     var onSelectProp: (PlayerPropSelection) -> Void = { _ in }
 
     /// Toggle between full-game and first-five (F5) projections.
-    enum ProjectionView { case full, f5 }
+    enum ProjectionView: Hashable { case full, f5 }
     @State private var projView: ProjectionView = .full
     @State private var mlExpanded: Bool = false
     @State private var ouExpanded: Bool = false
+    @State private var marketOddsHeadline: String?
     /// Fallback zoom namespace for standalone use (no carousel parent).
     @Namespace private var fallbackPropNS
     /// Slate-wide trends store injected by the carousel — one fetch serves
@@ -149,13 +150,10 @@ struct MLBGameBottomSheet: View {
                     contentBottomInset: contentBottomInset,
                     usesLiquidGlass: false
                 ) { progress in
-                    // Always the real aura, in both modes. In carousel mode this
-                    // is used for the HERO BAND only (`transparentPage` drops
-                    // the page base), and the carousel now draws its shared glow
-                    // BEHIND the pages rather than blending over them — so the
-                    // hero needs its own copy to match. `TeamAuraBackground`
-                    // anchors its blobs in global coordinates, so the two copies
-                    // line up and the existing `.clipped()` seam fix holds.
+                    // Standalone pages paint this aura themselves. In carousel
+                    // mode the shared fixed aura is the only rendered copy, and
+                    // the collapsing shell masks scrolling content without
+                    // adding a page-colored hero background.
                     TeamAuraBackground(
                         awayColor: Color(hex: Int(MLBTeams.colors(for: game.awayTeamName ?? game.awayAbbr).primary)),
                         homeColor: Color(hex: Int(MLBTeams.colors(for: game.homeTeamName ?? game.homeAbbr).primary)),
@@ -534,23 +532,8 @@ struct MLBGameBottomSheet: View {
     private var matchupParlaysSection: some View {
         let tickets = parlayGodStore.tickets(forGameKey: String(game.gamePk))
         if !tickets.isEmpty {
-            WidgetCollapsingSection(title: "Matchup Parlays", systemImage: "bolt.fill", iconTint: Color.appPrimary) {
-                ProContentSection(title: "Matchup Parlays", minHeight: 236) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(alignment: .top, spacing: 12) {
-                            ForEach(tickets) { ticket in
-                                Button {
-                                    selectedParlay = ticket
-                                } label: {
-                                    ParlayGodCard(ticket: ticket, showsMatchup: false)
-                                        .frame(width: 300)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
+            MatchupParlaysWidget(tickets: tickets) { ticket in
+                selectedParlay = ticket
             }
         } else if parlayGodStore.isLoading, !parlayGodStore.hasContent {
             WidgetCollapsingSection(title: "Matchup Parlays", systemImage: "bolt.fill") {
@@ -587,14 +570,23 @@ struct MLBGameBottomSheet: View {
     private var marketOddsSection: some View {
         let awayName = game.awayTeamName ?? game.awayTeam ?? ""
         let homeName = game.homeTeamName ?? game.homeTeam ?? ""
-        WidgetCollapsingSection(title: "Market Odds", systemImage: "chart.bar.fill", iconTint: Color.appPrimary) {
+        WidgetCollapsingSection(
+            title: "Market Odds",
+            systemImage: "chart.bar.fill",
+            iconTint: Color.appPrimary,
+            headline: marketOddsHeadline ?? GameWidgetHeadlines.marketOdds()
+        ) {
             PolymarketWidget(
                 league: "mlb",
                 awayTeam: awayName,
                 homeTeam: homeName,
+                awayLabel: game.awayAbbr,
+                homeLabel: game.homeAbbr,
                 awayColor: Color(hex: Int(MLBTeams.colors(for: awayName).primary)),
                 homeColor: Color(hex: Int(MLBTeams.colors(for: homeName).primary))
-            )
+            ) {
+                marketOddsHeadline = $0
+            }
         }
     }
 
@@ -605,18 +597,27 @@ struct MLBGameBottomSheet: View {
         let fullRuns = game.fullGameRuns
         let f5Runs = game.f5Runs
         if fullRuns != nil || f5Runs != nil {
-            WidgetCollapsingSection(title: "Projected Score", systemImage: "sportscourt", iconTint: Color.appPrimary) {
+            let active: (home: Double, away: Double)? = {
+                switch projView {
+                case .full: return fullRuns.map { ($0.home, $0.away) }
+                case .f5: return f5Runs
+                }
+            }()
+            WidgetCollapsingSection(
+                title: "Projected Score",
+                systemImage: "sportscourt",
+                iconTint: Color.appPrimary,
+                headline: GameWidgetHeadlines.projectedScore(
+                    segment: projView == .f5 ? "f5" : "full",
+                    awayName: game.awayTeamName ?? game.awayAbbr,
+                    homeName: game.homeTeamName ?? game.homeAbbr,
+                    awayScore: active?.away,
+                    homeScore: active?.home
+                )
+            ) {
                 VStack(alignment: .leading, spacing: 12) {
                     projToggle
                         .frame(maxWidth: .infinity, alignment: .center)
-                    let active: (home: Double, away: Double)? = {
-                        switch projView {
-                        case .full:
-                            return fullRuns.map { ($0.home, $0.away) }
-                        case .f5:
-                            return f5Runs
-                        }
-                    }()
                     if let active {
                         HStack(spacing: 16) {
                             HStack(spacing: 10) {
@@ -650,28 +651,14 @@ struct MLBGameBottomSheet: View {
 
     @ViewBuilder
     private var projToggle: some View {
-        HStack(spacing: 2) {
-            projToggleButton(label: "Full Game", isActive: projView == .full) { projView = .full }
-            projToggleButton(label: "1st 5", isActive: projView == .f5) { projView = .f5 }
+        Picker("Projection period", selection: $projView) {
+            Text("Full Game").tag(ProjectionView.full)
+            Text("1st 5").tag(ProjectionView.f5)
         }
-        .padding(3)
-        .background(Color.appSurfaceMuted, in: RoundedRectangle(cornerRadius: 10))
-    }
-
-    @ViewBuilder
-    private func projToggleButton(label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: {
-            withAnimation(.appQuick) { action() }
-        }) {
-            Text(label)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(isActive ? .white : Color.appTextSecondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(isActive ? Color.appPrimary : Color.clear, in: RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-        .sensoryFeedback(.impact(weight: .light), trigger: isActive)
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(maxWidth: 240)
+        .sensoryFeedback(.selection, trigger: projView)
     }
 
     // MARK: - Trend signals (shared by moneyline + total cards)
@@ -760,7 +747,14 @@ struct MLBGameBottomSheet: View {
                 systemImage: "baseball",
                 iconTint: Color.appPrimary,
                 accessory: .chevron(expanded: mlExpanded),
-                onHeaderTap: { mlExpanded.toggle() }
+                onHeaderTap: { mlExpanded.toggle() },
+                headline: GameWidgetHeadlines.moneyline(
+                    segment: projView == .f5 ? "f5" : "full",
+                    pickAbbr: pickAbbr,
+                    pickProbability: pickProb,
+                    impliedProbability: pickImplied,
+                    pickEdgePct: pickEdge
+                )
             ) {
                     VStack(alignment: .leading, spacing: 14) {
                         comparisonRow(
@@ -850,7 +844,13 @@ struct MLBGameBottomSheet: View {
                 systemImage: isOver ? "arrow.up" : "arrow.down",
                 iconTint: isOver ? Color.appPrimary : Color.appAccentRed,
                 accessory: .chevron(expanded: ouExpanded),
-                onHeaderTap: { ouExpanded.toggle() }
+                onHeaderTap: { ouExpanded.toggle() },
+                headline: GameWidgetHeadlines.total(
+                    segment: projView == .f5 ? "f5" : "full",
+                    direction: direction,
+                    modelTotal: fairTotal,
+                    marketTotal: line
+                )
             ) {
                     VStack(alignment: .leading, spacing: 14) {
                         comparisonRow(
@@ -914,7 +914,12 @@ struct MLBGameBottomSheet: View {
         if let store = regressionStore {
             let picks = store.suggestedPicks(for: game.gamePk)
             if !picks.isEmpty {
-                WidgetCollapsingSection(title: picks.count > 1 ? "Regression Report Picks" : "Regression Report Pick", systemImage: "chart.bar.xaxis", iconTint: Color(hex: 0xA855F7)) {
+                WidgetCollapsingSection(
+                    title: picks.count > 1 ? "Regression Report Picks" : "Regression Report Pick",
+                    systemImage: "chart.bar.xaxis",
+                    iconTint: Color(hex: 0xA855F7),
+                    headline: GameWidgetHeadlines.regressionPicks(picks)
+                ) {
                     ProContentSection(title: "Regression Picks", minHeight: 120) {
                         MLBRegressionPicksSection(picks: picks)
                     }
@@ -966,7 +971,8 @@ struct MLBGameBottomSheet: View {
             accessory: game.signals.isEmpty ? .none : .verdict(
                 text: "\(game.signals.count) SIGNAL\(game.signals.count == 1 ? "" : "S")",
                 tintHex: 0x22C55E
-            )
+            ),
+            headline: GameWidgetHeadlines.gameSignals(game.signals)
         ) {
             ProContentSection(title: "Game Signals", minHeight: 120) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -977,11 +983,12 @@ struct MLBGameBottomSheet: View {
                             .foregroundStyle(Color.appTextSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
-                        VStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 12) {
                             ForEach(game.signals, id: \.self) { sig in
                                 signalPill(signal: sig)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
@@ -990,23 +997,18 @@ struct MLBGameBottomSheet: View {
 
     @ViewBuilder
     private func signalPill(signal: MLBSignalItem) -> some View {
-        let (bg, border, text) = MLBSignalColors.colorsFor(severity: signal.severity)
+        let (_, _, text) = MLBSignalColors.colorsFor(severity: signal.severity)
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: MLBSignalColors.iconFor(category: signal.category))
                 .font(.system(size: 14))
                 .foregroundStyle(text)
             Text(signal.message)
-                .font(.system(size: 13))
+                .font(.system(size: 13, weight: .semibold))
                 .lineSpacing(2)
                 .foregroundStyle(Color.appTextPrimary)
+                .multilineTextAlignment(.leading)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(bg, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(border, lineWidth: 1)
-        )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Agent rationale

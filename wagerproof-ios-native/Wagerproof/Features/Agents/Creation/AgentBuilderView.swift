@@ -140,6 +140,10 @@ struct AgentBuilderView: View {
         // The shell owns navigation chrome; hide the host NavigationStack bar so
         // the pixelwave bleeds to the top edge.
         .toolbar(.hidden, for: .navigationBar)
+        // From-scratch and copy flows are full-screen experiences. Keep this
+        // safeguard on the builder itself so even a compatibility push cannot
+        // expose the app's persistent bottom navigation.
+        .toolbar(.hidden, for: .tabBar)
         .sensoryFeedback(.impact(weight: .light), trigger: slot)
         .onChange(of: accent) { _, target in retargetTint(to: target) }
         // Pre-warm archetype presets so the archetype page never opens to a

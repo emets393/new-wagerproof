@@ -105,6 +105,10 @@ struct AgentDetailView: View {
         // Hide the app tab bar on the detail page so the collapsing aura hero
         // reads as a full-screen surface (pushed from the Agents tab).
         .toolbar(.hidden, for: .tabBar)
+        // Once the tab bar is hidden, extend the detail surface through its
+        // former bottom inset. The scroll shell already carries trailing
+        // content clearance, so the home indicator does not cover the last row.
+        .ignoresSafeArea(.container, edges: .bottom)
         // While the pick focus/print overlay is up, hide the whole nav bar (the
         // system back button + the settings gear) so the ONLY control is the
         // overlay's own chevron, which just dismisses the focused view. Otherwise
@@ -155,11 +159,6 @@ struct AgentDetailView: View {
             // Unseen picks (autopilot / finished-while-away) → printer cinematic.
             maybeAutoplayUnreadPicks()
         }
-        .sheet(isPresented: $auditStore.isPresented) {
-            if let pick = auditStore.selectedPick {
-                AgentPickPayloadAuditSheet(pick: pick, payload: auditStore.payload)
-            }
-        }
         .sheet(isPresented: $showHistorySheet) {
             PickHistorySheet(
                 items: store.fullBetHistory,
@@ -204,7 +203,7 @@ struct AgentDetailView: View {
                 }
             )
         }
-        .overlay {
+        .fullScreenCover(isPresented: focusPresentationBinding) {
             if let start = focusStartIndex {
                 AgentPickFocusView(
                     items: focusItems,
@@ -215,32 +214,37 @@ struct AgentDetailView: View {
                     onDelete: isOwnAgent ? { item in pendingDeleteItem = item } : nil,
                     onClose: { focusStartIndex = nil }
                 )
-                .transition(.opacity)
+                .interactiveDismissDisabled()
+                .sheet(isPresented: $auditStore.isPresented) {
+                    if let pick = auditStore.selectedPick {
+                        AgentPickPayloadAuditSheet(pick: pick, payload: auditStore.payload)
+                    }
+                }
+                .confirmationDialog(
+                    deleteDialogTitle,
+                    isPresented: deleteDialogBinding,
+                    titleVisibility: .visible,
+                    presenting: pendingDeleteItem
+                ) { item in
+                    Button("Delete", role: .destructive) {
+                        pendingDeleteItem = nil
+                        Task {
+                            let ok = await store.deleteBetItem(item)
+                            if !ok, let err = store.lastDeleteError { errorMessage = err }
+                        }
+                    }
+                    Button("Cancel", role: .cancel) { pendingDeleteItem = nil }
+                } message: { _ in
+                    Text("It will be removed from \(agent?.name ?? "this agent")'s record.")
+                }
+            } else {
+                Color.black.ignoresSafeArea()
             }
         }
         .alert("Error", isPresented: errorAlertBinding, presenting: errorMessage) { _ in
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: { msg in
             Text(msg)
-        }
-        // Swipe-to-trash confirm. Deleting is how users curate the record now
-        // that regens are additive — graded tickets are refused server-side.
-        .confirmationDialog(
-            deleteDialogTitle,
-            isPresented: deleteDialogBinding,
-            titleVisibility: .visible,
-            presenting: pendingDeleteItem
-        ) { item in
-            Button("Delete", role: .destructive) {
-                pendingDeleteItem = nil
-                Task {
-                    let ok = await store.deleteBetItem(item)
-                    if !ok, let err = store.lastDeleteError { errorMessage = err }
-                }
-            }
-            Button("Cancel", role: .cancel) { pendingDeleteItem = nil }
-        } message: { _ in
-            Text("It will be removed from \(agent?.name ?? "this agent")'s record.")
         }
         .navigationDestination(isPresented: $pushSettings) {
             AgentSettingsView(agentId: agentId, initialAgent: store.snapshot?.agent)
@@ -565,6 +569,18 @@ struct AgentDetailView: View {
             async let performance: Void = store.loadPerformancePicks(isOwner: isOwnAgent)
             _ = await (history, performance)
         }
+    }
+
+    private var focusPresentationBinding: Binding<Bool> {
+        Binding(
+            get: { focusStartIndex != nil },
+            set: { isPresented in
+                if !isPresented {
+                    focusStartIndex = nil
+                    focusPrintIntro = false
+                }
+            }
+        )
     }
 
     private func runGeneration() async {

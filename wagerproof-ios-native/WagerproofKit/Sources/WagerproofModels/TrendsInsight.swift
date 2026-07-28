@@ -37,14 +37,25 @@ public struct TrendsInsightSummary: Sendable {
     public let verdicts: [InsightVerdict]       // 1–2
     public let badge: InsightVerdictBadge
     public let signals: [TrendsSignal]          // ALL fired, sorted desc; widget takes prefix(3)
+    /// Strongest raw side comparisons, regardless of whether they clear the
+    /// signal threshold. These keep a quiet slate informative instead of
+    /// replacing seven real situations with an empty-state sentence.
+    public let closestComparisons: [TrendsSignal]
+    /// Web-parity, deterministic rollup of how many situations point each way.
+    /// This is intentionally separate from `signals`: consensus can exist even
+    /// when no single comparison is strong enough to qualify as an edge.
+    public let headline: String?
     public let eligibleSidePairs: Int
     public let totalSituations: Int             // 7 MLB, 5 NBA/NCAAB
 
     public init(verdicts: [InsightVerdict], badge: InsightVerdictBadge,
-                signals: [TrendsSignal], eligibleSidePairs: Int, totalSituations: Int) {
+                signals: [TrendsSignal], closestComparisons: [TrendsSignal] = [],
+                headline: String? = nil, eligibleSidePairs: Int, totalSituations: Int) {
         self.verdicts = verdicts
         self.badge = badge
         self.signals = signals
+        self.closestComparisons = closestComparisons
+        self.headline = headline
         self.eligibleSidePairs = eligibleSidePairs
         self.totalSituations = totalSituations
     }
@@ -56,6 +67,10 @@ public struct TrendsInsightSummary: Sendable {
 /// its trend rows; the engine owns every threshold so MLB/NBA/NCAAB cannot
 /// drift (see InsightThresholds in MatchupInsightCore.swift).
 private enum TrendsInsightEngine {
+    private enum OUConsensus {
+        case over, under
+    }
+
     struct Pair {
         let key: String
         let sideMetricLabel: String
@@ -98,15 +113,41 @@ private enum TrendsInsightEngine {
 
     static func compute(pairs: [Pair], awayAbbr: String, homeAbbr: String, basketball: Bool) -> Output {
         var fired: [(signal: TrendsSignal, meta: Meta)] = []
+        var comparisons: [(signal: TrendsSignal, order: Int)] = []
         var eligibleSidePairs = 0
         var awayLead = 0, homeLead = 0
         var awayMaxGap = 0.0, homeMaxGap = 0.0
+        var awayVotes = 0, homeVotes = 0
+        var overVotes = 0, underVotes = 0
 
-        for pair in pairs {
+        for (pairIndex, pair) in pairs.enumerated() {
             // Side signal (Win% MLB / ATS cover% NBA·NCAAB).
             if let a = pair.awaySidePct, let h = pair.homeSidePct, pair.sideSampleOK {
                 eligibleSidePairs += 1
                 let gap = a - h
+                if gap != 0 {
+                    let leaderIsAway = gap > 0
+                    let abbr = leaderIsAway ? awayAbbr : homeAbbr
+                    if leaderIsAway { awayVotes += 1 } else { homeVotes += 1 }
+                    comparisons.append((
+                        TrendsSignal(
+                            id: "\(pair.key)-closest-side",
+                            situationTitle: ouTitle(pair),
+                            metricLabel: pair.sideMetricLabel,
+                            kind: .side(
+                                leader: leaderIsAway ? .away : .home,
+                                abbr: abbr,
+                                gap: abs(gap)
+                            ),
+                            awayPct: a,
+                            homePct: h,
+                            awayDetail: pair.awaySideDetail,
+                            homeDetail: pair.homeSideDetail,
+                            strength: abs(gap)
+                        ),
+                        pairIndex
+                    ))
+                }
                 if abs(gap) >= InsightThresholds.sideGap {
                     // Leads count on gap alone; the signal additionally needs
                     // the leader at/above the 55% floor to actually fire.
@@ -139,6 +180,11 @@ private enum TrendsInsightEngine {
 
             // O/U signal — consensus over rate on both sides.
             if let a = pair.awayOuPct, let h = pair.homeOuPct, pair.ouSampleOK {
+                switch softOUConsensus(away: a, home: h) {
+                case .over: overVotes += 1
+                case .under: underVotes += 1
+                case nil: break
+                }
                 let title = ouTitle(pair)
                 let meta = Meta(awayTag: pair.awayTag, homeTag: pair.homeTag, leaderTag: nil)
                 if a >= InsightThresholds.ouHigh, h >= InsightThresholds.ouHigh {
@@ -174,6 +220,14 @@ private enum TrendsInsightEngine {
                 return l.offset < r.offset
             }
             .map { $0.element }
+        let rankedComparisons = comparisons
+            .sorted { l, r in
+                if l.signal.strength != r.signal.strength {
+                    return l.signal.strength > r.signal.strength
+                }
+                return l.order < r.order
+            }
+            .map(\.signal)
 
         var verdicts: [InsightVerdict] = []
 
@@ -221,7 +275,7 @@ private enum TrendsInsightEngine {
         }
 
         let badge = ranked.isEmpty
-            ? InsightVerdictBadge(text: "NO EDGE", tintHex: 0x9CA3AF)
+            ? InsightVerdictBadge(text: "NO STRONG EDGE", tintHex: 0x9CA3AF)
             : InsightVerdictBadge(text: "\(ranked.count) SIGNAL\(ranked.count == 1 ? "" : "S")", tintHex: 0x22C55E)
 
         return Output(
@@ -229,6 +283,15 @@ private enum TrendsInsightEngine {
                 verdicts: verdicts,
                 badge: badge,
                 signals: ranked.map { $0.signal },
+                closestComparisons: rankedComparisons,
+                headline: headline(
+                    awayAbbr: awayAbbr,
+                    homeAbbr: homeAbbr,
+                    awayVotes: awayVotes,
+                    homeVotes: homeVotes,
+                    overVotes: overVotes,
+                    underVotes: underVotes
+                ),
                 eligibleSidePairs: eligibleSidePairs,
                 totalSituations: pairs.count
             ),
@@ -240,6 +303,53 @@ private enum TrendsInsightEngine {
     /// situations (away "After Win" / home "After Loss") show both labels.
     private static func ouTitle(_ pair: Pair) -> String {
         pair.awayLabel == pair.homeLabel ? pair.awayLabel : "\(pair.awayLabel) / \(pair.homeLabel)"
+    }
+
+    /// Mirrors the web trends rollup: a rate beyond 55/45 can lead when the
+    /// other team's rate is at least neutral in the same direction.
+    private static func softOUConsensus(away: Double, home: Double) -> OUConsensus? {
+        if (away > InsightThresholds.ouHigh && home >= InsightThresholds.ouLow)
+            || (home > InsightThresholds.ouHigh && away >= InsightThresholds.ouLow) {
+            return .over
+        }
+        if (away < InsightThresholds.ouLow && home <= InsightThresholds.ouHigh)
+            || (home < InsightThresholds.ouLow && away <= InsightThresholds.ouHigh) {
+            return .under
+        }
+        return nil
+    }
+
+    private static func headline(
+        awayAbbr: String,
+        homeAbbr: String,
+        awayVotes: Int,
+        homeVotes: Int,
+        overVotes: Int,
+        underVotes: Int
+    ) -> String? {
+        let sideTotal = awayVotes + homeVotes
+        let totalTotal = overVotes + underVotes
+        guard sideTotal > 0 || totalTotal > 0 else { return nil }
+
+        let sideAbbr: String? = awayVotes == homeVotes
+            ? nil
+            : (awayVotes > homeVotes ? awayAbbr : homeAbbr)
+        let sideAgree = max(awayVotes, homeVotes)
+        let total: String? = overVotes == underVotes
+            ? nil
+            : (overVotes > underVotes ? "OVER" : "UNDER")
+        let totalAgree = max(overVotes, underVotes)
+
+        if let sideAbbr, let total {
+            return "\(sideAgree) of \(sideTotal) situations favor \(sideAbbr) historically, and \(totalAgree) of \(totalTotal) lean \(total)."
+        }
+        if let sideAbbr {
+            return "\(sideAgree) of \(sideTotal) situations favor \(sideAbbr) historically; no Over/Under consensus."
+        }
+        if let total {
+            return "\(totalAgree) of \(totalTotal) situations lean \(total) historically; the two sides split evenly."
+        }
+        return "Today's situations split evenly — no side or Over/Under consensus."
     }
 }
 

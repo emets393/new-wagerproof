@@ -166,7 +166,7 @@ public final class GamesStore {
 
     /// Filtered + sorted NFL list for the active sport view.
     public func sortedNFL() -> [NFLPrediction] {
-        let q = (searchTexts[.nfl] ?? "").lowercased()
+        let q = normalizedSearchText(for: .nfl)
         let filtered = q.isEmpty ? games.nfl : games.nfl.filter { game in
             game.homeTeam.lowercased().contains(q) || game.awayTeam.lowercased().contains(q)
         }
@@ -174,7 +174,7 @@ public final class GamesStore {
     }
 
     public func sortedCFB() -> [CFBPrediction] {
-        let q = (searchTexts[.cfb] ?? "").lowercased()
+        let q = normalizedSearchText(for: .cfb)
         let filtered = q.isEmpty ? games.cfb : games.cfb.filter { game in
             game.homeTeam.lowercased().contains(q) || game.awayTeam.lowercased().contains(q)
         }
@@ -185,7 +185,7 @@ public final class GamesStore {
     /// confidence-based ordering for `.spread` / `.ou` and tipoff time for
     /// `.time`.
     public func sortedNBA() -> [NBAGame] {
-        let q = (searchTexts[.nba] ?? "").lowercased()
+        let q = normalizedSearchText(for: .nba)
         let filtered = q.isEmpty ? games.nba : games.nba.filter { game in
             game.homeTeam.lowercased().contains(q) || game.awayTeam.lowercased().contains(q)
         }
@@ -217,7 +217,7 @@ public final class GamesStore {
     /// from `ncaab_predictions`, so the same confidence-based ordering rules
     /// apply for `.spread` / `.ou`.
     public func sortedNCAAB() -> [NCAABGame] {
-        let q = (searchTexts[.ncaab] ?? "").lowercased()
+        let q = normalizedSearchText(for: .ncaab)
         let filtered = q.isEmpty ? games.ncaab : games.ncaab.filter { game in
             game.homeTeam.lowercased().contains(q) || game.awayTeam.lowercased().contains(q)
         }
@@ -245,7 +245,7 @@ public final class GamesStore {
     }
 
     public func sortedMLB() -> [MLBGame] {
-        let q = (searchTexts[.mlb] ?? "").lowercased()
+        let q = normalizedSearchText(for: .mlb)
         let filtered = q.isEmpty ? games.mlb : games.mlb.filter { game in
             (game.homeTeamName ?? "").lowercased().contains(q) ||
                 (game.awayTeamName ?? "").lowercased().contains(q) ||
@@ -253,6 +253,12 @@ public final class GamesStore {
                 game.awayAbbr.lowercased().contains(q)
         }
         return sortMLB(filtered, mode: sortModes[.mlb] ?? .time)
+    }
+
+    private func normalizedSearchText(for sport: Sport) -> String {
+        (searchTexts[sport] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 
     /// Sort MLB games. `time` sorts by `game_time_et` ascending (RN

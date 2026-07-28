@@ -36,7 +36,7 @@ struct GamesView: View {
     // falls back to its own local stores).
     @Environment(MLBBettingTrendsStore.self) private var mlbTrendsStore: MLBBettingTrendsStore?
     @Environment(MLBF5SplitsStore.self) private var mlbF5Store: MLBF5SplitsStore?
-    @State private var sortMenuVisible: Bool = false
+    @FocusState private var quickFilterFocused: Bool
     /// Drives the push to a per-sport analytics tool page (banner tap). New
     /// payload type, so it doesn't collide with the game-detail `item:`
     /// destinations on this stack.
@@ -96,7 +96,9 @@ struct GamesView: View {
                 LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
                     Section {
                         LazyVStack(spacing: 8) {
-                            toolBanners
+                            if activeQuickFilter.isEmpty {
+                                toolBanners
+                            }
                             bodyContent
                         }
                     } header: {
@@ -205,6 +207,12 @@ struct GamesView: View {
             // Reset the tool carousel to the first page when the sport changes
             // so a stale page index can't carry into a sport with fewer tools.
             .onChange(of: store.selectedSport) { _, _ in toolPage = 0 }
+            // Tab contents remain alive while the detached Search tab owns the
+            // keyboard. Clear only the first-responder state (not the filter
+            // text) so closing Search cannot hand focus back to Quick Filter.
+            .onChange(of: tabStore.selected) { _, _ in
+                quickFilterFocused = false
+            }
         }
     }
 
@@ -278,76 +286,137 @@ struct GamesView: View {
         }
     }
 
-    /// Per-sport sort menu — sits next to the sport picker in the pinned
-    /// section header so the user can change ordering without reaching to
-    /// the toolbar. Picker change adjusts which sport's sort mode the menu
-    /// targets (each sport has its own remembered sort).
+    /// Per-sport sort menu. A Picker gives the current choice the native menu
+    /// checkmark and preserves the store's independently remembered sort for
+    /// each league.
     @ViewBuilder
     private var sortMenu: some View {
         Menu {
-            Button {
-                store.sortModes[store.selectedSport] = .time
-            } label: {
-                Label("Sort by Time", systemImage: "clock")
-            }
-            Button {
-                store.sortModes[store.selectedSport] = .spread
-            } label: {
-                Label("Sort by Spread Value", systemImage: "chart.line.uptrend.xyaxis")
-            }
-            Button {
-                store.sortModes[store.selectedSport] = .ou
-            } label: {
-                Label("Sort by O/U Value", systemImage: "number")
+            Picker("Sort Games", selection: sortModeBinding) {
+                Label("Time", systemImage: "clock")
+                    .tag(GamesStore.SortMode.time)
+                Label("Spread Value", systemImage: "chart.line.uptrend.xyaxis")
+                    .tag(GamesStore.SortMode.spread)
+                Label("O/U Value", systemImage: "number")
+                    .tag(GamesStore.SortMode.ou)
             }
         } label: {
-            Image(systemName: "arrow.up.arrow.down")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.appTextPrimary)
-                .frame(width: 32, height: 32)
+            menuIconLabel(
+                "arrow.up.arrow.down",
+                isActive: (store.sortModes[store.selectedSport] ?? .time) != .time
+            )
         }
         .tint(Color.appTextPrimary)
         .sensoryFeedback(.selection, trigger: store.sortModes[store.selectedSport])
         .accessibilityLabel("Sort games")
     }
 
-    // MARK: - Sport switcher
+    // MARK: - Quick filters
 
-    /// The picker + sort bar, rendered as the pinned header of the outer
-    /// scroll Section. Left as a floating glass capsule (no full-width
-    /// opaque fill) so content scrolls under the nav bar / large title with
-    /// the system's translucent treatment intact.
+    /// Inline Quick Filter + sport + sort controls, rendered as the pinned
+    /// header of the outer scroll Section. Search is intentionally local to
+    /// this game list; the app-wide search tab remains unchanged.
     @ViewBuilder
     private var pickerBar: some View {
         HStack(spacing: 8) {
-            sportPicker
+            quickFilterField
+                .layoutPriority(1)
+            sportMenu
             sortMenu
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 4)
-        .modifier(LiquidGlassCapsule())
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
     }
 
-    /// Native segmented sport picker. Lives inside `pickerBar`, the pinned
-    /// header of the scroll content, so it stays beneath the nav bar while
-    /// game cards scroll under it.
-    @ViewBuilder
-    private var sportPicker: some View {
+    /// Native pull-down selection menu. It replaces the wide segmented picker
+    /// so the sport and sort filters can sit beside the inline search field.
+    private var sportMenu: some View {
         @Bindable var binding = store
-        Picker("Sport", selection: $binding.selectedSport) {
-            ForEach(GamesStore.Sport.displayOrder()) { sport in
-                Text(sport.label).tag(sport)
+        return Menu {
+            Picker("Sport", selection: $binding.selectedSport) {
+                ForEach(GamesStore.Sport.displayOrder()) { sport in
+                    Label(sport.label, systemImage: sportSymbol(sport))
+                        .tag(sport)
+                }
+            }
+        } label: {
+            menuIconLabel(sportSymbol(store.selectedSport))
+        }
+        .sensoryFeedback(.selection, trigger: store.selectedSport)
+        .accessibilityLabel("Choose sport shown")
+    }
+
+    private var quickFilterField: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(quickFilterFocused ? Color.appPrimary : Color.appTextMuted)
+
+            TextField("Quick Filter", text: quickFilterBinding)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color.appTextPrimary)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .focused($quickFilterFocused)
+                .onSubmit { quickFilterFocused = false }
+                .accessibilityLabel("Quick filter games")
+
+            if !activeQuickFilter.isEmpty {
+                Button {
+                    quickFilterBinding.wrappedValue = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.appTextMuted)
+                        .frame(width: 26, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear quick filter")
             }
         }
-        .pickerStyle(.segmented)
-        // UISegmentedControl's selected-segment highlight uses a small fixed
-        // corner radius. Inside the outer Liquid Glass capsule that looked
-        // visually square. Clipping the whole picker to a capsule shape
-        // rounds the highlight's edges (it inherits the parent mask).
-        .clipShape(.capsule)
-        .sensoryFeedback(.selection, trigger: store.selectedSport)
+        .padding(.horizontal, 12)
+        .frame(height: 44)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassBackground(in: Capsule(), interactive: true)
+    }
+
+    private func menuIconLabel(_ systemName: String, isActive: Bool = false) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(isActive ? Color.appPrimary : Color.appTextPrimary)
+            .frame(width: 44, height: 44)
+            .liquidGlassBackground(in: Circle(), interactive: true)
+            .contentShape(Rectangle())
+    }
+
+    private var quickFilterBinding: Binding<String> {
+        Binding(
+            get: { store.searchTexts[store.selectedSport] ?? "" },
+            set: { store.searchTexts[store.selectedSport] = $0 }
+        )
+    }
+
+    private var sortModeBinding: Binding<GamesStore.SortMode> {
+        Binding(
+            get: { store.sortModes[store.selectedSport] ?? .time },
+            set: { store.sortModes[store.selectedSport] = $0 }
+        )
+    }
+
+    private var activeQuickFilter: String {
+        (store.searchTexts[store.selectedSport] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func sportSymbol(_ sport: GamesStore.Sport) -> String {
+        switch sport {
+        case .mlb: return "baseball.fill"
+        case .nba, .ncaab: return "basketball.fill"
+        case .nfl: return "football.fill"
+        case .cfb: return "graduationcap.fill"
+        }
     }
 
     // MARK: - Content
@@ -361,6 +430,8 @@ struct GamesView: View {
             loadingSkeleton
         } else if let msg = store.errorMessage(sport: store.selectedSport), noCachedGames {
             errorState(msg)
+        } else if !activeQuickFilter.isEmpty && filteredGamesAreEmpty {
+            quickFilterEmptyState
         } else {
             sportDateSections
         }
@@ -374,6 +445,32 @@ struct GamesView: View {
         case .ncaab: return store.games.ncaab.isEmpty
         case .mlb: return store.games.mlb.isEmpty
         }
+    }
+
+    private var filteredGamesAreEmpty: Bool {
+        switch store.selectedSport {
+        case .nfl: return store.sortedNFL().isEmpty
+        case .cfb: return store.sortedCFB().isEmpty
+        case .nba: return store.sortedNBA().isEmpty
+        case .ncaab: return store.sortedNCAAB().isEmpty
+        case .mlb: return store.sortedMLB().isEmpty
+        }
+    }
+
+    private var quickFilterEmptyState: some View {
+        ContentUnavailableView {
+            Label("No Matching Games", systemImage: "magnifyingglass")
+        } description: {
+            Text("No \(store.selectedSport.label) teams match “\(activeQuickFilter)”.")
+        } actions: {
+            Button("Clear Quick Filter") {
+                quickFilterBinding.wrappedValue = ""
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.appPrimary)
+        }
+        .frame(minHeight: 220)
+        .padding(.horizontal, 24)
     }
 
     @ViewBuilder

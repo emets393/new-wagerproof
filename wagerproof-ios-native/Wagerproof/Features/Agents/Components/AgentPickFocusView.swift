@@ -59,6 +59,10 @@ struct AgentPickFocusView: View {
     /// Set when the share button renders the current card to an image; drives the
     /// share sheet.
     @State private var shareItem: ShareableTicketImage? = nil
+    /// CoreMotion transforms pause while the user scrolls the ticket. Rotating
+    /// the scroll container at 60 Hz while its content offset changes produces
+    /// visible vertical jitter even though each system is smooth in isolation.
+    @State private var ticketIsScrolling = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -133,6 +137,11 @@ struct AgentPickFocusView: View {
             // swallowed by the backdrop field or the pager.
             topBar.zIndex(10)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // The full-screen cover owns the whole display; extend its ticket
+        // region beneath the home indicator so there is no bottom strip.
+        .ignoresSafeArea(.container, edges: .bottom)
+        .presentationBackground(.black)
         .opacity(appeared ? 1 : 0)
         .onAppear { present() }
         .onDisappear { motion.stop() }
@@ -305,12 +314,28 @@ struct AgentPickFocusView: View {
                     ticketView(item, width: cardW, measure: false, withAudit: true)
                         .frame(maxWidth: .infinity)
                         .padding(.top, topInset)
-                        .padding(.bottom, 48)
+                        .rotation3DEffect(
+                            .degrees(i == index && !ticketIsScrolling
+                                ? motion.normalizedPitch * cardMaxTiltDeg
+                                : 0),
+                            axis: (x: 1, y: 0, z: 0),
+                            perspective: 0.5
+                        )
+                        .rotation3DEffect(
+                            .degrees(i == index && !ticketIsScrolling
+                                ? -motion.normalizedRoll * cardMaxTiltDeg
+                                : 0),
+                            axis: (x: 0, y: 1, z: 0),
+                            perspective: 0.5
+                        )
                 }
-                .rotation3DEffect(.degrees(i == index ? motion.normalizedPitch * cardMaxTiltDeg : 0),
-                                  axis: (x: 1, y: 0, z: 0), perspective: 0.5)
-                .rotation3DEffect(.degrees(i == index ? -motion.normalizedRoll * cardMaxTiltDeg : 0),
-                                  axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+                .contentMargins(.bottom, 0, for: .scrollContent)
+                .onScrollPhaseChange { _, phase in
+                    let isScrolling = phase.isScrolling
+                    guard ticketIsScrolling != isScrolling else { return }
+                    ticketIsScrolling = isScrolling
+                    motion.setInteractionPaused(isScrolling)
+                }
                 .tag(i)
             }
         }
@@ -488,6 +513,7 @@ final class PickTicketMotion {
     /// While false the sensor RUNS but the lean stays pinned flat — lets the
     /// printed ticket pre-warm CoreMotion during the feed yet emerge flat.
     @ObservationIgnored private var live = false
+    @ObservationIgnored private var interactionPaused = false
 
     /// Attitude delta (radians) that maps to a full ±1 lean. Bigger = subtler.
     private let maxRadians = 0.35
@@ -512,10 +538,30 @@ final class PickTicketMotion {
     }
 
     /// Switch leans on once the ticket has settled (cheap — no sensor work).
-    func goLive() { live = true }
+    func goLive() { live = !interactionPaused }
+
+    /// Flatten the ticket while its vertical ScrollView is moving, then
+    /// re-prime the neutral attitude before restoring parallax at rest.
+    func setInteractionPaused(_ paused: Bool) {
+        guard interactionPaused != paused else { return }
+        interactionPaused = paused
+
+        if paused {
+            live = false
+            withAnimation(.easeOut(duration: 0.12)) {
+                normalizedRoll = 0
+                normalizedPitch = 0
+            }
+        } else {
+            baselineRoll = nil
+            baselinePitch = nil
+            live = true
+        }
+    }
 
     func stop() {
         live = false
+        interactionPaused = false
         Self.manager.stopDeviceMotionUpdates()
         queue.cancelAllOperations()
         baselineRoll = nil

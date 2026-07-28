@@ -18,19 +18,23 @@ public struct MLBF5Matchup: Identifiable, Sendable {
 }
 
 public struct F5CompareRow: Identifiable, Sendable {
-    public enum Metric: String, Sendable { case winPct, runsScored, runsAllowed }
+    public enum Metric: String, Sendable { case winPct, overPct, runsScored, runsAllowed }
     public let metric: Metric
     public let title: String                            // "F5 WIN %"
-    public let awayValue: Double?, homeValue: Double?   // normalized bar inputs
+    public let awayValue: Double?, homeValue: Double?   // pct rows: 0...100; run rows: raw averages
     public let awayNumeral: String, homeNumeral: String
     public let awayDelta: Double?, homeDelta: Double?   // nil for winPct row
+    public let awayReferenceValue: Double?, homeReferenceValue: Double?
+    public let scaleMaximum: Double?
     public let goodWhenNegative: Bool
     public let advantage: MatchupSide?
     public var id: String { metric.rawValue }
 
     public init(metric: Metric, title: String, awayValue: Double?, homeValue: Double?,
                 awayNumeral: String, homeNumeral: String, awayDelta: Double?, homeDelta: Double?,
-                goodWhenNegative: Bool, advantage: MatchupSide?) {
+                goodWhenNegative: Bool, advantage: MatchupSide?,
+                awayReferenceValue: Double? = nil, homeReferenceValue: Double? = nil,
+                scaleMaximum: Double? = nil) {
         self.metric = metric
         self.title = title
         self.awayValue = awayValue
@@ -39,20 +43,43 @@ public struct F5CompareRow: Identifiable, Sendable {
         self.homeNumeral = homeNumeral
         self.awayDelta = awayDelta
         self.homeDelta = homeDelta
+        self.awayReferenceValue = awayReferenceValue
+        self.homeReferenceValue = homeReferenceValue
+        self.scaleMaximum = scaleMaximum
         self.goodWhenNegative = goodWhenNegative
         self.advantage = advantage
     }
 }
 
 public struct F5InsightSummary: Sendable {
+    public let headline: String
+    public let awayAbbr: String
+    public let homeAbbr: String
+    public let awaySampleSize: Int?
+    public let homeSampleSize: Int?
     public let verdicts: [InsightVerdict]
     public let badge: InsightVerdictBadge
     public let qualifier: String
-    public let rows: [F5CompareRow]                     // exactly the 3 rows of §1c
+    public let rows: [F5CompareRow]
     public let sampleWarning: String?
 
-    public init(verdicts: [InsightVerdict], badge: InsightVerdictBadge, qualifier: String,
-                rows: [F5CompareRow], sampleWarning: String?) {
+    public init(
+        headline: String,
+        awayAbbr: String,
+        homeAbbr: String,
+        awaySampleSize: Int?,
+        homeSampleSize: Int?,
+        verdicts: [InsightVerdict],
+        badge: InsightVerdictBadge,
+        qualifier: String,
+        rows: [F5CompareRow],
+        sampleWarning: String?
+    ) {
+        self.headline = headline
+        self.awayAbbr = awayAbbr
+        self.homeAbbr = homeAbbr
+        self.awaySampleSize = awaySampleSize
+        self.homeSampleSize = homeSampleSize
         self.verdicts = verdicts
         self.badge = badge
         self.qualifier = qualifier
@@ -112,23 +139,23 @@ public enum MLBF5Insight {
         // O/U verdict — two conditions (over% consensus + season delta): both met
         // → s2/s3, exactly one met → s1, neither → omitted (spec §1c).
         let overPcts = [awayShown?.f5OverPct, homeShown?.f5OverPct].compactMap { $0 }
+        let averageOverPct = overPcts.isEmpty ? nil : overPcts.reduce(0, +) / Double(overPcts.count)
+        let totalDeltaSum = (awayShown?.totalDiffVsSeason ?? 0) + (homeShown?.totalDiffVsSeason ?? 0)
         let degraded = !(awayOk && homeOk)
-        if !overPcts.isEmpty {
-            let avgOver = overPcts.reduce(0, +) / Double(overPcts.count)
-            let deltaSum = (awayShown?.totalDiffVsSeason ?? 0) + (homeShown?.totalDiffVsSeason ?? 0)
-            var ouVerdict: InsightVerdict?
+        var ouVerdict: InsightVerdict?
+        if let avgOver = averageOverPct {
             if avgOver >= InsightThresholds.ouHigh {
-                var s = deltaSum > 0 ? (avgOver >= 60 ? 3 : 2) : 1
+                var s = totalDeltaSum > 0 ? (avgOver >= 60 ? 3 : 2) : 1
                 if degraded { s = min(s, 1) }   // single-sided sample caps confidence
                 ouVerdict = InsightVerdict(text: "F5 OVER lean", lean: .over, strength: s)
             } else if avgOver <= InsightThresholds.ouLow {
-                var s = deltaSum < 0 ? (avgOver <= 40 ? 3 : 2) : 1
+                var s = totalDeltaSum < 0 ? (avgOver <= 40 ? 3 : 2) : 1
                 if degraded { s = min(s, 1) }
                 ouVerdict = InsightVerdict(text: "F5 UNDER lean", lean: .under, strength: s)
-            } else if deltaSum > 0 {
+            } else if totalDeltaSum > 0 {
                 // Delta-only lean: season deltas point over without over% consensus.
                 ouVerdict = InsightVerdict(text: "F5 OVER lean", lean: .over, strength: 1)
-            } else if deltaSum < 0 {
+            } else if totalDeltaSum < 0 {
                 ouVerdict = InsightVerdict(text: "F5 UNDER lean", lean: .under, strength: 1)
             }
             if let ouVerdict { verdicts.append(ouVerdict) }
@@ -150,14 +177,33 @@ public enum MLBF5Insight {
             badge = InsightVerdictBadge(text: "EVEN", tintHex: 0x9CA3AF)
         }
 
-        let qualifier = "\(game.awayAbbr) away vs \(MLBF5.pitchHandLabel(game.homeSpHand)) · "
-            + "\(game.homeAbbr) home vs \(MLBF5.pitchHandLabel(game.awaySpHand))"
+        let qualifier = "Matched samples: \(game.awayAbbr) road games vs \(handDescription(game.homeSpHand)) · "
+            + "\(game.homeAbbr) home games vs \(handDescription(game.awaySpHand))"
 
         let rows = compareRows(game: game, away: awayShown, home: homeShown)
         let warning = sampleWarning(game: game, away: away, home: home, awayOk: awayOk, homeOk: homeOk)
+        let headline = summaryHeadline(
+            game: game,
+            away: awayShown,
+            home: homeShown,
+            sideVerdict: sideVerdict,
+            ouVerdict: ouVerdict,
+            averageOverPct: averageOverPct,
+            totalDeltaSum: totalDeltaSum
+        )
 
-        return F5InsightSummary(verdicts: verdicts, badge: badge, qualifier: qualifier,
-                                rows: rows, sampleWarning: warning)
+        return F5InsightSummary(
+            headline: headline,
+            awayAbbr: game.awayAbbr,
+            homeAbbr: game.homeAbbr,
+            awaySampleSize: away?.games,
+            homeSampleSize: home?.games,
+            verdicts: verdicts,
+            badge: badge,
+            qualifier: qualifier,
+            rows: rows,
+            sampleWarning: warning
+        )
     }
 
     public static func teaser(for matchup: MLBF5Matchup, matchedAbbr: String?) -> InsightTeaser? {
@@ -221,30 +267,57 @@ public enum MLBF5Insight {
         let winRow = F5CompareRow(
             metric: .winPct, title: "F5 WIN %",
             awayValue: away?.f5WinPct, homeValue: home?.f5WinPct,
-            awayNumeral: away != nil ? MLBF5.recordWithPct(away) : "—",
-            homeNumeral: home != nil ? MLBF5.recordWithPct(home) : "—",
+            awayNumeral: MLBF5.formatPct(away?.f5WinPct),
+            homeNumeral: MLBF5.formatPct(home?.f5WinPct),
             awayDelta: nil, homeDelta: nil,
             goodWhenNegative: false, advantage: winAdvantage
         )
 
-        // 2. RUNS SCORED — normalized so the longer half maxes at ~83% of track.
-        let rsMax = max(away?.avgF5Rs ?? 0, home?.avgF5Rs ?? 0)
-        let rsScale = rsMax > 0 ? rsMax * 1.2 : 1
+        // 2. F5 OVER RATE — direct evidence for the O/U verdict.
+        let overAdvantage: MatchupSide? = {
+            guard let a = away?.f5OverPct, let h = home?.f5OverPct, a != h else { return nil }
+            return a > h ? .away : .home
+        }()
+        let overRow = F5CompareRow(
+            metric: .overPct, title: "F5 OVER RATE",
+            awayValue: away?.f5OverPct, homeValue: home?.f5OverPct,
+            awayNumeral: MLBF5.formatPct(away?.f5OverPct),
+            homeNumeral: MLBF5.formatPct(home?.f5OverPct),
+            awayDelta: nil, homeDelta: nil,
+            goodWhenNegative: false, advantage: overAdvantage
+        )
+
+        // 3. RUNS SCORED — scale includes each season baseline so the reference
+        // marker always remains visible, even when the matched split is lower.
+        let awayRsReference = seasonReference(value: away?.avgF5Rs, delta: away?.rsDiffVsSeason)
+        let homeRsReference = seasonReference(value: home?.avgF5Rs, delta: home?.rsDiffVsSeason)
+        let rsMax = [
+            away?.avgF5Rs,
+            home?.avgF5Rs,
+            awayRsReference,
+            homeRsReference
+        ]
+        .compactMap { $0 }
+        .max() ?? 0
+        let rsScaleMaximum = runScaleMaximum(rsMax)
         let rsAdvantage: MatchupSide? = {
             guard let a = away?.avgF5Rs, let h = home?.avgF5Rs, a != h else { return nil }
             return a > h ? .away : .home
         }()
         let rsRow = F5CompareRow(
             metric: .runsScored, title: "RUNS SCORED",
-            awayValue: (away?.avgF5Rs).map { $0 / rsScale },
-            homeValue: (home?.avgF5Rs).map { $0 / rsScale },
+            awayValue: away?.avgF5Rs,
+            homeValue: home?.avgF5Rs,
             awayNumeral: away?.avgF5Rs != nil ? MLBF5.formatNumber(away?.avgF5Rs, digits: 1) : "—",
             homeNumeral: home?.avgF5Rs != nil ? MLBF5.formatNumber(home?.avgF5Rs, digits: 1) : "—",
             awayDelta: away?.rsDiffVsSeason, homeDelta: home?.rsDiffVsSeason,
-            goodWhenNegative: false, advantage: rsAdvantage
+            goodWhenNegative: false, advantage: rsAdvantage,
+            awayReferenceValue: awayRsReference,
+            homeReferenceValue: homeRsReference,
+            scaleMaximum: rsScaleMaximum
         )
 
-        // 3. RUNS ALLOWED — own starter hand split; lower is better.
+        // 4. RUNS ALLOWED — own starter hand split; lower is better.
         func ownRa(_ split: MLBF5SplitRow?, hand: MLBF5PitchHand?) -> (value: Double?, delta: Double?, games: Int) {
             guard let split, let hand else { return (nil, nil, 0) }
             let games = hand == .left ? split.gamesWithOwnLhp : split.gamesWithOwnRhp
@@ -255,23 +328,105 @@ public enum MLBF5Insight {
         }
         let awayRa = ownRa(away, hand: game.awaySpHand)
         let homeRa = ownRa(home, hand: game.homeSpHand)
-        let raMax = max(awayRa.value ?? 0, homeRa.value ?? 0)
-        let raScale = raMax > 0 ? raMax * 1.2 : 1
+        let awayRaReference = seasonReference(value: awayRa.value, delta: awayRa.delta)
+        let homeRaReference = seasonReference(value: homeRa.value, delta: homeRa.delta)
+        let raMax = [
+            awayRa.value,
+            homeRa.value,
+            awayRaReference,
+            homeRaReference
+        ]
+        .compactMap { $0 }
+        .max() ?? 0
+        let raScaleMaximum = runScaleMaximum(raMax)
         let raAdvantage: MatchupSide? = {
             guard let a = awayRa.value, let h = homeRa.value, a != h else { return nil }
             return a < h ? .away : .home
         }()
         let raRow = F5CompareRow(
             metric: .runsAllowed, title: "RUNS ALLOWED",
-            awayValue: awayRa.value.map { $0 / raScale },
-            homeValue: homeRa.value.map { $0 / raScale },
+            awayValue: awayRa.value,
+            homeValue: homeRa.value,
             awayNumeral: awayRa.value != nil ? MLBF5.formatNumber(awayRa.value, digits: 1) : "—",
             homeNumeral: homeRa.value != nil ? MLBF5.formatNumber(homeRa.value, digits: 1) : "—",
             awayDelta: awayRa.delta, homeDelta: homeRa.delta,
-            goodWhenNegative: true, advantage: raAdvantage
+            goodWhenNegative: true, advantage: raAdvantage,
+            awayReferenceValue: awayRaReference,
+            homeReferenceValue: homeRaReference,
+            scaleMaximum: raScaleMaximum
         )
 
-        return [winRow, rsRow, raRow]
+        return [winRow, overRow, rsRow, raRow]
+    }
+
+    private static func seasonReference(value: Double?, delta: Double?) -> Double? {
+        guard let value, let delta, value.isFinite, delta.isFinite else { return nil }
+        return max(0, value - delta)
+    }
+
+    private static func runScaleMaximum(_ largestValue: Double) -> Double {
+        max(4, ceil(largestValue + 0.5))
+    }
+
+    // MARK: - Summary copy
+
+    private static func summaryHeadline(
+        game: MLBF5Game,
+        away: MLBF5SplitRow?,
+        home: MLBF5SplitRow?,
+        sideVerdict: InsightVerdict?,
+        ouVerdict: InsightVerdict?,
+        averageOverPct: Double?,
+        totalDeltaSum: Double
+    ) -> String {
+        let sideRead: String = {
+            guard let awayPct = away?.f5WinPct, let homePct = home?.f5WinPct else {
+                return "There is not enough matched data to separate the first-five side."
+            }
+            if let sideVerdict, sideVerdict.strength > 0,
+               case .team(let leader, _) = sideVerdict.lean {
+                let leaderPct = leader == game.awayAbbr ? awayPct : homePct
+                let trailer = leader == game.awayAbbr ? game.homeAbbr : game.awayAbbr
+                let trailerPct = leader == game.awayAbbr ? homePct : awayPct
+                return "\(leader) has the stronger first-five win rate at \(MLBF5.formatPct(leaderPct)), compared with \(trailer) at \(MLBF5.formatPct(trailerPct))."
+            }
+            return "The first-five side is nearly even: \(game.awayAbbr) \(MLBF5.formatPct(awayPct)) and \(game.homeAbbr) \(MLBF5.formatPct(homePct))."
+        }()
+
+        let totalRead: String = {
+            guard let ouVerdict else {
+                return "The total indicators do not show a clear Over or Under lean."
+            }
+            switch ouVerdict.lean {
+            case .over:
+                if let averageOverPct, averageOverPct >= InsightThresholds.ouHigh {
+                    return "The matched splits average \(MLBF5.formatPct(averageOverPct)) Over, creating an Over lean."
+                }
+                if totalDeltaSum > 0 {
+                    return "First-five scoring in these splits is above season baselines, creating an Over lean."
+                }
+            case .under:
+                if let averageOverPct, averageOverPct <= InsightThresholds.ouLow {
+                    return "The matched splits average only \(MLBF5.formatPct(averageOverPct)) Over, creating an Under lean."
+                }
+                if totalDeltaSum < 0 {
+                    return "First-five scoring in these splits is below season baselines, creating an Under lean."
+                }
+            default:
+                break
+            }
+            return "The total indicators do not show a clear Over or Under lean."
+        }()
+
+        return "\(sideRead) \(totalRead)"
+    }
+
+    private static func handDescription(_ hand: MLBF5PitchHand?) -> String {
+        switch hand {
+        case .right: return "right-handed starters"
+        case .left: return "left-handed starters"
+        case nil: return "the opposing starter"
+        }
     }
 
     private static func sampleWarning(game: MLBF5Game, away: MLBF5SplitRow?, home: MLBF5SplitRow?,

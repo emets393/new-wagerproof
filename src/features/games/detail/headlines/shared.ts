@@ -30,6 +30,9 @@ function pts(n: number): string {
 export interface MarketOddsHeadlineInput {
   /** The market actually being plotted (MarketOddsChart's `activeKey`). */
   marketKey: 'moneyline' | 'spread' | 'total' | undefined;
+  /** Labels already resolved by the chart: team abbreviations or Over/Under. */
+  leaderLabel: string;
+  trailLabel: string;
   /** Implied probability of the LEADING tile — `aLeads ? a : b` (MarketOddsChart.tsx:104). */
   leaderPct: number | null;
   /** Implied probability of the other tile. */
@@ -39,46 +42,51 @@ export interface MarketOddsHeadlineInput {
 }
 
 /**
- * Polymarket verdict for the Market Odds card.
- *
- * Deliberately NAMES NO SIDE. `currentAwayOdds` / `awayTeamOdds` are misnomers:
- * they hold the YES / clobTokenIds[0] price (polymarketService.ts always calls
- * transformPriceHistory with isAwayTeam=true), and findMatchingEvent accepts a
- * home-first event title without flipping the series — so which real team the
- * "away" series belongs to is unresolved in the client. Prose that named a team
- * would invert exactly as often as the data does. The card's own tiles carry the
- * labels; the headline only characterises how decisive the market is.
- *
- * Spread and total return null: those markets are picked by first question/slug
- * text match, so neither the side nor the line is known (an alt line is
- * possible), and Over/Under orientation is assumed rather than parsed.
+ * Public-market verdict for the Market Odds card. The caller supplies the same
+ * resolved labels attached to the plotted series, keeping prose and chart
+ * identity together for Moneyline, Spread, and Total.
  */
 export function marketOddsHeadline(v: MarketOddsHeadlineInput): string | null {
-  if (v.marketKey !== 'moneyline') return null;
+  if (!v.marketKey || !v.leaderLabel || !v.trailLabel) return null;
   if (!isNum(v.leaderPct) || !isNum(v.trailPct)) return null;
 
   const leader = Math.round(v.leaderPct);
   const trail = Math.round(v.trailPct);
   if (leader < 0 || leader > 100 || trail < 0 || trail > 100) return null;
 
-  // The two sides are integer complements by construction (Math.round + 100−p),
-  // so the "no clear favorite" band can realistically only be 50/50 or 51/49.
-  if (Math.abs(v.leaderPct - v.trailPct) < 4) {
-    return `Polymarket has no clear moneyline favorite — the two sides are priced ${leader}% and ${trail}%.`;
+  let read: string;
+  const nearlyEven = Math.abs(v.leaderPct - v.trailPct) < 4;
+  switch (v.marketKey) {
+    case 'moneyline':
+      read = nearlyEven
+        ? `Public markets see the outright winner as nearly even: ${v.leaderLabel} ${leader}% and ${v.trailLabel} ${trail}%.`
+        : `Public markets give ${v.leaderLabel} a ${leader}% chance to win outright, compared with ${v.trailLabel} at ${trail}%.`;
+      break;
+    case 'spread':
+      read = nearlyEven
+        ? `Public markets see the selected spread as nearly even: ${v.leaderLabel} ${leader}% and ${v.trailLabel} ${trail}% to cover.`
+        : `Public markets give ${v.leaderLabel} a ${leader}% chance to cover the selected spread, compared with ${v.trailLabel} at ${trail}%.`;
+      break;
+    case 'total':
+      read = nearlyEven
+        ? `Public markets see the selected game total as nearly even: ${v.leaderLabel} ${leader}% and ${v.trailLabel} ${trail}%.`
+        : `Public markets price ${v.leaderLabel} at ${leader}% and ${v.trailLabel} at ${trail}% for the selected game total.`;
+      break;
   }
 
-  // Movement is measured within one side's own series (leader vs that side's
-  // first plotted point), so it can't mix a percent from one side with a point
-  // from the other. "Tracked history" rather than "since the market opened":
-  // points[0] is just the oldest sample the API/cron happened to return.
-  let move = '';
+  let movement = '';
   if (isNum(v.leaderOpenPct)) {
     const delta = Math.round(v.leaderPct - v.leaderOpenPct);
-    if (delta >= 5) move = `, up ${delta} pts over the tracked history`;
-    else if (delta <= -5) move = `, down ${Math.abs(delta)} pts over the tracked history`;
+    if (delta >= 2) {
+      movement = ` ${v.leaderLabel} is up ${delta} percentage points from the first tracked price.`;
+    } else if (delta <= -2) {
+      movement = ` ${v.leaderLabel} is down ${Math.abs(delta)} percentage points from the first tracked price.`;
+    } else {
+      movement = ` ${v.leaderLabel} has held broadly steady across the tracked history.`;
+    }
   }
 
-  return `Polymarket prices this moneyline ${leader}% / ${trail}% — the favored side is highlighted below${move}.`;
+  return `${read}${movement}`;
 }
 
 // ---------------------------------------------------------------------------
