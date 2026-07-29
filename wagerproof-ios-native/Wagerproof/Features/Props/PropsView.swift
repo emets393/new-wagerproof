@@ -240,10 +240,12 @@ struct PropsView: View {
             .navigationDestination(item: $selectedProp) { selection in
                 PlayerPropDetailView(selection: selection)
                     .navigationTransition(.zoom(sourceID: selection.transitionID, in: cardTransition))
+                    .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(item: $selectedNFLProp) { selection in
                 NFLPropDetailView(selection: selection)
                     .navigationTransition(.zoom(sourceID: selection.transitionID, in: cardTransition))
+                    .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(isPresented: $showBestPicks) {
                 MLBBestPicksView(store: bestPicksStore)

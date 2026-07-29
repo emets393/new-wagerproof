@@ -295,6 +295,10 @@ struct AgentsView: View {
                     onDismiss: finishCreateAgentFlow
                 ) {
                     AgentBuilderView(onCreated: { created in
+                        ReviewPromptCoordinator.shared.recordAgentCreated(
+                            agentID: created.id,
+                            totalAgentCount: store.agents.count + 1
+                        )
                         createdAgentForNavigation = created
                         showCreateAgent = false
                     })
@@ -306,6 +310,10 @@ struct AgentsView: View {
                         copySourceAgent: source,
                         startAtStartingPoint: true,
                         onCreated: { created in
+                            ReviewPromptCoordinator.shared.recordAgentCreated(
+                                agentID: created.id,
+                                totalAgentCount: store.agents.count + 1
+                            )
                             copySourceAgent = nil
                             Task { await store.refresh() }
                             navPath.append(AgentsRoute.agentDetail(agentId: created.id))
@@ -1226,6 +1234,10 @@ struct AgentsView: View {
             // Compatibility route for any stale/deep-linked navigation path.
             // Current creation entry points use the immersive full-screen cover.
             AgentBuilderView(onCreated: { agent in
+                ReviewPromptCoordinator.shared.recordAgentCreated(
+                    agentID: agent.id,
+                    totalAgentCount: store.agents.count + 1
+                )
                 Task { await store.refresh() }
                 navPath.removeLast()
                 navPath.append(AgentsRoute.agentDetail(agentId: agent.id))

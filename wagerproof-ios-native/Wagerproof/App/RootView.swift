@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 import WagerproofDesign
 import WagerproofStores
 
@@ -21,6 +22,9 @@ struct RootView: View {
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(ProAccessStore.self) private var proAccess
     @Environment(RevenueCatStore.self) private var revenueCat
+    @Environment(\.requestReview) private var requestReview
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var reviewPromptCoordinator = ReviewPromptCoordinator.shared
 
     /// Set to `true` when the user purchases / restores / explicitly
     /// dismisses the post-onboarding paywall. Reset whenever the user
@@ -104,6 +108,31 @@ struct RootView: View {
             // Sign-out resets the dismiss flag so the next user (or the same
             // user signing back in without Pro) sees the paywall again.
             if case .unauthenticated = newPhase { paywallDismissed = false }
+        }
+        .task {
+            reviewPromptCoordinator.recordAppActive()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                reviewPromptCoordinator.recordAppActive()
+            }
+        }
+        // Value events only enqueue. The root waits for the originating sheet,
+        // navigation pop, or ticket reveal to settle before asking StoreKit.
+        .task(id: reviewPromptCoordinator.pendingRequest?.id) {
+            guard let request = reviewPromptCoordinator.pendingRequest else { return }
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !Task.isCancelled,
+                  scenePhase == .active,
+                  router.phase == .ready,
+                  !shouldPresentPaywall
+            else {
+                reviewPromptCoordinator.cancel(request)
+                return
+            }
+            if reviewPromptCoordinator.claim(request) {
+                requestReview()
+            }
         }
     }
 }

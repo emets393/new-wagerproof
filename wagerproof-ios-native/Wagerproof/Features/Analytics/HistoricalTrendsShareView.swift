@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import WagerproofDesign
 import WagerproofModels
+import WagerproofStores
 
 // MARK: - Focus
 
@@ -154,7 +155,11 @@ struct HistoricalTrendsShareView: View {
         .presentationDragIndicator(.visible)
         .task(id: focusTeamName) { await resolveTeamArt() }
         .sheet(item: $shareItem) { item in
-            ActivityShareSheet(items: [item.image])
+            ActivityShareSheet(items: [item.image]) { completed in
+                if completed {
+                    ReviewPromptCoordinator.shared.recordContentShared()
+                }
+            }
         }
     }
 
@@ -688,9 +693,18 @@ private struct ShareableInfographicImage: Identifiable {
 
 private struct ActivityShareSheet: UIViewControllerRepresentable {
     let items: [Any]
+    let onComplete: @MainActor (Bool) -> Void
+
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, completed, _, _ in
+            Task { @MainActor in
+                onComplete(completed)
+            }
+        }
+        return controller
     }
+
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 

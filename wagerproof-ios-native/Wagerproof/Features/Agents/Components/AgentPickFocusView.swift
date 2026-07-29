@@ -2,6 +2,7 @@ import SwiftUI
 import CoreMotion
 import WagerproofDesign
 import WagerproofModels
+import WagerproofStores
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -146,7 +147,11 @@ struct AgentPickFocusView: View {
         .onAppear { present() }
         .onDisappear { motion.stop() }
         .sheet(item: $shareItem) { item in
-            ShareSheet(items: [item.image])
+            ShareSheet(items: [item.image]) { completed in
+                if completed {
+                    ReviewPromptCoordinator.shared.recordContentShared()
+                }
+            }
         }
     }
 
@@ -474,9 +479,18 @@ private struct ShareableTicketImage: Identifiable {
 /// Minimal UIKit share-sheet bridge for exporting the rendered pick card image.
 private struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
+    let onComplete: @MainActor (Bool) -> Void
+
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, completed, _, _ in
+            Task { @MainActor in
+                onComplete(completed)
+            }
+        }
+        return controller
     }
+
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
