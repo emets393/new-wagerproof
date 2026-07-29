@@ -79,20 +79,7 @@ struct NFLGameCard: View {
     private var predictionPills: GameRowCard.SlatePicks {
         GameRowCard.SlatePicks(
             total: totalSlatePick,
-            spread: spreadSlatePick,
-            badges: slateBadges
-        )
-    }
-
-    private var slateBadges: [GameRowCard.SlateBadge] {
-        let highCount = slatePicks.filter { pick in
-            pick.hasPlay == true && (pick.conviction ?? "").lowercased() == "high"
-        }.count
-        let signalCount = Set(slatePicks.flatMap(\.signalKeys)).count
-        return GameRowCard.convictionBadges(
-            hasMammoth: hasMammothPlay,
-            highCount: highCount,
-            signalCount: signalCount
+            spread: spreadSlatePick
         )
     }
 

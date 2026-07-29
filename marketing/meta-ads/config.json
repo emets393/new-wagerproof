@@ -5,7 +5,8 @@
   "businessId": "762004099805747",
   "pageId": "922824830922715",
   "pageName": "WagerProof",
-  "instagramActorId": null,
+  "instagramActorId": "17841439542265349",
+  "instagramUsername": "wagerproof_ai",
 
   "app": {
     "ios": {
@@ -37,7 +38,7 @@
     "ageMin": 21,
     "ageMax": 65,
     "devicePlatforms": ["mobile"],
-    "publisherPlatforms": ["facebook", "audience_network"],
+    "publisherPlatforms": ["facebook", "instagram", "audience_network"],
     "message": "Stop guessing. WagerProof's AI breaks down every game — win probabilities, live money flow, and the highest-value plays across the NFL, NBA, and college. Every pick tracked publicly, no cherry-picking. Bet smarter.",
     "headline": "Your AI sports betting edge."
   },

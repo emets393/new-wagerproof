@@ -23,7 +23,7 @@ or guess Graph endpoints.
 
 ## Account facts
 - Ad account **act_2206204643248135** ("WagerProof Ad Account v3"), business **762004099805747** (WagerProof Main Business Portfolio)
-- Page **922824830922715** ("WagerProof"); no Instagram account linked yet (runs FB + Audience Network until one is added to `config.json`)
+- Page **922824830922715** ("WagerProof"), linked Instagram **17841439542265349** (@wagerproof_ai) — runs FB + Instagram + Audience Network
 - **SAFETY: the client is hard-locked to the account in `config.json`. The signed-in Meta user also has access to Honeydew, Orbital Focus, and other accounts — never repoint it. Run `check` before shipping.**
 
 ## Apps
@@ -62,4 +62,6 @@ node client/meta.mjs rename <id> "<new name>"
 - Per-platform: iOS sets `is_skadnetwork_attribution` (required for iOS14+); Android does not. Store URL / app id / OS come from `config.app[platform]`.
 - Naming: campaign `{PLAT} | Scale | AppPromo | Main`, ads `Concept_<iOS|AND>_MMDD`.
 - Node 18+ (global fetch/FormData/Blob), no `npm install`. Video thumbnails auto-pulled from Meta after transcoding.
-- Add `instagramActorId` to `config.json` to enable Instagram placements.
+- Instagram placements are on: `instagramActorId` is set in `config.json` and `instagram` is in
+  `defaults.publisherPlatforms`. Note Meta's Advantage+ placements may auto-expand an ad set beyond
+  the configured platforms — check the ad set's actual `targeting` rather than trusting config alone.

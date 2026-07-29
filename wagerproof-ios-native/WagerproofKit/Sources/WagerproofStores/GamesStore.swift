@@ -1289,6 +1289,7 @@ public final class GamesStore {
             .select()
             .eq("season", value: slate.season)
             .eq("week", value: slate.week)
+            .order("kickoff", ascending: true)
             .execute()
             .value
         async let flagRows: [CFBDryrunFlagRow] = cfb

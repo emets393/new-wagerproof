@@ -11,12 +11,18 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { DEFAULT_AUTHENTICATED_ROUTE } from '@/lib/routes';
+import { useOAuthErrorParam } from '@/hooks/useOAuthErrorParam';
 
 export default function Account() {
   const { user, loading, signIn, signUp, signOut, signInWithProvider } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  // A failed provider handshake comes back as a redirect param, not a thrown error.
+  const oauthError = useOAuthErrorParam();
+  useEffect(() => {
+    if (oauthError) setError(oauthError);
+  }, [oauthError]);
   const [success, setSuccess] = useState('');
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [isUnlocked, setIsUnlocked] = useState(false);

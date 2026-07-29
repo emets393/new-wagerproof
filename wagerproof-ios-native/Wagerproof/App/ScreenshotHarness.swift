@@ -827,8 +827,15 @@ struct ScreenshotHarnessView: View {
     ) -> some View {
         let store = GamesStore()
         store.debugSet(nfl: nfl, cfb: cfb, sport: sport, state: state)
+        let consensusStore = AgentConsensusStore()
+        let consensusRows = sport == .nfl
+            ? GamesFixtures.nflConsensus
+            : GamesFixtures.cfbConsensus
+        consensusStore.debugSet(sport: sport, rows: consensusRows)
         return GamesView()
+            .environment(MainTabStore())
             .environment(store)
+            .environment(consensusStore)
             .environment(NFLGameSheetStore())
             .environment(CFBGameSheetStore())
             .environment(NBAGameSheetStore())
