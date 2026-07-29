@@ -49,10 +49,12 @@ Claude/ChatGPT ──Bearer─▶ POST /mcp (JSON-RPC: initialize / tools/list /
 `get_market_odds`, `get_editor_picks`.
 **SQL exploration** (signed-in only): `query_sports_database` — one read-only
 SELECT per call against the sports warehouse, executed by `public.mcp_run_sql`
-on the CFB project (SELECT-only grammar check, runs as the SELECT-only
-`mcp_explorer` role, 12s statement timeout, 400-row cap, service-role-only
-EXECUTE) — and `get_sports_schema`, the table/column catalog. Both require the
-`CFB_SERVICE_ROLE_KEY` secret; without it they return a clear
+on the CFB project. Built for analysis, not export: SELECT-only grammar check,
+runs as the SELECT-only `mcp_explorer` role, 12s statement timeout, 100-row /
+20-column / ~200KB caps, and a per-user query budget (60/hour, 500/day) logged
+in `mcp_query_log` (hidden from the exploration role). EXECUTE is
+service-role-only. `get_sports_schema` serves the table/column catalog. Both
+require the `CFB_SERVICE_ROLE_KEY` secret; without it they return a clear
 "not configured" error.
 
 ## Local development

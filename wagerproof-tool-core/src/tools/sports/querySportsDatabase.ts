@@ -35,11 +35,14 @@ export const querySportsDatabase: Tool = {
     "- nfl_betting_lines, nfl_epa_data, nfl_predictions_epa, nfl_team_trends; cfb_games, cfb_api_predictions.",
     "- nba_/ncaab_ tables: predictions, ratings, odds snapshots, situational trends.",
     "",
-    "Rules: exactly ONE SELECT (or WITH…SELECT) statement, no semicolons, no writes. Results cap at",
-    "400 rows — aggregate in SQL rather than pulling raw rows. 12-second timeout: filter by season or",
-    "team on the big tables. Dates are Eastern Time. MLB team abbreviations use AZ (not ARI) and ATH",
-    "(not OAK). When quoting hit rates, always include the sample size, and prefer grading against",
-    "closing lines that are actually in the data — never invent columns; check get_sports_schema first.",
+    "Rules: exactly ONE SELECT (or WITH…SELECT) statement, no semicolons, no writes. This tool is for",
+    "ANALYSIS, not export: results cap at 100 rows and 20 columns (wide SELECT * is rejected — project",
+    "the specific columns you need), ~200KB per response, and each user has a query budget (60/hour).",
+    "The right shape is: aggregate in SQL for the headline number, then a second small query for",
+    "10–20 example games that illustrate it. 12-second timeout: filter by season or team on big",
+    "tables. Dates are Eastern Time. MLB team abbreviations use AZ (not ARI) and ATH (not OAK). When",
+    "quoting hit rates, always include the sample size, and never invent columns — check",
+    "get_sports_schema first.",
   ].join("\n"),
   scope: "user",
   inputSchema: {
@@ -57,17 +60,18 @@ export const querySportsDatabase: Tool = {
   async execute(input, ctx) {
     const sql = asString(input.sql).trim();
     if (!sql) throw new Error("sql is required");
+    if (!ctx.userId) throw new Error("Sign in required for SQL exploration");
     const cfb = requireService(ctx);
-    const { data, error } = await cfb.rpc("mcp_run_sql", { p_sql: sql });
+    const { data, error } = await cfb.rpc("mcp_run_sql", { p_sql: sql, p_user_id: ctx.userId });
     if (error) throw new Error(`Query failed: ${error.message}`);
     const rows = Array.isArray(data) ? data : [];
     return {
       rows,
       row_count: rows.length,
-      truncated: rows.length >= 400,
+      truncated: rows.length >= 100,
       note:
-        rows.length >= 400
-          ? "Hit the 400-row cap — aggregate in SQL (GROUP BY / count / avg) instead of fetching raw rows."
+        rows.length >= 100
+          ? "Hit the 100-row cap — this tool returns aggregates and example games, not full datasets. Use GROUP BY / count / avg for the headline number."
           : undefined,
     };
   },
