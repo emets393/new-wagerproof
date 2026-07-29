@@ -57,6 +57,12 @@ service-role-only. `get_sports_schema` serves the table/column catalog. Both
 require the `CFB_SERVICE_ROLE_KEY` secret; without it they return a clear
 "not configured" error.
 
+Maintenance: `mcp_explorer` sees tables via per-table `mcp_explorer_read`
+policies (RLS) — when a NEW table with RLS is added to the CFB project, add
+`CREATE POLICY mcp_explorer_read ON <t> FOR SELECT TO mcp_explorer USING (true)`
+or the SQL tool silently sees zero rows there. New SECURITY DEFINER functions
+should REVOKE EXECUTE FROM PUBLIC so the exploration role can't call them.
+
 ## Local development
 
 ```bash
