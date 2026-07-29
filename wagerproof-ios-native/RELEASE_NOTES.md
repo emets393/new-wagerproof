@@ -11,7 +11,7 @@ Version strings live in four files and must be bumped together — see
 
 ---
 
-## 3.5.9 (build 77)
+## 3.5.9 (build 91)
 
 NFL and College Football are back — and this is the biggest update we've shipped.
 
