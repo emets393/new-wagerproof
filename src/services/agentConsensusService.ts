@@ -34,7 +34,14 @@ export interface GameAgentConsensus {
   side: string;
   /** Distinct agents on that side. */
   sideAgents: number;
-  /** sideAgents / agents, 0-1. */
+  /**
+   * Distinct agents who bet the same market as `side` (bet_type × period).
+   * This is the agreement denominator — NOT `agents`, which pools every market.
+   */
+  marketAgents: number;
+  /** The market `side` belongs to, for attribution (e.g. "F5 run line"). */
+  marketLabel: string;
+  /** sideAgents / marketAgents, 0-1. */
   agreement: number;
   /** Agents-on-one-side needed to flag today; scales with slate volume. */
   threshold: number;
@@ -50,6 +57,8 @@ export interface ConsensusRow {
   agents: number;
   side: string;
   side_agents: number;
+  market_agents?: number | null;
+  market_label?: string | null;
   /** Postgres `numeric` serializes as a STRING over PostgREST, not a number. */
   agreement: string | number | null;
   threshold: number;
@@ -65,6 +74,11 @@ export function mapConsensusRow(row: ConsensusRow): GameAgentConsensus {
     agents: row.agents,
     side: row.side,
     sideAgents: row.side_agents,
+    // Pre-migration rows have no market columns; falling back to the whole-game
+    // count reproduces the old (over-pooled) denominator rather than dividing by
+    // zero and rendering an empty bar.
+    marketAgents: Number(row.market_agents ?? row.agents ?? 0),
+    marketLabel: row.market_label ?? '',
     agreement: Number(row.agreement ?? 0),
     threshold: row.threshold,
     flagged: Boolean(row.flagged),

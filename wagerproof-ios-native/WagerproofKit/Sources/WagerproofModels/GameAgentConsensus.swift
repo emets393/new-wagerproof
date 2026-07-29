@@ -62,13 +62,15 @@ public struct ConsensusAvatar: Decodable, Sendable, Hashable, Identifiable {
 public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
     public let gameId: String
     public let gameDate: String
-    /// Distinct public+active agents with a pick on this game.
+    /// Distinct public+active agents with a pick on this game, across every market.
     public let agents: Int
     /// The single most-backed selection, verbatim (e.g. "Over 7.5").
     public let side: String
     /// Distinct agents on that side.
     public let sideAgents: Int
-    /// `sideAgents / agents`, 0–1.
+    /// `sideAgents` over the agents who bet the SAME market (bet_type × period),
+    /// 0–1 — not over `agents`, which pools every market on the game and so
+    /// makes a plurality read as disagreement.
     public let agreement: Double
     /// Agents-on-one-side needed to flag today; scales with the slate's volume.
     public let threshold: Int

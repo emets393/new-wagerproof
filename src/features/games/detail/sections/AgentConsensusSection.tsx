@@ -58,10 +58,14 @@ function AvatarRow({ avatars, total }: { avatars: ConsensusAvatar[]; total: numb
  * second sentence.
  */
 function AgreementBar({ consensus }: { consensus: GameAgentConsensus }) {
-  const { agents, sideAgents, threshold, flagged } = consensus;
-  const sidePct = agents > 0 ? (sideAgents / agents) * 100 : 0;
-  // The threshold is an agent COUNT; place its tick on the same 0-agents scale.
-  const thresholdPct = agents > 0 ? Math.min(100, (threshold / agents) * 100) : 0;
+  const { marketAgents, marketLabel, sideAgents, threshold, flagged } = consensus;
+  // Scaled over the agents who bet THIS market. Dividing by every agent on the
+  // game compares one selection against a field spread across six bet shapes,
+  // which reads as disagreement even when the market itself is unanimous.
+  const sidePct = marketAgents > 0 ? (sideAgents / marketAgents) * 100 : 0;
+  // The threshold is an agent COUNT; place its tick on the same scale.
+  const thresholdPct =
+    marketAgents > 0 ? Math.min(100, (threshold / marketAgents) * 100) : 0;
 
   return (
     <div className="space-y-1.5">
@@ -83,7 +87,8 @@ function AgreementBar({ consensus }: { consensus: GameAgentConsensus }) {
       </div>
       <div className="flex items-center justify-between text-[10px] text-muted-foreground">
         <span>
-          <span className="font-bold text-foreground">{sideAgents}</span> of {agents} agents
+          <span className="font-bold text-foreground">{sideAgents}</span> of {marketAgents} agents
+          {marketLabel ? ` betting the ${marketLabel}` : ''}
         </span>
         <span>
           flag needs {threshold}
@@ -99,13 +104,15 @@ export function AgentConsensusSection({ consensus }: { consensus?: GameAgentCons
   // an empty card is worse than no card.
   if (!consensus || consensus.agents <= 0) return null;
 
-  const { agents, side, sideAgents, agreement, flagged, avatars } = consensus;
+  const { agents, side, sideAgents, marketAgents, marketLabel, agreement, flagged, avatars } =
+    consensus;
   const dir = sideDirection(side);
   const pct = Math.round(agreement * 100);
+  const inMarket = marketLabel ? ` betting the ${marketLabel}` : '';
 
   const headline = flagged
-    ? `${sideAgents} of ${agents} agents are on ${side} — ${pct}% agreement.`
-    : `Agents are split on this game: the most-backed side is ${side}, with only ${pct}% agreement.`;
+    ? `${sideAgents} of ${marketAgents} agents${inMarket} are on ${side} — ${pct}% agreement.`
+    : `The most-backed side is ${side}: ${sideAgents} of ${marketAgents} agents${inMarket}, ${pct}% agreement.`;
 
   return (
     <WidgetCard
@@ -128,19 +135,22 @@ export function AgentConsensusSection({ consensus }: { consensus?: GameAgentCons
           <AvatarRow avatars={avatars} total={sideAgents} />
           <div className="min-w-0 flex-1">
             <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-              Most-backed side
+              {marketLabel ? `Most-backed ${marketLabel}` : 'Most-backed side'}
             </div>
             <div
               className={cn(
-                'flex items-center gap-1 text-xl font-bold leading-tight',
+                'flex items-start gap-1 text-xl font-bold leading-tight',
                 dir === 'over' && 'text-emerald-600 dark:text-emerald-400',
                 dir === 'under' && 'text-blue-600 dark:text-blue-400',
                 dir === null && 'text-foreground'
               )}
             >
-              {dir === 'over' && <ArrowUp className="h-4 w-4 shrink-0" />}
-              {dir === 'under' && <ArrowDown className="h-4 w-4 shrink-0" />}
-              <span className="truncate">{side}</span>
+              {dir === 'over' && <ArrowUp className="mt-1 h-4 w-4 shrink-0" />}
+              {dir === 'under' && <ArrowDown className="mt-1 h-4 w-4 shrink-0" />}
+              {/* Wraps rather than truncates: a selection like "Pittsburgh
+                  Pirates F5 -0.5" is unreadable clipped, and the pick is the
+                  one thing this card exists to state. */}
+              <span className="break-words">{side}</span>
             </div>
           </div>
           <div className="shrink-0 text-right">
