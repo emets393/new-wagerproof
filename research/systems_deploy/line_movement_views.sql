@@ -33,7 +33,7 @@ WITH tm(ab, loc) AS (VALUES
 ),
 d AS (
   SELECT g.game_id, g.season, th.loc AS home_loc, ta.loc AS away_loc
-  FROM nfl_dryrun_games g
+  FROM nfl_slate_games g
   JOIN tm th ON th.ab = g.home_ab
   JOIN tm ta ON ta.ab = g.away_ab
 )
@@ -49,13 +49,28 @@ FROM nfl_historical_odds h
 JOIN d ON d.season = h.season AND d.home_loc = h.home_team AND d.away_loc = h.away_team
 GROUP BY d.game_id, h.season, h.snap_ts;
 
--- CFB history already carries the CFBD game_id (= cfb_dryrun_games.game_id). FG markets only;
+-- CFB: ncaaf_odds_history is keyed by the ODDS-API event id (a hash), NOT the CFBD game_id the
+-- game cards use. Remap event id -> CFBD game_id via kickoff + accent/apostrophe-insensitive
+-- team-prefix match (Odds-API sends mascot names: "Illinois Fighting Illini"). FG markets only;
 -- 1H/TT lines land in ncaaf_event_odds separately.
-CREATE OR REPLACE VIEW public.cfb_line_movement AS
-SELECT
-  game_id, season, snapshot AS snap_ts, count(*) AS n_books,
-  percentile_cont(0.5) WITHIN GROUP (ORDER BY spread_home::numeric) AS fg_spread_home,
-  percentile_cont(0.5) WITHIN GROUP (ORDER BY total::numeric)       AS fg_total
-FROM ncaaf_odds_history
-WHERE game_id IS NOT NULL
-GROUP BY game_id, season, snapshot;
+CREATE EXTENSION IF NOT EXISTS unaccent;
+DROP VIEW IF EXISTS public.cfb_line_movement;
+CREATE VIEW public.cfb_line_movement AS
+WITH mv AS (
+  SELECT game_id AS event_id, season, snapshot AS snap_ts, count(*) AS n_books,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY spread_home::numeric) AS fg_spread_home,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY total::numeric)       AS fg_total
+  FROM ncaaf_odds_history
+  WHERE game_id IS NOT NULL
+  GROUP BY game_id, season, snapshot
+),
+map AS (
+  SELECT DISTINCT h.game_id AS event_id, g.game_id AS cfbd_id
+  FROM ncaaf_odds_history h
+  JOIN cfb_slate_games g
+    ON h.commence_time = g.kickoff
+   AND unaccent(lower(replace(h.home_team,'''',''))) LIKE unaccent(lower(replace(g.home_team,'''',''))) || '%'
+   AND unaccent(lower(replace(h.away_team,'''',''))) LIKE unaccent(lower(replace(g.away_team,'''',''))) || '%'
+)
+SELECT map.cfbd_id AS game_id, mv.season, mv.snap_ts, mv.n_books, mv.fg_spread_home, mv.fg_total
+FROM mv JOIN map ON map.event_id = mv.event_id;
