@@ -118,7 +118,7 @@ const Testimonials = () => {
           <div className="flex items-center justify-center gap-2 text-4xl md:text-5xl font-bold">
             <CountUp
               from={0}
-              to={5000}
+              to={10000}
               separator=","
               direction="up"
               duration={2.5}
