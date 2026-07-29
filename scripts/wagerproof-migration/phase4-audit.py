@@ -98,7 +98,7 @@ def xcodebuild_green() -> bool:
             "xcodebuild",
             "-project", "Wagerproof.xcodeproj",
             "-scheme", "Wagerproof",
-            "-destination", "platform=iOS Simulator,name=iPhone 16 Pro",
+            "-destination", "id=D69B4254-398D-4806-921B-56411888C597",
             "-configuration", "Debug",
             "build",
         ],

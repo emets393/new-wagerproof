@@ -48,10 +48,9 @@ struct GameRowCard: View {
                 Divider()
                     .background(Color.appBorder.opacity(0.5))
                 extraInfoRow
-                // Crowd signal gets its OWN row and is never folded into the
-                // `convictionBadges` group above: MAMMOTH PLAY is a MODEL
-                // signal, BET is a CROWD signal, and one wrap group would imply
-                // the two agree. See .claude/docs/18_agent_consensus.md.
+                // Agent consensus is the single standardized signal row for
+                // list cards across MLB, NFL, and CFB. It stays separate from
+                // the compact model-prediction pills above.
                 if let consensus = model.consensus {
                     AgentConsensusStrip(consensus: consensus)
                 }
@@ -385,28 +384,9 @@ struct GameRowCard: View {
     @ViewBuilder
     private var extraInfoRow: some View {
         if let slatePicks = model.slatePicks {
-            HStack(alignment: .bottom, spacing: 8) {
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack(spacing: 8) {
-                        slateTotalPill(slatePicks.total)
-                        slateSpreadPill(slatePicks.spread)
-                    }
-                    if !slatePicks.badges.isEmpty {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 7) {
-                                ForEach(slatePicks.badges) { badge in
-                                    slateBadgePill(badge)
-                                }
-                            }
-                            VStack(alignment: .leading, spacing: 6) {
-                                ForEach(slatePicks.badges) { badge in
-                                    slateBadgePill(badge)
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 6) {
+                slateTotalPill(slatePicks.total)
+                slateSpreadPill(slatePicks.spread)
                 Spacer(minLength: 0)
                 if model.oddsBreakdown != nil {
                     timePill
@@ -497,38 +477,23 @@ struct GameRowCard: View {
         }
     }
 
-    /// Pill chrome for dry-run spread / total picks (NFL + CFB slates).
-    @ViewBuilder
-    private func slatePickPill<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        HStack(spacing: SlatePickMetrics.contentSpacing) {
-            content()
-        }
-        .lineLimit(1)
-        .padding(.horizontal, SlatePickMetrics.hPadding)
-        .padding(.vertical, SlatePickMetrics.vPadding)
-        .background(Color.appSurfaceMuted.opacity(0.6), in: Capsule())
-        .overlay(Capsule().stroke(Color.appBorder.opacity(0.6), lineWidth: 0.5))
-    }
-
     @ViewBuilder
     private func slateTotalPill(_ pick: SlateTotalPick?) -> some View {
-        slatePickPill {
+        edgePill {
             Text("O/U")
-                .font(.system(size: SlatePickMetrics.labelSize, weight: .black))
-                .tracking(0.3)
+                .font(.system(size: 8, weight: .bold))
+                .tracking(0.5)
                 .foregroundStyle(Color.appTextMuted)
             if let pick {
                 Text(pick.direction)
-                    .font(.system(size: SlatePickMetrics.valueSize, weight: .black))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(pick.color)
-                    .minimumScaleFactor(0.85)
                 Text(pick.line)
-                    .font(.system(size: SlatePickMetrics.valueSize, weight: .black, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(pick.color)
-                    .minimumScaleFactor(0.85)
             } else {
                 Text("—")
-                    .font(.system(size: SlatePickMetrics.valueSize, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.appTextMuted)
             }
         }
@@ -536,71 +501,24 @@ struct GameRowCard: View {
 
     @ViewBuilder
     private func slateSpreadPill(_ pick: SlateSpreadPick?) -> some View {
-        slatePickPill {
-            Text("Spread")
-                .font(.system(size: SlatePickMetrics.labelSize, weight: .black))
-                .tracking(0.3)
+        edgePill {
+            Text("SPREAD")
+                .font(.system(size: 8, weight: .bold))
+                .tracking(0.5)
                 .foregroundStyle(Color.appTextMuted)
             if let pick {
-                avatar(
-                    for: TeamSide(abbr: pick.abbr, initials: pick.abbr, moneyline: nil, spread: nil, logoURL: pick.logoURL, colors: pick.colors),
-                    isLeading: true,
-                    size: SlatePickMetrics.logoSize
-                )
-                Text(pick.line)
-                    .font(.system(size: SlatePickMetrics.valueSize, weight: .black, design: .monospaced))
+                Text(pick.abbr)
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Color.appTextPrimary)
-                    .minimumScaleFactor(0.85)
+                Text(pick.line)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.appTextPrimary)
             } else {
                 Text("—")
-                    .font(.system(size: SlatePickMetrics.valueSize, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color.appTextMuted)
             }
         }
-    }
-
-    @ViewBuilder
-    private func slateBadgePill(_ badge: SlateBadge) -> some View {
-        let content = HStack(spacing: 4) {
-            Image(systemName: badge.systemImage)
-                .font(.system(size: 10, weight: .black))
-            Text(badge.text)
-                .font(.system(size: 10, weight: .black))
-                .tracking(badge.isMammothPlay ? 0.6 : 0)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-
-        if badge.isMammothPlay {
-            content
-                .foregroundStyle(Color.appSurface)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: 0xF97316), Color(hex: 0xFACC15)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    in: Capsule()
-                )
-                .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 0.5))
-                .shadow(color: Color(hex: 0xF97316).opacity(0.45), radius: 6, x: 0, y: 2)
-        } else {
-            content
-                .foregroundStyle(badge.tint)
-                .background(Color.appSurfaceMuted.opacity(0.6), in: Capsule())
-                .overlay(Capsule().stroke(Color.appBorder.opacity(0.6), lineWidth: 0.5))
-        }
-    }
-
-    private enum SlatePickMetrics {
-        static let labelSize: CGFloat = 10
-        static let valueSize: CGFloat = 13
-        static let logoSize: CGFloat = 22
-        static let hPadding: CGFloat = 10
-        static let vPadding: CGFloat = 6
-        static let contentSpacing: CGFloat = 5
     }
 
     // MARK: - Spread / Money / Total breakdown (scan-line layout)
@@ -767,9 +685,9 @@ extension GameRowCard {
         let awayTeamFullName: String
         let homeTeamFullName: String
         let slatePicks: SlatePicks?
-        /// Optional Spread / Money / Total breakdown table rendered below
-        /// the edge row. Only MLB populates this today; other sports leave
-        /// it nil and the card falls back to the compact pills.
+        /// Optional Spread / Money / Total scan-line table rendered above
+        /// the prediction row. MLB, NFL, and CFB populate it; basketball
+        /// cards leave it nil and use the standard compact header.
         let oddsBreakdown: OddsBreakdown?
         /// Rare mammoth play — lights the card orange on the games slate.
         let isMammoth: Bool
@@ -814,53 +732,9 @@ extension GameRowCard {
         }
     }
 
-    /// Mammoth trumps high conviction; signals badge is unchanged.
-    static func convictionBadges(
-        hasMammoth: Bool,
-        highCount: Int,
-        signalCount: Int
-    ) -> [SlateBadge] {
-        let orange = Color(hex: 0xF97316)
-        var badges: [SlateBadge] = []
-        if hasMammoth {
-            badges.append(SlateBadge(
-                id: "mammoth",
-                text: "MAMMOTH PLAY",
-                systemImage: "flame.fill",
-                tint: orange,
-                isMammothPlay: true
-            ))
-        } else if highCount > 0 {
-            badges.append(SlateBadge(
-                id: "high-conviction",
-                text: "\(highCount) High Conviction",
-                systemImage: "flame.fill",
-                tint: orange
-            ))
-        }
-        if signalCount > 0 {
-            badges.append(SlateBadge(
-                id: "signals",
-                text: "\(signalCount) Signal\(signalCount == 1 ? "" : "s")",
-                systemImage: "bolt.fill",
-                tint: Color.appTextSecondary
-            ))
-        }
-        return badges
-    }
-
     struct SlatePicks {
         let total: SlateTotalPick?
         let spread: SlateSpreadPick?
-        let badges: [SlateBadge]
-    }
-
-    struct SlateBadge: Identifiable {
-        let id: String
-        let text: String
-        let systemImage: String
-        let tint: Color
-        var isMammothPlay: Bool = false
     }
 
     struct SlateTotalPick {

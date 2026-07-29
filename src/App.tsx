@@ -182,6 +182,15 @@ function LegacyTodaysTrendsRedirect({ sport }: { sport: string }) {
   return <Navigate to={`/todays-trends?sport=${sport}`} replace />;
 }
 
+// Supabase's Site URL still points at /wagerbot-chat, so this is where GoTrue
+// dumps the browser when an OAuth handshake fails. Carry the query through —
+// a bare <Navigate to="/account"> drops the ?error=/&error_description= that
+// /account needs to tell the user why the sign-in didn't take.
+function WagerBotChatRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/account${search}`} replace />;
+}
+
 // Layout wrapper for authenticated pages
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -320,7 +329,7 @@ function AppRoutes() {
           <Route path="/nfl-analytics" element={<LegacyTrendsRedirect sport="nfl" />} />
           <Route path="/cfb-analytics" element={<LegacyTrendsRedirect sport="cfb" />} />
           <Route path="/mlb-analytics" element={<LegacyTrendsRedirect sport="mlb" />} />
-          <Route path="/wagerbot-chat" element={<Navigate to="/account" replace />} />
+          <Route path="/wagerbot-chat" element={<WagerBotChatRedirect />} />
           <Route path="/scoreboard" element={<ProtectedRoute><ScoreBoard /></ProtectedRoute>} />
           <Route path="/connect-ai" element={<ProtectedRoute allowFreemium={true}><ConnectAI /></ProtectedRoute>} />
           <Route path="/scoreboard/diagnostics" element={<ProtectedRoute><LiveScoreDiagnostics /></ProtectedRoute>} />

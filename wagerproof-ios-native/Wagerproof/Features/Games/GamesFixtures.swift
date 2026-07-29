@@ -7,6 +7,86 @@ import WagerproofModels
 /// with NFL games (one strong model pick, one with weather) plus a couple
 /// of CFB games.
 enum GamesFixtures {
+    private static let consensusAvatars = [
+        ConsensusAvatar(
+            avatarId: "fixture-agent-1",
+            name: "Line Hawk",
+            spriteIndexOverride: 7,
+            color: "gradient:#3B82F6,#06B6D4"
+        ),
+        ConsensusAvatar(
+            avatarId: "fixture-agent-2",
+            name: "Sharp Edge",
+            spriteIndexOverride: 3,
+            color: "#EF4444"
+        ),
+        ConsensusAvatar(
+            avatarId: "fixture-agent-3",
+            name: "Trend Spotter",
+            spriteIndexOverride: nil,
+            color: "#10B981"
+        ),
+        ConsensusAvatar(
+            avatarId: "fixture-agent-4",
+            name: "Value Hunter",
+            spriteIndexOverride: nil,
+            color: "gradient:#F97316,#FACC15"
+        ),
+    ]
+
+    /// Both consensus tiers are represented so simulator QA proves the
+    /// football adapters render the same feature MLB does: a flagged BET row
+    /// and a quieter participation-only row.
+    static let nflConsensus: [String: GameAgentConsensus] = [
+        "nfl-fixture-1": GameAgentConsensus(
+            gameId: "nfl-fixture-1",
+            gameDate: "2026-09-14",
+            agents: 18,
+            side: "Philadelphia -3.5",
+            sideAgents: 13,
+            agreement: 13.0 / 18.0,
+            threshold: 8,
+            flagged: true,
+            avatars: consensusAvatars
+        ),
+        "nfl-fixture-2": GameAgentConsensus(
+            gameId: "nfl-fixture-2",
+            gameDate: "2026-09-14",
+            agents: 11,
+            side: "Under 53",
+            sideAgents: 5,
+            agreement: 5.0 / 11.0,
+            threshold: 8,
+            flagged: false,
+            avatars: consensusAvatars
+        ),
+    ]
+
+    static let cfbConsensus: [String: GameAgentConsensus] = [
+        "cfb-fixture-1": GameAgentConsensus(
+            gameId: "cfb-fixture-1",
+            gameDate: "2026-11-28",
+            agents: 21,
+            side: "Under 51.5",
+            sideAgents: 15,
+            agreement: 15.0 / 21.0,
+            threshold: 8,
+            flagged: true,
+            avatars: consensusAvatars
+        ),
+        "cfb-fixture-2": GameAgentConsensus(
+            gameId: "cfb-fixture-2",
+            gameDate: "2026-09-26",
+            agents: 9,
+            side: "Georgia -1.5",
+            sideAgents: 4,
+            agreement: 4.0 / 9.0,
+            threshold: 8,
+            flagged: false,
+            avatars: consensusAvatars
+        ),
+    ]
+
     static let sampleNFL: [NFLPrediction] = [
         NFLPrediction(
             id: "nfl-fixture-1",
@@ -43,7 +123,11 @@ enum GamesFixtures {
             overHandle: "0.52",
             underHandle: "0.48",
             overBets: "0.50",
-            underBets: "0.50"
+            underBets: "0.50",
+            fgSpreadClose: -3.5,
+            fgTotalClose: 48.5,
+            fgSpreadPick: "HOME",
+            fgTotalPick: "OVER"
         ),
         NFLPrediction(
             id: "nfl-fixture-2",
@@ -68,7 +152,11 @@ enum GamesFixtures {
             icon: "windy",
             spreadSplitsLabel: nil,
             totalSplitsLabel: "Sharp Under",
-            mlSplitsLabel: nil
+            mlSplitsLabel: nil,
+            fgSpreadClose: -1.5,
+            fgTotalClose: 53.0,
+            fgSpreadPick: "AWAY",
+            fgTotalPick: "UNDER"
         ),
         NFLPrediction(
             id: "nfl-fixture-3",
@@ -134,7 +222,12 @@ enum GamesFixtures {
             predAwayScore: 27.4,
             predHomeScore: 31.1,
             homeSpreadDiff: 4.2,
-            overLineDiff: -2.8
+            overLineDiff: -2.8,
+            fgSpreadClose: -2.5,
+            fgTotalClose: 51.5,
+            fgSpreadPick: "HOME",
+            fgPredTotal: 48.7,
+            fgTotalPick: "UNDER"
         ),
         CFBPrediction(
             id: "cfb-fixture-2",
@@ -157,7 +250,12 @@ enum GamesFixtures {
             predAwayScore: 22.9,
             predHomeScore: 24.8,
             homeSpreadDiff: 0.4,
-            overLineDiff: 3.1
+            overLineDiff: 3.1,
+            fgSpreadClose: 1.5,
+            fgTotalClose: 45.5,
+            fgSpreadPick: "AWAY",
+            fgPredTotal: 48.6,
+            fgTotalPick: "OVER"
         )
     ]
 }
