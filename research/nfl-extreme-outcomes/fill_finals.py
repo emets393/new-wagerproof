@@ -8,8 +8,8 @@ This DECOUPLES live finals from the gens (the NFL gen otherwise sources finals f
 1H sub-pipeline's h1tt_frame.parquet). Every grader (agent edge-fn, signal RPC, prop RPC)
 reads final_*, so this unblocks live grading.
 
-1H (h1_home/away) is NOT filled — neither source carries halftime; that needs PBP / CFBD
-line scores (tracking-tier, deferred with the 1H model).
+1H (h1_home/away) is filled by the companion fill_h1.py (NFL nflverse PBP end-of-Q2, CFB
+CFBD /games line scores). This script is full-game only; grade_week.sh runs both.
 
 Run:  python3 fill_finals.py            # dry-run: match + validate vs existing finals
       python3 fill_finals.py --write    # PATCH final_home/away for matched games

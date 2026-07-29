@@ -32,8 +32,9 @@ season as the nflverse schedule fills in. Everything the trend filters use is po
 correctness validated exactly against existing base rows: `2025_12_PHI_DAL` for NFL (incl. coach
 Brian Schottenheimer / Nick Sirianni + surface Turf), game `401762484` Temple/Navy for CFB.
 
-Still NULL until a live source exists: 1H results (`h1_*`) settle only once a halftime-score feed is
-wired (tracking-tier, same gap as the pick/agent graders).
+1H results (`h1_covered` / `h1_won` / `h1_total_over`) populate too: `fill_h1.py` (grade_week.sh
+step 1b) writes `*_dryrun_games.h1_home/h1_away` from nflverse PBP (NFL) and CFBD `/games` line
+scores (CFB), so the appender derives the 1H results just like the full game.
 
 ## Manual run
 
