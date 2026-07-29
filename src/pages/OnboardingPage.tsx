@@ -42,6 +42,7 @@ import {
 } from '@/components/onboarding/steps/PersonalitySteps';
 import { GenerationStep, RevealStep, TimeSummaryStep } from '@/components/onboarding/steps/CinematicSteps';
 import { CustomPaywall } from '@/components/paywall/CustomPaywall';
+import { DEFAULT_AUTHENTICATED_ROUTE } from '@/lib/routes';
 
 const CAROUSEL_COMPONENTS: Partial<Record<OnboardingStepId, React.ComponentType>> = {
   terms: TermsStep,
@@ -99,7 +100,7 @@ function OnboardingContent() {
   const waveColor = useMemo(() => hexToRgbFloats(accent), [accent]);
 
   const finishToApp = () => {
-    navigate('/agents');
+    navigate(DEFAULT_AUTHENTICATED_ROUTE);
   };
 
   const handleTimeSummaryFinish = () => {

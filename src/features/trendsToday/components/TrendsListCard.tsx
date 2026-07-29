@@ -1,3 +1,4 @@
+import { Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GlassCard, TeamLogoDiscs } from '@/components/ios';
 import { DirectionWord, TeamMark } from '../detail/shared';
@@ -47,6 +48,8 @@ interface TrendsListCardProps {
   item: TrendsFeedItem;
   isSelected: boolean;
   onSelect: (id: string) => void;
+  isLocked: boolean;
+  onLockedClick: () => void;
 }
 
 /**
@@ -54,74 +57,104 @@ interface TrendsListCardProps {
  * trend verdicts. The verdicts are on the card (not just in the detail pane) so
  * the list itself is scannable for "who has a real angle today".
  */
-export function TrendsListCard({ item, isSelected, onSelect }: TrendsListCardProps) {
+export function TrendsListCard({
+  item,
+  isSelected,
+  onSelect,
+  isLocked,
+  onLockedClick,
+}: TrendsListCardProps) {
   const { away, home, verdict } = item;
   const sideTeam = verdict.side === 'away' ? away : verdict.side === 'home' ? home : null;
+  const handleClick = () => {
+    if (isLocked) {
+      onLockedClick();
+      return;
+    }
+    onSelect(item.id);
+  };
 
   return (
-    <GlassCard
-      interactive
-      onClick={() => onSelect(item.id)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect(item.id);
-        }
-      }}
-      // overflow-hidden clips the selection glow to the card's radius.
-      className="relative overflow-hidden px-3 py-2.5"
-    >
-      {isSelected && (
-        <>
-          <SelectionGlow color={away.colors.primary} side="left" />
-          <SelectionGlow color={home.colors.primary} side="right" />
-        </>
-      )}
+    <div className="relative">
+      <GlassCard
+        interactive={!isLocked}
+        onClick={handleClick}
+        role="button"
+        tabIndex={isLocked ? -1 : 0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
+        className={cn(
+          'relative overflow-hidden px-3 py-2.5',
+          isLocked && 'pointer-events-none select-none opacity-50 blur-[3px]',
+        )}
+      >
+        {isSelected && (
+          <>
+            <SelectionGlow color={away.colors.primary} side="left" />
+            <SelectionGlow color={home.colors.primary} side="right" />
+          </>
+        )}
 
-      <div className="relative flex items-center gap-2.5">
-        <TeamLogoDiscs
-          away={{ logoUrl: away.logoUrl, abbrev: away.abbrev, color: away.colors.primary }}
-          home={{ logoUrl: home.logoUrl, abbrev: home.abbrev, color: home.colors.primary }}
-          size={32}
-          overlap={8}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[13px] font-bold leading-tight text-foreground">
-            {away.abbrev} <span className="text-muted-foreground">@</span> {home.abbrev}
-          </span>
-          <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {TRENDS_SPORT_LABELS[item.sport]}
+        <div className="relative flex items-center gap-2.5">
+          <TeamLogoDiscs
+            away={{ logoUrl: away.logoUrl, abbrev: away.abbrev, color: away.colors.primary }}
+            home={{ logoUrl: home.logoUrl, abbrev: home.abbrev, color: home.colors.primary }}
+            size={32}
+            overlap={8}
+          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-[13px] font-bold leading-tight text-foreground">
+              {away.abbrev} <span className="text-muted-foreground">@</span> {home.abbrev}
+            </span>
+            <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {TRENDS_SPORT_LABELS[item.sport]}
+            </span>
+          </div>
+          <span className="shrink-0 rounded-md border border-black/5 bg-white/50 px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground backdrop-blur-md dark:border-white/10 dark:bg-white/[0.08]">
+            {item.gameTimeLabel}
           </span>
         </div>
-        <span className="shrink-0 rounded-md border border-black/5 bg-white/50 px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground backdrop-blur-md dark:border-white/10 dark:bg-white/[0.08]">
-          {item.gameTimeLabel}
-        </span>
-      </div>
 
-      <div className="relative mt-2 border-t border-black/5 dark:border-white/10" />
-      <div className="relative mt-2 flex flex-wrap items-center gap-1.5">
-        <VerdictPill
-          label={SIDE_MARKET_SHORT[item.sport]}
-          count={sideTeam ? `${verdict.sideAgree}/${verdict.sideTotal}` : undefined}
+        <div className="relative mt-2 border-t border-black/5 dark:border-white/10" />
+        <div className="relative mt-2 flex flex-wrap items-center gap-1.5">
+          <VerdictPill
+            label={SIDE_MARKET_SHORT[item.sport]}
+            count={sideTeam ? `${verdict.sideAgree}/${verdict.sideTotal}` : undefined}
+          >
+            {sideTeam ? (
+              <>
+                <TeamMark team={sideTeam} size={14} />
+                <span className="text-foreground">{sideTeam.abbrev}</span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">No lean</span>
+            )}
+          </VerdictPill>
+          <VerdictPill
+            label="Total"
+            count={verdict.total ? `${verdict.totalAgree}/${verdict.totalTotal}` : undefined}
+          >
+            <DirectionWord direction={verdict.total} showIcon={verdict.total !== null} />
+          </VerdictPill>
+        </div>
+      </GlassCard>
+
+      {isLocked && (
+        <button
+          type="button"
+          onClick={onLockedClick}
+          className="absolute inset-0 z-10 flex items-center justify-center rounded-[26px]"
+          aria-label="Upgrade to unlock this betting trend"
         >
-          {sideTeam ? (
-            <>
-              <TeamMark team={sideTeam} size={14} />
-              <span className="text-foreground">{sideTeam.abbrev}</span>
-            </>
-          ) : (
-            <span className="text-muted-foreground">No lean</span>
-          )}
-        </VerdictPill>
-        <VerdictPill
-          label="Total"
-          count={verdict.total ? `${verdict.totalAgree}/${verdict.totalTotal}` : undefined}
-        >
-          <DirectionWord direction={verdict.total} showIcon={verdict.total !== null} />
-        </VerdictPill>
-      </div>
-    </GlassCard>
+          <span className="flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-xs font-semibold text-foreground shadow-md backdrop-blur-md">
+            <Lock className="h-3.5 w-3.5" /> Pro
+          </span>
+        </button>
+      )}
+    </div>
   );
 }

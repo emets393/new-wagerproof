@@ -5,6 +5,7 @@ import { Sparkles, Target, Lock } from 'lucide-react';
 import Aurora from '@/components/magicui/aurora';
 import { getNFLTeamColors, getCFBTeamColors, getNFLTeamInitials, getCFBTeamInitials, getContrastingTextColor } from '@/utils/teamColors';
 import { useNavigate } from 'react-router-dom';
+import { PAYWALL_ROUTE } from '@/lib/routes';
 
 interface ValueFindEditorCardProps {
   gameId: string;
@@ -107,7 +108,7 @@ export function ValueFindEditorCard({
               Upgrade to unlock expert picks and analysis
             </p>
             <Button
-              onClick={() => navigate('/account')}
+              onClick={() => navigate(PAYWALL_ROUTE)}
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
             >
               Upgrade Now
@@ -207,4 +208,3 @@ export function ValueFindEditorCard({
     </Card>
   );
 }
-

@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAccessControl } from "@/hooks/useAccessControl";
 import { useFreemiumAccess } from "@/hooks/useFreemiumAccess";
 import { Loader2 } from "lucide-react";
+import { PAYWALL_ROUTE } from "@/lib/routes";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -46,7 +47,7 @@ export function ProtectedRoute({ children, allowFreemium = false }: ProtectedRou
     }
     
     // Otherwise redirect to access-denied
-    return <Navigate to="/access-denied" replace />;
+    return <Navigate to={PAYWALL_ROUTE} replace />;
   }
   
   // All checks passed - render the protected content

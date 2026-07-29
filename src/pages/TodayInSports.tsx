@@ -1,8 +1,9 @@
-import { Lock } from 'lucide-react';
-import { GlassCard } from '@/components/ios';
-import { FreemiumUpgradeBanner } from '@/components/FreemiumUpgradeBanner';
+import { Lock, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
 import { OutliersDashboard } from '@/features/outliers/components/OutliersDashboard';
+import { PAYWALL_ROUTE } from '@/lib/routes';
 
 /**
  * Today's Outliers — the iOS Outliers Trends experience (see
@@ -12,6 +13,7 @@ import { OutliersDashboard } from '@/features/outliers/components/OutliersDashbo
  */
 export default function TodayInSports() {
   const { isFreemiumUser } = useFreemiumAccess();
+  const navigate = useNavigate();
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[1440px]">
@@ -23,14 +25,34 @@ export default function TodayInSports() {
       </div>
 
       {isFreemiumUser ? (
-        <GlassCard className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-          <Lock className="h-10 w-10 text-muted-foreground" />
-          <h3 className="text-lg font-bold text-foreground">Premium Feature</h3>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Upgrade to access trend outliers across today's slate.
-          </p>
-          <FreemiumUpgradeBanner totalGames={0} visibleGames={0} />
-        </GlassCard>
+        <div className="relative min-h-[520px] overflow-hidden rounded-[24px]">
+          <div
+            aria-hidden
+            className="pointer-events-none select-none opacity-45 blur-[6px]"
+          >
+            <OutliersDashboard />
+          </div>
+          <div className="absolute inset-0 z-20 flex items-start justify-center bg-background/20 px-4 pt-24 backdrop-blur-[2px] sm:pt-32">
+            <div className="flex max-w-md flex-col items-center gap-3 rounded-[24px] border border-border/70 bg-background/90 px-6 py-7 text-center shadow-2xl backdrop-blur-xl">
+              <span className="grid size-12 place-items-center rounded-full bg-primary/15 text-primary">
+                <Lock className="size-5" />
+              </span>
+              <div>
+                <h3 className="text-lg font-black text-foreground">Unlock Today's Outliers</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Subscribe to reveal every team, coach, ref, and player trend across today's slate.
+                </p>
+              </div>
+              <Button
+                onClick={() => navigate(PAYWALL_ROUTE)}
+                className="mt-1 rounded-full bg-[#00C968] font-bold text-black hover:bg-[#00B95F]"
+              >
+                <Sparkles className="mr-2 size-4" />
+                View Plans
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : (
         <OutliersDashboard />
       )}

@@ -34,6 +34,7 @@ import {
   LogIn, // Import LogIn icon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { PAYWALL_ROUTE } from '@/lib/routes';
 
 interface SettingsModalProps {
   open: boolean;
@@ -653,7 +654,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     </p>
                     <Button onClick={() => {
                       onOpenChange(false);
-                      navigate('/access-denied');
+                      navigate(PAYWALL_ROUTE);
                     }}>
                       View Plans
                     </Button>
@@ -667,4 +668,3 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     </Dialog>
   );
 }
-
