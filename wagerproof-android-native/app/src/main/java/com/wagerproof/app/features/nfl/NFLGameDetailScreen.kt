@@ -58,6 +58,7 @@ import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.shared.hexColor
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
+import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.NFLPrediction
 import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.models.SignalPerformance
@@ -738,31 +739,44 @@ private fun signalDisplays(
     homeAbbr: String,
     signalsByKey: Map<String, NFLSignalDefinition>,
 ): List<NFLSignalDisplay> {
-    if (pick.signals.isNotEmpty()) {
-        return pick.signals.map { row ->
-            val definition = signalsByKey[row.key]
+    // Prefer pick.signal_keys (blankets stripped). NFL signals jsonb includes
+    // blanket sides_model on nearly every spread — never prefer it raw.
+    val displayKeys = FootballBlanketSignals.displayKeys("nfl", pick.signalKeys)
+    if (displayKeys.isNotEmpty()) {
+        return displayKeys.mapNotNull { key ->
+            val embedded = pick.signals.firstOrNull { it.key == key }
+            val definition = signalsByKey[key]
+            val stance = when {
+                embedded?.stance?.lowercase() == "counter" ||
+                    embedded?.stance?.lowercase() == "contradict" -> "counter"
+                embedded != null -> "support"
+                definition == null -> "support"
+                signalSupportsPick(game, definition, pick, awayAbbr, homeAbbr) -> "support"
+                else -> "counter"
+            }
             NFLSignalDisplay(
-                key = row.key,
-                displayName = definition?.displayName ?: row.label ?: row.key,
-                team = row.team,
-                label = row.label,
-                action = row.action,
-                stance = if (row.stance?.lowercase() == "counter") "counter" else "support",
-                tier = row.tier,
+                key = key,
+                displayName = definition?.displayName ?: embedded?.label ?: key,
+                team = embedded?.team,
+                label = embedded?.label,
+                action = embedded?.action,
+                stance = stance,
+                tier = embedded?.tier,
                 definition = definition,
             )
         }
     }
-    return pick.signalKeys.mapNotNull { key ->
-        val definition = signalsByKey[key] ?: return@mapNotNull null
+    return pick.signals.mapNotNull { row ->
+        if (FootballBlanketSignals.isBlanket("nfl", row.key)) return@mapNotNull null
+        val definition = signalsByKey[row.key]
         NFLSignalDisplay(
-            key = key,
-            displayName = definition.displayName ?: key,
-            team = null,
-            label = null,
-            action = null,
-            stance = if (signalSupportsPick(game, definition, pick, awayAbbr, homeAbbr)) "support" else "counter",
-            tier = null,
+            key = row.key,
+            displayName = definition?.displayName ?: row.label ?: row.key,
+            team = row.team,
+            label = row.label,
+            action = row.action,
+            stance = if (row.stance?.lowercase() == "counter") "counter" else "support",
+            tier = row.tier,
             definition = definition,
         )
     }

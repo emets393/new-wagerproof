@@ -10,22 +10,19 @@ import {
   toNum,
   type LineConsensusSnap,
   type LineMarket,
+  type LineMarketGroup,
   type LineScalarBundle,
 } from '../shared/lineMovement';
 
-interface NflLineMovementRow {
+interface CfbLineMovementRow {
   snap_ts: string;
   n_books: number | null;
   fg_spread_home: number | null;
   fg_total: number | null;
-  h1_spread_home: number | null;
-  h1_total: number | null;
-  tt_home: number | null;
-  tt_away: number | null;
 }
 
-export interface NflLineMovementInput {
-  /** `nfl_slate_games.game_id` — the movement view is keyed on the same id. */
+export interface CfbLineMovementInput {
+  /** `cfb_slate_games.game_id` — the movement view is keyed on the same id. */
   gameId?: string | number | null;
   season?: number | null;
   away: TeamRef;
@@ -33,28 +30,42 @@ export interface NflLineMovementInput {
   scalars: LineScalarBundle;
 }
 
-const CONSENSUS_SELECT =
-  'snap_ts,n_books,fg_spread_home,fg_total,h1_spread_home,h1_total,tt_home,tt_away';
+/**
+ * `cfb_line_movement` only carries FG spread/total. 1H and team totals arrive
+ * later in the season; keep their toggles visible but empty so the market list
+ * matches NFL and the gap reads as "not posted" rather than a missing feature.
+ */
+const CFB_GROUPS: LineMarketGroup[] = [
+  'spread',
+  'total',
+  'ml',
+  'tt',
+  'h1_spread',
+  'h1_total',
+  'h1_ml',
+];
 
-const toConsensusSnap = (row: NflLineMovementRow): LineConsensusSnap => ({
+const CONSENSUS_SELECT = 'snap_ts,n_books,fg_spread_home,fg_total';
+
+const toConsensusSnap = (row: CfbLineMovementRow): LineConsensusSnap => ({
   snap_ts: row.snap_ts,
   n_books: toNum(row.n_books),
   fg_spread_home: toNum(row.fg_spread_home),
   fg_total: toNum(row.fg_total),
-  h1_spread_home: toNum(row.h1_spread_home),
-  h1_total: toNum(row.h1_total),
-  tt_home: toNum(row.tt_home),
-  tt_away: toNum(row.tt_away),
+  h1_spread_home: null,
+  h1_total: null,
+  tt_home: null,
+  tt_away: null,
 });
 
 /**
- * One NFL game's line-movement series from the game-keyed consensus view.
+ * One CFB game's line-movement series from the game-keyed consensus view.
  *
- * `nfl_historical_odds` is deliberately not consulted: it is keyed by city name,
- * and the view already remaps it onto the `game_id` the cards use. Moneyline has
- * no column in the view, so those markets fall back to the slate close.
+ * The raw `ncaaf_odds_history` archive is deliberately not consulted: it is keyed
+ * by Odds-API event id and matching it back by team name collides (a `Texas%`
+ * prefix also hits Texas A&M, Tech and State). The view owns that remap.
  */
-export function useNflLineMovement(input: NflLineMovementInput) {
+export function useCfbLineMovement(input: CfbLineMovementInput) {
   const [history, setHistory] = useState<LineConsensusSnap[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,10 +87,10 @@ export function useNflLineMovement(input: NflLineMovementInput) {
       setError(null);
 
       try {
-        const { data, error: fetchError } = await retryOnStatementTimeout<NflLineMovementRow>(
+        const { data, error: fetchError } = await retryOnStatementTimeout<CfbLineMovementRow>(
           () => {
             let query = collegeFootballSupabase
-              .from('nfl_line_movement')
+              .from('cfb_line_movement')
               .select(CONSENSUS_SELECT)
               .eq('game_id', String(input.gameId))
               .order('snap_ts', { ascending: true });
@@ -94,7 +105,7 @@ export function useNflLineMovement(input: NflLineMovementInput) {
         if (fetchError) {
           // No rows means "not posted yet", but a timeout means we simply failed to
           // load — say so instead of passing the slate close off as the whole story.
-          debug.error('Error fetching nfl_line_movement:', fetchError);
+          debug.error('Error fetching cfb_line_movement:', fetchError);
           setHistory([]);
           setError(
             isTimeoutError(fetchError)
@@ -106,7 +117,7 @@ export function useNflLineMovement(input: NflLineMovementInput) {
 
         setHistory((data ?? []).map(toConsensusSnap));
       } catch (err) {
-        debug.error('Error fetching NFL line movement:', err);
+        debug.error('Error fetching CFB line movement:', err);
         if (!cancelled) {
           setHistory([]);
           setError('An unexpected error occurred');
@@ -130,6 +141,7 @@ export function useNflLineMovement(input: NflLineMovementInput) {
         history,
         scalars: input.scalars,
         includeEmpty: true,
+        groups: CFB_GROUPS,
       }),
     [input.away, input.home, history, input.scalars],
   );

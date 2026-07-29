@@ -13,6 +13,7 @@ import com.wagerproof.app.features.gamecards.GameRowCard
 import com.wagerproof.app.features.gamecards.GameRowCardModel
 import com.wagerproof.app.features.gamecards.TeamColorPair
 import com.wagerproof.app.features.props.nflTeamColors
+import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.GameAgentConsensus
 import com.wagerproof.core.models.NFLPrediction
 import com.wagerproof.core.models.NFLTeamAssets
@@ -120,10 +121,12 @@ internal fun nflSlatePicks(game: NFLPrediction, picks: List<NFLDryrunPickRow>): 
     } else {
         game.convictionSummary?.plays.orEmpty().count { (it.conviction ?: "").lowercase(Locale.US) == "high" }
     }
-    val signalCount = if (picks.isNotEmpty()) {
-        picks.flatMap { it.signalKeys }.filter(String::isNotBlank).toSet().size
+    // Prefer slate flags_* (excludes blanket sides_model); fall back to pick signal_keys.
+    val fromGame = (game.flagsActive ?: 0) + (game.flagsTracking ?: 0)
+    val signalCount = if (fromGame > 0) {
+        fromGame
     } else {
-        game.flagsActive ?: 0
+        FootballBlanketSignals.displayKeys("nfl", picks.flatMap { it.signalKeys }).size
     }
 
     return GameRowCardModel.SlatePicks(

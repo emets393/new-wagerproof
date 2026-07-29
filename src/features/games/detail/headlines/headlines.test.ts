@@ -250,7 +250,7 @@ describe('deterministic game-detail headlines', () => {
       isTotal: false,
       openValue: -3.5,
       currentValue: -6,
-    })).toBe('PHI spread has moved 2.5 points, from -3.5 at the first recorded line to -6 now.');
+    })).toBe('PHI spread has moved 2.5 points, from -3.5 at open to -6 now.');
 
     expect(nflLineMovementHeadline({
       ...LINE_MOVE_BASE,
@@ -258,7 +258,7 @@ describe('deterministic game-detail headlines', () => {
       isTotal: true,
       openValue: 44,
       currentValue: 47.5,
-    })).toBe('Total has moved up 3.5 points, from 44.0 at the first recorded line to 47.5 now.');
+    })).toBe('Total has moved up 3.5 points, from 44.0 at open to 47.5 now.');
   });
 
   it('reports a down move as down, not as a magnitude alone', () => {
@@ -269,6 +269,28 @@ describe('deterministic game-detail headlines', () => {
       openValue: 47.5,
       currentValue: 44,
     })).toContain('moved down 3.5 points');
+  });
+
+  it('reports no movement across multiple identical snapshots', () => {
+    expect(nflLineMovementHeadline({
+      ...LINE_MOVE_BASE,
+      seriesLabel: 'PHI spread',
+      isTotal: false,
+      openValue: -3.5,
+      currentValue: -3.5,
+      snapshotCount: 2,
+    })).toBe('PHI spread has not moved off -3.5 across 2 snapshots.');
+  });
+
+  it('formats American odds without calling them points', () => {
+    expect(nflLineMovementHeadline({
+      ...LINE_MOVE_BASE,
+      seriesLabel: 'PHI ML',
+      isTotal: false,
+      valueFormat: 'american',
+      openValue: -135,
+      currentValue: -150,
+    })).toBe('PHI ML has moved from -135 at open to -150 now.');
   });
 
   it('separates a failed line-history fetch from a genuinely empty one', () => {
