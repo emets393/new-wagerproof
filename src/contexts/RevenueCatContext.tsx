@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { CustomerInfo, Offerings, Package } from '@revenuecat/purchases-js';
+import type { CustomerInfo, Offerings, Package } from '@revenuecat/purchases-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -12,7 +12,13 @@ import {
   isRevenueCatConfigured,
   setSandboxMode,
   ENTITLEMENT_IDENTIFIER,
+  isUserCancelledPurchaseError,
+  type VerifiedWebPurchaseResult,
 } from '@/services/revenuecatWeb';
+import {
+  getHardPaywallPackages,
+  hasRenderableYearlyIntroOffer,
+} from '@/lib/revenuecatPaywall';
 import {
   checkSupabaseSubscription,
   resolveServerEntitlement,
@@ -44,16 +50,16 @@ interface RevenueCatContextType {
   loading: boolean;
   offeringsLoading: boolean;
   error: string | null;
-  refreshCustomerInfo: () => Promise<void>;
+  refreshCustomerInfo: () => Promise<boolean>;
   refreshOfferings: () => Promise<void>;
-  purchase: (pkg: Package) => Promise<CustomerInfo>;
-  syncPurchasesManually: () => Promise<void>;
+  purchase: (pkg: Package) => Promise<VerifiedWebPurchaseResult>;
+  syncPurchasesManually: () => Promise<boolean>;
 }
 
 const RevenueCatContext = createContext<RevenueCatContextType | undefined>(undefined);
 
 export function RevenueCatProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [offerings, setOfferings] = useState<Offerings | null>(null);
   const [hasProAccess, setHasProAccess] = useState(false);
@@ -61,11 +67,29 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   const [offeringsLoading, setOfferingsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize RevenueCat when the session changes. Authenticated users get a
-  // named customer; signed-out sessions still configure anonymously so offerings
-  // (and /paywall-test) can load plan prices for preview.
+  // Configure RevenueCat only after Supabase has resolved a real authenticated
+  // user. Every async state write is scoped to this effect so an old user's
+  // customer data cannot land after sign-out or account switching.
   useEffect(() => {
+    let cancelled = false;
+
     const initialize = async () => {
+      if (authLoading) {
+        setLoading(true);
+        return;
+      }
+
+      if (!user) {
+        resetRevenueCat();
+        setCustomerInfo(null);
+        setOfferings(null);
+        setHasProAccess(false);
+        setError(null);
+        setLoading(false);
+        setOfferingsLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
@@ -81,15 +105,6 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
           setSandboxMode(false);
         }
 
-        if (!user) {
-          debug.log('No user — configuring RevenueCat anonymously for offerings preview');
-          resetRevenueCat();
-          await initializeRevenueCat();
-          setCustomerInfo(null);
-          setHasProAccess(false);
-          return;
-        }
-
         debug.log('Initializing RevenueCat for user:', user.id);
         await initializeRevenueCat(user.id);
 
@@ -100,6 +115,7 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         }
 
         const info = await getCustomerInfo();
+        if (cancelled) return;
         setCustomerInfo(info);
 
         // Sync only promotes — never writes false from a negative Web lookup
@@ -110,70 +126,104 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
         }
 
         const hasAccess = await resolveHasProAccess(user.id, info);
+        if (cancelled) return;
         setHasProAccess(hasAccess);
 
         debug.log('RevenueCat initialized successfully. Has Pro:', hasAccess);
       } catch (err: any) {
+        if (cancelled) return;
         debug.error('Error initializing RevenueCat:', err);
         setError(err.message || 'Failed to initialize RevenueCat');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     initialize();
-  }, [user]);
 
-  // Fetch offerings after initialization (works for anonymous + authenticated)
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id]);
+
+  const fetchHardPaywallOfferings = useCallback(async (): Promise<Offerings> => {
+    const geolocatedOfferings = await getOfferings();
+    const geolocatedPackages = getHardPaywallPackages(geolocatedOfferings);
+    if (
+      geolocatedPackages &&
+      hasRenderableYearlyIntroOffer(geolocatedPackages)
+    ) {
+      return geolocatedOfferings;
+    }
+
+    debug.log(
+      'A required hardPaywall price or intro phase is unavailable for the geolocated currency; retrying USD.'
+    );
+    const usdOfferings = await getOfferings({ currency: 'USD' });
+    const usdPackages = getHardPaywallPackages(usdOfferings);
+    if (!usdPackages) {
+      throw new Error(
+        'The required WagerProof Pro plans are unavailable for your currency.'
+      );
+    }
+
+    if (!hasRenderableYearlyIntroOffer(usdPackages)) {
+      debug.log(
+        'The yearly introductory phase is not available for this customer; hiding the ineligible intro plan.'
+      );
+    }
+
+    return usdOfferings;
+  }, []);
+
+  // Fetch only the authenticated user's offerings. The first request uses
+  // RevenueCat geolocation; the helper performs one explicit USD fallback and
+  // fails closed unless all three required hardPaywall packages are present.
   useEffect(() => {
-    const fetchOfferings = async (retryCount = 0) => {
-      if (!isRevenueCatConfigured()) {
-        // Wait for initialize() — retry briefly rather than giving up.
-        if (retryCount < 6) {
-          setTimeout(() => fetchOfferings(retryCount + 1), 400);
-          return;
-        }
-        debug.log('RevenueCat not configured, skipping offerings fetch');
-        setOfferingsLoading(false);
-        return;
-      }
+    let cancelled = false;
 
+    if (authLoading || loading) return;
+    if (!user || !isRevenueCatConfigured()) {
+      setOfferings(null);
+      setOfferingsLoading(false);
+      return;
+    }
+
+    const fetchOfferingsForUser = async () => {
       try {
         setOfferingsLoading(true);
-        debug.log(`🔄 Fetching offerings from RevenueCat... (attempt ${retryCount + 1})`);
-        const offers = await getOfferings();
-        debug.log('📦 Offerings fetched:', {
-          current: offers.current?.identifier,
-          allOfferingsCount: Object.keys(offers.all).length,
+        const offers = await fetchHardPaywallOfferings();
+        if (cancelled) return;
+
+        debug.log('📦 hardPaywall offering fetched:', {
           allOfferingIds: Object.keys(offers.all),
+          packageIds: getHardPaywallPackages(offers)?.map((pkg) => pkg.identifier),
         });
         setOfferings(offers);
-        setOfferingsLoading(false);
       } catch (err: any) {
-        debug.error('❌ Error fetching offerings:', err);
-        if (retryCount < 3) {
-          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
-          debug.log(`Retrying offerings fetch in ${delay}ms...`);
-          setTimeout(() => {
-            fetchOfferings(retryCount + 1);
-          }, delay);
-        } else {
-          debug.error('Failed to fetch offerings after 3 retries');
-          setOfferingsLoading(false);
-        }
+        if (cancelled) return;
+        debug.error('Error fetching hardPaywall offering:', err);
+        setOfferings(null);
+        setError(err.message || 'Failed to load subscription plans');
+      } finally {
+        if (!cancelled) setOfferingsLoading(false);
       }
     };
 
-    const timer = setTimeout(() => {
-      fetchOfferings();
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [user, loading]);
+    fetchOfferingsForUser();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    authLoading,
+    loading,
+    user?.id,
+    fetchHardPaywallOfferings,
+  ]);
 
   // Refresh customer info
-  const refreshCustomerInfo = useCallback(async () => {
-    if (!user) return;
+  const refreshCustomerInfo = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
 
     try {
       setError(null);
@@ -184,17 +234,26 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
       const hasAccess = await resolveHasProAccess(user.id, info);
       setHasProAccess(hasAccess);
+      return hasAccess;
     } catch (err: any) {
       debug.error('Error refreshing customer info:', err);
       setError(err.message || 'Failed to refresh customer info');
+      throw err;
     }
   }, [user]);
 
   // Refresh offerings
   const refreshOfferings = useCallback(async () => {
+    if (!user) {
+      setOfferings(null);
+      setOfferingsLoading(false);
+      setError('Sign in to view WagerProof Pro plans.');
+      return;
+    }
+
     if (!isRevenueCatConfigured()) {
       try {
-        await initializeRevenueCat(user?.id);
+        await initializeRevenueCat(user.id);
       } catch (err: any) {
         debug.error('Could not configure RevenueCat for offerings refresh:', err);
         setError(err.message || 'Failed to configure RevenueCat');
@@ -204,18 +263,22 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
 
     try {
       setOfferingsLoading(true);
-      const offers = await getOfferings();
+      setError(null);
+      const offers = await fetchHardPaywallOfferings();
       setOfferings(offers);
-      setOfferingsLoading(false);
     } catch (err: any) {
       debug.error('Error refreshing offerings:', err);
       setError(err.message || 'Failed to refresh offerings');
+      setOfferings(null);
+    } finally {
       setOfferingsLoading(false);
     }
-  }, [user?.id]);
+  }, [user, fetchHardPaywallOfferings]);
 
   // Purchase a package
-  const purchase = useCallback(async (pkg: Package): Promise<CustomerInfo> => {
+  const purchase = useCallback(async (
+    pkg: Package
+  ): Promise<VerifiedWebPurchaseResult> => {
     if (!user) {
       throw new Error('User must be authenticated to make a purchase');
     }
@@ -224,17 +287,27 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
       setError(null);
       debug.log('Purchasing package:', pkg.identifier);
       
-      const info = await purchasePackage(pkg);
-      setCustomerInfo(info);
+      const result = await purchasePackage(pkg);
+      setCustomerInfo(result.customerInfo);
 
-      await syncRevenueCatToSupabase(user.id, info);
+      if (result.hasProEntitlement) {
+        await syncRevenueCatToSupabase(user.id, result.customerInfo);
+        setHasProAccess(true);
+        debug.log('Purchase verified with fresh WagerProof Pro entitlement.');
+      } else {
+        setHasProAccess(false);
+        const verificationError =
+          'Your payment completed, but WagerProof Pro could not be verified yet.';
+        setError(verificationError);
+        debug.error(verificationError);
+      }
 
-      const hasAccess = await resolveHasProAccess(user.id, info);
-      setHasProAccess(hasAccess);
-
-      debug.log('Purchase successful, Pro access:', hasAccess);
-      return info;
+      return result;
     } catch (err: any) {
+      if (isUserCancelledPurchaseError(err)) {
+        debug.log('Purchase cancelled by user');
+        throw err;
+      }
       debug.error('Error during purchase:', err);
       setError(err.message || 'Purchase failed');
       throw err;
@@ -242,17 +315,19 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   }, [user]);
 
   // Sync purchases manually
-  const syncPurchasesManually = useCallback(async () => {
-    if (!user || !isRevenueCatConfigured()) return;
+  const syncPurchasesManually = useCallback(async (): Promise<boolean> => {
+    if (!user || !isRevenueCatConfigured()) return false;
 
     try {
       setError(null);
       await syncPurchases();
-      await refreshCustomerInfo();
+      const hasAccess = await refreshCustomerInfo();
       debug.log('Purchases synced successfully');
+      return hasAccess;
     } catch (err: any) {
       debug.error('Error syncing purchases:', err);
       setError(err.message || 'Failed to sync purchases');
+      throw err;
     }
   }, [user, refreshCustomerInfo]);
 
@@ -283,4 +358,3 @@ export function useRevenueCat() {
   }
   return context;
 }
-

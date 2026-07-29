@@ -287,7 +287,19 @@ function AppRoutes() {
           <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/press-kit" element={<PressKit />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="/paywall-test" element={<ProtectedRoute><PaywallTest /></ProtectedRoute>} />
+          <Route
+            path="/paywall-test"
+            element={
+              import.meta.env.DEV ? (
+                // Local QA must be able to reach the authenticated-only paywall
+                // without already owning Pro. CustomPaywall itself still refuses
+                // to render plans until a real Supabase user is present.
+                <PaywallTest />
+              ) : (
+                <ProtectedRoute><PaywallTest /></ProtectedRoute>
+              )
+            }
+          />
           <Route path="/free-picks" element={<FreePicks />} />
           <Route path="/ai-agents" element={<AgentLanding />} />
           <Route path="/support" element={<SupportCenter />} />
