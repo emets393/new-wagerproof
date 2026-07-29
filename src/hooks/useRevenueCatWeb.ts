@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { getActiveSubscriptionType } from '@/services/revenuecatWeb';
 import type { ProductIdentifier } from '@/services/revenuecatWeb';
+import {
+  getHardPaywallOffering,
+  getHardPaywallPackages,
+} from '@/lib/revenuecatPaywall';
 import debug from '@/utils/debug';
 
 /**
@@ -32,6 +36,14 @@ export function useRevenueCatWeb() {
   const isLifetime = subscriptionType === 'lifetime';
 
   const currentOffering = offerings?.current ?? null;
+  const hardPaywallOffering = useMemo(
+    () => getHardPaywallOffering(offerings),
+    [offerings]
+  );
+  const hardPaywallPackages = useMemo(
+    () => getHardPaywallPackages(offerings),
+    [offerings]
+  );
 
   // Log when offerings change (for debugging)
   useEffect(() => {
@@ -40,12 +52,20 @@ export function useRevenueCatWeb() {
       offeringsObject: offerings,
       currentOffering: currentOffering,
       currentId: currentOffering?.identifier,
+      hardPaywallId: hardPaywallOffering?.identifier,
+      hardPaywallPackageIds: hardPaywallPackages?.map((pkg) => pkg.identifier) ?? [],
       hasPackages: !!currentOffering?.availablePackages?.length,
       packageCount: currentOffering?.availablePackages?.length || 0,
       packageIds: currentOffering?.availablePackages?.map(pkg => pkg.identifier) || [],
       loading: loading,
     });
-  }, [offerings, currentOffering, loading]);
+  }, [
+    offerings,
+    currentOffering,
+    hardPaywallOffering,
+    hardPaywallPackages,
+    loading,
+  ]);
 
   return {
     // Customer info
@@ -59,6 +79,8 @@ export function useRevenueCatWeb() {
     // Offerings
     offerings,
     currentOffering: currentOffering,
+    hardPaywallOffering,
+    hardPaywallPackages,
     
     // State
     loading,
@@ -72,4 +94,3 @@ export function useRevenueCatWeb() {
     syncPurchases: syncPurchasesManually,
   };
 }
-
