@@ -71,6 +71,7 @@ struct TrendBarsGraphic: View {
     ]
     /// Seconds each frame holds before easing to the next.
     private let dwell: Double = 1.9
+    var isActive: Bool = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var frame = 0
@@ -119,8 +120,8 @@ struct TrendBarsGraphic: View {
                 .allowsHitTesting(false)
             }
             .clipped()
-            .task {
-                guard !reduceMotion else { return }
+            .task(id: isActive) {
+                guard isActive, !reduceMotion else { return }
                 while !Task.isCancelled {
                     try? await Task.sleep(nanoseconds: UInt64(dwell * 1_000_000_000))
                     if Task.isCancelled { return }
@@ -147,6 +148,7 @@ struct AngledStatSheetGraphic: View {
     let rows: [(icon: String, text: String)]
     /// Stagger between sibling cards so they don't highlight in lockstep.
     var startDelay: Double = 0
+    var isActive: Bool = true
 
     private static let visibleSlots = 3
 
@@ -157,9 +159,14 @@ struct AngledStatSheetGraphic: View {
     @State private var slotIcon: [String]
     @State private var slotText: [String]
 
-    init(rows: [(icon: String, text: String)], startDelay: Double = 0) {
+    init(
+        rows: [(icon: String, text: String)],
+        startDelay: Double = 0,
+        isActive: Bool = true
+    ) {
         self.rows = rows
         self.startDelay = startDelay
+        self.isActive = isActive
         let seed = Array(rows.prefix(Self.visibleSlots))
         _slotStat = State(initialValue: Array(seed.indices))
         _slotIcon = State(initialValue: seed.map { $0.icon })
@@ -191,7 +198,8 @@ struct AngledStatSheetGraphic: View {
             .frame(height: 30)
             .allowsHitTesting(false)
         }
-        .task {
+        .task(id: isActive) {
+            guard isActive else { return }
             // Highlight cycling and the typewriter are color/text crossfades
             // (no positional motion), so they run under Reduce Motion too —
             // just with plain eases instead of springs.
@@ -293,6 +301,7 @@ struct StackedStatCardsGraphic: View {
     let items: [(headline: String, subline: String)]
     /// Stagger between sibling cards so they don't shuffle in lockstep.
     var startDelay: Double = 0
+    var isActive: Bool = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var step = 0
@@ -331,10 +340,10 @@ struct StackedStatCardsGraphic: View {
             .frame(width: 56)
             .allowsHitTesting(false)
         }
-        .task {
+        .task(id: isActive) {
             // The whole effect is positional, so Reduce Motion shows the
             // resting fan instead of shuffling.
-            guard !reduceMotion else { return }
+            guard isActive, !reduceMotion else { return }
             if startDelay > 0 {
                 try? await Task.sleep(for: .seconds(startDelay))
             }
@@ -389,6 +398,7 @@ struct StackedStatCardsGraphic: View {
 struct RadarSweepGraphic: View {
     /// Beam revolutions period (seconds). Blip flash timing derives from it.
     var period: Double = 4.0
+    var isActive: Bool = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var beamAngle: Double = 0
@@ -408,7 +418,7 @@ struct RadarSweepGraphic: View {
             .overlay {
                 ZStack {
                     ringGrid
-                    if !reduceMotion {
+                    if isActive && !reduceMotion {
                         beam
                     }
                     ForEach(blips.indices, id: \.self) { i in
@@ -422,7 +432,7 @@ struct RadarSweepGraphic: View {
                             // way through each revolution.
                             delay: (360 - blip.angle) / 360 * period,
                             period: period,
-                            frozen: reduceMotion
+                            frozen: reduceMotion || !isActive
                         )
                         .offset(blipOffset(blip.angle, blip.radius))
                     }
@@ -438,8 +448,13 @@ struct RadarSweepGraphic: View {
             .frame(height: 26)
             .allowsHitTesting(false)
         }
-        .task {
-            guard !reduceMotion else { return }
+        .task(id: isActive) {
+            var reset = Transaction()
+            reset.disablesAnimations = true
+            withTransaction(reset) {
+                beamAngle = 0
+            }
+            guard isActive, !reduceMotion else { return }
             withAnimation(.linear(duration: period).repeatForever(autoreverses: false)) {
                 beamAngle = 360
             }
@@ -517,7 +532,7 @@ private struct RadarBlip: View {
         }
         .opacity(0.3 + energy * 0.7)
         .scaleEffect(0.85 + energy * 0.25)
-        .task {
+        .task(id: frozen) {
             // Reduce Motion: no sweep, so show every contact steadily lit.
             if frozen {
                 energy = 0.8

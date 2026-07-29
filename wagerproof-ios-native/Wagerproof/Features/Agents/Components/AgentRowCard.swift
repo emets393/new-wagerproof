@@ -24,6 +24,9 @@ struct AgentRowCard: View {
     /// Shows the unread dot — the agent generated picks this device hasn't
     /// opened yet (see AgentPicksSeenStore).
     var hasUnreadPicks: Bool = false
+    /// Hidden retained tabs must not keep their per-row Canvas and avatar
+    /// timelines alive. Callers outside the tab shell keep the existing default.
+    var animationsActive: Bool = true
     var onTap: () -> Void
     var onLongPress: () -> Void = {}
 
@@ -76,7 +79,8 @@ struct AgentRowCard: View {
                 if agent.agent.autoGenerate && agent.agent.isActive {
                     AgentCardGlyphTexture(
                         avatarColor: agent.agent.avatarColor,
-                        seedString: "\(agent.id)"
+                        seedString: "\(agent.id)",
+                        isActive: animationsActive
                     )
                 }
                 shape.strokeBorder(Color.appBorder.opacity(0.4), lineWidth: 0.5)
@@ -98,7 +102,8 @@ struct AgentRowCard: View {
     private var avatar: some View {
         AgentPixelAvatarTile(
             spriteIndex: agent.agent.spriteIndex,
-            avatarColor: agent.agent.avatarColor
+            avatarColor: agent.agent.avatarColor,
+            animated: animationsActive
         )
         // Unread-picks dot, notification-badge style on the avatar corner.
         .overlay(alignment: .topTrailing) {

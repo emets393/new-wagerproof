@@ -24,6 +24,17 @@ public final class OutliersTrendsStore {
     public private(set) var slateGames: [OutliersTrendsGame] = []
     public private(set) var isLoadingTrends = false
 
+    private struct MarketSectionsCacheKey: Equatable {
+        let dataVersion: Int
+        let sport: OutliersTrendsSport
+        let matchupFilter: OutliersTrendsMatchupFilter
+        let subject: OutliersTrendsSubject
+    }
+
+    @ObservationIgnored private var marketSectionsDataVersion = 0
+    @ObservationIgnored private var marketSectionsCacheKey: MarketSectionsCacheKey?
+    @ObservationIgnored private var cachedMarketSections: [OutliersTrendsMarketSection] = []
+
     // Sport / subject / matchup are the only filters now — market drives the section layout instead.
     public var sport: OutliersTrendsSport = .nfl
     public var matchupFilter: OutliersTrendsMatchupFilter = .allGames
@@ -47,6 +58,7 @@ public final class OutliersTrendsStore {
             precomputedCards = []
             mlbBundle = nil
             slateGames = []
+            invalidateMarketSections()
             return
         }
 
@@ -55,6 +67,7 @@ public final class OutliersTrendsStore {
         slateGames = []
         precomputedCards = []
         mlbBundle = nil
+        invalidateMarketSections()
 
         do {
             switch sport {
@@ -74,6 +87,7 @@ public final class OutliersTrendsStore {
                 loadState = .loaded
                 lastRefreshedAt = Date()
                 isLoadingTrends = false
+                invalidateMarketSections()
                 return
             }
 
@@ -95,6 +109,7 @@ public final class OutliersTrendsStore {
             )
             lastRefreshedAt = Date()
             isLoadingTrends = false
+            invalidateMarketSections()
         } catch {
             isLoadingTrends = false
             if slateGames.isEmpty {
@@ -107,10 +122,24 @@ public final class OutliersTrendsStore {
 
     public var games: [OutliersTrendsGame] { slateGames }
 
+    /// Revision used by the app-layer sort/search and game-index caches.
+    public var presentationRevision: Int { marketSectionsDataVersion }
+
     /// Cards grouped into per-bet-type carousels, honoring the active sport/subject/matchup filters.
-    /// Market is the layout axis, so the engines run unfiltered by market and we bucket the result.
+    /// Market is the layout axis, so the engines run unfiltered by market and
+    /// we bucket the result. Cache the derived sections because SwiftUI can
+    /// re-evaluate this property repeatedly while hopping between retained
+    /// tabs; rebuilding the trend engines from unchanged inputs is pure waste.
     public var marketSections: [OutliersTrendsMarketSection] {
         guard sport.hasTrendsData else { return [] }
+
+        let key = MarketSectionsCacheKey(
+            dataVersion: marketSectionsDataVersion,
+            sport: sport,
+            matchupFilter: matchupFilter,
+            subject: subject
+        )
+        if marketSectionsCacheKey == key { return cachedMarketSections }
 
         let source: [OutliersTrendsCard]
         if sport == .mlb {
@@ -138,7 +167,16 @@ public final class OutliersTrendsStore {
             )
         }
 
-        return OutliersTrendsMarketSection.sections(from: source, cap: Self.sectionCardCap)
+        let sections = OutliersTrendsMarketSection.sections(from: source, cap: Self.sectionCardCap)
+        marketSectionsCacheKey = key
+        cachedMarketSections = sections
+        return sections
+    }
+
+    private func invalidateMarketSections() {
+        marketSectionsDataVersion &+= 1
+        marketSectionsCacheKey = nil
+        cachedMarketSections = []
     }
 
     // MARK: - Search index

@@ -5,7 +5,7 @@ import WagerproofModels
 
 /// NFL-only Props tab narrowing — game matchup, prop market, and/or
 /// signal-only feed.
-struct NFLPropFeedFilters: Equatable {
+struct NFLPropFeedFilters: Hashable {
     var gameId: String?
     var market: String?
     /// When true, only players with a P-flag on the displayed market are shown.
@@ -234,6 +234,33 @@ enum NFLPropFeed {
                 selection: selection
             )
         }
+    }
+}
+
+/// Version-keyed Props-tab cache. The raw NFL player models only change when
+/// PropsStore bumps `nflPlayersVersion`, so returning to the tab becomes an
+/// array lookup instead of rebuilding every player's headline selection.
+@MainActor
+enum NFLPropFeedCache {
+    private static var storeID: UUID?
+    private static var version: Int?
+    private static var itemsByFilter: [NFLPropFeedFilters: [NFLPropFeedItem]] = [:]
+
+    static func items(
+        from players: [NFLPropPlayer],
+        storeID newStoreID: UUID,
+        version newVersion: Int,
+        filters: NFLPropFeedFilters
+    ) -> [NFLPropFeedItem] {
+        if storeID != newStoreID || version != newVersion {
+            storeID = newStoreID
+            version = newVersion
+            itemsByFilter.removeAll(keepingCapacity: true)
+        }
+        if let cached = itemsByFilter[filters] { return cached }
+        let built = NFLPropFeed.items(from: players, filters: filters)
+        itemsByFilter[filters] = built
+        return built
     }
 }
 

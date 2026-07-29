@@ -4,7 +4,7 @@ import WagerproofModels
 // MARK: - MLB feed filters (Props tab only)
 
 /// MLB-only Props tab narrowing — game matchup and/or prop market.
-struct MLBPropFeedFilters: Equatable {
+struct MLBPropFeedFilters: Hashable {
     var gamePk: Int?
     var market: String?
 
@@ -120,25 +120,57 @@ struct PlayerPropFeedItem: Identifiable {
 /// WagerproofKit, which can't name it. So this keys off the store's
 /// `matchupsVersion` instead.
 ///
-/// INVALIDATION KEY: `(gamePk, PropsStore.matchupsVersion)`. The store bumps
-/// that counter on every MLB slate reassignment, so a refresh can't leave a
-/// stale entry behind. Only the DEFAULT filter set is cached — the Props tab's
-/// filtered feeds still call `items(from:filters:)` directly.
+/// INVALIDATION KEY: `(PropsStore.feedCacheID, PropsStore.matchupsVersion)`.
+/// The store bumps that counter on every MLB slate reassignment, while the
+/// process-unique id keeps previews and screenshot stores from sharing data.
 @MainActor
 enum PlayerPropFeedCache {
     private struct Entry {
+        let storeID: UUID
         let version: Int
         let itemsById: [Int: PlayerPropFeedItem]
     }
 
     private static var entries: [Int: Entry] = [:]
+    private static var slateStoreID: UUID?
+    private static var slateVersion: Int?
+    private static var slateItemsByFilter: [MLBPropFeedFilters: [PlayerPropFeedItem]] = [:]
 
-    static func itemsById(for matchup: MLBPropMatchup, version: Int) -> [Int: PlayerPropFeedItem] {
-        if let entry = entries[matchup.gamePk], entry.version == version { return entry.itemsById }
+    /// Props-tab cache for the expensive full-slate player/log derivation.
+    /// Sorting and quick-filter text remain cheap view-level operations, while
+    /// the multi-pass headline work only runs when the slate or prop filters
+    /// actually change.
+    static func items(
+        from matchups: [MLBPropMatchup],
+        storeID: UUID,
+        version: Int,
+        filters: MLBPropFeedFilters
+    ) -> [PlayerPropFeedItem] {
+        if slateStoreID != storeID || slateVersion != version {
+            slateStoreID = storeID
+            slateVersion = version
+            slateItemsByFilter.removeAll(keepingCapacity: true)
+        }
+        if let cached = slateItemsByFilter[filters] { return cached }
+        let built = PlayerPropFeed.items(from: matchups, filters: filters)
+        slateItemsByFilter[filters] = built
+        return built
+    }
+
+    static func itemsById(
+        for matchup: MLBPropMatchup,
+        storeID: UUID,
+        version: Int
+    ) -> [Int: PlayerPropFeedItem] {
+        if let entry = entries[matchup.gamePk],
+           entry.storeID == storeID,
+           entry.version == version {
+            return entry.itemsById
+        }
         let items = PlayerPropFeed.items(from: [matchup])
         let byId = Dictionary(items.map { ($0.selection.playerId, $0) },
                               uniquingKeysWith: { first, _ in first })
-        entries[matchup.gamePk] = Entry(version: version, itemsById: byId)
+        entries[matchup.gamePk] = Entry(storeID: storeID, version: version, itemsById: byId)
         return byId
     }
 }

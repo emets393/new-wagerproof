@@ -30,6 +30,30 @@ private enum AgentSortOption: String, CaseIterable {
     }
 }
 
+private struct AgentsPresentationKey: Equatable {
+    let version: Int
+    let sort: String
+    let pinnedIDs: String
+}
+
+@MainActor
+private final class AgentsPresentationCache {
+    private var sorted: (
+        key: AgentsPresentationKey,
+        agents: [AgentWithPerformance]
+    )?
+
+    func agents(
+        key: AgentsPresentationKey,
+        build: () -> [AgentWithPerformance]
+    ) -> [AgentWithPerformance] {
+        if let sorted, sorted.key == key { return sorted.agents }
+        let agents = build()
+        sorted = (key, agents)
+        return agents
+    }
+}
+
 /// Inner-tab sections of the Agents hub, surfaced by the pinned segmented
 /// `Picker` below the "Agents" title. Mirrors the RN `AgentsHubScreen` tabs.
 private enum AgentsTab: String, CaseIterable {
@@ -107,6 +131,7 @@ struct AgentsView: View {
     /// drive `filterMode` — the feed renders with `showsFilters: false`.
     @State private var topPicksStore = TopAgentPicksFeedStore()
     @State private var topPicksFavorites = FavoriteAgentsStore()
+    @State private var presentationCache = AgentsPresentationCache()
     /// Active inner tab (My Agents / Leaderboard / Top Picks).
     @State private var selectedTab: AgentsTab = .myAgents
     @State private var pendingDeleteId: String?
@@ -156,12 +181,10 @@ struct AgentsView: View {
         return .myAgents
     }
 
-    #if DEBUG
     init(store: AgentsStore) {
         _store = State(initialValue: store)
         _selectedTab = State(initialValue: Self.initialTab)
     }
-    #endif
 
     /// `AgentEntitlementsStore` is a thin facade over `ProAccessStore` from
     /// the environment. We rebuild it per-render so entitlement changes
@@ -199,7 +222,7 @@ struct AgentsView: View {
                 .toolbar {
                     // Top-leading WagerProof wordmark (shared across main tabs);
                     // passive brand mark — Settings now lives on the trailing gear.
-                    WagerProofLeadingToolbarItem()
+                    WagerProofLeadingToolbarItem(isActive: tabStore.selected == .agents)
                     // Trailing group (left → right): create-agent (+), then the
                     // Settings gear pinned rightmost. The "+" replaces the old
                     // floating action button so all chrome lives in the top bar;
@@ -511,7 +534,7 @@ struct AgentsView: View {
     /// "Agent HQ — Live" pill rides its top-leading corner, the agency stats its
     /// top-trailing corner.
     private var officeRow: some View {
-        PixelOffice(agents: store.agents, isActive: true)
+        PixelOffice(agents: store.agents, isActive: tabStore.selected == .agents)
             .overlay(alignment: .topLeading) {
                 agentHQStatusPill.padding(10)
             }
@@ -550,15 +573,14 @@ struct AgentsView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
 
-                ForEach(Array(sortedAgents.enumerated()), id: \.element.id) { index, agent in
+                ForEach(sortedAgents) { agent in
                     AgentRowCard(
                         agent: agent,
                         hasUnreadPicks: hasUnreadPicks(agent),
+                        animationsActive: tabStore.selected == .agents,
                         onTap: { navPath.append(AgentsRoute.agentDetail(agentId: agent.id)) },
                         onLongPress: { pendingLongPressAgent = agent }
                     )
-                    // Cascade each card in when it replaces the loading shimmer.
-                    .staggeredAppear(index: index)
                     .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -681,6 +703,7 @@ struct AgentsView: View {
                     AgentRowCard(
                         agent: followed.agentWithPerformance,
                         hasUnreadPicks: hasUnreadPicks(followed),
+                        animationsActive: tabStore.selected == .agents,
                         onTap: { openFollowedAgent(followed.avatarId) }
                     )
                     .listRowInsets(EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12))
@@ -926,23 +949,34 @@ struct AgentsView: View {
     /// the top (preserving the chosen order within each group). Agents with no
     /// settled record sort last on the performance-based orders.
     private var sortedAgents: [AgentWithPerformance] {
-        let base: [AgentWithPerformance]
-        switch sortOption {
-        case .winRate:
-            base = store.agents.sorted { listWinPct($0) > listWinPct($1) }
-        case .units:
-            base = store.agents.sorted { ($0.performance?.netUnits ?? 0) > ($1.performance?.netUnits ?? 0) }
-        case .streak:
-            base = store.agents.sorted { ($0.performance?.currentStreak ?? 0) > ($1.performance?.currentStreak ?? 0) }
-        case .name:
-            base = store.agents.sorted { $0.agent.name.localizedCaseInsensitiveCompare($1.agent.name) == .orderedAscending }
-        case .newest:
-            base = store.agents.sorted { $0.agent.createdAt > $1.agent.createdAt }
+        presentationCache.agents(
+            key: AgentsPresentationKey(
+                version: store.agentsVersion,
+                sort: sortOption.rawValue,
+                pinnedIDs: pinnedIdsRaw
+            )
+        ) {
+            let base: [AgentWithPerformance]
+            switch sortOption {
+            case .winRate:
+                base = store.agents.sorted { listWinPct($0) > listWinPct($1) }
+            case .units:
+                base = store.agents.sorted { ($0.performance?.netUnits ?? 0) > ($1.performance?.netUnits ?? 0) }
+            case .streak:
+                base = store.agents.sorted { ($0.performance?.currentStreak ?? 0) > ($1.performance?.currentStreak ?? 0) }
+            case .name:
+                base = store.agents.sorted {
+                    $0.agent.name.localizedCaseInsensitiveCompare($1.agent.name) == .orderedAscending
+                }
+            case .newest:
+                base = store.agents.sorted { $0.agent.createdAt > $1.agent.createdAt }
+            }
+            let pins = pinnedIds
+            guard !pins.isEmpty else { return base }
+            // Stable partition (filter preserves order) → pinned first.
+            return base.filter { pins.contains($0.agent.id) } +
+                base.filter { !pins.contains($0.agent.id) }
         }
-        let pins = pinnedIds
-        guard !pins.isEmpty else { return base }
-        // Stable partition (filter preserves order) → pinned first.
-        return base.filter { pins.contains($0.agent.id) } + base.filter { !pins.contains($0.agent.id) }
     }
 
     private func listWinPct(_ x: AgentWithPerformance) -> Double {

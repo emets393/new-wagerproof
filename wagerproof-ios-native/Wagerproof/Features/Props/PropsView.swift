@@ -32,6 +32,57 @@ private enum PropSortMode: String, CaseIterable {
     }
 }
 
+private struct MLBPropsPresentationKey: Equatable {
+    let storeID: UUID
+    let version: Int
+    let filters: MLBPropFeedFilters
+    let query: String
+    let sortMode: String
+}
+
+private struct NFLPropsPresentationKey: Equatable {
+    let storeID: UUID
+    let version: Int
+    let filters: NFLPropFeedFilters
+    let query: String
+    let sortMode: String
+}
+
+/// Caches the final sorted and date-grouped Props presentation. The lower-level
+/// feed caches avoid rebuilding headlines; this prevents the remaining sort and
+/// date bucketing from rerunning when unrelated shell state changes.
+@MainActor
+private final class PropsPresentationCache {
+    private var mlb: (
+        key: MLBPropsPresentationKey,
+        sections: [GameDateGrouping.Section<PlayerPropFeedItem>]
+    )?
+    private var nfl: (
+        key: NFLPropsPresentationKey,
+        sections: [GameDateGrouping.Section<NFLPropFeedItem>]
+    )?
+
+    func mlbSections(
+        key: MLBPropsPresentationKey,
+        build: () -> [GameDateGrouping.Section<PlayerPropFeedItem>]
+    ) -> [GameDateGrouping.Section<PlayerPropFeedItem>] {
+        if let mlb, mlb.key == key { return mlb.sections }
+        let sections = build()
+        mlb = (key, sections)
+        return sections
+    }
+
+    func nflSections(
+        key: NFLPropsPresentationKey,
+        build: () -> [GameDateGrouping.Section<NFLPropFeedItem>]
+    ) -> [GameDateGrouping.Section<NFLPropFeedItem>] {
+        if let nfl, nfl.key == key { return nfl.sections }
+        let sections = build()
+        nfl = (key, sections)
+        return sections
+    }
+}
+
 /// Props tab. Mirrors `GamesView`'s structure (large title, pinned sport
 /// picker, date-grouped sections, pull-to-refresh, settings/WagerBot
 /// toolbar) but the feed items are player-prop matchup cards.
@@ -74,6 +125,7 @@ struct PropsView: View {
     @State private var showBestPicks = false
     @State private var bestPicksStore = MLBPlayerPropPicksStore()
     @State private var quickFilterText = ""
+    @State private var presentationCache = PropsPresentationCache()
     @FocusState private var quickFilterFocused: Bool
     /// Sport chooser sheet — replaces the native Menu so out-of-season sports
     /// can render dimmed (a Menu can't style its rows). Matches the Matchup /
@@ -210,7 +262,7 @@ struct PropsView: View {
     // WagerBotToolbarButton.
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
-        WagerProofLeadingToolbarItem()
+        WagerProofLeadingToolbarItem(isActive: tabStore.selected == .props)
         ToolbarItemGroup(placement: .topBarTrailing) {
             SettingsToolbarButton(tabStore: tabStore)
         }
@@ -536,12 +588,32 @@ struct PropsView: View {
     private var nflSections: some View {
         // Same shape as the MLB feed: one card per player, date-grouped with
         // sticky headers; the sort mode reorders players within a date.
-        let items = sortedNFLItems(
-            quickFilteredNFLItems(
-                NFLPropFeed.items(from: store.nflPlayers, filters: nflFilters)
-            )
+        let effectiveSortMode: PropSortMode = nflFilters.signalsOnly ? .hitRate : sortMode
+        let key = NFLPropsPresentationKey(
+            storeID: store.feedCacheID,
+            version: store.nflPlayersVersion,
+            filters: nflFilters,
+            query: activeQuickFilter.lowercased(),
+            sortMode: effectiveSortMode.rawValue
         )
-        if items.isEmpty {
+        let sections = presentationCache.nflSections(key: key) {
+            let items = sortedNFLItems(
+                quickFilteredNFLItems(
+                    NFLPropFeedCache.items(
+                        from: store.nflPlayers,
+                        storeID: store.feedCacheID,
+                        version: store.nflPlayersVersion,
+                        filters: nflFilters
+                    )
+                )
+            )
+            return GameDateGrouping.group(
+                items,
+                key: { GameDateGrouping.dateKey(from: $0.sortDate) },
+                label: { MLBFormatting.dateLabel($0.player.gameDate) }
+            )
+        }
+        if sections.isEmpty {
             if store.nflPlayers.isEmpty {
                 // Whole slate empty → season-aware copy (off-season vs. mid-refresh).
                 seasonEmptyTile(for: .nfl, systemImage: "football")
@@ -550,21 +622,15 @@ struct PropsView: View {
                 emptyTile(label: nflFilteredEmptyLabel, systemImage: "football")
             }
         } else {
-            let sections = GameDateGrouping.group(
-                items,
-                key: { GameDateGrouping.dateKey(from: $0.sortDate) },
-                label: { MLBFormatting.dateLabel($0.player.gameDate) }
-            )
             ForEach(sections, id: \.key) { section in
                 Section {
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
+                    ForEach(section.items) { item in
                         NFLPropPlayerCard(
                             item: item,
                             namespace: cardTransition,
                             onSelect: { selectedNFLProp = $0 }
                         )
                         .padding(.horizontal, 12)
-                        .staggeredAppear(index: index)
                     }
                 } header: {
                     sectionHeader(section.label)
@@ -591,12 +657,31 @@ struct PropsView: View {
 
     @ViewBuilder
     private var matchupSections: some View {
-        let items = sortedFeedItems(
-            quickFilteredMLBItems(
-                PlayerPropFeed.items(from: store.sortedMatchups(), filters: mlbFilters)
-            )
+        let key = MLBPropsPresentationKey(
+            storeID: store.feedCacheID,
+            version: store.matchupsVersion,
+            filters: mlbFilters,
+            query: activeQuickFilter.lowercased(),
+            sortMode: sortMode.rawValue
         )
-        if items.isEmpty {
+        let sections = presentationCache.mlbSections(key: key) {
+            let items = sortedFeedItems(
+                quickFilteredMLBItems(
+                    PlayerPropFeedCache.items(
+                        from: store.sortedMatchups(),
+                        storeID: store.feedCacheID,
+                        version: store.matchupsVersion,
+                        filters: mlbFilters
+                    )
+                )
+            )
+            return GameDateGrouping.group(
+                items,
+                key: { GameDateGrouping.dateKey(from: $0.sortDate) },
+                label: { MLBFormatting.dateLabel($0.selection.officialDate) }
+            )
+        }
+        if sections.isEmpty {
             if store.sortedMatchups().isEmpty {
                 // Whole slate empty → season-aware copy (off-season vs. mid-refresh).
                 seasonEmptyTile(for: .mlb, systemImage: "baseball")
@@ -605,23 +690,15 @@ struct PropsView: View {
                 emptyTile(label: mlbFilteredEmptyLabel, systemImage: "baseball")
             }
         } else {
-            let sections = GameDateGrouping.group(
-                items,
-                key: { GameDateGrouping.dateKey(from: $0.sortDate) },
-                label: { MLBFormatting.dateLabel($0.selection.officialDate) }
-            )
             ForEach(sections, id: \.key) { section in
                 Section {
-                    // Enumerate so each card gets a staggered fade-in index as
-                    // the loaded feed replaces the shimmer skeleton.
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
+                    ForEach(section.items) { item in
                         PropPlayerCard(
                             item: item,
                             namespace: cardTransition,
                             onSelect: { selectedProp = $0 }
                         )
                         .padding(.horizontal, 12)
-                        .staggeredAppear(index: index)
                     }
                 } header: {
                     sectionHeader(section.label)
