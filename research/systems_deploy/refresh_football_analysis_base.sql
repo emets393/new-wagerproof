@@ -77,7 +77,7 @@ BEGIN
     fg_won, fg_covered, is_favorite, team_ml, tt_line, tt_over, has_tt,
     h1_spread, h1_covered, h1_won, h1_total, h1_total_over, has_h1,
     referee, dome, temperature, wind_speed, is_division, team_division,
-    is_primetime, day_of_week, season_type
+    is_primetime, day_of_week, season_type, coach, opp_coach, surface
   )
   SELECT
     (th.loc || ta.loc || ex.season::text || lpad(ex.week::text,2,'0'))
@@ -133,10 +133,15 @@ BEGIN
     CASE WHEN ex.is_home THEN th.div ELSE ta.div END,
     (extract(hour FROM (ex.kickoff AT TIME ZONE 'America/New_York')) >= 19),
     to_char(ex.gameday, 'Dy'),
-    CASE WHEN ex.week <= 18 THEN 'regular' ELSE 'postseason' END
+    CASE WHEN ex.week <= 18 THEN 'regular' ELSE 'postseason' END,
+    -- coach/opp_coach/surface: not in dryrun_games -> from the nflverse meta patch (load_nab_patch.py)
+    CASE WHEN ex.is_home THEN p.home_coach ELSE p.away_coach END,
+    CASE WHEN ex.is_home THEN p.away_coach ELSE p.home_coach END,
+    p.surface
   FROM ex
   JOIN tm th ON th.ab = ex.home_ab
-  JOIN tm ta ON ta.ab = ex.away_ab;
+  JOIN tm ta ON ta.ab = ex.away_ab
+  LEFT JOIN _nab_patch p ON p.game_id = ex.game_id;
 
   GET DIAGNOSTICS v_n = ROW_COUNT;
   RETURN v_n;

@@ -34,6 +34,9 @@ python3 fill_finals.py --write
 echo; echo ">>> 2) NFL player game logs (nflverse), whole season (idempotent upsert)"
 python3 ingest_player_logs.py "$SEASON" --write
 
+echo; echo ">>> 2b) NFL game meta (coach + surface) -> _nab_patch (refresh_nfl_analysis_base joins it)"
+python3 load_nab_patch.py
+
 echo; echo ">>> 3-4) grade NFL props + grade picks + refresh signal_performance"
 # psycopg2 over DATABASE_URL (no psql binary). Idempotent; skips with a note if DATABASE_URL unset.
 # This ALSO appends completed games into {nfl,cfb}_analysis_base (Stage 1 of the historical-

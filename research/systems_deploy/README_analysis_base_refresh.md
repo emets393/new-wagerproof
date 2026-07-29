@@ -11,7 +11,8 @@ Warehouse: **`jpxnjuwglavsjbgbasnl`** (`collegeFootballSupabase`). Both base tab
 
 | Stage | What | Where | Runs |
 |-------|------|-------|------|
-| 1 — core facts | `refresh_nfl_analysis_base(season)` / `refresh_cfb_analysis_base(season)` turn every completed `*_dryrun_games` row (`final_home` set) into the 2 exploded rows with ATS/OU/TT/1H results, weather, referee (NFL), conference/rank/neutral-site (CFB). | `refresh_football_analysis_base.sql` (SQL fns) → called by `run_grade_rpcs.py` | daily, in `grade_week.sh` |
+| 0 — NFL meta | `load_nab_patch.py` stages coach + normalized surface (nflverse `games.csv`, all seasons) into `_nab_patch`. Stage 1 LEFT JOINs it. | `load_nab_patch.py` | daily, in `grade_week.sh` (before Stage 1) |
+| 1 — core facts | `refresh_nfl_analysis_base(season)` / `refresh_cfb_analysis_base(season)` turn every completed `*_dryrun_games` row (`final_home` set) into the 2 exploded rows with ATS/OU/TT/1H results, weather, referee + coach + surface (NFL), conference/rank/neutral-site (CFB). | `refresh_football_analysis_base.sql` (SQL fns) → called by `run_grade_rpcs.py` | daily, in `grade_week.sh` |
 | 2 — asof features | `asof_features_{nfl,cfb}.py` recompute the season-to-date / streak / h2h / opponent / prev-year family leak-safely and `deploy_asof.py` merges them back. | `refresh_analysis_asof.sh` | daily, in `grade_week.sh` (non-fatal; needs `SUPABASE_PAT`) |
 
 Stage 1 alone makes completed games queryable for the core filters (spread/total/ATS/OU/team-total/
@@ -24,12 +25,15 @@ Both RPCs **DELETE + re-insert scoped to `p_season`** and are idempotent within 
 richer parquet-built columns (coach, surface, `_px`) that this SQL path does not populate, and would
 be thinned out. `grade_week.sh` always passes the current season.
 
-## Known column gaps for the SQL-appended (2026+) rows
+## Column coverage for the SQL-appended (2026+) rows
 
-`coach` / `opp_coach` / `surface` (NFL) are not in `*_dryrun_games`; they stay NULL until the
-nflverse `load_nab_patch.py` coach patch is extended to the live season. Everything the primary
-trend filters use is populated. Convention correctness validated exactly against existing base rows
-(`2025_12_PHI_DAL` for NFL, game `401762484` Temple/Navy for CFB).
+`coach` / `opp_coach` / `surface` (NFL) come from `_nab_patch` (Stage 0) — populated for the live
+season as the nflverse schedule fills in. Everything the trend filters use is populated. Convention
+correctness validated exactly against existing base rows: `2025_12_PHI_DAL` for NFL (incl. coach
+Brian Schottenheimer / Nick Sirianni + surface Turf), game `401762484` Temple/Navy for CFB.
+
+Still NULL until a live source exists: 1H results (`h1_*`) settle only once a halftime-score feed is
+wired (tracking-tier, same gap as the pick/agent graders).
 
 ## Manual run
 
