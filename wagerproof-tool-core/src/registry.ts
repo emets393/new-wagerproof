@@ -15,6 +15,7 @@ import { getMarketOdds } from "./tools/sports/getMarketOdds.js";
 import { getEditorPicks } from "./tools/sports/getEditorPicks.js";
 import { agentTools } from "./tools/user/agents.js";
 import { communityTools } from "./tools/user/community.js";
+import { sqlExplorationTools } from "./tools/sports/querySportsDatabase.js";
 
 /** Public sports/analytics tools (global data, no user identity). */
 export const sportsTools: Tool[] = [
@@ -25,8 +26,9 @@ export const sportsTools: Tool[] = [
   getEditorPicks,
 ];
 
-/** The signed-in user's own data (RLS-scoped). */
-export const userTools: Tool[] = [...agentTools, ...communityTools];
+/** The signed-in user's own data (RLS-scoped), plus signed-in-only capabilities
+ *  like raw SQL exploration (global data, gated behind sign-in on purpose). */
+export const userTools: Tool[] = [...agentTools, ...communityTools, ...sqlExplorationTools];
 
 export interface RegistryOptions {
   /** Include the user's own data tools (requires a user-scoped client + userId). */

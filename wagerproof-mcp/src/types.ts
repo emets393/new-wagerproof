@@ -25,6 +25,10 @@ export interface Env {
   // CFB Supabase (sports predictions). Anon key is publishable; RLS/grants gate it.
   CFB_URL: string;
   CFB_ANON_KEY: string;
+  /** Service-role key for the CFB project. SECRET. Required only by the raw-SQL
+   *  exploration tools (mcp_run_sql / mcp_schema_catalog are EXECUTE-granted to
+   *  service_role only); everything else runs on the anon key. */
+  CFB_SERVICE_ROLE_KEY?: string;
 
   MCP_BASE_URL: string;
   /** Comma-separated Origin allowlist for /mcp callers. */

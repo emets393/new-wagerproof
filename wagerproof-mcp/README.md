@@ -47,6 +47,13 @@ Claude/ChatGPT ──Bearer─▶ POST /mcp (JSON-RPC: initialize / tools/list /
 `get_my_record`.
 **Public analytics**: `get_sport_predictions`, `get_game_detail`, `search_games`,
 `get_market_odds`, `get_editor_picks`.
+**SQL exploration** (signed-in only): `query_sports_database` — one read-only
+SELECT per call against the sports warehouse, executed by `public.mcp_run_sql`
+on the CFB project (SELECT-only grammar check, runs as the SELECT-only
+`mcp_explorer` role, 12s statement timeout, 400-row cap, service-role-only
+EXECUTE) — and `get_sports_schema`, the table/column catalog. Both require the
+`CFB_SERVICE_ROLE_KEY` secret; without it they return a clear
+"not configured" error.
 
 ## Local development
 
@@ -70,6 +77,7 @@ exists (complete the sign-in flow against a deployed instance with real keys).
 
 Secrets (`wrangler secret put`):
 - `MAIN_SERVICE_ROLE_KEY` — service-role key for **global** Main reads (Polymarket, editor picks).
+- `CFB_SERVICE_ROLE_KEY` — service-role key for the CFB project; enables the SQL exploration tools.
 - `TOKEN_ENC_KEY` — `openssl rand -base64 32` (encrypts refresh tokens at rest).
 
 ## One-time Supabase console setup

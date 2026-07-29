@@ -170,3 +170,11 @@ export function createServiceMainClient(env: Env): SupabaseLikeClient {
 export function createCfbClient(env: Env): SupabaseLikeClient {
   return toLike(createClient(env.CFB_URL, env.CFB_ANON_KEY, NO_PERSIST));
 }
+
+/** Service-role CFB client — ONLY for the raw-SQL exploration tools, whose RPCs
+ *  deny anon. Undefined when the secret isn't configured, so those tools fail
+ *  with a clear message instead of a confusing permission error. */
+export function createCfbServiceClient(env: Env): SupabaseLikeClient | undefined {
+  if (!env.CFB_SERVICE_ROLE_KEY) return undefined;
+  return toLike(createClient(env.CFB_URL, env.CFB_SERVICE_ROLE_KEY, NO_PERSIST));
+}
