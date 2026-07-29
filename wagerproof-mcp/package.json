@@ -5,7 +5,10 @@
   "description": "WagerProof MCP connector — remote MCP server with OAuth (\"Sign in with WagerProof\") exposing a user's agents/picks and WagerProof's model analytics to AI assistants. Read-only v1.",
   "type": "module",
   "scripts": {
+    "build:assets": "node scripts/build-assets.mjs",
+    "predev": "npm run build:assets",
     "dev": "wrangler dev",
+    "predeploy": "npm run build:assets",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "tail": "wrangler tail"

@@ -209,6 +209,16 @@ wagerproof-ios-native/
 - Public read-only MCP server (`wagerproof-mcp/`, Cloudflare Worker) sharing tool logic with `wagerproof-tool-core/`
 - Users connect it from `/connect-ai` on web or Settings in iOS native
 - Deployed at a `*.workers.dev` subdomain (the `mcp.wagerproof.bet` custom domain is not yet live)
+- Consent page offers **Google, Apple, and email** sign-in (`GOOGLE_ENABLED` /
+  `APPLE_ENABLED` / `EMAIL_ENABLED` vars). Copy is deliberately provider-neutral
+  ("your AI provider"), never "Claude" — the connector also serves ChatGPT et al.
+- **Apple web sign-in needs a client-secret JWT that expires every 6 months** and
+  fails silently because native iOS Apple sign-in uses a different mechanism with
+  no secret. Symptom: `Unable to exchange external code`. See the
+  `apple-web-signin-secret` skill and `.claude/docs/06_auth_seo_deploy.md`
+- The Supabase redirect allowlist glob-matches the WHOLE `redirect_to` and falls
+  back to Site URL on mismatch, so the consent page keeps its `ls` handle in
+  localStorage, not a query param — don't "tidy" it back into the URL
 
 ### 10. Meta Attribution
 - Acquisition funnel reported to Meta Ads: install, CompleteRegistration, ViewContent

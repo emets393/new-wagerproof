@@ -23,7 +23,6 @@ const authReqKey = (ls: string) => `authreq:${ls}`;
 authApp.get("/authorize", async (c) => {
   const env = c.env;
   const oauthReq = await env.OAUTH_PROVIDER.parseAuthRequest(c.req.raw);
-  const client = await env.OAUTH_PROVIDER.lookupClient(oauthReq.clientId).catch(() => null);
 
   // Carry login state in the URL (an opaque `ls` id in KV), not a cookie —
   // cross-site OAuth redirects drop cookies.
@@ -32,12 +31,11 @@ authApp.get("/authorize", async (c) => {
     expirationTtl: AUTHREQ_TTL_SECONDS,
   });
 
-  const clientName = (client && (client.clientName || client.clientId)) || "an application";
-
+  // No lookupClient here: the consent copy is provider-neutral, so the calling
+  // client's name is never rendered and there is nothing to look up.
   return c.html(
     renderConsent({
       ls,
-      clientName,
       baseUrl: env.MCP_BASE_URL,
       supabaseUrl: env.MAIN_URL,
       supabaseAnonKey: env.MAIN_ANON_KEY,
@@ -146,18 +144,21 @@ function page(title: string, bodyHtml: string): string {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;800&display=swap" rel="stylesheet" />
 <style>
+  /* Palette sampled from the app icon: deep teal ground (#04242c), logo green
+     (#7fd858) for links, brand green-700 (#15803d) for solid buttons — green-600
+     (#16a34a) only clears 3.3:1 against white text, below AA for body sizes. */
   :root { color-scheme: dark; }
-  body { font-family:'Inter',-apple-system,system-ui,sans-serif; color:#E5E7EB; line-height:1.55;
+  body { font-family:'Inter',-apple-system,system-ui,sans-serif; color:#D6E4E3; line-height:1.55;
          max-width:44rem; margin:0 auto; padding:3rem 1.25rem 5rem;
-         background: radial-gradient(1200px 480px at 50% -10%, #1f2a44 0, #0b0f17 60%) no-repeat, #0b0f17; }
-  img.logo { width:64px; height:64px; border-radius:16px; box-shadow:0 4px 20px rgba(99,102,241,.4); }
+         background: radial-gradient(1200px 480px at 50% -10%, #0d4450 0, #04242c 55%, #021418 100%) no-repeat, #04242c; }
+  img.logo { width:64px; height:64px; border-radius:16px; box-shadow:0 4px 20px rgba(22,163,74,.35); }
   h1 { font-weight:800; font-size:1.7rem; margin:1rem 0 .25rem; color:#fff; }
   h2 { font-weight:800; font-size:1.15rem; margin:2rem 0 .5rem; color:#fff; }
-  p, li { color:#C7CBD3; }
-  a { color:#818cf8; }
-  code { background:#111827; border:1px solid #1f2937; border-radius:6px; padding:.1rem .35rem; font-size:.9em; color:#A5B4FC; }
+  p, li { color:#D6E4E3; }
+  a { color:#7fd858; }
+  code { background:#07202a; border:1px solid #17414c; border-radius:6px; padding:.1rem .35rem; font-size:.9em; color:#A7E9A0; }
   nav a { margin-right:1rem; font-weight:600; }
-  .muted { color:#7B8290; font-size:.85rem; }
+  .muted { color:#93A9AC; font-size:.85rem; }
   ul { padding-left:1.2rem; }
 </style></head><body>${bodyHtml}
 <p class="muted" style="margin-top:3rem">WagerProof · <a href="/">Home</a> · <a href="/docs">Docs</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
@@ -170,7 +171,7 @@ authApp.get("/", (c) =>
       "WagerProof connector",
       `<img class="logo" src="/icon.png" alt="WagerProof" />
        <h1>WagerProof connector</h1>
-       <p>Connect your <strong>WagerProof</strong> account to Claude (or another MCP client) and ask about your own AI prediction agents and their track record, plus WagerProof's model estimates and prediction-market odds across NFL, NBA, CFB, NCAAB, and MLB. It is <strong>read-only</strong> and informational — it does not place bets or give betting advice.</p>
+       <p>Connect your <strong>WagerProof</strong> account to your AI provider and ask about your own AI prediction agents and their track record, plus WagerProof's model estimates and prediction-market odds across NFL, NBA, CFB, NCAAB, and MLB. It is <strong>read-only</strong> and informational — it does not place bets or give betting advice.</p>
        <nav style="margin-top:1.5rem"><a href="/docs">Setup &amp; examples →</a><a href="/privacy">Privacy policy →</a></nav>
        <p class="muted" style="margin-top:1.5rem">MCP endpoint: <code>${c.env.MCP_BASE_URL}/mcp</code></p>`,
     ),
@@ -183,11 +184,11 @@ authApp.get("/docs", (c) =>
       "WagerProof connector — Setup & usage",
       `<img class="logo" src="/icon.png" alt="WagerProof" />
        <h1>WagerProof connector</h1>
-       <p>The WagerProof connector lets an AI assistant read your own WagerProof data — your AI prediction agents, their picks and records, the agents you follow, your community activity — and WagerProof's public model estimates and prediction-market odds. It is <strong>read-only</strong> and <strong>informational</strong>: it reports model probabilities and historical results for analysis, and never places bets or gives betting advice.</p>
+       <p>The WagerProof connector lets an AI provider read your own WagerProof data — your AI prediction agents, their picks and records, the agents you follow, your community activity — and WagerProof's public model estimates and prediction-market odds. It is <strong>read-only</strong> and <strong>informational</strong>: it reports model probabilities and historical results for analysis, and never places bets or gives betting advice.</p>
 
        <h2>Connect it</h2>
        <ol>
-         <li>In Claude, open <strong>Settings → Connectors → Add custom connector</strong>.</li>
+         <li>In your AI provider, open <strong>Settings → Connectors → Add custom connector</strong>.</li>
          <li>Enter the URL <code>${c.env.MCP_BASE_URL}/mcp</code> and add it.</li>
          <li>Click <strong>Connect</strong>, then sign in with the same account you use in the WagerProof app.</li>
          <li>Approve the read-only access. The WagerProof tools are now available in your chat.</li>
@@ -214,12 +215,12 @@ authApp.get("/docs", (c) =>
        <h2>Troubleshooting</h2>
        <ul>
          <li><strong>No data returned?</strong> Sign in with the same account you use in the WagerProof app, and confirm you've created agents or logged picks there.</li>
-         <li><strong>Wrong account?</strong> Remove the connector in your AI client's settings and re-add it, then sign in with the right account.</li>
+         <li><strong>Wrong account?</strong> Remove the connector in your AI provider's settings and re-add it, then sign in with the right account.</li>
          <li><strong>Permissions or expired-session error?</strong> Disconnect and reconnect WagerProof to refresh authorization.</li>
        </ul>
 
        <h2>Access &amp; privacy</h2>
-       <p>Your own data is scoped to your account only. You can disconnect at any time in your AI client's connector settings. See the <a href="/privacy">privacy policy</a>.</p>`,
+       <p>Your own data is scoped to your account only. You can disconnect at any time in your AI provider's connector settings. See the <a href="/privacy">privacy policy</a>.</p>`,
     ),
   ),
 );
@@ -230,7 +231,7 @@ authApp.get("/privacy", (c) =>
       "WagerProof connector — Privacy policy",
       `<h1>Privacy policy — WagerProof connector</h1>
        <p class="muted">Last updated: 2026. Operated by WagerProof.</p>
-       <p>This policy covers the <strong>WagerProof connector</strong> (the remote MCP server at <code>${c.env.MCP_BASE_URL}</code>) that lets an AI assistant read your WagerProof data. It is read-only.</p>
+       <p>This policy covers the <strong>WagerProof connector</strong> (the remote MCP server at <code>${c.env.MCP_BASE_URL}</code>) that lets an AI provider read your WagerProof data. It is read-only.</p>
 
        <h2>What we access</h2>
        <p>After you sign in and grant access, the connector reads — on your request — your own WagerProof data (your AI agents, their picks and records, your follows and community activity) and WagerProof's public model estimates and odds. It cannot create, modify, or delete anything, and it cannot read another user's private data.</p>
@@ -238,14 +239,14 @@ authApp.get("/privacy", (c) =>
        <h2>What we store</h2>
        <ul>
          <li>An authentication token (a Supabase refresh token) tied to your account, stored encrypted in Cloudflare Workers KV, so the connector can fetch your data when you ask. Short-lived access tokens are cached for up to ~1 hour.</li>
-         <li>We do <strong>not</strong> store the contents of your data. It is fetched live and returned to the AI assistant you connected; it is not retained by the connector.</li>
+         <li>We do <strong>not</strong> store the contents of your data. It is fetched live and returned to the AI provider you connected; it is not retained by the connector.</li>
        </ul>
 
        <h2>How your data is shared</h2>
-       <p>When you ask a question, the requested data is returned to the AI assistant you explicitly connected (e.g. Claude or ChatGPT), subject to that provider's own privacy policy. We do not sell your data. Service providers used to operate the connector: Supabase (your WagerProof account &amp; data) and Cloudflare (hosting and encrypted token storage).</p>
+       <p>When you ask a question, the requested data is returned to the AI provider you explicitly connected, subject to that provider's own privacy policy. We do not sell your data. Service providers used to operate the connector: Supabase (your WagerProof account &amp; data) and Cloudflare (hosting and encrypted token storage).</p>
 
        <h2>Retention &amp; your control</h2>
-       <p>Stored tokens are retained until you disconnect the connector (in your AI client's connector settings) or revoke access, after which they are deleted and can no longer be used. You may also contact us to request deletion.</p>
+       <p>Stored tokens are retained until you disconnect the connector (in your AI provider's connector settings) or revoke access, after which they are deleted and can no longer be used. You may also contact us to request deletion.</p>
 
        <h2>Responsible use</h2>
        <p>WagerProof is an analytics product. Information from this connector is for research and entertainment; it is not betting advice and does not guarantee outcomes. If you choose to gamble, do so responsibly and only where legal. Problem-gambling help (US): call or text 1-800-GAMBLER.</p>
@@ -262,7 +263,7 @@ authApp.get("/terms", (c) =>
       "WagerProof connector — Terms of Service",
       `<h1>Terms of Service — WagerProof connector</h1>
        <p class="muted">Last updated: 2026. Operated by WagerProof ("we").</p>
-       <p>These terms govern your use of the <strong>WagerProof connector</strong> (the remote MCP server at <code>${c.env.MCP_BASE_URL}</code>), which lets an AI assistant read your WagerProof data on your behalf. By connecting it, you agree to these terms.</p>
+       <p>These terms govern your use of the <strong>WagerProof connector</strong> (the remote MCP server at <code>${c.env.MCP_BASE_URL}</code>), which lets an AI provider read your WagerProof data on your behalf. By connecting it, you agree to these terms.</p>
 
        <h2>What it does</h2>
        <p>The connector provides <strong>read-only</strong> access to your own WagerProof data and to WagerProof's public model estimates and odds. It does not create, modify, or delete your data, place bets, or facilitate any gambling transaction.</p>
@@ -292,7 +293,6 @@ authApp.get("/terms", (c) =>
 
 interface ConsentConfig {
   ls: string;
-  clientName: string;
   baseUrl: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
@@ -307,34 +307,37 @@ const EMAIL_SVG = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" s
 
 function consentStyles(): string {
   return `<style>
+  /* Same brand palette as the public pages — see page() for the contrast note. */
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  body { font-family:'Inter',-apple-system,system-ui,sans-serif; margin:0; color:#E5E7EB;
+  body { font-family:'Inter',-apple-system,system-ui,sans-serif; margin:0; color:#D6E4E3;
          min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
-         background: radial-gradient(1000px 460px at 50% -10%, #1f2a44 0, #0b0f17 60%) no-repeat, #0b0f17; }
-  .card { width:100%; max-width:26rem; background:#111827; border:1px solid #1f2937; border-radius:24px;
+         background: radial-gradient(1000px 460px at 50% -10%, #0d4450 0, #04242c 55%, #021418 100%) no-repeat, #04242c; }
+  .card { width:100%; max-width:26rem; background:#0a2c35; border:1px solid #17414c; border-radius:24px;
           padding:2rem 1.75rem; box-shadow:0 20px 60px rgba(0,0,0,.5); text-align:center; }
-  .logo { width:64px; height:64px; border-radius:16px; box-shadow:0 4px 20px rgba(99,102,241,.45); }
+  .logo { width:64px; height:64px; border-radius:16px; box-shadow:0 4px 20px rgba(22,163,74,.4); }
   h1 { font-size:1.4rem; font-weight:800; margin:.75rem 0 0; color:#fff; }
-  .sub { color:#9CA3AF; margin:.5rem 0 1.5rem; font-size:.95rem; line-height:1.45; font-weight:500; }
+  .sub { color:#A8BFC1; margin:.5rem 0 1.5rem; font-size:.95rem; line-height:1.45; font-weight:500; }
   .btn { width:100%; height:50px; border-radius:999px; border:1px solid transparent; cursor:pointer;
          font-family:'Inter',sans-serif; font-weight:600; font-size:16px; margin-bottom:10px;
          display:flex; align-items:center; justify-content:center; gap:10px;
          transition: transform .12s ease, opacity .12s ease; }
   .btn:active { transform: scale(.98); opacity:.9; }
   .btn:disabled { opacity:.5; cursor:default; }
-  .btn.primary { background:#6366f1; color:#fff; }
-  .btn.dark { background:#fff; color:#0b0f17; }
-  .btn.light { background:#0b0f17; color:#E5E7EB; border-color:#374151; }
+  .btn.primary { background:#15803d; color:#fff; }
+  .btn.dark { background:#fff; color:#04242c; }
+  .btn.light { background:#04242c; color:#D6E4E3; border-color:#17414c; }
   .btn svg { flex:none; }
-  .field { width:100%; height:50px; padding:0 1rem; border-radius:999px; border:1px solid #374151;
-           background:#0b0f17; color:#E5E7EB; font-family:'Inter',sans-serif; font-size:16px; margin-bottom:10px; }
+  .field { width:100%; height:50px; padding:0 1rem; border-radius:999px; border:1px solid #17414c;
+           background:#04242c; color:#D6E4E3; font-family:'Inter',sans-serif; font-size:16px; margin-bottom:10px; }
+  .field::placeholder { color:#7E9599; }
+  .field:focus { outline:none; border-color:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,.25); }
   .msg { font-size:.9rem; margin-top:.75rem; min-height:1.2rem; font-weight:500; }
   .msg.err { color:#F87171; }
-  .msg.ok { color:#34D399; }
-  .foot { font-size:.72rem; color:#7B8290; margin-top:1.25rem; font-weight:500; line-height:1.4; }
-  .divider { display:flex; align-items:center; gap:.6rem; color:#6B7280; font-size:.78rem; margin:.5rem 0; }
-  .divider::before, .divider::after { content:""; flex:1; height:1px; background:#1f2937; }
+  .msg.ok { color:#7fd858; }
+  .foot { font-size:.72rem; color:#93A9AC; margin-top:1.25rem; font-weight:500; line-height:1.4; }
+  .divider { display:flex; align-items:center; gap:.6rem; color:#8FA6A9; font-size:.78rem; margin:.5rem 0; }
+  .divider::before, .divider::after { content:""; flex:1; height:1px; background:#17414c; }
 </style>`;
 }
 
@@ -368,7 +371,7 @@ ${consentStyles()}
   <div class="card">
     <img class="logo" src="/icon.png" alt="WagerProof" />
     <h1>Connect WagerProof</h1>
-    <p class="sub">Sign in to let <strong id="client"></strong> read your WagerProof agents, picks, and model analytics. This connection is <strong>read-only</strong>.</p>
+    <p class="sub">Sign in to let your AI provider read your WagerProof agents, picks, and model analytics.</p>
     ${googleBtn}
     ${appleBtn}
     ${oauthDivider}
@@ -381,7 +384,6 @@ ${consentStyles()}
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
   var CFG = JSON.parse(document.getElementById("wp-config").textContent);
-  document.getElementById("client").textContent = CFG.clientName;
 
   var supabase = createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {
     auth: { flowType: "pkce", detectSessionInUrl: false, persistSession: true, autoRefreshToken: false }
@@ -409,9 +411,16 @@ ${consentStyles()}
   // Google/Apple → full-page redirect to provider, returns to /oauth-return.
   async function oauth(provider){
     disableAll(true); setMsg("");
+    // Carry ls in localStorage, NOT in the redirect URL. Supabase glob-matches
+    // the whole redirect_to against its allowlist and silently falls back to the
+    // project Site URL on any mismatch — so appending "?ls=..." to an allowlisted
+    // ".../oauth-return" dumps the user on the marketing site mid-sign-in. Keeping
+    // the URL bare means one exact allowlist entry works. Same origin as
+    // /oauth-return, and PKCE already relies on this store surviving the trip.
+    try { localStorage.setItem("wp_ls", CFG.ls); } catch(e){}
     var { error } = await supabase.auth.signInWithOAuth({
       provider: provider,
-      options: { redirectTo: CFG.baseUrl + "/oauth-return?ls=" + encodeURIComponent(CFG.ls) }
+      options: { redirectTo: CFG.baseUrl + "/oauth-return" }
     });
     if(error){ setMsg(error.message||"Sign-in failed","err"); disableAll(false); }
   }
@@ -460,7 +469,11 @@ ${consentStyles()}
 
   (async function(){
     var url = new URL(window.location.href);
-    var ls = url.searchParams.get("ls");
+    // localStorage is the real carrier (see oauth() above); the query param is
+    // only honored as a fallback for a link minted by an older build.
+    var ls = null;
+    try { ls = localStorage.getItem("wp_ls"); } catch(e){}
+    if(!ls) ls = url.searchParams.get("ls");
     var code = url.searchParams.get("code");
     var errDesc = url.searchParams.get("error_description");
     if(errDesc){ fail(errDesc); return; }
@@ -482,6 +495,9 @@ ${consentStyles()}
       body: JSON.stringify({ ls: ls, access_token: session.access_token, refresh_token: session.refresh_token })
     });
     if(!res.ok){ var e = await res.json().catch(function(){return {};}); fail("Could not complete sign-in: " + (e.error||res.status)); return; }
+    // Drop the stashed id as soon as it's been consumed — a leftover would let a
+    // later return with no ls param complete the wrong client's pending request.
+    try { localStorage.removeItem("wp_ls"); } catch(e){}
     var out = await res.json();
     window.location.href = out.redirectTo;
   })();

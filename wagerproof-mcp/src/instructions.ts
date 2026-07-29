@@ -9,9 +9,20 @@ Use the list_my_* / get_my_* tools for anything about the user's own agents, the
 
 This connector is READ-ONLY and informational. It reports model probabilities, historical performance, and market prices for analysis and research. It does not place bets, does not facilitate gambling, and does not give betting advice or guarantee outcomes. Sports outcomes are uncertain. Present model numbers as model estimates, attribute odds to their source, and note when data is unavailable rather than inventing it.`;
 
-export const SERVER_INFO = {
-  name: "WagerProof",
-  title: "WagerProof",
-  version: "0.1.0",
-  icons: [{ src: "/icon.png", mimeType: "image/png", sizes: ["256x256"] }],
-};
+/**
+ * `serverInfo` for `initialize`. Built per-request because the MCP schema types
+ * `Icon.src` as `@format uri` — a bare "/icon.png" is a relative reference, not a
+ * URI, and a client has no obligation to resolve it against the endpoint it
+ * dialed. Absolute means the icon renders wherever the connector is listed.
+ */
+export function serverInfo(baseUrl: string) {
+  // A configured MCP_BASE_URL with a trailing slash would yield "host//icon.png".
+  const base = baseUrl.replace(/\/+$/, "");
+  return {
+    name: "WagerProof",
+    title: "WagerProof",
+    version: "0.1.0",
+    websiteUrl: base,
+    icons: [{ src: `${base}/icon.png`, mimeType: "image/png", sizes: ["256x256"] }],
+  };
+}
