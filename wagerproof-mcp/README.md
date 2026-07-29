@@ -35,9 +35,11 @@ Claude/ChatGPT ──Bearer─▶ POST /mcp (JSON-RPC: initialize / tools/list /
 | `src/index.ts` | `OAuthProvider` wiring (apiRoute `/mcp`, `/authorize` `/token` `/register`) |
 | `src/mcp-handler.ts` | Stateless Streamable-HTTP JSON-RPC; builds per-tool two-tier context |
 | `src/auth-app.ts` | Consent page (Supabase sign-in), `/oauth-return`, `/callback`, `/docs` `/privacy` `/terms`, icon, RFC 9728 metadata |
+| `scripts/build-assets.mjs` | Generates `public/` (static-asset icon) from `src/icon.ts`; runs via `predev`/`predeploy` |
+| `scripts/apple-client-secret.mjs` | Regenerates the Apple web client-secret JWT for Supabase (expires every 6 months) |
 | `src/supabase.ts` | Token verify, refresh exchange (+ rotation), AES-GCM, client factories |
 | `src/instructions.ts` | The `initialize` instructions string + serverInfo |
-| `src/icon.ts` | Connector icon (**placeholder — replace with the real logo**) |
+| `src/icon.ts` | Connector icon — base64 WagerProof shield, 256×256 from the iOS `AppIcon-1024.png` |
 
 ### Tools (all read-only)
 **Your data** (RLS-scoped): `list_my_agents`, `get_agent_performance`,
@@ -74,9 +76,31 @@ Secrets (`wrangler secret put`):
 
 1. **Allowed redirect URLs** (Auth → URL Configuration): add
    `https://<worker-host>/oauth-return` (workers.dev URL first, then the custom
-   domain). Required for Google/Apple sign-in.
+   domain). Required for Google/Apple sign-in — this exact URL, no wildcard.
+   Supabase glob-matches the *whole* `redirect_to` and, on any mismatch, silently
+   substitutes the project Site URL (the symptom is landing on wagerproof.bet
+   mid-sign-in rather than an error). That is why the consent page carries its
+   `ls` login-state handle in same-origin `localStorage` instead of a query
+   param — appending one would break the match against this entry.
 2. **Providers**: enable Email, and Google/Apple if you flip their `*_ENABLED`
-   vars to `"true"`. (Email works with no extra provider config.)
+   vars to `"true"`. (Email works with no extra provider config.) Both are
+   already enabled on the Main project, and both vars ship as `"true"`.
+3. **Apple needs a web client secret.** The native apps use
+   `signInWithIdToken(provider:.apple)`, which needs only the bundle id
+   (`com.wagerproof.mobile`) and NO secret. This connector is the only caller of
+   the web flow, which exchanges Apple's code using a Services ID
+   (`com.wagerproof.mobile.auth`) plus an ES256 client-secret JWT. Apple caps that
+   JWT at 6 months, so it expires silently — every step before the exchange works
+   without it, and the only symptom is Supabase's `Unable to exchange external
+   code: <code>` *after* Apple has already accepted the sign-in. Regenerate with:
+
+   ```bash
+   node scripts/apple-client-secret.mjs --key AuthKey_<KEYID>.p8 \
+     --key-id <KEYID> --team-id <TEAMID> --services-id com.wagerproof.mobile.auth
+   ```
+
+   Paste the output into Auth → Providers → Apple → **Secret Key (for OAuth)**.
+   Note `sub` must be the Services ID, not the bundle id.
 3. **RLS audit** (critical — see below) before exposing user tools.
 
 ## Deploy
@@ -101,8 +125,12 @@ wrangler deploy                            # Stage 1: *.workers.dev
       returns only the signed-in user's rows; confirm sports tools return the
       same global data for both.
 - [ ] Seed a **test account** so every tool returns non-empty data.
-- [ ] Favicon shows the brand mark (replace `src/icon.ts` placeholder first):
-      `https://www.google.com/s2/favicons?domain=<host>`.
+- [x] Favicon shows the brand mark — `src/icon.ts` holds the real WagerProof
+      shield, downscaled to 256×256 from the iOS `AppIcon-1024.png` so the
+      connector listing matches the App Store icon. `public/` is generated from it
+      at deploy time, so never hand-edit `public/icon.png`: Cloudflare serves
+      assets ahead of the worker route and a stale file there would silently win.
+      Check with `https://www.google.com/s2/favicons?domain=<host>`.
 - [ ] `/docs`, `/privacy`, `/terms` live and public.
 
 ## RLS audit (do before exposing user tools)

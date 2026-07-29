@@ -6,7 +6,7 @@ import {
   type ToolContext,
 } from "@wagerproof/tool-core";
 import type { Env, Props } from "./types";
-import { INSTRUCTIONS, SERVER_INFO } from "./instructions";
+import { INSTRUCTIONS, serverInfo } from "./instructions";
 import {
   createCfbClient,
   createServiceMainClient,
@@ -82,7 +82,7 @@ async function handleMessage(msg: JsonRpcRequest, env: Env, props: Props): Promi
       return ok(id, {
         protocolVersion: clientProtocol,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: SERVER_INFO,
+        serverInfo: serverInfo(env.MCP_BASE_URL),
         instructions: INSTRUCTIONS,
       });
     }

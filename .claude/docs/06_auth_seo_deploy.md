@@ -26,6 +26,42 @@ const signInWithProvider = async (provider: 'google' | 'apple') => {
 - `Welcome.tsx` - Welcome page with Google button
 - `Account.tsx` - Account settings
 
+### Sign in with Apple — two mechanisms, do not conflate (verified 2026-07-28)
+
+Apple sign-in works one way natively and a completely different way on the web.
+They share no credential, so one can be healthy while the other is broken.
+
+| | Native (iOS app) | Web (MCP connector, web app) |
+|---|---|---|
+| Call | `signInWithIdToken(provider: .apple)` | `signInWithOAuth({provider:'apple'})` |
+| Identifier | Bundle id `com.wagerproof.mobile` | Services ID `com.wagerproof.mobile.auth` |
+| Client secret | **none** | **ES256 JWT, Apple caps at 6 months** |
+| Code | `wagerproof-ios-native/WagerproofKit/Sources/WagerproofStores/AuthStore.swift:139` | `wagerproof-mcp/src/auth-app.ts` |
+
+**The web secret expires silently.** The native path is what gets exercised
+daily and never touches the secret, so nothing surfaces until someone uses web
+sign-in. "Apple login works on the app" is not evidence the web config is fine.
+
+The failure mode is Supabase's `Unable to exchange external code: <code>`. That
+error comes *after* Apple has already accepted the sign-in and returned an
+authorization code — every step before the token exchange works without the
+secret, so this message points squarely at the secret. Renew it with
+`wagerproof-mcp/scripts/apple-client-secret.mjs`; full procedure, known key/team
+IDs, and the pre-paste validation check are in the **`apple-web-signin-secret`
+skill** (`.claude/skills/apple-web-signin-secret/SKILL.md`).
+
+Supabase's **Client IDs** field must list *both* identifiers — dropping the
+bundle id fixes web and breaks the iOS app.
+
+### Supabase redirect allowlist (verified 2026-07-28)
+
+GoTrue glob-matches the **entire** `redirect_to` against Auth → URL
+Configuration, and on any mismatch it does not error — it silently substitutes
+the project Site URL. The symptom is landing on wagerproof.bet mid-sign-in.
+A query string breaks the match, which is why the connector's consent page
+carries its login-state handle in same-origin `localStorage` rather than a
+`?ls=` param.
+
 ---
 
 ## SEO (Web Only)

@@ -6,3 +6,8 @@ wrangler.jsonc
 .dev.vars
 *.log
 .DS_Store
+# Generated from src/icon.ts by scripts/build-assets.mjs (npm predeploy/predev).
+public/
+# Never commit a generated Apple client secret.
+.apple-client-secret.txt
+*.jwt
