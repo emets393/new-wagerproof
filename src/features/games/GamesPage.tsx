@@ -4,6 +4,7 @@ import { SplitViewLayout, useIsDesktopSplit } from '@/components/layout/SplitVie
 import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { trackEvent } from '@/lib/mixpanel';
+import { PAYWALL_ROUTE } from '@/lib/routes';
 import { useGamesFeed, useRefreshGamesFeed } from './hooks/useGamesFeed';
 import { useAgentConsensus } from './hooks/useAgentConsensus';
 import { useGamesUrlState } from './hooks/useGamesUrlState';
@@ -58,7 +59,7 @@ export default function GamesPage() {
   }, [selectedGame?.id, sport]);
 
   const handleLockedClick = React.useCallback(() => {
-    navigate('/account');
+    navigate(PAYWALL_ROUTE);
   }, [navigate]);
 
   return (

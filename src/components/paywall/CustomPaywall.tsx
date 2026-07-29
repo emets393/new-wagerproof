@@ -22,6 +22,7 @@ import {
 } from '@/components/paywall/CustomPaywallFeaturePages';
 import { trackEvent } from '@/lib/mixpanel';
 import { trackInitiateCheckout, trackPaywallView } from '@/lib/metaPixel';
+import { DEFAULT_AUTHENTICATED_ROUTE } from '@/lib/routes';
 
 export interface CustomPaywallProps {
   personalization?: PaywallPersonalization;
@@ -373,7 +374,7 @@ export function CustomPaywall({
   // ── Actions ────────────────────────────────────────────────────────────────
   const handlePurchased = useCallback(() => {
     if (onPurchased) onPurchased();
-    else navigate('/agents');
+    else navigate(DEFAULT_AUTHENTICATED_ROUTE);
   }, [onPurchased, navigate]);
 
   const handlePurchase = async () => {

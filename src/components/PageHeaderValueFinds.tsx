@@ -22,6 +22,7 @@ import { useFreemiumAccess } from '@/hooks/useFreemiumAccess';
 import { useNavigate } from 'react-router-dom';
 import { GlassCard } from '@/components/ios';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PAYWALL_ROUTE } from '@/lib/routes';
 
 interface CompactPick {
   game_id: string;
@@ -384,7 +385,7 @@ export function PageHeaderValueFinds({
                     Upgrade to unlock expert picks
                   </p>
                   <Button
-                    onClick={() => navigate('/account')}
+                    onClick={() => navigate(PAYWALL_ROUTE)}
                     size="sm"
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-xs"
                   >
@@ -436,4 +437,3 @@ export function PageHeaderValueFinds({
     </>
   );
 }
-

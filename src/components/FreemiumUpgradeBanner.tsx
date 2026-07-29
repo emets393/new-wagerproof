@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Lock, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { PAYWALL_ROUTE } from '@/lib/routes';
 
 interface FreemiumUpgradeBannerProps {
   totalGames: number;
@@ -38,7 +39,7 @@ export function FreemiumUpgradeBanner({ totalGames, visibleGames }: FreemiumUpgr
 
           {/* CTA Button */}
           <Button
-            onClick={() => navigate('/access-denied')}
+            onClick={() => navigate(PAYWALL_ROUTE)}
             size="lg"
             className="bg-white text-green-600 hover:bg-white/90 font-bold shadow-lg whitespace-nowrap flex items-center gap-2"
           >
@@ -50,4 +51,3 @@ export function FreemiumUpgradeBanner({ totalGames, visibleGames }: FreemiumUpgr
     </motion.div>
   );
 }
-

@@ -2,9 +2,14 @@ import * as React from 'react';
 import { AlertCircle, RefreshCw, Search, TrendingUp, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StaggeredItem } from '@/components/ios';
+import { FreemiumUpgradeBanner } from '@/components/FreemiumUpgradeBanner';
 import { TrendsSportPicker } from './TrendsSportPicker';
 import { TrendsListCard } from './TrendsListCard';
 import { TrendsListSkeleton } from './TrendsListSkeleton';
+import {
+  FREE_TRENDS_GAME_COUNT,
+  isFreemiumTrendLocked,
+} from '../freemium';
 import { groupTrendsByDate, searchTrendsGames } from '../feedUtils';
 import {
   TRENDS_SPORT_LABELS,
@@ -27,6 +32,8 @@ interface TrendsFeedPanelProps {
   onSelectGame: (id: string) => void;
   sortKey: TrendsSortKey;
   onSortChange: (key: TrendsSortKey) => void;
+  isFreemiumUser: boolean;
+  onLockedClick: () => void;
 }
 
 /**
@@ -45,6 +52,8 @@ export function TrendsFeedPanel({
   onSelectGame,
   sortKey,
   onSortChange,
+  isFreemiumUser,
+  onLockedClick,
 }: TrendsFeedPanelProps) {
   const [searchText, setSearchText] = React.useState('');
 
@@ -63,12 +72,15 @@ export function TrendsFeedPanel({
   let cardIndex = -1;
   const renderCard = (item: TrendsFeedItem) => {
     cardIndex += 1;
+    const isLocked = isFreemiumTrendLocked(games, item.id, isFreemiumUser);
     return (
       <StaggeredItem key={item.id} index={cardIndex}>
         <TrendsListCard
           item={item}
           isSelected={item.id === selectedGameId}
           onSelect={onSelectGame}
+          isLocked={isLocked}
+          onLockedClick={onLockedClick}
         />
       </StaggeredItem>
     );
@@ -169,6 +181,13 @@ export function TrendsFeedPanel({
             ))
           ) : (
             visible.map(renderCard)
+          )}
+
+          {isFreemiumUser && games.length > FREE_TRENDS_GAME_COUNT && (
+            <FreemiumUpgradeBanner
+              totalGames={games.length}
+              visibleGames={FREE_TRENDS_GAME_COUNT}
+            />
           )}
         </div>
       </div>

@@ -108,57 +108,6 @@ export default function AccessDenied() {
             </CardContent>
           </Card>
 
-          {/* Feature Preview Section */}
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-white text-center">What You'll Get</h2>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                {
-                  title: "Historical Analytics",
-                  description: "View past performance patterns and trends",
-                  icon: "📊",
-                },
-                {
-                  title: "Live Score Updates",
-                  description: "Real-time game information and statistics",
-                  icon: "🔴",
-                },
-                {
-                  title: "Pattern Recognition",
-                  description: "AI-powered prediction analysis",
-                  icon: "🤖",
-                },
-                {
-                  title: "Expert Picks",
-                  description: "Premium analyst recommendations",
-                  icon: "⭐",
-                },
-                {
-                  title: "Bet Slip Grader",
-                  description: "Analyze your bet performance",
-                  icon: "📈",
-                },
-              ].map((feature, index) => (
-                <Card 
-                  key={index} 
-                  className="border-white/20 hover:border-white/40 hover:scale-105 transition-all duration-200"
-                  style={{
-                    background: 'rgba(0, 0, 0, 0.3)',
-                    backdropFilter: 'blur(40px)',
-                    WebkitBackdropFilter: 'blur(40px)',
-                    boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.3)'
-                  }}
-                >
-                  <CardContent className="pt-6">
-                    <div className="text-4xl mb-3">{feature.icon}</div>
-                    <h3 className="font-semibold text-white">{feature.title}</h3>
-                    <p className="text-sm text-white/70 mt-1">{feature.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

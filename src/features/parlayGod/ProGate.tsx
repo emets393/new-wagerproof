@@ -7,6 +7,7 @@ import { Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRevenueCat } from '@/contexts/RevenueCatContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { PAYWALL_ROUTE } from '@/lib/routes';
 
 interface ProGateProps {
   /** Shown in the unlock pill, e.g. "Parlay God". */
@@ -34,7 +35,7 @@ export function ProGate({ title, minHeight = 244, children }: ProGateProps) {
       </div>
       <button
         type="button"
-        onClick={() => navigate('/access-denied')}
+        onClick={() => navigate(PAYWALL_ROUTE)}
         className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl backdrop-blur-md transition-colors hover:bg-background/10"
         aria-label={`Unlock ${title}`}
       >
