@@ -33,8 +33,10 @@ import WagerproofStores
 /// every main tab. A passive brand mark (not a button) at 30% opacity so it
 /// reads as a faint watermark. "Proof" picks up the brand green (#00E676) — the
 /// same accent used for the tab bar tint and WagerBot glyph — and catches a
-/// looping shimmer; "Wager" stays in the primary text color.
+/// one-pass shimmer while its tab is active; "Wager" stays in the primary text color.
 struct WagerProofWordmark: View {
+    var isActive: Bool = true
+
     var body: some View {
         // An HStack (spacing 0), not a single concatenated Text, so the shimmer
         // can mask "Proof" on its own. `.fixedSize()` is what stops the leading
@@ -49,7 +51,7 @@ struct WagerProofWordmark: View {
                 // strength — dimming the whole wordmark would wash the shine out,
                 // so the transparency lives on the base color only.
                 .foregroundStyle(Color(hex: 0x00E676).opacity(0.55))
-                .modifier(TextShimmer())
+                .modifier(TextShimmer(isActive: isActive))
         }
         // Default SF Pro design (sharper than `.rounded`), sized down a touch.
         .font(.system(size: 15, weight: .heavy))
@@ -69,15 +71,17 @@ struct WagerProofWordmark: View {
 /// strips that glass so the brand mark floats free as bare text. The pre-26
 /// branch has no glass capsule to hide, so it just renders the item plainly.
 struct WagerProofLeadingToolbarItem: ToolbarContent {
+    var isActive: Bool = true
+
     var body: some ToolbarContent {
         if #available(iOS 26.0, *) {
             ToolbarItem(placement: .topBarLeading) {
-                WagerProofWordmark()
+                WagerProofWordmark(isActive: isActive)
             }
             .sharedBackgroundVisibility(.hidden)
         } else {
             ToolbarItem(placement: .topBarLeading) {
-                WagerProofWordmark()
+                WagerProofWordmark(isActive: isActive)
             }
         }
     }
@@ -91,6 +95,7 @@ struct WagerProofLeadingToolbarItem: ToolbarContent {
 /// (often zero) width inside a toolbar item, which silently kills the sweep —
 /// this is the markiv/SwiftUI-Shimmer trick that sidesteps it.
 private struct TextShimmer: ViewModifier {
+    let isActive: Bool
     @State private var phase: CGFloat = 0
 
     func body(content: Content) -> some View {
@@ -107,8 +112,16 @@ private struct TextShimmer: ViewModifier {
                     }
                     .allowsHitTesting(false)
             }
-            .onAppear {
-                withAnimation(.linear(duration: 1.6).delay(0.3).repeatForever(autoreverses: false)) {
+            .task(id: isActive) {
+                var reset = Transaction()
+                reset.disablesAnimations = true
+                withTransaction(reset) {
+                    phase = 0
+                }
+                guard isActive else { return }
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                withAnimation(.linear(duration: 1.6)) {
                     phase = 1
                 }
             }

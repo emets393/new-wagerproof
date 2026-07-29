@@ -41,6 +41,7 @@ struct ScreenshotHarnessView: View {
     @State private var settingsStore = SettingsStore()
     @State private var proAccessStore: ProAccessStore
     @State private var agentPickAuditStore = AgentPickAuditStore()
+    @State private var followedAgentsStore = FollowedAgentsStore()
 
     init() {
         let rc = RevenueCatStore()
@@ -76,6 +77,7 @@ struct ScreenshotHarnessView: View {
         .environment(settingsStore)
         .environment(proAccessStore)
         .environment(agentPickAuditStore)
+        .environment(followedAgentsStore)
         .preferredColorScheme(themeStore.mode.colorScheme)
         .onAppear {
             // B08 — Settings / paywall / delete-account harness targets all

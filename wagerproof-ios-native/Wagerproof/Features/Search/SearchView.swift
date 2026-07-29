@@ -94,6 +94,9 @@ struct SearchView: View {
     /// Historical Trends leaf pushed from the Explore rail's Trends drawer.
     @State private var trendsDestination: HistoricalAnalysisSport?
     @State private var showTrendsDrawer = false
+    /// Let the detached-search focus/keyboard transition commit before starting
+    /// the decorative Explore and agent-card animation loops.
+    @State private var exploreAnimationsReady = false
     /// Sport chosen inside the drawer. Held until the sheet has actually gone —
     /// pushing while it's still up lands the destination behind the sheet.
     @State private var pendingTrendsSport: HistoricalAnalysisSport?
@@ -205,6 +208,17 @@ struct SearchView: View {
             store.flushDebounce()
             store.commitCurrentQueryToRecents()
         }
+        .task(id: tabStore.selected) {
+            exploreAnimationsReady = false
+            guard tabStore.selected == .search else { return }
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled, tabStore.selected == .search else { return }
+            exploreAnimationsReady = true
+        }
+    }
+
+    private var searchAnimationsActive: Bool {
+        tabStore.selected == .search && exploreAnimationsReady
     }
 
     /// Explore card tapped → enter browse mode for that category and kick off
@@ -395,7 +409,7 @@ struct SearchView: View {
                         ("baseball.fill", "Ohtani O 0.5 HR +320"),
                         ("chart.bar.fill", "Hits prop cashing 70%"),
                         ("bolt.fill", "Skenes 7+ K streak"),
-                    ], startDelay: 0.8)
+                    ], startDelay: 0.8, isActive: searchAnimationsActive)
                 }
                 .frame(width: Self.exploreCardWidth)
 
@@ -410,7 +424,7 @@ struct SearchView: View {
                         ("+12.4u", "Last 30"),
                         ("73%", "ATS picks"),
                         ("58-31", "Season"),
-                    ], startDelay: 0.4)
+                    ], startDelay: 0.4, isActive: searchAnimationsActive)
                 }
                 .frame(width: Self.exploreCardWidth)
 
@@ -419,7 +433,7 @@ struct SearchView: View {
                     subtitle: "Situational betting trends",
                     isSelected: store.browseScope == .outliers,
                     action: { startBrowse(.outliers) }
-                ) { RadarSweepGraphic() }
+                ) { RadarSweepGraphic(isActive: searchAnimationsActive) }
                 .frame(width: Self.exploreCardWidth)
 
                 // Opens the sport-picker drawer rather than switching browse scope,
@@ -428,7 +442,7 @@ struct SearchView: View {
                     title: "Trends",
                     subtitle: "Historical bet type hit rates",
                     action: { showTrendsDrawer = true }
-                ) { TrendBarsGraphic() }
+                ) { TrendBarsGraphic(isActive: searchAnimationsActive) }
                 .frame(width: Self.exploreCardWidth)
                 }
                 .scrollTargetLayout()
@@ -580,7 +594,11 @@ struct SearchView: View {
                 Section(header: sectionHeader("Agents", icon: "brain.head.profile", count: store.agentResults.count)) {
                     ForEach(store.agentResults) { result in
                         // The same AgentRowCard the Agents tab renders.
-                        AgentRowCard(agent: result.model, onTap: { openAgent(result) })
+                        AgentRowCard(
+                            agent: result.model,
+                            animationsActive: searchAnimationsActive,
+                            onTap: { openAgent(result) }
+                        )
                             .padding(.vertical, 4)
                             .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
                             .listRowBackground(Color.clear)
@@ -698,7 +716,11 @@ struct SearchView: View {
             if !agents.isEmpty {
                 Section(header: browseHeader("Agents", icon: "brain.head.profile", count: agents.count)) {
                     ForEach(agents) { result in
-                        AgentRowCard(agent: result.model, onTap: { openAgent(result) })
+                        AgentRowCard(
+                            agent: result.model,
+                            animationsActive: searchAnimationsActive,
+                            onTap: { openAgent(result) }
+                        )
                             .padding(.vertical, 4)
                             .listRowInsets(EdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12))
                             .listRowBackground(Color.clear)

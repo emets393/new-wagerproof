@@ -45,7 +45,10 @@ public final class AgentsStore {
 
     // MARK: - State
 
-    public private(set) var agents: [AgentWithPerformance] = []
+    public private(set) var agents: [AgentWithPerformance] = [] {
+        didSet { agentsVersion &+= 1 }
+    }
+    public private(set) var agentsVersion = 0
     public private(set) var loadState: LoadState = .idle
     public private(set) var topPicks: [TopAgentPickFeedRow] = []
     public private(set) var topPicksLoadState: LoadState = .idle

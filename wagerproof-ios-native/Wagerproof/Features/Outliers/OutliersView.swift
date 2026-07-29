@@ -53,7 +53,7 @@ struct OutliersView: View {
     // WagerBotToolbarButton.
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
-        WagerProofLeadingToolbarItem()
+        WagerProofLeadingToolbarItem(isActive: tabStore.selected == .outliers)
         ToolbarItemGroup(placement: .topBarTrailing) {
             SettingsToolbarButton(tabStore: tabStore)
         }

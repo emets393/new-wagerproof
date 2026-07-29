@@ -47,20 +47,35 @@ enum GameDateGrouping {
     /// would expect.
     static func dateKey(from raw: String) -> String {
         if raw.isEmpty { return raw }
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = iso.date(from: raw) { return formatKey(d) }
-        iso.formatOptions = [.withInternetDateTime]
-        if let d = iso.date(from: raw) { return formatKey(d) }
-
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = TimeZone(identifier: "America/New_York")
-        for f in ["yyyy-MM-dd", "yyyy-MM-dd HH:mm:ss"] {
-            fmt.dateFormat = f
-            if let d = fmt.date(from: raw) { return formatKey(d) }
+        if let date = isoWithFractionalSeconds.date(from: raw) { return formatKey(date) }
+        if let date = isoInternetDateTime.date(from: raw) { return formatKey(date) }
+        for formatter in easternInputFormatters {
+            if let date = formatter.date(from: raw) { return formatKey(date) }
         }
         return raw
+    }
+
+    private static let isoWithFractionalSeconds: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let isoInternetDateTime: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static let easternInputFormatters: [DateFormatter] = [
+        "yyyy-MM-dd",
+        "yyyy-MM-dd HH:mm:ss",
+    ].map { format in
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "America/New_York")
+        formatter.dateFormat = format
+        return formatter
     }
 
     private static let keyFormatter: DateFormatter = {

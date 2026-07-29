@@ -65,6 +65,10 @@ struct PixelOffice: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var scene: PixelOfficeScene?
+    /// TabView may construct retained children before they are selected. Delay
+    /// SKView, textures, and pathfinding setup until Agents is actually visible,
+    /// then retain and pause that scene on later tab hops.
+    @State private var hasActivatedScene = false
 
     var body: some View {
         // Anchor the scene at the natural map aspect ratio. The ScrollView
@@ -78,18 +82,30 @@ struct PixelOffice: View {
         // complete office instead of pinning it left and making the trailing
         // side look clipped.
         ZStack(alignment: .center) {
-            PixelOfficeSceneRepresentable(
-                floorKey: currentFloorKey,
-                agentSpecs: agentSpecs,
-                isPaused: !isActive || scenePhase != .active,
-                onSceneCreated: { newScene in
-                    scene = newScene
-                }
-            )
-            .aspectRatio(
-                PixelOfficeGeo.mapWidth / PixelOfficeGeo.mapHeight,
-                contentMode: .fit
-            )
+            if hasActivatedScene {
+                PixelOfficeSceneRepresentable(
+                    floorKey: currentFloorKey,
+                    agentSpecs: agentSpecs,
+                    isPaused: !isActive || scenePhase != .active,
+                    onSceneCreated: { newScene in
+                        scene = newScene
+                    }
+                )
+                .aspectRatio(
+                    PixelOfficeGeo.mapWidth / PixelOfficeGeo.mapHeight,
+                    contentMode: .fit
+                )
+            } else {
+                Color(
+                    red: 0x0f / 255,
+                    green: 0x11 / 255,
+                    blue: 0x18 / 255
+                )
+                .aspectRatio(
+                    PixelOfficeGeo.mapWidth / PixelOfficeGeo.mapHeight,
+                    contentMode: .fit
+                )
+            }
 
             // Floor/time control chips (bottom-right). The "Agent HQ — Live"
             // status pill was relocated out of the office onto the sort row
@@ -112,6 +128,12 @@ struct PixelOffice: View {
         }
         .onChange(of: agentSpecs) { _, newSpecs in
             scene?.updateAgents(newSpecs)
+        }
+        .task(id: isActive) {
+            guard isActive, !hasActivatedScene else { return }
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            hasActivatedScene = true
         }
     }
 

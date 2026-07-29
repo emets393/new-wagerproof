@@ -68,6 +68,11 @@ struct MainTabView: View {
     // "Outliers" results section read the same fetch. Lazily hydrated by whichever
     // surface is used first (the tab's `.task` or search's first query).
     @State private var outliersTrendsStore = OutliersTrendsStore()
+    // Agents data is lightweight compared with the SpriteKit/Canvas UI. Keep the
+    // store alive at the shell and prefetch it independently so the first Agents
+    // tap only mounts presentation work, and Search can reuse the same owned-agent
+    // results without constructing AgentsView first.
+    @State private var agentsStore = AgentsStore()
     // Parlay God tickets feed four surfaces (Outliers rail, Search rail,
     // Props Cheats, matchup widgets) — one fetch + one leg pool at the shell.
     @State private var parlayGodStore = ParlayGodStore()
@@ -150,12 +155,19 @@ struct MainTabView: View {
         // a tab's content, expanding again on scroll up (iOS 26 Liquid Glass
         // behavior). No-op on earlier OSes.
         .tabBarMinimizeOnScroll()
+        // Connectivity is app-shell state, not tab state. One persistent
+        // monitor avoids starting/canceling four NWPathMonitor instances while
+        // the user hops among retained tabs.
+        .overlay(alignment: .top) {
+            OfflineBanner()
+        }
         .environment(tabStore)
         .environment(gamesStore)
         .environment(propsStore)
         .environment(mlbTrendsStore)
         .environment(mlbF5Store)
         .environment(outliersTrendsStore)
+        .environment(agentsStore)
         .environment(parlayGodStore)
         .environment(agentConsensusStore)
         .environment(nflSheetStore)
@@ -218,15 +230,21 @@ struct MainTabView: View {
             }
         }
         .sensoryFeedback(.selection, trigger: tabStore.selected)
-        .onChange(of: tabStore.selected) { _, newTab in
-            // Games ↔ Props sport pickers stay in sync when switching tabs.
-            switch newTab {
-            case .props:
-                propsStore.selectedSport = PropsStore.Sport.matching(gamesSport: gamesStore.selectedSport)
-            case .games:
-                gamesStore.selectedSport = propsStore.selectedSport.gamesSport
-            default:
-                break
+        // Keep the two sport pickers aligned when the user changes a picker,
+        // not in the tab-selection transaction. That removes a second observable
+        // mutation (and Props' `.task(id:)` reset work) from the navigation tap.
+        .onChange(of: gamesStore.selectedSport) { _, sport in
+            guard tabStore.selected == .games else { return }
+            let matching = PropsStore.Sport.matching(gamesSport: sport)
+            if propsStore.selectedSport != matching {
+                propsStore.selectedSport = matching
+            }
+        }
+        .onChange(of: propsStore.selectedSport) { _, sport in
+            guard tabStore.selected == .props else { return }
+            let matching = sport.gamesSport
+            if gamesStore.selectedSport != matching {
+                gamesStore.selectedSport = matching
             }
         }
         .task {
@@ -236,6 +254,14 @@ struct MainTabView: View {
             // gameId to a typed game on first interaction — not only after
             // the user has visited the Games tab.
             await gamesStore.refreshAll()
+        }
+        .task(id: currentUserId) {
+            agentsStore.bind(userId: currentUserId)
+            guard currentUserId != nil, case .idle = agentsStore.loadState else { return }
+            // Let the initial Games frame commit before starting the background
+            // agents request. This prewarms data only; SpriteKit remains lazy.
+            await Task.yield()
+            await agentsStore.refresh()
         }
         .onChange(of: adminMode.adminModeEnabled) { _, _ in
             syncDryRunPreviewEnabled()
@@ -264,36 +290,34 @@ struct MainTabView: View {
         propsStore.dryRunPreviewEnabled = enabled
     }
 
+    private var currentUserId: String? {
+        if case .authenticated(let userId) = auth.phase {
+            return userId.uuidString.lowercased()
+        }
+        return nil
+    }
+
     // MARK: - Tab content
 
     /// Real Games tab content (B04). `GamesView` owns its own
-    /// `NavigationStack`; this wrapper just adds the offline banner.
+    /// `NavigationStack`.
     @ViewBuilder
     private var gamesTab: some View {
-        ZStack(alignment: .top) {
-            GamesView()
-            OfflineBanner()
-        }
+        GamesView()
     }
 
     /// Real Agents tab content (B13). `AgentsView` owns its own
     /// `NavigationStack`.
     @ViewBuilder
     private var agentsTab: some View {
-        ZStack(alignment: .top) {
-            AgentsView()
-            OfflineBanner()
-        }
+        AgentsView(store: agentsStore)
     }
 
     /// Real Outliers tab content (B06). `OutliersView` owns its own
     /// `NavigationStack`.
     @ViewBuilder
     private var outliersTab: some View {
-        ZStack(alignment: .top) {
-            OutliersView()
-            OfflineBanner()
-        }
+        OutliersView()
     }
 
     /// Props tab content — MLB player-prop matchups feed. `PropsView` owns
@@ -301,10 +325,7 @@ struct MainTabView: View {
     /// detail page (trend chart + line slider) from each list-item card.
     @ViewBuilder
     private var propsTab: some View {
-        ZStack(alignment: .top) {
-            PropsView()
-            OfflineBanner()
-        }
+        PropsView()
     }
 }
 

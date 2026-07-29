@@ -61,6 +61,8 @@ public struct PixelGlyphField: View {
     /// callers (the hero) keep their familiar field; per-card callers pass a
     /// stable per-entity seed so no two cards animate identically.
     private let seed: UInt64
+    /// Lets retained parent views freeze the field without destroying its state.
+    private let isActive: Bool
     /// Optional external trigger so another view can ripple this field (see
     /// `GlyphRippleEmitter`). Nil for fields that only ripple on direct taps.
     private let rippleEmitter: GlyphRippleEmitter?
@@ -99,6 +101,7 @@ public struct PixelGlyphField: View {
         dotSize: CGFloat = 5.5,
         peakOpacity: Double = 0.45,
         seed: UInt64 = 0x5EED_1234,
+        isActive: Bool = true,
         rippleEmitter: GlyphRippleEmitter? = nil
     ) {
         self.intervals = intervals.isEmpty ? [0.3] : intervals
@@ -108,11 +111,12 @@ public struct PixelGlyphField: View {
         self.dotSize = dotSize
         self.peakOpacity = peakOpacity
         self.seed = seed
+        self.isActive = isActive
         self.rippleEmitter = rippleEmitter
     }
 
     public var body: some View {
-        let frozen = reduceMotion
+        let frozen = reduceMotion || !isActive
 
         GeometryReader { proxy in
             TimelineView(.animation(paused: frozen)) { timeline in

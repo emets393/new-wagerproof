@@ -22,6 +22,51 @@ private enum OutliersSortMode: String, CaseIterable {
     }
 }
 
+private struct OutliersPresentationKey: Equatable {
+    let revision: Int
+    let sport: OutliersTrendsSport
+    let matchup: OutliersTrendsMatchupFilter
+    let subject: OutliersTrendsSubject
+    let query: String
+    let sortMode: String
+}
+
+@MainActor
+private final class OutliersPresentationCache {
+    private var displaySections: (
+        key: OutliersPresentationKey,
+        sections: [OutliersTrendsMarketSection]
+    )?
+    private var gameIndex: (
+        revision: Int,
+        gamesByID: [String: OutliersTrendsGame]
+    )?
+
+    func sections(
+        key: OutliersPresentationKey,
+        build: () -> [OutliersTrendsMarketSection]
+    ) -> [OutliersTrendsMarketSection] {
+        if let displaySections, displaySections.key == key {
+            return displaySections.sections
+        }
+        let sections = build()
+        displaySections = (key, sections)
+        return sections
+    }
+
+    func gamesByID(
+        revision: Int,
+        games: [OutliersTrendsGame]
+    ) -> [String: OutliersTrendsGame] {
+        if let gameIndex, gameIndex.revision == revision {
+            return gameIndex.gamesByID
+        }
+        let index = Dictionary(uniqueKeysWithValues: games.map { ($0.id, $0) })
+        gameIndex = (revision, index)
+        return index
+    }
+}
+
 /// Matchup-specific trends hub. Filters live in a horizontal pill row (sport / subject / matchup);
 /// each bet type renders as a section header over a horizontally-scrolling card carousel.
 struct OutliersTrendsView: View {
@@ -33,6 +78,7 @@ struct OutliersTrendsView: View {
     @State private var showMatchupPicker = false
     @State private var sortMode: OutliersSortMode = .strongest
     @State private var quickFilterText = ""
+    @State private var presentationCache = OutliersPresentationCache()
     @FocusState private var quickFilterFocused: Bool
     /// Tapped trend card → presented full in a bottom sheet (no longer grows the
     /// card vertically in the rail).
@@ -333,33 +379,43 @@ struct OutliersTrendsView: View {
 
     private var displaySections: [OutliersTrendsMarketSection] {
         let query = activeQuickFilter.lowercased()
+        let key = OutliersPresentationKey(
+            revision: store.presentationRevision,
+            sport: store.sport,
+            matchup: store.matchupFilter,
+            subject: store.subject,
+            query: query,
+            sortMode: sortMode.rawValue
+        )
 
-        return store.marketSections.compactMap { section in
-            let matchingCards = query.isEmpty
-                ? section.cards
-                : section.cards.filter { cardMatches($0, query: query) }
+        return presentationCache.sections(key: key) {
+            store.marketSections.compactMap { section in
+                let matchingCards = query.isEmpty
+                    ? section.cards
+                    : section.cards.filter { cardMatches($0, query: query) }
 
-            let sortedCards = matchingCards.sorted { lhs, rhs in
-                switch sortMode {
-                case .strongest:
-                    if lhs.trendValue != rhs.trendValue {
+                let sortedCards = matchingCards.sorted { lhs, rhs in
+                    switch sortMode {
+                    case .strongest:
+                        if lhs.trendValue != rhs.trendValue {
+                            return lhs.trendValue > rhs.trendValue
+                        }
+                        return lhs.trendSampleN > rhs.trendSampleN
+                    case .sampleSize:
+                        if lhs.trendSampleN != rhs.trendSampleN {
+                            return lhs.trendSampleN > rhs.trendSampleN
+                        }
                         return lhs.trendValue > rhs.trendValue
                     }
-                    return lhs.trendSampleN > rhs.trendSampleN
-                case .sampleSize:
-                    if lhs.trendSampleN != rhs.trendSampleN {
-                        return lhs.trendSampleN > rhs.trendSampleN
-                    }
-                    return lhs.trendValue > rhs.trendValue
                 }
-            }
 
-            guard !sortedCards.isEmpty else { return nil }
-            return OutliersTrendsMarketSection(
-                marketKey: section.marketKey,
-                title: section.title,
-                cards: sortedCards
-            )
+                guard !sortedCards.isEmpty else { return nil }
+                return OutliersTrendsMarketSection(
+                    marketKey: section.marketKey,
+                    title: section.title,
+                    cards: sortedCards
+                )
+            }
         }
     }
 
@@ -392,8 +448,12 @@ struct OutliersTrendsView: View {
         } else if sections.isEmpty {
             emptyState
         } else {
+            let gamesByID = presentationCache.gamesByID(
+                revision: store.presentationRevision,
+                games: store.games
+            )
             VStack(alignment: .leading, spacing: 16) {
-                sectionsList(sections)
+                sectionsList(sections, gamesByID: gamesByID)
                 if store.isLoadingTrends {
                     updatingIndicator
                 }
@@ -401,16 +461,15 @@ struct OutliersTrendsView: View {
         }
     }
 
-    private var gamesById: [String: OutliersTrendsGame] {
-        Dictionary(uniqueKeysWithValues: store.games.map { ($0.id, $0) })
-    }
-
-    private func sectionsList(_ sections: [OutliersTrendsMarketSection]) -> some View {
+    private func sectionsList(
+        _ sections: [OutliersTrendsMarketSection],
+        gamesByID: [String: OutliersTrendsGame]
+    ) -> some View {
         LazyVStack(alignment: .leading, spacing: 22) {
             ForEach(sections) { section in
                 VStack(alignment: .leading, spacing: 10) {
                     sectionHeader(section)
-                    carousel(section)
+                    carousel(section, gamesByID: gamesByID)
                 }
             }
         }
@@ -450,14 +509,17 @@ struct OutliersTrendsView: View {
     }
 
     /// Bleeds past the page padding so cards scroll edge-to-edge while headers stay inset.
-    private func carousel(_ section: OutliersTrendsMarketSection) -> some View {
+    private func carousel(
+        _ section: OutliersTrendsMarketSection,
+        gamesByID: [String: OutliersTrendsGame]
+    ) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(alignment: .top, spacing: 12) {
                 ForEach(section.cards) { card in
                     Button {
-                        selectedTrend = OutliersTrendSelection(card: card, game: gamesById[card.gameId])
+                        selectedTrend = OutliersTrendSelection(card: card, game: gamesByID[card.gameId])
                     } label: {
-                        OutliersTrendCard(card: card, sport: store.sport, game: gamesById[card.gameId])
+                        OutliersTrendCard(card: card, sport: store.sport, game: gamesByID[card.gameId])
                             .frame(width: cardWidth)
                     }
                     .buttonStyle(.plain)
