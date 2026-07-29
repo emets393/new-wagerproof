@@ -63,6 +63,17 @@ def main():
             print(f"    {cur.fetchall()}")
         except psycopg2.ProgrammingError:
             print("    done")
+
+        # Append completed games into the historical-trends warehouses (/nfl-analytics,
+        # /cfb-analytics, Systems). Stage 1 = the per-game facts (these RPCs). Stage 2 =
+        # asof_features_{nfl,cfb}.py fills the season-to-date/streak/h2h columns (run after,
+        # in grade_week.sh). Scoped to the live season; idempotent full re-insert.
+        print(f">>> refresh_nfl_analysis_base(season {season})")
+        cur.execute("select public.refresh_nfl_analysis_base(%s);", (season,))
+        print(f"    appended {cur.fetchone()[0]} NFL exploded rows")
+        print(f">>> refresh_cfb_analysis_base(season {season})")
+        cur.execute("select public.refresh_cfb_analysis_base(%s);", (season,))
+        print(f"    appended {cur.fetchone()[0]} CFB exploded rows")
     conn.close()
     return 0
 
