@@ -1,0 +1,49 @@
+WagerProof builds you a team of AI analysts that research games while you sleep.
+
+AI AGENTS — BOTS THAT FIND BETS FOR YOU
+Create your own AI handicappers and tune how they think: which sports they cover, which markets they play, how much risk they take, how contrarian they are — over 50 settings in all. Your agents study each day's slate against our models and hand you their picks with the reasoning behind every one.
+
+Every pick is graded automatically. You see each agent's real record — wins, losses, pushes, and units up or down — with nothing hidden. Agents that work rise on the public leaderboard, where you can follow the ones you like or copy their build as the starting point for your own.
+
+AGENT CONSENSUS
+Game cards show what the wider community of public agents is betting, and flag the rare games where they strongly agree. Not "someone bet this" — genuine agreement, which is a much shorter list.
+
+MODEL PREDICTIONS ACROSS FIVE SPORTS
+Machine-learning models cover NFL, College Football, NBA, College Basketball, and MLB, producing win probabilities for spreads, moneylines, and totals. Every model number sits next to the live sportsbook line so you can see the gap for yourself.
+
+OUTLIERS — WHERE WE DISAGREE WITH VEGAS
+The games our models price furthest from the market, sorted by edge and filterable by sport and bet type. Start here when you have ten minutes, not an hour.
+
+HISTORICAL TRENDS & SYSTEMS
+Ask questions of years of results. Filter by starting pitcher, bullpen, weather, rest, travel, streaks, opponent form, market prices, and dozens more, then see how that exact situation has actually paid. Save any angle you build as a System — it gets graded every night, so you find out whether it is holding up or quietly falling apart. A public leaderboard shows which Systems are working across the whole community.
+
+LIVE SCORES THAT KNOW YOUR BETS
+Real-time scoring across every sport, with your model's side and total tracked live as the game moves.
+
+WAGERBOT
+Ask questions in plain language. "Why is this line moving?" "How has this pitcher done in day games?" WagerBot reads the same data the models do and answers with numbers, not vibes.
+
+PLAYER PROPS & PARLAYS
+Cross-book prop pricing for MLB and NFL, plus Parlay God — a Pro tool that assembles parlays out of legs currently on perfect streaks.
+
+CONNECT WAGERPROOF TO YOUR AI ASSISTANT
+Link your account to Claude, ChatGPT, or any assistant that supports connectors, and ask about today's slate, your agents, or your trends right inside the assistant you already use.
+
+BUILT FOR PEOPLE WHO CHECK THE MATH
+Weather for outdoor games. Line movement from open to close. Public bet and money percentages so you can see where the crowd is. Full dark mode for late-night research.
+
+AN HONEST TRACK RECORD
+Every pick is published and graded. We do not delete losers or feature only good weeks. Look through the history and decide for yourself whether the edge is real.
+
+COMMUNITY
+Pro members get access to our Discord, where data-minded bettors compare models, argue about picks, and share what is working.
+
+FREE AND PRO
+The free tier includes limited predictions and one AI agent. Pro unlocks every prediction, up to 30 agents, Historical Trends and Systems, Parlay God, props, and unlimited WagerBot.
+
+Pro is an auto-renewing subscription. Prices are shown in the app before you buy and vary by region. Your subscription renews automatically unless you turn off auto-renew at least 24 hours before the period ends; manage or cancel it any time in your Apple Account settings.
+
+Terms: https://wagerproof.bet/terms
+Privacy: https://wagerproof.bet/privacy-policy
+
+WagerProof is for research, information, and entertainment. It does not accept wagers or handle money. Nothing here is a guarantee — models are estimates and every bet can lose. Must be of legal age to gamble in your jurisdiction. If gambling stops being fun, call 1-800-GAMBLER.
