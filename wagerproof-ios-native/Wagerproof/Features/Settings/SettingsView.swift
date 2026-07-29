@@ -69,6 +69,9 @@ struct SettingsView: View {
     /// so the icon column width and divider inset never drift apart.
     private static let iconColumnWidth: CGFloat = 26
     private static let dividerInset = Spacing.lg + iconColumnWidth + Spacing.lg
+    private static let appStoreReviewURL = URL(
+        string: "https://apps.apple.com/app/id6757089957?action=write-review"
+    )!
 
     var body: some View {
         // No `NavigationStack` here — Settings is pushed onto the active tab's
@@ -343,6 +346,17 @@ struct SettingsView: View {
                 accessory: .external,
                 action: {
                     openURL(URL(string: "mailto:admin@wagerproof.bet?subject=Contact%20Us%20-%20WagerProof%20Mobile")!)
+                }
+            )
+            rowDivider
+            ProfileRow(
+                icon: "star.bubble",
+                title: "Rate WagerProof",
+                subtitle: "Leave a review on the App Store",
+                accessory: .external,
+                action: {
+                    ReviewPromptCoordinator.shared.recordManualReviewLinkOpened()
+                    openURL(Self.appStoreReviewURL)
                 }
             )
         }

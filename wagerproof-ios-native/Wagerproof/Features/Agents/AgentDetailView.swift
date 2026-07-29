@@ -137,6 +137,7 @@ struct AgentDetailView: View {
         // Guarded so the initial load stays owned by the .task below. Also
         // resumes an in-flight generation run surfaced by the fresh snapshot.
         .onAppear {
+            ReviewPromptCoordinator.shared.recordAgentDetailViewed(agentID: agentId)
             guard store.snapshot != nil else { return }
             Task {
                 await store.refreshSnapshot()
@@ -212,7 +213,7 @@ struct AgentDetailView: View {
                     printIntro: focusPrintIntro,
                     onAudit: { pick in auditStore.present(pick: pick) },
                     onDelete: isOwnAgent ? { item in pendingDeleteItem = item } : nil,
-                    onClose: { focusStartIndex = nil }
+                    onClose: finishFocusPresentation
                 )
                 .interactiveDismissDisabled()
                 .sheet(isPresented: $auditStore.isPresented) {
@@ -576,11 +577,22 @@ struct AgentDetailView: View {
             get: { focusStartIndex != nil },
             set: { isPresented in
                 if !isPresented {
-                    focusStartIndex = nil
-                    focusPrintIntro = false
+                    finishFocusPresentation()
                 }
             }
         )
+    }
+
+    /// Only the fresh printer reveal counts as completed value. Tapping an old
+    /// ticket later opens the same focus UI with `focusPrintIntro == false` and
+    /// must not inflate review eligibility.
+    private func finishFocusPresentation() {
+        let viewedFreshGeneration = focusPrintIntro && !focusItems.isEmpty
+        focusStartIndex = nil
+        focusPrintIntro = false
+        if viewedFreshGeneration {
+            ReviewPromptCoordinator.shared.recordGeneratedPicksViewed()
+        }
     }
 
     private func runGeneration() async {

@@ -101,6 +101,7 @@ struct HistoricalAnalysisView: View {
             if let userId {
                 SaveSystemSheet(store: store, userId: userId) { shared in
                     presentSystemSavedToast(shared: shared)
+                    ReviewPromptCoordinator.shared.recordSystemSaved()
                     // Continue in the shared hub so the new system is visible.
                     openMySystemsAfterSave = true
                 }

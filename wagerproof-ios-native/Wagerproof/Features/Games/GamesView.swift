@@ -215,24 +215,28 @@ struct GamesView: View {
                     nflSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "nfl-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(item: $cfbSheet.selectedGame) { game in
                 CFBGameCarousel(games: store.sortedCFB(), initialGame: game) {
                     cfbSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "cfb-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(item: $nbaSheet.selectedGame) { game in
                 NBAGameCarousel(games: store.sortedNBA(), initialGame: game) {
                     nbaSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "nba-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(item: $ncaabSheet.selectedGame) { game in
                 NCAABGameCarousel(games: store.sortedNCAAB(), initialGame: game) {
                     ncaabSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "ncaab-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(item: $mlbSheet.selectedGame) { game in
                 // MLB detail is a swipeable carousel of the sport's sorted slate,
@@ -246,6 +250,7 @@ struct GamesView: View {
                     mlbSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "mlb-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             // Settings pushes onto this stack (tapping the trailing gear) instead
             // of covering the screen as a modal — see MainTabToolbar.swift.

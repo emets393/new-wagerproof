@@ -128,7 +128,10 @@ struct OutliersTrendsView: View {
                 selection: $store.matchupFilter
             )
         }
-        .sheet(item: $selectedTrend) { selection in
+        .sheet(
+            item: $selectedTrend,
+            onDismiss: { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
+        ) { selection in
             OutliersTrendDetailSheet(
                 card: selection.card,
                 sport: store.sport,
