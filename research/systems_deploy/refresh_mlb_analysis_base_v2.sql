@@ -151,7 +151,13 @@ BEGIN
     CASE WHEN s.prev_won IS NULL THEN NULL
          WHEN s.prev_won THEN 'W' ELSE 'L' END                  AS prev_result,
     s.prev_margin_v                                             AS prev_margin,
-    s.days_rest, s.win_loss_streak, s.is_divisional, s.is_interleague,
+    -- TRUE rest days (0 = played yesterday), matching the upcoming RPC's math.
+    -- mlb_game_log.days_rest is a raw date diff (consecutive days = 1), which put
+    -- 84% of games at "1" and made the rest filter look dead. >30-day gap = season
+    -- opener -> NULL (the seq window chains across seasons).
+    CASE WHEN s.prev_date IS NULL OR s.official_date - s.prev_date > 30 THEN NULL
+         ELSE GREATEST(s.official_date - s.prev_date - 1, 0) END AS days_rest,
+    s.win_loss_streak, s.is_divisional, s.is_interleague,
     s.sp_hand, s.opp_sp_hand, s.sp_season_xfip, s.opp_sp_season_xfip, s.sp_prior_starts,
     s.opp_bp_ip_last3d, s.opp_bp_season_xfip,
     s.temperature_f, s.wind_speed_mph,
