@@ -130,6 +130,25 @@ struct HistoricalAnalysisView: View {
                 cfbLogos: store.cfbLogos
             )
         }
+        #if DEBUG
+        // QA hooks: preset a filter + auto-open the share sheet for screenshot
+        // passes — SwiftUI menus don't respond to synthetic host clicks.
+        .onAppear {
+            let args = ProcessInfo.processInfo.arguments
+            if let i = args.firstIndex(of: "-lastTotal"), i + 1 < args.count {
+                store.updateSnapshot { $0.lastTotal = args[i + 1] }
+            }
+            if let i = args.firstIndex(of: "-lineRange"), i + 1 < args.count {
+                let parts = args[i + 1].split(separator: "-").compactMap { Double($0) }
+                if parts.count == 2 {
+                    store.updateSnapshot { $0.lineMin = parts[0]; $0.lineMax = parts[1] }
+                }
+            }
+            if args.contains("-openShareSheet") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { showShareSheet = true }
+            }
+        }
+        #endif
         .onChange(of: store.snapshot.selectedConferences) { _, conferences in
             if !conferences.isEmpty, breakdownTab == "conf" {
                 breakdownTab = "team"
