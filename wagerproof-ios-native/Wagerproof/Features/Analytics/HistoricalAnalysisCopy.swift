@@ -1412,6 +1412,17 @@ enum HistoricalAnalysisCopy {
         func intRangeClause(_ v: [Int], _ dv: [Int], _ text: (Int, Int) -> String) {
             if v != dv { clauses.append(text(v[0], v[1])) }
         }
+        if sport != .mlb {
+            if s.h1TotalMin > d.h1TotalMin + 0.001 || s.h1TotalMax < d.h1TotalMax - 0.001 {
+                clauses.append("the 1H total is \(trimmed(s.h1TotalMin))–\(trimmed(s.h1TotalMax))")
+            }
+            if s.ttLineMin > d.ttLineMin + 0.001 || s.ttLineMax < d.ttLineMax - 0.001 {
+                clauses.append("their team total line is \(trimmed(s.ttLineMin))–\(trimmed(s.ttLineMax))")
+            }
+            if s.oppTtLineMin > d.oppTtLineMin + 0.001 || s.oppTtLineMax < d.oppTtLineMax - 0.001 {
+                clauses.append("the opponent's team total line is \(trimmed(s.oppTtLineMin))–\(trimmed(s.oppTtLineMax))")
+            }
+        }
         intRangeClause(s.lastMargin, d.lastMargin) { "their last-game margin was \($0) to \($1) \(unitWord)" }
         intRangeClause(s.oppLastMargin, d.oppLastMargin) { "the opponent's last-game margin was \($0) to \($1) \(unitWord)" }
         intRangeClause(s.h2hLastMargin, d.h2hLastMargin) { "the last-meeting margin was \($0) to \($1) \(unitWord)" }
@@ -1564,7 +1575,10 @@ enum HistoricalAnalysisCopy {
             }
         }
 
-        if let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: betType),
+        // `lineMin/Max` is ALWAYS the full-game total dim (chips parity, line ~304).
+        // Passing the current betType here described the untouched game-total slider
+        // with the F5/1H market's label + bounds — a phantom second "total" clause.
+        if let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: sport == .mlb ? "total" : "fg_total"),
            s.lineMin > totalCfg.min + 0.001 || s.lineMax < totalCfg.max - 0.001 {
             clauses.append("the \(totalCfg.label.lowercased()) is \(trimmed(s.lineMin))–\(trimmed(s.lineMax))")
         }

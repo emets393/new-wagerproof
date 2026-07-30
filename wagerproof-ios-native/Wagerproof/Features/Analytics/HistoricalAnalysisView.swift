@@ -144,6 +144,12 @@ struct HistoricalAnalysisView: View {
                     store.updateSnapshot { $0.lineMin = parts[0]; $0.lineMax = parts[1] }
                 }
             }
+            if let i = args.firstIndex(of: "-f5TotalRange"), i + 1 < args.count {
+                let parts = args[i + 1].split(separator: "-").compactMap { Double($0) }
+                if parts.count == 2 {
+                    store.updateSnapshot { $0.f5TotalMin = parts[0]; $0.f5TotalMax = parts[1] }
+                }
+            }
             if args.contains("-openShareSheet") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { showShareSheet = true }
             }
