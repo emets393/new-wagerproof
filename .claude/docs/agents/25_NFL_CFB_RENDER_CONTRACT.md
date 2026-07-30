@@ -74,7 +74,25 @@ spot): NFL `sides_model`; CFB `model_lean`, `opener_under`, `rivalry_week_over`.
 signals look like `g5_dog_wk1_bigfav`, `fade_low_total`, `fade_high_total`. See memory
 `football-signals-catalog`.
 
-## 6. Resolve the week dynamically
+## 6. Team trends — read the CURRENT season, never hardcode 2025
+
+`nfl_team_trends` / `cfb_team_trends` hold one row per team per season (`season`, `through_week`,
+`ats_w/ats_l/ats_pct`, `last5_*`, `splits`, `matchups`, `game_log`). The card's "Season ATS X-Y" strip
+must read the **game's own season** (dynamically), and render **"No games yet"** when `games = 0`
+(true at Week 1 before any game is played).
+
+**Do NOT hardcode or fall back to `season = 2025`.** Known offenders to fix:
+`wagerproof-android-native/.../cfb/CFBMarketBoard.kt` (`eq("season", 2025)`),
+`wagerproof-ios-native/.../NFLGameBottomSheet.swift` + `CFBGameBottomSheet.swift`
+(`season: game.season ?? 2025`). 2025 was the dry-run test season — its rows have been deleted, so
+hardcoding it now shows empty, and once real 2026 games play it would still miss them. Pass the live
+game's `season` through. (Web `FootballTeamTrends.tsx` already takes `season` as a prop + handles the
+empty shell — mirror that on native.)
+
+Same rule for `signal_performance` season-to-date (`game.season ?? 2025` in `NFLGameDetailScreen.kt`):
+read the current season, not a 2025 fallback.
+
+## 7. Resolve the week dynamically
 
 Always resolve the current `(season, week)` at query time — latest season, then the soonest upcoming
 game for the feed. **Never hardcode `season=2025`, `week=12`, or `week=7`** — those were the old test
