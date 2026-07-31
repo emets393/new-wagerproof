@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const routes = ['/', '/home', '/privacy-policy', '/terms-and-conditions'];
+const routes = ['/', '/home', '/mcp', '/privacy-policy', '/terms-and-conditions'];
 
 async function prerender() {
   console.log('🚀 Starting prerendering process...\n');

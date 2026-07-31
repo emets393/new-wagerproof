@@ -3,6 +3,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import LandingNavBar from "@/components/landing/LandingNavBar";
 import Hero from "@/components/landing/LandingOutliersHero";
 import AIAgentWorkforceSection from "@/components/landing/AIAgentWorkforceSection";
+import McpLandingFeature from "@/components/landing/McpLandingFeature";
 import RecipeImport from "@/components/landing/RecipeImport";
 // import UserJourney from "@/components/landing/UserJourney";
 import Testimonials from "@/components/landing/Testimonials";
@@ -115,6 +116,7 @@ const NewLanding = () => {
       <LandingNavBar />
       <Hero />
       <AIAgentWorkforceSection />
+      <McpLandingFeature />
       <div className="space-y-6">
         <RecipeImport />
         <FeatureDemo />

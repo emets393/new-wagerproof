@@ -614,7 +614,7 @@ export function CommunityHero() {
             ))}
           </div>
           <p className="mt-3 text-[16px] font-bold text-white sm:text-[18px]">Connect WagerProof to your AI</p>
-          <p className="mt-1 max-w-[430px] text-[13px] font-medium leading-snug text-white/90 sm:text-[15px]">Bring your agents, picks, and model analytics into a read-only AI workflow.</p>
+          <p className="mt-1 max-w-[430px] text-[13px] font-medium leading-snug text-white/90 sm:text-[15px]">Bring your agents, picks, and model analytics into a secure AI workflow.</p>
           <p className="mt-3 text-[9px] font-bold text-white/70">Claude · ChatGPT · Gemini · Grok · Codex</p>
         </div>
       </div>

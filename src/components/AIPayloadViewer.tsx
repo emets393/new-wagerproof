@@ -576,7 +576,7 @@ export function AIPayloadViewer({
         <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg text-xs space-y-2">
           <p className="font-semibold text-blue-900 dark:text-blue-100">💡 How this works:</p>
           <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-200">
-            <li><strong>Base Prompt:</strong> Read-only view of the database prompt</li>
+            <li><strong>Base Prompt:</strong> Database prompt preview</li>
             <li><strong>Test Prompt:</strong> Editable version that gets sent to GPT (edit to test variations)</li>
             <li><strong>User Message:</strong> Contains all game data (predictions, lines, weather, Polymarket, public betting)</li>
             <li><strong>Polymarket data:</strong> Automatically fetched and included when modal opens</li>
