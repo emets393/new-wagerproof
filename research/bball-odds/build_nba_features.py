@@ -186,20 +186,36 @@ def adjusted_ratings(T, alpha=25.0):
             P = X.T @ X + alpha * np.eye(nt + 1)
             P[nt, nt] -= alpha                       # do not shrink the intercept
             net = np.linalg.solve(P, X.T @ prior["margin"].values)
-            # scoring model: points_scored = off_scorer + def_conceder + hca
-            Xo = np.zeros((2 * n, 2 * nt + 1))
+            # scoring model: points_scored = league level + off_scorer + def_conceder + hca
+            #
+            # The GLOBAL INTERCEPT (column 2*nt) is load-bearing and used to be missing: it
+            # was set on the home-scored rows only, so every row's ~114-point base level had
+            # to be carried by the penalised off/def coefficients, and alpha flattened them
+            # against it. Symptom was arithmetic: adj_off + adj_def averaged 65.5 where a team
+            # scores ~114, and the ratings correlated -0.015 / +0.001 with the closing total,
+            # i.e. they contained nothing. Repaired they hit +0.38 / +0.49, and the two teams'
+            # scoring environments summed correlate +0.64 with the closing total.
+            # The margin ridge above never had the bug because margin is centred near zero.
+            # See NBA_ADJ_RATINGS_FIX.md.
+            K = 2 * nt + 2
+            Xo = np.zeros((2 * n, K))
             y = np.concatenate([prior["own_score"].values, prior["opp_score"].values])
             r = np.arange(n)
             Xo[r, hi] = 1.0                          # home offence
             Xo[r, nt + ai] = 1.0                     # away defence
-            Xo[r, 2 * nt] = 1.0                      # home-court scoring bump
-            Xo[n + r, ai] = 1.0
-            Xo[n + r, nt + hi] = 1.0
-            Po = Xo.T @ Xo + alpha * np.eye(2 * nt + 1)
-            Po[2 * nt, 2 * nt] -= alpha
+            Xo[n + r, ai] = 1.0                      # away offence
+            Xo[n + r, nt + hi] = 1.0                 # home defence
+            Xo[:, 2 * nt] = 1.0                      # league scoring level, EVERY row
+            Xo[r, 2 * nt + 1] = 1.0                  # home-court scoring bump, home rows only
+            Po = Xo.T @ Xo + alpha * np.eye(K)
+            Po[2 * nt, 2 * nt] -= alpha              # do not shrink the level
+            Po[2 * nt + 1, 2 * nt + 1] -= alpha      # do not shrink the home bump
             od = np.linalg.solve(Po, Xo.T @ y)
+            lvl = od[2 * nt]
             for t, i in tix.items():
-                out.append((season, d, t, net[i], od[i], od[nt + i], net[nt]))
+                # reported in real points and centred on the league level, so adj_off reads as
+                # "points this team scores against an average defence"
+                out.append((season, d, t, net[i], lvl + od[i], lvl + od[nt + i], net[nt]))
     R = pd.DataFrame(out, columns=["season", "date", "team.id", "adj_net", "adj_off",
                                    "adj_def", "adj_hca"])
     R["adj_tempo_pts"] = R["adj_off"] + R["adj_def"]   # team's own scoring environment
