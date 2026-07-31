@@ -65,8 +65,12 @@ produces; treat `NBA_SPREAD_V2/V3_BRIEF.md` as a map, not a result.
 | **S10** | Shooting heat concentrated in 1–2 high-volume players, measured vs each player's **own** career finishing rate → **fade that team** | FG spread | **54.0** | **50.4** | **+3.2** | 446 | +3.1/−0.5/+7.4 | **yes** | `NBA_CONC_WALKFORWARD_BRIEF.md` |
 | **S7** | Both teams on the **same** 3+ game 1H over/under streak → **fade the streak** | 1H total | **61.9** | 50.0 | **+18.1** | 113 | 57/60/67 | blocked | `NBA_HALVES_BRIEF3.md` |
 | **S8** | One moderate scorer (18–25 ppg) **freshly** out, opponent healthy, \|spread\| < 8, both 25+ gp → **back the depleted team** | 1H spread | **60.9** | 50.0 | **+16.0** | 271 | 63/60/60 | blocked | `NBA_HALVES_BRIEF2.md` |
+| **S11** | S9 **and** the dead home team has played in **2+ different arenas in the last 7 days** → back the favourite | FG spread | **60.8** | **52.65** | **+16.08** | 273 | +21/+6/+25/+12 | **yes** | `nba_hunt_survivors.py` |
+| **S12** | Final ~2 weeks of the regular season (`st_h_season_frac ≥ 0.94`) → **OVER** | FG total | **56.8** | **50.70** | **+8.38** | 273 | +5/+12/+16/+1 | **yes** | `nba_hunt_survivors.py` |
 
-**S9 is the only one that can ship today** — it needs schedule and standings only, no injury feed.
+**S9, S11 and S12 can ship today** — they need schedule and standings only, no injury feed. S11 is
+the one to actually fire: it is S9 with a second condition, and it beats S9 on ROI, on z, and on
+per-season consistency at 83% of the volume.
 Its controls are the reason to trust it: the *away* team being dead is null (53.7%, delta cell
 **−0.48**), a bad-but-alive home team is 50.8%, a *clinched* home team is 49.2% — so it is quitting
 specifically, not team quality, not venue. 18 distinct dead home teams; dropping the most profitable
@@ -85,6 +89,29 @@ the market over-adjusts for a rotation scorer and under-adjusts for a real star.
 one that matters — **stale** absences of the same size score 51.2% / −2.4%, so it is fresh news being
 mispriced, not absence itself. S7 does not transfer to the full-game total (51.3% / −2.0%); the
 mispricing is 1H-specific.
+
+**S11 supersedes S9 — same idea, one more condition, better on every axis.** The 2×2 is why it is
+believable rather than a tighter cut of a rule we already had:
+
+| | tired (2+ arenas / 7d) | not tired |
+|---|---|---|
+| **home team dead** | **60.81% / +16.08%** (n=273) | 47.27% / −9.72% (n=55) |
+| home team alive | 52.17% / −0.39% (n=1288) ← control | 48.38% / −7.66% (n=308) |
+
+Load *without* the motivation story is flat, which is the control that had to hold. The dose ladder
+inside the dead cell is a hump, not a cliff — venues≥1 +11.75 (z=2.14, this is plain S9), **≥2 +16.08
+(z=2.70)**, ≥3 +15.67, ≥4 +12.35 — so ≥2 keeps 83% of S9's bets and lifts ROI by ~4.3 points. 19
+distinct dead home teams, top share 10.6%, and dropping Utah / Washington / San Antonio each *improves*
+it. Matched random-cut placebo **p=0.0005**. Stronger at the opener (+24.45%, z=3.99) but it survives
+the T-60 close, which is the bar. Drop-any-season leaves z at 2.03–2.63.
+
+**S12 is a calendar effect and is NOT tanking wearing a hat.** Split the final-2-weeks window by
+whether the home team is dead: dead +9.07%, **not dead +8.15% on n=203** — near-identical, so it stands
+on its own. The disjoint calendar ladder for OVER is −1.18 / −5.44 / −8.51 / −0.09 / +0.01 / **+11.04**
+across season-fraction sixths, i.e. the whole effect lives in the last ~3%. Placebo p=0.020.
+Note the *spread* version of the same window **is** tanking in disguise (dead 65.71% vs not-dead
+52.94%), so it was deliberately not promoted. Also unchanged from close to open (+8.38 → +8.39):
+this is a scheduling/effort fact, not a news-latency artifact.
 
 ---
 
@@ -139,8 +166,67 @@ fix, so that repair has not reached the frame; and there are **zero saved NBA mo
 - **Bottom-up player-ceiling and RAPM level models** — negative R² on 1H margin, 1H total, FG margin.
 - **Cold-favourite 1H continuation** — the contrarian hypothesis was backwards: 46.0% / −12.2%.
 
+### The 2026-07-31 signal hunt — what it closed
+
+Run as `nba_hunt_validate.py` (152 pre-registered rules, stage A) → `nba_hunt_deepdive.py` →
+`nba_hunt_round2.py` (69 more) → `nba_hunt_survivors.py`. Two of the three things it produced are
+negatives, and they are more useful than the signals.
+
+**1. Blind wide filter search does not transfer. This closes the "try every combination" route.**
+Stage B built 375 features → 15,443 masks → **308,860 cells**, fit the cut thresholds *and* picked
+the winners on 2022-23 + 2023-24 only, then graded the 1,859 cells that cleared z≥2 on held-out
+2024-25 + 2025-26. Mean excess ROI **−0.017%** against a permutation null of +0.001% ± 0.006,
+**p = 1.0000**; share of picks staying positive **42.9%** vs null 50.5% ± 4.8. Worse than chance.
+The diagnosis matters more than the number: a family-wise max-z bar over 233k blind cells sits at
+**4.46**, and S9 — our best NBA signal — scores **2.04** at T-60. *A blind marginal sweep can never
+surface a real NBA-strength edge.* The search design was the binding constraint, not the data.
+Anything found this way needs pre-registration, walk-forward OOS on an aggregate statistic, and
+mechanism controls — not a lower p-value.
+
+**2. Every family the owner named is priced.** Stage A's null 95th percentile was 3.01 over 142 live
+cells (median 2.27). Calibration held (S9 z=2.14; the away-dead control z=−0.03). Family medians:
+
+| Family | median ROI | max z | verdict |
+|---|---|---|---|
+| standings / motivation | **+1.45%** | 2.22 | the only live family — S9/S11/S12/S13 come from here |
+| context (Cup, divisional, b2b, rest) | ~0 | — | priced |
+| early-season totals bias | ~0 | — | priced |
+| last-3 / last-5 form, ATS & SU streaks | −5.61% | — | priced |
+| head-to-head / last series vs same team | ~0 | — | priced |
+| form measured **against this game's line** | **−5.90%** | — | priced |
+| power ratings vs the line | **−5.77%** | — | priced (see the bug fix below) |
+| regression deltas (d3 / d5) | ~0 | — | priced |
+| line movement | ~0 | — | priced |
+
+**Two corrections that were nearly shipped as findings:**
+- **`rt_total_gap` had a scale bug that silently voided the whole ratings-vs-line totals family.**
+  `h_adj_tempo_pts` is already a full-game total estimate for that team's games (league mean 226.7),
+  not the points that team scores, so `h + a` gave 453 and `rt_total_gap` came out with mean +225 —
+  every cut on it was really "bet the over when the total is high." Fixed to an average in
+  `nba_hunt_build.py` and re-tested; the family is now honestly dead (gap≥3 per season
+  −6.7/+2.8/−5.1/−10.8), but for a while it read as dead without ever having been tested.
+- **The highest-z cell in round 2 (`m9_predl_tank_fav`, z=3.06) was a comparator artifact.**
+  `st_days_to_deadline > 0` means *after* the deadline, not before, so the registered "pre-deadline
+  control" was the identical cell to the post-deadline rule (both n=308, identical win%). Its z came
+  entirely from grading against the all-season 50.04% blind-favourite base instead of the correct
+  post-deadline 52.42%. **Honest z = 2.23.** Same baseline mistake as the original S9 write-up.
+- **Lust (2018)'s continuous elimination ratio does not replicate here.** Its mechanism control fails
+  flat: dog-out/fav-alive +0.89%, both-out +1.19%, fav-out/dog-alive +0.99% — indistinguishable, so
+  it is late-season favourite bias, not elimination pressure. 2023-24 at −5.74%.
+
 TRACK-only, not proven: divisional 1H under rematch (53.1%, decaying 59→49→52), cold-fav 1H fade
 (54.0% / +3.0%, 56/56/50), H2H ATS anti-persistence (55.5%).
+
+**S13 — late season, both teams settled (eliminated *or* clinched) → OVER.** 467 bets, 56.10% vs a
+51.04% in-slice base, **+7.11%**, z=2.19, placebo p=0.0085, corroborated in the home team total
+(z=2.53). It is held back from §2 by one thing: **drop 2023-24 and it goes to +3.37% / z=0.86** while
+S11 and S12 barely move under the same test. Its ladder is also a step, not a gradient — 0 settled
+−5.88%, 1 settled −4.83%, **2 settled +7.11%**. Defensible mechanically (a no-show game needs both
+sides to no-show) but it is one season carrying a rule until another April says otherwise.
+
+Non-monotone and treated as noise despite decent placebo p-values: rest edge (exactly 1 day −8.85%,
+exactly 2 days +12.17%, ≥3 flat on n=52) and early-season dogs (gp1-5 +9.47%, gp6-10 −7.27%, 2025-26
+negative).
 
 ---
 
@@ -150,7 +236,8 @@ TRACK-only, not proven: divisional 1H under rematch (53.1%, decaying 59→49→5
 |---|---|
 | FG total model | Regenerate `nba_model_features.parquet`; persist an artifact; wire the 16 load columns |
 | FG spread + total published numbers | The two discarded classifiers (§4) — code fix, no research needed |
-| S9 | `nba_slate_flags` table does not exist. DDL written 2026-07-31 (`supabase/migrations/20260731180000_nba_slate_flags_and_h1_odds.sql`) but **not applied** — needs owner approval |
+| S9 / S11 | `nba_slate_flags` table does not exist. DDL written 2026-07-31 (`supabase/migrations/20260731180000_nba_slate_flags_and_h1_odds.sql`) but **not applied** — needs owner approval. S11 additionally needs `venues_7d` (distinct arenas in the trailing 7 days), which `nba_signals_job.py` does not compute today |
+| S12 | Nothing. It is a calendar cut on games already in the slate — no new feed, no new column |
 | S10 | Daily hoopR play-by-play pull + expanding expected-points table |
 | S7, S8, 1H spread model | **1H odds capture.** Not on the bulk `/odds` call — per-event endpoint only, so it cannot be backfilled after the fact. Needs `nba_odds_snapshots_h1` (same unapplied migration) plus a season of accumulated history |
 | S8 additionally | Player position + ppg joined to `nba_injury_report` |
