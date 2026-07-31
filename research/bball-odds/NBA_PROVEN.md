@@ -69,6 +69,7 @@ produces; treat `NBA_SPREAD_V2/V3_BRIEF.md` as a map, not a result.
 | **S12** | Final ~2 weeks of the regular season (`st_h_season_frac ≥ 0.94`) → **OVER** | FG total | **56.8** | **50.70** | **+8.38** | 273 | +5/+12/+16/+1 | **yes** | `nba_hunt_survivors.py` |
 | **S14** | Project the margin from both sides' last-3 scoring and allowing; when that projection beats the spread by more than ~4 pts in the home team's favour (top quartile) → **back the AWAY team** | FG spread | **55.5** | **50.19** | **+5.92** | 856 | 57/56/53/55 | **yes** — identical at the open | `nba_conj_hunt.py`, `nba_s13_drill.py` |
 | **S15** | Home team has **exactly two more days of rest** than the visitor → **back HOME** | FG spread | **58.7** | **50.35** | **+12.17** | 206 | 54/57/61/66 | **yes** | `nba_catalog_round2.py`, `nba_s13_drill.py` |
+| **S17** | **Away favourite** whose last game was a win by **20+ points** → back it | FG spread | **57.4** | **49.23** (any away fav) | **+9.64** | 264 | 54/66/55/55 | **yes** | `nba_dims_t2.py` |
 
 **S9, S11 and S12 can ship today** — they need schedule and standings only, no injury feed. S11 is
 the one to actually fire: it is S9 with a second condition, and it beats S9 on ROI, on z, and on
@@ -179,6 +180,59 @@ losing bet, and two extra days is under-paid and therefore the cell. The ATS lad
 
 All four seasons positive (54.1 / 57.5 / 61.0 / 65.9). Corrected placebos: gap ≥2 **p=0.0122**,
 gap exactly 2 **p=0.0075**, gap ≥3 p=0.4627 (the ≥3 tail is n=52 and is noise either way).
+
+### S17 — away favourite off a 20-point win
+
+The right comparator is not all games, it is **other away favourites** — and that population is bad:
+49.23% ATS, −6.01% ROI across 1,928 team-games. Inside it, the split on the previous result is sharp:
+
+| away favourite, previous game | n | ATS% | ROI | pts vs its own spread |
+|---|---|---|---|---|
+| won by 20+ | **264** | **57.42** | **+9.64** | **+1.74** |
+| won by less than 20 | 920 | 46.10 | −11.98 | −1.02 |
+
+So this is not "back teams off blowouts" bolted onto "back away favourites" — the same population goes
+from bad to good on one condition. Dose is monotone from 15 upward (≥10 +0.71, ≥15 +0.64, **≥20 +1.74**,
+≥25 +1.92, ≥30 +1.54), all four seasons positive (+0.22 / +3.92 / +2.14 / +0.58), dropping any of the six
+most frequent teams leaves it at 57.1–58.5% and +9.1 to +11.7% ROI, placebo **p=0.0063**. It also works in
+both halves of the season (late 60.4%, early 55.3%), so it is independent of S9/S11.
+
+**The threshold is 20, not 15.** At 15 the rule is not there (+0.64 points, 51.99%, −0.73% ROI) and the
+disjoint 15–20 band is actively bad (42.47%). Anyone carrying this trend at 15 points is carrying a
+version that does not work.
+
+Mechanism, and it checks out: a 20+ win usually means the starters watched the fourth quarter. The effect
+is **stronger when the blowout was at home** and the team now travels (+2.72 points, 59.26%, +13.17%) and
+strongest of all on short rest (+4.04 on n=42 — small, quoted as colour). Fresh legs into a market that
+shades toward "due for a letdown".
+
+### S16 — deep road trip × high-pace team (TRACK, not a bet)
+
+Real as an *effect*, not viable as a *bet*, and the distinction is the point. A top-third-pace team three
+or more games into a road trip covers 47.4% and loses 1.32 points against its own number (placebo
+p=0.0023). Every one-term control is flat, which is what makes the interaction believable:
+
+| | n | pts vs spread |
+|---|---|---|
+| leg 3+ **and** fast | 509 | **−1.32** |
+| leg 3+, not fast | 1010 | +0.21 |
+| fast, leg 1–2 | 1113 | +0.03 |
+| fast, at home | 1585 | −0.23 |
+| every road team | 4978 | +0.01 |
+
+And it grades with trip depth for fast teams only — leg 1 +0.63, leg 2 −0.96, leg 3 −0.59, leg 4 −1.36,
+**leg 5+ −3.00** — while the same ladder for everyone else is flat at every leg (+0.11 / +0.39 / +0.38 /
++0.12 / −0.08). That contrast is the cleanest architecture result in the NBA work.
+
+**Why it is TRACK anyway.** Priced on the side actually bet (the opponent's number, not the flagged
+team's), the fade returns **+0.70% ROI** — break-even after vig. Only 2 of 4 seasons are profitable. And
+the pace threshold peaks at exactly the 66th percentile where it was set (50th −0.50, 60th −0.78, **66th
+−1.30**, 75th −1.08, 85th −0.97), which is the mined-number fingerprint. Two sub-cells are leads rather
+than rules because both were chosen after seeing the ladder: leg 5+ fast teams fade at 59.6% / +13.90% on
+n=111, and the whole effect lives **before both teams reach 50 games** (+3.17% ROI early, dead late).
+
+The total half of the owner's hypothesis is directionally right and statistically weak: these games run
++1.07 points over the posted number in excess of the sample's own over-lean, 54.3% over, t=1.38.
 
 **It is the rest gap, not the back-to-back.** The plain "away team on a b2b, home team is not" rule at
 any gap is worthless — 50.78%, z=0.21. Post-hoc sub-cuts (small n, chosen after seeing the cell, so
@@ -369,6 +423,45 @@ Fixed in `nba_catalog_tests.py` (×2) and `nba_hot3_round2.py` (×1); a warning 
 home-favourite-off-a-blowout **0.0088**, S14 **0.0104**. `nba_hunt_deepdive.py`,
 `nba_hunt_survivors.py` and `nba_hunt_style.py` always passed it correctly, so **S9–S13 are
 unaffected**.
+
+### The situational-attribution scan — scenarios measured in POINTS, split by team architecture
+
+`nba_dims_build.py` → `nba_dims_scan.py` → `nba_dims_validate.py` → `nba_dims_t2.py`, 2026-07-31.
+A different question from every earlier hunt: not "does this cell hit 55% ATS" but **how many points
+does a scenario move the margin and the total, and does that change with what kind of team is in it.**
+Three things had to be built first, none of which the research frame had: **road-trip structure**
+(leg number, trip length, games remaining, plus the schedule *lookahead* — legal, the schedule is
+public), **opponent-style sequence** (the pace of the last three opponents, valued as they were then),
+and **rotation experience** (minutes-weighted years-since-draft over the trailing 10 games — 87% of
+minutes covered; balldontlie has draft year, not birthdate, so it is experience and not literally age).
+
+**The single most important correction this scan produced: the total has a baseline of +0.72.**
+Games in this sample run +0.72 points over the closing total on average. Scoring a cell against zero
+roughly doubles its t-statistic. The lead with the highest t in the raw scan — "coming off three slow
+opponents → OVER", t=3.47 — collapses to **t=0.31** once measured against +0.72. It was the baseline,
+not a signal. Any total-side number in this repo quoted against zero is wrong by construction.
+
+**Architecture is enormously real and almost entirely priced.** The pace 3×3 on raw game total runs
+from **219.4** (slow into slow) to **237.6** (fast into fast) — an 18-point spread, the largest clean
+gradient anywhere in the NBA work. The same grid measured *against the posted total* is flat: every
+cell sits between −0.0 and +1.6, and fast-into-fast is +0.68. The market knows exactly what pace does.
+This is the answer to "does opponent architecture matter": hugely for what happens, barely for what
+is mispriced. Use it as a model feature, never as a card.
+
+**Age/experience matters only in interaction with fatigue, only on the total, and not enough to bet.**
+The ordering is coherent — veteran rotation while fatigued (b2b or heaviest-quartile travel week)
+**+0.69** excess points, young rotation while fatigued +0.08, veteran rotation fresh −0.30, and the
+main effect of experience alone is ~0 as it should be. But the top cell is t=1.32 with 2025-26
+negative. Old legs stopping defending first is a real ingredient and not a rule.
+
+Two more leads that did not survive their own season split, kept here so they are not re-found:
+- **Rest mismatch (either side 2+ days) → OVER**: +1.95 excess points, placebo p=0.0020, but per
+  season +4.73 / −0.88 / +2.74 / +0.54 — 2022-23 carries it. The dose also breaks (gap 3+, n=72, dies).
+- **The owner's "sandwich"** (mid-trip, one day off, road game next): +0.24 points, t=0.33, and per
+  season +1.99 / −0.01 / **−3.52** / +2.23. The lookahead adds nothing over mid-trip alone. Dead.
+
+What survived is in §2: **S17** (away favourite off a 20+ win) as a bet, **S16** (deep trip × fast
+team) as a tracked effect.
 
 ### Published rules re-tested on our four seasons
 
