@@ -282,6 +282,15 @@ const actualDiscount = Math.round(
 - Attached to offerings
 - Customizable without code changes
 
+### iOS Native Paywall (`CustomPaywallView`)
+- Fully custom SwiftUI checkout; RevenueCat stays the data layer (offerings,
+  prices, trial eligibility, purchase, entitlement). Two offering-metadata
+  switches: `custom_paywall_enabled` (kill switch back to the RC template) and
+  `paywall_close_enabled` (defaults FALSE — the onboarding gate ships hard)
+- Carries a **3-hour picks-expiry countdown pill**, and starts a Lock Screen
+  Live Activity when the user leaves without subscribing — see
+  `.claude/docs/19_picks_expiry_hold.md`
+
 ---
 
 ## Troubleshooting

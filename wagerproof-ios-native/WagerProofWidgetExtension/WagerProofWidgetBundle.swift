@@ -6,10 +6,14 @@ import SwiftUI
 /// Alerts / Market Value / Top Agents); Editor Picks is retired and Market
 /// Value was deferred, leaving these two as first-class, separately
 /// discoverable widgets in the gallery.
+///
+/// Plus one Live Activity (`PicksExpiryLiveActivity`) — not gallery-visible;
+/// the app starts it on demand when a user leaves the paywall.
 @main
 struct WagerProofWidgetBundle: WidgetBundle {
     var body: some Widget {
         TopOutliersWidget()
         AgentMonitorWidget()
+        PicksExpiryLiveActivity()
     }
 }
