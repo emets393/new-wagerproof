@@ -36,6 +36,13 @@ both). Attacker TT OVER side: 55.5%/+4.4% (paint-or-FT attacker 56.2%/+5.4%).
 NOT a tier: attacker OREB, rest days. **FRESH-ONLY: stale (2nd+ game)
 absences 51.4%, returns priced — the edge is a ONE-GAME news lag**
 (CBB_SIDES_BRIEF4.md).
+**CONFIRMED INDEPENDENTLY 2026-07-31 (NCAAB_AVAILABILITY_BRIEF.md): the
+feed-free version of this is worth NOTHING. Reading "who was out in the team's
+PREVIOUS game" — pregame-observable, needs no vendor — scores 51.3%/−2.0% at
+T-60, against 57.6%/+10.0% for "who is out TONIGHT" on the same games. That is
+a second construction reaching S1's one-game-news-lag conclusion, and it
+forecloses the cheap workaround: there is no free version of S1. If we want
+it, we buy the pregame feed.**
 **NEW TIER — model agreement (NCAAB_SIDES_MODEL_BRIEF.md): the 142-feature
 sides GBM agreeing (edge ≥1 same direction) lifts the base to ≈61.7%/+18%
 (big_out-away+agree → HOME 64.0%/+22.3% n=100; big_out-home+agree → AWAY
@@ -181,6 +188,38 @@ null/negative (away -5.9% control). Raw on/off had a hotter but noisier home
 cell (≥+8 → 56.7%/+8.3%) that leaked value onto collinear teammates.**
 OPEN v3: raise ridge alpha (current coef max ~247 = under-shrunk tiny-minute
 players; aggregate betting gradient robust to it); add cross-season prior.
+
+**REFINEMENT 2026-07-31 — the impact weighting is COSTING us (NCAAB_AVAIL_VALIDATION.md,
+NCAAB_BOX_PLAYERS.md, NCAAB_AVAIL_CONSENSUS.md).** Rebuilt from the same lineup
+stints with NO impact model at all — just the sum of each freshly-absent
+rotation player's PRIOR role (share of team minutes), fade the side with more
+missing, top 30% of |home−away differential|:
+
+| weighting | FG spread T-60 | note |
+|---|---|---|
+| raw minutes missing | **57.6% / +10.0%** (n=872, base 50.9) | no impact model |
+| impact-valued (role × on/off) | underperformed raw on the lineup build | |
+| headcount | weakest | ignores role entirely |
+| S6 v2 RIDGE-RAPM (production) | 54.1% / +3.3% (n=690) | more machinery |
+
+Replicated on an INDEPENDENT feed (`cbbd_player_box`, different vendor,
+different id namespace, 4 seasons vs 3): r=+0.956 and 98.1% sign agreement
+where both fire, but coverage differs (2,950 vs 2,476 games, only 1,714
+overlap) so the pair is worth combining. CONSENSUS (both fire and agree)
+57.8%/+10.5% (n=498, 57/58/59); EITHER feed 57.2%/+9.2% (n=1,097, all four
+seasons positive). **Magnitude moves with construction (+10.0 vs +1.1 on the
+box feed alone) — treat +9% as the honest number, not +13%.**
+
+Survived the full validation battery: blind home −5.5% and blind favourite
++0.4% INSIDE the same selection (C2, not a side bias); beats a random cut of
+the same size 100.0%/99.9% (C3, the test S10's concentration split failed at
+73%); walk-forward +11.1%/+8.6% (C4); decile gradient falls monotonically
+59→40 (C1b, r=−0.081); and |differential| vs |final margin| r=−0.008, so the
+bench-shortening/garbage-time confound is absent (C1).
+
+**Action: re-grade S6 with raw role-weighted missing minutes before shipping
+the RAPM version. Same conclusion as S1's — needs the pregame feed either way,
+and S1/S6/this are all ONE effect. Do not stack them.**
 
 ## S7 — NBA shared 1H-total streak fade (VALIDATED-LEAN, 2026-07-29)
 
@@ -572,6 +611,39 @@ a 54% cell without running that control is not measuring luck.
 — referee/whistle luck, opponent-injury-timing luck, or scheduling luck at a granularity the
 market ignores. Do not rebuild this from the same inputs.
 
+**EXTENDED TO NCAAB 2026-07-31 (NCAAB_LUCK_BRIEF.md) — same verdict on 4× the sample.**
+23,163 priced college games against the NBA's 5,278, the market where we had already proven
+absences go unpriced, so if team luck regression works anywhere in basketball it should show
+here. It does not. Every decile gradient flat (|r| ≤ .015), every family loses money at every
+one of the 8 markets, and **the largest |r| anywhere in the sides table belongs to the RATE
+placebo (−.015)**. Two sports, six designs, placebo-controlled throughout: **team-level
+statistical luck regression does not work in basketball. The category is closed.** It works in
+MLB because ~100 plate appearances genuinely is variance-dominated; a basketball rotation is
+not. Only SITUATIONAL (S9) and PLAYER-level (S8, S10) signals survive in this program.
+
+## CBB player-heat port and NON-SHOOTING heat: TESTED, NULL (2026-07-31)
+
+Two more ports from the NBA program, both killed by the same control.
+
+**S10 ported to college (NCAAB_HEAT_BRIEF.md, NCAAB_HEAT_VALIDATION.md, NCAAB_HEAT_REFINE.md).**
+Direction is right and it wins in all four seasons, but it is +0.9% at the opener and
+**−1.0% at the T-60 close**, and the concentrated-heat split beats a random cut of the same
+size only **73.0% (open) / 52.2% (close)** — nowhere near the ~95% bar. The tell: the control
+with **no own-baseline subtraction scores as well as the real signal**. In the NBA that same
+control loses 7.9%, and own-baseline subtraction was the entire trick. Whatever makes S10 work
+in the NBA is not present in college.
+Sub-finding, reported as a FAILED PREDICTION rather than flipped into a rule: we pre-registered
+that the fade would be stronger where a hot player's shots were increasingly ASSISTED (team
+context, decays) than self-created (skill, persists). The data went the other way.
+
+**Non-shooting heat (NCAAB_BOX_PLAYERS.md §B).** Free-throw %, turnover rate, rebound rate and
+assist rate, each measured against the player's own expanding baseline, role-weighted by PRIOR
+role. **All four lose money at all eight markets (−3.5% to −9.3%), and BOTH placebos (fta_rate
++1.1 to +2.0 edge, fga_rate) outscore all four real rates.** Free-throw percentage was the
+strongest a priori luck candidate in all of basketball — nearly opponent-independent, so a hot
+stretch should be close to pure noise. It is not tradeable. Player-level luck regression is
+dead in CBB in the same way team-level luck regression is.
+
 ## Dead list (tested honestly, do NOT rebuild without new information)
 
 Movement follow/fade (all buckets, both sports) · KenPom-edge vs close (fully
@@ -579,7 +651,7 @@ priced; bigger disagreement = worse) · regression/streak fades (pre-regressed
 into lines) · CBB H2H · raw height/experience/continuity-home clashes · pace
 battles · TO-vs-TO and OREB-vs-DREB standalone · stale-book chase NBA (juice
 trap) · big-fav CBB team totals (12% vig both sides) · 3-heavy dog variance
-theory (backwards) · possession-level shot-luck regression (fully priced — REGRESSION_BRIEF2) · team-specific venue-history HCA · **NBA TEAM-level luck regression, all 8 markets (see section above — 4 designs, 4 nulls)** · v1/v2 GBM models vs the close (market MAE wins; model
+theory (backwards) · possession-level shot-luck regression (fully priced — REGRESSION_BRIEF2) · team-specific venue-history HCA · **TEAM-level luck regression, BOTH sports, all 8 markets (see section above — 4 NBA designs + the NCAAB re-run on 4× the sample, all null, placebo wins)** · **CBB player shooting-heat (S10 port: fails the random-cut test at 73%, −1.0% at the close)** · **CBB non-shooting heat — FT%, turnovers, rebounds, assists (all 8 markets negative, both placebos beat all four)** · **the LAGGED/feed-free version of S1/S6 (51.3%/−2.0% — there is no free substitute for a pregame availability feed)** · v1/v2 GBM models vs the close (market MAE wins; model
 value is baseline + confluence only).
 
 ## Segment calibration (2026-07-17, owner-prompted)
