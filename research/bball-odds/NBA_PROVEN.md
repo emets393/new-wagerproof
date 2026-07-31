@@ -67,6 +67,8 @@ produces; treat `NBA_SPREAD_V2/V3_BRIEF.md` as a map, not a result.
 | **S8** | One moderate scorer (18–25 ppg) **freshly** out, opponent healthy, \|spread\| < 8, both 25+ gp → **back the depleted team** | 1H spread | **60.9** | 50.0 | **+16.0** | 271 | 63/60/60 | blocked | `NBA_HALVES_BRIEF2.md` |
 | **S11** | S9 **and** the dead home team has played in **2+ different arenas in the last 7 days** → back the favourite | FG spread | **60.8** | **52.65** | **+16.08** | 273 | +21/+6/+25/+12 | **yes** | `nba_hunt_survivors.py` |
 | **S12** | Final ~2 weeks of the regular season (`st_h_season_frac ≥ 0.94`) → **OVER** | FG total | **56.8** | **50.70** | **+8.38** | 273 | +5/+12/+16/+1 | **yes** | `nba_hunt_survivors.py` |
+| **S14** | Project the margin from both sides' last-3 scoring and allowing; when that projection beats the spread by more than ~4 pts in the home team's favour (top quartile) → **back the AWAY team** | FG spread | **55.5** | **50.19** | **+5.92** | 856 | 57/56/53/55 | **yes** — identical at the open | `nba_conj_hunt.py`, `nba_s13_drill.py` |
+| **S15** | Home team has **exactly two more days of rest** than the visitor → **back HOME** | FG spread | **58.7** | **50.35** | **+12.17** | 206 | 54/57/61/66 | **yes** | `nba_catalog_round2.py`, `nba_s13_drill.py` |
 
 **S9, S11 and S12 can ship today** — they need schedule and standings only, no injury feed. S11 is
 the one to actually fire: it is S9 with a second condition, and it beats S9 on ROI, on z, and on
@@ -112,6 +114,76 @@ across season-fraction sixths, i.e. the whole effect lives in the last ~3%. Plac
 Note the *spread* version of the same window **is** tanking in disguise (dead 65.71% vs not-dead
 52.94%), so it was deliberately not promoted. Also unchanged from close to open (+8.38 → +8.39):
 this is a scheduling/effort fact, not a news-latency artifact.
+
+### S14 — fade the amateur handicapper's projection
+
+Take the last three games. Compute what a stat-page handicapper would compute: half of (home's points
+scored minus away's points allowed) plus half of (home's points allowed minus away's points scored) —
+i.e. a projected margin built purely from recent scoring — and subtract what the spread already asks
+the home team to beat. When that leftover is large and positive, the recent numbers "say" the home
+team should be laying more than it is. **Back the away team.**
+
+It is dose-graded, which is the test a mined cut fails:
+
+| cut (top X% of the projection-minus-line distribution) | n | win% | base% | ROI | z |
+|---|---|---|---|---|---|
+| top 44% | 1532 | 52.87 | 50.19 | +0.94 | 2.09 |
+| top 35% | 1196 | 54.10 | 50.19 | +3.27 | 2.69 |
+| **top 25%** | **856** | **55.49** | **50.19** | **+5.92** | **3.09** |
+| top 15% | 508 | 55.12 | 50.19 | +5.19 | 2.21 |
+| top 9% | 338 | 56.51 | 50.19 | +7.82 | 2.31 |
+| top 5% | 170 | 53.53 | 50.19 | +2.15 | 0.86 |
+
+**Neither ingredient works alone, which is the whole point of it being a conjunction:**
+
+| variant | n | win% | ROI | z |
+|---|---|---|---|---|
+| S14 (projection minus line), top 15% | 508 | 55.12 | **+5.19** | 2.21 |
+| price only — home is a big favourite | 556 | 46.40 | −11.38 | −1.78 |
+| form only — home's recent margin is high | 536 | 48.51 | −7.36 | −0.77 |
+| form only — home has been scoring a lot | 540 | 51.11 | −2.41 | 0.43 |
+| form high but the signal is **not** (line already caught up) | 503 | 47.32 | −9.62 | −1.28 |
+| signal high but form is not (line is behind a modest team) | 475 | 54.32 | +3.66 | 1.79 |
+
+So "fade the hot team" loses money and "fade the big favourite" loses more; it is the **difference
+between the two** that pays. Mechanically: recent scoring over-extrapolates because it carries pace,
+opponent quality and shooting variance the market has already discounted.
+
+Where it lives: almost entirely on games where the **home team is a dog** (n=425, 55.76% vs a 50.83%
+in-slice base, +6.42%, z=2.03) and in the **late** season (both 50+ gp: 57.14%, +9.03%, z=2.48; early
+−9.47%, mid −0.73%). All four seasons positive (57.3 / 56.4 / 52.8 / 54.6). 30 distinct away teams,
+top share 9.1%, worst drop-one-team leaves z=1.86. Corrected random-cut placebo **p=0.0104**. ROI at
+the **opener is +5.23% against +5.19% at T-60** — identical, so this is not news latency.
+
+**Two honest weaknesses.** (1) The mirror is flat: the bottom of the same distribution → back HOME
+does not pay at L3. (2) The window ladder is unstable — L5 is weaker throughout and **L10 flips sign**
+(there the profitable half is bottom → back home, z≈2.4). A real effect should not reverse when you
+add seven games of the same measurement. Until that resolves, S14 ships at L3 only and is watched.
+
+### S15 — exactly two extra days of rest
+
+The rest ladder is the cleanest structural finding in the NBA work, because the direction was
+**predicted before it was measured**. The dual-outcome regression said the market prices rest
+**linearly** (+1.73 pts for one extra day, +1.84 for two-plus) where the true effect is **convex**
+(+0.83 real at one day, +3.73 at two-plus). That predicts one extra day is over-paid and therefore a
+losing bet, and two extra days is under-paid and therefore the cell. The ATS ladder says exactly that:
+
+| rest gap (home minus away) | n | win% | base% | ROI | z |
+|---|---|---|---|---|---|
+| home 2 fewer days | 160 | 48.75 | 50.35 | −6.86 | −0.40 |
+| home 1 fewer | 783 | 50.70 | 50.35 | −3.15 | 0.20 |
+| equal | 2680 | 50.71 | 50.35 | −3.15 | 0.38 |
+| **home +1 day (over-paid)** | 951 | 47.74 | 50.35 | **−8.85** | −1.61 |
+| **home +2 days** | **206** | **58.74** | **50.35** | **+12.17** | **2.41** |
+| home +3 or more | 52 | 51.92 | 50.35 | −0.93 | 0.22 |
+
+All four seasons positive (54.1 / 57.5 / 61.0 / 65.9). Corrected placebos: gap ≥2 **p=0.0122**,
+gap exactly 2 **p=0.0075**, gap ≥3 p=0.4627 (the ≥3 tail is n=52 and is noise either way).
+
+**It is the rest gap, not the back-to-back.** The plain "away team on a b2b, home team is not" rule at
+any gap is worthless — 50.78%, z=0.21. Post-hoc sub-cuts (small n, chosen after seeing the cell, so
+treat as colour not as rules): gap ≥2 with the away side **not** on a b2b = 63.83% on n=94 (+21.90%);
+gap ≥2 with the home team a **dog** = 61.90% on n=84 (+18.25%).
 
 ---
 
@@ -224,9 +296,100 @@ S11 and S12 barely move under the same test. Its ladder is also a step, not a gr
 −5.88%, 1 settled −4.83%, **2 settled +7.11%**. Defensible mechanically (a no-show game needs both
 sides to no-show) but it is one season carrying a rule until another April says otherwise.
 
-Non-monotone and treated as noise despite decent placebo p-values: rest edge (exactly 1 day −8.85%,
-exactly 2 days +12.17%, ≥3 flat on n=52) and early-season dogs (gp1-5 +9.47%, gp6-10 −7.27%, 2025-26
-negative).
+Non-monotone and treated as noise: early-season dogs (gp1-5 +9.47%, gp6-10 −7.27%, 2025-26 negative).
+The rest ladder was parked here too and has since been **promoted to S15** — see §2. What changed is
+that the non-monotonicity turned out to be the *prediction*, not a defect: the dual-outcome regression
+had already said the market's rest slope is linear where the truth is convex, which requires +1 to
+lose and +2 to win. A ladder that matches a mechanism stated in advance is evidence, not noise.
+
+### The conjunction hunt — combinations of features with tunable thresholds
+
+`nba_conj_hunt.py` → `nba_s13_drill.py`, 2026-07-31. Built because every prior NBA search cut on
+**one feature at a time** (`nba_hunt_validate.build_masks_oos` literally loops `for c in cols:`), so
+"308,860 cells" was 308,860 single-feature slices, not combinations. This run is the combination
+search: **125 templates** across 14 mechanism families, each a 2- or 3-term conjunction of the form
+*team A's feature ≥ X **and** team B's feature ≤ Y*, with thresholds swept over a grid
+(≥55/65/75/85th pct × ≤45/35/25/15th pct) = **2,216 threshold combinations** graded against
+**9 markets** (FG spread both sides, FG total both sides, FG ML both sides, 1H spread, 1H total both
+sides, both team totals). Every template carries a written mechanism; no mechanism, no template.
+Families: style mismatch (shot diet vs what the defence concedes), pace confluence, rebounding and
+turnover mismatch, quality mismatch, thin rotation × fatigue, form vs the posted price, ratings vs the
+market, own-baseline shooting regression × opponent defence, first-half share, travel density × rest,
+naive form projection, line movement × form, streaks × price, and context flags.
+
+**Result: the tuned version is aggregate-null in both split directions, and the tuning is the noise.**
+
+| pass | rules selected on FIT | mean excess ROI on TEST | positive rules | FIT→TEST shrinkage |
+|---|---|---|---|---|
+| forward (fit 22-23/23-24, grade 24-25/25-26) | 118 | **+0.18% ± 0.64** | 61/118 (chance ≈59) | +5.49 pts |
+| reversed (fit 24-25/25-26, grade 22-23/23-24) | 104 | **−1.95% ± 0.93** | 37/104 (chance ≈52) | +9.40 pts |
+
+22 of 100 templates were positive both ways, where chance is ~25. **A conjunction search with tuned
+thresholds fails the same way a blind single-feature sweep does** — this closes the "tweak the
+parameters until it hits" route as firmly as the earlier sweep closed the marginal one.
+
+**Pass 3 fixed the thresholds a priori** (one cut per term, 70th/30th pct, graded on the whole
+sample), which collapses 2,216 cells to ~125 tests and drops the family-wise bar to something a real
+edge can clear (expected max |z| ≈ 2.7):
+
+| pre-registered cut | mean excess ROI | positive | max z |
+|---|---|---|---|
+| 0.70 / 0.30 | −0.92% | 47/120 | +2.47 |
+| 0.60 / 0.40 | −0.38% | 59/121 | +1.94 |
+| 0.80 / 0.20 | −1.41% | 45/113 | +2.32 |
+
+Exactly **one** template cleared z≥2.0 *and* 3-of-4 seasons positive *and* survived the forward
+walk-forward: the naive-scoring-projection fade, promoted as **S14**. One survivor out of 125
+pre-registered mechanism-backed conjunctions is the honest yield.
+
+**Three templates lost badly in the registered direction and win in the reverse.** Reversals are
+hypotheses, not findings — they are graded here so the mechanism can be stated, and all three sit
+below z=2.0 with uneven seasons, so they are TRACK-only:
+- *clean-whistle game → OVER* (low home FT rate into a low-fouling defence; few whistles = running
+  clock = more possessions): L5 n=384, 55.21% vs 50.25 base, +5.39%, z=1.94; L10 z=1.99. 2025-26 negative.
+- *top-heavy away side on a back-to-back → OVER* (n=179, 56.98% vs 50.25, +8.79%, z=1.80) — a tired
+  star-dependent team loses its defence before it loses its shot-making, so the game runs up, not down.
+- *home pushed into threes → home team total UNDER* (L5 n=299, 55.85% vs 50.60, +6.10%, z=1.86; **L10
+  flips to −7.54%**) — three-point volume forced by the defence is the low-efficiency diet, not the high one.
+
+**And one clean negative worth keeping: the move beats the form.** The registered contrarian rule
+("line moved against the home side but its recent form disagrees → fade the move") lost, and
+following the move instead returns 54.95% vs 50.19 base on n=424 (+4.91%, z=1.96). But the control —
+*any* move off the home side → back away — is already 52.64% (z=1.84), so the form condition adds
+about 2 points on a quarter of the sample. That is a line-movement fact, not a conjunction finding.
+
+### A units bug in the placebo test voided several earlier "null" verdicts
+
+`nba_hunt_deepdive.placebo()` takes `observed_roi` **in percent**. Three call sites passed
+`r['roi']/100`, which silently changed the test from "beat +5% ROI" to "beat +0.095% ROI" against a
+market whose base ROI is −3.85% — that returns p ≈ 0.25 for *any* cut regardless of quality
+(P(Z ≥ (0.095+3.85)/6.2) = 0.262, matching the 0.2265 that was observed and reported as null).
+Fixed in `nba_catalog_tests.py` (×2) and `nba_hot3_round2.py` (×1); a warning docstring is now on
+`placebo()`. Corrected p-values: rest gap ≥2 **0.0122** (was 0.2265), gap exactly 2 **0.0075**,
+home-favourite-off-a-blowout **0.0088**, S14 **0.0104**. `nba_hunt_deepdive.py`,
+`nba_hunt_survivors.py` and `nba_hunt_style.py` always passed it correctly, so **S9–S13 are
+unaffected**.
+
+### Published rules re-tested on our four seasons
+
+- **Home favourite off a 15+ point win** — fails its own dose test and is NOT promoted. 5+ z=0.68,
+  10+ z=1.89, **15+ z=2.24**, 20+ z=0.43, 25+ z=0.51. It peaks at exactly the published threshold and
+  dies on both sides, which is the fingerprint of a number that was mined once and copied since. Its
+  controls are clean (any home favourite 50.37%, z=0.02) and the corrected placebo is p=0.0088, so it
+  is not nothing — but a rule that only works at one arbitrary margin is not a rule.
+- **Early-season OVER** — weak but the mechanism is real. Decays with window (first <3 games 56.61%,
+  <5 54.81%, <8 54.44%, <10 52.04%), one negative season, placebo p=0.2255. The posted total *is*
+  systematically low in early games in 3 of 4 seasons (miss +0.90 / +1.24 / +1.79 vs −0.26 in 2022-23).
+- **Reversed favourite–longshot bias** — the published direction is wrong for the NBA moneyline. The
+  bias here is **orthodox**: longshots are over-priced at every band (2-10% implied realises 3.9%,
+  10-15% realises 10.8%, 25-30% realises 23.6%), so the dog side loses everywhere (−56.8% / −18.4% /
+  −10.4% / −12.9%). But laying the favourite is *also* negative at every threshold (−2.78 / −2.81 /
+  −4.21 home, +0.14 / −0.81 / −3.26 away) because the vig eats the fade. **This produces a do-not-bet
+  rule, not a bet.** The spread analogue is mildly positive: away dog ≤20% implied → back home ATS
+  52.91%, +1.01%, z=1.25; either side a big favourite → OVER 53.53%, +2.19%, z=1.65.
+- **Visitor travelling 2+ time zones west** — dead once the placebo is corrected. Our regression's
+  direction (back home) p=0.9072; the published direction (back the westward road dog) +2.37%,
+  z=1.29, p=0.0817.
 
 ---
 
@@ -238,6 +401,8 @@ negative).
 | FG spread + total published numbers | The two discarded classifiers (§4) — code fix, no research needed |
 | S9 / S11 | `nba_slate_flags` table does not exist. DDL written 2026-07-31 (`supabase/migrations/20260731180000_nba_slate_flags_and_h1_odds.sql`) but **not applied** — needs owner approval. S11 additionally needs `venues_7d` (distinct arenas in the trailing 7 days), which `nba_signals_job.py` does not compute today |
 | S12 | Nothing. It is a calendar cut on games already in the slate — no new feed, no new column |
+| S14 | Needs each team's last-3 points scored / points allowed and the T-60 spread — both already in the daily pipeline. Requires the L3 window specifically (L10 reverses); percentile cut must be recomputed against the trailing season, not hard-coded |
+| S15 | Nothing but a days-of-rest column on the slate. Note `h_days_since_home` in the research frame is broken (all zeros) — compute the gap from the schedule, not from that column |
 | S10 | Daily hoopR play-by-play pull + expanding expected-points table |
 | S7, S8, 1H spread model | **1H odds capture.** Not on the bulk `/odds` call — per-event endpoint only, so it cannot be backfilled after the fact. Needs `nba_odds_snapshots_h1` (same unapplied migration) plus a season of accumulated history |
 | S8 additionally | Player position + ppg joined to `nba_injury_report` |

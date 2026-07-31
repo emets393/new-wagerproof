@@ -61,6 +61,11 @@ def placebo(d, universe, market, markets, n_cell, observed_roi, trials=2000):
 
     Answers the only question that matters about a cut chosen from a menu: how often does
     a slice this profitable turn up by luck at this sample size?
+
+    observed_roi MUST be in PERCENT -- grade()'s r["roi"] passed straight through. Divide it
+    by 100 and the comparison silently degrades to "beat ~0% ROI", which against a market
+    whose base ROI is -3.9% returns p ~ 0.25 for ANY cut. That bug made the X1/X2 and hot3
+    round-2 placebos read as null while the same cuts were scoring z > 2.
     """
     y, price = markets[market]
     ok = np.isfinite(y) & np.isfinite(price) & universe
