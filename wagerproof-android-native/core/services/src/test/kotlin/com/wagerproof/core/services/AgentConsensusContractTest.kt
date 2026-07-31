@@ -3,9 +3,11 @@ package com.wagerproof.core.services
 import com.wagerproof.core.models.AgentSpriteIndex
 import com.wagerproof.core.models.GameAgentConsensus
 import com.wagerproof.core.models.serialization.WagerproofJson
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -106,5 +108,86 @@ class AgentConsensusContractTest {
         assertNull(avatar.spriteIndex)
         assertEquals(AgentSpriteIndex.forSeed("a3"), avatar.resolvedSpriteIndex)
         assertNull(avatar.color)
+    }
+
+    @Test
+    fun agreementIsScopedToTheMarketNotTheWholeGame() {
+        // The case the market-scoped migration exists for: 5 of 17 agents on the
+        // game, but 5 of 6 among the agents who bet the F5 run line.
+        val row = WagerproofJson.decodeFromString(
+            GameAgentConsensus.serializer(),
+            """
+            {
+              "game_id": "776546",
+              "game_date": "2026-07-29",
+              "agents": 17,
+              "side": "Pittsburgh Pirates F5 -0.5",
+              "side_agents": 5,
+              "market_agents": 6,
+              "market_label": "F5 run line",
+              "agreement": "0.8333",
+              "threshold": 8,
+              "flagged": false,
+              "avatars": []
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals(17, row.agents)
+        assertEquals(6, row.marketAgents)
+        assertEquals("F5 run line", row.marketLabel)
+        assertEquals(83, row.agreementPercent)
+    }
+
+    @Test
+    fun preMigrationRowFallsBackToTheWholeGameDenominator() {
+        // No market columns (and a blank label, which the RPC never sends but a
+        // stale view might): the denominator must be the whole-game count, not 0.
+        val row = WagerproofJson.decodeFromString(
+            GameAgentConsensus.serializer(),
+            """
+            {
+              "game_id": "776547",
+              "game_date": "2026-07-29",
+              "agents": 12,
+              "side": "Over 8.5",
+              "side_agents": 9,
+              "market_label": "",
+              "agreement": 0.75,
+              "threshold": 8,
+              "flagged": true,
+              "avatars": []
+            }
+            """.trimIndent(),
+        )
+
+        assertNull(row.marketAgentsRaw)
+        assertEquals(12, row.marketAgents)
+        assertNull(row.marketLabel)
+    }
+
+    @Test
+    fun renamedCountColumnFailsLoudlyInsteadOfDecodingAsZeroAgents() {
+        // Regression guard for the bug that took the feature down on iOS: with a
+        // default, a renamed `side_agents` decoded as 0 and every card silently
+        // lost its strip. Throwing keeps the failure visible AND uncached.
+        assertFailsWith<SerializationException> {
+            WagerproofJson.decodeFromString(
+                GameAgentConsensus.serializer(),
+                """
+                {
+                  "game_id": "776548",
+                  "game_date": "2026-07-29",
+                  "agents": 12,
+                  "side": "Over 8.5",
+                  "side_agents_renamed": 9,
+                  "agreement": 0.75,
+                  "threshold": 8,
+                  "flagged": true,
+                  "avatars": []
+                }
+                """.trimIndent(),
+            )
+        }
     }
 }

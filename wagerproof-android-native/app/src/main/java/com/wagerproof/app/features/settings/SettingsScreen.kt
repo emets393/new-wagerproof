@@ -3,6 +3,7 @@ package com.wagerproof.app.features.settings
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.BuildConfig
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.paywall.CustomerCenterScreen
 import com.wagerproof.app.features.paywall.PaywallScreen
@@ -60,8 +62,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val APP_VERSION = "3.5.6 (49)"
-private const val CONTACT_MAILTO = "mailto:admin@wagerproof.bet?subject=Contact%20Us%20-%20WagerProof%20Mobile"
+private const val CONTACT_SUBJECT = "Contact Us - WagerProof Mobile"
 private const val PRIVACY_URL = "https://wagerproof.bet/privacy-policy"
 private const val TERMS_URL = "https://wagerproof.bet/terms-and-conditions"
 
@@ -229,7 +230,10 @@ fun SettingsScreen(
                 icon = AppIcon.ENVELOPE_FILL.imageVector,
                 title = "Contact Us",
                 accessory = RowAccessory.External,
-                onClick = { uriHandler.openUri(CONTACT_MAILTO) },
+                // NOT uriHandler.openUri: AndroidUriHandler rethrows
+                // ActivityNotFoundException as IllegalArgumentException, so a device
+                // with no mail client would crash instead of no-opping like iOS.
+                onClick = { openContactEmail(context, CONTACT_SUBJECT) },
             )
 
             // --- Legal ---
@@ -350,10 +354,15 @@ fun SettingsScreen(
         SettingsModal.Developer -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             DeveloperSettingsScreen(onDismiss = { modal = null })
         }
+        // Unlike the four screens above, PaywallScreen/CustomerCenterScreen own no
+        // BackHandler — without one here Back falls through to the shell handler and
+        // pops Settings entirely instead of just closing the modal.
         SettingsModal.Paywall -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
+            BackHandler { modal = null }
             PaywallScreen(onDismiss = { modal = null })
         }
         SettingsModal.CustomerCenter -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
+            BackHandler { modal = null }
             CustomerCenterScreen(onDismiss = { modal = null })
         }
         null -> Unit
@@ -528,7 +537,14 @@ private fun FooterVersion(onSecretOpen: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(APP_VERSION, style = AppTypography.monoCaption, color = AppColors.appTextMuted)
+        // Read from BuildConfig, never a literal: iOS reads CFBundleShortVersionString
+        // + CFBundleVersion, and a hardcoded string silently goes stale on the next
+        // version bump (and hides the debug `-debug` suffix in support screenshots).
+        Text(
+            text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+            style = AppTypography.monoCaption,
+            color = AppColors.appTextMuted,
+        )
         Text("Developed by nerds from Ohio.", fontSize = 12.sp, color = AppColors.appTextMuted)
     }
 }

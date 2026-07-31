@@ -14,6 +14,7 @@ import com.wagerproof.core.services.CreateAgentInput
 import com.wagerproof.core.services.PresetArchetypeRow
 import com.wagerproof.core.services.PresetArchetypeService
 import com.wagerproof.core.services.applying
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -107,6 +108,9 @@ class AgentCreationStore {
         try {
             archetypeRows = PresetArchetypeService.fetchAll()
             archetypesLoadState = ArchetypesLoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            archetypesLoadState = ArchetypesLoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             archetypesLoadState = ArchetypesLoadState.Failed(message(t))
         }
@@ -230,6 +234,9 @@ class AgentCreationStore {
             val agent = AgentService.create(input)
             submitState = SubmitState.Succeeded(agent)
             agent
+        } catch (cancellation: CancellationException) {
+            submitState = SubmitState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             submitState = SubmitState.Failed(message(t))
             null

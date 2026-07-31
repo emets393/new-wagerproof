@@ -34,15 +34,28 @@ internal object HistoricalAnalysisCopy {
         "fg_total" -> "went over"
         "h1_total" -> "went over the 1H total"
         "team_total" -> "went over their team total"
+        "ml" -> "won"
+        "rl" -> "covered the run line"
+        "total" -> "went over"
+        "f5_ml" -> "won the F5"
+        "f5_rl" -> "covered the F5 run line"
+        "f5_total" -> "went over the F5 total"
         else -> "hit"
     }
 
     fun outcomeLabel(betType: String) = when (betType) {
-        "fg_spread", "h1_spread" -> "Cover"
-        "fg_ml", "h1_ml" -> "Win"
-        "fg_total", "h1_total", "team_total" -> "Over"
+        "fg_spread", "h1_spread", "rl", "f5_rl" -> "Cover"
+        "fg_ml", "h1_ml", "ml", "f5_ml" -> "Win"
+        "fg_total", "h1_total", "team_total", "total", "f5_total" -> "Over"
         else -> "Hit"
     }
+
+    /** Markets whose result is a game-level over/under — Side / fav-dog don't describe them. */
+    private val gameTotalMarkets = setOf("fg_total", "h1_total", "total", "f5_total")
+
+    /** Markets where the fav/dog bar is the directional split (mirrors iOS `directionalBarSide`). */
+    private val favDogMarkets =
+        HistoricalAnalysisBetType.moneylineMarkets + setOf("team_total", "ml", "f5_ml", "rl", "f5_rl")
 
     fun noun(snapshot: HistoricalAnalysisUISnapshot) = when {
         snapshot.betType == "team_total" -> "team totals"
@@ -78,7 +91,7 @@ internal object HistoricalAnalysisCopy {
         if (activeConferences(snapshot).isNotEmpty()) return data.overall.toHeadline()
         val directional = when {
             snapshot.betType in setOf("fg_spread", "h1_spread") && snapshot.spreadSide != "any" -> snapshot.spreadSide
-            (snapshot.betType in HistoricalAnalysisBetType.moneylineMarkets || snapshot.betType == "team_total") && snapshot.favDog != "any" -> snapshot.favDog
+            snapshot.betType in favDogMarkets && snapshot.favDog != "any" -> snapshot.favDog
             else -> null
         }
         directional?.let { side ->
@@ -96,9 +109,21 @@ internal object HistoricalAnalysisCopy {
         HeadlineMetrics(n, wins, hitPct, roi)
 
     fun headlineSubject(sport: HistoricalAnalysisSport, snapshot: HistoricalAnalysisUISnapshot): String {
+        // Game totals are game outcomes ("went over") — never "Favorites went over".
+        if (snapshot.betType in gameTotalMarkets) {
+            if (sport == HistoricalAnalysisSport.MLB && snapshot.teams.isNotEmpty()) {
+                return "${snapshot.teams.joinToString(", ")} games"
+            }
+            if (snapshot.side != "any") return if (snapshot.side == "home") "Home games" else "Road games"
+            return "Games"
+        }
         val parts = buildList {
             if (snapshot.side != "any") add(if (snapshot.side == "home") "Home" else "Road")
-            val direction = if (snapshot.betType in setOf("fg_spread", "h1_spread")) snapshot.spreadSide else snapshot.favDog
+            val direction = when {
+                snapshot.betType in setOf("fg_spread", "h1_spread") -> snapshot.spreadSide
+                snapshot.betType in favDogMarkets -> snapshot.favDog
+                else -> "any"
+            }
             if (direction != "any") add(if (direction == "favorite") "favorites" else "underdogs")
         }
         val situation = parts.joinToString(" ")
@@ -109,8 +134,11 @@ internal object HistoricalAnalysisCopy {
         if (sport == HistoricalAnalysisSport.CFB && conferences.isNotEmpty()) {
             return conferences.joinToString(", ") + " schools" + if (situation.isEmpty()) "" else " (${situation.lowercase()})"
         }
+        if (sport == HistoricalAnalysisSport.MLB && snapshot.teams.isNotEmpty()) {
+            return snapshot.teams.joinToString(", ") + if (situation.isEmpty()) "" else " (${situation.lowercase()})"
+        }
         if (situation.isNotEmpty()) return situation.replaceFirstChar(Char::uppercase)
-        return if (snapshot.betType in setOf("fg_total", "h1_total")) "Games" else "Teams"
+        return "Teams"
     }
 
     fun scopeNote(sport: HistoricalAnalysisSport, snapshot: HistoricalAnalysisUISnapshot): String {
@@ -136,7 +164,8 @@ internal object HistoricalAnalysisCopy {
     fun sideLabel(betType: String, side: String): String {
         if (side == "over") return "Over"
         if (side == "under") return "Under"
-        val verb = if (betType in HistoricalAnalysisBetType.moneylineMarkets) "won" else "covered"
+        val isML = betType in HistoricalAnalysisBetType.moneylineMarkets || betType == "ml" || betType == "f5_ml"
+        val verb = if (isML) "won" else "covered"
         return when (side) {
             "home" -> "Home $verb"
             "away" -> "Away $verb"
@@ -146,15 +175,64 @@ internal object HistoricalAnalysisCopy {
         }
     }
 
+    /** MLB `mlb_analysis_upcoming` returns a null `is_favorite` on pick'em / missing odds. */
+    private fun favLabel(isFavorite: Boolean?, yes: String, no: String, unknown: String): String =
+        when (isFavorite) {
+            true -> yes
+            false -> no
+            null -> unknown
+        }
+
     fun lineForBet(betType: String, game: HistoricalAnalysisUpcomingGame): String = when (betType) {
         "fg_spread" -> game.teamSpread?.let { "${game.team} ${if (it > 0) "+" else ""}${trimmed(it)}" }.orEmpty()
-        "fg_ml" -> "${game.team} ML (${if (game.isFavorite == true) "favorite" else "underdog"})"
+        "fg_ml" -> "${game.team} ML (${favLabel(game.isFavorite, "favorite", "underdog", "even")})"
         "fg_total" -> "Total O/U ${game.total?.let(::trimmed) ?: "—"}"
         "team_total" -> "${game.team} team total ${game.ttLine?.let(::trimmed) ?: "—"}"
         "h1_spread" -> game.h1Spread?.let { "${game.team} 1H ${if (it > 0) "+" else ""}${trimmed(it)}" }.orEmpty()
-        "h1_ml" -> "${game.team} 1H ML (${if (game.isFavorite == true) "favorite" else "underdog"})"
+        "h1_ml" -> "${game.team} 1H ML (${favLabel(game.isFavorite, "favorite", "underdog", "even")})"
         "h1_total" -> "1H Total O/U ${game.h1Total?.let(::trimmed) ?: "—"}"
+        // MLB markets (iOS HistoricalAnalysisCopy.swift:220-246). Without these
+        // every upcoming row on MLB — whose default bet type is "ml" — printed
+        // a blank line where the side and number belong.
+        "ml" -> "${game.team} ML (${favLabel(game.isFavorite, "fav", "dog", "even")})"
+        "rl" -> "${game.team} RL${favLabel(game.isFavorite, " −1.5", " +1.5", "")}"
+        "total" -> "Total O/U ${game.total?.let(::trimmed) ?: "—"}"
+        "f5_ml" -> "${game.team} F5 ML"
+        "f5_rl" -> "${game.team} F5 RL${favLabel(game.isFavorite, " −0.5", " +0.5", "")}"
+        "f5_total" -> "F5 Total O/U ${game.f5Total?.let(::trimmed) ?: "—"}"
         else -> ""
+    }
+
+    /**
+     * Kickoff line for an upcoming row. MLB rows carry `game_date` + `time_et`
+     * and a null `kickoff`, so the football-only formatter left the time blank.
+     * iOS `HistoricalAnalysisView.upcomingTimeLabel`.
+     */
+    fun upcomingTimeLabel(game: HistoricalAnalysisUpcomingGame): String {
+        val kickoff = game.kickoff
+        if (!kickoff.isNullOrEmpty()) return fmtKickoff(kickoff)
+        return listOfNotNull(
+            game.gameDate?.takeIf { it.isNotEmpty() },
+            game.timeEt?.takeIf { it.isNotEmpty() }?.let { "$it ET" },
+        ).joinToString(" · ")
+    }
+
+    /** MLB-only context for an upcoming row. iOS `mlbUpcomingChips`. */
+    fun mlbUpcomingChips(game: HistoricalAnalysisUpcomingGame): List<String> = buildList {
+        game.seriesGame?.let { add("Series G${if (it >= 4) "4+" else "$it"}") }
+        game.tripSeriesIndex?.let {
+            add(
+                when {
+                    it >= 3 -> "3rd+ series of trip"
+                    it == 2 -> "2nd series of trip"
+                    else -> "1st series of trip"
+                },
+            )
+        }
+        if (game.isSwitchGame == true) add("Switch")
+        game.oppSpHand?.takeIf { it.isNotEmpty() }?.let { add("vs ${it}HP") }
+        game.oppSpName?.takeIf { it.isNotEmpty() }?.let { add(it) }
+        if (game.isDoubleheader == true) add("DH")
     }
 
     fun fmtKickoff(raw: String): String {

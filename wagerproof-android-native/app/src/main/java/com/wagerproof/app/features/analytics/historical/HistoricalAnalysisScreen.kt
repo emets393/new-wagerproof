@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
@@ -71,6 +72,7 @@ import com.wagerproof.core.models.HistoricalAnalysisFilterBuilder
 import com.wagerproof.core.models.HistoricalAnalysisResponse
 import com.wagerproof.core.models.HistoricalAnalysisSport
 import com.wagerproof.core.models.HistoricalAnalysisUpcomingGame
+import com.wagerproof.core.models.MLBTeams
 import com.wagerproof.core.models.NFLTeamAssets
 import com.wagerproof.core.services.HistoricalAnalysisSavedFiltersService
 import com.wagerproof.core.stores.AuthStore
@@ -86,9 +88,10 @@ fun HistoricalAnalysisScreen(sport: HistoricalAnalysisSport, modifier: Modifier 
     val graph = appGraph()
     val userId = (graph.auth.phase as? AuthStore.Phase.Authenticated)?.userId
     val scope = rememberCoroutineScope()
-    var breakdownTab by remember { mutableStateOf("team") }
-    var breakdownSort by remember { mutableStateOf("n") }
-    var teamSearch by remember { mutableStateOf("") }
+    // Keyed on sport: the tab set differs per sport (venue is MLB-only, coach/ref NFL-only).
+    var breakdownTab by remember(sport) { mutableStateOf("team") }
+    var breakdownSort by remember(sport) { mutableStateOf("n") }
+    var teamSearch by remember(sport) { mutableStateOf("") }
 
     LaunchedEffect(sport, userId) { store.onAppear(userId) }
     DisposableEffect(store) { onDispose(store::close) }
@@ -108,8 +111,9 @@ fun HistoricalAnalysisScreen(sport: HistoricalAnalysisSport, modifier: Modifier 
                         title = "${sport.shortTitle} Trends",
                         store = store,
                         userId = userId,
-                        refresh = { scope.launch { store.fetchNow() } },
+                        refresh = { scope.launch { store.refreshSaved(userId); store.fetchNow() } },
                     )
+                    StoreNotices(store)
                     HeroSection(store)
                     HistoricalAnalysisFilterBar(store)
                     Spacer(Modifier.height(8.dp))
@@ -118,7 +122,13 @@ fun HistoricalAnalysisScreen(sport: HistoricalAnalysisSport, modifier: Modifier 
             }
             store.analysis?.takeIf { store.hasLoadedOnce }?.let { data ->
                 val bars = HistoricalAnalysisFilterBuilder.shownBars(data.bars, store.snapshot)
-                if (bars.isNotEmpty()) item("bars") { BreakdownBars(data, bars, Modifier.padding(horizontal = 16.dp)) }
+                if (bars.isNotEmpty()) item("bars") {
+                    BreakdownBars(
+                        data, bars,
+                        showsROI = HistoricalAnalysisBetType.showsROI(store.betType, sport),
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
                 item("table") {
                     BreakdownTable(
                         sport, store, data, breakdownTab, breakdownSort, teamSearch,
@@ -186,6 +196,27 @@ private fun SavedFiltersMenu(store: HistoricalAnalysisStore, userId: String) {
     )
 }
 
+/**
+ * Warnings that must sit ABOVE the numbers: a failed refetch leaves stale results
+ * on screen, which otherwise reads as "the filter did nothing".
+ */
+@Composable
+private fun StoreNotices(store: HistoricalAnalysisStore) {
+    val notices = listOfNotNull(store.fetchErrorMessage, store.savedFiltersError)
+    if (notices.isEmpty()) return
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        notices.forEach { message ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.ErrorOutline, null, tint = AppColors.appAccentAmber, modifier = Modifier.size(15.dp))
+                Text(message, color = AppColors.appAccentAmber, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
 @Composable
 private fun HeroSection(store: HistoricalAnalysisStore) {
     Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -205,8 +236,16 @@ private fun HeroSection(store: HistoricalAnalysisStore) {
 @Composable
 private fun HeroCard(store: HistoricalAnalysisStore, data: HistoricalAnalysisResponse) {
     if (data.overall.n == 0) {
-        Text("No games match these filters — try widening them.", color = AppColors.appTextSecondary,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AppColors.appSurfaceElevated).padding(16.dp))
+        // A stale empty analysis sitting under freshly restored chips is not an empty
+        // result yet — don't flash "No games match" while the refetch is in flight.
+        if (store.isRefetching) {
+            Row(Modifier.fillMaxWidth().height(72.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            }
+        } else {
+            Text("No games match these filters — try widening them.", color = AppColors.appTextSecondary,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(AppColors.appSurfaceElevated).padding(16.dp))
+        }
         return
     }
     val metrics = HistoricalAnalysisCopy.headlineMetrics(store.snapshot, data)
@@ -219,7 +258,12 @@ private fun HeroCard(store: HistoricalAnalysisStore, data: HistoricalAnalysisRes
             Text(
                 "$subject ${HistoricalAnalysisCopy.verb(store.betType)} ${HistoricalAnalysisCopy.trimmed(metrics.hitPct)}% " +
                     "(${metrics.wins} of ${metrics.n} ${HistoricalAnalysisCopy.noun(store.snapshot)})" +
-                    (metrics.roi?.let { " · ${HistoricalAnalysisCopy.signedPct(it)} ROI" } ?: ""),
+                    // MLB F5 ML's roi comes back non-null but is computed over a
+                    // different population than hit% — the table hides it, so the
+                    // headline sentence must too (iOS: HistoricalAnalysisView 363).
+                    (metrics.roi
+                        ?.takeIf { HistoricalAnalysisBetType.showsROI(store.betType, store.sport) }
+                        ?.let { " · ${HistoricalAnalysisCopy.signedPct(it)} ROI" } ?: ""),
                 color = AppColors.appTextPrimary, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold,
             )
             Text("${if (delta >= 0) "+" else ""}${HistoricalAnalysisCopy.trimmed(delta)} pts vs ${HistoricalAnalysisCopy.trimmed(data.baselinePct)}% baseline · $significance", color = AppColors.appTextSecondary, fontSize = 13.sp)
@@ -230,7 +274,12 @@ private fun HeroCard(store: HistoricalAnalysisStore, data: HistoricalAnalysisRes
 }
 
 @Composable
-private fun BreakdownBars(data: HistoricalAnalysisResponse, bars: List<HistoricalAnalysisBar>, modifier: Modifier = Modifier) {
+private fun BreakdownBars(
+    data: HistoricalAnalysisResponse,
+    bars: List<HistoricalAnalysisBar>,
+    showsROI: Boolean,
+    modifier: Modifier = Modifier,
+) {
     CardColumn(modifier) {
         Text("BREAKDOWN", color = AppColors.appTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
         Text("The same ${data.coverage.nGames} games, split by situation.", color = AppColors.appTextSecondary, fontSize = 11.sp)
@@ -246,7 +295,10 @@ private fun BreakdownBars(data: HistoricalAnalysisResponse, bars: List<Historica
                         HitRateBar(option.hitPct, data.baselinePct)
                         Row(Modifier.fillMaxWidth()) {
                             Text("vs ${HistoricalAnalysisCopy.trimmed(data.baselinePct)}% baseline", color = AppColors.appTextSecondary, fontSize = 10.sp, modifier = Modifier.weight(1f))
-                            option.roi?.let { Text("${HistoricalAnalysisCopy.signedPct(it)} ROI", color = if (it >= 0) AppColors.appWin else AppColors.appLoss, fontSize = 10.sp) }
+                            // Same gate as the hero and the table: MLB F5 ML's ROI
+                            // spans only priced rows, so the codebase treats it as
+                            // invalid and no surface may print it (iOS: 861).
+                            if (showsROI) option.roi?.let { Text("${HistoricalAnalysisCopy.signedPct(it)} ROI", color = if (it >= 0) AppColors.appWin else AppColors.appLoss, fontSize = 10.sp) }
                         }
                     }
                 }
@@ -281,10 +333,30 @@ private fun BreakdownTable(
     onSearch: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tabs = if (sport == HistoricalAnalysisSport.NFL) listOf("team" to "By Team", "coach" to "By Coach", "ref" to "By Referee")
-    else if (HistoricalAnalysisCopy.activeConferences(store.snapshot).isEmpty()) listOf("team" to "By Team", "conf" to "By Conference") else listOf("team" to "By Team")
-    val rows = when (tab) { "coach" -> data.byCoach.orEmpty(); "ref" -> data.byReferee.orEmpty(); "conf" -> data.byConference.orEmpty(); else -> data.byTeam }
-    val sorted = when (sort) { "hit" -> rows.sortedByDescending { it.hitPct }; "roi" -> rows.sortedByDescending { it.roi ?: -999.0 }; else -> rows.sortedByDescending { it.n } }
+    val tabs = when (sport) {
+        HistoricalAnalysisSport.NFL -> listOf("team" to "By Team", "coach" to "By Coach", "ref" to "By Referee")
+        HistoricalAnalysisSport.MLB -> listOf("team" to "By Team", "venue" to "By Venue")
+        HistoricalAnalysisSport.CFB ->
+            if (HistoricalAnalysisCopy.activeConferences(store.snapshot).isEmpty()) {
+                listOf("team" to "By Team", "conf" to "By Conference")
+            } else listOf("team" to "By Team")
+    }
+    val rows = when (tab) {
+        "coach" -> data.byCoach.orEmpty()
+        "ref" -> data.byReferee.orEmpty()
+        "conf" -> data.byConference.orEmpty()
+        "venue" -> data.byVenue.orEmpty()
+        else -> data.byTeam
+    }
+    // The RPC now returns real moneyline ROI; only MLB F5 ML lacks it. Sorting by a
+    // hidden column would silently reorder the table, so fall back to game count.
+    val showsROI = HistoricalAnalysisBetType.showsROI(store.betType, sport)
+    val effectiveSort = if (!showsROI && sort == "roi") "n" else sort
+    val sorted = when (effectiveSort) {
+        "hit" -> rows.sortedByDescending { it.hitPct }
+        "roi" -> rows.sortedByDescending { it.roi ?: -999.0 }
+        else -> rows.sortedByDescending { it.n }
+    }
     val visible = if (tab == "team" && search.isNotBlank()) sorted.filter { it.label.contains(search, ignoreCase = true) } else sorted
     CardColumn(modifier) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -292,26 +364,34 @@ private fun BreakdownTable(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("n" to "Games", "hit" to "${HistoricalAnalysisCopy.outcomeLabel(store.betType)} %")
-                .plus(if (store.betType in HistoricalAnalysisBetType.moneylineMarkets) emptyList() else listOf("roi" to "ROI"))
-                .forEach { (key, label) -> FilterChip(sort == key, { onSort(key) }, label = { Text(label) }) }
+                .plus(if (showsROI) listOf("roi" to "ROI") else emptyList())
+                .forEach { (key, label) -> FilterChip(effectiveSort == key, { onSort(key) }, label = { Text(label) }) }
         }
         if (tab == "team" && rows.size > 12) OutlinedTextField(search, onSearch, leadingIcon = { Icon(Icons.Rounded.Search, null) }, trailingIcon = { if (search.isNotEmpty()) IconButton({ onSearch("") }) { Icon(Icons.Rounded.Close, "Clear search") } }, placeholder = { Text("Search teams…") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         if (visible.isEmpty()) Text(if (rows.isEmpty()) "No results with enough games (min 3)." else "No teams match \"$search\".", color = AppColors.appTextSecondary, modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp))
         visible.take(75).forEachIndexed { index, row ->
-            BreakdownRow(sport, store, row, showAvatar = tab == "team")
+            // Venue rows carry the park's resident team so users can tell whose park it is.
+            val avatarTeam = when (tab) { "team" -> row.label; "venue" -> row.homeTeam; else -> null }
+            BreakdownRow(sport, row, avatarTeam, showsROI, store.cfbLogos)
             if (index != visible.take(75).lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(AppColors.appBorder))
         }
     }
 }
 
 @Composable
-private fun BreakdownRow(sport: HistoricalAnalysisSport, store: HistoricalAnalysisStore, row: HistoricalAnalysisBreakdownRow, showAvatar: Boolean) {
+private fun BreakdownRow(
+    sport: HistoricalAnalysisSport,
+    row: HistoricalAnalysisBreakdownRow,
+    avatarTeam: String?,
+    showsROI: Boolean,
+    cfbLogos: Map<String, String>,
+) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-        if (showAvatar) TeamAvatar(sport, row.label, store.cfbLogos)
+        if (avatarTeam != null) TeamAvatar(sport, avatarTeam, cfbLogos)
         Text(row.label, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         Text("${row.n}g", fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(CircleShape).background(AppColors.appSurfaceMuted).padding(horizontal = 6.dp, vertical = 2.dp))
         Text("${HistoricalAnalysisCopy.trimmed(row.hitPct)}%", color = when { row.hitPct > 50 -> AppColors.appWin; row.hitPct < 50 -> AppColors.appLoss; else -> AppColors.appTextPrimary }, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(50.dp))
-        if (store.betType !in HistoricalAnalysisBetType.moneylineMarkets) Text(row.roi?.let(HistoricalAnalysisCopy::signedPct) ?: "—", color = if ((row.roi ?: 0.0) >= 0) AppColors.appWin else AppColors.appLoss, fontSize = 12.sp, modifier = Modifier.width(54.dp))
+        if (showsROI) Text(row.roi?.let(HistoricalAnalysisCopy::signedPct) ?: "—", color = if ((row.roi ?: 0.0) >= 0) AppColors.appWin else AppColors.appLoss, fontSize = 12.sp, modifier = Modifier.width(54.dp))
     }
 }
 
@@ -330,14 +410,30 @@ private fun UpcomingRow(store: HistoricalAnalysisStore, game: HistoricalAnalysis
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(game.matchup, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Text(HistoricalAnalysisCopy.lineForBet(store.betType, game), color = AppColors.appTextSecondary, fontSize = 12.sp)
-            Text(HistoricalAnalysisCopy.fmtKickoff(game.kickoff.orEmpty()), color = AppColors.appTextSecondary, fontSize = 11.sp)
+            Text(HistoricalAnalysisCopy.upcomingTimeLabel(game), color = AppColors.appTextSecondary, fontSize = 11.sp)
+            if (store.sport == HistoricalAnalysisSport.MLB) {
+                val chips = HistoricalAnalysisCopy.mlbUpcomingChips(game)
+                if (chips.isNotEmpty()) {
+                    Text(
+                        chips.joinToString(" · "),
+                        color = AppColors.appTextSecondary.copy(alpha = .9f),
+                        fontSize = 11.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun TeamAvatar(sport: HistoricalAnalysisSport, team: String, cfbLogos: Map<String, String>) {
-    val url = if (sport == HistoricalAnalysisSport.NFL) NFLTeamAssets.logo(team) else cfbLogos[team]
+    val url = when (sport) {
+        HistoricalAnalysisSport.NFL -> NFLTeamAssets.logo(team)
+        HistoricalAnalysisSport.CFB -> cfbLogos[team]
+        HistoricalAnalysisSport.MLB -> MLBTeams.logoUrl(team)
+    }
     val initials = team.split(' ').mapNotNull { it.firstOrNull() }.take(2).joinToString("")
     RemoteImage(url, team, Modifier.size(24.dp), ContentScale.Fit, error = { InitialsDisc(initials, 24.dp) })
 }

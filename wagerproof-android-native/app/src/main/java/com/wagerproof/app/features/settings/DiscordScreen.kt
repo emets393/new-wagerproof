@@ -18,6 +18,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +39,7 @@ import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
 import com.wagerproof.core.design.tokens.Spacing
+import com.wagerproof.core.services.AuthService
 import com.wagerproof.core.stores.AuthStore
 
 private const val INVITE_URL = "https://discord.gg/gwy9y7XSDV"
@@ -49,11 +55,10 @@ private val amber = Color(0xFFD97706)
  * Non-Pro users see a locked card that opens the paywall; Pro users get the
  * two-step link + join flow.
  *
- * // FIDELITY-WAIVER #254: the live `profiles.discord_user_id` link-state read
- * // is not performed — the app module has no direct Supabase (postgrest)
- * // classpath, and adding a core service is out of this batch's scope. We show
- * // the "not linked" state, which is exactly iOS's failure fallback ("treat
- * // unknown as not-linked"). Linking + joining both work.
+ * Link state comes from `profiles.discord_user_id` via
+ * [com.wagerproof.core.services.AuthService.loadDiscordUserId] — same column RN
+ * and web read. Null (still checking / unreadable) renders as "not linked" with
+ * the CTA hidden, exactly like iOS.
  */
 @Composable
 fun DiscordScreen(onDismiss: () -> Unit, onUpgrade: () -> Unit, modifier: Modifier = Modifier) {
@@ -61,6 +66,18 @@ fun DiscordScreen(onDismiss: () -> Unit, onUpgrade: () -> Unit, modifier: Modifi
     val auth = appGraph().auth
     val uriHandler = LocalUriHandler.current
     BackHandler(onBack = onDismiss)
+
+    val userId = (auth.phase as? AuthStore.Phase.Authenticated)?.userId
+    // Tri-state: null = unknown/still checking (iOS `discordLinked: Bool?`).
+    var discordLinked by remember(userId) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(userId) {
+        // No session → stay unknown, exactly like iOS's `guard case .authenticated`
+        // bail-out (which leaves `discordLinked` nil and hides the link CTA).
+        if (userId == null) return@LaunchedEffect
+        // A read failure resolves to false — "treat unknown as not linked", the
+        // same fallback iOS/RN/web use.
+        discordLinked = AuthService.loadDiscordUserId(userId) != null
+    }
 
     Column(
         modifier = modifier
@@ -111,23 +128,43 @@ fun DiscordScreen(onDismiss: () -> Unit, onUpgrade: () -> Unit, modifier: Modifi
                     modifier = Modifier.padding(horizontal = Spacing.lg),
                     verticalArrangement = Arrangement.spacedBy(Spacing.lg),
                 ) {
+                    val isLinked = discordLinked == true
                     StepCard(
-                        iconBg = blurple.copy(alpha = 0.15f),
-                        iconColor = blurple,
-                        icon = AppIcon.LINK.imageVector,
-                        title = "Step 1: Link Your Discord Account",
-                        description = "Link your Discord account to verify your subscription and get the WagerProof Member role with access to exclusive channels.",
+                        iconBg = (if (isLinked) discordGreen else blurple).copy(alpha = 0.15f),
+                        iconColor = if (isLinked) discordGreen else blurple,
+                        icon = if (isLinked) {
+                            AppIcon.CHECKMARK_CIRCLE_FILL.imageVector
+                        } else {
+                            AppIcon.LINK.imageVector
+                        },
+                        title = if (isLinked) {
+                            "Discord Account Linked!"
+                        } else {
+                            "Step 1: Link Your Discord Account"
+                        },
+                        description = if (isLinked) {
+                            "Your Discord account is connected. You have the WagerProof Member role and full access to subscriber-only channels."
+                        } else {
+                            "Link your Discord account to verify your subscription and get the WagerProof Member role with access to exclusive channels."
+                        },
+                        // Only once we KNOW they're unlinked — an unknown state hides
+                        // the CTA rather than inviting a redundant re-link (iOS parity).
+                        showButton = discordLinked == false,
                         buttonLabel = "Link Discord Account",
                         buttonIcon = AppIcon.LINK.imageVector,
                     ) {
-                        val userId = (auth.phase as? AuthStore.Phase.Authenticated)?.userId ?: return@StepCard
+                        if (userId == null) return@StepCard
                         uriHandler.openUri("$LINK_URL_BASE?user_id=$userId")
                     }
                     StepCard(
                         iconBg = discordGreen.copy(alpha = 0.15f),
                         iconColor = discordGreen,
                         icon = AppIcon.CHECKMARK_SHIELD_FILL.imageVector,
-                        title = "Step 2: Join the Discord Server",
+                        title = if (isLinked) {
+                            "You're all set! Join the server below."
+                        } else {
+                            "Step 2: Join the Discord Server"
+                        },
                         description = "Click below to join other community members! Enable notifications to receive instant alerts for Editors Picks on your phone, and share betting insights, strategies, and analysis with the community.",
                         buttonLabel = "Join Discord Server",
                         buttonIcon = AppIcon.BUBBLE_LEFT_AND_BUBBLE_RIGHT_FILL.imageVector,
@@ -161,6 +198,7 @@ private fun StepCard(
     description: String,
     buttonLabel: String,
     buttonIcon: ImageVector,
+    showButton: Boolean = true,
     onButton: () -> Unit,
 ) {
     Column(
@@ -179,12 +217,14 @@ private fun StepCard(
         }
         Text(title, style = AppTypography.title, color = AppColors.appTextPrimary, textAlign = TextAlign.Center)
         Text(description, style = AppTypography.body, color = AppColors.appTextSecondary, textAlign = TextAlign.Center)
-        GradientButton(
-            label = buttonLabel,
-            icon = buttonIcon,
-            gradient = listOf(blurple, blurpleLight),
-            onClick = onButton,
-        )
+        if (showButton) {
+            GradientButton(
+                label = buttonLabel,
+                icon = buttonIcon,
+                gradient = listOf(blurple, blurpleLight),
+                onClick = onButton,
+            )
+        }
     }
 }
 

@@ -269,6 +269,10 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
     }
 
     if (showPaywall) {
+        // PaywallScreen owns no BackHandler — without this one Back would fall
+        // through to this screen's handler and close Developer Settings behind the
+        // still-visible paywall.
+        BackHandler { showPaywall = false }
         Box(Modifier.fillMaxSize()) {
             PaywallScreen(onDismiss = { showPaywall = false })
         }

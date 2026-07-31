@@ -9,6 +9,7 @@ import com.wagerproof.core.services.SupabaseClients
 import com.wagerproof.core.shared.AppGroupKey
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -58,6 +59,8 @@ class AdminModeStore {
             // Supabase RPC returns the boolean as the raw body. Decode it directly.
             isAdmin = result.data.trim() == "true"
             roleResolved = true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Throwable) {
             // Non-fatal: default to non-admin on error. RN does the same.
             isAdmin = false

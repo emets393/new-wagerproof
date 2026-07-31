@@ -136,6 +136,8 @@ data class HistoricalAnalysisBreakdownRow(
     val referee: String? = null,
     val conference: String? = null,
     val venue: String? = null,
+    /** Venue rows only (MLB): the venue's resident team, for the row logo. */
+    @SerialName("home_team") val homeTeam: String? = null,
     val n: Int = 0,
     @SerialName("hit_pct") val hitPct: Double = 0.0,
     val roi: Double? = null,
@@ -223,6 +225,12 @@ data class HistoricalAnalysisUISnapshot(
     var weekMax: Int = 18,
     var side: String = "any",
     var favDog: String = "any",
+    /**
+     * MLB: the ACTUAL posted run-line side ("minus" = laying −1.5, "plus" =
+     * getting +1.5). Distinct from favDog — books post the ML favorite at +1.5
+     * in ~7% of games, so "getting +1.5" and "underdog" are different questions.
+     */
+    var rlSide: String = "any",
     var spreadSide: String = "any",
     var spreadMin: Double = 0.0,
     var spreadMax: Double = 20.0,
@@ -349,6 +357,12 @@ data class HistoricalAnalysisUISnapshot(
     /** Legacy single-day value; `daysOfWeek` (multi) is canonical. */
     var dayOfWeek: String = "any",
     var doubleheader: Boolean? = null,
+    /**
+     * Multi-select of specific series game numbers (1–6). Legacy min/max range
+     * saves migrate into this set at decode; the range fields survive only so an
+     * old snapshot round-trips.
+     */
+    var seriesGames: List<Int> = emptyList(),
     var seriesGameMin: Int? = null,
     var seriesGameMax: Int? = null,
     var tripMin: Int? = null,
@@ -381,6 +395,10 @@ data class HistoricalAnalysisUISnapshot(
     var bpIpMax: Double = 20.0,
     var bpXfipMin: Double = 2.0,
     var bpXfipMax: Double = 7.0,
+    var spEraMin: Double = 0.0,
+    var spEraMax: Double = 10.0,
+    var oppSpEraMin: Double = 0.0,
+    var oppSpEraMax: Double = 10.0,
     var rpg: List<Double> = listOf(0.0, 10.0),
     var rapg: List<Double> = listOf(0.0, 10.0),
     var runDiffPg: List<Double> = listOf(-4.0, 4.0),
@@ -515,6 +533,21 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             }
         }
 
+        // Series game numbers: the multi-select is canonical, but pre-5c0acd91 saves
+        // (and web) only carry a min/max range — expand it into the set so a restored
+        // system filters on the same games it did on the platform that saved it.
+        var seriesGameMinValue = altPair("seriesGame")?.first?.roundToInt() ?: int("seriesGameMin")
+        var seriesGameMaxValue = altPair("seriesGame")?.second?.roundToInt() ?: int("seriesGameMax")
+        var seriesGamesValue = (o["seriesGames"] as? JsonArray)
+            ?.mapNotNull { (it as? JsonPrimitive)?.let { p -> p.intOrNull ?: p.doubleOrNull?.roundToInt() } }
+            ?: emptyList()
+        if (seriesGamesValue.isEmpty() && (seriesGameMinValue != null || seriesGameMaxValue != null)) {
+            val lo = seriesGameMinValue ?: 1
+            seriesGamesValue = (lo..maxOf(lo, seriesGameMaxValue ?: 6)).toList()
+            seriesGameMinValue = null
+            seriesGameMaxValue = null
+        }
+
         return HistoricalAnalysisUISnapshot(
             betType = str("betType", d.betType),
             seasonMin = altPair("seasons")?.first?.roundToInt() ?: int("seasonMin") ?: d.seasonMin,
@@ -523,6 +556,7 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             weekMax = altPair("weeks")?.second?.roundToInt() ?: int("weekMax") ?: d.weekMax,
             side = str("side", d.side),
             favDog = str("favDog", d.favDog),
+            rlSide = str("rlSide", d.rlSide),
             spreadSide = str("spreadSide", d.spreadSide),
             spreadMin = altPair("spreadSize")?.first ?: dbl("spreadMin") ?: d.spreadMin,
             spreadMax = altPair("spreadSize")?.second ?: dbl("spreadMax") ?: d.spreadMax,
@@ -623,8 +657,9 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             interleague = bool("interleague"),
             dayOfWeek = str("dayOfWeek", d.dayOfWeek),
             doubleheader = bool("doubleheader"),
-            seriesGameMin = altPair("seriesGame")?.first?.roundToInt() ?: int("seriesGameMin"),
-            seriesGameMax = altPair("seriesGame")?.second?.roundToInt() ?: int("seriesGameMax"),
+            seriesGames = seriesGamesValue,
+            seriesGameMin = seriesGameMinValue,
+            seriesGameMax = seriesGameMaxValue,
             tripMin = altPair("trip")?.first?.roundToInt() ?: int("tripMin"),
             tripMax = altPair("trip")?.second?.roundToInt() ?: int("tripMax"),
             switchGame = bool("switchGame"),
@@ -659,6 +694,10 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             bpIpMax = altPair("bpIp")?.second ?: dbl("bpIpMax") ?: d.bpIpMax,
             bpXfipMin = altPair("bpXfip")?.first ?: dbl("bpXfipMin") ?: d.bpXfipMin,
             bpXfipMax = altPair("bpXfip")?.second ?: dbl("bpXfipMax") ?: d.bpXfipMax,
+            spEraMin = altPair("spEra")?.first ?: dbl("spEraMin") ?: d.spEraMin,
+            spEraMax = altPair("spEra")?.second ?: dbl("spEraMax") ?: d.spEraMax,
+            oppSpEraMin = altPair("oppSpEra")?.first ?: dbl("oppSpEraMin") ?: d.oppSpEraMin,
+            oppSpEraMax = altPair("oppSpEra")?.second ?: dbl("oppSpEraMax") ?: d.oppSpEraMax,
             rpg = dblList("rpg", d.rpg),
             rapg = dblList("rapg", d.rapg),
             runDiffPg = dblList("runDiffPg", d.runDiffPg),
@@ -689,6 +728,7 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             putInt("seasonMin", value.seasonMin); putInt("seasonMax", value.seasonMax)
             putInt("weekMin", value.weekMin); putInt("weekMax", value.weekMax)
             putStr("side", value.side); putStr("favDog", value.favDog)
+            putStr("rlSide", value.rlSide)
             putStr("spreadSide", value.spreadSide)
             putDbl("spreadMin", value.spreadMin); putDbl("spreadMax", value.spreadMax)
             putDbl("lineMin", value.lineMin); putDbl("lineMax", value.lineMax)
@@ -753,6 +793,7 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             putBoolOpt("interleague", value.interleague)
             putStr("dayOfWeek", value.dayOfWeek)
             putBoolOpt("doubleheader", value.doubleheader)
+            putIntList("seriesGames", value.seriesGames)
             putIntOpt("seriesGameMin", value.seriesGameMin); putIntOpt("seriesGameMax", value.seriesGameMax)
             putIntOpt("tripMin", value.tripMin); putIntOpt("tripMax", value.tripMax)
             putBoolOpt("switchGame", value.switchGame)
@@ -772,6 +813,8 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             putDbl("oppSpXfipMin", value.oppSpXfipMin); putDbl("oppSpXfipMax", value.oppSpXfipMax)
             putDbl("bpIpMin", value.bpIpMin); putDbl("bpIpMax", value.bpIpMax)
             putDbl("bpXfipMin", value.bpXfipMin); putDbl("bpXfipMax", value.bpXfipMax)
+            putDbl("spEraMin", value.spEraMin); putDbl("spEraMax", value.spEraMax)
+            putDbl("oppSpEraMin", value.oppSpEraMin); putDbl("oppSpEraMax", value.oppSpEraMax)
             putDblList("rpg", value.rpg); putDblList("rapg", value.rapg)
             putDblList("runDiffPg", value.runDiffPg)
             putDblList("rlCoverPct", value.rlCoverPct); putIntList("rlStreak", value.rlStreak)

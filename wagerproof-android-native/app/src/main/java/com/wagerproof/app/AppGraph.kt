@@ -6,10 +6,13 @@ import com.wagerproof.core.shared.AppGroup
 import com.wagerproof.core.stores.AdminModeStore
 import com.wagerproof.core.stores.AgentConsensusStore
 import com.wagerproof.core.stores.AgentPickAuditStore
+import com.wagerproof.core.stores.AgentsStore
 import com.wagerproof.core.stores.AuthStore
 import com.wagerproof.core.stores.CFBGameSheetStore
 import com.wagerproof.core.stores.DebugDataModeStore
+import com.wagerproof.core.stores.FavoriteAgentsStore
 import com.wagerproof.core.stores.GamesStore
+import com.wagerproof.core.stores.LeaderboardStore
 import com.wagerproof.core.stores.LearnWagerProofStore
 import com.wagerproof.core.stores.LiveScoresStore
 import com.wagerproof.core.stores.MLBBettingTrendsStore
@@ -17,7 +20,9 @@ import com.wagerproof.core.stores.MLBF5SplitsStore
 import com.wagerproof.core.stores.MLBGameSheetStore
 import com.wagerproof.core.stores.MainTabStore
 import com.wagerproof.core.stores.NBAGameSheetStore
+import com.wagerproof.core.stores.NBAModelAccuracyStore
 import com.wagerproof.core.stores.NCAABGameSheetStore
+import com.wagerproof.core.stores.NCAABModelAccuracyStore
 import com.wagerproof.core.stores.NFLGameSheetStore
 import com.wagerproof.core.stores.OnboardingStore
 import com.wagerproof.core.stores.OutliersStore
@@ -29,6 +34,7 @@ import com.wagerproof.core.stores.RootRouter
 import com.wagerproof.core.stores.SearchStore
 import com.wagerproof.core.stores.SettingsStore
 import com.wagerproof.core.stores.ThemeStore
+import com.wagerproof.core.stores.TopAgentPicksFeedStore
 import com.wagerproof.core.stores.WagerBotChatStore
 
 /**
@@ -72,6 +78,22 @@ class AppGraph(val application: Application) {
     // SLATE (the flag threshold scales with the whole day's pick volume) and it
     // lives on the MAIN project, not CFB. See .claude/docs/18_agent_consensus.md.
     val agentConsensus = AgentConsensusStore()
+
+    // Agents family. iOS keeps ONE AgentsStore at the shell (MainTabView:75)
+    // and hands it to both AgentsView and SearchView; Android used to build a
+    // fresh one per screen, so every tab switch dropped the fetched list, leaked
+    // that instance's SupervisorJob and refetched from empty on return. The
+    // leaderboard / top-picks / favorites siblings are shell-scoped for the same
+    // reason — they back the Agents tab's inner tabs.
+    val agents = AgentsStore()
+    val agentsLeaderboard = LeaderboardStore()
+    val topAgentPicks = TopAgentPicksFeedStore()
+    val favoriteAgents = FavoriteAgentsStore()
+
+    // Back the NBA/NCAAB tool banners on the Games feed. Shell-scoped so the
+    // banner doesn't disappear and refetch each time the user returns to Games.
+    val nbaModelAccuracy = NBAModelAccuracyStore()
+    val ncaabModelAccuracy = NCAABModelAccuracyStore()
 
     val props = PropsStore()
     val liveScores = LiveScoresStore()

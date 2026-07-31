@@ -49,42 +49,59 @@ import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.HistoricalAnalysisBetType
 import com.wagerproof.core.models.HistoricalAnalysisFilterBuilder
 import com.wagerproof.core.models.HistoricalAnalysisSport
+import com.wagerproof.core.models.HistoricalAnalysisUISnapshot
 import com.wagerproof.core.stores.HistoricalAnalysisStore
 import kotlin.math.roundToInt
 
+// Spread / Line / Moneyline each hold every cross-market variant of that dim
+// (full game + 1H + opponent), because the builder emits all of them on every
+// market — a sheet with only the selected market's control can't clear the rest.
 private enum class FilterSheet(val title: String) {
-    Seasons("Seasons"), Spread("Spread"), Line("Line"), Moneyline("Moneyline odds"),
+    Seasons("Seasons"), Spread("Spreads"), Line("Lines"), Moneyline("Moneyline odds"),
     Situation("Situation"), Conditions("Conditions"), Context("Context"),
 }
+
+/** The game-total dim key — `lineMin/Max` is ALWAYS the full-game total, every sport. */
+private fun gameTotalKey(sport: HistoricalAnalysisSport) =
+    if (sport == HistoricalAnalysisSport.MLB) "total" else "fg_total"
+
+/**
+ * Side is per-team; a football game total is game-level, so the pill is hidden
+ * there (mirrors iOS `hasSideFilter`, and the builder which drops `side` on those
+ * markets — leaving the pill up let users set a filter that did nothing).
+ */
+private fun hasSideFilter(sport: HistoricalAnalysisSport, betType: String) =
+    sport == HistoricalAnalysisSport.MLB || betType !in setOf("fg_total", "h1_total")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HistoricalAnalysisFilterBar(store: HistoricalAnalysisStore) {
     var activeSheet by remember { mutableStateOf<FilterSheet?>(null) }
     val snapshot = store.snapshot
-    val spread = HistoricalAnalysisFilterBuilder.spreadConfig(store.sport, store.betType)
-    val total = HistoricalAnalysisFilterBuilder.totalConfig(store.sport, store.betType)
+    // Spread / Line pills describe FIXED cross-market dims (`spreadMin/Max`,
+    // `lineMin/Max`) that the builder emits regardless of the selected market.
+    // Resolving their config by bet type labelled the sheet for one market while
+    // writing another's field, clamped the slider, and produced a phantom
+    // "Line 30–60" chip on every 1H / team-total search.
+    val spread = HistoricalAnalysisFilterBuilder.spreadConfig(store.sport, "fg_spread")
+    val total = HistoricalAnalysisFilterBuilder.totalConfig(store.sport, gameTotalKey(store.sport))
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ChoicePill(
-                label = HistoricalAnalysisBetType.from(store.betType).label,
-                emphasized = true,
-                choices = HistoricalAnalysisBetType.entries.map { it.raw to it.label },
-                selected = store.betType,
-                onSelect = store::setBetType,
-            )
+            MarketPill(store)
             ActionPill(HistoricalAnalysisCopy.yearRange(snapshot.seasonMin, snapshot.seasonMax)) { activeSheet = FilterSheet.Seasons }
-            ChoicePill(
-                label = when (snapshot.side) { "home" -> "Home"; "away" -> "Away"; else -> "Side" },
-                choices = listOf("any" to "Either", "home" to "Home", "away" to "Away"),
-                selected = snapshot.side,
-            ) { value -> changed(store) { it.side = value } }
+            if (hasSideFilter(store.sport, store.betType)) {
+                ChoicePill(
+                    label = when (snapshot.side) { "home" -> "Home"; "away" -> "Away"; else -> "Side" },
+                    choices = listOf("any" to "Either", "home" to "Home", "away" to "Away"),
+                    selected = snapshot.side,
+                ) { value -> changed(store) { it.side = value } }
+            }
             if (spread != null) ActionPill(spreadLabel(store, spread.max)) { activeSheet = FilterSheet.Spread }
-            if (total != null) ActionPill(lineLabel(store, total.min, total.max)) { activeSheet = FilterSheet.Line }
+            if (total != null) ActionPill(lineLabel(store, total)) { activeSheet = FilterSheet.Line }
             ActionPill(if (snapshot.mlMin.isNotEmpty() || snapshot.mlMax.isNotEmpty()) "ML odds" else "ML") { activeSheet = FilterSheet.Moneyline }
             ActionPill("Situation") { activeSheet = FilterSheet.Situation }
             ActionPill("Conditions") { activeSheet = FilterSheet.Conditions }
@@ -108,17 +125,56 @@ internal fun HistoricalAnalysisFilterBar(store: HistoricalAnalysisStore) {
     }
 }
 
+/**
+ * Market picker — only the markets this sport's RPC understands, grouped the way
+ * iOS groups them. Listing all 13 bet types meant NFL offered MLB's Run Line and
+ * F5 markets (and MLB offered 1H markets); picking one sent a `bet_type` the RPC
+ * rejects and the screen came back empty with no explanation.
+ */
+@Composable
+private fun MarketPill(store: HistoricalAnalysisStore) {
+    var expanded by remember { mutableStateOf(false) }
+    val cases = HistoricalAnalysisBetType.casesFor(store.sport)
+    val secondaryGroup = if (store.sport == HistoricalAnalysisSport.MLB) "First Five" else "First Half"
+    Box {
+        PillChrome(HistoricalAnalysisBetType.from(store.betType).label, true) { expanded = true }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            listOf("Full Game", secondaryGroup).forEach { group ->
+                val inGroup = cases.filter { it.group == group }
+                if (inGroup.isEmpty()) return@forEach
+                Text(
+                    group,
+                    color = AppColors.appTextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 2.dp),
+                )
+                inGroup.forEach { betType ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                betType.label,
+                                fontWeight = if (betType.raw == store.betType) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        },
+                        onClick = { expanded = false; store.setBetType(betType.raw) },
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ChoicePill(
     label: String,
     choices: List<Pair<String, String>>,
     selected: String,
-    emphasized: Boolean = false,
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        PillChrome(label, emphasized) { expanded = true }
+        PillChrome(label, false) { expanded = true }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             choices.forEach { (value, title) ->
                 DropdownMenuItem(
@@ -150,28 +206,88 @@ private data class ActiveFilter(val label: String, val clear: () -> Unit)
 
 @Composable
 private fun ActiveFilters(store: HistoricalAnalysisStore) {
+    val sport = store.sport
     val s = store.snapshot
-    val defaults = com.wagerproof.core.models.HistoricalAnalysisUISnapshot.defaults(store.sport).also {
+    // `defaults(sport)` already carries the FIXED full-game spread/total bounds.
+    // Overriding them from the selected bet type is what produced the phantom
+    // "Line 30–60" chip the moment a 1H / team-total market was picked.
+    val defaults = HistoricalAnalysisUISnapshot.defaults(sport).also {
         it.betType = s.betType
-        HistoricalAnalysisFilterBuilder.spreadConfig(store.sport, s.betType)?.let { cfg -> it.spreadMax = cfg.max }
-        HistoricalAnalysisFilterBuilder.totalConfig(store.sport, s.betType)?.let { cfg -> it.lineMin = cfg.min; it.lineMax = cfg.max }
         it.seasonMin = store.seasonFloor
     }
+    val gameTotal = HistoricalAnalysisFilterBuilder.totalConfig(sport, gameTotalKey(sport))
     val chips = buildList {
         fun addIf(condition: Boolean, label: String, clear: () -> Unit) { if (condition) add(ActiveFilter(label, clear)) }
+        fun range(lo: Double, hi: Double) = "${HistoricalAnalysisCopy.trimmed(lo)}–${HistoricalAnalysisCopy.trimmed(hi)}"
+
+        /** Cross-market spread chip — "1H spread favorite 3–7" (mirrors iOS `appendSpreadChip`). */
+        fun addSpread(label: String, side: String, lo: Double, hi: Double, defMax: Double, reset: (HistoricalAnalysisUISnapshot) -> Unit) {
+            if (side == "any" && lo <= 0.001 && hi >= defMax - 0.001) return
+            val sidePart = if (side == "any") "" else "$side "
+            add(ActiveFilter("$label $sidePart${range(lo, hi)}") { changed(store, reset) })
+        }
+        fun addRange(label: String, lo: Double, hi: Double, defLo: Double, defHi: Double, reset: (HistoricalAnalysisUISnapshot) -> Unit) {
+            addIf(lo > defLo + 0.001 || hi < defHi - 0.001, "$label ${range(lo, hi)}") { changed(store, reset) }
+        }
+        fun addMoneyline(label: String, lo: String, hi: String, reset: (HistoricalAnalysisUISnapshot) -> Unit) {
+            addIf(lo.isNotBlank() || hi.isNotBlank(), label) { changed(store, reset) }
+        }
+
         addIf(s.seasonMin != defaults.seasonMin || s.seasonMax != defaults.seasonMax, "Seasons ${HistoricalAnalysisCopy.yearRange(s.seasonMin, s.seasonMax)}") {
             changed(store) { it.seasonMin = defaults.seasonMin; it.seasonMax = defaults.seasonMax }
         }
-        addIf(s.side != "any", if (s.side == "home") "Home" else "Away") { changed(store) { it.side = "any" } }
-        addIf(s.spreadSide != "any" || s.spreadMin != defaults.spreadMin || s.spreadMax != defaults.spreadMax,
-            "Spread ${HistoricalAnalysisCopy.trimmed(s.spreadMin)}–${HistoricalAnalysisCopy.trimmed(s.spreadMax)}") {
-            changed(store) { it.spreadSide = "any"; it.spreadMin = defaults.spreadMin; it.spreadMax = defaults.spreadMax }
+        addIf(s.side != "any" && hasSideFilter(sport, s.betType), if (s.side == "home") "Home" else "Away") { changed(store) { it.side = "any" } }
+        addIf(s.rlSide != "any", if (s.rlSide == "plus") "Getting +1.5" else "Laying −1.5") { changed(store) { it.rlSide = "any" } }
+        // Full-game spread reads as a sentence ("Favored by 3–7"); MLB has no spread dim.
+        if (HistoricalAnalysisFilterBuilder.spreadConfig(sport, "fg_spread") != null) {
+            val reset: (HistoricalAnalysisUISnapshot) -> Unit =
+                { it.spreadSide = "any"; it.spreadMin = defaults.spreadMin; it.spreadMax = defaults.spreadMax }
+            when {
+                s.spreadSide != "any" ->
+                    add(ActiveFilter("${if (s.spreadSide == "favorite") "Favored by" else "Getting"} ${range(s.spreadMin, s.spreadMax)}") { changed(store, reset) })
+                s.spreadMin > 0.001 || s.spreadMax < defaults.spreadMax - 0.001 ->
+                    add(ActiveFilter("Spread ${range(s.spreadMin, s.spreadMax)}") { changed(store, reset) })
+            }
         }
-        addIf(s.lineMin != defaults.lineMin || s.lineMax != defaults.lineMax,
-            "Line ${HistoricalAnalysisCopy.trimmed(s.lineMin)}–${HistoricalAnalysisCopy.trimmed(s.lineMax)}") {
-            changed(store) { it.lineMin = defaults.lineMin; it.lineMax = defaults.lineMax }
+        if (gameTotal != null) {
+            addRange(gameTotal.label, s.lineMin, s.lineMax, gameTotal.min, gameTotal.max) {
+                it.lineMin = gameTotal.min; it.lineMax = gameTotal.max
+            }
         }
         addIf(s.mlMin.isNotBlank() || s.mlMax.isNotBlank(), "ML odds") { changed(store) { it.mlMin = ""; it.mlMax = "" } }
+        if (sport == HistoricalAnalysisSport.MLB) {
+            HistoricalAnalysisFilterBuilder.totalConfig(sport, "f5_total")?.let { cfg ->
+                addRange(cfg.label, s.f5TotalMin, s.f5TotalMax, cfg.min, cfg.max) {
+                    it.f5TotalMin = cfg.min; it.f5TotalMax = cfg.max
+                }
+            }
+        } else {
+            // Cross-market football dims: the builder always emits these, so a restored
+            // web/iOS snapshot needs a visible, clearable chip for each of them.
+            HistoricalAnalysisFilterBuilder.spreadConfig(sport, "h1_spread")?.let { cfg ->
+                addSpread("1H spread", s.h1SpreadSide, s.h1SpreadMin, s.h1SpreadMax, cfg.max) {
+                    it.h1SpreadSide = "any"; it.h1SpreadMin = 0.0; it.h1SpreadMax = cfg.max
+                }
+            }
+            addSpread("Opponent spread", s.oppSpreadSide, s.oppSpreadMin, s.oppSpreadMax, defaults.oppSpreadMax) {
+                it.oppSpreadSide = "any"; it.oppSpreadMin = defaults.oppSpreadMin; it.oppSpreadMax = defaults.oppSpreadMax
+            }
+            HistoricalAnalysisFilterBuilder.totalConfig(sport, "h1_total")?.let { cfg ->
+                addRange("1H total", s.h1TotalMin, s.h1TotalMax, cfg.min, cfg.max) {
+                    it.h1TotalMin = cfg.min; it.h1TotalMax = cfg.max
+                }
+            }
+            HistoricalAnalysisFilterBuilder.totalConfig(sport, "team_total")?.let { cfg ->
+                addRange("Team total", s.ttLineMin, s.ttLineMax, cfg.min, cfg.max) {
+                    it.ttLineMin = cfg.min; it.ttLineMax = cfg.max
+                }
+                addRange("Opponent TT", s.oppTtLineMin, s.oppTtLineMax, cfg.min, cfg.max) {
+                    it.oppTtLineMin = cfg.min; it.oppTtLineMax = cfg.max
+                }
+            }
+            addMoneyline("1H ML", s.h1MlMin, s.h1MlMax) { it.h1MlMin = ""; it.h1MlMax = "" }
+            addMoneyline("Opponent ML", s.oppMlMin, s.oppMlMax) { it.oppMlMin = ""; it.oppMlMax = "" }
+        }
         addIf(s.primetime != null, "Primetime: ${if (s.primetime == true) "Yes" else "No"}") { changed(store) { it.primetime = null } }
         addIf(s.division != null, "Divisional: ${if (s.division == true) "Yes" else "No"}") { changed(store) { it.division = null } }
         addIf(s.tempMin != defaults.tempMin || s.tempMax != defaults.tempMax, "Temp ${s.tempMin}–${s.tempMax}°F") {
@@ -210,12 +326,14 @@ private fun spreadLabel(store: HistoricalAnalysisStore, max: Double): String {
     }
 }
 
-private fun lineLabel(store: HistoricalAnalysisStore, min: Double, max: Double): String {
+private fun lineLabel(store: HistoricalAnalysisStore, config: HistoricalAnalysisFilterBuilder.TotalConfig): String {
     val s = store.snapshot
-    return if (s.lineMin > min || s.lineMax < max) "Line ${HistoricalAnalysisCopy.trimmed(s.lineMin)}–${HistoricalAnalysisCopy.trimmed(s.lineMax)}" else "Line"
+    return if (s.lineMin > config.min || s.lineMax < config.max) {
+        "${config.label} ${HistoricalAnalysisCopy.trimmed(s.lineMin)}–${HistoricalAnalysisCopy.trimmed(s.lineMax)}"
+    } else "Line"
 }
 
-private fun changed(store: HistoricalAnalysisStore, block: (com.wagerproof.core.models.HistoricalAnalysisUISnapshot) -> Unit) {
+private fun changed(store: HistoricalAnalysisStore, block: (HistoricalAnalysisUISnapshot) -> Unit) {
     store.updateSnapshot(block)
     store.scheduleFetch()
 }
@@ -249,23 +367,120 @@ private fun SeasonsSheet(store: HistoricalAnalysisStore) {
     IntRangeControl("To", store.snapshot.seasonMax, store.snapshot.seasonMin, store.sport.seasonMax) { changed(store) { s -> s.seasonMax = it } }
 }
 
+/**
+ * Every control below writes its OWN snapshot field. The sheet used to resolve one
+ * config from the selected bet type and then write `spreadMin/Max` + `lineMin/Max`
+ * regardless, so picking 1H Total or Team Total emitted the full-game keys instead
+ * — the intended filter never fired and a different one silently did.
+ */
 @Composable
 private fun SpreadSheet(store: HistoricalAnalysisStore) {
-    val config = HistoricalAnalysisFilterBuilder.spreadConfig(store.sport, store.betType) ?: return
-    ChoiceRow("Spread side", listOf("any" to "Either side", "favorite" to "Favored by", "underdog" to "Getting"), store.snapshot.spreadSide) { changed(store) { s -> s.spreadSide = it } }
-    DoubleRangeControl("Spread", store.snapshot.spreadMin, store.snapshot.spreadMax, 0.0, config.max, .5) { lower, upper -> changed(store) { it.spreadMin = lower; it.spreadMax = upper } }
+    val sport = store.sport
+    val s = store.snapshot
+    val fullGame = HistoricalAnalysisFilterBuilder.spreadConfig(sport, "fg_spread") ?: return
+    SpreadSection(
+        store, "Full-game spread", s.spreadSide, s.spreadMin, s.spreadMax, fullGame.max,
+        writeSide = { snap, v -> snap.spreadSide = v },
+        writeRange = { snap, lo, hi -> snap.spreadMin = lo; snap.spreadMax = hi },
+    )
+    HistoricalAnalysisFilterBuilder.spreadConfig(sport, "h1_spread")?.let { cfg ->
+        SpreadSection(
+            store, "1H spread", s.h1SpreadSide, s.h1SpreadMin, s.h1SpreadMax, cfg.max,
+            writeSide = { snap, v -> snap.h1SpreadSide = v },
+            writeRange = { snap, lo, hi -> snap.h1SpreadMin = lo; snap.h1SpreadMax = hi },
+        )
+    }
+    // An opponent spread is the opposite signed subject-team spread — same bounds.
+    SpreadSection(
+        store, "Opponent spread", s.oppSpreadSide, s.oppSpreadMin, s.oppSpreadMax, fullGame.max,
+        writeSide = { snap, v -> snap.oppSpreadSide = v },
+        writeRange = { snap, lo, hi -> snap.oppSpreadMin = lo; snap.oppSpreadMax = hi },
+    )
 }
 
 @Composable
 private fun LineSheet(store: HistoricalAnalysisStore) {
-    val config = HistoricalAnalysisFilterBuilder.totalConfig(store.sport, store.betType) ?: return
-    DoubleRangeControl(config.label, store.snapshot.lineMin, store.snapshot.lineMax, config.min, config.max, .5) { lower, upper -> changed(store) { it.lineMin = lower; it.lineMax = upper } }
+    val sport = store.sport
+    val s = store.snapshot
+    val gameTotal = HistoricalAnalysisFilterBuilder.totalConfig(sport, gameTotalKey(sport)) ?: return
+    if (sport == HistoricalAnalysisSport.MLB) {
+        // The posted run line is a different question from the ML favorite — books
+        // post the ML favorite at +1.5 in ~7% of games. Game totals are game-level.
+        if (store.betType !in setOf("total", "f5_total")) {
+            ChoiceRow("Run line", listOf("any" to "Any", "minus" to "Laying −1.5", "plus" to "Getting +1.5"), s.rlSide) {
+                changed(store) { snap -> snap.rlSide = it }
+            }
+        }
+        TotalSection(store, "${gameTotal.label} (runs)", s.lineMin, s.lineMax, gameTotal) { snap, lo, hi -> snap.lineMin = lo; snap.lineMax = hi }
+        // F5 total is an independent dim from the game total, always emitted
+        // regardless of the selected bet type (web parity).
+        HistoricalAnalysisFilterBuilder.totalConfig(sport, "f5_total")?.let { cfg ->
+            TotalSection(store, "${cfg.label} (runs)", s.f5TotalMin, s.f5TotalMax, cfg) { snap, lo, hi -> snap.f5TotalMin = lo; snap.f5TotalMax = hi }
+        }
+        return
+    }
+    TotalSection(store, gameTotal.label, s.lineMin, s.lineMax, gameTotal) { snap, lo, hi -> snap.lineMin = lo; snap.lineMax = hi }
+    HistoricalAnalysisFilterBuilder.totalConfig(sport, "h1_total")?.let { cfg ->
+        TotalSection(store, cfg.label, s.h1TotalMin, s.h1TotalMax, cfg) { snap, lo, hi -> snap.h1TotalMin = lo; snap.h1TotalMax = hi }
+    }
+    HistoricalAnalysisFilterBuilder.totalConfig(sport, "team_total")?.let { cfg ->
+        TotalSection(store, cfg.label, s.ttLineMin, s.ttLineMax, cfg) { snap, lo, hi -> snap.ttLineMin = lo; snap.ttLineMax = hi }
+        TotalSection(store, "Opponent team total line", s.oppTtLineMin, s.oppTtLineMax, cfg) { snap, lo, hi -> snap.oppTtLineMin = lo; snap.oppTtLineMax = hi }
+    }
 }
 
 @Composable
+private fun SpreadSection(
+    store: HistoricalAnalysisStore,
+    title: String,
+    side: String,
+    lower: Double,
+    upper: Double,
+    max: Double,
+    writeSide: (HistoricalAnalysisUISnapshot, String) -> Unit,
+    writeRange: (HistoricalAnalysisUISnapshot, Double, Double) -> Unit,
+) {
+    Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+    ChoiceRow("Side", listOf("any" to "Either side", "favorite" to "Favored by", "underdog" to "Getting"), side) { value ->
+        changed(store) { writeSide(it, value) }
+    }
+    DoubleRangeControl("Range", lower, upper, 0.0, max, .5) { lo, hi -> changed(store) { writeRange(it, lo, hi) } }
+}
+
+@Composable
+private fun TotalSection(
+    store: HistoricalAnalysisStore,
+    title: String,
+    lower: Double,
+    upper: Double,
+    config: HistoricalAnalysisFilterBuilder.TotalConfig,
+    write: (HistoricalAnalysisUISnapshot, Double, Double) -> Unit,
+) = DoubleRangeControl(title, lower, upper, config.min, config.max, .5) { lo, hi -> changed(store) { write(it, lo, hi) } }
+
+@Composable
 private fun MoneylineSheet(store: HistoricalAnalysisStore) {
-    OutlinedTextField(store.snapshot.mlMin, { value -> changed(store) { it.mlMin = value } }, label = { Text("Min American odds (e.g. -200)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(store.snapshot.mlMax, { value -> changed(store) { it.mlMax = value } }, label = { Text("Max American odds (e.g. -120)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+    val s = store.snapshot
+    MoneylineFields(store, "Full-game ML", s.mlMin, s.mlMax, { snap, v -> snap.mlMin = v }, { snap, v -> snap.mlMax = v })
+    if (store.sport != HistoricalAnalysisSport.MLB) {
+        // Cross-market odds filters: the builder always emits these, so they need
+        // controls or a restored web/iOS snapshot silently narrows the sample.
+        MoneylineFields(store, "1H ML", s.h1MlMin, s.h1MlMax, { snap, v -> snap.h1MlMin = v }, { snap, v -> snap.h1MlMax = v })
+        MoneylineFields(store, "Opponent ML", s.oppMlMin, s.oppMlMax, { snap, v -> snap.oppMlMin = v }, { snap, v -> snap.oppMlMax = v })
+    }
+}
+
+@Composable
+private fun MoneylineFields(
+    store: HistoricalAnalysisStore,
+    title: String,
+    min: String,
+    max: String,
+    writeMin: (HistoricalAnalysisUISnapshot, String) -> Unit,
+    writeMax: (HistoricalAnalysisUISnapshot, String) -> Unit,
+) {
+    Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+    OutlinedTextField(min, { value -> changed(store) { writeMin(it, value) } }, label = { Text("Min American odds (e.g. -200)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(max, { value -> changed(store) { writeMax(it, value) } }, label = { Text("Max American odds (e.g. -120)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
 }
 
 @Composable

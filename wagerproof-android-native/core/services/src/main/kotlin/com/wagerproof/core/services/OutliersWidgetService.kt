@@ -4,24 +4,11 @@ import com.wagerproof.core.models.OutlierAlertForWidget
 import com.wagerproof.core.models.OutlierFadeAlert
 import com.wagerproof.core.models.OutlierValueAlert
 import com.wagerproof.core.models.serialization.WagerproofJson
-import com.wagerproof.core.shared.AppGroup
-import com.wagerproof.core.shared.AppGroupKey
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import com.wagerproof.core.shared.WidgetPayloadStore
 import kotlin.math.roundToInt
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.put
 
 /**
  * Composes the "Top Outliers" home-screen widget payload (iOS
@@ -31,8 +18,10 @@ import kotlinx.serialization.json.put
  * Only the main app calls [sync]; the widget just reads the cached payload.
  *
  * The App Group blob is ONE JSON document shared across domains (agent picks,
- * outliers, entitlement mirror...), so this does a read-modify-write that
- * replaces only `topOutliers` + `lastUpdated` and preserves every other key.
+ * outliers, entitlement mirror...), so this replaces only `topOutliers` +
+ * `lastUpdated` and preserves every other key. That merge belongs to
+ * [WidgetPayloadStore], whose mutex is what keeps the concurrent TopAgents sync
+ * from clobbering this slice.
  */
 object OutliersWidgetService {
     private const val MAX_WIDGET_ALERTS = 6
@@ -84,41 +73,12 @@ object OutliersWidgetService {
         gameTime = alert.game.gameTime,
     )
 
-    // -- Payload read-modify-write ----------------------------------------------
+    // -- Payload write -----------------------------------------------------------
 
-    private fun writeTopOutliers(alerts: List<OutlierAlertForWidget>) {
-        val prefs = AppGroup.prefs
-        // The live key is the legacy Expo-compat "widgetPayload" — NOT widget_payload_v1.
-        val existing: Map<String, kotlinx.serialization.json.JsonElement> =
-            prefs.getString(AppGroupKey.WIDGET_PAYLOAD_LEGACY, null)
-                ?.let { runCatching { WagerproofJson.parseToJsonElement(it).jsonObject }.getOrNull() }
-                ?: emptyPayloadSkeleton()
-
-        val merged = buildJsonObject {
-            existing.forEach { (key, value) -> put(key, value) }
-            put("topOutliers", WagerproofJson.encodeToJsonElement(alerts))
-            put("lastUpdated", nowISO())
-        }
-        prefs.edit()
-            .putString(
-                AppGroupKey.WIDGET_PAYLOAD_LEGACY,
-                WagerproofJson.encodeToString(JsonObject.serializer(), merged),
-            )
-            .apply()
+    private suspend fun writeTopOutliers(alerts: List<OutlierAlertForWidget>) {
+        WidgetPayloadStore.updateSlice(
+            key = "topOutliers",
+            value = WagerproofJson.encodeToJsonElement(alerts),
+        )
     }
-
-    /** Fresh payload shape when nothing exists yet — mirrors iOS WidgetDataPayload.empty(). */
-    private fun emptyPayloadSkeleton(): Map<String, kotlinx.serialization.json.JsonElement> = mapOf(
-        "editorPicks" to JsonArray(emptyList()),
-        "fadeAlerts" to JsonArray(emptyList()),
-        "polymarketValues" to JsonArray(emptyList()),
-        "topAgentPicks" to JsonArray(emptyList()),
-        "lastUpdated" to JsonPrimitive(""),
-    )
-
-    // iOS emits ISO8601 with fractional seconds in UTC — keep the exact shape.
-    private val isoMillisUTC: DateTimeFormatter =
-        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).withZone(ZoneOffset.UTC)
-
-    private fun nowISO(): String = isoMillisUTC.format(Instant.now())
 }

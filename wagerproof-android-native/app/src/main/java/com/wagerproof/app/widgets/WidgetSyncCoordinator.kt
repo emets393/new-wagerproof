@@ -38,6 +38,13 @@ object WidgetSyncCoordinator {
         )
     }
 
+    /**
+     * Refresh both widget domains. The fetches run concurrently, but both write
+     * into the SAME `widgetPayload` blob, so their read-modify-writes are
+     * serialized by `WidgetPayloadStore`'s mutex — otherwise an interleave
+     * reverts one domain's slice to the previous hour's data (iOS solves the same
+     * hazard by merging into one write in `App/WidgetSyncCoordinator.swift`).
+     */
     suspend fun syncAll(context: Context, userId: String) = supervisorScope {
         val agents = async { runCatching { TopAgentsWidgetService.sync(userId) } }
         val outliers = async { runCatching { OutliersWidgetService.sync() } }

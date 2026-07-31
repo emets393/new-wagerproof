@@ -52,6 +52,15 @@ class AppNavigator(
     fun popAgents() {
         backStacks.pop(agentsTab)
     }
+
+    /**
+     * Reset the Agents tab to the list. Used after DELETING an agent: the editor
+     * can be reached from the agent's own detail screen, so a single pop would
+     * land on the detail of a row that no longer exists.
+     */
+    fun popAgentsToRoot() {
+        backStacks.popToRoot(agentsTab)
+    }
 }
 
 val LocalAppNavigator = staticCompositionLocalOf<AppNavigator> {

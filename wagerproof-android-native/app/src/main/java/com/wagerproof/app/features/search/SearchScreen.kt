@@ -84,7 +84,6 @@ import com.wagerproof.core.design.components.shimmering
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
-import com.wagerproof.core.stores.AgentsStore
 import com.wagerproof.core.stores.AuthStore
 import com.wagerproof.core.stores.GamesStore
 import com.wagerproof.core.stores.LoadState
@@ -114,11 +113,13 @@ fun SearchScreen(
     val navigator = LocalAppNavigator.current
     val keyboard = LocalSoftwareKeyboardController.current
 
-    // AgentsScreen owns its store locally, while the other searchable stores
-    // are app-scoped. Keep a search-local own-agent store and combine it with
-    // SearchStore's public leaderboard cache, matching iOS's bound AgentsStore.
-    val ownAgents = remember { AgentsStore() }
-    val userId = (graph.auth.phase as? AuthStore.Phase.Authenticated)?.userId
+    // The SAME shell AgentsStore the Agents tab renders (iOS SearchView reads
+    // MainTabView's hoisted store). Building a search-local one meant a third
+    // copy of the user's agents, fetched again on every visit to this tab.
+    // Lowercased id to match the shell/Agents-tab bind — a casing mismatch
+    // would make the two screens rebind (and wipe) the store off each other.
+    val ownAgents = graph.agents
+    val userId = (graph.auth.phase as? AuthStore.Phase.Authenticated)?.userId?.lowercase()
 
     var selectedMlbProp by remember { mutableStateOf<PlayerPropSelection?>(null) }
     var selectedNflProp by remember { mutableStateOf<NFLPlayerPropSelection?>(null) }
@@ -130,10 +131,6 @@ fun SearchScreen(
         onDispose { onFullScreenChanged(false) }
     }
 
-    DisposableEffect(ownAgents) {
-        onDispose { ownAgents.close() }
-    }
-
     LaunchedEffect(Unit) {
         search.bind(
             games = graph.games,
@@ -141,13 +138,21 @@ fun SearchScreen(
             trends = graph.outliersTrends,
             props = graph.props,
         )
-        // Search spans every league, not just the sport last opened on Games.
-        graph.games.refreshAll()
+        // No games.refreshAll() here: Search spans every league, but the shell
+        // already hydrated all five sports at launch. Calling it again just
+        // raced the shell's fetch on cold start. Only sports that FAILED that
+        // hydrate are retried — Search surfaces no per-sport error, so those
+        // leagues would otherwise return zero results all session.
+        graph.games.retryFailed()
     }
 
     LaunchedEffect(userId) {
         ownAgents.bind(userId)
-        if (userId != null) ownAgents.refresh()
+        // Guarded — the shell prefetches this store, and it now outlives the
+        // screen, so an unconditional refresh refetched on every visit. Search
+        // shows no error state and has no retry affordance, so a Failed store
+        // must be retried here or own-agent results stay silently empty.
+        if (userId != null && ownAgents.loadState.needsInitialLoad) ownAgents.refresh()
     }
 
     // Lazy sources start only once the user searches or enters a browse mode.

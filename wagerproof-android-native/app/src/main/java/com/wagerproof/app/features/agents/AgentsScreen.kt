@@ -124,10 +124,14 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
     // Per-render facade — reads live ProAccessStore state (matches iOS).
     val entitlements = AgentEntitlementsStore(proAccess)
 
-    val store = remember { AgentsStore() }
-    val leaderboardStore = remember { LeaderboardStore() }
-    val topPicksStore = remember { TopAgentPicksFeedStore() }
-    val topPicksFavorites = remember { FavoriteAgentsStore() }
+    // Shell-scoped (iOS hoisted AgentsStore to MainTabView in 7166b538). A
+    // `remember` here died with the composable on every tab switch, so the
+    // agents list, its inner-tab selection and the leaderboard all reset and
+    // refetched — and each dead instance leaked its SupervisorJob.
+    val store = graph.agents
+    val leaderboardStore = graph.agentsLeaderboard
+    val topPicksStore = graph.topAgentPicks
+    val topPicksFavorites = graph.favoriteAgents
 
     var sortOption by remember { mutableStateOf(AgentSortOption.WinRate) }
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
@@ -147,10 +151,14 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
         StorePrefs.standard.edit().putString(PINNED_IDS_KEY, pinnedIdsRaw).apply()
     }
 
-    // Bind + first refresh; rebind whenever the signed-in user changes.
+    // Bind + first refresh; rebind whenever the signed-in user changes. The
+    // guard matters now that the store outlives this screen: without it every
+    // return to the tab refetched a list we already have. `bind` resets to Idle
+    // on a user change, so a real account switch still refreshes — and
+    // `needsInitialLoad` also retries a store the shell prefetch left Failed.
     LaunchedEffect(currentUserId) {
         store.bind(currentUserId)
-        store.refresh()
+        if (store.loadState.needsInitialLoad) store.refresh()
         topPicksStore.bind(currentUserId)
         unreadRefreshToken += 1
     }

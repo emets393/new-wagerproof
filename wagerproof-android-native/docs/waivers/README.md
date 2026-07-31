@@ -2,7 +2,9 @@
 
 Every intentional divergence from the iOS app carries a `// FIDELITY-WAIVER #NNN` comment at the
 code site. #001–#110 are carried over from the iOS RN→Swift migration; #201+ are Android-new.
-This ledger is generated from the code comments (first occurrence per number).
+This ledger is generated from the code comments (first occurrence per number). Waivers whose comment
+has been removed because Android now matches (or beats) iOS are listed under **Resolved on Android**
+at the bottom rather than left in the generated list.
 
 - `FIDELITY-WAIVER #001)` — app/src/main/java/com/wagerproof/app/features/auth/OnboardingSlide.kt
 - `FIDELITY-WAIVER #008 — no real NCAAB color source).` — app/src/main/java/com/wagerproof/app/features/gamecards/SportTeamColors.kt
@@ -11,9 +13,8 @@ This ledger is generated from the code comments (first occurrence per number).
 - `FIDELITY-WAIVER #024: CFB/NCAAB have no name-keyed color/logo table here` — app/src/main/java/com/wagerproof/app/features/outliers/OutlierTeamPalette.kt
 - `FIDELITY-WAIVER #027: Offline write queue not ported — failure log + drop.` — core/stores/src/main/kotlin/com/wagerproof/core/stores/OnboardingStore.kt
 - `FIDELITY-WAIVER #032: head-to-head data source not wired).` — app/src/main/java/com/wagerproof/app/features/gamecards/sheets/GameCardSheets.kt
-- `FIDELITY-WAIVER #033: line-movement chart stub (doc §4.3). Renders opening /` — app/src/main/java/com/wagerproof/app/features/cfb/CFBLineMovementSection.kt
 - `FIDELITY-WAIVER #034b: weather condition icons fall back to available` — app/src/main/java/com/wagerproof/app/features/cfb/CFBGameDetailScreen.kt
-- `FIDELITY-WAIVER #051 analog: the column stays `expo_push_token` even` — core/services/src/main/kotlin/com/wagerproof/core/services/NotificationService.kt
+- `FIDELITY-WAIVER #051 analog: the column is named `expo_push_token` for` — core/services/src/main/kotlin/com/wagerproof/core/services/NotificationService.kt
 - `FIDELITY-WAIVER #052: Mixpanel paywall events (`paywall_presented`,` — app/src/main/java/com/wagerproof/app/features/paywall/PaywallScreen.kt
 - `FIDELITY-WAIVER #053: Mixpanel ` — app/src/main/java/com/wagerproof/app/features/paywall/PostOnboardingPaywall.kt
 - `FIDELITY-WAIVER #054: sign-out only — no cascade delete RPC.` — app/src/main/java/com/wagerproof/app/features/settings/DeleteAccountScreen.kt
@@ -51,7 +52,6 @@ This ledger is generated from the code comments (first occurrence per number).
 - `FIDELITY-WAIVER #251: single shadow).` — app/src/main/java/com/wagerproof/app/features/navigation/AssistantFab.kt
 - `FIDELITY-WAIVER #252: copy still references the iOS widget-add gesture` — app/src/main/java/com/wagerproof/app/features/settings/WidgetHelpScreen.kt
 - `FIDELITY-WAIVER #253: the Play In-App Review dependency is not added here` — app/src/main/java/com/wagerproof/app/features/settings/ReviewRequestSheet.kt
-- `FIDELITY-WAIVER #254: the live `profiles.discord_user_id` link-state read` — app/src/main/java/com/wagerproof/app/features/settings/DiscordScreen.kt
 - `FIDELITY-WAIVER #255: iOS also flips profiles.onboarding_completed` — app/src/main/java/com/wagerproof/app/features/settings/DeveloperSettingsScreen.kt
 - `FIDELITY-WAIVER #256: iOS schedules a bespoke 3s local test notification;` — app/src/main/java/com/wagerproof/app/features/settings/DeveloperSettingsScreen.kt
 - `FIDELITY-WAIVER #257: iOS's animated `HoneydewOptionCard` hero banners` — app/src/main/java/com/wagerproof/app/features/settings/SettingsScreen.kt
@@ -66,3 +66,39 @@ This ledger is generated from the code comments (first occurrence per number).
 - `FIDELITY-WAIVER #301: iOS swaps to a seated SitWorkSprite + LaptopSprite` — app/src/main/java/com/wagerproof/app/features/agents/components/AgentDetailHero.kt
 - `FIDELITY-WAIVER #305: iOS `SwipeToGeneratePill` has no shared-lib equivalent` — app/src/main/java/com/wagerproof/app/features/agents/sheets/AgentGenerationControlSheets.kt
 - `FIDELITY-WAIVER #320.` — app/src/main/java/com/wagerproof/app/features/agents/AgentDetailScreen.kt
+
+## Resolved on Android
+
+Waiver comments removed from the code; kept here so the numbers stay traceable.
+
+- **#033** line-movement chart stub — RESOLVED. `features/cfb/CFBLineMovementSection.kt` now draws a
+  real chart off the game-keyed `nfl_line_movement` / `cfb_line_movement` views. The corresponding
+  iOS stub at `Wagerproof/Features/CFB/Components/LineMovementSection.swift` is still real, so
+  Android is ahead of iOS here rather than at parity.
+- **#254** Discord link-state read not performed — RESOLVED. `features/settings/DiscordScreen.kt`
+  reads live link state from `profiles.discord_user_id`.
+
+## Owner-confirmed divergences (2026-07-31)
+
+Product-owner decisions from the parity push; these are deliberate and should not be re-flagged
+as gaps by future audits:
+
+- **#201 Apple Sign-In stays out.** Confirmed: Android ships without it; Apple-only accounts are
+  iOS/web-only. (Avoids owning the 6-month Apple web client-secret JWT rotation for Android.)
+- **NFL Public Betting stays Pro-gated on Android** even though iOS serves it free — the Android
+  gate is the intended monetization boundary, not a port bug.
+- **WagerBot Voice is not a production Android feature** — the chat entry point is removed;
+  Developer/Secret Settings entry only, matching iOS's incubating status.
+- **MAMMOTH PLAY / High Conviction / Signals feed-card badges are deprecated on Android** — being
+  removed; conviction surfaces on the detail page only, matching iOS.
+- **Dummy Data Mode is not ported** — the inert toggle is removed rather than backed by fixtures;
+  offseason NBA/NCAAB/CFB screens ship unverified until their seasons start.
+
+## Open waivers with a pending backend step
+
+- **#051** (push token) — the `expo_push_token` column name is still the RN-era one and the waiver
+  stands, but the token it holds is a bare FCM registration token and that is now correct:
+  `supabase/functions/send-agent-pick-ready-notification` sniffs the token shape
+  (`ExponentPushToken[…]` → Expo, 64-hex → APNs, else FCM v1) and the FCM branch sends
+  `channel_id: wagerproof_updates`, matching `NotificationService.REMOTE_CHANNEL_ID`. Pending
+  deploy with `FCM_SERVICE_ACCOUNT_JSON` set before Android devices actually receive the push.

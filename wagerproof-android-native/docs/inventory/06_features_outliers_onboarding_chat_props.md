@@ -514,11 +514,11 @@ Carousel (steps 1–18, one shared shell, button-driven slides) → generation c
 - [ ] `pages/OnboardingSportsPage.kt` ← OnboardingSportsPage.swift
 - [ ] `pages/OnboardingSportsShowcasePage.kt` ← OnboardingSportsShowcasePage.swift
 - [ ] `pages/OnboardingBettorTypePage.kt` ← OnboardingBettorTypePage.swift
-- [ ] `pages/OnboardingPersonalizedValuePage.kt` (casual chart / sharp features branch) ← OnboardingPersonalizedValuePage.swift
+- [x] `pages/OnboardingPersonalizedValuePage.kt` (casual chart / sharp features branch) → **DELETED, not ported**: iOS retired the page because its "2× value / +30% hit rate / +40 units" copy is unsupported on a gambling-adjacent surface. Carousel renumbered. ← OnboardingPersonalizedValuePage.swift
 - [ ] `pages/OnboardingAcquisitionPage.kt` ← OnboardingAcquisitionPage.swift
 - [ ] `pages/OnboardingPrimaryGoalPage.kt` ← OnboardingPrimaryGoalPage.swift
 - [ ] `pages/OnboardingAgentPitchPages.kt` (intro 3-slide pager + bell curves + example trend card; proof page) ← OnboardingAgentPitchPages.swift
-- [ ] `pages/OnboardingAttPage.kt` → **REPLACE**: no ATT on Android (notification-permission priming or remove step; renumber carousel) ← OnboardingATTPage.swift
+- [x] `pages/OnboardingAttPage.kt` → **DELETED, not ported**: no App Tracking Transparency on Android, so the page could only mimic a system alert that never appears. Step removed rather than replaced; carousel renumbered. ← OnboardingATTPage.swift
 - [ ] `pages/OnboardingBuilderPages.kt` (sports / archetype / identity incl. 16 gradient strings + 8-sprite picker) ← OnboardingBuilderPages.swift
 - [ ] `pages/OnboardingPersonalityPages.kt` (mindset/betstyle/datatrust/sportrules/insights; all slider label arrays verbatim) ← OnboardingPersonalityPages.swift
 - [ ] `cinematic/OnboardingGenesisModel.kt` (coroutine ViewModel: script, timings 15s/30s, submit+retry, sprite patch, teaser picks + fixtures) ← OnboardingGenesisModel.swift

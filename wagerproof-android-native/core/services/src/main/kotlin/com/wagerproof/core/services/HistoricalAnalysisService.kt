@@ -59,11 +59,17 @@ object HistoricalAnalysisService : HistoricalAnalysisDataSource {
             .mapValues { (_, teams) -> teams.sorted() }
     }
 
+    /**
+     * CFB team logos keyed by `cfb_teams.team_name` — the same key the conference/team
+     * map, the team RPC filter and the breakdown rows use. The legacy
+     * `cfb_team_mapping` table is retired and was keyed by `api`, so any school whose
+     * two names differ rendered initials instead of a logo.
+     */
     override suspend fun fetchCFBLogos(): Map<String, String> = SupabaseClients.cfb
-        .from("cfb_team_mapping")
-        .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("api,logo_light"))
+        .from("cfb_teams")
+        .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("team_name,logo"))
         .decodeList<CFBLogoRow>()
-        .mapNotNull { row -> row.api?.let { api -> row.logoLight?.takeIf(String::isNotBlank)?.let { api to it } } }
+        .mapNotNull { row -> row.teamName?.let { name -> row.logo?.takeIf(String::isNotBlank)?.let { name to it } } }
         .toMap()
 
     /** MLB team abbr + name from `mlb_team_mapping`, remapped to game-log codes (AZ/ATH). */
@@ -89,7 +95,7 @@ object HistoricalAnalysisService : HistoricalAnalysisDataSource {
     }
 
     @Serializable private data class ConferenceTeamRow(@SerialName("team_name") val teamName: String, val conference: String? = null)
-    @Serializable private data class CFBLogoRow(val api: String? = null, @SerialName("logo_light") val logoLight: String? = null)
+    @Serializable private data class CFBLogoRow(@SerialName("team_name") val teamName: String? = null, val logo: String? = null)
     @Serializable private data class MlbTeamRow(val team: String, @SerialName("team_name") val teamName: String? = null)
 }
 

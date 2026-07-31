@@ -20,19 +20,60 @@ import java.util.Locale
 private fun hex(value: Long): Color = Color(0xFF000000 or value)
 
 object NBATeams {
-    // 30-team primary/secondary table (contains-match fallback on nickname).
-    private val table: Map<String, TeamColorPair> = mapOf(
+    /**
+     * Full-team-name table, checked FIRST. The adapters pass full names
+     * ("Charlotte Hornets"), and a nickname-only table made that miss and fall
+     * into the substring scan, where "nets" matched before "hornets" and
+     * painted Charlotte in Brooklyn's black/white on every NBA surface.
+     * Mirrors iOS `NBATeams.table`.
+     */
+    private val fullNameTable: Map<String, TeamColorPair> = mapOf(
+        "atlanta hawks" to TeamColorPair(hex(0xE03A3E), hex(0xC1D32F)),
+        "boston celtics" to TeamColorPair(hex(0x007A33), hex(0xBA9653)),
+        "brooklyn nets" to TeamColorPair(hex(0x1A1A1A), hex(0xFFFFFF)),
+        "charlotte hornets" to TeamColorPair(hex(0x1D1160), hex(0x00788C)),
+        "chicago bulls" to TeamColorPair(hex(0xCE1141), hex(0x000000)),
+        "cleveland cavaliers" to TeamColorPair(hex(0x860038), hex(0xFDBB30)),
+        "dallas mavericks" to TeamColorPair(hex(0x00538C), hex(0x0053BC)),
+        "denver nuggets" to TeamColorPair(hex(0x0E2240), hex(0xFEC524)),
+        "detroit pistons" to TeamColorPair(hex(0xC8102E), hex(0x1D42BA)),
+        "golden state warriors" to TeamColorPair(hex(0x1D428A), hex(0xFFC72C)),
+        "houston rockets" to TeamColorPair(hex(0xCE1141), hex(0x2C7AC3)),
+        "indiana pacers" to TeamColorPair(hex(0x002D62), hex(0xFDBB30)),
+        "la clippers" to TeamColorPair(hex(0xC8102E), hex(0x1D428A)),
+        "los angeles clippers" to TeamColorPair(hex(0xC8102E), hex(0x1D428A)),
+        "los angeles lakers" to TeamColorPair(hex(0x552583), hex(0xFDB927)),
+        "memphis grizzlies" to TeamColorPair(hex(0x5D76A9), hex(0x12173F)),
+        "miami heat" to TeamColorPair(hex(0x98002E), hex(0xF9A01B)),
+        "milwaukee bucks" to TeamColorPair(hex(0x00471B), hex(0xEEE1C6)),
+        "minnesota timberwolves" to TeamColorPair(hex(0x0C2340), hex(0x236192)),
+        "new orleans pelicans" to TeamColorPair(hex(0x0C2340), hex(0xC8102E)),
+        "new york knicks" to TeamColorPair(hex(0x006BB6), hex(0xF58426)),
+        "oklahoma city thunder" to TeamColorPair(hex(0x007AC1), hex(0xEF3B24)),
+        "orlando magic" to TeamColorPair(hex(0x0077C0), hex(0xC4CED4)),
+        "philadelphia 76ers" to TeamColorPair(hex(0x006BB6), hex(0xED174C)),
+        "phoenix suns" to TeamColorPair(hex(0x1D1160), hex(0xE56020)),
+        "portland trail blazers" to TeamColorPair(hex(0xE03A3E), hex(0x1A1A1A)),
+        "sacramento kings" to TeamColorPair(hex(0x5A2D81), hex(0x63727A)),
+        "san antonio spurs" to TeamColorPair(hex(0x8A8D8F), hex(0x1A1A1A)),
+        "toronto raptors" to TeamColorPair(hex(0xCE1141), hex(0x1A1A1A)),
+        "utah jazz" to TeamColorPair(hex(0x002B5C), hex(0xF9A01B)),
+        "washington wizards" to TeamColorPair(hex(0x002B5C), hex(0xE31837)),
+    )
+
+    /** Nickname fallback for feeds that publish "Lakers" rather than the full name. */
+    private val nicknameTable: Map<String, TeamColorPair> = mapOf(
         "hawks" to TeamColorPair(hex(0xE03A3E), hex(0xC1D32F)),
         "celtics" to TeamColorPair(hex(0x007A33), hex(0xBA9653)),
-        "nets" to TeamColorPair(hex(0x000000), hex(0xFFFFFF)),
+        "nets" to TeamColorPair(hex(0x1A1A1A), hex(0xFFFFFF)),
         "hornets" to TeamColorPair(hex(0x1D1160), hex(0x00788C)),
         "bulls" to TeamColorPair(hex(0xCE1141), hex(0x000000)),
         "cavaliers" to TeamColorPair(hex(0x860038), hex(0xFDBB30)),
-        "mavericks" to TeamColorPair(hex(0x00538C), hex(0xB8C4CA)),
+        "mavericks" to TeamColorPair(hex(0x00538C), hex(0x0053BC)),
         "nuggets" to TeamColorPair(hex(0x0E2240), hex(0xFEC524)),
         "pistons" to TeamColorPair(hex(0xC8102E), hex(0x1D42BA)),
         "warriors" to TeamColorPair(hex(0x1D428A), hex(0xFFC72C)),
-        "rockets" to TeamColorPair(hex(0xCE1141), hex(0xC4CED4)),
+        "rockets" to TeamColorPair(hex(0xCE1141), hex(0x2C7AC3)),
         "pacers" to TeamColorPair(hex(0x002D62), hex(0xFDBB30)),
         "clippers" to TeamColorPair(hex(0xC8102E), hex(0x1D428A)),
         "lakers" to TeamColorPair(hex(0x552583), hex(0xFDB927)),
@@ -47,19 +88,27 @@ object NBATeams {
         "76ers" to TeamColorPair(hex(0x006BB6), hex(0xED174C)),
         "sixers" to TeamColorPair(hex(0x006BB6), hex(0xED174C)),
         "suns" to TeamColorPair(hex(0x1D1160), hex(0xE56020)),
-        "trail blazers" to TeamColorPair(hex(0xE03A3E), hex(0x000000)),
-        "blazers" to TeamColorPair(hex(0xE03A3E), hex(0x000000)),
+        "trail blazers" to TeamColorPair(hex(0xE03A3E), hex(0x1A1A1A)),
+        "blazers" to TeamColorPair(hex(0xE03A3E), hex(0x1A1A1A)),
         "kings" to TeamColorPair(hex(0x5A2D81), hex(0x63727A)),
-        "spurs" to TeamColorPair(hex(0xC4CED4), hex(0x000000)),
-        "raptors" to TeamColorPair(hex(0xCE1141), hex(0x000000)),
-        "jazz" to TeamColorPair(hex(0x002B5C), hex(0x00471B)),
+        "spurs" to TeamColorPair(hex(0x8A8D8F), hex(0x1A1A1A)),
+        "raptors" to TeamColorPair(hex(0xCE1141), hex(0x1A1A1A)),
+        "jazz" to TeamColorPair(hex(0x002B5C), hex(0xF9A01B)),
         "wizards" to TeamColorPair(hex(0x002B5C), hex(0xE31837)),
     )
 
     fun colorPair(team: String): TeamColorPair {
-        val key = team.lowercase(Locale.US)
-        table[key]?.let { return it }
-        table.entries.firstOrNull { key.contains(it.key) }?.let { return it.value }
+        if (team.isEmpty()) return FallbackTeamColor.colorPair(team)
+        val key = team.lowercase(Locale.US).trim()
+        fullNameTable[key]?.let { return it }
+        nicknameTable[key]?.let { return it }
+        // Longest match wins: a short nickname can be a substring of another
+        // team's full name ("nets" inside "charlotte hornets"), and map
+        // iteration order must not decide which one paints the card.
+        nicknameTable.entries
+            .filter { key.contains(it.key) }
+            .maxByOrNull { it.key.length }
+            ?.let { return it.value }
         return FallbackTeamColor.colorPair(team)
     }
 }

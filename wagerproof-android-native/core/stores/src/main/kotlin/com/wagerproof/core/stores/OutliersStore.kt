@@ -9,6 +9,7 @@ import com.wagerproof.core.models.OutlierGame
 import com.wagerproof.core.models.OutlierValueAlert
 import com.wagerproof.core.models.SportLeague
 import com.wagerproof.core.services.OutliersService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.time.Instant
@@ -96,6 +97,9 @@ class OutliersStore {
             fadeAlerts = f
             loadState = LoadState.Loaded
             lastRefreshedAt = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             loadState = LoadState.Failed(e.message ?: e.toString())
         }

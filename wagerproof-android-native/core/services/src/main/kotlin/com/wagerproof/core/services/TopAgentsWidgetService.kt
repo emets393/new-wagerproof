@@ -3,18 +3,13 @@ package com.wagerproof.core.services
 import com.wagerproof.core.models.AgentPerformance
 import com.wagerproof.core.models.AgentPick
 import com.wagerproof.core.models.serialization.WagerproofJson
-import com.wagerproof.core.shared.AppGroup
-import com.wagerproof.core.shared.AppGroupKey
+import com.wagerproof.core.shared.WidgetPayloadStore
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -77,22 +72,18 @@ object TopAgentsWidgetService {
      */
     suspend fun sync(userId: String): List<TopAgentWidgetData> {
         val agents = fetchTopAgents(userId)
-        // Read-modify-write: other domains (editor picks, fade alerts,
-        // polymarket, top outliers) refresh their own keys independently, so
-        // only topAgentPicks + lastUpdated may be replaced here.
-        val existing = readPayload() ?: JsonObject(emptyMap())
-        val updated = buildJsonObject {
-            existing.forEach { (key, value) -> put(key, value) }
-            put(
-                "topAgentPicks",
-                WagerproofJson.encodeToJsonElement(
-                    ListSerializer(TopAgentWidgetData.serializer()),
-                    agents,
-                ),
-            )
-            put("lastUpdated", nowISO())
-        }
-        writePayload(updated)
+        // Other domains (editor picks, fade alerts, polymarket, top outliers)
+        // refresh their own keys independently, so only topAgentPicks +
+        // lastUpdated may be replaced — and the read-modify-write MUST go through
+        // WidgetPayloadStore, whose mutex keeps a concurrent domain sync from
+        // clobbering this slice (see its writeMutex KDoc).
+        WidgetPayloadStore.updateSlice(
+            key = "topAgentPicks",
+            value = WagerproofJson.encodeToJsonElement(
+                ListSerializer(TopAgentWidgetData.serializer()),
+                agents,
+            ),
+        )
         return agents
     }
 
@@ -175,19 +166,9 @@ object TopAgentsWidgetService {
     }
 
     // MARK: - Payload IO
-
-    /** Current payload as a raw JsonObject, or null when absent/corrupt. */
-    fun readPayload(): JsonObject? {
-        val raw = AppGroup.prefs.getString(AppGroupKey.WIDGET_PAYLOAD_LEGACY, null) ?: return null
-        return runCatching { WagerproofJson.parseToJsonElement(raw) as? JsonObject }.getOrNull()
-    }
-
-    fun writePayload(payload: JsonObject) {
-        // Stored as a JSON *string*, matching the RN bridge / iOS UserDefaults shape.
-        AppGroup.prefs.edit()
-            .putString(AppGroupKey.WIDGET_PAYLOAD_LEGACY, payload.toString())
-            .apply()
-    }
+    //
+    // Reads/writes live in WidgetPayloadStore (:core:shared) — one guarded owner
+    // of the shared blob rather than a per-service copy of the merge.
 
     /**
      * Hash that mirrors RN's `lastHashRef`: deterministic sorted-keys JSON of
@@ -252,11 +233,6 @@ object TopAgentsWidgetService {
         result = pick.result.takeUnless { it == AgentPick.PickResultStatus.PENDING }?.raw,
         gameDate = pick.gameDate.ifEmpty { null },
     )
-
-    private val isoFormatter: DateTimeFormatter =
-        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX").withZone(ZoneOffset.UTC)
-
-    private fun nowISO(): String = isoFormatter.format(Instant.now())
 
     /** Slim internal projection; re-emitted as [TopAgentWidgetData] for callers. */
     @Serializable

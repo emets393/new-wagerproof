@@ -108,6 +108,10 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val entitlements = AgentEntitlementsStore(graph.proAccess)
     val store = remember(agentId) { AgentDetailStore(agentId) }
+    // The shared list store. This screen's own AgentDetailStore knows nothing
+    // about it, and the Agents tab no longer rebuilds its store on return, so a
+    // save or delete here is invisible on the list until pull-to-refresh.
+    val agents = graph.agents
 
     var name by remember { mutableStateOf("") }
     var emoji by remember { mutableStateOf("🤖") }
@@ -171,6 +175,9 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
         saving = false
         if (ok) {
             hasChanges = false
+            // Refetch before popping (same reason as AgentCreateScreen's
+            // post-create refresh) or the list keeps the old name/emoji/sports.
+            agents.refresh()
             nav.popAgents()
         } else {
             errorMessage = store.lastGenerationError ?: "Failed to save settings."
@@ -591,7 +598,19 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
             confirmButton = {
                 TextButton(onClick = {
                     deleteConfirm = false
-                    scope.launch { if (store.delete()) nav.popAgents() }
+                    scope.launch {
+                        // Delete through the SHARED store, not this screen's
+                        // AgentDetailStore: it drops the row optimistically, so
+                        // the list is already correct with no refetch — and no
+                        // phantom row left tappable or counted against the
+                        // active-agent cap. Pop to the list root because the
+                        // editor can be reached from the deleted agent's detail.
+                        if (agents.delete(agentId)) {
+                            nav.popAgentsToRoot()
+                        } else {
+                            errorMessage = agents.lastError ?: "Failed to delete agent."
+                        }
+                    }
                 }) { Text("Delete", color = AppColors.appLoss) }
             },
             dismissButton = { TextButton(onClick = { deleteConfirm = false }) { Text("Cancel") } },

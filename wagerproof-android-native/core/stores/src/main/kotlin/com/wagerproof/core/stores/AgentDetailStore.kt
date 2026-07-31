@@ -18,6 +18,7 @@ import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.NotificationService
 import com.wagerproof.core.services.TriggerRunStatusService
 import com.wagerproof.core.services.TriggerV3RunStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -255,6 +256,9 @@ class AgentDetailStore(agentId: String) {
         try {
             snapshot = AgentPicksService.fetchDetailSnapshot(agentId = agentId)
             snapshotLoadState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            snapshotLoadState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             snapshotLoadState = LoadState.Failed(message(t))
         }
@@ -281,6 +285,9 @@ class AgentDetailStore(agentId: String) {
                 pickHistory = preview
             }
             historyLoadState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            historyLoadState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             historyLoadState = LoadState.Failed(message(t))
         }
@@ -303,6 +310,9 @@ class AgentDetailStore(agentId: String) {
                 performancePicks = allPicks
             }
             performanceLoadState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            performanceLoadState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             performanceLoadState = LoadState.Failed(message(t))
         }
@@ -568,6 +578,8 @@ class AgentDetailStore(agentId: String) {
                     } else true
                 }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             lastGenerationError = message(t)
             return false
@@ -610,6 +622,8 @@ class AgentDetailStore(agentId: String) {
                         )
                     }
                 }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (t: Throwable) {
                 // Surface the failure in debug (the poll used to swallow it,
                 // hiding that the direct-to-Trigger fetch was 401'ing).
@@ -660,6 +674,8 @@ class AgentDetailStore(agentId: String) {
             AgentService.setAutoGenerate(agentId = agentId, autoGenerate = value)
             refreshSnapshot()
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             false
         }
@@ -687,6 +703,8 @@ class AgentDetailStore(agentId: String) {
             AgentAuthorizedActionsService.updateAgent(agentId = agentId, payload = payload)
             refreshSnapshot()
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             lastGenerationError = message(t)
             false
@@ -708,6 +726,8 @@ class AgentDetailStore(agentId: String) {
             removeDeletedItemFromCaches(item)
             locallyDeletedItemIds = locallyDeletedItemIds - item.id
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             locallyDeletedItemIds = locallyDeletedItemIds - item.id
             lastDeleteError = message(t)
@@ -740,11 +760,19 @@ class AgentDetailStore(agentId: String) {
         }
     }
 
-    /** Delete the agent. Mirrors RN's destroy path. View navigates back. */
+    /**
+     * Delete the agent. Mirrors RN's destroy path. View navigates back.
+     *
+     * Server-only — prefer [AgentsStore.delete] from a screen that can reach the
+     * shared list store: this one cannot drop the row, so the Agents tab keeps
+     * rendering a deleted (and still tappable) agent until it refetches.
+     */
     suspend fun delete(): Boolean {
         return try {
             AgentService.delete(agentId = agentId)
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             lastGenerationError = message(t)
             false

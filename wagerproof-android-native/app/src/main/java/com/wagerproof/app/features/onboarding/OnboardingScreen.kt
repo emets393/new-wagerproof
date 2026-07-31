@@ -1,6 +1,7 @@
 package com.wagerproof.app.features.onboarding
 
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -26,7 +27,6 @@ import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.onboarding.cinematic.OnboardingGenerationCinematic
 import com.wagerproof.app.features.onboarding.cinematic.OnboardingGenesisModel
 import com.wagerproof.app.features.onboarding.cinematic.OnboardingRevealView
-import com.wagerproof.app.features.onboarding.pages.OnboardingATTPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingAcquisitionPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingAgentHQPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingAgentPitchIntroPage
@@ -41,7 +41,6 @@ import com.wagerproof.app.features.onboarding.pages.OnboardingBuilderInsightsPag
 import com.wagerproof.app.features.onboarding.pages.OnboardingBuilderMindsetPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingBuilderSportRulesPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingBuilderSportsPage
-import com.wagerproof.app.features.onboarding.pages.OnboardingPersonalizedValuePage
 import com.wagerproof.app.features.onboarding.pages.OnboardingPrimaryGoalPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingTermsPage
 import com.wagerproof.core.design.backgrounds.GlyphRippleEmitter
@@ -59,11 +58,27 @@ import dev.chrisbanes.haze.HazeState
 
 /**
  * Complete native port of the current iOS onboarding: one persistent reactive
- * pixel field, 18 button-driven carousel pages, then generation and reveal.
+ * pixel field, 16 button-driven carousel pages, then generation and reveal.
  */
 @Composable
 fun OnboardingScreen(modifier: Modifier = Modifier) {
     val onboarding = appGraph().onboarding
+
+    // System back mirrors the chrome chevron. iOS has no hardware back, so this
+    // is Android-only: without it, back finishes the Activity and silently
+    // discards every survey answer and the agent draft (both live in memory
+    // until markComplete). Registered first so the cinematic swallow below —
+    // composed later, therefore higher priority — wins while it is enabled.
+    BackHandler(
+        enabled = !onboarding.currentStep.isCinematic &&
+            onboarding.currentStep > OnboardingStore.Step.TERMS,
+    ) {
+        onboarding.back()
+    }
+    // Generation/reveal can't be rewound and exiting mid-run would strand a
+    // half-created agent, so back is swallowed outright there.
+    BackHandler(enabled = onboarding.currentStep.isCinematic) {}
+
     val context = LocalContext.current
     val reduceMotion = remember {
         runCatching {
@@ -197,13 +212,11 @@ private fun OnboardingCarouselContainer(
                 OnboardingStore.Step.TERMS -> OnboardingTermsPage()
                 OnboardingStore.Step.BETTOR_TYPE -> OnboardingBettorTypePage()
                 OnboardingStore.Step.BETTING_PITFALLS -> OnboardingBettingPitfallsPage()
-                OnboardingStore.Step.PERSONALIZED_VALUE -> OnboardingPersonalizedValuePage()
                 OnboardingStore.Step.ACQUISITION_SOURCE -> OnboardingAcquisitionPage()
                 OnboardingStore.Step.PRIMARY_GOAL -> OnboardingPrimaryGoalPage()
                 OnboardingStore.Step.AGENT_HQ -> OnboardingAgentHQPage()
                 OnboardingStore.Step.AGENT_VALUE_INTRO -> OnboardingAgentPitchIntroPage()
                 OnboardingStore.Step.AGENT_VALUE_PROOF -> OnboardingAgentPitchProofPage()
-                OnboardingStore.Step.ATT_PRIMING -> OnboardingATTPage()
                 OnboardingStore.Step.BUILDER_SPORTS -> OnboardingBuilderSportsPage(creation)
                 OnboardingStore.Step.BUILDER_ARCHETYPE -> OnboardingBuilderArchetypePage(creation)
                 OnboardingStore.Step.BUILDER_MINDSET -> OnboardingBuilderMindsetPage(creation)

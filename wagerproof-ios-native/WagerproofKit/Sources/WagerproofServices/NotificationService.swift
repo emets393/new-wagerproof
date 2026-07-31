@@ -20,10 +20,12 @@ import UIKit
 /// - Update `is_active=false` on all of a user's tokens on sign-out.
 ///
 /// Wire format: RN stores `expo_push_token`. The native iOS port stores the
-/// hex-encoded APNs device token in the same column for now. Either format
-/// is accepted by the Supabase row (column is text), and the auto-pick-ready
-/// edge function dispatches both APNs and Expo push targets based on token
-/// shape.
+/// hex-encoded APNs device token in the same column for now. Either format is
+/// accepted by the Supabase row (column is text). The auto-pick-ready edge
+/// function (`send-agent-pick-ready-notification`) branches on token shape —
+/// `ExponentPushToken[…]` → Expo, 64-hex → APNs HTTP/2, else FCM v1. That
+/// branching landed 2026-07-31; until the function is redeployed with the
+/// APNS_* secrets set, no native device receives this push.
 // FIDELITY-WAIVER #051: Push token stored as raw APNs hex string; RN uses
 // expo-tokens. Long-term migration plan in tickets/051-*.md.
 public final class NotificationService: @unchecked Sendable {

@@ -15,6 +15,7 @@ import com.wagerproof.core.shared.AppGroupKey
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.coroutines.CancellationException
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -34,7 +35,7 @@ import kotlinx.serialization.json.put
 
 /**
  * Port of iOS `OnboardingStore.swift`. Owns the onboarding wizard's entire
- * state: local-first completion flag, 20-step pointer, survey answers, and the
+ * state: local-first completion flag, 18-step pointer, survey answers, and the
  * embedded agent-builder draft.
  *
  * Mutations are cache-first with a fire-and-forget background sync to `profiles`
@@ -52,34 +53,39 @@ class OnboardingStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /**
-     * 20-step ordered flow. Steps 1..18 are pages inside the onboarding carousel
-     * (`carouselIndex` 0..17); 19/20 are full-screen cinematic phases rendered
+     * 18-step ordered flow. Steps 1..16 are pages inside the onboarding carousel
+     * (`carouselIndex` 0..15); 17/18 are full-screen cinematic phases rendered
      * outside the pager. Raw values MUST stay contiguous — [advance]/[back]
      * navigate by ±1 arithmetic. Enum declaration order == raw order, so the
      * natural (ordinal) comparison used by [isCinematic] matches Swift's
      * `Comparable` on rawValue.
+     *
+     * Two iOS steps are deliberately absent:
+     *  - `attPriming` — Android has no App Tracking Transparency prompt, so the
+     *    page could only ever mimic an iOS system alert that never appears.
+     *  - `personalizedValue` — iOS deleted it (unsupported "2× value / +30% hit
+     *    rate / +40 units" claims). iOS replaced it with the self-reported
+     *    research-time value arc, which is not ported yet.
      */
     enum class Step(val raw: Int) {
         TERMS(1),
         BETTOR_TYPE(2),
         BETTING_PITFALLS(3),
-        PERSONALIZED_VALUE(4),
-        ACQUISITION_SOURCE(5),
-        PRIMARY_GOAL(6),
-        AGENT_HQ(7),
-        AGENT_VALUE_INTRO(8),
-        AGENT_VALUE_PROOF(9),
-        ATT_PRIMING(10),
-        BUILDER_SPORTS(11),
-        BUILDER_ARCHETYPE(12),
-        BUILDER_MINDSET(13),
-        BUILDER_BET_STYLE(14),
-        BUILDER_DATA_TRUST(15),
-        BUILDER_SPORT_RULES(16),
-        BUILDER_INSIGHTS(17),
-        BUILDER_IDENTITY(18),
-        GENERATION(19),
-        REVEAL(20);
+        ACQUISITION_SOURCE(4),
+        PRIMARY_GOAL(5),
+        AGENT_HQ(6),
+        AGENT_VALUE_INTRO(7),
+        AGENT_VALUE_PROOF(8),
+        BUILDER_SPORTS(9),
+        BUILDER_ARCHETYPE(10),
+        BUILDER_MINDSET(11),
+        BUILDER_BET_STYLE(12),
+        BUILDER_DATA_TRUST(13),
+        BUILDER_SPORT_RULES(14),
+        BUILDER_INSIGHTS(15),
+        BUILDER_IDENTITY(16),
+        GENERATION(17),
+        REVEAL(18);
 
         val isCinematic: Boolean get() = this >= GENERATION
 
@@ -90,7 +96,7 @@ class OnboardingStore {
         val progress: Double? get() = if (isCinematic) null else raw.toDouble() / carouselPageCount
 
         companion object {
-            const val carouselPageCount: Int = 18
+            const val carouselPageCount: Int = 16
 
             fun fromRaw(raw: Int): Step? = entries.firstOrNull { it.raw == raw }
         }
@@ -229,6 +235,8 @@ class OnboardingStore {
             // We never downgrade true → false from the server: a just-completed
             // local flag whose write hasn't landed would otherwise bounce the
             // user back into the flow.
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Throwable) {
             // Network failure / no profile row yet — trust local cache.
         }
@@ -295,8 +303,8 @@ class OnboardingStore {
             val trimmed = agentDraft.name.trim()
             trimmed.isNotEmpty() && trimmed.length <= 50
         }
-        Step.BETTING_PITFALLS, Step.AGENT_HQ, Step.PERSONALIZED_VALUE, Step.AGENT_VALUE_INTRO,
-        Step.AGENT_VALUE_PROOF, Step.ATT_PRIMING,
+        Step.BETTING_PITFALLS, Step.AGENT_HQ, Step.AGENT_VALUE_INTRO,
+        Step.AGENT_VALUE_PROOF,
         Step.BUILDER_MINDSET, Step.BUILDER_BET_STYLE, Step.BUILDER_DATA_TRUST,
         Step.BUILDER_SPORT_RULES, Step.BUILDER_INSIGHTS,
         Step.GENERATION, Step.REVEAL -> true
@@ -438,6 +446,8 @@ class OnboardingStore {
                 reset()
                 RemoteResetResult.Success
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (error: Throwable) {
             RemoteResetResult.Failure(
                 error.message?.takeIf { it.isNotBlank() } ?: "Failed to reset onboarding",
@@ -484,6 +494,8 @@ class OnboardingStore {
             SupabaseClients.main.from("profiles").update(element) {
                 filter { eq("user_id", uid) }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Throwable) {
             // FIDELITY-WAIVER #027: Offline write queue not ported — failure log + drop.
             // Acceptable since the call is fire-and-forget and the local cache is

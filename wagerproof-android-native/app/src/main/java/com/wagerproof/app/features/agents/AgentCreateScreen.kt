@@ -92,7 +92,10 @@ fun AgentCreateScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val userId = (graph.auth.phase as? AuthStore.Phase.Authenticated)?.userId
     val store = remember { AgentCreationStore() }
-    val agents = remember { AgentsStore() }
+    // The shell store the Agents list renders — a private copy here meant a
+    // fourth fetch of the same rows, and the list had no way to learn about the
+    // agent this screen just created.
+    val agents = graph.agents
     val entitlements = remember(graph.proAccess) { AgentEntitlementsStore(graph.proAccess) }
 
     var confirmDiscard by remember { mutableStateOf(false) }
@@ -136,13 +139,19 @@ fun AgentCreateScreen(modifier: Modifier = Modifier) {
                 }
             }
             createdAgent = agent
+            // Pull the new row into the shared list now (iOS does the same in
+            // AgentsView.finishCreateAgentFlow). The Agents tab no longer
+            // rebuilds its store on return, so nothing else would show it.
+            launch { agents.refresh() }
             stage = CreationStage.PREPARING
         }
     }
 
     LaunchedEffect(userId) {
-        agents.bind(userId)
-        agents.refresh()
+        // Lowercased to match the shell/Agents-tab bind — a casing mismatch
+        // would look like a user change and wipe the shared store.
+        agents.bind(userId?.lowercase())
+        if (agents.loadState.needsInitialLoad) agents.refresh()
         store.existingAgentNames = agents.agents.map { it.agent.name }
         store.loadArchetypesIfNeeded()
         if (store.draft.spriteIndex == null) {
@@ -151,10 +160,10 @@ fun AgentCreateScreen(modifier: Modifier = Modifier) {
     }
     LaunchedEffect(agents.agents) { store.existingAgentNames = agents.agents.map { it.agent.name } }
     DisposableEffect(Unit) {
-        onDispose {
-            agents.close()
-            store.close()
-        }
+        // Only the creation store is ours to close — `agents` is the shared
+        // app-scoped instance; closing it would cancel its scope for the
+        // whole process.
+        onDispose { store.close() }
     }
 
     BackHandler {

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.wagerproof.core.models.AgentStatDatum
 import com.wagerproof.core.services.PlatformStatsService
+import kotlinx.coroutines.CancellationException
 import java.time.Instant
 import java.time.OffsetDateTime
 
@@ -48,6 +49,9 @@ class PlatformStatsStore {
             data = PlatformStatsService.fetchAgentDistribution(minDecided = 1)
             loadState = LoadState.Loaded
             lastRefreshedAt = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             loadState = LoadState.Failed(e.message ?: e.toString())
         }

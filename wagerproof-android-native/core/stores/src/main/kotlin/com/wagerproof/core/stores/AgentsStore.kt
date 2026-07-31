@@ -8,6 +8,7 @@ import com.wagerproof.core.models.AgentWithPerformance
 import com.wagerproof.core.models.TopAgentPickFeedRow
 import com.wagerproof.core.services.AgentPicksService
 import com.wagerproof.core.services.AgentService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -92,6 +93,9 @@ class AgentsStore {
             agents = fetched.sortedByDescending { it.performance?.netUnits ?: Double.NEGATIVE_INFINITY }
             loadState = LoadState.Loaded
             lastRefreshedAt = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             loadState = LoadState.Failed(message(t))
         }
@@ -111,6 +115,9 @@ class AgentsStore {
                 limit = 50,
             )
             topPicksLoadState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            topPicksLoadState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             topPicksLoadState = LoadState.Failed(message(t))
         }
@@ -128,6 +135,8 @@ class AgentsStore {
         return try {
             AgentService.delete(agentId = agentId)
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             agents = snapshot
             loadState = LoadState.Failed(message(t))
@@ -144,6 +153,8 @@ class AgentsStore {
         return try {
             AgentService.setActive(agentId = agentId, isActive = isActive)
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             agents = snapshot
             false
@@ -159,6 +170,8 @@ class AgentsStore {
         return try {
             AgentService.setAutoGenerate(agentId = agentId, autoGenerate = autoGenerate)
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             agents = snapshot
             false
@@ -174,6 +187,8 @@ class AgentsStore {
         return try {
             AgentService.setPublic(agentId = agentId, isPublic = isPublic)
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             agents = snapshot
             false

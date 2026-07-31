@@ -44,7 +44,7 @@ import com.wagerproof.app.features.components.CollapsingWidgetScroll
 import com.wagerproof.app.features.components.TeamAuraBackground
 import com.wagerproof.app.features.components.WidgetCollapsingSection
 import com.wagerproof.app.features.components.polymarket.PolymarketWidget
-import com.wagerproof.app.features.cfb.BettingLineMovementSection
+import com.wagerproof.app.features.cfb.NFLLineMovementSection
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
 import com.wagerproof.app.features.gamecards.HeroStat
@@ -158,22 +158,26 @@ fun NFLGameDetailPage(
 
         if (groups.isEmpty()) {
             item {
+                // Ungated on purpose (iOS parity): there is nothing to gate behind Pro
+                // on an empty state, and the copy must never name the backing table.
                 WidgetCollapsingSection("NFL Predictions", icon = AppIcon.fromSystemName("football.fill"), iconTint = AppColors.appPrimary) {
-                    ProContentSection(title = "NFL Predictions", minHeight = 88.dp) {
-                        Column(
-                            Modifier.fillMaxWidth().padding(vertical = 18.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            AppIcon.fromSystemName("football")?.let {
-                                Icon(it.imageVector, null, tint = AppColors.appTextSecondary, modifier = Modifier.size(28.dp))
-                            }
-                            Text("No dry-run picks", color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            Text(
-                                "Picks load from nfl_dryrun_picks for this game.",
-                                color = AppColors.appTextSecondary, fontSize = 12.sp, textAlign = TextAlign.Center,
-                            )
+                    Column(
+                        Modifier.fillMaxWidth().padding(vertical = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        AppIcon.fromSystemName("clock")?.let {
+                            Icon(it.imageVector, null, tint = AppColors.appTextSecondary, modifier = Modifier.size(28.dp))
                         }
+                        Text(
+                            "No model picks are posted for this matchup yet.",
+                            color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            "Model picks will appear here when this matchup is published.",
+                            color = AppColors.appTextSecondary, fontSize = 12.sp, textAlign = TextAlign.Center,
+                        )
                     }
                 }
             }
@@ -248,11 +252,8 @@ fun NFLGameDetailPage(
                 iconTint = AppColors.appPrimary,
             ) {
                 ProContentSection(title = "Line Movement", minHeight = 100.dp) {
-                    BettingLineMovementSection(
-                        trainingKey = game.trainingKey,
-                        table = "nfl_betting_lines",
-                        awayTeam = game.awayTeam,
-                        homeTeam = game.homeTeam,
+                    NFLLineMovementSection(
+                        game = game,
                         awayColor = awayColors.primary,
                         homeColor = homeColors.primary,
                     )
@@ -502,16 +503,7 @@ private fun PickRow(
             }
         }
 
-        if (!isMoneylineCard(pick)) {
-            MetricGrid(pick)
-        } else {
-            MetricBox(
-                label = "Best Odds",
-                value = GameCardFormatting.formatMoneyline((pick.bestOdds ?: pick.vegasPrice)?.roundToInt()),
-                tint = AppColors.appAccentBlue,
-                highlighted = true,
-            )
-        }
+        MetricGrid(pick)
 
         if (hasBestBook(pick)) {
             BestBookRow(pick)
@@ -571,13 +563,27 @@ private fun RecommendationBadge(pick: NFLDryrunPickRow) {
     )
 }
 
+/**
+ * Market → model two-box row (iOS `metricGrid`). Moneyline cards keep the same
+ * two boxes — market price on the left, model win probability on the right —
+ * because the win % IS the reason for an ML pick; showing only best odds hides it.
+ */
 @Composable
 private fun MetricGrid(pick: NFLDryrunPickRow) {
+    val moneyline = isMoneylineCard(pick)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.weight(1f)) {
             MetricBox(
-                label = if (pick.bestLine == null) "Vegas Line" else "Best Line",
-                value = formatPickLine(pick.bestLine ?: pick.vegasLine, pick),
+                label = when {
+                    moneyline -> "Market Price"
+                    pick.bestLine == null -> "Vegas Line"
+                    else -> "Best Line"
+                },
+                value = if (moneyline) {
+                    GameCardFormatting.formatMoneyline((pick.vegasPrice ?: pick.bestOdds)?.roundToInt())
+                } else {
+                    formatPickLine(pick.bestLine ?: pick.vegasLine, pick)
+                },
                 tint = AppColors.appTextPrimary,
             )
         }
@@ -586,7 +592,8 @@ private fun MetricGrid(pick: NFLDryrunPickRow) {
         }
         Box(Modifier.weight(1f)) {
             MetricBox(
-                label = modelLabel(pick),
+                // iOS labels the ML model box "Model Win" rather than modelLabel()'s "Win Prob".
+                label = if (moneyline) "Model Win" else modelLabel(pick),
                 value = modelMetricValue(pick),
                 tint = AppColors.appPrimary,
                 highlighted = true,

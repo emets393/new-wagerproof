@@ -13,6 +13,7 @@ import com.wagerproof.core.models.MLBPlayerPropPickTier
 import com.wagerproof.core.models.MLBPlayerPropTierSummary
 import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.MLBPlayerPropPicksService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
@@ -89,6 +90,8 @@ class MLBPlayerPropPicksStore(
         try {
             summary = service.fetchGradeSummary()
             lastFetched = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Exception) {
             // Non-fatal for the banner — full page shows errors.
         }
@@ -121,6 +124,9 @@ class MLBPlayerPropPicksStore(
             }
             lastFetched = System.currentTimeMillis()
             loadState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             loadState = LoadState.Failed("Couldn't load Best Picks data.")
         }

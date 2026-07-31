@@ -52,4 +52,4 @@ The parity contract lives in `docs/inventory/` (11 docs, exhaustively derived fr
 - UNDER is red in pick cards but blue #3B82F6 in insight badges (deliberate legacy convention).
 
 ## Fidelity waivers
-Numbered `// FIDELITY-WAIVER #NNN` comments + a ticket file under `docs/waivers/`. Existing iOS waivers (#008 team colors, #021, #024, #032/#033 chart stubs, #051 push token column, #053 Mixpanel purchase, #054 delete account, #061 roast mic, #070/#071 glow cycles, #079/#080/#081 creation Lotties) carry over. Android-new: #201 Apple Sign-In dropped, #202 ATT prompt replaced (no Android equivalent), #203 CoreMotion ticket parallax → Android SensorManager.
+Numbered `// FIDELITY-WAIVER #NNN` comments + a ticket file under `docs/waivers/`. Existing iOS waivers (#008 team colors, #021, #024, #032/#033 chart stubs, #051 push token column, #053 Mixpanel purchase, #054 delete account, #061 roast mic, #070/#071 glow cycles, #079/#080/#081 creation Lotties) carry over. Android-new: #201 Apple Sign-In dropped, #202 ATT prompt removed (no Android equivalent), #203 CoreMotion ticket parallax → Android SensorManager.

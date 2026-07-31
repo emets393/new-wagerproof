@@ -71,6 +71,7 @@ fun ScoreboardScreen(modifier: Modifier = Modifier) {
     var isExpanded by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf(SportFilter.All) }
     var selectedGame by remember { mutableStateOf<LiveGame?>(null) }
+    var isPullRefreshing by remember { mutableStateOf(false) }
 
     // Idempotent poll start on first appear (skip if already loaded by fixtures).
     LaunchedEffect(Unit) {
@@ -78,7 +79,6 @@ fun ScoreboardScreen(modifier: Modifier = Modifier) {
     }
 
     val filteredGroups = store.groupedByLeague().filter { selectedFilter.matches(it.first) }
-    val refreshing = store.isLoading && store.hasLiveGames
 
     Column(modifier.fillMaxSize().background(AppColors.appSurface)) {
         // Header chrome: settings gear (leading) + title + expand toggle (trailing).
@@ -108,8 +108,21 @@ fun ScoreboardScreen(modifier: Modifier = Modifier) {
         }
 
         PullToRefreshBox(
-            isRefreshing = refreshing,
-            onRefresh = { scope.launch { store.refresh() } },
+            // Gesture-only. The store flips to Loading on every 120s poll tick,
+            // so binding this to `store.isLoading` animated the Material
+            // indicator over the league list twice a minute with no user
+            // action. iOS's `.refreshable` reacts to the gesture alone.
+            isRefreshing = isPullRefreshing,
+            onRefresh = {
+                scope.launch {
+                    isPullRefreshing = true
+                    try {
+                        store.refresh()
+                    } finally {
+                        isPullRefreshing = false
+                    }
+                }
+            },
             state = rememberPullToRefreshState(),
             modifier = Modifier.weight(1f),
         ) {

@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import com.wagerproof.core.models.Profile
 import com.wagerproof.core.services.AuthService
 import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -125,6 +126,8 @@ class AuthStore(
             )
             lastError = failure.message
             failure
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (error: Throwable) {
             val failure = AccountDeletionResult.Failure(
                 message = message(error),

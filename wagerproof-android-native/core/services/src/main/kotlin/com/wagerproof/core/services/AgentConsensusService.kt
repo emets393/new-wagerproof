@@ -34,6 +34,9 @@ object AgentConsensusService {
      * and retuning them is a cross-client decision, not a per-platform one.
      *
      * Throws on transport/decode failure — callers treat that as "no strip".
+     * Decode failure MUST stay a throw: [GameAgentConsensus]'s count fields have
+     * no defaults precisely so a renamed RPC column surfaces here instead of
+     * decoding every row as `agents = 0` and silently deleting the feature.
      */
     suspend fun fetchGameAgentConsensus(
         sport: String,

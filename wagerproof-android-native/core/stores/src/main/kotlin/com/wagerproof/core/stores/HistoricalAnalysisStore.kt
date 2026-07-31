@@ -17,6 +17,7 @@ import com.wagerproof.core.services.HistoricalAnalysisDataSource
 import com.wagerproof.core.services.HistoricalAnalysisSavedFiltersService
 import com.wagerproof.core.services.HistoricalAnalysisService
 import com.wagerproof.core.services.MlbTeamOption
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -43,6 +44,16 @@ class HistoricalAnalysisStore(
     var loadState by mutableStateOf<LoadState>(LoadState.Idle); private set
     var isRefetching by mutableStateOf(false); private set
     var hasLoadedOnce by mutableStateOf(false); private set
+
+    /**
+     * Non-null when the LAST refetch failed while stale results stayed on screen.
+     * Silently keeping old data made broken filters look like "the filter did
+     * nothing" — surface it instead.
+     */
+    var fetchErrorMessage by mutableStateOf<String?>(null); private set
+
+    /** Set when the saved-systems fetch fails (the list keeps whatever it had). */
+    var savedFiltersError by mutableStateOf<String?>(null); private set
 
     var coaches by mutableStateOf<List<String>>(emptyList()); private set
     var referees by mutableStateOf<List<String>>(emptyList()); private set
@@ -110,30 +121,55 @@ class HistoricalAnalysisStore(
             if (sport == HistoricalAnalysisSport.MLB && HistoricalAnalysisFilterBuilder.mlbFiltersWeatherOnly(filters)) {
                 JsonObject(emptyMap())
             } else filters
-        try {
-            val result = coroutineScope {
-                val analysisTask = async { source.fetchAnalysis(sport, betType, filters) }
-                val upcomingTask = async { runCatching { source.fetchUpcoming(sport, betType, upcomingFilters) }.getOrDefault(emptyList()) }
-                analysisTask.await() to upcomingTask.await()
-            }
-            analysis = result.first
-            upcoming = result.second
-            loadState = LoadState.Loaded
-            hasLoadedOnce = true
+
+        // Analysis first, painted before upcoming is even requested. Awaiting both
+        // together made every filter change dim the screen for the duration of the
+        // slower query, and running them concurrently contended the same warehouse.
+        val result = try {
+            source.fetchAnalysis(sport, betType, filters)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (error: Throwable) {
-            if (!hasLoadedOnce) loadState = LoadState.Failed(error.message ?: "Failed to load analysis.")
-        } finally {
+            if (hasLoadedOnce) {
+                fetchErrorMessage = "Couldn't refresh with these filters — results may be stale."
+            } else {
+                loadState = LoadState.Failed(error.message ?: "Failed to load analysis.")
+            }
             isRefetching = false
+            return
+        }
+
+        analysis = result
+        loadState = LoadState.Loaded
+        hasLoadedOnce = true
+        isRefetching = false
+        fetchErrorMessage = null
+
+        upcoming = try {
+            source.fetchUpcoming(sport, betType, upcomingFilters)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            emptyList()
         }
     }
 
     suspend fun refreshSaved(userId: String?) {
         if (userId == null) {
             savedFilters = emptyList()
+            savedFiltersError = null
             return
         }
-        runCatching { HistoricalAnalysisSavedFiltersService.fetch(sport, userId) }
-            .onSuccess { savedFilters = it }
+        try {
+            savedFilters = HistoricalAnalysisSavedFiltersService.fetch(sport, userId)
+            savedFiltersError = null
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            // Never wipe a previously-loaded list on a transient failure — that made
+            // successful saves look like they vanished from My Systems.
+            savedFiltersError = "Couldn't load your systems — tap refresh to retry."
+        }
     }
 
     suspend fun saveCurrentFilter(name: String, userId: String) {
@@ -149,13 +185,62 @@ class HistoricalAnalysisStore(
     fun restoreSaved(filter: HistoricalAnalysisSavedFilter) {
         val restored = filter.filters.copy(selectedConferences = filter.filters.selectedConferences.toList())
         if (filter.betType.isNotEmpty()) restored.betType = filter.betType
+        correctLegacyFallbacks(restored)
         if (restored.selectedConferences.isEmpty() && restored.conference != "any") {
             restored.selectedConferences = listOf(restored.conference)
             restored.conference = "any"
         }
         snapshot = restored
         clampSeasonForBetType()
-        scheduleFetch()
+        // Restore must refetch immediately — a 350ms debounce leaves the previous
+        // (often empty) analysis painted under the new chips and reads as "No games match".
+        debounceJob?.cancel()
+        debounceJob = scope.launch { fetchNow() }
+    }
+
+    /**
+     * Sparse/legacy saved snapshots (web, or any save predating a range field)
+     * decode their missing ranges to the NFL-shaped constants baked into
+     * [HistoricalAnalysisUISnapshot]'s defaults. On CFB/MLB those become silent
+     * always-on filters — a restored CFB system would emit `ppg_max=40` and
+     * `last_margin ±60`, quietly excluding high-scoring teams and blowouts the
+     * user never filtered out. Snap the exact NFL-fallback signatures back to
+     * this sport's no-op defaults.
+     *
+     * KNOWN FALSE POSITIVE: this infers "fell back" from the VALUE, so a CFB
+     * user who deliberately sets a range to the NFL constant loses it — e.g.
+     * last margin −60…+60 (CFB's slider runs to ±80) or ppg capped at 40 (CFB
+     * defaults to 60). Android then omits the clause while iOS/web still send
+     * it, so the same saved system runs a wider sample here. Snapping is still
+     * the lesser evil: the phantom filter fires whenever the key is ABSENT,
+     * which is far more common than landing on the exact pair.
+     *
+     * The real fix is a sport-aware decode, the way web does it
+     * (src/features/analysis/normalizeSavedFilterSnapshot.ts:254-258) — fill
+     * missing keys from `defaults(sport)` instead of the NFL-shaped base in
+     * [HistoricalAnalysisUISnapshot], after which this whole function goes
+     * away. That needs the sport threaded into
+     * `HistoricalAnalysisUISnapshotSerializer`, which is shared with the plain
+     * `@Serializable` decode of `HistoricalAnalysisSavedFilter`.
+     */
+    private fun correctLegacyFallbacks(s: HistoricalAnalysisUISnapshot) {
+        val d = HistoricalAnalysisUISnapshot.defaults(sport)
+        fun <T> snapBack(value: List<T>, nflFallback: List<T>, default: List<T>): List<T> =
+            if (value == nflFallback && default != nflFallback) default else value
+
+        s.winStreak = snapBack(s.winStreak, listOf(0, 16), d.winStreak)
+        s.lossStreak = snapBack(s.lossStreak, listOf(0, 16), d.lossStreak)
+        s.overStreak = snapBack(s.overStreak, listOf(0, 16), d.overStreak)
+        s.underStreak = snapBack(s.underStreak, listOf(0, 16), d.underStreak)
+        s.prevWins = snapBack(s.prevWins, listOf(0, 16), d.prevWins)
+        s.ppg = snapBack(s.ppg, listOf(0.0, 40.0), d.ppg)
+        s.paPg = snapBack(s.paPg, listOf(0.0, 40.0), d.paPg)
+        s.oppPpg = snapBack(s.oppPpg, listOf(0.0, 40.0), d.oppPpg)
+        s.oppPaPg = snapBack(s.oppPaPg, listOf(0.0, 40.0), d.oppPaPg)
+        s.pointDiffPg = snapBack(s.pointDiffPg, listOf(-20.0, 20.0), d.pointDiffPg)
+        s.avgCoverMargin = snapBack(s.avgCoverMargin, listOf(-15.0, 15.0), d.avgCoverMargin)
+        s.oppLastMargin = snapBack(s.oppLastMargin, listOf(-60, 60), d.oppLastMargin)
+        s.lastMargin = snapBack(s.lastMargin, listOf(-60, 60), d.lastMargin)
     }
 
     suspend fun searchPitchers(query: String): List<MlbPitcherOption> =

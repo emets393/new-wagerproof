@@ -1,5 +1,6 @@
 package com.wagerproof.app.nav
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -21,6 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.auth.AuthGateScreen
 import com.wagerproof.app.features.auth.ResetPasswordScreen
@@ -132,21 +134,32 @@ fun RootHost(modifier: Modifier = Modifier) {
         }
 
         if (shouldPresentPaywall) {
-            PostOnboardingPaywall(
-                onUserDismissed = {
-                    paywallDismissed = true
-                    router.clearTestPaywallOverride()
-                },
-            )
+            val dismissPaywall = {
+                paywallDismissed = true
+                router.clearTestPaywallOverride()
+            }
+            // Back does exactly what the paywall's own ✕ does — no more, no less.
+            // Never falls through to MainScaffold's handler (disabled at the
+            // Games tab root, which is where a freshly-onboarded user lands), so
+            // back can't finish the Activity out from under the paywall.
+            ModalOverlay(onBack = dismissPaywall) {
+                PostOnboardingPaywall(onUserDismissed = dismissPaywall)
+            }
         }
 
         if (resetPasswordPresented) {
-            ResetPasswordScreen(
-                onDone = {
-                    resetPasswordPresented = false
-                    scope.launch { graph.auth.signOut() }
-                },
-            )
+            // No back dismissal: the only ways out are completing the reset or
+            // "Back to Login" (both run onDone, which signs out of the recovery
+            // session). Back is swallowed so it can't abandon the flow mid-way
+            // or exit the app.
+            ModalOverlay(onBack = {}) {
+                ResetPasswordScreen(
+                    onDone = {
+                        resetPasswordPresented = false
+                        scope.launch { graph.auth.signOut() }
+                    },
+                )
+            }
         }
 
         if (graph.revenueCat.isRedeemingWebPurchase) {
@@ -167,5 +180,45 @@ fun RootHost(modifier: Modifier = Modifier) {
             },
             containerColor = AppColors.appSurfaceElevated,
         )
+    }
+}
+
+/**
+ * Makes a root-level overlay behave like iOS's `.fullScreenCover`: the shell
+ * underneath stays composed (so its state survives) but must not be reachable.
+ *
+ * Two things are needed for that on Android, neither of which a plain sibling in
+ * a [Box] gets for free:
+ *  - [onBack] takes over the hardware/predictive back gesture. Without it back
+ *    reaches MainScaffold's handler, which is DISABLED at the Games tab root —
+ *    so back finished the Activity for exactly the freshly-onboarded users who
+ *    see these overlays.
+ *  - a full-size pointer blocker sits BEHIND the content as a sibling, so taps
+ *    that miss the overlay's own controls can't land on the tab bar underneath.
+ *    It must be a sibling, not a consuming wrapper: an ancestor that consumes on
+ *    the Main pass does so after the child sees the event but before the Final
+ *    pass, so any child press whose gesture includes a MOVE gets cancelled by
+ *    waitForUpOrCancellation — every real finger tap dies while emulator mouse
+ *    clicks (no MOVEs) still work.
+ */
+@Composable
+private fun ModalOverlay(
+    onBack: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    BackHandler(enabled = true, onBack = onBack)
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            awaitPointerEvent().changes.forEach { it.consume() }
+                        }
+                    }
+                },
+        )
+        content()
     }
 }

@@ -124,18 +124,9 @@ private fun FlaggedStrip(
     val agentsWord = if (consensus.sideAgents == 1) "agent" else "agents"
     val side = consensus.side.uppercase()
 
-    val label = buildAnnotatedString {
+    val claim = buildAnnotatedString {
         append("${consensus.sideAgents} $agentsWord on ")
         withStyle(SpanStyle(fontWeight = FontWeight.Black)) { append(side) }
-        append("  ")
-        withStyle(
-            SpanStyle(
-                color = AppColors.appConsensusEmeraldText.copy(alpha = 0.7f),
-                fontWeight = FontWeight.Medium,
-            ),
-        ) {
-            append("${consensus.agreementPercent}% agree")
-        }
     }
 
     Row(
@@ -164,15 +155,35 @@ private fun FlaggedStrip(
             ringWidth = 1.5.dp,
             overflowTextSize = 7.sp,
         )
-        Text(
-            label,
-            color = AppColors.appConsensusEmeraldText,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        // Two Texts, not one AnnotatedString: the side is a verbatim
+        // `pick_selection` and can run long ("PITTSBURGH PIRATES F5 -0.5"), and
+        // in a single line-limited string the ellipsis eats the agreement
+        // percentage — the one number the green strip exists to justify. The
+        // percentage carries no weight so the Row measures it at its intrinsic
+        // width first; the claim then truncates into whatever is left.
+        Row(
+            Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(
+                claim,
+                color = AppColors.appConsensusEmeraldText,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Text(
+                "${consensus.agreementPercent}% agree",
+                color = AppColors.appConsensusEmeraldText.copy(alpha = 0.7f),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
         BetBadge()
     }
 }

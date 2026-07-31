@@ -17,6 +17,7 @@ import com.revenuecat.purchases.awaitSyncPurchases
 import com.revenuecat.purchases.interfaces.RedeemWebPurchaseListener
 import com.wagerproof.core.shared.AppGroup
 import com.wagerproof.core.shared.AppGroupKey
+import kotlinx.coroutines.CancellationException
 import java.util.Date
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -81,6 +82,8 @@ object RevenueCatService {
     suspend fun logOut() {
         try {
             Purchases.sharedInstance.awaitLogOut()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Exception) {
         }
     }

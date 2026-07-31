@@ -1,10 +1,6 @@
 package com.wagerproof.app.features.chat
 
-import android.Manifest
-import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,7 +32,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -63,7 +58,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
@@ -74,7 +68,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.core.design.components.LiquidGlassScene
 import com.wagerproof.core.design.components.liquidGlassBackground
@@ -98,13 +91,11 @@ fun WagerBotChatScreen(
     val graph = appGraph()
     val store = graph.wagerBotChat
     val ui = WagerBotUiTokens.resolve()
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userId = (graph.auth.phase as? AuthStore.Phase.Authenticated)?.userId
 
     var showHistory by remember { mutableStateOf(false) }
     var showVoice by remember { mutableStateOf(false) }
-    var microphoneDenied by remember { mutableStateOf(false) }
     var loadingThread by remember { mutableStateOf(false) }
     var lastUserMessageId by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
@@ -114,16 +105,10 @@ fun WagerBotChatScreen(
         onDismiss()
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) showVoice = true else microphoneDenied = true
-    }
-
+    // No mic gate here — WagerBotVoiceScreen owns the RECORD_AUDIO prompt so that every
+    // entry point into voice (this one and Developer Settings) behaves the same.
     fun openVoice() {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            showVoice = true
-        } else {
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
+        showVoice = true
     }
 
     fun openGame(gameId: String, sport: String) {
@@ -250,18 +235,6 @@ fun WagerBotChatScreen(
                     loadingThread = false
                 }
             },
-        )
-    }
-
-    if (microphoneDenied) {
-        AlertDialog(
-            onDismissRequest = { microphoneDenied = false },
-            title = { Text("Microphone access needed") },
-            text = { Text("Allow microphone access in Android Settings to use WagerBot Voice.") },
-            confirmButton = { TextButton(onClick = { microphoneDenied = false }) { Text("Got it") } },
-            containerColor = ui.surfaceBackground,
-            titleContentColor = ui.primaryText,
-            textContentColor = ui.mutedText,
         )
     }
 }

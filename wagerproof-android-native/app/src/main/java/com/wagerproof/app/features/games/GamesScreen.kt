@@ -59,9 +59,6 @@ import com.wagerproof.core.design.components.staggeredAppear
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.stores.GamesStore
-import com.wagerproof.core.stores.LoadState
-import com.wagerproof.core.stores.NBAModelAccuracyStore
-import com.wagerproof.core.stores.NCAABModelAccuracyStore
 import com.wagerproof.core.stores.SportSeason
 import kotlinx.coroutines.launch
 
@@ -84,16 +81,29 @@ fun GamesScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     var isPullRefreshing by remember { mutableStateOf(false) }
 
-    // Model-accuracy reports back the NBA/NCAAB tool banners (hidden when empty).
-    val nbaAccuracy = remember { NBAModelAccuracyStore() }
-    val ncaabAccuracy = remember { NCAABModelAccuracyStore() }
+    // Model-accuracy reports back the NBA/NCAAB tool banners (hidden when
+    // empty). Shell-scoped: a per-screen `remember` was thrown away on every
+    // tab switch, so the banner vanished and refetched on each return.
+    val nbaAccuracy = graph.nbaModelAccuracy
+    val ncaabAccuracy = graph.ncaabModelAccuracy
     var selectedTool by remember { mutableStateOf<SportTool?>(null) }
 
-    LaunchedEffect(Unit) { store.refreshAll() }
+    // No refreshAll here — MainScaffold hydrates the slate once at the shell
+    // (iOS deleted GamesView's duplicate `.task` in 7166b538). Running both
+    // fired all five sports' pipelines twice on cold start. Only the sports
+    // that FAILED that hydrate get another try: unforced and empty-handed on
+    // the happy path, but without it one blip at launch hides a sport from
+    // Search/Outliers/WagerBot for the rest of the process.
+    LaunchedEffect(Unit) { store.retryFailed() }
+
     LaunchedEffect(store.selectedSport) {
         when (store.selectedSport) {
-            GamesStore.Sport.nba -> if (nbaAccuracy.loadState is LoadState.Idle) nbaAccuracy.refresh()
-            GamesStore.Sport.ncaab -> if (ncaabAccuracy.loadState is LoadState.Idle) ncaabAccuracy.refresh()
+            // needsInitialLoad, not `is Idle`: these stores are shell-scoped now,
+            // so one failed fetch would otherwise hide the tool banner for good
+            // (visibleTools drops it when the cache is empty) with no error row
+            // and no retry affordance anywhere.
+            GamesStore.Sport.nba -> if (nbaAccuracy.loadState.needsInitialLoad) nbaAccuracy.refresh()
+            GamesStore.Sport.ncaab -> if (ncaabAccuracy.loadState.needsInitialLoad) ncaabAccuracy.refresh()
             else -> Unit
         }
     }

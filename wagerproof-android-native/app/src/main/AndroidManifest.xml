@@ -23,7 +23,11 @@
         <meta-data android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled" android:value="false" />
 
         <!-- Used by FCM when Google Play services renders a notification
-             payload without starting WagerproofMessagingService. -->
+             payload without starting WagerproofMessagingService. The channel id
+             must stay equal to NotificationService.REMOTE_CHANNEL_ID and to the
+             channel_id sent by the send-agent-pick-ready-notification edge
+             function — Android 8+ drops a push naming an uncreated channel.
+             Pinned by NotificationChannelContractTest. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_wagerproof" />

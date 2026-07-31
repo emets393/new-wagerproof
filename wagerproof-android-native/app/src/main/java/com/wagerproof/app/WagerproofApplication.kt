@@ -68,6 +68,26 @@ class WagerproofApplication : Application(), DefaultLifecycleObserver {
     /** Retry transient registration failures whenever the app foregrounds. */
     override fun onStart(owner: LifecycleOwner) {
         registerCachedPushToken()
+        refreshVisibleSlate()
+    }
+
+    /**
+     * Re-hydrate the slate on foreground. MainScaffold's hydrate is keyed on
+     * `Unit` and the Activity survives rotation (`configChanges` in the
+     * manifest), so nothing else re-arms it — a two-hour background/resume
+     * would repaint this morning's spreads, totals and splits until the user
+     * happened to pull-to-refresh.
+     *
+     * Unforced and visible-sport only, matching pull-to-refresh's "refresh what
+     * you see" scope: the 5-minute TTL makes a quick app-switch free, and the
+     * other four sports would be a full multi-query pipeline each.
+     */
+    private fun refreshVisibleSlate() {
+        if (!::graph.isInitialized) return
+        // GamesStore holds Compose state — main thread, not the IO scope above.
+        applicationScope.launch(Dispatchers.Main.immediate) {
+            runCatching { graph.games.refresh(graph.games.selectedSport) }
+        }
     }
 
     private fun registerCachedPushToken() {

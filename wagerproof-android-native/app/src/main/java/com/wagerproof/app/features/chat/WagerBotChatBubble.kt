@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -153,13 +154,18 @@ private fun MessageText(role: WagerBotMessage.Role, text: String, ui: WagerBotUi
                 .padding(12.dp),
         )
     } else {
-        WagerBotMarkdownText(
-            text = text,
-            modifier = Modifier.padding(start = 4.dp, end = 12.dp),
-            primaryColor = ui.primaryText,
-            secondaryColor = ui.mutedText,
-            quoteAccent = ui.accent,
-        )
+        // Long-press to copy what WagerBot said (iOS uses .textSelection(.enabled) here).
+        // Assistant prose only — user text is their own, and the markdown renderer has no
+        // clickable spans for selection to fight with.
+        SelectionContainer {
+            WagerBotMarkdownText(
+                text = text,
+                modifier = Modifier.padding(start = 4.dp, end = 12.dp),
+                primaryColor = ui.primaryText,
+                secondaryColor = ui.mutedText,
+                quoteAccent = ui.accent,
+            )
+        }
     }
 }
 

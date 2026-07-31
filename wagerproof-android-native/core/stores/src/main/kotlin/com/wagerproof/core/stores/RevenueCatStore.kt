@@ -14,6 +14,7 @@ import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.shared.AppGroup
 import com.wagerproof.core.shared.AppGroupKey
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -128,6 +129,9 @@ class RevenueCatStore {
             // Only on the success path — a failed login keeps stale state and the
             // paywall predicate should keep waiting rather than fire on pre-login data.
             hasResolvedActiveUserEntitlement = true
+        } catch (cancellation: CancellationException) {
+            isLoading = false
+            throw cancellation
         } catch (e: Throwable) {
             lastError = e.localizedMessage ?: e.message
             // Never downgrade paying users on a network blip; only lift from `unknown`.
@@ -160,6 +164,8 @@ class RevenueCatStore {
             apply(info, CustomerInfoSource.Refresh)
             lastError = null
             hasResolvedActiveUserEntitlement = true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Throwable) {
             lastError = e.localizedMessage ?: e.message
             if (entitlementStatus == EntitlementStatus.Unknown) entitlementStatus = EntitlementStatus.Denied
@@ -244,6 +250,8 @@ class RevenueCatStore {
                     )
                 }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Throwable) {
             val message = e.localizedMessage?.takeIf { it.isNotBlank() }
                 ?: "We couldn't redeem this purchase. Please try again."
@@ -259,6 +267,8 @@ class RevenueCatStore {
     suspend fun refreshOffering() {
         offering = try {
             RevenueCatService.currentOffering()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Throwable) {
             null
         }
@@ -266,6 +276,8 @@ class RevenueCatStore {
 
     suspend fun fetchOffering(placementId: String): Offering? = try {
         RevenueCatService.offering(placementId)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
     } catch (e: Throwable) {
         null
     }

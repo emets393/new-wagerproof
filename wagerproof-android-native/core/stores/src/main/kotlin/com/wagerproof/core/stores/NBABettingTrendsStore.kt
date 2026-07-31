@@ -12,6 +12,7 @@ import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -101,6 +102,9 @@ class NBABettingTrendsStore {
                     }
                     .decodeList<NBASituationalTrendRow>()
             }
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             loadState = LoadState.Failed("Failed to fetch NBA trends: ${e.message}")
             return

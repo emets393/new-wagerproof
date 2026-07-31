@@ -66,7 +66,8 @@ import java.math.RoundingMode
  *   - Post-purchase finalization: refresh [com.wagerproof.core.stores.RevenueCatStore]
  *     so the app re-renders with the granted entitlement, fire Meta conversion
  *     events, then dismiss.
- *   - A guaranteed escape hatch (own top-trailing ✕ + skip button).
+ *   - A guaranteed escape hatch (own top-trailing ✕ + skip button). The RC
+ *     template's own dismiss button stays OFF so there is exactly one ✕.
  *
  * FIDELITY-WAIVER #053: Mixpanel "Subscription Purchased" event not fired here
  * — AnalyticsStore wiring lands in a later wave. Meta SDK events fire in
@@ -147,7 +148,11 @@ fun PostOnboardingPaywall(onUserDismissed: () -> Unit) {
                 // builder + PaywallListener signatures.
                 PaywallOptions.Builder(dismissRequest = { onUserDismissed() })
                     .setOffering(current)
-                    .setShouldDisplayDismissButton(true)
+                    // false, NOT true: [CloseOverlay] below already draws an ✕ in
+                    // the same corner and is the only one guaranteed to exist (V2
+                    // templates ignore this flag). With it true, any template that
+                    // DID honour the flag stacked a second ✕ on top of ours.
+                    .setShouldDisplayDismissButton(false)
                     .setListener(object : PaywallListener {
                         override fun onPurchaseCompleted(
                             customerInfo: CustomerInfo,
@@ -182,7 +187,10 @@ fun PostOnboardingPaywall(onUserDismissed: () -> Unit) {
         }
 
         // Own ✕ overlay — guarantees an escape hatch regardless of RC template
-        // version (V2 templates ignore the dashboard dismiss-button flag).
+        // version (V2 templates ignore the dashboard dismiss-button flag), and
+        // is the SINGLE close control on this surface. If iOS's metadata gate
+        // (`paywall_close_enabled`) is ported, gate this and the RootHost back
+        // handler together so both dismissal routes stay in step.
         CloseOverlay(onClose = onUserDismissed)
     }
 }
