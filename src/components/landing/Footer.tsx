@@ -119,6 +119,11 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
+                <Link to="/mcp" className="text-gray-400 hover:text-honeydew-400 transition-colors">
+                  MCP Connector
+                </Link>
+              </li>
+              <li>
                 <button onClick={() => scrollToElement('pricing')} className="text-gray-400 hover:text-honeydew-400 transition-colors">
                   Pricing
                 </button>

@@ -9,6 +9,7 @@ const STATIC_PAGES = [
   { path: '/blog', priority: '0.8', changefreq: 'daily' },
   { path: '/free-picks', priority: '0.8', changefreq: 'daily' },
   { path: '/ai-agents', priority: '0.8', changefreq: 'weekly' },
+  { path: '/mcp', priority: '0.8', changefreq: 'weekly' },
   { path: '/mobile-app', priority: '0.7', changefreq: 'monthly' },
   { path: '/privacy-policy', priority: '0.3', changefreq: 'yearly' },
   { path: '/terms-and-conditions', priority: '0.3', changefreq: 'yearly' },

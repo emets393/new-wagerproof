@@ -60,6 +60,7 @@ import TrendsTodayPage from "./features/trendsToday/TrendsTodayPage";
 import AgentCreate from "./pages/AgentCreate";
 import AgentSettings from "./pages/AgentSettings";
 import ConnectAI from "./pages/ConnectAI";
+import McpTutorial from "./pages/McpTutorial";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
@@ -270,6 +271,7 @@ function AppRoutes() {
     '/paywall-test', // Add paywall test to public routes
     '/free-picks', // Free picks landing page - public access
     '/ai-agents', // New separate landing page for the AI Agent feature
+    '/mcp', // Public WagerProof MCP connector tutorial
   ].includes(location.pathname) || location.pathname.startsWith('/blog') || location.pathname.startsWith('/support');
 
   // Pages that should not have the layout (landing, welcome)
@@ -302,6 +304,7 @@ function AppRoutes() {
           />
           <Route path="/free-picks" element={<FreePicks />} />
           <Route path="/ai-agents" element={<AgentLanding />} />
+          <Route path="/mcp" element={<McpTutorial />} />
           <Route path="/support" element={<SupportCenter />} />
           <Route path="/support/:collectionSlug" element={<SupportCollection />} />
           <Route path="/support/:collectionSlug/:articleSlug" element={<SupportArticle />} />
