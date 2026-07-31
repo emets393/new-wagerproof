@@ -644,6 +644,32 @@ strongest a priori luck candidate in all of basketball — nearly opponent-indep
 stretch should be close to pure noise. It is not tradeable. Player-level luck regression is
 dead in CBB in the same way team-level luck regression is.
 
+## CBB five-man UNIT shape: TESTED, NULL (2026-07-31)
+
+`lineups_ncaab` carries off/def/net ratings and pace per five-man unit, and S6 only ever used
+its `secs` column. `ncaab_lineup_units.py` → NCAAB_LINEUP_UNITS.md tests what the ratings are
+for: unit-weighted team net (`net_w`), depth drop-off (top unit minus the rest, `drop`),
+within-game unit dispersion (`net_sd`), minutes concentration (`hhi`), rotation breadth
+(`n_units`), and ROTATION CONTINUITY (`cont` = cosine similarity of the team's player-seconds
+vector against its previous game). All averaged over strictly prior games, z-scored in season,
+read as a home-minus-away differential, all 8 markets. Placebos: `pace_sd`, `top_share`.
+
+**Null on both tests.** Largest |r| among the real measures 0.026 vs 0.015 for the placebos —
+same order. **All 64 walk-forward rows are negative ROI, best −0.9%**, with direction AND
+threshold learned from strictly prior seasons so a hindsight sign cannot win.
+
+**The control is what makes it readable.** `net_w` is essentially prior team strength and its
+correlation with covering the T-60 spread is **0.001** on 14,780 games. The panel is fully
+populated, so that is not a broken join — it is the market pricing team strength completely.
+Every other measure is a second-order description of the same rotation, so there was never
+room above it. **The only thing the lineup table is worth is WHO IS MISSING (S1/S6), not how
+the minutes are shaped.**
+
+DATA TRAP, cost one silent all-NaN run: **28.6% of units have a NaN `net_rtg`** (on court
+without a possession on one end) and **91.3% of team-games contain at least one**, so any
+unguarded weighted aggregate over `net_rtg` is NaN for nearly every team-game. Re-normalise
+weights over the rated units.
+
 ## Dead list (tested honestly, do NOT rebuild without new information)
 
 Movement follow/fade (all buckets, both sports) · KenPom-edge vs close (fully
@@ -651,7 +677,7 @@ priced; bigger disagreement = worse) · regression/streak fades (pre-regressed
 into lines) · CBB H2H · raw height/experience/continuity-home clashes · pace
 battles · TO-vs-TO and OREB-vs-DREB standalone · stale-book chase NBA (juice
 trap) · big-fav CBB team totals (12% vig both sides) · 3-heavy dog variance
-theory (backwards) · possession-level shot-luck regression (fully priced — REGRESSION_BRIEF2) · team-specific venue-history HCA · **TEAM-level luck regression, BOTH sports, all 8 markets (see section above — 4 NBA designs + the NCAAB re-run on 4× the sample, all null, placebo wins)** · **CBB player shooting-heat (S10 port: fails the random-cut test at 73%, −1.0% at the close)** · **CBB non-shooting heat — FT%, turnovers, rebounds, assists (all 8 markets negative, both placebos beat all four)** · **the LAGGED/feed-free version of S1/S6 (51.3%/−2.0% — there is no free substitute for a pregame availability feed)** · v1/v2 GBM models vs the close (market MAE wins; model
+theory (backwards) · possession-level shot-luck regression (fully priced — REGRESSION_BRIEF2) · team-specific venue-history HCA · **TEAM-level luck regression, BOTH sports, all 8 markets (see section above — 4 NBA designs + the NCAAB re-run on 4× the sample, all null, placebo wins)** · **CBB player shooting-heat (S10 port: fails the random-cut test at 73%, −1.0% at the close)** · **CBB non-shooting heat — FT%, turnovers, rebounds, assists (all 8 markets negative, both placebos beat all four)** · **CBB five-man UNIT shape — unit quality, depth drop-off, minutes concentration, rotation churn (64/64 walk-forward rows negative; team strength itself correlates 0.001 with covering)** · **the LAGGED/feed-free version of S1/S6 (51.3%/−2.0% — there is no free substitute for a pregame availability feed)** · v1/v2 GBM models vs the close (market MAE wins; model
 value is baseline + confluence only).
 
 ## Segment calibration (2026-07-17, owner-prompted)

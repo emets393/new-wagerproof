@@ -1,9 +1,10 @@
 # College basketball — what the NBA ideas did when we ported them
 
-Plain-English companion to NBA_REPORT_PLAIN_ENGLISH.md. Five studies, all of the ideas from
-the NBA program run again on college. Sources: NCAAB_HEAT_BRIEF.md, NCAAB_HEAT_VALIDATION.md,
+Plain-English companion to NBA_REPORT_PLAIN_ENGLISH.md. Every idea from the NBA program run
+again on college. Sources: NCAAB_HEAT_BRIEF.md, NCAAB_HEAT_VALIDATION.md,
 NCAAB_HEAT_REFINE.md, NCAAB_LUCK_BRIEF.md, NCAAB_AVAILABILITY_BRIEF.md,
-NCAAB_AVAIL_VALIDATION.md, NCAAB_BOX_PLAYERS.md, NCAAB_AVAIL_CONSENSUS.md.
+NCAAB_AVAIL_VALIDATION.md, NCAAB_BOX_PLAYERS.md, NCAAB_AVAIL_CONSENSUS.md,
+NCAAB_LINEUP_UNITS.md.
 
 **Why college was worth re-running at all:** 23,163 priced games over four seasons against
 the NBA's 5,278, and it is the market where we had already proven absences go unpriced. A
@@ -31,9 +32,9 @@ external data at all — is worth nothing (+1.1%). The entire edge lives in know
 *tonight*, before tip. That forecloses the shortcut and makes the case for buying the
 pregame feed a straightforward one.
 
-**Three ideas ported from the NBA and died.** Player shooting heat, team luck regression, and
-non-shooting heat. All three failed the same way, and the way they failed is worth trusting:
-the placebo scored as well as the real signal.
+**Four ideas ported from the NBA and died.** Player shooting heat, team luck regression,
+non-shooting heat, and five-man unit shape. All four failed the same way, and the way they
+failed is worth trusting: the placebo scored as well as the real signal.
 
 ---
 
@@ -106,11 +107,11 @@ absences 51.4%, the edge is a one-game news lag") and it settles the production 
 **there is no free version of this signal.** If we want it, we buy the pregame feed. That is
 the decision this work supports.
 
-## 3. Three ports that failed
+## 3. Four ports that failed
 
-All three failed in the same specific way, which is why I trust the verdicts. In each case we
+All four failed in the same specific way, which is why I trust the verdicts. In each case we
 carried a **placebo** — a measure that looks like the real signal but describes style or skill
-rather than luck, and therefore cannot possibly regress to the mean. In all three, the placebo
+rather than luck, and therefore cannot possibly regress to the mean. In all four, the placebo
 scored as well as or better than the real thing.
 
 **Player shooting heat.** In the NBA, fading concentrated shooting heat was the one full-game
@@ -132,6 +133,14 @@ genuinely luck-dominated outcomes over short windows; basketball does not.
 percentage was the strongest a priori candidate in all of basketball — it barely depends on
 the opponent, so a hot streak should be close to pure noise. It is not tradeable either. All
 four rates lose money at all eight markets, and both placebos outscored all four.
+
+**Five-man unit shape.** The lineup table also tells us how good each five-man unit was, how
+big the cliff is behind the starters, and how much a coach churns his rotation. None of it is
+worth anything: all 64 walk-forward bets lose money, best −0.9%. The reading is clean because
+of the control — a team's own strength, measured off those same units, correlates **0.001**
+with covering the closing spread across 14,780 games. The market prices team strength
+completely, and everything else here is just a rephrasing of team strength. **The one useful
+thing in that table is who is missing, not how the minutes are arranged.**
 
 **One failed prediction, reported as failed.** We predicted the heat fade would be stronger
 when a hot player's shots were increasingly *assisted* (team context, which decays) than when
