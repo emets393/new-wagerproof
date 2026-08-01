@@ -159,29 +159,29 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen bg-black p-4 text-white flex items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-white p-4 text-black dark:bg-black dark:text-white">
       {accessRestricted && !isUnlocked ? (
-        <div className="mx-auto w-full max-w-md rounded-[28px] border border-white/10 bg-black p-8 shadow-2xl shadow-black/50">
+        <div className="mx-auto w-full max-w-md rounded-[28px] border border-black/10 bg-white p-8 shadow-2xl shadow-black/10 dark:border-white/10 dark:bg-black dark:shadow-black/50">
           {/* Logo Section */}
           <div className="flex justify-center mb-6">
             <div className="relative">
               <div className="absolute inset-0 rounded-2xl bg-emerald-400/20 blur-xl" />
-              <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                <Lock className="h-16 w-16 text-white" />
+              <div className="relative rounded-2xl border border-black/10 bg-black/[0.025] p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                <Lock className="h-16 w-16 text-black dark:text-white" />
               </div>
             </div>
           </div>
 
-          <h2 className="text-center text-2xl font-semibold tracking-[-0.02em] text-white">
+          <h2 className="text-center text-2xl font-semibold tracking-[-0.02em] text-black dark:text-white">
             Access Restricted
           </h2>
-          <p className="mx-auto mt-2 max-w-sm text-center text-sm text-white/55">
+          <p className="mx-auto mt-2 max-w-sm text-center text-sm text-black/55 dark:text-white/55">
             Enter the password to unlock sign in
           </p>
 
           <form className="mt-8" onSubmit={handlePasswordSubmit}>
             <div className="mb-6">
-              <Label htmlFor="access-password" className="text-xs tracking-[0.02em] text-white/65">
+              <Label htmlFor="access-password" className="text-xs tracking-[0.02em] text-black/65 dark:text-white/65">
                 Password
               </Label>
               <Input
@@ -190,7 +190,7 @@ export default function Account() {
                 type="password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="mt-2 h-11 border-white/10 bg-white/[0.06] text-white placeholder:text-white/30 focus-visible:ring-emerald-400/60"
+                className="mt-2 h-11 border-black/10 bg-black/[0.04] text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30"
                 required
               />
             </div>
@@ -202,7 +202,7 @@ export default function Account() {
             )}
 
             <button
-              className="group/btn relative block h-11 w-full rounded-xl bg-white font-medium text-black transition hover:bg-white/90 active:scale-[0.98]"
+              className="group/btn relative block h-11 w-full rounded-xl bg-black font-medium text-white transition hover:bg-black/85 active:scale-[0.98] dark:bg-white dark:text-black dark:hover:bg-white/90"
               type="submit"
             >
               Unlock &rarr;
@@ -212,10 +212,10 @@ export default function Account() {
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/10"></div>
+                  <div className="w-full border-t border-black/10 dark:border-white/10"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="bg-black px-2 text-white/40">
+                  <span className="bg-white px-2 text-black/40 dark:bg-black dark:text-white/40">
                     Don't have access?
                   </span>
                 </div>
