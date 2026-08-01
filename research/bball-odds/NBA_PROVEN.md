@@ -22,6 +22,8 @@ gap between what is proven and what production actually publishes.
 |---|---|---|---|---|---|---|---|---|---|
 | **FG total** | ridge, 399 cols (383 base + 16 travel-load) | **+0.0726** | \|resid\| ≥ 2 pts | 2,313 | 54.0 | 50.5 | **+3.5** | **+3.1** | `NBA_TRAVEL_LOAD.md` |
 | FG total (prior) | ridge, 383 cols | +0.0672 | \|resid\| ≥ 2 pts | 2,280 | 53.7 | 50.4 | +3.3 | +2.5 | `NBA_TOTAL_V2.md` |
+| **away team total** | ridge, 724 cols, repaired stack | **+0.0570** | \|resid\| ≥ 4 pts | 529 | 54.8 | 50.3 | **+4.5** | **+4.2** | `NBA_TT_VERIFY.md` |
+| home team total | ridge, 724 cols, repaired stack | +0.0826 | \|resid\| ≥ 4 pts | 474 | 57.2 | 50.4 | +6.8 | +8.4 | **1 of 2 seasons — see below** |
 | **1H spread** | signal-space, 120 feats, 3 clf × 5 seeds | not stated | top 25% conf | 805 | 53.9 | — | +2.8 | +2.8 | `NBA_H1_SPREAD_VALIDATE_BRIEF.md` |
 | FG spread | — | — | — | — | — | — | — | — | **no model beats the line** |
 | ML / win prob | production classifier | +0.373 | — | — | — | — | — | — | verified in prod |
@@ -32,6 +34,26 @@ games within season — z = **+3.66**, with the placebo mean landing *below* bas
 happen. Leave-one-family-out: no single family carries it (corr 0.0690–0.0736). Robustness
 (`NBA_TOTAL_V2_ROBUST.md`): 70% random feature subsets give edge +2.6 to +3.9; alpha and min_train
 sweeps stay +1.9 to +3.9. So the ±0.7 swing is the honest error bar on any single cell here.
+
+**Team totals are the right market for this feature stack, and away is the one that survives**
+(`NBA_MARKETS.md`, `NBA_TT_VERIFY.md`, 2026-08-01). The reason is mechanical, not empirical: usage
+concentration — the block the feature audit identified as the engine — is a ONE-TEAM property
+measured against a one-team outcome (a team's own next-game points, corr −0.058 on 10,324
+team-games). A game total sums it with the opponent's and dilutes it; a team total is exactly the
+outcome it was measured against. Both team totals beat the FG total on oos corr despite training on
+25% fewer games, and both show a **monotone ladder** — edge rises as the disagreement cut tightens —
+where the FG total's ladder is flat (+2.1 → +2.4 → +1.5).
+**The season split reverses the headline.** Home TT has the bigger pooled number (+6.8 at the
+4-point cut) but it is **one season**: 2024 +0.0 edge / −3.8 ROI, 2025 +10.9 / +17.9. Away TT is
+smaller (+4.5) and **positive in both evaluable seasons** (+3.9 / +4.7), with z rising as the cut
+tightens (+2.07 → +2.00 → +3.02 → +3.83, nulls re-measured AT each rung) and both over and under
+clearing their own league same-side rate. **Neither ships yet:** only two seasons are evaluable
+because 1H/TT prices cover three and the walk-forward consumes the first, so 2-of-2 at z≈3 is a lead
+and the repo standard is 4 of 4. The blocker is seasons of team-total prices, not modelling.
+**The FG spread and both 1H markets did NOT improve on the repaired stack** (−1.7, −0.7, −0.1), so
+the data was never their problem — their fix is construction, not features. The moneyline is built
+as a transform of the spread rather than a sixth fit (it carries no information the spread lacks)
+and is negative for exactly that reason.
 
 **1H spread is real but modest.** Null z = +2.15 (top25%) and +2.33 (top10%). It is *not* S8
 wearing a hat — on non-S8 games alone it still grades 53.4% / +1.8% at top25%. Caveat kept in
@@ -272,9 +294,24 @@ The cause is verified at `run_nba_predictions.py:241-242` — `spread_model.pred
 publish is the moneyline model wearing a hat.** Fixing this is the highest-value item on the board:
 it converts two cosmetic numbers into real ones without any new research.
 
-**Also not yet landed:** `nba_model_features.parquet` has not been regenerated since the ratings
-fix, so that repair has not reached the frame; and there are **zero saved NBA model artifacts**
-(no `data/artifacts` directory), so nothing above can be scored in production as-is.
+**Also not yet landed:** ~~`nba_model_features.parquet` has not been regenerated since the ratings
+fix~~ — **regenerated 2026-08-01**, and the rebuild caught a separate data bug described below.
+There are still **zero saved NBA model artifacts** (no `data/artifacts` directory), so nothing above
+can be scored in production as-is.
+
+**Phantom duplicate odds listings — found and fixed 2026-08-01, and it affected every model.** The
+Odds API lists ~46 real games TWICE, ten minutes apart in `commence_time`, same two teams same date.
+The bdl join key is `(home team, date)`, so both listings matched the same game and fanned it out to
+**eight rows** through the home/away merges — and only one listing carried the real market. Nuggets–
+Knicks 2022-11-16: the good event has the home team at −9.25, the phantom says −2.5. Both rows encode
+the same true result, so what was corrupt was the **line**, which propagates straight into
+`y_*_resid` for every market. The tell is the clock: real NBA tips land on **:10 and :40** past the
+hour (4,306 of 5,368 events) while phantoms sit on the rounded :00/:30 and carry ~24 of 32 snapshot
+fields against ~30 for a real one. `drop_phantom_events()` ranks on snapshot coverage with the tipoff
+grid as tie-break; an assert on `bdl_id` uniqueness stops it returning silently. Frame 5,423 → **5,108
+rows, one per game**; 1H/TT coverage 72% → 75%. **Method note:** this was caught by an
+`is_unique` assert written into a new script as a guard, not by inspection — cheap invariants on a
+frame find contamination that reading the code does not.
 
 ---
 

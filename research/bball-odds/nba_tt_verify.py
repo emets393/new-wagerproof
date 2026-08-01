@@ -71,6 +71,27 @@ def row(g, tag, extra=""):
             f"**{g['win']-g['base']:+.1f}** | {g['roi']:+.1f} |{extra}")
 
 
+def grade_one_side(yb, po, pu, mask, over):
+    """Grade a cell in which the model always takes the SAME side.
+
+    v2.grade uses each cell's own majority side as the baseline, which is right when the model
+    picks sides freely but self-referential the moment you condition ON the side it picked: the
+    cell's over-rate then IS the win rate and the edge column prints +0.0 on every row. That is
+    the same trap that made nba_conc_rule.py report a flat zero. The comparator for a fixed-side
+    cell is the LEAGUE rate for that side over every graded game -- "what if I bet overs on
+    everything" -- which is the question the cell is actually asking.
+    """
+    m = mask & yb.notna()
+    if m.sum() < 25:
+        return None
+    win = yb[m] if over else (1 - yb[m])
+    dec = (po if over else pu)[m]
+    lg = yb.dropna()
+    return dict(n=int(m.sum()), win=100 * win.mean(),
+                base=100 * (lg.mean() if over else 1 - lg.mean()),
+                roi=100 * (win * (dec - 1) - (1 - win)).mean())
+
+
 def main():
     D = sd.build_spread()
     assert D["event_id"].is_unique, "frame has duplicate event_ids"
@@ -156,11 +177,14 @@ def main():
         # which side is the model taking, and does it profit on both?
         L += [f"### {S['name']} — over vs under, at the {CLAIM_K}-point cut", "",
               "A model that only wins betting overs has found the league's scoring drift, not "
-              "anything about a team.", "",
-              "| model side | bets | win% | base% | edge | ROI |", "|---|---|---|---|---|---|"]
-        for lab, msk in (("model says OVER", p > 0), ("model says UNDER", p < 0)):
-            g = v2.grade(p, yb, po, pu, CLAIM_K, mask=msk)
-            if g["n"]:
+              "anything about a team. Baseline here is the **league rate for that same side**, "
+              "not the cell's majority — see `grade_one_side`.", "",
+              "| model side | bets | win% | league same-side% | edge | ROI |",
+              "|---|---|---|---|---|---|"]
+        for lab, over in (("model says OVER", True), ("model says UNDER", False)):
+            msk = (p > 0) if over else (p < 0)
+            g = grade_one_side(yb, po, pu, msk & (p.abs() >= CLAIM_K), over)
+            if g:
                 L.append(row(g, lab))
                 print(L[-1], flush=True)
         L.append("")
