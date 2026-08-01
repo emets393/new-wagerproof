@@ -1,5 +1,6 @@
 package com.wagerproof.core.models
 
+import com.wagerproof.core.models.serialization.WagerproofJson
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -200,15 +201,76 @@ data class HistoricalAnalysisUpcomingGame(
     val id: String get() = gamePk?.let { "$it-$team" } ?: "$team-${kickoff ?: gameDate ?: ""}"
 }
 
+/**
+ * One row of `{sport}_analysis_saved_filters` owned by the current user.
+ *
+ * A **tracked system** carries `verdict` + `rpc_bet_type` + `rpc_filters`: the
+ * exact warehouse payload `grade-analysis-systems` replays nightly. Rows written
+ * without them are legacy bookmarks the grader can never score — [isTrackedSystem]
+ * is the difference, and the UI labels them "Filters only".
+ *
+ * `filters` soft-decodes (see [HistoricalAnalysisUISnapshotSerializer]): web/Expo
+ * snapshots omit iOS-only keys and use pair aliases, and a strict decode used to
+ * fail the whole My Systems fetch.
+ */
 @Serializable
 data class HistoricalAnalysisSavedFilter(
     val id: String,
     @SerialName("user_id") val userId: String,
     val name: String,
     @SerialName("bet_type") val betType: String,
-    val filters: HistoricalAnalysisUISnapshot,
+    val filters: HistoricalAnalysisUISnapshot = HistoricalAnalysisUISnapshot(),
+    @Serializable(with = AnalysisSystemVerdictSerializer::class)
+    val verdict: AnalysisSystemVerdict? = null,
+    @SerialName("rpc_bet_type") val rpcBetType: String? = null,
+    /** The EXACT `p_filters` payload the page queried with — the grader replays it verbatim. */
+    @SerialName("rpc_filters") val rpcFilters: JsonObject? = null,
+    @SerialName("is_public") val isPublic: Boolean = false,
+    @SerialName("since_saved") val sinceSaved: AnalysisSystemRecord? = null,
     @SerialName("created_at") val createdAt: String? = null,
-)
+) {
+    /** True when this row has an explicit bet-side and can track since-saved. */
+    val isTrackedSystem: Boolean get() = verdict != null
+
+    companion object {
+        /**
+         * Per-row lossy decode: one legacy / web-shaped row must never blank the whole
+         * My Systems list. Rows whose `filters` blob isn't an object fall back to this
+         * SPORT's defaults (not the NFL-shaped base) plus the saved `bet_type`, so a
+         * restore doesn't silently emit NFL range clauses on an MLB system.
+         */
+        fun decodeLossyList(
+            sport: HistoricalAnalysisSport,
+            raw: String,
+        ): List<HistoricalAnalysisSavedFilter> {
+            val array = runCatching { WagerproofJson.parseToJsonElement(raw) }.getOrNull() as? JsonArray
+                ?: return emptyList()
+            return array.mapNotNull { element ->
+                val row = runCatching {
+                    WagerproofJson.decodeFromJsonElement(serializer(), element)
+                }.getOrNull() ?: return@mapNotNull null
+                val snapshotObject = (element as? JsonObject)?.get("filters") as? JsonObject
+                val filters = if (snapshotObject == null) {
+                    defaultsFor(sport, row.betType)
+                } else {
+                    HistoricalAnalysisUISnapshotSerializer.decodeWithDefaults(
+                        element = snapshotObject,
+                        defaults = defaultsFor(sport, row.betType),
+                    )
+                }
+                row.copy(filters = filters)
+            }
+        }
+
+        private fun defaultsFor(
+            sport: HistoricalAnalysisSport,
+            betType: String,
+        ): HistoricalAnalysisUISnapshot =
+            HistoricalAnalysisUISnapshot.defaults(sport).also {
+                if (betType.isNotEmpty()) it.betType = betType
+            }
+    }
+}
 
 /**
  * UI-shaped filter snapshot — stored in saved-filters tables and restored verbatim.
@@ -409,6 +471,118 @@ data class HistoricalAnalysisUISnapshot(
     var oppRpg: List<Double> = listOf(0.0, 10.0),
     var oppRapg: List<Double> = listOf(0.0, 10.0),
 ) {
+    /**
+     * True when a football snapshot sits in the forced ~50% state: a two-sided
+     * market (every game contributes BOTH mirror rows) with only game-level
+     * filters active. "All teams covered 50.1%" is then a tautology, not a
+     * finding, so the hero must show the real home/away + fav/dog splits
+     * instead (iOS `HistoricalAnalysisUISnapshot.isSideSymmetric`, web
+     * `NFL_SIDE_BREAKING_DIMS` / `CFB_SIDE_BREAKING_DIMS`).
+     *
+     * Only SIDE-BREAKING dims are listed — anything absent here is game-level
+     * (seasons, weeks, spread size, weather, referee, minGames…) and keeps both
+     * mirror rows, so narrowing it leaves the 50% tautology intact.
+     */
+    fun isSideSymmetric(sport: HistoricalAnalysisSport): Boolean {
+        if (betType !in sideMarkets) return false
+        val d = defaults(sport)
+        return side == d.side &&
+            teams.isEmpty() && opponents.isEmpty() &&
+            favDog == d.favDog && spreadSide == d.spreadSide &&
+            mlMin.isEmpty() && mlMax.isEmpty() &&
+            h1SpreadSide == d.h1SpreadSide &&
+            h1SpreadMin == d.h1SpreadMin && h1SpreadMax == d.h1SpreadMax &&
+            h1MlMin.isEmpty() && h1MlMax.isEmpty() &&
+            h1TotalMin == d.h1TotalMin && h1TotalMax == d.h1TotalMax &&
+            ttLineMin == d.ttLineMin && ttLineMax == d.ttLineMax &&
+            oppSpreadSide == d.oppSpreadSide &&
+            oppSpreadMin == d.oppSpreadMin && oppSpreadMax == d.oppSpreadMax &&
+            oppMlMin.isEmpty() && oppMlMax.isEmpty() &&
+            oppTtLineMin == d.oppTtLineMin && oppTtLineMax == d.oppTtLineMax &&
+            lastResult == d.lastResult && lastAts == d.lastAts &&
+            lastTotal == d.lastTotal && lastRole == d.lastRole &&
+            lastOt == d.lastOt && lastMargin == d.lastMargin &&
+            lastBlowout == d.lastBlowout &&
+            oppLastResult == d.oppLastResult && oppLastAts == d.oppLastAts &&
+            oppLastTotal == d.oppLastTotal && oppLastRole == d.oppLastRole &&
+            oppLastOt == d.oppLastOt && oppLastMargin == d.oppLastMargin &&
+            winPct == d.winPct && winStreak == d.winStreak && lossStreak == d.lossStreak &&
+            above500 == d.above500 && winPctGtOpp == d.winPctGtOpp &&
+            ppg == d.ppg && paPg == d.paPg && pointDiffPg == d.pointDiffPg &&
+            atsWinPct == d.atsWinPct && atsWinStreak == d.atsWinStreak &&
+            avgCoverMargin == d.avgCoverMargin &&
+            overPct == d.overPct && overStreak == d.overStreak && underStreak == d.underStreak &&
+            prevWins == d.prevWins && prevWinPct == d.prevWinPct &&
+            madePlayoffsPrev == d.madePlayoffsPrev && moreWinsThanOppPrev == d.moreWinsThanOppPrev &&
+            h2hLastWin == d.h2hLastWin && h2hLastAts == d.h2hLastAts &&
+            h2hLastOver == d.h2hLastOver && h2hLastHome == d.h2hLastHome &&
+            h2hLastFav == d.h2hLastFav && h2hSameSeason == d.h2hSameSeason &&
+            h2hSpreadCmp == d.h2hSpreadCmp &&
+            oppWinPct == d.oppWinPct && oppOverPct == d.oppOverPct &&
+            oppWinStreak == d.oppWinStreak && oppLossStreak == d.oppLossStreak &&
+            oppPpg == d.oppPpg && oppPaPg == d.oppPaPg && oppPrevWinPct == d.oppPrevWinPct &&
+            coach == d.coach && restBye == d.restBye && teamDivisions.isEmpty() &&
+            // Conference is a SUBJECT-TEAM attribute, so it breaks the mirror
+            // (web CFB_SIDE_BREAKING_DIMS includes `conferences`). iOS shares one
+            // football predicate that forgets it and still calls an SEC-only
+            // spread search "symmetric"; erring toward the normal hero is the
+            // safe direction, since a real ~50% just reads as a real ~50%.
+            selectedConferences.isEmpty() && conference == d.conference
+    }
+
+    /**
+     * MLB flavour of [isSideSymmetric] — mirrors web `MLB_SIDE_BREAKING_DIMS`.
+     * Game-level dims (months, division, interleague, totals, first pitch,
+     * series game, doubleheader, weather/park, minGames) are deliberately
+     * absent: they keep both mirror rows.
+     */
+    fun isSideSymmetricMlb(): Boolean {
+        if (betType !in mlbSideMarkets) return false
+        val d = defaults(HistoricalAnalysisSport.MLB)
+        return teams.isEmpty() && opponents.isEmpty() &&
+            side == d.side && favDog == d.favDog && rlSide == d.rlSide &&
+            mlMin.isEmpty() && mlMax.isEmpty() &&
+            tripMin == null && tripMax == null &&
+            switchGame == null &&
+            restMin == null && restMax == null &&
+            sp.isEmpty() && oppSp.isEmpty() &&
+            spHand == d.spHand && oppSpHand == d.oppSpHand &&
+            spXfipMin == d.spXfipMin && spXfipMax == d.spXfipMax &&
+            oppSpXfipMin == d.oppSpXfipMin && oppSpXfipMax == d.oppSpXfipMax &&
+            bpIpMin == d.bpIpMin && bpIpMax == d.bpIpMax &&
+            bpXfipMin == d.bpXfipMin && bpXfipMax == d.bpXfipMax &&
+            spEraMin == d.spEraMin && spEraMax == d.spEraMax &&
+            oppSpEraMin == d.oppSpEraMin && oppSpEraMax == d.oppSpEraMax &&
+            lastResult == d.lastResult && lastAts == d.lastAts &&
+            lastTotal == d.lastTotal && lastRole == d.lastRole &&
+            lastMargin == d.lastMargin &&
+            // Legacy string margin bounds still narrow the query when a web save
+            // carries them, so an untouched pair is part of "nothing side-breaking".
+            lastMarginMin.isEmpty() && lastMarginMax.isEmpty() &&
+            streakMin == d.streakMin && streakMax == d.streakMax &&
+            oppLastResult == d.oppLastResult && oppLastAts == d.oppLastAts &&
+            oppLastTotal == d.oppLastTotal && oppLastRole == d.oppLastRole &&
+            oppLastMargin == d.oppLastMargin &&
+            winPct == d.winPct && winStreak == d.winStreak && lossStreak == d.lossStreak &&
+            rlCoverPct == d.rlCoverPct && rlStreak == d.rlStreak &&
+            overPct == d.overPct && overStreak == d.overStreak && underStreak == d.underStreak &&
+            rpg == d.rpg && rapg == d.rapg && runDiffPg == d.runDiffPg &&
+            prevWins == d.prevWins && prevWinPct == d.prevWinPct &&
+            h2hLastWin == d.h2hLastWin && h2hLastAts == d.h2hLastAts &&
+            h2hLastOver == d.h2hLastOver && h2hLastMargin == d.h2hLastMargin &&
+            h2hLastHome == d.h2hLastHome && h2hLastFav == d.h2hLastFav &&
+            h2hSameSeason == d.h2hSameSeason &&
+            oppWinPct == d.oppWinPct && oppOverPct == d.oppOverPct &&
+            oppRlCoverPct == d.oppRlCoverPct &&
+            oppWinStreak == d.oppWinStreak && oppLossStreak == d.oppLossStreak &&
+            oppRpg == d.oppRpg && oppRapg == d.oppRapg &&
+            oppPrevWinPct == d.oppPrevWinPct
+    }
+
+    /** Sport-dispatching symmetry check (iOS `AnalysisSystemCopy.isSideSymmetric`). */
+    fun isSideSymmetricFor(sport: HistoricalAnalysisSport): Boolean =
+        if (sport == HistoricalAnalysisSport.MLB) isSideSymmetricMlb() else isSideSymmetric(sport)
+
     companion object {
         /** Two-sided football markets that contribute mirror rows per game. */
         val sideMarkets = setOf("fg_spread", "fg_ml", "h1_spread", "h1_ml")
@@ -493,7 +667,23 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
         val input = decoder as? JsonDecoder
             ?: error("HistoricalAnalysisUISnapshot supports JSON only")
         val o = (input.decodeJsonElement() as? JsonObject) ?: JsonObject(emptyMap())
-        val d = HistoricalAnalysisUISnapshot()
+        return decodeObject(o, HistoricalAnalysisUISnapshot())
+    }
+
+    /**
+     * Decode a sparse cross-client snapshot against the owning sport's defaults.
+     * The normal serializer cannot infer a sport from a nested `filters` object,
+     * so saved-system and leaderboard rows call this entry point explicitly.
+     */
+    internal fun decodeWithDefaults(
+        element: JsonObject,
+        defaults: HistoricalAnalysisUISnapshot,
+    ): HistoricalAnalysisUISnapshot = decodeObject(element, defaults)
+
+    private fun decodeObject(
+        o: JsonObject,
+        d: HistoricalAnalysisUISnapshot,
+    ): HistoricalAnalysisUISnapshot {
 
         fun prim(key: String): JsonPrimitive? = (o[key] as? JsonPrimitive)?.takeIf { it !is JsonNull }
         fun str(key: String, def: String): String = prim(key)?.contentOrNull ?: def
@@ -561,8 +751,8 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             spreadMin = altPair("spreadSize")?.first ?: dbl("spreadMin") ?: d.spreadMin,
             spreadMax = altPair("spreadSize")?.second ?: dbl("spreadMax") ?: d.spreadMax,
             // Expo MLB uses totalMin/totalMax for game totals; web football uses lineRange.
-            lineMin = altPair("lineRange")?.first ?: dbl("lineMin") ?: dbl("totalMin") ?: 5.0,
-            lineMax = altPair("lineRange")?.second ?: dbl("lineMax") ?: dbl("totalMax") ?: 14.0,
+            lineMin = altPair("lineRange")?.first ?: dbl("lineMin") ?: dbl("totalMin") ?: d.lineMin,
+            lineMax = altPair("lineRange")?.second ?: dbl("lineMax") ?: dbl("totalMax") ?: d.lineMax,
             mlMin = str("mlMin", d.mlMin),
             mlMax = str("mlMax", d.mlMax),
             h1SpreadSide = str("h1SpreadSide", d.h1SpreadSide),

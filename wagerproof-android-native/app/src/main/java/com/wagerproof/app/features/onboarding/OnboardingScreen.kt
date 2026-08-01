@@ -27,8 +27,10 @@ import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.onboarding.cinematic.OnboardingGenerationCinematic
 import com.wagerproof.app.features.onboarding.cinematic.OnboardingGenesisModel
 import com.wagerproof.app.features.onboarding.cinematic.OnboardingRevealView
+import com.wagerproof.app.features.onboarding.cinematic.OnboardingTimeSummaryView
 import com.wagerproof.app.features.onboarding.pages.OnboardingAcquisitionPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingAgentHQPage
+import com.wagerproof.app.features.onboarding.pages.OnboardingAgentLeaderboardPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingAgentPitchIntroPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingAgentPitchProofPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingBettingPitfallsPage
@@ -42,6 +44,10 @@ import com.wagerproof.app.features.onboarding.pages.OnboardingBuilderMindsetPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingBuilderSportRulesPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingBuilderSportsPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingPrimaryGoalPage
+import com.wagerproof.app.features.onboarding.pages.OnboardingResearchCostPage
+import com.wagerproof.app.features.onboarding.pages.OnboardingResearchReclaimPage
+import com.wagerproof.app.features.onboarding.pages.OnboardingResearchTimePage
+import com.wagerproof.app.features.onboarding.pages.OnboardingStakesPage
 import com.wagerproof.app.features.onboarding.pages.OnboardingTermsPage
 import com.wagerproof.core.design.backgrounds.GlyphRippleEmitter
 import com.wagerproof.core.design.backgrounds.LocalGlyphRippleEmitter
@@ -58,7 +64,8 @@ import dev.chrisbanes.haze.HazeState
 
 /**
  * Complete native port of the current iOS onboarding: one persistent reactive
- * pixel field, 16 button-driven carousel pages, then generation and reveal.
+ * pixel field, 21 button/swipe-driven carousel pages, then generation, reveal,
+ * and the time-summary fist-bump payoff. Android deliberately omits iOS ATT.
  */
 @Composable
 fun OnboardingScreen(modifier: Modifier = Modifier) {
@@ -75,8 +82,8 @@ fun OnboardingScreen(modifier: Modifier = Modifier) {
     ) {
         onboarding.back()
     }
-    // Generation/reveal can't be rewound and exiting mid-run would strand a
-    // half-created agent, so back is swallowed outright there.
+    // Cinematic phases can't be rewound; exiting mid-generation would strand a
+    // half-created agent, and the reveal/summary are one-way payoff beats.
     BackHandler(enabled = onboarding.currentStep.isCinematic) {}
 
     val context = LocalContext.current
@@ -130,7 +137,9 @@ fun OnboardingScreen(modifier: Modifier = Modifier) {
     }
 
     LaunchedEffect(onboarding.currentStep) {
-        if (onboarding.currentStep.isCinematic && genesis == null) {
+        val needsGenesis = onboarding.currentStep == OnboardingStore.Step.GENERATION ||
+            onboarding.currentStep == OnboardingStore.Step.REVEAL
+        if (needsGenesis && genesis == null) {
             genesis = OnboardingGenesisModel(onboarding, creation, rippleEmitter)
             if (onboarding.currentStep == OnboardingStore.Step.GENERATION) genesis?.start()
         }
@@ -149,25 +158,32 @@ fun OnboardingScreen(modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxSize(),
             )
 
+            val phase = when (onboarding.currentStep) {
+                OnboardingStore.Step.GENERATION -> OnboardingPhase.Generation
+                OnboardingStore.Step.REVEAL -> OnboardingPhase.Reveal
+                OnboardingStore.Step.TIME_SUMMARY -> OnboardingPhase.TimeSummary
+                else -> OnboardingPhase.Carousel
+            }
             AnimatedContent(
-                targetState = onboarding.currentStep.isCinematic,
+                targetState = phase,
                 transitionSpec = {
                     val duration = if (reduceMotion) 1 else 450
                     fadeIn(tween(duration)) togetherWith fadeOut(tween(duration))
                 },
                 label = "onboardingPhase",
-            ) { cinematic ->
-                if (!cinematic) {
-                    OnboardingCarouselContainer(onboarding, creation, accent)
-                } else if (onboarding.currentStep == OnboardingStore.Step.GENERATION) {
-                    OnboardingGenerationCinematic(genesis, accent)
-                } else {
-                    OnboardingRevealView(genesis, accent)
+            ) { activePhase ->
+                when (activePhase) {
+                    OnboardingPhase.Carousel -> OnboardingCarouselContainer(onboarding, creation, accent)
+                    OnboardingPhase.Generation -> OnboardingGenerationCinematic(genesis, accent)
+                    OnboardingPhase.Reveal -> OnboardingRevealView(genesis, accent)
+                    OnboardingPhase.TimeSummary -> OnboardingTimeSummaryView(accent)
                 }
             }
         }
     }
 }
+
+private enum class OnboardingPhase { Carousel, Generation, Reveal, TimeSummary }
 
 @Composable
 private fun OnboardingCarouselContainer(
@@ -214,9 +230,14 @@ private fun OnboardingCarouselContainer(
                 OnboardingStore.Step.BETTING_PITFALLS -> OnboardingBettingPitfallsPage()
                 OnboardingStore.Step.ACQUISITION_SOURCE -> OnboardingAcquisitionPage()
                 OnboardingStore.Step.PRIMARY_GOAL -> OnboardingPrimaryGoalPage()
+                OnboardingStore.Step.RESEARCH_TIME -> OnboardingResearchTimePage()
+                OnboardingStore.Step.WEEKLY_STAKES -> OnboardingStakesPage()
+                OnboardingStore.Step.RESEARCH_COST -> OnboardingResearchCostPage()
+                OnboardingStore.Step.RESEARCH_RECLAIM -> OnboardingResearchReclaimPage()
                 OnboardingStore.Step.AGENT_HQ -> OnboardingAgentHQPage()
                 OnboardingStore.Step.AGENT_VALUE_INTRO -> OnboardingAgentPitchIntroPage()
                 OnboardingStore.Step.AGENT_VALUE_PROOF -> OnboardingAgentPitchProofPage()
+                OnboardingStore.Step.AGENT_LEADERBOARD -> OnboardingAgentLeaderboardPage()
                 OnboardingStore.Step.BUILDER_SPORTS -> OnboardingBuilderSportsPage(creation)
                 OnboardingStore.Step.BUILDER_ARCHETYPE -> OnboardingBuilderArchetypePage(creation)
                 OnboardingStore.Step.BUILDER_MINDSET -> OnboardingBuilderMindsetPage(creation)
@@ -225,7 +246,9 @@ private fun OnboardingCarouselContainer(
                 OnboardingStore.Step.BUILDER_SPORT_RULES -> OnboardingBuilderSportRulesPage(creation)
                 OnboardingStore.Step.BUILDER_INSIGHTS -> OnboardingBuilderInsightsPage(creation)
                 OnboardingStore.Step.BUILDER_IDENTITY -> OnboardingBuilderIdentityPage(creation)
-                OnboardingStore.Step.GENERATION, OnboardingStore.Step.REVEAL -> Unit
+                OnboardingStore.Step.GENERATION,
+                OnboardingStore.Step.REVEAL,
+                OnboardingStore.Step.TIME_SUMMARY -> Unit
             }
         }
     }

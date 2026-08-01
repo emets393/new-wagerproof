@@ -20,7 +20,7 @@ to Kotlin/Compose.
 
 **Creation/injection map (verified against the app target):**
 
-- **App-root, environment-injected (singletons for the process):** `AuthStore`, `RootRouter`, `OnboardingStore`, `ThemeStore`, `LearnWagerProofStore`, `RevenueCatStore`, `AdminModeStore`, `SettingsStore`, `ProAccessStore(revenueCat:adminMode:)`, `AgentPickAuditStore`, `DebugDataModeStore` (DEBUG) — created as `@State` in `WagerproofApp` and pushed via `.environment(...)` in `RootView`.
+- **App-root, environment-injected (singletons for the process):** `AuthStore`, `RootRouter`, `OnboardingStore`, `ThemeStore`, `LearnWagerProofStore`, `RevenueCatStore`, `AdminModeStore`, `SettingsStore`, `ProAccessStore(revenueCat:adminMode:)`, `AgentPickAuditStore`, `DebugDataModeStore` (DEBUG; **Android does not port this one** — see §13.2) — created as `@State` in `WagerproofApp` and pushed via `.environment(...)` in `RootView`.
 - **Tab-shell (`MainTabView`) owned, environment-injected below it:** `MainTabStore`, `GamesStore`, `PropsStore`, `NFL/CFB/NBA/NCAAB/MLBGameSheetStore`, `MLBBettingTrendsStore`, `MLBF5SplitsStore`, `OutliersTrendsStore` (plus, per feature usage, `SearchStore` in `SearchView`). iOS 7166b538 moved `AgentsStore` here too (shared by AgentsView + SearchView); Android's `AppGraph` additionally holds its `LeaderboardStore` / `TopAgentPicksFeedStore` / `FavoriteAgentsStore` siblings and the NBA/NCAAB model-accuracy stores, because a Compose tab switch disposes the destination screen and a per-screen `remember` would refetch (and leak a `SupervisorJob`) every time.
 - **Per-screen:** `AgentDetailStore(agentId:)` (detail/settings/public-detail screens); `WagerBotChatStore` (chat sheet); `LiveScoresStore` (ScoreboardView); `AgentChatStore(agentId:)`, `AgentCreationStore`, `NBAMatchupOverviewStore`, all remaining tool stores — created where the screen mounts.
 - **Static/enum utilities (no instances):** `AgentPicksSeenStore`, `SportSeason`, `MLBBucketHelper`.
@@ -37,23 +37,25 @@ to Kotlin/Compose.
 
 **Nested types:**
 - `enum Phase { launching, unauthenticated, onboarding, ready }`
-- `static let temporarilyDisableOnboarding = true` — **TEMPORARY hard bypass** of the onboarding wizard (added 2026-05-29). Authenticated users land straight in `.ready`. Port this flag verbatim (a `const val`) — flipping it back re-enables the wizard.
+
+Android does **not** carry iOS's temporary May 2026 onboarding bypass: incomplete authenticated
+accounts resolve to `.onboarding`. This is required for the owner-approved full onboarding → hard
+paywall release path and prevents an empty-personalization checkout.
 
 **Observable properties:**
 
 | Property | Type | Initial | Notes |
 |---|---|---|---|
 | `phase` | `Phase` | `.launching` | private(set) |
-| `forceOnboardingForTesting` | `Bool` | `false` | private(set). In-memory only; set by Secret Settings "Reset Onboarding"; cleared when onboarding completes or on sign-out |
 | `testPaywallOverride` | `Bool` | `false` | private(set). Survives into `.ready` so RootView can force the post-onboarding paywall for a Pro/admin tester; cleared via `clearTestPaywallOverride()` |
 | `pendingDeepLinkRoute` | `DeepLinkRoute?` | `nil` | private(set). Deep link captured before auth resolved |
 
 **Methods:**
 - `resolve(authPhase: AuthStore.Phase, onboardingComplete: Bool)` — the ONLY phase mutator in normal flow. Logic:
   - auth `.launching` → `phase = .launching`
-  - auth `.unauthenticated` → clears `forceOnboardingForTesting` + `testPaywallOverride`, `phase = .unauthenticated`
-  - auth `.authenticated` → if `onboardingComplete` clear `forceOnboardingForTesting`; then `bypass = temporarilyDisableOnboarding && !forceOnboardingForTesting`; `phase = (onboardingComplete || bypass) ? .ready : .onboarding`
-- `forceOnboardingForTestingNow()` — sets both test flags true, `phase = .onboarding`. Caller must reset `OnboardingStore` first.
+  - auth `.unauthenticated` → clears `testPaywallOverride`, `phase = .unauthenticated`
+  - auth `.authenticated` → `phase = onboardingComplete ? .ready : .onboarding`
+- `forceOnboardingForTestingNow()` — sets `testPaywallOverride=true`, `phase=.onboarding`. Caller must reset `OnboardingStore` first.
 - `clearTestPaywallOverride()`
 - `handle(deepLink url: URL)` — parses `DeepLinkRoute(url:)`; stores into `pendingDeepLinkRoute` in ALL phases (queue-until-ready).
 - `consumePendingDeepLink() -> DeepLinkRoute?` — read+clear (defer-nil). Called by root view's `onChange(of: phase)` when `.ready` is reached.
@@ -136,14 +138,14 @@ Private: `listenerTask: Task<Void, Never>?` → Kotlin `Job?`.
 
 ### 3.1 OnboardingStore (`OnboardingStore.swift`)
 
-**Purpose:** The onboarding wizard's entire state: local-first completion flag, 18-step pointer, survey answers, embedded agent-builder draft. Mutations are cache-first with fire-and-forget background sync to `profiles` — server failure NEVER blocks the user.
+**Purpose:** The onboarding wizard's entire state: local-first completion flag, 24-step pointer, survey answers, research-time value arc, embedded agent-builder draft, and cinematic payoff. Mutations are cache-first with fire-and-forget background sync to `profiles` — server failure NEVER blocks the user.
 
 **Created:** app root, environment-injected.
 
 **Nested types:**
-- `enum Step: Int (1...18), Comparable` — **as shipped on Android** (`OnboardingStore.kt`): `TERMS=1, BETTOR_TYPE=2, BETTING_PITFALLS=3, ACQUISITION_SOURCE=4, PRIMARY_GOAL=5, AGENT_HQ=6, AGENT_VALUE_INTRO=7, AGENT_VALUE_PROOF=8, BUILDER_SPORTS=9, BUILDER_ARCHETYPE=10, BUILDER_MINDSET=11, BUILDER_BET_STYLE=12, BUILDER_DATA_TRUST=13, BUILDER_SPORT_RULES=14, BUILDER_INSIGHTS=15, BUILDER_IDENTITY=16, GENERATION=17, REVEAL=18`. Raw values MUST stay contiguous (±1 navigation arithmetic). Derived: `isCinematic` (`>= GENERATION`), `carouselIndex` (`raw-1`, null for cinematic), `carouselPageCount = 16`, `progress` (`raw/16`, null for cinematic). iOS is at **25** steps (`carouselPageCount = 22`; three cinematics — `generation=23, reveal=24, timeSummary=25`). Android deliberately omits `attPriming` (no ATT on Android) and `personalizedValue` (iOS deleted it — unsupported performance claims), and does not yet port iOS's research-time value arc (`researchTime`/`weeklyStakes`/`researchCost`/`researchReclaim`) or `agentLeaderboard`/`timeSummary` — the arc is backlog item **AND-003**.
+- `enum Step: Int (1...24), Comparable` — Android ships **21 carousel pages + 3 cinematics**. The ordered flow is terms, bettor type, pitfalls, acquisition source, primary goal, research time, weekly stakes, research cost, research reclaim, Agent HQ, two value-proof pages, agent leaderboard, seven builder pages, identity, generation, reveal, and time summary. Raw values stay contiguous because navigation uses ±1 arithmetic. Android omits iOS's ATT priming page (no platform equivalent), so its count is one lower than iOS; the deleted `personalizedValue` claim page remains absent.
 - `enum BettorType: String { casual, serious, professional }`
-- `struct SurveyAnswers: Codable` — `favoriteSports: [String] = []`, `age: Int?` (dormant, kept for Codable shape), `bettorType: BettorType?`, `mainGoal: String?`, `emailOptIn: Bool?`, `acquisitionSource: String?`, `termsAcceptedAt: String?` (ISO8601), `overEighteenAttested: Bool?`.
+- `struct SurveyAnswers: Codable` — previous fields plus stable raw `researchTimeBucket` and `weeklyStakesBucket` values used by the cost/reclaim/time-summary projections and synced to `onboarding_data`.
 - `struct AgentDraft: Codable` — `preferredSports: [SportLeague] = []`, `archetype: String?`, `name = ""`, `avatarEmoji = "🤖"`, `avatarColor = "gradient:#6366f1,#ec4899"`, `spriteIndex: Int? = nil`, `personalityParams = .default`, `customInsights = .empty`, `autoGenerate = true`, `autoGenerateTime = "09:00"`, `autoGenerateTimezone = "America/New_York"`. **Tolerant decoder** — every field falls back to the default individually so older payloads decode.
 
 **Observable properties:**
@@ -160,25 +162,27 @@ Private: `listenerTask: Task<Void, Never>?` → Kotlin `Job?`.
 | `hasCheckedTerms` | `Bool` | `false` | private(set) |
 | `hasChosenArchetype` | `Bool` | `false` | private(set); tracked separately because the "from scratch" path leaves `archetype` nil |
 | `agentPitchSlide` | `Int` | `0` | private(set); 0..2, `agentPitchSlideCount = 3` |
+| `hasSeenResearchCostReveal` / `hasSeenResearchReclaimReveal` | `Bool` | `false` | reveal choreography gates; invalidated whenever either personalization input changes |
 
 Private: `attachedUserId: String?`, `validationTask: Task?` → `Job?`.
 
 **Methods:**
-- `attachUser(userId: String)` — idempotent per userId. Step 1: SYNCHRONOUS cache read `AppGroup.defaults.bool(AppGroupKey.onboardingComplete(userId:))` → `isComplete` (no spinner between splash and next screen). Step 2: cancel + relaunch `validationTask` → `validateAgainstSupabase(userId)`.
+- `attachUser(userId: String)` — idempotent per userId. Step 1: SYNCHRONOUS local resolution → `isComplete` (no spinner between splash and next screen). An existing native per-user SharedPreferences value wins, including `false` as the explicit reset tombstone. When that key is absent on a same-package Expo→native Play upgrade, Android read-only imports Expo AsyncStorage 2.2.0's `@wagerproof/onboarding-completed/{userId} == "true"` from `RKStorage.catalystLocalStorage`; it also honors a matching pending `onboarding_completion` in Expo's offline queue because the former Expo guard treated that as completed. Only positive legacy evidence is persisted. A missing database/key, malformed queue, or read error stays incomplete, so a genuinely new user still onboards. Step 2: cancel + relaunch `validationTask` → `validateAgainstSupabase(userId)`.
+- Historical boundary: Expo Secret Settings reset the server/in-memory flag but did not clear its AsyncStorage completion key or offline queue. An offline native upgrade cannot distinguish that stale developer-reset state from a legitimate offline completion. Native resets do not have this ambiguity because they persist the authoritative `false` tombstone before onboarding is replayed.
 - `detachUser()` — cancel task, nil userId, `isComplete=false`, `resetToStart()`. Per-user cache entry STAYS so re-sign-in is instant.
 - Private `validateAgainstSupabase(userId) async` — reads `profiles.onboarding_completed` (single row keyed by `user_id`). Re-checks `attachedUserId == userId` after the await (auth may have flipped). If server true and local false → upgrade local + write cache. **Never downgrades true→false** (local completion may not have synced yet). Failures swallowed.
 - `advance()` / `back()` — guarded by `isTransitioning`; move ±1 step; set `isTransitioning=true` then a 350ms sleep task resets it (matches carousel slide duration). `advance()` also bumps `advanceCount`.
 - `resetToStart()` — step→`.terms`, wipe survey/draft/transient flags.
-- `canAdvance(from step: Step) -> Bool` — the single CTA-gating surface: `.terms → hasCheckedTerms`; `.sportsSelection → !favoriteSports.isEmpty`; `.bettorType → bettorType != nil`; `.acquisitionSource → != nil`; `.primaryGoal → mainGoal != nil`; `.builderSports → !preferredSports.isEmpty`; `.builderArchetype → hasChosenArchetype`; `.builderIdentity → trimmed name non-empty && ≤50 chars`; all other steps → `true`.
-- Survey mutators: `setFavoriteSports`, `toggleFavoriteSport`, `setBettorType`, `setMainGoal`, `setAcquisitionSource`, `setTermsScrolledToBottom`, `setTermsChecked(_:)`, `setTermsAccepted()` (stamps `termsAcceptedAt` ISO8601 now + `overEighteenAttested=true`).
+- `canAdvance(from step: Step) -> Bool` — the single CTA-gating surface. Terms require both scroll-bottom and checkbox acceptance; selection/builder pages require their corresponding choice/name; research time and stakes require a bucket; reveal pages require their staged sequence to finish.
+- Survey mutators include research-time/stakes setters. Either input change invalidates both reveal-seen flags so revisiting the personalized math cannot show a stale final state.
 - Agent-draft mutators: `setAgentSports`, `setAgentArchetype`, `setArchetypeChosen`, `setAgentPitchSlide` (clamped 0..2), `setAgentName`, `setAgentEmoji`, `setAgentColor`, `setAgentDraft(_:)` (whole-draft replace — used to project the embedded `AgentCreationStore` back in).
 - `markComplete()` — order matters: (1) `isComplete = true` + cache write FIRST (never blocks, never re-shows onboarding on network failure); (2) `MetaAnalyticsService.shared.trackCompleteRegistration(method: "email")` (Meta SDK install→register funnel); (3) snapshot survey+draft and `Task.detached` → `syncToSupabase` (fire-and-forget `profiles.update({onboarding_data, onboarding_completed: true})` keyed by `user_id`; failure dropped — FIDELITY-WAIVER #027: no offline write queue).
 - `reset()` — dev tool: `isComplete=false` + cache write false + `resetToStart()`.
 - DEBUG: `debugSet(step:)`, `debugSet(survey:)`, `debugSet(agentDraft:)`.
 
-**Sync payload shape** (must round-trip with RN's `CreateAgentFormState`): `onboarding_data = { favoriteSports, age?, bettorType?, mainGoal?, acquisitionSource?, termsAcceptedAt?, overEighteenAttested?, agentFormState: { preferred_sports: [String], archetype?, name, avatar_emoji, avatar_color, sprite_index?, personality_params, custom_insights, auto_generate, auto_generate_time, auto_generate_timezone } }` + `onboarding_completed: true`.
+**Sync payload shape** (must round-trip with RN's `CreateAgentFormState`): `onboarding_data = { favoriteSports, age?, bettorType?, mainGoal?, acquisitionSource?, termsAcceptedAt?, overEighteenAttested?, researchTimeBucket?, weeklyStakesBucket?, agentFormState: { preferred_sports: [String], archetype?, name, avatar_emoji, avatar_color, sprite_index?, personality_params, custom_insights, auto_generate, auto_generate_time, auto_generate_timezone } }` + `onboarding_completed: true`.
 
-**Persistence:** per-user key `AppGroupKey.onboardingComplete(userId:)` in App Group defaults → SharedPreferences key with the same per-user shape.
+**Persistence:** per-user key `AppGroupKey.onboardingComplete(userId:)` in App Group defaults → SharedPreferences key with the same per-user shape. The retired Expo `RKStorage` database is migration input only: Android opens it read-only, never creates/repairs/deletes it, and never consults it once the native per-user key exists.
 
 ---
 
@@ -214,7 +218,7 @@ Private: `streamTask: Task?` → `Job?`, `currentUserId: UUID?`.
 **Methods:**
 - `init()` — reads `rc_force_freemium` from App Group defaults.
 - `bootstrap()` — idempotent; `RevenueCatService.shared.bootstrap(userId: nil)`; `isInitialized = isConfigured`; `startCustomerInfoStream()` immediately (don't miss StoreKit/Play Billing lifecycle events).
-- `attachUser(_ userId: UUID) async` — guard initialized. `isLoading=true`; `logIn(userId.uuidString)` → `apply(info, .login)` → `refreshOffering()` → `hasResolvedActiveUserEntitlement=true` (SUCCESS PATH ONLY). On failure: `lastError`; entitlement stays unchanged unless `.unknown` (then → `.denied`) — never downgrade paying users on a network blip. `isLoading=false`.
+- `attachUser(_ userId: UUID) async` — resets the live-resolution gate before login and clears cached entitlement state when identity changes; `logIn(userId.uuidString)` → `apply(info, .login)` → `refreshOffering()` → `hasResolvedActiveUserEntitlement=true` (SUCCESS PATH ONLY). On failure: `lastError`; entitlement stays unchanged for a same-user retry unless `.unknown` (then → `.denied`). RootHost remains input-blocked and offers Retry/Log Out; returning to the foreground retries automatically.
 - `detachUser() async` — `logOut()`, clear info, `entitlementStatus=.denied`, `subscriptionType=nil`, `isLoading=false`, `hasResolvedActiveUserEntitlement=false`.
 - `refreshCustomerInfo() async` — trusted; may downgrade. Also sets `hasResolvedActiveUserEntitlement=true` on success; `.unknown→.denied` on failure.
 - `restorePurchases() async throws` — trusted `.restore`.
@@ -730,7 +734,9 @@ Session cache of `ncaab_team_mapping` (4-column select). Indexes: `byName: [Stri
 
 ### 13.2 DebugDataModeStore (`DebugDataModeStore.swift`) — **entire file `#if DEBUG`**
 
-Single `enabled: Bool` (public var) whose `didSet` writes through to the static `DummyDataMode.isEnabled` flag (App Group-backed) that data stores read before fetching; init reads it back. Android: debug-only class writing a static/companion flag.
+Single `enabled: Bool` (public var) whose `didSet` writes through to the static `DummyDataMode.isEnabled` flag (App Group-backed) that data stores read before fetching; init reads it back.
+
+**Android: NOT PORTED — deliberately (AND-088, owner decision).** `DebugDataModeStore.kt`, the `AppGroupKey.DUMMY_DATA_MODE` key and `PolymarketService`'s read of it were all removed in Wave 2. Only 1 of iOS's 8 fixture branches had ever been ported, so the Secret Settings toggle advertised a capability the build did not have. Do not re-add the store without porting the fixtures (`scripts/wagerproof-migration/`) first.
 
 ### 13.3 ThemeStore (`ThemeStore.swift`)
 
@@ -907,7 +913,7 @@ App Group defaults exist on iOS for widget sharing — on Android a single `Shar
 | 10 | AuthStore.swift | AuthStore.kt | auth Flow listener Job |
 | 11 | CFBDryRunPicksStore.swift | CFBDryRunPicksStore.kt | week-7 dryrun trio |
 | 12 | CFBGameSheetStore.swift | CFBGameSheetStore.kt | trivial sheet holder |
-| 13 | DebugDataModeStore.swift | DebugDataModeStore.kt | debug-only |
+| 13 | DebugDataModeStore.swift | — (not ported, AND-088) | fixtures never ported; store + flag removed |
 | 14 | FavoriteAgentsStore.swift | FavoriteAgentsStore.kt | prefs set |
 | 15 | FeatureRequestsStore.swift | FeatureRequestsStore.kt | 3-branch vote toggle |
 | 16 | FollowedAgentsStore.swift | FollowedAgentsStore.kt | join-select read path |
@@ -934,7 +940,7 @@ App Group defaults exist on iOS for widget sharing — on Android a single `Shar
 | 37 | NCAABModelAccuracyStore.swift | NCAABModelAccuracyStore.kt | sortMode didSet re-sort |
 | 38 | NCAABTeamMappingStore.swift | NCAABTeamMappingStore.kt | inflight-Job dedupe |
 | 39 | NFLGameSheetStore.swift | NFLGameSheetStore.kt | trivial |
-| 40 | OnboardingStore.swift | OnboardingStore.kt | 20-step machine; cache-first sync |
+| 40 | OnboardingStore.swift | OnboardingStore.kt | 24-step machine; research-time arc; cache-first sync |
 | 41 | OutliersStore.swift | OutliersStore.kt | fan-out alerts |
 | 42 | OutliersTrendsStore.swift | OutliersTrendsStore.kt | + cross-sport search index |
 | 43 | PlatformStatsStore.swift | PlatformStatsStore.kt | no filter state |
@@ -958,3 +964,5 @@ App Group defaults exist on iOS for widget sharing — on Android a single `Shar
 |---|---|
 | `AgentConsensusStore.kt` | Games-feed agent consensus keyed by sport → `game_id`; 90s TTL keyed on the slate's sorted date list. Sits beside `GamesStore` in `AppGraph` (that store reads CFB, this reads MAIN). Overlapping calls coalesce on a per-sport `Deferred`; `ensureLoaded(sport, date(s))` widens coverage for surfaces that arrive without a feed (detail from Search/Outliers) instead of shrinking the map to one day. No `LoadState` — a failed fetch is non-fatal and just leaves the strip off. See [18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md). |
 | `InFlightTaskRegistry.kt` | Port of iOS `InFlightTaskRegistry.swift`. Coalesces matching async loads per key so overlapping callers join one request. Work runs on the OWNING STORE's scope (Swift-`Task` semantics), so a caller that goes away cancels only its own `await`. Used by `GamesStore.refresh(sport:)`, whose `lastFetched` TTL stamp is written only after success and so cannot dedupe concurrent cold-start callers. Tested in `app/src/test/.../stores/InFlightTaskRegistryTest.kt` (:core:stores has no test source set). |
+| `ParlayGodStore.kt` | One app-scoped engine/store for generated game tickets, matchup parlays, props legs, pool revision, loading/error state, and remembered MLB ticket selections shared across Outliers, Props, Search, and game detail. |
+| `ReviewPromptCoordinator.kt` | Six high-confidence value triggers with threshold, 120-day, per-version, manual, and quiet-root presentation guards for Play In-App Review. |

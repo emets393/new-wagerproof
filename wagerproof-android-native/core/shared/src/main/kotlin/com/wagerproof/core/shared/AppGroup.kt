@@ -49,8 +49,10 @@ object AppGroupKey {
     /** The key the widget payload is actually stored under (legacy Expo-compat). */
     const val WIDGET_PAYLOAD_LEGACY = "widgetPayload"
 
-    /** DEBUG-only: stores serve bundled fixtures instead of Supabase. */
-    const val DUMMY_DATA_MODE = "dummy_data_mode_debug"
+    // AND-088 (owner decision): DUMMY_DATA_MODE ("dummy_data_mode_debug") was
+    // removed along with the Secret Settings toggle and its single reader. Android
+    // never ported the iOS fixtures, so nothing consumed the flag. Any value still
+    // sitting in prefs on an upgraded debug install is simply ignored.
 
     // Coarse subscription snapshot mirrored for widgets/cold-launch so the UI
     // doesn't flash "free" while RevenueCat reconciles. RevenueCat stays the

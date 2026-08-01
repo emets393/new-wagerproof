@@ -20,19 +20,28 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.agents.agentSymbol
 import com.wagerproof.core.design.pixeloffice.PixelSpriteAvatar
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.services.TriggerV3RunStatus
+import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.util.Locale
 
 /**
  * Linear polling-progress bar tinted with the agent accent — port of iOS
@@ -68,7 +77,12 @@ private val SuccessGreen = Color(0xFF00E676)
  *   • **Research (idle):** the agent's pixel avatar + "Research in Progress"
  *     line, with a generate CTA (locked copy when [canGenerate] is false).
  *   • **Polling (running):** live action verbs from the Trigger.dev run
- *     metadata, a picks-found chip, and a [GenerationLoadingBar] (turn/maxTurns).
+ *     metadata, a picks-found chip, a [ToolActivityStack] that deals one blank
+ *     ticket per cumulative tool call, an elapsed-run timer, and a
+ *     [GenerationLoadingBar] (turn/maxTurns).
+ *
+ * The tool stack + timer are progress information, not decoration: without them
+ * a stalled ~2-minute run reads identically to a healthy one.
  *
  * FIDELITY-WAIVER: the iOS glyph-matrix / pixel-pulse-wave / swipe-pill
  * flourishes are not ported — behavior (states, copy, metadata wiring) is.
@@ -96,6 +110,7 @@ fun AgentGenerationCard(
         else -> 0.05f
     }
     val picksFound = meta?.picksAccepted ?: 0
+    val toolCalls = meta?.toolCalls ?: 0
     val currentToolLabel: String? = meta?.currentTool?.takeIf { it.isNotEmpty() }?.let { tool ->
         meta.currentToolDetail?.takeIf { it.isNotEmpty() }?.let { "$tool · $it" } ?: tool
     }
@@ -137,7 +152,13 @@ fun AgentGenerationCard(
             }
         }
 
-        // Status line: research shimmer copy ↔ live action verbs.
+        // Tool tickets deal in ABOVE the status line so the verb row stays pinned
+        // directly over the progress bar and never relocates (iOS ordering).
+        if (polling) {
+            ToolActivityStack(count = toolCalls, modifier = Modifier.fillMaxWidth())
+        }
+
+        // Status line: research shimmer copy ↔ live action verbs + elapsed timer.
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -154,7 +175,15 @@ fun AgentGenerationCard(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                // weight(1f) (not a Spacer) so the verbs claim the slack and the
+                // timer pins to the trailing edge without the two fighting over it.
+                modifier = Modifier.weight(1f),
             )
+            if (polling) {
+                ElapsedTimerText(startedAt = state?.startedAt, color = GenerationOrange)
+            }
         }
 
         // Bottom bar: loading bar while polling, generate CTA while idle.
@@ -200,3 +229,51 @@ private fun ConsoleLine(text: String, tint: Color) {
         Text(text, color = tint, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
     }
 }
+
+/**
+ * Elapsed-run readout beside the action verbs (iOS `ElapsedTimerText`). Seeded
+ * from the run's `startedAt` when the server supplies one, so the timer stays
+ * truthful across a screen re-entry mid-run instead of restarting at 00.0s;
+ * falls back to first-composition when the timestamp is missing/unparseable.
+ */
+@Composable
+private fun ElapsedTimerText(startedAt: String?, color: Color) {
+    // Keyed on startedAt so a NEW run re-seeds; a re-composition of the same run does not.
+    val originMillis = remember(startedAt) {
+        parseRunStartMillis(startedAt) ?: System.currentTimeMillis()
+    }
+    var elapsed by remember(startedAt) { mutableStateOf(elapsedSeconds(originMillis, System.currentTimeMillis())) }
+    LaunchedEffect(originMillis) {
+        // 0.2s cadence: smooth enough for a tenths readout, ~5 updates/sec.
+        while (true) {
+            elapsed = elapsedSeconds(originMillis, System.currentTimeMillis())
+            delay(200)
+        }
+    }
+    Text(
+        formatElapsed(elapsed),
+        color = color,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Black,
+        fontFamily = FontFamily.Monospace,
+        maxLines = 1,
+    )
+}
+
+/**
+ * Parse a Trigger.dev run `startedAt` (ISO-8601, with or without an offset) to
+ * epoch millis. Returns null for null/blank/garbage so callers can fall back.
+ */
+internal fun parseRunStartMillis(raw: String?): Long? {
+    val text = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    return runCatching { Instant.parse(text).toEpochMilli() }.getOrNull()
+        ?: runCatching { OffsetDateTime.parse(text).toInstant().toEpochMilli() }.getOrNull()
+}
+
+/** Seconds between two epoch-millis stamps, floored at 0 (clock skew is not negative time). */
+internal fun elapsedSeconds(originMillis: Long, nowMillis: Long): Double =
+    ((nowMillis - originMillis).coerceAtLeast(0L)) / 1000.0
+
+/** `%04.1fs` — zero-padded to a stable width so the row never reflows (iOS format). */
+internal fun formatElapsed(seconds: Double): String =
+    String.format(Locale.US, "%04.1fs", seconds)

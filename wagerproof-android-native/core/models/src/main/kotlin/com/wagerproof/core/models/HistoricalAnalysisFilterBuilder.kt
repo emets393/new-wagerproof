@@ -422,11 +422,17 @@ object HistoricalAnalysisFilterBuilder {
         intRange(this, "opp_last_margin", snapshot.oppLastMargin, -30, 30)
     }
 
-    /** Port of iOS `mlbFiltersWeatherOnly` — upcoming RPC should get `{}` when only weather keys are set. */
+    /**
+     * Upcoming RPC should get `{}` when only MLB weather keys are narrowed.
+     * `season_min` is the mandatory warehouse scan bound emitted for every
+     * snapshot, so it is neutral for this classification rather than evidence of
+     * a non-weather filter.
+     */
     fun mlbFiltersWeatherOnly(filters: JsonObject): Boolean {
         if (filters.isEmpty()) return false
         val weather = setOf("temp_min", "temp_max", "wind_min", "wind_max", "wind_dir")
-        return filters.keys.all { it in weather }
+        val meaningfulKeys = filters.keys - "season_min"
+        return meaningfulKeys.isNotEmpty() && meaningfulKeys.all { it in weather }
     }
 
     /** Hide degenerate breakdown bars — each side must be ≥10% of the split. */

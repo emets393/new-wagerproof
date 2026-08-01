@@ -41,6 +41,11 @@ class MLBPlayerPropsService {
     /**
      * Assemble every prop matchup for the current slate. Games without both
      * starters posted, or that are postponed, are dropped (matches RN).
+     *
+     * The schedule query is authoritative and intentionally throws on failure:
+     * callers need to distinguish a successfully empty slate from an outage so
+     * they can clear stale rows without discarding last-known-good data during
+     * a genuine fetch failure. Secondary enrichment queries remain best-effort.
      */
     suspend fun fetchMatchups(): List<MLBPropMatchup> = coroutineScope {
         val cfb = SupabaseClients.cfb
@@ -50,18 +55,16 @@ class MLBPlayerPropsService {
         val startDate = ServiceDates.todayET()
         val endDate = ServiceDates.etDate(2)
 
-        val gameRows = runCatching {
-            cfb.from("mlb_games_today")
-                .select {
-                    filter {
-                        gte("official_date", startDate)
-                        lte("official_date", endDate)
-                    }
-                    order("official_date", Order.ASCENDING)
-                    order("game_time_et", Order.ASCENDING)
+        val gameRows = cfb.from("mlb_games_today")
+            .select {
+                filter {
+                    gte("official_date", startDate)
+                    lte("official_date", endDate)
                 }
-                .decodeList<GamesTodayRow>()
-        }.getOrDefault(emptyList())
+                order("official_date", Order.ASCENDING)
+                order("game_time_et", Order.ASCENDING)
+            }
+            .decodeList<GamesTodayRow>()
 
         // Only games with both starters posted and not postponed get props.
         val eligible = gameRows.filter { row ->

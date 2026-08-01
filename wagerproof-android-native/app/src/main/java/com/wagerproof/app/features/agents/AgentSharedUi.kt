@@ -2,6 +2,7 @@ package com.wagerproof.app.features.agents
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -117,6 +118,10 @@ val AgentStrategyTag.color: Color
  * Inline section header used across both detail screens + timeline (iOS
  * `AgentSectionHeader`): 11pt-bold SF icon + uppercased 13pt semibold title,
  * secondary color, flush-left (no internal h-padding).
+ *
+ * [trailing] is an optional accessory pinned opposite the title (e.g. the
+ * AutoPilot status button on "Today's Picks"). It renders outside the secondary
+ * tint so an action button keeps its own accent styling.
  */
 @Composable
 fun AgentSectionHeader(
@@ -124,8 +129,14 @@ fun AgentSectionHeader(
     systemImage: String,
     modifier: Modifier = Modifier,
     tint: Color = AppColors.appTextSecondary,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        // Only widen when there is an accessory to push to the far edge — a
+        // title-only header stays wrap-content, exactly as it was before.
+        modifier = if (trailing != null) modifier.fillMaxWidth() else modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Icon(
             imageVector = agentSymbol(systemImage),
             contentDescription = null,
@@ -140,7 +151,11 @@ fun AgentSectionHeader(
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            // The TITLE absorbs the slack (not a Spacer) so the accessory pins
+            // to the trailing edge and the two never split the leftover width.
+            modifier = if (trailing != null) Modifier.weight(1f) else Modifier,
         )
+        trailing?.invoke()
     }
 }
 

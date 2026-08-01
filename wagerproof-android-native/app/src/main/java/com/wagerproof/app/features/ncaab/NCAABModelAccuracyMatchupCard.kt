@@ -75,7 +75,9 @@ fun NCAABModelAccuracyMatchupCardView(
         ) {
             Header(game)
             PickBlock("Spread", spreadPickText(game), spreadEdgeText(game), game.spreadAccuracy)
-            PickBlock("ML Win Prob", mlPickText(game), null, game.mlAccuracy)
+            // The win probability IS the moneyline edge — it belongs in the edge
+            // slot, leaving the pick cell as the bare abbr (iOS `mlPick`/`mlEdge`).
+            PickBlock("ML Win Prob", mlPickText(game), mlEdgeText(game), game.mlAccuracy)
             PickBlock("Over/Under", ouPickText(game), ouEdgeText(game), game.ouAccuracy)
         }
     }
@@ -145,15 +147,20 @@ private fun spreadPickText(game: NCAABModelAccuracyGame): String {
     return "$abbr ${GameCardFormatting.formatSpread(line)}"
 }
 
+/** Spread/OU edges are POINTS; the unit keeps them readable beside the ML "%". */
 private fun spreadEdgeText(game: NCAABModelAccuracyGame): String? {
     val diff = game.homeSpreadDiff ?: return null
-    return "+${half(abs(diff))}"
+    return "+${half(abs(diff))} pts"
 }
 
 private fun mlPickText(game: NCAABModelAccuracyGame): String {
-    val prob = game.mlPickProbRounded ?: return "—"
-    val abbr = if (game.mlPickIsHome == true) game.homeAbbr else game.awayAbbr
-    return "$abbr ${(prob * 100).roundToInt()}%"
+    val isHome = game.mlPickIsHome ?: return "—"
+    return if (isHome) game.homeAbbr else game.awayAbbr
+}
+
+private fun mlEdgeText(game: NCAABModelAccuracyGame): String? {
+    val prob = game.mlPickProbRounded ?: return null
+    return "${(prob * 100).roundToInt()}%"
 }
 
 private fun ouPickText(game: NCAABModelAccuracyGame): String {
@@ -165,7 +172,7 @@ private fun ouPickText(game: NCAABModelAccuracyGame): String {
 
 private fun ouEdgeText(game: NCAABModelAccuracyGame): String? {
     val diff = game.overLineDiff ?: return null
-    return "+${half(abs(diff))}"
+    return "+${half(abs(diff))} pts"
 }
 
 private fun accuracyColor(pct: Double): Color = when {

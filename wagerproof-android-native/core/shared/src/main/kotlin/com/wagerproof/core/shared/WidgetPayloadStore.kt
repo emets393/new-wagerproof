@@ -26,7 +26,7 @@ import kotlinx.serialization.json.put
  * `"widgetPayload"` ([AppGroupKey.WIDGET_PAYLOAD_LEGACY]) — NOT
  * `widget_payload_v1` (docs/inventory/02_services.md gotcha #9).
  *
- * Writers must go through [updateSlice] so each domain (editor picks, fade
+ * Writers must go through [updateSlice] or [updateSlices] so each domain (editor picks, fade
  * alerts, top agent picks, outliers) replaces only its own slice plus
  * `lastUpdated`, matching the iOS/RN sync contract.
  */
@@ -58,10 +58,17 @@ object WidgetPayloadStore {
      * [WidgetDataPayload] would drop any key this Kotlin model doesn't know
      * about, and the blob is a cross-platform contract with the RN bridge.
      */
-    suspend fun updateSlice(key: String, value: JsonElement) = writeMutex.withLock {
+    suspend fun updateSlice(key: String, value: JsonElement) = updateSlices(mapOf(key to value))
+
+    /**
+     * Atomically replace several fields that form one logical domain slice.
+     * This is required for versioned payloads: readers must never observe new
+     * market data with the old schema marker, or vice versa.
+     */
+    suspend fun updateSlices(values: Map<String, JsonElement>) = writeMutex.withLock {
         val merged = buildJsonObject {
             readRaw().forEach { (existingKey, existingValue) -> put(existingKey, existingValue) }
-            put(key, value)
+            values.forEach { (key, value) -> put(key, value) }
             put("lastUpdated", nowISO())
         }
         writeRaw(merged)
@@ -99,6 +106,9 @@ object WidgetPayloadStore {
             "fadeAlerts" to JsonArray(emptyList()),
             "polymarketValues" to JsonArray(emptyList()),
             "topAgentPicks" to JsonArray(emptyList()),
+            "topOutliers" to JsonArray(emptyList()),
+            "outlierMarkets" to JsonArray(emptyList()),
+            "outlierMarketsVersion" to JsonPrimitive(0),
             "lastUpdated" to JsonPrimitive(""),
         ),
     )

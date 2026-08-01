@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.agents.components.AgentPickRationaleWidget
 import com.wagerproof.app.features.components.CollapsingWidgetScroll
 import com.wagerproof.app.features.components.TeamAuraBackground
@@ -53,7 +54,14 @@ import com.wagerproof.app.features.gamecards.MatchupHeroSide
 import com.wagerproof.app.features.gamecards.SportsbookLogoStyle
 import com.wagerproof.app.features.gamecards.SportsbookLogoView
 import com.wagerproof.app.features.gamecards.sheets.H2HHistoryContent
+import com.wagerproof.app.features.games.GameConsensusKey
+import com.wagerproof.app.features.gamewidgets.AgentConsensusSection
+import com.wagerproof.app.features.gamewidgets.GameWidgetHeadlines
 import com.wagerproof.app.features.gamewidgets.SignalPerformanceStatsSection
+import com.wagerproof.app.features.parlaygod.MatchupParlaysWidget
+import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
+import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
+import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.shared.hexColor
 import com.wagerproof.core.design.icons.AppIcon
@@ -61,15 +69,22 @@ import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.NFLPrediction
 import com.wagerproof.core.models.NFLTeamAssets
+import com.wagerproof.core.models.ParlayTicket
 import com.wagerproof.core.models.SignalPerformance
 import com.wagerproof.core.services.NFLTeamsService
+import com.wagerproof.core.services.ParlayGodEngine
+import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.services.SignalPerformanceService
 import com.wagerproof.core.services.SignalSport
+import com.wagerproof.core.stores.GamesStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -89,6 +104,8 @@ fun NFLGameDetailPage(
     topInset: Dp,
     bottomInset: Dp,
 ) {
+    val graph = appGraph()
+    val propsStore = graph.props
     val awayColors = remember(game.awayTeam) { NFLTeamColors.colorPair(game.awayTeam) }
     val homeColors = remember(game.homeTeam) { NFLTeamColors.colorPair(game.homeTeam) }
     val awayAbbr = game.awayAb ?: NFLTeamAssets.abbr(game.awayTeam)
@@ -102,6 +119,12 @@ fun NFLGameDetailPage(
 
     var selectedSignal by remember { mutableStateOf<NFLSignalDefinition?>(null) }
     var selectedTrend by remember { mutableStateOf<NFLTrendDetailSelection?>(null) }
+    var matchupParlayTickets by remember(game.gameId) { mutableStateOf<List<ParlayTicket>>(emptyList()) }
+    var selectedParlay by remember(game.gameId) { mutableStateOf<ParlayTicket?>(null) }
+    var showParlayPaywall by remember(game.gameId) { mutableStateOf(false) }
+    // Polymarket derives its own prose read once the price history lands; until
+    // then the widget shows the generic market-odds sentence.
+    var marketOddsHeadline by remember(game.gameId) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(game.gameId) {
         // iOS gates ALL detail data on the dry-run pipeline; legacy rows show
@@ -122,8 +145,38 @@ fun NFLGameDetailPage(
         }
     }
 
+    // NFL matchup parlays are intentionally built only from the matching
+    // live/dry-run player-prop rows. Prediction game ids and props game ids are
+    // not guaranteed to share a format, so match both team and opponent by
+    // abbreviation first, then assemble against the props row's own game id.
+    LaunchedEffect(game.gameId, awayAbbr, homeAbbr) {
+        propsStore.refreshNFL()
+        val teams = setOf(awayAbbr.uppercase(), homeAbbr.uppercase())
+        val players = propsStore.nflPlayers.filter { player ->
+            val team = player.team?.uppercase() ?: return@filter false
+            val opponent = player.opponent?.uppercase() ?: return@filter false
+            team in teams && opponent in teams
+        }
+        val gameKey = players.firstOrNull()?.gameId
+        matchupParlayTickets = if (gameKey == null) {
+            emptyList()
+        } else {
+            withContext(Dispatchers.Default) {
+                ParlayGodEngine.gameTickets(
+                    pool = ParlayGodEngine.nflPropLegs(players),
+                    gameKey = gameKey,
+                )
+            }
+        }
+    }
+
     val hasWeather = game.wxIndoors == true || game.wxSummary != null || game.wxTempF != null || game.wxWindMph != null
     val groups = groupedPicks(picks)
+    val parlayAccess = when {
+        graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
+        graph.proAccess.isPro -> ParlayGodAccessState.Granted
+        else -> ParlayGodAccessState.Locked
+    }
 
     CollapsingWidgetScroll(
         heroMaxHeight = if (hasWeather) 246.dp else 206.dp,
@@ -138,11 +191,23 @@ fun NFLGameDetailPage(
             NFLHero(game, awayAbbr, homeAbbr, awayColors, homeColors, progress)
         },
     ) {
+        // FIRST, above every per-sport section — the crowd's read on the game
+        // frames everything below it, and the widget is sport-agnostic (same
+        // placement as web's detail grid and iOS's sheets).
+        item {
+            AgentConsensusSection(
+                sport = GamesStore.Sport.nfl,
+                gameId = GameConsensusKey.of(game),
+                gameDate = game.gameDate,
+            )
+        }
+
         item {
             WidgetCollapsingSection(
                 title = "Market Odds",
                 icon = AppIcon.fromSystemName("chart.bar.fill"),
                 iconTint = AppColors.appPrimary,
+                headline = marketOddsHeadline ?: GameWidgetHeadlines.marketOdds(),
             ) {
                 PolymarketWidget(
                     league = "nfl",
@@ -152,7 +217,14 @@ fun NFLGameDetailPage(
                     homeColors = homeColors,
                     awayAbbr = awayAbbr,
                     homeAbbr = homeAbbr,
+                    onHeadlineChange = { marketOddsHeadline = it },
                 )
+            }
+        }
+
+        game.predictedScore?.let { score ->
+            item {
+                ProjectedScoreSection(game, score, awayAbbr, homeAbbr)
             }
         }
 
@@ -160,23 +232,27 @@ fun NFLGameDetailPage(
             item {
                 // Ungated on purpose (iOS parity): there is nothing to gate behind Pro
                 // on an empty state, and the copy must never name the backing table.
-                WidgetCollapsingSection("NFL Predictions", icon = AppIcon.fromSystemName("football.fill"), iconTint = AppColors.appPrimary) {
+                WidgetCollapsingSection(
+                    "NFL Predictions",
+                    icon = AppIcon.fromSystemName("football.fill"),
+                    iconTint = AppColors.appPrimary,
+                    headline = "No model picks are posted for this matchup yet.",
+                ) {
                     Column(
                         Modifier.fillMaxWidth().padding(vertical = 18.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
+                        // The "no picks posted" sentence now lives in the shared
+                        // headline slot, so the body only carries iOS's
+                        // clock-labelled follow-up.
                         AppIcon.fromSystemName("clock")?.let {
                             Icon(it.imageVector, null, tint = AppColors.appTextSecondary, modifier = Modifier.size(28.dp))
                         }
                         Text(
-                            "No model picks are posted for this matchup yet.",
-                            color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
                             "Model picks will appear here when this matchup is published.",
-                            color = AppColors.appTextSecondary, fontSize = 12.sp, textAlign = TextAlign.Center,
+                            color = AppColors.appTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
                         )
                     }
                 }
@@ -186,6 +262,7 @@ fun NFLGameDetailPage(
                 WidgetCollapsingSection(
                     title = group.title,
                     showsHeader = false,
+                    headline = predictionHeadline(group),
                     bodyPadding = 14.dp,
                 ) {
                     ProContentSection(title = group.title, minHeight = 154.dp) {
@@ -224,6 +301,7 @@ fun NFLGameDetailPage(
                     title = "Public Betting",
                     icon = AppIcon.fromSystemName("chart.bar.fill"),
                     iconTint = AppColors.appAccentBlue,
+                    headline = publicBettingHeadline(game, awayAbbr, homeAbbr),
                 ) {
                     ProContentSection(title = "Public Betting", minHeight = 200.dp) {
                         NFLPublicBettingBars(game)
@@ -232,11 +310,23 @@ fun NFLGameDetailPage(
             }
         }
 
+        if (matchupParlayTickets.isNotEmpty()) {
+            item {
+                MatchupParlaysWidget(
+                    tickets = matchupParlayTickets,
+                    onTicketClick = { selectedParlay = it },
+                    accessState = parlayAccess,
+                    onRequestPro = { showParlayPaywall = true },
+                )
+            }
+        }
+
         item {
             WidgetCollapsingSection(
                 title = "Matchup History",
                 icon = AppIcon.fromSystemName("person.2.fill"),
                 iconTint = AppColors.appAccentBlue,
+                headline = matchupHistoryHeadline(matchupHistory),
                 bodyPadding = 14.dp,
             ) {
                 ProContentSection(title = "Matchup History", minHeight = if (matchupHistory.isEmpty()) 80.dp else 220.dp) {
@@ -282,6 +372,17 @@ fun NFLGameDetailPage(
             TrendDetailSheet(sel)
         }
     }
+
+
+    selectedParlay?.let { ticket ->
+        ParlayGodDetailSheet(ticket = ticket, onDismiss = { selectedParlay = null })
+    }
+
+    PaywallDialogHost(
+        show = showParlayPaywall,
+        placementId = RevenueCatService.Placement.GENERIC_FEATURE,
+        onDismiss = { showParlayPaywall = false },
+    )
 }
 
 private fun hasPublicBetting(game: NFLPrediction): Boolean = listOf(
@@ -440,6 +541,71 @@ private fun temperatureTint(temp: Double): Color = when {
     temp <= 35 -> AppColors.appAccentBlue
     temp >= 80 -> AppColors.appAccentRed
     else -> AppColors.appAccentAmber
+}
+
+// MARK: - Projected score
+
+/**
+ * Model's projected final score — port of iOS `projectedScoreSection`. NFL's
+ * classifier gives no fair line, so this and the pick-card confidence numbers
+ * are most of what the model actually publishes for the sport; `predictedScore`
+ * falls back to (total ± margin) / 2 when per-team points are absent.
+ */
+@Composable
+private fun ProjectedScoreSection(
+    game: NFLPrediction,
+    score: NFLPrediction.PredictedScore,
+    awayAbbr: String,
+    homeAbbr: String,
+) {
+    WidgetCollapsingSection(
+        title = "Projected Score",
+        icon = AppIcon.fromSystemName("sportscourt"),
+        iconTint = AppColors.appPrimary,
+        headline = GameWidgetHeadlines.projectedScore(
+            awayName = teamNickname(game.awayTeam),
+            homeName = teamNickname(game.homeTeam),
+            awayScore = score.away,
+            homeScore = score.home,
+        ),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            ProjectedTeam(game.awayTeam, awayAbbr, score.away, Modifier.weight(1f))
+            Text("–", color = AppColors.appTextMuted, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            ProjectedTeam(game.homeTeam, homeAbbr, score.home, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun ProjectedTeam(team: String, abbreviation: String, score: Double, modifier: Modifier = Modifier) {
+    Row(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GameCardTeamAvatar(sport = "nfl", team = team, diameter = 38.dp, colors = NFLTeamColors.colorPair(team))
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(
+                abbreviation,
+                color = AppColors.appTextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.6.sp,
+            )
+            Text(
+                String.format(Locale.US, "%.1f", score),
+                color = AppColors.appTextPrimary,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
+            )
+        }
+    }
 }
 
 // MARK: - Pick rows
@@ -1033,6 +1199,148 @@ private fun TableValueCell(text: String, modifier: Modifier, color: Color = AppC
         color = color, fontSize = 10.sp, fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center, maxLines = 1, modifier = modifier,
     )
+}
+
+// MARK: - Headlines (mirror iOS NFLGameBottomSheet 1:1)
+
+/**
+ * Per-market summary sentence — port of iOS `predictionHeadline(for:)`.
+ *
+ * NFL's `nfl_predictions_epa` is a CLASSIFIER with no model fair line, but the
+ * dry-run pick rows DO carry `model_line` / `model_number`, so spread and total
+ * cards quote a real model-vs-market gap when those columns are populated and
+ * fall back to naming the selection (moneyline quotes win probability) when they
+ * are not. Never invent a fair line from the classifier's probabilities.
+ */
+internal fun predictionHeadline(group: NFLPickGroup): String? {
+    val pick = group.picks.firstOrNull { it.hasPlay == true } ?: group.picks.firstOrNull() ?: return null
+
+    val selection = displayPickLabel(pick)
+    val marketLine = pick.bestLine ?: pick.vegasLine
+    val modelLine = pick.modelLine ?: pick.modelNumber
+    val direction = overUnderDirection(pick)
+
+    return when (group.cardGroup) {
+        "spread", "h1_spread" -> {
+            val team = pick.pickTeam
+            if (team != null && modelLine != null && marketLine != null &&
+                modelLine.isFinite() && marketLine.isFinite()
+            ) {
+                val scope = if (group.cardGroup == "h1_spread") "First half" else "Full game"
+                "$scope: model makes ${teamNickname(team)} ${formatPickLine(modelLine, pick)} versus " +
+                    "${formatPickLine(marketLine, pick)} at the market, backing $selection."
+            } else {
+                "The model backs $selection."
+            }
+        }
+
+        "total", "h1_total" -> {
+            if (direction == null) {
+                "The model backs $selection."
+            } else {
+                val scope = if (group.cardGroup == "h1_total") "First half" else "Full game"
+                if (modelLine != null && marketLine != null && modelLine.isFinite() && marketLine.isFinite()) {
+                    "$scope: model projects ${roundedStr(modelLine)} versus ${roundedStr(marketLine)} " +
+                        "at the market — leans $direction."
+                } else {
+                    "$scope: model leans $direction."
+                }
+            }
+        }
+
+        "team_total" -> {
+            val team = pick.pickTeam
+            if (team != null && direction != null) {
+                val model = modelLine?.let { roundedStr(it) } ?: "—"
+                val market = marketLine?.let { roundedStr(it) } ?: "—"
+                "The model projects ${teamNickname(team)} for $model points versus $market at the market, " +
+                    "leaning $direction."
+            } else {
+                "The model backs $selection."
+            }
+        }
+
+        "moneyline", "h1_ml" -> {
+            val team = pick.pickTeam
+            val probability = pick.modelNumber
+            if (team != null && probability != null && probability.isFinite()) {
+                val scope = if (group.cardGroup == "h1_ml") "First half" else "Full game"
+                "$scope: model backs ${teamNickname(team)} to win at ${(probability * 100).roundToInt()}%."
+            } else {
+                "The model backs $selection."
+            }
+        }
+
+        else -> "The model backs $selection."
+    }
+}
+
+/**
+ * The widest ticket-vs-money divergence across the posted NFL markets — port of
+ * iOS `publicBettingHeadline`. Below a 5-point gap the split isn't a finding, so
+ * the copy says so rather than dressing up noise.
+ */
+internal fun publicBettingHeadline(game: NFLPrediction, awayAbbr: String, homeAbbr: String): String {
+    data class Split(val market: String, val side: String, val bets: Double, val money: Double) {
+        val gap: Double get() = money - bets
+    }
+
+    val rows = listOf(
+        Triple("moneyline", awayAbbr, game.awayMlBets to game.awayMlHandle),
+        Triple("moneyline", homeAbbr, game.homeMlBets to game.homeMlHandle),
+        Triple("spread", awayAbbr, game.awaySpreadBets to game.awaySpreadHandle),
+        Triple("spread", homeAbbr, game.homeSpreadBets to game.homeSpreadHandle),
+        Triple("total", "OVER", game.overBets to game.overHandle),
+        Triple("total", "UNDER", game.underBets to game.underHandle),
+    )
+    val complete = rows.mapNotNull { (market, side, raw) ->
+        val bets = splitPercent(raw.first) ?: return@mapNotNull null
+        val money = splitPercent(raw.second) ?: return@mapNotNull null
+        Split(market, side, bets, money)
+    }
+
+    val strongest = complete.maxByOrNull { abs(it.gap) }
+        ?: return "Ticket and money percentages show where public volume and wager size agree or diverge."
+    if (abs(strongest.gap) < 5) {
+        return "Tickets and money are broadly aligned across the available NFL markets."
+    }
+    return "${strongest.money.roundToInt()}% of ${strongest.market} money is on ${strongest.side}, " +
+        "versus ${strongest.bets.roundToInt()}% of tickets — the clearest public split."
+}
+
+/** Splits arrive as "62", "62%", or a 0…1 fraction; normalise to whole points. */
+private fun splitPercent(raw: String?): Double? {
+    val trimmed = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val number = trimmed.removeSuffix("%").replace("%", "").toDoubleOrNull() ?: return null
+    if (!number.isFinite() || number < 0) return null
+    return if (number <= 1) number * 100 else number
+}
+
+/** Head-to-head read — port of iOS `matchupHistoryHeadline`. */
+internal fun matchupHistoryHeadline(history: List<NFLMatchupHistoryRow>): String? {
+    if (history.isEmpty()) return null
+    val winners = history.mapNotNull { it.winnerTeam }
+    // Ties break on the LOWER team name so repeated renders never flip the copy
+    // (Swift's `max(by:)` keeps the later element on equal counts, which for its
+    // descending name comparison is the alphabetically smaller key).
+    val leader = winners.groupingBy { it }.eachCount().entries
+        .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        .firstOrNull()
+    val overs = history.count { it.ouResult?.uppercase(Locale.US) == "OVER" }
+    val unders = history.count { it.ouResult?.uppercase(Locale.US) == "UNDER" }
+
+    val parts = mutableListOf<String>()
+    if (leader != null && leader.value > winners.size - leader.value) {
+        parts += "${leader.key} won ${leader.value} of ${history.size} recent meetings"
+    } else {
+        parts += "The last ${history.size} meetings are split"
+    }
+    if (overs > unders) {
+        parts += "$overs finished OVER"
+    } else if (unders > overs) {
+        parts += "$unders finished UNDER"
+    }
+    return parts.joinToString("; ") + "."
 }
 
 // MARK: - Grouping / formatting logic (mirrors iOS helpers 1:1)

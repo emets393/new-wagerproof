@@ -165,7 +165,7 @@ private fun ChromeBand(
                         .padding(start = 12.dp)
                         .size(40.dp)
                         .liquidGlassBackground(shape = CircleShape, tint = Color.White.copy(alpha = 0.10f))
-                        .onboardingPressable(onBack),
+                        .onboardingPressable(onClickLabel = "Go back", onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -271,8 +271,10 @@ private fun ContinueCTAButton(
                     0.5f to Color.White.copy(alpha = 0f),
                 ),
             )
-            .then(
-                if (isEnabled && !isLoading) Modifier.onboardingPressable(onClick) else Modifier,
+            .onboardingPressable(
+                enabled = isEnabled && !isLoading,
+                onClickLabel = label,
+                onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
     ) {

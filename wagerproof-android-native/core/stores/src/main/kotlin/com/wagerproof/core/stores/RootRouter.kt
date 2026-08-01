@@ -16,23 +16,6 @@ class RootRouter {
 
     enum class Phase { Launching, Unauthenticated, Onboarding, Ready }
 
-    companion object {
-        /**
-         * TEMPORARY hard-bypass of the onboarding wizard (added 2026-05-29).
-         * Authenticated users land straight in [Phase.Ready]. Flip back to
-         * false (or delete + restore the plain ternary in [resolve]) to
-         * re-enable onboarding.
-         */
-        const val temporarilyDisableOnboarding = true
-    }
-
-    /**
-     * Set by Secret Settings' "Reset Onboarding" so testers re-enter the wizard
-     * even while [temporarilyDisableOnboarding] is active. In-memory only —
-     * cleared when onboarding completes or on sign-out.
-     */
-    var forceOnboardingForTesting by mutableStateOf(false); private set
-
     /**
      * Also set by "Reset Onboarding" — survives into [Phase.Ready] so the root
      * view can force the post-onboarding paywall for a Pro/admin tester.
@@ -51,22 +34,17 @@ class RootRouter {
             is AuthStore.Phase.Launching -> phase = Phase.Launching
             is AuthStore.Phase.Unauthenticated -> {
                 // Sign-out ends a forced test run — the next account shouldn't inherit the override.
-                forceOnboardingForTesting = false
                 testPaywallOverride = false
                 phase = Phase.Unauthenticated
             }
             is AuthStore.Phase.Authenticated -> {
-                if (onboardingComplete) forceOnboardingForTesting = false
-                // TEMPORARY onboarding bypass — yields to forceOnboardingForTesting.
-                val bypass = temporarilyDisableOnboarding && !forceOnboardingForTesting
-                phase = if (onboardingComplete || bypass) Phase.Ready else Phase.Onboarding
+                phase = if (onboardingComplete) Phase.Ready else Phase.Onboarding
             }
         }
     }
 
     /** Backs Secret Settings' "Reset Onboarding". Caller must reset OnboardingStore first. */
     fun forceOnboardingForTestingNow() {
-        forceOnboardingForTesting = true
         testPaywallOverride = true
         phase = Phase.Onboarding
     }

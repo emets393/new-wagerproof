@@ -66,6 +66,10 @@ import com.wagerproof.app.features.navigation.WagerProofTopBar
 import com.wagerproof.app.features.outliers.OutliersTrendCard
 import com.wagerproof.app.features.outliers.OutliersTrendCardShimmer
 import com.wagerproof.app.features.outliers.OutliersTrendDetailSheet
+import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
+import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
+import com.wagerproof.app.features.parlaygod.ParlayGodRail
+import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.app.features.props.NFLPlayerPropSelection
 import com.wagerproof.app.features.props.NFLPropFeed
 import com.wagerproof.app.features.props.NFLPropFeedItem
@@ -84,10 +88,13 @@ import com.wagerproof.core.design.components.shimmering
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
+import com.wagerproof.core.models.ParlayTicket
+import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.stores.AuthStore
 import com.wagerproof.core.stores.GamesStore
 import com.wagerproof.core.stores.LoadState
 import com.wagerproof.core.stores.MainTabStore
+import com.wagerproof.core.stores.ParlayGodStore
 import com.wagerproof.core.stores.PropsStore
 import com.wagerproof.core.stores.SearchStore
 import kotlinx.coroutines.launch
@@ -124,6 +131,8 @@ fun SearchScreen(
     var selectedMlbProp by remember { mutableStateOf<PlayerPropSelection?>(null) }
     var selectedNflProp by remember { mutableStateOf<NFLPlayerPropSelection?>(null) }
     var selectedTrend by remember { mutableStateOf<SearchStore.SearchResult.Trend?>(null) }
+    var selectedParlay by remember { mutableStateOf<ParlayTicket?>(null) }
+    var showParlayPaywall by remember { mutableStateOf(false) }
     val hasFullScreenDetail = selectedMlbProp != null || selectedNflProp != null
 
     LaunchedEffect(hasFullScreenDetail) { onFullScreenChanged(hasFullScreenDetail) }
@@ -144,6 +153,11 @@ fun SearchScreen(
         // hydrate are retried — Search surfaces no per-sport error, so those
         // leagues would otherwise return zero results all session.
         graph.games.retryFailed()
+
+        // Search's empty launchpad contains the rail before a user has typed or
+        // browsed anything. Hydrate from this always-mounted effect so the rail
+        // can transition from shimmer to tickets on a cold Search-tab visit.
+        launch { graph.parlayGod.refreshIfNeeded() }
     }
 
     LaunchedEffect(userId) {
@@ -169,6 +183,9 @@ fun SearchScreen(
         }
         if (hasQuery || browse == SearchStore.SearchScope.Outliers) {
             launch { graph.outliersTrends.loadSearchIndexIfNeeded() }
+        }
+        if (hasQuery || browse == SearchStore.SearchScope.Players || browse == SearchStore.SearchScope.Outliers) {
+            launch { graph.parlayGod.refreshIfNeeded() }
         }
     }
 
@@ -263,6 +280,12 @@ fun SearchScreen(
             props = graph.props,
             ownAgentsState = ownAgents.loadState,
             trendsLoading = graph.outliersTrends.isLoadingSearchIndex,
+            parlayGod = graph.parlayGod,
+            parlayAccess = when {
+                graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
+                graph.proAccess.isPro -> ParlayGodAccessState.Granted
+                else -> ParlayGodAccessState.Locked
+            },
             onBrowse = { scope ->
                 search.commitCurrentQueryToRecents()
                 search.browse(scope)
@@ -283,6 +306,8 @@ fun SearchScreen(
                 selectedTrend = it
             },
             onSelectTab = graph.mainTab::select,
+            onSelectParlay = { selectedParlay = it },
+            onRequestParlayPro = { showParlayPaywall = true },
         )
     }
 
@@ -294,6 +319,17 @@ fun SearchScreen(
             onDismiss = { selectedTrend = null },
         )
     }
+
+
+    selectedParlay?.let { ticket ->
+        ParlayGodDetailSheet(ticket = ticket, onDismiss = { selectedParlay = null })
+    }
+
+    PaywallDialogHost(
+        show = showParlayPaywall,
+        placementId = RevenueCatService.Placement.GENERIC_FEATURE,
+        onDismiss = { showParlayPaywall = false },
+    )
 }
 
 @Composable
@@ -383,6 +419,8 @@ private fun SearchBody(
     props: PropsStore,
     ownAgentsState: LoadState,
     trendsLoading: Boolean,
+    parlayGod: ParlayGodStore,
+    parlayAccess: ParlayGodAccessState,
     onBrowse: (SearchStore.SearchScope) -> Unit,
     onExitBrowse: () -> Unit,
     onOpenGame: (SearchStore.SearchResult.Game) -> Unit,
@@ -391,6 +429,8 @@ private fun SearchBody(
     onOpenNflProp: (NFLPlayerPropSelection) -> Unit,
     onOpenTrend: (SearchStore.SearchResult.Trend) -> Unit,
     onSelectTab: (MainTabStore.Tab) -> Unit,
+    onSelectParlay: (ParlayTicket) -> Unit,
+    onRequestParlayPro: () -> Unit,
 ) {
     val isActiveSearch = store.query.isNotBlank() || store.debouncedQuery.isNotBlank()
 
@@ -425,17 +465,50 @@ private fun SearchBody(
                     onOpenTrend = onOpenTrend,
                 )
             }
-            else -> launchpad(store, onBrowse, onSelectTab)
+            else -> launchpad(
+                store = store,
+                parlayGod = parlayGod,
+                parlayAccess = parlayAccess,
+                onBrowse = onBrowse,
+                onSelectTab = onSelectTab,
+                onSelectParlay = onSelectParlay,
+                onRequestParlayPro = onRequestParlayPro,
+            )
         }
     }
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.launchpad(
     store: SearchStore,
+    parlayGod: ParlayGodStore,
+    parlayAccess: ParlayGodAccessState,
     onBrowse: (SearchStore.SearchScope) -> Unit,
     onSelectTab: (MainTabStore.Tab) -> Unit,
+    onSelectParlay: (ParlayTicket) -> Unit,
+    onRequestParlayPro: () -> Unit,
 ) {
     exploreRail(store, onBrowse)
+
+    // Empty-launchpad only, directly after Explore. Active search and category
+    // browse prioritize their result sets exactly like iOS.
+    if (parlayGod.hasContent || parlayGod.isLoading) {
+        item(key = "parlay-god-header") {
+            SectionHeader("Parlay God", AppIcon.BOLT_FILL.imageVector)
+        }
+        item(key = "parlay-god-rail") {
+            ParlayGodRail(
+                title = "Parlay God",
+                tickets = parlayGod.slateTickets,
+                isLoading = parlayGod.isLoading,
+                sports = parlayGod.slateSports,
+                showsHeader = false,
+                onTicketClick = onSelectParlay,
+                accessState = parlayAccess,
+                onRequestPro = onRequestParlayPro,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            )
+        }
+    }
 
     if (store.recentQueries.isNotEmpty()) {
         item(key = "recent-header") {

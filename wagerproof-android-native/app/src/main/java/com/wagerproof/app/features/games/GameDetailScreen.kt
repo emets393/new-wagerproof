@@ -51,6 +51,7 @@ fun GameDetailScreen(sport: String, gameId: String, modifier: Modifier = Modifie
                 "ncaab" -> graph.ncaabGameSheet.closeGameSheet()
                 "mlb" -> graph.mlbGameSheet.closeGameSheet()
             }
+            graph.reviewPrompts.recordResearchDetailViewed()
         }
     }
 

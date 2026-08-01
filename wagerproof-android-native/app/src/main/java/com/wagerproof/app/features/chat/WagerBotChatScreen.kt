@@ -81,7 +81,14 @@ import com.wagerproof.core.stores.WagerBotChatStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Production WagerBot page: streaming chat, thread history, and realtime voice. */
+/**
+ * Production WagerBot page: streaming chat + thread history.
+ *
+ * Voice is deliberately NOT reachable from here. WagerBot Voice is an incubating feature
+ * (OpenAI Realtime spend, no iOS entry point) so it lives behind Developer Settings only,
+ * mirroring iOS's SecretSettingsView. See WagerBotVoiceScreen's only caller,
+ * DeveloperSettingsScreen.
+ */
 @Composable
 fun WagerBotChatScreen(
     onDismiss: () -> Unit,
@@ -95,7 +102,6 @@ fun WagerBotChatScreen(
     val userId = (graph.auth.phase as? AuthStore.Phase.Authenticated)?.userId
 
     var showHistory by remember { mutableStateOf(false) }
-    var showVoice by remember { mutableStateOf(false) }
     var loadingThread by remember { mutableStateOf(false) }
     var lastUserMessageId by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
@@ -103,12 +109,6 @@ fun WagerBotChatScreen(
     fun closeChat() {
         store.cancel()
         onDismiss()
-    }
-
-    // No mic gate here — WagerBotVoiceScreen owns the RECORD_AUDIO prompt so that every
-    // entry point into voice (this one and Developer Settings) behaves the same.
-    fun openVoice() {
-        showVoice = true
     }
 
     fun openGame(gameId: String, sport: String) {
@@ -171,21 +171,7 @@ fun WagerBotChatScreen(
         store.lastError?.takeIf { it.isNotBlank() }?.let { snackbar.showSnackbar(it) }
     }
     DisposableEffect(store) { onDispose { store.cancel() } }
-    BackHandler(enabled = !showVoice) { closeChat() }
-
-    if (showVoice) {
-        WagerBotVoiceScreen(
-            isPro = graph.proAccess.isPro,
-            onBack = { showVoice = false },
-            onUpgrade = {
-                showVoice = false
-                closeChat()
-                onOpenSettings()
-            },
-            modifier = modifier,
-        )
-        return
-    }
+    BackHandler { closeChat() }
 
     LiquidGlassScene { sourceModifier ->
         Box(modifier.fillMaxSize().then(sourceModifier).background(ui.pageBackground).safeDrawingPadding()) {
@@ -206,7 +192,6 @@ fun WagerBotChatScreen(
                     onClose = ::closeChat,
                     onNew = store::newConversation,
                     onHistory = { showHistory = true },
-                    onVoice = ::openVoice,
                     onSend = ::send,
                     onGame = { id, sport -> openGame(id, sport) },
                     onComponentNav = ::handleNav,
@@ -247,7 +232,6 @@ private fun ChatBody(
     onClose: () -> Unit,
     onNew: () -> Unit,
     onHistory: () -> Unit,
-    onVoice: () -> Unit,
     onSend: (String) -> Unit,
     onGame: (String, String) -> Unit,
     onComponentNav: (WagerBotChatNav) -> Unit,
@@ -280,7 +264,7 @@ private fun ChatBody(
             .windowInsetsPadding(WindowInsets.statusBars)
             .imePadding(),
     ) {
-        ChatHeader(store, ui, onClose, onNew, onHistory, onVoice)
+        ChatHeader(store, ui, onClose, onNew, onHistory)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (store.messages.isEmpty()) {
                 WelcomeState(ui = ui, onSend = { submit(it) })
@@ -334,7 +318,6 @@ private fun ChatHeader(
     onClose: () -> Unit,
     onNew: () -> Unit,
     onHistory: () -> Unit,
-    onVoice: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 4.dp)) {
@@ -382,11 +365,8 @@ private fun ChatHeader(
                     leadingIcon = { Icon(chatIcon("clock.arrow.circlepath"), null) },
                     onClick = { menuExpanded = false; onHistory() },
                 )
-                DropdownMenuItem(
-                    text = { Text("WagerBot Voice") },
-                    leadingIcon = { Icon(chatIcon("waveform.circle.fill"), null, tint = ui.accent) },
-                    onClick = { menuExpanded = false; onVoice() },
-                )
+                // Matches iOS's WagerBotChatView menu: New conversation / History only.
+                // No voice item — see the KDoc on WagerBotChatScreen.
             }
         }
     }

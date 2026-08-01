@@ -33,6 +33,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.props.NFLPlayerPropSelection
 import com.wagerproof.app.features.props.PropsFormatting
 import com.wagerproof.app.features.props.nflTeamColors
@@ -92,7 +94,11 @@ fun NflPropDetailScreen(
     selection: NFLPlayerPropSelection,
     onBack: () -> Unit,
 ) {
+    val graph = appGraph()
     BackHandler(onBack = onBack)
+    DisposableEffect(selection.id) {
+        onDispose { graph.reviewPrompts.recordResearchDetailViewed() }
+    }
     val player = selection.player
     val markets = player.markets
     val listState = rememberLazyListState()

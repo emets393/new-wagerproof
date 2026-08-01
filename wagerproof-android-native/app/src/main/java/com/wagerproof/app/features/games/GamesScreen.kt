@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.cfb.CFBGameCard
+import com.wagerproof.app.features.components.QuickFilterEmptyState
+import com.wagerproof.app.features.components.QuickFilterField
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardShimmer
 import com.wagerproof.app.features.games.tools.SportTool
@@ -110,6 +112,14 @@ fun GamesScreen(modifier: Modifier = Modifier) {
 
     val sport = store.selectedSport
 
+    // Quick Filter is per-sport (`GamesStore.searchTexts`), so switching sports
+    // restores whatever that sport was filtered to rather than clearing — same
+    // as iOS, whose binding reads/writes the same keyed map. `activeQuickFilter`
+    // is the trimmed form the store also filters on; the raw value stays in the
+    // field so a trailing space the user just typed isn't eaten.
+    val quickFilter = store.searchTexts[sport] ?: ""
+    val activeQuickFilter = quickFilter.trim()
+
     // Agent consensus is fetched ONCE per slate, never per card: the flag
     // threshold scales with the whole day's pick volume, so it can't be derived
     // inside a per-sport adapter. MLB's feed spans today AND tomorrow, so every
@@ -142,6 +152,18 @@ fun GamesScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(start = 16.dp, top = 2.dp, bottom = 4.dp),
         )
 
+        // Quick Filter above the picker. iOS squeezes the field, sport menu and
+        // sort menu onto ONE row (GamesView.pickerBar) because it swapped the
+        // segmented control for an icon menu; Android keeps the five-way
+        // segmented picker (it fits the wider default form factor and is the
+        // shipped affordance), so the field gets its own row above it.
+        QuickFilterField(
+            value = quickFilter,
+            onValueChange = { store.searchTexts = store.searchTexts + (sport to it) },
+            accessibilityLabel = "Quick filter games",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
+        )
+
         // Pinned picker + sort bar.
         PickerBar(store)
 
@@ -169,7 +191,10 @@ fun GamesScreen(modifier: Modifier = Modifier) {
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 32.dp),
             ) {
-                if (visibleTools.isNotEmpty()) {
+                // Tool banners are slate-wide shortcuts, not games — they'd sit
+                // above a two-card result and read as noise, so iOS drops them
+                // while a Quick Filter is active (GamesView.swift:158-160).
+                if (visibleTools.isNotEmpty() && activeQuickFilter.isEmpty()) {
                     item(key = "tools") { ToolBanners(visibleTools) { selectedTool = it } }
                 }
 
@@ -184,6 +209,16 @@ fun GamesScreen(modifier: Modifier = Modifier) {
                         ErrorState(store.errorMessage(sport)!!) {
                             scope.launch { store.refresh(sport, force = true) }
                         }
+                    }
+                    // Distinct from the season EmptyTile below: the board HAS
+                    // games, the query just excluded them all. Says so, and
+                    // offers the one-tap way back (iOS ContentUnavailableView).
+                    activeQuickFilter.isNotEmpty() && filteredGamesAreEmpty(store, sport) -> item {
+                        QuickFilterEmptyState(
+                            title = "No Matching Games",
+                            message = "No ${sport.label} teams match “$activeQuickFilter”.",
+                            onClear = { store.searchTexts = store.searchTexts + (sport to "") },
+                        )
                     }
                     else -> sportDateSections(store, sport, nav, graph)
                 }
@@ -219,6 +254,19 @@ private fun noCachedGames(store: GamesStore, sport: GamesStore.Sport): Boolean =
     GamesStore.Sport.nba -> store.games.nba.isEmpty()
     GamesStore.Sport.ncaab -> store.games.ncaab.isEmpty()
     GamesStore.Sport.mlb -> store.games.mlb.isEmpty()
+}
+
+/**
+ * True when the sorted+filtered list is empty. Reads the same memoized
+ * `sortedX()` the feed renders, so it can't disagree with what's on screen.
+ * iOS `GamesView.filteredGamesAreEmpty`.
+ */
+private fun filteredGamesAreEmpty(store: GamesStore, sport: GamesStore.Sport): Boolean = when (sport) {
+    GamesStore.Sport.nfl -> store.sortedNFL().isEmpty()
+    GamesStore.Sport.cfb -> store.sortedCFB().isEmpty()
+    GamesStore.Sport.nba -> store.sortedNBA().isEmpty()
+    GamesStore.Sport.ncaab -> store.sortedNCAAB().isEmpty()
+    GamesStore.Sport.mlb -> store.sortedMLB().isEmpty()
 }
 
 @Composable

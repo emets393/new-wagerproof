@@ -28,11 +28,58 @@ data class WidgetDataPayload(
      * round-trip it.
      */
     val topOutliers: List<OutlierAlertForWidget> = emptyList(),
+    /**
+     * Configurable Outliers market groups. Each widget instance persists one
+     * [OutliersWidgetMarketData.id] and renders that market's strongest rows.
+     * Additive: payloads written before the configurable widget shipped decode
+     * with an empty list and continue to expose [topOutliers].
+     */
+    val outlierMarkets: List<OutliersWidgetMarketData> = emptyList(),
+    /**
+     * Schema marker for [outlierMarkets]. Version zero means the payload
+     * predates configurable markets, so the widget may still render the
+     * legacy [topOutliers] slice. Version one or newer means an empty market
+     * list is authoritative and must render as an empty state instead of
+     * silently switching to unrelated value/fade alerts.
+     */
+    val outlierMarketsVersion: Int = 0,
     val lastUpdated: String = "",
 ) {
     companion object {
         fun empty() = WidgetDataPayload()
     }
+}
+
+/** One selectable market in the configurable Top Outliers widget. */
+@Serializable
+data class OutliersWidgetMarketData(
+    val id: String,
+    val title: String,
+    /** iOS SF Symbol name retained as a cross-platform semantic icon key. */
+    val symbolName: String,
+    val items: List<OutliersWidgetItem>,
+    /** Count before the payload's per-market item cap. */
+    val totalCount: Int,
+)
+
+/**
+ * Glanceable projection of an Outliers trend card or a Parlay God ticket.
+ * Fractions always come from live trend samples; the widget never invents a
+ * streak or recalculates the underlying analysis.
+ */
+@Serializable
+data class OutliersWidgetItem(
+    val id: String,
+    val sport: String,
+    val matchup: String,
+    val subject: String,
+    val selection: String,
+    val oddsText: String? = null,
+    val hitCount: Int,
+    val sampleSize: Int,
+    val additionalTrendCount: Int = 0,
+) {
+    val fractionText: String get() = "$hitCount/$sampleSize"
 }
 
 /**
@@ -122,6 +169,10 @@ data class AgentPickForWidget(
 /**
  * Mirrors `TopAgentWidgetData` in the RN bridge — an agent's identity +
  * cached performance summary + up to N representative picks.
+ *
+ * This is the ONE declaration; `TopAgentsWidgetService` used to keep a private
+ * twin, which is how the widget lost fields the service already had. Every field
+ * name is a cross-platform wire contract — never rename one.
  */
 @Serializable
 data class TopAgentWidgetData(
@@ -133,6 +184,23 @@ data class TopAgentWidgetData(
     val netUnits: Double,
     val winRate: Double? = null,
     val currentStreak: Int,
+    /** Longest run the agent has ever put together — the widget's "BEST n" label. */
+    val bestStreak: Int = 0,
     val record: String,
     val picks: List<AgentPickForWidget> = emptyList(),
-)
+    /**
+     * Owner-picked pixel-office character (0…7). Null in payloads written before
+     * the column was projected — read [resolvedSpriteIndex], never this.
+     */
+    val spriteIndex: Int? = null,
+    /**
+     * Cumulative recent graded-pick results (win +1 / loss −1 / push holds) for
+     * the small tile's form sparkline. Empty = draw a flat baseline, never
+     * invented movement.
+     */
+    val form: List<Double> = emptyList(),
+) {
+    /** [spriteIndex] when the payload carries a valid one, else the stable hash of the id. */
+    val resolvedSpriteIndex: Int
+        get() = spriteIndex?.takeIf { it in 0..7 } ?: AgentSpriteIndex.forSeed(agentId)
+}

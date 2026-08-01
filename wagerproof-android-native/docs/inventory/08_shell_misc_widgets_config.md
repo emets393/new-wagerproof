@@ -42,6 +42,7 @@ Top-level **phase switch** on `RootRouter.phase`:
 - `.animation(.appStandard, value: router.phase)` on the phase switch.
 - **Post-onboarding paywall gating** (`shouldPresentPaywall`): only in `.ready`; held false until `revenueCat.hasResolvedActiveUserEntitlement` AND `!proAccess.isLoading` (covers RC stale-cache window AND admin-role-resolution lag — admin users would otherwise see a paywall flash); suppressed by `paywallDismissed` @State; forced true by `router.testPaywallOverride` (Secret Settings "Reset Onboarding"). Predicate: `!proAccess.isPro`.
 - `paywallDismissed` lives HERE (not in the paywall child) so the cover binding can dismiss cleanly; reset on sign-out (`onChange(of: auth.phase)`) and when `testPaywallOverride` re-activates. Cover **re-injects** auth/onboarding/revenueCat/proAccess environments (fullScreenCover doesn't reliably propagate `@Observable` env).
+- Android strengthens this boundary: `.ready` remains covered by a semantics/touch/back-blocking access resolver until both live RevenueCat identity/entitlement and admin role are resolved. Failure shows Retry + Log Out and retries on foreground; the shell never silently fails open or starts checkout under an anonymous RevenueCat identity.
 - `SplashView`: solid `#0F1117` background, "Wager"(white)+"Proof"(brand green `Color.appPrimary`) wordmark 20pt heavy, tracking −0.5, above a 120×4 `SplashProgressBar` (capsule, gradient appPrimary → `#00B050` → `#BEEB67` over 10% white track). Progress heuristic: starts 10%, climbs to ~36% over 2.6s on a 250ms tick, +30% when auth resolves, +18% when RC entitlement resolved, +18% when RC not loading, caps 92/96%, → 100% when `isReady && elapsed ≥ 1.6s`. Launch screen color asset: `SplashBackground` (Info.plist `UILaunchScreen`).
 
 ### 1.3 `WidgetSyncCoordinator.swift` (26 lines)
@@ -73,6 +74,7 @@ Special cases: `fullScreenCover`/pushed Settings destinations **explicitly re-in
 - `Phase`: `launching / unauthenticated / onboarding / ready`.
 - `resolve(authPhase:onboardingComplete:)`: launching→launching; unauthenticated→unauthenticated (also clears test flags); authenticated→ `.ready` if `onboardingComplete || bypass` else `.onboarding`.
 - **`temporarilyDisableOnboarding = true` (static, hard bypass)** — the onboarding wizard is currently disabled for all users (added 2026-05-29). `forceOnboardingForTesting` (set by Secret Settings "Reset Onboarding" via `forceOnboardingForTestingNow()`, which also sets `testPaywallOverride = true` and flips phase to `.onboarding`) is the only way to re-enter it; in-memory only.
+- **Android release decision:** the temporary iOS bypass is removed. Incomplete authenticated accounts enter onboarding; Secret Settings resets the persisted completion state, sets `testPaywallOverride`, and replays the same path.
 - `handle(deepLink:)`: parses to `DeepLinkRoute` and **always buffers** into `pendingDeepLinkRoute` (both ready & pre-ready branches buffer — consumption is pull-based). `consumePendingDeepLink()` = read + clear.
 
 ### 2.2 Deep-link routing table (`wagerproof://` scheme)
@@ -179,16 +181,18 @@ Android: Credential Manager (Sign in with Google) + Sign in with Apple via web f
   - Agent V3 Engine: Dry Run toggle + Model picker (`AgentV3SettingsStore`, UserDefaults-backed, read by AgentDetailStore.generatePicks; client is V3-only).
   - Diagnostics: Push Diagnostics (platform/model/permission/token prefix/user id alert), Register & Test Push (request permission → `NotificationService.initialize()` + `registerPushToken` → schedules a **local** test notification in 3s with `userInfo {type: auto_pick_ready, agent_id: test, run_id: test}`), Sync Offerings (`revenueCat.syncPurchases()`), Check Offerings (`refreshOffering()` → alert with identifier + package count), Test Paywall, **Reset Onboarding** (writes `profiles.onboarding_completed=false` via Supabase, `onboarding.reset()` wipes App Group key, `router.forceOnboardingForTestingNow()`; alert dismissOnAck pops the cover). Info: User ID. Waivers noted in-file: #053 WagerBot admin rows deferred, #055 Meta SDK event test rows not surfaced.
 - **`DeleteAccountView.swift`** — sheet w/ own stack, "Danger Zone" inline title, X close. Warning triangle in red disc, copy, red info box, destructive "Delete Account" button → confirmation `.alert` → `performDelete()`. **FIDELITY-WAIVER #054: no server-side cascade delete RPC — currently just `auth.signOut()` + dismiss.**
+- Android is ahead of that snapshot: `DeleteAccountScreen` calls the server-backed deletion path and
+  preserves typed failure states; waiver #054 is not active on Android.
 - **`DiscordView.swift`** — sheet. Non-Pro: locked card ("PRO FEATURE" amber pill, "Unlock with Pro" gradient CTA → paywall). Pro: two step-cards — Step 1 Link Discord (`https://gnjrklxotmbvnxbnnqgq.supabase.co/functions/v1/discord-callback?user_id=<uuid>` opened in Safari; linked-state read from `profiles.discord_user_id` on `.task`), Step 2 Join `https://discord.gg/gwy9y7XSDV`. Benefits list ×3. Link check failure ⇒ treated as not-linked.
 - **`IosWidgetView.swift`** — sheet; walkthrough for the two native widgets. Segmented pills Outliers/Agents drive a hardcoded dark widget mock preview; 5 numbered how-to-add steps; note "sync on app open + ~60min background refresh". Android port: rewrite copy for launcher widgets.
 - **`GenerationPreviewView.swift`** (DEBUG) — harness for `AgentGenerationCard` + `ToolActivityStack`: toggle polling, steppers for toolCalls/picks, auto-play (deals a fake tool label every 0.7s ×8), accent swatches; builds fake `TriggerV3RunStatus` via JSON round-trip.
 - **`SettingsFixtures.swift`** (DEBUG) — factory helpers `makeAdminMode/makeRevenueCat/makeSettings/makeProAccess` with `debugSet` seeding for screenshots.
 - **`Sheets/DeleteAccountBottomSheet.swift`** — `DeleteAccountView` + `.presentationDetents([.medium, .large])` variant.
-- **`Sheets/ReviewRequestModal.swift`** — 420pt-detent sheet: icon disc, "Would you leave us some early feedback?", "Yes, I'd love to!" → `@Environment(\.requestReview)` (StoreKit; OS rate-limits) + dismiss; "Not now" dismisses. Android: Play In-App Review API.
+- **`Sheets/ReviewRequestModal.swift`** — 420pt-detent sheet: icon disc, "Would you leave us some early feedback?", "Yes, I'd love to!" → `@Environment(\.requestReview)` (StoreKit; OS rate-limits) + dismiss; "Not now" dismisses. Android intentionally replaces the unused pre-prompt sheet with `ReviewPromptCoordinator` + a root-hosted Play In-App Review request after high-confidence value events; Settings keeps the persistent manual Play listing action.
 
 ### 4.3 Paywall (`Features/Paywall/` — 6 files)
 
-- **`RevenueCatPaywallView.swift`** — sheet-hosted NavigationStack titled "Upgrade to WagerProof Pro" + X. Load flow: `revenueCat.fetchOffering(forPlacement: placementId)` → fallback `revenueCat.offering` → states loading (spinner) / failed (retry) / empty (retry) / ready → **native `RevenueCatUI.PaywallView(offering:displayCloseButton: true)`** with `onPurchaseCompleted`/`onRestoreCompleted` → `refreshCustomerInfo()` + dismiss, `onRequestedDismissal` → dismiss. Placement used everywhere: `RevenueCatService.Placement.genericFeature`. FIDELITY-WAIVER #052: Mixpanel paywall events not fired.
+- **`RevenueCatPaywallView.swift`** — sheet-hosted NavigationStack titled "Upgrade to WagerProof Pro" + X. Load flow: `revenueCat.fetchOffering(forPlacement: placementId)` → fallback `revenueCat.offering` → states loading (spinner) / failed (retry) / empty (retry) / ready → native `RevenueCatUI.PaywallView` with purchase/restore refresh and dismissal.
 - **`CustomerCenterView.swift`** — wraps `RevenueCatUI.CustomerCenterView()` in a stack ("Subscription Management", X); `.task` refreshes customer info so plan changes propagate.
 - **`ProFeatureGate.swift`** — 3 render modes: pro→content; non-pro w/ fallback→fallback; non-pro + `showUpgradePrompt`→inline crown card w/ "Upgrade to Pro" → paywall sheet; loading→thin "Loading…" row; else EmptyView.
 - **`ProContentSection.swift`** — pro or loading → content; else content at 0.3 opacity under `.ultraThinMaterial` + lock capsule ("Pro Feature"/custom title + "Tap to unlock") → paywall.
@@ -196,7 +200,11 @@ Android: Credential Manager (Sign in with Google) + Sign in with Apple via web f
 - **`LockedOverlay.swift`** — generic blur + lock disc + message ("Unlock with Pro" default); optional custom `action` instead of paywall; configurable `placementId`.
 - (Related but in `Features/Onboarding/`: `PostOnboardingPaywall` — fires Meta `trackPurchase`/`trackSubscribe` + `flush()` on conversion.)
 
-Android: RevenueCat Purchases + `com.revenuecat.purchases:purchases-ui` (Paywall + CustomerCenter composables map 1:1); Android API key needed (iOS key is `appl_…`, Android will be `goog_…` — not in this repo).
+Android: generic gates retain RevenueCat Purchases UI, while onboarding uses a full custom Compose
+checkout matching iOS plan hierarchy, carousel, localized terms, restore/sign-out/error states, remote
+`entry_offer` and custom/close switches, and a default-hard dismissal boundary. Large font scales use a
+full scroll escape hatch. Displayed trial/intro terms come from the same RevenueCat `defaultOption` the
+package purchase launches. Restores grant access but never synthesize new conversion events.
 
 ### 4.4 Search (`Features/Search/` — 4 files)
 
@@ -280,15 +288,32 @@ Both: `contentMarginsDisabled()`, `containerBackground = WidgetPalette.backgroun
   - `lastUpdated: String` (ISO-8601, fractional or not)
   - `topAgentPicks: [TopAgentWidgetData]` — `{agentId, agentName, agentEmoji, agentColor (hex string "#22c55e"), isFavorite, netUnits: Double, winRate: Double?, currentStreak: Int (negative = losing streak), record "W-L[-P]", picks: [{id, sport, matchup, pickSelection, odds, result?, gameDate?}]}`
   - `topOutliers: [OutlierAlertForWidget]` — `{id, kind: value|fade, sport, awayTeam, homeTeam, marketType (Spread|Total|Moneyline), side, confidence: Int}`
+  - Android additions: `outlierMarkets: [OutliersWidgetMarketData]` plus `outlierMarketsVersion: Int`.
+    Version `0` means a pre-configurable payload may fall back to `topOutliers`; version `1+`
+    makes an empty configured market authoritative. The two fields are written atomically.
   - (legacy RN fields — editor picks / polymarket — round-tripped, not rendered)
 - Sync logic (main app): top agents = active `avatar_profiles` for user, favorites (`is_widget_favorite`) first then by netUnits→winRate→streak, max 3 agents × 2 picks (prefer today's, 3-day lookback, dedupe); perf from `avatar_performance_cache`; pick/perf fetch failures degrade gracefully. Payload writes **merge** into the existing blob.
 
 **Widget UI:**
 - TopOutliers — small: first alert (sport badge + kind icon, matchup, display label, confidence); medium: header row ("Top Outliers" + "WagerProof") + 2 rows; large: 5 rows. Display rules: fade alerts store the model's FAVORED side → recommendation displays the OPPOSITE ("Fade to X"; totals flip Over/Under); value = "X value". Confidence: value & NFL-fade = `NN%`, other fades = `NNpt`. Sport badge colors (`WidgetSportBadge`): nfl #013369, nba #1D428A, cfb #8B0000, ncaab #FF6600, mlb #002D72, default #6366F1.
 - AgentMonitor — small: top agent (emoji+name, big record, ±N.Nu green/red, W/L streak) over a vertical gradient from the agent's color at 22%; medium: header + 2 agent rows (emoji disc, name, record, net units); large: 3 rows + first pick line "matchup — selection". `Color(widgetHexString:)` parses `#RRGGBB` DB strings.
+- Android's Top Outliers widget is reconfigurable per widget instance. Its Material configuration
+  activity chooses MLB, NFL, NCAAF, Props, or Parlay God; Glance renders that cached market's ranked
+  subject, selection, sample fraction, and odds with version-gated legacy-alert fallback. Parlay God
+  is generated, cached, listed, and rendered only while the App Group Pro-entitlement snapshot is
+  granted; sign-out/downgrade immediately re-renders the widget without locked content. Agent
+  Monitor remains a separate widget.
+- Account transitions synchronously clear Agent Monitor's user-scoped payload, cancel any prior
+  identity's in-flight widget sync, and then re-render before the next account fetch. Partial
+  Outliers source failures retain rows only for failed sports; successful empty sources remove
+  their stale rows. An explicitly configured market that disappears renders empty instead of
+  silently switching to another market.
 - `WidgetPalette` maps design tokens; `WidgetSampleData` = 5 sample alerts + 3 sample agents.
 
-Refresh triggers: cron-driven backend + app foreground/sign-in `WidgetSyncCoordinator.syncAll` → `reloadTimelines(ofKind:)`; plus the 60-min timeline `.after` policy.
+Refresh triggers: cron-driven backend + app foreground/sign-in `WidgetSyncCoordinator.syncAll` →
+`reloadTimelines(ofKind:)`; plus the 60-min timeline `.after` policy. Android coalesces overlapping
+foreground/sign-in refreshes, fetches only installed widget domains, and cancels/skips periodic work
+when neither Glance widget is installed.
 
 ---
 
@@ -325,7 +350,7 @@ Debug: DEBUG conditions, -Onone, singlefile, testability, APS dev. Release: -O w
 | RevenueCat iOS | `appl_TFQYZRtHkCBrnaILkniTjsulyHK` (project suffix ff2fe0e0af per the `rc-` scheme) | `WagerproofServices/RevenueCatService.swift` (Android needs a `goog_` key) |
 | Google Sign-In iOS client | `142325632215-agrfdkh87j01kgfa4uv4opuohl5l01lq.apps.googleusercontent.com` | `WagerproofServices/GoogleSignInCoordinator.swift` (Android needs its own + the web/server client id for Supabase id-token flow) |
 | Facebook App ID / client token | `$(FACEBOOK_APP_ID)` / `$(FACEBOOK_CLIENT_TOKEN)` — **not committed** | Info.plist placeholders only |
-| Mixpanel token | **not present** — `AnalyticsService.bootstrap(token:)` exists but is never called; a "Secrets.swift generated by scripts/generate-secrets.sh" is referenced in comments but neither exists in the repo | — |
+| Mixpanel token | iOS snapshot had no bootstrap; Android ships the same write-only RN/web project token in `AnalyticsService.kt` and bootstraps it from `AppGraph` | Android source |
 | Discord | invite `https://discord.gg/gwy9y7XSDV`; link function `…supabase.co/functions/v1/discord-callback?user_id=` | SideMenuSheet / DiscordView |
 | Support email | `admin@wagerproof.bet` | SideMenuSheet / SettingsView |
 
@@ -339,15 +364,15 @@ Suite `group.com.wagerproof.mobile`; keys: `last_notification_route`, `theme_pre
 
 ## 7. Surprises / gotchas found while reading
 
-1. **Onboarding is hard-bypassed**: `RootRouter.temporarilyDisableOnboarding = true` — all authenticated users skip the wizard; only Secret Settings "Reset Onboarding" can re-enter it. Port the flag.
+1. **iOS onboarding is temporarily hard-bypassed. Android deliberately removed that bypass** for the owner-approved onboarding → hard-paywall release path.
 2. **`wagerproof://reset-password` has no consumer**: parsed into `DeepLinkRoute.resetPassword`, `MainTabStore.apply` punts to "auth router", but AuthRouter has no reset-password route/screen. The Supabase reset email deep-links into the app and… nothing happens. Android should implement the missing set-new-password screen (or replicate the gap knowingly).
 3. **Remote push registration is dead code**: no AppDelegate adaptor calls `NotificationService.setDeviceToken`, so `registerPushToken` always early-returns (`cachedDeviceToken == nil`). Local notifications work; server pushes can't target this build. On Android, FCM token retrieval is explicit — don't copy the gap.
-4. **Mixpanel is linked but never initialized** (package + `AnalyticsService.bootstrap(token:)` exist; no call, no token). Meta/FBSDK IS live (init + registration/purchase/subscribe events).
+4. **The iOS snapshot never initializes Mixpanel. Android does**, and also enables the owner-approved Meta install/GAID + full checkout attribution funnel.
 5. **FACEBOOK_APP_ID / FACEBOOK_CLIENT_TOKEN build settings are undefined in the repo** — injected out-of-band.
 6. **Widget payload key mismatch**: SharedKit declares `widget_payload_v1` but the shipping key is the RN-era literal `widgetPayload` (must keep for installed-widget compatibility on iOS; Android is free to pick one key).
 7. Dark-mode forcing is two-layered: `ThemeStore.init` coerces to `.dark` AND `overrideUserInterfaceStyle` is pushed onto every window (sheets included) — yet the side menu still shows a working System/Light/Dark picker (session-only; reverts to dark on relaunch).
 8. **Both widget providers read `TopAgentsWidgetService.readPayload()`** — TopOutliersProvider too (outliers live in the same blob; `OutliersWidgetService.sync()` writes `topOutliers` into it).
-9. Delete Account doesn't delete (waiver #054): sign-out only, no server RPC.
+9. The iOS snapshot's Delete Account is sign-out-only; Android implements the server-backed deletion path.
 10. Fade-alert display inverts the stored side (model's favored side is stored; widget/UI shows the opposite as the bet) and confidence unit differs by sport (NFL % vs others pt).
 11. The `.sheet(item:)`+`.fullScreenCover` filter trick in SettingsView (secretSettings must be excluded from the sheet binding or SwiftUI mounts a blank sheet) — Compose has no equivalent trap, but preserve the "only one modal at a time" behavior.
 12. Scoreboard exists only via the side menu (`MainTabStore.Tab.scoreboard` retained), and the side menu itself appears to have lost its toolbar entry point (flag + sheet still wired).
@@ -356,7 +381,7 @@ Suite `group.com.wagerproof.mobile`; keys: `last_notification_route`, `theme_pre
 
 ## 8. Android porting notes
 
-**Single-Activity mapping.** One `MainActivity` + Compose. Root phase switch = a `RootRouter` (StateFlow) rendered in `setContent`: `Launching` → splash composable (replicate the fake-progress heuristic or use SplashScreen API + branded exit), `Unauthenticated` → auth NavHost (login/emailLogin/signup/forgotPassword), `Onboarding` → onboarding graph (behind the same bypass flag), `Ready` → `MainTabScaffold`. Post-onboarding paywall = full-screen dialog destination gated by the same `hasResolvedActiveUserEntitlement && !isLoading && !isPro` predicate — port the admin-lag comment, it's a real race.
+**Single-Activity mapping.** One `MainActivity` + Compose. `RootRouter` renders launching/auth/onboarding/ready with manual `AppGraph` injection. Android removes the onboarding bypass. Before `MainScaffold` can receive pointer, back, or accessibility actions, a root overlay fail-closes entitlement/admin resolution; free users then enter the full-screen post-onboarding paywall.
 
 **Tab shell.** `Scaffold` + `NavigationBar` with 4 items (Games/Props/Agents/Outliers) + a search affordance (either a 5th item or a `SearchBar`/`TopAppBar` action — Android has no system "search tab role"). Per-tab back stacks via Navigation-Compose `saveState/restoreState`, re-tap = scroll-to-top signal (port `scrollToTopTrigger`). Settings & WagerBot chat = ordinary destinations pushed on the current stack (drop the `selected == tab` guard). Side menu = `ModalBottomSheet` (keep sheet semantics) or `ModalNavigationDrawer`; the dismiss-then-flip 350ms dance is unnecessary — just navigate. Roast = full-screen destination; Feature Requests + Learn walkthrough = bottom-sheet destinations; Learn carousel = `HorizontalPager`.
 
@@ -420,15 +445,16 @@ Settings:
 - [ ] `IosWidgetView.swift` → `WidgetHelpScreen.kt` (rewrite copy for launcher widgets)
 - [ ] `GenerationPreviewView.swift` → debug-only `GenerationPreviewScreen.kt` (optional)
 - [ ] `SettingsFixtures.swift` → preview fixtures (optional)
-- [ ] `Sheets/ReviewRequestModal.swift` → `ReviewRequestSheet.kt` (Play In-App Review)
+- [x] `Sheets/ReviewRequestModal.swift` → `ReviewPromptCoordinator.kt` + `RootHost.kt` (Play In-App Review; the dead pre-prompt sheet was retired)
 
 Paywall:
-- [ ] `RevenueCatPaywallView.swift` → `PaywallSheet.kt` (RC `Paywall` composable + placement fetch + load states)
-- [ ] `CustomerCenterView.swift` → `CustomerCenterSheet.kt` (RC `CustomerCenter` composable)
-- [ ] `ProFeatureGate.swift` → `ProFeatureGate.kt`
-- [ ] `ProContentSection.swift` → `ProContentSection.kt`
-- [ ] `LockedGameCard.swift` → `LockedGameCard.kt`
-- [ ] `LockedOverlay.swift` → `LockedOverlay.kt`
+- [x] `RevenueCatPaywallView.swift` → `PaywallScreen.kt` (placement fetch + load/error/empty/ready states)
+- [x] `CustomPaywallView.swift` → `CustomPaywallView.kt` + feature/plan files
+- [x] `CustomerCenterView.swift` → `CustomerCenterScreen.kt`
+- [x] `ProFeatureGate.swift` → `ProFeatureGate.kt`
+- [x] `ProContentSection.swift` → `ProContentSection.kt`
+- [x] `LockedGameCard.swift` → `LockedGameCard.kt`
+- [x] `LockedOverlay.swift` → `LockedOverlay.kt`
 
 Search:
 - [ ] `SearchView.swift` → `SearchScreen.kt` (SearchBar + scope chips + explore/browse/results + cross-tab handoff via MainTabState)
@@ -469,9 +495,9 @@ Analytics:
 - [ ] `Components/PitcherRegressionCard.swift` / `BattingRegressionCard.swift` / `BullpenFatigueCard.swift` / `LRSplitsSection.swift` / `SeriesSignalCard.swift` / `WeatherParkFlagCard.swift` → matching `*.kt` cards
 
 Widgets:
-- [ ] `WagerProofWidgetBundle.swift` → two receivers in AndroidManifest + `GlanceAppWidget` classes
-- [ ] `TopOutliersWidget.swift` → `TopOutliersWidget.kt` (Glance + Worker refresh)
-- [ ] `AgentMonitorWidget.swift` → `AgentMonitorWidget.kt`
+- [x] `WagerProofWidgetBundle.swift` → two receivers in AndroidManifest + `GlanceAppWidget` classes
+- [x] `TopOutliersWidget.swift` → configurable `TopOutliersWidget.kt` + configuration activity/preferences
+- [x] `AgentMonitorWidget.swift` → `AgentMonitorWidget.kt`
 - [ ] `Views/TopOutliersWidgetView.swift` → `TopOutliersWidgetContent.kt` (small/medium/large buckets + fade-side inversion + confidence unit rules)
 - [ ] `Views/AgentMonitorWidgetView.swift` → `AgentMonitorWidgetContent.kt`
 - [ ] `Support/WidgetPalette.swift` / `WidgetStyle.swift` / `WidgetSampleData.swift` → `WidgetTheme.kt` / `WidgetSportBadge.kt` / `WidgetSampleData.kt`
@@ -482,6 +508,6 @@ Config:
 - [ ] `WagerproofKit/.../SupabaseConfig.swift` → `SupabaseConfig.kt` (same URLs/anon keys)
 - [ ] `WagerproofKit/.../RevenueCatService.swift` → RC init with a **new `goog_` key**
 - [ ] `WagerproofKit/.../GoogleSignInCoordinator.swift` → Credential Manager setup (new Android client id + web client id)
-- [ ] `WagerproofKit/.../MetaAnalyticsService.swift` → `MetaAnalytics.kt` (FB SDK, auto-events off, 3 explicit events)
+- [x] `WagerproofKit/.../MetaAnalyticsService.swift` → `MetaAnalyticsService.kt` (owner-approved auto install/GAID + explicit full funnel)
 - [ ] `WagerproofKit/.../NotificationService.swift` → `PushService.kt` (FCM token → `user_push_tokens`, channels, local notifs)
 - [ ] `WagerproofKit/.../AppGroup.swift` → `Prefs.kt` (DataStore keys incl. per-user onboarding key)

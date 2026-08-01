@@ -1,22 +1,21 @@
 # Meta (Facebook) Attribution & Conversion Funnel
 
-How WagerProof reports its acquisition funnel to Meta Ads, across iOS native and web.
-Android already had a working integration (`wagerproof-android-native/app/src/main/java/com/wagerproof/app/AppGraph.kt`)
-and is unchanged by this work.
+How WagerProof reports its acquisition funnel to Meta Ads, across iOS native, Android native
+and web.
 
 Reference implementation this was modelled on: `honeydew-swift/HoneydewKit/Sources/HoneydewServices/Analytics/AnalyticsService.swift`.
 
 ## The events
 
-| Funnel step | Meta event | iOS | Web |
-|---|---|---|---|
-| App install | `fb_mobile_activate_app` | auto-logged by FB SDK | n/a |
-| Page view | `PageView` | n/a | pixel snippet in `index.html` |
-| Registration | `fb_mobile_complete_registration` / `CompleteRegistration` | `OnboardingStore.markComplete()` | `AuthContext` (email signup + OAuth first sign-in) |
-| Paywall impression | `fb_mobile_content_view` / `ViewContent` | `CustomPaywallView`, `RevenueCatPaywallView` | `CustomPaywall` |
-| Checkout intent | `fb_mobile_initiated_checkout` / `InitiateCheckout` | both paywalls | `CustomPaywall.handlePurchase` |
-| Trial start | `StartTrial` | `PaywallConversionTracker` | **RevenueCat** (not the browser) |
-| Paid subscription | `Subscribe` | `PaywallConversionTracker` | **RevenueCat** (not the browser) |
+| Funnel step | Meta event | iOS | Android | Web |
+|---|---|---|---|---|
+| App install | `fb_mobile_activate_app` | auto-logged by FB SDK | auto-logged by FB SDK | n/a |
+| Page view | `PageView` | n/a | n/a | pixel snippet in `index.html` |
+| Registration | `fb_mobile_complete_registration` / `CompleteRegistration` | `OnboardingStore.markComplete()` | `OnboardingStore.markComplete()` | `AuthContext` (email signup + OAuth first sign-in) |
+| Paywall impression | `fb_mobile_content_view` / `ViewContent` | `CustomPaywallView`, `RevenueCatPaywallView` | `PaywallScreen`, `PostOnboardingPaywall` | `CustomPaywall` |
+| Checkout intent | `fb_mobile_initiated_checkout` / `InitiateCheckout` | both paywalls | both paywalls | `CustomPaywall.handlePurchase` |
+| Trial start | `StartTrial` | `PaywallConversionTracker` | `PaywallConversionTracker` | **RevenueCat** (not the browser) |
+| Paid subscription | `Subscribe` | `PaywallConversionTracker` | `PaywallConversionTracker` | **RevenueCat** (not the browser) |
 
 iOS and Android previously sent `fb_mobile_purchase` for trial starts (inherited from the RN
 app) while everything else used `StartTrial`, so the same funnel step landed in two different
@@ -72,6 +71,38 @@ back together, sharing one deterministic `event_id` derived from RevenueCat's ow
   server-side Meta events cannot be joined back to the install — this closes ticket
   `docs/wagerproof-migration/tickets/055-meta-sdk-events.md`.
 
+## Android
+
+Same shape as iOS, same file names (`core/services/MetaAnalyticsService.kt`,
+`PaywallConversionTracker.kt`, `core/stores/AuthStore.kt`).
+
+- **SDK boot**: `MetaAnalyticsService.initialize()` from `AppGraph.bootstrap()`, called in
+  `WagerproofApplication.onCreate` — before the first Activity, so the SDK's
+  `ActivityLifecycleTracker` catches this cold launch. It stays inert when
+  `BuildConfig.FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` are absent (credential-free local
+  builds).
+- **Auto-logging and advertiser-ID collection are ON.** Both were force-disabled — in the
+  manifest *and* with runtime setters — which killed `fb_mobile_activate_app` and, because the
+  GAID is Android's primary join key, made every install from a Meta ad unattributable.
+  `AutoInitEnabled` stays **false** so init remains credential-gated.
+  The runtime `setAutoLogAppEventsEnabled(true)` / `setAdvertiserIDCollectionEnabled(true)`
+  calls are NOT redundant with the manifest: FBSDK's `UserSettingsManager` reads its
+  SharedPreferences cache *before* the manifest, and shipped builds persisted `false` there, so
+  upgrading installs would ignore a manifest-only change.
+- **Advanced Matching + external ID**: `AuthStore.identifyForAnalytics`, guarded by
+  `lastIdentifiedUserId` so a token refresh doesn't re-hash. `clearUser()` on the
+  signed-in → signed-out transition only — Supabase also emits `NotAuthenticated` on a cold
+  launch with no session, and clearing there would release the registration guard every launch.
+- **Registration fires once per install** (`meta.completeRegistrationFired` in
+  `wagerproof_prefs`) with the persisted `AuthStore.lastAuthProvider`, then flushes.
+  Developer Settings → Reset Onboarding cannot re-fire it.
+- **All conversions go through `PaywallConversionTracker`**, which every paywall surface uses:
+  `PostOnboardingPaywall` plus `PaywallScreen`, which is what Settings, Developer Settings,
+  `ProFeatureGate`, `ProContentSection`, `LockedGameCard` and `LockedOverlay` all present.
+- **`fb_order_id` is synthesized when Play omits it** (`productId_purchaseSeconds`). Play leaves
+  `StoreTransaction.orderId` null for test purchases and some promo flows, and without that key
+  neither our own dedup nor RevenueCat's reconciliation can work.
+
 ## Web
 
 - **Pixel** loads in `index.html` before React so `PageView` fires on first paint;
@@ -98,8 +129,10 @@ The campaign tooling in `marketing/meta-ads/` reads its own `META_ACCESS_TOKEN` 
 
 ## Verifying
 
-- iOS: Meta Events Manager → Test Events, add the device, run the app. Expect
+- iOS / Android: Meta Events Manager → Test Events, add the device, run the app. Expect
   `fb_mobile_activate_app` on launch and the funnel events as you move through onboarding.
+  On Android, `fb_mobile_activate_app` appearing at all is the check that auto-logging survived
+  — it was silently absent for the whole period both flags were false.
 - Web: Meta Pixel Helper extension. Expect PageView / ViewContent / InitiateCheckout /
   CompleteRegistration — and deliberately NO Subscribe.
 - After any change here, check Events Manager → Data Sources → WagerProof → event volume

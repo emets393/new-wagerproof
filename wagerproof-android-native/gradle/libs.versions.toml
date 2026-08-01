@@ -25,6 +25,7 @@ work = "2.11.2"
 firebaseBom = "34.15.0"
 googleServices = "4.5.0"
 facebook = "18.2.3"
+playReview = "2.0.2"
 
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -85,6 +86,8 @@ mixpanel = { module = "com.mixpanel.android:mixpanel-android", version.ref = "mi
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 facebook-core = { module = "com.facebook.android:facebook-core", version.ref = "facebook" }
+play-review = { module = "com.google.android.play:review", version.ref = "playReview" }
+play-review-ktx = { module = "com.google.android.play:review-ktx", version.ref = "playReview" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

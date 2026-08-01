@@ -30,6 +30,16 @@ data class PropsInsightSummary(
     val signals: List<PropSignal>,
     /** Players with a headline (footer count). */
     val totalProps: Int,
+    /**
+     * Strongest qualified recent-form pattern — the one signal that earns the
+     * big evidence card. null when no bat cleared the hot/cold thresholds, in
+     * which case every signal renders as a compact row.
+     */
+    val featuredPlayerId: Int? = null,
+    /** Plain-language finding for the widget headline. */
+    val headline: String = "",
+    /** Defines what the chart bars and the over-rate percentages mean. */
+    val explainer: String = "",
 )
 
 object MLBPropsInsight {
@@ -97,7 +107,45 @@ object MLBPropsInsight {
             null
         }
 
-        return PropsInsightSummary(verdict = verdict, badge = badge, signals = rendered, totalProps = pool.size)
+        // `best` is already the strongest extreme; the featured card and the
+        // verdict must never disagree about which player they are describing.
+        return PropsInsightSummary(
+            verdict = verdict,
+            badge = badge,
+            signals = rendered,
+            totalProps = pool.size,
+            featuredPlayerId = best?.playerId,
+            headline = summaryHeadline(best),
+            explainer = EXPLAINER,
+        )
+    }
+
+    /** Verbatim from iOS — the copy IS the product; do not paraphrase. */
+    private const val EXPLAINER =
+        "Each percentage is the share of recent games that finished above today's posted line. " +
+            "Green bars finished above it; blue bars finished at or below it."
+
+    /**
+     * The widget's finding sentence. A cold bat points at the UNDER, so its copy
+     * says "only N of M" and names the direction explicitly — the same numbers
+     * the featured card renders, phrased once.
+     */
+    fun summaryHeadline(featured: PropSignal?): String {
+        if (featured == null) {
+            return "No posted player prop has a strong recent pattern. " +
+                "Starter strikeout lines and top-of-the-order markets are shown for context."
+        }
+        val computed = featured.headline.computed
+        val market = MLBPlayerProps.marketLabel(featured.headline.row.market).lowercase()
+        val line = MLBPlayerProps.formatLine(computed.line)
+        val sample = computed.l10
+
+        if (featured.slot == PropSignal.Slot.COLD_BAT) {
+            return "${featured.playerName} finished over the $line $market line in only " +
+                "${sample.over} of ${sample.games} recent games, so the recent pattern points to the Under."
+        }
+        return "${featured.playerName} finished over the $line $market line in " +
+            "${sample.over} of ${sample.games} recent games, the clearest prop pattern in this matchup."
     }
 
     fun teaser(matchup: MLBPropMatchup): InsightTeaser? {

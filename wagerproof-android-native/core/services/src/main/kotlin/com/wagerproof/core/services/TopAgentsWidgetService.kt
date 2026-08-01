@@ -2,6 +2,8 @@ package com.wagerproof.core.services
 
 import com.wagerproof.core.models.AgentPerformance
 import com.wagerproof.core.models.AgentPick
+import com.wagerproof.core.models.AgentPickForWidget
+import com.wagerproof.core.models.TopAgentWidgetData
 import com.wagerproof.core.models.serialization.WagerproofJson
 import com.wagerproof.core.shared.WidgetPayloadStore
 import io.github.jan.supabase.postgrest.from
@@ -15,36 +17,6 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-
-/** Mirrors `AgentPickForWidget` in the RN bridge — camelCase wire names. */
-@Serializable
-data class AgentPickForWidget(
-    val id: String,
-    val sport: String,
-    val matchup: String,
-    val pickSelection: String,
-    val odds: String? = null,
-    val result: String? = null,
-    val gameDate: String? = null,
-)
-
-/**
- * Mirrors `TopAgentWidgetData` in the RN bridge. Combines an agent's
- * identity + cached performance summary + up to N representative picks.
- */
-@Serializable
-data class TopAgentWidgetData(
-    val agentId: String,
-    val agentName: String,
-    val agentEmoji: String,
-    val agentColor: String,
-    val isFavorite: Boolean,
-    val netUnits: Double,
-    val winRate: Double? = null,
-    val currentStreak: Int,
-    val record: String,
-    val picks: List<AgentPickForWidget>,
-)
 
 /**
  * Port of iOS `TopAgentsWidgetService.swift` (itself a port of RN
@@ -62,6 +34,9 @@ object TopAgentsWidgetService {
     // Keep in sync with RN topAgentsWidgetService.ts:5-6.
     private const val MAX_WIDGET_AGENTS = 3
     private const val PICKS_PER_AGENT = 2
+
+    /** Most graded results the small tile's form sparkline plots (iOS `formPointCap`). */
+    internal const val FORM_POINT_CAP = 10
 
     // MARK: - Public entry points
 
@@ -88,6 +63,21 @@ object TopAgentsWidgetService {
     }
 
     /**
+     * Remove account-scoped agent/pick data at every auth identity boundary.
+     * A Glance RemoteViews tree can outlive the app process, so merely asking it
+     * to re-render on sign-out would otherwise repaint account A's cached data.
+     */
+    suspend fun clearCached() {
+        WidgetPayloadStore.updateSlice(
+            key = "topAgentPicks",
+            value = WagerproofJson.encodeToJsonElement(
+                ListSerializer(TopAgentWidgetData.serializer()),
+                emptyList(),
+            ),
+        )
+    }
+
+    /**
      * Read-only fetch of top agents. Mirrors `fetchTopAgentsForWidget` in
      * `services/topAgentsWidgetService.ts`.
      */
@@ -97,7 +87,7 @@ object TopAgentsWidgetService {
 
         // 1) Slim agent rows — we only need the widget projection.
         val agentRows = main.from("avatar_profiles")
-            .select(Columns.raw("id, name, avatar_emoji, avatar_color, is_widget_favorite, is_active")) {
+            .select(Columns.raw("id, name, avatar_emoji, avatar_color, sprite_index, is_widget_favorite, is_active")) {
                 filter {
                     eq("user_id", userId)
                     eq("is_active", true)
@@ -108,7 +98,7 @@ object TopAgentsWidgetService {
 
         // 2) Performance cache for every agent. Failure is tolerated: we still
         //    surface agents with zeroed stats (matches RN).
-        val perfByAgent: Map<String, AgentPerformance> = runCatching {
+        val perfByAgent: Map<String, AgentPerformance> = runCatchingCancellable {
             main.from("avatar_performance_cache")
                 .select(Columns.raw("avatar_id, wins, losses, pushes, total_picks, win_rate, net_units, current_streak, best_streak")) {
                     filter { isIn("avatar_id", agentRows.map { it.id }) }
@@ -135,7 +125,7 @@ object TopAgentsWidgetService {
         val lookbackStr = ServiceDates.localDate(-3)
         // Pick-fetch failure doesn't blank the widget; we still emit agent
         // shells with empty pick lists (matches RN).
-        val picksByAgent: Map<String, List<AgentPick>> = runCatching {
+        val picksByAgent: Map<String, List<AgentPick>> = runCatchingCancellable {
             main.from("avatar_picks")
                 .select {
                     filter {
@@ -144,6 +134,25 @@ object TopAgentsWidgetService {
                     }
                     order("created_at", Order.DESCENDING)
                     limit((MAX_WIDGET_AGENTS * PICKS_PER_AGENT * 5).toLong())
+                }
+                .decodeList<AgentPick>()
+                .groupBy { it.avatarId }
+        }.getOrDefault(emptyMap())
+
+        // 5) Compact graded history for the small tile's form sparkline. This is
+        //    a SECOND query on purpose: step 4 is date-windowed (3 days) and
+        //    mostly pending, which would give a flat, useless line. Over-fetch 2x
+        //    the cap so each agent still has ~10 points after the group-by.
+        //    A failure here must not hide otherwise-valid agent data.
+        val formPicksByAgent: Map<String, List<AgentPick>> = runCatchingCancellable {
+            main.from("avatar_picks")
+                .select {
+                    filter {
+                        isIn("avatar_id", selectedIds)
+                        isIn("result", listOf("won", "lost", "push"))
+                    }
+                    order("created_at", Order.DESCENDING)
+                    limit((MAX_WIDGET_AGENTS * FORM_POINT_CAP * 2).toLong())
                 }
                 .decodeList<AgentPick>()
                 .groupBy { it.avatarId }
@@ -159,8 +168,11 @@ object TopAgentsWidgetService {
                 netUnits = perf?.netUnits ?: 0.0,
                 winRate = perf?.winRate,
                 currentStreak = perf?.currentStreak ?: 0,
+                bestStreak = perf?.bestStreak ?: 0,
                 record = formatRecord(perf),
                 picks = selectPicks(picksByAgent[row.id].orEmpty()),
+                spriteIndex = row.spriteIndex,
+                form = formValues(formPicksByAgent[row.id].orEmpty()),
             )
         }
     }
@@ -197,6 +209,39 @@ object TopAgentsWidgetService {
         val losses = perf?.losses ?: 0
         val pushes = perf?.pushes ?: 0
         return if (pushes > 0) "$wins-$losses-$pushes" else "$wins-$losses"
+    }
+
+    /**
+     * Cumulative W/L form series for the widget sparkline (iOS `formValues`).
+     *
+     * Oldest → newest, capped at [FORM_POINT_CAP] results, seeded with a leading
+     * 0 so a single graded pick still draws a segment. A win steps +1, a loss
+     * −1, and a PUSH deliberately HOLDS the line rather than being dropped —
+     * dropping it would make a push look like a missing bet instead of a
+     * no-move. Returns empty (→ flat baseline) when nothing is graded; the chart
+     * must never invent movement.
+     */
+    internal fun formValues(picks: List<AgentPick>): List<Double> {
+        val recent = picks
+            .filter { it.result != AgentPick.PickResultStatus.PENDING }
+            // createdAt is ISO-8601 — lexicographic order is chronological order.
+            .sortedBy { it.createdAt }
+            .takeLast(FORM_POINT_CAP)
+        if (recent.isEmpty()) return emptyList()
+
+        var score = 0.0
+        val points = mutableListOf(score)
+        for (pick in recent) {
+            when (pick.result) {
+                AgentPick.PickResultStatus.WON -> score += 1.0
+                AgentPick.PickResultStatus.LOST -> score -= 1.0
+                AgentPick.PickResultStatus.PUSH,
+                AgentPick.PickResultStatus.PENDING,
+                -> Unit
+            }
+            points += score
+        }
+        return points
     }
 
     /**
@@ -241,6 +286,7 @@ object TopAgentsWidgetService {
         val name: String,
         @SerialName("avatar_emoji") val avatarEmoji: String? = null,
         @SerialName("avatar_color") val avatarColor: String? = null,
+        @SerialName("sprite_index") val spriteIndex: Int? = null,
         @SerialName("is_widget_favorite") val isWidgetFavorite: Boolean? = null,
         @SerialName("is_active") val isActive: Boolean? = null,
     )

@@ -346,7 +346,7 @@ fun OnboardingRevealView(model: OnboardingGenesisModel?, accent: Color, modifier
             }
         }
         Box(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp).height(60.dp).liquidGlassBackground(CircleShape, Color.White.copy(alpha = 0.92f)).onboardingPressable(store::markComplete),
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp).height(60.dp).liquidGlassBackground(CircleShape, Color.White.copy(alpha = 0.92f)).onboardingPressable(onClickLabel = "See everything", onClick = store::advance),
             contentAlignment = Alignment.Center,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

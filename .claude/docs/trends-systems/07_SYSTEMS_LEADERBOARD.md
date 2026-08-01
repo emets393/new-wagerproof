@@ -54,6 +54,25 @@ use, ranked by all-time ROI on a public leaderboard.
   Dedupe mirrors each page exactly: NFL/CFB game totals = home rows; MLB = home-preferred.
 - pg_cron `grade-analysis-systems-daily` at 09:20 UTC via net.http_post.
 
+## Clients
+
+All three shipping clients write the same row shape (`verdict` + `rpc_bet_type` +
+`rpc_filters` + `is_public`) and invoke `grade-analysis-systems` on save-with-share /
+Share-on. A row missing those columns is a bookmark the grader skips forever.
+
+| Client | Save | My Systems | Leaderboard |
+|---|---|---|---|
+| Web `/historical-trends` | ✅ | ✅ | ✅ multi-sport (All / MLB / NFL / CFB) |
+| iOS native | ✅ | ✅ | ✅ sport-scoped |
+| Android native | ✅ | ✅ | ✅ sport-scoped |
+
+Android: `core/services/AnalysisSystemsService.kt` (CRUD + leaderboard RPC + grade
+request), `core/models/AnalysisSystems.kt` (verdict/record/last10/streak/copy),
+`app/features/analytics/historical/{SaveSystemSheet,SystemsHubSheet,SystemsUi}.kt`.
+Android saved BOOKMARK-shaped rows before 2026-07-31 — those decode as
+`isTrackedSystem == false` and are labelled "Filters only" rather than shown with a
+fake record.
+
 ## Grading semantics
 
 Per-row outcome from the saved verdict's perspective; pushes (null hit) excluded from

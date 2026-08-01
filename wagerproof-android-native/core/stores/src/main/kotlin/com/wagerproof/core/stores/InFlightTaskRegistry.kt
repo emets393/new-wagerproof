@@ -47,4 +47,19 @@ class InFlightTaskRegistry<K : Any>(private val scope: CoroutineScope) {
         deferred.start()
         deferred.await()
     }
+
+    /**
+     * Cancel and forget every shared operation currently owned by this registry.
+     *
+     * Callers use this when the identity that scopes their cached state changes:
+     * work authenticated as the previous user must not outlive that binding and
+     * publish into the next user's state. Copy the tasks out under the lock, then
+     * cancel outside it so completion callbacks never run while the lock is held.
+     */
+    fun cancelAll() {
+        val active = synchronized(lock) {
+            tasks.values.toList().also { tasks.clear() }
+        }
+        active.forEach { it.cancel() }
+    }
 }

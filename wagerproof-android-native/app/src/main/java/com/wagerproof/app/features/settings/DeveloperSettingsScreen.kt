@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.agents.components.AgentGenerationCard
 import com.wagerproof.app.features.chat.WagerBotVoiceScreen
 import com.wagerproof.app.features.paywall.PaywallScreen
+import com.wagerproof.app.features.paywall.PostOnboardingPaywall
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
@@ -55,8 +57,7 @@ private data class DiagMessage(val title: String, val body: String)
  * Reached via the double-tap shortcut on the Settings footer version row.
  *
  * Sections: Testing Toggles, Platform Analytics, Agent V3 Engine, Diagnostics,
- * Info (User ID). Admin Mode is hidden unless `adminMode.canEnableAdminMode`;
- * Dummy Data Mode is DEBUG-only.
+ * Info (User ID). Admin Mode is hidden unless `adminMode.canEnableAdminMode`.
  *
  * // FIDELITY-WAIVER #053 (carried from iOS): WagerBot admin rows deferred.
  * // FIDELITY-WAIVER #055 (carried from iOS): Meta SDK event-test rows not surfaced.
@@ -66,7 +67,6 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
     val graph = appGraph()
     val revenueCat = graph.revenueCat
     val adminMode = graph.adminMode
-    val debugDataMode = graph.debugDataMode
     val auth = graph.auth
     val onboarding = graph.onboarding
     val router = graph.rootRouter
@@ -77,6 +77,7 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
     var diag by remember { mutableStateOf<DiagMessage?>(null) }
     var showStats by remember { mutableStateOf(false) }
     var showPaywall by remember { mutableStateOf(false) }
+    var showCustomPaywall by remember { mutableStateOf(false) }
     var showGenerationPreview by remember { mutableStateOf(false) }
     var showVoice by remember { mutableStateOf(false) }
 
@@ -131,16 +132,10 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
                     trailing = { AppSwitch(adminMode.adminModeEnabled) { adminMode.toggleAdminMode() } },
                 )
             }
-            if (BuildFlags.isDebugBuild) {
-                DeveloperRow(
-                    icon = AppIcon.WAND_AND_STARS.imageVector,
-                    iconColor = Color(0xFF8B5CF6),
-                    iconBackground = Color(0xFFF3EEFF),
-                    title = "Dummy Data Mode",
-                    subtitle = if (debugDataMode.enabled) "Serving real captured sample games" else "Populate cards & widgets in the offseason",
-                    trailing = { AppSwitch(debugDataMode.enabled) { debugDataMode.enabled = it } },
-                )
-            }
+            // AND-088 (owner decision): the "Dummy Data Mode" toggle was REMOVED
+            // rather than finished. Only 1 of 8 iOS fixture branches was ever
+            // ported, so the switch advertised a capability the build did not
+            // have. Do not re-add it without porting the fixtures.
 
             // --- Platform Analytics ---
             ProfileSectionHeader("Platform Analytics")
@@ -227,6 +222,14 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
                 onClick = { showPaywall = true },
             )
             DeveloperRow(
+                icon = AppIcon.RECTANGLE_STACK_FILL.imageVector,
+                iconColor = Color(0xFF22C55E),
+                iconBackground = Color(0xFFE8F9EF),
+                title = "Test Custom Paywall",
+                subtitle = "Present the post-onboarding custom paywall",
+                onClick = { showCustomPaywall = true },
+            )
+            DeveloperRow(
                 icon = AppIcon.ARROW_CLOCKWISE.imageVector,
                 iconColor = Color(0xFFD16A00),
                 iconBackground = Color(0xFFFFF0E1),
@@ -275,6 +278,33 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
         BackHandler { showPaywall = false }
         Box(Modifier.fillMaxSize()) {
             PaywallScreen(onDismiss = { showPaywall = false })
+        }
+    }
+
+    if (showCustomPaywall) {
+        // Dev shortcut for the post-onboarding custom paywall (AND-073) — seeing
+        // it otherwise means resetting onboarding and walking the whole flow.
+        // `isDebugPreview` forces the red DEBUG close on even though the real
+        // gate ships hard, and this BackHandler is what stops Back from closing
+        // Developer Settings behind the still-visible paywall.
+        BackHandler { showCustomPaywall = false }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(AppColors.appSurface)
+                // No-op click sink so a tap on empty paywall chrome can't reach a
+                // Developer Settings row underneath (e.g. "Reset Onboarding").
+                // A clickable only claims taps children ignored, so it does NOT
+                // break the paywall's own controls the way a consuming wrapper would.
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {},
+        ) {
+            PostOnboardingPaywall(
+                onUserDismissed = { showCustomPaywall = false },
+                isDebugPreview = true,
+            )
         }
     }
 

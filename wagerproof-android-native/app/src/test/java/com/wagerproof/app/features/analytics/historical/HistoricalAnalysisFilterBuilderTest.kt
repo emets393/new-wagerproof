@@ -105,6 +105,39 @@ class HistoricalAnalysisFilterBuilderTest {
     }
 
     @Test
+    fun mlbWeatherOnlyDetectionIgnoresMandatorySeasonBound() {
+        val snapshot = HistoricalAnalysisUISnapshot.defaults(HistoricalAnalysisSport.MLB).apply {
+            tempMin = 55
+            windDir = "out"
+        }
+
+        val filters = HistoricalAnalysisFilterBuilder.buildRPCFilters(HistoricalAnalysisSport.MLB, snapshot)
+
+        assertTrue("season_min" in filters)
+        assertTrue("temp_min" in filters)
+        assertTrue("wind_dir" in filters)
+        assertTrue(HistoricalAnalysisFilterBuilder.mlbFiltersWeatherOnly(filters))
+    }
+
+    @Test
+    fun mlbDefaultOrMixedFiltersAreNotClassifiedAsWeatherOnly() {
+        val defaults = HistoricalAnalysisFilterBuilder.buildRPCFilters(
+            HistoricalAnalysisSport.MLB,
+            HistoricalAnalysisUISnapshot.defaults(HistoricalAnalysisSport.MLB),
+        )
+        assertFalse(HistoricalAnalysisFilterBuilder.mlbFiltersWeatherOnly(defaults))
+
+        val mixed = HistoricalAnalysisFilterBuilder.buildRPCFilters(
+            HistoricalAnalysisSport.MLB,
+            HistoricalAnalysisUISnapshot.defaults(HistoricalAnalysisSport.MLB).apply {
+                tempMin = 55
+                teams = listOf("CHC")
+            },
+        )
+        assertFalse(HistoricalAnalysisFilterBuilder.mlbFiltersWeatherOnly(mixed))
+    }
+
+    @Test
     fun legacySeriesGameRangeMigratesIntoTheMultiSelect() {
         val restored = Json.decodeFromString(
             HistoricalAnalysisUISnapshotSerializer,

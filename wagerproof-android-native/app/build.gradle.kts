@@ -137,6 +137,8 @@ dependencies {
     implementation(libs.androidx.splashscreen)
     implementation(libs.androidx.browser)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.play.review)
+    implementation(libs.play.review.ktx)
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)

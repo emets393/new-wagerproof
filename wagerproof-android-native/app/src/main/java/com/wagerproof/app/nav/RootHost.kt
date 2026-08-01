@@ -1,28 +1,45 @@
 package com.wagerproof.app.nav
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.auth.AuthGateScreen
 import com.wagerproof.app.features.auth.ResetPasswordScreen
@@ -35,6 +52,14 @@ import com.wagerproof.core.stores.AuthStore
 import com.wagerproof.core.stores.RootRouter
 import com.wagerproof.core.stores.DeepLinkRoute
 import com.wagerproof.core.services.NotificationService
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
+import com.google.android.play.core.ktx.launchReview
+import com.google.android.play.core.ktx.requestReview
+import com.google.android.play.core.review.ReviewManagerFactory
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 /**
@@ -47,12 +72,23 @@ import kotlinx.coroutines.launch
 @Composable
 fun RootHost(modifier: Modifier = Modifier) {
     val graph = appGraph()
+    val activity = LocalActivity.current
     val router = graph.rootRouter
     val authPhase = graph.auth.phase
     val onboardingComplete = graph.onboarding.isComplete
+    val revenueCatEntitlementStatus = graph.revenueCat.entitlementStatus
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var resetPasswordPresented by remember { mutableStateOf(false) }
     var paywallDismissed by remember { mutableStateOf(false) }
+
+    /**
+     * Mirror of the paywall's resolved `paywall_close_enabled` metadata flag
+     * (AND-002). Starts false so back is swallowed while the offering is still
+     * loading — the hard gate is the default, and a soft gate arriving a moment
+     * late is far better than a hard gate that back walks straight through.
+     */
+    var paywallCloseEnabled by remember { mutableStateOf(false) }
 
     // iOS `body.task`: start the Supabase auth listener once. Idempotent.
     LaunchedEffect(Unit) {
@@ -65,6 +101,17 @@ fun RootHost(modifier: Modifier = Modifier) {
     LaunchedEffect(authPhase) {
         when (val phase = authPhase) {
             is AuthStore.Phase.Authenticated -> {
+                val identityChanged = graph.revenueCat.prepareUserIdentity(phase.userId)
+                if (identityChanged) {
+                    WidgetSyncCoordinator.clearUserScopedWidgets(graph.application, phase.userId)
+                }
+                // App-scoped caches intentionally outlive their screens, so the
+                // root auth boundary must own their user binding. bindUser also
+                // clears detail polling on a direct account A → B transition.
+                graph.agents.bind(phase.userId.lowercase())
+                graph.topAgentPicks.bind(phase.userId.lowercase())
+                graph.followedAgents.bind(phase.userId)
+                graph.agentDetailStores.bindUser(phase.userId)
                 graph.onboarding.attachUser(phase.userId)
                 router.resolve(phase, graph.onboarding.isComplete)
                 graph.wagerBotChat.bind(phase.userId)
@@ -74,10 +121,15 @@ fun RootHost(modifier: Modifier = Modifier) {
                 WidgetSyncCoordinator.syncAll(graph.application, phase.userId)
             }
             is AuthStore.Phase.Unauthenticated -> {
+                graph.agents.bind(null)
+                graph.topAgentPicks.bind(null)
+                graph.followedAgents.bind(null)
+                graph.agentDetailStores.clear()
                 graph.onboarding.detachUser()
                 router.resolve(phase, onboardingComplete = false)
                 graph.wagerBotChat.bind(null)
                 graph.revenueCat.detachUser()
+                WidgetSyncCoordinator.clearUserScopedWidgets(graph.application, nextUserId = null)
                 graph.adminMode.reset()
             }
             is AuthStore.Phase.Launching -> router.resolve(phase, onboardingComplete = false)
@@ -112,17 +164,106 @@ fun RootHost(modifier: Modifier = Modifier) {
         if (router.testPaywallOverride) paywallDismissed = false
     }
 
+    // Glance publishes RemoteViews snapshots; changing the App Group boolean is
+    // not enough to retract a previously-rendered Parlay God card. Re-render on
+    // every trusted grant/downgrade (and on identity invalidation) so the
+    // launcher sees the current entitlement immediately.
+    LaunchedEffect(revenueCatEntitlementStatus) {
+        WidgetSyncCoordinator.refreshCachedWidgets(graph.application)
+    }
+
+    val requiresSubscriptionResolution = requiresSubscriptionResolution(
+        phase = router.phase,
+        authenticated = authPhase is AuthStore.Phase.Authenticated,
+        hasResolvedActiveUserEntitlement = graph.revenueCat.hasResolvedActiveUserEntitlement,
+        proAccessLoading = graph.proAccess.isLoading,
+    )
     val shouldPresentPaywall = router.phase == RootRouter.Phase.Ready &&
         graph.revenueCat.hasResolvedActiveUserEntitlement &&
         !graph.proAccess.isLoading &&
         !paywallDismissed &&
         (router.testPaywallOverride || !graph.proAccess.isPro)
+    val latestShouldPresentPaywall by rememberUpdatedState(shouldPresentPaywall)
+    val latestResetPasswordPresented by rememberUpdatedState(resetPasswordPresented)
+    val latestRequiresSubscriptionResolution by rememberUpdatedState(requiresSubscriptionResolution)
+    val latestAuthPhase by rememberUpdatedState(authPhase)
+
+    // A network failure remains visibly fail-closed, but returning to the app is
+    // also an automatic retry opportunity. The explicit Retry action below is
+    // still available when the process never leaves the foreground.
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            val account = latestAuthPhase as? AuthStore.Phase.Authenticated
+            if (event == Lifecycle.Event.ON_RESUME &&
+                account != null &&
+                graph.rootRouter.phase == RootRouter.Phase.Ready &&
+                !graph.revenueCat.hasResolvedActiveUserEntitlement &&
+                !graph.revenueCat.isLoading &&
+                graph.revenueCat.lastError != null
+            ) {
+                scope.launch { graph.revenueCat.attachUser(account.userId) }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // A value event only creates a pending request. The host then waits for a
+    // quiet window and re-checks every presentation guard immediately before
+    // claiming the attempt. Play may suppress its UI; that is still an attempt,
+    // because the API deliberately exposes neither prompt visibility nor rating.
+    LaunchedEffect(Unit) {
+        snapshotFlow { graph.reviewPrompts.pendingRequest }
+            .filterNotNull()
+            .collect { request ->
+                delay(REVIEW_QUIET_DELAY_MILLIS)
+                val hostActivity = activity
+                val processIsActive = ProcessLifecycleOwner.get().lifecycle.currentState
+                    .isAtLeast(Lifecycle.State.STARTED)
+                if (hostActivity == null ||
+                    hostActivity.isFinishing ||
+                    hostActivity.isDestroyed ||
+                    !processIsActive ||
+                    router.phase != RootRouter.Phase.Ready ||
+                    latestShouldPresentPaywall ||
+                    latestRequiresSubscriptionResolution ||
+                    latestResetPasswordPresented
+                ) {
+                    graph.reviewPrompts.cancel(request)
+                    return@collect
+                }
+                if (!graph.reviewPrompts.claim(request)) return@collect
+
+                try {
+                    val manager = ReviewManagerFactory.create(hostActivity)
+                    val reviewInfo = manager.requestReview()
+                    manager.launchReview(hostActivity, reviewInfo)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Exception) {
+                    // Review failures are intentionally non-blocking. The value
+                    // event still consumed an attempt before this API call.
+                }
+            }
+    }
 
     Box(modifier.fillMaxSize().background(AppColors.appSurface)) {
         AnimatedContent(
             targetState = router.phase,
             transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(180)) },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (shouldPresentPaywall || requiresSubscriptionResolution || resetPasswordPresented) {
+                        // A sibling overlay blocks touch/back but does not remove
+                        // the shell's semantics tree. Hide it while modal content
+                        // is present so TalkBack cannot activate controls behind
+                        // the hard gate.
+                        Modifier.clearAndSetSemantics { }
+                    } else {
+                        Modifier
+                    },
+                ),
             label = "root-phase",
         ) { phase ->
             when (phase) {
@@ -138,12 +279,47 @@ fun RootHost(modifier: Modifier = Modifier) {
                 paywallDismissed = true
                 router.clearTestPaywallOverride()
             }
-            // Back does exactly what the paywall's own ✕ does — no more, no less.
-            // Never falls through to MainScaffold's handler (disabled at the
-            // Games tab root, which is where a freshly-onboarded user lands), so
-            // back can't finish the Activity out from under the paywall.
-            ModalOverlay(onBack = dismissPaywall) {
-                PostOnboardingPaywall(onUserDismissed = dismissPaywall)
+            // Back does exactly what the paywall's own ✕ does — no more, no less,
+            // INCLUDING not existing. The gate hardness is remote-configured
+            // (`paywall_close_enabled`, default false = hard), and the paywall
+            // reports the resolved value up here so the ✕ and back can't disagree:
+            // a hard gate with a working back button is not a gate.
+            //
+            // The handler stays REGISTERED either way. Swallowing back is the
+            // point — letting it fall through reaches MainScaffold's handler,
+            // which is DISABLED at the Games tab root (exactly where a freshly
+            // onboarded user lands), so back would finish the Activity.
+            ModalOverlay(onBack = { if (paywallCloseEnabled) dismissPaywall() }) {
+                PostOnboardingPaywall(
+                    onUserDismissed = dismissPaywall,
+                    onCloseEnabledChanged = { paywallCloseEnabled = it },
+                )
+            }
+        }
+
+        if (requiresSubscriptionResolution && !resetPasswordPresented) {
+            val account = authPhase as? AuthStore.Phase.Authenticated
+            ModalOverlay(onBack = {}) {
+                SubscriptionResolutionOverlay(
+                    isLoading = graph.revenueCat.isLoading || graph.revenueCat.lastError == null,
+                    hasError = graph.revenueCat.lastError != null,
+                    onRetry = {
+                        if (account != null && !graph.revenueCat.isLoading) {
+                            scope.launch { graph.revenueCat.attachUser(account.userId) }
+                        }
+                    },
+                    onSignOut = {
+                        if (account != null) {
+                            scope.launch {
+                                // Match every other logout path: leaving this
+                                // device token active would keep delivering the
+                                // departing account's agent notifications.
+                                NotificationService.deactivatePushTokens(account.userId)
+                                graph.auth.signOut()
+                            }
+                        }
+                    },
+                )
             }
         }
 
@@ -156,7 +332,11 @@ fun RootHost(modifier: Modifier = Modifier) {
                 ResetPasswordScreen(
                     onDone = {
                         resetPasswordPresented = false
-                        scope.launch { graph.auth.signOut() }
+                        val account = authPhase as? AuthStore.Phase.Authenticated
+                        scope.launch {
+                            account?.let { NotificationService.deactivatePushTokens(it.userId) }
+                            graph.auth.signOut()
+                        }
                     },
                 )
             }
@@ -180,6 +360,77 @@ fun RootHost(modifier: Modifier = Modifier) {
             },
             containerColor = AppColors.appSurfaceElevated,
         )
+    }
+}
+
+private const val REVIEW_QUIET_DELAY_MILLIS = 3_000L
+
+internal fun requiresSubscriptionResolution(
+    phase: RootRouter.Phase,
+    authenticated: Boolean,
+    hasResolvedActiveUserEntitlement: Boolean,
+    proAccessLoading: Boolean,
+): Boolean = phase == RootRouter.Phase.Ready &&
+    authenticated &&
+    (!hasResolvedActiveUserEntitlement || proAccessLoading)
+
+@Composable
+private fun SubscriptionResolutionOverlay(
+    isLoading: Boolean,
+    hasError: Boolean,
+    onRetry: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AppColors.appSurface),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 420.dp)
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = AppColors.appPrimary,
+                    modifier = Modifier.size(34.dp),
+                )
+                Text(
+                    text = "Checking your WagerProof access…",
+                    color = AppColors.appTextPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                )
+            } else if (hasError) {
+                Text(
+                    text = "We couldn't verify your subscription",
+                    color = AppColors.appTextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "Check your connection and try again. Your account has not been charged.",
+                    color = AppColors.appTextSecondary,
+                    textAlign = TextAlign.Center,
+                )
+                Button(
+                    onClick = onRetry,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.appPrimary,
+                        contentColor = AppColors.appSurface,
+                    ),
+                ) {
+                    Text("Retry", fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = onSignOut) {
+                    Text("Log Out", color = AppColors.appTextSecondary)
+                }
+            }
+        }
     }
 }
 

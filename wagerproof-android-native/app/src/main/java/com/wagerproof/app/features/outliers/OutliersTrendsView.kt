@@ -38,6 +38,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,10 +56,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.gamecards.TeamInitials
 import com.wagerproof.app.features.components.InsetGroupedDivider
 import com.wagerproof.app.features.components.InsetGroupedSection
+import com.wagerproof.app.features.components.QuickFilterField
 import com.wagerproof.app.features.components.SheetSearchField
+import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
+import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
+import com.wagerproof.app.features.parlaygod.ParlayGodRail
+import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
@@ -66,11 +73,14 @@ import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.models.CFBTeamAssets
 import com.wagerproof.core.models.MLBTeams
 import com.wagerproof.core.models.NFLTeamAssets
+import com.wagerproof.core.models.OutliersTrendsCard
 import com.wagerproof.core.models.OutliersTrendsGame
 import com.wagerproof.core.models.OutliersTrendsMarketSection
 import com.wagerproof.core.models.OutliersTrendsMatchupFilter
 import com.wagerproof.core.models.OutliersTrendsSport
 import com.wagerproof.core.models.OutliersTrendsSubject
+import com.wagerproof.core.models.ParlayTicket
+import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.stores.LoadState
 import com.wagerproof.core.stores.OutliersTrendsStore
 import kotlinx.coroutines.launch
@@ -98,9 +108,25 @@ fun OutliersTrendsView(
     store: OutliersTrendsStore,
     modifier: Modifier = Modifier,
 ) {
+    val graph = appGraph()
+    val parlayGod = graph.parlayGod
     val scope = rememberCoroutineScope()
     var showMatchupPicker by remember { mutableStateOf(false) }
     var selectedTrend by remember { mutableStateOf<OutliersTrendSelection?>(null) }
+    var selectedParlay by remember { mutableStateOf<ParlayTicket?>(null) }
+    var showParlayPaywall by remember { mutableStateOf(false) }
+    var quickFilterText by remember { mutableStateOf("") }
+
+    val parlayAccess = when {
+        graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
+        graph.proAccess.isPro -> ParlayGodAccessState.Granted
+        else -> ParlayGodAccessState.Locked
+    }
+
+    // Keep this on the always-mounted page container. The rail intentionally
+    // renders nothing on a thin slate, so attaching the fetch to the rail would
+    // leave the feature permanently empty on its first appearance.
+    LaunchedEffect(Unit) { parlayGod.refreshIfNeeded() }
 
     // iOS `.onChange(of: store.sport)` — reset dependent filters + refetch. Skip
     // the initial composition so we don't refetch what the root screen already loaded.
@@ -114,7 +140,17 @@ fun OutliersTrendsView(
         store.refresh()
     }
 
-    val sections = store.marketSections
+    val activeQuickFilter = quickFilterText.trim()
+    val query = activeQuickFilter.lowercase()
+    // `store.marketSections` is already memoized store-side (Wave 1, AND-045),
+    // so this only re-runs the per-card text scan when the query — or the
+    // engine's output — actually changes. iOS keys the same derivation on
+    // (revision, sport, matchup, subject, query, sortMode); Android has no sort
+    // control yet (AND-061), and the first four are all folded into
+    // `marketSections`' own identity.
+    val sections = remember(store.marketSections, query) {
+        filteredSections(store.marketSections, query)
+    }
     val gamesById = remember(store.games) { store.games.associateBy { it.id } }
     val onRetry: () -> Unit = { scope.launch { store.refresh() } }
 
@@ -123,7 +159,36 @@ fun OutliersTrendsView(
         contentPadding = PaddingValues(bottom = Spacing.md),
     ) {
         stickyHeader {
-            FilterPills(store) { showMatchupPicker = true }
+            FilterPills(
+                store = store,
+                quickFilterText = quickFilterText,
+                onQuickFilterText = { quickFilterText = it },
+                onOpenMatchup = { showMatchupPicker = true },
+            )
+        }
+
+        // The page-level perfect-streak category leads the content exactly as
+        // it does on iOS. A Quick Filter narrows trend cards, so the slate-wide
+        // rail gets out of the way while that field is active.
+        if (activeQuickFilter.isEmpty()) {
+            item(key = "parlay-god") {
+                ParlayGodRail(
+                    title = "Parlay God",
+                    tickets = parlayGod.slateTickets,
+                    isLoading = parlayGod.isLoading,
+                    sports = parlayGod.slateSports,
+                    errorMessage = parlayGod.errorMessage,
+                    onRetry = { scope.launch { parlayGod.refreshIfNeeded(force = true) } },
+                    onTicketClick = { selectedParlay = it },
+                    accessState = parlayAccess,
+                    onRequestPro = { showParlayPaywall = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.lg)
+                        .padding(top = 4.dp, bottom = Spacing.lg),
+                    contentPadding = PaddingValues(0.dp),
+                )
+            }
         }
 
         when {
@@ -137,7 +202,7 @@ fun OutliersTrendsView(
             store.lastError != null && sections.isEmpty() ->
                 item { ErrorState(store.lastError!!, onRetry) }
 
-            sections.isEmpty() -> item { EmptyState() }
+            sections.isEmpty() -> item { EmptyState(activeQuickFilter) }
 
             else -> {
                 itemsIndexed(sections, key = { _, s -> s.id }) { index, section ->
@@ -165,6 +230,9 @@ fun OutliersTrendsView(
     }
 
     selectedTrend?.let { selection ->
+        DisposableEffect(selection.id) {
+            onDispose { graph.reviewPrompts.recordResearchDetailViewed() }
+        }
         OutliersTrendDetailSheet(
             card = selection.card,
             sport = store.sport,
@@ -172,17 +240,98 @@ fun OutliersTrendsView(
             onDismiss = { selectedTrend = null },
         )
     }
+
+    selectedParlay?.let { ticket ->
+        ParlayGodDetailSheet(ticket = ticket, onDismiss = { selectedParlay = null })
+    }
+
+    PaywallDialogHost(
+        show = showParlayPaywall,
+        placementId = RevenueCatService.Placement.GENERIC_FEATURE,
+        onDismiss = { showParlayPaywall = false },
+    )
+}
+
+// MARK: - Quick Filter
+//
+// Ported from iOS `OutliersTrendsView.cardMatches` (:423-443). A trend card is
+// mostly prose — the headline number lives in `rows[].text`, the book/price in
+// `bettingLines[]` — so the query is matched against the WHOLE card, not just
+// its subject. That is what lets "referee", "under", "DraftKings" or "+140" all
+// find something on a board of ~8 markets × 24 cards.
+
+/**
+ * Drop cards that don't match [query], then drop sections that emptied out.
+ * Pure — unit-tested in `OutliersTrendsQuickFilterTest`.
+ */
+internal fun filteredSections(
+    sections: List<OutliersTrendsMarketSection>,
+    query: String,
+): List<OutliersTrendsMarketSection> {
+    if (query.isEmpty()) return sections
+    return sections.mapNotNull { section ->
+        val matching = section.cards.filter { cardMatches(it, query) }
+        if (matching.isEmpty()) {
+            null
+        } else {
+            // Copy rather than mutate: `marketSections` is the store's memoized
+            // value and is shared with the Search tab's trend results.
+            OutliersTrendsMarketSection(
+                marketKey = section.marketKey,
+                title = section.title,
+                cards = matching,
+            )
+        }
+    }
+}
+
+/** [query] must already be trimmed + lowercased. */
+internal fun cardMatches(card: OutliersTrendsCard, query: String): Boolean {
+    val searchable = buildString {
+        append(card.subjectName).append(' ')
+        append(card.subjectDetail.orEmpty()).append(' ')
+        append(card.teamAbbr.orEmpty()).append(' ')
+        append(card.matchupLabel).append(' ')
+        append(card.betTypeLabel).append(' ')
+        append(card.lineContext.orEmpty()).append(' ')
+        card.rows.forEach { row ->
+            append(row.text).append(' ')
+            row.coverageNote?.let { append(it).append(' ') }
+        }
+        card.bettingLines.forEach { line ->
+            append(line.label).append(' ')
+            append(line.lineText).append(' ')
+            append(line.oddsText.orEmpty()).append(' ')
+            append(line.bookName.orEmpty()).append(' ')
+            append(line.teamAbbr.orEmpty()).append(' ')
+        }
+    }.lowercase()
+    return searchable.contains(query)
 }
 
 // MARK: - Filter pills
 
 @Composable
-private fun FilterPills(store: OutliersTrendsStore, onOpenMatchup: () -> Unit) {
+private fun FilterPills(
+    store: OutliersTrendsStore,
+    quickFilterText: String,
+    onQuickFilterText: (String) -> Unit,
+    onOpenMatchup: () -> Unit,
+) {
+    // Both rows pin together as the sticky header, matching iOS `outliersHeader`
+    // — re-filtering mid-scroll must not require jumping back to the top.
     Column(Modifier.fillMaxWidth().padding(top = Spacing.md, bottom = 10.dp)) {
+        QuickFilterField(
+            value = quickFilterText,
+            onValueChange = onQuickFilterText,
+            accessibilityLabel = "Quick filter outliers",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+        )
         Row(
             Modifier
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = Spacing.lg, vertical = 2.dp),
+                .padding(horizontal = Spacing.lg)
+                .padding(top = 10.dp, bottom = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             SportPill(store)
@@ -409,7 +558,7 @@ private fun ComingSoonState(sport: OutliersTrendsSport) {
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(activeQuickFilter: String) {
     CenteredState {
         Icon(
             outlierSymbol("line.3.horizontal.decrease.circle", AppIcon.LINE_3_HORIZONTAL_DECREASE_CIRCLE.imageVector),
@@ -417,7 +566,13 @@ private fun EmptyState() {
         )
         Text("No trends match", color = AppColors.appTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         Text(
-            "Try a different matchup or subject — or check back when the slate fills in.",
+            // A query is the control the user just touched, so point them at it
+            // rather than at the pills they didn't change.
+            if (activeQuickFilter.isEmpty()) {
+                "Try a different matchup or subject — or check back when the slate fills in."
+            } else {
+                "Try another team, player, matchup, or market."
+            },
             color = AppColors.appTextSecondary, fontSize = 13.sp, textAlign = TextAlign.Center,
         )
     }

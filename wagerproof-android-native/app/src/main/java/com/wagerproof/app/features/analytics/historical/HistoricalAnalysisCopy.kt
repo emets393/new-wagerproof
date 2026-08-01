@@ -1,10 +1,14 @@
 package com.wagerproof.app.features.analytics.historical
 
+import androidx.compose.ui.graphics.Color
+import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.HistoricalAnalysisBetType
+import com.wagerproof.core.models.HistoricalAnalysisFilterBuilder
 import com.wagerproof.core.models.HistoricalAnalysisResponse
 import com.wagerproof.core.models.HistoricalAnalysisSport
 import com.wagerproof.core.models.HistoricalAnalysisUISnapshot
 import com.wagerproof.core.models.HistoricalAnalysisUpcomingGame
+import com.wagerproof.core.stores.HistoricalAnalysisStore
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -23,8 +27,20 @@ internal object HistoricalAnalysisCopy {
         value.toLong().toString()
     } else String.format(Locale.US, "%.1f", value).trimEnd('0').trimEnd('.')
 
+    fun year(value: Int) = value.toString()
     fun yearRange(min: Int, max: Int) = "$min–$max"
     fun signedPct(value: Double) = (if (value > 0) "+" else "") + trimmed(value) + "%"
+
+    /**
+     * Green above water / red below, neutral exactly at 50 (iOS `hitPctColor`).
+     * [neutral] is a parameter because the share cards print on fixed dark
+     * cardstock and can't use the theme's text token.
+     */
+    fun hitPctColor(hitPct: Double, neutral: Color = AppColors.appTextPrimary): Color = when {
+        hitPct > 50 -> AppColors.appWin
+        hitPct < 50 -> AppColors.appLoss
+        else -> neutral
+    }
 
     fun verb(betType: String) = when (betType) {
         "fg_spread" -> "covered"
@@ -50,11 +66,25 @@ internal object HistoricalAnalysisCopy {
         else -> "Hit"
     }
 
+    /**
+     * Markets that ask an over/under question — the hero must headline the
+     * WINNING side ("went under 58.7%"), never bury it behind a losing over%.
+     * Pair with [underVerb] when the under slice out-hits the over slice.
+     */
+    val overUnderMarkets = setOf("fg_total", "h1_total", "team_total", "total", "f5_total")
+
+    fun underVerb(betType: String) = when (betType) {
+        "h1_total" -> "went under the 1H total"
+        "team_total" -> "stayed under their team total"
+        "f5_total" -> "went under the F5 total"
+        else -> "went under"
+    }
+
     /** Markets whose result is a game-level over/under — Side / fav-dog don't describe them. */
-    private val gameTotalMarkets = setOf("fg_total", "h1_total", "total", "f5_total")
+    val gameTotalMarkets = setOf("fg_total", "h1_total", "total", "f5_total")
 
     /** Markets where the fav/dog bar is the directional split (mirrors iOS `directionalBarSide`). */
-    private val favDogMarkets =
+    val favDogMarkets =
         HistoricalAnalysisBetType.moneylineMarkets + setOf("team_total", "ml", "f5_ml", "rl", "f5_rl")
 
     fun noun(snapshot: HistoricalAnalysisUISnapshot) = when {
@@ -71,6 +101,55 @@ internal object HistoricalAnalysisCopy {
             n >= 30 && deviation >= 3 -> "Solid" to true
             else -> "Neutral" to false
         }
+    }
+
+    /** Tone of a filter-chat result banner; the view maps it to icon + color. */
+    enum class NLResultTone { Success, Warning, Neutral }
+
+    data class NLResult(val tone: NLResultTone, val text: String)
+
+    /**
+     * One chat turn → one banner line. Port of iOS `presentToast(for:)`.
+     *
+     * Partial success is the common case and must READ as partial: the model
+     * routinely lands three of four clauses, and reporting only "Updated 3
+     * filters" hides that the fourth was silently dropped.
+     */
+    fun nlResultMessage(response: HistoricalAnalysisStore.NLFilterResponse): NLResult {
+        response.error?.let { return NLResult(NLResultTone.Warning, it) }
+        if (response.noChange) return NLResult(NLResultTone.Success, "Filters already match that")
+        if (response.applied.isNotEmpty()) {
+            val skipped = response.couldntMap.size + response.ambiguous.size + response.rejected.size
+            val plural = if (response.applied.size == 1) "" else "s"
+            val suffix = if (skipped > 0) " · $skipped skipped" else ""
+            return NLResult(NLResultTone.Success, "Updated ${response.applied.size} filter$plural$suffix")
+        }
+        if (response.hasChanges) {
+            return NLResult(NLResultTone.Warning, "Couldn't map that — try rephrasing")
+        }
+        return NLResult(NLResultTone.Neutral, "I didn't catch a filter in that")
+    }
+
+    /**
+     * Canned chips above the filter-chat input, shown until the user has a
+     * history of their own. They double as a spec of what the model accepts, so
+     * each one exercises a different dimension family (iOS `nlExampleQueries`).
+     */
+    fun nlExampleQueries(sport: HistoricalAnalysisSport): List<String> = when (sport) {
+        HistoricalAnalysisSport.MLB -> listOf(
+            "Home favorites on Fridays",
+            "Division games under 8.5",
+            "Teams off a loss vs lefties",
+            "Day games in summer",
+            "2024 season only",
+        )
+        HistoricalAnalysisSport.NFL, HistoricalAnalysisSport.CFB -> listOf(
+            "Teams on 3+ game win streak",
+            "Home underdogs in primetime",
+            "Road favorites off a loss",
+            "Divisional games in December",
+            "Teams with winning record",
+        )
     }
 
     fun activeConferences(snapshot: HistoricalAnalysisUISnapshot): List<String> =
@@ -107,6 +186,36 @@ internal object HistoricalAnalysisCopy {
 
     private fun com.wagerproof.core.models.HistoricalAnalysisOverall.toHeadline() =
         HeadlineMetrics(n, wins, hitPct, roi)
+
+    /** What the hero headlines: the metric slice plus the verb/label/baseline that describe it. */
+    data class HeroSlice(
+        val metrics: HeadlineMetrics,
+        val verb: String,
+        val outcome: String,
+        val baseline: Double,
+    )
+
+    /**
+     * Over/under markets headline whichever side actually hit more. "Games went
+     * over 41.3%" buries the story when the under hit 58.7%, so when the under
+     * wins we flip the metrics, the verb, the gauge label AND the baseline (the
+     * league's over rate becomes its under rate). iOS `HistoricalAnalysisView.heroSlice`.
+     */
+    fun heroSlice(snapshot: HistoricalAnalysisUISnapshot, data: HistoricalAnalysisResponse): HeroSlice {
+        val metrics = headlineMetrics(snapshot, data)
+        val default = HeroSlice(metrics, verb(snapshot.betType), outcomeLabel(snapshot.betType), data.baselinePct)
+        if (snapshot.betType !in overUnderMarkets) return default
+        val options = data.bars.firstOrNull { it.dimension == "over_under" }?.options ?: return default
+        val over = options.firstOrNull { it.side == "over" } ?: return default
+        val under = options.firstOrNull { it.side == "under" } ?: return default
+        if (under.hitPct <= over.hitPct) return default
+        return HeroSlice(
+            metrics = HeadlineMetrics(under.n, under.wins, under.hitPct, under.roi),
+            verb = underVerb(snapshot.betType),
+            outcome = "Under",
+            baseline = 100 - data.baselinePct,
+        )
+    }
 
     fun headlineSubject(sport: HistoricalAnalysisSport, snapshot: HistoricalAnalysisUISnapshot): String {
         // Game totals are game outcomes ("went over") — never "Favorites went over".
@@ -148,6 +257,14 @@ internal object HistoricalAnalysisCopy {
                 if (snapshot.referee != "any") add("games officiated by ${snapshot.referee}")
             }
             return "${bits.ifEmpty { listOf("all teams") }.joinToString(" · ")} in every past game that matches your filters."
+        }
+        // MLB has no conferences — without this branch a baseball screen read
+        // "All FBS teams…" (iOS HistoricalAnalysisCopy.swift:1654-1659).
+        if (sport == HistoricalAnalysisSport.MLB) {
+            if (snapshot.teams.isNotEmpty()) {
+                return "${snapshot.teams.joinToString(", ")} in every past game that matches your filters."
+            }
+            return "All MLB teams in every past game that matches your filters."
         }
         val conferences = activeConferences(snapshot)
         if (conferences.isEmpty()) return "All FBS teams in every past game that matches your filters."
@@ -233,6 +350,53 @@ internal object HistoricalAnalysisCopy {
         game.oppSpHand?.takeIf { it.isNotEmpty() }?.let { add("vs ${it}HP") }
         game.oppSpName?.takeIf { it.isNotEmpty() }?.let { add(it) }
         if (game.isDoubleheader == true) add("DH")
+    }
+
+    // MARK: - Narrative sentence (share infographic, saved-system cards)
+
+    /**
+     * Read-only plain-English labels for a saved system's filter snapshot
+     * (leaderboard cards, share posters). Same strings as the Trends chip row —
+     * built from the one canonical chip builder so a saved system can never
+     * describe itself differently from the screen that produced it.
+     */
+    fun filterChipLabels(
+        sport: HistoricalAnalysisSport,
+        snapshot: HistoricalAnalysisUISnapshot,
+    ): List<String> = HistoricalAnalysisActiveChips.build(
+        sport = sport,
+        snapshot = snapshot,
+        seasonFloor = HistoricalAnalysisFilterBuilder.seasonFloor(snapshot.betType, sport),
+    ).map { it.label }
+
+    /**
+     * "When"-style clauses built from the active filters, composed into
+     * "When {a}, {b}, and {c}, {subject} {verb} X% of the time."
+     */
+    fun narrativeClauses(
+        sport: HistoricalAnalysisSport,
+        snapshot: HistoricalAnalysisUISnapshot,
+    ): List<String> = HistoricalAnalysisNarrative.clauses(sport, snapshot)
+
+    /** Oxford-comma join: ["a","b","c"] → "a, b, and c". */
+    fun joinedClauses(clauses: List<String>): String = when (clauses.size) {
+        0 -> ""
+        1 -> clauses[0]
+        2 -> "${clauses[0]} and ${clauses[1]}"
+        else -> clauses.dropLast(1).joinToString(", ") + ", and " + clauses.last()
+    }
+
+    /**
+     * Lowercase generic subjects mid-sentence; keep proper nouns intact
+     * ("Home games" → "home games", "Boston Red Sox" stays capitalized). Only
+     * the FIRST word is matched, which is why "Home games"/"Road games" need no
+     * entries of their own.
+     */
+    fun midSentenceSubject(subject: String): String {
+        val generic = setOf("Home", "Road", "Favorites", "Underdogs", "Teams", "Games")
+        val first = subject.split(' ').firstOrNull() ?: return subject
+        if (first !in generic) return subject
+        return subject.replaceFirstChar(Char::lowercase)
     }
 
     fun fmtKickoff(raw: String): String {

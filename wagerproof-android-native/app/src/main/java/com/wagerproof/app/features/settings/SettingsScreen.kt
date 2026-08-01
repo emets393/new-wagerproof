@@ -67,7 +67,15 @@ private const val PRIVACY_URL = "https://wagerproof.bet/privacy-policy"
 private const val TERMS_URL = "https://wagerproof.bet/terms-and-conditions"
 
 /** Which settings sub-screen is presented over the main list. */
-private enum class SettingsModal { Discord, Widget, DeleteAccount, Developer, Paywall, CustomerCenter }
+private enum class SettingsModal {
+    Discord,
+    Widget,
+    DeleteAccount,
+    Developer,
+    Paywall,
+    CustomerCenter,
+    Connector,
+}
 
 /**
  * Settings — port of iOS `Features/Settings/SettingsView` (doc 08 §4.2).
@@ -145,6 +153,16 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = Spacing.xl),
         ) {
+            // --- AI Connector ---
+            // First section on purpose (matches iOS): the connector is a shipped
+            // cross-platform surface most users never discover, and it is open to
+            // every signed-in user because it is read-only.
+            ProfileSectionHeader("AI Connector")
+            AIConnectorBanner(
+                modifier = Modifier.padding(horizontal = Spacing.lg),
+                onClick = { modal = SettingsModal.Connector },
+            )
+
             // --- Hero banners ---
             Column(
                 modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
@@ -234,6 +252,17 @@ fun SettingsScreen(
                 // ActivityNotFoundException as IllegalArgumentException, so a device
                 // with no mail client would crash instead of no-opping like iOS.
                 onClick = { openContactEmail(context, CONTACT_SUBJECT) },
+            )
+            RowDivider()
+            ProfileRow(
+                icon = AppIcon.STAR_FILL.imageVector,
+                title = "Rate WagerProof",
+                subtitle = "Leave a review on Google Play",
+                accessory = RowAccessory.External,
+                onClick = {
+                    graph.reviewPrompts.recordManualReviewLinkOpened()
+                    openPlayStoreListing(context)
+                },
             )
 
             // --- Legal ---
@@ -353,6 +382,9 @@ fun SettingsScreen(
         }
         SettingsModal.Developer -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
             DeveloperSettingsScreen(onDismiss = { modal = null })
+        }
+        SettingsModal.Connector -> Box(Modifier.fillMaxSize().background(AppColors.appSurface).safeDrawingPadding()) {
+            ConnectorGuideScreen(onDismiss = { modal = null })
         }
         // Unlike the four screens above, PaywallScreen/CustomerCenterScreen own no
         // BackHandler — without one here Back falls through to the shell handler and

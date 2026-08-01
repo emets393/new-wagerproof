@@ -40,7 +40,9 @@ The parity contract lives in `docs/inventory/` (11 docs, exhaustively derived fr
 8. :widgets + final verification + PARITY.md sign-off
 
 ## Cross-cutting parity gotchas (from inventory)
-- `RootRouter.temporarilyDisableOnboarding = true` — onboarding hard-bypassed; carry the flag.
+- Android intentionally removed iOS's May 2026 temporary onboarding bypass. An authenticated account
+  must finish the 24-step Android flow before `.ready`; Secret Settings can reset/replay it and force
+  one post-onboarding paywall presentation.
 - CFB dryrun fetches hardcoded `week == 7`; CFB team trends hardcode season 2025. Port as-is.
 - Three date-zone regimes coexist (agents device-local, outliers/MLB America/New_York, LiveScores NFL UTC) — do not unify.
 - Chat `blocks` JSONB sometimes arrives as a JSON string → re-parse; lossy per-row decoding everywhere.
@@ -52,4 +54,8 @@ The parity contract lives in `docs/inventory/` (11 docs, exhaustively derived fr
 - UNDER is red in pick cards but blue #3B82F6 in insight badges (deliberate legacy convention).
 
 ## Fidelity waivers
-Numbered `// FIDELITY-WAIVER #NNN` comments + a ticket file under `docs/waivers/`. Existing iOS waivers (#008 team colors, #021, #024, #032/#033 chart stubs, #051 push token column, #053 Mixpanel purchase, #054 delete account, #061 roast mic, #070/#071 glow cycles, #079/#080/#081 creation Lotties) carry over. Android-new: #201 Apple Sign-In dropped, #202 ATT prompt removed (no Android equivalent), #203 CoreMotion ticket parallax → Android SensorManager.
+Numbered `// FIDELITY-WAIVER #NNN` comments are regenerated into `docs/waivers/README.md`.
+The code comments are authoritative; resolved rows such as the paywall funnel, account deletion,
+review prompts, outlier routing, and line-movement stubs must not remain in the active ledger.
+Owner-confirmed Android divergences include #101 Dummy Data Mode, #201 Apple Sign-In, and the
+platform-specific NFL paywall/voice/badge decisions recorded in the ledger.

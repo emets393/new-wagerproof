@@ -48,10 +48,10 @@ private const val FALLBACK_AVATAR_COLOR = "#64748B"
  * nearly every game, so participation would flag ~96% of a slate. Only
  * agreement turns the strip green.
  *
- * This is its own row, never merged into `ConvictionBadges`: MAMMOTH PLAY is a
- * *model* signal and BET is a *crowd* signal, so one wrap group would imply the
- * model and the agents agree. Flattening that bottom row is also what previously
- * blew cards up to ~300dp tall.
+ * This is its own row, never merged into the slate-pick pills: those are *model*
+ * signals and BET is a *crowd* signal, so one wrap group would imply the model
+ * and the agents agree. Flattening that bottom row is also what previously blew
+ * cards up to ~300dp tall.
  */
 @Composable
 fun AgentConsensusStrip(consensus: GameAgentConsensus, modifier: Modifier = Modifier) {

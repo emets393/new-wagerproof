@@ -3,13 +3,10 @@ package com.wagerproof.core.services
 import com.wagerproof.core.models.HistoricalAnalysisResponse
 import com.wagerproof.core.models.MLBF5
 import com.wagerproof.core.models.MlbPitcherOption
-import com.wagerproof.core.models.HistoricalAnalysisSavedFilter
 import com.wagerproof.core.models.HistoricalAnalysisSport
-import com.wagerproof.core.models.HistoricalAnalysisUISnapshot
 import com.wagerproof.core.models.HistoricalAnalysisUpcomingGame
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
@@ -99,36 +96,4 @@ object HistoricalAnalysisService : HistoricalAnalysisDataSource {
     @Serializable private data class MlbTeamRow(val team: String, @SerialName("team_name") val teamName: String? = null)
 }
 
-object HistoricalAnalysisSavedFiltersService {
-    const val MAX_PER_USER = 25
-
-    suspend fun fetch(sport: HistoricalAnalysisSport, userId: String): List<HistoricalAnalysisSavedFilter> =
-        SupabaseClients.main.from(sport.savedFiltersTable).select {
-            filter { eq("user_id", userId) }
-            order("created_at", Order.DESCENDING)
-        }.decodeList()
-
-    suspend fun save(
-        sport: HistoricalAnalysisSport,
-        userId: String,
-        name: String,
-        betType: String,
-        snapshot: HistoricalAnalysisUISnapshot,
-    ) {
-        SupabaseClients.main.from(sport.savedFiltersTable).insert(
-            SavedFilterInsert(userId, name, betType, snapshot),
-        )
-    }
-
-    suspend fun delete(sport: HistoricalAnalysisSport, id: String) {
-        SupabaseClients.main.from(sport.savedFiltersTable).delete { filter { eq("id", id) } }
-    }
-
-    @Serializable
-    private data class SavedFilterInsert(
-        @SerialName("user_id") val userId: String,
-        val name: String,
-        @SerialName("bet_type") val betType: String,
-        val filters: HistoricalAnalysisUISnapshot,
-    )
-}
+// Saved systems (CRUD + leaderboard) live in AnalysisSystemsService.kt.

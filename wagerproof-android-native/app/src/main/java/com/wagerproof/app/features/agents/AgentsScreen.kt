@@ -64,6 +64,9 @@ import com.wagerproof.app.features.agents.components.AgentRowCard
 import com.wagerproof.app.features.agents.components.AgentsOfficeHero
 import com.wagerproof.app.features.agents.components.RowSwipeAction
 import com.wagerproof.app.features.agents.components.TopAgentPicksFeed
+import com.wagerproof.app.features.agents.creation.AgentBuilderScreen
+import com.wagerproof.app.features.agents.creation.AgentCreationPreflight
+import com.wagerproof.app.features.agents.creation.runAgentCreationPreflight
 import com.wagerproof.app.nav.LocalAppNavigator
 import com.wagerproof.app.features.navigation.WagerProofTopBar
 import com.wagerproof.core.design.components.LiquidGlassCapsule
@@ -75,16 +78,20 @@ import com.wagerproof.core.design.components.staggeredAppear
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.models.AgentWithPerformance
+import com.wagerproof.core.stores.AgentCreationStore
 import com.wagerproof.core.stores.AgentEntitlementsStore
 import com.wagerproof.core.stores.AgentPicksSeenStore
 import com.wagerproof.core.stores.AgentsStore
 import com.wagerproof.core.stores.AuthStore
 import com.wagerproof.core.stores.FavoriteAgentsStore
+import com.wagerproof.core.stores.FollowedAgentsStore
 import com.wagerproof.core.stores.LeaderboardStore
 import com.wagerproof.core.stores.LoadState
 import com.wagerproof.core.stores.StorePrefs
 import com.wagerproof.core.stores.TopAgentPicksFeedStore
+import com.wagerproof.core.services.AgentChatService
 import com.wagerproof.core.services.AgentPerformanceService
+import com.wagerproof.core.services.runCatchingCancellable
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import kotlin.math.roundToInt
@@ -132,12 +139,19 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
     val leaderboardStore = graph.agentsLeaderboard
     val topPicksStore = graph.topAgentPicks
     val topPicksFavorites = graph.favoriteAgents
+    // Same instance PublicAgentDetailScreen's Follow toggle writes to, so a
+    // follow/unfollow there is reflected in this rail without a manual refresh.
+    val followedAgents = graph.followedAgents
 
     var sortOption by remember { mutableStateOf(AgentSortOption.WinRate) }
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
     var pendingLongPress by remember { mutableStateOf<AgentWithPerformance?>(null) }
     var activeCapAlert by remember { mutableStateOf(false) }
     var unreadRefreshToken by remember { mutableIntStateOf(0) }
+    var showFollowingSheet by remember { mutableStateOf(false) }
+    var followingActionError by remember { mutableStateOf<String?>(null) }
+    var copyBuildDraft by remember { mutableStateOf<AgentCreationStore.Draft?>(null) }
+    var copyBuildPreflightBusy by remember { mutableStateOf(false) }
 
     var pinnedIdsRaw by remember {
         mutableStateOf(StorePrefs.standard.getString(PINNED_IDS_KEY, "") ?: "")
@@ -160,6 +174,11 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
         store.bind(currentUserId)
         if (store.loadState.needsInitialLoad) store.refresh()
         topPicksStore.bind(currentUserId)
+        followedAgents.bind(currentUserId)
+        // Unconditional, unlike the agents list above: the rail has to pick up a
+        // follow/unfollow made on a public detail page, and iOS refreshes it on
+        // every appear for the same reason. The store coalesces concurrent calls.
+        followedAgents.refresh()
         unreadRefreshToken += 1
     }
     // Lazily refresh the Top Picks feed the first time that tab is opened.
@@ -182,6 +201,52 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
         scope.launch { store.setActive(row.id, willActivate) }
     }
 
+    fun unfollowAgent(agentId: String) {
+        val userId = currentUserId
+        if (userId == null) {
+            followingActionError = "Sign in to unfollow agents."
+            return
+        }
+        scope.launch {
+            // Optimistic drop first so the row leaves under the finger; the
+            // refresh below is the authority if the call fails.
+            followedAgents.removeLocally(agentId)
+            runCatchingCancellable { AgentChatService.setFollow(userId, agentId, follow = false) }
+                .onFailure { followingActionError = it.message ?: "Couldn't unfollow that agent." }
+            followedAgents.refresh()
+            if (followedAgents.follows.isEmpty()) showFollowingSheet = false
+        }
+    }
+
+    fun copyFollowedAgent(agentId: String) {
+        if (copyBuildPreflightBusy) return
+        scope.launch {
+            copyBuildPreflightBusy = true
+            try {
+                when (val preflight = runAgentCreationPreflight(currentUserId, store, entitlements)) {
+                    AgentCreationPreflight.Allowed -> Unit
+                    is AgentCreationPreflight.Blocked -> {
+                        followingActionError = preflight.message
+                        return@launch
+                    }
+                }
+            // The rail row carries only display columns — the full build
+            // (personality + insights) needs the detail snapshot.
+                val detail = graph.agentDetailStores.store(agentId)
+                if (detail.snapshot?.agent == null) detail.refreshSnapshot()
+                val source = detail.snapshot?.agent
+                if (source == null) {
+                    followingActionError = "That agent's build couldn't be loaded."
+                    return@launch
+                }
+                showFollowingSheet = false
+                copyBuildDraft = AgentCreationStore.Draft.copying(fromPublicAgent = source)
+            } finally {
+                copyBuildPreflightBusy = false
+            }
+        }
+    }
+
     // The tab picker (sticky under the title). Its filter menu is contextual.
     val tabPicker: @Composable () -> Unit = {
         TabPicker(
@@ -200,82 +265,125 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
         )
     }
 
-    Column(
-        modifier
-            .fillMaxSize()
-            .background(AppColors.appSurface),
-    ) {
-        WagerProofTopBar(tabStore = graph.mainTab, modifier = Modifier.fillMaxWidth()) {
-            IconButton(
-                onClick = { if (canCreate) nav.openAgentCreate() },
-                enabled = canCreate,
-            ) {
-                Icon(
-                    imageVector = if (canCreate) Icons.Filled.Add else Icons.Filled.Lock,
-                    contentDescription = if (canCreate) "Create new agent" else "Agent limit reached",
-                    tint = if (canCreate) AppColors.appTextPrimary else AppColors.appTextSecondary,
+    // Box, not a bare Column: the copy-build builder renders as a full-screen
+    // overlay ON TOP of the tab, and a Column parent would stack it below.
+    Box(modifier.fillMaxSize().background(AppColors.appSurface)) {
+        Column(Modifier.fillMaxSize()) {
+            WagerProofTopBar(tabStore = graph.mainTab, modifier = Modifier.fillMaxWidth()) {
+                IconButton(
+                    onClick = { if (canCreate) nav.openAgentCreate() },
+                    enabled = canCreate,
+                ) {
+                    Icon(
+                        imageVector = if (canCreate) Icons.Filled.Add else Icons.Filled.Lock,
+                        contentDescription = if (canCreate) "Create new agent" else "Agent limit reached",
+                        tint = if (canCreate) AppColors.appTextPrimary else AppColors.appTextSecondary,
+                    )
+                }
+            }
+            Text(
+                "Agents",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.appTextPrimary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+
+            when (store.activeTab) {
+                AgentsStore.InnerTab.MyAgents -> MyAgentsBody(
+                    store = store,
+                    sortedAgents = sortedAgents(store.agents, sortOption, pinnedIds),
+                    sortLabel = sortOption.label,
+                    tabPicker = tabPicker,
+                    pinnedIds = pinnedIds,
+                    unreadToken = unreadRefreshToken,
+                    follows = followedAgents.follows,
+                    onOpenFollowed = { nav.openAgentDetail(it, isPublic = true) },
+                    onSeeAllFollowing = { showFollowingSheet = true },
+                    onOpenDetail = { nav.openAgentDetail(it, isPublic = false) },
+                    onLongPress = { pendingLongPress = it },
+                    onCreate = { nav.openAgentCreate() },
+                    onRetry = { scope.launch { store.refresh() } },
+                    onRefresh = { scope.launch { store.refresh() } },
+                    leadingActions = { row ->
+                        leadingSwipeActions(
+                            row = row,
+                            isPinned = pinnedIds.contains(row.agent.id),
+                            onToggleActive = { toggleActive(row) },
+                            onTogglePin = { togglePin(row.agent.id) },
+                            onEdit = { nav.openAgentEdit(row.agent.id) },
+                            onDetails = { nav.openAgentDetail(row.agent.id, isPublic = false) },
+                        )
+                    },
+                    trailingActions = { row ->
+                        listOf(
+                            RowSwipeAction(
+                                id = "delete", title = "Delete", systemImage = "trash.fill",
+                                tint = AppColors.appLoss,
+                            ) { pendingDeleteId = row.id },
+                        )
+                    },
+                )
+
+                AgentsStore.InnerTab.Leaderboard -> AgentLeaderboard(
+                    store = leaderboardStore,
+                    entitlements = entitlements,
+                    showsFilters = false,
+                    pinnedHeader = tabPicker,
+                    onRowTap = { entry -> nav.openAgentDetail(entry.avatarId, isPublic = true) },
+                )
+
+                AgentsStore.InnerTab.TopPicks -> TopAgentPicksFeed(
+                    store = topPicksStore,
+                    favorites = topPicksFavorites,
+                    showsFilters = false,
+                    pinnedHeader = tabPicker,
+                    onAgentTap = { id -> nav.openAgentDetail(id, isPublic = true) },
+                    // No public pick-detail sheet yet — open the picking agent.
+                    onPickTap = { row -> nav.openAgentDetail(row.avatarId, isPublic = true) },
                 )
             }
         }
-        Text(
-            "Agents",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = AppColors.appTextPrimary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        )
 
-        when (store.activeTab) {
-            AgentsStore.InnerTab.MyAgents -> MyAgentsBody(
-                store = store,
-                sortedAgents = sortedAgents(store.agents, sortOption, pinnedIds),
-                sortLabel = sortOption.label,
-                tabPicker = tabPicker,
-                pinnedIds = pinnedIds,
-                unreadToken = unreadRefreshToken,
-                onOpenDetail = { nav.openAgentDetail(it, isPublic = false) },
-                onLongPress = { pendingLongPress = it },
-                onCreate = { nav.openAgentCreate() },
-                onRetry = { scope.launch { store.refresh() } },
-                onRefresh = { scope.launch { store.refresh() } },
-                leadingActions = { row ->
-                    leadingSwipeActions(
-                        row = row,
-                        isPinned = pinnedIds.contains(row.agent.id),
-                        onToggleActive = { toggleActive(row) },
-                        onTogglePin = { togglePin(row.agent.id) },
-                        onEdit = { nav.openAgentEdit(row.agent.id) },
-                        onDetails = { nav.openAgentDetail(row.agent.id, isPublic = false) },
-                    )
+        // Copy build renders full-screen over the tab (same treatment as public
+        // detail) because the builder owns its own chrome + pixelwave background.
+        copyBuildDraft?.let { seed ->
+            AgentBuilderScreen(
+                modifier = Modifier.fillMaxSize(),
+                initialDraft = seed,
+                onCreated = { created ->
+                    copyBuildDraft = null
+                    nav.openAgentDetail(created.id, isPublic = false)
                 },
-                trailingActions = { row ->
-                    listOf(
-                        RowSwipeAction(
-                            id = "delete", title = "Delete", systemImage = "trash.fill",
-                            tint = AppColors.appLoss,
-                        ) { pendingDeleteId = row.id },
-                    )
-                },
-            )
-
-            AgentsStore.InnerTab.Leaderboard -> AgentLeaderboard(
-                store = leaderboardStore,
-                entitlements = entitlements,
-                showsFilters = false,
-                pinnedHeader = tabPicker,
-                onRowTap = { entry -> nav.openAgentDetail(entry.avatarId, isPublic = true) },
-            )
-
-            AgentsStore.InnerTab.TopPicks -> TopAgentPicksFeed(
-                store = topPicksStore,
-                favorites = topPicksFavorites,
-                showsFilters = false,
-                pinnedHeader = tabPicker,
-                onAgentTap = { id -> nav.openAgentDetail(id, isPublic = true) },
-                // No public pick-detail sheet yet — open the picking agent.
-                onPickTap = { row -> nav.openAgentDetail(row.avatarId, isPublic = true) },
+                onCancel = { copyBuildDraft = null },
             )
         }
+    }
+
+    // --- Following sheet -----------------------------------------------------
+
+    if (showFollowingSheet) {
+        FollowingSheet(
+            follows = followedAgents.follows,
+            unreadToken = unreadRefreshToken,
+            onOpenAgent = { id ->
+                showFollowingSheet = false
+                nav.openAgentDetail(id, isPublic = true)
+            },
+            onCopyBuild = ::copyFollowedAgent,
+            onUnfollow = ::unfollowAgent,
+            onDismiss = { showFollowingSheet = false },
+        )
+    }
+
+    followingActionError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { followingActionError = null },
+            title = { Text("Error") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { followingActionError = null }) { Text("OK") } },
+            containerColor = AppColors.appSurfaceElevated,
+        )
     }
 
     // --- Dialogs -----------------------------------------------------------
@@ -456,6 +564,31 @@ private fun FilterMenuContent(
 // My Agents body
 // ---------------------------------------------------------------------------
 
+internal enum class MyAgentsBodyMode {
+    INITIAL_LOADING,
+    FAILED_EMPTY,
+    TRUE_EMPTY,
+    FOLLOWING_ONLY,
+    OWNED_AGENTS,
+}
+
+/**
+ * Keeps the followed-agent rail independent from ownership: following public
+ * agents is valid even before the viewer creates an agent of their own.
+ */
+internal fun myAgentsBodyMode(
+    loadState: LoadState,
+    ownedAgentsEmpty: Boolean,
+    hasFollows: Boolean,
+): MyAgentsBodyMode = when {
+    (loadState is LoadState.Idle || loadState is LoadState.Loading) && ownedAgentsEmpty ->
+        MyAgentsBodyMode.INITIAL_LOADING
+    loadState is LoadState.Failed && ownedAgentsEmpty -> MyAgentsBodyMode.FAILED_EMPTY
+    loadState is LoadState.Loaded && ownedAgentsEmpty && hasFollows -> MyAgentsBodyMode.FOLLOWING_ONLY
+    loadState is LoadState.Loaded && ownedAgentsEmpty -> MyAgentsBodyMode.TRUE_EMPTY
+    else -> MyAgentsBodyMode.OWNED_AGENTS
+}
+
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MyAgentsBody(
@@ -465,6 +598,9 @@ private fun MyAgentsBody(
     tabPicker: @Composable () -> Unit,
     pinnedIds: Set<String>,
     unreadToken: Int,
+    follows: List<FollowedAgentsStore.FollowedAgent>,
+    onOpenFollowed: (String) -> Unit,
+    onSeeAllFollowing: () -> Unit,
     onOpenDetail: (String) -> Unit,
     onLongPress: (AgentWithPerformance) -> Unit,
     onCreate: () -> Unit,
@@ -475,6 +611,11 @@ private fun MyAgentsBody(
 ) {
     val state = store.loadState
     val empty = store.agents.isEmpty()
+    val bodyMode = myAgentsBodyMode(
+        loadState = state,
+        ownedAgentsEmpty = empty,
+        hasFollows = follows.isNotEmpty(),
+    )
 
     PullToRefreshBox(
         isRefreshing = state is LoadState.Loading && !empty,
@@ -484,8 +625,8 @@ private fun MyAgentsBody(
         LazyColumn(Modifier.fillMaxSize()) {
             stickyHeader { tabPicker() }
 
-            when {
-                (state is LoadState.Idle || state is LoadState.Loading) && empty -> {
+            when (bodyMode) {
+                MyAgentsBodyMode.INITIAL_LOADING -> {
                     item {
                         Column(
                             Modifier.padding(horizontal = 12.dp, vertical = Spacing.sm),
@@ -497,18 +638,46 @@ private fun MyAgentsBody(
                     }
                 }
 
-                state is LoadState.Failed && empty -> {
-                    item { ErrorState(message = state.message, onRetry = onRetry) }
+                MyAgentsBodyMode.FAILED_EMPTY -> {
+                    item { ErrorState(message = (state as LoadState.Failed).message, onRetry = onRetry) }
                 }
 
-                state is LoadState.Loaded && empty -> {
+                MyAgentsBodyMode.TRUE_EMPTY -> {
                     item { EmptyState(onCreate = onCreate) }
                 }
 
-                else -> {
+                MyAgentsBodyMode.FOLLOWING_ONLY -> {
+                    item {
+                        FollowingRail(
+                            follows = follows,
+                            unreadToken = unreadToken,
+                            onOpenAgent = onOpenFollowed,
+                            onSeeAll = onSeeAllFollowing,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                        )
+                    }
+                    // Still explain how to create the viewer's first owned agent;
+                    // following someone else does not replace that empty state.
+                    item { EmptyState(onCreate = onCreate) }
+                }
+
+                MyAgentsBodyMode.OWNED_AGENTS -> {
                     item {
                         Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
                             OfficeHero(store.agents)
+                        }
+                    }
+                    // Following rail sits between the HQ hero and the sort row,
+                    // and hides itself when nothing is followed (iOS AgentsView:572).
+                    if (follows.isNotEmpty()) {
+                        item {
+                            FollowingRail(
+                                follows = follows,
+                                unreadToken = unreadToken,
+                                onOpenAgent = onOpenFollowed,
+                                onSeeAll = onSeeAllFollowing,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                            )
                         }
                     }
                     item { SortRow(sortLabel) }
@@ -740,10 +909,10 @@ private fun DialogRow(label: String, onClick: () -> Unit, tint: Color = AppColor
 // Swipe row (leading multi-action + trailing delete)
 // ---------------------------------------------------------------------------
 
-private val SWIPE_BUTTON_WIDTH = 76.dp
+internal val SWIPE_BUTTON_WIDTH = 76.dp
 
 @Composable
-private fun AgentSwipeRow(
+internal fun AgentSwipeRow(
     leadingActions: List<RowSwipeAction>,
     trailingActions: List<RowSwipeAction>,
     modifier: Modifier = Modifier,

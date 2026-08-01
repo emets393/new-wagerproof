@@ -4,7 +4,7 @@ Status of the Android port vs the iOS source of truth. One row per iOS area; a r
 the Android implementation, navigation, loading/error/empty states, and iOS-aligned presentation
 have been audited. Backend-dependent launch gates are listed separately below.
 
-Legend: ⬜ not started · 🔨 in progress · ✅ done · 🎫 waiver(s) attached
+Legend: ⬜ not started · 🔨 in progress · ✅ source-complete/validated · 🧪 physical-device evidence pending · 🎫 waiver(s) attached
 
 | Area | iOS files | Inventory doc | Status |
 |---|---|---|---|
@@ -18,30 +18,30 @@ Legend: ⬜ not started · 🔨 in progress · ✅ done · 🎫 waiver(s) attach
 | Design: liquidGlassBackground (haze) + AppIcon enum (145 symbols) | | 04_design.md | ✅ compiles |
 | Design: PixelOffice assets + Canvas sim | | 04_design.md + 05 part4 | ✅ compiles |
 | :core:shared widget-payload store | 2 | 02/08 | ✅ compiles |
-| App shell: RootRouter phases / MainTabView / tab bar / deep links | 5 | 08 | ✅ compiles |
+| App shell: RootRouter phases / MainTabView / tab bar / deep links | 5 | 08 | ✅ onboarding enabled; entitlement resolver fails closed before exposing shell |
 | Auth (8) | 8 | 08 | ✅ compiles (🎫 #201 Apple sign-in dropped — owner-confirmed 2026-07-31; adds reset-password screen) |
-| Onboarding (22: 18 steps — 16 carousel pages + 2 cinematics) | 22 | 06 | ✅ compiles (🎫 #202 ATT step removed — no Android equivalent; personalizedValue removed — matches iOS) |
-| Paywall (6) + RevenueCat | 6 | 08 | ✅ native paywall, customer center, entitlement refresh, restore, and web redemption |
+| Onboarding (24 steps — 21 carousel pages + 3 cinematics) | 22 | 06 | ✅ research-time/stakes cost/reclaim arc, leaderboard, generation/reveal/time summary; 🎫 ATT omitted |
+| Paywall (6) + RevenueCat | 6 | 08 | ✅ custom checkout + generic gates, default-hard remote gate, exact offer terms, restore/sign-out/error/accessibility paths, customer center, attribution |
 | Games feed + GameCards (universal GameRowCard, CollapsingWidgetScroll) | 21 | 07 | ✅ audited expanded and compact layouts |
 | Sport detail pages: NFL / CFB / NBA / NCAAB / MLB bottom sheets | 31 | 07 | ✅ audited heroes, cards, charts, sheets, locked states, and compact layouts |
 | Scoreboard (live polling) | 6 | 07 | ✅ compiles |
-| Agents: hub / detail / public / settings / stats | 8 | 05 part1 | ✅ compiles |
-| Agents: creation wizard (6 steps + intro + celebration + inputs) | 17 | 05 part2 | ✅ compiles (🎫 #079/#080/#081) |
-| Agents: tickets / folder / focus printer / feed | 15 | 05 part3 | ✅ compiles (🎫 #203 SensorManager, #212/#213/#214) |
+| Agents: hub / detail / public / settings / stats | 8 | 05 part1 | ✅ Following rail, Copy Build, shared detail activity, existing surfaces |
+| Agents: creation wizard (6 steps + intro + celebration + inputs) | 17 | 05 part2 | ✅ PixelWave launch builder + existing wizard (🎫 #079) |
+| Agents: tickets / folder / focus printer / feed | 15 | 05 part3 | ✅ compiles (🎫 #203 SensorManager, #212/#214) |
 | Agents: office sim, cards, charts, HR/regen/autopilot sheets | 28 | 05 part4 | ✅ compiles (🎫 #205 Canvas charts, #071) |
 | Chat: WagerBot (SSE, ContentBlocks, threads) | 17 | 06 | ✅ compiles; assistant messages are selectable and copyable |
-| Chat: voice mode (OpenAI Realtime PTT) | | 06 | ✅ compiles (orb UI, no waveform — parity); the voice screen owns the mic-permission prompt and holds the screen on for the call |
+| Chat: voice mode (OpenAI Realtime PTT) | | 06 | ✅ retained as developer-only code; no production entry point (owner decision) |
 | Props (16) | 16 | 06 | ✅ compiles (🎫 #240–#242) |
-| Outliers (29) | 29 | 06 | ✅ compiles (🎫 #021/#024 carried, #230–#236) |
-| Analytics (13) | 13 | 08 | 🔨 correctness fixed, taxonomy expansion pending — see Historical Trends notes |
+| Outliers (29) | 29 | 06 | ✅ compiles (🎫 #024 carried, #230–#236) |
+| Analytics / Historical Trends (13) | 13 | 08 | ✅ full filters, MLB route/copy, hero/narrative/share, Saved Systems + leaderboard, NL filter chat |
 | LearnMore (11) | 11 | 08 | ✅ compiles |
 | Settings (9) + Secret Settings | 9 | 08 | ✅ includes server-backed account deletion and comprehensive agent stats |
 | Search (4) | 4 | 08 | ✅ compiles |
 | FeatureRequests (4) | 4 | 08 | ✅ compiles |
 | Roast (6) | 6 | 08 | ✅ compiles (🎫 #061 mic seam carried) |
 | Navigation components (5) | 5 | 08 | ✅ compiles |
-| Widgets ×2 (Glance) | 8 | 08 | ✅ compiles (🎫 #210 gradient, #211 symbols) |
-| Visual regression matrix | 40 scenarios | [VISUAL_REGRESSION.md](VISUAL_REGRESSION.md) | ✅ deterministic root/detail/loading/empty/locked/compact captures on device |
+| Widgets ×2 (Glance) | 8 | 08 | ✅ Agent Monitor + per-instance configurable Top Outliers markets; installed-domain sync + Pro-safe Parlay cache/render gate (🎫 #210 gradient, #211 symbols) |
+| Visual regression matrix | 40 scenarios | [VISUAL_REGRESSION.md](VISUAL_REGRESSION.md) | 🧪 harness exists; Wave 2 captures not run because no Android device is connected |
 | Play-Store build readiness (release bundle, R8 rules, icon, signing docs) | — | — | ✅ locally verifiable; production credentials and store configuration remain launch gates |
 
 ## Cross-platform features (not from the iOS inventory)
@@ -52,6 +52,8 @@ not counted in `docs/inventory/`, which is a snapshot of the iOS tree at port ti
 | Feature | Android files | Doc | Status |
 |---|---|---|---|
 | Agent Consensus on game cards | `core/models/GameAgentConsensus.kt`, `core/services/AgentConsensusService.kt`, `core/stores/AgentConsensusStore.kt`, `app/features/gamecards/AgentConsensusStrip.kt`, `app/features/games/GameConsensusKey.kt` | [18_agent_consensus.md](../../.claude/docs/18_agent_consensus.md) | ✅ three tiers, both card layouts, all 5 sports |
+| Parlay God | `core/models/ParlayGod.kt`, `core/services/ParlayGod*.kt`, `core/stores/ParlayGodStore.kt`, `app/features/parlaygod/*` | — | ✅ engine + shared store + Outliers, Props Cheats, Search, MLB/NFL matchup surfaces, paywall/detail states, widget market |
+| Play In-App Review | `core/stores/ReviewPromptCoordinator.kt`, `app/features/settings/PlayStoreReview.kt`, `app/nav/RootHost.kt` | 08 | ✅ six value triggers + threshold/cooldown/version/manual guards; real prompt requires Play-distributed testing |
 
 Notes on the consensus port:
 
@@ -72,8 +74,8 @@ Notes on the consensus port:
 - `GameAgentConsensus` decodes `market_agents` / `market_label` (market-scoped agreement, from the
   iOS/web commit b506e291) ahead of the game-detail widget port, so the model is ready when that
   surface lands. Both fall back the way web does (`market_agents ?? agents`) for pre-migration rows.
-- `AgentConsensusStore.ensureLoaded(sport, date)` — the single-date overload — exists but has **no
-  caller** until the game-detail widget is ported. The feed path uses the list overload.
+- `AgentConsensusStore.ensureLoaded(sport, date)` now hydrates the shared detail widget; the feed path
+  continues using the slate-date list overload.
 
 ## Detail-page audit notes
 
@@ -95,13 +97,15 @@ Notes on the consensus port:
 
 ## Historical Trends notes
 
-The Historical Trends workbench had a correctness pass, not a full build-out. The row stays 🔨 —
-a wider taxonomy expansion is scheduled later.
+The Android workbench now carries the full requested iOS surface and the earlier correctness fixes:
 
-- Fixed: 1H and team-total snapshot fields, a sport-scoped bet-type dropdown, `cfb_teams` as the
-  logo source, MLB snapshot dimensions, refetch errors surfaced instead of swallowed, ROI on
-  moneyline markets, the legacy-fallback correction, and a parallel RPC fetch.
-- Added: an MLB **By Venue** breakdown tab alongside By Team, and market-scoped sheet sections.
+- Complete sport-aware filter taxonomy, active chips, fold/search behavior, MLB pitcher selection,
+  snapshot round-tripping, and MLB copy/venue routes.
+- Contextual hero and narrative, share-card rendering through a package-derived FileProvider URI,
+  Saved Systems creation/decoding, grader-compatible payloads, and systems leaderboard/hub.
+- Natural-language filter dock patches the typed filter snapshot instead of maintaining a divergent
+  second query state. Unit contracts cover filter chips, MLB search, snapshots, share context,
+  narrative/hero text, system payloads, and save flow.
 
 ## Production launch gates
 
@@ -117,6 +121,8 @@ with the real distribution identity and external dashboards:
 - RevenueCat Android products, entitlement `WagerProof Pro`, offerings/placements, Play package,
   and web-purchase redemption callback verified against the release application ID.
 - Meta Android package/activity, client token/app ID, and final signing key hashes.
+- Play In-App Review must be exercised from an internal/test track; sideloaded debug builds cannot
+  provide authoritative prompt/rating evidence and the API deliberately reports no completion result.
 
 These are external release checks; the side-by-side `.debug` build cannot resolve Play products
 registered only for the production application ID.

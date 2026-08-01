@@ -39,9 +39,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import com.wagerproof.app.features.gamecards.TeamColorPair
 import com.wagerproof.app.features.gamecards.teamVisible
+import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.components.SkeletonBlock
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.components.shimmering
@@ -74,6 +76,12 @@ fun PolymarketWidget(
     awayAbbr: String,
     homeAbbr: String,
     modifier: Modifier = Modifier,
+    /**
+     * Prose read of the plotted series, pushed up so the host widget can use it
+     * as its headline (iOS `onHeadlineChange`). Null until the price history
+     * lands, or when there is none — hosts fall back to the generic sentence.
+     */
+    onHeadlineChange: ((String?) -> Unit)? = null,
 ) {
     var markets by remember(league, awayTeam, homeTeam) { mutableStateOf<PolymarketGameMarkets?>(null) }
     var loaded by remember(league, awayTeam, homeTeam) { mutableStateOf(false) }
@@ -88,6 +96,20 @@ fun PolymarketWidget(
     if (selected !in available) available.firstOrNull()?.let { selected = it }
     val market = markets?.markets?.get(selected)
 
+    val headline = market?.let {
+        polymarketMarketHeadline(
+            history = it.priceHistory,
+            type = selected,
+            league = league,
+            awayLabel = if (selected == PolymarketMarketType.TOTAL) "Over" else awayAbbr,
+            homeLabel = if (selected == PolymarketMarketType.TOTAL) "Under" else homeAbbr,
+        )
+    }
+    // Keyed on the derived string, not the market object: the host stores this
+    // in state, and re-emitting an identical value every recomposition would
+    // loop through its setter forever.
+    LaunchedEffect(headline) { onHeadlineChange?.invoke(headline) }
+
     Column(modifier.fillMaxWidth()) {
         when {
             !loaded -> Column(Modifier.shimmering(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -98,6 +120,8 @@ fun PolymarketWidget(
             available.isEmpty() -> Text("No market odds yet", color = AppColors.appTextMuted, fontSize = 13.sp)
             else -> {
                 MarketToggle(available, selected, league) { selected = it }
+                Spacer(Modifier.height(8.dp))
+                MarketSourceNote()
                 Spacer(Modifier.height(12.dp))
                 market?.let {
                     OddsRow(it, selected, awayColors, homeColors, awayAbbr, homeAbbr)
@@ -107,6 +131,99 @@ fun PolymarketWidget(
             }
         }
     }
+}
+
+/**
+ * Source disclaimer — port of iOS `marketSourceNote`. Prediction-market prices
+ * are trader-implied probabilities, and this is the FIRST widget on every detail
+ * page; without the line the percentages read as sportsbook prices.
+ */
+@Composable
+private fun MarketSourceNote() {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        AppIcon.INFO_CIRCLE.let {
+            Icon(
+                it.imageVector,
+                contentDescription = null,
+                tint = AppColors.appTextMuted,
+                modifier = Modifier.size(13.dp).padding(top = 1.dp),
+            )
+        }
+        Text(
+            "Live trader-implied probability from public markets, not a sportsbook line.",
+            color = AppColors.appTextMuted,
+            fontSize = 11.sp,
+            lineHeight = 15.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+/**
+ * Deterministic prose read of the selected market — port of iOS
+ * `PolymarketWidget.marketHeadline`. Names the SIDE the plotted series is
+ * labelled with (team abbr, or Over/Under on totals) so it can't attribute a
+ * percentage to the wrong half, and closes with movement since the first
+ * tracked price.
+ *
+ * Pure so the copy is unit-testable; `history` is the same 60-point window the
+ * chart draws.
+ */
+internal fun polymarketMarketHeadline(
+    history: List<com.wagerproof.core.models.PolymarketPricePoint>,
+    type: PolymarketMarketType,
+    league: String,
+    awayLabel: String,
+    homeLabel: String,
+): String? {
+    val series = history.takeLast(60)
+    if (series.size < 2) return null
+    val firstAway = series.first().p.asPolymarketPercent()
+    val lastAway = series.last().p.asPolymarketPercent()
+    val lastHome = 100.0 - lastAway
+
+    val awayLeads = lastAway >= lastHome
+    val leader = if (awayLeads) lastAway else lastHome
+    val trailer = if (awayLeads) lastHome else lastAway
+    val leaderStart = if (awayLeads) firstAway else 100.0 - firstAway
+    val leaderLabel = if (awayLeads) awayLabel else homeLabel
+    val trailerLabel = if (awayLeads) homeLabel else awayLabel
+    val leaderRounded = leader.roundToInt()
+    val trailerRounded = trailer.roundToInt()
+    val nearlyEven = abs(leader - trailer) < 4
+
+    val read = when (type) {
+        PolymarketMarketType.MONEYLINE -> if (nearlyEven) {
+            "Public markets see the outright winner as nearly even: $leaderLabel $leaderRounded% and $trailerLabel $trailerRounded%."
+        } else {
+            "Public markets give $leaderLabel a $leaderRounded% chance to win outright, compared with $trailerLabel at $trailerRounded%."
+        }
+        PolymarketMarketType.SPREAD -> {
+            val marketName = if (league.lowercase() == "mlb") "run line" else "spread"
+            if (nearlyEven) {
+                "Public markets see the selected $marketName as nearly even: $leaderLabel $leaderRounded% and $trailerLabel $trailerRounded% to cover."
+            } else {
+                "Public markets give $leaderLabel a $leaderRounded% chance to cover the selected $marketName, compared with $trailerLabel at $trailerRounded%."
+            }
+        }
+        PolymarketMarketType.TOTAL -> if (nearlyEven) {
+            "Public markets see the selected game total as nearly even: $leaderLabel $leaderRounded% and $trailerLabel $trailerRounded%."
+        } else {
+            "Public markets price $leaderLabel at $leaderRounded% and $trailerLabel at $trailerRounded% for the selected game total."
+        }
+    }
+
+    val delta = (leader - leaderStart).roundToInt()
+    val movement = when {
+        delta >= 2 -> " $leaderLabel is up $delta percentage points from the first tracked price."
+        delta <= -2 -> " $leaderLabel is down ${abs(delta)} percentage points from the first tracked price."
+        else -> " $leaderLabel has held broadly steady across the tracked history."
+    }
+    return read + movement
 }
 
 @Composable

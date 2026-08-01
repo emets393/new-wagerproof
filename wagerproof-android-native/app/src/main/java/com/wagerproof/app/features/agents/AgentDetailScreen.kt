@@ -118,7 +118,9 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
     val haptics = LocalHapticFeedback.current
 
     val entitlements = AgentEntitlementsStore(proAccess)
-    val store = remember(agentId) { AgentDetailStore(agentId) }
+    // App-scoped, NOT remembered: a generation run polls for minutes and must
+    // survive this screen being disposed by a back-press or tab switch (AND-082).
+    val store = remember(agentId) { graph.agentDetailStores.store(agentId) }
     val auditStore = remember { AgentPickAuditStore() }
     val rippleEmitter = remember { GlyphRippleEmitter() }
 
@@ -129,7 +131,6 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
     var focusStartIndex by remember { mutableStateOf<Int?>(null) }
     var focusPrintIntro by remember { mutableStateOf(false) }
     var lastGenerationResultItems by remember { mutableStateOf<List<AgentBetItem>>(emptyList()) }
-    var isRunningGeneration by remember { mutableStateOf(false) }
     var pendingDeleteItem by remember { mutableStateOf<AgentBetItem?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -140,7 +141,7 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
     val canSeePicks = canViewPicks || isOwnAgent
     val canRegenerate = if (!canViewPicks) entitlements.isAdmin else store.regenerationsRemaining() > 0
     val agentTint = agent?.let { AgentColorPalette.primary(it.avatarColor) } ?: AppColors.brandGreenBright
-    val isAnyGenerating = store.isGenerating || isRunningGeneration
+    val isAnyGenerating = store.isGenerating || store.isGenerationRequested
     val hasFootball = agent?.preferredSports?.any {
         it == com.wagerproof.core.models.AgentSport.NFL || it == com.wagerproof.core.models.AgentSport.CFB
     } == true
@@ -171,25 +172,18 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
         markPicksSeen()
     }
 
-    suspend fun runGeneration() {
-        isRunningGeneration = true
-        try {
-            val succeeded = store.generatePicks()
-            if (!succeeded) {
-                errorMessage = store.lastGenerationError
-                return
-            }
-            val weeklySucceeded = if (canGenerateWeekly) store.generateWeeklyParlay() else true
-            val fresh = store.activeBetItems
-            if (fresh.isNotEmpty()) {
-                lastGenerationResultItems = fresh
-                focusPrintIntro = true
-                focusStartIndex = 0
-            }
-            if (!weeklySucceeded) errorMessage = store.lastGenerationError
-            markPicksSeen()
-        } finally {
-            isRunningGeneration = false
+    // Fire-and-forget: the run lives on the app-scoped store, not on this
+    // composition's scope, so it keeps polling (and still posts the "picks are
+    // ready" notification) if the user backs out or switches tabs mid-run.
+    // Outcome arrives via the store.generationCompletions effect below.
+    fun startGeneration() = store.startGeneration(includeWeekly = canGenerateWeekly)
+
+    fun finishFocusPresentation() {
+        val viewedFreshGeneration = focusPrintIntro && lastGenerationResultItems.isNotEmpty()
+        focusStartIndex = null
+        focusPrintIntro = false
+        if (viewedFreshGeneration) {
+            graph.reviewPrompts.recordGeneratedPicksViewed()
         }
     }
 
@@ -208,14 +202,37 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
 
     // Sole loader — re-runs when picks-visibility / ownership / user identity flip.
     val historyReloadKey = "$agentId-$canSeePicks-$isOwnAgent-${currentUserId ?: ""}"
+    LaunchedEffect(agentId) {
+        graph.reviewPrompts.recordAgentDetailViewed(agentId)
+    }
     LaunchedEffect(historyReloadKey) {
-        if (store.snapshot == null) store.refreshSnapshot()
+        // The store is app-scoped, so `snapshot` usually survives from a previous
+        // visit — re-fetch on entry rather than showing stale picks. Skipped while
+        // a run is live: that poll owns the snapshot until it finishes.
+        if (!store.hasRunInFlight) store.refreshSnapshot()
         if (canSeePicks) {
             store.loadHistory(isOwner = isOwnAgent)
             store.loadPerformancePicks(isOwner = isOwnAgent)
         }
-        store.resumeActiveGenerationIfNeeded()
+        store.startResumeIfNeeded()
         maybeAutoplayUnreadPicks()
+    }
+
+    // React to a run FINISHING while we happen to be on screen. Seeded from the
+    // store's current value so re-entering after an off-screen completion doesn't
+    // replay the printer overlay — `maybeAutoplayUnreadPicks` owns that case.
+    var seenCompletions by remember(agentId) { mutableStateOf(store.generationCompletions) }
+    LaunchedEffect(store.generationCompletions) {
+        if (store.generationCompletions == seenCompletions) return@LaunchedEffect
+        seenCompletions = store.generationCompletions
+        store.lastGenerationError?.let { errorMessage = it }
+        val fresh = store.activeBetItems
+        if (fresh.isNotEmpty()) {
+            lastGenerationResultItems = fresh
+            focusPrintIntro = true
+            focusStartIndex = 0
+        }
+        markPicksSeen()
     }
 
     Box(modifier.fillMaxSize().background(AgentDetailBase)) {
@@ -273,7 +290,7 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
                 },
                 autoOn = agent.autoGenerate,
                 onTapItem = { idx -> focusPrintIntro = false; focusStartIndex = idx },
-                onGenerate = { scope.launch { runGeneration() } },
+                onGenerate = { startGeneration() },
                 onAutoPilot = { showAutoPilotSheet = true },
                 onRegenerate = { showRegenSheet = true },
             )
@@ -311,7 +328,7 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
                 printIntro = focusPrintIntro,
                 onAudit = { pick -> auditStore.present(pick) },
                 onDelete = if (isOwnAgent) ({ item -> pendingDeleteItem = item }) else null,
-                onClose = { focusStartIndex = null },
+                onClose = ::finishFocusPresentation,
             )
         }
     }
@@ -339,7 +356,7 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
             maxDaily = 3,
             accent = agentTint,
             canRegenerate = canRegenerate,
-            onRequest = { showRegenSheet = false; scope.launch { runGeneration() } },
+            onRequest = { showRegenSheet = false; startGeneration() },
             onDismiss = { showRegenSheet = false },
         )
     }
@@ -384,7 +401,7 @@ private fun OwnerAgentDetail(agentId: String, modifier: Modifier) {
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     pendingDeleteItem = null
-                    focusStartIndex = null
+                    finishFocusPresentation()
                     scope.launch {
                         if (!store.deleteBetItem(item)) errorMessage = store.lastDeleteError
                     }
@@ -429,7 +446,16 @@ private fun OwnerPicksSection(
     Column(
         Modifier.fillMaxWidth().padding(horizontal = HInset).padding(bottom = SectionGap),
     ) {
-        AgentSectionHeader(title = "Today's Picks", systemImage = "checklist")
+        // AutoPilot lives in the header, not the rail footer (iOS AgentDetailView:292-302).
+        // The footer placement hid the schedule picker + Recent Runs behind "already has
+        // picks", so a brand-new agent, one that passed on the slate, one mid-generation
+        // or a locked non-Pro view could never reach autopilot. This section is only
+        // rendered for the owner, so no extra isOwnAgent guard is needed.
+        AgentSectionHeader(
+            title = "Today's Picks",
+            systemImage = "checklist",
+            trailing = { AutoPilotControlButton(isOn = autoOn, accent = accent, onClick = onAutoPilot) },
+        )
         Spacer(Modifier.height(12.dp))
 
         val showsPicksRail = store.activeBetItems.isNotEmpty() && !isAnyGenerating
@@ -448,9 +474,8 @@ private fun OwnerPicksSection(
                 androidx.compose.foundation.layout.Row(
                     Modifier.fillMaxWidth().padding(top = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End,
                 ) {
-                    AutoPilotControlButton(isOn = autoOn, accent = accent, onClick = onAutoPilot)
-                    Spacer(Modifier.weight(1f))
                     RegenerateControlButton(remaining = store.regenerationsRemaining(), accent = accent, enabled = canRegenerate, onClick = onRegenerate)
                 }
             }

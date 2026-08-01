@@ -62,7 +62,8 @@ Shared vocabulary used below (defined in WagerproofDesign, needs Compose equival
 - **Sport filter pills**: horizontal row "All (n)" + per-sport "NFL (n)" etc. for nfl/cfb/nba/ncaab; pills hide when count 0; active = appPrimary bg + white text, inactive appSurfaceMuted; tapping active pill toggles back to All; `.sensoryFeedback(.selection)`.
 - **Stores bound**: `@Bindable OutliersStore` — `valueAlertsSportFilter`, `fadeAlertsSportFilter`, `filteredValueAlerts`, `filteredFadeAlerts`, `valueAlertsCount(_:)`, `fadeAlertsCount(_:)`, `isLoading`, `loadingGameId`, `refresh()`.
 - **States**: loading → 3 category-accent-tinted `outlierCardShimmer` rows (mirror OutlierAlertCard footprint: header pill capsules 56/70/48×22 + lines capsules, matchup row 28-circles + 32×13 abbrevs, body line; 14pt padding, accent 0.1 bg + 0.3 stroke, r14); empty → `ContentUnavailableView("No outliers", magnifyingglass)` with per-category copy; populated → `OutlierAlertCard`s with `.staggeredAppear(index:)`.
-- **Interactions**: card tap sets `store.loadingGameId` then clears after 0.5s — game-sheet route **deferred (FIDELITY-WAIVER #021)**; port should wire real game-sheet nav.
+- **Interactions**: the iOS snapshot briefly staged `loadingGameId`; Android now resolves the typed
+  game and opens the shared sport detail sheet, so former waiver #021 is closed.
 
 ## 1.7 `Components/OutlierAlertCard.swift` (347 ln)
 - **Purpose**: full-width Value/Fade alert card (`Kind.value(OutlierValueAlert)` / `.fade(OutlierFadeAlert)`).

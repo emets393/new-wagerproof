@@ -1,6 +1,7 @@
 package com.wagerproof.app.features.mlb.f5
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -18,6 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -76,19 +80,98 @@ fun F5SplitsInsightWidget(
                 modifier = Modifier.clip(CircleShape).background(badgeColor.copy(alpha = 0.16f)).padding(horizontal = 8.dp, vertical = 3.dp),
             )
         }
+        Text(
+            summary.headline,
+            fontSize = 17.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = AppColors.appTextPrimary,
+            modifier = Modifier.semantics { contentDescription = "First-five summary: ${summary.headline}" },
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Top) {
+            Icon(
+                AppIcon.SCOPE.imageVector,
+                null, tint = AppColors.appTextSecondary, modifier = Modifier.size(12.dp).padding(top = 2.dp),
+            )
+            Text(
+                summary.qualifier,
+                fontSize = 11.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium, color = AppColors.appTextSecondary,
+            )
+        }
         InsightVerdictLine(summary.verdicts)
-        Text(summary.qualifier, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = AppColors.appTextSecondary)
-        summary.rows.forEach { F5CompareRowView(it) }
+        F5EvidenceBoard(summary)
         summary.sampleWarning?.let {
-            Text(it, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = AppColors.appAccentAmber)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(AppColors.appAccentAmber.copy(alpha = 0.10f))
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Icon(
+                    AppIcon.EXCLAMATION_TRIANGLE.imageVector, null,
+                    tint = AppColors.appAccentAmber, modifier = Modifier.size(11.dp).padding(top = 1.dp),
+                )
+                Text(it, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, color = AppColors.appAccentAmber)
+            }
         }
         InsightExpandFooter(label = "Full F5 breakdown", onTap = onExpand)
     }
 }
 
+/**
+ * The three compare rows under a header that names the columns — port of iOS
+ * `F5EvidenceBoard`. Without the abbr + "N games" header the tug bars are
+ * anonymous numerals, and the sample size is the whole point: these are matched
+ * splits, often only a handful of games per side.
+ */
 @Composable
-private fun F5CompareRowView(row: F5CompareRow) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+private fun F5EvidenceBoard(summary: F5InsightSummary, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(AppColors.appSurfaceMuted.copy(alpha = 0.30f))
+            .border(0.75.dp, AppColors.appBorder.copy(alpha = 0.45f), shape)
+            .padding(horizontal = 12.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "EVIDENCE",
+                fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp,
+                color = AppColors.appTextMuted, modifier = Modifier.width(104.dp),
+            )
+            TeamHeader(summary.awayAbbr, summary.awaySampleSize, Modifier.weight(1f))
+            TeamHeader(summary.homeAbbr, summary.homeSampleSize, Modifier.weight(1f))
+        }
+        summary.rows.forEach { row ->
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(AppColors.appBorder.copy(alpha = 0.45f)))
+            F5CompareRowView(row, Modifier.padding(vertical = 10.dp))
+        }
+    }
+}
+
+@Composable
+private fun TeamHeader(abbr: String, sampleSize: Int?, modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(abbr, fontSize = 12.sp, fontWeight = FontWeight.Black, color = AppColors.appTextPrimary, maxLines = 1)
+        Text(
+            sampleSize?.let { "$it games" } ?: "No sample",
+            fontSize = 9.sp, fontWeight = FontWeight.Medium, color = AppColors.appTextMuted, maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun F5CompareRowView(row: F5CompareRow, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Text(row.title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.4.sp, color = AppColors.appTextSecondary)
         F5SplitBar(
             awayValue = row.awayValue,
