@@ -99,7 +99,7 @@ export function ModernAuthForm({
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 disabled={isLoading}
-                className="border-black/10 bg-black/[0.04] text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30"
+                className="border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
               />
             </LabelInputContainer>
             <LabelInputContainer>
@@ -111,7 +111,7 @@ export function ModernAuthForm({
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 disabled={isLoading}
-                className="border-black/10 bg-black/[0.04] text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30"
+                className="border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
               />
             </LabelInputContainer>
           </div>
@@ -127,7 +127,7 @@ export function ModernAuthForm({
             onChange={(e) => setEmail(e.target.value)}
             disabled={isLoading}
             required
-            className="h-11 border-black/10 bg-black/[0.04] text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30"
+            className="h-11 border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
           />
         </LabelInputContainer>
         
@@ -141,7 +141,7 @@ export function ModernAuthForm({
             onChange={(e) => setPassword(e.target.value)}
             disabled={isLoading}
             required
-            className="h-11 border-black/10 bg-black/[0.04] text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30"
+            className="h-11 border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
           />
         </LabelInputContainer>
 
@@ -156,7 +156,7 @@ export function ModernAuthForm({
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={isLoading}
               required
-              className="h-11 border-black/10 bg-black/[0.04] text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30"
+              className="h-11 border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
             />
           </LabelInputContainer>
         )}

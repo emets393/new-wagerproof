@@ -245,11 +245,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               <div className="space-y-3 border-t border-black/[0.07] px-6 py-5 dark:border-white/[0.07]">
                 <div className="space-y-1.5">
                   <Label htmlFor="newPassword" className="text-xs text-black/55 dark:text-white/55">New password</Label>
-                  <Input id="newPassword" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="h-11 rounded-xl border-black/10 bg-black/[0.045] text-black placeholder:text-black/25 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/25" />
+                  <Input id="newPassword" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="h-11 rounded-xl border-black/10 bg-neutral-50 text-black placeholder:text-black/25 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/25" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="confirmPassword" className="text-xs text-black/55 dark:text-white/55">Confirm new password</Label>
-                  <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="h-11 rounded-xl border-black/10 bg-black/[0.045] text-black placeholder:text-black/25 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/25" />
+                  <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="h-11 rounded-xl border-black/10 bg-neutral-50 text-black placeholder:text-black/25 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/25" />
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button onClick={handleChangePassword} disabled={isLoading} className="h-10 flex-1 rounded-xl bg-black text-white hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/90">

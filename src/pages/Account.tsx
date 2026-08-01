@@ -190,7 +190,7 @@ export default function Account() {
                 type="password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="mt-2 h-11 border-black/10 bg-black/[0.04] text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:placeholder:text-white/30"
+                className="mt-2 h-11 border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
                 required
               />
             </div>
