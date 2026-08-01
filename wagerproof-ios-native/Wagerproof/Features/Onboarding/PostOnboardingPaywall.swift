@@ -25,6 +25,10 @@
 //     the app re-renders with the granted entitlement, then dismiss.
 //   - Meta analytics fan-out on conversion (attribution-critical path).
 //     Mixpanel paywall funnel events fire inside `CustomPaywallView`.
+//   - The picks-hold Live Activity: explicit leave-without-buying paths funnel
+//     through `dismissWithoutPurchase(_:)`; minimizing starts it from the
+//     foreground-capable `.inactive` transition before iOS suspends the app.
+//     See .claude/docs/19_picks_expiry_hold.md
 
 import SwiftUI
 import RevenueCat
@@ -38,6 +42,7 @@ struct PostOnboardingPaywall: View {
     @Environment(OnboardingStore.self) private var onboarding
     @Environment(RevenueCatStore.self) private var revenueCat
     @Environment(ProAccessStore.self) private var proAccess
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Tells the host (`RootView`) the user is done with the paywall — fires
     /// after a successful purchase/restore, when the dashboard-configured
@@ -75,6 +80,24 @@ struct PostOnboardingPaywall: View {
             // restores, or hits the dashboard X. Matches RN's
             // `onRequestClose={() => {}}` Modal behavior.
             .interactiveDismissDisabled(true)
+            .onChange(of: scenePhase) { _, phase in
+                // Request while the app is still inactive/foreground-capable.
+                // Waiting for `.background` is too late: ActivityKit rejects a
+                // local request after the process has left the foreground.
+                guard phase == .inactive, !proAccess.isPro, !isFinalizing else { return }
+
+                // The reveal normally armed the real ticket count already.
+                // This fallback also covers a very fast Home swipe while the
+                // offering is still loading and CustomPaywallView has not yet
+                // appeared to call `ensureWindow` itself.
+                let agentName = onboarding.agentDraft.name
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                PicksExpiryService.shared.ensureWindow(
+                    pickCount: 3,
+                    agentName: agentName.isEmpty ? "Your agent" : agentName
+                )
+                PicksExpiryService.shared.startLiveActivity(reason: "app_inactive")
+            }
     }
 
     /// Remote hard/soft switch (offering metadata `paywall_close_enabled`).
@@ -119,7 +142,7 @@ struct PostOnboardingPaywall: View {
                         onPurchaseFinalized: { transaction, customerInfo in
                             Task { await finalize(transaction: transaction, customerInfo: customerInfo) }
                         },
-                        onRequestClose: onUserDismissed,
+                        onRequestClose: { dismissWithoutPurchase("custom_close") },
                         debugClose: isDebugPreview
                     )
                 } else {
@@ -143,7 +166,7 @@ struct PostOnboardingPaywall: View {
                         .onRequestedDismissal {
                             // Dashboard-configured close button — explicit user
                             // intent to bail. Let them through.
-                            onUserDismissed()
+                            dismissWithoutPurchase("legacy_template_close")
                         }
                 }
             }
@@ -170,7 +193,7 @@ struct PostOnboardingPaywall: View {
         VStack {
             HStack {
                 Spacer()
-                Button(action: { onUserDismissed() }) {
+                Button(action: { dismissWithoutPurchase("overlay_close") }) {
                     if isDebugPreview {
                         // Matches CustomPaywallView.debugCloseLabel so the escape
                         // hatch reads the same whether the custom paywall or the
@@ -263,7 +286,7 @@ struct PostOnboardingPaywall: View {
                     // Same escape hatch as the RN "skip" button — keeps the
                     // user moving when the network is down so onboarding
                     // can't strand them on a dead paywall.
-                    onUserDismissed()
+                    dismissWithoutPurchase("plans_unavailable")
                 }
             }
             .padding(.horizontal, 24)
@@ -274,6 +297,16 @@ struct PostOnboardingPaywall: View {
     }
 
     // MARK: - Logic
+
+    /// The user is leaving without buying — the exact moment the 3-hour hold on
+    /// their picks becomes a live countdown they can watch from outside the app.
+    /// Starting the Live Activity here (rather than inside `CustomPaywallView`)
+    /// covers the legacy-template and plans-unavailable exits too, and keeps the
+    /// purchase path — which ENDS the activity — cleanly separate.
+    private func dismissWithoutPurchase(_ reason: String) {
+        PicksExpiryService.shared.startLiveActivity(reason: reason)
+        onUserDismissed()
+    }
 
     private func loadOffering() async {
         isLoadingOffering = true
@@ -336,6 +369,11 @@ struct PostOnboardingPaywall: View {
             package: nil,
             offering: offering
         )
+
+        // Paid — the hold is moot. Clears the window AND pulls any Live
+        // Activity a previous dismissal left on the Lock Screen, so a new
+        // subscriber is never chased by a countdown they already answered.
+        PicksExpiryService.shared.reconcile(isPro: true)
 
         isFinalizing = false
         onUserDismissed()

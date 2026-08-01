@@ -1,6 +1,7 @@
 import SwiftUI
 import StoreKit
 import WagerproofDesign
+import WagerproofServices
 import WagerproofStores
 
 /// Top-level phase switch. Mirrors RN `app/_layout.tsx`'s `RootNavigator`.
@@ -104,6 +105,16 @@ struct RootView: View {
             // so the fresh test run reliably re-presents it.
             if isActive { paywallDismissed = false }
         }
+        .onChange(of: router.reopenPaywallRequested) { _, requested in
+            // The picks-hold Live Activity was tapped. `paywallDismissed` is
+            // still true from the dismissal that started the countdown, so
+            // without this the card would just drop them back into the app it
+            // was trying to sell them out of.
+            guard requested else { return }
+            router.reopenPaywallRequested = false
+            guard !proAccess.isPro else { return }
+            paywallDismissed = false
+        }
         .onChange(of: auth.phase) { _, newPhase in
             // Sign-out resets the dismiss flag so the next user (or the same
             // user signing back in without Pro) sees the paywall again.
@@ -111,10 +122,17 @@ struct RootView: View {
         }
         .task {
             reviewPromptCoordinator.recordAppActive()
+            PicksExpiryService.shared.reconcile(isPro: proAccess.isPro)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 reviewPromptCoordinator.recordAppActive()
+                // Pull a picks-hold Live Activity the user can no longer act on
+                // — they subscribed elsewhere, or the hold lapsed while the app
+                // was backgrounded. ActivityKit can't do this on its own: the
+                // card goes stale at the deadline but stays on the Lock Screen
+                // until something ends it.
+                PicksExpiryService.shared.reconcile(isPro: proAccess.isPro)
             }
         }
         // Value events only enqueue. The root waits for the originating sheet,
