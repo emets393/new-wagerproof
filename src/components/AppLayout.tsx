@@ -486,7 +486,7 @@ export function AppLayout() {
       {user && <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />}
       
       <AlertDialog open={signInPromptOpen} onOpenChange={setSignInPromptOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-[24px] border-white/10 bg-black text-white shadow-2xl shadow-black/60">
           <AlertDialogHeader>
             <div className="flex flex-col items-center justify-center p-4">
               <img
@@ -500,17 +500,17 @@ export function AppLayout() {
                 className="w-12 h-12 object-contain rounded-lg mb-2 hidden dark:block"
               />
             </div>
-            <AlertDialogTitle>Sign In Required</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-white">Sign In Required</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/55">
               Please sign in to access your settings and manage your account.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="outline" onClick={() => setSignInPromptOpen(false)}>
+            <Button variant="outline" onClick={() => setSignInPromptOpen(false)} className="border-white/10 bg-white/[0.06] text-white hover:bg-white/10 hover:text-white">
               Cancel
             </Button>
             <AlertDialogAction asChild>
-              <Button variant="outline" onClick={handleSignIn} className="bg-white text-foreground dark:bg-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600">
+              <Button variant="outline" onClick={handleSignIn} className="border-white bg-white text-black hover:bg-white/90 hover:text-black">
                 Sign In
               </Button>
             </AlertDialogAction>
