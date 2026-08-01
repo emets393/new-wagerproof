@@ -1,5 +1,6 @@
 package com.wagerproof.app.features.onboarding
 
+import androidx.compose.ui.graphics.Color
 import com.wagerproof.core.models.SportLeague
 import com.wagerproof.core.stores.OnboardingStore
 import kotlin.test.Test
@@ -10,6 +11,12 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 
 class OnboardingFlowContractTest {
+    @Test
+    fun carouselContinueButtonUsesTheIosWhiteAndBlackPalette() {
+        assertEquals(Color.White.copy(alpha = 0.92f), OnboardingCarouselCtaSurfaceColor)
+        assertEquals(Color.Black, OnboardingCarouselCtaForegroundColor)
+    }
+
     @Test
     fun authoritativeFlowIsTwentyOneCarouselPagesThenThreeCinematics() {
         // ATT_PRIMING (no ATT on Android) and PERSONALIZED_VALUE (retired on iOS

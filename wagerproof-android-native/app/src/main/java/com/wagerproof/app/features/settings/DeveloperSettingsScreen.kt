@@ -239,7 +239,12 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
                     scope.launch {
                         when (val result = onboarding.resetRemoteAndLocal()) {
                             OnboardingStore.RemoteResetResult.Success -> {
-                                router.forceOnboardingForTestingNow()
+                                val account = auth.phase as? AuthStore.Phase.Authenticated
+                                if (account == null) {
+                                    diag = DiagMessage("Error", "You must be logged in to reset onboarding")
+                                    return@launch
+                                }
+                                router.forceOnboardingForTestingNow(account.userId)
                                 onDismiss()
                             }
                             is OnboardingStore.RemoteResetResult.Failure -> {

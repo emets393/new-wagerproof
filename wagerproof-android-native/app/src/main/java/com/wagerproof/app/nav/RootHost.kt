@@ -113,6 +113,12 @@ fun RootHost(modifier: Modifier = Modifier) {
                 graph.followedAgents.bind(phase.userId)
                 graph.agentDetailStores.bindUser(phase.userId)
                 graph.onboarding.attachUser(phase.userId)
+                // Secret Settings' explicit onboarding replay must survive an
+                // Android process recreation (including a crash mid-flow) so a
+                // Pro/admin tester still reaches the custom paywall once. The
+                // persisted owner is identity-scoped and cleared on sign-out,
+                // dismissal or purchase.
+                router.restoreTestPaywallOverride(phase.userId)
                 router.resolve(phase, graph.onboarding.isComplete)
                 graph.wagerBotChat.bind(phase.userId)
                 graph.revenueCat.attachUser(phase.userId)
@@ -178,11 +184,15 @@ fun RootHost(modifier: Modifier = Modifier) {
         hasResolvedActiveUserEntitlement = graph.revenueCat.hasResolvedActiveUserEntitlement,
         proAccessLoading = graph.proAccess.isLoading,
     )
-    val shouldPresentPaywall = router.phase == RootRouter.Phase.Ready &&
-        graph.revenueCat.hasResolvedActiveUserEntitlement &&
-        !graph.proAccess.isLoading &&
-        !paywallDismissed &&
-        (router.testPaywallOverride || !graph.proAccess.isPro)
+    val shouldPresentPaywall = shouldPresentPostOnboardingPaywall(
+        phase = router.phase,
+        authenticated = authPhase is AuthStore.Phase.Authenticated,
+        hasResolvedActiveUserEntitlement = graph.revenueCat.hasResolvedActiveUserEntitlement,
+        proAccessLoading = graph.proAccess.isLoading,
+        isPro = graph.proAccess.isPro,
+        paywallDismissed = paywallDismissed,
+        testPaywallOverride = router.testPaywallOverride,
+    )
     val latestShouldPresentPaywall by rememberUpdatedState(shouldPresentPaywall)
     val latestResetPasswordPresented by rememberUpdatedState(resetPasswordPresented)
     val latestRequiresSubscriptionResolution by rememberUpdatedState(requiresSubscriptionResolution)
@@ -373,6 +383,28 @@ internal fun requiresSubscriptionResolution(
 ): Boolean = phase == RootRouter.Phase.Ready &&
     authenticated &&
     (!hasResolvedActiveUserEntitlement || proAccessLoading)
+
+/**
+ * Pure root-gate contract shared by runtime and focused tests.
+ *
+ * Normal Pro/admin users stay out of the onboarding paywall. Secret Settings'
+ * explicit replay is the sole exception and intentionally wins over Pro access
+ * for exactly one test run.
+ */
+internal fun shouldPresentPostOnboardingPaywall(
+    phase: RootRouter.Phase,
+    authenticated: Boolean,
+    hasResolvedActiveUserEntitlement: Boolean,
+    proAccessLoading: Boolean,
+    isPro: Boolean,
+    paywallDismissed: Boolean,
+    testPaywallOverride: Boolean,
+): Boolean = phase == RootRouter.Phase.Ready &&
+    authenticated &&
+    hasResolvedActiveUserEntitlement &&
+    !proAccessLoading &&
+    !paywallDismissed &&
+    (testPaywallOverride || !isPro)
 
 @Composable
 private fun SubscriptionResolutionOverlay(

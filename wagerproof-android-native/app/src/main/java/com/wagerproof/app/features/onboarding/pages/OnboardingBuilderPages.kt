@@ -38,6 +38,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -226,7 +229,26 @@ fun OnboardingBuilderIdentityPage(creation: AgentCreationStore, modifier: Modifi
                             creation.draft = creation.draft.copy(spriteIndex = index)
                         }.padding(horizontal = 7.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center,
-                    ) { PixelSpriteAvatar(index, Modifier.fillMaxWidth()) }
+                    ) {
+                        // PixelSpriteAvatar is a Canvas with no intrinsic size.
+                        // Width-only `fillMaxWidth()` could measure its height at
+                        // 0dp, showing an empty selector card. These are the exact
+                        // 42×56 character bounds used by iOS; onboarding and the
+                        // in-app Agent Builder share this page.
+                        PixelSpriteAvatar(
+                            spriteIndex = index,
+                            animated = selected,
+                            modifier = Modifier
+                                .size(
+                                    width = AgentIdentitySpriteWidth,
+                                    height = AgentIdentitySpriteHeight,
+                                )
+                                .semantics {
+                                    contentDescription = "Character ${index + 1}"
+                                    this.selected = selected
+                                },
+                        )
+                    }
                 }
             }
         }
@@ -251,6 +273,10 @@ fun OnboardingBuilderIdentityPage(creation: AgentCreationStore, modifier: Modifi
         }
     }
 }
+
+/** Shared onboarding/in-app Agent Builder character portrait dimensions. */
+internal val AgentIdentitySpriteWidth = 42.dp
+internal val AgentIdentitySpriteHeight = 56.dp
 
 @Composable
 private fun PickerLabel(label: String) {

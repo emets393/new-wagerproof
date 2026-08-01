@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -61,9 +62,7 @@ import com.wagerproof.app.features.agents.components.AgentRowCard
 import com.wagerproof.app.features.agents.components.GenerationLoadingBar
 import com.wagerproof.app.features.onboarding.components.onboardingIcon
 import com.wagerproof.app.features.onboarding.LocalOnboardingReduceMotion
-import com.wagerproof.app.features.onboarding.onboardingPressable
 import com.wagerproof.core.design.backgrounds.GlyphRippleEmitter
-import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.pixeloffice.PixelSpriteAvatar
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.Agent
@@ -345,14 +344,16 @@ fun OnboardingRevealView(model: OnboardingGenesisModel?, accent: Color, modifier
                 }
             }
         }
-        Box(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp).height(60.dp).liquidGlassBackground(CircleShape, Color.White.copy(alpha = 0.92f)).onboardingPressable(onClickLabel = "See everything", onClick = store::advance),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("See everything", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("→", color = Color.Black, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            }
-        }
+        CinematicCtaButton(
+            label = "See everything",
+            trailingGlyph = "→",
+            onClick = store::advance,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 24.dp),
+        )
     }
 }

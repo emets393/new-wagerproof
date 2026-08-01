@@ -47,7 +47,7 @@ paywall release path and prevents an empty-personalization checkout.
 | Property | Type | Initial | Notes |
 |---|---|---|---|
 | `phase` | `Phase` | `.launching` | private(set) |
-| `testPaywallOverride` | `Bool` | `false` | private(set). Survives into `.ready` so RootView can force the post-onboarding paywall for a Pro/admin tester; cleared via `clearTestPaywallOverride()` |
+| `testPaywallOverride` | `Bool` | `false` | private(set). Survives into `.ready` so RootHost can force the post-onboarding paywall for a Pro/admin tester; the owning user ID is persisted across process recreation and cleared via `clearTestPaywallOverride()` |
 | `pendingDeepLinkRoute` | `DeepLinkRoute?` | `nil` | private(set). Deep link captured before auth resolved |
 
 **Methods:**
@@ -55,14 +55,15 @@ paywall release path and prevents an empty-personalization checkout.
   - auth `.launching` → `phase = .launching`
   - auth `.unauthenticated` → clears `testPaywallOverride`, `phase = .unauthenticated`
   - auth `.authenticated` → `phase = onboardingComplete ? .ready : .onboarding`
-- `forceOnboardingForTestingNow()` — sets `testPaywallOverride=true`, `phase=.onboarding`. Caller must reset `OnboardingStore` first.
-- `clearTestPaywallOverride()`
+- `restoreTestPaywallOverride(userId)` — restores a matching pending replay after process recreation; clears a mismatched owner on a direct account switch.
+- `forceOnboardingForTestingNow(userId)` — persists the identity-scoped one-run override, sets `testPaywallOverride=true`, and enters `.onboarding`. Caller must reset `OnboardingStore` first.
+- `clearTestPaywallOverride()` — clears both memory and the persisted owner on dismissal, purchase, or sign-out.
 - `handle(deepLink url: URL)` — parses `DeepLinkRoute(url:)`; stores into `pendingDeepLinkRoute` in ALL phases (queue-until-ready).
 - `consumePendingDeepLink() -> DeepLinkRoute?` — read+clear (defer-nil). Called by root view's `onChange(of: phase)` when `.ready` is reached.
 
 **`DeepLinkRoute` enum** (same file, top-level): `agents | outliers | feed | resetPassword`. `init?(url:)` requires scheme `wagerproof`; host (or first path component) maps `"agents"→.agents`, `"outliers"→.outliers`, `"feed"→.feed`, `"reset-password"→.resetPassword`, **anything else → `.feed`** (RN default). Android: parse from `Intent.data`.
 
-**Dependencies:** consumes `AuthStore.Phase` + `OnboardingStore.isComplete` (caller wires them; the router holds no refs). **Persistence:** none.
+**Dependencies:** consumes `AuthStore.Phase` + `OnboardingStore.isComplete` (caller wires them; the router holds no refs). **Persistence:** `AppGroupKey.TEST_PAYWALL_OVERRIDE_USER_ID` only for the explicit Secret Settings replay.
 
 ### 1.2 MainTabStore (`MainTabStore.swift`)
 

@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,9 +49,7 @@ import com.wagerproof.app.features.onboarding.LocalOnboardingReduceMotion
 import com.wagerproof.app.features.onboarding.ResearchTimeEstimates
 import com.wagerproof.app.features.onboarding.StakesEstimates
 import com.wagerproof.app.features.onboarding.components.onboardingIcon
-import com.wagerproof.app.features.onboarding.onboardingPressable
 import com.wagerproof.app.features.onboarding.pageEntrance
-import com.wagerproof.core.design.components.liquidGlassBackground
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -158,20 +155,16 @@ private fun TimeSummaryScreen(
             fontSize = 15.sp,
             modifier = Modifier.padding(bottom = 12.dp).pageEntrance(4),
         )
-        Box(
-            Modifier
+        CinematicCtaButton(
+            label = "👊  Let's Do It",
+            onClick = onFistBump,
+            modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .navigationBarsPadding()
                 .padding(bottom = 24.dp)
-                .height(60.dp)
-                .liquidGlassBackground(CircleShape, Color.White.copy(alpha = 0.92f))
-                .onboardingPressable(onClickLabel = "Let's do it", onClick = onFistBump)
                 .pageEntrance(5),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("👊  Let's Do It", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
+        )
     }
 }
 

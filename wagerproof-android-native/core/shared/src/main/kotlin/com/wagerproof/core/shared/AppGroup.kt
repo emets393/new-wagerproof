@@ -65,4 +65,14 @@ object AppGroupKey {
 
     /** Per-user onboarding completion — matches RN `@wagerproof/onboarding-completed/{userId}` semantics. */
     fun onboardingComplete(userId: String): String = "onboarding_complete/$userId"
+
+    /**
+     * User owning Secret Settings' one-run onboarding paywall replay.
+     *
+     * This is deliberately an identity rather than a process-local Boolean:
+     * Android may recreate the process while a tester is walking the long
+     * onboarding flow. Keeping the owning user lets the replay survive that
+     * interruption without ever leaking the override to a replacement account.
+     */
+    const val TEST_PAYWALL_OVERRIDE_USER_ID = "test_paywall_override_user_id"
 }

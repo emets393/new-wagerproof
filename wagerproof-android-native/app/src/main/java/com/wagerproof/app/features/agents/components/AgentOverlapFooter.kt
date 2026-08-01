@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -187,15 +188,22 @@ private fun AvatarCircle(
                 },
             )
             .border(ringWidth, ringColor, CircleShape),
-        // Bottom-aligned: the 48×64 frame is a standing figure, so centering it
-        // in a small circle floats the feet and crops the head.
-        contentAlignment = Alignment.BottomCenter,
+        contentAlignment = Alignment.Center,
     ) {
-        // The sprite overshoots the disc slightly so the character fills it the
-        // way the web/iOS stacks do, and the circle clip trims the overflow.
+        // PixelSpriteAvatar is a Canvas and therefore has no intrinsic size.
+        // Giving it only a height used to let Compose measure its width at 0dp,
+        // leaving these as plain colored circles. Match iOS's portrait crop:
+        // an explicitly bounded, frozen sprite shifted down inside the disc.
         PixelSpriteAvatar(
             spriteIndex = chip.spriteIndex,
-            modifier = Modifier.height(diameter * 1.18f),
+            animated = false,
+            modifier = Modifier
+                .size(diameter * AgentAvatarPortraitSizeFraction)
+                .offset(y = diameter * AgentAvatarPortraitYOffsetFraction),
         )
     }
 }
+
+/** iOS `ConsensusAvatarBubble`: 86% portrait with a 12% downward crop. */
+internal const val AgentAvatarPortraitSizeFraction = 0.86f
+internal const val AgentAvatarPortraitYOffsetFraction = 0.12f
