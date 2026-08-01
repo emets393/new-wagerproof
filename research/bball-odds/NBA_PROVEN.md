@@ -518,6 +518,138 @@ team) as a tracked effect.
   direction (back home) p=0.9072; the published direction (back the westward road dog) +2.37%,
   z=1.29, p=0.0817.
 
+### Cross-team matchup nets (the NFL construction) — tested on both markets, negative
+
+`nba_matchup_nets.py`. Team A's offensive profile paired against team B's *allowed* profile,
+eight stat pairs (four factors both ways plus shot mix) over L5 / L10 / season-to-date, giving
+`net_h = home offence − away allowed`, its mirror, and their sum and difference. This is the
+construction behind the NFL's 21 matchup nets and it had never been ported to basketball.
+
+The control is what settles it. **RAW** — each team's own offensive and allowed levels, same
+data, no pairing — is what must be beaten before the *construction* gets any credit.
+
+| feature set | total edge | spread edge |
+|---|---|---|
+| base | +2.6 | −1.2 |
+| base + RAW own levels | **+3.1** | −1.7 |
+| base + NET matchup | +2.6 | **−2.2** |
+| base + RAW + NET | +2.8 | −1.8 |
+| NET alone | −0.2 | −1.9 |
+
+NET sits *below* RAW on the total and makes the spread actively worse; alone it is worthless on
+both. Per-pair (eff, efg, tov, oreb, ftr, trate) every pair is negative on the spread. The
+whole-model null on the total is z=+6.58 corr / +2.42 edge, but that is the incumbent model
+being real, not the nets adding — the nets question is answered by the RAW row, and it is no.
+
+**Method note that nearly cost a week.** The obvious source, `possession_team_games.parquet`,
+has ready-made `*_alwd` columns and a sport-neutral name. It is **college basketball** — 1,008
+teams, ~6,100 games a season, sourced from `cbbd_team_box.parquet`. It joined to the NBA frame
+at 0.0%, and a looser coverage filter would have quietly trained an NBA model on college
+possessions. The allowed side is now derived from `bdl_player_box.parquet` via the identity
+that team A's offensive line in a game IS team B's allowed line in that same game — one
+self-join on `game.id`. `team_game_box()` asserts ≤32 teams so this cannot recur.
+
+### Opponent-adjusted box stats (the KenPom treatment) — built, and it barely moves anything
+
+`nba_adj_stats.py`. Only four NBA quantities were ever opponent-adjusted (`adj_net`, `adj_off`,
+`adj_def`, their sum); eFG, turnover rate, free-throw rate, offensive rebounding, 3PA rate,
+3P%, two-point %, and pace were all raw rolling means. All nine are now adjusted by the same
+leak-safe per-date ridge (`stat = level + off_A + def_B + home bump`, fitted on that season's
+prior games only). Every stat rides the same design matrix, so they solve as one multi-RHS
+system — nine stats cost about what one costs.
+
+**The mechanism test is the one with power**, because the betting edge has a null sd near 0.9
+and cannot resolve this either way. Does the adjusted rating forecast the team's OWN next-game
+value better than a plain average? n=10,084 per stat, no market involved:
+
+| stat | rolling L10 | season-to-date | opponent-adjusted |
+|---|---|---|---|
+| `off_eff` | +0.2037 | **+0.2103** | +0.1960 |
+| `efg` | +0.1666 | **+0.1844** | +0.1755 |
+| `tov_rate` | +0.1957 | **+0.2139** | +0.2101 |
+| `ftr` | +0.1931 | +0.1918 | **+0.1960** |
+| `oreb_pct` | +0.2879 | **+0.3014** | +0.2921 |
+| `three_rate` | **+0.5027** | +0.4941 | +0.4743 |
+| `three_pct` | +0.0601 | +0.0855 | **+0.0856** |
+| `two_pct` | +0.1585 | **+0.1717** | +0.1635 |
+| `poss` | +0.3304 | +0.3306 | **+0.3413** |
+
+Adjusted beats both unadjusted estimates on **3 of 9**, by +0.011 (pace), +0.003 (FT rate) and
++0.0001 (3P%). The plain season-to-date mean wins the other six.
+
+**LAW — opponent adjustment is worth far less in the NBA than in college, and the reason is
+structural.** Thirty teams on a balanced 82-game schedule face nearly identical average
+opposition, so there is very little schedule effect to remove. A college team can play two
+thirds of its games inside one conference, which is why KenPom is load-bearing there and this
+is not here. Do not port a college adjustment result to the NBA and assume it transfers.
+
+The 2×2 that separates adjustment from construction — read **down** for the adjustment,
+**across** for the matchup pairing:
+
+| | own levels | matchup net |
+|---|---|---|
+| raw rolling | +3.1 | +2.6 |
+| opponent-adjusted | +3.3 | +2.8 |
+
+Adjustment +0.2 in both rows; the matchup construction **−0.5 in both rows**. Consistent in
+both, which is what makes it credible, and all of it inside the 0.86 null sd. Adjusting the
+inputs did not rescue the nets. Spread null: z=+1.16 corr, +0.81 edge — still no spread model.
+
+### Per-feature audit — half the model is dead weight, and the two markets want opposite things
+
+`nba_feature_audit.py`. Permutation importance on OUT-OF-SAMPLE predictions inside the existing
+walk-forward: shuffle one column in the test matrix, re-predict with the already-fitted model.
+Negative delta = shuffling hurt = the feature helps. Ridge is linear, so each permutation is a
+rank-1 correction to the base prediction rather than a refit. 719 columns, both markets.
+
+**Total — 360 of 719 columns help, 359 hurt.**
+
+| family | cols | helps | total delta | mean delta |
+|---|---|---|---|---|
+| usage concentration | 96 | 49 | **−0.0595** | −0.00062 |
+| possession raw | 96 | 58 | −0.0261 | −0.00027 |
+| team form/efficiency | 82 | 39 | −0.0215 | −0.00026 |
+| **adj ratings** | 17 | 15 | −0.0187 | **−0.00110** |
+| matchup net | 96 | 47 | −0.0124 | −0.00013 |
+| adj own levels | 36 | 17 | −0.0022 | −0.00006 |
+| adj matchup net | 36 | 13 | +0.0020 | +0.00005 |
+| structural | 4 | **0** | +0.0021 | +0.00052 |
+| dims sched | 7 | **0** | +0.0025 | +0.00035 |
+| dims interaction | 8 | 2 | **+0.0038** | +0.00048 |
+
+- **Usage concentration is the engine of the total model** — biggest helping block by 2×, and six
+  of the top ten individual features are minutes/shot concentration.
+- **The four original opponent-adjusted SCORING ratings are the highest-value columns in the
+  model**, 4× better per column than anything else, 15 of 17 helping. The nine newly adjusted
+  four-factor stats land at −0.00006 and +0.00005 — about twenty times weaker. Adjustment pays
+  on scoring rate; it does not pay on eFG, turnovers, rebounding or shot mix.
+- **`dims sched` and `structural` have a 0% hit rate**, and `dims interaction` is the worst block
+  in the model — independently confirming the drop-one result that removing the pace×fatigue
+  interactions *improves* it. These three should come out.
+- **Window instability is the live lead.** `a_l5_top_min_share` is the single best feature
+  (−0.01017) and `a_l10_top_min_share` is the single worst (+0.00552). Same quantity, different
+  window, opposite sign — the L5 window carries it and the L10 window is noise the ridge pays for.
+
+**Honest prune test** — rank importance on 2022-23 only, evaluate on 2024-25 which the ranking
+never saw. Ranking and scoring on the same seasons always "improves" and means nothing.
+
+| feature set | cols | oos corr | edge | ROI |
+|---|---|---|---|---|
+| all columns | 719 | +0.0780 | +2.6 | +3.6 |
+| pruned to early-season helpers | 351 | +0.0748 | **+3.3** | +3.8 |
+
+Cutting half the model gains +0.7 edge out of sample — inside one null sd, but honestly measured.
+
+**Spread — the ranking INVERTS, and it does not transfer.** Biggest helpers are `dims arch`
+(−0.0268) and `dims exp` (mean −0.00238, the highest per-column value in the spread model);
+biggest hurter is `possession raw` (+0.0345), which was a *helper* on the total. Adjusted
+matchup nets help (−0.0060) where raw ones hurt (+0.0042). Tempting — but the prune test comes
+back **negative** (pruned −2.5 vs all −1.3), so the early-season ranking does not carry to later
+seasons. **Read this as a caveat, not a finding: feature importance inside a model whose edge is
+−1.3 tells you what a losing model leans on, not what wins.** It does say the block-level verdict
+on the situational dims was too coarse — architecture and rotation experience were buried under
+40 columns of noise when added all at once — but nothing here is bettable.
+
 ---
 
 ## 6. What blocks each proven thing from shipping
