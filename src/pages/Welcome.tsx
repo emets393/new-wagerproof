@@ -164,7 +164,7 @@ export default function Welcome() {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black">
+    <div className="relative min-h-screen overflow-hidden bg-white dark:bg-black">
       <div className="container mx-auto px-4 py-8 relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[calc(100vh-4rem)]">
           
@@ -190,7 +190,7 @@ export default function Welcome() {
                 <h1 className="text-4xl lg:text-5xl font-bold text-accent drop-shadow-lg">
                   Advanced Baseball Analytics
                 </h1>
-                <p className="text-xl text-white/90">
+                <p className="text-xl text-black/65 dark:text-white/90">
                   Data-driven insights for serious bettors. Make informed decisions with professional-grade analytics.
                 </p>
               </div>
@@ -199,14 +199,14 @@ export default function Welcome() {
             {/* Features Grid */}
             <div className="grid md:grid-cols-2 gap-6">
               {features.map((feature, index) => (
-                <div key={index} className="p-6 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors">
+                <div key={index} className="rounded-lg border border-black/10 bg-black/[0.035] p-6 backdrop-blur-sm transition-colors hover:bg-black/[0.06] dark:border-white/20 dark:bg-white/10 dark:hover:bg-white/20">
                   <div className="flex items-start space-x-4">
                     <div className="p-2 rounded-lg bg-accent/20">
                       <feature.icon className="h-6 w-6 text-accent" />
                     </div>
                     <div className="space-y-2">
-                      <h3 className="font-semibold text-white">{feature.title}</h3>
-                      <p className="text-sm text-white/80">{feature.description}</p>
+                      <h3 className="font-semibold text-black dark:text-white">{feature.title}</h3>
+                      <p className="text-sm text-black/60 dark:text-white/80">{feature.description}</p>
                     </div>
                   </div>
                 </div>
@@ -217,26 +217,26 @@ export default function Welcome() {
           {/* Right Side - Password Gate or Authentication Forms */}
           <div className="flex justify-center lg:justify-end">
             {accessRestricted && !isUnlocked ? (
-              <div className="mx-auto w-full max-w-md rounded-[28px] border border-white/10 bg-black p-8 text-white shadow-2xl shadow-black/50">
+              <div className="mx-auto w-full max-w-md rounded-[28px] border border-black/10 bg-white p-8 text-black shadow-2xl shadow-black/10 dark:border-white/10 dark:bg-black dark:text-white dark:shadow-black/50">
                 {/* Logo Section */}
                 <div className="flex justify-center mb-6">
                   <div className="relative">
                     <div className="absolute inset-0 rounded-2xl bg-emerald-400/20 blur-xl" />
-                    <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                    <div className="relative rounded-2xl border border-black/10 bg-black/[0.025] p-3 dark:border-white/10 dark:bg-white/[0.04]">
                     </div>
                   </div>
                 </div>
 
-                <h2 className="text-center text-2xl font-semibold tracking-[-0.02em] text-white">
+                <h2 className="text-center text-2xl font-semibold tracking-[-0.02em] text-black dark:text-white">
                   Access Restricted
                 </h2>
-                <p className="mx-auto mt-2 max-w-sm text-center text-sm text-white/55">
+                <p className="mx-auto mt-2 max-w-sm text-center text-sm text-black/55 dark:text-white/55">
                   Enter the password to unlock sign in
                 </p>
 
                 <form className="mt-8" onSubmit={handlePasswordSubmit}>
                   <div className="mb-6">
-                    <Label htmlFor="access-password" className="text-xs tracking-[0.02em] text-white/65">
+                    <Label htmlFor="access-password" className="text-xs tracking-[0.02em] text-black/65 dark:text-white/65">
                       Password
                     </Label>
                     <Input
@@ -245,7 +245,7 @@ export default function Welcome() {
                       type="password"
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
-                      className="mt-2 h-11 border-white/10 bg-white/[0.06] text-white placeholder:text-white/30 focus-visible:ring-emerald-400/60"
+                      className="mt-2 h-11 border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
                       required
                     />
                   </div>
@@ -257,7 +257,7 @@ export default function Welcome() {
                   )}
 
                   <button
-                    className="group/btn relative block h-11 w-full rounded-xl bg-white font-medium text-black transition hover:bg-white/90 active:scale-[0.98]"
+                    className="group/btn relative block h-11 w-full rounded-xl bg-black font-medium text-white transition hover:bg-black/85 active:scale-[0.98] dark:bg-white dark:text-black dark:hover:bg-white/90"
                     type="submit"
                   >
                     Unlock &rarr;
@@ -267,10 +267,10 @@ export default function Welcome() {
                   <div className="mt-6">
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-white/10"></div>
+                        <div className="w-full border-t border-black/10 dark:border-white/10"></div>
                       </div>
                       <div className="relative flex justify-center text-sm">
-                      <span className="bg-black px-2 text-white/40">
+                      <span className="bg-white px-2 text-black/40 dark:bg-black dark:text-white/40">
                           Don't have access?
                         </span>
                       </div>

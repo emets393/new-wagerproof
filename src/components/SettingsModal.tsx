@@ -134,13 +134,13 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[min(860px,94vh)] max-w-xl gap-0 overflow-hidden rounded-[26px] border-white/[0.08] bg-black p-0 text-white shadow-2xl shadow-black/80 [&>button]:right-5 [&>button]:top-5 [&>button]:flex [&>button]:h-9 [&>button]:w-9 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full [&>button]:bg-white/[0.07] [&>button]:text-white/70 [&>button]:opacity-100 [&>button:hover]:bg-white/10 [&>button:hover]:text-white">
-        <DialogHeader className="border-b border-white/[0.07] bg-black px-6 pb-4 pt-6 pr-16">
-          <DialogTitle className="text-[28px] font-semibold leading-none tracking-[-0.035em] text-white">Settings</DialogTitle>
+      <DialogContent className="h-[min(860px,94vh)] max-w-xl gap-0 overflow-hidden rounded-[26px] border-black/10 bg-white p-0 text-black shadow-2xl shadow-black/20 dark:border-white/[0.08] dark:bg-black dark:text-white dark:shadow-black/80 [&>button]:right-5 [&>button]:top-5 [&>button]:flex [&>button]:h-9 [&>button]:w-9 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full [&>button]:bg-black/[0.055] [&>button]:text-black/55 [&>button]:opacity-100 [&>button:hover]:bg-black/10 [&>button:hover]:text-black dark:[&>button]:bg-white/[0.07] dark:[&>button]:text-white/70 dark:[&>button:hover]:bg-white/10 dark:[&>button:hover]:text-white">
+        <DialogHeader className="border-b border-black/[0.07] bg-white px-6 pb-4 pt-6 pr-16 dark:border-white/[0.07] dark:bg-black">
+          <DialogTitle className="text-[28px] font-semibold leading-none tracking-[-0.035em] text-black dark:text-white">Settings</DialogTitle>
           <DialogDescription className="sr-only">Manage WagerProof settings.</DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-black pb-10 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white pb-10 dark:bg-black [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black/10 dark:[&::-webkit-scrollbar-thumb]:bg-white/10">
           {error && (
             <Alert variant="destructive" className="mx-6 mt-5 border-red-500/25 bg-red-500/10 text-red-300">
               <AlertDescription>{error}</AlertDescription>
@@ -242,20 +242,20 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             />
             <SettingsRow icon={<Lock />} title="Change Password" trailing={<ChevronRight className="h-4 w-4" />} onClick={() => setPasswordExpanded((value) => !value)} />
             {passwordExpanded && (
-              <div className="space-y-3 border-t border-white/[0.07] px-6 py-5">
+              <div className="space-y-3 border-t border-black/[0.07] px-6 py-5 dark:border-white/[0.07]">
                 <div className="space-y-1.5">
-                  <Label htmlFor="newPassword" className="text-xs text-white/55">New password</Label>
-                  <Input id="newPassword" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="h-11 rounded-xl border-white/10 bg-white/[0.06] text-white placeholder:text-white/25" />
+                  <Label htmlFor="newPassword" className="text-xs text-black/55 dark:text-white/55">New password</Label>
+                  <Input id="newPassword" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="h-11 rounded-xl border-black/10 bg-neutral-50 text-black placeholder:text-black/25 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/25" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="confirmPassword" className="text-xs text-white/55">Confirm new password</Label>
-                  <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="h-11 rounded-xl border-white/10 bg-white/[0.06] text-white placeholder:text-white/25" />
+                  <Label htmlFor="confirmPassword" className="text-xs text-black/55 dark:text-white/55">Confirm new password</Label>
+                  <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="h-11 rounded-xl border-black/10 bg-neutral-50 text-black placeholder:text-black/25 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/25" />
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <Button onClick={handleChangePassword} disabled={isLoading} className="h-10 flex-1 rounded-xl bg-white text-black hover:bg-white/90">
+                  <Button onClick={handleChangePassword} disabled={isLoading} className="h-10 flex-1 rounded-xl bg-black text-white hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/90">
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Change Password
                   </Button>
-                  <Button onClick={handlePasswordReset} disabled={isLoading} variant="outline" className="h-10 flex-1 rounded-xl border-white/10 bg-white/[0.06] text-white hover:bg-white/10 hover:text-white">Reset Email</Button>
+                  <Button onClick={handlePasswordReset} disabled={isLoading} variant="outline" className="h-10 flex-1 rounded-xl border-black/10 bg-black/[0.04] text-black hover:bg-black/[0.07] hover:text-black dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10 dark:hover:text-white">Reset Email</Button>
                 </div>
               </div>
             )}
@@ -278,7 +278,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             <SettingsRow icon={<Trash2 />} title="Delete Account" subtitle="Permanently delete your account and data" destructive />
           </SettingsGroup>
 
-          <div className="px-6 pb-2 pt-12 text-center text-[11px] leading-5 tracking-[0.02em] text-white/25">
+          <div className="px-6 pb-2 pt-12 text-center text-[11px] leading-5 tracking-[0.02em] text-black/25 dark:text-white/25">
             <p>WagerProof Web</p>
             <p>Developed by nerds from Ohio.</p>
           </div>
@@ -289,11 +289,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 }
 
 function SectionLabel({ children, destructive = false }: { children: ReactNode; destructive?: boolean }) {
-  return <h2 className={`px-6 pb-2 pt-7 text-[13px] font-normal tracking-[0.01em] ${destructive ? 'text-red-400/80' : 'text-white/38'}`}>{children}</h2>;
+  return <h2 className={`px-6 pb-2 pt-7 text-[13px] font-normal tracking-[0.01em] ${destructive ? 'text-red-500/80 dark:text-red-400/80' : 'text-black/42 dark:text-white/38'}`}>{children}</h2>;
 }
 
 function SettingsGroup({ children }: { children: ReactNode }) {
-  return <div className="mx-6 divide-y divide-white/[0.07]">{children}</div>;
+  return <div className="mx-6 divide-y divide-black/[0.07] dark:divide-white/[0.07]">{children}</div>;
 }
 
 function SettingsRow({
@@ -315,24 +315,24 @@ function SettingsRow({
 }) {
   const content = (
     <>
-      <span className={`flex w-6 shrink-0 items-center justify-center [&>svg]:h-5 [&>svg]:w-5 [&>svg]:stroke-[1.7] ${destructive ? 'text-red-400' : 'text-white/48'}`}>{icon}</span>
+      <span className={`flex w-6 shrink-0 items-center justify-center [&>svg]:h-5 [&>svg]:w-5 [&>svg]:stroke-[1.7] ${destructive ? 'text-red-500 dark:text-red-400' : 'text-black/48 dark:text-white/48'}`}>{icon}</span>
       <span className="min-w-0 flex-1 text-left">
-        <span className={`block text-[15px] font-normal leading-5 ${destructive ? 'text-red-400' : 'text-white/90'}`}>{title}</span>
-        {subtitle && <span className={`mt-0.5 block truncate text-[11px] leading-4 text-white/32 ${monoSubtitle ? 'font-mono' : ''}`}>{subtitle}</span>}
+        <span className={`block text-[15px] font-normal leading-5 ${destructive ? 'text-red-500 dark:text-red-400' : 'text-black/90 dark:text-white/90'}`}>{title}</span>
+        {subtitle && <span className={`mt-0.5 block truncate text-[11px] leading-4 text-black/38 dark:text-white/32 ${monoSubtitle ? 'font-mono' : ''}`}>{subtitle}</span>}
       </span>
-      {trailing && <span className="shrink-0 text-white/28">{trailing}</span>}
+      {trailing && <span className="shrink-0 text-black/32 dark:text-white/28">{trailing}</span>}
     </>
   );
 
   const className = "flex min-h-[54px] w-full items-center gap-3.5 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400/60";
-  return onClick ? <button type="button" onClick={onClick} className={`${className} hover:bg-white/[0.025]`}>{content}</button> : <div className={className}>{content}</div>;
+  return onClick ? <button type="button" onClick={onClick} className={`${className} hover:bg-black/[0.025] dark:hover:bg-white/[0.025]`}>{content}</button> : <div className={className}>{content}</div>;
 }
 
 function FeatureRow({ icon, title, subtitle, action, onClick }: { icon: ReactNode; title: string; subtitle: string; action: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="mx-6 flex w-[calc(100%-3rem)] items-center gap-3.5 rounded-[18px] border border-white/[0.08] bg-white/[0.035] px-4 py-3.5 text-left transition hover:bg-white/[0.06] active:scale-[0.99]">
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.07] text-white/70">{icon}</span>
-      <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-white/90">{title}</span><span className="mt-0.5 block truncate text-[11px] text-white/35">{subtitle}</span></span>
+    <button type="button" onClick={onClick} className="mx-6 flex w-[calc(100%-3rem)] items-center gap-3.5 rounded-[18px] border border-black/[0.08] bg-black/[0.025] px-4 py-3.5 text-left transition hover:bg-black/[0.05] active:scale-[0.99] dark:border-white/[0.08] dark:bg-white/[0.035] dark:hover:bg-white/[0.06]">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.06] text-black/65 dark:bg-white/[0.07] dark:text-white/70">{icon}</span>
+      <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-black/90 dark:text-white/90">{title}</span><span className="mt-0.5 block truncate text-[11px] text-black/40 dark:text-white/35">{subtitle}</span></span>
       <span className="text-xs font-semibold text-emerald-400">{action}</span>
     </button>
   );
@@ -340,10 +340,10 @@ function FeatureRow({ icon, title, subtitle, action, onClick }: { icon: ReactNod
 
 function HeroButton({ title, subtitle, action, icon, onClick }: { title: string; subtitle: string; action: string; icon: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="min-w-0 rounded-[18px] border border-white/[0.08] bg-gradient-to-br from-white/[0.055] to-white/[0.02] p-4 text-left transition hover:border-white/15 hover:bg-white/[0.06] active:scale-[0.98]">
-      <span className="mb-5 flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.07] text-white/55">{icon}</span>
-      <span className="block truncate text-sm font-medium text-white/90">{title}</span>
-      <span className="mt-0.5 block truncate text-[10px] text-white/32">{subtitle}</span>
+    <button type="button" onClick={onClick} className="min-w-0 rounded-[18px] border border-black/[0.08] bg-gradient-to-br from-black/[0.04] to-black/[0.015] p-4 text-left transition hover:border-black/15 hover:bg-black/[0.055] active:scale-[0.98] dark:border-white/[0.08] dark:from-white/[0.055] dark:to-white/[0.02] dark:hover:border-white/15 dark:hover:bg-white/[0.06]">
+      <span className="mb-5 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.055] text-black/55 dark:bg-white/[0.07] dark:text-white/55">{icon}</span>
+      <span className="block truncate text-sm font-medium text-black/90 dark:text-white/90">{title}</span>
+      <span className="mt-0.5 block truncate text-[10px] text-black/38 dark:text-white/32">{subtitle}</span>
       <span className="mt-3 block text-[11px] font-semibold text-emerald-400">{action} →</span>
     </button>
   );

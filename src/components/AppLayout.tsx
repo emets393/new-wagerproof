@@ -486,7 +486,7 @@ export function AppLayout() {
       {user && <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />}
       
       <AlertDialog open={signInPromptOpen} onOpenChange={setSignInPromptOpen}>
-        <AlertDialogContent className="rounded-[24px] border-white/10 bg-black text-white shadow-2xl shadow-black/60">
+        <AlertDialogContent className="rounded-[24px] border-black/10 bg-white text-black shadow-2xl shadow-black/15 dark:border-white/10 dark:bg-black dark:text-white dark:shadow-black/60">
           <AlertDialogHeader>
             <div className="flex flex-col items-center justify-center p-4">
               <img
@@ -500,17 +500,17 @@ export function AppLayout() {
                 className="w-12 h-12 object-contain rounded-lg mb-2 hidden dark:block"
               />
             </div>
-            <AlertDialogTitle className="text-white">Sign In Required</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/55">
+            <AlertDialogTitle className="text-black dark:text-white">Sign In Required</AlertDialogTitle>
+            <AlertDialogDescription className="text-black/55 dark:text-white/55">
               Please sign in to access your settings and manage your account.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button variant="outline" onClick={() => setSignInPromptOpen(false)} className="border-white/10 bg-white/[0.06] text-white hover:bg-white/10 hover:text-white">
+            <Button variant="outline" onClick={() => setSignInPromptOpen(false)} className="border-black/10 bg-black/[0.04] text-black hover:bg-black/[0.07] hover:text-black dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10 dark:hover:text-white">
               Cancel
             </Button>
             <AlertDialogAction asChild>
-              <Button variant="outline" onClick={handleSignIn} className="border-white bg-white text-black hover:bg-white/90 hover:text-black">
+              <Button variant="outline" onClick={handleSignIn} className="border-black bg-black text-white hover:bg-black/85 hover:text-white dark:border-white dark:bg-white dark:text-black dark:hover:bg-white/90 dark:hover:text-black">
                 Sign In
               </Button>
             </AlertDialogAction>
