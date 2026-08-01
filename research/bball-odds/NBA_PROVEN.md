@@ -446,13 +446,47 @@ from **219.4** (slow into slow) to **237.6** (fast into fast) — an 18-point sp
 gradient anywhere in the NBA work. The same grid measured *against the posted total* is flat: every
 cell sits between −0.0 and +1.6, and fast-into-fast is +0.68. The market knows exactly what pace does.
 This is the answer to "does opponent architecture matter": hugely for what happens, barely for what
-is mispriced. Use it as a model feature, never as a card.
+is mispriced. Never a card — and, per the in-model test below, not a feature either.
 
 **Age/experience matters only in interaction with fatigue, only on the total, and not enough to bet.**
 The ordering is coherent — veteran rotation while fatigued (b2b or heaviest-quartile travel week)
 **+0.69** excess points, young rotation while fatigued +0.08, veteran rotation fresh −0.30, and the
 main effect of experience alone is ~0 as it should be. But the top cell is t=1.32 with 2025-26
-negative. Old legs stopping defending first is a real ingredient and not a rule.
+negative. Old legs stopping defending first is real, and it is not a rule.
+
+### The "model ingredient" claim was tested and it is FALSE
+
+Architecture, rotation experience and road-trip depth were all filed above as *ingredients, not
+bets*. That claim was never tested when it was made. It has now been tested on both markets and it
+does not hold. `nba_total_v4.py` → `NBA_TOTAL_V4.md`, `nba_spread_dims.py` → `NBA_SPREAD_DIMS.md`.
+
+52 situational columns (schedule/trip structure, pace and defensive-efficiency levels, rotation
+experience, travel load, plus explicit pace×pace, leak×leak, experience×fatigue and trip×pace
+interactions) added to the round-3 incumbent:
+
+| total model | cols | oos corr | edge | ROI |
+|---|---|---|---|---|
+| round 3 incumbent | 403 | **+0.0725** | +3.0 | +2.2 |
+| + situational dims | 455 | +0.0653 | +3.5 | +2.2 |
+| situational dims ALONE | 52 | +0.0009 | −2.5 | −7.6 |
+
+Correlation falls. The edge moves +3.0 → +3.5 against a **null sd of 0.86** — a half-sigma move, i.e.
+nothing. Every theme added alone lands at or below the incumbent (sched +0.0728, trav +0.0716, arch
++0.0706, exp +0.0700). Drop-one is the sharpest result: removing the **interactions** *improves* the
+model to edge +3.8 / ROI +2.8, the best row in the file. They are noise with a story attached.
+
+On the spread — the market where S16 and S17 actually live, and the one with no working model —
+the result is flat zero: base corr +0.0137, with dims +0.0088, dims alone −0.0074, against a null
+sd of 0.0146. **z = +0.18 on corr and −0.16 on edge.** Every threshold from 0 to 5 points, every
+season and every phase grades below its own baseline.
+
+**Why, and this is the transferable part.** The information is real but **conditional, not linear**.
+S17 is a 264-game cell defined by a conjunction — away, favourite, off a 20+ margin, fresh legs.
+Smeared across 5,423 games as continuous columns it dissolves. That is the mirror image of usage
+concentration, which is genuinely diffuse and therefore found by a ridge and by no rule. The lesson
+is a matching rule: **diffuse effects belong in the model, conditional ones belong in the rule
+layer, and moving either one across that line destroys it.** Cumulative travel load remains the only
+situational block that ever earned a model slot.
 
 Two more leads that did not survive their own season split, kept here so they are not re-found:
 - **Rest mismatch (either side 2+ days) → OVER**: +1.95 excess points, placebo p=0.0020, but per
