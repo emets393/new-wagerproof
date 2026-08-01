@@ -1,9 +1,14 @@
 -- NBA signal flags + first-half odds capture.
 --
--- STATUS: NOT APPLIED to production as of 2026-07-31. Production DDL needs the owner's
--- explicit approval. Both tables are written to by jobs that already exist in the sibling
--- repo cfb_automation (branch nba/signals-and-h1-odds), so until this runs, both jobs fail
--- on every invocation:
+-- STATUS: APPLIED 2026-07-31 to the CFB instance (jpxnjuwglavsjbgbasnl), with the owner's
+-- explicit approval. Both tables exist and are empty.
+--
+-- RLS is NOT enabled on either table, which matches nba_odds_snapshots and the other pipeline
+-- tables but NOT nfl_slate_flags / cfb_slate_flags, which do have it. Anything that reads
+-- nba_slate_flags with the anon key should get a read policy first -- see NBA_PROVEN.md §6.
+--
+-- Both tables are written to by jobs that already exist in the sibling repo cfb_automation
+-- (branch nba/signals-and-h1-odds):
 --   scripts/cfb/nba_signals_job.py         -> nba_slate_flags
 --   scripts/cfb/nba_odds_snapshots_fetch.py -> nba_odds_snapshots_h1
 --

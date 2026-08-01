@@ -658,6 +658,58 @@ seasons. **Read this as a caveat, not a finding: feature importance inside a mod
 on the situational dims was too coarse — architecture and rotation experience were buried under
 40 columns of noise when added all at once — but nothing here is bettable.
 
+### The L5-vs-L10 usage-concentration lead was a collinearity artifact — keep all four windows
+
+The audit's most striking single result was that `a_l5_top_min_share` was the best column in the
+total model (−0.01017) and `a_l10_top_min_share` the worst (+0.00552) — the same quantity over
+five games versus ten, pointing opposite ways. `nba_conc_window.py` chased it and it does not
+survive.
+
+**The windows are 0.87–0.90 correlated with each other** (`l5~l10`, on 10,324 team-games, every
+concentration stat). That is far inside the band where permutation importance cannot separate two
+columns: shuffling one leaves the other standing in for it, so the reported delta describes how
+the ridge happened to split one coefficient, not which window holds information. **The audit could
+never have answered this question, and neither can any future one — for collinear blocks, ablate,
+don't permute.**
+
+The proper experiment is a window ablation, which has no collinearity inside an arm:
+
+| usage window allowed | oos corr | n | win% | base% | edge | ROI |
+|---|---|---|---|---|---|---|
+| L3 only | +0.0446 | 2193 | 52.3 | 50.8 | +1.5 | −0.2 |
+| L5 only | +0.0580 | 2245 | 53.3 | 50.4 | +2.9 | +1.8 |
+| L10 only | +0.0512 | 2197 | 52.4 | 50.6 | +1.8 | +0.0 |
+| season-to-date only | +0.0474 | 2182 | 52.6 | 51.1 | +1.5 | +0.4 |
+| **all four (incumbent)** | **+0.0653** | 2301 | 53.5 | 50.0 | **+3.5** | **+2.2** |
+| usage block removed entirely | +0.0407 | 2139 | 52.0 | 50.9 | +1.1 | −0.7 |
+
+L5 *is* the best single window, so the audit was pointing somewhere real — but all four together
+beat every one of them, and dropping L10 costs edge rather than gaining it. **The windows are
+complementary, not redundant.** The last row re-confirms the block-level result from a different
+direction: usage concentration is worth +2.4 points of edge on its own, which is most of the model.
+
+**Dropping the three zero-hit-rate blocks gains nothing here** (−dead blocks: +3.4 vs +3.5). The
++0.7 in the prune test above came from a 719-column superset evaluated on late seasons only; on
+the actual 455-column round-4 model there is no free lunch. Leave them in or take them out, it is
+inside noise either way.
+
+**The mechanism is real; the bet is not.** Forecasting the team's OWN next game (10,324 rows, no
+market): concentrated minutes → fewer points, corr −0.058 on `top_min_share` (t ≈ −5.9), and a
+concentration RISE adds beyond the level (t = −2.77 on `min_hhi`). So `nba_conc_rule.py`
+pre-registered the under, direction fixed from that measurement, and graded it:
+
+| cell | n | under% | league 49.4% | ±1sd | ROI |
+|---|---|---|---|---|---|
+| concentration rising, top 20% | 870 | 50.8 | +1.4 | ±1.7 | −3.0 |
+| concentration rising, top 10% | 458 | 48.9 | −0.5 | ±2.3 | −6.6 |
+| CONTROL: concentration high, top 10% | 352 | 46.3 | −3.1 | ±2.7 | −11.6 |
+
+Dead three ways: the headline is inside one sd and still loses money at −110; **tightening the cut
+makes it worse, so there is no dose-response**; and the naive level control points the *opposite*
+way to the mechanism. Seasons run +7.1 / −1.5 / −1.3 / +2.4. The market prices concentration.
+Adding the change as continuous columns to the ridge behaves the same way — corr up (+0.0653 →
++0.0684), edge down (+3.5 → +3.2). **Do not re-chase usage-concentration windows or changes.**
+
 ---
 
 ## 6. What blocks each proven thing from shipping
@@ -666,7 +718,7 @@ on the situational dims was too coarse — architecture and rotation experience 
 |---|---|
 | FG total model | Regenerate `nba_model_features.parquet`; persist an artifact; wire the 16 load columns |
 | FG spread + total published numbers | The two discarded classifiers (§4) — code fix, no research needed |
-| S9 / S11 | `nba_slate_flags` table does not exist. DDL written 2026-07-31 (`supabase/migrations/20260731180000_nba_slate_flags_and_h1_odds.sql`) but **not applied** — needs owner approval. S11 additionally needs `venues_7d` (distinct arenas in the trailing 7 days), which `nba_signals_job.py` does not compute today |
+| S9 / S11 | ~~`nba_slate_flags` does not exist~~ — **APPLIED to the CFB instance (`jpxnjuwglavsjbgbasnl`) on 2026-07-31 with owner approval**, along with `nba_odds_snapshots_h1`. Both tables are live and empty. S11 still needs `venues_7d` (distinct arenas in the trailing 7 days), which `nba_signals_job.py` does not compute today. Neither new table has RLS enabled — `nfl_slate_flags` does, so they should be brought into line before anything reads them with the anon key | |
 | S12 | Nothing. It is a calendar cut on games already in the slate — no new feed, no new column |
 | S14 | Needs each team's last-3 points scored / points allowed and the T-60 spread — both already in the daily pipeline. Requires the L3 window specifically (L10 reverses); percentile cut must be recomputed against the trailing season, not hard-coded |
 | S15 | Nothing but a days-of-rest column on the slate. Note `h_days_since_home` in the research frame is broken (all zeros) — compute the gap from the schedule, not from that column |
