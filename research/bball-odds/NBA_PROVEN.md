@@ -562,20 +562,28 @@ system — nine stats cost about what one costs.
 and cannot resolve this either way. Does the adjusted rating forecast the team's OWN next-game
 value better than a plain average? n=10,084 per stat, no market involved:
 
-| stat | rolling L10 | season-to-date | opponent-adjusted |
-|---|---|---|---|
-| `off_eff` | +0.2037 | **+0.2103** | +0.1960 |
-| `efg` | +0.1666 | **+0.1844** | +0.1755 |
-| `tov_rate` | +0.1957 | **+0.2139** | +0.2101 |
-| `ftr` | +0.1931 | +0.1918 | **+0.1960** |
-| `oreb_pct` | +0.2879 | **+0.3014** | +0.2921 |
-| `three_rate` | **+0.5027** | +0.4941 | +0.4743 |
-| `three_pct` | +0.0601 | +0.0855 | **+0.0856** |
-| `two_pct` | +0.1585 | **+0.1717** | +0.1635 |
-| `poss` | +0.3304 | +0.3306 | **+0.3413** |
+| stat | rolling L10 | season-to-date | opponent-adjusted | adjusted + recency |
+|---|---|---|---|---|
+| `off_eff` | +0.2037 | **+0.2103** | +0.1960 | +0.1960 |
+| `efg` | +0.1666 | **+0.1844** | +0.1755 | +0.1746 |
+| `tov_rate` | +0.1957 | **+0.2139** | +0.2101 | +0.2055 |
+| `ftr` | +0.1931 | +0.1918 | +0.1960 | **+0.2009** |
+| `oreb_pct` | +0.2879 | **+0.3014** | +0.2921 | +0.2968 |
+| `three_rate` | **+0.5027** | +0.4941 | +0.4743 | +0.4840 |
+| `three_pct` | +0.0601 | +0.0855 | **+0.0856** | +0.0805 |
+| `two_pct` | +0.1585 | **+0.1717** | +0.1635 | +0.1622 |
+| `poss` | +0.3304 | +0.3306 | +0.3413 | **+0.3474** |
 
 Adjusted beats both unadjusted estimates on **3 of 9**, by +0.011 (pace), +0.003 (FT rate) and
-+0.0001 (3P%). The plain season-to-date mean wins the other six.
++0.0001 (3P%). The plain season-to-date mean wins five of the other six.
+
+**Recency weighting is a wash** — with the half-life correctly expressed in days (40, ≈20 team
+games), the recency-weighted ratings land within ±0.01 of the flat ones on every stat, better on
+four and worse on five. It is neither the fix nor a trap; there is simply nothing there. An
+earlier run showed it catastrophically worse, which was a bug in this repo and not a finding:
+the half-life was applied to league-game ROW index, and the league plays ~7 games a day, so a
+"20-game" half-life meant about three days. **Any decay weight fitted on a pooled league panel
+must be expressed in days, not rows.**
 
 **LAW — opponent adjustment is worth far less in the NBA than in college, and the reason is
 structural.** Thirty teams on a balanced 82-game schedule face nearly identical average
