@@ -332,6 +332,32 @@ def schedule_features(T):
 # --------------------------------------------------------------------------- #
 # 4. assemble to game level
 # --------------------------------------------------------------------------- #
+def drop_phantom_events(G):
+    """The Odds API lists ~46 real games TWICE, ten minutes apart in commence_time.
+
+    Both listings carry the same two teams on the same date, but only one carries the
+    real market: for Nuggets-Knicks on 2022-11-16 the good listing says the home team is
+    -9.25 and the phantom says -2.5. Left in, each phantom (a) fans the game out to eight
+    rows through the two home/away merges downstream and (b) hands half of those rows a
+    line that was never offered, which then propagates into y_*_resid for every market.
+
+    The tell is the clock. Real NBA tips land on :10 and :40 past the hour (4,306 of 5,368
+    events); the phantoms sit on the rounded :00 and :30 and carry ~24 of 32 snapshot
+    fields against ~30 for a real one. So rank on snapshot coverage first and use the
+    tipoff grid as the tie-break, rather than trusting either signal alone.
+    """
+    snap = [c for c in G.columns if c.startswith(("open_", "t24_", "t4_", "t60_"))]
+    G = G.assign(
+        _cov=G[snap].notna().sum(axis=1),
+        _grid=G["date"].dt.minute.isin((10, 40)).astype(int),
+    ).sort_values(["_cov", "_grid", "event_id"], ascending=[False, False, True])
+    n = len(G)
+    G = G.drop_duplicates(["hk", "dkey"], keep="first")
+    if n - len(G):
+        print(f"[market] dropped {n - len(G)} phantom duplicate odds listings")
+    return G.drop(columns=["_cov", "_grid"]).sort_index()
+
+
 def market_frame():
     """Odds side: 4 seasons FG (open/T24/T4/T60) + 3 seasons 1H/TT at the close."""
     mg = pd.read_parquet(f"{OUT}/movement_games_nba.parquet")
@@ -364,9 +390,13 @@ def market_frame():
     bg["hk"] = bg["home_team.full_name"].map(norm)
     G["hk"] = G["home_team"].map(norm)
     G["dkey"] = (G["date"] - pd.Timedelta(hours=5)).dt.strftime("%Y-%m-%d")
+    # must run BEFORE the bdl join — the join key is (home team, date), so a phantom
+    # listing matches the same bdl game and doubles it
+    G = drop_phantom_events(G)
     G = G.merge(bg[["hk", "dkey", "id", "home_team.id", "visitor_team.id"]],
                 on=["hk", "dkey"], how="left").rename(
         columns={"id": "bdl_id", "home_team.id": "h_tid", "visitor_team.id": "a_tid"})
+    assert G["bdl_id"].dropna().is_unique, "a bdl game still maps to more than one odds event"
     # movement features
     for mk, pt in (("spread", "spread_home_point"), ("total", "total_point")):
         G[f"mkt_{mk}_move_open_t60"] = G[f"t60_{pt}"] - G[f"open_{pt}"]
