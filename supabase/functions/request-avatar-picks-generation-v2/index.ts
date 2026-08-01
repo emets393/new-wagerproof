@@ -1,4 +1,19 @@
 // =============================================================================
+// DEPRECATED 2026-08-01 — legacy V2 generation entry point. Do not extend.
+//
+// Superseded by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts,
+// task 'generate-v3-picks'), which shipping clients reach via the 'trigger-v3-run'
+// edge function. Intentionally NOT migrated to gpt-5.6-luna. Retained on disk
+// pending prod cron verification; nothing here is being deleted.
+//
+// Its only remaining caller is the deprecated React Native app
+// (wagerproof-mobile/services/agentPicksService.ts:181). It enqueues onto the V2
+// engine (:81 enqueue_manual_generation_run_v3 — V2 despite the name, :108
+// dispatch_generation_workers_v2), so it cannot be retired before
+// process-agent-generation-job-v2 and the 'v2-dispatch-workers' cron are verified in prod.
+// =============================================================================
+
+// =============================================================================
 // Request Avatar Picks Generation V2
 // Client-facing Edge Function for manual generation requests.
 // Validates JWT, checks entitlement/ownership via SQL, enqueues a manual run.

@@ -21,19 +21,25 @@ import { passthroughTrace, type AgentGenContext, type ProgressEvent, type TraceF
 
 const PROMPT_VERSION = "v3-incode-1";
 
-// HOTFIX 2026-07-25: DeepSeek returned 402 Insufficient Balance in prod.
-// Temporarily default to OpenAI gpt-4.1-mini (max_tokens-compatible with the
-// deployed V3 loop). Flip back to deepseek-v4-flash after DeepSeek is topped up
-// and the remap trigger is dropped.
-const DEFAULT_MODEL = "gpt-4.1-mini";
+// MIGRATION 2026-08-01: generation moved to OpenAI gpt-5.6-luna at xhigh
+// reasoning effort — pick quality is the one place we buy the extra thinking.
+// Pin the FULL id: the bare "gpt-5.6" alias routes to Sol, not Luna.
+// DeepSeek routing stays intact (debug pickers + the ledger model_name column).
+const DEFAULT_MODEL = "gpt-5.6-luna";
 
-// $/token (cache-miss input / output), per api-docs.deepseek.com/quick_start/pricing
-// (2026-06). Unknown models fall back to pro rates (conservative).
+// $/token (cache-miss input / output). DeepSeek rates per
+// api-docs.deepseek.com/quick_start/pricing (2026-06); OpenAI per
+// developers.openai.com/api/docs/pricing (2026-08). Unknown models fall back to
+// deepseek-v4-pro rates (conservative).
 const MODEL_COSTS: Record<string, { inTok: number; outTok: number }> = {
   "deepseek-v4-flash": { inTok: 0.14e-6, outTok: 0.28e-6 },
   "deepseek-v4-pro": { inTok: 0.435e-6, outTok: 0.87e-6 },
   "deepseek-reasoner": { inTok: 0.14e-6, outTok: 0.28e-6 }, // alias → v4-flash thinking
-  // OpenAI hotfix defaults (approx; used only for spend-cap accounting)
+  // Reasoning tokens bill AS output tokens, and at xhigh they dominate the
+  // visible answer — see the markSucceeded note for why gov.tokensOut already
+  // covers them (so isOverDailySpendCap is not under-counting).
+  "gpt-5.6-luna": { inTok: 0.2e-6, outTok: 1.2e-6 },
+  // OpenAI fallback/debug models (approx; used only for spend-cap accounting)
   "gpt-4.1-mini": { inTok: 0.4e-6, outTok: 1.6e-6 },
   "gpt-5-mini": { inTok: 0.25e-6, outTok: 2.0e-6 },
 };
@@ -181,7 +187,14 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
   const markSucceeded = async (picks: number, note: string | null, gov?: LoopGovernor) => {
     marked = true;
     const inTok = gov?.tokensIn ?? 0, outTok = gov?.tokensOut ?? 0;
-    // Assumes cache-miss input rates (conservative; DeepSeek bills CoT as output).
+    // Assumes cache-miss input rates (conservative). outTok is reasoning-inclusive
+    // for BOTH providers: OpenAI's usage.completion_tokens is the total that
+    // contains completion_tokens_details.reasoning_tokens, and DeepSeek bills CoT
+    // as output the same way — so no separate reasoning term is needed here, and
+    // the daily spend cap sees the real xhigh cost.
+    // Not modeled: Luna's >272K-input long-context tier ($0.4/$1.8 per Mtok). Our
+    // per-request prompt stays far under that (tokenCeiling is 320K CUMULATIVE
+    // across turns, maxTokensOut 24K), so the short-context rate applies.
     const rates = MODEL_COSTS[runModel] ?? MODEL_COSTS["deepseek-v4-pro"];
     const cost = inTok * rates.inTok + outTok * rates.outTok;
     const completedAt = new Date().toISOString();

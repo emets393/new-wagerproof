@@ -1,6 +1,8 @@
 # Supabase Edge Functions
 
-> Inventory below last verified: March 2026. Gap audit: 2026-07-25.
+> Inventory below last verified: March 2026. Gap audit: 2026-07-25. Model ids and
+> deprecation status re-verified 2026-08-01 (the `gpt-5.6-luna` migration) — see
+> `.claude/CLAUDE.md` → "Model inventory" for the authoritative per-surface model table.
 >
 > **47 function directories exist; this doc covers ~34.** Undocumented, and notably
 > including the entire V3 agent-generation path:
@@ -36,20 +38,29 @@ WagerProof uses Supabase Edge Functions (Deno runtime) for server-side operation
 | `polymarket-proxy` | CORS proxy for Polymarket APIs | `polymarketService.ts` |
 | `fetch-live-scores` | ESPN scoreboard API → `live_scores` table | `liveScoresService.ts` |
 
-### WagerBot Chat
+### WagerBot Chat — DEPRECATED 2026-08-01
 | Function | Purpose | Trigger |
 |----------|---------|---------|
-| `wagerbot-chat` | Agentic AI chat with 10 data tools + web search (Responses API) | Mobile app POST |
+| ~~`wagerbot-chat`~~ | **RETIRED** — agentic AI chat, 10 data tools + web search (Responses API, gpt-4o) | Mobile app POST (entry point still visible) |
 
-See [02_chat_wagerbot.md](02_chat_wagerbot.md) for full architecture.
+See [02_chat_wagerbot.md](02_chat_wagerbot.md), which carries the retirement banner.
 
 ### AI Completions
-| Function | Purpose | Trigger |
-|----------|---------|---------|
-| `generate-ai-completion` | OpenAI Responses API for game analysis | On-demand |
-| `generate-page-level-analysis` | Aggregate page-level AI insights | On-demand |
-| `generate-today-in-sports-completion` | Daily sports summary | Cron |
-| `check-missing-completions` | Find games without AI analysis | Cron |
+Models as of the 2026-08-01 migration — see `.claude/CLAUDE.md` → "Model inventory".
+
+| Function | Purpose | Model | Trigger |
+|----------|---------|-------|---------|
+| `generate-ai-completion` | Responses API game analysis | `gpt-4o-mini` — **GATED, not migrated** (uses `web_search_preview`) | On-demand |
+| `generate-page-level-analysis` | Aggregate page-level AI insights / Value Finds | `gpt-5.6-luna` — migrated, default effort, strict `json_schema`, no `temperature` | On-demand |
+| `generate-today-in-sports-completion` | Daily sports summary | `gpt-4o` — **GATED, not migrated** (uses `web_search_preview`) | Cron |
+| `check-missing-completions` | Find games without AI analysis | none — sends no `model`, inherits from the two above | Cron |
+| `nl-filter-patch` | Natural-language → trends filter patch | `gpt-5.6-luna` — migrated, default effort, `max_completion_tokens: 4000`, **`temperature` removed** | On-demand (web + iOS) |
+
+The two GATED functions pass `{ type: 'web_search_preview' }`, a legacy tool GPT-5-series
+models are reported to reject; Luna lists `web_search` instead. Migrating without swapping the
+tool type would 400 or, worse, silently produce ungrounded answers from a Feb 2026 cutoff.
+Unblock with one throwaway `/v1/responses` request using `gpt-5.6-luna` + `web_search`; if it
+returns 200, migrate both functions and swap the tool type in the same edit.
 
 ### Value Finds
 | Function | Purpose | Trigger |
@@ -74,10 +85,11 @@ See [02_chat_wagerbot.md](02_chat_wagerbot.md) for full architecture.
 ### AI Agents (Avatar System)
 | Function | Purpose | Trigger |
 |----------|---------|---------|
-| `generate-avatar-picks` | V1 on-demand agent pick generation | Manual |
-| `request-avatar-picks-generation-v2` | V2 queue entry point — enqueues generation job | Manual / Cron |
-| `process-agent-generation-job-v2` | V2 queue worker — processes enqueued jobs | Internal (via `INTERNAL_FUNCTION_SECRET`) |
-| `auto-generate-avatar-picks` | Trigger daily auto-generation for all agents | Cron |
+| ~~`generate-avatar-picks`~~ | **DEPRECATED 2026-08-01** — V1 on-demand generation. Its `pickSchema.ts` / `promptBuilder.ts` are deliberately NOT annotated: still imported by `shared/agentGameHelpers.ts` and the edge-V3 mirror | Test script only |
+| ~~`request-avatar-picks-generation-v2`~~ | **DEPRECATED 2026-08-01** — V2 queue entry point. Only the deprecated RN app calls it | Manual |
+| ~~`process-agent-generation-job-v2`~~ | **DEPRECATED 2026-08-01** — V2 worker (`gpt-5-mini`). `v2-dispatch-workers` cron is still scheduled every minute in migration history and `agent-authorized-action-v1` still routes to it | Internal (`INTERNAL_FUNCTION_SECRET`) |
+| ~~`process-agent-generation-job-v3`~~ | **DEPRECATED 2026-08-01** — edge V3 mirror. **NOT unreferenced**: `v3-dispatch-workers` pg_nets it every minute and `enqueue_due_auto_generation_runs_v2` stamps auto runs `engine_version='v3'`, which only this worker claims. Verify prod cron before doing anything with it | Cron / dispatch |
+| ~~`auto-generate-avatar-picks`~~ | **DEPRECATED 2026-08-01** — V1 daily auto-generation; its crons are unscheduled/disabled in migration history | (none) |
 | `grade-avatar-picks` | Grade agent picks against game results | Cron (multiple windows) |
 | `backfill-avatar-performance` | Recalculate performance caches for all agents | Cron / Manual |
 | `regrade-avatar-pushes` | Re-grade and re-send push notifications | Manual |
@@ -86,8 +98,9 @@ See [02_chat_wagerbot.md](02_chat_wagerbot.md) for full architecture.
 | Function | Purpose | Called From |
 |----------|---------|-------------|
 | `delete-own-account` | Handle account deletion (GDPR compliance) | Settings page |
-| `get-gemini-key` | Retrieve Google Gemini API key for client use | Mobile app |
-| `create-wagerbot-voice-session` | Set up WebRTC voice chat session | Voice chat page |
+| ~~`get-gemini-key`~~ | **DEPRECATED 2026-08-01** — Roast. Returns the raw `GOOGLE_AI_API_KEY` to any authenticated caller; its only consumer was never built. Revoke the key and delete the function | (nothing) |
+| ~~`create-wagerbot-voice-session`~~ | **DEPRECATED 2026-08-01** — GA Realtime ephemeral key (`gpt-realtime`/`-mini`). Frozen on its current model | Native voice UI (entry point still visible) |
+| ~~`wagerbot-chat`~~ / ~~`wagerbot-agent`~~ | **DEPRECATED 2026-08-01** — WagerBot chat, gpt-4o. Not migrated to `gpt-5.6-luna`; frozen until removal | Native chat UI (entry point still visible) |
 
 ### Misc
 | Function | Purpose |
@@ -182,6 +195,11 @@ const sportEndpoints = [
 ### `generate-ai-completion`
 
 **Purpose**: Generate AI analysis for games using OpenAI Responses API.
+
+**Model**: `gpt-4o-mini`. **Not migrated to `gpt-5.6-luna` on 2026-08-01** — the call's only
+tool is `{ type: 'web_search_preview' }`, which GPT-5-series models are reported to reject,
+and the prompt depends on live web grounding. The call site carries a comment recording the
+decision and what must be verified first.
 
 **Request**:
 ```typescript

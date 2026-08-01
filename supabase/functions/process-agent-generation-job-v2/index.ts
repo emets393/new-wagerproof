@@ -1,4 +1,29 @@
 // =============================================================================
+// DEPRECATED 2026-08-01 — legacy generation engine. Do not extend, do not port.
+//
+// Superseded by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts,
+// task 'generate-v3-picks'). Intentionally NOT migrated to gpt-5.6-luna — leave
+// every model id in this file exactly as-is. Retained on disk pending prod cron
+// verification; nothing here is being deleted.
+//
+// PROD VERIFICATION REQUIRED BEFORE REMOVAL — this worker is NOT unreferenced:
+//   * pg_cron 'v2-dispatch-workers' (supabase/migrations/20260303000003_agent_generation_v2_cron_jobs.sql:66)
+//     runs EVERY MINUTE; dispatch_generation_workers_v2 pg_net POSTs this function
+//     (20260303000002_agent_generation_v2_queue.sql:514, redefined 20260609000000:158).
+//     NO migration ever disables that job.
+//   * supabase/functions/agent-authorized-action-v1/index.ts:188,:208 (live, reachable from
+//     shipping clients) routes action 'request_generation' here for single-family agents.
+//   * supabase/functions/request-avatar-picks-generation-v2/index.ts:81,:108 also enqueues here.
+//   * pg_cron 'v2-recover-expired-leases' (20260303000003:85) is NOT V2-only — 20260609000000:480
+//     documents lease recovery as SHARED with V3, so it must not be retired alongside this.
+// Confirm prod cron.job.active for v2-dispatch-workers and that no shipping client still sends
+// 'request_generation' before retiring anything here.
+//
+// NOTE for future validator fixes: agents-v3/src/loop/tools/submitPicks.ts:19 was COPIED
+// VERBATIM from this file's deterministic validator. Fix the agents-v3 copy — this one rots.
+// =============================================================================
+
+// =============================================================================
 // Process Agent Generation Job V2
 // Internal worker Edge Function. Claims exactly one job from the queue,
 // processes it (fetch games, build prompt, call OpenAI, write picks),

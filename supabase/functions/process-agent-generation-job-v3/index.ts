@@ -1,3 +1,26 @@
+// =============================================================================
+// DEPRECATED 2026-08-01 — legacy generation engine. Do not extend, do not port.
+//
+// Superseded by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts,
+// task 'generate-v3-picks'). Intentionally NOT migrated to gpt-5.6-luna — leave
+// every model id in this file exactly as-is. Retained on disk pending prod cron
+// verification; nothing here is being deleted.
+//
+// PROD VERIFICATION REQUIRED BEFORE REMOVAL — this worker is NOT unreferenced:
+//   * pg_cron 'v3-dispatch-workers' (supabase/migrations/20260609000000_agent_generation_v3_engine.sql:486)
+//     runs EVERY MINUTE; dispatch_generation_workers_v3 pg_net POSTs this function (:316-317).
+//     No later migration unschedules or disables it.
+//   * pg_cron 'v3-circuit-daily-reset' (same migration, :496) re-arms this worker's breaker daily.
+//   * pg_cron 'v2-enqueue-auto-generation' (20260416193000_enqueue_auto_generation_cron_add_internal_secret.sql:19)
+//     -> edge fn enqueue-auto-generation-runs-v3 -> RPC enqueue_due_auto_generation_runs_v2, which
+//     since 20260706120000_auto_generation_all_v3.sql:60 stamps EVERY auto run engine_version='v3'
+//     — exactly the rows claim_generation_runs_v3 claims here. That is a LIVE producer.
+//   * supabase/functions/agent-authorized-action-v1/index.ts:180,:208 (live, reachable from shipping
+//     clients) routes action 'request_generation' into this engine for cross-family/opt-in agents.
+// Confirm prod cron.job.active for those jobs AND the engine_version split in
+// agent_generation_runs ('v3' = this worker vs 'v3_trigger' = Trigger.dev) before retiring it.
+// =============================================================================
+
 // process-agent-generation-job-v3 — the agentic generation worker. Sibling of
 // process-agent-generation-job-v2 (V2 untouched). Claims a V3-engine run,
 // derives the steering profile, fetches the slate once, runs the bounded

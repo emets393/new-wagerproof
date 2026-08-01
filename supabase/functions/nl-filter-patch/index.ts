@@ -90,9 +90,14 @@ serve(async (req) => {
       method: 'POST',
       headers: { Authorization: `Bearer ${openaiApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        temperature: 0, // deterministic extraction
-        max_tokens: 900,
+        model: 'gpt-5.6-luna', // pin the full id — the bare "gpt-5.6" alias routes to Sol, not Luna
+        // No temperature: Luna (GPT-5.6 reasoning family) rejects any value but the default, so
+        // determinism now rests on the strict json_schema + the generated system prompt, not sampling.
+        // No reasoning_effort either — this call blocks a user typing on web/iOS, so we take the
+        // API default (medium) rather than paying xhigh latency for a short extraction.
+        // max_completion_tokens (not max_tokens, which reasoning models reject) and it must also
+        // cover reasoning tokens, which bill as output — 900 would risk truncating before any JSON.
+        max_completion_tokens: 4000,
         messages: [
           { role: 'system', content: sport.artifact.systemPrompt },
           { role: 'user', content: userMessage },
@@ -112,7 +117,12 @@ serve(async (req) => {
 
     const data = await openaiResponse.json();
     const content = data?.choices?.[0]?.message?.content;
-    if (!content) return json({ error: 'empty model response' }, 502);
+    if (!content) {
+      // Log finish_reason: on a reasoning model an empty body usually means "length" — reasoning
+      // tokens ate the whole max_completion_tokens budget before the JSON was emitted.
+      console.error('empty model response, finish_reason:', data?.choices?.[0]?.finish_reason);
+      return json({ error: 'empty model response' }, 502);
+    }
 
     // Structured Outputs guarantees valid JSON matching OUTPUT_SCHEMA.
     const parsed = JSON.parse(content);

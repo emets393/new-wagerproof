@@ -1,5 +1,9 @@
 # wagerbot-agent — multi-provider WagerBot chat (parallel to wagerbot-chat)
 
+> **DEPRECATED 2026-08-01.** WagerBot chat is being retired and its UI entry points
+> hidden. This function is intentionally **NOT** migrated to `gpt-5.6-luna` — it stays
+> on its current providers/models until the surface is removed. Do not build on it.
+
 A **parallel, opt-in** edge function that runs the WagerBot agentic chat on
 **multiple LLM providers**. The production `wagerbot-chat` function is left
 completely untouched; this one exists alongside it so we can add providers and

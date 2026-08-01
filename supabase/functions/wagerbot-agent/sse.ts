@@ -1,3 +1,7 @@
+// DEPRECATED 2026-08-01 — WagerBot chat is being retired; its UI entry points are
+// being hidden. Intentionally NOT migrated to gpt-5.6-luna: this function stays on
+// its current model(s) until the surface is removed. Do not build on it.
+
 // SSE writer for the WagerBot chat edge function.
 //
 // Emits two kinds of events:

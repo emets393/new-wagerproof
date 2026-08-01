@@ -1,6 +1,21 @@
 # WagerBot Chat System
 
-> Last verified: April 2026
+> **STATUS: DEPRECATED 2026-08-01 — retired, frozen, awaiting removal.**
+>
+> WagerBot chat, WagerBot voice (`create-wagerbot-voice-session`), and Roast
+> (`get-gemini-key`) were all retired on 2026-08-01. Every file listed in this document
+> carries a `DEPRECATED 2026-08-01` header. Nothing was deleted, nothing was unrouted, and
+> **the native UI entry points are still visible** — hiding them is outstanding owner work.
+>
+> These surfaces were **deliberately NOT migrated** to `gpt-5.6-luna` in the 2026-08-01 model
+> migration. They stay on their current models until they are deleted: chat is **gpt-4o**
+> (auto-titling gpt-4o-mini), the `wagerbot-agent` fork defaults to **gpt-4o** with DeepSeek
+> `v4-flash`/`v4-pro` selectable, voice is **gpt-realtime / gpt-realtime-mini**, and Roast
+> uses a **Google** key. Do not modernize them; do not extend the tool registry.
+>
+> This document is retained because it is still an accurate description of how the deployed
+> code behaves. Read it when debugging a live chat session, never when building something new.
+> Last verified: April 2026 (mechanics); status re-verified 2026-08-01.
 
 ## Overview
 
@@ -74,7 +89,8 @@ data: {"choices":[{"delta":{"content":"The model..."}}]}
 **File:** `wagerbot-chat/agent.ts`
 
 - **API:** OpenAI Responses API (`/v1/responses`)
-- **Model:** gpt-4o
+- **Model:** gpt-4o — **frozen here**; deliberately excluded from the 2026-08-01
+  `gpt-5.6-luna` migration because the surface is retired
 - **Max tokens:** 4096
 - **Max tool turns:** 8
 - **Streaming:** Yes, via SSE

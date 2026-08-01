@@ -1,3 +1,22 @@
+// =============================================================================
+// DEPRECATED 2026-08-01 — the original V1 generation function. Do not extend.
+//
+// Superseded by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts,
+// task 'generate-v3-picks'). Intentionally NOT migrated to gpt-5.6-luna — leave
+// every model id as-is. Retained on disk pending prod cron verification; nothing
+// here is being deleted.
+//
+// No shipping client and no active cron reaches it: its jobs were unscheduled
+// (20260218000000_fix_avatar_daily_cron_jobs.sql:16-17) or set active=false
+// (20260303000003_agent_generation_v2_cron_jobs.sql:29). The sole remaining caller
+// is scripts/test-avatar-pick-audit-flow.mjs:59.
+//
+// SCOPE: this deprecation covers index.ts ONLY. ./pickSchema.ts and ./promptBuilder.ts
+// in this same directory are STILL LOAD-BEARING — imported by shared/agentGameHelpers.ts:9,
+// process-agent-generation-job-v2/index.ts:14-25 and the edge V3 worker. Do not move,
+// gut, or mark those two files.
+// =============================================================================
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 

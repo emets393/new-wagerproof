@@ -1,3 +1,7 @@
+// DEPRECATED 2026-08-01 — WagerBot chat is being retired; its UI entry points are
+// being hidden. Intentionally NOT migrated to gpt-5.6-luna: this function stays on
+// its current model(s) until the surface is removed. Do not build on it.
+
 // Provider registry for the multi-provider WagerBot agent. Both OpenAI and
 // DeepSeek speak the OpenAI Chat Completions wire format, so a provider is just
 // a base URL + API-key env var + a cheap title model. Adding another

@@ -1,7 +1,10 @@
 # WagerProof - Claude Context File
 
-> Last verified against code: 2026-07-25. Route, flag, and file-path claims below were
-> checked against `src/App.tsx`, `supabase/functions/`, and the native app trees on that date.
+> Last verified against code: 2026-07-25, with the AI-model, generation-engine, and
+> chat/voice/Roast sections re-verified 2026-08-01 (the gpt-5.6-luna migration). Route,
+> flag, and file-path claims below were checked against `src/App.tsx`,
+> `supabase/functions/`, and the native app trees on those dates.
+> **Start at "Model inventory" for anything LLM-related.**
 
 ## Project Overview
 
@@ -144,15 +147,34 @@ wagerproof-ios-native/
 - **Retired** — replaced functionally by AI Agents (§6), which track performance the same way (W-L-P, +/- units) but are AI-generated and user-configurable.
 - Removed from the web route/nav and from the iOS native app's side menu. `EditorsPicks.tsx` and `ValueFindsSection.tsx` remain on disk on web as dead code (not yet deleted); iOS native's equivalent files were deleted outright. The RN app still routes a `picks.tsx` tab — it dies with the RN phase-out.
 - **Still live, do not delete**: `EditorPickCard.tsx` (used by the routed `/free-picks` page) and `ValueFindEditorCard.tsx` (used by the admin-only `AIValueFindsPreview` on `/admin/ai-settings`).
-- The `editors_picks` Supabase table and WagerBot's `get_editor_picks` chat tool remain queryable for historical/AI-chat purposes only.
+- The `editors_picks` Supabase table remains queryable for historical purposes. Its
+  `get_editor_picks` chat tool belongs to WagerBot, which is itself retired (§5).
 
-### 5. WagerBot
-- Agentic AI chat powered by a Supabase Edge Function + OpenAI Responses API (gpt-4o)
-- 11 custom data tools (predictions, odds, Polymarket, editor picks, `present_analysis`) + built-in web search
-- SSE streaming with real-time tool execution status; ContentBlock message model with thread persistence
-- **No web UI.** `/wagerbot-chat` redirects to `/account`; `src/pages/WagerBotChat.tsx` is unrouted dead code. WagerBot ships in the native apps only.
-- A parallel multi-provider edge function (`wagerbot-agent`, OpenAI + DeepSeek) exists alongside the live `wagerbot-chat`
-- **Documentation**: `.claude/docs/02_chat_wagerbot.md`
+### 5. WagerBot chat, WagerBot voice, and Roast (DEPRECATED 2026-08-01)
+- **All three AI-conversation surfaces are RETIRED.** They were annotated
+  `DEPRECATED 2026-08-01` in code on that date, deliberately **NOT** migrated to
+  `gpt-5.6-luna`, and are frozen on whatever model they run today until they are
+  deleted. Do not build on them, do not extend the tool registries, do not
+  "modernize" their models.
+- Nothing was deleted and **no UI entry point was removed** — the native apps still
+  route to chat/voice. Hiding those entry points is an outstanding owner action
+  (see "Outstanding manual work" below).
+- What is annotated:
+  - `supabase/functions/wagerbot-chat/` (`index.ts`, `agent.ts`) — the live chat
+    loop: OpenAI Responses API, **gpt-4o** (thread auto-titling uses gpt-4o-mini)
+  - `supabase/functions/wagerbot-agent/` (all files + its README) — the parallel
+    multi-provider fork (OpenAI + DeepSeek, Chat Completions), default gpt-4o
+  - `supabase/functions/create-wagerbot-voice-session/` — GA Realtime ephemeral-key
+    minter, `gpt-realtime` / `gpt-realtime-mini`
+  - `supabase/functions/get-gemini-key/` — Roast. **Security note recorded in its
+    header**: it returns the raw `GOOGLE_AI_API_KEY` to any authenticated caller,
+    and its only consumer (Roast) was never built (the iOS driver is a no-op stub).
+    Revoking/rotating that key and deleting the function is an outstanding action.
+  - Native model pickers: `WagerproofKit/.../WagerBotModelSelection.swift`,
+    `core/services/.../WagerBotModelSelection.kt`
+- **Never had a web UI.** `/wagerbot-chat` redirects to `/account`;
+  `src/pages/WagerBotChat.tsx` is unrouted dead code.
+- **Documentation**: `.claude/docs/02_chat_wagerbot.md` (also carries the retirement banner)
 
 ### 6. AI Agents
 - **Premium Feature**: Free users get 1 active agent; Pro users can create up to 30 AI-powered "Virtual Picks Experts" with up to 10 active at once; admins are unlimited
@@ -177,10 +199,15 @@ wagerproof-ios-native/
 - **The LLM pipeline is DEPRECATED** — a writer LLM → gate → LLM judge job
   (`daily-widget-summaries` in `agents-v3/`) writing `ai_completions.headline_text`.
   It kept getting side attribution backwards (calling a −3.3 home edge "+3.3 for
-  the home team"), which QC did not reliably catch. Code and schedule are still on
-  disk; do not build on them
+  the home team"), which QC did not reliably catch.
+  `agents-v3/trigger/dailyWidgetSummaries.ts` and `agents-v3/src/summaries/runDailySummaries.ts`
+  now carry a `DEPRECATED 2026-08-01` header. **The schedule lives in code
+  (`dailyWidgetSummaries.ts:32`, `0 11 * * *` ET) and a comment does not stop it** — it is
+  still firing daily and writing an output with zero readers repo-wide. Disabling it is a
+  Trigger.dev dashboard action the owner must still do. Do not build on any of it
 - **No LLM read remains.** `getGameHeadlines()` and the `headlines` prop are
-  deleted; `useAiCompletions` now fetches completion bodies only
+  deleted; `useAiCompletions` fetches completion bodies only. The only repo-wide hits on
+  `ai_completions.headline_text` are the writer, the column DDL, and prose
 - **NFL has no model fair line.** `nfl_predictions_epa` is a CLASSIFIER (cover /
   OU probabilities only) with no `model_fair_*` or `pred_*_score` columns, so
   `home_spread_diff` / `over_line_diff` are permanently null for NFL and its
@@ -236,6 +263,61 @@ These exist in code but are switched off. Do not describe them as features:
 - **Bet Slip Grader** (`/bet-slip-grader`) — `ENABLE_BET_SLIP_GRADER = false` (`src/App.tsx:78`), renders `<AccessDenied />`
 - **Community Voting** (`/community-voting`) — `ENABLE_COMMUNITY_PICKS = false` (`src/App.tsx:77`), renders `<AccessDenied />`
 - **Teaser Sharpness Tool** — no route, no page. Only a `LearnTeaserTool` lesson inside `src/pages/LearnWagerProof.tsx`.
+- **WagerBot chat, WagerBot voice, Roast** — retired 2026-08-01 (§5). Code is annotated but
+  still deployed, and the native UI entry points are **still visible**. Treat as
+  deprecated-in-progress, not as a shipping feature.
+
+## Model inventory (as of 2026-08-01)
+
+Which surface calls which model. This table is the artifact that stops the next person
+re-deriving it from twelve edge functions.
+
+| Surface | File | Model | API / params | Status |
+|---|---|---|---|---|
+| **Agent pick generation (V3, canonical)** | `agents-v3/src/loop/{runV3Generation,agenticGenerationLoop}.ts` | `gpt-5.6-luna` | Chat Completions, `reasoning_effort: xhigh`, `max_completion_tokens`, no `temperature` | **LIVE — migrated** |
+| Agent generation SQL defaults | `20260801120000_retire_deepseek_hotfix_default_luna.sql` | `gpt-5.6-luna` | `model_name` COALESCE + insert trigger remap | **LIVE — migrated** |
+| NL filter patch (`/historical-trends` natural language) | `supabase/functions/nl-filter-patch/index.ts` | `gpt-5.6-luna` | Chat Completions, **default effort (medium)**, `max_completion_tokens: 4000`, strict `json_schema`, **no `temperature`** | **LIVE — migrated** |
+| Page-level analysis / Value Finds | `supabase/functions/generate-page-level-analysis/index.ts` | `gpt-5.6-luna` | Chat Completions, default effort, strict `json_schema`, no max-tokens param, no `temperature` | **LIVE — migrated** |
+| Game widget AI completions | `supabase/functions/generate-ai-completion/index.ts` | `gpt-4o-mini` | Responses API + `web_search_preview` tool | **GATED — not migrated** |
+| Today in Sports completion | `supabase/functions/generate-today-in-sports-completion/index.ts` | `gpt-4o` | Responses API + `web_search_preview` tool | **GATED — not migrated** |
+| Backfill of missing completions | `supabase/functions/check-missing-completions/index.ts` | — | Sends no `model`; inherits from the two functions above | inherits |
+| WagerBot chat | `supabase/functions/wagerbot-chat/` | `gpt-4o` (titles `gpt-4o-mini`) | Responses API | **DEPRECATED + FROZEN** |
+| WagerBot agent (multi-provider fork) | `supabase/functions/wagerbot-agent/` | `gpt-4o` default; DeepSeek `v4-flash`/`v4-pro` selectable | Chat Completions | **DEPRECATED + FROZEN** |
+| WagerBot voice | `supabase/functions/create-wagerbot-voice-session/` | `gpt-realtime` / `gpt-realtime-mini` | GA Realtime client secrets | **DEPRECATED + FROZEN** |
+| Roast | `supabase/functions/get-gemini-key/` | Google (`GOOGLE_AI_API_KEY`) | key handed to client | **DEPRECATED + FROZEN; never built; key should be revoked** |
+| Widget headline writer/judge | `agents-v3/src/summaries/`, `trigger/dailyWidgetSummaries.ts` | unchanged | — | **DEPRECATED; schedule still firing** |
+| Legacy generation V1 / V2 / edge-V3 | `supabase/functions/{generate-avatar-picks,auto-generate-avatar-picks,process-agent-generation-job-v2,process-agent-generation-job-v3,request-avatar-picks-generation-v2}/` | unchanged (V2 uses `gpt-5-mini`) | — | **DEPRECATED; annotated only, still deployed & cron-referenced** |
+
+Rules that fall out of this:
+- **Never send `temperature` to `gpt-5.6-luna`** — GPT-5-series reasoning models reject it.
+  (Contract lists this as *inferred*, so it is guarded by omission rather than assumed.)
+- `max_tokens` is rejected; use `max_completion_tokens` (Chat Completions) or
+  `max_output_tokens` (Responses).
+- `reasoning_effort` is sent on **exactly one** surface (V3 generation). Everything else
+  takes the API default.
+- The bare `gpt-5.6` alias routes to **Sol**, not Luna. Always pin the full id.
+
+### Why the two web-search functions were NOT migrated (gated, 2026-08-01)
+`generate-ai-completion` and `generate-today-in-sports-completion` both pass
+`{ type: 'web_search_preview' }` as their only tool, and both prompts are built around live
+web grounding. `web_search_preview` is a legacy tool that GPT-5-series models are reported to
+reject; Luna's model page lists `web_search` instead. Migrating would have produced either a
+hard 400 or — worse — an ungrounded model quietly answering from a Feb 2026 knowledge cutoff.
+Swapping the tool type at the same time would have stacked a second unverified change on the
+first. **To unblock:** one throwaway `/v1/responses` request with `model: "gpt-5.6-luna"` and
+`tools: [{ type: "web_search" }]`. If it returns 200, both functions move to Luna **and**
+change `web_search_preview` → `web_search` in the same edit — the two changes are inseparable.
+
+### Things to watch on the first deploy after this migration
+- Strict structured outputs (`json_schema` + `strict: true`) on Luna is high-confidence but
+  not literally documented. `nl-filter-patch` and `generate-page-level-analysis` both rely on
+  it; a 400 on `response_format` is the tell. Schemas were preserved byte-for-byte rather than
+  defensively loosened, so the failure is clean, not silent.
+- `nl-filter-patch` **lost `temperature: 0`**, its only determinism lever. Identical sentences
+  can now yield different-but-both-valid patches. Client-side re-validation still blocks an
+  invalid op, so this is a consistency regression, not a correctness one. It also now runs at
+  medium reasoning effort on a user-blocking, keystroke-adjacent path — if latency is bad, the
+  fix is `reasoning_effort: "low"`/`"none"`, **not** reintroducing `temperature`.
 
 ## Agent Pick Generation — which engine actually runs
 
@@ -244,9 +326,9 @@ Four generations of the engine exist in the repo. Get this right before touching
 | Engine | Location | Status |
 |---|---|---|
 | **V3 / Trigger.dev** | `agents-v3/trigger/generateV3Picks.ts` (task `generate-v3-picks`) | **CANONICAL** — what web + iOS native call |
-| V3 edge mirror | `supabase/functions/process-agent-generation-job-v3/` | Diverged fork of `agents-v3/src/loop/` — same module names, different code; nothing triggers it |
-| V2 queue | `process-agent-generation-job-v2` + `request-avatar-picks-generation-v2` | Legacy; only the deprecated RN app calls it |
-| V1 | `supabase/functions/generate-avatar-picks/` | Dead — only a test script calls it |
+| V3 edge mirror | `supabase/functions/process-agent-generation-job-v3/` | DEPRECATED 2026-08-01 (annotated, not deleted). Diverged fork of `agents-v3/src/loop/`. **It is NOT unreferenced** — see the prod-verification note below |
+| V2 queue | `process-agent-generation-job-v2` + `request-avatar-picks-generation-v2` | DEPRECATED 2026-08-01. Reachable from the deprecated RN app AND live from `agent-authorized-action-v1` |
+| V1 | `generate-avatar-picks/` + `auto-generate-avatar-picks/` | DEPRECATED 2026-08-01. Only a test script calls it. **Exception:** that directory's `pickSchema.ts` and `promptBuilder.ts` are still load-bearing for `shared/agentGameHelpers.ts` and the edge-V3 mirror, so they are deliberately unannotated — do not move or gut them |
 
 - Web entry: `src/services/agentPicksService.ts` → edge fn `trigger-v3-run` → Trigger.dev
 - iOS entry: `WagerproofKit/Sources/WagerproofServices/AgentPicksService.swift`
@@ -254,14 +336,101 @@ Four generations of the engine exist in the repo. Get this right before touching
   Do NOT fetch `api.trigger.dev` directly from a client — hand-rolled public tokens 401.
 - `agents-v3` must run `runtime: "node-22"` in `trigger.config.ts` — supabase-js ≥2.108 throws
   at `createClient` on Node 21 and this took prod down once.
-- Default model is DeepSeek `deepseek-v4-flash`. The `deepseek-reasoner`/`-chat` aliases are retired.
-- **Known ambiguity**: auto-generation may be scheduled twice — SQL migration
-  `20260706120000_auto_generation_all_v3.sql` routes auto runs to the edge V3 worker, while
-  `agents-v3/trigger/dailyAutoGenV3.ts` says it replaces that path. The three migrations
-  touching `v2-enqueue-auto-generation` all unschedule-then-reschedule it, so it is likely
-  still active. Verify against prod `cron.job` before changing auto-generation.
+- **Default model is OpenAI `gpt-5.6-luna` at `reasoning_effort: "xhigh"`** (migrated
+  2026-08-01). Pick quality is the one surface that buys the extra thinking. Pin the
+  FULL id — the bare `gpt-5.6` alias routes to Sol, not Luna.
+  - Set in three code constants (`agents-v3/src/loop/runV3Generation.ts`,
+    `trigger/dailyAutoGenV3.ts`, `trigger/weeklyParlayAutoGenV3.ts`) — but the
+    **ledger `agent_generation_runs.model_name` wins over all of them**.
+  - `V3_REASONING_EFFORT` env var overrides the effort without a redeploy (valid:
+    `none|low|medium|high|xhigh|max`). Luna's xhigh is reported to benchmark roughly
+    flat vs `high` while costing materially more output tokens — an A/B is worth it.
+  - Effort is sent **only** when the model matches `/^(gpt-5|o\d)/`. DeepSeek rejects
+    unknown body keys, so it must never receive the param. Same regex picks
+    `max_completion_tokens` over the rejected legacy `max_tokens`.
+  - **UNVERIFIED, watch prod logs:** OpenAI's gpt-5.6 upgrade guide says function
+    tools on `/v1/chat/completions` are compatible only with effective reasoning
+    `none`, and this loop *is* tool-calling on Chat Completions. A 400 mentioning
+    "reasoning" downgrades the run to an explicit `"none"` and re-runs the turn
+    once rather than killing generation. Grep Trigger.dev logs for
+    `rejected reasoning_effort` — if it fires, the migration's quality goal is unmet
+    and the fix is porting the loop to `/v1/responses`.
+- **The 2026-07-25 DeepSeek-balance hotfix trigger is KEPT, retargeted at Luna.**
+  `trg_hotfix_remap_deepseek_model_on_insert` on `agent_generation_runs` now rewrites
+  NULL and `deepseek%` `model_name` to `gpt-5.6-luna` (was `gpt-4.1-mini`). It must not
+  be dropped: **both shipping native apps always send an explicit `deepseek-v4-flash`**
+  (`AgentDetailStore.swift:550` / `AgentDetailStore.kt:514`, defaulting to
+  `AgentV3SettingsStore.models[0]`), so without the trigger iOS and Android would go
+  back to the DeepSeek account whose 402 Insufficient Balance caused the 2026-07-25
+  outage. Web sends no model and picks up the RPC default. Migration:
+  `supabase/migrations/20260801120000_retire_deepseek_hotfix_default_luna.sql`, which
+  also repoints `enqueue_manual_generation_run_v3_trigger` /
+  `enqueue_weekly_parlay_run_v3_trigger` COALESCE defaults to `gpt-5.6-luna`. The
+  older non-`_trigger` RPCs still default to `deepseek-v4-flash` and rely on the
+  trigger for coverage.
+- The `deepseek-reasoner`/`-chat` aliases are retired. DeepSeek itself is still routable
+  (debug pickers, `deepseek-v4-flash` / `-pro`) — `resolveProvider` is untouched.
+- Legacy generation paths (V1, V2, the edge-V3 mirror) were annotated
+  `DEPRECATED 2026-08-01` and left on their existing models. **Nothing was deleted and no
+  cron expression was changed** — see the prod-verification items below.
 - Migration history is out of sync with prod: `select_due_auto_avatars_v3_trigger` is called
   by `dailyAutoGenV3.ts` but exists in no migration file.
+
+#### Prod cron state is UNVERIFIED — verify before retiring anything
+
+A 2026-08-01 audit of migration history found the "legacy is dead" premise is **false on
+paper**. Nothing was deleted or unscheduled in that pass; these are open questions for the
+owner to answer against prod `cron.job` and `agent_generation_runs`:
+
+- `v3-dispatch-workers` (`20260609000000_agent_generation_v3_engine.sql:486`) is scheduled
+  **every minute** and pg_net POSTs `process-agent-generation-job-v3` (`:316`). No later
+  migration disables it, and `:496` even schedules `v3-circuit-daily-reset` to re-arm its
+  breaker. So the edge-V3 mirror is *referenced*, not orphaned.
+- `v2-enqueue-auto-generation` (`20260416193000...:19`, `*/10`) is still active → calls
+  `enqueue-auto-generation-runs-v3` → RPC `enqueue_due_auto_generation_runs_v2`, which since
+  `20260706120000_auto_generation_all_v3.sql:60` stamps **every** auto run
+  `engine_version='v3'` — the rows only the edge mirror claims.
+- Meanwhile `agents-v3/trigger/dailyAutoGenV3.ts:21` runs its own `*/10` schedule producing
+  `engine_version='v3_trigger'`. **The two paths do not dedupe against each other** (SQL
+  relies on `ON CONFLICT` over the legacy run identity, Trigger.dev on its own idempotency
+  keys). Auto-generation may be double-firing. Check the `engine_version` split.
+- `v2-dispatch-workers` (`20260303000003...:66`, every minute) is scheduled and never
+  disabled; `agent-authorized-action-v1/index.ts:188,:208` also routes `request_generation`
+  into V2/edge-V3 live. That function is **live and cannot be deprecated as a file** — its
+  `request_generation` branch (`:159-215`) needs a rewrite onto
+  `enqueue_manual_generation_run_v3_trigger`, the way `trigger-v3-run/index.ts:101` does.
+- `v2-recover-expired-leases` is **shared with V3** (`20260609000000...:480`) despite the
+  `v2-` prefix. Do not retire it alongside V2.
+
+## Outstanding manual work from the 2026-08-01 model migration
+
+None of these can be done from the repo. Until they are done, the repo state and the prod
+state disagree.
+
+1. **Verify prod cron before retiring any legacy engine.** Query `cron.job` for
+   `v3-dispatch-workers`, `v2-dispatch-workers`, `v2-enqueue-auto-generation`,
+   `v3-circuit-daily-reset`, and the `engine_version` split (`'v3'` vs `'v3_trigger'`) in
+   recent `agent_generation_runs`. Migration history says all of them are still active. No
+   cron job, edge function, or DB object was deleted in this pass — deletion was explicitly
+   out of scope.
+2. **Disable the `daily-widget-summaries` Trigger.dev schedule** in the Trigger.dev
+   dashboard. Its schedule is declared in code, so the deprecation header does not stop it
+   from running daily against an output nothing reads.
+3. **Revoke / rotate `GOOGLE_AI_API_KEY` and delete `get-gemini-key`.** The function hands
+   the raw key to any authenticated caller and its only consumer (Roast) was never built.
+4. **Hide the WagerBot chat and voice UI entry points** in the iOS and Android apps. The
+   backend is annotated deprecated but the native navigation still reaches it.
+5. **Watch the first V3 prod run** for `rejected reasoning_effort` in the Trigger.dev logs
+   (the Chat-Completions tools-plus-reasoning question), and for 400s on
+   `response_format`/`strict` from `nl-filter-patch` and `generate-page-level-analysis`.
+6. **A/B `xhigh` vs `high` on Luna** before leaving xhigh on — reported benchmarks are
+   roughly flat while output-token cost is materially higher. `V3_REASONING_EFFORT=high`
+   flips it with no redeploy.
+7. **Unblock the two web-search functions** with the single throwaway `/v1/responses` +
+   `web_search` request described above.
+8. **Rewrite `agent-authorized-action-v1`'s `request_generation` branch** onto
+   `enqueue_manual_generation_run_v3_trigger`. It is a live function whose generation branch
+   still routes exclusively into deprecated engines.
 
 ## Data Sources & APIs
 
@@ -380,7 +549,8 @@ before trusting them:
 - `.claude/docs/04_sports_predictions.md` — names 8 deleted web files
 - `.claude/docs/05_ui_design_theme.md` — predates `src/components/ios/` and `SplitViewLayout`
 - `.claude/docs/08_database_caching.md` — documents a deleted hook; edge-fn list superseded by `11_`
-- `.claude/docs/11_edge_functions.md` — verified March 2026; 13 of ~46 functions are undocumented
+- `.claude/docs/11_edge_functions.md` — verified March 2026; 13 of ~46 functions are undocumented (model ids + deprecation status refreshed 2026-08-01)
+- `.claude/docs/agents/06_IMPLEMENTATION.md` — pre-V2 engine, and any model id in it is stale; see "Model inventory"
 - `.claude/docs/agents/01_DATA_PAYLOADS.md`, `06_IMPLEMENTATION.md` — describe the pre-V2 engine
 - `.claude/docs/agents/03_DATABASE_SCHEMA.md` — omits `agent_generation_runs`, `avatar_parlays`, prop columns
 - `.claude/docs/agents/20_PIXEL_OFFICE_FULL_SPEC.md` + `21_` — **PROPOSAL, not built**

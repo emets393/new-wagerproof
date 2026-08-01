@@ -106,9 +106,22 @@ extension pushes these from `agents-v3/.env` into Trigger.dev Cloud on every
 `npm run deploy` — no manual dashboard step needed as long as `.env` is filled
 in):
 
-- `DEEPSEEK_API_KEY`
-- `OPENAI_API_KEY` (alternate provider; the loop defaults to DeepSeek `deepseek-v4-flash`
-  — `deepseek-reasoner` / `deepseek-chat` are retired aliases, see `src/loop/runV3Generation.ts`)
+- `OPENAI_API_KEY` — **the primary key since 2026-08-01.** The loop defaults to
+  `gpt-5.6-luna` at `reasoning_effort: "xhigh"` (`src/loop/runV3Generation.ts`,
+  `src/loop/agenticGenerationLoop.ts`). Pin the full id: the bare `gpt-5.6` alias routes to
+  Sol, not Luna.
+- `DEEPSEEK_API_KEY` — still required. DeepSeek remains routable through the debug model
+  pickers and through any run whose ledger `model_name` says so; `deepseek-reasoner` /
+  `deepseek-chat` are retired aliases. `reasoning_effort` is **never** sent to DeepSeek
+  (it rejects unknown body keys) — the loop gates on `/^(gpt-5|o\d)/`.
+- optional `V3_REASONING_EFFORT` — overrides the effort without a redeploy. Valid:
+  `none|low|medium|high|xhigh|max`. Luna's `xhigh` reportedly benchmarks ~flat vs `high` at
+  materially higher output-token cost, so an A/B is worth running.
+  - **Unverified:** OpenAI's gpt-5.6 upgrade guide says function tools on
+    `/v1/chat/completions` are compatible only with effective reasoning `none`, and this loop
+    is a tool-calling loop on Chat Completions. A 400 mentioning "reasoning" downgrades the
+    run to an explicit `"none"` and retries the turn once. Grep prod logs for
+    `rejected reasoning_effort`; if it fires, the real fix is porting to `/v1/responses`.
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CFB_SUPABASE_URL`

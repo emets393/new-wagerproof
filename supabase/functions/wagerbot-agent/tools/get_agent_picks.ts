@@ -1,3 +1,7 @@
+// DEPRECATED 2026-08-01 — WagerBot chat is being retired; its UI entry points are
+// being hidden. Intentionally NOT migrated to gpt-5.6-luna: this function stays on
+// its current model(s) until the surface is removed. Do not build on it.
+
 // get_agent_picks — recent picks from the signed-in user's agents. V2 chat:
 // data source for `agent_pick` components. Scoped to the user's own avatars
 // (resolve the user's avatar ids first, then query their picks).

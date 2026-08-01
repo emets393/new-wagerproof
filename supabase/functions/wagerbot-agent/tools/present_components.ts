@@ -1,3 +1,7 @@
+// DEPRECATED 2026-08-01 — WagerBot chat is being retired; its UI entry points are
+// being hidden. Intentionally NOT migrated to gpt-5.6-luna: this function stays on
+// its current model(s) until the surface is removed. Do not build on it.
+
 // present_components — V2 chat ONLY. Renders the model's analysis as rich,
 // TAPPABLE components that mirror the app's real list items / widgets (game
 // cards, mini game-detail widgets, agent/editor/tool cards). Emits

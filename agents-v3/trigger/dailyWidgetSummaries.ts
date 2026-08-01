@@ -1,13 +1,26 @@
-// DEPRECATED — do not build on this.
+// DEPRECATED 2026-08-01 — do not build on this, do not extend.
 //
-// Headlines are now deterministic, computed client-side in
+// Headlines are now deterministic, computed client-side by the pure formatters in
 // src/features/games/detail/headlines/. This LLM path was retired because it kept
 // getting side attribution backwards (calling a -3.3 home edge "+3.3 for the home
-// team"), which the judge pass below did not reliably catch. The only surface that
-// still reads its output is NflPredictionsSection.tsx:67,157.
+// team"), which the judge pass below did not reliably catch.
 //
-// Kept on disk pending removal; check the Trigger.dev dashboard before assuming
-// the schedule is off, since it still costs money while enabled.
+// It now has NO READER anywhere in the repo. A 2026-08-01 audit found the only
+// remaining references to ai_completions.headline_text are the writer
+// (agents-v3/src/summaries/runDailySummaries.ts:178), the column DDL
+// (supabase/migrations/20260726120000_widget_headline_summaries.sql:23,:37,:46) and
+// prose in the docs; src/features/games/hooks/useAiCompletions.ts fetches bodies only.
+// The earlier claim that NflPredictionsSection.tsx read it is stale — that read is gone.
+//
+// ACTION FOR THE OWNER: the schedule below is defined IN CODE (see the `cron` field on
+// the schedules.task call), so this comment does not stop it — it still fires daily,
+// burning tokens for output
+// nobody reads. Disable the 'daily-widget-summaries' schedule in the Trigger.dev
+// dashboard (or drop it on the next deploy). Deliberately NOT changed here: this pass
+// does not touch cron expressions or delete tasks.
+//
+// Intentionally NOT migrated to gpt-5.6-luna — leave the model ids as-is; the
+// replacement is deterministic code, not a better model.
 // See .claude/docs/17_widget_headlines.md.
 //
 // dailyWidgetSummaries — writes the big plain-language one-liner that sits at the

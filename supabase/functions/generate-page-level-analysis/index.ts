@@ -463,7 +463,11 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        // Pin the full Luna id — the bare "gpt-5.6" alias routes to Sol, not Luna.
+        // Reasoning effort is left unset (server default) and temperature is never sent:
+        // GPT-5.6 reasoning models reject `temperature`. This call sends no function tools,
+        // so it is safe on /v1/chat/completions (tools + reasoning are Responses-API-only).
+        model: 'gpt-5.6-luna',
         messages: [
           { role: 'system', content: schedule.system_prompt },
           { role: 'user', content: userPrompt }

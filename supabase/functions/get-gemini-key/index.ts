@@ -1,3 +1,12 @@
+// DEPRECATED 2026-08-01 — the Roast feature this key served is being retired, and it
+// was never actually built (the iOS driver is a no-op stub), so this function has no
+// live consumer. Intentionally NOT migrated to gpt-5.6-luna; it stays as-is until removal.
+//
+// SECURITY: this endpoint hands the raw GOOGLE_AI_API_KEY to ANY authenticated caller —
+// anyone with an account can extract it and spend against our Google AI quota.
+// FOLLOW-UP (out of scope for this pass): revoke/rotate GOOGLE_AI_API_KEY and delete
+// this function. Do not add new callers.
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

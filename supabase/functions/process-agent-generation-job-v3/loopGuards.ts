@@ -1,3 +1,9 @@
+// DEPRECATED 2026-08-01 — part of the legacy edge V3 generation worker, superseded
+// by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts, task
+// 'generate-v3-picks'). Intentionally NOT migrated to gpt-5.6-luna. Still reachable
+// in prod via pg_cron 'v3-dispatch-workers' — read the full prod-verification note
+// in ./index.ts before changing or removing anything here.
+
 // LoopGovernor — every V3 loop cap lives here, in code, because the model
 // ignores prose caps. Also the per-run circuit breaker (tool thrash / malformed
 // tool-call JSON). Time is injectable for tests.

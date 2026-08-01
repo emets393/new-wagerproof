@@ -1,3 +1,9 @@
+// DEPRECATED 2026-08-01 — part of the legacy edge V3 generation worker, superseded
+// by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts, task
+// 'generate-v3-picks'). Intentionally NOT migrated to gpt-5.6-luna. Still reachable
+// in prod via pg_cron 'v3-dispatch-workers' — read the full prod-verification note
+// in ./index.ts before changing or removing anything here.
+
 // V3 system prompt — assembled in-code from the resolved SteeringProfile (V3's
 // analogue of promptBuilder). Teaches the loop protocol (slate → narrow →
 // deep-fetch → size → submit), the S2a slate-grounding rule verbatim, the

@@ -1,3 +1,9 @@
+// DEPRECATED 2026-08-01 — part of the legacy edge V3 generation worker, superseded
+// by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts, task
+// 'generate-v3-picks'). Intentionally NOT migrated to gpt-5.6-luna. Still reachable
+// in prod via pg_cron 'v3-dispatch-workers' — read the full prod-verification note
+// in ../index.ts before changing or removing anything here.
+
 // submit_picks — the terminal write tool. Runs the grounding gate, then the
 // deterministic validator COPIED VERBATIM from process-agent-generation-job-v2
 // (game match, dedup, team-in-selection, MLB ML→RL swap, totals→Vegas rewrite,

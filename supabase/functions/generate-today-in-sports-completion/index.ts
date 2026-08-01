@@ -140,6 +140,9 @@ IMPORTANT: You must ONLY provide news, updates, and information for ${dayOfWeek}
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        // NOT migrated to gpt-5.6-luna (2026-08-01): Luna's model page lists `web_search`,
+        // never the legacy `web_search_preview` this call depends on, and GPT-5-series models
+        // are reported to reject it outright. Stays on gpt-4o until that is verified live.
         model: 'gpt-4o',
         tools: [
           {

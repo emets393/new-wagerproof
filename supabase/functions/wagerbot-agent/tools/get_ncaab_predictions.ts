@@ -1,3 +1,7 @@
+// DEPRECATED 2026-08-01 — WagerBot chat is being retired; its UI entry points are
+// being hidden. Intentionally NOT migrated to gpt-5.6-luna: this function stays on
+// its current model(s) until the surface is removed. Do not build on it.
+
 // get_ncaab_predictions — Fetch NCAAB model predictions for a given date.
 // Returns predictions with team ratings, rankings, and context flags.
 

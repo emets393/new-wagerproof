@@ -37,6 +37,30 @@ function summarize(s: string): string {
   return s.length > 200 ? s.slice(0, 200) + "…" : s;
 }
 
+// Generation is the ONE surface that buys xhigh reasoning — pick quality is what
+// the whole run exists for. Only OpenAI reasoning models accept the parameter;
+// DeepSeek (still reachable via the debug pickers) rejects unknown body keys, so
+// it must never be sent there. Override per-deploy with V3_REASONING_EFFORT.
+const REASONING_EFFORT_DEFAULT = "xhigh";
+const VALID_REASONING_EFFORTS = new Set(["none", "low", "medium", "high", "xhigh", "max"]);
+
+function resolveReasoningEffort(model: string): string | null {
+  if (!/^(gpt-5|o\d)/.test(model)) return null; // DeepSeek + gpt-4.x take no effort param
+  const override = process.env.V3_REASONING_EFFORT;
+  if (override && VALID_REASONING_EFFORTS.has(override)) return override;
+  return REASONING_EFFORT_DEFAULT;
+}
+
+// GUARD (2026-08-01, unverified against prod): OpenAI's gpt-5.6 upgrade guide says
+// function tools on /v1/chat/completions are only compatible with effective
+// reasoning "none" — xhigh + tools may be Responses-API-only. We send it anyway
+// (the docs are ambiguous and Responses would mean rewriting the whole streaming
+// loop), but a 400 mentioning reasoning downgrades the run to no-effort instead of
+// killing generation. Once verified, either drop this or port the loop to /v1/responses.
+function isReasoningRejection(status: number, body: string): boolean {
+  return status === 400 && /reasoning/i.test(body);
+}
+
 function submitRepairInstruction(report: SubmitReport, ctx: AgentGenContext, toolName: "submit_picks" | "submit_parlay"): string | null {
   if (report.allAccepted) return null;
   const allowed = ctx.steering.allowedMarkets.length > 0 ? ctx.steering.allowedMarkets : ["spread", "moneyline", "total", "team_total", "prop"];
@@ -130,6 +154,12 @@ export async function runAgenticLoop(
   let turns = 0;
   const max = ctx.gov.limitsRef.maxTurns;
   let forcedNudgeInjected = false;
+  // Null for non-reasoning models (param omitted entirely); "none" once downgraded
+  // by the 400 guard. The downgrade persists for the rest of the run so we don't
+  // re-fail every turn.
+  let reasoningEffort = resolveReasoningEffort(opts.model);
+  let reasoningDowngradeRetried = false;
+  let truncationRetried = false;
 
   for (let turn = 0; turn < max; turn++) {
     turns = turn + 1;
@@ -172,7 +202,10 @@ export async function runAgenticLoop(
       stream: true,
       stream_options: { include_usage: true },
     };
+    // xhigh thinking for OpenAI reasoning models only (null for DeepSeek/gpt-4.x).
+    if (reasoningEffort) body.reasoning_effort = reasoningEffort;
     // gpt-5* / o* reject max_tokens; older chat models reject max_completion_tokens.
+    // "gpt-5.6-luna" matches ^gpt-5, so it correctly takes max_completion_tokens.
     if (/^(gpt-5|o\d)/.test(opts.model)) {
       body.max_completion_tokens = ctx.gov.limitsRef.maxTokensOut;
     } else {
@@ -206,6 +239,21 @@ export async function runAgenticLoop(
             });
             if (!resp.ok || !resp.body) {
               const errTxt = await resp.text().catch(() => "");
+              // Chat Completions may refuse tools+reasoning on gpt-5.6 (see the
+              // guard note above): downgrade to "none" and re-run the turn once
+              // rather than failing the whole generation. Must send "none"
+              // EXPLICITLY — omitting the key falls back to the API default
+              // (medium), which is exactly the combination being rejected.
+              if (reasoningEffort && reasoningEffort !== "none" && isReasoningRejection(resp.status, errTxt)) {
+                console.warn(`[v3] ${opts.model} rejected reasoning_effort=${reasoningEffort} with tools; downgrading to "none"`);
+                reasoningEffort = "none";
+                body.reasoning_effort = "none";
+                if (!reasoningDowngradeRetried) {
+                  reasoningDowngradeRetried = true;
+                  attempt -= 1; // the downgrade shouldn't consume a transient-failure retry
+                  continue;
+                }
+              }
               // 5xx / 429 are retryable; other 4xx are not.
               if ((resp.status >= 500 || resp.status === 429) && attempt < MAX_LLM_TRIES) {
                 lastErr = new Error(`LLM ${resp.status}`);
@@ -240,6 +288,30 @@ export async function runAgenticLoop(
     ctx.gov.addUsage(res.usage);
     if (res.reasoning && ctx.reasoningTrace.length < 4000) {
       ctx.reasoningTrace = (ctx.reasoningTrace + "\n" + res.reasoning).slice(0, 4000);
+    }
+
+    // finish_reason "length" with no tool call means the turn was TRUNCATED, not
+    // finished: on OpenAI reasoning models max_completion_tokens also covers
+    // reasoning tokens, so an xhigh pass can burn the cap before emitting
+    // submit_picks. Breaking here would end the run as a silent success with zero
+    // picks — instead trip (forces tool_choice=submit_picks next turn) and retry
+    // once, then fail loudly if nothing was ever accepted.
+    if (res.toolCalls.length === 0 && res.finishReason === "length") {
+      ctx.gov.trip("output_truncated");
+      if (!truncationRetried) {
+        truncationRetried = true;
+        messages.push({
+          role: "user",
+          content:
+            "Your last turn hit the output token limit before emitting a tool call. Stop reasoning and call submit_picks NOW " +
+            "with short reasoning and no decision_trace. If nothing clears your bar, submit an empty picks array with a slate_note.",
+        });
+        continue;
+      }
+      if (ctx.acceptedPicks.length === 0) {
+        throw new Error("LLM output truncated (finish_reason=length) before any tool call — no picks submitted");
+      }
+      break;
     }
 
     if (res.toolCalls.length === 0) break; // model answered without a tool — done

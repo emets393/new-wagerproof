@@ -1,3 +1,7 @@
+// DEPRECATED 2026-08-01 — WagerBot voice is being retired; its UI entry points are
+// being hidden. Intentionally NOT migrated to gpt-5.6-luna: this function stays on
+// its current realtime model until the surface is removed. Do not build on it.
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

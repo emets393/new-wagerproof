@@ -64,10 +64,14 @@ The Trigger.dev project ref is pinned in `trigger.config.ts`:
 The task itself reads these at runtime (`src/runtimeHelpers.ts`,
 `src/loop/runV3Generation.ts`, `src/shared/revenuecat.ts`):
 
-- `DEEPSEEK_API_KEY`
-- `OPENAI_API_KEY` (alternate provider; the loop defaults to DeepSeek `deepseek-v4-flash`
-  — the `deepseek-reasoner` / `deepseek-chat` aliases are retired, see
-  `src/loop/runV3Generation.ts`)
+- `OPENAI_API_KEY` — **primary since 2026-08-01.** The loop defaults to `gpt-5.6-luna` at
+  `reasoning_effort: "xhigh"` (`src/loop/runV3Generation.ts`). Pin the full id — the bare
+  `gpt-5.6` alias routes to Sol.
+- `DEEPSEEK_API_KEY` — still needed; DeepSeek stays routable via the debug pickers and via
+  the ledger `model_name`. `deepseek-reasoner` / `deepseek-chat` are retired aliases, and
+  `reasoning_effort` is never sent to DeepSeek.
+- optional `V3_REASONING_EFFORT` (`none|low|medium|high|xhigh|max`) — override the effort
+  without redeploying the constant.
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CFB_SUPABASE_URL`

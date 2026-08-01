@@ -95,3 +95,19 @@ full-page shimmer scaffold mirroring the hero → situations → breakdown stack
 
 Filter-side internals (schemas, NL patching, parity with iOS) are documented in
 `.claude/docs/trends-systems/`.
+
+**NL chat model (2026-08-01):** `nl-filter-patch` moved from `gpt-4o-mini` to
+`gpt-5.6-luna`. The response contract is unchanged, so no client change was needed. Two
+behavioral consequences to know about:
+
+- **`temperature: 0` was removed**, not replaced — GPT-5-series reasoning models reject the
+  param. It was the only determinism lever, so the same sentence can now yield a
+  different-but-still-valid patch (e.g. `set` vs `add` on the same dimension). The strict
+  `json_schema` constrains shape, never choice, and `applySportFilterPatch` still
+  re-validates every op client-side, so this is a consistency regression, not a correctness
+  one.
+- **It now runs at the API's default reasoning effort (medium)** on a path that blocks the
+  user's typing. `max_completion_tokens` was raised 900 → 4000 because reasoning tokens draw
+  from the same budget and a 900 cap would be eaten before any JSON was emitted. If latency
+  is unacceptable, set `reasoning_effort: "low"` or `"none"` — do **not** reintroduce
+  `temperature`.

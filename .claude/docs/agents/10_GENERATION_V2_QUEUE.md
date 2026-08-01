@@ -9,6 +9,18 @@
 >
 > This document is still correct about V2's own mechanics — read it when debugging a V2 run,
 > not when building new generation features.
+>
+> **2026-08-01 update.** `process-agent-generation-job-v2` and
+> `request-avatar-picks-generation-v2` now carry `DEPRECATED 2026-08-01` headers. They were
+> **not** migrated to `gpt-5.6-luna` and stay on `gpt-5-mini` — the `gpt-5-mini` references
+> below remain accurate for V2. Nothing was deleted and no cron expression was touched.
+>
+> Two things contradict "V2 is only reachable from the RN app": `v2-dispatch-workers`
+> (`20260303000003_agent_generation_v2_cron_jobs.sql:66`) is scheduled **every minute** and no
+> migration ever disables it, and `agent-authorized-action-v1/index.ts:188,:208` routes
+> `request_generation` into the V2 enqueue + dispatch for single-family agents. `agent-
+> authorized-action-v1` is a LIVE function and cannot be deprecated as a file. Verify prod
+> `cron.job` and real `request_generation` traffic before assuming V2 is dead.
 
 > Replaces the V1 single-cron approach with a durable, distributed queue system featuring retries, entitlement enforcement, and scalable workers.
 

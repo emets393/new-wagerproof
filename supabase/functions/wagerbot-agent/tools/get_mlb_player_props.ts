@@ -1,3 +1,7 @@
+// DEPRECATED 2026-08-01 — WagerBot chat is being retired; its UI entry points are
+// being hidden. Intentionally NOT migrated to gpt-5.6-luna: this function stays on
+// its current model(s) until the surface is removed. Do not build on it.
+
 // get_mlb_player_props — chat visibility into the live MLB player-props
 // feature (the Props tab). Mirrors the iOS data path
 // (MLBPlayerPropsService.swift): `mlb_games_today` for the slate + the

@@ -143,6 +143,15 @@ Retired in favour of the deterministic formatters above. **Do not build on it.**
 Still on disk, and the code below is unchanged — this section documents what is
 there so nobody mistakes it for the live path.
 
+**2026-08-01:** `agents-v3/trigger/dailyWidgetSummaries.ts` and
+`agents-v3/src/summaries/runDailySummaries.ts` now carry a `DEPRECATED 2026-08-01` header,
+and the writer/judge models were deliberately left as-is (not migrated to `gpt-5.6-luna`).
+**But the schedule is declared in code (`dailyWidgetSummaries.ts:32`), so the header does not
+stop it** — the job still runs daily and still writes `ai_completions.headline_text`, which
+nothing repo-wide reads. Turning it off is a Trigger.dev dashboard action the owner must
+still perform. Its sibling modules (`generateHeadline.ts`, `slateSource.ts`,
+`widgetPayloads.ts`) are unannotated only because they fell outside that pass's partition.
+
 ```
 Trigger.dev  daily-widget-summaries  (07:00 ET)
    └─ loadSlate(sport, date)              agents-v3/src/summaries/slateSource.ts

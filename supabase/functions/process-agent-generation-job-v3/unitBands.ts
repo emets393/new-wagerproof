@@ -1,3 +1,9 @@
+// DEPRECATED 2026-08-01 — part of the legacy edge V3 generation worker, superseded
+// by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts, task
+// 'generate-v3-picks'). Intentionally NOT migrated to gpt-5.6-luna. Still reachable
+// in prod via pg_cron 'v3-dispatch-workers' — read the full prod-verification note
+// in ./index.ts before changing or removing anything here.
+
 // unitBands — single source of truth for model-set unit sizing. Consumed by
 // (a) the per-agent `units` enum on submit_picks, (b) the prompt hint, and
 // (c) the deterministic clamp in the validator — so they can never drift.

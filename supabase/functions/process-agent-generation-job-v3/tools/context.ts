@@ -1,3 +1,9 @@
+// DEPRECATED 2026-08-01 — part of the legacy edge V3 generation worker, superseded
+// by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts, task
+// 'generate-v3-picks'). Intentionally NOT migrated to gpt-5.6-luna. Still reachable
+// in prod via pg_cron 'v3-dispatch-workers' — read the full prod-verification note
+// in ../index.ts before changing or removing anything here.
+
 // Runtime context + ledger shared by the V3 loop and its tools. The ledger is
 // server-side ground truth the model cannot forge: which games exist, which
 // (game,bet_type) pairs have been grounded, and the raw fetched facts the

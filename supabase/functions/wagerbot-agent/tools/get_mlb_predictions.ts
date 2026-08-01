@@ -1,3 +1,7 @@
+// DEPRECATED 2026-08-01 — WagerBot chat is being retired; its UI entry points are
+// being hidden. Intentionally NOT migrated to gpt-5.6-luna: this function stays on
+// its current model(s) until the surface is removed. Do not build on it.
+
 // get_mlb_predictions — Fetch MLB model predictions and Statcast data.
 // Returns starting pitchers, model predictions (ML, O/U, F5), game signals,
 // park factors, and weather.

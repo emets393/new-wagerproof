@@ -1,3 +1,19 @@
+// =============================================================================
+// DEPRECATED 2026-08-01 — legacy V1 auto-generation worker. Do not extend.
+//
+// Superseded by the V3 Trigger.dev engine (agents-v3/trigger/generateV3Picks.ts,
+// task 'generate-v3-picks'; auto runs via agents-v3/trigger/dailyAutoGenV3.ts).
+// Intentionally NOT migrated to gpt-5.6-luna — leave every model id as-is.
+// Retained on disk pending prod cron verification; nothing here is being deleted.
+//
+// No code imports this function and its three pg_cron jobs are gone or off:
+// 'auto-generate-avatar-picks-morning'/'-evening' unscheduled at
+// 20260218000000_fix_avatar_daily_cron_jobs.sql:16-17, and
+// 'auto-generate-avatar-picks-daily' set active=false (row deliberately kept for
+// rollback) at 20260303000003_agent_generation_v2_cron_jobs.sql:29.
+// Still verify prod cron.job in case a job was re-enabled outside migrations.
+// =============================================================================
+
 // Auto-Generate Avatar Picks Edge Function
 // Runs on a schedule to generate daily picks for eligible avatars
 // This enables users to have fresh picks waiting when they open the app

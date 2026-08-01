@@ -1,3 +1,19 @@
+// DEPRECATED 2026-08-01 — the LLM widget-headline pipeline. Do not extend.
+//
+// Superseded by the deterministic client-side formatters in
+// src/features/games/detail/headlines/, which cannot contradict the numbers they sit
+// above. This writer is the ONLY thing still touching ai_completions.headline_text
+// (:178) — a repo-wide audit on 2026-08-01 found no reader left on web, iOS, Android,
+// RN, or the MCP surfaces.
+//
+// ACTION FOR THE OWNER: its caller agents-v3/trigger/dailyWidgetSummaries.ts still has
+// a live in-code Trigger.dev schedule, so this keeps running and burning tokens daily
+// for output nobody consumes. Disable that schedule in the Trigger.dev dashboard.
+// Deliberately NOT done here — this pass changes no cron expression and deletes nothing.
+//
+// Intentionally NOT migrated to gpt-5.6-luna (see DEFAULT_MODEL below): the replacement
+// is deterministic code, so spending on a better model would be wasted.
+//
 // The daily headline run: load slate -> build per-widget payloads -> write ->
 // quality-check -> upsert. Extracted from the Trigger.dev task so it can be
 // exercised from a script against the real database without the scheduler.
