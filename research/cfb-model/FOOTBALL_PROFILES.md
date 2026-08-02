@@ -88,6 +88,35 @@ Preseason-known (leak-safe). `phase_returning_study.py`, `data/cfbd/returning_pr
   early-week priors model (`cfb_early_week.py`) + a scouting card ("new HC from [fast/slow team] + N followers").
   NOT YET WIRED. Needs `/coaches` + `/player/portal` in the pipeline (fetch built inline; add to fetch_cfbd_extra).
 
+## NFL — Coaching scheme transfer (port of the CFB study) — STAT VALIDATED, bet under-powered
+> Same question, NFL: when a HEAD COACH moves team A→B, does B's style shift toward how A played?
+`research/nfl-extreme-outcomes/nfl_coach_moves_study.py` (+ `nfl_coach_moves_betting.py`,
+`data/nfl_coach_moves.parquet`). Coach→team→season from `nflverse_games.parquet` (home/away_coach);
+style from nflverse PBP 2012-2025 (`data/pbp_cache/pbpslim_*`): PROE = pass-over-expected (pass−xpass,
+neutral early downs), pass_rate, pace (off plays/game), EPA/play, explosive (yds≥20). Grade at close
+via `nflverse_games` `total_line`/`spread_line` (full-history fallback; Odds-API archive only 2023+).
+
+- **Structural NFL difference:** HCs rarely jump team→team in consecutive years (they get fired and sit
+  out), so the strict CFB "consecutive-year" move catches only ~10 cases 2013-25. Allowing a ≤5-yr gap
+  and taking the coach's identity from his LAST HC season gives **30 moves (n=21 with full style)**.
+- **The scheme transfers, year 1, and MORE on pass tendency than CFB:** corr(coach-vs-team gap, actual
+  shift) — **PROE +0.77 (closes 76% of gap), pass-rate +0.75 (89%), pace +0.68 (59%)**, EPA +0.61,
+  explosive +0.63. EPA/explosive weaker = talent follows the roster, not the coach (expected). Examples:
+  Rivera CAR→WAS pace 55→65 (+9.88, Carolina tempo), Reich IND→CAR 57→64 (+7.24), Pete Carroll SEA→LV
+  62→55 (−6.59, slowed it), Andy Reid PHI→KC PROE −0.14→+0.08 (made KC pass-happy).
+- **Bet = NOT proven (under-powered), and directionally OPPOSITE to CFB:** wk1-3 fast-coach (pace_gap≥+8)
+  totals came in **+5.9 over the close** (line 43.9→actual 49.8, vs +0.55 baseline), OVER hit 4/6 and the
+  slow-coach complement went under-heavy — i.e. the NFL market UNDER-adjusts the early pace jump (CFB's
+  market OVER-hyped it and the lean inverted). But the wk1-3 cell is only **n=6/3** — noise-level, do not
+  bet. New-coach ATS underperforms ~44% both early AND late (n=63/277) = roster quality/priced, not a
+  scheme edge.
+- **REAL USE = a weeks-1-3 MODEL INPUT.** For a new-coach team, last year's tempo/pass-tendency is STALE
+  (they play ~60-90% toward the coach's prior identity). Feed the coach's prior-team style into the
+  early-season carryover (`early_season_blend.py`) instead of / alongside the team's own prior year, and
+  surface a scouting note ("new HC from [fast/pass-happy] team"). NOT YET WIRED into the blend.
+- **Follow-up:** NFL's biggest scheme lever is the OC, not the HC; nflverse only carries HC. OC moves
+  need a Pro-Football-Reference scrape — the likely-stronger v2.
+
 ## MODEL FEATURES (Phase 4) — walk-forward MAE, keep-what-lowers
 Shape features (orthogonal to the efficiency the market prices), test seasons 2021-25:
 - **TOTAL model: +shape −0.540 MAE (13.82→13.28), driven by PACE (−0.46)** + trench (−0.12) + explosive
