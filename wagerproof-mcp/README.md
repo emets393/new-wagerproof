@@ -47,6 +47,21 @@ Claude/ChatGPT ──Bearer─▶ POST /mcp (JSON-RPC: initialize / tools/list /
 `get_my_record`.
 **Public analytics**: `get_sport_predictions`, `get_game_detail`, `search_games`,
 `get_market_odds`, `get_editor_picks`, `get_top_community_agent_picks`.
+**SQL exploration** (signed-in only): `query_sports_database` — one read-only
+SELECT per call against the sports warehouse, executed by `public.mcp_run_sql`
+on the CFB project. Built for analysis, not export: SELECT-only grammar check,
+runs as the SELECT-only `mcp_explorer` role, 12s statement timeout, 100-row /
+20-column / ~200KB caps, and a per-user query budget (60/hour, 500/day) logged
+in `mcp_query_log` (hidden from the exploration role). EXECUTE is
+service-role-only. `get_sports_schema` serves the table/column catalog. Both
+require the `CFB_SERVICE_ROLE_KEY` secret; without it they return a clear
+"not configured" error.
+
+Maintenance: `mcp_explorer` sees tables via per-table `mcp_explorer_read`
+policies (RLS) — when a NEW table with RLS is added to the CFB project, add
+`CREATE POLICY mcp_explorer_read ON <t> FOR SELECT TO mcp_explorer USING (true)`
+or the SQL tool silently sees zero rows there. New SECURITY DEFINER functions
+should REVOKE EXECUTE FROM PUBLIC so the exploration role can't call them.
 
 ## Local development
 
@@ -70,6 +85,7 @@ exists (complete the sign-in flow against a deployed instance with real keys).
 
 Secrets (`wrangler secret put`):
 - `MAIN_SERVICE_ROLE_KEY` — service-role key for **global** Main reads (Polymarket, editor picks).
+- `CFB_SERVICE_ROLE_KEY` — service-role key for the CFB project; enables the SQL exploration tools.
 - `TOKEN_ENC_KEY` — `openssl rand -base64 32` (encrypts refresh tokens at rest).
 
 ## One-time Supabase console setup

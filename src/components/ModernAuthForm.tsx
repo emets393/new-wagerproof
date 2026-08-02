@@ -57,30 +57,30 @@ export function ModernAuthForm({
   };
 
   return (
-    <div className="shadow-input mx-auto w-full max-w-md rounded-2xl bg-white p-8 dark:bg-black">
+    <div className="mx-auto w-full max-w-md rounded-[28px] border border-black/10 bg-white p-6 text-black shadow-2xl shadow-black/10 dark:border-white/10 dark:bg-black dark:text-white dark:shadow-black/50 sm:p-8">
       {/* Logo Section */}
       <div className="flex justify-center mb-6">
         <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-indigo-500 rounded-xl blur-md opacity-30"></div>
-          <div className="relative p-3 bg-gradient-to-br from-gray-100 to-white dark:from-neutral-900 dark:to-neutral-800 rounded-lg">
+          <div className="absolute inset-0 rounded-2xl bg-emerald-400/20 blur-xl" />
+          <div className="relative rounded-2xl border border-black/10 bg-black/[0.025] p-3 dark:border-white/10 dark:bg-white/[0.04]">
             <img 
               src="/wagerproofGreenLight.png" 
               alt="WAGERPROOF" 
-              className="h-16 w-auto object-contain rounded-lg dark:hidden" 
+              className="block h-16 w-auto rounded-lg object-contain dark:hidden"
             />
             <img 
               src="/wagerproofGreenDark.png" 
               alt="WAGERPROOF" 
-              className="h-16 w-auto object-contain rounded-lg hidden dark:block" 
+              className="hidden h-16 w-auto rounded-lg object-contain dark:block"
             />
           </div>
         </div>
       </div>
 
-      <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-200">
+      <h2 className="text-center text-2xl font-semibold tracking-[-0.02em] text-black dark:text-white">
         {mode === 'login' ? 'Sign In' : 'Create Account'}
       </h2>
-      <p className="mt-2 text-center max-w-sm mx-auto text-sm text-neutral-600 dark:text-neutral-300">
+      <p className="mx-auto mt-2 max-w-sm text-center text-sm text-black/55 dark:text-white/55">
         {mode === 'login' 
           ? 'Access your account'
           : 'Get started with professional sports betting analytics'
@@ -91,7 +91,7 @@ export function ModernAuthForm({
         {mode === 'signup' && (
           <div className="mb-4 flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
             <LabelInputContainer>
-              <Label htmlFor="firstname">First name</Label>
+              <Label htmlFor="firstname" className="text-xs tracking-[0.02em] text-black/65 dark:text-white/65">First name</Label>
               <Input 
                 id="firstname" 
                 placeholder="John" 
@@ -99,10 +99,11 @@ export function ModernAuthForm({
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 disabled={isLoading}
+                className="border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
               />
             </LabelInputContainer>
             <LabelInputContainer>
-              <Label htmlFor="lastname">Last name</Label>
+              <Label htmlFor="lastname" className="text-xs tracking-[0.02em] text-black/65 dark:text-white/65">Last name</Label>
               <Input 
                 id="lastname" 
                 placeholder="Doe" 
@@ -110,13 +111,14 @@ export function ModernAuthForm({
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 disabled={isLoading}
+                className="border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
               />
             </LabelInputContainer>
           </div>
         )}
         
         <LabelInputContainer className="mb-4">
-          <Label htmlFor="email">Email Address</Label>
+          <Label htmlFor="email" className="text-xs tracking-[0.02em] text-black/65 dark:text-white/65">Email address</Label>
           <Input 
             id="email" 
             placeholder="you@example.com" 
@@ -125,11 +127,12 @@ export function ModernAuthForm({
             onChange={(e) => setEmail(e.target.value)}
             disabled={isLoading}
             required
+            className="h-11 border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
           />
         </LabelInputContainer>
         
         <LabelInputContainer className="mb-8">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" className="text-xs tracking-[0.02em] text-black/65 dark:text-white/65">Password</Label>
           <Input
             id="password"
             placeholder="••••••••"
@@ -138,12 +141,13 @@ export function ModernAuthForm({
             onChange={(e) => setPassword(e.target.value)}
             disabled={isLoading}
             required
+            className="h-11 border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
           />
         </LabelInputContainer>
 
         {mode === 'signup' && (
           <LabelInputContainer className="mb-8">
-            <Label htmlFor="confirm-password">Confirm Password</Label>
+            <Label htmlFor="confirm-password" className="text-xs tracking-[0.02em] text-black/65 dark:text-white/65">Confirm password</Label>
             <Input
               id="confirm-password"
               placeholder="••••••••"
@@ -152,6 +156,7 @@ export function ModernAuthForm({
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={isLoading}
               required
+              className="h-11 border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
             />
           </LabelInputContainer>
         )}
@@ -163,10 +168,10 @@ export function ModernAuthForm({
               id="age-confirmation"
               checked={isEighteenPlus}
               onChange={(e) => setIsEighteenPlus(e.target.checked)}
-              className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+              className="h-4 w-4 rounded border-white/20 bg-white/10 accent-emerald-400 focus:ring-emerald-400"
               disabled={isLoading}
             />
-            <label htmlFor="age-confirmation" className="ml-2 block text-sm text-neutral-800 dark:text-neutral-300">
+            <label htmlFor="age-confirmation" className="ml-2 block text-sm text-black/65 dark:text-white/65">
               I am 18+ and understand this platform is for analytics only.
             </label>
           </div>
@@ -191,7 +196,7 @@ export function ModernAuthForm({
         )}
 
         <button
-          className="group/btn relative block h-10 w-full rounded-md bg-gradient-to-br from-black to-neutral-600 font-medium text-white shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:bg-zinc-800 dark:from-zinc-900 dark:to-zinc-900 dark:shadow-[0px_1px_0px_0px_#27272a_inset,0px_-1px_0px_0px_#27272a_inset]"
+          className="group/btn relative block h-11 w-full rounded-xl bg-black font-medium text-white transition duration-150 hover:bg-black/85 active:scale-[0.98] disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-white/90"
           type="submit"
           disabled={isLoading}
         >
@@ -208,29 +213,29 @@ export function ModernAuthForm({
           <BottomGradient />
         </button>
 
-        <div className="my-8 h-[1px] w-full bg-gradient-to-r from-transparent via-neutral-300 to-transparent dark:via-neutral-700" />
+        <div className="my-7 flex items-center gap-3 text-[11px] uppercase tracking-[0.08em] text-black/35 before:h-px before:flex-1 before:bg-black/10 after:h-px after:flex-1 after:bg-black/10 dark:text-white/35 dark:before:bg-white/10 dark:after:bg-white/10">or</div>
 
         <div className="flex flex-col space-y-4">
           <button
-            className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
+            className="group/btn relative flex h-11 w-full items-center justify-center space-x-2 rounded-xl border border-black/10 bg-black/[0.035] px-4 font-medium text-black transition hover:bg-black/[0.065] active:scale-[0.98] dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10"
             type="button"
             onClick={onGoogleSignIn}
             disabled={isLoading}
           >
-            <IconBrandGoogle className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
-            <span className="text-sm text-neutral-700 dark:text-neutral-300">
+            <IconBrandGoogle className="h-4 w-4 text-black/80 dark:text-white/80" />
+            <span className="text-sm text-black/80 dark:text-white/80">
               Sign in with Google
             </span>
             <BottomGradient />
           </button>
           <button
-            className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
+            className="group/btn relative flex h-11 w-full items-center justify-center space-x-2 rounded-xl border border-black/10 bg-black/[0.035] px-4 font-medium text-black transition hover:bg-black/[0.065] active:scale-[0.98] dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10"
             type="button"
             onClick={onAppleSignIn}
             disabled={isLoading}
           >
-            <IconBrandApple className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
-            <span className="text-sm text-neutral-700 dark:text-neutral-300">
+            <IconBrandApple className="h-4 w-4 text-black/80 dark:text-white/80" />
+            <span className="text-sm text-black/80 dark:text-white/80">
               Sign in with Apple
             </span>
             <BottomGradient />
@@ -242,7 +247,7 @@ export function ModernAuthForm({
           <button
             type="button"
             onClick={() => onModeChange(mode === 'login' ? 'signup' : 'login')}
-            className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 transition-colors"
+            className="min-h-11 text-sm text-black/50 transition-colors hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 dark:text-white/50 dark:hover:text-white"
             disabled={isLoading}
           >
             {mode === 'login' 
@@ -259,8 +264,7 @@ export function ModernAuthForm({
 const BottomGradient = () => {
   return (
     <>
-      <span className="absolute inset-x-0 -bottom-px block h-px w-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-0 transition duration-500 group-hover/btn:opacity-100" />
-      <span className="absolute inset-x-10 -bottom-px mx-auto block h-px w-1/2 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-0 blur-sm transition duration-500 group-hover/btn:opacity-100" />
+      <span className="absolute inset-x-8 -bottom-px block h-px bg-gradient-to-r from-transparent via-emerald-400/80 to-transparent opacity-0 transition duration-200 group-hover/btn:opacity-100" />
     </>
   );
 };
@@ -278,5 +282,3 @@ const LabelInputContainer = ({
     </div>
   );
 };
-
-

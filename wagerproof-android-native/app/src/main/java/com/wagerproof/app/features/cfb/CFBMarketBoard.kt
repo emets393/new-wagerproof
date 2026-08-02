@@ -8,6 +8,7 @@ import com.wagerproof.core.models.CFBFlagConviction
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBSignalDefinition
 import com.wagerproof.core.models.CFBTeamAssets
+import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.SignalPerformance
 import com.wagerproof.core.services.CFBSignalDefinitionsService
 import com.wagerproof.core.services.SupabaseClients
@@ -212,17 +213,12 @@ fun signalBuckets(
         pick = pick.pickSide ?: pick.pickLabel ?: row.pick,
         pickTeamName = pick.pickTeam ?: row.pickTeamName,
     )
-    val gameSignals = relevantGameFlags(game, effectiveRow).map { flag ->
-        if (flag.signalDefinition != null) flag
-        else flag.withSignalDefinition(CFBSignalDefinitionsService.definition(flag.source, defs))
-    }
-    val seen = gameSignals.mapTo(mutableSetOf()) { signalIdentity(it.source, it.signalDefinition, defs) }
-    val pickSignals = pick?.signalKeys.orEmpty().mapNotNull { key ->
+    // Game-detail chips come from picks.signal_keys (joined to defs), not flags.
+    val keys = FootballBlanketSignals.displayKeys("cfb", pick?.signalKeys.orEmpty())
+    val signals = keys.map { key ->
         val definition = CFBSignalDefinitionsService.definition(key, defs)
-        val identity = signalIdentity(key, definition, defs)
-        if (!seen.add(identity)) return@mapNotNull null
         CFBDryRunFlag(
-            id = "pick-${pick?.id ?: game.gameId}-$identity",
+            id = "pick-${pick?.id ?: game.gameId}-${signalIdentity(key, definition, defs)}",
             gameId = game.gameId,
             source = key,
             market = pick?.normalizedCardGroup ?: marketKey(row.id),
@@ -237,7 +233,6 @@ fun signalBuckets(
             signalDefinition = definition,
         )
     }
-    val signals = gameSignals + pickSignals
     return SignalBuckets(
         supporting = signals.filter { signalSupportsPick(it, effectiveRow, game) },
         contradicting = signals.filterNot { signalSupportsPick(it, effectiveRow, game) },

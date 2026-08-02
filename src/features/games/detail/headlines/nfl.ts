@@ -313,18 +313,28 @@ export const NO_LINE_MOVEMENT_ERROR = 'No line movement data available';
 export interface NflLineMovementHeadlineInput {
   loading: boolean;
   error: string | null;
-  /** False when raw.training_key is missing: the effect never ran, so state may be stale. */
+  /** False when the dryrun game_id is missing, so the consensus view cannot be queried. */
   hasTrainingKey: boolean;
-  /** Number of snapshots charted. */
+  /** Number of snapshots charted (or 1 when only open/close scalars exist). */
   pointCount: number;
   /** active.label — the component's own attribution of the series ("PHI spread"/"Game total"). */
   seriesLabel: string;
   /** series === 'total'; totals print unsigned, spreads must print a sign. */
   isTotal: boolean;
-  /** First non-null value of the SELECTED series (earliest recorded). */
+  /**
+   * How to format open/current in the sentence. When omitted, derived from
+   * `isTotal` (unsigned vs signed) for backward compatibility with tests.
+   */
+  valueFormat?: 'signed' | 'unsigned' | 'american';
+  /** True opening value from the dryrun game row. */
   openValue: number | null;
   /** Last non-null value of the SELECTED series (current). */
   currentValue: number | null;
+  /**
+   * Consensus snapshot count for the selected series. When ≥2 and the line has
+   * not moved, we say "across N snapshots" instead of implying a single open.
+   */
+  snapshotCount?: number;
 }
 
 export function nflLineMovementHeadline(v: NflLineMovementHeadlineInput): string | null {
@@ -341,20 +351,43 @@ export function nflLineMovementHeadline(v: NflLineMovementHeadlineInput): string
     return `No ${v.seriesLabel} recorded in this game's line history.`;
   }
 
-  // toFixed drops the "+" on a dog line, and a bare "3.5" next to a team abbrev reads as
-  // that team being a 3.5-point FAVORITE. Spreads get formatLine; totals stay unsigned.
-  const show = (n: number) => (v.isTotal ? Number(n).toFixed(1) : formatLine(n));
+  const format = v.valueFormat ?? (v.isTotal ? 'unsigned' : 'signed');
+  const show = (n: number): string => {
+    if (format === 'american') {
+      const rounded = Math.round(n);
+      return rounded > 0 ? `+${rounded}` : String(rounded);
+    }
+    if (format === 'unsigned') return Number(n).toFixed(1);
+    return formatLine(n);
+  };
   const open = show(v.openValue);
   const now = show(v.currentValue);
   const delta = oneDp(v.currentValue - v.openValue);
+  const snaps = v.snapshotCount ?? v.pointCount;
+
+  if (format === 'american') {
+    if (Math.round(v.openValue) === Math.round(v.currentValue)) {
+      if (snaps >= 2) {
+        return `${v.seriesLabel} has not moved off ${open} across ${snaps} snapshots.`;
+      }
+      return `${v.seriesLabel} has not moved off its ${open} opener.`;
+    }
+    return `${v.seriesLabel} has moved from ${open} at open to ${now} now.`;
+  }
 
   if (Math.abs(delta) < 0.05) {
-    return `${v.seriesLabel} has not moved off ${open} since the first recorded line.`;
+    if (snaps >= 2) {
+      return `${v.seriesLabel} has not moved off ${open} across ${snaps} snapshots.`;
+    }
+    return `${v.seriesLabel} has not moved off its ${open} opener.`;
   }
-  if (v.isTotal) {
-    return `Total has moved ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)} points, from ${open} at the first recorded line to ${now} now.`;
+  if (format === 'unsigned') {
+    // Preserve the existing "Total has moved…" prose for the game total; other
+    // unsigned markets (team total, 1H total) keep their series label.
+    const noun = v.seriesLabel === 'Game total' ? 'Total' : v.seriesLabel;
+    return `${noun} has moved ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)} points, from ${open} at open to ${now} now.`;
   }
   // Deliberately no "toward X"/"away from X": bettors read that phrase both ways
   // (a dog getting more points moved in its backers' favor). The two numbers carry it.
-  return `${v.seriesLabel} has moved ${Math.abs(delta).toFixed(1)} points, from ${open} at the first recorded line to ${now} now.`;
+  return `${v.seriesLabel} has moved ${Math.abs(delta).toFixed(1)} points, from ${open} at open to ${now} now.`;
 }

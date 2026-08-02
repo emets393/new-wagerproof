@@ -43,6 +43,10 @@ struct CustomPaywallView: View {
     @State private var errorMessage: String?
     @State private var infoMessage: String?
     @State private var didTrackPresented = false
+    /// The 3-hour hold on the picks the user just watched their agent generate.
+    /// Resolved once in `onAppear` — reading it per-render would restart a
+    /// lapsed window mid-session and make the clock jump.
+    @State private var picksWindow: PicksExpiryService.Window?
 
     private struct DisplayPlan: Identifiable {
         let package: Package
@@ -297,6 +301,15 @@ struct CustomPaywallView: View {
             if selected == nil {
                 selected = annualPackage ?? monthlyPackage ?? plans.first?.package
             }
+            // Onboarding's reveal arms the real window (it knows the actual
+            // ticket count); this only fills in for a returning free user whose
+            // previous hold has already lapsed.
+            picksWindow = PicksExpiryService.shared.ensureWindow(
+                pickCount: 3,
+                agentName: agentName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? "Your agent"
+                    : agentName
+            )
             guard !didTrackPresented else { return }
             didTrackPresented = true
             AnalyticsService.shared.track("paywall_presented", properties: [
@@ -484,7 +497,9 @@ struct CustomPaywallView: View {
                 .padding(.vertical, 3)
                 .background(Capsule().fill(accent))
 
-            Spacer()
+            Spacer(minLength: 4)
+
+            picksHoldPill(compact: true)
 
             signOutButton
 
@@ -531,13 +546,13 @@ struct CustomPaywallView: View {
             Button {
                 confirmSignOut = true
             } label: {
-                Text("Log Out")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.appTextSecondary)
-                    .padding(.horizontal, 13)
-                    .frame(height: 30)
-                    .contentShape(Capsule())
-                    .liquidGlassBackground(in: Capsule(), tint: Color.white.opacity(0.06), interactive: true)
+                    .frame(width: 30, height: 30)
+                    .liquidGlassBackground(in: Circle(), tint: Color.white.opacity(0.06), interactive: true)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
                     .opacity(isSigningOut ? 0.5 : 1)
             }
             .buttonStyle(.plain)
@@ -560,6 +575,22 @@ struct CustomPaywallView: View {
             } message: {
                 Text("You'll be returned to the sign-in screen. Your subscription stays with your account.")
             }
+        }
+    }
+
+    // MARK: - Picks hold
+
+    /// The scarcity clock sits in the header between the brand and account
+    /// escape hatch. Its compact face keeps the urgency visible without taking
+    /// a dedicated row away from the product story.
+    ///
+    /// Hidden once the hold lapses — "expired" copy on a paywall answers the
+    /// wrong question. `PicksExpiryService.ensureWindow` re-arms on the next
+    /// presentation, so the pill returns with the next slate.
+    @ViewBuilder
+    private func picksHoldPill(compact: Bool) -> some View {
+        if let picksWindow, !picksWindow.isExpired {
+            PicksExpiryPill(window: picksWindow, compact: compact)
         }
     }
 

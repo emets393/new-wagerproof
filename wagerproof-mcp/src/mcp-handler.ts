@@ -9,6 +9,7 @@ import type { Env, Props } from "./types";
 import { INSTRUCTIONS, serverInfo } from "./instructions";
 import {
   createCfbClient,
+  createCfbServiceClient,
   createServiceMainClient,
   createUserMainClient,
   getUserAccessToken,
@@ -63,13 +64,14 @@ function corsHeaders(origin: string | null, allowed: Set<string>): Record<string
  */
 async function buildToolContext(tool: Tool, env: Env, props: Props): Promise<ToolContext> {
   const cfb = createCfbClient(env);
+  const cfbService = createCfbServiceClient(env);
   const today = getTodayInET;
 
   if (tool.scope === "user") {
     const { accessToken, userId } = await getUserAccessToken(props.grantId, env);
-    return { main: createUserMainClient(env, accessToken), cfb, today, userId };
+    return { main: createUserMainClient(env, accessToken), cfb, cfbService, today, userId };
   }
-  return { main: createServiceMainClient(env), cfb, today };
+  return { main: createServiceMainClient(env), cfb, cfbService, today };
 }
 
 async function handleMessage(msg: JsonRpcRequest, env: Env, props: Props): Promise<object | null> {

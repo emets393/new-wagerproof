@@ -1297,8 +1297,31 @@ enum HistoricalAnalysisCopy {
             if s.monthMin != 3 || s.monthMax != 11 {
                 clauses.append("it's months \(s.monthMin)–\(s.monthMax)")
             }
-            if s.dayOfWeek != "any" {
+            if !s.daysOfWeek.isEmpty {
+                clauses.append("it's a \(s.daysOfWeek.joined(separator: "/"))")
+            } else if s.dayOfWeek != "any" {
                 clauses.append("it's a \(s.dayOfWeek)")
+            }
+            if !s.timeMin.isEmpty || !s.timeMax.isEmpty {
+                if !s.timeMin.isEmpty && !s.timeMax.isEmpty {
+                    clauses.append("first pitch is \(s.timeMin)–\(s.timeMax) ET")
+                } else if !s.timeMin.isEmpty {
+                    clauses.append("first pitch is after \(s.timeMin) ET")
+                } else {
+                    clauses.append("first pitch is before \(s.timeMax) ET")
+                }
+            }
+            if !s.seriesGames.isEmpty {
+                clauses.append("it's series game \(s.seriesGames.sorted().map(String.init).joined(separator: "/"))")
+            }
+            if s.tripMin != nil || s.tripMax != nil {
+                clauses.append("it's series \(s.tripMin ?? 1)–\(s.tripMax ?? 5) of the trip")
+            }
+            if s.restMin != nil || s.restMax != nil {
+                clauses.append("they're on \(s.restMin ?? 0)–\(s.restMax ?? 10) days rest")
+            }
+            if let dh = s.doubleheader {
+                clauses.append(dh ? "it's a doubleheader" : "it's not a doubleheader")
             }
             if let division = s.division {
                 clauses.append(division ? "it's a division game" : "it's a non-division game")
@@ -1306,9 +1329,49 @@ enum HistoricalAnalysisCopy {
             if let interleague = s.interleague {
                 clauses.append(interleague ? "it's interleague" : "it's not interleague")
             }
-            if s.switchGame == true { clauses.append("it's a switch game") }
+            if s.switchGame == true { clauses.append("it's their first game after a home/road switch") }
+            if s.rlSide == "minus" { clauses.append("they're laying −1.5") }
+            if s.rlSide == "plus" { clauses.append("they're getting +1.5") }
+            if s.f5TotalMin > 2.001 || s.f5TotalMax < 7.999 {
+                clauses.append("the F5 total is \(trimmed(s.f5TotalMin))–\(trimmed(s.f5TotalMax))")
+            }
+            if let lo = s.pfRunsMin, let hi = s.pfRunsMax {
+                clauses.append("the park factor is \(Int(lo))–\(Int(hi))")
+            } else if let lo = s.pfRunsMin {
+                clauses.append("the park factor is at least \(Int(lo))")
+            } else if let hi = s.pfRunsMax {
+                clauses.append("the park factor is at most \(Int(hi))")
+            }
+            // Last game — the full family, mirroring the chips (was lastResult only,
+            // which silently dropped shared filters like "last game went over").
             if s.lastResult == "won" { clauses.append("they won their last game") }
             if s.lastResult == "lost" { clauses.append("they lost their last game") }
+            if s.lastAts == "covered" { clauses.append("they covered the run line last game") }
+            if s.lastAts == "not" { clauses.append("they didn't cover the run line last game") }
+            if s.lastTotal == "over" { clauses.append("their last game went over") }
+            if s.lastTotal == "under" { clauses.append("their last game went under") }
+            if s.lastRole == "favorite" { clauses.append("they were favorites last game") }
+            if s.lastRole == "underdog" { clauses.append("they were underdogs last game") }
+            // Opponent's last game
+            if s.oppLastResult == "won" { clauses.append("their opponent won its last game") }
+            if s.oppLastResult == "lost" { clauses.append("their opponent lost its last game") }
+            if s.oppLastAts == "covered" { clauses.append("their opponent covered the run line last game") }
+            if s.oppLastAts == "not" { clauses.append("their opponent didn't cover the run line last game") }
+            if s.oppLastTotal == "over" { clauses.append("their opponent's last game went over") }
+            if s.oppLastTotal == "under" { clauses.append("their opponent's last game went under") }
+            if s.oppLastRole == "favorite" { clauses.append("their opponent was a favorite last game") }
+            if s.oppLastRole == "underdog" { clauses.append("their opponent was an underdog last game") }
+            // Head-to-head
+            if s.h2hLastWin == "yes" { clauses.append("they won the last meeting") }
+            if s.h2hLastWin == "no" { clauses.append("they lost the last meeting") }
+            if s.h2hLastAts == "yes" { clauses.append("they covered the run line in the last meeting") }
+            if s.h2hLastAts == "no" { clauses.append("they didn't cover the run line in the last meeting") }
+            if s.h2hLastOver == "yes" { clauses.append("the last meeting went over") }
+            if s.h2hLastOver == "no" { clauses.append("the last meeting went under") }
+            if let v = s.h2hLastHome { clauses.append(v ? "they were home in the last meeting" : "they were away in the last meeting") }
+            if let v = s.h2hLastFav { clauses.append(v ? "they were the favorite in the last meeting" : "they were the underdog in the last meeting") }
+            if let v = s.h2hSameSeason { clauses.append(v ? "the last meeting was this season" : "the last meeting was a prior season") }
+            // Pitching
             if s.spHand != "any" { clauses.append("their starter is \(s.spHand)HP") }
             if s.oppSpHand != "any" { clauses.append("the opposing starter is \(s.oppSpHand)HP") }
             if !s.sp.isEmpty {
@@ -1317,15 +1380,138 @@ enum HistoricalAnalysisCopy {
             if !s.oppSp.isEmpty {
                 clauses.append("facing \(s.oppSp.map(\.name).joined(separator: " / "))")
             }
+            if s.spXfipMin > 2.001 || s.spXfipMax < 6.999 {
+                clauses.append("their starter's xFIP is \(trimmed(s.spXfipMin))–\(trimmed(s.spXfipMax))")
+            }
+            if s.oppSpXfipMin > 2.001 || s.oppSpXfipMax < 6.999 {
+                clauses.append("the opposing starter's xFIP is \(trimmed(s.oppSpXfipMin))–\(trimmed(s.oppSpXfipMax))")
+            }
+            if s.spEraMin > 0.001 || s.spEraMax < 9.999 {
+                clauses.append("their starter's ERA is \(trimmed(s.spEraMin))–\(trimmed(s.spEraMax))")
+            }
+            if s.oppSpEraMin > 0.001 || s.oppSpEraMax < 9.999 {
+                clauses.append("the opposing starter's ERA is \(trimmed(s.oppSpEraMin))–\(trimmed(s.oppSpEraMax))")
+            }
+            if s.bpIpMin > 0.001 || s.bpIpMax < 19.999 {
+                clauses.append("the opposing bullpen threw \(trimmed(s.bpIpMin))–\(trimmed(s.bpIpMax)) IP over the last 3 days")
+            }
+            if s.bpXfipMin > 2.001 || s.bpXfipMax < 6.999 {
+                clauses.append("the opposing bullpen's xFIP is \(trimmed(s.bpXfipMin))–\(trimmed(s.bpXfipMax))")
+            }
+        }
+
+        // Season-to-date form + opponent record (shared fields; per-sport defaults) —
+        // compare to the sport's real defaults so a clause appears exactly when the
+        // matching chip does. Hand-picked defaults here previously caused phantom /
+        // missing clauses in the share summary.
+        let d = HistoricalAnalysisUISnapshot.defaults(for: sport)
+        let unitWord = sport == .mlb ? "runs" : "points"
+        func rangeClause(_ v: [Double], _ dv: [Double], _ text: (String, String) -> String) {
+            if v != dv { clauses.append(text(trimmed(v[0]), trimmed(v[1]))) }
+        }
+        func intRangeClause(_ v: [Int], _ dv: [Int], _ text: (Int, Int) -> String) {
+            if v != dv { clauses.append(text(v[0], v[1])) }
+        }
+        if sport != .mlb {
+            if s.h1TotalMin > d.h1TotalMin + 0.001 || s.h1TotalMax < d.h1TotalMax - 0.001 {
+                clauses.append("the 1H total is \(trimmed(s.h1TotalMin))–\(trimmed(s.h1TotalMax))")
+            }
+            if s.ttLineMin > d.ttLineMin + 0.001 || s.ttLineMax < d.ttLineMax - 0.001 {
+                clauses.append("their team total line is \(trimmed(s.ttLineMin))–\(trimmed(s.ttLineMax))")
+            }
+            if s.oppTtLineMin > d.oppTtLineMin + 0.001 || s.oppTtLineMax < d.oppTtLineMax - 0.001 {
+                clauses.append("the opponent's team total line is \(trimmed(s.oppTtLineMin))–\(trimmed(s.oppTtLineMax))")
+            }
+        }
+        intRangeClause(s.lastMargin, d.lastMargin) { "their last-game margin was \($0) to \($1) \(unitWord)" }
+        intRangeClause(s.oppLastMargin, d.oppLastMargin) { "the opponent's last-game margin was \($0) to \($1) \(unitWord)" }
+        intRangeClause(s.h2hLastMargin, d.h2hLastMargin) { "the last-meeting margin was \($0) to \($1) \(unitWord)" }
+        let streakLo = s.streakMin.trimmingCharacters(in: .whitespaces)
+        let streakHi = s.streakMax.trimmingCharacters(in: .whitespaces)
+        if !streakLo.isEmpty || !streakHi.isEmpty {
+            clauses.append("their current streak is \(streakLo.isEmpty ? "any" : streakLo) to \(streakHi.isEmpty ? "any" : streakHi) (+ = wins)")
+        }
+        rangeClause(s.winPct, d.winPct) { "their win rate is \($0)–\($1)%" }
+        intRangeClause(s.winStreak, d.winStreak) { "they've won \($0)–\($1) straight" }
+        intRangeClause(s.lossStreak, d.lossStreak) { "they've lost \($0)–\($1) straight" }
+        if let v = s.above500 { clauses.append(v ? "they're above .500" : "they're below .500") }
+        if let v = s.winPctGtOpp { clauses.append(v ? "they have the better record" : "they have the worse record") }
+        rangeClause(s.overPct, d.overPct) { "their over rate is \($0)–\($1)%" }
+        intRangeClause(s.overStreak, d.overStreak) { "their last \($0)–\($1) games went over" }
+        intRangeClause(s.underStreak, d.underStreak) { "their last \($0)–\($1) games went under" }
+        intRangeClause(s.prevWins, d.prevWins) { "they won \($0)–\($1) games last season" }
+        rangeClause(s.prevWinPct, d.prevWinPct) { "their win rate last season was \($0)–\($1)%" }
+        if let v = s.madePlayoffsPrev { clauses.append(v ? "they made the playoffs last year" : "they missed the playoffs last year") }
+        if let v = s.moreWinsThanOppPrev { clauses.append(v ? "they out-won their opponent last year" : "they won fewer games than their opponent last year") }
+        if sport == .mlb {
+            rangeClause(s.rpg, d.rpg) { "they score \($0)–\($1) runs/game" }
+            rangeClause(s.rapg, d.rapg) { "they allow \($0)–\($1) runs/game" }
+            rangeClause(s.runDiffPg, d.runDiffPg) { "their run differential is \($0)–\($1)/game" }
+            rangeClause(s.rlCoverPct, d.rlCoverPct) { "their run-line cover rate is \($0)–\($1)%" }
+            intRangeClause(s.rlStreak, d.rlStreak) { "they've covered the run line \($0)–\($1) straight" }
+        } else {
+            rangeClause(s.ppg, d.ppg) { "they score \($0)–\($1) \(unitWord)/game" }
+            rangeClause(s.paPg, d.paPg) { "they allow \($0)–\($1) \(unitWord)/game" }
+            rangeClause(s.pointDiffPg, d.pointDiffPg) { "their point differential is \($0)–\($1)/game" }
+            rangeClause(s.atsWinPct, d.atsWinPct) { "their ATS win rate is \($0)–\($1)%" }
+            intRangeClause(s.atsWinStreak, d.atsWinStreak) { "they've covered \($0)–\($1) straight" }
+            rangeClause(s.avgCoverMargin, d.avgCoverMargin) { "their average cover margin is \($0)–\($1)" }
+        }
+        rangeClause(s.oppWinPct, d.oppWinPct) { "the opponent's win rate is \($0)–\($1)%" }
+        rangeClause(s.oppOverPct, d.oppOverPct) { "the opponent's over rate is \($0)–\($1)%" }
+        intRangeClause(s.oppWinStreak, d.oppWinStreak) { "the opponent has won \($0)–\($1) straight" }
+        intRangeClause(s.oppLossStreak, d.oppLossStreak) { "the opponent has lost \($0)–\($1) straight" }
+        rangeClause(s.oppPrevWinPct, d.oppPrevWinPct) { "the opponent's win rate last season was \($0)–\($1)%" }
+        if sport == .mlb {
+            rangeClause(s.oppRlCoverPct, d.oppRlCoverPct) { "the opponent's run-line cover rate is \($0)–\($1)%" }
+            rangeClause(s.oppRpg, d.oppRpg) { "the opponent scores \($0)–\($1) runs/game" }
+            rangeClause(s.oppRapg, d.oppRapg) { "the opponent allows \($0)–\($1) runs/game" }
+        } else {
+            rangeClause(s.oppPpg, d.oppPpg) { "the opponent scores \($0)–\($1) \(unitWord)/game" }
+            rangeClause(s.oppPaPg, d.oppPaPg) { "the opponent allows \($0)–\($1) \(unitWord)/game" }
         }
 
         if let primetime = s.primetime {
             clauses.append(primetime ? "it's primetime" : "it's not primetime")
         }
 
-        if sport == .nfl {
+        if sport == .nfl || sport == .cfb {
             if s.dome == "dome" { clauses.append("the game is in a dome") }
             if s.dome == "outdoor" { clauses.append("the game is outdoors") }
+            if s.lastResult == "won" { clauses.append("they won their last game") }
+            if s.lastResult == "lost" { clauses.append("they lost their last game") }
+            if s.lastAts == "covered" { clauses.append("they covered last game") }
+            if s.lastAts == "not" { clauses.append("they didn't cover last game") }
+            if s.lastTotal == "over" { clauses.append("their last game went over") }
+            if s.lastTotal == "under" { clauses.append("their last game went under") }
+            if s.lastRole == "favorite" { clauses.append("they were favorites last game") }
+            if s.lastRole == "underdog" { clauses.append("they were underdogs last game") }
+            if let lastOt = s.lastOt {
+                clauses.append(lastOt ? "their last game went to OT" : "their last game didn't go to OT")
+            }
+            // Opponent's last game + head-to-head — same chips-parity gap as MLB.
+            if s.oppLastResult == "won" { clauses.append("their opponent won its last game") }
+            if s.oppLastResult == "lost" { clauses.append("their opponent lost its last game") }
+            if s.oppLastAts == "covered" { clauses.append("their opponent covered last game") }
+            if s.oppLastAts == "not" { clauses.append("their opponent didn't cover last game") }
+            if s.oppLastTotal == "over" { clauses.append("their opponent's last game went over") }
+            if s.oppLastTotal == "under" { clauses.append("their opponent's last game went under") }
+            if s.oppLastRole == "favorite" { clauses.append("their opponent was a favorite last game") }
+            if s.oppLastRole == "underdog" { clauses.append("their opponent was an underdog last game") }
+            if let v = s.oppLastOt { clauses.append(v ? "their opponent's last game went to OT" : "their opponent's last game didn't go to OT") }
+            if s.h2hLastWin == "yes" { clauses.append("they won the last meeting") }
+            if s.h2hLastWin == "no" { clauses.append("they lost the last meeting") }
+            if s.h2hLastAts == "yes" { clauses.append("they covered the last meeting") }
+            if s.h2hLastAts == "no" { clauses.append("they didn't cover the last meeting") }
+            if s.h2hLastOver == "yes" { clauses.append("the last meeting went over") }
+            if s.h2hLastOver == "no" { clauses.append("the last meeting went under") }
+            if let v = s.h2hLastHome { clauses.append(v ? "they were home in the last meeting" : "they were away in the last meeting") }
+            if let v = s.h2hLastFav { clauses.append(v ? "they were the favorite in the last meeting" : "they were the underdog in the last meeting") }
+            if let v = s.h2hSameSeason { clauses.append(v ? "the last meeting was this season" : "the last meeting was a prior season") }
+            if s.h2hSpreadCmp == "lower" { clauses.append("they're more favored than the last meeting") }
+            if s.h2hSpreadCmp == "higher" { clauses.append("they're less favored than the last meeting") }
+        }
+        if sport == .nfl {
             switch s.precip {
             case "rain": clauses.append("it's raining")
             case "snow": clauses.append("it's snowing")
@@ -1338,20 +1524,12 @@ enum HistoricalAnalysisCopy {
             case "short": clauses.append("they're on short rest")
             default: break
             }
-            if s.lastResult == "won" { clauses.append("they won their last game") }
-            if s.lastResult == "lost" { clauses.append("they lost their last game") }
-            if s.lastAts == "covered" { clauses.append("they covered last game") }
-            if s.lastAts == "not" { clauses.append("they didn't cover last game") }
-            if s.lastTotal == "over" { clauses.append("their last game went over") }
-            if s.lastTotal == "under" { clauses.append("their last game went under") }
-            if s.lastRole == "favorite" { clauses.append("they were favorites last game") }
-            if s.lastRole == "underdog" { clauses.append("they were underdogs last game") }
             if s.lastBlowout == "win" { clauses.append("they blew out their last opponent") }
             if s.lastBlowout == "loss" { clauses.append("they were blown out last game") }
-            if let lastOt = s.lastOt {
-                clauses.append(lastOt ? "their last game went to OT" : "their last game didn't go to OT")
-            }
             if s.referee != "any" { clauses.append("\(s.referee) is officiating") }
+        }
+        if sport == .cfb, s.weather != "any" {
+            clauses.append("conditions are \(s.weather)")
         }
 
         if sport == .mlb {
@@ -1365,12 +1543,18 @@ enum HistoricalAnalysisCopy {
         case .nfl: tempDefaultMax = 100
         case .cfb, .mlb: tempDefaultMax = 110
         }
-        if s.tempMin != -10 || s.tempMax != tempDefaultMax {
-            clauses.append("it's \(s.tempMin)–\(s.tempMax)°F")
+        // MLB temp floors at 30 (web parity): a restored snapshot legitimately
+        // carries tempMin=30 meaning UNSET — `!= -10` painted a phantom
+        // "it's 30–110°F" clause on shared systems.
+        let tempMinSet = sport == .mlb ? s.tempMin > 30 : s.tempMin > -10
+        if tempMinSet || s.tempMax < tempDefaultMax {
+            clauses.append("it's \(max(s.tempMin, sport == .mlb ? 30 : -10))–\(s.tempMax)°F")
         }
-        if s.windMin != nil || s.windMax != 60 {
+        // MLB wind caps at 40: windMax in 40..59 (old saves) means unset there.
+        let windCap = sport == .mlb ? 40 : 60
+        if s.windMin != nil || s.windMax < windCap {
             let lo = s.windMin ?? 0
-            if lo > 0 && s.windMax < 60 {
+            if lo > 0 && s.windMax < windCap {
                 clauses.append("winds are \(lo)–\(s.windMax) mph")
             } else if lo > 0 {
                 clauses.append("winds are at least \(lo) mph")
@@ -1391,7 +1575,10 @@ enum HistoricalAnalysisCopy {
             }
         }
 
-        if let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: betType),
+        // `lineMin/Max` is ALWAYS the full-game total dim (chips parity, line ~304).
+        // Passing the current betType here described the untouched game-total slider
+        // with the F5/1H market's label + bounds — a phantom second "total" clause.
+        if let totalCfg = HistoricalAnalysisFilterBuilder.totalConfig(sport: sport, betType: sport == .mlb ? "total" : "fg_total"),
            s.lineMin > totalCfg.min + 0.001 || s.lineMax < totalCfg.max - 0.001 {
             clauses.append("the \(totalCfg.label.lowercased()) is \(trimmed(s.lineMin))–\(trimmed(s.lineMax))")
         }

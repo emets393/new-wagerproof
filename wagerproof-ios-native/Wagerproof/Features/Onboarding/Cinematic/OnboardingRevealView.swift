@@ -16,6 +16,7 @@
 import SwiftUI
 import WagerproofDesign
 import WagerproofModels
+import WagerproofServices
 import WagerproofStores
 #if canImport(UIKit)
 import UIKit
@@ -186,6 +187,12 @@ struct OnboardingRevealView: View {
     }
 
     private func finish() {
+        // Arm the 3-hour hold on exactly the tickets rendered above — this is
+        // the only place that knows the real count and the real agent name, and
+        // the paywall's pill plus the Lock Screen Live Activity both read it.
+        // See .claude/docs/19_picks_expiry_hold.md
+        PicksExpiryService.shared.arm(pickCount: tickets.count, agentName: agentName)
+
         // On to the time-value summary + fist bump (step 23). THAT step
         // marks onboarding complete; RootView then flips to `.ready` and
         // presents `PostOnboardingPaywall`. The blurred tickets here and

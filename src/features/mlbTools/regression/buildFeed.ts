@@ -140,6 +140,36 @@ export function buildRegressionFeed(
     game.signals.push(signal);
   }
 
+  // 4. Today's slate — enrichment only, never a seed. It is the one collection
+  //    with first pitch for EVERY game; without it a signal-seeded game shows
+  //    "Time TBD", and a doubleheader with no picks renders as two identical
+  //    cards with no Game 1/Game 2 badge.
+  const slateByMatchup = new Map<string, { game_pk: number; game_time_et?: string; venue_name?: string }[]>();
+  for (const g of report.todays_slate ?? []) {
+    if (!Number.isFinite(g?.game_pk)) continue;
+    const key = `${g.away_team_name}@${g.home_team_name}`;
+    const list = slateByMatchup.get(key);
+    if (list) list.push(g);
+    else slateByMatchup.set(key, [g]);
+  }
+  for (const list of slateByMatchup.values()) {
+    list.sort((a, b) => String(a.game_time_et ?? '').localeCompare(String(b.game_time_et ?? '')));
+    list.forEach((g, i) => {
+      const game = byPk.get(g.game_pk);
+      if (!game) return;
+      if (!game.gameTimeEt && g.game_time_et) {
+        game.gameTimeEt = g.game_time_et;
+        game.gameTimeLabel = formatEtTime(g.game_time_et);
+        game.timeSortKey = g.game_time_et;
+      }
+      if (!game.venue && g.venue_name) game.venue = g.venue_name;
+      if (list.length > 1) {
+        game.isDoubleheader = true;
+        if (game.gameNumber === 1) game.gameNumber = i + 1;
+      }
+    });
+  }
+
   // Index both sides of every game so the team-anchored rows can be attached.
   // A doubleheader has two entries per abbreviation and the rows carry no
   // game_pk, so both games legitimately receive the same team-level signal.

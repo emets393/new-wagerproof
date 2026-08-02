@@ -1,189 +1,138 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collegeFootballSupabase } from '@/integrations/supabase/college-football-client';
 import debug from '@/utils/debug';
-import { buildNflBettingLinesKey } from '@/utils/nflTeamAssets';
+import type { TeamRef } from '../../../types';
+import {
+  LINE_MOVEMENT_TIMEOUT_ERROR,
+  buildLineMarkets,
+  isTimeoutError,
+  retryOnStatementTimeout,
+  toNum,
+  type LineConsensusSnap,
+  type LineMarket,
+  type LineScalarBundle,
+} from '../shared/lineMovement';
 
-/** Line-history row from nfl_betting_lines (only the columns the charts read). */
-export interface NflLinePoint {
-  as_of_ts: string;
-  home_spread: number | null;
-  away_spread: number | null;
-  over_line: number | null;
-  home_team?: string;
-  away_team?: string;
+interface NflLineMovementRow {
+  snap_ts: string;
+  n_books: number | null;
+  fg_spread_home: number | null;
+  fg_total: number | null;
+  h1_spread_home: number | null;
+  h1_total: number | null;
+  tt_home: number | null;
+  tt_away: number | null;
 }
 
 export interface NflLineMovementInput {
-  /** Dryrun game_id (also stored as training_key on the feed row). */
-  gameId?: string | null;
-  homeAb?: string | null;
-  awayAb?: string | null;
+  /** `nfl_slate_games.game_id` — the movement view is keyed on the same id. */
+  gameId?: string | number | null;
   season?: number | null;
-  week?: number | null;
-  /** Open/close from nfl_dryrun_games — used when history is sparse or empty. */
-  homeSpreadOpen?: number | null;
-  homeSpreadClose?: number | null;
-  totalOpen?: number | null;
-  totalClose?: number | null;
+  away: TeamRef;
+  home: TeamRef;
+  scalars: LineScalarBundle;
 }
 
-function toNum(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
+const CONSENSUS_SELECT =
+  'snap_ts,n_books,fg_spread_home,fg_total,h1_spread_home,h1_total,tt_home,tt_away';
 
-/** Synthesize a 2-point open→close series from the dryrun game row. */
-function openCloseSeries(input: NflLineMovementInput): NflLinePoint[] {
-  const openSpread = toNum(input.homeSpreadOpen);
-  const closeSpread = toNum(input.homeSpreadClose);
-  const openTotal = toNum(input.totalOpen);
-  const closeTotal = toNum(input.totalClose);
-  if (openSpread === null && closeSpread === null && openTotal === null && closeTotal === null) {
-    return [];
-  }
-
-  const openHome = openSpread ?? closeSpread;
-  const closeHome = closeSpread ?? openSpread;
-  const openOu = openTotal ?? closeTotal;
-  const closeOu = closeTotal ?? openTotal;
-
-  return [
-    {
-      as_of_ts: 'open',
-      home_spread: openHome,
-      away_spread: openHome !== null ? -openHome : null,
-      over_line: openOu,
-    },
-    {
-      as_of_ts: 'close',
-      home_spread: closeHome,
-      away_spread: closeHome !== null ? -closeHome : null,
-      over_line: closeOu,
-    },
-  ];
-}
+const toConsensusSnap = (row: NflLineMovementRow): LineConsensusSnap => ({
+  snap_ts: row.snap_ts,
+  n_books: toNum(row.n_books),
+  fg_spread_home: toNum(row.fg_spread_home),
+  fg_total: toNum(row.fg_total),
+  h1_spread_home: toNum(row.h1_spread_home),
+  h1_total: toNum(row.h1_total),
+  tt_home: toNum(row.tt_home),
+  tt_away: toNum(row.tt_away),
+});
 
 /**
- * Full line history for one NFL game.
+ * One NFL game's line-movement series from the game-keyed consensus view.
  *
- * Dryrun games use nflverse `game_id` (`2026_01_SEA_NE`), but `nfl_betting_lines`
- * still keys snapshots as `{homeCity}{awayCity}{season}{week}` (e.g.
- * `SeattleNew England20261`). We try the legacy key first, then fall back to the
- * dryrun open→close scalars so the widget is never blank when lines exist on the
- * game row.
+ * `nfl_historical_odds` is deliberately not consulted: it is keyed by city name,
+ * and the view already remaps it onto the `game_id` the cards use. Moneyline has
+ * no column in the view, so those markets fall back to the slate close.
  */
-export function useNflLineMovement(input: NflLineMovementInput | string | undefined) {
-  const normalized: NflLineMovementInput =
-    typeof input === 'string' ? { gameId: input } : input || {};
-
-  const [lineData, setLineData] = useState<NflLinePoint[]>([]);
+export function useNflLineMovement(input: NflLineMovementInput) {
+  const [history, setHistory] = useState<LineConsensusSnap[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const legacyKey =
-    normalized.homeAb &&
-    normalized.awayAb &&
-    normalized.season &&
-    normalized.week
-      ? buildNflBettingLinesKey(
-          normalized.homeAb,
-          normalized.awayAb,
-          Number(normalized.season),
-          Number(normalized.week),
-        )
-      : null;
+  const [reloadToken, setReloadToken] = useState(0);
+  const refetch = useCallback(() => setReloadToken((n) => n + 1), []);
+  const hasIdentity = input.gameId !== null && input.gameId !== undefined && input.gameId !== '';
 
   useEffect(() => {
-    const hasIdentity = Boolean(normalized.gameId || legacyKey);
-    const hasOpenClose =
-      normalized.homeSpreadOpen != null ||
-      normalized.homeSpreadClose != null ||
-      normalized.totalOpen != null ||
-      normalized.totalClose != null;
-    if (!hasIdentity && !hasOpenClose) return;
+    if (!hasIdentity) {
+      setHistory([]);
+      setError(null);
+      return;
+    }
 
     let cancelled = false;
 
-    const fetchLineData = async () => {
+    const fetchLines = async () => {
       setLoading(true);
       setError(null);
-      setLineData([]);
 
       try {
-        let rows: NflLinePoint[] = [];
-
-        // Prefer the legacy VSiN training_key — that's what nfl_betting_lines still writes.
-        const keysToTry = [legacyKey, normalized.gameId].filter(
-          (k, i, arr): k is string => Boolean(k) && arr.indexOf(k) === i,
+        const { data, error: fetchError } = await retryOnStatementTimeout<NflLineMovementRow>(
+          () => {
+            let query = collegeFootballSupabase
+              .from('nfl_line_movement')
+              .select(CONSENSUS_SELECT)
+              .eq('game_id', String(input.gameId))
+              .order('snap_ts', { ascending: true });
+            if (input.season != null) {
+              query = query.eq('season', Number(input.season));
+            }
+            return query;
+          },
         );
-
-        for (const key of keysToTry) {
-          const { data, error: fetchError } = await collegeFootballSupabase
-            .from('nfl_betting_lines')
-            .select('as_of_ts, home_spread, away_spread, over_line, home_team, away_team')
-            .eq('training_key', key)
-            .order('as_of_ts', { ascending: true });
-
-          if (cancelled) return;
-
-          if (fetchError) {
-            debug.error('Error fetching line movement data:', fetchError);
-            continue;
-          }
-
-          if (data && data.length > 0) {
-            rows = data as NflLinePoint[];
-            break;
-          }
-        }
-
-        // Sparse preseason history (often a single snapshot) — prefer open→close
-        // from the dryrun row when it actually moved, otherwise keep history.
-        const synthetic = openCloseSeries(normalized);
-        if (rows.length === 0 && synthetic.length > 0) {
-          rows = synthetic;
-        } else if (rows.length <= 1 && synthetic.length === 2) {
-          const openS = toNum(normalized.homeSpreadOpen);
-          const closeS = toNum(normalized.homeSpreadClose);
-          const openT = toNum(normalized.totalOpen);
-          const closeT = toNum(normalized.totalClose);
-          const moved =
-            (openS !== null && closeS !== null && openS !== closeS) ||
-            (openT !== null && closeT !== null && openT !== closeT);
-          if (moved) rows = synthetic;
-        }
-
         if (cancelled) return;
 
-        if (rows.length === 0) {
-          setError('No line movement data available');
+        if (fetchError) {
+          // No rows means "not posted yet", but a timeout means we simply failed to
+          // load — say so instead of passing the slate close off as the whole story.
+          debug.error('Error fetching nfl_line_movement:', fetchError);
+          setHistory([]);
+          setError(
+            isTimeoutError(fetchError)
+              ? LINE_MOVEMENT_TIMEOUT_ERROR
+              : 'Failed to load line movement.',
+          );
           return;
         }
 
-        setLineData(rows);
+        setHistory((data ?? []).map(toConsensusSnap));
       } catch (err) {
-        debug.error('Error fetching line data:', err);
-        if (!cancelled) setError('An unexpected error occurred');
+        debug.error('Error fetching NFL line movement:', err);
+        if (!cancelled) {
+          setHistory([]);
+          setError('An unexpected error occurred');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
-    fetchLineData();
+    void fetchLines();
     return () => {
       cancelled = true;
     };
-    // Intentionally key off the identity fields, not the whole object.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    normalized.gameId,
-    legacyKey,
-    normalized.homeSpreadOpen,
-    normalized.homeSpreadClose,
-    normalized.totalOpen,
-    normalized.totalClose,
-  ]);
+  }, [hasIdentity, input.gameId, input.season, reloadToken]);
 
-  return { lineData, loading, error };
+  const markets: LineMarket[] = useMemo(
+    () =>
+      buildLineMarkets({
+        away: input.away,
+        home: input.home,
+        history,
+        scalars: input.scalars,
+        includeEmpty: true,
+      }),
+    [input.away, input.home, history, input.scalars],
+  );
+
+  return { markets, history, loading, error, refetch, hasDataSource: hasIdentity };
 }

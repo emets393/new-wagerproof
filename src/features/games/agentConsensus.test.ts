@@ -8,6 +8,8 @@ const baseRow: ConsensusRow = {
   agents: 28,
   side: 'Over 8.5',
   side_agents: 16,
+  market_agents: 28,
+  market_label: 'total',
   agreement: '0.5714',
   threshold: 16,
   flagged: true,
@@ -47,6 +49,34 @@ describe('mapConsensusRow', () => {
     expect(m.side).toBe('Over 8.5');
     expect(m.sideAgents).toBe(16);
     expect(m.threshold).toBe(16);
+  });
+
+  it('keeps the market population separate from whole-game participation', () => {
+    // The Pirates case: 17 agents bet the game, only 6 bet the F5 run line, and
+    // 5 of those 6 took Pittsburgh. Agreement is 5/6, not 5/17.
+    const m = mapConsensusRow({
+      ...baseRow,
+      agents: 17,
+      side: 'Pittsburgh Pirates F5 -0.5',
+      side_agents: 5,
+      market_agents: 6,
+      market_label: 'F5 run line',
+      agreement: '0.8333',
+      flagged: false,
+    });
+    expect(m.agents).toBe(17);
+    expect(m.marketAgents).toBe(6);
+    expect(m.marketLabel).toBe('F5 run line');
+    expect(Math.round(m.agreement * 100)).toBe(83);
+  });
+
+  it('falls back to the game population when the market columns are absent', () => {
+    // A client deployed ahead of the migration must not divide by zero and show
+    // an empty agreement bar.
+    const { market_agents: _a, market_label: _b, ...legacy } = baseRow;
+    const m = mapConsensusRow(legacy as ConsensusRow);
+    expect(m.marketAgents).toBe(28);
+    expect(m.marketLabel).toBe('');
   });
 });
 

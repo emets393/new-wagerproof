@@ -1343,32 +1343,47 @@ struct NFLGameBottomSheet: View {
     }
 
     private func signalDisplays(keys: [String], pick: NFLDryrunPickRow) -> [NFLSignalDisplay] {
-        if !pick.signals.isEmpty {
-            return pick.signals.map { row in
-                let definition = signalsByKey[row.key]
+        // Chips from pick.signal_keys (blankets stripped). NFL `signals` jsonb
+        // includes blanket sides_model on nearly every spread — do not prefer it.
+        let displayKeys = FootballBlanketSignals.displayKeys(sport: "nfl", keys: keys)
+        if !displayKeys.isEmpty {
+            return displayKeys.compactMap { key in
+                let embedded = pick.signals.first { $0.key == key }
+                let definition = signalsByKey[key]
+                let stance: String = {
+                    if let raw = embedded?.stance?.lowercased(),
+                       raw == "counter" || raw == "contradict" {
+                        return "counter"
+                    }
+                    if embedded != nil { return "support" }
+                    guard let definition else { return "support" }
+                    return signalSupportsPick(definition, pick: pick) ? "support" : "counter"
+                }()
                 return NFLSignalDisplay(
-                    key: row.key,
-                    displayName: definition?.displayName ?? row.label ?? row.key,
-                    team: row.team,
-                    label: row.label,
-                    action: row.action,
-                    stance: row.stance?.lowercased() == "counter" ? "counter" : "support",
-                    tier: row.tier,
+                    key: key,
+                    displayName: definition?.displayName ?? embedded?.label ?? key,
+                    team: embedded?.team,
+                    label: embedded?.label,
+                    action: embedded?.action,
+                    stance: stance,
+                    tier: embedded?.tier,
                     definition: definition
                 )
             }
         }
 
-        return keys.compactMap { key in
-            guard let definition = signalsByKey[key] else { return nil }
+        // Legacy fallback when signal_keys is empty but non-blanket rows exist in signals.
+        return pick.signals.compactMap { row in
+            guard !FootballBlanketSignals.isBlanket(sport: "nfl", key: row.key) else { return nil }
+            let definition = signalsByKey[row.key]
             return NFLSignalDisplay(
-                key: key,
-                displayName: definition.displayName ?? key,
-                team: nil,
-                label: nil,
-                action: nil,
-                stance: signalSupportsPick(definition, pick: pick) ? "support" : "counter",
-                tier: nil,
+                key: row.key,
+                displayName: definition?.displayName ?? row.label ?? row.key,
+                team: row.team,
+                label: row.label,
+                action: row.action,
+                stance: row.stance?.lowercased() == "counter" ? "counter" : "support",
+                tier: row.tier,
                 definition: definition
             )
         }

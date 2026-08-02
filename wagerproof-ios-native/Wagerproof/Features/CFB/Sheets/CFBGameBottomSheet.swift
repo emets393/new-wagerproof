@@ -1785,16 +1785,15 @@ struct CFBGameBottomSheet: View {
     }
 
     private func relevantSignals(for row: MarketRow) -> [CFBDryRunFlag] {
-        var signals = relevantGameFlags(for: row)
-        guard let pick = dryRunPick(for: row), !pick.signalKeys.isEmpty else { return dedupedSignals(signals) }
+        // Game-detail chips come from picks.signal_keys (joined to defs), not flags.
+        guard let pick = dryRunPick(for: row) else { return [] }
+        let keys = FootballBlanketSignals.displayKeys(sport: "cfb", keys: pick.signalKeys)
+        guard !keys.isEmpty else { return [] }
 
-        let existingKeys = Set(signals.map(signalIdentity))
-        let pickSignals = pick.signalKeys.compactMap { key -> CFBDryRunFlag? in
+        return dedupedSignals(keys.compactMap { key -> CFBDryRunFlag? in
             let definition = CFBSignalDefinitionsService.definition(for: key, in: signalDefinitionsBySource)
-            let normalized = signalIdentity(source: key, definition: definition)
-            guard !existingKeys.contains(normalized) else { return nil }
             return CFBDryRunFlag(
-                id: "pick-\(pick.id.value)-\(normalized)",
+                id: "pick-\(pick.id.value)-\(signalIdentity(source: key, definition: definition))",
                 gameId: game.gameId,
                 source: key,
                 market: normalizeCardGroup(pick.cardGroup),
@@ -1809,9 +1808,7 @@ struct CFBGameBottomSheet: View {
                 mammoth: pick.isMammoth,
                 signalDefinition: definition
             )
-        }
-        signals.append(contentsOf: pickSignals)
-        return dedupedSignals(signals)
+        })
     }
 
     private func relevantGameFlags(for row: MarketRow) -> [CFBDryRunFlag] {

@@ -33,6 +33,14 @@ public enum AppGroupKey {
     /// Non-default values route the chat to the parallel `wagerbot-agent` function.
     public static let wagerBotChatModel = "wagerbot_chat_model_debug"
 
+    // Picks-expiry hold (`PicksExpiryService`). Persisted rather than held in
+    // memory so the paywall pill and the Live Activity agree on one deadline
+    // across relaunches — a countdown that restarts on cold launch reads as
+    // fake and torches the urgency it exists to create.
+    public static let picksExpiryStartedAt = "picks_expiry_started_at_v1"
+    public static let picksExpiryPickCount = "picks_expiry_pick_count_v1"
+    public static let picksExpiryAgentName = "picks_expiry_agent_name_v1"
+
     /// Per-user onboarding completion key. Matches RN's
     /// `@wagerproof/onboarding-completed/{userId}` AsyncStorage key. The
     /// previous global `onboarding_complete` key leaked completion state

@@ -25,6 +25,39 @@ export interface GameFetchResult {
 // — every other sport ignores `source` and reads its legacy table.
 export type GameSource = 'legacy' | 'dryrun';
 
+/** Pipeline scaffolding — never treat as selective per-game betting signals. */
+const NFL_BLANKET_SIGNAL_KEYS = new Set(['sides_model']);
+const CFB_BLANKET_SIGNAL_KEYS = new Set([
+  'model_lean',
+  'opener_under',
+  'rivalry_week_over',
+]);
+
+function isBlanketSignalKey(sport: 'nfl' | 'cfb', key: string): boolean {
+  const normalized = String(key || '').trim();
+  if (!normalized) return true;
+  return sport === 'nfl'
+    ? NFL_BLANKET_SIGNAL_KEYS.has(normalized)
+    : CFB_BLANKET_SIGNAL_KEYS.has(normalized);
+}
+
+function filterDisplaySignalKeys(sport: 'nfl' | 'cfb', keys: unknown): string[] {
+  if (!Array.isArray(keys)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of keys) {
+    const key = String(raw || '').trim();
+    if (!key || isBlanketSignalKey(sport, key) || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+}
+
+function dryrunFlagSignalKey(row: Record<string, unknown>): string {
+  return String(row.signal_key ?? row.rule ?? '').trim();
+}
+
 // =============================================================================
 // Game Fetching — Top-Level Router
 // =============================================================================
@@ -1897,9 +1930,13 @@ function formatNFLGameFromDryrun(
     // season_to_date (perfMap, live record) and all_time (defMap, validated
     // backtest) — both keyed by signal_key, kept separate so they're never
     // conflated.
-    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap, defMap)) : null,
+    signals: flags.length > 0
+      ? flags
+          .filter((f) => !isBlanketSignalKey('nfl', dryrunFlagSignalKey(f)))
+          .map((f) => formatDryrunFlag(f, perfMap, defMap))
+      : null,
     // Pick cards (nfl_dryrun_picks) — the per-bet-type cards the app shows.
-    pick_cards: picks.length > 0 ? picks.map(formatDryrunPick) : null,
+    pick_cards: picks.length > 0 ? picks.map((p) => formatDryrunPick(p, 'nfl')) : null,
     // Player props — SIGNAL-GATED exactly as in the legacy formatter:
     // is_bettable carries the gate (non-empty flags array) to the agent +
     // the submit grounding check. See nfl_dryrun_props.flags. Each flagged prop
@@ -2065,8 +2102,12 @@ function formatCFBGameFromDryrun(
     },
     // Each flag carries season_to_date (perfMap) + all_time (defMap), kept
     // separate so the two records are never conflated.
-    signals: flags.length > 0 ? flags.map((f) => formatDryrunFlag(f, perfMap, defMap)) : null,
-    pick_cards: picks.length > 0 ? picks.map(formatDryrunPick) : null,
+    signals: flags.length > 0
+      ? flags
+          .filter((f) => !isBlanketSignalKey('cfb', dryrunFlagSignalKey(f)))
+          .map((f) => formatDryrunFlag(f, perfMap, defMap))
+      : null,
+    pick_cards: picks.length > 0 ? picks.map((p) => formatDryrunPick(p, 'cfb')) : null,
     // Season-to-date ATS/OU/TT + 1H trends per team (cfb_team_trends). Keyed by
     // team_name; surfaced under `trends` so it's a stable named group.
     trends: (homeTrends || awayTrends) ? {
@@ -2162,7 +2203,10 @@ function formatPropSignalLine(
 // Project one dryrun pick-card row (nfl_dryrun_picks / cfb_dryrun_picks). These
 // are the per-bet-type cards the app renders. has_play / display_only mark
 // whether the card is an actual recommendation vs display-only context.
-function formatDryrunPick(row: Record<string, unknown>): Record<string, unknown> {
+function formatDryrunPick(
+  row: Record<string, unknown>,
+  sport: 'nfl' | 'cfb' = 'nfl',
+): Record<string, unknown> {
   return {
     card_group: row.card_group ?? null,
     bet_type: row.bet_type ?? null,
@@ -2183,7 +2227,7 @@ function formatDryrunPick(row: Record<string, unknown>): Record<string, unknown>
     stake_units: row.stake_units ?? null,
     has_play: row.has_play ?? false,
     display_only: row.display_only ?? false,
-    signal_keys: Array.isArray(row.signal_keys) ? row.signal_keys : [],
+    signal_keys: filterDisplaySignalKeys(sport, row.signal_keys),
   };
 }
 

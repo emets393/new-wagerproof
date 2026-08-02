@@ -136,6 +136,22 @@ def conv_for(gid, card_group, side=None, team=None, ou=None):
 
 rows = []
 EARLY = WEEK <= 3   # opponent-adjusted model is COLD in Weeks 1-3 -> contextual signals drive the pick, not the model
+
+# Weeks 1-3 the harness has no played games, so its per-game pred_margin/pred_total collapse toward
+# the league mean (every matchup lands near -4 / 53). gen_cfb_dryrun_games.py swaps in the preseason
+# priors blend for exactly this reason; mirror it or every card contradicts the game row it sits on.
+if EARLY:
+    _ep_path = f"out/cfb_early_preds_{SEASON}.csv"
+    if not os.path.exists(_ep_path):
+        raise SystemExit(f"[early] {_ep_path} missing — run cfb_early_week.py before generating picks")
+    _ep = pd.read_csv(_ep_path)[["homeTeam", "awayTeam", "pred_spread", "pred_total"]]
+    te = te.drop(columns=["pred_spread", "pred_total"], errors="ignore").merge(
+        _ep, on=["homeTeam", "awayTeam"], how="left")
+    te["pred_margin"] = -te.pred_spread
+    # Recompute edges off the blend — the harness edges belong to the cold model we just replaced.
+    te["side_edge"] = te.pred_margin + te.spread_close
+    te["total_edge"] = te.pred_total - te.total_close
+
 def fmt_line(v): return ("+" if v > 0 else "") + f"{v:g}" if v is not None else None
 def driving_spread_side(gid):
     """Cold-week spread pick side = the highest-conviction CONTEXTUAL spread signal that fired
@@ -194,7 +210,7 @@ for _, r in te.iterrows():
         cv = {"T1": "high", "T2": "med"}.get(ckey, "none")
         line_disp = (bt[0] if bt else vg) if vg is not None else None
         rows.append(dict(game_id=gid, card_group="team_total", bet_type=bt_name, sort_order=so, pick_side=pside, pick_team=team,
-            pick_label=(f"{team} {pside.title()} {line_disp:g}" if (vg is not None and pside) else f"{team} proj {proj:g} (no line)"),
+            pick_label=(f"{team} {pside.title()} {line_disp:g}" if (vg is not None and pside) else f"{team} proj {proj:.1f} (no line)"),
             model_number=round(float(proj), 1), model_line=round(float(proj), 1),
             vegas_line=round(float(vg), 1) if vg is not None else None, vegas_price=-110 if vg is not None else None,
             edge=round(float(edge), 1) if edge is not None else None,
@@ -211,8 +227,10 @@ for _, r in te.iterrows():
             vegas_line=None, vegas_price=round(float(vml), 0) if pd.notna(vml) else None, edge=None,
             best_book=bm[1] if bm else None, best_line=None, best_odds=bm[0] if bm else None,
             conviction="none", is_mammoth=False, has_play=False, display_only=True, signal_keys=mlsig, stake_units=0))
-    # ---- 1H cards (ALWAYS emit model projection for every game; vegas line + play only when posted) ----
-    if gid in h1proj:
+    # ---- 1H cards (model projection per game; vegas line + play only when posted) ----
+    # Skipped in Weeks 1-3: the 1H nets are as cold as the full-game harness, and no book has posted
+    # a 1H line yet, so the card would be a spurious projection against nothing.
+    if gid in h1proj and not EARLY:
         h1pm, h1pt = h1proj[gid]
         inrow = h1csv.loc[gid] if gid in h1csv.index else None
         # 1H SPREAD
@@ -224,7 +242,7 @@ for _, r in te.iterrows():
         cv, mam, sig = conv_for(gid, "h1_spread", side=pside) if play else ("none", False, [])
         vline = (hs if ph else -hs) if hs is not None else None
         rows.append(dict(game_id=gid, card_group="h1_spread", bet_type="h1_spread", sort_order=5, pick_side=pside, pick_team=pteam,
-            pick_label=(f"{pteam} 1H {fmt_line(bsp[0] if bsp else vline)}" if vline is not None else f"{pteam} 1H proj {-h1pm if ph else h1pm:g} (no line)"),
+            pick_label=(f"{pteam} 1H {fmt_line(bsp[0] if bsp else vline)}" if vline is not None else f"{pteam} 1H proj {(-h1pm if ph else h1pm):.1f} (no line)"),
             model_number=round(float(h1pm), 1), model_line=round(float(-h1pm if ph else h1pm), 1),
             vegas_line=round(float(vline), 1) if vline is not None else None, vegas_price=-110 if vline is not None else None,
             edge=round(abs(h1pm + hs), 1) if hs is not None else None,
@@ -237,7 +255,7 @@ for _, r in te.iterrows():
         play_t = inrow is not None and isinstance(inrow.h1_tot_bet, str) and pside_t is not None and inrow.h1_tot_bet.startswith(pside_t)
         cv, mam, sig = conv_for(gid, "h1_total", side=pside_t) if play_t else ("none", False, [])
         rows.append(dict(game_id=gid, card_group="h1_total", bet_type="h1_total", sort_order=6, pick_side=pside_t, pick_team=None,
-            pick_label=(f"1H {pside_t.title()} {bht[0] if bht else tline:g}" if tline is not None else f"1H total proj {h1pt:g} (no line)"),
+            pick_label=(f"1H {pside_t.title()} {bht[0] if bht else tline:g}" if tline is not None else f"1H total proj {h1pt:.1f} (no line)"),
             model_number=round(float(h1pt), 1), model_line=round(float(h1pt), 1),
             vegas_line=round(float(tline), 1) if tline is not None else None, vegas_price=-110 if tline is not None else None,
             edge=round(abs(h1pt - tline), 1) if tline is not None else None,

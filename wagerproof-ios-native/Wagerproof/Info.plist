@@ -63,6 +63,8 @@
 	<string>WagerProof needs photo library access so you can pick a profile image for your agents.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>WagerProof uses speech recognition to transcribe your voice questions for WagerBot.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>WagerProof uses this to deliver more relevant content and measure the performance of our features.</string>
 	<key>SKAdNetworkItems</key>

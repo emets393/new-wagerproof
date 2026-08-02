@@ -535,6 +535,9 @@ struct HistoricalAnalysisFilterBar: View {
                 suffix: " days",
                 format: { String(Int($0)) }
             )
+            Text("0 = played the day before · 1+ = days off before this game")
+                .font(.caption)
+                .foregroundStyle(Color.appTextSecondary)
         }
         optionalBoolPicker("Doubleheader", value: boolBinding(\.doubleheader))
     }

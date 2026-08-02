@@ -47,15 +47,16 @@ import type { NFLPrediction } from '../../../api/nflGames';
 import type { GameFeedItem, TeamRef } from '../../../types';
 
 /**
- * Football dry-run detail sections — slate summary + grouped prediction cards
- * from `*_dryrun_picks` (or fg_* synthesis when picks are empty) with visible
+ * Football slate detail sections — slate summary + grouped prediction cards
+ * from `*_slate_picks` (or fg_* synthesis when picks are empty) with visible
  * Supports / Contradicts signal chips under each market pick (native sheet
  * parity) + per-market team season trends.
  *
- * Used for both CFB and NFL after the 2026 cutover (tables keep the dryrun name
- * but hold the live current-week slate). Signal chips prefer picks.signal_keys;
- * when those are empty (projection-only markets) we fall back to
- * `{sport}_dryrun_flags` so detail matches the feed ⚡ N Signals badge.
+ * Used for both CFB and NFL. The market cards' model numbers must equal the
+ * `*_slate_games` header's; a divergence means the picks table is stale and is
+ * fixed in the generator, never papered over here. Signal chips prefer
+ * picks.signal_keys; when those are empty (projection-only markets) we fall back
+ * to `{sport}_slate_flags` so detail matches the feed ⚡ N Signals badge.
  */
 
 type SignalDefinition = {
@@ -91,6 +92,7 @@ type FootballDryRunPick = {
   signals?: Array<{
     key?: string | null;
     label?: string | null;
+    team?: string | null;
     stance?: string | null;
     tier?: string | null;
     action?: string | null;
@@ -149,13 +151,13 @@ function normalizeConvictionSummary(
 }
 
 const PICKS_TABLE: Record<FootballSport, string> = {
-  cfb: 'cfb_dryrun_picks',
-  nfl: 'nfl_dryrun_picks',
+  cfb: 'cfb_slate_picks',
+  nfl: 'nfl_slate_picks',
 };
 
 const FLAGS_TABLE: Record<FootballSport, string> = {
-  cfb: 'cfb_dryrun_flags',
-  nfl: 'nfl_dryrun_flags',
+  cfb: 'cfb_slate_flags',
+  nfl: 'nfl_slate_flags',
 };
 
 const SIGNAL_DEFS_TABLE: Record<FootballSport, string> = {
@@ -163,7 +165,7 @@ const SIGNAL_DEFS_TABLE: Record<FootballSport, string> = {
   nfl: 'nfl_signal_defs',
 };
 
-/** Game-level bet flag from `{sport}_dryrun_flags` (feed badge source of truth). */
+/** Game-level bet flag from `{sport}_slate_flags` (feed badge source of truth). */
 type DryRunFlag = {
   game_id?: string | number | null;
   signal_key?: string | null;
@@ -291,6 +293,188 @@ const formatSigned = (value: number | null): string => {
   if (value === null) return '-';
   return value > 0 ? `+${formatNumber(value)}` : formatNumber(value);
 };
+
+/** Static def copy that is not a per-game pick (e.g. "Side indicated by the rule"). */
+function isGenericBetDirection(value?: string | null): boolean {
+  const text = String(value || '')
+    .trim()
+    .toLowerCase();
+  if (!text) return true;
+  return (
+    text === 'side indicated by the rule' ||
+    text === 'follow the indicated side' ||
+    text.startsWith('side indicated')
+  );
+}
+
+function matchTeamToken(token: string, away: TeamRef, home: TeamRef): TeamRef | null {
+  const u = token.trim().toUpperCase();
+  if (!u) return null;
+  // Prefer exact abbrev so short tokens like "NE" don't false-match inside "NEW YORK".
+  if (u === home.abbrev.toUpperCase()) return home;
+  if (u === away.abbrev.toUpperCase()) return away;
+
+  const hit = (team: TeamRef) => {
+    const name = team.name.toUpperCase();
+    return u === name || name.startsWith(`${u} `) || name.startsWith(`${u}-`);
+  };
+  const homeHit = hit(home);
+  const awayHit = hit(away);
+  if (homeHit && !awayHit) return home;
+  if (awayHit && !homeHit) return away;
+  if (homeHit) return home;
+  if (awayHit) return away;
+  return null;
+}
+
+/**
+ * Expand a pipeline side label like "MIN -1.5" / "OVER 44.5" / "MIN TT OVER 24.5"
+ * into pick_label-style copy ("Minnesota Vikings -1.5").
+ */
+function expandSignalSideLabel(side: string, away: TeamRef, home: TeamRef): string {
+  const trimmed = side.trim();
+  if (!trimmed) return trimmed;
+  const parts = trimmed.split(/\s+/);
+  const first = parts[0] || '';
+  const upper = first.toUpperCase();
+
+  if (upper === 'OVER' || upper === 'UNDER') {
+    const dir = upper === 'OVER' ? 'Over' : 'Under';
+    const rest = parts.slice(1).join(' ');
+    return rest ? `${dir} ${rest}` : dir;
+  }
+
+  if (upper === '1H' && parts.length >= 2) {
+    const dirTok = parts[1].toUpperCase();
+    if (dirTok === 'OVER' || dirTok === 'UNDER') {
+      const dir = dirTok === 'OVER' ? 'Over' : 'Under';
+      const rest = parts.slice(2).join(' ');
+      return rest ? `1H ${dir} ${rest}` : `1H ${dir}`;
+    }
+  }
+
+  const team = matchTeamToken(first, away, home);
+  if (!team) return trimmed;
+  const rest = parts.slice(1).join(' ').trim();
+  if (!rest) return team.name;
+
+  const ttMatch = rest.match(/^TT\s+(OVER|UNDER)\s+(.+)$/i);
+  if (ttMatch) {
+    const dir = ttMatch[1].toUpperCase() === 'OVER' ? 'Over' : 'Under';
+    return `${team.name} ${dir} ${ttMatch[2]}`;
+  }
+
+  return `${team.name} ${rest}`;
+}
+
+function parseSignalHomeAway(hay?: string | null): boolean | null {
+  const text = String(hay || '').toLowerCase();
+  if (!text) return null;
+  if (/\bhome\b/.test(text) && !/\bfade home\b/.test(text)) return true;
+  if (/\baway\b/.test(text) && !/\bfade away\b/.test(text)) return false;
+  return null;
+}
+
+function pickRowIsHome(row: FootballDryRunPick, away: TeamRef, home: TeamRef): boolean | null {
+  const side = String(row.pick_side || '').toUpperCase();
+  if (side === 'HOME') return true;
+  if (side === 'AWAY') return false;
+  const team = resolvePickTeam(row, away, home);
+  if (team === home) return true;
+  if (team === away) return false;
+  return null;
+}
+
+function orientedSpreadLine(
+  row: FootballDryRunPick,
+  signalIsHome: boolean | null,
+  away: TeamRef,
+  home: TeamRef,
+): number | null {
+  const line = toNum(row.best_line) ?? toNum(row.vegas_line);
+  if (line === null) return null;
+  const pickHome = pickRowIsHome(row, away, home);
+  if (signalIsHome === null || pickHome === null) return line;
+  return signalIsHome === pickHome ? line : -line;
+}
+
+/**
+ * Concrete Direction copy for the rule-detail panel — signal's indicated pick,
+ * not the surfaced card pick (important for contradict chips).
+ */
+function resolveSignalDirectionDisplay({
+  sideLabel,
+  action,
+  team,
+  betDirection,
+  row,
+  away,
+  home,
+}: {
+  sideLabel?: string | null;
+  action?: string | null;
+  team?: string | null;
+  betDirection?: string | null;
+  row?: FootballDryRunPick | null;
+  away?: TeamRef | null;
+  home?: TeamRef | null;
+}): string | null {
+  if (sideLabel?.trim() && away && home) {
+    return expandSignalSideLabel(sideLabel, away, home);
+  }
+  if (sideLabel?.trim()) return sideLabel.trim();
+
+  const teamName = (team || '').trim() || (() => {
+    const act = String(action || '').trim();
+    const paren = act.match(/^(.*?)\s*\((?:home|away)(?:\s*1h)?\)\s*$/i);
+    return paren ? paren[1].trim() : '';
+  })();
+
+  const group = row ? normalizeCardGroup(row.card_group) : '';
+  const signalHome =
+    parseSignalHomeAway(action) ??
+    (teamName && away && home
+      ? matchTeamToken(teamName.split(/\s+/)[0] || teamName, away, home) === home
+        ? true
+        : matchTeamToken(teamName.split(/\s+/)[0] || teamName, away, home) === away
+          ? false
+          : null
+      : null);
+
+  if (row && away && home && teamName && (group === 'spread' || group === 'h1_spread')) {
+    const line = orientedSpreadLine(row, signalHome, away, home);
+    if (line !== null) {
+      const half = group === 'h1_spread' ? ' 1H' : '';
+      return `${teamName}${half} ${formatSigned(line)}`;
+    }
+  }
+
+  if (row && (group === 'total' || group === 'h1_total')) {
+    const hay = `${sideLabel || ''} ${action || ''} ${betDirection || ''}`.toUpperCase();
+    const dir = hay.includes('UNDER') ? 'Under' : hay.includes('OVER') ? 'Over' : null;
+    const line = toNum(row.best_line) ?? toNum(row.vegas_line);
+    if (dir && line !== null) {
+      return group === 'h1_total' ? `1H ${dir} ${formatNumber(line)}` : `${dir} ${formatNumber(line)}`;
+    }
+    if (dir) return group === 'h1_total' ? `1H ${dir}` : dir;
+  }
+
+  if (row && group === 'team_total' && teamName) {
+    const hay = `${sideLabel || ''} ${action || ''} ${betDirection || ''}`.toUpperCase();
+    const dir = hay.includes('UNDER') ? 'Under' : hay.includes('OVER') ? 'Over' : null;
+    const line = toNum(row.best_line) ?? toNum(row.vegas_line);
+    if (dir && line !== null) return `${teamName} ${dir} ${formatNumber(line)}`;
+    if (dir) return `${teamName} ${dir}`;
+  }
+
+  if (row && (group === 'moneyline' || group === 'h1_ml') && teamName) {
+    return group === 'h1_ml' ? `${teamName} 1H ML` : teamName;
+  }
+
+  if (action?.trim() && !isGenericBetDirection(action)) return action.trim();
+  if (betDirection?.trim() && !isGenericBetDirection(betDirection)) return betDirection.trim();
+  return null;
+}
 
 /** Match a dry-run pick to home/away (native sheet team header parity). */
 function resolvePickTeam(
@@ -992,6 +1176,8 @@ export function FootballDryRunPicksSection({
         {gameHasFlagSignals && (
           <GameLevelSignalList
             flags={gameFlags}
+            away={game.awayTeam}
+            home={game.homeTeam}
             signalDefs={signalDefs}
             signalPerformance={signalPerformance}
           />
@@ -1248,6 +1434,8 @@ function PickRow({
         <PickSignalGroups
           signalKeys={signalKeys}
           row={row}
+          away={away}
+          home={home}
           signalDefs={signalDefs}
           signalPerformance={signalPerformance}
         />
@@ -1262,11 +1450,15 @@ type ResolvedSignal = {
   stance: 'support' | 'counter';
   action?: string;
   embeddedLabel?: string;
+  /** Concrete pick string for the Direction row (team + line when known). */
+  direction?: string;
 };
 
 function resolvePickSignals(
   signalKeys: string[],
   row: FootballDryRunPick,
+  away: TeamRef,
+  home: TeamRef,
   signalDefs: Record<string, SignalDefinition>,
 ): ResolvedSignal[] {
   return signalKeys.map((key) => {
@@ -1275,12 +1467,23 @@ function resolvePickSignals(
     const rawStance = (embedded?.stance || '').toLowerCase();
     const stance: 'support' | 'counter' =
       rawStance === 'counter' || rawStance === 'contradict' ? 'counter' : 'support';
+    const action = embedded?.action || embedded?.team || def?.bet_direction || undefined;
     return {
       key,
       displayName: def?.display_name || embedded?.label || embedded?.action || key,
       stance,
-      action: embedded?.action || embedded?.team || def?.bet_direction || undefined,
+      action,
       embeddedLabel: embedded?.label || embedded?.action || undefined,
+      direction:
+        resolveSignalDirectionDisplay({
+          sideLabel: embedded?.label,
+          action: embedded?.action || embedded?.team,
+          team: embedded?.team,
+          betDirection: def?.bet_direction,
+          row,
+          away,
+          home,
+        }) || undefined,
     };
   });
 }
@@ -1305,6 +1508,15 @@ function resolveFlagSignals(
       stance: flagSupportsPick(flag, row, away, home) ? 'support' : 'counter',
       action: flag.side || def?.bet_direction || undefined,
       embeddedLabel: flag.side || undefined,
+      direction:
+        resolveSignalDirectionDisplay({
+          sideLabel: flag.side,
+          action: flag.side,
+          betDirection: def?.bet_direction,
+          row,
+          away,
+          home,
+        }) || undefined,
     });
   }
   return resolved;
@@ -1317,17 +1529,21 @@ function resolveFlagSignals(
 function PickSignalGroups({
   signalKeys,
   row,
+  away,
+  home,
   signalDefs,
   signalPerformance,
 }: {
   signalKeys: string[];
   row: FootballDryRunPick;
+  away: TeamRef;
+  home: TeamRef;
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
 }) {
   return (
     <ResolvedSignalGroups
-      resolved={resolvePickSignals(signalKeys, row, signalDefs)}
+      resolved={resolvePickSignals(signalKeys, row, away, home, signalDefs)}
       signalDefs={signalDefs}
       signalPerformance={signalPerformance}
     />
@@ -1401,6 +1617,7 @@ function ResolvedSignalGroups({
           performance={signalPerformance[signalDefs[selected.key]?.signal_key || selected.key]}
           stance={selected.stance}
           embeddedLabel={selected.embeddedLabel}
+          direction={selected.direction}
         />
       )}
     </div>
@@ -1410,10 +1627,14 @@ function ResolvedSignalGroups({
 /** Flat list when flags have no matching market card (or picks haven't loaded). */
 function GameLevelSignalList({
   flags,
+  away,
+  home,
   signalDefs,
   signalPerformance,
 }: {
   flags: DryRunFlag[];
+  away: TeamRef;
+  home: TeamRef;
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
 }) {
@@ -1432,10 +1653,18 @@ function GameLevelSignalList({
         stance: 'support',
         action: flag.side || def?.bet_direction || undefined,
         embeddedLabel: flag.side || undefined,
+        direction:
+          resolveSignalDirectionDisplay({
+            sideLabel: flag.side,
+            action: flag.side,
+            betDirection: def?.bet_direction,
+            away,
+            home,
+          }) || undefined,
       });
     }
     return out;
-  }, [flags, signalDefs]);
+  }, [flags, signalDefs, away, home]);
   const selected = resolved.find((s) => s.key === selectedKey);
 
   if (resolved.length === 0) return null;
@@ -1456,6 +1685,7 @@ function GameLevelSignalList({
           performance={signalPerformance[signalDefs[selected.key]?.signal_key || selected.key]}
           stance={undefined}
           embeddedLabel={selected.embeddedLabel}
+          direction={selected.direction}
         />
       )}
     </div>
@@ -1535,14 +1765,22 @@ function SignalDetail({
   performance,
   stance,
   embeddedLabel,
+  direction,
 }: {
   signalKey: string;
   signal: SignalDefinition | undefined;
   performance: SignalPerformanceRow | undefined;
   stance?: 'support' | 'counter';
   embeddedLabel?: string;
+  /** Concrete per-game pick; falls back to non-generic def bet_direction. */
+  direction?: string;
 }) {
   const seasonRecord = formatSignalSeasonRecord(performance);
+  const directionText =
+    direction?.trim() ||
+    (signal?.bet_direction && !isGenericBetDirection(signal.bet_direction)
+      ? signal.bet_direction.trim()
+      : null);
 
   return (
     <div className="border-t border-black/5 pt-2 dark:border-white/10">
@@ -1567,9 +1805,9 @@ function SignalDetail({
           <span className="font-semibold text-foreground">Why it works:</span> {signal.why_it_works}
         </p>
       )}
-      {signal?.bet_direction && (
+      {directionText && (
         <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-          <span className="font-semibold text-foreground">Direction:</span> {signal.bet_direction}
+          <span className="font-semibold text-foreground">Direction:</span> {directionText}
         </p>
       )}
 

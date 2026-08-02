@@ -15,6 +15,7 @@ import com.wagerproof.app.features.gamecards.CFBTeamColors
 import com.wagerproof.core.models.CFBFlagConviction
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBTeamAssets
+import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.GameAgentConsensus
 import java.util.Locale
 import kotlin.math.floor
@@ -119,10 +120,12 @@ internal fun cfbSlatePicks(
             it.convictionTier == CFBFlagConviction.T1 || it.convictionTier == CFBFlagConviction.MAMMOTH
         }
     }
-    val signalCount = if (picks.isNotEmpty()) {
-        picks.flatMap { it.signalKeys }.filter(String::isNotBlank).toSet().size
+    // Prefer slate n_flags_* (excludes blanket scaffolding); fall back to pick signal_keys.
+    val fromGame = (game.nFlagsActive ?: 0) + (game.nFlagsTracking ?: 0)
+    val signalCount = if (fromGame > 0) {
+        fromGame
     } else {
-        game.nFlagsActive ?: game.activeFlags.size
+        FootballBlanketSignals.displayKeys("cfb", picks.flatMap { it.signalKeys }).size
     }
 
     return GameRowCardModel.SlatePicks(

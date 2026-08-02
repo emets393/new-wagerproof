@@ -126,6 +126,10 @@ public final class MainTabStore {
         case .feed:
             selected = .games
             return .games
+        case .picksHold:
+            // Not a tab shell concern — `RootRouter` turns this one into a
+            // paywall re-present and never queues it here.
+            return nil
         case .resetPassword:
             // Not a tab shell concern — auth router handles it.
             return nil

@@ -6,10 +6,13 @@ source of truth for *where every piece of NFL/CFB data lives now*, so any surfac
 pointed at the right table + key.
 
 ## 0. The one rule
-Everything NFL/CFB reads from the **`*_dryrun_*` family** on the **CFB Supabase project
+Slate identity, model output, and true opening lines read from the **`*_dryrun_*` family** on the **CFB Supabase project
 `jpxnjuwglavsjbgbasnl`** (web client: `collegeFootballSupabase` / `src/integrations/supabase/college-football-client.ts`,
 env `VITE_CFB_SUPABASE_URL`). The name says "dryrun" but these are the **live current-week production
 tables** — the name is just leftover from the 2025 test.
+
+Current live spread/total consensus and its timeline are the explicit exception:
+`nfl_line_movement` / `cfb_line_movement`, filtered by the same dryrun `game_id`.
 
 **Resolve the current (season, week) DYNAMICALLY. Never hardcode `season=2025`, `week=12`, or `week=7`.**
 Those were the dry-run pins and are the #1 cause of blank/stale surfaces.
@@ -26,13 +29,12 @@ Those were the dry-run pins and are the #1 cause of blank/stale surfaces.
 | Sport | Retired table | Replaced by |
 |---|---|---|
 | NFL | `v_input_values_with_epa`, `nfl_predictions_epa` | `nfl_dryrun_games` |
-| NFL | `nfl_betting_lines` (as a card line source) | `nfl_dryrun_games.fg_*` (Odds-API) |
+| NFL | `nfl_betting_lines` (as a card/current-line source) | `nfl_dryrun_games.fg_*_open` + `nfl_line_movement` |
 | CFB | `cfb_live_weekly_inputs`, `cfb_api_predictions`, `cfb_team_mapping` | `cfb_dryrun_games`, `cfb_teams` |
 
-**Exception (keep):** `nfl_betting_lines` is still correct for the **Line-Movement history widget**
-(`useNflLineMovement` — per-`training_key` snapshot time-series). That's a different thing from the card
-line; don't repoint it. `cfb_team_mapping` is still read by the `/cfb-analytics` trends workbench (a
-separate page) — leave that too.
+**Exception (keep):** `cfb_team_mapping` is still read by the `/cfb-analytics` trends workbench (a
+separate page) — leave that path. Line Movement does **not** use a retired-table exception: it reads
+`nfl_line_movement` / `cfb_line_movement` directly by the dryrun row's `game_id`.
 
 ## 2. The tables (project `jpxnjuwglavsjbgbasnl`), join key `game_id`
 
@@ -53,6 +55,17 @@ Both are keyed `(game_id, season, week)`. Columns (the important ones):
   - **Weather:** `wx_temp_f, wx_wind_mph, wx_precip_mm, wx_indoors, wx_icon, wx_summary`.
   - **Actuals (VALIDATION ONLY — null pregame):** `final_home/final_away, h1_home/h1_away`.
   - NFL only: `assigned_referee`.
+
+### Live consensus and movement
+- **`nfl_line_movement`** — key/filter `game_id` (prefer `season` too), ordered by `snap_ts`.
+  Columns: `n_books, fg_spread_home, fg_total, h1_spread_home, h1_total, tt_home, tt_away`.
+- **`cfb_line_movement`** — same game-keyed read, currently FG only:
+  `n_books, fg_spread_home, fg_total`.
+- The latest row is the **current live consensus**. The full ordered series is the chart.
+- `fg_spread_home` is home perspective; away spread is its negation.
+- Always filter by `game_id`. In particular, broad reads of `cfb_line_movement` time out.
+- `nfl_historical_odds` and `ncaaf_odds_history` are raw per-book archives, not consensus
+  chart sources. They may be used for a deliberately selected-book or implied-probability ML path.
 
 ### Bet-signal badges (the flag layer on cards)
 - **`nfl_dryrun_flags`** — **✅ 30 rows 2026 Wk1** (20 `tier='active'`). Key `game_id`. Cols:
@@ -106,9 +119,10 @@ Both are keyed `(game_id, season, week)`. Columns (the important ones):
 ## 3. Column cheat-sheet (old dry-run field → what to read now)
 | The card wants… | Read from `*_dryrun_games` |
 |---|---|
-| home spread | `fg_spread_close` (away = `-fg_spread_close`) |
-| total (O/U) | `fg_total_close` |
-| moneyline | `fg_ml_home_close` / `fg_ml_away_close` |
+| opening home spread / total | `fg_spread_open` / `fg_total_open` |
+| current home spread | latest `*_line_movement.fg_spread_home` (away = negated) |
+| current total (O/U) | latest `*_line_movement.fg_total` |
+| slate-time moneyline reference | `fg_ml_home_close` / `fg_ml_away_close` (not live current) |
 | model total / spread | `fg_pred_total` / `fg_pred_spread` |
 | predicted score | `fg_pred_home_pts` / `fg_pred_away_pts` |
 | total edge / pick | `fg_total_edge` / `fg_total_pick` |

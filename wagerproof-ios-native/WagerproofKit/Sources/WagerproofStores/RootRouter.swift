@@ -43,6 +43,13 @@ public final class RootRouter {
     /// the root view replays it via `consumePendingDeepLink()`.
     public private(set) var pendingDeepLinkRoute: DeepLinkRoute?
 
+    /// Set when the picks-hold Live Activity is tapped, so `RootView` can clear
+    /// its `paywallDismissed` flag and put the paywall back up. A separate flag
+    /// rather than a `pendingDeepLinkRoute` observer: `MainTabView` consumes
+    /// (and nils) that route, so two readers would race over one value.
+    /// See .claude/docs/19_picks_expiry_hold.md
+    public var reopenPaywallRequested = false
+
     public init() {}
 
     public func resolve(authPhase: AuthStore.Phase, onboardingComplete: Bool) {
@@ -85,6 +92,13 @@ public final class RootRouter {
 
     public func handle(deepLink url: URL) {
         guard let route = DeepLinkRoute(url: url) else { return }
+        // Paywall re-entry, not navigation. Deliberately does NOT land in
+        // `pendingDeepLinkRoute` — that queue belongs to the tab shell, and a
+        // route with no tab meaning would just be consumed and dropped.
+        if route == .picksHold {
+            reopenPaywallRequested = true
+            return
+        }
         switch phase {
         case .ready:
             pendingDeepLinkRoute = route
@@ -107,6 +121,9 @@ public enum DeepLinkRoute: Equatable, Sendable {
     case agents
     case outliers
     case feed
+    /// Tap target of the picks-hold Live Activity. Not in the RN map — this one
+    /// is ours, and it re-presents the paywall rather than selecting a tab.
+    case picksHold
     case resetPassword
 
     public init?(url: URL) {
@@ -116,6 +133,7 @@ public enum DeepLinkRoute: Equatable, Sendable {
         case "agents": self = .agents
         case "outliers": self = .outliers
         case "feed": self = .feed
+        case "picks-hold": self = .picksHold
         case "reset-password": self = .resetPassword
         default: self = .feed   // matches RN's default
         }

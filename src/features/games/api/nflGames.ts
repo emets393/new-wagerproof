@@ -15,9 +15,9 @@ import { resolveNflCurrentWeek, signalCountFromDryrunGame } from './footballSlat
  * Odds-API lines) + nfl_teams (logos/abbrs via home_ab/away_ab). The current week is resolved
  * dynamically from kickoffs (resolveNflCurrentWeek), so the slate rolls Week 1 -> Week 2
  * automatically. The legacy path (v_input_values_with_epa + nfl_predictions_epa classifier +
- * nfl_betting_lines as card lines + production_weather) is retired — nfl_betting_lines remains
- * only for the Line-Movement history widget. (nfl_dryrun_games keeps its test-era name but now
- * holds the live current-week slate.)
+ * nfl_betting_lines as card lines + production_weather) is retired. Line Movement reads the
+ * game-keyed nfl_line_movement consensus view. (nfl_dryrun_games keeps its test-era name but
+ * now holds the live current-week slate.)
  */
 
 export interface NFLPrediction {

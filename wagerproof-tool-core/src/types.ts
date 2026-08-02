@@ -54,6 +54,11 @@ export interface SupabaseLikeClient {
 export interface DataContext {
   main: SupabaseLikeClient;
   cfb: SupabaseLikeClient;
+  /** Service-role CFB client — required only by the raw-SQL exploration tools
+   *  (their RPCs are EXECUTE-granted to service_role alone, so the anon `cfb`
+   *  client cannot call them). Hosts that don't set CFB_SERVICE_ROLE_KEY simply
+   *  don't get those tools' functionality. */
+  cfbService?: SupabaseLikeClient;
   /** Today's date (YYYY-MM-DD, ET) — injected so each surface controls "now". */
   today: () => string;
 }

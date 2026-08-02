@@ -259,6 +259,24 @@ wagerproof-ios-native/
   sender has no shared `event_id` and would double-count every subscription**
 - **Documentation**: `.claude/docs/18_meta_attribution.md`
 
+### 11. Picks Expiry Hold (iOS native only)
+- A 3-hour clock on the picks a new user's agent just generated: an amber
+  countdown pill on `CustomPaywallView`, plus a **Live Activity** (Lock Screen +
+  Dynamic Island) started the moment they leave the paywall without subscribing
+- One window persisted in the App Group drives both surfaces. The clock is
+  `Text(timerInterval:)` on both sides, so the Live Activity is **never updated
+  after it starts** — no push channel, no background runtime, no update budget
+- `PicksExpiryAttributes` MUST stay in `WagerproofModels`: ActivityKit matches a
+  running activity to its renderer by attributes type, and a duplicated local
+  copy in either target compiles fine and then silently never renders
+- Explicit leave-without-buying paths funnel through
+  `PostOnboardingPaywall.dismissWithoutPurchase(_:)`; minimizing starts the
+  activity from the foreground-capable `.inactive` transition. Purchase ends it
+- Note the post-onboarding gate ships HARD (`paywall_close_enabled` defaults
+  false), so in production the activity mostly starts from the
+  plans-unavailable escape and soft-mode builds until that metadata is flipped
+- **Documentation**: `.claude/docs/19_picks_expiry_hold.md`
+
 ### Disabled / flagged-off surfaces
 These exist in code but are switched off. Do not describe them as features:
 - **Bet Slip Grader** (`/bet-slip-grader`) — `ENABLE_BET_SLIP_GRADER = false` (`src/App.tsx:78`), renders `<AccessDenied />`

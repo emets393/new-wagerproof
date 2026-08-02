@@ -44,6 +44,7 @@ from them and everything else is joined on by abbreviation:
 | `suggested_picks` | Primary seed — team names, first pitch, doubleheader flags |
 | `weather_park_flags` | Seeds games the pick engine passed on; supplies the venue |
 | `mlb_game_signals` (series signals) | Seeds games neither of the above covers |
+| `todays_slate` | Enrichment only, never a seed — fills first pitch, venue, and doubleheader numbering for games seeded without a pick |
 | pitchers / batting / bullpen / L-R splits | Team-name only — joined by canonical abbreviation |
 
 Abbreviations come from `MLB_FALLBACK_BY_NAME`, which is stable across the
@@ -53,7 +54,10 @@ lookups translate at the call site.
 
 **Doubleheaders**: `game_pk` is unique per game, so picks and weather split
 correctly. Team-level rows carry no `game_pk` and therefore attach to *both*
-games of the day; the hero says so when `isDoubleheader` is set.
+games of the day; the hero says so when `isDoubleheader` is set. Pick-less DH
+games get their `Game N` badge and first pitch from the `todays_slate`
+enrichment pass (before it, a no-pick doubleheader rendered as two identical
+"Time TBD" cards).
 
 ## Data hooks (reused, not rewritten)
 
