@@ -68,6 +68,26 @@ Preseason-known (leak-safe). `phase_returning_study.py`, `data/cfbd/returning_pr
 - Conviction **T2** (elite 9/9-season consistency, mechanism-backed; modest ROI). NOT YET WIRED — needs the
   `/player/returning` fetch in the pipeline (loads ~August for 2026) + a differential flag weeks 1-3.
 
+## VALIDATED (scouting/model input, NOT a standalone bet) — Coaching scheme transfer
+> When a head coach moves school A→B, team B's STYLE shifts toward how A played under him — fast/slow especially.
+
+`coach_moves_study.py` (CFBD `/coaches` seasons array → 66 HC moves 2017-25; style from `game_advanced`),
+`coach_pace_betting.py`, `data/coach_moves.parquet`:
+- **The scheme transfers, year 1, measurably:** pace corr(coach-vs-team gap, actual shift) **+0.65**, pass-rate
+  +0.68, explosiveness +0.56 (n=52); big-gap moves **close ~60-66% of the style gap in year 1**. Examples:
+  Charlie Strong took USF 71→85 pace (Texas-fast), Taggart FSU 62→71 (Oregon), Odom Purdue 56→65, Blake
+  Anderson Southern Miss 60→68. (A few exceptions, e.g. Jimbo Fisher.)
+- **Portal amplifier (2021-25, suggestive):** 26/33 moves brought ≥1 transfer from the coach's old school;
+  **3+ followers → 66% gap-closure vs 37% with 0-2** (n=19 vs 14). Coach + his players = bigger shift
+  (e.g. Charles Huff → Southern Miss, 19 followers, 60→68).
+- **NOT a standalone early-season bet:** big coach moves are rare (~15-21 wk1-3 games/cell), and the naive
+  "fast coach → OVER early" INVERTS — those games came in UNDER (line 60.2, actual 55.2, −5.0), i.e. the market
+  OVER-hypes a new fast scheme. Underpowered + wrong-direction → do not bet directly.
+- **REAL USE = a weeks-1-3 MODEL INPUT** (where the owner wanted help): for a new-coach team, last-year's tempo
+  is STALE (they'll play ~66% toward the coach's prior style). Blend the coach's prior-team style into the
+  early-week priors model (`cfb_early_week.py`) + a scouting card ("new HC from [fast/slow team] + N followers").
+  NOT YET WIRED. Needs `/coaches` + `/player/portal` in the pipeline (fetch built inline; add to fetch_cfbd_extra).
+
 ## MODEL FEATURES (Phase 4) — walk-forward MAE, keep-what-lowers
 Shape features (orthogonal to the efficiency the market prices), test seasons 2021-25:
 - **TOTAL model: +shape −0.540 MAE (13.82→13.28), driven by PACE (−0.46)** + trench (−0.12) + explosive
