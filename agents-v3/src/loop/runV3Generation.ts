@@ -16,6 +16,9 @@ import { getTodayInET, getFootballWeekKeyET } from "../shared/dateUtils";
 import { deriveSteeringProfile } from "./deriveSteeringProfile";
 import { LoopGovernor, V3_LIMITS, type V3Limits } from "./loopGuards";
 import { runAgenticLoop } from "./agenticGenerationLoop";
+import { createChatCompletionsTransport } from "./chatCompletionsTransport";
+import { createResponsesTransport } from "./responsesTransport";
+import type { Transport } from "./transport";
 import { loadGames, buildSlate } from "./tools/gameSource";
 import { passthroughTrace, type AgentGenContext, type ProgressEvent, type TraceFn } from "./tools/context";
 
@@ -44,14 +47,62 @@ const MODEL_COSTS: Record<string, { inTok: number; outTok: number }> = {
   "gpt-5-mini": { inTok: 0.25e-6, outTok: 2.0e-6 },
 };
 
-function resolveProvider(model: string): { url: string; keyEnv: string; supportsForcedToolChoice: boolean } {
-  // DeepSeek thinking mode (default on V4 models) rejects a named/forced
-  // tool_choice with HTTP 400 — it only allows "auto"/"none". So we force the
-  // final submit via an instruction message instead (see agenticGenerationLoop).
+/** Everything that varies by provider, resolved from the model id ONCE. Nothing
+ *  downstream may re-test the model string: three separate prefix tests used to
+ *  decide the URL, the reasoning param and the reasoning passback independently,
+ *  which is how a run ends up routed to one wire while being configured for the
+ *  other. */
+export interface ProviderBinding {
+  /** Env var holding this provider's credential. */
+  keyEnv: string;
+  /** Built after the credential is read, so a missing key fails before any wire
+   *  object exists. */
+  createTransport(apiKey: string, opts: { promptCacheKey: string }): Transport;
+}
+
+/**
+ * Model id → transport.
+ *
+ * OpenAI models (gpt-*, o*) speak /v1/responses: it is the only wire that keeps
+ * the model's reasoning ACROSS tool turns (Chat Completions discards it every
+ * turn) and that accepts a real reasoning effort alongside function tools.
+ *
+ * DeepSeek stays on /v1/chat/completions. It is the fallback provider — a
+ * DeepSeek 402 took generation down on 2026-07-25 — and it does not implement
+ * the Responses API at all. Deleting DeepSeek later is therefore deleting
+ * chatCompletionsTransport.ts plus this one branch.
+ */
+export function resolveProvider(model: string): ProviderBinding {
   if (model.startsWith("deepseek")) {
-    return { url: "https://api.deepseek.com/v1/chat/completions", keyEnv: "DEEPSEEK_API_KEY", supportsForcedToolChoice: false };
+    return {
+      keyEnv: "DEEPSEEK_API_KEY",
+      createTransport: (apiKey) =>
+        createChatCompletionsTransport({
+          model,
+          apiKey,
+          url: "https://api.deepseek.com/v1/chat/completions",
+          // Thinking mode (default on V4) rejects a named/forced tool_choice with
+          // HTTP 400 — only "auto"/"none". The loop forces the final submit with
+          // an instruction message instead.
+          supportsForcedToolChoice: false,
+          // V4 thinking mode requires each tool-calling assistant turn's CoT
+          // handed back on later requests.
+          passBackReasoning: true,
+        }),
+    };
   }
-  return { url: "https://api.openai.com/v1/chat/completions", keyEnv: "OPENAI_API_KEY", supportsForcedToolChoice: true };
+  return {
+    keyEnv: "OPENAI_API_KEY",
+    createTransport: (apiKey, { promptCacheKey }) =>
+      createResponsesTransport({
+        model,
+        apiKey,
+        url: "https://api.openai.com/v1/responses",
+        // The loop resends the whole input[] every turn, so the prefix is stable
+        // and a per-run key turns that into prompt-cache hits.
+        promptCacheKey,
+      }),
+  };
 }
 
 export interface RunV3Payload {
@@ -187,14 +238,21 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
   const markSucceeded = async (picks: number, note: string | null, gov?: LoopGovernor) => {
     marked = true;
     const inTok = gov?.tokensIn ?? 0, outTok = gov?.tokensOut ?? 0;
-    // Assumes cache-miss input rates (conservative). outTok is reasoning-inclusive
-    // for BOTH providers: OpenAI's usage.completion_tokens is the total that
-    // contains completion_tokens_details.reasoning_tokens, and DeepSeek bills CoT
-    // as output the same way — so no separate reasoning term is needed here, and
-    // the daily spend cap sees the real xhigh cost.
+    // outTok is reasoning-inclusive on BOTH wires, so xhigh's real cost lands in
+    // the ledger and the daily spend cap: /v1/responses reports
+    // usage.output_tokens as the total CONTAINING
+    // output_tokens_details.reasoning_tokens (the transport passes the total
+    // through and carries reasoning_tokens only as a breakdown — adding the two
+    // would double-charge), and DeepSeek bills CoT as output the same way.
+    // OVERSTATES on the Responses path, deliberately: every input token is
+    // charged at the cache-MISS rate, but the loop now resends a stable prefix
+    // with prompt_cache_key, so a large cached fraction is billed ~10x cheaper
+    // than this estimate. Erring high only throttles generation early via
+    // isOverDailySpendCap — the safe direction — so modeling
+    // input_tokens_details.cached_tokens is a follow-up, not a correctness bug.
     // Not modeled: Luna's >272K-input long-context tier ($0.4/$1.8 per Mtok). Our
     // per-request prompt stays far under that (tokenCeiling is 320K CUMULATIVE
-    // across turns, maxTokensOut 24K), so the short-context rate applies.
+    // across turns, maxTokensOut 40K), so the short-context rate applies.
     const rates = MODEL_COSTS[runModel] ?? MODEL_COSTS["deepseek-v4-pro"];
     const cost = inTok * rates.inTok + outTok * rates.outTok;
     const completedAt = new Date().toISOString();
@@ -327,11 +385,12 @@ export async function runV3Generation(payload: RunV3Payload, hooks: RunV3Hooks =
       throw new Error(`${provider.keyEnv} not set`); // retryable: config may be fixed
     }
 
-    const result = await runAgenticLoop(ctx, slate, {
-      model, apiKey, chatCompletionsUrl: provider.url,
-      supportsForcedToolChoice: provider.supportsForcedToolChoice,
-      passBackReasoning: model.startsWith("deepseek"),
-    });
+    // One resolved provider record → one transport. The loop past this point is
+    // wire-agnostic (see src/loop/transport.ts).
+    const transport = provider.createTransport(apiKey, { promptCacheKey: runId });
+    console.log(`[v3] run ${runId}: model=${model} wire=${transport.wire}`);
+
+    const result = await runAgenticLoop(ctx, slate, { transport });
 
     await markSucceeded(ctx.acceptedPicks.length, `engine=${result.engineUsed} accepted=${result.accepted} turns=${result.turns}`, gov);
     await telemetry(main, ctx, result.engineUsed, result.reason);

@@ -3,8 +3,8 @@
 // the forced slate seed, the grounding gate (in submit_picks), usage capture,
 // and per-deep-fetch compaction.
 
-import type { ChatMessage } from "./types";
-import { consumeChatStreamV3 } from "./consumeChatStreamV3";
+import type { ConversationItem, NeutralToolDefinition, Transport, TurnResult } from "./transport";
+import { toGovernorUsage } from "./transport";
 import { buildV3SystemPrompt } from "./v3SystemPrompt";
 import { buildSubmitPicksSchema, buildSubmitParlaySchema } from "./pickSchemaV3";
 import { passthroughTrace, type AgentGenContext, type SubmitReport } from "./tools/context";
@@ -23,42 +23,13 @@ export interface LoopResult {
 }
 
 export interface LoopOptions {
-  model: string;
-  apiKey: string;
-  chatCompletionsUrl: string;
-  /** false for DeepSeek thinking mode (rejects named tool_choice) → force via prompt. */
-  supportsForcedToolChoice: boolean;
-  /** DeepSeek V4 thinking mode requires each tool-calling assistant turn's
-   *  reasoning_content passed back on later requests; OpenAI must not see it. */
-  passBackReasoning: boolean;
+  /** The provider binding. The loop never builds a request body or parses a
+   *  stream itself — see transport.ts for the seam's contract. */
+  transport: Transport;
 }
 
 function summarize(s: string): string {
   return s.length > 200 ? s.slice(0, 200) + "…" : s;
-}
-
-// Generation is the ONE surface that buys xhigh reasoning — pick quality is what
-// the whole run exists for. Only OpenAI reasoning models accept the parameter;
-// DeepSeek (still reachable via the debug pickers) rejects unknown body keys, so
-// it must never be sent there. Override per-deploy with V3_REASONING_EFFORT.
-const REASONING_EFFORT_DEFAULT = "xhigh";
-const VALID_REASONING_EFFORTS = new Set(["none", "low", "medium", "high", "xhigh", "max"]);
-
-function resolveReasoningEffort(model: string): string | null {
-  if (!/^(gpt-5|o\d)/.test(model)) return null; // DeepSeek + gpt-4.x take no effort param
-  const override = process.env.V3_REASONING_EFFORT;
-  if (override && VALID_REASONING_EFFORTS.has(override)) return override;
-  return REASONING_EFFORT_DEFAULT;
-}
-
-// GUARD (2026-08-01, unverified against prod): OpenAI's gpt-5.6 upgrade guide says
-// function tools on /v1/chat/completions are only compatible with effective
-// reasoning "none" — xhigh + tools may be Responses-API-only. We send it anyway
-// (the docs are ambiguous and Responses would mean rewriting the whole streaming
-// loop), but a 400 mentioning reasoning downgrades the run to no-effort instead of
-// killing generation. Once verified, either drop this or port the loop to /v1/responses.
-function isReasoningRejection(status: number, body: string): boolean {
-  return status === 400 && /reasoning/i.test(body);
 }
 
 function submitRepairInstruction(report: SubmitReport, ctx: AgentGenContext, toolName: "submit_picks" | "submit_parlay"): string | null {
@@ -80,15 +51,6 @@ function submitRepairInstruction(report: SubmitReport, ctx: AgentGenContext, too
   return `Your last ${toolName} used a disallowed market. Allowed bet_type values for this agent are: ${allowed.join(", ")}. Resubmit only with those markets, or finalize with submit_picks using an empty picks array.`;
 }
 
-// Transient stream/connection failures (e.g. DeepSeek closing the TLS socket
-// mid-response → undici "TypeError: terminated", ECONNRESET, socket hang up) are
-// recoverable — retry the turn's LLM call rather than failing the whole run.
-// Client-side aborts (turn-budget timeout) are intentionally NOT matched here.
-function isTransientNetworkError(e: unknown): boolean {
-  const msg = (e instanceof Error ? e.message : String(e)).toLowerCase();
-  return /terminated|econnreset|socket hang up|other side closed|fetch failed|und_err|epipe|etimedout|enetunreach|network/.test(msg);
-}
-
 export async function runAgenticLoop(
   ctx: AgentGenContext,
   slate: SlateResult,
@@ -99,48 +61,47 @@ export async function runAgenticLoop(
   const allowedMarketsText = allowedMarkets.join(", ");
   // Span factory → dashboard run waterfall (passthrough when not on Trigger.dev).
   const span = ctx.trace ?? passthroughTrace;
-  const tools = [
-    ...buildReadToolDefs(steering),
+  // Tool defs are provider-neutral (flat name/description/parameters); each
+  // transport re-nests them the way its wire wants.
+  const tools: NeutralToolDefinition[] = [
+    ...buildReadToolDefs(steering).map((d) => ({ name: d.function.name, description: d.function.description, parameters: d.function.parameters })),
     {
-      type: "function" as const,
-      function: {
-        name: "submit_picks",
-        description: "Submit your final picks (or an empty array). Call this exactly once when done.",
-        parameters: buildSubmitPicksSchema(steering.unitBand),
-      },
+      name: "submit_picks",
+      description: "Submit your final picks (or an empty array). Call this exactly once when done.",
+      parameters: buildSubmitPicksSchema(steering.unitBand),
     },
     // Parlay ticket tool — only offered when the agent's appetite allows it.
     ...(steering.maxParlayLegs > 0
       ? [{
-          type: "function" as const,
-          function: {
-            name: "submit_parlay",
-            description: ctx.window === "week"
-              ? "Submit 2-3 DISTINCT week-long parlay tickets (an array) — legs drawn from games you fetched, spanning the remaining football week. Make the tickets differ from one another; an exact-duplicate ticket is rejected. Then call submit_picks with an empty picks array to finalize the run."
-              : `Submit multi-leg parlay tickets using only allowed leg bet_type values (${allowedMarketsText}). Legs must be drawn from games you fetched. After any accepted parlays, still call submit_picks to finalize the run (use an empty picks array if you have no straight picks).`,
-            parameters: buildSubmitParlaySchema(steering.unitBand, steering.maxParlayLegs, { weekly: ctx.window === "week" }),
-          },
+          name: "submit_parlay",
+          description: ctx.window === "week"
+            ? "Submit 2-3 DISTINCT week-long parlay tickets (an array) — legs drawn from games you fetched, spanning the remaining football week. Make the tickets differ from one another; an exact-duplicate ticket is rejected. Then call submit_picks with an empty picks array to finalize the run."
+            : `Submit multi-leg parlay tickets using only allowed leg bet_type values (${allowedMarketsText}). Legs must be drawn from games you fetched. After any accepted parlays, still call submit_picks to finalize the run (use an empty picks array if you have no straight picks).`,
+          parameters: buildSubmitParlaySchema(steering.unitBand, steering.maxParlayLegs, { weekly: ctx.window === "week" }),
         }]
       : []),
   ];
 
   const slateContent = compactSlate(slate, 16000);
-  const messages: ChatMessage[] = [
-    { role: "system", content: buildV3SystemPrompt(steering, ctx.targetDate, { window: ctx.window, weekKey: ctx.weekKey }) },
+  // The slate is pre-executed by the host and injected as a fabricated tool
+  // round-trip, so the model starts already grounded in the day's games.
+  const conversation: ConversationItem[] = [
+    { kind: "system", text: buildV3SystemPrompt(steering, ctx.targetDate, { window: ctx.window, weekKey: ctx.weekKey }) },
     {
-      role: "user",
-      content: ctx.window === "week"
+      kind: "user",
+      text: ctx.window === "week"
         ? "Build this agent's week-long parlay tickets (2-3 distinct options). The remaining week slate is already provided below."
         : "Generate today's picks for this agent. The slate is already provided below.",
     },
     {
-      role: "assistant",
-      content: null,
-      tool_calls: [{ id: "slate_0", type: "function", function: { name: "get_slate", arguments: "{}" } }],
-      // Synthetic turn still needs a non-empty CoT for V4 thinking mode.
-      ...(opts.passBackReasoning ? { reasoning_content: "I need today's slate before I can analyze anything." } : {}),
+      kind: "assistant",
+      text: null,
+      toolCalls: [{ id: "slate_0", name: "get_slate", arguments: "{}" }],
+      // Synthetic turn still needs a non-empty CoT for V4 thinking mode. Only
+      // the DeepSeek transport renders it; OpenAI never sees the carrier.
+      reasoning: { text: "I need today's slate before I can analyze anything." },
     },
-    { role: "tool", tool_call_id: "slate_0", content: slateContent },
+    { kind: "toolResult", callId: "slate_0", content: slateContent },
   ];
 
   let traceSeq = 1;
@@ -154,11 +115,6 @@ export async function runAgenticLoop(
   let turns = 0;
   const max = ctx.gov.limitsRef.maxTurns;
   let forcedNudgeInjected = false;
-  // Null for non-reasoning models (param omitted entirely); "none" once downgraded
-  // by the 400 guard. The downgrade persists for the rest of the run so we don't
-  // re-fail every turn.
-  let reasoningEffort = resolveReasoningEffort(opts.model);
-  let reasoningDowngradeRetried = false;
   let truncationRetried = false;
 
   for (let turn = 0; turn < max; turn++) {
@@ -179,37 +135,19 @@ export async function runAgenticLoop(
     // Force the terminal submit. OpenAI accepts a named tool_choice; deepseek
     // "thinking mode" rejects it (HTTP 400), so for those models we keep
     // tool_choice:"auto" and inject a one-time hard instruction to submit now.
-    let toolChoice: unknown = "auto";
+    let forceToolName: string | null = null;
     if (forceSubmit) {
-      if (opts.supportsForcedToolChoice) {
-        toolChoice = { type: "function", function: { name: "submit_picks" } };
+      if (opts.transport.capabilities.forcedToolChoice) {
+        forceToolName = "submit_picks";
       } else if (!forcedNudgeInjected) {
-        messages.push({
-          role: "user",
-          content:
+        conversation.push({
+          kind: "user",
+          text:
             "STOP researching — your research budget is spent. Call submit_picks NOW with your final picks. " +
             "If nothing clears your bar, call submit_picks with an empty picks array and a slate_note. Do not call any other tool.",
         });
         forcedNudgeInjected = true;
       }
-    }
-
-    const body: Record<string, unknown> = {
-      model: opts.model,
-      messages,
-      tools,
-      tool_choice: toolChoice,
-      stream: true,
-      stream_options: { include_usage: true },
-    };
-    // xhigh thinking for OpenAI reasoning models only (null for DeepSeek/gpt-4.x).
-    if (reasoningEffort) body.reasoning_effort = reasoningEffort;
-    // gpt-5* / o* reject max_tokens; older chat models reject max_completion_tokens.
-    // "gpt-5.6-luna" matches ^gpt-5, so it correctly takes max_completion_tokens.
-    if (/^(gpt-5|o\d)/.test(opts.model)) {
-      body.max_completion_tokens = ctx.gov.limitsRef.maxTokensOut;
-    } else {
-      body.max_tokens = ctx.gov.limitsRef.maxTokensOut;
     }
 
     // Abort the turn at min(remaining wall-clock, per-turn cap) so a single slow
@@ -219,62 +157,18 @@ export async function runAgenticLoop(
     const turnBudgetMs = Math.max(1000, Math.min(ctx.gov.timeLeftMs(), ctx.gov.limitsRef.perTurnMs));
     const turnTimer = setTimeout(() => ctrl.abort(), turnBudgetMs);
 
-    let res: Awaited<ReturnType<typeof consumeChatStreamV3>>;
+    let res: TurnResult;
     try {
       // One span per LLM turn — this is usually the biggest chunk of a run, so
-      // it's the headline bar in the waterfall (model think + stream time).
-      res = await span(`llm:turn-${turns}`, async () => {
-        // Retry transient drops within the turn so a single blip doesn't throw
-        // away the whole run. The turn timer aborts ctrl at the turn budget, so
-        // retries stay bounded (an abort rethrows immediately, no further tries).
-        const MAX_LLM_TRIES = 3;
-        let lastErr: unknown;
-        for (let attempt = 1; attempt <= MAX_LLM_TRIES; attempt++) {
-          try {
-            const resp = await fetch(opts.chatCompletionsUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${opts.apiKey}` },
-              body: JSON.stringify(body),
-              signal: ctrl.signal,
-            });
-            if (!resp.ok || !resp.body) {
-              const errTxt = await resp.text().catch(() => "");
-              // Chat Completions may refuse tools+reasoning on gpt-5.6 (see the
-              // guard note above): downgrade to "none" and re-run the turn once
-              // rather than failing the whole generation. Must send "none"
-              // EXPLICITLY — omitting the key falls back to the API default
-              // (medium), which is exactly the combination being rejected.
-              if (reasoningEffort && reasoningEffort !== "none" && isReasoningRejection(resp.status, errTxt)) {
-                console.warn(`[v3] ${opts.model} rejected reasoning_effort=${reasoningEffort} with tools; downgrading to "none"`);
-                reasoningEffort = "none";
-                body.reasoning_effort = "none";
-                if (!reasoningDowngradeRetried) {
-                  reasoningDowngradeRetried = true;
-                  attempt -= 1; // the downgrade shouldn't consume a transient-failure retry
-                  continue;
-                }
-              }
-              // 5xx / 429 are retryable; other 4xx are not.
-              if ((resp.status >= 500 || resp.status === 429) && attempt < MAX_LLM_TRIES) {
-                lastErr = new Error(`LLM ${resp.status}`);
-                await new Promise((r) => setTimeout(r, 400 * attempt));
-                continue;
-              }
-              throw new Error(`LLM ${resp.status}: ${errTxt.slice(0, 200)}`);
-            }
-            return await consumeChatStreamV3(resp.body);
-          } catch (err) {
-            if (ctrl.signal.aborted) throw err; // turn timeout — let the outer catch finalize
-            lastErr = err;
-            if (attempt < MAX_LLM_TRIES && isTransientNetworkError(err)) {
-              await new Promise((r) => setTimeout(r, 400 * attempt));
-              continue;
-            }
-            throw err;
-          }
-        }
-        throw lastErr instanceof Error ? lastErr : new Error("LLM call failed after retries");
-      }, { turn: turns, model: opts.model, forced: forceSubmit });
+      // it's the headline bar in the waterfall (model think + stream time). The
+      // span stays wrapped around the transport's INTERNAL retries too.
+      res = await span(`llm:turn-${turns}`, () => opts.transport.sendTurn({
+        conversation,
+        tools,
+        forceToolName,
+        maxOutputTokens: ctx.gov.limitsRef.maxTokensOut,
+        signal: ctrl.signal,
+      }), { turn: turns, model: opts.transport.model, wire: opts.transport.wire, forced: forceSubmit });
     } catch (e) {
       clearTimeout(turnTimer);
       if (ctrl.signal.aborted) {
@@ -285,42 +179,45 @@ export async function runAgenticLoop(
       throw e; // genuine error (e.g. LLM 4xx) → propagate to the worker's catch
     }
     clearTimeout(turnTimer);
-    ctx.gov.addUsage(res.usage);
-    if (res.reasoning && ctx.reasoningTrace.length < 4000) {
-      ctx.reasoningTrace = (ctx.reasoningTrace + "\n" + res.reasoning).slice(0, 4000);
+    ctx.gov.addUsage(toGovernorUsage(res.usage));
+    const reasoningText = res.reasoning?.text ?? null;
+    if (reasoningText && ctx.reasoningTrace.length < 4000) {
+      ctx.reasoningTrace = (ctx.reasoningTrace + "\n" + reasoningText).slice(0, 4000);
     }
 
-    // finish_reason "length" with no tool call means the turn was TRUNCATED, not
-    // finished: on OpenAI reasoning models max_completion_tokens also covers
-    // reasoning tokens, so an xhigh pass can burn the cap before emitting
-    // submit_picks. Breaking here would end the run as a silent success with zero
-    // picks — instead trip (forces tool_choice=submit_picks next turn) and retry
-    // once, then fail loudly if nothing was ever accepted.
-    if (res.toolCalls.length === 0 && res.finishReason === "length") {
+    // A truncated turn with no tool call means the turn was CUT OFF, not
+    // finished: on OpenAI reasoning models the output cap also covers reasoning
+    // tokens, so an xhigh pass can burn the cap before emitting submit_picks.
+    // Breaking here would end the run as a silent success with zero picks —
+    // instead trip (forces tool_choice=submit_picks next turn) and retry once,
+    // then fail loudly if nothing was ever accepted.
+    if (res.toolCalls.length === 0 && res.finish === "truncated") {
       ctx.gov.trip("output_truncated");
       if (!truncationRetried) {
         truncationRetried = true;
-        messages.push({
-          role: "user",
-          content:
+        conversation.push({
+          kind: "user",
+          text:
             "Your last turn hit the output token limit before emitting a tool call. Stop reasoning and call submit_picks NOW " +
             "with short reasoning and no decision_trace. If nothing clears your bar, submit an empty picks array with a slate_note.",
         });
         continue;
       }
       if (ctx.acceptedPicks.length === 0) {
-        throw new Error("LLM output truncated (finish_reason=length) before any tool call — no picks submitted");
+        // Message is recorded on the ledger (error_message) — keep it wire-neutral:
+        // Chat spells this finish_reason="length", Responses status="incomplete".
+        throw new Error("LLM output truncated (hit the per-turn output cap) before any tool call — no picks submitted");
       }
       break;
     }
 
     if (res.toolCalls.length === 0) break; // model answered without a tool — done
 
-    messages.push({
-      role: "assistant",
-      content: res.textContent,
-      tool_calls: res.toolCalls.map((c) => ({ id: c.id, type: "function" as const, function: { name: c.name, arguments: c.arguments } })),
-      ...(opts.passBackReasoning ? { reasoning_content: res.reasoning ?? "" } : {}),
+    conversation.push({
+      kind: "assistant",
+      text: res.textContent,
+      toolCalls: res.toolCalls,
+      reasoning: res.reasoning,
     });
 
     let finished = false;
@@ -334,7 +231,13 @@ export async function runAgenticLoop(
       if (call.name === "submit_picks") {
         ctx.gov.submitAttempts += 1;
         let args: Record<string, unknown> | null = null;
-        try { args = JSON.parse(call.arguments || "{}"); } catch { ctx.gov.recordMalformed(); }
+        // Blank arguments mean the call was CUT OFF before its first argument
+        // token, not that the model submitted nothing: coercing "" to "{}" parses
+        // clean, and submitPicks reads that as a valid zero-pick submission that
+        // ends the run green. Route it through the malformed path instead — the
+        // turn still carries a tool call, so the truncation guard above never sees it.
+        if (!call.arguments.trim()) ctx.gov.recordMalformed();
+        else { try { args = JSON.parse(call.arguments); } catch { ctx.gov.recordMalformed(); } }
 
         // Truncated/invalid tool-call JSON: do NOT route to submitPicks — an
         // empty parse there reads as a valid "zero picks" submission and ends
@@ -342,7 +245,7 @@ export async function runAgenticLoop(
         if (args === null) {
           const errMsg = "submit_picks arguments were not valid JSON (likely truncated). Resubmit with fewer picks and shorter reasoning; omit decision_trace if needed.";
           const content = JSON.stringify({ ok: false, error: errMsg });
-          messages.push({ role: "tool", tool_call_id: call.id, content });
+          conversation.push({ kind: "toolResult", callId: call.id, content });
           trace(call.id, call.name, (call.arguments || "").slice(0, 200), content, Date.now() - started, false);
           if (ctx.gov.submitAttempts >= ctx.gov.limitsRef.maxSubmitAttempts) { finished = true; break; }
           continue;
@@ -351,11 +254,11 @@ export async function runAgenticLoop(
         const report = await span("submit_picks", () => submitPicks(ctx, args), { attempt: ctx.gov.submitAttempts });
         ctx.lastSubmitReport = report;
         const content = JSON.stringify(report);
-        messages.push({ role: "tool", tool_call_id: call.id, content });
+        conversation.push({ kind: "toolResult", callId: call.id, content });
         trace(call.id, call.name, call.arguments || "{}", content, Date.now() - started, report.ok);
         ctx.onProgress?.({ kind: "submit", attempt: ctx.gov.submitAttempts, accepted: report.accepted, rejected: report.rejected.length });
         const repair = submitRepairInstruction(report, ctx, "submit_picks");
-        if (repair) messages.push({ role: "user", content: repair });
+        if (repair) conversation.push({ kind: "user", text: repair });
         if (report.allAccepted || ctx.gov.submitAttempts >= ctx.gov.limitsRef.maxSubmitAttempts) {
           finished = true;
           break;
@@ -368,16 +271,16 @@ export async function runAgenticLoop(
         try { args = JSON.parse(call.arguments || "{}"); } catch { ctx.gov.recordMalformed(); }
         if (args === null) {
           const content = JSON.stringify({ ok: false, error: "submit_parlay arguments were not valid JSON (likely truncated). Resubmit with fewer/shorter legs." });
-          messages.push({ role: "tool", tool_call_id: call.id, content });
+          conversation.push({ kind: "toolResult", callId: call.id, content });
           trace(call.id, call.name, (call.arguments || "").slice(0, 200), content, Date.now() - started, false);
           continue;
         }
         const report = await span("submit_parlay", () => submitParlay(ctx, args));
         const content = JSON.stringify(report);
-        messages.push({ role: "tool", tool_call_id: call.id, content });
+        conversation.push({ kind: "toolResult", callId: call.id, content });
         trace(call.id, call.name, call.arguments || "{}", content, Date.now() - started, report.ok);
         const repair = submitRepairInstruction(report, ctx, "submit_parlay");
-        if (repair) messages.push({ role: "user", content: repair });
+        if (repair) conversation.push({ kind: "user", text: repair });
         continue; // non-terminal — the agent still calls submit_picks to finalize
       }
 
@@ -402,7 +305,7 @@ export async function runAgenticLoop(
         content = r.content;
         ok = r.ok;
       }
-      messages.push({ role: "tool", tool_call_id: call.id, content });
+      conversation.push({ kind: "toolResult", callId: call.id, content });
       trace(call.id, call.name, call.arguments || "{}", content, Date.now() - started, ok);
     }
 
