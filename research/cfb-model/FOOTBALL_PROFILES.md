@@ -65,8 +65,27 @@ Preseason-known (leak-safe). `phase_returning_study.py`, `data/cfbd/returning_pr
   rushing/receiving returning all ~53% (7-8/9); it's the AGGREGATE. (OL + DEFENSE returning are NOT in
   `/player/returning` (PPA=offense skill only) → would need roster-diffing; that's where position-specificity
   might live — future build.) **Portal-churn interaction underpowered** (2021-25, n=51 cells — set aside).
-- Conviction **T2** (elite 9/9-season consistency, mechanism-backed; modest ROI). NOT YET WIRED — needs the
-  `/player/returning` fetch in the pipeline (loads ~August for 2026) + a differential flag weeks 1-3.
+- Conviction **T2** (elite 9/9-season consistency, mechanism-backed; modest ROI).
+- **WIRED 2026-08-01** as signal `ret_prod_edge`: `cfb_early_roster_signals.py` (self-test 53.7% ATS wk1-3
+  2021-25) → `gen_cfb_dryrun_flags.py` emits a wk1-3 spread flag backing the higher-returning team;
+  `fetch_cfbd_roster.py` (in `run_cfb_week.sh`) refreshes `/player/returning`; def in `cfb_signal_defs`.
+
+## VALIDATED (track-plus candidate) — CFB portal talent influx, weeks 1-3 ATS (S-CFB3)
+> **Weeks 1-3: back a team that added ≥3 four-star+ PORTAL transfers (and more than its opponent).**
+
+`transfer_trends_study.py`, `data/cfbd/portal.parquet` (2021-25). Sibling of S-CFB2 — that keeps its guys,
+this adds new ones; both = early lines undervalue current-roster reality, both decay by week 4.
+- **~57% ATS wk1-3** with the opp-differential (self-test n=220); the raw "3+ four-star adds" cell was 54.5%
+  (4/5 seasons); **strongest when the team is the LESS-talented side** (60.4%, the mid-team-hits-the-portal
+  case) — so it's the incoming portal talent being undervalued, not just "good teams cover."
+- **Decays by week 4** (wk4+ ≈ 50%) — the market-lag signature. Dose-response in # of four-star adds.
+- **Caveats (honest):** portal only 2021-25 (5 seasons), small n, ~20 cells scanned → **track-plus / T3**, not a
+  locked bet like S-CFB2. Needs 2026+ to confirm.
+- **Transfer VOLUME otherwise = PRICED:** raw incoming count + most position-group volumes → ~50-52% early
+  (market watches the portal). New-QB → mild fade/under but confounded with continuity. OL-light→under and
+  LB-heavy→cover are the same "portal-aggression" signal in disguise / partly team-type confounds (tracking).
+- **WIRED 2026-08-01** as signal `portal_talent_influx` (T3): `cfb_early_roster_signals.py` →
+  `gen_cfb_dryrun_flags.py` wk1-3 spread flag; `fetch_cfbd_roster.py` refreshes `/player/portal`.
 
 ## VALIDATED (scouting/model input, NOT a standalone bet) — Coaching scheme transfer
 > When a head coach moves school A→B, team B's STYLE shifts toward how A played under him — fast/slow especially.
