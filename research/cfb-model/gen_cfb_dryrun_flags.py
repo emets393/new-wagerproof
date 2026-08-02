@@ -175,6 +175,25 @@ try:
 except Exception as e:
     print(f"  [early_roster_signals] skipped: {e}")
 
+# ── DK-specific SMALL HOME-DOG MONEYLINE: when DraftKings prices the HOME team as a small dog (+100..+140),
+#    take the home moneyline. dk_ml_bands.py: home dogs in this band win outright ~48% vs ~43% DK-implied =
+#    +5.9% flat-bet ROI, 4/5 seasons (n=291). Structural: road favorites are overbet (all home dogs -1.5% vs
+#    all away dogs -10.1%), and this small band is the bettable slice. HOME only — away dogs +100..140 don't
+#    hold (-1.4%). Graded on outright win at the DK number, so line=price=the DK home ML. ──
+try:
+    for _, r in te.iterrows():
+        mlh = pd.to_numeric(pd.Series([r.get("dk_ml_home_close")]), errors="coerce").iloc[0]
+        if pd.isna(mlh) or not (100 <= mlh <= 140):
+            continue
+        rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                     "game": f"{r.awayTeam} @ {r.homeTeam}", "source": f"Small home-dog ML +{int(round(mlh))} (DK)",
+                     "signal_key": "home_dog_ml", "market": "ml", "side": "HOME ML",
+                     "line": int(round(mlh)), "price": int(round(mlh)), "edge": None,
+                     "conviction": "T3", "tier": "active", "stake_units": C.STAKE["T3"],
+                     "grade_line": "dk", "mammoth": False})
+except Exception as e:
+    print(f"  [home_dog_ml] skipped: {e}")
+
 df = pd.DataFrame(rows)
 print(f"cfb_dryrun_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
 print(f"  conviction {df.conviction.value_counts().to_dict()} | mammoth flags {int(df.mammoth.sum())}")

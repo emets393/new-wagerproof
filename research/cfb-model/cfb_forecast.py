@@ -146,8 +146,10 @@ def spot_library(df):
     # ===== KEY NUMBERS (DraftKings close) — dk_keynumbers.py =====
     S["KEY dog +2.5/3/3.5 (HOME dog)"] = (dk.isin([2.5, 3.0, 3.5]).fillna(False), "HOME", "side", "dk")
     S["KEY dog +2.5/3/3.5 (AWAY dog)"] = (dk.isin([-2.5, -3.0, -3.5]).fillna(False), "AWAY", "side", "dk")
-    S["KEY lay -6.5 (HOME fav)"] = ((dk == -6.5).fillna(False), "HOME", "side", "dk")
-    S["KEY lay -6.5 (AWAY fav)"] = ((dk == 6.5).fillna(False), "AWAY", "side", "dk")
+    # Touchdown-sized favorites cover: DK-specific band study (dk_spread_total_bands.py) — fav -6.5..-7.5 covers
+    # 54.9% (4/5 seasons), strongest at exactly -7/-7.5 (58.1%, +11.5%). Widened from just -6.5 to the full band.
+    S["KEY lay -6.5/-7 (HOME fav)"] = (dk.isin([-6.5, -7.0, -7.5]).fillna(False), "HOME", "side", "dk")
+    S["KEY lay -6.5/-7 (AWAY fav)"] = (dk.isin([6.5, 7.0, 7.5]).fillna(False), "AWAY", "side", "dk")
     # ===== CONFERENCE structural numbers (conf_numbers.py) — grade @ close =====
     S["CONF SunBelt fade home-fav (dog)"] = (((conf == "Sun Belt") & (sc < 0)).fillna(False), "AWAY", "side", "close")
     S["CONF BigTen away-fav cover"] = (((conf == "Big Ten") & (sc > 0)).fillna(False), "AWAY", "side", "close")

@@ -62,9 +62,11 @@ def build(cfbd_names):
     out = sh.join(sf, how="outer")
     out["soft_gap"] = out.sharp_close - out.soft_close
 
-    # DraftKings close (home spread + total)
+    # DraftKings close (home spread + total + moneyline). The ML columns feed the DK-specific home-dog-ML
+    # spot (dk_ml_bands.py: small HOME dogs +100..140 win outright ~48% vs ~43% implied, +5.9% ROI, 4/5 seasons).
     dk = cl[cl.book == "draftkings"].groupby(["season", "home", "away"]).agg(
-        dk_sp_close=("spread_home", "median"), dk_tot_close=("total", "median"))
+        dk_sp_close=("spread_home", "median"), dk_tot_close=("total", "median"),
+        dk_ml_home_close=("home_ml", "median"), dk_ml_away_close=("away_ml", "median"))
     out = out.join(dk, how="outer")
 
     # reversal windows (open->24h early, 24h->close late) from movement_windows
