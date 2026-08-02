@@ -1,5 +1,16 @@
 # NBA — every market on the repaired feature stack
 
+> **SUPERSEDED 2026-08-01 — the frame is wrong, so every number below is.** Each market here is fit
+> on ONE ROW PER GAME with `h_`/`a_` columns, and the two team totals are two SEPARATE models on
+> disjoint columns. That estimates one relationship twice, manufacturing a home/away gap with no
+> basketball cause. `MIN_TRAIN = 1500` also exceeds one NBA season, silently eating a third evaluable
+> season the data actually has. Rebuilt on a team-game panel in **`NBA_PANEL_ALL.md`** (2 rows per
+> game, `own_`/`opp_`, `is_home` a feature, one model, every market a transform of predicted points),
+> where the **full-game total is the only survivor** and team totals, the spread, the moneyline and
+> both 1H markets are negative. A second defect hits every number here too: training pooled all prior
+> seasons with equal weight, which `NBA_PROVEN.md` §1d shows costs most of the total's edge (+0.3%
+> ROI pooled vs +4.5% at a 180-day half-life). Kept for the record.
+
 The full-game total is the only market that was ever rebuilt after the data repairs (college possessions joining at 0%, adjusted ratings with no intercept, a recency half-life in rows instead of days, usage concentration identified as the engine). The 1H models predate all four; team totals and the moneyline were never built at all. This runs one frame and one stack against all of them.
 
 New here: a **derivative-market consistency** family (`mk_*`) — where the team totals, the 1H lines and the full-game spread/total disagree about the same game, one of them is stale. Ported from the NFL 1H/team-total work, never computed for the NBA before.

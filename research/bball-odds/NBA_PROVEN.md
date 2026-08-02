@@ -14,6 +14,48 @@ Two layers, per the product framing: a **prediction** for every game and market,
 layered on the subset that qualifies. §1 is the prediction layer, §2 the signal layer, §4 is the
 gap between what is proven and what production actually publishes.
 
+> ## ⚠ §1 IS SUPERSEDED — every model row below fails two rules that landed after it was written
+>
+> **1. The market is in the features.** Owner rule: the model must ORIGINATE its own number with no
+> betting line anywhere, and only then be compared to Vegas — the NFL/CFB architecture. Every ridge
+> in §1 was fit with `impl` and `t60_total_point` in the stack, so none of them is an originator and
+> none of their ROI figures is defensible as written. **2. The frame was wrong.** All of §1 was
+> computed on 5,107 games; the repaired frame is 5,279 (see `NBA_AUDIT.md`).
+>
+> **The spread has been rebuilt under both rules and it works** — see `NBA_PRUNE.md`. `CORE`
+> (`rapm` + `pl_regr`, 188 features, no market column) returns **+9.5% ROI at ≥8 points** of
+> disagreement, 57.3% vs a 50.1% base, every rung ≥5 positive, EARLY/MID/LATE all above +11%.
+> The fix was not tuning — it was **attaching player-level tables that had been built and never
+> wired into any model**, then cutting the raw box-score columns that were diluting them.
+>
+> **The total has now been rebuilt too, and it beats the spread** — see `NBA_TOTAL_ORIG.md`. `T1`
+> (612 features: everything except raw box, rotation flags and travel; half-life 180d) returns
+> **+12.0% ROI at ≥8 points**, 58.7% vs a 52.0% base on 675 bets, z=+9.31, and **every rung from
+> ≥1 to ≥12 is profitable** where the spread loses below ≥5. All three seasons, all four phases
+> and both sides are positive.
+>
+> **The two markets want OPPOSITE feature sets, and assuming otherwise would have cost the total
+> its edge.** The spread's `CORE` is 188 features with `form` and `adj_eff` deleted; on the total
+> those are the two most expensive families to lose, `pl_regr` is the fourth-best thing to cut,
+> and ROI rises monotonically with feature count (240 → −1.2%, 612 → +12.3%). The total is a
+> DIFFUSE quantity and the spread is a narrow one. The total also wants a longer memory —
+> it peaks at a 180–240 day half-life where the spread peaks at 90–120.
+>
+> **Both first-half markets have been rebuilt and both ship** — see `NBA_H1_ORIG.md`. 1H total:
+> 587 features, half-life 120d, **+7.4% at ≥7 points on 631 bets, z +8.42**. 1H spread: 475
+> features, half-life 120d, **+11.3% at ≥6 on 372 bets, z +4.64**, every season and every phase
+> positive. A half wants a SHORT 90–120d memory, the opposite of the full-game total.
+>
+> **Team totals are settled, and the answer is a GATE, not a model** — see `NBA_TT_ORIG.md`,
+> `NBA_TT_INCREMENTAL.md`, `NBA_TT_GATE.md`. The posted team totals are the posted total and
+> spread rotated (corr **+0.9929** / **+0.9969**; the realised residuals match the forced
+> arithmetic to three decimals), so this is not a third market. Ungated it pays +7.1% at ≥6, but
+> that number is an average of **+13.1% in games the full-game total model already bets at ≥8**
+> and **−12.1% (z −13.18) in games neither parent model touches**. Ship it gated. See §1e.
+>
+> The signal layer (§2) is less exposed — it fits no model — but it too was graded on the
+> pre-repair frame.
+
 ---
 
 ## 1. Prediction layer — what the models do
@@ -22,8 +64,9 @@ gap between what is proven and what production actually publishes.
 |---|---|---|---|---|---|---|---|---|---|
 | **FG total** | ridge, 399 cols (383 base + 16 travel-load) | **+0.0726** | \|resid\| ≥ 2 pts | 2,313 | 54.0 | 50.5 | **+3.5** | **+3.1** | `NBA_TRAVEL_LOAD.md` |
 | FG total (prior) | ridge, 383 cols | +0.0672 | \|resid\| ≥ 2 pts | 2,280 | 53.7 | 50.4 | +3.3 | +2.5 | `NBA_TOTAL_V2.md` |
-| **away team total** | ridge, 724 cols, repaired stack | **+0.0570** | \|resid\| ≥ 4 pts | 529 | 54.8 | 50.3 | **+4.5** | **+4.2** | `NBA_TT_VERIFY.md` |
-| home team total | ridge, 724 cols, repaired stack | +0.0826 | \|resid\| ≥ 4 pts | 474 | 57.2 | 50.4 | +6.8 | +8.4 | **1 of 2 seasons — see below** |
+| ~~away team total~~ | ~~ridge, 724 cols~~ | ~~+0.0570~~ | ~~\|resid\| ≥ 4~~ | ~~529~~ | ~~54.8~~ | ~~50.3~~ | ~~+4.5~~ | ~~+4.2~~ | **RETRACTED — §1b** |
+| ~~home team total~~ | ~~ridge, 724 cols~~ | ~~+0.0826~~ | ~~\|resid\| ≥ 4~~ | ~~474~~ | ~~57.2~~ | ~~50.4~~ | ~~+6.8~~ | ~~+8.4~~ | **RETRACTED — §1b** |
+| team total, rebuilt | panel ridge, 433 cols, ONE model | +0.0425 | \|resid\| ≥ 4 pts | 849 | 50.5 | 53.5 | **−2.9** | −5.9 | `NBA_PANEL_ALL.md` |
 | **1H spread** | signal-space, 120 feats, 3 clf × 5 seeds | not stated | top 25% conf | 805 | 53.9 | — | +2.8 | +2.8 | `NBA_H1_SPREAD_VALIDATE_BRIEF.md` |
 | FG spread | — | — | — | — | — | — | — | — | **no model beats the line** |
 | ML / win prob | production classifier | +0.373 | — | — | — | — | — | — | verified in prod |
@@ -35,34 +78,194 @@ happen. Leave-one-family-out: no single family carries it (corr 0.0690–0.0736)
 (`NBA_TOTAL_V2_ROBUST.md`): 70% random feature subsets give edge +2.6 to +3.9; alpha and min_train
 sweeps stay +1.9 to +3.9. So the ±0.7 swing is the honest error bar on any single cell here.
 
-**Team totals are the right market for this feature stack, and away is the one that survives**
-(`NBA_MARKETS.md`, `NBA_TT_VERIFY.md`, 2026-08-01). The reason is mechanical, not empirical: usage
-concentration — the block the feature audit identified as the engine — is a ONE-TEAM property
-measured against a one-team outcome (a team's own next-game points, corr −0.058 on 10,324
-team-games). A game total sums it with the opponent's and dilutes it; a team total is exactly the
-outcome it was measured against. Both team totals beat the FG total on oos corr despite training on
-25% fewer games, and both show a **monotone ladder** — edge rises as the disagreement cut tightens —
-where the FG total's ladder is flat (+2.1 → +2.4 → +1.5).
-**The season split reverses the headline.** Home TT has the bigger pooled number (+6.8 at the
-4-point cut) but it is **one season**: 2024 +0.0 edge / −3.8 ROI, 2025 +10.9 / +17.9. Away TT is
-smaller (+4.5) and **positive in both evaluable seasons** (+3.9 / +4.7), with z rising as the cut
-tightens (+2.07 → +2.00 → +3.02 → +3.83, nulls re-measured AT each rung) and both over and under
-clearing their own league same-side rate. **Neither ships yet:** only two seasons are evaluable
-because 1H/TT prices cover three and the walk-forward consumes the first, so 2-of-2 at z≈3 is a lead
-and the repo standard is 4 of 4. The blocker is seasons of team-total prices, not modelling.
-**The FG spread and both 1H markets did NOT improve on the repaired stack** (−1.7, −0.7, −0.1), so
-the data was never their problem — their fix is construction, not features. The moneyline is built
-as a transform of the spread rather than a sixth fit (it carries no information the spread lacks)
-and is negative for exactly that reason.
+### 1b. The team-total retraction, and what the row layout was doing
+
+> **Superseded for the market verdict — see §1e (2026-08-01).** Team totals are neither "the
+> keeper" nor "dead": they are the total and the spread rotated, and they ship **gated** on the
+> full-game total model. This section is retained because the layout diagnosis in it is correct
+> and is the reason the panel exists.
+
+**"Away team totals are the keeper" was estimator variance. It is withdrawn.** The claim rested on
+away grading +4.5 edge against home's +6.8-but-one-season, and the whole comparison was an artefact
+of how the rows were laid out.
+
+Every model in this folder sat on 5,108 rows — one per game, each team stat present twice under
+`h_` and `a_` prefixes — and team totals were fit as **two separate models**, one for home points
+and one for away. "A team funnelling possessions through one creator scores more" is ONE
+relationship; the home fit learned it from the `h_` columns and the away fit relearned it from
+scratch in the `a_` columns. Two independent estimates of one effect, half the rows each. They
+differ by chance, so the two sides print different edges with no basketball behind the gap — and
+reading that gap as a finding is reading noise. Worse, the two fits are different functions, so
+home pred + away pred was never a coherent total and home pred − away pred was never a coherent
+spread. Six markets were fit as six unrelated regressions when five of them are arithmetic on one
+quantity: points scored by a team.
+
+Rebuilt as a **team-game panel** — 10,216 rows, `own_*`/`opp_*` by perspective, `is_home` a
+feature, one model, same curated feature stack so only the row layout changes (`NBA_PANEL_ALL.md`,
+2026-08-01):
+
+| | home TT | away TT |
+|---|---|---|
+| two fits, ≥4 pts (old claim) | +6.8 edge | **+4.5 edge** |
+| one fit, ≥4 pts | **−4.4** | **−1.4** |
+| one fit, ≥2 pts | +2.2 | +2.8 |
+
+The gap closes to within noise and **both sides go negative at the cut the claim was made on**. The
+mechanism argument — usage concentration is a one-team property, so a one-team outcome is the right
+target — is still sound, and is exactly why the panel is the correct layout for it. What was wrong
+was encoding it per-GAME anyway.
+
+**The team-total edge that remains is the full-game total wearing a costume.** Of the 767 games
+where both team totals clear the 2-point cut, **88% take the same side on both teams** — that is a
+view on the game total, not on either team. Team totals are not a separate market for this stack;
+they are the total, priced twice.
+
+**Two seasons was never the ceiling either.** Three seasons of team-total prices exist (1,275 /
+1,276 / 1,280). The third was consumed by `MIN_TRAIN = 1500`, which exceeds one NBA season
+(~1,276 games) and was tuned for the four-season full-game frame. That is a config artefact, not a
+data limit — and it is why `NBA_TT_VERIFY.md` reports only 2024 and 2025.
+
+**Moneyline and the first-half total do not survive the rebuild either** — negative on the wide
+frame and negative on the panel (see §1c). The row layout was a real bug, but it was not what was
+holding them back. **Both spread markets are a separate story**: they read negative until 2026-08-01
+only because they were graded with an inverted sign. Corrected, the full-game spread is mildly
+positive on edge and roughly breakeven on ROI — see §1c and the correction note there.
+
+### 1c. Every market off one team-game model, recency-weighted (2026-08-01)
+
+Two models on the panel — full-game points per team and first-half points per team — with all six
+markets derived from them by arithmetic. Same audited inputs (`NBA_AUDIT.md`: identities, ranges,
+coverage and leak screen all pass). Burn-in is one full season of team-games so **every market
+grades the same three seasons**, which the old `MIN_TRAIN` prevented. Nulls are 20 game-level
+shuffles per model, re-measured at each rung.
+
+**Training rows decay with a 180-day half-life** — see §1d. The first version of this run weighted a
+2022 game exactly like last week's, and that alone cost more than half the total's ROI.
+
+| market | best cut | bets | win% | base% | edge | ROI | z | seasons + |
+|---|---|---|---|---|---|---|---|---|
+| **full-game total** | ≥4 pts | 1,503 | 54.8 | 51.0 | **+3.8** | **+4.5** | **+3.19** | **2 of 3** |
+| team total | ≥2 pts | 3,721 | 52.3 | 51.6 | +0.7 | −1.5 | +1.40 | — |
+| full-game spread | ≥2 pts | 1,927 | 52.3 | 50.2 | +2.0 | −0.2 | **+2.14** | 2 of 3 |
+| moneyline | ≥3 % | 2,590 | — | — | — | **−6.7** | — | 0 of 3 |
+| ~~first-half total~~ | ≥1.5 pts | 2,758 | 50.3 | 50.3 | −0.0 | −4.0 | +0.11 | — |
+| ~~first-half spread~~ | ≥1.5 pts | 2,165 | 50.7 | 50.3 | +0.4 | −3.3 | +0.77 | — |
+
+> **Both first-half rows are SUPERSEDED — `NBA_H1_ORIG.md`, 2026-08-01.** They were measured with
+> only 4 of 179 first-half feature columns reaching the model. Rebuilt as originators with all 160
+> attached: **1H total +7.4% ROI, 631 bets at ≥7 pts, z +8.42, 3 of 3 phases and both sides
+> positive**; **1H spread +11.3% ROI, 372 bets at ≥6 pts, z +4.64, every season and every phase
+> positive**. Both want a **120d** half-life, not the full game's 180-240d.
+>
+> The 1H spread was briefly written up as a one-sided away signal (HOME +0.7% / AWAY +21.0%). That
+> is retracted — `NBA_H1_SPREAD_DIAG.md` found no bug behind the split, and measured as **lift over
+> each side's own blind rate** it is home +5.8 / away +25.0, both positive. The full-game spread
+> model splits the opposite way, so a side split at 50–200 bets is noise in either market.
+
+> **Both spread rows were wrong until 2026-08-01 and are corrected above.** The predicted margin was
+> flipped into posted convention and then compared to the posted line by SUBTRACTION, while the
+> outcome column is a margin residual built by ADDITION — so every spread bet was placed on the
+> wrong side. The old rows read −3.1 edge / −8.3% ROI (full game) and −1.0 / −5.8 (first half).
+> `nba_panel.py` and `nba_panel_all.py` both carried it; both are fixed and both now assert an
+> **oracle check** — feed the realised result into a market's own bet rule and it must grade ~100%.
+> All five markets do. The signal layer was audited separately and is clean (§2a).
+
+- **The full-game total is the only shippable prediction model, and recency weighting roughly
+  doubles it** — +2.2% → **+4.5% ROI** at the 4-point cut, on the same rows and the same cut. Ladder
+  is monotone-ish and healthy: +0.8 / +1.9 / +3.4 / +4.5 / +4.3 across the 1–5 point rungs, with z
+  above +2.9 at every rung. **Still read the season split before sizing: −0.2 / +1.5 / +11.6.** The
+  weighting flipped 2024 from −3.8 to +1.5, but 2025 still carries the result. By phase: EARLY +8.0,
+  MID +4.9, LATE +0.2, POST +12.4. Both sides clear their own league rate (over +4.1, under +5.3),
+  so it is not riding scoring drift.
+- **Team totals are now clearly dead, and that is the cleanest read of the whole exercise.** On the
+  unweighted panel they printed +3.5 edge at the 2-point cut with an INVERTED ladder; with the
+  regime fix in place they fall to +0.7 edge / −1.5% ROI and the inversion disappears. The apparent
+  team-total edge was the pooled fit's stale-season bias leaking through a market that is 78.5%
+  redundant with the game total anyway. **Do not revisit this market** — see §1b.
+- **The moneyline's win%/base% columns are not readable and should not be quoted.** `base` is the
+  best blind side inside the bet cell, which on a moneyline is always the favourite, so any model
+  that takes underdogs scores a large negative "edge" regardless of whether it makes money — the
+  null lands at −10 for the same reason, which is how the z comes out positive on a losing model.
+  **ROI is the only honest column here, and it is −5.6%.** No moneyline edge.
+- **The full-game spread is a small real signal that does not clear the vig.** Once the sign is
+  fixed it stops being anti-predictive: +2.0 edge at the 2-point cut on 1,927 bets, z +2.14, and
+  the null-shuffle z is positive at every rung (+1.67 / +2.14 / +1.37 / +1.36 / +0.48). But ROI at
+  those rungs is −0.8 / −0.2 / −0.7 / +0.7 / −0.5, i.e. it hovers at breakeven and never clears
+  −110. Seasons −6.3 / +3.1 / +1.4; phases EARLY +1.6, MID −4.3, LATE +1.8, POST −5.7. **The
+  conclusion for shipping is unchanged — the spread edge comes from rules (S9/S11/S15/S17), not
+  from this model — but the reason is different and worth stating correctly: the model finds a
+  little signal and the vig eats it, rather than finding none at all.**
+- ~~**Both first-half markets are negative on the panel.**~~ **SUPERSEDED 2026-08-01 — see
+  `NBA_H1_ORIG.md`.** The wide-frame 1H spread looked positive pooled (+1.2) but decayed by season,
+  and the panel put both 1H markets at −4 to −6%. That verdict was measured on a frame where
+  **only 4 of the cache's 179 first-half columns were reaching the model** (`wide_stack` selects
+  through a theme list curated for the full-game total). With the other 160 attached and three
+  rounds of pruning, **the 1H total grades +7.4% ROI on 631 bets at ≥7 points, z +8.42**, and the
+  1H spread grades +11.3% at ≥6 ~~but only on its away side~~ — **the one-sided reading was also
+  wrong, retracted the same day (`NBA_H1_SPREAD_DIAG.md`); every season and every phase is
+  positive.** The *derived-from-points* route to 1H works fine; it was starved of the 1H features.
+
+### 1d. NBA seasons are not one league — and pooling them was costing real money
+
+`NBA_REGIME.md` + `NBA_REGIME_CONTROLS.md`. Every model in this directory trained on all prior
+history with equal weight and standardised features against a pooled multi-season mean. Tested and
+rejected.
+
+**The seasons are trivially distinguishable.** A one-vs-rest ridge predicting the SEASON LABEL from
+the features alone scores **95.5% against a 25.8% base rate**. Note the shape of the drift though:
+the median feature puts only 0.005 of its variance between seasons and just 16 of 433 clear 0.25,
+so no single column is the culprit — the regime signature is **diffuse across the whole stack**,
+which is exactly why it was invisible to per-feature checks.
+
+**And the relationships genuinely rotate, not just the levels.** A per-season fit correlates +0.040
+with another season's, but that number alone is meaningless: at 2,552 rows against 433 features the
+coefficients are mostly noise, and two noisy estimates of the *same* vector also correlate near
+zero. The matched control — split ONE season's games in half, fit both, correlate — gives **+0.092**,
+which is this estimator's actual ceiling. Cross-season lands at **+0.039**, so **58% of the
+reproducible coefficient signal is lost when the two halves come from different years**, at equal
+sample size with no regime change possible in the within-season arm. Both arms are built from the
+same 12 random redraws, so they compare as a paired test: within beats cross in **12 of 12** redraws,
+**t = +8.46**. Read the ratio, not the gap — both numbers are small because that is where the noise
+floor sits at this rows-to-features ratio, and the point is that one is 2.4× the other.
+
+**Half-life sweep, full-game total, 4-point cut, identical rows** (this is the load-bearing table):
+
+| half-life (days) | 45 | 60 | 90 | 120 | 180 | 240 | 365 | 545 | 730 | **∞ (pooled)** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ROI | −1.6 | −1.1 | +1.6 | +3.6 | **+4.5** | +3.9 | +2.7 | +2.8 | +2.8 | **+0.3** |
+| z | +1.98 | +1.96 | +3.36 | +3.86 | +3.19 | +3.36 | +2.70 | +3.04 | +2.95 | +1.94 |
+
+A smooth hill with a **broad top over 120–240 days**, falling off at both ends for the right reasons
+(too few rows on the left, too stale on the right). Neighbouring half-lives score alike, so 180 is
+the middle of a plateau rather than a tuned cell — and **infinite memory is the worst rung on the
+ladder**. `HALF_LIFE = 180.0` in `nba_panel_all.py`.
+
+**Season-relative features were the OTHER candidate fix, and they barely help** (+1.0% ROI vs pooled
++0.3%, against +4.5% for recency weighting; combining them is worse than recency alone at +1.6%).
+Rewriting each feature as distance-from-this-season's-norm addresses level drift, and level drift is
+not what was hurting. **The damage was stale relationships getting equal votes**, which is why
+throwing old rows away beats renormalising them. Do not re-litigate this.
+
+**Why the target masked it.** Predictions here are residuals against the market's implied number,
+and the market absorbs league-level drift on its own, so the *target* is roughly regime-neutral even
+when the features are not. That is why four seasons of pooled fits looked fine and only the betting
+grade exposed the cost.
+
+**Method rule this generalises to, every sport:** a walk-forward that is correct about time can
+still be wrong about *regime*. Rolling-origin only guarantees you did not see the future; it says
+nothing about whether the past you trained on is still the same game. Sweep a recency half-life
+before believing any pooled multi-season fit, and read the SHAPE of the sweep, not its argmax.
 
 **1H spread is real but modest.** Null z = +2.15 (top25%) and +2.33 (top10%). It is *not* S8
 wearing a hat — on non-S8 games alone it still grades 53.4% / +1.8% at top25%. Caveat kept in
 view: per-season is 57/52/51 (top25%) and 59/52/52 (top10%), i.e. front-loaded in 2023. Graded at
 T-60, which is the harder bar, because 1H lines only exist at T-60 in this data.
 
-**FG spread has no working model and that is a finding, not a gap.** Pooled sides models return
-negative R² in 15 of 16 feature × model cells (`NBA_SIDES_MODEL_BRIEF.md`). The spread edge we
-have comes from *rules* (§2), not from a model. Phase-specific fits look strong in places —
+**FG spread has no model that clears the vig, and that is a finding, not a gap.** Pooled sides
+models return negative R² in 15 of 16 feature × model cells (`NBA_SIDES_MODEL_BRIEF.md`). The
+sign-corrected panel does slightly better than that — +2.0 edge, z +2.14 — but still lands at
+roughly breakeven ROI (§1c), which is the same practical answer arrived at honestly. The spread
+edge we bet comes from *rules* (§2), not from a model. Phase-specific fits look strong in places —
 playoffs top25% at 69.0% / +31.8% — but on n=71 across 384 tested cells, which is inside what noise
 produces; treat `NBA_SPREAD_V2/V3_BRIEF.md` as a map, not a result.
 
@@ -79,6 +282,68 @@ produces; treat `NBA_SPREAD_V2/V3_BRIEF.md` as a map, not a result.
 
 ---
 
+### 1e. Team totals — a derived market is leverage on its parent, not a third bet
+
+`NBA_TT_ORIG.md`, `NBA_TT_INCREMENTAL.md`, `NBA_TT_GATE.md` (2026-08-01). 7,901 gradeable
+team-games from 3,961 games, 2023–2025. Answering the owner's question, "couldn't we just use
+spread and total?"
+
+**Yes — measured before anything was fit.** Posted `tt_h + tt_a` vs the posted total: corr
+**+0.9929**, 96.9% within a point. Posted `tt_h − tt_a` vs the posted margin: corr **+0.9969**,
+94.2% within a point. And the *realised* residuals obey the same arithmetic: if
+`tt_h = (total + margin)/2` exactly then three correlations are forced — predicted
+0.790 / 0.613 / 0.250 against observed **0.790 / 0.610 / 0.253**. There is no third dimension.
+What remains is a different price sheet (1.22–2.08 decimal, not flat −110) and about a point of
+book slack.
+
+**Two constructions, and the simpler one wins.** A = own points straight off the panel points
+model. B = `(total_hat ± margin_hat)/2`, T1 for the level and CORE for the tilt — algebraically
+`A + (margin_CORE − margin_A)/2`, so the test is exactly "does the dedicated spread model's margin
+beat the margin the points model already implies". It does not, at the rungs we bet: **A +7.1% vs
+B +3.4% at ≥6** (B does win at loose cuts, +4.4% at ≥3, z +13.0). *Naming trap: on a panel "the
+total model" is a **points** model, so it already contains a margin opinion — the team total is the
+least derived market here, not the most.*
+
+**The ungated number is an average of a good bet and a bad one.** Splitting TT ≥6 bets by what the
+settled full-game models would do at their own ≥8 rung:
+
+| which games | bets | win% | base% | ROI |
+|---|---|---|---|---|
+| total model already bets it | 573 | 60.0 | 54.3 | **+13.1** |
+| spread model already bets it | 135 | 57.8 | 51.9 | **+9.7** |
+| **neither model bets it** | **226** | **47.8** | **58.4** | **−12.1** (z **−13.18**, 15 nulls) |
+
+The losing cell is not noise — it scores materially worse than a signal-free model on the same
+games, in every season (2023 −24.4 / 2024 −11.8 / 2025 +7.5). The mechanism is arithmetic:
+`tt disagreement = (total disagreement + margin disagreement)/2`, so a ≥6-point team-total gap with
+both parents under 8 is **two sub-threshold opinions stacked**, and both parents are known to lose
+below their own cuts.
+
+**The gate was swept, not inherited** (`NBA_TT_GATE.md`). Two thresholds that must not be
+conflated: the **TT cut** (model vs the posted *team* total — picks the bet) and the **gate**
+(full-game model vs the posted *game* total — picks which game the bet may live in).
+
+| gate ↓ / TT cut → | ≥4 | ≥5 | ≥6 |
+|---|---|---|---|
+| 0 (ungated) | +4.2 (2,196) | +5.0 (1,429) | +7.1 (865) |
+| ≥5 | +4.4 (1,557) | +5.8 (1,138) | +8.0 (747) |
+| ≥6 | +5.2 (1,367) | +7.6 (1,029) | +9.5 (688) |
+| **≥8** | **+10.2 (984)** | **+11.2 (797)** | **+13.1 (573)**, z +5.77 |
+
+Monotone in the gate at every TT cut. Gating on the **max of the total and spread models** beats
+gating on the total alone everywhere (+13.9% on 639 at TT ≥6). **The gate is also what repairs
+2023**: ungated TT ≥5 runs +0.2 / +6.9 / +9.2 by season; gated at ≥8 it runs +8.8 / +13.1 / +12.7.
+
+**Size it as leverage, not as a third position.** At TT ≥5, 31% of bets are both rows of one game
+and 87% of those fire the same direction — a game-total bet in a costume, paying +13.9%; the
+opposite-direction remainder is a spread bet paying −14.9%. Display a derived team total for every
+game (the product needs a number everywhere, and it is free); only *flag* one when the parent model
+is ≥8 off.
+
+Two oracles passed: the grader sign check at 100.0%, and the price-calibration oracle at corr
+**+0.880** across five implied-probability quintiles — the latter has real power here because team
+totals are priced from −450 to +108, where it is dead at flat −110.
+
 ## 2. Signal layer — rules that beat their own baseline
 
 | # | Trigger | Market | win% | base% | ROI | n | Per season | T-60? | Brief |
@@ -92,6 +357,32 @@ produces; treat `NBA_SPREAD_V2/V3_BRIEF.md` as a map, not a result.
 | **S14** | Project the margin from both sides' last-3 scoring and allowing; when that projection beats the spread by more than ~4 pts in the home team's favour (top quartile) → **back the AWAY team** | FG spread | **55.5** | **50.19** | **+5.92** | 856 | 57/56/53/55 | **yes** — identical at the open | `nba_conj_hunt.py`, `nba_s13_drill.py` |
 | **S15** | Home team has **exactly two more days of rest** than the visitor → **back HOME** | FG spread | **58.7** | **50.35** | **+12.17** | 206 | 54/57/61/66 | **yes** | `nba_catalog_round2.py`, `nba_s13_drill.py` |
 | **S17** | **Away favourite** whose last game was a win by **20+ points** → back it | FG spread | **57.4** | **49.23** (any away fav) | **+9.64** | 264 | 54/66/55/55 | **yes** | `nba_dims_t2.py` |
+
+### 2a. Sign audit — do the signals share the bug that inverted the panel's spread? No.
+
+The panel's spread markets were graded on the wrong side for weeks (§1c). Every signal in the table
+above bets a spread or a total, so the obvious worry is that the whole ledger is backwards.
+`nba_signal_audit.py` answers it and is re-runnable in one command. It does not import a grader from
+any file under test — it rebuilds from `games_nba.parquet` and `movement_games_nba.parquet`, which no
+signal script writes:
+
+| what was checked | result |
+|---|---|
+| Outcome columns rebuilt longhand from raw scores + posted line — `home_cover`, `over`, `home_win`, `h1_home_cover`, `h1_over`, both team totals, and the panel's `ats_pts` | **0 disagreements** on every column, 3,900–5,400 comparable rows each |
+| Price calibration (the model-free oracle: realised win rate must rise with the implied probability of the price it is paired with) | **passes on the moneyline**, corr +0.41, 25% → 82% across price buckets. Reported as *no power* on the spread and total, whose prices span ~1 point of implied probability |
+| Direction sanity | favourites cover 50.0%, home teams win 55.5%, ML favourites win 67.7%, overs 50.6% — all four impossible to hold under an inversion |
+| S9 / S11 / S12 / S14 / S15 / S17 reimplemented from scratch and regraded | every one reproduces its published win% and ROI to within a rounding step |
+
+**Why they were never at risk, stated so it is not re-litigated:** the signal scripts grade a NAMED
+SIDE (`fg_spread_fav`, `fg_spread_home`, `tt_away_over`) off an outcome built by ADDITION from the
+raw margin and the posted line. They never convert a model number into posted convention, and that
+conversion is the only place the bug could live.
+
+**The same sweep did find a second infected file.** `nba_panel.py:320` — the predecessor
+`nba_panel_all.py` was derived from — had the identical `-(home − away) − spread` construction. It is
+fixed and now carries the oracle assert. `nba_markets.py`, `nba_h1_full.py` and `nba_spread_v2.py`
+were checked and are clean: they either fit the residual target directly or add the spread with the
+correct sign (`nba_h1_full.py` documents the flip explicitly).
 
 **S9, S11 and S12 can ship today** — they need schedule and standings only, no injury feed. S11 is
 the one to actually fire: it is S9 with a second condition, and it beats S9 on ROI, on z, and on

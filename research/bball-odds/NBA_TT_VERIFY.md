@@ -1,10 +1,28 @@
 # NBA team totals — does the tail hold up?
 
+> **SUPERSEDED 2026-08-01 — every number below is measured on a broken construction.** Team totals
+> here were fit as TWO SEPARATE MODELS on a frame of one row per game, home and away. That
+> estimates one relationship twice from disjoint columns, so the two sides differ by chance and the
+> "away is the keeper" verdict is estimator variance, not basketball. Rebuilt on a team-game panel
+> in `NBA_PANEL_ALL.md` the home/away gap closes to noise, and at the **4-point cut this file claims
+> on, both sides are negative**. Once training is also recency-weighted (`NBA_PROVEN.md` §1d) the
+> market dies outright — **+0.7 edge / −1.5% ROI at the 2-point cut, ladder inversion gone** — and
+> 78.5% of its bets take the same side on both teams, i.e. it is the game total wearing a costume.
+> **Do not revisit this market.** The secondary claim that "only two
+> seasons are evaluable" is also wrong: three seasons of team-total prices exist, and the third was
+> being consumed by a `MIN_TRAIN` tuned for a different frame size. Kept for the record.
+
 `NBA_MARKETS.md` put the home team total ahead of every other NBA market: +2.7 edge, label-shuffle z +5.01, and a **monotone ladder** rising to +6.8 at the 4-point cut. The ladder is the part that matters — a real effect gets stronger when you tighten the cut, and the full-game total's ladder is flat by comparison.
 
 This file re-tests the claim where the claim is actually made. **The z in `NBA_MARKETS.md` was measured at each market's default cut, not at the tail**, so it cannot be quoted next to the tail number. Everything below re-runs the shuffle at the 4-point cut, 20 permutations.
 
 Two structural limits, stated up front rather than buried: **only two seasons are evaluable** (1H/TT prices cover three and the walk-forward consumes the first), and **home and away are not independent bets** — same game, shared total.
+
+> The first of those is FALSE and the second is the reason this whole file is wrong. Three seasons
+> of team-total prices exist (1,275 / 1,276 / 1,280); the third was lost to `MIN_TRAIN = 1500`,
+> which exceeds one NBA season, not to any limit in the data. And "home and away are not
+> independent bets" was written down correctly and then ignored — they were still fit as two
+> independent models.
 
 ## home team total — ladder, with the null re-measured at each rung
 
@@ -107,6 +125,11 @@ Home TT's whole tail edge is one season. Its +6.8 pooled number is an average of
 Away TT is the weaker headline and the better bet: smaller (+4.5 pooled) but **positive in both evaluable seasons, at similar magnitudes**, with a monotone ladder (+1.9 → +1.8 → +4.5 → +5.5) whose z rises as the cut tightens (+2.07 → +2.00 → +3.02 → +3.83), and with both over and under clearing their own league rate.
 
 **Neither is shippable yet, and the blocker is not the model.** Two evaluable seasons is the ceiling of what this data can support, because 1H/TT prices only cover three and the walk-forward consumes the first. A 2-of-2 result at z≈3 is a real lead, not a validated rule — the repo's own standard is 4 of 4. The way to get there is more seasons of team-total prices, not more modelling.
+
+> **Both halves of that paragraph are wrong.** The blocker WAS the model — two fits where there
+> should have been one. And the season ceiling was an artefact of `MIN_TRAIN`, not of the data. On
+> the panel rebuild the home/away split closes to +2.2 / +2.8 at the 2-point cut and both go
+> negative at the 4-point cut this file claims on. See `NBA_PANEL_ALL.md`.
 
 Two things that are settled regardless:
 

@@ -1,5 +1,25 @@
 #!/usr/bin/env python3
-"""Team totals were the standout in NBA_MARKETS.md. Does the TAIL survive its own scrutiny?
+"""SUPERSEDED 2026-08-01 by nba_panel_all.py -- kept for the record, do not cite its numbers.
+
+Everything here grades a model fit on ONE ROW PER GAME, with the home and away team totals fit as
+two SEPARATE models on disjoint h_/a_ columns. That estimates one relationship twice, so the two
+sides differ by chance and the "away is the keeper" verdict is estimator variance, not basketball.
+Refit as ONE model on a team-game panel (2 rows per game, own_/opp_, is_home a feature), the gap
+closes to +2.2 home / +2.8 away at the 2-point cut and BOTH GO NEGATIVE at the 4-point cut this file
+claims on (-4.4 / -1.4). See NBA_PANEL_ALL.md and NBA_PROVEN.md section 1b.
+
+Point 2 below ("two evaluated seasons, not four") is also FALSE. Three seasons of team-total prices
+exist -- 1,275 / 1,276 / 1,280 games. The third was consumed by MIN_TRAIN=1500 in nba_total_v2.py,
+which exceeds one NBA season (~1,276 games); a config artefact of the wide frame, not a data limit.
+The panel sets MIN_TRAIN to one full season of team-games (2,552) and grades all three.
+
+Point 3 was written down correctly and then ignored -- the bets are called non-independent in the
+prose while still being fit as two independent models. Points 1 and 4 remain good method and carry
+forward into the panel run.
+
+--- original docstring below ---
+
+Team totals were the standout in NBA_MARKETS.md. Does the TAIL survive its own scrutiny?
 
 WHAT THE SIX-MARKET RUN SAID. On the repaired stack the home team total scored +2.7 points of
 edge at the default cut with a label-shuffle z of +5.01 -- the highest of any NBA market, above

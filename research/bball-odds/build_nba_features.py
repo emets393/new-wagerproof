@@ -362,7 +362,12 @@ def market_frame():
     """Odds side: 4 seasons FG (open/T24/T4/T60) + 3 seasons 1H/TT at the close."""
     mg = pd.read_parquet(f"{OUT}/movement_games_nba.parquet")
     g = pd.read_parquet(f"{OUT}/games_nba.parquet")[
-        ["event_id", "home_h1", "away_h1", "espn_id"]]
+        ["event_id", "home_score", "away_score", "home_h1", "away_h1", "espn_id"]]
+    # movement_games carries its own copy of the scores (it is built off games_nba). Drop
+    # them before the merge — otherwise a stale movement file silently SHADOWS the fresh
+    # outcomes, which is how three wrong-leg scores survived a rebuild of games_nba.
+    mg = mg.drop(columns=[c for c in ("home_score", "away_score", "home_h1", "away_h1")
+                          if c in mg.columns])
     G = mg.merge(g, on="event_id", how="left", suffixes=("", "_g"))
     from movement_study import am_to_dec
     h = pd.concat([pd.read_parquet(p) for p in
@@ -387,15 +392,25 @@ def market_frame():
 
     bg = pd.read_parquet(f"{OUT}/bdl_games.parquet").drop_duplicates("id")
     bg["dkey"] = pd.to_datetime(bg["date"]).dt.strftime("%Y-%m-%d")
-    bg["hk"] = bg["home_team.full_name"].map(norm)
-    G["hk"] = G["home_team"].map(norm)
+    # bdl says "LA Clippers", the Odds API says "Los Angeles Clippers". Unaliased, this
+    # quietly dropped every Clippers HOME game from the model frame for four seasons.
+    alias = {"laclippers": "losangelesclippers"}
+    bg["hk"] = bg["home_team.full_name"].map(norm).replace(alias)
+    bg["ak"] = bg["visitor_team.full_name"].map(norm).replace(alias)
+    G["hk"] = G["home_team"].map(norm).replace(alias)
+    G["ak"] = G["away_team"].map(norm).replace(alias)
     G["dkey"] = (G["date"] - pd.Timedelta(hours=5)).dt.strftime("%Y-%m-%d")
     # must run BEFORE the bdl join — the join key is (home team, date), so a phantom
     # listing matches the same bdl game and doubles it
     G = drop_phantom_events(G)
-    G = G.merge(bg[["hk", "dkey", "id", "home_team.id", "visitor_team.id"]],
-                on=["hk", "dkey"], how="left").rename(
-        columns={"id": "bdl_id", "home_team.id": "h_tid", "visitor_team.id": "a_tid"})
+    # the OPPONENT is part of the key. Without it, bdl's bogus "DET hosted POR on
+    # 2023-03-07" row matched the real DET-vs-WAS event and handed the model another
+    # game's score and box line entirely.
+    G = G.merge(bg[["hk", "ak", "dkey", "id", "home_team.id", "visitor_team.id",
+                    "home_team_score", "visitor_team_score"]],
+                on=["hk", "ak", "dkey"], how="left").rename(
+        columns={"id": "bdl_id", "home_team.id": "h_tid", "visitor_team.id": "a_tid",
+                 "home_team_score": "bdl_home_pts", "visitor_team_score": "bdl_away_pts"})
     assert G["bdl_id"].dropna().is_unique, "a bdl game still maps to more than one odds event"
     # movement features
     for mk, pt in (("spread", "spread_home_point"), ("total", "total_point")):
@@ -461,25 +476,41 @@ def main():
             W[f"d_{c}"] = W[f"h_{c}"] - W[f"a_{c}"]
             W[f"sum_{c}"] = W[f"h_{c}"] + W[f"a_{c}"]
 
-    # targets from the truth side of the panel
-    tg = T[T["is_home"]][["game.id", "season", "date", "own_score", "opp_score",
-                          "own_h1", "opp_h1", "game.postseason"]].rename(
-        columns={"own_score": "y_home_pts", "opp_score": "y_away_pts",
-                 "own_h1": "y_home_h1", "opp_h1": "y_away_h1"})
+    # season/date/postseason ride along from the panel; the SCORES do not — see below
+    tg = T[T["is_home"]][["game.id", "season", "date", "game.postseason"]]
     W = W.merge(tg, on="game.id", how="left")
+
+    M = market_frame()
+    mcols = [c for c in M.columns if c.startswith(("mkt_", "open_", "t24_", "t4_", "t60_"))
+             ] + ["event_id", "bdl_id", "h1_spread", "h1_total_line", "h1_sp_h", "h1_sp_a",
+                  "h1_ov", "h1_un", "tt_h", "tt_a", "tt_h_o", "tt_h_u", "tt_a_o", "tt_a_u",
+                  "home_score", "away_score", "home_h1", "away_h1",
+                  "bdl_home_pts", "bdl_away_pts"]
+    W = W.merge(M[mcols].dropna(subset=["bdl_id"]), left_on="game.id", right_on="bdl_id",
+                how="left")
+    W = W[W["event_id"].notna()].copy()
+
+    # OUTCOMES COME FROM ESPN (via games_nba), not from balldontlie. bdl's box is the
+    # feature source and stays that way, but its game-level score field is occasionally
+    # a point off its own quarter detail, and taking targets from the same frame the
+    # signal layer grades on is the only way the two layers can be cross-referenced at
+    # all. Anything bdl and ESPN disagree about is dropped rather than guessed at.
+    W = W.rename(columns={"home_score": "y_home_pts", "away_score": "y_away_pts",
+                          "home_h1": "y_home_h1", "away_h1": "y_away_h1"})
+    W = W[W["y_home_pts"].notna() & W["y_home_h1"].notna()].copy()
+    # bdl's own scores ride along for provenance, but under a y_ prefix: they ARE the final
+    # score, so left as `bdl_home_pts` they read as ordinary features and the leak screen
+    # correctly flags them (+0.61 with the margin vs +0.28 with the line).
+    W = W.rename(columns={"bdl_home_pts": "y_bdl_home_pts", "bdl_away_pts": "y_bdl_away_pts"})
+    dis = W[(W["y_bdl_home_pts"] != W["y_home_pts"]) | (W["y_bdl_away_pts"] != W["y_away_pts"])]
+    if len(dis):
+        print(f"  [outcome] bdl disagrees with ESPN on {len(dis)} of {len(W):,} games "
+              f"({', '.join(str(d)[:10] for d in dis['date'].head(6))}) — ESPN wins")
     W["y_fg_margin"] = W["y_home_pts"] - W["y_away_pts"]
     W["y_fg_total"] = W["y_home_pts"] + W["y_away_pts"]
     W["y_h1_margin"] = W["y_home_h1"] - W["y_away_h1"]
     W["y_h1_total"] = W["y_home_h1"] + W["y_away_h1"]
     W["y_h1_tot_share"] = W["y_h1_total"] / W["y_fg_total"].replace(0, np.nan)
-
-    M = market_frame()
-    mcols = [c for c in M.columns if c.startswith(("mkt_", "open_", "t24_", "t4_", "t60_"))
-             ] + ["event_id", "bdl_id", "h1_spread", "h1_total_line", "h1_sp_h", "h1_sp_a",
-                  "h1_ov", "h1_un", "tt_h", "tt_a", "tt_h_o", "tt_h_u", "tt_a_o", "tt_a_u"]
-    W = W.merge(M[mcols].dropna(subset=["bdl_id"]), left_on="game.id", right_on="bdl_id",
-                how="left")
-    W = W[W["event_id"].notna()].copy()
 
     # derivative residual targets — what the book's mechanical split gets wrong
     W["y_h1_marg_resid"] = W["y_h1_margin"] + W["h1_spread"]
