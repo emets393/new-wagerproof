@@ -63,6 +63,81 @@ hit `api.trigger.dev` directly. Instead `trigger-run-status` fetches the run wit
 enforcing that the run belongs to the caller. `trigger-v3-run` still returns a
 `public_access_token` field for compatibility, but the client no longer uses it.
 
+## Transports (2026-08-01)
+
+The loop owns the conversation and the governor; a **Transport** (`src/loop/transport.ts`)
+owns the wire. `resolveProvider(model)` in `src/loop/runV3Generation.ts` is the single
+routing decision, and nothing downstream re-tests the model string:
+
+| Model id | Wire | Implementation |
+|---|---|---|
+| `gpt-*`, `o*` (default `gpt-5.6-luna`) | `POST /v1/responses` | `src/loop/responsesTransport.ts` |
+| `deepseek*` | `POST /v1/chat/completions` | `src/loop/chatCompletionsTransport.ts` |
+
+Chat Completions discards the model's reasoning between tool turns, so a research loop
+re-derives its own conclusions every turn. `/v1/responses` returns reasoning as a
+first-class item that is echoed back **verbatim** in the next turn's `input[]`
+(`store: false` + `include: ["reasoning.encrypted_content"]`, `reasoning.context:
+"all_turns"`), which is the reason for the port. DeepSeek stays on Chat Completions: it is
+the outage fallback and does not implement the Responses API. Removing DeepSeek later means
+deleting `chatCompletionsTransport.ts` and one branch of `resolveProvider` — nothing else.
+
+Asymmetries that are intentional:
+
+- **Only the Chat transport downgrades reasoning effort on a 400.** There a refusal may be
+  the wire genuinely rejecting tools + effort. On Responses that combination is supported, so
+  a 400 is a plumbing defect (e.g. a reasoning item echoed without its following item) or an
+  unsupported effort — both must fail loudly rather than quietly buy the port's benefit back
+  out.
+- **`maxTokensOut` was raised 24,000 → 40,000** (`src/loop/loopGuards.ts`) because
+  `max_output_tokens` on Responses covers reasoning tokens, unlike DeepSeek's separately
+  budgeted CoT. A turn whose `xhigh` thinking exhausts the cap before emitting a tool call
+  comes back truncated with zero tool calls; the loop trips the circuit, injects one repair
+  instruction, and throws if nothing was ever accepted (it must never end as a green
+  zero-pick run).
+- **`tokenCeiling` (320,000) is unchanged** and is a cumulative sum of per-turn
+  prompt+completion tokens, not a context-window measure — both wires re-bill the whole
+  conversation every turn. Echoed reasoning items make prompts grow faster, so it trips
+  somewhat earlier than pre-port; retune from telemetry (`p_circuit_tripped`, ledger
+  `input_tokens`), not from a guess.
+- **Cost is overstated on the Responses path.** `MODEL_COSTS` charges every input token at
+  the cache-miss rate even though `prompt_cache_key` is set per run, so `estimated_cost_usd`
+  runs high and `isOverDailySpendCap` throttles early — the safe direction. Modeling
+  `input_tokens_details.cached_tokens` is a follow-up.
+
+Usage normalization: `output_tokens` from Responses is **inclusive of**
+`output_tokens_details.reasoning_tokens`. The transport passes the total through and carries
+the reasoning count only as a breakdown; adding them would double-charge the governor's
+ceiling and the ledger.
+
+### What the loop now knows, and what it doesn't
+
+The loop holds a `ConversationItem[]` and calls `transport.sendTurn(...)`. It branches on
+`transport.capabilities`, never on `transport.wire` (that field is span attributes and routing
+tests only). The two provider accommodations that used to be inline model-string tests —
+DeepSeek's refusal of a named `tool_choice`, and its requirement that each tool-calling turn's
+CoT be handed back — now live in `resolveProvider`'s DeepSeek branch as
+`supportsForcedToolChoice: false` and `passBackReasoning: true`.
+
+Reasoning persistence works by the transport parking OpenAI's entire `response.output[]` in an
+opaque `ReasoningCarrier.raw` and spreading it verbatim into the next turn's `input[]` —
+reasoning item, then its `function_call`s, each matched by exactly one `function_call_output`.
+The loop must never read, hash, truncate or reconstruct that value.
+
+### Fixture-verified only — no live request has been made
+
+The `/v1/responses` path was built and tested entirely against synthetic SSE fixtures
+(`agents-v3/src/loop/__fixtures__/sseStream.ts`); no request has been sent to
+`api.openai.com` from this code. `agents-v3/README.md` → "First live run" lists the four
+things one real `generate-v3-picks` run must confirm. The two most likely live-only failures:
+`reasoning.effort: "xhigh"` being unavailable on Luna (there is deliberately no code-side
+downgrade; `V3_REASONING_EFFORT=high` is the lever), and OpenAI rejecting the synthetic
+`slate_0` seed turn, which serializes as a `function_call` naming a tool absent from `tools[]`.
+
+Tests live beside the source and run under the **repo-root** vitest (`npx vitest run` from the
+worktree root); `agents-v3` has no vitest of its own, and its `tsconfig.json` excludes
+`**/*.test.ts` for that reason. See `agents-v3/README.md` → "Testing".
+
 ## Isolation
 
 Legacy workers ignore this path:
@@ -107,21 +182,21 @@ extension pushes these from `agents-v3/.env` into Trigger.dev Cloud on every
 in):
 
 - `OPENAI_API_KEY` — **the primary key since 2026-08-01.** The loop defaults to
-  `gpt-5.6-luna` at `reasoning_effort: "xhigh"` (`src/loop/runV3Generation.ts`,
-  `src/loop/agenticGenerationLoop.ts`). Pin the full id: the bare `gpt-5.6` alias routes to
-  Sol, not Luna.
-- `DEEPSEEK_API_KEY` — still required. DeepSeek remains routable through the debug model
-  pickers and through any run whose ledger `model_name` says so; `deepseek-reasoner` /
-  `deepseek-chat` are retired aliases. `reasoning_effort` is **never** sent to DeepSeek
-  (it rejects unknown body keys) — the loop gates on `/^(gpt-5|o\d)/`.
+  `gpt-5.6-luna` on `/v1/responses` at `reasoning.effort: "xhigh"`
+  (`src/loop/runV3Generation.ts`, `src/loop/responsesTransport.ts`). Pin the full id: the
+  bare `gpt-5.6` alias routes to Sol, not Luna.
+- `DEEPSEEK_API_KEY` — still required. DeepSeek is the outage fallback (a DeepSeek 402 took
+  generation down on 2026-07-25) and stays routable through the debug model pickers and any
+  run whose ledger `model_name` says so; `deepseek-reasoner` / `deepseek-chat` are retired
+  aliases. No reasoning param is **ever** sent to DeepSeek (it rejects unknown body keys).
 - optional `V3_REASONING_EFFORT` — overrides the effort without a redeploy. Valid:
   `none|low|medium|high|xhigh|max`. Luna's `xhigh` reportedly benchmarks ~flat vs `high` at
   materially higher output-token cost, so an A/B is worth running.
-  - **Unverified:** OpenAI's gpt-5.6 upgrade guide says function tools on
-    `/v1/chat/completions` are compatible only with effective reasoning `none`, and this loop
-    is a tool-calling loop on Chat Completions. A 400 mentioning "reasoning" downgrades the
-    run to an explicit `"none"` and retries the turn once. Grep prod logs for
-    `rejected reasoning_effort`; if it fires, the real fix is porting to `/v1/responses`.
+  - **Unverified:** the docs list `xhigh` for the GPT-5.6 family but publish no per-variant
+    matrix, so `xhigh` on Luna is plausible-but-unconfirmed. The Responses transport does
+    **not** downgrade on a 400 — it throws, and the run fails retryably. If prod logs show
+    `LLM 400` mentioning `effort`, set `V3_REASONING_EFFORT=high`; that is a env change, not
+    a deploy.
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CFB_SUPABASE_URL`

@@ -39,8 +39,9 @@ query builder. A host casts its real client at the boundary
 
 - **Global** (`scope:"global"`, in `src/tools/sports/`): `get_sport_predictions`
   (unifies all 5 leagues), `get_game_detail`, `search_games`, `get_market_odds`,
-  `get_editor_picks`. Ported from the WagerBot chat tools; the chat-only
-  `game_cards` normalization is intentionally not included here.
+  `get_editor_picks`; plus the public community-agent analytics tool
+  `get_top_community_agent_picks`. Ported from the WagerBot chat tools; the
+  chat-only `game_cards` normalization is intentionally not included here.
 - **User** (`scope:"user"`, in `src/tools/user/`): `list_my_agents`,
   `get_agent_performance`, `list_my_agent_picks`, `list_my_follows`,
   `get_my_community_activity`, `get_my_record`.

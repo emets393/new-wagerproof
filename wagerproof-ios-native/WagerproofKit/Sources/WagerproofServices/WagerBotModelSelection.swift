@@ -1,3 +1,7 @@
+// DEPRECATED 2026-08-01 — WagerBot chat is being retired; its UI entry points are
+// being hidden. Intentionally NOT migrated to gpt-5.6-luna: the model options here
+// stay on their current models until the surface is removed. Do not add options.
+
 import Foundation
 import WagerproofSharedKit
 

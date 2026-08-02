@@ -6,12 +6,12 @@
 > pre-assembled payloads. That is not how generation works anymore. The canonical engine is
 > a bounded tool-calling loop on Trigger.dev (`agents-v3/src/loop/runV3Generation.ts`) where
 > the model *pulls* the data it wants through read tools rather than receiving fixed payloads.
-> Since 2026-08-01 that loop runs **OpenAI `gpt-5.6-luna` at `reasoning_effort: "xhigh"`**,
-> not DeepSeek. See `18_GENERATION_V3_TRIGGERDEV.md`.
+> Since 2026-08-01 that loop runs **OpenAI `gpt-5.6-luna` at `reasoning.effort: "xhigh"` on
+> `/v1/responses`**, not DeepSeek on Chat Completions. See `18_GENERATION_V3_TRIGGERDEV.md`.
 >
-> The `gpt-4o-mini` / `temperature` / `max_tokens` in the code sample below are V1 history.
-> None of those are valid for Luna (`temperature` is rejected; the param is
-> `max_completion_tokens`). Do not copy them.
+> The `gpt-4o-mini` / `temperature` / `max_tokens` / `/v1/chat/completions` in the code
+> sample below are V1 history. None of those are valid on the current path (`temperature` is
+> rejected; the output cap is `max_output_tokens`). Do not copy them.
 >
 > Kept for historical context and because the payload *shapes* documented here still
 > resemble what the V3 read tools return. Do not implement against it.

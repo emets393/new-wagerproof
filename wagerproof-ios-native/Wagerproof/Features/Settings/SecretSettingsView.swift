@@ -1,3 +1,4 @@
+import RevenueCat
 import SwiftUI
 import WagerproofDesign
 import WagerproofServices
@@ -348,7 +349,7 @@ struct SecretSettingsView: View {
                     iconColor: Color(hex: 0x2A86FF),
                     iconBackground: Color(hex: 0xEDF5FF),
                     title: "Check Offerings",
-                    subtitle: "Debug available RevenueCat offerings"
+                    subtitle: "Offering + entry_offer metadata the paywall sees"
                 )
             }
             .buttonStyle(.plain)
@@ -467,17 +468,55 @@ struct SecretSettingsView: View {
         }
     }
 
+    /// Reports the offering the ONBOARDING PLACEMENT actually serves — not the
+    /// dashboard "current" offering. `entry_offer` metadata is per-offering, so
+    /// setting it on the current offering does nothing when a placement/targeting
+    /// rule routes the paywall to a different one. Also reports the three other
+    /// conditions that silently fall the entry card back to Monthly: missing
+    /// `yearly_intro` package, no pay-up-front intro on that product, and an
+    /// ineligible (returning) customer. See CustomPaywallView.entryPackage.
     private func checkOfferings() async {
         await revenueCat.refreshOffering()
-        if let offering = revenueCat.offering {
-            let packageCount = offering.availablePackages.count
+        let currentIdentifier = revenueCat.offering?.identifier ?? "none"
+
+        guard let offering = await revenueCat.fetchOffering(
+            forPlacement: RevenueCatService.Placement.onboarding
+        ) else {
             diagnosticsMessage = DiagMessage(
-                title: "Offering Found",
-                body: "Identifier: \(offering.identifier)\nPackages: \(packageCount)"
+                title: "No Offerings",
+                body: "Placement 'onboarding' resolved nothing and there is no current offering. Check RevenueCat dashboard config."
             )
-        } else {
-            diagnosticsMessage = DiagMessage(title: "No Offerings", body: "Check RevenueCat dashboard config.")
+            return
         }
+
+        var lines: [String] = [
+            "Placement 'onboarding' → \(offering.identifier)",
+            "Dashboard current → \(currentIdentifier)",
+            "Packages: \(offering.availablePackages.map(\.identifier).joined(separator: ", "))",
+        ]
+
+        let rawEntryOffer = offering.metadata["entry_offer"]
+        lines.append("metadata.entry_offer: \(rawEntryOffer.map { "\($0)" } ?? "MISSING")")
+        if offering.metadata.isEmpty {
+            lines.append("(offering has NO metadata at all)")
+        }
+
+        if let intro = offering.availablePackages.first(where: { $0.identifier == "yearly_intro" }) {
+            let product = intro.storeProduct
+            let payUpFront = product.introductoryDiscount?.paymentMode == .payUpFront
+            lines.append("yearly_intro: \(product.productIdentifier)")
+            lines.append("pay-up-front intro on product: \(payUpFront ? "yes" : "NO")")
+
+            let result = await Purchases.shared.checkTrialOrIntroDiscountEligibility(
+                productIdentifiers: [product.productIdentifier]
+            )
+            let status = result[product.productIdentifier]?.status
+            lines.append("intro eligibility: \(status.map { "\($0)" } ?? "unknown")")
+        } else {
+            lines.append("yearly_intro package: MISSING from this offering")
+        }
+
+        diagnosticsMessage = DiagMessage(title: "Offering Found", body: lines.joined(separator: "\n"))
     }
 
     private func resetOnboarding() async {

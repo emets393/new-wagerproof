@@ -22,13 +22,24 @@
       "package": "com.wagerproof.mobile",
       "userOs": ["Android"],
       "skadnetwork": false
+    },
+
+    "_webComment": "Web conversion funnel, NOT app promotion. This is the only place SUBSCRIBE actually exists: the pixel logs Subscribe/InitiateCheckout/ViewContent/CompleteRegistration, while the mobile app has never logged a SUBSCRIBE app event. Conversions here bill through RevenueCat Web billing, not Apple. Targets iOS users because that is the audience the app creative was built for.",
+    "web": {
+      "kind": "web",
+      "pixelId": "1731090704521232",
+      "objective": "OUTCOME_SALES",
+      "landingUrl": "https://wagerproof.bet/?utm_source=facebook&utm_medium=paid&utm_campaign=subscribe_web",
+      "cta": "SUBSCRIBE",
+      "userOs": ["iOS_ver_14.0_and_above"],
+      "skadnetwork": false
     }
   },
 
   "defaults": {
     "platform": "ios",
     "objective": "OUTCOME_APP_PROMOTION",
-    "optimizationGoal": "APP_INSTALLS",
+    "optimize": "installs",
     "billingEvent": "IMPRESSIONS",
     "bidStrategy": "LOWEST_COST_WITHOUT_CAP",
     "dailyBudgetCents": 2000,
@@ -37,13 +48,24 @@
     "countries": ["US"],
     "ageMin": 21,
     "ageMax": 65,
+    "clickAttributionDays": 7,
+    "excludeInstallers": true,
+    "advantageAudience": true,
     "devicePlatforms": ["mobile"],
     "publisherPlatforms": ["facebook", "instagram", "audience_network"],
     "message": "Stop guessing. WagerProof's AI breaks down every game — win probabilities, live money flow, and the highest-value plays across the NFL, NBA, and college. Every pick tracked publicly, no cherry-picking. Bet smarter.",
     "headline": "Your AI sports betting edge."
   },
 
+  "_optimizationComment": "What Meta optimizes delivery toward. PURCHASE is the money event: RevenueCat's Facebook integration sends subscriptions as fb_mobile_purchase, so `purchase` is what actually has signal. `subscribe` is kept only to document that it was tested and failed — the SUBSCRIBE event is never sent, so Meta optimizes against nothing ($9.5k spend -> 5 purchases, 0.02 ROAS, vs 1.09 on the same creative under PURCHASE). Do not use it.",
+  "optimization": {
+    "installs":     { "goal": "APP_INSTALLS",        "label": "Installs"  },
+    "purchase":     { "goal": "OFFSITE_CONVERSIONS", "label": "Purchase",  "customEventType": "PURCHASE" },
+    "registration": { "goal": "OFFSITE_CONVERSIONS", "label": "Reg",       "customEventType": "COMPLETE_REGISTRATION" },
+    "subscribe":    { "goal": "OFFSITE_CONVERSIONS", "label": "Subscribe", "customEventType": "SUBSCRIBE", "disabledForApps": "No SUBSCRIBE event is ever sent to Meta — RevenueCat reports subscriptions as PURCHASE. Burned $9,534 for $153 revenue. Use --optimize purchase." }
+  },
+
   "naming": {
-    "campaign": "{PLAT} | Scale | AppPromo | Main"
+    "campaign": "{PLAT} | Scale | {TYPE} | {OPT}"
   }
 }

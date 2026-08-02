@@ -93,12 +93,34 @@ public final class GamesStore {
     public var dryRunPreviewEnabled: Bool = false
 
     private let cacheTTL: TimeInterval = 5 * 60
+    /// MainTabView owns the canonical eager hydrate. This still protects
+    /// against another lifecycle or a fast pull-to-refresh joining the same
+    /// sport request before its TTL timestamp has been written.
+    @ObservationIgnored private let refreshTasks = InFlightTaskRegistry<Sport>()
+    private struct SortedCacheKey: Equatable {
+        let version: Int
+        let query: String
+        let mode: SortMode
+    }
+    @ObservationIgnored private var feedVersions: [Sport: Int] =
+        Dictionary(uniqueKeysWithValues: Sport.allCases.map { ($0, 0) })
+    @ObservationIgnored private var nflSortedCache: (key: SortedCacheKey, value: [NFLPrediction])?
+    @ObservationIgnored private var cfbSortedCache: (key: SortedCacheKey, value: [CFBPrediction])?
+    @ObservationIgnored private var nbaSortedCache: (key: SortedCacheKey, value: [NBAGame])?
+    @ObservationIgnored private var ncaabSortedCache: (key: SortedCacheKey, value: [NCAABGame])?
+    @ObservationIgnored private var mlbSortedCache: (key: SortedCacheKey, value: [MLBGame])?
 
     public init() {}
 
     public func nflGames() -> [NFLPrediction] { games.nfl }
     public func cfbGames() -> [CFBPrediction] { games.cfb }
     public func mlbGames() -> [MLBGame] { games.mlb }
+
+    /// Stable revision for app-layer date-section caches. It changes only when
+    /// the corresponding raw sport feed is replaced.
+    public func presentationRevision(for sport: Sport) -> Int {
+        feedVersions[sport, default: 0]
+    }
 
     public func isLoading(sport: Sport) -> Bool {
         if case .loading = loadState[sport] ?? .idle { return true }
@@ -133,7 +155,16 @@ public final class GamesStore {
            Date().timeIntervalSince(last) < cacheTTL {
             return
         }
+
+        await refreshTasks.run(key: sport) { [weak self] in
+            await self?.performRefresh(sport: sport)
+        }
+    }
+
+    /// The single mutation path behind a coalesced sport request.
+    private func performRefresh(sport: Sport) async {
         loadState[sport] = .loading
+        defer { markFeedChanged(sport) }
         do {
             switch sport {
             case .nfl: try await fetchNFL()
@@ -167,18 +198,36 @@ public final class GamesStore {
     /// Filtered + sorted NFL list for the active sport view.
     public func sortedNFL() -> [NFLPrediction] {
         let q = normalizedSearchText(for: .nfl)
+        let mode = sortModes[.nfl] ?? .time
+        let key = SortedCacheKey(
+            version: feedVersions[.nfl, default: 0],
+            query: q,
+            mode: mode
+        )
+        if let cached = nflSortedCache, cached.key == key { return cached.value }
         let filtered = q.isEmpty ? games.nfl : games.nfl.filter { game in
             game.homeTeam.lowercased().contains(q) || game.awayTeam.lowercased().contains(q)
         }
-        return sortNFL(filtered, mode: sortModes[.nfl] ?? .time)
+        let result = sortNFL(filtered, mode: mode)
+        nflSortedCache = (key, result)
+        return result
     }
 
     public func sortedCFB() -> [CFBPrediction] {
         let q = normalizedSearchText(for: .cfb)
+        let mode = sortModes[.cfb] ?? .time
+        let key = SortedCacheKey(
+            version: feedVersions[.cfb, default: 0],
+            query: q,
+            mode: mode
+        )
+        if let cached = cfbSortedCache, cached.key == key { return cached.value }
         let filtered = q.isEmpty ? games.cfb : games.cfb.filter { game in
             game.homeTeam.lowercased().contains(q) || game.awayTeam.lowercased().contains(q)
         }
-        return sortCFB(filtered, mode: sortModes[.cfb] ?? .time)
+        let result = sortCFB(filtered, mode: mode)
+        cfbSortedCache = (key, result)
+        return result
     }
 
     /// Filtered + sorted NBA list. Mirrors RN search/sort behavior:
@@ -186,10 +235,19 @@ public final class GamesStore {
     /// `.time`.
     public func sortedNBA() -> [NBAGame] {
         let q = normalizedSearchText(for: .nba)
+        let mode = sortModes[.nba] ?? .time
+        let key = SortedCacheKey(
+            version: feedVersions[.nba, default: 0],
+            query: q,
+            mode: mode
+        )
+        if let cached = nbaSortedCache, cached.key == key { return cached.value }
         let filtered = q.isEmpty ? games.nba : games.nba.filter { game in
             game.homeTeam.lowercased().contains(q) || game.awayTeam.lowercased().contains(q)
         }
-        return sortNBA(filtered, mode: sortModes[.nba] ?? .time)
+        let result = sortNBA(filtered, mode: mode)
+        nbaSortedCache = (key, result)
+        return result
     }
 
     private func sortNBA(_ list: [NBAGame], mode: SortMode) -> [NBAGame] {
@@ -218,10 +276,19 @@ public final class GamesStore {
     /// apply for `.spread` / `.ou`.
     public func sortedNCAAB() -> [NCAABGame] {
         let q = normalizedSearchText(for: .ncaab)
+        let mode = sortModes[.ncaab] ?? .time
+        let key = SortedCacheKey(
+            version: feedVersions[.ncaab, default: 0],
+            query: q,
+            mode: mode
+        )
+        if let cached = ncaabSortedCache, cached.key == key { return cached.value }
         let filtered = q.isEmpty ? games.ncaab : games.ncaab.filter { game in
             game.homeTeam.lowercased().contains(q) || game.awayTeam.lowercased().contains(q)
         }
-        return sortNCAAB(filtered, mode: sortModes[.ncaab] ?? .time)
+        let result = sortNCAAB(filtered, mode: mode)
+        ncaabSortedCache = (key, result)
+        return result
     }
 
     private func sortNCAAB(_ list: [NCAABGame], mode: SortMode) -> [NCAABGame] {
@@ -246,13 +313,22 @@ public final class GamesStore {
 
     public func sortedMLB() -> [MLBGame] {
         let q = normalizedSearchText(for: .mlb)
+        let mode = sortModes[.mlb] ?? .time
+        let key = SortedCacheKey(
+            version: feedVersions[.mlb, default: 0],
+            query: q,
+            mode: mode
+        )
+        if let cached = mlbSortedCache, cached.key == key { return cached.value }
         let filtered = q.isEmpty ? games.mlb : games.mlb.filter { game in
             (game.homeTeamName ?? "").lowercased().contains(q) ||
                 (game.awayTeamName ?? "").lowercased().contains(q) ||
                 game.homeAbbr.lowercased().contains(q) ||
                 game.awayAbbr.lowercased().contains(q)
         }
-        return sortMLB(filtered, mode: sortModes[.mlb] ?? .time)
+        let result = sortMLB(filtered, mode: mode)
+        mlbSortedCache = (key, result)
+        return result
     }
 
     private func normalizedSearchText(for sport: Sport) -> String {
@@ -331,20 +407,46 @@ public final class GamesStore {
 
     private static func parseEpoch(_ raw: String) -> Double? {
         if raw.isEmpty { return nil }
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = iso.date(from: raw) { return d.timeIntervalSince1970 }
-        iso.formatOptions = [.withInternetDateTime]
-        if let d = iso.date(from: raw) { return d.timeIntervalSince1970 }
-        let formats = ["yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd"]
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = TimeZone(identifier: "UTC")
-        for f in formats {
-            fmt.dateFormat = f
-            if let d = fmt.date(from: raw) { return d.timeIntervalSince1970 }
+        if let d = isoWithFractionalSeconds.date(from: raw) { return d.timeIntervalSince1970 }
+        if let d = isoInternetDateTime.date(from: raw) { return d.timeIntervalSince1970 }
+        for formatter in utcDateFormatters {
+            if let d = formatter.date(from: raw) { return d.timeIntervalSince1970 }
         }
         return nil
+    }
+
+    private static let isoWithFractionalSeconds: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let isoInternetDateTime: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static let utcDateFormatters: [DateFormatter] = [
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd",
+    ].map { format in
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = format
+        return formatter
+    }
+
+    private func markFeedChanged(_ sport: Sport) {
+        feedVersions[sport, default: 0] &+= 1
+        switch sport {
+        case .nfl: nflSortedCache = nil
+        case .cfb: cfbSortedCache = nil
+        case .nba: nbaSortedCache = nil
+        case .ncaab: ncaabSortedCache = nil
+        case .mlb: mlbSortedCache = nil
+        }
     }
 
     // MARK: - NFL fetch
@@ -2295,6 +2397,7 @@ public final class GamesStore {
         case .ncaab: games.ncaab = DummyData.ncaab
         case .mlb: break
         }
+        markFeedChanged(sport)
         loadState[sport] = .loaded
         lastFetched[sport] = Date()
     }
@@ -2315,6 +2418,9 @@ public final class GamesStore {
         feed.ncaab = ncaab
         feed.mlb = mlb
         self.games = feed
+        for sport in Sport.allCases {
+            markFeedChanged(sport)
+        }
         self.selectedSport = sport
         for s in Sport.allCases {
             self.loadState[s] = state

@@ -73,6 +73,18 @@ no release needed:
 | `paywall_close_enabled` | `false` (hard) | Onboarding ships HARD — no X on either renderer. Set `true` to soften (e.g. App Review builds). The error/timeout "Continue without subscription" escape survives both modes. The Secret-Settings debug preview (`isDebugPreview`) overrides this with a red DEBUG close button |
 | `entry_offer` | `"monthly"` | `"intro_annual"` swaps the second (entry) plan card from the standard monthly plan to the pay-up-front intro annual (`yearly_intro` package = `rc_ios_pro_yearly_intro`, $19.99 first month then $99.99/yr). Requires the `yearly_intro` package in the served offering; returning customers RevenueCat flags ineligible fall back to Monthly |
 
+Metadata is **per-offering**, and the paywall reads the offering the
+*placement* serves, not the dashboard "current" offering. If `entry_offer` is
+set but the entry card still shows Monthly, run Secret Settings → **Check
+Offerings**: it prints which offering the `onboarding` placement resolved to,
+that offering's `entry_offer` value, whether `yearly_intro` is attached, and
+the signed-in customer's intro eligibility. The four silent fallbacks to
+Monthly are: metadata set on a different offering, `yearly_intro` missing from
+the served offering, the product having no pay-up-front intro, and a returning
+customer RevenueCat flags ineligible. The other paywall surfaces
+(`generic_feature`, `agent_feature` placements) need the metadata on *their*
+offerings too.
+
 **`CustomPaywallView`** (`Features/Paywall/`) is the default renderer —
 fully custom SwiftUI; RevenueCat is data + transactions only (`import
 RevenueCat`, never `RevenueCatUI`):

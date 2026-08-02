@@ -515,6 +515,12 @@ Private: weak `gamesRef/agentsRef/trendsRef/propsRef`; `debounceTask: Task?` →
 
 **Purpose:** DEBUG tuning for V3 generation (Secret Settings). UserDefaults-backed, no network. NOTE: `AgentDetailStore.generatePicks` constructs a fresh instance to read the persisted values — cheap because init is just two defaults reads.
 - `static models = ["deepseek-v4-flash", "deepseek-v4-pro"]` (picker order; old reasoner/chat aliases retired).
+  - **2026-08-01:** `models[0]` is always sent as an explicit `model_name` by
+    `AgentDetailStore.generatePicks`, so the server never sees NULL from a native client. The
+    server-side default is now `gpt-5.6-luna`, and the DB trigger
+    `trg_hotfix_remap_deepseek_model_on_insert` rewrites any `deepseek%` value to it. Native
+    runs therefore land on Luna despite this picker. Do not drop that trigger without first
+    changing this list.
 - Properties (private(set)): `dryRun: Bool` (key `"agent_v3.dry_run"`), `model: String` (key `"agent_v3.model"`; stored retired ids snap back to `models[0]`).
 - `setDryRun(_:)`, `setModel(_:)` (both persist), `snapshot: [String: String]`.
 

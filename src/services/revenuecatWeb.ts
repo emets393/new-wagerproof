@@ -1,4 +1,14 @@
-import { Purchases, CustomerInfo, Offerings, Package } from '@revenuecat/purchases-js';
+import {
+  ErrorCode,
+  Purchases,
+  PurchasesError,
+  type CustomerInfo,
+  type GetOfferingsParams,
+  type Offerings,
+  type Package,
+  type PurchaseResult,
+  type RedemptionInfo,
+} from '@revenuecat/purchases-js';
 import debug from '@/utils/debug';
 
 // Entitlement identifier - must match mobile app
@@ -13,12 +23,13 @@ export const PRODUCT_IDENTIFIERS = {
 
 export type ProductIdentifier = typeof PRODUCT_IDENTIFIERS[keyof typeof PRODUCT_IDENTIFIERS];
 
-// Track initialization state
-let isConfigured = false;
 let configuredInstance: Purchases | null = null;
+let activeAuthenticatedUserId: string | null = null;
 
-// Hardcoded API keys (admin can toggle between them)
-const PRODUCTION_API_KEY = 'rcb_FimpgqhaUgXMNBUtlduWndNxaHLz';
+// RevenueCat Web Billing public keys (safe for the browser bundle). The
+// production key is intentionally named explicitly so it can never be confused
+// with the iOS `appl_` key or a secret RevenueCat API key.
+const WEB_BILLING_PUBLIC_API_KEY = 'rcb_FimpgqhaUgXMNBUtlduWndNxaHLz';
 const SANDBOX_API_KEY = 'rcb_TXEVSXWeblisvQJwlYTinPYQhbQH';
 
 // Track which mode we're in (will be set from database)
@@ -43,48 +54,59 @@ function getApiKey(): string {
   }
   
   debug.log('Using RevenueCat PRODUCTION API key');
-  return PRODUCTION_API_KEY;
+  return WEB_BILLING_PUBLIC_API_KEY;
 }
 
 /**
- * Initialize RevenueCat SDK
- * Should be called once when the user is authenticated. Also safe to call
- * anonymously (preview / paywall-test) — a stable local app user id is used.
+ * RevenueCat App User IDs are case-sensitive. Native iOS normalizes Supabase
+ * UUIDs to lowercase before login, and the React Native app uses the lowercase
+ * Supabase `user.id`, so web must do the same.
  */
-export async function initializeRevenueCat(userId?: string): Promise<Purchases | null> {
+export function normalizeRevenueCatAppUserId(userId: string): string {
+  const normalized = userId.trim().toLowerCase();
+  if (!normalized) {
+    throw new Error('A logged-in App User ID is required for RevenueCat Web Billing.');
+  }
+  return normalized;
+}
+
+/**
+ * Configure RevenueCat once for an authenticated user. If another identified
+ * account signs in during the same browser session, switch identities with the
+ * SDK instead of trying to configure the singleton again.
+ */
+export async function initializeRevenueCat(userId: string): Promise<Purchases> {
   try {
-    // Don't re-configure if already configured for the same identity
-    if (isConfigured && configuredInstance) {
+    const appUserId = normalizeRevenueCatAppUserId(userId);
+
+    if (!configuredInstance && Purchases.isConfigured()) {
+      configuredInstance = Purchases.getSharedInstance();
+    }
+
+    if (!configuredInstance) {
+      const apiKey = getApiKey();
+      debug.log('Configuring RevenueCat Web SDK with authenticated user:', appUserId);
+      configuredInstance = Purchases.configure({ apiKey, appUserId });
+    } else if (configuredInstance.getAppUserId() !== appUserId) {
+      debug.log('Changing RevenueCat Web SDK authenticated user:', appUserId);
+      await configuredInstance.changeUser(appUserId);
+    }
+
+    if (configuredInstance.getAppUserId() !== appUserId) {
+      throw new Error('RevenueCat App User ID did not match the logged-in WagerProof account.');
+    }
+
+    if (activeAuthenticatedUserId === appUserId) {
       debug.log('RevenueCat already configured, returning existing instance');
       return configuredInstance;
     }
 
-    const apiKey = getApiKey();
-    const appUserId =
-      userId ||
-      (() => {
-        const key = 'wp_rc_anonymous_id';
-        let existing = localStorage.getItem(key);
-        if (!existing) {
-          existing = `anon_${crypto.randomUUID()}`;
-          localStorage.setItem(key, existing);
-        }
-        return existing;
-      })();
-
-    debug.log('Configuring RevenueCat Web SDK with user:', appUserId);
-
-    const purchases = Purchases.configure(apiKey, appUserId);
-
-    isConfigured = true;
-    configuredInstance = purchases;
-
+    activeAuthenticatedUserId = appUserId;
     debug.log('RevenueCat Web SDK configured successfully');
-    return purchases;
+    return configuredInstance;
   } catch (error) {
     debug.error('Error initializing RevenueCat:', error);
-    isConfigured = false;
-    configuredInstance = null;
+    activeAuthenticatedUserId = null;
     throw error;
   }
 }
@@ -93,16 +115,21 @@ export async function initializeRevenueCat(userId?: string): Promise<Purchases |
  * Check if RevenueCat is configured
  */
 export function isRevenueCatConfigured(): boolean {
-  return isConfigured && configuredInstance !== null;
+  return configuredInstance !== null && activeAuthenticatedUserId !== null;
 }
 
 /**
  * Get the configured Purchases instance
  */
 export function getPurchasesInstance(): Purchases {
-  if (!isConfigured || !configuredInstance) {
-    throw new Error('RevenueCat is not configured. Call initializeRevenueCat() first.');
+  if (!configuredInstance || !activeAuthenticatedUserId) {
+    throw new Error('RevenueCat is not configured for an authenticated user.');
   }
+
+  if (configuredInstance.getAppUserId() !== activeAuthenticatedUserId) {
+    throw new Error('RevenueCat identity does not match the logged-in WagerProof account.');
+  }
+
   return configuredInstance;
 }
 
@@ -139,29 +166,14 @@ export async function hasActiveEntitlement(): Promise<boolean> {
 /**
  * Get available offerings
  */
-export async function getOfferings(): Promise<Offerings> {
+export async function getOfferings(params?: GetOfferingsParams): Promise<Offerings> {
   try {
     const purchases = getPurchasesInstance();
-    const offerings = await purchases.getOfferings();
+    const offerings = await purchases.getOfferings(params);
     debug.log('Offerings retrieved:', offerings);
     debug.log('Environment:', useSandboxMode ? 'SANDBOX' : 'PRODUCTION');
     debug.log('Current offering:', offerings.current);
     debug.log('All offerings:', Object.keys(offerings.all));
-    
-    if (!offerings.current) {
-      debug.error('❌ NO CURRENT OFFERING FOUND');
-      debug.error('Environment:', useSandboxMode ? 'SANDBOX' : 'PRODUCTION');
-      debug.error('Available offerings:', offerings.all);
-      debug.error('');
-      debug.error('🔧 TO FIX THIS:');
-      debug.error('1. Go to RevenueCat Dashboard → https://app.revenuecat.com');
-      debug.error('2. Switch to PRODUCTION environment (top right toggle)');
-      debug.error('3. Go to: Offerings');
-      debug.error('4. Create an offering named "default"');
-      debug.error('5. Add packages: $rc_monthly, $rc_annual, $rc_monthly_discount, $rc_yearly_discount');
-      debug.error('6. Click "Make current" to set it as the active offering');
-      debug.error('7. Save and wait 2 minutes for cache to clear');
-    }
     
     return offerings;
   } catch (error) {
@@ -171,38 +183,65 @@ export async function getOfferings(): Promise<Offerings> {
 }
 
 /**
- * Purchase a package
+ * A purchase result paired with a fresh post-checkout CustomerInfo read. The
+ * returned entitlement boolean is the only signal the paywall may use to
+ * unlock after a web purchase.
  */
-export async function purchasePackage(pkg: Package): Promise<CustomerInfo> {
+export interface VerifiedWebPurchaseResult {
+  purchaseResult: PurchaseResult;
+  customerInfo: CustomerInfo;
+  redemptionInfo: RedemptionInfo | null;
+  hasProEntitlement: boolean;
+}
+
+export function isUserCancelledPurchaseError(error: unknown): boolean {
+  return (
+    error instanceof PurchasesError &&
+    error.errorCode === ErrorCode.UserCancelledError
+  );
+}
+
+export async function purchasePackage(pkg: Package): Promise<VerifiedWebPurchaseResult> {
   try {
     const purchases = getPurchasesInstance();
     debug.log('Initiating purchase for package:', pkg.identifier);
     debug.log('Environment:', useSandboxMode ? 'SANDBOX' : 'PRODUCTION');
     debug.log('Package details:', {
       identifier: pkg.identifier,
-      productId: pkg.rcBillingProduct?.identifier,
-      price: pkg.rcBillingProduct?.currentPrice?.formattedPrice,
-      priceAmount: pkg.rcBillingProduct?.currentPrice?.amount
+      productId: pkg.webBillingProduct.identifier,
+      price: pkg.webBillingProduct.price.formattedPrice,
+      currency: pkg.webBillingProduct.price.currency,
     });
     
-    const { customerInfo } = await purchases.purchase({ rcPackage: pkg });
-    
-    debug.log('Purchase completed successfully:', customerInfo);
-    return customerInfo;
-  } catch (error: any) {
-    // User cancellation is normal, don't log as error
-    if (error?.errorCode === 1 || error?.message?.includes('cancel')) {
+    const purchaseResult = await purchases.purchase({ rcPackage: pkg });
+    const customerInfo = await purchases.getCustomerInfo();
+    const hasProEntitlement =
+      ENTITLEMENT_IDENTIFIER in customerInfo.entitlements.active;
+
+    debug.log('Purchase completed. Fresh Pro entitlement:', hasProEntitlement);
+    return {
+      purchaseResult,
+      customerInfo,
+      redemptionInfo: purchaseResult.redemptionInfo,
+      hasProEntitlement,
+    };
+  } catch (error: unknown) {
+    if (isUserCancelledPurchaseError(error)) {
       debug.log('Purchase cancelled by user');
-      throw new Error('USER_CANCELLED');
+      throw error;
     }
     
     debug.error('Error purchasing package:', error);
+    const purchaseError = error as {
+      message?: string;
+      errorCode?: number;
+      underlyingErrorMessage?: string | null;
+    };
     debug.error('Error details:', {
-      message: error?.message,
-      errorCode: error?.errorCode,
-      underlyingErrorMessage: error?.underlyingErrorMessage,
-      readableErrorCode: error?.readableErrorCode,
-      environment: useSandboxMode ? 'SANDBOX' : 'PRODUCTION'
+      message: purchaseError.message,
+      errorCode: purchaseError.errorCode,
+      underlyingErrorMessage: purchaseError.underlyingErrorMessage,
+      environment: useSandboxMode ? 'SANDBOX' : 'PRODUCTION',
     });
     throw error;
   }
@@ -258,11 +297,11 @@ export function isSubscriptionActive(customerInfo: CustomerInfo): boolean {
 }
 
 /**
- * Reset the configuration state (useful for logout)
+ * Deactivate RevenueCat on logout without reconfiguring the singleton
+ * anonymously. A future authenticated session will call `changeUser` before
+ * any customer, offering, or purchase request is allowed.
  */
 export function resetRevenueCat(): void {
-  debug.log('Resetting RevenueCat configuration');
-  isConfigured = false;
-  configuredInstance = null;
+  debug.log('Deactivating RevenueCat for signed-out session');
+  activeAuthenticatedUserId = null;
 }
-

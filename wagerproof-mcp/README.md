@@ -46,7 +46,7 @@ Claude/ChatGPT ──Bearer─▶ POST /mcp (JSON-RPC: initialize / tools/list /
 `list_my_agent_picks`, `list_my_follows`, `get_my_community_activity`,
 `get_my_record`.
 **Public analytics**: `get_sport_predictions`, `get_game_detail`, `search_games`,
-`get_market_odds`, `get_editor_picks`.
+`get_market_odds`, `get_editor_picks`, `get_top_community_agent_picks`.
 
 ## Local development
 

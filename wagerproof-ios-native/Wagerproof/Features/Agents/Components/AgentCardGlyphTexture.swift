@@ -20,6 +20,7 @@ struct AgentCardGlyphTexture: View {
     /// Stable per-card string (the agent id) → distinct glyph pattern per card.
     var seedString: String = ""
     var cornerRadius: CGFloat = 26
+    var isActive: Bool = true
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -51,7 +52,8 @@ struct AgentCardGlyphTexture: View {
             spacing: 22,        // a touch tighter than the hero (26) for the smaller card
             dotSize: 5,
             peakOpacity: colorScheme == .dark ? 0.4 : 0.46,
-            seed: seedValue
+            seed: seedValue,
+            isActive: isActive
         )
         .mask(spreadMask)
         // Belt-and-suspenders clip; the host card also clips to its own shape.

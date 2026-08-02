@@ -28,6 +28,7 @@ struct MLBMatchupPropsWidget: View {
         // (every player × every prop × their season log) on every body pass.
         if let summary = propsStore.propsInsightSummary(forGamePk: matchup.gamePk) {
             let itemsById = PlayerPropFeedCache.itemsById(for: matchup,
+                                                          storeID: propsStore.feedCacheID,
                                                           version: propsStore.matchupsVersion)
             InsightWidgetSection(
                 title: "Player Props",

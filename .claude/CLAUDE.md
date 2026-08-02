@@ -1,7 +1,8 @@
 # WagerProof - Claude Context File
 
 > Last verified against code: 2026-07-25, with the AI-model, generation-engine, and
-> chat/voice/Roast sections re-verified 2026-08-01 (the gpt-5.6-luna migration). Route,
+> chat/voice/Roast sections re-verified 2026-08-01 (the gpt-5.6-luna migration, then the
+> V3 loop's port to the Responses API later the same day). Route,
 > flag, and file-path claims below were checked against `src/App.tsx`,
 > `supabase/functions/`, and the native app trees on those dates.
 > **Start at "Model inventory" for anything LLM-related.**
@@ -274,7 +275,8 @@ re-deriving it from twelve edge functions.
 
 | Surface | File | Model | API / params | Status |
 |---|---|---|---|---|
-| **Agent pick generation (V3, canonical)** | `agents-v3/src/loop/{runV3Generation,agenticGenerationLoop}.ts` | `gpt-5.6-luna` | Chat Completions, `reasoning_effort: xhigh`, `max_completion_tokens`, no `temperature` | **LIVE — migrated** |
+| **Agent pick generation (V3, canonical)** | `agents-v3/src/loop/{runV3Generation,responsesTransport}.ts` | `gpt-5.6-luna` | **Responses API** (`/v1/responses`), `reasoning: {effort: xhigh, summary: auto, context: all_turns}`, `store:false` + `include:["reasoning.encrypted_content"]`, `max_output_tokens`, no `temperature` | **LIVE — migrated; Responses path is FIXTURE-VERIFIED ONLY, no live call yet** |
+| Agent pick generation — DeepSeek fallback | `agents-v3/src/loop/chatCompletionsTransport.ts` | `deepseek-v4-flash` / `-pro` | Chat Completions, `max_tokens`, `tool_choice:"auto"` only, `reasoning_content` passed back, **no reasoning param** | **LIVE — deliberately retained fallback** |
 | Agent generation SQL defaults | `20260801120000_retire_deepseek_hotfix_default_luna.sql` | `gpt-5.6-luna` | `model_name` COALESCE + insert trigger remap | **LIVE — migrated** |
 | NL filter patch (`/historical-trends` natural language) | `supabase/functions/nl-filter-patch/index.ts` | `gpt-5.6-luna` | Chat Completions, **default effort (medium)**, `max_completion_tokens: 4000`, strict `json_schema`, **no `temperature`** | **LIVE — migrated** |
 | Page-level analysis / Value Finds | `supabase/functions/generate-page-level-analysis/index.ts` | `gpt-5.6-luna` | Chat Completions, default effort, strict `json_schema`, no max-tokens param, no `temperature` | **LIVE — migrated** |
@@ -293,8 +295,8 @@ Rules that fall out of this:
   (Contract lists this as *inferred*, so it is guarded by omission rather than assumed.)
 - `max_tokens` is rejected; use `max_completion_tokens` (Chat Completions) or
   `max_output_tokens` (Responses).
-- `reasoning_effort` is sent on **exactly one** surface (V3 generation). Everything else
-  takes the API default.
+- A reasoning effort is sent on **exactly one** surface (V3 generation, as
+  `reasoning.effort` on Responses). Everything else takes the API default.
 - The bare `gpt-5.6` alias routes to **Sol**, not Luna. Always pin the full id.
 
 ### Why the two web-search functions were NOT migrated (gated, 2026-08-01)
@@ -345,16 +347,28 @@ Four generations of the engine exist in the repo. Get this right before touching
   - `V3_REASONING_EFFORT` env var overrides the effort without a redeploy (valid:
     `none|low|medium|high|xhigh|max`). Luna's xhigh is reported to benchmark roughly
     flat vs `high` while costing materially more output tokens — an A/B is worth it.
-  - Effort is sent **only** when the model matches `/^(gpt-5|o\d)/`. DeepSeek rejects
-    unknown body keys, so it must never receive the param. Same regex picks
-    `max_completion_tokens` over the rejected legacy `max_tokens`.
-  - **UNVERIFIED, watch prod logs:** OpenAI's gpt-5.6 upgrade guide says function
-    tools on `/v1/chat/completions` are compatible only with effective reasoning
-    `none`, and this loop *is* tool-calling on Chat Completions. A 400 mentioning
-    "reasoning" downgrades the run to an explicit `"none"` and re-runs the turn
-    once rather than killing generation. Grep Trigger.dev logs for
-    `rejected reasoning_effort` — if it fires, the migration's quality goal is unmet
-    and the fix is porting the loop to `/v1/responses`.
+  - **The loop speaks two wires.** `resolveProvider()` (`src/loop/runV3Generation.ts`) is the
+    single routing decision: `deepseek*` → `/v1/chat/completions`, everything else →
+    `/v1/responses`. See `agents-v3/README.md` → "Transports" and
+    `.claude/docs/agents/18_GENERATION_V3_TRIGGERDEV.md`.
+  - **RESOLVED (2026-08-01): the "xhigh may be unreachable" concern was a Chat Completions
+    limitation, and the loop no longer uses that wire for OpenAI.** The gpt-5.6 upgrade guide
+    said function tools on `/v1/chat/completions` may only be compatible with effective
+    reasoning `none`; the port to `/v1/responses` was done for that reason **and** for
+    reasoning persistence across tool turns, which Chat Completions discards every turn.
+    The Chat transport keeps its "400 mentioning reasoning → downgrade to `none` and re-run
+    the turn once" guard, but only DeepSeek reaches that code now, and DeepSeek is never sent
+    a reasoning param.
+  - **`xhigh` on Luna is still unconfirmed against the live API, and there is deliberately no
+    code-side fallback on the Responses path** — a 400 there is a defect or an unsupported
+    enum and must surface rather than silently buy the port's benefit back out. If it fires,
+    every OpenAI run fails retryably until `V3_REASONING_EFFORT=high` is set (env var, no
+    redeploy).
+  - No reasoning param is ever sent to DeepSeek (it rejects unknown body keys), and DeepSeek
+    gets `max_tokens` while OpenAI gets `max_output_tokens`.
+  - **The whole Responses path is fixture-verified only — no request has ever been sent to
+    `api.openai.com` from this code.** One real dryRun generation is required before trusting
+    it; `agents-v3/README.md` → "First live run" lists exactly what to check.
 - **The 2026-07-25 DeepSeek-balance hotfix trigger is KEPT, retargeted at Luna.**
   `trg_hotfix_remap_deepseek_model_on_insert` on `agent_generation_runs` now rewrites
   NULL and `deepseek%` `model_name` to `gpt-5.6-luna` (was `gpt-4.1-mini`). It must not
@@ -368,8 +382,13 @@ Four generations of the engine exist in the repo. Get this right before touching
   `enqueue_weekly_parlay_run_v3_trigger` COALESCE defaults to `gpt-5.6-luna`. The
   older non-`_trigger` RPCs still default to `deepseek-v4-flash` and rely on the
   trigger for coverage.
-- The `deepseek-reasoner`/`-chat` aliases are retired. DeepSeek itself is still routable
-  (debug pickers, `deepseek-v4-flash` / `-pro`) — `resolveProvider` is untouched.
+- The `deepseek-reasoner`/`-chat` aliases are retired. **DeepSeek is deliberately retained**
+  as the fallback provider (a DeepSeek 402 caused the 2026-07-25 outage; removing the
+  fallback was explicitly out of scope) and is still routable via the debug pickers as
+  `deepseek-v4-flash` / `-pro`. It keeps its own transport on Chat Completions, so deleting
+  DeepSeek later means deleting `chatCompletionsTransport.ts` and one branch of
+  `resolveProvider` — nothing else. Note `src/summaries/runDailySummaries.ts` (the deprecated
+  widget-headline job) still has its own independent provider split that does not use the seam.
 - Legacy generation paths (V1, V2, the edge-V3 mirror) were annotated
   `DEPRECATED 2026-08-01` and left on their existing models. **Nothing was deleted and no
   cron expression was changed** — see the prod-verification items below.
@@ -413,22 +432,32 @@ state disagree.
    recent `agent_generation_runs`. Migration history says all of them are still active. No
    cron job, edge function, or DB object was deleted in this pass — deletion was explicitly
    out of scope.
-2. **Disable the `daily-widget-summaries` Trigger.dev schedule** in the Trigger.dev
+2. **Do one live `generate-v3-picks` run on the `/v1/responses` path.** The whole transport
+   port is fixture-verified only — no request has ever been sent to `api.openai.com` from
+   this code. Confirm, in order: the run returns 200 at all (a 400 is most likely `xhigh`
+   being unavailable on Luna → set `V3_REASONING_EFFORT=high`); the synthetic `slate_0` seed
+   turn is accepted (it names a tool absent from `tools[]`); `p_reasoning_trace` is non-empty
+   (the transport requests `reasoning.summary: "auto"` for exactly this); and the ledger shows
+   growing `input_tokens` with a non-zero `estimated_cost_usd`. A `succeeded` row with 0 picks
+   and $0 cost is the failure mode to hunt for. Details: `agents-v3/README.md` →
+   "First live run".
+3. **Disable the `daily-widget-summaries` Trigger.dev schedule** in the Trigger.dev
    dashboard. Its schedule is declared in code, so the deprecation header does not stop it
    from running daily against an output nothing reads.
-3. **Revoke / rotate `GOOGLE_AI_API_KEY` and delete `get-gemini-key`.** The function hands
+4. **Revoke / rotate `GOOGLE_AI_API_KEY` and delete `get-gemini-key`.** The function hands
    the raw key to any authenticated caller and its only consumer (Roast) was never built.
-4. **Hide the WagerBot chat and voice UI entry points** in the iOS and Android apps. The
+5. **Hide the WagerBot chat and voice UI entry points** in the iOS and Android apps. The
    backend is annotated deprecated but the native navigation still reaches it.
-5. **Watch the first V3 prod run** for `rejected reasoning_effort` in the Trigger.dev logs
-   (the Chat-Completions tools-plus-reasoning question), and for 400s on
-   `response_format`/`strict` from `nl-filter-patch` and `generate-page-level-analysis`.
-6. **A/B `xhigh` vs `high` on Luna** before leaving xhigh on — reported benchmarks are
+6. **Watch the first prod runs** for 400s on `response_format`/`strict` from
+   `nl-filter-patch` and `generate-page-level-analysis` (both still on Chat Completions).
+   The old `rejected reasoning_effort` watch item no longer applies to V3 generation — that
+   downgrade guard now only exists on the DeepSeek transport, which is never sent the param.
+7. **A/B `xhigh` vs `high` on Luna** before leaving xhigh on — reported benchmarks are
    roughly flat while output-token cost is materially higher. `V3_REASONING_EFFORT=high`
    flips it with no redeploy.
-7. **Unblock the two web-search functions** with the single throwaway `/v1/responses` +
+8. **Unblock the two web-search functions** with the single throwaway `/v1/responses` +
    `web_search` request described above.
-8. **Rewrite `agent-authorized-action-v1`'s `request_generation` branch** onto
+9. **Rewrite `agent-authorized-action-v1`'s `request_generation` branch** onto
    `enqueue_manual_generation_run_v3_trigger`. It is a live function whose generation branch
    still routes exclusively into deprecated engines.
 
@@ -526,10 +555,18 @@ any doc — read the migrations.
 
 ```bash
 npm run dev          # web app
-npm test             # vitest
-cd agents-v3 && npm run dev   # Trigger.dev worker (CLI bin is `trigger`, not `trigger.dev`)
+npm test             # vitest — covers BOTH src/**/*.test.ts and agents-v3/**/*.test.ts
+cd agents-v3 && npm run dev     # Trigger.dev worker (CLI bin is `trigger`, not `trigger.dev`)
+cd agents-v3 && npm run build   # tsc --noEmit for the worker (excludes **/*.test.ts)
 xcodegen generate    # after adding iOS files, from wagerproof-ios-native/
 ```
+
+`agents-v3` has **no vitest of its own by design** — the root config includes its tests so one
+`npm test` is the single gate, and `agents-v3/tsconfig.json` excludes `**/*.test.ts` because
+the worker has no `vitest` dependency to typecheck against. Synthetic SSE fixtures for the V3
+transport parsers live in `agents-v3/src/loop/__fixtures__/sseStream.ts`; see
+`agents-v3/README.md` → "Testing" for how to add a case. **Never call a live LLM API from a
+test.**
 
 ## Notes for Development
 

@@ -3,6 +3,64 @@ import WagerproofDesign
 import WagerproofModels
 import WagerproofStores
 
+private struct GamesPresentationKey: Equatable {
+    let revision: Int
+    let query: String
+    let sortMode: GamesStore.SortMode
+}
+
+/// Retains final date-section arrays across unrelated SwiftUI body
+/// reevaluations. GamesStore caches filtering/sorting; this layer also avoids
+/// reparsing dates and rebuilding buckets while the feed inputs are unchanged.
+@MainActor
+private final class GamesPresentationCache {
+    private var nfl: (key: GamesPresentationKey, sections: [GameDateGrouping.Section<NFLPrediction>])?
+    private var cfb: (key: GamesPresentationKey, sections: [GameDateGrouping.Section<CFBPrediction>])?
+    private var nba: (key: GamesPresentationKey, sections: [GameDateGrouping.Section<NBAGame>])?
+    private var ncaab: (key: GamesPresentationKey, sections: [GameDateGrouping.Section<NCAABGame>])?
+    private var mlb: (key: GamesPresentationKey, sections: [GameDateGrouping.Section<MLBGame>])?
+
+    func nflSections(key: GamesPresentationKey, build: () -> [GameDateGrouping.Section<NFLPrediction>])
+        -> [GameDateGrouping.Section<NFLPrediction>] {
+        if let nfl, nfl.key == key { return nfl.sections }
+        let sections = build()
+        nfl = (key, sections)
+        return sections
+    }
+
+    func cfbSections(key: GamesPresentationKey, build: () -> [GameDateGrouping.Section<CFBPrediction>])
+        -> [GameDateGrouping.Section<CFBPrediction>] {
+        if let cfb, cfb.key == key { return cfb.sections }
+        let sections = build()
+        cfb = (key, sections)
+        return sections
+    }
+
+    func nbaSections(key: GamesPresentationKey, build: () -> [GameDateGrouping.Section<NBAGame>])
+        -> [GameDateGrouping.Section<NBAGame>] {
+        if let nba, nba.key == key { return nba.sections }
+        let sections = build()
+        nba = (key, sections)
+        return sections
+    }
+
+    func ncaabSections(key: GamesPresentationKey, build: () -> [GameDateGrouping.Section<NCAABGame>])
+        -> [GameDateGrouping.Section<NCAABGame>] {
+        if let ncaab, ncaab.key == key { return ncaab.sections }
+        let sections = build()
+        ncaab = (key, sections)
+        return sections
+    }
+
+    func mlbSections(key: GamesPresentationKey, build: () -> [GameDateGrouping.Section<MLBGame>])
+        -> [GameDateGrouping.Section<MLBGame>] {
+        if let mlb, mlb.key == key { return mlb.sections }
+        let sections = build()
+        mlb = (key, sections)
+        return sections
+    }
+}
+
 /// Home Games tab. Ports `wagerproof-mobile/app/(drawer)/(tabs)/index.tsx`.
 ///
 /// Layout (per spec §8):
@@ -59,6 +117,7 @@ struct GamesView: View {
     /// Fallback for the screenshot harness, which renders GamesView without the
     /// tab shell.
     @State private var localConsensusStore = AgentConsensusStore()
+    @State private var presentationCache = GamesPresentationCache()
     private var consensusStore: AgentConsensusStore { injectedConsensusStore ?? localConsensusStore }
 
     // Shared namespace for the card→detail zoom transition. The source card
@@ -124,9 +183,6 @@ struct GamesView: View {
                     let request = consensusRequest
                     await consensusStore.load(sport: request.sport, dates: request.dates, force: true)
                 }
-                .task {
-                    await store.refreshAll()
-                }
                 // Consensus is fetched ONCE PER SLATE, never per card: the flag
                 // threshold scales with the whole day's pick volume, so it can
                 // only be computed from the full set of dates on the board.
@@ -159,24 +215,28 @@ struct GamesView: View {
                     nflSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "nfl-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(item: $cfbSheet.selectedGame) { game in
                 CFBGameCarousel(games: store.sortedCFB(), initialGame: game) {
                     cfbSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "cfb-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(item: $nbaSheet.selectedGame) { game in
                 NBAGameCarousel(games: store.sortedNBA(), initialGame: game) {
                     nbaSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "nba-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(item: $ncaabSheet.selectedGame) { game in
                 NCAABGameCarousel(games: store.sortedNCAAB(), initialGame: game) {
                     ncaabSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "ncaab-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             .navigationDestination(item: $mlbSheet.selectedGame) { game in
                 // MLB detail is a swipeable carousel of the sport's sorted slate,
@@ -190,6 +250,7 @@ struct GamesView: View {
                     mlbSheetStore.closeGameSheet()
                 }
                 .navigationTransition(.zoom(sourceID: "mlb-\(game.id)", in: cardTransition))
+                .onDisappear { ReviewPromptCoordinator.shared.recordResearchDetailViewed() }
             }
             // Settings pushes onto this stack (tapping the trailing gear) instead
             // of covering the screen as a modal — see MainTabToolbar.swift.
@@ -280,7 +341,7 @@ struct GamesView: View {
     /// WagerBotToolbarButton.
     @ToolbarContentBuilder
     private var mainToolbar: some ToolbarContent {
-        WagerProofLeadingToolbarItem()
+        WagerProofLeadingToolbarItem(isActive: tabStore.selected == .games)
         ToolbarItemGroup(placement: .topBarTrailing) {
             SettingsToolbarButton(tabStore: tabStore)
         }
@@ -535,6 +596,16 @@ struct GamesView: View {
         return ConsensusRequest(sport: sport, dates: GameConsensusKey.dates(raw))
     }
 
+    private func presentationKey(for sport: GamesStore.Sport) -> GamesPresentationKey {
+        GamesPresentationKey(
+            revision: store.presentationRevision(for: sport),
+            query: (store.searchTexts[sport] ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased(),
+            sortMode: store.sortModes[sport] ?? .time
+        )
+    }
+
     // MARK: - Per-sport date Sections
 
     @ViewBuilder
@@ -554,14 +625,16 @@ struct GamesView: View {
         if games.isEmpty {
             emptyTile(for: .nfl, systemImage: "football")
         } else {
-            let sections = GameDateGrouping.group(
-                games,
-                key: { GameDateGrouping.dateKey(from: $0.gameDate) },
-                label: { GameCardFormatting.formatCompactDate($0.gameDate) }
-            )
+            let sections = presentationCache.nflSections(key: presentationKey(for: .nfl)) {
+                GameDateGrouping.group(
+                    games,
+                    key: { GameDateGrouping.dateKey(from: $0.gameDate) },
+                    label: { GameCardFormatting.formatCompactDate($0.gameDate) }
+                )
+            }
             ForEach(sections, id: \.key) { section in
                 Section {
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                    ForEach(section.items) { game in
                         NFLGameCard(
                             game: game,
                             consensus: consensusStore.consensus(for: .nfl, gameId: GameConsensusKey.nfl(game))
@@ -570,7 +643,6 @@ struct GamesView: View {
                         }
                         .matchedTransitionSource(id: "nfl-\(game.id)", in: cardTransition)
                         .padding(.horizontal, 12)
-                        .staggeredAppear(index: index)
                     }
                 } header: {
                     sectionHeader(section.label)
@@ -585,14 +657,16 @@ struct GamesView: View {
         if games.isEmpty {
             emptyTile(for: .cfb, systemImage: "graduationcap")
         } else {
-            let sections = GameDateGrouping.group(
-                games,
-                key: { GameDateGrouping.dateKey(from: $0.gameDate) },
-                label: { GameCardFormatting.formatCompactDate($0.gameDate) }
-            )
+            let sections = presentationCache.cfbSections(key: presentationKey(for: .cfb)) {
+                GameDateGrouping.group(
+                    games,
+                    key: { GameDateGrouping.dateKey(from: $0.gameDate) },
+                    label: { GameCardFormatting.formatCompactDate($0.gameDate) }
+                )
+            }
             ForEach(sections, id: \.key) { section in
                 Section {
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                    ForEach(section.items) { game in
                         CFBGameCard(
                             game: game,
                             consensus: consensusStore.consensus(for: .cfb, gameId: GameConsensusKey.cfb(game))
@@ -601,7 +675,6 @@ struct GamesView: View {
                         }
                         .matchedTransitionSource(id: "cfb-\(game.id)", in: cardTransition)
                         .padding(.horizontal, 12)
-                        .staggeredAppear(index: index)
                     }
                 } header: {
                     sectionHeader(section.label)
@@ -616,14 +689,16 @@ struct GamesView: View {
         if games.isEmpty {
             emptyTile(for: .ncaab, systemImage: "basketball")
         } else {
-            let sections = GameDateGrouping.group(
-                games,
-                key: { GameDateGrouping.dateKey(from: $0.gameDate) },
-                label: { GameCardFormatting.formatCompactDate($0.gameDate) }
-            )
+            let sections = presentationCache.ncaabSections(key: presentationKey(for: .ncaab)) {
+                GameDateGrouping.group(
+                    games,
+                    key: { GameDateGrouping.dateKey(from: $0.gameDate) },
+                    label: { GameCardFormatting.formatCompactDate($0.gameDate) }
+                )
+            }
             ForEach(sections, id: \.key) { section in
                 Section {
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                    ForEach(section.items) { game in
                         NCAABGameCard(
                             game: game,
                             consensus: consensusStore.consensus(for: .ncaab, gameId: GameConsensusKey.ncaab(game))
@@ -632,7 +707,6 @@ struct GamesView: View {
                         }
                         .matchedTransitionSource(id: "ncaab-\(game.id)", in: cardTransition)
                         .padding(.horizontal, 12)
-                        .staggeredAppear(index: index)
                     }
                 } header: {
                     sectionHeader(section.label)
@@ -647,14 +721,16 @@ struct GamesView: View {
         if games.isEmpty {
             emptyTile(for: .mlb, systemImage: "baseball")
         } else {
-            let sections = GameDateGrouping.group(
-                games,
-                key: { GameDateGrouping.dateKey(from: $0.officialDate) },
-                label: { MLBFormatting.dateLabel($0.officialDate) }
-            )
+            let sections = presentationCache.mlbSections(key: presentationKey(for: .mlb)) {
+                GameDateGrouping.group(
+                    games,
+                    key: { GameDateGrouping.dateKey(from: $0.officialDate) },
+                    label: { MLBFormatting.dateLabel($0.officialDate) }
+                )
+            }
             ForEach(sections, id: \.key) { section in
                 Section {
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                    ForEach(section.items) { game in
                         MLBGameCard(
                             game: game,
                             consensus: consensusStore.consensus(for: .mlb, gameId: GameConsensusKey.mlb(game))
@@ -663,7 +739,6 @@ struct GamesView: View {
                         }
                         .matchedTransitionSource(id: "mlb-\(game.id)", in: cardTransition)
                         .padding(.horizontal, 12)
-                        .staggeredAppear(index: index)
                     }
                 } header: {
                     sectionHeader(section.label)
@@ -678,14 +753,16 @@ struct GamesView: View {
         if games.isEmpty {
             emptyTile(for: .nba, systemImage: "basketball")
         } else {
-            let sections = GameDateGrouping.group(
-                games,
-                key: { GameDateGrouping.dateKey(from: $0.gameDate) },
-                label: { GameCardFormatting.formatCompactDate($0.gameDate) }
-            )
+            let sections = presentationCache.nbaSections(key: presentationKey(for: .nba)) {
+                GameDateGrouping.group(
+                    games,
+                    key: { GameDateGrouping.dateKey(from: $0.gameDate) },
+                    label: { GameCardFormatting.formatCompactDate($0.gameDate) }
+                )
+            }
             ForEach(sections, id: \.key) { section in
                 Section {
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, game in
+                    ForEach(section.items) { game in
                         NBAGameCard(
                             game: game,
                             consensus: consensusStore.consensus(for: .nba, gameId: GameConsensusKey.nba(game))
@@ -694,7 +771,6 @@ struct GamesView: View {
                         }
                         .matchedTransitionSource(id: "nba-\(game.id)", in: cardTransition)
                         .padding(.horizontal, 12)
-                        .staggeredAppear(index: index)
                     }
                 } header: {
                     sectionHeader(section.label)

@@ -571,7 +571,11 @@ event/data pairs directly, but verify these semantics):
   - Messages with zero blocks are dropped.
 - The **edge function persists messages itself** — the client never writes chat_messages.
 
-### WagerBotModelSelection.swift
+### WagerBotModelSelection.swift — DEPRECATED 2026-08-01
+- WagerBot chat is retired (see `.claude/docs/02_chat_wagerbot.md`). Both the Swift and Kotlin
+  `WagerBotModelSelection` files carry a `DEPRECATED 2026-08-01` header and are frozen on
+  their current models — they were deliberately excluded from the `gpt-5.6-luna` migration.
+  The UI entry point is still present; hiding it is outstanding owner work.
 - DEBUG-only chat model picker persisted in App Group defaults key `wagerbot_chat_model_debug`.
   Options: default (nil model → `wagerbot-chat`), `gpt-4o` / `deepseek-v4-flash` / `deepseek-v4-pro`
   (→ `wagerbot-agent` with `model` set). Stale stored id falls back to default. RELEASE builds always

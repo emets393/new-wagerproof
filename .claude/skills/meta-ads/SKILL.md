@@ -41,10 +41,12 @@ node client/meta.mjs check
 ```
 node client/meta.mjs check                                   # verify token, account, page, configured apps
 node client/meta.mjs upload <file>                           # upload one image/video
-node client/meta.mjs bootstrap --platform ios|android [--budget <usd>] [--name "<adset>"] [--active]
-node client/meta.mjs build <dir> --platform ios|android [--adset <id>] [--budget <usd>] [--active]
+node client/meta.mjs bootstrap --platform ios|android [--optimize purchase] [--cbo] [--budget <usd>] [--name "<adset>"] [--active]
+node client/meta.mjs build <dir> --platform ios|android [--optimize purchase] [--adset <id>] [--budget <usd>] [--active]
+node client/meta.mjs clone <adId> [more...] --to <adsetId> [--active]   # reuse a proven creative (keeps its social proof)
 node client/meta.mjs list [ads]
-node client/meta.mjs report [days]
+node client/meta.mjs report [days]                            # legacy summary — CANNOT see subscribes
+node client/meta.mjs view [funnel|creative|money|all] [days] [--level ad|adset|campaign] [--campaign <id>] [--since <d>] [--until <d>]
 node client/meta.mjs activate <adId> [more...]
 node client/meta.mjs pause <adId> [more...]
 node client/meta.mjs rename <id> "<new name>"
@@ -55,12 +57,60 @@ node client/meta.mjs rename <id> "<new name>"
 2. Drop creative files (`.mp4/.mov` or `.png/.jpg`) in one folder.
 3. `node client/meta.mjs build <folder> --platform ios` — creates a campaign + ad set (or `--adset <id>` to add to an existing one), one ad per file, **PAUSED** by default. Run again with `--platform android` for Android. Ad names: `Concept_<PLAT>_MMDD`.
 4. Review previews, then `node client/meta.mjs activate <adId> ...` (or `build ... --active`).
-5. `node client/meta.mjs report 3` for spend/CPI.
+5. `node client/meta.mjs view funnel 3 --level campaign` for the funnel.
+
+## Reading performance — use `view`, never `report`
+`report` reads only the `actions` insight field. **App subscribes are not in `actions`** —
+they are in the separate `conversions` field as `subscribe_mobile_app`. So `report` shows 0
+subscribes forever, no matter how well a subscribe campaign is doing.
+
+`view` has four column presets (defaults: `funnel`, 7d, `--level ad`):
+- **`funnel`** — spend, imp, CPM, CTR, visits, vis→ins, inst, CPI, reg, sub, CPS, ins→sub.
+  The right default when campaigns run different optimization goals; only the step-by-step
+  drop-off compares them fairly.
+- **`creative`** — adds plays / hold / p100 / CPC for ranking creatives.
+- **`money`** — cost per outcome and payback (CPI, CPR, CPS, ROAS).
+- **`all`** — everything.
+
+`sub` and `pur` are separate columns on purpose: `fb_mobile_purchase` is the pre-2026-04
+RevenueCat event, `subscribe_mobile_app` the current one; summing them double-counts any
+window spanning the cutover. `plays` is `video_play_actions` (starts, not 3-second views —
+Meta retired that metric); don't relabel it as a hook rate. Adding a column: extend `METRIC`
++ `VIEWS` in `client/meta.mjs`, and add any `[{action_type, value}]` field to `ARRAY_FIELDS`
+or the TOTAL row silently zeroes.
+
+## Downfunnel (purchase/subscribe) — re-probe, don't assume
+App-event optimization was blocked account-wide as of 2026-07-31 (Meta rejected every event:
+"not actively logged by your app" / "set up app events in Events Manager first"). **That
+block has since lifted for SUBSCRIBE** — as of 2026-08-02 the pixel has 26 Subscribe events
+since Jul 6 (server-side from RevenueCat) and Meta offers it in the picker. Live campaign:
+`iOS | Scale | AppPromo | Subscribe` (`120252435988190666`). `--optimize purchase` may still
+fail. **Re-probe before promising anything — don't assume broken, don't assume working.**
+
+**CORRECTED 2026-08-02:** this doc previously said app SUBSCRIBE "is never sent" and cited
+$9,534 → $153 (0.02 ROAS). That was a misread of `actions` on a campaign reporting into
+`conversions`. Read correctly, `iOS App Promotion Testing - Copy` produced **107
+`subscribe_mobile_app` at $89.11 CPA**, not 5 purchases. Do not repeat the old claim.
+
+Real constraint on subscribe ad sets: exiting learning needs 50 conversions/7 days, which at
+$150/day implies a ~$21 CPA this account has never hit. Expect Learning Limited indefinitely;
+budget it as an experiment with a kill number rather than as the main spend line.
+
+**Subscribe DOES work on `--platform web`.** Pixel `1731090704521232` actively logs Subscribe
+(~3/week), so an `OUTCOME_SALES` web campaign converting at wagerproof.bet is creatable today —
+it bills through RevenueCat Web, not Apple, and is a different funnel from app installs.
+Live example: campaign `120252389505260666` "WEB | Scale | Subscribe | iOS Audience" (PAUSED,
+$60/day), built with `remix 120252212377320666 --platform web --optimize subscribe --force`.
 
 ## Conventions
-- Objective `OUTCOME_APP_PROMOTION`, optimization `APP_INSTALLS`, CTA `INSTALL_MOBILE_APP`, ABO (budget on ad set). Editable in `config.json`.
+- Objective `OUTCOME_APP_PROMOTION`, CTA `INSTALL_MOBILE_APP`. `--optimize installs|purchase|registration`
+  chooses the goal (`installs` default = `APP_INSTALLS`; the others are AEO —
+  `OFFSITE_CONVERSIONS` + `custom_event_type` + a 7-day click window). ABO by default, `--cbo` for
+  campaign budget. Editable in `config.json`.
+- Best-performing setup on record: `--optimize purchase --cbo --budget 150`, creative
+  `facebookforsportbetting.mp4` (ad `120244159968280666`) — $46 purchase CPA, 1.46 ROAS.
 - Per-platform: iOS sets `is_skadnetwork_attribution` (required for iOS14+); Android does not. Store URL / app id / OS come from `config.app[platform]`.
-- Naming: campaign `{PLAT} | Scale | AppPromo | Main`, ads `Concept_<iOS|AND>_MMDD`.
+- Naming: campaign `{PLAT} | Scale | AppPromo | {OPT}` (OPT = Installs/Purchase/Reg), ads `Concept_<iOS|AND>_MMDD`.
 - Node 18+ (global fetch/FormData/Blob), no `npm install`. Video thumbnails auto-pulled from Meta after transcoding.
 - Instagram placements are on: `instagramActorId` is set in `config.json` and `instagram` is in
   `defaults.publisherPlatforms`. Note Meta's Advantage+ placements may auto-expand an ad set beyond

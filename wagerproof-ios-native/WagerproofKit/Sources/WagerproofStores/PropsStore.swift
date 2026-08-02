@@ -66,19 +66,35 @@ public final class PropsStore {
     // ever reassigned — so a refresh can never leave a stale summary behind.
     @ObservationIgnored private var matchupIndex: [Int: MLBPropMatchup] = [:]
     @ObservationIgnored private var insightSummaryCache: [Int: PropsInsightSummary?] = [:]
+    @ObservationIgnored private var sortedMatchupsCache: [MLBPropMatchup] = []
+    /// Process-unique namespace for app-target static feed caches. Preview and
+    /// screenshot stores can share the same integer version while containing
+    /// different fixtures, so version alone is not a safe global cache key.
+    @ObservationIgnored public let feedCacheID = UUID()
     /// Bumped on every MLB slate reassignment. Exposed so derived caches that
     /// CANNOT live in this module — `PlayerPropFeed` items are an app-target
     /// type, WagerproofKit can't name them — can key off the same invalidation
     /// point instead of inventing their own staleness rule.
     @ObservationIgnored public private(set) var matchupsVersion: Int = 0
+    /// Same invalidation contract for the app-target NFL feed cache.
+    @ObservationIgnored public private(set) var nflPlayersVersion: Int = 0
 
     /// The only place `matchups` is assigned. Rebuilds the per-game index and
     /// drops every derived cache so nothing can outlive the data it came from.
     private func setMatchups(_ new: [MLBPropMatchup]) {
         matchups = new
         matchupIndex = Dictionary(new.map { ($0.gamePk, $0) }, uniquingKeysWith: { first, _ in first })
+        sortedMatchupsCache = new.sorted { a, b in
+            if a.officialDate != b.officialDate { return a.officialDate < b.officialDate }
+            return (a.gameTimeEt ?? "") < (b.gameTimeEt ?? "")
+        }
         insightSummaryCache.removeAll()
         matchupsVersion &+= 1
+    }
+
+    private func setNFLPlayers(_ new: [NFLPropPlayer]) {
+        nflPlayers = new
+        nflPlayersVersion &+= 1
     }
 
     /// 5-minute cache TTL — matches the games feed.
@@ -160,7 +176,7 @@ public final class PropsStore {
         }
         if nflPlayers.isEmpty { loadState[.nfl] = .loading }
         do {
-            nflPlayers = try await nflService.fetchPlayers()
+            setNFLPlayers(try await nflService.fetchPlayers())
             lastFetched[.nfl] = Date()
             loadState[.nfl] = .loaded
         } catch {
@@ -177,10 +193,7 @@ public final class PropsStore {
     /// Matchups ordered by game time (the service already orders by date then
     /// time; this keeps a stable secondary sort if the API order drifts).
     public func sortedMatchups() -> [MLBPropMatchup] {
-        matchups.sorted { a, b in
-            if a.officialDate != b.officialDate { return a.officialDate < b.officialDate }
-            return (a.gameTimeEt ?? "") < (b.gameTimeEt ?? "")
-        }
+        sortedMatchupsCache
     }
 
     // MARK: - Fetch
@@ -206,7 +219,7 @@ public final class PropsStore {
             case .mlb:
                 setMatchups(try await service.fetchMatchups())
             case .nfl:
-                nflPlayers = try await nflService.fetchPlayers()
+                setNFLPlayers(try await nflService.fetchPlayers())
             default:
                 return
             }
@@ -234,7 +247,7 @@ public final class PropsStore {
     }
 
     public func debugSet(nflPlayers: [NFLPropPlayer]) {
-        self.nflPlayers = nflPlayers
+        setNFLPlayers(nflPlayers)
         self.loadState[.nfl] = .loaded
         self.lastFetched[.nfl] = Date()
     }
