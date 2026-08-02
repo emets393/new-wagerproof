@@ -157,11 +157,76 @@ bigger line is priced closest to even.
 Rebounds and assists are the genuinely independent additions — they agree with points only 70–81%
 of the time.
 
-## 7. STILL OPEN
+## 7. CORRECTION TO §1 — the toll is only half of it, and the smaller half
+
+§1 said ROI is governed by line scale because the price on a small line demands a huge win rate.
+`nba_props_lines.py` re-asked that INSIDE single markets, where the stat, the players and the model
+are held fixed and only the line moves. It came back with a sharper answer, and §1 was overstated.
+
+Per point of line, at best price, top 100%:
+
+| market | need range | need slope | gap slope |
+|---|---|---|---|
+| threes | 57.8 → 54.7 | **−0.92** | +0.70 |
+| assists | 60.5 → 53.5 | **−0.54** | +0.32 |
+| rebounds | 55.4 → 53.2 | −0.17 | +0.47 |
+| points | 53.4 → 52.9 | **+0.01** | +0.40 |
+| PRA | 53.6 → 53.2 | **−0.00** | +0.36 |
+
+**The pricing effect is real but local.** The breakeven collapses along the threes and assists
+ladders — exactly as §1 predicted — but it is FLAT inside points and PRA, which are quoted at
+~53.2 whether the line is 3.5 or 28.5. The toll bottoms out around a line of 4–5 and after that
+stops being the story.
+
+**The accuracy effect is universal, and it is the bigger one.** `gap` (= win − need) rises with
+the line in every market including the two where the price never moves. So the general law is not
+"big lines are cheaper" — on points they demonstrably are not. It is **the model's edge over the
+book grows with the size of the line.**
+
+### The rule this produces
+
+Take every row in the bucket on the model's side, **no edge filter at all**:
+
+| rule | n | win% | need | ROI | 23-24 | 24-25 | 25-26 |
+|---|---|---|---|---|---|---|---|
+| points, line ≥ 21.5 | 6,394 | 58.20 | 53.23 | **+9.24** | +9.8 | +9.7 | +8.5 |
+| PRA, line ≥ 30.5 | 8,330 | 58.73 | 53.40 | **+9.90** | +8.0 | +10.5 | +10.3 |
+
+Stack the top-25% edge filter on top and points goes to **+20.69** (n=1,599, +17.0/+23.0/+20.6),
+PRA to **+22.07** (n=2,083, +21.1/+24.0/+20.1).
+
+Four reasons to believe it beyond the headline:
+
+1. **It is a slope, not a cliff.** Points climbs +4.08 → +4.88 → +5.57 → +6.61 → +8.34 → +9.24 →
+   +9.57 across cuts from 12.5 to 22.5; PRA climbs +7.10 → +11.78 from 22.5 to 34.5. No single
+   magic threshold, which is what an argmax would look like.
+2. **Both sides clear their OWN unconditional rate**, so this is not the blind under wearing a hat.
+   Points ≥21.5: over +6.09 vs a −7.04 blind over (**+13.14**); under +11.42 vs a +2.47 blind under
+   (**+8.96**). PRA: **+13.78** and **+10.01**.
+3. **It is not six superstars.** Points ≥21.5 is 122 distinct players, top-10 are 29.5% of the
+   bets, dropping the single best player moves it +9.24 → +8.70, and 75% of players with 20+ bets
+   are individually profitable. PRA: 157 players, 23.6%, +9.90 → +9.52, 85%.
+4. Every cut in both sweeps is positive in all three seasons.
+
+### What this does NOT rescue
+
+- **`player_threes` stays unresolved.** The ladder shape is textbook (need 57.8 → 54.7, ROI −1.97 →
+  −0.16 → +3.27 at lines 1.5 / 2.5 / 3.5) but the ≥3.5 bucket is 6.5% of the market, 91 players
+  with the top 10 taking 47% of the bets, and the seasons DECAY at top 100%: +11.4 / +2.1 / +0.1.
+  At top 25% they run the other way (+5.8 / +10.9 / +22.0) on n=628. Two cuts of the same bucket
+  disagreeing about the direction of time is what n=2,500 looks like. Do not bet it on this.
+- **`player_rebounds` ≥9.5 is not the same animal** — 2023-24 is negative (−1.69 / +5.33 / +2.70)
+  and top-10 players are 46% of it. The rebounds edge in §1 is real; this slice of it is not extra.
+- **The cut was found by looking.** 26 line buckets × 4 selectivities × 5 markets is a lot of cells.
+  The defence is the shape — same sign in all eight ladders, smooth in the sweep, tight across
+  seasons — not any one number. It still deserves a live season before it is trusted.
+
+## 8. STILL OPEN
 
 1. **No feature pruning has been done.** 1,396 features against ~50k rows per market is exactly the
    over-parameterisation [[feature-pruning-drop-one-vs-solo]] rule 9 describes. Run the family
    drop-one, apply the rule-9-bis aggregate gate per market.
+   **Do this on the high-line slice too — §7 is where the money is and it has never been pruned.**
 2. **No half-life sweep.** The team models needed 120–365d and the answer differed per market;
    props are fit on flat weights.
 3. **The positional-defence block is a keep, but it is not what carries this.** Ablated on the two
@@ -193,5 +258,6 @@ of the time.
 | `nba_props_originator.py` | the model; `--features all\|panel\|noposdef\|ctxonly` |
 | `nba_props_report.py` | writes `NBA_PROPS_ORIGINATOR_BRIEF.md` |
 | `nba_props_confluence.py` | writes `NBA_PROPS_CONFLUENCE.md` |
+| `nba_props_lines.py` | line-ladder + high-line rule; writes `NBA_PROPS_LINE_LADDER.md` |
 | `nba_props_model.py` | **superseded** — the residual classifier |
 | `NBA_PROPS_MODEL_BRIEF.md` | **superseded** — its conclusion is retracted by §5 |
