@@ -1,5 +1,15 @@
 # NBA player props — model vs the market's own shade
 
+> **SUPERSEDED 2026-08-02. The conclusion drawn from this page — that there is no edge in NBA
+> player props — is RETRACTED.** The model graded here classified the sign of the residual on a
+> panel whose 45 opponent-side columns were all injury counts, so it never saw opponent quality of
+> any kind. Rebuilt as a raw-quantity originator with that context attached, it returns +7.09 on
+> points and +11.25 on PRA, 3/3 seasons. See `NBA_PROPS_VERDICT.md`.
+>
+> Two things on this page are still right and were carried forward: grading at both the consensus
+> and the best available price, and always showing the blind under. One thing is wrong — the blind
+> under is DEGENERATE on the rows where the model itself picks under. Kept for the record.
+
 473,596 props (5+ prior games), seasons ['2023-24', '2024-25', '2025-26']. Rolling origin, refit every 2 months, 3 boosters, per market.
 
 **Every model cut is shown against BLIND UNDER on the identical rows.** The prop market has a standing over-shade, so beating 50% proves nothing; only the delta vs blind under is the model's contribution.
