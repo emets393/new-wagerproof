@@ -52,11 +52,18 @@ def load():
     # -110 and +105 lands nowhere sensible. Same rule as the NBA files.
     files = sorted(glob.glob(f"{OUT}/h1tt_ncaab_*.parquet"))
     h = pd.concat([pd.read_parquet(p) for p in files], ignore_index=True)
-    for c in ("h1_spread_home_price", "h1_spread_away_price", "h1_total_over_price",
+    for c in ("h1_ml_home_price", "h1_ml_away_price",
+              "h1_spread_home_price", "h1_spread_away_price", "h1_total_over_price",
               "h1_total_under_price", "tt_home_over_price", "tt_home_under_price",
               "tt_away_over_price", "tt_away_under_price"):
         h[c] = to_dec(h[c])
     cons = h.groupby("event_id").agg(
+        # The first-half MONEYLINE is carried here but deliberately left out of MARKETS: adding a
+        # ninth entry would silently change the output of every study that iterates the dict.
+        # 82% covered on three seasons, and it is a market the NBA cannot grade at all -- there is
+        # no NBA 1H moneyline in the odds archive. `cbb_panel.py` grades it.
+        h1_ml_h=("h1_ml_home_price", "median"),
+        h1_ml_a=("h1_ml_away_price", "median"),
         h1_spread=("h1_spread_home_point", "median"),
         h1_sp_h=("h1_spread_home_price", "median"),
         h1_sp_a=("h1_spread_away_price", "median"),
