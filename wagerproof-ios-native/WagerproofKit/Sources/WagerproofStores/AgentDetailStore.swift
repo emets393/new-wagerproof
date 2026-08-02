@@ -142,14 +142,51 @@ public final class AgentDetailStore {
         return items.sorted { $0.createdAt > $1.createdAt }
     }
 
-    /// EVERY active bet item — today's picks, today's parlays, AND week-long
-    /// parlays — interleaved newest-first. Week-long tickets are no longer broken
-    /// out into their own section; they live in the single unified picks rail.
+    /// Bets that haven't played yet and play LATER than today — the "Coming Up"
+    /// rail. Football preseason makes this the majority of a run's output: a
+    /// generation on Aug 2 routinely produces games that play in September.
+    ///
+    /// Sourced from `performancePicks` (the full read, no date filter) rather
+    /// than the snapshot, which only ever carries today's slate.
+    public var upcomingBetItems: [AgentBetItem] {
+        let todayStr = Self.localDateString(Date())
+        let picks = performancePicks
+            .filter { $0.gameDate > todayStr && $0.result == .pending && !isDeleted(pickId: $0.id) }
+            .map(AgentBetItem.pick)
+        let parlays = performanceParlays
+            .filter { $0.playsOn > todayStr && $0.result == .pending && !isDeleted(parlayId: $0.id) }
+            .map(AgentBetItem.parlay)
+        // Soonest first — these span weeks, so play date beats created_at here.
+        return (picks + parlays).sorted {
+            $0.playsOn == $1.playsOn ? $0.createdAt > $1.createdAt : $0.playsOn < $1.playsOn
+        }
+    }
+
+    /// The subset of `activeBetItems` that actually plays TODAY. A week-long
+    /// ticket whose first leg is still weeks out belongs in `upcomingBetItems`,
+    /// not here, even though it was generated today.
+    public var todayBetItems: [AgentBetItem] {
+        let todayStr = Self.localDateString(Date())
+        return activeBetItems.filter { $0.playsOn == todayStr }
+    }
+
+    /// EVERY active bet item — today's picks, today's parlays, week-long
+    /// parlays, AND anything upcoming — interleaved newest-first. The rails
+    /// render `todayBetItems` / `upcomingBetItems`, but the focus pager, the
+    /// unread cinematic, and the seen-receipt all page over this full set, so a
+    /// just-generated September ticket still counts as unread.
     public var activeBetItems: [AgentBetItem] {
         let items = todaysPicks.map(AgentBetItem.pick)
             + todaysParlays.map(AgentBetItem.parlay)
             + weeklyParlays.map(AgentBetItem.parlay)
-        return items.sorted { $0.createdAt > $1.createdAt }
+            + upcomingBetItems
+        // A week-long ticket with future legs is in BOTH weeklyParlays and
+        // upcomingBetItems — without this it renders twice and the focus pager
+        // shows a duplicate page.
+        var seen = Set<String>()
+        return items
+            .filter { seen.insert($0.id).inserted }
+            .sorted { $0.createdAt > $1.createdAt }
     }
 
     private func isDeleted(pickId: String) -> Bool {

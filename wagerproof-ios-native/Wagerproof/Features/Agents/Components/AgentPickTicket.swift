@@ -622,6 +622,14 @@ enum PickTicketFormat {
         return out.string(from: date)
     }
 
+    /// When a ticket plays, as a range across its legs ("Sep 5, 2026 – Sep 13, 2026").
+    /// Keyed off leg dates, NOT `target_date` — see `AgentParlay.playsOn`.
+    static func playRange(_ parlay: AgentParlay) -> String {
+        let first = parlay.playsOn
+        guard let last = parlay.lastLegDate, last != first else { return gameDate(first) }
+        return "\(gameDate(first)) – \(gameDate(last))"
+    }
+
     /// Short market label for a stamp ("Spread", "Total", "ML", …).
     static func market(_ pick: AgentPick) -> String {
         let bt = pick.betType.lowercased()

@@ -22,6 +22,8 @@ struct AgentPickMiniTicket: View {
     let pick: AgentPick
     /// Agent brand tint — drives the units stamp + the pending confidence gauge.
     var accent: Color = .appPrimary
+    /// Show the game date instead of the confidence gauge (Coming Up rail).
+    var showDate: Bool = false
 
     // FIXED geometry so the perforation notch always lands on the tear line and
     // every ticket in the rail is uniform. Mirrors the full ticket's ratios.
@@ -91,7 +93,15 @@ struct AgentPickMiniTicket: View {
     /// the compact WIN / LOSS / PUSH stamp, matching the full ticket's badge.
     @ViewBuilder
     private var statusCorner: some View {
-        if pick.result == .pending {
+        if pick.result == .pending && showDate {
+            HStack(spacing: 3) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 9, weight: .bold))
+                Text(PickTicketFormat.gameDate(pick.gameDate))
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .foregroundStyle(accent)
+        } else if pick.result == .pending {
             HStack(spacing: 3) {
                 Image(systemName: "gauge.medium")
                     .font(.system(size: 9, weight: .bold))
@@ -218,17 +228,22 @@ struct AgentTodaysPicksRail: View {
     /// Picks + parlay tickets interleaved (newest first).
     let items: [AgentBetItem]
     var accent: Color = .appPrimary
+    /// Coming Up rail: print each ticket's game date in place of the confidence
+    /// gauge — "plays Sep 13" is the one thing the card can't otherwise convey.
+    var showDates: Bool = false
     var onTapPick: (AgentPick) -> Void
     var onTapParlay: (AgentParlay) -> Void
 
     init(
         items: [AgentBetItem],
         accent: Color = .appPrimary,
+        showDates: Bool = false,
         onTapPick: @escaping (AgentPick) -> Void,
         onTapParlay: @escaping (AgentParlay) -> Void = { _ in }
     ) {
         self.items = items
         self.accent = accent
+        self.showDates = showDates
         self.onTapPick = onTapPick
         self.onTapParlay = onTapParlay
     }
@@ -250,10 +265,10 @@ struct AgentTodaysPicksRail: View {
                     Group {
                         switch item {
                         case .pick(let pick):
-                            AgentPickMiniTicket(pick: pick, accent: accent)
+                            AgentPickMiniTicket(pick: pick, accent: accent, showDate: showDates)
                                 .onTapGesture { onTapPick(pick) }
                         case .parlay(let parlay):
-                            AgentParlayMiniTicket(parlay: parlay, accent: accent)
+                            AgentParlayMiniTicket(parlay: parlay, accent: accent, showDate: showDates)
                                 .onTapGesture { onTapParlay(parlay) }
                         }
                     }

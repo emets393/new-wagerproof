@@ -137,6 +137,7 @@ struct AgentDetailView: View {
         // Guarded so the initial load stays owned by the .task below. Also
         // resumes an in-flight generation run surfaced by the fresh snapshot.
         .onAppear {
+            ReviewPromptCoordinator.shared.recordAgentDetailViewed(agentID: agentId)
             guard store.snapshot != nil else { return }
             Task {
                 await store.refreshSnapshot()
@@ -212,7 +213,7 @@ struct AgentDetailView: View {
                     printIntro: focusPrintIntro,
                     onAudit: { pick in auditStore.present(pick: pick) },
                     onDelete: isOwnAgent ? { item in pendingDeleteItem = item } : nil,
-                    onClose: { focusStartIndex = nil }
+                    onClose: finishFocusPresentation
                 )
                 .interactiveDismissDisabled()
                 .sheet(isPresented: $auditStore.isPresented) {
@@ -358,30 +359,57 @@ struct AgentDetailView: View {
     /// plus the small regenerate / autopilot footer.
     private var picksRail: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AgentTodaysPicksRail(
-                items: store.activeBetItems,
-                accent: agentTint,
-                onTapPick: { pick in
-                    // Tap → large card into focus (print/page presentation). Audit is
-                    // reachable from the focused card's "View data audit" button.
-                    if let idx = store.activeBetItems.firstIndex(where: { $0.id == AgentBetItem.pick(pick).id }) {
-                        focusPrintIntro = false
-                        focusSource = .daily
-                        focusStartIndex = idx
+            if !store.todayBetItems.isEmpty {
+                AgentTodaysPicksRail(
+                    items: store.todayBetItems,
+                    accent: agentTint,
+                    onTapPick: focusPick,
+                    onTapParlay: focusParlay
+                )
+                .padding(.horizontal, -WidgetCard.hInset)
+            }
+            // Second rail for bets whose games haven't played yet. Preseason
+            // football puts most of a run's output here, so without it the
+            // agent looks like it produced far less than it did.
+            if !store.upcomingBetItems.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "calendar.badge.clock")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Coming Up")
+                            .font(.system(size: 13, weight: .heavy))
                     }
-                },
-                onTapParlay: { parlay in
-                    // Parlays (daily AND week-long) ride the same focus pager as picks.
-                    if let idx = store.activeBetItems.firstIndex(where: { $0.id == AgentBetItem.parlay(parlay).id }) {
-                        focusPrintIntro = false
-                        focusSource = .daily
-                        focusStartIndex = idx
-                    }
+                    .foregroundStyle(Color.appTextSecondary)
+                    AgentTodaysPicksRail(
+                        items: store.upcomingBetItems,
+                        accent: agentTint,
+                        showDates: true,
+                        onTapPick: focusPick,
+                        onTapParlay: focusParlay
+                    )
+                    .padding(.horizontal, -WidgetCard.hInset)
                 }
-            )
-            .padding(.horizontal, -WidgetCard.hInset)
+            }
             generateFooter
         }
+    }
+
+    /// Tap → large card into focus (print/page presentation). Audit is reachable
+    /// from the focused card's "View data audit" button. Both rails index into
+    /// the SAME `activeBetItems` set, so the pager spans today + upcoming.
+    private func focusPick(_ pick: AgentPick) {
+        guard let idx = store.activeBetItems.firstIndex(where: { $0.id == AgentBetItem.pick(pick).id }) else { return }
+        focusPrintIntro = false
+        focusSource = .daily
+        focusStartIndex = idx
+    }
+
+    /// Parlays (daily AND week-long) ride the same focus pager as picks.
+    private func focusParlay(_ parlay: AgentParlay) {
+        guard let idx = store.activeBetItems.firstIndex(where: { $0.id == AgentBetItem.parlay(parlay).id }) else { return }
+        focusPrintIntro = false
+        focusSource = .daily
+        focusStartIndex = idx
     }
 
     /// Idle / generating state: one persistent card for BOTH the idle "control
@@ -576,11 +604,22 @@ struct AgentDetailView: View {
             get: { focusStartIndex != nil },
             set: { isPresented in
                 if !isPresented {
-                    focusStartIndex = nil
-                    focusPrintIntro = false
+                    finishFocusPresentation()
                 }
             }
         )
+    }
+
+    /// Only the fresh printer reveal counts as completed value. Tapping an old
+    /// ticket later opens the same focus UI with `focusPrintIntro == false` and
+    /// must not inflate review eligibility.
+    private func finishFocusPresentation() {
+        let viewedFreshGeneration = focusPrintIntro && !focusItems.isEmpty
+        focusStartIndex = nil
+        focusPrintIntro = false
+        if viewedFreshGeneration {
+            ReviewPromptCoordinator.shared.recordGeneratedPicksViewed()
+        }
     }
 
     private func runGeneration() async {

@@ -330,6 +330,21 @@ public extension AgentParlay {
         return earliestLegDate ?? ""
     }
 
+    /// When the ticket actually PLAYS — the earliest leg, NOT `target_date`.
+    ///
+    /// The two are normally a day apart, but a football-preseason run on Aug 2
+    /// can hold legs that play Sep 13. `target_date` is when the agent made the
+    /// ticket, so labeling with it renders a September game as "Tomorrow" and
+    /// files it under today's rail. Use this for anything user-facing.
+    var playsOn: String {
+        earliestLegDate ?? targetDate
+    }
+
+    /// Latest leg date — pairs with `playsOn` for a multi-day ticket's range.
+    var lastLegDate: String? {
+        legs.map(\.gameDate).filter { !$0.isEmpty }.max()
+    }
+
     static func decodeLossyArray(from data: Data) -> [AgentParlay] {
         guard let raw = try? JSONSerialization.jsonObject(with: data) else { return [] }
         guard let rows = raw as? [Any] else { return [] }

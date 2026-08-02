@@ -24,6 +24,16 @@ public enum AgentBetItem: Identifiable, Hashable, Sendable {
         }
     }
 
+    /// When the bet PLAYS — what the Today / Coming Up rails split on. Differs
+    /// from `gameDate` for parlays, which bucket by their run date (see
+    /// `AgentParlay.playsOn`).
+    public var playsOn: String {
+        switch self {
+        case .pick(let p): return p.gameDate
+        case .parlay(let p): return p.playsOn
+        }
+    }
+
     public var createdAt: String {
         switch self {
         case .pick(let p): return p.createdAt

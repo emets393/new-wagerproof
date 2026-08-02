@@ -137,7 +137,7 @@ struct AgentParlayTicket: View {
     private var topSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(PickTicketFormat.gameDate(parlay.displayDate))
+                Text(PickTicketFormat.playRange(parlay))
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Color.appTextPrimary.opacity(0.85))
                 parlayBadge
@@ -300,7 +300,7 @@ struct ExpandedAgentParlayTicket: View {
     private var topSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                Text(PickTicketFormat.gameDate(parlay.displayDate))
+                Text(PickTicketFormat.playRange(parlay))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.appTextPrimary.opacity(0.9))
                     .padding(.horizontal, 12)
@@ -480,6 +480,8 @@ struct ExpandedAgentParlayTicket: View {
 struct AgentParlayMiniTicket: View {
     let parlay: AgentParlay
     var accent: Color = .appPrimary
+    /// Show when the ticket plays instead of the confidence gauge (Coming Up rail).
+    var showDate: Bool = false
 
     private var status: PickTicketStatus { parlay.ticketStatus }
     private var shownLegs: [AgentParlayLeg] { Array(parlay.legs.prefix(4)) }
@@ -546,7 +548,15 @@ struct AgentParlayMiniTicket: View {
 
     @ViewBuilder
     private var statusCorner: some View {
-        if parlay.result == .pending {
+        if parlay.result == .pending && showDate {
+            HStack(spacing: 3) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 9, weight: .bold))
+                Text(PickTicketFormat.gameDate(parlay.playsOn))
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .foregroundStyle(accent)
+        } else if parlay.result == .pending {
             HStack(spacing: 3) {
                 Image(systemName: "gauge.medium")
                     .font(.system(size: 9, weight: .bold))

@@ -1,11 +1,12 @@
 import * as React from 'react';
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, History, Lock, Search, Target, Trophy } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, History, Lock, Search, Target, Trophy } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilterPill, GlassCard, WidgetCard } from '@/components/ios';
 import { AgentPickCard, parseMatchup, PickRouteRow, teamAbbr } from '../AgentPickCard';
 import { AgentParlayCard } from '../AgentParlayCard';
 import { AgentTicketShell, resolveTicketLogo, TICKET_STATUS, TicketSportIcon, teamColorPair } from '../AgentTicketShell';
+import { formatPlayDate, isUpcoming, localDateString, parlayPlaysOn, pickPlaysOn } from '../betDates';
 import { useAgentParlays, useAgentPicks } from '@/hooks/useAgents';
 import {
   AgentParlay,
@@ -102,7 +103,7 @@ const RESULT_STYLE: Record<PickResult, string> = {
   pending: 'bg-slate-500/15 text-slate-400',
 };
 
-export function MiniHistoryTicket({ item, accent, selected, onSelect }: { item: HistoryItem; accent?: string; selected: boolean; onSelect: () => void }) {
+export function MiniHistoryTicket({ item, accent, selected, onSelect, showDate = false }: { item: HistoryItem; accent?: string; selected: boolean; onSelect: () => void; showDate?: boolean }) {
   const isPick = item.kind === 'pick';
   const sport = isPick ? item.pick.sport : item.parlay.sport;
   const result = isPick ? item.pick.result : item.parlay.result;
@@ -128,7 +129,11 @@ export function MiniHistoryTicket({ item, accent, selected, onSelect }: { item: 
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-500 dark:text-white/55">{item.pick.sport}</span>
               <span className="ml-auto">
-                {item.pick.result === 'pending' ? (
+                {/* On the Coming Up rail the game date displaces confidence —
+                    "plays Sep 13" is the thing you can't infer from the card. */}
+                {showDate && item.pick.result === 'pending' ? (
+                  <span className="text-[10px] font-bold" style={{ color: accent }}>{formatPlayDate(item.date)}</span>
+                ) : item.pick.result === 'pending' ? (
                   <span className="text-[10px] font-bold" style={{ color: accent }}>{item.pick.confidence}/5</span>
                 ) : (
                   <span className="rounded-full px-[7px] py-[3px] text-[9px] font-black tracking-[0.05em]" style={{ color: status.color, background: `${status.color}29` }}>{status.text}</span>
@@ -170,7 +175,11 @@ export function MiniHistoryTicket({ item, accent, selected, onSelect }: { item: 
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-extrabold uppercase tracking-[0.06em]" style={{ color: accent }}>↗ PARLAY</span>
           <span className="ml-auto" />
-          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${RESULT_STYLE[result]}`}>{result}</span>
+          {showDate && result === 'pending' ? (
+            <span className="text-[10px] font-bold" style={{ color: accent }}>{formatPlayDate(item.date)}</span>
+          ) : (
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${RESULT_STYLE[result]}`}>{result}</span>
+          )}
         </div>
         <div className="mt-2 space-y-1 overflow-hidden">
           {item.parlay.legs.slice(0, 4).map((leg) => (
@@ -215,23 +224,81 @@ export function AgentTodaysPicksSection({
 }: AgentTodaysPicksSectionProps) {
   const { data: picks = [] } = useAgentPicks(agentId);
   const { data: parlays = [] } = useAgentParlays(agentId);
-  const today = React.useMemo(() => {
-    const date = new Date();
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  }, []);
-  const items: HistoryItem[] = React.useMemo(() => [
-    ...picks.filter((pick) => pick.game_date === today).map((pick) => ({ kind: 'pick' as const, date: pick.game_date, createdAt: pick.created_at, pick })),
-    ...parlays.filter((parlay) => (parlay.target_date ?? parlay.created_at.slice(0, 10)) === today).map((parlay) => ({ kind: 'parlay' as const, date: today, createdAt: parlay.created_at, parlay })),
-  ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)), [picks, parlays, today]);
+  const today = React.useMemo(() => localDateString(), []);
+
+  // Both rails are built from ONE "plays on" date (see ./betDates) so a pick and
+  // a parlay for the same game always land in the same row.
+  const { todayItems, upcomingItems } = React.useMemo(() => {
+    const all: HistoryItem[] = [
+      ...picks.map((pick) => ({ kind: 'pick' as const, date: pickPlaysOn(pick), createdAt: pick.created_at, pick })),
+      ...parlays.map((parlay) => ({ kind: 'parlay' as const, date: parlayPlaysOn(parlay), createdAt: parlay.created_at, parlay })),
+    ];
+    return {
+      // Newest research first — within a single day, created_at is the useful order.
+      todayItems: all.filter((item) => item.date === today).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      // Soonest first — these span weeks, so the game date is what matters.
+      upcomingItems: all.filter((item) => isUpcoming(item.date, today)).sort((a, b) => a.date.localeCompare(b.date) || b.createdAt.localeCompare(a.createdAt)),
+    };
+  }, [picks, parlays, today]);
+
+  return (
+    <>
+      <AgentTicketRail
+        title="Today's Picks"
+        subtitle={`${todayItems.length} published ticket${todayItems.length === 1 ? '' : 's'} from today's research.`}
+        icon={<Target />}
+        items={todayItems}
+        accent={accent}
+        selectedTicketId={selectedTicketId}
+        onSelectTicket={onSelectTicket}
+      />
+      <AgentTicketRail
+        title="Coming Up"
+        subtitle={`${upcomingItems.length} ticket${upcomingItems.length === 1 ? '' : 's'} on upcoming matchups.`}
+        icon={<CalendarClock />}
+        items={upcomingItems}
+        accent={accent}
+        selectedTicketId={selectedTicketId}
+        onSelectTicket={onSelectTicket}
+        showDates
+      />
+    </>
+  );
+}
+
+/**
+ * One horizontal ticket rail. Extracted so Today's Picks and Coming Up stay
+ * visually identical — the only difference is that Coming Up prints each
+ * ticket's game date, since those can be weeks out.
+ */
+function AgentTicketRail({
+  title,
+  subtitle,
+  icon,
+  items,
+  accent,
+  selectedTicketId,
+  onSelectTicket,
+  showDates = false,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  items: HistoryItem[];
+  accent?: string;
+  selectedTicketId: string | null;
+  onSelectTicket: (item: AgentHistoryItem) => void;
+  showDates?: boolean;
+}) {
   const scroller = useTicketScroller(items.length);
   if (!items.length) return null;
   return (
-    <WidgetCard icon={<Target />} title="Today's Picks" subtitle={`${items.length} published ticket${items.length === 1 ? '' : 's'} from today's research.`} accessory={<TicketScrollerButtons bounds={scroller.bounds} onPrevious={() => scroller.scroll(-1)} onNext={() => scroller.scroll(1)} />}>
+    <WidgetCard icon={icon} title={title} subtitle={subtitle} accessory={<TicketScrollerButtons bounds={scroller.bounds} onPrevious={() => scroller.scroll(-1)} onNext={() => scroller.scroll(1)} />}>
       <div ref={scroller.ref} className="-mx-4 overflow-x-auto px-4 pb-4 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex w-max snap-x snap-mandatory gap-3 pr-12">
           {items.map((item) => {
             const id = item.kind === 'pick' ? item.pick.id : item.parlay.id;
-            return <MiniHistoryTicket key={id} item={item} accent={accent} selected={selectedTicketId === id} onSelect={() => onSelectTicket(item)} />;
+            return <MiniHistoryTicket key={id} item={item} accent={accent} selected={selectedTicketId === id} onSelect={() => onSelectTicket(item)} showDate={showDates} />;
           })}
         </div>
       </div>
@@ -284,9 +351,11 @@ export function AgentPicksSection({
         createdAt: pick.created_at,
         pick,
       })),
+      // Grouped by when the ticket PLAYS, matching straight picks above —
+      // target_date is the run date and buries September tickets under today.
       ...(parlays ?? []).map((parlay) => ({
         kind: 'parlay' as const,
-        date: parlay.target_date ?? parlay.created_at.slice(0, 10),
+        date: parlayPlaysOn(parlay),
         createdAt: parlay.created_at,
         parlay,
       })),

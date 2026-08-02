@@ -10,6 +10,7 @@ import {
   useTicketTear,
 } from './AgentTicketShell';
 import { AgentReasoningDetails } from './AgentReasoningDetails';
+import { formatPlayRange, parlayPlayRange } from './betDates';
 
 interface AgentParlayCardProps {
   parlay: AgentParlay;
@@ -32,22 +33,6 @@ const SPORT_LABELS: Record<Sport, string> = {
   ncaab: 'CBB',
   mlb: 'MLB',
 };
-
-function formatGameDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'Pending';
-  try {
-    const date = new Date(dateStr + 'T00:00:00');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    if (date.getTime() === today.getTime()) return 'Today';
-    if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } catch {
-    return dateStr;
-  }
-}
 
 function legMarket(leg: AgentParlayLeg): string {
   const base = LEG_MARKET_LABELS[leg.bet_type] ?? leg.bet_type;
@@ -106,7 +91,8 @@ export function AgentParlayCard({ parlay, accent = '#00E676' }: AgentParlayCardP
         <div ref={topRef} className="px-5 pb-3 pt-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="text-[14px] font-medium text-slate-500 dark:text-white/60">{formatGameDate(parlay.target_date)}</span>
+              {/* Leg dates, NOT target_date — a run on Aug 2 can hold Sep 13 legs. */}
+              <span className="text-[14px] font-medium text-slate-500 dark:text-white/60">{formatPlayRange(parlayPlayRange(parlay))}</span>
               <span
                 className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide"
                 style={{ color: accent, backgroundColor: `${accent}24` }}
