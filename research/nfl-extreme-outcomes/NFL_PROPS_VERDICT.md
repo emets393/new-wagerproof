@@ -6,13 +6,35 @@ sports were modified. Scripts: `nfl_prop_model_v2.py` (frame + positional-allowe
 `nfl_prop_grade_v2.py` (decomposition + product test + ladder + oracle). Eval = 2024–25 (the only
 seasons with T-60 prop lines), graded at the T-60 close with American→decimal prices.
 
-## Headline
-**The current NFL model was already about as good as it gets, and the NBA fixes do NOT transfer.**
-The defects were real and I fixed them, but in the NFL they don't help: adding the line as a feature
-*hurt*, the positional context improved the model's accuracy but never beat the closing line, and
-pooled bet ROI got *worse* with each fix. The NFL prop market is sharp — this is a **pricing** verdict,
-not a modelling one. One small pocket (rush-attempts UNDER) is worth tracking. The NBA "edge grows
-with line size" law does **not** reproduce here.
+## Headline (v3 — POSITIVE MODEL)
+**The earlier "priced" verdict was wrong; it was a MISSING-METRICS problem.** The v2 pass used the
+positional context but still lacked the #1 driver of volume/receiving props — **within-team usage
+share (target/rush/attempt share) + snap participation.** Adding them (per-market feature selection,
+`nfl_prop_features_v3.py` + `nfl_prop_deepdive_v3.py` + `nfl_prop_bet_v3.py`) produces a **positive,
+robust, both-season model on the volume-UNDER markets:**
+
+| cell | win% (p80) | ROI | dose-response p50→p80 | seasons | distinct players | drop-best ROI |
+|---|---|---|---|---|---|---|
+| **rush_attempts UNDER** | **62.1%** | **+12.7** | 57.4→59.6→62.1 | 60/65 | 84 | +11.2 |
+| **rush_yds UNDER** | ~59% | +7–12 | 55.2→57.4→59.3 | 59/59 | 95 | +9.0 |
+| **pass_completions UNDER** | 60.3% | +9.8 | 52→60 | 59/62 | 57 | +11.2 |
+
+All beat sigma, both seasons ≥ vig, clean dose-response, broad (57–95 distinct players, survive
+dropping the best player). The UNDER side dominates — consistent with every prior prop finding (overs
+are shaded). This is a **modelling** win: the market was NOT efficient here; we were under-informed.
+
+**What was learned, in order:** (1) infra is clean (OFF/DEF team features 100%-covered, no fanout);
+(2) the ablation shows USAGE helps 7/8 markets and SNAP 6/8, POS helps the skill markets — the missing
+metrics were real; (3) the line-as-feature still barely matters (2-season line history), but it no
+longer *hurts* once usage/snap carry the model; the edge is strongest in the NOLINE (independent-model-
+vs-line) config, i.e. it's a line-inflation edge, not an out-forecasting one; (4) the model still does
+not beat the close on MAE on most markets — the edge is directional (UNDER), not accuracy.
+
+### v2 findings (superseded — kept for the record)
+Before usage/snap were added: pooled a/b/c decomposition was −2.8/−6.8/−7.9 and context beat the line
+on 0/8 markets. That conclusion held only because the volume priors were missing. The NBA line-scale
+"edge grows with line" law still does NOT reproduce in NFL (need flat ~53%, no small-line price
+collapse) — the NFL edge is a usage-driven UNDER, not a line-size effect.
 
 ## 1. Inventory gap (the NBA-style check that mattered)
 The model frame reads `player_offense` (07-02), `team_week` (08-01), `games_enriched` (05-27),
