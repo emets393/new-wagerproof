@@ -30,6 +30,28 @@ longer *hurts* once usage/snap carry the model; the edge is strongest in the NOL
 vs-line) config, i.e. it's a line-inflation edge, not an out-forecasting one; (4) the model still does
 not beat the close on MAE on most markets — the edge is directional (UNDER), not accuracy.
 
+## v4 — the OVER side recovered (quantile bands; two-sided model)
+Point-estimate regression never found over edges because receiving stats are RIGHT-SKEWED (boom
+games): the mean under-prices ceilings. Quantile bands fix the framing — bet OVER only when the
+**pessimistic band (q35) still clears the line**, UNDER only when the optimistic band (q65) sits
+below it. Per-market feature sets throughout (`nfl_prop_twoside_v4.py`).
+
+| cell (q-band, +3% margin) | n | win% | need | ROI | players | drop-best | ROI 24 / 25 |
+|---|---|---|---|---|---|---|---|
+| **receptions OVER** | 544 | 62.3 | 57.8 | **+7.2** | 160 (top10 20%) | +7.6 | **−3.5 / +14.9** |
+| **reception_yds OVER** | 373 | 58.7 | 53.2 | **+10.0** | 125 (top10 29%) | +10.7 | **−2.2 / +18.9** |
+| rush_attempts UNDER (same framework) | 432 | 61.8 | 54.4 | +11.6 | — | — | both + |
+| rush_yds UNDER | 649 | 55.8 | 53.1 | +5.0 | — | — | both + |
+
+**Honest tiering:** the UNDER family is Tier-1 (ROI-positive in BOTH seasons). The receiving OVER
+cells are **Tier-2 / track-plus** — win% ≥ 50 both seasons and strongly robust across players, but
+2024 ROI is slightly negative (the juiced over prices ate a 56% year); the profit is 2025-driven.
+Deploy the unders; track the overs live before promoting.
+- Classifier (p(over) vs price-implied need): adds nothing beyond the bands (one modest rush_attempts
+  UNDER cell). Price-split: plus-money rush_attempts OVER n=48 — too thin.
+- Two-sided summary: **rushing/volume → UNDER edges; receiving → OVER edges (ceiling-underpriced);
+  QB passing (yds/tds/attempts) → no reliable edge either side (sharpest sub-market).**
+
 ### v2 findings (superseded — kept for the record)
 Before usage/snap were added: pooled a/b/c decomposition was −2.8/−6.8/−7.9 and context beat the line
 on 0/8 markets. That conclusion held only because the volume priors were missing. The NBA line-scale
