@@ -113,17 +113,26 @@ def expected_points(S):
 def team_shot_luck(S):
     """Per team-game: points above expectation on own shots, and on shots allowed."""
     S = S.dropna(subset=["xp"])
+    # shot-MIX layer (port of the CBB xq family): xefg says how GOOD the looks are, these say
+    # what KIND — and the allowed versions are the mix a defense forces.
+    S = S.assign(rim4=(S["dist"] <= 4).astype(float),
+                 long2=((~S["is3"]) & (S["dist"] >= 12)).astype(float),
+                 deep3=(S["is3"] & (S["dist"] >= 26)).astype(float))
     off = S.groupby(["game_id", "team_id"]).agg(
         fga=("made", "size"), apts=("pts", "sum"), xpts=("xp", "sum"),
+        rim4=("rim4", "mean"), long2=("long2", "mean"), deep3=("deep3", "mean"),
+        mdist=("dist", "mean"),
         date=("date", "first"), home_team_id=("home_team_id", "first"),
         away_team_id=("away_team_id", "first")).reset_index()
     off["luck_off"] = off["apts"] - off["xpts"]
     off["xefg"] = off["xpts"] / (2.0 * off["fga"])
     off["aefg"] = off["apts"] / (2.0 * off["fga"])
     # the opponent's offence in the same game is this team's defence
-    opp = off[["game_id", "team_id", "luck_off", "xefg", "aefg", "fga"]].rename(
+    opp = off[["game_id", "team_id", "luck_off", "xefg", "aefg", "fga",
+               "rim4", "long2", "deep3", "mdist"]].rename(
         columns={"team_id": "opp_id", "luck_off": "luck_def", "xefg": "xefg_a",
-                 "aefg": "aefg_a", "fga": "fga_a"})
+                 "aefg": "aefg_a", "fga": "fga_a", "rim4": "rim4_a",
+                 "long2": "long2_a", "deep3": "deep3_a", "mdist": "mdist_a"})
     m = off.merge(opp, on="game_id")
     m = m[m["team_id"] != m["opp_id"]].drop(columns=["opp_id"])
     return m
@@ -133,7 +142,8 @@ def trailing(T):
     """Shift-by-one rolling means. A team's own game must never enter its own feature."""
     T = T.sort_values(["team_id", "date"]).reset_index(drop=True)
     g = T.groupby("team_id", sort=False)
-    src = ["luck_off", "luck_def", "xefg", "aefg", "xefg_a", "aefg_a"]
+    src = ["luck_off", "luck_def", "xefg", "aefg", "xefg_a", "aefg_a",
+           "rim4", "long2", "deep3", "mdist", "rim4_a", "long2_a", "deep3_a", "mdist_a"]
     for c in src:
         T[f"r_{c}"] = g[c].transform(
             lambda s: s.shift(1).rolling(ROLL, min_periods=4).mean())
@@ -179,7 +189,9 @@ def main():
     T = T.merge(C, left_on="game_id", right_on="espn_game_id", how="inner")
     keep = ["game_id", "bdl_game_id", "team_id", "home_team_id", "date", "talent_m",
             "talent_sd", "r_luck_off", "r_luck_def", "r_luck_net", "r_xefg",
-            "r_xefg_a", "r_xefg_net", "r_aefg_net", "r_aefg", "r_aefg_a"]
+            "r_xefg_a", "r_xefg_net", "r_aefg_net", "r_aefg", "r_aefg_a",
+            "r_rim4", "r_long2", "r_deep3", "r_mdist",
+            "r_rim4_a", "r_long2_a", "r_deep3_a", "r_mdist_a"]
     T = T[keep].rename(columns={"bdl_game_id": "game.id"})
     T["is_home"] = T["team_id"] == T["home_team_id"]
     path = f"{OUT}/nba_regression_features.parquet"
