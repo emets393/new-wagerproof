@@ -52,6 +52,29 @@ Deploy the unders; track the overs live before promoting.
 - Two-sided summary: **rushing/volume → UNDER edges; receiving → OVER edges (ceiling-underpriced);
   QB passing (yds/tds/attempts) → no reliable edge either side (sharpest sub-market).**
 
+## v5 — SCHEME features complete the receiving markets (task #98)
+Player coverage splits + opponent scheme identity (from `nfl_scheme_context.py`) were DEAD as raw
+interaction cells (`nfl_prop_scheme_battery.py` — prop lines price player-vs-scheme fit) but as a
+MODEL FEATURE FAMILY they convert the receiving UNDER side from dead to deployable
+(`nfl_prop_scheme_sweep.py`, matched baselines, random_state=0):
+
+| cell (with SCHEME) | n | win% | need | ROI | seasons | baseline (no scheme) |
+|---|---|---|---|---|---|---|
+| **receptions UNDER (point p65)** | 650 | **61.5** | 56.8 | **+7.5** | **62/61** | 54.8 / −4.5 |
+| **reception_yds UNDER (q-band)** | 402 | **56.7** | 53.0 | **+6.8** | **56/58** | 51.2 / −4.1 |
+| receptions OVER (q-band) | 543 | 62.1 | 57.3 | +7.6 | 57/66 | +7.2 (unchanged) |
+| reception_yds OVER (q-band) | 408 | 59.1 | 53.2 | +10.6 | 52/64 | +10.0 (unchanged) |
+
+Both new UNDER cells clear sigma and are positive BOTH seasons → Tier-1. The scheme features tell
+the model when a receiver walks into a bad coverage matchup — information the raw cells couldn't
+monetize but the regression can. **pass_yds: the −0.455 MAE gain did NOT convert to bets** (point
+cells still under need; the +SCHEME quantile OVER band degenerates to 31% on n=45) — pass_yds stays
+no-edge. Chosen sets updated: SCHEME added to receptions + reception_yds only.
+
+**Final two-sided deployable map (end of research program):**
+- rushing/volume → point-edge UNDERs (v3, Tier-1) · receiving → band OVERs (Tier-2 track) + **scheme-
+  aware UNDERs (Tier-1)** · QB passing → no edge either side.
+
 ### v2 findings (superseded — kept for the record)
 Before usage/snap were added: pooled a/b/c decomposition was −2.8/−6.8/−7.9 and context beat the line
 on 0/8 markets. That conclusion held only because the volume priors were missing. The NBA line-scale
