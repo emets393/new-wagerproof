@@ -15,9 +15,16 @@ g7 = set(te.game_id)
 def lab(r): return f"{r.awayTeam} @ {r.homeTeam}"
 rows = []
 
+# Cold-model spots are DEGENERATE in weeks 1-3 (opponent-adjusted model has no games -> uniform
+# edges), so suppress all MODEL-EDGE spot keys early. Contextual spots (g5/key/conf/book/style)
+# still fire. Previously this was only a one-off DB delete; now durable in the generator.
+EARLY_SUPPRESS = {"model_highedge_dog", "model_total_over", "model_total_under",
+                  "model_total_over_pace", "model_road_value", "premium_lay_fav"}
+
 # spread/total spots from spot_library (true per-spot side)
 for name, (mask, side, market, gl) in S.items():
     if C.is_blanket(name): continue   # skip slate-wide leans (week==N openers, base model_lean) — not per-game signals
+    if WEEK <= 3 and C.key_for(name) in EARLY_SUPPRESS: continue   # cold-model spots off until wk4
     sub = te[mask.reindex(te.index, fill_value=False).values] if hasattr(mask, "reindex") else te[mask]
     meta = C.classify(name); conv = meta[2] if meta else "T3"; active = meta[3] if meta else True
     mkt_norm = "total" if market == "total" else "spread"   # spot_library uses 'side' for spreads
@@ -158,7 +165,11 @@ except Exception as e:
 try:
     matchups = []
     for _, r in te.iterrows():
-        matchups += [(r.homeTeam, r.awayTeam), (r.awayTeam, r.homeTeam)]
+        # conference-game flag: ret_prod_edge is non-conference-only (validated split, see
+        # cfb_early_roster_signals docstring / FOOTBALL_PROFILES S-CFB2)
+        is_conf = bool(pd.notna(r.homeConference) and pd.notna(r.awayConference)
+                       and r.homeConference == r.awayConference)
+        matchups += [(r.homeTeam, r.awayTeam, is_conf), (r.awayTeam, r.homeTeam, is_conf)]
     er = ER.triggers_for_week(SEASON, WEEK, matchups)
     SRC = {"ret_prod_edge": "Returning-production edge (wk1-3)", "portal_talent_influx": "Portal talent influx (wk1-3)"}
     for _, r in te.iterrows():

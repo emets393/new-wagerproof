@@ -29,17 +29,22 @@ def _portal_4star(season, path="data/cfbd/portal.parquet"):
         return {}
 
 def triggers_for_week(season, week, matchups):
-    """matchups: iterable of (team, opponent). Returns {team: [(signal_key, edge_value, tier), ...]} for teams
-    that trigger. Empty outside weeks 1-3 (signals decay after)."""
+    """matchups: iterable of (team, opponent) or (team, opponent, is_conf_game). Returns
+    {team: [(signal_key, edge_value, tier), ...]} for teams that trigger. Empty outside weeks 1-3.
+    ret_prod_edge fires in NON-CONFERENCE games only — validated on our data 2026-08-03 (VSiN
+    stability-system claim reproduced): non-conf 54.9%/+4.9 (8/9 seasons) vs conference 51.1%/-2.4.
+    When the conf flag isn't provided (legacy caller), the signal still fires (old behavior)."""
     if week > 3:
         return {}
     ret = _returning(season)
     hi4 = _portal_4star(season)
     out = {}
-    for team, opp in matchups:
-        # S-CFB2 — returning-production continuity edge
+    for mu in matchups:
+        team, opp = mu[0], mu[1]
+        is_conf = mu[2] if len(mu) > 2 else None
+        # S-CFB2 — returning-production continuity edge (non-conference only)
         rt, ro = ret.get(team), ret.get(opp)
-        if rt is not None and ro is not None and (rt - ro) >= RET_EDGE:
+        if rt is not None and ro is not None and (rt - ro) >= RET_EDGE and is_conf is not True:
             out.setdefault(team, []).append(("ret_prod_edge", round(float(rt - ro), 3), "T2"))
         # S-CFB3 — blue-chip portal talent influx (and more than the opponent)
         ht, ho = hi4.get(team, 0), hi4.get(opp, 0)
