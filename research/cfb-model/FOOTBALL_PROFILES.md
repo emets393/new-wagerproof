@@ -181,6 +181,15 @@ fixed cut** because the totals environment drifts (top-8% threshold: 68.6 in 201
 **WIRED:** `gen_cfb_dryrun_flags` upgrades fade_high_total to **T2** in weeks 1-3 when the game's
 close ≥ max(slate p92, 60) — floor kept at 60 (sub-60 rank cells have zero historical sample). Wk4+
 unchanged (T3; the decay says early is where the meat is). 2026 wk1: OK State @ Tulsa 60.5 upgraded.
+
+**Exemplar (2026 wk1, OK State @ Tulsa 60.5 — the signal+context product story):** four independent
+lenses converge UNDER: (1) the extremity tier (highest close on the board, 64.5%/8-of-9 cell);
+(2) the coach scheme-transfer INVERSION cell — new fast-paced HC (Eric Morris, national scoring
+leader at North Texas, brought his QB) = exactly the "market over-hypes a new fast scheme" setup
+(those games landed −5.0 vs their bloated lines); (3) public hype confirmed (VSiN best-bets the
+OVER 5.5 wins, Mestemaker Heisman piece); (4) the early-week blend projects 52.5 vs 60.5 and only
+−0.8 on a −12.5 spread (OK State Stability Score 2/19 — the blend won't pay for an all-new roster).
+Hierarchy: the T2 flag is the VALIDATED bet; (2)-(4) are converging context, not standalone edges.
 - **DEPLOYMENT DECISION: EARLY_SUPPRESS STAYS** (model-edge spots earned no wk1-3 track record).
   Display predictions continue from `cfb_early_week`. The carryover is validated + ready but NOT
   wired into the live harness: filling model_games changes the training distribution, which

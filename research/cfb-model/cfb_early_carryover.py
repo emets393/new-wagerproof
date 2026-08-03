@@ -46,11 +46,31 @@ def season_end_values(m, stems):
     return t.groupby(["season", "team"]).tail(1).set_index(["season", "team"])[stems]
 
 
+def fetch_coach_seasons(y0=2015, y1=2025):
+    """Rebuild data/cfbd/coach_seasons.parquet from CFBD /coaches (one row per year-school, the HC
+    with the most games). The parquet is gitignored; this makes it reproducible anywhere."""
+    import cfbd
+    rows = []
+    for yr in range(y0, y1 + 1):
+        for c in cfbd.get("/coaches", year=yr):
+            nm = f"{c.get('firstName','')} {c.get('lastName','')}".strip()
+            for s in c.get("seasons", []):
+                if s.get("year") == yr:
+                    rows.append({"year": yr, "school": s["school"], "coach": nm, "games": s.get("games") or 0})
+    cs = pd.DataFrame(rows).sort_values("games", ascending=False).drop_duplicates(["year", "school"])
+    (DATA / "cfbd").mkdir(parents=True, exist_ok=True)
+    cs.to_parquet(DATA / "cfbd" / "coach_seasons.parquet", index=False)
+    return cs
+
+
 def continuity(season):
     """Per team: continuity in [0.20, 0.95] for `season` (returning production + same-HC)."""
     rp = pd.read_parquet(DATA / "cfbd" / "returning_production.parquet")
     r = rp[rp.season == season].set_index("team").percentPPA.to_dict()
-    cs = pd.read_parquet(DATA / "cfbd" / "coach_seasons.parquet")
+    cs_path = DATA / "cfbd" / "coach_seasons.parquet"
+    if not cs_path.exists():
+        fetch_coach_seasons()
+    cs = pd.read_parquet(cs_path)
     prior_years = sorted(y for y in cs.year.unique() if y < season)
     same_hc = {}
     if prior_years:
