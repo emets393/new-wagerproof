@@ -30,6 +30,11 @@ for _, r in g.iterrows():
     rows.append(dict(season=r.season, week=r.week, off=r.away_team, deft=r.home_team,
                      ats_margin=-r.result + r.spread_line, total=r.total, total_line=r.total_line))
 t = pd.DataFrame(rows)
+# MANDATORY sign sanity: favorites must cover ~47-50% or the ATS margin sign is flipped.
+from sign_conventions import assert_ats_sane
+_g2 = g.copy()
+_g2["m"] = _g2.result - _g2.spread_line
+assert_ats_sane(_g2, "m", _g2.spread_line > 0, label="nflverse-home")
 t = t.merge(os_.rename(columns={"team": "off"}), on=["season", "week", "off"], how="left")
 t = t.merge(ds.rename(columns={"team": "deft"}), on=["season", "week", "deft"], how="left")
 t = t[(t.week >= 4) & (t.week <= 18)].copy()
