@@ -45,7 +45,10 @@ for name, (mask, side, market, gl) in S.items():
 # event-odds (per-team totals) aren't captured preseason -> empty frame so TT flags just don't fire; the
 # other spots (model, G5 openers, style) still generate.
 _evp = f"data/event_odds/events_{SEASON}.parquet"
-ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(columns=["game_id", "market", "name", "description", "point"])
+_EVC = ["game_id", "market", "name", "description", "point"]
+ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(columns=_EVC)
+if ev.empty or "game_id" not in ev.columns:  # preseason: schema-less 0-row parquet
+    ev = pd.DataFrame(columns=_EVC)
 ev = ev[(ev.game_id.isin(g7)) & (ev.market == "team_totals") & (ev.name == "Over")].copy()
 def _tdb(o):
     AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i", "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State", "Southern Miss Golden Eagles": "Southern Miss"}

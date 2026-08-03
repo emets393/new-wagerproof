@@ -21,8 +21,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-SEASON="${1:-${NFL_SEASON:-2026}}"
-WEEK="${2:-${NFL_WEEK:-1}}"
+# Season/week: explicit args win, then NFL_SEASON/NFL_WEEK env, else auto-resolve the
+# current week (first REG week with any ungraded game -> week 1 until week 1 completes).
+if [ -n "${1:-}" ]; then
+  SEASON="$1"; WEEK="${2:?usage: run_nfl_week.sh <season> <week>}"
+elif [ -n "${NFL_SEASON:-}" ]; then
+  SEASON="$NFL_SEASON"; WEEK="${NFL_WEEK:?set NFL_WEEK alongside NFL_SEASON}"
+else
+  read -r SEASON WEEK < <(python3 resolve_nfl_week.py)
+fi
 export NFL_SEASON="$SEASON" NFL_WEEK="$WEEK"
 echo "=== NFL weekly run :: season=$SEASON week=$WEEK ==="
 step() { echo; echo ">>> $*"; }
