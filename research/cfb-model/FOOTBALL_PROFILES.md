@@ -169,8 +169,18 @@ back in by games played (K=6). Prior season = latest < S (2021→2019 over the C
   early total-UNDER cell (filled p80 62.3%/+19.0, 6/7) FAILED the in-subset naive control — "under
   the N highest closes" wins **67.5%/+28.9** on matched n; the cell is `fade_high_total`'s
   high-close mean-reversion re-derived, and the simple rule captures it BETTER than the model.
-  (Sharpening note: the naive wk1-3 top-close under at 67.5% 6/7 suggests the live `fade_high_total`
-  threshold could be tuned to a rank-based cut — test before touching.)
+
+### fade_high_total EXTREMITY TIER (tested + WIRED 2026-08-03, the sharpening lead cashed)
+The flat `close>=60 -> UNDER` rule hides two structures: (1) **phase** — wk1-3 58.0%/+10.8 (8/9) vs
+wk4+ 52.8%/+0.8 (the pooled ~55% validation was a phase-pooling artifact; the signal is essentially
+an EARLY-season edge); (2) **extremity dose-response within wk1-3** — top-20% closes 59.2 (9/9) →
+top-8% **64.5%/+23.2** (8/9) → top-5% 67.2. The top-8% is a strict SUBSET of >=60 (rank-only cell
+n=0), i.e., the current rule's early hits concentrate in its most extreme lines while the 60-64.5
+band is mediocre (54.7%, 5/9). Complement clean (bottom-10% closes -> over 48.8%). **RANK beats a
+fixed cut** because the totals environment drifts (top-8% threshold: 68.6 in 2016 → 60.5 in 2025).
+**WIRED:** `gen_cfb_dryrun_flags` upgrades fade_high_total to **T2** in weeks 1-3 when the game's
+close ≥ max(slate p92, 60) — floor kept at 60 (sub-60 rank cells have zero historical sample). Wk4+
+unchanged (T3; the decay says early is where the meat is). 2026 wk1: OK State @ Tulsa 60.5 upgraded.
 - **DEPLOYMENT DECISION: EARLY_SUPPRESS STAYS** (model-edge spots earned no wk1-3 track record).
   Display predictions continue from `cfb_early_week`. The carryover is validated + ready but NOT
   wired into the live harness: filling model_games changes the training distribution, which

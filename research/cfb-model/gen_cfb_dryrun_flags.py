@@ -206,6 +206,21 @@ except Exception as e:
     print(f"  [home_dog_ml] skipped: {e}")
 
 df = pd.DataFrame(rows)
+
+# ── Weeks 1-3 EXTREMITY TIER for fade_high_total (validated 2026-08-03, FOOTBALL_PROFILES) ──
+# The flat close>=60 UNDER hides a dose-response early: wk1-3 the TOP-8% closes (within-season rank)
+# hit 64.5%/+23.2 (8/9) vs 54.7% for the rest of >=60; wk4+ the premium decays (52.5%). RANK not an
+# absolute cut because the totals environment drifts (top-8% = 68.6 in 2016 -> 60.5 in 2025). The
+# >=60 floor stays (sub-60 rank cells have no historical sample). Upgrade = conviction T3 -> T2.
+if WEEK <= 3 and len(df) and (df.signal_key == "fade_high_total").any():
+    slate_p92 = te.total_close.quantile(0.92)
+    hi = (df.signal_key == "fade_high_total") & (df.line >= max(float(slate_p92), 60.0))
+    if hi.any():
+        df.loc[hi, "conviction"] = "T2"
+        df.loc[hi, "stake_units"] = C.STAKE["T2"]
+        df.loc[hi, "source"] = df.loc[hi, "source"] + " (extreme, wk1-3)"
+        print(f"  [extremity tier] fade_high_total upgraded to T2 on {int(hi.sum())} games (slate p92={slate_p92:.1f})")
+
 print(f"cfb_dryrun_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
 print(f"  conviction {df.conviction.value_counts().to_dict()} | mammoth flags {int(df.mammoth.sum())}")
 C.wipe("cfb_dryrun_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")
