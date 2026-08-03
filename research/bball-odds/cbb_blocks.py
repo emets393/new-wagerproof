@@ -50,6 +50,10 @@ SOURCES = [
     ("lineup_profiles", "lup", "cbbd_id", "team_id", lambda c: True),
     # possession-level efficiency and shot location, built off the play-by-play.
     ("possession_team_games", "poss", "gameId", "teamId", lambda c: c.startswith("p_")),
+    # coordinate-based xPTS generated/allowed + the actual-minus-expected finishing gap; the
+    # fine distance-bin layer the 3-bucket poss profile can't see. Split-half: xq_alwd r=.71
+    # (sticky skill), luck_alwd r=.35 (mostly noise -> regression). See build_shot_quality.py.
+    ("shot_quality_ncaab", "xq", "gameId", "teamId", lambda c: c.startswith("p_")),
     ("starter_units", "stu", "gameId", "teamId", lambda c: c.startswith("p_")),
     # bare style columns are the SAME GAME's realised rates -- as-of views only.
     # `pct_*` USED TO BE ATTACHED HERE TOO and must not be: the sides table already carries all 16
