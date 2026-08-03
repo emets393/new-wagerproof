@@ -156,6 +156,27 @@ Sign convention asserted (favs cover 48.7%); wk4+, close-graded, per-season 2016
   no analog exists.** Cross-sport law confirmed: game-level scheme identity is priced in BOTH
   markets; don't re-run identity/interaction screens at the game level.
 
+## CFB EARLY-SEASON FEATURE CARRYOVER (2026-08-03) — forecaster FIXED; no new bet spots earned
+`cfb_early_carryover.py` + `cfb_early_backtest.py`. The NFL continuity-blend ported to the CFB
+harness: model_games' opponent-adjusted features are 100% NULL in wk1 (1-2 noisy games wk2-3) →
+fill wk1-3 with prior-season END values shrunk by CONTINUITY = 0.75·returning-percentPPA +
+0.25·same-HC (`data/cfbd/coach_seasons.parquet`, 2015-25), clip [0.20,0.95]; blend current season
+back in by games played (K=6). Prior season = latest < S (2021→2019 over the COVID gap).
+- **FORECASTER: transformed.** Wk1-3 walk-forward 2018-25 (n=1,017, sign-check 49.1%): spread
+  corr-with-market 0.445 → **0.782**, MAE 17.60 → **15.15**; total corr 0.345 → 0.555. The cold
+  harness collapse is fixed.
+- **BET CELLS: none earned (honest kill).** Spread: no credible ATS cell either config. The strong
+  early total-UNDER cell (filled p80 62.3%/+19.0, 6/7) FAILED the in-subset naive control — "under
+  the N highest closes" wins **67.5%/+28.9** on matched n; the cell is `fade_high_total`'s
+  high-close mean-reversion re-derived, and the simple rule captures it BETTER than the model.
+  (Sharpening note: the naive wk1-3 top-close under at 67.5% 6/7 suggests the live `fade_high_total`
+  threshold could be tuned to a rank-based cut — test before touching.)
+- **DEPLOYMENT DECISION: EARLY_SUPPRESS STAYS** (model-edge spots earned no wk1-3 track record).
+  Display predictions continue from `cfb_early_week`. The carryover is validated + ready but NOT
+  wired into the live harness: filling model_games changes the training distribution, which
+  invalidates the FROZEN 2026 pkls — wire it at the next pkl refresh (fill in build_features for
+  ALL seasons, refit, refreeze), i.e., the in-season wk4+ refresh or 2027 preseason.
+
 ## MODEL FEATURES (Phase 4) — walk-forward MAE, keep-what-lowers
 Shape features (orthogonal to the efficiency the market prices), test seasons 2021-25:
 - **TOTAL model: +shape −0.540 MAE (13.82→13.28), driven by PACE (−0.46)** + trench (−0.12) + explosive
