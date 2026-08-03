@@ -127,8 +127,9 @@ via `nflverse_games` `total_line`/`spread_line` (full-history fallback; Odds-API
   totals came in **+5.9 over the close** (line 43.9→actual 49.8, vs +0.55 baseline), OVER hit 4/6 and the
   slow-coach complement went under-heavy — i.e. the NFL market UNDER-adjusts the early pace jump (CFB's
   market OVER-hyped it and the lean inverted). But the wk1-3 cell is only **n=6/3** — noise-level, do not
-  bet. New-coach ATS underperforms ~44% both early AND late (n=63/277) = roster quality/priced, not a
-  scheme edge.
+  bet. **CORRECTED 2026-08-02 (spread-sign bug):** new-coach ATS wk1-3 = **38.7%** (n=62, suggestive
+  early FADE) decaying to 46.0% wk4+ — an early-fade candidate, not the flat-44%-priced first reported.
+  (nflverse `spread_line>0` = HOME favored; ats_margin must be `result − spread_line`.)
 - **REAL USE = a weeks-1-3 MODEL INPUT.** For a new-coach team, last year's tempo/pass-tendency is STALE
   (they play ~60-90% toward the coach's prior identity). Feed the coach's prior-team style into the
   early-season carryover (`early_season_blend.py`) instead of / alongside the team's own prior year, and
