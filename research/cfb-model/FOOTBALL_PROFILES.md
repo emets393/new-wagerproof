@@ -137,6 +137,25 @@ via `nflverse_games` `total_line`/`spread_line` (full-history fallback; Odds-API
 - **Follow-up:** NFL's biggest scheme lever is the OC, not the HC; nflverse only carries HC. OC moves
   need a Pro-Football-Reference scrape — the likely-stronger v2.
 
+## CFB SCHEME STUDY (NFL-program port, 2026-08-03) — game-level tendency identity is PRICED
+`cfb_scheme_study.py`. College has NO coverage/formation charting (no man/zone, 2-high, box — CFBD
+carries none), so scheme = TENDENCY IDENTITIES from `model_games.parquet` (opponent-adjusted as-of:
+pace, pass lean, EPA/explosiveness/success off+allowed w/ rush-pass splits, havoc f7/db, line yards).
+Sign convention asserted (favs cover 48.7%); wk4+, close-graded, per-season 2016-25, 5,352 games.
+- **Increment-over-close (the #99 design): NO GAIN even in CFB's softer market** — FG total +0.262
+  MAE (worse than line-only), FG spread +0.231 (worse). No bet cell above need+sigma. Game lines
+  price team-level tendency identity in college too.
+- **Continuous interaction battery: all dead** — explosive-O-vs-suppressing-D, havoc-vs-weak-trench,
+  run-heavy-vs-elite-run-D all 47-53% with complements behaving like the cells. (Mild residue: top-q
+  explosive-pass offenses cover ~53.3-53.5% regardless of opponent — a ≈breakeven main-effect lean,
+  not a signal.)
+- **Where CFB style value actually lives (all previously validated, unchanged):** S-CFB1 in-season
+  underperformance-vs-archetype UNDER (deviation, not identity), pace as a TOTAL-model feature
+  (−0.46 MAE), and the wk1-3 roster/coach signals (S-CFB2/S-CFB3, coach transfer). **The NFL scheme
+  program's payoff was PLAYER-level granularity (receiving props) — CFB has no player-prop data, so
+  no analog exists.** Cross-sport law confirmed: game-level scheme identity is priced in BOTH
+  markets; don't re-run identity/interaction screens at the game level.
+
 ## MODEL FEATURES (Phase 4) — walk-forward MAE, keep-what-lowers
 Shape features (orthogonal to the efficiency the market prices), test seasons 2021-25:
 - **TOTAL model: +shape −0.540 MAE (13.82→13.28), driven by PACE (−0.46)** + trench (−0.12) + explosive
