@@ -45,6 +45,8 @@ step "fetch CFBD returning-production + portal";    python3 fetch_cfbd_roster.py
 # player-level roster layer (rosters/recruits/player-PPA -> roster_scores) — feeds the early-week
 # blend's ROSTER_FEATS; no-ops gracefully until CFBD posts current-season rosters (~Aug)
 step "player roster layer + reconstruction";        (python3 fetch_roster_layer.py && python3 -W ignore build_roster_scores.py) || true
+# TRUE preseason SP+/FPI for the current season (cfbtxt) — replaces stale prior-year finals
+step "current-season preseason power ratings";      python3 fetch_preseason_ratings.py "$SEASON" || true
 step "materialize 1H/TT odds (ncaaf_event_odds DB -> parquet; live_odds_cfb_1h writes the DB hourly)"
 python3 fetch_event_odds_live.py "$SEASON"
 step "fetch per-book odds history (STACK/SB/KEY)"; python3 fetch_odds_history.py --year "$SEASON" --go

@@ -268,3 +268,21 @@ rosters directly (2026: the day CFBD posts rosters, no waiting on the aggregate 
 **WIRED:** ROSTER_FEATS in cfb_early_week.py MARGIN_FEATS (NaN-safe mean-impute → BASE
 behavior until current-season rosters post); runner step "player roster layer" refreshes
 weekly. Display anchor (λ=0.25 cap) unchanged on top.
+
+## TRUE PRESEASON POWER RATINGS (2026-08-04, owner-identified, wired)
+Owner caught the core flaw: priors used PRIOR-YEAR FINAL SP+, not the published PRESEASON
+SP+ (which already prices portal/coaching — OSU 2026: stale -15.1 vs preseason +7.1, a
+22-pt swing; preseason-implied OSU@Tulsa ≈ -12.2 vs market -12.5). Source:
+cfbtxt.com/data/ratings_preseason_<year>.csv (SP+/FPI/FEI, 138 teams, 100% CFBD name
+match) — CURRENT season only; historical preseason archives are ESPN+-locked, so
+backtests still proxy with prior-year finals (documented limitation).
+WIRED: fetch_preseason_ratings.py patches priors.parquet current-season rows
+(prior_sp<-sp_plus, prior_fpi<-fpi); runner step added. 2026 wk1 raw blend now lands
+within ~1 pt of the market on the rebuild games BEFORE anchoring.
+STALE-RATING GAP STUDY (owner-designed, prior-year proxy, wk1-3 2017-25): follow-the-
+ratings dose-response has no ladder; the FADE at 3-12 gap = 53.9%/+2.8 pooled but decomposes
+into S-CFB2 overlap (58%) + NEW-HC cell (62.1%, n=116 — the correctly-conditioned version
+of VSiN's new-coach fade) + dead no-cause remainder (51.2%); ALL slices flipped negative in
+2025. stale_line_coach_fade = candidate TRACKING signal only. With true preseason ratings
+now flowing, the same gap study runs LIVE in 2026 (preseason SP+ + HFA vs close) — forward
+track before any promotion.
