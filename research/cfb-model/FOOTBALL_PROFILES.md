@@ -312,3 +312,17 @@ endpoints (Jul 2026 — completes the first-year-HC table), /draft picks (high-v
 departures for roster reconstruction), player team-stints (replaces portal name-matching),
 /wepa adjusted metrics (cross-check). NOTE: preseason_tr_mapped.parquet (the TR→CFBD name
 map) is gitignored — rebuild recipe = the harvest + MANUAL dict in this session's log.
+
+## REGIME FADE × RETURNING STARTERS (owner-specified grid, 2026-08-04, wired)
+Interaction of the true-preseason gap (|gap|≥2, wk1-3) with player-built returning shares:
+- **CORE CELL: new HC + <45% returning production → fade = 61.2%/+16.8 (n=67, 6/6 SEASONS
+  POSITIVE — best consistency in the ratings program).** New HC w/ roster back = diluted
+  (54.5%, 3/6). Dose story: coach + roster turnover stack.
+- **regime_fade_teardown (NEW tracking key): same HC, <30% returning → fade 56.0% (n=50,
+  5/6).** Coach-free variant; the mirror (rating-side ≥60% returning → follow 53.2%, n=220).
+- **POSITION SPLITS = NULL**: receivers/OL/DL-gutted cells scattered or inverted (OL-gutted
+  fade 42.9%!), n=41-81, no season consistency. The regime effect is TEAM-level turnover,
+  not positional — do not chase position cells (matches trench-study verdict).
+WIRED: teardown key + "FULL TEARDOWN" tier annotation in gen_cfb_dryrun_flags (ret_share
+NaN for 2026 until CFBD posts rosters → tiers self-activate); def registered. All tracking
+tier, 0.5u paper, same promotion bar as the coach cells.

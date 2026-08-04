@@ -228,6 +228,9 @@ _trp = f"data/cfbd/preseason_tr_{SEASON}.parquet"
 _cop = f"data/cfbd/coaches_{SEASON}.parquet"
 if WEEK <= 3 and os.path.exists(_trp) and os.path.exists(_cop):
     _trr = pd.read_parquet(_trp).set_index("team").tr_rating
+    _rsp = "data/roster_scores.parquet"
+    _rsdf = pd.read_parquet(_rsp) if os.path.exists(_rsp) else pd.DataFrame(columns=["season","team","ret_share"])
+    _retsh = _rsdf[_rsdf.season == SEASON].set_index("team").ret_share.to_dict()
     _co = pd.read_parquet(_cop)
     _newhc = set(_co[_co.new_hc].school)
     for _, r in te.iterrows():
@@ -248,12 +251,20 @@ if WEEK <= 3 and os.path.exists(_trp) and os.path.exists(_cop):
                   "line": round(float(sp), 1), "price": -110, "edge": round(float(gap), 1),
                   "conviction": "track", "tier": "tracking", "stake_units": 0.5,
                   "grade_line": "close", "mammoth": False}
+        # returning-production tier (owner grid 2026-08-04): new-HC + roster teardown = the
+        # 6/6-season core (61.2%/+16.8); same-HC teardown fades too (56%, 5/6). ret_share is
+        # NaN until CFBD posts current-season rosters -> tiers self-activate when data lands.
+        _ret = _retsh.get(rated_team, float("nan"))
         if rated_team in _newhc:
-            rows.append({**common, "source": f"REGIME FADE: rating leans on {rated_team} (new HC), gap {gap:+.1f}",
+            tear = " + FULL TEARDOWN (<45% returning)" if _ret == _ret and _ret < 0.45 else ""
+            rows.append({**common, "source": f"REGIME FADE: rating leans on {rated_team} (new HC{tear}), gap {gap:+.1f}",
                          "signal_key": "regime_fade_hc", "side": opp_side})
         elif opp_team in _newhc:
             rows.append({**common, "source": f"REGIME FOLLOW: {opp_team} has new HC, rating likes {rated_team}, gap {gap:+.1f}",
                          "signal_key": "regime_follow_hc", "side": rated_side})
+        elif _ret == _ret and _ret < 0.30:
+            rows.append({**common, "source": f"REGIME FADE: rating leans on {rated_team} (roster gutted, {_ret*100:.0f}% returning, same HC), gap {gap:+.1f}",
+                         "signal_key": "regime_fade_teardown", "side": opp_side})
 
 df = pd.DataFrame(rows)
 
