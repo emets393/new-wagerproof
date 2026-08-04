@@ -247,3 +247,24 @@ Indiana -22 vs -40.5). Battery (`cfb_early_talent_test.py`, walk-forward wk1-3 e
 - **Law for the vault**: in wk1-3 CFB, no amount of preseason player/roster data beats the
   line — the road to sane early numbers is the anchor, not more features. Betting unchanged
   (EARLY_SUPPRESS stays; flags grade vs the close as before).
+
+## PLAYER-LEVEL ROSTER RECONSTRUCTION (2026-08-03, tasks #100-102, wired)
+Owner push: gauge early games from INDIVIDUAL players (transfers, composites), not team
+aggregates. Layer built: `fetch_roster_layer.py` (rosters 2016-25 213k rows + recruiting
+composites 2013-26 + per-player season PPA) + cached portal/usage → `build_roster_scores.py`
+→ per (season,team): ret_prod / in_prod / lost_prod / ret_share / net_prod / talent_stock /
+qb1_prior / qb1_transfer / qb1_rating. **Construction validated: our player-built ret_share
+corr +0.884 with CFBD percentPPA (n=916)** — we can now compute returning production from
+rosters directly (2026: the day CFBD posts rosters, no waiting on the aggregate feed).
+
+**Test (`cfb_roster_early_test.py`, walk-forward wk1-3, eval 2022-25, n=588):**
+- BASE+ROSTER = best early model to date: MAE 12.95 (BASE 13.19; aggregate-features 13.31),
+  corr w/ line .936, disagreement-decile error 18.5→16.2. ROSTER-ONLY alone worse (15.4) —
+  player data COMPLEMENTS team ratings, doesn't replace them.
+- vs the line pooled: λ +0.03±0.10 still zero — anchor law stands.
+- **LEADS (track fwd 2026, NOT edges): G5-vs-G5 λ +0.305±0.204, transfer-QB λ +0.140±0.129**
+  — positive info beyond the line exactly where lines are softest; 1.1-1.5 SE, under any
+  significance bar. High-turnover and P5-P5 dead zero.
+**WIRED:** ROSTER_FEATS in cfb_early_week.py MARGIN_FEATS (NaN-safe mean-impute → BASE
+behavior until current-season rosters post); runner step "player roster layer" refreshes
+weekly. Display anchor (λ=0.25 cap) unchanged on top.

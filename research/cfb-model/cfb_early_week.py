@@ -26,7 +26,12 @@ CFBD = os.path.join(HERE, "data", "cfbd")
 SEASON = int(os.getenv("CFB_SEASON", "2026"))
 WEEK = int(os.getenv("CFB_WEEK", "1"))
 L = print
-MARGIN_FEATS = ["sp_diff", "fpi_diff", "rec_diff", "neutralSite"]
+# ROSTER features from player-level reconstruction (cfb_roster_early_test 2026-08-03:
+# BASE+ROSTER MAE 12.95 v 13.19, disagreement error 18.5->16.2). NaN-safe: mean-imputed,
+# so weeks before CFBD posts rosters (incl 2026 today) degrade to the BASE blend.
+ROSTER_FEATS = ["d_ret_prod", "d_in_prod", "d_ret_share", "d_talent_stock",
+                "d_qb1_prior", "d_qb1_transfer"]
+MARGIN_FEATS = ["sp_diff", "fpi_diff", "rec_diff", "neutralSite"] + ROSTER_FEATS
 TOTAL_FEATS = ["off_sum", "def_sum", "sp_diff", "neutralSite"]
 
 
@@ -51,6 +56,17 @@ def load():
     gm["rec_diff"] = gm.h_recruit_3yr - gm.a_recruit_3yr
     gm["off_sum"] = gm.h_prior_sp_off + gm.a_prior_sp_off
     gm["def_sum"] = gm.h_prior_sp_def + gm.a_prior_sp_def
+    rsp = os.path.join(HERE, "data", "roster_scores.parquet")
+    if os.path.exists(rsp):
+        rs = pd.read_parquet(rsp)
+        rh = rs.add_prefix("rh_").rename(columns={"rh_season": "season", "rh_team": "homeTeam"})
+        ra = rs.add_prefix("ra_").rename(columns={"ra_season": "season", "ra_team": "awayTeam"})
+        gm = gm.merge(rh, on=["season", "homeTeam"], how="left").merge(ra, on=["season", "awayTeam"], how="left")
+        for c in ("ret_prod", "in_prod", "ret_share", "talent_stock", "qb1_prior", "qb1_transfer"):
+            gm[f"d_{c}"] = gm.get(f"rh_{c}") - gm.get(f"ra_{c}")
+    else:
+        for c in ("ret_prod", "in_prod", "ret_share", "talent_stock", "qb1_prior", "qb1_transfer"):
+            gm[f"d_{c}"] = np.nan
     return gm
 
 
