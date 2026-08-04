@@ -229,3 +229,21 @@ loosely, NFL tightly). Build style-delta signals in CFB; treat NFL as the sharp 
    profile/delta computation productionized in the weekly pipeline.
 2. Add tempo/pace to the CFB total model (production_models / cfb_forecast total path).
 3. Revisit NFL with more PBP seasons (only 2023-25 cached) before concluding the reversal is structural.
+
+## EARLY-WEEK DISPLAY: MARKET ANCHOR (2026-08-03, wired) — the "OSU@Tulsa -0.8" fix
+Owner spotted wk1 displays absurdly far off the market (OSU@Tulsa blend -0.8 vs close -12.5;
+Indiana -22 vs -40.5). Battery (`cfb_early_talent_test.py`, walk-forward wk1-3 eval 2022-25, n=588):
+- **The preseason blend carries ZERO information beyond the closing line.** Optimal shrink
+  λ = -0.07±0.10 (spread), +0.12±0.11 (total) — both statistically zero. Line MAE beats the
+  blend outright (12.16 v 13.23 margin; 12.26 v 12.98 total). On the top-decile disagreement
+  games the market wins 15.2 v 18.7 — our big deviations are pure noise, every config.
+- **Player/roster feature adds help the RAW blend but cannot close the gap**: ret_ppa best
+  single add (corr .924→.932; auto-joins when CFBD posts ~Aug), portal net specifically
+  shrinks the blow-up games (disagreement MAE 18.7→17.2), talent composite mild, new-HC
+  carryover ≈ nothing. Compression is NOT the issue (pred SD 16.3 ≈ market 16.5).
+- **WIRED in `cfb_early_week.py`**: display = close + 0.25·(blend−close), capped ±7 spread /
+  ±6 total, Odds-API close only, raw blend where no line. λ=0.25 keeps a model voice at
+  ~0.09 MAE cost. 2026 wk1 after: OSU@Tulsa +9.2 (was -0.8), Indiana -35.9, Miami(OH) -15.9.
+- **Law for the vault**: in wk1-3 CFB, no amount of preseason player/roster data beats the
+  line — the road to sane early numbers is the anchor, not more features. Betting unchanged
+  (EARLY_SUPPRESS stays; flags grade vs the close as before).

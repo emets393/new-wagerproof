@@ -92,6 +92,21 @@ def main():
     te["pred_margin"] = mreg.predict(imp(te, MARGIN_FEATS)).round(1)
     te["pred_total"] = treg.predict(imp(te, TOTAL_FEATS)).round(1)
     te["pred_spread"] = (-te.pred_margin).round(1)
+    # MARKET ANCHOR (cfb_early_talent_test 2026-08-03): the preseason blend carries ZERO
+    # information beyond the closing line in wk1-3 (shrink λ = -0.07±0.10 spread, +0.12±0.11
+    # total; the line's MAE beats the blend outright, and the market wins the top-decile
+    # disagreement games 15.2 vs 18.7). Deviations from the line are noise — e.g. 2026 wk1
+    # OSU@Tulsa raw blend -0.8 vs market -12.5. Display = close + 0.25*(blend-close), capped
+    # ±7/±6, keeping a model voice at ~0.1 MAE cost. Raw blend kept where no Odds-API line.
+    LAM, CAP_S, CAP_T = 0.25, 7.0, 6.0
+    hs = te.spread_close.notna()
+    te.loc[hs, "pred_spread"] = (te.spread_close + (LAM * (te.pred_spread - te.spread_close))
+                                 .clip(-CAP_S, CAP_S)).round(1)[hs]
+    te.loc[hs, "pred_margin"] = -te.loc[hs, "pred_spread"]
+    ht = te.total_close.notna()
+    te.loc[ht, "pred_total"] = (te.total_close + (LAM * (te.pred_total - te.total_close))
+                                .clip(-CAP_T, CAP_T)).round(1)[ht]
+    L(f"[anchor] λ={LAM} cap ±{CAP_S}/±{CAP_T}: {int(hs.sum())} spreads, {int(ht.sum())} totals anchored to the Odds-API close")
     L(f"[predict] {len(te)} {SEASON} wk{WEEK} games | prior-SP+ present on both sides for "
       f"{int((te.h_prior_sp.notna() & te.a_prior_sp.notna()).sum())}")
     out = os.path.join(HERE, "out", f"cfb_early_preds_{SEASON}.csv")
