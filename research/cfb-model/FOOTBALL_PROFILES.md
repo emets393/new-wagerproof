@@ -326,3 +326,17 @@ Interaction of the true-preseason gap (|gap|≥2, wk1-3) with player-built retur
 WIRED: teardown key + "FULL TEARDOWN" tier annotation in gen_cfb_dryrun_flags (ret_share
 NaN for 2026 until CFBD posts rosters → tiers self-activate); def registered. All tracking
 tier, 0.5u paper, same promotion bar as the coach cells.
+
+## REGIME FADE — CROSS-MARKET EXPRESSION MAP (2026-08-04)
+Same conditions swept across the other markets (TT/1H = 2023-25 archive only, n small):
+- **TEAM TOTAL of the faded team: UNDER 66.7% (n=48, 3/3 seasons)** — the strongest
+  expression of the fade anywhere; the over-rated regime team scores under ITS number.
+- **1H spread: fade the regime side = 60.4% (n=48, 3/3)** — slow starts vs the number.
+- FG totals: new-HC under 54.5% is only +1.4pp over the wk1-3 baseline under bias (53.1%)
+  — NOT incremental. Watch-only oddity: BOTH-teams-ret>=60% → under 58.7% (+5.6 vs base,
+  erratic seasons; inverts the "returning offense = overs" folk claim). 1H totals dead.
+- **DERIVED-MARKET LAW applies**: TT/1H are rotations of the spread fade — correlated
+  leverage, NOT independent signals; nothing new wired. DEPLOYMENT NOTE: if the 2026
+  tracking year confirms the family, express it as the faded team's TT UNDER (or 1H fade),
+  not the FG spread — that's where the mispricing concentrates. The live TT/1H collector
+  grades all three expressions side-by-side this season.
