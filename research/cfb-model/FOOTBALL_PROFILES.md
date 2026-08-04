@@ -286,3 +286,29 @@ of VSiN's new-coach fade) + dead no-cause remainder (51.2%); ALL slices flipped 
 2025. stale_line_coach_fade = candidate TRACKING signal only. With true preseason ratings
 now flowing, the same gap study runs LIVE in 2026 (preseason SP+ + HFA vs close) — forward
 track before any promotion.
+
+## REGIME FADE FAMILY — WIRED AS TRACKING SIGNALS (2026-08-04)
+Owner-driven re-study on TRUE preseason ratings (TR predictive, harvested 2018-2025 via
+dated URLs, 924 team-seasons, 100% name-mapped) KILLED the 2025-flip concern — it was a
+stale-ratings artifact. Final cells (wk1-3, |implied−close| ≥ 2, close = Odds API):
+- regime_fade_hc: rating's side has 1st-yr HC → fade = **58.4% / +11.5% (n=137)**, per-season
+  47/50/60/56/58/78/60 — five straight positive 2021-25. Anti-control (fade wrong side) 37.8%.
+- regime_follow_hc: rating's side vs new-HC OPPONENT → follow = **62.2% / +18.7% (n=111)**.
+- qb-transfer fade 57.0% (n=128) — NOT wired yet (needs 2026 rosters to identify QB1).
+- qb-unknown follow 54.9%→61.4% w/ dose (n=91/44, 7/7 season-cells) — watch.
+WIRED: gen_cfb_dryrun_flags block (tracking tier, 0.5u paper) + signal defs; inputs
+(preseason_tr_{S}, coaches_{S} w/ new_hc) refresh weekly via fetch_preseason_ratings.
+2026 wk1: 13 fades + 5 follows live. STATUS: tracking until live season confirms (the
+discovery grid scanned 30 cells). Also found+fixed: **CFBD consensus lines corrupt for
+5/51 wk1 games (2 sign-flipped!)** — flags generator now overrides te lines from
+odds_game_frame (owner Odds-API rule now enforced in the flags path too).
+
+## TRENCH-WEIGHT STUDY + CFBD v2 AUDIT (2026-08-04)
+OL/DL top-8 weights from rosters (now kept in fetch_roster_layer): mechanism REAL but tiny
+(partial corr +0.03-0.05 at n=12,964; +0.24pp rush success per 10 lbs; loads slightly more
+on pass pro), market PRICED (51-53% ATS, no dose ladder) — model feature + matchup-card
+content, NOT a signal. CFBD v2 summer additions worth adopting: coach profile/tenure
+endpoints (Jul 2026 — completes the first-year-HC table), /draft picks (high-value
+departures for roster reconstruction), player team-stints (replaces portal name-matching),
+/wepa adjusted metrics (cross-check). NOTE: preseason_tr_mapped.parquet (the TR→CFBD name
+map) is gitignored — rebuild recipe = the harvest + MANUAL dict in this session's log.

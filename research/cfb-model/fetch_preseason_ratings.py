@@ -41,5 +41,45 @@ def main():
     print(f"[preseason] {SEASON}: patched {n} teams' prior_sp/fpi with true preseason ratings")
 
 
+def tr_and_coaches():
+    """Refresh the regime-fade inputs: current TR predictive preseason ratings + the season's
+    coach table w/ new-HC flags. Best-effort — regime flags silently skip if either is stale."""
+    import pandas as pd
+    UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
+    try:
+        r = requests.get("https://www.teamrankings.com/college-football/ranking/predictive-by-other",
+                         headers=UA, timeout=30)
+        import io
+        t = pd.read_html(io.StringIO(r.text))[0]
+        t["tr_team"] = t.Team.str.replace(r"\s*\(\d+-\d+\)$", "", regex=True).str.strip()
+        mp = pd.read_parquet(HERE / "data" / "cfbd" / "preseason_tr_mapped.parquet")[
+            ["tr_team", "team"]].drop_duplicates()
+        t = t.merge(mp, on="tr_team", how="left")
+        t.loc[t.team.isna(), "team"] = t.tr_team   # new/renamed teams pass through
+        out = t.dropna(subset=["team"])[["team", "Rating"]].rename(columns={"Rating": "tr_rating"})
+        out["season"] = SEASON
+        out.to_parquet(HERE / "data" / "cfbd" / f"preseason_tr_{SEASON}.parquet", index=False)
+        print(f"[preseason] TR predictive: {len(out)} teams")
+    except Exception as e:
+        print(f"[preseason] TR fetch failed: {e}")
+    try:
+        import cfbd
+        rows = []
+        for c in cfbd.get("/coaches", year=SEASON):
+            nm = f"{c.get('firstName','')} {c.get('lastName','')}".strip()
+            for se in c.get("seasons", []):
+                if se.get("year") == SEASON:
+                    rows.append({"school": se["school"], "coach": nm, "games": se.get("games") or 0})
+        c_now = pd.DataFrame(rows).sort_values("games", ascending=False).drop_duplicates("school")
+        cs = pd.read_parquet(HERE / "data" / "cfbd" / "coach_seasons.parquet")
+        prv = cs[cs.year == SEASON - 1].set_index("school").coach
+        c_now["new_hc"] = [prv.get(s) != co for s, co in zip(c_now.school, c_now.coach)]
+        c_now.to_parquet(HERE / "data" / "cfbd" / f"coaches_{SEASON}.parquet", index=False)
+        print(f"[preseason] coaches: {len(c_now)} programs, {int(c_now.new_hc.sum())} new HCs")
+    except Exception as e:
+        print(f"[preseason] coaches fetch failed: {e}")
+
+
 if __name__ == "__main__":
     main()
+    tr_and_coaches()

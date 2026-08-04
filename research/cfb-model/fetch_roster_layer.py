@@ -33,6 +33,7 @@ def main():
             rows.append({"season": y, "athlete_id": p.get("id"), "team": p.get("team"),
                          "first": p.get("firstName"), "last": p.get("lastName"),
                          "position": p.get("position"), "class_year": p.get("year"),
+                         "height": p.get("height"), "weight": p.get("weight"),
                          "recruit_ids": ",".join(str(i) for i in (p.get("recruitIds") or []))})
         print(f"roster {y}: {len(r)}")
     pd.DataFrame(rows).to_parquet(DATA / "rosters.parquet", index=False)

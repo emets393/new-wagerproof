@@ -11,6 +11,14 @@ warnings.filterwarnings("ignore")
 SEASON, WEEK = C.season_week()
 
 gm, te, S = C.harness_week(SEASON, WEEK)
+# OWNER RULE: every signal conditions on ODDS-API lines, never CFBD consensus. 2026 wk1 audit
+# found 5/51 CFBD lines bad (2 sign-FLIPPED: Miami@Stanford, Coastal@WVU; 3 zero-filled read
+# as pick'em). Override te's close lines from odds_game_frame; no Odds-API line -> NaN (skip).
+_ogf = pd.read_parquet("data/odds_game_frame.parquet")
+_ogf = _ogf[_ogf.season == SEASON][["home", "away", "close_spread", "close_total"]]
+te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
+te["spread_close"] = te["close_spread"]
+te["total_close"] = te["close_total"]
 g7 = set(te.game_id)
 def lab(r): return f"{r.awayTeam} @ {r.homeTeam}"
 rows = []
@@ -207,6 +215,45 @@ try:
                      "grade_line": "dk", "mammoth": False})
 except Exception as e:
     print(f"  [home_dog_ml] skipped: {e}")
+
+# --- REGIME FADE family (TRACKING-ONLY, wired 2026-08-04) -----------------------------------
+# True-preseason power rating (TR predictive) vs the Odds-API close, wk1-3, |gap| >= 2:
+#   the side the RATING favors has a 1st-year HC  -> FADE it   (58.4% / +11.5, n=137, 2018-25)
+#   the OPPONENT of the rating's side has new HC  -> FOLLOW it (62.2% / +18.7, n=111)
+# Five straight positive seasons 2021-25 on true preseason ratings (the earlier "2025 flip"
+# was a stale-ratings artifact). Anti-control confirms direction (wrong-side fade = 37.8%).
+# TRACKING tier until a live season confirms — the discovery grid scanned 30 cells. Vault:
+# FOOTBALL_PROFILES.md "regime fade". Inputs refresh weekly (preseason_tr / coaches parquets).
+_trp = f"data/cfbd/preseason_tr_{SEASON}.parquet"
+_cop = f"data/cfbd/coaches_{SEASON}.parquet"
+if WEEK <= 3 and os.path.exists(_trp) and os.path.exists(_cop):
+    _trr = pd.read_parquet(_trp).set_index("team").tr_rating
+    _co = pd.read_parquet(_cop)
+    _newhc = set(_co[_co.new_hc].school)
+    for _, r in te.iterrows():
+        sp = r.spread_close
+        h, a = _trr.get(r.homeTeam), _trr.get(r.awayTeam)
+        if pd.isna(sp) or h is None or a is None:
+            continue
+        implied = (h - a) + (0.0 if bool(getattr(r, "neutralSite", False)) else 2.5)
+        gap = implied - (-float(sp))
+        if abs(gap) < 2:
+            continue
+        rated_team = r.homeTeam if gap > 0 else r.awayTeam      # side the rating favors vs the line
+        opp_team = r.awayTeam if gap > 0 else r.homeTeam
+        rated_side = "HOME" if gap > 0 else "AWAY"
+        opp_side = "AWAY" if gap > 0 else "HOME"
+        common = {"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                  "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "spread",
+                  "line": round(float(sp), 1), "price": -110, "edge": round(float(gap), 1),
+                  "conviction": "track", "tier": "tracking", "stake_units": 0.5,
+                  "grade_line": "close", "mammoth": False}
+        if rated_team in _newhc:
+            rows.append({**common, "source": f"REGIME FADE: rating leans on {rated_team} (new HC), gap {gap:+.1f}",
+                         "signal_key": "regime_fade_hc", "side": opp_side})
+        elif opp_team in _newhc:
+            rows.append({**common, "source": f"REGIME FOLLOW: {opp_team} has new HC, rating likes {rated_team}, gap {gap:+.1f}",
+                         "signal_key": "regime_follow_hc", "side": rated_side})
 
 df = pd.DataFrame(rows)
 
