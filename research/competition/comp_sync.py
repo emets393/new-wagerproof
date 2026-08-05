@@ -92,15 +92,18 @@ def comp_deadline_for(kick_utc: datetime) -> datetime | None:
     return None
 
 
-def season_and_week(dl_et: datetime) -> tuple[int, int, str]:
+def season_and_week(dl_et: datetime) -> tuple[int, int, str, bool]:
     season = dl_et.year if dl_et.month >= 3 else dl_et.year - 1
-    # anchor = last Friday of August of the season year (CFB opening weekend)
+    # anchor = last Friday of August of the season year (CFB opening weekend).
+    # That first window is week 0 — the unscored PRACTICE ROUND. Real weeks 1+.
     a = datetime(season, 8, 31, 12, 0, tzinfo=ET)
     while a.weekday() != 4:
         a -= timedelta(days=1)
-    week_no = (dl_et - a).days // 7 + 1
+    week_no = (dl_et - a).days // 7
+    is_practice = week_no == 0
     sat = (dl_et + timedelta(days=1)).strftime("%b %-d")
-    return season, week_no, f"Week {week_no} · {sat}"
+    label = "Week 0 (Practice Round)" if is_practice else f"Week {week_no} · {sat}"
+    return season, week_no, label, is_practice
 
 
 def fetch_odds(sport_key: str) -> list[dict]:
@@ -139,7 +142,7 @@ def main() -> None:
     now = datetime.now(timezone.utc)
     horizon = now + timedelta(days=HORIZON_DAYS)
 
-    weeks: dict[tuple[int, int], tuple[datetime, str]] = {}
+    weeks: dict[tuple[int, int], tuple[datetime, str, bool]] = {}
     games: list[dict] = []
     for sport, sport_key in SPORTS.items():
         try:
@@ -155,8 +158,8 @@ def main() -> None:
             dl = comp_deadline_for(kick)
             if dl is None:
                 continue
-            season, week_no, label = season_and_week(dl)
-            weeks[(season, week_no)] = (dl, label)
+            season, week_no, label, is_practice = season_and_week(dl)
+            weeks[(season, week_no)] = (dl, label, is_practice)
             sp, tot, n_books = consensus(ev)
             games.append(dict(season=season, week_no=week_no, sport=sport,
                               event_id=ev["id"], home=ev["home_team"],
@@ -175,14 +178,14 @@ def main() -> None:
     if weeks:
         rows = ",".join(
             f"({s}, {w}, {q(lab)}, {q(dl.isoformat())}::timestamptz, "
-            f"{q((dl + timedelta(days=WINDOW_DAYS)).isoformat())}::timestamptz)"
-            for (s, w), (dl, lab) in sorted(weeks.items()))
+            f"{q((dl + timedelta(days=WINDOW_DAYS)).isoformat())}::timestamptz, {prac})"
+            for (s, w), (dl, lab, prac) in sorted(weeks.items()))
         run_sql(f"""
-            insert into comp_weeks (season, week_no, label, deadline, window_end)
+            insert into comp_weeks (season, week_no, label, deadline, window_end, is_practice)
             values {rows}
             on conflict (season, week_no) do update
               set label = excluded.label, deadline = excluded.deadline,
-                  window_end = excluded.window_end
+                  window_end = excluded.window_end, is_practice = excluded.is_practice
               where comp_weeks.status in ('upcoming','open');""")
 
     # ---- upsert games (lines only refresh pre-kickoff) -----------------------
