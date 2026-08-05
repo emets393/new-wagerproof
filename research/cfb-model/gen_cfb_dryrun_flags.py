@@ -11,13 +11,28 @@ warnings.filterwarnings("ignore")
 SEASON, WEEK = C.season_week()
 
 gm, te, S = C.harness_week(SEASON, WEEK)
+# OWNER RULE: every signal conditions on ODDS-API lines, never CFBD consensus. 2026 wk1 audit
+# found 5/51 CFBD lines bad (2 sign-FLIPPED: Miami@Stanford, Coastal@WVU; 3 zero-filled read
+# as pick'em). Override te's close lines from odds_game_frame; no Odds-API line -> NaN (skip).
+_ogf = pd.read_parquet("data/odds_game_frame.parquet")
+_ogf = _ogf[_ogf.season == SEASON][["home", "away", "close_spread", "close_total"]]
+te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
+te["spread_close"] = te["close_spread"]
+te["total_close"] = te["close_total"]
 g7 = set(te.game_id)
 def lab(r): return f"{r.awayTeam} @ {r.homeTeam}"
 rows = []
 
+# Cold-model spots are DEGENERATE in weeks 1-3 (opponent-adjusted model has no games -> uniform
+# edges), so suppress all MODEL-EDGE spot keys early. Contextual spots (g5/key/conf/book/style)
+# still fire. Previously this was only a one-off DB delete; now durable in the generator.
+EARLY_SUPPRESS = {"model_highedge_dog", "model_total_over", "model_total_under",
+                  "model_total_over_pace", "model_road_value", "premium_lay_fav"}
+
 # spread/total spots from spot_library (true per-spot side)
 for name, (mask, side, market, gl) in S.items():
     if C.is_blanket(name): continue   # skip slate-wide leans (week==N openers, base model_lean) — not per-game signals
+    if WEEK <= 3 and C.key_for(name) in EARLY_SUPPRESS: continue   # cold-model spots off until wk4
     sub = te[mask.reindex(te.index, fill_value=False).values] if hasattr(mask, "reindex") else te[mask]
     meta = C.classify(name); conv = meta[2] if meta else "T3"; active = meta[3] if meta else True
     mkt_norm = "total" if market == "total" else "spread"   # spot_library uses 'side' for spreads
@@ -38,7 +53,10 @@ for name, (mask, side, market, gl) in S.items():
 # event-odds (per-team totals) aren't captured preseason -> empty frame so TT flags just don't fire; the
 # other spots (model, G5 openers, style) still generate.
 _evp = f"data/event_odds/events_{SEASON}.parquet"
-ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(columns=["game_id", "market", "name", "description", "point"])
+_EVC = ["game_id", "market", "name", "description", "point"]
+ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(columns=_EVC)
+if ev.empty or "game_id" not in ev.columns:  # preseason: schema-less 0-row parquet
+    ev = pd.DataFrame(columns=_EVC)
 ev = ev[(ev.game_id.isin(g7)) & (ev.market == "team_totals") & (ev.name == "Over")].copy()
 def _tdb(o):
     AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i", "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State", "Southern Miss Golden Eagles": "Southern Miss"}
@@ -158,7 +176,11 @@ except Exception as e:
 try:
     matchups = []
     for _, r in te.iterrows():
-        matchups += [(r.homeTeam, r.awayTeam), (r.awayTeam, r.homeTeam)]
+        # conference-game flag: ret_prod_edge is non-conference-only (validated split, see
+        # cfb_early_roster_signals docstring / FOOTBALL_PROFILES S-CFB2)
+        is_conf = bool(pd.notna(r.homeConference) and pd.notna(r.awayConference)
+                       and r.homeConference == r.awayConference)
+        matchups += [(r.homeTeam, r.awayTeam, is_conf), (r.awayTeam, r.homeTeam, is_conf)]
     er = ER.triggers_for_week(SEASON, WEEK, matchups)
     SRC = {"ret_prod_edge": "Returning-production edge (wk1-3)", "portal_talent_influx": "Portal talent influx (wk1-3)"}
     for _, r in te.iterrows():
@@ -194,7 +216,72 @@ try:
 except Exception as e:
     print(f"  [home_dog_ml] skipped: {e}")
 
+# --- REGIME FADE family (TRACKING-ONLY, wired 2026-08-04) -----------------------------------
+# True-preseason power rating (TR predictive) vs the Odds-API close, wk1-3, |gap| >= 2:
+#   the side the RATING favors has a 1st-year HC  -> FADE it   (58.4% / +11.5, n=137, 2018-25)
+#   the OPPONENT of the rating's side has new HC  -> FOLLOW it (62.2% / +18.7, n=111)
+# Five straight positive seasons 2021-25 on true preseason ratings (the earlier "2025 flip"
+# was a stale-ratings artifact). Anti-control confirms direction (wrong-side fade = 37.8%).
+# TRACKING tier until a live season confirms — the discovery grid scanned 30 cells. Vault:
+# FOOTBALL_PROFILES.md "regime fade". Inputs refresh weekly (preseason_tr / coaches parquets).
+_trp = f"data/cfbd/preseason_tr_{SEASON}.parquet"
+_cop = f"data/cfbd/coaches_{SEASON}.parquet"
+if WEEK <= 3 and os.path.exists(_trp) and os.path.exists(_cop):
+    _trr = pd.read_parquet(_trp).set_index("team").tr_rating
+    _rsp = "data/roster_scores.parquet"
+    _rsdf = pd.read_parquet(_rsp) if os.path.exists(_rsp) else pd.DataFrame(columns=["season","team","ret_share"])
+    _retsh = _rsdf[_rsdf.season == SEASON].set_index("team").ret_share.to_dict()
+    _co = pd.read_parquet(_cop)
+    _newhc = set(_co[_co.new_hc].school)
+    for _, r in te.iterrows():
+        sp = r.spread_close
+        h, a = _trr.get(r.homeTeam), _trr.get(r.awayTeam)
+        if pd.isna(sp) or h is None or a is None:
+            continue
+        implied = (h - a) + (0.0 if bool(getattr(r, "neutralSite", False)) else 2.5)
+        gap = implied - (-float(sp))
+        if abs(gap) < 2:
+            continue
+        rated_team = r.homeTeam if gap > 0 else r.awayTeam      # side the rating favors vs the line
+        opp_team = r.awayTeam if gap > 0 else r.homeTeam
+        rated_side = "HOME" if gap > 0 else "AWAY"
+        opp_side = "AWAY" if gap > 0 else "HOME"
+        common = {"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                  "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "spread",
+                  "line": round(float(sp), 1), "price": -110, "edge": round(float(gap), 1),
+                  "conviction": "track", "tier": "tracking", "stake_units": 0.5,
+                  "grade_line": "close", "mammoth": False}
+        # returning-production tier (owner grid 2026-08-04): new-HC + roster teardown = the
+        # 6/6-season core (61.2%/+16.8); same-HC teardown fades too (56%, 5/6). ret_share is
+        # NaN until CFBD posts current-season rosters -> tiers self-activate when data lands.
+        _ret = _retsh.get(rated_team, float("nan"))
+        if rated_team in _newhc:
+            tear = " + FULL TEARDOWN (<45% returning)" if _ret == _ret and _ret < 0.45 else ""
+            rows.append({**common, "source": f"REGIME FADE: rating leans on {rated_team} (new HC{tear}), gap {gap:+.1f}",
+                         "signal_key": "regime_fade_hc", "side": opp_side})
+        elif opp_team in _newhc:
+            rows.append({**common, "source": f"REGIME FOLLOW: {opp_team} has new HC, rating likes {rated_team}, gap {gap:+.1f}",
+                         "signal_key": "regime_follow_hc", "side": rated_side})
+        elif _ret == _ret and _ret < 0.30:
+            rows.append({**common, "source": f"REGIME FADE: rating leans on {rated_team} (roster gutted, {_ret*100:.0f}% returning, same HC), gap {gap:+.1f}",
+                         "signal_key": "regime_fade_teardown", "side": opp_side})
+
 df = pd.DataFrame(rows)
+
+# ── Weeks 1-3 EXTREMITY TIER for fade_high_total (validated 2026-08-03, FOOTBALL_PROFILES) ──
+# The flat close>=60 UNDER hides a dose-response early: wk1-3 the TOP-8% closes (within-season rank)
+# hit 64.5%/+23.2 (8/9) vs 54.7% for the rest of >=60; wk4+ the premium decays (52.5%). RANK not an
+# absolute cut because the totals environment drifts (top-8% = 68.6 in 2016 -> 60.5 in 2025). The
+# >=60 floor stays (sub-60 rank cells have no historical sample). Upgrade = conviction T3 -> T2.
+if WEEK <= 3 and len(df) and (df.signal_key == "fade_high_total").any():
+    slate_p92 = te.total_close.quantile(0.92)
+    hi = (df.signal_key == "fade_high_total") & (df.line >= max(float(slate_p92), 60.0))
+    if hi.any():
+        df.loc[hi, "conviction"] = "T2"
+        df.loc[hi, "stake_units"] = C.STAKE["T2"]
+        df.loc[hi, "source"] = df.loc[hi, "source"] + " (extreme, wk1-3)"
+        print(f"  [extremity tier] fade_high_total upgraded to T2 on {int(hi.sum())} games (slate p92={slate_p92:.1f})")
+
 print(f"cfb_dryrun_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
 print(f"  conviction {df.conviction.value_counts().to_dict()} | mammoth flags {int(df.mammoth.sum())}")
 C.wipe("cfb_dryrun_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")

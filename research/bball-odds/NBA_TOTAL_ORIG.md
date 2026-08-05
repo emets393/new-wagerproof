@@ -60,8 +60,8 @@ Baseline: **739 features**, corr with the realised residual +0.0781, **+4.91%** 
 
 | config | features | corr | bets (top 15%) | win% | base% | ROI | z | ROI top 9% | z |
 |---|---|---|---|---|---|---|---|---|---|
-| ALL | 739 | +0.0781 | 595 | 55.0 | 51.9 | **+4.91** | +2.69 | **+6.94** | +2.47 |
-| **T1** | 612 | +0.0843 | 595 | 58.8 | 52.4 | **+12.29** | +5.49 | **+14.42** | +5.17 |
+| ALL | 763 | +0.0796 | 595 | 56.6 | 51.9 | **+8.12** | +3.21 | **+8.54** | +1.86 |
+| **T1** | 636 | +0.0843 | 595 | 58.8 | 52.1 | **+12.29** | +5.33 | **+14.96** | +3.04 |
 | T2 | 482 | +0.0641 | 595 | 56.1 | 53.6 | **+7.17** | +2.00 | **+9.09** | +1.42 |
 | TCORE | 240 | +0.0265 | 595 | 51.8 | 50.6 | **-1.18** | +1.40 | **+3.20** | +1.42 |
 | TCORE_R | 410 | +0.0608 | 595 | 56.1 | 51.8 | **+7.17** | +3.79 | **+10.69** | +1.56 |
@@ -72,16 +72,16 @@ Disagreement with the posted total, in points. Nulls are the same 20 game-level 
 
 | cut (pts) | bets | win% | base% | edge | ROI | null mean | null sd | z |
 |---|---|---|---|---|---|---|---|---|
-| ≥1 | 3,408 | 52.7 | 50.7 | **+2.0** | **+0.6** | -0.25 | 0.62 | **+3.56** |
-| ≥2 | 2,843 | 54.1 | 50.3 | **+3.7** | **+3.2** | -0.26 | 0.69 | **+5.81** |
-| ≥3 | 2,332 | 54.3 | 50.5 | **+3.8** | **+3.6** | -0.28 | 0.84 | **+4.84** |
-| ≥4 | 1,886 | 54.7 | 50.9 | **+3.8** | **+4.4** | -0.35 | 0.89 | **+4.64** |
-| ≥5 | 1,489 | 54.5 | 51.2 | **+3.3** | **+4.1** | -0.49 | 0.83 | **+4.55** |
-| ≥6 | 1,147 | 54.6 | 50.5 | **+4.1** | **+4.2** | -0.61 | 0.89 | **+5.26** |
-| ≥7 | 885 | 56.6 | 51.2 | **+5.4** | **+8.1** | -0.74 | 0.85 | **+7.27** |
-| ≥8 | 675 | 58.7 | 52.0 | **+6.7** | **+12.0** | -0.75 | 0.80 | **+9.31** |
-| ≥10 | 359 | 59.9 | 52.9 | **+7.0** | **+14.3** | -0.56 | 1.06 | **+7.08** |
-| ≥12 | 204 | 60.3 | 53.4 | **+6.9** | **+15.1** | -0.62 | 1.72 | **+4.34** |
+| ≥1 | 3,395 | 52.8 | 51.0 | **+1.8** | **+0.9** | -0.25 | 0.61 | **+3.44** |
+| ≥2 | 2,860 | 53.3 | 50.6 | **+2.7** | **+1.8** | -0.24 | 0.80 | **+3.68** |
+| ≥3 | 2,357 | 53.8 | 51.0 | **+2.8** | **+2.7** | -0.34 | 0.97 | **+3.19** |
+| ≥4 | 1,903 | 55.0 | 50.6 | **+4.5** | **+5.0** | -0.44 | 1.08 | **+4.55** |
+| ≥5 | 1,522 | 54.5 | 51.1 | **+3.5** | **+4.1** | -0.59 | 0.93 | **+4.37** |
+| ≥6 | 1,190 | 54.9 | 52.0 | **+2.9** | **+4.8** | -0.76 | 0.88 | **+4.13** |
+| ≥7 | 917 | 56.8 | 51.4 | **+5.5** | **+8.5** | -0.72 | 0.69 | **+8.97** |
+| ≥8 | 689 | 58.6 | 51.8 | **+6.8** | **+11.9** | -0.80 | 1.02 | **+7.46** |
+| ≥10 | 383 | 59.8 | 54.3 | **+5.5** | **+14.1** | -0.40 | 1.14 | **+5.18** |
+| ≥12 | 224 | 59.8 | 55.8 | **+4.0** | **+14.2** | -0.64 | 1.58 | **+2.95** |
 
 
 ## T1 broken out at the ≥12 cut
@@ -90,57 +90,21 @@ Pooled numbers hide a signal that lives in one season or decays out.
 
 | season | bets | win% | base% | edge | ROI |
 |---|---|---|---|---|---|
-| 2023 | 109 | 57.8 | 58.7 | **-0.9** | **+10.3** |
-| 2024 | 37 | 59.5 | 56.8 | **+2.7** | **+13.5** |
-| 2025 | 56 | 66.1 | 50.0 | **+16.1** | **+26.0** |
+| 2023 | 115 | 59.1 | 60.9 | **-1.7** | **+12.9** |
+| 2024 | 41 | 61.0 | 56.1 | **+4.9** | **+16.4** |
+| 2025 | 66 | 60.6 | 54.5 | **+6.1** | **+15.6** |
 
 | phase | bets | win% | base% | edge | ROI |
 |---|---|---|---|---|---|
-| EARLY | 113 | 58.4 | 53.1 | **+5.3** | **+11.5** |
-| MID | 34 | 55.9 | 55.9 | **+0.0** | **+6.6** |
-| LATE | 45 | 64.4 | 53.3 | **+11.1** | **+23.0** |
+| EARLY | 124 | 58.1 | 54.8 | **+3.2** | **+10.8** |
+| MID | 36 | 55.6 | 61.1 | **-5.6** | **+6.0** |
+| LATE | 51 | 64.7 | 54.9 | **+9.8** | **+23.5** |
 
 
 ## T1 at ≥12, split by which side the model takes
 
 | side | bets | win% | ROI |
 |---|---|---|---|
-| model OVER | 142 | 59.9 | **+14.3** |
-| model UNDER | 62 | 61.3 | **+17.0** |
-
----
-
-# ⭐ THE RUNG TO STAND ON IS ≥8, NOT THE ≥12 ARGMAX
-
-`nba_total_prune2.py` auto-selects the ladder's best ROI, which is ≥12. **That is the wrong
-reading of the ladder.** ≥12 is 204 bets against a null sd of 1.72; ≥8 is 675 bets against a null
-sd of 0.80, and its **z of +9.31 is the highest on the entire ladder** — more than double ≥12's
-+4.34. Nearly the same ROI, three times the sample, half the noise. Breakouts below are ≥8.
-
-| | bets | win% | base% | edge | ROI |
-|---|---|---|---|---|---|
-| **≥8 pooled** | **675** | **58.7** | **52.0** | **+6.7** | **+12.0** |
-| 2023 | 250 | 57.6 | 57.6 | +0.0 | **+10.0** |
-| 2024 | 186 | 60.8 | 54.3 | +6.5 | **+16.0** |
-| 2025 | 230 | 59.1 | 51.3 | +7.8 | **+12.9** |
-| EARLY | 254 | 57.5 | 53.5 | +3.9 | **+9.7** |
-| MID | 179 | 60.3 | 50.3 | +10.1 | **+15.2** |
-| LATE | 209 | 57.9 | 52.2 | +5.7 | **+10.5** |
-| POST | 33 | 63.6 | 51.5 | +12.1 | **+21.4** |
-| model OVER | 376 | 59.6 | — | — | **+13.7** |
-| model UNDER | 299 | 57.5 | — | — | **+9.8** |
-
-Every season, every phase and both sides are positive, and in the 2×3 side×season grid only one
-cell loses (UNDER in 2023, n=52, −4.5%). **Drop to ≥6 and that stops being true** — 2023 goes to
-−1.0% and POST to +0.3%. So ≥8 is where the model starts being right, not where the ROI happens
-to peak.
-
-**2023 makes its money on PRICE, not on hit rate** — 57.6% against a 57.6% in-slice base is an
-edge of exactly zero, yet +10.0% ROI, meaning the model kept landing on the cheaper side of games
-that were going to go that way anyway. That is a real way to profit but it is a different
-mechanism from the other two seasons, and it is the one cell here I would not extrapolate.
-
-**Postseason INVERTS the spread's behaviour.** The originator spread is ~zero in the playoffs;
-the total is +21.4% on 33 bets. Thirty-three bets is nothing — this is a note to check later, not
-a claim.
+| model OVER | 151 | 61.6 | **+17.6** |
+| model UNDER | 73 | 56.2 | **+7.2** |
 

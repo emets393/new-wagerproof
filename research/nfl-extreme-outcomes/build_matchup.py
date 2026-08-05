@@ -43,10 +43,14 @@ print(f"[merge] team-week joined to {matched.sum()}/{len(g)} games ({matched.mea
 
 # ---- validate join: team-week off_pass_success should ~ view home_off_pass_sr_s2d ----
 chk = g.dropna(subset=["home_off_pass_success_rate_s2d", "home_off_pass_sr_s2d"])
-r = np.corrcoef(chk["home_off_pass_success_rate_s2d"], chk["home_off_pass_sr_s2d"])[0, 1]
-d = (chk["home_off_pass_success_rate_s2d"] - chk["home_off_pass_sr_s2d"]).abs()
-print(f"[validate] team-week home off_pass_success vs view home_off_pass_sr_s2d: corr={r:.3f} "
-      f"|diff| mean={d.mean():.4f} (same metric -> should be ~1.0/near-0)")
+if len(chk) >= 2:
+    r = np.corrcoef(chk["home_off_pass_success_rate_s2d"], chk["home_off_pass_sr_s2d"])[0, 1]
+    d = (chk["home_off_pass_success_rate_s2d"] - chk["home_off_pass_sr_s2d"]).abs()
+    print(f"[validate] team-week home off_pass_success vs view home_off_pass_sr_s2d: corr={r:.3f} "
+          f"|diff| mean={d.mean():.4f} (same metric -> should be ~1.0/near-0)")
+else:
+    # preseason: team_week has no current-season rows, so nothing overlaps to validate
+    print("[validate] skipped — no overlapping team-week rows (preseason)")
 
 # ---- MATCHUP NETS: home offense vs away defense, and away offense vs home defense ----
 # pairs of (off_metric, def_allowed_metric) measuring the same phase
