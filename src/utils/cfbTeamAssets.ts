@@ -175,6 +175,29 @@ export function getCfbTeamLogo(nameOrAbbr: string, dark = false): string | null 
   return dark ? team.logoDark ?? team.logo : team.logo ?? team.logoDark;
 }
 
+/**
+ * Loose match for Odds-API style names ("North Carolina Tar Heels" → North Carolina).
+ * Prefers the longest team_name that is contained in the query (or vice versa).
+ */
+export function searchCfbTeamLogo(nameOrAbbr: string, dark = false): string | null {
+  const key = normalizeCfbTeamKey(nameOrAbbr);
+  if (!key || byName.size === 0) return null;
+
+  let best: CfbTeamReference | null = null;
+  let bestLen = 0;
+  for (const [teamKey, ref] of byName) {
+    if (!teamKey) continue;
+    if (key === teamKey || key.includes(teamKey) || teamKey.includes(key)) {
+      if (teamKey.length > bestLen) {
+        best = ref;
+        bestLen = teamKey.length;
+      }
+    }
+  }
+  if (!best) return null;
+  return dark ? best.logoDark ?? best.logo : best.logo ?? best.logoDark;
+}
+
 export function getCfbTeamColorsFromAssets(
   nameOrAbbr: string,
 ): { primary: string; secondary: string } | null {
@@ -183,6 +206,32 @@ export function getCfbTeamColorsFromAssets(
   return {
     primary: team.color,
     secondary: team.altColor ?? team.color,
+  };
+}
+
+/** Loose color lookup for Odds-API full names ("North Carolina Tar Heels"). */
+export function searchCfbTeamColors(
+  nameOrAbbr: string,
+): { primary: string; secondary: string; teamName: string } | null {
+  const key = normalizeCfbTeamKey(nameOrAbbr);
+  if (!key || byName.size === 0) return null;
+
+  let best: CfbTeamReference | null = null;
+  let bestLen = 0;
+  for (const [teamKey, ref] of byName) {
+    if (!teamKey) continue;
+    if (key === teamKey || key.includes(teamKey) || teamKey.includes(key)) {
+      if (teamKey.length > bestLen) {
+        best = ref;
+        bestLen = teamKey.length;
+      }
+    }
+  }
+  if (!best?.color) return null;
+  return {
+    primary: best.color,
+    secondary: best.altColor ?? best.color,
+    teamName: best.teamName,
   };
 }
 

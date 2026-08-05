@@ -20,6 +20,7 @@ import F5SplitsPage from "./features/mlbTools/f5Splits/F5SplitsPage";
 import PitcherMatchupsPage from "./features/mlbTools/pitcherMatchups/PitcherMatchupsPage";
 import RegressionReportPage from "./features/mlbTools/regression/RegressionReportPage";
 import { PlayerPropsReportPage } from "./features/mlbTools/playerPropsReport";
+import CompetitionPage from "./features/competition/CompetitionPage";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
 import HistoricalTrends from "./pages/HistoricalTrends";
@@ -159,6 +160,7 @@ const SPLIT_VIEW_ROUTES = [
   '/mlb/f5-splits',
   '/mlb/pitcher-matchups',
   '/mlb/daily-regression-report',
+  '/competition',
 ];
 
 // Legacy /agents/:id and /agents/public/:id deep links land in the split view.
@@ -341,6 +343,7 @@ function AppRoutes() {
           <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />
           <Route path="/historical-trends" element={<ProtectedRoute><HistoricalTrends /></ProtectedRoute>} />
+          <Route path="/competition" element={<ProtectedRoute><CompetitionPage /></ProtectedRoute>} />
           <Route path="/nfl-analytics" element={<LegacyTrendsRedirect sport="nfl" />} />
           <Route path="/cfb-analytics" element={<LegacyTrendsRedirect sport="cfb" />} />
           <Route path="/mlb-analytics" element={<LegacyTrendsRedirect sport="mlb" />} />
