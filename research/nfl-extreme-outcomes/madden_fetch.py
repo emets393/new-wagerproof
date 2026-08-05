@@ -1,20 +1,17 @@
 """
-Pull the CURRENT Madden ratings DB from madden.tools and write season rows into
-madden_ratings.parquet (the file forecast_harness.py actually reads) + madden_attributes.parquet.
+Pull the CURRENT Madden ratings from EA's OFFICIAL ratings site (ea.com) and write season rows
+into madden_ratings.parquet (the file forecast_harness.py actually reads) + madden_attributes.parquet.
 
-WHY madden.tools: EA's old ratings-api.ea.com/v2 is dead (generic 500 for every slug,
-incl. historical ones with data). madden.tools is a Next.js site that embeds the FULL
-current roster (3,162 players, all 32 teams + free agents) in one __NEXT_DATA__ blob, with
-exactly the fields the live harness needs: name, team, position, overall. The detailed
-physical attributes (speed/strength/wt) are NOT carried in the list view — but the harness
-doesn't use them (they only fed the b19/b23 attribute-matchup research, which backtested as
-priced/null). So OVR + pos + team + name is the complete live requirement.
+SOURCE: https://www.ea.com/games/madden-nfl/ratings is a Next.js page whose data is server-rendered
+and exposed via its `_next/data` JSON endpoint (the exact JSON the page renders), paginated 100/page,
+with the fields the live harness needs: firstName/lastName, overallRating, team.label,
+position.shortLabel, iteration. We scrape the current `buildId` from the page (it changes on every EA
+deploy) then loop pages. EA's own site is the canonical, FIRST source of Madden 27 launch ratings —
+the old ratings-api.ea.com/v2 is dead, and madden.tools lagged (served Madden 26 through Aug 2026).
 
-SEASON semantics: run pre-launch (now, July 2026) and madden.tools serves the final Madden
-NFL 26 roster (2025-season game, "Super Bowl" iteration) = the best veteran-talent baseline
-for 2026 until Madden 27 ships (Aug 13, 2026). 2026 rookies + offseason roster moves are NOT
-reflected yet. Re-run after Aug 13 and madden.tools will serve Madden 27 -> real 2026 launch
-ratings overwrite this baseline (idempotent: we drop+re-append the target season).
+ITERATION: "1-base" / "Launch Ratings" = the new game's launch set (Madden 27 = the 2026 season).
+Idempotent: drop + re-append the target season. Physical attrs (speed/str/wt) are not needed by the
+live harness (OVR + pos + team + name only), so madden_attributes gets OVR only, physical NaN.
 
 Usage:  python3 madden_fetch.py [season]      # season defaults to 2026
 """
@@ -29,14 +26,19 @@ import requests
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 SEASON = int(sys.argv[1]) if len(sys.argv) > 1 else 2026
-URL = "https://madden.tools/players"
+RATINGS_PAGE = "https://www.ea.com/games/madden-nfl/ratings"
+DATA_URL = ("https://www.ea.com/_next/data/{build}/games/madden-nfl/ratings.json"
+            "?franchiseSlug=madden-nfl&page={page}")
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 L = print
 
-# madden.tools uses scheme-specific position labels; map them to the legacy taxonomy
-# already in madden_ratings.parquet (2018-2025) so the harness position sets match unchanged.
-POS_MAP = {"REDGE": "RE", "LEDGE": "LE", "MIKE": "MLB", "WILL": "LOLB", "SAM": "ROLB"}
+# EA already uses the legacy position taxonomy (QB/HB/WR/RE/LE/MLB/LOLB/ROLB/...); POS_MAP is kept
+# defensively in case any scheme-style label appears so the harness position sets match unchanged.
+POS_MAP = {"REDG": "RE", "LEDG": "LE", "REDGE": "RE", "LEDGE": "LE",
+           "MIKE": "MLB", "WILL": "LOLB", "SAM": "ROLB"}
+# EA labels teams by full name, which matches the parquet (2018-2025) EXCEPT the two NY teams.
+TEAM_FIX = {"New York Giants": "NY Giants", "New York Jets": "NY Jets"}
 
 SUFFIX = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b")
 def norm(s):
@@ -49,33 +51,61 @@ def norm(s):
     return re.sub(r"\s+", " ", s).strip()
 
 
+def _find_items(obj):
+    """Locate the players array (list of dicts carrying overallRating) anywhere in the JSON."""
+    found = [None]
+    def walk(o, d=0):
+        if found[0] is not None or d > 9 or o is None:
+            return
+        if isinstance(o, list):
+            if o and isinstance(o[0], dict) and o[0].get("overallRating") is not None:
+                found[0] = o
+                return
+            for x in o:
+                walk(x, d + 1)
+        elif isinstance(o, dict):
+            for v in o.values():
+                walk(v, d + 1)
+    walk(obj)
+    return found[0] or []
+
+
 def fetch_players():
-    """Return a DataFrame [mname, team, pos, ovr] for all rostered players (FA excluded)."""
-    r = requests.get(URL, headers={"User-Agent": UA, "Accept": "text/html"}, timeout=40)
-    r.raise_for_status()
-    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', r.text, re.S)
-    if not m:
-        sys.exit("madden.tools: __NEXT_DATA__ not found (site structure changed)")
-    d = json.loads(m.group(1))
-    pp = d["props"]["pageProps"]
-    it = pp.get("currentIteration", {})
-    L(f"[source] madden.tools iteration: {it.get('label')} ({it.get('release_date')}), "
-      f"total players reported {pp.get('totalPlayersCount')}")
-    rows = []
-    for t in pp["teamPlayerData"]:
-        team = t["team"]
-        nick = team.get("name")
-        if team.get("acronym") == "FA":          # free agents have no NFL team -> not roster talent
-            continue
-        for pos, players in t["playersByPosition"].items():
-            legacy_pos = POS_MAP.get(pos, pos)
-            for p in players:
-                name = f"{p.get('first_name','')} {p.get('last_name','')}".strip()
-                ovr = p.get("rating_overall")
-                if not name or ovr is None:
-                    continue
-                rows.append({"season": SEASON, "mname": name, "team": nick,
-                             "pos": legacy_pos, "ovr": float(ovr)})
+    """Return a DataFrame [season, mname, team, pos, ovr, nname] for all rostered players (FA excluded)."""
+    sess = requests.Session()
+    sess.headers.update({"User-Agent": UA, "Accept": "application/json"})
+    page0 = sess.get(RATINGS_PAGE, headers={"Accept": "text/html"}, timeout=40)
+    page0.raise_for_status()
+    bm = re.search(r'"buildId":"([^"]+)"', page0.text)
+    if not bm:
+        sys.exit("ea.com: buildId not found (site structure changed)")
+    build = bm.group(1)
+
+    rows, iters, seen = [], set(), set()
+    for page in range(1, 41):                       # 41 = safety cap (~2.4k players / 100 per page)
+        r = sess.get(DATA_URL.format(build=build, page=page), timeout=40)
+        if r.status_code != 200:
+            break
+        items = _find_items(r.json())
+        new_ids = [it.get("id") for it in items if it.get("id") not in seen]
+        if not items or not new_ids:                # empty page or nothing new -> done
+            break
+        for it in items:
+            if it.get("id") in seen:
+                continue
+            seen.add(it.get("id"))
+            team, pos, ovr = it.get("team"), it.get("position"), it.get("overallRating")
+            if not team or ovr is None:             # free agents (null team) are not roster talent
+                continue
+            label = TEAM_FIX.get(team.get("label"), team.get("label"))
+            ps = (pos or {}).get("shortLabel")
+            name = f"{it.get('firstName','')} {it.get('lastName','')}".strip()
+            if not label or not ps or not name:
+                continue
+            iters.add(((it.get("iteration") or {}).get("label")))
+            rows.append({"season": SEASON, "mname": name, "team": label,
+                         "pos": POS_MAP.get(ps, ps), "ovr": float(ovr)})
+    L(f"[source] ea.com Madden ratings | iteration(s): {sorted(x for x in iters if x)} | build {build}")
     df = pd.DataFrame(rows)
     df["nname"] = df.mname.map(norm)
     df = df[df.nname != ""].drop_duplicates(["nname", "team", "pos"]).reset_index(drop=True)

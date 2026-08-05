@@ -40,6 +40,8 @@ step "fetch CFBD core ($SEASON)";                 python3 fetch_cfbd.py "$SEASON
 step "fetch CFBD extras (elo/talent/rankings)";   python3 fetch_cfbd_extra.py "$SEASON"  || true
 step "fetch CFBD extras2";                         python3 fetch_cfbd_extra2.py "$SEASON" || true
 step "fetch CFBD teams";                           python3 fetch_cfbd_teams.py            || true
+# returning production + transfer portal (feed the wk1-3 early-roster signals; returning loads ~August)
+step "fetch CFBD returning-production + portal";    python3 fetch_cfbd_roster.py "$SEASON"  || true
 step "materialize 1H/TT odds (ncaaf_event_odds DB -> parquet; live_odds_cfb_1h writes the DB hourly)"
 python3 fetch_event_odds_live.py "$SEASON"
 step "fetch per-book odds history (STACK/SB/KEY)"; python3 fetch_odds_history.py --year "$SEASON" --go

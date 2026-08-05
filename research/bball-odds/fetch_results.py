@@ -76,7 +76,14 @@ def fetch_nba():
                 comp = ev["competitions"][0]
                 if comp.get("status", {}).get("type", {}).get("name") != "STATUS_FINAL":
                     continue
-                rec = {"season": season, "date_et": ev["date"][:10], "espn_id": ev["id"]}
+                # ev["date"] is the UTC TIP TIMESTAMP. Truncating it to 10 chars gave a
+                # "date_et" that was really the UTC date -- one day LATE for every
+                # evening tip, which let join_results grab the wrong leg of a
+                # home-and-home. Keep the timestamp and derive the true ET date.
+                tip = pd.to_datetime(ev["date"], utc=True)
+                rec = {"season": season, "start_utc": tip.tz_localize(None),
+                       "date_et": tip.tz_convert("America/New_York").strftime("%Y-%m-%d"),
+                       "espn_id": ev["id"]}
                 ok = True
                 for c in comp["competitors"]:
                     side = c["homeAway"]  # 'home'/'away'

@@ -6,6 +6,7 @@ import os
 import numpy as np, pandas as pd, warnings, requests, json
 import dry_common as C
 import cfb_style_delta as SD
+import cfb_early_roster_signals as ER
 warnings.filterwarnings("ignore")
 SEASON, WEEK = C.season_week()
 
@@ -151,6 +152,47 @@ try:
                              "grade_line": "best", "mammoth": False})
 except Exception as e:
     print(f"  [style_offense_under] skipped: {e}")
+
+# ── Weeks 1-3 early-roster ATS: back the more-experienced roster (ret_prod_edge, T2) and the big portal-talent
+#    haul (portal_talent_influx, T3). Preseason-known, leak-safe; decays after wk3 so it only fires wk1-3. ──
+try:
+    matchups = []
+    for _, r in te.iterrows():
+        matchups += [(r.homeTeam, r.awayTeam), (r.awayTeam, r.homeTeam)]
+    er = ER.triggers_for_week(SEASON, WEEK, matchups)
+    SRC = {"ret_prod_edge": "Returning-production edge (wk1-3)", "portal_talent_influx": "Portal talent influx (wk1-3)"}
+    for _, r in te.iterrows():
+        if pd.isna(r.spread_close):
+            continue
+        for team, is_home in [(r.homeTeam, True), (r.awayTeam, False)]:
+            for sk, val, tier in er.get(team, []):
+                rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                             "game": f"{r.awayTeam} @ {r.homeTeam}", "source": f"{SRC[sk]}: {team}",
+                             "signal_key": sk, "market": "spread", "side": "HOME" if is_home else "AWAY",
+                             "line": round(float(r.spread_close), 1), "price": -110, "edge": val,
+                             "conviction": tier, "tier": "active", "stake_units": C.STAKE[tier],
+                             "grade_line": "close", "mammoth": False})
+except Exception as e:
+    print(f"  [early_roster_signals] skipped: {e}")
+
+# ── DK-specific SMALL HOME-DOG MONEYLINE: when DraftKings prices the HOME team as a small dog (+100..+140),
+#    take the home moneyline. dk_ml_bands.py: home dogs in this band win outright ~48% vs ~43% DK-implied =
+#    +5.9% flat-bet ROI, 4/5 seasons (n=291). Structural: road favorites are overbet (all home dogs -1.5% vs
+#    all away dogs -10.1%), and this small band is the bettable slice. HOME only — away dogs +100..140 don't
+#    hold (-1.4%). Graded on outright win at the DK number, so line=price=the DK home ML. ──
+try:
+    for _, r in te.iterrows():
+        mlh = pd.to_numeric(pd.Series([r.get("dk_ml_home_close")]), errors="coerce").iloc[0]
+        if pd.isna(mlh) or not (100 <= mlh <= 140):
+            continue
+        rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                     "game": f"{r.awayTeam} @ {r.homeTeam}", "source": f"Small home-dog ML +{int(round(mlh))} (DK)",
+                     "signal_key": "home_dog_ml", "market": "ml", "side": "HOME ML",
+                     "line": int(round(mlh)), "price": int(round(mlh)), "edge": None,
+                     "conviction": "T3", "tier": "active", "stake_units": C.STAKE["T3"],
+                     "grade_line": "dk", "mammoth": False})
+except Exception as e:
+    print(f"  [home_dog_ml] skipped: {e}")
 
 df = pd.DataFrame(rows)
 print(f"cfb_dryrun_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")

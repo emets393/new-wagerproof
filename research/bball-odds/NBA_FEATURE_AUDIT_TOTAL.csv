@@ -1,0 +1,720 @@
+feature,family,delta,verdict
+sum_s_d_ftr,team form/efficiency,-0.013040520851379564,helps
+a_l5_top_min_share,usage concentration,-0.010173113680005001,helps
+h_s_d_ftr,team form/efficiency,-0.009861171019369133,helps
+sum_l5_adv_usg_max,usage concentration,-0.0074818605360758225,helps
+d_l5_adv_rot_n,usage concentration,-0.007042986836489948,helps
+d_s2d_efg,team form/efficiency,-0.006967300302743354,helps
+sum_l10_min_hhi,usage concentration,-0.006548425215077258,helps
+h_l5_adv_usg_max,usage concentration,-0.0061456451180519345,helps
+a_l10_pts_hhi,usage concentration,-0.006134537316308877,helps
+d_l10_adv_rot_n,usage concentration,-0.005896911682845923,helps
+d_l5_top_min_share,usage concentration,-0.005779145554660442,helps
+raw_eff_s2d_d_alwd,possession raw,-0.005578495947102399,helps
+sum_l5_own_score,other,-0.005392544135495808,helps
+h_s2d_pts_hhi,usage concentration,-0.004495165455056016,helps
+raw_efg_s2d_sum_alwd,possession raw,-0.004481270656814057,helps
+sum_s2d_adv_usage_percentage,usage concentration,-0.004458321634148471,helps
+sum_l5_top_min_share,usage concentration,-0.004440761648670952,helps
+a_l5_adv_rot_n,usage concentration,-0.004409721594193464,helps
+raw_ftr_l10_d_off,possession raw,-0.0043298689979823085,helps
+raw_tov_s2d_d_off,possession raw,-0.0041374518610206995,helps
+h_l5_margin,other,-0.004093941454052216,helps
+h_l10_min_hhi,usage concentration,-0.003930022297026617,helps
+sum_form_margin,other,-0.0038130817930617233,helps
+h_l5_own_score,other,-0.00372582515008317,helps
+a_abs_ret_max_min,other,-0.00367167297443248,helps
+raw_trate_s2d_sum_off,possession raw,-0.0036664416210359374,helps
+dm_arch_d_l3_pace,dims arch,-0.0036638835115233442,helps
+h_form3_p3_pct,other,-0.003310834522720227,helps
+d_l10_pts_hhi,usage concentration,-0.0032104280349747327,helps
+sum_s2d_adv_rot_n,usage concentration,-0.0032093498947820265,helps
+d_l5_margin,other,-0.0031888759992534793,helps
+sum_s_d_p3_pct,other,-0.003073953924186454,helps
+sum_l10_adv_usg_max,usage concentration,-0.003024837545904685,helps
+h_l3_adv_usg_max,usage concentration,-0.0030077370839172307,helps
+net_twopct_l5_sum,matchup net,-0.0029866674816022426,helps
+radj_d_adj_def,adj ratings,-0.0029768461028826243,helps
+sum_l3_adv_usg_max,usage concentration,-0.0029687638557310825,helps
+radj_h_adj_net,adj ratings,-0.0029683736820443896,helps
+adj_own_efg_sum_def,adj own levels,-0.002875198534765158,helps
+sum_s2d_margin,other,-0.002830549951760866,helps
+net_trate_s2d_a,matchup net,-0.0027998266920588877,helps
+a_l3_efg,team form/efficiency,-0.002709289656493974,helps
+sum_l3_pts_hhi,usage concentration,-0.0026951034619415726,helps
+sum_form3_ortg,team form/efficiency,-0.0025951157975643013,helps
+net_trate_s2d_d,matchup net,-0.0025525321787228245,helps
+d_sched_road_run,other,-0.0025313514656786773,helps
+raw_tpct_s2d_sum_off,possession raw,-0.0025006001345204976,helps
+raw_tov_s2d_sum_off,possession raw,-0.0024852890765259955,helps
+sum_s2d_own_score,other,-0.002444410845881359,helps
+net_efg_s2d_a,matchup net,-0.0023818083405976187,helps
+h_sched_rest2,other,-0.0023778422679579803,helps
+a_l10_adv_rot_n,usage concentration,-0.00235293319757951,helps
+raw_oreb_l10_sum_off,possession raw,-0.0023254592837184673,helps
+adj_net_three_pct_a,adj matchup net,-0.0022426614971959302,helps
+dm_exp_sum_exp,dims exp,-0.0022372643163758588,helps
+d_abs_ret_max_min,other,-0.0022087516919295086,helps
+net_oreb_l10_sum,matchup net,-0.0021811592469196672,helps
+sum_l5_adv_usage_percentage,usage concentration,-0.0021800885799658776,helps
+a_s2d_min_hhi,usage concentration,-0.002143743866106787,helps
+adj_own_oreb_pct_sum_off,adj own levels,-0.0021049349156109926,helps
+raw_tpct_s2d_sum_alwd,possession raw,-0.0020568558935164655,helps
+h_abs_stale_sum_min,other,-0.0019918217730331284,helps
+sum_l5_margin,other,-0.001972518586965344,helps
+d_l10_top_min_share,usage concentration,-0.0019541103079060845,helps
+raw_tpct_s2d_d_off,possession raw,-0.0019423070073268794,helps
+sum_sched_rest2,other,-0.0019285398064658038,helps
+net_eff_l10_a,matchup net,-0.001927867561386104,helps
+radj_sum_adj_net,adj ratings,-0.0019050504583631445,helps
+radj_sum_adj_off,adj ratings,-0.001865045098025403,helps
+raw_tov_l10_d_alwd,possession raw,-0.0018262980387340894,helps
+adj_own_oreb_pct_sum_def,adj own levels,-0.0018033140496723082,helps
+net_twopct_s2d_a,matchup net,-0.001802157248771516,helps
+sum_abs_fresh_n,other,-0.0017941260644555451,helps
+a_s2d_own_score,other,-0.0017933010263802285,helps
+h_l5_total,other,-0.0017896617810015392,helps
+dm_arch_a_l10_def_eff,dims arch,-0.001756916976443465,helps
+h_abs_stale_max_min,other,-0.0017455743965669318,helps
+sum_s_to_rate,other,-0.0017349726573421959,helps
+net_efg_s2d_sum,matchup net,-0.0017257204624027273,helps
+d_form3_p3_pct,other,-0.0016943101720375553,helps
+a_abs_n_regulars,other,-0.0016900678542950826,helps
+d_s_d_ftr,team form/efficiency,-0.0016861353873402624,helps
+sum_s_p3_share,other,-0.0016635219361594428,helps
+raw_ftr_l5_sum_alwd,possession raw,-0.001648756832478629,helps
+net_tpct_l10_sum,matchup net,-0.0016452799573954124,helps
+a_abs_fresh_sum_min,other,-0.0016220708956929675,helps
+d_s_d_p3_pct,other,-0.0015869750521088077,helps
+a_l10_ortg,team form/efficiency,-0.0015864256540958632,helps
+raw_ftr_l5_sum_off,possession raw,-0.001584153436095026,helps
+adj_own_ftr_d_off,adj own levels,-0.0015603377411689406,helps
+sum_form3_p3_pct,other,-0.0015263165653077726,helps
+net_twopct_l5_h,matchup net,-0.0015228679768942294,helps
+dm_trav_d_rest_days,dims trav,-0.001514646072183587,helps
+net_ftr_l10_h,matchup net,-0.0015015955310761914,helps
+adj_own_ftr_d_def,adj own levels,-0.0014676128689740803,helps
+radj_a_adj_def,adj ratings,-0.0014608478547819964,helps
+radj_a_adj_off,adj ratings,-0.0014526764298832123,helps
+d_l3_adv_pace,team form/efficiency,-0.0014482163562775374,helps
+d_s_oreb_pg,team form/efficiency,-0.0014348739546561073,helps
+d_l3_min_hhi,usage concentration,-0.001433316920745456,helps
+radj_h_adj_def,adj ratings,-0.0014283241823601495,helps
+raw_trate_s2d_d_alwd,possession raw,-0.0014279684134150122,helps
+sum_abs_stale_max_min,other,-0.0014141584428987025,helps
+dm_trav_sum_venues_7d,dims trav,-0.001393851063391613,helps
+a_form3_margin,other,-0.0013868729098115984,helps
+sum_l3_adv_usage_percentage,usage concentration,-0.0013843760333457633,helps
+a_l10_efg,team form/efficiency,-0.0013537752727478258,helps
+h_l3_ortg,team form/efficiency,-0.001349947184002609,helps
+a_abs_stale_n,other,-0.0013470485105809282,helps
+d_abs_ret_sum_min,other,-0.0013408113127587884,helps
+sum_abs_stale_sum_min,other,-0.0013360199701993175,helps
+h_s2d_adv_rot_n,usage concentration,-0.001334891815248776,helps
+sum_abs_fresh_sum_min,other,-0.0013052376944874267,helps
+adj_net_poss_d,adj matchup net,-0.0012925298403876073,helps
+radj_a_adj_tempo_pts,adj ratings,-0.0012894246386067898,helps
+sum_l10_ortg,team form/efficiency,-0.0012854724810058976,helps
+a_s2d_adv_usage_percentage,usage concentration,-0.0012852712338001226,helps
+a_s2d_top_min_share,usage concentration,-0.0012844968104829269,helps
+raw_trate_l10_d_alwd,possession raw,-0.0012692474082253435,helps
+d_abs_stale_sum_min,other,-0.001258641699950852,helps
+raw_tov_l10_d_off,possession raw,-0.0012379102030895678,helps
+raw_trate_s2d_d_off,possession raw,-0.0012304848709272648,helps
+h_l3_min_hhi,usage concentration,-0.0012293585257421302,helps
+net_efg_s2d_h,matchup net,-0.0012030443425604248,helps
+d_abs_fresh_sum_min,other,-0.0012014387123148312,helps
+dm_trav_a_venues_7d,dims trav,-0.001195916230986055,helps
+sum_l3_own_score,other,-0.0011935646713560066,helps
+sum_abs_stale_n,other,-0.0011863705603352287,helps
+sum_abs_ret_sum_ppg,other,-0.001184508551245439,helps
+net_twopct_l5_a,matchup net,-0.0011824021219276476,helps
+sum_s2d_adv_pace,team form/efficiency,-0.0011733089555582277,helps
+a_abs_ret_sum_min,other,-0.0011689289650322482,helps
+net_oreb_l10_a,matchup net,-0.0011565338230868083,helps
+h_abs_fresh_n,other,-0.0011381926402437154,helps
+adj_net_three_pct_sum,adj matchup net,-0.0011304029003231242,helps
+dm_arch_d_l10_def_eff,dims arch,-0.001125924904832959,helps
+sum_l3_total,other,-0.0011240076868923032,helps
+raw_trate_l5_sum_alwd,possession raw,-0.0011056739150491074,helps
+net_tov_s2d_d,matchup net,-0.00110413822403517,helps
+d_abs_stale_n,other,-0.0010992138957059416,helps
+sum_abs_ret_max_min,other,-0.0010968729208793992,helps
+raw_twopct_l10_d_alwd,possession raw,-0.0010956735914409432,helps
+raw_twopct_l5_d_alwd,possession raw,-0.0010857768553837605,helps
+a_abs_fresh_n,other,-0.001067541630687452,helps
+sum_form_h1_tot_share,other,-0.0010610792751636205,helps
+sum_abs_fresh_max_ppg,other,-0.0010561158715624713,helps
+raw_efg_l5_sum_off,possession raw,-0.0010468955842549005,helps
+sum_l5_total,other,-0.0010447100535642961,helps
+a_abs_stale_max_ppg,other,-0.0010427461420808304,helps
+net_efg_s2d_d,matchup net,-0.0010360751587161071,helps
+raw_ftr_s2d_d_off,possession raw,-0.0010201381636195939,helps
+d_l5_ortg,team form/efficiency,-0.0010182687633914361,helps
+d_l5_min_hhi,usage concentration,-0.0010174278414441795,helps
+h_l10_adv_rot_n,usage concentration,-0.001004198247733637,helps
+net_twopct_s2d_d,matchup net,-0.0010034693138076256,helps
+sum_l10_pts_hhi,usage concentration,-0.0010003376405965936,helps
+a_form_h1_tot_share,other,-0.000999851102911467,helps
+raw_tov_l5_sum_alwd,possession raw,-0.0009984386241784077,helps
+a_s_pace,team form/efficiency,-0.0009887203562680136,helps
+h_s2d_efg,team form/efficiency,-0.0009872383913057392,helps
+raw_tov_l5_d_off,possession raw,-0.000977519763140977,helps
+net_tov_s2d_h,matchup net,-0.0009762063439315849,helps
+sum_abs_n_regulars,other,-0.0009738023705913729,helps
+h_abs_ret_sum_ppg,other,-0.0009698189399068025,helps
+raw_twopct_s2d_sum_alwd,possession raw,-0.000968962214109137,helps
+net_efg_l5_sum,matchup net,-0.0009678783455603635,helps
+d_s_d_to_forced,other,-0.000962661652950475,helps
+radj_sum_adj_tempo_pts,adj ratings,-0.0009545764741072243,helps
+net_tov_s2d_a,matchup net,-0.0009486506253151145,helps
+raw_tpct_l10_sum_off,possession raw,-0.0009368418527741229,helps
+d_s2d_margin,other,-0.0009125705274614787,helps
+a_sched_road_run,other,-0.0009120107955362111,helps
+net_eff_l10_h,matchup net,-0.0009094036955396706,helps
+d_l5_opp_score,other,-0.0009002096433780721,helps
+dm_exp_d_exp,dims exp,-0.0008826023416596829,helps
+d_form3_h1_tot_share,other,-0.0008736551744747689,helps
+radj_d_adj_net,adj ratings,-0.0008724623035761409,helps
+net_twopct_s2d_sum,matchup net,-0.0008695521958570346,helps
+adj_own_tov_rate_sum_def,adj own levels,-0.000860964819495727,helps
+a_sched_rest,other,-0.0008576752292972778,helps
+net_tov_s2d_sum,matchup net,-0.0008217243876815911,helps
+h_form_margin,other,-0.0007975913074800001,helps
+sum_s2d_ortg,team form/efficiency,-0.0007937816453536112,helps
+h_l10_adv_pace,team form/efficiency,-0.0007891134051335458,helps
+d_sched_g_last7,team form/efficiency,-0.0007752916969666485,helps
+a_l3_total,other,-0.0007552515300836837,helps
+raw_twopct_l10_sum_off,possession raw,-0.0007539079134134263,helps
+a_s_p3_pct,other,-0.0007533412104909626,helps
+dm_trav_sum_km_7d,dims trav,-0.0007510256625243295,helps
+a_l3_adv_pace,team form/efficiency,-0.00074622513467619,helps
+adj_own_three_pct_sum_def,adj own levels,-0.000742569407683441,helps
+adj_net_efg_sum,adj matchup net,-0.0007391799380625508,helps
+adj_own_efg_d_off,adj own levels,-0.0007356374778868524,helps
+raw_efg_l10_sum_alwd,possession raw,-0.0007276909009734656,helps
+a_l5_margin,other,-0.0007249304003690976,helps
+dm_arch_h_l10_def_eff,dims arch,-0.000722424097329824,helps
+raw_oreb_s2d_d_off,possession raw,-0.0007155257469006332,helps
+a_l5_adv_pace,team form/efficiency,-0.0007009066130247571,helps
+net_ftr_l10_d,matchup net,-0.0006780674131149633,helps
+net_trate_l5_h,matchup net,-0.0006732849663470403,helps
+dm_trav_h_b2b,dims trav,-0.0006718459946124522,helps
+sum_l5_efg,team form/efficiency,-0.0006576712936932905,helps
+a_s2d_margin,other,-0.0006469337025077487,helps
+adj_net_efg_a,adj matchup net,-0.0006416274203338845,helps
+net_eff_l10_d,matchup net,-0.0006389594769209278,helps
+a_form_margin,other,-0.0006364561345693354,helps
+raw_efg_s2d_sum_off,possession raw,-0.0006245891598188613,helps
+d_l10_total,other,-0.0006241823382445305,helps
+a_l3_pts_hhi,usage concentration,-0.000620773703761901,helps
+a_form3_h1_tot_share,other,-0.0006091918452483941,helps
+radj_h_adj_off,adj ratings,-0.0006044007918258598,helps
+raw_trate_l5_d_alwd,possession raw,-0.0006022656970882806,helps
+h_abs_ret_max_ppg,other,-0.0005900326166539127,helps
+sum_s2d_min_hhi,usage concentration,-0.0005820007676756445,helps
+sum_l5_pts_hhi,usage concentration,-0.0005662340207351207,helps
+d_s2d_opp_score,other,-0.0005459039268612409,helps
+sum_s2d_top_min_share,usage concentration,-0.0005447083346876158,helps
+radj_d_adj_tempo_pts,adj ratings,-0.0005324222950331414,helps
+adj_own_off_eff_sum_def,adj own levels,-0.0005322392568019169,helps
+adj_own_efg_d_def,adj own levels,-0.0005282506927481723,helps
+h_l3_adv_usage_percentage,usage concentration,-0.0005265596021447744,helps
+sum_l3_adv_rot_n,usage concentration,-0.0005264436942229306,helps
+h_abs_ret_n,other,-0.0005130536573032807,helps
+h_abs_ret_max_min,other,-0.0005103941269486156,helps
+adj_net_ftr_d,adj matchup net,-0.0005044981853645075,helps
+radj_sum_adj_def,adj ratings,-0.0005010342725371292,helps
+raw_oreb_l10_d_off,possession raw,-0.0005006339261874049,helps
+net_efg_l10_sum,matchup net,-0.0005004591696090854,helps
+a_s2d_total,other,-0.0004905498335125158,helps
+h_s2d_adv_usg_max,usage concentration,-0.0004889094846418779,helps
+sum_s_p3_pct,other,-0.0004826483745150739,helps
+radj_d_adj_off,adj ratings,-0.000481116265010309,helps
+d_l3_top_min_share,usage concentration,-0.00047331549075085855,helps
+sum_s2d_efg,team form/efficiency,-0.0004382352698465569,helps
+net_ftr_l10_a,matchup net,-0.0004377095441654294,helps
+raw_oreb_s2d_sum_off,possession raw,-0.000428981441753698,helps
+h_l5_efg,team form/efficiency,-0.0004181402269704537,helps
+raw_ftr_l5_d_alwd,possession raw,-0.0004177925735379395,helps
+raw_twopct_s2d_sum_off,possession raw,-0.0004172152228389403,helps
+net_ftr_l5_a,matchup net,-0.0004170989838940403,helps
+sum_l3_adv_pace,team form/efficiency,-0.00041395240920774623,helps
+h_l5_top_min_share,usage concentration,-0.00041247387514452283,helps
+adj_net_two_pct_d,adj matchup net,-0.0004109694463992897,helps
+raw_twopct_l5_sum_off,possession raw,-0.00038437683065913053,helps
+raw_eff_l5_sum_alwd,possession raw,-0.00037551415425916834,helps
+h_s2d_opp_score,other,-0.000374197250869443,helps
+radj_gap,adj ratings,-0.00037372280495574783,helps
+d_form3_adv_pace,team form/efficiency,-0.00037094102516922745,helps
+dm_trav_h_venues_7d,dims trav,-0.00037013984547147605,helps
+a_l10_opp_score,other,-0.000368384119504378,helps
+raw_trate_l5_sum_off,possession raw,-0.0003657526092600283,helps
+sum_form_adv_pace,team form/efficiency,-0.00036471810744599653,helps
+raw_tov_s2d_d_alwd,possession raw,-0.00036016226747727365,helps
+d_abs_stale_max_min,other,-0.00035553229970380906,helps
+adj_net_efg_h,adj matchup net,-0.0003542693060252372,helps
+net_ftr_l10_sum,matchup net,-0.00035413238619680376,helps
+raw_efg_l10_sum_off,possession raw,-0.0003497473593261635,helps
+d_form_total,other,-0.0003471491764664575,helps
+dm_arch_a_l10_pace,dims arch,-0.0003442400801680623,helps
+net_twopct_s2d_h,matchup net,-0.0003438807493910401,helps
+d_l3_margin,other,-0.0003318486048685537,helps
+d_l10_efg,team form/efficiency,-0.00032986994283935867,helps
+h_s_to_rate,other,-0.00032667445799026973,helps
+d_l5_total,other,-0.0003189821970703416,helps
+net_tpct_l10_h,matchup net,-0.00031849319500044937,helps
+d_l5_own_score,other,-0.0002966714225008382,helps
+d_l3_pts_hhi,usage concentration,-0.00029509720315427923,helps
+net_trate_l5_d,matchup net,-0.00029232214968824555,helps
+adj_own_off_eff_d_off,adj own levels,-0.0002786974603727205,helps
+net_efg_l5_h,matchup net,-0.00027552112471690426,helps
+adj_own_ftr_sum_def,adj own levels,-0.000268836114129381,helps
+h_l3_own_score,other,-0.00026882034457494097,helps
+h_abs_fresh_sum_min,other,-0.0002679653076640698,helps
+net_twopct_l10_a,matchup net,-0.00026284593589367966,helps
+h_s_d_to_forced,other,-0.0002594569077695452,helps
+raw_ftr_l10_sum_alwd,possession raw,-0.00025595468951762623,helps
+net_tpct_s2d_d,matchup net,-0.00025420999325381777,helps
+dm_trav_h_km_14d,dims trav,-0.0002525055302351198,helps
+raw_oreb_s2d_sum_alwd,possession raw,-0.0002511987940334026,helps
+sum_l3_min_hhi,usage concentration,-0.00023856590713311476,helps
+raw_tpct_l5_d_off,possession raw,-0.0002353195346871395,helps
+adj_net_tov_rate_sum,adj matchup net,-0.0002341539582231822,helps
+h_l5_adv_usage_percentage,usage concentration,-0.00023302673789550588,helps
+dm_trav_d_km_14d,dims trav,-0.0002306133373772279,helps
+adj_own_tov_rate_d_off,adj own levels,-0.00022473364508625304,helps
+sum_l10_total,other,-0.00022196160030926726,helps
+d_s_p3_share,other,-0.00021512105518865787,helps
+h_l5_adv_pace,team form/efficiency,-0.0002135424848356965,helps
+dm_arch_a_l3_def_eff,dims arch,-0.0002004784051580777,helps
+d_l5_adv_pace,team form/efficiency,-0.00020042623379588898,helps
+a_s_ftr,team form/efficiency,-0.00019961778153379517,helps
+net_ftr_s2d_h,matchup net,-0.00019087795393536722,helps
+h_l10_adv_usg_max,usage concentration,-0.00018824769465559943,helps
+h_form3_h1_tot_share,other,-0.00018537925761932805,helps
+dm_arch_sum_l10_pace,dims arch,-0.00017520866254823464,helps
+adj_net_oreb_pct_d,adj matchup net,-0.00017395477596794662,helps
+raw_oreb_s2d_d_alwd,possession raw,-0.00017267537454888904,helps
+adj_own_off_eff_d_def,adj own levels,-0.0001698099129265329,helps
+raw_oreb_l10_sum_alwd,possession raw,-0.00016782692108335828,helps
+dm_trav_sum_km_14d,dims trav,-0.00016728280775502036,helps
+d_l10_adv_usage_percentage,usage concentration,-0.00016613527496342484,helps
+raw_twopct_s2d_d_alwd,possession raw,-0.00016024148613984213,helps
+raw_eff_l10_d_alwd,possession raw,-0.00015409954366389644,helps
+sum_form_p3_pct,other,-0.00015095960101921269,helps
+h_abs_n_regulars,other,-0.00015039473046384033,helps
+net_eff_l10_sum,matchup net,-0.00013958090421989366,helps
+h_l10_total,other,-0.00013805003822903172,helps
+sum_l3_ortg,team form/efficiency,-0.00013784512527850734,helps
+raw_efg_l5_sum_alwd,possession raw,-0.00012690869621406753,helps
+d_l10_opp_score,other,-0.00012641071939227533,helps
+net_oreb_l10_h,matchup net,-0.00012424382615537632,helps
+h_abs_stale_sum_ppg,other,-0.00012381999401482602,helps
+net_tpct_l10_a,matchup net,-0.0001227639000148939,helps
+d_form_adv_pace,team form/efficiency,-0.00011747720570254305,helps
+adj_net_ftr_h,adj matchup net,-0.00011292235684799701,helps
+sum_s2d_pts_hhi,usage concentration,-0.00011063272193254092,helps
+adj_own_three_pct_sum_off,adj own levels,-0.00010586036446806613,helps
+raw_tpct_l5_sum_off,possession raw,-0.0001002026397532163,helps
+raw_tpct_l5_d_alwd,possession raw,-9.92461320162008e-05,helps
+adj_own_three_rate_sum_def,adj own levels,-9.921726854683621e-05,helps
+h_l3_margin,other,-9.89259555282257e-05,helps
+h_s2d_total,other,-9.200468391880323e-05,helps
+raw_efg_l5_d_alwd,possession raw,-8.90546287095062e-05,helps
+h_sched_road_run,other,-8.757735768955e-05,helps
+net_efg_l5_d,matchup net,-8.552214493628973e-05,helps
+net_efg_l10_a,matchup net,-8.496474219728267e-05,helps
+d_abs_n_regulars,other,-7.789764638058139e-05,helps
+sum_abs_stale_max_ppg,other,-7.63640968911572e-05,helps
+net_tov_l5_a,matchup net,-7.557554797725519e-05,helps
+h_form_ortg,team form/efficiency,-7.287933964940374e-05,helps
+d_l3_ortg,team form/efficiency,-7.099867698498463e-05,helps
+a_form_adv_pace,team form/efficiency,-6.436374308785298e-05,helps
+raw_tov_l5_sum_off,possession raw,-6.235254495824682e-05,helps
+h_l3_pts_hhi,usage concentration,-6.075443220444898e-05,helps
+raw_oreb_l10_d_alwd,possession raw,-5.981819190230275e-05,helps
+d_s2d_adv_usg_max,usage concentration,-5.4856500361619154e-05,helps
+h_s2d_adv_pace,team form/efficiency,-5.4660471413822687e-05,helps
+dm_arch_h_l3_def_eff,dims arch,-5.336872278775828e-05,helps
+raw_efg_s2d_d_alwd,possession raw,-5.219251259815094e-05,helps
+d_abs_fresh_max_ppg,other,-5.1918339564763216e-05,helps
+raw_eff_l10_sum_alwd,possession raw,-4.877100816227942e-05,helps
+a_s2d_efg,team form/efficiency,-4.552998130330499e-05,helps
+d_abs_fresh_sum_ppg,other,-4.51693856418911e-05,helps
+d_abs_stale_sum_ppg,other,-4.4643698662041875e-05,helps
+adj_own_off_eff_sum_off,adj own levels,-3.1394095671044564e-05,helps
+dm_trav_a_km_7d,dims trav,-3.029045984546952e-05,helps
+sum_l3_opp_score,other,-2.5129572158041902e-05,helps
+net_tpct_l5_h,matchup net,-2.418900610838548e-05,helps
+raw_tpct_l5_sum_alwd,possession raw,-2.418443525223357e-05,helps
+dm_ix_pace_min,dims interaction,-2.361628019083295e-05,helps
+raw_efg_l10_d_alwd,possession raw,-2.1335110738637808e-05,helps
+raw_efg_l10_d_off,possession raw,-1.8861080024606958e-05,helps
+net_tov_l10_d,matchup net,-1.5295882311930353e-05,helps
+net_tpct_l5_d,matchup net,-1.3386374233870235e-05,helps
+net_efg_l10_h,matchup net,-1.1797064475821406e-05,helps
+h_l10_own_score,other,-9.652510485111399e-06,helps
+dm_ix_exp_x_fatigue_h,dims interaction,-6.304884068886185e-06,helps
+adj_net_oreb_pct_a,adj matchup net,-4.212139342527066e-06,helps
+adj_net_two_pct_h,adj matchup net,-2.1618501666875733e-06,helps
+sum_form3_adv_pace,team form/efficiency,-1.9683209919185707e-06,helps
+dm_sched_h_days_since_home,dims sched,0.0,hurts
+d_s2d_pts_hhi,usage concentration,9.659326723338024e-07,hurts
+h_l3_top_min_share,usage concentration,3.071611453880907e-06,hurts
+net_efg_l10_d,matchup net,5.372794611296916e-06,hurts
+adj_net_ftr_sum,adj matchup net,8.11131926331532e-06,hurts
+h_form_adv_pace,team form/efficiency,9.593652199491043e-06,hurts
+dm_trav_h_km_7d,dims trav,1.0230280075324005e-05,hurts
+a_l5_opp_score,other,1.1467152404395775e-05,hurts
+h_form3_ortg,team form/efficiency,1.2460944149653153e-05,hurts
+adj_own_ftr_sum_off,adj own levels,1.2557723131773058e-05,hurts
+h_l10_efg,team form/efficiency,1.2821309262014968e-05,hurts
+adj_net_oreb_pct_sum,adj matchup net,1.3103281740117767e-05,hurts
+d_l3_opp_score,other,1.3472604147843348e-05,hurts
+sum_l10_adv_pace,team form/efficiency,1.4124312497781899e-05,hurts
+adj_own_two_pct_d_off,adj own levels,1.5983233518021556e-05,hurts
+net_tov_l5_h,matchup net,1.8591561154843173e-05,hurts
+a_form_ortg,team form/efficiency,2.46844776903149e-05,hurts
+sum_l10_margin,other,2.6203937433841307e-05,hurts
+a_form_p3_pct,other,2.7841090387129008e-05,hurts
+a_l5_total,other,2.8454710578690312e-05,hurts
+net_oreb_l5_d,matchup net,2.990955762627312e-05,hurts
+h_abs_fresh_max_min,other,3.2758411211308847e-05,hurts
+h_abs_ret_sum_min,other,3.4657989304159864e-05,hurts
+d_abs_stale_max_ppg,other,3.5014313769440863e-05,hurts
+d_s2d_adv_pace,team form/efficiency,3.733175886765083e-05,hurts
+d_s2d_total,other,3.8734368649706585e-05,hurts
+d_s2d_own_score,other,4.2802994250967785e-05,hurts
+dm_arch_sum_l3_def_eff,dims arch,5.019609124531921e-05,hurts
+adj_net_oreb_pct_h,adj matchup net,5.164515478035814e-05,hurts
+net_tov_l5_sum,matchup net,5.194060729858674e-05,hurts
+d_form3_ortg,team form/efficiency,5.197019006579484e-05,hurts
+h_l5_opp_score,other,5.4476724412999555e-05,hurts
+d_abs_fresh_n,other,5.472009843263126e-05,hurts
+h_l3_total,other,6.137583920910739e-05,hurts
+adj_net_off_eff_d,adj matchup net,6.327597389398087e-05,hurts
+d_l10_min_hhi,usage concentration,6.344800750313073e-05,hurts
+net_tov_l5_d,matchup net,7.114821080606015e-05,hurts
+adj_net_two_pct_a,adj matchup net,7.230096086924265e-05,hurts
+adj_own_tov_rate_sum_off,adj own levels,7.765949933266625e-05,hurts
+sum_sched_road_run,other,7.808989686218515e-05,hurts
+st_total,structural,8.272708727632971e-05,hurts
+adj_own_oreb_pct_d_off,adj own levels,9.231506350539098e-05,hurts
+a_l3_ortg,team form/efficiency,9.272523198002036e-05,hurts
+dm_trav_a_b2b,dims trav,9.353012682945805e-05,hurts
+adj_net_three_pct_d,adj matchup net,9.537004028399576e-05,hurts
+net_oreb_s2d_h,matchup net,9.885429468926843e-05,hurts
+net_eff_s2d_h,matchup net,0.00010254951608597296,hurts
+a_l5_own_score,other,0.00010983924933562206,hurts
+h_s_p3_pct,other,0.00011355463116154152,hurts
+a_l5_efg,team form/efficiency,0.00011409270674238303,hurts
+net_tpct_l10_d,matchup net,0.00011581215737524464,hurts
+st_eff,structural,0.00011751181109893871,hurts
+a_l3_margin,other,0.00011756198106682714,hurts
+adj_net_two_pct_sum,adj matchup net,0.00012218602758722052,hurts
+net_twopct_l10_sum,matchup net,0.0001239869608355565,hurts
+net_trate_s2d_h,matchup net,0.00012411744091753163,hurts
+dm_arch_h_l10_pace,dims arch,0.0001285147433935374,hurts
+h_s_p3a_rate,other,0.00012939180815593754,hurts
+dm_arch_d_l3_def_eff,dims arch,0.000129481976912052,hurts
+adj_net_three_rate_h,adj matchup net,0.0001310088427181333,hurts
+h_form_total,other,0.00013201170381123284,hurts
+raw_efg_l5_d_off,possession raw,0.0001330776080031848,hurts
+dm_ix_pace_prod,dims interaction,0.00013408623032100386,hurts
+net_eff_l5_d,matchup net,0.00013538274704356923,hurts
+raw_efg_s2d_d_off,possession raw,0.00013547790145540528,hurts
+a_abs_fresh_max_ppg,other,0.00013854598712344235,hurts
+dm_trav_h_rest_days,dims trav,0.00013957942682517321,hurts
+d_sched_rest2,other,0.0001475370003001658,hurts
+adj_own_two_pct_sum_def,adj own levels,0.00014813349217944471,hurts
+h_form3_adv_pace,team form/efficiency,0.00015167391743298175,hurts
+net_tpct_l5_a,matchup net,0.00015438952153259966,hurts
+h_abs_fresh_max_ppg,other,0.00015795560029213673,hurts
+adj_own_three_rate_sum_off,adj own levels,0.0001579600054875674,hurts
+raw_oreb_l5_sum_alwd,possession raw,0.00016321327617567494,hurts
+dm_trav_a_km_14d,dims trav,0.0001665733081950005,hurts
+net_oreb_l5_sum,matchup net,0.00016694525219419776,hurts
+adj_net_tov_rate_d,adj matchup net,0.00016901215530547298,hurts
+net_oreb_l10_d,matchup net,0.0001791459981082405,hurts
+a_l5_pts_hhi,usage concentration,0.00018111596599686142,hurts
+h_s_ftr,team form/efficiency,0.00018270352408870927,hurts
+sum_l3_margin,other,0.0001852011252989061,hurts
+radj_h_adj_tempo_pts,adj ratings,0.00018773193023582935,hurts
+raw_oreb_l5_d_off,possession raw,0.00018976250423811958,hurts
+net_ftr_l5_d,matchup net,0.00019593002406834148,hurts
+raw_eff_s2d_d_off,possession raw,0.0001978922504157904,hurts
+a_l5_adv_usage_percentage,usage concentration,0.00019792332593075723,hurts
+raw_tpct_l10_d_off,possession raw,0.00020117235852550042,hurts
+h_l3_opp_score,other,0.00020701879271453616,hurts
+d_l5_adv_usg_max,usage concentration,0.00020762778694383144,hurts
+net_tpct_s2d_sum,matchup net,0.00020832635031453606,hurts
+a_abs_ret_sum_ppg,other,0.000209666041636275,hurts
+adj_net_poss_h,adj matchup net,0.0002100621640701017,hurts
+net_trate_l5_sum,matchup net,0.00021333404287667002,hurts
+a_l3_adv_usage_percentage,usage concentration,0.00021479274981771324,hurts
+adj_net_off_eff_a,adj matchup net,0.00021677138321328504,hurts
+a_abs_stale_sum_min,other,0.00021966582264033863,hurts
+a_sched_rest2,other,0.00022618147346308015,hurts
+a_l3_own_score,other,0.00022947005957092703,hurts
+sum_form3_margin,other,0.00022961220618399059,hurts
+dm_arch_sum_l10_def_eff,dims arch,0.00024171588697677326,hurts
+d_form3_total,other,0.00024411794020186284,hurts
+net_efg_l5_a,matchup net,0.0002458105114459541,hurts
+net_tpct_s2d_a,matchup net,0.0002487314200579488,hurts
+raw_eff_l10_d_off,possession raw,0.0002576105167640258,hurts
+dm_ix_pace_x_leak,dims interaction,0.0002605898981378335,hurts
+net_ftr_l5_sum,matchup net,0.000264683354939399,hurts
+raw_trate_l10_d_off,possession raw,0.00026566272318948037,hurts
+a_l10_own_score,other,0.0002776852352549958,hurts
+raw_eff_l5_d_off,possession raw,0.0002790560620801741,hurts
+a_l10_margin,other,0.00027992446060985665,hurts
+d_s_ftr,team form/efficiency,0.0002813927467981703,hurts
+raw_tov_l10_sum_off,possession raw,0.00028149080279196714,hurts
+d_l5_pts_hhi,usage concentration,0.0002863093160548058,hurts
+a_s_d_to_forced,other,0.0002933163182271964,hurts
+net_eff_l5_a,matchup net,0.00029715562943034846,hurts
+net_trate_l10_sum,matchup net,0.00030030622285810715,hurts
+raw_tov_l5_d_alwd,possession raw,0.0003055142014854739,hurts
+net_trate_l5_a,matchup net,0.000315129287346505,hurts
+sum_abs_ret_sum_min,other,0.00032027299819079036,hurts
+d_l10_adv_pace,team form/efficiency,0.0003376786740488802,hurts
+adj_net_poss_a,adj matchup net,0.00033810468133511906,hurts
+a_s_p3_share,other,0.0003421249137543214,hurts
+d_s_p3a_rate,other,0.0003453638940459913,hurts
+adj_own_poss_d_def,adj own levels,0.000345962543992398,hurts
+adj_own_two_pct_d_def,adj own levels,0.000352003199553072,hurts
+net_eff_s2d_sum,matchup net,0.0003603558690611769,hurts
+h_l5_ortg,team form/efficiency,0.00036337356361407225,hurts
+sum_s_ftr,team form/efficiency,0.0003661882632162855,hurts
+raw_twopct_l10_d_off,possession raw,0.00036975643585099305,hurts
+h_l10_opp_score,other,0.00037001029791963735,hurts
+sum_s_pace,team form/efficiency,0.00037273788723113377,hurts
+adj_net_tov_rate_a,adj matchup net,0.00037414905385708963,hurts
+dm_sched_a_days_since_home,dims sched,0.00037495214966931645,hurts
+dm_sched_a_days_since_home,dims sched,0.00037495214966931645,hurts
+h_form_h1_tot_share,other,0.0003758355413999437,hurts
+raw_trate_l5_d_off,possession raw,0.00037994965505670775,hurts
+h_s_p3_share,other,0.00038190053206942076,hurts
+d_s_pace,team form/efficiency,0.00038789531233490715,hurts
+a_abs_stale_max_min,other,0.0003885764945695397,hurts
+net_tov_l10_sum,matchup net,0.0003940923368889737,hurts
+adj_net_three_rate_sum,adj matchup net,0.0004037010709292965,hurts
+adj_net_three_rate_a,adj matchup net,0.0004041447633050532,hurts
+adj_net_three_pct_h,adj matchup net,0.0004117971862022257,hurts
+sum_l10_adv_usage_percentage,usage concentration,0.00041306891677427016,hurts
+a_l10_adv_pace,team form/efficiency,0.000419238387443191,hurts
+dm_sched_d_days_since_home,dims sched,0.0004267220520197401,hurts
+dm_sched_d_days_since_home,dims sched,0.0004267220520197401,hurts
+net_oreb_l5_a,matchup net,0.00042851590607091705,hurts
+d_form_ortg,team form/efficiency,0.00042937564813150253,hurts
+a_form_total,other,0.0004314829121296049,hurts
+net_trate_l10_d,matchup net,0.0004375571494623226,hurts
+dm_sched_sum_days_since_home,dims sched,0.0004380723939737541,hurts
+dm_sched_sum_days_since_home,dims sched,0.0004380723939737541,hurts
+a_s_d_p3_pct,other,0.00044141770881410414,hurts
+dm_arch_a_l3_pace,dims arch,0.00044322549246644805,hurts
+net_tov_l10_h,matchup net,0.00044512398698266786,hurts
+raw_eff_l5_d_alwd,possession raw,0.0004470696002882163,hurts
+net_tpct_l5_sum,matchup net,0.00045039796025594936,hurts
+a_abs_fresh_sum_ppg,other,0.0004516495467770665,hurts
+net_ftr_l5_h,matchup net,0.0004535407299834926,hurts
+sum_s2d_total,other,0.00046041660496946857,hurts
+h_l10_pts_hhi,usage concentration,0.00047851564145637293,hurts
+adj_net_three_rate_d,adj matchup net,0.0004793563749520696,hurts
+adj_own_three_rate_d_def,adj own levels,0.00047945381118688624,hurts
+sum_l10_opp_score,other,0.0004805526413013683,hurts
+adj_own_poss_d_off,adj own levels,0.00048425515266535546,hurts
+a_form3_p3_pct,other,0.0004876862668852927,hurts
+net_tpct_s2d_h,matchup net,0.0004995456065111786,hurts
+net_eff_s2d_a,matchup net,0.0005013782211976681,hurts
+t60_total_point,other,0.0005125317300142124,hurts
+raw_ftr_l5_d_off,possession raw,0.0005146077295437451,hurts
+d_l10_margin,other,0.0005162696675091866,hurts
+adj_own_two_pct_sum_off,adj own levels,0.0005230802889003988,hurts
+a_l3_opp_score,other,0.0005267232347088563,hurts
+dm_trav_d_b2b,dims trav,0.0005279430023017034,hurts
+dm_ix_exp_x_fatigue_a,dims interaction,0.0005425199390376029,hurts
+sum_form_total,other,0.0005441469225190149,hurts
+dm_trav_sum_rest_days,dims trav,0.0005512357641880988,hurts
+d_form_margin,other,0.0005591216180113462,hurts
+dm_trav_d_venues_7d,dims trav,0.000560649295298199,hurts
+raw_ftr_l10_d_alwd,possession raw,0.000562412380395963,hurts
+net_oreb_l5_h,matchup net,0.0005663834864872985,hurts
+net_twopct_l10_h,matchup net,0.0005742860101952407,hurts
+raw_tpct_l10_sum_alwd,possession raw,0.0005859417223284813,hurts
+raw_tpct_l10_d_alwd,possession raw,0.0005885946166000189,hurts
+st_poss,structural,0.0005908422282011327,hurts
+net_trate_l10_a,matchup net,0.0006017813247043979,hurts
+dm_trav_d_km_7d,dims trav,0.0006065114936164295,hurts
+h_abs_fresh_sum_ppg,other,0.0006069767144145505,hurts
+h_s2d_min_hhi,usage concentration,0.0006113218491997779,hurts
+net_trate_l10_h,matchup net,0.0006147773746965485,hurts
+h_abs_stale_max_ppg,other,0.0006219818462093324,hurts
+raw_twopct_l5_sum_alwd,possession raw,0.0006230787438638308,hurts
+a_l5_ortg,team form/efficiency,0.0006273762806044414,hurts
+h_l10_ortg,team form/efficiency,0.0006328595627244915,hurts
+a_abs_ret_n,other,0.0006332146100840458,hurts
+d_form_h1_tot_share,other,0.0006382824734701698,hurts
+h_l3_adv_pace,team form/efficiency,0.0006449846338966725,hurts
+dm_ix_leak_prod,dims interaction,0.000657180506789451,hurts
+dm_arch_sum_l3_pace,dims arch,0.0006594144262128815,hurts
+sum_form3_h1_tot_share,other,0.0006594818462617447,hurts
+adj_net_ftr_a,adj matchup net,0.0006694680166573347,hurts
+h_l5_pts_hhi,usage concentration,0.0006926787111397187,hurts
+dm_arch_h_l3_pace,dims arch,0.0006953119879819364,hurts
+sum_form3_total,other,0.0007027615200979886,hurts
+raw_eff_s2d_sum_alwd,possession raw,0.0007055355129948482,hurts
+net_twopct_l5_d,matchup net,0.0007066213138327004,hurts
+d_s2d_adv_usage_percentage,usage concentration,0.0007066774120751823,hurts
+adj_own_efg_sum_off,adj own levels,0.0007144397512046652,hurts
+h_s_pace,team form/efficiency,0.0007227256617577116,hurts
+sum_form_ortg,team form/efficiency,0.0007290683416727034,hurts
+h_s2d_own_score,other,0.0007302608276003736,hurts
+raw_trate_l10_sum_alwd,possession raw,0.0007324579823999033,hurts
+a_form3_total,other,0.0007384196676776811,hurts
+d_s2d_ortg,team form/efficiency,0.0007448801442172387,hurts
+a_l3_top_min_share,usage concentration,0.0007490634854112471,hurts
+adj_net_efg_d,adj matchup net,0.0007515765678464542,hurts
+sum_l5_adv_pace,team form/efficiency,0.0007591686054441854,hurts
+d_l5_adv_usage_percentage,usage concentration,0.0007599378560985137,hurts
+raw_tov_l10_sum_alwd,possession raw,0.0007630721421075515,hurts
+a_s_d_p3a_rate,other,0.0007714305718744402,hurts
+radj_a_adj_net,adj ratings,0.0007755698931443955,hurts
+d_s_p3_pct,other,0.0007792401367475027,hurts
+adj_own_tov_rate_d_def,adj own levels,0.0007959389600588757,hurts
+sum_s_d_p3a_rate,other,0.0008067854200090874,hurts
+d_l10_own_score,other,0.0008096327579895507,hurts
+a_l5_adv_usg_max,usage concentration,0.0008175018941318918,hurts
+h_l10_adv_usage_percentage,usage concentration,0.0008210687869341232,hurts
+sum_l10_efg,team form/efficiency,0.0008261976430160162,hurts
+a_s_to_rate,other,0.000829716024410232,hurts
+raw_oreb_l5_sum_off,possession raw,0.0008310584833768481,hurts
+sum_l10_own_score,other,0.0008323932668888451,hurts
+a_s2d_adv_pace,team form/efficiency,0.0008561269005503275,hurts
+adj_own_three_rate_d_off,adj own levels,0.0008586881793302692,hurts
+net_twopct_l10_d,matchup net,0.0008617456265243434,hurts
+raw_oreb_l5_d_alwd,possession raw,0.0008682786558823208,hurts
+h_form3_total,other,0.0008806658328926603,hurts
+net_tov_l10_a,matchup net,0.0008824020974798757,hurts
+d_l3_adv_usg_max,usage concentration,0.000883350059413146,hurts
+dm_ix_pace_gap,dims interaction,0.0008838388026587429,hurts
+net_oreb_s2d_sum,matchup net,0.000887417754025302,hurts
+raw_twopct_l10_sum_alwd,possession raw,0.0009143042403770285,hurts
+d_l3_efg,team form/efficiency,0.0009235318399128667,hurts
+a_l10_total,other,0.0009266145513939783,hurts
+sum_abs_fresh_max_min,other,0.0009321660884795135,hurts
+sum_abs_stale_sum_ppg,other,0.0009451537465707954,hurts
+a_l10_adv_usage_percentage,usage concentration,0.0009515142957447348,hurts
+raw_ftr_s2d_sum_off,possession raw,0.0009518580600307025,hurts
+d_form3_margin,other,0.0009654878398542011,hurts
+sum_sched_rest,other,0.0010025895731595597,hurts
+sum_l5_adv_rot_n,usage concentration,0.0010042356612384729,hurts
+h_l10_top_min_share,usage concentration,0.0010068414559307182,hurts
+sum_s_oreb_pg,team form/efficiency,0.0010116770133256903,hurts
+d_s2d_min_hhi,usage concentration,0.0010145376074360002,hurts
+raw_twopct_l5_d_off,possession raw,0.0010336706357897962,hurts
+adj_own_poss_sum_off,adj own levels,0.001043280431806487,hurts
+dm_trav_sum_b2b,dims trav,0.0010564901718147501,hurts
+adj_own_three_pct_d_def,adj own levels,0.001061097075833961,hurts
+a_l10_adv_usg_max,usage concentration,0.0010621800825118405,hurts
+dm_arch_d_l10_pace,dims arch,0.0010737098059450667,hurts
+d_abs_ret_n,other,0.0010742824624123959,hurts
+raw_ftr_l10_sum_off,possession raw,0.0010772733741542528,hurts
+a_s2d_adv_rot_n,usage concentration,0.001090144704012419,hurts
+sum_l5_ortg,team form/efficiency,0.0010971581360658261,hurts
+d_l3_own_score,other,0.0011004667649691519,hurts
+d_l3_total,other,0.0011273380478263872,hurts
+d_l5_efg,team form/efficiency,0.0011277256089269744,hurts
+d_l3_adv_usage_percentage,usage concentration,0.0011376232047832086,hurts
+sum_l5_opp_score,other,0.0011434810079369306,hurts
+a_l3_adv_rot_n,usage concentration,0.0011447462623197235,hurts
+d_sched_rest,other,0.0011479934657809276,hurts
+adj_net_off_eff_sum,adj matchup net,0.0011526698983562594,hurts
+adj_net_poss_sum,adj matchup net,0.0011628445867895854,hurts
+a_s2d_pts_hhi,usage concentration,0.0011649725960475726,hurts
+a_form3_ortg,team form/efficiency,0.001166854122841357,hurts
+raw_eff_l5_sum_off,possession raw,0.0011778867525538278,hurts
+net_oreb_s2d_d,matchup net,0.0011795466690259077,hurts
+adj_own_oreb_pct_d_def,adj own levels,0.0011953936068632848,hurts
+h_l10_margin,other,0.0012030343494317808,hurts
+d_s2d_top_min_share,usage concentration,0.0012144797062809964,hurts
+adj_net_tov_rate_h,adj matchup net,0.0012202371296625159,hurts
+a_form3_adv_pace,team form/efficiency,0.0012490139872353007,hurts
+h_s2d_top_min_share,usage concentration,0.001249908297714472,hurts
+raw_twopct_s2d_d_off,possession raw,0.001254176162064774,hurts
+sum_l3_top_min_share,usage concentration,0.001262006652229447,hurts
+raw_eff_l10_sum_off,possession raw,0.0012676581915246066,hurts
+adj_net_off_eff_h,adj matchup net,0.0012773256046806902,hurts
+st_gap,structural,0.0012776279011786074,hurts
+adj_own_three_pct_d_off,adj own levels,0.0013455163607686421,hurts
+net_oreb_s2d_a,matchup net,0.001359386879834959,hurts
+net_ftr_s2d_sum,matchup net,0.0013688111221394905,hurts
+net_trate_s2d_sum,matchup net,0.001376038854397424,hurts
+d_form_p3_pct,other,0.0013878551407295048,hurts
+dm_ix_exp_x_fatigue_sum,dims interaction,0.0013920315902241215,hurts
+h_form3_margin,other,0.0013990891509569475,hurts
+a_l3_min_hhi,usage concentration,0.001407461055707604,hurts
+raw_tpct_s2d_d_alwd,possession raw,0.0014150187881799697,hurts
+h_l5_min_hhi,usage concentration,0.0014350824166421972,hurts
+d_l10_ortg,team form/efficiency,0.0014491964203122848,hurts
+a_s2d_adv_usg_max,usage concentration,0.0014528813935481694,hurts
+h_s_d_p3_pct,other,0.0014534869144003232,hurts
+h_l3_adv_rot_n,usage concentration,0.0014749503363764294,hurts
+sum_s_p3a_rate,other,0.001477834287547053,hurts
+a_l3_adv_usg_max,usage concentration,0.0015039918972667154,hurts
+d_abs_ret_max_ppg,other,0.0015450546642296753,hurts
+dm_trav_a_rest_days,dims trav,0.0015587681273456083,hurts
+sum_abs_ret_n,other,0.0015672758375673695,hurts
+net_eff_l5_h,matchup net,0.0015688190295274212,hurts
+d_abs_ret_sum_ppg,other,0.0015801068273844643,hurts
+d_s_to_rate,other,0.0015911434538043168,hurts
+h_s_oreb_pg,team form/efficiency,0.0015991935336418933,hurts
+dm_exp_a_exp,dims exp,0.0016103575141553778,hurts
+sum_l3_efg,team form/efficiency,0.001636505654443593,hurts
+raw_tov_s2d_sum_alwd,possession raw,0.0016385315277830381,hurts
+dm_exp_h_exp,dims exp,0.0016705642282227873,hurts
+d_s_d_p3a_rate,other,0.0016937236355372004,hurts
+a_s_p3a_rate,other,0.0017004658239156978,hurts
+d_l3_adv_rot_n,usage concentration,0.0017020702400472737,hurts
+sum_s2d_opp_score,other,0.0017181223148990954,hurts
+d_l10_adv_usg_max,usage concentration,0.0017320743698738816,hurts
+h_l5_adv_rot_n,usage concentration,0.0017686409583190232,hurts
+net_eff_s2d_d,matchup net,0.0018983204601846076,hurts
+a_abs_fresh_max_min,other,0.0019227866582971348,hurts
+h_abs_stale_n,other,0.0019268700668576833,hurts
+d_abs_fresh_max_min,other,0.0019279114931451957,hurts
+net_ftr_s2d_a,matchup net,0.0019350819517589823,hurts
+h_s2d_margin,other,0.00195681238387678,hurts
+sum_l10_adv_rot_n,usage concentration,0.0019722790763141707,hurts
+a_s2d_opp_score,other,0.0019742457330449437,hurts
+d_s2d_adv_rot_n,usage concentration,0.0020058812166208195,hurts
+raw_ftr_s2d_d_alwd,possession raw,0.00201148535157665,hurts
+a_s_d_ftr,team form/efficiency,0.0020156321595573012,hurts
+h_sched_rest,other,0.0020719474318789816,hurts
+a_s_oreb_pg,team form/efficiency,0.0021197704029006503,hurts
+h_l3_efg,team form/efficiency,0.0021873402300804784,hurts
+sum_abs_fresh_sum_ppg,other,0.002251591030262068,hurts
+h_form_p3_pct,other,0.002340587754001075,hurts
+sum_s2d_adv_usg_max,usage concentration,0.0024037785026393005,hurts
+a_s2d_ortg,team form/efficiency,0.002406775418264895,hurts
+raw_trate_l10_sum_off,possession raw,0.0024289964152998944,hurts
+adj_own_poss_sum_def,adj own levels,0.0024405481744918245,hurts
+sum_l5_min_hhi,usage concentration,0.0024614409412520993,hurts
+net_eff_l5_sum,matchup net,0.002530695969877206,hurts
+net_ftr_s2d_d,matchup net,0.0025853989587595744,hurts
+sum_s_d_to_forced,other,0.0026068837068426998,hurts
+a_l5_min_hhi,usage concentration,0.0027409394608424176,hurts
+raw_trate_s2d_sum_alwd,possession raw,0.0027500365597253607,hurts
+a_l10_min_hhi,usage concentration,0.0027619873345658685,hurts
+sum_sched_g_last7,team form/efficiency,0.0028229964295640037,hurts
+sum_abs_ret_max_ppg,other,0.0029123901787872497,hurts
+a_abs_stale_sum_ppg,other,0.002926637387061129,hurts
+h_s2d_ortg,team form/efficiency,0.0029336525043270334,hurts
+h_s2d_adv_usage_percentage,usage concentration,0.0029344635952351372,hurts
+raw_eff_s2d_sum_off,possession raw,0.003721681931650858,hurts
+a_abs_ret_max_ppg,other,0.0038038334696026133,hurts
+raw_ftr_s2d_sum_alwd,possession raw,0.003993084186517282,hurts
+sum_l10_top_min_share,usage concentration,0.004615050773654747,hurts
+h_s_d_p3a_rate,other,0.005404491075304663,hurts
+a_l10_top_min_share,usage concentration,0.00551659053968262,hurts

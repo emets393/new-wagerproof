@@ -36,6 +36,13 @@ both). Attacker TT OVER side: 55.5%/+4.4% (paint-or-FT attacker 56.2%/+5.4%).
 NOT a tier: attacker OREB, rest days. **FRESH-ONLY: stale (2nd+ game)
 absences 51.4%, returns priced — the edge is a ONE-GAME news lag**
 (CBB_SIDES_BRIEF4.md).
+**CONFIRMED INDEPENDENTLY 2026-07-31 (NCAAB_AVAILABILITY_BRIEF.md): the
+feed-free version of this is worth NOTHING. Reading "who was out in the team's
+PREVIOUS game" — pregame-observable, needs no vendor — scores 51.3%/−2.0% at
+T-60, against 57.6%/+10.0% for "who is out TONIGHT" on the same games. That is
+a second construction reaching S1's one-game-news-lag conclusion, and it
+forecloses the cheap workaround: there is no free version of S1. If we want
+it, we buy the pregame feed.**
 **NEW TIER — model agreement (NCAAB_SIDES_MODEL_BRIEF.md): the 142-feature
 sides GBM agreeing (edge ≥1 same direction) lifts the base to ≈61.7%/+18%
 (big_out-away+agree → HOME 64.0%/+22.3% n=100; big_out-home+agree → AWAY
@@ -182,6 +189,309 @@ cell (≥+8 → 56.7%/+8.3%) that leaked value onto collinear teammates.**
 OPEN v3: raise ridge alpha (current coef max ~247 = under-shrunk tiny-minute
 players; aggregate betting gradient robust to it); add cross-season prior.
 
+**REFINEMENT 2026-07-31 — the impact weighting is COSTING us (NCAAB_AVAIL_VALIDATION.md,
+NCAAB_BOX_PLAYERS.md, NCAAB_AVAIL_CONSENSUS.md).** Rebuilt from the same lineup
+stints with NO impact model at all — just the sum of each freshly-absent
+rotation player's PRIOR role (share of team minutes), fade the side with more
+missing, top 30% of |home−away differential|:
+
+| weighting | FG spread T-60 | note |
+|---|---|---|
+| raw minutes missing | **57.6% / +10.0%** (n=872, base 50.9) | no impact model |
+| impact-valued (role × on/off) | underperformed raw on the lineup build | |
+| headcount | weakest | ignores role entirely |
+| S6 v2 RIDGE-RAPM (production) | 54.1% / +3.3% (n=690) | more machinery |
+
+Replicated on an INDEPENDENT feed (`cbbd_player_box`, different vendor,
+different id namespace, 4 seasons vs 3): r=+0.956 and 98.1% sign agreement
+where both fire, but coverage differs (2,950 vs 2,476 games, only 1,714
+overlap) so the pair is worth combining. CONSENSUS (both fire and agree)
+57.8%/+10.5% (n=498, 57/58/59); EITHER feed 57.2%/+9.2% (n=1,097, all four
+seasons positive). **Magnitude moves with construction (+10.0 vs +1.1 on the
+box feed alone) — treat +9% as the honest number, not +13%.**
+
+Survived the full validation battery: blind home −5.5% and blind favourite
++0.4% INSIDE the same selection (C2, not a side bias); beats a random cut of
+the same size 100.0%/99.9% (C3, the test S10's concentration split failed at
+73%); walk-forward +11.1%/+8.6% (C4); decile gradient falls monotonically
+59→40 (C1b, r=−0.081); and |differential| vs |final margin| r=−0.008, so the
+bench-shortening/garbage-time confound is absent (C1).
+
+**Action: re-grade S6 with raw role-weighted missing minutes before shipping
+the RAPM version. Same conclusion as S1's — needs the pregame feed either way,
+and S1/S6/this are all ONE effect. Do not stack them.**
+
+## S7 — NBA shared 1H-total streak fade (VALIDATED-LEAN, 2026-07-29)
+
+First real NBA-side edge in this program (NBA props/movement/FG/1H-univariate
+all came back priced). NBA_HALVES_BRIEF2/3.md, nba_halves_study2/3.py.
+
+**When BOTH teams are riding the SAME 3+ game 1H over/under streak, bet
+against it in the 1H total: 61.9% / +18.1% (n=113, 57/60/67 per season, gate
+min 20 games played).** Dose-response 2+ streak → 54.8%/+4.6% (n=458) → 3+ →
+61.9%. Both signs fire: both-over-streak → 1H UNDER 64.3%/+22.7% (n=56);
+both-under-streak → 1H OVER 59.6%/+13.7% (n=57). Symmetric + dose-response +
+3/3 seasons is why this survives scan-honesty where a lone 62% cell wouldn't.
+
+Robustness: flat -110 grading +18.3%; drop-any-season worst +11.5%; works
+whether the streak agrees with or contradicts season 1H over% record.
+
+**The conjunction IS the signal** — ONE team on a 3+ streak is nothing
+(50.2%, -4.2%, n=640); OPPOSED streaks nothing (52.0%). Never bet the
+single-team version.
+
+**Mechanism (measured, not assumed):** the book lifts the 1H total only ~0.7
+for shared over-streaks (114.9 vs 114.2 baseline) but CUTS it 2.8 for shared
+under-streaks (111.4) — while actual 1H points barely move (113.9 / 113.4).
+Realized over% swings 35.7% → 59.6% across cells whose lines differ by 3.5.
+**1H-specific: the identical rule on the FULL-GAME total is dead (51.3%,
+-2.0%)** — so this is derivative-market mispricing, not scoring regression
+(which is fully priced per REGRESSION_BRIEF1). This is the owner's
+overcorrection theory finally confirmed — in the thin market, not the main one.
+
+Season 1H over% alone (as-of-date, both teams) is priced-to-overpriced and
+ASYMMETRIC: both ≥55% → OVER 46.1%/-12.2% (UNDER +3.0%); both ≤45% → UNDER
++5.7%. The book only overcorrects UPWARD. Recency (streak) >> season record.
+
+Gate note: **30+ games played makes things worse, not better** — see below.
+
+## NBA 1H spread: both-team record cross (TRACK-PLUS, 2026-07-29)
+
+The both-team cross works where the univariate version was priced (method law
+again): hot team (season 1H cover% ≥58%) vs terrible team (≤42%) → BACK hot =
+56.8%/+8.2% (n=146, 55/58/58); ≥60% vs ≤40% → 57.6%/+9.5% (n=92); cover%-gap
+≥20pp → 55.4%/+5.5% (n=303, 3/3 seasons).
+
+Quality control (the better-cover team is the favorite in 70% of these):
+inside a spread bucket the gap still adds — |spread|≥9 gap≥20pp = 56.6% vs
+47.3% for the gap≤5pp control; |spread| 6-9 = 64.1% but decaying (76/61/50).
+Only lives on the FAVORITE side (56.8%, n=213) — dog side null (52.2%).
+
+**Gate finding that contradicts the "wait 30 games" intuition: the cross PEAKS
+in the 20-30 game window and decays after.** 58/42 tier 56.8% at 20+ → 53.8%
+at 30+; 55/45 tier 52.8% → 51.2%; only the gap≥20pp version holds both (55.4%
+/ 55.1%). The streak fade (S7) is gate-flat (61.9% / 60.2%). Use 20+ gp.
+
+Streak-based spread cells (3+ covers vs 3+ fails) are thin and season-driven
+(hot dog 57.6% n=66 is 43/80/44) — the BRIEF1 fade-cold-favorite at n=363
+(54.0%, 56/56/50) is the more stable form. Do not stack them.
+
+## S8 — NBA moderate-absence 1H spread back (VALIDATED, 2026-07-30)
+
+Strongest NBA finding in the program. NBA_AVAIL_1H/2H/3/4_BRIEF.md,
+nba_availability_1h/2h/3/4_study.py, absence detail from build_nba_absence.py.
+
+**One moderate scorer (prior 18–25 ppg) FRESHLY out, opponent has nobody 18+
+out, |FG spread| < 8, both teams 25+ games played → BACK the depleted team on
+the 1H spread: 60.9% / +16.0% (n=271, 63/60/60 per season).**
+
+Robustness: flat -110 grading +16.2%; drop-any-season worst 60.0%; favored
+60.5% / dog 61.0%; home 58.2% / away 63.8%. No sub-split carries it.
+
+**Dose ladder (back the depleted team, 1H, by total ppg removed):** 8-15 →
+50.9%, 15-20 → 52.6%, **20-25 → 59.3%**, 25-32 → 52.0%, 32+ → 48.5%. An
+inverted U, not a monotone — the market OVER-adjusts a rotation scorer and
+UNDER-adjusts a real star. Excluding 32+ is not a fitted gate, it is unstable
+(per-season 70/40/39) and small.
+
+**PLACEBO PASSES — this is the test that makes it real.** STALE absences of
+the same size (already out for multiple games) in the same close games run
+51.2% / -2.4% (n=389, 49/48/56). Only FRESH news is mispriced.
+
+**Sign flips on the FULL GAME at the top of the ladder:** 25-32 ppg removed,
+other side clean → **FADE the depleted team on the FG spread = 57.2% (n=173,
+57/58/56)**, 61.0% inside close games; the 1H version of that cell is dead
+(52.0%). TRACK-PLUS, not vaulted — the ladder breaks above it (32+ fades at
+only 52.6%) and n is thinner.
+
+**Mechanism (measured):** the 1H line is a mechanical 0.573× of the FG line and
+carries **+0.009** extra for a star out — nothing beyond proportional
+pass-through. Actual 1H margin shifts -1.518 for a moderate absence vs +0.483
+for a severe one; actual FG margin -1.018 vs +1.697. Absence damage is
+BACK-LOADED and a proportional 1H line cannot express that.
+
+**Clean negative control — FULL-GAME TEAM TOTALS price absences exactly:**
+≥18ppg star out → own team total under 48.9% / over 51.1% (n=689) against a
+nobody-out control of 49.5%/50.4%; 40+ ppg removed → own under 51.8%. The book
+gets "how many points does this team score" right and "how those points split
+across halves" wrong. Same shape as S7 — the NBA edge is in the DERIVATIVE.
+
+Do not read the 2H numbers in those briefs as bets: real 2H lines open at
+halftime off the actual 1H score, the synthetic 2H column is diagnostic only.
+
+Needs a live pregame inactives feed to fire (same blocker as S1/S6).
+
+## S9 — NBA dead-home-team favourite (VALIDATED, 2026-07-30)
+
+**First real edge on the NBA FULL-GAME SPREAD**, and the only signal in this
+vault that fires with no injury feed. NBA_DEAD_HOME_BRIEF.md +
+NBA_DEAD_HOME_ROBUST_BRIEF.md; `nba_standings_features.py`, `nba_dead_home.py`,
+`nba_dead_home_robust.py`.
+
+**Late season (both teams 50+ games played), the HOME team is ELIMINATED or
+TANKING → BACK THE FAVOURITE. 62.3% / +19.03% (n=324, 60/58/68/63 per season,
+79–85 bets every season).**
+
+**The comparator is 53.05%, not 50%.** Favourites already cover 53.05% across
+all 1,817 late-season games, so this is +9.3 points over the right baseline.
+Quoting it against a coin overstates it by three points. `delta cell` (blind
+favourite reweighted to the selection's own |open spread| bucket mix) = +17.34.
+Bootstrap p5 over 10k resamples = 58.0% — the 5th percentile clears breakeven.
+
+Definitions, all from schedule + final scores STRICTLY BEFORE tip
+(`nba_standings_feats.parquet`, keyed on `game.id`):
+- **eliminated** — further behind the 10/11 play-in boundary than there are
+  games left, and under 25 games remaining
+- **tank** — 12th or worse in its conference with under 20 games left
+- `playin_edge` is signed games clear of the 11 seed; `gb()` returns games BACK
+  so it is negated. Getting that sign wrong makes clinched 0% and eliminated
+  43% — that is the tripwire if these are ever rebuilt.
+
+**Mechanism (predicted before the split was run, then confirmed):** the spread
+carries a standing ~2–3 pt home-court adjustment premised on home teams trying
+harder. A home team that has quit is the one case where that premise is false,
+and the book cannot quietly drop the adjustment without declaring the team has
+quit. A road team that has quit never had the premium. So the effect must be
+one-sided — and it is.
+
+**Controls, all passed:**
+| check | result |
+|---|---|
+| venue placebo — AWAY team dead | 53.7%, delta cell **-0.48** (nothing) |
+| quality placebo — bad home team, NOT dead | 50.8% |
+| season placebo — bottom-4 home team mid-season | 47.1%, delta **-10.99** |
+| clinched home team (idle, not quit) | 49.2% — only QUITTING counts |
+| concentration — 18 distinct dead home teams | top team 19% of profit; drop the best team entirely → **61.0% on 310** |
+| fatigue | rested 62.6% vs back-to-back 61.1%; home-more-rested 62.0% |
+| both teams dead | 62.8% (n=78) — does not need a motivated opponent |
+
+**Line timing — survives to the close, so it is feed-bettable:** open 62.3% /
++19.03, T-24 63.4%, T-4 59.0%, **T-60 (house closing-line policy) 58.7% /
++12.06** against a 52.8% all-late favourite comparator at the same snapshot.
+Bet the open when available; the close still pays. Not a stale-opener proxy:
+in the 140 games where the line moved under 1 pt it is 58.6% / +11.80.
+
+**Dose:** under 10 games left 63.8%, 15+ games left 55.0%. April 65.1%, March
+60.9%. 8+ games out of the play-in 62.8%.
+
+Graded against the OPENING spread because that is the line the signal uses
+(house grading rule), with T-60 reported alongside.
+
+## How S9 was found — the phase discipline that produced it
+
+Worth preserving, because three consecutive steps each predicted the OPPOSITE
+of what came back and the finding is on the far side of all three:
+
+1. `nba_spread_phase.py` — the FG spread model is **anti-informative** late:
+   -16.1 vs naive at the top 10% of its own edge, monotone. Averaged over all
+   nine method families, so not cell-picking.
+2. `nba_late_diagnose.py` — the loss is NOT in games nobody cares about. There
+   the model is fine (54.5%). It is concentrated where the standings still mean
+   something (44.3%, -16.6 vs naive). Mean |edge| is 1.80 pts in both groups —
+   the model cannot tell the situations apart. Feature audit: **zero** columns
+   matching rank/seed/stand/elim/clinch/trade in all 977.
+3. `nba_motivation_control.py` — a standings SIDE-PICKING rule looked strong
+   (56.1%) until compared to blind favourite INSIDE its own games, where it
+   added **+0.0**. Dead as a side-picker. But the subset it selected showed
+   favourites covering 62.2% instead of 53.05%.
+
+The signal was never the side. It was **which games to back the favourite in**.
+`fav in-subset` — the comparator computed on the identical games a rule fires
+on — is what separated the two, and any favourite-heavy rule (fav share >85%)
+must carry it or the cell-matched number will flatter it.
+
+## S10 — NBA concentrated player-heat fade (VALIDATED-LEAN, 2026-07-30)
+
+**Second edge on the NBA FULL-GAME SPREAD, and the first one built from
+play-by-play.** Verdict doc `NBA_PLAYER_REGRESSION_SUMMARY.md` — where the
+stage briefs disagree with it, they are wrong. `nba_player_regression.py`,
+`nba_player_model.py`, `nba_conc_controls.py`, `nba_conc_walkforward.py`.
+
+**A team whose recent shooting above each player's OWN career finishing rate is
+CONCENTRATED in one or two high-volume players → FADE that team on the spread.**
+
+Walk-forward, thresholds picked only from strictly prior seasons and applied
+blind (`nba_conc_walkforward.py` — 2022 is the training seed and is never bet):
+
+| grading | bets | win % | slice base % | edge | ROI % | seasons |
+|---|---|---|---|---|---|---|
+| vs OPENER | 433 | 55.4 | 52.2 | +3.2 | **+5.8** | +6.8 / +0.4 / +10.2 |
+| vs **T-60 close** | 446 | 54.0 | 50.4 | +3.6 | **+3.2** | +3.1 / −0.5 / +7.4 |
+
+**It clears the close**, which is what separates it from S6 and the absence work
+— that was a news-latency/CLV artifact, this is not. Thin, and labelled LEAN for
+it: 1 SE ≈ 2.4pp, 2024 is a wash at −0.5%, ~150 bets/season. **Do not quote the
+in-sample +5.5%** — the HHI sweep is non-monotone (p50 +2.8, p60 +1.8, p70 +6.2,
+p80 +3.2), which is the fingerprint of a cut chosen after seeing the answer and
+is exactly why the walk-forward number above is the one that ships.
+
+What is measured, all leak-safe (expanding, shifted):
+- `own_finish` — the player's **own** long-run points-above-shot-location-
+  expectation per shot. This is SKILL. Good finishers beat a location model every
+  year; grading them against a league-average expectation labels them permanently
+  lucky and destroys the signal.
+- `heat` = trailing-10 finishing − `own_finish`, aggregated over the projected
+  rotation weighted by **shot volume, not minutes** — a hot player only regresses
+  to the extent he keeps shooting.
+- `conc_drv` — HHI of that heat on the side carrying it. A **moderator, not a
+  signal**: diffuse heat does not regress at all (+1.45).
+
+**The two load-bearing controls:**
+| check | result |
+|---|---|
+| C3 — team aggregate `d_luck_net` in the SAME cell | −1.7% ROI, p=.77 — **fails** |
+| C4 — raw hottest player, NO own-baseline subtraction | **−7.9% ROI — fails** |
+| nested — player heat with team aggregate projected out | survives, −1.74 / −2.07 |
+| nested mirror — aggregate with player heat projected out | **+0.19 / +1.13, wrong sign** |
+| C5 — is concentration a disguised favourite/talent rule? | no: corr −0.9 spread, +0.0 talent |
+
+C4 is the one to remember: **fading the guy who is merely scoring a lot LOSES
+money.** Subtracting his own sustainable finishing rate is the entire signal.
+And the mirror nested test says team averaging was not merely diluting the
+information, it was destroying it — which is what the play-by-play pull was for.
+
+Live needs a daily hoopR PBP pull (`nba-granular-data-source`), the expected-points
+table rebuilt expanding, and the prior game's rotation. **No injury feed.**
+
+## Portfolio — S9 ∪ S10 on the NBA full-game spread (2026-07-30)
+
+`nba_combine.py` → NBA_COMBINE_BRIEF.md. **Overlap was measured before any
+combined number was computed**, because two rules on the same market in the same
+part of the season can pick OPPOSITE sides.
+
+They are **almost perfectly complementary**: S9 × S10 co-fire on only 23 of 895
+games (7.0% of the smaller signal), 12 agreeing and 11 conflicting. Conflicts are
+not bet — a game where the two disagree has no defensible side.
+
+| | bets | OPEN win/ROI | T-60 win/ROI | base | T-60 by season |
+|---|---|---|---|---|---|
+| S9 alone | 326 | 61.9 / +18.2 | 58.3 / +11.3 | 53.4 | 59/52/66/57 |
+| S10 alone | 569 | 54.3 / +3.7 | 54.1 / +3.3 | 50.8 | 53/53/53/58 |
+| **union** | **862** | **56.8 / +8.4** | **55.3 / +5.6** | 51.3 | 55/52/57/57 |
+
+**~215 bets a season at +5.6% instead of S9's ~80 at +11.3%, positive all four
+seasons.** The union is the product; it is nearly free because the overlap is
+tiny. The agree cell (n=12) and both conflict cells (n=11) are too small to
+grade and the script refuses to print them rather than dressing them up.
+
+**Do NOT bet the xEFG-gated version of S9.** "S9 + shot-quality process agrees"
+shows 213 bets at 61.0% / +16.5% (T-60) and is the most attractive-looking cell
+in the program. It does not survive its controls (`nba_combine_controls.py` →
+NBA_COMBINE_CONTROLS_BRIEF.md):
+- the honest comparator is blind favourite **bucket-matched over all late games**,
+  not `fav in-sub` — for a rule that bets the favourite, `fav in-sub` equals the
+  win rate by construction and is worthless
+- the gate alone (back the favourite whenever xEFG agrees, all 1,290 late games)
+  is +3.2 delta — ordinary, and nowhere near 61%, so the dead-home condition IS
+  load-bearing and the finding is not secretly an xEFG rule
+- **but D and E are a PARTITION of the same 326 S9 bets**, so D's lift over S9 is
+  arithmetically forced once E comes in weak — it is not an independent test. The
+  permutation test (does the xEFG cut split S9 better than a RANDOM cut of the
+  same sizes?) gives **p ≈ .10** at both the open and the close.
+
+Taking it would surrender a third of a validated signal's volume to chase a
+refinement that has not cleared. Track it; bet plain S9.
+
 ## Tracking list (positive, not yet bettable — revisit with 2026-27 data)
 
 - CBB guard_out × NON-pressing opponent → back attacker 54-55%/+5.3% (press
@@ -193,6 +503,15 @@ players; aggregate betting gradient robust to it); add cross-season prior.
 - NBA H2H ATS anti-persistence: back home team dominated in prior meetings
   55.5%/+5.9% (n=660); H2H totals tendencies persist (ran over ≥8 → over +1.4%)
 - NBA small-dog ML steamed ≥2pp pockets (n<100 each)
+- **NBA xEFG gate on S9** (back the dead-home favourite only when shot-quality
+  process agrees): 61.0%/+16.5% T-60 on 213, but the split vs a random cut of S9
+  is p≈.10 — see the S9 ∪ S10 portfolio section. Revisit with a 5th season; if it
+  holds it converts S9 into a higher-conviction two-thirds
+- **NBA expected-eFG from shot coordinates** correlates **+4.65** with the T-60
+  spread residual while ACTUAL eFG correlates **+0.05** — the market prices
+  shooting RESULTS and not shooting PROCESS. Impossible from box scores; the most
+  useful thing the PBP pull produced. A feature, not a rule (best standalone cell
+  is late season, +2.1% ROI, carried by one season)
 - CBB OBSCURE weekday games (both KP>100, pre-7pm Mon-Thu) → BACK AWAY
   53.2%/+1.7% (n=757, 4/4 seasons); **+ attendance ≤25th pct → 53.8%/+2.8%
   (n=409, 4/4)** — crowd-less HCA discount (VENUE_BRIEF1 §C-D)
@@ -257,6 +576,100 @@ AVERAGE; movement reflects many forces. **The layer-3 overcorrection concept
 IS validated elsewhere — became-weird movement, the Cut Law, S1/S5, the five
 narrative fades — those are the productionized versions of this idea.**
 
+## NBA TEAM-luck regression: TESTED EXHAUSTIVELY, NULL (2026-07-30)
+
+The MLB luck framing — who has been getting lucky, who has had a bad few games and is due
+— ported to the NBA and run against **every market we have prices for** (FG spread at open
+and T-60, moneyline, FG total, 1H spread, 1H total, both team totals). Panel:
+`nba_luck_build.py` → `nba_team_luck{,_games}.parquet`, 10,556 team-games / 5,278 games, 13
+luck families (pythagorean, close-game, margin-vs-own-baseline, ATS margin, three-point %
+made and allowed, FT%, eFG made and allowed, off/def efficiency), 5- and 10-game windows,
+all-minutes and garbage-time-stripped, every metric measured against the team's **own
+expanding baseline** rather than league average.
+
+Four independent designs, four nulls:
+
+| design | file | result |
+|---|---|---|
+| 352-cell sweep, all markets | `nba_luck_sweep.py` | best edge +3.85 vs a noise ceiling of +3.18; **family-wise p = .173**, and a RATE control ranked 9th |
+| gradient / composite / phase / unpriced residual | `nba_luck_stage2.py` | all decile trends flat (\|r\| ≤ .036); the rate control ranked **above** every luck composite on sides; residualising against the closing number and the open→close move killed what was left |
+| dose ladder + walk-forward on the one survivor (shooting luck → UNDER) | `nba_luck_totals.py` | pooled FG total 53.1% / +3.0 edge, but **walk-forward ROI −0.9%** and the 50/33/20/10 ladder is non-monotone (+1.8, +3.0, +1.5, +4.2) |
+| the conjunction (bad results AND bad luck together) | `nba_luck_divergence.py` | every pooled union row **negative ROI**; the "both channels agree" cells score the same as the "channels disagree" control cells |
+
+**Why it is null, and why this does not contradict MLB.** Baseball's luck edge survives
+because a bad month for a hitter is ~100 plate appearances and the market cannot separate
+skill from variance at that sample. An NBA team plays 82 games with a stable rotation, and by
+the tenth game the market has a better read on true strength than any trailing-window luck
+score does. Everything the luck panel measures is already in the number.
+
+**The control is the load-bearing part.** Shot RATES (three-point attempts taken and allowed)
+are style, not luck, and cannot regress the way a percentage can. They score *as well as or
+better than* the luck features in every table above. Any future version of this that reports
+a 54% cell without running that control is not measuring luck.
+
+**What would change the verdict:** a genuinely unpriced luck channel, not a re-slice of these
+— referee/whistle luck, opponent-injury-timing luck, or scheduling luck at a granularity the
+market ignores. Do not rebuild this from the same inputs.
+
+**EXTENDED TO NCAAB 2026-07-31 (NCAAB_LUCK_BRIEF.md) — same verdict on 4× the sample.**
+23,163 priced college games against the NBA's 5,278, the market where we had already proven
+absences go unpriced, so if team luck regression works anywhere in basketball it should show
+here. It does not. Every decile gradient flat (|r| ≤ .015), every family loses money at every
+one of the 8 markets, and **the largest |r| anywhere in the sides table belongs to the RATE
+placebo (−.015)**. Two sports, six designs, placebo-controlled throughout: **team-level
+statistical luck regression does not work in basketball. The category is closed.** It works in
+MLB because ~100 plate appearances genuinely is variance-dominated; a basketball rotation is
+not. Only SITUATIONAL (S9) and PLAYER-level (S8, S10) signals survive in this program.
+
+## CBB player-heat port and NON-SHOOTING heat: TESTED, NULL (2026-07-31)
+
+Two more ports from the NBA program, both killed by the same control.
+
+**S10 ported to college (NCAAB_HEAT_BRIEF.md, NCAAB_HEAT_VALIDATION.md, NCAAB_HEAT_REFINE.md).**
+Direction is right and it wins in all four seasons, but it is +0.9% at the opener and
+**−1.0% at the T-60 close**, and the concentrated-heat split beats a random cut of the same
+size only **73.0% (open) / 52.2% (close)** — nowhere near the ~95% bar. The tell: the control
+with **no own-baseline subtraction scores as well as the real signal**. In the NBA that same
+control loses 7.9%, and own-baseline subtraction was the entire trick. Whatever makes S10 work
+in the NBA is not present in college.
+Sub-finding, reported as a FAILED PREDICTION rather than flipped into a rule: we pre-registered
+that the fade would be stronger where a hot player's shots were increasingly ASSISTED (team
+context, decays) than self-created (skill, persists). The data went the other way.
+
+**Non-shooting heat (NCAAB_BOX_PLAYERS.md §B).** Free-throw %, turnover rate, rebound rate and
+assist rate, each measured against the player's own expanding baseline, role-weighted by PRIOR
+role. **All four lose money at all eight markets (−3.5% to −9.3%), and BOTH placebos (fta_rate
++1.1 to +2.0 edge, fga_rate) outscore all four real rates.** Free-throw percentage was the
+strongest a priori luck candidate in all of basketball — nearly opponent-independent, so a hot
+stretch should be close to pure noise. It is not tradeable. Player-level luck regression is
+dead in CBB in the same way team-level luck regression is.
+
+## CBB five-man UNIT shape: TESTED, NULL (2026-07-31)
+
+`lineups_ncaab` carries off/def/net ratings and pace per five-man unit, and S6 only ever used
+its `secs` column. `ncaab_lineup_units.py` → NCAAB_LINEUP_UNITS.md tests what the ratings are
+for: unit-weighted team net (`net_w`), depth drop-off (top unit minus the rest, `drop`),
+within-game unit dispersion (`net_sd`), minutes concentration (`hhi`), rotation breadth
+(`n_units`), and ROTATION CONTINUITY (`cont` = cosine similarity of the team's player-seconds
+vector against its previous game). All averaged over strictly prior games, z-scored in season,
+read as a home-minus-away differential, all 8 markets. Placebos: `pace_sd`, `top_share`.
+
+**Null on both tests.** Largest |r| among the real measures 0.026 vs 0.015 for the placebos —
+same order. **All 64 walk-forward rows are negative ROI, best −0.9%**, with direction AND
+threshold learned from strictly prior seasons so a hindsight sign cannot win.
+
+**The control is what makes it readable.** `net_w` is essentially prior team strength and its
+correlation with covering the T-60 spread is **0.001** on 14,780 games. The panel is fully
+populated, so that is not a broken join — it is the market pricing team strength completely.
+Every other measure is a second-order description of the same rotation, so there was never
+room above it. **The only thing the lineup table is worth is WHO IS MISSING (S1/S6), not how
+the minutes are shaped.**
+
+DATA TRAP, cost one silent all-NaN run: **28.6% of units have a NaN `net_rtg`** (on court
+without a possession on one end) and **91.3% of team-games contain at least one**, so any
+unguarded weighted aggregate over `net_rtg` is NaN for nearly every team-game. Re-normalise
+weights over the rated units.
+
 ## Dead list (tested honestly, do NOT rebuild without new information)
 
 Movement follow/fade (all buckets, both sports) · KenPom-edge vs close (fully
@@ -264,7 +677,7 @@ priced; bigger disagreement = worse) · regression/streak fades (pre-regressed
 into lines) · CBB H2H · raw height/experience/continuity-home clashes · pace
 battles · TO-vs-TO and OREB-vs-DREB standalone · stale-book chase NBA (juice
 trap) · big-fav CBB team totals (12% vig both sides) · 3-heavy dog variance
-theory (backwards) · possession-level shot-luck regression (fully priced — REGRESSION_BRIEF2) · team-specific venue-history HCA · v1/v2 GBM models vs the close (market MAE wins; model
+theory (backwards) · possession-level shot-luck regression (fully priced — REGRESSION_BRIEF2) · team-specific venue-history HCA · **TEAM-level luck regression, BOTH sports, all 8 markets (see section above — 4 NBA designs + the NCAAB re-run on 4× the sample, all null, placebo wins)** · **CBB player shooting-heat (S10 port: fails the random-cut test at 73%, −1.0% at the close)** · **CBB non-shooting heat — FT%, turnovers, rebounds, assists (all 8 markets negative, both placebos beat all four)** · **CBB five-man UNIT shape — unit quality, depth drop-off, minutes concentration, rotation churn (64/64 walk-forward rows negative; team strength itself correlates 0.001 with covering)** · **the LAGGED/feed-free version of S1/S6 (51.3%/−2.0% — there is no free substitute for a pregame availability feed)** · v1/v2 GBM models vs the close (market MAE wins; model
 value is baseline + confluence only).
 
 ## Segment calibration (2026-07-17, owner-prompted)
@@ -285,3 +698,37 @@ sample. NIT totals bias → never bet NIT unders (tracking).
 Single factors screened alone ≈ always "priced". The edges live in
 INTERACTIONS: signal × style-fit × depth × timing. Build combos first.
 And: books shade PRICES not lines — always grade at real prices in decimal.
+
+**Quote every win rate next to ITS OWN slice's baseline.** A spread is a
+two-way market so a coin wins 50% — but blind favourite covers 53.05% in late
+NBA games, and prop UNDERS already hit 54–56% before any model touches them.
+The same 56% is a +9 finding in one slice and worth nothing in another. This
+caused real confusion (owner, 2026-07-30: "I keep seeing accuracies above 54%
+but you keep saying things are dead"). For any rule whose picks are >85% one
+naive side, the baseline must be that naive rule computed **on the identical
+games the rule fires on** (`fav in-subset`), not just cell-matched across the
+population — that distinction is what turned S9 from a dead side-picker into a
+game-selection edge.
+
+**But `fav in-subset` is TAUTOLOGICAL once the rule's side IS the favourite.**
+S9 bets the favourite, so blind favourite over S9's games returns S9's own win
+rate — the column reads 61.0 next to a 61.0 result and looks like a null when it
+is arithmetic. The law above applies to rules that merely LEAN favourite; for
+rules that ARE "back the favourite", the comparator must be blind favourite over
+a WIDER pool, reweighted to the selection's own |spread| bucket mix (`delta
+cell`, `nba_combine_controls.py:cell_matched`). Sanity check it by running the
+naive rule against itself — it must return exactly 0.00, as row F does.
+
+**A partition is not an independent test.** Splitting a validated signal in two
+and reporting the good half inflates it by construction: the strong half is
+strong *because* the weak half is weak. The only answerable question is whether
+the cut beats a RANDOM cut of the same sizes — permute the labels, hold the split
+sizes fixed. The xEFG gate on S9 looked like +5pp of free lift and came back at
+p≈.10 under that test.
+
+**Never pool a season into one number before splitting it by phase.** The NBA
+FG spread looked flat pooled and hid four different regimes: early +5.5 vs
+naive, mid +3.0, late **-16.1**, playoffs +23.5. A model that is monotonically
+WORSE the more confident it is has found something real with the sign backwards
+— that is a missing-feature diagnosis, not a dead market. Chase the inversion;
+S9 came out of it. `min(h_gp, a_gp)` < 15 / 15-50 / ≥50 / postseason.
