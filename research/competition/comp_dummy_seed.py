@@ -60,7 +60,12 @@ PICKS = {
 def main() -> None:
     load_env()
     if TEARDOWN:
+        # order matters: picks reference games with a plain FK (no cascade), so
+        # entries (-> picks cascade) must go before the week (-> games cascade)
         r = run_sql("""
+            delete from comp_entries e
+              using comp_weeks w
+              where w.id = e.week_id and w.season = 2026 and w.week_no = 99;
             with wk as (delete from comp_weeks
                         where season = 2026 and week_no = 99 returning id)
             select count(*) as weeks_deleted from wk;""")
