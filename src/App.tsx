@@ -20,6 +20,8 @@ import F5SplitsPage from "./features/mlbTools/f5Splits/F5SplitsPage";
 import PitcherMatchupsPage from "./features/mlbTools/pitcherMatchups/PitcherMatchupsPage";
 import RegressionReportPage from "./features/mlbTools/regression/RegressionReportPage";
 import { PlayerPropsReportPage } from "./features/mlbTools/playerPropsReport";
+import PropBreakdownPage from "./features/propBreakdown/PropBreakdownPage";
+import NflPropMatchupsPage from "./features/nflTools/propMatchups/NflPropMatchupsPage";
 import CompetitionPage from "./features/competition/CompetitionPage";
 import NCAABTodayHalftimeTrends from "./pages/NCAABTodayHalftimeTrends";
 import NCAABTodayEdgeAccuracy from "./pages/NCAABTodayEdgeAccuracy";
@@ -160,6 +162,7 @@ const SPLIT_VIEW_ROUTES = [
   '/mlb/f5-splits',
   '/mlb/pitcher-matchups',
   '/mlb/daily-regression-report',
+  '/nfl/props',
   '/competition',
 ];
 
@@ -327,6 +330,8 @@ function AppRoutes() {
           <Route path="/todays-trends" element={<ProtectedRoute allowFreemium={true}><TrendsTodayPage /></ProtectedRoute>} />
           <Route path="/college-football" element={<LegacySportRedirect sport="cfb" />} />
           <Route path="/nfl" element={<LegacySportRedirect sport="nfl" />} />
+          <Route path="/nfl/props" element={<ProtectedRoute allowFreemium={true}><NflPropMatchupsPage /></ProtectedRoute>} />
+          <Route path="/nfl/player/:playerId" element={<ProtectedRoute allowFreemium={true}><PropBreakdownPage /></ProtectedRoute>} />
           <Route path="/nba" element={<LegacySportRedirect sport="nba" />} />
           <Route path="/nba/todays-betting-trends" element={<LegacyTodaysTrendsRedirect sport="nba" />} />
           <Route path="/nba/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NBATodayHalftimeTrends /></ProtectedRoute>} />

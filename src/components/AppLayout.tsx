@@ -146,6 +146,11 @@ export function AppLayout() {
           (location.pathname === '/mlb-analytics' || location.pathname.startsWith('/mlb/'))) {
         return true;
       }
+      // Keep NFL section highlighted on /nfl/props and /nfl/player/:id.
+      if (toParams.get('sport') === 'nfl' &&
+          (location.pathname === '/nfl-analytics' || location.pathname.startsWith('/nfl/'))) {
+        return true;
+      }
       if (location.pathname !== path) return false;
       const currentParams = new URLSearchParams(location.search);
       for (const [key, value] of toParams.entries()) {

@@ -103,6 +103,13 @@ export const navItems: NavItem[] = [
     title: "NFL",
     to: "/games?sport=nfl",
     icon: <ShieldIcon className="h-4 w-4" />,
+    subItems: [
+      {
+        title: "Player Prop Matchups",
+        to: "/nfl/props",
+        icon: <BarChart2 className="h-4 w-4" />,
+      },
+    ],
   },
   {
     title: "CFB",
