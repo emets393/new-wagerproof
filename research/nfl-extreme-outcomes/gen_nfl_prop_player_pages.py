@@ -127,7 +127,10 @@ def main():
     ngs_r = ngs_r[ngs_r.season == STAT_SEASON].groupby("player_id").agg(
         separation=("avg_separation", "mean"), cushion=("avg_cushion", "mean"),
         adot=("avg_intended_air_yards", "mean"), air_share=("percent_share_of_intended_air_yards", "mean"),
-        yac_above_exp=("avg_yac_above_expectation", "mean"))
+        yac_above_exp=("avg_yac_above_expectation", "mean"), catch_pct=("catch_percentage", "mean"))
+    ftns = pd.read_parquet(DATA / "nfl_ftn_player_stats.parquet").set_index("player_id")
+    ftn_rec_q = ftns[ftns.targets.fillna(0) >= 100]     # qualified receiver baseline
+    ftn_qb_q = ftns[ftns.dropbacks.fillna(0) >= 150]
     ngs_u = pd.read_parquet(DATA / "ngs_rushing.parquet")
     ngs_u = ngs_u[ngs_u.season == STAT_SEASON].groupby("player_id").agg(
         efficiency=("efficiency", "mean"), ryoe_per_att=("rush_yards_over_expected_per_att", "mean"),
@@ -135,7 +138,10 @@ def main():
     ngs_p = pd.read_parquet(DATA / "ngs_passing.parquet")
     ngs_p = ngs_p[ngs_p.season == STAT_SEASON].groupby("player_id").agg(
         time_to_throw=("avg_time_to_throw", "mean"), completed_air_yds=("avg_completed_air_yards", "mean"),
-        intended_air_yds=("avg_intended_air_yards", "mean"))
+        intended_air_yds=("avg_intended_air_yards", "mean"),
+        cpoe=("completion_percentage_above_expectation", "mean"),
+        aggressiveness=("aggressiveness", "mean"),
+        air_yds_to_sticks=("avg_air_yards_to_sticks", "mean"))
 
     pvs = pd.read_parquet(DATA / "nfl_player_vs_scheme.parquet")
     pvs = pvs.sort_values(["season", "week"]).groupby("player_id").tail(1).set_index("player_id")
@@ -326,7 +332,24 @@ def main():
                        cushion=dict(v=r.cushion, pctile=pctile(ngs_r.cushion, r.cushion)),
                        adot=dict(v=r.adot, pctile=pctile(ngs_r.adot, r.adot)),
                        air_share=dict(v=r.air_share, pctile=pctile(ngs_r.air_share, r.air_share)),
-                       yac_above_exp=dict(v=r.yac_above_exp, pctile=pctile(ngs_r.yac_above_exp, r.yac_above_exp)))
+                       yac_above_exp=dict(v=r.yac_above_exp, pctile=pctile(ngs_r.yac_above_exp, r.yac_above_exp)),
+                       catch_pct=dict(v=r.catch_pct, pctile=pctile(ngs_r.catch_pct, r.catch_pct)))
+            if pid in ftns.index:
+                ft = ftns.loc[pid]
+                tq = float(ft.targets) if pd.notna(ft.targets) else 0
+                if tq >= 25:
+                    # drop_rate: LOWER is better -> serve inverted pctile so higher pctile = better
+                    ngs["drop_rate"] = dict(v=ft.drop_rate,
+                                            pctile=(100 - pctile(ftn_rec_q.drop_rate, ft.drop_rate))
+                                            if tq >= 100 and pd.notna(ft.drop_rate) else None)
+                    if pd.notna(ft.contested_catch_rate) and (ft.contested_n or 0) >= 10:
+                        ngs["contested_catch"] = dict(v=ft.contested_catch_rate,
+                                                      pctile=pctile(ftn_rec_q.contested_catch_rate, ft.contested_catch_rate))
+                    if pd.notna(ft.created_rate):
+                        ngs["created_rate"] = dict(v=ft.created_rate,
+                                                   pctile=pctile(ftn_rec_q.created_rate, ft.created_rate) if tq >= 100 else None)
+                if pd.notna(ft.rz_tgt_share):
+                    ngs["rz_tgt_share"] = dict(v=ft.rz_tgt_share, pctile=None)
         elif p.position == "RB" and pid in ngs_u.index:
             r = ngs_u.loc[pid]
             ngs = dict(kind="rushing",
@@ -334,12 +357,23 @@ def main():
                        ryoe_per_att=dict(v=r.ryoe_per_att, pctile=pctile(ngs_u.ryoe_per_att, r.ryoe_per_att)),
                        eight_box_pct=dict(v=r.eight_box_pct, pctile=pctile(ngs_u.eight_box_pct, r.eight_box_pct)),
                        time_to_los=dict(v=r.time_to_los, pctile=pctile(ngs_u.time_to_los, r.time_to_los)))
+            if pid in ftns.index and pd.notna(ftns.loc[pid].rz_carry_share):
+                ngs["rz_carry_share"] = dict(v=ftns.loc[pid].rz_carry_share, pctile=None)
         elif p.position == "QB" and pid in ngs_p.index:
             r = ngs_p.loc[pid]
             ngs = dict(kind="passing",
                        time_to_throw=dict(v=r.time_to_throw, pctile=pctile(ngs_p.time_to_throw, r.time_to_throw)),
                        completed_air_yds=dict(v=r.completed_air_yds, pctile=pctile(ngs_p.completed_air_yds, r.completed_air_yds)),
-                       intended_air_yds=dict(v=r.intended_air_yds, pctile=pctile(ngs_p.intended_air_yds, r.intended_air_yds)))
+                       intended_air_yds=dict(v=r.intended_air_yds, pctile=pctile(ngs_p.intended_air_yds, r.intended_air_yds)),
+                       cpoe=dict(v=r.cpoe, pctile=pctile(ngs_p.cpoe, r.cpoe)),
+                       aggressiveness=dict(v=r.aggressiveness, pctile=pctile(ngs_p.aggressiveness, r.aggressiveness)),
+                       air_yds_to_sticks=dict(v=r.air_yds_to_sticks, pctile=pctile(ngs_p.air_yds_to_sticks, r.air_yds_to_sticks)))
+            if pid in ftns.index and pd.notna(ftns.loc[pid].dropbacks) and ftns.loc[pid].dropbacks >= 50:
+                ft = ftns.loc[pid]
+                ngs["pa_rate"] = dict(v=ft.pa_rate, pctile=pctile(ftn_qb_q.pa_rate, ft.pa_rate))
+                ngs["int_worthy_rate"] = dict(v=ft.int_worthy_rate,
+                                              pctile=(100 - pctile(ftn_qb_q.int_worthy_rate, ft.int_worthy_rate))
+                                              if pd.notna(ft.int_worthy_rate) else None)
 
         dprof = def_profile(g["opp"])
         scheme = dict(opponent=g["opp"], defense=dprof)
