@@ -5,9 +5,11 @@ Self-contained hourly job (Render cron `competition-sync-hourly`):
      (spreads+totals, us books) — the SAME source as everything else per the
      lines policy. One call per sport.
   2. Derives competition weeks: deadline = Friday 12:00 PM ET, eligible window
-     = deadline .. +4 days. A game is eligible iff its kickoff falls in a
-     window — this automatically excludes TNF and weekday CFB (their most
-     recent Friday-noon is >4 days back).
+     = deadline .. +4 days (resets Tuesday morning). Only the *current* deadline
+     (plus the just-ended week for grading) is materialized — never future
+     weeks early (that used to create CFB-only future slates before NFL Sundays
+     entered the odds horizon). Pre-week-0 August Fridays are skipped; until
+     week 0 ends we stay on the practice slate.
   3. Upserts comp_weeks / comp_games with CONSENSUS lines: mean across books,
      rounded to the nearest 0.5 (half away from zero). Same number for every
      user; lines refresh hourly until each user's submit stamps them.
@@ -194,7 +196,11 @@ def main() -> None:
     # Also refresh the just-ended week while its games may still be grading.
     prev_dl = target_dl - timedelta(days=7)
     allowed_dls = {target_dl, prev_dl}
-    horizon = now + timedelta(days=HORIZON_DAYS)
+    # Cover the full eligible window for the target week (important when week 0
+    # is shown early — opener kickoffs can be weeks away). Cap keeps us from
+    # pulling the *next* week's NFL Sunday into an earlier CFB-only slate.
+    window_end_utc = (target_dl + timedelta(days=WINDOW_DAYS)).astimezone(timezone.utc)
+    horizon = max(now + timedelta(days=HORIZON_DAYS), window_end_utc)
 
     print(f"current deadline={target_dl.isoformat()} | horizon={horizon.isoformat()}")
 
@@ -292,17 +298,28 @@ def main() -> None:
                   kickoff = excluded.kickoff
               where comp_games.kickoff > now();""")
 
-    # Remove future games that vanished from the feed (phantom listing cleaned
-    # upstream, or a true cancellation) — but NEVER one somebody has picked, and
-    # only within the still-open current week.
+    # Remove games that vanished from the feed (phantom listing cleaned upstream,
+    # or a true cancellation) — but NEVER one somebody has picked, and ONLY in the
+    # current week: this run's feed has no future-week games, so an unscoped
+    # delete would strip a future week that has early entries (the week-cleanup
+    # below spares such weeks but wouldn't restore their games).
     if games:
         keep = ",".join(q(g["event_id"]) for g in games)
         run_sql(f"""
             delete from comp_games g
             using comp_weeks w
             where w.id = g.week_id and now() < w.deadline and g.kickoff > now()
+              and w.deadline = {q(target_dl.isoformat())}::timestamptz
               and g.event_id not in ({keep})
               and not exists (select 1 from comp_picks p where p.game_id = g.id);""")
+
+    # Drop phantom future weeks created by older sync runs (no entries yet).
+    # UI also hides them; this keeps the DB aligned with "current week only".
+    run_sql(f"""
+        delete from comp_weeks w
+        where w.status in ('upcoming', 'open')
+          and w.deadline > {q(target_dl.isoformat())}::timestamptz
+          and not exists (select 1 from comp_entries e where e.week_id = w.id);""")
 
     # ---- week statuses -------------------------------------------------------
     run_sql("""
