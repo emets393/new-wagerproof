@@ -15,6 +15,10 @@ Slate hygiene:
     (not filled 0 -> which made SP+ off/def look like a zero-offense team => degenerate totals).
 
 Usage: CFB_SEASON=2026 CFB_WEEK=1 python3 cfb_early_week.py
+
+⚠ AFTER REGENERATING EARLY PREDS: re-run gen_cfb_dryrun_games.py AND gen_cfb_picks.py
+together — BOTH read these predictions, and regenerating only one desyncs the header
+score from the pick cards (bit us 2026-08-05: cards showed stale cold-model numbers).
 """
 import os
 import numpy as np
