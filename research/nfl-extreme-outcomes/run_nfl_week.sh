@@ -62,6 +62,8 @@ step "team trends (Outliers tab)";    python3 dryrun_wk12_trends.py
 step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
 step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py
 step "player-prop trends (Outliers)"; python3 gen_nfl_player_prop_trends.py
+step "QB/RB scheme substrates";          python3 build_qb_rb_scheme.py || true
+step "prop player pages (web contract)"; python3 gen_nfl_prop_player_pages.py
 step "outliers trend cards (weekly)"; python3 gen_nfl_outliers_trend_cards.py
 step "outliers trend lines (live books)"; python3 refresh_nfl_outliers_trend_lines.py
 
