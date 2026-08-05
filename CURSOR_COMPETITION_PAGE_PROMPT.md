@@ -131,6 +131,16 @@ typing on the page is the game search box):
 (✓ win / ✗ loss / — push), each showing `stamped line`, final score, and that
 pick's cover points (+14 etc.), plus the week's point total.
 
+## Season span
+
+The competition runs from Week 0 (Practice Round, CFB opening weekend) through
+**the comp week containing NFL Week 18** — for 2026 that's the week with the
+Friday Jan 8, 2027 deadline. The sync never creates weeks after that (no NFL
+playoffs, no CFB bowls beyond that point), so once the final week is graded the
+week list simply ends. Give the page a **season-complete state**: when the
+latest week is graded and no open week exists, show the final season leaderboard
+as the hero ("Season over — final standings") instead of a picking UI.
+
 ## Rules the UI must respect (server enforces all of them — mirror in UX)
 
 1. Deadline passed → whole picking UI read-only ("This week is locked"). Users
