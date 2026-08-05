@@ -48,7 +48,7 @@ services:
       pip install -r requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh 2026 $(python3 current_week.py nfl 2026)
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh   # no args -> resolve_nfl_week.py (wk1 until wk1 done, then advance)
     envVars:
       - fromGroup: wagerproof-model-secrets
 
@@ -61,7 +61,7 @@ services:
       pip install -r requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/cfb-model && bash run_cfb_week.sh 2026 $(python3 ../nfl-extreme-outcomes/current_week.py cfb 2026)
+    startCommand: cd research/cfb-model && bash run_cfb_week.sh   # no args -> resolve_cfb_week.py (CFBD calendar)
     envVars:
       - fromGroup: wagerproof-model-secrets
 
