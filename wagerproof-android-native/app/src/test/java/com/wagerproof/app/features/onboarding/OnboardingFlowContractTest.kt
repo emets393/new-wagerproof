@@ -1,6 +1,7 @@
 package com.wagerproof.app.features.onboarding
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import com.wagerproof.core.models.SportLeague
 import com.wagerproof.core.stores.OnboardingStore
 import kotlin.test.Test
@@ -15,6 +16,7 @@ class OnboardingFlowContractTest {
     fun carouselContinueButtonUsesTheIosWhiteAndBlackPalette() {
         assertEquals(Color.White.copy(alpha = 0.92f), OnboardingCarouselCtaSurfaceColor)
         assertEquals(Color.Black, OnboardingCarouselCtaForegroundColor)
+        assertEquals(FontWeight.Black, OnboardingCarouselCtaFontWeight)
     }
 
     @Test

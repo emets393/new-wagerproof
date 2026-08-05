@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.onboarding.LocalOnboardingPageIsActive
@@ -255,6 +256,8 @@ fun OnboardingResearchCostPage(modifier: Modifier = Modifier) {
                         suffixSize = 27,
                         color = Color.White,
                         animate = !alreadySeen,
+                        lineHeight = riskProjectionLineHeight(27),
+                        modifier = Modifier.padding(vertical = RiskProjectionVerticalPadding),
                     )
                     Text("checking scores, odds, and apps", color = Color.White.copy(alpha = 0.7f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 }
@@ -288,6 +291,8 @@ fun OnboardingResearchCostPage(modifier: Modifier = Modifier) {
                         suffixSize = 30,
                         color = accent,
                         animate = !alreadySeen,
+                        lineHeight = riskProjectionLineHeight(30),
+                        modifier = Modifier.padding(vertical = RiskProjectionVerticalPadding),
                     )
                 }
             }
@@ -412,6 +417,8 @@ private fun ResearchRollingNumber(
     groupsDigits: Boolean = false,
     landingHaptic: Boolean = false,
     animate: Boolean = true,
+    lineHeight: TextUnit = TextUnit.Unspecified,
+    modifier: Modifier = Modifier,
 ) {
     val reduceMotion = LocalOnboardingReduceMotion.current
     val haptics = LocalHapticFeedback.current
@@ -440,14 +447,21 @@ private fun ResearchRollingNumber(
         },
         color = color,
         fontFamily = FontFamily.Monospace,
+        lineHeight = lineHeight,
         textAlign = TextAlign.Center,
-        modifier = Modifier.semantics {
+        modifier = modifier.semantics {
             contentDescription = prefix +
                 (if (groupsDigits) StakesEstimates.money(target).removePrefix("$") else target.toString()) +
                 suffix
         },
     )
 }
+
+/** Extra leading/padding for seven-figure risk projections that wrap on phones. */
+internal const val RiskProjectionExtraLeadingSp = 10
+internal val RiskProjectionVerticalPadding = 4.dp
+internal fun riskProjectionLineHeight(numberSize: Int): TextUnit =
+    (numberSize + RiskProjectionExtraLeadingSp).sp
 
 @Composable
 private fun EmphasisText(markdown: String, fontSize: Int, color: Color) {

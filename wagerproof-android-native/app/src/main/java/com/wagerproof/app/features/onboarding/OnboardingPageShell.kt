@@ -227,6 +227,7 @@ private val AppColorsEaseInOut = com.wagerproof.core.design.tokens.AppAnimations
 // render as a dark glass pill instead of the requested white CTA on device.
 internal val OnboardingCarouselCtaSurfaceColor = Color.White.copy(alpha = 0.92f)
 internal val OnboardingCarouselCtaForegroundColor = Color.Black
+internal val OnboardingCarouselCtaFontWeight = FontWeight.Black
 
 // MARK: - CTA pill (port of ContinueCTAButton.swift)
 
@@ -294,7 +295,14 @@ private fun ContinueCTAButton(
         } else {
             Text(
                 text = label,
-                style = AppTypography.majorCta.copy(fontSize = 18.sp),
+                // Match the iOS CTA's system face. The bundled rounded variable
+                // font reads noticeably thinner on the physical Android device,
+                // even at its heaviest declared weight.
+                style = AppTypography.majorCta.copy(
+                    fontFamily = AppTypography.SystemFontFamily,
+                    fontSize = 18.sp,
+                    fontWeight = OnboardingCarouselCtaFontWeight,
+                ),
                 color = OnboardingCarouselCtaForegroundColor,
                 modifier = Modifier.wrapContentWidth(),
             )
