@@ -68,6 +68,11 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
     public let side: String
     /// Distinct agents on that side.
     public let sideAgents: Int
+    /// Distinct agents who bet the same market as `side` (bet type × period).
+    /// This is the agreement denominator; `agents` spans the whole game.
+    public let marketAgents: Int
+    /// Human-readable market for `side` (e.g. "F5 run line").
+    public let marketLabel: String
     /// `sideAgents` over the agents who bet the SAME market (bet_type × period),
     /// 0–1 — not over `agents`, which pools every market on the game and so
     /// makes a plurality read as disagreement.
@@ -90,6 +95,8 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
         agents: Int,
         side: String,
         sideAgents: Int,
+        marketAgents: Int? = nil,
+        marketLabel: String = "",
         agreement: Double,
         threshold: Int,
         flagged: Bool,
@@ -100,6 +107,8 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
         self.agents = agents
         self.side = side
         self.sideAgents = sideAgents
+        self.marketAgents = marketAgents ?? agents
+        self.marketLabel = marketLabel
         self.agreement = agreement
         self.threshold = threshold
         self.flagged = flagged
@@ -112,6 +121,8 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
         case agents
         case side
         case sideAgents = "side_agents"
+        case marketAgents = "market_agents"
+        case marketLabel = "market_label"
         case agreement
         case threshold
         case flagged
@@ -131,6 +142,11 @@ public struct GameAgentConsensus: Decodable, Sendable, Hashable, Identifiable {
         agents = try c.decode(Int.self, forKey: .agents)
         side = try c.decode(String.self, forKey: .side)
         sideAgents = try c.decode(Int.self, forKey: .sideAgents)
+        // Keep clients deployed ahead of the market-scoped RPC migration able
+        // to decode legacy rows. Falling back to the whole-game population
+        // reproduces the old display rather than yielding a zero-width bar.
+        marketAgents = try c.decodeIfPresent(Int.self, forKey: .marketAgents) ?? agents
+        marketLabel = try c.decodeIfPresent(String.self, forKey: .marketLabel) ?? ""
         // `agreement` is a Postgres numeric. PostgREST normally serializes it as
         // a bare JSON number, but numerics can also arrive quoted depending on
         // the connection's extended-types setting — accept both rather than

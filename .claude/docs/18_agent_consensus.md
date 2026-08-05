@@ -40,9 +40,11 @@ the most-bet game was *not* the strongest-consensus game.
 
 ```
 flagged = side_agents >= max(8, ceil(0.08 * day_picking_agents))
-          AND side_agents / agents >= 0.55
+          AND side_agents / market_agents >= 0.55
 ```
 
+- `market_agents` is the distinct-agent population for the winning selection's
+  market (`bet_type × period`), not all agents who bet any market on the game.
 - `day_picking_agents` is the **sum of per-game distinct agent counts**
   (agent-games), not distinct agents across the slate. That is the denominator
   the 8% was calibrated against — swapping it silently re-tunes the flag rate.
@@ -68,7 +70,8 @@ get_game_agent_consensus(
   p_min_agents integer DEFAULT 8
 ) RETURNS TABLE (
   game_id text, game_date date, agents int, side text, side_agents int,
-  agreement numeric, threshold int, flagged bool, avatars jsonb
+  market_agents int, market_label text, agreement numeric, threshold int,
+  flagged bool, avatars jsonb
 )
 ```
 
