@@ -340,3 +340,13 @@ Same conditions swept across the other markets (TT/1H = 2023-25 archive only, n 
   tracking year confirms the family, express it as the faded team's TT UNDER (or 1H fade),
   not the FG spread — that's where the mispricing concentrates. The live TT/1H collector
   grades all three expressions side-by-side this season.
+
+## EARLY-WEEK DISPLAY: ANCHOR RETIRED → PURE MODEL + SAFETY CAP (owner call, 2026-08-05)
+Owner: λ=0.25 made every display ≈ the Vegas line — "we lose credibility quick." Correct:
+the anchor was the STALE-RATINGS-era bandage; with true preseason SP+ + roster features the
+raw blend sits mean 3.1 pts off the close with sane extremes. **Now λ=1.0 (pure model),
+caps ±7/±6 kept only as a safety rail** (binds on the p90 tail — e.g., won't lay more than
+close+7 on Indiana -40.5). Board now: mean visible deviation 2.8 spread / 2.3 total, only
+9/51 spreads within 0.5 of the line. Known cost, accepted: raw display MAE ~13.0 vs line
+12.6 (display identity > 0.4 MAE). λ-accuracy facts from the anchor study remain true —
+BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as always.

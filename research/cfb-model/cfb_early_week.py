@@ -118,7 +118,11 @@ def main():
     # disagreement games 15.2 vs 18.7). Deviations from the line are noise — e.g. 2026 wk1
     # OSU@Tulsa raw blend -0.8 vs market -12.5. Display = close + 0.25*(blend-close), capped
     # ±7/±6, keeping a model voice at ~0.1 MAE cost. Raw blend kept where no Odds-API line.
-    LAM, CAP_S, CAP_T = 0.25, 7.0, 6.0
+    # λ HISTORY: 0.25 was the stale-ratings-era bandage (raw blend was 6+ pts off market w/
+    # absurdities). With TRUE preseason SP+ + roster features the raw blend sits ~3.1 pts off
+    # the close with sane extremes — owner call 2026-08-05: SHOW OUR NUMBER (λ=1), keep the
+    # cap purely as a safety rail (binds only on the p90 tail, e.g. refusing to lay 40+).
+    LAM, CAP_S, CAP_T = 1.0, 7.0, 6.0
     hs = te.spread_close.notna()
     te.loc[hs, "pred_spread"] = (te.spread_close + (LAM * (te.pred_spread - te.spread_close))
                                  .clip(-CAP_S, CAP_S)).round(1)[hs]
