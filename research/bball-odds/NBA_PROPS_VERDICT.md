@@ -221,7 +221,88 @@ Four reasons to believe it beyond the headline:
   The defence is the shape — same sign in all eight ladders, smooth in the sweep, tight across
   seasons — not any one number. It still deserves a live season before it is trusted.
 
-## 8. STILL OPEN
+## 8. THE COLD PLAYER WHOSE LINE GOES UP — a second, independent rule
+
+Owner-raised: find the spots where the line moves AGAINST a player's own recent form, on the theory
+that a number nobody understands is the book pricing something the box score has not shown yet.
+Tested in `nba_props_streaks.py` + `nba_props_streaks_confirm.py`. Two halves, and they do not
+behave the same way.
+
+**The hot half is nothing.** Player clears his number 3 straight and the book CUTS him: neither
+side pays at any threshold (line side −2.73, form side −5.93 at z≥0.75). Do not build on it.
+
+**The cold half is a rule.** Player misses his number **3 straight**, the book **RAISES** it by
+**≥0.75 of his own game-to-game standard deviation**, and you bet the **UNDER** — with his cold
+form, against the direction the book just moved. One ticket per player-game, biggest line:
+
+| | n | win% | need | ROI | seasons |
+|---|---|---|---|---|---|
+| **cold ≥3 + raise ≥0.75σ → UNDER** | 598 | 60.87 | 56.49 | **+6.60** | +4.1 / +10.9 / +4.2 |
+| + big line (top half in its market) | 279 | 62.72 | 55.14 | **+12.78** | +14.8 / +15.3 / +8.6 |
+| + originator also says under | 129 | 65.12 | 56.05 | +14.82 | — / +17.5 / +10.3 |
+
+**This is an interaction, and that is the whole point.** Both parents lose money on their own:
+
+| rule | n | ROI |
+|---|---|---|
+| the raise alone, no streak required | 4,414 | **−1.66** |
+| the cold streak alone, any line move | 19,469 | **−1.41** |
+| both together | 598 | **+6.60** |
+
+Univariate screening would have thrown each of these away. Same shape as
+[[ncaab-bigout-fade-signal]] — combine, do not screen.
+
+**It survives the falsifier, which is the test that matters.** The claim is specifically that the
+book RAISED him, so run the mirror:
+
+| spot | n | win% | need | ROI |
+|---|---|---|---|---|
+| book RAISED him | 598 | 60.87 | 56.49 | **+6.60** |
+| book CUT him | 1,250 | 48.40 | 48.42 | −3.72 |
+| book barely moved (\|z\| < 0.25) | 15,414 | 54.28 | 54.21 | −0.88 |
+
+A 10-point spread on the direction of the move. This is not "cold players go under when their
+number moves at all" — the raise is load-bearing.
+
+**And the surface is a ridge, monotone in both directions**, which is the defence against having
+found a pixel. ROI by consecutive unders × size of the raise in player sigmas:
+
+| unders \ z | 0.0 | 0.25 | 0.5 | 0.75 | 1.0 |
+|---|---|---|---|---|---|
+| 1 | −0.26 | −0.61 | +2.33 | +3.38 | +3.99 |
+| 2 | −0.59 | −1.59 | +1.22 | +4.28 | +6.62 |
+| 3 | −0.42 | −0.50 | +0.92 | **+6.60** | +9.42 |
+| 4 | −0.89 | −1.04 | +2.41 | +9.94 | +12.91 |
+| 5 | −0.54 | +0.77 | +2.96 | +12.62 | +13.32 |
+
+Concentration is a non-issue: 290 distinct players over 598 bets, top 10 take 11.5%, dropping the
+best player costs 0.17 (+6.60 → +6.43). Volume is 151 / 216 / 231 bets a season.
+
+### The caveat, and it is a real one
+
+**It overlaps the line-scale rule of §7 more than is comfortable.** A matched-count control that
+selects on line size ALONE scores +5.83 against the signal's +6.60 — inside one sigma. And the
+signal does not work at both ends of the ladder: small lines −0.25, big lines +12.78.
+
+The partial effect, holding within-market line size fixed, is what rescues it:
+
+| line quartile | signal n | signal ROI | that band's blind under | lift |
+|---|---|---|---|---|
+| Q1 smallest | 129 | +2.31 | −3.87 | +6.18 |
+| Q2 | 244 | −0.70 | −1.20 | +0.50 |
+| Q3 | 158 | +9.03 | −0.63 | +9.66 |
+| Q4 biggest | 152 | +17.95 | +1.19 | **+16.76** |
+
+Positive in all four bands; aggregate lift ≈ +8.3 against a pooled sigma of ≈3.4, so ~2.4σ. Real,
+but only the Q4 band clears on its own. **Read this as a genuine second rule that stacks with §7
+rather than replacing it, and bet it where the two agree — cold + raised + big line, +12.78 over
+279 bets and 3/3 seasons.**
+
+One tempting story is wrong and is recorded so nobody re-derives it: the largest raises look like
+role promotions (a PRA line running 11.5 → 30.0), but bucketing by raise-as-share-of-line shows the
+big-percentage bucket is mostly SMALL lines (2.5 → 3.5 threes and rebounds), not promoted starters.
+
+## 9. STILL OPEN
 
 1. **No feature pruning has been done.** 1,396 features against ~50k rows per market is exactly the
    over-parameterisation [[feature-pruning-drop-one-vs-solo]] rule 9 describes. Run the family
@@ -246,7 +327,12 @@ Four reasons to believe it beyond the headline:
 5. `player_threes` at −1.03 is 0.03 MAE better than the book. Whether a 1.5-line market can ever be
    monetised at 60% breakeven is a pricing question — best-of-N book shopping across more books
    than we hold is the only lever.
-6. **Nothing is wired to production**, and per the standing instruction nothing should be yet. No
+6. **The cold-raise rule (§8) wants a live season and a mechanism.** It has never been tested
+   against the absence feed — the natural explanation is that the book raises a slumping player
+   because a teammate is out, and the market over-weights that situational reason against his
+   current form. `build_nba_absence.py` and `nba_player_team_agg` could confirm or kill that. Also
+   untested: whether it holds on the FIRST game of the raise only, or persists across the run.
+7. **Nothing is wired to production**, and per the standing instruction nothing should be yet. No
    props pipeline, no slate table, no live prop capture. Live T-60 prop capture has the same
    October deadline as the 1H/TT team odds.
 
@@ -259,5 +345,7 @@ Four reasons to believe it beyond the headline:
 | `nba_props_report.py` | writes `NBA_PROPS_ORIGINATOR_BRIEF.md` |
 | `nba_props_confluence.py` | writes `NBA_PROPS_CONFLUENCE.md` |
 | `nba_props_lines.py` | line-ladder + high-line rule; writes `NBA_PROPS_LINE_LADDER.md` |
+| `nba_props_streaks.py` | §8 spot search; writes `NBA_PROPS_STREAKS.md` |
+| `nba_props_streaks_confirm.py` | §8 controls A–J; writes `NBA_PROPS_STREAKS_CONFIRM.md` |
 | `nba_props_model.py` | **superseded** — the residual classifier |
 | `NBA_PROPS_MODEL_BRIEF.md` | **superseded** — its conclusion is retracted by §5 |

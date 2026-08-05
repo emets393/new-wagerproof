@@ -15,6 +15,10 @@ Slate hygiene:
     (not filled 0 -> which made SP+ off/def look like a zero-offense team => degenerate totals).
 
 Usage: CFB_SEASON=2026 CFB_WEEK=1 python3 cfb_early_week.py
+
+⚠ AFTER REGENERATING EARLY PREDS: re-run gen_cfb_dryrun_games.py AND gen_cfb_picks.py
+together — BOTH read these predictions, and regenerating only one desyncs the header
+score from the pick cards (bit us 2026-08-05: cards showed stale cold-model numbers).
 """
 import os
 import numpy as np
@@ -26,7 +30,12 @@ CFBD = os.path.join(HERE, "data", "cfbd")
 SEASON = int(os.getenv("CFB_SEASON", "2026"))
 WEEK = int(os.getenv("CFB_WEEK", "1"))
 L = print
-MARGIN_FEATS = ["sp_diff", "fpi_diff", "rec_diff", "neutralSite"]
+# ROSTER features from player-level reconstruction (cfb_roster_early_test 2026-08-03:
+# BASE+ROSTER MAE 12.95 v 13.19, disagreement error 18.5->16.2). NaN-safe: mean-imputed,
+# so weeks before CFBD posts rosters (incl 2026 today) degrade to the BASE blend.
+ROSTER_FEATS = ["d_ret_prod", "d_in_prod", "d_ret_share", "d_talent_stock",
+                "d_qb1_prior", "d_qb1_transfer"]
+MARGIN_FEATS = ["sp_diff", "fpi_diff", "rec_diff", "neutralSite"] + ROSTER_FEATS
 TOTAL_FEATS = ["off_sum", "def_sum", "sp_diff", "neutralSite"]
 
 
@@ -51,6 +60,17 @@ def load():
     gm["rec_diff"] = gm.h_recruit_3yr - gm.a_recruit_3yr
     gm["off_sum"] = gm.h_prior_sp_off + gm.a_prior_sp_off
     gm["def_sum"] = gm.h_prior_sp_def + gm.a_prior_sp_def
+    rsp = os.path.join(HERE, "data", "roster_scores.parquet")
+    if os.path.exists(rsp):
+        rs = pd.read_parquet(rsp)
+        rh = rs.add_prefix("rh_").rename(columns={"rh_season": "season", "rh_team": "homeTeam"})
+        ra = rs.add_prefix("ra_").rename(columns={"ra_season": "season", "ra_team": "awayTeam"})
+        gm = gm.merge(rh, on=["season", "homeTeam"], how="left").merge(ra, on=["season", "awayTeam"], how="left")
+        for c in ("ret_prod", "in_prod", "ret_share", "talent_stock", "qb1_prior", "qb1_transfer"):
+            gm[f"d_{c}"] = gm.get(f"rh_{c}") - gm.get(f"ra_{c}")
+    else:
+        for c in ("ret_prod", "in_prod", "ret_share", "talent_stock", "qb1_prior", "qb1_transfer"):
+            gm[f"d_{c}"] = np.nan
     return gm
 
 
@@ -92,6 +112,25 @@ def main():
     te["pred_margin"] = mreg.predict(imp(te, MARGIN_FEATS)).round(1)
     te["pred_total"] = treg.predict(imp(te, TOTAL_FEATS)).round(1)
     te["pred_spread"] = (-te.pred_margin).round(1)
+    # MARKET ANCHOR (cfb_early_talent_test 2026-08-03): the preseason blend carries ZERO
+    # information beyond the closing line in wk1-3 (shrink λ = -0.07±0.10 spread, +0.12±0.11
+    # total; the line's MAE beats the blend outright, and the market wins the top-decile
+    # disagreement games 15.2 vs 18.7). Deviations from the line are noise — e.g. 2026 wk1
+    # OSU@Tulsa raw blend -0.8 vs market -12.5. Display = close + 0.25*(blend-close), capped
+    # ±7/±6, keeping a model voice at ~0.1 MAE cost. Raw blend kept where no Odds-API line.
+    # λ HISTORY: 0.25 was the stale-ratings-era bandage (raw blend was 6+ pts off market w/
+    # absurdities). With TRUE preseason SP+ + roster features the raw blend sits ~3.1 pts off
+    # the close with sane extremes — owner call 2026-08-05: SHOW OUR NUMBER (λ=1), keep the
+    # cap purely as a safety rail (binds only on the p90 tail, e.g. refusing to lay 40+).
+    LAM, CAP_S, CAP_T = 1.0, 7.0, 6.0
+    hs = te.spread_close.notna()
+    te.loc[hs, "pred_spread"] = (te.spread_close + (LAM * (te.pred_spread - te.spread_close))
+                                 .clip(-CAP_S, CAP_S)).round(1)[hs]
+    te.loc[hs, "pred_margin"] = -te.loc[hs, "pred_spread"]
+    ht = te.total_close.notna()
+    te.loc[ht, "pred_total"] = (te.total_close + (LAM * (te.pred_total - te.total_close))
+                                .clip(-CAP_T, CAP_T)).round(1)[ht]
+    L(f"[anchor] λ={LAM} cap ±{CAP_S}/±{CAP_T}: {int(hs.sum())} spreads, {int(ht.sum())} totals anchored to the Odds-API close")
     L(f"[predict] {len(te)} {SEASON} wk{WEEK} games | prior-SP+ present on both sides for "
       f"{int((te.h_prior_sp.notna() & te.a_prior_sp.notna()).sum())}")
     out = os.path.join(HERE, "out", f"cfb_early_preds_{SEASON}.csv")

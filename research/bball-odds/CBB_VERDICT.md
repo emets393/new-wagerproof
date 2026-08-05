@@ -235,6 +235,32 @@ the wide list and the panel's own `fcols`. Mirror check passes on the panel melt
 columns attached with a leak screen, 0 flagged. Nulls are 20 game-level shuffles; slices chosen
 off a menu are graded against nulls allowed the best of the same menu.
 
+## 7-bis. SHOT QUALITY FROM COORDINATES — the `xq` family (added 2026-08-02)
+
+The free tier of "real shot quality" (owner sourcing brief, `DATA_SOURCING.md`): every
+competitive FGA scored against an expected-points table from fine distance bins
+(`build_shot_quality.py`, 2.72M shots, calibration 1.006 xPTS/shot vs 1.010 actual), giving
+per-team-game xPTS generated/ALLOWED, the actual-minus-expected finishing gap both ways, and
+the rim/long-2/deep-3 mix both ways. 12 base columns → 48 panel features, 83.5% join, 0
+leak-flagged.
+
+**The decomposition validated the premise before any model saw it** (split-half r, same
+team-season): looks conceded r=.71 = sticky defensive skill; opponent finishing above those
+looks r=.35 = mostly the regression candidate. Offense stickier still (.79/.49).
+
+**Add-family A/B (full refit vs the pre-xq panel):** OOS corr **+0.0434 → +0.0453** full game,
+**+0.0690 → +0.0770** first half. Spreads gained most — FG spread ≥1 z +3.76 → +5.14 (win 53.9
+→ 54.7), H1 spread ≥2 z +2.41 → **+5.21** (win 54.1 → 56.2, n 1,633 → 1,885). Totals mildly up
+(FG ≥3 z +1.47 → +1.99; H1 ≥0.75 z +1.20 → +2.27). **Both moneylines slightly down** (FG ML ≥3
+z 2.38 → 1.85) — margin-shaped information helping the points models more than win-prob
+calibration. Kept: the aggregate adjudicator (all-games corr) improved on both fits and the
+family is load-bearing exactly where the shipping bet lives.
+
+NBA note: this family ALREADY exists there (`nba_regression_features.parquet`: `r_xefg_a`,
+`r_luck_def`, nets) and feeds the total model; only the mix-allowed layer is missing. The paid
+comparison is pre-registered: ShotQuality's defender variables must beat this location-only
+baseline head-to-head or we don't renew.
+
 ## 8. STILL OPEN
 
 1. **Re-run `cbb_tt_gate.py`** on the shipping 164-feature model. The derived-market gating law was

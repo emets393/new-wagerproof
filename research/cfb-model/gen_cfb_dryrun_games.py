@@ -74,8 +74,10 @@ def wx_summary(temp, wind, precip, indoors):
 # event-odds: team totals + 1H posted CLOSE consensus (tag-agnostic: last pre-kick snap).
 # Preseason/early weeks may have no event-odds capture yet -> empty frame so TT/1H dicts stay empty (null cards).
 evp = f"data/event_odds/events_{SEASON}.parquet"
-ev = pd.read_parquet(evp) if os.path.exists(evp) else pd.DataFrame(
-    columns=["game_id", "market", "book", "name", "description", "snap", "point", "price", "home", "away"])
+_EV_COLS = ["game_id", "market", "book", "name", "description", "snap", "point", "price", "home", "away"]
+ev = pd.read_parquet(evp) if os.path.exists(evp) else pd.DataFrame(columns=_EV_COLS)
+if ev.empty or "game_id" not in ev.columns:   # preseason collector writes a schema-less 0-row parquet
+    ev = pd.DataFrame(columns=_EV_COLS)
 ev = ev[ev.game_id.isin(g7)].copy()
 names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
 AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i",

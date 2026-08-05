@@ -80,6 +80,11 @@ def main():
     out_rows = []
     for year in YEARS:
         ga = pd.read_parquet(os.path.join(DATA, f"game_advanced_{year}.parquet"))
+        # Preseason: /game/advanced returns 0 rows (schema-less parquet) until games are
+        # played — skip the year; the wk1 frame runs on priors/carryover, not as-of ratings.
+        if ga.empty or "seasonType" not in ga.columns:
+            print(f"[ratings] {year}: no game_advanced rows yet — skipped")
+            continue
         ga = ga[ga["seasonType"] == "regular"].copy()
         max_wk = int(ga["week"].max())
         for asof in range(1, max_wk + 1):

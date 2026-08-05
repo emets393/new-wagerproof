@@ -43,8 +43,8 @@ for _, r in fg.iterrows():
 # Preseason (e.g. Week 1 before books post event props), events_{SEASON}.parquet may not exist yet.
 # Fall back to an empty frame so full-game picks still generate — TT/1H just won't have per-book lines.
 _ev_path = f"data/event_odds/events_{SEASON}.parquet"
-if os.path.exists(_ev_path):
-    ev = pd.read_parquet(_ev_path); ev = ev[ev.game_id.isin(g7)].copy()
+if os.path.exists(_ev_path) and not (_e := pd.read_parquet(_ev_path)).empty and "game_id" in _e.columns:
+    ev = _e[_e.game_id.isin(g7)].copy()
     ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True); ev["description"] = ev.description.fillna("_")
     ev = ev.sort_values("snap_dt").groupby(["game_id", "market", "book", "name", "description"], as_index=False).last()
 else:

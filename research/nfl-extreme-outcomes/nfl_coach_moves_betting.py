@@ -27,7 +27,7 @@ for s in ("home", "away"):
         columns={f"{s}_team": "team"})
     # this team's ATS margin vs close: home covers if (result + spread_line_home) ; nflverse spread_line
     # is the HOME line (home_score-away_score+spread_line>0 => home covers). away margin = -result.
-    d["ats_margin"] = (g["result"] + g["spread_line"]).values if s == "home" else (-g["result"] - g["spread_line"]).values
+    d["ats_margin"] = (g["result"] - g["spread_line"]).values if s == "home" else (-g["result"] + g["spread_line"]).values
     rows.append(d)
 tg = pd.concat(rows, ignore_index=True)
 tg["pace_gap"] = [gapmap.get((int(se), t), np.nan) for se, t in zip(tg.season, tg.team)]

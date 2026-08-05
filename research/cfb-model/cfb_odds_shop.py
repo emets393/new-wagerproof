@@ -84,6 +84,8 @@ class CFBOddsShop:
             return
         gids = set(self.games_by_id)
         ev = pd.read_parquet(path)
+        if ev.empty or "game_id" not in ev.columns:  # preseason: schema-less 0-row parquet
+            return
         ev = ev[ev.game_id.isin(gids)].copy()
         ev["snap_dt"] = pd.to_datetime(ev.snap, utc=True)
         ev["description"] = ev.description.fillna("_")

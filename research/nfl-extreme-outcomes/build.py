@@ -18,6 +18,12 @@ load = lambda n: pd.read_parquet(os.path.join(DATA, f"{n}.parquet"))
 
 def main():
     pg = load("pregame").copy()
+    # Failsafe: master is rebuilt from scratch off this frame. A slate-only cache (fetch's
+    # hist+slate concat failed and left the tiny view behind) would silently wipe 2018-25
+    # history that s2d features / streaks / early-season carryover all depend on.
+    assert len(pg) > 500 and pg["season"].nunique() > 1, (
+        f"pregame cache looks slate-only ({len(pg)} rows, seasons {sorted(pg['season'].unique())}) "
+        "— the fetch.py hist+slate merge failed; fix the fetch before building master")
     tm = load("team_mapping")
     ng = load("nflverse_games")
 
@@ -28,7 +34,11 @@ def main():
     }
     for uid, (col, val) in patch.items():
         m = pg["unique_id"] == uid
-        assert m.sum() == 1, f"patch target {uid} not unique ({m.sum()})"
+        # 0 matches is legal in weekly/slate mode (v_nfl_slate_inputs carries only the
+        # upcoming week, no 2018/2021 rows); >1 would mean a corrupt frame — still fatal.
+        assert m.sum() <= 1, f"patch target {uid} not unique ({m.sum()})"
+        if m.sum() == 0:
+            continue
         before = pg.loc[m, col].iloc[0]
         pg.loc[m, col] = val
         print(f"[patch] {uid}: {col} {before!r} -> {val!r}")

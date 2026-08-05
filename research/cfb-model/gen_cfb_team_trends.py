@@ -29,8 +29,10 @@ dt = dict(zip(g25.id, g25.startDate))
 # posted consensus lines (event odds, wk1-6). Absent preseason -> empty frame (current-season TT/1H
 # stay null; the cross-season streaks below carry their own 2023-2025 TT/1H from the odds archive).
 _evp = f"data/event_odds/events_{SEASON}.parquet"
-ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(
-    columns=["game_id", "market", "book", "name", "description", "snap", "point", "home"])
+_EVC = ["game_id", "market", "book", "name", "description", "snap", "point", "home"]
+ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(columns=_EVC)
+if ev.empty or "game_id" not in ev.columns:  # preseason: collector writes a schema-less 0-row parquet
+    ev = pd.DataFrame(columns=_EVC)
 ev = ev[ev.game_id.isin(set(pre.game_id))].copy()
 names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
 AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i", "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State", "Southern Miss Golden Eagles": "Southern Miss"}
@@ -115,10 +117,25 @@ for team in sorted(cross.keys()):
         "last5_su": [g["su"] for g in clog if g["su"] is not None][:5],
         "last5_ats": [g["ats"] for g in clog if g["ats"] is not None][:5],
         "last5_ou": [g["ou"] for g in clog if g["ou"] is not None][:5],
+        # 1H chips match FG: cross-season trailing so Week 1 isn't blank.
+        "last5_h1_ats": [g["h1_ats"] for g in clog if g.get("h1_ats") is not None][:5],
+        "last5_h1_ou": [g["h1_ou"] for g in clog if g.get("h1_ou") is not None][:5],
         "game_log": log[::-1],   # newest first; real list -> stored as jsonb array (loader handles JSON)
         # Outliers: cross-season trailing splits (6 markets x 5 dims x 3/5/7) + cross-season H2H matchups
         "splits": T.compute_splits(clog, DIMS, WINDOWS, sk="team_spread"),
         "matchups": T.compute_matchups(clog, markets=T.FG_MKT, cap=6)})
+# Stamp 1H L5 into splits so chips work before the last5_h1_* columns migrate.
+import requests
+for row in rows:
+    splits = dict(row["splits"] or {})
+    splits["__last5_h1"] = {"ats": row["last5_h1_ats"], "ou": row["last5_h1_ou"]}
+    row["splits"] = splits
+# Drop dedicated columns when the warehouse hasn't migrated yet (insert would 400).
+_probe = requests.get(f"{C.URL}/rest/v1/cfb_team_trends?select=last5_h1_ats&limit=1", headers=C.H)
+if _probe.status_code != 200:
+    for row in rows:
+        row.pop("last5_h1_ats", None)
+        row.pop("last5_h1_ou", None)
 df = pd.DataFrame(rows)
 print(f"cfb_team_trends: {len(df)} teams | avg games {df.games.mean():.1f} | with TT {(df.tt_games>0).sum()} | with 1H {(df.h1_ats_games>0).sum()}")
 if NO_LOAD:
@@ -128,7 +145,6 @@ if NO_LOAD:
     sys.exit(0)
 # Preflight: don't wipe the existing season if the Outliers columns aren't in place yet
 # (the insert would reject splits/matchups and leave the table empty). Apply cfb_outliers_trends.sql.
-import requests
 if requests.get(f"{C.URL}/rest/v1/cfb_team_trends?select=splits&limit=1", headers=C.H).status_code != 200:
     print("  ! cfb_team_trends.splits/matchups missing — apply cfb_outliers_trends.sql first (load skipped, existing data preserved)")
     sys.exit(0)

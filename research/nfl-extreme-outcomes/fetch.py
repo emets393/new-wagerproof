@@ -50,7 +50,11 @@ TRAIN = "--train" in sys.argv
 # match) — the cfb_automation pregame cron produces it weekly. nfl_predictions_epa is NOT
 # cached here: the harness pulls it live via fetch_table() for the legacy_* signals.
 TABLES = {
-    "pregame":            ("v_nfl_pregame_features_full" if TRAIN else "v_nfl_slate_inputs", "season,week"),
+    # "pregame" is special-cased in main(): weekly mode needs BOTH the completed-games
+    # history (s2d features, streaks, early-season prior-year carryover all read it via
+    # master.parquet, which build.py rebuilds from scratch) AND the upcoming slate rows.
+    # v_nfl_slate_inputs alone is slate-only — caching just it would wipe 2018-25 history.
+    "pregame":            ("v_nfl_pregame_features_full", "season,week"),
     "team_week":          ("nfl_pregame_advanced_team_week",  "season,week"),
     "training_epa":       ("nfl_training_data_epa",           None),
     "team_mapping":       ("nfl_team_mapping",                None),
@@ -122,6 +126,29 @@ def main():
             continue
         try:
             df = fetch_table(source, order=order)
+            if name == "pregame" and not TRAIN:
+                # history + upcoming slate; slate rows win on collision (they carry live lines)
+                slate = fetch_table("v_nfl_slate_inputs", order=order)
+                # slate serves game_time as 'HH:MM:SS'; history stores HHMM ints (900 = 9:00)
+                if slate["game_time"].dtype == object:
+                    slate["game_time"] = (slate["game_time"].str.slice(0, 5)
+                                          .str.replace(":", "", regex=False).astype("int64"))
+                for c in df.columns:
+                    if df[c].dtype != slate[c].dtype:
+                        try:
+                            slate[c] = slate[c].astype(df[c].dtype)
+                        except (ValueError, TypeError):
+                            # int history col + nulls in slate: promote both to float;
+                            # anything non-numeric falls back to object (never mixed parquet)
+                            if pd.api.types.is_numeric_dtype(df[c].dtype):
+                                df[c] = df[c].astype("float64")
+                                slate[c] = pd.to_numeric(slate[c], errors="coerce")
+                            else:
+                                df[c] = df[c].astype(object)
+                                slate[c] = slate[c].astype(object)
+                df = (pd.concat([df, slate], ignore_index=True)
+                        .drop_duplicates("unique_id", keep="last"))
+                source = f"{source} + v_nfl_slate_inputs ({len(slate)} slate rows)"
             df.to_parquet(out, index=False)
             print(f"  ok   {name:20s} {len(df):6d} rows  <- {source}")
         except Exception as e:

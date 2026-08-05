@@ -242,7 +242,10 @@ def main():
     key = load_key()
     hdr = {"apikey": key, "Authorization": f"Bearer {key}",
            "Content-Type": "application/json", "Prefer": "return=minimal"}
-    requests.delete(f"{BASE_URL}/nfl_player_prop_trends?through_season=eq.{SEASON}&through_week=eq.{THROUGH_WEEK}",
+    # SNAPSHOT semantics: exactly ONE generation may live in this table. Wiping only our own
+    # (season, week) pair let generations accumulate (2026-08-05: three coexisted — stale
+    # dry-run-era rows shipped to consumers). Delete EVERYTHING before insert.
+    requests.delete(f"{BASE_URL}/nfl_player_prop_trends?through_season=gte.0",
                     headers=hdr, timeout=60)
     for i in range(0, len(recs), 200):
         resp = requests.post(f"{BASE_URL}/nfl_player_prop_trends", headers=hdr, json=recs[i:i + 200], timeout=120)
