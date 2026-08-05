@@ -87,6 +87,28 @@ The only shared tables are the ledger (`agent_generation_runs`) and final picks
 `concurrencyKey` is intentionally not used. In Trigger.dev it creates per-key
 queue copies, which would turn the global cap into a per-user cap.
 
+## Read tools (notable non-obvious pieces)
+
+The deep read-tool registry lives in `agents-v3/src/loop/tools/readTools.ts`
+(`DEEP_TOOLS` = projections over the cached formatted game). Two entries are
+dispatched by name instead because they don't fit the game-keyed projection loop:
+
+- `get_props` — populates the bettable-prop ledger (only `is_bettable` props can
+  be staked).
+- `get_prop_player_page` — player-keyed DB query against `nfl_prop_player_pages`
+  on the CFB instance (the prop-model page contract: markets, baselines, NGS/FTN
+  advanced stats, scheme-matchup splits, model projection bands). Informational
+  only: it grounds nothing and does not make a prop bettable — that stays
+  exclusively with `get_props`. Its output hoists the `scheme` jsonb's children
+  onto the player object because `compactDeepFetch` prunes objects at depth 5.
+
+Tracking-tier signals: `{nfl,cfb}_signal_defs` rows with
+`default_conviction='track'` are paper-traded, not validated for betting. Their
+`one_liner` carries a `⚠ TRACKING ONLY (paper):` prefix and `get_signals`'
+description instructs the model to treat them as context only — there is
+deliberately no code-level filter, so agents still see the signal + its live
+record building up.
+
 ## Files
 
 - `agents-v3/trigger/generateV3Picks.ts`
