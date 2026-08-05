@@ -149,7 +149,16 @@ private fun <G> MatchupChipStrip(
     LaunchedEffect(currentIndex) {
         listState.animateScrollToItem(currentIndex.coerceIn(0, games.lastIndex))
     }
-    LiquidGlassCapsule(modifier.height(44.dp)) {
+    LiquidGlassCapsule(
+        modifier
+            .height(44.dp)
+            // The strip floats above independently scrolling game-detail cards.
+            // Haze alone lets too much of those cards show through, visually
+            // merging the switcher with the content beneath it. Keep the glass
+            // treatment, but give this navigation surface a near-opaque base.
+            .clip(CircleShape)
+            .background(AppColors.appSurfaceElevated.copy(alpha = MatchupStripSurfaceAlpha)),
+    ) {
         LazyRow(
             state = listState,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
@@ -162,6 +171,8 @@ private fun <G> MatchupChipStrip(
         }
     }
 }
+
+internal const val MatchupStripSurfaceAlpha = 0.92f
 
 /**
  * Matchup chip: awayLogo + "AWY @ HOM" + homeLogo. Current game = appPrimary
