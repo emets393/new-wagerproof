@@ -370,9 +370,9 @@ internal fun CustomPaywallView(
                         .padding(
                             start = 18.dp,
                             end = 18.dp,
-                            bottom = if (compact) 10.dp else 8.dp,
+                            bottom = 4.dp,
                         ),
-                    verticalArrangement = Arrangement.spacedBy(if (compact) 9.dp else 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     PlanRow(
@@ -638,7 +638,7 @@ private fun PlanRow(
     onSelect: (PaywallPlan) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         resolved.plans.forEach { plan ->
@@ -719,8 +719,11 @@ private fun PlanCard(
 
             Text(
                 text = PaywallPlanResolver.cardPrice(product),
-                style = AppTypography.display.copy(fontSize = if (compact) 19.sp else 22.sp),
-                fontWeight = FontWeight.Bold,
+                style = AppTypography.display.copy(
+                    fontFamily = AppTypography.SystemFontFamily,
+                    fontSize = if (compact) 19.sp else 22.sp,
+                    fontWeight = FontWeight.Black,
+                ),
                 color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -884,7 +887,7 @@ private fun PaywallPurchaseButton(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(60.dp)
+            .height(54.dp)
             .clip(shape)
             .background(
                 Brush.horizontalGradient(listOf(accent, Color(0xFF8EF0B6), AppColors.appAccentAmber)),
@@ -924,8 +927,11 @@ private fun PaywallPurchaseButton(
             ) {
                 Text(
                     text = title,
-                    style = AppTypography.display.copy(fontSize = 18.sp),
-                    fontWeight = FontWeight.Bold,
+                    style = AppTypography.display.copy(
+                        fontFamily = AppTypography.SystemFontFamily,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                    ),
                     color = Color(0xFF04120A),
                     maxLines = 1,
                 )
@@ -986,7 +992,7 @@ private fun FooterLink(text: String, enabled: Boolean, onClick: () -> Unit) {
         color = AppColors.appTextSecondary.copy(alpha = if (enabled) 1f else 0.5f),
         modifier = Modifier
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 6.dp),
+            .padding(vertical = 2.dp),
     )
 }
 

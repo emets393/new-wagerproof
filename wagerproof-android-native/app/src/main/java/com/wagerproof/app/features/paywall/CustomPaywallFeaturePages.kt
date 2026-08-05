@@ -279,8 +279,11 @@ private fun FeaturePage(
         ) {
             Text(
                 text = title,
-                style = AppTypography.display.copy(fontSize = if (compact) 22.sp else 26.sp),
-                fontWeight = FontWeight.Bold,
+                style = AppTypography.display.copy(
+                    fontFamily = AppTypography.SystemFontFamily,
+                    fontSize = if (compact) 22.sp else 26.sp,
+                    fontWeight = FontWeight.Black,
+                ),
                 color = AppColors.appTextPrimary,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
@@ -1629,7 +1632,7 @@ private val OutliersLaneOne = listOf(
         "allen-pass", OutliersTrendsSport.NFL,
         trendCard(
             id = "allen-passing-yards", matchup = "BUF @ KC", subject = "Josh Allen",
-            detail = "Buffalo Bills", team = "BUF", subjectKind = OutliersTrendsSubjectKind.PLAYER,
+            team = "BUF", subjectKind = OutliersTrendsSubjectKind.PLAYER,
             market = "passing_yards", label = "Passing Yards",
             // Fixture player id can't resolve a headshot, so pin Allen's ESPN photo.
             headshotUrl = "https://a.espncdn.com/i/headshots/nfl/players/full/3918298.png",
@@ -1715,13 +1718,13 @@ private fun OutliersHero(
 
     BoxWithConstraints(modifier) {
         val peek = if (compact) 16.dp else 22.dp
-        val laneSpacing = if (compact) 8.dp else 10.dp
+        val laneSpacing = if (compact) 7.dp else 8.dp
         val cardWidth = maxOf(if (compact) 210.dp else 240.dp, maxWidth - (peek + laneSpacing) * 2)
-        val laneHeight = if (compact) 140.dp else 152.dp
+        val laneHeight = 132.dp
 
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(if (compact) 7.dp else 10.dp, Alignment.Bottom),
+            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom),
         ) {
             MarqueeLane(OutliersLaneOne, marqueeIndex, 1, cardWidth, laneSpacing, laneHeight)
             MarqueeLane(OutliersLaneTwo, marqueeIndex, -1, cardWidth, laneSpacing, laneHeight)
@@ -1784,6 +1787,7 @@ private fun MarqueeLane(
                         card = item.card,
                         sport = item.sport,
                         displayMode = OutliersTrendCardMode.Expanded,
+                        marqueeStyle = true,
                     )
                 }
             }
