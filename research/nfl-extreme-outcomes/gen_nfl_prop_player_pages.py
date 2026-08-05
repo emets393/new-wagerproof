@@ -254,9 +254,12 @@ def main():
                                status="preview", source="2025 games")
             elif mk in PROJ_STAT:
                 v = g[PROJ_STAT[mk]]
+                hi = float(v.quantile(0.65))
+                if hi <= 0:      # degenerate (e.g. a WR's rushing band) — suppress, don't render 0-0-0
+                    continue
                 out[mk] = dict(kind="band", low=round(float(v.quantile(0.35)), 1),
                                median=round(float(v.quantile(0.5)), 1),
-                               high=round(float(v.quantile(0.65)), 1), n=int(len(g)),
+                               high=round(hi, 1), n=int(len(g)),
                                status="preview", source="2025 games")
         return out or None
 
