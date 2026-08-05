@@ -145,8 +145,11 @@ fun PostOnboardingPaywall(
     val customPaywallEnabled =
         PaywallPlanResolver.metadataBoolean(metadata, "custom_paywall_enabled", default = true)
 
-    val isShowingCustomPaywall =
-        customPaywallEnabled && current != null && !isLoadingOffering && loadError == null
+    // The custom experience is the onboarding surface even when Play Billing
+    // cannot resolve the catalog (common for a side-loaded debug package). Its
+    // own unavailable-plans footer provides recovery without replacing the
+    // entire designed paywall with a generic error page.
+    val isShowingCustomPaywall = customPaywallEnabled && !isLoadingOffering
 
     LaunchedEffect(closeEnabled) { onCloseEnabledChanged(closeEnabled) }
 
@@ -209,7 +212,7 @@ fun PostOnboardingPaywall(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        if (current != null && !isLoadingOffering && loadError == null) {
+        if (!isLoadingOffering) {
             if (customPaywallEnabled) {
                 CustomPaywallView(
                     offering = current,
@@ -224,9 +227,10 @@ fun PostOnboardingPaywall(
                     stakesBucketRaw = onboarding.survey.weeklyStakesBucket,
                     onPurchaseFinalized = { transaction, customerInfo -> finalize(transaction, customerInfo) },
                     onRequestClose = onUserDismissed,
+                    onRetryCatalog = { reloadKey++ },
                     debugClose = isDebugPreview,
                 )
-            } else {
+            } else if (current != null && loadError == null) {
                 // Legacy dashboard-owned template (kill-switch path).
                 val options = remember(current, closeEnabled) {
                     // RECONCILE: verify against RevenueCatUI 9.7.0 — PaywallOptions
@@ -296,7 +300,7 @@ fun PostOnboardingPaywall(
 
         if (isLoadingOffering || isFinalizing) {
             LoadingOverlay(isFinalizing = isFinalizing)
-        } else if (loadError != null || offering == null) {
+        } else if (!customPaywallEnabled && (loadError != null || offering == null)) {
             ErrorOverlay(
                 message = loadError,
                 onRetry = { reloadKey++ },

@@ -135,6 +135,7 @@ internal fun CopyBuildStartingPointPage(
                     creation.archetypeRows.take(3).forEachIndexed { index, row ->
                         ArchetypeCard(
                             row = row,
+                            spriteIndex = index,
                             selected = !isCopySelected && creation.draft.archetype?.raw == row.id,
                             onSelect = {
                                 val sports = creation.draft.preferredSports

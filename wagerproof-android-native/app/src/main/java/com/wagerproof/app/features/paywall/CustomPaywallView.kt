@@ -109,7 +109,7 @@ private const val PRIVACY_URL = "https://wagerproof.bet/privacy-policy"
 
 @Composable
 internal fun CustomPaywallView(
-    offering: Offering,
+    offering: Offering?,
     allowClose: Boolean,
     source: String,
     accent: Color,
@@ -119,6 +119,7 @@ internal fun CustomPaywallView(
     stakesBucketRaw: String?,
     onPurchaseFinalized: (StoreTransaction?, CustomerInfo) -> Unit,
     onRequestClose: () -> Unit,
+    onRetryCatalog: () -> Unit,
     /**
      * Secret-Settings debug preview flag. Renders the close control as a loud red
      * DEBUG pill so a tester can escape the otherwise-hard onboarding paywall and
@@ -137,12 +138,13 @@ internal fun CustomPaywallView(
 
     // Adapt RevenueCat's catalog once; every downstream decision reads the
     // plain-Kotlin projection so the rules stay unit-testable.
-    val products = remember(offering) { offering.availablePackages.map { it.toPaywallProduct() } }
-    val packagesById = remember(offering) { offering.availablePackages.associateBy { it.identifier } }
-    val entryOffer = remember(offering) { PaywallPlanResolver.entryOffer(offering.metadata) }
+    val products = remember(offering) { offering?.availablePackages.orEmpty().map { it.toPaywallProduct() } }
+    val packagesById = remember(offering) { offering?.availablePackages.orEmpty().associateBy { it.identifier } }
+    val entryOffer = remember(offering) { PaywallPlanResolver.entryOffer(offering?.metadata.orEmpty()) }
     val resolved = remember(products, entryOffer) { PaywallPlanResolver.resolve(products, entryOffer) }
+    val offeringKey = offering?.identifier ?: "catalog-unavailable"
 
-    var selectedId by remember(offering.identifier) {
+    var selectedId by remember(offeringKey) {
         mutableStateOf(PaywallPlanResolver.defaultSelection(resolved)?.packageId)
     }
     val selected = resolved.plans.firstOrNull { it.id == selectedId }?.product
@@ -154,8 +156,8 @@ internal fun CustomPaywallView(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
 
-    var didTrackPresented by remember(offering.identifier) { mutableStateOf(false) }
-    LaunchedEffect(offering.identifier, selectedId) {
+    var didTrackPresented by remember(offeringKey) { mutableStateOf(false) }
+    LaunchedEffect(offeringKey, selectedId) {
         if (didTrackPresented) return@LaunchedEffect
         didTrackPresented = true
         AnalyticsService.track(
@@ -347,6 +349,7 @@ internal fun CustomPaywallView(
                     onRestore = { restore() },
                     onOpenTerms = { uriHandler.openUri(TERMS_URL) },
                     onOpenPrivacy = { uriHandler.openUri(PRIVACY_URL) },
+                    onRetry = onRetryCatalog,
                     onContinueWithout = {
                         AnalyticsService.track(
                             "paywall_dismissed",
@@ -782,6 +785,7 @@ private fun UnavailablePlans(
     onRestore: () -> Unit,
     onOpenTerms: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onRetry: () -> Unit,
     onContinueWithout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -826,16 +830,23 @@ private fun UnavailablePlans(
                 .height(48.dp)
                 .clip(RoundedCornerShape(15.dp))
                 .background(accent)
-                .clickable(onClick = onContinueWithout),
+                .clickable(onClick = onRetry),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "Continue without subscription",
+                text = "Retry subscription options",
                 style = AppTypography.majorCta.copy(fontSize = 13.sp),
                 color = Color.Black,
                 textAlign = TextAlign.Center,
             )
         }
+        Text(
+            text = "Continue without subscription",
+            color = AppColors.appTextSecondary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clickable(onClick = onContinueWithout).padding(6.dp),
+        )
         PaywallFooter(
             isRestoring = isRestoring,
             enabled = !isRestoring,

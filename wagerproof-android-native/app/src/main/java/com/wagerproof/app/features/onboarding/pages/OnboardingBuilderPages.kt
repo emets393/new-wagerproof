@@ -142,6 +142,7 @@ fun OnboardingBuilderArchetypePage(creation: AgentCreationStore, modifier: Modif
                 AgentCreationStore.ArchetypesLoadState.Loaded -> creation.archetypeRows.take(3).forEachIndexed { index, row ->
                     ArchetypeCard(
                         row = row,
+                        spriteIndex = index,
                         selected = creation.draft.archetype?.raw == row.id && store.hasChosenArchetype,
                         onSelect = {
                             val sports = creation.draft.preferredSports
@@ -255,7 +256,12 @@ fun OnboardingBuilderIdentityPage(creation: AgentCreationStore, modifier: Modifi
 
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp).pageEntrance(5), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             PickerLabel("COLOR")
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = 4) {
+            FlowRow(
+                Modifier.width(228.dp).align(Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                maxItemsInEachRow = 4,
+            ) {
                 identityGradients.forEach { raw ->
                     val selected = creation.draft.avatarColor == raw
                     Box(

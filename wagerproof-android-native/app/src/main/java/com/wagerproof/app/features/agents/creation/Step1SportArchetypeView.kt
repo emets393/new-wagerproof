@@ -367,9 +367,10 @@ private fun PresetSection(store: AgentCreationStore, onChangePath: () -> Unit) {
                 }
             }
             AgentCreationStore.ArchetypesLoadState.Loaded -> {
-                store.archetypeRows.forEach { row ->
+                store.archetypeRows.forEachIndexed { index, row ->
                     ArchetypeCard(
                         row = row,
+                        spriteIndex = index % 8,
                         selected = store.draft.archetype?.raw == row.id,
                         onSelect = { store.applyArchetype(row) },
                     )
