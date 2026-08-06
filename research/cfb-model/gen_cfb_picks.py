@@ -19,6 +19,20 @@ CONV_RANK = {"mammoth": 5, "T1": 4, "T2": 3, "T3": 2, "track": 1}
 TIER_DISP = {"mammoth": "mammoth", "T1": "high", "T2": "med", "T3": "low", "track": "lean"}
 
 gm, te, S = C.harness_week(SEASON, WEEK)
+
+# ⛔ Lines rule: te's CFBD-sourced close lines are corrupt for some games (sign flips /
+# zero-fills — Miami@Stanford arrived as Stanford -22.5). Override from the Odds-API
+# game frame, mirroring gen_cfb_dryrun_flags, and recompute the edges the side pick
+# derives from. No Odds-API line -> NaN (card shows no line, no play).
+_ogf = pd.read_parquet("data/odds_game_frame.parquet")
+_ogf = _ogf[_ogf.season == SEASON][["home", "away", "close_spread", "close_total"]]
+te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
+te["spread_close"] = te["close_spread"]
+te["total_close"] = te["close_total"]
+te = te.drop(columns=["home", "away"], errors="ignore")
+te["side_edge"] = te.pred_margin + te.spread_close
+te["total_edge"] = te.pred_total - te.total_close
+
 g7 = set(te.game_id)
 names = sorted(set(gm.homeTeam) | set(gm.awayTeam))
 AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i",
@@ -168,11 +182,15 @@ for _, r in te.iterrows():
     # ---- SPREAD ----
     if side_edge is not None:
         ph = side_edge > 0; pteam = H if ph else A; pside = "HOME" if ph else "AWAY"
+        # EARLY: contextual signals no longer OVERRIDE the pick side. That rule predates the
+        # early blend (true-preseason ratings + roster) — the model side is real now, the game
+        # row displays it, and an overriding flag made the card contradict the row above it
+        # (UTEP@OU 2026-wk1: portal_talent_influx flipped the card to "Oklahoma -39.5").
+        # A signal that AGREES with the model side still drives conviction (conv_for is
+        # side-filtered) and exempts the degenerate-edge cap; a disagreeing signal renders
+        # in the game's signal list, never as the headline pick.
         drv = driving_spread_side(gid) if EARLY else None
-        if drv:   # a contextual signal fired -> that's the bet; the cold model side is meaningless
-            pside = drv; ph = (pside == "HOME"); pteam = H if ph else A
-        # the >14 cap suppresses degenerate cold-model edges; it must NOT wipe a real contextual signal
-        capped = (abs(side_edge) > 14) and not drv
+        capped = (abs(side_edge) > 14) and not (drv == pside)
         bs = best_spread(gid, pside); model_line = round(-r.pred_margin if ph else r.pred_margin, 1)
         cv, mam, sig = conv_for(gid, "spread", side=pside)
         if capped: cv, mam, sig = "none", False, []
@@ -289,6 +307,26 @@ df["best_book_logo"] = df.best_book.map(lambda k: book_meta(k)[1] if k else None
 print(f"cfb_dryrun_picks rows: {len(df)} | cards/game avg {len(df)/te.game_id.nunique():.1f}")
 print(f"  has_play: {int(df.has_play.sum())} | by card_group: {df.card_group.value_counts().to_dict()}")
 print(f"  best_book coverage: {int(df.best_book.notna().sum())}/{len(df)}")
+
+# SIGN GUARD (mandatory, per the sign-conventions law): a pick card must NEVER contradict
+# the games row it renders under — UTEP@OU 2026-wk1 shipped "Oklahoma -39.5" while the game
+# row correctly said AWAY. Cross-check spread + total sides against cfb_dryrun_games and
+# refuse to write on ANY mismatch (hard fail stops the runner before users see it).
+_g = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_games?season=eq.{SEASON}&week=eq.{WEEK}"
+                  f"&select=game_id,fg_spread_pick,fg_total_pick", headers={**C.H, "Prefer": ""}).json()
+_gsp = {int(x["game_id"]): x["fg_spread_pick"] for x in _g if x.get("fg_spread_pick")}
+_gtp = {int(x["game_id"]): x["fg_total_pick"] for x in _g if x.get("fg_total_pick")}
+_bad = []
+for _, r in df[df.pick_side.notna()].iterrows():
+    want = _gsp.get(int(r.game_id)) if r.bet_type == "spread" else (
+        _gtp.get(int(r.game_id)) if r.bet_type == "total" else None)
+    if want and r.pick_side != want:
+        _bad.append((int(r.game_id), r.bet_type, r.pick_side, f"games={want}"))
+if _bad:
+    raise SystemExit(f"[SIGN GUARD] {len(_bad)} pick(s) contradict cfb_dryrun_games — REFUSING TO WRITE: {_bad[:6]}")
+print(f"  sign guard: {len(df[(df.bet_type == 'spread') & df.pick_side.notna()])} spread + "
+      f"{len(df[(df.bet_type == 'total') & df.pick_side.notna()])} total sides agree with games table")
+
 C.wipe("cfb_dryrun_picks", f"season=eq.{SEASON}&week=eq.{WEEK}")
 df["season"] = SEASON; df["week"] = WEEK
 C.insert("cfb_dryrun_picks", df)
