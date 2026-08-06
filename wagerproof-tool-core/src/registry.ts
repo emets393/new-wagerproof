@@ -15,6 +15,7 @@ import { getMarketOdds } from "./tools/sports/getMarketOdds.js";
 import { getEditorPicks } from "./tools/sports/getEditorPicks.js";
 import { agentTools } from "./tools/user/agents.js";
 import { communityTools } from "./tools/user/community.js";
+import { communityAnalyticsTools } from "./tools/community/getTopCommunityAgentPicks.js";
 import { sqlExplorationTools } from "./tools/sports/querySportsDatabase.js";
 
 /** Public sports/analytics tools (global data, no user identity). */
@@ -25,6 +26,9 @@ export const sportsTools: Tool[] = [
   getMarketOdds,
   getEditorPicks,
 ];
+
+/** Public analytics over WagerProof's opt-in community agents. */
+export { communityAnalyticsTools };
 
 /** The signed-in user's own data (RLS-scoped), plus signed-in-only capabilities
  *  like raw SQL exploration (global data, gated behind sign-in on purpose). */
@@ -37,7 +41,8 @@ export interface RegistryOptions {
 
 /** Assemble the tool set for a surface. */
 export function buildTools(opts: RegistryOptions = {}): Tool[] {
-  return opts.includeUserTools ? [...sportsTools, ...userTools] : [...sportsTools];
+  const globalTools = [...sportsTools, ...communityAnalyticsTools];
+  return opts.includeUserTools ? [...globalTools, ...userTools] : globalTools;
 }
 
 /** Index a tool list by name for O(1) dispatch. */

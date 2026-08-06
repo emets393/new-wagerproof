@@ -46,7 +46,7 @@ Claude/ChatGPT ──Bearer─▶ POST /mcp (JSON-RPC: initialize / tools/list /
 `list_my_agent_picks`, `list_my_follows`, `get_my_community_activity`,
 `get_my_record`.
 **Public analytics**: `get_sport_predictions`, `get_game_detail`, `search_games`,
-`get_market_odds`, `get_editor_picks`.
+`get_market_odds`, `get_editor_picks`, `get_top_community_agent_picks`.
 **SQL exploration** (signed-in only): `query_sports_database` — one read-only
 SELECT per call against the sports warehouse, executed by `public.mcp_run_sql`
 on the CFB project. Built for analysis, not export: SELECT-only grammar check,
