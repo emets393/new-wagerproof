@@ -45,6 +45,13 @@ WINDOW_DAYS = 4          # deadline (Fri 12pm ET) .. Tue 12pm ET — week resets
 HORIZON_DAYS = 8
 DRY = "--dry" in sys.argv
 
+# The competition ENDS with NFL Week 18 (owner rule 2026-08-06) — no playoff or
+# CFB bowl weeks. Value = that season's final Friday-noon-ET deadline (the one
+# whose window holds NFL week 18's Sun/Mon games; comp week 19 for 2026).
+# Verify against the schedule when adding a season: last NFL regular-season
+# kickoff -> comp_deadline_for() -> paste here.
+SEASON_FINAL_DEADLINE = {2026: datetime(2027, 1, 8, 12, 0, tzinfo=ET)}
+
 
 def load_env() -> None:
     for p in (HERE / ".env.local", HERE.parent / "nfl-extreme-outcomes" / ".env.local",
@@ -229,6 +236,10 @@ def main() -> None:
             # Don't materialize pre-week-0 August Fridays (negative week_no).
             if week_no < 0:
                 n_skip_preseason += 1
+                continue
+            # Season ends with NFL Week 18 — never create playoff/bowl weeks.
+            final_dl = SEASON_FINAL_DEADLINE.get(season)
+            if final_dl is not None and dl > final_dl:
                 continue
             weeks[(season, week_no)] = (dl, label, is_practice)
             sp, tot, n_books = consensus(ev)

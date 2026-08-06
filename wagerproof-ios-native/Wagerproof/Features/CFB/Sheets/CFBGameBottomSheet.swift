@@ -1785,19 +1785,23 @@ struct CFBGameBottomSheet: View {
     }
 
     private func relevantSignals(for row: MarketRow) -> [CFBDryRunFlag] {
-        // Game-detail chips come from picks.signal_keys (joined to defs), not flags.
+        // Game-detail chips come from picks.signal_keys + counter_signal_keys (joined to
+        // defs), not flags. Counter keys carry the OPPOSITE side so signalSupportsPick
+        // sorts them into "Contradicts this pick" (e.g. the regime fade taking Tulsa
+        // rendered under an Oklahoma State pick card).
         guard let pick = dryRunPick(for: row) else { return [] }
         let keys = FootballBlanketSignals.displayKeys(sport: "cfb", keys: pick.signalKeys)
-        guard !keys.isEmpty else { return [] }
+        let counterKeys = FootballBlanketSignals.displayKeys(sport: "cfb", keys: pick.counterSignalKeys)
+        guard !keys.isEmpty || !counterKeys.isEmpty else { return [] }
 
-        return dedupedSignals(keys.compactMap { key -> CFBDryRunFlag? in
+        func pickFlag(_ key: String, side: String?) -> CFBDryRunFlag {
             let definition = CFBSignalDefinitionsService.definition(for: key, in: signalDefinitionsBySource)
             return CFBDryRunFlag(
                 id: "pick-\(pick.id.value)-\(signalIdentity(source: key, definition: definition))",
                 gameId: game.gameId,
                 source: key,
                 market: normalizeCardGroup(pick.cardGroup),
-                side: pick.pickSide ?? row.pick,
+                side: side ?? row.pick,
                 line: pick.bestLine,
                 price: pick.bestOdds.map { Int($0.rounded()) },
                 edge: pick.edge,
@@ -1808,7 +1812,12 @@ struct CFBGameBottomSheet: View {
                 mammoth: pick.isMammoth,
                 signalDefinition: definition
             )
-        })
+        }
+        let opposite = ["HOME": "AWAY", "AWAY": "HOME", "OVER": "UNDER", "UNDER": "OVER"][pick.pickSide?.uppercased() ?? ""]
+        return dedupedSignals(
+            keys.map { pickFlag($0, side: pick.pickSide) }
+            + counterKeys.map { pickFlag($0, side: opposite) }
+        )
     }
 
     private func relevantGameFlags(for row: MarketRow) -> [CFBDryRunFlag] {
@@ -2065,7 +2074,7 @@ struct CFBGameBottomSheet: View {
         signalDefinitionsBySource = definitions
         guard let rows: [CFBDryRunPickRow] = try? await cfb
             .from("cfb_dryrun_picks")
-            .select("id,game_id,card_group,bet_type,pick_team,pick_side,pick_label,model_number,model_line,vegas_line,vegas_price,edge,best_book,best_book_name,best_book_logo,best_line,best_odds,conviction,is_mammoth,stake_units,recommendation,display_only,signal_keys,has_play")
+            .select("id,game_id,card_group,bet_type,pick_team,pick_side,pick_label,model_number,model_line,vegas_line,vegas_price,edge,best_book,best_book_name,best_book_logo,best_line,best_odds,conviction,is_mammoth,stake_units,recommendation,display_only,signal_keys,counter_signal_keys,has_play")
             .eq("game_id", value: game.gameId)
             .order("sort_order", ascending: true)
             .execute()
@@ -2318,6 +2327,7 @@ struct CFBGameBottomSheet: View {
         let recommendation: String?
         let displayOnly: Bool?
         let signalKeys: [String]
+        let counterSignalKeys: [String]
         let hasPlay: Bool?
 
         enum CodingKeys: String, CodingKey {
@@ -2344,6 +2354,7 @@ struct CFBGameBottomSheet: View {
             case recommendation
             case displayOnly = "display_only"
             case signalKeys = "signal_keys"
+            case counterSignalKeys = "counter_signal_keys"
             case hasPlay = "has_play"
         }
 
@@ -2371,6 +2382,7 @@ struct CFBGameBottomSheet: View {
             recommendation = try c.decodeIfPresent(String.self, forKey: .recommendation)
             displayOnly = try c.decodeIfPresent(Bool.self, forKey: .displayOnly)
             signalKeys = (try? c.decodeIfPresent(FlexibleStringList.self, forKey: .signalKeys))?.values ?? []
+            counterSignalKeys = (try? c.decodeIfPresent(FlexibleStringList.self, forKey: .counterSignalKeys))?.values ?? []
             hasPlay = try c.decodeIfPresent(Bool.self, forKey: .hasPlay)
         }
     }

@@ -266,6 +266,57 @@ if WEEK <= 3 and os.path.exists(_trp) and os.path.exists(_cop):
             rows.append({**common, "source": f"REGIME FADE: rating leans on {rated_team} (roster gutted, {_ret*100:.0f}% returning, same HC), gap {gap:+.1f}",
                          "signal_key": "regime_fade_teardown", "side": opp_side})
 
+# ── Weeks 1-3 coach-pace UNDER (FOOTBALL_PROFILES coach-scheme study, TRACKING tier) ──
+# First-year HC arriving from a faster offense (pace_gap >= +4 plays/game): the market
+# prices the tempo hype in before the roster can execute it. Study dose-response (2017-25
+# wk1-3, at the close): >=+4 went UNDER 66.7% (n=21); the >=+8 mechanism cell averaged
+# -5.0 pts vs the line (baseline -4.2 -> increment is modest, hence tracking, not active).
+# coach_moves_{SEASON}.parquet refreshes weekly via fetch_preseason_ratings.tr_and_coaches.
+_cmp = f"data/cfbd/coach_moves_{SEASON}.parquet"
+if WEEK <= 3 and os.path.exists(_cmp):
+    _cm = pd.read_parquet(_cmp)
+    _fast = {r.school: r for _, r in _cm.iterrows() if pd.notna(r.pace_gap) and r.pace_gap >= 4}
+    for _, r in te.iterrows():
+        if pd.isna(r.total_close):
+            continue
+        for tm in (r.homeTeam, r.awayTeam):
+            m = _fast.get(tm)
+            if m is None:
+                continue
+            rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                         "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "total",
+                         "side": "UNDER", "line": round(float(r.total_close), 1), "price": -110,
+                         "edge": round(float(m.pace_gap), 1), "conviction": "track",
+                         "tier": "tracking", "stake_units": 0.5, "grade_line": "close",
+                         "mammoth": False, "signal_key": "coach_pace_under",
+                         "source": f"PACE HYPE UNDER: {tm} new HC {m.coach} from {m.prev_school} "
+                                   f"(+{m.pace_gap:.1f} plays/gm faster than {tm} played) — "
+                                   f"market prices the tempo before the roster can run it"})
+
+# ── Explicit bet target on every flag (owner rule 2026-08-07): a signal's text must
+# SAY the bet ("→ bet Tulsa +12.5"), because side=HOME/AWAY never renders and a source
+# that only names a team reads as backing that team even when it fades them (the OSU
+# regime-fade confusion). Appended last so every emitter above stays untouched.
+def _bet_text(r):
+    away, home = r["game"].split(" @ ", 1)
+    m, s, ln = r["market"], str(r["side"]), r.get("line")
+    if m in ("spread", "h1_spread") and s in ("HOME", "AWAY"):
+        team = home if s == "HOME" else away
+        line = None if ln is None else (float(ln) if s == "HOME" else -float(ln))
+        pre = "1H " if m == "h1_spread" else ""
+        return f"{team} {pre}{line:+g}" if line is not None else team
+    if m in ("total", "h1_total") and s in ("OVER", "UNDER"):
+        pre = "1H " if m == "h1_total" else ""
+        return f"{pre}{s.title()} {float(ln):g}" if ln is not None else s.title()
+    if m == "moneyline" and s in ("HOME", "AWAY"):
+        return f"{home if s == 'HOME' else away} ML"
+    return s.title() if s else None
+
+for r in rows:
+    bt = _bet_text(r)
+    if bt:
+        r["source"] = f"{r['source']} → bet {bt}"
+
 df = pd.DataFrame(rows)
 
 # ── Weeks 1-3 EXTREMITY TIER for fade_high_total (validated 2026-08-03, FOOTBALL_PROFILES) ──

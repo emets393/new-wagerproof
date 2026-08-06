@@ -76,6 +76,26 @@ def tr_and_coaches():
         c_now["new_hc"] = [prv.get(s) != co for s, co in zip(c_now.school, c_now.coach)]
         c_now.to_parquet(HERE / "data" / "cfbd" / f"coaches_{SEASON}.parquet", index=False)
         print(f"[preseason] coaches: {len(c_now)} programs, {int(c_now.new_hc.sum())} new HCs")
+
+        # New-HC pace gaps (coach's prior-team tempo vs the new team's) -> the wk1-3
+        # coach_pace_under signal (FOOTBALL_PROFILES: market overprices a new fast scheme).
+        # prev school via coach_seasons; pace = mean offense.plays from last season's
+        # game_advanced. NaN prev school (promoted coordinator / FCS hire) -> no gap, no flag.
+        prev_sch = (cs[cs.year == SEASON - 1].sort_values("games", ascending=False)
+                    .drop_duplicates("coach").set_index("coach").school)
+        ga = pd.read_parquet(HERE / "data" / "cfbd" / f"game_advanced_{SEASON-1}.parquet")
+        if "seasonType" in ga.columns:
+            ga = ga[ga.seasonType == "regular"]
+        pace = ga.groupby("team")["offense.plays"].mean()
+        mv = c_now[c_now.new_hc].copy()
+        mv["prev_school"] = mv.coach.map(prev_sch)
+        mv["coach_prior_pace"] = mv.prev_school.map(pace)
+        mv["new_prior_pace"] = mv.school.map(pace)
+        mv["pace_gap"] = mv.coach_prior_pace - mv.new_prior_pace
+        mv.to_parquet(HERE / "data" / "cfbd" / f"coach_moves_{SEASON}.parquet", index=False)
+        _fast = mv[mv.pace_gap >= 8]
+        print(f"[preseason] coach moves: {len(mv)} new HCs, {mv.pace_gap.notna().sum()} with pace gap, "
+              f"{len(_fast)} fast (>=+8): {', '.join(_fast.school + ' (' + _fast.coach + ')')}")
     except Exception as e:
         print(f"[preseason] coaches fetch failed: {e}")
 
