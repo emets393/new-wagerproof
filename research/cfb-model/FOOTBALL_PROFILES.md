@@ -105,7 +105,13 @@ this adds new ones; both = early lines undervalue current-roster reality, both d
 - **REAL USE = a weeks-1-3 MODEL INPUT** (where the owner wanted help): for a new-coach team, last-year's tempo
   is STALE (they'll play ~66% toward the coach's prior style). Blend the coach's prior-team style into the
   early-week priors model (`cfb_early_week.py`) + a scouting card ("new HC from [fast/slow team] + N followers").
-  NOT YET WIRED. Needs `/coaches` + `/player/portal` in the pipeline (fetch built inline; add to fetch_cfbd_extra).
+- **WIRED 2026-08-07 as `coach_pace_under` (TRACKING tier, owner request):** wk1-3, new HC with pace_gap >= +4
+  (the study's own dose-response rung: 66.7% under, n=21; the >=+8 mechanism cell = -5.0 vs the close, baseline
+  -4.2) -> game-total UNDER flag at 0.5u paper. `fetch_preseason_ratings.tr_and_coaches` now writes
+  `coach_moves_{season}.parquet` weekly (prev school via coach_seasons, pace from game_advanced season-1);
+  `gen_cfb_dryrun_flags` emits the flag. 2026 wk1: 7 fires incl. OSU@Tulsa U60.5 (Morris +4.7, the original
+  motivating case), Clemson@LSU U50.5 (Kiffin +9.8), WMU@Michigan U47.5 (Whittingham +8.6). The style-blend
+  model input remains un-wired (separate work).
 
 ## NFL — Coaching scheme transfer (port of the CFB study) — STAT VALIDATED, bet under-powered
 > Same question, NFL: when a HEAD COACH moves team A→B, does B's style shift toward how A played?
