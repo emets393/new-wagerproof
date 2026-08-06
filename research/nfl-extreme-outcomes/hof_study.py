@@ -129,20 +129,48 @@ def fetch_results(years=range(2000, 2027)):
                 completed=done))
     return pd.DataFrame(rows)
 
+import re
+_QB_TOKEN = re.compile(r"([A-Z]\.[A-Za-z'\-]+)")
+
 def fetch_starters(espn_id):
-    """First-listed passer per team from the boxscore (preseason starter proxy)."""
-    url = (f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={espn_id}")
+    """ACTUAL starter per team = the passer on each team's FIRST offensive drive
+    (ESPN play-by-play). The boxscore passer list is stat-ordered, NOT start-ordered
+    (a relief QB who out-threw the starter lists first), so boxscore-first is only
+    the fallback for games without drives data. Short names from play text
+    ("K.Mond") expand via the boxscore list (last name + first initial)."""
+    url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={espn_id}"
     try:
         js = get(url)
     except Exception:
         return {}
-    out = {}
+    pool, box_first = {}, {}
     for tb in js.get("boxscore", {}).get("players", []):
         team = tb.get("team", {}).get("displayName")
         for cat in tb.get("statistics", []):
             if cat.get("name") == "passing" and cat.get("athletes"):
-                out[team] = cat["athletes"][0].get("athlete", {}).get("displayName")
+                names = [a.get("athlete", {}).get("displayName") for a in cat["athletes"]]
+                pool[team] = [n for n in names if n]
+                if pool[team]:
+                    box_first[team] = pool[team][0]
                 break
+    out = {}
+    for d in js.get("drives", {}).get("previous", []):
+        team = d.get("team", {}).get("displayName")
+        if not team or team in out:
+            continue
+        for pl in d.get("plays", []):
+            txt = pl.get("text") or ""
+            if " pass " in txt or " sacked" in txt or " scrambles" in txt:
+                m = _QB_TOKEN.search(txt)
+                if m:
+                    short = m.group(1)
+                    init, last = short[0], short.split(".", 1)[1].lower()
+                    full = next((n for n in pool.get(team, [])
+                                 if n.lower().split()[-1] == last and n[0] == init), short)
+                    out[team] = full
+                break
+    for team, name in box_first.items():
+        out.setdefault(team, name)
     return out
 
 # ---- C) dimensions from nflverse ---------------------------------------------------
@@ -214,6 +242,14 @@ def add_dimensions(df):
     return pd.concat([df.reset_index(drop=True), pd.DataFrame(dims)], axis=1)
 
 # ---- assemble ----------------------------------------------------------------------
+# Verified current-season facts (azcardinals.com / CBS / Bleacher Report, 2026-08-06).
+# nflverse has no current-season coach/roster rows preseason, so these override.
+FACTS_2026 = dict(home_new_hc=True,        # ARI: Gannon fired (3-14) -> Mike LaFleur yr 1
+                  away_new_hc=False,       # CAR: Canales continuity
+                  home_qb="Carson Beck",   # ROOKIE, 3rd round 2026 — named starter
+                  away_qb="Kenny Pickett",
+                  home_qb_rookie=True, away_qb_rookie=False)
+
 cache = DATA / "hof_games.parquet"
 if cache.exists() and not REFRESH:
     df = pd.read_parquet(cache)
@@ -236,6 +272,8 @@ else:
         df.loc[m & df.total.isna(), "total"] = rl["total"]
         df.loc[m & df.spread_home.isna(), "spread_home"] = rl["spread_home"]
     df = add_dimensions(df)
+    for k, v in FACTS_2026.items():
+        df.loc[df.season == 2026, k] = v
     df.to_parquet(cache, index=False)
 
 done = df[df.completed == True].copy()
@@ -246,7 +284,8 @@ print("\n" + "=" * 100)
 print("HALL OF FAME GAME DOSSIER")
 print("=" * 100)
 cols = ["season", "away", "home", "away_score", "home_score", "spread_home", "total",
-        "away_prev", "home_prev", "away_new_hc", "home_new_hc", "away_qb", "home_qb"]
+        "away_prev", "home_prev", "away_new_hc", "home_new_hc", "away_qb", "home_qb",
+        "away_qb_rookie", "home_qb_rookie"]
 print(df[[c for c in cols if c in df.columns]].to_string(index=False))
 
 wl = done.dropna(subset=["spread_home"]).copy()
@@ -271,5 +310,12 @@ nh = nh[nh.home_new_hc != nh.away_new_hc]
 if len(nh):
     nh_won = np.where(nh.home_new_hc, nh.margin_home > 0, nh.margin_home < 0)
     print(f"  exactly one team has NEW HC — new-HC team won SU: {int(nh_won.sum())}/{len(nh)}")
+rk = done[(done.home_qb_rookie == True) | (done.away_qb_rookie == True)]
+if len(rk):
+    rk_won = np.where(rk.home_qb_rookie == True, rk.margin_home > 0, rk.margin_home < 0)
+    print(f"  rookie QB STARTED (drives-verified) — rookie's team SU: {int(rk_won.sum())}/{len(rk)}"
+          f"  ({', '.join(str(int(s)) for s in rk.season)})")
+else:
+    print("  rookie QB started: none detected 2008-2025 (drives-verified)")
 print(f"  avg total points: {done.tot_pts.mean():.1f} | home SU: "
       f"{int((done.margin_home > 0).sum())}/{len(done)}")
