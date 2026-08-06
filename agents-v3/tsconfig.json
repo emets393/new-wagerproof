@@ -19,5 +19,8 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false
   },
-  "include": ["src", "trigger", "trigger.config.ts"]
+  "include": ["src", "trigger", "trigger.config.ts"],
+  // Tests run under the REPO-ROOT vitest (one `npm test` gate); agents-v3 has no
+  // vitest of its own, so `tsc --noEmit` here can't resolve the `vitest` import.
+  "exclude": ["**/*.test.ts"]
 }

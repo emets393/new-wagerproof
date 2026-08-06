@@ -11,8 +11,11 @@ import type { RunV3Payload } from "../src/loop/runV3Generation";
 import { ledgerClient, isOverDailySpendCap } from "../src/runtimeHelpers";
 import { getTodayInET } from "../src/shared/dateUtils";
 
-// HOTFIX 2026-07-25: DeepSeek balance exhausted — use OpenAI until topped up.
-const DEFAULT_MODEL = "gpt-4.1-mini";
+// MIGRATION 2026-08-01: auto-gen runs on gpt-5.6-luna (xhigh reasoning, set in
+// agenticGenerationLoop). Must stay in sync with DEFAULT_MODEL in
+// src/loop/runV3Generation.ts — this value is stamped onto the ledger row and
+// wins over the code default there.
+const DEFAULT_MODEL = "gpt-5.6-luna";
 
 export const dailyAutoGenV3 = schedules.task({
   id: "daily-auto-gen-v3",

@@ -24,6 +24,11 @@ const SYNCED_ENV_VAR_NAMES = [
   // Optional override for the widget-headline writer/judge model
   // (defaults to gpt-4.1-mini). See src/summaries/runDailySummaries.ts.
   "SUMMARY_MODEL",
+  // Reasoning effort for the V3 loop's OpenAI transport (none|low|medium|high|
+  // xhigh|max). Synced so the value is reproducible from a deploy; it can still
+  // be flipped in the Trigger.dev dashboard without a redeploy when a run is
+  // burning too many output tokens. See src/loop/responsesTransport.ts.
+  "V3_REASONING_EFFORT",
 ];
 
 export default defineConfig({
