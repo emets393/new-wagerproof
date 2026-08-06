@@ -34,17 +34,44 @@ export const V3_LIMITS: V3Limits = {
   // 4 submit attempts: deepseek often omits a required field on its first submit
   // and self-corrects from the reject report; extra slack costs little now.
   maxSubmitAttempts: 4,
-  // Headroom so a multi-pick submit_picks JSON (with optional decision_trace)
-  // doesn't truncate mid-object. deepseek bills CoT separately, so this caps only
-  // the visible answer/tool-call output.
-  maxTokensOut: 24_000,
+  // RAISED 2026-08-01 (24_000 → 40_000) with the move to /v1/responses. What this
+  // caps now differs by wire: on DeepSeek it is still only the visible
+  // answer/tool-call output (CoT is billed and budgeted separately), but
+  // max_output_tokens on Responses covers REASONING TOKENS TOO. At xhigh the
+  // thinking can consume the whole cap before a single tool call is emitted,
+  // which surfaces as a truncated turn with zero tool calls — the exact failure
+  // the loop's truncation guard exists to catch, and a silent zero-pick run if
+  // that guard ever slips. OpenAI's guidance is to reserve ~25K for reasoning +
+  // output; 40K leaves that plus room for a multi-pick submit_picks JSON with an
+  // optional decision_trace. Stays under resolveLimits' 48K clamp so a per-run
+  // override can still move it either way.
+  maxTokensOut: 40_000,
+  // Sum of per-turn prompt+completion tokens, NOT a context-window measure: both
+  // wires re-bill the whole conversation every turn, so this grows quadratically
+  // and acts as the run's cost/turn brake. Unchanged by the Responses port —
+  // echoing reasoning items makes each prompt bigger, so it will trip somewhat
+  // earlier; that is the conservative direction, and retuning it belongs with
+  // real telemetry (circuit reasons + input_tokens per run), not a guess.
   tokenCeiling: 320_000,
   // Hard wall-clock, enforced via AbortController on every fetch (see the loop).
   // Kept under the 600s task maxDuration with a ~60s finalize margin.
   wallClockMs: 540_000,
   // Single thinking turn can't exceed this — bounds one stuck/slow reasoning turn.
-  // v4-pro turns regularly run 90s+; 150s clears them with margin.
-  perTurnMs: 150_000,
+  // RAISED 2026-08-01 (150_000 → 330_000) together with maxTokensOut, because the
+  // two caps are coupled and their failure modes are NOT symmetric: hitting the
+  // token cap ends the turn as truncated, which the loop trips on, retries once,
+  // and then throws — loud, and the turn's usage is already on the governor.
+  // Hitting this timer aborts the fetch, and the loop's abort path just breaks:
+  // SUCCEEDED with 0 picks, and since usage is only added after a fully-consumed
+  // stream, the ledger records $0 so the daily spend cap never sees what the turn
+  // actually burned. At the old 150s the timer bound FIRST — no GPT-5-class model
+  // emits 40K output tokens (reasoning included, on Responses) that fast — making
+  // the raised cap unreachable and every over-budget turn take the silent path.
+  // This caps a PATHOLOGICAL turn, not a typical one, so it costs no turns in a
+  // normal run; total run length is still bounded by wallClockMs, which the loop
+  // applies as min(timeLeft, perTurnMs). NOTE: resolveLimits still clamps a
+  // per-run override of this key to 200_000, so a row can only lower it.
+  perTurnMs: 330_000,
   fallbackReserveMs: 45_000,
   thrashThreshold: 3,
   malformedThreshold: 3,
