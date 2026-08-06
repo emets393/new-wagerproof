@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PanTool
 import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PersonAddAlt1
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -20,6 +21,11 @@ import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Circle
 import androidx.compose.material.icons.rounded.Dangerous
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.Paid
+import androidx.compose.material.icons.rounded.Percent
+import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -62,6 +68,12 @@ fun agentSymbol(systemName: String): ImageVector {
         "star.fill" -> Icons.Filled.Star
         "star.slash", "star.slash.fill" -> Icons.Filled.StarBorder
         "xmark.octagon", "xmark.octagon.fill" -> Icons.Rounded.Dangerous
+        "percent" -> Icons.Rounded.Percent
+        "dollarsign.circle" -> Icons.Rounded.Paid
+        "flame" -> Icons.Rounded.LocalFireDepartment
+        "textformat" -> Icons.Rounded.SortByAlpha
+        "person.badge.minus" -> Icons.Filled.PersonRemove
+        "bell.slash" -> Icons.Rounded.NotificationsOff
         else -> Icons.Rounded.Circle
     }
 }

@@ -10,7 +10,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -81,7 +80,7 @@ import com.wagerproof.app.features.parlaygod.ParlayGodRail
 import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.app.features.shared.InitialsDisc
 import com.wagerproof.app.features.shared.RemoteImage
-import com.wagerproof.core.design.components.liquidGlassBackground
+import com.wagerproof.core.design.components.liquidGlassCapsule
 import com.wagerproof.core.design.components.staggeredAppear
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
@@ -774,12 +773,13 @@ private fun PillLabel(icon: ImageVector, text: String, dimmed: Boolean = false, 
 @Composable
 private fun PillContainer(onClick: () -> Unit, alpha: Float = 1f, content: @Composable () -> Unit) {
     Row(
+        // Same capsule material as the QuickFilterField pinned directly above —
+        // a heavier `appBorder` stroke here made the pill row read as a second,
+        // darker material stacked under the search field.
         Modifier
             .alpha(alpha)
             .height(36.dp)
-            .clip(CircleShape)
-            .liquidGlassBackground(CircleShape)
-            .border(1.dp, AppColors.appBorder.copy(alpha = 0.35f), CircleShape)
+            .liquidGlassCapsule(null)
             .clickable { onClick() }
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,

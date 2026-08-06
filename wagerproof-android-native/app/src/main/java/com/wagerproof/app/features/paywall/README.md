@@ -146,6 +146,39 @@ a loud red DEBUG pill — a tester can escape, and can never mistake a debug run
 for the real hard gate. Its own `BackHandler` stops back from closing Developer
 Settings behind the still-visible paywall.
 
+### Sample catalog (`PaywallDebugCatalog.kt`)
+
+Google Play resolves subscription products by package name **and** signing
+certificate, so a locally built, debug-signed APK always gets an empty
+`subscriptionOptions` back — even with `-PuseProductionApplicationId=true`. The
+paywall then correctly falls through to `UnavailablePlans`, which is the wrong
+screen when the thing being reviewed is the plan cards.
+
+So when `BuildConfig.DEBUG` **and** this is the Secret-Settings preview
+(`debugClose`) **and** the store catalog came back empty, `CustomPaywallView`
+substitutes `PaywallDebugCatalog.products()` — a Yearly ($99.99) + Monthly
+($14.99) pair injected at the `PaywallProduct` boundary, so they run through the
+real `PaywallPlanResolver`: the selection rules, savings percentage and per-month
+math on screen are production logic on sample prices.
+
+**Scoped to the preview on purpose.** The REAL onboarding gate keeps falling
+through to `UnavailablePlans` on an empty catalog, because its "Continue without
+subscription" is the hard gate's only escape — fixture plans there would strand a
+debug tester behind a CTA that cannot buy anything.
+
+- A red `DEBUG CATALOG · sample pricing, not purchasable` caption sits above the
+  plan row, so a screenshot can never be mistaken for live pricing.
+- Nothing is purchasable: `buy()` looks the plan up in `packagesById` (built from
+  the real offering), a fixture id misses, and the tap is a no-op. A debug
+  preview must never open a billing sheet.
+- `paywall_presented` carries `debug_catalog: "true"` so the Mixpanel funnel can
+  exclude local impressions.
+- `BuildConfig.DEBUG` is a compile-time constant, so R8 removes the branch and
+  the fixture strings from release builds.
+
+To view it: `./gradlew :app:assembleDebug`, install, then Settings → double-tap
+the version footer → **Test Custom Paywall**.
+
 ## Known gaps vs iOS
 
 - No haptics on plan selection / page change (iOS uses `.sensoryFeedback`).

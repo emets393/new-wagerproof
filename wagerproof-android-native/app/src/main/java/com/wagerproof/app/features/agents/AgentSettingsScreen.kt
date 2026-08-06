@@ -46,15 +46,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
+import com.wagerproof.app.features.components.SwatchGrid
 import com.wagerproof.app.features.agents.creation.WizardSectionCard
 import com.wagerproof.app.features.agents.creation.WizardSectionFooter
 import com.wagerproof.app.features.agents.creation.WizardSectionHeader
 import com.wagerproof.app.features.agents.creation.GroupedFormDivider
-import com.wagerproof.app.features.agents.creation.ChoiceRail
 import com.wagerproof.app.features.agents.creation.inputs.OddsInput
 import com.wagerproof.app.features.agents.creation.inputs.OddsInputType
 import com.wagerproof.app.features.agents.creation.inputs.SliderInput
@@ -93,6 +94,7 @@ private val colorOptions = listOf(
     "#ef4444", "#ec4899", "#6366f1", "#14b8a6", "#f97316",
 )
 private val betTypes = listOf("any" to "Any", "spread" to "Spread", "moneyline" to "ML", "total" to "Total", "prop" to "Props")
+private val propsEmphasisOptions = listOf("off" to "Off", "allow" to "Allow", "emphasize" to "Emphasize")
 
 /**
  * Owner-only full settings editor. iOS `AgentSettingsView`. Saves through the
@@ -107,23 +109,37 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
     val nav = LocalAppNavigator.current
     val scope = rememberCoroutineScope()
     val entitlements = AgentEntitlementsStore(graph.proAccess)
-    val store = remember(agentId) { AgentDetailStore(agentId) }
-    // The shared list store. This screen's own AgentDetailStore knows nothing
+    // App-scoped registry, NOT a locally constructed store: a fresh
+    // AgentDetailStore per visit leaks its own SupervisorJob and throws away the
+    // snapshot the detail screen already fetched. Same registry the detail
+    // screens use (PublicAgentDetailScreen:85).
+    val store = remember(agentId) { graph.agentDetailStores.store(agentId) }
+    // The shared list store. This screen's AgentDetailStore knows nothing
     // about it, and the Agents tab no longer rebuilds its store on return, so a
     // save or delete here is invisible on the list until pull-to-refresh.
     val agents = graph.agents
 
-    var name by remember { mutableStateOf("") }
-    var emoji by remember { mutableStateOf("🤖") }
-    var spriteIndex by remember { mutableIntStateOf(0) }
-    var color by remember { mutableStateOf("#3B82F6") }
-    var sports by remember { mutableStateOf<Set<AgentSport>>(emptySet()) }
-    var personality by remember { mutableStateOf(AgentPersonalityParams.default) }
-    var customInsights by remember { mutableStateOf(AgentCustomInsights.empty) }
-    var autoGenerate by remember { mutableStateOf(true) }
-    var autoGenerateTime by remember { mutableStateOf("09:00") }
-    var autoGenerateTimezone by remember { mutableStateOf("America/New_York") }
-    var isPublic by remember { mutableStateOf(false) }
+    // Nav can only carry an id, so the "instant paint" agent iOS gets as
+    // `initialAgent` is recovered from the app graph: the detail store's cached
+    // snapshot first, else the My Agents list. The form renders filled on the
+    // FIRST frame instead of behind a full-screen spinner; the fetch below still
+    // runs and re-hydrates (unless the user already started editing).
+    val seedAgent = remember(agentId) {
+        store.snapshot?.agent
+            ?: agents.agents.firstOrNull { it.agent.id.equals(agentId, ignoreCase = true) }?.agent
+    }
+
+    var name by remember(agentId) { mutableStateOf(seedAgent?.name ?: "") }
+    var emoji by remember(agentId) { mutableStateOf(seedAgent?.avatarEmoji ?: "🤖") }
+    var spriteIndex by remember(agentId) { mutableIntStateOf(seedAgent?.spriteIndex ?: 0) }
+    var color by remember(agentId) { mutableStateOf(seedAgent?.avatarColor ?: "#3B82F6") }
+    var sports by remember(agentId) { mutableStateOf<Set<AgentSport>>(seedAgent?.preferredSports?.toSet() ?: emptySet()) }
+    var personality by remember(agentId) { mutableStateOf(seedAgent?.personalityParams ?: AgentPersonalityParams.default) }
+    var customInsights by remember(agentId) { mutableStateOf(seedAgent?.customInsights ?: AgentCustomInsights.empty) }
+    var autoGenerate by remember(agentId) { mutableStateOf(seedAgent?.autoGenerate ?: true) }
+    var autoGenerateTime by remember(agentId) { mutableStateOf(seedAgent?.autoGenerateTime ?: "09:00") }
+    var autoGenerateTimezone by remember(agentId) { mutableStateOf(seedAgent?.autoGenerateTimezone ?: "America/New_York") }
+    var isPublic by remember(agentId) { mutableStateOf(seedAgent?.isPublic ?: false) }
     var hasChanges by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var deleteConfirm by remember { mutableStateOf(false) }
@@ -152,6 +168,9 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
     }
 
     LaunchedEffect(agentId) {
+        // ALWAYS re-fetch, even when seeded: the cached agent can be stale (the
+        // list isn't rewritten after a save from here), which made saved settings
+        // look like they reverted on reopen. `hydrate` no-ops once the user edits.
         store.refreshSnapshot()
         store.snapshot?.agent?.let { hydrate(it) }
     }
@@ -225,7 +244,8 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
         }
 
         when {
-            store.snapshot?.agent != null -> Column(
+            // Seeded OR fetched — either is enough to paint the form.
+            store.snapshot?.agent != null || seedAgent != null -> Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             ) {
             // Identity
@@ -255,21 +275,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                 GroupedFormDivider()
                 Text("Color", color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    colorOptions.forEach { c ->
-                        val selected = color.equals(c, ignoreCase = true)
-                        Box(
-                            Modifier
-                                .size(40.dp)
-                                .background(colorFromHexString(c) ?: AppColors.appAccentBlue, CircleShape)
-                                .border(if (selected) 3.dp else 0.dp, Color.White, CircleShape)
-                                .clickable { color = c; hasChanges = true },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (selected) Icon(agentSymbol("checkmark"), contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                        }
-                    }
-                }
+                ColorPickerGrid(selected = color) { color = it; hasChanges = true }
             }
 
             // Sports
@@ -319,7 +325,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
             WizardSectionCard {
                 Text("Preferred Bet Type", color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
-                SegmentedBetType(personality.preferredBetType) { mutatePersonality { p -> p.copy(preferredBetType = it) } }
+                SegmentedChoice(betTypes, personality.preferredBetType) { mutatePersonality { p -> p.copy(preferredBetType = it) } }
                 GroupedFormDivider()
                 SliderInput(personality.maxPicksPerDay, { mutatePersonality { p -> p.copy(maxPicksPerDay = it) } }, "Max Picks Per Day", maxPicksLabels, description = "Maximum number of picks your agent will make on any given day")
                 GroupedFormDivider()
@@ -340,7 +346,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                         }
                     },
                     label = "Weekly Parlay",
-                    description = "Each football week, build one NFL/CFB parlay that stays live through Monday night.",
+                    description = "Each football week, your agent builds one week-long NFL/CFB parlay that stays live through Monday night.",
                     enabled = hasFootball,
                 )
                 if (hasFootball && personality.weeklyParlayEnabled == true) {
@@ -351,7 +357,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                             mutatePersonality { p -> p.copy(weeklyParlayLegs = (value + 1).coerceIn(2, 6)) }
                         },
                         label = "Weekly Parlay Legs",
-                        labels = listOf("2 legs", "3 legs", "4 legs", "5 legs", "6 legs"),
+                        labels = listOf("2 Legs", "3 Legs", "4 Legs", "5 Legs", "6 Legs"),
                         description = "How many legs the week-long ticket should target",
                     )
                 }
@@ -388,16 +394,17 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(top = 8.dp),
                     )
-                    ChoiceRail(
-                        entries = listOf("off" to "Off", "allow" to "Allow", "emphasize" to "Emphasize"),
+                    Spacer(Modifier.height(8.dp))
+                    SegmentedChoice(
+                        entries = propsEmphasisOptions,
                         selected = personality.propsEmphasis ?: "allow",
                         onSelect = { value -> mutatePersonality { p -> p.copy(propsEmphasis = value) } },
                     )
                 }
             }
             WizardSectionFooter(
-                if (hasNFL) "Player props are NFL-only and signal-gated."
-                else "Add NFL to enable player props.",
+                if (hasNFL) "Which bet markets this agent may stake — also used as parlay legs. Player props are NFL-only and signal-gated."
+                else "Which bet markets this agent may stake. Add NFL to enable player props.",
             )
 
             // Data Trust
@@ -518,7 +525,7 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
                     ) {
                         Text("Preferred time", color = AppColors.appTextPrimary, fontSize = 16.sp)
                         Spacer(Modifier.weight(1f))
-                        Text("$autoGenerateTime ${tzAbbr(autoGenerateTimezone)}", color = AppColors.appPrimary, fontSize = 14.sp)
+                        Text("$autoGenerateTime ${tzAbbr(autoGenerateTimezone)}", color = AppColors.appPrimary, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
                         Spacer(Modifier.width(6.dp))
                         Icon(agentSymbol("chevron.right"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.size(12.dp))
                     }
@@ -629,13 +636,40 @@ fun AgentSettingsScreen(agentId: String, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * All ten swatches as an even 5x2 grid — a horizontal scroll row hid #6-10
+ * behind an affordance-less edge (iOS uses an adaptive 44pt LazyVGrid), and a
+ * FlowRow wrapped them 6+4 with a ragged left-aligned second row.
+ */
 @Composable
-private fun SegmentedBetType(selected: String, onSelect: (String) -> Unit) {
+private fun ColorPickerGrid(selected: String, onSelect: (String) -> Unit) {
+    SwatchGrid(items = colorOptions, columns = 5, verticalSpacing = 10.dp) { c ->
+        val isSelected = selected.equals(c, ignoreCase = true)
+        Box(
+            Modifier
+                .size(40.dp)
+                .background(colorFromHexString(c) ?: AppColors.appAccentBlue, CircleShape)
+                .border(if (isSelected) 3.dp else 0.dp, Color.White, CircleShape)
+                .clickable { onSelect(c) },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (isSelected) Icon(agentSymbol("checkmark"), contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+        }
+    }
+}
+
+/**
+ * Segmented control shared by "Preferred Bet Type" and "Player Props Emphasis"
+ * — iOS renders both with `.pickerStyle(.segmented)`, so they must not drift
+ * into two different idioms.
+ */
+@Composable
+private fun SegmentedChoice(entries: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(AppColors.appBorder.copy(alpha = 0.35f), RoundedCornerShape(8.dp)).padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        betTypes.forEach { (value, label) ->
+        entries.forEach { (value, label) ->
             val active = value == selected
             Box(
                 Modifier
@@ -671,7 +705,16 @@ private fun InsightSection(title: String, icon: String, value: String, maxLength
         }
     }
     WizardSectionCard {
-        SettingsTextField(value = value, onValueChange = onValueChange, placeholder = "Add your notes…", singleLine = false)
+        // Opens at 3 lines and grows to 8 (iOS `.lineLimit(3...8)`) — a 1-line
+        // box reads as a name field, not a place to write a paragraph.
+        SettingsTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = "Add your notes…",
+            singleLine = false,
+            minLines = 3,
+            maxLines = 8,
+        )
     }
     Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 6.dp)) {
         Text(description, color = AppColors.appTextSecondary, fontSize = 12.sp, modifier = Modifier.weight(1f))
@@ -680,12 +723,21 @@ private fun InsightSection(title: String, icon: String, value: String, maxLength
 }
 
 @Composable
-private fun SettingsTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, singleLine: Boolean) {
+private fun SettingsTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    singleLine: Boolean,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+) {
     TextField(
         value = value,
         onValueChange = onValueChange,
         placeholder = { Text(placeholder, color = AppColors.appTextSecondary) },
         singleLine = singleLine,
+        minLines = minLines,
+        maxLines = maxLines,
         modifier = Modifier.fillMaxWidth(),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = Color.Transparent,

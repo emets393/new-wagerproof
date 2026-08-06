@@ -73,6 +73,7 @@ import com.revenuecat.purchases.models.OfferPaymentMode
 import com.revenuecat.purchases.models.Period
 import com.revenuecat.purchases.models.StoreProduct
 import com.revenuecat.purchases.models.StoreTransaction
+import com.wagerproof.app.BuildConfig
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.core.design.backgrounds.PixelDotAnimation
 import com.wagerproof.core.design.backgrounds.PixelDotBackground
@@ -138,7 +139,20 @@ internal fun CustomPaywallView(
 
     // Adapt RevenueCat's catalog once; every downstream decision reads the
     // plain-Kotlin projection so the rules stay unit-testable.
-    val products = remember(offering) { offering?.availablePackages.orEmpty().map { it.toPaywallProduct() } }
+    val storeProducts = remember(offering) { offering?.availablePackages.orEmpty().map { it.toPaywallProduct() } }
+    // A debug-signed sideload can never resolve the Play catalog (Play matches on
+    // package id AND signing cert), so reviewing this screen locally would only
+    // ever show UnavailablePlans. Fall back to sample products so the plan cards
+    // are visible — same resolver, same math, just fixture prices. R8 drops this
+    // whole branch from release.
+    //
+    // Deliberately scoped to the Secret-Settings preview (`debugClose`), NOT every
+    // debug build: on the REAL onboarding gate an empty catalog must keep falling
+    // through to UnavailablePlans, because its "Continue without subscription" is
+    // the hard gate's only escape. Fixture plans there would strand a debug tester
+    // behind a CTA that cannot buy anything.
+    val usingDebugCatalog = BuildConfig.DEBUG && debugClose && storeProducts.isEmpty()
+    val products = if (usingDebugCatalog) remember { PaywallDebugCatalog.products() } else storeProducts
     val packagesById = remember(offering) { offering?.availablePackages.orEmpty().associateBy { it.identifier } }
     val entryOffer = remember(offering) { PaywallPlanResolver.entryOffer(offering?.metadata.orEmpty()) }
     val resolved = remember(products, entryOffer) { PaywallPlanResolver.resolve(products, entryOffer) }
@@ -167,6 +181,9 @@ internal fun CustomPaywallView(
                 "variant" to PAYWALL_VARIANT,
                 "plans" to resolved.plans.joinToString(",") { it.name },
                 "research_time_bucket" to (researchBucketRaw ?: "none"),
+                // Lets the funnel exclude local debug impressions, which show
+                // fixture prices and can never convert.
+                "debug_catalog" to if (usingDebugCatalog) "true" else "false",
             ),
         )
         // Meta ViewContent — gives value optimization a dollar signal at the
@@ -375,6 +392,16 @@ internal fun CustomPaywallView(
                     verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    if (usingDebugCatalog) {
+                        Text(
+                            text = PaywallDebugCatalog.NOTICE,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF4D4F),
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
                     PlanRow(
                         resolved = resolved,
                         selectedId = selectedId,

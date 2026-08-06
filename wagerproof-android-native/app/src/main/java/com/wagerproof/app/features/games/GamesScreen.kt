@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.cfb.CFBGameCard
+import com.wagerproof.app.features.components.GlassSegmentedPicker
 import com.wagerproof.app.features.components.QuickFilterEmptyState
 import com.wagerproof.app.features.components.QuickFilterField
 import com.wagerproof.app.features.gamecards.GameCardFormatting
@@ -56,7 +57,6 @@ import com.wagerproof.app.features.nfl.NFLGameCard
 import com.wagerproof.app.features.navigation.SettingsToolbarButton
 import com.wagerproof.app.features.navigation.WagerProofWordmark
 import com.wagerproof.app.nav.LocalAppNavigator
-import com.wagerproof.core.design.components.liquidGlassCapsule
 import com.wagerproof.core.design.components.staggeredAppear
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
@@ -271,40 +271,15 @@ private fun filteredGamesAreEmpty(store: GamesStore, sport: GamesStore.Sport): B
 
 @Composable
 private fun PickerBar(store: GamesStore) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-            .liquidGlassCapsule(null)
-            .padding(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        // Segmented sport picker.
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            GamesStore.Sport.displayOrder().forEach { s ->
-                val active = store.selectedSport == s
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (active) AppColors.appPrimary.copy(alpha = 0.2f) else Color.Transparent)
-                        .clickable { store.selectedSport = s }
-                        .padding(vertical = 6.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        s.label,
-                        color = if (active) AppColors.appTextPrimary else AppColors.appTextSecondary,
-                        fontSize = 12.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        maxLines = 1,
-                    )
-                }
-            }
-        }
-        SortMenu(store)
-    }
+    val sports = GamesStore.Sport.displayOrder()
+    GlassSegmentedPicker(
+        labels = sports.map { it.label },
+        selectedIndex = sports.indexOf(store.selectedSport),
+        onSelect = { store.selectedSport = sports[it] },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+        labelFontSize = 12.sp,
+        trailing = { SortMenu(store) },
+    )
 }
 
 @Composable

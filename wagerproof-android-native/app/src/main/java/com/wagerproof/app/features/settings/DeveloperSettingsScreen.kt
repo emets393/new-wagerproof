@@ -317,7 +317,8 @@ fun DeveloperSettingsScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier
         BackHandler { showStats = false }
         Column(modifier = Modifier.fillMaxSize().background(AppColors.appSurface)) {
             SettingsSubScreenBar(
-                title = "Agents Platform Stats",
+                // iOS titles the screen "Agent Stats" while the launching row keeps the longer name.
+                title = "Agent Stats",
                 onDismiss = { showStats = false },
                 large = true,
             )

@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.agents.AgentColorPalette
+import com.wagerproof.app.features.components.SwatchGrid
 import com.wagerproof.app.features.agents.creation.inputs.ArchetypeCard
 import com.wagerproof.app.features.onboarding.OnboardingChip
 import com.wagerproof.app.features.onboarding.OnboardingOptionCard
@@ -180,7 +181,6 @@ private val identityGradients = listOf(
     "gradient:#14b8a6,#8b5cf6", "gradient:#6366f1,#3b82f6", "gradient:#dc2626,#7c3aed", "gradient:#0ea5e9,#22d3ee",
 )
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OnboardingBuilderIdentityPage(creation: AgentCreationStore, modifier: Modifier = Modifier) {
     val haptics = LocalHapticFeedback.current
@@ -256,23 +256,20 @@ fun OnboardingBuilderIdentityPage(creation: AgentCreationStore, modifier: Modifi
 
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp).pageEntrance(5), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             PickerLabel("COLOR")
-            FlowRow(
-                Modifier.width(228.dp).align(Alignment.CenterHorizontally),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                maxItemsInEachRow = 4,
-            ) {
-                identityGradients.forEach { raw ->
-                    val selected = creation.draft.avatarColor == raw
-                    Box(
-                        Modifier.size(48.dp).background(Brush.linearGradient(AgentColorPalette.avatarGradient(raw)), CircleShape).border(if (selected) 3.dp else 0.dp, if (selected) Color.White else Color.Transparent, CircleShape).onboardingPressable {
-                            creation.draft = creation.draft.copy(avatarColor = raw)
-                        },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (selected) Box(Modifier.size(22.dp).background(Color.White.copy(alpha = 0.9f), CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.Check, null, tint = Color.Black, modifier = Modifier.size(12.dp))
-                        }
+            // Even 4x4 columns across the full content width. The old FlowRow was
+            // boxed to a hard-coded 228.dp — exactly four 48dp swatches plus their
+            // gaps — which held the column count but left the grid as a narrow
+            // island with a big empty gutter either side of it.
+            SwatchGrid(items = identityGradients, columns = 4) { raw ->
+                val selected = creation.draft.avatarColor == raw
+                Box(
+                    Modifier.size(48.dp).background(Brush.linearGradient(AgentColorPalette.avatarGradient(raw)), CircleShape).border(if (selected) 3.dp else 0.dp, if (selected) Color.White else Color.Transparent, CircleShape).onboardingPressable {
+                        creation.draft = creation.draft.copy(avatarColor = raw)
+                    },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) Box(Modifier.size(22.dp).background(Color.White.copy(alpha = 0.9f), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Check, null, tint = Color.Black, modifier = Modifier.size(12.dp))
                     }
                 }
             }

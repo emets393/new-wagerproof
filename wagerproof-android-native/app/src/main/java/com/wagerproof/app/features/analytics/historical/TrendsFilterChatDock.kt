@@ -107,94 +107,107 @@ internal fun TrendsFilterChatDock(
         }
     }
 
-    Column(
-        modifier
-            .fillMaxWidth()
-            // Scrim so the dock separates from whatever scrolls beneath it —
-            // without it the list runs straight into the input pill.
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        AppColors.appSurface.copy(alpha = 0f),
-                        AppColors.appSurface.copy(alpha = 0.85f),
-                        AppColors.appSurface,
+    Column(modifier.fillMaxWidth()) {
+        // Scrim, in two parts. It used to be one gradient ramped across the whole
+        // dock, which put the suggestion capsules in the see-through top of the
+        // ramp — breakdown rows read straight through them. Now the dissolve
+        // happens in a band ABOVE the content and the dock itself is opaque, so
+        // both the chips and the input always sit on their own surface.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(SCRIM_FADE_HEIGHT)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(AppColors.appSurface.copy(alpha = 0f), AppColors.appSurface),
                     ),
                 ),
-            )
-            .padding(top = 14.dp, bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        ChatSuggestionRow(store, sport, focused, enabled = !signedOut) { suggestion ->
-            store.nlChat.inputText = suggestion
-            send(suggestion)
-        }
-
-        Row(
+        )
+        Column(
             Modifier
-                .padding(horizontal = 12.dp)
                 .fillMaxWidth()
-                .height(48.dp)
-                .liquidGlassCapsule()
-                .border(1.dp, AppColors.appBorder.copy(alpha = .8f), CircleShape)
-                .padding(start = 16.dp, end = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .background(AppColors.appSurface)
+                .padding(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            BasicTextField(
-                value = store.nlChat.inputText,
-                onValueChange = { store.nlChat.inputText = it.replace('\n', ' ') },
-                enabled = !signedOut && !store.nlChat.isProcessing,
-                singleLine = true,
-                modifier = Modifier
-                    .weight(1f)
-                    .onFocusChanged { focused = it.isFocused }
-                    .semantics { contentDescription = "Describe the filters you want" },
-                textStyle = TextStyle(color = AppColors.appTextPrimary, fontSize = 15.sp),
-                cursorBrush = SolidColor(AppColors.appPrimary),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { send() }),
-                decorationBox = { inner ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (store.nlChat.inputText.isEmpty()) {
-                            Text(
-                                if (signedOut) "Sign in to use filter chat" else "Type what filters you want…",
-                                color = AppColors.appTextSecondary,
-                                fontSize = 15.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        inner()
-                    }
-                },
-            )
+            ChatSuggestionRow(store, sport, focused, enabled = !signedOut) { suggestion ->
+                store.nlChat.inputText = suggestion
+                send(suggestion)
+            }
 
-            if (store.nlChat.isProcessing) {
-                CircularProgressIndicator(
-                    Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                    color = AppColors.appPrimary,
-                )
-            } else {
-                IconButton(
-                    onClick = { send() },
-                    enabled = canSend,
+            Row(
+                Modifier
+                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .liquidGlassCapsule()
+                    .border(1.dp, AppColors.appBorder.copy(alpha = .8f), CircleShape)
+                    .padding(start = 16.dp, end = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BasicTextField(
+                    value = store.nlChat.inputText,
+                    onValueChange = { store.nlChat.inputText = it.replace('\n', ' ') },
+                    enabled = !signedOut && !store.nlChat.isProcessing,
+                    singleLine = true,
                     modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(if (canSend) AppColors.appPrimary else AppColors.appSurfaceMuted),
-                ) {
-                    Icon(
-                        Icons.Rounded.ArrowUpward,
-                        "Send filter request",
-                        Modifier.size(19.dp),
-                        tint = if (canSend) Color.White else AppColors.appTextMuted,
+                        .weight(1f)
+                        .onFocusChanged { focused = it.isFocused }
+                        .semantics { contentDescription = "Describe the filters you want" },
+                    textStyle = TextStyle(color = AppColors.appTextPrimary, fontSize = 15.sp),
+                    cursorBrush = SolidColor(AppColors.appPrimary),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { send() }),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (store.nlChat.inputText.isEmpty()) {
+                                Text(
+                                    if (signedOut) "Sign in to use filter chat" else "Type what filters you want…",
+                                    color = AppColors.appTextSecondary,
+                                    fontSize = 15.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+
+                if (store.nlChat.isProcessing) {
+                    CircularProgressIndicator(
+                        Modifier.size(22.dp),
+                        strokeWidth = 2.dp,
+                        color = AppColors.appPrimary,
                     )
+                } else {
+                    IconButton(
+                        onClick = { send() },
+                        enabled = canSend,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(if (canSend) AppColors.appPrimary else AppColors.appSurfaceMuted),
+                    ) {
+                        Icon(
+                            Icons.Rounded.ArrowUpward,
+                            "Send filter request",
+                            Modifier.size(19.dp),
+                            tint = if (canSend) Color.White else AppColors.appTextMuted,
+                        )
+                    }
                 }
             }
         }
     }
 }
+
+/**
+ * Height of the dissolve above the dock. Deep enough that a breakdown row fades
+ * out rather than being sliced off by the dock's edge.
+ */
+private val SCRIM_FADE_HEIGHT = 30.dp
 
 /**
  * Chips above the input. They flip to the user's own recent queries while a

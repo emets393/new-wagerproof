@@ -1,5 +1,6 @@
 package com.wagerproof.app.features.agents
 
+import android.app.Activity
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -25,10 +26,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -37,12 +38,16 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,12 +56,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.BuildConfig
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.agents.components.AgencyStatsPill
 import com.wagerproof.app.features.agents.components.AgentLeaderboard
@@ -67,14 +80,16 @@ import com.wagerproof.app.features.agents.components.TopAgentPicksFeed
 import com.wagerproof.app.features.agents.creation.AgentBuilderScreen
 import com.wagerproof.app.features.agents.creation.AgentCreationPreflight
 import com.wagerproof.app.features.agents.creation.runAgentCreationPreflight
+import com.wagerproof.app.features.components.GlassSegmentedPicker
 import com.wagerproof.app.nav.LocalAppNavigator
 import com.wagerproof.app.features.navigation.WagerProofTopBar
-import com.wagerproof.core.design.components.LiquidGlassCapsule
 import com.wagerproof.core.design.components.SkeletonBlock
 import com.wagerproof.core.design.components.SkeletonCapsule
 import com.wagerproof.core.design.components.liquidGlassBackground
 import com.wagerproof.core.design.components.shimmering
 import com.wagerproof.core.design.components.staggeredAppear
+import com.wagerproof.core.design.pixeloffice.pixelOfficeIsNight
+import com.wagerproof.core.design.pixeloffice.rememberPixelOfficeTimeMode
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.models.AgentWithPerformance
@@ -87,13 +102,13 @@ import com.wagerproof.core.stores.FavoriteAgentsStore
 import com.wagerproof.core.stores.FollowedAgentsStore
 import com.wagerproof.core.stores.LeaderboardStore
 import com.wagerproof.core.stores.LoadState
+import com.wagerproof.core.stores.MainTabStore
 import com.wagerproof.core.stores.StorePrefs
 import com.wagerproof.core.stores.TopAgentPicksFeedStore
 import com.wagerproof.core.services.AgentChatService
 import com.wagerproof.core.services.AgentPerformanceService
 import com.wagerproof.core.services.runCatchingCancellable
 import kotlinx.coroutines.launch
-import java.util.Calendar
 import kotlin.math.roundToInt
 
 /** Sort orders for the My Agents list, surfaced by the filter pill above it. */
@@ -106,7 +121,28 @@ private enum class AgentSortOption(val label: String, val icon: String) {
 }
 
 private const val PINNED_IDS_KEY = "agents-pinned-ids"
-private const val OFFICE_TIME_MODE_KEY = "pixel-office-time-mode"
+
+/** Left of the row when a full trailing swipe should fire the destructive action. */
+private const val FULL_SWIPE_FRACTION = 0.5f
+
+/**
+ * True while the hub's copy-build builder is up. `MainScaffold` reads it to hide
+ * `WagerBottomBar`, the same way iOS presents that builder in a `fullScreenCover`
+ * with `.toolbar(.hidden, for: .tabBar)` (AgentsView.swift:307-321).
+ *
+ * A shared flag rather than an `AppRoute`: the builder is seeded with a copied
+ * `AgentCreationStore.Draft` that a route would have to serialize, and the
+ * overlay has to stay inside this screen to keep that draft hand-off intact.
+ */
+internal object AgentCopyBuildPresentation {
+    var isPresented by mutableStateOf(false)
+        private set
+
+    // Not a property setter: `isPresented`'s generated JVM setter is already `setPresented`.
+    fun update(value: Boolean) {
+        isPresented = value
+    }
+}
 
 /**
  * Agents tab landing screen. Ports iOS `AgentsView`: an inner tab picker (My
@@ -126,6 +162,15 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
     val proAccess = graph.proAccess
     val nav = LocalAppNavigator.current
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+
+    // Tab visibility, the way iOS reads `tabStore.selected == .agents`
+    // (AgentsView.swift:545, 588). Composition presence is nearly the same
+    // signal here — MainScaffold's AnimatedContent only composes the visible
+    // tab's top route — but it keeps the OUTGOING screen composed through the
+    // 260ms switch animation, which is exactly when the office sim and every
+    // row's glyph field should already be stopping.
+    val animationsActive = graph.mainTab.selected == MainTabStore.Tab.Agents
 
     val currentUserId = (auth.phase as? AuthStore.Phase.Authenticated)?.userId?.lowercase()
     // Per-render facade — reads live ProAccessStore state (matches iOS).
@@ -181,6 +226,21 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
         followedAgents.refresh()
         unreadRefreshToken += 1
     }
+    // DEBUG-only forced inner tab so a screenshot harness can land straight on a
+    // branch — Android equivalent of iOS's `-agentsTab` launch argument
+    // (AgentsView.swift:167-182), read from the launching Intent.
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        if (!BuildConfig.DEBUG) return@LaunchedEffect
+        val forced = (context as? Activity)?.intent?.getStringExtra("agentsTab")?.lowercase()
+            ?: return@LaunchedEffect
+        store.activeTab = when (forced) {
+            "leaderboard" -> AgentsStore.InnerTab.Leaderboard
+            "toppicks", "top-picks", "picks" -> AgentsStore.InnerTab.TopPicks
+            else -> AgentsStore.InnerTab.MyAgents
+        }
+    }
+
     // Lazily refresh the Top Picks feed the first time that tab is opened.
     LaunchedEffect(store.activeTab) {
         if (store.activeTab == AgentsStore.InnerTab.TopPicks &&
@@ -271,7 +331,12 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
         Column(Modifier.fillMaxSize()) {
             WagerProofTopBar(tabStore = graph.mainTab, modifier = Modifier.fillMaxWidth()) {
                 IconButton(
-                    onClick = { if (canCreate) nav.openAgentCreate() },
+                    onClick = {
+                        if (!canCreate) return@IconButton
+                        // iOS .sensoryFeedback(.impact(weight: .medium)) (AgentsView.swift:1180).
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        nav.openAgentCreate()
+                    },
                     enabled = canCreate,
                 ) {
                     Icon(
@@ -293,7 +358,9 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
                 AgentsStore.InnerTab.MyAgents -> MyAgentsBody(
                     store = store,
                     sortedAgents = sortedAgents(store.agents, sortOption, pinnedIds),
-                    sortLabel = sortOption.label,
+                    sortOption = sortOption,
+                    onSortOption = { sortOption = it },
+                    animationsActive = animationsActive,
                     tabPicker = tabPicker,
                     pinnedIds = pinnedIds,
                     unreadToken = unreadRefreshToken,
@@ -348,6 +415,13 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
         // Copy build renders full-screen over the tab (same treatment as public
         // detail) because the builder owns its own chrome + pixelwave background.
         copyBuildDraft?.let { seed ->
+            // Tell the shell to drop the bottom bar for the duration — iOS's
+            // fullScreenCover hides the tab bar, and leaving it visible under
+            // the builder is the whole of AND-parity item "copy-build overlay".
+            DisposableEffect(Unit) {
+                AgentCopyBuildPresentation.update(true)
+                onDispose { AgentCopyBuildPresentation.update(false) }
+            }
             AgentBuilderScreen(
                 modifier = Modifier.fillMaxSize(),
                 initialDraft = seed,
@@ -366,6 +440,7 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
         FollowingSheet(
             follows = followedAgents.follows,
             unreadToken = unreadRefreshToken,
+            animationsActive = animationsActive,
             onOpenAgent = { id ->
                 showFollowingSheet = false
                 nav.openAgentDetail(id, isPublic = true)
@@ -389,10 +464,13 @@ fun AgentsScreen(modifier: Modifier = Modifier) {
     // --- Dialogs -----------------------------------------------------------
 
     pendingLongPress?.let { row ->
-        LongPressDialog(
+        LongPressActionSheet(
             agent = row,
+            // iOS's "Settings" action pushes the agent DETAIL page, not the
+            // editor (AgentsView.swift:1203-1206) — the detail is where the
+            // owner controls live.
             onSettings = {
-                nav.openAgentEdit(row.agent.id)
+                nav.openAgentDetail(row.agent.id, isPublic = false)
                 pendingLongPress = null
             },
             onToggleAutopilot = {
@@ -453,51 +531,26 @@ private fun TabPicker(
     filterMenuContent: @Composable (onClose: () -> Unit) -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(AppColors.appSurface)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        LiquidGlassCapsule(modifier = Modifier.weight(1f)) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                AgentsStore.InnerTab.entries.forEach { tab ->
-                    val active = tab == selected
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .clip(CircleShape)
-                            .background(if (active) AppColors.appPrimary.copy(alpha = 0.20f) else Color.Transparent)
-                            .clickable { onSelect(tab) }
-                            .padding(vertical = 7.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            tab.label,
-                            fontSize = 13.sp,
-                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-                            color = if (active) AppColors.appPrimary else AppColors.appTextSecondary,
-                        )
-                    }
+    val tabs = AgentsStore.InnerTab.entries
+    // No opaque full-width bar: iOS floats this as a Liquid Glass capsule over
+    // the content, with the filter menu INSIDE the capsule
+    // (AgentsView.swift:352-372).
+    GlassSegmentedPicker(
+        labels = tabs.map { it.label },
+        selectedIndex = tabs.indexOf(selected),
+        onSelect = { onSelect(tabs[it]) },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+        trailing = {
+            Box {
+                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.FilterList, contentDescription = "Filter", tint = AppColors.appTextPrimary)
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    filterMenuContent { menuOpen = false }
                 }
             }
-        }
-        Spacer(Modifier.width(8.dp))
-        Box {
-            IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Filled.FilterList, contentDescription = "Filter", tint = AppColors.appTextPrimary)
-            }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                filterMenuContent { menuOpen = false }
-            }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -594,7 +647,9 @@ internal fun myAgentsBodyMode(
 private fun MyAgentsBody(
     store: AgentsStore,
     sortedAgents: List<AgentWithPerformance>,
-    sortLabel: String,
+    sortOption: AgentSortOption,
+    onSortOption: (AgentSortOption) -> Unit,
+    animationsActive: Boolean,
     tabPicker: @Composable () -> Unit,
     pinnedIds: Set<String>,
     unreadToken: Int,
@@ -654,6 +709,7 @@ private fun MyAgentsBody(
                             onOpenAgent = onOpenFollowed,
                             onSeeAll = onSeeAllFollowing,
                             modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                            animationsActive = animationsActive,
                         )
                     }
                     // Still explain how to create the viewer's first owned agent;
@@ -664,7 +720,7 @@ private fun MyAgentsBody(
                 MyAgentsBodyMode.OWNED_AGENTS -> {
                     item {
                         Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                            OfficeHero(store.agents)
+                            OfficeHero(store.agents, animationsActive)
                         }
                     }
                     // Following rail sits between the HQ hero and the sort row,
@@ -677,29 +733,36 @@ private fun MyAgentsBody(
                                 onOpenAgent = onOpenFollowed,
                                 onSeeAll = onSeeAllFollowing,
                                 modifier = Modifier.padding(bottom = 4.dp),
+                                animationsActive = animationsActive,
                             )
                         }
                     }
-                    item { SortRow(sortLabel) }
+                    item { SortRow(sortOption, onSortOption) }
                     itemsIndexed(sortedAgents, key = { _, a -> a.id }) { index, row ->
-                        AgentSwipeRow(
-                            leadingActions = leadingActions(row),
-                            trailingActions = trailingActions(row),
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .staggeredAppear(index),
-                        ) {
-                            AgentRowCard(
-                                agent = row,
-                                hasUnreadPicks = run {
-                                    @Suppress("UNUSED_EXPRESSION") unreadToken
-                                    AgentPicksSeenStore.hasUnread(row.id, row.agent.lastGeneratedAt)
-                                },
-                                onTap = { onOpenDetail(row.id) },
-                                onLongPress = { onLongPress(row) },
-                            )
+                        // animateItem: sort/pin changes reorder these keys, and
+                        // iOS springs the cards to their new slots rather than
+                        // snapping (AgentsView.swift:634-635).
+                        Column(Modifier.animateItem()) {
+                            AgentSwipeRow(
+                                leadingActions = leadingActions(row),
+                                trailingActions = trailingActions(row),
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp)
+                                    .staggeredAppear(index),
+                            ) {
+                                AgentRowCard(
+                                    agent = row,
+                                    hasUnreadPicks = run {
+                                        @Suppress("UNUSED_EXPRESSION") unreadToken
+                                        AgentPicksSeenStore.hasUnread(row.id, row.agent.lastGeneratedAt)
+                                    },
+                                    animationsActive = animationsActive,
+                                    onTap = { onOpenDetail(row.id) },
+                                    onLongPress = { onLongPress(row) },
+                                )
+                            }
+                            Spacer(Modifier.height(10.dp))
                         }
-                        Spacer(Modifier.height(10.dp))
                     }
                     item { Spacer(Modifier.height(96.dp)) }
                 }
@@ -708,30 +771,91 @@ private fun MyAgentsBody(
     }
 }
 
+/**
+ * The My Agents section label and its active sort control share one row
+ * (iOS `sortRow` / `sortIndicator` — AgentsView.swift:889-925).
+ */
 @Composable
-private fun SortRow(label: String) {
+private fun SortRow(sortOption: AgentSortOption, onSortOption: (AgentSortOption) -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Inlined rather than AgentSectionHeader: iOS's glyph
+        // ("person.crop.square.filled.and.at.rectangle") has no entry in the
+        // shared agentSymbol map, and that map lives outside this feature.
         Icon(
-            Icons.AutoMirrored.Filled.Sort,
+            Icons.Rounded.Badge,
             contentDescription = null,
-            tint = AppColors.appTextMuted,
-            modifier = Modifier.size(12.dp),
+            tint = AppColors.appTextSecondary,
+            modifier = Modifier.size(13.dp),
         )
-        Spacer(Modifier.width(4.dp))
-        Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = AppColors.appTextMuted)
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "MY AGENTS",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AppColors.appTextSecondary,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        Box {
+            Row(
+                Modifier
+                    .clip(CircleShape)
+                    .clickable { menuOpen = true }
+                    .semantics { contentDescription = "Sort My Agents, ${sortOption.label}" }
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    agentSymbol("arrow.up.arrow.down"),
+                    contentDescription = null,
+                    tint = AppColors.appTextMuted,
+                    modifier = Modifier.size(12.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    sortOption.label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.appTextMuted,
+                )
+                Spacer(Modifier.width(3.dp))
+                Icon(
+                    agentSymbol("chevron.down"),
+                    contentDescription = null,
+                    tint = AppColors.appTextMuted,
+                    modifier = Modifier.size(10.dp),
+                )
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                AgentSortOption.entries.forEach { opt ->
+                    DropdownMenuItem(
+                        text = { Text(opt.label) },
+                        leadingIcon = {
+                            Icon(agentSymbol(opt.icon), contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            if (opt == sortOption) {
+                                Icon(agentSymbol("checkmark"), contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        },
+                        onClick = { onSortOption(opt); menuOpen = false },
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun OfficeHero(agents: List<AgentWithPerformance>) {
+private fun OfficeHero(agents: List<AgentWithPerformance>, isActive: Boolean) {
     Box {
-        AgentsOfficeHero(agents = agents, isActive = true, modifier = Modifier.fillMaxWidth())
+        AgentsOfficeHero(agents = agents, isActive = isActive, modifier = Modifier.fillMaxWidth())
         AgentHQStatusPill(Modifier.align(Alignment.TopStart).padding(10.dp))
         AgencyStatsPill(agents = agents, modifier = Modifier.align(Alignment.TopEnd).padding(10.dp))
     }
@@ -739,16 +863,11 @@ private fun OfficeHero(agents: List<AgentWithPerformance>) {
 
 @Composable
 private fun AgentHQStatusPill(modifier: Modifier = Modifier) {
-    val night = remember {
-        when (StorePrefs.standard.getString(OFFICE_TIME_MODE_KEY, "auto")) {
-            "day" -> false
-            "night" -> true
-            else -> {
-                val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-                hour >= 19 || hour < 6
-            }
-        }
-    }
+    // Reads the office's OWN persisted toggle through the shared observable, so
+    // tapping its Auto/Day/Night chip flips this label too. A keyless `remember`
+    // over a different prefs file used to latch whatever was true at first
+    // composition (iOS reads the same @AppStorage per render — AgentsView:929-954).
+    val night = pixelOfficeIsNight(rememberPixelOfficeTimeMode())
     Row(
         modifier
             .liquidGlassBackground(CircleShape)
@@ -779,16 +898,20 @@ private fun EmptyState(onCreate: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // Both headers wrap on narrow screens; iOS centers them
+        // (.multilineTextAlignment(.center) — AgentsView.swift:1100, 1105).
         Text(
             "Your AI Picks Expert",
             fontSize = 24.sp,
             fontWeight = FontWeight.Black,
             color = AppColors.appTextPrimary,
+            textAlign = TextAlign.Center,
         )
         Text(
             "Build a virtual analyst that thinks the way you bet.",
             fontSize = 15.sp,
             color = AppColors.appTextSecondary,
+            textAlign = TextAlign.Center,
         )
         JourneyStep("slider.horizontal.3", "Build Your Strategy", "Choose risk level, bet types, and sports. Pick a preset archetype or go fully custom.")
         JourneyStep("brain.head.profile", "AI Analyzes Every Game", "Your agent scans today's slate using WagerProof model data, odds, and market signals.")
@@ -862,46 +985,61 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
 }
 
 // ---------------------------------------------------------------------------
-// Long-press dialog
+// Long-press action sheet
 // ---------------------------------------------------------------------------
 
+/**
+ * Long-press menu for a hub row. iOS presents a bottom `confirmationDialog`
+ * with a destructive Delete and a Cancel role (AgentsView.swift:272-280,
+ * 1201-1218) — a centered AlertDialog with an empty confirm button was neither
+ * the right affordance nor a valid Material dialog.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LongPressDialog(
+private fun LongPressActionSheet(
     agent: AgentWithPerformance,
     onSettings: () -> Unit,
     onToggleAutopilot: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(agent.agent.name) },
-        text = {
-            Column {
-                DialogRow("Settings", onSettings)
-                DialogRow(
-                    if (agent.agent.autoGenerate) "Turn Autopilot Off" else "Turn Autopilot On",
-                    onToggleAutopilot,
-                )
-                DialogRow("Delete Agent", onDelete, tint = AppColors.appLoss)
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = AppColors.appSurfaceElevated,
-    )
+    ) {
+        Text(
+            agent.agent.name,
+            color = AppColors.appTextSecondary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+        )
+        HorizontalDivider(color = AppColors.appBorder.copy(alpha = 0.5f))
+        SheetActionRow("Settings", onSettings)
+        SheetActionRow(
+            if (agent.agent.autoGenerate) "Turn Autopilot Off" else "Turn Autopilot On",
+            onToggleAutopilot,
+        )
+        SheetActionRow("Delete Agent", onDelete, tint = AppColors.appLoss)
+        HorizontalDivider(color = AppColors.appBorder.copy(alpha = 0.5f))
+        SheetActionRow("Cancel", onDismiss, tint = AppColors.appTextSecondary)
+        Spacer(Modifier.height(24.dp))
+    }
 }
 
 @Composable
-private fun DialogRow(label: String, onClick: () -> Unit, tint: Color = AppColors.appTextPrimary) {
+private fun SheetActionRow(label: String, onClick: () -> Unit, tint: Color = AppColors.appTextPrimary) {
     Text(
         label,
         color = tint,
         fontSize = 16.sp,
+        textAlign = TextAlign.Center,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .padding(vertical = 15.dp),
     )
 }
 
@@ -911,6 +1049,14 @@ private fun DialogRow(label: String, onClick: () -> Unit, tint: Color = AppColor
 
 internal val SWIPE_BUTTON_WIDTH = 76.dp
 
+/**
+ * Hand-rolled swipe row standing in for SwiftUI's `.swipeActions`. Buttons grow
+ * out from under the card in step with the finger, match the card's real height,
+ * and — on the trailing edge — a hard swipe past [FULL_SWIPE_FRACTION] of the
+ * row fires the first action outright, which is iOS's `allowsFullSwipe: true`
+ * (AgentsView.swift:603-610). The action itself still routes through whatever
+ * confirmation the caller wired up.
+ */
 @Composable
 internal fun AgentSwipeRow(
     leadingActions: List<RowSwipeAction>,
@@ -921,43 +1067,73 @@ internal fun AgentSwipeRow(
     val scope = rememberCoroutineScope()
     val density = androidx.compose.ui.platform.LocalDensity.current
     val offsetX = remember { Animatable(0f) }
+    var rowWidthPx by remember { mutableFloatStateOf(0f) }
     val leadingWidthPx = with(density) { (SWIPE_BUTTON_WIDTH * leadingActions.size).toPx() }
     val trailingWidthPx = with(density) { (SWIPE_BUTTON_WIDTH * trailingActions.size).toPx() }
+    // Trailing drags run past the button strip so a full swipe is reachable;
+    // leading ones stop at the strip (iOS uses allowsFullSwipe: false there).
+    val maxTrailingPx = if (trailingActions.isEmpty()) 0f else maxOf(trailingWidthPx, rowWidthPx)
 
     fun reset() {
         scope.launch { offsetX.animateTo(0f) }
     }
 
-    Box(modifier.fillMaxWidth()) {
-        // Leading action buttons (revealed on right-swipe).
-        Row(Modifier.align(Alignment.CenterStart).height(if (offsetX.value > 0f) androidx.compose.ui.unit.Dp.Unspecified else 0.dp)) {}
-        if (offsetX.value > 0f) {
-            Row(Modifier.align(Alignment.CenterStart)) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .onSizeChanged { rowWidthPx = it.width.toFloat() },
+    ) {
+        val revealed = offsetX.value
+        if (revealed > 0f && leadingActions.isNotEmpty()) {
+            // matchParentSize takes the height the card measured, so the buttons
+            // stop being a hardcoded 96dp that clipped or floated on real rows.
+            Row(Modifier.matchParentSize().clipToBounds()) {
+                val buttonWidth = with(density) { (revealed / leadingActions.size).toDp() }
                 leadingActions.forEach { a ->
-                    SwipeButton(a) { a.action(); reset() }
+                    SwipeButton(a, buttonWidth) { a.action(); reset() }
                 }
             }
         }
-        if (offsetX.value < 0f) {
-            Row(Modifier.align(Alignment.CenterEnd)) {
+        if (revealed < 0f && trailingActions.isNotEmpty()) {
+            Row(
+                Modifier.matchParentSize().clipToBounds(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                val buttonWidth = with(density) { (-revealed / trailingActions.size).toDp() }
                 trailingActions.forEach { a ->
-                    SwipeButton(a) { a.action(); reset() }
+                    SwipeButton(a, buttonWidth) { a.action(); reset() }
                 }
             }
         }
         Box(
             Modifier
                 .offset { androidx.compose.ui.unit.IntOffset(offsetX.value.roundToInt(), 0) }
-                .pointerInput(leadingActions, trailingActions) {
+                .pointerInput(leadingActions, trailingActions, maxTrailingPx) {
                     detectHorizontalDragGestures(
                         onHorizontalDrag = { _, dragAmount ->
-                            val next = (offsetX.value + dragAmount).coerceIn(-trailingWidthPx, leadingWidthPx)
-                            scope.launch { offsetX.snapTo(next) }
+                            // Read + coerce inside the launch — two pointer events can fire
+                            // before the first coroutine dispatches, and reading .value out
+                            // here would let the second overwrite the first's delta.
+                            scope.launch {
+                                val next = (offsetX.value + dragAmount).coerceIn(-maxTrailingPx, leadingWidthPx)
+                                offsetX.snapTo(next)
+                            }
                         },
                         onDragEnd = {
                             val v = offsetX.value
+                            val fullSwipe = rowWidthPx > 0f &&
+                                trailingActions.isNotEmpty() &&
+                                v <= -rowWidthPx * FULL_SWIPE_FRACTION
                             scope.launch {
                                 when {
+                                    fullSwipe -> {
+                                        offsetX.animateTo(-rowWidthPx)
+                                        trailingActions.first().action()
+                                        // Snap home: the action opens a confirm
+                                        // step, so the row must not stay parked
+                                        // off-screen while that is answered.
+                                        offsetX.snapTo(0f)
+                                    }
                                     v > leadingWidthPx * 0.5f -> offsetX.animateTo(leadingWidthPx)
                                     v < -trailingWidthPx * 0.5f -> offsetX.animateTo(-trailingWidthPx)
                                     else -> offsetX.animateTo(0f)
@@ -971,25 +1147,28 @@ internal fun AgentSwipeRow(
 }
 
 @Composable
-private fun SwipeButton(action: RowSwipeAction, onClick: () -> Unit) {
+private fun SwipeButton(
+    action: RowSwipeAction,
+    width: androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit,
+) {
     Column(
         Modifier
-            .width(SWIPE_BUTTON_WIDTH)
-            .fillMaxHeightSafe()
+            .width(width)
+            .fillMaxHeight()
             .clip(RoundedCornerShape(16.dp))
             .background(action.tint)
             .clickable(onClick = onClick)
+            .clipToBounds()
             .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(agentSymbol(action.systemImage), contentDescription = action.title, tint = Color.White, modifier = Modifier.size(20.dp))
         Spacer(Modifier.height(4.dp))
-        Text(action.title, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        Text(action.title, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
-
-private fun Modifier.fillMaxHeightSafe(): Modifier = this.height(96.dp)
 
 // ---------------------------------------------------------------------------
 // Swipe action builders

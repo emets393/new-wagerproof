@@ -130,77 +130,95 @@ fun HistoricalAnalysisScreen(sport: HistoricalAnalysisSport, modifier: Modifier 
         if (store.snapshot.selectedConferences.isNotEmpty() && breakdownTab == "conf") breakdownTab = "team"
     }
 
-    Box(modifier.fillMaxSize().background(AppColors.appSurface)) {
-        LazyColumn(
-            Modifier.fillMaxSize().alpha(if (store.isRefetching) .55f else 1f),
-            contentPadding = PaddingValues(bottom = 28.dp + chatDockHeight),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            stickyHeader(key = "header") {
-                Column(Modifier.background(AppColors.appSurface)) {
-                    TitleBar(
-                        title = "${sport.shortTitle} Trends",
-                        store = store,
-                        userId = userId,
-                        refresh = { scope.launch { store.refreshSaved(userId); store.fetchNow() } },
-                        onShare = { showShareSheet = true },
-                        onSaveSystem = { showSaveSystemSheet = true },
-                        onOpenSystems = { activeSystemsTab = it },
-                    )
-                    StoreNotices(store)
-                    store.viewingSystemBanner?.let { banner ->
+    // Results dim during a refetch; the title bar and the filter bar you are
+    // editing must not (iOS applies the 0.55 to `scrollableContent` only).
+    val contentAlpha = if (store.isRefetching) .55f else 1f
+
+    Column(modifier.fillMaxSize().background(AppColors.appSurface)) {
+        // Pinned like iOS's navigation bar — its toolbar actions (share, refresh,
+        // leaderboard, systems) stay reachable no matter how far the list scrolls.
+        TitleBar(
+            title = "${sport.shortTitle} Trends",
+            store = store,
+            userId = userId,
+            refresh = { scope.launch { store.refreshSaved(userId); store.fetchNow() } },
+            onShare = { showShareSheet = true },
+            onSaveSystem = { showSaveSystemSheet = true },
+            onOpenSystems = { activeSystemsTab = it },
+        )
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 28.dp + chatDockHeight),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                // ONLY the filter bar pins. iOS pins exactly this one header
+                // (`pinnedViews: [.sectionHeaders]`) and lets the summary scroll
+                // with the results; pinning the summary too left the hero
+                // occupying most of the screen with nothing scrollable under it.
+                stickyHeader(key = "filters") {
+                    Column(Modifier.background(AppColors.appSurface)) {
+                        HistoricalAnalysisFilterBar(store)
+                        Spacer(Modifier.height(8.dp))
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(AppColors.appBorder))
+                    }
+                }
+                if (store.fetchErrorMessage != null || store.savedFiltersError != null) {
+                    item("notices") { StoreNotices(store) }
+                }
+                store.viewingSystemBanner?.let { banner ->
+                    item("system-banner") {
                         ViewingSystemBanner(banner) { store.viewingSystemBanner = null }
                     }
-                    HeroSection(store)
-                    HistoricalAnalysisFilterBar(store)
-                    Spacer(Modifier.height(8.dp))
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(AppColors.appBorder))
+                }
+                item("hero") { HeroSection(store, Modifier.alpha(contentAlpha)) }
+                store.analysis?.takeIf { store.hasLoadedOnce }?.let { data ->
+                    // The symmetric-split hero already prints the home/away + fav/dog
+                    // bars — repeating them under BREAKDOWN is the same numbers twice.
+                    val bars = if (store.shouldShowSymmetricSplit) emptyList()
+                    else HistoricalAnalysisFilterBuilder.shownBars(data.bars, store.snapshot)
+                    if (bars.isNotEmpty()) item("bars") {
+                        BreakdownBars(
+                            data, bars,
+                            showsROI = HistoricalAnalysisBetType.showsROI(store.betType, sport),
+                            modifier = Modifier.padding(horizontal = 16.dp).alpha(contentAlpha),
+                        )
+                    }
+                    item("table") {
+                        BreakdownTable(
+                            sport, store, data, breakdownTab, breakdownSort, teamSearch,
+                            onTab = { breakdownTab = it }, onSort = { breakdownSort = it }, onSearch = { teamSearch = it },
+                            modifier = Modifier.padding(horizontal = 16.dp).alpha(contentAlpha),
+                        )
+                    }
+                }
+                if (store.upcoming.isNotEmpty()) item("upcoming") {
+                    UpcomingSection(store, Modifier.padding(horizontal = 16.dp).alpha(contentAlpha))
                 }
             }
-            store.analysis?.takeIf { store.hasLoadedOnce }?.let { data ->
-                // The symmetric-split hero already prints the home/away + fav/dog
-                // bars — repeating them under BREAKDOWN is the same numbers twice.
-                val bars = if (store.shouldShowSymmetricSplit) emptyList()
-                else HistoricalAnalysisFilterBuilder.shownBars(data.bars, store.snapshot)
-                if (bars.isNotEmpty()) item("bars") {
-                    BreakdownBars(
-                        data, bars,
-                        showsROI = HistoricalAnalysisBetType.showsROI(store.betType, sport),
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
-                }
-                item("table") {
-                    BreakdownTable(
-                        sport, store, data, breakdownTab, breakdownSort, teamSearch,
-                        onTab = { breakdownTab = it }, onSort = { breakdownSort = it }, onSearch = { teamSearch = it },
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
-                }
-            }
-            if (store.upcoming.isNotEmpty()) item("upcoming") { UpcomingSection(store, Modifier.padding(horizontal = 16.dp)) }
+            if (store.isRefetching) CircularProgressIndicator(Modifier.align(Alignment.TopCenter).padding(top = 6.dp).size(22.dp), strokeWidth = 2.dp)
+
+            // Natural-language filter chat. Docked (not a list row) because it is
+            // the discovery path for the ~120 filter dims behind the pill sheets —
+            // it has to be reachable without scrolling, exactly as on iOS.
+            TrendsFilterChatDock(
+                store = store,
+                sport = sport,
+                userId = userId,
+                scope = scope,
+                onResult = { chatResult = HistoricalAnalysisCopy.nlResultMessage(it) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .imePadding()
+                    .onSizeChanged { chatDockHeight = with(density) { it.height.toDp() } },
+            )
+
+            TrendsChatResultBanner(
+                result = chatResult,
+                onDismiss = { chatResult = null },
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
+            )
         }
-        if (store.isRefetching) CircularProgressIndicator(Modifier.align(Alignment.TopCenter).padding(top = 6.dp).size(22.dp), strokeWidth = 2.dp)
-
-        // Natural-language filter chat. Docked (not a list row) because it is
-        // the discovery path for the ~120 filter dims behind the pill sheets —
-        // it has to be reachable without scrolling, exactly as on iOS.
-        TrendsFilterChatDock(
-            store = store,
-            sport = sport,
-            userId = userId,
-            scope = scope,
-            onResult = { chatResult = HistoricalAnalysisCopy.nlResultMessage(it) },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .imePadding()
-                .onSizeChanged { chatDockHeight = with(density) { it.height.toDp() } },
-        )
-
-        TrendsChatResultBanner(
-            result = chatResult,
-            onDismiss = { chatResult = null },
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
-        )
     }
 
     if (showShareSheet) {
@@ -379,8 +397,8 @@ private fun StoreNotices(store: HistoricalAnalysisStore) {
 }
 
 @Composable
-private fun HeroSection(store: HistoricalAnalysisStore) {
-    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+private fun HeroSection(store: HistoricalAnalysisStore, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         when (val state = store.loadState) {
             LoadState.Idle, LoadState.Loading -> Row(Modifier.fillMaxWidth().height(100.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp); Spacer(Modifier.width(10.dp)); Text("Loading analysis…", color = AppColors.appTextSecondary)

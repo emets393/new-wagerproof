@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -28,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -49,6 +51,7 @@ import com.wagerproof.app.features.agents.components.PickHistorySheet
 import com.wagerproof.app.features.agents.creation.AgentBuilderScreen
 import com.wagerproof.app.features.agents.creation.AgentCreationPreflight
 import com.wagerproof.app.features.agents.creation.runAgentCreationPreflight
+import com.wagerproof.app.features.components.WidgetCard
 import com.wagerproof.app.nav.LocalAppNavigator
 import com.wagerproof.core.design.backgrounds.GlyphRippleEmitter
 import com.wagerproof.core.design.tokens.AppColors
@@ -184,7 +187,7 @@ fun PublicAgentDetailScreen(agentId: String, modifier: Modifier = Modifier) {
             ) {
                 // Follow CTA / own-agent banner. Follow and "Copy build" sit side
                 // by side for non-owners (iOS PublicAgentDetailView.followBlock).
-                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = WidgetCard.gap)) {
                     if (isOwnAgent) {
                         OwnAgentBanner()
                     } else {
@@ -262,7 +265,10 @@ fun PublicAgentDetailScreen(agentId: String, modifier: Modifier = Modifier) {
 
         focusStartIndex?.let { start ->
             AgentPickFocusView(
-                items = store.activeBetItems,
+                // todaysBetItems, NOT activeBetItems: the public page's rail shows
+                // today only, so the focus pager must share that index space or a
+                // tap lands on the wrong ticket (iOS PublicAgentDetailView:143).
+                items = store.todaysBetItems,
                 accent = agentTint,
                 startIndex = start,
                 printIntro = false,
@@ -315,25 +321,37 @@ fun PublicAgentDetailScreen(agentId: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun PublicPicksSection(store: AgentDetailStore, canSeePicks: Boolean, accent: Color, onTapItem: (Int) -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)) {
-        AgentSectionHeader(title = "Today's Picks", systemImage = "checklist")
+    // The section is NOT inset as a whole: the rails carry their own 16dp
+    // contentPadding, so an outer inset would double it and kill the edge bleed
+    // (iOS cancels it with .padding(.horizontal, -WidgetCard.hInset)). Only the
+    // header + empty state take the inset.
+    Column(Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
+        AgentSectionHeader(
+            title = "Today's Picks",
+            systemImage = "checklist",
+            modifier = Modifier.padding(horizontal = WidgetCard.hInset),
+        )
         Spacer(Modifier.height(12.dp))
+        // todaysBetItems, not activeBetItems: week-long football parlays stay live
+        // for days and don't belong under "Today's Picks" (iOS uses todaysBetItems
+        // on the public page — AgentDetailStore:140-153 explains the two sets).
+        val items = store.todaysBetItems
         when {
             !canSeePicks -> AgentLockedPicksRail(accent = accent)
-            store.snapshotLoadState is LoadState.Loading && store.activeBetItems.isEmpty() -> AgentTodaysPicksRailSkeleton()
-            store.activeBetItems.isEmpty() -> Column(
-                Modifier.fillMaxWidth().padding(vertical = 22.dp),
+            store.snapshotLoadState is LoadState.Loading && items.isEmpty() -> AgentTodaysPicksRailSkeleton()
+            items.isEmpty() -> Column(
+                Modifier.fillMaxWidth().padding(horizontal = WidgetCard.hInset).padding(vertical = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(agentSymbol("calendar.badge.exclamationmark"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.height(28.dp))
+                Icon(agentSymbol("calendar.badge.exclamationmark"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.height(10.dp))
                 Text("No picks yet today", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = AppColors.appTextSecondary)
             }
             else -> AgentTodaysPicksRail(
-                items = store.activeBetItems,
+                items = items,
                 accent = accent,
-                onTapPick = { pick -> store.activeBetItems.indexOfFirst { it.id == AgentBetItem.Pick(pick).id }.takeIf { it >= 0 }?.let(onTapItem) },
-                onTapParlay = { parlay -> store.activeBetItems.indexOfFirst { it.id == AgentBetItem.Parlay(parlay).id }.takeIf { it >= 0 }?.let(onTapItem) },
+                onTapPick = { pick -> items.indexOfFirst { it.id == AgentBetItem.Pick(pick).id }.takeIf { it >= 0 }?.let(onTapItem) },
+                onTapParlay = { parlay -> items.indexOfFirst { it.id == AgentBetItem.Parlay(parlay).id }.takeIf { it >= 0 }?.let(onTapItem) },
             )
         }
     }
@@ -354,7 +372,7 @@ private fun PublicPerformanceSection(
                 Modifier.fillMaxWidth().padding(vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(agentSymbol("lock.fill"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.height(26.dp))
+                Icon(agentSymbol("lock.fill"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.size(26.dp))
                 Spacer(Modifier.height(8.dp))
                 Text("Upgrade to view pick charts", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = AppColors.appTextSecondary)
             }
@@ -386,7 +404,7 @@ private fun FollowButton(isFollowing: Boolean, busy: Boolean, onClick: () -> Uni
         if (busy) {
             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.height(18.dp).width(18.dp))
         } else {
-            Icon(agentSymbol(if (isFollowing) "checkmark" else "plus"), contentDescription = null, tint = fg, modifier = Modifier.height(18.dp))
+            Icon(agentSymbol(if (isFollowing) "checkmark" else "plus"), contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(8.dp))
         Text(if (isFollowing) "Following" else "Follow", color = fg, fontSize = 15.sp, fontWeight = FontWeight.Black)
@@ -423,7 +441,7 @@ private fun CopyBuildButton(busy: Boolean, onClick: () -> Unit) {
                 agentSymbol("doc.on.doc"),
                 contentDescription = null,
                 tint = AppColors.appTextPrimary,
-                modifier = Modifier.height(18.dp),
+                modifier = Modifier.size(18.dp),
             )
         }
         Spacer(Modifier.width(8.dp))
@@ -446,7 +464,7 @@ private fun OwnAgentBanner() {
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(agentSymbol("person.crop.circle.badge.checkmark"), contentDescription = null, tint = AppColors.appWin, modifier = Modifier.height(18.dp))
+        Icon(agentSymbol("person.crop.circle.badge.checkmark"), contentDescription = null, tint = AppColors.appWin, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text("This is your agent", color = AppColors.appWin, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
@@ -454,8 +472,10 @@ private fun OwnAgentBanner() {
 
 @Composable
 private fun Disclaimer(modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().padding(top = 0.dp), verticalAlignment = Alignment.Top) {
-        Icon(agentSymbol("info.circle"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.height(12.dp))
+    // 0.7 alpha over the whole row (iOS PublicAgentDetailView:467) — the legal
+    // line sits under the content, not beside it.
+    Row(modifier.fillMaxWidth().alpha(0.7f), verticalAlignment = Alignment.Top) {
+        Icon(agentSymbol("info.circle"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(6.dp))
         Text(
             "AI agents analyze data — they do not constitute betting advice. Verify independently and wager responsibly.",
@@ -468,7 +488,7 @@ private fun Disclaimer(modifier: Modifier = Modifier) {
 @Composable
 private fun NotFoundView(message: String?, onRetry: () -> Unit) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(agentSymbol("person.crop.circle.badge.exclamationmark"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.height(36.dp))
+        Icon(agentSymbol("person.crop.circle.badge.exclamationmark"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.size(36.dp))
         Spacer(Modifier.height(12.dp))
         Text(if (message == null) "Agent not found" else "Couldn't load this agent", color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         message?.let {

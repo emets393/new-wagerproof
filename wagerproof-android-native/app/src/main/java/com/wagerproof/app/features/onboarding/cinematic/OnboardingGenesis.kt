@@ -66,10 +66,10 @@ import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.agents.components.AgentPickTicket
 import com.wagerproof.app.features.agents.components.AgentRowCard
 import com.wagerproof.app.features.agents.components.GenerationLoadingBar
+import com.wagerproof.app.features.agents.components.WorkingDeskAvatar
 import com.wagerproof.app.features.onboarding.components.onboardingIcon
 import com.wagerproof.app.features.onboarding.LocalOnboardingReduceMotion
 import com.wagerproof.core.design.backgrounds.GlyphRippleEmitter
-import com.wagerproof.core.design.pixeloffice.PixelSpriteAvatar
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.Agent
 import com.wagerproof.core.models.AgentPick
@@ -285,17 +285,6 @@ fun OnboardingGenerationCinematic(model: OnboardingGenesisModel?, accent: Color,
         GenerationLoadingBar(model?.progressFraction ?: 0f, accent, Modifier.width(220.dp).padding(top = 14.dp))
         Spacer(Modifier.weight(0.45f))
         ToolTicketStack(model?.toolCallCount ?: 0, accent, Modifier.fillMaxWidth().height(190.dp).padding(horizontal = 24.dp, vertical = 24.dp))
-    }
-}
-
-@Composable
-private fun WorkingDeskAvatar(spriteIndex: Int, accent: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(150.dp), contentAlignment = Alignment.BottomCenter) {
-            Box(Modifier.width(142.dp).height(62.dp).background(Color(0xFF1A1D24), RoundedCornerShape(12.dp)).border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(12.dp)))
-            PixelSpriteAvatar(spriteIndex, Modifier.size(130.dp).padding(bottom = 22.dp))
-            Box(Modifier.width(148.dp).height(14.dp).background(Color(0xFF333844), RoundedCornerShape(5.dp)).align(Alignment.BottomCenter))
-        }
     }
 }
 

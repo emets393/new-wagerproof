@@ -1,16 +1,27 @@
 package com.wagerproof.app.features.agents.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -32,11 +43,17 @@ import com.wagerproof.app.features.agents.AgentTicketGeometry
 @Composable
 fun ToolActivityStack(
     count: Int,
+    /** Kept for call-site compatibility (iOS `ToolActivityStack.accent`) — the skeleton cardstock is neutral. */
+    accent: Color = Color.Unspecified,
     modifier: Modifier = Modifier,
 ) {
     val cardW = AgentTicketGeometry.MINI_WIDTH
     val cardH = AgentTicketGeometry.MINI_HEIGHT
-    val indices = toolActivityVisibleIndices(count)
+    val targetIndices = toolActivityVisibleIndices(count)
+    // Tickets currently mounted, including ones fading OUT after falling off
+    // the 7-card window — a plain list-diff would pop them instantly (iOS fades).
+    val mounted = remember { mutableStateListOf<Int>() }
+    for (idx in targetIndices) if (idx !in mounted) mounted.add(idx)
 
     // Reserve a stable footprint even at count == 0 so the status line below
     // never jumps as the first ticket deals in.
@@ -44,19 +61,23 @@ fun ToolActivityStack(
         modifier = modifier.height(cardH + 10.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
-        if (indices.isEmpty()) return@BoxWithConstraints
+        if (mounted.isEmpty()) return@BoxWithConstraints
         val peek = toolActivityPeek(
-            visibleCount = indices.size,
+            visibleCount = targetIndices.size,
             containerWidth = maxWidth,
             cardWidth = cardW,
         )
-        val first = indices.first()
-        indices.forEach { idx ->
+        val first = targetIndices.firstOrNull() ?: mounted.min()
+        mounted.sorted().forEach { idx ->
             // Absolute tool-call identity matters once the seven-card window
             // starts sliding. Positional nodes made calls 8+ look completely
             // static because every slot retained the same offset state.
             key(idx) {
-                val pos = idx - first // 0 = leading / frontmost
+                // A ticket still finishing its fade-out after falling off the front of the
+                // sliding window has idx < first, i.e. a negative pos — clamped to 0 so it
+                // settles at the leading edge instead of flying left over the deck with an
+                // out-of-range zIndex above every visible card.
+                val pos = (idx - first).coerceAtLeast(0) // 0 = leading / frontmost
                 // Animate the x-offset so retained tickets visibly make room
                 // for the newly dealt trailing card.
                 val x by animateDpAsState(
@@ -64,11 +85,29 @@ fun ToolActivityStack(
                     animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
                     label = "toolTicketOffset-$idx",
                 )
-                AgentPickMiniTicketSkeleton(
-                    modifier = Modifier
-                        .zIndex((TOOL_STACK_MAX_VISIBLE - pos).toFloat())
-                        .offset(x = x),
-                )
+                // Deal-in from the trailing edge + fade; fade-out on removal —
+                // port of iOS's `.transition(.asymmetric(insertion: .move(edge:
+                // .trailing).combined(with: .opacity), removal: .opacity))`.
+                val visibleState = remember { MutableTransitionState(false) }
+                visibleState.targetState = idx in targetIndices
+                if (!visibleState.currentState && !visibleState.targetState) {
+                    mounted.remove(idx)
+                }
+                AnimatedVisibility(
+                    visibleState = visibleState,
+                    enter = fadeIn(tween(220)) + slideInHorizontally(tween(220)) { it / 3 },
+                    exit = fadeOut(tween(180)),
+                    modifier = Modifier.zIndex((TOOL_STACK_MAX_VISIBLE - pos).toFloat()).offset(x = x),
+                ) {
+                    AgentPickMiniTicketSkeleton(
+                        modifier = Modifier.shadow(
+                            elevation = 9.dp,
+                            shape = RoundedCornerShape(AgentTicketGeometry.MINI_CORNER),
+                            ambientColor = Color.Black.copy(alpha = 0.55f),
+                            spotColor = Color.Black.copy(alpha = 0.55f),
+                        ),
+                    )
+                }
             }
         }
     }

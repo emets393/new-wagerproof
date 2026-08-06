@@ -26,22 +26,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.wagerproof.app.features.agents.AgentColorPalette
 import com.wagerproof.app.features.agents.agentSymbol
 import com.wagerproof.app.features.agents.color
-import com.wagerproof.core.design.pixeloffice.PixelSpriteAvatar
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.AgentPerformance
 import com.wagerproof.core.models.AgentSport
@@ -57,40 +56,69 @@ import kotlin.math.roundToInt
  * Adopts the MLB `GameRowCard` glass language: translucent surface, ~26dp
  * continuous corners, hairline border, soft shadow, animated glyph texture.
  * Tap → [onTap]; 0.4s long-press → [onLongPress].
+ *
+ * [animationsActive] is the host tab's visibility: a retained-but-hidden tab
+ * must not keep every row's glyph field and avatar timeline running. Callers
+ * outside the tab shell keep the default.
+ *
+ * FIDELITY-WAIVER #336: iOS fills the card with `.ultraThinMaterial` at 0.55
+ * opacity — a live backdrop blur. Compose has no equivalent per-card material
+ * (haze is reserved for the shell's Liquid Glass surfaces), so this stays a flat
+ * translucent `appSurfaceElevated` fill; only the shadow and border are matched.
  */
 @Composable
 fun AgentRowCard(
     agent: AgentWithPerformance,
     modifier: Modifier = Modifier,
     hasUnreadPicks: Boolean = false,
+    animationsActive: Boolean = true,
     onTap: () -> Unit,
     onLongPress: () -> Unit = {},
 ) {
     val shape = RoundedCornerShape(26.dp)
-    val primary = AgentColorPalette.primary(agent.agent.avatarColor)
+    val haptics = LocalHapticFeedback.current
 
     Box(
         modifier
+            // iOS: .shadow(color: .black.opacity(0.06), radius: 4, y: 2). Keep the
+            // 4dp radius but let the platform pick the shadow color — Compose
+            // multiplies spot/ambient colors by its own low alpha ratios, so
+            // handing it 0.06 black renders nothing at all. Must precede clip()
+            // or the corners would clip the shadow away.
+            .shadow(elevation = 4.dp, shape = shape)
             .clip(shape)
-            .combinedClickable(onClick = onTap, onLongClick = onLongPress)
+            .combinedClickable(
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onTap()
+                },
+                onLongClick = onLongPress,
+            )
             .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.4f), shape),
     ) {
         // Glass base: thinned surface so the page shows through, then the
         // brand-hue glyph sneak-peek, then the card content.
-        Box(Modifier.matchParentSize().background(AppColors.appSurfaceElevated.copy(alpha = 0.55f)))
-        AgentCardGlyphTexture(
-            avatarColor = agent.agent.avatarColor,
-            seedString = agent.id,
-            modifier = Modifier.matchParentSize(),
-            cornerRadius = 26.dp,
-        )
+        // 0.92 not iOS's 0.55: iOS blurs what's behind (ultraThinMaterial), a flat
+        // Compose fill at 0.55 just leaks the page through (owner device feedback).
+        Box(Modifier.matchParentSize().background(AppColors.appSurfaceElevated.copy(alpha = 0.92f)))
+        // Motion means "automation enabled AND running" — paused agents and
+        // agents with Autopilot off stay still (iOS AgentRowCard.swift:79-85).
+        if (agent.agent.autoGenerate && agent.agent.isActive) {
+            AgentCardGlyphTexture(
+                avatarColor = agent.agent.avatarColor,
+                seedString = agent.id,
+                modifier = Modifier.matchParentSize(),
+                cornerRadius = 26.dp,
+                isActive = animationsActive,
+            )
+        }
 
         Column(
             Modifier.padding(horizontal = 14.dp).padding(top = 12.dp, bottom = 9.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(agent, primary, hasUnreadPicks)
+                Avatar(agent, hasUnreadPicks, animationsActive)
                 Spacer(Modifier.width(12.dp))
                 IdentityBlock(agent, Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
@@ -103,28 +131,13 @@ fun AgentRowCard(
 }
 
 @Composable
-private fun Avatar(agent: AgentWithPerformance, primary: Color, hasUnreadPicks: Boolean) {
-    val shape = RoundedCornerShape(14.dp)
+private fun Avatar(agent: AgentWithPerformance, hasUnreadPicks: Boolean, animated: Boolean) {
     Box(Modifier.size(52.dp)) {
-        Box(
-            Modifier
-                .matchParentSize()
-                .shadow(10.dp, shape, spotColor = primary, ambientColor = primary)
-                .clip(shape)
-                .background(AppColors.appSurfaceElevated)
-                .background(
-                    Brush.linearGradient(
-                        AgentColorPalette.avatarGradient(agent.agent.avatarColor),
-                        start = Offset.Zero,
-                        end = Offset.Infinite,
-                    ),
-                    alpha = 0.85f,
-                )
-                .border(1.5.dp, AppColors.appSurfaceElevated, shape),
-            contentAlignment = Alignment.Center,
-        ) {
-            PixelSpriteAvatar(agent.agent.spriteIndex, Modifier.fillMaxSize().padding(3.dp))
-        }
+        AgentPixelAvatarTile(
+            spriteIndex = agent.agent.spriteIndex,
+            avatarColor = agent.agent.avatarColor,
+            animated = animated,
+        )
         if (hasUnreadPicks) {
             Box(
                 Modifier
@@ -133,7 +146,8 @@ private fun Avatar(agent: AgentWithPerformance, primary: Color, hasUnreadPicks: 
                     .size(11.dp)
                     .clip(CircleShape)
                     .background(AppColors.brandGreenBright)
-                    .border(1.5.dp, AppColors.appSurfaceElevated, CircleShape),
+                    .border(1.5.dp, AppColors.appSurfaceElevated, CircleShape)
+                    .semantics { contentDescription = "New picks" },
             )
         }
     }
@@ -164,14 +178,24 @@ private fun IdentityBlock(agent: AgentWithPerformance, modifier: Modifier = Modi
                 Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF10B981)))
             }
         }
+        // The identity column is narrow, so the pair has to truncate. iOS gives
+        // the second (risk) chip the higher layout priority; in Compose the
+        // unweighted child measures first, so weighting ONLY the archetype chip
+        // keeps the short risk chip intact and ellipsizes the long one.
+        val tags = agent.agent.strategyTags.take(2)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            agent.agent.strategyTags.take(2).forEach { tag -> Chip(tag) }
+            tags.forEachIndexed { idx, tag ->
+                Chip(
+                    tag = tag,
+                    modifier = if (idx == 0 && tags.size > 1) Modifier.weight(1f, fill = false) else Modifier,
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun Chip(tag: AgentStrategyTag) {
+private fun Chip(tag: AgentStrategyTag, modifier: Modifier = Modifier) {
     Text(
         tag.text,
         color = tag.color,
@@ -179,7 +203,7 @@ private fun Chip(tag: AgentStrategyTag) {
         fontWeight = FontWeight.Bold,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
+        modifier = modifier
             .clip(CircleShape)
             .background(AppColors.appSurfaceMuted.copy(alpha = 0.6f))
             .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.5f), CircleShape)

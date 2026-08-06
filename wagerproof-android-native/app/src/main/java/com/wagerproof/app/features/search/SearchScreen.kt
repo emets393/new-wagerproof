@@ -26,13 +26,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -51,12 +46,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.agents.components.AgentRowCard
 import com.wagerproof.app.features.cfb.CFBGameCard
+import com.wagerproof.app.features.components.QuickFilterField
 import com.wagerproof.app.features.gamecards.GameCardShimmer
 import com.wagerproof.app.features.mlb.MLBGameCard
 import com.wagerproof.app.features.nba.NBAGameCard
@@ -84,6 +79,7 @@ import com.wagerproof.app.features.props.detail.PlayerPropDetailScreen
 import com.wagerproof.app.nav.LocalAppNavigator
 import com.wagerproof.core.design.components.SkeletonBlock
 import com.wagerproof.core.design.components.SkeletonCircle
+import com.wagerproof.core.design.components.liquidGlassCapsule
 import com.wagerproof.core.design.components.shimmering
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
@@ -339,7 +335,7 @@ private fun SearchHeader(
     onClear: () -> Unit,
 ) {
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = Spacing.lg).padding(top = 4.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
@@ -347,44 +343,21 @@ private fun SearchHeader(
             color = AppColors.appTextPrimary,
             fontSize = 34.sp,
             fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = Spacing.lg),
         )
-        TextField(
+        // The same capsule — and the same 14dp inset — as the Games/Props/
+        // Outliers headers. It was a Material TextField with an opaque
+        // `appSurfaceElevated` container, which made Search the one tab whose
+        // field didn't read as glass.
+        QuickFilterField(
             value = store.query,
             onValueChange = { store.query = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = "Search games, players, agents, and outliers" },
-            singleLine = true,
-            shape = RoundedCornerShape(16.dp),
-            placeholder = {
-                Text(
-                    "Search games, players, agents…",
-                    color = AppColors.appTextMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            leadingIcon = {
-                Icon(AppIcon.MAGNIFYINGGLASS.imageVector, null, tint = AppColors.appTextSecondary)
-            },
-            trailingIcon = {
-                if (store.query.isNotEmpty()) {
-                    IconButton(onClick = onClear) {
-                        Icon(AppIcon.XMARK.imageVector, "Clear search", tint = AppColors.appTextSecondary)
-                    }
-                }
-            },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = AppColors.appSurfaceElevated,
-                unfocusedContainerColor = AppColors.appSurfaceElevated,
-                focusedTextColor = AppColors.appTextPrimary,
-                unfocusedTextColor = AppColors.appTextPrimary,
-                focusedIndicatorColor = AppColors.appPrimary,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = AppColors.appPrimary,
-            ),
+            accessibilityLabel = "Search games, players, agents, and outliers",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+            placeholder = "Search games, players, agents…",
+            imeAction = ImeAction.Search,
+            onSubmit = onSubmit,
+            onClear = onClear,
         )
     }
 }
@@ -397,14 +370,16 @@ private fun SearchScopes(store: SearchStore) {
     ) {
         items(SearchStore.SearchScope.entries, key = { it.name }) { scope ->
             val selected = store.scope == scope
+            // Glass capsule with the selection carried by the same
+            // appPrimary tint the segmented pickers use — a solid appPrimary
+            // fill here was the only opaque chip in any pinned header.
             Text(
                 text = scope.label,
-                color = if (selected) Color.White else AppColors.appTextSecondary,
+                color = if (selected) AppColors.appTextPrimary else AppColors.appTextSecondary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(if (selected) AppColors.appPrimary else AppColors.appSurfaceMuted)
+                    .liquidGlassCapsule(if (selected) AppColors.appPrimary else null)
                     .clickable { store.scope = scope }
                     .padding(horizontal = 13.dp, vertical = 8.dp),
             )

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,6 +52,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.wagerproof.app.AppGraph
 import com.wagerproof.app.di.appGraph
+import com.wagerproof.app.features.agents.AgentCopyBuildPresentation
 import com.wagerproof.app.features.agents.AgentCreateScreen
 import com.wagerproof.app.features.agents.AgentDetailScreen
 import com.wagerproof.app.features.agents.AgentSettingsScreen
@@ -69,7 +71,6 @@ import com.wagerproof.app.features.search.SearchScreen
 import com.wagerproof.app.features.settings.SettingsScreen
 import com.wagerproof.app.features.sidemenu.SideMenuSheet
 import com.wagerproof.core.design.components.AppModalBottomSheet
-import com.wagerproof.core.design.components.LiquidGlassScene
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppLayout
@@ -117,6 +118,10 @@ fun MainScaffold(modifier: Modifier = Modifier) {
         else -> false
     }
     val isFullScreenRoute = hasInternalDestination ||
+        // Copy-build isn't a route — the Agents hub keeps it as an in-tab
+        // overlay so the copied draft never has to survive serialization — but
+        // it IS full-screen, and iOS hides the tab bar under it.
+        AgentCopyBuildPresentation.isPresented ||
         activeRoute is AppRoute.GameDetail ||
         activeRoute is AppRoute.AgentDetail ||
         activeRoute is AppRoute.AgentEdit ||
@@ -253,9 +258,14 @@ fun MainScaffold(modifier: Modifier = Modifier) {
     }
 
     CompositionLocalProvider(LocalAppNavigator provides navigator) {
-        LiquidGlassScene { sourceModifier ->
+        // No app-wide LiquidGlassScene: hazeEffect pills can't sample a source
+        // they're nested inside (the whole Scaffold was the source, so every
+        // pill under it rendered with NO fill at all). Screens that want real
+        // blur declare their own scene with the source on a background layer;
+        // everything else gets liquidGlassBackground's opaque-enough fallback.
+        run {
             Scaffold(
-                modifier = modifier.fillMaxSize().then(sourceModifier),
+                modifier = modifier.fillMaxSize(),
                 containerColor = AppColors.appSurface,
                 // Every screen owns its top/cutout inset. Scaffold only contributes
                 // the measured bottom-bar height through its content padding.
@@ -264,7 +274,12 @@ fun MainScaffold(modifier: Modifier = Modifier) {
                     if (!isFullScreenRoute) WagerBottomBar(tabStore)
                 },
             ) { insets ->
-                Box(Modifier.fillMaxSize().padding(insets)) {
+                // consumeWindowInsets is what makes a nested imePadding() land on
+                // the keyboard instead of a bar-height above it. Without it the
+                // Search screen's imePadding() re-applies the FULL ime inset to a
+                // node already lifted by the bottom bar, so results collapse into a
+                // strip with ~98dp of dead space between them and the keyboard.
+                Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)) {
                     TabNavHost(
                         tab = visibleTab,
                         backStacks = backStacks,

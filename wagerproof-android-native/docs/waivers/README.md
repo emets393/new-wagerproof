@@ -23,11 +23,11 @@ at the bottom rather than left in the generated list.
 - `FIDELITY-WAIVER #101: owner-confirmed omission of iOS Dummy Data Mode` — core/stores/src/main/kotlin/com/wagerproof/core/stores/NBABettingTrendsStore.kt
 - `FIDELITY-WAIVER #201: Apple Sign-In is omitted on Android` — app/src/main/java/com/wagerproof/app/features/auth/LoginView.kt
 - `FIDELITY-WAIVER #203: CoreMotion parallax maps to Android sensors` — app/src/main/java/com/wagerproof/app/features/agents/components/AgentPickFocusView.kt
-- `FIDELITY-WAIVER #205: agent charts are hand-drawn on Compose Canvas` — app/src/main/java/com/wagerproof/app/features/agents/components/AgentPerformanceCharts.kt
+- `FIDELITY-WAIVER #205: agent charts are hand-drawn on Compose Canvas (chrome only — interpolation, index-anchored labels, and 160-point downsampling now match iOS)` — app/src/main/java/com/wagerproof/app/features/agents/components/AgentPerformanceCharts.kt
 - `FIDELITY-WAIVER #210: widget gradient is approximated in Glance` — widgets/src/main/java/com/wagerproof/widgets/AgentMonitorWidget.kt
 - `FIDELITY-WAIVER #211: unavailable widget SF Symbols map to emoji` — widgets/src/main/java/com/wagerproof/widgets/AgentMonitorWidget.kt
 - `FIDELITY-WAIVER #212: pick-history presentation differs from iOS` — app/src/main/java/com/wagerproof/app/features/agents/components/PickHistoryFolder.kt
-- `FIDELITY-WAIVER #214: receipt-printer measurement/scroll choreography is approximated` — app/src/main/java/com/wagerproof/app/features/agents/components/AgentPickFocusView.kt
+- `FIDELITY-WAIVER #215: focus backdrop has no ultraThinMaterial blur` — app/src/main/java/com/wagerproof/app/features/agents/components/AgentPickFocusView.kt
 - `FIDELITY-WAIVER #220: WagerBot SF Symbol fallbacks are approximate` — app/src/main/java/com/wagerproof/app/features/chat/WagerBotUiTokens.kt
 - `FIDELITY-WAIVER #230: no pre-Android-26 glass-disc merge` — app/src/main/java/com/wagerproof/app/features/outliers/OutliersShared.kt
 - `FIDELITY-WAIVER #231: Compose large-title collapse approximation` — app/src/main/java/com/wagerproof/app/features/agents/AgentsScreen.kt
@@ -46,17 +46,25 @@ at the bottom rather than left in the generated list.
 - `FIDELITY-WAIVER #260: onboarding Liquid Glass uses a Compose approximation` — app/src/main/java/com/wagerproof/app/features/onboarding/OnboardingPageShell.kt
 - `FIDELITY-WAIVER #280: regression narrative uses plain text instead of markdown` — app/src/main/java/com/wagerproof/app/features/analytics/RegressionNarrativeCard.kt
 - `FIDELITY-WAIVER #281: NCAAB model card lives outside the Outliers package` — app/src/main/java/com/wagerproof/app/features/outliers/NCAABModelAccuracyView.kt
-- `FIDELITY-WAIVER #301: agent sprite/blur effects are approximated` — app/src/main/java/com/wagerproof/app/features/agents/components/AgentDetailHero.kt
-- `FIDELITY-WAIVER #305: swipe-to-generate control is Android-native` — app/src/main/java/com/wagerproof/app/features/agents/sheets/AgentGenerationControlSheets.kt
+- `FIDELITY-WAIVER #301: glass blur / dashed-stroke approximations` — app/src/main/java/com/wagerproof/app/features/agents/components/AgentPerformanceCharts.kt (also app/src/main/java/com/wagerproof/app/features/roast/RoastMessageBubble.kt — the AgentDetailHero sprite-swap use of this number is RESOLVED, see below)
 - `FIDELITY-WAIVER #320: agent detail collapse is custom Compose` — app/src/main/java/com/wagerproof/app/features/agents/AgentDetailScreen.kt
 - `FIDELITY-WAIVER #334: AI Connector banner symbol chrome is static` — app/src/main/java/com/wagerproof/app/features/settings/AIConnectorBanner.kt
 - `FIDELITY-WAIVER #335: Android connector guide is platform-specific` — app/src/main/java/com/wagerproof/app/features/settings/ConnectorGuideScreen.kt
+- `FIDELITY-WAIVER #336: agent row card fill is flat, not ultraThinMaterial` — app/src/main/java/com/wagerproof/app/features/agents/components/AgentRowCard.kt
 - `FIDELITY-WAIVER #B21: RevenueCat stream binds the Android SDK listener directly` — core/stores/src/main/kotlin/com/wagerproof/core/stores/RevenueCatStore.kt
 
 ## Resolved on Android
 
 Waiver comments removed from the code; kept here so the numbers stay traceable.
 
+- **#301 (AgentDetailHero.kt use only)** agent sprite while generating was approximated with the
+  standing avatar — RESOLVED. `AvatarDisc` now swaps to the seated `SitWorkSprite` +
+  `LaptopSprite` (ported into `components/AgentResearchIdleCard.kt`) while a run is in flight,
+  matching iOS. #301 itself is NOT fully resolved — it's a shared number still covering blur/
+  dashed-stroke approximations in `AgentPerformanceCharts.kt` and `RoastMessageBubble.kt`.
+- **#305** swipe-to-generate control was Android-native — RESOLVED. The card and the regenerate
+  sheet now share one `SwipeToGeneratePill` (`components/AgentResearchIdleCard.kt`) with the iOS
+  heat-up fill, per-notch haptics, 90% commit threshold, and locked capsule.
 - **#033** line-movement chart stub — RESOLVED. `features/cfb/CFBLineMovementSection.kt` now draws a
   real chart off the game-keyed `nfl_line_movement` / `cfb_line_movement` views. The corresponding
   iOS stub at `Wagerproof/Features/CFB/Components/LineMovementSection.swift` is still real, so
@@ -67,6 +75,15 @@ Waiver comments removed from the code; kept here so the numbers stay traceable.
   generic RevenueCat UI, full Mixpanel/Meta funnel, and hard-gate semantics.
 - **#253** Play In-App Review unavailable — RESOLVED. `ReviewPromptCoordinator` owns contextual
   triggers and `RootHost` launches the Play review flow; Settings retains the manual listing action.
+- **#214** receipt-printer feed measured by fraction-of-card — RESOLVED. `AgentPickFocusView`
+  now measures the region and drives the feeding card's TOP from the slot to the pager's rest
+  inset (`TICKET_TOP_INSET`), at natural unbounded height inside a clipped region, so the
+  hand-off to the pager is seamless like iOS's `.position`-based feed.
+- **Plain-text pick share** (was folded into #203's comment) — RESOLVED. Share now renders the
+  ticket off-screen at 340 dp / ≥3× density to a transparent PNG and sends `image/png` through a
+  FileProvider uri, matching iOS's `ImageRenderer` export. The chooser is given an `IntentSender`
+  callback so `ReviewPromptCoordinator.recordContentShared()` only fires when a target was
+  actually chosen. A text body remains as the render-failure fallback only.
 
 ## Owner-confirmed divergences (2026-07-31)
 

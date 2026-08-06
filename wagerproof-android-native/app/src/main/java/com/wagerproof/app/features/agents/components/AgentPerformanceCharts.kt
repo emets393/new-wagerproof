@@ -30,8 +30,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,6 +45,8 @@ import com.wagerproof.core.models.AgentBetItem
 import com.wagerproof.core.models.AgentPick
 import com.wagerproof.core.models.AgentSport
 import java.util.Locale
+import kotlin.math.hypot
+import kotlin.math.roundToInt
 
 /**
  * Native port of iOS `AgentPerformanceCharts`. Renders cumulative-units line
@@ -51,8 +55,10 @@ import java.util.Locale
  * as the agent-performance recalc RPC); every settled parlay contributes exactly
  * one point (its ticket-level payout), never per leg.
  *
- * Charts are hand-drawn on Compose Canvas (FIDELITY-WAIVER #205) instead of the
- * iOS `Charts` framework.
+ * FIDELITY-WAIVER #205 (narrowed): the charts are still hand-drawn on Compose
+ * Canvas rather than the iOS `Charts` framework, but the visual contract now
+ * matches — monotone interpolation, axis-anchored labels, and the same 160-point
+ * render cap. Only the rendering mechanism differs.
  */
 
 // One point on a cumulative curve.
@@ -66,7 +72,21 @@ private data class SportStats(
     val pushes: Int,
     val netUnits: Double,
     val points: List<ChartPoint>,
-)
+) {
+    /**
+     * Original x-index of the FINAL point — survives downsampling, so the "Now"
+     * axis label stays anchored to the real last pick, not to `points.size`.
+     */
+    val lastIndex: Int get() = points.lastOrNull()?.index ?: 0
+}
+
+/**
+ * Upper bound on points fed to the Canvas. A cumulative-units curve is smooth, so
+ * an 800-pick agent reads identically at ~160 points — but the Path build +
+ * gradient fill scale with point count and ran on EVERY recomposition, which is
+ * what made long-history agents hitch on mount (iOS caps the same way).
+ */
+private const val MAX_RENDERED_POINTS = 160
 
 @Composable
 fun AgentPerformanceCharts(
@@ -141,6 +161,7 @@ private fun EmptyState() {
             "Performance charts will appear after picks are graded",
             color = AppColors.appTextSecondary,
             fontSize = 13.sp,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -165,10 +186,12 @@ private fun OverallCard(stats: SportStats, textMeasurer: TextMeasurer) {
                 color = accent,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
             )
         }
         CumulativeLineChart(
             points = stats.points,
+            lastIndex = stats.lastIndex,
             color = accent,
             height = 180.dp,
             showXAxis = true,
@@ -208,11 +231,13 @@ private fun SportCard(stats: SportStats, textMeasurer: TextMeasurer) {
                 color = accent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
             )
         }
         if (stats.points.size > 1) {
             CumulativeLineChart(
                 points = stats.points,
+                lastIndex = stats.lastIndex,
                 color = accent,
                 height = 110.dp,
                 showXAxis = false,
@@ -237,6 +262,7 @@ private fun SportCard(stats: SportStats, textMeasurer: TextMeasurer) {
 @Composable
 private fun CumulativeLineChart(
     points: List<ChartPoint>,
+    lastIndex: Int,
     color: Color,
     height: Dp,
     showXAxis: Boolean,
@@ -249,10 +275,13 @@ private fun CumulativeLineChart(
     Canvas(Modifier.fillMaxWidth().height(height)) {
         if (points.isEmpty()) return@Canvas
 
-        val leftPad = if (showYAxis) 40f else 8f
-        val bottomPad = if (showXAxis) 20f else 8f
-        val topPad = 8f
-        val rightPad = 8f
+        // Insets in dp, not raw pixels: 40px is 13dp on a 3× screen, which the
+        // y-axis labels overflowed straight into the plot.
+        val leftPad = (if (showYAxis) 34.dp else 8.dp).toPx()
+        val bottomPad = (if (showXAxis) 18.dp else 8.dp).toPx()
+        val topPad = 8.dp.toPx()
+        val rightPad = 8.dp.toPx()
+        val labelGap = 3.dp.toPx()
         val plotW = size.width - leftPad - rightPad
         val plotH = size.height - topPad - bottomPad
         if (plotW <= 0 || plotH <= 0) return@Canvas
@@ -282,7 +311,21 @@ private fun CumulativeLineChart(
             )
             if (showYAxis) {
                 val layout = textMeasurer.measure(yFormat(v), labelStyle)
-                drawText(layout, topLeft = Offset(2f, y - layout.size.height / 2f))
+                drawText(layout, topLeft = Offset(2.dp.toPx(), y - layout.size.height / 2f))
+            }
+        }
+
+        // Vertical gridlines (iOS AxisMarks(position: .bottom) draws one per tick).
+        if (showXAxis) {
+            val xTicks = 4
+            for (t in 0..xTicks) {
+                val x = leftPad + plotW * t / xTicks
+                drawLine(
+                    AppColors.appBorder.copy(alpha = 0.3f),
+                    Offset(x, topPad),
+                    Offset(x, topPad + plotH),
+                    strokeWidth = 1f,
+                )
             }
         }
 
@@ -291,7 +334,7 @@ private fun CumulativeLineChart(
         // Area fill under the curve.
         if (fillArea && offsets.size > 1) {
             val baseline = topPad + plotH
-            val area = smoothPath(offsets).apply {
+            val area = monotonePath(offsets).apply {
                 lineTo(offsets.last().x, baseline)
                 lineTo(offsets.first().x, baseline)
                 close()
@@ -309,38 +352,91 @@ private fun CumulativeLineChart(
         // The line.
         if (offsets.size > 1) {
             drawPath(
-                smoothPath(offsets),
+                monotonePath(offsets),
                 color = color,
                 style = Stroke(width = 2f * density),
             )
         }
 
-        // X labels: "Start" at first, "Now" at last.
+        // X labels, anchored to the first/last RENDERED point (their original
+        // indices survive downsampling) rather than to fixed pixel offsets.
         if (showXAxis) {
+            val labelY = size.height - bottomPad + labelGap
             val startLayout = textMeasurer.measure("Start", labelStyle)
-            drawText(startLayout, topLeft = Offset(leftPad, size.height - bottomPad + 4f))
+            drawText(
+                startLayout,
+                topLeft = Offset(
+                    (px(minIndex) - startLayout.size.width / 2f).coerceIn(0f, size.width - startLayout.size.width),
+                    labelY,
+                ),
+            )
             val nowLayout = textMeasurer.measure("Now", labelStyle)
             drawText(
                 nowLayout,
-                topLeft = Offset(size.width - rightPad - nowLayout.size.width, size.height - bottomPad + 4f),
+                topLeft = Offset(
+                    (px(lastIndex) - nowLayout.size.width / 2f).coerceIn(0f, size.width - nowLayout.size.width),
+                    labelY,
+                ),
             )
         }
     }
 }
 
-/** Smooth (monotone-ish) path through the offsets via quadratic segments. */
-private fun smoothPath(pts: List<Offset>): Path {
+/**
+ * Monotone cubic Hermite (Fritsch–Carlson) through the offsets — the same shape
+ * iOS gets from `.interpolationMethod(.monotone)`. The old quadratic-through-
+ * midpoints curve could bulge past a local max/min, drawing a units peak the
+ * agent never actually reached.
+ */
+private fun monotonePath(pts: List<Offset>): Path {
     val path = Path()
     if (pts.isEmpty()) return path
     path.moveTo(pts.first().x, pts.first().y)
-    for (i in 1 until pts.size) {
-        val prev = pts[i - 1]
-        val cur = pts[i]
-        val midX = (prev.x + cur.x) / 2f
-        val midY = (prev.y + cur.y) / 2f
-        path.quadraticBezierTo(prev.x, prev.y, midX, midY)
+    val n = pts.size
+    if (n < 2) return path
+    if (n == 2) {
+        path.lineTo(pts[1].x, pts[1].y)
+        return path
     }
-    path.lineTo(pts.last().x, pts.last().y)
+
+    val dx = FloatArray(n - 1)
+    val slope = FloatArray(n - 1)
+    for (i in 0 until n - 1) {
+        dx[i] = pts[i + 1].x - pts[i].x
+        slope[i] = if (dx[i] == 0f) 0f else (pts[i + 1].y - pts[i].y) / dx[i]
+    }
+
+    val m = FloatArray(n)
+    m[0] = slope[0]
+    m[n - 1] = slope[n - 2]
+    for (i in 1 until n - 1) {
+        // A sign flip is a local extremum: flatten the tangent so the spline
+        // touches it instead of overshooting through it.
+        m[i] = if (slope[i - 1] * slope[i] <= 0f) 0f else (slope[i - 1] + slope[i]) / 2f
+    }
+    for (i in 0 until n - 1) {
+        if (slope[i] == 0f) {
+            m[i] = 0f
+            m[i + 1] = 0f
+            continue
+        }
+        val a = m[i] / slope[i]
+        val b = m[i + 1] / slope[i]
+        val h = hypot(a, b)
+        if (h > 3f) {
+            val t = 3f / h
+            m[i] = t * a * slope[i]
+            m[i + 1] = t * b * slope[i]
+        }
+    }
+    for (i in 0 until n - 1) {
+        val third = dx[i] / 3f
+        path.cubicTo(
+            pts[i].x + third, pts[i].y + m[i] * third,
+            pts[i + 1].x - third, pts[i + 1].y - m[i + 1] * third,
+            pts[i + 1].x, pts[i + 1].y,
+        )
+    }
     return path
 }
 
@@ -372,8 +468,32 @@ private fun compute(label: String, items: List<AgentBetItem>, sport: AgentSport?
         losses = losses,
         pushes = pushes,
         netUnits = cumulative,
-        points = points,
+        // Counts + net units always come from the FULL set; only the drawn
+        // series is thinned.
+        points = downsample(points, MAX_RENDERED_POINTS),
     )
+}
+
+/**
+ * Evenly thin a series to at most [maxCount] points, always keeping the first
+ * (seed) and last (its original index backs the "Now" axis label). No-op below
+ * the threshold.
+ */
+private fun downsample(pts: List<ChartPoint>, maxCount: Int): List<ChartPoint> {
+    if (pts.size <= maxCount || maxCount < 2) return pts
+    val stride = (pts.size - 1).toDouble() / (maxCount - 1)
+    val out = ArrayList<ChartPoint>(maxCount + 1)
+    var lastPicked = -1
+    for (i in 0 until maxCount) {
+        val idx = minOf(pts.size - 1, (i * stride).roundToInt())
+        if (idx != lastPicked) {
+            out.add(pts[idx])
+            lastPicked = idx
+        }
+    }
+    val last = pts.last()
+    if (out.lastOrNull()?.index != last.index) out.add(last)
+    return out
 }
 
 private fun unitsLabel(n: Double): String {

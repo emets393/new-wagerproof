@@ -2,7 +2,6 @@ package com.wagerproof.app.features.outliers
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -66,7 +65,7 @@ import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
 import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
 import com.wagerproof.app.features.parlaygod.ParlayGodRail
 import com.wagerproof.app.features.paywall.PaywallDialogHost
-import com.wagerproof.core.design.components.liquidGlassBackground
+import com.wagerproof.core.design.components.liquidGlassCapsule
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.Spacing
@@ -417,11 +416,11 @@ private fun PillLabel(icon: ImageVector, text: String, onClick: () -> Unit) {
 @Composable
 private fun PillContainer(onClick: () -> Unit, content: @Composable () -> Unit) {
     Row(
+        // Same capsule material as the QuickFilterField pinned directly above —
+        // see PropsScreen.PillContainer, these two rows must stay identical.
         Modifier
             .height(36.dp)
-            .clip(CircleShape)
-            .liquidGlassBackground(CircleShape)
-            .border(1.dp, AppColors.appBorder.copy(alpha = 0.35f), CircleShape)
+            .liquidGlassCapsule(null)
             .clickable { onClick() }
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,

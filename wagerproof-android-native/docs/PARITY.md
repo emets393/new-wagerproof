@@ -25,10 +25,10 @@ Legend: ⬜ not started · 🔨 in progress · ✅ source-complete/validated · 
 | Games feed + GameCards (universal GameRowCard, CollapsingWidgetScroll) | 21 | 07 | ✅ audited expanded and compact layouts |
 | Sport detail pages: NFL / CFB / NBA / NCAAB / MLB bottom sheets | 31 | 07 | ✅ audited heroes, cards, charts, sheets, locked states, and compact layouts |
 | Scoreboard (live polling) | 6 | 07 | ✅ compiles |
-| Agents: hub / detail / public / settings / stats | 8 | 05 part1 | ✅ Following rail, Copy Build, shared detail activity, existing surfaces |
-| Agents: creation wizard (6 steps + intro + celebration + inputs) | 17 | 05 part2 | ✅ PixelWave launch builder + existing wizard (🎫 #079) |
-| Agents: tickets / folder / focus printer / feed | 15 | 05 part3 | ✅ compiles (🎫 #203 SensorManager, #212/#214) |
-| Agents: office sim, cards, charts, HR/regen/autopilot sheets | 28 | 05 part4 | ✅ compiles (🎫 #205 Canvas charts, #071) |
+| Agents: hub / detail / public / settings / stats | 8 | 05 part1 | ✅ 2026-08-05 parity wave: opaque hero mask + transparent bar, leaderboard/stats pull-to-refresh, sticky Top Picks header, MY AGENTS header + sort menu, full-swipe delete, hub haptics, settings fast-paint, todaysBetItems on public page, 160-pt chart downsampling (🎫 #231, #336) |
+| Agents: creation wizard (6 steps + intro + celebration + inputs) | 17 | 05 part2 | ✅ PixelWave launch builder + existing wizard (🎫 #079); copy-build hides the bottom bar |
+| Agents: tickets / folder / focus printer / feed | 15 | 05 part3 | ✅ share exports a rendered ticket PNG, measured printer feed (#214 resolved), rolodex pile physics + two-stage sheet (#212 narrowed), scroll-gated parallax (🎫 #203, #215) |
+| Agents: office sim, cards, charts, HR/regen/autopilot sheets | 28 | 05 part4 | ✅ generation card visual suite (desk avatar, glyph matrix, thinking verbs, pulse waves), swipe-to-generate pill (#305 resolved), AutoPilot notifications card, office pauses off-tab (🎫 #205 chrome-only, #071, #301) |
 | Chat: WagerBot (SSE, ContentBlocks, threads) | 17 | 06 | ✅ compiles; assistant messages are selectable and copyable |
 | Chat: voice mode (OpenAI Realtime PTT) | | 06 | ✅ retained as developer-only code; no production entry point (owner decision) |
 | Props (16) | 16 | 06 | ✅ compiles (🎫 #240–#242) |

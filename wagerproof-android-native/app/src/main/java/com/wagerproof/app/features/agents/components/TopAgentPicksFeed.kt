@@ -41,8 +41,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,7 +79,7 @@ import kotlinx.coroutines.launch
 // directly (auto-recompose); pagination via LazyColumn + LaunchedEffect.
 // =====================================================================
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TopAgentPicksFeed(
     store: TopAgentPicksFeedStore,
@@ -108,7 +111,10 @@ fun TopAgentPicksFeed(
         modifier = modifier.fillMaxSize(),
     ) {
         LazyColumn(Modifier.fillMaxSize()) {
-            item(key = "pinnedHeader") { pinnedHeader() }
+            // Pinned, not a plain item: iOS renders the hub's tab picker as this
+            // feed's section header (TopAgentPicksFeed.swift:43, 55-57), and the
+            // other two hub tabs already pin theirs.
+            stickyHeader(key = "pinnedHeader") { pinnedHeader() }
 
             if (showsFilters) {
                 item(key = "filters") {
@@ -177,6 +183,7 @@ private fun FilterRow(
     onSelect: (TopAgentPicksFeedStore.FilterMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHapticFeedback.current
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TopAgentPicksFeedStore.FilterMode.entries.forEach { mode ->
             val active = mode == selected
@@ -185,7 +192,12 @@ private fun FilterRow(
                     .weight(1f)
                     .clip(CircleShape)
                     .then(if (active) Modifier.liquidGlassCapsule(AppColors.brandGreenBright) else Modifier.liquidGlassCapsule())
-                    .clickable { onSelect(mode) }
+                    // iOS .sensoryFeedback(.selection, trigger: filterMode)
+                    // (TopAgentPicksFeed.swift:92).
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelect(mode)
+                    }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -220,8 +232,12 @@ private fun AgentSectionView(
         Column(
             Modifier
                 .fillMaxWidth()
+                // Same soft lift as AgentRowCard (iOS TopAgentPicksFeed.swift:328);
+                // must precede clip() or the corners would cut it off.
+                .shadow(elevation = 4.dp, shape = shape)
                 .clip(shape)
-                .background(AppColors.appSurfaceElevated.copy(alpha = 0.55f))
+                // Matches AgentRowCard: flat fills need near-opacity without a real blur.
+                .background(AppColors.appSurfaceElevated.copy(alpha = 0.92f))
                 .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.4f), shape)
                 .combinedClickable(onClick = {}, onLongClick = { menuOpen = true }),
         ) {
@@ -273,14 +289,17 @@ private fun AgentHeader(
 
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         AgentAvatar(header, accent, onAgentTap)
-        Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        // ONE flexible child. It used to weight the name column AND add a
+        // weighted spacer, so the two split the slack evenly and the name
+        // ellipsized at half the width it had room for (iOS uses a single
+        // Spacer(minLength: 6) — TopAgentPicksFeed.swift:342-360).
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 header.agentRank?.let { RankBadge(it) }
                 Text(header.agentName, color = AppColors.appTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             StrategyChips(snapshot, accent)
         }
-        Spacer(Modifier.weight(1f))
         AgentFormChart(agent = AgentWithPerformance(agent = snapshot, performance = perf), modifier = Modifier.size(78.dp, 46.dp))
     }
 }

@@ -23,8 +23,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -32,9 +34,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,7 +71,7 @@ private val AccentGreen = Color(0xFF00E676)
  * its `by mutableStateOf` props are read directly and drive recomposition). Each
  * filter pill tap calls a `setX` setter whose guard re-runs the fetch.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun AgentLeaderboard(
     store: LeaderboardStore,
@@ -75,6 +80,8 @@ fun AgentLeaderboard(
     pinnedHeader: @Composable () -> Unit = {},
     onRowTap: (AgentLeaderboardEntry) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+
     // First-load kickoff — mirrors iOS `.task { if idle { refresh() } }`.
     LaunchedEffect(Unit) {
         if (store.loadState is LoadState.Idle) store.refresh()
@@ -84,46 +91,54 @@ fun AgentLeaderboard(
     val entries = store.entries
     val loadState = store.loadState
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxWidth(),
+    // iOS puts `.refreshable` on the leaderboard scroll view too
+    // (AgentLeaderboard.swift:45-47); the sibling hub tabs already have it.
+    PullToRefreshBox(
+        isRefreshing = loadState is LoadState.Loading && entries.isNotEmpty(),
+        onRefresh = { scope.launch { store.refresh() } },
+        modifier = Modifier.fillMaxSize(),
     ) {
-        // Pinned section header (the Agents hub lifts its tab/filter bar here).
-        // The default empty header collapses to zero height.
-        stickyHeader { pinnedHeader() }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            // Pinned section header (the Agents hub lifts its tab/filter bar here).
+            // The default empty header collapses to zero height.
+            stickyHeader { pinnedHeader() }
 
-        // Inline filter bar (hidden when the host lifts it into a glass header).
-        if (showsFilters) {
-            item(key = "filters") {
-                LeaderboardFilterBar(
-                    store = store,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
-                )
-            }
-        }
-
-        when (loadState) {
-            // Refreshing = stale-while-revalidate: keep showing rows over the fetch.
-            is LoadState.Idle, is LoadState.Loading, is LoadState.Refreshing -> {
-                if (entries.isEmpty()) {
-                    items(6) { SkeletonRow() }
-                } else {
-                    leaderboardRows(entries, store, entitlements, onRowTap)
+            // Inline filter bar (hidden when the host lifts it into a glass header).
+            if (showsFilters) {
+                item(key = "filters") {
+                    LeaderboardFilterBar(
+                        store = store,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                    )
                 }
             }
-            is LoadState.Loaded -> {
-                if (entries.isEmpty()) {
-                    item(key = "empty") { EmptyState() }
-                } else {
-                    leaderboardRows(entries, store, entitlements, onRowTap)
+
+            when (loadState) {
+                // Refreshing = stale-while-revalidate: keep showing rows over the fetch.
+                is LoadState.Idle, is LoadState.Loading, is LoadState.Refreshing -> {
+                    if (entries.isEmpty()) {
+                        items(6) { SkeletonRow() }
+                    } else {
+                        leaderboardRows(entries, store, entitlements, onRowTap)
+                    }
+                }
+                is LoadState.Loaded -> {
+                    if (entries.isEmpty()) {
+                        item(key = "empty") { EmptyState() }
+                    } else {
+                        leaderboardRows(entries, store, entitlements, onRowTap)
+                    }
+                }
+                is LoadState.Failed -> {
+                    item(key = "error") { ErrorState(loadState.message, store) }
                 }
             }
-            is LoadState.Failed -> {
-                item(key = "error") { ErrorState(loadState.message, store) }
-            }
-        }
 
-        item(key = "bottom_spacer") { Spacer(Modifier.size(24.dp)) }
+            item(key = "bottom_spacer") { Spacer(Modifier.size(24.dp)) }
+        }
     }
 }
 
@@ -218,12 +233,17 @@ private fun FilterPill(
         AppColors.appBorder.copy(alpha = if (isSubtle) 0.3f else 0.5f)
     }
     val stroke = if (isActive) AccentGreen.copy(alpha = 0.45f) else AppColors.appBorder.copy(alpha = 0.3f)
+    val haptics = LocalHapticFeedback.current
     Box(
         Modifier
             .clip(CircleShape)
             .background(fill)
             .border(1.dp, stroke, CircleShape)
-            .clickableNoRipple(onClick)
+            // iOS .sensoryFeedback(.selection, ...) on the pill (AgentLeaderboard.swift:218).
+            .clickableNoRipple {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            }
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Text(
@@ -391,6 +411,12 @@ private fun StatsSection(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Black,
                     color = if (entry.netUnits >= 0) AppColors.appWin else AppColors.appLoss,
+                    // Frosted, not hidden — iOS fills the plate with
+                    // .ultraThinMaterial so the number is present but unreadable
+                    // (AgentLeaderboard.swift:335-344). RenderEffect blur needs
+                    // API 31, which is this app's minSdk, and the translucent
+                    // plate below keeps it illegible regardless.
+                    modifier = if (lockStats) Modifier.blur(8.dp) else Modifier,
                 )
             }
             // Lock overlay when the viewer can't see agent picks.
@@ -399,7 +425,7 @@ private fun StatsSection(
                     Modifier
                         .matchParentSize()
                         .clip(RoundedCornerShape(4.dp))
-                        .background(AppColors.appSurface.copy(alpha = 0.85f)),
+                        .background(AppColors.appSurface.copy(alpha = 0.55f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

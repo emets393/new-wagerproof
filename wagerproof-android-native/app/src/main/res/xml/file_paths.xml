@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Shareable files exposed through androidx FileProvider. Scoped to the single
-  cache folder the trends share sheet writes into — never the whole cache dir,
-  which also holds auth/network caches.
+  Shareable files exposed through androidx FileProvider. Scoped to the specific
+  cache folders the share sheets write into — never the whole cache dir, which
+  also holds auth/network caches.
 -->
 <paths>
     <cache-path name="shared-trends" path="shared-trends/" />
+    <!-- Rendered agent pick / parlay ticket PNGs (AgentPickFocusView share). -->
+    <cache-path name="shared-plays" path="shared-plays/" />
 </paths>

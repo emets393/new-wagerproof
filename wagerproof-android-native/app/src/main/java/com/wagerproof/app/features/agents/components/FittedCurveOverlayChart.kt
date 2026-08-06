@@ -3,6 +3,8 @@ package com.wagerproof.app.features.agents.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -10,13 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -34,7 +37,9 @@ import kotlin.math.roundToInt
  * at the mean) so cohort size doesn't distort the shape read. An estimated
  * series (the NFL placeholder) draws dashed.
  *
- * Hand-drawn on Compose Canvas (FIDELITY-WAIVER #205) instead of iOS `Charts`.
+ * FIDELITY-WAIVER #205 (narrowed): hand-drawn on Compose Canvas instead of iOS
+ * `Charts`; the curves now use the same Catmull-Rom interpolation, so only the
+ * rendering mechanism differs.
  */
 data class FittedCurveSeries(
     val name: String,
@@ -46,6 +51,16 @@ data class FittedCurveSeries(
 // Break-even win rate at -110 juice — the same reference the histogram uses.
 private const val BREAK_EVEN = 0.5238
 
+/** Density-resolved plot insets, in pixels. */
+private data class PlotInsets(
+    val left: Float,
+    val right: Float,
+    val top: Float,
+    val bottom: Float,
+    val labelGap: Float,
+)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FittedCurveOverlayChart(
     series: List<FittedCurveSeries>,
@@ -54,13 +69,25 @@ fun FittedCurveOverlayChart(
 ) {
     val textMeasurer = rememberTextMeasurer()
     val axisStyle = TextStyle(color = AppColors.appTextSecondary, fontSize = 10.sp)
+    // Named `localDensity` so it can't shadow DrawScope.density inside the Canvas.
+    val localDensity = LocalDensity.current
+    // Plot insets declared in dp and converted once — raw pixel constants were
+    // ~2× too tight on an xxhdpi phone and ~3× on a tablet.
+    val padPx = remember(localDensity) {
+        with(localDensity) {
+            PlotInsets(
+                left = 6.dp.toPx(), right = 6.dp.toPx(), top = 8.dp.toPx(),
+                bottom = 20.dp.toPx(), labelGap = 4.dp.toPx(),
+            )
+        }
+    }
 
     Column(Modifier.fillMaxWidth().height(height)) {
         Canvas(Modifier.fillMaxWidth().weight(1f)) {
-            val leftPad = 6f
-            val rightPad = 6f
-            val topPad = 8f
-            val bottomPad = 20f
+            val leftPad = padPx.left
+            val rightPad = padPx.right
+            val topPad = padPx.top
+            val bottomPad = padPx.bottom
             val plotW = size.width - leftPad - rightPad
             val plotH = size.height - topPad - bottomPad
             if (plotW <= 0 || plotH <= 0) return@Canvas
@@ -92,7 +119,7 @@ fun FittedCurveOverlayChart(
                     layout,
                     topLeft = Offset(
                         (x - layout.size.width / 2f).coerceIn(0f, size.width - layout.size.width),
-                        size.height - bottomPad + 4f,
+                        size.height - bottomPad + padPx.labelGap,
                     ),
                 )
             }
@@ -108,30 +135,27 @@ fun FittedCurveOverlayChart(
                 )
             }
 
-            // Each sport's curve. Points are densely sampled, so straight segments
-            // read smooth; dashed when the fit is estimated.
+            // Each sport's curve, Catmull-Rom smoothed like iOS's
+            // `.interpolationMethod(.catmullRom)`; dashed when the fit is estimated.
             series.forEach { s ->
                 if (s.points.size < 2) return@forEach
-                val path = Path()
-                s.points.forEachIndexed { i, p ->
-                    val o = Offset(px(p.x), py(p.y))
-                    if (i == 0) path.moveTo(o.x, o.y) else path.lineTo(o.x, o.y)
-                }
                 drawPath(
-                    path,
+                    catmullRomPath(s.points.map { Offset(px(it.x), py(it.y)) }),
                     color = s.color,
                     style = Stroke(
-                        width = 2.5f * density,
+                        width = 2.5f * this.density,
                         pathEffect = if (s.isEstimated) PathEffect.dashPathEffect(floatArrayOf(10f, 6f)) else null,
                     ),
                 )
             }
         }
 
-        // Legend row (iOS `.chartLegend(position: .bottom)`).
-        Row(
+        // Legend (iOS `.chartLegend(position: .bottom)`, which wraps). A fixed
+        // Row clipped the 4th entry on narrow screens.
+        FlowRow(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             series.forEach { s ->
                 Row(verticalAlignment = Alignment.CenterVertically) {

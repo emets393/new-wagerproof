@@ -68,7 +68,7 @@ fun PropPlayerCard(
         modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(AppColors.appSurfaceElevated.copy(alpha = 0.55f))
+            .background(AppColors.appSurfaceElevated.copy(alpha = 0.92f))
             .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.5f), shape)
             .clickable {
                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -222,7 +222,7 @@ internal fun TimePill(text: String) {
     Box(
         Modifier
             .clip(CircleShape)
-            .background(AppColors.appSurfaceElevated.copy(alpha = 0.92f))
+            .background(AppColors.appSurfaceElevated.copy(alpha = 0.55f))
             .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.6f), CircleShape)
             .padding(horizontal = 7.dp, vertical = 3.dp),
     ) {

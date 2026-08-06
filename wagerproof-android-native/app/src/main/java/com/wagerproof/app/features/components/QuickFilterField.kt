@@ -46,21 +46,25 @@ import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 
 /**
- * The floating "Quick Filter" capsule that heads the Games, Props and Outliers
- * Trends feeds. Port of the field iOS duplicates across
+ * The floating search capsule that heads the Games, Props, Outliers Trends and
+ * Search feeds. Port of the field iOS duplicates across
  * `GamesView.quickFilterField`, `PropsView.quickFilterBar` and
- * `OutliersTrendsView.quickFilterBar` — those three are identical apart from
- * their accessibility label, so Android keeps ONE copy: all three pinned
- * headers must share the exact same seam and 44dp height or they stop lining
- * up with the icon controls beside them.
+ * `OutliersTrendsView.quickFilterBar` — those are identical apart from their
+ * accessibility label, so Android keeps ONE copy: every pinned header must
+ * share the exact same seam and 44dp height or they stop lining up with the
+ * icon controls beside them, and the glass stops matching the picker above it.
  *
  * [BasicTextField] rather than Material's `TextField`, which reserves a 56dp
  * minimum height for its floating label and would make the capsule taller than
- * the sibling controls.
+ * the sibling controls — and whose container color is opaque, which is how the
+ * Search tab's field ended up a solid block next to three glass ones.
  *
  * Owns no state: the caller holds the query (per-sport in
  * `GamesStore.searchTexts` for Games, screen-local elsewhere) and is
  * responsible for trimming it before filtering.
+ *
+ * [onSubmit] + [imeAction] exist for the Search tab, which commits the query to
+ * recents on the keyboard's Search key; the filter feeds just dismiss.
  */
 @Composable
 fun QuickFilterField(
@@ -69,6 +73,9 @@ fun QuickFilterField(
     accessibilityLabel: String,
     modifier: Modifier = Modifier,
     placeholder: String = "Quick Filter",
+    imeAction: ImeAction = ImeAction.Done,
+    onSubmit: (() -> Unit)? = null,
+    onClear: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -114,9 +121,12 @@ fun QuickFilterField(
                     // surnames get mangled by both.
                     capitalization = KeyboardCapitalization.None,
                     autoCorrectEnabled = false,
-                    imeAction = ImeAction.Done,
+                    imeAction = imeAction,
                 ),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                keyboardActions = KeyboardActions(
+                    onDone = { onSubmit?.invoke() ?: focusManager.clearFocus() },
+                    onSearch = { onSubmit?.invoke() ?: focusManager.clearFocus() },
+                ),
                 cursorBrush = SolidColor(AppColors.appPrimary),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
@@ -141,7 +151,7 @@ fun QuickFilterField(
                     .clickable(
                         interactionSource = clearInteraction,
                         indication = null,
-                        onClick = { onValueChange("") },
+                        onClick = { onClear?.invoke() ?: onValueChange("") },
                     )
                     .semantics { contentDescription = "Clear quick filter" },
                 contentAlignment = Alignment.Center,
