@@ -293,6 +293,30 @@ if WEEK <= 3 and os.path.exists(_cmp):
                                    f"(+{m.pace_gap:.1f} plays/gm faster than {tm} played) — "
                                    f"market prices the tempo before the roster can run it"})
 
+# ── Explicit bet target on every flag (owner rule 2026-08-07): a signal's text must
+# SAY the bet ("→ bet Tulsa +12.5"), because side=HOME/AWAY never renders and a source
+# that only names a team reads as backing that team even when it fades them (the OSU
+# regime-fade confusion). Appended last so every emitter above stays untouched.
+def _bet_text(r):
+    away, home = r["game"].split(" @ ", 1)
+    m, s, ln = r["market"], str(r["side"]), r.get("line")
+    if m in ("spread", "h1_spread") and s in ("HOME", "AWAY"):
+        team = home if s == "HOME" else away
+        line = None if ln is None else (float(ln) if s == "HOME" else -float(ln))
+        pre = "1H " if m == "h1_spread" else ""
+        return f"{team} {pre}{line:+g}" if line is not None else team
+    if m in ("total", "h1_total") and s in ("OVER", "UNDER"):
+        pre = "1H " if m == "h1_total" else ""
+        return f"{pre}{s.title()} {float(ln):g}" if ln is not None else s.title()
+    if m == "moneyline" and s in ("HOME", "AWAY"):
+        return f"{home if s == 'HOME' else away} ML"
+    return s.title() if s else None
+
+for r in rows:
+    bt = _bet_text(r)
+    if bt:
+        r["source"] = f"{r['source']} → bet {bt}"
+
 df = pd.DataFrame(rows)
 
 # ── Weeks 1-3 EXTREMITY TIER for fade_high_total (validated 2026-08-03, FOOTBALL_PROFILES) ──
