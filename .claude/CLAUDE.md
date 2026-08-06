@@ -262,7 +262,7 @@ Four generations of the engine exist in the repo. Get this right before touching
 | Engine | Location | Status |
 |---|---|---|
 | **V3 / Trigger.dev** | `agents-v3/trigger/generateV3Picks.ts` (task `generate-v3-picks`) | **CANONICAL** — what web + iOS native call |
-| V3 edge mirror | `supabase/functions/process-agent-generation-job-v3/` | Diverged fork of `agents-v3/src/loop/` — same module names, different code; nothing triggers it |
+| V3 edge mirror | `supabase/functions/process-agent-generation-job-v3/` | Diverged fork of `agents-v3/src/loop/` — same module names, different code. **LIVE, not orphaned** — see below |
 | V2 queue | `process-agent-generation-job-v2` + `request-avatar-picks-generation-v2` | Legacy; only the deprecated RN app calls it |
 | V1 | `supabase/functions/generate-avatar-picks/` | Dead — only a test script calls it |
 
@@ -272,12 +272,30 @@ Four generations of the engine exist in the repo. Get this right before touching
   Do NOT fetch `api.trigger.dev` directly from a client — hand-rolled public tokens 401.
 - `agents-v3` must run `runtime: "node-22"` in `trigger.config.ts` — supabase-js ≥2.108 throws
   at `createClient` on Node 21 and this took prod down once.
-- Default model is DeepSeek `deepseek-v4-flash`. The `deepseek-reasoner`/`-chat` aliases are retired.
-- **Known ambiguity**: auto-generation may be scheduled twice — SQL migration
-  `20260706120000_auto_generation_all_v3.sql` routes auto runs to the edge V3 worker, while
-  `agents-v3/trigger/dailyAutoGenV3.ts` says it replaces that path. The three migrations
-  touching `v2-enqueue-auto-generation` all unschedule-then-reschedule it, so it is likely
-  still active. Verify against prod `cron.job` before changing auto-generation.
+- **The edge mirror is NOT unreferenced.** pg_cron `v3-dispatch-workers` runs
+  `dispatch_generation_workers_v3(5)` EVERY MINUTE and pg_net POSTs that edge function;
+  `v3-circuit-daily-reset` re-arms its breaker daily. Both verified active in prod
+  `cron.job` on 2026-08-06. Treating it as dead is how it sat broken for four days
+  (108 runs, 0 successes, 2026-08-02 → 08-06) with nobody paged: auto-gen failures land
+  in the ledger silently. Check `agent_generation_runs` by `engine_version` before
+  concluding any engine is idle.
+- **Two wires, one routing decision.** `resolveProvider()` in
+  `agents-v3/src/loop/runV3Generation.ts`: `deepseek*` → `/v1/chat/completions`,
+  everything else → `/v1/responses`. Only the Trigger.dev engine has this — the edge
+  mirror and V2 are still chat/completions-only, which is why the model remap is scoped
+  by `engine_version` (`20260806143000`).
+- **Default model is OpenAI `gpt-5.6-luna`**, reasoning effort from `V3_REASONING_EFFORT`
+  (currently `high`; code default `xhigh`). Pin the FULL id — bare `gpt-5.6` routes to Sol.
+  Luna **refuses function tools alongside any non-"none" reasoning effort on
+  /v1/chat/completions** (HTTP 400) — that combination only works on `/v1/responses`.
+  Do not "fix" a 400 there by pinning effort to `none`: it silences the error and takes
+  the reasoning with it (measured: output tokens 5,540 → 655, turns 23 → 9, zero-pick
+  runs 46% → 72%). The ledger's `model_name` wins over every code constant.
+- **`agent_generation_runs.model_name` is rewritten on INSERT** by
+  `hotfix_remap_deepseek_model_on_insert` — NULL/`deepseek*` become `gpt-5.6-luna` for
+  `v3_trigger` and `gpt-4.1-mini` for every other engine. Both shipping native clients
+  still send an explicit `deepseek-v4-flash`, so this trigger is load-bearing; dropping
+  it sends them back to the DeepSeek account that 402'd in July.
 - Migration history is out of sync with prod: `select_due_auto_avatars_v3_trigger` is called
   by `dailyAutoGenV3.ts` but exists in no migration file.
 
