@@ -138,6 +138,18 @@ def h1t_cons(gid):
 fl = requests.get(f"{C.URL}/rest/v1/cfb_dryrun_flags?week=eq.{WEEK}&select=*", headers={**C.H, "Prefer": ""}).json()
 flags = pd.DataFrame(fl)
 CG = {"spread": "spread", "total": "total", "team_total": "team_total", "h1_spread": "h1_spread", "h1_total": "h1_total", "h1_ml": "h1_ml"}
+def counter_keys(gid, card_group, side):
+    """Signal keys firing the OPPOSITE side of this market — the card's
+    'Contradicts this pick' bucket. Real information (e.g. a tracking-tier
+    regime fade against the model's active lean), hidden until now."""
+    if side is None or not len(flags):
+        return []
+    f = flags[(flags.game_id == gid) & (flags.market.map(lambda m: CG.get(m)) == card_group)]
+    opp = {"HOME": "AWAY", "AWAY": "HOME", "OVER": "UNDER", "UNDER": "OVER"}.get(side)
+    if opp is None:
+        return []
+    return sorted(set(f[f.side == opp].signal_key))
+
 def conv_for(gid, card_group, side=None, team=None, ou=None):
     f = flags[(flags.game_id == gid) & (flags.market.map(lambda m: CG.get(m)) == card_group)] if len(flags) else flags
     if len(f) and card_group == "team_total":
@@ -201,7 +213,8 @@ for _, r in te.iterrows():
             vegas_line=round(float(vline), 1), vegas_price=-110, edge=round(abs(side_edge), 1),
             best_book=bs[2] if bs else None, best_line=round(bs[0], 1) if bs else None, best_odds=bs[1] if bs else None,
             conviction=cv, is_mammoth=mam, has_play=(not capped and cv != "none"), display_only=capped,
-            signal_keys=sig, stake_units=C.STAKE.get({"mammoth":"mammoth","high":"T1","med":"T2","low":"T3","lean":"track"}.get(cv,"track"),0)))
+            signal_keys=sig, counter_signal_keys=counter_keys(gid, "spread", pside),
+            stake_units=C.STAKE.get({"mammoth":"mammoth","high":"T1","med":"T2","low":"T3","lean":"track"}.get(cv,"track"),0)))
     # ---- TOTAL ----
     if pd.notna(r.total_edge):
         pside = "OVER" if r.total_edge > 0 else "UNDER"; bt = best_total(gid, pside)
@@ -211,6 +224,7 @@ for _, r in te.iterrows():
             vegas_line=round(float(r.total_close), 1), vegas_price=-110, edge=round(abs(float(r.total_edge)), 1),
             best_book=bt[2] if bt else None, best_line=round(bt[0], 1) if bt else None, best_odds=bt[1] if bt else None,
             conviction=cv, is_mammoth=mam, has_play=(cv != "none"), display_only=False, signal_keys=sig,
+            counter_signal_keys=counter_keys(gid, "total", pside),
             stake_units=C.STAKE.get({"mammoth":"mammoth","high":"T1","med":"T2","low":"T3","lean":"track"}.get(cv,"track"),0)))
     # ---- TEAM TOTALS (both, always) ----
     # TEAM TOTALS — UNIFIED: predicted points come from the FULL-GAME model (coherent with the headline score:
@@ -291,6 +305,10 @@ for _, r in te.iterrows():
             signal_keys=["h1_ml"] if play_m else [], stake_units=0.5 if play_m else 0))
 
 df = pd.DataFrame(rows)
+if "counter_signal_keys" in df.columns:
+    df["counter_signal_keys"] = df.counter_signal_keys.map(lambda v: v if isinstance(v, list) else [])
+else:
+    df["counter_signal_keys"] = [[] for _ in range(len(df))]
 df["recommendation"] = [C.recommendation(c, h) for c, h in zip(df.conviction, df.has_play)]  # ready-to-display label
 # display-only markets show a predicted winner, not a graded bet -> clearer labels than "No Bet"/"Play"
 df.loc[df.card_group == "moneyline", "recommendation"] = "Predicted Winner"
