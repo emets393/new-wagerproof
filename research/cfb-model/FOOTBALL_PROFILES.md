@@ -356,3 +356,24 @@ close+7 on Indiana -40.5). Board now: mean visible deviation 2.8 spread / 2.3 to
 9/51 spreads within 0.5 of the line. Known cost, accepted: raw display MAE ~13.0 vs line
 12.6 (display identity > 0.4 MAE). λ-accuracy facts from the anchor study remain true —
 BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as always.
+
+
+## CFB roster-dimension fade (wk1) — market OVERSHOOT on loaded rosters, 2024-25
+> `roster_dimensions_report.py` + follow-up fade sweep (2026-08-07). Dimensions: exp_yrs
+> (mean prior FBS roster-years, capped 4), ret_share/ret_prod (player-built PPA), cur_prod
+> (= ret_prod + in_prod, portal included).
+- **Forward story:** higher-dim side wins wk1 SU big (cur_prod 63.7%, n=237) but ATS is
+  priced (~48-51% at open AND close, 2021-25 pooled).
+- **Regime shift:** every dimension's higher side covered 57-61% vs the open in 2022,
+  decaying to 37-43% by 2024-25 — the market learned portal/returning-production data and
+  now OVERPRICES it.
+- **Fade side, wk1 2024+2025 (n=83/dim, dims heavily correlated = ~one signal):**
+  ret_prod fade 61.4% open (+17.3% ROI) / 59.0% close, positive BOTH seasons (59/63);
+  ret_share 59.0/55.4; cur_prod 56.6/57.8; exp_yrs 61.4/59.0 but 2025-close ~51.
+  Dose-response NON-monotone (mid-gap best for ret_prod, big-gap only 50%) — mechanism
+  softer than regime-fade's.
+- **Honest status: post-hoc sign flip on TWO seasons, selected because they inverted (the
+  2022 bettor would have registered the opposite rule).** Tracking tier at most; if wired,
+  pre-register ONE spec: fade higher ret_prod, all wk1 gaps, grade vs OPEN, 0.5u paper.
+- Interplay: can contradict regime_fade_teardown on games where ratings lean on the GUTTED
+  team (different mechanisms — teardown keys rating-vs-line, this keys raw roster diff).
