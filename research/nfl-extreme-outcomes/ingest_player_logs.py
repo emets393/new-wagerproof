@@ -12,6 +12,7 @@ Run:  python3 ingest_player_logs.py 2025        # dry-run, whole season
 """
 import sys
 import json
+import urllib.error
 import requests
 import pandas as pd
 from pathlib import Path
@@ -53,7 +54,15 @@ def service_key():
 
 
 def main():
-    ps = player_stats_off(SEASON)
+    # nflverse publishes stats_player_week_{season} only once that season has played
+    # games — preseason the URL 404s. No-op cleanly (grade_week.sh runs daily from
+    # August; the other steps already degrade the same way).
+    try:
+        ps = player_stats_off(SEASON)
+    except urllib.error.HTTPError as e:
+        print(f"[logs] stats_player_week_{SEASON} not published yet ({e.code}) — "
+              f"no player logs to ingest, skipping")
+        return
     missing = [c for c in COLMAP if c not in ps.columns]
     if missing:
         print(f"[!] nflverse columns missing: {missing}")
