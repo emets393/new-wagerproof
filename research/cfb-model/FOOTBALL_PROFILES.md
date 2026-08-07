@@ -65,8 +65,142 @@ Preseason-known (leak-safe). `phase_returning_study.py`, `data/cfbd/returning_pr
   rushing/receiving returning all ~53% (7-8/9); it's the AGGREGATE. (OL + DEFENSE returning are NOT in
   `/player/returning` (PPA=offense skill only) → would need roster-diffing; that's where position-specificity
   might live — future build.) **Portal-churn interaction underpowered** (2021-25, n=51 cells — set aside).
-- Conviction **T2** (elite 9/9-season consistency, mechanism-backed; modest ROI). NOT YET WIRED — needs the
-  `/player/returning` fetch in the pipeline (loads ~August for 2026) + a differential flag weeks 1-3.
+- Conviction **T2** (elite 9/9-season consistency, mechanism-backed; modest ROI).
+- **WIRED 2026-08-01** as signal `ret_prod_edge`: `cfb_early_roster_signals.py` (self-test 53.7% ATS wk1-3
+  2021-25) → `gen_cfb_dryrun_flags.py` emits a wk1-3 spread flag backing the higher-returning team;
+  `fetch_cfbd_roster.py` (in `run_cfb_week.sh`) refreshes `/player/returning`; def in `cfb_signal_defs`.
+
+## VALIDATED (track-plus candidate) — CFB portal talent influx, weeks 1-3 ATS (S-CFB3)
+> **Weeks 1-3: back a team that added ≥3 four-star+ PORTAL transfers (and more than its opponent).**
+
+`transfer_trends_study.py`, `data/cfbd/portal.parquet` (2021-25). Sibling of S-CFB2 — that keeps its guys,
+this adds new ones; both = early lines undervalue current-roster reality, both decay by week 4.
+- **~57% ATS wk1-3** with the opp-differential (self-test n=220); the raw "3+ four-star adds" cell was 54.5%
+  (4/5 seasons); **strongest when the team is the LESS-talented side** (60.4%, the mid-team-hits-the-portal
+  case) — so it's the incoming portal talent being undervalued, not just "good teams cover."
+- **Decays by week 4** (wk4+ ≈ 50%) — the market-lag signature. Dose-response in # of four-star adds.
+- **Caveats (honest):** portal only 2021-25 (5 seasons), small n, ~20 cells scanned → **track-plus / T3**, not a
+  locked bet like S-CFB2. Needs 2026+ to confirm.
+- **Transfer VOLUME otherwise = PRICED:** raw incoming count + most position-group volumes → ~50-52% early
+  (market watches the portal). New-QB → mild fade/under but confounded with continuity. OL-light→under and
+  LB-heavy→cover are the same "portal-aggression" signal in disguise / partly team-type confounds (tracking).
+- **WIRED 2026-08-01** as signal `portal_talent_influx` (T3): `cfb_early_roster_signals.py` →
+  `gen_cfb_dryrun_flags.py` wk1-3 spread flag; `fetch_cfbd_roster.py` refreshes `/player/portal`.
+
+## VALIDATED (scouting/model input, NOT a standalone bet) — Coaching scheme transfer
+> When a head coach moves school A→B, team B's STYLE shifts toward how A played under him — fast/slow especially.
+
+`coach_moves_study.py` (CFBD `/coaches` seasons array → 66 HC moves 2017-25; style from `game_advanced`),
+`coach_pace_betting.py`, `data/coach_moves.parquet`:
+- **The scheme transfers, year 1, measurably:** pace corr(coach-vs-team gap, actual shift) **+0.65**, pass-rate
+  +0.68, explosiveness +0.56 (n=52); big-gap moves **close ~60-66% of the style gap in year 1**. Examples:
+  Charlie Strong took USF 71→85 pace (Texas-fast), Taggart FSU 62→71 (Oregon), Odom Purdue 56→65, Blake
+  Anderson Southern Miss 60→68. (A few exceptions, e.g. Jimbo Fisher.)
+- **Portal amplifier (2021-25, suggestive):** 26/33 moves brought ≥1 transfer from the coach's old school;
+  **3+ followers → 66% gap-closure vs 37% with 0-2** (n=19 vs 14). Coach + his players = bigger shift
+  (e.g. Charles Huff → Southern Miss, 19 followers, 60→68).
+- **NOT a standalone early-season bet:** big coach moves are rare (~15-21 wk1-3 games/cell), and the naive
+  "fast coach → OVER early" INVERTS — those games came in UNDER (line 60.2, actual 55.2, −5.0), i.e. the market
+  OVER-hypes a new fast scheme. Underpowered + wrong-direction → do not bet directly.
+- **REAL USE = a weeks-1-3 MODEL INPUT** (where the owner wanted help): for a new-coach team, last-year's tempo
+  is STALE (they'll play ~66% toward the coach's prior style). Blend the coach's prior-team style into the
+  early-week priors model (`cfb_early_week.py`) + a scouting card ("new HC from [fast/slow team] + N followers").
+- **WIRED 2026-08-07 as `coach_pace_under` (TRACKING tier, owner request):** wk1-3, new HC with pace_gap >= +4
+  (the study's own dose-response rung: 66.7% under, n=21; the >=+8 mechanism cell = -5.0 vs the close, baseline
+  -4.2) -> game-total UNDER flag at 0.5u paper. `fetch_preseason_ratings.tr_and_coaches` now writes
+  `coach_moves_{season}.parquet` weekly (prev school via coach_seasons, pace from game_advanced season-1);
+  `gen_cfb_dryrun_flags` emits the flag. 2026 wk1: 7 fires incl. OSU@Tulsa U60.5 (Morris +4.7, the original
+  motivating case), Clemson@LSU U50.5 (Kiffin +9.8), WMU@Michigan U47.5 (Whittingham +8.6). The style-blend
+  model input remains un-wired (separate work).
+
+## NFL — Coaching scheme transfer (port of the CFB study) — STAT VALIDATED, bet under-powered
+> Same question, NFL: when a HEAD COACH moves team A→B, does B's style shift toward how A played?
+`research/nfl-extreme-outcomes/nfl_coach_moves_study.py` (+ `nfl_coach_moves_betting.py`,
+`data/nfl_coach_moves.parquet`). Coach→team→season from `nflverse_games.parquet` (home/away_coach);
+style from nflverse PBP 2012-2025 (`data/pbp_cache/pbpslim_*`): PROE = pass-over-expected (pass−xpass,
+neutral early downs), pass_rate, pace (off plays/game), EPA/play, explosive (yds≥20). Grade at close
+via `nflverse_games` `total_line`/`spread_line` (full-history fallback; Odds-API archive only 2023+).
+
+- **Structural NFL difference:** HCs rarely jump team→team in consecutive years (they get fired and sit
+  out), so the strict CFB "consecutive-year" move catches only ~10 cases 2013-25. Allowing a ≤5-yr gap
+  and taking the coach's identity from his LAST HC season gives **30 moves (n=21 with full style)**.
+- **The scheme transfers, year 1, and MORE on pass tendency than CFB:** corr(coach-vs-team gap, actual
+  shift) — **PROE +0.77 (closes 76% of gap), pass-rate +0.75 (89%), pace +0.68 (59%)**, EPA +0.61,
+  explosive +0.63. EPA/explosive weaker = talent follows the roster, not the coach (expected). Examples:
+  Rivera CAR→WAS pace 55→65 (+9.88, Carolina tempo), Reich IND→CAR 57→64 (+7.24), Pete Carroll SEA→LV
+  62→55 (−6.59, slowed it), Andy Reid PHI→KC PROE −0.14→+0.08 (made KC pass-happy).
+- **Bet = NOT proven (under-powered), and directionally OPPOSITE to CFB:** wk1-3 fast-coach (pace_gap≥+8)
+  totals came in **+5.9 over the close** (line 43.9→actual 49.8, vs +0.55 baseline), OVER hit 4/6 and the
+  slow-coach complement went under-heavy — i.e. the NFL market UNDER-adjusts the early pace jump (CFB's
+  market OVER-hyped it and the lean inverted). But the wk1-3 cell is only **n=6/3** — noise-level, do not
+  bet. **CORRECTED 2026-08-02 (spread-sign bug):** new-coach ATS wk1-3 = **38.7%** (n=62, suggestive
+  early FADE) decaying to 46.0% wk4+ — an early-fade candidate, not the flat-44%-priced first reported.
+  (nflverse `spread_line>0` = HOME favored; ats_margin must be `result − spread_line`.)
+- **REAL USE = a weeks-1-3 MODEL INPUT.** For a new-coach team, last year's tempo/pass-tendency is STALE
+  (they play ~60-90% toward the coach's prior identity). Feed the coach's prior-team style into the
+  early-season carryover (`early_season_blend.py`) instead of / alongside the team's own prior year, and
+  surface a scouting note ("new HC from [fast/pass-happy] team"). NOT YET WIRED into the blend.
+- **Follow-up:** NFL's biggest scheme lever is the OC, not the HC; nflverse only carries HC. OC moves
+  need a Pro-Football-Reference scrape — the likely-stronger v2.
+
+## CFB SCHEME STUDY (NFL-program port, 2026-08-03) — game-level tendency identity is PRICED
+`cfb_scheme_study.py`. College has NO coverage/formation charting (no man/zone, 2-high, box — CFBD
+carries none), so scheme = TENDENCY IDENTITIES from `model_games.parquet` (opponent-adjusted as-of:
+pace, pass lean, EPA/explosiveness/success off+allowed w/ rush-pass splits, havoc f7/db, line yards).
+Sign convention asserted (favs cover 48.7%); wk4+, close-graded, per-season 2016-25, 5,352 games.
+- **Increment-over-close (the #99 design): NO GAIN even in CFB's softer market** — FG total +0.262
+  MAE (worse than line-only), FG spread +0.231 (worse). No bet cell above need+sigma. Game lines
+  price team-level tendency identity in college too.
+- **Continuous interaction battery: all dead** — explosive-O-vs-suppressing-D, havoc-vs-weak-trench,
+  run-heavy-vs-elite-run-D all 47-53% with complements behaving like the cells. (Mild residue: top-q
+  explosive-pass offenses cover ~53.3-53.5% regardless of opponent — a ≈breakeven main-effect lean,
+  not a signal.)
+- **Where CFB style value actually lives (all previously validated, unchanged):** S-CFB1 in-season
+  underperformance-vs-archetype UNDER (deviation, not identity), pace as a TOTAL-model feature
+  (−0.46 MAE), and the wk1-3 roster/coach signals (S-CFB2/S-CFB3, coach transfer). **The NFL scheme
+  program's payoff was PLAYER-level granularity (receiving props) — CFB has no player-prop data, so
+  no analog exists.** Cross-sport law confirmed: game-level scheme identity is priced in BOTH
+  markets; don't re-run identity/interaction screens at the game level.
+
+## CFB EARLY-SEASON FEATURE CARRYOVER (2026-08-03) — forecaster FIXED; no new bet spots earned
+`cfb_early_carryover.py` + `cfb_early_backtest.py`. The NFL continuity-blend ported to the CFB
+harness: model_games' opponent-adjusted features are 100% NULL in wk1 (1-2 noisy games wk2-3) →
+fill wk1-3 with prior-season END values shrunk by CONTINUITY = 0.75·returning-percentPPA +
+0.25·same-HC (`data/cfbd/coach_seasons.parquet`, 2015-25), clip [0.20,0.95]; blend current season
+back in by games played (K=6). Prior season = latest < S (2021→2019 over the COVID gap).
+- **FORECASTER: transformed.** Wk1-3 walk-forward 2018-25 (n=1,017, sign-check 49.1%): spread
+  corr-with-market 0.445 → **0.782**, MAE 17.60 → **15.15**; total corr 0.345 → 0.555. The cold
+  harness collapse is fixed.
+- **BET CELLS: none earned (honest kill).** Spread: no credible ATS cell either config. The strong
+  early total-UNDER cell (filled p80 62.3%/+19.0, 6/7) FAILED the in-subset naive control — "under
+  the N highest closes" wins **67.5%/+28.9** on matched n; the cell is `fade_high_total`'s
+  high-close mean-reversion re-derived, and the simple rule captures it BETTER than the model.
+
+### fade_high_total EXTREMITY TIER (tested + WIRED 2026-08-03, the sharpening lead cashed)
+The flat `close>=60 -> UNDER` rule hides two structures: (1) **phase** — wk1-3 58.0%/+10.8 (8/9) vs
+wk4+ 52.8%/+0.8 (the pooled ~55% validation was a phase-pooling artifact; the signal is essentially
+an EARLY-season edge); (2) **extremity dose-response within wk1-3** — top-20% closes 59.2 (9/9) →
+top-8% **64.5%/+23.2** (8/9) → top-5% 67.2. The top-8% is a strict SUBSET of >=60 (rank-only cell
+n=0), i.e., the current rule's early hits concentrate in its most extreme lines while the 60-64.5
+band is mediocre (54.7%, 5/9). Complement clean (bottom-10% closes -> over 48.8%). **RANK beats a
+fixed cut** because the totals environment drifts (top-8% threshold: 68.6 in 2016 → 60.5 in 2025).
+**WIRED:** `gen_cfb_dryrun_flags` upgrades fade_high_total to **T2** in weeks 1-3 when the game's
+close ≥ max(slate p92, 60) — floor kept at 60 (sub-60 rank cells have zero historical sample). Wk4+
+unchanged (T3; the decay says early is where the meat is). 2026 wk1: OK State @ Tulsa 60.5 upgraded.
+
+**Exemplar (2026 wk1, OK State @ Tulsa 60.5 — the signal+context product story):** four independent
+lenses converge UNDER: (1) the extremity tier (highest close on the board, 64.5%/8-of-9 cell);
+(2) the coach scheme-transfer INVERSION cell — new fast-paced HC (Eric Morris, national scoring
+leader at North Texas, brought his QB) = exactly the "market over-hypes a new fast scheme" setup
+(those games landed −5.0 vs their bloated lines); (3) public hype confirmed (VSiN best-bets the
+OVER 5.5 wins, Mestemaker Heisman piece); (4) the early-week blend projects 52.5 vs 60.5 and only
+−0.8 on a −12.5 spread (OK State Stability Score 2/19 — the blend won't pay for an all-new roster).
+Hierarchy: the T2 flag is the VALIDATED bet; (2)-(4) are converging context, not standalone edges.
+- **DEPLOYMENT DECISION: EARLY_SUPPRESS STAYS** (model-edge spots earned no wk1-3 track record).
+  Display predictions continue from `cfb_early_week`. The carryover is validated + ready but NOT
+  wired into the live harness: filling model_games changes the training distribution, which
+  invalidates the FROZEN 2026 pkls — wire it at the next pkl refresh (fill in build_features for
+  ALL seasons, refit, refreeze), i.e., the in-season wk4+ refresh or 2027 preseason.
 
 ## MODEL FEATURES (Phase 4) — walk-forward MAE, keep-what-lowers
 Shape features (orthogonal to the efficiency the market prices), test seasons 2021-25:
@@ -101,3 +235,145 @@ loosely, NFL tightly). Build style-delta signals in CFB; treat NFL as the sharp 
    profile/delta computation productionized in the weekly pipeline.
 2. Add tempo/pace to the CFB total model (production_models / cfb_forecast total path).
 3. Revisit NFL with more PBP seasons (only 2023-25 cached) before concluding the reversal is structural.
+
+## EARLY-WEEK DISPLAY: MARKET ANCHOR (2026-08-03, wired) — the "OSU@Tulsa -0.8" fix
+Owner spotted wk1 displays absurdly far off the market (OSU@Tulsa blend -0.8 vs close -12.5;
+Indiana -22 vs -40.5). Battery (`cfb_early_talent_test.py`, walk-forward wk1-3 eval 2022-25, n=588):
+- **The preseason blend carries ZERO information beyond the closing line.** Optimal shrink
+  λ = -0.07±0.10 (spread), +0.12±0.11 (total) — both statistically zero. Line MAE beats the
+  blend outright (12.16 v 13.23 margin; 12.26 v 12.98 total). On the top-decile disagreement
+  games the market wins 15.2 v 18.7 — our big deviations are pure noise, every config.
+- **Player/roster feature adds help the RAW blend but cannot close the gap**: ret_ppa best
+  single add (corr .924→.932; auto-joins when CFBD posts ~Aug), portal net specifically
+  shrinks the blow-up games (disagreement MAE 18.7→17.2), talent composite mild, new-HC
+  carryover ≈ nothing. Compression is NOT the issue (pred SD 16.3 ≈ market 16.5).
+- **WIRED in `cfb_early_week.py`**: display = close + 0.25·(blend−close), capped ±7 spread /
+  ±6 total, Odds-API close only, raw blend where no line. λ=0.25 keeps a model voice at
+  ~0.09 MAE cost. 2026 wk1 after: OSU@Tulsa +9.2 (was -0.8), Indiana -35.9, Miami(OH) -15.9.
+- **Law for the vault**: in wk1-3 CFB, no amount of preseason player/roster data beats the
+  line — the road to sane early numbers is the anchor, not more features. Betting unchanged
+  (EARLY_SUPPRESS stays; flags grade vs the close as before).
+
+## PLAYER-LEVEL ROSTER RECONSTRUCTION (2026-08-03, tasks #100-102, wired)
+Owner push: gauge early games from INDIVIDUAL players (transfers, composites), not team
+aggregates. Layer built: `fetch_roster_layer.py` (rosters 2016-25 213k rows + recruiting
+composites 2013-26 + per-player season PPA) + cached portal/usage → `build_roster_scores.py`
+→ per (season,team): ret_prod / in_prod / lost_prod / ret_share / net_prod / talent_stock /
+qb1_prior / qb1_transfer / qb1_rating. **Construction validated: our player-built ret_share
+corr +0.884 with CFBD percentPPA (n=916)** — we can now compute returning production from
+rosters directly (2026: the day CFBD posts rosters, no waiting on the aggregate feed).
+
+**Test (`cfb_roster_early_test.py`, walk-forward wk1-3, eval 2022-25, n=588):**
+- BASE+ROSTER = best early model to date: MAE 12.95 (BASE 13.19; aggregate-features 13.31),
+  corr w/ line .936, disagreement-decile error 18.5→16.2. ROSTER-ONLY alone worse (15.4) —
+  player data COMPLEMENTS team ratings, doesn't replace them.
+- vs the line pooled: λ +0.03±0.10 still zero — anchor law stands.
+- **LEADS (track fwd 2026, NOT edges): G5-vs-G5 λ +0.305±0.204, transfer-QB λ +0.140±0.129**
+  — positive info beyond the line exactly where lines are softest; 1.1-1.5 SE, under any
+  significance bar. High-turnover and P5-P5 dead zero.
+**WIRED:** ROSTER_FEATS in cfb_early_week.py MARGIN_FEATS (NaN-safe mean-impute → BASE
+behavior until current-season rosters post); runner step "player roster layer" refreshes
+weekly. Display anchor (λ=0.25 cap) unchanged on top.
+
+## TRUE PRESEASON POWER RATINGS (2026-08-04, owner-identified, wired)
+Owner caught the core flaw: priors used PRIOR-YEAR FINAL SP+, not the published PRESEASON
+SP+ (which already prices portal/coaching — OSU 2026: stale -15.1 vs preseason +7.1, a
+22-pt swing; preseason-implied OSU@Tulsa ≈ -12.2 vs market -12.5). Source:
+cfbtxt.com/data/ratings_preseason_<year>.csv (SP+/FPI/FEI, 138 teams, 100% CFBD name
+match) — CURRENT season only; historical preseason archives are ESPN+-locked, so
+backtests still proxy with prior-year finals (documented limitation).
+WIRED: fetch_preseason_ratings.py patches priors.parquet current-season rows
+(prior_sp<-sp_plus, prior_fpi<-fpi); runner step added. 2026 wk1 raw blend now lands
+within ~1 pt of the market on the rebuild games BEFORE anchoring.
+STALE-RATING GAP STUDY (owner-designed, prior-year proxy, wk1-3 2017-25): follow-the-
+ratings dose-response has no ladder; the FADE at 3-12 gap = 53.9%/+2.8 pooled but decomposes
+into S-CFB2 overlap (58%) + NEW-HC cell (62.1%, n=116 — the correctly-conditioned version
+of VSiN's new-coach fade) + dead no-cause remainder (51.2%); ALL slices flipped negative in
+2025. stale_line_coach_fade = candidate TRACKING signal only. With true preseason ratings
+now flowing, the same gap study runs LIVE in 2026 (preseason SP+ + HFA vs close) — forward
+track before any promotion.
+
+## REGIME FADE FAMILY — WIRED AS TRACKING SIGNALS (2026-08-04)
+Owner-driven re-study on TRUE preseason ratings (TR predictive, harvested 2018-2025 via
+dated URLs, 924 team-seasons, 100% name-mapped) KILLED the 2025-flip concern — it was a
+stale-ratings artifact. Final cells (wk1-3, |implied−close| ≥ 2, close = Odds API):
+- regime_fade_hc: rating's side has 1st-yr HC → fade = **58.4% / +11.5% (n=137)**, per-season
+  47/50/60/56/58/78/60 — five straight positive 2021-25. Anti-control (fade wrong side) 37.8%.
+- regime_follow_hc: rating's side vs new-HC OPPONENT → follow = **62.2% / +18.7% (n=111)**.
+- qb-transfer fade 57.0% (n=128) — NOT wired yet (needs 2026 rosters to identify QB1).
+- qb-unknown follow 54.9%→61.4% w/ dose (n=91/44, 7/7 season-cells) — watch.
+WIRED: gen_cfb_dryrun_flags block (tracking tier, 0.5u paper) + signal defs; inputs
+(preseason_tr_{S}, coaches_{S} w/ new_hc) refresh weekly via fetch_preseason_ratings.
+2026 wk1: 13 fades + 5 follows live. STATUS: tracking until live season confirms (the
+discovery grid scanned 30 cells). Also found+fixed: **CFBD consensus lines corrupt for
+5/51 wk1 games (2 sign-flipped!)** — flags generator now overrides te lines from
+odds_game_frame (owner Odds-API rule now enforced in the flags path too).
+
+## TRENCH-WEIGHT STUDY + CFBD v2 AUDIT (2026-08-04)
+OL/DL top-8 weights from rosters (now kept in fetch_roster_layer): mechanism REAL but tiny
+(partial corr +0.03-0.05 at n=12,964; +0.24pp rush success per 10 lbs; loads slightly more
+on pass pro), market PRICED (51-53% ATS, no dose ladder) — model feature + matchup-card
+content, NOT a signal. CFBD v2 summer additions worth adopting: coach profile/tenure
+endpoints (Jul 2026 — completes the first-year-HC table), /draft picks (high-value
+departures for roster reconstruction), player team-stints (replaces portal name-matching),
+/wepa adjusted metrics (cross-check). NOTE: preseason_tr_mapped.parquet (the TR→CFBD name
+map) is gitignored — rebuild recipe = the harvest + MANUAL dict in this session's log.
+
+## REGIME FADE × RETURNING STARTERS (owner-specified grid, 2026-08-04, wired)
+Interaction of the true-preseason gap (|gap|≥2, wk1-3) with player-built returning shares:
+- **CORE CELL: new HC + <45% returning production → fade = 61.2%/+16.8 (n=67, 6/6 SEASONS
+  POSITIVE — best consistency in the ratings program).** New HC w/ roster back = diluted
+  (54.5%, 3/6). Dose story: coach + roster turnover stack.
+- **regime_fade_teardown (NEW tracking key): same HC, <30% returning → fade 56.0% (n=50,
+  5/6).** Coach-free variant; the mirror (rating-side ≥60% returning → follow 53.2%, n=220).
+- **POSITION SPLITS = NULL**: receivers/OL/DL-gutted cells scattered or inverted (OL-gutted
+  fade 42.9%!), n=41-81, no season consistency. The regime effect is TEAM-level turnover,
+  not positional — do not chase position cells (matches trench-study verdict).
+WIRED: teardown key + "FULL TEARDOWN" tier annotation in gen_cfb_dryrun_flags (ret_share
+NaN for 2026 until CFBD posts rosters → tiers self-activate); def registered. All tracking
+tier, 0.5u paper, same promotion bar as the coach cells.
+
+## REGIME FADE — CROSS-MARKET EXPRESSION MAP (2026-08-04)
+Same conditions swept across the other markets (TT/1H = 2023-25 archive only, n small):
+- **TEAM TOTAL of the faded team: UNDER 66.7% (n=48, 3/3 seasons)** — the strongest
+  expression of the fade anywhere; the over-rated regime team scores under ITS number.
+- **1H spread: fade the regime side = 60.4% (n=48, 3/3)** — slow starts vs the number.
+- FG totals: new-HC under 54.5% is only +1.4pp over the wk1-3 baseline under bias (53.1%)
+  — NOT incremental. Watch-only oddity: BOTH-teams-ret>=60% → under 58.7% (+5.6 vs base,
+  erratic seasons; inverts the "returning offense = overs" folk claim). 1H totals dead.
+- **DERIVED-MARKET LAW applies**: TT/1H are rotations of the spread fade — correlated
+  leverage, NOT independent signals; nothing new wired. DEPLOYMENT NOTE: if the 2026
+  tracking year confirms the family, express it as the faded team's TT UNDER (or 1H fade),
+  not the FG spread — that's where the mispricing concentrates. The live TT/1H collector
+  grades all three expressions side-by-side this season.
+
+## EARLY-WEEK DISPLAY: ANCHOR RETIRED → PURE MODEL + SAFETY CAP (owner call, 2026-08-05)
+Owner: λ=0.25 made every display ≈ the Vegas line — "we lose credibility quick." Correct:
+the anchor was the STALE-RATINGS-era bandage; with true preseason SP+ + roster features the
+raw blend sits mean 3.1 pts off the close with sane extremes. **Now λ=1.0 (pure model),
+caps ±7/±6 kept only as a safety rail** (binds on the p90 tail — e.g., won't lay more than
+close+7 on Indiana -40.5). Board now: mean visible deviation 2.8 spread / 2.3 total, only
+9/51 spreads within 0.5 of the line. Known cost, accepted: raw display MAE ~13.0 vs line
+12.6 (display identity > 0.4 MAE). λ-accuracy facts from the anchor study remain true —
+BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as always.
+
+
+## CFB roster-dimension fade (wk1) — market OVERSHOOT on loaded rosters, 2024-25
+> `roster_dimensions_report.py` + follow-up fade sweep (2026-08-07). Dimensions: exp_yrs
+> (mean prior FBS roster-years, capped 4), ret_share/ret_prod (player-built PPA), cur_prod
+> (= ret_prod + in_prod, portal included).
+- **Forward story:** higher-dim side wins wk1 SU big (cur_prod 63.7%, n=237) but ATS is
+  priced (~48-51% at open AND close, 2021-25 pooled).
+- **Regime shift:** every dimension's higher side covered 57-61% vs the open in 2022,
+  decaying to 37-43% by 2024-25 — the market learned portal/returning-production data and
+  now OVERPRICES it.
+- **Fade side, wk1 2024+2025 (n=83/dim, dims heavily correlated = ~one signal):**
+  ret_prod fade 61.4% open (+17.3% ROI) / 59.0% close, positive BOTH seasons (59/63);
+  ret_share 59.0/55.4; cur_prod 56.6/57.8; exp_yrs 61.4/59.0 but 2025-close ~51.
+  Dose-response NON-monotone (mid-gap best for ret_prod, big-gap only 50%) — mechanism
+  softer than regime-fade's.
+- **Honest status: post-hoc sign flip on TWO seasons, selected because they inverted (the
+  2022 bettor would have registered the opposite rule).** Tracking tier at most; if wired,
+  pre-register ONE spec: fade higher ret_prod, all wk1 gaps, grade vs OPEN, 0.5u paper.
+- Interplay: can contradict regime_fade_teardown on games where ratings lean on the GUTTED
+  team (different mechanisms — teardown keys rating-vs-line, this keys raw roster diff).

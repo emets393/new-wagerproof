@@ -2,6 +2,11 @@ import * as React from 'react';
 import type { AgentWithPerformance } from '@/types/agent';
 import { cn } from '@/lib/utils';
 import { agentSpriteIndex } from '@/utils/agentSprites';
+import {
+  findOfficePathBetweenPixels,
+  officeGridCenter,
+  type OfficeGridPoint,
+} from './agentHQPathfinding';
 
 const W = 864;
 const H = 800;
@@ -27,6 +32,8 @@ type SimAgent = {
   arrived: boolean;
   facing: Facing;
   frame: number;
+  path: OfficeGridPoint[];
+  pathIndex: number;
 };
 
 const DESKS: Point[] = [
@@ -85,6 +92,13 @@ function targetFor(state: OfficeState, index: number): Point {
   if (state === 'working' || state === 'thinking' || state === 'error') return DESKS[index % DESKS.length];
   const choices = state === 'idle' ? [...IDLE, ...MEETING] : IDLE;
   return choices[Math.floor(Math.random() * choices.length)];
+}
+
+function sendAgentTo(agent: SimAgent, target: Point) {
+  agent.target = target;
+  agent.arrived = false;
+  agent.path = findOfficePathBetweenPixels(agent.x, agent.y, target.x, target.y);
+  agent.pathIndex = 0;
 }
 
 function primaryColor(value: string) {
@@ -164,11 +178,14 @@ export function AgentHQ({
     simRef.current = shownAgents.map((agent, index) => {
       const state = deriveState(agent);
       const start = [...IDLE, ...MEETING, ...DESKS][(index * 5 + 2) % (IDLE.length + MEETING.length + DESKS.length)];
-      return {
+      const simAgent: SimAgent = {
         id: agent.id, name: agent.name, emoji: agent.avatar_emoji, accent: primaryColor(agent.avatar_color),
         sprite: agentSpriteIndex(agent.id, agent.sprite_index), active: agent.is_active,
-        ...state, x: start.x, y: start.y, target: targetFor(state.state, index), arrived: false, facing: 'down', frame: index % 4,
+        ...state, x: start.x, y: start.y, target: start, arrived: true, facing: 'down', frame: index % 4,
+        path: [], pathIndex: 0,
       };
+      sendAgentTo(simAgent, targetFor(state.state, index));
+      return simAgent;
     });
   }, [shownAgents]);
 
@@ -194,11 +211,22 @@ export function AgentHQ({
       if (!reduceMotion) {
         sim.forEach((agent) => {
           if (!agent.arrived) {
-            const dx = agent.target.x - agent.x;
-            const dy = agent.target.y - agent.y;
+            const gridWaypoint = agent.path[agent.pathIndex];
+            const waypoint = gridWaypoint ? officeGridCenter(gridWaypoint) : agent.target;
+            const dx = waypoint.x - agent.x;
+            const dy = waypoint.y - agent.y;
             const distance = Math.hypot(dx, dy);
             if (distance < 3) {
-              agent.x = agent.target.x; agent.y = agent.target.y; agent.arrived = true; agent.facing = agent.target.facing;
+              agent.x = waypoint.x;
+              agent.y = waypoint.y;
+              if (gridWaypoint) {
+                agent.pathIndex += 1;
+              } else {
+                agent.arrived = true;
+                agent.facing = agent.target.facing;
+                agent.path = [];
+                agent.pathIndex = 0;
+              }
             } else {
               const step = Math.min(SPEED * dt, distance);
               agent.x += dx / distance * step; agent.y += dy / distance * step;
@@ -257,8 +285,7 @@ export function AgentHQ({
       const choices: OfficeState[] = agent.active ? ['working', 'thinking', 'done', 'working', 'idle'] : ['idle', 'idle', 'thinking'];
       agent.state = choices[Math.floor(Math.random() * choices.length)];
       agent.stateLabel = agent.active ? ({ working: 'WORKING', thinking: 'THINKING', done: 'DONE', idle: 'RESTING', error: 'ERROR' }[agent.state]) : 'OFF';
-      agent.target = targetFor(agent.state, sim.indexOf(agent));
-      agent.arrived = false;
+      sendAgentTo(agent, targetFor(agent.state, sim.indexOf(agent)));
     }, 5000);
     return () => window.clearInterval(timer);
   }, []);

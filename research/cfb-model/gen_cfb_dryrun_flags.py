@@ -6,17 +6,33 @@ import os
 import numpy as np, pandas as pd, warnings, requests, json
 import dry_common as C
 import cfb_style_delta as SD
+import cfb_early_roster_signals as ER
 warnings.filterwarnings("ignore")
 SEASON, WEEK = C.season_week()
 
 gm, te, S = C.harness_week(SEASON, WEEK)
+# OWNER RULE: every signal conditions on ODDS-API lines, never CFBD consensus. 2026 wk1 audit
+# found 5/51 CFBD lines bad (2 sign-FLIPPED: Miami@Stanford, Coastal@WVU; 3 zero-filled read
+# as pick'em). Override te's close lines from odds_game_frame; no Odds-API line -> NaN (skip).
+_ogf = pd.read_parquet("data/odds_game_frame.parquet")
+_ogf = _ogf[_ogf.season == SEASON][["home", "away", "open_spread", "close_spread", "close_total"]]
+te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
+te["spread_close"] = te["close_spread"]
+te["total_close"] = te["close_total"]
 g7 = set(te.game_id)
 def lab(r): return f"{r.awayTeam} @ {r.homeTeam}"
 rows = []
 
+# Cold-model spots are DEGENERATE in weeks 1-3 (opponent-adjusted model has no games -> uniform
+# edges), so suppress all MODEL-EDGE spot keys early. Contextual spots (g5/key/conf/book/style)
+# still fire. Previously this was only a one-off DB delete; now durable in the generator.
+EARLY_SUPPRESS = {"model_highedge_dog", "model_total_over", "model_total_under",
+                  "model_total_over_pace", "model_road_value", "premium_lay_fav"}
+
 # spread/total spots from spot_library (true per-spot side)
 for name, (mask, side, market, gl) in S.items():
     if C.is_blanket(name): continue   # skip slate-wide leans (week==N openers, base model_lean) — not per-game signals
+    if WEEK <= 3 and C.key_for(name) in EARLY_SUPPRESS: continue   # cold-model spots off until wk4
     sub = te[mask.reindex(te.index, fill_value=False).values] if hasattr(mask, "reindex") else te[mask]
     meta = C.classify(name); conv = meta[2] if meta else "T3"; active = meta[3] if meta else True
     mkt_norm = "total" if market == "total" else "spread"   # spot_library uses 'side' for spreads
@@ -37,7 +53,10 @@ for name, (mask, side, market, gl) in S.items():
 # event-odds (per-team totals) aren't captured preseason -> empty frame so TT flags just don't fire; the
 # other spots (model, G5 openers, style) still generate.
 _evp = f"data/event_odds/events_{SEASON}.parquet"
-ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(columns=["game_id", "market", "name", "description", "point"])
+_EVC = ["game_id", "market", "name", "description", "point"]
+ev = pd.read_parquet(_evp) if os.path.exists(_evp) else pd.DataFrame(columns=_EVC)
+if ev.empty or "game_id" not in ev.columns:  # preseason: schema-less 0-row parquet
+    ev = pd.DataFrame(columns=_EVC)
 ev = ev[(ev.game_id.isin(g7)) & (ev.market == "team_totals") & (ev.name == "Over")].copy()
 def _tdb(o):
     AL = {"Appalachian State Mountaineers": "App State", "Hawaii Rainbow Warriors": "Hawai'i", "UMass Minutemen": "Massachusetts", "San Jose State Spartans": "San José State", "Southern Miss Golden Eagles": "Southern Miss"}
@@ -152,7 +171,208 @@ try:
 except Exception as e:
     print(f"  [style_offense_under] skipped: {e}")
 
+# ── Weeks 1-3 early-roster ATS: back the more-experienced roster (ret_prod_edge, T2) and the big portal-talent
+#    haul (portal_talent_influx, T3). Preseason-known, leak-safe; decays after wk3 so it only fires wk1-3. ──
+try:
+    matchups = []
+    for _, r in te.iterrows():
+        # conference-game flag: ret_prod_edge is non-conference-only (validated split, see
+        # cfb_early_roster_signals docstring / FOOTBALL_PROFILES S-CFB2)
+        is_conf = bool(pd.notna(r.homeConference) and pd.notna(r.awayConference)
+                       and r.homeConference == r.awayConference)
+        matchups += [(r.homeTeam, r.awayTeam, is_conf), (r.awayTeam, r.homeTeam, is_conf)]
+    er = ER.triggers_for_week(SEASON, WEEK, matchups)
+    SRC = {"ret_prod_edge": "Returning-production edge (wk1-3)", "portal_talent_influx": "Portal talent influx (wk1-3)"}
+    for _, r in te.iterrows():
+        if pd.isna(r.spread_close):
+            continue
+        for team, is_home in [(r.homeTeam, True), (r.awayTeam, False)]:
+            for sk, val, tier in er.get(team, []):
+                rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                             "game": f"{r.awayTeam} @ {r.homeTeam}", "source": f"{SRC[sk]}: {team}",
+                             "signal_key": sk, "market": "spread", "side": "HOME" if is_home else "AWAY",
+                             "line": round(float(r.spread_close), 1), "price": -110, "edge": val,
+                             "conviction": tier, "tier": "active", "stake_units": C.STAKE[tier],
+                             "grade_line": "close", "mammoth": False})
+except Exception as e:
+    print(f"  [early_roster_signals] skipped: {e}")
+
+# ── DK-specific SMALL HOME-DOG MONEYLINE: when DraftKings prices the HOME team as a small dog (+100..+140),
+#    take the home moneyline. dk_ml_bands.py: home dogs in this band win outright ~48% vs ~43% DK-implied =
+#    +5.9% flat-bet ROI, 4/5 seasons (n=291). Structural: road favorites are overbet (all home dogs -1.5% vs
+#    all away dogs -10.1%), and this small band is the bettable slice. HOME only — away dogs +100..140 don't
+#    hold (-1.4%). Graded on outright win at the DK number, so line=price=the DK home ML. ──
+try:
+    for _, r in te.iterrows():
+        mlh = pd.to_numeric(pd.Series([r.get("dk_ml_home_close")]), errors="coerce").iloc[0]
+        if pd.isna(mlh) or not (100 <= mlh <= 140):
+            continue
+        rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                     "game": f"{r.awayTeam} @ {r.homeTeam}", "source": f"Small home-dog ML +{int(round(mlh))} (DK)",
+                     "signal_key": "home_dog_ml", "market": "ml", "side": "HOME ML",
+                     "line": int(round(mlh)), "price": int(round(mlh)), "edge": None,
+                     "conviction": "T3", "tier": "active", "stake_units": C.STAKE["T3"],
+                     "grade_line": "dk", "mammoth": False})
+except Exception as e:
+    print(f"  [home_dog_ml] skipped: {e}")
+
+# --- REGIME FADE family (TRACKING-ONLY, wired 2026-08-04) -----------------------------------
+# True-preseason power rating (TR predictive) vs the Odds-API close, wk1-3, |gap| >= 2:
+#   the side the RATING favors has a 1st-year HC  -> FADE it   (58.4% / +11.5, n=137, 2018-25)
+#   the OPPONENT of the rating's side has new HC  -> FOLLOW it (62.2% / +18.7, n=111)
+# Five straight positive seasons 2021-25 on true preseason ratings (the earlier "2025 flip"
+# was a stale-ratings artifact). Anti-control confirms direction (wrong-side fade = 37.8%).
+# TRACKING tier until a live season confirms — the discovery grid scanned 30 cells. Vault:
+# FOOTBALL_PROFILES.md "regime fade". Inputs refresh weekly (preseason_tr / coaches parquets).
+_trp = f"data/cfbd/preseason_tr_{SEASON}.parquet"
+_cop = f"data/cfbd/coaches_{SEASON}.parquet"
+if WEEK <= 3 and os.path.exists(_trp) and os.path.exists(_cop):
+    _trr = pd.read_parquet(_trp).set_index("team").tr_rating
+    _rsp = "data/roster_scores.parquet"
+    _rsdf = pd.read_parquet(_rsp) if os.path.exists(_rsp) else pd.DataFrame(columns=["season","team","ret_share"])
+    _retsh = _rsdf[_rsdf.season == SEASON].set_index("team").ret_share.to_dict()
+    _co = pd.read_parquet(_cop)
+    _newhc = set(_co[_co.new_hc].school)
+    for _, r in te.iterrows():
+        sp = r.spread_close
+        h, a = _trr.get(r.homeTeam), _trr.get(r.awayTeam)
+        if pd.isna(sp) or h is None or a is None:
+            continue
+        implied = (h - a) + (0.0 if bool(getattr(r, "neutralSite", False)) else 2.5)
+        gap = implied - (-float(sp))
+        if abs(gap) < 2:
+            continue
+        rated_team = r.homeTeam if gap > 0 else r.awayTeam      # side the rating favors vs the line
+        opp_team = r.awayTeam if gap > 0 else r.homeTeam
+        rated_side = "HOME" if gap > 0 else "AWAY"
+        opp_side = "AWAY" if gap > 0 else "HOME"
+        common = {"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                  "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "spread",
+                  "line": round(float(sp), 1), "price": -110, "edge": round(float(gap), 1),
+                  "conviction": "track", "tier": "tracking", "stake_units": 0.5,
+                  "grade_line": "close", "mammoth": False}
+        # returning-production tier (owner grid 2026-08-04): new-HC + roster teardown = the
+        # 6/6-season core (61.2%/+16.8); same-HC teardown fades too (56%, 5/6). ret_share is
+        # NaN until CFBD posts current-season rosters -> tiers self-activate when data lands.
+        _ret = _retsh.get(rated_team, float("nan"))
+        if rated_team in _newhc:
+            tear = " + FULL TEARDOWN (<45% returning)" if _ret == _ret and _ret < 0.45 else ""
+            rows.append({**common, "source": f"REGIME FADE: rating leans on {rated_team} (new HC{tear}), gap {gap:+.1f}",
+                         "signal_key": "regime_fade_hc", "side": opp_side})
+        elif opp_team in _newhc:
+            rows.append({**common, "source": f"REGIME FOLLOW: {opp_team} has new HC, rating likes {rated_team}, gap {gap:+.1f}",
+                         "signal_key": "regime_follow_hc", "side": rated_side})
+        elif _ret == _ret and _ret < 0.30:
+            rows.append({**common, "source": f"REGIME FADE: rating leans on {rated_team} (roster gutted, {_ret*100:.0f}% returning, same HC), gap {gap:+.1f}",
+                         "signal_key": "regime_fade_teardown", "side": opp_side})
+
+# ── Weeks 1-3 coach-pace UNDER (FOOTBALL_PROFILES coach-scheme study, TRACKING tier) ──
+# First-year HC arriving from a faster offense (pace_gap >= +4 plays/game): the market
+# prices the tempo hype in before the roster can execute it. Study dose-response (2017-25
+# wk1-3, at the close): >=+4 went UNDER 66.7% (n=21); the >=+8 mechanism cell averaged
+# -5.0 pts vs the line (baseline -4.2 -> increment is modest, hence tracking, not active).
+# coach_moves_{SEASON}.parquet refreshes weekly via fetch_preseason_ratings.tr_and_coaches.
+_cmp = f"data/cfbd/coach_moves_{SEASON}.parquet"
+if WEEK <= 3 and os.path.exists(_cmp):
+    _cm = pd.read_parquet(_cmp)
+    _fast = {r.school: r for _, r in _cm.iterrows() if pd.notna(r.pace_gap) and r.pace_gap >= 4}
+    for _, r in te.iterrows():
+        if pd.isna(r.total_close):
+            continue
+        for tm in (r.homeTeam, r.awayTeam):
+            m = _fast.get(tm)
+            if m is None:
+                continue
+            rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                         "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "total",
+                         "side": "UNDER", "line": round(float(r.total_close), 1), "price": -110,
+                         "edge": round(float(m.pace_gap), 1), "conviction": "track",
+                         "tier": "tracking", "stake_units": 0.5, "grade_line": "close",
+                         "mammoth": False, "signal_key": "coach_pace_under",
+                         "source": f"PACE HYPE UNDER: {tm} new HC {m.coach} from {m.prev_school} "
+                                   f"(+{m.pace_gap:.1f} plays/gm faster than {tm} played) — "
+                                   f"market prices the tempo before the roster can run it"})
+
+# ── Week-1 ROSTER HYPE FADE (owner-registered 2026-08-07, TRACKING tier) ──
+# Portal-era repricing: the market now OVERPAYS moderate roster-continuity edges.
+# Wk1 2024+2025, fade the higher-ret_prod side vs the OPEN: 61.4% (+17.3% ROI),
+# positive both seasons; the collapse lives in MODERATE share gaps (backing them
+# hit 36% in 2024) while EXTREME gaps (>=20pp) still follow (~54-56%) — that
+# region belongs to ret_prod_edge (S-CFB2), so this signal EXCLUDES it: fires
+# only when |ret_share gap| < 0.20 (our player-built share, corr +0.884 with
+# CFBD percentPPA). Grade vs the OPEN — the roster facts are summer knowledge.
+_rsp2 = "data/roster_scores.parquet"
+if WEEK == 1 and os.path.exists(_rsp2):
+    _rs2 = pd.read_parquet(_rsp2)
+    _rs2 = _rs2[_rs2.season == SEASON].set_index("team")
+    for _, r in te.iterrows():
+        op = getattr(r, "open_spread", np.nan)
+        if pd.isna(op):
+            continue
+        try:
+            rh, ra = _rs2.loc[r.homeTeam], _rs2.loc[r.awayTeam]
+        except KeyError:
+            continue
+        if pd.isna(rh.ret_prod) or pd.isna(ra.ret_prod) or rh.ret_prod == ra.ret_prod:
+            continue
+        if pd.notna(rh.ret_share) and pd.notna(ra.ret_share) \
+                and abs(rh.ret_share - ra.ret_share) >= 0.20:
+            continue  # extreme-continuity region -> ret_prod_edge's validated cell
+        loaded_home = rh.ret_prod > ra.ret_prod
+        loaded = r.homeTeam if loaded_home else r.awayTeam
+        other = r.awayTeam if loaded_home else r.homeTeam
+        lo, hi = (ra.ret_prod, rh.ret_prod) if loaded_home else (rh.ret_prod, ra.ret_prod)
+        rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                     "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "spread",
+                     "side": "AWAY" if loaded_home else "HOME",
+                     "line": round(float(op), 1), "price": -110,
+                     "edge": round(float(hi - lo), 1), "conviction": "track",
+                     "tier": "tracking", "stake_units": 0.5, "grade_line": "open",
+                     "mammoth": False, "signal_key": "roster_hype_fade",
+                     "source": f"ROSTER HYPE FADE: {loaded} returns {hi:.0f} PPA vs {other} "
+                               f"{lo:.0f} — portal-era market overpays moderate continuity "
+                               f"edges wk1 (share gap <20%)"})
+
+# ── Explicit bet target on every flag (owner rule 2026-08-07): a signal's text must
+# SAY the bet ("→ bet Tulsa +12.5"), because side=HOME/AWAY never renders and a source
+# that only names a team reads as backing that team even when it fades them (the OSU
+# regime-fade confusion). Appended last so every emitter above stays untouched.
+def _bet_text(r):
+    away, home = r["game"].split(" @ ", 1)
+    m, s, ln = r["market"], str(r["side"]), r.get("line")
+    if m in ("spread", "h1_spread") and s in ("HOME", "AWAY"):
+        team = home if s == "HOME" else away
+        line = None if ln is None else (float(ln) if s == "HOME" else -float(ln))
+        pre = "1H " if m == "h1_spread" else ""
+        return f"{team} {pre}{line:+g}" if line is not None else team
+    if m in ("total", "h1_total") and s in ("OVER", "UNDER"):
+        pre = "1H " if m == "h1_total" else ""
+        return f"{pre}{s.title()} {float(ln):g}" if ln is not None else s.title()
+    if m == "moneyline" and s in ("HOME", "AWAY"):
+        return f"{home if s == 'HOME' else away} ML"
+    return s.title() if s else None
+
+for r in rows:
+    bt = _bet_text(r)
+    if bt:
+        r["source"] = f"{r['source']} → bet {bt}"
+
 df = pd.DataFrame(rows)
+
+# ── Weeks 1-3 EXTREMITY TIER for fade_high_total (validated 2026-08-03, FOOTBALL_PROFILES) ──
+# The flat close>=60 UNDER hides a dose-response early: wk1-3 the TOP-8% closes (within-season rank)
+# hit 64.5%/+23.2 (8/9) vs 54.7% for the rest of >=60; wk4+ the premium decays (52.5%). RANK not an
+# absolute cut because the totals environment drifts (top-8% = 68.6 in 2016 -> 60.5 in 2025). The
+# >=60 floor stays (sub-60 rank cells have no historical sample). Upgrade = conviction T3 -> T2.
+if WEEK <= 3 and len(df) and (df.signal_key == "fade_high_total").any():
+    slate_p92 = te.total_close.quantile(0.92)
+    hi = (df.signal_key == "fade_high_total") & (df.line >= max(float(slate_p92), 60.0))
+    if hi.any():
+        df.loc[hi, "conviction"] = "T2"
+        df.loc[hi, "stake_units"] = C.STAKE["T2"]
+        df.loc[hi, "source"] = df.loc[hi, "source"] + " (extreme, wk1-3)"
+        print(f"  [extremity tier] fade_high_total upgraded to T2 on {int(hi.sum())} games (slate p92={slate_p92:.1f})")
+
 print(f"cfb_dryrun_flags rows: {len(df)} | tier {df.tier.value_counts().to_dict()} | market {df.market.value_counts().to_dict()}")
 print(f"  conviction {df.conviction.value_counts().to_dict()} | mammoth flags {int(df.mammoth.sum())}")
 C.wipe("cfb_dryrun_flags", f"season=eq.{SEASON}&week=eq.{WEEK}")

@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock, Cable } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock, Cable, Medal } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import NotFound from "./pages/NotFound";
@@ -73,6 +73,11 @@ export const navItems: NavItem[] = [
     icon: <BarChart className="h-4 w-4" />,
   },
   {
+    title: "Competition",
+    to: "/competition",
+    icon: <Medal className="h-4 w-4" />,
+  },
+  {
     // Unified split-view page replacing the per-sport list routes.
     title: "Games",
     to: "/games",
@@ -98,6 +103,13 @@ export const navItems: NavItem[] = [
     title: "NFL",
     to: "/games?sport=nfl",
     icon: <ShieldIcon className="h-4 w-4" />,
+    subItems: [
+      {
+        title: "Player Prop Matchups",
+        to: "/nfl/props",
+        icon: <BarChart2 className="h-4 w-4" />,
+      },
+    ],
   },
   {
     title: "CFB",

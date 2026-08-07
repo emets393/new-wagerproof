@@ -214,6 +214,16 @@ def build():
         "rz_td_rate_s2d":"rz_td_rate_allowed_s2d","td_pct_per_drive_s2d":"td_pct_per_drive_allowed_s2d",
         "td_per_drive_s2d":"td_per_drive_allowed_s2d","three_and_out_rate_s2d":"three_and_out_forced_s2d",
         "3andout_s2d":"3andout_forced_s2d"}
+    # Early-season carryover: fill Week 1-3 null s2d features on the LIVE scoring frame with
+    # continuity-weighted prior-year values BEFORE the matchup-nets are derived from them, so the
+    # sides model isn't starved of its core signal in Week 1 (see early_season_blend.py). Historical
+    # rows already carry prior-year values (fill_null_only) so training is untouched.
+    try:
+        import early_season_blend as _esb
+        _n,_c=_esb.fill_early_season(m, int(m.season.max()))
+        if _n: print(f"[early-season] filled {_n} early-week rows x {_c} s2d stems (continuity-weighted prior-year carryover)")
+    except Exception as _e:
+        print(f"[early-season] skipped ({type(_e).__name__}: {_e})")
     NETS=[]
     for x,dx in NET_PAIRS.items():
         ho,ad,ao,hd=f"home_off_{x}",f"away_def_{dx}",f"away_off_{x}",f"home_def_{dx}"

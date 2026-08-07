@@ -54,15 +54,17 @@ const DEEP_TOOLS: Record<string, DeepToolDef> = {
   get_props: { groups: ["props"], sports: ["nfl"], grounds: "all", desc: "Signal-backed player props (only props with a validated signal are bettable) with L3/L5/L10 form." },
 
   // ── NFL/CFB-specific tools (our dryrun model output + validated signals) ──
-  get_signals: { groups: ["signals"], sports: ["nfl", "cfb"], grounds: "all", desc: "Validated betting signals firing on this game — each with its stance (the side/market it triggers) + tier. These are our proven high-ROI SPOT triggers, not just model output; a firing signal makes the game bettable on its side. Each signal carries TWO distinct records (do not conflate): all_time = the validated backtest record (validated_hit + one_liner/why_it_works/bet_direction), and season_to_date = this season's live record so far (sample/record/hit_rate/roi, may be null early in the season)." },
+  get_signals: { groups: ["signals"], sports: ["nfl", "cfb"], grounds: "all", desc: "Validated betting signals firing on this game — each with its stance (the side/market it triggers) + tier. These are our proven high-ROI SPOT triggers, not just model output; a firing signal makes the game bettable on its side. Each signal carries TWO distinct records (do not conflate): all_time = the validated backtest record (validated_hit + one_liner/why_it_works/bet_direction), and season_to_date = this season's live record so far (sample/record/hit_rate/roi, may be null early in the season). IMPORTANT: signals with tier 'tracking' / conviction 'track' (marked ⚠ TRACKING ONLY) are paper-traded to build a live record and are NOT validated for betting — treat them as informational context only, never as a reason to place a bet." },
   get_conviction: { groups: ["conviction"], sports: ["nfl", "cfb"], grounds: "none", desc: "Our conviction read for the game: conviction tier, stake units, and the mammoth flag (the 3-unit, highest-confidence plays where the model + signals align)." },
   get_full_game: { groups: ["vegas_lines", "model_predictions"], subkey: "full_game", sports: ["nfl", "cfb"], grounds: "all", desc: "Full-game model + lines: spread cover prob, predicted margin/total, spread + total edges, predicted scores, and the model's pick + tier." },
   get_first_half: { groups: ["vegas_lines", "model_predictions"], subkey: "first_half", sports: ["nfl", "cfb"], grounds: "all", desc: "First-half (1H) model + 1H lines: 1H predicted margin/total, 1H edges, cover-tilt, and 1H picks. (Our vaulted 1H model.)" },
   get_team_totals: { groups: ["vegas_lines", "model_predictions"], subkey: "team_totals", sports: ["nfl", "cfb"], grounds: "all", desc: "Team-totals model + lines: each team's predicted points, the TT edges + picks, and over/under prices." },
 };
 
-/** Tools the loop should charge against the deep-fetch budget. */
-export const DEEP_TOOL_NAMES = new Set(Object.keys(DEEP_TOOLS));
+/** Tools the loop should charge against the deep-fetch budget.
+ *  get_prop_player_page is player-keyed (not a cached-game projection) so it
+ *  lives outside DEEP_TOOLS, but it hits the DB per call → budget it like one. */
+export const DEEP_TOOL_NAMES = new Set([...Object.keys(DEEP_TOOLS), "get_prop_player_page"]);
 
 function projectGroups(fg: Record<string, unknown>, groups: string[], subkey?: string): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -88,6 +90,7 @@ export async function runReadTool(
 ): Promise<ReadToolResult> {
   if (name === "get_editor_picks") return runEditorPicks(args, ctx);
   if (name === "get_props") return runProps(args, ctx);
+  if (name === "get_prop_player_page") return runPropPlayerPage(args, ctx);
 
   const def = DEEP_TOOLS[name];
   if (!def) return { content: JSON.stringify({ error: `unknown tool: ${name}` }), ok: false, summary: "unknown tool" };
@@ -163,6 +166,74 @@ function runProps(args: Record<string, unknown>, ctx: AgentGenContext): ReadTool
   };
 }
 
+/** get_prop_player_page — deep dive on an NFL player from nfl_prop_player_pages
+ *  (the prop-model page contract on the CFB instance; anon-readable). Serves the
+ *  player's prop markets, baseline, advanced stats, scheme-matchup layer, and the
+ *  prop MODEL projection bands. Informational only (grounds nothing): bettable
+ *  props are still gated exclusively by get_props' is_bettable ledger.
+ *  The scheme jsonb's children are hoisted onto the player object and players are
+ *  keyed by name at the root — compactDeepFetch prunes objects at depth 5, and the
+ *  nested layout would gut player_splits/defense before the model saw them. */
+async function runPropPlayerPage(args: Record<string, unknown>, ctx: AgentGenContext): Promise<ReadToolResult> {
+  const names = Array.isArray(args.player_names)
+    ? args.player_names.map((n) => String(n).trim()).filter(Boolean).slice(0, 5)
+    : [];
+  if (names.length === 0) {
+    return { content: JSON.stringify({ error: "player_names is required (1-5 names as they appear in get_props)" }), ok: false, summary: "no player_names" };
+  }
+
+  const players: Record<string, unknown> = {};
+  for (const name of names) {
+    try {
+      const { data, error } = await ctx.cfb
+        .from("nfl_prop_player_pages")
+        .select("player_name, position, team, opponent, game_label, rookie, markets, baseline, ngs, scheme, projection")
+        .ilike("player_name", `%${name}%`)
+        .order("season", { ascending: false })
+        .order("week", { ascending: false })
+        .limit(6);
+      if (error) { players[name] = { error: error.message }; continue; }
+      const rows = (data ?? []) as Record<string, unknown>[];
+      if (rows.length === 0) { players[name] = { error: "not_found — use the exact player_name from get_props" }; continue; }
+      const exact = rows.find((r) => String(r.player_name).toLowerCase() === name.toLowerCase());
+      const distinct = new Set(rows.map((r) => String(r.player_name)));
+      if (!exact && distinct.size > 1) {
+        players[name] = { ambiguous: [...distinct].slice(0, 5) };
+        continue;
+      }
+      const row = exact ?? rows[0];
+      const scheme = (row.scheme ?? {}) as Record<string, unknown>;
+      players[String(row.player_name)] = {
+        position: row.position, team: row.team, opponent: row.opponent,
+        game: row.game_label, rookie: row.rookie === true ? true : undefined,
+        markets: row.markets, baseline: row.baseline, advanced_stats: row.ngs,
+        // scheme layer, hoisted (see depth note above)
+        opp_defense_identity: scheme.identity ?? (scheme.defense as Record<string, unknown> | undefined)?.identity ?? null,
+        opp_defense_rates: (scheme.defense as Record<string, unknown> | undefined) ?? null,
+        matchup_look_focus: scheme.look_focus ?? null,
+        player_overall: scheme.player_overall ?? null,
+        player_vs_look_splits: scheme.player_splits ?? null,
+        model_projection: row.projection ?? null,
+      };
+    } catch (e) {
+      players[name] = { error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  const payload = {
+    tool: "get_prop_player_page",
+    note: "model_projection bands are PREVIEW (first live season) — use as context, not as a validated edge. markets with status 'pending' have no posted line yet. Only props returned by get_props are bettable.",
+    players,
+  };
+  // Multi-player payloads overflow the default 4000-char compaction target and
+  // would collapse to the top-level summary — scale the target per player.
+  return {
+    content: compactDeepFetch("get_prop_player_page", payload, 3000 + 2500 * names.length),
+    ok: true,
+    summary: `prop pages: ${Object.keys(players).length} player(s)`,
+  };
+}
+
 async function runEditorPicks(args: Record<string, unknown>, ctx: AgentGenContext): Promise<ReadToolResult> {
   try {
     let q = ctx.main.from("editors_picks").select("game_type, game_id, selected_bet_type, bet_type, pick_value, best_price, sportsbook, editors_notes, result").eq("is_published", true).order("created_at", { ascending: false }).limit(20);
@@ -203,6 +274,24 @@ export function buildReadToolDefs(steering: SteeringProfile): ToolDef[] {
             game_ids: { type: "array", items: { type: "string" }, description: "game_ids from the slate (verbatim)." },
           },
           required: ["game_ids"],
+        },
+      },
+    });
+  }
+
+  // Player-keyed (not game-keyed) so it can't ride the DEEP_TOOLS loop above.
+  if (sports.has("nfl")) {
+    defs.push({
+      type: "function",
+      function: {
+        name: "get_prop_player_page",
+        description: "Deep dive on NFL prop players (sports: nfl): per-market prop lines, per-game baselines, advanced stats (NGS/charting with league percentiles), the opponent-defense scheme identity + the player's splits vs those looks (man/zone, one-high/two-high, box counts, pressure), and our prop MODEL's projection band per market (preview status this season). Use AFTER get_props to research the players you're considering — this tool is context only and does not make a prop bettable.",
+        parameters: {
+          type: "object",
+          properties: {
+            player_names: { type: "array", items: { type: "string" }, description: "1-5 player names, exactly as they appear in get_props results." },
+          },
+          required: ["player_names"],
         },
       },
     });

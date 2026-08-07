@@ -43,11 +43,11 @@ flagged = side_agents >= max(8, ceil(0.08 * day_picking_agents))
           AND side_agents / market_agents >= 0.55
 ```
 
-- `market_agents` is the agents who bet the **same market** as the winning side
-  (bet_type × period), not every agent on the game. Dividing by `agents` pooled
-  six-plus MLB bet shapes into one denominator, so a plurality read as a minority
-  (5 of 17 = 29% when the F5 run line itself was near-unanimous) and the metric
-  got *worse* as more agents bet a game. Changed in
+- `market_agents` is the distinct-agent population for the winning selection's
+  market (`bet_type × period`), not every agent who bet any market on the game.
+  Dividing by `agents` pooled six-plus MLB bet shapes into one denominator, so a
+  plurality read as a minority (5 of 17 = 29% when the F5 run line itself was
+  near-unanimous) and the metric got *worse* as more agents bet a game. Changed in
   `supabase/migrations/20260729140000_agent_consensus_market_scoped.sql`.
 - `day_picking_agents` is the **sum of per-game distinct agent counts**
   (agent-games), not distinct agents across the slate. That is the denominator
@@ -75,8 +75,8 @@ get_game_agent_consensus(
   p_min_agents integer DEFAULT 8
 ) RETURNS TABLE (
   game_id text, game_date date, agents int, side text, side_agents int,
-  market_agents int, market_label text,
-  agreement numeric, threshold int, flagged bool, avatars jsonb
+  market_agents int, market_label text, agreement numeric, threshold int,
+  flagged bool, avatars jsonb
 )
 ```
 

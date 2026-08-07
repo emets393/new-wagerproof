@@ -1,5 +1,12 @@
 # NBA / NCAAB Historical Odds Backfill
 
+> **Looking for findings, not data acquisition? Start at [`NBA_PROVEN.md`](NBA_PROVEN.md).**
+> There are ~90 briefs in this folder and that one ledger carries everything that survived
+> validation — the models, the four signals, what is a model ingredient rather than a bet, and
+> what is closed. Every row cites the brief it came from. `NBA_REPORT_PLAIN_ENGLISH.md` is the
+> narrative version of the luck/signal work; the per-topic `NBA_*_BRIEF.md` files are the raw
+> evidence behind individual rows.
+
 Raw historical betting-line acquisition from The Odds API for basketball,
 mirroring the NFL backfill in `research/nfl-extreme-outcomes/`. Acquired
 July 2026 (~2.30M credits spent, 2,543,659 remaining, zero failures).

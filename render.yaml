@@ -48,7 +48,7 @@ services:
       pip install -r requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh 2026 $(python3 current_week.py nfl 2026)
+    startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh   # no args -> resolve_nfl_week.py (wk1 until wk1 done, then advance)
     envVars:
       - fromGroup: wagerproof-model-secrets
 
@@ -61,7 +61,7 @@ services:
       pip install -r requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
-    startCommand: cd research/cfb-model && bash run_cfb_week.sh 2026 $(python3 ../nfl-extreme-outcomes/current_week.py cfb 2026)
+    startCommand: cd research/cfb-model && bash run_cfb_week.sh   # no args -> resolve_cfb_week.py (CFBD calendar)
     envVars:
       - fromGroup: wagerproof-model-secrets
 
@@ -106,6 +106,21 @@ services:
     startCommand: cd research/cfb-model && python3 live_odds_cfb.py --write && python3 live_odds_cfb_1h.py --write
     envVars:
       - fromGroup: wagerproof-model-secrets
+
+  # --- Weekly pick'em competition sync -> MAIN comp_weeks/comp_games (consensus lines,
+  # finals via Odds API /scores, grading via comp_grade_week RPC). Stdlib-only script;
+  # writes through the Supabase Management API (SUPABASE_PAT), so no service key needed.
+  - type: cron
+    name: competition-sync-hourly
+    runtime: python
+    schedule: "30 * * 8-12,1-2 *"           # hourly at :30, football season
+    buildCommand: pip install tzdata   # stdlib otherwise; tzdata wheel guarantees zoneinfo
+    startCommand: cd research/competition && python3 comp_sync.py
+    envVars:
+      - key: ODDS_API_KEY
+        sync: false
+      - key: SUPABASE_PAT
+        sync: false
 
   # --- Live PRE-GAME player-props collector (NFL) -> nfl_player_props (6 markets, 4 books;
   # per-event endpoint). Live counterpart to props_backfill+parse+load. Self-contained:

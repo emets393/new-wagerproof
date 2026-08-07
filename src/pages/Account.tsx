@@ -159,29 +159,29 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-white p-4 text-black dark:bg-black dark:text-white">
       {accessRestricted && !isUnlocked ? (
-        <div className="shadow-input mx-auto w-full max-w-md rounded-2xl bg-white p-8 dark:bg-black">
+        <div className="mx-auto w-full max-w-md rounded-[28px] border border-black/10 bg-white p-8 shadow-2xl shadow-black/10 dark:border-white/10 dark:bg-black dark:shadow-black/50">
           {/* Logo Section */}
           <div className="flex justify-center mb-6">
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-indigo-500 rounded-xl blur-md opacity-30"></div>
-              <div className="relative p-3 bg-gradient-to-br from-neutral-900 to-neutral-800 dark:from-neutral-100 dark:to-neutral-200 rounded-xl">
-                <Lock className="h-16 w-16 text-white dark:text-black" />
+              <div className="absolute inset-0 rounded-2xl bg-emerald-400/20 blur-xl" />
+              <div className="relative rounded-2xl border border-black/10 bg-black/[0.025] p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                <Lock className="h-16 w-16 text-black dark:text-white" />
               </div>
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-center text-neutral-800 dark:text-neutral-200">
+          <h2 className="text-center text-2xl font-semibold tracking-[-0.02em] text-black dark:text-white">
             Access Restricted
           </h2>
-          <p className="mt-2 text-center max-w-sm mx-auto text-sm text-neutral-600 dark:text-neutral-300">
+          <p className="mx-auto mt-2 max-w-sm text-center text-sm text-black/55 dark:text-white/55">
             Enter the password to unlock sign in
           </p>
 
           <form className="mt-8" onSubmit={handlePasswordSubmit}>
             <div className="mb-6">
-              <Label htmlFor="access-password" className="text-neutral-800 dark:text-neutral-200">
+              <Label htmlFor="access-password" className="text-xs tracking-[0.02em] text-black/65 dark:text-white/65">
                 Password
               </Label>
               <Input
@@ -190,7 +190,7 @@ export default function Account() {
                 type="password"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="mt-2"
+                className="mt-2 h-11 border-black/10 bg-neutral-50 text-black placeholder:text-black/30 focus-visible:ring-emerald-500/60 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/30"
                 required
               />
             </div>
@@ -202,7 +202,7 @@ export default function Account() {
             )}
 
             <button
-              className="bg-gradient-to-br relative group/btn from-black dark:from-zinc-900 dark:to-zinc-900 to-neutral-600 block dark:bg-zinc-800 w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset]"
+              className="group/btn relative block h-11 w-full rounded-xl bg-black font-medium text-white transition hover:bg-black/85 active:scale-[0.98] dark:bg-white dark:text-black dark:hover:bg-white/90"
               type="submit"
             >
               Unlock &rarr;
@@ -212,10 +212,10 @@ export default function Account() {
             <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-neutral-300 dark:border-neutral-700"></div>
+                  <div className="w-full border-t border-black/10 dark:border-white/10"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white dark:bg-black text-neutral-500">
+                  <span className="bg-white px-2 text-black/40 dark:bg-black dark:text-white/40">
                     Don't have access?
                   </span>
                 </div>

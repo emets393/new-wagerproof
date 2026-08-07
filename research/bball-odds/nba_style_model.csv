@@ -1,0 +1,214 @@
+target,block,alpha,phase,K,n,win,base,edge,roi
+fg_spread,style,100.0,early  (<25 gp),1.5,766,51.7,51.15,0.55,-1.25
+fg_spread,style,100.0,early  (<25 gp),2.5,556,51.62,51.15,0.47,-1.39
+fg_spread,style,100.0,early  (<25 gp),3.5,376,51.06,51.15,-0.08,-2.46
+fg_spread,style,100.0,mid    (25-49),1.5,695,49.21,49.59,-0.39,-6.0
+fg_spread,style,100.0,mid    (25-49),2.5,462,47.4,49.59,-2.19,-9.44
+fg_spread,style,100.0,mid    (25-49),3.5,273,46.52,49.59,-3.07,-11.12
+fg_spread,style,100.0,late   (50+),1.5,906,50.33,50.1,0.23,-3.91
+fg_spread,style,100.0,late   (50+),2.5,589,51.95,50.1,1.85,-0.82
+fg_spread,style,100.0,late   (50+),3.5,355,51.27,50.1,1.17,-2.14
+fg_spread,style,100.0,ALL regular,1.5,2367,50.44,50.28,0.16,-3.66
+fg_spread,style,100.0,ALL regular,2.5,1607,50.53,50.28,0.25,-3.49
+fg_spread,style,100.0,ALL regular,3.5,1004,49.9,50.28,-0.38,-4.7
+fg_spread,style,300.0,early  (<25 gp),1.5,712,50.98,51.15,-0.17,-2.61
+fg_spread,style,300.0,early  (<25 gp),2.5,502,50.6,51.15,-0.55,-3.34
+fg_spread,style,300.0,early  (<25 gp),3.5,319,52.35,51.15,1.2,-0.03
+fg_spread,style,300.0,mid    (25-49),1.5,647,49.46,49.32,0.14,-5.53
+fg_spread,style,300.0,mid    (25-49),2.5,404,47.77,49.32,-1.55,-8.72
+fg_spread,style,300.0,mid    (25-49),3.5,208,48.08,49.32,-1.25,-8.15
+fg_spread,style,300.0,late   (50+),1.5,863,50.75,51.04,-0.28,-3.11
+fg_spread,style,300.0,late   (50+),2.5,510,52.55,51.04,1.51,0.32
+fg_spread,style,300.0,late   (50+),3.5,266,50.75,51.04,-0.28,-3.11
+fg_spread,style,300.0,ALL regular,1.5,2222,50.45,50.58,-0.12,-3.65
+fg_spread,style,300.0,ALL regular,2.5,1416,50.49,50.58,-0.08,-3.56
+fg_spread,style,300.0,ALL regular,3.5,793,50.69,50.58,0.12,-3.19
+fg_spread,style,1000.0,early  (<25 gp),1.5,629,51.03,52.21,-1.18,-2.52
+fg_spread,style,1000.0,early  (<25 gp),2.5,390,52.31,52.21,0.1,-0.08
+fg_spread,style,1000.0,early  (<25 gp),3.5,211,49.29,52.21,-2.92,-5.89
+fg_spread,style,1000.0,mid    (25-49),1.5,562,49.47,48.87,0.59,-5.51
+fg_spread,style,1000.0,mid    (25-49),2.5,285,48.42,48.87,-0.45,-7.5
+fg_spread,style,1000.0,mid    (25-49),3.5,122,46.72,48.87,-2.15,-10.71
+fg_spread,style,1000.0,late   (50+),1.5,728,50.69,50.77,-0.08,-3.25
+fg_spread,style,1000.0,late   (50+),2.5,347,52.16,50.77,1.39,-0.43
+fg_spread,style,1000.0,late   (50+),3.5,154,52.6,50.77,1.83,0.4
+fg_spread,style,1000.0,ALL regular,1.5,1919,50.44,50.66,-0.21,-3.67
+fg_spread,style,1000.0,ALL regular,2.5,1022,51.17,50.66,0.52,-2.27
+fg_spread,style,1000.0,ALL regular,3.5,487,49.69,50.66,-0.96,-5.1
+fg_spread,style,3000.0,early  (<25 gp),1.5,503,52.29,51.24,1.05,-0.12
+fg_spread,style,3000.0,early  (<25 gp),2.5,245,52.24,51.24,1.01,-0.22
+fg_spread,style,3000.0,early  (<25 gp),3.5,101,58.42,51.24,7.18,11.48
+fg_spread,style,3000.0,mid    (25-49),1.5,422,48.58,49.32,-0.75,-7.2
+fg_spread,style,3000.0,mid    (25-49),2.5,143,46.15,49.32,-3.17,-11.83
+fg_spread,style,3000.0,mid    (25-49),3.5,42,45.24,49.32,-4.09,-13.5
+fg_spread,style,3000.0,late   (50+),1.5,548,54.01,50.84,3.18,3.1
+fg_spread,style,3000.0,late   (50+),2.5,191,51.83,50.84,1.0,-1.07
+fg_spread,style,3000.0,late   (50+),3.5,58,44.83,50.84,-6.01,-14.42
+fg_spread,style,3000.0,ALL regular,1.5,1473,51.87,50.52,1.35,-0.95
+fg_spread,style,3000.0,ALL regular,2.5,579,50.6,50.52,0.08,-3.37
+fg_spread,style,3000.0,ALL regular,3.5,201,51.74,50.52,1.22,-1.21
+fg_spread,result,100.0,early  (<25 gp),1.5,746,51.21,50.62,0.59,-2.2
+fg_spread,result,100.0,early  (<25 gp),2.5,517,53.0,50.62,2.38,1.21
+fg_spread,result,100.0,early  (<25 gp),3.5,349,52.44,50.62,1.82,0.13
+fg_spread,result,100.0,mid    (25-49),1.5,590,50.34,49.32,1.02,-3.85
+fg_spread,result,100.0,mid    (25-49),2.5,348,49.43,49.32,0.1,-5.63
+fg_spread,result,100.0,mid    (25-49),3.5,174,49.43,49.32,0.1,-5.64
+fg_spread,result,100.0,late   (50+),1.5,847,49.11,49.77,-0.65,-6.23
+fg_spread,result,100.0,late   (50+),2.5,504,48.81,49.77,-0.96,-6.79
+fg_spread,result,100.0,late   (50+),3.5,284,45.07,49.77,-4.7,-13.93
+fg_spread,result,100.0,playoffs,1.5,227,46.26,49.57,-3.31,-11.63
+fg_spread,result,100.0,playoffs,2.5,150,42.67,49.57,-6.9,-18.49
+fg_spread,result,100.0,playoffs,3.5,106,42.45,49.57,-7.11,-18.91
+fg_spread,result,100.0,ALL regular,1.5,2183,50.16,49.88,0.28,-4.21
+fg_spread,result,100.0,ALL regular,2.5,1369,50.55,49.88,0.67,-3.47
+fg_spread,result,100.0,ALL regular,3.5,807,49.19,49.88,-0.69,-6.06
+fg_spread,result,300.0,early  (<25 gp),1.5,686,53.21,49.56,3.65,1.61
+fg_spread,result,300.0,early  (<25 gp),2.5,435,54.48,49.56,4.92,4.03
+fg_spread,result,300.0,early  (<25 gp),3.5,263,54.37,49.56,4.81,3.83
+fg_spread,result,300.0,mid    (25-49),1.5,545,50.28,49.23,1.04,-3.98
+fg_spread,result,300.0,mid    (25-49),2.5,291,50.86,49.23,1.63,-2.89
+fg_spread,result,300.0,mid    (25-49),3.5,130,47.69,49.23,-1.54,-8.94
+fg_spread,result,300.0,late   (50+),1.5,798,49.37,49.3,0.07,-5.73
+fg_spread,result,300.0,late   (50+),2.5,443,49.66,49.3,0.36,-5.17
+fg_spread,result,300.0,late   (50+),3.5,221,44.8,49.3,-4.5,-14.5
+fg_spread,result,300.0,playoffs,1.5,207,45.89,50.43,-4.54,-12.32
+fg_spread,result,300.0,playoffs,2.5,142,43.66,50.43,-6.77,-16.59
+fg_spread,result,300.0,playoffs,3.5,88,42.05,50.43,-8.39,-19.68
+fg_spread,result,300.0,ALL regular,1.5,2029,50.91,49.34,1.57,-2.78
+fg_spread,result,300.0,ALL regular,2.5,1169,51.75,49.34,2.41,-1.18
+fg_spread,result,300.0,ALL regular,3.5,614,49.51,49.34,0.17,-5.47
+fg_spread,result,1000.0,early  (<25 gp),1.5,595,53.61,50.71,2.91,2.37
+fg_spread,result,1000.0,early  (<25 gp),2.5,329,53.8,50.71,3.09,2.74
+fg_spread,result,1000.0,early  (<25 gp),3.5,164,52.44,50.71,1.73,0.14
+fg_spread,result,1000.0,mid    (25-49),1.5,455,51.21,50.77,0.44,-2.21
+fg_spread,result,1000.0,mid    (25-49),2.5,199,49.25,50.77,-1.52,-5.97
+fg_spread,result,1000.0,mid    (25-49),3.5,58,48.28,50.77,-2.49,-7.85
+fg_spread,result,1000.0,late   (50+),1.5,684,48.98,49.16,-0.19,-6.49
+fg_spread,result,1000.0,late   (50+),2.5,320,48.12,49.16,-1.04,-8.11
+fg_spread,result,1000.0,late   (50+),3.5,119,42.86,49.16,-6.31,-18.2
+fg_spread,result,1000.0,playoffs,1.5,179,46.93,49.86,-2.93,-10.37
+fg_spread,result,1000.0,playoffs,2.5,96,41.67,49.86,-8.19,-20.41
+fg_spread,result,1000.0,playoffs,3.5,50,38.0,49.86,-11.86,-27.45
+fg_spread,result,1000.0,ALL regular,1.5,1734,51.15,50.09,1.06,-2.32
+fg_spread,result,1000.0,ALL regular,2.5,848,50.59,50.09,0.5,-3.4
+fg_spread,result,1000.0,ALL regular,3.5,341,48.39,50.09,-1.71,-7.62
+fg_spread,result,3000.0,early  (<25 gp),1.5,438,52.51,51.41,1.1,0.26
+fg_spread,result,3000.0,early  (<25 gp),2.5,169,53.25,51.41,1.84,1.68
+fg_spread,result,3000.0,early  (<25 gp),3.5,52,55.77,51.41,4.36,6.46
+fg_spread,result,3000.0,mid    (25-49),1.5,321,49.22,50.14,-0.91,-6.0
+fg_spread,result,3000.0,mid    (25-49),2.5,64,46.88,50.14,-3.26,-10.54
+fg_spread,result,3000.0,late   (50+),1.5,490,48.98,49.23,-0.25,-6.5
+fg_spread,result,3000.0,late   (50+),2.5,141,47.52,49.23,-1.71,-9.29
+fg_spread,result,3000.0,late   (50+),3.5,34,41.18,49.23,-8.06,-21.44
+fg_spread,result,3000.0,playoffs,1.5,114,46.49,48.99,-2.5,-11.19
+fg_spread,result,3000.0,playoffs,2.5,47,36.17,48.99,-12.82,-30.95
+fg_spread,result,3000.0,ALL regular,1.5,1249,50.28,50.15,0.13,-4.0
+fg_spread,result,3000.0,ALL regular,2.5,374,50.0,50.15,-0.15,-4.55
+fg_spread,result,3000.0,ALL regular,3.5,95,49.47,50.15,-0.67,-5.57
+fg_total,style,100.0,early  (<25 gp),2.0,802,51.12,50.63,0.5,-2.4
+fg_total,style,100.0,early  (<25 gp),3.0,660,50.91,50.63,0.28,-2.8
+fg_total,style,100.0,early  (<25 gp),4.5,489,50.51,50.63,-0.11,-3.56
+fg_total,style,100.0,mid    (25-49),2.0,701,51.64,52.47,-0.83,-1.41
+fg_total,style,100.0,mid    (25-49),3.0,550,52.36,52.47,-0.1,-0.04
+fg_total,style,100.0,mid    (25-49),4.5,349,53.01,52.47,0.54,1.19
+fg_total,style,100.0,late   (50+),2.0,978,53.68,51.96,1.72,2.49
+fg_total,style,100.0,late   (50+),3.0,734,53.81,51.96,1.85,2.75
+fg_total,style,100.0,late   (50+),4.5,458,54.15,51.96,2.19,3.38
+fg_total,style,100.0,ALL regular,2.0,2481,52.28,51.73,0.55,-0.19
+fg_total,style,100.0,ALL regular,3.0,1944,52.42,51.73,0.69,0.07
+fg_total,style,100.0,ALL regular,4.5,1296,52.47,51.73,0.74,0.17
+fg_total,style,300.0,early  (<25 gp),2.0,769,51.89,51.16,0.72,-0.95
+fg_total,style,300.0,early  (<25 gp),3.0,610,51.48,51.16,0.31,-1.72
+fg_total,style,300.0,early  (<25 gp),4.5,412,51.21,51.16,0.05,-2.22
+fg_total,style,300.0,mid    (25-49),2.0,668,51.5,52.38,-0.88,-1.68
+fg_total,style,300.0,mid    (25-49),3.0,500,51.0,52.38,-1.38,-2.64
+fg_total,style,300.0,mid    (25-49),4.5,288,50.69,52.38,-1.68,-3.23
+fg_total,style,300.0,late   (50+),2.0,941,53.56,51.83,1.73,2.26
+fg_total,style,300.0,late   (50+),3.0,652,54.29,51.83,2.46,3.66
+fg_total,style,300.0,late   (50+),4.5,389,54.5,51.83,2.67,4.05
+fg_total,style,300.0,ALL regular,2.0,2378,52.44,51.81,0.63,0.11
+fg_total,style,300.0,ALL regular,3.0,1762,52.38,51.81,0.58,0.01
+fg_total,style,300.0,ALL regular,4.5,1089,52.25,51.81,0.44,-0.25
+fg_total,style,1000.0,early  (<25 gp),2.0,703,52.06,52.24,-0.17,-0.61
+fg_total,style,1000.0,early  (<25 gp),3.0,523,50.67,52.24,-1.57,-3.26
+fg_total,style,1000.0,early  (<25 gp),4.5,315,54.29,52.24,2.05,3.64
+fg_total,style,1000.0,mid    (25-49),2.0,588,48.98,51.66,-2.68,-6.49
+fg_total,style,1000.0,mid    (25-49),3.0,402,48.26,51.66,-3.4,-7.87
+fg_total,style,1000.0,mid    (25-49),4.5,191,50.79,51.66,-0.87,-3.05
+fg_total,style,1000.0,late   (50+),2.0,816,53.8,51.5,2.3,2.72
+fg_total,style,1000.0,late   (50+),3.0,527,55.03,51.5,3.53,5.06
+fg_total,style,1000.0,late   (50+),4.5,260,53.08,51.5,1.58,1.34
+fg_total,style,1000.0,ALL regular,2.0,2107,51.87,51.78,0.1,-0.96
+fg_total,style,1000.0,ALL regular,3.0,1452,51.58,51.78,-0.2,-1.52
+fg_total,style,1000.0,ALL regular,4.5,766,53.0,51.78,1.22,1.19
+fg_total,style,3000.0,early  (<25 gp),2.0,589,52.46,52.5,-0.04,0.16
+fg_total,style,3000.0,early  (<25 gp),3.0,378,52.65,52.5,0.14,0.51
+fg_total,style,3000.0,early  (<25 gp),4.5,176,56.82,52.5,4.31,8.48
+fg_total,style,3000.0,mid    (25-49),2.0,488,47.54,50.76,-3.22,-9.24
+fg_total,style,3000.0,mid    (25-49),3.0,269,48.33,50.76,-2.44,-7.74
+fg_total,style,3000.0,mid    (25-49),4.5,115,53.91,50.76,3.15,2.92
+fg_total,style,3000.0,late   (50+),2.0,657,53.73,52.16,1.57,2.58
+fg_total,style,3000.0,late   (50+),3.0,392,55.1,52.16,2.94,5.2
+fg_total,style,3000.0,late   (50+),4.5,124,51.61,52.16,-0.55,-1.46
+fg_total,style,3000.0,ALL regular,2.0,1734,51.56,51.86,-0.3,-1.57
+fg_total,style,3000.0,ALL regular,3.0,1039,52.45,51.86,0.59,0.14
+fg_total,style,3000.0,ALL regular,4.5,415,54.46,51.86,2.6,3.97
+fg_total,result,100.0,early  (<25 gp),2.0,719,54.1,52.5,1.6,3.28
+fg_total,result,100.0,early  (<25 gp),3.0,571,54.29,52.5,1.79,3.64
+fg_total,result,100.0,early  (<25 gp),4.5,364,51.92,52.5,-0.58,-0.88
+fg_total,result,100.0,mid    (25-49),2.0,669,50.37,50.22,0.15,-3.83
+fg_total,result,100.0,mid    (25-49),3.0,487,50.31,50.22,0.08,-3.95
+fg_total,result,100.0,mid    (25-49),4.5,274,53.28,50.22,3.06,1.74
+fg_total,result,100.0,late   (50+),2.0,972,51.54,51.03,0.51,-1.59
+fg_total,result,100.0,late   (50+),3.0,737,52.1,51.03,1.07,-0.53
+fg_total,result,100.0,late   (50+),4.5,464,50.22,51.03,-0.82,-4.13
+fg_total,result,100.0,playoffs,2.0,233,53.22,53.18,0.04,1.61
+fg_total,result,100.0,playoffs,3.0,165,53.94,53.18,0.76,2.98
+fg_total,result,100.0,playoffs,4.5,107,50.47,53.18,-2.71,-3.65
+fg_total,result,100.0,ALL regular,2.0,2361,52.01,51.24,0.77,-0.7
+fg_total,result,100.0,ALL regular,3.0,1795,52.31,51.24,1.07,-0.13
+fg_total,result,100.0,ALL regular,4.5,1102,51.54,51.24,0.3,-1.6
+fg_total,result,300.0,early  (<25 gp),2.0,640,54.06,52.15,1.92,3.2
+fg_total,result,300.0,early  (<25 gp),3.0,474,53.59,52.15,1.44,2.28
+fg_total,result,300.0,early  (<25 gp),4.5,259,51.74,52.15,-0.41,-1.23
+fg_total,result,300.0,mid    (25-49),2.0,618,50.0,49.69,0.31,-4.54
+fg_total,result,300.0,mid    (25-49),3.0,433,49.65,49.69,-0.03,-5.19
+fg_total,result,300.0,mid    (25-49),4.5,216,55.09,49.69,5.41,5.2
+fg_total,result,300.0,late   (50+),2.0,913,51.48,51.1,0.38,-1.72
+fg_total,result,300.0,late   (50+),3.0,642,52.02,51.1,0.93,-0.68
+fg_total,result,300.0,late   (50+),4.5,359,52.37,51.1,1.27,-0.03
+fg_total,result,300.0,playoffs,2.0,211,54.5,52.6,1.9,4.06
+fg_total,result,300.0,playoffs,3.0,141,51.06,52.6,-1.54,-2.51
+fg_total,result,300.0,playoffs,4.5,94,50.0,52.6,-2.6,-4.54
+fg_total,result,300.0,ALL regular,2.0,2172,51.84,51.0,0.84,-1.03
+fg_total,result,300.0,ALL regular,3.0,1549,51.84,51.0,0.84,-1.03
+fg_total,result,300.0,ALL regular,4.5,834,52.88,51.0,1.87,0.95
+fg_total,result,1000.0,early  (<25 gp),2.0,523,54.11,51.07,3.04,3.29
+fg_total,result,1000.0,early  (<25 gp),3.0,325,54.15,51.07,3.08,3.38
+fg_total,result,1000.0,early  (<25 gp),4.5,141,51.77,51.07,0.7,-1.16
+fg_total,result,1000.0,mid    (25-49),2.0,519,50.48,49.78,0.71,-3.62
+fg_total,result,1000.0,mid    (25-49),3.0,331,51.06,49.78,1.28,-2.51
+fg_total,result,1000.0,mid    (25-49),4.5,120,50.0,49.78,0.22,-4.53
+fg_total,result,1000.0,late   (50+),2.0,764,51.31,50.63,0.68,-2.05
+fg_total,result,1000.0,late   (50+),3.0,501,51.9,50.63,1.26,-0.92
+fg_total,result,1000.0,late   (50+),4.5,233,54.51,50.63,3.87,4.06
+fg_total,result,1000.0,playoffs,2.0,179,50.84,52.02,-1.19,-2.94
+fg_total,result,1000.0,playoffs,3.0,116,53.45,52.02,1.43,2.03
+fg_total,result,1000.0,playoffs,4.5,60,51.67,52.02,-0.36,-1.38
+fg_total,result,1000.0,ALL regular,2.0,1806,51.88,50.52,1.36,-0.95
+fg_total,result,1000.0,ALL regular,3.0,1157,52.29,50.52,1.77,-0.17
+fg_total,result,1000.0,ALL regular,4.5,494,52.63,50.52,2.11,0.48
+fg_total,result,3000.0,early  (<25 gp),2.0,363,55.37,50.45,4.92,5.7
+fg_total,result,3000.0,early  (<25 gp),3.0,179,55.87,50.45,5.42,6.66
+fg_total,result,3000.0,early  (<25 gp),4.5,57,61.4,50.45,10.96,17.23
+fg_total,result,3000.0,mid    (25-49),2.0,388,49.23,49.33,-0.1,-6.0
+fg_total,result,3000.0,mid    (25-49),3.0,169,49.7,49.33,0.38,-5.08
+fg_total,result,3000.0,mid    (25-49),4.5,40,42.5,49.33,-6.83,-18.86
+fg_total,result,3000.0,late   (50+),2.0,578,51.38,50.7,0.69,-1.9
+fg_total,result,3000.0,late   (50+),3.0,316,53.48,50.7,2.78,2.09
+fg_total,result,3000.0,late   (50+),4.5,101,61.39,50.7,10.69,17.18
+fg_total,result,3000.0,playoffs,2.0,134,52.24,52.89,-0.65,-0.28
+fg_total,result,3000.0,playoffs,3.0,60,50.0,52.89,-2.89,-4.57
+fg_total,result,3000.0,ALL regular,2.0,1329,51.84,50.23,1.62,-1.02
+fg_total,result,3000.0,ALL regular,3.0,664,53.16,50.23,2.94,1.5
+fg_total,result,3000.0,ALL regular,4.5,198,57.58,50.23,7.35,9.91

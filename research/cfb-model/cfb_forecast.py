@@ -146,8 +146,10 @@ def spot_library(df):
     # ===== KEY NUMBERS (DraftKings close) — dk_keynumbers.py =====
     S["KEY dog +2.5/3/3.5 (HOME dog)"] = (dk.isin([2.5, 3.0, 3.5]).fillna(False), "HOME", "side", "dk")
     S["KEY dog +2.5/3/3.5 (AWAY dog)"] = (dk.isin([-2.5, -3.0, -3.5]).fillna(False), "AWAY", "side", "dk")
-    S["KEY lay -6.5 (HOME fav)"] = ((dk == -6.5).fillna(False), "HOME", "side", "dk")
-    S["KEY lay -6.5 (AWAY fav)"] = ((dk == 6.5).fillna(False), "AWAY", "side", "dk")
+    # Touchdown-sized favorites cover: DK-specific band study (dk_spread_total_bands.py) — fav -6.5..-7.5 covers
+    # 54.9% (4/5 seasons), strongest at exactly -7/-7.5 (58.1%, +11.5%). Widened from just -6.5 to the full band.
+    S["KEY lay -6.5/-7 (HOME fav)"] = (dk.isin([-6.5, -7.0, -7.5]).fillna(False), "HOME", "side", "dk")
+    S["KEY lay -6.5/-7 (AWAY fav)"] = (dk.isin([6.5, 7.0, 7.5]).fillna(False), "AWAY", "side", "dk")
     # ===== CONFERENCE structural numbers (conf_numbers.py) — grade @ close =====
     S["CONF SunBelt fade home-fav (dog)"] = (((conf == "Sun Belt") & (sc < 0)).fillna(False), "AWAY", "side", "close")
     S["CONF BigTen away-fav cover"] = (((conf == "Big Ten") & (sc > 0)).fillna(False), "AWAY", "side", "close")
@@ -374,8 +376,10 @@ def main():
     import team_total_signals, form_signals
     tt = team_total_signals.build(gm, a.season)
     evp = os.path.join(HERE, "data", "event_odds", f"events_{a.season}.parquet")
-    if os.path.exists(evp):
-        ev = pd.read_parquet(evp)
+    # preseason guard: the live collector writes a schema-less 0-row parquet until books
+    # post 1H/TT lines — treat that exactly like "no archive" (implied-line fallback below)
+    ev = pd.read_parquet(evp) if os.path.exists(evp) else pd.DataFrame()
+    if not ev.empty and "market" in ev.columns:
         # TAG-AGNOSTIC close selection: last pre-kick snapshot per (game, team, book) by timestamp —
         # works for the 3-snap archive AND the 2026 hourly feed (snap_tag not required).
         ev = ev[(ev.market == "team_totals") & (ev.name == "Over")].copy()
@@ -427,7 +431,8 @@ def main():
             print(f"  UNDER: n={len(u)} hit {100*uw.mean() if len(u) else 0:.1f}% (P5 {100*uw[u.p5].mean() if u.p5.any() else 0:.0f}%) | OVER(P5): n={len(o)} hit {100*ow.mean() if len(o) else 0:.1f}% | form-stack n={len(fstk)} hit {100*(fstk.pts>fstk.line).mean() if len(fstk) else 0:.0f}%")
             print(f"  {len(tt)} TT bets -> out/cfb_team_totals_{a.season}.csv")
     # ===== 1H SPOT: posted 1H total >=31 & both-P5 -> UNDER (63.4%; G5 dead 49%) — needs event-odds archive
-    if os.path.exists(evp):
+    # (same preseason guard as TT above; this block also uses kicks/_tdb defined there)
+    if not ev.empty and "market" in ev.columns:
         h1 = pd.read_parquet(evp)
         h1 = h1[(h1.market == "totals_h1") & (h1.name == "Over")].copy()
         h1 = h1.merge(kicks.rename(columns={"id": "game_id"}), on="game_id", how="left")

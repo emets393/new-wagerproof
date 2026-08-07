@@ -21,8 +21,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-SEASON="${1:-${NFL_SEASON:-2026}}"
-WEEK="${2:-${NFL_WEEK:-1}}"
+# Season/week: explicit args win, then NFL_SEASON/NFL_WEEK env, else auto-resolve the
+# current week (first REG week with any ungraded game -> week 1 until week 1 completes).
+if [ -n "${1:-}" ]; then
+  SEASON="$1"; WEEK="${2:?usage: run_nfl_week.sh <season> <week>}"
+elif [ -n "${NFL_SEASON:-}" ]; then
+  SEASON="$NFL_SEASON"; WEEK="${NFL_WEEK:?set NFL_WEEK alongside NFL_SEASON}"
+else
+  read -r SEASON WEEK < <(python3 resolve_nfl_week.py)
+fi
 export NFL_SEASON="$SEASON" NFL_WEEK="$WEEK"
 echo "=== NFL weekly run :: season=$SEASON week=$WEEK ==="
 step() { echo; echo ">>> $*"; }
@@ -62,6 +69,9 @@ step "team trends (Outliers tab)";    python3 dryrun_wk12_trends.py
 step "coach trends (Outliers tab)";   python3 gen_nfl_coach_trends.py
 step "referee trends (Outliers tab)"; python3 gen_nfl_referee_trends.py
 step "player-prop trends (Outliers)"; python3 gen_nfl_player_prop_trends.py
+step "QB/RB scheme substrates";          python3 build_qb_rb_scheme.py || true
+step "FTN player stats";                  python3 build_ftn_player_stats.py || true
+step "prop player pages (web contract)"; python3 gen_nfl_prop_player_pages.py
 step "outliers trend cards (weekly)"; python3 gen_nfl_outliers_trend_cards.py
 step "outliers trend lines (live books)"; python3 refresh_nfl_outliers_trend_lines.py
 

@@ -159,8 +159,8 @@ export function AvatarCustomization() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
+      <Card className="rounded-2xl border-border/60 bg-background shadow-none">
+        <CardContent className="flex items-center justify-center py-10">
           <Loader2 className="h-6 w-6 animate-spin" />
         </CardContent>
       </Card>
@@ -168,20 +168,16 @@ export function AvatarCustomization() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden rounded-2xl border-border/60 bg-background shadow-none">
+      <CardHeader className="space-y-1 pb-3">
         <div className="flex items-center gap-2">
-          <Palette className="h-5 w-5 text-muted-foreground" />
-          <CardTitle className="text-lg">Avatar Customization</CardTitle>
+          <Palette className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-base font-semibold tracking-[-0.01em]">Avatar</CardTitle>
         </div>
-        <CardDescription>
-          Customize your avatar letter and color gradient
-        </CardDescription>
+        <CardDescription>Choose how you appear across WagerProof</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Preview */}
-        <div className="flex flex-col items-center gap-3 py-4">
-          <Label className="text-sm text-muted-foreground">Preview</Label>
+      <CardContent className="space-y-0 px-0 pb-0">
+        <div className="flex items-center gap-4 border-t border-border/60 px-6 py-4">
           <UserCircle
             userId={user?.id}
             displayName={previewLetter}
@@ -190,19 +186,14 @@ export function AvatarCustomization() {
             customGradient={selectedGradient}
             size="xl"
           />
-          {selectedGradient && (
-            <div 
-              className="w-32 h-2 rounded-full"
-              style={{ 
-                background: availableGradients.find(g => g.key === selectedGradient)?.gradient 
-              }}
-            />
-          )}
+          <div>
+            <p className="text-sm font-medium">Preview</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Visible on picks and community activity</p>
+          </div>
         </div>
 
-        {/* Letter Input */}
-        <div className="space-y-2">
-          <Label htmlFor="avatar-letter">Avatar Letter</Label>
+        <div className="grid min-h-16 items-center gap-2 border-t border-border/60 px-6 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+          <Label htmlFor="avatar-letter">Avatar letter</Label>
           <Input
             id="avatar-letter"
             type="text"
@@ -215,18 +206,14 @@ export function AvatarCustomization() {
             }}
             placeholder="Enter a letter (A-Z)"
             maxLength={1}
-            className="text-center text-2xl font-bold"
+            className="h-10 rounded-xl border-0 bg-muted/70 text-center text-lg font-semibold shadow-none"
           />
-          <p className="text-xs text-muted-foreground">
-            This letter will appear in your avatar circle
-          </p>
         </div>
 
-        {/* Gradient Selector */}
-        <div className="space-y-2">
-          <Label htmlFor="gradient-select">Color Gradient</Label>
+        <div className="grid min-h-16 items-center gap-2 border-t border-border/60 px-6 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+          <Label htmlFor="gradient-select">Color</Label>
           <Select value={selectedGradient} onValueChange={setSelectedGradient}>
-            <SelectTrigger id="gradient-select">
+            <SelectTrigger id="gradient-select" className="h-10 rounded-xl border-0 bg-muted/70 shadow-none">
               <SelectValue placeholder="Select a color gradient" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px]">
@@ -234,7 +221,7 @@ export function AvatarCustomization() {
                 <SelectItem key={grad.key} value={grad.key}>
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800"
+                      className="h-6 w-6 rounded-full border border-white/20"
                       style={{ background: grad.gradient }}
                     />
                     <span>{grad.name}</span>
@@ -243,29 +230,24 @@ export function AvatarCustomization() {
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
-            Choose from 26 unique color combinations
-          </p>
         </div>
 
-        {/* Error/Success Messages */}
         {error && (
-          <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
+          <div className="border-t border-border/60 bg-red-500/10 px-6 py-3 text-sm text-red-600 dark:text-red-400">
             {error}
           </div>
         )}
         {success && (
-          <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-3 rounded-md">
+          <div className="border-t border-border/60 bg-green-500/10 px-6 py-3 text-sm text-green-600 dark:text-green-400">
             {success}
           </div>
         )}
 
-        {/* Save Button */}
-        <div className="pt-2">
+        <div className="flex justify-end border-t border-border/60 px-6 py-3">
           <Button
             onClick={handleSavePreferences}
             disabled={isSaving || !customLetter || !selectedGradient}
-            className="w-full sm:w-auto"
+            className="h-10 w-full rounded-xl sm:w-auto"
           >
             {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Save Avatar Preferences
@@ -275,4 +257,3 @@ export function AvatarCustomization() {
     </Card>
   );
 }
-

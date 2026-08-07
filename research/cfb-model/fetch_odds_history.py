@@ -29,7 +29,7 @@ SAFETY_MIN_CREDITS = 3000
 
 SEASONS = {2021: ("2021-08-20", "2022-01-20"), 2022: ("2022-08-20", "2023-01-20"),
            2023: ("2023-08-20", "2024-01-20"), 2024: ("2024-08-20", "2025-01-20"),
-           2025: ("2025-08-20", "2026-01-20")}
+           2025: ("2025-08-20", "2026-01-20"), 2026: ("2026-08-20", "2027-01-20")}
 # UTC hours per weekday (Mon=0..Sun=6); dense Thu-Sat (game days incl late-night windows)
 HOURS = {0: [16, 23], 1: [16, 23], 2: [16, 23], 3: [2, 16, 20, 23],
          4: [2, 16, 20, 23], 5: [1, 4, 13, 16, 19, 22], 6: [1, 16, 23]}
@@ -49,7 +49,10 @@ def key():
 def snapshots(season):
     s, e = SEASONS[season]
     d = datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
-    end = datetime.fromisoformat(e).replace(tzinfo=timezone.utc)
+    # Clamp to now — the historical endpoint bills per snapshot; future timestamps are pure waste
+    # (in-season this also lets the weekly runner top up incrementally instead of re-pulling).
+    end = min(datetime.fromisoformat(e).replace(tzinfo=timezone.utc),
+              datetime.now(timezone.utc))
     ts = []
     while d <= end:
         for h in HOURS[d.weekday()]:

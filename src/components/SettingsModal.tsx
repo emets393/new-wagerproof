@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -6,35 +6,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useAdminMode } from '@/contexts/AdminModeContext';
 import { useRevenueCatWeb } from '@/hooks/useRevenueCatWeb';
-import { AvatarCustomization } from './AvatarCustomization';
-import {
-  User,
-  Mail,
-  Lock,
-  CreditCard,
-  Bell,
-  Moon,
-  Sun,
-  Shield,
-  Loader2,
-  CheckCircle2,
-  Crown,
-  LogIn, // Import LogIn icon
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { PAYWALL_ROUTE } from '@/lib/routes';
+import {
+  Bell,
+  Bot,
+  Check,
+  ChevronRight,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  FileText,
+  Hash,
+  Loader2,
+  Lock,
+  LogIn,
+  LogOut,
+  Mail,
+  MessageCircle,
+  Shield,
+  Smartphone,
+  Star,
+  Trash2,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SettingsModalProps {
   open: boolean;
@@ -42,74 +44,53 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
-  const { user, updatePassword, sendPasswordReset } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { user, updatePassword, sendPasswordReset, signOut } = useAuth();
   const { adminModeEnabled, toggleAdminMode, canEnableAdminMode } = useAdminMode();
   const { hasProAccess, customerInfo, subscriptionType } = useRevenueCatWeb();
-  const navigate = useNavigate(); // Initialize navigate
-  const [activeTab, setActiveTab] = useState('profile');
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  // Profile state
-  const [displayName, setDisplayName] = useState('');
-  
-  // Account state
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordExpanded, setPasswordExpanded] = useState(false);
+  const [didCopyUserId, setDidCopyUserId] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
 
-  const handleUpdateProfile = async () => {
-    setError('');
-    setSuccess('');
-    setIsLoading(true);
-
-    try {
-      // TODO: Implement profile update logic with Supabase
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setSuccess('Profile updated successfully!');
-    } catch (err) {
-      setError('Failed to update profile');
-    } finally {
-      setIsLoading(false);
-    }
+  const openRoute = (route: string) => {
+    onOpenChange(false);
+    navigate(route);
   };
 
   const handleChangePassword = async () => {
     setError('');
     setSuccess('');
-
     if (!newPassword || !confirmPassword) {
-      setError('Please fill in all password fields');
+      setError('Please fill in both password fields.');
       return;
     }
-
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwords do not match.');
       return;
     }
-
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError('Password must be at least 8 characters.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const { error } = await updatePassword(newPassword);
-      if (error) {
-        setError(error.message);
-      } else {
-        setSuccess('Password changed successfully!');
-        setCurrentPassword('');
+      const { error: updateError } = await updatePassword(newPassword);
+      if (updateError) setError(updateError.message);
+      else {
+        setSuccess('Password changed successfully.');
         setNewPassword('');
         setConfirmPassword('');
+        setPasswordExpanded(false);
       }
-    } catch (err) {
-      setError('Failed to change password');
+    } catch {
+      setError('Failed to change password.');
     } finally {
       setIsLoading(false);
     }
@@ -117,554 +98,253 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   const handlePasswordReset = async () => {
     if (!user?.email) return;
-    
     setError('');
     setSuccess('');
     setIsLoading(true);
-    
     try {
-      const { error } = await sendPasswordReset(user.email);
-      if (error) {
-        setError(error.message);
-      } else {
-        setSuccess('Password reset email sent!');
-      }
-    } catch (err) {
-      setError('Failed to send reset email');
+      const { error: resetError } = await sendPasswordReset(user.email);
+      if (resetError) setError(resetError.message);
+      else setSuccess('Password reset email sent.');
+    } catch {
+      setError('Failed to send reset email.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleManageBilling = () => {
-    // Use RevenueCat's managementURL to open the customer portal directly
     if (customerInfo?.managementURL) {
       window.open(customerInfo.managementURL, '_blank', 'noopener,noreferrer');
     } else {
-      // Fallback if managementURL is not available (e.g. mobile-originating subscription)
-      setSuccess(
-        'Subscription management links are sent to your email with every confirmation and renewal. Check your email for the link to manage your subscription.'
-      );
+      setSuccess('Use the management link in your subscription confirmation email.');
     }
+  };
+
+  const handleCopyUserId = async () => {
+    if (!user?.id) return;
+    await navigator.clipboard.writeText(user.id);
+    setDidCopyUserId(true);
+    window.setTimeout(() => setDidCopyUserId(false), 1600);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-gray-300/20 dark:hover:[&::-webkit-scrollbar-thumb]:bg-gray-600/20 [&::-webkit-scrollbar-thumb]:rounded-full">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Settings</DialogTitle>
-          <DialogDescription>
-            Manage your account settings and preferences
-          </DialogDescription>
+      <DialogContent className="h-[min(860px,94vh)] max-w-xl gap-0 overflow-hidden rounded-[26px] border-black/10 bg-white p-0 text-black shadow-2xl shadow-black/20 dark:border-white/[0.08] dark:bg-black dark:text-white dark:shadow-black/80 [&>button]:right-5 [&>button]:top-5 [&>button]:flex [&>button]:h-9 [&>button]:w-9 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full [&>button]:bg-black/[0.055] [&>button]:text-black/55 [&>button]:opacity-100 [&>button:hover]:bg-black/10 [&>button:hover]:text-black dark:[&>button]:bg-white/[0.07] dark:[&>button]:text-white/70 dark:[&>button:hover]:bg-white/10 dark:[&>button:hover]:text-white">
+        <DialogHeader className="border-b border-black/[0.07] bg-white px-6 pb-4 pt-6 pr-16 dark:border-white/[0.07] dark:bg-black">
+          <DialogTitle className="text-[28px] font-semibold leading-none tracking-[-0.035em] text-black dark:text-white">Settings</DialogTitle>
+          <DialogDescription className="sr-only">Manage WagerProof settings.</DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="profile" className="gap-2">
-              <User className="h-4 w-4" />
-              Profile
-            </TabsTrigger>
-            <TabsTrigger value="account" className="gap-2">
-              <Shield className="h-4 w-4" />
-              Account
-            </TabsTrigger>
-            <TabsTrigger value="billing" className="gap-2">
-              <CreditCard className="h-4 w-4" />
-              Billing
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Alerts */}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white pb-10 dark:bg-black [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black/10 dark:[&::-webkit-scrollbar-thumb]:bg-white/10">
           {error && (
-            <Alert variant="destructive" className="mt-4">
+            <Alert variant="destructive" className="mx-6 mt-5 border-red-500/25 bg-red-500/10 text-red-300">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           {success && (
-            <Alert className="mt-4 border-green-500/50 bg-green-500/10">
-              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertDescription className="text-green-700 dark:text-green-400">
-                {success}
-              </AlertDescription>
+            <Alert className="mx-6 mt-5 border-emerald-500/25 bg-emerald-500/10 text-emerald-300">
+              <AlertDescription>{success}</AlertDescription>
             </Alert>
           )}
 
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Personal Information</CardTitle>
-                <CardDescription>
-                  Update your personal details and profile information
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      value={user?.email || ''}
-                      disabled
-                      className="pl-10"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Email cannot be changed
-                  </p>
-                </div>
+          <SectionLabel>AI Connector</SectionLabel>
+          <FeatureRow
+            icon={<Bot className="h-5 w-5" />}
+            title="Connect WagerProof to your AI"
+            subtitle="Claude, ChatGPT, Gemini, Grok, and Codex"
+            action="Connect"
+            onClick={() => openRoute('/connect-ai')}
+          />
 
-                <div className="space-y-2">
-                  <Label htmlFor="displayName">Display Name</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="displayName"
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="Enter your display name"
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
+          <div className="mx-6 mt-3 grid grid-cols-2 gap-2.5">
+            <HeroButton
+              title={hasProAccess ? 'You are Pro' : 'Go Pro Today'}
+              subtitle={hasProAccess ? 'Premium picks unlocked' : 'Unlock premium picks'}
+              action={hasProAccess ? 'Manage' : 'Upgrade'}
+              icon={<CreditCard className="h-5 w-5" />}
+              onClick={hasProAccess ? handleManageBilling : () => openRoute(PAYWALL_ROUTE)}
+            />
+            <HeroButton
+              title="Join our Discord"
+              subtitle="Picks, updates, and live chat"
+              action="Join"
+              icon={<MessageCircle className="h-5 w-5" />}
+              onClick={() => openRoute('/discord')}
+            />
+          </div>
 
-                <div className="pt-4">
-                  <Button 
-                    onClick={handleUpdateProfile} 
-                    disabled={isLoading}
-                    className="w-full sm:w-auto"
-                  >
-                    {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Save Changes
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <AvatarCustomization />
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Preferences</CardTitle>
-                <CardDescription>
-                  Customize your experience
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {theme === 'dark' ? (
-                      <Moon className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <Sun className="h-5 w-5 text-muted-foreground" />
-                    )}
-                    <div>
-                      <Label htmlFor="theme" className="text-sm font-medium">
-                        Dark Mode
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Toggle dark mode theme
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    id="theme"
-                    checked={theme === 'dark'}
-                    onCheckedChange={toggleTheme}
-                  />
-                </div>
-
-                {canEnableAdminMode && (
-                  <>
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Shield className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <Label htmlFor="admin-mode" className="text-sm font-medium">
-                            Admin Mode
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            Enable admin-only features
-                          </p>
-                        </div>
-                      </div>
-                      <Switch
-                        id="admin-mode"
-                        checked={adminModeEnabled}
-                        onCheckedChange={toggleAdminMode}
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* New Admin-only Onboarding Button */}
-                {adminModeEnabled && (
-                  <>
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <LogIn className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <Label htmlFor="onboarding-test" className="text-sm font-medium">
-                            Test Onboarding
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            (Admin) Restart the onboarding flow for testing.
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        id="onboarding-test"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          onOpenChange(false); // Close the modal
-                          navigate('/onboarding');
-                        }}
-                      >
-                        Enter Flow
-                      </Button>
-                    </div>
-
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <CreditCard className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <Label htmlFor="paywall-test" className="text-sm font-medium">
-                            Test Paywall
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            (Admin) Preview the paywall in a new window.
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        id="paywall-test"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          window.open('/paywall-test', '_blank');
-                        }}
-                      >
-                        View Paywall
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Account Tab */}
-          <TabsContent value="account" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Change Password</CardTitle>
-                <CardDescription>
-                  Update your password to keep your account secure
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password"
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2 pt-4">
-                  <Button
-                    onClick={handleChangePassword}
-                    disabled={isLoading}
-                    className="flex-1"
-                  >
-                    {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Change Password
-                  </Button>
-                  <Button
-                    onClick={handlePasswordReset}
-                    variant="outline"
-                    disabled={isLoading}
-                    className="flex-1"
-                  >
-                    Send Reset Email
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Notifications</CardTitle>
-                <CardDescription>
-                  Manage how you receive notifications
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <Label htmlFor="emailNotifications" className="text-sm font-medium">
-                        Email Notifications
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Receive updates via email
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    id="emailNotifications"
-                    checked={emailNotifications}
-                    onCheckedChange={setEmailNotifications}
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Bell className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <Label htmlFor="pushNotifications" className="text-sm font-medium">
-                        Push Notifications
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Receive push notifications
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    id="pushNotifications"
-                    checked={pushNotifications}
-                    onCheckedChange={setPushNotifications}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-destructive/50">
-              <CardHeader>
-                <CardTitle className="text-lg text-destructive">Danger Zone</CardTitle>
-                <CardDescription>
-                  Irreversible account actions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="destructive" className="w-full sm:w-auto">
-                  Delete Account
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Billing Tab */}
-          <TabsContent value="billing" className="space-y-4 mt-4">
-            {hasProAccess ? (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Current Plan</CardTitle>
-                    <CardDescription>
-                      Manage your subscription and billing details
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-start gap-4 p-4 border rounded-lg bg-gradient-to-br from-yellow-500/5 to-amber-500/5">
-                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-yellow-500/20 to-amber-500/20">
-                        <Crown className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg">WagerProof Pro</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Full access to all features
-                        </p>
-                        <div className="mt-2 flex items-baseline gap-1">
-                          <span className="text-2xl font-bold">
-                            {subscriptionType === 'monthly' && '$40'}
-                            {subscriptionType === 'yearly' && '$199'}
-                            {!subscriptionType && '—'}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {subscriptionType === 'monthly' && '/month'}
-                            {subscriptionType === 'yearly' && '/year'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Status</span>
-                        <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
-                          <CheckCircle2 className="h-4 w-4" />
-                          Active
-                        </span>
-                      </div>
-                      {customerInfo?.entitlements?.active?.['WagerProof Pro']?.expirationDate && (
-                        <>
-                          <Separator />
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">
-                              {customerInfo.entitlements.active['WagerProof Pro'].willRenew 
-                                ? 'Next billing date' 
-                                : 'Expires on'}
-                            </span>
-                            <span className="font-medium">
-                              {new Date(customerInfo.entitlements.active['WagerProof Pro'].expirationDate).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                              })}
-                            </span>
-                          </div>
-                        </>
-                      )}
-                      <Separator />
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Subscription Type</span>
-                        <span className="font-medium capitalize">
-                          {subscriptionType || 'Active'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 space-y-4">
-                      {customerInfo?.managementURL ? (
-                        <>
-                          <Button
-                            onClick={handleManageBilling}
-                            className="w-full"
-                          >
-                            <CreditCard className="h-4 w-4 mr-2" />
-                            Manage Subscription
-                          </Button>
-                          <p className="text-xs text-muted-foreground text-center">
-                            Update payment method, change plan, or cancel your subscription.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            onClick={handleManageBilling}
-                            className="w-full"
-                            variant="outline"
-                          >
-                            <Mail className="h-4 w-4 mr-2" />
-                            Manage Subscription
-                          </Button>
-
-                          <div className="space-y-3">
-                            <div className="space-y-2 text-xs text-muted-foreground text-center">
-                              <p className="font-medium text-foreground">
-                                Look for this email in your inbox:
-                              </p>
-                            </div>
-
-                            <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
-                              <img
-                                src="/revcatemailsubs.png"
-                                alt="Subscription confirmation email example"
-                                className="w-full"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  const parent = target.parentElement;
-                                  if (parent) {
-                                    parent.innerHTML = `
-                                      <div class="p-4 text-center">
-                                        <div class="space-y-2 text-sm text-muted-foreground">
-                                          <p class="font-semibold text-foreground">Your subscription confirmation email</p>
-                                          <p>Subject: "Your subscription started"</p>
-                                          <p>From: WagerProof</p>
-                                          <p>Contains a link to manage your subscription</p>
-                                        </div>
-                                      </div>
-                                    `;
-                                  }
-                                }}
-                              />
-                            </div>
-
-                            <div className="space-y-2 text-xs text-muted-foreground text-center">
-                              <p>
-                                Click the link in your confirmation email to update or cancel your subscription.
-                              </p>
-                            </div>
-                          </div>
-                        </>
-                      )}
-
-                      <div className="text-xs text-muted-foreground text-center">
-                        <p>
-                          Need help? Email us at{' '}
-                          <a
-                            href="mailto:admin@wagerproof.bet"
-                            className="text-primary hover:underline font-medium"
-                          >
-                            admin@wagerproof.bet
-                          </a>
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">No Active Subscription</CardTitle>
-                  <CardDescription>
-                    Upgrade to WagerProof Pro for full access
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-center py-8">
-                    <Crown className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground mb-4">
-                      You don't have an active subscription yet.
-                    </p>
-                    <Button onClick={() => {
-                      onOpenChange(false);
-                      navigate(PAYWALL_ROUTE);
-                    }}>
-                      View Plans
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+          <SectionLabel>Preferences</SectionLabel>
+          <SettingsGroup>
+            <SettingsRow
+              icon={<Bell />}
+              title="Push Notifications"
+              subtitle={pushNotifications ? 'On — agent picks & alerts' : 'Off'}
+              trailing={<Switch checked={pushNotifications} onCheckedChange={setPushNotifications} aria-label="Push Notifications" />}
+            />
+            <SettingsRow
+              icon={<Mail />}
+              title="Email Notifications"
+              subtitle={emailNotifications ? 'On — product and account updates' : 'Off'}
+              trailing={<Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} aria-label="Email Notifications" />}
+            />
+            <SettingsRow
+              icon={<Smartphone />}
+              title="Mobile Apps"
+              trailing={<ExternalLink className="h-3.5 w-3.5" />}
+              onClick={() => window.open('https://wagerproof.bet/mobile-app', '_blank', 'noopener,noreferrer')}
+            />
+            {canEnableAdminMode && (
+              <SettingsRow
+                icon={<Shield />}
+                title="Admin Mode"
+                subtitle="Enable admin-only features"
+                trailing={<Switch checked={adminModeEnabled} onCheckedChange={toggleAdminMode} aria-label="Admin Mode" />}
+              />
             )}
-          </TabsContent>
-        </Tabs>
+            {adminModeEnabled && (
+              <SettingsRow
+                icon={<LogIn />}
+                title="Test Onboarding"
+                trailing={<ChevronRight className="h-4 w-4" />}
+                onClick={() => openRoute('/onboarding')}
+              />
+            )}
+          </SettingsGroup>
+
+          <SectionLabel>Support</SectionLabel>
+          <SettingsGroup>
+            <SettingsRow icon={<MessageCircle />} title="Discord Channel" trailing={<ChevronRight className="h-4 w-4" />} onClick={() => openRoute('/discord')} />
+            <SettingsRow icon={<Mail />} title="Contact Us" trailing={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => window.location.assign('mailto:admin@wagerproof.bet?subject=Contact%20Us%20-%20WagerProof')} />
+            <SettingsRow icon={<Star />} title="Rate WagerProof" subtitle="Leave a review on the App Store" trailing={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => window.open('https://apps.apple.com/app/id6757089957?action=write-review', '_blank', 'noopener,noreferrer')} />
+          </SettingsGroup>
+
+          <SectionLabel>Legal</SectionLabel>
+          <SettingsGroup>
+            <SettingsRow icon={<Shield />} title="Privacy Policy" trailing={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => openRoute('/privacy-policy')} />
+            <SettingsRow icon={<FileText />} title="Terms of Use" trailing={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => openRoute('/terms-and-conditions')} />
+          </SettingsGroup>
+
+          <SectionLabel>Account</SectionLabel>
+          <SettingsGroup>
+            <SettingsRow icon={<Mail />} title="Email" subtitle={user?.email || '—'} />
+            <SettingsRow
+              icon={<Hash />}
+              title="User ID"
+              subtitle={user?.id || '—'}
+              trailing={didCopyUserId ? <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400"><Check className="h-3.5 w-3.5" />Copied</span> : <Copy className="h-3.5 w-3.5" />}
+              onClick={handleCopyUserId}
+              monoSubtitle
+            />
+            <SettingsRow icon={<Lock />} title="Change Password" trailing={<ChevronRight className="h-4 w-4" />} onClick={() => setPasswordExpanded((value) => !value)} />
+            {passwordExpanded && (
+              <div className="space-y-3 border-t border-black/[0.07] px-6 py-5 dark:border-white/[0.07]">
+                <div className="space-y-1.5">
+                  <Label htmlFor="newPassword" className="text-xs text-black/55 dark:text-white/55">New password</Label>
+                  <Input id="newPassword" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="h-11 rounded-xl border-black/10 bg-neutral-50 text-black placeholder:text-black/25 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/25" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirmPassword" className="text-xs text-black/55 dark:text-white/55">Confirm new password</Label>
+                  <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="h-11 rounded-xl border-black/10 bg-neutral-50 text-black placeholder:text-black/25 dark:border-white/10 dark:bg-neutral-950 dark:text-white dark:placeholder:text-white/25" />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button onClick={handleChangePassword} disabled={isLoading} className="h-10 flex-1 rounded-xl bg-black text-white hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/90">
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Change Password
+                  </Button>
+                  <Button onClick={handlePasswordReset} disabled={isLoading} variant="outline" className="h-10 flex-1 rounded-xl border-black/10 bg-black/[0.04] text-black hover:bg-black/[0.07] hover:text-black dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10 dark:hover:text-white">Reset Email</Button>
+                </div>
+              </div>
+            )}
+            <SettingsRow
+              icon={<CreditCard />}
+              title="Subscription"
+              subtitle={hasProAccess ? `WagerProof Pro${subscriptionType ? ` · ${subscriptionType}` : ''}` : 'Free plan'}
+              trailing={<ChevronRight className="h-4 w-4" />}
+              onClick={hasProAccess ? handleManageBilling : () => openRoute(PAYWALL_ROUTE)}
+            />
+          </SettingsGroup>
+
+          <SectionLabel>More</SectionLabel>
+          <SettingsGroup>
+            <SettingsRow icon={<LogOut />} title="Sign out" onClick={handleSignOut} />
+          </SettingsGroup>
+
+          <SectionLabel destructive>Danger Zone</SectionLabel>
+          <SettingsGroup>
+            <SettingsRow icon={<Trash2 />} title="Delete Account" subtitle="Permanently delete your account and data" destructive />
+          </SettingsGroup>
+
+          <div className="px-6 pb-2 pt-12 text-center text-[11px] leading-5 tracking-[0.02em] text-black/25 dark:text-white/25">
+            <p>WagerProof Web</p>
+            <p>Developed by nerds from Ohio.</p>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SectionLabel({ children, destructive = false }: { children: ReactNode; destructive?: boolean }) {
+  return <h2 className={`px-6 pb-2 pt-7 text-[13px] font-normal tracking-[0.01em] ${destructive ? 'text-red-500/80 dark:text-red-400/80' : 'text-black/42 dark:text-white/38'}`}>{children}</h2>;
+}
+
+function SettingsGroup({ children }: { children: ReactNode }) {
+  return <div className="mx-6 divide-y divide-black/[0.07] dark:divide-white/[0.07]">{children}</div>;
+}
+
+function SettingsRow({
+  icon,
+  title,
+  subtitle,
+  trailing,
+  onClick,
+  destructive = false,
+  monoSubtitle = false,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle?: string;
+  trailing?: ReactNode;
+  onClick?: () => void;
+  destructive?: boolean;
+  monoSubtitle?: boolean;
+}) {
+  const content = (
+    <>
+      <span className={`flex w-6 shrink-0 items-center justify-center [&>svg]:h-5 [&>svg]:w-5 [&>svg]:stroke-[1.7] ${destructive ? 'text-red-500 dark:text-red-400' : 'text-black/48 dark:text-white/48'}`}>{icon}</span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className={`block text-[15px] font-normal leading-5 ${destructive ? 'text-red-500 dark:text-red-400' : 'text-black/90 dark:text-white/90'}`}>{title}</span>
+        {subtitle && <span className={`mt-0.5 block truncate text-[11px] leading-4 text-black/38 dark:text-white/32 ${monoSubtitle ? 'font-mono' : ''}`}>{subtitle}</span>}
+      </span>
+      {trailing && <span className="shrink-0 text-black/32 dark:text-white/28">{trailing}</span>}
+    </>
+  );
+
+  const className = "flex min-h-[54px] w-full items-center gap-3.5 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400/60";
+  return onClick ? <button type="button" onClick={onClick} className={`${className} hover:bg-black/[0.025] dark:hover:bg-white/[0.025]`}>{content}</button> : <div className={className}>{content}</div>;
+}
+
+function FeatureRow({ icon, title, subtitle, action, onClick }: { icon: ReactNode; title: string; subtitle: string; action: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="mx-6 flex w-[calc(100%-3rem)] items-center gap-3.5 rounded-[18px] border border-black/[0.08] bg-black/[0.025] px-4 py-3.5 text-left transition hover:bg-black/[0.05] active:scale-[0.99] dark:border-white/[0.08] dark:bg-white/[0.035] dark:hover:bg-white/[0.06]">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.06] text-black/65 dark:bg-white/[0.07] dark:text-white/70">{icon}</span>
+      <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-black/90 dark:text-white/90">{title}</span><span className="mt-0.5 block truncate text-[11px] text-black/40 dark:text-white/35">{subtitle}</span></span>
+      <span className="text-xs font-semibold text-emerald-400">{action}</span>
+    </button>
+  );
+}
+
+function HeroButton({ title, subtitle, action, icon, onClick }: { title: string; subtitle: string; action: string; icon: ReactNode; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="min-w-0 rounded-[18px] border border-black/[0.08] bg-gradient-to-br from-black/[0.04] to-black/[0.015] p-4 text-left transition hover:border-black/15 hover:bg-black/[0.055] active:scale-[0.98] dark:border-white/[0.08] dark:from-white/[0.055] dark:to-white/[0.02] dark:hover:border-white/15 dark:hover:bg-white/[0.06]">
+      <span className="mb-5 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.055] text-black/55 dark:bg-white/[0.07] dark:text-white/55">{icon}</span>
+      <span className="block truncate text-sm font-medium text-black/90 dark:text-white/90">{title}</span>
+      <span className="mt-0.5 block truncate text-[10px] text-black/38 dark:text-white/32">{subtitle}</span>
+      <span className="mt-3 block text-[11px] font-semibold text-emerald-400">{action} →</span>
+    </button>
   );
 }
