@@ -36,7 +36,10 @@ L = print
 ROSTER_FEATS = ["d_ret_prod", "d_in_prod", "d_ret_share", "d_talent_stock",
                 "d_qb1_prior", "d_qb1_transfer"]
 MARGIN_FEATS = ["sp_diff", "fpi_diff", "rec_diff", "neutralSite"] + ROSTER_FEATS
-TOTAL_FEATS = ["off_sum", "def_sum", "sp_diff", "neutralSite"]
+# CORE O/D (CFBD /ratings/core, S-1 finals) — core_blend_test 2026-08-08: the O/D
+# split beats overall-strength totals priors (wk1-3 MAE 13.17 v 13.31, λ +0.15).
+# Margin model deliberately unchanged (CORE added only +0.04 there — noise).
+TOTAL_FEATS = ["off_sum", "def_sum", "sp_diff", "core_off_sum", "core_def_sum", "neutralSite"]
 
 
 def load():
@@ -60,6 +63,23 @@ def load():
     gm["rec_diff"] = gm.h_recruit_3yr - gm.a_recruit_3yr
     gm["off_sum"] = gm.h_prior_sp_off + gm.a_prior_sp_off
     gm["def_sum"] = gm.h_prior_sp_def + gm.a_prior_sp_def
+    # prior-season CORE O/D (NaN-safe: mean-imputed downstream like ROSTER feats,
+    # so seasons/teams without CORE degrade to the SP+ off/def priors)
+    crp = os.path.join(CFBD, "core_ratings.parquet")
+    if os.path.exists(crp):
+        cr = pd.read_parquet(crp)[["year", "team", "offense", "defense"]]
+        cr["season"] = cr.year + 1                      # S-1 final -> season-S prior
+        ch = cr.rename(columns={"team": "homeTeam", "offense": "h_core_off", "defense": "h_core_def"})
+        ca = cr.rename(columns={"team": "awayTeam", "offense": "a_core_off", "defense": "a_core_def"})
+        gm = gm.merge(ch[["season", "homeTeam", "h_core_off", "h_core_def"]],
+                      on=["season", "homeTeam"], how="left")
+        gm = gm.merge(ca[["season", "awayTeam", "a_core_off", "a_core_def"]],
+                      on=["season", "awayTeam"], how="left")
+        gm["core_off_sum"] = gm.h_core_off + gm.a_core_off
+        gm["core_def_sum"] = gm.h_core_def + gm.a_core_def
+    else:
+        gm["core_off_sum"] = np.nan
+        gm["core_def_sum"] = np.nan
     rsp = os.path.join(HERE, "data", "roster_scores.parquet")
     if os.path.exists(rsp):
         rs = pd.read_parquet(rsp)
