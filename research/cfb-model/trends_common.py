@@ -129,7 +129,7 @@ def _event_consensus(names):
             frames.append(pd.read_parquet(fp))
     if not frames:
         # ephemeral disk: no event-odds archive -> no TT/1H consensus (trends degrade)
-        ev = pd.DataFrame(columns=["game_id", "market", "name", "description", "point"])
+        ev = pd.DataFrame(columns=["game_id", "market", "name", "description", "point", "home", "away"])
     else:
         ev = pd.concat(frames, ignore_index=True)
     tdb = _name_resolver(names)

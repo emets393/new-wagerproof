@@ -44,6 +44,14 @@ TOTAL_FEATS = ["off_sum", "def_sum", "sp_diff", "core_off_sum", "core_def_sum", 
 
 def load():
     gm = pd.read_parquet(os.path.join(HERE, "data", "model_games.parquet"))
+    # Ephemeral disk (Render): build_features assembles only the CURRENT season in-run, so the
+    # training seasons come from the committed frozen frame. Locally model_games already spans
+    # 2016+ and the concat is a no-op (drop_duplicates keeps the freshly built rows first).
+    hist_fp = os.path.join(HERE, "data", "model_games_hist.parquet")
+    if os.path.exists(hist_fp):
+        hist = pd.read_parquet(hist_fp)
+        gm = (pd.concat([gm, hist[hist.season < SEASON]], ignore_index=True)
+              .drop_duplicates(["season", "week", "homeTeam", "awayTeam"], keep="first"))
     # DISPLAY/GRADE market line = THE ODDS API only (owner rule: every bet line, every sport, comes from
     # The Odds API — never CFBD). odds_game_frame is the Odds-API consensus (fetch_odds_history /
     # materialize_odds_history -> build_odds_frame). Override model_games' CFBD consensus_lines entirely;

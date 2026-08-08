@@ -137,6 +137,12 @@ if _probe.status_code != 200:
         row.pop("last5_h1_ats", None)
         row.pop("last5_h1_ou", None)
 df = pd.DataFrame(rows)
+if df.empty:
+    # Ephemeral preseason: no completed-game history in the frame -> nothing to build.
+    # SKIP WITHOUT WIPING — the table keeps its last good rows (wiping here would blank
+    # the app's trends every preseason cloud run).
+    print("cfb_team_trends: no game history in frame — skipped (table untouched)")
+    raise SystemExit(0)
 print(f"cfb_team_trends: {len(df)} teams | avg games {df.games.mean():.1f} | with TT {(df.tt_games>0).sum()} | with 1H {(df.h1_ats_games>0).sum()}")
 if NO_LOAD:
     s = df.sort_values("games", ascending=False).iloc[0]
