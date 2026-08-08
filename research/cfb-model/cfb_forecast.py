@@ -243,7 +243,15 @@ def build_season(season, week=None):
         tm = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_depth=4, l2_regularization=1.0, random_state=0).fit(tr[feats], tr.actual_total)
         sm = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_depth=4, l2_regularization=1.0, random_state=0).fit(tr[sfeats], tr.actual_margin)
         joblib.dump((tm, sm), _pkl)
-    te["pred_total"] = tm.predict(te[feats]); te["pred_margin"] = sm.predict(te[sfeats])
+    # Score against the model's OWN training columns (feature_names_in_), filling any
+    # column the current frame lacks with NaN — HistGradientBoosting handles NaN natively.
+    # A degraded preseason/ephemeral frame (e.g. tendencies skipped) must not crash predict
+    # ("feature names should match" incident, 2026-08-08).
+    def _aligned(frame, model, fallback_cols):
+        cols = list(getattr(model, "feature_names_in_", fallback_cols))
+        return frame.reindex(columns=cols)
+    te["pred_total"] = tm.predict(_aligned(te, tm, feats))
+    te["pred_margin"] = sm.predict(_aligned(te, sm, sfeats))
     te["total_edge"] = te.pred_total - te.total_open
     te["side_edge"] = te.pred_margin + te.spread_open
     te["side_edge_close"] = te.pred_margin + te.spread_close   # model lean @ close (for the stack spots)
@@ -307,7 +315,8 @@ def build_season(season, week=None):
         cc = HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, max_depth=4,
                                             l2_regularization=1.0, random_state=0).fit(trc[feats], (trc.actual_margin + trc.spread_close) > 0)
         joblib.dump(cc, _pklc)
-    te["p_home_conf"] = cc.predict_proba(te[feats])[:, 1]
+    _ccols = list(getattr(cc, "feature_names_in_", feats))
+    te["p_home_conf"] = cc.predict_proba(te.reindex(columns=_ccols))[:, 1]
     pick_home = te.side_edge > 0
     confirm = (te.p_home_conf > 0.5) == pick_home
     rvr_h = (te.home_self_rank_is == 1) & (te.away_self_rank_is == 1) & (te.spread_close < 0)
