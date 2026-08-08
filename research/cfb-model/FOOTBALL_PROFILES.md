@@ -449,3 +449,17 @@ BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as alwa
   2026 as-of ratings exist). Next re-freeze: add CORE O/D to the totals model.
   METHOD LESSON (owner-called): test the market the data's STRUCTURE serves
   first — the preseason totals win pointed here and I tested spreads 3x instead.
+
+- **TOTALS MAMMOTH dig (cfb_total_mammoth_dig.py, owner request 2026-08-08):**
+  CORE edge>=4 + STEAM toward the CORE side = the confluence that works.
+  Ladder: edge alone 54.1% -> +steam>=0.5 **58.1% n=353 +10.9%** -> +steam>=1.5
+  **60.9% n=169 +16.4%, ALL 5 seasons 56-67%** -> steam>=2.5 DECAYS (55.6%,
+  fully-moved lines). Deeper stacks (extremity L3) destabilize (2024: 25%) —
+  two independent mechanisms is the sweet spot, three over-slices. Wired as a
+  conviction ladder on core_total_edge (track/T2/T1@1.5u); 3u mammoth branding
+  deferred until one live season confirms. Big edges (>=7) alone LOSE (50.5%) —
+  the moderate-gap law again.
+- **1H mammoth = NOT FOUND.** CORE-implied 1H (share-calibrated) edge dose is
+  real but modest (>=3.5: 55.6% n=392, 2025 flat, only 3 line-seasons) and 1H
+  STEAM INVERTS (edge+strong steam 45.8% — thin 1H books move for different
+  reasons; never port the FG steam layer to 1H). Watch-tier only.
