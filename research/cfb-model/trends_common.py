@@ -122,9 +122,16 @@ def _h1_scores(seasons):
 
 def _event_consensus(names):
     """Median consensus team-total + 1H spread/total lines per game (2023-2025 event-odds archive)."""
-    frames = [pd.read_parquet(os.path.join(_DIR, "data", "event_odds", f"events_{y}.parquet"))
-              for y in EVENT_ODDS_SEASONS]
-    ev = pd.concat(frames, ignore_index=True)
+    frames = []
+    for y in EVENT_ODDS_SEASONS:
+        fp = os.path.join(_DIR, "data", "event_odds", f"events_{y}.parquet")
+        if os.path.exists(fp):
+            frames.append(pd.read_parquet(fp))
+    if not frames:
+        # ephemeral disk: no event-odds archive -> no TT/1H consensus (trends degrade)
+        ev = pd.DataFrame(columns=["game_id", "market", "name", "description", "point"])
+    else:
+        ev = pd.concat(frames, ignore_index=True)
     tdb = _name_resolver(names)
     tt = ev[(ev.market == "team_totals") & (ev.name == "Over")].copy()
     tt["team"] = tt.description.map(tdb)
