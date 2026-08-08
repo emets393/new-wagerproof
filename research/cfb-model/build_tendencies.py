@@ -24,10 +24,16 @@ def main():
         p = os.path.join(DATA, f"teamgame_box_{y}.parquet")
         if not os.path.exists(p):
             print(f"  missing {p}"); continue
+        gp = os.path.join(DATA, f"games_{y}.parquet")
+        if not os.path.exists(gp):
+            print(f"  missing {gp}"); continue
         box_frames.append(pd.read_parquet(p))
-        g = pd.read_parquet(os.path.join(DATA, f"games_{y}.parquet"))
+        g = pd.read_parquet(gp)
         g["season"] = y
         wk_frames.append(g[["id", "season", "week"]].rename(columns={"id": "game_id"}))
+    if not box_frames:
+        print("  no box/games history in cache (ephemeral preseason) — skipping tendencies")
+        return
     box = pd.concat(box_frames, ignore_index=True)
     wk = pd.concat(wk_frames, ignore_index=True)
     box = box.merge(wk, on=["season", "game_id"], how="left")
