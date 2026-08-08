@@ -61,10 +61,12 @@ android {
         applicationId = "com.wagerproof.mobile"
         minSdk = 31
         targetSdk = 36
-        // Kept in lockstep with iOS (Configuration/Release.xcconfig): versionName
-        // mirrors MARKETING_VERSION and versionCode mirrors CURRENT_PROJECT_VERSION,
-        // so a given user-facing version means the same build on both stores.
-        versionCode = 91
+        // versionName tracks iOS MARKETING_VERSION (Configuration/Release.xcconfig) so one
+        // user-facing version means the same feature set on both stores. versionCode starts
+        // from the iOS CURRENT_PROJECT_VERSION but drifts above it: Play rejects any code not
+        // strictly greater than the live one, so an Android-only respin of the same
+        // marketing version (here: the launcher-icon fix) still has to increment. 91 = iOS.
+        versionCode = 92
         versionName = "3.5.9"
         buildConfigField("String", "FACEBOOK_APP_ID", quotedBuildConfig(facebookAppId))
         buildConfigField("String", "FACEBOOK_CLIENT_TOKEN", quotedBuildConfig(facebookClientToken))

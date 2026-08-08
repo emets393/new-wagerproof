@@ -34,12 +34,16 @@ CI release signing uses the equivalent secrets `WAGERPROOF_RELEASE_KEYSTORE_BASE
 
 ## Versioning
 
-`versionName` / `versionCode` in `app/build.gradle.kts` are kept in lockstep with iOS
-`Wagerproof/Configuration/Release.xcconfig` (`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`),
-so one user-facing version means the same build on both stores. Bump both platforms together.
+`versionName` in `app/build.gradle.kts` tracks iOS `MARKETING_VERSION`
+(`Wagerproof/Configuration/Release.xcconfig`), so one user-facing version means the same
+feature set on both stores. Bump the marketing version on both platforms together.
 
-Two constraints this creates: Play rejects a `versionCode` that is not strictly greater than
-the live one, and iOS build numbers are incremented **server-side by Xcode Cloud**, so the
+`versionCode` starts from the iOS `CURRENT_PROJECT_VERSION` but is allowed to drift above it.
+Play rejects any `versionCode` that is not strictly greater than the live one, so an
+Android-only respin of the same marketing version has to increment even though iOS did not.
+Current state: `3.5.9`, iOS build 91, Android `versionCode` 92 (the launcher-icon respin).
+
+One more trap: iOS build numbers are incremented **server-side by Xcode Cloud**, so the
 number in the repo can lag what actually shipped. Read the real iOS build number from App
 Store Connect — not from the repo — before matching it.
 
