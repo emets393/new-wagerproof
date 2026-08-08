@@ -403,6 +403,10 @@ def main():
     # (G5 overs dead 51.3%); UNDER both (P5 59.9 / G5 56.6); form-stack flag = OVER + team over-cold (61.2%).
     import team_total_signals, form_signals
     tt = team_total_signals.build(gm, a.season)
+    if tt.empty or "implied" not in tt.columns:
+        # degraded/ephemeral frame -> schema-stable empty; every TT gate below no-ops
+        tt = pd.DataFrame(columns=["season", "game_id", "team", "implied",
+                                   "anch_edge", "fund_edge", "pts"])
     evp = os.path.join(HERE, "data", "event_odds", f"events_{a.season}.parquet")
     # preseason guard: the live collector writes a schema-less 0-row parquet until books
     # post 1H/TT lines — treat that exactly like "no archive" (implied-line fallback below)
