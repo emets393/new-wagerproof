@@ -1,11 +1,17 @@
 # Python deps for the new-wagerproof model pipeline (research/nfl-extreme-outcomes/,
-# research/cfb-model/). Render installs these per render.yaml; locally, `pip install -r
-# requirements.txt` covers the runners (fetch -> build -> .pkl predict -> slate -> grade).
-numpy
-pandas
-scipy
-scikit-learn
-requests
-pyarrow
+# research/cfb-model/). Render installs these per render.yaml.
+#
+# ⛔ PINNED to the FREEZE ENVIRONMENT (2026-08-08). The committed 2026 model .pkls
+# (cfb_models/cfb_confirm, sides_models, totals_b15/b55) were trained + joblib-dumped
+# under EXACTLY these versions; unpinned installs broke pkl loads on Render
+# ("No module named '_loss'" = sklearn skew) and the retrain fallback cannot run on an
+# ephemeral disk with no history. Bump these ONLY together with a re-freeze.
+# Pair with PYTHON_VERSION=3.11.9 on Render (pandas 1.5.3 has no cp312+ wheels).
+numpy==1.26.4
+pandas==1.5.3
+scipy==1.13.1
+scikit-learn==1.6.1
+pyarrow==21.0.0
+requests==2.32.5
 openpyxl
 psycopg2-binary   # grade_week.sh runs the grading RPCs over DATABASE_URL (no psql binary needed)

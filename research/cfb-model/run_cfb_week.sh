@@ -59,6 +59,10 @@ step "build opponent-adjusted ratings (as-of, leak-safe)"; python3 build_ratings
 step "build box-score tendencies (as-of)";                 python3 build_tendencies.py || true
 step "build per-game model frame -> model_games.parquet";  python3 build_features.py
 # team style profiles + opp DEF archetype + off_ppa (feeds the S-CFB1 style-delta UNDER flag)
+# odds_game_frame = the Odds-API consensus frame EVERYTHING lines-related reads (flags,
+# picks, early model — the lines hard rule). Reads model_games.parquet, so it must run
+# AFTER build_features. Was a manually-built artifact; now in-run.
+step "build Odds-API game frame (open/close consensus)"; python3 build_odds_frame.py
 step "build team style profiles (archetypes, leak-safe)";  python3 build_football_profiles.py || true
 # Weeks 1-3: the early display blend (preseason priors + roster + CORE) -> out/cfb_early_preds CSV.
 # gen_cfb_dryrun_games/picks REQUIRE this CSV early. Best-effort: on an ephemeral disk without
