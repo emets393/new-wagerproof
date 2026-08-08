@@ -26,12 +26,13 @@ export async function fetchTopAgentPicksFeed(
   filterMode: TopAgentPicksFilter,
   viewerUserId?: string,
   searchText?: string,
+  limit = 50,
 ): Promise<TopAgentPickFeedRow[]> {
   const { data, error } = await (supabase as any).rpc('get_top_agent_picks_feed_v2', {
     p_filter_mode: filterMode,
     p_viewer_user_id: viewerUserId ?? null,
     p_search_text: searchText?.trim() || null,
-    p_limit: 50,
+    p_limit: limit,
     p_cursor: null,
   });
   if (error) throw error;

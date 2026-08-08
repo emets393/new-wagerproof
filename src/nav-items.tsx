@@ -1,4 +1,4 @@
-import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock, Cable, Medal } from "lucide-react";
+import { Home as HomeIcon, Trophy, Shield as ShieldIcon, BarChart, BarChart2, User, Shield, Goal, School, Star, MessageSquare, GraduationCap, MessageCircle, FileImage, Activity, Brain, Users, Newspaper, Sparkles, Settings, Megaphone, Share2, Coffee, TrendingUp, Clock, Cable, Medal, Eye } from "lucide-react";
 import { Basketball, DiscordLogo } from "phosphor-react";
 import BetSlipGrader from "./pages/BetSlipGrader";
 import NotFound from "./pages/NotFound";
@@ -277,6 +277,11 @@ export const navItems: NavItem[] = [
         title: "Today in Sports",
         to: "/admin/today-in-sports",
         icon: <Sparkles className="h-4 w-4" />,
+      },
+      {
+        title: "Onboarding Picks",
+        to: "/admin/onboarding-picks",
+        icon: <Eye className="h-4 w-4" />,
       },
     ],
   },

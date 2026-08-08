@@ -16,6 +16,7 @@ Web admin pages under `/admin/*` for managing site settings, users, AI-generated
 | `AdminAnnouncements.tsx` | `/admin/announcements` | Create and manage site announcements via `site_settings` |
 | `AdminUsers.tsx` | `/admin/users` | User table with role management and entitlement granting |
 | `UserWinsAdmin.tsx` | `/admin/user-wins` | Moderate user win submissions, toggle wins section visibility |
+| `OnboardingPicksAdmin.tsx` | `/admin/onboarding-picks` | View today's central picks teased during native onboarding |
 
 ## AI Settings
 
@@ -35,6 +36,13 @@ Web admin pages under `/admin/*` for managing site settings, users, AI-generated
 - Trigger generation via `generateTodayInSportsCompletion`
 - Preview, publish, or delete the daily completion
 - Send test Discord notifications via `sendTestDiscordNotification`
+
+`OnboardingPicksAdmin.tsx` is a read-only view of the native onboarding reveal:
+
+- Reads the same `get_top_agent_picks_feed_v2` top-agent pool with the native 40-row limit
+- Shows the first three picks in the central all-sports order
+- Shows the bundled fixture tickets when the live feed is empty or unreachable
+- Keeps source agent, rank, generation time, and game date visible for verification
 
 ## Site Settings
 
@@ -72,5 +80,6 @@ src/pages/
     ├── TodayInSportsAdmin.tsx   # Daily summary
     ├── AdminAnnouncements.tsx   # Announcements
     ├── AdminUsers.tsx           # User management
-    └── UserWinsAdmin.tsx        # Win submissions
+    ├── UserWinsAdmin.tsx        # Win submissions
+    └── OnboardingPicksAdmin.tsx # Native onboarding teaser preview
 ```

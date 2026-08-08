@@ -42,6 +42,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import UserWinsAdmin from "./pages/admin/UserWinsAdmin";
+import OnboardingPicksAdmin from "./pages/admin/OnboardingPicksAdmin";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import OnboardingPage from "./pages/OnboardingPage"; // Import the new page
@@ -393,6 +394,7 @@ function AppRoutes() {
           <Route path="/admin/announcements" element={<ProtectedRoute><AdminAnnouncements /></ProtectedRoute>} />
           <Route path="/admin/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
           <Route path="/admin/today-in-sports" element={<ProtectedRoute><TodayInSportsAdmin /></ProtectedRoute>} />
+          <Route path="/admin/onboarding-picks" element={<ProtectedRoute><OnboardingPicksAdmin /></ProtectedRoute>} />
           <Route path="/polymarket-test" element={<PolymarketTest />} />
         </Routes>
       </AuthenticatedLayout>
