@@ -408,3 +408,12 @@ BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as alwa
   predicting week W+1 and later. Joining thru_week=W to week-W games is a leak.
   Unlocks NOW (was 'wait a season'): in-season CORE-vs-line backtests, as-of
   rating features for the main model, disagreement studies at any week.
+
+- **First as-of test (core_asof_line_test.py, wks 5-15, 2021-25, n=2,880):**
+  vs CLOSE = dead 50% at every rung (market prices public efficiency data —
+  canon confirmed). vs OPEN = monotone 51.4->52.9% by rung, 4/5 seasons
+  positive at >=6 (2022 the lone miss), ~breakeven-to-+1% at >=8 (n=1,310).
+  Same shape as the NBA absence finding: a CLV edge absorbed by the close —
+  NOT a standalone signal; use as (a) validation the reconstruction carries
+  real info and (b) a candidate FEATURE for the main weekly model / an
+  open-bet steer. Phase split flat (5-7 ≈ 8+).
