@@ -396,3 +396,15 @@ BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as alwa
 - NEXT (untested): S-1 CORE O/D split as early-blend priors (totals angle);
   our-features-vs-CORE disagreement study; in-season CORE-vs-line once the
   snapshot archive accrues.
+
+- **AS-OF RECONSTRUCTION (owner idea, 2026-08-08): the missing archive, built.**
+  `reconstruct_core.py`: plays-weighted ridge over team-game offensive PPA
+  (team-off + opp-def one-hots + symmetric HFA, FBS-vs-FBS, per-100 scale) solved
+  as-of every week -> `data/cfbd/core_asof.parquet` (31,888 rows, wks 3-16 + final,
+  2016-2025; 2020 = no game_advanced data). **Validation: end-of-season solve vs
+  official CORE r=0.92-0.96 overall (off/def 0.91-0.96) in all 9 seasons** — a
+  faithful proxy; the residual is their context model + garbage-time filter.
+  ⚠ USAGE RULE: thru_week=W is computed FROM weeks <=W -> legit only for
+  predicting week W+1 and later. Joining thru_week=W to week-W games is a leak.
+  Unlocks NOW (was 'wait a season'): in-season CORE-vs-line backtests, as-of
+  rating features for the main model, disagreement studies at any week.
