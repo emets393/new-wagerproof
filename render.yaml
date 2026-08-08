@@ -51,6 +51,8 @@ services:
     startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh   # no args -> resolve_nfl_week.py (wk1 until wk1 done, then advance)
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
+        value: "3.11.9"
 
   # --- CFB weekly slate: fetch CFBD -> build features -> model -> cfb_dryrun_* tables ----
   - type: cron
@@ -64,6 +66,8 @@ services:
     startCommand: cd research/cfb-model && bash run_cfb_week.sh   # no args -> resolve_cfb_week.py (CFBD calendar)
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
+        value: "3.11.9"
 
   # --- Post-game grading (both sports): finals -> player logs -> grade picks/props/signals
   - type: cron
@@ -77,6 +81,8 @@ services:
     startCommand: cd research/nfl-extreme-outcomes && bash grade_week.sh 2026
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
+        value: "3.11.9"
 
   # --- Live PRE-GAME odds collector (NFL) -> nfl_historical_odds (open/movement/close series) ---
   # Hourly; the script self-gates: 3x/day for future-day games, hourly for today's, PRE-GAME only
@@ -92,6 +98,8 @@ services:
     startCommand: cd research/nfl-extreme-outcomes && python3 live_odds.py --write
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
+        value: "3.11.9"
 
   # --- Live PRE-GAME odds collector (CFB) -> ncaaf_odds_history (FG; bulk endpoint, ~3 credits/run).
   # Same cadence + pre-game guard as NFL. CFB 1H/TT odds ride fetch_event_odds.py separately.
@@ -106,6 +114,8 @@ services:
     startCommand: cd research/cfb-model && python3 live_odds_cfb.py --write && python3 live_odds_cfb_1h.py --write
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
+        value: "3.11.9"
 
   # --- Weekly pick'em competition sync -> MAIN comp_weeks/comp_games (consensus lines,
   # finals via Odds API /scores, grading via comp_grade_week RPC). Stdlib-only script;
@@ -121,6 +131,8 @@ services:
         sync: false
       - key: SUPABASE_PAT
         sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.9"
 
   # --- Live PRE-GAME player-props collector (NFL) -> nfl_player_props (6 markets, 4 books;
   # per-event endpoint). Live counterpart to props_backfill+parse+load. Self-contained:
@@ -138,3 +150,5 @@ services:
     startCommand: cd research/nfl-extreme-outcomes && python3 live_props.py --write
     envVars:
       - fromGroup: wagerproof-model-secrets
+      - key: PYTHON_VERSION          # freeze-env pair: pinned requirements need cp311 wheels
+        value: "3.11.9"
