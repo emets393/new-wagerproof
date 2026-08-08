@@ -66,6 +66,12 @@ def add_situational_flags(df):
                 rows.append({"season": y, "week": int(r.week), "team": r[f"{who}Team"], "opp": r[f"{opp}Team"],
                              "won": int(r[f"{who}Points"] > r[f"{opp}Points"]), "pt": pt})
     tg = pd.DataFrame(rows)
+    if tg.empty:
+        # Preseason/ephemeral: no completed games anywhere in cache -> no situational
+        # history. Emit the flag columns as 0 so downstream spots simply don't fire.
+        for f in ["f_ranked_upset", "f_pt_letdown", "f_rival_next", "f_backup"]:
+            df[f"home_{f}"] = 0; df[f"away_{f}"] = 0; df[f"either_{f}"] = 0
+        return df
     tg["opp_ranked"] = [1 if (s, w, o) in ranked else 0 for s, w, o in zip(tg.season, tg.week, tg.opp)]
     tg["self_ranked"] = [1 if (s, w, t) in ranked else 0 for s, w, t in zip(tg.season, tg.week, tg.team)]
     tg["is_riv"] = [frozenset((t, o)) in rivpairs for t, o in zip(tg.team, tg.opp)]
