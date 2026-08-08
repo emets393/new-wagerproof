@@ -99,6 +99,30 @@ def tr_and_coaches():
     except Exception as e:
         print(f"[preseason] coaches fetch failed: {e}")
 
+    # CFBD CORE ratings (context+opponent-adjusted PPA, /ratings/core, added 2026-08).
+    # The endpoint serves ONLY the latest snapshot (no as-of history), so we build our
+    # own as-of archive by appending a dated snapshot each weekly run — same philosophy
+    # as the T-60 line captures. Backtestable in-season usage starts accruing NOW.
+    try:
+        import cfbd
+        from datetime import date
+        rows = cfbd.get("/ratings/core", year=SEASON)
+        if rows:
+            snap = pd.DataFrame(rows)
+            snap["fetched"] = str(date.today())
+            fp = HERE / "data" / "cfbd" / "core_snapshots.parquet"
+            hist = pd.read_parquet(fp) if fp.exists() else pd.DataFrame()
+            allx = pd.concat([hist, snap], ignore_index=True)
+            allx = allx.drop_duplicates(["year", "team", "throughSeasonType", "throughWeek"], keep="first")
+            allx.to_parquet(fp, index=False)
+            print(f"[preseason] CORE snapshot: {len(snap)} teams "
+                  f"(thru {snap.throughSeasonType.iloc[0]} wk{snap.throughWeek.iloc[0]}); "
+                  f"archive {len(allx)} rows")
+        else:
+            print(f"[preseason] CORE: no {SEASON} rows yet (posts once the season starts)")
+    except Exception as e:
+        print(f"[preseason] CORE snapshot failed: {e}")
+
 
 if __name__ == "__main__":
     main()
