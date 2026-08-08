@@ -425,3 +425,27 @@ BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as alwa
   priced). Don't re-test. Remaining CORE work: disagreement-vs-our-model study
   (needs historical weekly model preds assembled) + feature tryout in the main
   weekly model (the CLV finding's proper home).
+
+- **Disagreement study (core_disagreement_test.py) = NULL with a structural insight:**
+  our internal as-of net rating and the CORE proxy correlate 0.992 at the matchup
+  level (mean disagreement <1 pt). Where they disagree hardest (top 20%), NEITHER
+  wins (MAE ours 13.28 / core 13.48 / market 12.06) and neither side beats the
+  close (49.3%/48.2%). The two systems are the SAME measurement independently
+  implemented — no second opinion exists, disagreement direction is noise. This
+  (a) independently validates our adjustment pipeline and (b) closes test 4 by
+  implication: in-season CORE as a main-model feature is ~collinear (0.992) with
+  the adjusted-rating features the model already carries — expected increment ≈ 0. The
+  CORE program's real wins were the O/D preseason priors (shipped, totals MAE
+  13.31->13.17) and the open-line CLV validation. PROGRAM CLOSED.
+
+- **TOTALS test (core_totals_test.py, owner push 2026-08-08) = THE CORE WIN.**
+  In-season as-of CORE off/def -> implied total (walk-forward calibrated): >=4 off
+  the CLOSE = **54.1%, n=1,389, ALL 5 seasons positive (54/51/57/55/53), ~+3.3%
+  ROI**; holds at open (53.6%). Our own components = 52.5% on identical games ->
+  CORE's context-adjustment layer (expected-PPA-given-situation, the one piece we
+  don't replicate) is worth ~1.6pts on totals. Invisible in spread tests because
+  the NETs agree at 0.992 — decomposition quality only shows where decomposition
+  matters. Wired as `core_total_edge` (tracking, wks>=5, self-activates once
+  2026 as-of ratings exist). Next re-freeze: add CORE O/D to the totals model.
+  METHOD LESSON (owner-called): test the market the data's STRUCTURE serves
+  first — the preseason totals win pointed here and I tested spreads 3x instead.
