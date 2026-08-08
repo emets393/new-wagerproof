@@ -13,6 +13,18 @@ warnings.filterwarnings("ignore")
 
 g = pd.read_parquet("data/model_games.parquet")
 
+# Ephemeral disk (Render): before any current-season games are played, build_tendencies has
+# nothing to compute and the as-of columns don't exist in the frame at all -> the lambdas
+# below KeyError. Skip (don't write) so gen_cfb_dryrun_flags degrades to "signal skipped";
+# the style signal needs >=2 in-season priors anyway, so nothing fireable is lost.
+_req = ["home_poss_secs_pg", "home_adj_epa", "home_off_ppo", "home_def_havoc",
+        "home_adj_line_yards", "home_talent"]
+_missing = [c for c in _req if c not in g.columns]
+if _missing:
+    print(f"style profiles: model_games missing as-of columns ({_missing[0]}…) — no played "
+          f"games yet, skipped (profiled parquet untouched)")
+    raise SystemExit(0)
+
 # ── feature groups (all prior-only as-of in model_games; <side>_ prefix) ──
 # offense identity: tempo, run/pass lean, explosiveness, deep-ball, efficiency, finishing
 OFF = {
@@ -76,6 +88,9 @@ tg = pd.concat([explode("home"), explode("away")], ignore_index=True)
 # profile requires priors: drop rows with no as-of offense (week 1)
 prof_cols = [c for grp in GROUPS.values() for c in grp]
 tg = tg.dropna(subset=["o_epa", "d_epa_allowed", "t_ol_run_block"]).reset_index(drop=True)
+if tg.empty:
+    print("style profiles: columns present but no team-game has as-of features yet — skipped")
+    raise SystemExit(0)
 
 # ── within-(season,week) percentiles: leak-safe, comparable (equal prior sample at a given week) ──
 for c in prof_cols:
