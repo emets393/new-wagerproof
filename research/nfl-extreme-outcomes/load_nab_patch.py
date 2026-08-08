@@ -36,8 +36,15 @@ def main():
     g = pd.read_csv(io.StringIO(requests.get(GAMES_CSV, timeout=90).text))
     g = g[g.season >= 2018][["game_id", "home_coach", "away_coach", "surface"]].dropna(subset=["game_id"])
     g["surface"] = g["surface"].map(norm_surface)
-    # 1H half scores — 2023-25 (null for older games; coach/surface still apply)
-    qs = pd.read_parquet(DATA / "quarter_scores.parquet")[["game_id", "h1_home", "h1_away"]]
+    # 1H half scores — 2023-25 (null for older games; coach/surface still apply).
+    # quarter_scores.parquet is a local research artifact that does NOT exist on Render's
+    # ephemeral disk — degrade to coach/surface-only rather than crash the grade run.
+    qsp = DATA / "quarter_scores.parquet"
+    if qsp.exists():
+        qs = pd.read_parquet(qsp)[["game_id", "h1_home", "h1_away"]]
+    else:
+        print("[nab_patch] quarter_scores.parquet absent (ephemeral env) — h1 columns null")
+        qs = pd.DataFrame(columns=["game_id", "h1_home", "h1_away"])
     patch = g.merge(qs, on="game_id", how="left")
     for c in ("h1_home", "h1_away"):
         patch[c] = patch[c].astype("Int64")           # nullable int (NaN -> <NA>)

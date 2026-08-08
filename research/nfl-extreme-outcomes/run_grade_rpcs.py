@@ -48,17 +48,28 @@ def main():
         if pat:
             import requests
             ok = True
+            # Parity with the psycopg2 path below: props + signal rollup + BOTH
+            # analysis-base warehouse refreshes.
             for label, sql in ((f"grade_nfl_props {season}",
                                 "; ".join(f"SELECT grade_nfl_props({season}, {w})" for w in range(1, 23))),
                                (f"refresh_all_signal_performance {season}",
-                                f"SELECT refresh_all_signal_performance({season})")):
+                                f"SELECT refresh_all_signal_performance({season})"),
+                               (f"refresh_nfl_analysis_base {season}",
+                                f"SELECT public.refresh_nfl_analysis_base({season})"),
+                               (f"refresh_cfb_analysis_base {season}",
+                                f"SELECT public.refresh_cfb_analysis_base({season})")):
                 r = requests.post(
                     "https://api.supabase.com/v1/projects/jpxnjuwglavsjbgbasnl/database/query",
                     headers={"Authorization": f"Bearer {pat}", "User-Agent": "SupabaseCLI/1.0",
                              "Content-Type": "application/json"},
                     json={"query": sql}, timeout=300)
-                print(f"  [mgmt-api] {label}: HTTP {r.status_code}")
-                ok = ok and r.status_code == 200
+                # Management API answers 200 OR 201 on success (201 observed live
+                # 2026-08-07 — treating it as failure crashed the grade cron after
+                # the RPCs had already run).
+                good = r.status_code in (200, 201)
+                print(f"  [mgmt-api] {label}: HTTP {r.status_code}"
+                      + ("" if good else f" — {r.text[:200]}"))
+                ok = ok and good
             return 0 if ok else 1
         print("  [skip] neither DATABASE_URL nor SUPABASE_PAT set — grading RPCs not run.")
         return 0

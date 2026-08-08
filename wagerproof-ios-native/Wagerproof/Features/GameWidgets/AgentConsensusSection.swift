@@ -70,7 +70,7 @@ struct AgentConsensusSection: View {
             // pill — same slot, same word, in this app's accessory language so
             // it can't drift from every other pinned widget's badge.
             accessory: c.flagged ? .verdict(text: "BET", tintHex: 0x10B981) : .none,
-            contentKey: "\(c.gameId)-\(c.agents)-\(c.sideAgents)-\(c.flagged)"
+            contentKey: "\(c.gameId)-\(c.agents)-\(c.sideAgents)-\(c.marketAgents)-\(c.agreementPercent)-\(c.flagged)"
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 Text(headline(c))
@@ -97,9 +97,10 @@ struct AgentConsensusSection: View {
 
     private func headline(_ c: GameAgentConsensus) -> String {
         let pct = c.agreementPercent
+        let inMarket = c.marketLabel.isEmpty ? "" : " betting the \(c.marketLabel)"
         return c.flagged
-            ? "\(c.sideAgents) of \(c.agents) agents are on \(c.side) — \(pct)% agreement."
-            : "Agents are split on this game: the most-backed side is \(c.side), with only \(pct)% agreement."
+            ? "\(c.sideAgents) of \(c.marketAgents) agents\(inMarket) are on \(c.side) — \(pct)% agreement."
+            : "The most-backed side is \(c.side): \(c.sideAgents) of \(c.marketAgents) agents\(inMarket), \(pct)% agreement."
     }
 
     // MARK: - The pick (largest thing in the card)
@@ -107,29 +108,30 @@ struct AgentConsensusSection: View {
     @ViewBuilder
     private func sideRow(_ c: GameAgentConsensus) -> some View {
         let dir = Self.sideDirection(c.side)
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             // Overflow counts against the WINNING side, not the whole game —
             // the stack is claiming "these agents are on this side".
             avatarStack(c, overflow: c.sideAgents - min(c.avatars.count, Self.maxVisible))
 
             VStack(alignment: .leading, spacing: 2) {
-                eyebrow("Most-backed side")
-                HStack(spacing: 4) {
+                eyebrow(c.marketLabel.isEmpty ? "Most-backed side" : "Most-backed \(c.marketLabel)")
+                HStack(alignment: .top, spacing: 4) {
                     if let dir {
                         Image(systemName: dir == .over ? "arrow.up" : "arrow.down")
                             .font(.system(size: 15, weight: .bold))
+                            .padding(.top, 4)
                     }
                     // Verbatim `pick_selection`, which can be long ("Kansas City
-                    // Royals +160") — truncate rather than shove the percentage
-                    // off the card.
+                    // Royals +160"). It is the card's primary fact, so let it
+                    // wrap while the fixed-size percentage keeps its own column.
                     Text(c.side)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Self.sideTint(dir))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(c.agreementPercent)%")
@@ -206,10 +208,17 @@ struct AgentConsensusSection: View {
     /// earning a BET flag" is readable without a second sentence.
     @ViewBuilder
     private func agreementBar(_ c: GameAgentConsensus) -> some View {
-        let sideFraction = c.agents > 0 ? min(1, Double(c.sideAgents) / Double(c.agents)) : 0
+        // A selection belongs to one market. Whole-game participation includes
+        // unrelated moneyline/spread/total bets and makes agreement shrink as
+        // more markets receive picks (the old 5/17 versus correct 5/6 bug).
+        let sideFraction = c.marketAgents > 0
+            ? min(1, Double(c.sideAgents) / Double(c.marketAgents))
+            : 0
         // The threshold is an agent COUNT; place its tick on the same
-        // 0…agents scale the fill uses.
-        let thresholdFraction = c.agents > 0 ? min(1, Double(c.threshold) / Double(c.agents)) : 0
+        // 0…marketAgents scale the fill uses.
+        let thresholdFraction = c.marketAgents > 0
+            ? min(1, Double(c.threshold) / Double(c.marketAgents))
+            : 0
 
         VStack(alignment: .leading, spacing: 6) {
             GeometryReader { geo in
@@ -232,7 +241,11 @@ struct AgentConsensusSection: View {
                 Text("\(c.sideAgents)")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Color.appTextPrimary)
-                Text("of \(c.agents) agents")
+                Text(
+                    c.marketLabel.isEmpty
+                        ? "of \(c.marketAgents) agents"
+                        : "of \(c.marketAgents) agents betting the \(c.marketLabel)"
+                )
                 Spacer(minLength: 8)
                 Text(c.flagged ? "flag needs \(c.threshold) · cleared" : "flag needs \(c.threshold)")
             }
@@ -255,8 +268,10 @@ struct AgentConsensusSection: View {
             sideAgents: 39, agreement: 1.0, threshold: 8, flagged: true, avatars: avatars
         ),
         "split": GameAgentConsensus(
-            gameId: "split", gameDate: "2026-07-26", agents: 45, side: "Cincinnati Reds ML",
-            sideAgents: 14, agreement: 0.31, threshold: 12, flagged: false, avatars: avatars
+            gameId: "split", gameDate: "2026-07-29", agents: 17,
+            side: "Pittsburgh Pirates F5 -0.5", sideAgents: 5,
+            marketAgents: 6, marketLabel: "F5 run line", agreement: 0.8333,
+            threshold: 8, flagged: false, avatars: avatars
         ),
     ])
     return ScrollView {

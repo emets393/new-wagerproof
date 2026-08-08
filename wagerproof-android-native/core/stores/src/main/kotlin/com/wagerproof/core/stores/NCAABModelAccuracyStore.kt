@@ -11,6 +11,7 @@ import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -53,6 +54,9 @@ class NCAABModelAccuracyStore {
                     order("tipoff_time_et", Order.ASCENDING)
                 }
                 .decodeList<AccuracyRow>()
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             loadState = LoadState.Failed("Failed to fetch NCAAB model accuracy")
             return

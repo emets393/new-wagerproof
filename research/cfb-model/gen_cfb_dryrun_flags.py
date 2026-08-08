@@ -15,7 +15,7 @@ gm, te, S = C.harness_week(SEASON, WEEK)
 # found 5/51 CFBD lines bad (2 sign-FLIPPED: Miami@Stanford, Coastal@WVU; 3 zero-filled read
 # as pick'em). Override te's close lines from odds_game_frame; no Odds-API line -> NaN (skip).
 _ogf = pd.read_parquet("data/odds_game_frame.parquet")
-_ogf = _ogf[_ogf.season == SEASON][["home", "away", "close_spread", "close_total"]]
+_ogf = _ogf[_ogf.season == SEASON][["home", "away", "open_spread", "close_spread", "close_total"]]
 te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
 te["spread_close"] = te["close_spread"]
 te["total_close"] = te["close_total"]
@@ -292,6 +292,46 @@ if WEEK <= 3 and os.path.exists(_cmp):
                          "source": f"PACE HYPE UNDER: {tm} new HC {m.coach} from {m.prev_school} "
                                    f"(+{m.pace_gap:.1f} plays/gm faster than {tm} played) — "
                                    f"market prices the tempo before the roster can run it"})
+
+# ── Week-1 ROSTER HYPE FADE (owner-registered 2026-08-07, TRACKING tier) ──
+# Portal-era repricing: the market now OVERPAYS moderate roster-continuity edges.
+# Wk1 2024+2025, fade the higher-ret_prod side vs the OPEN: 61.4% (+17.3% ROI),
+# positive both seasons; the collapse lives in MODERATE share gaps (backing them
+# hit 36% in 2024) while EXTREME gaps (>=20pp) still follow (~54-56%) — that
+# region belongs to ret_prod_edge (S-CFB2), so this signal EXCLUDES it: fires
+# only when |ret_share gap| < 0.20 (our player-built share, corr +0.884 with
+# CFBD percentPPA). Grade vs the OPEN — the roster facts are summer knowledge.
+_rsp2 = "data/roster_scores.parquet"
+if WEEK == 1 and os.path.exists(_rsp2):
+    _rs2 = pd.read_parquet(_rsp2)
+    _rs2 = _rs2[_rs2.season == SEASON].set_index("team")
+    for _, r in te.iterrows():
+        op = getattr(r, "open_spread", np.nan)
+        if pd.isna(op):
+            continue
+        try:
+            rh, ra = _rs2.loc[r.homeTeam], _rs2.loc[r.awayTeam]
+        except KeyError:
+            continue
+        if pd.isna(rh.ret_prod) or pd.isna(ra.ret_prod) or rh.ret_prod == ra.ret_prod:
+            continue
+        if pd.notna(rh.ret_share) and pd.notna(ra.ret_share) \
+                and abs(rh.ret_share - ra.ret_share) >= 0.20:
+            continue  # extreme-continuity region -> ret_prod_edge's validated cell
+        loaded_home = rh.ret_prod > ra.ret_prod
+        loaded = r.homeTeam if loaded_home else r.awayTeam
+        other = r.awayTeam if loaded_home else r.homeTeam
+        lo, hi = (ra.ret_prod, rh.ret_prod) if loaded_home else (rh.ret_prod, ra.ret_prod)
+        rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                     "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "spread",
+                     "side": "AWAY" if loaded_home else "HOME",
+                     "line": round(float(op), 1), "price": -110,
+                     "edge": round(float(hi - lo), 1), "conviction": "track",
+                     "tier": "tracking", "stake_units": 0.5, "grade_line": "open",
+                     "mammoth": False, "signal_key": "roster_hype_fade",
+                     "source": f"ROSTER HYPE FADE: {loaded} returns {hi:.0f} PPA vs {other} "
+                               f"{lo:.0f} — portal-era market overpays moderate continuity "
+                               f"edges wk1 (share gap <20%)"})
 
 # ── Explicit bet target on every flag (owner rule 2026-08-07): a signal's text must
 # SAY the bet ("→ bet Tulsa +12.5"), because side=HOME/AWAY never renders and a source

@@ -23,6 +23,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.agents.components.AgentPickRationaleWidget
 import com.wagerproof.app.features.components.CollapsingWidgetScroll
 import com.wagerproof.app.features.components.TeamAuraBackground
@@ -48,6 +50,9 @@ import com.wagerproof.app.features.components.polymarket.PolymarketWidget
 import com.wagerproof.app.features.gamecards.HeroStat
 import com.wagerproof.app.features.gamecards.MatchupGlassHero
 import com.wagerproof.app.features.gamecards.MatchupHeroSide
+import com.wagerproof.app.features.games.GameConsensusKey
+import com.wagerproof.app.features.gamewidgets.AgentConsensusSection
+import com.wagerproof.app.features.gamewidgets.GameWidgetHeadlines
 import com.wagerproof.app.features.gamewidgets.InsightWidgetSkeleton
 import com.wagerproof.app.features.gamewidgets.TrendSignalRow
 import com.wagerproof.app.features.mlb.f5.F5SplitsDetailSheet
@@ -58,6 +63,10 @@ import com.wagerproof.app.features.outliers.BettingTrendsDetailSheet
 import com.wagerproof.app.features.outliers.BettingTrendsInsightWidget
 import com.wagerproof.app.features.outliers.MLBTrendsMatrixAdapter
 import com.wagerproof.app.features.outliers.TrendsGuide
+import com.wagerproof.app.features.parlaygod.MatchupParlaysWidget
+import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
+import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
+import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.props.PlayerPropSelection
 import com.wagerproof.app.features.shared.hexColor
@@ -71,7 +80,10 @@ import com.wagerproof.core.models.MLBGameTrends
 import com.wagerproof.core.models.MLBPropMatchup
 import com.wagerproof.core.models.MLBSignalItem
 import com.wagerproof.core.models.MLBTrendsInsight
+import com.wagerproof.core.models.ParlayTicket
 import com.wagerproof.core.models.TrendsSignal
+import com.wagerproof.core.services.RevenueCatService
+import com.wagerproof.core.stores.GamesStore
 import com.wagerproof.core.stores.MLBBettingTrendsStore
 import com.wagerproof.core.stores.MLBBucketAccuracyStore
 import com.wagerproof.core.stores.MLBBucketHelper
@@ -112,11 +124,18 @@ fun MLBGameDetailPage(
         return
     }
 
+    val graph = appGraph()
+    val parlayGod = graph.parlayGod
+
     var projection by remember(game.id) { mutableStateOf(ProjectionView.FULL) }
     var mlExpanded by remember(game.id) { mutableStateOf(false) }
     var ouExpanded by remember(game.id) { mutableStateOf(false) }
     var trendsDetailOpen by remember(game.id) { mutableStateOf(false) }
     var insightDetail by remember(game.id) { mutableStateOf<MLBInsightDetail?>(null) }
+    var selectedParlay by remember(game.id) { mutableStateOf<ParlayTicket?>(null) }
+    var showParlayPaywall by remember(game.id) { mutableStateOf(false) }
+    // Polymarket pushes its own prose read up once price history lands.
+    var marketOddsHeadline by remember(game.id) { mutableStateOf<String?>(null) }
 
     val awayName = game.awayTeamName ?: game.awayTeam ?: "Away"
     val homeName = game.homeTeamName ?: game.homeTeam ?: "Home"
@@ -129,6 +148,16 @@ fun MLBGameDetailPage(
     val totalTrendSignals = trendsSummary?.signals.orEmpty().filter {
         it.kind is TrendsSignal.Kind.Over || it.kind is TrendsSignal.Kind.Under
     }.take(2)
+    val matchupParlays = remember(parlayGod.poolRevision, game.gamePk) {
+        parlayGod.tickets(game.gamePk.toString())
+    }
+    val parlayAccess = when {
+        graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
+        graph.proAccess.isPro -> ParlayGodAccessState.Granted
+        else -> ParlayGodAccessState.Locked
+    }
+
+    LaunchedEffect(game.gamePk) { parlayGod.refreshIfNeeded() }
 
     CollapsingWidgetScroll(
         heroMaxHeight = if (hasWeather) 272.dp else 236.dp,
@@ -140,8 +169,23 @@ fun MLBGameDetailPage(
         background = { progress -> TeamAuraBackground(awayColors.primary, homeColors.primary, progress) },
         hero = { progress -> MLBHero(game, progress, awayColors, homeColors, hasWeather) },
     ) {
+        // FIRST, above every per-sport section — sport-agnostic crowd read,
+        // same placement as web's detail grid and iOS's sheets.
         item {
-            WidgetCollapsingSection("Market Odds", icon = AppIcon.CHART_BAR_FILL, iconTint = AppColors.appPrimary) {
+            AgentConsensusSection(
+                sport = GamesStore.Sport.mlb,
+                gameId = GameConsensusKey.of(game),
+                gameDate = game.officialDate,
+            )
+        }
+
+        item {
+            WidgetCollapsingSection(
+                "Market Odds",
+                icon = AppIcon.CHART_BAR_FILL,
+                iconTint = AppColors.appPrimary,
+                headline = marketOddsHeadline ?: GameWidgetHeadlines.marketOdds(),
+            ) {
                 PolymarketWidget(
                     league = "mlb",
                     awayTeam = awayName,
@@ -150,6 +194,7 @@ fun MLBGameDetailPage(
                     homeColors = homeColors,
                     awayAbbr = game.awayAbbr,
                     homeAbbr = game.homeAbbr,
+                    onHeadlineChange = { marketOddsHeadline = it },
                 )
             }
         }
@@ -208,6 +253,7 @@ fun MLBGameDetailPage(
                     if (regressionPicks.size > 1) "Regression Report Picks" else "Regression Report Pick",
                     icon = AppIcon.CHART_BAR_XAXIS,
                     iconTint = hexColor(0xA855F7L),
+                    headline = GameWidgetHeadlines.regressionPicks(regressionPicks),
                 ) {
                     ProContentSection(title = "Regression Picks", minHeight = 120.dp) {
                         MLBRegressionPicksSection(game = game, picks = regressionPicks)
@@ -228,6 +274,25 @@ fun MLBGameDetailPage(
         } else if (propsStore.isLoadingMLB && !propsStore.hasLoadedMLB) {
             item {
                 WidgetCollapsingSection("Player Props", icon = AppIcon.FIGURE_BASEBALL) {
+                    InsightWidgetSkeleton()
+                }
+            }
+        }
+
+        // Same-game perfect-streak tickets sit between Player Props and Betting
+        // Trends. Until the shared pool first lands, mirror iOS's generic
+        // collapsing-widget skeleton rather than showing a misleading empty card.
+        when {
+            matchupParlays.isNotEmpty() -> item {
+                MatchupParlaysWidget(
+                    tickets = matchupParlays,
+                    onTicketClick = { selectedParlay = it },
+                    accessState = parlayAccess,
+                    onRequestPro = { showParlayPaywall = true },
+                )
+            }
+            parlayGod.isLoading && !parlayGod.hasContent -> item {
+                WidgetCollapsingSection("Matchup Parlays", icon = AppIcon.BOLT_FILL) {
                     InsightWidgetSkeleton()
                 }
             }
@@ -318,6 +383,17 @@ fun MLBGameDetailPage(
             }
         }
     }
+
+
+    selectedParlay?.let { ticket ->
+        ParlayGodDetailSheet(ticket = ticket, onDismiss = { selectedParlay = null })
+    }
+
+    PaywallDialogHost(
+        show = showParlayPaywall,
+        placementId = RevenueCatService.Placement.GENERIC_FEATURE,
+        onDismiss = { showParlayPaywall = false },
+    )
 }
 
 @Composable
@@ -468,13 +544,24 @@ private fun WeatherChip(text: String, icon: AppIcon, tint: Color) {
 
 @Composable
 private fun ProjectedScoreSection(game: MLBGame, projection: ProjectionView, onProjection: (ProjectionView) -> Unit) {
-    WidgetCollapsingSection("Projected Score", icon = AppIcon.SPORTSCOURT, iconTint = AppColors.appPrimary) {
+    val scores = when (projection) {
+        ProjectionView.FULL -> game.fullGameRuns?.let { it.away to it.home }
+        ProjectionView.F5 -> game.f5Runs?.let { it.away to it.home }
+    }
+    WidgetCollapsingSection(
+        "Projected Score",
+        icon = AppIcon.SPORTSCOURT,
+        iconTint = AppColors.appPrimary,
+        headline = GameWidgetHeadlines.projectedScore(
+            segment = if (projection == ProjectionView.F5) "f5" else "full",
+            awayName = game.awayTeamName ?: game.awayAbbr,
+            homeName = game.homeTeamName ?: game.homeAbbr,
+            awayScore = scores?.first,
+            homeScore = scores?.second,
+        ),
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ProjectionToggle(projection, onProjection)
-            val scores = when (projection) {
-                ProjectionView.FULL -> game.fullGameRuns?.let { it.away to it.home }
-                ProjectionView.F5 -> game.f5Runs?.let { it.away to it.home }
-            }
             if (scores == null) {
                 Text(
                     "Projection unavailable for ${if (projection == ProjectionView.FULL) "full game" else "1st 5"}",
@@ -576,6 +663,13 @@ private fun MoneylineSection(
         iconTint = AppColors.appPrimary,
         accessory = WidgetHeaderAccessory.Chevron(expanded),
         onHeaderTap = onToggle,
+        headline = GameWidgetHeadlines.moneyline(
+            segment = if (projection == ProjectionView.F5) "f5" else "full",
+            pickAbbr = pick.abbr,
+            pickProbability = pick.probability,
+            impliedProbability = pick.implied,
+            pickEdgePct = pick.edge,
+        ),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             ComparisonRow("Vegas", pick.implied?.let(::fmtPct) ?: "–", "Our Model", fmtPct(pick.probability), tint)
@@ -639,6 +733,12 @@ private fun TotalSection(
         iconTint = tint,
         accessory = WidgetHeaderAccessory.Chevron(expanded),
         onHeaderTap = onToggle,
+        headline = GameWidgetHeadlines.total(
+            segment = if (projection == ProjectionView.F5) "f5" else "full",
+            direction = pick.direction,
+            modelTotal = pick.fairTotal,
+            marketTotal = pick.line,
+        ),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             ComparisonRow("Vegas O/U", MLBFormatting.line(pick.line), "Our Model", pick.fairTotal?.let(::fmt1) ?: "–", tint)
@@ -722,6 +822,7 @@ private fun SignalsSection(signals: List<MLBSignalItem>) {
             "${signals.size} SIGNAL${if (signals.size == 1) "" else "S"}",
             AppColors.appPrimary,
         ),
+        headline = GameWidgetHeadlines.gameSignals(signals),
     ) {
         ProContentSection(title = "Game Signals", minHeight = 120.dp) {
             if (signals.isEmpty()) {

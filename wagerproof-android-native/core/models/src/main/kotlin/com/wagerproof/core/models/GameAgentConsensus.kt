@@ -16,25 +16,55 @@ import kotlin.math.roundToInt
  */
 @Serializable
 data class GameAgentConsensus(
-    @SerialName("game_id") val gameId: String = "",
-    @SerialName("game_date") val gameDate: String = "",
-    /** Distinct public+active agents with a pick on this game. */
-    val agents: Int = 0,
+    // No defaults on the counting fields, on purpose (mirrors the strict decode
+    // in iOS `GameAgentConsensus.init(from:)`). Defaulting them made a renamed
+    // RPC column indistinguishable from "no agents bet this game": every row
+    // would decode as agents=0 / flagged=false and the whole feature would
+    // vanish app-wide with nothing logged. Throwing instead fails the fetch,
+    // which AgentConsensusStore logs and does NOT cache, so breakage is visible
+    // and self-retrying.
+    @SerialName("game_id") val gameId: String,
+    @SerialName("game_date") val gameDate: String,
+    /** Distinct public+active agents with a pick on this game, across every market. */
+    val agents: Int,
     /** The single most-backed selection, verbatim (e.g. "Over 7.5"). */
-    val side: String = "",
+    val side: String,
     /** Distinct agents on that side. */
-    @SerialName("side_agents") val sideAgents: Int = 0,
-    /** sideAgents / agents, 0–1. Postgres NUMERIC drifts number↔string on the wire. */
+    @SerialName("side_agents") val sideAgents: Int,
+    /**
+     * Raw `market_agents`: distinct agents who bet the SAME market as [side]
+     * (bet_type × period). NULL only on pre-migration rows — read [marketAgents].
+     */
+    @SerialName("market_agents") val marketAgentsRaw: Int? = null,
+    /** Raw `market_label` (e.g. "F5 run line"); read [marketLabel]. */
+    @SerialName("market_label") val marketLabelRaw: String? = null,
+    /**
+     * `sideAgents / marketAgents`, 0–1 — NOT over [agents], which pools every
+     * market on the game and so makes a plurality read as disagreement (5 of 17
+     * = 29% when the run line itself was unanimous).
+     * Postgres NUMERIC drifts number↔string on the wire.
+     */
     @Serializable(with = FlexibleDoubleOrZeroSerializer::class)
-    val agreement: Double = 0.0,
+    val agreement: Double,
     /** Agents-on-one-side needed to flag today; scales with slate volume. */
-    val threshold: Int = 0,
+    val threshold: Int,
     /** True when the side clears both the scaled count bar and the agreement bar. */
-    val flagged: Boolean = false,
+    val flagged: Boolean,
     /** Up to 4 agents drawn from the WINNING side, for the overlap stack. */
     val avatars: List<ConsensusAvatar> = emptyList(),
 ) {
     val agreementPercent: Int get() = (agreement * 100).roundToInt()
+
+    /**
+     * Denominator behind [agreement] and the detail widget's bar. Falling back
+     * to the whole-game count on pre-migration rows reproduces the old
+     * (over-pooled) denominator rather than dividing by zero and drawing an
+     * empty bar — same fallback as web's `market_agents ?? agents`.
+     */
+    val marketAgents: Int get() = marketAgentsRaw ?: agents
+
+    /** Market the side belongs to, for attribution ("… betting the F5 run line"). */
+    val marketLabel: String? get() = marketLabelRaw?.takeIf { it.isNotBlank() }
 }
 
 /**

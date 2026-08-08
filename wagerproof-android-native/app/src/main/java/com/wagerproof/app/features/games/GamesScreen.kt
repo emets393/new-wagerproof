@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.cfb.CFBGameCard
+import com.wagerproof.app.features.components.GlassSegmentedPicker
+import com.wagerproof.app.features.components.QuickFilterEmptyState
+import com.wagerproof.app.features.components.QuickFilterField
 import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardShimmer
 import com.wagerproof.app.features.games.tools.SportTool
@@ -54,14 +57,10 @@ import com.wagerproof.app.features.nfl.NFLGameCard
 import com.wagerproof.app.features.navigation.SettingsToolbarButton
 import com.wagerproof.app.features.navigation.WagerProofWordmark
 import com.wagerproof.app.nav.LocalAppNavigator
-import com.wagerproof.core.design.components.liquidGlassCapsule
 import com.wagerproof.core.design.components.staggeredAppear
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.stores.GamesStore
-import com.wagerproof.core.stores.LoadState
-import com.wagerproof.core.stores.NBAModelAccuracyStore
-import com.wagerproof.core.stores.NCAABModelAccuracyStore
 import com.wagerproof.core.stores.SportSeason
 import kotlinx.coroutines.launch
 
@@ -84,21 +83,42 @@ fun GamesScreen(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     var isPullRefreshing by remember { mutableStateOf(false) }
 
-    // Model-accuracy reports back the NBA/NCAAB tool banners (hidden when empty).
-    val nbaAccuracy = remember { NBAModelAccuracyStore() }
-    val ncaabAccuracy = remember { NCAABModelAccuracyStore() }
+    // Model-accuracy reports back the NBA/NCAAB tool banners (hidden when
+    // empty). Shell-scoped: a per-screen `remember` was thrown away on every
+    // tab switch, so the banner vanished and refetched on each return.
+    val nbaAccuracy = graph.nbaModelAccuracy
+    val ncaabAccuracy = graph.ncaabModelAccuracy
     var selectedTool by remember { mutableStateOf<SportTool?>(null) }
 
-    LaunchedEffect(Unit) { store.refreshAll() }
+    // No refreshAll here — MainScaffold hydrates the slate once at the shell
+    // (iOS deleted GamesView's duplicate `.task` in 7166b538). Running both
+    // fired all five sports' pipelines twice on cold start. Only the sports
+    // that FAILED that hydrate get another try: unforced and empty-handed on
+    // the happy path, but without it one blip at launch hides a sport from
+    // Search/Outliers/WagerBot for the rest of the process.
+    LaunchedEffect(Unit) { store.retryFailed() }
+
     LaunchedEffect(store.selectedSport) {
         when (store.selectedSport) {
-            GamesStore.Sport.nba -> if (nbaAccuracy.loadState is LoadState.Idle) nbaAccuracy.refresh()
-            GamesStore.Sport.ncaab -> if (ncaabAccuracy.loadState is LoadState.Idle) ncaabAccuracy.refresh()
+            // needsInitialLoad, not `is Idle`: these stores are shell-scoped now,
+            // so one failed fetch would otherwise hide the tool banner for good
+            // (visibleTools drops it when the cache is empty) with no error row
+            // and no retry affordance anywhere.
+            GamesStore.Sport.nba -> if (nbaAccuracy.loadState.needsInitialLoad) nbaAccuracy.refresh()
+            GamesStore.Sport.ncaab -> if (ncaabAccuracy.loadState.needsInitialLoad) ncaabAccuracy.refresh()
             else -> Unit
         }
     }
 
     val sport = store.selectedSport
+
+    // Quick Filter is per-sport (`GamesStore.searchTexts`), so switching sports
+    // restores whatever that sport was filtered to rather than clearing — same
+    // as iOS, whose binding reads/writes the same keyed map. `activeQuickFilter`
+    // is the trimmed form the store also filters on; the raw value stays in the
+    // field so a trailing space the user just typed isn't eaten.
+    val quickFilter = store.searchTexts[sport] ?: ""
+    val activeQuickFilter = quickFilter.trim()
 
     // Agent consensus is fetched ONCE per slate, never per card: the flag
     // threshold scales with the whole day's pick volume, so it can't be derived
@@ -132,6 +152,18 @@ fun GamesScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(start = 16.dp, top = 2.dp, bottom = 4.dp),
         )
 
+        // Quick Filter above the picker. iOS squeezes the field, sport menu and
+        // sort menu onto ONE row (GamesView.pickerBar) because it swapped the
+        // segmented control for an icon menu; Android keeps the five-way
+        // segmented picker (it fits the wider default form factor and is the
+        // shipped affordance), so the field gets its own row above it.
+        QuickFilterField(
+            value = quickFilter,
+            onValueChange = { store.searchTexts = store.searchTexts + (sport to it) },
+            accessibilityLabel = "Quick filter games",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
+        )
+
         // Pinned picker + sort bar.
         PickerBar(store)
 
@@ -159,7 +191,10 @@ fun GamesScreen(modifier: Modifier = Modifier) {
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 32.dp),
             ) {
-                if (visibleTools.isNotEmpty()) {
+                // Tool banners are slate-wide shortcuts, not games — they'd sit
+                // above a two-card result and read as noise, so iOS drops them
+                // while a Quick Filter is active (GamesView.swift:158-160).
+                if (visibleTools.isNotEmpty() && activeQuickFilter.isEmpty()) {
                     item(key = "tools") { ToolBanners(visibleTools) { selectedTool = it } }
                 }
 
@@ -174,6 +209,16 @@ fun GamesScreen(modifier: Modifier = Modifier) {
                         ErrorState(store.errorMessage(sport)!!) {
                             scope.launch { store.refresh(sport, force = true) }
                         }
+                    }
+                    // Distinct from the season EmptyTile below: the board HAS
+                    // games, the query just excluded them all. Says so, and
+                    // offers the one-tap way back (iOS ContentUnavailableView).
+                    activeQuickFilter.isNotEmpty() && filteredGamesAreEmpty(store, sport) -> item {
+                        QuickFilterEmptyState(
+                            title = "No Matching Games",
+                            message = "No ${sport.label} teams match “$activeQuickFilter”.",
+                            onClear = { store.searchTexts = store.searchTexts + (sport to "") },
+                        )
                     }
                     else -> sportDateSections(store, sport, nav, graph)
                 }
@@ -211,42 +256,30 @@ private fun noCachedGames(store: GamesStore, sport: GamesStore.Sport): Boolean =
     GamesStore.Sport.mlb -> store.games.mlb.isEmpty()
 }
 
+/**
+ * True when the sorted+filtered list is empty. Reads the same memoized
+ * `sortedX()` the feed renders, so it can't disagree with what's on screen.
+ * iOS `GamesView.filteredGamesAreEmpty`.
+ */
+private fun filteredGamesAreEmpty(store: GamesStore, sport: GamesStore.Sport): Boolean = when (sport) {
+    GamesStore.Sport.nfl -> store.sortedNFL().isEmpty()
+    GamesStore.Sport.cfb -> store.sortedCFB().isEmpty()
+    GamesStore.Sport.nba -> store.sortedNBA().isEmpty()
+    GamesStore.Sport.ncaab -> store.sortedNCAAB().isEmpty()
+    GamesStore.Sport.mlb -> store.sortedMLB().isEmpty()
+}
+
 @Composable
 private fun PickerBar(store: GamesStore) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-            .liquidGlassCapsule(null)
-            .padding(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        // Segmented sport picker.
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            GamesStore.Sport.displayOrder().forEach { s ->
-                val active = store.selectedSport == s
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (active) AppColors.appPrimary.copy(alpha = 0.2f) else Color.Transparent)
-                        .clickable { store.selectedSport = s }
-                        .padding(vertical = 6.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        s.label,
-                        color = if (active) AppColors.appTextPrimary else AppColors.appTextSecondary,
-                        fontSize = 12.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        maxLines = 1,
-                    )
-                }
-            }
-        }
-        SortMenu(store)
-    }
+    val sports = GamesStore.Sport.displayOrder()
+    GlassSegmentedPicker(
+        labels = sports.map { it.label },
+        selectedIndex = sports.indexOf(store.selectedSport),
+        onSelect = { store.selectedSport = sports[it] },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+        labelFontSize = 12.sp,
+        trailing = { SortMenu(store) },
+    )
 }
 
 @Composable

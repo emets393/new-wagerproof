@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.wagerproof.core.services.BuildFlags
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -200,6 +201,10 @@ class RoastSessionStore(
             d.connect(intensity)
             isConnected = true
             connectionEventCount += 1
+        } catch (cancellation: CancellationException) {
+            isConnected = false
+            isConnecting = false
+            throw cancellation
         } catch (e: Exception) {
             isConnected = false
             error = e.message ?: "Connection failed"

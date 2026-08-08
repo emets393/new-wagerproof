@@ -11,6 +11,7 @@ import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -104,6 +105,9 @@ class FeatureRequestsStore {
 
             loadState = LoadState.Loaded
             lastError = null
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Throwable) {
             val message = e.message ?: "Failed to load feature requests"
             loadState = LoadState.Failed(message)
@@ -156,6 +160,8 @@ class FeatureRequestsStore {
             }
 
             refresh(userId)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Throwable) {
             lastError = e.message
         }
@@ -196,6 +202,8 @@ class FeatureRequestsStore {
             // Refresh so any approved-on-insert (admin shortcut) shows up.
             refresh(userId)
             return true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Throwable) {
             lastError = e.message
             return false

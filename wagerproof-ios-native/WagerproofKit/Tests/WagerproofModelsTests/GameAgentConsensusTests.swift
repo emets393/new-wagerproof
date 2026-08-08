@@ -19,6 +19,8 @@ final class GameAgentConsensusTests: XCTestCase {
           "agents": 39,
           "side": "Over 7.5",
           "side_agents": 39,
+          "market_agents": 39,
+          "market_label": "total",
           "agreement": 1.0,
           "threshold": 8,
           "flagged": true,
@@ -35,6 +37,8 @@ final class GameAgentConsensusTests: XCTestCase {
         XCTAssertEqual(row.agents, 39)
         XCTAssertEqual(row.side, "Over 7.5")
         XCTAssertEqual(row.sideAgents, 39)
+        XCTAssertEqual(row.marketAgents, 39)
+        XCTAssertEqual(row.marketLabel, "total")
         XCTAssertEqual(row.agreement, 1.0, accuracy: 1e-9)
         XCTAssertEqual(row.agreementPercent, 100)
         XCTAssertEqual(row.threshold, 8)
@@ -55,6 +59,35 @@ final class GameAgentConsensusTests: XCTestCase {
         """)
         XCTAssertEqual(rows.first?.agreement ?? 0, 0.875, accuracy: 1e-9)
         XCTAssertEqual(rows.first?.agreementPercent, 88)
+    }
+
+    /// Agreement is scoped to one bet shape, not every agent who touched the
+    /// game. This is the July regression case that read 5/17 instead of 5/6.
+    func testKeepsMarketPopulationSeparateFromWholeGameParticipation() throws {
+        let rows = try decode("""
+        [{"game_id":"1","game_date":"2026-07-29","agents":17,
+          "side":"Pittsburgh Pirates F5 -0.5","side_agents":5,
+          "market_agents":6,"market_label":"F5 run line",
+          "agreement":"0.8333","threshold":8,"flagged":false,"avatars":[]}]
+        """)
+        let row = try XCTUnwrap(rows.first)
+        XCTAssertEqual(row.agents, 17)
+        XCTAssertEqual(row.sideAgents, 5)
+        XCTAssertEqual(row.marketAgents, 6)
+        XCTAssertEqual(row.marketLabel, "F5 run line")
+        XCTAssertEqual(row.agreementPercent, 83)
+    }
+
+    /// A client can briefly see the pre-migration shape during staggered
+    /// deployment; preserve the old population as a safe compatibility value.
+    func testLegacyRowFallsBackToWholeGamePopulation() throws {
+        let rows = try decode("""
+        [{"game_id":"1","game_date":"2026-07-26","agents":16,"side":"Under 10",
+          "side_agents":14,"agreement":"0.8750","threshold":8,"flagged":true,"avatars":[]}]
+        """)
+        let row = try XCTUnwrap(rows.first)
+        XCTAssertEqual(row.marketAgents, 16)
+        XCTAssertEqual(row.marketLabel, "")
     }
 
     /// An agent with no sprite override / avatar color is normal — the strip

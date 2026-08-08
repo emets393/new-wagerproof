@@ -40,9 +40,15 @@ the most-bet game was *not* the strongest-consensus game.
 
 ```
 flagged = side_agents >= max(8, ceil(0.08 * day_picking_agents))
-          AND side_agents / agents >= 0.55
+          AND side_agents / market_agents >= 0.55
 ```
 
+- `market_agents` is the distinct-agent population for the winning selection's
+  market (`bet_type × period`), not every agent who bet any market on the game.
+  Dividing by `agents` pooled six-plus MLB bet shapes into one denominator, so a
+  plurality read as a minority (5 of 17 = 29% when the F5 run line itself was
+  near-unanimous) and the metric got *worse* as more agents bet a game. Changed in
+  `supabase/migrations/20260729140000_agent_consensus_market_scoped.sql`.
 - `day_picking_agents` is the **sum of per-game distinct agent counts**
   (agent-games), not distinct agents across the slate. That is the denominator
   the 8% was calibrated against — swapping it silently re-tunes the flag rate.
@@ -57,7 +63,8 @@ without a migration.
 
 ## Backend
 
-`supabase/migrations/20260726140000_game_agent_consensus.sql`
+`supabase/migrations/20260726140000_game_agent_consensus.sql`, market-scoped by
+`supabase/migrations/20260729140000_agent_consensus_market_scoped.sql`
 
 ```sql
 get_game_agent_consensus(
@@ -68,9 +75,13 @@ get_game_agent_consensus(
   p_min_agents integer DEFAULT 8
 ) RETURNS TABLE (
   game_id text, game_date date, agents int, side text, side_agents int,
-  agreement numeric, threshold int, flagged bool, avatars jsonb
+  market_agents int, market_label text, agreement numeric, threshold int,
+  flagged bool, avatars jsonb
 )
 ```
+
+`market_label` names the population `agreement` is over ("F5 run line",
+"moneyline", "total"), so a card can say *which* bet the agents agreed on.
 
 `avatars` is up to 4 `{avatarId, name, emoji, color}` objects drawn from the
 **winning side only**, so the faces match the claim. `color` is a hex string or
@@ -161,7 +172,22 @@ whole slate's volume, so it cannot be derived inside a per-sport adapter.
   is the port of `GameConsensusKey.swift` (same NFL/CFB `trainingKey` rule).
   The store lives beside `GamesStore` in the graph rather than inside it —
   `GamesStore` talks to the CFB project, this talks to MAIN. Search passes no
-  consensus (the parameter defaults to null), so its strips stay hidden.
+  consensus (the parameter defaults to null), so its strips stay hidden. Like
+  iOS it coalesces overlapping fetches on a per-sport `Deferred` and exposes
+  `ensureLoaded(sport, date(s))` for feed-less surfaces (no caller yet — the
+  detail widget is not ported). That `Deferred` slot is released by the task's
+  own `invokeOnCompletion`, never by the joining caller: the feed's
+  `LaunchedEffect(sport, dates)` is cancelled on every sport tap, and releasing
+  from a `finally` around `join()` freed the slot mid-fetch and fired a
+  duplicate RPC. A joiner also re-checks that the open call covered ITS dates
+  (`containsAll`) before skipping its own fetch, so a widening MLB slate still
+  requests tomorrow.
+
+**Who maps `market_agents` / `market_label`:** web and Android
+(`GameAgentConsensus.marketAgents` falls back to `agents` for pre-migration
+rows). iOS decodes neither, so its detail widget's bar still divides by
+`agents` and disagrees with the percentage the server sent — fix when that
+widget is next touched.
 
 TTL is 90s (vs the feed's 5min): counts move through the day as agents
 generate — roughly 1 new pick/minute on a busy MLB slate — while the slate does not.

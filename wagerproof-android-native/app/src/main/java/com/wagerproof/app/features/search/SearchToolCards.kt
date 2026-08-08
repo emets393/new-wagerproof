@@ -23,8 +23,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -49,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import kotlinx.coroutines.delay
@@ -173,6 +176,13 @@ fun AngledStatSheetGraphic(
         Column(
             Modifier
                 .align(Alignment.TopStart)
+                // The sheet is deliberately wider (280dp) and taller than the
+                // 104dp graphic window — bleeding past the card edges IS the
+                // design. Without unbounded wrapping Compose clamps it to the
+                // window, which squeezes the third row off the bottom and kills
+                // the right-edge bleed. iOS gets this free by rendering the
+                // sheet as an .overlay on a Color.clear base.
+                .wrapContentSize(Alignment.TopStart, unbounded = true)
                 .graphicsLayer {
                     rotationZ = -8f
                     transformOrigin = TransformOrigin(0f, 1f) // bottomLeading anchor
@@ -243,14 +253,22 @@ fun StackedStatCardsGraphic(
         Box(Modifier.align(Alignment.Center).graphicsLayer { translationX = (-6).dp.toPx(); translationY = 2.dp.toPx() }) {
             items.indices.forEach { i ->
                 val slot = ((i - step) % items.size + items.size) % items.size
-                val x by animateFloatAsState(slot * 10f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow), label = "x$i")
-                val y by animateFloatAsState(slot * -8f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow), label = "y$i")
+                val motion = spring<Float>(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow)
+                val x by animateFloatAsState(slot * 10f, motion, label = "x$i")
+                val y by animateFloatAsState(slot * -8f, motion, label = "y$i")
+                // Slots past the visible fan are the hand-off position: fade
+                // rather than pop, or the exiting front card blinks out.
+                val fade by animateFloatAsState(if (slot >= 3) 0f else 1f, motion, label = "a$i")
                 Box(
                     Modifier
+                        // Draw order has to follow the SLOT, not the item index,
+                        // or the card that is logically at the front of the fan
+                        // renders behind the ones meant to sit under it.
+                        .zIndex((items.size - slot).toFloat())
                         .graphicsLayer {
                             translationX = x.dp.toPx()
                             translationY = y.dp.toPx()
-                            alpha = if (slot >= 3) 0f else 1f
+                            alpha = fade
                         },
                 ) {
                     MiniCard(items[i])
@@ -311,7 +329,11 @@ fun RadarSweepGraphic(
     )
 
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
+        // requiredSize, not size: the radar is oversized so its outer ring
+        // bleeds past the 104dp graphic window. `size` honours the incoming
+        // constraints, which clamps the height to 104dp and squashes every
+        // "circle" into an ellipse.
+        Box(Modifier.requiredSize(diameter), contentAlignment = Alignment.Center) {
             RingGrid(diameter)
             // Sweep wedge: bright edge leads at bearing 0, trailing off over a
             // quarter turn, spun counterclockwise so the trail lags.

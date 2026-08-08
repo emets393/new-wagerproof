@@ -1,11 +1,9 @@
 package com.wagerproof.app.features.agents.sheets
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -40,15 +39,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.agents.agentSymbol
+import com.wagerproof.app.features.agents.components.SwipeToGeneratePill
 import com.wagerproof.app.features.agents.creation.inputs.AgentTimezoneOption
 import com.wagerproof.app.features.agents.creation.inputs.TimePickerModal
 import com.wagerproof.core.design.tokens.AppColors
@@ -56,7 +52,6 @@ import com.wagerproof.core.models.AgentGenerationRunSummary
 import com.wagerproof.core.models.AgentPick
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import kotlin.math.roundToInt
 
 // =====================================================================
 // Native port of iOS `AgentGenerationControlSheets.swift`.
@@ -165,8 +160,12 @@ fun RegenerateBottomSheet(
     ) {
         SheetTitleBar(title = "Regenerate", onDismiss = onDismiss)
 
+        // weight(1f, fill = false) — not fillMaxHeight — so the body only claims
+        // scroll space when it's actually taller than the sheet, letting a short
+        // screen's content settle at its natural height above the pinned pill
+        // (iOS `.safeAreaInset(edge: .bottom)`, AgentGenerationControlSheets.swift:128-139).
         Column(
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             RegenHeader(accent)
@@ -258,7 +257,7 @@ private fun LogicCard(maxDaily: Int, accent: Color) {
     ) {
         Text("HOW IT WORKS", color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
         LogicBullet("gauge.with.dots.needle.67percent", "Each agent gets $maxDaily generations per day.", accent)
-        LogicBullet("sparkles", "A run re-analyzes today's games from scratch and reprints the ticket rail.", accent)
+        LogicBullet("sparkles", "A run re-analyzes today's games from scratch and adds fresh tickets to the rail — earlier tickets stay until you delete them.", accent)
         LogicBullet("bolt.badge.automatic", "Autopilot runs count toward the same $maxDaily-per-day limit.", accent)
         LogicBullet("clock.arrow.circlepath", "The quota resets at midnight in your local time.", accent)
     }
@@ -272,80 +271,11 @@ private fun LogicBullet(icon: String, text: String, accent: Color) {
     }
 }
 
-/**
- * FIDELITY-WAIVER #305: iOS `SwipeToGeneratePill` has no shared-lib equivalent
- * on Android, so it's hand-rolled here: a draggable thumb that fires [onCommit]
- * once dragged ~70% of the track, then springs back.
- */
-@Composable
-private fun SwipeToGeneratePill(
-    title: String,
-    accent: Color,
-    isEnabled: Boolean,
-    onCommit: () -> Unit,
-) {
-    val density = LocalDensity.current
-    val trackHeight = 56.dp
-    val thumb = 48.dp
-    var trackWidthPx by remember { mutableStateOf(0f) }
-    val thumbPx = with(density) { thumb.toPx() }
-    val offsetX = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(trackHeight)
-            .background(
-                if (isEnabled) accent.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.06f),
-                CircleShape,
-            )
-            .border(1.dp, if (isEnabled) accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.10f), CircleShape)
-            .onSizeChanged { trackWidthPx = it.width.toFloat() },
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Text(
-            title,
-            color = if (isEnabled) AppColors.appTextPrimary else AppColors.appTextSecondary,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.fillMaxWidth().padding(start = thumb + 8.dp, end = 16.dp),
-        )
-        // Draggable thumb — only interactive when enabled.
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(offsetX.value.roundToInt() + with(density) { 4.dp.roundToPx() }, 0) }
-                .size(thumb)
-                .padding(2.dp)
-                .background(if (isEnabled) accent else Color.White.copy(alpha = 0.15f), CircleShape)
-                .then(
-                    if (isEnabled) Modifier.pointerInput(trackWidthPx) {
-                        detectHorizontalDragGestures(
-                            onDragEnd = {
-                                val max = (trackWidthPx - thumbPx - with(density) { 8.dp.toPx() }).coerceAtLeast(1f)
-                                if (offsetX.value >= max * 0.7f) {
-                                    onCommit()
-                                }
-                                scope.launch { offsetX.animateTo(0f) }
-                            },
-                            onHorizontalDrag = { _, dragAmount ->
-                                val max = (trackWidthPx - thumbPx - with(density) { 8.dp.toPx() }).coerceAtLeast(1f)
-                                scope.launch { offsetX.snapTo((offsetX.value + dragAmount).coerceIn(0f, max)) }
-                            },
-                        )
-                    } else Modifier,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                agentSymbol(if (isEnabled) "arrow.clockwise" else "lock.fill"),
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
+// The swipe control now reuses the shared iOS-parity `SwipeToGeneratePill`
+// (heat-up fill, per-notch haptics, locked state) from
+// `components/AgentResearchIdleCard.kt` instead of a hand-rolled 70%-drag
+// thumb — see AgentGenerationGlyphLoader.swift's `SwipeToGeneratePill`.
+// (Was FIDELITY-WAIVER #305 — resolved, see docs/waivers/README.md.)
 
 // MARK: - AutoPilot sheet
 
@@ -365,9 +295,13 @@ fun AutoPilotBottomSheet(
     initialAutoOn: Boolean,
     initialTime: String,
     initialTimezone: String,
+    /** App-level push permission (there's no per-agent flag) — drives the notifications row. */
+    notificationsEnabled: Boolean,
     recentRuns: List<AgentRunSummaryRow>,
     onSetAuto: suspend (Boolean) -> Boolean,
     onSaveTime: suspend (String, String) -> Boolean,
+    /** Request/enable push notifications — the host owns the permission flow. */
+    onEnableNotifications: suspend () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -378,6 +312,7 @@ fun AutoPilotBottomSheet(
     var timezone by remember { mutableStateOf(initialTimezone) }
     var showTimePicker by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var notifBusy by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
 
     fun setAuto(value: Boolean) {
@@ -434,14 +369,35 @@ fun AutoPilotBottomSheet(
                 )
             }
 
-            RunsSection(recentRuns = recentRuns, remaining = remaining, maxDaily = maxDaily, accent = accent)
+            NotificationsCard(
+                enabled = notificationsEnabled,
+                busy = notifBusy,
+                accent = accent,
+                onEnable = {
+                    notifBusy = true
+                    scope.launch {
+                        onEnableNotifications()
+                        notifBusy = false
+                    }
+                },
+            )
 
-            errorText?.let {
-                Text(it, color = AppColors.appLoss, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
+            RunsSection(recentRuns = recentRuns, remaining = remaining, maxDaily = maxDaily, accent = accent)
 
             Spacer(Modifier.height(8.dp))
         }
+    }
+
+    // iOS `.alert("Couldn't update", ...)` — a dialog, not an inline red line, so
+    // a failure doesn't silently shift the sheet's layout (AgentGenerationControlSheets.swift:346-350).
+    errorText?.let { message ->
+        AlertDialog(
+            onDismissRequest = { errorText = null },
+            title = { Text("Couldn't update") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { errorText = null }) { Text("OK") } },
+            containerColor = AppColors.appSurfaceElevated,
+        )
     }
 
     if (showTimePicker) {
@@ -547,6 +503,49 @@ private fun ScheduleCard(displayTime: String, zoneAbbr: String, accent: Color, o
             fontFamily = FontFamily.Monospace,
         )
         Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.size(18.dp))
+    }
+}
+
+/**
+ * App-level push permission surfaced inside autopilot — port of iOS's
+ * notifications card (AgentGenerationControlSheets.swift:455-506). When off,
+ * one tap requests it so the daily "picks are ready" alert can actually
+ * arrive. Same device permission as Settings — there's no per-agent flag.
+ */
+@Composable
+private fun NotificationsCard(enabled: Boolean, busy: Boolean, accent: Color, onEnable: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(16.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            agentSymbol(if (enabled) "bell.badge.fill" else "bell.slash"),
+            contentDescription = null,
+            tint = if (enabled) accent else AppColors.appTextSecondary,
+            modifier = Modifier.size(20.dp),
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("Notifications", color = AppColors.appTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(
+                if (enabled) "You'll get an alert when new picks are ready." else "Get notified when autopilot posts new picks.",
+                color = AppColors.appTextSecondary,
+                fontSize = 12.sp,
+            )
+        }
+        if (enabled) {
+            Text("On", color = accent, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        } else if (busy) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = accent, strokeWidth = 2.dp)
+        } else {
+            TextButton(onClick = onEnable) {
+                Text("Turn on", color = accent, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            }
+        }
     }
 }
 

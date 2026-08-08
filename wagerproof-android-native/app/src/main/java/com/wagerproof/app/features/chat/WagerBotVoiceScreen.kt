@@ -1,6 +1,13 @@
 package com.wagerproof.app.features.chat
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -57,6 +64,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -67,6 +75,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.wagerproof.core.services.WagerBotVoiceFunctions
 import com.wagerproof.core.services.WagerBotVoiceSession
 import com.wagerproof.core.stores.StorePrefs
@@ -122,19 +131,19 @@ fun WagerBotVoiceScreen(
     var connectedAt by remember { mutableLongStateOf(0L) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var reconnectNonce by remember { mutableIntStateOf(0) }
+    var micDenied by remember { mutableStateOf(false) }
+    // Wire values captured while the system mic dialog is up, so a grant resumes the exact
+    // connect the user asked for (a voice/personality/model switch, not just the defaults).
+    var pendingConnect by remember { mutableStateOf<Triple<String, String, String>?>(null) }
 
-    fun connect(
-        voiceOverride: String = voice,
-        personalityOverride: String = personality,
-        modelOverride: String = model,
-    ) {
+    fun startSession(voiceWire: String, personalityWire: String, modelWire: String) {
         scope.launch {
             lastError = null
             try {
                 session.start(
-                    voiceWire = voiceOverride,
-                    rudenessWire = personalityOverride,
-                    modelWire = modelOverride,
+                    voiceWire = voiceWire,
+                    rudenessWire = personalityWire,
+                    modelWire = modelWire,
                     guidance = guidance.trim().takeIf { it.isNotEmpty() },
                 )
             } catch (error: Throwable) {
@@ -148,6 +157,37 @@ fun WagerBotVoiceScreen(
                 }
             }
         }
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val pending = pendingConnect ?: Triple(voice, personality, model)
+        pendingConnect = null
+        if (granted) {
+            micDenied = false
+            startSession(pending.first, pending.second, pending.third)
+        } else {
+            micDenied = true
+        }
+    }
+
+    // This screen — not its callers — owns the mic prompt, the way iOS puts it inside
+    // WagerBotVoiceSession.start(). Android can only ask from a composable, so the gate
+    // lives here instead of in the shared session, and every entry point (chat and
+    // Developer Settings) gets the system dialog instead of a dead-end error banner.
+    fun connect(
+        voiceOverride: String = voice,
+        personalityOverride: String = personality,
+        modelOverride: String = model,
+    ) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingConnect = Triple(voiceOverride, personalityOverride, modelOverride)
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        micDenied = false
+        startSession(voiceOverride, personalityOverride, modelOverride)
     }
 
     suspend fun stopAndBack() {
@@ -177,6 +217,13 @@ fun WagerBotVoiceScreen(
     }
     DisposableEffect(session) {
         onDispose { CoroutineScope(Dispatchers.Default).launch { session.stop() } }
+    }
+    // Push-to-talk is hands-busy and the socket stays up between turns, so don't let the
+    // display sleep mid-call (iOS: UIApplication.shared.isIdleTimerDisabled).
+    val view = LocalView.current
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
     }
     BackHandler { scope.launch { stopAndBack() } }
 
@@ -430,6 +477,34 @@ fun WagerBotVoiceScreen(
                 TextButton(onClick = { spicyStep = 0 }) {
                     Text(when (spicyStep) { 1 -> "Never mind"; 2 -> "Take me back"; else -> "Actually, no" })
                 }
+            },
+            containerColor = Color(0xFF171717),
+            titleContentColor = Color.White,
+            textContentColor = Color.LightGray,
+        )
+    }
+
+    if (micDenied) {
+        AlertDialog(
+            onDismissRequest = { micDenied = false },
+            title = { Text("Microphone access needed") },
+            text = { Text("Allow microphone access in Android Settings to use WagerBot Voice.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    micDenied = false
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", context.packageName, null),
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }) { Text("Open Settings", color = VoiceGreen) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    micDenied = false
+                    scope.launch { stopAndBack() }
+                }) { Text("Not now") }
             },
             containerColor = Color(0xFF171717),
             titleContentColor = Color.White,

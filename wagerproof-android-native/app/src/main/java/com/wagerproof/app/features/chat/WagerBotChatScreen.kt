@@ -1,10 +1,6 @@
 package com.wagerproof.app.features.chat
 
-import android.Manifest
-import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,7 +32,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -63,7 +58,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
@@ -74,7 +68,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.core.design.components.LiquidGlassScene
 import com.wagerproof.core.design.components.liquidGlassBackground
@@ -88,7 +81,14 @@ import com.wagerproof.core.stores.WagerBotChatStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Production WagerBot page: streaming chat, thread history, and realtime voice. */
+/**
+ * Production WagerBot page: streaming chat + thread history.
+ *
+ * Voice is deliberately NOT reachable from here. WagerBot Voice is an incubating feature
+ * (OpenAI Realtime spend, no iOS entry point) so it lives behind Developer Settings only,
+ * mirroring iOS's SecretSettingsView. See WagerBotVoiceScreen's only caller,
+ * DeveloperSettingsScreen.
+ */
 @Composable
 fun WagerBotChatScreen(
     onDismiss: () -> Unit,
@@ -98,13 +98,10 @@ fun WagerBotChatScreen(
     val graph = appGraph()
     val store = graph.wagerBotChat
     val ui = WagerBotUiTokens.resolve()
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val userId = (graph.auth.phase as? AuthStore.Phase.Authenticated)?.userId
 
     var showHistory by remember { mutableStateOf(false) }
-    var showVoice by remember { mutableStateOf(false) }
-    var microphoneDenied by remember { mutableStateOf(false) }
     var loadingThread by remember { mutableStateOf(false) }
     var lastUserMessageId by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
@@ -112,18 +109,6 @@ fun WagerBotChatScreen(
     fun closeChat() {
         store.cancel()
         onDismiss()
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) showVoice = true else microphoneDenied = true
-    }
-
-    fun openVoice() {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            showVoice = true
-        } else {
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
     }
 
     fun openGame(gameId: String, sport: String) {
@@ -186,21 +171,7 @@ fun WagerBotChatScreen(
         store.lastError?.takeIf { it.isNotBlank() }?.let { snackbar.showSnackbar(it) }
     }
     DisposableEffect(store) { onDispose { store.cancel() } }
-    BackHandler(enabled = !showVoice) { closeChat() }
-
-    if (showVoice) {
-        WagerBotVoiceScreen(
-            isPro = graph.proAccess.isPro,
-            onBack = { showVoice = false },
-            onUpgrade = {
-                showVoice = false
-                closeChat()
-                onOpenSettings()
-            },
-            modifier = modifier,
-        )
-        return
-    }
+    BackHandler { closeChat() }
 
     LiquidGlassScene { sourceModifier ->
         Box(modifier.fillMaxSize().then(sourceModifier).background(ui.pageBackground).safeDrawingPadding()) {
@@ -221,7 +192,6 @@ fun WagerBotChatScreen(
                     onClose = ::closeChat,
                     onNew = store::newConversation,
                     onHistory = { showHistory = true },
-                    onVoice = ::openVoice,
                     onSend = ::send,
                     onGame = { id, sport -> openGame(id, sport) },
                     onComponentNav = ::handleNav,
@@ -252,18 +222,6 @@ fun WagerBotChatScreen(
             },
         )
     }
-
-    if (microphoneDenied) {
-        AlertDialog(
-            onDismissRequest = { microphoneDenied = false },
-            title = { Text("Microphone access needed") },
-            text = { Text("Allow microphone access in Android Settings to use WagerBot Voice.") },
-            confirmButton = { TextButton(onClick = { microphoneDenied = false }) { Text("Got it") } },
-            containerColor = ui.surfaceBackground,
-            titleContentColor = ui.primaryText,
-            textContentColor = ui.mutedText,
-        )
-    }
 }
 
 @Composable
@@ -274,7 +232,6 @@ private fun ChatBody(
     onClose: () -> Unit,
     onNew: () -> Unit,
     onHistory: () -> Unit,
-    onVoice: () -> Unit,
     onSend: (String) -> Unit,
     onGame: (String, String) -> Unit,
     onComponentNav: (WagerBotChatNav) -> Unit,
@@ -307,7 +264,7 @@ private fun ChatBody(
             .windowInsetsPadding(WindowInsets.statusBars)
             .imePadding(),
     ) {
-        ChatHeader(store, ui, onClose, onNew, onHistory, onVoice)
+        ChatHeader(store, ui, onClose, onNew, onHistory)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (store.messages.isEmpty()) {
                 WelcomeState(ui = ui, onSend = { submit(it) })
@@ -361,7 +318,6 @@ private fun ChatHeader(
     onClose: () -> Unit,
     onNew: () -> Unit,
     onHistory: () -> Unit,
-    onVoice: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 4.dp)) {
@@ -409,11 +365,8 @@ private fun ChatHeader(
                     leadingIcon = { Icon(chatIcon("clock.arrow.circlepath"), null) },
                     onClick = { menuExpanded = false; onHistory() },
                 )
-                DropdownMenuItem(
-                    text = { Text("WagerBot Voice") },
-                    leadingIcon = { Icon(chatIcon("waveform.circle.fill"), null, tint = ui.accent) },
-                    onClick = { menuExpanded = false; onVoice() },
-                )
+                // Matches iOS's WagerBotChatView menu: New conversation / History only.
+                // No voice item — see the KDoc on WagerBotChatScreen.
             }
         }
     }

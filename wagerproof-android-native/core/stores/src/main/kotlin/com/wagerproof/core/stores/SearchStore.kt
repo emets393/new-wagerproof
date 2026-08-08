@@ -17,6 +17,7 @@ import com.wagerproof.core.models.OutliersTrendsSport
 import com.wagerproof.core.models.SearchStoreSport
 import com.wagerproof.core.models.SearchTeamAliases
 import com.wagerproof.core.services.AgentPerformanceService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -257,6 +258,8 @@ class SearchStore {
                 timeframe = AgentPerformanceService.LeaderboardTimeframe.ALL_TIME,
                 viewerUserId = null,
             )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             // Swallow — search falls back to own-agent matches.
             publicAgents = emptyList()

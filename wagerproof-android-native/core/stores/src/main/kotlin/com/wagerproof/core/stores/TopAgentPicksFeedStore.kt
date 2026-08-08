@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.wagerproof.core.models.TopAgentPickFeedRow
 import com.wagerproof.core.services.AgentPicksService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -147,6 +148,9 @@ class TopAgentPicksFeedStore {
             hasMore = page.isNotEmpty() && page.size >= pageSize
             loadState = LoadState.Loaded
             lastRefreshedAt = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             loadState = LoadState.Failed(t.message ?: "Unknown error")
         }
@@ -172,6 +176,9 @@ class TopAgentPicksFeedStore {
             cursor = nextCursor(page)
             hasMore = page.isNotEmpty() && page.size >= pageSize
             loadMoreState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            loadMoreState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             loadMoreState = LoadState.Failed(t.message ?: "Unknown error")
         }

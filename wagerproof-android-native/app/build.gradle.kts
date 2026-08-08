@@ -27,6 +27,7 @@ val releaseStoreFile = releaseCredential("WAGERPROOF_RELEASE_STORE_FILE")
 val releaseStorePassword = releaseCredential("WAGERPROOF_RELEASE_STORE_PASSWORD")
 val releaseKeyAlias = releaseCredential("WAGERPROOF_RELEASE_KEY_ALIAS")
 val releaseKeyPassword = releaseCredential("WAGERPROOF_RELEASE_KEY_PASSWORD")
+val useProductionApplicationId = providers.gradleProperty("useProductionApplicationId").orNull.toBoolean()
 val releaseSigningCredentials = linkedMapOf(
     "WAGERPROOF_RELEASE_STORE_FILE" to releaseStoreFile,
     "WAGERPROOF_RELEASE_STORE_PASSWORD" to releaseStorePassword,
@@ -85,7 +86,10 @@ android {
             // Install alongside the Play/release app during device testing.
             // This also prevents a local debug keystore from forcing users to
             // uninstall the production-signed package and lose its app data.
-            applicationIdSuffix = ".debug"
+            // Billing-catalog diagnosis can opt into the real package id with
+            // `-PuseProductionApplicationId=true`; Google Play resolves products
+            // by package, so the side-by-side id cannot return production plans.
+            if (!useProductionApplicationId) applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
         release {
@@ -140,6 +144,8 @@ dependencies {
     implementation(libs.androidx.splashscreen)
     implementation(libs.androidx.browser)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.play.review)
+    implementation(libs.play.review.ktx)
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)

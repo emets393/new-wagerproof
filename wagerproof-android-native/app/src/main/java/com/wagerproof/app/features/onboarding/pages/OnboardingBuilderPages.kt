@@ -38,6 +38,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -46,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.agents.AgentColorPalette
+import com.wagerproof.app.features.components.SwatchGrid
 import com.wagerproof.app.features.agents.creation.inputs.ArchetypeCard
 import com.wagerproof.app.features.onboarding.OnboardingChip
 import com.wagerproof.app.features.onboarding.OnboardingOptionCard
@@ -139,6 +143,7 @@ fun OnboardingBuilderArchetypePage(creation: AgentCreationStore, modifier: Modif
                 AgentCreationStore.ArchetypesLoadState.Loaded -> creation.archetypeRows.take(3).forEachIndexed { index, row ->
                     ArchetypeCard(
                         row = row,
+                        spriteIndex = index,
                         selected = creation.draft.archetype?.raw == row.id && store.hasChosenArchetype,
                         onSelect = {
                             val sports = creation.draft.preferredSports
@@ -176,7 +181,6 @@ private val identityGradients = listOf(
     "gradient:#14b8a6,#8b5cf6", "gradient:#6366f1,#3b82f6", "gradient:#dc2626,#7c3aed", "gradient:#0ea5e9,#22d3ee",
 )
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OnboardingBuilderIdentityPage(creation: AgentCreationStore, modifier: Modifier = Modifier) {
     val haptics = LocalHapticFeedback.current
@@ -226,31 +230,56 @@ fun OnboardingBuilderIdentityPage(creation: AgentCreationStore, modifier: Modifi
                             creation.draft = creation.draft.copy(spriteIndex = index)
                         }.padding(horizontal = 7.dp, vertical = 6.dp),
                         contentAlignment = Alignment.Center,
-                    ) { PixelSpriteAvatar(index, Modifier.fillMaxWidth()) }
+                    ) {
+                        // PixelSpriteAvatar is a Canvas with no intrinsic size.
+                        // Width-only `fillMaxWidth()` could measure its height at
+                        // 0dp, showing an empty selector card. These are the exact
+                        // 42×56 character bounds used by iOS; onboarding and the
+                        // in-app Agent Builder share this page.
+                        PixelSpriteAvatar(
+                            spriteIndex = index,
+                            animated = selected,
+                            modifier = Modifier
+                                .size(
+                                    width = AgentIdentitySpriteWidth,
+                                    height = AgentIdentitySpriteHeight,
+                                )
+                                .semantics {
+                                    contentDescription = "Character ${index + 1}"
+                                    this.selected = selected
+                                },
+                        )
+                    }
                 }
             }
         }
 
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp).pageEntrance(5), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             PickerLabel("COLOR")
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), maxItemsInEachRow = 4) {
-                identityGradients.forEach { raw ->
-                    val selected = creation.draft.avatarColor == raw
-                    Box(
-                        Modifier.size(48.dp).background(Brush.linearGradient(AgentColorPalette.avatarGradient(raw)), CircleShape).border(if (selected) 3.dp else 0.dp, if (selected) Color.White else Color.Transparent, CircleShape).onboardingPressable {
-                            creation.draft = creation.draft.copy(avatarColor = raw)
-                        },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (selected) Box(Modifier.size(22.dp).background(Color.White.copy(alpha = 0.9f), CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.Check, null, tint = Color.Black, modifier = Modifier.size(12.dp))
-                        }
+            // Even 4x4 columns across the full content width. The old FlowRow was
+            // boxed to a hard-coded 228.dp — exactly four 48dp swatches plus their
+            // gaps — which held the column count but left the grid as a narrow
+            // island with a big empty gutter either side of it.
+            SwatchGrid(items = identityGradients, columns = 4) { raw ->
+                val selected = creation.draft.avatarColor == raw
+                Box(
+                    Modifier.size(48.dp).background(Brush.linearGradient(AgentColorPalette.avatarGradient(raw)), CircleShape).border(if (selected) 3.dp else 0.dp, if (selected) Color.White else Color.Transparent, CircleShape).onboardingPressable {
+                        creation.draft = creation.draft.copy(avatarColor = raw)
+                    },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) Box(Modifier.size(22.dp).background(Color.White.copy(alpha = 0.9f), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Check, null, tint = Color.Black, modifier = Modifier.size(12.dp))
                     }
                 }
             }
         }
     }
 }
+
+/** Shared onboarding/in-app Agent Builder character portrait dimensions. */
+internal val AgentIdentitySpriteWidth = 42.dp
+internal val AgentIdentitySpriteHeight = 56.dp
 
 @Composable
 private fun PickerLabel(label: String) {

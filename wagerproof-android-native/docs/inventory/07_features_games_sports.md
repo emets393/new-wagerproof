@@ -133,18 +133,20 @@ Conventions used below:
   - Model-edge pills: `ouEdgeBlock` ("O/U OVER +2.5 63%" — direction colored, delta mono,
     probability appTextSecondary) + `mlEdgeBlock` ("ML BAL +4.2%") using edge-tier colors.
   - **SlatePicks** (NFL/CFB dry-run): `slateTotalPill` ("O/U OVER 47.5", UNDER=appAccentRed,
-    OVER=appPrimary, 13pt black), `slateSpreadPill` ("Spread [22pt logo] −3.5"), then badges row
-    (ViewThatFits H→V): **MAMMOTH PLAY** pill (flame.fill, orange→gold gradient capsule, white text
-    on appSurface fg, glow shadow), "N High Conviction" (flame, orange tint), "N Signals" (bolt,
-    appTextSecondary). Built by static `convictionBadges(hasMammoth:highCount:signalCount:)` —
-    mammoth trumps high conviction.
+    OVER=appPrimary, 13pt black) and `slateSpreadPill` ("Spread [22pt logo] −3.5") — that is the
+    whole row.
+    > **Superseded since this 2026-07-06 snapshot (AND-090).** The MAMMOTH PLAY / "N High
+    > Conviction" / "N Signals" badge row this section used to describe is gone on BOTH platforms:
+    > iOS `GameRowCard.SlatePicks` now carries only `total` + `spread`, and Android's
+    > `GameRowCardModel.SlatePicks` was trimmed to match. Conviction is a game-detail surface.
+    > Mammoth still reads on the feed as the card's orange electric border (`isMammoth`), not a pill.
 - **Model struct**: id, league, dateLabel, timeLabel, away/home `TeamSide{abbr, initials, moneyline,
   spread, logoURL, colors}`, overLine, `mlEdge: MLEdgeInfo?{abbr, edgePoints, color}`,
   `ouEdge: OUEdgeInfo?{isOver, delta, probability, color}`, away/homeTeamFullName,
   `slatePicks: SlatePicks?`, `oddsBreakdown: OddsBreakdown?`, isMammoth.
   Added after this 2026-07-06 snapshot: `consensus: GameAgentConsensus?`, rendered as its OWN row
-  after the bottom row in **both** layouts — never inside the conviction-badges wrap group. See
-  [18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md).
+  after the bottom row in **both** layouts (there is no longer a conviction-badges wrap group for
+  it to be confused with). See [18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md).
 - **`GameEdgeMath`** (port exactly): `impliedProb(ml)`; `mlEdge(modelHomeProb:homeMl:awayMl:...)` picks
   larger side edge in pct points; `ouEdge(modelFairTotal:marketLine:ouResultProb:)` — direction from
   prob (≥0.5=over) else fair-vs-market; delta = fair−line; prob normalized to chosen side; color

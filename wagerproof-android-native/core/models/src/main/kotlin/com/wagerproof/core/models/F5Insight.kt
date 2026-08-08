@@ -48,6 +48,17 @@ data class F5InsightSummary(
     /** Exactly the 3 rows of §1c. */
     val rows: List<F5CompareRow>,
     val sampleWarning: String?,
+    /** Plain-language read of the side + total indicators, for the headline. */
+    val headline: String = "",
+    /** Column owners for the evidence board — without them the bars are anonymous. */
+    val awayAbbr: String = "",
+    val homeAbbr: String = "",
+    /**
+     * Matched-split sample sizes. The whole premise is small matched splits, so
+     * "N games" has to be visible; null = the side had no usable split at all.
+     */
+    val awaySampleSize: Int? = null,
+    val homeSampleSize: Int? = null,
 )
 
 /** Own-starter-hand runs-allowed slice used by the RUNS ALLOWED row. */
@@ -124,10 +135,15 @@ object MLBF5Insight {
         // → s2/s3, exactly one met → s1, neither → omitted (spec §1c).
         val overPcts = listOfNotNull(awayShown?.f5OverPct, homeShown?.f5OverPct)
         val degraded = !(awayOk && homeOk)
-        if (overPcts.isNotEmpty()) {
-            val avgOver = overPcts.sum() / overPcts.size
-            val deltaSum = (awayShown?.totalDiffVsSeason ?: 0.0) + (homeShown?.totalDiffVsSeason ?: 0.0)
-            var ouVerdict: InsightVerdict? = null
+        // Hoisted out of the `if` (iOS keeps these at method scope): the headline
+        // re-states WHY the lean exists, so it needs the same two inputs the
+        // verdict was decided from.
+        val averageOverPct: Double? = if (overPcts.isEmpty()) null else overPcts.sum() / overPcts.size
+        val totalDeltaSum = (awayShown?.totalDiffVsSeason ?: 0.0) + (homeShown?.totalDiffVsSeason ?: 0.0)
+        var ouVerdict: InsightVerdict? = null
+        if (averageOverPct != null) {
+            val avgOver = averageOverPct
+            val deltaSum = totalDeltaSum
             if (avgOver >= InsightThresholds.ouHigh) {
                 var s = if (deltaSum > 0) (if (avgOver >= 60) 3 else 2) else 1
                 if (degraded) s = min(s, 1) // single-sided sample caps confidence
@@ -174,7 +190,77 @@ object MLBF5Insight {
             qualifier = qualifier,
             rows = rows,
             sampleWarning = warning,
+            headline = summaryHeadline(
+                game = game,
+                away = awayShown,
+                home = homeShown,
+                sideVerdict = sideVerdict,
+                ouVerdict = ouVerdict,
+                averageOverPct = averageOverPct,
+                totalDeltaSum = totalDeltaSum,
+            ),
+            awayAbbr = game.awayAbbr,
+            homeAbbr = game.homeAbbr,
+            // The RAW split's sample, not the showable-gated one: "not enough
+            // games (1)" is exactly what the header needs to say.
+            awaySampleSize = away?.games,
+            homeSampleSize = home?.games,
         )
+    }
+
+    /**
+     * Two sentences: which side owns the first five, then what the total
+     * indicators say. Built from the same verdicts the badge and rows use, so
+     * the prose can never claim a lean the bars don't show.
+     */
+    internal fun summaryHeadline(
+        game: MLBF5Game,
+        away: MLBF5SplitRow?,
+        home: MLBF5SplitRow?,
+        sideVerdict: InsightVerdict?,
+        ouVerdict: InsightVerdict?,
+        averageOverPct: Double?,
+        totalDeltaSum: Double,
+    ): String {
+        val awayPct = away?.f5WinPct
+        val homePct = home?.f5WinPct
+        val sideLean = sideVerdict?.lean as? InsightVerdict.Lean.Team
+        val sideRead = when {
+            awayPct == null || homePct == null ->
+                "There is not enough matched data to separate the first-five side."
+            sideVerdict != null && sideVerdict.strength > 0 && sideLean != null -> {
+                val leader = sideLean.abbr
+                val leaderIsAway = leader == game.awayAbbr
+                val leaderPct = if (leaderIsAway) awayPct else homePct
+                val trailer = if (leaderIsAway) game.homeAbbr else game.awayAbbr
+                val trailerPct = if (leaderIsAway) homePct else awayPct
+                "$leader has the stronger first-five win rate at ${MLBF5.formatPct(leaderPct)}, " +
+                    "compared with $trailer at ${MLBF5.formatPct(trailerPct)}."
+            }
+            else -> "The first-five side is nearly even: ${game.awayAbbr} ${MLBF5.formatPct(awayPct)} " +
+                "and ${game.homeAbbr} ${MLBF5.formatPct(homePct)}."
+        }
+
+        val noLean = "The total indicators do not show a clear Over or Under lean."
+        val totalRead = when (ouVerdict?.lean) {
+            InsightVerdict.Lean.Over -> when {
+                averageOverPct != null && averageOverPct >= InsightThresholds.ouHigh ->
+                    "The matched splits average ${MLBF5.formatPct(averageOverPct)} Over, creating an Over lean."
+                totalDeltaSum > 0 ->
+                    "First-five scoring in these splits is above season baselines, creating an Over lean."
+                else -> noLean
+            }
+            InsightVerdict.Lean.Under -> when {
+                averageOverPct != null && averageOverPct <= InsightThresholds.ouLow ->
+                    "The matched splits average only ${MLBF5.formatPct(averageOverPct)} Over, creating an Under lean."
+                totalDeltaSum < 0 ->
+                    "First-five scoring in these splits is below season baselines, creating an Under lean."
+                else -> noLean
+            }
+            else -> noLean
+        }
+
+        return "$sideRead $totalRead"
     }
 
     fun teaser(matchup: MLBF5Matchup, matchedAbbr: String?): InsightTeaser? {

@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,13 +60,17 @@ private fun pickCard(game: MLBGame, pick: MLBSuggestedPick) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(
-            betTypeLabel(pick.betType).uppercase(),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.5.sp,
-            color = AppColors.appTextSecondary,
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                betTypeLabel(pick.betType).uppercase(),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                color = AppColors.appTextSecondary,
+            )
+            Spacer(Modifier.weight(1f))
+            ConfidenceChip(pick.confidenceAtSuggestion)
+        }
         Text(pick.pick, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppColors.appTextPrimary, maxLines = 2)
         AlignmentPill(computeAlignment(game, pick))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -77,6 +82,31 @@ private fun pickCard(game: MLBGame, pick: MLBSuggestedPick) {
             Text(it, fontSize = 12.sp, fontStyle = FontStyle.Italic, color = AppColors.appTextSecondary, lineHeight = 17.sp)
         }
     }
+}
+
+/**
+ * Confidence tier the regression report assigned to this suggestion — port of
+ * iOS's header pill. Green for "high", amber for everything else (the report
+ * only emits high/moderate today, but an unexpected tier still renders rather
+ * than vanishing). Blank tiers draw nothing.
+ */
+@Composable
+private fun ConfidenceChip(confidence: String) {
+    val label = confidence.trim().takeIf { it.isNotEmpty() } ?: return
+    val tint = if (label.equals("high", ignoreCase = true)) AppColors.appPrimary else hexColor(0xF59E0BL)
+    val shape = RoundedCornerShape(6.dp)
+    Text(
+        label.uppercase(Locale.US),
+        modifier = Modifier
+            .clip(shape)
+            .background(tint.copy(alpha = 0.13f))
+            .border(1.dp, tint, shape)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        color = tint,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.4.sp,
+    )
 }
 
 private enum class ModelAlignment { ALIGNS, CONTRADICTS, UNKNOWN }

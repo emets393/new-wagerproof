@@ -356,3 +356,72 @@ close+7 on Indiana -40.5). Board now: mean visible deviation 2.8 spread / 2.3 to
 9/51 spreads within 0.5 of the line. Known cost, accepted: raw display MAE ~13.0 vs line
 12.6 (display identity > 0.4 MAE). λ-accuracy facts from the anchor study remain true —
 BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as always.
+
+
+## CFB roster-dimension fade (wk1) — market OVERSHOOT on loaded rosters, 2024-25
+> `roster_dimensions_report.py` + follow-up fade sweep (2026-08-07). Dimensions: exp_yrs
+> (mean prior FBS roster-years, capped 4), ret_share/ret_prod (player-built PPA), cur_prod
+> (= ret_prod + in_prod, portal included).
+- **Forward story:** higher-dim side wins wk1 SU big (cur_prod 63.7%, n=237) but ATS is
+  priced (~48-51% at open AND close, 2021-25 pooled).
+- **Regime shift:** every dimension's higher side covered 57-61% vs the open in 2022,
+  decaying to 37-43% by 2024-25 — the market learned portal/returning-production data and
+  now OVERPRICES it.
+- **Fade side, wk1 2024+2025 (n=83/dim, dims heavily correlated = ~one signal):**
+  ret_prod fade 61.4% open (+17.3% ROI) / 59.0% close, positive BOTH seasons (59/63);
+  ret_share 59.0/55.4; cur_prod 56.6/57.8; exp_yrs 61.4/59.0 but 2025-close ~51.
+  Dose-response NON-monotone (mid-gap best for ret_prod, big-gap only 50%) — mechanism
+  softer than regime-fade's.
+- **Honest status: post-hoc sign flip on TWO seasons, selected because they inverted (the
+  2022 bettor would have registered the opposite rule).** Tracking tier at most; if wired,
+  pre-register ONE spec: fade higher ret_prod, all wk1 gaps, grade vs OPEN, 0.5u paper.
+- Interplay: can contradict regime_fade_teardown on games where ratings lean on the GUTTED
+  team (different mechanisms — teardown keys rating-vs-line, this keys raw roster diff).
+
+
+## CFBD CORE ratings (/ratings/core, added 2026-08-08) — acquired + first test
+- Context+opponent-adjusted PPA (core-v1), O/D split, 2016-2025 retro cached
+  (`data/cfbd/core_ratings.parquet`); endpoint serves LATEST snapshot only (week
+  param ignored) -> weekly as-of capture wired into fetch_preseason_ratings
+  (`core_snapshots.parquet`) so in-season usage becomes backtestable from 2026.
+- **Regime-family horse race (core_regime_test.py, 2021-25, same >=2 gap rule):
+  TR preseason WINS — keep it as the live source.** TR: fade 57.6/follow 62.8
+  (follow 5/5 seasons) vs CORE-S-1: fade 57.9 but 2025:43, follow 54.4 incoherent.
+  Mechanism: TR-Aug bakes in offseason info yet still misses coach effects (the
+  exploitable residual); prior-season CORE is fully stale, so its gaps trigger on
+  generic staleness, not the coach-specific kind. Negative result — don't re-test.
+- Replication note: this rebuild independently reproduced the vaulted TR cells
+  (58.4/62.2 originally) on the 2021-25 slice. Control cell (no coach change,
+  bet the rating) = 43-45% — naive rating-vs-line follow LOSES, as expected.
+- NEXT (untested): S-1 CORE O/D split as early-blend priors (totals angle);
+  our-features-vs-CORE disagreement study; in-season CORE-vs-line once the
+  snapshot archive accrues.
+
+- **AS-OF RECONSTRUCTION (owner idea, 2026-08-08): the missing archive, built.**
+  `reconstruct_core.py`: plays-weighted ridge over team-game offensive PPA
+  (team-off + opp-def one-hots + symmetric HFA, FBS-vs-FBS, per-100 scale) solved
+  as-of every week -> `data/cfbd/core_asof.parquet` (31,888 rows, wks 3-16 + final,
+  2016-2025; 2020 = no game_advanced data). **Validation: end-of-season solve vs
+  official CORE r=0.92-0.96 overall (off/def 0.91-0.96) in all 9 seasons** — a
+  faithful proxy; the residual is their context model + garbage-time filter.
+  ⚠ USAGE RULE: thru_week=W is computed FROM weeks <=W -> legit only for
+  predicting week W+1 and later. Joining thru_week=W to week-W games is a leak.
+  Unlocks NOW (was 'wait a season'): in-season CORE-vs-line backtests, as-of
+  rating features for the main model, disagreement studies at any week.
+
+- **First as-of test (core_asof_line_test.py, wks 5-15, 2021-25, n=2,880):**
+  vs CLOSE = dead 50% at every rung (market prices public efficiency data —
+  canon confirmed). vs OPEN = monotone 51.4->52.9% by rung, 4/5 seasons
+  positive at >=6 (2022 the lone miss), ~breakeven-to-+1% at >=8 (n=1,310).
+  Same shape as the NBA absence finding: a CLV edge absorbed by the close —
+  NOT a standalone signal; use as (a) validation the reconstruction carries
+  real info and (b) a candidate FEATURE for the main weekly model / an
+  open-bet steer. Phase split flat (5-7 ≈ 8+).
+
+- **Movers test (core_movers_test.py) = NULL.** 3-week rating deltas, riser side,
+  wks 8-15 2021-25 (n=2,036): 48-51% at every rung vs BOTH lines, no dose
+  response, seasons scattered (2023 +, 2024 -). The market does not lag
+  in-season CORE changes — matches the bball law (naive movement/momentum is
+  priced). Don't re-test. Remaining CORE work: disagreement-vs-our-model study
+  (needs historical weekly model preds assembled) + feature tryout in the main
+  weekly model (the CLV finding's proper home).

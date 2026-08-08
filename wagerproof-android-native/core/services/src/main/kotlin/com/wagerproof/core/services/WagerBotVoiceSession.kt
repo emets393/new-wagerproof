@@ -13,6 +13,7 @@ import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
 import com.wagerproof.core.models.serialization.WagerproofJson
+import kotlinx.coroutines.CancellationException
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -203,6 +204,8 @@ class WagerBotVoiceSession(context: Context) {
                     model = modelWire,
                     guidance = guidance,
                 )
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (e: Exception) {
                 _state.value = State.Error(e.message ?: "Voice session request failed")
                 throw e
@@ -237,6 +240,11 @@ class WagerBotVoiceSession(context: Context) {
             // not connected" bug pattern on iOS).
             try {
                 opened.await()
+            } catch (cancellation: CancellationException) {
+                socket.cancel()
+                webSocket = null
+                restoreAudioRouting()
+                throw cancellation
             } catch (e: Exception) {
                 _state.value = State.Error("WebSocket failed to open: ${e.message}")
                 socket.cancel()
@@ -250,6 +258,9 @@ class WagerBotVoiceSession(context: Context) {
             try {
                 startPlayback()
                 startRecorder()
+            } catch (cancellation: CancellationException) {
+                doStop()
+                throw cancellation
             } catch (e: Exception) {
                 _state.value = State.Error("Failed to start audio engine: ${e.message}")
                 doStop()

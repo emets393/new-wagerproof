@@ -48,6 +48,9 @@ import com.wagerproof.app.features.gamecards.GameCardFormatting
 import com.wagerproof.app.features.gamecards.GameCardTeamAvatar
 import com.wagerproof.app.features.gamecards.SportsbookLogoStyle
 import com.wagerproof.app.features.gamecards.SportsbookLogoView
+import com.wagerproof.app.features.games.GameConsensusKey
+import com.wagerproof.app.features.gamewidgets.AgentConsensusSection
+import com.wagerproof.app.features.gamewidgets.GameWidgetHeadlines
 import com.wagerproof.app.features.gamewidgets.SignalPerformanceStatsSection
 import com.wagerproof.app.features.paywall.ProContentSection
 import com.wagerproof.app.features.agents.components.AgentPickRationaleWidget
@@ -61,6 +64,7 @@ import com.wagerproof.core.services.CFBSignalDefinitionsService
 import com.wagerproof.core.services.SignalPerformanceService
 import com.wagerproof.core.services.SignalSport
 import com.wagerproof.core.models.SignalPerformance
+import com.wagerproof.core.stores.GamesStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.util.Locale
@@ -93,6 +97,8 @@ fun CFBGameDetailPage(
     var dryRunPicks by remember(game.gameId) { mutableStateOf<List<CFBDryrunPickRow>>(emptyList()) }
 
     var selectedSignal by remember { mutableStateOf<CFBDryRunFlag?>(null) }
+    // Polymarket pushes its own prose read up once price history lands.
+    var marketOddsHeadline by remember(game.gameId) { mutableStateOf<String?>(null) }
     var selectedTrend by remember { mutableStateOf<TrendDetailSelection?>(null) }
 
     LaunchedEffect(game.gameId) {
@@ -127,11 +133,22 @@ fun CFBGameDetailPage(
             CFBHero(game, awayColors, homeColors, progress)
         },
     ) {
+        // FIRST, above every per-sport section — sport-agnostic crowd read,
+        // same placement as web's detail grid and iOS's sheets.
+        item {
+            AgentConsensusSection(
+                sport = GamesStore.Sport.cfb,
+                gameId = GameConsensusKey.of(game),
+                gameDate = game.gameDate,
+            )
+        }
+
         item {
             WidgetCollapsingSection(
                 title = "Market Odds",
                 icon = AppIcon.fromSystemName("chart.bar.fill"),
                 iconTint = AppColors.appPrimary,
+                headline = marketOddsHeadline ?: GameWidgetHeadlines.marketOdds(),
             ) {
                 PolymarketWidget(
                     league = "cfb",
@@ -141,6 +158,7 @@ fun CFBGameDetailPage(
                     homeColors = homeColors,
                     awayAbbr = CFBTeamAssets.abbr(game.awayTeam),
                     homeAbbr = CFBTeamAssets.abbr(game.homeTeam),
+                    onHeadlineChange = { marketOddsHeadline = it },
                 )
             }
         }
@@ -161,6 +179,9 @@ fun CFBGameDetailPage(
             WidgetCollapsingSection(
                 title = row.sectionTitle,
                 showsHeader = false,
+                // Same sentence iOS puts in the headline slot — the market's own
+                // projection line, already computed by `buildMarketRows`.
+                headline = row.pickSubtitle,
                 bodyPadding = 4.dp,
             ) {
                 ProContentSection(

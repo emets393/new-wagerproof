@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.agents.colorFromHexString
 import com.wagerproof.app.features.agents.iconVector
 import com.wagerproof.core.design.components.liquidGlassBackground
+import com.wagerproof.core.design.pixeloffice.PixelSpriteAvatar
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.services.PresetArchetypeRow
 
@@ -40,6 +41,7 @@ fun ArchetypeCard(
     selected: Boolean,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
+    spriteIndex: Int? = null,
 ) {
     val accentColor = colorFromHexString(row.color) ?: AppColors.brandGreenBright
     val cardShape = RoundedCornerShape(16.dp)
@@ -71,7 +73,15 @@ fun ArchetypeCard(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = row.emoji, fontSize = 24.sp)
+                if (spriteIndex == null) {
+                    Text(text = row.emoji, fontSize = 24.sp)
+                } else {
+                    PixelSpriteAvatar(
+                        spriteIndex = spriteIndex,
+                        animated = selected,
+                        modifier = Modifier.size(width = 34.dp, height = 44.dp),
+                    )
+                }
             }
 
             Spacer(Modifier.size(12.dp))

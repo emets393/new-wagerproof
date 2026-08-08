@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.wagerproof.core.services.NotificationService
 
 /** FCM token lifecycle + foreground/data-message delivery. */
 class WagerproofMessagingService : FirebaseMessagingService() {
@@ -61,7 +62,9 @@ class WagerproofMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
-        const val CHANNEL_ID = "wagerproof_updates"
+        // Shared with the server payload and the manifest default — see
+        // NotificationService.REMOTE_CHANNEL_ID for the full contract.
+        const val CHANNEL_ID = NotificationService.REMOTE_CHANNEL_ID
 
         /** Also called at process launch for FCM's automatic background UI. */
         fun ensureNotificationChannel(context: Context) {

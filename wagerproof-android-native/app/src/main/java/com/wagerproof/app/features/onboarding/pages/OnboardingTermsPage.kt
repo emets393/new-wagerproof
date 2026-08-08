@@ -23,6 +23,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -129,7 +133,21 @@ fun OnboardingTermsPage(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 8.dp)
-                .onboardingPressable { store.setTermsChecked(!store.hasCheckedTerms) }
+                .heightIn(min = 48.dp)
+                .onboardingPressable(
+                    enabled = store.hasScrolledTermsToBottom,
+                    role = Role.Checkbox,
+                    onClickLabel = "Accept terms and confirm age",
+                ) {
+                    store.setTermsChecked(!store.hasCheckedTerms)
+                }
+                .semantics {
+                    toggleableState = if (store.hasCheckedTerms) {
+                        ToggleableState.On
+                    } else {
+                        ToggleableState.Off
+                    }
+                }
                 .pageEntrance(3),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,

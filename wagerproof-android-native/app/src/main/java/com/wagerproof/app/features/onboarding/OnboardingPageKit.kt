@@ -3,14 +3,19 @@ package com.wagerproof.app.features.onboarding
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.snap
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -32,12 +37,17 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.onboarding.components.onboardingIcon
@@ -81,6 +91,45 @@ fun Modifier.pageEntrance(index: Int): Modifier = composed {
         .graphicsLayer { translationY = (1f - progress) * 14.dp.toPx() }
 }
 
+// MARK: - Stamp entrance
+
+/**
+ * Rubber-stamp entrance: the element slams in from a larger, transparent state
+ * down to rest with a springy thud + haptic, staggered per index. Like
+ * [pageEntrance] it fires when the page becomes ACTIVE. iOS additionally blurs
+ * the incoming stamp — Compose's `blur` is API 31+ and stutters on mid-tier
+ * hardware, so the scale + fade carry the effect (FIDELITY-WAIVER: stamp blur).
+ */
+fun Modifier.stampEntrance(index: Int): Modifier = composed {
+    val active = LocalOnboardingPageIsActive.current
+    val reduceMotion = LocalOnboardingReduceMotion.current
+    val haptics = LocalHapticFeedback.current
+    var stamped by remember { mutableStateOf(false) }
+    LaunchedEffect(active) {
+        if (active && !stamped) {
+            if (!reduceMotion) delay(minOf(index, 8) * 120L)
+            stamped = true
+            // Each row thuds as it lands — staggered, so the stamps read as a
+            // rhythmic cadence rather than one buzz.
+            if (!reduceMotion) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+    // response 0.34 → stiffness (2π/0.34)² ≈ 341; iOS damping 0.62 (under-damped
+    // so the slight overshoot sells the "stamp pressing down" feel).
+    val progress by animateFloatAsState(
+        targetValue = if (stamped) 1f else 0f,
+        animationSpec = if (reduceMotion) snap() else spring(dampingRatio = 0.62f, stiffness = 341f),
+        label = "onboardingStampEntrance",
+    )
+    this
+        .alpha(progress)
+        .graphicsLayer {
+            val s = 1.35f - 0.35f * progress
+            scaleX = s
+            scaleY = s
+        }
+}
+
 // MARK: - Glyph ripple
 
 /**
@@ -104,18 +153,27 @@ fun Modifier.glyphRipple(active: Boolean): Modifier = composed {
 
 /**
  * Shared pressed-state for every tappable onboarding element: a quick
- * scale-down + slight dim with a springy release, plus tap handling. Replaces
- * iOS's `Button` + `OnboardingPressStyle` pairing.
+ * scale-down + slight dim with a springy release, plus semantic click handling.
+ * Using [Modifier.clickable] rather than a raw pointer detector is intentional:
+ * it keeps the same visual choreography while making every shared onboarding
+ * control discoverable and operable through TalkBack, Switch Access, keyboard,
+ * and D-pad input. Replaces iOS's `Button` + `OnboardingPressStyle` pairing.
  */
-fun Modifier.onboardingPressable(onClick: () -> Unit): Modifier = composed {
-    var pressed by remember { mutableStateOf(false) }
+fun Modifier.onboardingPressable(
+    enabled: Boolean = true,
+    role: Role? = Role.Button,
+    onClickLabel: String? = null,
+    onClick: () -> Unit,
+): Modifier = composed {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.965f else 1f,
+        targetValue = if (pressed && enabled) 0.965f else 1f,
         animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f),
         label = "onboardingPressScale",
     )
     val dim by animateFloatAsState(
-        targetValue = if (pressed) 0.85f else 1f,
+        targetValue = if (pressed && enabled) 0.85f else 1f,
         animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f),
         label = "onboardingPressDim",
     )
@@ -125,16 +183,14 @@ fun Modifier.onboardingPressable(onClick: () -> Unit): Modifier = composed {
             scaleY = scale
             this.alpha = dim
         }
-        .pointerInput(Unit) {
-            detectTapGestures(
-                onPress = {
-                    pressed = true
-                    val released = tryAwaitRelease()
-                    pressed = false
-                    if (released) onClick()
-                },
-            )
-        }
+        .clickable(
+            interactionSource = interactionSource,
+            indication = null,
+            enabled = enabled,
+            role = role,
+            onClickLabel = onClickLabel,
+            onClick = onClick,
+        )
 }
 
 // MARK: - Page scaffold
@@ -207,7 +263,7 @@ fun OnboardingChip(
             )
             .then(if (isSelected) Modifier.border(1.5.dp, accent, CircleShape) else Modifier)
             .padding(horizontal = 16.dp)
-            .onboardingPressable(onClick),
+            .onboardingPressable(onClickLabel = label, onClick = onClick),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -253,7 +309,7 @@ fun OnboardingOptionCard(
             )
             .then(if (isSelected) Modifier.border(1.5.dp, accent, shape) else Modifier)
             .padding(vertical = 16.dp, horizontal = 16.dp)
-            .onboardingPressable(onClick),
+            .onboardingPressable(onClickLabel = title, onClick = onClick),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -282,6 +338,132 @@ fun OnboardingOptionCard(
                     color = Color.White.copy(alpha = 0.6f),
                 )
             }
+        }
+    }
+}
+
+// MARK: - Inline markdown emphasis
+
+/**
+ * Splits a one-line markdown string into `(text, isBold)` runs on `**…**`.
+ * Deliberately tiny — the onboarding copy only ever uses strong emphasis, and a
+ * full markdown parser would be dead weight. An unterminated `**` is treated as
+ * literal text so half-typed copy renders instead of vanishing.
+ */
+fun parseEmphasisRuns(markdown: String): List<Pair<String, Boolean>> {
+    val runs = mutableListOf<Pair<String, Boolean>>()
+    var index = 0
+    val plain = StringBuilder()
+    fun flushPlain() {
+        if (plain.isNotEmpty()) {
+            runs += plain.toString() to false
+            plain.clear()
+        }
+    }
+    while (index < markdown.length) {
+        if (markdown.startsWith("**", index)) {
+            val close = markdown.indexOf("**", index + 2)
+            if (close > index + 1) {
+                flushPlain()
+                val bold = markdown.substring(index + 2, close)
+                if (bold.isNotEmpty()) runs += bold to true
+                index = close + 2
+                continue
+            }
+        }
+        plain.append(markdown[index])
+        index += 1
+    }
+    flushPlain()
+    return runs
+}
+
+// MARK: - Marker row (icon + per-line highlighter blobs)
+
+/**
+ * A benefit styled like a highlighter swipe: colored copy sitting on dark,
+ * soft-edged "marker" blobs that hug each line individually, with a matching
+ * colored icon tile that alternates sides row-to-row for a zig-zag. Bold runs
+ * render at full color and extra-heavy weight (the stat is the loudest thing on
+ * the line) while base copy sits a shade dimmer. Port of iOS `OnboardingMarkerRow`.
+ *
+ * [lines] is one markdown string per rendered line (`**bold**` for emphasis) —
+ * authored explicitly so each line gets its own hugging blob; keep them short so
+ * they stay single-line on small screens.
+ */
+@Composable
+fun OnboardingMarkerRow(
+    icon: String,
+    lines: List<String>,
+    color: Color,
+    modifier: Modifier = Modifier,
+    /** Flip the icon + text to the trailing edge — alternate per row. */
+    iconTrailing: Boolean = false,
+) {
+    // Charcoal a touch lighter than the backdrop so it reads as a marker swipe;
+    // the slight transparency lets the pixelwave shimmer through.
+    val blobFill = Color(0xFF212121).copy(alpha = 0.9f)
+
+    val iconTile: @Composable () -> Unit = {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .background(blobFill, RoundedCornerShape(18.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = onboardingIcon(icon),
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(30.dp),
+            )
+        }
+    }
+
+    val markerText: @Composable () -> Unit = {
+        // spacing 0 so the per-line blobs touch and read as one unified marker;
+        // each line steps in from the aligned edge for the reference's stagger.
+        Column(
+            horizontalAlignment = if (iconTrailing) Alignment.End else Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+        ) {
+            lines.forEachIndexed { index, line ->
+                Text(
+                    text = buildAnnotatedString {
+                        parseEmphasisRuns(line).forEach { (text, bold) ->
+                            withStyle(
+                                SpanStyle(
+                                    color = if (bold) color else color.copy(alpha = 0.72f),
+                                    fontWeight = if (bold) FontWeight.Black else FontWeight.SemiBold,
+                                ),
+                            ) { append(text) }
+                        }
+                    },
+                    fontSize = 19.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .offset(x = (index * if (iconTrailing) -24 else 24).dp)
+                        .background(blobFill, RoundedCornerShape(11.dp))
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                )
+            }
+        }
+    }
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (iconTrailing) {
+            Spacer(Modifier.weight(1f))
+            markerText()
+            iconTile()
+        } else {
+            iconTile()
+            markerText()
+            Spacer(Modifier.weight(1f))
         }
     }
 }

@@ -52,15 +52,18 @@ data class GameRowCardModel(
         val color: Color,
     )
 
-    /** NFL/CFB dry-run slate picks rendered on the bottom row. */
+    /**
+     * NFL/CFB dry-run slate picks rendered on the bottom row — total + spread
+     * and nothing else, matching iOS `GameRowCard.SlatePicks`. Conviction
+     * counts and signal counts deliberately do NOT live here: they're a
+     * detail-page concern, and carrying them made the feed cards markedly
+     * taller than iOS's.
+     */
     data class SlatePicks(
         val totalIsOver: Boolean?,
         val totalLabel: String?,
         val spreadLogoURL: String?,
         val spreadLabel: String?,
-        val hasMammoth: Boolean,
-        val highCount: Int,
-        val signalCount: Int,
     )
 
     /** Scan-line breakdown table cells (away/home rows × spread/ML/total). */

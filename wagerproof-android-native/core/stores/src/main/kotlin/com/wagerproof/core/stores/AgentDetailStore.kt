@@ -18,6 +18,8 @@ import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.NotificationService
 import com.wagerproof.core.services.TriggerRunStatusService
 import com.wagerproof.core.services.TriggerV3RunStatus
+import com.wagerproof.core.services.runCatchingCancellable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,6 +29,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -45,9 +48,16 @@ import java.util.Locale
  *   - `pickHistory` — recent preview for the history list.
  *   - `performancePicks` — full history for performance charts.
  *
- * Generation runs a two-nested-poll loop (trigger-run status → detail snapshot);
- * the bounded polls live inside the caller's coroutine so cancellation flows
- * from whatever scope launched `generatePicks`. See docs/inventory/03_stores.md §8.2.
+ * Generation runs a two-nested-poll loop (trigger-run status → detail snapshot).
+ * The ONLY entry points are [startGeneration] / [startResumeIfNeeded], which run
+ * it on the STORE's scope so it outlives the detail composition. There is
+ * deliberately no suspending `generatePicks()` for a screen to await: awaiting
+ * from `rememberCoroutineScope()` is exactly the bug AND-082 fixed — the poll
+ * died with the screen and the completion notification never fired. See
+ * docs/inventory/03_stores.md §8.2.
+ *
+ * Because a run must outlive the screen, instances are cached app-wide by
+ * [AgentDetailStoreRegistry] rather than `remember`ed per composition.
  */
 @Stable
 class AgentDetailStore(agentId: String) {
@@ -90,6 +100,38 @@ class AgentDetailStore(agentId: String) {
     var generatingWindow by mutableStateOf<GenerationWindow?>(null); private set
     var lastGenerationError by mutableStateOf<String?>(null); private set
     var liveRunState by mutableStateOf<TriggerV3RunStatus?>(null); private set
+
+    /**
+     * Set the instant a run is REQUESTED, before [isGenerating] flips inside the
+     * launched coroutine, so the card morphs on the tap rather than a frame later.
+     * Store-owned (not screen-local) so it survives leaving the detail screen.
+     */
+    var isGenerationRequested by mutableStateOf(false); private set
+
+    /**
+     * Monotonic counter bumped once per finished run (success OR failure). An
+     * attached screen keys off it to play the printer overlay / surface
+     * [lastGenerationError]; the run itself does not depend on anyone watching.
+     */
+    var generationCompletions by mutableStateOf(0); private set
+
+    /**
+     * The live run's coroutine. Runs on the STORE's scope, never the caller's,
+     * so an ~11-minute poll budget keeps running — and still fires its
+     * completion notification — after the detail screen is disposed by a
+     * back-press or tab switch. Mirrors iOS's unstructured `Task`
+     * (AgentDetailView:403). Requires the store to outlive the composition,
+     * which is what [AgentDetailStoreRegistry] provides.
+     */
+    private var generationJob: Job? = null
+
+    /**
+     * Plain (non-Compose) view of "a run is in flight" for lifecycle owners.
+     * Deliberately NOT derived from [isGenerating]: reading Compose state from
+     * the registry would subscribe whatever composition happens to be running
+     * to every cached store.
+     */
+    val hasRunInFlight: Boolean get() = generationJob?.isActive == true
 
     // Optimistic overlay for owner-only pending ticket deletion.
     var locallyDeletedItemIds by mutableStateOf<Set<String>>(emptySet()); private set
@@ -255,6 +297,9 @@ class AgentDetailStore(agentId: String) {
         try {
             snapshot = AgentPicksService.fetchDetailSnapshot(agentId = agentId)
             snapshotLoadState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            snapshotLoadState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             snapshotLoadState = LoadState.Failed(message(t))
         }
@@ -270,7 +315,7 @@ class AgentDetailStore(agentId: String) {
         try {
             coroutineScope {
                 val parlaysDeferred = async {
-                    runCatching {
+                    runCatchingCancellable {
                         if (isOwner) loadParlayHistoryPreviewPreferringDirectRead()
                         else loadParlayHistoryPreviewPreferringAuthorizedPage()
                     }.getOrNull()
@@ -281,6 +326,9 @@ class AgentDetailStore(agentId: String) {
                 pickHistory = preview
             }
             historyLoadState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            historyLoadState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             historyLoadState = LoadState.Failed(message(t))
         }
@@ -292,7 +340,7 @@ class AgentDetailStore(agentId: String) {
         try {
             coroutineScope {
                 val parlaysDeferred = async {
-                    runCatching {
+                    runCatchingCancellable {
                         if (isOwner) loadAllParlaysPreferringDirectRead()
                         else loadAllParlaysPreferringAuthorizedPage()
                     }.getOrNull()
@@ -303,6 +351,9 @@ class AgentDetailStore(agentId: String) {
                 performancePicks = allPicks
             }
             performanceLoadState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            performanceLoadState = LoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             performanceLoadState = LoadState.Failed(message(t))
         }
@@ -448,7 +499,7 @@ class AgentDetailStore(agentId: String) {
                 }
                 is TriggerPollOutcome.Failed -> lastGenerationError = outcome.message
                 is TriggerPollOutcome.TimedOutWaiting -> {
-                    runCatching { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
+                    runCatchingCancellable { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
                         .getOrNull()?.let { snapshot = it }
                 }
             }
@@ -457,8 +508,27 @@ class AgentDetailStore(agentId: String) {
             when (outcome) {
                 is TriggerPollOutcome.Succeeded -> notifyGenerationFinished(succeeded = true)
                 is TriggerPollOutcome.Failed -> notifyGenerationFinished(succeeded = false, note = outcome.message)
-                is TriggerPollOutcome.TimedOutWaiting -> Unit // uncertain — don't claim an outcome
+                is TriggerPollOutcome.TimedOutWaiting -> {
+                    val succeeded = if (window == GenerationWindow.Week) {
+                        weeklyParlays.any { it.id !in priorWeeklyIds }
+                    } else {
+                        todaysGenerationRun?.id != priorRunId
+                    }
+                    if (!succeeded) {
+                        lastGenerationError = if (window == GenerationWindow.Week) {
+                            "This is taking longer than usual — check back in a few minutes for your weekly parlay."
+                        } else {
+                            "This is taking longer than usual — check back in a few minutes for your picks."
+                        }
+                    }
+                    notifyGenerationFinished(succeeded = succeeded, note = lastGenerationError)
+                }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (t: Throwable) {
+            lastGenerationError = message(t)
+            notifyGenerationFinished(succeeded = false, note = lastGenerationError)
         } finally {
             isGenerating = false
             generatingWindow = null
@@ -483,9 +553,52 @@ class AgentDetailStore(agentId: String) {
         )
     }
 
-    suspend fun generatePicks(): Boolean = runGeneration(GenerationWindow.Day)
+    /**
+     * Kick off today's run (plus the week-long football parlay when
+     * [includeWeekly]) on the store's own scope.
+     *
+     * Fire-and-forget by design: the caller is a composable that
+     * `MainScaffold`'s AnimatedContent will dispose on any back-press or tab
+     * switch. Launching from `rememberCoroutineScope()` cancelled the 440×1.5s
+     * poll mid-run, so the `finally` cleared `isGenerating` and
+     * `notifyGenerationFinished()` never fired — the promised "picks are ready"
+     * notification simply never arrived. Watch [generationCompletions] /
+     * [lastGenerationError] for the outcome instead of awaiting.
+     */
+    fun startGeneration(includeWeekly: Boolean = false) {
+        if (generationJob?.isActive == true || isGenerating) return
+        isGenerationRequested = true
+        generationJob = scope.launch {
+            try {
+                val succeeded = runGeneration(GenerationWindow.Day)
+                // Weekly is additive: only attempt it when the daily run landed,
+                // matching the screen's old sequencing.
+                if (succeeded && includeWeekly) runGeneration(GenerationWindow.Week)
+            } finally {
+                isGenerationRequested = false
+                generationCompletions += 1
+            }
+        }
+    }
 
-    suspend fun generateWeeklyParlay(): Boolean = runGeneration(GenerationWindow.Week)
+    /**
+     * Re-attach to a run the snapshot says is already in flight (the user came
+     * back mid-run, or the app restarted). Same app-scoped lifetime as
+     * [startGeneration] — a resumed poll must survive leaving the screen too.
+     */
+    fun startResumeIfNeeded() {
+        if (generationJob?.isActive == true || isGenerating) return
+        if (activeGenerationRun?.triggerRunId == null) return
+        isGenerationRequested = true
+        generationJob = scope.launch {
+            try {
+                resumeActiveGenerationIfNeeded()
+            } finally {
+                isGenerationRequested = false
+                generationCompletions += 1
+            }
+        }
+    }
 
     private suspend fun runGeneration(window: GenerationWindow): Boolean {
         if (isGenerating) return false
@@ -551,11 +664,11 @@ class AgentDetailStore(agentId: String) {
                     // Never saw a terminal Trigger.dev status within budget. Do
                     // one quiet snapshot check in case it finished right at the
                     // edge, then give up rather than blocking on a second long poll.
-                    runCatching { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
+                    runCatchingCancellable { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
                         .getOrNull()?.let { snapshot = it }
                     loadHistory(isOwner = true)
                     loadPerformancePicks(isOwner = true)
-                    if (window == GenerationWindow.Week) {
+                    val succeeded = if (window == GenerationWindow.Week) {
                         if (weeklyParlays.none { it.id !in priorWeeklyIds }) {
                             lastGenerationError =
                                 "This is taking longer than usual — check back in a few minutes for your weekly parlay."
@@ -566,10 +679,18 @@ class AgentDetailStore(agentId: String) {
                             "This is taking longer than usual — check back in a few minutes for your picks."
                         false
                     } else true
+                    notifyGenerationFinished(
+                        succeeded = succeeded,
+                        note = lastGenerationError,
+                    )
+                    succeeded
                 }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             lastGenerationError = message(t)
+            notifyGenerationFinished(succeeded = false, note = lastGenerationError)
             return false
         } finally {
             isGenerating = false
@@ -610,6 +731,8 @@ class AgentDetailStore(agentId: String) {
                         )
                     }
                 }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (t: Throwable) {
                 // Surface the failure in debug (the poll used to swallow it,
                 // hiding that the direct-to-Trigger fetch was 401'ing).
@@ -631,7 +754,7 @@ class AgentDetailStore(agentId: String) {
         val maxAttempts = 60
         repeat(maxAttempts) {
             delay(4_000)
-            val snap = runCatching { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
+            val snap = runCatchingCancellable { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
                 .getOrNull() ?: return@repeat
             snapshot = snap
             val cur = snap.todaysGenerationRun?.id
@@ -642,7 +765,7 @@ class AgentDetailStore(agentId: String) {
     /** Weekly completion is a new ticket, not a daily generation-ledger id. */
     private suspend fun pollUntilWeeklyParlayAppears(priorIds: Set<String>) {
         repeat(15) {
-            val snap = runCatching { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
+            val snap = runCatchingCancellable { AgentPicksService.fetchDetailSnapshot(agentId = agentId) }
                 .getOrNull()
             if (snap != null) {
                 snapshot = snap
@@ -660,6 +783,8 @@ class AgentDetailStore(agentId: String) {
             AgentService.setAutoGenerate(agentId = agentId, autoGenerate = value)
             refreshSnapshot()
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             false
         }
@@ -687,6 +812,8 @@ class AgentDetailStore(agentId: String) {
             AgentAuthorizedActionsService.updateAgent(agentId = agentId, payload = payload)
             refreshSnapshot()
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             lastGenerationError = message(t)
             false
@@ -708,6 +835,8 @@ class AgentDetailStore(agentId: String) {
             removeDeletedItemFromCaches(item)
             locallyDeletedItemIds = locallyDeletedItemIds - item.id
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             locallyDeletedItemIds = locallyDeletedItemIds - item.id
             lastDeleteError = message(t)
@@ -740,11 +869,19 @@ class AgentDetailStore(agentId: String) {
         }
     }
 
-    /** Delete the agent. Mirrors RN's destroy path. View navigates back. */
+    /**
+     * Delete the agent. Mirrors RN's destroy path. View navigates back.
+     *
+     * Server-only — prefer [AgentsStore.delete] from a screen that can reach the
+     * shared list store: this one cannot drop the row, so the Agents tab keeps
+     * rendering a deleted (and still tappable) agent until it refetches.
+     */
     suspend fun delete(): Boolean {
         return try {
             AgentService.delete(agentId = agentId)
             true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             lastGenerationError = message(t)
             false

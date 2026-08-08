@@ -9,6 +9,7 @@ import com.wagerproof.core.models.MLBSuggestedPick
 import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +90,8 @@ class MLBRegressionReportStore {
             lastFetchedKey = today
             lastFetched = System.currentTimeMillis()
             errorMessage = null
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Exception) {
             // Preserve a previously loaded report (matches the other MLB stores)
             // so a stale-window re-fetch doesn't wipe a good payload.

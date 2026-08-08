@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,6 +32,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -152,6 +155,12 @@ fun TeamAuraBackground(
  * header band (uppercase title + icon + accessory) over a padded body inside a
  * rounded-16 glass card. `showsHeader = false` renders a bare body (NFL/CFB
  * pick cards).
+ *
+ * [headline] is the plain-language answer to the card's question, built by
+ * [com.wagerproof.app.features.gamewidgets.GameWidgetHeadlines] from values the
+ * body has ALREADY derived — so a headline can never contradict the numbers
+ * under it. It lives inside the body (not the header band) so it can wrap
+ * without changing the fixed header geometry, exactly as iOS does.
  */
 @Composable
 fun WidgetCollapsingSection(
@@ -162,6 +171,7 @@ fun WidgetCollapsingSection(
     accessory: WidgetHeaderAccessory = WidgetHeaderAccessory.None,
     showsHeader: Boolean = true,
     onHeaderTap: (() -> Unit)? = null,
+    headline: String? = null,
     bodyPadding: Dp = 16.dp,
     content: @Composable () -> Unit,
 ) {
@@ -199,7 +209,23 @@ fun WidgetCollapsingSection(
                 AccessoryView(accessory)
             }
         }
-        Box(Modifier.padding(bodyPadding)) { content() }
+        val trimmedHeadline = headline?.takeIf { it.isNotBlank() }
+        Column(
+            Modifier.padding(bodyPadding),
+            verticalArrangement = Arrangement.spacedBy(if (trimmedHeadline == null) 0.dp else 14.dp),
+        ) {
+            trimmedHeadline?.let {
+                Text(
+                    it,
+                    color = AppColors.appTextPrimary,
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.semantics { contentDescription = "Summary: $it" },
+                )
+            }
+            content()
+        }
     }
 }
 

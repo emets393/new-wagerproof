@@ -12,10 +12,8 @@ import com.wagerproof.app.features.gamecards.GameEdgeMath
 import com.wagerproof.app.features.gamecards.GameRowCard
 import com.wagerproof.app.features.gamecards.GameRowCardModel
 import com.wagerproof.app.features.gamecards.CFBTeamColors
-import com.wagerproof.core.models.CFBFlagConviction
 import com.wagerproof.core.models.CFBPrediction
 import com.wagerproof.core.models.CFBTeamAssets
-import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.GameAgentConsensus
 import java.util.Locale
 import kotlin.math.floor
@@ -113,29 +111,15 @@ internal fun cfbSlatePicks(
         GameCardFormatting.formatSpread(line)
     }
 
-    val highCount = if (picks.isNotEmpty()) {
-        picks.count { it.hasPlay == true && it.conviction.equals("high", ignoreCase = true) }
-    } else {
-        game.activeFlags.count {
-            it.convictionTier == CFBFlagConviction.T1 || it.convictionTier == CFBFlagConviction.MAMMOTH
-        }
-    }
-    // Prefer slate n_flags_* (excludes blanket scaffolding); fall back to pick signal_keys.
-    val fromGame = (game.nFlagsActive ?: 0) + (game.nFlagsTracking ?: 0)
-    val signalCount = if (fromGame > 0) {
-        fromGame
-    } else {
-        FootballBlanketSignals.displayKeys("cfb", picks.flatMap { it.signalKeys }).size
-    }
-
+    // High-conviction and signal counts are deliberately NOT computed here —
+    // they're detail-page data on iOS and the feed-card badges that used them
+    // were removed. `cfbHasMammothPlay` survives: the top-level model still
+    // reads it for the card's orange electric border.
     return GameRowCardModel.SlatePicks(
         totalIsOver = totalDir?.let { it == "OVER" },
         totalLabel = totalLabel,
         spreadLogoURL = spreadLogo,
         spreadLabel = spreadLabel,
-        hasMammoth = cfbHasMammothPlay(game, picks),
-        highCount = highCount,
-        signalCount = signalCount,
     )
 }
 

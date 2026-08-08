@@ -69,6 +69,7 @@ fun Modifier.liquidGlassBackground(
     shape: Shape,
     tint: Color? = null,
     hairline: Boolean = false,
+    scrim: Color? = null,
 ): Modifier = composed {
     val haze = LocalHazeState.current
     val surfaced = if (haze != null) {
@@ -77,12 +78,16 @@ fun Modifier.liquidGlassBackground(
             style = HazeMaterials.ultraThin(containerColor = AppColors.appSurfaceElevated),
         )
     } else {
-        // No backdrop capture available — preserve enough transparency for
-        // gradients/images beneath the chip to read, like ultraThinMaterial.
-        // The prior 92% fill made every pill look like an opaque dark block.
-        clip(shape).background(AppColors.appSurfaceElevated.copy(alpha = 0.72f))
+        // No backdrop capture available — without a real blur a low-alpha fill
+        // just leaks content through (owner: 0.72 still read "too translucent"
+        // on device, 2026-08-05). Keep a hint of what's beneath, no more.
+        clip(shape).background(AppColors.appSurfaceElevated.copy(alpha = 0.85f))
     }
-    val tinted = if (tint != null) surfaced.background(tint.copy(alpha = 0.18f)) else surfaced
+    // Opt-in fill for surfaces that must stay legible over live content. It has
+    // to be applied HERE, after the blur: a caller that chains .background()
+    // before this modifier draws underneath hazeEffect and never shows up.
+    val scrimmed = if (scrim != null) surfaced.background(scrim, shape) else surfaced
+    val tinted = if (tint != null) scrimmed.background(tint.copy(alpha = 0.18f)) else scrimmed
     if (hairline) {
         tinted.border(0.5.dp, Color.White.copy(alpha = 0.25f), shape)
     } else {
@@ -95,15 +100,16 @@ fun Modifier.liquidGlassBackground(
  * search/sort pills, info chips). All pills MUST share identical visuals —
  * matched seams — so always come through here rather than hand-rolling.
  */
-fun Modifier.liquidGlassCapsule(tint: Color? = null): Modifier =
-    liquidGlassBackground(shape = CircleShape, tint = tint, hairline = true)
+fun Modifier.liquidGlassCapsule(tint: Color? = null, scrim: Color? = null): Modifier =
+    liquidGlassBackground(shape = CircleShape, tint = tint, hairline = true, scrim = scrim)
 
 /** Container form for call sites that read better as a wrapper than a modifier. */
 @Composable
 fun LiquidGlassCapsule(
     modifier: Modifier = Modifier,
     tint: Color? = null,
+    scrim: Color? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    Box(modifier = modifier.liquidGlassCapsule(tint), content = content)
+    Box(modifier = modifier.liquidGlassCapsule(tint, scrim), content = content)
 }

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.wagerproof.core.models.LiveGame
 import com.wagerproof.core.services.LiveScoresService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -69,6 +70,9 @@ class LiveScoresStore {
             games = LiveScoresService.shared.getLiveScores()
             loadState = LoadState.Loaded
             lastRefreshedAt = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            loadState = if (games.isEmpty()) LoadState.Idle else LoadState.Loaded
+            throw cancellation
         } catch (e: Exception) {
             // Keep stale games on screen if we have any — only show the error
             // banner; don't blank the board. Matches RN's

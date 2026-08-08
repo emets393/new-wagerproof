@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.props.PlayerPropSelection
 import com.wagerproof.app.features.props.PropsFormatting
 import com.wagerproof.app.features.props.RollingNumber
@@ -68,7 +70,11 @@ fun PlayerPropDetailScreen(
     initialLine: Double? = null,
     onBack: () -> Unit,
 ) {
+    val graph = appGraph()
     BackHandler(onBack = onBack)
+    DisposableEffect(selection.id) {
+        onDispose { graph.reviewPrompts.recordResearchDetailViewed() }
+    }
     val scope = rememberCoroutineScope()
     val markets = selection.props
     val listState = rememberLazyListState()

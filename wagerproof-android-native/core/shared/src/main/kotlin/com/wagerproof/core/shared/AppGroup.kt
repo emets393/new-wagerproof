@@ -49,8 +49,10 @@ object AppGroupKey {
     /** The key the widget payload is actually stored under (legacy Expo-compat). */
     const val WIDGET_PAYLOAD_LEGACY = "widgetPayload"
 
-    /** DEBUG-only: stores serve bundled fixtures instead of Supabase. */
-    const val DUMMY_DATA_MODE = "dummy_data_mode_debug"
+    // AND-088 (owner decision): DUMMY_DATA_MODE ("dummy_data_mode_debug") was
+    // removed along with the Secret Settings toggle and its single reader. Android
+    // never ported the iOS fixtures, so nothing consumed the flag. Any value still
+    // sitting in prefs on an upgraded debug install is simply ignored.
 
     // Coarse subscription snapshot mirrored for widgets/cold-launch so the UI
     // doesn't flash "free" while RevenueCat reconciles. RevenueCat stays the
@@ -63,4 +65,14 @@ object AppGroupKey {
 
     /** Per-user onboarding completion — matches RN `@wagerproof/onboarding-completed/{userId}` semantics. */
     fun onboardingComplete(userId: String): String = "onboarding_complete/$userId"
+
+    /**
+     * User owning Secret Settings' one-run onboarding paywall replay.
+     *
+     * This is deliberately an identity rather than a process-local Boolean:
+     * Android may recreate the process while a tester is walking the long
+     * onboarding flow. Keeping the owning user lets the replay survive that
+     * interruption without ever leaking the override to a replacement account.
+     */
+    const val TEST_PAYWALL_OVERRIDE_USER_ID = "test_paywall_override_user_id"
 }

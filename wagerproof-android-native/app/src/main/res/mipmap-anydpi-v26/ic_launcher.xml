@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Foreground/monochrome PNGs are generated from the same source art the iOS icon
+     uses: wagerproof-ios-native/Wagerproof/AppIcon.icon/Assets/wagerproofrawlogo.png.
+     Art is 64dp on the 108dp canvas so the shield stays inside the 66dp safe circle. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/app_surface" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
 </adaptive-icon>

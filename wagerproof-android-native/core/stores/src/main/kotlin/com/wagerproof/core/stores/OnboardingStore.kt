@@ -8,6 +8,7 @@ import com.wagerproof.core.models.AgentCustomInsights
 import com.wagerproof.core.models.AgentPersonalityParams
 import com.wagerproof.core.models.SportLeague
 import com.wagerproof.core.models.serialization.WagerproofJson
+import com.wagerproof.core.services.AnalyticsService
 import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.MetaAnalyticsService
 import com.wagerproof.core.services.SupabaseClients
@@ -15,6 +16,7 @@ import com.wagerproof.core.shared.AppGroupKey
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.coroutines.CancellationException
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -34,7 +36,7 @@ import kotlinx.serialization.json.put
 
 /**
  * Port of iOS `OnboardingStore.swift`. Owns the onboarding wizard's entire
- * state: local-first completion flag, 20-step pointer, survey answers, and the
+ * state: local-first completion flag, 24-step pointer, survey answers, and the
  * embedded agent-builder draft.
  *
  * Mutations are cache-first with a fire-and-forget background sync to `profiles`
@@ -52,34 +54,63 @@ class OnboardingStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /**
-     * 20-step ordered flow. Steps 1..18 are pages inside the onboarding carousel
-     * (`carouselIndex` 0..17); 19/20 are full-screen cinematic phases rendered
+     * 24-step ordered flow. Steps 1..21 are pages inside the onboarding carousel
+     * (`carouselIndex` 0..20); 22/23/24 are full-screen cinematic phases rendered
      * outside the pager. Raw values MUST stay contiguous — [advance]/[back]
      * navigate by ±1 arithmetic. Enum declaration order == raw order, so the
      * natural (ordinal) comparison used by [isCinematic] matches Swift's
      * `Comparable` on rawValue.
+     *
+     * [RESEARCH_TIME] → [WEEKLY_STAKES] → [RESEARCH_COST] → [RESEARCH_RECLAIM] is
+     * the personalized value arc (self-reported daily checking + weekly bet
+     * amount → staged cost reveal sizing time AND money → reclaim estimate). It
+     * replaced the generic `personalizedValue` pitch page iOS retired — the
+     * user's own numbers beat a canned stat. See
+     * `app/features/onboarding/ResearchTime.kt` for the projection engine.
+     *
+     * One iOS step is deliberately absent: `attPriming` — Android has no App
+     * Tracking Transparency prompt, so the page could only ever mimic an iOS
+     * system alert that never appears.
      */
     enum class Step(val raw: Int) {
         TERMS(1),
         BETTOR_TYPE(2),
         BETTING_PITFALLS(3),
-        PERSONALIZED_VALUE(4),
-        ACQUISITION_SOURCE(5),
-        PRIMARY_GOAL(6),
-        AGENT_HQ(7),
-        AGENT_VALUE_INTRO(8),
-        AGENT_VALUE_PROOF(9),
-        ATT_PRIMING(10),
-        BUILDER_SPORTS(11),
-        BUILDER_ARCHETYPE(12),
-        BUILDER_MINDSET(13),
-        BUILDER_BET_STYLE(14),
-        BUILDER_DATA_TRUST(15),
-        BUILDER_SPORT_RULES(16),
-        BUILDER_INSIGHTS(17),
-        BUILDER_IDENTITY(18),
-        GENERATION(19),
-        REVEAL(20);
+        ACQUISITION_SOURCE(4),
+        PRIMARY_GOAL(5),
+        RESEARCH_TIME(6),
+
+        /**
+         * Self-reported weekly bet amount — seeds the "money in play" indicators
+         * woven into the cost/reclaim/summary/paywall. Sizes the risk the user
+         * already carries; never projects returns.
+         */
+        WEEKLY_STAKES(7),
+        RESEARCH_COST(8),
+        RESEARCH_RECLAIM(9),
+        AGENT_HQ(10),
+        AGENT_VALUE_INTRO(11),
+        AGENT_VALUE_PROOF(12),
+
+        /** Animated mock leaderboard: hot streaks at a glance, "just tail the best". */
+        AGENT_LEADERBOARD(13),
+        BUILDER_SPORTS(14),
+        BUILDER_ARCHETYPE(15),
+        BUILDER_MINDSET(16),
+        BUILDER_BET_STYLE(17),
+        BUILDER_DATA_TRUST(18),
+        BUILDER_SPORT_RULES(19),
+        BUILDER_INSIGHTS(20),
+        BUILDER_IDENTITY(21),
+        GENERATION(22),
+        REVEAL(23),
+
+        /**
+         * Time-value payoff: "you get back N+ years" summary + fist-bump
+         * confirmation. Completing the fist bump calls [markComplete], which is
+         * what surfaces the paywall (RootHost watches [isComplete]).
+         */
+        TIME_SUMMARY(24);
 
         val isCinematic: Boolean get() = this >= GENERATION
 
@@ -90,7 +121,7 @@ class OnboardingStore {
         val progress: Double? get() = if (isCinematic) null else raw.toDouble() / carouselPageCount
 
         companion object {
-            const val carouselPageCount: Int = 18
+            const val carouselPageCount: Int = 21
 
             fun fromRaw(raw: Int): Step? = entries.firstOrNull { it.raw == raw }
         }
@@ -121,6 +152,22 @@ class OnboardingStore {
         val acquisitionSource: String? = null,
         val termsAcceptedAt: String? = null,
         val overEighteenAttested: Boolean? = null,
+        /**
+         * Self-reported DAILY sports-app-checking bucket (`ResearchTimeBucket`
+         * raw — "lt30m".."h4plus"/"unknown"). Stable IDs, NEVER rename: the value
+         * is persisted to `profiles.onboarding_data.researchTimeBucket` and drives
+         * every time-value projection on iOS, web, and here. (Older weekly values
+         * like "h6to10" no longer match a case and resolve to `unknown`.)
+         */
+        val researchTimeBucket: String? = null,
+        /**
+         * Self-reported weekly bet-amount bucket (`StakesBucket` raw —
+         * "lt50".."h1000plus"/"unknown"). Stable IDs, never rename. Drives the
+         * "money in play" figures (yearly/lifetime action) — turnover, not
+         * winnings or losses. null when the user never answered ("prefer not to
+         * say" resolves to a median basis, not null).
+         */
+        val weeklyStakesBucket: String? = null,
     )
 
     /**
@@ -169,6 +216,16 @@ class OnboardingStore {
     private var _agentPitchSlide by mutableStateOf(0)
     val agentPitchSlide: Int get() = _agentPitchSlide
 
+    /**
+     * Research-cost reveal page: staged sequence finished (or Reduce Motion showed
+     * everything at once) — gates the Continue CTA. The numbers ARE the page, so
+     * skipping past them would gut the arc.
+     */
+    var hasSeenCostReveal by mutableStateOf(false); private set
+
+    /** Research-reclaim reveal page: same gate as above. */
+    var hasSeenReclaimReveal by mutableStateOf(false); private set
+
     /** The user this store is currently scoped to. null when signed out. */
     private var attachedUserId: String? = null
     private var validationJob: Job? = null
@@ -180,16 +237,21 @@ class OnboardingStore {
 
     /**
      * Bind the store to the signed-in user. Loads cached completion
-     * synchronously (no spinner between splash and the next screen) and kicks
-     * off a background Supabase read to reconcile. Idempotent — same userId is
-     * a no-op.
+     * synchronously (no spinner between splash and the next screen), including
+     * a one-way import from the retired Expo app's AsyncStorage on a same-package
+     * Play upgrade, then kicks off a background Supabase read to reconcile.
+     * Idempotent — same userId is a no-op.
      */
     fun attachUser(userId: String) {
         if (attachedUserId == userId) return
         attachedUserId = userId
 
-        // Step 1: instant cache read. Local cache is authoritative offline.
-        isComplete = StorePrefs.appGroup.getBoolean(AppGroupKey.onboardingComplete(userId), false)
+        // Step 1: instant local resolution. Native state is authoritative when
+        // present (including an explicit false reset tombstone); otherwise the
+        // legacy Expo RKStorage completion signal is imported once. This must
+        // finish before RootHost resolves the phase so offline upgrades never
+        // flash or strand a completed user in onboarding.
+        isComplete = LegacyExpoOnboardingMigration.resolve(userId)
 
         // Step 2: background validate against Supabase. Failures swallowed —
         // local cache is the fallback source of truth.
@@ -229,6 +291,8 @@ class OnboardingStore {
             // We never downgrade true → false from the server: a just-completed
             // local flag whose write hasn't landed would otherwise bounce the
             // user back into the flow.
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Throwable) {
             // Network failure / no profile row yet — trust local cache.
         }
@@ -279,13 +343,15 @@ class OnboardingStore {
         hasCheckedTerms = false
         hasChosenArchetype = false
         _agentPitchSlide = 0
+        hasSeenCostReveal = false
+        hasSeenReclaimReveal = false
     }
 
     // MARK: - CTA gating
 
     /** The single validation surface the carousel container consults per step. */
     fun canAdvance(step: Step): Boolean = when (step) {
-        Step.TERMS -> hasCheckedTerms
+        Step.TERMS -> hasScrolledTermsToBottom && hasCheckedTerms
         Step.BETTOR_TYPE -> survey.bettorType != null
         Step.ACQUISITION_SOURCE -> survey.acquisitionSource != null
         Step.PRIMARY_GOAL -> survey.mainGoal != null
@@ -295,11 +361,17 @@ class OnboardingStore {
             val trimmed = agentDraft.name.trim()
             trimmed.isNotEmpty() && trimmed.length <= 50
         }
-        Step.BETTING_PITFALLS, Step.AGENT_HQ, Step.PERSONALIZED_VALUE, Step.AGENT_VALUE_INTRO,
-        Step.AGENT_VALUE_PROOF, Step.ATT_PRIMING,
+        Step.RESEARCH_TIME -> survey.researchTimeBucket != null
+        Step.WEEKLY_STAKES -> survey.weeklyStakesBucket != null
+        // The reveal pages enable Continue only after their staged sequence lands
+        // (pages flip the flag; instantly under Reduce Motion).
+        Step.RESEARCH_COST -> hasSeenCostReveal
+        Step.RESEARCH_RECLAIM -> hasSeenReclaimReveal
+        Step.BETTING_PITFALLS, Step.AGENT_HQ, Step.AGENT_VALUE_INTRO,
+        Step.AGENT_VALUE_PROOF, Step.AGENT_LEADERBOARD,
         Step.BUILDER_MINDSET, Step.BUILDER_BET_STYLE, Step.BUILDER_DATA_TRUST,
         Step.BUILDER_SPORT_RULES, Step.BUILDER_INSIGHTS,
-        Step.GENERATION, Step.REVEAL -> true
+        Step.GENERATION, Step.REVEAL, Step.TIME_SUMMARY -> true
     }
 
     // MARK: - Survey mutators
@@ -334,12 +406,46 @@ class OnboardingStore {
         survey = survey.copy(acquisitionSource = source)
     }
 
+    /**
+     * [bucket] is a `ResearchTimeBucket` raw value — the store keeps the raw
+     * string so core:stores doesn't depend on the app-module projection engine
+     * (mirrors iOS, where ResearchTime.swift lives in the app target).
+     */
+    fun setResearchTimeBucket(bucket: String) {
+        if (survey.researchTimeBucket == bucket) return
+        survey = survey.copy(researchTimeBucket = bucket)
+        invalidatePersonalizedReveals()
+    }
+
+    /** [bucket] is a `StakesBucket` raw value (same raw-string rationale as above). */
+    fun setWeeklyStakesBucket(bucket: String) {
+        if (survey.weeklyStakesBucket == bucket) return
+        survey = survey.copy(weeklyStakesBucket = bucket)
+        invalidatePersonalizedReveals()
+    }
+
+    private fun invalidatePersonalizedReveals() {
+        hasSeenCostReveal = false
+        hasSeenReclaimReveal = false
+    }
+
+    fun setCostRevealSeen() {
+        hasSeenCostReveal = true
+    }
+
+    fun setReclaimRevealSeen() {
+        hasSeenReclaimReveal = true
+    }
+
     fun setTermsScrolledToBottom() {
         hasScrolledTermsToBottom = true
     }
 
     fun setTermsChecked(checked: Boolean) {
-        hasCheckedTerms = checked
+        // The checkbox is disabled in the UI until the terms sentinel lands,
+        // but keep the store invariant too so tests, accessibility actions, and
+        // future callers cannot bypass the required scroll.
+        hasCheckedTerms = checked && hasScrolledTermsToBottom
     }
 
     /** Stamps acceptance + the 18+ attestation (the Terms checkbox copy covers both). */
@@ -359,6 +465,18 @@ class OnboardingStore {
 
     fun setArchetypeChosen() {
         hasChosenArchetype = true
+    }
+
+    /**
+     * Clear the starting-point selection WITHOUT touching the survey or draft.
+     *
+     * The in-app agent builder (features/agents AgentBuilderScreen) reuses the
+     * onboarding builder pages, which read this flag off the shared store. Each
+     * builder session has to start unselected, and `resetToStart()` is far too
+     * blunt for that — it would wipe the completed survey the accent tint reads.
+     */
+    fun clearArchetypeChosen() {
+        hasChosenArchetype = false
     }
 
     fun setAgentPitchSlide(index: Int) {
@@ -396,8 +514,16 @@ class OnboardingStore {
             StorePrefs.appGroup.edit().putBoolean(AppGroupKey.onboardingComplete(userId), true).apply()
         }
 
-        // Fire Meta SDK `fb_mobile_complete_registration` (install → register funnel).
-        MetaAnalyticsService.trackCompleteRegistration(method = "email")
+        // Fire Meta SDK `fb_mobile_complete_registration` (install → register
+        // funnel) with the REAL provider — hardcoding "email" reported every
+        // Google signup as an email registration. The service guards this to
+        // once per install, so Developer Settings → Reset Onboarding can't
+        // inflate Meta's registration count.
+        MetaAnalyticsService.trackCompleteRegistration(method = AuthStore.lastAuthProvider)
+        AnalyticsService.track(
+            "Onboarding Completed",
+            mapOf("auth_method" to AuthStore.lastAuthProvider),
+        )
 
         // Snapshot data so the mutators can't race with the network task.
         val surveySnapshot = survey
@@ -438,6 +564,8 @@ class OnboardingStore {
                 reset()
                 RemoteResetResult.Success
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (error: Throwable) {
             RemoteResetResult.Failure(
                 error.message?.takeIf { it.isNotBlank() } ?: "Failed to reset onboarding",
@@ -462,6 +590,8 @@ class OnboardingStore {
                     acquisitionSource = survey.acquisitionSource,
                     termsAcceptedAt = survey.termsAcceptedAt,
                     overEighteenAttested = survey.overEighteenAttested,
+                    researchTimeBucket = survey.researchTimeBucket,
+                    weeklyStakesBucket = survey.weeklyStakesBucket,
                     agentFormState = AgentFormStatePayload(
                         preferredSports = agent.preferredSports.map { it.raw },
                         archetype = agent.archetype,
@@ -484,6 +614,8 @@ class OnboardingStore {
             SupabaseClients.main.from("profiles").update(element) {
                 filter { eq("user_id", uid) }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Throwable) {
             // FIDELITY-WAIVER #027: Offline write queue not ported — failure log + drop.
             // Acceptable since the call is fire-and-forget and the local cache is
@@ -510,6 +642,11 @@ class OnboardingStore {
         val acquisitionSource: String? = null,
         val termsAcceptedAt: String? = null,
         val overEighteenAttested: Boolean? = null,
+        // Key names match iOS/web verbatim — every time-value projection and the
+        // paywall reprise read `onboarding_data.researchTimeBucket` /
+        // `.weeklyStakesBucket`. Never rename.
+        val researchTimeBucket: String? = null,
+        val weeklyStakesBucket: String? = null,
         val agentFormState: AgentFormStatePayload,
     )
 

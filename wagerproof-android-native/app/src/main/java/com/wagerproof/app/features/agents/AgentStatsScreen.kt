@@ -1,5 +1,12 @@
 package com.wagerproof.app.features.agents
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,11 +27,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,7 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +58,7 @@ import com.wagerproof.app.features.agents.components.DistributionHistogramChart
 import com.wagerproof.app.features.agents.components.FittedCurveOverlayChart
 import com.wagerproof.app.features.agents.components.FittedCurveSeries
 import com.wagerproof.app.features.agents.sheets.BinAgentsSheet
+import com.wagerproof.core.design.components.liquidGlassCapsule
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.AgentSport
 import com.wagerproof.core.models.DistributionBucket
@@ -56,6 +70,7 @@ import com.wagerproof.core.stores.PlatformStatsStore
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.roundToInt
 
 private enum class StatsSportOption(val label: String, val key: String?, val agentSport: AgentSport?) {
     All("All", null, null),
@@ -92,6 +107,7 @@ private val nflPurple = Color(0xFF9B59B6)
  * distributions. iOS `AgentStatsView`. Parent-owned [PlatformStatsStore]; not
  * wired to a route.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentStatsScreen(store: PlatformStatsStore, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
@@ -104,21 +120,34 @@ fun AgentStatsScreen(store: PlatformStatsStore, modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) { if (store.data.isEmpty()) store.refresh() }
 
     Box(modifier.fillMaxSize().background(AppColors.appSurface)) {
-        when (val state = store.loadState) {
-            is LoadState.Idle, is LoadState.Loading -> AgentStatsSkeleton()
-            is LoadState.Failed -> ErrorView(state.message) { scope.launch { store.refresh() } }
-            else -> LoadedBody(
-                store = store,
-                metric = metric,
-                sport = sport,
-                minDecided = minDecided,
-                granularity = granularity,
-                onMetric = { metric = it },
-                onSport = { sport = it },
-                onThreshold = { minDecided = it },
-                onGranularity = { granularity = it },
-                onDrill = { drill = it },
-            )
+        val state = store.loadState
+        if (store.data.isEmpty()) {
+            when (state) {
+                is LoadState.Failed -> ErrorView(state.message) { scope.launch { store.refresh() } }
+                else -> AgentStatsSkeleton()
+            }
+        } else {
+            // Pull-to-refresh sets loadState back to Loading even though `data` is
+            // still populated — keep the charts on screen instead of swapping the
+            // whole body to the skeleton mid-gesture (the pattern AgentLeaderboard.kt uses).
+            PullToRefreshBox(
+                isRefreshing = state is LoadState.Loading,
+                onRefresh = { scope.launch { store.refresh() } },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                LoadedBody(
+                    store = store,
+                    metric = metric,
+                    sport = sport,
+                    minDecided = minDecided,
+                    granularity = granularity,
+                    onMetric = { metric = it },
+                    onSport = { sport = it },
+                    onThreshold = { minDecided = it },
+                    onGranularity = { granularity = it },
+                    onDrill = { drill = it },
+                )
+            }
         }
     }
 
@@ -148,6 +177,7 @@ private fun LoadedBody(
     onGranularity: (BinGranularity) -> Unit,
     onDrill: (DrillContext) -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     val n = minDecided.toInt()
     val values = heroValues(store, metric, sport, n)
     val domain = heroDomain(metric, values)
@@ -157,8 +187,8 @@ private fun LoadedBody(
     val curve = fit?.let { DistributionStatistics.curvePoints(it, domain, binWidth) } ?: emptyList()
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Intro
-        StatCard {
+        // Intro. Wider inset than the chart cards, matching iOS (:175 vs :319).
+        StatCard(padding = 16.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(agentSymbol("chart.bar.xaxis"), contentDescription = null, tint = AppColors.appPrimary, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
@@ -174,20 +204,37 @@ private fun LoadedBody(
         // Summary cards
         SummaryCards(metric, values, fit)
 
-        // Control bar
+        // Control bar. Every axis change fires a selection haptic and animates
+        // over 0.2s, matching iOS's .sensoryFeedback(.selection) + withAnimation.
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                StatMetric.entries.forEach { m ->
-                    Pill(m.label, active = metric == m) { onMetric(m) }
-                    Spacer(Modifier.width(8.dp))
+                StatMetric.entries.forEachIndexed { index, m ->
+                    Pill(m.label, active = metric == m) {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onMetric(m)
+                    }
+                    // No trailing gap after the last pill — the weighted spacer
+                    // owns the slack up to the granularity menu.
+                    if (index != StatMetric.entries.lastIndex) Spacer(Modifier.width(8.dp))
                 }
                 Spacer(Modifier.weight(1f))
-                GranularityMenu(granularity, onGranularity)
+                GranularityMenu(granularity) { g ->
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onGranularity(g)
+                }
             }
-            if (metric == StatMetric.WIN_RATE) {
+            // Sport pills — hidden for net units (per-sport net units unavailable).
+            AnimatedVisibility(
+                visible = metric == StatMetric.WIN_RATE,
+                enter = fadeIn(tween(200)) + expandVertically(tween(200)),
+                exit = fadeOut(tween(200)) + shrinkVertically(tween(200)),
+            ) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatsSportOption.entries.forEach { opt ->
-                        Pill(opt.label, active = sport == opt) { onSport(opt) }
+                        Pill(opt.label, active = sport == opt) {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSport(opt)
+                        }
                     }
                 }
             }
@@ -198,7 +245,7 @@ private fun LoadedBody(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Minimum settled picks", color = AppColors.appTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
-                Text("≥ $n", color = AppColors.appPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text("≥ $n", color = AppColors.appPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
             }
             Slider(
                 value = minDecided, onValueChange = onThreshold, valueRange = 0f..100f, steps = 99,
@@ -211,7 +258,7 @@ private fun LoadedBody(
         }
 
         // Hero
-        StatCard {
+        StatCard(modifier = Modifier.animateContentSize(tween(200))) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(heroTitle(metric, sport), color = AppColors.appTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.weight(1f))
@@ -219,6 +266,7 @@ private fun LoadedBody(
                     Text(
                         if (metric == StatMetric.WIN_RATE) "μ ${pct(it.mean)} · σ ${pct(it.sd)}" else "μ ${units(it.mean)} · σ ${sdUnits(it.sd)}",
                         color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
                     )
                 }
             }
@@ -258,9 +306,15 @@ private fun LoadedBody(
             }
         }
 
-        // Freshness
+        // Freshness — centered under the last card (iOS :499-503).
         store.lastCalculatedAt?.let {
-            Text("Updated ${relativeLabel(it)}", color = AppColors.appTextMuted, fontSize = 11.sp, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            Text(
+                "Updated ${relativeLabel(it)}",
+                color = AppColors.appTextMuted,
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            )
         }
     }
 }
@@ -323,7 +377,7 @@ private fun SportCard(store: PlatformStatsStore, spec: SportSpec, n: Int, onDril
             Text(spec.label, color = AppColors.appTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.weight(1f))
             if (fit != null && values.size >= SPORT_FLOOR) {
-                Text("μ ${pct(fit.mean)} · σ ${pct(fit.sd)}", color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text("μ ${pct(fit.mean)} · σ ${pct(fit.sd)}", color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -351,7 +405,7 @@ private fun NflEstimateCard(store: PlatformStatsStore, n: Int) {
             Spacer(Modifier.width(8.dp))
             Text("EST.", color = nflPurple, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.background(nflPurple.copy(alpha = 0.18f), RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 3.dp))
             Spacer(Modifier.weight(1f))
-            Text("μ ${pct(fit.mean)} · projected", color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text("μ ${pct(fit.mean)} · projected", color = AppColors.appTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
         }
         Spacer(Modifier.height(8.dp))
         DistributionHistogramChart(
@@ -383,7 +437,8 @@ private fun GranularityMenu(current: BinGranularity, onSelect: (BinGranularity) 
     var open by remember { mutableStateOf(false) }
     Box {
         Row(
-            Modifier.clickable { open = true }.padding(horizontal = 12.dp, vertical = 8.dp),
+            // Liquid-glass capsule behind the menu label (iOS :280).
+            Modifier.liquidGlassCapsule().clickable { open = true }.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(agentSymbol("slider.horizontal.3"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.size(12.dp))
@@ -402,15 +457,23 @@ private fun GranularityMenu(current: BinGranularity, onSelect: (BinGranularity) 
     }
 }
 
+/** Elevated card chrome. [padding] defaults to the chart cards' 14dp (iOS :319). */
 @Composable
-private fun StatCard(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().background(AppColors.appSurfaceElevated, RoundedCornerShape(16.dp)).padding(16.dp), content = content)
+private fun StatCard(
+    modifier: Modifier = Modifier,
+    padding: Dp = 14.dp,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier.fillMaxWidth().background(AppColors.appSurfaceElevated, RoundedCornerShape(16.dp)).padding(padding),
+        content = content,
+    )
 }
 
 @Composable
 private fun LowDataPlaceholder(height: Dp) {
     Column(Modifier.fillMaxWidth().heightIn(min = height), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(agentSymbol("chart.bar.xaxis"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.size(26.dp))
+        Icon(agentSymbol("chart.bar.xaxis.ascending"), contentDescription = null, tint = AppColors.appTextSecondary, modifier = Modifier.size(26.dp))
         Spacer(Modifier.height(8.dp))
         Text("Not enough data at this threshold", color = AppColors.appTextSecondary, fontSize = 12.sp)
     }
@@ -486,8 +549,10 @@ private fun heroTitle(metric: StatMetric, sport: StatsSportOption): String = whe
     else -> "Win Rate · ${sport.label}"
 }
 
+// Bin bounds ROUND, never truncate: a 0.29 lower bound is 29%, not 28% — the
+// drill-down title has to name the same range the RPC filters on (iOS :570).
 private fun binTitle(metric: StatMetric, bucket: DistributionBucket): String =
-    if (metric == StatMetric.WIN_RATE) "${(bucket.lower * 100).toInt()}–${(bucket.upper * 100).toInt()}% Win Rate"
+    if (metric == StatMetric.WIN_RATE) "${(bucket.lower * 100).roundToInt()}–${(bucket.upper * 100).roundToInt()}% Win Rate"
     else "${signed(bucket.lower)} to ${signed(bucket.upper)}u"
 
 private fun pct(v: Double): String = "${"%.1f".format(v * 100)}%"
@@ -501,12 +566,14 @@ private fun medianOf(values: List<Double>): Double {
     return if (sorted.size % 2 == 0) (sorted[mid - 1] + sorted[mid]) / 2 else sorted[mid]
 }
 
-private fun relativeLabel(instant: java.time.Instant): String {
-    val secs = java.time.Duration.between(instant, java.time.Instant.now()).seconds
-    return when {
-        secs < 60 -> "just now"
-        secs < 3600 -> "${secs / 60} min ago"
-        secs < 86400 -> "${secs / 3600} hr ago"
-        else -> "${secs / 86400} days ago"
-    }
-}
+/**
+ * Named relative wording ("1 hour ago", "yesterday") to match iOS's
+ * `.formatted(.relative(presentation: .named))`. Platform-formatted so it also
+ * localizes, which the old hand-rolled "3 hr ago" ladder never did.
+ */
+private fun relativeLabel(instant: java.time.Instant): String =
+    android.text.format.DateUtils.getRelativeTimeSpanString(
+        instant.toEpochMilli(),
+        System.currentTimeMillis(),
+        android.text.format.DateUtils.MINUTE_IN_MILLIS,
+    ).toString()

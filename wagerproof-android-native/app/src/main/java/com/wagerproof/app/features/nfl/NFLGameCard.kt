@@ -13,7 +13,6 @@ import com.wagerproof.app.features.gamecards.GameRowCard
 import com.wagerproof.app.features.gamecards.GameRowCardModel
 import com.wagerproof.app.features.gamecards.TeamColorPair
 import com.wagerproof.app.features.props.nflTeamColors
-import com.wagerproof.core.models.FootballBlanketSignals
 import com.wagerproof.core.models.GameAgentConsensus
 import com.wagerproof.core.models.NFLPrediction
 import com.wagerproof.core.models.NFLTeamAssets
@@ -116,27 +115,15 @@ internal fun nflSlatePicks(game: NFLPrediction, picks: List<NFLDryrunPickRow>): 
         GameCardFormatting.formatSpread(line)
     }
 
-    val highCount = if (picks.isNotEmpty()) {
-        picks.count { it.hasPlay == true && it.conviction.equals("high", ignoreCase = true) }
-    } else {
-        game.convictionSummary?.plays.orEmpty().count { (it.conviction ?: "").lowercase(Locale.US) == "high" }
-    }
-    // Prefer slate flags_* (excludes blanket sides_model); fall back to pick signal_keys.
-    val fromGame = (game.flagsActive ?: 0) + (game.flagsTracking ?: 0)
-    val signalCount = if (fromGame > 0) {
-        fromGame
-    } else {
-        FootballBlanketSignals.displayKeys("nfl", picks.flatMap { it.signalKeys }).size
-    }
-
+    // High-conviction and signal counts are deliberately NOT computed here —
+    // they're detail-page data on iOS and the feed-card badges that used them
+    // were removed. `nflHasMammothPlay` survives: the top-level model still
+    // reads it for the card's orange electric border.
     return GameRowCardModel.SlatePicks(
         totalIsOver = totalDir?.let { it == "OVER" },
         totalLabel = totalLabel,
         spreadLogoURL = spreadLogo,
         spreadLabel = spreadLabel,
-        hasMammoth = nflHasMammothPlay(game, picks),
-        highCount = highCount,
-        signalCount = signalCount,
     )
 }
 

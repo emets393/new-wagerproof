@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -36,7 +39,9 @@ import kotlin.math.roundToInt
  * break-even reference lines. Axis is SHARE (% of agents), never raw counts.
  * Tapping a bar calls [onSelectBin]. An estimated fit draws its curve dashed/grey.
  *
- * Hand-drawn on Compose Canvas (FIDELITY-WAIVER #205) instead of iOS `Charts`.
+ * FIDELITY-WAIVER #205 (narrowed): hand-drawn on Compose Canvas instead of iOS
+ * `Charts`, but the geometry now matches — top-rounded bars and a Catmull-Rom
+ * fitted curve, not the old straight-segment approximation.
  */
 
 // Break-even win rate at standard -110 juice (52.38%).
@@ -150,29 +155,37 @@ fun DistributionHistogramChart(
             )
         }
 
-        // Bars — width 0.9 of each bin, share height, accent @ 0.32.
+        // Bars — width 0.9 of each bin, share height, accent @ 0.32. Only the TOP
+        // corners round (iOS `BarMark.cornerRadius(3)`); rounding all four lifts
+        // the bar off the baseline and reads as a floating pill.
+        val barRadius = CornerRadius(3f * this.density, 3f * this.density)
         buckets.forEach { b ->
             val binWpx = (px(b.upper) - px(b.lower))
             val barW = binWpx * 0.9f
             val cx = px(b.mid)
             val top = py(b.share)
-            drawRoundRect(
-                color = accent.copy(alpha = 0.32f),
-                topLeft = Offset(cx - barW / 2f, top),
-                size = Size(barW, (baseline - top).coerceAtLeast(0f)),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f * this.density, 3f * this.density),
-            )
+            val barPath = Path().apply {
+                addRoundRect(
+                    RoundRect(
+                        rect = Rect(
+                            offset = Offset(cx - barW / 2f, top),
+                            size = Size(barW, (baseline - top).coerceAtLeast(0f)),
+                        ),
+                        topLeft = barRadius,
+                        topRight = barRadius,
+                        bottomRight = CornerRadius.Zero,
+                        bottomLeft = CornerRadius.Zero,
+                    ),
+                )
+            }
+            drawPath(barPath, color = accent.copy(alpha = 0.32f))
         }
 
-        // Fitted curve overlay (densely sampled -> straight segments read smooth).
+        // Fitted curve overlay — smoothed through the sample set with the same
+        // Catmull-Rom spline iOS uses (`.interpolationMethod(.catmullRom)`).
         if (curve.size >= 2) {
-            val path = Path()
-            curve.forEachIndexed { i, p ->
-                val o = Offset(px(p.x), py(p.y))
-                if (i == 0) path.moveTo(o.x, o.y) else path.lineTo(o.x, o.y)
-            }
             drawPath(
-                path,
+                catmullRomPath(curve.map { Offset(px(it.x), py(it.y)) }),
                 color = curveColor,
                 style = Stroke(
                     width = 2.5f * this.density,
@@ -212,6 +225,36 @@ fun DistributionHistogramChart(
             }
         }
     }
+}
+
+/**
+ * Catmull-Rom spline through [pts], emitted as cubic Bézier segments — the same
+ * interpolation Swift Charts applies with `.interpolationMethod(.catmullRom)`.
+ * Shared with [FittedCurveOverlayChart] so both fitted curves bend identically.
+ *
+ * The classic uniform form: for segment p1→p2 the control points are
+ * p1 + (p2 − p0)/6 and p2 − (p3 − p1)/6, with the endpoints duplicated.
+ */
+internal fun catmullRomPath(pts: List<Offset>): Path {
+    val path = Path()
+    if (pts.isEmpty()) return path
+    path.moveTo(pts.first().x, pts.first().y)
+    if (pts.size < 3) {
+        pts.drop(1).forEach { path.lineTo(it.x, it.y) }
+        return path
+    }
+    for (i in 0 until pts.size - 1) {
+        val p0 = pts[if (i == 0) 0 else i - 1]
+        val p1 = pts[i]
+        val p2 = pts[i + 1]
+        val p3 = pts[if (i + 2 > pts.size - 1) pts.size - 1 else i + 2]
+        path.cubicTo(
+            p1.x + (p2.x - p0.x) / 6f, p1.y + (p2.y - p0.y) / 6f,
+            p2.x - (p3.x - p1.x) / 6f, p2.y - (p3.y - p1.y) / 6f,
+            p2.x, p2.y,
+        )
+    }
+    return path
 }
 
 private fun valueLabel(v: Double, metric: StatMetric): String =

@@ -44,6 +44,18 @@ class OnboardingPageSpec(
                 },
             )
 
+            OnboardingStore.Step.RESEARCH_COST -> OnboardingPageSpec(
+                ctaTitle = "Fix this",
+                isCTAEnabled = { it.canAdvance(OnboardingStore.Step.RESEARCH_COST) },
+                onContinue = { it.advance() },
+            )
+
+            OnboardingStore.Step.RESEARCH_RECLAIM -> OnboardingPageSpec(
+                ctaTitle = "Show me how",
+                isCTAEnabled = { it.canAdvance(OnboardingStore.Step.RESEARCH_RECLAIM) },
+                onContinue = { it.advance() },
+            )
+
             OnboardingStore.Step.BUILDER_IDENTITY -> OnboardingPageSpec(
                 ctaTitle = "Create my agent",
                 isCTAEnabled = { it.canAdvance(OnboardingStore.Step.BUILDER_IDENTITY) },

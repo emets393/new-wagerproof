@@ -5,6 +5,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.wagerproof.core.shared.AppGroupKey
 
 /**
  * Port of iOS `RootRouter.swift`. Top-level state machine behind the root
@@ -16,29 +17,16 @@ class RootRouter {
 
     enum class Phase { Launching, Unauthenticated, Onboarding, Ready }
 
-    companion object {
-        /**
-         * TEMPORARY hard-bypass of the onboarding wizard (added 2026-05-29).
-         * Authenticated users land straight in [Phase.Ready]. Flip back to
-         * false (or delete + restore the plain ternary in [resolve]) to
-         * re-enable onboarding.
-         */
-        const val temporarilyDisableOnboarding = true
-    }
-
-    /**
-     * Set by Secret Settings' "Reset Onboarding" so testers re-enter the wizard
-     * even while [temporarilyDisableOnboarding] is active. In-memory only —
-     * cleared when onboarding completes or on sign-out.
-     */
-    var forceOnboardingForTesting by mutableStateOf(false); private set
-
     /**
      * Also set by "Reset Onboarding" — survives into [Phase.Ready] so the root
      * view can force the post-onboarding paywall for a Pro/admin tester.
      * Cleared via [clearTestPaywallOverride].
      */
     var testPaywallOverride by mutableStateOf(false); private set
+
+    /** Swappable in local JVM tests so router tests never require Android prefs. */
+    internal var testPaywallOverridePersistence: TestPaywallOverridePersistence =
+        AppGroupTestPaywallOverridePersistence
 
     var phase by mutableStateOf(Phase.Launching); private set
 
@@ -51,27 +39,39 @@ class RootRouter {
             is AuthStore.Phase.Launching -> phase = Phase.Launching
             is AuthStore.Phase.Unauthenticated -> {
                 // Sign-out ends a forced test run — the next account shouldn't inherit the override.
-                forceOnboardingForTesting = false
-                testPaywallOverride = false
+                clearTestPaywallOverride()
                 phase = Phase.Unauthenticated
             }
             is AuthStore.Phase.Authenticated -> {
-                if (onboardingComplete) forceOnboardingForTesting = false
-                // TEMPORARY onboarding bypass — yields to forceOnboardingForTesting.
-                val bypass = temporarilyDisableOnboarding && !forceOnboardingForTesting
-                phase = if (onboardingComplete || bypass) Phase.Ready else Phase.Onboarding
+                phase = if (onboardingComplete) Phase.Ready else Phase.Onboarding
             }
         }
     }
 
+    /**
+     * Restore Secret Settings' pending replay before resolving the authenticated
+     * root phase. A matching user keeps the override after process recreation;
+     * a direct A -> B account switch clears it so the gate cannot cross accounts.
+     */
+    fun restoreTestPaywallOverride(userId: String) {
+        val normalizedUserId = userId.trim().lowercase()
+        val persistedUserId = testPaywallOverridePersistence.readUserId()
+        testPaywallOverride = persistedUserId == normalizedUserId
+        if (persistedUserId != null && !testPaywallOverride) {
+            testPaywallOverridePersistence.clear()
+        }
+    }
+
     /** Backs Secret Settings' "Reset Onboarding". Caller must reset OnboardingStore first. */
-    fun forceOnboardingForTestingNow() {
-        forceOnboardingForTesting = true
+    fun forceOnboardingForTestingNow(userId: String) {
+        val normalizedUserId = userId.trim().lowercase()
+        testPaywallOverridePersistence.writeUserId(normalizedUserId)
         testPaywallOverride = true
         phase = Phase.Onboarding
     }
 
     fun clearTestPaywallOverride() {
+        testPaywallOverridePersistence.clear()
         testPaywallOverride = false
     }
 
@@ -86,6 +86,31 @@ class RootRouter {
         val route = pendingDeepLinkRoute
         pendingDeepLinkRoute = null
         return route
+    }
+}
+
+internal interface TestPaywallOverridePersistence {
+    fun readUserId(): String?
+    fun writeUserId(userId: String)
+    fun clear()
+}
+
+private object AppGroupTestPaywallOverridePersistence : TestPaywallOverridePersistence {
+    override fun readUserId(): String? = StorePrefs.appGroup
+        .getString(AppGroupKey.TEST_PAYWALL_OVERRIDE_USER_ID, null)
+        ?.trim()
+        ?.lowercase()
+
+    override fun writeUserId(userId: String) {
+        StorePrefs.appGroup.edit()
+            .putString(AppGroupKey.TEST_PAYWALL_OVERRIDE_USER_ID, userId)
+            .apply()
+    }
+
+    override fun clear() {
+        StorePrefs.appGroup.edit()
+            .remove(AppGroupKey.TEST_PAYWALL_OVERRIDE_USER_ID)
+            .apply()
     }
 }
 

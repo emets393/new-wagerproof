@@ -68,7 +68,7 @@ See [02_chat_wagerbot.md](02_chat_wagerbot.md) for full architecture.
 | Function | Purpose | Trigger |
 |----------|---------|---------|
 | `send-discord-notification` | Send alerts to Discord channel | Various |
-| `send-agent-pick-ready-notification` | Push notification when agent picks are ready | After generation |
+| `send-agent-pick-ready-notification` | Push when agent picks are ready — fans out to Expo / APNs / FCM v1 by token shape (see `agents/11_PUSH_NOTIFICATIONS.md`) | After generation (V2 worker only) |
 | `send-reactivation-events` | Reactivation emails for inactive users | Cron |
 
 ### AI Agents (Avatar System)

@@ -186,7 +186,8 @@ wagerproof-ios-native/
   `home_spread_diff` / `over_line_diff` are permanently null for NFL and its
   headlines quote confidence rather than a model-vs-Vegas gap. Do NOT try to fix
   this by widening the `.select()` in `api/nflGames.ts` — the columns don't exist
-- **Web only.** Neither native app renders headlines
+- **Web + iOS.** iOS renders headlines across all five detail sheets (33 `headline:`
+  call sites); the Android port is in progress as part of the parity push
 - **Documentation**: `.claude/docs/17_widget_headlines.md`, and
   `src/features/games/detail/headlines/README.md` for how to add one
 

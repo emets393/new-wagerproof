@@ -10,6 +10,7 @@ import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -67,6 +68,9 @@ class MLBSeriesSignalsStore {
                 .decodeList()
             signals = parse(rows)
             lastFetched = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            loading = false
+            throw cancellation
         } catch (e: Exception) {
             errorMessage = "Failed to load series signals."
         }

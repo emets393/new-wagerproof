@@ -1,6 +1,7 @@
 package com.wagerproof.core.design.pixeloffice
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -43,6 +45,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.wagerproof.core.design.components.LiquidGlassCapsule
 import com.wagerproof.core.design.tokens.AppColors
 import java.util.Calendar
@@ -63,8 +68,10 @@ import kotlin.math.min
  * persist under the same keys RN/iOS use (`pixel-office-floor-style`,
  * `pixel-office-time-mode`); night = hour ≥ 19 || < 6 in auto.
  *
- * [isActive] pauses the loop (tab off-screen) — the host also passes false
- * when the app is backgrounded, mirroring iOS's scenePhase gating.
+ * [isActive] pauses the loop (tab off-screen). Backgrounding pauses it too via
+ * an ON_STOP/ON_START observer here, mirroring iOS's scenePhase gating
+ * (PixelOffice.swift:65, 90) — a host can't see process lifecycle, and a
+ * `withFrameNanos` loop that keeps ticking off-screen is pure battery burn.
  */
 @Composable
 fun PixelOffice(
@@ -74,31 +81,58 @@ fun PixelOffice(
     isActive: Boolean = true,
 ) {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    val prefs = remember(context) { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     var floorStyle by remember {
         mutableStateOf(prefs.getString(KEY_FLOOR_STYLE, "future") ?: "future")
     }
-    var timeMode by remember {
-        mutableStateOf(prefs.getString(KEY_TIME_MODE, "auto") ?: "auto")
-    }
-
-    val isNight = when (timeMode) {
-        "day" -> false
-        "night" -> true
-        else -> Calendar.getInstance().get(Calendar.HOUR_OF_DAY).let { it >= 19 || it < 6 }
-    }
+    // Read through the shared observable so the Agent HQ pill outside this
+    // composable flips with the chip (iOS shares one @AppStorage key).
+    val timeMode = rememberPixelOfficeTimeMode()
+    val isNight = pixelOfficeIsNight(timeMode)
     val floorKey = "${floorStyle}_${if (isNight) "night" else "day"}"
 
     val sim = remember { PixelOfficeSimulation() }
     val specs = if (!agents.isNullOrEmpty()) agents.take(8) else FALLBACK_SPECS
     LaunchedEffect(specs) { sim.setAgents(specs) }
 
+    // Process lifecycle gate — ON_STOP means no window is drawing, so the sim
+    // must stop stepping even though this composable is still in the tree.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var lifecycleStarted by remember(lifecycleOwner) {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> lifecycleStarted = true
+                Lifecycle.Event.ON_STOP -> lifecycleStarted = false
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Deferred first activation (iOS PixelOffice.swift:69-71, 98-108, 132-137):
+    // a retained-but-unselected tab must not pay for sprite sheets, pathfinding
+    // and a Canvas it never shows. Until the office is first made active we
+    // render the flat backdrop plate at the same footprint, so the swap in
+    // never shifts layout.
+    var hasActivated by remember { mutableStateOf(false) }
+    LaunchedEffect(isActive) {
+        if (!isActive || hasActivated) return@LaunchedEffect
+        // Let the frame that revealed the tab commit before building the scene.
+        withFrameNanos { }
+        hasActivated = true
+    }
+
     // Game loop. dt clamped to 0.1 s so a pause/resume gap doesn't teleport
     // agents; tick invalidates the canvas draw each frame.
     val nightState = rememberUpdatedState(isNight)
     var tick by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(isActive) {
-        if (!isActive) return@LaunchedEffect
+    val running = isActive && lifecycleStarted && hasActivated
+    LaunchedEffect(running) {
+        if (!running) return@LaunchedEffect
         var last = 0L
         while (true) {
             withFrameNanos { now ->
@@ -122,11 +156,13 @@ fun PixelOffice(
             .clip(RoundedCornerShape(20.dp))
             .background(AppColors.officeSceneBackdrop),
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            tick // frame-loop invalidation
-            val mapScale = size.width / PixelOfficeGeo.MAP_WIDTH
-            scale(mapScale, mapScale, pivot = Offset.Zero) {
-                drawOffice(context, sim, floorKey, textMeasurer, textCache)
+        if (hasActivated) {
+            Canvas(Modifier.fillMaxSize()) {
+                tick // frame-loop invalidation
+                val mapScale = size.width / PixelOfficeGeo.MAP_WIDTH
+                scale(mapScale, mapScale, pivot = Offset.Zero) {
+                    drawOffice(context, sim, floorKey, textMeasurer, textCache)
+                }
             }
         }
 
@@ -145,13 +181,15 @@ fun PixelOffice(
                     else -> "Auto"
                 },
                 onClick = {
-                    // RN cycle order: auto → day → night → auto.
-                    timeMode = when (timeMode) {
+                    // RN cycle order: auto → day → night → auto. The pref write
+                    // IS the state update — rememberPixelOfficeTimeMode observes
+                    // this key, so every reader (incl. the HQ pill) follows.
+                    val next = when (timeMode) {
                         "auto" -> "day"
                         "day" -> "night"
                         else -> "auto"
                     }
-                    prefs.edit().putString(KEY_TIME_MODE, timeMode).apply()
+                    prefs.edit().putString(KEY_TIME_MODE, next).apply()
                 },
             )
             ControlChip(
@@ -342,6 +380,38 @@ private fun ControlChip(emoji: String, label: String, onClick: () -> Unit) {
             )
         }
     }
+}
+
+// MARK: - Day/night state (shared with the surrounding Agent HQ chrome)
+
+/**
+ * Live value of the office's persisted day/night toggle ("auto"/"day"/"night").
+ *
+ * iOS reads the same key from a shared `@AppStorage`, so its "Agent HQ — Live /
+ * Night Shift" pill follows the office chip for free. Android keeps the office
+ * prefs in their own file, so surfaces outside [PixelOffice] have to subscribe
+ * to it — otherwise the pill latches whatever it read on first composition.
+ */
+@Composable
+fun rememberPixelOfficeTimeMode(): String {
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    var mode by remember(prefs) { mutableStateOf(prefs.getString(KEY_TIME_MODE, "auto") ?: "auto") }
+    DisposableEffect(prefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { store, key ->
+            if (key == KEY_TIME_MODE) mode = store.getString(KEY_TIME_MODE, "auto") ?: "auto"
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    return mode
+}
+
+/** Resolve a persisted time mode to day/night. Auto = RN's bounds: hour ≥ 19 || < 6. */
+fun pixelOfficeIsNight(timeMode: String): Boolean = when (timeMode) {
+    "day" -> false
+    "night" -> true
+    else -> Calendar.getInstance().get(Calendar.HOUR_OF_DAY).let { it >= 19 || it < 6 }
 }
 
 // MARK: - Constants

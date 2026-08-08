@@ -4,8 +4,6 @@ import com.wagerproof.core.models.PolymarketGameMarkets
 import com.wagerproof.core.models.PolymarketMarket
 import com.wagerproof.core.models.PolymarketMarketType
 import com.wagerproof.core.models.PolymarketPricePoint
-import com.wagerproof.core.shared.AppGroup
-import com.wagerproof.core.shared.AppGroupKey
 import io.github.jan.supabase.postgrest.from
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -33,19 +31,11 @@ class PolymarketService private constructor() {
         league: String,
         awayTeam: String,
         homeTeam: String,
-    ): PolymarketGameMarkets? {
-        // iOS DEBUG dummy-data mode serves captured price curves here. The
-        // fixtures aren't ported yet, so honor the flag by skipping the network
-        // and returning the "no data" placeholder path instead of live reads.
-        if (BuildFlags.isDebugBuild && isDummyDataMode()) {
-            return null
-        }
-        return fetchFromCache(league = league, awayTeam = awayTeam, homeTeam = homeTeam)
-    }
-
-    private fun isDummyDataMode(): Boolean =
-        runCatching { AppGroup.prefs.getBoolean(AppGroupKey.DUMMY_DATA_MODE, false) }
-            .getOrDefault(false)
+    ): PolymarketGameMarkets? =
+        // AND-088 (owner decision): the DEBUG dummy-data short-circuit was removed
+        // with the rest of that mode. It was the flag's only reader on Android and
+        // did nothing but suppress live reads — no fixtures were ever ported.
+        fetchFromCache(league = league, awayTeam = awayTeam, homeTeam = homeTeam)
 
     /**
      * Mirrors RN `getAllMarketsDataFromCache`: single query against

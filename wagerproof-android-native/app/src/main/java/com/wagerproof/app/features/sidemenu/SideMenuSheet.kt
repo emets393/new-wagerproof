@@ -22,13 +22,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wagerproof.app.BuildConfig
 import com.wagerproof.app.di.appGraph
 import com.wagerproof.app.features.components.InsetGroupedDivider
 import com.wagerproof.app.features.components.InsetGroupedSection
+import com.wagerproof.app.features.settings.openContactEmail
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
@@ -41,7 +44,7 @@ import com.wagerproof.core.stores.ThemeStore
 import kotlinx.coroutines.launch
 
 private const val DISCORD_INVITE = "https://discord.gg/gwy9y7XSDV"
-private const val CONTACT_MAILTO = "mailto:admin@wagerproof.bet?subject=Contact%20Us%20-%20Wagerproof"
+private const val CONTACT_SUBJECT = "Contact Us - Wagerproof"
 private const val PRIVACY_URL = "https://wagerproof.bet/privacy-policy"
 private const val TERMS_URL = "https://wagerproof.bet/terms-and-conditions"
 
@@ -64,6 +67,7 @@ fun SideMenuSheet(modifier: Modifier = Modifier) {
     val tabStore = graph.mainTab
     val learn = graph.learn
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     fun dismiss() { tabStore.isSideMenuPresented = false }
@@ -135,13 +139,17 @@ fun SideMenuSheet(modifier: Modifier = Modifier) {
         InsetGroupedSection(title = "Support", modifier = Modifier.padding(horizontal = Spacing.lg)) {
             MenuRow("Discord Channel", AppIcon.BUBBLE_LEFT_AND_BUBBLE_RIGHT_FILL.imageVector, showChevron = false) { uriHandler.openUri(DISCORD_INVITE) }
             InsetGroupedDivider()
-            MenuRow("Contact Us", AppIcon.ENVELOPE_FILL.imageVector, showChevron = false) { uriHandler.openUri(CONTACT_MAILTO) }
+            // Explicit ACTION_SENDTO, not uriHandler: a mailto with no handler makes
+            // AndroidUriHandler throw IllegalArgumentException and crash the app.
+            MenuRow("Contact Us", AppIcon.ENVELOPE_FILL.imageVector, showChevron = false) { openContactEmail(context, CONTACT_SUBJECT) }
         }
 
         // Legal
         InsetGroupedSection(
             title = "Legal",
-            footer = "Wagerproof v3.5.6",
+            // From BuildConfig, not a literal — the same drift AND-070 fixed in the
+            // Settings footer (iOS's own SideMenuSheet is stuck on "v3.5.5").
+            footer = "Wagerproof v${BuildConfig.VERSION_NAME}",
             modifier = Modifier.padding(horizontal = Spacing.lg),
         ) {
             MenuRow("Privacy Policy", AppIcon.LOCK_SHIELD_FILL.imageVector, showChevron = false) { uriHandler.openUri(PRIVACY_URL) }

@@ -50,6 +50,21 @@ data class SportTool(
                 ),
             ),
             GamesStore.Sport.mlb to listOf(
+                // Trends first, matching iOS's MLB tool order — MLB is the only
+                // in-season sport, so this banner is the app's entry point to
+                // Historical Trends for most of the year.
+                SportTool(
+                    id = "mlb-historical-trends", sport = GamesStore.Sport.mlb,
+                    title = "MLB Historical Trends", subtitle = "Situational hit rates, F5, matching games",
+                    actionWord = "Open",
+                    primaryColor = Color(0xFF3B82F6), secondaryColor = Color(0xFF4ADE80),
+                    // "baseball" not iOS's "baseball.fill": AppIcon has no `.fill`
+                    // variant for it, and an unmapped name silently renders as a
+                    // sparkle in the drift field.
+                    symbols = listOf("chart.bar.fill", "chart.line.uptrend.xyaxis", "baseball", "percent", "calendar", "arrow.up.arrow.down", "clock.fill", "chart.xyaxis.line", "bolt.fill", "star.fill"),
+                    seed = 0.48, speedFactor = 0.99, yJitter = -0.02f,
+                    category = OutliersStore.Category.mlbHistoricalAnalysis,
+                ),
                 SportTool(
                     id = "mlb-regression-report", sport = GamesStore.Sport.mlb,
                     title = "MLB Regression Report", subtitle = "AI narrative + suggested picks",

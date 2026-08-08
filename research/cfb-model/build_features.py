@@ -312,6 +312,7 @@ def main():
                     "gameIndoors": "wx_indoors"}
             w = w[[c for c in keep if c in w.columns]].rename(columns=keep)
             wx_frames.append(w)
+    wx_frames = [w for w in wx_frames if "game_id" in w.columns and len(w)]
     if wx_frames:
         wx = pd.concat(wx_frames, ignore_index=True).drop_duplicates("game_id")
         gm = gm.merge(wx, on="game_id", how="left")

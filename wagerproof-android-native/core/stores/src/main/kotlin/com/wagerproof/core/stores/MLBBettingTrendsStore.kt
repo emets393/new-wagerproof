@@ -1,15 +1,19 @@
 package com.wagerproof.core.stores
 
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.wagerproof.core.models.MLBGameTrends
 import com.wagerproof.core.models.MLBSituationalTrendRow
+import com.wagerproof.core.models.MLBTrendsInsight
 import com.wagerproof.core.models.MLBTrendsSortMode
+import com.wagerproof.core.models.TrendsInsightSummary
 import com.wagerproof.core.models.serialization.FlexibleIntOrZeroSerializer
 import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.SupabaseClients
+import com.wagerproof.core.services.runCatchingCancellable
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
@@ -42,8 +46,45 @@ class MLBBettingTrendsStore {
 
     fun close() = scope.cancel()
 
+    // Derived caches keyed by the slate itself — `games` is the only input, so a
+    // refresh rebuilds the index and drops the memo below. Mirrors iOS
+    // MLBBettingTrendsStore.swift:30-61 (gameIndex + summaryCache).
+    private val gameIndexState = derivedStateOf {
+        // First-wins on a duplicate game_pk, matching the previous `firstOrNull`.
+        val index = LinkedHashMap<Int, MLBGameTrends>(games.size)
+        for (game in games) if (!index.containsKey(game.gamePk)) index[game.gamePk] = game
+        index
+    }
+
+    // Plain map, not snapshot state: the MLB sheet reads this from a composable
+    // body and writing observable state during composition is illegal. A new
+    // slate produces a new index instance, which clears the memo.
+    private val summaryCache = HashMap<Int, TrendsInsightSummary>()
+    private var summaryCacheSource: Map<Int, MLBGameTrends>? = null
+
     /** Per-game lookup for the MLB game-sheet widget. */
-    fun trends(gamePk: Int): MLBGameTrends? = games.firstOrNull { it.gamePk == gamePk }
+    fun trends(gamePk: Int): MLBGameTrends? = gameIndexState.value[gamePk]
+
+    /**
+     * Memoized [MLBTrendsInsight.summary] for one game.
+     *
+     * The MLB sheet reads this several times per pass (the moneyline and total
+     * cards each read their signal slice, plus the trends card), and each
+     * uncached run rebuilds 28 signal closures, 7 formatted pairs and a full
+     * verdict pass. Memoizing means one computation per slate.
+     */
+    fun summary(gamePk: Int): TrendsInsightSummary? {
+        val index = gameIndexState.value
+        if (summaryCacheSource !== index) {
+            summaryCache.clear()
+            summaryCacheSource = index
+        }
+        summaryCache[gamePk]?.let { return it }
+        val game = index[gamePk] ?: return null
+        val built = MLBTrendsInsight.summary(game)
+        summaryCache[gamePk] = built
+        return built
+    }
 
     /**
      * Idempotent hydrate — skips the network while a fetch is in flight or when
@@ -63,7 +104,7 @@ class MLBBettingTrendsStore {
         try {
             val cfb = SupabaseClients.cfb
             // Primary: today's slate.
-            var rows: List<MLBSituationalTrendRow> = runCatching {
+            var rows: List<MLBSituationalTrendRow> = runCatchingCancellable {
                 cfb.from("mlb_situational_trends_today")
                     .select {
                         order("game_date_et", Order.ASCENDING)
@@ -73,7 +114,7 @@ class MLBBettingTrendsStore {
             }.getOrDefault(emptyList())
 
             if (rows.isEmpty()) {
-                rows = runCatching {
+                rows = runCatchingCancellable {
                     cfb.from("mlb_situational_trends")
                         .select {
                             order("game_date_et", Order.ASCENDING)
@@ -117,7 +158,7 @@ class MLBBettingTrendsStore {
             // Pull game_time_et from `mlb_games_today` for the trends slate.
             val pks = combined.map { it.gamePk }
             if (pks.isNotEmpty()) {
-                val timeRows: List<TimeRow> = runCatching {
+                val timeRows: List<TimeRow> = runCatchingCancellable {
                     cfb.from("mlb_games_today")
                         .select(columns = Columns.raw("game_pk, game_time_et")) {
                             filter { isIn("game_pk", pks) }

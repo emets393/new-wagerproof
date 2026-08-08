@@ -1,6 +1,8 @@
 package com.wagerproof.core.stores
 
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -19,6 +21,7 @@ import com.wagerproof.core.services.MLBTrendsEngine
 import com.wagerproof.core.services.NFLTeamsService
 import com.wagerproof.core.services.NFLTrendsEngine
 import com.wagerproof.core.services.OutliersTrendsService
+import kotlinx.coroutines.CancellationException
 
 @Stable
 class OutliersTrendsStore {
@@ -92,6 +95,13 @@ class OutliersTrendsStore {
             )
             lastRefreshedAt = System.currentTimeMillis()
             isLoadingTrends = false
+        } catch (cancellation: CancellationException) {
+            // Tab teardown / sport switch mid-fetch — not a data failure. Fall
+            // back to Idle so the next appearance re-fetches, and rethrow so
+            // the parent job sees the child as cancelled.
+            isLoadingTrends = false
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             isLoadingTrends = false
             val message = e.message ?: e.toString()
@@ -108,25 +118,40 @@ class OutliersTrendsStore {
     /**
      * Cards grouped into per-bet-type carousels, honoring the active sport/subject/matchup filters.
      * Market is the layout axis, so the engines run unfiltered by market and we bucket the result.
+     *
+     * Memoized: the trend engines run with `visibleLimit = Int.MAX_VALUE` over
+     * the whole slate, and the Outliers screen reads this from a composable
+     * body, so an uncached getter re-runs the entire engine on every
+     * recomposition. iOS caches the same value behind `MarketSectionsCacheKey`
+     * (OutliersTrendsStore.swift:27-37, 122-180); `derivedStateOf` is the
+     * Compose equivalent and additionally keeps callers subscribed to the
+     * `sport` / `matchupFilter` / `subject` / card state it reads.
      */
-    val marketSections: List<OutliersTrendsMarketSection>
-        get() {
-            if (!sport.hasTrendsData) return emptyList()
-
-            val source: List<OutliersTrendsCard>
-            if (sport == OutliersTrendsSport.MLB) {
-                val bundle = mlbBundle ?: return emptyList()
-                source = MLBTrendsEngine.buildCards(
-                    bundle = bundle,
-                    gameFilter = matchupFilter,
-                    subject = subject,
-                    gameMarket = OutliersTrendsGameMarket.ALL,
-                    visibleLimit = Int.MAX_VALUE,
-                )
+    private val marketSectionsState: State<List<OutliersTrendsMarketSection>> = derivedStateOf {
+        if (!sport.hasTrendsData) {
+            emptyList()
+        } else if (sport == OutliersTrendsSport.MLB) {
+            val bundle = mlbBundle
+            if (bundle == null) {
+                emptyList()
             } else {
-                if (precomputedCards.isEmpty()) return emptyList()
+                OutliersTrendsMarketSection.sections(
+                    cards = MLBTrendsEngine.buildCards(
+                        bundle = bundle,
+                        gameFilter = matchupFilter,
+                        subject = subject,
+                        gameMarket = OutliersTrendsGameMarket.ALL,
+                        visibleLimit = Int.MAX_VALUE,
+                    ),
+                    cap = sectionCardCap,
+                )
+            }
+        } else if (precomputedCards.isEmpty()) {
+            emptyList()
+        } else {
+            OutliersTrendsMarketSection.sections(
                 // Carousels scroll horizontally, so show every player — no per-team overflow capping.
-                source = NFLTrendsEngine.filterPrecomputedCards(
+                cards = NFLTrendsEngine.filterPrecomputedCards(
                     cards = precomputedCards,
                     games = slateGames,
                     sport = sport,
@@ -136,11 +161,13 @@ class OutliersTrendsStore {
                     propMarket = OutliersTrendsPropMarket.ALL,
                     includeAllPlayers = true,
                     visibleLimit = Int.MAX_VALUE,
-                )
-            }
-
-            return OutliersTrendsMarketSection.sections(cards = source, cap = sectionCardCap)
+                ),
+                cap = sectionCardCap,
+            )
         }
+    }
+
+    val marketSections: List<OutliersTrendsMarketSection> get() = marketSectionsState.value
 
     // MARK: - Search index
     //
@@ -184,6 +211,8 @@ class OutliersTrendsStore {
                         includeAllPlayers = true, visibleLimit = Int.MAX_VALUE,
                     )
                     all += flat.map { OutliersTrendsSearchEntry(card = it, sport = s, game = gamesById[it.gameId]) }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
                 } catch (e: Exception) {
                     // Skip this sport — search still covers whatever else loaded.
                 }
@@ -201,7 +230,10 @@ class OutliersTrendsStore {
                     visibleLimit = Int.MAX_VALUE,
                 )
                 all += flat.map { OutliersTrendsSearchEntry(card = it, sport = OutliersTrendsSport.MLB, game = gamesById[it.gameId]) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (e: Exception) {
+                // Skip MLB — search still covers whatever else loaded.
             }
 
             searchIndex = all

@@ -2,11 +2,13 @@ package com.wagerproof.app.features.agents
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.wagerproof.app.features.agents.components.TopAgentPicksFeed
 import com.wagerproof.core.models.TopAgentPickFeedRow
 import com.wagerproof.core.stores.FavoriteAgentsStore
+import com.wagerproof.core.stores.LoadState
 import com.wagerproof.core.stores.TopAgentPicksFeedStore
 
 /**
@@ -26,11 +28,17 @@ fun TopAgentPicksFeedContainer(
 ) {
     val store = remember { TopAgentPicksFeedStore() }
     val favorites = remember { FavoriteAgentsStore() }
+    val isFirstBind = remember { mutableStateOf(true) }
 
-    // Rebind + refresh whenever the viewer changes (also fires the first refresh).
+    // iOS splits this in two: `.task` guards the FIRST fetch with `if case
+    // .idle`, and only a real viewer change refreshes unconditionally
+    // (AgentsView+TopPicks.swift:94-98). A single unguarded effect here refetched
+    // a feed the store had already loaded every time this container remounted.
     LaunchedEffect(viewerUserId) {
         store.bind(viewerUserId)
-        store.refresh()
+        val isInitial = isFirstBind.value
+        isFirstBind.value = false
+        if (!isInitial || store.loadState is LoadState.Idle) store.refresh()
     }
 
     TopAgentPicksFeed(

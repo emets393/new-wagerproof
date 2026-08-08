@@ -14,6 +14,7 @@ import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.shared.AppGroup
 import com.wagerproof.core.shared.AppGroupKey
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -110,6 +111,10 @@ class RevenueCatStore {
 
     /** Identify a Supabase user with RevenueCat. Called from the auth lifecycle handler. */
     suspend fun attachUser(userId: String) {
+        prepareUserIdentity(userId)
+        isLoading = true
+        hasResolvedActiveUserEntitlement = false
+        lastError = null
         // Defensive self-bootstrap makes auth attachment safe even if a future
         // entry point invokes it before AppGraph.bootstrap().
         if (!isInitialized) bootstrap()
@@ -118,8 +123,6 @@ class RevenueCatStore {
             isLoading = false
             return
         }
-        currentUserId = userId
-        isLoading = true
         try {
             val result = RevenueCatService.logIn(userId)
             apply(result.customerInfo, CustomerInfoSource.Login)
@@ -128,6 +131,9 @@ class RevenueCatStore {
             // Only on the success path — a failed login keeps stale state and the
             // paywall predicate should keep waiting rather than fire on pre-login data.
             hasResolvedActiveUserEntitlement = true
+        } catch (cancellation: CancellationException) {
+            isLoading = false
+            throw cancellation
         } catch (e: Throwable) {
             lastError = e.localizedMessage ?: e.message
             // Never downgrade paying users on a network blip; only lift from `unknown`.
@@ -138,15 +144,47 @@ class RevenueCatStore {
         isLoading = false
     }
 
+    /**
+     * Synchronously invalidate account A before the first suspension in the
+     * account-B attach flow. RootHost uses the return value to blank cached
+     * widget RemoteViews before RevenueCat performs network work.
+     */
+    fun prepareUserIdentity(userId: String): Boolean {
+        if (currentUserId == userId) return false
+        currentUserId = userId
+        customerInfo = null
+        entitlementStatus = EntitlementStatus.Unknown
+        subscriptionType = null
+        hasResolvedActiveUserEntitlement = false
+        StorePrefs.appGroup.edit()
+            .putBoolean(AppGroupKey.PRO_ENTITLEMENT_GRANTED, false)
+            .remove(AppGroupKey.PRO_SUBSCRIPTION_TYPE)
+            .apply()
+        return true
+    }
+
     /** Reset back to an anonymous RC user. Called on Supabase sign-out. */
     suspend fun detachUser() {
-        currentUserId = null
-        if (isInitialized) RevenueCatService.logOut()
-        customerInfo = null
-        entitlementStatus = EntitlementStatus.Denied
-        subscriptionType = null
-        isLoading = false
-        hasResolvedActiveUserEntitlement = false
+        try {
+            if (isInitialized) RevenueCatService.logOut()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            // Supabase sign-out is authoritative. A RevenueCat transport error
+            // must not leave account A's local entitlement attached to the
+            // now-anonymous app or its home-screen widgets.
+        } finally {
+            currentUserId = null
+            customerInfo = null
+            entitlementStatus = EntitlementStatus.Denied
+            subscriptionType = null
+            isLoading = false
+            hasResolvedActiveUserEntitlement = false
+            StorePrefs.appGroup.edit()
+                .putBoolean(AppGroupKey.PRO_ENTITLEMENT_GRANTED, false)
+                .remove(AppGroupKey.PRO_SUBSCRIPTION_TYPE)
+                .apply()
+        }
     }
 
     /** Force-refresh customer info from RC servers. Trusted source — may downgrade granted→denied. */
@@ -160,6 +198,8 @@ class RevenueCatStore {
             apply(info, CustomerInfoSource.Refresh)
             lastError = null
             hasResolvedActiveUserEntitlement = true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Throwable) {
             lastError = e.localizedMessage ?: e.message
             if (entitlementStatus == EntitlementStatus.Unknown) entitlementStatus = EntitlementStatus.Denied
@@ -244,6 +284,8 @@ class RevenueCatStore {
                     )
                 }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Throwable) {
             val message = e.localizedMessage?.takeIf { it.isNotBlank() }
                 ?: "We couldn't redeem this purchase. Please try again."
@@ -259,6 +301,8 @@ class RevenueCatStore {
     suspend fun refreshOffering() {
         offering = try {
             RevenueCatService.currentOffering()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: Throwable) {
             null
         }
@@ -266,6 +310,8 @@ class RevenueCatStore {
 
     suspend fun fetchOffering(placementId: String): Offering? = try {
         RevenueCatService.offering(placementId)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
     } catch (e: Throwable) {
         null
     }

@@ -2,11 +2,16 @@ package com.wagerproof.app.features.onboarding.cinematic
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +41,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,12 +66,10 @@ import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.agents.components.AgentPickTicket
 import com.wagerproof.app.features.agents.components.AgentRowCard
 import com.wagerproof.app.features.agents.components.GenerationLoadingBar
+import com.wagerproof.app.features.agents.components.WorkingDeskAvatar
 import com.wagerproof.app.features.onboarding.components.onboardingIcon
 import com.wagerproof.app.features.onboarding.LocalOnboardingReduceMotion
-import com.wagerproof.app.features.onboarding.onboardingPressable
 import com.wagerproof.core.design.backgrounds.GlyphRippleEmitter
-import com.wagerproof.core.design.components.liquidGlassBackground
-import com.wagerproof.core.design.pixeloffice.PixelSpriteAvatar
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.Agent
 import com.wagerproof.core.models.AgentPick
@@ -244,37 +249,55 @@ fun OnboardingGenerationCinematic(model: OnboardingGenesisModel?, accent: Color,
         modifier.fillMaxSize().alpha(if (model?.isFinale == true) 0f else 1f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(Modifier.height(180.dp).fillMaxWidth().padding(horizontal = 28.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.weight(0.55f))
+        Column(
+            Modifier.height(132.dp).fillMaxWidth().padding(horizontal = 28.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
             model?.statusLines.orEmpty().forEachIndexed { index, line ->
-                Text(line.text, color = Color.White.copy(alpha = max(0.3f, 1f - index * 0.24f)), fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                key(line.id) {
+                    val visibleState = remember(line.id) {
+                        MutableTransitionState(false).apply { targetState = true }
+                    }
+                    AnimatedVisibility(
+                        visibleState = visibleState,
+                        enter = fadeIn(tween(280)) + slideInVertically(tween(360)) { -it },
+                    ) {
+                        Text(
+                            line.text,
+                            color = Color.White.copy(alpha = max(0.3f, 1f - index * 0.24f)),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        )
+                    }
+                }
             }
         }
-        Spacer(Modifier.weight(1f))
         WorkingDeskAvatar(store.agentDraft.spriteIndex ?: 0, accent)
         Row(Modifier.padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             GlyphMatrix(accent)
             Text("Building $name...", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1)
         }
         GenerationLoadingBar(model?.progressFraction ?: 0f, accent, Modifier.width(220.dp).padding(top = 14.dp))
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.weight(0.45f))
         ToolTicketStack(model?.toolCallCount ?: 0, accent, Modifier.fillMaxWidth().height(190.dp).padding(horizontal = 24.dp, vertical = 24.dp))
     }
 }
 
 @Composable
-private fun WorkingDeskAvatar(spriteIndex: Int, accent: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(150.dp), contentAlignment = Alignment.BottomCenter) {
-            Box(Modifier.width(142.dp).height(62.dp).background(Color(0xFF1A1D24), RoundedCornerShape(12.dp)).border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(12.dp)))
-            PixelSpriteAvatar(spriteIndex, Modifier.size(130.dp).padding(bottom = 22.dp))
-            Box(Modifier.width(148.dp).height(14.dp).background(Color(0xFF333844), RoundedCornerShape(5.dp)).align(Alignment.BottomCenter))
-        }
-    }
-}
-
-@Composable
 private fun GlyphMatrix(accent: Color) {
-    Canvas(Modifier.size(28.dp)) {
+    val rotation by rememberInfiniteTransition(label = "buildingGlyph")
+        .animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(tween(2_800), RepeatMode.Restart),
+            label = "buildingGlyphRotation",
+        )
+    Canvas(Modifier.size(28.dp).rotate(rotation)) {
         val step = size.width / 3f
         repeat(3) { row -> repeat(3) { col -> drawCircle(accent.copy(alpha = 0.35f + (row + col) * 0.09f), radius = 2.8f, center = Offset((col + 0.5f) * step, (row + 0.5f) * step)) } }
     }
@@ -345,14 +368,16 @@ fun OnboardingRevealView(model: OnboardingGenesisModel?, accent: Color, modifier
                 }
             }
         }
-        Box(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp).height(60.dp).liquidGlassBackground(CircleShape, Color.White.copy(alpha = 0.92f)).onboardingPressable(store::markComplete),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("See everything", color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("→", color = Color.Black, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            }
-        }
+        CinematicCtaButton(
+            label = "See everything",
+            trailingGlyph = "→",
+            onClick = store::advance,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 24.dp),
+        )
     }
 }

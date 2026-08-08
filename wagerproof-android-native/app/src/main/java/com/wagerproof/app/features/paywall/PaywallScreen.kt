@@ -34,6 +34,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.revenuecat.purchases.CustomerInfo
 import com.revenuecat.purchases.Offering
+import com.revenuecat.purchases.Package
 import com.revenuecat.purchases.models.StoreTransaction
 import com.revenuecat.purchases.ui.revenuecatui.Paywall
 import com.revenuecat.purchases.ui.revenuecatui.PaywallListener
@@ -43,6 +44,8 @@ import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppTypography
 import com.wagerproof.core.design.tokens.Spacing
+import com.wagerproof.core.services.AnalyticsService
+import com.wagerproof.core.services.PaywallConversionTracker
 import com.wagerproof.core.services.RevenueCatService
 import kotlinx.coroutines.launch
 
@@ -57,9 +60,12 @@ import kotlinx.coroutines.launch
  * On purchase / restore completion we refresh the RevenueCat store so the rest
  * of the app re-renders with the granted entitlement, then dismiss.
  *
- * FIDELITY-WAIVER #052: Mixpanel paywall events (`paywall_presented`,
- * `paywall_dismissed`, `paywall_converted`) not yet fired — analytics fan-out
- * lands when AnalyticsStore wires the global event bus.
+ * Every in-app Pro gate (Settings, Developer Settings, [ProFeatureGate],
+ * [ProContentSection], [LockedGameCard], [LockedOverlay]) funnels through this
+ * screen, so the attribution fan-out here covers all of them. It goes through
+ * [PaywallConversionTracker] rather than calling MetaAnalyticsService inline —
+ * the tracker owns order-id dedup, which is what makes it safe for several
+ * surfaces to report the same purchase.
  */
 @Composable
 fun PaywallScreen(
@@ -86,6 +92,21 @@ fun PaywallScreen(
         }
     }
 
+    // Impression: once per presentation, and only once the offering resolved —
+    // Meta's ViewContent carries the highlighted plan's price as a pre-purchase
+    // value signal, so firing before we know the price is worthless.
+    var didTrackPresented by remember(placementId) { mutableStateOf(false) }
+    LaunchedEffect(placementId, loadState, offering) {
+        val current = offering
+        if (didTrackPresented || loadState != LoadState.Ready || current == null) return@LaunchedEffect
+        didTrackPresented = true
+        AnalyticsService.track(
+            "paywall_presented",
+            mapOf("source" to placementId, "variant" to "revenuecat_template"),
+        )
+        PaywallConversionTracker.trackPaywallView(source = placementId, offering = current)
+    }
+
     // Refresh the trusted entitlement snapshot then dismiss so downstream Pro
     // gating updates immediately after a purchase / restore.
     fun finalizeAndDismiss() {
@@ -95,13 +116,21 @@ fun PaywallScreen(
         }
     }
 
+    fun dismissTracked(result: String) {
+        AnalyticsService.track(
+            "paywall_dismissed",
+            mapOf("source" to placementId, "result" to result),
+        )
+        onDismiss()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(AppColors.appSurface)
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        PaywallHeader(title = "Upgrade to WagerProof Pro", onDismiss = onDismiss)
+        PaywallHeader(title = "Upgrade to WagerProof Pro", onDismiss = { dismissTracked("closed") })
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (val state = loadState) {
                 LoadState.Loading -> LoadingState()
@@ -122,18 +151,53 @@ fun PaywallScreen(
                         // RECONCILE: verify against RevenueCatUI 9.7.0 —
                         // PaywallOptions.Builder(dismissRequest), .setOffering,
                         // .setListener, .setShouldDisplayDismissButton, .build().
-                        PaywallOptions.Builder(dismissRequest = onDismiss)
+                        PaywallOptions.Builder(dismissRequest = { dismissTracked("closed") })
                             .setOffering(current)
                             .setShouldDisplayDismissButton(false)
                             .setListener(object : PaywallListener {
+                                override fun onPurchaseStarted(rcPackage: Package) {
+                                    AnalyticsService.track(
+                                        "paywall_checkout_started",
+                                        mapOf(
+                                            "source" to placementId,
+                                            "variant" to "revenuecat_template",
+                                            "product_id" to rcPackage.product.id,
+                                        ),
+                                    )
+                                    // Before Play Billing resolves, so an
+                                    // abandoned billing sheet still counts.
+                                    PaywallConversionTracker.trackCheckoutStarted(
+                                        source = placementId,
+                                        pkg = rcPackage,
+                                    )
+                                }
+
                                 override fun onPurchaseCompleted(
                                     customerInfo: CustomerInfo,
                                     storeTransaction: StoreTransaction,
                                 ) {
+                                    AnalyticsService.track(
+                                        "paywall_converted",
+                                        mapOf("source" to placementId, "variant" to "revenuecat_template"),
+                                    )
+                                    // These conversions were previously invisible
+                                    // to Meta entirely — only the onboarding
+                                    // paywall reported anything.
+                                    PaywallConversionTracker.trackConversion(
+                                        source = placementId,
+                                        transaction = storeTransaction,
+                                        customerInfo = customerInfo,
+                                        pkg = null,
+                                        offering = current,
+                                    )
                                     finalizeAndDismiss()
                                 }
 
                                 override fun onRestoreCompleted(customerInfo: CustomerInfo) {
+                                    AnalyticsService.track(
+                                        "paywall_restore_completed",
+                                        mapOf("source" to placementId),
+                                    )
                                     finalizeAndDismiss()
                                 }
                             })

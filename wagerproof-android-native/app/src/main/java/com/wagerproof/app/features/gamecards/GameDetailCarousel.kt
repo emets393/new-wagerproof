@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -27,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -49,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import com.wagerproof.core.design.components.LiquidGlassCapsule
 import com.wagerproof.core.design.tokens.AppColors
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -70,9 +75,14 @@ fun <G> GameDetailCarousel(
 ) {
     if (games.isEmpty()) return
     val density = LocalDensity.current
-    val safeInsets = WindowInsets.safeDrawing
-    val safeTop = with(density) { safeInsets.getTop(density).toDp() }
-    val safeBottom = with(density) { safeInsets.getBottom(density).toDp() }
+    // Bars + cutout, NOT safeDrawing: safeDrawing folds in the IME, so opening a
+    // game from Search with the keyboard still up pushed the bottom strip (and
+    // every page's bottom padding) a keyboard's height up the screen. A keyboard
+    // must never move this chrome — iOS reads the container safe area, which is
+    // the home indicator only.
+    val barInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
+    val safeTop = with(density) { barInsets.getTop(density).toDp() }
+    val safeBottom = with(density) { barInsets.getBottom(density).toDp() }
     val pagerState = rememberPagerState(
         initialPage = initialIndex.coerceIn(0, games.lastIndex),
         pageCount = { games.size },
@@ -126,7 +136,9 @@ fun <G> GameDetailCarousel(
         if (games.size > 1) {
             MatchupChipStrip(
                 games = games,
-                currentIndex = pagerState.currentPage,
+                // Passed as a lambda so each chip reads the pager's page inside
+                // its OWN composition — see MatchupChipStrip.
+                currentIndex = { pagerState.currentPage },
                 chip = chip,
                 onSelect = { idx -> scope.launch { pagerState.animateScrollToPage(idx) } },
                 modifier = Modifier
@@ -140,16 +152,44 @@ fun <G> GameDetailCarousel(
 @Composable
 private fun <G> MatchupChipStrip(
     games: List<G>,
-    currentIndex: Int,
+    currentIndex: () -> Int,
     chip: @Composable (game: G, selected: Boolean, onTap: () -> Unit) -> Unit,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffect(currentIndex) {
-        listState.animateScrollToItem(currentIndex.coerceIn(0, games.lastIndex))
+    // snapshotFlow, not LaunchedEffect(index): the strip itself never has to
+    // recompose to follow the pager, and the flow re-collects on every settled
+    // page even though the lambda identity is stable.
+    LaunchedEffect(listState, games.size) {
+        var firstEmission = true
+        snapshotFlow { currentIndex().coerceIn(0, games.lastIndex) }.collect { idx ->
+            // Centering needs a measured viewport; on the opening frame there
+            // isn't one yet.
+            if (listState.layoutInfo.viewportEndOffset == 0) {
+                snapshotFlow { listState.layoutInfo.viewportEndOffset }.first { it > 0 }
+            }
+            val offset = listState.centerOffsetFor(idx)
+            // iOS lands the opening matchup with a plain `scrollTo` and animates
+            // only later changes (GameDetailCarousel.swift `.task` vs `.onChange`).
+            if (firstEmission) {
+                firstEmission = false
+                listState.scrollToItem(idx, offset)
+            } else {
+                listState.animateScrollToItem(idx, offset)
+            }
+        }
     }
-    LiquidGlassCapsule(modifier.height(44.dp)) {
+    LiquidGlassCapsule(
+        modifier = modifier.height(44.dp),
+        // The strip floats above independently scrolling game-detail cards.
+        // Haze alone lets too much of those cards show through, visually merging
+        // the switcher with the content beneath it. Keep the glass treatment,
+        // but give this navigation surface a near-opaque base. It goes through
+        // `scrim` because a .background() chained here would be painted UNDER
+        // hazeEffect and never appear.
+        scrim = AppColors.appSurfaceElevated.copy(alpha = MatchupStripSurfaceAlpha),
+    ) {
         LazyRow(
             state = listState,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
@@ -157,11 +197,37 @@ private fun <G> MatchupChipStrip(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             itemsIndexed(games) { idx, game ->
-                chip(game, idx == currentIndex) { onSelect(idx) }
+                // The pager's page is read HERE, inside the item, so the snapshot
+                // system invalidates each chip directly. Capturing the index in
+                // the LazyRow content lambda instead left chips that were
+                // composed as the strip scrolled holding the previous page, so
+                // after a swipe no chip was marked current at all.
+                chip(game, idx == currentIndex()) { onSelect(idx) }
             }
         }
     }
 }
+
+internal const val MatchupStripSurfaceAlpha = 0.92f
+
+/**
+ * Scroll offset that lands [index] in the middle of the strip rather than at its
+ * leading edge — iOS scrolls the current chip with `anchor: .center`.
+ */
+private fun LazyListState.centerOffsetFor(index: Int): Int {
+    val info = layoutInfo
+    val visible = info.visibleItemsInfo
+    val itemSize = visible.firstOrNull { it.index == index }?.size
+        // Off-screen target: every chip is the same shape, so any visible one
+        // estimates it well enough to center within a few pixels.
+        ?: visible.takeIf { it.isNotEmpty() }?.map { it.size }?.average()?.toInt()
+        ?: return 0
+    return matchupStripCenterOffset(info.viewportEndOffset - info.viewportStartOffset, itemSize)
+}
+
+/** Pure half of [centerOffsetFor], split out so the math is unit-testable. */
+internal fun matchupStripCenterOffset(viewport: Int, itemSize: Int): Int =
+    if (viewport <= 0) 0 else -((viewport - itemSize) / 2)
 
 /**
  * Matchup chip: awayLogo + "AWY @ HOM" + homeLogo. Current game = appPrimary
@@ -195,7 +261,13 @@ fun CarouselMatchupChip(
     ) {
         GameCardTeamAvatar(sport = sport, team = awayAbbr, diameter = 18.dp, logoURL = awayLogoURL)
         Spacer(Modifier.width(5.dp))
-        Text("$awayAbbr @ $homeAbbr", color = AppColors.appTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(
+            "$awayAbbr @ $homeAbbr",
+            // iOS dims the label on non-current matchups too, not just the capsule.
+            color = if (selected) AppColors.appTextPrimary else AppColors.appTextSecondary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+        )
         Spacer(Modifier.width(5.dp))
         GameCardTeamAvatar(sport = sport, team = homeAbbr, diameter = 18.dp, logoURL = homeLogoURL)
     }

@@ -2,7 +2,6 @@ package com.wagerproof.app.features.agents.components
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -31,18 +30,18 @@ fun GlowingCardWrapper(
     val vividBrush = Brush.linearGradient(listOf(color, secondary))
 
     Box(modifier = modifier) {
-        // Halo rings sit behind the content, bleeding 3dp past its bounds.
+        // Halo rings sit behind the content. Compose rejects negative padding
+        // at runtime, so the blur provides the visual bleed outside the tight
+        // border without trying to expand the ring with an invalid -3dp inset.
         Box(
             Modifier
                 .matchParentSize()
-                .padding((-3).dp)
                 .blur(6.dp)
                 .border(4.dp, softBrush, RoundedCornerShape(cornerRadius + 4.dp)),
         )
         Box(
             Modifier
                 .matchParentSize()
-                .padding((-3).dp)
                 .blur(1.dp)
                 .border(1.dp, vividBrush, RoundedCornerShape(cornerRadius + 2.dp)),
         )

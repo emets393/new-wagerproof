@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -165,6 +166,16 @@ internal fun miniReasoningSnippet(reasoning: String, keyFactors: List<String>?):
 fun Modifier.miniTicketCardstock(notchY: Dp): Modifier {
     val shape = pickTicketShape(notchY = notchY, corner = 18.dp, notchRadius = 7.dp)
     return this
+        // Drop shadow lifts the ticket off the aura (iOS: black 0.45, r10, y5). Cast
+        // from the plain rounded rect, not the notched path — Android only renders
+        // elevation shadows for convex outlines, and iOS shadows the clipped shape too.
+        .shadow(
+            elevation = 10.dp,
+            shape = RoundedCornerShape(18.dp),
+            clip = false,
+            ambientColor = Color.Black.copy(alpha = 0.45f),
+            spotColor = Color.Black.copy(alpha = 0.45f),
+        )
         .liquidGlassBackground(shape)
         .background(
             Brush.verticalGradient(
@@ -201,6 +212,13 @@ fun MiniPickStamp(
 /**
  * Today's picks as a horizontal rail. No scroll dots — the peeking trailing
  * ticket is the affordance. Tapping a ticket fires the matching callback.
+ *
+ * Edge-bleed contract: the rail spans the FULL page width and carries the section
+ * inset itself as `contentPadding`, so tickets scroll under the screen edge while
+ * the first one still lines up with the section header. Hosts must not add their
+ * own horizontal padding around it. Card shadows survive the scroll container's
+ * clip because Compose inflates a horizontal scrollable's clip rect vertically by
+ * `MaxSupportedElevation` (30dp) — the counterpart of iOS `.scrollClipDisabled()`.
  */
 @Composable
 fun AgentTodaysPicksRail(
@@ -234,6 +252,7 @@ fun AgentTodaysPicksRail(
 
 // MARK: - Skeleton rail
 
+/** Same full-width edge-bleed contract as [AgentTodaysPicksRail]. */
 @Composable
 fun AgentTodaysPicksRailSkeleton(
     modifier: Modifier = Modifier,
@@ -300,6 +319,7 @@ fun AgentPickMiniTicketSkeleton(modifier: Modifier = Modifier) {
 
 // MARK: - Locked rail
 
+/** Same full-width edge-bleed contract as [AgentTodaysPicksRail]. */
 @Composable
 fun AgentLockedPicksRail(
     accent: Color,
