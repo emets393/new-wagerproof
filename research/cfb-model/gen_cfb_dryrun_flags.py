@@ -341,8 +341,15 @@ if WEEK == 1 and os.path.exists(_rsp2):
 _cap = "data/cfbd/core_asof.parquet"
 if WEEK >= 5 and os.path.exists(_cap):
     _ca = pd.read_parquet(_cap)
-    _ca = _ca[(_ca.season == SEASON) & (_ca.thru_week == WEEK - 1)].set_index("team")
+    # Freshest snapshot <= WEEK-1 (not an exact match): the live feed is written by
+    # fetch_preseason_ratings from CFBD's latest, and a one-week CFBD lag should degrade
+    # to a staler-but-valid snapshot, not silently disable the signal. Floor of 4 played
+    # weeks preserved (the backtest never fired on thinner data).
+    _ca = _ca[(_ca.season == SEASON) & (_ca.thru_week <= WEEK - 1) & (_ca.thru_week >= 4)]
     if len(_ca):
+        _tw = int(_ca.thru_week.max())
+        _ca = _ca[_ca.thru_week == _tw].set_index("team")
+        print(f"  [core_total_edge] using as-of CORE thru wk{_tw} ({len(_ca)} teams)")
         B_OFF, B_DEF, B0 = 0.2285, 0.2547, 53.95   # frozen lstsq betas (2021-25, n=2708)
         for _, r in te.iterrows():
             if pd.isna(r.total_close):
