@@ -68,4 +68,54 @@ passing parquets, `player_offense` game logs, per-market model feature sets
 
 ---
 
+## Agents: migrate the V3 loop to OpenAI `/v1/responses` (deferred fix, added 2026-08-07)
+
+OpenAI's 8/5 change made `gpt-5.6*` reject function tools on `/v1/chat/completions` unless
+`reasoning_effort='none'`. The pin (agents-v3 deploy `20260805.2`) restored service but turns model
+deliberation OFF: output tokens halved (5.3k → 2.7k/run), tool calls −25% (19.4 → 14.5), runs
+66s → 37s. Pick rate held (~0.75/run, ~58% pass), so not urgent — but users notice 5–10s "instant"
+runs and shallow shortlists. Migrating `agents-v3/src/loop/agenticGenerationLoop.ts` to
+`/v1/responses` restores thinking + tools together. Tools/schemas unchanged; request body + SSE
+stream parsing change (`consumeChatStreamV3.ts`). Validate with dry-run generations against a live
+slate, compare tool-call depth + pick quality vs the chat-completions baseline before deploying.
+
+---
+
+## Bug: agent pick cards can't be shared anymore (added 2026-08-08)
+
+Owner report via users: sharing an agent's pick card no longer works. The share entry point
+lives in `wagerproof-ios-native/Wagerproof/Features/Agents/Components/AgentPickFocusView.swift`
+(`ShareLink`, presumably rendering the card via `ImageRenderer`) — working reference
+implementations of the same pattern: `HistoricalTrendsShareView.swift` and `RoastView.swift`.
+Repro + fix: open a pick's focus view, tap share, see what the share sheet receives (empty
+payload / failed image render / disabled button are the usual suspects). Check whether the
+last agents-UI refactor changed the focus view's data model without updating the share
+payload. Web (`src/components/agents/AgentTicketShell.tsx`) may have its own share path —
+verify both surfaces before calling it fixed.
+
+---
+
+## Signals: explicit bet direction on EVERY signal, both sports (added 2026-08-08)
+
+Owner rule (2026-08-07, from the OSU regime-fade confusion): a signal's text must SAY the
+bet — "→ bet Tulsa +12.5" — because `side=HOME/AWAY` never renders, and a source line that
+only names a team reads as *backing* that team even when it fades them. Contradicting
+signals must also RENDER against the pick (not be hidden), labeled "Contradicts this pick."
+
+**CFB: ✅ shipped.** `gen_cfb_dryrun_flags.py` appends the bet target to every flag via a
+generic `_bet_text()` post-emit (all markets: spread/total/TT/1H/ML, side-aware line flip
+for away teams); `gen_cfb_picks.py` writes `counter_signal_keys` on spread/total cards; iOS
+`CFBGameBottomSheet.swift` decodes them and synthesizes the opposite-side rows.
+
+**NFL: ⛔ NOT DONE — must ship before NFL Week 1 (Sept 10).**
+1. Port `_bet_text()` to the NFL flag generator (`dryrun_wk12_games.py` spot/flag emit) —
+   same append-last pattern so no emitter changes.
+2. Add `counter_signal_keys` to NFL pick cards (spread/total) mirroring the CFB picks
+   generator, and wire the iOS NFL sheet (`NFLGameBottomSheet.swift`) + web NFL detail
+   the same way as CFB.
+3. Audit existing NFL signal `source` strings: any that name a team they are FADING
+   without an explicit bet target are the exact failure mode this rule exists for.
+
+---
+
 *(next items appended below as decided)*
