@@ -333,6 +333,38 @@ if WEEK == 1 and os.path.exists(_rsp2):
                                f"{lo:.0f} — portal-era market overpays moderate continuity "
                                f"edges wk1 (share gap <20%)"})
 
+# ── In-season CORE total edge (owner-pushed 2026-08-08, TRACKING tier) ──
+# As-of CORE off/def -> implied total; >=4 off the close = 54.1% ALL 5 seasons
+# positive (n=1,389, core_totals_test.py). Needs as-of CORE ratings with >=4 weeks
+# of games -> fires weeks 5+ only; self-activates mid-season. Walk-forward betas
+# frozen from the 2021-25 calibration (re-freeze with the pkls).
+_cap = "data/cfbd/core_asof.parquet"
+if WEEK >= 5 and os.path.exists(_cap):
+    _ca = pd.read_parquet(_cap)
+    _ca = _ca[(_ca.season == SEASON) & (_ca.thru_week == WEEK - 1)].set_index("team")
+    if len(_ca):
+        B_OFF, B_DEF, B0 = 0.2285, 0.2547, 53.95   # frozen lstsq betas (2021-25, n=2708)
+        for _, r in te.iterrows():
+            if pd.isna(r.total_close):
+                continue
+            try:
+                ho, ao = _ca.loc[r.homeTeam], _ca.loc[r.awayTeam]
+            except KeyError:
+                continue
+            hat = B_OFF * (ho.off + ao.off) + B_DEF * (ho.dfn + ao.dfn) + B0
+            edge = hat - float(r.total_close)
+            if abs(edge) < 4:
+                continue
+            side = "OVER" if edge > 0 else "UNDER"
+            rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                         "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "total",
+                         "side": side, "line": round(float(r.total_close), 1), "price": -110,
+                         "edge": round(float(edge), 1), "conviction": "track",
+                         "tier": "tracking", "stake_units": 0.5, "grade_line": "close",
+                         "mammoth": False, "signal_key": "core_total_edge",
+                         "source": f"CORE TOTAL EDGE: context-adjusted O/D implies "
+                                   f"{hat:.1f} vs line {r.total_close:g} ({edge:+.1f})"})
+
 # ── Explicit bet target on every flag (owner rule 2026-08-07): a signal's text must
 # SAY the bet ("→ bet Tulsa +12.5"), because side=HOME/AWAY never renders and a source
 # that only names a team reads as backing that team even when it fades them (the OSU
