@@ -93,8 +93,14 @@ sanity = out[out.season == 2025].sort_values("net_prod")
 print("\n2025 lowest net_prod:", sanity[["team", "ret_share", "net_prod", "qb1_transfer"]].head(4).to_string(index=False))
 print("\n2025 highest net_prod:", sanity[["team", "ret_share", "net_prod", "qb1_transfer"]].tail(4).to_string(index=False))
 print(f"\nret_share coverage: {out.ret_share.notna().mean()*100:.0f}% | qb1_prior: {out.qb1_prior.notna().mean()*100:.0f}% | talent: {out.talent_stock.notna().mean()*100:.0f}%")
-# correlation vs the API's team-level percentPPA where both exist (validates the construction)
-pri = pd.read_parquet(Path(__file__).resolve().parent / "data" / "priors.parquet")
+# correlation vs the API's team-level percentPPA where both exist (validates the construction).
+# priors.parquet may not exist yet on an ephemeral disk (it's a committed artifact patched
+# weekly) — the validation print is optional, never fail the roster build over it.
+_prip = Path(__file__).resolve().parent / "data" / "priors.parquet"
+if not _prip.exists():
+    print("[roster] priors.parquet absent — skipping percentPPA validation print")
+    raise SystemExit(0)
+pri = pd.read_parquet(_prip)
 j = out.merge(pri[["season", "team", "ret_ppa"]], on=["season", "team"], how="inner").dropna(subset=["ret_share", "ret_ppa"])
 if len(j):
     print(f"corr(our player-built ret_share, CFBD percentPPA) = {np.corrcoef(j.ret_share, j.ret_ppa)[0,1]:+.3f} (n={len(j)})")

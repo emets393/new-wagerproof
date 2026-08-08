@@ -106,8 +106,15 @@ def main():
                     row[f"adj_{stub}_allowed"] = ad.get(t, np.nan)
                 out_rows.append(row)
         print(f"  {year}: weeks 1..{max_wk} done")
-    df = pd.DataFrame(out_rows)
     out = os.path.join(HERE, "data", "team_ratings_asof.parquet")
+    if not out_rows:
+        # Preseason on an ephemeral disk: every year in cache is empty. Write a
+        # schema-stable empty frame (downstream guards handle 0 rows) and exit clean.
+        cols = ["season", "asof_week", "team", "games_played"]
+        pd.DataFrame(columns=cols).to_parquet(out, index=False)
+        print(f"team_ratings_asof: 0 rows (preseason) -> {out}")
+        return
+    df = pd.DataFrame(out_rows)
     df.to_parquet(out, index=False)
     print(f"team_ratings_asof: {len(df)} rows ({df['team'].nunique()} teams) -> {out}")
 

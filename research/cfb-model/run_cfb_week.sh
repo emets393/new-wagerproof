@@ -60,6 +60,12 @@ step "build box-score tendencies (as-of)";                 python3 build_tendenc
 step "build per-game model frame -> model_games.parquet";  python3 build_features.py
 # team style profiles + opp DEF archetype + off_ppa (feeds the S-CFB1 style-delta UNDER flag)
 step "build team style profiles (archetypes, leak-safe)";  python3 build_football_profiles.py || true
+# Weeks 1-3: the early display blend (preseason priors + roster + CORE) -> out/cfb_early_preds CSV.
+# gen_cfb_dryrun_games/picks REQUIRE this CSV early. Best-effort: on an ephemeral disk without
+# training history the committed CSV (frozen weekly from the last local run) stays in place.
+if [ "$WEEK" -le 3 ]; then
+  step "early-week display model (wk1-3, best-effort)"; python3 cfb_early_week.py || true
+fi
 # run the LOCKED model AS A SCRIPT so it WRITES out/cfb_{predictions,bets,team_totals,h1_model}_$SEASON.csv —
 # the slate generators (gen_cfb_dryrun_games/picks/flags) read these; harness_week() alone does NOT write them.
 step "run locked CFB model -> prediction/spot/TT/1H CSVs (frozen ${SEASON} .pkl)"
