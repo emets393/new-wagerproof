@@ -15,7 +15,7 @@ gm, te, S = C.harness_week(SEASON, WEEK)
 # found 5/51 CFBD lines bad (2 sign-FLIPPED: Miami@Stanford, Coastal@WVU; 3 zero-filled read
 # as pick'em). Override te's close lines from odds_game_frame; no Odds-API line -> NaN (skip).
 _ogf = pd.read_parquet("data/odds_game_frame.parquet")
-_ogf = _ogf[_ogf.season == SEASON][["home", "away", "open_spread", "close_spread", "close_total"]]
+_ogf = _ogf[_ogf.season == SEASON][["home", "away", "open_spread", "close_spread", "open_total", "close_total"]]
 te = te.merge(_ogf, left_on=["homeTeam", "awayTeam"], right_on=["home", "away"], how="left")
 te["spread_close"] = te["close_spread"]
 te["total_close"] = te["close_total"]
@@ -356,14 +356,30 @@ if WEEK >= 5 and os.path.exists(_cap):
             if abs(edge) < 4:
                 continue
             side = "OVER" if edge > 0 else "UNDER"
+            # STEAM tier ladder (cfb_total_mammoth_dig 2026-08-08, wks5-15 2021-25):
+            #   base edge>=4 alone            54.1% 5/5 seasons  -> tracking 0.5u
+            #   + line moved >=0.5 toward us  58.1% n=353 +10.9% -> T2 active 1u
+            #   + line moved >=1.5 toward us  60.9% n=169 +16.4% -> T1 active 1.5u (MAMMOTH-
+            #     candidate; first live season before the 3u brand). >=2.5 DECAYS (55.6) —
+            #     never chase fully-moved lines.
+            ot = getattr(r, "open_total", np.nan)
+            move = (float(r.total_close) - float(ot)) if pd.notna(ot) else np.nan
+            steam = move if side == "OVER" else -move if pd.notna(move) else np.nan
+            if pd.notna(steam) and steam >= 1.5:
+                conv, tier, stake = "T1", "active", 1.5
+            elif pd.notna(steam) and steam >= 0.5:
+                conv, tier, stake = "T2", "active", 1.0
+            else:
+                conv, tier, stake = "track", "tracking", 0.5
+            stx = f", steam {steam:+.1f} toward us" if pd.notna(steam) else ""
             rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
                          "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "total",
                          "side": side, "line": round(float(r.total_close), 1), "price": -110,
-                         "edge": round(float(edge), 1), "conviction": "track",
-                         "tier": "tracking", "stake_units": 0.5, "grade_line": "close",
+                         "edge": round(float(edge), 1), "conviction": conv,
+                         "tier": tier, "stake_units": stake, "grade_line": "close",
                          "mammoth": False, "signal_key": "core_total_edge",
                          "source": f"CORE TOTAL EDGE: context-adjusted O/D implies "
-                                   f"{hat:.1f} vs line {r.total_close:g} ({edge:+.1f})"})
+                                   f"{hat:.1f} vs line {r.total_close:g} ({edge:+.1f}{stx})"})
 
 # ── Explicit bet target on every flag (owner rule 2026-08-07): a signal's text must
 # SAY the bet ("→ bet Tulsa +12.5"), because side=HOME/AWAY never renders and a source
