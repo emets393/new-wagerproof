@@ -74,6 +74,11 @@ def build():
 
 
 df = build()
+if df.empty:
+    # No game history in the frame (fresh disk before the season's archives exist). The loader
+    # below wipes-then-inserts, so bailing here keeps the app's existing rows intact.
+    print("cfb_coach_trends: no game history in frame — skipped (table untouched)")
+    raise SystemExit(0)
 print(f"cfb_coach_trends: {len(df)} head coaches | career games {df.career_games.min()}-{df.career_games.max()} "
       f"(median {int(df.career_games.median())})")
 print(df.sort_values("career_games", ascending=False)
