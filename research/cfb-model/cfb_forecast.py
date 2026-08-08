@@ -301,7 +301,10 @@ def build_season(season, week=None):
     G5 = lambda s: ~s.isin(P5)
     # SETTLED-LINE primary filter: fade only when the books AGREE (|soft_gap|<0.5). Fade works on settled lines
     # (65.1%, n=83); fails when sharp money is already moving the line (40%). Requires odds (no odds -> no fire).
-    sg = pd.to_numeric(te.get("soft_gap"), errors="coerce")
+    # te.get('soft_gap') returns a scalar NaN when the column is absent (degraded odds
+    # archive) -> pd.to_numeric gives np.float64, which has no .abs(). Force a Series.
+    sg = pd.to_numeric(te["soft_gap"], errors="coerce") if "soft_gap" in te.columns \
+        else pd.Series(np.nan, index=te.index)
     settled = (sg.abs() < 0.5).fillna(False)
     te["home_g5fade"] = (G5(te.homeConference) & (te.h_pr_rank <= 2) & (te.home_last_opp_net >= hi_lastopp)
                          & (te.home_last_win == 0) & settled).astype(int)   # fade home -> bet AWAY
