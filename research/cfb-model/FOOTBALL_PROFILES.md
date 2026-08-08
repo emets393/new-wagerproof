@@ -377,3 +377,22 @@ BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as alwa
   pre-register ONE spec: fade higher ret_prod, all wk1 gaps, grade vs OPEN, 0.5u paper.
 - Interplay: can contradict regime_fade_teardown on games where ratings lean on the GUTTED
   team (different mechanisms — teardown keys rating-vs-line, this keys raw roster diff).
+
+
+## CFBD CORE ratings (/ratings/core, added 2026-08-08) — acquired + first test
+- Context+opponent-adjusted PPA (core-v1), O/D split, 2016-2025 retro cached
+  (`data/cfbd/core_ratings.parquet`); endpoint serves LATEST snapshot only (week
+  param ignored) -> weekly as-of capture wired into fetch_preseason_ratings
+  (`core_snapshots.parquet`) so in-season usage becomes backtestable from 2026.
+- **Regime-family horse race (core_regime_test.py, 2021-25, same >=2 gap rule):
+  TR preseason WINS — keep it as the live source.** TR: fade 57.6/follow 62.8
+  (follow 5/5 seasons) vs CORE-S-1: fade 57.9 but 2025:43, follow 54.4 incoherent.
+  Mechanism: TR-Aug bakes in offseason info yet still misses coach effects (the
+  exploitable residual); prior-season CORE is fully stale, so its gaps trigger on
+  generic staleness, not the coach-specific kind. Negative result — don't re-test.
+- Replication note: this rebuild independently reproduced the vaulted TR cells
+  (58.4/62.2 originally) on the 2021-25 slice. Control cell (no coach change,
+  bet the rating) = 43-45% — naive rating-vs-line follow LOSES, as expected.
+- NEXT (untested): S-1 CORE O/D split as early-blend priors (totals angle);
+  our-features-vs-CORE disagreement study; in-season CORE-vs-line once the
+  snapshot archive accrues.
