@@ -125,5 +125,9 @@ def tr_and_coaches():
 
 
 if __name__ == "__main__":
-    main()
+    # ORDER MATTERS (2026-08-08 incident): tr_and_coaches() writes the regime/pace/CORE
+    # signal inputs and must run FIRST — main()'s priors patch used to crash on a missing
+    # priors.parquet (ephemeral disk) and silently starved every canonical Render slate
+    # of TR ratings, coach flags, coach moves and CORE snapshots.
     tr_and_coaches()
+    main()
