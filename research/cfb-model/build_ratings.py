@@ -109,8 +109,11 @@ def main():
     out = os.path.join(HERE, "data", "team_ratings_asof.parquet")
     if not out_rows:
         # Preseason on an ephemeral disk: every year in cache is empty. Write a
-        # schema-stable empty frame (downstream guards handle 0 rows) and exit clean.
+        # schema-stable empty frame with the FULL column set — build_features indexes
+        # adj_* columns by name (KeyError 'adj_epa' incident 2026-08-08) — and exit clean.
         cols = ["season", "asof_week", "team", "games_played"]
+        for stub in METRICS:
+            cols += [f"adj_{stub}", f"adj_{stub}_allowed"]
         pd.DataFrame(columns=cols).to_parquet(out, index=False)
         print(f"team_ratings_asof: 0 rows (preseason) -> {out}")
         return
