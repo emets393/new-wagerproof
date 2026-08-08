@@ -60,8 +60,11 @@ android {
         applicationId = "com.wagerproof.mobile"
         minSdk = 31
         targetSdk = 36
-        versionCode = 49
-        versionName = "3.5.6"
+        // Kept in lockstep with iOS (Configuration/Release.xcconfig): versionName
+        // mirrors MARKETING_VERSION and versionCode mirrors CURRENT_PROJECT_VERSION,
+        // so a given user-facing version means the same build on both stores.
+        versionCode = 91
+        versionName = "3.5.9"
         buildConfigField("String", "FACEBOOK_APP_ID", quotedBuildConfig(facebookAppId))
         buildConfigField("String", "FACEBOOK_CLIENT_TOKEN", quotedBuildConfig(facebookClientToken))
     }

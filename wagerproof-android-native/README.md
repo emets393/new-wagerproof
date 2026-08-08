@@ -32,6 +32,40 @@ Run the same checks as CI with:
 
 CI release signing uses the equivalent secrets `WAGERPROOF_RELEASE_KEYSTORE_BASE64`, `WAGERPROOF_RELEASE_STORE_PASSWORD`, `WAGERPROOF_RELEASE_KEY_ALIAS`, and `WAGERPROOF_RELEASE_KEY_PASSWORD`. The workflow rejects partial secret sets and otherwise verifies an unsigned release bundle when no signing secrets are available.
 
+## Versioning
+
+`versionName` / `versionCode` in `app/build.gradle.kts` are kept in lockstep with iOS
+`Wagerproof/Configuration/Release.xcconfig` (`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`),
+so one user-facing version means the same build on both stores. Bump both platforms together.
+
+Two constraints this creates: Play rejects a `versionCode` that is not strictly greater than
+the live one, and iOS build numbers are incremented **server-side by Xcode Cloud**, so the
+number in the repo can lag what actually shipped. Read the real iOS build number from App
+Store Connect — not from the repo — before matching it.
+
+## Releasing to Play
+
+`.github/workflows/android-release.yml` builds the signed bundle and publishes it. Run it from
+the Actions tab (choose a track) or push an `android-v*` tag. It is intentionally not wired to
+plain pushes on `main`: `versionCode` is bumped by hand, so an automatic per-push upload would
+resend a duplicate `versionCode` and be rejected.
+
+Required repository secrets — **none are currently configured**, so the workflow cannot
+publish until they are added:
+
+| Secret | How to obtain |
+|---|---|
+| `WAGERPROOF_RELEASE_KEYSTORE_BASE64` | `base64 -i wagerproof-release-key.keystore \| pbcopy` |
+| `WAGERPROOF_RELEASE_STORE_PASSWORD` | keystore store password |
+| `WAGERPROOF_RELEASE_KEY_ALIAS` | `wagerproof-key` |
+| `WAGERPROOF_RELEASE_KEY_PASSWORD` | keystore key password |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Google Cloud service-account JSON, granted "Release to production" in Play Console → Users and permissions |
+| `FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` | Meta app dashboard (optional; attribution is disabled without them) |
+| `GOOGLE_SERVICES_JSON_BASE64` | Firebase console (optional; FCM push stays inactive without it) |
+
+The Play Developer API cannot create a package's first release — `com.wagerproof.mobile`
+already exists on Play, so this is satisfied.
+
 ## Modules
 
 `:core:models` (pure JVM) → `:core:shared` → `:core:services` → `:core:stores` → `:app`; `:core:design` (UI-only, no data deps); `:widgets` (Glance). Mirrors the iOS `WagerproofKit` layering — see PLAN.md for the layering rules and locked architecture decisions.
