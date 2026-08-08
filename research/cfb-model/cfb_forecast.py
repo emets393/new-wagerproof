@@ -406,7 +406,7 @@ def main():
     if tt.empty or "implied" not in tt.columns:
         # degraded/ephemeral frame -> schema-stable empty; every TT gate below no-ops
         tt = pd.DataFrame(columns=["season", "game_id", "team", "implied",
-                                   "anch_edge", "fund_edge", "pts"])
+                                   "anch_edge", "fund_edge", "pts", "tt_under", "tt_over"])
     evp = os.path.join(HERE, "data", "event_odds", f"events_{a.season}.parquet")
     # preseason guard: the live collector writes a schema-less 0-row parquet until books
     # post 1H/TT lines — treat that exactly like "no archive" (implied-line fallback below)
