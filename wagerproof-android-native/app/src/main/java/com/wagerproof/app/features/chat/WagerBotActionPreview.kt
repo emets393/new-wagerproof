@@ -29,6 +29,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import java.time.Instant
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -223,7 +224,11 @@ private fun stringify(value: JsonElement): String = when (value) {
 
 /** ISO-8601 → "EEE, MMM d · h:mm a". Non-ISO strings pass through. */
 private fun formatGameTime(raw: String): String {
-    val instant = runCatching { Instant.parse(raw) }.getOrNull() ?: return raw
+    // Postgres hands back "+00:00" offsets, which Instant.parse rejects — fall back to
+    // OffsetDateTime the same way WagerBotAppComponentsView.gameTime() does.
+    val instant = runCatching { Instant.parse(raw) }.getOrNull()
+        ?: runCatching { OffsetDateTime.parse(raw).toInstant() }.getOrNull()
+        ?: return raw
     val fmt = DateTimeFormatter.ofPattern("EEE, MMM d · h:mm a", Locale.US).withZone(ZoneId.systemDefault())
     return fmt.format(instant)
 }

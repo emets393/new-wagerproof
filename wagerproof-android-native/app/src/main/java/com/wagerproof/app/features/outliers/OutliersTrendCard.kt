@@ -82,11 +82,12 @@ fun OutliersTrendCard(
     displayMode: OutliersTrendCardMode = OutliersTrendCardMode.Compact,
     modifier: Modifier = Modifier,
     onExpandPlayers: (() -> Unit)? = null,
+    marqueeStyle: Boolean = false,
 ) {
     if (card.isPlayerOverflow) {
         OverflowContent(card, modifier, onExpandPlayers)
     } else {
-        CardContent(card, sport, game, displayMode, modifier)
+        CardContent(card, sport, game, displayMode, modifier, marqueeStyle)
     }
 }
 
@@ -97,6 +98,7 @@ private fun CardContent(
     game: OutliersTrendsGame?,
     displayMode: OutliersTrendCardMode,
     modifier: Modifier,
+    marqueeStyle: Boolean,
 ) {
     val isCompact = displayMode == OutliersTrendCardMode.Compact
     val visibleRows = if (isCompact) card.rows.take(COMPACT_ROW_CAP) else card.rows
@@ -109,8 +111,8 @@ private fun CardContent(
             .clip(shape)
             .background(AppColors.appSurfaceElevated, shape)
             .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.35f), shape)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp),
+            .padding(if (marqueeStyle) 9.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (marqueeStyle) 6.dp else 9.dp),
     ) {
         // Header + right-aligned schedule label.
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -129,7 +131,7 @@ private fun CardContent(
             )
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(if (marqueeStyle) 3.dp else 6.dp)) {
             visibleRows.forEach { TrendRow(it, isCompact) }
         }
 
@@ -562,15 +564,14 @@ internal fun rowIcon(text: String): String {
         dimension.contains("series g3") -> "3.circle.fill"
         dimension.contains("series g4") -> "4.circle.fill"
         dimension.endsWith("games") || dimension == "games" -> "sportscourt.fill"
-        else -> "circle.fill"
+        else -> "chart.line.uptrend.xyaxis"
     }
 }
 
 private fun trendDimension(text: String): String {
     val lower = text.lowercase()
     val idx = lower.indexOf(" of last ")
-    if (idx < 0) return ""
-    var context = lower.substring(idx + " of last ".length).trim()
+    var context = if (idx < 0) lower.trim() else lower.substring(idx + " of last ".length).trim()
     val paren = context.lastIndexOf('(')
     if (paren >= 0) context = context.substring(0, paren).trim()
     // Drop the leading sample-count token ("10 road games" -> "road games").

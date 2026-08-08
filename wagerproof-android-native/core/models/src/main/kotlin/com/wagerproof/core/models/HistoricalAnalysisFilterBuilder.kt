@@ -292,6 +292,8 @@ object HistoricalAnalysisFilterBuilder {
         snapshot.interleague?.let { put("interleague", it) }
         if (snapshot.side != "any") put("side", snapshot.side)
         if (snapshot.favDog != "any") put("fav_dog", snapshot.favDog)
+        // Posted run-line side — independent of fav_dog (the ML favorite gets +1.5 in ~7% of games).
+        if (snapshot.rlSide != "any") put("rl_side", snapshot.rlSide)
 
         snapshot.mlMin.trim().toDoubleOrNull()?.let { put("ml_min", it) }
         snapshot.mlMax.trim().toDoubleOrNull()?.let { put("ml_max", it) }
@@ -317,6 +319,9 @@ object HistoricalAnalysisFilterBuilder {
         if (snapshot.f5TotalMin > 2) put("f5_total_min", snapshot.f5TotalMin)
         if (snapshot.f5TotalMax < 8) put("f5_total_max", snapshot.f5TotalMax)
         snapshot.doubleheader?.let { put("doubleheader", it) }
+        if (snapshot.seriesGames.isNotEmpty()) {
+            put("series_game_in", JsonArray(snapshot.seriesGames.sorted().map(::JsonPrimitive)))
+        }
         snapshot.seriesGameMin?.let { put("series_game_min", it) }
         snapshot.seriesGameMax?.let { put("series_game_max", it) }
         snapshot.tripMin?.let { put("trip_min", it) }
@@ -351,6 +356,8 @@ object HistoricalAnalysisFilterBuilder {
         // Pitching quality — starters + bullpen xFIP, bullpen IP last 3 days.
         doubleRange(this, "sp_xfip_min", "sp_xfip_max", snapshot.spXfipMin, snapshot.spXfipMax, 2.0, 7.0)
         doubleRange(this, "opp_sp_xfip_min", "opp_sp_xfip_max", snapshot.oppSpXfipMin, snapshot.oppSpXfipMax, 2.0, 7.0)
+        doubleRange(this, "sp_era_min", "sp_era_max", snapshot.spEraMin, snapshot.spEraMax, 0.0, 10.0)
+        doubleRange(this, "opp_sp_era_min", "opp_sp_era_max", snapshot.oppSpEraMin, snapshot.oppSpEraMax, 0.0, 10.0)
         doubleRange(this, "bp_ip3d_min", "bp_ip3d_max", snapshot.bpIpMin, snapshot.bpIpMax, 0.0, 20.0)
         doubleRange(this, "bp_xfip_min", "bp_xfip_max", snapshot.bpXfipMin, snapshot.bpXfipMax, 2.0, 7.0)
 
@@ -415,11 +422,17 @@ object HistoricalAnalysisFilterBuilder {
         intRange(this, "opp_last_margin", snapshot.oppLastMargin, -30, 30)
     }
 
-    /** Port of iOS `mlbFiltersWeatherOnly` — upcoming RPC should get `{}` when only weather keys are set. */
+    /**
+     * Upcoming RPC should get `{}` when only MLB weather keys are narrowed.
+     * `season_min` is the mandatory warehouse scan bound emitted for every
+     * snapshot, so it is neutral for this classification rather than evidence of
+     * a non-weather filter.
+     */
     fun mlbFiltersWeatherOnly(filters: JsonObject): Boolean {
         if (filters.isEmpty()) return false
         val weather = setOf("temp_min", "temp_max", "wind_min", "wind_max", "wind_dir")
-        return filters.keys.all { it in weather }
+        val meaningfulKeys = filters.keys - "season_min"
+        return meaningfulKeys.isNotEmpty() && meaningfulKeys.all { it in weather }
     }
 
     /** Hide degenerate breakdown bars — each side must be ≥10% of the split. */

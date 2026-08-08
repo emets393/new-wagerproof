@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wagerproof.app.features.agents.AgentColorPalette
+import com.wagerproof.app.features.agents.agentSymbol
 import com.wagerproof.app.features.agents.components.AgentTodaysPicksRail
 import com.wagerproof.core.design.components.SkeletonBlock
 import com.wagerproof.core.design.components.SkeletonCircle
@@ -84,7 +85,9 @@ fun BinAgentsSheet(
     /** DEBUG/harness override — when set, skips the network fetch. */
     preloaded: List<BinAgent>? = null,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Partial detent allowed (iOS `.presentationDetents([.medium, .large])`) —
+    // the drill-down is a peek at a handful of agents, not a full-screen page.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     var loadState by remember { mutableStateOf<BinLoadState>(BinLoadState.Loading) }
     var agents by remember { mutableStateOf<List<BinAgent>>(emptyList()) }
     var expanded by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -137,6 +140,7 @@ fun BinAgentsSheet(
                 is BinLoadState.Failed -> {
                     ContentUnavailable(
                         title = "Couldn't load agents",
+                        systemImage = "exclamationmark.triangle",
                         message = state.message,
                         retry = { reloadKey++ },
                     )
@@ -145,6 +149,7 @@ fun BinAgentsSheet(
                     if (agents.isEmpty()) {
                         ContentUnavailable(
                             title = "No public agents here",
+                            systemImage = "person.crop.circle.badge.questionmark",
                             message = "No public agents fall in this range with open picks.",
                             retry = null,
                         )
@@ -291,13 +296,20 @@ private fun BinRowSkeleton() {
     }
 }
 
+/** Mirrors iOS `ContentUnavailableView` — symbol above the title, then the copy. */
 @Composable
-private fun ContentUnavailable(title: String, message: String, retry: (() -> Unit)?) {
+private fun ContentUnavailable(title: String, systemImage: String, message: String, retry: (() -> Unit)?) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        Icon(
+            agentSymbol(systemImage),
+            contentDescription = null,
+            tint = AppColors.appTextSecondary,
+            modifier = Modifier.size(32.dp),
+        )
         Text(title, color = AppColors.appTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Text(
             message,

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,13 +42,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.wagerproof.app.AppGraph
 import com.wagerproof.app.di.appGraph
+import com.wagerproof.app.features.agents.AgentCopyBuildPresentation
 import com.wagerproof.app.features.agents.AgentCreateScreen
 import com.wagerproof.app.features.agents.AgentDetailScreen
 import com.wagerproof.app.features.agents.AgentSettingsScreen
@@ -66,12 +71,15 @@ import com.wagerproof.app.features.search.SearchScreen
 import com.wagerproof.app.features.settings.SettingsScreen
 import com.wagerproof.app.features.sidemenu.SideMenuSheet
 import com.wagerproof.core.design.components.AppModalBottomSheet
-import com.wagerproof.core.design.components.LiquidGlassScene
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.design.tokens.AppLayout
 import com.wagerproof.core.design.tokens.AppTypography
+import com.wagerproof.core.stores.AuthStore
 import com.wagerproof.core.stores.MainTabStore
+import com.wagerproof.core.stores.PropsStore
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.yield
 
 /**
  * Signed-in tab shell — the Android port of iOS `MainTabView` (doc 08 §3.1).
@@ -110,6 +118,10 @@ fun MainScaffold(modifier: Modifier = Modifier) {
         else -> false
     }
     val isFullScreenRoute = hasInternalDestination ||
+        // Copy-build isn't a route — the Agents hub keeps it as an in-tab
+        // overlay so the copied draft never has to survive serialization — but
+        // it IS full-screen, and iOS hides the tab bar under it.
+        AgentCopyBuildPresentation.isPresented ||
         activeRoute is AppRoute.GameDetail ||
         activeRoute is AppRoute.AgentDetail ||
         activeRoute is AppRoute.AgentEdit ||
@@ -117,25 +129,65 @@ fun MainScaffold(modifier: Modifier = Modifier) {
         activeRoute == AppRoute.Settings ||
         activeRoute == AppRoute.WagerBotChat
 
-    // Match MainTabView's shell work: hydrate the game slate before any tab
-    // needs to resolve a cross-surface result, and keep admin dry-run routing
-    // on both Games and Props in lockstep.
-    LaunchedEffect(graph.adminMode.adminModeEnabled, graph.adminMode.isAdmin) {
-        val enabled = graph.adminMode.dryRunPreviewEnabled
-        graph.games.dryRunPreviewEnabled = enabled
-        graph.props.dryRunPreviewEnabled = enabled
-        graph.games.refreshAll(force = true)
-        if (graph.adminMode.isAdmin) graph.props.refreshNFL(force = true)
+    // Match MainTabView's shell work: hydrate the game slate ONCE, before any
+    // tab needs to resolve a cross-surface result. Unforced — GamesStore's
+    // 5-minute TTL plus its per-sport in-flight coalescing then make every
+    // other caller (Games tab, Search) a no-op instead of a second full run of
+    // all five multi-query pipelines.
+    LaunchedEffect(Unit) {
+        syncDryRunPreview(graph)
+        graph.games.refreshAll()
     }
 
-    // Games and Props mirror their sport selector when the user crosses tabs.
-    LaunchedEffect(selectedTab) {
-        when (selectedTab) {
-            MainTabStore.Tab.Props -> graph.props.selectedSport =
-                com.wagerproof.core.stores.PropsStore.Sport.matching(graph.games.selectedSport)
-            MainTabStore.Tab.Games -> graph.games.selectedSport = graph.props.selectedSport.gamesSport
-            else -> Unit
-        }
+    // force=true belongs to an ACTUAL admin transition — the Secret Settings
+    // toggle, or the has_role RPC resolving — because dry-run flips which
+    // tables the slate reads. drop(1) skips the value that is already live at
+    // subscribe time so first composition doesn't redo the hydrate above.
+    LaunchedEffect(Unit) {
+        snapshotFlow { graph.adminMode.adminModeEnabled to graph.adminMode.isAdmin }
+            .drop(1)
+            .collect { (_, isAdmin) ->
+                syncDryRunPreview(graph)
+                graph.games.refreshAll(force = true)
+                if (isAdmin) graph.props.refreshNFL(force = true)
+            }
+    }
+
+    // Agents data is cheap next to the pixel-office UI, so prefetch it at the
+    // shell (iOS MainTabView:258-265). The first Agents tap then only mounts
+    // presentation work, and Search reuses the same owned-agent results.
+    val currentUserId = (graph.auth.phase as? AuthStore.Phase.Authenticated)?.userId?.lowercase()
+    LaunchedEffect(currentUserId) {
+        graph.agents.bind(currentUserId)
+        if (currentUserId == null || !graph.agents.loadState.needsInitialLoad) return@LaunchedEffect
+        // Let the first Games frame commit before starting the request.
+        yield()
+        graph.agents.refresh()
+    }
+
+    // Games and Props mirror their sport selector when the user changes a
+    // PICKER, never on tab selection: a tab-keyed effect fires on first
+    // composition too, which stamped Props' hardcoded MLB over the Games
+    // seasonal default (NFL from Sep 1 to Feb 15) on every cold start.
+    // Port of MainTabView.swift:234-249 — drop(1) gives SwiftUI onChange
+    // semantics (no emission for the value already in place).
+    LaunchedEffect(Unit) {
+        snapshotFlow { graph.games.selectedSport }
+            .drop(1)
+            .collect { sport ->
+                if (tabStore.selected != MainTabStore.Tab.Games) return@collect
+                val matching = PropsStore.Sport.matching(sport)
+                if (graph.props.selectedSport != matching) graph.props.selectedSport = matching
+            }
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { graph.props.selectedSport }
+            .drop(1)
+            .collect { sport ->
+                if (tabStore.selected != MainTabStore.Tab.Props) return@collect
+                val matching = sport.gamesSport
+                if (graph.games.selectedSport != matching) graph.games.selectedSport = matching
+            }
     }
 
     // Search → Agents handoff: push the pending agent route, then clear it.
@@ -206,9 +258,14 @@ fun MainScaffold(modifier: Modifier = Modifier) {
     }
 
     CompositionLocalProvider(LocalAppNavigator provides navigator) {
-        LiquidGlassScene { sourceModifier ->
+        // No app-wide LiquidGlassScene: hazeEffect pills can't sample a source
+        // they're nested inside (the whole Scaffold was the source, so every
+        // pill under it rendered with NO fill at all). Screens that want real
+        // blur declare their own scene with the source on a background layer;
+        // everything else gets liquidGlassBackground's opaque-enough fallback.
+        run {
             Scaffold(
-                modifier = modifier.fillMaxSize().then(sourceModifier),
+                modifier = modifier.fillMaxSize(),
                 containerColor = AppColors.appSurface,
                 // Every screen owns its top/cutout inset. Scaffold only contributes
                 // the measured bottom-bar height through its content padding.
@@ -217,7 +274,12 @@ fun MainScaffold(modifier: Modifier = Modifier) {
                     if (!isFullScreenRoute) WagerBottomBar(tabStore)
                 },
             ) { insets ->
-                Box(Modifier.fillMaxSize().padding(insets)) {
+                // consumeWindowInsets is what makes a nested imePadding() land on
+                // the keyboard instead of a bar-height above it. Without it the
+                // Search screen's imePadding() re-applies the FULL ime inset to a
+                // node already lifted by the bottom bar, so results collapse into a
+                // strip with ~98dp of dead space between them and the keyboard.
+                Box(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)) {
                     TabNavHost(
                         tab = visibleTab,
                         backStacks = backStacks,
@@ -269,6 +331,13 @@ fun MainScaffold(modifier: Modifier = Modifier) {
     }
 }
 
+/** Keep dry-run table routing in sync with Secret Settings admin mode. */
+private fun syncDryRunPreview(graph: AppGraph) {
+    val enabled = graph.adminMode.dryRunPreviewEnabled
+    graph.games.dryRunPreviewEnabled = enabled
+    graph.props.dryRunPreviewEnabled = enabled
+}
+
 /** Renders one tab's back stack, animating push (forward slide) vs pop (back slide). */
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -280,6 +349,12 @@ private fun TabNavHost(
     onSearchFullScreenChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // iOS's TabView retains every tab it has mounted. Compose composes only the
+    // visible one, so without this holder a tab switch threw away scroll
+    // offsets, pager pages and every other rememberSaveable in the destination
+    // — the user came back to a feed scrolled to the top. The holder lives
+    // above AnimatedContent so it outlives the content it is saving for.
+    val stateHolder = rememberSaveableStateHolder()
     val stack = backStacks.stackFor(tab)
     val depth = stack.size
     val top = stack.last()
@@ -299,14 +374,44 @@ private fun TabNavHost(
         modifier = modifier,
         label = "tab-nav-$tab",
     ) { route ->
-        RouteContent(
-            route = route,
-            isFullScreen = isFullScreen,
-            onPropsFullScreenChanged = onPropsFullScreenChanged,
-            onSearchFullScreenChanged = onSearchFullScreenChanged,
-        )
+        // Only the six tab roots get a saved slot: their keys are a closed set,
+        // so nothing accumulates. Detail routes carry an id and would leak an
+        // entry per visited game/agent with no pop hook to release it.
+        val savedKey = route.tabRootStateKey
+        if (savedKey != null) {
+            stateHolder.SaveableStateProvider(savedKey) {
+                RouteContent(
+                    route = route,
+                    isFullScreen = isFullScreen,
+                    onPropsFullScreenChanged = onPropsFullScreenChanged,
+                    onSearchFullScreenChanged = onSearchFullScreenChanged,
+                )
+            }
+        } else {
+            RouteContent(
+                route = route,
+                isFullScreen = isFullScreen,
+                onPropsFullScreenChanged = onPropsFullScreenChanged,
+                onSearchFullScreenChanged = onSearchFullScreenChanged,
+            )
+        }
     }
 }
+
+/**
+ * Stable save slot for a tab root, or null for a pushed leaf. Strings only —
+ * the holder's map is persisted through the parent SaveableStateRegistry.
+ */
+private val AppRoute.tabRootStateKey: String?
+    get() = when (this) {
+        AppRoute.GamesFeed -> "tab-root:games"
+        AppRoute.PropsFeed -> "tab-root:props"
+        AppRoute.AgentsList -> "tab-root:agents"
+        AppRoute.OutliersFeed -> "tab-root:outliers"
+        AppRoute.SearchHome -> "tab-root:search"
+        AppRoute.Scoreboard -> "tab-root:scoreboard"
+        else -> null
+    }
 
 /** AppRoute → screen composable dispatch. Later agents wire real nav callbacks. */
 @Composable

@@ -33,7 +33,7 @@ fun GameCardShimmer(modifier: Modifier = Modifier) {
         modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(AppColors.appSurfaceElevated.copy(alpha = 0.55f))
+            .background(AppColors.appSurfaceElevated.copy(alpha = 0.92f))
             .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.4f), shape)
             .padding(14.dp),
     ) {

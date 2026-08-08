@@ -12,6 +12,7 @@ import com.wagerproof.core.services.CFBSignalDefinitionsService
 import com.wagerproof.core.services.CFBTeamsService
 import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.CancellationException
 import kotlin.math.roundToInt
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -123,6 +124,9 @@ class CFBDryRunPicksStore {
                 games = gRows.map { prediction(it, flagsByGame) }
                 loadState = LoadState.Loaded
             }
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             loadState = LoadState.Failed(e.message ?: "Failed to load CFB dry-run picks")
         }

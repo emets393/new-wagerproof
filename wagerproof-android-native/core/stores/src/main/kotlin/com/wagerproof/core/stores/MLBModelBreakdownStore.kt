@@ -9,6 +9,7 @@ import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.coroutines.CancellationException
 
 /**
  * Loads `mlb_model_breakdown_accuracy` (refreshed nightly server-side): model
@@ -51,6 +52,9 @@ class MLBModelBreakdownStore {
                 .decodeList()
             rows = fetched
             lastFetched = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            loading = false
+            throw cancellation
         } catch (e: Exception) {
             errorMessage = "Failed to load model breakdown."
         }

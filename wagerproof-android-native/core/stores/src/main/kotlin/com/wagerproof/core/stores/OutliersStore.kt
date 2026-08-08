@@ -9,6 +9,7 @@ import com.wagerproof.core.models.OutlierGame
 import com.wagerproof.core.models.OutlierValueAlert
 import com.wagerproof.core.models.SportLeague
 import com.wagerproof.core.services.OutliersService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.time.Instant
@@ -45,6 +46,7 @@ class OutliersStore {
         nbaAccuracy("nba-accuracy", "NBA Model Accuracy"),
         ncaabAccuracy("ncaab-accuracy", "NCAAB Model Accuracy"),
         mlbRegression("mlb-regression", "MLB Regression Report"),
+        mlbHistoricalAnalysis("mlb-historical-analysis", "MLB Historical Trends"),
         nflHistoricalAnalysis("nfl-historical-analysis", "NFL Historical Trends"),
         cfbHistoricalAnalysis("cfb-historical-analysis", "CFB Historical Trends"),
     }
@@ -96,6 +98,9 @@ class OutliersStore {
             fadeAlerts = f
             loadState = LoadState.Loaded
             lastRefreshedAt = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             loadState = LoadState.Failed(e.message ?: e.toString())
         }

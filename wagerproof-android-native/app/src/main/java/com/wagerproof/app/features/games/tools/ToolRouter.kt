@@ -21,6 +21,7 @@ object ToolRouter {
             OutliersStore.Category.nbaAccuracy -> NBAModelAccuracyView(modifier)
             OutliersStore.Category.ncaabAccuracy -> NCAABModelAccuracyView(modifier)
             OutliersStore.Category.mlbRegression -> MlbRegressionReportScreen(modifier)
+            OutliersStore.Category.mlbHistoricalAnalysis -> HistoricalAnalysisScreen(HistoricalAnalysisSport.MLB, modifier)
             OutliersStore.Category.nflHistoricalAnalysis -> HistoricalAnalysisScreen(HistoricalAnalysisSport.NFL, modifier)
             OutliersStore.Category.cfbHistoricalAnalysis -> HistoricalAnalysisScreen(HistoricalAnalysisSport.CFB, modifier)
             OutliersStore.Category.`value`, OutliersStore.Category.fade -> Unit

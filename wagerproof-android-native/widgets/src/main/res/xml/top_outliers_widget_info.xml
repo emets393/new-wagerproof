@@ -6,6 +6,7 @@
   force-refreshes on foreground/sign-in via the widget sync path.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="com.wagerproof.widgets.TopOutliersWidgetConfigurationActivity"
     android:description="@string/widget_top_outliers_description"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:minWidth="110dp"
@@ -16,4 +17,5 @@
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="3600000"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />

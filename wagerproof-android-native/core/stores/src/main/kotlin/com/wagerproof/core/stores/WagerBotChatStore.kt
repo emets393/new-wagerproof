@@ -11,6 +11,7 @@ import com.wagerproof.core.models.WagerBotThreadSummary
 import com.wagerproof.core.models.WagerBotToolStatus
 import com.wagerproof.core.services.WagerBotChatService
 import com.wagerproof.core.services.WagerBotThreadService
+import com.wagerproof.core.services.runCatchingCancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +45,14 @@ import java.util.UUID
 @Stable
 class WagerBotChatStore(
     private val service: WagerBotChatService = WagerBotChatService.shared,
+    private val listThreads: suspend (String) -> List<WagerBotThreadSummary> =
+        WagerBotThreadService::listThreads,
+    private val loadMessages: suspend (String) -> List<WagerBotMessage> =
+        WagerBotThreadService::loadMessages,
+    private val deleteThreadRemote: suspend (String) -> Unit =
+        WagerBotThreadService::deleteThread,
+    private val deleteAllThreadsRemote: suspend (String) -> Unit =
+        WagerBotThreadService::deleteAllThreads,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -61,6 +70,9 @@ class WagerBotChatStore(
     var boundUserId by mutableStateOf<String?>(null); private set
 
     private var streamJob: Job? = null
+    private var bindingGeneration = 0L
+
+    private data class BindingKey(val userId: String, val generation: Long)
 
     // Declared but unused seam (see [WagerBotAuthProvider]) — the service walks
     // Supabase auth itself. Kept so future refresh-on-401 variants can plug in.
@@ -85,7 +97,20 @@ class WagerBotChatStore(
      * current Supabase user id once at first appear via this hook.
      */
     fun bind(userId: String?) {
+        if (boundUserId == userId) return
+        bindingGeneration += 1
+        // The SSE job belongs to this store, not the screen. Identity changes
+        // therefore have to stop it explicitly before any account-B state is
+        // published, then remove every account-A value still held in memory.
+        cancel()
         boundUserId = userId
+        messages = emptyList()
+        threadId = null
+        threadTitle = null
+        threads = emptyList()
+        historyLoadState = HistoryLoadState.Idle
+        draft = ""
+        lastError = null
     }
 
     /**
@@ -114,6 +139,7 @@ class WagerBotChatStore(
     fun send(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
+        val binding = currentBinding() ?: return
         streamJob?.cancel()
 
         val userMsg = WagerBotMessage.user(trimmed)
@@ -128,15 +154,16 @@ class WagerBotChatStore(
         streamJob = scope.launch {
             try {
                 service.startRun(userMessage = trimmed, threadId = pinnedThreadId)
-                    .collect { event -> apply(event, assistantId) }
+                    .collect { event -> if (isCurrent(binding)) apply(event, assistantId) }
             } catch (cancel: CancellationException) {
                 // A newer send (or cancel()) cancelled us — bail without
                 // touching isStreaming/streamJob so we don't clobber the
                 // replacement stream's bookkeeping.
                 throw cancel
             } catch (error: Throwable) {
-                applyTransportError(error, assistantId)
+                if (isCurrent(binding)) applyTransportError(error, assistantId)
             }
+            if (!isCurrent(binding)) return@launch
             isStreaming = false
             streamJob = null
             // Best-effort: refresh history so the drawer picks up the new
@@ -166,45 +193,62 @@ class WagerBotChatStore(
 
     /** Switch to an existing thread, hydrating its persisted messages. */
     suspend fun loadThread(summary: WagerBotThreadSummary) {
+        val binding = currentBinding() ?: return
         cancel()
         messages = emptyList()
         threadId = summary.id
         threadTitle = summary.title
-        runCatching { WagerBotThreadService.loadMessages(threadId = summary.id) }
-            .onSuccess { loaded -> messages = loaded }
-            .onFailure { lastError = it.message ?: "Unknown error" }
+        runCatchingCancellable { loadMessages(summary.id) }
+            .onSuccess { loaded -> if (isCurrent(binding)) messages = loaded }
+            .onFailure { if (isCurrent(binding)) lastError = it.message ?: "Unknown error" }
     }
 
     // MARK: - History
 
     suspend fun refreshHistory(userId: String) {
+        val binding = currentBinding()?.takeIf { it.userId == userId } ?: return
         historyLoadState = HistoryLoadState.Loading
-        runCatching { WagerBotThreadService.listThreads(userId = userId) }
+        runCatchingCancellable { listThreads(userId) }
             .onSuccess { rows ->
+                if (!isCurrent(binding)) return@onSuccess
                 threads = rows
                 historyLoadState = HistoryLoadState.Loaded
             }
-            .onFailure { historyLoadState = HistoryLoadState.Failed(it.message ?: "Unknown error") }
+            .onFailure {
+                if (isCurrent(binding)) {
+                    historyLoadState = HistoryLoadState.Failed(it.message ?: "Unknown error")
+                }
+            }
     }
 
     suspend fun deleteThread(id: String) {
-        runCatching { WagerBotThreadService.deleteThread(threadId = id) }
+        val binding = currentBinding() ?: return
+        runCatchingCancellable { deleteThreadRemote(id) }
             .onSuccess {
+                if (!isCurrent(binding)) return@onSuccess
                 threads = threads.filterNot { it.id == id }
                 if (threadId == id) newConversation()
             }
-            .onFailure { lastError = it.message ?: "Unknown error" }
+            .onFailure { if (isCurrent(binding)) lastError = it.message ?: "Unknown error" }
     }
 
     suspend fun deleteAllThreads() {
-        val userId = boundUserId ?: return
-        runCatching { WagerBotThreadService.deleteAllThreads(userId = userId) }
+        val binding = currentBinding() ?: return
+        runCatchingCancellable { deleteAllThreadsRemote(binding.userId) }
             .onSuccess {
+                if (!isCurrent(binding)) return@onSuccess
                 threads = emptyList()
                 newConversation()
             }
-            .onFailure { lastError = it.message ?: "Unknown error" }
+            .onFailure { if (isCurrent(binding)) lastError = it.message ?: "Unknown error" }
     }
+
+    private fun currentBinding(): BindingKey? = boundUserId?.let {
+        BindingKey(userId = it, generation = bindingGeneration)
+    }
+
+    private fun isCurrent(binding: BindingKey): Boolean =
+        boundUserId == binding.userId && bindingGeneration == binding.generation
 
     // MARK: - Event application
 

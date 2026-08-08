@@ -1,17 +1,18 @@
 package com.wagerproof.app.features.agents.components
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,8 +26,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.boundsInWindow
@@ -48,7 +50,6 @@ import com.wagerproof.core.design.tokens.AppColors
 import com.wagerproof.core.models.Agent
 import com.wagerproof.core.models.AgentPerformance
 import java.util.Locale
-import kotlin.math.abs
 
 // ---------------------------------------------------------------------------
 // Single-agent collapsing detail hero + aura. Port of iOS AgentDetailHero.swift.
@@ -101,41 +102,34 @@ fun AgentGlassHero(
     onAvatarTap: ((Offset) -> Unit)? = null,
 ) {
     val p = progress.coerceIn(0f, 1f)
-    // Two layouts crossfade as the hero collapses, both anchored top-start.
-    // Expanded holds then fades over the first half; the compact bar fades in
-    // over the back half.
-    val expanded = (1f - p / 0.5f).coerceIn(0f, 1f)
-    val compact = ((p - 0.5f) / 0.5f).coerceIn(0f, 1f)
 
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.TopStart,
     ) {
-        if (expanded > 0f) {
-            Box(Modifier.alpha(expanded)) {
-                ExpandedHeader(
-                    agent = agent,
-                    performance = performance,
-                    lockedNetUnits = lockedNetUnits,
-                    subtitle = subtitle,
-                    subtitleSystemImage = subtitleSystemImage,
-                    isGenerating = isGenerating,
-                    discSize = bigSize,
-                    onAvatarTap = if (expanded > 0.5f) onAvatarTap else null,
-                )
-            }
-        }
-        if (compact > 0f) {
-            Box(Modifier.alpha(compact)) {
-                CompactHeader(
-                    agent = agent,
-                    performance = performance,
-                    lockedNetUnits = lockedNetUnits,
-                    isGenerating = isGenerating,
-                    discSize = smallSize,
-                    onAvatarTap = if (compact > 0.5f) onAvatarTap else null,
-                )
-            }
+        // HARD CUT at the midpoint, no crossfade (iOS AgentDetailHero:66-79): both
+        // layouts are anchored top-start, so a dissolve would double the avatar disc
+        // and the name on top of each other through the middle of the collapse.
+        if (p < 0.5f) {
+            ExpandedHeader(
+                agent = agent,
+                performance = performance,
+                lockedNetUnits = lockedNetUnits,
+                subtitle = subtitle,
+                subtitleSystemImage = subtitleSystemImage,
+                isGenerating = isGenerating,
+                discSize = bigSize,
+                onAvatarTap = onAvatarTap,
+            )
+        } else {
+            CompactHeader(
+                agent = agent,
+                performance = performance,
+                lockedNetUnits = lockedNetUnits,
+                isGenerating = isGenerating,
+                discSize = smallSize,
+                onAvatarTap = onAvatarTap,
+            )
         }
     }
 }
@@ -252,7 +246,15 @@ private fun AvatarDisc(
 
     var mod = Modifier
         .size(size)
-        .teamGlassDisc(primary = primary, secondary = secondary)
+        // Accent shadow lifts the disc off the pixelwave (iOS AgentDetailHero:163).
+        .shadow(
+            elevation = 7.dp,
+            shape = CircleShape,
+            ambientColor = primary.copy(alpha = 0.3f),
+            spotColor = primary.copy(alpha = 0.3f),
+        )
+        // `tint = 0.5` matches iOS's explicit glass tint for this disc.
+        .teamGlassDisc(primary = primary, secondary = secondary, tint = 0.5f)
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     if (onAvatarTap != null) {
         mod = mod
@@ -266,23 +268,38 @@ private fun AvatarDisc(
     }
 
     Box(modifier = mod, contentAlignment = Alignment.Center) {
-        // FIDELITY-WAIVER #301: iOS swaps to a seated SitWorkSprite + LaptopSprite
-        // while generating; those sprites don't exist on Android yet, so the
-        // standing avatar stands in for both states. (isGenerating kept in the
-        // signature so callers stay parity-identical.)
-        val pad = size * 0.18f
-        PixelSpriteAvatar(
-            spriteIndex = agent.spriteIndex,
-            modifier = Modifier.size(size).padding(pad),
-        )
+        // Hero disc swaps to the seated SitWorkSprite + LaptopSprite while a run
+        // is in flight, matching iOS AgentDetailHero.swift:138-154.
+        if (isGenerating) {
+            Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+                SitWorkSprite(spriteIndex = agent.spriteIndex, modifier = Modifier.size(size * 0.60f, size * 0.80f))
+                Box(Modifier.size(size * 0.30f, size * 0.44f).offset(y = size * 0.16f)) {
+                    LaptopSprite()
+                }
+            }
+        } else {
+            val pad = size * 0.18f
+            PixelSpriteAvatar(
+                spriteIndex = agent.spriteIndex,
+                modifier = Modifier.size(size).padding(pad),
+            )
+        }
     }
 }
 
 // MARK: Sport pills
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SportPills(agent: Agent) {
-    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+    // FlowRow, not Row: a 4-5 sport agent overruns the hero's width and a plain Row
+    // squeezes/clips the trailing pills. iOS keeps each pill at its natural size
+    // (`.fixedSize`) and lets the hero clip; wrapping is the closest behavior that
+    // never truncates a label.
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
         agent.preferredSports.forEach { sport ->
             Box(
                 modifier = Modifier
@@ -480,21 +497,26 @@ fun AgentStatCell(
                 // Long records ("95-103-5") must shrink to one line, not wrap.
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                // Blur the glyphs themselves — a plate alone can be defeated by any
+                // future layout change that resizes the value out from under it.
+                modifier = if (locked) Modifier.blur(9.dp) else Modifier,
             )
             if (locked) {
+                // Cover the WHOLE value, not a small chip: a paywalled net-units
+                // figure must be unreadable (iOS washes the entire cell with
+                // .ultraThinMaterial and centers the lock over it).
                 Box(
                     Modifier
+                        .matchParentSize()
                         .clip(RoundedCornerShape(6.dp))
-                        .background(AppColors.appSurfaceElevated.copy(alpha = 0.85f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    androidx.compose.material3.Icon(
-                        imageVector = agentSymbol("lock.fill"),
-                        contentDescription = null,
-                        tint = AppColors.appTextSecondary,
-                        modifier = Modifier.size(10.dp),
-                    )
-                }
+                        .background(AppColors.appSurfaceElevated.copy(alpha = 0.88f)),
+                )
+                androidx.compose.material3.Icon(
+                    imageVector = agentSymbol("lock.fill"),
+                    contentDescription = null,
+                    tint = AppColors.appTextSecondary,
+                    modifier = Modifier.size(10.dp),
+                )
             }
         }
     }

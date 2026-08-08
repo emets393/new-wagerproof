@@ -3,13 +3,10 @@ package com.wagerproof.core.services
 import com.wagerproof.core.models.HistoricalAnalysisResponse
 import com.wagerproof.core.models.MLBF5
 import com.wagerproof.core.models.MlbPitcherOption
-import com.wagerproof.core.models.HistoricalAnalysisSavedFilter
 import com.wagerproof.core.models.HistoricalAnalysisSport
-import com.wagerproof.core.models.HistoricalAnalysisUISnapshot
 import com.wagerproof.core.models.HistoricalAnalysisUpcomingGame
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
@@ -59,11 +56,17 @@ object HistoricalAnalysisService : HistoricalAnalysisDataSource {
             .mapValues { (_, teams) -> teams.sorted() }
     }
 
+    /**
+     * CFB team logos keyed by `cfb_teams.team_name` — the same key the conference/team
+     * map, the team RPC filter and the breakdown rows use. The legacy
+     * `cfb_team_mapping` table is retired and was keyed by `api`, so any school whose
+     * two names differ rendered initials instead of a logo.
+     */
     override suspend fun fetchCFBLogos(): Map<String, String> = SupabaseClients.cfb
-        .from("cfb_team_mapping")
-        .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("api,logo_light"))
+        .from("cfb_teams")
+        .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("team_name,logo"))
         .decodeList<CFBLogoRow>()
-        .mapNotNull { row -> row.api?.let { api -> row.logoLight?.takeIf(String::isNotBlank)?.let { api to it } } }
+        .mapNotNull { row -> row.teamName?.let { name -> row.logo?.takeIf(String::isNotBlank)?.let { name to it } } }
         .toMap()
 
     /** MLB team abbr + name from `mlb_team_mapping`, remapped to game-log codes (AZ/ATH). */
@@ -89,40 +92,8 @@ object HistoricalAnalysisService : HistoricalAnalysisDataSource {
     }
 
     @Serializable private data class ConferenceTeamRow(@SerialName("team_name") val teamName: String, val conference: String? = null)
-    @Serializable private data class CFBLogoRow(val api: String? = null, @SerialName("logo_light") val logoLight: String? = null)
+    @Serializable private data class CFBLogoRow(@SerialName("team_name") val teamName: String? = null, val logo: String? = null)
     @Serializable private data class MlbTeamRow(val team: String, @SerialName("team_name") val teamName: String? = null)
 }
 
-object HistoricalAnalysisSavedFiltersService {
-    const val MAX_PER_USER = 25
-
-    suspend fun fetch(sport: HistoricalAnalysisSport, userId: String): List<HistoricalAnalysisSavedFilter> =
-        SupabaseClients.main.from(sport.savedFiltersTable).select {
-            filter { eq("user_id", userId) }
-            order("created_at", Order.DESCENDING)
-        }.decodeList()
-
-    suspend fun save(
-        sport: HistoricalAnalysisSport,
-        userId: String,
-        name: String,
-        betType: String,
-        snapshot: HistoricalAnalysisUISnapshot,
-    ) {
-        SupabaseClients.main.from(sport.savedFiltersTable).insert(
-            SavedFilterInsert(userId, name, betType, snapshot),
-        )
-    }
-
-    suspend fun delete(sport: HistoricalAnalysisSport, id: String) {
-        SupabaseClients.main.from(sport.savedFiltersTable).delete { filter { eq("id", id) } }
-    }
-
-    @Serializable
-    private data class SavedFilterInsert(
-        @SerialName("user_id") val userId: String,
-        val name: String,
-        @SerialName("bet_type") val betType: String,
-        val filters: HistoricalAnalysisUISnapshot,
-    )
-}
+// Saved systems (CRUD + leaderboard) live in AnalysisSystemsService.kt.

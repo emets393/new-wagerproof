@@ -3,6 +3,16 @@
 
     <application>
 
+        <activity
+            android:name="com.wagerproof.widgets.TopOutliersWidgetConfigurationActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:theme="@style/Theme.Wagerproof.WidgetConfiguration">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- Top Outliers home-screen widget (Glance). Merged into :app. -->
         <receiver
             android:name="com.wagerproof.widgets.TopOutliersWidgetReceiver"

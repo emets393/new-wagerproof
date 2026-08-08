@@ -4,6 +4,7 @@ import com.wagerproof.core.models.CFBPrediction
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class CFBGameCardSlatePicksTest {
@@ -21,7 +22,7 @@ class CFBGameCardSlatePicksTest {
     )
 
     @Test
-    fun `authoritative rows drive posted team lines and unique signals`() {
+    fun `authoritative rows drive posted team lines`() {
         val rows = listOf(
             CFBDryrunPickRow(
                 cardGroup = "total",
@@ -50,9 +51,21 @@ class CFBGameCardSlatePicksTest {
         assertEquals(true, slate.totalIsOver)
         assertEquals("O/U OVER 51.5", slate.totalLabel)
         assertEquals("+3.5", slate.spreadLabel)
-        assertEquals(1, slate.highCount)
-        assertEquals(3, slate.signalCount)
-        assertTrue(slate.hasMammoth)
+    }
+
+    /**
+     * Mammoth still reads on the feed as the card's orange electric border, so
+     * the detection has to keep working even though `SlatePicks` no longer
+     * carries a badge for it (AND-090 — conviction is detail-page-only, per iOS).
+     */
+    @Test
+    fun `mammoth detection survives the badge removal`() {
+        val rows = listOf(
+            CFBDryrunPickRow(cardGroup = "moneyline", conviction = "mammoth", isMammoth = true, hasPlay = true),
+        )
+
+        assertTrue(cfbHasMammothPlay(game(), rows))
+        assertFalse(cfbHasMammothPlay(game(), emptyList()))
     }
 
     @Test

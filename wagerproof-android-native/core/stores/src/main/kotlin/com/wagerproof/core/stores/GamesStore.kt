@@ -1,6 +1,7 @@
 package com.wagerproof.core.stores
 
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -23,9 +24,11 @@ import com.wagerproof.core.services.CFBTeamsService
 import com.wagerproof.core.services.NFLTeamsService
 import com.wagerproof.core.services.ServiceDates
 import com.wagerproof.core.services.SupabaseClients
+import com.wagerproof.core.services.runCatchingCancellable
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -116,6 +119,13 @@ class GamesStore {
     // parity with the architecture contract and is cancelled by close().
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    /**
+     * One shared request per sport. The tab shell owns the canonical eager
+     * hydrate; this still protects against another screen lifecycle or a fast
+     * pull-to-refresh joining the same sport before its TTL stamp is written.
+     */
+    private val refreshTasks = InFlightTaskRegistry<Sport>(scope)
+
     fun close() = scope.cancel()
 
     // MARK: - Observable state
@@ -167,6 +177,15 @@ class GamesStore {
             val last = lastFetched[sport]
             if (last != null && System.currentTimeMillis() - last < cacheTTL) return
         }
+        // `lastFetched` is only written AFTER a fetch succeeds, so the TTL check
+        // above cannot stop a second caller that arrives while the first is
+        // still in flight (cold start used to run every sport 2-3x). Coalesce
+        // per sport instead — matches iOS GamesStore.refresh.
+        refreshTasks.run(sport) { performRefresh(sport) }
+    }
+
+    /** The single mutation path behind a coalesced per-sport request. */
+    private suspend fun performRefresh(sport: Sport) {
         loadState = loadState + (sport to LoadState.Loading)
         try {
             when (sport) {
@@ -178,8 +197,34 @@ class GamesStore {
             }
             loadState = loadState + (sport to LoadState.Loaded)
             lastFetched = lastFetched + (sport to System.currentTimeMillis())
+        } catch (cancellation: CancellationException) {
+            // Leaving the tab mid-fetch is not a failure: reset to Idle so the
+            // next visit re-fetches instead of showing "Failed to fetch …", and
+            // rethrow so the parent job actually learns the child was cancelled.
+            loadState = loadState + (sport to LoadState.Idle)
+            throw cancellation
         } catch (e: Throwable) {
             loadState = loadState + (sport to LoadState.Failed("Failed to fetch ${sport.label} games"))
+        }
+    }
+
+    /**
+     * Re-run only the sports whose last attempt FAILED. A no-op on the happy
+     * path (nothing is `Failed`), so screens can call it on every mount without
+     * reintroducing the duplicate cold-start fetches the shell hydrate removed.
+     *
+     * Needed because that shell hydrate is keyed on `Unit` and runs once per
+     * process: a sport that lost its cold-start fetch to a network blip is
+     * invisible until the user selects it in the picker, while every
+     * cross-surface consumer that resolves games out of this store (Search,
+     * Outliers detail, WagerBot) silently degrades to "no results" for it.
+     */
+    suspend fun retryFailed() {
+        coroutineScope {
+            Sport.entries
+                .filter { loadState[it] is LoadState.Failed }
+                .map { sport -> async { refresh(sport) } }
+                .awaitAll()
         }
     }
 
@@ -191,49 +236,74 @@ class GamesStore {
     }
 
     // MARK: - Filtered + sorted accessors
+    //
+    // Every list below is memoized with `derivedStateOf`, the Compose analogue
+    // of iOS's `SortedCacheKey` + `feedVersions` pair (GamesStore.swift:97-122,
+    // 198-230). Without it the whole feed is re-filtered and re-sorted on every
+    // read, and the reads happen inside the games LazyColumn's content lambda —
+    // i.e. once per recomposition, on the main thread.
+    //
+    // `derivedStateOf` (rather than a plain field keyed on a version counter,
+    // as on iOS) because it also preserves the snapshot reads: callers stay
+    // subscribed to `games` / `searchTexts` / `sortModes` and still recompose
+    // when the feed changes. A non-observable cache would freeze the list.
 
-    fun sortedNFL(): List<NFLPrediction> {
-        val q = (searchTexts[Sport.nfl] ?: "").lowercase()
+    private val sortedNflState = derivedStateOf {
+        val q = normalizedSearchText(Sport.nfl)
         val filtered = if (q.isEmpty()) games.nfl else games.nfl.filter {
             it.homeTeam.lowercase().contains(q) || it.awayTeam.lowercase().contains(q)
         }
-        return sortNFL(filtered, sortModes[Sport.nfl] ?: SortMode.TIME)
+        sortNFL(filtered, sortModes[Sport.nfl] ?: SortMode.TIME)
     }
 
-    fun sortedCFB(): List<CFBPrediction> {
-        val q = (searchTexts[Sport.cfb] ?: "").lowercase()
+    private val sortedCfbState = derivedStateOf {
+        val q = normalizedSearchText(Sport.cfb)
         val filtered = if (q.isEmpty()) games.cfb else games.cfb.filter {
             it.homeTeam.lowercase().contains(q) || it.awayTeam.lowercase().contains(q)
         }
-        return sortCFB(filtered, sortModes[Sport.cfb] ?: SortMode.TIME)
+        sortCFB(filtered, sortModes[Sport.cfb] ?: SortMode.TIME)
     }
 
-    fun sortedNBA(): List<NBAGame> {
-        val q = (searchTexts[Sport.nba] ?: "").lowercase()
+    private val sortedNbaState = derivedStateOf {
+        val q = normalizedSearchText(Sport.nba)
         val filtered = if (q.isEmpty()) games.nba else games.nba.filter {
             it.homeTeam.lowercase().contains(q) || it.awayTeam.lowercase().contains(q)
         }
-        return sortNBA(filtered, sortModes[Sport.nba] ?: SortMode.TIME)
+        sortNBA(filtered, sortModes[Sport.nba] ?: SortMode.TIME)
     }
 
-    fun sortedNCAAB(): List<NCAABGame> {
-        val q = (searchTexts[Sport.ncaab] ?: "").lowercase()
+    private val sortedNcaabState = derivedStateOf {
+        val q = normalizedSearchText(Sport.ncaab)
         val filtered = if (q.isEmpty()) games.ncaab else games.ncaab.filter {
             it.homeTeam.lowercase().contains(q) || it.awayTeam.lowercase().contains(q)
         }
-        return sortNCAAB(filtered, sortModes[Sport.ncaab] ?: SortMode.TIME)
+        sortNCAAB(filtered, sortModes[Sport.ncaab] ?: SortMode.TIME)
     }
 
-    fun sortedMLB(): List<MLBGame> {
-        val q = (searchTexts[Sport.mlb] ?: "").lowercase()
+    private val sortedMlbState = derivedStateOf {
+        val q = normalizedSearchText(Sport.mlb)
         val filtered = if (q.isEmpty()) games.mlb else games.mlb.filter {
             (it.homeTeamName ?: "").lowercase().contains(q) ||
                 (it.awayTeamName ?: "").lowercase().contains(q) ||
                 it.homeAbbr.lowercase().contains(q) ||
                 it.awayAbbr.lowercase().contains(q)
         }
-        return sortMLB(filtered, sortModes[Sport.mlb] ?: SortMode.TIME)
+        sortMLB(filtered, sortModes[Sport.mlb] ?: SortMode.TIME)
     }
+
+    fun sortedNFL(): List<NFLPrediction> = sortedNflState.value
+
+    fun sortedCFB(): List<CFBPrediction> = sortedCfbState.value
+
+    fun sortedNBA(): List<NBAGame> = sortedNbaState.value
+
+    fun sortedNCAAB(): List<NCAABGame> = sortedNcaabState.value
+
+    fun sortedMLB(): List<MLBGame> = sortedMlbState.value
+
+    /** Trim-then-lowercase, matching iOS `normalizedSearchText(for:)`. */
+    private fun normalizedSearchText(sport: Sport): String =
+        (searchTexts[sport] ?: "").trim().lowercase()
 
     private fun sortNFL(list: List<NFLPrediction>, mode: SortMode): List<NFLPrediction> = when (mode) {
         SortMode.TIME -> list.sortedBy { parseEpoch(it.gameDate) ?: Double.MAX_VALUE }
@@ -286,7 +356,7 @@ class GamesStore {
         if (viewRows.isEmpty()) return
 
         // Step 2: predictions, latest run_id only (lexicographically largest).
-        val predictionRows: List<NFLPredictionRow> = runCatching {
+        val predictionRows: List<NFLPredictionRow> = runCatchingCancellable {
             cfb.from("nfl_predictions_epa")
                 .select(columns = Columns.raw("training_key, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, run_id"))
                 .decodeList<NFLPredictionRow>()
@@ -298,7 +368,7 @@ class GamesStore {
         }
 
         // Step 3: betting lines, most-recent as_of_ts per training_key.
-        val bettingRows: List<NFLBettingRow> = runCatching {
+        val bettingRows: List<NFLBettingRow> = runCatchingCancellable {
             cfb.from("nfl_betting_lines")
                 .select(columns = Columns.raw("training_key, home_ml, away_ml, over_line, home_spread, spread_splits_label, ml_splits_label, total_splits_label, as_of_ts, game_date, game_time, home_ml_handle, away_ml_handle, home_ml_bets, away_ml_bets, home_spread_handle, away_spread_handle, home_spread_bets, away_spread_bets, over_handle, under_handle, over_bets, under_bets"))
                 .decodeList<NFLBettingRow>()
@@ -315,7 +385,7 @@ class GamesStore {
         }
 
         // Step 4: weather.
-        val weatherRows: List<WeatherRow> = runCatching {
+        val weatherRows: List<WeatherRow> = runCatchingCancellable {
             cfb.from("production_weather").select().decodeList<WeatherRow>()
         }.getOrDefault(emptyList())
         val weatherMap = HashMap<String, WeatherRow>()
@@ -381,7 +451,7 @@ class GamesStore {
         // Team logos/abbrs come from `nfl_teams` — warm the cache first.
         NFLTeamsService.ensureLoaded()
         val slate = resolveFootballCurrentWeek(cfb, "nfl_dryrun_games") ?: return emptyList()
-        val rows: List<JsonObject> = runCatching {
+        val rows: List<JsonObject> = runCatchingCancellable {
             cfb.from("nfl_dryrun_games")
                 .select {
                     filter {
@@ -402,7 +472,7 @@ class GamesStore {
         table: String,
     ): Pair<Int, Int>? {
         val graceIso = Instant.now().minusSeconds(6 * 60 * 60).toString()
-        val upcoming = runCatching {
+        val upcoming = runCatchingCancellable {
             cfb.from(table)
                 .select(columns = Columns.raw("season,week,kickoff")) {
                     filter { gte("kickoff", graceIso) }
@@ -416,7 +486,7 @@ class GamesStore {
             val week = jsonInt(row, "week")
             if (season != null && week != null) return season to week
         }
-        val latest = runCatching {
+        val latest = runCatchingCancellable {
             cfb.from(table)
                 .select(columns = Columns.raw("season,week")) {
                     order("season", Order.DESCENDING)
@@ -634,7 +704,7 @@ class GamesStore {
     private suspend fun fetchCFBLegacy() {
         val cfb = SupabaseClients.cfb
         val inputs: List<CFBInputRow> = cfb.from("cfb_live_weekly_inputs").select().decodeList()
-        val preds: List<CFBAPIRow> = runCatching {
+        val preds: List<CFBAPIRow> = runCatchingCancellable {
             cfb.from("cfb_api_predictions").select().decodeList<CFBAPIRow>()
         }.getOrDefault(emptyList())
         val predsById = preds.associateBy { it.id }
@@ -705,7 +775,7 @@ class GamesStore {
             return
         }
 
-        val predictionRows: List<NBAPredictionRow> = runCatching {
+        val predictionRows: List<NBAPredictionRow> = runCatchingCancellable {
             cfb.from("nba_predictions")
                 .select(columns = Columns.raw("game_id, home_win_prob, away_win_prob, model_fair_total, home_score_pred, away_score_pred, model_fair_home_spread, run_id, as_of_ts_utc"))
                 .decodeList<NBAPredictionRow>()
@@ -798,7 +868,7 @@ class GamesStore {
             return
         }
 
-        val allPreds: List<NCAABPredictionRow> = runCatching {
+        val allPreds: List<NCAABPredictionRow> = runCatchingCancellable {
             cfb.from("ncaab_predictions")
                 .select(columns = Columns.raw("game_id, run_id, as_of_ts_utc, home_away_ml_prob, home_away_spread_cover_prob, ou_result_prob, home_win_prob, away_win_prob, pred_home_margin, pred_total_points, home_score_pred, away_score_pred, model_fair_home_spread, vegas_home_spread, vegas_total"))
                 .decodeList<NCAABPredictionRow>()
@@ -815,7 +885,7 @@ class GamesStore {
         val predictionMap = HashMap<Int, NCAABPredictionRow>()
         for (row in allPreds) if (row.runId == latestRunId) predictionMap[row.gameId] = row
 
-        val mappingRows: List<NCAABMappingRow> = runCatching {
+        val mappingRows: List<NCAABMappingRow> = runCatchingCancellable {
             cfb.from("ncaab_team_mapping")
                 .select(columns = Columns.raw("api_team_id, team_abbrev, espn_team_id"))
                 .decodeList<NCAABMappingRow>()
@@ -898,7 +968,7 @@ class GamesStore {
         }
         val pks = gamesRows.mapNotNull { it.gamePk }
 
-        val predRows: List<MLBPredictionsCurrentRow> = runCatching {
+        val predRows: List<MLBPredictionsCurrentRow> = runCatchingCancellable {
             cfb.from("mlb_predictions_current")
                 .select { filter { isIn("game_pk", pks) } }
                 .decodeList<MLBPredictionsCurrentRow>()
@@ -906,7 +976,7 @@ class GamesStore {
         val predsByPk = HashMap<Int, MLBPredictionsCurrentRow>()
         for (row in predRows) row.gamePk?.let { if (!predsByPk.containsKey(it)) predsByPk[it] = row }
 
-        val mappingRows: List<MLBTeamMapping> = runCatching {
+        val mappingRows: List<MLBTeamMapping> = runCatchingCancellable {
             cfb.from("mlb_team_mapping").select().decodeList<MLBTeamMapping>()
         }.getOrDefault(emptyList())
         val mappingByName = HashMap<String, MLBTeamMapping>()
@@ -919,7 +989,7 @@ class GamesStore {
 
         // Signals: jsonb array | text[] of JSON strings | JSON string, with
         // case-variant keys. Decode as JsonObject and parse defensively.
-        val signalRows: List<JsonObject> = runCatching {
+        val signalRows: List<JsonObject> = runCatchingCancellable {
             cfb.from("mlb_game_signals").select().decodeList<JsonObject>()
         }.getOrDefault(emptyList())
         val signalsByPk = HashMap<Int, List<MLBSignalItem>>()

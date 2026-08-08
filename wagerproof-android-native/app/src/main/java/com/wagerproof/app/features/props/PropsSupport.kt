@@ -129,26 +129,31 @@ fun nflTeamColors(team: String): Pair<Color, Color> {
     return primary to secondary
 }
 
-/** Team-tinted glass ring around a headshot — the Android stand-in for iOS `teamGlassDisc`. */
-fun Modifier.teamGlassDisc(primary: Color, secondary: Color): Modifier =
+/**
+ * Team-tinted glass ring around a headshot — the Android stand-in for iOS
+ * `teamGlassDisc`. [tint] mirrors iOS's `glassEffect(.regular.tint(primary.opacity(tint)))`
+ * knob; the default reproduces the strength every existing call site already had.
+ */
+fun Modifier.teamGlassDisc(primary: Color, secondary: Color, tint: Float = 0.55f): Modifier =
     this
         .clip(CircleShape)
         .background(
             Brush.linearGradient(
                 listOf(
-                    primary.teamVisible(0.5f).copy(alpha = 0.55f),
-                    secondary.copy(alpha = 0.35f),
+                    primary.teamVisible(0.5f).copy(alpha = tint),
+                    // Secondary keeps its historical ~0.64 ratio to the primary tint.
+                    secondary.copy(alpha = tint * 0.64f),
                 ),
             ),
         )
         .border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape)
 
-/** The lifted, translucent 26dp card surface shared by both prop feed cards. */
+/** The lifted 26dp card surface shared by both prop feed cards — near-opaque: without a real blur a low-alpha fill just leaks the page through (owner device feedback). */
 fun Modifier.propCardSurface(): Modifier {
     val shape = RoundedCornerShape(26.dp)
     return this
         .clip(shape)
-        .background(AppColors.appSurfaceElevated.copy(alpha = 0.55f))
+        .background(AppColors.appSurfaceElevated.copy(alpha = 0.92f))
         .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.5f), shape)
 }
 

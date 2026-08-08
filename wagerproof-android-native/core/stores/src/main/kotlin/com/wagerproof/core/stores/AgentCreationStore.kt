@@ -14,6 +14,7 @@ import com.wagerproof.core.services.CreateAgentInput
 import com.wagerproof.core.services.PresetArchetypeRow
 import com.wagerproof.core.services.PresetArchetypeService
 import com.wagerproof.core.services.applying
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,7 +38,9 @@ import kotlinx.coroutines.cancel
  * view consults `canProceed(from:)` before allowing Next.
  */
 @Stable
-class AgentCreationStore {
+class AgentCreationStore(
+    private val createAgent: suspend (CreateAgentInput) -> Agent = AgentService::create,
+) {
 
     sealed interface SubmitState {
         data object Idle : SubmitState
@@ -52,6 +55,14 @@ class AgentCreationStore {
         data object Loaded : ArchetypesLoadState
         data class Failed(val message: String) : ArchetypesLoadState
     }
+
+    /** Display-only provenance retained while editing a copied public build. */
+    data class CopySource(
+        val agentId: String,
+        val name: String,
+        val avatarColor: String,
+        val spriteIndex: Int,
+    )
 
     /**
      * Mutable draft snapshot. The wizard mutates fields via the store's setter
@@ -76,7 +87,40 @@ class AgentCreationStore {
         val autoGenerate: Boolean = true,
         val autoGenerateTime: String = "09:00",
         val autoGenerateTimezone: String = "America/New_York",
-    )
+        /** Client-only provenance; never serialized into create_agent. */
+        val copySource: CopySource? = null,
+    ) {
+        companion object {
+            /**
+             * Seed a draft from a PUBLIC agent's build — personality, insights,
+             * sports, archetype, identity. Backs the "Copy build" CTA on public
+             * agent detail (iOS `Draft.copying(fromPublicAgent:)`).
+             *
+             * Nothing is cloned server-side: the viewer ends up creating a
+             * brand-new agent they own, which just starts from someone else's
+             * settings. `id`/`userId`/performance are deliberately not carried.
+             */
+            fun copying(fromPublicAgent: Agent): Draft = Draft(
+                preferredSports = fromPublicAgent.preferredSports,
+                archetype = fromPublicAgent.archetype,
+                name = "Copy of ${fromPublicAgent.name}",
+                avatarEmoji = fromPublicAgent.avatarEmoji,
+                avatarColor = fromPublicAgent.avatarColor,
+                spriteIndex = fromPublicAgent.spriteIndexOverride,
+                personalityParams = fromPublicAgent.personalityParams,
+                customInsights = fromPublicAgent.customInsights,
+                // Copies always start manual — the viewer hasn't opted into
+                // autopilot scheduling for a build they didn't create.
+                autoGenerate = false,
+                copySource = CopySource(
+                    agentId = fromPublicAgent.id,
+                    name = fromPublicAgent.name,
+                    avatarColor = fromPublicAgent.avatarColor,
+                    spriteIndex = fromPublicAgent.spriteIndex,
+                ),
+            )
+        }
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -107,6 +151,9 @@ class AgentCreationStore {
         try {
             archetypeRows = PresetArchetypeService.fetchAll()
             archetypesLoadState = ArchetypesLoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            archetypesLoadState = ArchetypesLoadState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             archetypesLoadState = ArchetypesLoadState.Failed(message(t))
         }
@@ -161,34 +208,39 @@ class AgentCreationStore {
     /** Whether the user can advance past the given step. Mirrors `validateScreen()`. */
     fun canProceed(from: Int): Boolean = when (from) {
         0 -> draft.preferredSports.isNotEmpty()
-        1 -> {
-            val trimmed = draft.name.trim()
-            when {
-                trimmed.isEmpty() || trimmed.length > 50 -> false
-                existingAgentNames.any { it.lowercase() == trimmed.lowercase() } -> false
-                draft.avatarEmoji.isEmpty() -> false
-                draft.avatarColor.isEmpty() -> false
-                else -> true
-            }
-        }
+        1 -> identityValidationError() == null
         2, 3, 4, 5 -> true
         else -> false
+    }
+
+    /**
+     * Builder-independent identity validation. The pixelwave builder places
+     * Identity last (rather than at legacy step index 1), so submission must
+     * not rely on the old wizard's numeric step gate.
+     */
+    fun identityValidationError(): String? {
+        val trimmed = draft.name.trim()
+        return when {
+            trimmed.isEmpty() -> "Please enter a name for your agent"
+            trimmed.length > 50 -> "Name must be 50 characters or less"
+            existingAgentNames.any { it.trim().equals(trimmed, ignoreCase = true) } ->
+                "You already have an agent named \"$trimmed\". Please choose a different name."
+            draft.avatarEmoji.isEmpty() -> "Please select an emoji"
+            draft.avatarColor.isEmpty() -> "Please select a color"
+            else -> null
+        }
+    }
+
+    fun hasDuplicateName(): Boolean {
+        val trimmed = draft.name.trim()
+        return trimmed.isNotEmpty() &&
+            existingAgentNames.any { it.trim().equals(trimmed, ignoreCase = true) }
     }
 
     /** Surface-friendly explanation of why a step is blocked. Mirrors `getValidationError()`. */
     fun validationError(stepIndex: Int): String? = when (stepIndex) {
         0 -> if (draft.preferredSports.isEmpty()) "Please select at least one sport" else null
-        1 -> {
-            val trimmed = draft.name.trim()
-            when {
-                trimmed.isEmpty() -> "Please enter a name for your agent"
-                trimmed.length > 50 -> "Name must be 50 characters or less"
-                existingAgentNames.any { it.lowercase() == trimmed.lowercase() } ->
-                    "You already have an agent named \"$trimmed\". Please choose a different name."
-                draft.avatarEmoji.isEmpty() -> "Please select an emoji"
-                else -> null
-            }
-        }
+        1 -> identityValidationError()
         else -> null
     }
 
@@ -209,6 +261,14 @@ class AgentCreationStore {
      * `.succeeded(agent)` or `.failed(reason)`.
      */
     suspend fun submit(autoModeForcedOff: Boolean): Agent? {
+        val validationError = when {
+            draft.preferredSports.isEmpty() -> "Please select at least one sport"
+            else -> identityValidationError()
+        }
+        if (validationError != null) {
+            submitState = SubmitState.Failed(validationError)
+            return null
+        }
         val trimmedName = draft.name.trim()
         // Honor the "Pro auto-slot full" gate — flip auto_generate off before
         // serializing so the server sees the user's effective intent (manual).
@@ -227,9 +287,12 @@ class AgentCreationStore {
         )
         submitState = SubmitState.Submitting
         return try {
-            val agent = AgentService.create(input)
+            val agent = createAgent(input)
             submitState = SubmitState.Succeeded(agent)
             agent
+        } catch (cancellation: CancellationException) {
+            submitState = SubmitState.Idle
+            throw cancellation
         } catch (t: Throwable) {
             submitState = SubmitState.Failed(message(t))
             null

@@ -9,6 +9,7 @@ import com.wagerproof.core.models.NBAInjuryReport
 import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -97,6 +98,9 @@ class NBAMatchupOverviewStore {
             awayInjuryImpact = calculateInjuryImpact(away)
             homeInjuryImpact = calculateInjuryImpact(home)
             injuriesState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            injuriesState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             injuriesState = LoadState.Failed(e.message ?: "Failed to load injuries")
         }
@@ -129,6 +133,9 @@ class NBAMatchupOverviewStore {
                 .decodeList<NBAGameTrends>()
             trends = rows.firstOrNull()
             trendsState = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            trendsState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             trends = null
             trendsState = LoadState.Failed(e.message ?: "Failed to load trends")

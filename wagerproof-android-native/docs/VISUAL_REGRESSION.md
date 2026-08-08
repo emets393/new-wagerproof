@@ -4,6 +4,12 @@ The debug build contains an isolated `VisualRegressionActivity` modeled after
 iOS `ScreenshotHarness`. It renders a named scenario directly and never enters
 `RootHost`, changes production routes, or ships in release builds.
 
+Current evidence (2026-07-31): the harness is present, but the Wave 2 onboarding,
+paywall, Historical Trends, Parlay God, and widget surfaces have not been captured
+on a device in this workspace because no Android device is connected. Do not treat
+the scenario matrix as executed visual-regression proof until fresh artifacts are
+recorded.
+
 ## Capture
 
 Use a portrait Pixel 8 / API 35 emulator for reference captures:

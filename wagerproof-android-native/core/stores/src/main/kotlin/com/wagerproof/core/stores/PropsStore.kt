@@ -1,14 +1,18 @@
 package com.wagerproof.core.stores
 
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.wagerproof.core.models.MLBPropMatchup
+import com.wagerproof.core.models.MLBPropsInsight
 import com.wagerproof.core.models.NFLPropPlayer
+import com.wagerproof.core.models.PropsInsightSummary
 import com.wagerproof.core.services.MLBPlayerPropsService
 import com.wagerproof.core.services.NFLPlayerPropsService
+import kotlinx.coroutines.CancellationException
 import java.io.IOException
 
 /**
@@ -82,8 +86,55 @@ class PropsStore(
             else -> false
         }
 
+    // Derived MLB caches, all invalidated by the slate itself: `matchups` is the
+    // only input, so replacing it rebuilds the index and drops the memo. Mirrors
+    // iOS PropsStore.swift:59-98 (matchupIndex / sortedMatchupsCache /
+    // insightSummaryCache), where `setMatchups` is the single funnel.
+    //
+    // `derivedStateOf` rather than plain fields: reads stay snapshot-observable,
+    // so the props feed and the MLB sheet still recompose after a refresh.
+    private val matchupIndexState = derivedStateOf {
+        // First-wins on a duplicate game_pk, matching the previous
+        // `firstOrNull` lookup and iOS's `uniquingKeysWith: { first, _ in first }`.
+        val index = LinkedHashMap<Int, MLBPropMatchup>(matchups.size)
+        for (matchup in matchups) if (!index.containsKey(matchup.gamePk)) index[matchup.gamePk] = matchup
+        index
+    }
+
+    private val sortedMatchupsState = derivedStateOf {
+        matchups.sortedWith(compareBy({ it.officialDate }, { it.gameTimeEt ?: "" }))
+    }
+
+    // Plain map, not snapshot state: the MLB sheet reads this from a composable
+    // body and writing observable state during composition is illegal.
+    // Correctness comes from `matchupIndexState` — a new slate produces a new
+    // index instance, which clears the memo below.
+    private val insightSummaryCache = HashMap<Int, PropsInsightSummary?>()
+    private var insightSummarySource: Map<Int, MLBPropMatchup>? = null
+
     /** Per-game lookup for the MLB game-sheet "Player Props" widget. */
-    fun matchup(gamePk: Int): MLBPropMatchup? = matchups.firstOrNull { it.gamePk == gamePk }
+    fun matchup(gamePk: Int): MLBPropMatchup? = matchupIndexState.value[gamePk]
+
+    /**
+     * Memoized [MLBPropsInsight.summary] for one game.
+     *
+     * The uncached call walks every player in the matchup, picks a headline
+     * prop, and makes five passes over that player's ~120-entry season log —
+     * far too expensive to re-run on every recomposition of the props widget.
+     * Null is memoized too (a matchup with no headline props hides the card),
+     * so the miss path can't re-run the pipeline every frame.
+     */
+    fun propsInsightSummary(gamePk: Int): PropsInsightSummary? {
+        val index = matchupIndexState.value
+        if (insightSummarySource !== index) {
+            insightSummaryCache.clear()
+            insightSummarySource = index
+        }
+        if (insightSummaryCache.containsKey(gamePk)) return insightSummaryCache[gamePk]
+        val built = index[gamePk]?.let { MLBPropsInsight.summary(it) }
+        insightSummaryCache[gamePk] = built
+        return built
+    }
 
     /**
      * MLB-specific load state, independent of the Props tab's selected sport
@@ -98,11 +149,12 @@ class PropsStore(
     /**
      * Matchups ordered by game time (the service already orders by date then
      * time; this keeps a stable secondary sort if the API order drifts).
+     *
+     * Memoized, so the returned list keeps a stable identity between slates —
+     * screen-side derivations (`PlayerPropFeed.items`,
+     * `MLBPropGameFilterOptions.build`) can `remember(...)` on it.
      */
-    fun sortedMatchups(): List<MLBPropMatchup> =
-        matchups.sortedWith(
-            compareBy({ it.officialDate }, { it.gameTimeEt ?: "" }),
-        )
+    fun sortedMatchups(): List<MLBPropMatchup> = sortedMatchupsState.value
 
     // MARK: - Fetch
 
@@ -123,6 +175,9 @@ class PropsStore(
             matchups = service.fetchMatchups()
             lastFetched[Sport.MLB] = System.currentTimeMillis()
             loadState[Sport.MLB] = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            loadState[Sport.MLB] = if (matchups.isEmpty()) LoadState.Idle else LoadState.Loaded
+            throw cancellation
         } catch (e: Exception) {
             loadState[Sport.MLB] =
                 if (matchups.isEmpty()) LoadState.Failed(friendlyError(e)) else LoadState.Loaded
@@ -142,6 +197,9 @@ class PropsStore(
             nflPlayers = nflService.fetchPlayers()
             lastFetched[Sport.NFL] = System.currentTimeMillis()
             loadState[Sport.NFL] = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            loadState[Sport.NFL] = if (nflPlayers.isEmpty()) LoadState.Idle else LoadState.Loaded
+            throw cancellation
         } catch (e: Exception) {
             loadState[Sport.NFL] =
                 if (nflPlayers.isEmpty()) LoadState.Failed(friendlyError(e)) else LoadState.Loaded
@@ -176,6 +234,9 @@ class PropsStore(
             }
             lastFetched[sport] = System.currentTimeMillis()
             loadState[sport] = LoadState.Loaded
+        } catch (cancellation: CancellationException) {
+            loadState[sport] = if (hasCachedMatchups) LoadState.Loaded else LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             loadState[sport] =
                 if (hasCachedMatchups) LoadState.Loaded else LoadState.Failed(friendlyError(e))

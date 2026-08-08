@@ -25,6 +25,10 @@ import com.wagerproof.core.design.backgrounds.PixelGlyphField
  *
  * Dark-only (the Android app): white glyphs mixing toward the agent hue at
  * their cores, matching the detail-hero field.
+ *
+ * [isActive] false freezes the automaton without unmounting it — the field
+ * holds its last frame, so a hidden tab's rows stop stepping but never flash
+ * blank on return (iOS AgentCardGlyphTexture.swift:24, 57).
  */
 @Composable
 fun AgentCardGlyphTexture(
@@ -32,6 +36,7 @@ fun AgentCardGlyphTexture(
     seedString: String,
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 26.dp,
+    isActive: Boolean = true,
 ) {
     val primary = AgentColorPalette.primary(avatarColor)
     val seed = fnv1aSeed(seedString)
@@ -64,6 +69,9 @@ fun AgentCardGlyphTexture(
             peakOpacity = 0.4,
             seed = seed,
             tapRipples = false,
+            // The field's own freeze switch: stops the step loop and the frame
+            // clock while still drawing the last grid.
+            reduceMotion = !isActive,
         )
     }
 }

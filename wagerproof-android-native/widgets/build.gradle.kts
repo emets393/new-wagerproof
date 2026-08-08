@@ -37,6 +37,8 @@ dependencies {
     implementation(composeBom)
     implementation(libs.compose.runtime)
     implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.material3)
+    implementation(libs.androidx.activity.compose)
 
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
@@ -45,4 +47,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
+
+    testImplementation(kotlin("test"))
 }

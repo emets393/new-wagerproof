@@ -165,7 +165,7 @@ private fun ChromeBand(
                         .padding(start = 12.dp)
                         .size(40.dp)
                         .liquidGlassBackground(shape = CircleShape, tint = Color.White.copy(alpha = 0.10f))
-                        .onboardingPressable(onBack),
+                        .onboardingPressable(onClickLabel = "Go back", onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -221,6 +221,14 @@ private fun OnboardingProgressBar(
 // Compose has no built-in easeInOut identical to iOS; reuse the design token's.
 private val AppColorsEaseInOut = com.wagerproof.core.design.tokens.AppAnimations.EaseInOut
 
+// The iOS carousel uses a near-solid white surface with black content. Keep
+// these values explicit and shared with the contract test: liquidGlassBackground
+// normalizes every tint to 18%, which made Color.White.copy(alpha = 0.92f)
+// render as a dark glass pill instead of the requested white CTA on device.
+internal val OnboardingCarouselCtaSurfaceColor = Color.White.copy(alpha = 0.92f)
+internal val OnboardingCarouselCtaForegroundColor = Color.Black
+internal val OnboardingCarouselCtaFontWeight = FontWeight.Black
+
 // MARK: - CTA pill (port of ContinueCTAButton.swift)
 
 @Composable
@@ -263,7 +271,8 @@ private fun ContinueCTAButton(
             .height(60.dp)
             // Current iOS carousel keeps the CTA bright white/black while
             // the live accent is reserved for the progress fill.
-            .liquidGlassBackground(shape = shape, tint = Color.White.copy(alpha = 0.92f))
+            .clip(shape)
+            .background(OnboardingCarouselCtaSurfaceColor)
             // Specular highlight — white gradient fading top → mid.
             .background(
                 Brush.verticalGradient(
@@ -271,18 +280,30 @@ private fun ContinueCTAButton(
                     0.5f to Color.White.copy(alpha = 0f),
                 ),
             )
-            .then(
-                if (isEnabled && !isLoading) Modifier.onboardingPressable(onClick) else Modifier,
+            .onboardingPressable(
+                enabled = isEnabled && !isLoading,
+                onClickLabel = label,
+                onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
     ) {
         if (isLoading) {
-            CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
+            CircularProgressIndicator(
+                color = OnboardingCarouselCtaForegroundColor,
+                modifier = Modifier.size(24.dp),
+            )
         } else {
             Text(
                 text = label,
-                style = AppTypography.majorCta.copy(fontSize = 18.sp),
-                color = Color.Black,
+                // Match the iOS CTA's system face. The bundled rounded variable
+                // font reads noticeably thinner on the physical Android device,
+                // even at its heaviest declared weight.
+                style = AppTypography.majorCta.copy(
+                    fontFamily = AppTypography.SystemFontFamily,
+                    fontSize = 18.sp,
+                    fontWeight = OnboardingCarouselCtaFontWeight,
+                ),
+                color = OnboardingCarouselCtaForegroundColor,
                 modifier = Modifier.wrapContentWidth(),
             )
         }

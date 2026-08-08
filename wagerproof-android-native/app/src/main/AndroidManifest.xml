@@ -17,13 +17,23 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Wagerproof">
 
-        <!-- Explicit events only; RevenueCat supplies server-side Meta CAPI. -->
+        <!-- Init stays manual so the SDK can't start in a credential-free build
+             (MetaAnalyticsService.initialize gates on FACEBOOK_APP_ID). Auto
+             app-event logging and advertiser-ID collection are ON: the former
+             is what emits fb_mobile_activate_app, Meta's install signal, and on
+             Android the advertising id is the primary join key for attributing
+             an install to an ad. Both were false, which made Android installs
+             unattributable. See .claude/docs/18_meta_attribution.md. -->
         <meta-data android:name="com.facebook.sdk.AutoInitEnabled" android:value="false" />
-        <meta-data android:name="com.facebook.sdk.AutoLogAppEventsEnabled" android:value="false" />
-        <meta-data android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled" android:value="false" />
+        <meta-data android:name="com.facebook.sdk.AutoLogAppEventsEnabled" android:value="true" />
+        <meta-data android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled" android:value="true" />
 
         <!-- Used by FCM when Google Play services renders a notification
-             payload without starting WagerproofMessagingService. -->
+             payload without starting WagerproofMessagingService. The channel id
+             must stay equal to NotificationService.REMOTE_CHANNEL_ID and to the
+             channel_id sent by the send-agent-pick-ready-notification edge
+             function — Android 8+ drops a push naming an uncreated channel.
+             Pinned by NotificationChannelContractTest. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_wagerproof" />
@@ -69,5 +79,19 @@
                 <data android:scheme="rc-ff2fe0e0af" />
             </intent-filter>
         </activity>
+
+        <!-- Grants a one-shot read uri on cached PNGs handed to the system share
+             sheet (Historical Trends infographics). The authority is derived from
+             applicationId so the .debug build doesn't collide with the Play build
+             — anything reading it must use context.packageName, not a literal. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

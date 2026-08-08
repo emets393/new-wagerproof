@@ -172,9 +172,11 @@ private fun AnchoredField(
                     drawContent()
                     drawRect(
                         brush = Brush.verticalGradient(
+                            // iOS stops (0.15/0.24): the field must clear by the hero's
+                            // bottom edge so translucent cards never scroll over glyphs.
                             0f to Color.White,
-                            0.26f to Color.White,
-                            0.58f to Color.Transparent,
+                            0.15f to Color.White,
+                            0.24f to Color.Transparent,
                         ),
                         blendMode = BlendMode.DstIn,
                     )

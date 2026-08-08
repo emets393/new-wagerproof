@@ -1,5 +1,6 @@
 package com.wagerproof.core.models
 
+import com.wagerproof.core.models.serialization.WagerproofJson
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -136,6 +137,8 @@ data class HistoricalAnalysisBreakdownRow(
     val referee: String? = null,
     val conference: String? = null,
     val venue: String? = null,
+    /** Venue rows only (MLB): the venue's resident team, for the row logo. */
+    @SerialName("home_team") val homeTeam: String? = null,
     val n: Int = 0,
     @SerialName("hit_pct") val hitPct: Double = 0.0,
     val roi: Double? = null,
@@ -198,15 +201,76 @@ data class HistoricalAnalysisUpcomingGame(
     val id: String get() = gamePk?.let { "$it-$team" } ?: "$team-${kickoff ?: gameDate ?: ""}"
 }
 
+/**
+ * One row of `{sport}_analysis_saved_filters` owned by the current user.
+ *
+ * A **tracked system** carries `verdict` + `rpc_bet_type` + `rpc_filters`: the
+ * exact warehouse payload `grade-analysis-systems` replays nightly. Rows written
+ * without them are legacy bookmarks the grader can never score — [isTrackedSystem]
+ * is the difference, and the UI labels them "Filters only".
+ *
+ * `filters` soft-decodes (see [HistoricalAnalysisUISnapshotSerializer]): web/Expo
+ * snapshots omit iOS-only keys and use pair aliases, and a strict decode used to
+ * fail the whole My Systems fetch.
+ */
 @Serializable
 data class HistoricalAnalysisSavedFilter(
     val id: String,
     @SerialName("user_id") val userId: String,
     val name: String,
     @SerialName("bet_type") val betType: String,
-    val filters: HistoricalAnalysisUISnapshot,
+    val filters: HistoricalAnalysisUISnapshot = HistoricalAnalysisUISnapshot(),
+    @Serializable(with = AnalysisSystemVerdictSerializer::class)
+    val verdict: AnalysisSystemVerdict? = null,
+    @SerialName("rpc_bet_type") val rpcBetType: String? = null,
+    /** The EXACT `p_filters` payload the page queried with — the grader replays it verbatim. */
+    @SerialName("rpc_filters") val rpcFilters: JsonObject? = null,
+    @SerialName("is_public") val isPublic: Boolean = false,
+    @SerialName("since_saved") val sinceSaved: AnalysisSystemRecord? = null,
     @SerialName("created_at") val createdAt: String? = null,
-)
+) {
+    /** True when this row has an explicit bet-side and can track since-saved. */
+    val isTrackedSystem: Boolean get() = verdict != null
+
+    companion object {
+        /**
+         * Per-row lossy decode: one legacy / web-shaped row must never blank the whole
+         * My Systems list. Rows whose `filters` blob isn't an object fall back to this
+         * SPORT's defaults (not the NFL-shaped base) plus the saved `bet_type`, so a
+         * restore doesn't silently emit NFL range clauses on an MLB system.
+         */
+        fun decodeLossyList(
+            sport: HistoricalAnalysisSport,
+            raw: String,
+        ): List<HistoricalAnalysisSavedFilter> {
+            val array = runCatching { WagerproofJson.parseToJsonElement(raw) }.getOrNull() as? JsonArray
+                ?: return emptyList()
+            return array.mapNotNull { element ->
+                val row = runCatching {
+                    WagerproofJson.decodeFromJsonElement(serializer(), element)
+                }.getOrNull() ?: return@mapNotNull null
+                val snapshotObject = (element as? JsonObject)?.get("filters") as? JsonObject
+                val filters = if (snapshotObject == null) {
+                    defaultsFor(sport, row.betType)
+                } else {
+                    HistoricalAnalysisUISnapshotSerializer.decodeWithDefaults(
+                        element = snapshotObject,
+                        defaults = defaultsFor(sport, row.betType),
+                    )
+                }
+                row.copy(filters = filters)
+            }
+        }
+
+        private fun defaultsFor(
+            sport: HistoricalAnalysisSport,
+            betType: String,
+        ): HistoricalAnalysisUISnapshot =
+            HistoricalAnalysisUISnapshot.defaults(sport).also {
+                if (betType.isNotEmpty()) it.betType = betType
+            }
+    }
+}
 
 /**
  * UI-shaped filter snapshot — stored in saved-filters tables and restored verbatim.
@@ -223,6 +287,12 @@ data class HistoricalAnalysisUISnapshot(
     var weekMax: Int = 18,
     var side: String = "any",
     var favDog: String = "any",
+    /**
+     * MLB: the ACTUAL posted run-line side ("minus" = laying −1.5, "plus" =
+     * getting +1.5). Distinct from favDog — books post the ML favorite at +1.5
+     * in ~7% of games, so "getting +1.5" and "underdog" are different questions.
+     */
+    var rlSide: String = "any",
     var spreadSide: String = "any",
     var spreadMin: Double = 0.0,
     var spreadMax: Double = 20.0,
@@ -349,6 +419,12 @@ data class HistoricalAnalysisUISnapshot(
     /** Legacy single-day value; `daysOfWeek` (multi) is canonical. */
     var dayOfWeek: String = "any",
     var doubleheader: Boolean? = null,
+    /**
+     * Multi-select of specific series game numbers (1–6). Legacy min/max range
+     * saves migrate into this set at decode; the range fields survive only so an
+     * old snapshot round-trips.
+     */
+    var seriesGames: List<Int> = emptyList(),
     var seriesGameMin: Int? = null,
     var seriesGameMax: Int? = null,
     var tripMin: Int? = null,
@@ -381,6 +457,10 @@ data class HistoricalAnalysisUISnapshot(
     var bpIpMax: Double = 20.0,
     var bpXfipMin: Double = 2.0,
     var bpXfipMax: Double = 7.0,
+    var spEraMin: Double = 0.0,
+    var spEraMax: Double = 10.0,
+    var oppSpEraMin: Double = 0.0,
+    var oppSpEraMax: Double = 10.0,
     var rpg: List<Double> = listOf(0.0, 10.0),
     var rapg: List<Double> = listOf(0.0, 10.0),
     var runDiffPg: List<Double> = listOf(-4.0, 4.0),
@@ -391,6 +471,118 @@ data class HistoricalAnalysisUISnapshot(
     var oppRpg: List<Double> = listOf(0.0, 10.0),
     var oppRapg: List<Double> = listOf(0.0, 10.0),
 ) {
+    /**
+     * True when a football snapshot sits in the forced ~50% state: a two-sided
+     * market (every game contributes BOTH mirror rows) with only game-level
+     * filters active. "All teams covered 50.1%" is then a tautology, not a
+     * finding, so the hero must show the real home/away + fav/dog splits
+     * instead (iOS `HistoricalAnalysisUISnapshot.isSideSymmetric`, web
+     * `NFL_SIDE_BREAKING_DIMS` / `CFB_SIDE_BREAKING_DIMS`).
+     *
+     * Only SIDE-BREAKING dims are listed — anything absent here is game-level
+     * (seasons, weeks, spread size, weather, referee, minGames…) and keeps both
+     * mirror rows, so narrowing it leaves the 50% tautology intact.
+     */
+    fun isSideSymmetric(sport: HistoricalAnalysisSport): Boolean {
+        if (betType !in sideMarkets) return false
+        val d = defaults(sport)
+        return side == d.side &&
+            teams.isEmpty() && opponents.isEmpty() &&
+            favDog == d.favDog && spreadSide == d.spreadSide &&
+            mlMin.isEmpty() && mlMax.isEmpty() &&
+            h1SpreadSide == d.h1SpreadSide &&
+            h1SpreadMin == d.h1SpreadMin && h1SpreadMax == d.h1SpreadMax &&
+            h1MlMin.isEmpty() && h1MlMax.isEmpty() &&
+            h1TotalMin == d.h1TotalMin && h1TotalMax == d.h1TotalMax &&
+            ttLineMin == d.ttLineMin && ttLineMax == d.ttLineMax &&
+            oppSpreadSide == d.oppSpreadSide &&
+            oppSpreadMin == d.oppSpreadMin && oppSpreadMax == d.oppSpreadMax &&
+            oppMlMin.isEmpty() && oppMlMax.isEmpty() &&
+            oppTtLineMin == d.oppTtLineMin && oppTtLineMax == d.oppTtLineMax &&
+            lastResult == d.lastResult && lastAts == d.lastAts &&
+            lastTotal == d.lastTotal && lastRole == d.lastRole &&
+            lastOt == d.lastOt && lastMargin == d.lastMargin &&
+            lastBlowout == d.lastBlowout &&
+            oppLastResult == d.oppLastResult && oppLastAts == d.oppLastAts &&
+            oppLastTotal == d.oppLastTotal && oppLastRole == d.oppLastRole &&
+            oppLastOt == d.oppLastOt && oppLastMargin == d.oppLastMargin &&
+            winPct == d.winPct && winStreak == d.winStreak && lossStreak == d.lossStreak &&
+            above500 == d.above500 && winPctGtOpp == d.winPctGtOpp &&
+            ppg == d.ppg && paPg == d.paPg && pointDiffPg == d.pointDiffPg &&
+            atsWinPct == d.atsWinPct && atsWinStreak == d.atsWinStreak &&
+            avgCoverMargin == d.avgCoverMargin &&
+            overPct == d.overPct && overStreak == d.overStreak && underStreak == d.underStreak &&
+            prevWins == d.prevWins && prevWinPct == d.prevWinPct &&
+            madePlayoffsPrev == d.madePlayoffsPrev && moreWinsThanOppPrev == d.moreWinsThanOppPrev &&
+            h2hLastWin == d.h2hLastWin && h2hLastAts == d.h2hLastAts &&
+            h2hLastOver == d.h2hLastOver && h2hLastHome == d.h2hLastHome &&
+            h2hLastFav == d.h2hLastFav && h2hSameSeason == d.h2hSameSeason &&
+            h2hSpreadCmp == d.h2hSpreadCmp &&
+            oppWinPct == d.oppWinPct && oppOverPct == d.oppOverPct &&
+            oppWinStreak == d.oppWinStreak && oppLossStreak == d.oppLossStreak &&
+            oppPpg == d.oppPpg && oppPaPg == d.oppPaPg && oppPrevWinPct == d.oppPrevWinPct &&
+            coach == d.coach && restBye == d.restBye && teamDivisions.isEmpty() &&
+            // Conference is a SUBJECT-TEAM attribute, so it breaks the mirror
+            // (web CFB_SIDE_BREAKING_DIMS includes `conferences`). iOS shares one
+            // football predicate that forgets it and still calls an SEC-only
+            // spread search "symmetric"; erring toward the normal hero is the
+            // safe direction, since a real ~50% just reads as a real ~50%.
+            selectedConferences.isEmpty() && conference == d.conference
+    }
+
+    /**
+     * MLB flavour of [isSideSymmetric] — mirrors web `MLB_SIDE_BREAKING_DIMS`.
+     * Game-level dims (months, division, interleague, totals, first pitch,
+     * series game, doubleheader, weather/park, minGames) are deliberately
+     * absent: they keep both mirror rows.
+     */
+    fun isSideSymmetricMlb(): Boolean {
+        if (betType !in mlbSideMarkets) return false
+        val d = defaults(HistoricalAnalysisSport.MLB)
+        return teams.isEmpty() && opponents.isEmpty() &&
+            side == d.side && favDog == d.favDog && rlSide == d.rlSide &&
+            mlMin.isEmpty() && mlMax.isEmpty() &&
+            tripMin == null && tripMax == null &&
+            switchGame == null &&
+            restMin == null && restMax == null &&
+            sp.isEmpty() && oppSp.isEmpty() &&
+            spHand == d.spHand && oppSpHand == d.oppSpHand &&
+            spXfipMin == d.spXfipMin && spXfipMax == d.spXfipMax &&
+            oppSpXfipMin == d.oppSpXfipMin && oppSpXfipMax == d.oppSpXfipMax &&
+            bpIpMin == d.bpIpMin && bpIpMax == d.bpIpMax &&
+            bpXfipMin == d.bpXfipMin && bpXfipMax == d.bpXfipMax &&
+            spEraMin == d.spEraMin && spEraMax == d.spEraMax &&
+            oppSpEraMin == d.oppSpEraMin && oppSpEraMax == d.oppSpEraMax &&
+            lastResult == d.lastResult && lastAts == d.lastAts &&
+            lastTotal == d.lastTotal && lastRole == d.lastRole &&
+            lastMargin == d.lastMargin &&
+            // Legacy string margin bounds still narrow the query when a web save
+            // carries them, so an untouched pair is part of "nothing side-breaking".
+            lastMarginMin.isEmpty() && lastMarginMax.isEmpty() &&
+            streakMin == d.streakMin && streakMax == d.streakMax &&
+            oppLastResult == d.oppLastResult && oppLastAts == d.oppLastAts &&
+            oppLastTotal == d.oppLastTotal && oppLastRole == d.oppLastRole &&
+            oppLastMargin == d.oppLastMargin &&
+            winPct == d.winPct && winStreak == d.winStreak && lossStreak == d.lossStreak &&
+            rlCoverPct == d.rlCoverPct && rlStreak == d.rlStreak &&
+            overPct == d.overPct && overStreak == d.overStreak && underStreak == d.underStreak &&
+            rpg == d.rpg && rapg == d.rapg && runDiffPg == d.runDiffPg &&
+            prevWins == d.prevWins && prevWinPct == d.prevWinPct &&
+            h2hLastWin == d.h2hLastWin && h2hLastAts == d.h2hLastAts &&
+            h2hLastOver == d.h2hLastOver && h2hLastMargin == d.h2hLastMargin &&
+            h2hLastHome == d.h2hLastHome && h2hLastFav == d.h2hLastFav &&
+            h2hSameSeason == d.h2hSameSeason &&
+            oppWinPct == d.oppWinPct && oppOverPct == d.oppOverPct &&
+            oppRlCoverPct == d.oppRlCoverPct &&
+            oppWinStreak == d.oppWinStreak && oppLossStreak == d.oppLossStreak &&
+            oppRpg == d.oppRpg && oppRapg == d.oppRapg &&
+            oppPrevWinPct == d.oppPrevWinPct
+    }
+
+    /** Sport-dispatching symmetry check (iOS `AnalysisSystemCopy.isSideSymmetric`). */
+    fun isSideSymmetricFor(sport: HistoricalAnalysisSport): Boolean =
+        if (sport == HistoricalAnalysisSport.MLB) isSideSymmetricMlb() else isSideSymmetric(sport)
+
     companion object {
         /** Two-sided football markets that contribute mirror rows per game. */
         val sideMarkets = setOf("fg_spread", "fg_ml", "h1_spread", "h1_ml")
@@ -475,7 +667,23 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
         val input = decoder as? JsonDecoder
             ?: error("HistoricalAnalysisUISnapshot supports JSON only")
         val o = (input.decodeJsonElement() as? JsonObject) ?: JsonObject(emptyMap())
-        val d = HistoricalAnalysisUISnapshot()
+        return decodeObject(o, HistoricalAnalysisUISnapshot())
+    }
+
+    /**
+     * Decode a sparse cross-client snapshot against the owning sport's defaults.
+     * The normal serializer cannot infer a sport from a nested `filters` object,
+     * so saved-system and leaderboard rows call this entry point explicitly.
+     */
+    internal fun decodeWithDefaults(
+        element: JsonObject,
+        defaults: HistoricalAnalysisUISnapshot,
+    ): HistoricalAnalysisUISnapshot = decodeObject(element, defaults)
+
+    private fun decodeObject(
+        o: JsonObject,
+        d: HistoricalAnalysisUISnapshot,
+    ): HistoricalAnalysisUISnapshot {
 
         fun prim(key: String): JsonPrimitive? = (o[key] as? JsonPrimitive)?.takeIf { it !is JsonNull }
         fun str(key: String, def: String): String = prim(key)?.contentOrNull ?: def
@@ -515,6 +723,21 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             }
         }
 
+        // Series game numbers: the multi-select is canonical, but pre-5c0acd91 saves
+        // (and web) only carry a min/max range — expand it into the set so a restored
+        // system filters on the same games it did on the platform that saved it.
+        var seriesGameMinValue = altPair("seriesGame")?.first?.roundToInt() ?: int("seriesGameMin")
+        var seriesGameMaxValue = altPair("seriesGame")?.second?.roundToInt() ?: int("seriesGameMax")
+        var seriesGamesValue = (o["seriesGames"] as? JsonArray)
+            ?.mapNotNull { (it as? JsonPrimitive)?.let { p -> p.intOrNull ?: p.doubleOrNull?.roundToInt() } }
+            ?: emptyList()
+        if (seriesGamesValue.isEmpty() && (seriesGameMinValue != null || seriesGameMaxValue != null)) {
+            val lo = seriesGameMinValue ?: 1
+            seriesGamesValue = (lo..maxOf(lo, seriesGameMaxValue ?: 6)).toList()
+            seriesGameMinValue = null
+            seriesGameMaxValue = null
+        }
+
         return HistoricalAnalysisUISnapshot(
             betType = str("betType", d.betType),
             seasonMin = altPair("seasons")?.first?.roundToInt() ?: int("seasonMin") ?: d.seasonMin,
@@ -523,12 +746,13 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             weekMax = altPair("weeks")?.second?.roundToInt() ?: int("weekMax") ?: d.weekMax,
             side = str("side", d.side),
             favDog = str("favDog", d.favDog),
+            rlSide = str("rlSide", d.rlSide),
             spreadSide = str("spreadSide", d.spreadSide),
             spreadMin = altPair("spreadSize")?.first ?: dbl("spreadMin") ?: d.spreadMin,
             spreadMax = altPair("spreadSize")?.second ?: dbl("spreadMax") ?: d.spreadMax,
             // Expo MLB uses totalMin/totalMax for game totals; web football uses lineRange.
-            lineMin = altPair("lineRange")?.first ?: dbl("lineMin") ?: dbl("totalMin") ?: 5.0,
-            lineMax = altPair("lineRange")?.second ?: dbl("lineMax") ?: dbl("totalMax") ?: 14.0,
+            lineMin = altPair("lineRange")?.first ?: dbl("lineMin") ?: dbl("totalMin") ?: d.lineMin,
+            lineMax = altPair("lineRange")?.second ?: dbl("lineMax") ?: dbl("totalMax") ?: d.lineMax,
             mlMin = str("mlMin", d.mlMin),
             mlMax = str("mlMax", d.mlMax),
             h1SpreadSide = str("h1SpreadSide", d.h1SpreadSide),
@@ -623,8 +847,9 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             interleague = bool("interleague"),
             dayOfWeek = str("dayOfWeek", d.dayOfWeek),
             doubleheader = bool("doubleheader"),
-            seriesGameMin = altPair("seriesGame")?.first?.roundToInt() ?: int("seriesGameMin"),
-            seriesGameMax = altPair("seriesGame")?.second?.roundToInt() ?: int("seriesGameMax"),
+            seriesGames = seriesGamesValue,
+            seriesGameMin = seriesGameMinValue,
+            seriesGameMax = seriesGameMaxValue,
             tripMin = altPair("trip")?.first?.roundToInt() ?: int("tripMin"),
             tripMax = altPair("trip")?.second?.roundToInt() ?: int("tripMax"),
             switchGame = bool("switchGame"),
@@ -659,6 +884,10 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             bpIpMax = altPair("bpIp")?.second ?: dbl("bpIpMax") ?: d.bpIpMax,
             bpXfipMin = altPair("bpXfip")?.first ?: dbl("bpXfipMin") ?: d.bpXfipMin,
             bpXfipMax = altPair("bpXfip")?.second ?: dbl("bpXfipMax") ?: d.bpXfipMax,
+            spEraMin = altPair("spEra")?.first ?: dbl("spEraMin") ?: d.spEraMin,
+            spEraMax = altPair("spEra")?.second ?: dbl("spEraMax") ?: d.spEraMax,
+            oppSpEraMin = altPair("oppSpEra")?.first ?: dbl("oppSpEraMin") ?: d.oppSpEraMin,
+            oppSpEraMax = altPair("oppSpEra")?.second ?: dbl("oppSpEraMax") ?: d.oppSpEraMax,
             rpg = dblList("rpg", d.rpg),
             rapg = dblList("rapg", d.rapg),
             runDiffPg = dblList("runDiffPg", d.runDiffPg),
@@ -689,6 +918,7 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             putInt("seasonMin", value.seasonMin); putInt("seasonMax", value.seasonMax)
             putInt("weekMin", value.weekMin); putInt("weekMax", value.weekMax)
             putStr("side", value.side); putStr("favDog", value.favDog)
+            putStr("rlSide", value.rlSide)
             putStr("spreadSide", value.spreadSide)
             putDbl("spreadMin", value.spreadMin); putDbl("spreadMax", value.spreadMax)
             putDbl("lineMin", value.lineMin); putDbl("lineMax", value.lineMax)
@@ -753,6 +983,7 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             putBoolOpt("interleague", value.interleague)
             putStr("dayOfWeek", value.dayOfWeek)
             putBoolOpt("doubleheader", value.doubleheader)
+            putIntList("seriesGames", value.seriesGames)
             putIntOpt("seriesGameMin", value.seriesGameMin); putIntOpt("seriesGameMax", value.seriesGameMax)
             putIntOpt("tripMin", value.tripMin); putIntOpt("tripMax", value.tripMax)
             putBoolOpt("switchGame", value.switchGame)
@@ -772,6 +1003,8 @@ object HistoricalAnalysisUISnapshotSerializer : KSerializer<HistoricalAnalysisUI
             putDbl("oppSpXfipMin", value.oppSpXfipMin); putDbl("oppSpXfipMax", value.oppSpXfipMax)
             putDbl("bpIpMin", value.bpIpMin); putDbl("bpIpMax", value.bpIpMax)
             putDbl("bpXfipMin", value.bpXfipMin); putDbl("bpXfipMax", value.bpXfipMax)
+            putDbl("spEraMin", value.spEraMin); putDbl("spEraMax", value.spEraMax)
+            putDbl("oppSpEraMin", value.oppSpEraMin); putDbl("oppSpEraMax", value.oppSpEraMax)
             putDblList("rpg", value.rpg); putDblList("rapg", value.rapg)
             putDblList("runDiffPg", value.runDiffPg)
             putDblList("rlCoverPct", value.rlCoverPct); putIntList("rlStreak", value.rlStreak)

@@ -62,7 +62,8 @@ Shared vocabulary used below (defined in WagerproofDesign, needs Compose equival
 - **Sport filter pills**: horizontal row "All (n)" + per-sport "NFL (n)" etc. for nfl/cfb/nba/ncaab; pills hide when count 0; active = appPrimary bg + white text, inactive appSurfaceMuted; tapping active pill toggles back to All; `.sensoryFeedback(.selection)`.
 - **Stores bound**: `@Bindable OutliersStore` — `valueAlertsSportFilter`, `fadeAlertsSportFilter`, `filteredValueAlerts`, `filteredFadeAlerts`, `valueAlertsCount(_:)`, `fadeAlertsCount(_:)`, `isLoading`, `loadingGameId`, `refresh()`.
 - **States**: loading → 3 category-accent-tinted `outlierCardShimmer` rows (mirror OutlierAlertCard footprint: header pill capsules 56/70/48×22 + lines capsules, matchup row 28-circles + 32×13 abbrevs, body line; 14pt padding, accent 0.1 bg + 0.3 stroke, r14); empty → `ContentUnavailableView("No outliers", magnifyingglass)` with per-category copy; populated → `OutlierAlertCard`s with `.staggeredAppear(index:)`.
-- **Interactions**: card tap sets `store.loadingGameId` then clears after 0.5s — game-sheet route **deferred (FIDELITY-WAIVER #021)**; port should wire real game-sheet nav.
+- **Interactions**: the iOS snapshot briefly staged `loadingGameId`; Android now resolves the typed
+  game and opens the shared sport detail sheet, so former waiver #021 is closed.
 
 ## 1.7 `Components/OutlierAlertCard.swift` (347 ln)
 - **Purpose**: full-width Value/Fade alert card (`Kind.value(OutlierValueAlert)` / `.fade(OutlierFadeAlert)`).
@@ -514,11 +515,11 @@ Carousel (steps 1–18, one shared shell, button-driven slides) → generation c
 - [ ] `pages/OnboardingSportsPage.kt` ← OnboardingSportsPage.swift
 - [ ] `pages/OnboardingSportsShowcasePage.kt` ← OnboardingSportsShowcasePage.swift
 - [ ] `pages/OnboardingBettorTypePage.kt` ← OnboardingBettorTypePage.swift
-- [ ] `pages/OnboardingPersonalizedValuePage.kt` (casual chart / sharp features branch) ← OnboardingPersonalizedValuePage.swift
+- [x] `pages/OnboardingPersonalizedValuePage.kt` (casual chart / sharp features branch) → **DELETED, not ported**: iOS retired the page because its "2× value / +30% hit rate / +40 units" copy is unsupported on a gambling-adjacent surface. Carousel renumbered. ← OnboardingPersonalizedValuePage.swift
 - [ ] `pages/OnboardingAcquisitionPage.kt` ← OnboardingAcquisitionPage.swift
 - [ ] `pages/OnboardingPrimaryGoalPage.kt` ← OnboardingPrimaryGoalPage.swift
 - [ ] `pages/OnboardingAgentPitchPages.kt` (intro 3-slide pager + bell curves + example trend card; proof page) ← OnboardingAgentPitchPages.swift
-- [ ] `pages/OnboardingAttPage.kt` → **REPLACE**: no ATT on Android (notification-permission priming or remove step; renumber carousel) ← OnboardingATTPage.swift
+- [x] `pages/OnboardingAttPage.kt` → **DELETED, not ported**: no App Tracking Transparency on Android, so the page could only mimic a system alert that never appears. Step removed rather than replaced; carousel renumbered. ← OnboardingATTPage.swift
 - [ ] `pages/OnboardingBuilderPages.kt` (sports / archetype / identity incl. 16 gradient strings + 8-sprite picker) ← OnboardingBuilderPages.swift
 - [ ] `pages/OnboardingPersonalityPages.kt` (mindset/betstyle/datatrust/sportrules/insights; all slider label arrays verbatim) ← OnboardingPersonalityPages.swift
 - [ ] `cinematic/OnboardingGenesisModel.kt` (coroutine ViewModel: script, timings 15s/30s, submit+retry, sprite patch, teaser picks + fixtures) ← OnboardingGenesisModel.swift

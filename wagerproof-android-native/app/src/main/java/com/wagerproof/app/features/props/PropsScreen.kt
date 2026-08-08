@@ -10,7 +10,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -73,10 +72,15 @@ import com.wagerproof.app.features.props.detail.PlayerPropDetailScreen
 import com.wagerproof.app.features.navigation.WagerProofTopBar
 import com.wagerproof.app.features.components.InsetGroupedDivider
 import com.wagerproof.app.features.components.InsetGroupedSection
+import com.wagerproof.app.features.components.QuickFilterField
 import com.wagerproof.app.features.components.SheetSearchField
+import com.wagerproof.app.features.parlaygod.ParlayGodAccessState
+import com.wagerproof.app.features.parlaygod.ParlayGodDetailSheet
+import com.wagerproof.app.features.parlaygod.ParlayGodRail
+import com.wagerproof.app.features.paywall.PaywallDialogHost
 import com.wagerproof.app.features.shared.InitialsDisc
 import com.wagerproof.app.features.shared.RemoteImage
-import com.wagerproof.core.design.components.liquidGlassBackground
+import com.wagerproof.core.design.components.liquidGlassCapsule
 import com.wagerproof.core.design.components.staggeredAppear
 import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
@@ -84,9 +88,13 @@ import com.wagerproof.core.design.tokens.Spacing
 import com.wagerproof.core.models.MLBPlayerProps
 import com.wagerproof.core.models.NFLPlayerProps
 import com.wagerproof.core.models.NFLTeamAssets
+import com.wagerproof.core.models.ParlayTicket
+import com.wagerproof.core.services.RevenueCatService
 import com.wagerproof.core.stores.MLBPlayerPropPicksStore
+import com.wagerproof.core.stores.ParlayGodStore
 import com.wagerproof.core.stores.PropsStore
 import com.wagerproof.core.stores.SportSeason
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 /**
@@ -114,6 +122,7 @@ fun PropsScreen(
 ) {
     val graph = appGraph()
     val store = graph.props
+    val parlayGod = graph.parlayGod
     val tabStore = graph.mainTab
     // iOS creates the Best Picks store locally in PropsView (@State).
     val bestPicksStore = remember { MLBPlayerPropPicksStore() }
@@ -122,6 +131,10 @@ fun PropsScreen(
     var sortMode by remember { mutableStateOf(PropSortMode.TIME) }
     var mlbFilters by remember { mutableStateOf(MLBPropFeedFilters()) }
     var nflFilters by remember { mutableStateOf(NFLPropFeedFilters()) }
+    // Screen-local (unlike Games, which keys the query per sport in its store):
+    // the MLB and NFL prop boards share no vocabulary, so iOS clears the field
+    // on every sport switch rather than restoring a stale one.
+    var quickFilterText by remember { mutableStateOf("") }
 
     var showSportSheet by remember { mutableStateOf(false) }
     var showMLBMatchupSheet by remember { mutableStateOf(false) }
@@ -132,16 +145,22 @@ fun PropsScreen(
     var selectedProp by remember { mutableStateOf<PlayerPropSelection?>(null) }
     var selectedNFLProp by remember { mutableStateOf<NFLPlayerPropSelection?>(null) }
     var showBestPicks by remember { mutableStateOf(false) }
+    var selectedParlay by remember { mutableStateOf<ParlayTicket?>(null) }
+    var showParlayPaywall by remember { mutableStateOf(false) }
     // Detail opened from within Best Picks — back returns to Best Picks.
     var bestPicksDetail by remember { mutableStateOf<Pair<PlayerPropSelection, Double?>?>(null) }
 
     // Screen-entry + sport-switch load, mirroring iOS `.task(id: selectedSport)`.
     LaunchedEffect(store.selectedSport) {
+        quickFilterText = ""
         if (store.selectedSport != PropsStore.Sport.MLB) mlbFilters = MLBPropFeedFilters()
         if (store.selectedSport != PropsStore.Sport.NFL) nflFilters = NFLPropFeedFilters()
         if (sortMode !in PropSortMode.modes(store.selectedSport)) sortMode = PropSortMode.TIME
         store.refresh()
-        if (store.selectedSport == PropsStore.Sport.MLB) bestPicksStore.refreshSummaryOnly()
+        if (store.selectedSport == PropsStore.Sport.MLB) {
+            bestPicksStore.refreshSummaryOnly()
+            parlayGod.refreshIfNeeded()
+        }
     }
 
     // Reactive filter rules (ported exactly).
@@ -219,10 +238,18 @@ fun PropsScreen(
                 store = store,
                 tabStore = graph.mainTab,
                 bestPicksStore = bestPicksStore,
+                parlayGod = parlayGod,
+                parlayAccess = when {
+                    graph.proAccess.isLoading -> ParlayGodAccessState.Resolving
+                    graph.proAccess.isPro -> ParlayGodAccessState.Granted
+                    else -> ParlayGodAccessState.Locked
+                },
                 sortMode = sortMode,
                 onSortMode = { sortMode = it },
                 mlbFilters = mlbFilters,
                 nflFilters = nflFilters,
+                quickFilterText = quickFilterText,
+                onQuickFilterText = { quickFilterText = it },
                 onOpenSportSheet = { showSportSheet = true },
                 onOpenMlbMatchup = { showMLBMatchupSheet = true },
                 onOpenMlbMarket = { showMLBMarketSheet = true },
@@ -231,6 +258,8 @@ fun PropsScreen(
                 onSelectMlb = { selectedProp = it },
                 onSelectNfl = { selectedNFLProp = it },
                 onOpenBestPicks = { showBestPicks = true },
+                onSelectParlay = { selectedParlay = it },
+                onRequestParlayPro = { showParlayPaywall = true },
             )
         }
     }
@@ -275,6 +304,16 @@ fun PropsScreen(
             onDismiss = { showNFLMarketSheet = false },
         )
     }
+
+    selectedParlay?.let { ticket ->
+        ParlayGodDetailSheet(ticket = ticket, onDismiss = { selectedParlay = null })
+    }
+
+    PaywallDialogHost(
+        show = showParlayPaywall,
+        placementId = RevenueCatService.Placement.GENERIC_FEATURE,
+        onDismiss = { showParlayPaywall = false },
+    )
 }
 
 // MARK: - Feed
@@ -285,10 +324,14 @@ private fun FeedContent(
     store: PropsStore,
     tabStore: com.wagerproof.core.stores.MainTabStore,
     bestPicksStore: MLBPlayerPropPicksStore,
+    parlayGod: ParlayGodStore,
+    parlayAccess: ParlayGodAccessState,
     sortMode: PropSortMode,
     onSortMode: (PropSortMode) -> Unit,
     mlbFilters: MLBPropFeedFilters,
     nflFilters: NFLPropFeedFilters,
+    quickFilterText: String,
+    onQuickFilterText: (String) -> Unit,
     onOpenSportSheet: () -> Unit,
     onOpenMlbMatchup: () -> Unit,
     onOpenMlbMarket: () -> Unit,
@@ -297,10 +340,49 @@ private fun FeedContent(
     onSelectMlb: (PlayerPropSelection) -> Unit,
     onSelectNfl: (NFLPlayerPropSelection) -> Unit,
     onOpenBestPicks: () -> Unit,
+    onSelectParlay: (ParlayTicket) -> Unit,
+    onRequestParlayPro: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
     val sport = store.selectedSport
+    val activeQuickFilter = quickFilterText.trim()
+    val query = activeQuickFilter.lowercase()
+
+    // iOS caches these behind PropsPresentationCache (PropsView.swift:53-82) —
+    // "far too expensive to re-run on every body pass". Everything below used to
+    // run inside the LazyColumn content lambda, i.e. once per recomposition of a
+    // 250-350 card board, on the main thread. `remember` keyed on the same
+    // inputs as iOS's presentation key is the Compose equivalent; the store's
+    // `sortedMatchups()` is already identity-stable (Wave 1, AND-045).
+    val matchups = store.sortedMatchups()
+    val mlbOptions = remember(matchups) { MLBPropGameFilterOptions.build(matchups) }
+    val nflOptions = remember(store.nflPlayers, nflFilters.signalsOnly) {
+        NFLPropGameFilterOptions.build(store.nflPlayers, nflFilters.signalsOnly)
+    }
+    val mlbSections = remember(matchups, mlbFilters, sortMode, query) {
+        val items = sortedMlbItems(
+            quickFilteredMlbItems(PlayerPropFeed.items(matchups, mlbFilters), query),
+            sortMode,
+        )
+        groupByDate(
+            items,
+            key = { PropsFormatting.dateKey(it.sortDate) },
+            label = { PropsFormatting.dateLabel(it.selection.officialDate) },
+        )
+    }
+    val nflSections = remember(store.nflPlayers, nflFilters, sortMode, query) {
+        val items = sortedNflItems(
+            quickFilteredNflItems(NFLPropFeed.items(store.nflPlayers, nflFilters), query),
+            sortMode,
+            nflFilters,
+        )
+        groupByDate(
+            items,
+            key = { PropsFormatting.dateKey(it.sortDate) },
+            label = { PropsFormatting.dateLabel(it.player.gameDate) },
+        )
+    }
 
     Column(Modifier.fillMaxSize().background(AppColors.appSurface)) {
         WagerProofTopBar(
@@ -318,6 +400,14 @@ private fun FeedContent(
                 .padding(horizontal = Spacing.lg, vertical = 2.dp),
         )
 
+        // Quick Filter + pill row pin together, matching iOS `propsHeader`.
+        QuickFilterField(
+            value = quickFilterText,
+            onValueChange = onQuickFilterText,
+            accessibilityLabel = "Quick filter player props",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
+        )
+
         // Pinned filter pills.
         FilterPills(
             sport = sport,
@@ -325,8 +415,8 @@ private fun FeedContent(
             onSortMode = onSortMode,
             mlbFilters = mlbFilters,
             nflFilters = nflFilters,
-            mlbOptions = MLBPropGameFilterOptions.build(store.sortedMatchups()),
-            nflOptions = NFLPropGameFilterOptions.build(store.nflPlayers, nflFilters.signalsOnly),
+            mlbOptions = mlbOptions,
+            nflOptions = nflOptions,
             onOpenSportSheet = onOpenSportSheet,
             onOpenMlbMatchup = onOpenMlbMatchup,
             onOpenMlbMarket = onOpenMlbMarket,
@@ -339,8 +429,16 @@ private fun FeedContent(
             onRefresh = {
                 scope.launch {
                     refreshing = true
-                    store.refresh(force = true)
-                    if (sport == PropsStore.Sport.MLB) bestPicksStore.refreshSummaryOnly(force = true)
+                    val feed = async { store.refresh(force = true) }
+                    val parlays = async { parlayGod.refreshIfNeeded(force = true) }
+                    val bestPicks = if (sport == PropsStore.Sport.MLB) {
+                        async { bestPicksStore.refreshSummaryOnly(force = true) }
+                    } else {
+                        null
+                    }
+                    feed.await()
+                    parlays.await()
+                    bestPicks?.await()
                     refreshing = false
                 }
             },
@@ -351,7 +449,9 @@ private fun FeedContent(
                 contentPadding = PaddingValues(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (sport == PropsStore.Sport.MLB) {
+                // Best Picks is a slate-wide shortcut, not a search result — iOS
+                // drops it while a Quick Filter is active (PropsView.swift:148).
+                if (sport == PropsStore.Sport.MLB && activeQuickFilter.isEmpty()) {
                     item {
                         com.wagerproof.app.features.props.components.MlbBestPicksBanner(
                             store = bestPicksStore,
@@ -359,13 +459,34 @@ private fun FeedContent(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         )
                     }
+                    item(key = "props-cheats") {
+                        ParlayGodRail(
+                            title = "Props Cheats",
+                            icon = AppIcon.SCOPE,
+                            tickets = parlayGod.propsTickets,
+                            isLoading = parlayGod.isLoading,
+                            sports = parlayGod.propsSports,
+                            emptyMessage = "No perfect-streak props on the board right now — cheats reload when the day's props post each morning.",
+                            errorMessage = parlayGod.errorMessage,
+                            onRetry = { scope.launch { parlayGod.refreshIfNeeded(force = true) } },
+                            onTicketClick = onSelectParlay,
+                            accessState = parlayAccess,
+                            onRequestPro = onRequestParlayPro,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 4.dp),
+                            contentPadding = PaddingValues(0.dp),
+                        )
+                    }
                 }
                 feedBody(
                     store = store,
                     sport = sport,
-                    sortMode = sortMode,
-                    mlbFilters = mlbFilters,
-                    nflFilters = nflFilters,
+                    mlbFeedSections = mlbSections,
+                    nflFeedSections = nflSections,
+                    mlbEmptyLabel = mlbFilteredEmptyLabel(store, mlbFilters, activeQuickFilter),
+                    nflEmptyLabel = nflFilteredEmptyLabel(store, nflFilters, activeQuickFilter),
                     onSelectMlb = onSelectMlb,
                     onSelectNfl = onSelectNfl,
                 )
@@ -374,13 +495,19 @@ private fun FeedContent(
     }
 }
 
+/**
+ * Sections are built (and memoized) by the caller — `remember` cannot be called
+ * from inside a LazyListScope extension, and rebuilding a 300-card prop board
+ * per recomposition is exactly what iOS's PropsPresentationCache exists to stop.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 private fun androidx.compose.foundation.lazy.LazyListScope.feedBody(
     store: PropsStore,
     sport: PropsStore.Sport,
-    sortMode: PropSortMode,
-    mlbFilters: MLBPropFeedFilters,
-    nflFilters: NFLPropFeedFilters,
+    mlbFeedSections: List<PropDateSection<PlayerPropFeedItem>>,
+    nflFeedSections: List<PropDateSection<NFLPropFeedItem>>,
+    mlbEmptyLabel: String,
+    nflEmptyLabel: String,
     onSelectMlb: (PlayerPropSelection) -> Unit,
     onSelectNfl: (NFLPlayerPropSelection) -> Unit,
 ) {
@@ -388,28 +515,30 @@ private fun androidx.compose.foundation.lazy.LazyListScope.feedBody(
         !sport.hasProps -> item { ComingSoonState(sport) }
         store.isLoading && !store.hasCachedMatchups -> item { LoadingSkeleton() }
         store.errorMessage != null && !store.hasCachedMatchups -> item { ErrorState(store.errorMessage!!) }
-        sport == PropsStore.Sport.NFL -> nflSections(store, sortMode, nflFilters, onSelectNfl)
-        else -> mlbSections(store, sortMode, mlbFilters, onSelectMlb)
+        sport == PropsStore.Sport.NFL ->
+            nflSections(nflFeedSections, store.nflPlayers.isEmpty(), nflEmptyLabel, onSelectNfl)
+        else ->
+            mlbSections(mlbFeedSections, store.sortedMatchups().isEmpty(), mlbEmptyLabel, onSelectMlb)
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 private fun androidx.compose.foundation.lazy.LazyListScope.mlbSections(
-    store: PropsStore,
-    sortMode: PropSortMode,
-    mlbFilters: MLBPropFeedFilters,
+    sections: List<PropDateSection<PlayerPropFeedItem>>,
+    slateIsEmpty: Boolean,
+    emptyLabel: String,
     onSelect: (PlayerPropSelection) -> Unit,
 ) {
-    val items = sortedMlbItems(PlayerPropFeed.items(store.sortedMatchups(), mlbFilters), sortMode)
-    if (items.isEmpty()) {
-        if (store.sortedMatchups().isEmpty()) {
+    if (sections.isEmpty()) {
+        // Whole board empty → season-aware copy; board has props but the
+        // filters/query excluded them all → the narrowed label.
+        if (slateIsEmpty) {
             item { SeasonEmptyTile(PropsStore.Sport.MLB) }
         } else {
-            item { EmptyTile(mlbFilteredEmptyLabel(store, mlbFilters)) }
+            item { EmptyTile(emptyLabel) }
         }
         return
     }
-    val sections = groupByDate(items, key = { PropsFormatting.dateKey(it.sortDate) }, label = { PropsFormatting.dateLabel(it.selection.officialDate) })
     sections.forEach { section ->
         stickyHeader(key = "mlb-${section.key}") { DateHeader(section.label) }
         itemsIndexedFeed(section.items) { index, item ->
@@ -420,21 +549,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.mlbSections(
 
 @OptIn(ExperimentalFoundationApi::class)
 private fun androidx.compose.foundation.lazy.LazyListScope.nflSections(
-    store: PropsStore,
-    sortMode: PropSortMode,
-    nflFilters: NFLPropFeedFilters,
+    sections: List<PropDateSection<NFLPropFeedItem>>,
+    slateIsEmpty: Boolean,
+    emptyLabel: String,
     onSelect: (NFLPlayerPropSelection) -> Unit,
 ) {
-    val items = sortedNflItems(NFLPropFeed.items(store.nflPlayers, nflFilters), sortMode, nflFilters)
-    if (items.isEmpty()) {
-        if (store.nflPlayers.isEmpty()) {
+    if (sections.isEmpty()) {
+        if (slateIsEmpty) {
             item { SeasonEmptyTile(PropsStore.Sport.NFL) }
         } else {
-            item { EmptyTile(nflFilteredEmptyLabel(store, nflFilters)) }
+            item { EmptyTile(emptyLabel) }
         }
         return
     }
-    val sections = groupByDate(items, key = { PropsFormatting.dateKey(it.sortDate) }, label = { PropsFormatting.dateLabel(it.player.gameDate) })
     sections.forEach { section ->
         stickyHeader(key = "nfl-${section.key}") { DateHeader(section.label) }
         itemsIndexedFeedNfl(section.items) { index, item ->
@@ -468,10 +595,62 @@ private fun sortedNflItems(items: List<NFLPropFeedItem>, sortMode: PropSortMode,
     }
 }
 
+// MARK: - Quick Filter
+//
+// Free-text narrowing over the fields a user would actually type: who's playing,
+// who they're playing, where they line up, and what the card is about. Ported
+// field-for-field from iOS `quickFilteredMLBItems` / `quickFilteredNFLItems`
+// (PropsView.swift:774-807) — adding or dropping a field here silently changes
+// which cards a query reaches, so keep the two lists in sync.
+
+internal fun quickFilteredMlbItems(
+    items: List<PlayerPropFeedItem>,
+    query: String,
+): List<PlayerPropFeedItem> {
+    if (query.isEmpty()) return items
+    return items.filter { item ->
+        val s = item.selection
+        listOf(
+            s.playerName,
+            s.teamName,
+            s.teamAbbr,
+            s.opponentName,
+            s.opponentAbbr,
+            s.position ?: "",
+            MLBPlayerProps.marketLabel(item.headline.row.market),
+            item.metricLabel,
+        ).any { it.lowercase().contains(query) }
+    }
+}
+
+internal fun quickFilteredNflItems(
+    items: List<NFLPropFeedItem>,
+    query: String,
+): List<NFLPropFeedItem> {
+    if (query.isEmpty()) return items
+    return items.filter { item ->
+        listOf(
+            item.player.playerName,
+            item.player.team ?: "",
+            item.player.opponent ?: "",
+            item.player.position ?: "",
+            NFLPlayerProps.marketLabel(item.displayMarket.market),
+            item.metricLabel,
+        ).any { it.lowercase().contains(query) }
+    }
+}
+
 // MARK: - Empty labels
 
-private fun nflFilteredEmptyLabel(store: PropsStore, filters: NFLPropFeedFilters): String {
+private fun nflFilteredEmptyLabel(
+    store: PropsStore,
+    filters: NFLPropFeedFilters,
+    activeQuickFilter: String,
+): String {
     if (store.nflPlayers.isEmpty()) return "No NFL player props posted today"
+    // Query wins over the pill filters: it's the control the user just touched,
+    // so echoing it back is what tells them why the board went blank.
+    if (activeQuickFilter.isNotEmpty()) return "No NFL player props match “$activeQuickFilter”"
     val marketLabel = filters.market?.let { NFLPlayerProps.marketLabel(it) }
     val options = NFLPropGameFilterOptions.build(store.nflPlayers, filters.signalsOnly)
     val matchup = filters.gameId?.let { gid -> options.firstOrNull { it.gameId == gid } }?.let { "${it.awayAbbr} @ ${it.homeAbbr}" }
@@ -483,8 +662,13 @@ private fun nflFilteredEmptyLabel(store: PropsStore, filters: NFLPropFeedFilters
     return if (marketLabel != null) "No $marketLabel props posted today" else "No NFL player props match these filters"
 }
 
-private fun mlbFilteredEmptyLabel(store: PropsStore, filters: MLBPropFeedFilters): String {
+private fun mlbFilteredEmptyLabel(
+    store: PropsStore,
+    filters: MLBPropFeedFilters,
+    activeQuickFilter: String,
+): String {
     if (store.sortedMatchups().isEmpty()) return "No MLB player props posted today"
+    if (activeQuickFilter.isNotEmpty()) return "No MLB player props match “$activeQuickFilter”"
     val marketLabel = filters.market?.let { MLBPlayerProps.marketLabel(it) }
     val game = filters.gamePk?.let { pk -> store.sortedMatchups().firstOrNull { it.gamePk == pk } }
     if (game != null) {
@@ -589,12 +773,13 @@ private fun PillLabel(icon: ImageVector, text: String, dimmed: Boolean = false, 
 @Composable
 private fun PillContainer(onClick: () -> Unit, alpha: Float = 1f, content: @Composable () -> Unit) {
     Row(
+        // Same capsule material as the QuickFilterField pinned directly above —
+        // a heavier `appBorder` stroke here made the pill row read as a second,
+        // darker material stacked under the search field.
         Modifier
             .alpha(alpha)
             .height(36.dp)
-            .clip(CircleShape)
-            .liquidGlassBackground(CircleShape)
-            .border(1.dp, AppColors.appBorder.copy(alpha = 0.35f), CircleShape)
+            .liquidGlassCapsule(null)
             .clickable { onClick() }
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -1107,6 +1107,6 @@ Supabase table/RPC quick map: `avatar_profiles`(Agent) · `avatar_performance_ca
 
 | Android file | Notes |
 |---|---|
-| `GameAgentConsensus.kt` | `GameAgentConsensus` + `ConsensusAvatar` — one row of the `get_game_agent_consensus` RPC. Mixed casing is intentional: columns are snake_case, but `avatars` is a `jsonb_build_object` blob with camelCase keys. `agreement` is NUMERIC → `FlexibleDoubleOrZeroSerializer`. See [18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md). |
+| `GameAgentConsensus.kt` | `GameAgentConsensus` + `ConsensusAvatar` — one row of the `get_game_agent_consensus` RPC. Mixed casing is intentional: columns are snake_case, but `avatars` is a `jsonb_build_object` blob with camelCase keys. `agreement` is NUMERIC → `FlexibleDoubleOrZeroSerializer`, and is scoped to `marketAgents` (agents on the same bet_type × period), NOT `agents`. The count fields carry NO defaults on purpose — a renamed column must throw, not decode as `agents = 0`. Only `avatars` and the two `market_*` columns are optional. See [18_agent_consensus.md](../../../.claude/docs/18_agent_consensus.md). |
 
 Add to the RPC quick map above: `get_game_agent_consensus` (MAIN, SECURITY DEFINER).

@@ -23,3 +23,12 @@
 # Keep source information useful for crash reports while allowing line-number
 # remapping through the generated R8 mapping file.
 -keepattributes SourceFile,LineNumberTable
+
+# play:review-ktx references com.google.android.gms.common.annotation.NoNullnessRewrite,
+# which ships in a play-services artifact we don't depend on, so R8 fails
+# minifyRelease on the missing class. Everything in that package is a
+# CLASS-retention nullness/keep marker that is never dereferenced at runtime, so
+# the whole package is safe to silence — scoped this way rather than to the one
+# class so a play-services version bump adding another marker can't break the
+# release build again. Missing GMS classes OUTSIDE this package still fail loudly.
+-dontwarn com.google.android.gms.common.annotation.**

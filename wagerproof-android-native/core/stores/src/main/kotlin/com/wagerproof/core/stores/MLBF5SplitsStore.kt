@@ -14,6 +14,7 @@ import com.wagerproof.core.services.BuildFlags
 import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -84,6 +85,9 @@ class MLBF5SplitsStore {
                 }
                 .decodeList<JsonObject>()
                 .map { ScheduleRow.from(it) }
+        } catch (cancellation: CancellationException) {
+            loadState = LoadState.Idle
+            throw cancellation
         } catch (e: Exception) {
             loadState = LoadState.Failed(e.message ?: "Failed to load F5 splits.")
             return

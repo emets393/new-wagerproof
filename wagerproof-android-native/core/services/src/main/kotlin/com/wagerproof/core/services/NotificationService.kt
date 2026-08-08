@@ -35,7 +35,23 @@ object NotificationService {
 
     enum class PermissionStatus { GRANTED, DENIED }
 
+    /**
+     * LOCAL banners only (manual-run "generation finished"). Created lazily by
+     * [ensureChannel] right before the first notify() — never addressed by the
+     * server, because a channel that may not exist yet would make Android 8+
+     * silently drop a remote push.
+     */
     private const val CHANNEL_ID = "agent_generation"
+
+    /**
+     * The channel every REMOTE push must target. Single source of truth for the
+     * three places that have to agree, or Android 8+ drops the notification:
+     *  - `WagerproofMessagingService.CHANNEL_ID` (creates it at process launch)
+     *  - `default_notification_channel_id` in AndroidManifest.xml
+     *  - `android.notification.channel_id` sent by the edge function
+     *    `supabase/functions/send-agent-pick-ready-notification`
+     */
+    const val REMOTE_CHANNEL_ID = "wagerproof_updates"
 
     @Volatile
     private var cachedDeviceToken: String? = null
@@ -48,9 +64,13 @@ object NotificationService {
     /** Cached FCM token — for the secret-settings push diagnostics action. */
     fun currentDeviceToken(): String? = cachedDeviceToken
 
-    // FIDELITY-WAIVER #051 analog: the column stays `expo_push_token` even
-    // though we store a bare FCM registration token — the server-side
-    // dispatcher branches on token shape (Expo vs APNs hex vs FCM).
+    // FIDELITY-WAIVER #051 analog: the column is named `expo_push_token` for
+    // RN-era compatibility but holds a bare FCM registration token. The
+    // dispatcher (supabase/functions/send-agent-pick-ready-notification) sniffs
+    // the shape — `ExponentPushToken[…]` → Expo, 64-hex → APNs, else FCM v1 —
+    // so writing the raw token is correct. That branching landed 2026-07-31 and
+    // needs the function redeployed with FCM_SERVICE_ACCOUNT_JSON set before
+    // Android devices actually receive the auto-pick-ready push.
     @Serializable
     private data class TokenUpsert(
         val user_id: String,

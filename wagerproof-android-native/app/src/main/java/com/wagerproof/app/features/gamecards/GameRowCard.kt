@@ -100,7 +100,7 @@ fun GameRowCard(
     } else {
         Modifier
             .clip(shape)
-            .background(AppColors.appSurfaceElevated.copy(alpha = 0.55f))
+            .background(AppColors.appSurfaceElevated.copy(alpha = 0.92f))
             .border(0.5.dp, AppColors.appBorder.copy(alpha = 0.4f), shape)
     }
 
@@ -168,7 +168,7 @@ private fun StandardLayout(model: GameRowCardModel) {
             )
         }
         BottomRow(model)
-        // Own row, never inside ConvictionBadges — see AgentConsensusStrip.
+        // Own row, never folded into the slate-pick FlowRow — see AgentConsensusStrip.
         model.consensus?.let { AgentConsensusStrip(it) }
     }
 }
@@ -268,7 +268,7 @@ private fun BreakdownLayout(model: GameRowCardModel) {
     Column {
         BreakdownScanRegion(model, bd)
         BottomRow(model)
-        // Own row, never inside ConvictionBadges — see AgentConsensusStrip.
+        // Own row, never folded into the slate-pick FlowRow — see AgentConsensusStrip.
         model.consensus?.let { AgentConsensusStrip(it) }
     }
 }
@@ -444,44 +444,37 @@ private fun BottomRow(model: GameRowCardModel) {
 
     val slate = model.slatePicks
     if (slate != null) {
-        // iOS reserves the trailing time first, then gives the picks/badges a
-        // two-row leading stack. The old flattened Row let picks and badges
-        // consume every pixel; TimePill then wrapped character-by-character
-        // and inflated some NFL cards to almost 300dp tall.
+        // iOS reserves the trailing time first, then gives the picks a leading
+        // stack. The old flattened Row let the pills consume every pixel;
+        // TimePill then wrapped character-by-character and inflated some NFL
+        // cards to almost 300dp tall.
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Column(
+            FlowRow(
                 Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    slate.totalLabel?.let { label ->
-                        val color = when (slate.totalIsOver) {
-                            true -> PickOverGreen
-                            false -> PickUnderRed
-                            null -> AppColors.appTextSecondary
-                        }
-                        SlatePickPill {
-                            Text(label, color = color, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
-                        }
+                slate.totalLabel?.let { label ->
+                    val color = when (slate.totalIsOver) {
+                        true -> PickOverGreen
+                        false -> PickUnderRed
+                        null -> AppColors.appTextSecondary
                     }
-                    slate.spreadLabel?.let { label ->
-                        SlatePickPill {
-                            slate.spreadLogoURL?.let {
-                                RemoteImage(it, "spread pick", Modifier.size(18.dp).clip(CircleShape))
-                            }
-                            Text(label, color = AppColors.appTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
-                        }
+                    SlatePickPill {
+                        Text(label, color = color, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
                     }
                 }
-                if (slate.hasMammoth || slate.highCount > 0 || slate.signalCount > 0) {
-                    ConvictionBadges(slate.hasMammoth, slate.highCount, slate.signalCount)
+                slate.spreadLabel?.let { label ->
+                    SlatePickPill {
+                        slate.spreadLogoURL?.let {
+                            RemoteImage(it, "spread pick", Modifier.size(18.dp).clip(CircleShape))
+                        }
+                        Text(label, color = AppColors.appTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
+                    }
                 }
             }
             if (model.oddsBreakdown != null) TimePill(model.timeLabel)
@@ -566,42 +559,11 @@ private fun TimePill(label: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Mammoth/high-conviction and signal badges may coexist, matching iOS. */
-@Composable
-@OptIn(ExperimentalLayoutApi::class)
-private fun ConvictionBadges(hasMammoth: Boolean, highCount: Int, signalCount: Int) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        if (hasMammoth) {
-            Row(
-                Modifier
-                    .clip(CircleShape)
-                    .background(Brush.horizontalGradient(listOf(MammothOrange, MammothGold)))
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("🔥 MAMMOTH PLAY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, softWrap = false)
-            }
-        } else if (highCount > 0) {
-            BadgePill("🔥 $highCount High Conviction", MammothOrange)
-        }
-        if (signalCount > 0) BadgePill("⚡ $signalCount Signals", AppColors.appTextSecondary)
-    }
-}
-
-@Composable
-private fun BadgePill(text: String, tint: Color) {
-    Box(
-        Modifier
-            .clip(CircleShape)
-            .background(tint.copy(alpha = 0.15f))
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    ) {
-        Text(text, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-    }
-}
+// The MAMMOTH PLAY / "N High Conviction" / "⚡ N Signals" badges that used to
+// live here were removed: iOS carries only total + spread on a feed card
+// (GameRowCard.swift:735-751) and surfaces conviction on the game-detail page
+// instead. Mammoth still reads on the feed — as the orange electric border
+// driven by `model.isMammoth` — it just doesn't get a pill.
 
 // MARK: - Glass avatar (with luminance contrast plate)
 

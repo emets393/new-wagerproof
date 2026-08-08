@@ -37,8 +37,26 @@ import com.wagerproof.core.design.icons.AppIcon
 import com.wagerproof.core.design.tokens.AppColors
 import java.util.Locale
 
-private val TOP_BOOKS = listOf("draftkings", "fanduel", "betmgm", "caesars", "pointsbetus")
-private val ADDITIONAL_BOOKS = listOf("bovada", "betrivers", "wynnbet", "unibet", "foxbet", "hardrockbet")
+/**
+ * Book key → the brand's real name. Titlecasing the bare key ships
+ * "Draftkings" / "Pointsbetus" / "Wynnbet", which reads as a bug to anyone who
+ * has used the app. Copied verbatim from iOS `SportsbookButtons.swift`.
+ */
+private val TOP_BOOKS = listOf(
+    "draftkings" to "DraftKings",
+    "fanduel" to "FanDuel",
+    "betmgm" to "BetMGM",
+    "caesars" to "Caesars",
+    "pointsbetus" to "PointsBet",
+)
+private val ADDITIONAL_BOOKS = listOf(
+    "bovada" to "Bovada",
+    "betrivers" to "BetRivers",
+    "wynnbet" to "WynnBET",
+    "unibet" to "Unibet",
+    "foxbet" to "FOX Bet",
+    "hardrockbet" to "Hard Rock Bet",
+)
 
 /**
  * "Place Bet" CTA — port of iOS `SportsbookButtons.swift`. Hidden when
@@ -73,19 +91,19 @@ fun SportsbookButtons(
 
     if (sheetVisible) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-        val ordered = orderedKeys(betslipLinks.keys)
+        val ordered = orderedBooks(betslipLinks.keys)
         ModalBottomSheet(
             onDismissRequest = { sheetVisible = false },
             sheetState = sheetState,
             containerColor = AppColors.appSurfaceElevated,
         ) {
             Text(
-                "Choose a Sportsbook",
+                "Select Sportsbook",
                 color = AppColors.appTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(16.dp),
             )
             LazyColumn {
-                items(ordered) { key ->
+                items(ordered, key = { it.first }) { (key, name) ->
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             betslipLinks[key]?.let { uriHandler.openUri(it) }
@@ -95,7 +113,7 @@ fun SportsbookButtons(
                     ) {
                         SportsbookLogoView(key, null, SportsbookLogoStyle.COMPACT)
                         Spacer(Modifier.width(12.dp))
-                        Text(displayName(key), color = AppColors.appTextPrimary, fontSize = 15.sp)
+                        Text(name, color = AppColors.appTextPrimary, fontSize = 15.sp)
                     }
                 }
             }
@@ -104,13 +122,22 @@ fun SportsbookButtons(
     }
 }
 
-private fun orderedKeys(keys: Set<String>): List<String> {
-    val lower = keys.associateBy { it.lowercase(Locale.US) }
-    val result = mutableListOf<String>()
-    (TOP_BOOKS + ADDITIONAL_BOOKS).forEach { b -> lower[b]?.let { result.add(it) } }
-    keys.filter { it !in result }.forEach { result.add(it) }
+/**
+ * Top books → additional books → unknown tail, each paired with its display
+ * name. The tail is sorted (iOS sorts the `Set` difference before mapping);
+ * without that the order came out of a `Set` and reshuffled between openings.
+ */
+fun orderedBooks(keys: Set<String>): List<Pair<String, String>> {
+    val byLower = keys.associateBy { it.lowercase(Locale.US) }
+    val result = mutableListOf<Pair<String, String>>()
+    (TOP_BOOKS + ADDITIONAL_BOOKS).forEach { (bookKey, name) ->
+        byLower[bookKey]?.let { result.add(it to name) }
+    }
+    val taken = result.mapTo(HashSet()) { it.first }
+    keys.filterNot { it in taken }.sorted().forEach { result.add(it to titlecaseKey(it)) }
     return result
 }
 
-private fun displayName(key: String): String =
+/** Fallback for a book we have no brand name for — iOS uppercases the first letter only. */
+private fun titlecaseKey(key: String): String =
     key.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString() }

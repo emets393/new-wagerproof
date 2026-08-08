@@ -96,6 +96,32 @@ object MLBTeams {
     )
 
     /**
+     * MLB Stats API / warehouse abbreviations that differ from our static map:
+     * the data layer says AZ + ATH, the ESPN asset map says ARI + OAK.
+     */
+    private val abbrevAliases: Map<String, String> = mapOf("AZ" to "ARI", "ATH" to "OAK")
+
+    private fun canonicalAbbrev(upper: String): String = abbrevAliases[upper] ?: upper
+
+    /** Abbreviation → team. Built once so `colors`/`logoUrl` don't linear-scan all 30 values. */
+    val byAbbreviation: Map<String, TeamInfo> by lazy {
+        byNormalizedName.values.associateBy { it.team }
+    }
+
+    // Memoised resolve results: the game-detail hero resolves the same two teams
+    // on every frame, and a cold miss costs a 30-entry fuzzy substring scan.
+    private val resolutionCache = java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<TeamInfo>>()
+
+    /** Team by abbreviation or (fuzzy) full name, memoised. Mirrors iOS `resolve`. */
+    fun resolve(nameOrAbbrev: String): TeamInfo? =
+        resolutionCache.computeIfAbsent(nameOrAbbrev) { key ->
+            // Alias first: warehouse/MLB-API abbreviations (AZ, ATH) → asset-map keys.
+            java.util.Optional.ofNullable(
+                byAbbreviation[canonicalAbbrev(key.uppercase())] ?: info(key)
+            )
+        }.orElse(null)
+
+    /**
      * Normalize a team name for lookup (trim, lowercase, strip apostrophes,
      * collapse whitespace). Matches RN `normalizeTeamNameKey`.
      */
@@ -140,7 +166,7 @@ object MLBTeams {
 
     /** Short display name — e.g. "Marlins", "White Sox", "Red Sox". */
     fun nickname(nameOrAbbrev: String): String {
-        val upper = nameOrAbbrev.uppercase()
+        val upper = canonicalAbbrev(nameOrAbbrev.uppercase())
         byNormalizedName.entries.firstOrNull { it.value.team == upper }?.let { return mascot(it.key) }
         return mascot(normalize(nameOrAbbrev))
     }
@@ -170,20 +196,12 @@ object MLBTeams {
      * `getMLBTeamColors`.
      */
     fun colors(nameOrAbbrev: String): ColorPair {
-        val upper = nameOrAbbrev.uppercase()
-        byNormalizedName.values.firstOrNull { it.team == upper }?.let {
-            return ColorPair(it.primaryHex, it.secondaryHex)
-        }
-        info(nameOrAbbrev)?.let { return ColorPair(it.primaryHex, it.secondaryHex) }
-        return ColorPair(0x1F2937L, 0x6B7280L)
+        val info = resolve(nameOrAbbrev) ?: return ColorPair(0x1F2937L, 0x6B7280L)
+        return ColorPair(info.primaryHex, info.secondaryHex)
     }
 
     /** ESPN logo URL by abbreviation or full team name. */
-    fun logoUrl(nameOrAbbrev: String): String? {
-        val upper = nameOrAbbrev.uppercase()
-        byNormalizedName.values.firstOrNull { it.team == upper }?.let { return it.logoUrl }
-        return info(nameOrAbbrev)?.logoUrl
-    }
+    fun logoUrl(nameOrAbbrev: String): String? = resolve(nameOrAbbrev)?.logoUrl
 }
 
 // Trends -------------------------------------------------------------------

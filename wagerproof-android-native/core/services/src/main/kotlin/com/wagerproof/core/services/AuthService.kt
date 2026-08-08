@@ -9,7 +9,10 @@ import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.SignOutScope
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -132,6 +135,32 @@ object AuthService {
             .select { filter { eq("id", userId) } }
             .decodeSingleOrNull<Profile>()
     }.getOrNull()
+
+    /**
+     * Whether the user has linked a Discord account (`profiles.discord_user_id`).
+     * Mirrors iOS `DiscordView.checkDiscordLink()` byte-for-byte, including the
+     * `user_id` filter — the `discord-callback` edge function writes the row it
+     * finds by auth uid, which is NOT the same column [loadProfile] keys on.
+     *
+     * Deliberately a standalone probe rather than a [Profile] field: `profiles`
+     * carries no `is_admin`, so a full-row [Profile] decode fails and would report
+     * every linked user as unlinked.
+     *
+     * Null = unknown (no session, network error, row missing). Callers treat it as
+     * "not linked", same fallback as iOS/RN/web.
+     */
+    suspend fun loadDiscordUserId(userId: String): String? = runCatching {
+        SupabaseClients.main.from("profiles")
+            .select(Columns.raw("discord_user_id")) { filter { eq("user_id", userId) } }
+            .decodeSingleOrNull<DiscordLinkRow>()
+            ?.discordUserId
+            ?.takeIf { it.isNotEmpty() }
+    }.getOrNull()
+
+    @Serializable
+    private data class DiscordLinkRow(
+        @SerialName("discord_user_id") val discordUserId: String? = null,
+    )
 
     internal fun requireSuccessfulAccountDeletion(response: EdgeFunctions.EdgeResponse) {
         val envelope = runCatching { WagerproofJson.parseToJsonElement(response.body) }

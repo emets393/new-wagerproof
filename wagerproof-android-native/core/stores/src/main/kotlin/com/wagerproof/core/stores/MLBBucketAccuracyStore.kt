@@ -11,6 +11,7 @@ import com.wagerproof.core.models.MLBBucketBucket
 import com.wagerproof.core.models.MLBBucketLookup
 import com.wagerproof.core.services.SupabaseClients
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -55,6 +56,9 @@ class MLBBucketAccuracyStore {
                 .decodeList()
             data = aggregate(rows)
             lastFetched = System.currentTimeMillis()
+        } catch (cancellation: CancellationException) {
+            loading = false
+            throw cancellation
         } catch (e: Exception) {
             errorMessage = "Failed to load model accuracy."
         }

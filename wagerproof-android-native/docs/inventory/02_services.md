@@ -191,10 +191,9 @@ with a session → phase `.authenticated(userId)` + loads profile; on `signedOut
 - Singleton class, `bootstrap(token:)` → `Mixpanel.initialize(token:, trackAutomaticEvents: false)`,
   idempotent. `track(event, properties)`, `identify(userId)` (distinctId = Supabase user id),
   `reset()` on sign-out. All calls guard on `initialized`.
-- **Token source**: not hardcoded — intended to come from a generated `Secrets.swift`
-  (`scripts/generate-secrets.sh`, mirrors RN `EXPO_PUBLIC_MIXPANEL_TOKEN`). As of today the app's
-  `WagerproofApp.init` has a "Phase 2" comment and does not yet call `bootstrap` with a real token.
-  Android: read from `BuildConfig`/`local.properties`, same event names as RN's `services/analytics.ts`.
+- Android bootstraps the same write-only project token used by iOS/RN/web from `AppGraph.bootstrap()`;
+  automatic events remain off. Auth identify/reset is wired, and every SDK call is failure-isolated so
+  analytics can never block app launch or sign-in.
 
 ### CFBSignalDefinitionsService.swift
 - Purpose: signal glossary for CFB betting signals. Actor with in-memory cache (whole-table, fetched once).
@@ -259,9 +258,12 @@ with a session → phase `.authenticated(userId)` + loads profile; on `signedOut
 - `trackSubscribe(amount, currency, params)` — `Subscribe` event, `valueToSum` = amount,
   `fb_currency` param.
 - `flush()` — force-send after paywall conversion.
-- Android: `facebook-core` `AppEventsLogger` — `logPurchase(BigDecimal, Currency)`,
-  `EVENT_NAME_COMPLETED_REGISTRATION`, `EVENT_NAME_SUBSCRIBE`, `AppEventsLogger.getAnonymousAppDeviceGUID`.
-  Disable auto events via manifest `com.facebook.sdk.AutoLogAppEventsEnabled=false`.
+- Android owner-approved attribution is broader: `facebook-core` auto app-event logging and
+  advertiser-ID collection are enabled in both the manifest and post-initialization settings (the
+  latter overwrites stale persisted `false` values). It also sends Advanced Matching + external user
+  ID on auth, clears both on sign-out, and emits ViewContent / InitiateCheckout / StartTrial or
+  Subscribe through `PaywallConversionTracker`. Conversion values retain the exact six-decimal Play
+  micros precision; order IDs dedupe client and RevenueCat CAPI delivery.
 
 ### MLBPlayerPropPicksService.swift
 - Purpose: MLB "Best Picks Report" (CFB project). Actor singleton.
@@ -418,12 +420,11 @@ with a session → phase `.authenticated(userId)` + loads profile; on `signedOut
   (int-or-string game_pk, numeric widening) — mirror with custom serializers.
 
 ### OutliersWidgetService.swift
-- Composes the "Top Outliers" home-screen widget payload: `sync()` = `fetchWeekGames` →
-  value+fade alerts concurrently → map to `OutlierAlertForWidget` (id prefixed `value-`/`fade-`,
-  confidence = rounded percentage / raw confidence) → sort desc, take 6 → read-modify-write the
-  shared App Group JSON payload (only replaces `topOutliers` + `lastUpdated`). Never called from the
-  widget process itself (too expensive) — main app only. Android: Glance/AppWidget +
-  SharedPreferences/DataStore file shared with the widget.
+- Android keeps the legacy top-alert list for payload compatibility and additionally builds independent
+  configurable market groups for MLB, NFL, NCAAF, Props, and Parlay God. Each market fetch is
+  failure-isolated, invalid/zero-sample rows are filtered before strongest-selection, canonical rows
+  are sorted/capped at 12, and last-known-good market data is preserved. The main process performs the
+  Supabase/Parlay fan-out and writes shared JSON; the Glance process only renders the cache.
 
 ### PlatformStatsService.swift
 - Population analytics RPCs (Main project).

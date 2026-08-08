@@ -38,18 +38,27 @@ object GameDateGrouping {
     private val KEY_FMT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     private val DATETIME_FMT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
+    // dateKey runs for every game on every list rebuild, and a miss can cost up
+    // to three exception-throwing parse attempts — memoise raw → key.
+    private val dateKeyCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     /**
      * Parse ISO8601 (with/without fractional seconds), `yyyy-MM-dd`, or
      * `yyyy-MM-dd HH:mm:ss` into a stable Eastern-Time `yyyy-MM-dd` key.
      */
     fun dateKey(raw: String): String {
         if (raw.isEmpty()) return raw
+        return dateKeyCache.getOrPut(raw) { computeDateKey(raw) }
+    }
+
+    private fun computeDateKey(raw: String): String {
+        // Plain date first: the cheapest parse and the most common shape (MLB
+        // officialDate), and it never throws for the timestamp shapes below.
+        runCatching { LocalDate.parse(raw) }.getOrNull()?.let { return it.format(KEY_FMT) }
         // Offset date-time (ISO8601 with zone/offset, fractional tolerated).
         runCatching { OffsetDateTime.parse(raw) }.getOrNull()?.let {
             return it.atZoneSameInstant(ET).format(KEY_FMT)
         }
-        // Plain date.
-        runCatching { LocalDate.parse(raw) }.getOrNull()?.let { return it.format(KEY_FMT) }
         // "yyyy-MM-dd HH:mm:ss" (treated as ET wall time).
         runCatching { LocalDateTime.parse(raw, DATETIME_FMT) }.getOrNull()?.let {
             return it.atZone(ET).format(KEY_FMT)

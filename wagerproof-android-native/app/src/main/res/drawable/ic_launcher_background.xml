@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark teal gradient sampled from the shipped iOS app icon so both stores show
+     the same mark on the same backdrop. NOT app_surface — the icon backdrop is
+     deliberately warmer than the in-app surface. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="#04242C"
+        android:endColor="#232B2E"
+        android:type="linear" />
+</shape>
