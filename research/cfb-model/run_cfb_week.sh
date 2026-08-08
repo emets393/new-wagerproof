@@ -62,6 +62,10 @@ step "build per-game model frame -> model_games.parquet";  python3 build_feature
 # odds_game_frame = the Odds-API consensus frame EVERYTHING lines-related reads (flags,
 # picks, early model — the lines hard rule). Reads model_games.parquet, so it must run
 # AFTER build_features. Was a manually-built artifact; now in-run.
+# FG odds history: the DB (ncaaf_odds_history, live-odds cron hourly) is the source of
+# truth; materialize to the parquet build_odds_frame reads. fetch_odds_history alone
+# doesn't produce it on an ephemeral disk.
+step "materialize FG odds history (DB -> parquet)"; python3 materialize_odds_history.py "$SEASON"
 step "build Odds-API game frame (open/close consensus)"; python3 build_odds_frame.py
 step "build team style profiles (archetypes, leak-safe)";  python3 build_football_profiles.py || true
 # Weeks 1-3: the early display blend (preseason priors + roster + CORE) -> out/cfb_early_preds CSV.

@@ -36,6 +36,9 @@ def main():
         return
     box = pd.concat(box_frames, ignore_index=True)
     wk = pd.concat(wk_frames, ignore_index=True)
+    if box.empty or "season" not in box.columns:
+        print("  box history empty/schema-less (ephemeral preseason) — skipping tendencies")
+        return
     box = box.merge(wk, on=["season", "game_id"], how="left")
     box = box.dropna(subset=["week"]).sort_values(["season", "team", "week"])
 

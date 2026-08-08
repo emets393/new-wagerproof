@@ -417,3 +417,11 @@ BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as alwa
   NOT a standalone signal; use as (a) validation the reconstruction carries
   real info and (b) a candidate FEATURE for the main weekly model / an
   open-bet steer. Phase split flat (5-7 ≈ 8+).
+
+- **Movers test (core_movers_test.py) = NULL.** 3-week rating deltas, riser side,
+  wks 8-15 2021-25 (n=2,036): 48-51% at every rung vs BOTH lines, no dose
+  response, seasons scattered (2023 +, 2024 -). The market does not lag
+  in-season CORE changes — matches the bball law (naive movement/momentum is
+  priced). Don't re-test. Remaining CORE work: disagreement-vs-our-model study
+  (needs historical weekly model preds assembled) + feature tryout in the main
+  weekly model (the CLV finding's proper home).
