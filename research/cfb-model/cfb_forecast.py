@@ -274,9 +274,17 @@ def build_season(season, week=None):
     te = te.merge(ss.rename(columns={"team": "homeTeam", "sos": "h_sos", "sos_np": "h_sos_np"}), on=["season", "game_id", "homeTeam"], how="left")
     te = te.merge(ss.rename(columns={"team": "awayTeam", "sos": "a_sos", "sos_np": "a_sos_np"}), on=["season", "game_id", "awayTeam"], how="left")
     tr_nr = gm[(gm.season < a.season) & gm.net_rating_diff.notna() & gm.actual_margin.notna()]
-    b1, b0 = np.polyfit(tr_nr.net_rating_diff, tr_nr.actual_margin, 1)   # PR -> points; b0 = HFA
+    if len(tr_nr) >= 100:
+        b1, b0 = np.polyfit(tr_nr.net_rating_diff, tr_nr.actual_margin, 1)   # PR -> points; b0 = HFA
+    else:
+        # FROZEN calibration (fit on 2016-2025 local history, 2026-08-08): ephemeral runs
+        # carry only the current season, so the fit is impossible in-run. Re-freeze these
+        # together with the model .pkls.
+        b1, b0 = 38.9183, 3.6722
     tr_sos = ss.merge(gm[["season", "game_id"]], on=["season", "game_id"]); tr_sos = tr_sos[tr_sos.season < a.season]
     nr_med = pd.concat([gm[gm.season < a.season].home_net_rating, gm[gm.season < a.season].away_net_rating]).median()
+    if pd.isna(nr_med):
+        nr_med = 0.1066   # frozen (see above)
     sos_q40 = tr_sos.sos.quantile(0.40)
     te["pr_margin"] = b0 + b1 * te.net_rating_diff                       # power-rating-implied home margin (incl HFA)
     te["sos_resid"] = (-te.spread_close) - te.pr_margin                  # <0 = market favors road team MORE than PR
@@ -288,6 +296,8 @@ def build_season(season, week=None):
     te = te.merge(pr.rename(columns={"team": "homeTeam", "pr_rank": "h_pr_rank"}), on=["season", "game_id", "homeTeam"], how="left")
     te = te.merge(pr.rename(columns={"team": "awayTeam", "pr_rank": "a_pr_rank"}), on=["season", "game_id", "awayTeam"], how="left")
     hi_lastopp = pd.concat([gm[gm.season < a.season].home_last_opp_net, gm[gm.season < a.season].away_last_opp_net]).quantile(0.66)
+    if pd.isna(hi_lastopp):
+        hi_lastopp = 0.1889   # frozen (see above)
     G5 = lambda s: ~s.isin(P5)
     # SETTLED-LINE primary filter: fade only when the books AGREE (|soft_gap|<0.5). Fade works on settled lines
     # (65.1%, n=83); fails when sharp money is already moving the line (40%). Requires odds (no odds -> no fire).
