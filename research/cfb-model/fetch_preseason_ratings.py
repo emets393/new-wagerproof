@@ -118,6 +118,23 @@ def tr_and_coaches():
             print(f"[preseason] CORE snapshot: {len(snap)} teams "
                   f"(thru {snap.throughSeasonType.iloc[0]} wk{snap.throughWeek.iloc[0]}); "
                   f"archive {len(allx)} rows")
+            # Live as-of feed for the core_total_edge signal (gen_cfb_dryrun_flags): the
+            # endpoint always reflects all COMPLETED games, so an in-season fetch IS the
+            # as-of snapshot — no reconstruction needed on Render's fresh disk. Written in
+            # core_asof.parquet's schema (off/dfn keep the endpoint sign: dfn low = good D).
+            reg = snap[snap.throughSeasonType == "regular"]
+            if len(reg):
+                live = pd.DataFrame({"season": reg.year.astype(int),
+                                     "thru_week": reg.throughWeek.astype(int),
+                                     "team": reg.team, "off": reg.offense,
+                                     "dfn": reg.defense, "overall": reg.overall})
+                ap = HERE / "data" / "cfbd" / "core_asof.parquet"
+                base = pd.read_parquet(ap) if ap.exists() else pd.DataFrame(columns=live.columns)
+                merged = (pd.concat([live, base], ignore_index=True)
+                          .drop_duplicates(["season", "thru_week", "team"], keep="first"))
+                merged.to_parquet(ap, index=False)
+                print(f"[preseason] CORE as-of: {len(reg)} live rows (thru wk{int(reg.throughWeek.iloc[0])}) "
+                      f"-> core_asof.parquet ({len(merged)} rows)")
         else:
             print(f"[preseason] CORE: no {SEASON} rows yet (posts once the season starts)")
     except Exception as e:

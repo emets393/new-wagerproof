@@ -140,7 +140,11 @@ rows = []
 for _, r in m.iterrows():
     gid = r.game_id
     # model sides/totals direction (the headline pick); spots are separate flags
-    edge = r.side_edge if pd.notna(r.side_edge) else (r.pred_margin + r.spread_open if pd.notna(r.pred_margin) else None)
+    # Side keys off the CLOSE, matching gen_cfb_picks — the card quotes the bettable (T-60) line,
+    # and a coin-flip pred between open and close flipped games vs picks (TCU/Nebraska wk1-2026).
+    # forecast's open-based side_edge stays for the betting/spot layer only.
+    edge = (r.pred_margin + r.spread_close if pd.notna(r.pred_margin) and pd.notna(r.spread_close)
+            else (r.side_edge if pd.notna(r.side_edge) else None))
     mside = ("AWAY" if edge < 0 else "HOME") if edge is not None else None
     tside = ("OVER" if pd.notna(r.total_edge) and r.total_edge > 0 else "UNDER") if pd.notna(r.total_edge) else None
     # conviction = only spots that AGREE with the model side count (conflicting opposite-side spots don't inflate)

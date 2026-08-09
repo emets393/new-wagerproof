@@ -66,6 +66,12 @@ def add_situational_flags(df):
                 rows.append({"season": y, "week": int(r.week), "team": r[f"{who}Team"], "opp": r[f"{opp}Team"],
                              "won": int(r[f"{who}Points"] > r[f"{opp}Points"]), "pt": pt})
     tg = pd.DataFrame(rows)
+    if tg.empty:
+        # Preseason/ephemeral: no completed games anywhere in cache -> no situational
+        # history. Emit the flag columns as 0 so downstream spots simply don't fire.
+        for f in ["f_ranked_upset", "f_pt_letdown", "f_rival_next", "f_backup"]:
+            df[f"home_{f}"] = 0; df[f"away_{f}"] = 0; df[f"either_{f}"] = 0
+        return df
     tg["opp_ranked"] = [1 if (s, w, o) in ranked else 0 for s, w, o in zip(tg.season, tg.week, tg.opp)]
     tg["self_ranked"] = [1 if (s, w, t) in ranked else 0 for s, w, t in zip(tg.season, tg.week, tg.team)]
     tg["is_riv"] = [frozenset((t, o)) in rivpairs for t, o in zip(tg.team, tg.opp)]
@@ -274,9 +280,17 @@ def build_season(season, week=None):
     te = te.merge(ss.rename(columns={"team": "homeTeam", "sos": "h_sos", "sos_np": "h_sos_np"}), on=["season", "game_id", "homeTeam"], how="left")
     te = te.merge(ss.rename(columns={"team": "awayTeam", "sos": "a_sos", "sos_np": "a_sos_np"}), on=["season", "game_id", "awayTeam"], how="left")
     tr_nr = gm[(gm.season < a.season) & gm.net_rating_diff.notna() & gm.actual_margin.notna()]
-    b1, b0 = np.polyfit(tr_nr.net_rating_diff, tr_nr.actual_margin, 1)   # PR -> points; b0 = HFA
+    if len(tr_nr) >= 100:
+        b1, b0 = np.polyfit(tr_nr.net_rating_diff, tr_nr.actual_margin, 1)   # PR -> points; b0 = HFA
+    else:
+        # FROZEN calibration (fit on 2016-2025 local history, 2026-08-08): ephemeral runs
+        # carry only the current season, so the fit is impossible in-run. Re-freeze these
+        # together with the model .pkls.
+        b1, b0 = 38.9183, 3.6722
     tr_sos = ss.merge(gm[["season", "game_id"]], on=["season", "game_id"]); tr_sos = tr_sos[tr_sos.season < a.season]
     nr_med = pd.concat([gm[gm.season < a.season].home_net_rating, gm[gm.season < a.season].away_net_rating]).median()
+    if pd.isna(nr_med):
+        nr_med = 0.1066   # frozen (see above)
     sos_q40 = tr_sos.sos.quantile(0.40)
     te["pr_margin"] = b0 + b1 * te.net_rating_diff                       # power-rating-implied home margin (incl HFA)
     te["sos_resid"] = (-te.spread_close) - te.pr_margin                  # <0 = market favors road team MORE than PR
@@ -288,10 +302,15 @@ def build_season(season, week=None):
     te = te.merge(pr.rename(columns={"team": "homeTeam", "pr_rank": "h_pr_rank"}), on=["season", "game_id", "homeTeam"], how="left")
     te = te.merge(pr.rename(columns={"team": "awayTeam", "pr_rank": "a_pr_rank"}), on=["season", "game_id", "awayTeam"], how="left")
     hi_lastopp = pd.concat([gm[gm.season < a.season].home_last_opp_net, gm[gm.season < a.season].away_last_opp_net]).quantile(0.66)
+    if pd.isna(hi_lastopp):
+        hi_lastopp = 0.1889   # frozen (see above)
     G5 = lambda s: ~s.isin(P5)
     # SETTLED-LINE primary filter: fade only when the books AGREE (|soft_gap|<0.5). Fade works on settled lines
     # (65.1%, n=83); fails when sharp money is already moving the line (40%). Requires odds (no odds -> no fire).
-    sg = pd.to_numeric(te.get("soft_gap"), errors="coerce")
+    # te.get('soft_gap') returns a scalar NaN when the column is absent (degraded odds
+    # archive) -> pd.to_numeric gives np.float64, which has no .abs(). Force a Series.
+    sg = pd.to_numeric(te["soft_gap"], errors="coerce") if "soft_gap" in te.columns \
+        else pd.Series(np.nan, index=te.index)
     settled = (sg.abs() < 0.5).fillna(False)
     te["home_g5fade"] = (G5(te.homeConference) & (te.h_pr_rank <= 2) & (te.home_last_opp_net >= hi_lastopp)
                          & (te.home_last_win == 0) & settled).astype(int)   # fade home -> bet AWAY
@@ -384,6 +403,10 @@ def main():
     # (G5 overs dead 51.3%); UNDER both (P5 59.9 / G5 56.6); form-stack flag = OVER + team over-cold (61.2%).
     import team_total_signals, form_signals
     tt = team_total_signals.build(gm, a.season)
+    if tt.empty or "implied" not in tt.columns:
+        # degraded/ephemeral frame -> schema-stable empty; every TT gate below no-ops
+        tt = pd.DataFrame(columns=["season", "game_id", "team", "implied",
+                                   "anch_edge", "fund_edge", "pts", "tt_under", "tt_over"])
     evp = os.path.join(HERE, "data", "event_odds", f"events_{a.season}.parquet")
     # preseason guard: the live collector writes a schema-less 0-row parquet until books
     # post 1H/TT lines — treat that exactly like "no archive" (implied-line fallback below)

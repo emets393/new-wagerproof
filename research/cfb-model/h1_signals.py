@@ -20,6 +20,11 @@ def build(gm, feats, nets, season):
     g["h1m"]=g.h1h-g.h1a; g["h1t"]=g.h1h+g.h1a
     FE=[f for f in feats if f not in STR]+nets
     tr=g[(g.season<season)&g.h1m.notna()]; te=g[g.season==season].copy()
+    if tr.empty or te.empty:
+        # ephemeral/preseason: no 1H training history in the frame — the 1H model
+        # trains in-run by design (never frozen: no 1H lines preseason anyway).
+        # Return schema-stable empty; picks/flags 1H sections no-op.
+        return pd.DataFrame(columns=["season","game_id","h1_pm","h1_pt","h1m","h1t"])
     te["h1_pm"]=np.mean([gbm(s).fit(tr[FE],tr.h1m).predict(te[FE]) for s in range(5)],axis=0)
     te["h1_pt"]=gbm().fit(tr[tr.h1t.notna()][P15T],tr[tr.h1t.notna()].h1t).predict(te[P15T])
     return te[["season","game_id","h1_pm","h1_pt","h1m","h1t"]]
