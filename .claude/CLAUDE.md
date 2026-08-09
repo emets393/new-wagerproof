@@ -368,7 +368,10 @@ any doc — read the migrations.
 - **iOS**: Xcode Cloud on push to `main`. The shared scheme MUST be declared in `project.yml`
   — regenerating without it means no TestFlight build. Version strings are hardcoded in
   several files; bump them together.
-- **Android**: `.github/workflows/android-native.yml` → `:app:bundleRelease` → Play
+- **Android**: `.github/workflows/android-release.yml` (manual dispatch or an `android-v*`
+  tag) → `:app:bundleRelease` → Play. `android-native.yml` runs on every push but only
+  VERIFIES — it never publishes, so a push to `main` does NOT ship Android. `versionCode`
+  is bumped by hand and must exceed the live Play build; see `/build-android`.
 - **Agent worker**: Trigger.dev prod (`agents-v3`), deployed with `npx trigger deploy`
 - **Research crons**: `render.yaml` runs 6 cron services against `research/`
 
