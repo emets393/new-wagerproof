@@ -28,6 +28,7 @@ import json
 import math
 import os
 import sys
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -68,8 +69,22 @@ def http_json(url: str, headers: dict | None = None, payload: dict | None = None
         url, headers=headers or {},
         data=json.dumps(payload).encode() if payload is not None else None,
         method="POST" if payload is not None else "GET")
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.loads(r.read().decode())
+    # Transient 5xx/URLError from Supabase or the Odds API shouldn't fail the whole hourly
+    # run (2026-08-09: a single 502 paged the owner). SQL calls are idempotent upserts, so
+    # retrying is safe. 4xx = real bug -> raise immediately.
+    last = None
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            if e.code < 500:
+                raise
+            last = e
+        except urllib.error.URLError as e:
+            last = e
+        time.sleep(2 ** attempt * 3)   # 3s, 6s, 12s
+    raise last
 
 
 def run_sql(query: str):
