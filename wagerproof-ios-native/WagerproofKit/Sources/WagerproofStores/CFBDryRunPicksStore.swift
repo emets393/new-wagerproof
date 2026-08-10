@@ -207,7 +207,12 @@ public final class CFBDryRunPicksStore {
     private static func score(home: Double?, away: Double?, total: Double?, margin: Double?) -> (home: Double, away: Double)? {
         if let home, let away { return (home, away) }
         guard let total, let margin else { return nil }
-        return ((total + margin) / 2, (total - margin) / 2)
+        // |margin| > total makes the raw split negative for the dog — floor at 0 like the generator.
+        let h = (total + margin) / 2
+        let a = (total - margin) / 2
+        if a < 0 { return (total, 0) }
+        if h < 0 { return (0, total) }
+        return (h, a)
     }
 
     private struct FlexibleString: Decodable, Hashable, Sendable {
