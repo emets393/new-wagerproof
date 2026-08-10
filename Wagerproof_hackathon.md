@@ -115,6 +115,22 @@ for away teams); `gen_cfb_picks.py` writes `counter_signal_keys` on spread/total
    the same way as CFB.
 3. Audit existing NFL signal `source` strings: any that name a team they are FADING
    without an explicit bet target are the exact failure mode this rule exists for.
+4. Zero-edge tie-break audit: wherever NFL games/picks sides are computed in more than
+   one place, edge==0 must break the SAME way everywhere (CFB hit this 2026-08-10 —
+   Stanford-Hawai'i pred landed exactly on the line, `>` vs `>=` split the two
+   generators and the sign guard failed the run).
+
+---
+
+## Bug: overlapping team logos in the game-card moneyline edge section (added 2026-08-09)
+
+Owner report: on iOS game cards, the "which team has the edge" moneyline section renders two
+team logos overlapping each other. Start in the MLB card components (MLB is the live sport):
+`wagerproof-ios-native/Wagerproof/Features/MLB/Components/MLBGameCard.swift` +
+`MLBTeamLogo.swift` (and the F5 variant `F5GameCardView.swift`) — look for the edge/ML row's
+logo layout (a ZStack or offset pair that likely regressed when the edge indicator moved).
+Check the same section on CFB/NFL cards (`Features/CFB/Components/CFBGameCard.swift` etc.)
+since the card family shares patterns — fix the shared layout, not one sport's copy.
 
 ---
 
