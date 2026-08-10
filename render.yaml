@@ -46,7 +46,7 @@ services:
     plan: standard                         # 2GB — fetch step OOM-killed (exit 137) on starter's 512MB (2026-08-10)
     schedule: "0 11 * 9-12,1-2 2"          # Tue ~6-7am ET, NFL season (Sep–Feb)
     buildCommand: >-
-      pip install -r requirements.txt &&
+      pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
     startCommand: cd research/nfl-extreme-outcomes && bash run_nfl_week.sh   # no args -> resolve_nfl_week.py (wk1 until wk1 done, then advance)
@@ -61,7 +61,7 @@ services:
     runtime: python
     schedule: "0 11 * 8-12,1 1"            # Mon ~6-7am ET, CFB season (Aug–Jan)
     buildCommand: >-
-      pip install -r requirements.txt &&
+      pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
     startCommand: cd research/cfb-model && bash run_cfb_week.sh   # no args -> resolve_cfb_week.py (CFBD calendar)
@@ -76,7 +76,7 @@ services:
     runtime: python
     schedule: "0 13 * 8-12,1-2 *"          # daily ~8-9am ET, both seasons
     buildCommand: >-
-      pip install -r requirements.txt &&
+      pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
     startCommand: cd research/nfl-extreme-outcomes && bash grade_week.sh 2026
@@ -93,7 +93,7 @@ services:
     runtime: python
     schedule: "0 * * 9-12,1-2 *"            # every hour, NFL season — script controls 3x vs hourly
     buildCommand: >-
-      pip install -r requirements.txt &&
+      pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
     startCommand: cd research/nfl-extreme-outcomes && python3 live_odds.py --write
@@ -109,7 +109,7 @@ services:
     runtime: python
     schedule: "0 * * 8-12,1 *"              # every hour, CFB season — script controls 3x vs hourly
     buildCommand: >-
-      pip install -r requirements.txt &&
+      pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
     startCommand: cd research/cfb-model && python3 live_odds_cfb.py --write && python3 live_odds_cfb_1h.py --write
@@ -145,7 +145,7 @@ services:
     runtime: python
     schedule: "0 * * 9-12,1-2 *"            # every hour, NFL season — script controls 3x vs hourly
     buildCommand: >-
-      pip install -r requirements.txt &&
+      pip install -r research/requirements.txt &&
       printf 'SUPABASE_SERVICE_KEY=%s\nCFBD_API_KEY=%s\nODDS_API_KEY=%s\n'
       "$SUPABASE_SERVICE_KEY" "$CFBD_API_KEY" "$ODDS_API_KEY" > .env.local
     startCommand: cd research/nfl-extreme-outcomes && python3 live_props.py --write
