@@ -162,6 +162,14 @@ const FLAGS_TABLE: Record<FootballSport, string> = {
   nfl: 'nfl_slate_flags',
 };
 
+// Per-sport: `rule` exists ONLY on nfl_slate_flags. A shared select with `rule` made
+// PostgREST 42703 the ENTIRE CFB flags query (silently — debug.warn only), so CFB
+// gameFlags had always been empty and no flag data ever reached the signal chips.
+const FLAGS_SELECT: Record<FootballSport, string> = {
+  cfb: 'game_id,signal_key,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line',
+  nfl: 'game_id,signal_key,rule,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line',
+};
+
 const SIGNAL_DEFS_TABLE: Record<FootballSport, string> = {
   cfb: 'cfb_signal_defs',
   nfl: 'nfl_signal_defs',
@@ -1028,7 +1036,7 @@ export function FootballDryRunPicksSection({
         const week = toNum(prediction?.week);
         let flagsQuery = collegeFootballSupabase
           .from(FLAGS_TABLE[sport])
-          .select('game_id,signal_key,rule,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line')
+          .select(FLAGS_SELECT[sport])
           .eq('game_id', gameId);
         if (Number.isFinite(season)) flagsQuery = flagsQuery.eq('season', season);
         if (week !== null) flagsQuery = flagsQuery.eq('week', week);
