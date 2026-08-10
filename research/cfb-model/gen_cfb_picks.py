@@ -193,7 +193,10 @@ for _, r in te.iterrows():
     sp_conv, sp_mam, sp_sig, sp_has = "none", False, [], False   # captured for ML inheritance
     # ---- SPREAD ----
     if side_edge is not None:
-        ph = side_edge > 0; pteam = H if ph else A; pside = "HOME" if ph else "AWAY"
+        # >= : edge exactly 0 (pred lands on the line) breaks to HOME, matching
+        # gen_cfb_dryrun_games' "AWAY if edge < 0 else HOME" — Stanford-Hawai'i 2026-wk1
+        # tied at 0.0 and the sign guard killed the run on the mismatch.
+        ph = side_edge >= 0; pteam = H if ph else A; pside = "HOME" if ph else "AWAY"
         # EARLY: contextual signals no longer OVERRIDE the pick side. That rule predates the
         # early blend (true-preseason ratings + roster) — the model side is real now, the game
         # row displays it, and an overriding flag made the card contradict the row above it
