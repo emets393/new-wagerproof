@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Chip, Tooltip } from '@heroui/react';
 import {
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   Check,
   ChevronRight,
@@ -176,6 +178,11 @@ type DryRunFlag = {
   conviction?: string | null;
   line?: number | string | null;
   edge?: number | string | null;
+  /** Structured bet direction from the generator (2026-08-10): exact team to bet,
+      over/under, and the signed line for THAT bet — render these, never parse text. */
+  bet_team?: string | null;
+  bet_direction?: string | null;
+  bet_line?: number | string | null;
 };
 
 function flagSignalKey(flag: DryRunFlag): string {
@@ -407,6 +414,10 @@ function resolveSignalDirectionDisplay({
   action,
   team,
   betDirection,
+  betTeam,
+  betOU,
+  betLine,
+  flagMarket,
   row,
   away,
   home,
@@ -415,10 +426,35 @@ function resolveSignalDirectionDisplay({
   action?: string | null;
   team?: string | null;
   betDirection?: string | null;
+  /** Structured fields from the flag row — highest priority, no parsing. */
+  betTeam?: string | null;
+  betOU?: string | null;
+  betLine?: number | string | null;
+  flagMarket?: string | null;
   row?: FootballDryRunPick | null;
   away?: TeamRef | null;
   home?: TeamRef | null;
 }): string | null {
+  // Structured fast-path: the generator already computed the exact bet
+  // (team + signed line, or over/under + line). Everything below is legacy
+  // heuristics for rows that predate the bet_* columns.
+  const structTeam = (betTeam || '').trim();
+  const structOU = (betOU || '').trim().toLowerCase();
+  const structLine = toNum(betLine);
+  if (structTeam || structOU === 'over' || structOU === 'under') {
+    const mkt = String(flagMarket || '').toLowerCase();
+    const pre = mkt.startsWith('h1_') ? '1H ' : '';
+    const ouWord = structOU === 'over' ? 'Over' : structOU === 'under' ? 'Under' : '';
+    if (structTeam && ouWord) {
+      return `${structTeam} ${ouWord}${structLine !== null ? ` ${formatNumber(structLine)}` : ''}`;
+    }
+    if (ouWord) {
+      return `${pre}${ouWord}${structLine !== null ? ` ${formatNumber(structLine)}` : ''}`;
+    }
+    if (mkt === 'moneyline') return `${structTeam} ML`;
+    return `${pre}${structTeam}${structLine !== null ? ` ${formatSigned(structLine)}` : ''}`;
+  }
+
   if (sideLabel?.trim() && away && home) {
     return expandSignalSideLabel(sideLabel, away, home);
   }
@@ -992,7 +1028,7 @@ export function FootballDryRunPicksSection({
         const week = toNum(prediction?.week);
         let flagsQuery = collegeFootballSupabase
           .from(FLAGS_TABLE[sport])
-          .select('game_id,signal_key,rule,market,side,tier,conviction,line,edge')
+          .select('game_id,signal_key,rule,market,side,tier,conviction,line,edge,bet_team,bet_direction,bet_line')
           .eq('game_id', gameId);
         if (Number.isFinite(season)) flagsQuery = flagsQuery.eq('season', season);
         if (week !== null) flagsQuery = flagsQuery.eq('week', week);
@@ -1438,6 +1474,7 @@ function PickRow({
           home={home}
           signalDefs={signalDefs}
           signalPerformance={signalPerformance}
+          flags={fallbackFlags}
         />
       )}
     </div>
@@ -1452,6 +1489,9 @@ type ResolvedSignal = {
   embeddedLabel?: string;
   /** Concrete pick string for the Direction row (team + line when known). */
   direction?: string;
+  /** Structured render hints: team logo next to the Direction, green arrow for O/U. */
+  betLogo?: string | null;
+  betOU?: 'over' | 'under';
 };
 
 function resolvePickSignals(
@@ -1460,9 +1500,11 @@ function resolvePickSignals(
   away: TeamRef,
   home: TeamRef,
   signalDefs: Record<string, SignalDefinition>,
+  flagsByKey?: Record<string, DryRunFlag>,
 ): ResolvedSignal[] {
   return signalKeys.map((key) => {
     const embedded = (row.signals || []).find((s) => s.key === key);
+    const flag = flagsByKey?.[key];
     const def = signalDefs[key];
     const rawStance = (embedded?.stance || '').toLowerCase();
     const stance: 'support' | 'counter' =
@@ -1474,18 +1516,38 @@ function resolvePickSignals(
       stance,
       action,
       embeddedLabel: embedded?.label || embedded?.action || undefined,
+      betLogo: betTeamLogo(flag?.bet_team, away, home),
+      betOU: normalizedBetOU(flag?.bet_direction),
       direction:
         resolveSignalDirectionDisplay({
           sideLabel: embedded?.label,
           action: embedded?.action || embedded?.team,
           team: embedded?.team,
           betDirection: def?.bet_direction,
+          betTeam: flag?.bet_team,
+          betOU: flag?.bet_direction,
+          betLine: flag?.bet_line,
+          flagMarket: flag?.market,
           row,
           away,
           home,
         }) || undefined,
     };
   });
+}
+
+/** Logo for the structured bet_team, matched against the two TeamRefs. */
+function betTeamLogo(betTeam: string | null | undefined, away: TeamRef | null, home: TeamRef | null): string | null {
+  const t = (betTeam || '').trim().toUpperCase();
+  if (!t) return null;
+  if (home && home.name.toUpperCase() === t) return home.logoUrl;
+  if (away && away.name.toUpperCase() === t) return away.logoUrl;
+  return null;
+}
+
+function normalizedBetOU(v: string | null | undefined): 'over' | 'under' | undefined {
+  const s = (v || '').trim().toLowerCase();
+  return s === 'over' || s === 'under' ? s : undefined;
 }
 
 function resolveFlagSignals(
@@ -1508,11 +1570,17 @@ function resolveFlagSignals(
       stance: flagSupportsPick(flag, row, away, home) ? 'support' : 'counter',
       action: flag.side || def?.bet_direction || undefined,
       embeddedLabel: flag.side || undefined,
+      betLogo: betTeamLogo(flag.bet_team, away, home),
+      betOU: normalizedBetOU(flag.bet_direction),
       direction:
         resolveSignalDirectionDisplay({
           sideLabel: flag.side,
           action: flag.side,
           betDirection: def?.bet_direction,
+          betTeam: flag.bet_team,
+          betOU: flag.bet_direction,
+          betLine: flag.bet_line,
+          flagMarket: flag.market,
           row,
           away,
           home,
@@ -1533,6 +1601,7 @@ function PickSignalGroups({
   home,
   signalDefs,
   signalPerformance,
+  flags,
 }: {
   signalKeys: string[];
   row: FootballDryRunPick;
@@ -1540,10 +1609,20 @@ function PickSignalGroups({
   home: TeamRef;
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
+  /** Flag rows for this game — carry the structured bet_* fields per signal key. */
+  flags?: DryRunFlag[];
 }) {
+  const flagsByKey = useMemo(() => {
+    const map: Record<string, DryRunFlag> = {};
+    for (const f of flags || []) {
+      const k = flagSignalKey(f);
+      if (k && !map[k]) map[k] = f;
+    }
+    return map;
+  }, [flags]);
   return (
     <ResolvedSignalGroups
-      resolved={resolvePickSignals(signalKeys, row, away, home, signalDefs)}
+      resolved={resolvePickSignals(signalKeys, row, away, home, signalDefs, flagsByKey)}
       signalDefs={signalDefs}
       signalPerformance={signalPerformance}
     />
@@ -1618,6 +1697,8 @@ function ResolvedSignalGroups({
           stance={selected.stance}
           embeddedLabel={selected.embeddedLabel}
           direction={selected.direction}
+          betLogo={selected.betLogo}
+          betOU={selected.betOU}
         />
       )}
     </div>
@@ -1653,11 +1734,17 @@ function GameLevelSignalList({
         stance: 'support',
         action: flag.side || def?.bet_direction || undefined,
         embeddedLabel: flag.side || undefined,
+        betLogo: betTeamLogo(flag.bet_team, away, home),
+        betOU: normalizedBetOU(flag.bet_direction),
         direction:
           resolveSignalDirectionDisplay({
             sideLabel: flag.side,
             action: flag.side,
             betDirection: def?.bet_direction,
+            betTeam: flag.bet_team,
+            betOU: flag.bet_direction,
+            betLine: flag.bet_line,
+            flagMarket: flag.market,
             away,
             home,
           }) || undefined,
@@ -1686,6 +1773,8 @@ function GameLevelSignalList({
           stance={undefined}
           embeddedLabel={selected.embeddedLabel}
           direction={selected.direction}
+          betLogo={selected.betLogo}
+          betOU={selected.betOU}
         />
       )}
     </div>
@@ -1766,6 +1855,8 @@ function SignalDetail({
   stance,
   embeddedLabel,
   direction,
+  betLogo,
+  betOU,
 }: {
   signalKey: string;
   signal: SignalDefinition | undefined;
@@ -1774,6 +1865,9 @@ function SignalDetail({
   embeddedLabel?: string;
   /** Concrete per-game pick; falls back to non-generic def bet_direction. */
   direction?: string;
+  /** Structured render hints: bet team's logo, green arrow for over/under. */
+  betLogo?: string | null;
+  betOU?: 'over' | 'under';
 }) {
   const seasonRecord = formatSignalSeasonRecord(performance);
   const directionText =
@@ -1806,8 +1900,14 @@ function SignalDetail({
         </p>
       )}
       {directionText && (
-        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-          <span className="font-semibold text-foreground">Direction:</span> {directionText}
+        <p className="mt-1 flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-foreground">Direction:</span>
+          {betLogo && (
+            <img src={betLogo} alt="" className="h-4 w-4 shrink-0 object-contain" />
+          )}
+          {betOU === 'over' && <ArrowUp className="h-3.5 w-3.5 shrink-0 text-emerald-500" aria-label="over" />}
+          {betOU === 'under' && <ArrowDown className="h-3.5 w-3.5 shrink-0 text-emerald-500" aria-label="under" />}
+          <span className={cn(betLogo || betOU ? 'font-semibold text-foreground' : undefined)}>{directionText}</span>
         </p>
       )}
 
