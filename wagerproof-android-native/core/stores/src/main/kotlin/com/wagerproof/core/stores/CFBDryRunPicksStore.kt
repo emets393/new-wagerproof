@@ -217,7 +217,12 @@ class CFBDryRunPicksStore {
     private fun score(home: Double?, away: Double?, total: Double?, margin: Double?): PredictedScore? {
         if (home != null && away != null) return PredictedScore(home, away)
         if (total == null || margin == null) return null
-        return PredictedScore(home = (total + margin) / 2, away = (total - margin) / 2)
+        // |margin| > total makes the raw split negative for the dog — floor at 0 like the generator.
+        val h = (total + margin) / 2
+        val a = (total - margin) / 2
+        if (a < 0) return PredictedScore(home = total, away = 0.0)
+        if (h < 0) return PredictedScore(home = 0.0, away = total)
+        return PredictedScore(home = h, away = a)
     }
 
     private data class PredictedScore(val home: Double, val away: Double)

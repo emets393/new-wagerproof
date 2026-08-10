@@ -571,8 +571,22 @@ export async function fetchCfbGames(_adminMode: boolean): Promise<SportFeed<CFBP
       const predTotal = Number(prediction.fg_pred_total);
       const predMargin = Number(prediction.fg_pred_margin);
       const hasScore = Number.isFinite(predTotal) && Number.isFinite(predMargin);
-      const predHomeScore = hasScore ? (predTotal + predMargin) / 2 : null;
-      const predAwayScore = hasScore ? (predTotal - predMargin) / 2 : null;
+      // Prefer the generator's fg_pred_*_pts — it floors the blown-out side at 0 when
+      // |margin| > total (OSU-Ball St wk1-2026 rendered "Ball St -2.2" from the raw split).
+      // The fallback split mirrors that floor for rows predating the column.
+      const dbHome = Number(prediction.fg_pred_home_pts);
+      const dbAway = Number(prediction.fg_pred_away_pts);
+      const hasDbPts = Number.isFinite(dbHome) && Number.isFinite(dbAway);
+      const rawHome = hasScore ? (predTotal + predMargin) / 2 : null;
+      const rawAway = hasScore ? (predTotal - predMargin) / 2 : null;
+      const predHomeScore = hasDbPts ? dbHome
+        : rawAway !== null && rawAway < 0 ? predTotal
+        : rawHome !== null && rawHome < 0 ? 0
+        : rawHome;
+      const predAwayScore = hasDbPts ? dbAway
+        : rawAway !== null && rawAway < 0 ? 0
+        : rawHome !== null && rawHome < 0 ? predTotal
+        : rawAway;
       const homeSpread = prediction.fg_spread_close ?? null;
 
       return {

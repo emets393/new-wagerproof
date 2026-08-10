@@ -1153,7 +1153,12 @@ class GamesStore {
         private fun cfbPredictedScore(home: Double?, away: Double?, total: Double?, margin: Double?): CFBPredictedScore? {
             if (home != null && away != null) return CFBPredictedScore(home, away)
             if (total == null || margin == null) return null
-            return CFBPredictedScore(home = (total + margin) / 2, away = (total - margin) / 2)
+            // |margin| > total makes the raw split negative for the dog — floor at 0 like the generator.
+            val h = (total + margin) / 2
+            val a = (total - margin) / 2
+            if (a < 0) return CFBPredictedScore(home = total, away = 0.0)
+            if (h < 0) return CFBPredictedScore(home = 0.0, away = total)
+            return CFBPredictedScore(home = h, away = a)
         }
     }
 
