@@ -69,11 +69,15 @@ def main():
         rec["open_ts"] = g["snap_ts"].min()
         rec["close_ts"] = g["snap_ts"].max()
         rec["commence_time"] = g["commence_time"].iloc[0]
-        # spread (home), total, ml home/away: median across books
-        rec["open_spread"] = op["spread_home"].median()
-        rec["close_spread"] = cl["spread_home"].median()
-        rec["open_total"] = op["total_point"].median()
-        rec["close_total"] = cl["total_point"].median()
+        # spread (home), total, ml home/away: median across books.
+        # Spread/total snap to the half-point grid — an even book count straddling
+        # -2.5/-3 medians to -2.75, a line no book posts (leaked to game cards +
+        # agent pick stamps, owner 2026-08-10). ML stays raw (price, not a line).
+        _half = lambda v: round(v * 2) / 2 if pd.notna(v) else v
+        rec["open_spread"] = _half(op["spread_home"].median())
+        rec["close_spread"] = _half(cl["spread_home"].median())
+        rec["open_total"] = _half(op["total_point"].median())
+        rec["close_total"] = _half(cl["total_point"].median())
         rec["open_ml_home"] = op["ml_home"].median()
         rec["close_ml_home"] = cl["ml_home"].median()
         rec["open_ml_away"] = op["ml_away"].median()
