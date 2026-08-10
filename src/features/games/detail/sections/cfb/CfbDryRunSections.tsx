@@ -90,6 +90,8 @@ type FootballDryRunPick = {
   conviction?: string | null;
   is_mammoth?: boolean | null;
   signal_keys?: string[] | string | null;
+  /** Signals that fired AGAINST this card's pick — must render, labeled Contradicts. */
+  counter_signal_keys?: string[] | string | null;
   /** NFL embeds support/counter stance on the pick; CFB resolves via defs. */
   signals?: Array<{
     key?: string | null;
@@ -1138,6 +1140,9 @@ export function FootballDryRunPicksSection({
     const keys = new Set<string>();
     for (const pick of picks) {
       for (const key of displaySignalKeysFromPick(sport, pick.signal_keys)) {
+        set.add(key);
+      }
+      for (const key of displaySignalKeysFromPick(sport, pick.counter_signal_keys)) {
         keys.add(key);
       }
     }
@@ -1409,7 +1414,13 @@ function PickRow({
   // projection-only NFL cards — fall back to matching game-level flags so
   // detail chips match the feed ⚡ N Signals count.
   const signalKeys = displaySignalKeysFromPick(sport, row.signal_keys);
-  const useFlagFallback = signalKeys.length === 0 && fallbackFlags.length > 0;
+  // Owner rule 2026-08-07: signals firing AGAINST the pick render too ("Contradicts this
+  // pick"), never hidden. iOS wired this 2026-08-08; web missed it (OSU-Tulsa: 5 flags,
+  // 4 chips — ret_prod_edge backed the other side and vanished).
+  const counterKeys = displaySignalKeysFromPick(sport, row.counter_signal_keys).filter(
+    (k) => !signalKeys.includes(k),
+  );
+  const useFlagFallback = signalKeys.length === 0 && counterKeys.length === 0 && fallbackFlags.length > 0;
   const model = toNum(row.model_line) ?? toNum(row.model_number);
   const vegas = toNum(row.vegas_line);
   const gap = resolveRowGap(row);
@@ -1491,6 +1502,7 @@ function PickRow({
       ) : (
         <PickSignalGroups
           signalKeys={signalKeys}
+          counterKeys={counterKeys}
           row={row}
           away={away}
           home={home}
@@ -1523,7 +1535,34 @@ function resolvePickSignals(
   home: TeamRef,
   signalDefs: Record<string, SignalDefinition>,
   flagsByKey?: Record<string, DryRunFlag>,
+  counterKeys?: string[],
 ): ResolvedSignal[] {
+  const counters: ResolvedSignal[] = (counterKeys || []).map((key) => {
+    const flag = flagsByKey?.[key];
+    const def = signalDefs[key];
+    return {
+      key,
+      displayName: def?.display_name || key,
+      stance: 'counter' as const,
+      action: flag?.side || def?.bet_direction || undefined,
+      embeddedLabel: flag?.side || undefined,
+      betLogo: betTeamLogo(flag?.bet_team, away, home),
+      betOU: normalizedBetOU(flag?.bet_direction),
+      direction:
+        resolveSignalDirectionDisplay({
+          sideLabel: flag?.side,
+          action: flag?.side,
+          betDirection: def?.bet_direction,
+          betTeam: flag?.bet_team,
+          betOU: flag?.bet_direction,
+          betLine: flag?.bet_line,
+          flagMarket: flag?.market,
+          row,
+          away,
+          home,
+        }) || undefined,
+    };
+  });
   return signalKeys.map((key) => {
     const embedded = (row.signals || []).find((s) => s.key === key);
     const flag = flagsByKey?.[key];
@@ -1555,7 +1594,7 @@ function resolvePickSignals(
           home,
         }) || undefined,
     };
-  });
+  }).concat(counters);
 }
 
 /** Logo for the structured bet_team, matched against the two TeamRefs. */
@@ -1618,6 +1657,7 @@ function resolveFlagSignals(
  */
 function PickSignalGroups({
   signalKeys,
+  counterKeys,
   row,
   away,
   home,
@@ -1626,6 +1666,8 @@ function PickSignalGroups({
   flags,
 }: {
   signalKeys: string[];
+  /** Signals that fired against the pick — rendered under Contradicts. */
+  counterKeys?: string[];
   row: FootballDryRunPick;
   away: TeamRef;
   home: TeamRef;
@@ -1644,7 +1686,7 @@ function PickSignalGroups({
   }, [flags]);
   return (
     <ResolvedSignalGroups
-      resolved={resolvePickSignals(signalKeys, row, away, home, signalDefs, flagsByKey)}
+      resolved={resolvePickSignals(signalKeys, row, away, home, signalDefs, flagsByKey, counterKeys)}
       signalDefs={signalDefs}
       signalPerformance={signalPerformance}
     />
