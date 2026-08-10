@@ -236,6 +236,8 @@ export type CfbDryRunPickHeadlineInput = {
    * construction, so its sign identifies nothing.
    */
   leadGap: number | null;
+  /** Weeks 1-3: the display model is a preseason blend — its gaps are NOT bettable. */
+  earlyWeek?: boolean;
 };
 
 /**
@@ -263,6 +265,14 @@ export function cfbDryRunPickHeadline(v: CfbDryRunPickHeadlineInput): string | n
   }
 
   if (v.playCount === 0) {
+    // Early weeks: say WHY we decline. The display model is a preseason blend and
+    // oversized rating-vs-line gaps historically LOSE (the moderate-gap law), so a
+    // big edge with no play is the system working, not the system missing it.
+    if (v.earlyWeek) {
+      return label
+        ? `${v.marketLabel}: no play — ${label} is informational; early-season model gaps aren't bettable (oversized preseason gaps historically lose), so plays here come from the validated week 1-3 signals.`
+        : `${v.marketLabel}: no play — early-season model gaps aren't bettable; plays come from the validated week 1-3 signals.`;
+    }
     return label
       ? `${v.marketLabel}: no play surfaced — ${label} is informational only.`
       : `${v.marketLabel}: the model priced this market but surfaced no play.`;

@@ -1265,6 +1265,7 @@ export function FootballDryRunPicksSection({
             signalPerformance={signalPerformance}
             fallbackFlags={fallbackFlags}
             lookupFlags={gameFlags}
+            earlyWeek={(toNum(prediction?.week) ?? 99) <= 3}
             away={game.awayTeam}
             home={game.homeTeam}
             trendsByKey={teamTrends}
@@ -1292,6 +1293,7 @@ function PredictionGroupCard({
   signalPerformance,
   fallbackFlags,
   lookupFlags,
+  earlyWeek,
   away,
   home,
   trendsByKey,
@@ -1306,6 +1308,8 @@ function PredictionGroupCard({
   /** ALL game flags — the structured bet_* lookup. fallbackFlags is orphans-only
       (flags no pick references), so keyed signals never matched it (2026-08-10). */
   lookupFlags?: DryRunFlag[];
+  /** Weeks 1-3: display model is a preseason blend — headline explains why no play. */
+  earlyWeek?: boolean;
   away: TeamRef;
   home: TeamRef;
   trendsByKey: Record<string, FootballTeamTrend>;
@@ -1341,6 +1345,7 @@ function PredictionGroupCard({
           leadPickLabel: lead?.pick_label ?? null,
           leadConvictionLabel: leadConvictionKey ? CONVICTION_LABEL[leadConvictionKey] : null,
           leadGap,
+          earlyWeek,
         }) ?? undefined
       }
       subtitle={CARD_SUBTITLES[group] ?? 'How the model priced this market against the book.'}
