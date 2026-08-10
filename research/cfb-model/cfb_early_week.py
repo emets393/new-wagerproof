@@ -150,6 +150,11 @@ def main():
     # absurdities). With TRUE preseason SP+ + roster features the raw blend sits ~3.1 pts off
     # the close with sane extremes — owner call 2026-08-05: SHOW OUR NUMBER (λ=1), keep the
     # cap purely as a safety rail (binds only on the p90 tail, e.g. refusing to lay 40+).
+    # Raw (pre-anchor) total kept for the early_total_edge signal: the anchor cap (±6)
+    # truncates exactly the big edges the backtest validated (>=4 off the close = 55.1%
+    # 5/5 seasons, >=6 = 57.9%; cfb_early_edge_backtest.py 2026-08-11). Spreads carry no
+    # such edge (48-51%) — display-only there stands.
+    te["pred_total_raw"] = te.pred_total
     LAM, CAP_S, CAP_T = 1.0, 7.0, 6.0
     hs = te.spread_close.notna()
     te.loc[hs, "pred_spread"] = (te.spread_close + (LAM * (te.pred_spread - te.spread_close))
@@ -162,7 +167,7 @@ def main():
     L(f"[predict] {len(te)} {SEASON} wk{WEEK} games | prior-SP+ present on both sides for "
       f"{int((te.h_prior_sp.notna() & te.a_prior_sp.notna()).sum())}")
     out = os.path.join(HERE, "out", f"cfb_early_preds_{SEASON}.csv")
-    cols = ["season", "week", "homeTeam", "awayTeam", "pred_spread", "pred_total", "spread_close", "total_close"]
+    cols = ["season", "week", "homeTeam", "awayTeam", "pred_spread", "pred_total", "pred_total_raw", "spread_close", "total_close"]
     te[[c for c in cols if c in te.columns]].to_csv(out, index=False)
     L(f"[save] {out}")
     L(te[[c for c in ["homeTeam", "awayTeam", "pred_spread", "pred_total", "spread_close", "total_close"]

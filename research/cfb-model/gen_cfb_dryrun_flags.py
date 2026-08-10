@@ -388,6 +388,39 @@ if WEEK >= 5 and os.path.exists(_cap):
                          "source": f"CORE TOTAL EDGE: context-adjusted O/D implies "
                                    f"{hat:.1f} vs line {r.total_close:g} ({edge:+.1f}{stx})"})
 
+# ── EARLY TOTAL EDGE (owner-pushed 2026-08-11): the wk1-3 preseason-CORE blend's RAW
+# total >=4 off the close = 55.1% (n=352, 5/5 seasons >=52), >=6 = 57.9% (n=209) —
+# cfb_early_edge_backtest.py, exact production features. The weeks-1-3 front end of
+# core_total_edge (same O/D structure, preseason inputs). Spreads carry NO such edge
+# (48-51%) — display-only there stands. Raw (pre-anchor) total: the ±6 display cap
+# truncates exactly the edges that pay.
+if WEEK <= 3:
+    _ep_path = f"out/cfb_early_preds_{SEASON}.csv"
+    if os.path.exists(_ep_path):
+        _ep = pd.read_csv(_ep_path)
+        if "pred_total_raw" in _ep.columns:
+            _ep = _ep[["homeTeam", "awayTeam", "pred_total_raw"]]
+            _te2 = te.merge(_ep, on=["homeTeam", "awayTeam"], how="left")
+            for _, r in _te2.iterrows():
+                if pd.isna(r.total_close) or pd.isna(r.pred_total_raw):
+                    continue
+                edge = float(r.pred_total_raw) - float(r.total_close)
+                if abs(edge) < 4:
+                    continue
+                side = "OVER" if edge > 0 else "UNDER"
+                if abs(edge) >= 6:
+                    conv, tier, stake = "T3", "active", C.STAKE["T3"]
+                else:
+                    conv, tier, stake = "track", "tracking", 0.5
+                rows.append({"game_id": int(r.game_id), "season": SEASON, "week": WEEK,
+                             "game": f"{r.awayTeam} @ {r.homeTeam}", "market": "total",
+                             "side": side, "line": round(float(r.total_close), 1), "price": -110,
+                             "edge": round(edge, 1), "conviction": conv,
+                             "tier": tier, "stake_units": stake, "grade_line": "close",
+                             "mammoth": False, "signal_key": "early_total_edge",
+                             "source": f"EARLY TOTAL EDGE: preseason-CORE blend implies "
+                                       f"{r.pred_total_raw:.1f} vs line {r.total_close:g} ({edge:+.1f})"})
+
 # ── Explicit bet target on every flag (owner rule 2026-08-07): a signal's text must
 # SAY the bet ("→ bet Tulsa +12.5"), because side=HOME/AWAY never renders and a source
 # that only names a team reads as backing that team even when it fades them (the OSU
