@@ -463,3 +463,19 @@ BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as alwa
   real but modest (>=3.5: 55.6% n=392, 2025 flat, only 3 line-seasons) and 1H
   STEAM INVERTS (edge+strong steam 45.8% — thin 1H books move for different
   reasons; never port the FG steam layer to 1H). Watch-tier only.
+
+## Early-week (wk1-3) blend AS A BET — owner challenge answered (2026-08-11)
+> `cfb_early_edge_backtest.py`: walk-forward 2021-25 wk1-3, EXACT production feature sets
+> (roster + CORE), bets at |model-line|>=cut graded vs open AND close, per season.
+- **SPREADS: NULL, again.** 48.5-50.7% at cuts 2-4 both lines; per-season 44-58% chaos.
+  Confirms the λ-shrink test (blend deviations = zero info beyond the close). Big-cut
+  cells (>=8: 53-54%) are small-n and inconsistent — the moderate-gap law still rules.
+  Display-only stands; wk1-3 spread plays remain signal-driven.
+- **TOTALS: REAL — the CORE structure pays early too.** RAW blend total >=4 off the
+  close: **55.1% (n=352), ALL FIVE seasons >=52** (59/52/55/55/54); >=6: **57.9% (n=209)**.
+  vs the OPEN it is weaker (50.8/55.0) — the edge is a close-graded one. Coheres with
+  core_total_edge (54.1% wks 5+): one construction, two windows.
+- **WIRED as `early_total_edge`** (gen_cfb_dryrun_flags, WEEK<=3): raw pre-anchor total
+  (the ±6 display cap truncates exactly the paying edges — pred_total_raw added to the
+  early CSV), >=4 fires (tracking 0.5u), >=6 = T3 active. 2026 wk1: 9 fires, OSU@Tulsa
+  U61.5 (-10.1) converging with coach_pace_under — independent-mechanism confluence.
