@@ -1140,7 +1140,7 @@ export function FootballDryRunPicksSection({
     const keys = new Set<string>();
     for (const pick of picks) {
       for (const key of displaySignalKeysFromPick(sport, pick.signal_keys)) {
-        set.add(key);
+        keys.add(key);
       }
       for (const key of displaySignalKeysFromPick(sport, pick.counter_signal_keys)) {
         keys.add(key);
