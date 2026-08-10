@@ -407,10 +407,32 @@ def _bet_text(r):
         return f"{home if s == 'HOME' else away} ML"
     return s.title() if s else None
 
+def _bet_fields(r):
+    """Structured direction for the UI (owner 2026-08-10): bet_team -> team logo,
+    bet_direction over/under -> green arrow, bet_line -> the signed number for that bet.
+    Mechanical render — no text parsing, no 'which team is this about' ambiguity."""
+    away, home = r["game"].split(" @ ", 1)
+    m, s, ln = r["market"], str(r["side"]), r.get("line")
+    if m in ("spread", "h1_spread", "moneyline") and s in ("HOME", "AWAY"):
+        team = home if s == "HOME" else away
+        line = None if ln is None or m == "moneyline" else (float(ln) if s == "HOME" else -float(ln))
+        return team, None, line
+    if m in ("total", "h1_total") and s in ("OVER", "UNDER"):
+        return None, s.lower(), None if ln is None else float(ln)
+    if m == "team_total":                      # side = "<Team> OVER|UNDER"
+        parts = s.rsplit(" ", 1)
+        if len(parts) == 2 and parts[1] in ("OVER", "UNDER"):
+            return parts[0], parts[1].lower(), None if ln is None else float(ln)
+    return None, None, None
+
 for r in rows:
     bt = _bet_text(r)
     if bt:
         r["source"] = f"{r['source']} → bet {bt}"
+    team, direction, line = _bet_fields(r)
+    r["bet_team"] = team
+    r["bet_direction"] = direction
+    r["bet_line"] = line
 
 df = pd.DataFrame(rows)
 
