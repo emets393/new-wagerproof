@@ -1256,6 +1256,7 @@ export function FootballDryRunPicksSection({
             signalDefs={signalDefs}
             signalPerformance={signalPerformance}
             fallbackFlags={fallbackFlags}
+            lookupFlags={gameFlags}
             away={game.awayTeam}
             home={game.homeTeam}
             trendsByKey={teamTrends}
@@ -1282,6 +1283,7 @@ function PredictionGroupCard({
   signalDefs,
   signalPerformance,
   fallbackFlags,
+  lookupFlags,
   away,
   home,
   trendsByKey,
@@ -1293,6 +1295,9 @@ function PredictionGroupCard({
   signalPerformance: Record<string, SignalPerformanceRow>;
   /** Game-level flags for this market when pick.signal_keys are empty. */
   fallbackFlags: DryRunFlag[];
+  /** ALL game flags — the structured bet_* lookup. fallbackFlags is orphans-only
+      (flags no pick references), so keyed signals never matched it (2026-08-10). */
+  lookupFlags?: DryRunFlag[];
   away: TeamRef;
   home: TeamRef;
   trendsByKey: Record<string, FootballTeamTrend>;
@@ -1349,6 +1354,7 @@ function PredictionGroupCard({
             signalDefs={signalDefs}
             signalPerformance={signalPerformance}
             fallbackFlags={index === leadIndex ? fallbackFlags : []}
+            lookupFlags={lookupFlags}
             away={away}
             home={home}
           />
@@ -1372,6 +1378,7 @@ function PickRow({
   signalDefs,
   signalPerformance,
   fallbackFlags,
+  lookupFlags,
   away,
   home,
 }: {
@@ -1380,6 +1387,8 @@ function PickRow({
   signalDefs: Record<string, SignalDefinition>;
   signalPerformance: Record<string, SignalPerformanceRow>;
   fallbackFlags: DryRunFlag[];
+  /** ALL game flags for the structured bet_* lookup (fallbackFlags = orphans only). */
+  lookupFlags?: DryRunFlag[];
   away: TeamRef;
   home: TeamRef;
 }) {
@@ -1474,7 +1483,7 @@ function PickRow({
           home={home}
           signalDefs={signalDefs}
           signalPerformance={signalPerformance}
-          flags={fallbackFlags}
+          flags={lookupFlags ?? fallbackFlags}
         />
       )}
     </div>
