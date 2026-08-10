@@ -43,6 +43,7 @@ services:
   - type: cron
     name: nfl-slate-weekly
     runtime: python
+    plan: standard                         # 2GB — fetch step OOM-killed (exit 137) on starter's 512MB (2026-08-10)
     schedule: "0 11 * 9-12,1-2 2"          # Tue ~6-7am ET, NFL season (Sep–Feb)
     buildCommand: >-
       pip install -r requirements.txt &&
