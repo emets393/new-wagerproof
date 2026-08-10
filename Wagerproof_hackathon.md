@@ -107,9 +107,18 @@ generic `_bet_text()` post-emit (all markets: spread/total/TT/1H/ML, side-aware 
 for away teams); `gen_cfb_picks.py` writes `counter_signal_keys` on spread/total cards; iOS
 `CFBGameBottomSheet.swift` decodes them and synthesizes the opposite-side rows.
 
+**Structured direction fields (added 2026-08-10, owner: "logo or green arrow, now"):**
+every flag row now carries `bet_team` (exact team name -> render its logo), `bet_direction`
+(`over`/`under` -> green arrow up/down), `bet_line` (signed number for THAT bet, e.g. Akron
++22.5). Columns live on `cfb_slate_flags` + `nfl_slate_flags` (compat views updated). CFB
+generator emits them for every market incl. team totals; UI render is the remaining piece:
+signal cards/sheets on web + iOS + Android show logo-or-arrow + bet_line instead of (or
+above) the generic Direction copy. NO text parsing — read the three fields.
+
 **NFL: ⛔ NOT DONE — must ship before NFL Week 1 (Sept 10).**
-1. Port `_bet_text()` to the NFL flag generator (`dryrun_wk12_games.py` spot/flag emit) —
-   same append-last pattern so no emitter changes.
+1. Port `_bet_text()` AND `_bet_fields()` (bet_team/bet_direction/bet_line — columns already
+   exist on nfl_slate_flags) to the NFL flag generator (`dryrun_wk12_games.py` spot/flag
+   emit) — same append-last pattern so no emitter changes.
 2. Add `counter_signal_keys` to NFL pick cards (spread/total) mirroring the CFB picks
    generator, and wire the iOS NFL sheet (`NFLGameBottomSheet.swift`) + web NFL detail
    the same way as CFB.
