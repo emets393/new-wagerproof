@@ -122,7 +122,16 @@ def is_blanket(source): return key_for(source) in BLANKET_KEYS
 # ===== UNIFIED team-total model: derived from the full-game model so it's coherent with the headline score =====
 P5CONF = {"SEC", "Big Ten", "Big 12", "ACC", "Pac-12"}
 def fg_team_pts(pred_total, pred_margin, is_home):
-    return (pred_total + pred_margin) / 2 if is_home else (pred_total - pred_margin) / 2
+    # Blowout coherence: margin and total are independent model outputs, and when
+    # |margin| > total the naive split goes NEGATIVE for the dog (OSU-Ball St 2026-wk1:
+    # margin 56.6 on total 52.2 -> Ball St "-2.2 pts" on the app). Floor the dog at 0
+    # and give the winner the full total — preserves the graded total, caps the implied
+    # margin at the total. The spread card still shows the raw model spread.
+    home = (pred_total + pred_margin) / 2
+    away = (pred_total - pred_margin) / 2
+    if away < 0: home, away = pred_total, 0.0
+    elif home < 0: home, away = 0.0, pred_total
+    return home if is_home else away
 def tt_conv_key(edge, pside, p5):
     """Validated gates on the full-game-derived team total (vs posted): UNDER<=-3 ~57%, OVER+4 P5 ~58%,
     OVER+6 P5 ~62%. Returns conviction key or None (no play). OVER is P5-only (G5 overs are dead)."""
