@@ -44,6 +44,12 @@ g = od.groupby(["season", "game_id", "snapshot", "home_c", "away_c", "commence_t
     home_ml=("home_ml", "median"), away_ml=("away_ml", "median"),
     sp_h_price=("spread_home_price", "median"), sp_a_price=("spread_away_price", "median"),
     hrs=("hrs_to_kick", "max"), nbooks=("book", "nunique")).reset_index()
+# Snap spread/total to the half-point grid: an even book count straddling -50/-50.5
+# medians to -50.25, a line NO book posts — it then leaks into every surface
+# (game cards, pick stamps, agent consensus "Ohio State -50.25", owner 2026-08-10).
+# ML stays raw (it's a price, not a line).
+for _c in ("spread", "total"):
+    g[_c] = (g[_c] * 2).round() / 2
 
 rows = []
 for gid, d in g.groupby("game_id"):
