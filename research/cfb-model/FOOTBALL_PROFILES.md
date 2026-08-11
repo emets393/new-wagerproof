@@ -479,3 +479,23 @@ BETTING stays suppressed (EARLY_SUPPRESS) and signals grade vs the close as alwa
   (the ±6 display cap truncates exactly the paying edges — pred_total_raw added to the
   early CSV), >=4 fires (tracking 0.5u), >=6 = T3 active. 2026 wk1: 9 fires, OSU@Tulsa
   U61.5 (-10.1) converging with coach_pace_under — independent-mechanism confluence.
+
+
+## Prior-year ATS record -> next year (owner question 2026-08-11)
+> `cfb_ats_regression_study.py`: 915 team-season pairs 2016->2025, panel ATS vs close,
+> next-year overall + wk1-3, x close-losses / coach / ret_prod / SOS change.
+- **Naive mean-reversion DOES NOT EXIST.** Every prior-ATS bucket lands 49.5-50.2% next
+  year — the market fully reprices last season. Good-ATS teams don't regress bettably
+  either (49.4%). "Stayed close in losses" adds nothing (49.2 v 49.9).
+- **THE REAL FIND — bad ATS + NEW head coach keeps failing early:** wk1-3 next year
+  42.6% (n=63 team-seasons, ~190 games) -> FADE ~57%, **below 50 in 6 of 7 season pairs**
+  (46/40/42/53/43/33/35). Different trigger from regime_fade_hc (season context, no
+  rating-gap requirement) — check game overlap before wiring as `ats_hangover_fade`.
+- Bad ATS + SAME HC bounces mildly early (53.7% wk1-3) — mostly the ret_prod channel:
+  bad ATS + HIGH returning production = 52.5% full / 54.8% early vs 48.2/48.3 low —
+  already monetized by ret_prod_edge.
+- **Schedule relief: the pretty version was HINDSIGHT.** Realized next-year opponent Elo
+  gave a clean monotone (57.5/48.4/43.5 early) but the August-knowable version (opponents'
+  prior-year Elo) degrades the eases-side to 52.0% with 2/5 seasons under 50 — dead.
+  The harder-side fade (44.0% early) works only 2022+ (fade 58/53/74) — portal-era-flip
+  shape again, tracking candidate only.
