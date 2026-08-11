@@ -143,4 +143,24 @@ since the card family shares patterns — fix the shared layout, not one sport's
 
 ---
 
+## Bug: team accent colors wrong across the app (added 2026-08-11)
+
+Owner report: the faded team-color backgrounds behind logos are all wrong.
+
+**Root cause (already diagnosed): the data is NULL, not the UI.** `gen_cfb_teams.py:15`
+hard-codes `"color": None, "alt_color": None`, so every row in `cfb_teams` ships null
+colors and the clients render fallbacks. CFBD's `/teams` endpoint provides `color` +
+`alternateColor` for every program — the fix is:
+1. `gen_cfb_teams.py`: pull color/alternateColor from the same CFBD teams fetch that
+   already supplies logos; reload `cfb_teams` (94 rows).
+2. Verify client render paths pick them up: web `teamByName` -> `TeamRef.colors`
+   (`cfbGames.ts`), iOS `CFBTeamAssets.swift` / `CFBTeamsService.swift`, Android
+   equivalent. Check the faded-background component actually uses `color` (not a
+   hash-of-name fallback) once data exists.
+3. Sanity-pass a few known teams (Ohio State scarlet, Michigan maize/blue, Oregon green)
+   on all three surfaces; check dark mode (alt_color may be the right pick there).
+4. NFL: check `nfl_teams`' equivalent columns for the same null-out before Week 1.
+
+---
+
 *(next items appended below as decided)*
