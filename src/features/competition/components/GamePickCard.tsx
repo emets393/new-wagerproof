@@ -25,7 +25,7 @@ function LineChip({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'min-w-[4.5rem] rounded-lg border px-2 py-1.5 text-center font-mono text-[13px] font-black transition-all active:scale-[0.97]',
+        'min-w-0 w-full rounded-lg border px-1.5 py-1.5 text-center font-mono text-[12px] font-black transition-all active:scale-[0.97] sm:px-2 sm:text-[13px]',
         active
           ? 'border-amber-500/50 bg-amber-500/20 text-amber-950 shadow-[0_0_10px_rgba(245,158,11,0.2)] dark:text-amber-100'
           : 'border-black/5 bg-muted/35 hover:bg-muted/55 dark:border-white/10',
@@ -101,14 +101,14 @@ export function GamePickCard({
       </div>
 
       {/* Column headers */}
-      <div className="mb-1 grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] gap-1.5 px-0.5 text-[8px] font-bold uppercase tracking-wide text-muted-foreground">
+      <div className="mb-1 grid grid-cols-[minmax(0,1fr)_minmax(3.25rem,4.5rem)_minmax(3.25rem,4.5rem)] gap-1 px-0.5 text-[8px] font-bold uppercase tracking-wide text-muted-foreground sm:gap-1.5">
         <span>Team</span>
         <span className="text-center">Spread</span>
         <span className="text-center">Total</span>
       </div>
 
       {/* Away row */}
-      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-center gap-1.5">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(3.25rem,4.5rem)_minmax(3.25rem,4.5rem)] items-center gap-1 sm:gap-1.5">
         <div className="flex min-w-0 items-center gap-1.5">
           <TeamMark sport={game.sport} name={game.away_team} />
           <span className="truncate text-[12px] font-bold leading-tight">{game.away_team}</span>
@@ -133,7 +133,7 @@ export function GamePickCard({
       </div>
 
       {/* Home row */}
-      <div className="mt-1 grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-center gap-1.5">
+      <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(3.25rem,4.5rem)_minmax(3.25rem,4.5rem)] items-center gap-1 sm:gap-1.5">
         <div className="flex min-w-0 items-center gap-1.5">
           <TeamMark sport={game.sport} name={game.home_team} />
           <span className="truncate text-[12px] font-bold leading-tight">{game.home_team}</span>
