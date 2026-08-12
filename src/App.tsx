@@ -348,7 +348,7 @@ function AppRoutes() {
           <Route path="/ncaab/halftime-trends" element={<ProtectedRoute allowFreemium={true}><NCAABTodayHalftimeTrends /></ProtectedRoute>} />
           <Route path="/ncaab/todays-predictions" element={<ProtectedRoute allowFreemium={true}><NCAABTodayEdgeAccuracy /></ProtectedRoute>} />
           <Route path="/historical-trends" element={<ProtectedRoute><HistoricalTrends /></ProtectedRoute>} />
-          <Route path="/competition" element={<ProtectedRoute><CompetitionPage /></ProtectedRoute>} />
+          <Route path="/competition" element={<ProtectedRoute allowFreemium={true}><CompetitionPage /></ProtectedRoute>} />
           <Route path="/nfl-analytics" element={<LegacyTrendsRedirect sport="nfl" />} />
           <Route path="/cfb-analytics" element={<LegacyTrendsRedirect sport="cfb" />} />
           <Route path="/mlb-analytics" element={<LegacyTrendsRedirect sport="mlb" />} />
