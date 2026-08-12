@@ -8,9 +8,13 @@ import { PAYWALL_ROUTE } from "@/lib/routes";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowFreemium?: boolean;
+  /** Sign-in is the ONLY requirement — no subscription and no paywall-bypass flag.
+      For acquisition surfaces (competition): a brand-new free account goes straight in.
+      allowFreemium still requires the paywall-dismissed localStorage flag; authOnly doesn't. */
+  authOnly?: boolean;
 }
 
-export function ProtectedRoute({ children, allowFreemium = false }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, allowFreemium = false, authOnly = false }: ProtectedRouteProps) {
   const { user, loading: authLoading } = useAuth();
   const { hasAccess, isLoading: accessLoading } = useAccessControl();
   const { isFreemiumUser } = useFreemiumAccess();
@@ -28,6 +32,11 @@ export function ProtectedRoute({ children, allowFreemium = false }: ProtectedRou
   // Don't wait for access check - they need to login first
   if (!user) {
     return <Navigate to="/account" replace />;
+  }
+
+  // Auth-only routes: signed in is all it takes.
+  if (authOnly) {
+    return <>{children}</>;
   }
   
   // Priority 3: Check access for authenticated users
