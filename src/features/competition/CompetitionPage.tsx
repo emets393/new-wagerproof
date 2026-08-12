@@ -8,6 +8,7 @@ import { GamePickCard } from './components/GamePickCard';
 import { GradedPicksView } from './components/GradedPicksView';
 import { LeaderboardTab } from './components/LeaderboardTab';
 import { MostPickedTab } from './components/MostPickedTab';
+import { MobilePickDock } from './components/MobilePickDock';
 import { MyRecordStrip } from './components/MyRecordStrip';
 import { PickTray } from './components/PickTray';
 import { RulesTab } from './components/RulesTab';
@@ -209,63 +210,63 @@ export default function CompetitionPage() {
     return Math.max(1, Math.round(totalPicks / 6));
   }, [statsQ.data]);
 
-  const tray = (
-    <PickTray
-      picks={draft}
-      gamesById={gamesById}
-      entry={entryQ.data?.entry ?? null}
-      stampedPicks={entryQ.data?.picks ?? []}
-      locked={locked}
-      now={now}
-      saving={saveMut.isPending}
-      submitting={submitMut.isPending}
-      onStar={starPick}
-      onRemove={removePick}
-      onSubmit={() => submitMut.mutate()}
-      onEdit={handleEdit}
-    />
-  );
+  const trayProps = {
+    picks: draft,
+    gamesById,
+    entry: entryQ.data?.entry ?? null,
+    stampedPicks: entryQ.data?.picks ?? [],
+    locked,
+    now,
+    saving: saveMut.isPending,
+    submitting: submitMut.isPending,
+    onStar: starPick,
+    onRemove: removePick,
+    onSubmit: () => submitMut.mutate(),
+    onEdit: handleEdit,
+  };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      {/* Header */}
-      <div className="shrink-0 border-b border-black/5 bg-background/85 px-4 py-3 backdrop-blur-xl dark:border-white/10 md:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {/* Header — keep short on mobile so the slate stays visible */}
+      <div className="shrink-0 border-b border-black/5 bg-background/85 px-3 py-2 backdrop-blur-xl dark:border-white/10 sm:px-4 sm:py-3 md:px-6">
+        <div className="flex items-start justify-between gap-2 sm:items-end sm:gap-3">
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground sm:text-[11px]">
               Competition
               {practice && (
-                <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold tracking-[0.08em] text-amber-800 dark:text-amber-200">
-                  Practice Round
+                <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold tracking-[0.08em] text-amber-800 dark:text-amber-200">
+                  Practice
                 </span>
               )}
             </div>
-            <h1 className="text-xl font-black tracking-tight md:text-2xl">
+            <h1 className="truncate text-lg font-black tracking-tight sm:text-xl md:text-2xl">
               {weeksQ.isLoading ? 'Loading…' : week ? weekTitle : 'No week yet'}
             </h1>
             {practice && (
-              <p className="mt-0.5 text-[12px] font-semibold text-amber-800 dark:text-amber-200">
+              <p className="mt-0.5 hidden text-[12px] font-semibold text-amber-800 dark:text-amber-200 sm:block">
                 Practice Round — does not count toward season standings
               </p>
             )}
             {deadlinePair && !pastDeadline && (
-              <p className="mt-0.5 text-[12px] text-muted-foreground">
-                Picks lock in{' '}
+              <p className="mt-0.5 truncate text-[11px] text-muted-foreground sm:text-[12px]">
+                Locks in{' '}
                 <span className="font-mono font-bold text-foreground">
                   {formatCountdown(deadlineMs)}
                 </span>
-                <span className="mx-1.5 text-muted-foreground/50">·</span>
-                {deadlinePair.et} · {deadlinePair.local}
+                <span className="mx-1 hidden text-muted-foreground/50 sm:inline">·</span>
+                <span className="hidden sm:inline">
+                  {deadlinePair.et} · {deadlinePair.local}
+                </span>
               </p>
             )}
             {pastDeadline && (
-              <p className="mt-0.5 text-[12px] font-semibold text-muted-foreground">
-                This week is locked · picks revealed
+              <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground sm:text-[12px]">
+                Locked · picks revealed
               </p>
             )}
           </div>
 
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:items-end sm:gap-3">
             <MyRecordStrip row={mySeasonRow} practice={practice} />
             {weeks.length > 0 && (
               <FilterPill
@@ -281,10 +282,11 @@ export default function CompetitionPage() {
           </div>
         </div>
 
-        <div className="mt-3">
+        <div className="-mx-3 mt-2 overflow-x-auto px-3 [-ms-overflow-style:none] [scrollbar-width:none] sm:mx-0 sm:mt-3 sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
           <SegmentedControl
             layoutId="comp-main-tabs"
             size="sm"
+            className="w-max min-w-full sm:w-auto sm:min-w-0"
             options={[
               { value: 'picks' as const, label: 'My Picks' },
               { value: 'most' as const, label: 'Most Picked' },
@@ -301,14 +303,7 @@ export default function CompetitionPage() {
       <div className="min-h-0 flex-1 overflow-hidden">
         {tab === 'picks' && (
           <div className="flex h-full min-h-0 flex-col lg:flex-row">
-            {/* Mobile: tray first so Submit is on-screen without scrolling the slate. */}
-            {!showGraded && (
-              <div className="shrink-0 border-b border-black/5 bg-background/95 p-2 backdrop-blur-xl dark:border-white/10 lg:hidden">
-                <div className="flex max-h-[min(42vh,380px)] min-h-0 flex-col">{tray}</div>
-              </div>
-            )}
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 lg:pb-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4 sm:py-4 md:px-6 lg:pb-4">
               {showGraded ? (
                 <GradedPicksView
                   picks={entryQ.data?.picks ?? []}
@@ -317,7 +312,7 @@ export default function CompetitionPage() {
               ) : (
                 <>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <div className="relative min-w-[180px] flex-1">
+                    <div className="relative min-w-0 flex-1 basis-[10rem]">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <input
                         value={search}
@@ -326,14 +321,14 @@ export default function CompetitionPage() {
                         className="h-9 w-full rounded-full border border-black/5 bg-white/60 pl-9 pr-3 text-[13px] font-semibold backdrop-blur-xl outline-none placeholder:text-muted-foreground focus:border-amber-500/40 dark:border-white/10 dark:bg-white/[0.06]"
                       />
                     </div>
-                    <div className="flex gap-1 rounded-full border border-black/5 bg-white/60 p-0.5 dark:border-white/10 dark:bg-white/[0.06]">
+                    <div className="flex shrink-0 gap-1 rounded-full border border-black/5 bg-white/60 p-0.5 dark:border-white/10 dark:bg-white/[0.06]">
                       {(['all', 'nfl', 'cfb'] as const).map((s) => (
                         <button
                           key={s}
                           type="button"
                           onClick={() => setSportFilter(s)}
                           className={cn(
-                            'rounded-full px-3 py-1.5 text-[12px] font-bold uppercase',
+                            'rounded-full px-2.5 py-1.5 text-[11px] font-bold uppercase sm:px-3 sm:text-[12px]',
                             sportFilter === s
                               ? 'bg-amber-500/20 text-amber-900 dark:text-amber-100'
                               : 'text-muted-foreground'
@@ -348,7 +343,7 @@ export default function CompetitionPage() {
                   {gamesQ.isLoading || weeksQ.isLoading ? (
                     <div className="space-y-3">
                       {[0, 1, 2].map((i) => (
-                        <div key={i} className="h-36 animate-pulse rounded-2xl bg-muted/40" />
+                        <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted/40 sm:h-36" />
                       ))}
                     </div>
                   ) : games.length === 0 ? (
@@ -393,10 +388,15 @@ export default function CompetitionPage() {
               )}
             </div>
 
+            {/* Mobile: compact sticky dock — does not steal the slate */}
+            {!showGraded && <MobilePickDock {...trayProps} />}
+
             {/* Desktop tray */}
             {!showGraded && (
               <aside className="hidden w-[360px] shrink-0 border-l border-black/5 p-4 dark:border-white/10 lg:block">
-                <div className="sticky top-4 h-[calc(100vh-12rem)] min-h-0">{tray}</div>
+                <div className="sticky top-4 h-[calc(100vh-12rem)] min-h-0">
+                  <PickTray {...trayProps} />
+                </div>
               </aside>
             )}
           </div>

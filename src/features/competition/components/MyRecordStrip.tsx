@@ -19,7 +19,7 @@ export function MyRecordStrip({
 
   return (
     <div
-      className="flex flex-wrap items-stretch gap-2"
+      className="flex flex-nowrap items-stretch gap-1 sm:gap-2"
       title={
         practice
           ? 'Season record starts in Week 1 — practice does not count'
@@ -52,13 +52,13 @@ function StatChip({
   className?: string;
 }) {
   return (
-    <div className="min-w-[4.5rem] rounded-2xl border border-black/5 bg-white/60 px-3 py-1.5 dark:border-white/10 dark:bg-white/[0.06]">
-      <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+    <div className="min-w-0 rounded-xl border border-black/5 bg-white/60 px-2 py-1 dark:border-white/10 dark:bg-white/[0.06] sm:min-w-[4.5rem] sm:rounded-2xl sm:px-3 sm:py-1.5">
+      <div className="text-[8px] font-bold uppercase tracking-[0.12em] text-muted-foreground sm:text-[9px]">
         {label}
       </div>
       <div
         className={cn(
-          'mt-0.5 font-mono text-[15px] font-black leading-none tabular-nums',
+          'mt-0.5 font-mono text-[12px] font-black leading-none tabular-nums sm:text-[15px]',
           emphasize && 'text-amber-800 dark:text-amber-200',
           className
         )}
