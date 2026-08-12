@@ -41,7 +41,8 @@ import type {
 } from './types';
 
 /**
- * /competition — weekly NFL/CFB pick'em for Pro subscribers.
+ * /competition — weekly NFL/CFB pick'em, open to ALL signed-in users (owner 2026-08-12:
+ * acquisition funnel — free accounts play; the gate is comp_is_eligible on MAIN).
  * Server is source of truth for drafts, stamps, and reveal timing.
  */
 export default function CompetitionPage() {
