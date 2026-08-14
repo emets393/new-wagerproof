@@ -17,8 +17,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Wagerproof">
 
-        <!-- Init stays manual so the SDK can't start in a credential-free build
-             (MetaAnalyticsService.initialize gates on FACEBOOK_APP_ID). Auto
+        <!-- Init stays manual: MetaAnalyticsService.initialize sets the app id and
+             client token from BuildConfig, then turns the settings below back on at
+             runtime (UserSettingsManager's SharedPreferences cache outranks this
+             manifest for an upgrading install). Auto
              app-event logging and advertiser-ID collection are ON: the former
              is what emits fb_mobile_activate_app, Meta's install signal, and on
              Android the advertising id is the primary join key for attributing

@@ -84,11 +84,18 @@ jobs:
             echo "WAGERPROOF_RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
           } >> "$GITHUB_ENV"
 
+      # The Meta credentials are committed defaults now; these secrets only exist as
+      # an escape hatch for pointing a build at a different Meta app. Unset is fine.
       - name: Build signed bundle
         env:
           FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
           FACEBOOK_CLIENT_TOKEN: ${{ secrets.FACEBOOK_CLIENT_TOKEN }}
         run: ./gradlew :app:bundleRelease --stacktrace
+
+      # Blocks the exact regression that shipped once: a bundle whose Meta app id was
+      # empty, so attribution was dead in an otherwise perfect-looking release.
+      - name: Verify Meta attribution is compiled in
+        run: scripts/verify-meta-attribution.sh app/build/outputs/bundle/release/app-release.aab
 
       - name: Read version
         id: version

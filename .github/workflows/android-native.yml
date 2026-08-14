@@ -67,8 +67,13 @@ jobs:
           fi
       - name: Unit tests, lint, and debug APK
         run: ./gradlew testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
+      # The Meta credentials are committed defaults now; these secrets only exist as
+      # an escape hatch for pointing a build at a different Meta app. Unset is fine.
       - name: Verify release lint and Play bundle
         env:
           FACEBOOK_APP_ID: ${{ secrets.FACEBOOK_APP_ID }}
           FACEBOOK_CLIENT_TOKEN: ${{ secrets.FACEBOOK_CLIENT_TOKEN }}
         run: ./gradlew :app:lintRelease :app:bundleRelease --stacktrace
+
+      - name: Verify Meta attribution is compiled in
+        run: scripts/verify-meta-attribution.sh app/build/outputs/bundle/release/app-release.aab

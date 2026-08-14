@@ -692,7 +692,7 @@ on Android). Notification taps stash a route in `last_notification_route`.
 | ASAuthorization (Apple) | skip on Android (or Supabase OAuth web flow if Apple login must exist for account continuity) |
 | RevenueCat purchases-ios | purchases-android: `Purchases.configure(PurchasesConfiguration(context, "goog_…").appUserID(id))`, `logIn/logOut`, `getOfferings().getCurrentOfferingForPlacement(...)`, `restorePurchases`, entitlement `"WagerProof Pro"` |
 | Mixpanel Swift | mixpanel-android: `MixpanelAPI.getInstance(ctx, token, trackAutomaticEvents=false)` |
-| FBSDKCoreKit AppEvents | facebook-core AppEventsLogger (auto-events off via manifest) |
+| FBSDKCoreKit AppEvents | facebook-core AppEventsLogger (auto-events and advertiser-ID collection ON — the install signal and Android's join key) |
 | UNUserNotificationCenter + APNs | FCM token + `POST_NOTIFICATIONS` permission + NotificationManager (local notifications) |
 | App Group UserDefaults | DataStore/SharedPreferences shared with Glance widget |
 | KeychainStore | EncryptedSharedPreferences |

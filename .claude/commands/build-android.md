@@ -40,9 +40,7 @@ cd wagerproof-android-native
   -PWAGERPROOF_RELEASE_STORE_FILE=<abs path to keystore> \
   -PWAGERPROOF_RELEASE_STORE_PASSWORD=... \
   -PWAGERPROOF_RELEASE_KEY_ALIAS=... \
-  -PWAGERPROOF_RELEASE_KEY_PASSWORD=... \
-  -PFACEBOOK_APP_ID=935005752525075 \
-  -PFACEBOOK_CLIENT_TOKEN=<meta client token>
+  -PWAGERPROOF_RELEASE_KEY_PASSWORD=...
 ```
 
 Read the passwords from `wagerproof-mobile/android/keystore.properties` inside the shell
@@ -60,11 +58,16 @@ fallback for release.
 
 ### Meta credentials
 
-`FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` must be **both set or both absent** — the
-build fails on one without the other. Absent means the bundle compiles fine and ships
-with attribution silently disabled, which is a real regression for ad campaigns. The
-values live in the Meta dashboard; `wagerproof-ios-native/Wagerproof/Info.plist` carries
-the same app id (`935005752525075`) since the Meta app is shared across platforms.
+Nothing to pass. `app/build.gradle.kts` defaults the Meta app id and client token to the
+shared Meta app — the same pair `wagerproof-ios-native/Wagerproof/Info.plist` hardcodes.
+
+They were injected-only until 2026-08, and because nothing ever injected them, every
+Android build shipped with `BuildConfig.FACEBOOK_APP_ID = ""`: the SDK never initialized,
+every event call no-oped, and Meta received **no Android app events at all**. Step 3
+below now checks the artifact for it, since `BUILD SUCCESSFUL` never caught this.
+
+`-PFACEBOOK_APP_ID` / `-PFACEBOOK_CLIENT_TOKEN` still override, and must be passed
+together — a client token from a different Meta app is rejected for every event.
 
 ## 3. Verify the artifact — do not skip
 
@@ -77,6 +80,7 @@ unzip -o "$A" base/manifest/AndroidManifest.xml -d /tmp/aabx
 python3 -c "d=open('/tmp/aabx/base/manifest/AndroidManifest.xml','rb').read(); \
   i=d.find(b'versionCode'); print(repr(d[i:i+20]))"   # protobuf: versionCode then the value
 jarsigner -verify -certs -verbose "$A" | grep -m1 X.509   # expect CN=Chris Habib, OU=WagerProof
+wagerproof-android-native/scripts/verify-meta-attribution.sh "$A"   # Meta app id compiled in
 ```
 
 `aapt2 dump` does not work on an `.aab` ("could not identify format of APK") — it reads

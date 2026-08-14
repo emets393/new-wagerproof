@@ -76,11 +76,27 @@ back together, sharing one deterministic `event_id` derived from RevenueCat's ow
 Same shape as iOS, same file names (`core/services/MetaAnalyticsService.kt`,
 `PaywallConversionTracker.kt`, `core/stores/AuthStore.kt`).
 
+- **Credentials are committed, not injected** (`app/build.gradle.kts`) — app id
+  `935005752525075` plus the client token, the same pair iOS hardcodes in `Info.plist`
+  (`FacebookAppID` / `FacebookClientToken`). A Meta client token is an embeddable client
+  credential, not a server secret: it ships inside every app binary by design and grants
+  nothing beyond logging events to this app. `-PFACEBOOK_APP_ID` /
+  `-PFACEBOOK_CLIENT_TOKEN` (or env vars) still override, together.
+
+  **This is why Android reported nothing to Meta from launch until 2026-08-13.** The
+  credentials were injected-only and nothing injected them: the repo has no Actions
+  secrets, and release AABs were hand-built without the `-P` flags. So
+  `BuildConfig.FACEBOOK_APP_ID` compiled to `""`, `initialize()` returned at its blank
+  check on every launch, and each event method then no-oped on `initialized`. The whole
+  integration was present in the binary and inert: `BUILD SUCCESSFUL`, no warning, no
+  events, not even the auto-logged install. Confirmed against two shipped artifacts —
+  the Meta app id appears zero times in either.
+- **`scripts/verify-meta-attribution.sh <artifact>`** fails a release AAB/APK whose dex
+  has no Meta app id. Both Android workflows run it after `bundleRelease`, and
+  `/build-android` step 3 runs it for hand builds. Only the artifact tells the truth here.
 - **SDK boot**: `MetaAnalyticsService.initialize()` from `AppGraph.bootstrap()`, called in
   `WagerproofApplication.onCreate` — before the first Activity, so the SDK's
-  `ActivityLifecycleTracker` catches this cold launch. It stays inert when
-  `BuildConfig.FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` are absent (credential-free local
-  builds).
+  `ActivityLifecycleTracker` catches this cold launch.
 - **Auto-logging and advertiser-ID collection are ON.** Both were force-disabled — in the
   manifest *and* with runtime setters — which killed `fb_mobile_activate_app` and, because the
   GAID is Android's primary join key, made every install from a Meta ad unattributable.
@@ -133,6 +149,8 @@ The campaign tooling in `marketing/meta-ads/` reads its own `META_ACCESS_TOKEN` 
   `fb_mobile_activate_app` on launch and the funnel events as you move through onboarding.
   On Android, `fb_mobile_activate_app` appearing at all is the check that auto-logging survived
   — it was silently absent for the whole period both flags were false.
+- Android, before shipping: `wagerproof-android-native/scripts/verify-meta-attribution.sh
+  <aab|apk>`. A green build proves nothing here; the app id in the artifact does.
 - Web: Meta Pixel Helper extension. Expect PageView / ViewContent / InitiateCheckout /
   CompleteRegistration — and deliberately NO Subscribe.
 - After any change here, check Events Manager → Data Sources → WagerProof → event volume
