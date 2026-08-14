@@ -261,6 +261,12 @@ These exist in code but are switched off. Do not describe them as features:
 - **Bet Slip Grader** (`/bet-slip-grader`) — `ENABLE_BET_SLIP_GRADER = false` (`src/App.tsx:78`), renders `<AccessDenied />`
 - **Community Voting** (`/community-voting`) — `ENABLE_COMMUNITY_PICKS = false` (`src/App.tsx:77`), renders `<AccessDenied />`
 - **Teaser Sharpness Tool** — no route, no page. Only a `LearnTeaserTool` lesson inside `src/pages/LearnWagerProof.tsx`.
+- **Today in Sports** (`/today-in-sports`, `/admin/today-in-sports`) — **DEPRECATED 2026-08-06**.
+  The routes still render and the edge function still deploys, but
+  `generate-today-in-sports-completion` has produced nothing since 2025-11-20 and no
+  cron calls it. The pages read cached rows from `today_in_sports_completions`, so they
+  show nine-month-old content. Do not migrate its model or wire a schedule to it —
+  retire the routes, then delete the function.
 
 ## Agent Pick Generation — which engine actually runs
 

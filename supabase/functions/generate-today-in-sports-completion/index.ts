@@ -1,3 +1,27 @@
+// =============================================================================
+// DEPRECATED 2026-08-06 — the "Today in Sports" daily briefing is retired.
+// Do not extend, do not migrate to a newer model, do not wire a cron to it.
+//
+// Evidence it is dormant, not merely quiet:
+//   * `today_in_sports_completions` last received a row on 2025-11-20 — nine
+//     months ago. Every earlier date is contiguous, so this is a stop, not a gap.
+//   * No pg_cron job posts here. `.claude/docs/11_edge_functions.md` listed the
+//     trigger as "Cron", which was never true after 2025-11; corrected there.
+//   * The only remaining callers are the admin page (/admin/today-in-sports) and
+//     the freemium /today-in-sports route, both of which read cached rows.
+//
+// MODEL DRIFT, deliberately left alone: the DEPLOYED function (v29) runs
+// `gpt-5.1`, set by hand outside git — that id appears nowhere in this file's
+// history, which only ever went gpt-4o-mini -> gpt-4o. The `gpt-4o` below is
+// therefore NOT what answers if someone presses Generate. Reconciling the two
+// would mean either redeploying a retired surface or renaming a model nobody
+// runs; neither is worth doing to dead code. Delete the function instead when
+// the route and admin page go.
+//
+// Kept on disk (not deleted) because both web surfaces still route to it and
+// would 404 on invoke. Retire those first.
+// =============================================================================
+
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { format } from "https://esm.sh/date-fns@3.6.0";

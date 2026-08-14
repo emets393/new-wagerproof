@@ -48,7 +48,7 @@ See [02_chat_wagerbot.md](02_chat_wagerbot.md) for full architecture.
 |----------|---------|---------|
 | `generate-ai-completion` | OpenAI Responses API for game analysis | On-demand |
 | `generate-page-level-analysis` | Aggregate page-level AI insights | On-demand |
-| `generate-today-in-sports-completion` | Daily sports summary | Cron |
+| `generate-today-in-sports-completion` | Daily sports summary — **DEPRECATED 2026-08-06** | Admin button only; no cron. Last output 2025-11-20. Deployed runs `gpt-5.1`, git says `gpt-4o` — drift left unreconciled on purpose, see the file header |
 | `check-missing-completions` | Find games without AI analysis | Cron |
 
 ### Value Finds
