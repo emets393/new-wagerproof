@@ -30,6 +30,17 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+# Transient gateway errors (Supabase/Odds API 502/503/504) must not fail an idempotent
+# hourly capture — a single 503 at 5am paged the owner (2026-08-14). Retries happen at
+# the transport layer: 3 tries, 2s/4s/8s backoff. 500s and 4xx still raise immediately
+# (a POST retried after a 500 could double-insert; gateway errors never reached the DB).
+from requests.adapters import HTTPAdapter, Retry as _Retry
+_retry_session = requests.Session()
+_retry_session.mount("https://", HTTPAdapter(max_retries=_Retry(
+    total=3, backoff_factor=2, status_forcelist=[502, 503, 504],
+    allowed_methods=["GET", "POST"])))
+requests = _retry_session  # module-level .get/.post now retry transparently
+
 try:
     from zoneinfo import ZoneInfo
     ET = ZoneInfo("America/New_York")
