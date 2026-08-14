@@ -7,6 +7,7 @@ export * from "./types.js";
 export { getTodayInET, getDateInET } from "./date.js";
 export {
   sportsTools,
+  communityAnalyticsTools,
   userTools,
   buildTools,
   indexByName,
@@ -19,6 +20,9 @@ export { getGameDetail } from "./tools/sports/getGameDetail.js";
 export { searchGames } from "./tools/sports/searchGames.js";
 export { getMarketOdds } from "./tools/sports/getMarketOdds.js";
 export { getEditorPicks } from "./tools/sports/getEditorPicks.js";
+export {
+  getTopCommunityAgentPicks,
+} from "./tools/community/getTopCommunityAgentPicks.js";
 export {
   listMyAgents,
   getAgentPerformance,
